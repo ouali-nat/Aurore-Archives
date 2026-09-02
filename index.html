@@ -602,6 +602,38 @@
      jamais par le rendu normal. À retirer une fois le problème identifié. */
   .ad-slot-debug{outline:4px solid #ef4444 !important; outline-offset:2px; min-height:60px !important;}
 
+/* ===== OUTILS DE TRI/RECHERCHE PUBLICS — même logique que l’administration ===== */
+.site-data-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:16px 0 18px;padding:10px;border:1px solid var(--bordure);border-radius:16px;background:rgba(255,255,255,.035);}
+.site-search-control{display:flex;align-items:center;gap:9px;flex:1 1 280px;min-width:220px;padding:10px 12px;border:1px solid var(--bordure);border-radius:12px;background:var(--papier);}
+.site-search-control span{color:#A78BFA;display:flex;flex-shrink:0;font-size:1.05rem;}
+.site-search-control input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:var(--encre);font:inherit;}
+.site-search-control input::placeholder{color:var(--gris);}
+.site-data-toolbar select{min-width:165px;padding:10px 12px;border:1px solid var(--bordure);border-radius:12px;background:var(--papier);color:var(--encre);font:inherit;}
+.site-pagination{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;margin:18px 0 8px;}
+.site-pagination button{min-width:36px;height:36px;padding:0 10px;border:1px solid var(--bordure);border-radius:10px;background:var(--papier);color:var(--encre);font-weight:700;cursor:pointer;}
+.site-pagination button:hover:not(:disabled){border-color:#7C3AED;color:#7C3AED;}
+.site-pagination button.active{background:#7C3AED;border-color:#7C3AED;color:#fff;}
+.site-pagination button:disabled{opacity:.45;cursor:not-allowed;}
+.site-empty-filter{padding:18px;text-align:center;color:var(--gris);border:1px dashed var(--bordure);border-radius:16px;background:var(--papier);}
+[data-theme="light"] .site-data-toolbar{background:#FAF9FD;border-color:#C9BEDB;}
+[data-theme="light"] .site-search-control,[data-theme="light"] .site-data-toolbar select,[data-theme="light"] .site-pagination button{background:#fff;color:#111318;border-color:#C9BEDB;}
+[data-theme="light"] .site-search-control input{color:#111318;}
+[data-theme="light"] .site-search-control input::placeholder{color:#5E566B;}
+[data-theme="light"] .site-pagination button.active{background:#6D28D9;color:#fff;border-color:#6D28D9;}
+@media(max-width:620px){.site-data-toolbar{align-items:stretch;}.site-search-control,.site-data-toolbar select{flex:1 1 100%;min-width:0;}.site-data-toolbar select{width:100%;}}
+
+/* Publicités : image clairement visible, titre et texte dans des zones distinctes mais très proches. */
+.ad-slot-card{display:grid;grid-template-columns:minmax(190px,230px) minmax(0,1fr);gap:1px;align-items:stretch;}
+.ad-slot-img{width:100%;min-width:0;height:150px;object-fit:contain;background:#0C0913;padding:5px;}
+.ad-slot-body{padding:13px 16px;gap:6px;background:#110D1C;}
+.ad-slot-title{padding:8px 10px;border:1px solid rgba(124,58,237,.12);border-radius:9px;background:rgba(139,92,246,.05);}
+.ad-slot-desc{padding:7px 10px;border:1px solid rgba(124,58,237,.08);border-radius:9px;background:rgba(255,255,255,.025);}
+@media(max-width:560px){.ad-slot-card,.ad-slot.ad-slot-alt .ad-slot-card{display:flex;flex-direction:column;gap:1px;}.ad-slot-img{width:100%;height:190px;}.ad-slot-body{padding:13px 15px 15px;}}
+[data-theme="light"] .ad-slot-card{background:#fff;border-color:#C9BEDB;}
+[data-theme="light"] .ad-slot-img{background:#F3F0F8;}
+[data-theme="light"] .ad-slot-body{background:#fff;}
+[data-theme="light"] .ad-slot-title{background:#FAF8FD;border-color:#E6DFF0;color:#111318;}
+[data-theme="light"] .ad-slot-desc{background:#FCFBFE;border-color:#EEE9F5;color:#4D465A;}
 </style>
 
 <style id="auraster-home-redesign">
@@ -1465,22 +1497,34 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   <section class="screen" id="screen-recents">
     <h2 class="section-title">Documents récemment publiés</h2>
     <p style="color:var(--gris); font-size:0.9rem; max-width:520px; margin-top:-8px;">Une sélection des derniers documents mis en ligne. Choisissez-en un pour un aperçu avant de le consulter.</p>
+    <div class="site-data-toolbar" id="recentsToolbar">
+      <div class="site-search-control"><span aria-hidden="true">⌕</span><input id="recentsSearch" type="search" placeholder="Rechercher un document…" autocomplete="off"></div>
+      <select id="recentsSort" aria-label="Trier les documents récemment publiés">
+        <option value="recent" selected>Plus récent</option>
+        <option value="oldest">Plus ancien</option>
+        <option value="az">Titre A → Z</option>
+        <option value="za">Titre Z → A</option>
+      </select>
+    </div>
     <div id="recentsContent"></div>
+    <div id="recentsPager" class="site-pagination"></div>
     <button class="back-btn" data-back="home">← Retour à l'accueil</button>
   </section>
 
   <section class="screen" id="screen-docs">
     <h2 class="section-title" id="docsTitle"></h2>
     <div class="ad-slot" id="ad-docs-1" style="display:none;"></div>
-    <div class="doc-toolbar">
-      <label for="docSort">Trier par</label>
+    <div class="site-data-toolbar doc-toolbar" id="docsToolbar">
+      <div class="site-search-control"><span aria-hidden="true">⌕</span><input id="docsSearch" type="search" placeholder="Rechercher dans les documents…" autocomplete="off"></div>
       <select id="docSort" aria-label="Trier les documents">
         <option value="recent" selected>Plus récent</option>
-        <option value="ancien">Plus ancien</option>
-        <option value="titre">Titre A → Z</option>
+        <option value="oldest">Plus ancien</option>
+        <option value="az">Titre A → Z</option>
+        <option value="za">Titre Z → A</option>
       </select>
     </div>
     <div id="docsContent"></div>
+    <div id="docsPager" class="site-pagination"></div>
     <div class="ad-slot ad-slot-alt" id="ad-docs-2" style="display:none;"></div>
     <button class="back-btn" data-back="matieres">← Retour aux matières</button>
   </section>
@@ -1774,7 +1818,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
           <div class="admin-service-editor">
             <div class="form-row">
               <label for="adminAnnonceInput">Message à afficher</label>
-              <textarea id="adminAnnonceInput" rows="4" maxlength="500" placeholder="Ex : Les dépôts de devoirs du 2nd trimestre sont ouverts jusqu'au 15 mars."></textarea>
+              <textarea id="adminAnnonceInput" rows="8" maxlength="2000" placeholder="Écrivez une annonce détaillée pour les visiteurs d’Aurore…"></textarea>
             </div>
             <div class="form-row" style="display:flex; align-items:center; gap:10px;">
               <input type="checkbox" id="adminAnnonceActive" style="width:18px; height:18px;">
@@ -4475,16 +4519,49 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   // ---------- DOCUMENTS (connecté à Supabase) ----------
   let documentsCourants = [];
 
+  const SITE_PUBLIC_PAGE_SIZE = 10;
+  function normaliserRechercheSite(v){
+    return String(v == null ? '' : v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  }
+  function valeurTexteDocument(doc){
+    return normaliserRechercheSite([doc.Titre,doc.Auteur,doc.Niveau,doc.Filiere,doc.Classe,doc['Catégorie'],doc['Matière'],doc.Genre,doc.Source].filter(Boolean).join(' '));
+  }
+  function actualiserTriPublicDocuments(data){
+    const select=document.getElementById('docSort'); if(!select) return;
+    const current=select.value||'recent';
+    const base=[['recent','Plus récent'],['oldest','Plus ancien'],['az','Titre A → Z'],['za','Titre Z → A']];
+    if((data||[]).some(d=>String(d.Niveau||'').trim())) base.push(['niveau','Niveau A → Z']);
+    if((data||[]).some(d=>String(d.Classe||'').trim())) base.push(['classe','Classe A → Z']);
+    if((data||[]).some(d=>String(d['Matière']||'').trim())) base.push(['matiere','Matière A → Z']);
+    select.innerHTML=base.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+    select.value=base.some(([v])=>v===current)?current:'recent';
+  }
   function trierDocumentsClient(data) {
     const mode = document.getElementById('docSort')?.value || 'recent';
+    const cle=(doc)=> mode==='niveau'?doc.Niveau : mode==='classe'?doc.Classe : mode==='matiere'?doc['Matière'] : doc.Titre;
     return [...(data || [])].sort((a,b) => {
-      if (mode === 'titre') {
-        return String(a.Titre || '').localeCompare(String(b.Titre || ''), 'fr', { sensitivity:'base' });
+      if (['az','za','niveau','classe','matiere'].includes(mode)) {
+        const c=String(cle(a)||'').localeCompare(String(cle(b)||''),'fr',{sensitivity:'base'});
+        return mode==='za' ? -c : c;
       }
-      const idA = Number(a.id) || 0;
-      const idB = Number(b.id) || 0;
-      return mode === 'ancien' ? idA - idB : idB - idA;
+      const idA = Number(a.id) || 0, idB = Number(b.id) || 0;
+      return mode === 'oldest' ? idA-idB : idB-idA;
     });
+  }
+
+  function afficherPaginationSite(containerId,total,page,onChange){
+    const el=document.getElementById(containerId); if(!el) return;
+    const pages=Math.ceil(total/SITE_PUBLIC_PAGE_SIZE);
+    el.innerHTML='';
+    if(pages<=1) return;
+    const add=(label,target,disabled=false,active=false)=>{
+      const b=document.createElement('button'); b.type='button'; b.textContent=label; b.disabled=disabled; if(active)b.classList.add('active');
+      b.addEventListener('click',()=>onChange(target)); el.appendChild(b);
+    };
+    add('‹',page-1,page<=1);
+    const nums=[]; for(let i=1;i<=pages;i++){ if(i===1||i===pages||Math.abs(i-page)<=1) nums.push(i); }
+    let prev=0; nums.forEach(n=>{ if(prev && n-prev>1){ const s=document.createElement('span'); s.textContent='…'; s.setAttribute('aria-hidden','true'); el.appendChild(s); } add(String(n),n,false,n===page); prev=n; });
+    add('›',page+1,page>=pages);
   }
 
   function rendreListeDocuments(content, data) {
@@ -4548,15 +4625,31 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       const res = await fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&${query}`, { headers: HEADERS });
       if (!res.ok) throw new Error("Statut HTTP " + res.status);
       const data = filtreSerieSiDisponible(await res.json());
-      rendreListeDocuments(content, data);
+      documentsCourants = Array.isArray(data) ? data : [];
+      actualiserTriPublicDocuments(documentsCourants);
+      docsPageCourante = 1;
+      if(document.getElementById('docsSearch')) document.getElementById('docsSearch').value = '';
+      afficherDocumentsPublicsAvecOutils();
     } catch (err) {
       content.innerHTML = `<div class="doc-empty"><div class="icon-wrap">${ICONS.warning}</div><h3>Erreur de chargement</h3><p>${err.message}</p></div>`;
     }
   }
 
-  document.getElementById('docSort').addEventListener('change', () => {
-    rendreListeDocuments(document.getElementById('docsContent'), documentsCourants);
-  });
+  let docsPageCourante = 1;
+  function afficherDocumentsPublicsAvecOutils(){
+    const content=document.getElementById('docsContent');
+    const q=normaliserRechercheSite(document.getElementById('docsSearch')?.value||'');
+    const filtered=(documentsCourants||[]).filter(doc=>!q||valeurTexteDocument(doc).includes(q));
+    const sorted=trierDocumentsClient(filtered);
+    const pages=Math.max(1,Math.ceil(sorted.length/SITE_PUBLIC_PAGE_SIZE));
+    docsPageCourante=Math.min(docsPageCourante,pages);
+    if(!sorted.length){ content.innerHTML='<div class="site-empty-filter">Aucun document ne correspond à votre recherche.</div>'; afficherPaginationSite('docsPager',0,1,()=>{}); return; }
+    const start=(docsPageCourante-1)*SITE_PUBLIC_PAGE_SIZE;
+    rendreListeDocuments(content,sorted.slice(start,start+SITE_PUBLIC_PAGE_SIZE));
+    afficherPaginationSite('docsPager',sorted.length,docsPageCourante,p=>{docsPageCourante=p;afficherDocumentsPublicsAvecOutils();});
+  }
+  document.getElementById('docSort').addEventListener('change', () => { docsPageCourante=1; afficherDocumentsPublicsAvecOutils(); });
+  document.getElementById('docsSearch')?.addEventListener('input', () => { docsPageCourante=1; afficherDocumentsPublicsAvecOutils(); });
 
   // ---------- LIVRES ET ROMANS ----------
   function allerLivres() {
@@ -4657,37 +4750,64 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     ].filter(Boolean);
   }
 
+  let documentsRecentsCourants = [];
+  let recentsPageCourante = 1;
+  function rendreRecentsAvecOutils(){
+    const content=document.getElementById('recentsContent');
+    const q=normaliserRechercheSite(document.getElementById('recentsSearch')?.value||'');
+    const select=document.getElementById('recentsSort');
+    const current=select?.value||'recent';
+    if(select){
+      const opts=[['recent','Plus récent'],['oldest','Plus ancien'],['az','Titre A → Z'],['za','Titre Z → A']];
+      if((documentsRecentsCourants||[]).some(d=>String(d.Niveau||'').trim())) opts.push(['niveau','Niveau A → Z']);
+      if((documentsRecentsCourants||[]).some(d=>String(d.Classe||'').trim())) opts.push(['classe','Classe A → Z']);
+      if((documentsRecentsCourants||[]).some(d=>String(d['Matière']||'').trim())) opts.push(['matiere','Matière A → Z']);
+      select.innerHTML=opts.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+      select.value=opts.some(([v])=>v===current)?current:'recent';
+    }
+    const mode=select?.value||'recent';
+    let data=(documentsRecentsCourants||[]).filter(doc=>!q||valeurTexteDocument(doc).includes(q));
+    data.sort((a,b)=>{
+      const cle=(doc)=> mode==='niveau'?doc.Niveau : mode==='classe'?doc.Classe : mode==='matiere'?doc['Matière'] : doc.Titre;
+      if(['az','za','niveau','classe','matiere'].includes(mode)){const c=String(cle(a)||'').localeCompare(String(cle(b)||''),'fr',{sensitivity:'base'});return mode==='za'?-c:c;}
+      const aId=Number(a.id)||0,bId=Number(b.id)||0; return mode==='oldest'?aId-bId:bId-aId;
+    });
+    const pages=Math.max(1,Math.ceil(data.length/SITE_PUBLIC_PAGE_SIZE));
+    recentsPageCourante=Math.min(recentsPageCourante,pages);
+    if(!data.length){content.innerHTML='<div class="site-empty-filter">Aucun document ne correspond à votre recherche.</div>';afficherPaginationSite('recentsPager',0,1,()=>{});return;}
+    const start=(recentsPageCourante-1)*SITE_PUBLIC_PAGE_SIZE;
+    const grid=document.createElement('div'); grid.className='recents-grid';
+    data.slice(start,start+SITE_PUBLIC_PAGE_SIZE).forEach(doc=>{
+      const card=document.createElement('button'); card.type='button'; card.className='recents-card';
+      const tags=tagsClassementDocument(doc);
+      card.innerHTML=`<div class="titre">${doc.Titre||''}</div><div class="tags">${tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>`;
+      card.addEventListener('click',()=>ouvrirApercuDocument(doc)); grid.appendChild(card);
+    });
+    content.innerHTML=''; content.appendChild(grid);
+    afficherPaginationSite('recentsPager',data.length,recentsPageCourante,p=>{recentsPageCourante=p;rendreRecentsAvecOutils();});
+  }
+
   async function chargerDocumentsRecents() {
     const content = document.getElementById('recentsContent');
     content.innerHTML = '<p class="admin-empty">Chargement…</p>';
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&Publie=eq.true&Mis_en_avant=eq.true&order=id.desc&limit=24`, { headers: HEADERS });
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&Publie=eq.true&Mis_en_avant=eq.true&order=id.desc&limit=100`, { headers: HEADERS });
       if (!res.ok) throw new Error("Statut HTTP " + res.status);
       const data = await res.json();
-      if (!data || data.length === 0) {
+      documentsRecentsCourants=Array.isArray(data)?data:[];
+      recentsPageCourante=1;
+      if(document.getElementById('recentsSearch')) document.getElementById('recentsSearch').value='';
+      if(!documentsRecentsCourants.length){
         content.innerHTML = `<div class="doc-empty friendly-empty"><div class="icon-wrap">${ICONS.folder}</div><h3>Aucun document mis en avant pour le moment.</h3><p>Revenez bientôt : cette sélection est enrichie régulièrement par l'équipe d'${SITE_NOM}.</p></div>`;
-        return;
+        afficherPaginationSite('recentsPager',0,1,()=>{}); return;
       }
-      const grid = document.createElement('div');
-      grid.className = 'recents-grid';
-      data.forEach(doc => {
-        const card = document.createElement('button');
-        card.type = 'button';
-        card.className = 'recents-card';
-        const tags = tagsClassementDocument(doc);
-        card.innerHTML = `
-          <div class="titre">${doc.Titre || ''}</div>
-          <div class="tags">${tags.map(t => `<span class="tag">${t}</span>`).join('')}</div>
-        `;
-        card.addEventListener('click', () => ouvrirApercuDocument(doc));
-        grid.appendChild(card);
-      });
-      content.innerHTML = '';
-      content.appendChild(grid);
+      rendreRecentsAvecOutils();
     } catch (err) {
       content.innerHTML = `<p class="admin-empty">Impossible de charger cette sélection pour le moment.</p>`;
     }
   }
+  document.getElementById('recentsSearch')?.addEventListener('input',()=>{recentsPageCourante=1;rendreRecentsAvecOutils();});
+  document.getElementById('recentsSort')?.addEventListener('change',()=>{recentsPageCourante=1;rendreRecentsAvecOutils();});
 
   let DOC_EN_APERCU = null;
   function ouvrirApercuDocument(doc) {
