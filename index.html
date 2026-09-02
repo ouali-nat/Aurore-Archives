@@ -1619,16 +1619,39 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
         <div class="admin-tab-panel active" data-panel="attente">
           <p class="admin-panel-desc">Documents déposés en attente de validation.</p>
-          <div id="adminList"></div>
+          <div class="admin-data-toolbar" id="adminToolbarAttente">
+            <div class="admin-search-control"><span aria-hidden="true">⌕</span><input id="adminSearchAttente" type="search" placeholder="Rechercher un document…" autocomplete="off"></div>
+            <select id="adminSortAttente" aria-label="Trier les documents en attente">
+              <option value="recent">Plus récent</option><option value="oldest">Plus ancien</option><option value="az">A → Z</option><option value="za">Z → A</option>
+            </select>
+            <select id="adminFilterNiveauAttente" aria-label="Filtrer par niveau"><option value="">Tous les niveaux</option></select>
+            <select id="adminFilterClasseAttente" aria-label="Filtrer par classe"><option value="">Toutes les classes</option></select>
+            <select id="adminFilterMatiereAttente" aria-label="Filtrer par matière"><option value="">Toutes les matières</option></select>
+          </div>
+          <div id="adminList"></div><div id="adminPagerAttente"></div>
         </div>
 
         <div class="admin-tab-panel" data-panel="publies">
           <p class="admin-panel-desc">Retire un document publié si besoin (erreur, doublon, contenu à corriger).</p>
-          <div id="adminListPublies"></div>
+          <div class="admin-data-toolbar" id="adminToolbarPublies">
+            <div class="admin-search-control"><span aria-hidden="true">⌕</span><input id="adminSearchPublies" type="search" placeholder="Rechercher un document…" autocomplete="off"></div>
+            <select id="adminSortPublies" aria-label="Trier les documents publiés">
+              <option value="recent">Plus récent</option><option value="oldest">Plus ancien</option><option value="az">A → Z</option><option value="za">Z → A</option>
+            </select>
+            <select id="adminFilterNiveauPublies" aria-label="Filtrer par niveau"><option value="">Tous les niveaux</option></select>
+            <select id="adminFilterClassePublies" aria-label="Filtrer par classe"><option value="">Toutes les classes</option></select>
+            <select id="adminFilterMatierePublies" aria-label="Filtrer par matière"><option value="">Toutes les matières</option></select>
+          </div>
+          <div id="adminListPublies"></div><div id="adminPagerPublies"></div>
         </div>
         <div class="admin-tab-panel" data-panel="reclamations">
           <p class="admin-panel-desc">Signalements envoyés par des auteurs ou ayants droit à propos d'un document (droits d'auteur, contenu incorrect, etc.).</p>
-          <div id="adminListReclamations"></div>
+          <div class="admin-data-toolbar" id="adminToolbarReclamations">
+            <div class="admin-search-control"><span aria-hidden="true">⌕</span><input id="adminSearchReclamations" type="search" placeholder="Rechercher une réclamation…" autocomplete="off"></div>
+            <select id="adminSortReclamations" aria-label="Trier les réclamations"><option value="recent">Plus récent</option><option value="oldest">Plus ancien</option><option value="az">A → Z</option><option value="za">Z → A</option><option value="statusaz">Statut A → Z</option></select>
+            <select id="adminFilterStatutReclamations" aria-label="Filtrer par statut"><option value="">Tous les statuts</option></select>
+          </div>
+          <div id="adminListReclamations"></div><div id="adminPagerReclamations"></div>
         </div>
         <div class="admin-tab-panel" data-panel="connexions">
           <p class="admin-panel-desc">Les 10 dernières connexions réussies au site, les plus récentes en premier.</p>
@@ -1777,8 +1800,13 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
             <strong>Comptes inscrits</strong>
             <button type="button" class="admin-btn ghost" id="adminUsersRefresh">Actualiser</button>
           </div>
+          <div class="admin-data-toolbar" id="adminToolbarUtilisateurs">
+            <div class="admin-search-control"><span aria-hidden="true">⌕</span><input id="adminSearchUtilisateurs" type="search" placeholder="Rechercher par nom ou e-mail…" autocomplete="off"></div>
+            <select id="adminSortUtilisateurs" aria-label="Trier les utilisateurs"><option value="recent">Plus récent</option><option value="oldest">Plus ancien</option><option value="az">A → Z</option><option value="za">Z → A</option><option value="roleaz">Rôle A → Z</option></select>
+            <select id="adminFilterRoleUtilisateurs" aria-label="Filtrer par rôle"><option value="">Tous les rôles</option></select>
+          </div>
           <div id="adminUsersMessage" class="form-msg admin-user-message" style="display:none;"></div>
-          <div id="adminUsersList" class="admin-users-list"><div class="admin-user-loading">Chargement des utilisateurs…</div></div>
+          <div id="adminUsersList" class="admin-users-list"><div class="admin-user-loading">Chargement des utilisateurs…</div></div><div id="adminPagerUtilisateurs"></div>
         </div>
 
         <div class="admin-tab-panel" data-panel="apparence">
@@ -1981,6 +2009,30 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   .admin-user-loading,.admin-user-empty{padding:28px 18px;text-align:center;color:var(--gris);background:var(--papier);border:1px dashed var(--bordure);border-radius:var(--radius);}
   .admin-user-message{margin-bottom:14px;}
   @media (max-width:640px){.admin-user-card{align-items:flex-start;flex-direction:column;}.admin-user-actions{width:100%;justify-content:flex-start;}.admin-user-actions .admin-btn{width:100%;justify-content:center;}}
+</style>
+<style id="aurore-admin-data-tools">
+  .admin-data-toolbar{display:grid;grid-template-columns:minmax(220px,1.8fr) repeat(4,minmax(130px,1fr));gap:9px;align-items:center;margin:16px 0 14px;}
+  .admin-data-toolbar select,.admin-search-control{min-width:0;width:100%;height:42px;border:1px solid var(--bordure);border-radius:14px;background:var(--fond);color:var(--encre);font:inherit;font-size:.8rem;}
+  .admin-data-toolbar select{padding:9px 11px;}
+  .admin-search-control{display:flex;align-items:center;gap:8px;padding:0 12px;}
+  .admin-search-control span{font-size:1.15rem;color:var(--violet);line-height:1;}
+  .admin-search-control input{width:100%;min-width:0;border:0!important;outline:0!important;background:transparent!important;color:var(--encre)!important;padding:0!important;font:inherit;}
+  .admin-search-control input::placeholder{color:var(--gris);opacity:1;}
+  .admin-data-toolbar select:focus,.admin-search-control:focus-within{border-color:var(--violet);box-shadow:0 0 0 3px rgba(124,58,237,.12);outline:none;}
+  .admin-pagination{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;margin:16px 0 6px;}
+  .admin-pagination button{min-width:36px;height:36px;padding:0 10px;border:1px solid var(--bordure);border-radius:10px;background:var(--papier);color:var(--encre);font-weight:700;font-size:.78rem;}
+  .admin-pagination button:hover:not(:disabled){border-color:var(--violet);color:var(--violet);}
+  .admin-pagination button.active{background:var(--violet);border-color:var(--violet);color:#fff;}
+  .admin-pagination button:disabled{opacity:.45;cursor:not-allowed;}
+  .admin-pagination-info{font-size:.76rem;color:var(--gris);margin:0 6px;}
+  .admin-filter-empty{padding:18px;text-align:center;color:var(--gris);background:var(--papier);border:1px dashed var(--bordure);border-radius:var(--radius);margin-bottom:10px;}
+  @media(max-width:900px){.admin-data-toolbar{grid-template-columns:1fr 1fr;}.admin-search-control{grid-column:1/-1;}}
+  @media(max-width:560px){.admin-data-toolbar{grid-template-columns:1fr;}.admin-data-toolbar select,.admin-search-control{grid-column:auto;}.admin-pagination button{min-width:34px;}}
+  [data-theme="light"] .admin-data-toolbar select,[data-theme="light"] .admin-search-control{background:#fff!important;color:#111318!important;border-color:#B8A8CC!important;}
+  [data-theme="light"] .admin-search-control input{background:#fff!important;color:#111318!important;}
+  [data-theme="light"] .admin-search-control input::placeholder{color:#514B5D!important;}
+  [data-theme="light"] .admin-pagination button{background:#fff!important;color:#111318!important;border-color:#C9BEDB!important;}
+  [data-theme="light"] .admin-pagination button.active{background:#6D28D9!important;border-color:#4C1D95!important;color:#fff!important;}
 </style>
 <div id="pdfViewerOverlay" role="dialog" aria-modal="true" aria-labelledby="pdfViewerTitre" style="display:none; position:fixed; inset:0; z-index:9998; background:rgba(9,8,18,0.96);">
   <div class="pdf-reader-shell">
@@ -5588,6 +5640,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       majCompteurOnglet('tabCountUtilisateurs', listeProfils.length);
       if (!listeProfils.length) {
         list.innerHTML = '<div class="admin-user-empty">Aucun utilisateur inscrit pour le moment.</div>';
+        actualiserOutilsAdminApresChargement('utilisateurs', ADMIN_COLLECTION_CONFIG.utilisateurs, {roles:[]});
         return;
       }
       const proprietaire = estProprietaireAdmin();
@@ -5595,6 +5648,12 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       listeProfils.forEach(profil => {
         const card = document.createElement('article');
         card.className = 'admin-user-card';
+        card.dataset.adminId = String(profil.id || '');
+        card.dataset.adminTitle = String(profil.nom || '');
+        card.dataset.adminEmail = String(profil.email || '');
+        card.dataset.adminRole = String(profil.role || '');
+        card.dataset.adminCreated = String(profil.created_at || '');
+        card.dataset.adminSearch = [profil.nom, profil.email, profil.role, profil.created_at].filter(v => v != null && String(v).trim()).join(' ');
         const nom = profil.nom || 'Nom non renseigné';
         const email = profil.email || 'E-mail non renseigné';
         const roleAdmin = String(profil.role || '').toLowerCase() === 'admin';
@@ -5638,6 +5697,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         }
         list.appendChild(card);
       });
+      actualiserOutilsAdminApresChargement('utilisateurs', ADMIN_COLLECTION_CONFIG.utilisateurs, {roles:listeProfils.map(p=>p.role)});
     } catch (err) {
       console.error('[Gestion utilisateurs] chargement', err);
       majCompteurOnglet('tabCountUtilisateurs', 0);
@@ -5808,6 +5868,134 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     }
   }
 
+  // ---------- OUTILS ADMIN : recherche, tri, filtres et pagination ----------
+  const ADMIN_PAGE_SIZE = 8;
+  const adminCollectionStates = {};
+
+  function normaliserAdminTexte(valeur) {
+    return String(valeur == null ? '' : valeur).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  }
+
+  function valeurAdminDate(valeur) {
+    const t = Date.parse(String(valeur || ''));
+    return Number.isFinite(t) ? t : null;
+  }
+
+  function remplirOptionsAdminSelect(id, valeurs, premier) {
+    const select = document.getElementById(id);
+    if (!select) return;
+    const uniques = [...new Set((valeurs || []).map(v => String(v || '').trim()).filter(Boolean))]
+      .sort((a,b) => normaliserAdminTexte(a).localeCompare(normaliserAdminTexte(b), 'fr'));
+    const ancienne = select.value;
+    select.innerHTML = '';
+    const base = document.createElement('option'); base.value=''; base.textContent=premier; select.appendChild(base);
+    uniques.forEach(v => { const o=document.createElement('option'); o.value=v; o.textContent=v; select.appendChild(o); });
+    if (uniques.includes(ancienne)) select.value=ancienne;
+  }
+
+  function initialiserCollectionAdmin(key, options) {
+    const list = document.getElementById(options.listId);
+    if (!list) return;
+    const state = adminCollectionStates[key] || { page:1, query:'', sort:'recent', filters:{} };
+    adminCollectionStates[key] = state;
+    const toolbar = document.getElementById(options.toolbarId);
+    const search = document.getElementById(options.searchId);
+    const sort = document.getElementById(options.sortId);
+    const pager = document.getElementById(options.pagerId);
+    if (!toolbar || !search || !sort || !pager) return;
+
+    const controls = options.filterIds || {};
+    Object.entries(controls).forEach(([field,id]) => {
+      const el=document.getElementById(id); if (!el || el.dataset.adminBound==='1') return;
+      el.dataset.adminBound='1'; el.addEventListener('change',()=>{state.filters[field]=el.value;state.page=1;appliquerCollectionAdmin(key,options);});
+    });
+    if (search.dataset.adminBound!=='1') { search.dataset.adminBound='1'; search.addEventListener('input',()=>{state.query=search.value;state.page=1;appliquerCollectionAdmin(key,options);}); }
+    if (sort.dataset.adminBound!=='1') { sort.dataset.adminBound='1'; sort.addEventListener('change',()=>{state.sort=sort.value;state.page=1;appliquerCollectionAdmin(key,options);}); }
+    appliquerCollectionAdmin(key,options);
+  }
+
+  function appliquerCollectionAdmin(key, options) {
+    const list=document.getElementById(options.listId), pager=document.getElementById(options.pagerId);
+    if (!list || !pager) return;
+    const state=adminCollectionStates[key] || (adminCollectionStates[key]={page:1,query:'',sort:'recent',filters:{}});
+    const cards=[...list.querySelectorAll(options.cardSelector || '.admin-card')];
+    const q=normaliserAdminTexte(state.query);
+    const getSearch=card=>normaliserAdminTexte(card.dataset.adminSearch || card.textContent);
+    let visibles=cards.filter(card=>{
+      if(q && !getSearch(card).includes(q)) return false;
+      for(const [field,value] of Object.entries(state.filters || {})) if(value && String(card.dataset['admin'+field.charAt(0).toUpperCase()+field.slice(1)] || '') !== value) return false;
+      return true;
+    });
+    const sort=state.sort;
+    visibles.sort((a,b)=>{
+      if(sort==='az' || sort==='za') { const c=normaliserAdminTexte(a.dataset.adminTitle).localeCompare(normaliserAdminTexte(b.dataset.adminTitle),'fr'); return sort==='za'?-c:c; }
+      if(sort==='statusaz') return normaliserAdminTexte(a.dataset.adminStatus).localeCompare(normaliserAdminTexte(b.dataset.adminStatus),'fr');
+      if(sort==='roleaz') return normaliserAdminTexte(a.dataset.adminRole).localeCompare(normaliserAdminTexte(b.dataset.adminRole),'fr');
+      if(sort==='oldest' || sort==='recent') {
+        const av=options.dateField==='created' ? (valeurAdminDate(a.dataset.adminCreated) ?? (Number(a.dataset.adminId)||0)) : (Number(a.dataset.adminSortValue)||0);
+        const bv=options.dateField==='created' ? (valeurAdminDate(b.dataset.adminCreated) ?? (Number(b.dataset.adminId)||0)) : (Number(b.dataset.adminSortValue)||0);
+        return sort==='oldest'?av-bv:bv-av;
+      }
+      if(sort==='niveau') return normaliserAdminTexte(a.dataset.adminLevel).localeCompare(normaliserAdminTexte(b.dataset.adminLevel),'fr');
+      if(sort==='classe') return normaliserAdminTexte(a.dataset.adminClass).localeCompare(normaliserAdminTexte(b.dataset.adminClass),'fr');
+      if(sort==='matiere') return normaliserAdminTexte(a.dataset.adminSubject).localeCompare(normaliserAdminTexte(b.dataset.adminSubject),'fr');
+      return 0;
+    });
+    // Reorder only the cards already rendered; their event listeners remain attachés.
+    visibles.forEach(card=>list.appendChild(card));
+    cards.filter(c=>!visibles.includes(c)).forEach(c=>{c.style.display='none';});
+    const total=visibles.length, pages=Math.max(1,Math.ceil(total/ADMIN_PAGE_SIZE));
+    state.page=Math.min(Math.max(1,state.page),pages);
+    const start=(state.page-1)*ADMIN_PAGE_SIZE, end=start+ADMIN_PAGE_SIZE;
+    visibles.forEach((card,i)=>{card.style.display=(i>=start && i<end)?'':'none';});
+    let empty=list.querySelector('.admin-filter-empty');
+    if(!total && cards.length){ if(!empty){empty=document.createElement('div');empty.className='admin-filter-empty';list.appendChild(empty);} empty.textContent='Aucun résultat ne correspond à votre recherche ou à vos filtres.'; }
+    else if(empty) empty.remove();
+    pager.innerHTML='';
+    if(total>ADMIN_PAGE_SIZE){
+      const nav=document.createElement('div');nav.className='admin-pagination';
+      const prev=document.createElement('button');prev.type='button';prev.textContent='‹';prev.setAttribute('aria-label','Page précédente');prev.disabled=state.page===1;prev.onclick=()=>{state.page--;appliquerCollectionAdmin(key,options)};nav.appendChild(prev);
+      for(let i=1;i<=pages;i++){ if(pages>7 && i>2 && i<pages-1 && Math.abs(i-state.page)>1){ if(i===3 || i===pages-2){const dots=document.createElement('span');dots.className='admin-pagination-info';dots.textContent='…';nav.appendChild(dots);} continue;} const b=document.createElement('button');b.type='button';b.textContent=String(i);b.className=i===state.page?'active':'';b.setAttribute('aria-label','Page '+i);b.setAttribute('aria-current',i===state.page?'page':'false');b.onclick=()=>{state.page=i;appliquerCollectionAdmin(key,options)};nav.appendChild(b); }
+      const next=document.createElement('button');next.type='button';next.textContent='›';next.setAttribute('aria-label','Page suivante');next.disabled=state.page===pages;next.onclick=()=>{state.page++;appliquerCollectionAdmin(key,options)};nav.appendChild(next);
+      const info=document.createElement('span');info.className='admin-pagination-info';info.textContent=`${start+1}–${Math.min(end,total)} sur ${total}`;nav.appendChild(info);pager.appendChild(nav);
+    }
+  }
+
+  function actualiserTriAdminSelect(id, optionData={}) {
+    const select=document.getElementById(id); if(!select) return;
+    const valeur=select.value;
+    const base=[['recent','Plus récent'],['oldest','Plus ancien'],['az','A → Z'],['za','Z → A']];
+    if((optionData.niveaux||[]).some(v=>String(v||'').trim())) base.push(['niveau','Niveau A → Z']);
+    if((optionData.classes||[]).some(v=>String(v||'').trim())) base.push(['classe','Classe A → Z']);
+    if((optionData.matieres||[]).some(v=>String(v||'').trim())) base.push(['matiere','Matière A → Z']);
+    if((optionData.statuts||[]).some(v=>String(v||'').trim())) base.push(['statusaz','Statut A → Z']);
+    if((optionData.roles||[]).some(v=>String(v||'').trim())) base.push(['roleaz','Rôle A → Z']);
+    select.innerHTML='';
+    base.forEach(([v,t])=>{const o=document.createElement('option');o.value=v;o.textContent=t;select.appendChild(o);});
+    select.value=base.some(x=>x[0]===valeur)?valeur:'recent';
+  }
+
+  function actualiserOutilsAdminApresChargement(key, options, optionData={}) {
+    if(optionData.niveaux && options.filterIds.niveau) remplirOptionsAdminSelect(options.filterIds.niveau, optionData.niveaux, 'Tous les niveaux');
+    if(optionData.classes && options.filterIds.classe) remplirOptionsAdminSelect(options.filterIds.classe, optionData.classes, 'Toutes les classes');
+    if(optionData.matieres && options.filterIds.matiere) remplirOptionsAdminSelect(options.filterIds.matiere, optionData.matieres, 'Toutes les matières');
+    if(optionData.statuts && options.filterIds.statut) remplirOptionsAdminSelect(options.filterIds.statut, optionData.statuts, 'Tous les statuts');
+    if(optionData.roles && options.filterIds.role) remplirOptionsAdminSelect(options.filterIds.role, optionData.roles, 'Tous les rôles');
+    actualiserTriAdminSelect(options.sortId, optionData);
+    const sortEl=document.getElementById(options.sortId);
+    const state=adminCollectionStates[key] || (adminCollectionStates[key]={page:1,query:'',sort:'recent',filters:{}});
+    if(sortEl && ![...sortEl.options].some(o=>o.value===state.sort)) state.sort='recent';
+    if(sortEl) sortEl.value=state.sort;
+    initialiserCollectionAdmin(key,options);
+  }
+
+  const ADMIN_COLLECTION_CONFIG = {
+    attente:{toolbarId:'adminToolbarAttente',searchId:'adminSearchAttente',sortId:'adminSortAttente',listId:'adminList',pagerId:'adminPagerAttente',filterIds:{niveau:'adminFilterNiveauAttente',classe:'adminFilterClasseAttente',matiere:'adminFilterMatiereAttente'}},
+    publies:{toolbarId:'adminToolbarPublies',searchId:'adminSearchPublies',sortId:'adminSortPublies',listId:'adminListPublies',pagerId:'adminPagerPublies',filterIds:{niveau:'adminFilterNiveauPublies',classe:'adminFilterClassePublies',matiere:'adminFilterMatierePublies'}},
+    reclamations:{toolbarId:'adminToolbarReclamations',searchId:'adminSearchReclamations',sortId:'adminSortReclamations',listId:'adminListReclamations',pagerId:'adminPagerReclamations',filterIds:{statut:'adminFilterStatutReclamations'}},
+    utilisateurs:{toolbarId:'adminToolbarUtilisateurs',searchId:'adminSearchUtilisateurs',sortId:'adminSortUtilisateurs',listId:'adminUsersList',pagerId:'adminPagerUtilisateurs',filterIds:{role:'adminFilterRoleUtilisateurs'},cardSelector:'.admin-user-card',dateField:'created'}
+  };
+
   async function chargerDepotsEnAttente() {
     const list = document.getElementById('adminList');
     list.innerHTML = '<p class="admin-empty">Chargement…</p>';
@@ -5819,6 +6007,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
       if (!data || data.length === 0) {
         list.innerHTML = '<p class="admin-empty">Aucun dépôt en attente. Tout est à jour.</p>';
+        actualiserOutilsAdminApresChargement('attente', ADMIN_COLLECTION_CONFIG.attente, {niveaux:[],classes:[],matieres:[]});
         return;
       }
 
@@ -5829,6 +6018,13 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         const deposant = deposants.get(doc.id) || null;
         const card = document.createElement('div');
         card.className = 'admin-card';
+        card.dataset.adminId = String(doc.id ?? '');
+        card.dataset.adminTitle = String(doc.Titre || '');
+        card.dataset.adminLevel = String(doc.Niveau || '');
+        card.dataset.adminClass = String(doc.Classe || '');
+        card.dataset.adminSubject = String(doc['Matière'] || doc.Genre || '');
+        card.dataset.adminSearch = [doc.Titre, doc.Niveau, doc.Classe, doc['Catégorie'], doc['Matière'], doc.Genre, doc.Auteur, deposant && deposant.nom, deposant && deposant.email].filter(v => v != null && String(v).trim()).join(' ');
+        card.dataset.adminSortValue = String(doc.id ?? '0');
         card.style.animationDelay = (i * 0.04) + 's';
         card.innerHTML = `
           <div class="admin-card-icon">${iconePourCategorie(doc)}</div>
@@ -5849,6 +6045,9 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         card.querySelector('.valider').addEventListener('click', () => validerDepot(doc.id, card, doc.Titre, deposant));
         card.querySelector('.refuser').addEventListener('click', () => refuserDepot(doc.id, card, doc.Titre, deposant));
         list.appendChild(card);
+      });
+      actualiserOutilsAdminApresChargement('attente', ADMIN_COLLECTION_CONFIG.attente, {
+        niveaux:data.map(d=>d.Niveau), classes:data.map(d=>d.Classe), matieres:data.map(d=>d['Matière'] || d.Genre)
       });
     } catch (err) {
       list.innerHTML = `<p class="admin-empty">Erreur de chargement : ${err.message}</p>`;
@@ -5943,6 +6142,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
       if (!data || data.length === 0) {
         list.innerHTML = '<p class="admin-empty">Aucun document publié pour l\'instant.</p>';
+        actualiserOutilsAdminApresChargement('publies', ADMIN_COLLECTION_CONFIG.publies, {niveaux:[],classes:[],matieres:[]});
         return;
       }
 
@@ -5953,6 +6153,13 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         const deposant = deposants.get(doc.id) || null;
         const card = document.createElement('div');
         card.className = 'admin-card';
+        card.dataset.adminId = String(doc.id ?? '');
+        card.dataset.adminTitle = String(doc.Titre || '');
+        card.dataset.adminLevel = String(doc.Niveau || '');
+        card.dataset.adminClass = String(doc.Classe || '');
+        card.dataset.adminSubject = String(doc['Matière'] || doc.Genre || '');
+        card.dataset.adminSearch = [doc.Titre, doc.Niveau, doc.Classe, doc['Catégorie'], doc['Matière'], doc.Genre, doc.Auteur, deposant && deposant.nom, deposant && deposant.email].filter(v => v != null && String(v).trim()).join(' ');
+        card.dataset.adminSortValue = String(doc.id ?? '0');
         card.style.animationDelay = (i * 0.04) + 's';
         const telechargementOk = doc.Telechargement_autorise !== false;
         // Mis_en_avant : colonne optionnelle (voir migration SQL fournie) pour
@@ -5981,6 +6188,9 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         card.querySelector('.dl-toggle').addEventListener('click', () => basculerTelechargementDocument(doc, card));
         card.querySelector('.avant-toggle').addEventListener('click', () => basculerMiseEnAvantDocument(doc, card));
         list.appendChild(card);
+      });
+      actualiserOutilsAdminApresChargement('publies', ADMIN_COLLECTION_CONFIG.publies, {
+        niveaux:data.map(d=>d.Niveau), classes:data.map(d=>d.Classe), matieres:data.map(d=>d['Matière'] || d.Genre)
       });
     } catch (err) {
       list.innerHTML = `<p class="admin-empty">Erreur de chargement : ${err.message}</p>`;
@@ -6080,12 +6290,18 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       majCompteurOnglet('tabCountReclamations', data ? data.length : 0);
       if (!data || data.length === 0) {
         list.innerHTML = '<p class="admin-empty">Aucune réclamation pour l\'instant.</p>';
+        actualiserOutilsAdminApresChargement('reclamations', ADMIN_COLLECTION_CONFIG.reclamations, {statuts:[]});
         return;
       }
       list.innerHTML = '';
       data.forEach((r, i) => {
         const card = document.createElement('div');
         card.className = 'admin-card';
+        card.dataset.adminId = String(r.id ?? '');
+        card.dataset.adminTitle = String(r.document_titre || ('Document #' + r.document_id));
+        card.dataset.adminStatus = String(r.statut || '');
+        card.dataset.adminSearch = [r.document_titre, r.document_id, r.motif, r.statut, r.nom, r.email, r.details].filter(v => v != null).join(' ');
+        card.dataset.adminSortValue = String(r.id ?? '0');
         card.style.animationDelay = (i * 0.04) + 's';
         card.innerHTML = `
           <div class="admin-card-icon">${ICONS.warning}</div>
@@ -6130,6 +6346,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         });
         list.appendChild(card);
       });
+      actualiserOutilsAdminApresChargement('reclamations', ADMIN_COLLECTION_CONFIG.reclamations, {statuts:data.map(r=>r.statut)});
     } catch (err) {
       list.innerHTML = `<p class="admin-empty">Erreur de chargement : ${err.message}</p>`;
     }
@@ -7555,6 +7772,5 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 </body>
 </html>
 
-<!-- AURASTER WORK COPY: no deployment performed -->
 
 
