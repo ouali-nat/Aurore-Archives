@@ -7971,6 +7971,160 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       <p id="welcomeModalText"></p><button type="button" class="admin-btn primary welcome-modal-ok" id="welcomeModalOk">Continuer vers les documents récemment publiés</button>
     </section>
   </div>
+
+<script id="aurore-video-footer-position">
+(function(){
+  function placerVideoAvantService(){
+    var video=document.getElementById('homeVideoSection');
+    var service=document.querySelector('footer .service-client-card');
+    if(!video||!service)return;
+    var serviceWrap=service.closest('.wrap');
+    if(!serviceWrap)return;
+    if(video.parentElement!==serviceWrap.parentElement || video.nextElementSibling!==serviceWrap){
+      serviceWrap.parentNode.insertBefore(video,serviceWrap);
+    }
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',placerVideoAvantService);
+  else placerVideoAvantService();
+  window.addEventListener('load',placerVideoAvantService);
+})();
+</script>
+
+<style id="aurore-grand-refonte-design">
+/* =========================================================
+   AURORE — REFONTE VISUELLE ÉDITORIALE
+   Design uniquement : aucune structure métier/Supabase n'est modifiée.
+   ========================================================= */
+:root{
+  --aurore-ink:#F8F7FF;
+  --aurore-muted:#A9A3B8;
+  --aurore-bg:#07060B;
+  --aurore-surface:#111019;
+  --aurore-surface-2:#171321;
+  --aurore-line:rgba(216,180,254,.13);
+  --aurore-violet:#8B5CF6;
+  --aurore-lilac:#C084FC;
+  --aurore-pink:#E879F9;
+  --aurore-green:#34D399;
+}
+body{font-size:15px;letter-spacing:-.008em;}
+.wrap{max-width:1180px;padding-left:22px;padding-right:22px;}
+header{box-shadow:0 10px 40px rgba(0,0,0,.12);}
+.header-inner{height:74px;gap:18px;}
+.brand{gap:12px;}
+.brand-logo{width:42px;height:42px;border-radius:13px;box-shadow:0 8px 24px rgba(139,92,246,.20);}
+.brand-text .site-name{font-size:1.08rem;}
+.search-box{max-width:390px;border-radius:15px;padding:10px 15px;transition:border-color .2s,box-shadow .2s,background .2s;}
+.search-box:focus-within{border-color:rgba(192,132,252,.5);box-shadow:0 0 0 4px rgba(139,92,246,.08);background:#15121E;}
+.deposer-btn{border-radius:14px;padding:11px 16px;}
+main{padding-bottom:88px;}
+.breadcrumb{padding:14px 2px 10px;gap:5px;}
+.hero{min-height:430px;display:flex;align-items:center;padding:64px 54px 58px;margin-top:12px;border-radius:30px;}
+.hero-motif{opacity:.10;background-size:150px 130px;}
+.hero-glow{opacity:.24;}
+.hero-inner{max-width:790px;}
+.hero-rule{width:56px;height:4px;margin-bottom:20px;}
+.hero .eyebrow{font-size:.7rem;letter-spacing:.22em;}
+.hero h1{font-size:clamp(2.6rem,6vw,5.2rem);max-width:850px;}
+.hero p.sub{font-size:1.04rem;max-width:670px;margin-top:18px;}
+.auraster-home-search{max-width:760px;margin-top:30px;border-radius:16px;padding:15px 17px;background:rgba(5,4,9,.72);}
+.home-shortcuts{margin-top:12px;}
+.home-shortcuts button{border-radius:12px;padding:8px 12px;}
+.presentation{gap:14px;margin-top:18px;}
+.presentation-item{min-height:150px;border-radius:20px;padding:22px;}
+.presentation-item:hover{transform:translateY(-4px);}
+.section-title{font-size:1.5rem;margin:48px 0 18px;letter-spacing:-.025em;}
+.home-promise-grid{gap:14px;margin-top:18px;}
+.home-promise{border-radius:20px;padding:22px;min-height:155px;}
+.home-five-levels{gap:13px;}
+.home-five-level{border-radius:20px;min-height:132px;padding:18px;}
+.sublevel-grid,.cat-grid,.matiere-grid,.recents-grid{gap:14px;}
+.sublevel-card,.cat-card,.matiere-card,.recents-card{border-radius:20px;}
+.doc-row{border-radius:16px;padding:15px 18px;}
+.site-data-toolbar{border-radius:16px;padding:9px;background:rgba(255,255,255,.025);}
+
+/* Publicités : une vraie surface visuelle. L'image occupe tout le rectangle,
+   le texte est posé dessus sans créer une seconde colonne. */
+.ad-slot{margin:38px 0;}
+.ad-slot-label{margin-left:2px;margin-bottom:8px;color:#BFA7E8;font-size:.66rem;letter-spacing:.18em;}
+.ad-slot-card{position:relative!important;display:block!important;width:100%;min-height:250px;height:250px;border-radius:24px!important;overflow:hidden!important;border:1px solid rgba(216,180,254,.16)!important;background:#09070E!important;box-shadow:0 20px 55px rgba(0,0,0,.24)!important;}
+.ad-slot-img{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;object-fit:cover!important;padding:0!important;background:#09070E!important;}
+.ad-slot-card::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,4,9,.02) 24%,rgba(5,4,9,.12) 42%,rgba(5,4,9,.88) 100%);pointer-events:none;}
+.ad-slot-body{position:absolute!important;z-index:2;left:0;right:0;bottom:0;padding:22px 24px 20px!important;background:linear-gradient(180deg,transparent,rgba(7,6,11,.94))!important;gap:6px!important;}
+.ad-slot-title{display:inline-block;width:max-content;max-width:100%;padding:0!important;border:0!important;background:transparent!important;color:#fff!important;font-size:1.02rem!important;text-shadow:0 2px 16px rgba(0,0,0,.55);}
+.ad-slot-desc{padding:0!important;border:0!important;background:transparent!important;color:rgba(255,255,255,.78)!important;max-width:720px;text-shadow:0 1px 12px rgba(0,0,0,.5);}
+.ad-slot-cta{color:#E9D5FF!important;text-decoration:none;text-shadow:0 1px 10px rgba(0,0,0,.5);}
+.ad-slot-card:hover{transform:translateY(-2px);border-color:rgba(192,132,252,.42)!important;}
+
+/* Vidéo : grande carte éditoriale, pleine largeur, prête à accueillir
+   une image/vidéo sans bordure parasite. */
+.home-video-section{position:relative;margin:28px 0 22px!important;padding:0!important;border:1px solid rgba(216,180,254,.16)!important;border-radius:26px!important;background:#0D0A14!important;box-shadow:0 24px 70px rgba(0,0,0,.28)!important;overflow:hidden!important;}
+.home-video-heading{padding:20px 22px 14px;margin:0!important;background:linear-gradient(180deg,#151021,#0D0A14);}
+.home-video-heading .eyebrow{margin:0 0 4px;color:#BFA7E8;font-size:.66rem;letter-spacing:.18em;text-transform:uppercase;font-weight:800;}
+.home-video-heading .section-title{margin:0 0 4px!important;font-size:1.28rem;color:#fff;}
+.home-video-desc{color:#A9A3B8!important;}
+.home-video-frame{position:relative!important;width:100%!important;aspect-ratio:16/9!important;height:auto!important;min-height:0!important;border:0!important;border-radius:0!important;background:#050409!important;}
+.home-video-frame video{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;object-fit:cover!important;background:#050409!important;}
+
+/* Le footer devient un espace de contact clair et premium. */
+footer{margin-top:70px!important;padding:42px 0 28px!important;background:linear-gradient(180deg,#0B0910,#050408)!important;border-top:1px solid rgba(216,180,254,.10);}
+footer>.wrap:first-child{padding-bottom:20px;border-bottom:1px solid rgba(216,180,254,.08);}
+footer>.wrap:nth-of-type(2){margin-top:22px!important;}
+footer>.wrap:last-child{margin-top:18px!important;}
+.service-client-card{border-radius:22px!important;padding:24px!important;background:linear-gradient(135deg,#151020,#100D17)!important;border-color:rgba(192,132,252,.20)!important;}
+.service-client-link{border-radius:14px!important;transition:transform .18s,border-color .18s,background .18s;}
+.service-client-link:hover{transform:translateY(-2px);border-color:rgba(192,132,252,.42);background:#171321;}
+
+/* Modal de bienvenue : sobre, humain, sans logo ni décoration inutile. */
+.welcome-modal-card{border-radius:24px!important;padding:34px!important;max-width:570px!important;border-color:rgba(192,132,252,.22)!important;background:linear-gradient(145deg,#15111F,#0F0C16)!important;box-shadow:0 30px 100px rgba(0,0,0,.48)!important;}
+.welcome-modal-card h2{font-size:1.8rem!important;letter-spacing:-.03em;}
+.welcome-modal-card p:not(.eyebrow){max-width:470px;font-size:.95rem;}
+.welcome-modal-ok{border-radius:14px!important;padding:12px 18px!important;}
+
+/* Admin : plus proche d'un véritable poste de pilotage. */
+.admin-shell{max-width:1040px;}
+.stats-grid{gap:12px;margin-top:20px;}
+.stat-card{border-radius:20px;padding:17px 18px;}
+.admin-tabs{margin-top:28px;gap:3px;}
+.admin-tab{margin-right:13px;padding:12px 5px;font-size:.82rem;}
+.admin-card{border-radius:20px;}
+.admin-promo-manager,.admin-service-editor{border-radius:20px;}
+.pub-admin-item{border-radius:16px;}
+
+/* Mode clair : même direction artistique, mais lumineuse et lisible. */
+[data-theme="light"] body{background:linear-gradient(180deg,#F8F5FC,#F1EDF7)!important;}
+[data-theme="light"] header{box-shadow:0 8px 30px rgba(55,36,82,.08)!important;}
+[data-theme="light"] .hero{box-shadow:0 20px 60px rgba(55,36,82,.12)!important;}
+[data-theme="light"] .ad-slot-card{background:#EAE4F1!important;border-color:#C9BEDB!important;box-shadow:0 16px 35px rgba(55,36,82,.12)!important;}
+[data-theme="light"] .ad-slot-card::after{background:linear-gradient(180deg,rgba(20,12,30,0) 20%,rgba(20,12,30,.06) 42%,rgba(20,12,30,.78) 100%);}
+[data-theme="light"] .ad-slot-title,[data-theme="light"] .ad-slot-desc,[data-theme="light"] .ad-slot-cta{color:#fff!important;}
+[data-theme="light"] .home-video-section{background:#fff!important;border-color:#C9BEDB!important;box-shadow:0 16px 38px rgba(55,36,82,.10)!important;}
+[data-theme="light"] .home-video-heading{background:linear-gradient(180deg,#fff,#F8F4FC);}
+[data-theme="light"] .home-video-heading .section-title{color:#111318!important;}
+[data-theme="light"] .home-video-desc{color:#4B4655!important;}
+[data-theme="light"] footer{background:linear-gradient(180deg,#ECE7F1,#E4DEE9)!important;color:#17131F!important;}
+[data-theme="light"] footer>.wrap:first-child{border-bottom-color:#C9BEDB;}
+[data-theme="light"] .service-client-card{background:linear-gradient(135deg,#fff,#F5EFFA)!important;}
+[data-theme="light"] .service-client-link{background:#fff!important;}
+[data-theme="light"] .welcome-modal-card{background:#fff!important;box-shadow:0 25px 80px rgba(55,36,82,.22)!important;}
+
+@media(max-width:760px){
+  .hero{min-height:390px;padding:48px 25px 42px;}
+  .hero h1{font-size:clamp(2.3rem,12vw,3.5rem);}
+  .ad-slot-card{height:230px;min-height:230px;}
+  .ad-slot-body{padding:18px 18px 17px!important;}
+}
+@media(max-width:560px){
+  .wrap{padding-left:16px;padding-right:16px;}
+  .hero{border-radius:24px;}
+  .home-video-section{border-radius:20px!important;}
+  .home-video-heading{padding:17px 16px 12px;}
+  .ad-slot-card{height:205px;min-height:205px;border-radius:20px!important;}
+  .ad-slot-body{padding:15px!important;}
+  .welcome-modal-card{padding:28px 20px!important;border-radius:20px!important;}
+}
+</style>
+
 </body>
 </html>
 
