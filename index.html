@@ -1231,6 +1231,14 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   /* volontairement inchangé */
 }
 </style>
+<style id="aurore-video-welcome-ui">
+.home-video-section{margin:22px 0 30px;padding:18px;border:1px solid var(--bordure);border-radius:20px;background:var(--papier);box-shadow:var(--ombre);}
+.home-video-heading{margin-bottom:12px}.home-video-heading .section-title{margin:0 0 5px}.home-video-desc{margin:0;color:var(--gris);font-size:.9rem;line-height:1.5}.home-video-frame{border-radius:16px;overflow:hidden;background:#0b0912;border:1px solid var(--bordure)}.home-video-frame video{display:block;width:100%;max-height:520px;min-height:220px;background:#0b0912}
+.admin-video-preview{min-height:180px;border:1px dashed var(--bordure);border-radius:18px;background:#0d0b16;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:18px;color:var(--gris)}.admin-video-preview video{width:100%;max-height:280px;display:block;background:#0b0912}.admin-video-list .pub-admin-item video{width:110px;height:70px;object-fit:cover;border-radius:10px;flex-shrink:0;background:#0d0b16}
+.welcome-modal{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px}.welcome-modal[hidden]{display:none}.welcome-modal-backdrop{position:absolute;inset:0;background:rgba(10,7,18,.62);backdrop-filter:blur(4px)}.welcome-modal-card{position:relative;z-index:1;width:min(520px,100%);padding:30px;border-radius:24px;border:1px solid var(--bordure);background:var(--papier);color:var(--encre);box-shadow:0 24px 80px rgba(0,0,0,.35);text-align:center}.welcome-modal-card h2{margin:4px 0 12px;font-size:1.55rem}.welcome-modal-card p:not(.eyebrow){margin:0 auto 22px;color:var(--gris);line-height:1.65;white-space:pre-line}.welcome-modal-icon{width:58px;height:58px;margin:0 auto 12px;border-radius:18px;display:grid;place-items:center;background:linear-gradient(135deg,#7c3aed,#c084fc);color:#fff;font-size:1.5rem;font-weight:900}.welcome-modal-close{position:absolute;right:12px;top:10px;width:36px;height:36px;border:1px solid var(--bordure);border-radius:50%;background:transparent;color:var(--encre);font-size:1.4rem;cursor:pointer}.welcome-modal-ok{min-width:150px}
+[data-theme="light"] .home-video-section{background:#fff;border-color:#C9BEDB}[data-theme="light"] .home-video-frame,[data-theme="light"] .admin-video-preview{background:#F3F0F8;border-color:#C9BEDB}[data-theme="light"] .welcome-modal-card{background:#fff;color:#111318;border-color:#C9BEDB}[data-theme="light"] .welcome-modal-card p:not(.eyebrow){color:#4D465A}[data-theme="light"] .welcome-modal-close{color:#111318;background:#fff;border-color:#C9BEDB}
+@media(max-width:620px){.home-video-section{padding:14px}.home-video-frame video{min-height:180px}.welcome-modal-card{padding:26px 20px}}
+</style>
 </head>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <body class="site-locked">
@@ -1401,6 +1409,15 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     <div class="home-annonce" id="homeAnnonceBlock" style="display:none;">
       <p id="homeAnnonceTexte"></p>
     </div>
+
+    <section class="home-video-section" id="homeVideoSection" style="display:none;" aria-label="Vidéo d'accueil">
+      <div class="home-video-heading">
+        <p class="eyebrow">À découvrir</p>
+        <h2 class="section-title" id="homeVideoTitle">Vidéo</h2>
+        <p class="home-video-desc" id="homeVideoDesc"></p>
+      </div>
+      <div class="home-video-frame"><video id="homeVideoPlayer" controls playsinline preload="metadata"></video></div>
+    </section>
 
     <div class="home-promise-grid" id="presentationGrid"></div>
 
@@ -1659,6 +1676,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
           <button type="button" class="admin-tab" data-tab="apparence" role="tab">Apparence</button>
           <button type="button" class="admin-tab" data-tab="service-client" role="tab">Service client</button>
           <button type="button" class="admin-tab" data-tab="annonce" role="tab">Annonce accueil</button>
+          <button type="button" class="admin-tab" data-tab="videos" role="tab">Vidéos <span class="tab-count" id="tabCountVideos">0</span></button>
         </div>
 
         <div class="admin-tab-panel active" data-panel="attente">
@@ -1836,6 +1854,21 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
             </div>
             <div class="form-msg" id="adminAnnonceMsg"></div>
           </div>
+        </div>
+
+        <div class="admin-tab-panel" data-panel="videos">
+          <p class="admin-panel-desc">Gère les vidéos visibles sur l'accueil. Une vidéo existante peut être remplacée sans recréer sa fiche : laisse le fichier vide lors d'une modification pour conserver le fichier actuel.</p>
+          <div class="admin-promo-manager admin-video-manager">
+            <input type="hidden" id="adminVideoEditId" value="">
+            <div class="admin-video-preview" id="adminVideoPreview"><span>Aucune vidéo sélectionnée.</span></div>
+            <div class="form-row"><label for="adminVideoFile">Fichier vidéo (MP4, WEBM ou OGG)</label><input type="file" id="adminVideoFile" accept="video/mp4,video/webm,video/ogg"><small>100 Mo maximum.</small></div>
+            <div class="form-row"><label for="adminVideoTitleInput">Titre de la vidéo</label><input type="text" id="adminVideoTitleInput" maxlength="180" placeholder="Titre de la vidéo"></div>
+            <div class="form-row"><label for="adminVideoDescInput">Description (facultatif)</label><textarea id="adminVideoDescInput" rows="4" maxlength="600" placeholder="Un court texte présenté avec la vidéo."></textarea></div>
+            <div class="form-row" style="display:flex;align-items:center;gap:10px;"><input type="checkbox" id="adminVideoActive" style="width:18px;height:18px;"><label for="adminVideoActive" style="margin:0;">Afficher sur l'accueil</label></div>
+            <div class="admin-promo-actions"><button type="button" class="admin-btn primary" id="adminVideoSave">Ajouter la vidéo</button><button type="button" class="admin-btn ghost" id="adminVideoCancel" style="display:none;">Annuler la modification</button></div>
+            <div class="form-msg" id="adminVideoMsg"></div>
+          </div>
+          <div class="pub-admin-list admin-video-list" id="adminVideoList"><div class="pub-admin-empty">Chargement…</div></div>
         </div>
 
         <div class="admin-tab-panel" data-panel="utilisateurs">
@@ -2497,6 +2530,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         session = { access_token, refresh_token, expires_at: Date.now() + expires_in * 1000, id: infos.id, email: infos.email, nom: infos.nom, avatar: infos.avatar, role };
         sauvegarderSession();
         enregistrerConnexion(session);
+        afficherBienvenueApresConnexion(session);
       }
       // Nettoie l'URL pour ne pas laisser le jeton visible dans la barre d'adresse
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -7901,8 +7935,41 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   rendreAccueil();
   majFilAriane();
   chargerLogoSite();
+
+  const VIDEO_TABLE='Videos';
+  async function chargerVideosAccueil(){
+    const section=document.getElementById('homeVideoSection'),player=document.getElementById('homeVideoPlayer'); if(!section||!player)return;
+    try{const r=await fetch(`${SUPABASE_URL}/rest/v1/${VIDEO_TABLE}?select=*&active=eq.true&order=updated_at.desc`,{headers:HEADERS});if(!r.ok)throw new Error('HTTP '+r.status);const rows=await r.json(),v=rows[0];if(!v?.video_url){section.style.display='none';player.removeAttribute('src');player.load();return;}document.getElementById('homeVideoTitle').textContent=v.title||'Vidéo';const d=document.getElementById('homeVideoDesc');d.textContent=v.description||'';d.style.display=v.description?'block':'none';player.src=v.video_url;if(v.poster_url)player.poster=v.poster_url;else player.removeAttribute('poster');player.load();section.style.display='block';}catch(e){console.warn('[Vidéos] lecture indisponible.',e);section.style.display='none';}
+  }
+  function apercuVideoAdmin(url){const p=document.getElementById('adminVideoPreview');if(!p)return;if(!url){p.innerHTML='<span>Aucune vidéo sélectionnée.</span>';return;}p.innerHTML=`<video controls playsinline preload="metadata" src="${echapperHtmlPub(url)}"></video>`;}
+  function resetVideoAdmin(){document.getElementById('adminVideoEditId').value='';document.getElementById('adminVideoFile').value='';document.getElementById('adminVideoTitleInput').value='';document.getElementById('adminVideoDescInput').value='';document.getElementById('adminVideoActive').checked=false;apercuVideoAdmin('');document.getElementById('adminVideoSave').textContent='Ajouter la vidéo';document.getElementById('adminVideoCancel').style.display='none';}
+  document.getElementById('adminVideoFile')?.addEventListener('change',function(){const f=this.files?.[0];if(!f)return;const m=document.getElementById('adminVideoMsg');if(!['video/mp4','video/webm','video/ogg'].includes(f.type)){m.textContent='Format vidéo non pris en charge.';m.className='form-msg err';this.value='';return;}if(f.size>100*1024*1024){m.textContent='Vidéo trop lourde (100 Mo maximum).';m.className='form-msg err';this.value='';return;}apercuVideoAdmin(URL.createObjectURL(f));});
+  async function chargerVideosAdmin(){const list=document.getElementById('adminVideoList');if(!list)return;list.innerHTML='<div class="pub-admin-empty">Chargement…</div>';try{const r=await fetch(`${SUPABASE_URL}/rest/v1/${VIDEO_TABLE}?select=*&order=updated_at.desc`,{headers:headersAdmin()});if(!r.ok)throw new Error('HTTP '+r.status);const rows=await r.json();document.getElementById('tabCountVideos').textContent=rows.length;list.innerHTML=rows.length?'':'<div class="pub-admin-empty">Aucune vidéo pour le moment.</div>';rows.forEach(v=>{const x=document.createElement('div');x.className='pub-admin-item';x.innerHTML=`<video src="${echapperHtmlPub(v.video_url||'')}" preload="metadata" muted playsinline></video><div class="pub-admin-item-body"><div class="pub-admin-item-title">${echapperHtmlPub(v.title||'(sans titre)')}</div>${v.description?`<div class="pub-admin-item-desc">${echapperHtmlPub(v.description)}</div>`:''}<div class="pub-admin-item-status ${v.active?'on':'off'}">${v.active?'● Active':'○ Désactivée'}</div></div><div class="pub-admin-item-actions"><button type="button" data-a="e">Modifier</button><button type="button" data-a="t">${v.active?'Désactiver':'Activer'}</button><button type="button" class="danger" data-a="d">Supprimer</button></div>`;x.querySelector('[data-a="e"]').onclick=()=>editVideo(v);x.querySelector('[data-a="t"]').onclick=()=>toggleVideo(v);x.querySelector('[data-a="d"]').onclick=()=>deleteVideo(v);list.appendChild(x);});}catch(e){list.innerHTML=`<div class="pub-admin-empty">Impossible de charger les vidéos : ${echapperHtmlPub(e.message)}</div>`;}}
+  function editVideo(v){document.getElementById('adminVideoEditId').value=v.id;document.getElementById('adminVideoTitleInput').value=v.title||'';document.getElementById('adminVideoDescInput').value=v.description||'';document.getElementById('adminVideoActive').checked=v.active===true;document.getElementById('adminVideoFile').value='';apercuVideoAdmin(v.video_url||'');document.getElementById('adminVideoSave').textContent='Enregistrer les modifications';document.getElementById('adminVideoCancel').style.display='inline-flex';document.querySelector('.admin-video-manager')?.scrollIntoView({behavior:'smooth',block:'start'});}
+  async function saveVideo(){const msg=document.getElementById('adminVideoMsg'),btn=document.getElementById('adminVideoSave');if(!session||session.role!=='admin'){msg.textContent='Accès administrateur requis.';msg.className='form-msg err';return;}const id=document.getElementById('adminVideoEditId').value,title=document.getElementById('adminVideoTitleInput').value.trim(),description=document.getElementById('adminVideoDescInput').value.trim(),active=document.getElementById('adminVideoActive').checked,file=document.getElementById('adminVideoFile').files[0];if(!title){msg.textContent='Merci d’indiquer un titre.';msg.className='form-msg err';return;}if(!id&&!file){msg.textContent='Sélectionnez une vidéo.';msg.className='form-msg err';return;}btn.disabled=true;btn.textContent='Enregistrement…';try{let url=null;if(file){const name='video_'+Date.now()+'_'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_');const up=await fetch(`${R2_WORKER_URL}/${name}`,{method:'PUT',headers:{'Content-Type':file.type},body:file});const b=await up.text().catch(()=> '');if(!up.ok)throw new Error('Le stockage a refusé la vidéo (HTTP '+up.status+'). '+b);url=`${R2_PUBLIC_URL}/${name}`;}const payload={title,description,active,updated_at:new Date().toISOString()};if(url)payload.video_url=url;let r;if(id){r=await fetch(`${SUPABASE_URL}/rest/v1/${VIDEO_TABLE}?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(payload)});}else{payload.video_url=url;payload.created_at=new Date().toISOString();r=await fetch(`${SUPABASE_URL}/rest/v1/${VIDEO_TABLE}`,{method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(payload)});}if(!r.ok)throw new Error('HTTP '+r.status+' — '+await r.text());msg.textContent=id?'Vidéo modifiée.':'Vidéo ajoutée.';msg.className='form-msg ok';resetVideoAdmin();await chargerVideosAdmin();await chargerVideosAccueil();}catch(e){msg.textContent='Impossible d’enregistrer la vidéo : '+e.message;msg.className='form-msg err';}finally{btn.disabled=false;btn.textContent='Ajouter la vidéo';}}
+  async function toggleVideo(v){try{const r=await fetch(`${SUPABASE_URL}/rest/v1/${VIDEO_TABLE}?id=eq.${encodeURIComponent(v.id)}`,{method:'PATCH',headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({active:!v.active,updated_at:new Date().toISOString()})});if(!r.ok)throw new Error('HTTP '+r.status);await chargerVideosAdmin();await chargerVideosAccueil();}catch(e){document.getElementById('adminVideoMsg').textContent='Impossible de modifier l’état : '+e.message;}}
+  async function deleteVideo(v){if(!confirm('Supprimer cette vidéo ?'))return;try{const r=await fetch(`${SUPABASE_URL}/rest/v1/${VIDEO_TABLE}?id=eq.${encodeURIComponent(v.id)}`,{method:'DELETE',headers:headersAdmin()});if(!r.ok)throw new Error('HTTP '+r.status);await chargerVideosAdmin();await chargerVideosAccueil();}catch(e){document.getElementById('adminVideoMsg').textContent='Impossible de supprimer la vidéo : '+e.message;}}
+  document.getElementById('adminVideoSave')?.addEventListener('click',saveVideo);document.getElementById('adminVideoCancel')?.addEventListener('click',resetVideoAdmin);
+
+  const WELCOME_TABLE='message_bienvenue';
+  async function chargerMessageBienvenue(){try{const r=await fetch(`${SUPABASE_URL}/rest/v1/${WELCOME_TABLE}?select=id,title,message,active&id=eq.1`,{headers:HEADERS});if(!r.ok)throw new Error('HTTP '+r.status);return (await r.json())[0]||null;}catch(e){console.warn('[Bienvenue] configuration indisponible.',e);return null;}}
+  async function afficherBienvenueApresConnexion(sess){if(!sess)return;const cfg=await chargerMessageBienvenue(),modal=document.getElementById('welcomeModal');if(!cfg||cfg.active!==true||!cfg.message||!modal)return;const key='aurore_welcome_seen_'+(sess.id||sess.email||''),first=localStorage.getItem(key)!=='1';document.getElementById('welcomeModalTitle').textContent=first?(cfg.title||'Bienvenue sur Aurore'):(cfg.title||'Content de vous revoir sur Aurore');document.getElementById('welcomeModalText').textContent=String(cfg.message).replace(/\{nom\}/gi,sess.nom||'').replace(/\{email\}/gi,sess.email||'');modal.hidden=false;modal.setAttribute('aria-hidden','false');localStorage.setItem(key,'1');}
+  function fermerBienvenue(){const m=document.getElementById('welcomeModal');if(m){m.hidden=true;m.setAttribute('aria-hidden','true');}}document.getElementById('welcomeModalClose')?.addEventListener('click',fermerBienvenue);document.getElementById('welcomeModalOk')?.addEventListener('click',fermerBienvenue);document.querySelector('[data-welcome-close]')?.addEventListener('click',fermerBienvenue);
+  function initialiserEditeurBienvenueAdmin(){const panel=document.querySelector('.admin-tab-panel[data-panel="annonce"]');if(!panel||document.getElementById('adminWelcomeEditor'))return;const box=document.createElement('div');box.className='admin-service-editor';box.id='adminWelcomeEditor';box.innerHTML=`<div class="form-row"><label for="adminWelcomeTitle">Titre du message de bienvenue</label><input id="adminWelcomeTitle" type="text" maxlength="180" placeholder="Bienvenue sur Aurore"></div><div class="form-row"><label for="adminWelcomeMessage">Message</label><textarea id="adminWelcomeMessage" rows="7" maxlength="1200" placeholder="Bienvenue {nom} ! Nous sommes heureux de vous accueillir sur Aurore — Section Archives."></textarea><small>Variables disponibles : {nom} et {email}.</small></div><div class="form-row" style="display:flex;align-items:center;gap:10px;"><input type="checkbox" id="adminWelcomeActive" style="width:18px;height:18px;"><label for="adminWelcomeActive" style="margin:0;">Afficher après une connexion</label></div><div class="admin-promo-actions"><button type="button" class="admin-btn primary" id="adminWelcomeSave">Enregistrer le message de bienvenue</button></div><div class="form-msg" id="adminWelcomeMsg"></div>`;panel.appendChild(box);document.getElementById('adminWelcomeSave').onclick=saveWelcome;chargerMessageBienvenue().then(c=>{if(c){document.getElementById('adminWelcomeTitle').value=c.title||'';document.getElementById('adminWelcomeMessage').value=c.message||'';document.getElementById('adminWelcomeActive').checked=c.active===true;}});}
+  async function saveWelcome(){const msg=document.getElementById('adminWelcomeMsg'),btn=document.getElementById('adminWelcomeSave');if(!session||session.role!=='admin'){msg.textContent='Accès administrateur requis.';msg.className='form-msg err';return;}const title=document.getElementById('adminWelcomeTitle').value.trim()||'Bienvenue sur Aurore',message=document.getElementById('adminWelcomeMessage').value.trim(),active=document.getElementById('adminWelcomeActive').checked;if(!message){msg.textContent='Merci de renseigner le message.';msg.className='form-msg err';return;}btn.disabled=true;try{const payload={id:1,title,message,active,updated_at:new Date().toISOString()};let r=await fetch(`${SUPABASE_URL}/rest/v1/${WELCOME_TABLE}?id=eq.1`,{method:'PATCH',headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify(payload)});if(!r.ok)throw new Error('HTTP '+r.status+' — '+await r.text());let body=await r.text().catch(()=> '');if(body===''||body==='[]'){const q=await fetch(`${SUPABASE_URL}/rest/v1/${WELCOME_TABLE}`,{method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(payload)});if(!q.ok)throw new Error('HTTP '+q.status+' — '+await q.text());}msg.textContent='Message de bienvenue enregistré.';msg.className='form-msg ok';}catch(e){msg.textContent='Impossible d’enregistrer le message : '+e.message;msg.className='form-msg err';}finally{btn.disabled=false;}}
+  initialiserEditeurBienvenueAdmin();document.querySelectorAll('.admin-tab').forEach(t=>t.addEventListener('click',()=>{if(t.dataset.tab==='videos')chargerVideosAdmin();if(t.dataset.tab==='annonce')initialiserEditeurBienvenueAdmin();}));chargerVideosAccueil();
+
 </script>
 
+  <div class="welcome-modal" id="welcomeModal" hidden aria-hidden="true">
+    <div class="welcome-modal-backdrop" data-welcome-close></div>
+    <section class="welcome-modal-card" role="dialog" aria-modal="true" aria-labelledby="welcomeModalTitle">
+      <button type="button" class="welcome-modal-close" id="welcomeModalClose" aria-label="Fermer">×</button>
+      <div class="welcome-modal-icon">A</div>
+      <p class="eyebrow">Aurore</p><h2 id="welcomeModalTitle">Bienvenue sur Aurore</h2>
+      <p id="welcomeModalText"></p><button type="button" class="admin-btn primary welcome-modal-ok" id="welcomeModalOk">Commencer</button>
+    </section>
+  </div>
 </body>
 </html>
 
