@@ -8296,6 +8296,144 @@ footer>.wrap:last-child{margin-top:18px!important;}
 }
 </style>
 
+
+<style id="aurore-finitions-interface-3">
+/* =========================================================
+   AURORE — FINITIONS INTERFACE
+   Ajustements visuels uniquement : aucune structure ni donnée touchée.
+   ========================================================= */
+
+/* Navigation : un peu plus compacte pour laisser respirer le cheminement. */
+.header-inner{height:68px!important;gap:14px!important;}
+.search-box{padding:8px 14px!important;max-width:360px!important;}
+.deposer-btn{padding:10px 15px!important;border-radius:13px!important;}
+.breadcrumb{padding-top:11px!important;padding-bottom:8px!important;scroll-margin-top:78px;}
+.screen{scroll-margin-top:82px;}
+
+/* Publicités : on retire la sensation de cadre noir/sombre autour du visuel. */
+.ad-slot-card{
+  background:transparent!important;
+  border-color:rgba(124,58,237,.16)!important;
+  box-shadow:0 14px 34px rgba(55,36,82,.10)!important;
+}
+.ad-slot-img{background:transparent!important;}
+.ad-slot-card::after{
+  background:linear-gradient(180deg,rgba(18,12,28,0) 22%,rgba(18,12,28,.03) 48%,rgba(18,12,28,.62) 100%)!important;
+}
+[data-theme="light"] .ad-slot-card{
+  background:#fff!important;
+  border-color:#D8CEE3!important;
+  box-shadow:0 14px 34px rgba(55,36,82,.10)!important;
+}
+[data-theme="light"] .ad-slot-card::after{
+  background:linear-gradient(180deg,rgba(20,12,30,0) 25%,rgba(20,12,30,.02) 52%,rgba(20,12,30,.48) 100%)!important;
+}
+
+/* Vidéo : légèrement plus grande, mais contenue proprement dans sa carte. */
+.home-video-section{overflow:hidden!important;}
+.home-video-frame{
+  width:calc(100% - 12px)!important;
+  margin:0 auto 6px!important;
+  aspect-ratio:16/9!important;
+  max-height:520px!important;
+  border-radius:18px!important;
+  overflow:hidden!important;
+  background:transparent!important;
+}
+.home-video-frame video{
+  width:100%!important;
+  height:100%!important;
+  object-fit:cover!important;
+  background:transparent!important;
+  border-radius:18px!important;
+}
+[data-theme="light"] .home-video-frame{background:#F7F4FB!important;}
+
+/* Barre de progression du dépôt : plus premium, plus lisible et plus vivante. */
+.depot-progress{
+  position:relative!important;
+  margin-top:16px!important;
+  padding:14px 16px!important;
+  border:1px solid rgba(124,58,237,.20)!important;
+  border-radius:16px!important;
+  background:linear-gradient(145deg,rgba(124,58,237,.07),rgba(192,132,252,.035))!important;
+  box-shadow:0 10px 28px rgba(55,36,82,.08)!important;
+  overflow:hidden!important;
+}
+.depot-progress::before{
+  content:"";
+  position:absolute;
+  left:0;top:0;bottom:0;
+  width:3px;
+  background:linear-gradient(180deg,#7C3AED,#C084FC);
+}
+.depot-progress-head{
+  margin-bottom:10px!important;
+  font-size:.82rem!important;
+  letter-spacing:.01em;
+}
+.depot-progress-label{color:var(--encre)!important;font-weight:700!important;}
+.depot-progress-percent{
+  min-width:48px;
+  text-align:right;
+  color:#6D28D9!important;
+  font-weight:800!important;
+  font-variant-numeric:tabular-nums;
+}
+.depot-progress-track{
+  position:relative!important;
+  width:100%!important;
+  height:11px!important;
+  padding:2px!important;
+  border-radius:999px!important;
+  background:#292332!important;
+  border:1px solid rgba(124,58,237,.14)!important;
+  box-shadow:inset 0 1px 3px rgba(0,0,0,.18)!important;
+  overflow:hidden!important;
+}
+.depot-progress-bar{
+  position:relative!important;
+  height:100%!important;
+  min-width:0;
+  border-radius:999px!important;
+  background:linear-gradient(90deg,#6D28D9 0%,#8B5CF6 48%,#C084FC 100%)!important;
+  box-shadow:0 0 12px rgba(139,92,246,.42)!important;
+  transition:width .18s cubic-bezier(.22,.61,.36,1)!important;
+}
+.depot-progress-bar::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(110deg,transparent 0%,rgba(255,255,255,.28) 45%,transparent 70%);
+  transform:translateX(-100%);
+  animation:depotProgressShine 1.8s linear infinite;
+}
+@keyframes depotProgressShine{to{transform:translateX(180%);}}
+[data-theme="light"] .depot-progress{
+  background:linear-gradient(145deg,#FBF8FE,#F4EEF9)!important;
+  border-color:#D4C7E0!important;
+  box-shadow:0 10px 26px rgba(55,36,82,.07)!important;
+}
+[data-theme="light"] .depot-progress-track{
+  background:#E6DFEF!important;
+  border-color:#D2C5DE!important;
+  box-shadow:inset 0 1px 3px rgba(55,36,82,.10)!important;
+}
+[data-theme="light"] .depot-progress-percent{color:#6D28D9!important;}
+
+@media(max-width:760px){
+  .header-inner{height:auto!important;padding-top:9px!important;padding-bottom:9px!important;}
+  .search-box{max-width:none!important;}
+  .deposer-btn{padding:9px 13px!important;}
+  .home-video-frame{width:calc(100% - 8px)!important;max-height:none!important;}
+}
+@media(max-width:560px){
+  .breadcrumb{padding-top:8px!important;padding-bottom:7px!important;}
+  .home-video-frame{width:100%!important;margin-bottom:0!important;border-radius:14px!important;}
+  .home-video-frame video{border-radius:14px!important;}
+  .depot-progress{padding:13px 13px!important;border-radius:14px!important;}
+}
+</style>
 </body>
 </html>
 
