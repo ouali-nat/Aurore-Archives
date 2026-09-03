@@ -6099,6 +6099,17 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     // scalaire nu (ex. "42"), d'où le parsing via Number(...) plutôt qu'un
     // JSON.parse suivi d'un accès de type "[0].id".
     const nouveauDocId = insertText && insertText.trim() !== '' ? Number(insertText.trim()) : null;
+    if (Number.isFinite(nouveauDocId)) {
+      // Conserve immédiatement une copie minimale côté compte. Ce cache ne
+      // remplace pas Supabase : il garantit seulement que le dépôt reste
+      // visible dans l'espace personnel si la lecture de Depots_deposants est
+      // refusée par la RLS.
+      memoriserDepotPersonnelLocal({
+        id:nouveauDocId,Titre:titre,Auteur:auteur,Fichier_url:fichierUrl,
+        Niveau:estLivre?'Livres':niveau,Filiere:(!estLivre&&['Seconde','Première','Terminale'].includes(niveau))?filiere:'',
+        "Matière":estLivre?'':matiere,"Catégorie":categorie,Genre:estLivre?genre:'',Publie:false
+      });
+    }
     if (!Number.isFinite(nouveauDocId)) {
       etape('[DIAG] Réponse RPC inattendue — impossible d\'extraire l\'id du document créé : ' + insertText, 'err');
     }
@@ -9060,64 +9071,72 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const listBooks=document.getElementById('personalBooksList');
     const listFavs=document.getElementById('personalFavoritesList');
     const listLater=document.getElementById('personalLaterList');
+    const listDownloads=document.getElementById('personalDownloadsHistory');
+
     if(listDocs) listDocs.innerHTML='<div class="personal-empty">Chargement de vos documents…</div>';
     if(listBooks) listBooks.innerHTML='<div class="personal-empty">Chargement de vos livres…</div>';
     if(listFavs) listFavs.innerHTML='<div class="personal-empty">Chargement de vos favoris…</div>';
-    // Les favoris sont indépendants des documents personnels : on lance leur
-    // récupération immédiatement pour ne pas attendre les autres requêtes.
-    actualiserCompteursPersonnels();
-    const favorisEnArrierePlan=rendreFavorisPersonnels();
     if(listLater) listLater.innerHTML='<div class="personal-empty">Chargement de vos documents enregistrés…</div>';
-    const listDownloads=document.getElementById('personalDownloadsHistory');
     if(listDownloads) listDownloads.innerHTML='<div class="personal-empty">Chargement de votre historique…</div>';
-    // Récupère d'abord les données personnelles du compte, puis les affiche.
-    // En cas de réseau indisponible, les caches locaux restent utilisables.
-    await synchroniserRessourcesSupabase();
+
+    // Chaque ressource est chargée indépendamment : un refus RLS sur une table
+    // ne doit plus masquer les autres données personnelles.
     actualiserCompteursPersonnels();
-    await rendreFavorisPersonnels();
+    try{ await synchroniserRessourcesSupabase(); }catch(e){ console.warn('[Espace personnel] synchronisation partielle :',e); }
+    actualiserCompteursPersonnels();
+    try{ await rendreFavorisPersonnels(); }catch(e){ console.warn('[Espace personnel] favoris :',e); }
     rendreDocumentsPlusTard();
     rendreDocumentsTelecharges();
+
+    // 1) Dépôts personnels : lecture sécurisée de la table de liaison si la RLS
+    // l'autorise. Sinon, le cache local des dépôts reste affichable.
+    let docs=[];
     try{
-      // La table de liaison existe déjà dans le flux de dépôt : elle associe
-      // document_id et user_id au compte authentifié. On la réutilise afin de
-      // ne jamais exposer les dépôts d'un autre utilisateur.
-      const dr=await fetch(`${SUPABASE_URL}/rest/v1/Depots_deposants?select=document_id,user_id,nom,email&user_id=eq.${encodeURIComponent(session.id)}`,{headers:headersAdmin()});
-      if(!dr.ok) throw new Error('Lecture des dépôts personnels indisponible');
+      const dr=await fetch(`${SUPABASE_URL}/rest/v1/Depots_deposants?select=document_id,user_id,nom,email&user_id=eq.${encodeURIComponent(session.id)}`,{headers:headersAdmin(),cache:'no-store'});
+      if(!dr.ok) throw new Error(`Depots_deposants HTTP ${dr.status}`);
       const links=await dr.json();
-      const ids=(links||[]).map(r=>r.document_id).filter(v=>v!==null&&v!==undefined);
-      let docs=[];
+      const ids=[...(links||[])].map(r=>r.document_id).filter(v=>v!==null&&v!==undefined);
       if(ids.length){
-        const qr=`id=in.(${ids.map(encodeURIComponent).join(',')})`;
-        const rr=await fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&${qr}&order=id.desc`,{headers:headersAdmin()});
-        if(!rr.ok) throw new Error('Lecture des documents personnels indisponible');
-        docs=await rr.json();
+        const qr=`id=in.(${ids.map(v=>encodeURIComponent(v)).join(',')})`;
+        const rr=await fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&${qr}&order=id.desc`,{headers:headersAdmin(),cache:'no-store'});
+        if(!rr.ok) throw new Error(`Document HTTP ${rr.status}`);
+        const data=await rr.json();
+        docs=Array.isArray(data)?data:[];
+        // Une lecture serveur réussie devient le cache local de référence pour
+        // les prochaines ouvertures hors ligne ou soumises à une RLS plus stricte.
+        docs.forEach(d=>memoriserDepotPersonnelLocal(d));
       }
-      MES_DOCUMENTS_PERSONNELS=Array.isArray(docs)?docs:[];
-      MES_LIVRES_PERSONNELS=MES_DOCUMENTS_PERSONNELS.filter(d=>String(d['Catégorie']||'')==='Livres');
-
-      // Les refus sont conservés côté utilisateur dans Notifications même si
-      // l'administrateur supprime le document refusé. Ils complètent donc le suivi.
-      try{
-        const nr=await fetch(`${SUPABASE_URL}/rest/v1/Notifications?select=id,titre_document,statut,message,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc`,{headers:headersAdmin()});
-        if(nr.ok) MES_NOTIFICATIONS_PERSONNELLES=await nr.json(); else MES_NOTIFICATIONS_PERSONNELLES=[];
-      }catch(e){ MES_NOTIFICATIONS_PERSONNELLES=[]; }
-
-      rendreDocumentsPersonnels();
-      rendreLivresPersonnels();
-      rendreDocumentsPlusTard();
-      rendreDocumentsTelecharges();
-      afficherNotificationTelechargementAuRetour();
     }catch(err){
-      console.warn('[Espace personnel]',err);
-      MES_DOCUMENTS_PERSONNELS=[]; MES_LIVRES_PERSONNELS=[];
-      if(listDocs) listDocs.innerHTML='<div class="personal-empty">Impossible de charger vos documents pour le moment. Réessayez dans quelques instants.</div>';
-      if(listBooks) listBooks.innerHTML='<div class="personal-empty">Impossible de charger vos livres pour le moment. Réessayez dans quelques instants.</div>';
-      actualiserCompteursPersonnels();
-      await rendreFavorisPersonnels();
-      rendreDocumentsPlusTard();
-      rendreDocumentsTelecharges();
-      afficherNotificationTelechargementAuRetour();
+      console.warn('[Espace personnel] lecture distante des dépôts indisponible, utilisation du cache local :',err);
+      docs=depotsPersonnelsLocaux();
     }
+
+    // Les notifications personnelles sont chargées séparément afin qu'un
+    // refus de lecture de Depots_deposants ne masque jamais les notifications.
+    // Elles restent utilisées pour les refus/validations déjà prévues par le site.
+    try{
+      const nr=await fetch(`${SUPABASE_URL}/rest/v1/Notifications?select=id,titre_document,statut,message,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc&limit=100`,{headers:headersAdmin(),cache:'no-store'});
+      if(nr.ok) MES_NOTIFICATIONS_PERSONNELLES=await nr.json();
+      else MES_NOTIFICATIONS_PERSONNELLES=[];
+    }catch(e){
+      console.warn('[Espace personnel] notifications personnelles indisponibles :',e);
+      MES_NOTIFICATIONS_PERSONNELLES=[];
+    }
+
+    // Déduplique les résultats issus des différentes sources et conserve les
+    // données locales comme secours, sans jamais supprimer une donnée Supabase.
+    const uniques=new Map();
+    [...docs,...depotsPersonnelsLocaux()].forEach(d=>{
+      if(d&&d.id!=null) uniques.set(String(d.id),d);
+    });
+    MES_DOCUMENTS_PERSONNELS=[...uniques.values()].sort((a,b)=>Number(b.id||0)-Number(a.id||0));
+    MES_LIVRES_PERSONNELS=MES_DOCUMENTS_PERSONNELS.filter(d=>String(d['Catégorie']||'')==='Livres');
+
+    rendreDocumentsPersonnels();
+    rendreLivresPersonnels();
+    rendreDocumentsPlusTard();
+    rendreDocumentsTelecharges();
+    afficherNotificationTelechargementAuRetour();
   }
 
   function statutDocumentPersonnel(doc){
@@ -9244,7 +9263,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   initialiserEspacePersonnel();
   const _ouvrirProfilOriginal=window.ouvrirEspacePersonnelObligatoire;
   document.getElementById('btnOuvrirProfil')?.addEventListener('click',()=>chargerDonneesEspacePersonnel());
-  document.getElementById('personalRefresh')?.addEventListener('click',chargerDonneesEspacePersonnel);
   // Chargement discret lorsque le profil est ouvert par le flux de connexion.
   const _afficherEcranOriginal=window.afficherEcran;
   if(typeof _afficherEcranOriginal==='function'){}
@@ -10073,6 +10091,10 @@ footer>.wrap:last-child{margin-top:18px!important;}
   const KEY_FAV='aurore_favoris_documents_';
   const KEY_LATER='aurore_documents_plus_tard_';
   const KEY_DOWNLOADS='aurore_documents_telecharges_';
+  // Cache local des dépôts effectués par ce compte. Il sert uniquement de
+  // filet de sécurité d'affichage lorsque la table de liaison Depots_deposants
+  // est protégée par RLS et ne peut pas être lue par un élève.
+  const KEY_DEPOSITS='aurore_depots_personnels_';
   const KEY_CODE='aurore_code_espace_';
   const FAVORIS_CACHE_TTL=30000;
   const favorisDocumentsCache=new Map();
@@ -10174,6 +10196,20 @@ footer>.wrap:last-child{margin-top:18px!important;}
   function favoris(){return userKey()?safeRead(KEY_FAV+userKey()).map(String):[];}
   function plusTard(){return userKey()?safeRead(KEY_LATER+userKey()):[];}
   function telecharges(){return userKey()?safeRead(KEY_DOWNLOADS+userKey()):[];}
+  function depotsPersonnelsLocaux(){return userKey()?safeRead(KEY_DEPOSITS+userKey()):[];}
+  function memoriserDepotPersonnelLocal(doc){
+    if(!session||!session.id||!doc||doc.id==null)return;
+    const id=String(doc.id);
+    let arr=depotsPersonnelsLocaux().filter(x=>String(x.id)!==id);
+    arr.unshift({
+      id:doc.id,Titre:doc.Titre||'Document',Auteur:doc.Auteur||session.nom||'',
+      Fichier_url:doc.Fichier_url||'',Niveau:doc.Niveau||'',Classe:doc.Classe||null,
+      Filiere:doc.Filiere||'',"Matière":doc['Matière']||'',Genre:doc.Genre||'',
+      "Catégorie":doc['Catégorie']||'',Publie:doc.Publie===true,
+      saved_at:new Date().toISOString()
+    });
+    safeWrite(KEY_DEPOSITS+userKey(),arr.slice(0,100));
+  }
   function enregistrerTelechargementPersonnel(doc){
     if(!session||!doc||doc.id==null)return false;
     const id=docId(doc); if(!id)return false;
