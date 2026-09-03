@@ -9066,7 +9066,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   function escapeTextePersonnel(v){ return echapperHtmlPub(v == null ? '' : String(v)); }
 
   async function chargerDonneesEspacePersonnel(){
-    if (!session || !session.id) return;
+    if (!session || !session.id || !session.access_token) return;
+
     const listDocs=document.getElementById('personalDocumentsList');
     const listBooks=document.getElementById('personalBooksList');
     const listFavs=document.getElementById('personalFavoritesList');
@@ -9079,27 +9080,24 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     if(listLater) listLater.innerHTML='<div class="personal-empty">Chargement de vos documents enregistrés…</div>';
     if(listDownloads) listDownloads.innerHTML='<div class="personal-empty">Chargement de votre historique…</div>';
 
-    // Chaque ressource est chargée indépendamment : un refus RLS sur une table
-    // ne doit plus masquer les autres données personnelles.
-    actualiserCompteursPersonnels();
-    try{ await synchroniserRessourcesSupabase(); }catch(e){ console.warn('[Espace personnel] synchronisation partielle :',e); }
-    actualiserCompteursPersonnels();
-    try{ await rendreFavorisPersonnels(); }catch(e){ console.warn('[Espace personnel] favoris :',e); }
-    rendreDocumentsPlusTard();
-    rendreDocumentsTelecharges();
+    // Sur mobile, une requête réseau qui reste suspendue ne doit jamais bloquer
+    // tout l'espace personnel. Les documents personnels sont donc chargés en
+    // priorité, avec un délai maximal de 12 secondes.
+    const fetchAvecTimeout=async(url,options={},timeoutMs=12000)=>{
+      const controller=new AbortController();
+      const timer=setTimeout(()=>controller.abort(),timeoutMs);
+      try{
+        return await fetch(url,{...options,signal:controller.signal});
+      }finally{
+        clearTimeout(timer);
+      }
+    };
 
-    // 1) Dépôts personnels : on utilise en priorité le RPC sécurisé
-    // lister_documents_personnels() (SECURITY DEFINER), qui contourne la RLS
-    // de "Depots_deposants" (laquelle n'autorise que l'admin en lecture
-    // directe) tout en ne renvoyant QUE les documents de l'utilisateur
-    // connecté. Si ce RPC n'existe pas encore côté Supabase (function non
-    // créée), on retombe automatiquement sur l'ancienne lecture directe,
-    // puis sur le cache local — rien n'est cassé tant que le SQL n'a pas
-    // été exécuté.
+    // 1) DOCUMENTS PERSONNELS — priorité absolue.
     let docs=[];
     let rpcOk=false;
     try{
-      const rpcRes=await fetch(`${SUPABASE_URL}/rest/v1/rpc/lister_documents_personnels`,{
+      const rpcRes=await fetchAvecTimeout(`${SUPABASE_URL}/rest/v1/rpc/lister_documents_personnels`,{
         method:'POST',
         headers:{...headersAdmin(),'Content-Type':'application/json'},
         body:'{}',
@@ -9110,27 +9108,31 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         docs=Array.isArray(data)?data:[];
         rpcOk=true;
         docs.forEach(d=>memoriserDepotPersonnelLocal(d));
-      } else {
+      }else{
         const detail=await rpcRes.text().catch(()=>'');
-        console.warn(`[Espace personnel] RPC lister_documents_personnels indisponible (HTTP ${rpcRes.status}) — bascule sur la lecture directe. Détail : ${detail}`);
+        console.warn(`[Espace personnel] RPC lister_documents_personnels HTTP ${rpcRes.status}.`,detail);
       }
     }catch(err){
-      console.warn('[Espace personnel] RPC lister_documents_personnels injoignable — bascule sur la lecture directe.',err);
+      console.warn('[Espace personnel] RPC documents indisponible ou timeout :',err);
     }
+
+    // Fallback direct si la RPC est momentanément indisponible.
     if(!rpcOk){
       try{
-        const dr=await fetch(`${SUPABASE_URL}/rest/v1/Depots_deposants?select=document_id,user_id,nom,email&user_id=eq.${encodeURIComponent(session.id)}`,{headers:headersAdmin(),cache:'no-store'});
+        const dr=await fetchAvecTimeout(`${SUPABASE_URL}/rest/v1/Depots_deposants?select=document_id,user_id,nom,email&user_id=eq.${encodeURIComponent(session.id)}`,{
+          headers:headersAdmin(),cache:'no-store'
+        });
         if(!dr.ok) throw new Error(`Depots_deposants HTTP ${dr.status}`);
         const links=await dr.json();
         const ids=[...(links||[])].map(r=>r.document_id).filter(v=>v!==null&&v!==undefined);
         if(ids.length){
           const qr=`id=in.(${ids.map(v=>encodeURIComponent(v)).join(',')})`;
-          const rr=await fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&${qr}&order=id.desc`,{headers:headersAdmin(),cache:'no-store'});
+          const rr=await fetchAvecTimeout(`${SUPABASE_URL}/rest/v1/Document?select=*&${qr}&order=id.desc`,{
+            headers:headersAdmin(),cache:'no-store'
+          });
           if(!rr.ok) throw new Error(`Document HTTP ${rr.status}`);
-          const data=await rr.json();
-          docs=Array.isArray(data)?data:[];
-          // Une lecture serveur réussie devient le cache local de référence pour
-          // les prochaines ouvertures hors ligne ou soumises à une RLS plus stricte.
+          docs=await rr.json();
+          docs=Array.isArray(docs)?docs:[];
           docs.forEach(d=>memoriserDepotPersonnelLocal(d));
         }
       }catch(err){
@@ -9139,11 +9141,22 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       }
     }
 
-    // Les notifications personnelles sont chargées séparément afin qu'un
-    // refus de lecture de Depots_deposants ne masque jamais les notifications.
-    // Elles restent utilisées pour les refus/validations déjà prévues par le site.
+    // Affichage immédiat des documents : il ne dépend plus des autres tables.
+    const uniques=new Map();
+    [...docs,...depotsPersonnelsLocaux()].forEach(d=>{
+      if(d&&d.id!=null) uniques.set(String(d.id),d);
+    });
+    MES_DOCUMENTS_PERSONNELS=[...uniques.values()].sort((a,b)=>Number(b.id||0)-Number(a.id||0));
+    MES_LIVRES_PERSONNELS=MES_DOCUMENTS_PERSONNELS.filter(d=>String(d['Catégorie']||'')==='Livres');
+    rendreDocumentsPersonnels();
+    rendreLivresPersonnels();
+    actualiserCompteursPersonnels();
+
+    // 2) Notifications : séparées et avec timeout.
     try{
-      const nr=await fetch(`${SUPABASE_URL}/rest/v1/Notifications?select=id,titre_document,statut,message,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc&limit=100`,{headers:headersAdmin(),cache:'no-store'});
+      const nr=await fetchAvecTimeout(`${SUPABASE_URL}/rest/v1/Notifications?select=id,titre_document,statut,message,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc&limit=100`,{
+        headers:headersAdmin(),cache:'no-store'
+      });
       if(nr.ok) MES_NOTIFICATIONS_PERSONNELLES=await nr.json();
       else MES_NOTIFICATIONS_PERSONNELLES=[];
     }catch(e){
@@ -9151,20 +9164,21 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       MES_NOTIFICATIONS_PERSONNELLES=[];
     }
 
-    // Déduplique les résultats issus des différentes sources et conserve les
-    // données locales comme secours, sans jamais supprimer une donnée Supabase.
-    const uniques=new Map();
-    [...docs,...depotsPersonnelsLocaux()].forEach(d=>{
-      if(d&&d.id!=null) uniques.set(String(d.id),d);
-    });
-    MES_DOCUMENTS_PERSONNELS=[...uniques.values()].sort((a,b)=>Number(b.id||0)-Number(a.id||0));
-    MES_LIVRES_PERSONNELS=MES_DOCUMENTS_PERSONNELS.filter(d=>String(d['Catégorie']||'')==='Livres');
-
+    // Re-rendu pour prendre en compte les notifications de refus.
     rendreDocumentsPersonnels();
-    rendreLivresPersonnels();
-    rendreDocumentsPlusTard();
-    rendreDocumentsTelecharges();
-    afficherNotificationTelechargementAuRetour();
+    actualiserCompteursPersonnels();
+
+    // 3) Le reste est synchronisé en arrière-plan : aucune de ces requêtes ne
+    // peut empêcher l'affichage des documents personnels.
+    Promise.resolve().then(async()=>{
+      try{ await synchroniserRessourcesSupabase(); }
+      catch(e){ console.warn('[Espace personnel] synchronisation secondaire :',e); }
+      try{ await rendreFavorisPersonnels(); }
+      catch(e){ console.warn('[Espace personnel] favoris :',e); }
+      try{ rendreDocumentsPlusTard(); }catch(e){ console.warn('[Espace personnel] Plus tard :',e); }
+      try{ rendreDocumentsTelecharges(); }catch(e){ console.warn('[Espace personnel] téléchargements :',e); }
+      try{ afficherNotificationTelechargementAuRetour(); }catch(e){ console.warn('[Espace personnel] notification téléchargement :',e); }
+    });
   }
 
   function statutDocumentPersonnel(doc){
