@@ -3,6 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://tdeotqfsbvouresfhkab.supabase.co" crossorigin>
+<link rel="preconnect" href="https://lsnb-upload.oualikevin9.workers.dev" crossorigin>
+<link rel="preconnect" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev" crossorigin>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#090812">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Aurore">
+<link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
 <title>Aurore — Section Archives — Bibliothèque numérique</title>
 <link rel="preload" as="image" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
 <script>
@@ -1275,6 +1285,20 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 [data-theme="light"] .form-msg.err{background:#FFF7F7!important;color:#991B1B!important;border-color:#FCA5A5!important;}
 .welcome-modal-card p{line-height:1.65!important;}
 </style>
+
+<style id="aurore-pwa-interface">
+  /* Installation PWA : quand Aurore est installée, l'interface occupe tout l'écran. */
+  .pwa-install-btn{display:none;align-items:center;gap:7px;border:1px solid rgba(167,139,250,.28);background:linear-gradient(135deg,rgba(124,58,237,.16),rgba(167,139,250,.10));color:var(--encre);padding:9px 12px;border-radius:13px;font:inherit;font-size:.76rem;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 7px 20px rgba(55,36,82,.08)}
+  .pwa-install-btn:hover{transform:translateY(-1px);border-color:rgba(167,139,250,.48)}
+  .pwa-install-btn svg{width:16px;height:16px;flex:0 0 16px}
+  .pwa-install-hint{position:fixed;right:18px;bottom:18px;z-index:9998;display:none;width:min(360px,calc(100vw - 32px));padding:15px 16px;border:1px solid rgba(167,139,250,.28);border-radius:18px;background:linear-gradient(145deg,rgba(17,16,28,.98),rgba(25,20,38,.98));color:var(--encre);box-shadow:0 20px 60px rgba(0,0,0,.35);backdrop-filter:blur(18px)}
+  .pwa-install-hint strong{display:block;font-size:.9rem;margin-bottom:5px}.pwa-install-hint span{display:block;color:var(--gris);font-size:.76rem;line-height:1.5}.pwa-install-hint button{margin-top:11px;border:0;border-radius:11px;padding:9px 12px;background:var(--violet);color:#fff;font:inherit;font-size:.76rem;font-weight:800;cursor:pointer}
+  [data-theme="light"] .pwa-install-btn{background:#F4EFFB;color:#2C2340;border-color:#D7C9E8}
+  [data-theme="light"] .pwa-install-hint{background:rgba(255,255,255,.98);border-color:#D8CEE3;color:#171322;box-shadow:0 20px 60px rgba(55,36,82,.18)}
+  @media(max-width:900px){.pwa-install-btn{display:none!important}}
+  @media(display-mode: standalone){.pwa-install-btn,.pwa-install-hint{display:none!important}body{padding-top:env(safe-area-inset-top)}}
+  @media(display-mode: fullscreen){.pwa-install-btn,.pwa-install-hint{display:none!important}}
+</style>
 </head>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <body class="site-locked">
@@ -1588,6 +1612,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         <button id="btnDeconnexion" title="Se déconnecter">×</button>
       </div>
     </div>
+    <button type="button" class="pwa-install-btn" id="pwaInstallBtn" aria-label="Installer Aurore"><span aria-hidden="true">⇩</span> Installer</button>
     <button class="deposer-btn" id="btnDeposer"><span id="uploadIconHost"></span> Déposer un document</button>
   </div>
 </header>
@@ -2211,9 +2236,18 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       </div>
 
       <div class="personal-panel" data-personal-panel="downloads" hidden>
-        <div class="personal-panel-intro">Les documents enregistrés avec « ＋ Plus tard » sont rangés ici pour être retrouvés facilement.</div>
-        <div id="personalLaterList" class="personal-list">
-          <div class="personal-empty">Aucun document enregistré pour plus tard.</div>
+        <div class="personal-panel-intro">Les documents enregistrés avec « ＋ Plus tard » et votre historique de téléchargements sont regroupés ici.</div>
+        <div class="personal-subsection">
+          <div class="personal-subsection-title">À télécharger plus tard</div>
+          <div id="personalLaterList" class="personal-list">
+            <div class="personal-empty">Aucun document enregistré pour plus tard.</div>
+          </div>
+        </div>
+        <div class="personal-subsection" style="margin-top:18px;">
+          <div class="personal-subsection-title">Mes téléchargements</div>
+          <div id="personalDownloadsHistory" class="personal-list">
+            <div class="personal-empty">Aucun téléchargement enregistré pour le moment.</div>
+          </div>
         </div>
       </div>
     </div>
@@ -5500,7 +5534,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     params.set('limit', '5000');
     let res;
     try {
-      res = await fetch(`${SUPABASE_URL}/rest/v1/Document?${params.toString()}`, { headers: HEADERS, cache: 'no-store' });
+      res = await fetch(`${SUPABASE_URL}/rest/v1/Document?${params.toString()}`, { headers: HEADERS });
     } catch (e) {
       throw new Error('La vérification du document n’a pas pu être effectuée. Veuillez réessayer.');
     }
@@ -6918,7 +6952,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
   async function recupererDocumentPubliesPourDoublons() {
     const params = new URLSearchParams();
-    params.set('select','id,Titre,Niveau,Filiere,Classe,"Matière","Catégorie",Genre,Auteur,Fichier_url,created_at,Publie');
+    params.set('select','id,Titre,Niveau,Filiere,Classe,"Matière","Catégorie",Genre,Auteur,Fichier_url,Publie');
     params.set('Publie','eq.true');
     params.set('order','id.desc');
     params.set('limit','5000');
@@ -8167,6 +8201,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       a.click();
       a.remove();
       setTimeout(()=>URL.revokeObjectURL(objectUrl),60000);
+      enregistrerTelechargementPersonnel(doc);
       afficherCarteTelechargement(doc,'succes',100,total,total,`Fichier : ${nomExact} · Taille : ${formaterTailleTelechargement(total || blob.size)} · Merci d’avoir utilisé ${SITE_NOM}.`);
     } catch(e) {
       console.error('[Téléchargement document]',e);
@@ -8178,6 +8213,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         a.download=nomExact;
         a.rel='noopener';
         document.body.appendChild(a); a.click(); a.remove();
+        enregistrerTelechargementPersonnel(doc);
         afficherCarteTelechargement(doc,'succes',100,null,null,`Téléchargement lancé : ${nomExact} · Merci d’avoir utilisé ${SITE_NOM}.`);
       } catch(e2) {
         afficherCarteTelechargement(doc,'erreur',null,null,null,'Le téléchargement n’a pas pu être lancé.');
@@ -9014,7 +9050,12 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     if(listDocs) listDocs.innerHTML='<div class="personal-empty">Chargement de vos documents…</div>';
     if(listBooks) listBooks.innerHTML='<div class="personal-empty">Chargement de vos livres…</div>';
     if(listFavs) listFavs.innerHTML='<div class="personal-empty">Chargement de vos favoris…</div>';
+    // Les favoris sont indépendants des documents personnels : on lance leur
+    // récupération immédiatement pour ne pas attendre les autres requêtes.
+    const favorisEnArrierePlan=rendreFavorisPersonnels();
     if(listLater) listLater.innerHTML='<div class="personal-empty">Chargement de vos documents enregistrés…</div>';
+    const listDownloads=document.getElementById('personalDownloadsHistory');
+    if(listDownloads) listDownloads.innerHTML='<div class="personal-empty">Chargement de votre historique…</div>';
     try{
       // La table de liaison existe déjà dans le flux de dépôt : elle associe
       // document_id et user_id au compte authentifié. On la réutilise afin de
@@ -9042,8 +9083,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
       rendreDocumentsPersonnels();
       rendreLivresPersonnels();
-      rendreFavorisPersonnels();
       rendreDocumentsPlusTard();
+      rendreDocumentsTelecharges();
     }catch(err){
       console.warn('[Espace personnel]',err);
       MES_DOCUMENTS_PERSONNELS=[]; MES_LIVRES_PERSONNELS=[];
@@ -9117,10 +9158,18 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     if(!ids.length){list.innerHTML='<div class="personal-empty">Aucun favori pour le moment. Utilisez « ♡ Favori » sur un document du site.</div>';return;}
     list.innerHTML='<div class="personal-empty">Chargement de vos favoris…</div>';
     try{
-      const query=`id=in.(${ids.map(encodeURIComponent).join(',')})&Publie=eq.true`;
-      const r=await fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&${query}`,{headers:HEADERS});
-      if(!r.ok)throw new Error('favoris');
-      const docs=await r.json();
+      const cacheKey=ids.join(',');
+      const cached=favorisDocumentsCache.get(userKey());
+      let docs;
+      if(cached && cached.key===cacheKey && (Date.now()-cached.at)<FAVORIS_CACHE_TTL){
+        docs=cached.docs;
+      }else{
+        const query=`id=in.(${ids.map(encodeURIComponent).join(',')})&Publie=eq.true`;
+        const r=await fetch(`${SUPABASE_URL}/rest/v1/Document?select=id,Titre,Auteur,Fichier_url,"Catégorie",Niveau,"Matière",Genre,Telechargement_autorise,Publie&${query}`,{headers:HEADERS,cache:'force-cache'});
+        if(!r.ok)throw new Error('favoris');
+        docs=await r.json();
+        favorisDocumentsCache.set(userKey(),{key:cacheKey,docs,at:Date.now()});
+      }
       const order=new Map(ids.map((id,i)=>[String(id),i]));
       docs.sort((a,b)=>(order.get(String(a.id))??9999)-(order.get(String(b.id))??9999));
       list.innerHTML='';
@@ -9976,7 +10025,10 @@ footer>.wrap:last-child{margin-top:18px!important;}
 (function(){
   const KEY_FAV='aurore_favoris_documents_';
   const KEY_LATER='aurore_documents_plus_tard_';
+  const KEY_DOWNLOADS='aurore_documents_telecharges_';
   const KEY_CODE='aurore_code_espace_';
+  const FAVORIS_CACHE_TTL=30000;
+  const favorisDocumentsCache=new Map();
   const codeModal=document.getElementById('accessCodeModal');
   const codeInput=document.getElementById('accessCodeInput');
   const codeMsg=document.getElementById('accessCodeMessage');
@@ -9999,13 +10051,22 @@ footer>.wrap:last-child{margin-top:18px!important;}
   }
   function favoris(){return userKey()?safeRead(KEY_FAV+userKey()).map(String):[];}
   function plusTard(){return userKey()?safeRead(KEY_LATER+userKey()):[];}
+  function telecharges(){return userKey()?safeRead(KEY_DOWNLOADS+userKey()):[];}
+  function enregistrerTelechargementPersonnel(doc){
+    if(!session||!doc||doc.id==null)return;
+    const id=docId(doc); if(!id)return;
+    let arr=telecharges().filter(x=>String(x.id)!==id);
+    arr.unshift({id:doc.id,titre:doc.Titre||'Document',auteur:doc.Auteur||'',url:doc.Fichier_url||'',categorie:doc['Catégorie']||'',niveau:doc.Niveau||'',matiere:doc['Matière']||'',genre:doc.Genre||'',downloaded_at:new Date().toISOString()});
+    safeWrite(KEY_DOWNLOADS+userKey(),arr.slice(0,100));
+    rendreDocumentsTelecharges();
+  }
   function basculerFavoriDocument(doc,button){
     if(!session){requireLogin();return;}
     const id=docId(doc); if(!id)return;
     let arr=favoris(); const i=arr.indexOf(id);
     if(i>=0){arr.splice(i,1);if(button)button.classList.remove('is-active');}
     else{arr.push(id);if(button)button.classList.add('is-active');}
-    safeWrite(KEY_FAV+userKey(),arr); actualiserEtatActionsDocument(button?.closest('.doc-row,.recents-card')||button,doc);
+    safeWrite(KEY_FAV+userKey(),arr); favorisDocumentsCache.delete(userKey()); actualiserEtatActionsDocument(button?.closest('.doc-row,.recents-card')||button,doc);
   }
   function ajouterDocumentPlusTard(doc,button){
     if(!session){requireLogin();return;}
@@ -10024,6 +10085,21 @@ footer>.wrap:last-child{margin-top:18px!important;}
   window.basculerFavoriDocument=basculerFavoriDocument;
   window.ajouterDocumentPlusTard=ajouterDocumentPlusTard;
   window.actualiserEtatActionsDocument=actualiserEtatActionsDocument;
+
+  function rendreDocumentsTelecharges(){
+    const list=document.getElementById('personalDownloadsHistory'); if(!list||!session)return;
+    const arr=telecharges();
+    list.innerHTML='';
+    if(!arr.length){list.innerHTML='<div class="personal-empty">Aucun téléchargement enregistré pour le moment.</div>';return;}
+    arr.forEach(d=>{
+      const row=document.createElement('article'); row.className='personal-book';
+      const date=d.downloaded_at?new Date(d.downloaded_at).toLocaleString('fr-FR',{dateStyle:'medium',timeStyle:'short'}):'';
+      row.innerHTML=`<div class="personal-book-main"><div class="personal-book-title">${escapeTextePersonnel(d.titre)}</div><div class="personal-book-meta">Téléchargé${date?' · '+escapeTextePersonnel(date):''}</div></div><div class="personal-doc-actions"><button type="button" class="personal-action" data-lire-download>Voir</button></div>`;
+      row.querySelector('[data-lire-download]')?.addEventListener('click',()=>ouvrirLecteurPDF({id:d.id,Titre:d.titre,Auteur:d.auteur,Fichier_url:d.url,'Catégorie':d.categorie,Niveau:d.niveau,'Matière':d.matiere,Genre:d.genre}));
+      list.appendChild(row);
+    });
+  }
+  window.rendreDocumentsTelecharges=rendreDocumentsTelecharges;
 
   function rendreDocumentsPlusTard(){
     const list=document.getElementById('personalLaterList'); if(!list||!session)return;
@@ -10095,6 +10171,45 @@ footer>.wrap:last-child{margin-top:18px!important;}
 })();
 </script>
 
+
+<div class="pwa-install-hint" id="pwaInstallHint" role="dialog" aria-label="Installer Aurore">
+  <strong>Installer Aurore sur cet appareil</strong>
+  <span>Ajoutez Aurore à votre écran d’accueil pour l’ouvrir comme une application, sans l’interface habituelle du navigateur.</span>
+  <button type="button" id="pwaInstallHintBtn">Installer Aurore</button>
+</div>
+
+<script id="aurore-pwa-install">
+(function(){
+  'use strict';
+  var deferredPrompt=null;
+  var installBtn=document.getElementById('pwaInstallBtn');
+  var hint=document.getElementById('pwaInstallHint');
+  var hintBtn=document.getElementById('pwaInstallHintBtn');
+  function estInstallee(){return window.matchMedia && window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;}
+  function afficher(){if(estInstallee())return;if(installBtn)installBtn.style.display='inline-flex';}
+  function masquer(){if(installBtn)installBtn.style.display='none';if(hint)hint.style.display='none';}
+  function lancerInstallation(){
+    if(!deferredPrompt){
+      if(hint)hint.style.display='block';
+      return;
+    }
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(function(){deferredPrompt=null;masquer();}).catch(function(){deferredPrompt=null;});
+  }
+  window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferredPrompt=e;afficher();});
+  window.addEventListener('appinstalled',function(){deferredPrompt=null;masquer();});
+  if(installBtn)installBtn.addEventListener('click',lancerInstallation);
+  if(hintBtn)hintBtn.addEventListener('click',function(){lancerInstallation();});
+  if(!estInstallee()) setTimeout(function(){if(deferredPrompt)afficher();},1200);
+  if('serviceWorker' in navigator){
+    window.addEventListener('load',function(){
+      navigator.serviceWorker.register('./sw.js',{scope:'./'}).then(function(reg){
+        console.log('[Aurore PWA] Service worker actif.',reg.scope);
+      }).catch(function(err){console.warn('[Aurore PWA] Service worker indisponible :',err);});
+    });
+  }
+})();
+</script>
 </body>
 </html>
 
