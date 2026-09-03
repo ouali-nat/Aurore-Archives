@@ -2495,9 +2495,54 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     return HEADERS;
   }
 
-  function demarrerConnexionGoogle() {
-    const retour = window.location.origin + window.location.pathname;
-    window.location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(retour)}`;
+  // OAuth Google robuste : utilise PKCE pour que le retour fonctionne aussi
+  // lorsque Supabase/Google renvoie un paramètre ?code=... au lieu du hash.
+  function base64UrlEncode(bytes){
+    let bin=''; for(const b of bytes) bin+=String.fromCharCode(b);
+    return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  }
+  function genererVerifierPKCE(){
+    const bytes=new Uint8Array(32); crypto.getRandomValues(bytes); return base64UrlEncode(bytes);
+  }
+  async function creerChallengePKCE(verifier){
+    const data=new TextEncoder().encode(verifier);
+    const digest=await crypto.subtle.digest('SHA-256',data);
+    return base64UrlEncode(new Uint8Array(digest));
+  }
+  async function demarrerConnexionGoogle() {
+    try {
+      const retour = window.location.origin + window.location.pathname;
+      const verifier=genererVerifierPKCE();
+      const challenge=await creerChallengePKCE(verifier);
+      sessionStorage.setItem('aurore_pkce_verifier',verifier);
+      sessionStorage.setItem('aurore_oauth_return',retour);
+      const url=`${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(retour)}&code_challenge=${encodeURIComponent(challenge)}&code_challenge_method=s256`;
+      window.location.assign(url);
+    } catch(e) {
+      console.error('[Google OAuth] démarrage impossible',e);
+      const googleBtn=document.getElementById('accessGoogleBtn');
+      if(googleBtn){ googleBtn.classList.remove('is-loading'); const strong=googleBtn.querySelector('strong'); if(strong) strong.textContent='Continuer avec Google'; }
+      alert('Impossible de démarrer la connexion Google. Vérifiez votre connexion puis réessayez.');
+    }
+  }
+
+  async function echangerCodeOAuth(code){
+    const verifier=sessionStorage.getItem('aurore_pkce_verifier');
+    if(!verifier || !code) return null;
+    try {
+      const res=await fetchAuth(`${SUPABASE_URL}/auth/v1/token?grant_type=pkce`,{
+        method:'POST', headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+        body:JSON.stringify({auth_code:code,code_verifier:verifier})
+      });
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok || !data.access_token) throw new Error(data.error_description||data.msg||data.message||('HTTP '+res.status));
+      sessionStorage.removeItem('aurore_pkce_verifier');
+      sessionStorage.removeItem('aurore_oauth_return');
+      return data;
+    } catch(e){
+      console.error('[Google OAuth] échange du code impossible',e);
+      return null;
+    }
   }
 
   // Petit wrapper réseau pour les opérations d'authentification : évite qu'une
@@ -2857,7 +2902,31 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   window.addEventListener('load', async () => {
     // Le site doit devenir interactif le plus tôt possible. Les opérations
     // secondaires sont lancées sans bloquer l'affichage.
-    if (window.location.hash.includes('access_token')) {
+    const query=new URLSearchParams(window.location.search);
+    const oauthCode=query.get('code');
+    if(oauthCode){
+      // Retour OAuth PKCE : échange du code contre la vraie session Supabase.
+      window.history.replaceState({}, document.title, window.location.pathname);
+      const data=await echangerCodeOAuth(oauthCode);
+      if(data?.access_token){
+        const infos=await recupererUtilisateur(data.access_token);
+        if(infos){
+          const role=await assurerProfilEtObtenirRole(data.access_token,infos);
+          session={access_token:data.access_token,refresh_token:data.refresh_token||null,expires_at:Date.now()+((data.expires_in||3600)*1000),id:infos.id,email:infos.email,nom:infos.nom,avatar:infos.avatar,lycee:infos.lycee||'',niveau:infos.niveau||'',classe:infos.classe||'',filiere:infos.filiere||'',provider:'Google',role,user_metadata:infos.user_metadata||{}};
+          sauvegarderSession(); afficherUtilisateurConnecte(); unlock();
+          enregistrerConnexion(session);
+          if(profilEstComplet(session)) afficherBienvenueApresConnexion(session);
+          else ouvrirEspacePersonnelObligatoire();
+        }
+      } else {
+        sessionStorage.removeItem('aurore_pkce_verifier');
+        sessionStorage.removeItem('aurore_oauth_return');
+        const googleBtn=document.getElementById('accessGoogleBtn');
+        if(googleBtn){googleBtn.classList.remove('is-loading'); const strong=googleBtn.querySelector('strong'); if(strong) strong.textContent='Continuer avec Google';}
+        const accessMsg=document.querySelector('#accessLock .access-message');
+        if(accessMsg){accessMsg.textContent='La connexion Google n’a pas pu être finalisée. Réessayez.';accessMsg.className='access-message err';accessMsg.style.display='block';}
+      }
+    } else if (window.location.hash.includes('access_token')) {
       const params = new URLSearchParams(window.location.hash.substring(1));
       const access_token = params.get('access_token');
       const refresh_token = params.get('refresh_token');
