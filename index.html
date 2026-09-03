@@ -10242,32 +10242,72 @@ footer>.wrap:last-child{margin-top:18px!important;}
 
   async function synchroniserRessourcesSupabase(){
     if(!session?.id||!session?.access_token)return;
-    // Favoris
-    try{
-      const raw=await apiPersonnel(TABLE_FAVORIS_PERSONNELS,{query:`select=document_id&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc`});
-      const rows=raw?JSON.parse(raw):[];
-      const ids=(rows||[]).map(x=>String(x.document_id)).filter(Boolean);
-      if(ids.length)safeWrite(KEY_FAV+userKey(),ids);
-      else if(localStorage.getItem(KEY_FAV+userKey())===null)safeWrite(KEY_FAV+userKey(),[]);
-    }catch(e){console.warn('[Espace personnel] favoris Supabase indisponibles, conservation du cache local.',e);}
 
-    // « Plus tard »
-    try{
-      const raw=await apiPersonnel(TABLE_PLUS_TARD_PERSONNELS,{query:`select=document_id,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc`});
-      const rows=raw?JSON.parse(raw):[];
-      if(rows.length)safeWrite(KEY_LATER+userKey(),rows.map(x=>({id:x.document_id,saved_at:x.created_at})).filter(x=>x.id!=null));
-      else if(localStorage.getItem(KEY_LATER+userKey())===null)safeWrite(KEY_LATER+userKey(),[]);
-    }catch(e){console.warn('[Espace personnel] Plus tard Supabase indisponible, conservation du cache local.',e);}
+    // Chaque ressource est indépendante : une requête lente ou en erreur
+    // ne peut plus maintenir les autres onglets en "Chargement…".
+    const chargerFavoris=async()=>{
+      try{
+        const raw=await apiPersonnel(TABLE_FAVORIS_PERSONNELS,{
+          query:`select=document_id&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc`
+        });
+        const rows=raw?JSON.parse(raw):[];
+        const ids=(Array.isArray(rows)?rows:[])
+          .map(x=>String(x.document_id??'').trim()).filter(Boolean);
+        safeWrite(KEY_FAV+userKey(),ids);
+      }catch(e){
+        console.warn('[Espace personnel] favoris Supabase:',e);
+        if(localStorage.getItem(KEY_FAV+userKey())===null)safeWrite(KEY_FAV+userKey(),[]);
+      }finally{
+        // Toujours sortir de l'état "Chargement".
+        try{await rendreFavorisPersonnels();}catch(e){console.warn('[Favoris] rendu:',e);}
+        actualiserCompteursPersonnels();
+      }
+    };
 
-    // Historique des téléchargements
-    try{
-      const raw=await apiPersonnel(TABLE_TELECHARGEMENTS_PERSONNELS,{query:`select=id,document_id,titre_document,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc&limit=100`});
-      const rows=raw?JSON.parse(raw):[];
-      if(rows.length){
-        safeWrite(KEY_DOWNLOADS+userKey(),rows.map(x=>({id:x.document_id,titre:x.titre_document||'Document',downloaded_at:x.created_at})).filter(x=>x.id!=null));
-      }else if(localStorage.getItem(KEY_DOWNLOADS+userKey())===null)safeWrite(KEY_DOWNLOADS+userKey(),[]);
-    }catch(e){console.warn('[Espace personnel] téléchargements Supabase indisponibles, conservation du cache local.',e);}
-    actualiserCompteursPersonnels();
+    const chargerPlusTard=async()=>{
+      try{
+        const raw=await apiPersonnel(TABLE_PLUS_TARD_PERSONNELS,{
+          query:`select=document_id,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc`
+        });
+        const rows=raw?JSON.parse(raw):[];
+        safeWrite(KEY_LATER+userKey(),(Array.isArray(rows)?rows:[])
+          .map(x=>({id:x.document_id,saved_at:x.created_at})).filter(x=>x.id!=null));
+      }catch(e){
+        console.warn('[Espace personnel] Plus tard Supabase:',e);
+        if(localStorage.getItem(KEY_LATER+userKey())===null)safeWrite(KEY_LATER+userKey(),[]);
+      }finally{
+        rendreDocumentsPlusTard();
+        actualiserCompteursPersonnels();
+      }
+    };
+
+    const chargerTelechargements=async()=>{
+      try{
+        const raw=await apiPersonnel(TABLE_TELECHARGEMENTS_PERSONNELS,{
+          query:`select=id,document_id,titre_document,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc&limit=100`
+        });
+        const rows=raw?JSON.parse(raw):[];
+        safeWrite(KEY_DOWNLOADS+userKey(),(Array.isArray(rows)?rows:[])
+          .map(x=>({
+            id:x.document_id,
+            titre:x.titre_document||'Document',
+            downloaded_at:x.created_at
+          })).filter(x=>x.id!=null));
+      }catch(e){
+        console.warn('[Espace personnel] téléchargements Supabase:',e);
+        if(localStorage.getItem(KEY_DOWNLOADS+userKey())===null)safeWrite(KEY_DOWNLOADS+userKey(),[]);
+      }finally{
+        rendreDocumentsTelecharges();
+        actualiserCompteursPersonnels();
+      }
+    };
+
+    // Lancement simultané : les trois ressources ne se bloquent plus entre elles.
+    await Promise.allSettled([
+      chargerFavoris(),
+      chargerPlusTard(),
+      chargerTelechargements()
+    ]);
   }
 
   async function synchroniserFavoriSupabase(docIdValue, active){
