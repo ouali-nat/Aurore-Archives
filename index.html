@@ -1408,6 +1408,11 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
   @media(max-width:760px){.access-card{max-width:560px}.access-panels{grid-template-columns:1fr}.access-panel-alt{min-height:0}.access-alt-scroll{max-height:220px}.profile-fields-grid{grid-template-columns:1fr;}}
 
+  .modal-secondary-link{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:10px 16px;border:1px solid var(--bordure);border-radius:13px;background:var(--fond);color:var(--encre);font:inherit;font-size:.78rem;font-weight:700;line-height:1.25;text-align:center;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease,opacity .15s ease;box-shadow:0 7px 18px rgba(55,36,82,.06)}
+  .modal-secondary-link:hover:not(:disabled){transform:translateY(-1px);border-color:rgba(167,139,250,.55);box-shadow:0 10px 24px rgba(55,36,82,.10)}
+  .modal-secondary-link:disabled{cursor:not-allowed;opacity:.72}
+  .modal-secondary-link.is-counting{font-variant-numeric:tabular-nums}
+  .access-message{border-radius:13px !important}
   @media(max-width:520px){.access-lock{padding:14px}.access-card-body{padding:24px 20px 20px}.access-tabs{margin-left:-20px;margin-right:-20px;padding-left:20px;padding-right:20px}.access-logo{width:52px;height:52px;flex-basis:52px;border-radius:14px}.signup-card{padding:23px 19px}}
 </style>
 
@@ -1426,10 +1431,46 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   const loginSwitch=document.getElementById('accountLoginSwitch');
   const resend=document.getElementById('signupResend');
   let dernierEmailInscription='';
+  let resendTimer=null;
+  let resendSecondesRestantes=0;
   const msg=document.getElementById('signupMessage');
   const loginMsg=document.getElementById('loginMessage');
+  const redirectConfirmation=()=>window.location.origin+window.location.pathname;
+
+  function afficherMessageInscription(texte,type='ok'){
+    msg.textContent=texte;
+    msg.className='access-message '+type;
+    msg.style.display='block';
+  }
+
+  function demarrerCompteAReboursResend(secondes=60){
+    if(!resend) return;
+    if(resendTimer) clearInterval(resendTimer);
+    resendSecondesRestantes=secondes;
+    resend.disabled=true;
+    resend.classList.add('is-counting');
+    const afficher=()=>{
+      if(resendSecondesRestantes>0){
+        resend.textContent=`Renvoyer l’e-mail dans ${resendSecondesRestantes}s`;
+      }else{
+        clearInterval(resendTimer);
+        resendTimer=null;
+        resend.disabled=false;
+        resend.classList.remove('is-counting');
+        resend.textContent='Renvoyer l’e-mail de confirmation';
+      }
+    };
+    afficher();
+    resendTimer=setInterval(()=>{resendSecondesRestantes--;afficher();},1000);
+  }
+
+  function arreterCompteAReboursResend(){
+    if(resendTimer) clearInterval(resendTimer);
+    resendTimer=null; resendSecondesRestantes=0;
+    if(resend){ resend.disabled=false; resend.classList.remove('is-counting'); resend.textContent='Renvoyer l’e-mail de confirmation'; }
+  }
   function afficherModeConnexionEmail(){ form.style.display='none'; loginForm.style.display='grid'; loginSwitch.style.display='none'; setTimeout(()=>document.getElementById('loginEmail')?.focus(),50); }
-  function afficherModeInscription(){ form.style.display='grid'; loginForm.style.display='none'; loginSwitch.style.display='flex'; if(resend) resend.style.display='none'; }
+  function afficherModeInscription(){ form.style.display='grid'; loginForm.style.display='none'; loginSwitch.style.display='flex'; if(resend){ arreterCompteAReboursResend(); resend.style.display='none'; } }
   function unlock(){ document.body.classList.remove('site-locked'); if(lock) lock.style.display='none'; }
   window.auroreUnlockAccess=unlock;
   visitor?.addEventListener('click',()=>{ try{localStorage.setItem('aurore_visitor_mode','1');}catch(e){} unlock(); });
@@ -1448,27 +1489,32 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   resend?.addEventListener('click',async ()=>{
     const email=(dernierEmailInscription||document.getElementById('signupEmail')?.value||'').trim();
     if(!email){
-      msg.textContent='Saisissez votre adresse e-mail pour renvoyer le message de confirmation.';
-      msg.className='access-message err'; msg.style.display='block'; return;
+      afficherMessageInscription('Saisissez votre adresse e-mail pour renvoyer le message de confirmation.','err');
+      return;
     }
+    if(resend.disabled) return;
     dernierEmailInscription=email;
-    resend.disabled=true; resend.textContent='Envoi en cours…'; msg.style.display='none';
+    resend.disabled=true; resend.textContent='Envoi de l’e-mail…'; msg.style.display='none';
     try{
-      const r=await fetch(`${SUPABASE_URL}/auth/v1/resend`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({type:'signup',email})});
+      const r=await fetch(`${SUPABASE_URL}/auth/v1/resend`,{
+        method:'POST',
+        headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+        body:JSON.stringify({type:'signup',email,options:{emailRedirectTo:redirectConfirmation()}})
+      });
       const raw=await r.text(); let d={};
       try{d=raw?JSON.parse(raw):{}}catch(_){d={message:raw}}
       if(!r.ok){
         const detail=d.msg||d.error_description||d.message||raw||('HTTP '+r.status);
         if(r.status===429) throw new Error('Trop de demandes. Attendez quelques instants avant de réessayer.');
-        if(r.status===422 && /already|confirm/i.test(detail)) throw new Error('Cette adresse e-mail est peut-être déjà confirmée. Vous pouvez essayer de vous connecter.');
+        if(r.status===422 && /already|confirm/i.test(detail)) throw new Error('Cette adresse e-mail est peut-être déjà confirmée. Connectez-vous pour accéder à votre espace.');
         throw new Error(detail);
       }
-      msg.textContent='E-mail de confirmation renvoyé. Vérifiez votre boîte de réception et les courriers indésirables.';
-      msg.className='access-message ok'; msg.style.display='block';
+      afficherMessageInscription('E-mail de confirmation renvoyé. Vérifiez votre boîte de réception et les courriers indésirables.','ok');
+      demarrerCompteAReboursResend(60);
     }catch(e){
-      msg.textContent='Impossible de renvoyer l’e-mail : '+(e.message||'erreur inconnue');
-      msg.className='access-message err'; msg.style.display='block';
-    }finally{resend.disabled=false;resend.textContent='Renvoyer l’e-mail de confirmation';}
+      afficherMessageInscription('Impossible de renvoyer l’e-mail : '+(e.message||'erreur inconnue'),'err');
+      arreterCompteAReboursResend();
+    }
   });
 
   loginForm?.addEventListener('submit',async e=>{
@@ -1492,7 +1538,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     msg.style.display='none'; if(p!==p2){msg.textContent='Les deux mots de passe ne correspondent pas.';msg.className='access-message err';msg.style.display='block';return;} if(p.length<8){msg.textContent='Le mot de passe doit contenir au moins 8 caractères.';msg.className='access-message err';msg.style.display='block';return;}
     btn.disabled=true;btn.textContent='Création en cours…';
     try{
-      const r=await fetch(`${SUPABASE_URL}/auth/v1/signup`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password:p,data:{full_name:name,name}})}); const d=await r.json().catch(()=>({}));
+      const r=await fetch(`${SUPABASE_URL}/auth/v1/signup`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password:p,data:{full_name:name,name},options:{emailRedirectTo:redirectConfirmation()}})}); const d=await r.json().catch(()=>({}));
       if(!r.ok) throw new Error(d.msg||d.error_description||d.message||('HTTP '+r.status));
       if(d.access_token){
         const infos=await recupererUtilisateur(d.access_token); if(infos){const role=await assurerProfilEtObtenirRole(d.access_token,infos);session={access_token:d.access_token,refresh_token:d.refresh_token||null,expires_at:Date.now()+((d.expires_in||3600)*1000),id:infos.id,email:infos.email,nom:infos.nom,avatar:infos.avatar,lycee:infos.lycee||'',niveau:infos.niveau||'',classe:infos.classe||'',filiere:infos.filiere||'',provider:infos.provider||'E-mail',role};sauvegarderSession();enregistrerConnexion(session);afficherUtilisateurConnecte();unlock();fermer();ouvrirEspacePersonnelObligatoire();}
