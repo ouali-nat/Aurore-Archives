@@ -12,16 +12,16 @@
   "theme_color": "#090812",
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "icon-512.png",
+      "src": "https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }
