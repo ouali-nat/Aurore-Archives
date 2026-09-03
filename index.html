@@ -9428,36 +9428,40 @@ img,video,canvas,iframe{
 }
 
 @media (max-width:900px) and (orientation:portrait){
+  /* Vue paysage simulée : on conserve un vrai défilement vertical.
+     L'ancienne rotation CSS de tout le document faisait tourner aussi l'axe
+     de défilement et bloquait le contenu sur Chrome Android. */
   body.vue-paysage{
-    width:100vh;
-    min-width:100vh;
-    max-width:100vh;
-    min-height:100vw;
-    overflow:hidden!important;
+    width:100%;
+    min-width:0;
+    max-width:none;
+    min-height:100vh;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
     background:var(--aurore-bg,#F7F4FB);
   }
   body.vue-paysage .aurore-app-viewport{
-    width:100vh;
-    min-width:100vh;
-    min-height:100vw;
+    width:100%;
+    min-width:0;
+    min-height:100vh;
     height:auto;
-    transform:rotate(90deg) translateY(-100%);
-    transform-origin:top left;
-    overflow:visible;
+    transform:none!important;
+    transform-origin:initial;
+    overflow:visible!important;
   }
   body.vue-paysage .aurore-app-viewport > header{
-    width:100vh!important;
+    width:100%!important;
   }
   body.vue-paysage .aurore-app-viewport > main{
-    width:100vh!important;
-    max-width:100vh!important;
+    width:100%!important;
+    max-width:100%!important;
   }
   body.vue-paysage .aurore-app-viewport .wrap{
-    width:min(94vh,1100px)!important;
+    width:94%!important;
     max-width:1100px!important;
   }
   body.vue-paysage .aurore-app-viewport .header-inner{
-    width:min(94vh,1100px)!important;
+    width:94%!important;
     max-width:1100px!important;
     flex-wrap:nowrap!important;
   }
@@ -9483,10 +9487,10 @@ img,video,canvas,iframe{
 
 @media (max-width:600px) and (orientation:portrait){
   body.vue-paysage .aurore-app-viewport .wrap{
-    width:94vh!important;
+    width:94%!important;
   }
   body.vue-paysage .aurore-app-viewport .header-inner{
-    width:94vh!important;
+    width:94%!important;
   }
   body.vue-paysage .aurore-app-viewport .brand-logo{
     width:40px!important; height:40px!important;
@@ -9503,6 +9507,17 @@ img,video,canvas,iframe{
   .orientation-toggle span{display:none;}
   .orientation-toggle{min-width:40px;padding:8px;}
 }
+@media (max-width:900px) and (orientation:portrait){
+  body.vue-paysage,
+  body.vue-paysage .aurore-app-viewport{
+    overscroll-behavior-y:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+  }
+  body.vue-paysage .aurore-app-viewport > main{
+    overflow:visible!important;
+  }
+}
+
 </style>
 </body>
 </html>
