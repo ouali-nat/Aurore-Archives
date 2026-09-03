@@ -9088,27 +9088,53 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     rendreDocumentsPlusTard();
     rendreDocumentsTelecharges();
 
-    // 1) Dépôts personnels : lecture sécurisée de la table de liaison si la RLS
-    // l'autorise. Sinon, le cache local des dépôts reste affichable.
+    // 1) Dépôts personnels : on utilise en priorité le RPC sécurisé
+    // lister_documents_personnels() (SECURITY DEFINER), qui contourne la RLS
+    // de "Depots_deposants" (laquelle n'autorise que l'admin en lecture
+    // directe) tout en ne renvoyant QUE les documents de l'utilisateur
+    // connecté. Si ce RPC n'existe pas encore côté Supabase (function non
+    // créée), on retombe automatiquement sur l'ancienne lecture directe,
+    // puis sur le cache local — rien n'est cassé tant que le SQL n'a pas
+    // été exécuté.
     let docs=[];
+    let rpcOk=false;
     try{
-      const dr=await fetch(`${SUPABASE_URL}/rest/v1/Depots_deposants?select=document_id,user_id,nom,email&user_id=eq.${encodeURIComponent(session.id)}`,{headers:headersAdmin(),cache:'no-store'});
-      if(!dr.ok) throw new Error(`Depots_deposants HTTP ${dr.status}`);
-      const links=await dr.json();
-      const ids=[...(links||[])].map(r=>r.document_id).filter(v=>v!==null&&v!==undefined);
-      if(ids.length){
-        const qr=`id=in.(${ids.map(v=>encodeURIComponent(v)).join(',')})`;
-        const rr=await fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&${qr}&order=id.desc`,{headers:headersAdmin(),cache:'no-store'});
-        if(!rr.ok) throw new Error(`Document HTTP ${rr.status}`);
-        const data=await rr.json();
+      const rpcRes=await fetch(`${SUPABASE_URL}/rest/v1/rpc/lister_documents_personnels`,{
+        method:'POST',
+        headers:{...headersAdmin(),'Content-Type':'application/json'},
+        cache:'no-store'
+      });
+      if(rpcRes.ok){
+        const data=await rpcRes.json();
         docs=Array.isArray(data)?data:[];
-        // Une lecture serveur réussie devient le cache local de référence pour
-        // les prochaines ouvertures hors ligne ou soumises à une RLS plus stricte.
+        rpcOk=true;
         docs.forEach(d=>memoriserDepotPersonnelLocal(d));
+      } else {
+        console.warn(`[Espace personnel] RPC lister_documents_personnels indisponible (HTTP ${rpcRes.status}) — bascule sur la lecture directe.`);
       }
     }catch(err){
-      console.warn('[Espace personnel] lecture distante des dépôts indisponible, utilisation du cache local :',err);
-      docs=depotsPersonnelsLocaux();
+      console.warn('[Espace personnel] RPC lister_documents_personnels injoignable — bascule sur la lecture directe.',err);
+    }
+    if(!rpcOk){
+      try{
+        const dr=await fetch(`${SUPABASE_URL}/rest/v1/Depots_deposants?select=document_id,user_id,nom,email&user_id=eq.${encodeURIComponent(session.id)}`,{headers:headersAdmin(),cache:'no-store'});
+        if(!dr.ok) throw new Error(`Depots_deposants HTTP ${dr.status}`);
+        const links=await dr.json();
+        const ids=[...(links||[])].map(r=>r.document_id).filter(v=>v!==null&&v!==undefined);
+        if(ids.length){
+          const qr=`id=in.(${ids.map(v=>encodeURIComponent(v)).join(',')})`;
+          const rr=await fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&${qr}&order=id.desc`,{headers:headersAdmin(),cache:'no-store'});
+          if(!rr.ok) throw new Error(`Document HTTP ${rr.status}`);
+          const data=await rr.json();
+          docs=Array.isArray(data)?data:[];
+          // Une lecture serveur réussie devient le cache local de référence pour
+          // les prochaines ouvertures hors ligne ou soumises à une RLS plus stricte.
+          docs.forEach(d=>memoriserDepotPersonnelLocal(d));
+        }
+      }catch(err){
+        console.warn('[Espace personnel] lecture distante des dépôts indisponible, utilisation du cache local :',err);
+        docs=depotsPersonnelsLocaux();
+      }
     }
 
     // Les notifications personnelles sont chargées séparément afin qu'un
