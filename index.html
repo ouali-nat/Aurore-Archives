@@ -1454,7 +1454,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     dernierEmailInscription=email;
     resend.disabled=true; resend.textContent='Envoi en cours…'; msg.style.display='none';
     try{
-      const r=await fetch(`${SUPABASE_URL}/auth/v1/resend`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({type:'signup',email})});
+      const r=await fetchAuth(`${SUPABASE_URL}/auth/v1/resend`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({type:'signup',email})});
       const raw=await r.text(); let d={};
       try{d=raw?JSON.parse(raw):{}}catch(_){d={message:raw}}
       if(!r.ok){
@@ -1476,12 +1476,15 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const email=document.getElementById('loginEmail').value.trim(), password=document.getElementById('loginPassword').value, btn=document.getElementById('loginSubmit');
     btn.disabled=true; btn.textContent='Connexion en cours…';
     try{
-      const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+      const r=await fetchAuth(`${SUPABASE_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password})});
       const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error_description||d.msg||d.message||'Identifiants invalides.');
       const infos=await recupererUtilisateur(d.access_token); if(!infos) throw new Error('Impossible de charger votre profil.');
       const role=await assurerProfilEtObtenirRole(d.access_token,infos);
       session={access_token:d.access_token,refresh_token:d.refresh_token||null,expires_at:Date.now()+((d.expires_in||3600)*1000),id:infos.id,email:infos.email,nom:infos.nom,avatar:infos.avatar,lycee:infos.lycee||'',niveau:infos.niveau||'',classe:infos.classe||'',filiere:infos.filiere||'',provider:infos.provider||'E-mail',role};
-      sauvegarderSession(); await enregistrerConnexion(session); afficherUtilisateurConnecte(); unlock(); fermer();
+      sauvegarderSession();
+      // L'enregistrement de la connexion ne doit pas ralentir l'accès au site.
+      enregistrerConnexion(session);
+      afficherUtilisateurConnecte(); unlock(); fermer();
       if(profilEstComplet(session)) afficherBienvenueApresConnexion(session); else ouvrirEspacePersonnelObligatoire();
     }catch(err){loginMsg.textContent=err.message||'Impossible de vous connecter.';loginMsg.className='access-message err';loginMsg.style.display='block';}
     finally{btn.disabled=false;btn.textContent='SE CONNECTER';}
@@ -1492,7 +1495,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     msg.style.display='none'; if(p!==p2){msg.textContent='Les deux mots de passe ne correspondent pas.';msg.className='access-message err';msg.style.display='block';return;} if(p.length<8){msg.textContent='Le mot de passe doit contenir au moins 8 caractères.';msg.className='access-message err';msg.style.display='block';return;}
     btn.disabled=true;btn.textContent='Création en cours…';
     try{
-      const r=await fetch(`${SUPABASE_URL}/auth/v1/signup`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password:p,data:{full_name:name,name}})}); const d=await r.json().catch(()=>({}));
+      const r=await fetchAuth(`${SUPABASE_URL}/auth/v1/signup`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password:p,data:{full_name:name,name}})}); const d=await r.json().catch(()=>({}));
       if(!r.ok) throw new Error(d.msg||d.error_description||d.message||('HTTP '+r.status));
       if(d.access_token){
         const infos=await recupererUtilisateur(d.access_token); if(infos){const role=await assurerProfilEtObtenirRole(d.access_token,infos);session={access_token:d.access_token,refresh_token:d.refresh_token||null,expires_at:Date.now()+((d.expires_in||3600)*1000),id:infos.id,email:infos.email,nom:infos.nom,avatar:infos.avatar,lycee:infos.lycee||'',niveau:infos.niveau||'',classe:infos.classe||'',filiere:infos.filiere||'',provider:infos.provider||'E-mail',role};sauvegarderSession();enregistrerConnexion(session);afficherUtilisateurConnecte();unlock();fermer();ouvrirEspacePersonnelObligatoire();}
@@ -2497,65 +2500,81 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     window.location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(retour)}`;
   }
 
-  async function recupererUtilisateur(access_token) {
-    const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": "Bearer " + access_token }
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const meta = data.user_metadata || {};
-    let profil = {};
+  // Petit wrapper réseau pour les opérations d'authentification : évite qu'une
+  // requête bloquée fasse attendre indéfiniment l'interface. Les appels lourds
+  // (upload/PDF) continuent d'utiliser fetch() directement.
+  async function fetchAuth(url, options={}, timeout=12000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
     try {
-      const pr = await fetch(`${SUPABASE_URL}/rest/v1/Profils?select=lycee,niveau,classe,filiere&id=eq.${encodeURIComponent(data.id)}&limit=1`, {
-        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + access_token }
-      });
-      if (pr.ok) { const rows = await pr.json().catch(() => []); if (rows[0]) profil = rows[0]; }
-    } catch (e) {}
-    return {
-      id: data.id,
-      email: data.email,
-      nom: (meta.full_name || meta.name) || data.email,
-      avatar: (meta.avatar_url || meta.picture) || null,
-      lycee: profil.lycee || meta.lycee || '',
-      niveau: profil.niveau || meta.niveau || '',
-      classe: profil.classe || meta.classe || '',
-      filiere: profil.filiere || meta.filiere || '',
-      provider: (data.app_metadata && Array.isArray(data.app_metadata.providers) && data.app_metadata.providers.includes('google')) ? 'Google' : 'E-mail'
-    };
+      return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
-  // Crée le profil au premier login (ne touche jamais à un profil existant,
-  // donc ne peut jamais écraser un rôle déjà attribué). Puis lit le rôle réel.
+  async function recupererUtilisateur(access_token) {
+    try {
+      const headers = { "apikey": SUPABASE_ANON_KEY, "Authorization": "Bearer " + access_token };
+      const sub = (decoderPayloadJWT(access_token)||{}).sub || '';
+      // Auth et profil sont lus en parallèle. On récupère le rôle dans la même
+      // requête profil afin d'éviter le vieux schéma insert -> select.
+      const [authRes, profilRes] = await Promise.all([
+        fetchAuth(`${SUPABASE_URL}/auth/v1/user`, { headers }),
+        fetchAuth(`${SUPABASE_URL}/rest/v1/Profils?select=lycee,niveau,classe,filiere,role&id=eq.${encodeURIComponent(sub)}&limit=1`, { headers }).catch(() => null)
+      ]);
+      if (!authRes.ok) return null;
+      const data = await authRes.json();
+      const meta = data.user_metadata || {};
+      let profil = {};
+      if (profilRes && profilRes.ok) {
+        const rows = await profilRes.json().catch(() => []);
+        if (rows[0]) profil = rows[0];
+      }
+      return {
+        id: data.id,
+        email: data.email,
+        nom: (meta.full_name || meta.name) || data.email,
+        avatar: (meta.avatar_url || meta.picture) || null,
+        lycee: profil.lycee || meta.lycee || '',
+        niveau: profil.niveau || meta.niveau || '',
+        classe: profil.classe || meta.classe || '',
+        filiere: profil.filiere || meta.filiere || '',
+        role: profil.role || null,
+        provider: (data.app_metadata && Array.isArray(data.app_metadata.providers) && data.app_metadata.providers.includes('google')) ? 'Google' : 'E-mail',
+        user_metadata: meta
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Crée le profil uniquement s'il n'existe pas. En temps normal, la lecture
+  // de recupererUtilisateur() fournit déjà le rôle : aucun aller-retour
+  // supplémentaire n'est alors nécessaire. Cela accélère fortement chaque login.
   async function assurerProfilEtObtenirRole(access_token, infos) {
+    if (infos?.role) return infos.role;
     const headersToken = { "apikey": SUPABASE_ANON_KEY, "Authorization": "Bearer " + access_token, "Content-Type": "application/json" };
     try {
-      const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/Profils?on_conflict=id`, {
+      const insertRes = await fetchAuth(`${SUPABASE_URL}/rest/v1/Profils?on_conflict=id`, {
         method: 'POST',
         headers: { ...headersToken, "Prefer": "resolution=ignore-duplicates,return=representation" },
         body: JSON.stringify({ id: infos.id, email: infos.email, nom: infos.nom, classe: null, role: 'eleve' })
       });
-      const insertText = await insertRes.text().catch(() => '');
       if (!insertRes.ok) {
-        console.error('[Profils] échec de la création', insertRes.status, insertText);
-        alert("Votre profil n’a pas pu être créé pour le moment. Veuillez réessayer dans quelques instants.");
+        const detail = await insertRes.text().catch(() => '');
+        console.warn('[Profils] création/lecture différée', insertRes.status, detail);
+      } else {
+        const created = await insertRes.json().catch(() => []);
+        if (created?.[0]?.role) return created[0].role;
       }
-
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/Profils?select=role&id=eq.${infos.id}`, { headers: headersToken });
-      const selectText = await res.text().catch(() => '');
-      if (!res.ok) {
-        console.error('[Profils] échec de la lecture', res.status, selectText);
-        alert("Votre profil n’a pas pu être chargé pour le moment. Veuillez réessayer dans quelques instants.");
-        return 'eleve';
-      }
-      let rows;
-      try { rows = JSON.parse(selectText); } catch (e) { rows = []; }
-      if (!rows || rows.length === 0) {
-        alert("Le profil n'a pas été trouvé après création. Réponse de l'insertion : " + insertText);
-        return 'eleve';
-      }
-      return rows[0].role || 'eleve';
+      // Seulement si le profil était absent au premier passage.
+      const res = await fetchAuth(`${SUPABASE_URL}/rest/v1/Profils?select=role&id=eq.${encodeURIComponent(infos.id)}&limit=1`, { headers: headersToken });
+      if (!res.ok) return 'eleve';
+      const rows = await res.json().catch(() => []);
+      return rows?.[0]?.role || 'eleve';
     } catch (e) {
-      alert("Une erreur de connexion a empêché la création de votre profil. Vérifiez votre connexion puis réessayez.");
+      console.warn('[Profils] vérification différée', e);
       return 'eleve';
     }
   }
@@ -2566,16 +2585,23 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   // elle ne modifie en rien le système d'authentification existant.
   async function enregistrerConnexion(sess) {
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/Connexions`, {
-        method: 'POST',
-        headers: {
-          "apikey": SUPABASE_ANON_KEY,
-          "Authorization": "Bearer " + sess.access_token,
-          "Content-Type": "application/json",
-          "Prefer": "return=minimal"
-        },
-        body: JSON.stringify({ user_id: sess.id, email: sess.email, nom: sess.nom })
-      });
+      const payload = JSON.stringify({ user_id: sess.id, email: sess.email, nom: sess.nom });
+      // Cette écriture secondaire ne doit jamais retarder l'ouverture du site.
+      const url = `${SUPABASE_URL}/rest/v1/Connexions`;
+      const headers = {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": "Bearer " + sess.access_token,
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal"
+      };
+      if (navigator.sendBeacon) {
+        const blob = new Blob([payload], { type: 'application/json' });
+        // sendBeacon ne permet pas de définir les headers : on garde fetch en
+        // priorité et le beacon comme filet de sécurité lors de la navigation.
+        fetch(url, { method:'POST', headers, body:payload, keepalive:true }).catch(()=>{});
+      } else {
+        fetch(url, { method:'POST', headers, body:payload, keepalive:true }).catch(()=>{});
+      }
     } catch (e) {
       console.error('[Connexions] échec de l\'enregistrement', e);
     }
@@ -2589,7 +2615,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   async function rafraichirSession() {
     if (!session || !session.refresh_token) return false;
     try {
-      const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+      const res = await fetchAuth(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
         method: 'POST',
         headers: { "apikey": SUPABASE_ANON_KEY, "Content-Type": "application/json" },
         body: JSON.stringify({ refresh_token: session.refresh_token })
@@ -2829,42 +2855,54 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   }
 
   window.addEventListener('load', async () => {
-    // 1. Retour de Google/Supabase : les jetons arrivent dans le fragment d'URL
+    // Le site doit devenir interactif le plus tôt possible. Les opérations
+    // secondaires sont lancées sans bloquer l'affichage.
     if (window.location.hash.includes('access_token')) {
       const params = new URLSearchParams(window.location.hash.substring(1));
       const access_token = params.get('access_token');
       const refresh_token = params.get('refresh_token');
       const expires_in = parseInt(params.get('expires_in') || '3600', 10);
+      window.history.replaceState({}, document.title, window.location.pathname);
+
       const infos = await recupererUtilisateur(access_token);
       if (infos) {
         const role = await assurerProfilEtObtenirRole(access_token, infos);
-        session = { access_token, refresh_token, expires_at: Date.now() + expires_in * 1000, id: infos.id, email: infos.email, nom: infos.nom, avatar: infos.avatar, lycee: infos.lycee || '', niveau: infos.niveau || '', classe: infos.classe || '', filiere: infos.filiere || '', provider: infos.provider || 'Google', role };
+        session = { access_token, refresh_token, expires_at: Date.now() + expires_in * 1000, id: infos.id, email: infos.email, nom: infos.nom, avatar: infos.avatar, lycee: infos.lycee || '', niveau: infos.niveau || '', classe: infos.classe || '', filiere: infos.filiere || '', provider: infos.provider || 'E-mail', role, user_metadata: infos.user_metadata || {} };
         sauvegarderSession();
+        afficherUtilisateurConnecte();
+        unlock();
+        // Journalisation et notifications sont totalement hors du chemin critique.
         enregistrerConnexion(session);
-        if (profilEstComplet(session)) {
-          afficherBienvenueApresConnexion(session);
-        } else {
-          ouvrirEspacePersonnelObligatoire();
-        }
+        if (profilEstComplet(session)) afficherBienvenueApresConnexion(session);
+        else ouvrirEspacePersonnelObligatoire();
       }
-      // Nettoie l'URL pour ne pas laisser le jeton visible dans la barre d'adresse
-      window.history.replaceState({}, document.title, window.location.pathname);
     } else {
-      // 2. Sinon, reprendre une session déjà enregistrée dans cet onglet
       const saved = sessionStorage.getItem('lsnb_session');
       if (saved) {
-        session = JSON.parse(saved);
-        if (Date.now() > session.expires_at) {
+        try { session = JSON.parse(saved); } catch (_) { session = null; }
+        // Affichage immédiat avec la session locale, puis rafraîchissement en
+        // arrière-plan si le jeton a expiré. Cela évite un écran bloqué au retour.
+        if (session) {
+          afficherUtilisateurConnecte();
+          if (typeof window.auroreUnlockAccess === 'function') window.auroreUnlockAccess();
+          if (profilEstComplet(session)) {
+            // rien à attendre pour l'interface principale
+          } else {
+            ouvrirEspacePersonnelObligatoire();
+          }
+        }
+        if (session && Date.now() > Number(session.expires_at || 0)) {
+          const ancien = session;
           const ok = await rafraichirSession();
-          if (!ok) session = null;
+          if (!ok) { session = null; sauvegarderSession(); afficherUtilisateurConnecte(); if (ancien) lock?.style.setProperty('display',''); }
+          else { afficherUtilisateurConnecte(); if (!profilEstComplet(session)) ouvrirEspacePersonnelObligatoire(); }
         }
       }
     }
-    afficherUtilisateurConnecte();
     if (session) {
       if (typeof window.auroreUnlockAccess === 'function') window.auroreUnlockAccess();
-      chargerNotificationsPersonnelles();
-      if (!profilEstComplet(session)) ouvrirEspacePersonnelObligatoire();
+      // Notification après le premier rendu, jamais avant.
+      setTimeout(()=>chargerNotificationsPersonnelles(), 0);
     }
   });
 
