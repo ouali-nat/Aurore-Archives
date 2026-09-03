@@ -9102,6 +9102,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       const rpcRes=await fetch(`${SUPABASE_URL}/rest/v1/rpc/lister_documents_personnels`,{
         method:'POST',
         headers:{...headersAdmin(),'Content-Type':'application/json'},
+        body:'{}',
         cache:'no-store'
       });
       if(rpcRes.ok){
@@ -9110,7 +9111,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         rpcOk=true;
         docs.forEach(d=>memoriserDepotPersonnelLocal(d));
       } else {
-        console.warn(`[Espace personnel] RPC lister_documents_personnels indisponible (HTTP ${rpcRes.status}) — bascule sur la lecture directe.`);
+        const detail=await rpcRes.text().catch(()=>'');
+        console.warn(`[Espace personnel] RPC lister_documents_personnels indisponible (HTTP ${rpcRes.status}) — bascule sur la lecture directe. Détail : ${detail}`);
       }
     }catch(err){
       console.warn('[Espace personnel] RPC lister_documents_personnels injoignable — bascule sur la lecture directe.',err);
