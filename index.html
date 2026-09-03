@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Aurore — Section Archives — Bibliothèque numérique</title>
+<link rel="preload" as="image" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
 <script>
   // Appliqué le plus tôt possible pour éviter un flash du mauvais thème au
   // chargement. Version minimale ; la logique complète (boutons, suivi du
@@ -1283,24 +1284,37 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   <div class="access-card access-card-redesign">
     <div class="access-card-body">
       <div class="access-institution">
-        <div class="access-logo" id="accessBrandLogo" aria-hidden="true"><span class="brand-logo-fallback">A</span></div>
+        <div class="access-logo" id="accessBrandLogo" aria-hidden="true"></div>
         <div class="access-brand-wrap">
           <div class="access-brand">Aurore — Section Archives</div>
           <div class="access-tagline">Bibliothèque numérique d'Aurore</div>
         </div>
       </div>
-      <div class="access-tabs"><div class="access-tab active">Accès à la plateforme</div></div>
-      <div class="access-heading">
-        <h1>Bienvenue sur Aurore</h1>
-        <p>Retrouvez, consultez et partagez les ressources scolaires dans un espace pensé pour les élèves.</p>
-      </div>
-      <div class="access-actions">
-        <button type="button" id="accessGoogleBtn" class="access-google-btn" aria-label="Continuer avec Google">
-          <span class="google-mark" aria-hidden="true">G</span>
-          <span><strong>Continuer avec Google</strong><small>Accès recommandé à votre espace personnel</small></span>
-        </button>
-        <button type="button" id="accessSignupBtn" class="access-secondary-btn">Créer un compte</button>
-        <button type="button" id="accessVisitorBtn" class="access-visitor-btn">Visiter Aurore sans compte</button>
+      <div class="access-panels">
+        <section class="access-panel access-panel-main">
+          <div class="access-tabs"><div class="access-tab active">Accès à la plateforme</div></div>
+          <div class="access-heading">
+            <h1>Bienvenue sur Aurore</h1>
+            <p>Retrouvez, consultez et partagez les ressources scolaires dans un espace pensé pour les élèves.</p>
+          </div>
+          <div class="access-actions">
+            <button type="button" id="accessGoogleBtn" class="access-google-btn" aria-label="Continuer avec Google">
+              <span class="google-mark" aria-hidden="true">G</span><span class="google-spinner" aria-hidden="true"></span>
+              <span><strong>Continuer avec Google</strong><small>Accès recommandé à votre espace personnel</small></span>
+            </button>
+          </div>
+        </section>
+        <section class="access-panel access-panel-alt" aria-label="Autres façons d'accéder à Aurore">
+          <div class="access-alt-head"><span>Autres possibilités</span></div>
+          <div class="access-alt-scroll">
+            <button type="button" id="accessSignupBtn" class="access-secondary-btn">
+              <strong>Créer un compte</strong><small>Pour disposer de votre espace personnel</small>
+            </button>
+            <button type="button" id="accessVisitorBtn" class="access-visitor-btn">
+              <strong>Visiter Aurore sans compte</strong><small>Découvrir la bibliothèque en mode visiteur</small>
+            </button>
+          </div>
+        </section>
       </div>
       <p id="accessMessage" class="access-message" style="display:none;"></p>
       <div class="access-note">Connexion sécurisée · Aurore — Section Archives</div>
@@ -1328,6 +1342,16 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       <button type="submit" class="access-btn" id="signupSubmit">CRÉER MON COMPTE</button>
       <p id="signupMessage" class="access-message" style="display:none;"></p>
     </form>
+    <div class="account-login-switch" id="accountLoginSwitch"><span>Vous avez déjà un compte ?</span><button type="button" id="showLoginBtn">Se connecter avec e-mail</button></div>
+    <form id="loginForm" class="signup-form" autocomplete="on" style="display:none;">
+      <label for="loginEmail">Adresse e-mail</label>
+      <input id="loginEmail" type="email" autocomplete="email" placeholder="vous@exemple.com" required maxlength="180">
+      <label for="loginPassword">Mot de passe</label>
+      <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Votre mot de passe" required>
+      <button type="submit" class="access-btn" id="loginSubmit">SE CONNECTER</button>
+      <button type="button" class="modal-secondary-link" id="backSignupBtn">Créer un compte</button>
+      <p id="loginMessage" class="access-message" style="display:none;"></p>
+    </form>
     <p class="signup-footnote">Vous préférez ne pas créer de compte ? Vous pouvez toujours visiter Aurore sans vous inscrire.</p>
   </div>
 </div>
@@ -1337,8 +1361,52 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   .access-lock{position:fixed;inset:0;z-index:9999;background:var(--fond,#F6F5F2);display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto;}
   .access-card{width:100%;max-width:460px;background:var(--papier,#fff);border:1px solid var(--bordure,#E4E1D8);border-radius:24px;box-shadow:0 26px 70px rgba(32,36,46,.16);overflow:hidden;}
   .access-card-body{padding:30px 30px 24px;text-align:left}.access-institution{display:flex;align-items:center;gap:14px;padding-bottom:22px}.access-logo{width:58px;height:58px;flex:0 0 58px;border-radius:16px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--violet),var(--bleu));border:1px solid rgba(255,255,255,.12);box-shadow:0 10px 28px rgba(124,58,237,.20)}.access-logo img{width:100%;height:100%;object-fit:cover;display:block}.access-brand{margin:0 0 3px;font-size:1.08rem;line-height:1.25}.access-tagline{font-size:.76rem;color:var(--gris);line-height:1.4}.access-tabs{display:flex;border-bottom:1px solid var(--bordure);margin:0 -30px 24px;padding:0 30px}.access-tab{padding:11px 2px 10px;font-size:.79rem;font-weight:700;color:var(--encre);position:relative}.access-tab:after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:2px;background:var(--violet)}.access-heading h1{font-family:Georgia,'Times New Roman',serif;font-size:clamp(1.55rem,5vw,1.9rem);line-height:1.2;margin:0 0 8px;color:var(--encre)}.access-heading p{font-size:.88rem;color:var(--gris);line-height:1.55;margin:0 0 22px}.access-actions{display:grid;gap:10px}.access-google-btn{width:100%;display:flex;align-items:center;gap:12px;text-align:left;padding:13px 15px;border:1px solid #D8D3DF;border-radius:13px;background:#fff;color:#1F1B2E;cursor:pointer;box-shadow:0 7px 18px rgba(55,36,82,.07);transition:transform .15s,box-shadow .15s}.access-google-btn:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(55,36,82,.10)}.access-google-btn span:last-child{display:flex;flex-direction:column;gap:2px}.access-google-btn strong{font-size:.9rem}.access-google-btn small{font-size:.7rem;color:#6B6478}.google-mark{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:1rem;background:#fff;border:1px solid #E1DCE6;color:#4285F4}.access-secondary-btn,.access-visitor-btn{width:100%;padding:12px 15px;border-radius:12px;font:inherit;font-size:.84rem;font-weight:700;cursor:pointer}.access-secondary-btn{border:1px solid var(--bordure);background:var(--fond);color:var(--encre)}.access-visitor-btn{border:0;background:transparent;color:var(--gris);font-weight:600}.access-visitor-btn:hover{text-decoration:underline;color:var(--encre)}.access-message{margin:12px 0 0;padding:10px 12px;border-radius:11px;font-size:.78rem;line-height:1.5}.access-message.ok{background:#ECFDF3;color:#166534;border:1px solid #86EFAC}.access-message.err{background:#FFF7F7;color:#991B1B;border:1px solid #FCA5A5}.access-note{text-align:center;margin-top:18px;font-size:.72rem;color:var(--gris)}.access-footer{text-align:center;padding:14px 20px;border-top:1px solid var(--bordure);font-size:.7rem;color:var(--gris)}
-  .signup-modal{position:fixed;inset:0;z-index:10000;background:rgba(15,12,25,.48);backdrop-filter:blur(7px);display:flex;align-items:center;justify-content:center;padding:18px;overflow:auto}.signup-card{position:relative;width:100%;max-width:430px;background:var(--papier);color:var(--encre);border:1px solid var(--bordure);border-radius:22px;padding:27px;box-shadow:0 28px 80px rgba(0,0,0,.24)}.signup-close{position:absolute;right:14px;top:12px;width:34px;height:34px;border:0;border-radius:50%;background:var(--fond);color:var(--gris);font-size:1.35rem;cursor:pointer}.signup-card h2{font-family:Georgia,'Times New Roman',serif;font-size:1.55rem;margin:5px 0 8px}.signup-intro,.signup-footnote{font-size:.82rem;color:var(--gris);line-height:1.55}.signup-form{display:grid;gap:8px;margin-top:18px}.signup-form label{font-size:.76rem;font-weight:700;margin-top:3px}.signup-form input{width:100%;box-sizing:border-box;padding:12px 13px;border:1px solid var(--bordure);border-radius:11px;background:var(--fond);color:var(--encre);outline:none}.signup-form input:focus{border-color:var(--violet);box-shadow:0 0 0 3px rgba(124,58,237,.10)}.signup-footnote{margin:14px 0 0;text-align:center;font-size:.72rem}
+  .signup-modal{position:fixed;inset:0;z-index:10000;background:rgba(15,12,25,.48);backdrop-filter:blur(7px);display:flex;align-items:center;justify-content:center;padding:18px;overflow:auto}.signup-card{position:relative;width:100%;max-width:430px;background:var(--papier);color:var(--encre);border:1px solid var(--bordure);border-radius:22px;padding:27px;box-shadow:0 28px 80px rgba(0,0,0,.24)}.signup-close{position:absolute;right:14px;top:12px;width:34px;height:34px;border:0;border-radius:50%;background:var(--fond);color:var(--gris);font-size:1.35rem;cursor:pointer}.signup-card h2{font-family:Georgia,'Times New Roman',serif;font-size:1.55rem;margin:5px 0 8px}.signup-intro,.signup-footnote{font-size:.82rem;color:var(--gris);line-height:1.55}.signup-form{display:grid;gap:8px;margin-top:18px}.signup-form label{font-size:.76rem;font-weight:700;margin-top:3px}.signup-form input{width:100%;box-sizing:border-box;padding:12px 13px;border:1px solid var(--bordure);border-radius:11px;background:var(--fond);color:var(--encre);outline:none}.signup-form input:focus{border-color:var(--violet);box-shadow:0 0 0 3px rgba(124,58,237,.10)}.signup-footnote{margin:14px 0 0;text-align:center;font-size:.72rem};.account-login-switch{display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap;margin-top:15px;font-size:.73rem;color:var(--gris)}.account-login-switch button,.modal-secondary-link{border:0;background:transparent;color:var(--violet);font:inherit;font-weight:700;cursor:pointer;padding:0}.modal-secondary-link{justify-self:center;margin-top:4px}
   [data-theme="light"] .access-lock{background:radial-gradient(circle at 15% 10%,rgba(109,40,217,.08),transparent 34%),radial-gradient(circle at 88% 88%,rgba(192,132,252,.10),transparent 36%),#F7F4FB}[data-theme="light"] .access-card{background:#fff;border-color:#DDD3E8;box-shadow:0 24px 60px rgba(55,36,82,.12)}[data-theme="light"] .access-google-btn{background:#fff;border-color:#DDD3E8}[data-theme="light"] .access-secondary-btn{background:#F7F4FB}
+  /* Portail d'accès : deux espaces côte à côte, avec le bloc secondaire défilant. */
+  .access-card{max-width:900px;}
+  .access-card-body{padding:28px 30px 24px;}
+  .access-panels{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(250px,.65fr);gap:14px;align-items:stretch;}
+  .access-panel{border:1px solid var(--bordure);border-radius:18px;background:var(--papier);min-width:0;}
+  .access-panel-main{padding:0 22px 22px;}
+  .access-panel-alt{display:flex;flex-direction:column;min-height:100%;background:var(--fond);overflow:hidden;}
+  .access-panel-alt .access-alt-head{padding:13px 16px;border-bottom:1px solid var(--bordure);font-size:.76rem;font-weight:800;color:var(--encre);text-transform:uppercase;letter-spacing:.05em;}
+  .access-alt-scroll{padding:14px;display:flex;flex-direction:column;gap:10px;overflow:auto;max-height:270px;}
+  .access-panel .access-tabs{margin:0 -22px 22px;padding:0 22px;}
+  .access-secondary-btn,.access-visitor-btn{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:4px;}
+  .access-secondary-btn small,.access-visitor-btn small{font-size:.7rem;font-weight:500;color:var(--gris);line-height:1.4;}
+  .access-visitor-btn{border:1px solid var(--bordure);background:var(--papier);padding:12px 15px;}
+  .access-visitor-btn:hover{background:var(--papier);text-decoration:none;}
+  .access-logo{background:transparent;border:0;box-shadow:none;}
+  .access-logo:empty{background:transparent;}
+  .access-logo img{object-fit:contain;}
+  .profile-personal-edit .label{margin-bottom:12px;}
+  .profile-fields-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+  .profile-fields-grid label{display:flex;flex-direction:column;gap:6px;font-size:.75rem;font-weight:700;color:var(--encre);}
+  .profile-fields-grid label span{color:#B91C1C;}
+  .profile-fields-grid label small{font-weight:500;color:var(--gris);}
+  .profile-fields-grid input{width:100%;box-sizing:border-box;background:var(--fond);border:1px solid var(--bordure);border-radius:10px;padding:10px 11px;color:var(--encre);font-size:.86rem;outline:none;}
+  .profile-fields-grid input:focus{border-color:var(--violet);box-shadow:0 0 0 3px rgba(124,58,237,.10);}
+  .profile-required-note{margin-top:10px;font-size:.72rem;color:var(--gris);line-height:1.45;}
+  .profile-save-row{display:flex;align-items:center;gap:12px;margin-top:13px;flex-wrap:wrap;}
+  #profilLyceeSave{border:0;border-radius:10px;padding:10px 14px;background:var(--violet);color:#fff;font-size:.8rem;font-weight:700;cursor:pointer;}
+  #profilLyceeSave:disabled{opacity:.65;cursor:wait;}
+  #profilSaveMessage{font-size:.76rem;font-weight:700;}
+  #profilSaveMessage.ok{color:#166534;}
+  #profilSaveMessage.err{color:#991B1B;}
+  .profile-completion-banner{margin:0 0 16px;padding:13px 14px;border:1px solid rgba(124,58,237,.24);background:rgba(124,58,237,.07);border-radius:13px;color:var(--encre);font-size:.8rem;line-height:1.5;}
+
+  /* === Accès / espace personnel : stabilité visuelle === */
+  .access-google-btn.is-loading{opacity:.72;pointer-events:none;transform:none!important;}
+  .access-google-btn .google-spinner{width:15px;height:15px;border:2px solid rgba(66,133,244,.22);border-top-color:#4285F4;border-radius:50%;animation:auroreSpin .7s linear infinite;display:none;flex:0 0 auto;}
+  .access-google-btn.is-loading .google-mark{display:none;}
+  .access-google-btn.is-loading .google-spinner{display:block;}
+  @keyframes auroreSpin{to{transform:rotate(360deg)}}
+  .profile-required-banner{margin:0 0 16px;}
+  .profile-card,.profile-meta{max-width:920px;margin-left:auto;margin-right:auto;}
+
+  @media(max-width:760px){.access-card{max-width:560px}.access-panels{grid-template-columns:1fr}.access-panel-alt{min-height:0}.access-alt-scroll{max-height:220px}.profile-fields-grid{grid-template-columns:1fr;}}
+
   @media(max-width:520px){.access-lock{padding:14px}.access-card-body{padding:24px 20px 20px}.access-tabs{margin-left:-20px;margin-right:-20px;padding-left:20px;padding-right:20px}.access-logo{width:52px;height:52px;flex-basis:52px;border-radius:14px}.signup-card{padding:23px 19px}}
 </style>
 
@@ -1351,15 +1419,45 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   const modal=document.getElementById('signupModal');
   const close=document.getElementById('signupClose');
   const form=document.getElementById('signupForm');
+  const loginForm=document.getElementById('loginForm');
+  const showLoginBtn=document.getElementById('showLoginBtn');
+  const backSignupBtn=document.getElementById('backSignupBtn');
+  const loginSwitch=document.getElementById('accountLoginSwitch');
   const msg=document.getElementById('signupMessage');
+  const loginMsg=document.getElementById('loginMessage');
+  function afficherModeConnexionEmail(){ form.style.display='none'; loginForm.style.display='grid'; loginSwitch.style.display='none'; setTimeout(()=>document.getElementById('loginEmail')?.focus(),50); }
+  function afficherModeInscription(){ form.style.display='grid'; loginForm.style.display='none'; loginSwitch.style.display='flex'; }
   function unlock(){ document.body.classList.remove('site-locked'); if(lock) lock.style.display='none'; }
   window.auroreUnlockAccess=unlock;
   visitor?.addEventListener('click',()=>{ try{localStorage.setItem('aurore_visitor_mode','1');}catch(e){} unlock(); });
-  google?.addEventListener('click',()=>{ if(typeof demarrerConnexionGoogle==='function') demarrerConnexionGoogle(); });
-  signupOpen?.addEventListener('click',()=>{modal.style.display='flex';modal.setAttribute('aria-hidden','false');setTimeout(()=>document.getElementById('signupName')?.focus(),50);});
-  function fermer(){modal.style.display='none';modal.setAttribute('aria-hidden','true');}
+  google?.addEventListener('click',()=>{
+    if (google.classList.contains('is-loading')) return;
+    google.classList.add('is-loading');
+    const strong = google.querySelector('strong'); if (strong) strong.textContent = 'Connexion à Google…';
+    if(typeof demarrerConnexionGoogle==='function') demarrerConnexionGoogle();
+  });
+  signupOpen?.addEventListener('click',()=>{modal.style.display='flex';modal.setAttribute('aria-hidden','false');afficherModeInscription();setTimeout(()=>document.getElementById('signupName')?.focus(),50);});
+  showLoginBtn?.addEventListener('click',afficherModeConnexionEmail);
+  backSignupBtn?.addEventListener('click',afficherModeInscription);
+  function fermer(){modal.style.display='none';modal.setAttribute('aria-hidden','true');afficherModeInscription();msg.style.display='none';loginMsg.style.display='none';}
   close?.addEventListener('click',fermer); modal?.addEventListener('click',e=>{if(e.target===modal)fermer();});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modal?.style.display!=='none')fermer();});
+  loginForm?.addEventListener('submit',async e=>{
+    e.preventDefault(); loginMsg.style.display='none';
+    const email=document.getElementById('loginEmail').value.trim(), password=document.getElementById('loginPassword').value, btn=document.getElementById('loginSubmit');
+    btn.disabled=true; btn.textContent='Connexion en cours…';
+    try{
+      const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+      const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error_description||d.msg||d.message||'Identifiants invalides.');
+      const infos=await recupererUtilisateur(d.access_token); if(!infos) throw new Error('Impossible de charger votre profil.');
+      const role=await assurerProfilEtObtenirRole(d.access_token,infos);
+      session={access_token:d.access_token,refresh_token:d.refresh_token||null,expires_at:Date.now()+((d.expires_in||3600)*1000),id:infos.id,email:infos.email,nom:infos.nom,avatar:infos.avatar,lycee:infos.lycee||'',niveau:infos.niveau||'',classe:infos.classe||'',filiere:infos.filiere||'',provider:infos.provider||'E-mail',role};
+      sauvegarderSession(); await enregistrerConnexion(session); afficherUtilisateurConnecte(); unlock(); fermer();
+      if(profilEstComplet(session)) afficherBienvenueApresConnexion(session); else ouvrirEspacePersonnelObligatoire();
+    }catch(err){loginMsg.textContent=err.message||'Impossible de vous connecter.';loginMsg.className='access-message err';loginMsg.style.display='block';}
+    finally{btn.disabled=false;btn.textContent='SE CONNECTER';}
+  });
+
   form?.addEventListener('submit',async e=>{
     e.preventDefault(); const name=document.getElementById('signupName').value.trim(),email=document.getElementById('signupEmail').value.trim(),p=document.getElementById('signupPassword').value,p2=document.getElementById('signupPasswordConfirm').value,btn=document.getElementById('signupSubmit');
     msg.style.display='none'; if(p!==p2){msg.textContent='Les deux mots de passe ne correspondent pas.';msg.className='access-message err';msg.style.display='block';return;} if(p.length<8){msg.textContent='Le mot de passe doit contenir au moins 8 caractères.';msg.className='access-message err';msg.style.display='block';return;}
@@ -1368,7 +1466,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       const r=await fetch(`${SUPABASE_URL}/auth/v1/signup`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password:p,data:{full_name:name,name}})}); const d=await r.json().catch(()=>({}));
       if(!r.ok) throw new Error(d.msg||d.error_description||d.message||('HTTP '+r.status));
       if(d.access_token){
-        const infos=await recupererUtilisateur(d.access_token); if(infos){const role=await assurerProfilEtObtenirRole(d.access_token,infos);session={access_token:d.access_token,refresh_token:d.refresh_token||null,expires_at:Date.now()+((d.expires_in||3600)*1000),id:infos.id,email:infos.email,nom:infos.nom,avatar:infos.avatar,lycee:infos.lycee||'',role};sauvegarderSession();enregistrerConnexion(session);afficherUtilisateurConnecte();unlock();fermer();afficherBienvenueApresConnexion(session);}
+        const infos=await recupererUtilisateur(d.access_token); if(infos){const role=await assurerProfilEtObtenirRole(d.access_token,infos);session={access_token:d.access_token,refresh_token:d.refresh_token||null,expires_at:Date.now()+((d.expires_in||3600)*1000),id:infos.id,email:infos.email,nom:infos.nom,avatar:infos.avatar,lycee:infos.lycee||'',niveau:infos.niveau||'',classe:infos.classe||'',filiere:infos.filiere||'',provider:infos.provider||'E-mail',role};sauvegarderSession();enregistrerConnexion(session);afficherUtilisateurConnecte();unlock();fermer();ouvrirEspacePersonnelObligatoire();}
       } else {msg.textContent='Compte créé. Consultez votre e-mail pour confirmer votre adresse avant de vous connecter.';msg.className='access-message ok';msg.style.display='block';}
     }catch(err){msg.textContent='Impossible de créer le compte : '+(err.message||'vérifiez les informations saisies.');msg.className='access-message err';msg.style.display='block';}
     finally{btn.disabled=false;btn.textContent='CRÉER MON COMPTE';}
@@ -1380,11 +1478,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   <div class="wrap header-inner">
     <div class="brand">
       <div class="brand-logo" id="brandLogo" aria-hidden="true">
-        <!-- Emplacement du logo Aurore — Section Archives. Pour le remplacer : mettre l'image
-             dans /mnt/user-data/outputs (ou l'hébergement choisi) et remplacer le contenu
-             de ce conteneur par <img src="URL_DU_LOGO" alt="Aurore — Section Archives">.
-             Sans logo, l'initiale sert de repère visuel temporaire. -->
-        <span class="brand-logo-fallback">A</span>
+
       </div>
       <div class="brand-text">
         <div class="site-name">Aurore — Section Archives</div>
@@ -1937,9 +2031,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
           <p class="admin-panel-desc">Modifie le logo affiché en haut du site. Le changement est visible immédiatement pour tous les visiteurs, sans modification du code ni redéploiement.</p>
           <div class="admin-promo-manager">
             <div style="display:flex; align-items:center; gap:16px; margin-bottom:16px;">
-              <div class="brand-logo" id="adminLogoPreview" style="width:64px; height:64px;" aria-hidden="true">
-                <span class="brand-logo-fallback">A</span>
-              </div>
+              <div class="brand-logo" id="adminLogoPreview" style="width:64px; height:64px;" aria-hidden="true"></div>
               <p style="margin:0; font-size:0.82rem; color:var(--gris);">Aperçu du logo actuellement en ligne.</p>
             </div>
             <div class="form-row">
@@ -1978,14 +2070,18 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     <div class="profile-meta">
       <div class="profile-meta-item">
         <div class="label">Connecté via</div>
-        <div class="value">Google</div>
+        <div class="value" id="profilProvider">—</div>
       </div>
-      <div class="profile-meta-item">
-        <div class="label">Mon lycée / école</div>
-        <div class="value" style="display:flex; gap:8px; align-items:center;">
-          <input type="text" id="profilLyceeInput" placeholder="Nom de votre établissement" style="flex:1; background:var(--fond); border:1px solid var(--bordure); border-radius:8px; padding:7px 10px; color:var(--encre); font-size:0.9rem; font-weight:600;">
-          <button type="button" id="profilLyceeSave" style="border:none; border-radius:8px; padding:7px 12px; background:var(--violet); color:#fff; font-size:0.8rem; font-weight:600; cursor:pointer;">Enregistrer</button>
+      <div class="profile-meta-item profile-personal-edit">
+        <div class="label">Informations essentielles</div>
+        <div class="profile-fields-grid">
+          <label>Nom du lycée / école <span>*</span><input type="text" id="profilLyceeInput" placeholder="Nom de votre établissement" maxlength="180" autocomplete="organization"></label>
+          <label>Niveau <span>*</span><input type="text" id="profilNiveauInput" placeholder="Ex. Terminale" maxlength="80"></label>
+          <label>Classe <span>*</span><input type="text" id="profilClasseInput" placeholder="Ex. Tle C" maxlength="80"></label>
+          <label>Filière / série <small>(facultatif)</small><input type="text" id="profilFiliereInput" placeholder="Ex. Scientifique / C" maxlength="100"></label>
         </div>
+        <div class="profile-required-note">* Ces informations sont nécessaires pour finaliser votre espace personnel.</div>
+        <div class="profile-save-row"><button type="button" id="profilLyceeSave">Enregistrer mon profil</button><span id="profilSaveMessage" aria-live="polite"></span></div>
       </div>
       <div class="profile-meta-item">
         <div class="label">Statut du compte</div>
@@ -2378,12 +2474,24 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     });
     if (!res.ok) return null;
     const data = await res.json();
+    const meta = data.user_metadata || {};
+    let profil = {};
+    try {
+      const pr = await fetch(`${SUPABASE_URL}/rest/v1/Profils?select=lycee,niveau,classe,filiere&id=eq.${encodeURIComponent(data.id)}&limit=1`, {
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + access_token }
+      });
+      if (pr.ok) { const rows = await pr.json().catch(() => []); if (rows[0]) profil = rows[0]; }
+    } catch (e) {}
     return {
       id: data.id,
       email: data.email,
-      nom: (data.user_metadata && (data.user_metadata.full_name || data.user_metadata.name)) || data.email,
-      avatar: (data.user_metadata && (data.user_metadata.avatar_url || data.user_metadata.picture)) || null,
-      lycee: (data.user_metadata && data.user_metadata.lycee) || ''
+      nom: (meta.full_name || meta.name) || data.email,
+      avatar: (meta.avatar_url || meta.picture) || null,
+      lycee: profil.lycee || meta.lycee || '',
+      niveau: profil.niveau || meta.niveau || '',
+      classe: profil.classe || meta.classe || '',
+      filiere: profil.filiere || meta.filiere || '',
+      provider: (data.app_metadata && Array.isArray(data.app_metadata.providers) && data.app_metadata.providers.includes('google')) ? 'Google' : 'E-mail'
     };
   }
 
@@ -2465,7 +2573,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         access_token: data.access_token, refresh_token: data.refresh_token,
         expires_at: Date.now() + (data.expires_in * 1000),
         id: infos ? infos.id : session.id, email: infos ? infos.email : session.email,
-        nom: infos ? infos.nom : session.nom, avatar: infos ? infos.avatar : session.avatar, lycee: infos ? infos.lycee : (session.lycee || ''), role
+        nom: infos ? infos.nom : session.nom, avatar: infos ? infos.avatar : session.avatar, lycee: infos ? infos.lycee : (session.lycee || ''), niveau: infos ? infos.niveau : (session.niveau || ''), classe: infos ? infos.classe : (session.classe || ''), filiere: infos ? infos.filiere : (session.filiere || ''), provider: infos ? infos.provider : (session.provider || 'E-mail'), role
       };
       sauvegarderSession();
       return true;
@@ -2553,10 +2661,28 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     btnAdmin.style.display = (session && session.role === 'admin') ? 'inline' : 'none';
   }
 
+  function obtenirInfosProfilLocal() {
+    const meta = session?.user_metadata || {};
+    return {
+      lycee: session?.lycee || meta.lycee || '',
+      niveau: session?.niveau || meta.niveau || '',
+      classe: session?.classe || meta.classe || '',
+      filiere: session?.filiere || meta.filiere || ''
+    };
+  }
+
+  function profilEstComplet(sess=session) {
+    if (!sess) return false;
+    const i = obtenirInfosProfilLocal();
+    return Boolean(i.lycee.trim() && i.niveau.trim() && i.classe.trim());
+  }
+
   function remplirProfil() {
     if (!session) return;
     document.getElementById('profilNom').textContent = session.nom;
     document.getElementById('profilEmail').textContent = session.email;
+    const providerEl = document.getElementById('profilProvider');
+    if (providerEl) providerEl.textContent = session.provider || 'Compte Aurore';
     const badge = document.getElementById('profilRoleBadge');
     badge.textContent = libelleRole(session.role);
     badge.className = 'role-badge ' + (session.role === 'admin' ? 'admin' : 'eleve');
@@ -2564,72 +2690,52 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const img = document.getElementById('profilAvatar');
     const fallback = document.getElementById('profilAvatarFallback');
     appliquerAvatar(img, session.avatar);
-    if (session.avatar) {
-      fallback.style.display = 'none';
-    } else {
-      fallback.style.display = 'flex';
-      fallback.innerHTML = ICONS.user.replace('width="16"', 'width="34"').replace('height="16"', 'height="34"');
-    }
+    if (session.avatar) fallback.style.display = 'none';
+    else { fallback.style.display = 'flex'; fallback.innerHTML = ICONS.user.replace('width="16"', 'width="34"').replace('height="16"', 'height="34"'); }
 
-    // "Mon lycée" est désormais enregistré réellement dans les métadonnées
-    // du compte Supabase Auth. Il ne dépend donc plus du téléphone/navigateur.
-    const lycee = session.lycee || '';
-    document.getElementById('profilLyceeInput').value = lycee;
+    const infos = obtenirInfosProfilLocal();
+    document.getElementById('profilLyceeInput').value = infos.lycee;
+    document.getElementById('profilNiveauInput').value = infos.niveau;
+    document.getElementById('profilClasseInput').value = infos.classe;
+    document.getElementById('profilFiliereInput').value = infos.filiere;
+    const msg = document.getElementById('profilSaveMessage');
+    if (msg) { msg.textContent = profilEstComplet(session) ? 'Profil complet.' : 'Complétez les informations essentielles pour terminer votre espace.'; msg.className = profilEstComplet(session) ? 'ok' : ''; }
   }
 
-  document.getElementById('profilLyceeSave').addEventListener('click', async () => {
-    if (!session || !session.access_token) return;
-    const input = document.getElementById('profilLyceeInput');
+  async function enregistrerProfilPersonnel(options={}) {
+    if (!session || !session.access_token) return false;
+    const lycee = document.getElementById('profilLyceeInput').value.trim();
+    const niveau = document.getElementById('profilNiveauInput').value.trim();
+    const classe = document.getElementById('profilClasseInput').value.trim();
+    const filiere = document.getElementById('profilFiliereInput').value.trim();
     const btn = document.getElementById('profilLyceeSave');
-    const val = input.value.trim();
-    const ancienTexte = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = 'Enregistrement…';
-    try {
-      // Source persistante principale : user_metadata Supabase Auth.
-      // Cela rattache l'établissement au compte Google lui-même, et non au
-      // navigateur ou au téléphone. La valeur est donc récupérée après
-      // reconnexion et sur un autre appareil.
-      const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-        method: 'PATCH',
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': 'Bearer ' + session.access_token,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ data: { lycee: val } })
-      });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
-      session.lycee = (data.user_metadata && data.user_metadata.lycee) || val;
-      sauvegarderSession();
-
-      // Si une colonne `lycee` existe déjà dans public."Profils", on la
-      // synchronise également. Cette tentative reste facultative afin de ne
-      // pas casser le profil si la colonne n'existe pas encore ou si sa RLS
-      // n'autorise pas l'écriture directe.
-      try {
-        const profilRes = await fetch(`${SUPABASE_URL}/rest/v1/Profils?id=eq.${encodeURIComponent(session.id)}`, {
-          method: 'PATCH',
-          headers: { ...headersAdmin(), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-          body: JSON.stringify({ lycee: val })
-        });
-        if (!profilRes.ok) {
-          console.info('[Profils] synchronisation lycée non disponible :', profilRes.status);
-        }
-      } catch (syncErr) {
-        console.info('[Profils] synchronisation lycée ignorée :', syncErr);
-      }
-
-      btn.textContent = 'Enregistré ✓';
-      setTimeout(() => { btn.textContent = ancienTexte; }, 1800);
-    } catch (e) {
-      btn.textContent = ancienTexte;
-      alert('Impossible d’enregistrer le nom de votre établissement pour le moment. Vérifiez votre connexion puis réessayez.');
-    } finally {
-      btn.disabled = false;
+    const msg = document.getElementById('profilSaveMessage');
+    if (!lycee || !niveau || !classe) {
+      msg.textContent = 'Veuillez renseigner le lycée / école, le niveau et la classe.'; msg.className='err';
+      return false;
     }
-  });
+    const ancienTexte=btn.textContent; btn.disabled=true; btn.textContent='Enregistrement…'; msg.textContent='';
+    try {
+      const res=await fetch(`${SUPABASE_URL}/auth/v1/user`,{method:'PATCH',headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json'},body:JSON.stringify({data:{lycee,niveau,classe,filiere}})});
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const data=await res.json(); const md=data.user_metadata||{};
+      session.lycee=md.lycee||lycee; session.niveau=md.niveau||niveau; session.classe=md.classe||classe; session.filiere=md.filiere||filiere;
+      sauvegarderSession();
+      // Synchronisation facultative avec les colonnes déjà présentes dans Profils.
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/Profils?id=eq.${encodeURIComponent(session.id)}`,{method:'PATCH',headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({lycee,niveau,classe,filiere})});
+      } catch(e) {}
+      msg.textContent='Votre espace personnel est maintenant configuré.'; msg.className='ok';
+      btn.textContent='Profil enregistré ✓';
+      setTimeout(()=>{btn.textContent=ancienTexte;},1800);
+      if(options.forceComplete) afficherUtilisateurConnecte();
+      return true;
+    } catch(e) {
+      msg.textContent='Impossible d’enregistrer votre profil pour le moment. Vérifiez votre connexion puis réessayez.'; msg.className='err'; btn.textContent=ancienTexte; return false;
+    } finally { btn.disabled=false; }
+  }
+
+  document.getElementById('profilLyceeSave').addEventListener('click',()=>enregistrerProfilPersonnel());
 
   document.getElementById('btnOuvrirProfil').addEventListener('click', () => {
     document.getElementById('breadcrumb').innerHTML = '';
@@ -2649,6 +2755,18 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     afficherUtilisateurConnecte();
   });
 
+  function ouvrirEspacePersonnelObligatoire() {
+    if (!session) return;
+    if (typeof window.auroreUnlockAccess === 'function') window.auroreUnlockAccess();
+    document.getElementById('breadcrumb').innerHTML = '';
+    remplirProfil();
+    const screen=document.getElementById('screen-profil');
+    if(screen && !screen.querySelector('.profile-completion-banner')) {
+      const banner=document.createElement('div'); banner.className='profile-completion-banner'; banner.textContent='Bienvenue dans votre espace personnel. Avant de commencer, renseignez au minimum votre établissement, votre niveau et votre classe. Ces informations permettent à Aurore de personnaliser et organiser votre expérience.'; screen.insertBefore(banner,screen.querySelector('.profile-card'));
+    }
+    afficherEcran('screen-profil');
+  }
+
   window.addEventListener('load', async () => {
     // 1. Retour de Google/Supabase : les jetons arrivent dans le fragment d'URL
     if (window.location.hash.includes('access_token')) {
@@ -2659,10 +2777,14 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       const infos = await recupererUtilisateur(access_token);
       if (infos) {
         const role = await assurerProfilEtObtenirRole(access_token, infos);
-        session = { access_token, refresh_token, expires_at: Date.now() + expires_in * 1000, id: infos.id, email: infos.email, nom: infos.nom, avatar: infos.avatar, lycee: infos.lycee || '', role };
+        session = { access_token, refresh_token, expires_at: Date.now() + expires_in * 1000, id: infos.id, email: infos.email, nom: infos.nom, avatar: infos.avatar, lycee: infos.lycee || '', niveau: infos.niveau || '', classe: infos.classe || '', filiere: infos.filiere || '', provider: infos.provider || 'Google', role };
         sauvegarderSession();
         enregistrerConnexion(session);
-        afficherBienvenueApresConnexion(session);
+        if (profilEstComplet(session)) {
+          afficherBienvenueApresConnexion(session);
+        } else {
+          ouvrirEspacePersonnelObligatoire();
+        }
       }
       // Nettoie l'URL pour ne pas laisser le jeton visible dans la barre d'adresse
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -2678,7 +2800,11 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       }
     }
     afficherUtilisateurConnecte();
-    if (session) { if (typeof window.auroreUnlockAccess === 'function') window.auroreUnlockAccess(); chargerNotificationsPersonnelles(); }
+    if (session) {
+      if (typeof window.auroreUnlockAccess === 'function') window.auroreUnlockAccess();
+      chargerNotificationsPersonnelles();
+      if (!profilEstComplet(session)) ouvrirEspacePersonnelObligatoire();
+    }
   });
 
   // ---------- ICÔNES SOBRES (SVG en ligne, pas d'emoji) ----------
@@ -4112,6 +4238,12 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   }
 
   function afficherEcran(id, options={}) {
+    // Un nouvel utilisateur connecté doit terminer son profil essentiel avant
+    // de naviguer dans la plateforme. Les administrateurs ne sont pas bloqués.
+    if (session && session.role !== 'admin' && !profilEstComplet(session) && id !== 'screen-profil') {
+      remplirProfil();
+      id = 'screen-profil';
+    }
     const cible=document.getElementById(id);
     if(!cible) return;
     if(!navigationParPopState) enregistrerPositionNavigation();
@@ -8475,17 +8607,25 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       if (!conteneur) return;
       const img = new Image();
       img.onload = () => { conteneur.innerHTML = `<img src="${url}" alt="Aurore — Section Archives">`; };
-      img.onerror = () => { conteneur.innerHTML = '<span class="brand-logo-fallback">A</span>'; };
+      img.onerror = () => { conteneur.innerHTML = ''; };
       img.src = url;
     }
 
     function chargerLogoSite() {
       // Cache-bust pour être certain de voir le dernier logo envoyé, y compris
       // juste après une mise à jour depuis l'admin.
-      const url = `${R2_PUBLIC_URL}/${LOGO_CLE}?t=${Date.now()}`;
+      const url = `${R2_PUBLIC_URL}/${LOGO_CLE}`;
+      // Le logo n'a volontairement aucun fallback texte : l'ancienne initiale A ne doit jamais réapparaître.
+      const cibles = [document.getElementById('brandLogo'), document.getElementById('adminLogoPreview'), document.getElementById('accessBrandLogo')];
+      let cacheLogo = '';
+      try { cacheLogo = sessionStorage.getItem('aurore_logo_url') || ''; } catch(e) {}
+      if (cacheLogo) cibles.forEach(c => appliquerLogoDansConteneur(c, cacheLogo));
       appliquerLogoDansConteneur(document.getElementById('brandLogo'), url);
       appliquerLogoDansConteneur(document.getElementById('adminLogoPreview'), url);
       appliquerLogoDansConteneur(document.getElementById('accessBrandLogo'), url);
+      const preload = new Image();
+      preload.onload = () => { try { sessionStorage.setItem('aurore_logo_url', url); } catch(e) {} };
+      preload.src = url;
     }
     window.chargerLogoSite = chargerLogoSite;
 
