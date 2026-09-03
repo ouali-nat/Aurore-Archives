@@ -2196,6 +2196,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         <span id="pdfViewerZoomLevel" aria-live="polite">100%</span>
         <button type="button" id="pdfViewerZoomIn" aria-label="Agrandir le zoom">+</button>
         <button type="button" id="pdfViewerAjuster" aria-label="Ajuster à la largeur de l'écran" title="Ajuster à la largeur">↔</button>
+        <button type="button" id="pdfViewerModeLecture" aria-pressed="false" aria-label="Passer en lecture horizontale" title="Lecture verticale">↕ Verticale</button>
       </div>
       <div class="pdf-toolbar-group">
         <button type="button" id="pdfViewerTelecharger" aria-label="Télécharger le document">⬇ Télécharger</button>
@@ -4800,15 +4801,18 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   // ---------- BOUTONS RETOUR GÉNÉRIQUES ----------
   document.querySelectorAll('[data-back]').forEach(btn => {
     btn.addEventListener('click', () => {
-      if (history.state && history.state.ecranAuraster && history.length > 1) {
+      // Le bouton Retour de l'interface et le bouton Retour Android suivent
+      // exactement la même pile. On ne saute jamais arbitrairement vers une
+      // destination : on dépile d'abord l'écran réellement précédent.
+      if (history.state && history.state.aurasterNavigation) {
         history.back();
         return;
       }
       const cible=btn.getAttribute('data-back');
       if(cible==='home') allerAccueil();
-      if(cible==='level') afficherEcran('screen-level');
-      if(cible==='livres') afficherEcran('screen-livres');
-      if(cible==='matieres') afficherEcran('screen-matieres');
+      else if(cible==='level') afficherEcran('screen-level');
+      else if(cible==='livres') afficherEcran('screen-livres');
+      else if(cible==='matieres') afficherEcran('screen-matieres');
     });
   });
 
@@ -7289,6 +7293,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   let PDF_ZOOM = 1;             // multiplicateur appliqué par-dessus l'ajustement à la largeur (100% = ajusté)
   let PDF_ROTATION = 0;         // 0/90/180/270
   const PDF_ZOOM_MIN = 0.5, PDF_ZOOM_MAX = 3, PDF_ZOOM_PAS = 0.25;
+  let PDF_MODE_LECTURE = 'vertical'; // vertical = défilement continu ; horizontal = pages côte à côte
+
 
   function texteFichierPourAffichage(doc) {
     return (doc && doc.Titre) ? doc.Titre : 'document';
@@ -7302,7 +7308,9 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     PDF_PAGE_ACTUELLE = 1;
     PDF_ZOOM = 1;
     PDF_ROTATION = 0;
+    PDF_MODE_LECTURE = 'vertical';
     document.getElementById('pdfViewerZoomLevel').textContent = '100%';
+    mettreAJourModeLecturePDF();
     const jeton = ++PDF_JETON_OUVERTURE;
     const telechargementOk = doc.Telechargement_autorise !== false;
 
@@ -7504,6 +7512,70 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     return octets.buffer;
   }
 
+  // Rendu PDF optimisé : affichage immédiat de la première page, puis rendu
+  // progressif des autres pages uniquement lorsqu'elles approchent de la zone
+  // visible. Cela évite de bloquer l'ouverture des gros documents.
+  let pdfRenduObserver = null;
+  let pdfPagesRendues = new Set();
+  let pdfRendusEnCours = new Map();
+  let pdfLargeurBase = 0;
+
+  async function rendreUnePagePDF(n, force=false) {
+    if (!PDF_EN_COURS || (!force && pdfPagesRendues.has(n))) return;
+    if (pdfRendusEnCours.has(n)) return pdfRendusEnCours.get(n);
+    const wrapper = document.querySelector('#pdfViewerPages .pdf-reader-page[data-page="'+n+'"]');
+    if (!wrapper) return;
+    const canvas = wrapper.querySelector('canvas');
+    if (!canvas) return;
+
+    const promesse = (async()=>{
+      const page = await PDF_EN_COURS.getPage(n);
+      if (!PDF_EN_COURS || !wrapper.isConnected) return;
+      const largeurDispo = pdfLargeurBase || Math.max(260, Math.min(980, document.getElementById('pdfViewerZone').clientWidth - 10));
+      const vpBase = page.getViewport({scale:1, rotation:PDF_ROTATION});
+      const echelleAjustement = largeurDispo / vpBase.width;
+      const echelle = Math.max(0.25, Math.min(8, echelleAjustement * PDF_ZOOM));
+      const viewport = page.getViewport({scale:echelle, rotation:PDF_ROTATION});
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      canvas.width = Math.max(1, Math.round(viewport.width * dpr));
+      canvas.height = Math.max(1, Math.round(viewport.height * dpr));
+      canvas.style.width = viewport.width + 'px';
+      canvas.style.height = viewport.height + 'px';
+      const ctx = canvas.getContext('2d', {alpha:false});
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+      await page.render({canvasContext:ctx, viewport}).promise;
+      pdfPagesRendues.add(n);
+      wrapper.classList.add('pdf-page-rendered');
+    })().finally(()=>pdfRendusEnCours.delete(n));
+
+    pdfRendusEnCours.set(n,promesse);
+    return promesse;
+  }
+
+  function installerRenduProgressifPDF(){
+    if(pdfRenduObserver) pdfRenduObserver.disconnect();
+    const zone=document.getElementById('pdfViewerZone');
+    const wrappers=document.querySelectorAll('#pdfViewerPages .pdf-reader-page');
+    if(!zone || !wrappers.length) return;
+
+    if('IntersectionObserver' in window){
+      pdfRenduObserver=new IntersectionObserver(entries=>{
+        entries.filter(e=>e.isIntersecting).forEach(e=>{
+          const n=Number(e.target.dataset.page)||1;
+          rendreUnePagePDF(n);
+          // Prépare aussi les pages voisines pour que le défilement reste fluide.
+          if(n>1) rendreUnePagePDF(n-1);
+          if(n<PDF_EN_COURS.numPages) rendreUnePagePDF(n+1);
+        });
+      },{root:zone,rootMargin:'900px 0px',threshold:0.01});
+      wrappers.forEach(w=>pdfRenduObserver.observe(w));
+    } else {
+      // Repli léger pour les navigateurs sans IntersectionObserver.
+      for(let n=1;n<=Math.min(3,PDF_EN_COURS.numPages);n++) rendreUnePagePDF(n);
+    }
+  }
+
   async function rendrePagePDF(numero) {
     if (!PDF_EN_COURS) return;
     numero = Math.max(1, Math.min(numero, PDF_EN_COURS.numPages));
@@ -7512,54 +7584,49 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const pages = document.getElementById('pdfViewerPages');
     if (!zone || !pages) return;
     try {
+      if(pdfRenduObserver) pdfRenduObserver.disconnect();
+      pdfPagesRendues = new Set();
+      pdfRendusEnCours = new Map();
       pages.innerHTML = '';
+      pages.style.transform = '';
+      pages.style.transformOrigin = '';
       document.getElementById('pdfViewerLoading').style.display = 'flex';
-      const largeurDispo = Math.max(260, Math.min(980, zone.clientWidth - 10));
-      const pagesPourRendu = [];
-      for (let i = 1; i <= PDF_EN_COURS.numPages; i++) pagesPourRendu.push(i);
+      document.getElementById('pdfViewerStatut').textContent = 'Ouverture du document…';
 
-      // Rendu page par page : la première page devient visible immédiatement,
-      // puis les suivantes sont ajoutées sans bloquer le défilement.
-      for (const n of pagesPourRendu) {
-        const page = await PDF_EN_COURS.getPage(n);
-        if (PDF_EN_COURS === null) return;
-        const vpBase = page.getViewport({scale:1, rotation:PDF_ROTATION});
-        const echelleAjustement = largeurDispo / vpBase.width;
-        const echelle = Math.max(0.25, Math.min(8, echelleAjustement * PDF_ZOOM));
-        const viewport = page.getViewport({scale:echelle, rotation:PDF_ROTATION});
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      pdfLargeurBase = Math.max(260, Math.min(980, zone.clientWidth - 10));
+      const total=PDF_EN_COURS.numPages;
 
-        const wrapper = document.createElement('div');
-        wrapper.className = 'pdf-reader-page';
-        wrapper.dataset.page = String(n);
-        const canvas = document.createElement('canvas');
-        canvas.setAttribute('aria-label', 'Page ' + n + ' sur ' + PDF_EN_COURS.numPages);
-        canvas.width = Math.max(1, Math.round(viewport.width * dpr));
-        canvas.height = Math.max(1, Math.round(viewport.height * dpr));
-        canvas.style.width = viewport.width + 'px';
-        canvas.style.height = viewport.height + 'px';
-        const ctx = canvas.getContext('2d', {alpha:false});
-        ctx.setTransform(dpr,0,0,dpr,0,0);
-        wrapper.appendChild(canvas);
+      // Création instantanée des emplacements : la première page peut être
+      // rendue sans attendre les autres, et le lecteur conserve sa hauteur.
+      for(let n=1;n<=total;n++){
+        const wrapper=document.createElement('div');
+        wrapper.className='pdf-reader-page';
+        wrapper.dataset.page=String(n);
+        const canvas=document.createElement('canvas');
+        canvas.setAttribute('aria-label','Page '+n+' sur '+total);
         const label=document.createElement('span');
         label.className='pdf-reader-page-label';
-        label.textContent=n+' / '+PDF_EN_COURS.numPages;
+        label.textContent=n+' / '+total;
+        wrapper.appendChild(canvas);
         wrapper.appendChild(label);
         pages.appendChild(wrapper);
-
-        await page.render({canvasContext:ctx, viewport}).promise;
-        if (n === 1) {
-          document.getElementById('pdfViewerLoading').style.display='none';
-          document.getElementById('pdfViewerErreurBox').style.display='none';
-        }
       }
-      document.getElementById('pdfViewerPage').textContent = PDF_EN_COURS.numPages + ' page(s)';
-      document.getElementById('pdfViewerPrec').disabled = PDF_EN_COURS.numPages <= 1;
-      document.getElementById('pdfViewerSuiv').disabled = PDF_EN_COURS.numPages <= 1;
+
+      document.getElementById('pdfViewerPage').textContent='1 / '+total;
+      document.getElementById('pdfViewerPrec').disabled=total<=1;
+      document.getElementById('pdfViewerSuiv').disabled=total<=1;
+
+      // Priorité absolue à la première page : le document devient lisible dès
+      // que cette page est prête, sans attendre le rendu du reste.
+      await rendreUnePagePDF(1,true);
+      document.getElementById('pdfViewerLoading').style.display='none';
+      document.getElementById('pdfViewerErreurBox').style.display='none';
+      installerRenduProgressifPDF();
       installerSuiviPagesPDF();
-    } catch (err) {
-      console.error('[Lecteur PDF] échec de rendu continu', err);
-      afficherErreurLecteur('Erreur d’affichage du document.', DOC_EN_LECTURE?.Telechargement_autorise !== false, DOC_EN_LECTURE?.Fichier_url);
+      document.getElementById('pdfViewerStatut').textContent='';
+    } catch(err){
+      console.error('[Lecteur PDF] échec de rendu continu',err);
+      afficherErreurLecteur('Erreur d’affichage du document.',DOC_EN_LECTURE?.Telechargement_autorise!==false,DOC_EN_LECTURE?.Fichier_url);
     }
   }
 
@@ -7568,7 +7635,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     if (!pages.length) return;
     let idx=Math.max(0, PDF_PAGE_ACTUELLE-1);
     idx=Math.max(0,Math.min(pages.length-1,idx+direction));
-    pages[idx].scrollIntoView({behavior:'smooth',block:'start'});
+    pages[idx].scrollIntoView({behavior:'smooth',block:PDF_MODE_LECTURE==='horizontal'?'center':'start',inline:PDF_MODE_LECTURE==='horizontal'?'center':'nearest'});
     PDF_PAGE_ACTUELLE=idx+1;
     document.getElementById('pdfViewerPage').textContent=(idx+1)+' / '+pages.length;
   }
@@ -7590,6 +7657,35 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     },{root:zone,threshold:[0.35,0.6,0.85]});
     pages.forEach(p=>pdfPagesObserver.observe(p));
   }
+
+  function mettreAJourModeLecturePDF() {
+    const zone = document.getElementById('pdfViewerZone');
+    const bouton = document.getElementById('pdfViewerModeLecture');
+    if (!zone) return;
+    const horizontal = PDF_MODE_LECTURE === 'horizontal';
+    zone.classList.toggle('pdf-lecture-horizontal', horizontal);
+    zone.classList.toggle('pdf-lecture-vertical', !horizontal);
+    if (bouton) {
+      bouton.setAttribute('aria-pressed', horizontal ? 'true' : 'false');
+      bouton.textContent = horizontal ? '↔ Horizontale' : '↕ Verticale';
+      bouton.title = horizontal ? 'Lecture horizontale' : 'Lecture verticale';
+      bouton.setAttribute('aria-label', horizontal ? 'Passer en lecture verticale' : 'Passer en lecture horizontale');
+    }
+  }
+
+  function changerModeLecturePDF() {
+    const zone = document.getElementById('pdfViewerZone');
+    if (!zone) return;
+    const page = document.querySelector('#pdfViewerPages .pdf-reader-page[data-page="'+PDF_PAGE_ACTUELLE+'"]');
+    PDF_MODE_LECTURE = PDF_MODE_LECTURE === 'vertical' ? 'horizontal' : 'vertical';
+    mettreAJourModeLecturePDF();
+    requestAnimationFrame(() => {
+      if (page) page.scrollIntoView({behavior:'auto', block:'center', inline:'center'});
+      document.getElementById('pdfViewerPages')?.focus?.({preventScroll:true});
+    });
+  }
+
+  document.getElementById('pdfViewerModeLecture')?.addEventListener('click', changerModeLecturePDF);
 
   function allerPagePrecedente() { pagePDFVisibleCible(-1); }
   function allerPageSuivante()   { pagePDFVisibleCible(1); }
@@ -7623,36 +7719,49 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
   async function appliquerZoom(delta, valeurAbsolue=false) {
     const cible=valeurAbsolue ? delta : (PDF_ZOOM + delta);
-    const prochain=Math.max(PDF_ZOOM_MIN, Math.min(PDF_ZOOM_MAX, +Number(cible).toFixed(2)));
-    if (prochain===PDF_ZOOM && !pdfRenduZoomEnCours) return;
+    const prochain=Math.max(PDF_ZOOM_MIN,Math.min(PDF_ZOOM_MAX,+Number(cible).toFixed(2)));
+    if(prochain===PDF_ZOOM) return;
+    const ancien=PDF_ZOOM;
     PDF_ZOOM=prochain;
-    document.getElementById('pdfViewerZoomLevel').textContent = Math.round(PDF_ZOOM * 100) + '%';
-    if(pdfRenduZoomEnCours){ pdfZoomDemandeEnAttente=PDF_ZOOM; return; }
-    pdfRenduZoomEnCours=true;
-    const ancrage=memoriserAncragePDF();
-    try {
-      await rendrePagePDF(PDF_PAGE_ACTUELLE);
-      if(ancrage){
-        const ciblePage=document.querySelector('#pdfViewerPages .pdf-reader-page[data-page="'+ancrage.page+'"]');
-        const zone=document.getElementById('pdfViewerZone');
-        if(ciblePage && zone){
-          requestAnimationFrame(()=>{
-            const zr=zone.getBoundingClientRect();
-            const pr=ciblePage.getBoundingClientRect();
-            zone.scrollTop += (pr.top + ancrage.ratio*pr.height) - (zr.top + zr.height*0.35);
-          });
-        }
+    const niveau=document.getElementById('pdfViewerZoomLevel');
+    if(niveau) niveau.textContent=Math.round(PDF_ZOOM*100)+'%';
+
+    const pages=document.getElementById('pdfViewerPages');
+    const zone=document.getElementById('pdfViewerZone');
+    if(!pages || !zone) return;
+
+    // Changement visuel immédiat : tout le document est agrandi/réduit d'un
+    // seul bloc, sans déformer les lettres. Le rendu PDF haute définition des
+    // pages visibles suit juste après, de façon progressive.
+    const ratio=PDF_ZOOM/ancien;
+    const scrollCentreX=zone.scrollLeft + zone.clientWidth/2;
+    const scrollCentreY=zone.scrollTop + zone.clientHeight/2;
+    pages.style.transform='scale('+PDF_ZOOM+')';
+    pages.style.transformOrigin='top center';
+    pages.style.marginBottom=(Math.max(0,PDF_ZOOM-1)*100)+'px';
+    pages.style.width='calc(100% / '+PDF_ZOOM+')';
+
+    requestAnimationFrame(async()=>{
+      // Les pages déjà visibles sont rerendues à la vraie résolution sans
+      // attendre tout le document. Les autres seront traitées à leur entrée.
+      const visibles=[...document.querySelectorAll('#pdfViewerPages .pdf-reader-page')].filter(el=>{
+        const r=el.getBoundingClientRect(), z=zone.getBoundingClientRect();
+        return r.bottom>z.top-700 && r.top<z.bottom+700;
+      });
+      for(const el of visibles){
+        const n=Number(el.dataset.page)||1;
+        pdfPagesRendues.delete(n);
+        await rendreUnePagePDF(n,true);
       }
-    } finally {
-      pdfRenduZoomEnCours=false;
-      if(pdfZoomDemandeEnAttente!==null && Math.abs(pdfZoomDemandeEnAttente-PDF_ZOOM)>0.001){
-        const attente=pdfZoomDemandeEnAttente;
-        pdfZoomDemandeEnAttente=null;
-        appliquerZoom(attente,true);
-      } else {
-        pdfZoomDemandeEnAttente=null;
-      }
-    }
+      installerRenduProgressifPDF();
+    });
+
+    // Recentrage doux sur la page actuellement lue.
+    requestAnimationFrame(()=>{
+      const facteur=ratio;
+      zone.scrollLeft=Math.max(0,(scrollCentreX-zone.clientWidth/2)*facteur + zone.clientWidth/2);
+      zone.scrollTop=Math.max(0,(scrollCentreY-zone.clientHeight/2)*facteur + zone.clientHeight/2);
+    });
   }
 
   document.getElementById('pdfViewerZoomIn').addEventListener('click', () => appliquerZoom(PDF_ZOOM_PAS));
@@ -8809,6 +8918,61 @@ footer>.wrap:last-child{margin-top:18px!important;}
 }
 </style>
 
+
+<style id="aurore-pdf-horizontal-navigation-final">
+  /* Lecture horizontale optionnelle : une page à la fois, défilement par balayage. */
+  #pdfViewerZone.pdf-lecture-horizontal{
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    display:block!important;
+    touch-action:pan-x!important;
+    -webkit-overflow-scrolling:touch!important;
+    scroll-snap-type:x mandatory!important;
+    overscroll-behavior:contain!important;
+  }
+  #pdfViewerZone.pdf-lecture-horizontal #pdfViewerPages{
+    width:max-content!important;
+    max-width:none!important;
+    min-height:100%!important;
+    margin:0 auto!important;
+    flex-direction:row!important;
+    align-items:center!important;
+    gap:18px!important;
+    padding:4px max(10px,calc((100vw - 980px)/2)) 18px!important;
+  }
+  #pdfViewerZone.pdf-lecture-horizontal .pdf-reader-page{
+    flex:0 0 min(980px,calc(100vw - 30px))!important;
+    width:min(980px,calc(100vw - 30px))!important;
+    max-width:none!important;
+    scroll-snap-align:center!important;
+    scroll-snap-stop:always!important;
+  }
+  #pdfViewerZone.pdf-lecture-horizontal .pdf-reader-page canvas{
+    max-width:100%!important;
+  }
+  #pdfViewerZone.pdf-lecture-horizontal .pdf-reader-page-label{
+    position:absolute!important;
+    bottom:10px!important;
+    top:auto!important;
+    right:10px!important;
+  }
+  #pdfViewerZone.pdf-lecture-vertical{
+    scroll-snap-type:none!important;
+  }
+  #pdfViewerModeLecture{
+    min-width:112px!important;
+  }
+  @media(max-width:640px){
+    #pdfViewerZone.pdf-lecture-horizontal #pdfViewerPages{gap:8px!important;padding:4px 5px 12px!important;}
+    #pdfViewerZone.pdf-lecture-horizontal .pdf-reader-page{flex-basis:calc(100vw - 12px)!important;width:calc(100vw - 12px)!important;}
+    #pdfViewerModeLecture{min-width:106px!important;}
+  }
+
+  /* Navigation : chaque écran possède une entrée d'historique explicite.
+     Android / iOS dépile donc réellement l'écran précédent, sans fermeture
+     aléatoire de l'application ni saut direct vers Accueil. */
+  html,body{overscroll-behavior-x:none;}
+</style>
 </body>
 </html>
 
