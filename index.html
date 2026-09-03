@@ -654,6 +654,18 @@
 [data-theme="light"] .ad-slot-body{background:#fff;}
 [data-theme="light"] .ad-slot-title{background:#FAF8FD;border-color:#E6DFF0;color:#111318;}
 [data-theme="light"] .ad-slot-desc{background:#FCFBFE;border-color:#EEE9F5;color:#4D465A;}
+
+/* ===== DIAGNOSTIC ESPACE PERSONNEL ===== */
+.personal-diagnostic{margin:14px 0 0;border:1px solid var(--bordure,#e5e7eb);border-radius:16px;background:var(--fond,#fff);overflow:hidden}
+.personal-diagnostic summary{cursor:pointer;list-style:none;padding:13px 15px;font-weight:800;font-size:.82rem;display:flex;align-items:center;justify-content:space-between}
+.personal-diagnostic summary::-webkit-details-marker{display:none}
+.personal-diagnostic-body{padding:0 15px 15px}.personal-diagnostic-note{font-size:.74rem;color:var(--gris,#6b7280);margin:0 0 10px;line-height:1.45}
+.diag-row{display:flex;align-items:center;gap:9px;padding:8px 0;border-top:1px solid var(--bordure,#e5e7eb);font-size:.76rem}
+.diag-dot{width:9px;height:9px;border-radius:50%;background:#9ca3af;flex:0 0 auto}.diag-dot.ok{background:#16a34a}.diag-dot.wait{background:#f59e0b}.diag-dot.err{background:#dc2626}
+.diag-label{font-weight:700;flex:1}.diag-detail{font-size:.7rem;color:var(--gris,#6b7280);text-align:right;max-width:58%;overflow-wrap:anywhere}
+.diag-actions{display:flex;gap:8px;margin-top:11px;flex-wrap:wrap}.diag-btn{border:1px solid var(--bordure,#e5e7eb);background:transparent;border-radius:10px;padding:8px 11px;font-weight:800;font-size:.73rem;cursor:pointer}
+.diag-btn.primary{background:var(--rouge,#7c3aed);color:#fff;border-color:var(--rouge,#7c3aed)}
+
 </style>
 
 <style id="auraster-home-redesign">
@@ -2269,6 +2281,26 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
           <span class="activity-stat-icon">↓</span><span><b id="personalDownloadsCount">0</b><small>À télécharger</small></span>
         </button>
       </div>
+
+
+      <details class="personal-diagnostic" id="personalDiagnostic">
+        <summary><span>🔧 Diagnostic de l'espace</span><span id="diagOverall">Non testé</span></summary>
+        <div class="personal-diagnostic-body">
+          <p class="personal-diagnostic-note">Testez la session, Supabase et les tables utilisées par votre espace. Aucun jeton d'accès n'est affiché.</p>
+          <div id="personalDiagRows">
+            <div class="diag-row" data-diag="session"><span class="diag-dot"></span><span class="diag-label">Session utilisateur</span><span class="diag-detail">Non testé</span></div>
+            <div class="diag-row" data-diag="supabase"><span class="diag-dot"></span><span class="diag-label">Connexion Supabase</span><span class="diag-detail">Non testé</span></div>
+            <div class="diag-row" data-diag="rpc"><span class="diag-dot"></span><span class="diag-label">RPC documents personnels</span><span class="diag-detail">Non testé</span></div>
+            <div class="diag-row" data-diag="depot"><span class="diag-dot"></span><span class="diag-label">Dépôts de l'utilisateur</span><span class="diag-detail">Non testé</span></div>
+            <div class="diag-row" data-diag="favorites"><span class="diag-dot"></span><span class="diag-label">Favoris</span><span class="diag-detail">Non testé</span></div>
+            <div class="diag-row" data-diag="downloads"><span class="diag-dot"></span><span class="diag-label">Téléchargements</span><span class="diag-detail">Non testé</span></div>
+          </div>
+          <div class="diag-actions">
+            <button type="button" class="diag-btn primary" id="runPersonalDiagnostic">🔍 Lancer le diagnostic</button>
+            <button type="button" class="diag-btn" id="copyPersonalDiagnostic">📋 Copier</button>
+          </div>
+        </div>
+      </details>
 
       <div class="activity-content">
         <section class="personal-panel active" id="personalPanelDocuments" data-personal-panel="documents" role="tabpanel">
@@ -9100,6 +9132,64 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   function initialiserEditeurBienvenueAdmin(){const panel=document.querySelector('.admin-tab-panel[data-panel="annonce"]');if(!panel||document.getElementById('adminWelcomeEditor'))return;const box=document.createElement('div');box.className='admin-service-editor';box.id='adminWelcomeEditor';box.innerHTML=`<div class="form-row"><label for="adminWelcomeTitle">Titre du message de bienvenue</label><input id="adminWelcomeTitle" type="text" maxlength="180" placeholder="Bienvenue sur Aurore"></div><div class="form-row"><label for="adminWelcomeMessage">Message</label><textarea id="adminWelcomeMessage" rows="7" maxlength="1200" placeholder="Bienvenue {nom} ! Nous sommes heureux de vous accueillir sur Aurore — Section Archives."></textarea><small>Variables disponibles : {nom} et {email}.</small></div><div class="form-row" style="display:flex;align-items:center;gap:10px;"><input type="checkbox" id="adminWelcomeActive" style="width:18px;height:18px;"><label for="adminWelcomeActive" style="margin:0;">Afficher après une connexion</label></div><div class="admin-promo-actions"><button type="button" class="admin-btn primary" id="adminWelcomeSave">Enregistrer le message de bienvenue</button></div><div class="form-msg" id="adminWelcomeMsg"></div>`;panel.appendChild(box);document.getElementById('adminWelcomeSave').onclick=saveWelcome;chargerMessageBienvenue().then(c=>{if(c){document.getElementById('adminWelcomeTitle').value=c.title||'';document.getElementById('adminWelcomeMessage').value=c.message||'';document.getElementById('adminWelcomeActive').checked=c.active===true;}});}
   async function saveWelcome(){const msg=document.getElementById('adminWelcomeMsg'),btn=document.getElementById('adminWelcomeSave');if(!session||session.role!=='admin'){msg.textContent='Cette action est réservée aux administrateurs.';msg.className='form-msg err';return;}const title=document.getElementById('adminWelcomeTitle').value.trim()||'Bienvenue sur Aurore',message=document.getElementById('adminWelcomeMessage').value.trim(),active=document.getElementById('adminWelcomeActive').checked;if(!message){msg.textContent='Veuillez renseigner le message de bienvenue avant de continuer.';msg.className='form-msg err';return;}btn.disabled=true;try{const payload={id:1,title,message,active,updated_at:new Date().toISOString()};let r=await fetch(`${SUPABASE_URL}/rest/v1/${WELCOME_TABLE}?id=eq.1`,{method:'PATCH',headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify(payload)});if(!r.ok)throw new Error('HTTP '+r.status+' — '+await r.text());let body=await r.text().catch(()=> '');if(body===''||body==='[]'){const q=await fetch(`${SUPABASE_URL}/rest/v1/${WELCOME_TABLE}`,{method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(payload)});if(!q.ok)throw new Error('HTTP '+q.status+' — '+await q.text());}msg.textContent='Le message de bienvenue a été enregistré avec succès.';msg.className='form-msg ok';}catch(e){msg.textContent='Impossible d’enregistrer le message pour le moment. Veuillez réessayer.';msg.className='form-msg err';}finally{btn.disabled=false;}}
   initialiserEditeurBienvenueAdmin();document.querySelectorAll('.admin-tab').forEach(t=>t.addEventListener('click',()=>{if(t.dataset.tab==='videos')chargerVideosAdmin();if(t.dataset.tab==='annonce')initialiserEditeurBienvenueAdmin();}));chargerVideosAccueil();
+
+
+  // ---------- DIAGNOSTIC ESPACE PERSONNEL ----------
+  (function(){
+    const TIMEOUT=7000;
+    const set=(k,state,detail)=>{
+      const r=document.querySelector(`#personalDiagRows [data-diag="${k}"]`);
+      if(!r)return; r.querySelector('.diag-dot').className='diag-dot '+(state||'');
+      r.querySelector('.diag-detail').textContent=detail||'';
+    };
+    const elapsed=t=>`${Math.round(performance.now()-t)} ms`;
+    const err=e=>{let s=String(e?.message||e||'Erreur');return s.length>180?s.slice(0,177)+'…':s};
+    async function req(url,opt={},timeout=TIMEOUT){
+      const c=new AbortController(),tm=setTimeout(()=>c.abort(),timeout);
+      try{return await fetch(url,{...opt,signal:c.signal})}finally{clearTimeout(tm)}
+    }
+    async function run(){
+      const overall=document.getElementById('diagOverall'); if(overall)overall.textContent='Test en cours…';
+      ['session','supabase','rpc','depot','favorites','downloads'].forEach(k=>set(k,'wait','Test…'));
+      let s=null,t=performance.now();
+      try{
+        if(typeof recupererSessionSauvegardee==='function')s=recupererSessionSauvegardee();
+        if(!s?.access_token && window.supabaseClient?.auth?.getSession){
+          const r=await Promise.race([window.supabaseClient.auth.getSession(),new Promise((_,x)=>setTimeout(()=>x(new Error('Timeout session')),TIMEOUT))]);
+          s=r?.data?.session||null;
+        }
+        if(!s?.access_token)throw new Error('Session ou jeton absent');
+        set('session','ok',`OK · ${elapsed(t)}`);
+      }catch(e){
+        set('session','err',err(e));['supabase','rpc','depot','favorites','downloads'].forEach(k=>set(k,'err','Session indisponible'));
+        if(overall)overall.textContent='❌ Session';return;
+      }
+      const headers=typeof headersAdmin==='function'?headersAdmin():{'apikey':typeof SUPABASE_ANON_KEY!=='undefined'?SUPABASE_ANON_KEY:'','Authorization':'Bearer '+s.access_token};
+      t=performance.now();
+      try{const r=await req(`${SUPABASE_URL}/rest/v1/Document?select=id&limit=1`,{headers});if(!r.ok)throw new Error(`HTTP ${r.status}`);set('supabase','ok',`OK · ${elapsed(t)}`)}catch(e){set('supabase','err',err(e))}
+      t=performance.now();
+      try{const r=await req(`${SUPABASE_URL}/rest/v1/rpc/lister_documents_personnels`,{method:'POST',headers:{...headers,'Content-Type':'application/json','Accept':'application/json'},body:'{}'});const text=await r.text();if(!r.ok)throw new Error(`HTTP ${r.status} · ${text.slice(0,130)}`);let d=[];try{d=JSON.parse(text)}catch{}set('rpc','ok',`${Array.isArray(d)?d.length:'?'} document(s) · ${elapsed(t)}`)}catch(e){set('rpc','err',err(e))}
+      t=performance.now();
+      try{const uid=encodeURIComponent(s.user?.id||s.id||'');const r=await req(`${SUPABASE_URL}/rest/v1/Depots_deposants?select=document_id&user_id=eq.${uid}&order=id.desc`,{headers});const text=await r.text();if(!r.ok)throw new Error(`HTTP ${r.status} · ${text.slice(0,130)}`);let d=[];try{d=JSON.parse(text)}catch{}set('depot','ok',`${Array.isArray(d)?d.length:'?'} dépôt(s) · ${elapsed(t)}`)}catch(e){set('depot','err',err(e))}
+      t=performance.now();
+      try{const uid=encodeURIComponent(s.user?.id||s.id||'');const r=await req(`${SUPABASE_URL}/rest/v1/favoris_documents?select=document_id&user_id=eq.${uid}`,{headers});const text=await r.text();if(!r.ok)throw new Error(`HTTP ${r.status} · ${text.slice(0,130)}`);let d=[];try{d=JSON.parse(text)}catch{}set('favorites','ok',`${Array.isArray(d)?d.length:'?'} favori(s) · ${elapsed(t)}`)}catch(e){set('favorites','err',err(e))}
+      t=performance.now();
+      try{const uid=encodeURIComponent(s.user?.id||s.id||'');const r=await req(`${SUPABASE_URL}/rest/v1/telechargements_documents?select=id&user_id=eq.${uid}&limit=100`,{headers});const text=await r.text();if(!r.ok)throw new Error(`HTTP ${r.status} · ${text.slice(0,130)}`);let d=[];try{d=JSON.parse(text)}catch{}set('downloads','ok',`${Array.isArray(d)?d.length:'?'} entrée(s) · ${elapsed(t)}`)}catch(e){set('downloads','err',err(e))}
+      const failed=document.querySelectorAll('#personalDiagRows .diag-dot.err').length;
+      if(overall)overall.textContent=failed?`❌ ${failed} problème(s)`:'✅ Tout est accessible';
+    }
+    function diagText(){
+      return 'Aurore — Diagnostic espace personnel\nÉtat: '+(document.getElementById('diagOverall')?.textContent||'')+'\n'+[...document.querySelectorAll('#personalDiagRows .diag-row')].map(r=>`${r.querySelector('.diag-label')?.textContent}: ${r.querySelector('.diag-detail')?.textContent}`).join('\n');
+    }
+    document.addEventListener('click',e=>{
+      if(e.target.closest('#runPersonalDiagnostic'))run();
+      if(e.target.closest('#copyPersonalDiagnostic')){
+        const text=diagText();
+        navigator.clipboard?.writeText(text).then(()=>{const b=document.getElementById('copyPersonalDiagnostic');if(b){const o=b.textContent;b.textContent='✓ Copié';setTimeout(()=>b.textContent=o,1500)}}).catch(()=>window.prompt('Copiez le diagnostic :',text));
+      }
+    });
+    window.runPersonalDiagnostic=run;
+  })();
 
   // ---------- ESPACE PERSONNEL : documents et livres de l'utilisateur ----------
   let MES_DOCUMENTS_PERSONNELS = [];
