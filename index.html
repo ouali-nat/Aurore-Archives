@@ -2219,8 +2219,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       <div class="personal-tabs" role="tablist" aria-label="Sections personnelles">
         <button type="button" class="personal-tab active" data-personal-tab="documents" role="tab" aria-selected="true">Mes documents <span id="personalDocsCount">0</span></button>
         <button type="button" class="personal-tab" data-personal-tab="books" role="tab" aria-selected="false">Mes livres <span id="personalBooksCount">0</span></button>
-        <button type="button" class="personal-tab" data-personal-tab="favorites" role="tab" aria-selected="false">Mes favoris</button>
-        <button type="button" class="personal-tab" data-personal-tab="downloads" role="tab" aria-selected="false">À télécharger</button>
+        <button type="button" class="personal-tab" data-personal-tab="favorites" role="tab" aria-selected="false">Mes favoris <span id="personalFavoritesCount">0</span></button>
+        <button type="button" class="personal-tab" data-personal-tab="downloads" role="tab" aria-selected="false">À télécharger <span id="personalDownloadsCount">0</span></button>
       </div>
 
       <div class="personal-panel active" data-personal-panel="documents">
@@ -2247,7 +2247,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       <div class="personal-panel" data-personal-panel="downloads" hidden>
         <div class="personal-panel-intro">Les documents enregistrés avec « ＋ Plus tard » et votre historique de téléchargements sont regroupés ici.</div>
         <div class="personal-subsection">
-          <div class="personal-subsection-title">À télécharger plus tard</div>
+          <div class="personal-subsection-title">À télécharger plus tard <span id="personalLaterCount">0</span></div>
           <div id="personalLaterList" class="personal-list">
             <div class="personal-empty">Aucun document enregistré pour plus tard.</div>
           </div>
@@ -3063,6 +3063,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     if (session) {
       if (typeof window.auroreUnlockAccess === 'function') window.auroreUnlockAccess();
       chargerNotificationsPersonnelles();
+      afficherNotificationTelechargementAuRetour();
       if (!profilEstComplet(session)) ouvrirEspacePersonnelObligatoire();
     }
   });
@@ -5270,16 +5271,18 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   // ---------- BOUTONS RETOUR GÉNÉRIQUES ----------
   document.querySelectorAll('[data-back]').forEach(btn => {
     btn.addEventListener('click', () => {
-      // Le bouton Retour de l'interface et le bouton Retour Android suivent
-      // exactement la même pile. On ne saute jamais arbitrairement vers une
-      // destination : on dépile d'abord l'écran réellement précédent.
+      const cible=btn.getAttribute('data-back');
+      // Les boutons explicitement marqués « home » vont toujours à l'accueil,
+      // même si l'historique contient un écran précédent.
+      if(cible==='home'){
+        allerAccueil();
+        return;
+      }
       if (history.state && history.state.aurasterNavigation) {
         history.back();
         return;
       }
-      const cible=btn.getAttribute('data-back');
-      if(cible==='home') allerAccueil();
-      else if(cible==='level') afficherEcran('screen-level');
+      if(cible==='level') afficherEcran('screen-level');
       else if(cible==='livres') afficherEcran('screen-livres');
       else if(cible==='matieres') afficherEcran('screen-matieres');
     });
@@ -8210,8 +8213,9 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       a.click();
       a.remove();
       setTimeout(()=>URL.revokeObjectURL(objectUrl),60000);
-      enregistrerTelechargementPersonnel(doc);
-      afficherCarteTelechargement(doc,'succes',100,total,total,`Fichier : ${nomExact} · Taille : ${formaterTailleTelechargement(total || blob.size)} · Merci d’avoir utilisé ${SITE_NOM}.`);
+      const enregistre=enregistrerTelechargementPersonnel(doc);
+      if(!enregistre) throw new Error('Le téléchargement a réussi, mais son enregistrement personnel a échoué.');
+      afficherCarteTelechargement(doc,'succes',100,total,total,`Fichier : ${nomExact} · Taille : ${formaterTailleTelechargement(total || blob.size)} · Téléchargement enregistré dans votre espace.`);
     } catch(e) {
       console.error('[Téléchargement document]',e);
       // Repli navigateur : il lance le téléchargement sans prétendre connaître
@@ -9061,6 +9065,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     if(listFavs) listFavs.innerHTML='<div class="personal-empty">Chargement de vos favoris…</div>';
     // Les favoris sont indépendants des documents personnels : on lance leur
     // récupération immédiatement pour ne pas attendre les autres requêtes.
+    actualiserCompteursPersonnels();
     const favorisEnArrierePlan=rendreFavorisPersonnels();
     if(listLater) listLater.innerHTML='<div class="personal-empty">Chargement de vos documents enregistrés…</div>';
     const listDownloads=document.getElementById('personalDownloadsHistory');
@@ -9094,6 +9099,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       rendreLivresPersonnels();
       rendreDocumentsPlusTard();
       rendreDocumentsTelecharges();
+      afficherNotificationTelechargementAuRetour();
     }catch(err){
       console.warn('[Espace personnel]',err);
       MES_DOCUMENTS_PERSONNELS=[]; MES_LIVRES_PERSONNELS=[];
@@ -9160,10 +9166,20 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     });
   }
 
+  function actualiserCompteursPersonnels(){
+    const fav=document.getElementById('personalFavoritesCount');
+    const later=document.getElementById('personalLaterCount');
+    const down=document.getElementById('personalDownloadsCount');
+    if(fav) fav.textContent=String(favoris().length);
+    if(later) later.textContent=String(plusTard().length);
+    if(down) down.textContent=String(telecharges().length);
+  }
+
   async function rendreFavorisPersonnels(){
     const list=document.getElementById('personalFavoritesList');
     if(!list||!session)return;
-    const ids=favoris();
+    const ids=[...new Set(favoris().map(v=>String(v).trim()).filter(Boolean))];
+    actualiserCompteursPersonnels();
     if(!ids.length){list.innerHTML='<div class="personal-empty">Aucun favori pour le moment. Utilisez « ♡ Favori » sur un document du site.</div>';return;}
     list.innerHTML='<div class="personal-empty">Chargement de vos favoris…</div>';
     try{
@@ -9171,13 +9187,20 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       const cached=favorisDocumentsCache.get(userKey());
       let docs;
       if(cached && cached.key===cacheKey && (Date.now()-cached.at)<FAVORIS_CACHE_TTL){
-        docs=cached.docs;
+        docs=Array.isArray(cached.docs)?[...cached.docs]:[];
       }else{
-        const query=`id=in.(${ids.map(encodeURIComponent).join(',')})&Publie=eq.true`;
-        const r=await fetch(`${SUPABASE_URL}/rest/v1/Document?select=id,Titre,Auteur,Fichier_url,"Catégorie",Niveau,"Matière",Genre,Telechargement_autorise,Publie&${query}`,{headers:HEADERS,cache:'force-cache'});
-        if(!r.ok)throw new Error('favoris');
-        docs=await r.json();
-        favorisDocumentsCache.set(userKey(),{key:cacheKey,docs,at:Date.now()});
+        // Lecture publique des documents favoris. On évite force-cache afin de ne
+        // pas réafficher une ancienne réponse après ajout/suppression d'un favori.
+        const select='id,Titre,Auteur,Fichier_url,"Catégorie",Niveau,"Matière",Genre,Telechargement_autorise,Publie';
+        const query=`id=in.(${ids.map(id=>id.replace(/[^a-zA-Z0-9_-]/g,'')).filter(Boolean).join(',')})&Publie=eq.true`;
+        const r=await fetch(`${SUPABASE_URL}/rest/v1/Document?select=${encodeURIComponent(select)}&${query}`,{headers:HEADERS,cache:'no-store'});
+        if(!r.ok){
+          const detail=await r.text().catch(()=> '');
+          throw new Error(`HTTP ${r.status} ${detail}`);
+        }
+        const data=await r.json();
+        docs=Array.isArray(data)?data:[];
+        favorisDocumentsCache.set(userKey(),{key:cacheKey,docs:[...docs],at:Date.now()});
       }
       const order=new Map(ids.map((id,i)=>[String(id),i]));
       docs.sort((a,b)=>(order.get(String(a.id))??9999)-(order.get(String(b.id))??9999));
@@ -9187,10 +9210,13 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         const row=document.createElement('article');row.className='personal-doc';
         row.innerHTML=`<div class="personal-doc-main"><div class="personal-doc-title">${escapeTextePersonnel(doc.Titre||'Document')}</div><div class="personal-doc-meta">${escapeTextePersonnel([doc.Niveau,doc['Matière']||doc.Genre].filter(Boolean).join(' · ')||'Document')}</div></div><div class="personal-doc-actions"><button type="button" class="personal-action" data-read>Voir</button><button type="button" class="personal-action is-active" data-remove>♥ Favori</button></div>`;
         row.querySelector('[data-read]')?.addEventListener('click',()=>ouvrirLecteurPDF(doc));
-        row.querySelector('[data-remove]')?.addEventListener('click',()=>{basculerFavoriDocument(doc,row.querySelector('[data-remove]'));setTimeout(rendreFavorisPersonnels,0);});
+        row.querySelector('[data-remove]')?.addEventListener('click',()=>{basculerFavoriDocument(doc,row.querySelector('[data-remove]'));actualiserCompteursPersonnels();setTimeout(rendreFavorisPersonnels,0);});
         list.appendChild(row);
       });
-    }catch(e){list.innerHTML='<div class="personal-empty">Impossible de charger vos favoris pour le moment.</div>';}
+    }catch(e){
+      console.error('[Favoris] chargement impossible',e);
+      list.innerHTML='<div class="personal-empty">Impossible de charger vos favoris pour le moment. Vérifiez votre connexion puis réessayez.</div>';
+    }
   }
 
   function initialiserEspacePersonnel(){
@@ -10062,12 +10088,50 @@ footer>.wrap:last-child{margin-top:18px!important;}
   function plusTard(){return userKey()?safeRead(KEY_LATER+userKey()):[];}
   function telecharges(){return userKey()?safeRead(KEY_DOWNLOADS+userKey()):[];}
   function enregistrerTelechargementPersonnel(doc){
-    if(!session||!doc||doc.id==null)return;
-    const id=docId(doc); if(!id)return;
+    if(!session||!doc||doc.id==null)return false;
+    const id=docId(doc); if(!id)return false;
+    const key=KEY_DOWNLOADS+userKey();
     let arr=telecharges().filter(x=>String(x.id)!==id);
-    arr.unshift({id:doc.id,titre:doc.Titre||'Document',auteur:doc.Auteur||'',url:doc.Fichier_url||'',categorie:doc['Catégorie']||'',niveau:doc.Niveau||'',matiere:doc['Matière']||'',genre:doc.Genre||'',downloaded_at:new Date().toISOString()});
-    safeWrite(KEY_DOWNLOADS+userKey(),arr.slice(0,100));
+    const entree={id:doc.id,titre:doc.Titre||'Document',auteur:doc.Auteur||'',url:doc.Fichier_url||'',categorie:doc['Catégorie']||'',niveau:doc.Niveau||'',matiere:doc['Matière']||'',genre:doc.Genre||'',downloaded_at:new Date().toISOString()};
+    arr.unshift(entree);
+    const ok=safeWrite(key,arr.slice(0,100));
+    if(!ok)return false;
+    const verif=safeRead(key);
+    if(!Array.isArray(verif)||!verif.some(x=>String(x.id)===id))return false;
     rendreDocumentsTelecharges();
+    afficherNotificationTelechargement(entree);
+    return true;
+  }
+
+  function afficherNotificationTelechargement(entree){
+    if(!session||!entree)return;
+    const key='aurore_derniere_notification_telechargement_'+userKey();
+    safeWrite(key,{id:String(entree.id),titre:entree.titre||'Document',downloaded_at:entree.downloaded_at||new Date().toISOString()});
+    afficherCarteNotificationTelechargement(entree.titre||'Document');
+  }
+
+  function afficherCarteNotificationTelechargement(titre){
+    let box=document.getElementById('downloadSavedNotice');
+    if(!box){
+      box=document.createElement('div'); box.id='downloadSavedNotice'; box.setAttribute('role','status'); box.setAttribute('aria-live','polite');
+      box.style.cssText='position:fixed;left:16px;right:16px;bottom:18px;z-index:10020;max-width:520px;margin:0 auto;padding:14px 16px;border:1px solid var(--bordure);border-radius:16px;background:var(--papier);color:var(--encre);box-shadow:0 14px 35px rgba(0,0,0,.22);font-size:.88rem;line-height:1.45;display:flex;align-items:flex-start;gap:10px;';
+      document.body.appendChild(box);
+    }
+    box.innerHTML='<span style="font-size:1.1rem;line-height:1">✓</span><div><strong>Téléchargement enregistré</strong><br><span>'+escapeTextePersonnel(titre)+'</span></div>';
+    box.style.display='flex';
+    clearTimeout(window.__auroreDownloadNoticeTimer);
+    window.__auroreDownloadNoticeTimer=setTimeout(()=>{if(box)box.style.display='none';},7000);
+  }
+
+  function afficherNotificationTelechargementAuRetour(){
+    if(!session||!session.id)return;
+    const key='aurore_derniere_notification_telechargement_'+userKey();
+    const n=safeRead(key);
+    if(!n||typeof n!=='object'||!n.titre)return;
+    const vuKey=key+'_vue';
+    if(safeRead(vuKey)===n.downloaded_at)return;
+    afficherCarteNotificationTelechargement(n.titre);
+    safeWrite(vuKey,n.downloaded_at);
   }
   function basculerFavoriDocument(doc,button){
     if(!session){requireLogin();return;}
@@ -10075,7 +10139,13 @@ footer>.wrap:last-child{margin-top:18px!important;}
     let arr=favoris(); const i=arr.indexOf(id);
     if(i>=0){arr.splice(i,1);if(button)button.classList.remove('is-active');}
     else{arr.push(id);if(button)button.classList.add('is-active');}
-    safeWrite(KEY_FAV+userKey(),arr); favorisDocumentsCache.delete(userKey()); actualiserEtatActionsDocument(button?.closest('.doc-row,.recents-card')||button,doc);
+    const ok=safeWrite(KEY_FAV+userKey(),arr);
+    if(!ok) return;
+    const verify=favoris();
+    if(verify.length!==arr.length || arr.some(id=>!verify.includes(String(id)))) return;
+    favorisDocumentsCache.delete(userKey());
+    actualiserCompteursPersonnels();
+    actualiserEtatActionsDocument(button?.closest('.doc-row,.recents-card')||button,doc);
   }
   function ajouterDocumentPlusTard(doc,button){
     if(!session){requireLogin();return;}
