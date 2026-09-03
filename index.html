@@ -9109,8 +9109,21 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   function escapeTextePersonnel(v){ return echapperHtmlPub(v == null ? '' : String(v)); }
 
   async function chargerDonneesEspacePersonnel(){
-    if(!session?.id||!session?.access_token){
-      console.warn('[Mon activité] session absente');
+    // Ne jamais laisser l'interface bloquée si le token n'est plus disponible.
+    // On tente d'abord de récupérer/rafraîchir la session persistée.
+    if(!session?.id || !session?.access_token){
+      try{
+        const saved=sessionStorage.getItem('lsnb_session');
+        if(saved && !session) session=JSON.parse(saved);
+      }catch(e){}
+      if(!session?.access_token && typeof rafraichirSession==='function'){
+        try{ await rafraichirSession(); }catch(e){ console.warn('[Mon activité] rafraîchissement session impossible',e); }
+      }
+    }
+    if(!session?.id || !session?.access_token){
+      const ids=['personalDocumentsList','personalBooksList','personalFavoritesList','personalLaterList','personalDownloadsHistory'];
+      ids.forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='<div class=\"personal-empty activity-error\"><strong>Session expirée.</strong><br>Reconnectez-vous puis réessayez.</div>';});
+      console.warn('[Mon activité] session absente après tentative de récupération');
       return;
     }
 
