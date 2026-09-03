@@ -7524,8 +7524,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         const page = await PDF_EN_COURS.getPage(n);
         if (PDF_EN_COURS === null) return;
         const vpBase = page.getViewport({scale:1, rotation:PDF_ROTATION});
-        const echelleAjustement = Math.min(2.2, largeurDispo / vpBase.width);
-        const echelle = Math.max(0.25, echelleAjustement * PDF_ZOOM);
+        const echelleAjustement = largeurDispo / vpBase.width;
+        const echelle = Math.max(0.25, Math.min(8, echelleAjustement * PDF_ZOOM));
         const viewport = page.getViewport({scale:echelle, rotation:PDF_ROTATION});
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
@@ -7604,18 +7604,112 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   // Le lecteur reste volontairement en pan-y pour un confort proche d'un livre numérique.
 
   // -- Zoom / ajustement / rotation --
-  function appliquerZoom(delta) {
-    PDF_ZOOM = Math.max(PDF_ZOOM_MIN, Math.min(PDF_ZOOM_MAX, +(PDF_ZOOM + delta).toFixed(2)));
-    document.getElementById('pdfViewerZoomLevel').textContent = Math.round(PDF_ZOOM * 100) + '%';
-    rendrePagePDF(PDF_PAGE_ACTUELLE);
+  // Le zoom est appliqué au rendu de CHAQUE page : le document entier reste
+  // cohérent, au lieu d'étirer uniquement un texte ou une page isolée.
+  let pdfRenduZoomEnCours = false;
+  let pdfZoomDemandeEnAttente = null;
+
+  function memoriserAncragePDF() {
+    const zone=document.getElementById('pdfViewerZone');
+    const page=document.querySelector('#pdfViewerPages .pdf-reader-page[data-page="'+PDF_PAGE_ACTUELLE+'"]');
+    if(!zone || !page) return null;
+    const zr=zone.getBoundingClientRect();
+    const pr=page.getBoundingClientRect();
+    return {
+      page:PDF_PAGE_ACTUELLE,
+      ratio:Math.max(0,Math.min(1,(zr.top+zr.height*0.35-pr.top)/Math.max(1,pr.height)))
+    };
   }
+
+  async function appliquerZoom(delta, valeurAbsolue=false) {
+    const cible=valeurAbsolue ? delta : (PDF_ZOOM + delta);
+    const prochain=Math.max(PDF_ZOOM_MIN, Math.min(PDF_ZOOM_MAX, +Number(cible).toFixed(2)));
+    if (prochain===PDF_ZOOM && !pdfRenduZoomEnCours) return;
+    PDF_ZOOM=prochain;
+    document.getElementById('pdfViewerZoomLevel').textContent = Math.round(PDF_ZOOM * 100) + '%';
+    if(pdfRenduZoomEnCours){ pdfZoomDemandeEnAttente=PDF_ZOOM; return; }
+    pdfRenduZoomEnCours=true;
+    const ancrage=memoriserAncragePDF();
+    try {
+      await rendrePagePDF(PDF_PAGE_ACTUELLE);
+      if(ancrage){
+        const ciblePage=document.querySelector('#pdfViewerPages .pdf-reader-page[data-page="'+ancrage.page+'"]');
+        const zone=document.getElementById('pdfViewerZone');
+        if(ciblePage && zone){
+          requestAnimationFrame(()=>{
+            const zr=zone.getBoundingClientRect();
+            const pr=ciblePage.getBoundingClientRect();
+            zone.scrollTop += (pr.top + ancrage.ratio*pr.height) - (zr.top + zr.height*0.35);
+          });
+        }
+      }
+    } finally {
+      pdfRenduZoomEnCours=false;
+      if(pdfZoomDemandeEnAttente!==null && Math.abs(pdfZoomDemandeEnAttente-PDF_ZOOM)>0.001){
+        const attente=pdfZoomDemandeEnAttente;
+        pdfZoomDemandeEnAttente=null;
+        appliquerZoom(attente,true);
+      } else {
+        pdfZoomDemandeEnAttente=null;
+      }
+    }
+  }
+
   document.getElementById('pdfViewerZoomIn').addEventListener('click', () => appliquerZoom(PDF_ZOOM_PAS));
   document.getElementById('pdfViewerZoomOut').addEventListener('click', () => appliquerZoom(-PDF_ZOOM_PAS));
-  document.getElementById('pdfViewerAjuster').addEventListener('click', () => {
-    PDF_ZOOM = 1;
-    document.getElementById('pdfViewerZoomLevel').textContent = '100%';
-    rendrePagePDF(PDF_PAGE_ACTUELLE);
-  });
+  document.getElementById('pdfViewerAjuster').addEventListener('click', () => appliquerZoom(1,true));
+
+  // Pinçage à deux doigts sur Android/iOS : le geste agit sur l'ensemble du
+  // document. Pendant le geste, une prévisualisation légère évite les saccades ;
+  // à la fin, PDF.js rerend toutes les pages avec la nouvelle résolution.
+  let pdfPinchActif=false, pdfPinchDistanceInitiale=0, pdfPinchZoomInitial=1;
+  const pdfZoneGeste=document.getElementById('pdfViewerZone');
+  if(pdfZoneGeste){
+    pdfZoneGeste.addEventListener('touchstart',(e)=>{
+      if(e.touches.length!==2) return;
+      const dx=e.touches[0].clientX-e.touches[1].clientX;
+      const dy=e.touches[0].clientY-e.touches[1].clientY;
+      pdfPinchDistanceInitiale=Math.hypot(dx,dy);
+      if(pdfPinchDistanceInitiale<10) return;
+      pdfPinchActif=true;
+      pdfPinchZoomInitial=PDF_ZOOM;
+      const pages=document.getElementById('pdfViewerPages');
+      if(pages) pages.classList.add('pdf-pinch-preview');
+    },{passive:true});
+
+    pdfZoneGeste.addEventListener('touchmove',(e)=>{
+      if(!pdfPinchActif || e.touches.length!==2) return;
+      e.preventDefault();
+      const dx=e.touches[0].clientX-e.touches[1].clientX;
+      const dy=e.touches[0].clientY-e.touches[1].clientY;
+      const distance=Math.hypot(dx,dy);
+      if(distance<10 || pdfPinchDistanceInitiale<10) return;
+      const ratio=distance/pdfPinchDistanceInitiale;
+      const preview=Math.max(PDF_ZOOM_MIN,Math.min(PDF_ZOOM_MAX,pdfPinchZoomInitial*ratio));
+      const pages=document.getElementById('pdfViewerPages');
+      if(pages){
+        pages.style.transform='scale('+preview+')';
+        pages.style.transformOrigin='top center';
+      }
+    },{passive:false});
+
+    const terminerPinch=()=>{
+      if(!pdfPinchActif) return;
+      pdfPinchActif=false;
+      const pages=document.getElementById('pdfViewerPages');
+      let cible=PDF_ZOOM;
+      if(pages){
+        const match=(pages.style.transform||'').match(/scale\(([^)]+)\)/);
+        if(match) cible=parseFloat(match[1])||PDF_ZOOM;
+        pages.style.transform='';
+        pages.classList.remove('pdf-pinch-preview');
+      }
+      cible=Math.round(cible*20)/20;
+      appliquerZoom(cible,true);
+    };
+    pdfZoneGeste.addEventListener('touchend',terminerPinch,{passive:true});
+    pdfZoneGeste.addEventListener('touchcancel',terminerPinch,{passive:true});
+  }
 
   // -- Navigation clavier (bonnes pratiques ; pas un audit RGAA/WCAG complet) --
   document.getElementById('pdfViewerOverlay').addEventListener('keydown', (e) => {
@@ -8575,6 +8669,146 @@ footer>.wrap:last-child{margin-top:18px!important;}
 [data-theme="light"] .ad-slot-title,[data-theme="light"] .ad-slot-desc{background:#fff!important;color:#171322!important;border-color:#D8CDE3!important;text-shadow:none!important;}
 [data-theme="light"] .ad-slot-cta{background:#fff!important;color:#6D28D9!important;border-color:#D8CDE3!important;text-shadow:none!important;}
 </style>
+
+<style id="aurore-final-reader-and-layout-polish">
+/* Publicité : séparation structurelle stricte avec le contenu voisin.
+   Même une description très longue doit pousser le bloc suivant vers le bas. */
+.ad-slot{
+  position:relative!important;
+  display:block!important;
+  width:100%!important;
+  clear:both!important;
+  isolation:isolate!important;
+  margin:38px 0 42px!important;
+  overflow:visible!important;
+}
+.ad-slot-card{
+  position:relative!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:stretch!important;
+  width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  max-height:none!important;
+  overflow:visible!important;
+  gap:11px!important;
+}
+.ad-slot-img{
+  position:relative!important;
+  inset:auto!important;
+  flex:0 0 auto!important;
+}
+.ad-slot-body{
+  position:static!important;
+  flex:0 0 auto!important;
+  width:100%!important;
+  min-width:0!important;
+  height:auto!important;
+  max-height:none!important;
+  overflow:visible!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:stretch!important;
+  gap:9px!important;
+}
+.ad-slot-title,.ad-slot-desc{
+  position:relative!important;
+  display:block!important;
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  height:auto!important;
+  max-height:none!important;
+  overflow:visible!important;
+  white-space:normal!important;
+  overflow-wrap:anywhere!important;
+  word-break:break-word!important;
+  box-sizing:border-box!important;
+}
+.ad-slot-desc{line-height:1.65!important;}
+.ad-slot-cta{position:relative!important;z-index:1!important;align-self:flex-start!important;}
+
+/* Vidéo d'accueil : cadre plus compact, sans prendre la place des documents. */
+.home-video-section{
+  width:min(700px,100%)!important;
+  max-width:700px!important;
+  margin:16px auto 28px!important;
+}
+.home-video-frame{
+  width:calc(100% - 16px)!important;
+  max-width:680px!important;
+  margin:0 auto 8px!important;
+  aspect-ratio:16/8.4!important;
+  border-radius:12px!important;
+}
+@media(max-width:640px){
+  .home-video-section{width:100%!important;max-width:100%!important;margin:14px 0 22px!important;}
+  .home-video-frame{width:calc(100% - 12px)!important;max-width:100%!important;aspect-ratio:16/9!important;}
+}
+
+/* Lecteur PDF : vrai zoom du document entier + lecture verticale confortable. */
+.pdf-reader-zone{
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  display:block!important;
+  touch-action:pan-y!important;
+  overscroll-behavior:contain!important;
+  -webkit-overflow-scrolling:touch!important;
+}
+.pdf-reader-pages{
+  width:100%!important;
+  max-width:980px!important;
+  margin:0 auto!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  gap:18px!important;
+  transform-origin:top center!important;
+}
+.pdf-reader-page{
+  width:max-content!important;
+  max-width:100%!important;
+  flex:0 0 auto!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  position:relative!important;
+}
+.pdf-reader-page canvas{
+  display:block!important;
+  max-width:none!important;
+  height:auto!important;
+  background:#fff!important;
+  box-shadow:0 5px 22px rgba(0,0,0,.20)!important;
+}
+.pdf-reader-page-label{
+  margin-top:7px!important;
+  padding:3px 8px!important;
+  border-radius:999px!important;
+  font-size:.68rem!important;
+  line-height:1.2!important;
+  background:rgba(255,255,255,.10)!important;
+  color:rgba(255,255,255,.72)!important;
+}
+[data-theme="light"] .pdf-reader-page-label{
+  background:rgba(255,255,255,.88)!important;
+  color:#5B5368!important;
+}
+
+/* Les boutons restent disponibles : la lecture verticale est la vue principale. */
+.pdf-reader-bottombar{
+  position:relative!important;
+  z-index:5!important;
+}
+
+/* Geste de pincement : pendant le geste, tout le document est agrandi/réduit
+   ensemble. Le rendu haute définition définitif est recalculé à la fin du geste. */
+.pdf-reader-pages.pdf-pinch-preview{
+  will-change:transform!important;
+}
+</style>
+
 </body>
 </html>
 
