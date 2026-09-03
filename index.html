@@ -657,9 +657,10 @@
 
 /* ===== DIAGNOSTIC ESPACE PERSONNEL ===== */
 .personal-diagnostic{margin:14px 0 0;border:1px solid var(--bordure,#e5e7eb);border-radius:16px;background:var(--fond,#fff);overflow:hidden}
-.personal-diagnostic summary{cursor:pointer;list-style:none;padding:13px 15px;font-weight:800;font-size:.82rem;display:flex;align-items:center;justify-content:space-between}
+.personal-diagnostic summary{cursor:pointer;list-style:none;padding:13px 15px;font-weight:800;font-size:.82rem;display:flex;align-items:center;justify-content:space-between;gap:10px}
 .personal-diagnostic summary::-webkit-details-marker{display:none}
-.personal-diagnostic-body{padding:0 15px 15px}.personal-diagnostic-note{font-size:.74rem;color:var(--gris,#6b7280);margin:0 0 10px;line-height:1.45}
+.personal-diagnostic-body{padding:0 15px 15px}
+.personal-diagnostic-note{font-size:.74rem;color:var(--gris,#6b7280);margin:0 0 10px;line-height:1.45}
 .diag-row{display:flex;align-items:center;gap:9px;padding:8px 0;border-top:1px solid var(--bordure,#e5e7eb);font-size:.76rem}
 .diag-dot{width:9px;height:9px;border-radius:50%;background:#9ca3af;flex:0 0 auto}.diag-dot.ok{background:#16a34a}.diag-dot.wait{background:#f59e0b}.diag-dot.err{background:#dc2626}
 .diag-label{font-weight:700;flex:1}.diag-detail{font-size:.7rem;color:var(--gris,#6b7280);text-align:right;max-width:58%;overflow-wrap:anywhere}
@@ -2286,10 +2287,10 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       <details class="personal-diagnostic" id="personalDiagnostic">
         <summary><span>🔧 Diagnostic de l'espace</span><span id="diagOverall">Non testé</span></summary>
         <div class="personal-diagnostic-body">
-          <p class="personal-diagnostic-note">Testez la session, Supabase et les tables utilisées par votre espace. Aucun jeton d'accès n'est affiché.</p>
+          <p class="personal-diagnostic-note">Diagnostic basé sur la vraie session utilisée par Aurore. Aucun jeton d'accès n'est affiché.</p>
           <div id="personalDiagRows">
             <div class="diag-row" data-diag="session"><span class="diag-dot"></span><span class="diag-label">Session utilisateur</span><span class="diag-detail">Non testé</span></div>
-            <div class="diag-row" data-diag="supabase"><span class="diag-dot"></span><span class="diag-label">Connexion Supabase</span><span class="diag-detail">Non testé</span></div>
+            <div class="diag-row" data-diag="auth"><span class="diag-dot"></span><span class="diag-label">Vérification Supabase Auth</span><span class="diag-detail">Non testé</span></div>
             <div class="diag-row" data-diag="rpc"><span class="diag-dot"></span><span class="diag-label">RPC documents personnels</span><span class="diag-detail">Non testé</span></div>
             <div class="diag-row" data-diag="depot"><span class="diag-dot"></span><span class="diag-label">Dépôts de l'utilisateur</span><span class="diag-detail">Non testé</span></div>
             <div class="diag-row" data-diag="favorites"><span class="diag-dot"></span><span class="diag-label">Favoris</span><span class="diag-detail">Non testé</span></div>
@@ -9137,58 +9138,171 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   // ---------- DIAGNOSTIC ESPACE PERSONNEL ----------
   (function(){
     const TIMEOUT=7000;
-    const set=(k,state,detail)=>{
-      const r=document.querySelector(`#personalDiagRows [data-diag="${k}"]`);
-      if(!r)return; r.querySelector('.diag-dot').className='diag-dot '+(state||'');
-      r.querySelector('.diag-detail').textContent=detail||'';
-    };
-    const elapsed=t=>`${Math.round(performance.now()-t)} ms`;
-    const err=e=>{let s=String(e?.message||e||'Erreur');return s.length>180?s.slice(0,177)+'…':s};
-    async function req(url,opt={},timeout=TIMEOUT){
-      const c=new AbortController(),tm=setTimeout(()=>c.abort(),timeout);
-      try{return await fetch(url,{...opt,signal:c.signal})}finally{clearTimeout(tm)}
+
+    function setDiag(key,state,detail){
+      const row=document.querySelector(`#personalDiagRows [data-diag="${key}"]`);
+      if(!row)return;
+      row.querySelector('.diag-dot').className='diag-dot '+(state||'');
+      row.querySelector('.diag-detail').textContent=detail||'';
     }
-    async function run(){
-      const overall=document.getElementById('diagOverall'); if(overall)overall.textContent='Test en cours…';
-      ['session','supabase','rpc','depot','favorites','downloads'].forEach(k=>set(k,'wait','Test…'));
-      let s=null,t=performance.now();
-      try{
-        if(typeof recupererSessionSauvegardee==='function')s=recupererSessionSauvegardee();
-        if(!s?.access_token && window.supabaseClient?.auth?.getSession){
-          const r=await Promise.race([window.supabaseClient.auth.getSession(),new Promise((_,x)=>setTimeout(()=>x(new Error('Timeout session')),TIMEOUT))]);
-          s=r?.data?.session||null;
+
+    function elapsed(t){return `${Math.round(performance.now()-t)} ms`;}
+
+    function cleanError(e){
+      let s=String(e?.message||e||'Erreur');
+      if(s.length>180)s=s.slice(0,177)+'…';
+      return s;
+    }
+
+    async function requestWithTimeout(url,options={},timeout=TIMEOUT){
+      const controller=new AbortController();
+      const timer=setTimeout(()=>controller.abort(),timeout);
+      try{return await fetch(url,{...options,signal:controller.signal});}
+      finally{clearTimeout(timer);}
+    }
+
+    async function getRealSession(){
+      // Le site stocke sa session dans sessionStorage sous cette clé.
+      let current=typeof session!=='undefined'?session:null;
+
+      if(!current){
+        const saved=sessionStorage.getItem('lsnb_session');
+        if(saved){
+          try{current=JSON.parse(saved);}catch(e){throw new Error('Session locale illisible');}
         }
-        if(!s?.access_token)throw new Error('Session ou jeton absent');
-        set('session','ok',`OK · ${elapsed(t)}`);
-      }catch(e){
-        set('session','err',err(e));['supabase','rpc','depot','favorites','downloads'].forEach(k=>set(k,'err','Session indisponible'));
-        if(overall)overall.textContent='❌ Session';return;
       }
-      const headers=typeof headersAdmin==='function'?headersAdmin():{'apikey':typeof SUPABASE_ANON_KEY!=='undefined'?SUPABASE_ANON_KEY:'','Authorization':'Bearer '+s.access_token};
+
+      if(!current?.access_token){
+        throw new Error('Aucune session Aurore valide dans ce navigateur');
+      }
+
+      // Si le token est expiré ou proche de l'expiration, utiliser
+      // exactement le mécanisme de rafraîchissement déjà présent dans le site.
+      if(current.expires_at && Date.now()>current.expires_at-30000){
+        if(typeof rafraichirSession==='function'){
+          const ok=await rafraichirSession();
+          if(ok && typeof session!=='undefined') current=session;
+        }
+      }
+
+      if(!current?.access_token)throw new Error('Impossible de restaurer le jeton');
+      return current;
+    }
+
+    async function runPersonalDiagnostic(){
+      const overall=document.getElementById('diagOverall');
+      if(overall)overall.textContent='Test en cours…';
+
+      ['session','auth','rpc','depot','favorites','downloads'].forEach(k=>setDiag(k,'wait','Test…'));
+
+      let s;
+      try{
+        const t=performance.now();
+        s=await getRealSession();
+        const id=s.id||s.user?.id||'';
+        const masked=id?`${id.slice(0,8)}…${id.slice(-4)}`:'présent';
+        setDiag('session','ok',`OK · ${masked} · ${elapsed(t)}`);
+      }catch(e){
+        setDiag('session','err',cleanError(e));
+        ['auth','rpc','depot','favorites','downloads'].forEach(k=>setDiag(k,'err','Session indisponible'));
+        if(overall)overall.textContent='❌ Session';
+        return;
+      }
+
+      const token=s.access_token;
+      const headers=typeof headersAdmin==='function'
+        ? headersAdmin()
+        : {'apikey':typeof SUPABASE_ANON_KEY!=='undefined'?SUPABASE_ANON_KEY:'','Authorization':'Bearer '+token};
+
+      // Vérification réelle du token auprès de Supabase Auth.
+      let t=performance.now();
+      try{
+        const r=await requestWithTimeout(`${SUPABASE_URL}/auth/v1/user`,{headers});
+        const text=await r.text();
+        if(!r.ok)throw new Error(`HTTP ${r.status}${text?' · '+text.slice(0,120):''}`);
+        setDiag('auth','ok',`Token accepté · ${elapsed(t)}`);
+      }catch(e){
+        setDiag('auth','err',cleanError(e));
+      }
+
+      // RPC réellement utilisée par l'espace personnel.
       t=performance.now();
-      try{const r=await req(`${SUPABASE_URL}/rest/v1/Document?select=id&limit=1`,{headers});if(!r.ok)throw new Error(`HTTP ${r.status}`);set('supabase','ok',`OK · ${elapsed(t)}`)}catch(e){set('supabase','err',err(e))}
+      try{
+        const r=await requestWithTimeout(`${SUPABASE_URL}/rest/v1/rpc/lister_documents_personnels`,{
+          method:'POST',
+          headers:{...headers,'Content-Type':'application/json','Accept':'application/json'},
+          body:'{}'
+        });
+        const text=await r.text();
+        if(!r.ok)throw new Error(`HTTP ${r.status}${text?' · '+text.slice(0,150):''}`);
+        let data=null;try{data=JSON.parse(text);}catch(e){}
+        const count=Array.isArray(data)?data.length:'réponse reçue';
+        setDiag('rpc','ok',`${count} · ${elapsed(t)}`);
+      }catch(e){
+        setDiag('rpc','err',cleanError(e));
+      }
+
+      // Dépôts : même table que le fallback du site.
       t=performance.now();
-      try{const r=await req(`${SUPABASE_URL}/rest/v1/rpc/lister_documents_personnels`,{method:'POST',headers:{...headers,'Content-Type':'application/json','Accept':'application/json'},body:'{}'});const text=await r.text();if(!r.ok)throw new Error(`HTTP ${r.status} · ${text.slice(0,130)}`);let d=[];try{d=JSON.parse(text)}catch{}set('rpc','ok',`${Array.isArray(d)?d.length:'?'} document(s) · ${elapsed(t)}`)}catch(e){set('rpc','err',err(e))}
+      try{
+        const uid=encodeURIComponent(s.id||s.user?.id||'');
+        const r=await requestWithTimeout(`${SUPABASE_URL}/rest/v1/Depots_deposants?select=document_id&user_id=eq.${uid}&order=id.desc`,{headers});
+        const text=await r.text();
+        if(!r.ok)throw new Error(`HTTP ${r.status}${text?' · '+text.slice(0,150):''}`);
+        let data=[];try{data=JSON.parse(text);}catch(e){}
+        setDiag('depot','ok',`${Array.isArray(data)?data.length:'?'} dépôt(s) · ${elapsed(t)}`);
+      }catch(e){
+        setDiag('depot','err',cleanError(e));
+      }
+
+      // Favoris.
       t=performance.now();
-      try{const uid=encodeURIComponent(s.user?.id||s.id||'');const r=await req(`${SUPABASE_URL}/rest/v1/Depots_deposants?select=document_id&user_id=eq.${uid}&order=id.desc`,{headers});const text=await r.text();if(!r.ok)throw new Error(`HTTP ${r.status} · ${text.slice(0,130)}`);let d=[];try{d=JSON.parse(text)}catch{}set('depot','ok',`${Array.isArray(d)?d.length:'?'} dépôt(s) · ${elapsed(t)}`)}catch(e){set('depot','err',err(e))}
+      try{
+        const uid=encodeURIComponent(s.id||s.user?.id||'');
+        const r=await requestWithTimeout(`${SUPABASE_URL}/rest/v1/favoris_documents?select=document_id&user_id=eq.${uid}`,{headers});
+        const text=await r.text();
+        if(!r.ok)throw new Error(`HTTP ${r.status}${text?' · '+text.slice(0,150):''}`);
+        let data=[];try{data=JSON.parse(text);}catch(e){}
+        setDiag('favorites','ok',`${Array.isArray(data)?data.length:'?'} favori(s) · ${elapsed(t)}`);
+      }catch(e){
+        setDiag('favorites','err',cleanError(e));
+      }
+
+      // Téléchargements.
       t=performance.now();
-      try{const uid=encodeURIComponent(s.user?.id||s.id||'');const r=await req(`${SUPABASE_URL}/rest/v1/favoris_documents?select=document_id&user_id=eq.${uid}`,{headers});const text=await r.text();if(!r.ok)throw new Error(`HTTP ${r.status} · ${text.slice(0,130)}`);let d=[];try{d=JSON.parse(text)}catch{}set('favorites','ok',`${Array.isArray(d)?d.length:'?'} favori(s) · ${elapsed(t)}`)}catch(e){set('favorites','err',err(e))}
-      t=performance.now();
-      try{const uid=encodeURIComponent(s.user?.id||s.id||'');const r=await req(`${SUPABASE_URL}/rest/v1/telechargements_documents?select=id&user_id=eq.${uid}&limit=100`,{headers});const text=await r.text();if(!r.ok)throw new Error(`HTTP ${r.status} · ${text.slice(0,130)}`);let d=[];try{d=JSON.parse(text)}catch{}set('downloads','ok',`${Array.isArray(d)?d.length:'?'} entrée(s) · ${elapsed(t)}`)}catch(e){set('downloads','err',err(e))}
+      try{
+        const uid=encodeURIComponent(s.id||s.user?.id||'');
+        const r=await requestWithTimeout(`${SUPABASE_URL}/rest/v1/telechargements_documents?select=id&user_id=eq.${uid}&limit=100`,{headers});
+        const text=await r.text();
+        if(!r.ok)throw new Error(`HTTP ${r.status}${text?' · '+text.slice(0,150):''}`);
+        let data=[];try{data=JSON.parse(text);}catch(e){}
+        setDiag('downloads','ok',`${Array.isArray(data)?data.length:'?'} entrée(s) · ${elapsed(t)}`);
+      }catch(e){
+        setDiag('downloads','err',cleanError(e));
+      }
+
       const failed=document.querySelectorAll('#personalDiagRows .diag-dot.err').length;
       if(overall)overall.textContent=failed?`❌ ${failed} problème(s)`:'✅ Tout est accessible';
     }
-    function diagText(){
-      return 'Aurore — Diagnostic espace personnel\nÉtat: '+(document.getElementById('diagOverall')?.textContent||'')+'\n'+[...document.querySelectorAll('#personalDiagRows .diag-row')].map(r=>`${r.querySelector('.diag-label')?.textContent}: ${r.querySelector('.diag-detail')?.textContent}`).join('\n');
+
+    function diagnosticText(){
+      return 'Aurore — Diagnostic espace personnel\nÉtat: '+(document.getElementById('diagOverall')?.textContent||'')+
+        '\n'+[...document.querySelectorAll('#personalDiagRows .diag-row')]
+        .map(r=>`${r.querySelector('.diag-label')?.textContent}: ${r.querySelector('.diag-detail')?.textContent}`).join('\n');
     }
+
     document.addEventListener('click',e=>{
-      if(e.target.closest('#runPersonalDiagnostic'))run();
+      if(e.target.closest('#runPersonalDiagnostic'))runPersonalDiagnostic();
       if(e.target.closest('#copyPersonalDiagnostic')){
-        const text=diagText();
-        navigator.clipboard?.writeText(text).then(()=>{const b=document.getElementById('copyPersonalDiagnostic');if(b){const o=b.textContent;b.textContent='✓ Copié';setTimeout(()=>b.textContent=o,1500)}}).catch(()=>window.prompt('Copiez le diagnostic :',text));
+        const text=diagnosticText();
+        navigator.clipboard?.writeText(text).then(()=>{
+          const b=document.getElementById('copyPersonalDiagnostic');
+          if(b){const old=b.textContent;b.textContent='✓ Copié';setTimeout(()=>b.textContent=old,1500);}
+        }).catch(()=>window.prompt('Copiez le diagnostic :',text));
       }
     });
-    window.runPersonalDiagnostic=run;
+
+    window.runPersonalDiagnostic=runPersonalDiagnostic;
   })();
 
   // ---------- ESPACE PERSONNEL : documents et livres de l'utilisateur ----------
