@@ -5088,52 +5088,26 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   }
 
   async function rechercherDoublonDocument({ titre, niveau, filiere, matiere, categorie, genre, fichier }) {
+    // IMPORTANT : la comparaison porte sur le contenu binaire réel du fichier,
+    // pas sur le titre, la matière ou le nom du fichier. Ainsi un même PDF ne
+    // peut pas être redéposé simplement avec des métadonnées différentes.
     const params = new URLSearchParams();
-    params.set('select', 'id,Titre,Niveau,Filiere,"Matière","Catégorie",Genre,Fichier_url');
-    params.set('Titre', 'eq.' + titre);
-    params.set('limit', '100');
+    params.set('select', 'id,Titre,Niveau,Filiere,Classe,"Matière","Catégorie",Genre,Auteur,Fichier_url,Publie');
+    params.set('Publie', 'eq.true');
+    params.set('limit', '5000');
     let res;
     try {
-      // Lecture seule (comme toutes les autres requêtes de consultation de
-      // "Document" dans ce fichier) : on utilise la clé publique HEADERS, pas
-      // le jeton de l'utilisateur connecté (headersAdmin()). Les comptes élèves
-      // n'ont pas nécessairement de droit de lecture accordé au rôle
-      // "authenticated" sur cette table (seule la lecture publique et
-      // l'insertion le sont) ; interroger avec leur propre jeton pouvait donc
-      // provoquer un 403/42501 sur "Document" dès cette vérification anti-
-      // doublon, avant même d'arriver à l'étape d'enregistrement.
-      res = await fetch(`${SUPABASE_URL}/rest/v1/Document?${params.toString()}`, { headers: HEADERS });
+      res = await fetch(`${SUPABASE_URL}/rest/v1/Document?${params.toString()}`, { headers: HEADERS, cache: 'no-store' });
     } catch (e) {
       throw new Error('La vérification du document n’a pas pu être effectuée. Veuillez réessayer.');
     }
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
-      throw new Error('Impossible de vérifier les doublons avant l’envoi (statut ' + res.status + '). ' + detail);
+      throw new Error('Impossible de vérifier les documents publiés (statut ' + res.status + '). ' + detail);
     }
-    const candidats = await res.json();
-    const cible = {
-      titre: normaliserDoublonValeur(titre),
-      niveau: normaliserDoublonValeur(niveau),
-      filiere: normaliserDoublonValeur(filiere),
-      matiere: normaliserDoublonValeur(matiere),
-      categorie: normaliserDoublonValeur(categorie),
-      genre: normaliserDoublonValeur(genre),
-      taille: Number(fichier.size || 0)
-    };
+    const documents = await res.json();
+    if (!Array.isArray(documents) || !documents.length) return null;
 
-    const compatibles = (candidats || []).filter(doc => {
-      if (normaliserDoublonValeur(doc.Titre) !== cible.titre) return false;
-      if (normaliserDoublonValeur(doc.Niveau) !== cible.niveau) return false;
-      if (normaliserDoublonValeur(doc.Filiere) !== cible.filiere) return false;
-      if (normaliserDoublonValeur(doc['Matière']) !== cible.matiere) return false;
-      if (normaliserDoublonValeur(doc['Catégorie']) !== cible.categorie) return false;
-      if (normaliserDoublonValeur(doc.Genre) !== cible.genre) return false;
-      return !!doc.Fichier_url;
-    });
-    if (!compatibles.length) return null;
-
-    // Empreinte SHA-256 du fichier en cours de dépôt, calculée une seule fois.
-    // C'est elle qui décide seule si un candidat est un doublon.
     let empreinteCible;
     try {
       empreinteCible = await empreinteSha256(fichier);
@@ -5141,50 +5115,33 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       throw new Error('La préparation du fichier n’a pas pu être effectuée. Veuillez réessayer.');
     }
 
-    // Le système actuel ne stocke pas d'empreinte dans "Document" : on la
-    // recalcule donc à la volée sur chaque candidat compatible, en
-    // téléchargeant son contenu réel depuis R2 pour comparer les empreintes
-    // octet à octet. La taille (content-length) sert uniquement de filtre
-    // rapide avant téléchargement : deux fichiers de tailles différentes ne
-    // peuvent jamais avoir un contenu identique, donc on évite de télécharger
-    // inutilement un candidat déjà écarté par ce simple critère — mais c'est
-    // bien l'égalité des empreintes, jamais la taille seule, qui décide qu'il
-    // s'agit d'un doublon.
-    //
-    // IMPORTANT : Cloudflare R2 ne renvoie aucun en-tête CORS sur son domaine
-    // public (*.r2.dev — voir recupererOctetsPDF ci-dessous) : un fetch()
-    // direct vers R2_PUBLIC_URL échoue donc systématiquement ici (HEAD comme
-    // GET), ce qui empêchait jusqu'ici toute détection de doublon. On passe
-    // désormais par le même contournement déjà en place et testé pour le
-    // lecteur PDF : le Worker Cloudflare (mêmes en-têtes que l'upload), qui
-    // expose correctement les octets et le Content-Length.
-    for (const doc of compatibles) {
-      const cle = (doc.Fichier_url && doc.Fichier_url.indexOf(R2_PUBLIC_URL + '/') === 0)
-        ? doc.Fichier_url.slice(R2_PUBLIC_URL.length + 1) : null;
-      const urlViaWorker = cle ? `${R2_WORKER_URL}/${cle}` : doc.Fichier_url;
+    // Première réduction par taille quand le serveur nous la donne. Si la taille
+    // est inconnue, le candidat reste vérifiable : on ne déclare jamais un
+    // doublon sur la taille seule.
+    const candidats = [];
+    for (const doc of documents) {
+      if (!doc || !doc.Fichier_url) continue;
+      let taille = 0;
       try {
-        const head = await fetch(urlViaWorker, { method: 'HEAD', cache: 'no-store' });
-        if (head.ok) {
-          const tailleDistante = Number(head.headers.get('content-length') || 0);
-          if (tailleDistante > 0 && tailleDistante !== cible.taille) continue; // tailles différentes : impossible que ce soit le même contenu
-        }
-      } catch (e) {
-        // HEAD indisponible (Worker ou réseau) : on ne peut pas présélectionner
-        // par taille, on tente quand même le téléchargement complet ci-dessous
-        // pour rester fiable — comportement inchangé par rapport à avant.
-      }
+        const cle = doc.Fichier_url.indexOf(R2_PUBLIC_URL + '/') === 0
+          ? doc.Fichier_url.slice(R2_PUBLIC_URL.length + 1) : null;
+        const url = cle ? `${R2_WORKER_URL}/${cle}` : doc.Fichier_url;
+        const head = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+        if (head.ok) taille = Number(head.headers.get('content-length') || 0);
+      } catch (e) {}
+      if (!taille || taille === Number(fichier.size || 0)) candidats.push({ doc, taille });
+    }
+
+    // Vérification du contenu réel. Un échec réseau sur un candidat ne permet
+    // pas de conclure : on continue avec les autres et on ne bloque que sur une
+    // égalité SHA-256 certaine.
+    for (const candidat of candidats) {
       try {
-        // recupererOctetsPDF() gère déjà elle-même la priorité Worker → URL
-        // publique en dernier recours (voir plus bas dans ce fichier) ; on la
-        // réutilise telle quelle plutôt que de dupliquer cette logique.
-        const octets = await recupererOctetsPDF(doc.Fichier_url);
-        const contenuBlob = new Blob([octets]);
-        const empreinteCandidat = await empreinteSha256(contenuBlob);
-        if (empreinteCandidat === empreinteCible) return doc;
+        const octets = await recupererOctetsPDF(candidat.doc.Fichier_url);
+        const hash = await empreinteSha256(new Blob([octets]));
+        if (hash === empreinteCible) return candidat.doc;
       } catch (e) {
-        // Téléchargement ou calcul d'empreinte impossible pour ce candidat
-        // précis : on passe au suivant plutôt que de bloquer toute la
-        // vérification (fail-open déjà en place au niveau de l'appelant).
+        console.warn('[Doublon dépôt] candidat non vérifiable', candidat.doc.id, e);
       }
     }
     return null;
@@ -6528,46 +6485,35 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   }
 
   // ---------- DÉTECTION DES DOUBLONS PUBLIÉS ----------
-  // Analyse à la demande des documents déjà publiés. Aucun champ Supabase
-  // supplémentaire n'est nécessaire : l'égalité du contenu est vérifiée par
-  // SHA-256 du fichier réel. Les candidats sont d'abord regroupés par taille
-  // afin d'éviter de télécharger des fichiers qui ne peuvent pas être identiques.
+  // Analyse volontairement déclenchée par l'administrateur. Les documents sont
+  // comparés par SHA-256 du contenu réel. Aucun document n'est supprimé pendant
+  // l'analyse.
   const adminDuplicateHashCache = new Map();
 
   async function recupererDocumentPubliesPourDoublons() {
     const params = new URLSearchParams();
-    params.set('select','id,Titre,Niveau,Filiere,Classe,"Matière","Catégorie",Genre,Auteur,Fichier_url,created_at');
+    params.set('select','id,Titre,Niveau,Filiere,Classe,"Matière","Catégorie",Genre,Auteur,Fichier_url,created_at,Publie');
     params.set('Publie','eq.true');
     params.set('order','id.desc');
     params.set('limit','5000');
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/Document?${params.toString()}`, {headers: headersAdmin()});
-    if(!res.ok) throw new Error('HTTP '+res.status);
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/Document?${params.toString()}`, {headers: headersAdmin(), cache:'no-store'});
+    if(!res.ok){
+      const detail=await res.text().catch(()=> '');
+      throw new Error('Lecture des documents publiés impossible (HTTP '+res.status+'). '+detail);
+    }
     return await res.json();
   }
 
-  async function tailleEtHashDocumentDoublon(doc) {
+  async function tailleEtHashDocumentDoublon(doc){
     if(!doc || !doc.Fichier_url) return {taille:0,hash:null};
     const cacheKey=String(doc.Fichier_url);
     if(adminDuplicateHashCache.has(cacheKey)) return adminDuplicateHashCache.get(cacheKey);
-    let taille=0;
-    try {
-      const cle=(doc.Fichier_url.indexOf(R2_PUBLIC_URL + '/')===0) ? doc.Fichier_url.slice(R2_PUBLIC_URL.length+1) : null;
-      const url=cle ? `${R2_WORKER_URL}/${cle}` : doc.Fichier_url;
-      const head=await fetch(url,{method:'HEAD',cache:'no-store'});
-      if(head.ok) taille=Number(head.headers.get('content-length')||0);
-    } catch(e){}
     const octets=await recupererOctetsPDF(doc.Fichier_url);
     const blob=new Blob([octets]);
-    if(!taille) taille=blob.size;
     const hash=await empreinteSha256(blob);
-    const result={taille,hash};
+    const result={taille:blob.size,hash};
     adminDuplicateHashCache.set(cacheKey,result);
     return result;
-  }
-
-  function cleMetadonneesDoublon(doc){
-    return [doc.Titre,doc.Niveau,doc.Filiere,doc.Classe,doc['Matière'],doc['Catégorie'],doc.Genre]
-      .map(normaliserDoublonValeur).join('|');
   }
 
   function afficherGroupesDoublonsAdmin(groupes, erreurs=0){
@@ -6576,7 +6522,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     if(count) count.textContent=String(groupes.reduce((n,g)=>n+g.documents.length,0));
     if(!list) return;
     if(!groupes.length){
-      list.innerHTML='<div class="admin-duplicate-empty success">Aucun doublon strict détecté parmi les documents publiés.</div>';
+      list.innerHTML='<div class="admin-duplicate-empty success">Aucun doublon strict détecté parmi les documents publiés.</div>' +
+        (erreurs ? `<div class="admin-duplicate-note">${erreurs} document(s) n’ont pas pu être vérifiés. Ils ne sont pas déclarés doublons par prudence.</div>` : '');
       return;
     }
     list.innerHTML='';
@@ -6610,91 +6557,78 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     if(btn) btn.disabled=true;
     list.innerHTML='<div class="admin-duplicate-empty">Analyse des documents publiés…</div>';
     status.textContent='Récupération des documents publiés…';
+    adminDuplicateHashCache.clear();
     try{
       const docs=await recupererDocumentPubliesPourDoublons();
-      // On ne se sert volontairement PAS du titre, du niveau, de la matière
-      // ou du nom du fichier pour déclarer un doublon : un même PDF peut avoir
-      // été publié avec des métadonnées différentes. La première réduction se
-      // fait uniquement par taille binaire, puis le SHA-256 tranche.
-      const docsAvecTaille=[];
-      let erreurs=0, verifies=0;
-      const tailleParUrl=new Map();
-      const obtenirTaille=async doc=>{
-        if(!doc.Fichier_url) return 0;
-        if(tailleParUrl.has(doc.Fichier_url)) return tailleParUrl.get(doc.Fichier_url);
-        try{
-          const cle=(doc.Fichier_url.indexOf(R2_PUBLIC_URL + '/')===0) ? doc.Fichier_url.slice(R2_PUBLIC_URL.length+1) : null;
-          const url=cle ? `${R2_WORKER_URL}/${cle}` : doc.Fichier_url;
-          const head=await fetch(url,{method:'HEAD',cache:'no-store'});
-          const n=head.ok ? Number(head.headers.get('content-length')||0) : 0;
-          tailleParUrl.set(doc.Fichier_url,n);
-          return n;
-        }catch(e){return 0;}
-      };
-      // Les HEAD sont faits par petits lots pour ne pas saturer le mobile ou le Worker.
-      for(let i=0;i<docs.length;i+=8){
-        const lot=docs.slice(i,i+8);
-        const tailles=await Promise.all(lot.map(obtenirTaille));
-        lot.forEach((doc,j)=>{
-          const taille=tailles[j];
-          if(taille>0){doc.__dupSize=taille;docsAvecTaille.push(doc);} else erreurs++;
-        });
-        verifies=Math.min(i+lot.length,docs.length);
-        status.textContent=`Pré-analyse ${verifies}/${docs.length} document(s)…`;
-      }
-      const parTaille=new Map();
-      for(const doc of docsAvecTaille){
-        const k=String(doc.__dupSize);
-        if(!parTaille.has(k)) parTaille.set(k,[]);
-        parTaille.get(k).push(doc);
-      }
-      const candidats=[];
-      for(const arr of parTaille.values()) if(arr.length>1) candidats.push(...arr);
-      status.textContent=`${docs.length} publié(s) · ${candidats.length} fichier(s) ont une taille partagée · vérification du contenu…`;
-      if(!candidats.length){
-        afficherGroupesDoublonsAdmin([] ,erreurs);
-        status.textContent='Analyse terminée : aucun doublon strict détecté.';
+      if(!docs.length){
+        afficherGroupesDoublonsAdmin([]);
+        status.textContent='Analyse terminée : aucun document publié à analyser.';
         return;
       }
-      const parHash=new Map();
-      for(let i=0;i<candidats.length;i++){
-        const doc=candidats[i];
+
+      // Regroupement progressif par taille : les tailles sont calculées depuis
+      // les octets réellement récupérés, donc aucun HEAD/CORS particulier n'est
+      // requis pour décider si deux fichiers sont candidats.
+      const parTaille=new Map();
+      let erreurs=0;
+      for(let i=0;i<docs.length;i++){
+        const doc=docs[i];
+        status.textContent=`Lecture des fichiers ${i+1}/${docs.length}…`;
         try{
           const info=await tailleEtHashDocumentDoublon(doc);
-          if(info.hash){
-            doc.__dupHash=info.hash;
-            doc.__dupSize=info.taille || doc.__dupSize;
-            const k=doc.__dupHash;
-            if(!parHash.has(k)) parHash.set(k,[]);
-            parHash.get(k).push(doc);
-          } else erreurs++;
-        }catch(e){erreurs++;}
-        status.textContent=`Vérification du contenu ${i+1}/${candidats.length}…`;
+          doc.__dupSize=info.taille;
+          doc.__dupHash=info.hash;
+          if(!parTaille.has(String(info.taille))) parTaille.set(String(info.taille),[]);
+          parTaille.get(String(info.taille)).push(doc);
+        }catch(e){
+          erreurs++;
+          console.warn('[Doublons admin] document non vérifiable',doc.id,e);
+        }
+      }
+
+      const parHash=new Map();
+      for(const arr of parTaille.values()){
+        if(arr.length<2) continue;
+        for(const doc of arr){
+          if(!doc.__dupHash) continue;
+          if(!parHash.has(doc.__dupHash)) parHash.set(doc.__dupHash,[]);
+          parHash.get(doc.__dupHash).push(doc);
+        }
       }
       const groupes=[];
-      for(const [hash,arr] of parHash.entries()) if(arr.length>1){
-        groupes.push({taille:Number(arr[0].__dupSize)||0,hash,documents:arr});
+      for(const [hash,arr] of parHash.entries()){
+        if(arr.length>1) groupes.push({taille:Number(arr[0].__dupSize)||0,hash,documents:arr});
       }
+      groupes.sort((a,b)=>b.documents.length-a.documents.length || b.taille-a.taille);
       afficherGroupesDoublonsAdmin(groupes,erreurs);
-      status.textContent=groupes.length ? `${groupes.length} groupe(s) de doublons stricts détecté(s).` : 'Analyse terminée : aucun doublon strict détecté.';
+      status.textContent=groupes.length
+        ? `${groupes.length} groupe(s) de doublons stricts détecté(s).`
+        : (erreurs ? `Analyse terminée : aucun doublon confirmé. ${erreurs} document(s) n’ont pas pu être vérifiés.` : 'Analyse terminée : aucun doublon strict détecté.');
     }catch(e){
       console.error('[Doublons admin]',e);
-      list.innerHTML='<div class="admin-duplicate-empty error">Impossible d’analyser les documents publiés pour le moment. Vérifie la connexion puis réessaie.</div>';
+      list.innerHTML=`<div class="admin-duplicate-empty error">Impossible d’analyser les documents publiés. ${echapperHtmlPub(e.message||'Erreur inconnue.')}</div>`;
       status.textContent='Analyse impossible.';
     }finally{if(btn) btn.disabled=false;}
   }
 
   async function exclureDoublonAdmin(id,titre,groupCard){
-    if(!confirm(`Exclure « ${titre||'ce document'} » du site ?\n\nLe document sera retiré des documents publiés. Cette action ne supprime pas les autres exemplaires du groupe.`)) return;
+    if(!confirm(`Exclure « ${titre||'ce document'} » du site ?\n\nLe document sera simplement dépublié. Il ne sera PAS supprimé de la base de données ni du stockage.`)) return;
     try{
-      const res=await fetch(`${SUPABASE_URL}/rest/v1/Document?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:{...headersAdmin(),'Prefer':'return=representation'}});
+      const res=await fetch(`${SUPABASE_URL}/rest/v1/Document?id=eq.${encodeURIComponent(id)}`,{
+        method:'PATCH',
+        headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=representation'},
+        body:JSON.stringify({Publie:false})
+      });
       const text=await res.text();
       if(!res.ok) throw new Error(text||('HTTP '+res.status));
       let data=[]; try{data=JSON.parse(text)||[]}catch(e){}
-      if(!data.length) throw new Error('Aucune ligne supprimée. Vérifie la policy DELETE.');
+      if(!data.length) throw new Error('Aucune modification effectuée. Vérifie la policy UPDATE.');
       await chargerDoublonsAdmin();
       await chargerDocumentsPublies();
-    }catch(e){ alert('Le document n’a pas pu être exclu du site pour le moment.'); }
+    }catch(e){
+      console.error('[Exclusion doublon]',e);
+      alert('Le document n’a pas pu être exclu du site pour le moment. Vérifie les permissions administrateur puis réessaie.');
+    }
   }
 
   document.getElementById('adminDuplicatesRefresh')?.addEventListener('click',chargerDoublonsAdmin);
