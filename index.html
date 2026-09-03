@@ -2925,22 +2925,36 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     if (initialisationAuthEnCours) return initialisationAuthEnCours;
     initialisationAuthEnCours = (async () => {
     try {
-      let { data, error } = await supabaseClient.auth.getSession();
-      // Google peut revenir avec ?code=... avant que l'initialisation
-      // automatique du SDK ait terminé. Dans ce cas, force l'échange PKCE
-      // avec le client officiel. Si le SDK l'a déjà fait, on relit simplement
-      // la session persistée.
-      if ((!data?.session?.access_token || error) && window.location.search) {
-        const code = new URLSearchParams(window.location.search).get('code');
-        if (code) {
-          const exchange = await supabaseClient.auth.exchangeCodeForSession(code);
-          if (!exchange.error && exchange.data?.session?.access_token) {
-            data = exchange.data;
-            error = null;
-          } else {
-            const retry = await supabaseClient.auth.getSession();
-            data = retry.data;
-            error = retry.error;
+      // Google peut revenir avec ?code=... . Le SDK Supabase (detectSessionInUrl:true)
+      // traite ce code AUTOMATIQUEMENT et EN ARRIÈRE-PLAN dès sa création. Un code
+      // OAuth ne s'échange qu'une seule fois : si on l'échange nous-même en parallèle
+      // du SDK, l'un des deux échecs à coup sûr (code déjà consommé) et aucune
+      // session n'est établie. On patiente donc que le SDK termine son propre
+      // traitement avant de conclure à un échec, au lieu de le court-circuiter.
+      const code = window.location.search ? new URLSearchParams(window.location.search).get('code') : null;
+      let data, error;
+      let tentative = 0;
+      const maxTentatives = code ? 8 : 1;
+      do {
+        ({ data, error } = await supabaseClient.auth.getSession());
+        if (data?.session?.access_token) break;
+        tentative++;
+        if (tentative < maxTentatives) await new Promise(r => setTimeout(r, 350));
+      } while (tentative < maxTentatives);
+
+      // Dernier recours seulement : si un code est toujours présent et qu'après
+      // toute cette attente aucune session n'existe, tente un échange manuel unique.
+      if ((!data?.session?.access_token || error) && code) {
+        const exchange = await supabaseClient.auth.exchangeCodeForSession(code);
+        if (!exchange.error && exchange.data?.session?.access_token) {
+          data = exchange.data;
+          error = null;
+        } else {
+          const retry = await supabaseClient.auth.getSession();
+          data = retry.data;
+          error = retry.error;
+          if (!data?.session?.access_token) {
+            console.warn('[Auth] Aucune session après retour Google. Vérifiez dans Supabase (Authentication → URL Configuration) que l’URL exacte du site est bien listée dans "Redirect URLs", et dans Google Cloud Console que l’URI de redirection Supabase (https://<projet>.supabase.co/auth/v1/callback) est autorisée.', exchange.error || error);
           }
         }
       }
