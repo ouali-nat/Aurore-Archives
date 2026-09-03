@@ -1376,6 +1376,65 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   })();
 </script>
 
+<script>
+  /* Vue paysage : transforme l'interface comme un téléphone retourné,
+     avec un bouton pour revenir instantanément à la vue normale. */
+  (function(){
+    function installerVuePaysage(){
+      var body = document.body;
+      if(!body || document.getElementById('auroreAppViewport')) return;
+      var app = document.createElement('div');
+      app.id = 'auroreAppViewport';
+      app.className = 'aurore-app-viewport';
+      var nodes = Array.from(body.childNodes);
+      nodes.forEach(function(node){
+        if(node.id !== 'accessLock') app.appendChild(node);
+      });
+      body.appendChild(app);
+    }
+
+    function changerVuePaysage(force){
+      var body = document.body;
+      var btn = document.getElementById('btnVuePaysage');
+      var actif = typeof force === 'boolean' ? force : !body.classList.contains('vue-paysage');
+      body.classList.toggle('vue-paysage', actif);
+      if(btn){
+        btn.setAttribute('aria-pressed', actif ? 'true' : 'false');
+        btn.setAttribute('title', actif ? 'Revenir à la vue normale' : 'Passer en vue paysage');
+        btn.setAttribute('aria-label', actif ? 'Revenir à la vue normale' : 'Passer en vue paysage');
+        btn.innerHTML = actif ? '↶ <span>Vue normale</span>' : '↻ <span>Vue paysage</span>';
+      }
+      try{ localStorage.setItem('aurore_vue_paysage', actif ? '1' : '0'); }catch(e){}
+      if(actif){
+        try{
+          if(screen.orientation && screen.orientation.lock){
+            screen.orientation.lock('landscape').catch(function(){});
+          }
+        }catch(e){}
+      }else{
+        try{
+          if(screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+        }catch(e){}
+      }
+      window.dispatchEvent(new Event('resize'));
+    }
+
+    function init(){
+      installerVuePaysage();
+      var btn=document.getElementById('btnVuePaysage');
+      if(btn) btn.addEventListener('click',function(){ changerVuePaysage(); });
+      try{
+        if(localStorage.getItem('aurore_vue_paysage')==='1' && window.innerWidth < 1000){
+          changerVuePaysage(true);
+        }
+      }catch(e){}
+    }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init);
+    else init();
+    window.auroreChangerVuePaysage=changerVuePaysage;
+  })();
+</script>
+
 <header>
   <div class="wrap header-inner">
     <div class="brand">
@@ -1399,6 +1458,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       <button type="button" class="theme-switch-btn" data-theme-choice="clair" title="Thème clair" aria-pressed="false"><span class="theme-icon-host" data-icon="sun"></span></button>
       <button type="button" class="theme-switch-btn" data-theme-choice="systeme" title="Thème système" aria-pressed="false"><span class="theme-icon-host" data-icon="monitor"></span></button>
     </div>
+    <button type="button" id="btnVuePaysage" class="orientation-toggle" title="Passer en vue paysage" aria-pressed="false" aria-label="Passer en vue paysage">↻ <span>Vue paysage</span></button>
     <div id="authZone" class="auth-zone">
       <div id="gSignInBtn"></div>
       <div id="userChip" class="user-chip" style="display:none;">
@@ -9343,6 +9403,105 @@ img,video,canvas,iframe{
   :root{--aurore-content-pad:10px;}
   .wrap{width:calc(100% - 20px)!important;}
   header .header-inner{width:calc(100% - 20px)!important;}
+}
+
+
+/* ===== VUE PAYSAGE / ROTATION DE L'INTERFACE ===== */
+.orientation-toggle{
+  display:none; align-items:center; justify-content:center; gap:5px;
+  border:1px solid var(--bordure,#DDD3E8); background:var(--papier,#fff);
+  color:var(--encre,#211D2E); border-radius:12px; min-height:40px;
+  padding:8px 11px; font:600 .78rem/1 inherit; cursor:pointer;
+  box-shadow:0 3px 12px rgba(31,24,49,.06); white-space:nowrap;
+}
+.orientation-toggle:hover{border-color:var(--aurore-violet,#6D28D9);}
+.aurore-app-viewport{min-height:100vh; width:100%;}
+
+@media (max-width:900px){
+  .orientation-toggle{display:inline-flex;}
+}
+
+/* Sur un vrai écran déjà paysage, on ne force aucune rotation : le responsive
+   natif du site prend simplement toute la largeur disponible. */
+@media (orientation:landscape){
+  .orientation-toggle{display:none;}
+}
+
+@media (max-width:900px) and (orientation:portrait){
+  body.vue-paysage{
+    width:100vh;
+    min-width:100vh;
+    max-width:100vh;
+    min-height:100vw;
+    overflow:hidden!important;
+    background:var(--aurore-bg,#F7F4FB);
+  }
+  body.vue-paysage .aurore-app-viewport{
+    width:100vh;
+    min-width:100vh;
+    min-height:100vw;
+    height:auto;
+    transform:rotate(90deg) translateY(-100%);
+    transform-origin:top left;
+    overflow:visible;
+  }
+  body.vue-paysage .aurore-app-viewport > header{
+    width:100vh!important;
+  }
+  body.vue-paysage .aurore-app-viewport > main{
+    width:100vh!important;
+    max-width:100vh!important;
+  }
+  body.vue-paysage .aurore-app-viewport .wrap{
+    width:min(94vh,1100px)!important;
+    max-width:1100px!important;
+  }
+  body.vue-paysage .aurore-app-viewport .header-inner{
+    width:min(94vh,1100px)!important;
+    max-width:1100px!important;
+    flex-wrap:nowrap!important;
+  }
+  body.vue-paysage .aurore-app-viewport .search-box{
+    flex:1 1 300px!important; max-width:none!important;
+  }
+  body.vue-paysage .aurore-app-viewport .site-name{font-size:1rem!important;}
+  body.vue-paysage .aurore-app-viewport .site-tag{font-size:.7rem!important;}
+  body.vue-paysage .aurore-app-viewport .deposer-btn{white-space:nowrap!important;}
+  body.vue-paysage .aurore-app-viewport .theme-switch{flex-shrink:0!important;}
+
+  /* Les grandes grilles profitent de la largeur paysage. */
+  body.vue-paysage .aurore-app-viewport .hero{
+    min-height:260px;
+  }
+  body.vue-paysage .aurore-app-viewport .cards-grid,
+  body.vue-paysage .aurore-app-viewport .docs-grid,
+  body.vue-paysage .aurore-app-viewport .admin-grid,
+  body.vue-paysage .aurore-app-viewport .stats-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+
+@media (max-width:600px) and (orientation:portrait){
+  body.vue-paysage .aurore-app-viewport .wrap{
+    width:94vh!important;
+  }
+  body.vue-paysage .aurore-app-viewport .header-inner{
+    width:94vh!important;
+  }
+  body.vue-paysage .aurore-app-viewport .brand-logo{
+    width:40px!important; height:40px!important;
+  }
+  body.vue-paysage .aurore-app-viewport .cards-grid,
+  body.vue-paysage .aurore-app-viewport .docs-grid,
+  body.vue-paysage .aurore-app-viewport .admin-grid,
+  body.vue-paysage .aurore-app-viewport .stats-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+
+@media (max-width:380px) and (orientation:portrait){
+  .orientation-toggle span{display:none;}
+  .orientation-toggle{min-width:40px;padding:8px;}
 }
 </style>
 </body>
