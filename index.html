@@ -1278,7 +1278,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <body class="site-locked">
 
-<!-- ===== VERROU D'ACCÈS ===== -->
+<!-- ===== PORTAIL D'ACCÈS ===== -->
 <div id="accessLock" class="access-lock">
   <div class="access-card access-card-redesign">
     <div class="access-card-body">
@@ -1289,160 +1289,92 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
           <div class="access-tagline">Bibliothèque numérique d'Aurore</div>
         </div>
       </div>
-
-      <div class="access-tabs" aria-hidden="true">
-        <div class="access-tab active">Accès à la plateforme</div>
-      </div>
-
+      <div class="access-tabs"><div class="access-tab active">Accès à la plateforme</div></div>
       <div class="access-heading">
         <h1>Bienvenue sur Aurore</h1>
-        <p>Un espace numérique pensé pour retrouver, consulter et partager les ressources scolaires.</p>
+        <p>Retrouvez, consultez et partagez les ressources scolaires dans un espace pensé pour les élèves.</p>
       </div>
-
-      <form id="accessForm" autocomplete="off">
-        <label class="access-label" for="accessInput">Code d'accès</label>
-        <input type="password" id="accessInput" class="access-input" placeholder="Saisissez votre code d'accès" autocomplete="off" autofocus>
-        <button type="submit" class="access-btn">ACCÉDER À AURORE</button>
-      </form>
-      <p id="accessError" class="access-error" style="display:none;">Code incorrect. Veuillez vérifier votre saisie et réessayer.</p>
-
-      <div class="access-note">Accès sécurisé · Aurore — Section Archives</div>
+      <div class="access-actions">
+        <button type="button" id="accessGoogleBtn" class="access-google-btn" aria-label="Continuer avec Google">
+          <span class="google-mark" aria-hidden="true">G</span>
+          <span><strong>Continuer avec Google</strong><small>Accès recommandé à votre espace personnel</small></span>
+        </button>
+        <button type="button" id="accessSignupBtn" class="access-secondary-btn">Créer un compte</button>
+        <button type="button" id="accessVisitorBtn" class="access-visitor-btn">Visiter Aurore sans compte</button>
+      </div>
+      <p id="accessMessage" class="access-message" style="display:none;"></p>
+      <div class="access-note">Connexion sécurisée · Aurore — Section Archives</div>
     </div>
     <div class="access-footer">© 2026 Aurore — Section Archives</div>
   </div>
 </div>
 
-<style>
-  body.site-locked > *:not(#accessLock){
-    display:none !important;
-  }
-  .access-lock{
-    position:fixed; inset:0; z-index:9999;
-    background:var(--fond, #F6F5F2);
-    display:flex; align-items:center; justify-content:center;
-    padding:20px;
-  }
-  .access-card{
-    width:100%; max-width:380px;
-    background:var(--papier, #FFFFFF);
-    border:1px solid var(--bordure, #E4E1D8);
-    border-radius:var(--radius, 16px);
-    box-shadow:var(--ombre-hover, 0 14px 32px rgba(32,36,46,0.11));
-    overflow:hidden;
-  }
-  .access-card-motif{
-    height:6px;
-    background:linear-gradient(90deg, var(--rouge,#B23A47), var(--bleu,#2C5F8A), var(--violet,#6B4E8E), var(--vert,#3F7D58));
-  }
-  .access-card-body{ padding:32px 28px; text-align:center; }
-  .access-brand{
-    font-family:Georgia,'Times New Roman',serif; font-weight:700;
-    font-size:1.3rem; color:var(--encre,#20242E); margin-bottom:8px;
-  }
-  .access-sub{
-    font-size:0.88rem; color:var(--gris,#6A6A73); margin-bottom:24px; line-height:1.5;
-  }
-  #accessForm{ display:flex; flex-direction:column; gap:12px; }
-  .access-input{
-    width:100%; padding:12px 16px; font-size:0.95rem;
-    border:1px solid var(--bordure,#E4E1D8); border-radius:var(--radius-sm,10px);
-    background:var(--fond,#F6F5F2); color:var(--encre,#20242E);
-    outline:none; text-align:center; letter-spacing:0.02em;
-    font-family:inherit;
-  }
-  .access-input:focus{ border-color:var(--bleu,#2C5F8A); }
-  .access-btn{
-    padding:12px 16px; border:none; border-radius:var(--radius-sm,10px);
-    background:var(--bleu,#2C5F8A); color:#fff; font-weight:600; font-size:0.95rem;
-    transition:opacity .15s;
-  }
-  .access-btn:hover{ opacity:0.9; }
-  .access-error{
-    margin-top:16px; color:var(--rouge,#B23A47); font-size:0.85rem; font-weight:600;
-  }
-  .access-shake{ animation:accessShake .35s; }
-  @keyframes accessShake{
-    0%,100%{ transform:translateX(0); }
-    20%,60%{ transform:translateX(-8px); }
-    40%,80%{ transform:translateX(8px); }
-  }
-</style>
+<!-- ===== INSCRIPTION ===== -->
+<div id="signupModal" class="signup-modal" style="display:none;" aria-hidden="true">
+  <div class="signup-card" role="dialog" aria-modal="true" aria-labelledby="signupTitle">
+    <button type="button" class="signup-close" id="signupClose" aria-label="Fermer">×</button>
+    <p class="eyebrow">Créer votre espace</p>
+    <h2 id="signupTitle">Bienvenue sur Aurore</h2>
+    <p class="signup-intro">Créez votre compte avec votre adresse e-mail. Nous vous demanderons ensuite uniquement les informations scolaires utiles à votre espace personnel.</p>
+    <form id="signupForm" class="signup-form" autocomplete="on">
+      <label for="signupName">Nom complet</label>
+      <input id="signupName" type="text" autocomplete="name" placeholder="Votre nom et prénom" required maxlength="120">
+      <label for="signupEmail">Adresse e-mail</label>
+      <input id="signupEmail" type="email" autocomplete="email" placeholder="vous@exemple.com" required maxlength="180">
+      <label for="signupPassword">Mot de passe</label>
+      <input id="signupPassword" type="password" autocomplete="new-password" placeholder="Au moins 8 caractères" minlength="8" required>
+      <label for="signupPasswordConfirm">Confirmer le mot de passe</label>
+      <input id="signupPasswordConfirm" type="password" autocomplete="new-password" placeholder="Répétez le mot de passe" minlength="8" required>
+      <button type="submit" class="access-btn" id="signupSubmit">CRÉER MON COMPTE</button>
+      <p id="signupMessage" class="access-message" style="display:none;"></p>
+    </form>
+    <p class="signup-footnote">Vous préférez ne pas créer de compte ? Vous pouvez toujours visiter Aurore sans vous inscrire.</p>
+  </div>
+</div>
 
-<style id="aurore-access-redesign">
-  .access-lock{
-    min-height:100dvh; padding:24px 18px;
-    background:
-      radial-gradient(circle at 15% 10%, rgba(124,156,224,.16), transparent 34%),
-      radial-gradient(circle at 88% 88%, rgba(167,139,250,.14), transparent 36%),
-      var(--fond,#090812);
-  }
-  .access-card-redesign{
-    max-width:440px; border-radius:24px; overflow:hidden;
-    background:var(--papier,#11101C); border:1px solid var(--bordure,#29253A);
-    box-shadow:0 26px 70px rgba(0,0,0,.30);
-  }
-  .access-card-redesign .access-card-body{padding:30px 30px 24px;text-align:left;}
-  .access-institution{display:flex;align-items:center;gap:14px;padding-bottom:22px;}
-  .access-logo{width:58px;height:58px;flex:0 0 58px;border-radius:16px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--violet),var(--bleu));border:1px solid rgba(255,255,255,.12);box-shadow:0 10px 28px rgba(124,58,237,.20);}
-  .access-logo img{width:100%;height:100%;object-fit:cover;display:block;}
-  .access-brand-wrap{min-width:0;}
-  .access-brand{margin:0 0 3px;font-size:1.08rem;line-height:1.25;}
-  .access-tagline{font-size:.76rem;color:var(--gris);line-height:1.4;}
-  .access-tabs{display:flex;border-bottom:1px solid var(--bordure);margin:0 -30px 24px;padding:0 30px;}
-  .access-tab{padding:11px 2px 10px;font-size:.79rem;font-weight:700;color:var(--gris);position:relative;}
-  .access-tab.active{color:var(--encre);}
-  .access-tab.active::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:2px;background:var(--violet);}
-  .access-heading h1{font-family:Georgia,'Times New Roman',serif;font-size:clamp(1.55rem,5vw,1.9rem);line-height:1.2;margin:0 0 8px;color:var(--encre);}
-  .access-heading p{font-size:.88rem;color:var(--gris);line-height:1.55;margin:0 0 24px;max-width:360px;}
-  #accessForm{gap:9px;}
-  .access-label{font-size:.78rem;font-weight:700;color:var(--encre);margin-bottom:1px;}
-  .access-input{text-align:left;padding:13px 15px;border-radius:12px;background:var(--fond);}
-  .access-input::placeholder{color:var(--gris);opacity:.72;}
-  .access-btn{margin-top:4px;padding:13px 16px;border-radius:12px;background:linear-gradient(135deg,var(--auraster-purple,#8B5CF6),var(--auraster-mauve,#C084FC));font-weight:800;letter-spacing:.025em;box-shadow:0 10px 24px rgba(139,92,246,.18);}
-  .access-error{margin-top:12px;padding:10px 12px;border:1px solid rgba(224,119,107,.35);border-radius:11px;background:rgba(224,119,107,.08);}
-  .access-note{text-align:center;margin-top:20px;font-size:.72rem;color:var(--gris);}
-  .access-footer{text-align:center;padding:14px 20px;border-top:1px solid var(--bordure);font-size:.7rem;color:var(--gris);}
-  [data-theme="light"] .access-lock{background:radial-gradient(circle at 15% 10%,rgba(109,40,217,.08),transparent 34%),radial-gradient(circle at 88% 88%,rgba(192,132,252,.10),transparent 36%),#F7F4FB;}
-  [data-theme="light"] .access-card-redesign{background:#fff;border-color:#DDD3E8;box-shadow:0 24px 60px rgba(55,36,82,.12);}
-  [data-theme="light"] .access-logo{box-shadow:0 10px 26px rgba(109,40,217,.15);}
-  [data-theme="light"] .access-heading h1,[data-theme="light"] .access-label,[data-theme="light"] .access-tab.active{color:#171322!important;}
-  [data-theme="light"] .access-input{background:#F7F4FB!important;border-color:#DDD3E8!important;color:#171322!important;}
-  [data-theme="light"] .access-btn{background:#6D28D9!important;color:#fff!important;border:0!important;}
-  @media(max-width:520px){
-    .access-lock{padding:14px;}
-    .access-card-redesign .access-card-body{padding:24px 20px 20px;}
-    .access-tabs{margin-left:-20px;margin-right:-20px;padding-left:20px;padding-right:20px;}
-    .access-logo{width:52px;height:52px;flex-basis:52px;border-radius:14px;}
-  }
+<style>
+  body.site-locked > *:not(#accessLock):not(#signupModal){display:none!important;}
+  .access-lock{position:fixed;inset:0;z-index:9999;background:var(--fond,#F6F5F2);display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto;}
+  .access-card{width:100%;max-width:460px;background:var(--papier,#fff);border:1px solid var(--bordure,#E4E1D8);border-radius:24px;box-shadow:0 26px 70px rgba(32,36,46,.16);overflow:hidden;}
+  .access-card-body{padding:30px 30px 24px;text-align:left}.access-institution{display:flex;align-items:center;gap:14px;padding-bottom:22px}.access-logo{width:58px;height:58px;flex:0 0 58px;border-radius:16px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--violet),var(--bleu));border:1px solid rgba(255,255,255,.12);box-shadow:0 10px 28px rgba(124,58,237,.20)}.access-logo img{width:100%;height:100%;object-fit:cover;display:block}.access-brand{margin:0 0 3px;font-size:1.08rem;line-height:1.25}.access-tagline{font-size:.76rem;color:var(--gris);line-height:1.4}.access-tabs{display:flex;border-bottom:1px solid var(--bordure);margin:0 -30px 24px;padding:0 30px}.access-tab{padding:11px 2px 10px;font-size:.79rem;font-weight:700;color:var(--encre);position:relative}.access-tab:after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:2px;background:var(--violet)}.access-heading h1{font-family:Georgia,'Times New Roman',serif;font-size:clamp(1.55rem,5vw,1.9rem);line-height:1.2;margin:0 0 8px;color:var(--encre)}.access-heading p{font-size:.88rem;color:var(--gris);line-height:1.55;margin:0 0 22px}.access-actions{display:grid;gap:10px}.access-google-btn{width:100%;display:flex;align-items:center;gap:12px;text-align:left;padding:13px 15px;border:1px solid #D8D3DF;border-radius:13px;background:#fff;color:#1F1B2E;cursor:pointer;box-shadow:0 7px 18px rgba(55,36,82,.07);transition:transform .15s,box-shadow .15s}.access-google-btn:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(55,36,82,.10)}.access-google-btn span:last-child{display:flex;flex-direction:column;gap:2px}.access-google-btn strong{font-size:.9rem}.access-google-btn small{font-size:.7rem;color:#6B6478}.google-mark{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:1rem;background:#fff;border:1px solid #E1DCE6;color:#4285F4}.access-secondary-btn,.access-visitor-btn{width:100%;padding:12px 15px;border-radius:12px;font:inherit;font-size:.84rem;font-weight:700;cursor:pointer}.access-secondary-btn{border:1px solid var(--bordure);background:var(--fond);color:var(--encre)}.access-visitor-btn{border:0;background:transparent;color:var(--gris);font-weight:600}.access-visitor-btn:hover{text-decoration:underline;color:var(--encre)}.access-message{margin:12px 0 0;padding:10px 12px;border-radius:11px;font-size:.78rem;line-height:1.5}.access-message.ok{background:#ECFDF3;color:#166534;border:1px solid #86EFAC}.access-message.err{background:#FFF7F7;color:#991B1B;border:1px solid #FCA5A5}.access-note{text-align:center;margin-top:18px;font-size:.72rem;color:var(--gris)}.access-footer{text-align:center;padding:14px 20px;border-top:1px solid var(--bordure);font-size:.7rem;color:var(--gris)}
+  .signup-modal{position:fixed;inset:0;z-index:10000;background:rgba(15,12,25,.48);backdrop-filter:blur(7px);display:flex;align-items:center;justify-content:center;padding:18px;overflow:auto}.signup-card{position:relative;width:100%;max-width:430px;background:var(--papier);color:var(--encre);border:1px solid var(--bordure);border-radius:22px;padding:27px;box-shadow:0 28px 80px rgba(0,0,0,.24)}.signup-close{position:absolute;right:14px;top:12px;width:34px;height:34px;border:0;border-radius:50%;background:var(--fond);color:var(--gris);font-size:1.35rem;cursor:pointer}.signup-card h2{font-family:Georgia,'Times New Roman',serif;font-size:1.55rem;margin:5px 0 8px}.signup-intro,.signup-footnote{font-size:.82rem;color:var(--gris);line-height:1.55}.signup-form{display:grid;gap:8px;margin-top:18px}.signup-form label{font-size:.76rem;font-weight:700;margin-top:3px}.signup-form input{width:100%;box-sizing:border-box;padding:12px 13px;border:1px solid var(--bordure);border-radius:11px;background:var(--fond);color:var(--encre);outline:none}.signup-form input:focus{border-color:var(--violet);box-shadow:0 0 0 3px rgba(124,58,237,.10)}.signup-footnote{margin:14px 0 0;text-align:center;font-size:.72rem}
+  [data-theme="light"] .access-lock{background:radial-gradient(circle at 15% 10%,rgba(109,40,217,.08),transparent 34%),radial-gradient(circle at 88% 88%,rgba(192,132,252,.10),transparent 36%),#F7F4FB}[data-theme="light"] .access-card{background:#fff;border-color:#DDD3E8;box-shadow:0 24px 60px rgba(55,36,82,.12)}[data-theme="light"] .access-google-btn{background:#fff;border-color:#DDD3E8}[data-theme="light"] .access-secondary-btn{background:#F7F4FB}
+  @media(max-width:520px){.access-lock{padding:14px}.access-card-body{padding:24px 20px 20px}.access-tabs{margin-left:-20px;margin-right:-20px;padding-left:20px;padding-right:20px}.access-logo{width:52px;height:52px;flex-basis:52px;border-radius:14px}.signup-card{padding:23px 19px}}
 </style>
 
 <script>
-  (function(){
-    var CODE_ACCES = "Ouali";
-    var form = document.getElementById('accessForm');
-    var input = document.getElementById('accessInput');
-    var error = document.getElementById('accessError');
-    var lock = document.getElementById('accessLock');
-
-    function tenterAcces(e){
-      e.preventDefault();
-      if(input.value === CODE_ACCES){
-        document.body.classList.remove('site-locked');
-        lock.style.display = 'none';
-      } else {
-        error.style.display = 'block';
-        lock.querySelector('.access-card').classList.remove('access-shake');
-        void lock.offsetWidth;
-        lock.querySelector('.access-card').classList.add('access-shake');
-        input.value = '';
-        input.focus();
-      }
-    }
-    form.addEventListener('submit', tenterAcces);
-  })();
+(function(){
+  const lock=document.getElementById('accessLock');
+  const google=document.getElementById('accessGoogleBtn');
+  const visitor=document.getElementById('accessVisitorBtn');
+  const signupOpen=document.getElementById('accessSignupBtn');
+  const modal=document.getElementById('signupModal');
+  const close=document.getElementById('signupClose');
+  const form=document.getElementById('signupForm');
+  const msg=document.getElementById('signupMessage');
+  function unlock(){ document.body.classList.remove('site-locked'); if(lock) lock.style.display='none'; }
+  window.auroreUnlockAccess=unlock;
+  visitor?.addEventListener('click',()=>{ try{localStorage.setItem('aurore_visitor_mode','1');}catch(e){} unlock(); });
+  google?.addEventListener('click',()=>{ if(typeof demarrerConnexionGoogle==='function') demarrerConnexionGoogle(); });
+  signupOpen?.addEventListener('click',()=>{modal.style.display='flex';modal.setAttribute('aria-hidden','false');setTimeout(()=>document.getElementById('signupName')?.focus(),50);});
+  function fermer(){modal.style.display='none';modal.setAttribute('aria-hidden','true');}
+  close?.addEventListener('click',fermer); modal?.addEventListener('click',e=>{if(e.target===modal)fermer();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modal?.style.display!=='none')fermer();});
+  form?.addEventListener('submit',async e=>{
+    e.preventDefault(); const name=document.getElementById('signupName').value.trim(),email=document.getElementById('signupEmail').value.trim(),p=document.getElementById('signupPassword').value,p2=document.getElementById('signupPasswordConfirm').value,btn=document.getElementById('signupSubmit');
+    msg.style.display='none'; if(p!==p2){msg.textContent='Les deux mots de passe ne correspondent pas.';msg.className='access-message err';msg.style.display='block';return;} if(p.length<8){msg.textContent='Le mot de passe doit contenir au moins 8 caractères.';msg.className='access-message err';msg.style.display='block';return;}
+    btn.disabled=true;btn.textContent='Création en cours…';
+    try{
+      const r=await fetch(`${SUPABASE_URL}/auth/v1/signup`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password:p,data:{full_name:name,name}})}); const d=await r.json().catch(()=>({}));
+      if(!r.ok) throw new Error(d.msg||d.error_description||d.message||('HTTP '+r.status));
+      if(d.access_token){
+        const infos=await recupererUtilisateur(d.access_token); if(infos){const role=await assurerProfilEtObtenirRole(d.access_token,infos);session={access_token:d.access_token,refresh_token:d.refresh_token||null,expires_at:Date.now()+((d.expires_in||3600)*1000),id:infos.id,email:infos.email,nom:infos.nom,avatar:infos.avatar,lycee:infos.lycee||'',role};sauvegarderSession();enregistrerConnexion(session);afficherUtilisateurConnecte();unlock();fermer();afficherBienvenueApresConnexion(session);}
+      } else {msg.textContent='Compte créé. Consultez votre e-mail pour confirmer votre adresse avant de vous connecter.';msg.className='access-message ok';msg.style.display='block';}
+    }catch(err){msg.textContent='Impossible de créer le compte : '+(err.message||'vérifiez les informations saisies.');msg.className='access-message err';msg.style.display='block';}
+    finally{btn.disabled=false;btn.textContent='CRÉER MON COMPTE';}
+  });
+})();
 </script>
-
-
 
 <header>
   <div class="wrap header-inner">
@@ -2727,7 +2659,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       const infos = await recupererUtilisateur(access_token);
       if (infos) {
         const role = await assurerProfilEtObtenirRole(access_token, infos);
-        session = { access_token, refresh_token, expires_at: Date.now() + expires_in * 1000, id: infos.id, email: infos.email, nom: infos.nom, avatar: infos.avatar, role };
+        session = { access_token, refresh_token, expires_at: Date.now() + expires_in * 1000, id: infos.id, email: infos.email, nom: infos.nom, avatar: infos.avatar, lycee: infos.lycee || '', role };
         sauvegarderSession();
         enregistrerConnexion(session);
         afficherBienvenueApresConnexion(session);
@@ -2746,7 +2678,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       }
     }
     afficherUtilisateurConnecte();
-    if (session) chargerNotificationsPersonnelles();
+    if (session) { if (typeof window.auroreUnlockAccess === 'function') window.auroreUnlockAccess(); chargerNotificationsPersonnelles(); }
   });
 
   // ---------- ICÔNES SOBRES (SVG en ligne, pas d'emoji) ----------
