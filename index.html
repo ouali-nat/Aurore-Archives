@@ -1239,6 +1239,41 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 [data-theme="light"] .home-video-section{background:#fff;border-color:#C9BEDB}[data-theme="light"] .home-video-frame,[data-theme="light"] .admin-video-preview{background:#F3F0F8;border-color:#C9BEDB}[data-theme="light"] .welcome-modal-card{background:#fff;color:#111318;border-color:#C9BEDB}[data-theme="light"] .welcome-modal-card p:not(.eyebrow){color:#4D465A}[data-theme="light"] .welcome-modal-close{color:#111318;background:#fff;border-color:#C9BEDB}
 @media(max-width:620px){.home-video-section{padding:14px}.home-video-frame video{min-height:180px}.welcome-modal-card{padding:26px 20px}}
 </style>
+
+<style id="aurore-polish-pubs-messages">
+/* === Publicités : image, titre et description séparés visuellement === */
+.ad-slot-card{display:flex!important;flex-direction:column!important;gap:10px!important;background:transparent!important;border:0!important;box-shadow:none!important;overflow:visible!important;padding:0!important;transform:none!important;}
+.ad-slot-card::after{display:none!important;content:none!important;}
+.ad-slot-img{position:relative!important;inset:auto!important;width:100%!important;height:230px!important;min-height:230px!important;object-fit:cover!important;border-radius:20px!important;background:var(--fond)!important;border:1px solid var(--bordure)!important;box-shadow:0 10px 26px rgba(55,36,82,.10)!important;}
+.ad-slot-body{position:static!important;display:flex!important;flex-direction:column!important;gap:8px!important;padding:0!important;background:transparent!important;}
+.ad-slot-title{display:block!important;width:auto!important;max-width:none!important;padding:11px 14px!important;border:1px solid var(--bordure)!important;border-radius:14px!important;background:var(--papier)!important;color:var(--encre)!important;text-shadow:none!important;box-shadow:0 5px 16px rgba(55,36,82,.06)!important;font-size:.98rem!important;line-height:1.35!important;}
+.ad-slot-desc{display:block!important;padding:11px 14px!important;border:1px solid var(--bordure)!important;border-radius:14px!important;background:var(--papier)!important;color:var(--gris)!important;text-shadow:none!important;line-height:1.5!important;}
+.ad-slot-cta{align-self:flex-start!important;padding:8px 12px!important;border-radius:11px!important;background:var(--papier)!important;border:1px solid var(--bordure)!important;color:var(--violet)!important;text-shadow:none!important;box-shadow:0 4px 12px rgba(55,36,82,.05)!important;}
+.ad-slot.ad-slot-alt .ad-slot-card{flex-direction:column!important;}
+[data-theme="light"] .ad-slot-img{background:#F7F4FB!important;border-color:#D8CDE3!important;box-shadow:0 10px 24px rgba(55,36,82,.08)!important;}
+[data-theme="light"] .ad-slot-title,[data-theme="light"] .ad-slot-desc{color:#171322!important;background:#fff!important;text-shadow:none!important;border-color:#D8CDE3!important;}
+[data-theme="light"] .ad-slot-cta{color:#6D28D9!important;background:#fff!important;border-color:#D8CDE3!important;text-shadow:none!important;}
+/* === Vidéo : plus compacte et sans cadre massif === */
+.home-video-section{max-width:920px!important;margin:20px auto 26px!important;border-radius:20px!important;}
+.home-video-heading{padding:15px 18px 11px!important;}
+.home-video-frame{width:calc(100% - 20px)!important;margin:0 auto 10px!important;border-radius:14px!important;aspect-ratio:16/8.7!important;overflow:hidden!important;}
+.home-video-frame video{border-radius:14px!important;object-fit:contain!important;}
+@media(max-width:640px){
+ .ad-slot-img{height:190px!important;min-height:190px!important;border-radius:17px!important;}
+ .ad-slot-title,.ad-slot-desc{padding:10px 12px!important;border-radius:12px!important;}
+ .home-video-section{margin:16px 0 22px!important;}
+ .home-video-heading{padding:13px 14px 9px!important;}
+ .home-video-frame{width:calc(100% - 12px)!important;aspect-ratio:16/9!important;border-radius:12px!important;}
+ .home-video-frame video{border-radius:12px!important;}
+}
+/* === Messages système : hiérarchie et lisibilité professionnelles === */
+.form-msg{padding:11px 13px!important;border-radius:12px!important;line-height:1.5!important;font-weight:600!important;}
+.form-msg.ok{background:#ECFDF3!important;color:#166534!important;border:1px solid #86EFAC!important;}
+.form-msg.err{background:#FFF7F7!important;color:#991B1B!important;border:1px solid #FCA5A5!important;}
+[data-theme="light"] .form-msg.ok{background:#ECFDF3!important;color:#166534!important;border-color:#86EFAC!important;}
+[data-theme="light"] .form-msg.err{background:#FFF7F7!important;color:#991B1B!important;border-color:#FCA5A5!important;}
+.welcome-modal-card p{line-height:1.65!important;}
+</style>
 </head>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <body class="site-locked">
@@ -2335,14 +2370,14 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       const insertText = await insertRes.text().catch(() => '');
       if (!insertRes.ok) {
         console.error('[Profils] échec de la création', insertRes.status, insertText);
-        alert("Impossible de créer ton profil (statut " + insertRes.status + ") :\n" + insertText);
+        alert("Votre profil n’a pas pu être créé pour le moment. Veuillez réessayer dans quelques instants.");
       }
 
       const res = await fetch(`${SUPABASE_URL}/rest/v1/Profils?select=role&id=eq.${infos.id}`, { headers: headersToken });
       const selectText = await res.text().catch(() => '');
       if (!res.ok) {
         console.error('[Profils] échec de la lecture', res.status, selectText);
-        alert("Impossible de lire ton profil (statut " + res.status + ") :\n" + selectText);
+        alert("Votre profil n’a pas pu être chargé pour le moment. Veuillez réessayer dans quelques instants.");
         return 'eleve';
       }
       let rows;
@@ -2353,7 +2388,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       }
       return rows[0].role || 'eleve';
     } catch (e) {
-      alert("Erreur réseau lors de la création du profil : " + e.message);
+      alert("Une erreur de connexion a empêché la création de votre profil. Vérifiez votre connexion puis réessayez.");
       return 'eleve';
     }
   }
@@ -4689,7 +4724,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       if(document.getElementById('docsSearch')) document.getElementById('docsSearch').value = '';
       afficherDocumentsPublicsAvecOutils();
     } catch (err) {
-      content.innerHTML = `<div class="doc-empty"><div class="icon-wrap">${ICONS.warning}</div><h3>Erreur de chargement</h3><p>${err.message}</p></div>`;
+      content.innerHTML = `<div class="doc-empty"><div class="icon-wrap">${ICONS.warning}</div><h3>Impossible de charger les documents</h3><p>Le contenu n’a pas pu être récupéré pour le moment. Veuillez réessayer dans quelques instants.</p></div>`;
     }
   }
 
@@ -4755,7 +4790,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       const data = await res.json();
       rendreListeDocuments(content, data);
     } catch (err) {
-      content.innerHTML = `<div class="doc-empty"><div class="icon-wrap">${ICONS.warning}</div><h3>Erreur de chargement</h3><p>${err.message}</p></div>`;
+      content.innerHTML = `<div class="doc-empty"><div class="icon-wrap">${ICONS.warning}</div><h3>Impossible de charger les documents</h3><p>Le contenu n’a pas pu être récupéré pour le moment. Veuillez réessayer dans quelques instants.</p></div>`;
     }
   }
 
@@ -5037,7 +5072,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       // doublon, avant même d'arriver à l'étape d'enregistrement.
       res = await fetch(`${SUPABASE_URL}/rest/v1/Document?${params.toString()}`, { headers: HEADERS });
     } catch (e) {
-      throw new Error('Impossible de vérifier les doublons avant l’envoi : ' + e.message);
+      throw new Error('La vérification du document n’a pas pu être effectuée. Veuillez réessayer.');
     }
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
@@ -5071,7 +5106,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     try {
       empreinteCible = await empreinteSha256(fichier);
     } catch (e) {
-      throw new Error('Impossible de calculer l’empreinte du fichier à déposer : ' + e.message);
+      throw new Error('La préparation du fichier n’a pas pu être effectuée. Veuillez réessayer.');
     }
 
     // Le système actuel ne stocke pas d'empreinte dans "Document" : on la
@@ -5215,17 +5250,17 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const estLivre = categorie === 'Livres';
 
     // ---- Validation manuelle (indépendante du navigateur) ----
-    if (!titre) return echouer("Merci de renseigner le titre du document.");
-    if (!categorie) return echouer("Merci de choisir une catégorie.");
+    if (!titre) return echouer("Veuillez renseigner le titre du document.");
+    if (!categorie) return echouer("Veuillez choisir une catégorie.");
     if (!auteur) return echouer("Merci d'indiquer votre nom.");
-    if (estLivre && !genre) return echouer("Merci de choisir un genre pour ce livre.");
-    if (!estLivre && !niveau) return echouer("Merci de choisir un niveau complet (jusqu'à la dernière étape proposée).");
-    if (!estLivre && !matiere) return echouer("Merci de choisir une matière.");
-    if (!estLivre && ['Seconde','Première','Terminale'].includes(niveau) && !filiere) return echouer("Merci de choisir la série pour le second cycle.");
-    if (!fichier) return echouer("Merci de sélectionner un fichier PDF.");
+    if (estLivre && !genre) return echouer("Veuillez choisir un genre pour ce livre.");
+    if (!estLivre && !niveau) return echouer("Veuillez sélectionner le niveau jusqu’à la dernière étape proposée.");
+    if (!estLivre && !matiere) return echouer("Veuillez sélectionner une matière.");
+    if (!estLivre && ['Seconde','Première','Terminale'].includes(niveau) && !filiere) return echouer("Veuillez sélectionner la série du second cycle.");
+    if (!fichier) return echouer("Veuillez sélectionner un fichier PDF.");
     if (fichier.type !== 'application/pdf') return echouer("Le fichier doit être un PDF (type détecté : " + (fichier.type || 'inconnu') + ").");
     if (fichier.size > 200 * 1024 * 1024) return echouer("Le fichier dépasse 200 Mo.");
-    if (!certifieDroits) return echouer("Merci de cocher la case de certification des droits avant d'envoyer le document.");
+    if (!certifieDroits) return echouer("Veuillez confirmer la certification de vos droits avant d’envoyer le document.");
 
     etape('Champs valides : ' + JSON.stringify({titre, niveau, filiere, categorie, matiere, genre, auteur, source, certifieDroits, fichier: fichier.name}), 'ok');
 
@@ -5259,7 +5294,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     try {
       uploadRes = await creerUploadR2AvecProgress(`${R2_WORKER_URL}/${nomFichier}`, fichier, afficherProgression);
     } catch (netErr) {
-      return echouer("Étape 1/5 — Échec réseau lors de l'envoi au Worker : " + netErr.message);
+      return echouer("Le transfert du fichier n’a pas pu démarrer. Vérifiez votre connexion puis réessayez.");
     }
 
     const uploadText = uploadRes.text || '';
@@ -5271,7 +5306,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       if (uploadRes.status === 413) {
         return echouer("Le Worker a refusé le fichier : il dépasse la taille maximale acceptée côté serveur (Cloudflare Worker/R2). Si tu viens d'augmenter la limite à 200 Mo, vérifie que la configuration du Worker a bien été mise à jour côté Cloudflare, car cette limite serveur est indépendante de ce fichier index.html.");
       }
-      return echouer("Échec de l'envoi du fichier au Worker (statut " + uploadRes.status + " ). Détail : " + uploadText);
+      return echouer("Le fichier n’a pas pu être envoyé vers le stockage. Veuillez réessayer dans quelques instants.");
     }
     etape('Étape 2/5 — Envoi au Worker réussi. Statut ' + uploadRes.status, 'ok');
     // ---- 3. URL publique (lecture directe depuis R2) ----
@@ -5563,7 +5598,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         etape('[DIAG] Sonde no-cors également en échec (' + sondeErr.message + ') → panne réseau réelle, DNS, hors-ligne, ou domaine supabase.co bloqué (pare-feu / extension / connexion).', 'err');
       }
       // --- FIN DIAGNOSTIC TEMPORAIRE ---
-      return echouer("Étape 4/5 — Échec réseau lors de l'insertion : " + netErr.message);
+      return echouer("L’enregistrement du document n’a pas pu être finalisé. Vérifiez votre connexion puis réessayez.");
     }
 
     let insertText = await insertRes.text().catch(() => '');
@@ -5615,7 +5650,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
     if (!insertRes.ok) {
       etape('Étape 5/5 — Insertion échouée. Statut ' + insertRes.status + '. Réponse exacte : ' + insertText, 'err');
-      return echouer("Échec de l'enregistrement (statut " + insertRes.status + "). Détail : " + insertText);
+      return echouer("Le document n’a pas pu être enregistré pour le moment. Veuillez réessayer.");
     }
 
     etape('Étape 5/5 — Insertion réussie. Réponse : ' + insertText, 'ok');
@@ -5764,7 +5799,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       await chargerUtilisateursAdmin();
     } catch (err) {
       console.error('[Gestion utilisateurs] promotion', err);
-      afficherMessageUtilisateurs('Impossible de promouvoir cet utilisateur pour le moment. ' + (err.message || ''), 'err');
+      afficherMessageUtilisateurs('La promotion de cet utilisateur n’a pas pu être effectuée pour le moment. Veuillez réessayer.', 'err');
       if (bouton) { bouton.disabled = false; bouton.textContent = 'Promouvoir administrateur'; }
     }
   }
@@ -5798,7 +5833,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       await chargerUtilisateursAdmin();
     } catch (err) {
       console.error('[Gestion utilisateurs] rétrogradation', err);
-      afficherMessageUtilisateurs('Impossible de rétrograder cet administrateur pour le moment. ' + (err.message || ''), 'err');
+      afficherMessageUtilisateurs('La rétrogradation de cet administrateur n’a pas pu être effectuée pour le moment. Veuillez réessayer.', 'err');
       if (bouton) { bouton.disabled = false; bouton.textContent = 'Rétrograder en utilisateur'; }
     }
   }
@@ -5807,7 +5842,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const list = document.getElementById('adminUsersList');
     if (!list) return;
     if (!session || session.role !== 'admin') {
-      list.innerHTML = '<div class="admin-user-empty">Accès administrateur requis.</div>';
+      list.innerHTML = '<div class="admin-user-empty">Cette action est réservée aux administrateurs.</div>';
       return;
     }
     list.innerHTML = '<div class="admin-user-loading">Chargement des utilisateurs…</div>';
@@ -5893,7 +5928,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     } catch (err) {
       console.error('[Gestion utilisateurs] chargement', err);
       majCompteurOnglet('tabCountUtilisateurs', 0);
-      list.innerHTML = `<div class="admin-user-empty">Impossible de charger les utilisateurs. ${echapperHtmlPub(err.message || '')}</div>`;
+      list.innerHTML = `<div class="admin-user-empty">Impossible de charger la liste des utilisateurs pour le moment. Veuillez réessayer dans quelques instants.</div>`;
     }
   }
 
@@ -5989,7 +6024,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         list.appendChild(card);
       });
     } catch (err) {
-      list.innerHTML = `<p class="admin-empty">Erreur de chargement : ${err.message}</p>`;
+      list.innerHTML = `<p class="admin-empty">Impossible de charger ces éléments pour le moment. Veuillez réessayer dans quelques instants.</p>`;
     }
   }
 
@@ -6242,7 +6277,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         niveaux:data.map(d=>d.Niveau), classes:data.map(d=>d.Classe), matieres:data.map(d=>d['Matière'] || d.Genre)
       });
     } catch (err) {
-      list.innerHTML = `<p class="admin-empty">Erreur de chargement : ${err.message}</p>`;
+      list.innerHTML = `<p class="admin-empty">Impossible de charger ces éléments pour le moment. Veuillez réessayer dans quelques instants.</p>`;
     }
   }
 
@@ -6275,7 +6310,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       majCompteurOnglet('tabCountAttente', list.querySelectorAll('.admin-card').length);
       chargerDocumentsPublies();
     } catch (err) {
-      alert("Échec de la validation : " + err.message);
+      alert("La validation n’a pas pu être effectuée pour le moment. Veuillez réessayer.");
     }
   }
 
@@ -6319,7 +6354,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       if (!list.querySelector('.admin-card')) list.innerHTML = '<p class="admin-empty">Aucun dépôt en attente. Tout est à jour.</p>';
       majCompteurOnglet('tabCountAttente', list.querySelectorAll('.admin-card').length);
     } catch (err) {
-      alert("Échec de la suppression : " + err.message);
+      alert("La suppression n’a pas pu être effectuée pour le moment. Veuillez réessayer.");
     }
   }
 
@@ -6385,7 +6420,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         niveaux:data.map(d=>d.Niveau), classes:data.map(d=>d.Classe), matieres:data.map(d=>d['Matière'] || d.Genre)
       });
     } catch (err) {
-      list.innerHTML = `<p class="admin-empty">Erreur de chargement : ${err.message}</p>`;
+      list.innerHTML = `<p class="admin-empty">Impossible de charger ces éléments pour le moment. Veuillez réessayer dans quelques instants.</p>`;
     }
   }
 
@@ -6405,7 +6440,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       card.querySelector('.dl-status').textContent = nouvelleValeur ? 'Lecture + téléchargement' : 'Lecture seule';
       card.querySelector('.dl-toggle').textContent = nouvelleValeur ? 'Passer en lecture seule' : 'Autoriser le téléchargement';
     } catch (err) {
-      alert("Impossible de modifier le mode de lecture pour le moment. Détail : " + err.message);
+      alert("Le mode de lecture n’a pas pu être modifié pour le moment. Veuillez réessayer.");
     }
   }
 
@@ -6429,7 +6464,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       doc.Mis_en_avant = nouvelleValeur;
       card.querySelector('.avant-toggle').textContent = nouvelleValeur ? 'Retirer de « Récemment publiés »' : 'Mettre dans « Récemment publiés »';
     } catch (err) {
-      alert("Impossible de modifier la mise en avant pour le moment (la colonne \"Mis_en_avant\" a-t-elle bien été ajoutée à la table Document ?). Détail : " + err.message);
+      alert("La mise en avant n’a pas pu être modifiée pour le moment. Vérifiez la configuration puis réessayez.");
     }
   }
 
@@ -6455,7 +6490,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       if (!list.querySelector('.admin-card')) list.innerHTML = '<p class="admin-empty">Aucun document publié pour l\'instant.</p>';
       majCompteurOnglet('tabCountPublies', list.querySelectorAll('.admin-card').length);
     } catch (err) {
-      alert("Échec de la suppression : " + err.message);
+      alert("La suppression n’a pas pu être effectuée pour le moment. Veuillez réessayer.");
     }
   }
 
@@ -6527,7 +6562,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
             await marquerReclamation(r.id, 'traite');
             chargerReclamationsAdmin();
             chargerDocumentsPublies();
-          } catch(e) { alert("Échec du retrait : " + e.message); }
+          } catch(e) { alert("Le retrait du document n’a pas pu être effectué pour le moment. Veuillez réessayer."); }
         });
         card.querySelector('[data-action="traite"]').addEventListener('click', async () => {
           if (!confirm("Marquer ce signalement comme traité ? Il disparaîtra de la liste des réclamations en attente.")) return;
@@ -6540,7 +6575,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       });
       actualiserOutilsAdminApresChargement('reclamations', ADMIN_COLLECTION_CONFIG.reclamations, {statuts:data.map(r=>r.statut)});
     } catch (err) {
-      list.innerHTML = `<p class="admin-empty">Erreur de chargement : ${err.message}</p>`;
+      list.innerHTML = `<p class="admin-empty">Impossible de charger ces éléments pour le moment. Veuillez réessayer dans quelques instants.</p>`;
     }
   }
 
@@ -6578,9 +6613,9 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       // fetch() rejette avec un TypeError générique en cas de coupure réseau, de blocage
       // CORS, ou d'un bloqueur qui filtre la requête. On garde le message technique brut
       // ("Failed to fetch") visible en plus de l'explication, pour ne rien cacher.
-      return `Connexion impossible (${e.message}). Vérifiez votre connexion, un éventuel bloqueur de publicités/traqueurs, ou la configuration CORS de Supabase/R2 pour ce domaine.`;
+      return 'Le service publicitaire est momentanément indisponible. Vérifiez votre connexion puis réessayez.';
     }
-    return e.message || 'Une erreur inattendue est survenue.';
+    return 'Une erreur est survenue lors de cette opération. Veuillez réessayer.';
   }
 
   function echapperHtmlPub(s){
@@ -7144,13 +7179,13 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const msg=document.getElementById('adminPromoMsg');
     const btn=document.getElementById('adminPromoSave');
 
-    if(!editId && !file){ msg.textContent='Sélectionne une image à téléverser.'; msg.className='form-msg err'; return; }
-    if(file && !['image/png','image/jpeg','image/webp','image/gif'].includes(file.type)){ msg.textContent='Format image non pris en charge.'; msg.className='form-msg err'; return; }
-    if(file && file.size>8*1024*1024){ msg.textContent='Image trop lourde (8 Mo maximum).'; msg.className='form-msg err'; return; }
-    if(!altText){ msg.textContent='Merci d’indiquer un titre.'; msg.className='form-msg err'; return; }
+    if(!editId && !file){ msg.textContent='Veuillez sélectionner une image avant de continuer.'; msg.className='form-msg err'; return; }
+    if(file && !['image/png','image/jpeg','image/webp','image/gif'].includes(file.type)){ msg.textContent='Ce format d’image n’est pas pris en charge. Utilisez PNG, JPEG, WEBP ou GIF.'; msg.className='form-msg err'; return; }
+    if(file && file.size>8*1024*1024){ msg.textContent='Cette image dépasse la taille maximale autorisée de 8 Mo.'; msg.className='form-msg err'; return; }
+    if(!altText){ msg.textContent='Veuillez renseigner un titre pour continuer.'; msg.className='form-msg err'; return; }
 
-    btn.disabled=true; btn.textContent='Enregistrement…';
-    msg.textContent='Enregistrement…'; msg.className='form-msg';
+    btn.disabled=true; btn.textContent='Enregistrement en cours…';
+    msg.textContent='Enregistrement en cours…'; msg.className='form-msg';
     try{
       let imageUrl=null;
       if(file){
@@ -7178,7 +7213,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
           body:JSON.stringify(payload)
         });
         if(!res.ok){ const rb=await res.text().catch(()=> ''); throw new Error(`Impossible de modifier la publicité (HTTP ${res.status}) : ${rb}`); }
-        msg.textContent='Publicité modifiée.'; msg.className='form-msg ok';
+        msg.textContent='La publicité a été mise à jour avec succès.'; msg.className='form-msg ok';
       }else{
         payload.active=true;
         const res=await fetch(`${SUPABASE_URL}/rest/v1/${PUB_TABLE}`,{
@@ -7186,7 +7221,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
           body:JSON.stringify(payload)
         });
         if(!res.ok){ const rb=await res.text().catch(()=> ''); throw new Error(`Impossible d'enregistrer la publicité (HTTP ${res.status}) : ${rb}`); }
-        msg.textContent='Publicité ajoutée.'; msg.className='form-msg ok';
+        msg.textContent='La publicité a été ajoutée avec succès.'; msg.className='form-msg ok';
       }
       // L'INSERT/PATCH est confirmé réussi ici. Tout ce qui suit (rafraîchir la liste
       // admin, tenter de recharger l'affichage public à titre de diagnostic) est isolé
@@ -7664,7 +7699,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       msg.className = 'form-msg ok';
       setTimeout(fermerSignalement, 1800);
     } catch (err) {
-      msg.textContent = "Impossible d'envoyer le signalement pour le moment. Détail : " + err.message;
+      msg.textContent = "L’envoi du signalement a échoué. Veuillez réessayer dans quelques instants.";
       msg.className = 'form-msg err';
     }
   });
@@ -7692,7 +7727,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       const data = await res.json();
       rendreListeDocuments(content, data);
     } catch (err) {
-      content.innerHTML = `<div class="doc-empty"><div class="icon-wrap">${ICONS.warning}</div><h3>Erreur de recherche</h3><p>${err.message}</p></div>`;
+      content.innerHTML = `<div class="doc-empty"><div class="icon-wrap">${ICONS.warning}</div><h3>Recherche indisponible</h3><p>La recherche n’a pas pu aboutir pour le moment. Veuillez réessayer dans quelques instants.</p></div>`;
     }
   }
 
@@ -7767,12 +7802,12 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const email=document.getElementById('adminServiceEmailInput')?.value.trim() || '';
     const texte=document.getElementById('adminServiceTextInput')?.value.trim() || '';
     if(msg){msg.className='form-msg';msg.style.display='';}
-    if(!session || session.role!=='admin') { if(msg){msg.textContent='Accès administrateur requis.';msg.className='form-msg err';} return; }
+    if(!session || session.role!=='admin') { if(msg){msg.textContent='Cette action est réservée aux administrateurs.';msg.className='form-msg err';} return; }
     const wa=normaliserNumeroWhatsApp(whatsapp);
     if(!wa.display){if(msg){msg.textContent='Merci de renseigner le numéro WhatsApp.';msg.className='form-msg err';}return;}
     if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){if(msg){msg.textContent='Merci de renseigner une adresse e-mail valide.';msg.className='form-msg err';}return;}
     if(!texte){if(msg){msg.textContent='Merci de renseigner le texte du service client.';msg.className='form-msg err';}return;}
-    if(btn){btn.disabled=true;btn.textContent='Enregistrement…';}
+    if(btn){btn.disabled=true;btn.textContent='Enregistrement en cours…';}
     try {
       const res=await fetch(`${SUPABASE_URL}/rest/v1/service_client?id=eq.1`,{
         method:'PATCH',headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=representation'},
@@ -7784,7 +7819,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       appliquerServiceClientPublic(rows[0]?{whatsappDisplay:rows[0].whatsapp,email:rows[0].email,text:rows[0].texte}:{whatsappDisplay:wa.display,email,text:texte});
       if(msg){msg.textContent='Coordonnées du service client enregistrées avec succès.';msg.className='form-msg ok';}
     } catch(e) {
-      if(msg){msg.textContent='Impossible d’enregistrer les coordonnées : '+e.message;msg.className='form-msg err';}
+      if(msg){msg.textContent='Impossible d’enregistrer les coordonnées pour le moment. Veuillez réessayer.';msg.className='form-msg err';}
     } finally { if(btn){btn.disabled=false;btn.textContent='Enregistrer les coordonnées';} }
   }
 
@@ -7847,8 +7882,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const message = document.getElementById('adminAnnonceInput')?.value.trim() || '';
     const active = document.getElementById('adminAnnonceActive')?.checked || false;
     if (msg) { msg.className = 'form-msg'; msg.style.display = ''; }
-    if (!session || session.role !== 'admin') { if (msg) { msg.textContent = 'Accès administrateur requis.'; msg.className = 'form-msg err'; } return; }
-    if (btn) { btn.disabled = true; btn.textContent = 'Enregistrement…'; }
+    if (!session || session.role !== 'admin') { if (msg) { msg.textContent = 'Cette action est réservée aux administrateurs.'; msg.className = 'form-msg err'; } return; }
+    if (btn) { btn.disabled = true; btn.textContent = 'Enregistrement en cours…'; }
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/annonce_accueil?id=eq.1`, {
         method: 'PATCH', headers: { ...headersAdmin(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
@@ -7871,7 +7906,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       appliquerAnnoncePublic(rows[0]?.message ?? message, rows[0]?.active ?? active);
       if (msg) { msg.textContent = 'Annonce enregistrée avec succès.'; msg.className = 'form-msg ok'; }
     } catch (e) {
-      if (msg) { msg.textContent = "Impossible d'enregistrer l'annonce : " + e.message; msg.className = 'form-msg err'; }
+      if (msg) { msg.textContent = "Impossible d’enregistrer l’annonce pour le moment. Veuillez réessayer."; msg.className = 'form-msg err'; }
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = 'Enregistrer'; }
     }
@@ -7959,7 +7994,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         if (fileInput) fileInput.value = '';
         if (msg) { msg.textContent = 'Logo mis à jour avec succès — visible immédiatement pour tous les visiteurs.'; msg.className = 'form-msg ok'; }
       } catch (err) {
-        if (msg) { msg.textContent = "Échec de l'envoi du logo : " + err.message; msg.className = 'form-msg err'; }
+        if (msg) { msg.textContent = "Le logo n’a pas pu être envoyé pour le moment. Veuillez réessayer."; msg.className = 'form-msg err'; }
       } finally {
         if (btn) { btn.disabled = false; btn.textContent = 'Mettre à jour le logo'; }
       }
@@ -7991,12 +8026,12 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   }
   function apercuVideoAdmin(url){const p=document.getElementById('adminVideoPreview');if(!p)return;if(!url){p.innerHTML='<span>Aucune vidéo sélectionnée.</span>';return;}p.innerHTML=`<video controls playsinline preload="metadata" src="${echapperHtmlPub(url)}"></video>`;}
   function resetVideoAdmin(){document.getElementById('adminVideoEditId').value='';document.getElementById('adminVideoFile').value='';document.getElementById('adminVideoTitleInput').value='';document.getElementById('adminVideoDescInput').value='';document.getElementById('adminVideoActive').checked=false;apercuVideoAdmin('');document.getElementById('adminVideoSave').textContent='Ajouter la vidéo';document.getElementById('adminVideoCancel').style.display='none';}
-  document.getElementById('adminVideoFile')?.addEventListener('change',function(){const f=this.files?.[0];if(!f)return;const m=document.getElementById('adminVideoMsg');if(!['video/mp4','video/webm','video/ogg'].includes(f.type)){m.textContent='Format vidéo non pris en charge.';m.className='form-msg err';this.value='';return;}if(f.size>100*1024*1024){m.textContent='Vidéo trop lourde (100 Mo maximum).';m.className='form-msg err';this.value='';return;}apercuVideoAdmin(URL.createObjectURL(f));});
-  async function chargerVideosAdmin(){const list=document.getElementById('adminVideoList');if(!list)return;list.innerHTML='<div class="pub-admin-empty">Chargement…</div>';try{const r=await fetch(`${SUPABASE_URL}/rest/v1/${VIDEO_TABLE}?select=*&order=updated_at.desc`,{headers:headersAdmin()});if(!r.ok)throw new Error('HTTP '+r.status);const rows=await r.json();document.getElementById('tabCountVideos').textContent=rows.length;list.innerHTML=rows.length?'':'<div class="pub-admin-empty">Aucune vidéo pour le moment.</div>';rows.forEach(v=>{const x=document.createElement('div');x.className='pub-admin-item';x.innerHTML=`<video src="${echapperHtmlPub(v.video_url||'')}" preload="metadata" muted playsinline></video><div class="pub-admin-item-body"><div class="pub-admin-item-title">${echapperHtmlPub(v.title||'(sans titre)')}</div>${v.description?`<div class="pub-admin-item-desc">${echapperHtmlPub(v.description)}</div>`:''}<div class="pub-admin-item-status ${v.active?'on':'off'}">${v.active?'● Active':'○ Désactivée'}</div></div><div class="pub-admin-item-actions"><button type="button" data-a="e">Modifier</button><button type="button" data-a="t">${v.active?'Désactiver':'Activer'}</button><button type="button" class="danger" data-a="d">Supprimer</button></div>`;x.querySelector('[data-a="e"]').onclick=()=>editVideo(v);x.querySelector('[data-a="t"]').onclick=()=>toggleVideo(v);x.querySelector('[data-a="d"]').onclick=()=>deleteVideo(v);list.appendChild(x);});}catch(e){list.innerHTML=`<div class="pub-admin-empty">Impossible de charger les vidéos : ${echapperHtmlPub(e.message)}</div>`;}}
+  document.getElementById('adminVideoFile')?.addEventListener('change',function(){const f=this.files?.[0];if(!f)return;const m=document.getElementById('adminVideoMsg');if(!['video/mp4','video/webm','video/ogg'].includes(f.type)){m.textContent='Ce format vidéo n’est pas pris en charge. Utilisez MP4, WEBM ou OGG.';m.className='form-msg err';this.value='';return;}if(f.size>100*1024*1024){m.textContent='Cette vidéo dépasse la taille maximale autorisée de 100 Mo.';m.className='form-msg err';this.value='';return;}apercuVideoAdmin(URL.createObjectURL(f));});
+  async function chargerVideosAdmin(){const list=document.getElementById('adminVideoList');if(!list)return;list.innerHTML='<div class="pub-admin-empty">Chargement…</div>';try{const r=await fetch(`${SUPABASE_URL}/rest/v1/${VIDEO_TABLE}?select=*&order=updated_at.desc`,{headers:headersAdmin()});if(!r.ok)throw new Error('HTTP '+r.status);const rows=await r.json();document.getElementById('tabCountVideos').textContent=rows.length;list.innerHTML=rows.length?'':'<div class="pub-admin-empty">Aucune vidéo pour le moment.</div>';rows.forEach(v=>{const x=document.createElement('div');x.className='pub-admin-item';x.innerHTML=`<video src="${echapperHtmlPub(v.video_url||'')}" preload="metadata" muted playsinline></video><div class="pub-admin-item-body"><div class="pub-admin-item-title">${echapperHtmlPub(v.title||'(sans titre)')}</div>${v.description?`<div class="pub-admin-item-desc">${echapperHtmlPub(v.description)}</div>`:''}<div class="pub-admin-item-status ${v.active?'on':'off'}">${v.active?'● Active':'○ Désactivée'}</div></div><div class="pub-admin-item-actions"><button type="button" data-a="e">Modifier</button><button type="button" data-a="t">${v.active?'Désactiver':'Activer'}</button><button type="button" class="danger" data-a="d">Supprimer</button></div>`;x.querySelector('[data-a="e"]').onclick=()=>editVideo(v);x.querySelector('[data-a="t"]').onclick=()=>toggleVideo(v);x.querySelector('[data-a="d"]').onclick=()=>deleteVideo(v);list.appendChild(x);});}catch(e){list.innerHTML='<div class="pub-admin-empty">Impossible de charger les vidéos pour le moment. Veuillez réessayer.</div>';}}
   function editVideo(v){document.getElementById('adminVideoEditId').value=v.id;document.getElementById('adminVideoTitleInput').value=v.title||'';document.getElementById('adminVideoDescInput').value=v.description||'';document.getElementById('adminVideoActive').checked=v.active===true;document.getElementById('adminVideoFile').value='';apercuVideoAdmin(v.video_url||'');document.getElementById('adminVideoSave').textContent='Enregistrer les modifications';document.getElementById('adminVideoCancel').style.display='inline-flex';document.querySelector('.admin-video-manager')?.scrollIntoView({behavior:'smooth',block:'start'});}
-  async function saveVideo(){const msg=document.getElementById('adminVideoMsg'),btn=document.getElementById('adminVideoSave');if(!session||session.role!=='admin'){msg.textContent='Accès administrateur requis.';msg.className='form-msg err';return;}const id=document.getElementById('adminVideoEditId').value,title=document.getElementById('adminVideoTitleInput').value.trim(),description=document.getElementById('adminVideoDescInput').value.trim(),active=document.getElementById('adminVideoActive').checked,file=document.getElementById('adminVideoFile').files[0];if(!title){msg.textContent='Merci d’indiquer un titre.';msg.className='form-msg err';return;}if(!id&&!file){msg.textContent='Sélectionnez une vidéo.';msg.className='form-msg err';return;}btn.disabled=true;btn.textContent='Enregistrement…';try{let url=null;if(file){const name='video_'+Date.now()+'_'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_');const up=await fetch(`${R2_WORKER_URL}/${name}`,{method:'PUT',headers:{'Content-Type':file.type},body:file});const b=await up.text().catch(()=> '');if(!up.ok)throw new Error('Le stockage a refusé la vidéo (HTTP '+up.status+'). '+b);url=`${R2_PUBLIC_URL}/${name}`;}const payload={title,description,active,updated_at:new Date().toISOString()};if(url)payload.video_url=url;let r;if(id){r=await fetch(`${SUPABASE_URL}/rest/v1/${VIDEO_TABLE}?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(payload)});}else{payload.video_url=url;payload.created_at=new Date().toISOString();r=await fetch(`${SUPABASE_URL}/rest/v1/${VIDEO_TABLE}`,{method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(payload)});}if(!r.ok)throw new Error('HTTP '+r.status+' — '+await r.text());msg.textContent=id?'Vidéo modifiée.':'Vidéo ajoutée.';msg.className='form-msg ok';resetVideoAdmin();await chargerVideosAdmin();await chargerVideosAccueil();}catch(e){msg.textContent='Impossible d’enregistrer la vidéo : '+e.message;msg.className='form-msg err';}finally{btn.disabled=false;btn.textContent='Ajouter la vidéo';}}
-  async function toggleVideo(v){try{const r=await fetch(`${SUPABASE_URL}/rest/v1/${VIDEO_TABLE}?id=eq.${encodeURIComponent(v.id)}`,{method:'PATCH',headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({active:!v.active,updated_at:new Date().toISOString()})});if(!r.ok)throw new Error('HTTP '+r.status);await chargerVideosAdmin();await chargerVideosAccueil();}catch(e){document.getElementById('adminVideoMsg').textContent='Impossible de modifier l’état : '+e.message;}}
-  async function deleteVideo(v){if(!confirm('Supprimer cette vidéo ?'))return;try{const r=await fetch(`${SUPABASE_URL}/rest/v1/${VIDEO_TABLE}?id=eq.${encodeURIComponent(v.id)}`,{method:'DELETE',headers:headersAdmin()});if(!r.ok)throw new Error('HTTP '+r.status);await chargerVideosAdmin();await chargerVideosAccueil();}catch(e){document.getElementById('adminVideoMsg').textContent='Impossible de supprimer la vidéo : '+e.message;}}
+  async function saveVideo(){const msg=document.getElementById('adminVideoMsg'),btn=document.getElementById('adminVideoSave');if(!session||session.role!=='admin'){msg.textContent='Cette action est réservée aux administrateurs.';msg.className='form-msg err';return;}const id=document.getElementById('adminVideoEditId').value,title=document.getElementById('adminVideoTitleInput').value.trim(),description=document.getElementById('adminVideoDescInput').value.trim(),active=document.getElementById('adminVideoActive').checked,file=document.getElementById('adminVideoFile').files[0];if(!title){msg.textContent='Veuillez renseigner un titre pour continuer.';msg.className='form-msg err';return;}if(!id&&!file){msg.textContent='Veuillez sélectionner une vidéo avant de continuer.';msg.className='form-msg err';return;}btn.disabled=true;btn.textContent='Enregistrement en cours…';try{let url=null;if(file){const name='video_'+Date.now()+'_'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_');const up=await fetch(`${R2_WORKER_URL}/${name}`,{method:'PUT',headers:{'Content-Type':file.type},body:file});const b=await up.text().catch(()=> '');if(!up.ok)throw new Error('Le stockage a refusé la vidéo (HTTP '+up.status+'). '+b);url=`${R2_PUBLIC_URL}/${name}`;}const payload={title,description,active,updated_at:new Date().toISOString()};if(url)payload.video_url=url;let r;if(id){r=await fetch(`${SUPABASE_URL}/rest/v1/${VIDEO_TABLE}?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(payload)});}else{payload.video_url=url;payload.created_at=new Date().toISOString();r=await fetch(`${SUPABASE_URL}/rest/v1/${VIDEO_TABLE}`,{method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(payload)});}if(!r.ok)throw new Error('HTTP '+r.status+' — '+await r.text());msg.textContent=id?'La vidéo a été mise à jour avec succès.':'La vidéo a été ajoutée avec succès.';msg.className='form-msg ok';resetVideoAdmin();await chargerVideosAdmin();await chargerVideosAccueil();}catch(e){msg.textContent='Impossible d’enregistrer la vidéo pour le moment. Vérifiez les informations saisies et réessayez.';msg.className='form-msg err';}finally{btn.disabled=false;btn.textContent='Ajouter la vidéo';}}
+  async function toggleVideo(v){try{const r=await fetch(`${SUPABASE_URL}/rest/v1/${VIDEO_TABLE}?id=eq.${encodeURIComponent(v.id)}`,{method:'PATCH',headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({active:!v.active,updated_at:new Date().toISOString()})});if(!r.ok)throw new Error('HTTP '+r.status);await chargerVideosAdmin();await chargerVideosAccueil();}catch(e){document.getElementById('adminVideoMsg').textContent='Impossible de modifier l’état pour le moment. Veuillez réessayer.';}}
+  async function deleteVideo(v){if(!confirm('Supprimer cette vidéo ?'))return;try{const r=await fetch(`${SUPABASE_URL}/rest/v1/${VIDEO_TABLE}?id=eq.${encodeURIComponent(v.id)}`,{method:'DELETE',headers:headersAdmin()});if(!r.ok)throw new Error('HTTP '+r.status);await chargerVideosAdmin();await chargerVideosAccueil();}catch(e){document.getElementById('adminVideoMsg').textContent='Impossible de supprimer la vidéo pour le moment. Veuillez réessayer.';}}
   document.getElementById('adminVideoSave')?.addEventListener('click',saveVideo);document.getElementById('adminVideoCancel')?.addEventListener('click',resetVideoAdmin);
 
   const WELCOME_TABLE='message_bienvenue';
@@ -8006,7 +8041,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   function continuerDepuisBienvenue(){fermerBienvenue();const bouton=document.getElementById('btnOuvrirRecents');if(bouton){bouton.click();}else{afficherEcran('screen-recents');chargerDocumentsRecents();}}
   document.addEventListener('click',e=>{const target=e.target.closest?.('[data-welcome-close],#welcomeModalClose,#welcomeModalOk');if(!target)return;if(target.id==='welcomeModalOk')continuerDepuisBienvenue();else fermerBienvenue();});
   function initialiserEditeurBienvenueAdmin(){const panel=document.querySelector('.admin-tab-panel[data-panel="annonce"]');if(!panel||document.getElementById('adminWelcomeEditor'))return;const box=document.createElement('div');box.className='admin-service-editor';box.id='adminWelcomeEditor';box.innerHTML=`<div class="form-row"><label for="adminWelcomeTitle">Titre du message de bienvenue</label><input id="adminWelcomeTitle" type="text" maxlength="180" placeholder="Bienvenue sur Aurore"></div><div class="form-row"><label for="adminWelcomeMessage">Message</label><textarea id="adminWelcomeMessage" rows="7" maxlength="1200" placeholder="Bienvenue {nom} ! Nous sommes heureux de vous accueillir sur Aurore — Section Archives."></textarea><small>Variables disponibles : {nom} et {email}.</small></div><div class="form-row" style="display:flex;align-items:center;gap:10px;"><input type="checkbox" id="adminWelcomeActive" style="width:18px;height:18px;"><label for="adminWelcomeActive" style="margin:0;">Afficher après une connexion</label></div><div class="admin-promo-actions"><button type="button" class="admin-btn primary" id="adminWelcomeSave">Enregistrer le message de bienvenue</button></div><div class="form-msg" id="adminWelcomeMsg"></div>`;panel.appendChild(box);document.getElementById('adminWelcomeSave').onclick=saveWelcome;chargerMessageBienvenue().then(c=>{if(c){document.getElementById('adminWelcomeTitle').value=c.title||'';document.getElementById('adminWelcomeMessage').value=c.message||'';document.getElementById('adminWelcomeActive').checked=c.active===true;}});}
-  async function saveWelcome(){const msg=document.getElementById('adminWelcomeMsg'),btn=document.getElementById('adminWelcomeSave');if(!session||session.role!=='admin'){msg.textContent='Accès administrateur requis.';msg.className='form-msg err';return;}const title=document.getElementById('adminWelcomeTitle').value.trim()||'Bienvenue sur Aurore',message=document.getElementById('adminWelcomeMessage').value.trim(),active=document.getElementById('adminWelcomeActive').checked;if(!message){msg.textContent='Merci de renseigner le message.';msg.className='form-msg err';return;}btn.disabled=true;try{const payload={id:1,title,message,active,updated_at:new Date().toISOString()};let r=await fetch(`${SUPABASE_URL}/rest/v1/${WELCOME_TABLE}?id=eq.1`,{method:'PATCH',headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify(payload)});if(!r.ok)throw new Error('HTTP '+r.status+' — '+await r.text());let body=await r.text().catch(()=> '');if(body===''||body==='[]'){const q=await fetch(`${SUPABASE_URL}/rest/v1/${WELCOME_TABLE}`,{method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(payload)});if(!q.ok)throw new Error('HTTP '+q.status+' — '+await q.text());}msg.textContent='Message de bienvenue enregistré.';msg.className='form-msg ok';}catch(e){msg.textContent='Impossible d’enregistrer le message : '+e.message;msg.className='form-msg err';}finally{btn.disabled=false;}}
+  async function saveWelcome(){const msg=document.getElementById('adminWelcomeMsg'),btn=document.getElementById('adminWelcomeSave');if(!session||session.role!=='admin'){msg.textContent='Cette action est réservée aux administrateurs.';msg.className='form-msg err';return;}const title=document.getElementById('adminWelcomeTitle').value.trim()||'Bienvenue sur Aurore',message=document.getElementById('adminWelcomeMessage').value.trim(),active=document.getElementById('adminWelcomeActive').checked;if(!message){msg.textContent='Veuillez renseigner le message de bienvenue avant de continuer.';msg.className='form-msg err';return;}btn.disabled=true;try{const payload={id:1,title,message,active,updated_at:new Date().toISOString()};let r=await fetch(`${SUPABASE_URL}/rest/v1/${WELCOME_TABLE}?id=eq.1`,{method:'PATCH',headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify(payload)});if(!r.ok)throw new Error('HTTP '+r.status+' — '+await r.text());let body=await r.text().catch(()=> '');if(body===''||body==='[]'){const q=await fetch(`${SUPABASE_URL}/rest/v1/${WELCOME_TABLE}`,{method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(payload)});if(!q.ok)throw new Error('HTTP '+q.status+' — '+await q.text());}msg.textContent='Le message de bienvenue a été enregistré avec succès.';msg.className='form-msg ok';}catch(e){msg.textContent='Impossible d’enregistrer le message pour le moment. Veuillez réessayer.';msg.className='form-msg err';}finally{btn.disabled=false;}}
   initialiserEditeurBienvenueAdmin();document.querySelectorAll('.admin-tab').forEach(t=>t.addEventListener('click',()=>{if(t.dataset.tab==='videos')chargerVideosAdmin();if(t.dataset.tab==='annonce')initialiserEditeurBienvenueAdmin();}));chargerVideosAccueil();
 
 </script>
@@ -8517,6 +8552,28 @@ footer>.wrap:last-child{margin-top:18px!important;}
 @media(max-width:560px){
   .home-video-frame{width:100%!important;}
 }
+</style>
+
+<style id="aurore-final-visual-polish">
+/* Publicités : trois surfaces distinctes — image / titre / description. Aucun voile sombre. */
+.ad-slot-card{display:flex!important;flex-direction:column!important;gap:10px!important;background:transparent!important;border:0!important;box-shadow:none!important;overflow:visible!important;}
+.ad-slot-card::after{display:none!important;background:none!important;content:none!important;}
+.ad-slot-img{position:relative!important;inset:auto!important;display:block!important;width:100%!important;height:220px!important;min-height:220px!important;object-fit:cover!important;border-radius:18px!important;background:var(--papier)!important;border:1px solid var(--bordure)!important;box-shadow:0 8px 22px rgba(55,36,82,.08)!important;}
+.ad-slot-body{position:static!important;display:flex!important;flex-direction:column!important;gap:8px!important;padding:0!important;background:transparent!important;}
+.ad-slot-title{display:block!important;width:100%!important;padding:11px 14px!important;border:1px solid var(--bordure)!important;border-radius:13px!important;background:var(--papier)!important;color:var(--encre)!important;text-shadow:none!important;box-shadow:none!important;line-height:1.4!important;}
+.ad-slot-desc{display:block!important;padding:11px 14px!important;border:1px solid var(--bordure)!important;border-radius:13px!important;background:var(--papier)!important;color:var(--gris)!important;text-shadow:none!important;line-height:1.55!important;}
+.ad-slot-cta{align-self:flex-start!important;padding:7px 11px!important;border-radius:10px!important;background:var(--papier)!important;border:1px solid var(--bordure)!important;color:var(--violet)!important;text-shadow:none!important;}
+/* Vidéo : compacte, proportionnée, sans débordement. */
+.home-video-section{max-width:860px!important;margin:18px auto 24px!important;}
+.home-video-heading{padding:14px 17px 10px!important;}
+.home-video-frame{width:calc(100% - 18px)!important;margin:0 auto 9px!important;aspect-ratio:16/8.7!important;border-radius:13px!important;overflow:hidden!important;}
+.home-video-frame video{width:100%!important;height:100%!important;object-fit:contain!important;border-radius:13px!important;}
+@media(max-width:640px){.ad-slot-img{height:180px!important;min-height:180px!important}.home-video-section{margin:15px 0 20px!important}.home-video-frame{width:calc(100% - 10px)!important;aspect-ratio:16/9!important}}
+/* Messages : ton institutionnel, lisible, sans détails techniques côté utilisateur. */
+.form-msg{line-height:1.5!important;font-weight:600!important;}
+[data-theme="light"] .ad-slot-img{background:#fff!important;border-color:#D8CDE3!important;}
+[data-theme="light"] .ad-slot-title,[data-theme="light"] .ad-slot-desc{background:#fff!important;color:#171322!important;border-color:#D8CDE3!important;text-shadow:none!important;}
+[data-theme="light"] .ad-slot-cta{background:#fff!important;color:#6D28D9!important;border-color:#D8CDE3!important;text-shadow:none!important;}
 </style>
 </body>
 </html>
