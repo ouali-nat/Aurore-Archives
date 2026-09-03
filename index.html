@@ -1712,6 +1712,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
           <button type="button" class="admin-tab" data-tab="service-client" role="tab">Service client</button>
           <button type="button" class="admin-tab" data-tab="annonce" role="tab">Annonce accueil</button>
           <button type="button" class="admin-tab" data-tab="videos" role="tab">Vidéos <span class="tab-count" id="tabCountVideos">0</span></button>
+          <button type="button" class="admin-tab" data-tab="doublons" role="tab">Doublons <span class="tab-count" id="tabCountDoublons">0</span></button>
         </div>
 
         <div class="admin-tab-panel active" data-panel="attente">
@@ -1904,6 +1905,17 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
             <div class="form-msg" id="adminVideoMsg"></div>
           </div>
           <div class="pub-admin-list admin-video-list" id="adminVideoList"><div class="pub-admin-empty">Chargement…</div></div>
+        </div>
+
+        <div class="admin-tab-panel" data-panel="doublons">
+          <p class="admin-panel-desc">Recherche les documents publiés dont le fichier est strictement identique, même si le titre ou le nom du fichier diffère. L’analyse se fait uniquement à la demande pour éviter des téléchargements inutiles.</p>
+          <div class="admin-duplicate-toolbar">
+            <button type="button" class="admin-btn primary" id="adminDuplicatesRefresh">Actualiser et rechercher les doublons</button>
+            <span id="adminDuplicatesStatus" class="admin-duplicate-status">Aucune analyse lancée.</span>
+          </div>
+          <div id="adminDuplicatesList" class="admin-duplicates-list">
+            <div class="admin-duplicate-empty">Clique sur « Actualiser et rechercher les doublons » pour analyser les documents publiés.</div>
+          </div>
         </div>
 
         <div class="admin-tab-panel" data-panel="utilisateurs">
@@ -5757,6 +5769,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       if (cible === 'connexions') chargerDernieresConnexions();
       if (cible === 'service-client') chargerServiceClientConfig();
       if (cible === 'utilisateurs') chargerUtilisateursAdmin();
+      if (cible === 'doublons') chargerDoublonsAdmin();
     });
   });
 
@@ -6513,6 +6526,178 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       alert("La suppression n’a pas pu être effectuée pour le moment. Veuillez réessayer.");
     }
   }
+
+  // ---------- DÉTECTION DES DOUBLONS PUBLIÉS ----------
+  // Analyse à la demande des documents déjà publiés. Aucun champ Supabase
+  // supplémentaire n'est nécessaire : l'égalité du contenu est vérifiée par
+  // SHA-256 du fichier réel. Les candidats sont d'abord regroupés par taille
+  // afin d'éviter de télécharger des fichiers qui ne peuvent pas être identiques.
+  const adminDuplicateHashCache = new Map();
+
+  async function recupererDocumentPubliesPourDoublons() {
+    const params = new URLSearchParams();
+    params.set('select','id,Titre,Niveau,Filiere,Classe,"Matière","Catégorie",Genre,Auteur,Fichier_url,created_at');
+    params.set('Publie','eq.true');
+    params.set('order','id.desc');
+    params.set('limit','5000');
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/Document?${params.toString()}`, {headers: headersAdmin()});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    return await res.json();
+  }
+
+  async function tailleEtHashDocumentDoublon(doc) {
+    if(!doc || !doc.Fichier_url) return {taille:0,hash:null};
+    const cacheKey=String(doc.Fichier_url);
+    if(adminDuplicateHashCache.has(cacheKey)) return adminDuplicateHashCache.get(cacheKey);
+    let taille=0;
+    try {
+      const cle=(doc.Fichier_url.indexOf(R2_PUBLIC_URL + '/')===0) ? doc.Fichier_url.slice(R2_PUBLIC_URL.length+1) : null;
+      const url=cle ? `${R2_WORKER_URL}/${cle}` : doc.Fichier_url;
+      const head=await fetch(url,{method:'HEAD',cache:'no-store'});
+      if(head.ok) taille=Number(head.headers.get('content-length')||0);
+    } catch(e){}
+    const octets=await recupererOctetsPDF(doc.Fichier_url);
+    const blob=new Blob([octets]);
+    if(!taille) taille=blob.size;
+    const hash=await empreinteSha256(blob);
+    const result={taille,hash};
+    adminDuplicateHashCache.set(cacheKey,result);
+    return result;
+  }
+
+  function cleMetadonneesDoublon(doc){
+    return [doc.Titre,doc.Niveau,doc.Filiere,doc.Classe,doc['Matière'],doc['Catégorie'],doc.Genre]
+      .map(normaliserDoublonValeur).join('|');
+  }
+
+  function afficherGroupesDoublonsAdmin(groupes, erreurs=0){
+    const list=document.getElementById('adminDuplicatesList');
+    const count=document.getElementById('tabCountDoublons');
+    if(count) count.textContent=String(groupes.reduce((n,g)=>n+g.documents.length,0));
+    if(!list) return;
+    if(!groupes.length){
+      list.innerHTML='<div class="admin-duplicate-empty success">Aucun doublon strict détecté parmi les documents publiés.</div>';
+      return;
+    }
+    list.innerHTML='';
+    groupes.forEach((g,idx)=>{
+      const wrap=document.createElement('div');
+      wrap.className='admin-duplicate-group';
+      const docs=g.documents;
+      wrap.innerHTML=`<div class="admin-duplicate-group-head"><div><strong>Doublon #${idx+1}</strong><span>${docs.length} exemplaires · ${formaterTailleTelechargement(g.taille)}</span></div><span class="admin-duplicate-hash">SHA-256 : ${g.hash.slice(0,16)}…</span></div><div class="admin-duplicate-items"></div>`;
+      const items=wrap.querySelector('.admin-duplicate-items');
+      docs.forEach(doc=>{
+        const item=document.createElement('div');
+        item.className='admin-duplicate-item';
+        item.innerHTML=`<div class="admin-duplicate-item-main"><strong>${echapperHtmlPub(doc.Titre||'Sans titre')}</strong><span>${echapperHtmlPub([doc.Niveau,doc.Classe,doc['Matière']||doc.Genre].filter(Boolean).join(' · ')||'Informations non renseignées')}</span><small>${echapperHtmlPub(nomFichierExactDepuisUrl(doc.Fichier_url))}</small></div><div class="admin-duplicate-item-actions"><a class="admin-btn ghost" href="${echapperHtmlPub(doc.Fichier_url||'')}" target="_blank" rel="noopener">Ouvrir</a><button type="button" class="admin-btn refuser" data-duplicate-delete="1">Exclure du site</button></div>`;
+        item.querySelector('[data-duplicate-delete="1"]').addEventListener('click',()=>exclureDoublonAdmin(doc.id,doc.Titre,wrap));
+        items.appendChild(item);
+      });
+      list.appendChild(wrap);
+    });
+    if(erreurs){
+      const note=document.createElement('div'); note.className='admin-duplicate-note';
+      note.textContent=`${erreurs} document(s) n’ont pas pu être vérifiés (réseau ou fichier inaccessible). Ils ne sont pas déclarés doublons par prudence.`;
+      list.prepend(note);
+    }
+  }
+
+  async function chargerDoublonsAdmin(){
+    const list=document.getElementById('adminDuplicatesList');
+    const status=document.getElementById('adminDuplicatesStatus');
+    const btn=document.getElementById('adminDuplicatesRefresh');
+    if(!list||!status) return;
+    if(btn) btn.disabled=true;
+    list.innerHTML='<div class="admin-duplicate-empty">Analyse des documents publiés…</div>';
+    status.textContent='Récupération des documents publiés…';
+    try{
+      const docs=await recupererDocumentPubliesPourDoublons();
+      // On ne se sert volontairement PAS du titre, du niveau, de la matière
+      // ou du nom du fichier pour déclarer un doublon : un même PDF peut avoir
+      // été publié avec des métadonnées différentes. La première réduction se
+      // fait uniquement par taille binaire, puis le SHA-256 tranche.
+      const docsAvecTaille=[];
+      let erreurs=0, verifies=0;
+      const tailleParUrl=new Map();
+      const obtenirTaille=async doc=>{
+        if(!doc.Fichier_url) return 0;
+        if(tailleParUrl.has(doc.Fichier_url)) return tailleParUrl.get(doc.Fichier_url);
+        try{
+          const cle=(doc.Fichier_url.indexOf(R2_PUBLIC_URL + '/')===0) ? doc.Fichier_url.slice(R2_PUBLIC_URL.length+1) : null;
+          const url=cle ? `${R2_WORKER_URL}/${cle}` : doc.Fichier_url;
+          const head=await fetch(url,{method:'HEAD',cache:'no-store'});
+          const n=head.ok ? Number(head.headers.get('content-length')||0) : 0;
+          tailleParUrl.set(doc.Fichier_url,n);
+          return n;
+        }catch(e){return 0;}
+      };
+      // Les HEAD sont faits par petits lots pour ne pas saturer le mobile ou le Worker.
+      for(let i=0;i<docs.length;i+=8){
+        const lot=docs.slice(i,i+8);
+        const tailles=await Promise.all(lot.map(obtenirTaille));
+        lot.forEach((doc,j)=>{
+          const taille=tailles[j];
+          if(taille>0){doc.__dupSize=taille;docsAvecTaille.push(doc);} else erreurs++;
+        });
+        verifies=Math.min(i+lot.length,docs.length);
+        status.textContent=`Pré-analyse ${verifies}/${docs.length} document(s)…`;
+      }
+      const parTaille=new Map();
+      for(const doc of docsAvecTaille){
+        const k=String(doc.__dupSize);
+        if(!parTaille.has(k)) parTaille.set(k,[]);
+        parTaille.get(k).push(doc);
+      }
+      const candidats=[];
+      for(const arr of parTaille.values()) if(arr.length>1) candidats.push(...arr);
+      status.textContent=`${docs.length} publié(s) · ${candidats.length} fichier(s) ont une taille partagée · vérification du contenu…`;
+      if(!candidats.length){
+        afficherGroupesDoublonsAdmin([] ,erreurs);
+        status.textContent='Analyse terminée : aucun doublon strict détecté.';
+        return;
+      }
+      const parHash=new Map();
+      for(let i=0;i<candidats.length;i++){
+        const doc=candidats[i];
+        try{
+          const info=await tailleEtHashDocumentDoublon(doc);
+          if(info.hash){
+            doc.__dupHash=info.hash;
+            doc.__dupSize=info.taille || doc.__dupSize;
+            const k=doc.__dupHash;
+            if(!parHash.has(k)) parHash.set(k,[]);
+            parHash.get(k).push(doc);
+          } else erreurs++;
+        }catch(e){erreurs++;}
+        status.textContent=`Vérification du contenu ${i+1}/${candidats.length}…`;
+      }
+      const groupes=[];
+      for(const [hash,arr] of parHash.entries()) if(arr.length>1){
+        groupes.push({taille:Number(arr[0].__dupSize)||0,hash,documents:arr});
+      }
+      afficherGroupesDoublonsAdmin(groupes,erreurs);
+      status.textContent=groupes.length ? `${groupes.length} groupe(s) de doublons stricts détecté(s).` : 'Analyse terminée : aucun doublon strict détecté.';
+    }catch(e){
+      console.error('[Doublons admin]',e);
+      list.innerHTML='<div class="admin-duplicate-empty error">Impossible d’analyser les documents publiés pour le moment. Vérifie la connexion puis réessaie.</div>';
+      status.textContent='Analyse impossible.';
+    }finally{if(btn) btn.disabled=false;}
+  }
+
+  async function exclureDoublonAdmin(id,titre,groupCard){
+    if(!confirm(`Exclure « ${titre||'ce document'} » du site ?\n\nLe document sera retiré des documents publiés. Cette action ne supprime pas les autres exemplaires du groupe.`)) return;
+    try{
+      const res=await fetch(`${SUPABASE_URL}/rest/v1/Document?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:{...headersAdmin(),'Prefer':'return=representation'}});
+      const text=await res.text();
+      if(!res.ok) throw new Error(text||('HTTP '+res.status));
+      let data=[]; try{data=JSON.parse(text)||[]}catch(e){}
+      if(!data.length) throw new Error('Aucune ligne supprimée. Vérifie la policy DELETE.');
+      await chargerDoublonsAdmin();
+      await chargerDocumentsPublies();
+    }catch(e){ alert('Le document n’a pas pu être exclu du site pour le moment.'); }
+  }
+
+  document.getElementById('adminDuplicatesRefresh')?.addEventListener('click',chargerDoublonsAdmin);
 
   // ---------- RÉCLAMATIONS / SIGNALEMENTS (droits d'auteur) ----------
   // Nécessite la table "Signalements" (déjà créée avec ses policies RLS — voir
@@ -7497,7 +7682,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     name.textContent=nomFichierExactDepuisUrl(doc && doc.Fichier_url);
     box.classList.remove('is-success','is-error','is-indeterminate');
     if(etat==='succes') {
-      title.textContent='Téléchargement terminé';
+      title.textContent='Merci ! Téléchargement terminé';
       percent.textContent='100%';
       bar.style.width='100%';
       box.classList.add('is-success');
@@ -7581,7 +7766,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       a.click();
       a.remove();
       setTimeout(()=>URL.revokeObjectURL(objectUrl),60000);
-      afficherCarteTelechargement(doc,'succes',100,total,total,`Fichier téléchargé : ${nomExact}`);
+      afficherCarteTelechargement(doc,'succes',100,total,total,`Fichier : ${nomExact} · Taille : ${formaterTailleTelechargement(total || blob.size)} · Merci d’avoir utilisé ${SITE_NOM}.`);
     } catch(e) {
       console.error('[Téléchargement document]',e);
       // Repli navigateur : il lance le téléchargement sans prétendre connaître
@@ -7592,7 +7777,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         a.download=nomExact;
         a.rel='noopener';
         document.body.appendChild(a); a.click(); a.remove();
-        afficherCarteTelechargement(doc,'succes',100,null,null,`Téléchargement lancé : ${nomExact}`);
+        afficherCarteTelechargement(doc,'succes',100,null,null,`Téléchargement lancé : ${nomExact} · Merci d’avoir utilisé ${SITE_NOM}.`);
       } catch(e2) {
         afficherCarteTelechargement(doc,'erreur',null,null,null,'Le téléchargement n’a pas pu être lancé.');
       }
