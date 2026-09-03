@@ -1345,7 +1345,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         <div class="resend-box-title">E-mail de confirmation</div>
         <div class="resend-box-help">Vous pouvez demander un nouveau message si vous ne l’avez pas reçu.</div>
         <button type="button" id="signupResend" class="modal-secondary-link">Renvoyer l’e-mail de confirmation</button>
-        <div id="signupResendCountdown" class="resend-countdown" style="display:none;" aria-live="polite"></div>
+        <div id="signupResendCountdown" class="resend-countdown" aria-live="polite">Le compte à rebours apparaîtra ici après un renvoi.</div>
       </div>
     </form>
     <div class="account-login-switch" id="accountLoginSwitch"><span>Vous avez déjà un compte ?</span><button type="button" id="showLoginBtn">Se connecter avec e-mail</button></div>
@@ -1453,9 +1453,10 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   function demarrerCompteAReboursResend(secondes=60){
     if(!resend || !resendCountdown) return;
     if(resendTimer) clearInterval(resendTimer);
-    resendSecondesRestantes=secondes;
+    resendSecondesRestantes=Math.max(1,Number(secondes)||60);
     resend.disabled=true;
     resend.classList.add('is-counting');
+    if(resendWrap) resendWrap.style.display='grid';
     resendCountdown.style.display='block';
     const afficher=()=>{
       if(resendSecondesRestantes>0){
@@ -1473,7 +1474,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     if(resendTimer) clearInterval(resendTimer);
     resendTimer=null; resendSecondesRestantes=0;
     if(resend){ resend.disabled=false; resend.classList.remove('is-counting'); resend.textContent='Renvoyer l’e-mail de confirmation'; }
-    if(resendCountdown){ resendCountdown.style.display='none'; resendCountdown.textContent=''; }
+    if(resendCountdown){ resendCountdown.style.display='block'; resendCountdown.textContent='Vous pouvez demander un nouvel e-mail de confirmation.'; }
   }
 
   function afficherModeConnexionEmail(){ form.style.display='none'; loginForm.style.display='grid'; loginSwitch.style.display='none'; setTimeout(()=>document.getElementById('loginEmail')?.focus(),50); }
@@ -1513,7 +1514,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       try{d=raw?JSON.parse(raw):{}}catch(_){d={message:raw}}
       if(!r.ok){
         const detail=d.msg||d.error_description||d.message||raw||('HTTP '+r.status);
-        if(r.status===429){ afficherMessageInscription('Trop de demandes. Pour protéger votre compte, patientez 60 secondes avant de demander un nouveau message.','err'); demarrerCompteAReboursResend(60); return; }
+        if(r.status===429){ afficherMessageInscription('Trop de demandes. Pour protéger votre compte, patientez 60 secondes avant de demander un nouveau message.','err'); if(resendWrap) resendWrap.style.display='grid'; demarrerCompteAReboursResend(60); return; }
         if(r.status===422 && /already|confirm/i.test(detail)) throw new Error('Cette adresse e-mail est peut-être déjà confirmée. Connectez-vous pour accéder à votre espace.');
         throw new Error(detail);
       }
