@@ -1454,7 +1454,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     dernierEmailInscription=email;
     resend.disabled=true; resend.textContent='Envoi en cours…'; msg.style.display='none';
     try{
-      const r=await fetchAuth(`${SUPABASE_URL}/auth/v1/resend`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({type:'signup',email})});
+      const r=await fetch(`${SUPABASE_URL}/auth/v1/resend`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({type:'signup',email})});
       const raw=await r.text(); let d={};
       try{d=raw?JSON.parse(raw):{}}catch(_){d={message:raw}}
       if(!r.ok){
@@ -1476,7 +1476,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const email=document.getElementById('loginEmail').value.trim(), password=document.getElementById('loginPassword').value, btn=document.getElementById('loginSubmit');
     btn.disabled=true; btn.textContent='Connexion en cours…';
     try{
-      const r=await fetchAuth(`${SUPABASE_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+      const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password})});
       const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error_description||d.msg||d.message||'Identifiants invalides.');
       const infos=await recupererUtilisateur(d.access_token); if(!infos) throw new Error('Impossible de charger votre profil.');
       const role=await assurerProfilEtObtenirRole(d.access_token,infos);
@@ -1495,7 +1495,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     msg.style.display='none'; if(p!==p2){msg.textContent='Les deux mots de passe ne correspondent pas.';msg.className='access-message err';msg.style.display='block';return;} if(p.length<8){msg.textContent='Le mot de passe doit contenir au moins 8 caractères.';msg.className='access-message err';msg.style.display='block';return;}
     btn.disabled=true;btn.textContent='Création en cours…';
     try{
-      const r=await fetchAuth(`${SUPABASE_URL}/auth/v1/signup`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password:p,data:{full_name:name,name}})}); const d=await r.json().catch(()=>({}));
+      const r=await fetch(`${SUPABASE_URL}/auth/v1/signup`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password:p,data:{full_name:name,name}})}); const d=await r.json().catch(()=>({}));
       if(!r.ok) throw new Error(d.msg||d.error_description||d.message||('HTTP '+r.status));
       if(d.access_token){
         const infos=await recupererUtilisateur(d.access_token); if(infos){const role=await assurerProfilEtObtenirRole(d.access_token,infos);session={access_token:d.access_token,refresh_token:d.refresh_token||null,expires_at:Date.now()+((d.expires_in||3600)*1000),id:infos.id,email:infos.email,nom:infos.nom,avatar:infos.avatar,lycee:infos.lycee||'',niveau:infos.niveau||'',classe:infos.classe||'',filiere:infos.filiere||'',provider:infos.provider||'E-mail',role};sauvegarderSession();enregistrerConnexion(session);afficherUtilisateurConnecte();unlock();fermer();ouvrirEspacePersonnelObligatoire();}
@@ -2456,25 +2456,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
 <script>
   // ---------- CONFIGURATION SUPABASE ----------
-  // Client Supabase officiel : gère automatiquement la session OAuth, le PKCE,
-  // le stockage persistant et le retour depuis Google. Cela évite les courses
-  // entre le callback OAuth et notre session locale personnalisée.
-  let supabaseClient = null;
-  if (window.supabase && typeof window.supabase.createClient === 'function') {
-    supabaseClient = window.supabase.createClient("https://tdeotqfsbvouresfhkab.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZW90cWZzYnZvdXJlc2Zoa2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjM4NzMsImV4cCI6MjEwMDUzOTg3M30.l_a1lI_QRy7BTq1fGjiA9n7LCdu7BwR2TTI5pkA70SU", {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        flowType: 'pkce'
-      }
-    });
-  }
-
   const SUPABASE_URL = "https://tdeotqfsbvouresfhkab.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZW90cWZzYnZvdXJlc2Zoa2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjM4NzMsImV4cCI6MjEwMDUzOTg3M30.l_a1lI_QRy7BTq1fGjiA9n7LCdu7BwR2TTI5pkA70SU";
   const HEADERS = { "apikey": SUPABASE_ANON_KEY, "Authorization": "Bearer " + SUPABASE_ANON_KEY };
@@ -2512,90 +2495,23 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     return HEADERS;
   }
 
-  // OAuth Google robuste : utilise PKCE pour que le retour fonctionne aussi
-  // lorsque Supabase/Google renvoie un paramètre ?code=... au lieu du hash.
-  function base64UrlEncode(bytes){
-    let bin=''; for(const b of bytes) bin+=String.fromCharCode(b);
-    return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-  }
-  function genererVerifierPKCE(){
-    const bytes=new Uint8Array(32); crypto.getRandomValues(bytes); return base64UrlEncode(bytes);
-  }
-  async function creerChallengePKCE(verifier){
-    const data=new TextEncoder().encode(verifier);
-    const digest=await crypto.subtle.digest('SHA-256',data);
-    return base64UrlEncode(new Uint8Array(digest));
-  }
-  async function demarrerConnexionGoogle() {
-    try {
-      if (!supabaseClient) throw new Error('Client Supabase indisponible');
-      const retour = window.location.origin + window.location.pathname;
-      const { error } = await supabaseClient.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: retour }
-      });
-      if (error) throw error;
-      // Supabase redirige immédiatement vers Google. Aucun appel réseau
-      // supplémentaire n'est effectué ici.
-    } catch(e) {
-      console.error('[Google OAuth] démarrage impossible',e);
-      const googleBtn=document.getElementById('accessGoogleBtn');
-      if(googleBtn){ googleBtn.classList.remove('is-loading'); const strong=googleBtn.querySelector('strong'); if(strong) strong.textContent='Continuer avec Google'; }
-      const accessMsg=document.querySelector('#accessLock .access-message');
-      if(accessMsg){ accessMsg.textContent='Impossible de démarrer la connexion Google. Réessayez.'; accessMsg.className='access-message err'; accessMsg.style.display='block'; }
-    }
-  }
-
-  async function echangerCodeOAuth(code){
-    const verifier=sessionStorage.getItem('aurore_pkce_verifier');
-    if(!verifier || !code) return null;
-    try {
-      const res=await fetchAuth(`${SUPABASE_URL}/auth/v1/token?grant_type=pkce`,{
-        method:'POST', headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
-        body:JSON.stringify({auth_code:code,code_verifier:verifier})
-      });
-      const data=await res.json().catch(()=>({}));
-      if(!res.ok || !data.access_token) throw new Error(data.error_description||data.msg||data.message||('HTTP '+res.status));
-      sessionStorage.removeItem('aurore_pkce_verifier');
-      sessionStorage.removeItem('aurore_oauth_return');
-      return data;
-    } catch(e){
-      console.error('[Google OAuth] échange du code impossible',e);
-      return null;
-    }
-  }
-
-  // Petit wrapper réseau pour les opérations d'authentification : évite qu'une
-  // requête bloquée fasse attendre indéfiniment l'interface. Les appels lourds
-  // (upload/PDF) continuent d'utiliser fetch() directement.
-  async function fetchAuth(url, options={}, timeout=12000) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeout);
-    try {
-      return await fetch(url, { ...options, signal: controller.signal });
-    } finally {
-      clearTimeout(timer);
-    }
+  function demarrerConnexionGoogle() {
+    const retour = window.location.origin + window.location.pathname;
+    window.location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(retour)}`;
   }
 
   async function recupererUtilisateur(access_token) {
     try {
       const headers = { "apikey": SUPABASE_ANON_KEY, "Authorization": "Bearer " + access_token };
-      const sub = (decoderPayloadJWT(access_token)||{}).sub || '';
-      // Auth et profil sont lus en parallèle. On récupère le rôle dans la même
-      // requête profil afin d'éviter le vieux schéma insert -> select.
       const [authRes, profilRes] = await Promise.all([
-        fetchAuth(`${SUPABASE_URL}/auth/v1/user`, { headers }),
-        fetchAuth(`${SUPABASE_URL}/rest/v1/Profils?select=lycee,niveau,classe,filiere,role&id=eq.${encodeURIComponent(sub)}&limit=1`, { headers }).catch(() => null)
+        fetch(`${SUPABASE_URL}/auth/v1/user`, { headers }),
+        fetch(`${SUPABASE_URL}/rest/v1/Profils?select=lycee,niveau,classe,filiere&id=eq.${encodeURIComponent((decoderPayloadJWT(access_token)||{}).sub||'')}&limit=1`, { headers }).catch(() => null)
       ]);
       if (!authRes.ok) return null;
       const data = await authRes.json();
       const meta = data.user_metadata || {};
       let profil = {};
-      if (profilRes && profilRes.ok) {
-        const rows = await profilRes.json().catch(() => []);
-        if (rows[0]) profil = rows[0];
-      }
+      if (profilRes && profilRes.ok) { const rows = await profilRes.json().catch(() => []); if (rows[0]) profil = rows[0]; }
       return {
         id: data.id,
         email: data.email,
@@ -2605,41 +2521,45 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         niveau: profil.niveau || meta.niveau || '',
         classe: profil.classe || meta.classe || '',
         filiere: profil.filiere || meta.filiere || '',
-        role: profil.role || null,
-        provider: (data.app_metadata && Array.isArray(data.app_metadata.providers) && data.app_metadata.providers.includes('google')) ? 'Google' : 'E-mail',
-        user_metadata: meta
+        provider: (data.app_metadata && Array.isArray(data.app_metadata.providers) && data.app_metadata.providers.includes('google')) ? 'Google' : 'E-mail'
       };
     } catch (e) {
       return null;
     }
   }
 
-  // Crée le profil uniquement s'il n'existe pas. En temps normal, la lecture
-  // de recupererUtilisateur() fournit déjà le rôle : aucun aller-retour
-  // supplémentaire n'est alors nécessaire. Cela accélère fortement chaque login.
+  // Crée le profil au premier login (ne touche jamais à un profil existant,
+  // donc ne peut jamais écraser un rôle déjà attribué). Puis lit le rôle réel.
   async function assurerProfilEtObtenirRole(access_token, infos) {
-    if (infos?.role) return infos.role;
     const headersToken = { "apikey": SUPABASE_ANON_KEY, "Authorization": "Bearer " + access_token, "Content-Type": "application/json" };
     try {
-      const insertRes = await fetchAuth(`${SUPABASE_URL}/rest/v1/Profils?on_conflict=id`, {
+      const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/Profils?on_conflict=id`, {
         method: 'POST',
         headers: { ...headersToken, "Prefer": "resolution=ignore-duplicates,return=representation" },
         body: JSON.stringify({ id: infos.id, email: infos.email, nom: infos.nom, classe: null, role: 'eleve' })
       });
+      const insertText = await insertRes.text().catch(() => '');
       if (!insertRes.ok) {
-        const detail = await insertRes.text().catch(() => '');
-        console.warn('[Profils] création/lecture différée', insertRes.status, detail);
-      } else {
-        const created = await insertRes.json().catch(() => []);
-        if (created?.[0]?.role) return created[0].role;
+        console.error('[Profils] échec de la création', insertRes.status, insertText);
+        alert("Votre profil n’a pas pu être créé pour le moment. Veuillez réessayer dans quelques instants.");
       }
-      // Seulement si le profil était absent au premier passage.
-      const res = await fetchAuth(`${SUPABASE_URL}/rest/v1/Profils?select=role&id=eq.${encodeURIComponent(infos.id)}&limit=1`, { headers: headersToken });
-      if (!res.ok) return 'eleve';
-      const rows = await res.json().catch(() => []);
-      return rows?.[0]?.role || 'eleve';
+
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/Profils?select=role&id=eq.${infos.id}`, { headers: headersToken });
+      const selectText = await res.text().catch(() => '');
+      if (!res.ok) {
+        console.error('[Profils] échec de la lecture', res.status, selectText);
+        alert("Votre profil n’a pas pu être chargé pour le moment. Veuillez réessayer dans quelques instants.");
+        return 'eleve';
+      }
+      let rows;
+      try { rows = JSON.parse(selectText); } catch (e) { rows = []; }
+      if (!rows || rows.length === 0) {
+        alert("Le profil n'a pas été trouvé après création. Réponse de l'insertion : " + insertText);
+        return 'eleve';
+      }
+      return rows[0].role || 'eleve';
     } catch (e) {
-      console.warn('[Profils] vérification différée', e);
+      alert("Une erreur de connexion a empêché la création de votre profil. Vérifiez votre connexion puis réessayez.");
       return 'eleve';
     }
   }
@@ -2650,23 +2570,16 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   // elle ne modifie en rien le système d'authentification existant.
   async function enregistrerConnexion(sess) {
     try {
-      const payload = JSON.stringify({ user_id: sess.id, email: sess.email, nom: sess.nom });
-      // Cette écriture secondaire ne doit jamais retarder l'ouverture du site.
-      const url = `${SUPABASE_URL}/rest/v1/Connexions`;
-      const headers = {
-        "apikey": SUPABASE_ANON_KEY,
-        "Authorization": "Bearer " + sess.access_token,
-        "Content-Type": "application/json",
-        "Prefer": "return=minimal"
-      };
-      if (navigator.sendBeacon) {
-        const blob = new Blob([payload], { type: 'application/json' });
-        // sendBeacon ne permet pas de définir les headers : on garde fetch en
-        // priorité et le beacon comme filet de sécurité lors de la navigation.
-        fetch(url, { method:'POST', headers, body:payload, keepalive:true }).catch(()=>{});
-      } else {
-        fetch(url, { method:'POST', headers, body:payload, keepalive:true }).catch(()=>{});
-      }
+      await fetch(`${SUPABASE_URL}/rest/v1/Connexions`, {
+        method: 'POST',
+        headers: {
+          "apikey": SUPABASE_ANON_KEY,
+          "Authorization": "Bearer " + sess.access_token,
+          "Content-Type": "application/json",
+          "Prefer": "return=minimal"
+        },
+        body: JSON.stringify({ user_id: sess.id, email: sess.email, nom: sess.nom })
+      });
     } catch (e) {
       console.error('[Connexions] échec de l\'enregistrement', e);
     }
@@ -2680,7 +2593,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   async function rafraichirSession() {
     if (!session || !session.refresh_token) return false;
     try {
-      const res = await fetchAuth(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
         method: 'POST',
         headers: { "apikey": SUPABASE_ANON_KEY, "Content-Type": "application/json" },
         body: JSON.stringify({ refresh_token: session.refresh_token })
@@ -2919,117 +2832,49 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     afficherEcran('screen-profil');
   }
 
-  let initialisationAuthEnCours = null;
-  async function initialiserSessionSupabase() {
-    if (!supabaseClient) return false;
-    if (initialisationAuthEnCours) return initialisationAuthEnCours;
-    initialisationAuthEnCours = (async () => {
-    try {
-      let { data, error } = await supabaseClient.auth.getSession();
-      // Google peut revenir avec ?code=... avant que l'initialisation
-      // automatique du SDK ait terminé. Dans ce cas, force l'échange PKCE
-      // avec le client officiel. Si le SDK l'a déjà fait, on relit simplement
-      // la session persistée.
-      if ((!data?.session?.access_token || error) && window.location.search) {
-        const code = new URLSearchParams(window.location.search).get('code');
-        if (code) {
-          const exchange = await supabaseClient.auth.exchangeCodeForSession(code);
-          if (!exchange.error && exchange.data?.session?.access_token) {
-            data = exchange.data;
-            error = null;
-          } else {
-            const retry = await supabaseClient.auth.getSession();
-            data = retry.data;
-            error = retry.error;
-          }
+  window.addEventListener('load', async () => {
+    // 1. Retour de Google/Supabase : les jetons arrivent dans le fragment d'URL
+    if (window.location.hash.includes('access_token')) {
+      const params = new URLSearchParams(window.location.hash.substring(1));
+      const access_token = params.get('access_token');
+      const refresh_token = params.get('refresh_token');
+      const expires_in = parseInt(params.get('expires_in') || '3600', 10);
+      // Connexion après confirmation : on évite les appels réseau en série.
+      // Le profil et son rôle sont préparés rapidement, puis l'interface est
+      // affichée sans attendre l'enregistrement secondaire de la connexion.
+      const infos = await recupererUtilisateur(access_token);
+      if (infos) {
+        const role = await assurerProfilEtObtenirRole(access_token, infos);
+        session = { access_token, refresh_token, expires_at: Date.now() + expires_in * 1000, id: infos.id, email: infos.email, nom: infos.nom, avatar: infos.avatar, lycee: infos.lycee || '', niveau: infos.niveau || '', classe: infos.classe || '', filiere: infos.filiere || '', provider: infos.provider || 'E-mail', role };
+        sauvegarderSession();
+        // Ne bloque jamais l'ouverture du site sur cette écriture secondaire.
+        enregistrerConnexion(session);
+        afficherUtilisateurConnecte();
+        unlock();
+        if (profilEstComplet(session)) {
+          afficherBienvenueApresConnexion(session);
+        } else {
+          ouvrirEspacePersonnelObligatoire();
         }
       }
-      if (error || !data?.session?.access_token) return false;
-      const authSession = data.session;
-      const infos = await recupererUtilisateur(authSession.access_token);
-      if (!infos) return false;
-      const role = await assurerProfilEtObtenirRole(authSession.access_token, infos);
-      session = {
-        access_token: authSession.access_token,
-        refresh_token: authSession.refresh_token || null,
-        expires_at: (authSession.expires_at ? authSession.expires_at * 1000 : Date.now() + 3600000),
-        id: infos.id,
-        email: infos.email,
-        nom: infos.nom,
-        avatar: infos.avatar,
-        lycee: infos.lycee || '', niveau: infos.niveau || '', classe: infos.classe || '', filiere: infos.filiere || '',
-        provider: infos.provider || 'Google', role, user_metadata: infos.user_metadata || {}
-      };
-      sauvegarderSession();
-      afficherUtilisateurConnecte();
-      unlock();
-      // Journalisation hors chemin critique.
-      enregistrerConnexion(session);
-      if (profilEstComplet(session)) afficherBienvenueApresConnexion(session);
-      else ouvrirEspacePersonnelObligatoire();
-      return true;
-    } catch (e) {
-      console.warn('[Auth] initialisation session impossible', e);
-      return false;
-    } finally {
-      initialisationAuthEnCours = null;
-    }
-    })();
-    return initialisationAuthEnCours;
-  }
-
-  if (supabaseClient) {
-    supabaseClient.auth.onAuthStateChange((event, authSession) => {
-      if (event === 'SIGNED_OUT') {
-        session = null;
-        sauvegarderSession();
-        afficherUtilisateurConnecte();
-        return;
-      }
-      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && authSession?.access_token) {
-        // Ne bloque jamais le callback OAuth : la construction du profil se fait
-        // après le rendu et un seul flux est utilisé.
-        setTimeout(() => initialiserSessionSupabase(), 0);
-      }
-    });
-  }
-
-  window.addEventListener('load', async () => {
-    // 1) Priorité absolue à la session gérée par Supabase Auth.
-    // detectSessionInUrl=true traite automatiquement ?code=... et le PKCE.
-    let authOK = await initialiserSessionSupabase();
-
-    // 2) Compatibilité avec les anciennes sessions locales déjà créées par
-    // les versions précédentes du site. Elles restent utilisables si le SDK
-    // n'est pas disponible ou si l'ancienne session est encore valide.
-    if (!authOK) {
+      // Nettoie l'URL pour ne pas laisser le jeton visible dans la barre d'adresse
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else {
+      // 2. Sinon, reprendre une session déjà enregistrée dans cet onglet
       const saved = sessionStorage.getItem('lsnb_session');
       if (saved) {
-        try { session = JSON.parse(saved); } catch (_) { session = null; }
-        if (session?.access_token) {
-          afficherUtilisateurConnecte();
-          unlock();
-          if (!profilEstComplet(session)) ouvrirEspacePersonnelObligatoire();
-          // Si la session locale est expirée, on tente le refresh Supabase.
-          if (Date.now() > Number(session.expires_at || 0)) {
-            const ok = await rafraichirSession();
-            if (!ok) { session = null; sauvegarderSession(); afficherUtilisateurConnecte(); }
-            else { afficherUtilisateurConnecte(); unlock(); if (!profilEstComplet(session)) ouvrirEspacePersonnelObligatoire(); }
-          }
-          authOK = !!session;
+        session = JSON.parse(saved);
+        if (Date.now() > session.expires_at) {
+          const ok = await rafraichirSession();
+          if (!ok) session = null;
         }
       }
     }
-
-    // Nettoyage des paramètres OAuth après traitement. Ne jamais supprimer
-    // l'URL avant que le SDK ait eu le temps de lire le code.
-    if (window.location.search.includes('code=') || window.location.hash.includes('access_token')) {
-      try { window.history.replaceState({}, document.title, window.location.pathname); } catch (_) {}
-    }
-
-    if (session || authOK) {
+    afficherUtilisateurConnecte();
+    if (session) {
       if (typeof window.auroreUnlockAccess === 'function') window.auroreUnlockAccess();
-      setTimeout(() => chargerNotificationsPersonnelles(), 0);
+      chargerNotificationsPersonnelles();
+      if (!profilEstComplet(session)) ouvrirEspacePersonnelObligatoire();
     }
   });
 
