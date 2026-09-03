@@ -2220,8 +2220,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         <button type="button" class="personal-tab active" data-personal-tab="documents" role="tab" aria-selected="true">Mes documents <span id="personalDocsCount">0</span></button>
         <button type="button" class="personal-tab" data-personal-tab="books" role="tab" aria-selected="false">Mes livres <span id="personalBooksCount">0</span></button>
         <button type="button" class="personal-tab" data-personal-tab="favorites" role="tab" aria-selected="false">Mes favoris <span id="personalFavoritesCount">0</span></button>
-        <button type="button" class="personal-tab" data-personal-tab="later" role="tab" aria-selected="false">À télécharger plus tard <span id="personalLaterCount">0</span></button>
-        <button type="button" class="personal-tab" data-personal-tab="downloads" role="tab" aria-selected="false">Mes téléchargements <span id="personalDownloadsCount">0</span></button>
+        <button type="button" class="personal-tab" data-personal-tab="downloads" role="tab" aria-selected="false">À télécharger <span id="personalDownloadsCount">0</span></button>
       </div>
 
       <div class="personal-panel active" data-personal-panel="documents">
@@ -2245,17 +2244,19 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         </div>
       </div>
 
-      <div class="personal-panel" data-personal-panel="later" hidden>
-        <div class="personal-panel-intro">Les documents que vous avez choisis de garder pour plus tard apparaissent ici.</div>
-        <div id="personalLaterList" class="personal-list">
-          <div class="personal-empty">Aucun document enregistré pour plus tard.</div>
-        </div>
-      </div>
-
       <div class="personal-panel" data-personal-panel="downloads" hidden>
-        <div class="personal-panel-intro">Retrouvez ici les documents que vous avez réellement téléchargés depuis Aurore.</div>
-        <div id="personalDownloadsHistory" class="personal-list">
-          <div class="personal-empty">Aucun téléchargement enregistré pour le moment.</div>
+        <div class="personal-panel-intro">Les documents enregistrés avec « ＋ Plus tard » et votre historique de téléchargements sont regroupés ici.</div>
+        <div class="personal-subsection">
+          <div class="personal-subsection-title">À télécharger plus tard <span id="personalLaterCount">0</span></div>
+          <div id="personalLaterList" class="personal-list">
+            <div class="personal-empty">Aucun document enregistré pour plus tard.</div>
+          </div>
+        </div>
+        <div class="personal-subsection" style="margin-top:18px;">
+          <div class="personal-subsection-title">Mes téléchargements</div>
+          <div id="personalDownloadsHistory" class="personal-list">
+            <div class="personal-empty">Aucun téléchargement enregistré pour le moment.</div>
+          </div>
         </div>
       </div>
     </div>
@@ -9069,6 +9070,13 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     if(listLater) listLater.innerHTML='<div class="personal-empty">Chargement de vos documents enregistrés…</div>';
     const listDownloads=document.getElementById('personalDownloadsHistory');
     if(listDownloads) listDownloads.innerHTML='<div class="personal-empty">Chargement de votre historique…</div>';
+    // Récupère d'abord les données personnelles du compte, puis les affiche.
+    // En cas de réseau indisponible, les caches locaux restent utilisables.
+    await synchroniserRessourcesSupabase();
+    actualiserCompteursPersonnels();
+    await rendreFavorisPersonnels();
+    rendreDocumentsPlusTard();
+    rendreDocumentsTelecharges();
     try{
       // La table de liaison existe déjà dans le flux de dépôt : elle associe
       // document_id et user_id au compte authentifié. On la réutilise afin de
@@ -9104,7 +9112,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       MES_DOCUMENTS_PERSONNELS=[]; MES_LIVRES_PERSONNELS=[];
       if(listDocs) listDocs.innerHTML='<div class="personal-empty">Impossible de charger vos documents pour le moment. Réessayez dans quelques instants.</div>';
       if(listBooks) listBooks.innerHTML='<div class="personal-empty">Impossible de charger vos livres pour le moment. Réessayez dans quelques instants.</div>';
-      // Les données locales restent indépendantes de Supabase.
       actualiserCompteursPersonnels();
       await rendreFavorisPersonnels();
       rendreDocumentsPlusTard();
@@ -9232,6 +9239,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       const panel=document.querySelector(`.personal-panel[data-personal-panel="${btn.dataset.personalTab}"]`);
       if(panel){panel.classList.add('active');panel.hidden=false;}
     }));
+    document.getElementById('personalRefresh')?.addEventListener('click',chargerDonneesEspacePersonnel);
   }
   initialiserEspacePersonnel();
   const _ouvrirProfilOriginal=window.ouvrirEspacePersonnelObligatoire;
@@ -10068,6 +10076,81 @@ footer>.wrap:last-child{margin-top:18px!important;}
   const KEY_CODE='aurore_code_espace_';
   const FAVORIS_CACHE_TTL=30000;
   const favorisDocumentsCache=new Map();
+  // Données personnelles synchronisées avec Supabase. Le localStorage reste
+  // un cache/fallback afin de ne jamais perdre l'affichage pendant une panne réseau.
+  const TABLE_FAVORIS_PERSONNELS='favoris_documents';
+  const TABLE_PLUS_TARD_PERSONNELS='documents_plus_tard';
+  const TABLE_TELECHARGEMENTS_PERSONNELS='telechargements_documents';
+
+  async function apiPersonnel(table, options={}){
+    if(!session?.access_token) throw new Error('SESSION_ABSENTE');
+    const url=`${SUPABASE_URL}/rest/v1/${table}${options.query?'?'+options.query:''}`;
+    const headers={...headersAdmin(),'Content-Type':'application/json',...(options.headers||{})};
+    const r=await fetch(url,{method:options.method||'GET',headers,body:options.body?JSON.stringify(options.body):undefined});
+    if(!r.ok){const detail=await r.text().catch(()=> '');throw new Error(`${table} HTTP ${r.status} ${detail}`);}
+    return r.status===204?null:(await r.text()).trim();
+  }
+
+  async function synchroniserRessourcesSupabase(){
+    if(!session?.id||!session?.access_token)return;
+    // Favoris
+    try{
+      const raw=await apiPersonnel(TABLE_FAVORIS_PERSONNELS,{query:`select=document_id&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc`});
+      const rows=raw?JSON.parse(raw):[];
+      const ids=(rows||[]).map(x=>String(x.document_id)).filter(Boolean);
+      if(ids.length)safeWrite(KEY_FAV+userKey(),ids);
+      else if(localStorage.getItem(KEY_FAV+userKey())===null)safeWrite(KEY_FAV+userKey(),[]);
+    }catch(e){console.warn('[Espace personnel] favoris Supabase indisponibles, conservation du cache local.',e);}
+
+    // « Plus tard »
+    try{
+      const raw=await apiPersonnel(TABLE_PLUS_TARD_PERSONNELS,{query:`select=document_id,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc`});
+      const rows=raw?JSON.parse(raw):[];
+      if(rows.length)safeWrite(KEY_LATER+userKey(),rows.map(x=>({id:x.document_id,saved_at:x.created_at})).filter(x=>x.id!=null));
+      else if(localStorage.getItem(KEY_LATER+userKey())===null)safeWrite(KEY_LATER+userKey(),[]);
+    }catch(e){console.warn('[Espace personnel] Plus tard Supabase indisponible, conservation du cache local.',e);}
+
+    // Historique des téléchargements
+    try{
+      const raw=await apiPersonnel(TABLE_TELECHARGEMENTS_PERSONNELS,{query:`select=id,document_id,titre_document,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc&limit=100`});
+      const rows=raw?JSON.parse(raw):[];
+      if(rows.length){
+        safeWrite(KEY_DOWNLOADS+userKey(),rows.map(x=>({id:x.document_id,titre:x.titre_document||'Document',downloaded_at:x.created_at})).filter(x=>x.id!=null));
+      }else if(localStorage.getItem(KEY_DOWNLOADS+userKey())===null)safeWrite(KEY_DOWNLOADS+userKey(),[]);
+    }catch(e){console.warn('[Espace personnel] téléchargements Supabase indisponibles, conservation du cache local.',e);}
+    actualiserCompteursPersonnels();
+  }
+
+  async function synchroniserFavoriSupabase(docIdValue, active){
+    if(!session?.id||!session?.access_token||!docIdValue)return;
+    const q=`user_id=eq.${encodeURIComponent(session.id)}&document_id=eq.${encodeURIComponent(docIdValue)}`;
+    try{
+      if(active){
+        await apiPersonnel(TABLE_FAVORIS_PERSONNELS,{method:'POST',query:'on_conflict=user_id,document_id',headers:{'Prefer':'resolution=ignore-duplicates,return=minimal'},body:{user_id:session.id,document_id:Number(docIdValue)}});
+      }else{
+        await apiPersonnel(TABLE_FAVORIS_PERSONNELS,{method:'DELETE',query:q,headers:{'Prefer':'return=minimal'}});
+      }
+    }catch(e){console.warn('[Favoris] synchronisation Supabase échouée',e);}
+  }
+
+  async function synchroniserPlusTardSupabase(doc, active){
+    if(!session?.id||!session?.access_token||doc?.id==null)return;
+    const q=`user_id=eq.${encodeURIComponent(session.id)}&document_id=eq.${encodeURIComponent(doc.id)}`;
+    try{
+      if(active){
+        await apiPersonnel(TABLE_PLUS_TARD_PERSONNELS,{method:'POST',query:'on_conflict=user_id,document_id',headers:{'Prefer':'resolution=ignore-duplicates,return=minimal'},body:{user_id:session.id,document_id:Number(doc.id)}});
+      }else{
+        await apiPersonnel(TABLE_PLUS_TARD_PERSONNELS,{method:'DELETE',query:q,headers:{'Prefer':'return=minimal'}});
+      }
+    }catch(e){console.warn('[Plus tard] synchronisation Supabase échouée',e);}
+  }
+
+  async function synchroniserTelechargementSupabase(doc){
+    if(!session?.id||!session?.access_token||doc?.id==null)return;
+    try{
+      await apiPersonnel(TABLE_TELECHARGEMENTS_PERSONNELS,{method:'POST',headers:{'Prefer':'return=minimal'},body:{user_id:session.id,document_id:Number(doc.id),titre_document:doc.Titre||'Document'}});
+    }catch(e){console.warn('[Téléchargements] synchronisation Supabase échouée',e);}
+  }
   const codeModal=document.getElementById('accessCodeModal');
   const codeInput=document.getElementById('accessCodeInput');
   const codeMsg=document.getElementById('accessCodeMessage');
@@ -10078,18 +10161,8 @@ footer>.wrap:last-child{margin-top:18px!important;}
   let espaceOptions={};
 
   const userKey=()=>session&&session.id?String(session.id):'';
-  const safeRead=(key)=>{
-    try{
-      const v=localStorage.getItem(key);
-      if(!v)return [];
-      const parsed=JSON.parse(v);
-      return Array.isArray(parsed) ? parsed : parsed;
-    }catch(e){return [];}
-  };
-  const safeWrite=(key,v)=>{
-    try{localStorage.setItem(key,JSON.stringify(v));return true;}
-    catch(e){console.warn('[Aurore] stockage local indisponible',e);return false;}
-  };
+  const safeRead=(key)=>{try{const v=localStorage.getItem(key);return v?JSON.parse(v):[];}catch(e){return[];}};
+  const safeWrite=(key,v)=>{try{localStorage.setItem(key,JSON.stringify(v));return true;}catch(e){return false;}};
   const docId=doc=>String(doc&&doc.id!=null?doc.id:'');
   function requireLogin(){
     const signup=document.getElementById('accessSignupBtn');
@@ -10098,9 +10171,9 @@ footer>.wrap:last-child{margin-top:18px!important;}
     const m=document.getElementById('loginMessage');
     if(m){m.textContent='Connectez-vous pour utiliser les favoris et enregistrer des documents pour plus tard dans votre espace personnel.';m.className='access-message ok';m.style.display='block';}
   }
-  function favoris(){const v=userKey()?safeRead(KEY_FAV+userKey()):[];return Array.isArray(v)?v.map(String):[];}
-  function plusTard(){const v=userKey()?safeRead(KEY_LATER+userKey()):[];return Array.isArray(v)?v:[];}
-  function telecharges(){const v=userKey()?safeRead(KEY_DOWNLOADS+userKey()):[];return Array.isArray(v)?v:[];}
+  function favoris(){return userKey()?safeRead(KEY_FAV+userKey()).map(String):[];}
+  function plusTard(){return userKey()?safeRead(KEY_LATER+userKey()):[];}
+  function telecharges(){return userKey()?safeRead(KEY_DOWNLOADS+userKey()):[];}
   function enregistrerTelechargementPersonnel(doc){
     if(!session||!doc||doc.id==null)return false;
     const id=docId(doc); if(!id)return false;
@@ -10112,11 +10185,11 @@ footer>.wrap:last-child{margin-top:18px!important;}
     if(!ok)return false;
     const verif=safeRead(key);
     if(!Array.isArray(verif)||!verif.some(x=>String(x.id)===id))return false;
-    actualiserCompteursPersonnels();
     rendreDocumentsTelecharges();
     afficherNotificationTelechargement(entree);
-    // Marque également le dernier téléchargement pour le prochain retour dans le site.
-    safeWrite('aurore_dernier_telechargement_'+userKey(), entree);
+    // Synchronisation distante : l'historique appartient au compte et revient
+    // même après changement de navigateur/appareil. Le cache local reste immédiat.
+    synchroniserTelechargementSupabase(doc);
     return true;
   }
 
@@ -10163,23 +10236,21 @@ footer>.wrap:last-child{margin-top:18px!important;}
     favorisDocumentsCache.delete(userKey());
     actualiserCompteursPersonnels();
     actualiserEtatActionsDocument(button?.closest('.doc-row,.recents-card')||button,doc);
+    synchroniserFavoriSupabase(id,i<0);
   }
   function ajouterDocumentPlusTard(doc,button){
     if(!session){requireLogin();return;}
     const id=docId(doc); if(!id)return;
     let arr=plusTard();
-    const index=arr.findIndex(x=>String(x.id)===id);
-    if(index>=0){
-      arr.splice(index,1);
-      if(button){button.classList.remove('is-active');button.textContent='＋ Plus tard';}
-    }else{
-      arr.unshift({id:doc.id,titre:doc.Titre||'Document',auteur:doc.Auteur||'',url:doc.Fichier_url||'',categorie:doc['Catégorie']||'',niveau:doc.Niveau||'',matiere:doc['Matière']||'',genre:doc.Genre||'',saved_at:new Date().toISOString()});
-      if(button){button.classList.add('is-active');button.textContent='✓ Plus tard';}
-    }
+    const i=arr.findIndex(x=>String(x.id)===id);
+    const active=i<0;
+    if(i>=0) arr.splice(i,1);
+    else arr.unshift({id:doc.id,titre:doc.Titre||'Document',auteur:doc.Auteur||'',url:doc.Fichier_url||'',categorie:doc['Catégorie']||'',niveau:doc.Niveau||'',matiere:doc['Matière']||'',genre:doc.Genre||'',saved_at:new Date().toISOString()});
     if(!safeWrite(KEY_LATER+userKey(),arr))return;
+    if(button){button.classList.toggle('is-active',active);button.textContent=active?'✓ Plus tard':'＋ Plus tard';}
     actualiserCompteursPersonnels();
-    actualiserEtatActionsDocument(button?.closest('.doc-row,.recents-card')||button,doc);
     rendreDocumentsPlusTard();
+    synchroniserPlusTardSupabase(doc,active);
   }
   function actualiserEtatActionsDocument(root,doc){
     if(!root||!doc||!userKey())return;
@@ -10213,15 +10284,8 @@ footer>.wrap:last-child{margin-top:18px!important;}
     if(!arr.length){list.innerHTML='<div class="personal-empty">Aucun document enregistré pour plus tard. Utilisez « ＋ Plus tard » sur un document du site.</div>';return;}
     arr.forEach(d=>{
       const row=document.createElement('article');row.className='personal-book';
-      row.innerHTML=`<div class="personal-book-main"><div class="personal-book-title">${escapeTextePersonnel(d.titre)}</div><div class="personal-book-meta">Document enregistré pour plus tard${d.niveau?' · '+escapeTextePersonnel(d.niveau):''}</div></div><div class="personal-doc-actions"><button type="button" class="personal-action" data-lire-tard>Voir</button><button type="button" class="personal-action is-active" data-retirer-tard>✓ Retirer</button></div>`;
+      row.innerHTML=`<div class="personal-book-main"><div class="personal-book-title">${escapeTextePersonnel(d.titre)}</div><div class="personal-book-meta">Document enregistré pour plus tard${d.niveau?' · '+escapeTextePersonnel(d.niveau):''}</div></div><div class="personal-doc-actions"><button type="button" class="personal-action" data-lire-tard>Voir</button></div>`;
       row.querySelector('[data-lire-tard]')?.addEventListener('click',()=>ouvrirLecteurPDF({id:d.id,Titre:d.titre,Auteur:d.auteur,Fichier_url:d.url,'Catégorie':d.categorie,Niveau:d.niveau,'Matière':d.matiere,Genre:d.genre}));
-      row.querySelector('[data-retirer-tard]')?.addEventListener('click',()=>{
-        const reste=plusTard().filter(x=>String(x.id)!==String(d.id));
-        safeWrite(KEY_LATER+userKey(),reste);
-        actualiserCompteursPersonnels();
-        rendreDocumentsPlusTard();
-        actualiserEtatActionsDocument(document.querySelector('#apercuOverlay'),d);
-      });
       list.appendChild(row);
     });
   }
