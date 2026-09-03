@@ -1797,7 +1797,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
             </div>
             <div class="form-row">
               <label>Description de la publicité (facultatif)</label>
-              <textarea id="adminPromoDescInput" rows="3" maxlength="500" placeholder="Un texte descriptif affiché avec la publicité, distinct du titre."></textarea>
+              <textarea id="adminPromoDescInput" rows="4" maxlength="1000" placeholder="Un texte descriptif affiché avec la publicité, distinct du titre."></textarea>
             </div>
             <div class="admin-promo-actions">
               <button type="button" class="admin-btn primary" id="adminPromoSave">Ajouter la publicité</button>
@@ -1863,7 +1863,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
             <div class="admin-video-preview" id="adminVideoPreview"><span>Aucune vidéo sélectionnée.</span></div>
             <div class="form-row"><label for="adminVideoFile">Fichier vidéo (MP4, WEBM ou OGG)</label><input type="file" id="adminVideoFile" accept="video/mp4,video/webm,video/ogg"><small>100 Mo maximum.</small></div>
             <div class="form-row"><label for="adminVideoTitleInput">Titre de la vidéo</label><input type="text" id="adminVideoTitleInput" maxlength="180" placeholder="Titre de la vidéo"></div>
-            <div class="form-row"><label for="adminVideoDescInput">Description (facultatif)</label><textarea id="adminVideoDescInput" rows="4" maxlength="600" placeholder="Un court texte présenté avec la vidéo."></textarea></div>
+            <div class="form-row"><label for="adminVideoDescInput">Description (facultatif)</label><textarea id="adminVideoDescInput" rows="5" maxlength="1000" placeholder="Un court texte présenté avec la vidéo."></textarea></div>
             <div class="form-row" style="display:flex;align-items:center;gap:10px;"><input type="checkbox" id="adminVideoActive" style="width:18px;height:18px;"><label for="adminVideoActive" style="margin:0;">Afficher sur l'accueil</label></div>
             <div class="admin-promo-actions"><button type="button" class="admin-btn primary" id="adminVideoSave">Ajouter la vidéo</button><button type="button" class="admin-btn ghost" id="adminVideoCancel" style="display:none;">Annuler la modification</button></div>
             <div class="form-msg" id="adminVideoMsg"></div>
@@ -2011,6 +2011,29 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     .pdf-reader-toolbar{justify-content:center;}
     .pdf-toolbar-group{justify-content:center; flex:1 1 auto;}
     .pdf-reader-toolbar button{padding:8px 10px; font-size:0.78rem;}
+  }
+</style>
+<style id="aurore-pdf-reader-refonte">
+  /* Lecteur PDF — lecture continue verticale, largeur adaptative et rendu net */
+  #pdfViewerOverlay{background:#0b0a10!important;}
+  .pdf-reader-shell{max-width:1180px!important;width:100%;}
+  .pdf-reader-topbar{padding:12px 16px!important;background:#111019;border-bottom:1px solid rgba(255,255,255,.07);}
+  .pdf-reader-toolbar{padding:8px 16px!important;background:#15131d!important;border-bottom:1px solid rgba(255,255,255,.07);}
+  .pdf-reader-zone{overflow-y:auto!important;overflow-x:hidden!important;display:block!important;padding:18px clamp(10px,2vw,28px) 34px!important;background:#26242d!important;overscroll-behavior:contain;scroll-behavior:smooth;touch-action:pan-y;}
+  .pdf-reader-pages{width:100%;max-width:980px;margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:18px;}
+  .pdf-reader-page{position:relative;width:100%;display:flex;justify-content:center;scroll-margin-top:16px;}
+  .pdf-reader-page canvas{display:block!important;width:auto;height:auto;max-width:100%;background:#fff;box-shadow:0 5px 22px rgba(0,0,0,.28);border-radius:2px;image-rendering:auto;}
+  .pdf-reader-page-label{position:absolute;right:10px;top:10px;padding:4px 8px;border-radius:999px;background:rgba(12,10,17,.72);color:#fff;font-size:.68rem;font-weight:700;backdrop-filter:blur(5px);pointer-events:none;}
+  .pdf-reader-page-placeholder{width:min(100%,980px);min-height:180px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.025);display:flex;align-items:center;justify-content:center;color:#aaa5bd;font-size:.8rem;}
+  .pdf-reader-loading{margin-top:12vh!important;}
+  .pdf-reader-bottombar{position:relative;z-index:2;padding:9px 12px!important;border-top:1px solid rgba(0,0,0,.08);}
+  .pdf-reader-bottombar button{min-height:40px!important;padding:8px 15px!important;}
+  @media(max-width:640px){
+    .pdf-reader-topbar{padding:8px 10px!important;}
+    .pdf-reader-toolbar{padding:6px 8px!important;}
+    .pdf-reader-zone{padding:10px 5px 22px!important;}
+    .pdf-reader-pages{gap:10px;}
+    .pdf-reader-page-label{right:6px;top:6px;font-size:.62rem;}
   }
 </style>
 <style id="auraster-theme-system">
@@ -2164,7 +2187,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         <strong style="color:#f59e0b;">🔧 Diagnostic lecteur PDF (admin uniquement, temporaire)</strong>
         <div id="pdfViewerDiagLog" style="margin-top:6px; white-space:pre-wrap; word-break:break-all;"></div>
       </div>
-      <canvas id="pdfViewerCanvas"></canvas>
+      <canvas id="pdfViewerCanvas" aria-hidden="true"></canvas>
+      <div id="pdfViewerPages" class="pdf-reader-pages" aria-live="polite"></div>
     </div>
     <div class="pdf-reader-bottombar">
       <button type="button" id="pdfViewerPrec" aria-label="Page précédente">← Précédent</button>
@@ -7449,43 +7473,91 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     if (!PDF_EN_COURS) return;
     numero = Math.max(1, Math.min(numero, PDF_EN_COURS.numPages));
     PDF_PAGE_ACTUELLE = numero;
-    const canvas = document.getElementById('pdfViewerCanvas');
+    const zone = document.getElementById('pdfViewerZone');
+    const pages = document.getElementById('pdfViewerPages');
+    if (!zone || !pages) return;
     try {
-      const page = await PDF_EN_COURS.getPage(numero);
-      const zone = document.getElementById('pdfViewerZone');
-      const largeurDispo = Math.max(240, zone.clientWidth - 20);
-      const vpBase = page.getViewport({ scale: 1, rotation: PDF_ROTATION });
-      // 100% de zoom = document ajusté à la largeur de l'écran ; le zoom +/- est
-      // un multiplicateur appliqué par-dessus cet ajustement automatique.
-      const echelleAjustement = Math.min(2.6, largeurDispo / vpBase.width);
-      const echelle = Math.max(0.2, echelleAjustement * PDF_ZOOM);
-      const viewport = page.getViewport({ scale: echelle, rotation: PDF_ROTATION });
-      // Rendu à la résolution physique de l'écran (devicePixelRatio) pour un
-      // texte net sur mobile/Retina, tout en conservant la taille affichée
-      // (canvas.style.width/height) et donc le comportement de zoom inchangé.
-      // Plafonné à 2 pour rester raisonnable en mémoire/temps sur Android.
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = Math.round(viewport.width * dpr);
-      canvas.height = Math.round(viewport.height * dpr);
-      canvas.style.width = viewport.width + 'px';
-      canvas.style.height = viewport.height + 'px';
-      const ctx = canvas.getContext('2d');
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      await page.render({ canvasContext: ctx, viewport }).promise;
-      document.getElementById('pdfViewerLoading').style.display = 'none';
-      document.getElementById('pdfViewerErreurBox').style.display = 'none';
-      canvas.style.display = 'block';
-      document.getElementById('pdfViewerPage').textContent = numero + ' / ' + PDF_EN_COURS.numPages;
-      document.getElementById('pdfViewerPrec').disabled = (numero <= 1);
-      document.getElementById('pdfViewerSuiv').disabled = (numero >= PDF_EN_COURS.numPages);
+      pages.innerHTML = '';
+      document.getElementById('pdfViewerLoading').style.display = 'flex';
+      const largeurDispo = Math.max(260, Math.min(980, zone.clientWidth - 10));
+      const pagesPourRendu = [];
+      for (let i = 1; i <= PDF_EN_COURS.numPages; i++) pagesPourRendu.push(i);
+
+      // Rendu page par page : la première page devient visible immédiatement,
+      // puis les suivantes sont ajoutées sans bloquer le défilement.
+      for (const n of pagesPourRendu) {
+        const page = await PDF_EN_COURS.getPage(n);
+        if (PDF_EN_COURS === null) return;
+        const vpBase = page.getViewport({scale:1, rotation:PDF_ROTATION});
+        const echelleAjustement = Math.min(2.2, largeurDispo / vpBase.width);
+        const echelle = Math.max(0.25, echelleAjustement * PDF_ZOOM);
+        const viewport = page.getViewport({scale:echelle, rotation:PDF_ROTATION});
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'pdf-reader-page';
+        wrapper.dataset.page = String(n);
+        const canvas = document.createElement('canvas');
+        canvas.setAttribute('aria-label', 'Page ' + n + ' sur ' + PDF_EN_COURS.numPages);
+        canvas.width = Math.max(1, Math.round(viewport.width * dpr));
+        canvas.height = Math.max(1, Math.round(viewport.height * dpr));
+        canvas.style.width = viewport.width + 'px';
+        canvas.style.height = viewport.height + 'px';
+        const ctx = canvas.getContext('2d', {alpha:false});
+        ctx.setTransform(dpr,0,0,dpr,0,0);
+        wrapper.appendChild(canvas);
+        const label=document.createElement('span');
+        label.className='pdf-reader-page-label';
+        label.textContent=n+' / '+PDF_EN_COURS.numPages;
+        wrapper.appendChild(label);
+        pages.appendChild(wrapper);
+
+        await page.render({canvasContext:ctx, viewport}).promise;
+        if (n === 1) {
+          document.getElementById('pdfViewerLoading').style.display='none';
+          document.getElementById('pdfViewerErreurBox').style.display='none';
+        }
+      }
+      document.getElementById('pdfViewerPage').textContent = PDF_EN_COURS.numPages + ' page(s)';
+      document.getElementById('pdfViewerPrec').disabled = PDF_EN_COURS.numPages <= 1;
+      document.getElementById('pdfViewerSuiv').disabled = PDF_EN_COURS.numPages <= 1;
+      installerSuiviPagesPDF();
     } catch (err) {
-      console.error('[Lecteur PDF] échec de rendu page', numero, err);
-      afficherErreurLecteur("Erreur d'affichage de la page " + numero + ".", DOC_EN_LECTURE?.Telechargement_autorise !== false, DOC_EN_LECTURE?.Fichier_url);
+      console.error('[Lecteur PDF] échec de rendu continu', err);
+      afficherErreurLecteur('Erreur d’affichage du document.', DOC_EN_LECTURE?.Telechargement_autorise !== false, DOC_EN_LECTURE?.Fichier_url);
     }
   }
 
-  function allerPagePrecedente() { rendrePagePDF(PDF_PAGE_ACTUELLE - 1); }
-  function allerPageSuivante()   { rendrePagePDF(PDF_PAGE_ACTUELLE + 1); }
+  function pagePDFVisibleCible(direction) {
+    const pages=document.querySelectorAll('#pdfViewerPages .pdf-reader-page');
+    if (!pages.length) return;
+    let idx=Math.max(0, PDF_PAGE_ACTUELLE-1);
+    idx=Math.max(0,Math.min(pages.length-1,idx+direction));
+    pages[idx].scrollIntoView({behavior:'smooth',block:'start'});
+    PDF_PAGE_ACTUELLE=idx+1;
+    document.getElementById('pdfViewerPage').textContent=(idx+1)+' / '+pages.length;
+  }
+
+  let pdfPagesObserver=null;
+  function installerSuiviPagesPDF(){
+    if(pdfPagesObserver) pdfPagesObserver.disconnect();
+    const zone=document.getElementById('pdfViewerZone');
+    const pages=document.querySelectorAll('#pdfViewerPages .pdf-reader-page');
+    if(!zone || !pages.length || !('IntersectionObserver' in window)) return;
+    pdfPagesObserver=new IntersectionObserver(entries=>{
+      let meilleure=null;
+      for(const entry of entries){ if(entry.isIntersecting && (!meilleure || entry.intersectionRatio>meilleure.intersectionRatio)) meilleure=entry; }
+      if(meilleure){
+        const n=Number(meilleure.target.dataset.page)||1;
+        PDF_PAGE_ACTUELLE=n;
+        document.getElementById('pdfViewerPage').textContent=n+' / '+pages.length;
+      }
+    },{root:zone,threshold:[0.35,0.6,0.85]});
+    pages.forEach(p=>pdfPagesObserver.observe(p));
+  }
+
+  function allerPagePrecedente() { pagePDFVisibleCible(-1); }
+  function allerPageSuivante()   { pagePDFVisibleCible(1); }
   document.getElementById('pdfViewerPrec').addEventListener('click', allerPagePrecedente);
   document.getElementById('pdfViewerSuiv').addEventListener('click', allerPageSuivante);
   // Dissuasion raisonnable : pas de menu contextuel (clic droit) sur la zone de
@@ -7493,32 +7565,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   // mais retire les raccourcis évidents ("Enregistrer l'image sous…").
   document.getElementById('pdfViewerZone').addEventListener('contextmenu', (e) => e.preventDefault());
 
-  // -- Navigation horizontale au doigt (mobile) : un balayage net et surtout
-  // horizontal change de page, comme les flèches clavier. Ignoré si la page
-  // déborde horizontalement (zoom > ajustement) pour ne jamais gêner un
-  // déplacement latéral voulu dans une page zoomée, ni le défilement vertical
-  // naturel de la zone (overflow:auto déjà en place, inchangé).
-  (function initSwipeLecteurPDF() {
-    const zone = document.getElementById('pdfViewerZone');
-    let depart = null;
-    zone.addEventListener('touchstart', (e) => {
-      if (e.touches.length !== 1) { depart = null; return; }
-      depart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    }, { passive: true });
-    zone.addEventListener('touchend', (e) => {
-      if (!depart) return;
-      const arrivee = (e.changedTouches && e.changedTouches[0]) || null;
-      const d = depart; depart = null;
-      if (!arrivee) return;
-      const dx = arrivee.clientX - d.x;
-      const dy = arrivee.clientY - d.y;
-      const debordeHorizontalement = zone.scrollWidth > zone.clientWidth + 2;
-      if (debordeHorizontalement) return; // priorité au déplacement/zoom dans la page
-      if (Math.abs(dx) > 56 && Math.abs(dx) > Math.abs(dy) * 1.6) {
-        if (dx < 0) allerPageSuivante(); else allerPagePrecedente();
-      }
-    }, { passive: true });
-  })();
+  // -- Défilement tactile : vertical uniquement. Aucun changement de page horizontal.
+  // Le lecteur reste volontairement en pan-y pour un confort proche d'un livre numérique.
 
   // -- Zoom / ajustement / rotation --
   function appliquerZoom(delta) {
@@ -8432,6 +8480,42 @@ footer>.wrap:last-child{margin-top:18px!important;}
   .home-video-frame{width:100%!important;margin-bottom:0!important;border-radius:14px!important;}
   .home-video-frame video{border-radius:14px!important;}
   .depot-progress{padding:13px 13px!important;border-radius:14px!important;}
+}
+</style>
+
+<style id="aurore-finitions-interface-4">
+/* Finitions demandées : vidéo légèrement réduite et suppression totale des voiles sombres sur les visuels. */
+.ad-slot-card::after{
+  display:none!important;
+  background:none!important;
+}
+.ad-slot-body{
+  background:transparent!important;
+}
+[data-theme="light"] .ad-slot-card::after{
+  display:none!important;
+  background:none!important;
+}
+[data-theme="light"] .ad-slot-title,
+[data-theme="light"] .ad-slot-desc,
+[data-theme="light"] .ad-slot-cta{
+  color:#171322!important;
+  text-shadow:none!important;
+}
+.ad-slot-title,.ad-slot-desc,.ad-slot-cta{
+  text-shadow:0 1px 8px rgba(0,0,0,.18)!important;
+}
+
+.home-video-frame{
+  width:calc(100% - 24px)!important;
+  max-width:1080px!important;
+  margin:0 auto 6px!important;
+}
+@media(max-width:760px){
+  .home-video-frame{width:calc(100% - 12px)!important;}
+}
+@media(max-width:560px){
+  .home-video-frame{width:100%!important;}
 }
 </style>
 </body>
