@@ -2185,6 +2185,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       <div class="personal-tabs" role="tablist" aria-label="Sections personnelles">
         <button type="button" class="personal-tab active" data-personal-tab="documents" role="tab" aria-selected="true">Mes documents <span id="personalDocsCount">0</span></button>
         <button type="button" class="personal-tab" data-personal-tab="books" role="tab" aria-selected="false">Mes livres <span id="personalBooksCount">0</span></button>
+        <button type="button" class="personal-tab" data-personal-tab="favorites" role="tab" aria-selected="false">Mes favoris</button>
+        <button type="button" class="personal-tab" data-personal-tab="downloads" role="tab" aria-selected="false">À télécharger</button>
       </div>
 
       <div class="personal-panel active" data-personal-panel="documents">
@@ -2195,14 +2197,23 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       </div>
 
       <div class="personal-panel" data-personal-panel="books" hidden>
-        <div class="books-personal-tabs" role="tablist" aria-label="Mes livres">
-          <button type="button" class="books-personal-tab active" data-books-tab="adds">Mes ajouts</button>
-          <button type="button" class="books-personal-tab" data-books-tab="library">Ma bibliothèque</button>
-          <button type="button" class="books-personal-tab" data-books-tab="favorites">Mes favoris</button>
-          <button type="button" class="books-personal-tab" data-books-tab="downloads">À télécharger</button>
-        </div>
+        <div class="personal-panel-intro">Vos livres déposés ou ajoutés à votre espace apparaîtront ici.</div>
         <div id="personalBooksList" class="personal-list">
           <div class="personal-empty">Chargement de vos livres…</div>
+        </div>
+      </div>
+
+      <div class="personal-panel" data-personal-panel="favorites" hidden>
+        <div class="personal-panel-intro">Retrouvez ici les documents que vous avez ajoutés à vos favoris.</div>
+        <div id="personalFavoritesList" class="personal-list">
+          <div class="personal-empty">Aucun favori pour le moment.</div>
+        </div>
+      </div>
+
+      <div class="personal-panel" data-personal-panel="downloads" hidden>
+        <div class="personal-panel-intro">Les documents enregistrés avec « ＋ Plus tard » sont rangés ici pour être retrouvés facilement.</div>
+        <div id="personalLaterList" class="personal-list">
+          <div class="personal-empty">Aucun document enregistré pour plus tard.</div>
         </div>
       </div>
     </div>
@@ -2275,26 +2286,47 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   }
 </style>
 <style id="aurore-pdf-reader-refonte">
-  /* Lecteur PDF — lecture continue verticale, largeur adaptative et rendu net */
-  #pdfViewerOverlay{background:#0b0a10!important;}
-  .pdf-reader-shell{max-width:1180px!important;width:100%;}
-  .pdf-reader-topbar{padding:12px 16px!important;background:#111019;border-bottom:1px solid rgba(255,255,255,.07);}
-  .pdf-reader-toolbar{padding:8px 16px!important;background:#15131d!important;border-bottom:1px solid rgba(255,255,255,.07);}
-  .pdf-reader-zone{overflow-y:auto!important;overflow-x:hidden!important;display:block!important;padding:18px clamp(10px,2vw,28px) 34px!important;background:#26242d!important;overscroll-behavior:contain;scroll-behavior:smooth;touch-action:pan-y;}
-  .pdf-reader-pages{width:100%;max-width:980px;margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:18px;}
-  .pdf-reader-page{position:relative;width:100%;display:flex;justify-content:center;scroll-margin-top:16px;}
-  .pdf-reader-page canvas{display:block!important;width:auto;height:auto;max-width:100%;background:#fff;box-shadow:0 5px 22px rgba(0,0,0,.28);border-radius:2px;image-rendering:auto;}
-  .pdf-reader-page-label{position:absolute;right:10px;top:10px;padding:4px 8px;border-radius:999px;background:rgba(12,10,17,.72);color:#fff;font-size:.68rem;font-weight:700;backdrop-filter:blur(5px);pointer-events:none;}
-  .pdf-reader-page-placeholder{width:min(100%,980px);min-height:180px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.025);display:flex;align-items:center;justify-content:center;color:#aaa5bd;font-size:.8rem;}
-  .pdf-reader-loading{margin-top:12vh!important;}
-  .pdf-reader-bottombar{position:relative;z-index:2;padding:9px 12px!important;border-top:1px solid rgba(0,0,0,.08);}
-  .pdf-reader-bottombar button{min-height:40px!important;padding:8px 15px!important;}
-  @media(max-width:640px){
-    .pdf-reader-topbar{padding:8px 10px!important;}
-    .pdf-reader-toolbar{padding:6px 8px!important;}
-    .pdf-reader-zone{padding:10px 5px 22px!important;}
-    .pdf-reader-pages{gap:10px;}
-    .pdf-reader-page-label{right:6px;top:6px;font-size:.62rem;}
+  /* Lecteur PDF — refonte premium : IDs et fonctions existants conservés. */
+  #pdfViewerOverlay{background:radial-gradient(circle at 15% 0%,rgba(124,58,237,.18),transparent 30%),radial-gradient(circle at 90% 100%,rgba(192,132,252,.10),transparent 28%),#08070d!important;backdrop-filter:blur(10px);}
+  .pdf-reader-shell{max-width:1240px!important;width:calc(100% - 22px)!important;height:calc(100% - 18px)!important;margin:9px auto!important;border:1px solid rgba(255,255,255,.10);border-radius:24px;overflow:hidden;background:#100e17;box-shadow:0 24px 80px rgba(0,0,0,.48),0 0 0 1px rgba(124,58,237,.04);}
+  .pdf-reader-topbar{min-height:64px;padding:10px 14px!important;background:rgba(17,15,26,.96)!important;border-bottom:1px solid rgba(255,255,255,.07)!important;gap:10px;}
+  .pdf-reader-back{min-height:40px!important;padding:9px 14px!important;border:1px solid rgba(255,255,255,.09)!important;background:#191622!important;color:#f7f5fb!important;box-shadow:0 4px 14px rgba(0,0,0,.16);transition:transform .16s ease,border-color .16s ease,background .16s ease;}
+  .pdf-reader-back:hover{transform:translateY(-1px);border-color:rgba(192,132,252,.45)!important;background:#211c2d!important;}
+  .pdf-reader-title{font-size:.92rem!important;color:#f8f6fc!important;letter-spacing:.01em;}
+  .pdf-reader-badge{color:#e8cfff!important;background:rgba(124,58,237,.16)!important;border-color:rgba(192,132,252,.30)!important;}
+  .pdf-reader-toolbar{min-height:54px;padding:7px 12px!important;background:#14121c!important;border-top:0!important;border-bottom:1px solid rgba(255,255,255,.065)!important;}
+  .pdf-toolbar-group{gap:5px!important;}
+  .pdf-reader-toolbar button{min-height:38px!important;min-width:38px!important;padding:7px 11px!important;border-radius:11px!important;border-color:rgba(255,255,255,.10)!important;background:#1d1a27!important;color:#eeeaf6!important;font-size:.78rem!important;transition:transform .15s ease,background .15s ease,border-color .15s ease,box-shadow .15s ease;}
+  .pdf-reader-toolbar button:hover:not([disabled]){transform:translateY(-1px);background:#282237!important;border-color:rgba(192,132,252,.48)!important;box-shadow:0 5px 14px rgba(0,0,0,.18);}
+  .pdf-reader-toolbar button[aria-pressed="true"]{background:rgba(124,58,237,.22)!important;border-color:rgba(192,132,252,.58)!important;}
+  #pdfViewerZoomLevel{min-width:48px!important;color:#cfc8dc!important;font-variant-numeric:tabular-nums;}
+  .pdf-reader-zone{background:radial-gradient(circle at 50% 0%,rgba(124,58,237,.07),transparent 28%),linear-gradient(180deg,#25222e 0%,#1d1b24 100%)!important;padding:20px clamp(8px,2.4vw,32px) 30px!important;overscroll-behavior:contain;scroll-behavior:smooth;scrollbar-color:#4b4258 transparent;scrollbar-width:thin;}
+  .pdf-reader-zone::-webkit-scrollbar{width:9px;height:9px}.pdf-reader-zone::-webkit-scrollbar-track{background:transparent}.pdf-reader-zone::-webkit-scrollbar-thumb{background:#4b4258;border-radius:999px;border:2px solid #201e27}
+  .pdf-reader-pages{width:100%!important;max-width:920px!important;margin:0 auto!important;gap:16px!important;}
+  .pdf-reader-page{width:100%!important;min-height:80px;transition:filter .18s ease;}
+  .pdf-reader-page:not(.pdf-page-rendered){opacity:.72;}
+  .pdf-reader-page canvas{display:block!important;max-width:100%;background:#fff;border-radius:5px!important;box-shadow:0 12px 34px rgba(0,0,0,.34),0 2px 8px rgba(0,0,0,.22)!important;}
+  .pdf-reader-page-label{top:12px!important;right:12px!important;padding:5px 9px!important;background:rgba(12,10,17,.72)!important;border:1px solid rgba(255,255,255,.12);color:#fff!important;backdrop-filter:blur(8px);box-shadow:0 4px 12px rgba(0,0,0,.18);}
+  .pdf-reader-page-placeholder{min-height:120px!important;border-radius:14px!important;border-color:rgba(255,255,255,.08)!important;background:rgba(255,255,255,.025)!important;}
+  .pdf-reader-loading{width:min(430px,92%);box-sizing:border-box;margin:13vh auto 0!important;padding:24px 22px!important;border:1px solid rgba(255,255,255,.10);border-radius:20px;background:rgba(15,13,22,.80);box-shadow:0 18px 45px rgba(0,0,0,.26);backdrop-filter:blur(12px);gap:13px!important;}
+  .pdf-spinner{width:34px!important;height:34px!important;border:3px solid rgba(255,255,255,.13)!important;border-top-color:#c084fc!important;border-right-color:#7c3aed!important;}
+  #pdfViewerStatut{width:100%;color:#eeeaf6!important;font-size:.82rem!important;line-height:1.45!important;}
+  .pdf-load-progress{width:100%;display:flex;flex-direction:column;gap:7px;margin-top:2px;}
+  .pdf-load-progress-head{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:.7rem;color:#a9a1b7;}
+  .pdf-load-progress-head strong{color:#e9e3f2;font-size:.72rem;}
+  .pdf-load-progress-track{width:100%;height:7px;border-radius:999px;background:#26222f;overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.28);}
+  .pdf-load-progress-bar{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#7c3aed,#c084fc,#e879f9);box-shadow:0 0 14px rgba(192,132,252,.28);transition:width .18s ease;}
+  .pdf-reader-erreur{width:min(500px,92%);box-sizing:border-box;margin:12vh auto 0!important;padding:24px!important;border:1px solid rgba(248,113,113,.20);border-radius:20px;background:rgba(45,20,27,.72);box-shadow:0 18px 45px rgba(0,0,0,.22);}
+  .pdf-reader-erreur p{color:#f7e8eb!important}.pdf-reader-erreur a{color:#b9f3c8!important;}
+  .pdf-reader-bottombar{min-height:54px;box-sizing:border-box;padding:7px 12px!important;background:#111019!important;border-top:1px solid rgba(255,255,255,.07);gap:9px!important;}
+  .pdf-reader-bottombar button{min-height:38px!important;padding:8px 14px!important;border-radius:11px!important;border-color:rgba(255,255,255,.10)!important;background:#1d1a27!important;color:#eeeaf6!important;transition:background .15s ease,border-color .15s ease,transform .15s ease;}
+  .pdf-reader-bottombar button:hover:not([disabled]){background:#282237!important;border-color:rgba(192,132,252,.45)!important;transform:translateY(-1px);}
+  #pdfViewerPage{min-width:100px!important;color:#cfc8dc!important;font-variant-numeric:tabular-nums;}
+  @media(max-width:700px){
+    .pdf-reader-shell{width:100%!important;height:100%!important;margin:0!important;border-radius:0;border-left:0;border-right:0;}
+    .pdf-reader-topbar{min-height:56px;padding:8px 10px!important}.pdf-reader-title{font-size:.82rem!important}
+    .pdf-reader-toolbar{justify-content:space-between;overflow-x:auto;flex-wrap:nowrap!important}.pdf-toolbar-group{flex-wrap:nowrap!important}.pdf-reader-toolbar button{min-width:38px!important;padding:7px 9px!important}
+    .pdf-reader-zone{padding:10px 4px 20px!important}.pdf-reader-pages{gap:10px!important}.pdf-reader-page-label{right:7px!important;top:7px!important}.pdf-reader-bottombar{padding:7px 8px!important}
   }
 </style>
 <style id="auraster-theme-system">
@@ -2433,6 +2465,10 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       <div id="pdfViewerLoading" class="pdf-reader-loading">
         <div class="pdf-spinner" aria-hidden="true"></div>
         <p id="pdfViewerStatut" role="status">Chargement du document…</p>
+        <div class="pdf-load-progress" aria-hidden="true">
+          <div class="pdf-load-progress-head"><span id="pdfViewerProgressStage">Préparation</span><strong id="pdfViewerProgressPercent">0%</strong></div>
+          <div class="pdf-load-progress-track"><div id="pdfViewerProgressBar" class="pdf-load-progress-bar"></div></div>
+        </div>
       </div>
       <div id="pdfViewerErreurBox" class="pdf-reader-erreur" style="display:none;" role="alert">
         <p id="pdfViewerErreurTexte"></p>
@@ -2535,6 +2571,10 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     <h3 id="apercuTitre" style="margin-bottom:10px; color:var(--encre);"></h3>
     <div id="apercuTags" class="tags" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;"></div>
     <p id="apercuMeta" style="font-size:0.85rem; color:var(--gris); margin-bottom:18px; line-height:1.5;"></p>
+    <div class="apercu-actions-extra">
+      <button type="button" class="personal-action" id="apercuFavori" aria-pressed="false">♡ Ajouter aux favoris</button>
+      <button type="button" class="personal-action" id="apercuPlusTard">＋ Télécharger plus tard</button>
+    </div>
     <div class="admin-promo-actions" style="margin-top:6px;">
       <button type="button" class="admin-btn primary" id="apercuConsulter">Consulter le document</button>
       <button type="button" class="admin-btn ghost" id="apercuFermer">Fermer</button>
@@ -2888,6 +2928,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   document.getElementById('profilLyceeSave').addEventListener('click',()=>enregistrerProfilPersonnel());
 
   document.getElementById('btnOuvrirProfil').addEventListener('click', () => {
+    if (typeof window.ouvrirEspaceAvecCode === 'function') { window.ouvrirEspaceAvecCode(); return; }
     document.getElementById('breadcrumb').innerHTML = '';
     remplirProfil();
     afficherEcran('screen-profil');
@@ -2907,6 +2948,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
   function ouvrirEspacePersonnelObligatoire() {
     if (!session) return;
+    if (typeof window.ouvrirEspaceAvecCode === 'function') { window.ouvrirEspaceAvecCode({forceComplete:true}); return; }
     if (typeof window.auroreUnlockAccess === 'function') window.auroreUnlockAccess();
     document.getElementById('breadcrumb').innerHTML = '';
     remplirProfil();
@@ -5067,10 +5109,15 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         <div class="doc-actions">
           <button type="button" class="dl" style="cursor:pointer;" data-lire="1">Lire</button>
           ${telechargementOk?`<a class="dl" href="${doc.Fichier_url}" target="_blank" rel="noopener">Télécharger</a>`:''}
-          <button type="button" class="dl" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-signaler="1">Signaler</button>
+          <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-favori="1" aria-pressed="false">♡ Favori</button>
+          <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-plus-tard="1">＋ Plus tard</button>
+          <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-signaler="1">Signaler</button>
         </div>`;
       row.querySelector('[data-lire]').addEventListener('click',()=>ouvrirLecteurPDF(doc));
       row.querySelector('[data-signaler]').addEventListener('click',()=>ouvrirSignalement(doc));
+      row.querySelector('[data-favori]')?.addEventListener('click',()=>basculerFavoriDocument(doc,row.querySelector('[data-favori]')));
+      row.querySelector('[data-plus-tard]')?.addEventListener('click',()=>ajouterDocumentPlusTard(doc,row.querySelector('[data-plus-tard]')));
+      actualiserEtatActionsDocument(row,doc);
       list.appendChild(row);
     });
     content.innerHTML='';
@@ -5254,10 +5301,15 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const start=(recentsPageCourante-1)*SITE_PUBLIC_PAGE_SIZE;
     const grid=document.createElement('div'); grid.className='recents-grid';
     data.slice(start,start+SITE_PUBLIC_PAGE_SIZE).forEach(doc=>{
-      const card=document.createElement('button'); card.type='button'; card.className='recents-card';
+      const card=document.createElement('article'); card.className='recents-card'; card.setAttribute('role','button'); card.tabIndex=0;
       const tags=tagsClassementDocument(doc);
-      card.innerHTML=`<div class="titre">${doc.Titre||''}</div><div class="tags">${tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>`;
-      card.addEventListener('click',()=>ouvrirApercuDocument(doc)); grid.appendChild(card);
+      card.innerHTML=`<div class="titre">${doc.Titre||''}</div><div class="tags">${tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div><div class="recents-card-actions"><button type="button" data-favori-card aria-label="Ajouter aux favoris">♡ Favori</button><button type="button" data-plus-tard-card aria-label="Télécharger plus tard">＋ Plus tard</button></div>`;
+      card.addEventListener('click',(e)=>{if(e.target.closest('.recents-card-actions')) return;ouvrirApercuDocument(doc);});
+      card.addEventListener('keydown',(e)=>{if((e.key==='Enter'||e.key===' ')&&!e.target.closest('.recents-card-actions')){e.preventDefault();ouvrirApercuDocument(doc);}});
+      card.querySelector('[data-favori-card]')?.addEventListener('click',(e)=>{e.stopPropagation();basculerFavoriDocument(doc,card.querySelector('[data-favori-card]'));});
+      card.querySelector('[data-plus-tard-card]')?.addEventListener('click',(e)=>{e.stopPropagation();ajouterDocumentPlusTard(doc,card.querySelector('[data-plus-tard-card]'));});
+      actualiserEtatActionsDocument(card,doc);
+      grid.appendChild(card);
     });
     content.innerHTML=''; content.appendChild(grid);
     afficherPaginationSite('recentsPager',data.length,recentsPageCourante,p=>{recentsPageCourante=p;rendreRecentsAvecOutils();});
@@ -7803,10 +7855,30 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   let PDF_ROTATION = 0;         // 0/90/180/270
   const PDF_ZOOM_MIN = 0.5, PDF_ZOOM_MAX = 3, PDF_ZOOM_PAS = 0.25;
   let PDF_MODE_LECTURE = 'vertical'; // vertical = défilement continu ; horizontal = pages côte à côte
+  // Cache mémoire court : rouvrir un PDF déjà consulté évite un nouveau téléchargement.
+  const PDF_CACHE_OCTETS = new Map();
+  const PDF_CACHE_MAX = 4;
+  let PDF_FETCH_CONTROLLER = null;
 
+  function memoriserPDFCache(cle, octets) {
+    if (!cle || !octets) return;
+    PDF_CACHE_OCTETS.delete(cle);
+    PDF_CACHE_OCTETS.set(cle, octets);
+    while (PDF_CACHE_OCTETS.size > PDF_CACHE_MAX) PDF_CACHE_OCTETS.delete(PDF_CACHE_OCTETS.keys().next().value);
+  }
 
   function texteFichierPourAffichage(doc) {
     return (doc && doc.Titre) ? doc.Titre : 'document';
+  }
+
+  function mettreAJourProgressionLecteurPDF(pct, etape) {
+    const p=Math.max(0,Math.min(100,Number(pct)||0));
+    const bar=document.getElementById('pdfViewerProgressBar');
+    const percent=document.getElementById('pdfViewerProgressPercent');
+    const stage=document.getElementById('pdfViewerProgressStage');
+    if(bar) bar.style.width=p+'%';
+    if(percent) percent.textContent=Math.round(p)+'%';
+    if(stage && etape) stage.textContent=etape;
   }
 
   async function ouvrirLecteurPDF(doc) {
@@ -7821,6 +7893,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     document.getElementById('pdfViewerZoomLevel').textContent = '100%';
     mettreAJourModeLecturePDF();
     const jeton = ++PDF_JETON_OUVERTURE;
+    if (PDF_FETCH_CONTROLLER) { try { PDF_FETCH_CONTROLLER.abort(); } catch(e) {} }
+    PDF_FETCH_CONTROLLER = (typeof AbortController !== 'undefined') ? new AbortController() : null;
     const telechargementOk = doc.Telechargement_autorise !== false;
 
     document.getElementById('pdfViewerTitre').textContent = doc.Titre || 'Document';
@@ -7837,6 +7911,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     // Réinitialisation de l'affichage : écran de chargement visible, erreur et
     // canvas masqués, pagination remise à "— / —".
     afficherEtatChargement();
+    mettreAJourProgressionLecteurPDF(0, 'Préparation du document');
     document.getElementById('pdfViewerPage').textContent = '— / —';
     document.getElementById('pdfViewerOverlay').style.display = 'block';
     document.getElementById('pdfViewerZone').focus({ preventScroll: true });
@@ -7873,19 +7948,34 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     }
 
     try {
-      const octets = await recupererOctetsPDF(doc.Fichier_url, (pct) => {
+      const cacheCle=String(doc.Fichier_url);
+      let octets=PDF_CACHE_OCTETS.get(cacheCle)||null;
+      if(octets){
+        PDF_CACHE_OCTETS.delete(cacheCle); PDF_CACHE_OCTETS.set(cacheCle,octets);
+        mettreAJourProgressionLecteurPDF(70,'Document déjà chargé · ouverture rapide');
+        document.getElementById('pdfViewerStatut').textContent='Ouverture instantanée…';
+      }else{
+        octets = await recupererOctetsPDF(doc.Fichier_url, (pct) => {
+          if (jeton !== PDF_JETON_OUVERTURE) return;
+          const statut = document.getElementById('pdfViewerStatut');
+          if (pct != null) {
+            mettreAJourProgressionLecteurPDF(Math.max(4,Math.min(88,pct*.88)),'Téléchargement');
+            statut.textContent = `Téléchargement du document… ${pct}%`;
+          } else {
+            mettreAJourProgressionLecteurPDF(42,'Téléchargement');
+            statut.textContent = 'Téléchargement du document…';
+          }
+        }, diagLog, PDF_FETCH_CONTROLLER?.signal);
         if (jeton !== PDF_JETON_OUVERTURE) return;
-        const statut = document.getElementById('pdfViewerStatut');
-        statut.textContent = (pct != null)
-          ? `Téléchargement du document… ${pct}%`
-          : 'Téléchargement du document…';
-      }, diagLog);
+        memoriserPDFCache(cacheCle,octets);
+      }
       if (jeton !== PDF_JETON_OUVERTURE) return;
       PDF_OCTETS_COURANTS = octets;
       diagLog(`→ ${octets.byteLength} octet(s) reçu(s) au total.`);
       const octetsInspection = new Uint8Array(octets.slice(0, 5));
       const signature = String.fromCharCode(...octetsInspection);
       diagLog('→ signature des 5 premiers octets : ' + JSON.stringify(signature) + (signature === '%PDF-' ? ' (OK, ressemble à un PDF)' : ' (⚠️ NE COMMENCE PAS PAR %PDF- : ce n\'est probablement pas un PDF valide — page d\'erreur HTML/JSON ?)'));
+      mettreAJourProgressionLecteurPDF(91,'Analyse du document');
       document.getElementById('pdfViewerStatut').textContent = 'Préparation de l\'affichage…';
       // PDF.js a besoin de sa propre copie des octets (il peut les transférer à
       // son worker) : on lui donne une copie pour garder PDF_OCTETS_COURANTS
@@ -7895,7 +7985,9 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       if (jeton !== PDF_JETON_OUVERTURE) return; // le lecteur a été refermé/changé entre-temps
       diagLog('→ PDF.js a chargé le document : ' + pdf.numPages + ' page(s).');
       PDF_EN_COURS = pdf;
+      mettreAJourProgressionLecteurPDF(96,'Rendu de la première page');
       await rendrePagePDF(1);
+      mettreAJourProgressionLecteurPDF(100,'Document prêt');
       diagLog('→ Page 1 rendue avec succès.');
     } catch (err) {
       if (jeton !== PDF_JETON_OUVERTURE) return;
@@ -7921,6 +8013,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     document.getElementById('pdfViewerErreurBox').style.display = 'none';
     document.getElementById('pdfViewerCanvas').style.display = 'none';
     document.getElementById('pdfViewerStatut').textContent = 'Chargement du document…';
+    mettreAJourProgressionLecteurPDF(0,'Préparation');
   }
 
   function afficherErreurLecteur(message, telechargementOk, url) {
@@ -8097,13 +8190,13 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   const btnFermerCarteTelechargement=document.getElementById('downloadProgressClose');
   if(btnFermerCarteTelechargement) btnFermerCarteTelechargement.addEventListener('click',fermerCarteTelechargement);
 
-  async function recupererOctetsPDF(url, onProgress, diagLog) {
+  async function recupererOctetsPDF(url, onProgress, diagLog, signal) {
     const log = diagLog || function(){};
     const cle = (url && url.indexOf(R2_PUBLIC_URL + '/') === 0) ? url.slice(R2_PUBLIC_URL.length + 1) : null;
     if (cle) {
       log('Tentative 1 — via le Worker Cloudflare : GET ' + R2_WORKER_URL + '/' + cle);
       try {
-        const res = await fetch(`${R2_WORKER_URL}/${cle}`);
+        const res = await fetch(`${R2_WORKER_URL}/${cle}`, signal ? {signal} : undefined);
         log('→ réponse reçue : HTTP ' + res.status + ' ' + res.statusText
           + ' | Content-Type: ' + (res.headers.get('Content-Type') || '(absent)')
           + ' | Content-Length: ' + (res.headers.get('Content-Length') || '(absent)'));
@@ -8124,7 +8217,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       log("URL non reconnue comme une clé R2_PUBLIC_URL connue : tentative via le Worker ignorée, on va directement à l'URL fournie.");
     }
     log('Tentative 2 — URL directe fournie en base : GET ' + url);
-    const res2 = await fetch(url);
+    const res2 = await fetch(url, signal ? {signal} : undefined);
     log('→ réponse reçue : HTTP ' + res2.status + ' ' + res2.statusText
       + ' | Content-Type: ' + (res2.headers.get('Content-Type') || '(absent)')
       + ' | Content-Length: ' + (res2.headers.get('Content-Length') || '(absent)'));
@@ -8489,6 +8582,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
   function fermerLecteurPDF() {
     PDF_JETON_OUVERTURE++; // invalide tout chargement PDF.js encore en cours
+    if (PDF_FETCH_CONTROLLER) { try { PDF_FETCH_CONTROLLER.abort(); } catch(e) {} PDF_FETCH_CONTROLLER=null; }
     document.getElementById('pdfViewerOverlay').style.display = 'none';
     const canvas = document.getElementById('pdfViewerCanvas');
     const ctx = canvas.getContext('2d');
@@ -8908,7 +9002,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   let MES_DOCUMENTS_PERSONNELS = [];
   let MES_LIVRES_PERSONNELS = [];
   let MES_NOTIFICATIONS_PERSONNELLES = [];
-  let ONGLET_LIVRES_PERSONNEL = 'adds';
 
   function escapeTextePersonnel(v){ return echapperHtmlPub(v == null ? '' : String(v)); }
 
@@ -8916,8 +9009,12 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     if (!session || !session.id) return;
     const listDocs=document.getElementById('personalDocumentsList');
     const listBooks=document.getElementById('personalBooksList');
+    const listFavs=document.getElementById('personalFavoritesList');
+    const listLater=document.getElementById('personalLaterList');
     if(listDocs) listDocs.innerHTML='<div class="personal-empty">Chargement de vos documents…</div>';
     if(listBooks) listBooks.innerHTML='<div class="personal-empty">Chargement de vos livres…</div>';
+    if(listFavs) listFavs.innerHTML='<div class="personal-empty">Chargement de vos favoris…</div>';
+    if(listLater) listLater.innerHTML='<div class="personal-empty">Chargement de vos documents enregistrés…</div>';
     try{
       // La table de liaison existe déjà dans le flux de dépôt : elle associe
       // document_id et user_id au compte authentifié. On la réutilise afin de
@@ -8945,6 +9042,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
       rendreDocumentsPersonnels();
       rendreLivresPersonnels();
+      rendreFavorisPersonnels();
+      rendreDocumentsPlusTard();
     }catch(err){
       console.warn('[Espace personnel]',err);
       MES_DOCUMENTS_PERSONNELS=[]; MES_LIVRES_PERSONNELS=[];
@@ -9000,28 +9099,40 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const list=document.getElementById('personalBooksList');
     if(!list) return;
     const livres=[...MES_LIVRES_PERSONNELS];
-    let visibles=livres;
-    if(ONGLET_LIVRES_PERSONNEL==='library') visibles=livres.filter(d=>d.Publie===true);
-    if(ONGLET_LIVRES_PERSONNEL==='favorites'){
-      let favoris=[]; try{favoris=JSON.parse(localStorage.getItem('aurore_livres_favoris_'+session.id)||'[]');}catch(e){}
-      visibles=livres.filter(d=>favoris.includes(String(d.id)));
-    }
-    if(ONGLET_LIVRES_PERSONNEL==='downloads'){
-      list.innerHTML='<div class="personal-empty">Cette section est prête pour les téléchargements futurs. Les fichiers disponibles au téléchargement apparaîtront ici lorsqu’ils seront activés.</div>';
-      return;
-    }
     list.innerHTML='';
-    if(!visibles.length){
-      const message=ONGLET_LIVRES_PERSONNEL==='adds'?'Vous n’avez encore ajouté aucun livre.':ONGLET_LIVRES_PERSONNEL==='library'?'Vos livres validés apparaîtront ici.':'Aucun favori pour le moment.';
-      list.innerHTML=`<div class="personal-empty">${message}</div>`; return;
-    }
-    visibles.forEach(doc=>{
+    if(!livres.length){list.innerHTML='<div class="personal-empty">Vous n’avez encore ajouté aucun livre.</div>';return;}
+    livres.forEach(doc=>{
       const row=document.createElement('article'); row.className='personal-book';
       const status=doc.Publie===true?'accepted':'pending';
-      row.innerHTML=`<div class="personal-book-main"><div class="personal-book-title">${escapeTextePersonnel(doc.Titre||'Livre sans titre')}</div><div class="personal-book-meta">${escapeTextePersonnel(doc.Genre||'Livre')} · ${status==='accepted'?'Publié dans la bibliothèque':'En attente de validation'}</div></div><span class="personal-status ${status}">${texteStatutPersonnel(status)}</span><div class="personal-doc-actions"><button type="button" class="personal-action" data-read="1">Voir</button></div>`;
+      row.innerHTML=`<div class="personal-book-main"><div class="personal-book-title">${escapeTextePersonnel(doc.Titre||'Livre sans titre')}</div><div class="personal-book-meta">${escapeTextePersonnel(doc.Genre||'Livre')} · ${status==='accepted'?'Publié':'En attente de validation'}</div></div><span class="personal-status ${status}">${texteStatutPersonnel(status)}</span><div class="personal-doc-actions"><button type="button" class="personal-action" data-read="1">Voir</button></div>`;
       row.querySelector('[data-read]')?.addEventListener('click',()=>ouvrirLecteurPDF(doc));
       list.appendChild(row);
     });
+  }
+
+  async function rendreFavorisPersonnels(){
+    const list=document.getElementById('personalFavoritesList');
+    if(!list||!session)return;
+    const ids=favoris();
+    if(!ids.length){list.innerHTML='<div class="personal-empty">Aucun favori pour le moment. Utilisez « ♡ Favori » sur un document du site.</div>';return;}
+    list.innerHTML='<div class="personal-empty">Chargement de vos favoris…</div>';
+    try{
+      const query=`id=in.(${ids.map(encodeURIComponent).join(',')})&Publie=eq.true`;
+      const r=await fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&${query}`,{headers:HEADERS});
+      if(!r.ok)throw new Error('favoris');
+      const docs=await r.json();
+      const order=new Map(ids.map((id,i)=>[String(id),i]));
+      docs.sort((a,b)=>(order.get(String(a.id))??9999)-(order.get(String(b.id))??9999));
+      list.innerHTML='';
+      if(!docs.length){list.innerHTML='<div class="personal-empty">Vos favoris ne sont plus disponibles publiquement.</div>';return;}
+      docs.forEach(doc=>{
+        const row=document.createElement('article');row.className='personal-doc';
+        row.innerHTML=`<div class="personal-doc-main"><div class="personal-doc-title">${escapeTextePersonnel(doc.Titre||'Document')}</div><div class="personal-doc-meta">${escapeTextePersonnel([doc.Niveau,doc['Matière']||doc.Genre].filter(Boolean).join(' · ')||'Document')}</div></div><div class="personal-doc-actions"><button type="button" class="personal-action" data-read>Voir</button><button type="button" class="personal-action is-active" data-remove>♥ Favori</button></div>`;
+        row.querySelector('[data-read]')?.addEventListener('click',()=>ouvrirLecteurPDF(doc));
+        row.querySelector('[data-remove]')?.addEventListener('click',()=>{basculerFavoriDocument(doc,row.querySelector('[data-remove]'));setTimeout(rendreFavorisPersonnels,0);});
+        list.appendChild(row);
+      });
+    }catch(e){list.innerHTML='<div class="personal-empty">Impossible de charger vos favoris pour le moment.</div>';}
   }
 
   function initialiserEspacePersonnel(){
@@ -9031,10 +9142,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       btn.classList.add('active');btn.setAttribute('aria-selected','true');
       const panel=document.querySelector(`.personal-panel[data-personal-panel="${btn.dataset.personalTab}"]`);
       if(panel){panel.classList.add('active');panel.hidden=false;}
-    }));
-    document.querySelectorAll('.books-personal-tab').forEach(btn=>btn.addEventListener('click',()=>{
-      document.querySelectorAll('.books-personal-tab').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active'); ONGLET_LIVRES_PERSONNEL=btn.dataset.booksTab||'adds'; rendreLivresPersonnels();
     }));
     document.getElementById('personalRefresh')?.addEventListener('click',chargerDonneesEspacePersonnel);
   }
@@ -9829,6 +9936,164 @@ footer>.wrap:last-child{margin-top:18px!important;}
   #pdfViewerOverlay .pdf-reader-bottombar{padding:7px 10px!important;}
   #pdfViewerOverlay .pdf-reader-bottombar button{min-height:36px!important;padding:7px 13px!important;font-size:.76rem;}
 </style>
+
+
+<style id="aurore-personal-actions-v2">
+  .doc-actions{align-items:center}
+  .doc-action-soft{font-size:.72rem!important;padding:8px 11px!important;border-radius:11px!important}
+  .doc-action-soft.is-active{color:var(--violet)!important;border-color:var(--violet)!important;background:rgba(124,58,237,.08)!important}
+  .recents-card-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px;position:relative;z-index:2}
+  .recents-card-actions button{border:1px solid var(--bordure);background:var(--papier);color:var(--gris);border-radius:10px;padding:6px 9px;font-size:.68rem;font-weight:700;cursor:pointer}
+  .recents-card-actions button.is-active{color:var(--violet);border-color:var(--violet);background:rgba(124,58,237,.08)}
+  .apercu-actions-extra{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}
+  .personal-action.is-active{color:var(--violet);border-color:var(--violet);background:rgba(124,58,237,.08)}
+  .access-code-modal{position:fixed;inset:0;z-index:11000;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(9,8,18,.68);backdrop-filter:blur(6px)}
+  .access-code-card{width:min(430px,100%);background:var(--papier);border:1px solid var(--bordure);border-radius:22px;padding:25px;box-shadow:0 28px 80px rgba(0,0,0,.35)}
+  .access-code-card h3{font-size:1.3rem;margin-bottom:7px}.access-code-card p{font-size:.8rem;color:var(--gris);line-height:1.55;margin-bottom:15px}
+  .access-code-card label{display:block;font-size:.75rem;font-weight:800;margin-bottom:7px}.access-code-card input{width:100%;padding:12px;border:1px solid var(--bordure);border-radius:12px;background:var(--fond);color:var(--encre);font-size:1rem;letter-spacing:.18em;text-align:center;outline:none}.access-code-card input:focus{border-color:var(--violet);box-shadow:0 0 0 3px rgba(124,58,237,.12)}
+  .access-code-actions{display:flex;gap:8px;margin-top:13px}.access-code-actions button{flex:1;border:1px solid var(--bordure);border-radius:11px;padding:10px 12px;font-weight:800;cursor:pointer;background:var(--fond);color:var(--encre)}.access-code-actions .primary{background:var(--violet);border-color:var(--violet);color:#fff}
+  .access-code-message{display:none;margin-top:10px;padding:10px 12px;border:1px solid var(--bordure);border-radius:12px;font-size:.74rem;line-height:1.45}.access-code-message.err{display:block;background:#FFF7F7;color:#991B1B;border-color:#FCA5A5}.access-code-message.ok{display:block;background:#ECFDF3;color:#166534;border-color:#86EFAC}
+  .access-code-note{font-size:.68rem!important;margin-top:10px!important;margin-bottom:0!important}
+  @media(max-width:620px){.doc-actions .doc-action-soft{flex:1}.access-code-card{padding:21px}.access-code-actions{flex-direction:column}}
+</style>
+
+<div class="access-code-modal" id="accessCodeModal" aria-hidden="true">
+  <section class="access-code-card" role="dialog" aria-modal="true" aria-labelledby="accessCodeTitle">
+    <h3 id="accessCodeTitle">Protégez votre espace personnel</h3>
+    <p id="accessCodeIntro">Créez un code d’accès personnel pour ouvrir votre espace Aurore. Vous pourrez le modifier à tout moment depuis votre profil.</p>
+    <label for="accessCodeInput">Code d’accès</label>
+    <input id="accessCodeInput" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="••••••" aria-describedby="accessCodeMessage">
+    <div class="access-code-actions">
+      <button type="button" id="accessCodeCancel">Annuler</button>
+      <button type="button" class="primary" id="accessCodeConfirm">Continuer</button>
+    </div>
+    <div class="access-code-message" id="accessCodeMessage"></div>
+    <p class="access-code-note">Utilisez 4 à 8 chiffres. Ce code est un verrou d’accès à l’espace sur cet appareil, distinct du mot de passe de votre compte.</p>
+  </section>
+</div>
+
+<script id="aurore-personal-actions-v2-js">
+(function(){
+  const KEY_FAV='aurore_favoris_documents_';
+  const KEY_LATER='aurore_documents_plus_tard_';
+  const KEY_CODE='aurore_code_espace_';
+  const codeModal=document.getElementById('accessCodeModal');
+  const codeInput=document.getElementById('accessCodeInput');
+  const codeMsg=document.getElementById('accessCodeMessage');
+  const codeTitle=document.getElementById('accessCodeTitle');
+  const codeIntro=document.getElementById('accessCodeIntro');
+  let codeMode='verify';
+  let codeResolve=null;
+  let espaceOptions={};
+
+  const userKey=()=>session&&session.id?String(session.id):'';
+  const safeRead=(key)=>{try{const v=localStorage.getItem(key);return v?JSON.parse(v):[];}catch(e){return[];}};
+  const safeWrite=(key,v)=>{try{localStorage.setItem(key,JSON.stringify(v));return true;}catch(e){return false;}};
+  const docId=doc=>String(doc&&doc.id!=null?doc.id:'');
+  function requireLogin(){
+    const signup=document.getElementById('accessSignupBtn');
+    if(signup) signup.click();
+    setTimeout(()=>document.getElementById('showLoginBtn')?.click(),30);
+    const m=document.getElementById('loginMessage');
+    if(m){m.textContent='Connectez-vous pour utiliser les favoris et enregistrer des documents pour plus tard dans votre espace personnel.';m.className='access-message ok';m.style.display='block';}
+  }
+  function favoris(){return userKey()?safeRead(KEY_FAV+userKey()).map(String):[];}
+  function plusTard(){return userKey()?safeRead(KEY_LATER+userKey()):[];}
+  function basculerFavoriDocument(doc,button){
+    if(!session){requireLogin();return;}
+    const id=docId(doc); if(!id)return;
+    let arr=favoris(); const i=arr.indexOf(id);
+    if(i>=0){arr.splice(i,1);if(button)button.classList.remove('is-active');}
+    else{arr.push(id);if(button)button.classList.add('is-active');}
+    safeWrite(KEY_FAV+userKey(),arr); actualiserEtatActionsDocument(button?.closest('.doc-row,.recents-card')||button,doc);
+  }
+  function ajouterDocumentPlusTard(doc,button){
+    if(!session){requireLogin();return;}
+    const id=docId(doc); if(!id)return;
+    let arr=plusTard();
+    if(!arr.some(x=>String(x.id)===id)){arr.unshift({id:doc.id,titre:doc.Titre||'Document',auteur:doc.Auteur||'',url:doc.Fichier_url||'',categorie:doc['Catégorie']||'',niveau:doc.Niveau||'',matiere:doc['Matière']||'',genre:doc.Genre||'',saved_at:new Date().toISOString()});safeWrite(KEY_LATER+userKey(),arr);}
+    if(button){button.classList.add('is-active');button.textContent='✓ Plus tard';}
+    rendreDocumentsPlusTard();
+  }
+  function actualiserEtatActionsDocument(root,doc){
+    if(!root||!doc||!userKey())return;
+    const fav=favoris().includes(docId(doc));
+    const fb=root.querySelector?.('[data-favori],[data-favori-card]'); if(fb){fb.classList.toggle('is-active',fav);fb.setAttribute('aria-pressed',String(fav));fb.textContent=fav?'♥ Favori':'♡ Favori';}
+    const later=plusTard().some(x=>String(x.id)===docId(doc)); const lb=root.querySelector?.('[data-plus-tard],[data-plus-tard-card]'); if(lb){lb.classList.toggle('is-active',later);lb.textContent=later?'✓ Plus tard':'＋ Plus tard';}
+  }
+  window.basculerFavoriDocument=basculerFavoriDocument;
+  window.ajouterDocumentPlusTard=ajouterDocumentPlusTard;
+  window.actualiserEtatActionsDocument=actualiserEtatActionsDocument;
+
+  function rendreDocumentsPlusTard(){
+    const list=document.getElementById('personalLaterList'); if(!list||!session)return;
+    const arr=plusTard();
+    list.innerHTML='';
+    if(!arr.length){list.innerHTML='<div class="personal-empty">Aucun document enregistré pour plus tard. Utilisez « ＋ Plus tard » sur un document du site.</div>';return;}
+    arr.forEach(d=>{
+      const row=document.createElement('article');row.className='personal-book';
+      row.innerHTML=`<div class="personal-book-main"><div class="personal-book-title">${escapeTextePersonnel(d.titre)}</div><div class="personal-book-meta">Document enregistré pour plus tard${d.niveau?' · '+escapeTextePersonnel(d.niveau):''}</div></div><div class="personal-doc-actions"><button type="button" class="personal-action" data-lire-tard>Voir</button></div>`;
+      row.querySelector('[data-lire-tard]')?.addEventListener('click',()=>ouvrirLecteurPDF({id:d.id,Titre:d.titre,Auteur:d.auteur,Fichier_url:d.url,'Catégorie':d.categorie,Niveau:d.niveau,'Matière':d.matiere,Genre:d.genre}));
+      list.appendChild(row);
+    });
+  }
+  window.rendreDocumentsPlusTard=rendreDocumentsPlusTard;
+
+
+  // Favori depuis l’aperçu.
+  document.getElementById('apercuFavori')?.addEventListener('click',()=>{if(typeof DOC_EN_APERCU!=='undefined'&&DOC_EN_APERCU)basculerFavoriDocument(DOC_EN_APERCU,document.getElementById('apercuFavori'));});
+  document.getElementById('apercuPlusTard')?.addEventListener('click',()=>{if(typeof DOC_EN_APERCU!=='undefined'&&DOC_EN_APERCU)ajouterDocumentPlusTard(DOC_EN_APERCU,document.getElementById('apercuPlusTard'));});
+  const oldOpen=window.ouvrirApercuDocument;
+  // La fonction d’origine n’est pas exportée partout : on synchronise à chaque ouverture via un MutationObserver léger.
+  const apercu=document.getElementById('apercuOverlay');
+  if(apercu){new MutationObserver(()=>{if(apercu.style.display==='flex'&&typeof DOC_EN_APERCU!=='undefined'&&DOC_EN_APERCU)actualiserEtatActionsDocument(apercu,DOC_EN_APERCU);}).observe(apercu,{attributes:true,attributeFilter:['style']});}
+
+  // Code d’accès personnel.
+  function codeStocke(){return userKey()?localStorage.getItem(KEY_CODE+userKey()):null;}
+  async function hashCode(v){const data=new TextEncoder().encode(v);const hash=await crypto.subtle.digest('SHA-256',data);return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+  function showCode(mode,options){
+    codeMode=mode;espaceOptions=options||{};if(!codeModal)return;
+    codeMsg.className='access-code-message';codeMsg.textContent='';codeMsg.style.display='none';codeInput.value='';
+    if(mode==='setup'){codeTitle.textContent='Créer votre code d’accès';codeIntro.textContent='Choisissez un code personnel de 4 à 8 chiffres. Il sera demandé avant l’ouverture de votre espace sur cet appareil.';}
+    else {codeTitle.textContent='Code d’accès à votre espace';codeIntro.textContent='Saisissez votre code personnel pour ouvrir votre espace Aurore.';}
+    codeModal.style.display='flex';codeModal.setAttribute('aria-hidden','false');setTimeout(()=>codeInput.focus(),50);
+  }
+  function closeCode(){codeModal.style.display='none';codeModal.setAttribute('aria-hidden','true');codeResolve?.(false);codeResolve=null;}
+  async function confirmCode(){
+    const value=String(codeInput.value||'').trim();
+    if(!/^\d{4,8}$/.test(value)){codeMsg.textContent='Le code doit contenir entre 4 et 8 chiffres.';codeMsg.className='access-code-message err';return;}
+    if(codeMode==='setup'){
+      try{localStorage.setItem(KEY_CODE+userKey(),await hashCode(value));codeMsg.textContent='Code enregistré. Votre espace va s’ouvrir.';codeMsg.className='access-code-message ok';setTimeout(()=>{closeCode();ouvrirEspaceInterne(espaceOptions);},300);}catch(e){codeMsg.textContent='Impossible d’enregistrer le code sur cet appareil.';codeMsg.className='access-code-message err';}
+      return;
+    }
+    try{const ok=(await hashCode(value))===codeStocke();if(!ok){codeMsg.textContent='Code incorrect. Réessayez.';codeMsg.className='access-code-message err';return;}closeCode();ouvrirEspaceInterne(espaceOptions);}catch(e){codeMsg.textContent='Impossible de vérifier le code.';codeMsg.className='access-code-message err';}
+  }
+  function ouvrirEspaceInterne(options={}){
+    if(!session)return;if(typeof window.auroreUnlockAccess==='function')window.auroreUnlockAccess();document.getElementById('breadcrumb').innerHTML='';remplirProfil();
+    const screen=document.getElementById('screen-profil');
+    if(screen && options.forceComplete && !screen.querySelector('.profile-completion-banner')){const banner=document.createElement('div');banner.className='profile-completion-banner';banner.textContent='Bienvenue dans votre espace personnel. Avant de commencer, renseignez au minimum votre établissement, votre niveau et votre classe. Ces informations permettent à Aurore de personnaliser et organiser votre expérience.';screen.insertBefore(banner,screen.querySelector('.profile-card'));}
+    afficherEcran('screen-profil');chargerDonneesEspacePersonnel?.();
+  }
+  function ouvrirEspaceAvecCode(options={}){
+    if(!session)return;
+    if(!codeStocke())showCode('setup',options);else showCode('verify',options);
+  }
+  window.ouvrirEspaceAvecCode=ouvrirEspaceAvecCode;
+  document.getElementById('accessCodeConfirm')?.addEventListener('click',confirmCode);
+  document.getElementById('accessCodeCancel')?.addEventListener('click',closeCode);
+  codeModal?.addEventListener('click',e=>{if(e.target===codeModal)closeCode();});
+  codeInput?.addEventListener('keydown',e=>{if(e.key==='Enter')confirmCode();if(e.key==='Escape')closeCode();});
+
+  // Expose the « modifier le code » action through a compact button inserted into the profile.
+  const meta=document.querySelector('#screen-profil .profile-meta');
+  if(meta && !document.getElementById('profilCodeAccessCard')){
+    const card=document.createElement('div');card.className='profile-meta-item';card.id='profilCodeAccessCard';
+    card.innerHTML='<div class="label">Code d’accès personnel</div><div class="value" style="font-size:.82rem;font-weight:500;color:var(--gris);margin-bottom:10px;">Modifiez le code utilisé pour ouvrir votre espace sur cet appareil.</div><button type="button" class="personal-action" id="profilCodeModifier">Modifier mon code</button>';
+    meta.appendChild(card);
+    card.querySelector('#profilCodeModifier').addEventListener('click',()=>{if(session){showCode('setup',{});}});
+  }
+})();
+</script>
 
 </body>
 </html>
