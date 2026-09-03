@@ -1308,7 +1308,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   @media(display-mode: standalone){.pwa-install-btn,.pwa-install-hint{display:none!important}body{padding-top:env(safe-area-inset-top)}}
   @media(display-mode: fullscreen){.pwa-install-btn,.pwa-install-hint{display:none!important}}
 </style>
-</head>
+\n<style id="aurore-personal-space-reconstruction">\n  .aurora-personal{max-width:960px;margin:22px auto 0;padding:0;background:transparent;border:0;box-shadow:none;}\n  .aurora-personal-hero{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:24px;border:1px solid var(--bordure);border-radius:24px;background:linear-gradient(135deg,var(--papier),var(--fond));box-shadow:var(--ombre);}\n  .aurora-personal-eyebrow,.aurora-panel-kicker{font-size:.66rem;letter-spacing:.14em;font-weight:900;color:var(--violet);}\n  .aurora-personal-hero h3{margin:6px 0 5px;font-size:1.45rem;line-height:1.15;}\n  .aurora-personal-hero p{margin:0;color:var(--gris);font-size:.8rem;line-height:1.55;max-width:620px;}\n  .aurora-refresh{border:1px solid var(--bordure);background:var(--papier);color:var(--encre);border-radius:14px;padding:10px 13px;font-weight:800;cursor:pointer;white-space:nowrap;box-shadow:0 5px 16px rgba(0,0,0,.04);}\n  .aurora-refresh:hover{border-color:var(--violet);}\n  .aurora-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0;}\n  .aurora-stat{display:flex;align-items:center;gap:11px;text-align:left;border:1px solid var(--bordure);background:var(--papier);color:var(--encre);border-radius:17px;padding:13px;cursor:pointer;min-width:0;transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease;}\n  .aurora-stat:hover{transform:translateY(-1px);border-color:var(--violet);}\n  .aurora-stat.is-active{border-color:var(--violet);box-shadow:0 8px 22px rgba(124,58,237,.08);}\n  .aurora-stat-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:11px;background:rgba(124,58,237,.10);font-size:1rem;flex:0 0 34px;}\n  .aurora-stat-copy{min-width:0;display:flex;flex-direction:column;}\n  .aurora-stat-copy b{font-size:1.05rem;line-height:1.05;}\n  .aurora-stat-copy small{font-size:.67rem;color:var(--gris);margin-top:3px;white-space:nowrap;}\n  .aurora-panels{border:1px solid var(--bordure);border-radius:22px;background:var(--papier);box-shadow:var(--ombre);overflow:hidden;}\n  .aurora-panels .personal-panel{padding:22px;}\n  .aurora-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;}\n  .aurora-panel-head h4{margin:5px 0 0;font-size:1.12rem;}\n  .aurora-panel-badge{min-width:30px;height:30px;padding:0 9px;display:grid;place-items:center;border-radius:999px;background:rgba(124,58,237,.10);font-weight:900;font-size:.75rem;}\n  .aurora-panel-intro{margin:7px 0 16px;color:var(--gris);font-size:.75rem;line-height:1.5;}\n  .aurora-list{gap:10px;}\n  .aurora-list .personal-doc,.aurora-list .personal-book{background:var(--fond);border-radius:16px;padding:14px;transition:border-color .15s ease,transform .15s ease;}\n  .aurora-list .personal-doc:hover,.aurora-list .personal-book:hover{border-color:var(--violet);transform:translateY(-1px);}\n  .aurora-list .personal-doc-title,.aurora-list .personal-book-title{font-size:.88rem;}\n  .aurora-list .personal-doc-meta,.aurora-list .personal-book-meta{font-size:.7rem;}\n  .aurora-list .personal-action{border-radius:10px;padding:8px 11px;}\n  .aurora-loading{min-height:90px;display:flex;align-items:center;justify-content:center;gap:10px;border:1px dashed var(--bordure);border-radius:15px;color:var(--gris);font-size:.76rem;}\n  .aurora-loading i{width:15px;height:15px;border:2px solid var(--bordure);border-top-color:var(--violet);border-radius:50%;animation:auroraSpin .8s linear infinite;}\n  .aurora-subsection{padding:15px 0;border-top:1px solid var(--bordure);}\n  .aurora-subsection:first-child{border-top:0;padding-top:0;}\n  .aurora-subsection-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;font-size:.78rem;}\n  .aurora-subsection-head span{min-width:25px;text-align:center;padding:3px 7px;border-radius:999px;background:var(--fond);color:var(--gris);font-size:.67rem;}\n  @keyframes auroraSpin{to{transform:rotate(360deg)}}\n  @media(max-width:700px){.aurora-personal-hero{padding:18px;border-radius:20px;align-items:flex-start}.aurora-personal-hero h3{font-size:1.25rem}.aurora-refresh span{display:none}.aurora-refresh{font-size:1.1rem;width:40px;height:40px;padding:0}.aurora-stats{grid-template-columns:repeat(2,1fr)}.aurora-panels .personal-panel{padding:17px}.aurora-list .personal-doc,.aurora-list .personal-book{align-items:flex-start;flex-direction:column}.aurora-list .personal-status{align-self:flex-start}.aurora-list .personal-doc-actions{width:100%;justify-content:flex-start}}\n  @media(max-width:390px){.aurora-stats{gap:7px}.aurora-stat{padding:10px}.aurora-stat-icon{width:30px;height:30px;flex-basis:30px}.aurora-stat-copy b{font-size:.95rem}.aurora-stat-copy small{font-size:.62rem}}\n</style>\n</head>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <body class="site-locked">
 
@@ -9066,119 +9066,74 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   function escapeTextePersonnel(v){ return echapperHtmlPub(v == null ? '' : String(v)); }
 
   async function chargerDonneesEspacePersonnel(){
-    if (!session || !session.id || !session.access_token) return;
+    if(!session?.id||!session?.access_token) return;
 
-    const listDocs=document.getElementById('personalDocumentsList');
-    const listBooks=document.getElementById('personalBooksList');
-    const listFavs=document.getElementById('personalFavoritesList');
-    const listLater=document.getElementById('personalLaterList');
-    const listDownloads=document.getElementById('personalDownloadsHistory');
+    const name=(session.user_metadata?.full_name||session.user_metadata?.name||session.user_metadata?.given_name||'vous').trim();
+    const welcome=document.getElementById('personalWelcomeName');
+    if(welcome) welcome.textContent=name.split(' ')[0]||'vous';
 
-    if(listDocs) listDocs.innerHTML='<div class="personal-empty">Chargement de vos documents…</div>';
-    if(listBooks) listBooks.innerHTML='<div class="personal-empty">Chargement de vos livres…</div>';
-    if(listFavs) listFavs.innerHTML='<div class="personal-empty">Chargement de vos favoris…</div>';
-    if(listLater) listLater.innerHTML='<div class="personal-empty">Chargement de vos documents enregistrés…</div>';
-    if(listDownloads) listDownloads.innerHTML='<div class="personal-empty">Chargement de votre historique…</div>';
+    const setLoading=(id,text)=>{const el=document.getElementById(id);if(el)el.innerHTML=`<div class="aurora-loading"><i></i><span>${escapeTextePersonnel(text)}</span></div>`;};
+    const setError=(id,text,action)=>{const el=document.getElementById(id);if(el)el.innerHTML=`<div class="personal-empty"><strong>${escapeTextePersonnel(text)}</strong><br><button type="button" class="personal-action" data-retry>${escapeTextePersonnel(action||'Réessayer')}</button></div>`;el?.querySelector('[data-retry]')?.addEventListener('click',chargerDonneesEspacePersonnel);};
 
-    // Sur mobile, une requête réseau qui reste suspendue ne doit jamais bloquer
-    // tout l'espace personnel. Les documents personnels sont donc chargés en
-    // priorité, avec un délai maximal de 12 secondes.
-    const fetchAvecTimeout=async(url,options={},timeoutMs=12000)=>{
-      const controller=new AbortController();
-      const timer=setTimeout(()=>controller.abort(),timeoutMs);
-      try{
-        return await fetch(url,{...options,signal:controller.signal});
-      }finally{
-        clearTimeout(timer);
-      }
-    };
+    setLoading('personalDocumentsList','Chargement de vos documents…');
+    setLoading('personalBooksList','Chargement de vos livres…');
+    setLoading('personalFavoritesList','Chargement de vos favoris…');
+    setLoading('personalLaterList','Chargement…');
+    setLoading('personalDownloadsHistory','Chargement…');
 
-    // 1) DOCUMENTS PERSONNELS — priorité absolue.
+    // Chaque famille de données est isolée : une requête lente ou refusée ne bloque plus l'espace.
     let docs=[];
-    let rpcOk=false;
     try{
-      const rpcRes=await fetchAvecTimeout(`${SUPABASE_URL}/rest/v1/rpc/lister_documents_personnels`,{
-        method:'POST',
-        headers:{...headersAdmin(),'Content-Type':'application/json'},
-        body:'{}',
-        cache:'no-store'
-      });
-      if(rpcRes.ok){
-        const data=await rpcRes.json();
-        docs=Array.isArray(data)?data:[];
-        rpcOk=true;
-        docs.forEach(d=>memoriserDepotPersonnelLocal(d));
-      }else{
-        const detail=await rpcRes.text().catch(()=>'');
-        console.warn(`[Espace personnel] RPC lister_documents_personnels HTTP ${rpcRes.status}.`,detail);
-      }
-    }catch(err){
-      console.warn('[Espace personnel] RPC documents indisponible ou timeout :',err);
-    }
-
-    // Fallback direct si la RPC est momentanément indisponible.
-    if(!rpcOk){
+      const r=await fetchPersonnelAvecTimeout(`${SUPABASE_URL}/rest/v1/rpc/lister_documents_personnels`,{method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json'},body:'{}'},12000);
+      if(!r.ok) throw new Error(`RPC HTTP ${r.status}`);
+      const data=await r.json();
+      docs=Array.isArray(data)?data:[];
+      docs.forEach(d=>memoriserDepotPersonnelLocal(d));
+    }catch(e){
+      console.warn('[Espace personnel] documents RPC:',e);
+      // Le fallback direct est maintenant possible grâce à la policy SELECT personnelle.
       try{
-        const dr=await fetchAvecTimeout(`${SUPABASE_URL}/rest/v1/Depots_deposants?select=document_id,user_id,nom,email&user_id=eq.${encodeURIComponent(session.id)}`,{
-          headers:headersAdmin(),cache:'no-store'
-        });
+        const dr=await fetchPersonnelAvecTimeout(`${SUPABASE_URL}/rest/v1/Depots_deposants?select=document_id,user_id,nom,email&user_id=eq.${encodeURIComponent(session.id)}`,{headers:headersAdmin()},12000);
         if(!dr.ok) throw new Error(`Depots_deposants HTTP ${dr.status}`);
         const links=await dr.json();
-        const ids=[...(links||[])].map(r=>r.document_id).filter(v=>v!==null&&v!==undefined);
+        const ids=[...(links||[])].map(x=>x.document_id).filter(x=>x!=null);
         if(ids.length){
-          const qr=`id=in.(${ids.map(v=>encodeURIComponent(v)).join(',')})`;
-          const rr=await fetchAvecTimeout(`${SUPABASE_URL}/rest/v1/Document?select=*&${qr}&order=id.desc`,{
-            headers:headersAdmin(),cache:'no-store'
-          });
+          const rr=await fetchPersonnelAvecTimeout(`${SUPABASE_URL}/rest/v1/Document?select=*&id=in.(${ids.join(',')})&order=id.desc`,{headers:headersAdmin()},12000);
           if(!rr.ok) throw new Error(`Document HTTP ${rr.status}`);
           docs=await rr.json();
-          docs=Array.isArray(docs)?docs:[];
-          docs.forEach(d=>memoriserDepotPersonnelLocal(d));
+          (Array.isArray(docs)?docs:[]).forEach(d=>memoriserDepotPersonnelLocal(d));
         }
-      }catch(err){
-        console.warn('[Espace personnel] lecture distante des dépôts indisponible, utilisation du cache local :',err);
+      }catch(e2){
+        console.warn('[Espace personnel] fallback documents:',e2);
         docs=depotsPersonnelsLocaux();
       }
     }
 
-    // Affichage immédiat des documents : il ne dépend plus des autres tables.
     const uniques=new Map();
-    [...docs,...depotsPersonnelsLocaux()].forEach(d=>{
-      if(d&&d.id!=null) uniques.set(String(d.id),d);
-    });
+    [...(Array.isArray(docs)?docs:[]),...depotsPersonnelsLocaux()].forEach(d=>{if(d?.id!=null)uniques.set(String(d.id),d);});
     MES_DOCUMENTS_PERSONNELS=[...uniques.values()].sort((a,b)=>Number(b.id||0)-Number(a.id||0));
-    MES_LIVRES_PERSONNELS=MES_DOCUMENTS_PERSONNELS.filter(d=>String(d['Catégorie']||'')==='Livres');
+    MES_LIVRES_PERSONNELS=MES_DOCUMENTS_PERSONNELS.filter(d=>String(d['Catégorie']||'').toLowerCase()==='livres');
     rendreDocumentsPersonnels();
     rendreLivresPersonnels();
-    actualiserCompteursPersonnels();
 
-    // 2) Notifications : séparées et avec timeout.
+    // Notifications séparées.
+    MES_NOTIFICATIONS_PERSONNELLES=[];
     try{
-      const nr=await fetchAvecTimeout(`${SUPABASE_URL}/rest/v1/Notifications?select=id,titre_document,statut,message,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc&limit=100`,{
-        headers:headersAdmin(),cache:'no-store'
-      });
+      const nr=await fetchPersonnelAvecTimeout(`${SUPABASE_URL}/rest/v1/Notifications?select=id,titre_document,statut,message,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc&limit=100`,{headers:headersAdmin()},12000);
       if(nr.ok) MES_NOTIFICATIONS_PERSONNELLES=await nr.json();
-      else MES_NOTIFICATIONS_PERSONNELLES=[];
-    }catch(e){
-      console.warn('[Espace personnel] notifications personnelles indisponibles :',e);
-      MES_NOTIFICATIONS_PERSONNELLES=[];
-    }
-
-    // Re-rendu pour prendre en compte les notifications de refus.
+    }catch(e){ console.warn('[Espace personnel] notifications:',e); }
     rendreDocumentsPersonnels();
-    actualiserCompteursPersonnels();
 
-    // 3) Le reste est synchronisé en arrière-plan : aucune de ces requêtes ne
-    // peut empêcher l'affichage des documents personnels.
-    Promise.resolve().then(async()=>{
-      try{ await synchroniserRessourcesSupabase(); }
-      catch(e){ console.warn('[Espace personnel] synchronisation secondaire :',e); }
-      try{ await rendreFavorisPersonnels(); }
-      catch(e){ console.warn('[Espace personnel] favoris :',e); }
-      try{ rendreDocumentsPlusTard(); }catch(e){ console.warn('[Espace personnel] Plus tard :',e); }
-      try{ rendreDocumentsTelecharges(); }catch(e){ console.warn('[Espace personnel] téléchargements :',e); }
-      try{ afficherNotificationTelechargementAuRetour(); }catch(e){ console.warn('[Espace personnel] notification téléchargement :',e); }
+    // Les autres sections sont synchronisées indépendamment. Elles peuvent continuer même si les documents ont déjà été rendus.
+    synchroniserRessourcesSupabase().catch(e=>console.warn('[Espace personnel] synchronisation:',e)).finally(()=>{
+      actualiserCompteursPersonnels();
+      rendreDocumentsPlusTard();
+      rendreDocumentsTelecharges();
+      rendreFavorisPersonnels().catch(e=>console.warn('[Espace personnel] favoris:',e));
     });
+
+    actualiserCompteursPersonnels();
+    afficherNotificationTelechargementAuRetour();
   }
 
   function statutDocumentPersonnel(doc){
@@ -9240,12 +9195,9 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   }
 
   function actualiserCompteursPersonnels(){
-    const fav=document.getElementById('personalFavoritesCount');
-    const later=document.getElementById('personalLaterCount');
-    const down=document.getElementById('personalDownloadsCount');
-    if(fav) fav.textContent=String(favoris().length);
-    if(later) later.textContent=String(plusTard().length);
-    if(down) down.textContent=String(telecharges().length);
+    const favCount=favoris().length, laterCount=plusTard().length, downCount=telecharges().length;
+    const docsCount=MES_DOCUMENTS_PERSONNELS.length, booksCount=MES_LIVRES_PERSONNELS.length;
+    [['personalDocsCount',docsCount],['personalDocsBadge',docsCount],['personalBooksCount',booksCount],['personalBooksBadge',booksCount],['personalFavoritesCount',favCount],['personalFavoritesBadge',favCount],['personalDownloadsCount',downCount],['personalDownloadsBadge',downCount],['personalLaterCount',laterCount]].forEach(([id,value])=>{const el=document.getElementById(id);if(el)el.textContent=String(value);});
   }
 
   async function rendreFavorisPersonnels(){
@@ -9293,12 +9245,14 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   }
 
   function initialiserEspacePersonnel(){
-    document.querySelectorAll('.personal-tab').forEach(btn=>btn.addEventListener('click',()=>{
-      document.querySelectorAll('.personal-tab').forEach(b=>{b.classList.remove('active');b.setAttribute('aria-selected','false');});
-      document.querySelectorAll('.personal-panel').forEach(p=>{p.classList.remove('active');p.hidden=true;});
-      btn.classList.add('active');btn.setAttribute('aria-selected','true');
-      const panel=document.querySelector(`.personal-panel[data-personal-panel="${btn.dataset.personalTab}"]`);
-      if(panel){panel.classList.add('active');panel.hidden=false;}
+    document.querySelectorAll('.aurora-stat[data-personal-tab]').forEach(btn=>btn.addEventListener('click',()=>{
+      const target=btn.dataset.personalTab;
+      document.querySelectorAll('.aurora-stat[data-personal-tab]').forEach(b=>b.classList.toggle('is-active',b===btn));
+      document.querySelectorAll('.personal-panel[data-personal-panel]').forEach(p=>{
+        const active=p.dataset.personalPanel===target;
+        p.classList.toggle('active',active);
+        p.hidden=!active;
+      });
     }));
     document.getElementById('personalRefresh')?.addEventListener('click',chargerDonneesEspacePersonnel);
   }
@@ -10146,11 +10100,19 @@ footer>.wrap:last-child{margin-top:18px!important;}
   const TABLE_PLUS_TARD_PERSONNELS='documents_plus_tard';
   const TABLE_TELECHARGEMENTS_PERSONNELS='telechargements_documents';
 
+  async function fetchPersonnelAvecTimeout(url, options={}, timeout=12000){
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),timeout);
+    try{
+      return await fetch(url,{...options,signal:controller.signal,cache:options.cache||'no-store'});
+    }finally{ clearTimeout(timer); }
+  }
+
   async function apiPersonnel(table, options={}){
     if(!session?.access_token) throw new Error('SESSION_ABSENTE');
     const url=`${SUPABASE_URL}/rest/v1/${table}${options.query?'?'+options.query:''}`;
     const headers={...headersAdmin(),'Content-Type':'application/json',...(options.headers||{})};
-    const r=await fetch(url,{method:options.method||'GET',headers,body:options.body?JSON.stringify(options.body):undefined});
+    const r=await fetchPersonnelAvecTimeout(url,{method:options.method||'GET',headers,body:options.body?JSON.stringify(options.body):undefined},12000);
     if(!r.ok){const detail=await r.text().catch(()=> '');throw new Error(`${table} HTTP ${r.status} ${detail}`);}
     return r.status===204?null:(await r.text()).trim();
   }
