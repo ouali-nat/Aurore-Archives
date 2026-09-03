@@ -654,19 +654,6 @@
 [data-theme="light"] .ad-slot-body{background:#fff;}
 [data-theme="light"] .ad-slot-title{background:#FAF8FD;border-color:#E6DFF0;color:#111318;}
 [data-theme="light"] .ad-slot-desc{background:#FCFBFE;border-color:#EEE9F5;color:#4D465A;}
-
-/* ===== DIAGNOSTIC ESPACE PERSONNEL ===== */
-.personal-diagnostic{margin:14px 0 0;border:1px solid var(--bordure,#e5e7eb);border-radius:16px;background:var(--fond,#fff);overflow:hidden}
-.personal-diagnostic summary{cursor:pointer;list-style:none;padding:13px 15px;font-weight:800;font-size:.82rem;display:flex;align-items:center;justify-content:space-between;gap:10px}
-.personal-diagnostic summary::-webkit-details-marker{display:none}
-.personal-diagnostic-body{padding:0 15px 15px}
-.personal-diagnostic-note{font-size:.74rem;color:var(--gris,#6b7280);margin:0 0 10px;line-height:1.45}
-.diag-row{display:flex;align-items:center;gap:9px;padding:8px 0;border-top:1px solid var(--bordure,#e5e7eb);font-size:.76rem}
-.diag-dot{width:9px;height:9px;border-radius:50%;background:#9ca3af;flex:0 0 auto}.diag-dot.ok{background:#16a34a}.diag-dot.wait{background:#f59e0b}.diag-dot.err{background:#dc2626}
-.diag-label{font-weight:700;flex:1}.diag-detail{font-size:.7rem;color:var(--gris,#6b7280);text-align:right;max-width:58%;overflow-wrap:anywhere}
-.diag-actions{display:flex;gap:8px;margin-top:11px;flex-wrap:wrap}.diag-btn{border:1px solid var(--bordure,#e5e7eb);background:transparent;border-radius:10px;padding:8px 11px;font-weight:800;font-size:.73rem;cursor:pointer}
-.diag-btn.primary{background:var(--rouge,#7c3aed);color:#fff;border-color:var(--rouge,#7c3aed)}
-
 </style>
 
 <style id="auraster-home-redesign">
@@ -2282,26 +2269,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
           <span class="activity-stat-icon">↓</span><span><b id="personalDownloadsCount">0</b><small>À télécharger</small></span>
         </button>
       </div>
-
-
-      <details class="personal-diagnostic" id="personalDiagnostic">
-        <summary><span>🔧 Diagnostic de l'espace</span><span id="diagOverall">Non testé</span></summary>
-        <div class="personal-diagnostic-body">
-          <p class="personal-diagnostic-note">Diagnostic basé sur la vraie session utilisée par Aurore. Aucun jeton d'accès n'est affiché.</p>
-          <div id="personalDiagRows">
-            <div class="diag-row" data-diag="session"><span class="diag-dot"></span><span class="diag-label">Session utilisateur</span><span class="diag-detail">Non testé</span></div>
-            <div class="diag-row" data-diag="auth"><span class="diag-dot"></span><span class="diag-label">Vérification Supabase Auth</span><span class="diag-detail">Non testé</span></div>
-            <div class="diag-row" data-diag="rpc"><span class="diag-dot"></span><span class="diag-label">RPC documents personnels</span><span class="diag-detail">Non testé</span></div>
-            <div class="diag-row" data-diag="depot"><span class="diag-dot"></span><span class="diag-label">Dépôts de l'utilisateur</span><span class="diag-detail">Non testé</span></div>
-            <div class="diag-row" data-diag="favorites"><span class="diag-dot"></span><span class="diag-label">Favoris</span><span class="diag-detail">Non testé</span></div>
-            <div class="diag-row" data-diag="downloads"><span class="diag-dot"></span><span class="diag-label">Téléchargements</span><span class="diag-detail">Non testé</span></div>
-          </div>
-          <div class="diag-actions">
-            <button type="button" class="diag-btn primary" id="runPersonalDiagnostic">🔍 Lancer le diagnostic</button>
-            <button type="button" class="diag-btn" id="copyPersonalDiagnostic">📋 Copier</button>
-          </div>
-        </div>
-      </details>
 
       <div class="activity-content">
         <section class="personal-panel active" id="personalPanelDocuments" data-personal-panel="documents" role="tabpanel">
@@ -9134,177 +9101,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   async function saveWelcome(){const msg=document.getElementById('adminWelcomeMsg'),btn=document.getElementById('adminWelcomeSave');if(!session||session.role!=='admin'){msg.textContent='Cette action est réservée aux administrateurs.';msg.className='form-msg err';return;}const title=document.getElementById('adminWelcomeTitle').value.trim()||'Bienvenue sur Aurore',message=document.getElementById('adminWelcomeMessage').value.trim(),active=document.getElementById('adminWelcomeActive').checked;if(!message){msg.textContent='Veuillez renseigner le message de bienvenue avant de continuer.';msg.className='form-msg err';return;}btn.disabled=true;try{const payload={id:1,title,message,active,updated_at:new Date().toISOString()};let r=await fetch(`${SUPABASE_URL}/rest/v1/${WELCOME_TABLE}?id=eq.1`,{method:'PATCH',headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify(payload)});if(!r.ok)throw new Error('HTTP '+r.status+' — '+await r.text());let body=await r.text().catch(()=> '');if(body===''||body==='[]'){const q=await fetch(`${SUPABASE_URL}/rest/v1/${WELCOME_TABLE}`,{method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(payload)});if(!q.ok)throw new Error('HTTP '+q.status+' — '+await q.text());}msg.textContent='Le message de bienvenue a été enregistré avec succès.';msg.className='form-msg ok';}catch(e){msg.textContent='Impossible d’enregistrer le message pour le moment. Veuillez réessayer.';msg.className='form-msg err';}finally{btn.disabled=false;}}
   initialiserEditeurBienvenueAdmin();document.querySelectorAll('.admin-tab').forEach(t=>t.addEventListener('click',()=>{if(t.dataset.tab==='videos')chargerVideosAdmin();if(t.dataset.tab==='annonce')initialiserEditeurBienvenueAdmin();}));chargerVideosAccueil();
 
-
-  // ---------- DIAGNOSTIC ESPACE PERSONNEL ----------
-  (function(){
-    const TIMEOUT=7000;
-
-    function setDiag(key,state,detail){
-      const row=document.querySelector(`#personalDiagRows [data-diag="${key}"]`);
-      if(!row)return;
-      row.querySelector('.diag-dot').className='diag-dot '+(state||'');
-      row.querySelector('.diag-detail').textContent=detail||'';
-    }
-
-    function elapsed(t){return `${Math.round(performance.now()-t)} ms`;}
-
-    function cleanError(e){
-      let s=String(e?.message||e||'Erreur');
-      if(s.length>180)s=s.slice(0,177)+'…';
-      return s;
-    }
-
-    async function requestWithTimeout(url,options={},timeout=TIMEOUT){
-      const controller=new AbortController();
-      const timer=setTimeout(()=>controller.abort(),timeout);
-      try{return await fetch(url,{...options,signal:controller.signal});}
-      finally{clearTimeout(timer);}
-    }
-
-    async function getRealSession(){
-      // Le site stocke sa session dans sessionStorage sous cette clé.
-      let current=typeof session!=='undefined'?session:null;
-
-      if(!current){
-        const saved=sessionStorage.getItem('lsnb_session');
-        if(saved){
-          try{current=JSON.parse(saved);}catch(e){throw new Error('Session locale illisible');}
-        }
-      }
-
-      if(!current?.access_token){
-        throw new Error('Aucune session Aurore valide dans ce navigateur');
-      }
-
-      // Si le token est expiré ou proche de l'expiration, utiliser
-      // exactement le mécanisme de rafraîchissement déjà présent dans le site.
-      if(current.expires_at && Date.now()>current.expires_at-30000){
-        if(typeof rafraichirSession==='function'){
-          const ok=await rafraichirSession();
-          if(ok && typeof session!=='undefined') current=session;
-        }
-      }
-
-      if(!current?.access_token)throw new Error('Impossible de restaurer le jeton');
-      return current;
-    }
-
-    async function runPersonalDiagnostic(){
-      const overall=document.getElementById('diagOverall');
-      if(overall)overall.textContent='Test en cours…';
-
-      ['session','auth','rpc','depot','favorites','downloads'].forEach(k=>setDiag(k,'wait','Test…'));
-
-      let s;
-      try{
-        const t=performance.now();
-        s=await getRealSession();
-        const id=s.id||s.user?.id||'';
-        const masked=id?`${id.slice(0,8)}…${id.slice(-4)}`:'présent';
-        setDiag('session','ok',`OK · ${masked} · ${elapsed(t)}`);
-      }catch(e){
-        setDiag('session','err',cleanError(e));
-        ['auth','rpc','depot','favorites','downloads'].forEach(k=>setDiag(k,'err','Session indisponible'));
-        if(overall)overall.textContent='❌ Session';
-        return;
-      }
-
-      const token=s.access_token;
-      const headers=typeof headersAdmin==='function'
-        ? headersAdmin()
-        : {'apikey':typeof SUPABASE_ANON_KEY!=='undefined'?SUPABASE_ANON_KEY:'','Authorization':'Bearer '+token};
-
-      // Vérification réelle du token auprès de Supabase Auth.
-      let t=performance.now();
-      try{
-        const r=await requestWithTimeout(`${SUPABASE_URL}/auth/v1/user`,{headers});
-        const text=await r.text();
-        if(!r.ok)throw new Error(`HTTP ${r.status}${text?' · '+text.slice(0,120):''}`);
-        setDiag('auth','ok',`Token accepté · ${elapsed(t)}`);
-      }catch(e){
-        setDiag('auth','err',cleanError(e));
-      }
-
-      // RPC réellement utilisée par l'espace personnel.
-      t=performance.now();
-      try{
-        const r=await requestWithTimeout(`${SUPABASE_URL}/rest/v1/rpc/lister_documents_personnels`,{
-          method:'POST',
-          headers:{...headers,'Content-Type':'application/json','Accept':'application/json'},
-          body:'{}'
-        });
-        const text=await r.text();
-        if(!r.ok)throw new Error(`HTTP ${r.status}${text?' · '+text.slice(0,150):''}`);
-        let data=null;try{data=JSON.parse(text);}catch(e){}
-        const count=Array.isArray(data)?data.length:'réponse reçue';
-        setDiag('rpc','ok',`${count} · ${elapsed(t)}`);
-      }catch(e){
-        setDiag('rpc','err',cleanError(e));
-      }
-
-      // Dépôts : même table que le fallback du site.
-      t=performance.now();
-      try{
-        const uid=encodeURIComponent(s.id||s.user?.id||'');
-        const r=await requestWithTimeout(`${SUPABASE_URL}/rest/v1/Depots_deposants?select=document_id&user_id=eq.${uid}&order=id.desc`,{headers});
-        const text=await r.text();
-        if(!r.ok)throw new Error(`HTTP ${r.status}${text?' · '+text.slice(0,150):''}`);
-        let data=[];try{data=JSON.parse(text);}catch(e){}
-        setDiag('depot','ok',`${Array.isArray(data)?data.length:'?'} dépôt(s) · ${elapsed(t)}`);
-      }catch(e){
-        setDiag('depot','err',cleanError(e));
-      }
-
-      // Favoris.
-      t=performance.now();
-      try{
-        const uid=encodeURIComponent(s.id||s.user?.id||'');
-        const r=await requestWithTimeout(`${SUPABASE_URL}/rest/v1/favoris_documents?select=document_id&user_id=eq.${uid}`,{headers});
-        const text=await r.text();
-        if(!r.ok)throw new Error(`HTTP ${r.status}${text?' · '+text.slice(0,150):''}`);
-        let data=[];try{data=JSON.parse(text);}catch(e){}
-        setDiag('favorites','ok',`${Array.isArray(data)?data.length:'?'} favori(s) · ${elapsed(t)}`);
-      }catch(e){
-        setDiag('favorites','err',cleanError(e));
-      }
-
-      // Téléchargements.
-      t=performance.now();
-      try{
-        const uid=encodeURIComponent(s.id||s.user?.id||'');
-        const r=await requestWithTimeout(`${SUPABASE_URL}/rest/v1/telechargements_documents?select=id&user_id=eq.${uid}&limit=100`,{headers});
-        const text=await r.text();
-        if(!r.ok)throw new Error(`HTTP ${r.status}${text?' · '+text.slice(0,150):''}`);
-        let data=[];try{data=JSON.parse(text);}catch(e){}
-        setDiag('downloads','ok',`${Array.isArray(data)?data.length:'?'} entrée(s) · ${elapsed(t)}`);
-      }catch(e){
-        setDiag('downloads','err',cleanError(e));
-      }
-
-      const failed=document.querySelectorAll('#personalDiagRows .diag-dot.err').length;
-      if(overall)overall.textContent=failed?`❌ ${failed} problème(s)`:'✅ Tout est accessible';
-    }
-
-    function diagnosticText(){
-      return 'Aurore — Diagnostic espace personnel\nÉtat: '+(document.getElementById('diagOverall')?.textContent||'')+
-        '\n'+[...document.querySelectorAll('#personalDiagRows .diag-row')]
-        .map(r=>`${r.querySelector('.diag-label')?.textContent}: ${r.querySelector('.diag-detail')?.textContent}`).join('\n');
-    }
-
-    document.addEventListener('click',e=>{
-      if(e.target.closest('#runPersonalDiagnostic'))runPersonalDiagnostic();
-      if(e.target.closest('#copyPersonalDiagnostic')){
-        const text=diagnosticText();
-        navigator.clipboard?.writeText(text).then(()=>{
-          const b=document.getElementById('copyPersonalDiagnostic');
-          if(b){const old=b.textContent;b.textContent='✓ Copié';setTimeout(()=>b.textContent=old,1500);}
-        }).catch(()=>window.prompt('Copiez le diagnostic :',text));
-      }
-    });
-
-    window.runPersonalDiagnostic=runPersonalDiagnostic;
-  })();
-
   // ---------- ESPACE PERSONNEL : documents et livres de l'utilisateur ----------
   let MES_DOCUMENTS_PERSONNELS = [];
   let MES_LIVRES_PERSONNELS = [];
@@ -9313,124 +9109,136 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   function escapeTextePersonnel(v){ return echapperHtmlPub(v == null ? '' : String(v)); }
 
   async function chargerDonneesEspacePersonnel(){
-    // Ne jamais laisser l'interface bloquée si le token n'est plus disponible.
-    // On tente d'abord de récupérer/rafraîchir la session persistée.
-    if(!session?.id || !session?.access_token){
-      try{
-        const saved=sessionStorage.getItem('lsnb_session');
-        if(saved && !session) session=JSON.parse(saved);
-      }catch(e){}
-      if(!session?.access_token && typeof rafraichirSession==='function'){
-        try{ await rafraichirSession(); }catch(e){ console.warn('[Mon activité] rafraîchissement session impossible',e); }
-      }
-    }
-    if(!session?.id || !session?.access_token){
-      const ids=['personalDocumentsList','personalBooksList','personalFavoritesList','personalLaterList','personalDownloadsHistory'];
-      ids.forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='<div class=\"personal-empty activity-error\"><strong>Session expirée.</strong><br>Reconnectez-vous puis réessayez.</div>';});
-      console.warn('[Mon activité] session absente après tentative de récupération');
-      return;
-    }
+    if(!session?.id||!session?.access_token) return;
 
-    const name=(session.user_metadata?.full_name||session.user_metadata?.name||session.user_metadata?.given_name||session.nom||'vous').trim();
+    const name=(session.user_metadata?.full_name||session.user_metadata?.name||session.user_metadata?.given_name||'vous').trim();
     const welcome=document.getElementById('personalWelcomeName');
     if(welcome) welcome.textContent=name.split(' ')[0]||'vous';
 
-    const loading=(id,text)=>{const el=document.getElementById(id);if(el)el.innerHTML=`<div class="activity-loading"><span></span><span>${escapeTextePersonnel(text)}</span></div>`;};
-    const error=(id,text)=>{const el=document.getElementById(id);if(!el)return;el.innerHTML=`<div class="personal-empty activity-error"><strong>${escapeTextePersonnel(text)}</strong><br><button type="button" class="personal-action" data-activity-retry>Réessayer</button></div>`;el.querySelector('[data-activity-retry]')?.addEventListener('click',chargerDonneesEspacePersonnel);};
-
-    // Affichage immédiat du cache local : l'interface n'attend plus Supabase pour peindre l'écran.
-    try{
-      const cached=depotsPersonnelsLocaux();
-      if(cached?.length){
-        const map=new Map(cached.map(d=>[String(d.id),d]));
-        MES_DOCUMENTS_PERSONNELS=[...map.values()].sort((a,b)=>Number(b.id||0)-Number(a.id||0));
-        MES_LIVRES_PERSONNELS=MES_DOCUMENTS_PERSONNELS.filter(d=>String(d['Catégorie']||'').trim().toLowerCase()==='livres');
-        rendreDocumentsPersonnels();
-        rendreLivresPersonnels();
-        actualiserCompteursPersonnels();
-      }else{
-        loading('personalDocumentsList','Chargement de vos documents…');
-        loading('personalBooksList','Chargement de vos livres…');
+    const setLoading=(id,text)=>{
+      const el=document.getElementById(id);
+      if(el) el.innerHTML=`<div class="aurora-loading"><i></i><span>${escapeTextePersonnel(text)}</span></div>`;
+    };
+    const setError=(id,text)=>{
+      const el=document.getElementById(id);
+      if(el){
+        el.innerHTML=`<div class="personal-empty"><strong>${escapeTextePersonnel(text)}</strong><br><button type="button" class="personal-action" data-retry>Réessayer</button></div>`;
+        el.querySelector('[data-retry]')?.addEventListener('click',chargerDonneesEspacePersonnel);
       }
-    }catch(e){
-      loading('personalDocumentsList','Chargement de vos documents…');
-      loading('personalBooksList','Chargement de vos livres…');
-    }
-    loading('personalFavoritesList','Chargement de vos favoris…');
-    loading('personalLaterList','Chargement…');
-    loading('personalDownloadsHistory','Chargement…');
+    };
 
-    // Requête principale uniquement : timeout court et rendu dès réception.
+    setLoading('personalDocumentsList','Chargement de vos documents…');
+    setLoading('personalBooksList','Chargement de vos livres…');
+    setLoading('personalFavoritesList','Chargement de vos favoris…');
+    setLoading('personalLaterList','Chargement…');
+    setLoading('personalDownloadsHistory','Chargement…');
+
+    /*
+      CORRECTION :
+      La RPC est maintenant la source unique et immédiate des documents.
+      Elle est connue pour retourner les documents personnels correctement.
+      On ne lance pas les autres ressources avant d'avoir rendu les documents.
+    */
+    let docs=[];
     try{
-      const r=await fetchPersonnelAvecTimeout(`${SUPABASE_URL}/rest/v1/rpc/lister_documents_personnels`,{
-        method:'POST',
-        headers:{...headersAdmin(),'Content-Type':'application/json','Accept':'application/json'},
-        body:'{}'
-      },8000);
-      if(!r.ok) throw new Error(`RPC HTTP ${r.status}`);
+      const r=await fetchPersonnelAvecTimeout(
+        `${SUPABASE_URL}/rest/v1/rpc/lister_documents_personnels`,
+        {
+          method:'POST',
+          headers:{...headersAdmin(),'Content-Type':'application/json','Accept':'application/json'},
+          body:'{}',
+          cache:'no-store'
+        },
+        8000
+      );
+
+      if(!r.ok){
+        const detail=await r.text().catch(()=> '');
+        throw new Error(`RPC HTTP ${r.status}${detail?' — '+detail.slice(0,180):''}`);
+      }
+
       const data=await r.json();
-      const docs=Array.isArray(data)?data:[];
-      const uniques=new Map();
-      docs.forEach(d=>{if(d?.id!=null)uniques.set(String(d.id),d);});
-      // Une réponse serveur valide, même vide, remplace le cache.
-      MES_DOCUMENTS_PERSONNELS=[...uniques.values()].sort((a,b)=>Number(b.id||0)-Number(a.id||0));
-      MES_LIVRES_PERSONNELS=MES_DOCUMENTS_PERSONNELS.filter(d=>String(d['Catégorie']||'').trim().toLowerCase()==='livres');
-      MES_NOTIFICATIONS_PERSONNELLES=[];
-      rendreDocumentsPersonnels();
-      rendreLivresPersonnels();
-      actualiserCompteursPersonnels();
+      docs=Array.isArray(data)?data:[];
     }catch(e){
-      console.warn('[Mon activité] RPC documents indisponible:',e);
-      // Fallback rapide via la table de liaison, seulement si la RPC échoue.
+      console.warn('[Espace personnel] RPC documents:',e);
+
+      // Fallback direct : uniquement si la RPC échoue.
       try{
-        const dr=await fetchPersonnelAvecTimeout(`${SUPABASE_URL}/rest/v1/Depots_deposants?select=document_id&user_id=eq.${encodeURIComponent(session.id)}&order=document_id.desc`,{headers:headersAdmin(),'Accept':'application/json'},6000);
+        const dr=await fetchPersonnelAvecTimeout(
+          `${SUPABASE_URL}/rest/v1/Depots_deposants?select=document_id,user_id,nom,email&user_id=eq.${encodeURIComponent(session.id)}&order=id.desc`,
+          {headers:headersAdmin(),cache:'no-store'},
+          8000
+        );
         if(!dr.ok) throw new Error(`Depots_deposants HTTP ${dr.status}`);
+
         const links=await dr.json();
-        const ids=(Array.isArray(links)?links:[]).map(x=>Number(x.document_id)).filter(Number.isFinite);
+        const ids=[...(Array.isArray(links)?links:[])]
+          .map(x=>x.document_id)
+          .filter(x=>x!=null);
+
         if(ids.length){
-          const rr=await fetchPersonnelAvecTimeout(`${SUPABASE_URL}/rest/v1/Document?select=*&id=in.(${ids.join(',')})&order=id.desc`,{headers:headersAdmin(),'Accept':'application/json'},6000);
+          const rr=await fetchPersonnelAvecTimeout(
+            `${SUPABASE_URL}/rest/v1/Document?select=*&id=in.(${ids.join(',')})&order=id.desc`,
+            {headers:headersAdmin(),cache:'no-store'},
+            8000
+          );
           if(!rr.ok) throw new Error(`Document HTTP ${rr.status}`);
-          MES_DOCUMENTS_PERSONNELS=await rr.json();
-          MES_LIVRES_PERSONNELS=MES_DOCUMENTS_PERSONNELS.filter(d=>String(d['Catégorie']||'').trim().toLowerCase()==='livres');
-          rendreDocumentsPersonnels();
-          rendreLivresPersonnels();
-          actualiserCompteursPersonnels();
-        }else if(!MES_DOCUMENTS_PERSONNELS.length){
-          error('personalDocumentsList','Impossible de récupérer vos documents.');
-          error('personalBooksList','Impossible de récupérer vos livres.');
+          const fallbackDocs=await rr.json();
+          docs=Array.isArray(fallbackDocs)?fallbackDocs:[];
         }
       }catch(e2){
-        console.warn('[Mon activité] fallback documents indisponible:',e2);
-        if(!MES_DOCUMENTS_PERSONNELS.length){
-          const local=depotsPersonnelsLocaux();
-          MES_DOCUMENTS_PERSONNELS=Array.isArray(local)?local:[];
-          MES_LIVRES_PERSONNELS=MES_DOCUMENTS_PERSONNELS.filter(d=>String(d['Catégorie']||'').trim().toLowerCase()==='livres');
-          rendreDocumentsPersonnels();
-          rendreLivresPersonnels();
-          actualiserCompteursPersonnels();
-          if(!MES_DOCUMENTS_PERSONNELS.length) error('personalDocumentsList','Impossible de récupérer vos documents.');
-        }
+        console.warn('[Espace personnel] fallback documents:',e2);
+        docs=[];
       }
     }
 
-    // Tout le reste part EN PARALLÈLE après le rendu des documents.
-    const jobs=[
-      synchroniserRessourcesSupabase(),
-      (async()=>{
-        try{
-          const nr=await fetchPersonnelAvecTimeout(`${SUPABASE_URL}/rest/v1/Notifications?select=id,titre_document,statut,message,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc&limit=100`,{headers:headersAdmin(),'Accept':'application/json'},6000);
-          if(nr.ok) MES_NOTIFICATIONS_PERSONNELLES=await nr.json();
-        }catch(e){console.warn('[Mon activité] notifications indisponibles:',e);}
-      })()
-    ];
-    Promise.allSettled(jobs).then(()=>{
-      actualiserCompteursPersonnels();
-      rendreDocumentsPersonnels();
-      rendreDocumentsPlusTard();
-      rendreDocumentsTelecharges();
-      rendreFavorisPersonnels().catch(e=>console.warn('[Mon activité] favoris:',e));
+    // Déduplication sans dépendre du cache local.
+    const uniques=new Map();
+    docs.forEach(d=>{
+      if(d?.id!=null) uniques.set(String(d.id),d);
     });
-    afficherNotificationTelechargementAuRetour();
+
+    MES_DOCUMENTS_PERSONNELS=[...uniques.values()]
+      .sort((a,b)=>Number(b.id||0)-Number(a.id||0));
+
+    MES_LIVRES_PERSONNELS=MES_DOCUMENTS_PERSONNELS.filter(
+      d=>String(d['Catégorie']||'').trim().toLowerCase()==='livres'
+    );
+
+    // RENDU IMMÉDIAT : les documents ne doivent jamais attendre les autres requêtes.
+    rendreDocumentsPersonnels();
+    rendreLivresPersonnels();
+    actualiserCompteursPersonnels();
+
+    /*
+      Les données secondaires sont synchronisées après le rendu principal.
+      Une erreur ici ne peut plus laisser "Chargement..." dans les documents.
+    */
+    Promise.resolve().then(()=>synchroniserRessourcesSupabase())
+      .catch(e=>console.warn('[Espace personnel] synchronisation:',e))
+      .finally(()=>{
+        actualiserCompteursPersonnels();
+        rendreDocumentsPlusTard();
+        rendreDocumentsTelecharges();
+        rendreFavorisPersonnels().catch(e=>console.warn('[Espace personnel] favoris:',e));
+      });
+
+    // Notifications en parallèle : elles ne doivent jamais bloquer les documents.
+    MES_NOTIFICATIONS_PERSONNELLES=[];
+    try{
+      const nr=await fetchPersonnelAvecTimeout(
+        `${SUPABASE_URL}/rest/v1/Notifications?select=id,titre_document,statut,message,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc&limit=100`,
+        {headers:headersAdmin(),cache:'no-store'},
+        5000
+      );
+      if(nr.ok) MES_NOTIFICATIONS_PERSONNELLES=await nr.json();
+    }catch(e){
+      console.warn('[Espace personnel] notifications:',e);
+    }
+
+    // Actualiser le statut des documents si des notifications sont disponibles.
+    rendreDocumentsPersonnels();
+    actualiserCompteursPersonnels();
   }
 
   function statutDocumentPersonnel(doc){
@@ -9566,9 +9374,18 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   initialiserEspacePersonnel();
   const _ouvrirProfilOriginal=window.ouvrirEspacePersonnelObligatoire;
   document.getElementById('btnOuvrirProfil')?.addEventListener('click',()=>chargerDonneesEspacePersonnel());
-  // Chargement discret lorsque le profil est ouvert par le flux de connexion.
+  // Le flux existant conserve la navigation ; on ajoute seulement un rafraîchissement
+  // lorsque l'écran personnel devient visible.
   const _afficherEcranOriginal=window.afficherEcran;
-  if(typeof _afficherEcranOriginal==='function'){}
+  if(typeof _afficherEcranOriginal==='function'){
+    window.afficherEcran=function(ecran){
+      const result=_afficherEcranOriginal.apply(this,arguments);
+      if(ecran==='profil' || ecran==='espace-personnel' || ecran==='personal'){
+        setTimeout(()=>chargerDonneesEspacePersonnel(),0);
+      }
+      return result;
+    };
+  }
 
 </script>
 
