@@ -9121,10 +9121,9 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     };
     const setError=(id,text)=>{
       const el=document.getElementById(id);
-      if(el){
-        el.innerHTML=`<div class="personal-empty"><strong>${escapeTextePersonnel(text)}</strong><br><button type="button" class="personal-action" data-retry>Réessayer</button></div>`;
-        el.querySelector('[data-retry]')?.addEventListener('click',chargerDonneesEspacePersonnel);
-      }
+      if(!el)return;
+      el.innerHTML=`<div class="personal-empty"><strong>${escapeTextePersonnel(text)}</strong><br><button type="button" class="personal-action" data-retry>Réessayer</button></div>`;
+      el.querySelector('[data-retry]')?.addEventListener('click',chargerDonneesEspacePersonnel);
     };
 
     setLoading('personalDocumentsList','Chargement de vos documents…');
@@ -9134,10 +9133,10 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     setLoading('personalDownloadsHistory','Chargement…');
 
     /*
-      CORRECTION :
-      La RPC est maintenant la source unique et immédiate des documents.
-      Elle est connue pour retourner les documents personnels correctement.
-      On ne lance pas les autres ressources avant d'avoir rendu les documents.
+      IMPORTANT :
+      La RPC est la source principale. Le diagnostic a confirmé qu'elle
+      renvoie correctement les documents personnels de l'utilisateur.
+      Les données secondaires ne doivent jamais bloquer ce rendu.
     */
     let docs=[];
     try{
@@ -9146,31 +9145,27 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         {
           method:'POST',
           headers:{...headersAdmin(),'Content-Type':'application/json','Accept':'application/json'},
-          body:'{}',
-          cache:'no-store'
+          body:'{}'
         },
         8000
       );
-
       if(!r.ok){
         const detail=await r.text().catch(()=> '');
         throw new Error(`RPC HTTP ${r.status}${detail?' — '+detail.slice(0,180):''}`);
       }
-
       const data=await r.json();
       docs=Array.isArray(data)?data:[];
     }catch(e){
       console.warn('[Espace personnel] RPC documents:',e);
 
-      // Fallback direct : uniquement si la RPC échoue.
+      // Fallback serveur uniquement si la RPC échoue.
       try{
         const dr=await fetchPersonnelAvecTimeout(
           `${SUPABASE_URL}/rest/v1/Depots_deposants?select=document_id,user_id,nom,email&user_id=eq.${encodeURIComponent(session.id)}&order=id.desc`,
-          {headers:headersAdmin(),cache:'no-store'},
+          {headers:headersAdmin()},
           8000
         );
-        if(!dr.ok) throw new Error(`Depots_deposants HTTP ${dr.status}`);
-
+        if(!dr.ok)throw new Error(`Depots_deposants HTTP ${dr.status}`);
         const links=await dr.json();
         const ids=[...(Array.isArray(links)?links:[])]
           .map(x=>x.document_id)
@@ -9179,12 +9174,11 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         if(ids.length){
           const rr=await fetchPersonnelAvecTimeout(
             `${SUPABASE_URL}/rest/v1/Document?select=*&id=in.(${ids.join(',')})&order=id.desc`,
-            {headers:headersAdmin(),cache:'no-store'},
+            {headers:headersAdmin()},
             8000
           );
-          if(!rr.ok) throw new Error(`Document HTTP ${rr.status}`);
-          const fallbackDocs=await rr.json();
-          docs=Array.isArray(fallbackDocs)?fallbackDocs:[];
+          if(!rr.ok)throw new Error(`Document HTTP ${rr.status}`);
+          docs=await rr.json();
         }
       }catch(e2){
         console.warn('[Espace personnel] fallback documents:',e2);
@@ -9192,10 +9186,11 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       }
     }
 
-    // Déduplication sans dépendre du cache local.
+    // Ne mélange plus les anciens dépôts locaux avec la réponse serveur :
+    // cela pouvait masquer l'état réel et produire des compteurs incohérents.
     const uniques=new Map();
-    docs.forEach(d=>{
-      if(d?.id!=null) uniques.set(String(d.id),d);
+    (Array.isArray(docs)?docs:[]).forEach(d=>{
+      if(d?.id!=null)uniques.set(String(d.id),d);
     });
 
     MES_DOCUMENTS_PERSONNELS=[...uniques.values()]
@@ -9205,16 +9200,30 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       d=>String(d['Catégorie']||'').trim().toLowerCase()==='livres'
     );
 
-    // RENDU IMMÉDIAT : les documents ne doivent jamais attendre les autres requêtes.
+    // Rendu immédiat des dépôts : aucune autre requête ne doit l'empêcher.
     rendreDocumentsPersonnels();
     rendreLivresPersonnels();
     actualiserCompteursPersonnels();
 
-    /*
-      Les données secondaires sont synchronisées après le rendu principal.
-      Une erreur ici ne peut plus laisser "Chargement..." dans les documents.
-    */
-    Promise.resolve().then(()=>synchroniserRessourcesSupabase())
+    // Notifications : indépendantes du chargement des documents.
+    MES_NOTIFICATIONS_PERSONNELLES=[];
+    try{
+      const nr=await fetchPersonnelAvecTimeout(
+        `${SUPABASE_URL}/rest/v1/Notifications?select=id,titre_document,statut,message,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc&limit=100`,
+        {headers:headersAdmin()},
+        5000
+      );
+      if(nr.ok) MES_NOTIFICATIONS_PERSONNELLES=await nr.json();
+    }catch(e){
+      console.warn('[Espace personnel] notifications:',e);
+    }
+
+    // Les notifications peuvent modifier le statut, mais jamais effacer les documents.
+    rendreDocumentsPersonnels();
+
+    // Favoris / Plus tard / Téléchargements sont chargés séparément.
+    Promise.resolve()
+      .then(()=>synchroniserRessourcesSupabase())
       .catch(e=>console.warn('[Espace personnel] synchronisation:',e))
       .finally(()=>{
         actualiserCompteursPersonnels();
@@ -9223,22 +9232,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         rendreFavorisPersonnels().catch(e=>console.warn('[Espace personnel] favoris:',e));
       });
 
-    // Notifications en parallèle : elles ne doivent jamais bloquer les documents.
-    MES_NOTIFICATIONS_PERSONNELLES=[];
-    try{
-      const nr=await fetchPersonnelAvecTimeout(
-        `${SUPABASE_URL}/rest/v1/Notifications?select=id,titre_document,statut,message,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc&limit=100`,
-        {headers:headersAdmin(),cache:'no-store'},
-        5000
-      );
-      if(nr.ok) MES_NOTIFICATIONS_PERSONNELLES=await nr.json();
-    }catch(e){
-      console.warn('[Espace personnel] notifications:',e);
-    }
-
-    // Actualiser le statut des documents si des notifications sont disponibles.
-    rendreDocumentsPersonnels();
-    actualiserCompteursPersonnels();
+    afficherNotificationTelechargementAuRetour();
   }
 
   function statutDocumentPersonnel(doc){
@@ -9374,18 +9368,9 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   initialiserEspacePersonnel();
   const _ouvrirProfilOriginal=window.ouvrirEspacePersonnelObligatoire;
   document.getElementById('btnOuvrirProfil')?.addEventListener('click',()=>chargerDonneesEspacePersonnel());
-  // Le flux existant conserve la navigation ; on ajoute seulement un rafraîchissement
-  // lorsque l'écran personnel devient visible.
+  // Chargement discret lorsque le profil est ouvert par le flux de connexion.
   const _afficherEcranOriginal=window.afficherEcran;
-  if(typeof _afficherEcranOriginal==='function'){
-    window.afficherEcran=function(ecran){
-      const result=_afficherEcranOriginal.apply(this,arguments);
-      if(ecran==='profil' || ecran==='espace-personnel' || ecran==='personal'){
-        setTimeout(()=>chargerDonneesEspacePersonnel(),0);
-      }
-      return result;
-    };
-  }
+  if(typeof _afficherEcranOriginal==='function'){}
 
 </script>
 
