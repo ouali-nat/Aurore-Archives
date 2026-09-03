@@ -2829,7 +2829,32 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   }
 
   window.addEventListener('load', async () => {
-    // 1. Retour de Google/Supabase : les jetons arrivent dans le fragment d'URL
+    // 1. Confirmation d'inscription par e-mail.
+    // Supabase peut envoyer le lien avec ?token_hash=...&type=signup.
+    // On valide alors le token auprès de Supabase, qui redirige ensuite
+    // vers cette page avec access_token/refresh_token dans le fragment.
+    const urlParams = new URLSearchParams(window.location.search);
+    const tokenHash = urlParams.get('token_hash');
+    const confirmationType = urlParams.get('type');
+
+    if (tokenHash && confirmationType === 'signup') {
+      try {
+        const redirectTo = window.location.origin + window.location.pathname;
+        const verifyUrl =
+          `${SUPABASE_URL}/auth/v1/verify?token=${encodeURIComponent(tokenHash)}` +
+          `&type=signup&redirect_to=${encodeURIComponent(redirectTo)}`;
+
+        // Ne pas afficher la page d'inscription pendant la confirmation :
+        // le navigateur suit la redirection Supabase puis revient ici avec
+        // les jetons de session.
+        window.location.replace(verifyUrl);
+        return;
+      } catch (e) {
+        console.error('[Confirmation e-mail] Impossible de traiter le lien :', e);
+      }
+    }
+
+    // 2. Retour de Google/Supabase : les jetons arrivent dans le fragment de l'URL
     if (window.location.hash.includes('access_token')) {
       const params = new URLSearchParams(window.location.hash.substring(1));
       const access_token = params.get('access_token');
