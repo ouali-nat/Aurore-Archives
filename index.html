@@ -2235,6 +2235,22 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   </div>
 </div>
 
+<div id="downloadProgressToast" class="download-progress-toast" style="display:none;" role="status" aria-live="polite" aria-atomic="true">
+  <div class="download-progress-head">
+    <div class="download-progress-icon" aria-hidden="true">↓</div>
+    <div class="download-progress-copy">
+      <strong id="downloadProgressTitle">Téléchargement</strong>
+      <span id="downloadProgressName">Préparation du fichier…</span>
+    </div>
+    <span id="downloadProgressPercent" class="download-progress-percent">0%</span>
+  </div>
+  <div class="download-progress-track" aria-hidden="true"><div id="downloadProgressBar" class="download-progress-bar"></div></div>
+  <div class="download-progress-foot">
+    <span id="downloadProgressDetail">Préparation…</span>
+    <button type="button" id="downloadProgressClose" class="download-progress-close" aria-label="Fermer">×</button>
+  </div>
+</div>
+
 <!-- ===== SIGNALEMENT D'UN DOCUMENT (droits d'auteur) ===== -->
 <div id="signalerOverlay" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(9,8,18,0.75); backdrop-filter:blur(4px); align-items:center; justify-content:center; padding:18px;">
   <div style="background:var(--papier); border-radius:20px; max-width:480px; width:100%; padding:26px 24px; box-shadow:0 16px 38px rgba(0,0,0,.3);">
@@ -7320,7 +7336,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const btnDl = document.getElementById('pdfViewerTelecharger');
     if (telechargementOk) {
       btnDl.style.display = 'inline-flex';
-      btnDl.onclick = () => { const a = document.createElement('a'); a.href = doc.Fichier_url; a.download = (doc.Titre || 'document') + '.pdf'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); };
+      btnDl.onclick = () => { telechargerDocumentAvecProgression(doc); };
     } else {
       btnDl.style.display = 'none';
       btnDl.onclick = null;
@@ -7449,6 +7465,145 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   // chargement progressif visible sur les documents volumineux.
   // diagLog(texte) est optionnel : n'est fourni (voir ouvrirLecteurPDF) que pour
   // un compte administrateur, et journalise chaque tentative en détail.
+  let TELECHARGEMENT_DOCUMENT_EN_COURS = false;
+  let TELECHARGEMENT_TOAST_TIMER = null;
+
+  function nomFichierExactDepuisUrl(url) {
+    try {
+      const u = new URL(url, window.location.href);
+      const nom = decodeURIComponent(u.pathname.split('/').pop() || '').trim();
+      if (nom) return nom;
+    } catch(e) {}
+    return 'document.pdf';
+  }
+
+  function formaterTailleTelechargement(octets) {
+    if (!Number.isFinite(octets) || octets < 0) return '';
+    if (octets < 1024) return octets + ' o';
+    if (octets < 1024 * 1024) return (octets / 1024).toFixed(1).replace('.0','') + ' Ko';
+    if (octets < 1024 * 1024 * 1024) return (octets / (1024 * 1024)).toFixed(1).replace('.0','') + ' Mo';
+    return (octets / (1024 * 1024 * 1024)).toFixed(2).replace(/0+$/,'').replace(/\.$/,'') + ' Go';
+  }
+
+  function afficherCarteTelechargement(doc, etat='preparation', pct=null, recu=null, total=null, detail=null) {
+    const box=document.getElementById('downloadProgressToast');
+    const title=document.getElementById('downloadProgressTitle');
+    const name=document.getElementById('downloadProgressName');
+    const percent=document.getElementById('downloadProgressPercent');
+    const bar=document.getElementById('downloadProgressBar');
+    const detailEl=document.getElementById('downloadProgressDetail');
+    if(!box) return;
+    if(TELECHARGEMENT_TOAST_TIMER) { clearTimeout(TELECHARGEMENT_TOAST_TIMER); TELECHARGEMENT_TOAST_TIMER=null; }
+    name.textContent=nomFichierExactDepuisUrl(doc && doc.Fichier_url);
+    box.classList.remove('is-success','is-error','is-indeterminate');
+    if(etat==='succes') {
+      title.textContent='Téléchargement terminé';
+      percent.textContent='100%';
+      bar.style.width='100%';
+      box.classList.add('is-success');
+      detailEl.textContent=detail || 'Le fichier a été enregistré avec son nom exact.';
+      TELECHARGEMENT_TOAST_TIMER=setTimeout(()=>{box.style.display='none';},5000);
+    } else if(etat==='erreur') {
+      title.textContent='Téléchargement impossible';
+      percent.textContent='—';
+      bar.style.width='0%';
+      box.classList.add('is-error');
+      detailEl.textContent=detail || 'Une erreur est survenue.';
+    } else if(pct==null) {
+      title.textContent='Téléchargement en cours…';
+      percent.textContent='…';
+      bar.style.width='42%';
+      box.classList.add('is-indeterminate');
+      detailEl.textContent=detail || (recu ? formaterTailleTelechargement(recu)+' reçu(s)' : 'Connexion au fichier…');
+    } else {
+      const p=Math.max(0,Math.min(100,Math.round(pct)));
+      title.textContent='Téléchargement en cours…';
+      percent.textContent=p+'%';
+      bar.style.width=p+'%';
+      detailEl.textContent=detail || (total ? `${formaterTailleTelechargement(recu||0)} / ${formaterTailleTelechargement(total)}` : 'Transfert du fichier…');
+    }
+    box.style.display='block';
+  }
+
+  function fermerCarteTelechargement() {
+    const box=document.getElementById('downloadProgressToast');
+    if(box) box.style.display='none';
+    if(TELECHARGEMENT_TOAST_TIMER) { clearTimeout(TELECHARGEMENT_TOAST_TIMER); TELECHARGEMENT_TOAST_TIMER=null; }
+  }
+
+  async function telechargerDocumentAvecProgression(doc) {
+    if(!doc || !doc.Fichier_url || doc.Telechargement_autorise === false || TELECHARGEMENT_DOCUMENT_EN_COURS) return;
+    TELECHARGEMENT_DOCUMENT_EN_COURS=true;
+    const nomExact=nomFichierExactDepuisUrl(doc.Fichier_url);
+    afficherCarteTelechargement(doc,'preparation',null,0,null,'Préparation du fichier…');
+    try {
+      const url=doc.Fichier_url;
+      const cle=(url && url.indexOf(R2_PUBLIC_URL + '/')===0) ? url.slice(R2_PUBLIC_URL.length + 1) : null;
+      let res=null;
+      if(cle) {
+        try { res=await fetch(`${R2_WORKER_URL}/${cle}`); } catch(e) { res=null; }
+      }
+      if(!res || !res.ok) {
+        try { res=await fetch(url); } catch(e) { res=null; }
+      }
+      if(!res || !res.ok) throw new Error('Le fichier n’a pas pu être récupéré.');
+
+      const total=parseInt(res.headers.get('Content-Length') || '',10);
+      let blob;
+      if(res.body && Number.isFinite(total) && total>0) {
+        const lecteur=res.body.getReader();
+        const morceaux=[];
+        let recu=0;
+        while(true) {
+          const {done,value}=await lecteur.read();
+          if(done) break;
+          if(value) {
+            morceaux.push(value);
+            recu += value.byteLength;
+            const pct=Math.min(99,Math.round((recu/total)*100));
+            afficherCarteTelechargement(doc,'progress',pct,recu,total);
+          }
+        }
+        blob=new Blob(morceaux,{type:res.headers.get('Content-Type') || 'application/pdf'});
+      } else {
+        afficherCarteTelechargement(doc,'progress',null,0,null,'Téléchargement du fichier…');
+        blob=await res.blob();
+      }
+
+      const objectUrl=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=objectUrl;
+      // On conserve volontairement le nom réel de l’objet R2 présent dans
+      // Fichier_url. On ne le remplace plus par le titre du document.
+      a.download=nomExact;
+      a.rel='noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(()=>URL.revokeObjectURL(objectUrl),60000);
+      afficherCarteTelechargement(doc,'succes',100,total,total,`Fichier téléchargé : ${nomExact}`);
+    } catch(e) {
+      console.error('[Téléchargement document]',e);
+      // Repli navigateur : il lance le téléchargement sans prétendre connaître
+      // sa progression. Le nom exact est conservé via l’attribut download.
+      try {
+        const a=document.createElement('a');
+        a.href=doc.Fichier_url;
+        a.download=nomExact;
+        a.rel='noopener';
+        document.body.appendChild(a); a.click(); a.remove();
+        afficherCarteTelechargement(doc,'succes',100,null,null,`Téléchargement lancé : ${nomExact}`);
+      } catch(e2) {
+        afficherCarteTelechargement(doc,'erreur',null,null,null,'Le téléchargement n’a pas pu être lancé.');
+      }
+    } finally {
+      TELECHARGEMENT_DOCUMENT_EN_COURS=false;
+    }
+  }
+
+  const btnFermerCarteTelechargement=document.getElementById('downloadProgressClose');
+  if(btnFermerCarteTelechargement) btnFermerCarteTelechargement.addEventListener('click',fermerCarteTelechargement);
+
   async function recupererOctetsPDF(url, onProgress, diagLog) {
     const log = diagLog || function(){};
     const cle = (url && url.indexOf(R2_PUBLIC_URL + '/') === 0) ? url.slice(R2_PUBLIC_URL.length + 1) : null;
