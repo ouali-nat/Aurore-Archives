@@ -3,18 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="preconnect" href="https://tdeotqfsbvouresfhkab.supabase.co" crossorigin>
-<link rel="preconnect" href="https://lsnb-upload.oualikevin9.workers.dev" crossorigin>
-<link rel="preconnect" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev" crossorigin>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#090812">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Aurore">
-<link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
 <title>Aurore — Section Archives — Bibliothèque numérique</title>
 <link rel="preload" as="image" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#090812">
 <script>
   // Appliqué le plus tôt possible pour éviter un flash du mauvais thème au
   // chargement. Version minimale ; la logique complète (boutons, suivi du
@@ -1285,20 +1277,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 [data-theme="light"] .form-msg.err{background:#FFF7F7!important;color:#991B1B!important;border-color:#FCA5A5!important;}
 .welcome-modal-card p{line-height:1.65!important;}
 </style>
-
-<style id="aurore-pwa-interface">
-  /* Installation PWA : quand Aurore est installée, l'interface occupe tout l'écran. */
-  .pwa-install-btn{display:none;align-items:center;gap:7px;border:1px solid rgba(167,139,250,.28);background:linear-gradient(135deg,rgba(124,58,237,.16),rgba(167,139,250,.10));color:var(--encre);padding:9px 12px;border-radius:13px;font:inherit;font-size:.76rem;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 7px 20px rgba(55,36,82,.08)}
-  .pwa-install-btn:hover{transform:translateY(-1px);border-color:rgba(167,139,250,.48)}
-  .pwa-install-btn svg{width:16px;height:16px;flex:0 0 16px}
-  .pwa-install-hint{position:fixed;right:18px;bottom:18px;z-index:9998;display:none;width:min(360px,calc(100vw - 32px));padding:15px 16px;border:1px solid rgba(167,139,250,.28);border-radius:18px;background:linear-gradient(145deg,rgba(17,16,28,.98),rgba(25,20,38,.98));color:var(--encre);box-shadow:0 20px 60px rgba(0,0,0,.35);backdrop-filter:blur(18px)}
-  .pwa-install-hint strong{display:block;font-size:.9rem;margin-bottom:5px}.pwa-install-hint span{display:block;color:var(--gris);font-size:.76rem;line-height:1.5}.pwa-install-hint button{margin-top:11px;border:0;border-radius:11px;padding:9px 12px;background:var(--violet);color:#fff;font:inherit;font-size:.76rem;font-weight:800;cursor:pointer}
-  [data-theme="light"] .pwa-install-btn{background:#F4EFFB;color:#2C2340;border-color:#D7C9E8}
-  [data-theme="light"] .pwa-install-hint{background:rgba(255,255,255,.98);border-color:#D8CEE3;color:#171322;box-shadow:0 20px 60px rgba(55,36,82,.18)}
-  @media(max-width:900px){.pwa-install-btn{display:none!important}}
-  @media(display-mode: standalone){.pwa-install-btn,.pwa-install-hint{display:none!important}body{padding-top:env(safe-area-inset-top)}}
-  @media(display-mode: fullscreen){.pwa-install-btn,.pwa-install-hint{display:none!important}}
-</style>
 </head>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <body class="site-locked">
@@ -1365,12 +1343,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       <input id="signupPasswordConfirm" type="password" autocomplete="new-password" placeholder="Répétez le mot de passe" minlength="8" required>
       <button type="submit" class="access-btn" id="signupSubmit">CRÉER MON COMPTE</button>
       <p id="signupMessage" class="access-message" style="display:none;"></p>
-      <div id="signupResendWrap" class="resend-box" style="display:none;">
-        <div class="resend-box-title">E-mail de confirmation</div>
-        <div class="resend-box-help">Vous pouvez demander un nouveau message si vous ne l’avez pas reçu.</div>
-        <button type="button" id="signupResend" class="modal-secondary-link">Renvoyer l’e-mail de confirmation</button>
-        <div id="signupResendCountdown" class="resend-countdown" aria-live="polite">Le compte à rebours apparaîtra ici après un renvoi.</div>
-      </div>
+      <button type="button" id="signupResend" class="modal-secondary-link" style="display:none;">Renvoyer l’e-mail de confirmation</button>
     </form>
     <div class="account-login-switch" id="accountLoginSwitch"><span>Vous avez déjà un compte ?</span><button type="button" id="showLoginBtn">Se connecter avec e-mail</button></div>
     <form id="loginForm" class="signup-form" autocomplete="on" style="display:none;">
@@ -1391,7 +1364,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   .access-lock{position:fixed;inset:0;z-index:9999;background:var(--fond,#F6F5F2);display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto;}
   .access-card{width:100%;max-width:460px;background:var(--papier,#fff);border:1px solid var(--bordure,#E4E1D8);border-radius:24px;box-shadow:0 26px 70px rgba(32,36,46,.16);overflow:hidden;}
   .access-card-body{padding:30px 30px 24px;text-align:left}.access-institution{display:flex;align-items:center;gap:14px;padding-bottom:22px}.access-logo{width:58px;height:58px;flex:0 0 58px;border-radius:16px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--violet),var(--bleu));border:1px solid rgba(255,255,255,.12);box-shadow:0 10px 28px rgba(124,58,237,.20)}.access-logo img{width:100%;height:100%;object-fit:cover;display:block}.access-brand{margin:0 0 3px;font-size:1.08rem;line-height:1.25}.access-tagline{font-size:.76rem;color:var(--gris);line-height:1.4}.access-tabs{display:flex;border-bottom:1px solid var(--bordure);margin:0 -30px 24px;padding:0 30px}.access-tab{padding:11px 2px 10px;font-size:.79rem;font-weight:700;color:var(--encre);position:relative}.access-tab:after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:2px;background:var(--violet)}.access-heading h1{font-family:Georgia,'Times New Roman',serif;font-size:clamp(1.55rem,5vw,1.9rem);line-height:1.2;margin:0 0 8px;color:var(--encre)}.access-heading p{font-size:.88rem;color:var(--gris);line-height:1.55;margin:0 0 22px}.access-actions{display:grid;gap:10px}.access-google-btn{width:100%;display:flex;align-items:center;gap:12px;text-align:left;padding:13px 15px;border:1px solid #D8D3DF;border-radius:13px;background:#fff;color:#1F1B2E;cursor:pointer;box-shadow:0 7px 18px rgba(55,36,82,.07);transition:transform .15s,box-shadow .15s}.access-google-btn:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(55,36,82,.10)}.access-google-btn span:last-child{display:flex;flex-direction:column;gap:2px}.access-google-btn strong{font-size:.9rem}.access-google-btn small{font-size:.7rem;color:#6B6478}.google-mark{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:1rem;background:#fff;border:1px solid #E1DCE6;color:#4285F4}.access-secondary-btn,.access-visitor-btn{width:100%;padding:12px 15px;border-radius:12px;font:inherit;font-size:.84rem;font-weight:700;cursor:pointer}.access-secondary-btn{border:1px solid var(--bordure);background:var(--fond);color:var(--encre)}.access-visitor-btn{border:0;background:transparent;color:var(--gris);font-weight:600}.access-visitor-btn:hover{text-decoration:underline;color:var(--encre)}.access-message{margin:12px 0 0;padding:10px 12px;border-radius:11px;font-size:.78rem;line-height:1.5}.access-message.ok{background:#ECFDF3;color:#166534;border:1px solid #86EFAC}.access-message.err{background:#FFF7F7;color:#991B1B;border:1px solid #FCA5A5}.access-note{text-align:center;margin-top:18px;font-size:.72rem;color:var(--gris)}.access-footer{text-align:center;padding:14px 20px;border-top:1px solid var(--bordure);font-size:.7rem;color:var(--gris)}
-  .signup-modal{position:fixed;inset:0;z-index:10000;background:rgba(15,12,25,.48);backdrop-filter:blur(7px);display:flex;align-items:center;justify-content:center;padding:18px;overflow:auto}.signup-card{position:relative;width:100%;max-width:430px;background:var(--papier);color:var(--encre);border:1px solid var(--bordure);border-radius:22px;padding:27px;box-shadow:0 28px 80px rgba(0,0,0,.24)}.signup-close{position:absolute;right:14px;top:12px;width:34px;height:34px;border:0;border-radius:50%;background:var(--fond);color:var(--gris);font-size:1.35rem;cursor:pointer}.signup-card h2{font-family:Georgia,'Times New Roman',serif;font-size:1.55rem;margin:5px 0 8px}.signup-intro,.signup-footnote{font-size:.82rem;color:var(--gris);line-height:1.55}.signup-form{display:grid;gap:8px;margin-top:18px}.signup-form label{font-size:.76rem;font-weight:700;margin-top:3px}.signup-form input{width:100%;box-sizing:border-box;padding:12px 13px;border:1px solid var(--bordure);border-radius:11px;background:var(--fond);color:var(--encre);outline:none}.signup-form input:focus{border-color:var(--violet);box-shadow:0 0 0 3px rgba(124,58,237,.10)}.signup-footnote{margin:14px 0 0;text-align:center;font-size:.72rem;color:var(--gris);line-height:1.55;padding:11px 13px;border:1px solid var(--bordure);border-radius:14px;background:var(--fond);box-sizing:border-box}.account-login-switch{display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap;margin-top:15px;font-size:.73rem;color:var(--gris)}.account-login-switch{padding:10px 12px;border:1px solid var(--bordure);border-radius:14px;background:var(--fond);box-sizing:border-box}.account-login-switch button{border:0;background:transparent;color:var(--violet);font:inherit;font-weight:800;cursor:pointer;padding:5px 8px;border-radius:9px}.account-login-switch button:hover{background:rgba(124,58,237,.08)}.modal-secondary-link{justify-self:stretch;border:1px solid var(--bordure);background:var(--fond);color:var(--violet);font:inherit;font-weight:800;cursor:pointer;padding:10px 13px;border-radius:11px;transition:opacity .15s,transform .15s,background .15s}.modal-secondary-link:hover:not(:disabled){background:rgba(124,58,237,.08);transform:translateY(-1px)}.modal-secondary-link:disabled{opacity:.58;cursor:not-allowed;transform:none}.resend-box{margin-top:10px;padding:13px;border:1px solid var(--bordure);border-radius:16px;background:var(--fond);box-sizing:border-box;display:grid;gap:8px}.resend-box-title{font-size:.78rem;font-weight:800;color:var(--encre)}.resend-box-help{font-size:.72rem;line-height:1.45;color:var(--gris)}.resend-countdown{padding:9px 11px;border:1px solid rgba(124,58,237,.22);border-radius:11px;background:rgba(124,58,237,.08);color:var(--violet);font-size:.73rem;font-weight:800;text-align:center;line-height:1.4}
+  .signup-modal{position:fixed;inset:0;z-index:10000;background:rgba(15,12,25,.48);backdrop-filter:blur(7px);display:flex;align-items:center;justify-content:center;padding:18px;overflow:auto}.signup-card{position:relative;width:100%;max-width:430px;background:var(--papier);color:var(--encre);border:1px solid var(--bordure);border-radius:22px;padding:27px;box-shadow:0 28px 80px rgba(0,0,0,.24)}.signup-close{position:absolute;right:14px;top:12px;width:34px;height:34px;border:0;border-radius:50%;background:var(--fond);color:var(--gris);font-size:1.35rem;cursor:pointer}.signup-card h2{font-family:Georgia,'Times New Roman',serif;font-size:1.55rem;margin:5px 0 8px}.signup-intro,.signup-footnote{font-size:.82rem;color:var(--gris);line-height:1.55}.signup-form{display:grid;gap:8px;margin-top:18px}.signup-form label{font-size:.76rem;font-weight:700;margin-top:3px}.signup-form input{width:100%;box-sizing:border-box;padding:12px 13px;border:1px solid var(--bordure);border-radius:11px;background:var(--fond);color:var(--encre);outline:none}.signup-form input:focus{border-color:var(--violet);box-shadow:0 0 0 3px rgba(124,58,237,.10)}.signup-footnote{margin:14px 0 0;text-align:center;font-size:.72rem};.account-login-switch{display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap;margin-top:15px;font-size:.73rem;color:var(--gris)}.account-login-switch button,.modal-secondary-link{border:0;background:transparent;color:var(--violet);font:inherit;font-weight:700;cursor:pointer;padding:0}.modal-secondary-link{justify-self:center;margin-top:4px}
   [data-theme="light"] .access-lock{background:radial-gradient(circle at 15% 10%,rgba(109,40,217,.08),transparent 34%),radial-gradient(circle at 88% 88%,rgba(192,132,252,.10),transparent 36%),#F7F4FB}[data-theme="light"] .access-card{background:#fff;border-color:#DDD3E8;box-shadow:0 24px 60px rgba(55,36,82,.12)}[data-theme="light"] .access-google-btn{background:#fff;border-color:#DDD3E8}[data-theme="light"] .access-secondary-btn{background:#F7F4FB}
   /* Portail d'accès : deux espaces côte à côte, avec le bloc secondaire défilant. */
   .access-card{max-width:900px;}
@@ -1437,11 +1410,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
   @media(max-width:760px){.access-card{max-width:560px}.access-panels{grid-template-columns:1fr}.access-panel-alt{min-height:0}.access-alt-scroll{max-height:220px}.profile-fields-grid{grid-template-columns:1fr;}}
 
-  .modal-secondary-link{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:10px 16px;border:1px solid var(--bordure);border-radius:13px;background:var(--fond);color:var(--encre);font:inherit;font-size:.78rem;font-weight:700;line-height:1.25;text-align:center;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease,opacity .15s ease;box-shadow:0 7px 18px rgba(55,36,82,.06)}
-  .modal-secondary-link:hover:not(:disabled){transform:translateY(-1px);border-color:rgba(167,139,250,.55);box-shadow:0 10px 24px rgba(55,36,82,.10)}
-  .modal-secondary-link:disabled{cursor:not-allowed;opacity:.72}
-  .modal-secondary-link.is-counting{font-variant-numeric:tabular-nums}
-  .access-message{border-radius:13px !important}
   @media(max-width:520px){.access-lock{padding:14px}.access-card-body{padding:24px 20px 20px}.access-tabs{margin-left:-20px;margin-right:-20px;padding-left:20px;padding-right:20px}.access-logo{width:52px;height:52px;flex-basis:52px;border-radius:14px}.signup-card{padding:23px 19px}}
 </style>
 
@@ -1459,50 +1427,11 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   const backSignupBtn=document.getElementById('backSignupBtn');
   const loginSwitch=document.getElementById('accountLoginSwitch');
   const resend=document.getElementById('signupResend');
-  const resendWrap=document.getElementById('signupResendWrap');
-  const resendCountdown=document.getElementById('signupResendCountdown');
   let dernierEmailInscription='';
-  let resendTimer=null;
-  let resendSecondesRestantes=0;
   const msg=document.getElementById('signupMessage');
   const loginMsg=document.getElementById('loginMessage');
-  const redirectConfirmation=()=>window.location.origin+window.location.pathname;
-
-  function afficherMessageInscription(texte,type='ok'){
-    msg.textContent=texte;
-    msg.className='access-message '+type;
-    msg.style.display='block';
-  }
-
-  function demarrerCompteAReboursResend(secondes=60){
-    if(!resend || !resendCountdown) return;
-    if(resendTimer) clearInterval(resendTimer);
-    resendSecondesRestantes=Math.max(1,Number(secondes)||60);
-    resend.disabled=true;
-    resend.classList.add('is-counting');
-    if(resendWrap) resendWrap.style.display='grid';
-    resendCountdown.style.display='block';
-    const afficher=()=>{
-      if(resendSecondesRestantes>0){
-        resend.textContent=`Renvoyer dans ${resendSecondesRestantes}s`;
-        resendCountdown.textContent=`Nouveau renvoi disponible dans ${resendSecondesRestantes} seconde${resendSecondesRestantes>1?'s':''}`;
-      }else{
-        arreterCompteAReboursResend();
-      }
-    };
-    afficher();
-    resendTimer=setInterval(()=>{resendSecondesRestantes--;afficher();},1000);
-  }
-
-  function arreterCompteAReboursResend(){
-    if(resendTimer) clearInterval(resendTimer);
-    resendTimer=null; resendSecondesRestantes=0;
-    if(resend){ resend.disabled=false; resend.classList.remove('is-counting'); resend.textContent='Renvoyer l’e-mail de confirmation'; }
-    if(resendCountdown){ resendCountdown.style.display='block'; resendCountdown.textContent='Vous pouvez demander un nouvel e-mail de confirmation.'; }
-  }
-
   function afficherModeConnexionEmail(){ form.style.display='none'; loginForm.style.display='grid'; loginSwitch.style.display='none'; setTimeout(()=>document.getElementById('loginEmail')?.focus(),50); }
-  function afficherModeInscription(){ form.style.display='grid'; loginForm.style.display='none'; loginSwitch.style.display='flex'; if(resendWrap) resendWrap.style.display=dernierEmailInscription?'grid':'none'; }
+  function afficherModeInscription(){ form.style.display='grid'; loginForm.style.display='none'; loginSwitch.style.display='flex'; if(resend) resend.style.display='none'; }
   function unlock(){ document.body.classList.remove('site-locked'); if(lock) lock.style.display='none'; }
   window.auroreUnlockAccess=unlock;
   visitor?.addEventListener('click',()=>{ try{localStorage.setItem('aurore_visitor_mode','1');}catch(e){} unlock(); });
@@ -1515,39 +1444,33 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   signupOpen?.addEventListener('click',()=>{modal.style.display='flex';modal.setAttribute('aria-hidden','false');afficherModeInscription();setTimeout(()=>document.getElementById('signupName')?.focus(),50);});
   showLoginBtn?.addEventListener('click',afficherModeConnexionEmail);
   backSignupBtn?.addEventListener('click',afficherModeInscription);
-  function fermer(){modal.style.display='none';modal.setAttribute('aria-hidden','true');msg.style.display='none';loginMsg.style.display='none';}
+  function fermer(){modal.style.display='none';modal.setAttribute('aria-hidden','true');afficherModeInscription();msg.style.display='none';loginMsg.style.display='none';if(resend) resend.style.display='none';}
   close?.addEventListener('click',fermer); modal?.addEventListener('click',e=>{if(e.target===modal)fermer();});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modal?.style.display!=='none')fermer();});
   resend?.addEventListener('click',async ()=>{
     const email=(dernierEmailInscription||document.getElementById('signupEmail')?.value||'').trim();
     if(!email){
-      afficherMessageInscription('Saisissez votre adresse e-mail pour renvoyer le message de confirmation.','err');
-      return;
+      msg.textContent='Saisissez votre adresse e-mail pour renvoyer le message de confirmation.';
+      msg.className='access-message err'; msg.style.display='block'; return;
     }
-    if(resend.disabled) return;
     dernierEmailInscription=email;
-    if(resendWrap) resendWrap.style.display='grid';
-    resend.disabled=true; resend.textContent='Envoi de l’e-mail…'; msg.style.display='none';
+    resend.disabled=true; resend.textContent='Envoi en cours…'; msg.style.display='none';
     try{
-      const r=await fetch(`${SUPABASE_URL}/auth/v1/resend`,{
-        method:'POST',
-        headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},
-        body:JSON.stringify({type:'signup',email,options:{emailRedirectTo:redirectConfirmation()}})
-      });
+      const r=await fetch(`${SUPABASE_URL}/auth/v1/resend`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({type:'signup',email})});
       const raw=await r.text(); let d={};
       try{d=raw?JSON.parse(raw):{}}catch(_){d={message:raw}}
       if(!r.ok){
         const detail=d.msg||d.error_description||d.message||raw||('HTTP '+r.status);
-        if(r.status===429){ afficherMessageInscription('Trop de demandes. Pour protéger votre compte, patientez 60 secondes avant de demander un nouveau message.','err'); if(resendWrap) resendWrap.style.display='grid'; demarrerCompteAReboursResend(60); return; }
-        if(r.status===422 && /already|confirm/i.test(detail)) throw new Error('Cette adresse e-mail est peut-être déjà confirmée. Connectez-vous pour accéder à votre espace.');
+        if(r.status===429) throw new Error('Trop de demandes. Attendez quelques instants avant de réessayer.');
+        if(r.status===422 && /already|confirm/i.test(detail)) throw new Error('Cette adresse e-mail est peut-être déjà confirmée. Vous pouvez essayer de vous connecter.');
         throw new Error(detail);
       }
-      afficherMessageInscription('E-mail de confirmation renvoyé. Vérifiez votre boîte de réception et les courriers indésirables.','ok');
-      demarrerCompteAReboursResend(60);
+      msg.textContent='E-mail de confirmation renvoyé. Vérifiez votre boîte de réception et les courriers indésirables.';
+      msg.className='access-message ok'; msg.style.display='block';
     }catch(e){
-      afficherMessageInscription('Impossible de renvoyer l’e-mail : '+(e.message||'erreur inconnue'),'err');
-      arreterCompteAReboursResend();
-    }
+      msg.textContent='Impossible de renvoyer l’e-mail : '+(e.message||'erreur inconnue');
+      msg.className='access-message err'; msg.style.display='block';
+    }finally{resend.disabled=false;resend.textContent='Renvoyer l’e-mail de confirmation';}
   });
 
   loginForm?.addEventListener('submit',async e=>{
@@ -1571,11 +1494,11 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     msg.style.display='none'; if(p!==p2){msg.textContent='Les deux mots de passe ne correspondent pas.';msg.className='access-message err';msg.style.display='block';return;} if(p.length<8){msg.textContent='Le mot de passe doit contenir au moins 8 caractères.';msg.className='access-message err';msg.style.display='block';return;}
     btn.disabled=true;btn.textContent='Création en cours…';
     try{
-      const r=await fetch(`${SUPABASE_URL}/auth/v1/signup`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password:p,data:{full_name:name,name},options:{emailRedirectTo:redirectConfirmation()}})}); const d=await r.json().catch(()=>({}));
+      const r=await fetch(`${SUPABASE_URL}/auth/v1/signup`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password:p,data:{full_name:name,name}})}); const d=await r.json().catch(()=>({}));
       if(!r.ok) throw new Error(d.msg||d.error_description||d.message||('HTTP '+r.status));
       if(d.access_token){
         const infos=await recupererUtilisateur(d.access_token); if(infos){const role=await assurerProfilEtObtenirRole(d.access_token,infos);session={access_token:d.access_token,refresh_token:d.refresh_token||null,expires_at:Date.now()+((d.expires_in||3600)*1000),id:infos.id,email:infos.email,nom:infos.nom,avatar:infos.avatar,lycee:infos.lycee||'',niveau:infos.niveau||'',classe:infos.classe||'',filiere:infos.filiere||'',provider:infos.provider||'E-mail',role};sauvegarderSession();enregistrerConnexion(session);afficherUtilisateurConnecte();unlock();fermer();ouvrirEspacePersonnelObligatoire();}
-      } else {dernierEmailInscription=email;if(resendWrap) resendWrap.style.display='grid';msg.textContent='Compte créé. Consultez votre e-mail pour confirmer votre adresse avant de vous connecter. Vérifiez aussi les courriers indésirables.';msg.className='access-message ok';msg.style.display='block';}
+      } else {dernierEmailInscription=email;msg.textContent='Compte créé. Consultez votre e-mail pour confirmer votre adresse avant de vous connecter. Vérifiez aussi les courriers indésirables.';msg.className='access-message ok';msg.style.display='block';if(resend) resend.style.display='inline-block';}
     }catch(err){msg.textContent='Impossible de créer le compte : '+(err.message||'vérifiez les informations saisies.');msg.className='access-message err';msg.style.display='block';}
     finally{btn.disabled=false;btn.textContent='CRÉER MON COMPTE';}
   });
@@ -1612,7 +1535,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         <button id="btnDeconnexion" title="Se déconnecter">×</button>
       </div>
     </div>
-    <button type="button" class="pwa-install-btn" id="pwaInstallBtn" aria-label="Installer Aurore"><span aria-hidden="true">⇩</span> Installer</button>
     <button class="deposer-btn" id="btnDeposer"><span id="uploadIconHost"></span> Déposer un document</button>
   </div>
 </header>
@@ -2198,60 +2120,24 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       </div>
     </div>
 
-    <div class="personal-space" id="personalSpace" aria-label="Mon espace personnel">
-      <div class="personal-space-head">
-        <div>
-          <span class="personal-kicker">Espace personnel</span>
-          <h3>Mon activité</h3>
-        </div>
-        <button type="button" class="personal-refresh" id="personalRefresh">Actualiser</button>
-      </div>
 
-      <div class="personal-tabs" role="tablist" aria-label="Sections personnelles">
-        <button type="button" class="personal-tab active" data-personal-tab="documents" role="tab" aria-selected="true">Mes documents <span id="personalDocsCount">0</span></button>
-        <button type="button" class="personal-tab" data-personal-tab="books" role="tab" aria-selected="false">Mes livres <span id="personalBooksCount">0</span></button>
-        <button type="button" class="personal-tab" data-personal-tab="favorites" role="tab" aria-selected="false">Mes favoris</button>
-        <button type="button" class="personal-tab" data-personal-tab="downloads" role="tab" aria-selected="false">À télécharger</button>
-      </div>
-
-      <div class="personal-panel active" data-personal-panel="documents">
-        <div class="personal-panel-intro">Suivez vos dépôts et leur validation sans quitter votre espace.</div>
-        <div id="personalDocumentsList" class="personal-list">
-          <div class="personal-empty">Chargement de vos documents…</div>
-        </div>
-      </div>
-
-      <div class="personal-panel" data-personal-panel="books" hidden>
-        <div class="personal-panel-intro">Vos livres déposés ou ajoutés à votre espace apparaîtront ici.</div>
-        <div id="personalBooksList" class="personal-list">
-          <div class="personal-empty">Chargement de vos livres…</div>
-        </div>
-      </div>
-
-      <div class="personal-panel" data-personal-panel="favorites" hidden>
-        <div class="personal-panel-intro">Retrouvez ici les documents que vous avez ajoutés à vos favoris.</div>
-        <div id="personalFavoritesList" class="personal-list">
-          <div class="personal-empty">Aucun favori pour le moment.</div>
-        </div>
-      </div>
-
-      <div class="personal-panel" data-personal-panel="downloads" hidden>
-        <div class="personal-panel-intro">Les documents enregistrés avec « ＋ Plus tard » et votre historique de téléchargements sont regroupés ici.</div>
-        <div class="personal-subsection">
-          <div class="personal-subsection-title">À télécharger plus tard</div>
-          <div id="personalLaterList" class="personal-list">
-            <div class="personal-empty">Aucun document enregistré pour plus tard.</div>
-          </div>
-        </div>
-        <div class="personal-subsection" style="margin-top:18px;">
-          <div class="personal-subsection-title">Mes téléchargements</div>
-          <div id="personalDownloadsHistory" class="personal-list">
-            <div class="personal-empty">Aucun téléchargement enregistré pour le moment.</div>
-          </div>
-        </div>
-      </div>
+    <div class="profile-resource-strip" aria-label="Mes ressources personnelles">
+      <button type="button" class="profile-resource-card" id="btnProfilFavoris">
+        <span class="profile-resource-icon">♡</span>
+        <span class="profile-resource-copy"><strong>Mes favoris</strong><span>Documents enregistrés</span></span>
+        <span class="profile-resource-count" id="profilFavorisCount">0</span>
+      </button>
+      <button type="button" class="profile-resource-card" id="btnProfilPlusTard">
+        <span class="profile-resource-icon">◷</span>
+        <span class="profile-resource-copy"><strong>À télécharger</strong><span>Documents à retrouver plus tard</span></span>
+        <span class="profile-resource-count" id="profilPlusTardCount">0</span>
+      </button>
+      <button type="button" class="profile-resource-card" id="btnProfilTelechargements">
+        <span class="profile-resource-icon">↓</span>
+        <span class="profile-resource-copy"><strong>Mes téléchargements</strong><span>Documents téléchargés</span></span>
+        <span class="profile-resource-count" id="profilTelechargementsCount">0</span>
+      </button>
     </div>
-
     <button class="back-btn" data-back="home" style="margin-top:28px;">← Retour à l'accueil</button>
   </section>
 
@@ -2320,47 +2206,26 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   }
 </style>
 <style id="aurore-pdf-reader-refonte">
-  /* Lecteur PDF — refonte premium : IDs et fonctions existants conservés. */
-  #pdfViewerOverlay{background:radial-gradient(circle at 15% 0%,rgba(124,58,237,.18),transparent 30%),radial-gradient(circle at 90% 100%,rgba(192,132,252,.10),transparent 28%),#08070d!important;backdrop-filter:blur(10px);}
-  .pdf-reader-shell{max-width:1240px!important;width:calc(100% - 22px)!important;height:calc(100% - 18px)!important;margin:9px auto!important;border:1px solid rgba(255,255,255,.10);border-radius:24px;overflow:hidden;background:#100e17;box-shadow:0 24px 80px rgba(0,0,0,.48),0 0 0 1px rgba(124,58,237,.04);}
-  .pdf-reader-topbar{min-height:64px;padding:10px 14px!important;background:rgba(17,15,26,.96)!important;border-bottom:1px solid rgba(255,255,255,.07)!important;gap:10px;}
-  .pdf-reader-back{min-height:40px!important;padding:9px 14px!important;border:1px solid rgba(255,255,255,.09)!important;background:#191622!important;color:#f7f5fb!important;box-shadow:0 4px 14px rgba(0,0,0,.16);transition:transform .16s ease,border-color .16s ease,background .16s ease;}
-  .pdf-reader-back:hover{transform:translateY(-1px);border-color:rgba(192,132,252,.45)!important;background:#211c2d!important;}
-  .pdf-reader-title{font-size:.92rem!important;color:#f8f6fc!important;letter-spacing:.01em;}
-  .pdf-reader-badge{color:#e8cfff!important;background:rgba(124,58,237,.16)!important;border-color:rgba(192,132,252,.30)!important;}
-  .pdf-reader-toolbar{min-height:54px;padding:7px 12px!important;background:#14121c!important;border-top:0!important;border-bottom:1px solid rgba(255,255,255,.065)!important;}
-  .pdf-toolbar-group{gap:5px!important;}
-  .pdf-reader-toolbar button{min-height:38px!important;min-width:38px!important;padding:7px 11px!important;border-radius:11px!important;border-color:rgba(255,255,255,.10)!important;background:#1d1a27!important;color:#eeeaf6!important;font-size:.78rem!important;transition:transform .15s ease,background .15s ease,border-color .15s ease,box-shadow .15s ease;}
-  .pdf-reader-toolbar button:hover:not([disabled]){transform:translateY(-1px);background:#282237!important;border-color:rgba(192,132,252,.48)!important;box-shadow:0 5px 14px rgba(0,0,0,.18);}
-  .pdf-reader-toolbar button[aria-pressed="true"]{background:rgba(124,58,237,.22)!important;border-color:rgba(192,132,252,.58)!important;}
-  #pdfViewerZoomLevel{min-width:48px!important;color:#cfc8dc!important;font-variant-numeric:tabular-nums;}
-  .pdf-reader-zone{background:radial-gradient(circle at 50% 0%,rgba(124,58,237,.07),transparent 28%),linear-gradient(180deg,#25222e 0%,#1d1b24 100%)!important;padding:20px clamp(8px,2.4vw,32px) 30px!important;overscroll-behavior:contain;scroll-behavior:smooth;scrollbar-color:#4b4258 transparent;scrollbar-width:thin;}
-  .pdf-reader-zone::-webkit-scrollbar{width:9px;height:9px}.pdf-reader-zone::-webkit-scrollbar-track{background:transparent}.pdf-reader-zone::-webkit-scrollbar-thumb{background:#4b4258;border-radius:999px;border:2px solid #201e27}
-  .pdf-reader-pages{width:100%!important;max-width:920px!important;margin:0 auto!important;gap:16px!important;}
-  .pdf-reader-page{width:100%!important;min-height:80px;transition:filter .18s ease;}
-  .pdf-reader-page:not(.pdf-page-rendered){opacity:.72;}
-  .pdf-reader-page canvas{display:block!important;max-width:100%;background:#fff;border-radius:5px!important;box-shadow:0 12px 34px rgba(0,0,0,.34),0 2px 8px rgba(0,0,0,.22)!important;}
-  .pdf-reader-page-label{top:12px!important;right:12px!important;padding:5px 9px!important;background:rgba(12,10,17,.72)!important;border:1px solid rgba(255,255,255,.12);color:#fff!important;backdrop-filter:blur(8px);box-shadow:0 4px 12px rgba(0,0,0,.18);}
-  .pdf-reader-page-placeholder{min-height:120px!important;border-radius:14px!important;border-color:rgba(255,255,255,.08)!important;background:rgba(255,255,255,.025)!important;}
-  .pdf-reader-loading{width:min(430px,92%);box-sizing:border-box;margin:13vh auto 0!important;padding:24px 22px!important;border:1px solid rgba(255,255,255,.10);border-radius:20px;background:rgba(15,13,22,.80);box-shadow:0 18px 45px rgba(0,0,0,.26);backdrop-filter:blur(12px);gap:13px!important;}
-  .pdf-spinner{width:34px!important;height:34px!important;border:3px solid rgba(255,255,255,.13)!important;border-top-color:#c084fc!important;border-right-color:#7c3aed!important;}
-  #pdfViewerStatut{width:100%;color:#eeeaf6!important;font-size:.82rem!important;line-height:1.45!important;}
-  .pdf-load-progress{width:100%;display:flex;flex-direction:column;gap:7px;margin-top:2px;}
-  .pdf-load-progress-head{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:.7rem;color:#a9a1b7;}
-  .pdf-load-progress-head strong{color:#e9e3f2;font-size:.72rem;}
-  .pdf-load-progress-track{width:100%;height:7px;border-radius:999px;background:#26222f;overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.28);}
-  .pdf-load-progress-bar{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#7c3aed,#c084fc,#e879f9);box-shadow:0 0 14px rgba(192,132,252,.28);transition:width .18s ease;}
-  .pdf-reader-erreur{width:min(500px,92%);box-sizing:border-box;margin:12vh auto 0!important;padding:24px!important;border:1px solid rgba(248,113,113,.20);border-radius:20px;background:rgba(45,20,27,.72);box-shadow:0 18px 45px rgba(0,0,0,.22);}
-  .pdf-reader-erreur p{color:#f7e8eb!important}.pdf-reader-erreur a{color:#b9f3c8!important;}
-  .pdf-reader-bottombar{min-height:54px;box-sizing:border-box;padding:7px 12px!important;background:#111019!important;border-top:1px solid rgba(255,255,255,.07);gap:9px!important;}
-  .pdf-reader-bottombar button{min-height:38px!important;padding:8px 14px!important;border-radius:11px!important;border-color:rgba(255,255,255,.10)!important;background:#1d1a27!important;color:#eeeaf6!important;transition:background .15s ease,border-color .15s ease,transform .15s ease;}
-  .pdf-reader-bottombar button:hover:not([disabled]){background:#282237!important;border-color:rgba(192,132,252,.45)!important;transform:translateY(-1px);}
-  #pdfViewerPage{min-width:100px!important;color:#cfc8dc!important;font-variant-numeric:tabular-nums;}
-  @media(max-width:700px){
-    .pdf-reader-shell{width:100%!important;height:100%!important;margin:0!important;border-radius:0;border-left:0;border-right:0;}
-    .pdf-reader-topbar{min-height:56px;padding:8px 10px!important}.pdf-reader-title{font-size:.82rem!important}
-    .pdf-reader-toolbar{justify-content:space-between;overflow-x:auto;flex-wrap:nowrap!important}.pdf-toolbar-group{flex-wrap:nowrap!important}.pdf-reader-toolbar button{min-width:38px!important;padding:7px 9px!important}
-    .pdf-reader-zone{padding:10px 4px 20px!important}.pdf-reader-pages{gap:10px!important}.pdf-reader-page-label{right:7px!important;top:7px!important}.pdf-reader-bottombar{padding:7px 8px!important}
+  /* Lecteur PDF — lecture continue verticale, largeur adaptative et rendu net */
+  #pdfViewerOverlay{background:#0b0a10!important;}
+  .pdf-reader-shell{max-width:1180px!important;width:100%;}
+  .pdf-reader-topbar{padding:12px 16px!important;background:#111019;border-bottom:1px solid rgba(255,255,255,.07);}
+  .pdf-reader-toolbar{padding:8px 16px!important;background:#15131d!important;border-bottom:1px solid rgba(255,255,255,.07);}
+  .pdf-reader-zone{overflow-y:auto!important;overflow-x:hidden!important;display:block!important;padding:18px clamp(10px,2vw,28px) 34px!important;background:#26242d!important;overscroll-behavior:contain;scroll-behavior:smooth;touch-action:pan-y;}
+  .pdf-reader-pages{width:100%;max-width:980px;margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:18px;}
+  .pdf-reader-page{position:relative;width:100%;display:flex;justify-content:center;scroll-margin-top:16px;}
+  .pdf-reader-page canvas{display:block!important;width:auto;height:auto;max-width:100%;background:#fff;box-shadow:0 5px 22px rgba(0,0,0,.28);border-radius:2px;image-rendering:auto;}
+  .pdf-reader-page-label{position:absolute;right:10px;top:10px;padding:4px 8px;border-radius:999px;background:rgba(12,10,17,.72);color:#fff;font-size:.68rem;font-weight:700;backdrop-filter:blur(5px);pointer-events:none;}
+  .pdf-reader-page-placeholder{width:min(100%,980px);min-height:180px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.025);display:flex;align-items:center;justify-content:center;color:#aaa5bd;font-size:.8rem;}
+  .pdf-reader-loading{margin-top:12vh!important;}
+  .pdf-reader-bottombar{position:relative;z-index:2;padding:9px 12px!important;border-top:1px solid rgba(0,0,0,.08);}
+  .pdf-reader-bottombar button{min-height:40px!important;padding:8px 15px!important;}
+  @media(max-width:640px){
+    .pdf-reader-topbar{padding:8px 10px!important;}
+    .pdf-reader-toolbar{padding:6px 8px!important;}
+    .pdf-reader-zone{padding:10px 5px 22px!important;}
+    .pdf-reader-pages{gap:10px;}
+    .pdf-reader-page-label{right:6px;top:6px;font-size:.62rem;}
   }
 </style>
 <style id="auraster-theme-system">
@@ -2450,6 +2315,27 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   .admin-user-loading,.admin-user-empty{padding:28px 18px;text-align:center;color:var(--gris);background:var(--papier);border:1px dashed var(--bordure);border-radius:var(--radius);}
   .admin-user-message{margin-bottom:14px;}
   @media (max-width:640px){.admin-user-card{align-items:flex-start;flex-direction:column;}.admin-user-actions{width:100%;justify-content:flex-start;}.admin-user-actions .admin-btn{width:100%;justify-content:center;}}
+  /* ===== Espace personnel : favoris / à télécharger / téléchargements ===== */
+  .profile-resource-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;max-width:920px;margin:16px auto 0;}
+  .profile-resource-card{display:flex;align-items:center;gap:12px;padding:14px 15px;border:1px solid var(--bordure);border-radius:16px;background:var(--auraster-panel);color:var(--encre);cursor:pointer;text-align:left;transition:.18s ease;}
+  .profile-resource-card:hover{transform:translateY(-2px);border-color:rgba(192,132,252,.5);box-shadow:0 10px 26px rgba(0,0,0,.16);}
+  .profile-resource-icon{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:rgba(139,92,246,.12);font-size:1.1rem;flex-shrink:0;}
+  .profile-resource-copy{min-width:0;flex:1;}
+  .profile-resource-copy strong{display:block;font-size:.82rem;line-height:1.2;}
+  .profile-resource-copy span{display:block;color:var(--gris);font-size:.72rem;margin-top:3px;}
+  .profile-resource-count{min-width:28px;height:28px;padding:0 7px;border-radius:999px;display:grid;place-items:center;background:rgba(124,58,237,.18);color:#D8B4FE;font-weight:800;font-size:.76rem;}
+  .doc-actions .doc-tool-btn{border:1px solid var(--bordure);background:transparent;color:var(--gris);border-radius:10px;padding:7px 10px;font-size:.76rem;font-weight:700;cursor:pointer;}
+  .doc-actions .doc-tool-btn.active{color:#FDE68A;border-color:rgba(250,204,21,.35);background:rgba(250,204,21,.08);}
+  .doc-actions .doc-tool-btn.later-active{color:#C4B5FD;border-color:rgba(167,139,250,.4);background:rgba(139,92,246,.10);}
+  .recents-card-wrap{position:relative;min-width:0;}
+  .recents-card-wrap .recents-card{width:100%;padding-bottom:56px;}
+  .recents-tools{position:absolute;left:10px;right:10px;bottom:10px;display:flex;gap:6px;z-index:2;}
+  .recents-tools button{flex:1;border:1px solid var(--bordure);background:rgba(21,17,31,.92);color:var(--gris);border-radius:9px;padding:6px 8px;font-size:.7rem;font-weight:700;cursor:pointer;}
+  .recents-tools button.active{color:#FDE68A;border-color:rgba(250,204,21,.35);}
+  .recents-tools button.later-active{color:#C4B5FD;border-color:rgba(167,139,250,.4);}
+  @media(max-width:760px){.profile-resource-strip{grid-template-columns:1fr;}.profile-resource-card{min-height:56px;}}
+  [data-theme="light"] .profile-resource-card{background:#fff;color:#111318;border-color:#C9BEDB;}
+  [data-theme="light"] .recents-tools button{background:rgba(255,255,255,.95);color:#514B5D;border-color:#D9D0E4;}
 </style>
 <style id="aurore-admin-data-tools">
   .admin-data-toolbar{display:grid;grid-template-columns:minmax(220px,1.8fr) repeat(4,minmax(130px,1fr));gap:9px;align-items:center;margin:16px 0 14px;}
@@ -2499,10 +2385,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       <div id="pdfViewerLoading" class="pdf-reader-loading">
         <div class="pdf-spinner" aria-hidden="true"></div>
         <p id="pdfViewerStatut" role="status">Chargement du document…</p>
-        <div class="pdf-load-progress" aria-hidden="true">
-          <div class="pdf-load-progress-head"><span id="pdfViewerProgressStage">Préparation</span><strong id="pdfViewerProgressPercent">0%</strong></div>
-          <div class="pdf-load-progress-track"><div id="pdfViewerProgressBar" class="pdf-load-progress-bar"></div></div>
-        </div>
       </div>
       <div id="pdfViewerErreurBox" class="pdf-reader-erreur" style="display:none;" role="alert">
         <p id="pdfViewerErreurTexte"></p>
@@ -2605,10 +2487,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     <h3 id="apercuTitre" style="margin-bottom:10px; color:var(--encre);"></h3>
     <div id="apercuTags" class="tags" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;"></div>
     <p id="apercuMeta" style="font-size:0.85rem; color:var(--gris); margin-bottom:18px; line-height:1.5;"></p>
-    <div class="apercu-actions-extra">
-      <button type="button" class="personal-action" id="apercuFavori" aria-pressed="false">♡ Ajouter aux favoris</button>
-      <button type="button" class="personal-action" id="apercuPlusTard">＋ Télécharger plus tard</button>
-    </div>
     <div class="admin-promo-actions" style="margin-top:6px;">
       <button type="button" class="admin-btn primary" id="apercuConsulter">Consulter le document</button>
       <button type="button" class="admin-btn ghost" id="apercuFermer">Fermer</button>
@@ -2962,7 +2840,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   document.getElementById('profilLyceeSave').addEventListener('click',()=>enregistrerProfilPersonnel());
 
   document.getElementById('btnOuvrirProfil').addEventListener('click', () => {
-    if (typeof window.ouvrirEspaceAvecCode === 'function') { window.ouvrirEspaceAvecCode(); return; }
     document.getElementById('breadcrumb').innerHTML = '';
     remplirProfil();
     afficherEcran('screen-profil');
@@ -2982,7 +2859,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
   function ouvrirEspacePersonnelObligatoire() {
     if (!session) return;
-    if (typeof window.ouvrirEspaceAvecCode === 'function') { window.ouvrirEspaceAvecCode({forceComplete:true}); return; }
     if (typeof window.auroreUnlockAccess === 'function') window.auroreUnlockAccess();
     document.getElementById('breadcrumb').innerHTML = '';
     remplirProfil();
@@ -2994,32 +2870,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   }
 
   window.addEventListener('load', async () => {
-    // 1. Confirmation d'inscription par e-mail.
-    // Supabase peut envoyer le lien avec ?token_hash=...&type=signup.
-    // On valide alors le token auprès de Supabase, qui redirige ensuite
-    // vers cette page avec access_token/refresh_token dans le fragment.
-    const urlParams = new URLSearchParams(window.location.search);
-    const tokenHash = urlParams.get('token_hash');
-    const confirmationType = urlParams.get('type');
-
-    if (tokenHash && confirmationType === 'signup') {
-      try {
-        const redirectTo = window.location.origin + window.location.pathname;
-        const verifyUrl =
-          `${SUPABASE_URL}/auth/v1/verify?token=${encodeURIComponent(tokenHash)}` +
-          `&type=signup&redirect_to=${encodeURIComponent(redirectTo)}`;
-
-        // Ne pas afficher la page d'inscription pendant la confirmation :
-        // le navigateur suit la redirection Supabase puis revient ici avec
-        // les jetons de session.
-        window.location.replace(verifyUrl);
-        return;
-      } catch (e) {
-        console.error('[Confirmation e-mail] Impossible de traiter le lien :', e);
-      }
-    }
-
-    // 2. Retour de Google/Supabase : les jetons arrivent dans le fragment de l'URL
+    // 1. Retour de Google/Supabase : les jetons arrivent dans le fragment d'URL
     if (window.location.hash.includes('access_token')) {
       const params = new URLSearchParams(window.location.hash.substring(1));
       const access_token = params.get('access_token');
@@ -5143,15 +4994,12 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         <div class="doc-actions">
           <button type="button" class="dl" style="cursor:pointer;" data-lire="1">Lire</button>
           ${telechargementOk?`<a class="dl" href="${doc.Fichier_url}" target="_blank" rel="noopener">Télécharger</a>`:''}
-          <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-favori="1" aria-pressed="false">♡ Favori</button>
-          <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-plus-tard="1">＋ Plus tard</button>
-          <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-signaler="1">Signaler</button>
+          ${outilsDocument(doc)}
+          <button type="button" class="dl" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-signaler="1">Signaler</button>
         </div>`;
       row.querySelector('[data-lire]').addEventListener('click',()=>ouvrirLecteurPDF(doc));
       row.querySelector('[data-signaler]').addEventListener('click',()=>ouvrirSignalement(doc));
-      row.querySelector('[data-favori]')?.addEventListener('click',()=>basculerFavoriDocument(doc,row.querySelector('[data-favori]')));
-      row.querySelector('[data-plus-tard]')?.addEventListener('click',()=>ajouterDocumentPlusTard(doc,row.querySelector('[data-plus-tard]')));
-      actualiserEtatActionsDocument(row,doc);
+      brancherOutilsDocument(row,doc);
       list.appendChild(row);
     });
     content.innerHTML='';
@@ -5190,6 +5038,44 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   }
 
   let docsPageCourante = 1;
+
+  // ===== Ressources personnelles : favoris / plus tard / téléchargements =====
+  const AURORE_FAVORIS_KEY='aurore_favoris_documents_v1';
+  const AURORE_PLUS_TARD_KEY='aurore_plus_tard_documents_v1';
+  const AURORE_DOWNLOADS_KEY='aurore_telechargements_documents_v1';
+  function lireRessourceLocale(key){try{const v=JSON.parse(localStorage.getItem(key)||'[]');return Array.isArray(v)?v:[];}catch(e){return [];}}
+  function ecrireRessourceLocale(key,list){try{localStorage.setItem(key,JSON.stringify(list));}catch(e){}}
+  function idDocumentPerso(doc){return String(doc?.id ?? doc?.Fichier_url ?? doc?.Titre ?? '').trim();}
+  function estDansRessource(key,doc){const id=idDocumentPerso(doc);return !!id && lireRessourceLocale(key).some(x=>String(x.id)===id);}
+  function sauvegarderRessource(key,doc){const id=idDocumentPerso(doc);if(!id)return;let list=lireRessourceLocale(key);list=list.filter(x=>String(x.id)!==id);list.unshift({id,titre:doc.Titre||'',url:doc.Fichier_url||'',auteur:doc.Auteur||'',niveau:doc.Niveau||'',matiere:doc['Matière']||''});ecrireRessourceLocale(key,list.slice(0,200));actualiserCompteursRessources();}
+  function retirerRessource(key,doc){const id=idDocumentPerso(doc);let list=lireRessourceLocale(key).filter(x=>String(x.id)!==id);ecrireRessourceLocale(key,list);actualiserCompteursRessources();}
+  function basculerRessource(key,doc){if(estDansRessource(key,doc)) retirerRessource(key,doc); else sauvegarderRessource(key,doc);}
+  function actualiserCompteursRessources(){
+    const f=lireRessourceLocale(AURORE_FAVORIS_KEY).length;
+    const p=lireRessourceLocale(AURORE_PLUS_TARD_KEY).length;
+    const d=lireRessourceLocale(AURORE_DOWNLOADS_KEY).length;
+    const a=document.getElementById('profilFavorisCount'),b=document.getElementById('profilPlusTardCount'),c=document.getElementById('profilTelechargementsCount');
+    if(a)a.textContent=f;if(b)b.textContent=p;if(c)c.textContent=d;
+  }
+  function demanderConnexionPourRessource(){
+    if(session) return true;
+    const btn=document.getElementById('btnOpenLogin')||document.getElementById('loginBtn')||document.querySelector('[data-open-login]');
+    if(btn){btn.click();} else if(typeof ouvrirConnexion==='function'){ouvrirConnexion();}
+    else {alert('Connectez-vous pour enregistrer ce document dans votre espace personnel.');}
+    return false;
+  }
+  function outilsDocument(doc){
+    const fav=estDansRessource(AURORE_FAVORIS_KEY,doc), later=estDansRessource(AURORE_PLUS_TARD_KEY,doc);
+    return `<button type="button" class="doc-tool-btn ${fav?'active':''}" data-resource="favori">${fav?'♥ Favori':'♡ Favori'}</button><button type="button" class="doc-tool-btn ${later?'later-active':''}" data-resource="plus-tard">${later?'✓ Plus tard':'◷ Plus tard'}</button>`;
+  }
+  function brancherOutilsDocument(row,doc){
+    row.querySelectorAll('[data-resource]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();if(!demanderConnexionPourRessource())return;basculerRessource(btn.dataset.resource==='favori'?AURORE_FAVORIS_KEY:AURORE_PLUS_TARD_KEY,doc);afficherDocumentsPublicsAvecOutils();}));
+  }
+  document.getElementById('btnProfilFavoris')?.addEventListener('click',()=>{if(!demanderConnexionPourRessource())return;alert(`Vous avez ${lireRessourceLocale(AURORE_FAVORIS_KEY).length} document(s) dans Mes favoris.`);});
+  document.getElementById('btnProfilPlusTard')?.addEventListener('click',()=>{if(!demanderConnexionPourRessource())return;alert(`${lireRessourceLocale(AURORE_PLUS_TARD_KEY).length} document(s) à télécharger plus tard.`);});
+  document.getElementById('btnProfilTelechargements')?.addEventListener('click',()=>{if(!demanderConnexionPourRessource())return;alert(`${lireRessourceLocale(AURORE_DOWNLOADS_KEY).length} téléchargement(s) enregistré(s).`);});
+  actualiserCompteursRessources();
+
   function afficherDocumentsPublicsAvecOutils(){
     const content=document.getElementById('docsContent');
     const q=normaliserRechercheSite(document.getElementById('docsSearch')?.value||'');
@@ -5335,15 +5221,15 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const start=(recentsPageCourante-1)*SITE_PUBLIC_PAGE_SIZE;
     const grid=document.createElement('div'); grid.className='recents-grid';
     data.slice(start,start+SITE_PUBLIC_PAGE_SIZE).forEach(doc=>{
-      const card=document.createElement('article'); card.className='recents-card'; card.setAttribute('role','button'); card.tabIndex=0;
+      const wrap=document.createElement('div'); wrap.className='recents-card-wrap';
+      const card=document.createElement('button'); card.type='button'; card.className='recents-card';
       const tags=tagsClassementDocument(doc);
-      card.innerHTML=`<div class="titre">${doc.Titre||''}</div><div class="tags">${tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div><div class="recents-card-actions"><button type="button" data-favori-card aria-label="Ajouter aux favoris">♡ Favori</button><button type="button" data-plus-tard-card aria-label="Télécharger plus tard">＋ Plus tard</button></div>`;
-      card.addEventListener('click',(e)=>{if(e.target.closest('.recents-card-actions')) return;ouvrirApercuDocument(doc);});
-      card.addEventListener('keydown',(e)=>{if((e.key==='Enter'||e.key===' ')&&!e.target.closest('.recents-card-actions')){e.preventDefault();ouvrirApercuDocument(doc);}});
-      card.querySelector('[data-favori-card]')?.addEventListener('click',(e)=>{e.stopPropagation();basculerFavoriDocument(doc,card.querySelector('[data-favori-card]'));});
-      card.querySelector('[data-plus-tard-card]')?.addEventListener('click',(e)=>{e.stopPropagation();ajouterDocumentPlusTard(doc,card.querySelector('[data-plus-tard-card]'));});
-      actualiserEtatActionsDocument(card,doc);
-      grid.appendChild(card);
+      card.innerHTML=`<div class="titre">${doc.Titre||''}</div><div class="tags">${tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>`;
+      card.addEventListener('click',()=>ouvrirApercuDocument(doc));
+      const tools=document.createElement('div'); tools.className='recents-tools';
+      tools.innerHTML=`<button type="button" data-resource="favori" class="${estDansRessource(AURORE_FAVORIS_KEY,doc)?'active':''}">${estDansRessource(AURORE_FAVORIS_KEY,doc)?'♥ Favori':'♡ Favori'}</button><button type="button" data-resource="plus-tard" class="${estDansRessource(AURORE_PLUS_TARD_KEY,doc)?'later-active':''}">${estDansRessource(AURORE_PLUS_TARD_KEY,doc)?'✓ Plus tard':'◷ Plus tard'}</button>`;
+      tools.querySelectorAll('[data-resource]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();if(!demanderConnexionPourRessource())return;basculerRessource(btn.dataset.resource==='favori'?AURORE_FAVORIS_KEY:AURORE_PLUS_TARD_KEY,doc);rendreRecentsAvecOutils();}));
+      wrap.appendChild(card);wrap.appendChild(tools);grid.appendChild(wrap);
     });
     content.innerHTML=''; content.appendChild(grid);
     afficherPaginationSite('recentsPager',data.length,recentsPageCourante,p=>{recentsPageCourante=p;rendreRecentsAvecOutils();});
@@ -5534,7 +5420,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     params.set('limit', '5000');
     let res;
     try {
-      res = await fetch(`${SUPABASE_URL}/rest/v1/Document?${params.toString()}`, { headers: HEADERS });
+      res = await fetch(`${SUPABASE_URL}/rest/v1/Document?${params.toString()}`, { headers: HEADERS, cache: 'no-store' });
     } catch (e) {
       throw new Error('La vérification du document n’a pas pu être effectuée. Veuillez réessayer.');
     }
@@ -6299,24 +6185,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       }
       const proprietaire = estProprietaireAdmin();
       list.innerHTML = '';
-      // Les RPC existantes peuvent ne renvoyer que les colonnes de gestion du compte.
-      // On complète alors avec les informations scolaires du profil, sans remplacer
-      // le RPC ni modifier son contrat. En cas de policy restrictive, le reste de
-      // l'administration continue de fonctionner avec les données déjà disponibles.
-      let profilsScolaires = new Map();
-      try {
-        const ids = listeProfils.map(p => p.id).filter(Boolean);
-        if (ids.length) {
-          const pr = await fetch(`${SUPABASE_URL}/rest/v1/Profils?select=id,lycee,niveau,classe,filiere&id=in.(${ids.map(encodeURIComponent).join(',')})`, { headers: headersAdmin() });
-          if (pr.ok) {
-            const rows = await pr.json();
-            (rows || []).forEach(r => profilsScolaires.set(String(r.id), r));
-          }
-        }
-      } catch (e) { console.warn('[Admin utilisateurs] informations scolaires indisponibles', e); }
-
       listeProfils.forEach(profil => {
-        const scolaire = profilsScolaires.get(String(profil.id)) || profil;
         const card = document.createElement('article');
         card.className = 'admin-user-card';
         card.dataset.adminId = String(profil.id || '');
@@ -6332,12 +6201,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
           <div class="admin-user-main">
             <div class="admin-user-name">${echapperHtmlPub(nom)}</div>
             <div class="admin-user-email">${echapperHtmlPub(email)}</div>
-            <div class="admin-user-school">
-              ${scolaire.lycee ? `<span>Établissement : ${echapperHtmlPub(scolaire.lycee)}</span>` : ''}
-              ${scolaire.niveau ? `<span>Niveau : ${echapperHtmlPub(scolaire.niveau)}</span>` : ''}
-              ${scolaire.classe ? `<span>Classe : ${echapperHtmlPub(scolaire.classe)}</span>` : ''}
-              ${scolaire.filiere ? `<span>Filière : ${echapperHtmlPub(scolaire.filiere)}</span>` : ''}
-            </div>
             <div class="admin-user-meta">
               <span class="role-badge ${roleAdmin ? 'admin' : 'eleve'}">${roleAdmin ? 'Administrateur' : 'Utilisateur'}</span>
               <span class="admin-user-date">${echapperHtmlPub(formaterDateInscriptionUtilisateur(profil))}</span>
@@ -6952,7 +6815,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
   async function recupererDocumentPubliesPourDoublons() {
     const params = new URLSearchParams();
-    params.set('select','id,Titre,Niveau,Filiere,Classe,"Matière","Catégorie",Genre,Auteur,Fichier_url,Publie');
+    params.set('select','id,Titre,Niveau,Filiere,Classe,"Matière","Catégorie",Genre,Auteur,Fichier_url,created_at,Publie');
     params.set('Publie','eq.true');
     params.set('order','id.desc');
     params.set('limit','5000');
@@ -7889,30 +7752,10 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   let PDF_ROTATION = 0;         // 0/90/180/270
   const PDF_ZOOM_MIN = 0.5, PDF_ZOOM_MAX = 3, PDF_ZOOM_PAS = 0.25;
   let PDF_MODE_LECTURE = 'vertical'; // vertical = défilement continu ; horizontal = pages côte à côte
-  // Cache mémoire court : rouvrir un PDF déjà consulté évite un nouveau téléchargement.
-  const PDF_CACHE_OCTETS = new Map();
-  const PDF_CACHE_MAX = 4;
-  let PDF_FETCH_CONTROLLER = null;
 
-  function memoriserPDFCache(cle, octets) {
-    if (!cle || !octets) return;
-    PDF_CACHE_OCTETS.delete(cle);
-    PDF_CACHE_OCTETS.set(cle, octets);
-    while (PDF_CACHE_OCTETS.size > PDF_CACHE_MAX) PDF_CACHE_OCTETS.delete(PDF_CACHE_OCTETS.keys().next().value);
-  }
 
   function texteFichierPourAffichage(doc) {
     return (doc && doc.Titre) ? doc.Titre : 'document';
-  }
-
-  function mettreAJourProgressionLecteurPDF(pct, etape) {
-    const p=Math.max(0,Math.min(100,Number(pct)||0));
-    const bar=document.getElementById('pdfViewerProgressBar');
-    const percent=document.getElementById('pdfViewerProgressPercent');
-    const stage=document.getElementById('pdfViewerProgressStage');
-    if(bar) bar.style.width=p+'%';
-    if(percent) percent.textContent=Math.round(p)+'%';
-    if(stage && etape) stage.textContent=etape;
   }
 
   async function ouvrirLecteurPDF(doc) {
@@ -7927,8 +7770,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     document.getElementById('pdfViewerZoomLevel').textContent = '100%';
     mettreAJourModeLecturePDF();
     const jeton = ++PDF_JETON_OUVERTURE;
-    if (PDF_FETCH_CONTROLLER) { try { PDF_FETCH_CONTROLLER.abort(); } catch(e) {} }
-    PDF_FETCH_CONTROLLER = (typeof AbortController !== 'undefined') ? new AbortController() : null;
     const telechargementOk = doc.Telechargement_autorise !== false;
 
     document.getElementById('pdfViewerTitre').textContent = doc.Titre || 'Document';
@@ -7945,7 +7786,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     // Réinitialisation de l'affichage : écran de chargement visible, erreur et
     // canvas masqués, pagination remise à "— / —".
     afficherEtatChargement();
-    mettreAJourProgressionLecteurPDF(0, 'Préparation du document');
     document.getElementById('pdfViewerPage').textContent = '— / —';
     document.getElementById('pdfViewerOverlay').style.display = 'block';
     document.getElementById('pdfViewerZone').focus({ preventScroll: true });
@@ -7982,34 +7822,19 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     }
 
     try {
-      const cacheCle=String(doc.Fichier_url);
-      let octets=PDF_CACHE_OCTETS.get(cacheCle)||null;
-      if(octets){
-        PDF_CACHE_OCTETS.delete(cacheCle); PDF_CACHE_OCTETS.set(cacheCle,octets);
-        mettreAJourProgressionLecteurPDF(70,'Document déjà chargé · ouverture rapide');
-        document.getElementById('pdfViewerStatut').textContent='Ouverture instantanée…';
-      }else{
-        octets = await recupererOctetsPDF(doc.Fichier_url, (pct) => {
-          if (jeton !== PDF_JETON_OUVERTURE) return;
-          const statut = document.getElementById('pdfViewerStatut');
-          if (pct != null) {
-            mettreAJourProgressionLecteurPDF(Math.max(4,Math.min(88,pct*.88)),'Téléchargement');
-            statut.textContent = `Téléchargement du document… ${pct}%`;
-          } else {
-            mettreAJourProgressionLecteurPDF(42,'Téléchargement');
-            statut.textContent = 'Téléchargement du document…';
-          }
-        }, diagLog, PDF_FETCH_CONTROLLER?.signal);
+      const octets = await recupererOctetsPDF(doc.Fichier_url, (pct) => {
         if (jeton !== PDF_JETON_OUVERTURE) return;
-        memoriserPDFCache(cacheCle,octets);
-      }
+        const statut = document.getElementById('pdfViewerStatut');
+        statut.textContent = (pct != null)
+          ? `Téléchargement du document… ${pct}%`
+          : 'Téléchargement du document…';
+      }, diagLog);
       if (jeton !== PDF_JETON_OUVERTURE) return;
       PDF_OCTETS_COURANTS = octets;
       diagLog(`→ ${octets.byteLength} octet(s) reçu(s) au total.`);
       const octetsInspection = new Uint8Array(octets.slice(0, 5));
       const signature = String.fromCharCode(...octetsInspection);
       diagLog('→ signature des 5 premiers octets : ' + JSON.stringify(signature) + (signature === '%PDF-' ? ' (OK, ressemble à un PDF)' : ' (⚠️ NE COMMENCE PAS PAR %PDF- : ce n\'est probablement pas un PDF valide — page d\'erreur HTML/JSON ?)'));
-      mettreAJourProgressionLecteurPDF(91,'Analyse du document');
       document.getElementById('pdfViewerStatut').textContent = 'Préparation de l\'affichage…';
       // PDF.js a besoin de sa propre copie des octets (il peut les transférer à
       // son worker) : on lui donne une copie pour garder PDF_OCTETS_COURANTS
@@ -8019,9 +7844,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       if (jeton !== PDF_JETON_OUVERTURE) return; // le lecteur a été refermé/changé entre-temps
       diagLog('→ PDF.js a chargé le document : ' + pdf.numPages + ' page(s).');
       PDF_EN_COURS = pdf;
-      mettreAJourProgressionLecteurPDF(96,'Rendu de la première page');
       await rendrePagePDF(1);
-      mettreAJourProgressionLecteurPDF(100,'Document prêt');
       diagLog('→ Page 1 rendue avec succès.');
     } catch (err) {
       if (jeton !== PDF_JETON_OUVERTURE) return;
@@ -8047,7 +7870,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     document.getElementById('pdfViewerErreurBox').style.display = 'none';
     document.getElementById('pdfViewerCanvas').style.display = 'none';
     document.getElementById('pdfViewerStatut').textContent = 'Chargement du document…';
-    mettreAJourProgressionLecteurPDF(0,'Préparation');
   }
 
   function afficherErreurLecteur(message, telechargementOk, url) {
@@ -8201,7 +8023,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       a.click();
       a.remove();
       setTimeout(()=>URL.revokeObjectURL(objectUrl),60000);
-      enregistrerTelechargementPersonnel(doc);
+      sauvegarderRessource(AURORE_DOWNLOADS_KEY,doc);
       afficherCarteTelechargement(doc,'succes',100,total,total,`Fichier : ${nomExact} · Taille : ${formaterTailleTelechargement(total || blob.size)} · Merci d’avoir utilisé ${SITE_NOM}.`);
     } catch(e) {
       console.error('[Téléchargement document]',e);
@@ -8213,7 +8035,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         a.download=nomExact;
         a.rel='noopener';
         document.body.appendChild(a); a.click(); a.remove();
-        enregistrerTelechargementPersonnel(doc);
+        sauvegarderRessource(AURORE_DOWNLOADS_KEY,doc);
         afficherCarteTelechargement(doc,'succes',100,null,null,`Téléchargement lancé : ${nomExact} · Merci d’avoir utilisé ${SITE_NOM}.`);
       } catch(e2) {
         afficherCarteTelechargement(doc,'erreur',null,null,null,'Le téléchargement n’a pas pu être lancé.');
@@ -8226,13 +8048,13 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   const btnFermerCarteTelechargement=document.getElementById('downloadProgressClose');
   if(btnFermerCarteTelechargement) btnFermerCarteTelechargement.addEventListener('click',fermerCarteTelechargement);
 
-  async function recupererOctetsPDF(url, onProgress, diagLog, signal) {
+  async function recupererOctetsPDF(url, onProgress, diagLog) {
     const log = diagLog || function(){};
     const cle = (url && url.indexOf(R2_PUBLIC_URL + '/') === 0) ? url.slice(R2_PUBLIC_URL.length + 1) : null;
     if (cle) {
       log('Tentative 1 — via le Worker Cloudflare : GET ' + R2_WORKER_URL + '/' + cle);
       try {
-        const res = await fetch(`${R2_WORKER_URL}/${cle}`, signal ? {signal} : undefined);
+        const res = await fetch(`${R2_WORKER_URL}/${cle}`);
         log('→ réponse reçue : HTTP ' + res.status + ' ' + res.statusText
           + ' | Content-Type: ' + (res.headers.get('Content-Type') || '(absent)')
           + ' | Content-Length: ' + (res.headers.get('Content-Length') || '(absent)'));
@@ -8253,7 +8075,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       log("URL non reconnue comme une clé R2_PUBLIC_URL connue : tentative via le Worker ignorée, on va directement à l'URL fournie.");
     }
     log('Tentative 2 — URL directe fournie en base : GET ' + url);
-    const res2 = await fetch(url, signal ? {signal} : undefined);
+    const res2 = await fetch(url);
     log('→ réponse reçue : HTTP ' + res2.status + ' ' + res2.statusText
       + ' | Content-Type: ' + (res2.headers.get('Content-Type') || '(absent)')
       + ' | Content-Length: ' + (res2.headers.get('Content-Length') || '(absent)'));
@@ -8618,7 +8440,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
   function fermerLecteurPDF() {
     PDF_JETON_OUVERTURE++; // invalide tout chargement PDF.js encore en cours
-    if (PDF_FETCH_CONTROLLER) { try { PDF_FETCH_CONTROLLER.abort(); } catch(e) {} PDF_FETCH_CONTROLLER=null; }
     document.getElementById('pdfViewerOverlay').style.display = 'none';
     const canvas = document.getElementById('pdfViewerCanvas');
     const ctx = canvas.getContext('2d');
@@ -9033,174 +8854,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   function initialiserEditeurBienvenueAdmin(){const panel=document.querySelector('.admin-tab-panel[data-panel="annonce"]');if(!panel||document.getElementById('adminWelcomeEditor'))return;const box=document.createElement('div');box.className='admin-service-editor';box.id='adminWelcomeEditor';box.innerHTML=`<div class="form-row"><label for="adminWelcomeTitle">Titre du message de bienvenue</label><input id="adminWelcomeTitle" type="text" maxlength="180" placeholder="Bienvenue sur Aurore"></div><div class="form-row"><label for="adminWelcomeMessage">Message</label><textarea id="adminWelcomeMessage" rows="7" maxlength="1200" placeholder="Bienvenue {nom} ! Nous sommes heureux de vous accueillir sur Aurore — Section Archives."></textarea><small>Variables disponibles : {nom} et {email}.</small></div><div class="form-row" style="display:flex;align-items:center;gap:10px;"><input type="checkbox" id="adminWelcomeActive" style="width:18px;height:18px;"><label for="adminWelcomeActive" style="margin:0;">Afficher après une connexion</label></div><div class="admin-promo-actions"><button type="button" class="admin-btn primary" id="adminWelcomeSave">Enregistrer le message de bienvenue</button></div><div class="form-msg" id="adminWelcomeMsg"></div>`;panel.appendChild(box);document.getElementById('adminWelcomeSave').onclick=saveWelcome;chargerMessageBienvenue().then(c=>{if(c){document.getElementById('adminWelcomeTitle').value=c.title||'';document.getElementById('adminWelcomeMessage').value=c.message||'';document.getElementById('adminWelcomeActive').checked=c.active===true;}});}
   async function saveWelcome(){const msg=document.getElementById('adminWelcomeMsg'),btn=document.getElementById('adminWelcomeSave');if(!session||session.role!=='admin'){msg.textContent='Cette action est réservée aux administrateurs.';msg.className='form-msg err';return;}const title=document.getElementById('adminWelcomeTitle').value.trim()||'Bienvenue sur Aurore',message=document.getElementById('adminWelcomeMessage').value.trim(),active=document.getElementById('adminWelcomeActive').checked;if(!message){msg.textContent='Veuillez renseigner le message de bienvenue avant de continuer.';msg.className='form-msg err';return;}btn.disabled=true;try{const payload={id:1,title,message,active,updated_at:new Date().toISOString()};let r=await fetch(`${SUPABASE_URL}/rest/v1/${WELCOME_TABLE}?id=eq.1`,{method:'PATCH',headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify(payload)});if(!r.ok)throw new Error('HTTP '+r.status+' — '+await r.text());let body=await r.text().catch(()=> '');if(body===''||body==='[]'){const q=await fetch(`${SUPABASE_URL}/rest/v1/${WELCOME_TABLE}`,{method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(payload)});if(!q.ok)throw new Error('HTTP '+q.status+' — '+await q.text());}msg.textContent='Le message de bienvenue a été enregistré avec succès.';msg.className='form-msg ok';}catch(e){msg.textContent='Impossible d’enregistrer le message pour le moment. Veuillez réessayer.';msg.className='form-msg err';}finally{btn.disabled=false;}}
   initialiserEditeurBienvenueAdmin();document.querySelectorAll('.admin-tab').forEach(t=>t.addEventListener('click',()=>{if(t.dataset.tab==='videos')chargerVideosAdmin();if(t.dataset.tab==='annonce')initialiserEditeurBienvenueAdmin();}));chargerVideosAccueil();
-
-  // ---------- ESPACE PERSONNEL : documents et livres de l'utilisateur ----------
-  let MES_DOCUMENTS_PERSONNELS = [];
-  let MES_LIVRES_PERSONNELS = [];
-  let MES_NOTIFICATIONS_PERSONNELLES = [];
-
-  function escapeTextePersonnel(v){ return echapperHtmlPub(v == null ? '' : String(v)); }
-
-  async function chargerDonneesEspacePersonnel(){
-    if (!session || !session.id) return;
-    const listDocs=document.getElementById('personalDocumentsList');
-    const listBooks=document.getElementById('personalBooksList');
-    const listFavs=document.getElementById('personalFavoritesList');
-    const listLater=document.getElementById('personalLaterList');
-    if(listDocs) listDocs.innerHTML='<div class="personal-empty">Chargement de vos documents…</div>';
-    if(listBooks) listBooks.innerHTML='<div class="personal-empty">Chargement de vos livres…</div>';
-    if(listFavs) listFavs.innerHTML='<div class="personal-empty">Chargement de vos favoris…</div>';
-    // Les favoris sont indépendants des documents personnels : on lance leur
-    // récupération immédiatement pour ne pas attendre les autres requêtes.
-    const favorisEnArrierePlan=rendreFavorisPersonnels();
-    if(listLater) listLater.innerHTML='<div class="personal-empty">Chargement de vos documents enregistrés…</div>';
-    const listDownloads=document.getElementById('personalDownloadsHistory');
-    if(listDownloads) listDownloads.innerHTML='<div class="personal-empty">Chargement de votre historique…</div>';
-    try{
-      // La table de liaison existe déjà dans le flux de dépôt : elle associe
-      // document_id et user_id au compte authentifié. On la réutilise afin de
-      // ne jamais exposer les dépôts d'un autre utilisateur.
-      const dr=await fetch(`${SUPABASE_URL}/rest/v1/Depots_deposants?select=document_id,user_id,nom,email&user_id=eq.${encodeURIComponent(session.id)}`,{headers:headersAdmin()});
-      if(!dr.ok) throw new Error('Lecture des dépôts personnels indisponible');
-      const links=await dr.json();
-      const ids=(links||[]).map(r=>r.document_id).filter(v=>v!==null&&v!==undefined);
-      let docs=[];
-      if(ids.length){
-        const qr=`id=in.(${ids.map(encodeURIComponent).join(',')})`;
-        const rr=await fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&${qr}&order=id.desc`,{headers:headersAdmin()});
-        if(!rr.ok) throw new Error('Lecture des documents personnels indisponible');
-        docs=await rr.json();
-      }
-      MES_DOCUMENTS_PERSONNELS=Array.isArray(docs)?docs:[];
-      MES_LIVRES_PERSONNELS=MES_DOCUMENTS_PERSONNELS.filter(d=>String(d['Catégorie']||'')==='Livres');
-
-      // Les refus sont conservés côté utilisateur dans Notifications même si
-      // l'administrateur supprime le document refusé. Ils complètent donc le suivi.
-      try{
-        const nr=await fetch(`${SUPABASE_URL}/rest/v1/Notifications?select=id,titre_document,statut,message,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc`,{headers:headersAdmin()});
-        if(nr.ok) MES_NOTIFICATIONS_PERSONNELLES=await nr.json(); else MES_NOTIFICATIONS_PERSONNELLES=[];
-      }catch(e){ MES_NOTIFICATIONS_PERSONNELLES=[]; }
-
-      rendreDocumentsPersonnels();
-      rendreLivresPersonnels();
-      rendreDocumentsPlusTard();
-      rendreDocumentsTelecharges();
-    }catch(err){
-      console.warn('[Espace personnel]',err);
-      MES_DOCUMENTS_PERSONNELS=[]; MES_LIVRES_PERSONNELS=[];
-      if(listDocs) listDocs.innerHTML='<div class="personal-empty">Impossible de charger vos documents pour le moment. Réessayez dans quelques instants.</div>';
-      if(listBooks) listBooks.innerHTML='<div class="personal-empty">Impossible de charger vos livres pour le moment. Réessayez dans quelques instants.</div>';
-    }
-  }
-
-  function statutDocumentPersonnel(doc){
-    return doc && doc.Publie===true ? 'accepted' : 'pending';
-  }
-
-  function texteStatutPersonnel(statut){
-    if(statut==='accepted') return '✓ Accepté';
-    if(statut==='refused') return '× Refusé';
-    return '◷ En attente';
-  }
-
-  function rendreDocumentsPersonnels(){
-    const list=document.getElementById('personalDocumentsList');
-    const count=document.getElementById('personalDocsCount');
-    if(!list) return;
-    const docs=[...MES_DOCUMENTS_PERSONNELS];
-    const refus=[];
-    (MES_NOTIFICATIONS_PERSONNELLES||[]).forEach(n=>{
-      if(String(n.statut||'').toLowerCase()==='refuse') refus.push(n);
-    });
-    if(count) count.textContent=String(docs.length+refus.length);
-    list.innerHTML='';
-    if(!docs.length && !refus.length){
-      list.innerHTML='<div class="personal-empty">Aucun document déposé pour le moment. Vos prochains dépôts apparaîtront ici avec leur statut.</div>';
-      return;
-    }
-    docs.forEach(doc=>{
-      const status=statutDocumentPersonnel(doc);
-      const row=document.createElement('article'); row.className='personal-doc';
-      const titre=doc.Titre||'Document sans titre';
-      const contexte=[doc.Niveau&&`Niveau : ${doc.Niveau}`,doc.Classe&&`Classe : ${doc.Classe}`,doc.Filiere&&`Filière : ${doc.Filiere}`,doc['Matière']&&`Matière : ${doc['Matière']}`].filter(Boolean).join(' · ');
-      row.innerHTML=`<div class="personal-doc-main"><div class="personal-doc-title">${escapeTextePersonnel(titre)}</div><div class="personal-doc-meta">${escapeTextePersonnel(contexte||'Document déposé sur Aurore')}</div></div><span class="personal-status ${status}">${texteStatutPersonnel(status)}</span><div class="personal-doc-actions">${doc.Fichier_url?`<button type="button" class="personal-action" data-read="1">Voir le document</button>`:''}</div>`;
-      row.querySelector('[data-read]')?.addEventListener('click',()=>ouvrirLecteurPDF(doc));
-      list.appendChild(row);
-    });
-    refus.slice(0,20).forEach(n=>{
-      const row=document.createElement('article'); row.className='personal-doc';
-      row.innerHTML=`<div class="personal-doc-main"><div class="personal-doc-title">${escapeTextePersonnel(n.titre_document||'Document')}</div><div class="personal-doc-meta">${escapeTextePersonnel(n.message||'Le dépôt n’a pas été publié.')}</div></div><span class="personal-status refused">× Refusé</span>`;
-      list.appendChild(row);
-    });
-  }
-
-  function rendreLivresPersonnels(){
-    const count=document.getElementById('personalBooksCount');
-    if(count) count.textContent=String(MES_LIVRES_PERSONNELS.length);
-    const list=document.getElementById('personalBooksList');
-    if(!list) return;
-    const livres=[...MES_LIVRES_PERSONNELS];
-    list.innerHTML='';
-    if(!livres.length){list.innerHTML='<div class="personal-empty">Vous n’avez encore ajouté aucun livre.</div>';return;}
-    livres.forEach(doc=>{
-      const row=document.createElement('article'); row.className='personal-book';
-      const status=doc.Publie===true?'accepted':'pending';
-      row.innerHTML=`<div class="personal-book-main"><div class="personal-book-title">${escapeTextePersonnel(doc.Titre||'Livre sans titre')}</div><div class="personal-book-meta">${escapeTextePersonnel(doc.Genre||'Livre')} · ${status==='accepted'?'Publié':'En attente de validation'}</div></div><span class="personal-status ${status}">${texteStatutPersonnel(status)}</span><div class="personal-doc-actions"><button type="button" class="personal-action" data-read="1">Voir</button></div>`;
-      row.querySelector('[data-read]')?.addEventListener('click',()=>ouvrirLecteurPDF(doc));
-      list.appendChild(row);
-    });
-  }
-
-  async function rendreFavorisPersonnels(){
-    const list=document.getElementById('personalFavoritesList');
-    if(!list||!session)return;
-    const ids=favoris();
-    if(!ids.length){list.innerHTML='<div class="personal-empty">Aucun favori pour le moment. Utilisez « ♡ Favori » sur un document du site.</div>';return;}
-    list.innerHTML='<div class="personal-empty">Chargement de vos favoris…</div>';
-    try{
-      const cacheKey=ids.join(',');
-      const cached=favorisDocumentsCache.get(userKey());
-      let docs;
-      if(cached && cached.key===cacheKey && (Date.now()-cached.at)<FAVORIS_CACHE_TTL){
-        docs=cached.docs;
-      }else{
-        const query=`id=in.(${ids.map(encodeURIComponent).join(',')})&Publie=eq.true`;
-        const r=await fetch(`${SUPABASE_URL}/rest/v1/Document?select=id,Titre,Auteur,Fichier_url,"Catégorie",Niveau,"Matière",Genre,Telechargement_autorise,Publie&${query}`,{headers:HEADERS,cache:'force-cache'});
-        if(!r.ok)throw new Error('favoris');
-        docs=await r.json();
-        favorisDocumentsCache.set(userKey(),{key:cacheKey,docs,at:Date.now()});
-      }
-      const order=new Map(ids.map((id,i)=>[String(id),i]));
-      docs.sort((a,b)=>(order.get(String(a.id))??9999)-(order.get(String(b.id))??9999));
-      list.innerHTML='';
-      if(!docs.length){list.innerHTML='<div class="personal-empty">Vos favoris ne sont plus disponibles publiquement.</div>';return;}
-      docs.forEach(doc=>{
-        const row=document.createElement('article');row.className='personal-doc';
-        row.innerHTML=`<div class="personal-doc-main"><div class="personal-doc-title">${escapeTextePersonnel(doc.Titre||'Document')}</div><div class="personal-doc-meta">${escapeTextePersonnel([doc.Niveau,doc['Matière']||doc.Genre].filter(Boolean).join(' · ')||'Document')}</div></div><div class="personal-doc-actions"><button type="button" class="personal-action" data-read>Voir</button><button type="button" class="personal-action is-active" data-remove>♥ Favori</button></div>`;
-        row.querySelector('[data-read]')?.addEventListener('click',()=>ouvrirLecteurPDF(doc));
-        row.querySelector('[data-remove]')?.addEventListener('click',()=>{basculerFavoriDocument(doc,row.querySelector('[data-remove]'));setTimeout(rendreFavorisPersonnels,0);});
-        list.appendChild(row);
-      });
-    }catch(e){list.innerHTML='<div class="personal-empty">Impossible de charger vos favoris pour le moment.</div>';}
-  }
-
-  function initialiserEspacePersonnel(){
-    document.querySelectorAll('.personal-tab').forEach(btn=>btn.addEventListener('click',()=>{
-      document.querySelectorAll('.personal-tab').forEach(b=>{b.classList.remove('active');b.setAttribute('aria-selected','false');});
-      document.querySelectorAll('.personal-panel').forEach(p=>{p.classList.remove('active');p.hidden=true;});
-      btn.classList.add('active');btn.setAttribute('aria-selected','true');
-      const panel=document.querySelector(`.personal-panel[data-personal-panel="${btn.dataset.personalTab}"]`);
-      if(panel){panel.classList.add('active');panel.hidden=false;}
-    }));
-    document.getElementById('personalRefresh')?.addEventListener('click',chargerDonneesEspacePersonnel);
-  }
-  initialiserEspacePersonnel();
-  const _ouvrirProfilOriginal=window.ouvrirEspacePersonnelObligatoire;
-  document.getElementById('btnOuvrirProfil')?.addEventListener('click',()=>chargerDonneesEspacePersonnel());
-  document.getElementById('personalRefresh')?.addEventListener('click',chargerDonneesEspacePersonnel);
-  // Chargement discret lorsque le profil est ouvert par le flux de connexion.
-  const _afficherEcranOriginal=window.afficherEcran;
-  if(typeof _afficherEcranOriginal==='function'){}
 
 </script>
 
@@ -9931,285 +9584,17 @@ footer>.wrap:last-child{margin-top:18px!important;}
 
 
 
-<style id="aurore-personal-space-refonte">
-  /* Espace personnel : compact, cohérent avec les cartes Aurore existantes. */
-  .personal-space{max-width:920px;margin:18px auto 0;background:var(--papier);border:1px solid var(--bordure);border-radius:var(--radius);box-shadow:var(--ombre);padding:18px;}
-  .personal-space-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;}
-  .personal-kicker{font-size:.68rem;text-transform:uppercase;letter-spacing:.13em;color:var(--violet);font-weight:800;}
-  .personal-space-head h3{font-size:1.12rem;margin-top:2px;}
-  .personal-refresh{border:1px solid var(--bordure);background:var(--fond);color:var(--encre);border-radius:100px;padding:8px 13px;font-size:.76rem;font-weight:700;cursor:pointer;}
-  .personal-refresh:hover{border-color:var(--violet);}
-  .personal-tabs,.books-personal-tabs{display:flex;gap:7px;overflow-x:auto;padding-bottom:3px;scrollbar-width:none;}
-  .personal-tabs::-webkit-scrollbar,.books-personal-tabs::-webkit-scrollbar{display:none;}
-  .personal-tab,.books-personal-tab{border:1px solid var(--bordure);background:var(--fond);color:var(--gris);border-radius:100px;padding:8px 12px;font-size:.75rem;font-weight:700;white-space:nowrap;cursor:pointer;}
-  .personal-tab.active,.books-personal-tab.active{background:rgba(124,58,237,.13);border-color:var(--violet);color:var(--encre);}
-  .personal-tab span{display:inline-flex;min-width:20px;justify-content:center;margin-left:4px;padding:2px 6px;border-radius:999px;background:var(--papier);font-size:.65rem;}
-  .personal-panel{display:none;padding-top:14px;}
-  .personal-panel.active{display:block;}
-  .personal-panel-intro{font-size:.76rem;color:var(--gris);margin-bottom:12px;}
-  .personal-list{display:flex;flex-direction:column;gap:9px;}
-  .personal-empty{padding:22px 14px;text-align:center;border:1px dashed var(--bordure);border-radius:14px;color:var(--gris);font-size:.8rem;}
-  .personal-doc,.personal-book{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 14px;border:1px solid var(--bordure);border-radius:14px;background:var(--fond);}
-  .personal-doc-main,.personal-book-main{min-width:0;flex:1;}
-  .personal-doc-title,.personal-book-title{font-size:.84rem;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .personal-doc-meta,.personal-book-meta{margin-top:3px;font-size:.7rem;color:var(--gris);line-height:1.45;}
-  .personal-status{display:inline-flex;align-items:center;gap:5px;flex-shrink:0;border-radius:100px;padding:6px 9px;font-size:.66rem;font-weight:800;border:1px solid var(--bordure);}
-  .personal-status.pending{color:var(--marron);background:rgba(176,137,104,.10);border-color:rgba(176,137,104,.35);}
-  .personal-status.accepted{color:var(--vert);background:rgba(127,191,158,.10);border-color:rgba(127,191,158,.35);}
-  .personal-status.refused{color:var(--rouge);background:rgba(224,119,107,.10);border-color:rgba(224,119,107,.35);}
-  .personal-doc-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
-  .personal-action{border:1px solid var(--bordure);background:var(--papier);color:var(--encre);border-radius:10px;padding:7px 10px;font-size:.68rem;font-weight:700;text-decoration:none;cursor:pointer;}
-  .personal-action:hover{border-color:var(--violet);}
-  .books-personal-tabs{margin-bottom:11px;}
-  @media(max-width:620px){
-    .personal-space{padding:14px;border-radius:18px;}
-    .personal-space-head{align-items:flex-start;}
-    .personal-doc,.personal-book{align-items:flex-start;flex-direction:column;}
-    .personal-status{align-self:flex-start;}
-    .personal-doc-actions{width:100%;justify-content:flex-start;}
-  }
-
-  /* Informations scolaires visibles par l'administration sans toucher au RPC existant. */
-  .admin-user-school{display:flex;flex-wrap:wrap;gap:5px 10px;margin-top:7px;font-size:.7rem;color:var(--gris);}
-  .admin-user-school span{padding:4px 7px;border:1px solid var(--bordure);border-radius:999px;background:var(--fond);}
-
-  /* Lecteur PDF : davantage de surface utile, commandes plus compactes. */
-  #pdfViewerOverlay .pdf-reader-shell{max-width:1220px!important;}
-  #pdfViewerOverlay .pdf-reader-topbar{padding:8px 12px!important;min-height:54px;}
-  #pdfViewerOverlay .pdf-reader-toolbar{padding:6px 10px!important;gap:6px;}
-  #pdfViewerOverlay .pdf-reader-toolbar button{min-height:38px;min-width:38px;padding:6px 10px;border-radius:10px;font-size:.76rem;}
-  #pdfViewerOverlay #pdfViewerModeLecture{min-width:100px!important;}
-  #pdfViewerOverlay .pdf-reader-zone{padding:10px 6px 24px!important;}
-  #pdfViewerOverlay .pdf-reader-pages{max-width:1040px;gap:12px;}
-  #pdfViewerOverlay .pdf-reader-page canvas{max-width:min(100%,1040px);box-shadow:0 4px 18px rgba(0,0,0,.28);}
-  #pdfViewerOverlay .pdf-reader-bottombar{padding:7px 10px!important;}
-  #pdfViewerOverlay .pdf-reader-bottombar button{min-height:36px!important;padding:7px 13px!important;font-size:.76rem;}
-</style>
-
-
-<style id="aurore-personal-actions-v2">
-  .doc-actions{align-items:center}
-  .doc-action-soft{font-size:.72rem!important;padding:8px 11px!important;border-radius:11px!important}
-  .doc-action-soft.is-active{color:var(--violet)!important;border-color:var(--violet)!important;background:rgba(124,58,237,.08)!important}
-  .recents-card-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px;position:relative;z-index:2}
-  .recents-card-actions button{border:1px solid var(--bordure);background:var(--papier);color:var(--gris);border-radius:10px;padding:6px 9px;font-size:.68rem;font-weight:700;cursor:pointer}
-  .recents-card-actions button.is-active{color:var(--violet);border-color:var(--violet);background:rgba(124,58,237,.08)}
-  .apercu-actions-extra{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}
-  .personal-action.is-active{color:var(--violet);border-color:var(--violet);background:rgba(124,58,237,.08)}
-  .access-code-modal{position:fixed;inset:0;z-index:11000;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(9,8,18,.68);backdrop-filter:blur(6px)}
-  .access-code-card{width:min(430px,100%);background:var(--papier);border:1px solid var(--bordure);border-radius:22px;padding:25px;box-shadow:0 28px 80px rgba(0,0,0,.35)}
-  .access-code-card h3{font-size:1.3rem;margin-bottom:7px}.access-code-card p{font-size:.8rem;color:var(--gris);line-height:1.55;margin-bottom:15px}
-  .access-code-card label{display:block;font-size:.75rem;font-weight:800;margin-bottom:7px}.access-code-card input{width:100%;padding:12px;border:1px solid var(--bordure);border-radius:12px;background:var(--fond);color:var(--encre);font-size:1rem;letter-spacing:.18em;text-align:center;outline:none}.access-code-card input:focus{border-color:var(--violet);box-shadow:0 0 0 3px rgba(124,58,237,.12)}
-  .access-code-actions{display:flex;gap:8px;margin-top:13px}.access-code-actions button{flex:1;border:1px solid var(--bordure);border-radius:11px;padding:10px 12px;font-weight:800;cursor:pointer;background:var(--fond);color:var(--encre)}.access-code-actions .primary{background:var(--violet);border-color:var(--violet);color:#fff}
-  .access-code-message{display:none;margin-top:10px;padding:10px 12px;border:1px solid var(--bordure);border-radius:12px;font-size:.74rem;line-height:1.45}.access-code-message.err{display:block;background:#FFF7F7;color:#991B1B;border-color:#FCA5A5}.access-code-message.ok{display:block;background:#ECFDF3;color:#166534;border-color:#86EFAC}
-  .access-code-note{font-size:.68rem!important;margin-top:10px!important;margin-bottom:0!important}
-  @media(max-width:620px){.doc-actions .doc-action-soft{flex:1}.access-code-card{padding:21px}.access-code-actions{flex-direction:column}}
-</style>
-
-<div class="access-code-modal" id="accessCodeModal" aria-hidden="true">
-  <section class="access-code-card" role="dialog" aria-modal="true" aria-labelledby="accessCodeTitle">
-    <h3 id="accessCodeTitle">Protégez votre espace personnel</h3>
-    <p id="accessCodeIntro">Créez un code d’accès personnel pour ouvrir votre espace Aurore. Vous pourrez le modifier à tout moment depuis votre profil.</p>
-    <label for="accessCodeInput">Code d’accès</label>
-    <input id="accessCodeInput" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="••••••" aria-describedby="accessCodeMessage">
-    <div class="access-code-actions">
-      <button type="button" id="accessCodeCancel">Annuler</button>
-      <button type="button" class="primary" id="accessCodeConfirm">Continuer</button>
-    </div>
-    <div class="access-code-message" id="accessCodeMessage"></div>
-    <p class="access-code-note">Utilisez 4 à 8 chiffres. Ce code est un verrou d’accès à l’espace sur cet appareil, distinct du mot de passe de votre compte.</p>
-  </section>
-</div>
-
-<script id="aurore-personal-actions-v2-js">
-(function(){
-  const KEY_FAV='aurore_favoris_documents_';
-  const KEY_LATER='aurore_documents_plus_tard_';
-  const KEY_DOWNLOADS='aurore_documents_telecharges_';
-  const KEY_CODE='aurore_code_espace_';
-  const FAVORIS_CACHE_TTL=30000;
-  const favorisDocumentsCache=new Map();
-  const codeModal=document.getElementById('accessCodeModal');
-  const codeInput=document.getElementById('accessCodeInput');
-  const codeMsg=document.getElementById('accessCodeMessage');
-  const codeTitle=document.getElementById('accessCodeTitle');
-  const codeIntro=document.getElementById('accessCodeIntro');
-  let codeMode='verify';
-  let codeResolve=null;
-  let espaceOptions={};
-
-  const userKey=()=>session&&session.id?String(session.id):'';
-  const safeRead=(key)=>{try{const v=localStorage.getItem(key);return v?JSON.parse(v):[];}catch(e){return[];}};
-  const safeWrite=(key,v)=>{try{localStorage.setItem(key,JSON.stringify(v));return true;}catch(e){return false;}};
-  const docId=doc=>String(doc&&doc.id!=null?doc.id:'');
-  function requireLogin(){
-    const signup=document.getElementById('accessSignupBtn');
-    if(signup) signup.click();
-    setTimeout(()=>document.getElementById('showLoginBtn')?.click(),30);
-    const m=document.getElementById('loginMessage');
-    if(m){m.textContent='Connectez-vous pour utiliser les favoris et enregistrer des documents pour plus tard dans votre espace personnel.';m.className='access-message ok';m.style.display='block';}
-  }
-  function favoris(){return userKey()?safeRead(KEY_FAV+userKey()).map(String):[];}
-  function plusTard(){return userKey()?safeRead(KEY_LATER+userKey()):[];}
-  function telecharges(){return userKey()?safeRead(KEY_DOWNLOADS+userKey()):[];}
-  function enregistrerTelechargementPersonnel(doc){
-    if(!session||!doc||doc.id==null)return;
-    const id=docId(doc); if(!id)return;
-    let arr=telecharges().filter(x=>String(x.id)!==id);
-    arr.unshift({id:doc.id,titre:doc.Titre||'Document',auteur:doc.Auteur||'',url:doc.Fichier_url||'',categorie:doc['Catégorie']||'',niveau:doc.Niveau||'',matiere:doc['Matière']||'',genre:doc.Genre||'',downloaded_at:new Date().toISOString()});
-    safeWrite(KEY_DOWNLOADS+userKey(),arr.slice(0,100));
-    rendreDocumentsTelecharges();
-  }
-  function basculerFavoriDocument(doc,button){
-    if(!session){requireLogin();return;}
-    const id=docId(doc); if(!id)return;
-    let arr=favoris(); const i=arr.indexOf(id);
-    if(i>=0){arr.splice(i,1);if(button)button.classList.remove('is-active');}
-    else{arr.push(id);if(button)button.classList.add('is-active');}
-    safeWrite(KEY_FAV+userKey(),arr); favorisDocumentsCache.delete(userKey()); actualiserEtatActionsDocument(button?.closest('.doc-row,.recents-card')||button,doc);
-  }
-  function ajouterDocumentPlusTard(doc,button){
-    if(!session){requireLogin();return;}
-    const id=docId(doc); if(!id)return;
-    let arr=plusTard();
-    if(!arr.some(x=>String(x.id)===id)){arr.unshift({id:doc.id,titre:doc.Titre||'Document',auteur:doc.Auteur||'',url:doc.Fichier_url||'',categorie:doc['Catégorie']||'',niveau:doc.Niveau||'',matiere:doc['Matière']||'',genre:doc.Genre||'',saved_at:new Date().toISOString()});safeWrite(KEY_LATER+userKey(),arr);}
-    if(button){button.classList.add('is-active');button.textContent='✓ Plus tard';}
-    rendreDocumentsPlusTard();
-  }
-  function actualiserEtatActionsDocument(root,doc){
-    if(!root||!doc||!userKey())return;
-    const fav=favoris().includes(docId(doc));
-    const fb=root.querySelector?.('[data-favori],[data-favori-card]'); if(fb){fb.classList.toggle('is-active',fav);fb.setAttribute('aria-pressed',String(fav));fb.textContent=fav?'♥ Favori':'♡ Favori';}
-    const later=plusTard().some(x=>String(x.id)===docId(doc)); const lb=root.querySelector?.('[data-plus-tard],[data-plus-tard-card]'); if(lb){lb.classList.toggle('is-active',later);lb.textContent=later?'✓ Plus tard':'＋ Plus tard';}
-  }
-  window.basculerFavoriDocument=basculerFavoriDocument;
-  window.ajouterDocumentPlusTard=ajouterDocumentPlusTard;
-  window.actualiserEtatActionsDocument=actualiserEtatActionsDocument;
-
-  function rendreDocumentsTelecharges(){
-    const list=document.getElementById('personalDownloadsHistory'); if(!list||!session)return;
-    const arr=telecharges();
-    list.innerHTML='';
-    if(!arr.length){list.innerHTML='<div class="personal-empty">Aucun téléchargement enregistré pour le moment.</div>';return;}
-    arr.forEach(d=>{
-      const row=document.createElement('article'); row.className='personal-book';
-      const date=d.downloaded_at?new Date(d.downloaded_at).toLocaleString('fr-FR',{dateStyle:'medium',timeStyle:'short'}):'';
-      row.innerHTML=`<div class="personal-book-main"><div class="personal-book-title">${escapeTextePersonnel(d.titre)}</div><div class="personal-book-meta">Téléchargé${date?' · '+escapeTextePersonnel(date):''}</div></div><div class="personal-doc-actions"><button type="button" class="personal-action" data-lire-download>Voir</button></div>`;
-      row.querySelector('[data-lire-download]')?.addEventListener('click',()=>ouvrirLecteurPDF({id:d.id,Titre:d.titre,Auteur:d.auteur,Fichier_url:d.url,'Catégorie':d.categorie,Niveau:d.niveau,'Matière':d.matiere,Genre:d.genre}));
-      list.appendChild(row);
+<script>
+  // PWA Aurore : enregistre le service worker uniquement quand le site est servi
+  // depuis un contexte compatible (HTTPS ou localhost).
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js', {scope: '/'})
+        .catch(err => console.warn('[Aurore PWA] Service worker indisponible:', err));
     });
   }
-  window.rendreDocumentsTelecharges=rendreDocumentsTelecharges;
-
-  function rendreDocumentsPlusTard(){
-    const list=document.getElementById('personalLaterList'); if(!list||!session)return;
-    const arr=plusTard();
-    list.innerHTML='';
-    if(!arr.length){list.innerHTML='<div class="personal-empty">Aucun document enregistré pour plus tard. Utilisez « ＋ Plus tard » sur un document du site.</div>';return;}
-    arr.forEach(d=>{
-      const row=document.createElement('article');row.className='personal-book';
-      row.innerHTML=`<div class="personal-book-main"><div class="personal-book-title">${escapeTextePersonnel(d.titre)}</div><div class="personal-book-meta">Document enregistré pour plus tard${d.niveau?' · '+escapeTextePersonnel(d.niveau):''}</div></div><div class="personal-doc-actions"><button type="button" class="personal-action" data-lire-tard>Voir</button></div>`;
-      row.querySelector('[data-lire-tard]')?.addEventListener('click',()=>ouvrirLecteurPDF({id:d.id,Titre:d.titre,Auteur:d.auteur,Fichier_url:d.url,'Catégorie':d.categorie,Niveau:d.niveau,'Matière':d.matiere,Genre:d.genre}));
-      list.appendChild(row);
-    });
-  }
-  window.rendreDocumentsPlusTard=rendreDocumentsPlusTard;
-
-
-  // Favori depuis l’aperçu.
-  document.getElementById('apercuFavori')?.addEventListener('click',()=>{if(typeof DOC_EN_APERCU!=='undefined'&&DOC_EN_APERCU)basculerFavoriDocument(DOC_EN_APERCU,document.getElementById('apercuFavori'));});
-  document.getElementById('apercuPlusTard')?.addEventListener('click',()=>{if(typeof DOC_EN_APERCU!=='undefined'&&DOC_EN_APERCU)ajouterDocumentPlusTard(DOC_EN_APERCU,document.getElementById('apercuPlusTard'));});
-  const oldOpen=window.ouvrirApercuDocument;
-  // La fonction d’origine n’est pas exportée partout : on synchronise à chaque ouverture via un MutationObserver léger.
-  const apercu=document.getElementById('apercuOverlay');
-  if(apercu){new MutationObserver(()=>{if(apercu.style.display==='flex'&&typeof DOC_EN_APERCU!=='undefined'&&DOC_EN_APERCU)actualiserEtatActionsDocument(apercu,DOC_EN_APERCU);}).observe(apercu,{attributes:true,attributeFilter:['style']});}
-
-  // Code d’accès personnel.
-  function codeStocke(){return userKey()?localStorage.getItem(KEY_CODE+userKey()):null;}
-  async function hashCode(v){const data=new TextEncoder().encode(v);const hash=await crypto.subtle.digest('SHA-256',data);return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');}
-  function showCode(mode,options){
-    codeMode=mode;espaceOptions=options||{};if(!codeModal)return;
-    codeMsg.className='access-code-message';codeMsg.textContent='';codeMsg.style.display='none';codeInput.value='';
-    if(mode==='setup'){codeTitle.textContent='Créer votre code d’accès';codeIntro.textContent='Choisissez un code personnel de 4 à 8 chiffres. Il sera demandé avant l’ouverture de votre espace sur cet appareil.';}
-    else {codeTitle.textContent='Code d’accès à votre espace';codeIntro.textContent='Saisissez votre code personnel pour ouvrir votre espace Aurore.';}
-    codeModal.style.display='flex';codeModal.setAttribute('aria-hidden','false');setTimeout(()=>codeInput.focus(),50);
-  }
-  function closeCode(){codeModal.style.display='none';codeModal.setAttribute('aria-hidden','true');codeResolve?.(false);codeResolve=null;}
-  async function confirmCode(){
-    const value=String(codeInput.value||'').trim();
-    if(!/^\d{4,8}$/.test(value)){codeMsg.textContent='Le code doit contenir entre 4 et 8 chiffres.';codeMsg.className='access-code-message err';return;}
-    if(codeMode==='setup'){
-      try{localStorage.setItem(KEY_CODE+userKey(),await hashCode(value));codeMsg.textContent='Code enregistré. Votre espace va s’ouvrir.';codeMsg.className='access-code-message ok';setTimeout(()=>{closeCode();ouvrirEspaceInterne(espaceOptions);},300);}catch(e){codeMsg.textContent='Impossible d’enregistrer le code sur cet appareil.';codeMsg.className='access-code-message err';}
-      return;
-    }
-    try{const ok=(await hashCode(value))===codeStocke();if(!ok){codeMsg.textContent='Code incorrect. Réessayez.';codeMsg.className='access-code-message err';return;}closeCode();ouvrirEspaceInterne(espaceOptions);}catch(e){codeMsg.textContent='Impossible de vérifier le code.';codeMsg.className='access-code-message err';}
-  }
-  function ouvrirEspaceInterne(options={}){
-    if(!session)return;if(typeof window.auroreUnlockAccess==='function')window.auroreUnlockAccess();document.getElementById('breadcrumb').innerHTML='';remplirProfil();
-    const screen=document.getElementById('screen-profil');
-    if(screen && options.forceComplete && !screen.querySelector('.profile-completion-banner')){const banner=document.createElement('div');banner.className='profile-completion-banner';banner.textContent='Bienvenue dans votre espace personnel. Avant de commencer, renseignez au minimum votre établissement, votre niveau et votre classe. Ces informations permettent à Aurore de personnaliser et organiser votre expérience.';screen.insertBefore(banner,screen.querySelector('.profile-card'));}
-    afficherEcran('screen-profil');chargerDonneesEspacePersonnel?.();
-  }
-  function ouvrirEspaceAvecCode(options={}){
-    if(!session)return;
-    if(!codeStocke())showCode('setup',options);else showCode('verify',options);
-  }
-  window.ouvrirEspaceAvecCode=ouvrirEspaceAvecCode;
-  document.getElementById('accessCodeConfirm')?.addEventListener('click',confirmCode);
-  document.getElementById('accessCodeCancel')?.addEventListener('click',closeCode);
-  codeModal?.addEventListener('click',e=>{if(e.target===codeModal)closeCode();});
-  codeInput?.addEventListener('keydown',e=>{if(e.key==='Enter')confirmCode();if(e.key==='Escape')closeCode();});
-
-  // Expose the « modifier le code » action through a compact button inserted into the profile.
-  const meta=document.querySelector('#screen-profil .profile-meta');
-  if(meta && !document.getElementById('profilCodeAccessCard')){
-    const card=document.createElement('div');card.className='profile-meta-item';card.id='profilCodeAccessCard';
-    card.innerHTML='<div class="label">Code d’accès personnel</div><div class="value" style="font-size:.82rem;font-weight:500;color:var(--gris);margin-bottom:10px;">Modifiez le code utilisé pour ouvrir votre espace sur cet appareil.</div><button type="button" class="personal-action" id="profilCodeModifier">Modifier mon code</button>';
-    meta.appendChild(card);
-    card.querySelector('#profilCodeModifier').addEventListener('click',()=>{if(session){showCode('setup',{});}});
-  }
-})();
 </script>
 
-
-<div class="pwa-install-hint" id="pwaInstallHint" role="dialog" aria-label="Installer Aurore">
-  <strong>Installer Aurore sur cet appareil</strong>
-  <span>Ajoutez Aurore à votre écran d’accueil pour l’ouvrir comme une application, sans l’interface habituelle du navigateur.</span>
-  <button type="button" id="pwaInstallHintBtn">Installer Aurore</button>
-</div>
-
-<script id="aurore-pwa-install">
-(function(){
-  'use strict';
-  var deferredPrompt=null;
-  var installBtn=document.getElementById('pwaInstallBtn');
-  var hint=document.getElementById('pwaInstallHint');
-  var hintBtn=document.getElementById('pwaInstallHintBtn');
-  function estInstallee(){return window.matchMedia && window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;}
-  function afficher(){if(estInstallee())return;if(installBtn)installBtn.style.display='inline-flex';}
-  function masquer(){if(installBtn)installBtn.style.display='none';if(hint)hint.style.display='none';}
-  function lancerInstallation(){
-    if(!deferredPrompt){
-      if(hint)hint.style.display='block';
-      return;
-    }
-    deferredPrompt.prompt();
-    deferredPrompt.userChoice.then(function(){deferredPrompt=null;masquer();}).catch(function(){deferredPrompt=null;});
-  }
-  window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferredPrompt=e;afficher();});
-  window.addEventListener('appinstalled',function(){deferredPrompt=null;masquer();});
-  if(installBtn)installBtn.addEventListener('click',lancerInstallation);
-  if(hintBtn)hintBtn.addEventListener('click',function(){lancerInstallation();});
-  if(!estInstallee()) setTimeout(function(){if(deferredPrompt)afficher();},1200);
-  if('serviceWorker' in navigator){
-    window.addEventListener('load',function(){
-      navigator.serviceWorker.register('./sw.js',{scope:'./'}).then(function(reg){
-        console.log('[Aurore PWA] Service worker actif.',reg.scope);
-      }).catch(function(err){console.warn('[Aurore PWA] Service worker indisponible :',err);});
-    });
-  }
-})();
-</script>
 </body>
 </html>
 
