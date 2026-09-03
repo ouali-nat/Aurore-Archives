@@ -1341,7 +1341,12 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       <input id="signupPasswordConfirm" type="password" autocomplete="new-password" placeholder="Répétez le mot de passe" minlength="8" required>
       <button type="submit" class="access-btn" id="signupSubmit">CRÉER MON COMPTE</button>
       <p id="signupMessage" class="access-message" style="display:none;"></p>
-      <button type="button" id="signupResend" class="modal-secondary-link" style="display:none;">Renvoyer l’e-mail de confirmation</button>
+      <div id="signupResendWrap" class="resend-box" style="display:none;">
+        <div class="resend-box-title">E-mail de confirmation</div>
+        <div class="resend-box-help">Vous pouvez demander un nouveau message si vous ne l’avez pas reçu.</div>
+        <button type="button" id="signupResend" class="modal-secondary-link">Renvoyer l’e-mail de confirmation</button>
+        <div id="signupResendCountdown" class="resend-countdown" style="display:none;" aria-live="polite"></div>
+      </div>
     </form>
     <div class="account-login-switch" id="accountLoginSwitch"><span>Vous avez déjà un compte ?</span><button type="button" id="showLoginBtn">Se connecter avec e-mail</button></div>
     <form id="loginForm" class="signup-form" autocomplete="on" style="display:none;">
@@ -1362,7 +1367,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   .access-lock{position:fixed;inset:0;z-index:9999;background:var(--fond,#F6F5F2);display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto;}
   .access-card{width:100%;max-width:460px;background:var(--papier,#fff);border:1px solid var(--bordure,#E4E1D8);border-radius:24px;box-shadow:0 26px 70px rgba(32,36,46,.16);overflow:hidden;}
   .access-card-body{padding:30px 30px 24px;text-align:left}.access-institution{display:flex;align-items:center;gap:14px;padding-bottom:22px}.access-logo{width:58px;height:58px;flex:0 0 58px;border-radius:16px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--violet),var(--bleu));border:1px solid rgba(255,255,255,.12);box-shadow:0 10px 28px rgba(124,58,237,.20)}.access-logo img{width:100%;height:100%;object-fit:cover;display:block}.access-brand{margin:0 0 3px;font-size:1.08rem;line-height:1.25}.access-tagline{font-size:.76rem;color:var(--gris);line-height:1.4}.access-tabs{display:flex;border-bottom:1px solid var(--bordure);margin:0 -30px 24px;padding:0 30px}.access-tab{padding:11px 2px 10px;font-size:.79rem;font-weight:700;color:var(--encre);position:relative}.access-tab:after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:2px;background:var(--violet)}.access-heading h1{font-family:Georgia,'Times New Roman',serif;font-size:clamp(1.55rem,5vw,1.9rem);line-height:1.2;margin:0 0 8px;color:var(--encre)}.access-heading p{font-size:.88rem;color:var(--gris);line-height:1.55;margin:0 0 22px}.access-actions{display:grid;gap:10px}.access-google-btn{width:100%;display:flex;align-items:center;gap:12px;text-align:left;padding:13px 15px;border:1px solid #D8D3DF;border-radius:13px;background:#fff;color:#1F1B2E;cursor:pointer;box-shadow:0 7px 18px rgba(55,36,82,.07);transition:transform .15s,box-shadow .15s}.access-google-btn:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(55,36,82,.10)}.access-google-btn span:last-child{display:flex;flex-direction:column;gap:2px}.access-google-btn strong{font-size:.9rem}.access-google-btn small{font-size:.7rem;color:#6B6478}.google-mark{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:1rem;background:#fff;border:1px solid #E1DCE6;color:#4285F4}.access-secondary-btn,.access-visitor-btn{width:100%;padding:12px 15px;border-radius:12px;font:inherit;font-size:.84rem;font-weight:700;cursor:pointer}.access-secondary-btn{border:1px solid var(--bordure);background:var(--fond);color:var(--encre)}.access-visitor-btn{border:0;background:transparent;color:var(--gris);font-weight:600}.access-visitor-btn:hover{text-decoration:underline;color:var(--encre)}.access-message{margin:12px 0 0;padding:10px 12px;border-radius:11px;font-size:.78rem;line-height:1.5}.access-message.ok{background:#ECFDF3;color:#166534;border:1px solid #86EFAC}.access-message.err{background:#FFF7F7;color:#991B1B;border:1px solid #FCA5A5}.access-note{text-align:center;margin-top:18px;font-size:.72rem;color:var(--gris)}.access-footer{text-align:center;padding:14px 20px;border-top:1px solid var(--bordure);font-size:.7rem;color:var(--gris)}
-  .signup-modal{position:fixed;inset:0;z-index:10000;background:rgba(15,12,25,.48);backdrop-filter:blur(7px);display:flex;align-items:center;justify-content:center;padding:18px;overflow:auto}.signup-card{position:relative;width:100%;max-width:430px;background:var(--papier);color:var(--encre);border:1px solid var(--bordure);border-radius:22px;padding:27px;box-shadow:0 28px 80px rgba(0,0,0,.24)}.signup-close{position:absolute;right:14px;top:12px;width:34px;height:34px;border:0;border-radius:50%;background:var(--fond);color:var(--gris);font-size:1.35rem;cursor:pointer}.signup-card h2{font-family:Georgia,'Times New Roman',serif;font-size:1.55rem;margin:5px 0 8px}.signup-intro,.signup-footnote{font-size:.82rem;color:var(--gris);line-height:1.55}.signup-form{display:grid;gap:8px;margin-top:18px}.signup-form label{font-size:.76rem;font-weight:700;margin-top:3px}.signup-form input{width:100%;box-sizing:border-box;padding:12px 13px;border:1px solid var(--bordure);border-radius:11px;background:var(--fond);color:var(--encre);outline:none}.signup-form input:focus{border-color:var(--violet);box-shadow:0 0 0 3px rgba(124,58,237,.10)}.signup-footnote{margin:14px 0 0;text-align:center;font-size:.72rem};.account-login-switch{display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap;margin-top:15px;font-size:.73rem;color:var(--gris)}.account-login-switch button,.modal-secondary-link{border:0;background:transparent;color:var(--violet);font:inherit;font-weight:700;cursor:pointer;padding:0}.modal-secondary-link{justify-self:center;margin-top:4px}
+  .signup-modal{position:fixed;inset:0;z-index:10000;background:rgba(15,12,25,.48);backdrop-filter:blur(7px);display:flex;align-items:center;justify-content:center;padding:18px;overflow:auto}.signup-card{position:relative;width:100%;max-width:430px;background:var(--papier);color:var(--encre);border:1px solid var(--bordure);border-radius:22px;padding:27px;box-shadow:0 28px 80px rgba(0,0,0,.24)}.signup-close{position:absolute;right:14px;top:12px;width:34px;height:34px;border:0;border-radius:50%;background:var(--fond);color:var(--gris);font-size:1.35rem;cursor:pointer}.signup-card h2{font-family:Georgia,'Times New Roman',serif;font-size:1.55rem;margin:5px 0 8px}.signup-intro,.signup-footnote{font-size:.82rem;color:var(--gris);line-height:1.55}.signup-form{display:grid;gap:8px;margin-top:18px}.signup-form label{font-size:.76rem;font-weight:700;margin-top:3px}.signup-form input{width:100%;box-sizing:border-box;padding:12px 13px;border:1px solid var(--bordure);border-radius:11px;background:var(--fond);color:var(--encre);outline:none}.signup-form input:focus{border-color:var(--violet);box-shadow:0 0 0 3px rgba(124,58,237,.10)}.signup-footnote{margin:14px 0 0;text-align:center;font-size:.72rem;color:var(--gris);line-height:1.55;padding:11px 13px;border:1px solid var(--bordure);border-radius:14px;background:var(--fond);box-sizing:border-box}.account-login-switch{display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap;margin-top:15px;font-size:.73rem;color:var(--gris)}.account-login-switch{padding:10px 12px;border:1px solid var(--bordure);border-radius:14px;background:var(--fond);box-sizing:border-box}.account-login-switch button{border:0;background:transparent;color:var(--violet);font:inherit;font-weight:800;cursor:pointer;padding:5px 8px;border-radius:9px}.account-login-switch button:hover{background:rgba(124,58,237,.08)}.modal-secondary-link{justify-self:stretch;border:1px solid var(--bordure);background:var(--fond);color:var(--violet);font:inherit;font-weight:800;cursor:pointer;padding:10px 13px;border-radius:11px;transition:opacity .15s,transform .15s,background .15s}.modal-secondary-link:hover:not(:disabled){background:rgba(124,58,237,.08);transform:translateY(-1px)}.modal-secondary-link:disabled{opacity:.58;cursor:not-allowed;transform:none}.resend-box{margin-top:10px;padding:13px;border:1px solid var(--bordure);border-radius:16px;background:var(--fond);box-sizing:border-box;display:grid;gap:8px}.resend-box-title{font-size:.78rem;font-weight:800;color:var(--encre)}.resend-box-help{font-size:.72rem;line-height:1.45;color:var(--gris)}.resend-countdown{padding:9px 11px;border:1px solid rgba(124,58,237,.22);border-radius:11px;background:rgba(124,58,237,.08);color:var(--violet);font-size:.73rem;font-weight:800;text-align:center;line-height:1.4}
   [data-theme="light"] .access-lock{background:radial-gradient(circle at 15% 10%,rgba(109,40,217,.08),transparent 34%),radial-gradient(circle at 88% 88%,rgba(192,132,252,.10),transparent 36%),#F7F4FB}[data-theme="light"] .access-card{background:#fff;border-color:#DDD3E8;box-shadow:0 24px 60px rgba(55,36,82,.12)}[data-theme="light"] .access-google-btn{background:#fff;border-color:#DDD3E8}[data-theme="light"] .access-secondary-btn{background:#F7F4FB}
   /* Portail d'accès : deux espaces côte à côte, avec le bloc secondaire défilant. */
   .access-card{max-width:900px;}
@@ -1430,6 +1435,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   const backSignupBtn=document.getElementById('backSignupBtn');
   const loginSwitch=document.getElementById('accountLoginSwitch');
   const resend=document.getElementById('signupResend');
+  const resendWrap=document.getElementById('signupResendWrap');
+  const resendCountdown=document.getElementById('signupResendCountdown');
   let dernierEmailInscription='';
   let resendTimer=null;
   let resendSecondesRestantes=0;
@@ -1444,20 +1451,18 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   }
 
   function demarrerCompteAReboursResend(secondes=60){
-    if(!resend) return;
+    if(!resend || !resendCountdown) return;
     if(resendTimer) clearInterval(resendTimer);
     resendSecondesRestantes=secondes;
     resend.disabled=true;
     resend.classList.add('is-counting');
+    resendCountdown.style.display='block';
     const afficher=()=>{
       if(resendSecondesRestantes>0){
-        resend.textContent=`Renvoyer l’e-mail dans ${resendSecondesRestantes}s`;
+        resend.textContent=`Renvoyer dans ${resendSecondesRestantes}s`;
+        resendCountdown.textContent=`Nouveau renvoi disponible dans ${resendSecondesRestantes} seconde${resendSecondesRestantes>1?'s':''}`;
       }else{
-        clearInterval(resendTimer);
-        resendTimer=null;
-        resend.disabled=false;
-        resend.classList.remove('is-counting');
-        resend.textContent='Renvoyer l’e-mail de confirmation';
+        arreterCompteAReboursResend();
       }
     };
     afficher();
@@ -1468,9 +1473,11 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     if(resendTimer) clearInterval(resendTimer);
     resendTimer=null; resendSecondesRestantes=0;
     if(resend){ resend.disabled=false; resend.classList.remove('is-counting'); resend.textContent='Renvoyer l’e-mail de confirmation'; }
+    if(resendCountdown){ resendCountdown.style.display='none'; resendCountdown.textContent=''; }
   }
+
   function afficherModeConnexionEmail(){ form.style.display='none'; loginForm.style.display='grid'; loginSwitch.style.display='none'; setTimeout(()=>document.getElementById('loginEmail')?.focus(),50); }
-  function afficherModeInscription(){ form.style.display='grid'; loginForm.style.display='none'; loginSwitch.style.display='flex'; if(resend){ arreterCompteAReboursResend(); resend.style.display='none'; } }
+  function afficherModeInscription(){ form.style.display='grid'; loginForm.style.display='none'; loginSwitch.style.display='flex'; if(resendWrap) resendWrap.style.display=dernierEmailInscription?'grid':'none'; }
   function unlock(){ document.body.classList.remove('site-locked'); if(lock) lock.style.display='none'; }
   window.auroreUnlockAccess=unlock;
   visitor?.addEventListener('click',()=>{ try{localStorage.setItem('aurore_visitor_mode','1');}catch(e){} unlock(); });
@@ -1483,7 +1490,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   signupOpen?.addEventListener('click',()=>{modal.style.display='flex';modal.setAttribute('aria-hidden','false');afficherModeInscription();setTimeout(()=>document.getElementById('signupName')?.focus(),50);});
   showLoginBtn?.addEventListener('click',afficherModeConnexionEmail);
   backSignupBtn?.addEventListener('click',afficherModeInscription);
-  function fermer(){modal.style.display='none';modal.setAttribute('aria-hidden','true');afficherModeInscription();msg.style.display='none';loginMsg.style.display='none';if(resend) resend.style.display='none';}
+  function fermer(){modal.style.display='none';modal.setAttribute('aria-hidden','true');msg.style.display='none';loginMsg.style.display='none';}
   close?.addEventListener('click',fermer); modal?.addEventListener('click',e=>{if(e.target===modal)fermer();});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modal?.style.display!=='none')fermer();});
   resend?.addEventListener('click',async ()=>{
@@ -1494,6 +1501,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     }
     if(resend.disabled) return;
     dernierEmailInscription=email;
+    if(resendWrap) resendWrap.style.display='grid';
     resend.disabled=true; resend.textContent='Envoi de l’e-mail…'; msg.style.display='none';
     try{
       const r=await fetch(`${SUPABASE_URL}/auth/v1/resend`,{
@@ -1505,7 +1513,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       try{d=raw?JSON.parse(raw):{}}catch(_){d={message:raw}}
       if(!r.ok){
         const detail=d.msg||d.error_description||d.message||raw||('HTTP '+r.status);
-        if(r.status===429) throw new Error('Trop de demandes. Attendez quelques instants avant de réessayer.');
+        if(r.status===429){ afficherMessageInscription('Trop de demandes. Pour protéger votre compte, patientez 60 secondes avant de demander un nouveau message.','err'); demarrerCompteAReboursResend(60); return; }
         if(r.status===422 && /already|confirm/i.test(detail)) throw new Error('Cette adresse e-mail est peut-être déjà confirmée. Connectez-vous pour accéder à votre espace.');
         throw new Error(detail);
       }
@@ -1542,7 +1550,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       if(!r.ok) throw new Error(d.msg||d.error_description||d.message||('HTTP '+r.status));
       if(d.access_token){
         const infos=await recupererUtilisateur(d.access_token); if(infos){const role=await assurerProfilEtObtenirRole(d.access_token,infos);session={access_token:d.access_token,refresh_token:d.refresh_token||null,expires_at:Date.now()+((d.expires_in||3600)*1000),id:infos.id,email:infos.email,nom:infos.nom,avatar:infos.avatar,lycee:infos.lycee||'',niveau:infos.niveau||'',classe:infos.classe||'',filiere:infos.filiere||'',provider:infos.provider||'E-mail',role};sauvegarderSession();enregistrerConnexion(session);afficherUtilisateurConnecte();unlock();fermer();ouvrirEspacePersonnelObligatoire();}
-      } else {dernierEmailInscription=email;msg.textContent='Compte créé. Consultez votre e-mail pour confirmer votre adresse avant de vous connecter. Vérifiez aussi les courriers indésirables.';msg.className='access-message ok';msg.style.display='block';if(resend) resend.style.display='inline-block';}
+      } else {dernierEmailInscription=email;if(resendWrap) resendWrap.style.display='grid';msg.textContent='Compte créé. Consultez votre e-mail pour confirmer votre adresse avant de vous connecter. Vérifiez aussi les courriers indésirables.';msg.className='access-message ok';msg.style.display='block';}
     }catch(err){msg.textContent='Impossible de créer le compte : '+(err.message||'vérifiez les informations saisies.');msg.className='access-message err';msg.style.display='block';}
     finally{btn.disabled=false;btn.textContent='CRÉER MON COMPTE';}
   });
