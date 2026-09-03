@@ -9121,61 +9121,87 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const loading=(id,text)=>{const el=document.getElementById(id);if(el)el.innerHTML=`<div class="activity-loading"><span></span><span>${escapeTextePersonnel(text)}</span></div>`;};
     const error=(id,text)=>{const el=document.getElementById(id);if(!el)return;el.innerHTML=`<div class="personal-empty activity-error"><strong>${escapeTextePersonnel(text)}</strong><br><button type="button" class="personal-action" data-activity-retry>Réessayer</button></div>`;el.querySelector('[data-activity-retry]')?.addEventListener('click',chargerDonneesEspacePersonnel);};
 
-    loading('personalDocumentsList','Chargement de vos documents…');
-    loading('personalBooksList','Chargement de vos livres…');
+    // Affichage immédiat du cache local : l'interface n'attend plus Supabase pour peindre l'écran.
+    try{
+      const cached=depotsPersonnelsLocaux();
+      if(cached?.length){
+        const map=new Map(cached.map(d=>[String(d.id),d]));
+        MES_DOCUMENTS_PERSONNELS=[...map.values()].sort((a,b)=>Number(b.id||0)-Number(a.id||0));
+        MES_LIVRES_PERSONNELS=MES_DOCUMENTS_PERSONNELS.filter(d=>String(d['Catégorie']||'').trim().toLowerCase()==='livres');
+        rendreDocumentsPersonnels();
+        rendreLivresPersonnels();
+        actualiserCompteursPersonnels();
+      }else{
+        loading('personalDocumentsList','Chargement de vos documents…');
+        loading('personalBooksList','Chargement de vos livres…');
+      }
+    }catch(e){
+      loading('personalDocumentsList','Chargement de vos documents…');
+      loading('personalBooksList','Chargement de vos livres…');
+    }
     loading('personalFavoritesList','Chargement de vos favoris…');
     loading('personalLaterList','Chargement…');
     loading('personalDownloadsHistory','Chargement…');
 
-    // 1) Les documents sont chargés seuls et rendus immédiatement.
-    let docs=[];
+    // Requête principale uniquement : timeout court et rendu dès réception.
     try{
       const r=await fetchPersonnelAvecTimeout(`${SUPABASE_URL}/rest/v1/rpc/lister_documents_personnels`,{
         method:'POST',
         headers:{...headersAdmin(),'Content-Type':'application/json','Accept':'application/json'},
         body:'{}'
-      },12000);
-      if(!r.ok) throw new Error(`RPC HTTP ${r.status} ${await r.text().catch(()=> '')}`);
+      },8000);
+      if(!r.ok) throw new Error(`RPC HTTP ${r.status}`);
       const data=await r.json();
-      docs=Array.isArray(data)?data:[];
+      const docs=Array.isArray(data)?data:[];
+      const uniques=new Map();
+      docs.forEach(d=>{if(d?.id!=null)uniques.set(String(d.id),d);});
+      // Une réponse serveur valide, même vide, remplace le cache.
+      MES_DOCUMENTS_PERSONNELS=[...uniques.values()].sort((a,b)=>Number(b.id||0)-Number(a.id||0));
+      MES_LIVRES_PERSONNELS=MES_DOCUMENTS_PERSONNELS.filter(d=>String(d['Catégorie']||'').trim().toLowerCase()==='livres');
+      MES_NOTIFICATIONS_PERSONNELLES=[];
+      rendreDocumentsPersonnels();
+      rendreLivresPersonnels();
+      actualiserCompteursPersonnels();
     }catch(e){
       console.warn('[Mon activité] RPC documents indisponible:',e);
-      // Fallback direct sur la table de liaison.
+      // Fallback rapide via la table de liaison, seulement si la RPC échoue.
       try{
-        const dr=await fetchPersonnelAvecTimeout(`${SUPABASE_URL}/rest/v1/Depots_deposants?select=document_id&user_id=eq.${encodeURIComponent(session.id)}&order=document_id.desc`,{headers:headersAdmin(),'Accept':'application/json'},12000);
+        const dr=await fetchPersonnelAvecTimeout(`${SUPABASE_URL}/rest/v1/Depots_deposants?select=document_id&user_id=eq.${encodeURIComponent(session.id)}&order=document_id.desc`,{headers:headersAdmin(),'Accept':'application/json'},6000);
         if(!dr.ok) throw new Error(`Depots_deposants HTTP ${dr.status}`);
         const links=await dr.json();
         const ids=(Array.isArray(links)?links:[]).map(x=>Number(x.document_id)).filter(Number.isFinite);
         if(ids.length){
-          const rr=await fetchPersonnelAvecTimeout(`${SUPABASE_URL}/rest/v1/Document?select=*&id=in.(${ids.join(',')})&order=id.desc`,{headers:headersAdmin(),'Accept':'application/json'},12000);
+          const rr=await fetchPersonnelAvecTimeout(`${SUPABASE_URL}/rest/v1/Document?select=*&id=in.(${ids.join(',')})&order=id.desc`,{headers:headersAdmin(),'Accept':'application/json'},6000);
           if(!rr.ok) throw new Error(`Document HTTP ${rr.status}`);
-          docs=await rr.json();
+          MES_DOCUMENTS_PERSONNELS=await rr.json();
+          MES_LIVRES_PERSONNELS=MES_DOCUMENTS_PERSONNELS.filter(d=>String(d['Catégorie']||'').trim().toLowerCase()==='livres');
+          rendreDocumentsPersonnels();
+          rendreLivresPersonnels();
+          actualiserCompteursPersonnels();
+        }else if(!MES_DOCUMENTS_PERSONNELS.length){
+          error('personalDocumentsList','Impossible de récupérer vos documents.');
+          error('personalBooksList','Impossible de récupérer vos livres.');
         }
       }catch(e2){
         console.warn('[Mon activité] fallback documents indisponible:',e2);
-        docs=depotsPersonnelsLocaux();
+        if(!MES_DOCUMENTS_PERSONNELS.length){
+          const local=depotsPersonnelsLocaux();
+          MES_DOCUMENTS_PERSONNELS=Array.isArray(local)?local:[];
+          MES_LIVRES_PERSONNELS=MES_DOCUMENTS_PERSONNELS.filter(d=>String(d['Catégorie']||'').trim().toLowerCase()==='livres');
+          rendreDocumentsPersonnels();
+          rendreLivresPersonnels();
+          actualiserCompteursPersonnels();
+          if(!MES_DOCUMENTS_PERSONNELS.length) error('personalDocumentsList','Impossible de récupérer vos documents.');
+        }
       }
     }
 
-    const uniques=new Map();
-    (Array.isArray(docs)?docs:[]).forEach(d=>{if(d?.id!=null)uniques.set(String(d.id),d);});
-    // Le cache local complète uniquement une réponse serveur vide, sans remplacer une réponse serveur valide.
-    if(!uniques.size){
-      depotsPersonnelsLocaux().forEach(d=>{if(d?.id!=null)uniques.set(String(d.id),d);});
-    }
-    MES_DOCUMENTS_PERSONNELS=[...uniques.values()].sort((a,b)=>Number(b.id||0)-Number(a.id||0));
-    MES_LIVRES_PERSONNELS=MES_DOCUMENTS_PERSONNELS.filter(d=>String(d['Catégorie']||'').trim().toLowerCase()==='livres');
-    MES_NOTIFICATIONS_PERSONNELLES=[];
-    rendreDocumentsPersonnels();
-    rendreLivresPersonnels();
-    actualiserCompteursPersonnels();
-
-    // 2) Le reste est totalement indépendant : aucune section ne bloque une autre.
+    // Tout le reste part EN PARALLÈLE après le rendu des documents.
     const jobs=[
-      Promise.resolve().then(()=>synchroniserRessourcesSupabase()),
+      synchroniserRessourcesSupabase(),
       (async()=>{
         try{
-          const nr=await fetchPersonnelAvecTimeout(`${SUPABASE_URL}/rest/v1/Notifications?select=id,titre_document,statut,message,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc&limit=100`,{headers:headersAdmin(),'Accept':'application/json'},12000);
+          const nr=await fetchPersonnelAvecTimeout(`${SUPABASE_URL}/rest/v1/Notifications?select=id,titre_document,statut,message,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc&limit=100`,{headers:headersAdmin(),'Accept':'application/json'},6000);
           if(nr.ok) MES_NOTIFICATIONS_PERSONNELLES=await nr.json();
         }catch(e){console.warn('[Mon activité] notifications indisponibles:',e);}
       })()
