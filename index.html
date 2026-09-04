@@ -9108,123 +9108,124 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
   function escapeTextePersonnel(v){ return echapperHtmlPub(v == null ? '' : String(v)); }
 
-  let _chargementPersonnelSeq = 0;
-
   async function chargerDonneesEspacePersonnel(){
-    const seq=++_chargementPersonnelSeq;
-    if(!session?.id||!session?.access_token) return;
+    // Ne jamais laisser l'interface bloquée si le token n'est plus disponible.
+    // On tente d'abord de récupérer/rafraîchir la session persistée.
+    if(!session?.id || !session?.access_token){
+      try{
+        const saved=sessionStorage.getItem('lsnb_session');
+        if(saved && !session) session=JSON.parse(saved);
+      }catch(e){}
+      if(!session?.access_token && typeof rafraichirSession==='function'){
+        try{ await rafraichirSession(); }catch(e){ console.warn('[Mon activité] rafraîchissement session impossible',e); }
+      }
+    }
+    if(!session?.id || !session?.access_token){
+      const ids=['personalDocumentsList','personalBooksList','personalFavoritesList','personalLaterList','personalDownloadsHistory'];
+      ids.forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='<div class=\"personal-empty activity-error\"><strong>Session expirée.</strong><br>Reconnectez-vous puis réessayez.</div>';});
+      console.warn('[Mon activité] session absente après tentative de récupération');
+      return;
+    }
 
     const name=(session.user_metadata?.full_name||session.user_metadata?.name||session.user_metadata?.given_name||session.nom||'vous').trim();
     const welcome=document.getElementById('personalWelcomeName');
     if(welcome) welcome.textContent=name.split(' ')[0]||'vous';
 
-    const loading=(id,text)=>{
-      const el=document.getElementById(id);
-      if(el) el.innerHTML=`<div class="activity-loading"><span></span><span>${escapeTextePersonnel(text)}</span></div>`;
-    };
-    const error=(id,text)=>{
-      const el=document.getElementById(id);
-      if(!el)return;
-      el.innerHTML=`<div class="personal-empty activity-error"><strong>${escapeTextePersonnel(text)}</strong><br><button type="button" class="personal-action" data-activity-retry>Réessayer</button></div>`;
-      el.querySelector('[data-activity-retry]')?.addEventListener('click',()=>chargerDonneesEspacePersonnel());
-    };
+    const loading=(id,text)=>{const el=document.getElementById(id);if(el)el.innerHTML=`<div class="activity-loading"><span></span><span>${escapeTextePersonnel(text)}</span></div>`;};
+    const error=(id,text)=>{const el=document.getElementById(id);if(!el)return;el.innerHTML=`<div class="personal-empty activity-error"><strong>${escapeTextePersonnel(text)}</strong><br><button type="button" class="personal-action" data-activity-retry>Réessayer</button></div>`;el.querySelector('[data-activity-retry]')?.addEventListener('click',chargerDonneesEspacePersonnel);};
 
-    ['personalDocumentsList','personalBooksList','personalFavoritesList','personalLaterList','personalDownloadsHistory']
-      .forEach(id=>loading(id,'Chargement…'));
-
-    let docs=[];
-    let rpcError=null;
-
-    // 1. Source principale : RPC serveur confirmée par le diagnostic.
+    // Affichage immédiat du cache local : l'interface n'attend plus Supabase pour peindre l'écran.
     try{
-      const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/lister_documents_personnels`,{
-        method:'POST',
-        headers:{...headersAdmin(),'Content-Type':'application/json','Accept':'application/json'},
-        body:'{}',
-        cache:'no-store'
-      });
-      if(!r.ok){
-        rpcError=new Error(`RPC HTTP ${r.status}`);
+      const cached=depotsPersonnelsLocaux();
+      if(cached?.length){
+        const map=new Map(cached.map(d=>[String(d.id),d]));
+        MES_DOCUMENTS_PERSONNELS=[...map.values()].sort((a,b)=>Number(b.id||0)-Number(a.id||0));
+        MES_LIVRES_PERSONNELS=MES_DOCUMENTS_PERSONNELS.filter(d=>String(d['Catégorie']||'').trim().toLowerCase()==='livres');
+        rendreDocumentsPersonnels();
+        rendreLivresPersonnels();
+        actualiserCompteursPersonnels();
       }else{
-        const data=await r.json();
-        docs=Array.isArray(data)?data:[];
+        loading('personalDocumentsList','Chargement de vos documents…');
+        loading('personalBooksList','Chargement de vos livres…');
       }
     }catch(e){
-      rpcError=e;
+      loading('personalDocumentsList','Chargement de vos documents…');
+      loading('personalBooksList','Chargement de vos livres…');
     }
+    loading('personalFavoritesList','Chargement de vos favoris…');
+    loading('personalLaterList','Chargement…');
+    loading('personalDownloadsHistory','Chargement…');
 
-    // 2. Si la RPC répond vide ou échoue, on vérifie directement la liaison.
-    // Cela couvre les appels concurrents/états de session transitoires.
-    if(!docs.length){
+    // Requête principale uniquement : timeout court et rendu dès réception.
+    try{
+      const r=await fetchPersonnelAvecTimeout(`${SUPABASE_URL}/rest/v1/rpc/lister_documents_personnels`,{
+        method:'POST',
+        headers:{...headersAdmin(),'Content-Type':'application/json','Accept':'application/json'},
+        body:'{}'
+      },8000);
+      if(!r.ok) throw new Error(`RPC HTTP ${r.status}`);
+      const data=await r.json();
+      const docs=Array.isArray(data)?data:[];
+      const uniques=new Map();
+      docs.forEach(d=>{if(d?.id!=null)uniques.set(String(d.id),d);});
+      // Une réponse serveur valide, même vide, remplace le cache.
+      MES_DOCUMENTS_PERSONNELS=[...uniques.values()].sort((a,b)=>Number(b.id||0)-Number(a.id||0));
+      MES_LIVRES_PERSONNELS=MES_DOCUMENTS_PERSONNELS.filter(d=>String(d['Catégorie']||'').trim().toLowerCase()==='livres');
+      MES_NOTIFICATIONS_PERSONNELLES=[];
+      rendreDocumentsPersonnels();
+      rendreLivresPersonnels();
+      actualiserCompteursPersonnels();
+    }catch(e){
+      console.warn('[Mon activité] RPC documents indisponible:',e);
+      // Fallback rapide via la table de liaison, seulement si la RPC échoue.
       try{
-        const dr=await fetch(`${SUPABASE_URL}/rest/v1/Depots_deposants?select=document_id&user_id=eq.${encodeURIComponent(session.id)}&order=id.desc`,{
-          headers:headersAdmin(),cache:'no-store'
-        });
-        if(dr.ok){
-          const links=await dr.json();
-          const ids=[...(Array.isArray(links)?links:[])]
-            .map(x=>Number(x.document_id)).filter(Number.isFinite);
-
-          if(ids.length){
-            const rr=await fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&id=in.(${ids.join(',')})&order=id.desc`,{
-              headers:headersAdmin(),cache:'no-store'
-            });
-            if(rr.ok){
-              const fallback=await rr.json();
-              if(Array.isArray(fallback)&&fallback.length) docs=fallback;
-            }
-          }
+        const dr=await fetchPersonnelAvecTimeout(`${SUPABASE_URL}/rest/v1/Depots_deposants?select=document_id&user_id=eq.${encodeURIComponent(session.id)}&order=document_id.desc`,{headers:headersAdmin(),'Accept':'application/json'},6000);
+        if(!dr.ok) throw new Error(`Depots_deposants HTTP ${dr.status}`);
+        const links=await dr.json();
+        const ids=(Array.isArray(links)?links:[]).map(x=>Number(x.document_id)).filter(Number.isFinite);
+        if(ids.length){
+          const rr=await fetchPersonnelAvecTimeout(`${SUPABASE_URL}/rest/v1/Document?select=*&id=in.(${ids.join(',')})&order=id.desc`,{headers:headersAdmin(),'Accept':'application/json'},6000);
+          if(!rr.ok) throw new Error(`Document HTTP ${rr.status}`);
+          MES_DOCUMENTS_PERSONNELS=await rr.json();
+          MES_LIVRES_PERSONNELS=MES_DOCUMENTS_PERSONNELS.filter(d=>String(d['Catégorie']||'').trim().toLowerCase()==='livres');
+          rendreDocumentsPersonnels();
+          rendreLivresPersonnels();
+          actualiserCompteursPersonnels();
+        }else if(!MES_DOCUMENTS_PERSONNELS.length){
+          error('personalDocumentsList','Impossible de récupérer vos documents.');
+          error('personalBooksList','Impossible de récupérer vos livres.');
         }
-      }catch(e){
-        console.warn('[Espace personnel] fallback direct:',e);
+      }catch(e2){
+        console.warn('[Mon activité] fallback documents indisponible:',e2);
+        if(!MES_DOCUMENTS_PERSONNELS.length){
+          const local=depotsPersonnelsLocaux();
+          MES_DOCUMENTS_PERSONNELS=Array.isArray(local)?local:[];
+          MES_LIVRES_PERSONNELS=MES_DOCUMENTS_PERSONNELS.filter(d=>String(d['Catégorie']||'').trim().toLowerCase()==='livres');
+          rendreDocumentsPersonnels();
+          rendreLivresPersonnels();
+          actualiserCompteursPersonnels();
+          if(!MES_DOCUMENTS_PERSONNELS.length) error('personalDocumentsList','Impossible de récupérer vos documents.');
+        }
       }
     }
 
-    // Une ancienne requête ne peut jamais écraser le résultat d'une requête
-    // plus récente.
-    if(seq!==_chargementPersonnelSeq)return;
-
-    // 3. Ne jamais remplacer un résultat déjà valide par [].
-    if(docs.length || !MES_DOCUMENTS_PERSONNELS.length){
-      const map=new Map();
-      docs.forEach(d=>{if(d?.id!=null)map.set(String(d.id),d);});
-      MES_DOCUMENTS_PERSONNELS=[...map.values()].sort((a,b)=>Number(b.id||0)-Number(a.id||0));
-    }
-
-    MES_LIVRES_PERSONNELS=MES_DOCUMENTS_PERSONNELS.filter(
-      d=>String(d['Catégorie']||'').trim().toLowerCase()==='livres'
-    );
-
-    // 4. Rendu des dépôts AVANT toutes les autres ressources.
-    rendreDocumentsPersonnels();
-    rendreLivresPersonnels();
-    actualiserCompteursPersonnels();
-
-    if(!MES_DOCUMENTS_PERSONNELS.length && rpcError){
-      error('personalDocumentsList','Impossible de récupérer vos dépôts.');
-      error('personalBooksList','Impossible de récupérer vos livres.');
-    }
-
-    // 5. Le reste ne bloque absolument plus les dépôts.
-    Promise.allSettled([
+    // Tout le reste part EN PARALLÈLE après le rendu des documents.
+    const jobs=[
       synchroniserRessourcesSupabase(),
       (async()=>{
         try{
-          const nr=await fetch(`${SUPABASE_URL}/rest/v1/Notifications?select=id,titre_document,statut,message,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc&limit=100`,{
-            headers:headersAdmin(),cache:'no-store'
-          });
+          const nr=await fetchPersonnelAvecTimeout(`${SUPABASE_URL}/rest/v1/Notifications?select=id,titre_document,statut,message,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc&limit=100`,{headers:headersAdmin(),'Accept':'application/json'},6000);
           if(nr.ok) MES_NOTIFICATIONS_PERSONNELLES=await nr.json();
-        }catch(e){console.warn('[Espace personnel] notifications:',e);}
+        }catch(e){console.warn('[Mon activité] notifications indisponibles:',e);}
       })()
-    ]).then(async()=>{
-      if(seq!==_chargementPersonnelSeq)return;
+    ];
+    Promise.allSettled(jobs).then(()=>{
       actualiserCompteursPersonnels();
       rendreDocumentsPersonnels();
       rendreDocumentsPlusTard();
       rendreDocumentsTelecharges();
-      try{await rendreFavorisPersonnels();}catch(e){console.warn('[Espace personnel] favoris:',e);}
+      rendreFavorisPersonnels().catch(e=>console.warn('[Mon activité] favoris:',e));
     });
-
     afficherNotificationTelechargementAuRetour();
   }
 
@@ -10243,103 +10244,124 @@ footer>.wrap:last-child{margin-top:18px!important;}
   async function synchroniserRessourcesSupabase(){
     if(!session?.id||!session?.access_token)return;
 
-    // Chaque ressource est indépendante : une requête lente ou en erreur
-    // ne peut plus maintenir les autres onglets en "Chargement…".
-    const chargerFavoris=async()=>{
-      try{
-        const raw=await apiPersonnel(TABLE_FAVORIS_PERSONNELS,{
-          query:`select=document_id&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc`
-        });
-        const rows=raw?JSON.parse(raw):[];
-        const ids=(Array.isArray(rows)?rows:[])
-          .map(x=>String(x.document_id??'').trim()).filter(Boolean);
-        safeWrite(KEY_FAV+userKey(),ids);
-      }catch(e){
-        console.warn('[Espace personnel] favoris Supabase:',e);
-        if(localStorage.getItem(KEY_FAV+userKey())===null)safeWrite(KEY_FAV+userKey(),[]);
-      }finally{
-        // Toujours sortir de l'état "Chargement".
-        try{await rendreFavorisPersonnels();}catch(e){console.warn('[Favoris] rendu:',e);}
-        actualiserCompteursPersonnels();
-      }
-    };
+    // Le serveur devient la source de vérité dès qu'une lecture réussit.
+    // Une réponse [] signifie réellement « aucun élément ».
+    try{
+      const raw=await apiPersonnel(TABLE_FAVORIS_PERSONNELS,{
+        query:`select=document_id&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc`
+      });
+      const rows=raw?JSON.parse(raw):[];
+      const ids=(Array.isArray(rows)?rows:[])
+        .map(x=>String(x.document_id??'').trim()).filter(Boolean);
+      safeWrite(KEY_FAV+userKey(),ids);
+    }catch(e){
+      console.warn('[Espace personnel] lecture favoris Supabase:',e);
+    }
+    actualiserCompteursPersonnels();
+    rendreFavorisPersonnels().catch(e=>console.warn('[Favoris] rendu:',e));
 
-    const chargerPlusTard=async()=>{
-      try{
-        const raw=await apiPersonnel(TABLE_PLUS_TARD_PERSONNELS,{
-          query:`select=document_id,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc`
-        });
-        const rows=raw?JSON.parse(raw):[];
-        safeWrite(KEY_LATER+userKey(),(Array.isArray(rows)?rows:[])
-          .map(x=>({id:x.document_id,saved_at:x.created_at})).filter(x=>x.id!=null));
-      }catch(e){
-        console.warn('[Espace personnel] Plus tard Supabase:',e);
-        if(localStorage.getItem(KEY_LATER+userKey())===null)safeWrite(KEY_LATER+userKey(),[]);
-      }finally{
-        rendreDocumentsPlusTard();
-        actualiserCompteursPersonnels();
-      }
-    };
+    try{
+      const raw=await apiPersonnel(TABLE_PLUS_TARD_PERSONNELS,{
+        query:`select=document_id,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc`
+      });
+      const rows=raw?JSON.parse(raw):[];
+      safeWrite(KEY_LATER+userKey(),(Array.isArray(rows)?rows:[])
+        .map(x=>({id:x.document_id,saved_at:x.created_at})).filter(x=>x.id!=null));
+    }catch(e){
+      console.warn('[Espace personnel] lecture Plus tard Supabase:',e);
+    }
+    actualiserCompteursPersonnels();
+    rendreDocumentsPlusTard();
 
-    const chargerTelechargements=async()=>{
-      try{
-        const raw=await apiPersonnel(TABLE_TELECHARGEMENTS_PERSONNELS,{
-          query:`select=id,document_id,titre_document,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc&limit=100`
-        });
-        const rows=raw?JSON.parse(raw):[];
-        safeWrite(KEY_DOWNLOADS+userKey(),(Array.isArray(rows)?rows:[])
-          .map(x=>({
-            id:x.document_id,
-            titre:x.titre_document||'Document',
-            downloaded_at:x.created_at
-          })).filter(x=>x.id!=null));
-      }catch(e){
-        console.warn('[Espace personnel] téléchargements Supabase:',e);
-        if(localStorage.getItem(KEY_DOWNLOADS+userKey())===null)safeWrite(KEY_DOWNLOADS+userKey(),[]);
-      }finally{
-        rendreDocumentsTelecharges();
-        actualiserCompteursPersonnels();
-      }
-    };
-
-    // Lancement simultané : les trois ressources ne se bloquent plus entre elles.
-    await Promise.allSettled([
-      chargerFavoris(),
-      chargerPlusTard(),
-      chargerTelechargements()
-    ]);
+    try{
+      const raw=await apiPersonnel(TABLE_TELECHARGEMENTS_PERSONNELS,{
+        query:`select=id,document_id,titre_document,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc&limit=100`
+      });
+      const rows=raw?JSON.parse(raw):[];
+      safeWrite(KEY_DOWNLOADS+userKey(),(Array.isArray(rows)?rows:[])
+        .map(x=>({id:x.document_id,titre:x.titre_document||'Document',downloaded_at:x.created_at}))
+        .filter(x=>x.id!=null));
+    }catch(e){
+      console.warn('[Espace personnel] lecture téléchargements Supabase:',e);
+    }
+    actualiserCompteursPersonnels();
+    rendreDocumentsTelecharges();
   }
 
   async function synchroniserFavoriSupabase(docIdValue, active){
-    if(!session?.id||!session?.access_token||!docIdValue)return;
+    if(!session?.id||!session?.access_token||!docIdValue)throw new Error('Session ou document absent.');
     const q=`user_id=eq.${encodeURIComponent(session.id)}&document_id=eq.${encodeURIComponent(docIdValue)}`;
-    try{
-      if(active){
-        await apiPersonnel(TABLE_FAVORIS_PERSONNELS,{method:'POST',query:'on_conflict=user_id,document_id',headers:{'Prefer':'resolution=ignore-duplicates,return=minimal'},body:{user_id:session.id,document_id:Number(docIdValue)}});
-      }else{
-        await apiPersonnel(TABLE_FAVORIS_PERSONNELS,{method:'DELETE',query:q,headers:{'Prefer':'return=minimal'}});
+    if(active){
+      await apiPersonnel(TABLE_FAVORIS_PERSONNELS,{
+        method:'POST',
+        query:'on_conflict=user_id,document_id',
+        headers:{'Prefer':'resolution=ignore-duplicates,return=minimal'},
+        body:{user_id:session.id,document_id:Number(docIdValue)}
+      });
+      // Vérification réelle en base.
+      const check=await apiPersonnel(TABLE_FAVORIS_PERSONNELS,{query:q+'&select=document_id'});
+      const rows=check?JSON.parse(check):[];
+      if(!Array.isArray(rows)||!rows.some(x=>String(x.document_id)===String(docIdValue))){
+        throw new Error('Le favori n’a pas été confirmé par Supabase.');
       }
-    }catch(e){console.warn('[Favoris] synchronisation Supabase échouée',e);}
+    }else{
+      await apiPersonnel(TABLE_FAVORIS_PERSONNELS,{
+        method:'DELETE',query:q,headers:{'Prefer':'return=minimal'}
+      });
+      const check=await apiPersonnel(TABLE_FAVORIS_PERSONNELS,{query:q+'&select=document_id'});
+      const rows=check?JSON.parse(check):[];
+      if(Array.isArray(rows)&&rows.length)throw new Error('La suppression du favori n’a pas été confirmée.');
+    }
+    safeWrite(KEY_FAV+userKey(),[...new Set(
+      favoris().map(String).filter(id=>active||id!==String(docIdValue))
+        .concat(active?[String(docIdValue)]:[])
+    )]);
+    favorisDocumentsCache.delete(userKey());
+    actualiserCompteursPersonnels();
+    await rendreFavorisPersonnels();
   }
 
   async function synchroniserPlusTardSupabase(doc, active){
-    if(!session?.id||!session?.access_token||doc?.id==null)return;
+    if(!session?.id||!session?.access_token||doc?.id==null)throw new Error('Session ou document absent.');
     const q=`user_id=eq.${encodeURIComponent(session.id)}&document_id=eq.${encodeURIComponent(doc.id)}`;
-    try{
-      if(active){
-        await apiPersonnel(TABLE_PLUS_TARD_PERSONNELS,{method:'POST',query:'on_conflict=user_id,document_id',headers:{'Prefer':'resolution=ignore-duplicates,return=minimal'},body:{user_id:session.id,document_id:Number(doc.id)}});
-      }else{
-        await apiPersonnel(TABLE_PLUS_TARD_PERSONNELS,{method:'DELETE',query:q,headers:{'Prefer':'return=minimal'}});
+    if(active){
+      await apiPersonnel(TABLE_PLUS_TARD_PERSONNELS,{
+        method:'POST',
+        query:'on_conflict=user_id,document_id',
+        headers:{'Prefer':'resolution=ignore-duplicates,return=minimal'},
+        body:{user_id:session.id,document_id:Number(doc.id)}
+      });
+      const check=await apiPersonnel(TABLE_PLUS_TARD_PERSONNELS,{query:q+'&select=document_id'});
+      const rows=check?JSON.parse(check):[];
+      if(!Array.isArray(rows)||!rows.some(x=>String(x.document_id)===String(doc.id))){
+        throw new Error('« Plus tard » n’a pas été confirmé par Supabase.');
       }
-    }catch(e){console.warn('[Plus tard] synchronisation Supabase échouée',e);}
+    }else{
+      await apiPersonnel(TABLE_PLUS_TARD_PERSONNELS,{method:'DELETE',query:q,headers:{'Prefer':'return=minimal'}});
+      const check=await apiPersonnel(TABLE_PLUS_TARD_PERSONNELS,{query:q+'&select=document_id'});
+      const rows=check?JSON.parse(check):[];
+      if(Array.isArray(rows)&&rows.length)throw new Error('La suppression « Plus tard » n’a pas été confirmée.');
+    }
+    actualiserCompteursPersonnels();
+    rendreDocumentsPlusTard();
   }
 
   async function synchroniserTelechargementSupabase(doc){
-    if(!session?.id||!session?.access_token||doc?.id==null)return;
-    try{
-      await apiPersonnel(TABLE_TELECHARGEMENTS_PERSONNELS,{method:'POST',headers:{'Prefer':'return=minimal'},body:{user_id:session.id,document_id:Number(doc.id),titre_document:doc.Titre||'Document'}});
-    }catch(e){console.warn('[Téléchargements] synchronisation Supabase échouée',e);}
+    if(!session?.id||!session?.access_token||doc?.id==null)throw new Error('Session ou document absent.');
+    await apiPersonnel(TABLE_TELECHARGEMENTS_PERSONNELS,{
+      method:'POST',
+      headers:{'Prefer':'return=minimal'},
+      body:{user_id:session.id,document_id:Number(doc.id),titre_document:doc.Titre||'Document'}
+    });
+    const check=await apiPersonnel(TABLE_TELECHARGEMENTS_PERSONNELS,{
+      query:`user_id=eq.${encodeURIComponent(session.id)}&document_id=eq.${encodeURIComponent(doc.id)}&select=document_id`
+    });
+    const rows=check?JSON.parse(check):[];
+    if(!Array.isArray(rows)||!rows.length)throw new Error('Le téléchargement n’a pas été enregistré dans Supabase.');
+    // Recharge depuis la base pour que l'historique affiché corresponde au serveur.
+    await synchroniserRessourcesSupabase();
   }
+
   const codeModal=document.getElementById('accessCodeModal');
   const codeInput=document.getElementById('accessCodeInput');
   const codeMsg=document.getElementById('accessCodeMessage');
@@ -10439,7 +10461,16 @@ footer>.wrap:last-child{margin-top:18px!important;}
     favorisDocumentsCache.delete(userKey());
     actualiserCompteursPersonnels();
     actualiserEtatActionsDocument(button?.closest('.doc-row,.recents-card')||button,doc);
-    synchroniserFavoriSupabase(id,i<0);
+    synchroniserFavoriSupabase(id,i<0).catch(err=>{
+      console.error('[Favoris] enregistrement réel impossible',err);
+      const rollback=favoris().filter(x=>String(x)!==id);
+      if(i<0)rollback.push(id);
+      safeWrite(KEY_FAV+userKey(),rollback);
+      actualiserCompteursPersonnels();
+      actualiserEtatActionsDocument(button?.closest('.doc-row,.recents-card')||button,doc);
+      rendreFavorisPersonnels();
+      alert('Le favori n’a pas pu être enregistré dans votre compte. Veuillez réessayer.');
+    });
   }
   function ajouterDocumentPlusTard(doc,button){
     if(!session){requireLogin();return;}
@@ -10453,7 +10484,20 @@ footer>.wrap:last-child{margin-top:18px!important;}
     if(button){button.classList.toggle('is-active',active);button.textContent=active?'✓ Plus tard':'＋ Plus tard';}
     actualiserCompteursPersonnels();
     rendreDocumentsPlusTard();
-    synchroniserPlusTardSupabase(doc,active);
+    synchroniserPlusTardSupabase(doc,active).catch(err=>{
+      console.error('[Plus tard] enregistrement réel impossible',err);
+      let rollback=plusTard();
+      rollback=rollback.filter(x=>String(x.id)!==id);
+      if(!active){
+        const oldItem={id:doc.id,titre:doc.Titre||'Document',auteur:doc.Auteur||'',url:doc.Fichier_url||'',categorie:doc['Catégorie']||'',niveau:doc.Niveau||'',matiere:doc['Matière']||'',genre:doc.Genre||'',saved_at:new Date().toISOString()};
+        rollback.unshift(oldItem);
+      }
+      safeWrite(KEY_LATER+userKey(),rollback);
+      if(button){button.classList.toggle('is-active',!active);button.textContent=!active?'✓ Plus tard':'＋ Plus tard';}
+      actualiserCompteursPersonnels();
+      rendreDocumentsPlusTard();
+      alert('Le document n’a pas pu être enregistré dans « Plus tard ». Veuillez réessayer.');
+    });
   }
   function actualiserEtatActionsDocument(root,doc){
     if(!root||!doc||!userKey())return;
@@ -10527,7 +10571,7 @@ footer>.wrap:last-child{margin-top:18px!important;}
     if(!session)return;if(typeof window.auroreUnlockAccess==='function')window.auroreUnlockAccess();document.getElementById('breadcrumb').innerHTML='';remplirProfil();
     const screen=document.getElementById('screen-profil');
     if(screen && options.forceComplete && !screen.querySelector('.profile-completion-banner')){const banner=document.createElement('div');banner.className='profile-completion-banner';banner.textContent='Bienvenue dans votre espace personnel. Avant de commencer, renseignez au minimum votre établissement, votre niveau et votre classe. Ces informations permettent à Aurore de personnaliser et organiser votre expérience.';screen.insertBefore(banner,screen.querySelector('.profile-card'));}
-    afficherEcran('screen-profil');setTimeout(()=>chargerDonneesEspacePersonnel?.(),0);
+    afficherEcran('screen-profil');chargerDonneesEspacePersonnel?.();
   }
   function ouvrirEspaceAvecCode(options={}){
     if(!session)return;
@@ -10547,6 +10591,24 @@ footer>.wrap:last-child{margin-top:18px!important;}
     meta.appendChild(card);
     card.querySelector('#profilCodeModifier').addEventListener('click',()=>{if(session){showCode('setup',{});}});
   }
+
+  // --- Correctif espace personnel (favoris / plus tard / téléchargements) ---
+  // Le script principal (hors de cette IIFE) appelle favoris(), plusTard(),
+  // telecharges(), userKey(), favorisDocumentsCache, synchroniserRessourcesSupabase()
+  // et enregistrerTelechargementPersonnel() — mais ces identifiants n'existaient
+  // que dans la portée locale de cette IIFE. Le script principal levait donc un
+  // ReferenceError silencieusement avalé par un .catch()/try-catch plus haut,
+  // ce qui interrompait la chaîne avant que les panneaux "Favoris", "Plus tard"
+  // et "Téléchargements" ne soient jamais peints (ni en données, ni en état vide).
+  // On expose ici uniquement les identifiants nécessaires, sans toucher au
+  // chargeur de « Mes documents »/« Mes livres » ni à aucune autre logique.
+  window.favoris=favoris;
+  window.plusTard=plusTard;
+  window.telecharges=telecharges;
+  window.userKey=userKey;
+  window.favorisDocumentsCache=favorisDocumentsCache;
+  window.synchroniserRessourcesSupabase=synchroniserRessourcesSupabase;
+  window.enregistrerTelechargementPersonnel=enregistrerTelechargementPersonnel;
 })();
 </script>
 
