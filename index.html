@@ -9259,19 +9259,23 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       }
       if (btn) { btn.disabled = true; btn.textContent = 'Envoi en cours…'; }
       try {
+        // IMPORTANT : le Worker R2 existant accepte le PUT simple.
+        // Ne pas ajouter de header Cache-Control ici : cela déclenche un
+        // pré-vol CORS (OPTIONS) que le Worker n'autorise pas forcément et
+        // empêche alors complètement l'administrateur d'envoyer le logo.
         const res = await fetch(`${R2_WORKER_URL}/${LOGO_CLE}`, {
           method: 'PUT',
-          headers: { 'Content-Type': fichier.type, 'Cache-Control': 'no-cache, no-store, must-revalidate' },
-          body: fichier,
-          cache: 'no-store'
+          headers: { 'Content-Type': fichier.type },
+          body: fichier
         });
         if (!res.ok) throw new Error('Statut ' + res.status);
         // Nouvelle version persistée : tous les composants du site utilisent
         // immédiatement la nouvelle URL sans conserver l'ancienne image.
         const nouvelleVersion = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
         chargerLogoSite(nouvelleVersion);
-        // Force la mise à jour du SW/PWA quand le navigateur le permet.
-        try { await navigator.serviceWorker?.ready?.then(reg => reg.update()); } catch(e) {}
+        // Le SW n'a pas besoin d'intercepter le logo R2. Le nouveau logo est
+        // servi avec une URL versionnée, donc on évite ici un update SW qui
+        // pourrait déclencher une course de cache pendant l'upload.
         if (fileInput) fileInput.value = '';
         if (msg) { msg.textContent = 'Logo mis à jour avec succès — site, favicon et prochaine installation PWA utilisent désormais le nouveau logo.'; msg.className = 'form-msg ok'; }
       } catch (err) {
