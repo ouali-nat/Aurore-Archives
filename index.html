@@ -9334,7 +9334,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       });
     }catch(e){
       console.error('[Favoris] chargement impossible',e);
-      list.innerHTML='<div class="personal-empty">Impossible de charger vos favoris pour le moment. Vérifiez votre connexion puis réessayez.</div>';
+      list.innerHTML=`<div class="personal-empty activity-error"><strong>Impossible de charger vos favoris pour le moment.</strong><br><span style="font-size:.72rem;opacity:.75">${escapeTextePersonnel(e?.message||'Erreur inconnue')}</span><br><button type="button" class="personal-action" data-favoris-retry>Réessayer</button></div>`;
+      list.querySelector('[data-favoris-retry]')?.addEventListener('click',()=>rendreFavorisPersonnels());
     }
   }
 
@@ -10284,6 +10285,7 @@ footer>.wrap:last-child{margin-top:18px!important;}
     };
 
     const chargerTelechargements=async()=>{
+      let erreurLecture=null;
       try{
         const raw=await apiPersonnel(TABLE_TELECHARGEMENTS_PERSONNELS,{
           query:`select=id,document_id,titre_document,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc&limit=100`
@@ -10297,9 +10299,10 @@ footer>.wrap:last-child{margin-top:18px!important;}
           })).filter(x=>x.id!=null));
       }catch(e){
         console.warn('[Espace personnel] téléchargements Supabase:',e);
+        erreurLecture=e;
         if(localStorage.getItem(KEY_DOWNLOADS+userKey())===null)safeWrite(KEY_DOWNLOADS+userKey(),[]);
       }finally{
-        rendreDocumentsTelecharges();
+        rendreDocumentsTelecharges(erreurLecture);
         actualiserCompteursPersonnels();
       }
     };
@@ -10485,11 +10488,19 @@ footer>.wrap:last-child{margin-top:18px!important;}
   window.ajouterDocumentPlusTard=ajouterDocumentPlusTard;
   window.actualiserEtatActionsDocument=actualiserEtatActionsDocument;
 
-  function rendreDocumentsTelecharges(){
+  function rendreDocumentsTelecharges(erreurLecture){
     const list=document.getElementById('personalDownloadsHistory'); if(!list||!session)return;
     const arr=telecharges();
     list.innerHTML='';
-    if(!arr.length){list.innerHTML='<div class="personal-empty">Aucun téléchargement enregistré pour le moment.</div>';return;}
+    if(!arr.length){
+      if(erreurLecture){
+        list.innerHTML=`<div class="personal-empty activity-error"><strong>Impossible de charger votre historique de téléchargements.</strong><br><span style="font-size:.72rem;opacity:.75">${escapeTextePersonnel(erreurLecture?.message||'Erreur inconnue')}</span><br><button type="button" class="personal-action" data-dl-retry>Réessayer</button></div>`;
+        list.querySelector('[data-dl-retry]')?.addEventListener('click',()=>synchroniserRessourcesSupabase());
+      }else{
+        list.innerHTML='<div class="personal-empty">Aucun téléchargement enregistré pour le moment.</div>';
+      }
+      return;
+    }
     arr.forEach(d=>{
       const row=document.createElement('article'); row.className='personal-book';
       const date=d.downloaded_at?new Date(d.downloaded_at).toLocaleString('fr-FR',{dateStyle:'medium',timeStyle:'short'}):'';
