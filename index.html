@@ -6934,7 +6934,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
               Déposé par ${doc.Auteur || 'anonyme'}<br>
               <span style="color:var(--gris);">${ligneCompteDeposant(deposant)}</span>
             </div>
-            <a class="lien-pdf" href="${doc.Fichier_url}" rel="noopener">Ouvrir le PDF →</a>
+            <button type="button" class="admin-btn ghost js-open-pdf-in-site">Ouvrir le PDF dans Aurore →</button>
             <div class="admin-actions">
               <button class="admin-btn valider">Valider</button>
               <button class="admin-btn refuser">Refuser / Supprimer</button>
@@ -7075,7 +7075,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
               Déposé par ${doc.Auteur || 'anonyme'} · <span class="dl-status">${telechargementOk ? 'Lecture + téléchargement' : 'Lecture seule'}</span><br>
               <span style="color:var(--gris);">${ligneCompteDeposant(deposant)}</span>
             </div>
-            <a class="lien-pdf" href="${doc.Fichier_url}" rel="noopener">Ouvrir le PDF →</a>
+            <button type="button" class="admin-btn ghost js-open-pdf-in-site">Ouvrir le PDF dans Aurore →</button>
             <div class="admin-actions">
               <button class="admin-btn ghost dl-toggle">${telechargementOk ? 'Passer en lecture seule' : 'Autoriser le téléchargement'}</button>
               <button class="admin-btn ghost avant-toggle">${misEnAvant ? 'Retirer de « Récemment publiés »' : 'Mettre dans « Récemment publiés »'}</button>
@@ -7218,7 +7218,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       docs.forEach(doc=>{
         const item=document.createElement('div');
         item.className='admin-duplicate-item';
-        item.innerHTML=`<div class="admin-duplicate-item-main"><strong>${echapperHtmlPub(doc.Titre||'Sans titre')}</strong><span>${echapperHtmlPub([doc.Niveau,doc.Classe,doc['Matière']||doc.Genre].filter(Boolean).join(' · ')||'Informations non renseignées')}</span><small>${echapperHtmlPub(nomFichierExactDepuisUrl(doc.Fichier_url))}</small></div><div class="admin-duplicate-item-actions"><a class="admin-btn ghost" href="${echapperHtmlPub(doc.Fichier_url||'')}" rel="noopener">Ouvrir</a><button type="button" class="admin-btn refuser" data-duplicate-delete="1">Exclure du site</button></div>`;
+        item.innerHTML=`<div class="admin-duplicate-item-main"><strong>${echapperHtmlPub(doc.Titre||'Sans titre')}</strong><span>${echapperHtmlPub([doc.Niveau,doc.Classe,doc['Matière']||doc.Genre].filter(Boolean).join(' · ')||'Informations non renseignées')}</span><small>${echapperHtmlPub(nomFichierExactDepuisUrl(doc.Fichier_url))}</small></div><div class="admin-duplicate-item-actions"><button type="button" class="admin-btn ghost js-open-pdf-in-site">Ouvrir dans Aurore</button><button type="button" class="admin-btn refuser" data-duplicate-delete="1">Exclure du site</button></div>`;
         item.querySelector('[data-duplicate-delete="1"]').addEventListener('click',()=>exclureDoublonAdmin(doc.id,doc.Titre,wrap));
         items.appendChild(item);
       });
@@ -9220,7 +9220,29 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       });
       // Le manifeste reste le point d'entrée officiel de l'installation PWA.
       const manifest = document.querySelector('link[rel="manifest"]');
-      if (manifest) manifest.href = `manifest.json?v=${encodeURIComponent(Date.now())}`;
+      if (manifest) {
+        // Génère un manifeste dynamique afin que l'icône PWA utilise exactement
+        // la même version du logo que celle choisie dans l'administration.
+        try {
+          const version = sessionStorage.getItem(LOGO_VERSION_KEY) || localStorage.getItem(LOGO_VERSION_KEY) || '';
+          const icon = logoUrl(version || Date.now());
+          const payload = {
+            id: './', name: 'Aurore — Section Archives', short_name: 'Aurore',
+            description: 'Bibliothèque numérique d’Aurore', lang: 'fr', dir: 'ltr',
+            start_url: './', scope: './', display: 'standalone', orientation: 'portrait-primary',
+            theme_color: '#08070D', background_color: '#08070D',
+            icons: [
+              {src: icon, sizes: '192x192', purpose: 'any maskable'},
+              {src: icon, sizes: '512x512', purpose: 'any maskable'}
+            ]
+          };
+          if (window.__auroreManifestBlobUrl) URL.revokeObjectURL(window.__auroreManifestBlobUrl);
+          window.__auroreManifestBlobUrl = URL.createObjectURL(new Blob([JSON.stringify(payload)], {type:'application/manifest+json'}));
+          manifest.href = window.__auroreManifestBlobUrl;
+        } catch (_) {
+          manifest.href = `manifest.json?v=${encodeURIComponent(Date.now())}`;
+        }
+      }
       document.querySelector('meta[property="og:image"]')?.setAttribute('content', url);
       document.querySelector('meta[name="twitter:image"]')?.setAttribute('content', url);
       const preload = document.querySelector('link[rel="preload"][as="image"]');
@@ -9259,23 +9281,19 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       }
       if (btn) { btn.disabled = true; btn.textContent = 'Envoi en cours…'; }
       try {
-        // IMPORTANT : le Worker R2 existant accepte le PUT simple.
-        // Ne pas ajouter de header Cache-Control ici : cela déclenche un
-        // pré-vol CORS (OPTIONS) que le Worker n'autorise pas forcément et
-        // empêche alors complètement l'administrateur d'envoyer le logo.
         const res = await fetch(`${R2_WORKER_URL}/${LOGO_CLE}`, {
           method: 'PUT',
           headers: { 'Content-Type': fichier.type },
-          body: fichier
+          body: fichier,
+          cache: 'no-store'
         });
         if (!res.ok) throw new Error('Statut ' + res.status);
         // Nouvelle version persistée : tous les composants du site utilisent
         // immédiatement la nouvelle URL sans conserver l'ancienne image.
         const nouvelleVersion = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
         chargerLogoSite(nouvelleVersion);
-        // Le SW n'a pas besoin d'intercepter le logo R2. Le nouveau logo est
-        // servi avec une URL versionnée, donc on évite ici un update SW qui
-        // pourrait déclencher une course de cache pendant l'upload.
+        // Force la mise à jour du SW/PWA quand le navigateur le permet.
+        try { await navigator.serviceWorker?.ready?.then(reg => reg.update()); } catch(e) {}
         if (fileInput) fileInput.value = '';
         if (msg) { msg.textContent = 'Logo mis à jour avec succès — site, favicon et prochaine installation PWA utilisent désormais le nouveau logo.'; msg.className = 'form-msg ok'; }
       } catch (err) {
