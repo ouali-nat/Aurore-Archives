@@ -1393,6 +1393,45 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 .personal-folder-dialog{position:fixed;inset:0;z-index:12000;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(9,8,18,.66);backdrop-filter:blur(7px)}.personal-folder-dialog.show{display:flex}.personal-folder-dialog-card{width:min(430px,100%);padding:24px;border:1px solid var(--bordure);border-radius:22px;background:var(--papier);color:var(--encre);box-shadow:0 28px 80px rgba(0,0,0,.35)}.personal-folder-dialog-card h3{font-size:1.22rem;margin-bottom:7px}.personal-folder-dialog-card p{font-size:.78rem;color:var(--gris);line-height:1.5;margin-bottom:15px}.personal-folder-dialog-card input{width:100%;padding:12px 13px;border:1px solid var(--bordure);border-radius:12px;background:var(--fond);color:var(--encre);font:inherit;outline:none}.personal-folder-dialog-card input:focus{border-color:var(--violet);box-shadow:0 0 0 3px rgba(124,58,237,.11)}.personal-folder-dialog-actions{display:flex;gap:8px;margin-top:13px}.personal-folder-dialog-actions button{flex:1;border:1px solid var(--bordure);border-radius:11px;padding:10px 12px;font:inherit;font-size:.78rem;font-weight:800;cursor:pointer;background:var(--fond);color:var(--encre)}.personal-folder-dialog-actions .primary{background:linear-gradient(135deg,#7C3AED,#A855F7);border-color:transparent;color:#fff}.personal-folder-message{display:none;margin-top:10px;padding:9px 11px;border-radius:11px;font-size:.72rem;line-height:1.45}.personal-folder-message.err{display:block;background:#FFF7F7;color:#991B1B;border:1px solid #FCA5A5}
 .folder-document-picker{position:fixed;inset:0;z-index:11990;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(9,8,18,.66);backdrop-filter:blur(7px)}.folder-document-picker.show{display:flex}.folder-document-picker-card{width:min(500px,100%);max-height:min(720px,90vh);overflow:auto;padding:22px;border:1px solid var(--bordure);border-radius:22px;background:var(--papier);box-shadow:0 28px 80px rgba(0,0,0,.35)}.folder-document-picker-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:14px}.folder-document-picker-head h3{font-size:1.12rem;margin:0}.folder-document-picker-head p{margin:5px 0 0;color:var(--gris);font-size:.73rem;line-height:1.45}.folder-document-list{display:flex;flex-direction:column;gap:8px}.folder-document-option{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;border:1px solid var(--bordure);border-radius:13px;background:var(--fond);color:var(--encre);cursor:pointer;text-align:left}.folder-document-option:hover{border-color:var(--violet);background:rgba(124,58,237,.06)}.folder-document-option.is-current{border-color:var(--violet);background:rgba(124,58,237,.09)}.folder-document-option strong{font-size:.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.folder-document-option span{font-size:.66rem;color:var(--gris);flex:0 0 auto}.folder-document-close{border:1px solid var(--bordure);background:var(--fond);color:var(--gris);border-radius:10px;width:34px;height:34px;cursor:pointer;font-size:1.1rem}.doc-action-folder{font-size:.72rem!important;padding:8px 11px!important;border-radius:11px!important}.doc-action-folder.is-active{color:var(--violet)!important;border-color:var(--violet)!important;background:rgba(124,58,237,.08)!important}.personal-folder-docs{margin-top:15px;padding-top:14px;border-top:1px solid var(--bordure)}.personal-folder-docs-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:9px}.personal-folder-docs-head strong{font-size:.8rem}.personal-folder-docs-head span{font-size:.68rem;color:var(--gris)}.personal-folder-doc-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 11px;border:1px solid var(--bordure);border-radius:12px;background:var(--fond);margin-bottom:7px}.personal-folder-doc-row strong{font-size:.72rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.personal-folder-doc-row button{border:1px solid var(--bordure);background:transparent;color:var(--gris);border-radius:9px;padding:5px 8px;font-size:.65rem;cursor:pointer}
 @media(max-width:640px){.personal-folders{padding:15px;border-radius:20px}.personal-folders-head{align-items:flex-start;flex-direction:column}.personal-folder-limit{align-self:flex-start}.personal-folder-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.personal-folder{min-height:132px;padding:13px}.personal-folder-create{min-height:132px}.personal-folder-name{margin-top:11px}.personal-folder-hint{left:13px;bottom:10px}.personal-folder-icon{width:38px;height:31px}.personal-folder-doc-row{align-items:flex-start;flex-direction:column}.personal-folder-doc-row button{width:100%}}@media(max-width:390px){.personal-folder-grid{grid-template-columns:1fr}.personal-folder{min-height:125px}.personal-folder-create{min-height:125px}}[data-theme="light"] .personal-folder-create{background:#FBF9FE;border-color:#B99AD8}[data-theme="light"] .personal-folder-dialog,[data-theme="light"] .folder-document-picker{background:rgba(39,31,55,.36)}[data-theme="light"] .personal-folder-dialog-card,[data-theme="light"] .folder-document-picker-card{background:#fff;border-color:#C9BEDB;color:#111318}[data-theme="light"] .personal-folder-dialog-card input,[data-theme="light"] .folder-document-option{background:#F8F6FB;color:#111318;border-color:#C9BEDB}[data-theme="light"] .personal-folder-count,[data-theme="light"] .personal-folder-hint,[data-theme="light"] .folder-document-option span{color:#4B4655}
+
+<style id="aurore-personal-folders-design-polish">
+.personal-folders{background:var(--papier)!important;border:1px solid var(--bordure)!important;box-shadow:0 10px 28px rgba(0,0,0,.06)!important}
+.personal-folders-head{align-items:center!important}
+.personal-folder{min-height:156px!important;border-radius:18px!important;background:linear-gradient(180deg,var(--papier),var(--fond))!important;box-shadow:0 7px 20px rgba(0,0,0,.07)!important}
+.personal-folder::after{content:"";position:absolute;left:14px;right:14px;bottom:0;height:3px;border-radius:99px 99px 0 0;background:linear-gradient(90deg,rgba(124,58,237,.15),rgba(192,132,252,.75),rgba(124,58,237,.15));opacity:.8}
+.personal-folder:hover{transform:translateY(-2px)!important;box-shadow:0 13px 28px rgba(0,0,0,.10)!important;border-color:rgba(124,58,237,.45)!important}
+.personal-folder-top{align-items:center}
+.personal-folder-icon{width:44px!important;height:36px!important;border-radius:11px!important;background:var(--fond)!important;color:var(--violet)!important;border:1px solid rgba(124,58,237,.18)!important;box-shadow:none!important;font-size:1.15rem!important}
+.personal-folder-menu{width:32px!important;height:32px!important;border-radius:10px!important;background:transparent!important}
+.personal-folder-menu:hover{background:rgba(124,58,237,.08)!important}
+.personal-folder-name{font-size:.9rem!important;letter-spacing:-.01em!important}
+.personal-folder-count{font-variant-numeric:tabular-nums}
+.personal-folder-hint{font-size:.61rem!important}
+.personal-folder-create{min-height:156px!important;border:1px dashed rgba(124,58,237,.32)!important;border-radius:18px!important;background:transparent!important}
+.personal-folder-create:hover{background:rgba(124,58,237,.045)!important}
+.personal-folder-create-icon{width:42px!important;height:42px!important;border-radius:13px!important}
+.personal-folder-menu-popover{position:fixed;z-index:13000;display:none;width:205px;padding:7px;border:1px solid var(--bordure);border-radius:14px;background:var(--papier);box-shadow:0 18px 45px rgba(0,0,0,.18);backdrop-filter:blur(10px)}
+.personal-folder-menu-popover.show{display:flex;flex-direction:column;gap:3px}
+.personal-folder-menu-title{padding:8px 9px 7px;font-size:.72rem;font-weight:850;color:var(--gris);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:1px solid var(--bordure);margin-bottom:2px}
+.personal-folder-menu-popover button{border:0;background:transparent;color:var(--encre);border-radius:10px;padding:9px 10px;text-align:left;font:inherit;font-size:.75rem;font-weight:750;cursor:pointer}
+.personal-folder-menu-popover button:hover{background:rgba(124,58,237,.08);color:var(--violet)}
+.personal-folder-menu-popover [data-folder-delete]:hover{background:rgba(224,119,107,.09);color:var(--rouge)}
+.personal-folder-dialog-card{border-radius:18px!important}
+.personal-folder-dialog-actions .primary{background:var(--violet)!important}
+@media(max-width:640px){.personal-folder{min-height:136px!important}.personal-folder-create{min-height:136px!important}.personal-folder-menu-popover{width:190px}}
+</style>
+
+<style id="aurore-admin-ban-and-publish-polish">
+.admin-published-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0 14px;padding:12px 14px;border:1px solid var(--bordure);border-radius:15px;background:linear-gradient(90deg,rgba(224,119,107,.07),transparent)}
+.admin-published-actions span{font-size:.68rem;color:var(--gris);line-height:1.45}
+.admin-danger-soft{border-color:rgba(198,67,47,.28)!important;color:var(--rouge)!important;background:rgba(198,67,47,.05)!important}
+.admin-danger-soft:hover{border-color:var(--rouge)!important;background:rgba(198,67,47,.09)!important}
+.admin-user-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+.admin-user-ban{border-color:rgba(198,67,47,.3)!important;color:var(--rouge)!important;background:rgba(198,67,47,.045)!important}
+.admin-user-ban.is-banned{border-color:rgba(127,191,158,.35)!important;color:var(--vert)!important;background:rgba(127,191,158,.08)!important}
+.admin-user-status-banned{display:inline-flex;align-items:center;gap:5px;padding:5px 8px;border-radius:999px;border:1px solid rgba(198,67,47,.28);background:rgba(198,67,47,.07);color:var(--rouge);font-size:.65rem;font-weight:850}
+@media(max-width:700px){.admin-published-actions{align-items:flex-start;flex-direction:column}.admin-published-actions button{width:100%}}
+</style>
 </style>
 </head>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -1655,8 +1694,9 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password})});
       const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error_description||d.msg||d.message||'Identifiants invalides.');
       const infos=await recupererUtilisateur(d.access_token); if(!infos) throw new Error('Impossible de charger votre profil.');
+      if(infos.banni===true) throw new Error('Votre compte a été suspendu par l’administration. Contactez le service client si vous pensez qu’il s’agit d’une erreur.');
       const role=await assurerProfilEtObtenirRole(d.access_token,infos);
-      session={access_token:d.access_token,refresh_token:d.refresh_token||null,expires_at:Date.now()+((d.expires_in||3600)*1000),id:infos.id,email:infos.email,nom:infos.nom,avatar:infos.avatar,lycee:infos.lycee||'',niveau:infos.niveau||'',classe:infos.classe||'',filiere:infos.filiere||'',provider:infos.provider||'E-mail',role};
+      session={access_token:d.access_token,refresh_token:d.refresh_token||null,expires_at:Date.now()+((d.expires_in||3600)*1000),id:infos.id,email:infos.email,nom:infos.nom,avatar:infos.avatar,lycee:infos.lycee||'',niveau:infos.niveau||'',classe:infos.classe||'',filiere:infos.filiere||'',banni:infos.banni===true,provider:infos.provider||'E-mail',role};
       sauvegarderSession(); await enregistrerConnexion(session); afficherUtilisateurConnecte(); unlock(); fermer();
       if(profilEstComplet(session)) afficherBienvenueApresConnexion(session); else ouvrirEspacePersonnelObligatoire();
     }catch(err){loginMsg.textContent=err.message||'Impossible de vous connecter.';loginMsg.className='access-message err';loginMsg.style.display='block';}
@@ -2039,6 +2079,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
         <div class="admin-tab-panel" data-panel="publies">
           <p class="admin-panel-desc">Retire un document publié si besoin (erreur, doublon, contenu à corriger).</p>
+          <div class="admin-published-actions" id="adminPublishedActions"><button type="button" class="admin-btn ghost admin-danger-soft" id="adminDepublierTout">Tout dépublier</button><span>Le site sera vidé de ses documents publics, sans supprimer les fichiers ni les fiches.</span></div>
           <div class="admin-data-toolbar" id="adminToolbarPublies">
             <div class="admin-search-control"><span aria-hidden="true">⌕</span><input id="adminSearchPublies" type="search" placeholder="Rechercher un document…" autocomplete="off"></div>
             <select id="adminSortPublies" aria-label="Trier les documents publiés">
@@ -2857,7 +2898,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const meta = data.user_metadata || {};
     let profil = {};
     try {
-      const pr = await fetch(`${SUPABASE_URL}/rest/v1/Profils?select=lycee,niveau,classe,filiere&id=eq.${encodeURIComponent(data.id)}&limit=1`, {
+      const pr = await fetch(`${SUPABASE_URL}/rest/v1/Profils?select=lycee,niveau,classe,filiere,banni&id=eq.${encodeURIComponent(data.id)}&limit=1`, {
         headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + access_token }
       });
       if (pr.ok) { const rows = await pr.json().catch(() => []); if (rows[0]) profil = rows[0]; }
@@ -2871,6 +2912,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       niveau: profil.niveau || meta.niveau || '',
       classe: profil.classe || meta.classe || '',
       filiere: profil.filiere || meta.filiere || '',
+      banni: profil.banni === true,
       provider: (data.app_metadata && Array.isArray(data.app_metadata.providers) && data.app_metadata.providers.includes('google')) ? 'Google' : 'E-mail'
     };
   }
@@ -2953,7 +2995,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         access_token: data.access_token, refresh_token: data.refresh_token,
         expires_at: Date.now() + (data.expires_in * 1000),
         id: infos ? infos.id : session.id, email: infos ? infos.email : session.email,
-        nom: infos ? infos.nom : session.nom, avatar: infos ? infos.avatar : session.avatar, lycee: infos ? infos.lycee : (session.lycee || ''), niveau: infos ? infos.niveau : (session.niveau || ''), classe: infos ? infos.classe : (session.classe || ''), filiere: infos ? infos.filiere : (session.filiere || ''), provider: infos ? infos.provider : (session.provider || 'E-mail'), role
+        nom: infos ? infos.nom : session.nom, avatar: infos ? infos.avatar : session.avatar, lycee: infos ? infos.lycee : (session.lycee || ''), niveau: infos ? infos.niveau : (session.niveau || ''), classe: infos ? infos.classe : (session.classe || ''), filiere: infos ? infos.filiere : (session.filiere || ''), banni: infos ? infos.banni === true : (session.banni === true), provider: infos ? infos.provider : (session.provider || 'E-mail'), role
       };
       sauvegarderSession();
       return true;
@@ -3246,9 +3288,9 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       const refresh_token = params.get('refresh_token');
       const expires_in = parseInt(params.get('expires_in') || '3600', 10);
       const infos = await recupererUtilisateur(access_token);
-      if (infos) {
+      if (infos && infos.banni !== true) {
         const role = await assurerProfilEtObtenirRole(access_token, infos);
-        session = { access_token, refresh_token, expires_at: Date.now() + expires_in * 1000, id: infos.id, email: infos.email, nom: infos.nom, avatar: infos.avatar, lycee: infos.lycee || '', niveau: infos.niveau || '', classe: infos.classe || '', filiere: infos.filiere || '', provider: infos.provider || 'Google', role };
+        session = { access_token, refresh_token, expires_at: Date.now() + expires_in * 1000, id: infos.id, email: infos.email, nom: infos.nom, avatar: infos.avatar, lycee: infos.lycee || '', niveau: infos.niveau || '', classe: infos.classe || '', filiere: infos.filiere || '', banni: infos.banni === true, provider: infos.provider || 'Google', role };
         sauvegarderSession();
         enregistrerConnexion(session);
         if (profilEstComplet(session)) {
@@ -3256,6 +3298,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         } else {
           ouvrirEspacePersonnelObligatoire();
         }
+      } else if (infos && infos.banni === true) {
+        alert('Votre compte a été suspendu par l’administration. Contactez le service client si vous pensez qu’il s’agit d’une erreur.');
       }
       // Nettoie l'URL pour ne pas laisser le jeton visible dans la barre d'adresse
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -3268,6 +3312,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
           const ok = await rafraichirSession();
           if (!ok) session = null;
         }
+        if(session && session.banni===true){ session=null; sessionStorage.removeItem('lsnb_session'); }
       }
     }
     afficherUtilisateurConnecte();
@@ -6529,6 +6574,26 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     }
   }
 
+  async function basculerBannissementUtilisateurAdmin(utilisateurId, bannir, bouton) {
+    if (!session || session.role !== 'admin') { afficherMessageUtilisateurs('Cette action est réservée aux administrateurs.', 'err'); return; }
+    if (!utilisateurId || utilisateurId === PROPRIETAIRE_ADMIN_ID) { afficherMessageUtilisateurs('Ce compte ne peut pas être banni.', 'err'); return; }
+    const action = bannir ? 'bannir' : 'réautoriser';
+    if (!confirm(`Voulez-vous vraiment ${action} cet utilisateur ?${bannir ? '\n\nIl ne pourra plus accéder au site avec ce compte.' : ''}`)) return;
+    if(bouton){bouton.disabled=true;bouton.textContent=bannir?'Bannissement…':'Réactivation…';}
+    afficherMessageUtilisateurs(`${bannir?'Bannissement':'Réactivation'} en cours…`);
+    try{
+      const res=await fetch(`${SUPABASE_URL}/rest/v1/rpc/bannir_utilisateur_admin`,{method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json'},body:JSON.stringify({utilisateur_id:utilisateurId,bannir})});
+      const detail=await res.text().catch(()=> '');
+      if(!res.ok)throw new Error(detail||('HTTP '+res.status));
+      afficherMessageUtilisateurs(bannir?'Utilisateur banni avec succès.':'Utilisateur réautorisé avec succès.','ok');
+      await chargerUtilisateursAdmin();
+    }catch(err){
+      console.error('[Gestion utilisateurs] bannissement',err);
+      afficherMessageUtilisateurs(`Impossible de ${bannir?'bannir':'réautoriser'} cet utilisateur pour le moment.`, 'err');
+      if(bouton){bouton.disabled=false;bouton.textContent=bannir?'Bannir l’utilisateur':'Autoriser l’accès';}
+    }
+  }
+
   async function chargerUtilisateursAdmin() {
     const list = document.getElementById('adminUsersList');
     if (!list) return;
@@ -6562,6 +6627,11 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         return;
       }
       const proprietaire = estProprietaireAdmin();
+      let statutsBannissement = new Map();
+      try {
+        const banRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/lister_statuts_bannissement_admin`, { method:'POST', headers:{...headersAdmin(),'Content-Type':'application/json'}, body:'{}' });
+        if(banRes.ok){ const bans=await banRes.json().catch(()=>[]); (Array.isArray(bans)?bans:[]).forEach(b=>statutsBannissement.set(String(b.id),b.banni===true)); }
+      } catch(e) { console.warn('[Gestion utilisateurs] statuts de bannissement',e); }
       list.innerHTML = '';
       // Le RPC propriétaire retourne les informations complètes de Profils.
       // Cela évite de dépendre d'une policy RLS qui ne les rend visibles
@@ -6598,6 +6668,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         const nom = profil.nom || 'Nom non renseigné';
         const email = profil.email || 'E-mail non renseigné';
         const roleAdmin = String(scolaire.role || profil.role || '').toLowerCase() === 'admin';
+        const banni = statutsBannissement.get(String(profil.id)) === true;
+        card.classList.add('admin-user-card');
         card.innerHTML = `
           <div class="admin-user-main">
             <div class="admin-user-name">${echapperHtmlPub(nom)}</div>
@@ -6613,6 +6685,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
             </div>
             <div class="admin-user-meta">
               <span class="role-badge ${roleAdmin ? 'admin' : 'eleve'}">${roleAdmin ? 'Administrateur' : echapperHtmlPub(libelleRole(scolaire.role || profil.role || 'eleve'))}</span>
+              ${banni ? '<span class="admin-user-status-banned">● Compte banni</span>' : ''}
               <span class="admin-user-date">${echapperHtmlPub(formaterDateInscriptionUtilisateur(profil))}</span>
             </div>
           </div>
@@ -6644,6 +6717,14 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
           btn.textContent = 'Promouvoir administrateur';
           btn.addEventListener('click', () => promouvoirUtilisateurAdmin(profil.id, btn));
           actions.appendChild(btn);
+        }
+        if (profil.id !== PROPRIETAIRE_ADMIN_ID) {
+          const banBtn = document.createElement('button');
+          banBtn.type='button';
+          banBtn.className='admin-btn ghost admin-user-ban' + (banni ? ' is-banned' : '');
+          banBtn.textContent = banni ? 'Autoriser l’accès' : 'Bannir l’utilisateur';
+          banBtn.addEventListener('click',()=>basculerBannissementUtilisateurAdmin(profil.id, !banni, banBtn));
+          actions.appendChild(banBtn);
         }
         list.appendChild(card);
       });
@@ -7281,6 +7362,24 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       alert("La suppression n’a pas pu être effectuée pour le moment. Veuillez réessayer.");
     }
   }
+
+  async function depublierTousLesDocumentsAdmin() {
+    if(!session || session.role !== 'admin'){alert('Cette action est réservée aux administrateurs.');return;}
+    const confirmation=confirm('Vider le site public ?\n\nTous les documents actuellement publiés seront simplement dépubliés. Ils resteront dans la base et pourront être republiés depuis « En attente ».\n\nCette action ne supprime aucun document.');
+    if(!confirmation) return;
+    const btn=document.getElementById('adminDepublierTout');
+    if(btn){btn.disabled=true;btn.textContent='Dépublication…';}
+    try{
+      const res=await fetch(`${SUPABASE_URL}/rest/v1/rpc/depublier_tous_documents_admin`,{method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json'},body:'{}'});
+      const detail=await res.text().catch(()=> '');
+      if(!res.ok)throw new Error(detail||('HTTP '+res.status));
+      await chargerDocumentsPublies();
+      await chargerDepotsEnAttente();
+      alert('Le site public a été vidé : les documents sont conservés et peuvent être republiés depuis « En attente ».');
+    }catch(e){console.error('[Admin] tout dépublier',e);alert('La dépublication globale n’a pas pu être effectuée. Vérifiez le SQL administrateur puis réessayez.');}
+    finally{if(btn){btn.disabled=false;btn.textContent='Tout dépublier';}}
+  }
+  document.getElementById('adminDepublierTout')?.addEventListener('click',depublierTousLesDocumentsAdmin);
 
   // ---------- DÉTECTION DES DOUBLONS PUBLIÉS ----------
   // Analyse volontairement déclenchée par l'administrateur. Les documents sont
@@ -11364,7 +11463,23 @@ async function createFolder(name,quiet=false){if(folders.length>=MAX_FOLDERS){if
 async function renameFolder(f,name){const clean=String(name||'').trim().replace(/\s+/g,' ').slice(0,60);if(!clean)return;if(folders.some(x=>x.id!==f.id&&x.name.toLocaleLowerCase('fr')===clean.toLocaleLowerCase('fr'))){alert('Une autre case porte déjà ce nom.');return}try{await api(FOLDER_TABLE,{method:'PATCH',query:`id=eq.${encodeURIComponent(f.id)}&user_id=eq.${encodeURIComponent(uid())}`,body:{name:clean}})}catch(e){if(!String(f.id).startsWith('local-')){alert('Impossible de renommer cette case pour le moment.');return}}f.name=clean;write(lk(),folders);render()}
 async function deleteFolder(f){if(!confirm(`Supprimer la case « ${f.name} » ? Les documents ne seront pas supprimés.`))return;try{await api(FOLDER_TABLE,{method:'DELETE',query:`id=eq.${encodeURIComponent(f.id)}&user_id=eq.${encodeURIComponent(uid())}`})}catch(e){if(!String(f.id).startsWith('local-')){alert('Impossible de supprimer cette case pour le moment.');return}}folders=folders.filter(x=>x.id!==f.id);folderAssignments=folderAssignments.filter(x=>x.case_id!==f.id);write(lk(),folders);write(ak(),folderAssignments);render();closeFolder()}
 async function reorder(a,b){const i=folders.findIndex(x=>x.id===a),j=folders.findIndex(x=>x.id===b);if(i<0||j<0)return;const arr=[...folders],m=arr.splice(i,1)[0];arr.splice(j,0,m);arr.forEach((x,k)=>x.position=k);folders=arr;write(lk(),folders);render();try{await Promise.all(folders.filter(x=>!String(x.id).startsWith('local-')).map(x=>api(FOLDER_TABLE,{method:'PATCH',query:`id=eq.${encodeURIComponent(x.id)}&user_id=eq.${encodeURIComponent(uid())}`,body:{position:x.position}})))}catch(e){console.warn('[Cases] ordre:',e)}}
-function folderMenu(f){const a=prompt(`Case « ${f.name} »\n\n1 — Renommer\n2 — Supprimer\n\nEntrez 1 ou 2 :`);if(a==='1')dialog('rename',f);else if(a==='2')deleteFolder(f)}
+function folderMenu(f){
+  let menu=document.getElementById('personalFolderMenuPopover');
+  if(!menu){
+    menu=document.createElement('div');menu.id='personalFolderMenuPopover';menu.className='personal-folder-menu-popover';
+    menu.innerHTML=`<div class="personal-folder-menu-title"></div><button type="button" data-folder-rename>✎ Renommer</button><button type="button" data-folder-delete>⌫ Supprimer</button>`;
+    document.body.appendChild(menu);
+    menu.addEventListener('click',e=>{e.stopPropagation();});
+    menu.querySelector('[data-folder-rename]').addEventListener('click',()=>{const id=menu.dataset.folderId;const target=folders.find(x=>String(x.id)===String(id));menu.classList.remove('show');if(target)dialog('rename',target)});
+    menu.querySelector('[data-folder-delete]').addEventListener('click',()=>{const id=menu.dataset.folderId;const target=folders.find(x=>String(x.id)===String(id));menu.classList.remove('show');if(target)deleteFolder(target)});
+    document.addEventListener('click',()=>menu.classList.remove('show'));
+    document.addEventListener('keydown',e=>{if(e.key==='Escape')menu.classList.remove('show')});
+  }
+  menu.dataset.folderId=f.id;menu.querySelector('.personal-folder-menu-title').textContent=f.name;
+  const source=document.querySelector(`[data-folder-id="${CSS.escape(String(f.id))}"] .personal-folder-menu`);
+  if(source){const r=source.getBoundingClientRect();menu.style.left=Math.min(window.innerWidth-220,Math.max(12,r.right-205))+'px';menu.style.top=Math.min(window.innerHeight-130,r.bottom+8)+'px';}
+  menu.classList.add('show');
+}
 function dialog(mode,f=null){let d=document.getElementById('personalFolderDialog');if(!d){d=document.createElement('div');d.id='personalFolderDialog';d.className='personal-folder-dialog';d.innerHTML=`<section class="personal-folder-dialog-card"><h3 id="pfdTitle"></h3><p id="pfdText"></p><input id="pfdInput" maxlength="60" autocomplete="off"><div class="personal-folder-message" id="pfdMsg"></div><div class="personal-folder-dialog-actions"><button type="button" id="pfdCancel">Annuler</button><button type="button" class="primary" id="pfdOk">Continuer</button></div></section>`;document.body.appendChild(d);d.onclick=e=>{if(e.target===d)d.classList.remove('show')};d.querySelector('#pfdCancel').onclick=()=>d.classList.remove('show')}d.dataset.mode=mode;d.dataset.folderId=f?.id||'';d.querySelector('#pfdTitle').textContent=mode==='rename'?'Renommer la case':'Créer une case';d.querySelector('#pfdText').textContent=mode==='rename'?`Modifiez le nom de « ${f.name} ».`:'Donnez un nom à votre case. Vous pourrez le modifier plus tard.';d.querySelector('#pfdInput').value=mode==='rename'?f.name:'';d.querySelector('#pfdOk').onclick=async()=>{const v=d.querySelector('#pfdInput').value.trim();if(!v){d.querySelector('#pfdMsg').className='personal-folder-message err';d.querySelector('#pfdMsg').textContent='Entrez un nom.';return}d.querySelector('#pfdOk').disabled=true;try{if(mode==='rename')await renameFolder(f,v);else await createFolder(v);d.classList.remove('show')}finally{d.querySelector('#pfdOk').disabled=false}};d.classList.add('show');setTimeout(()=>d.querySelector('#pfdInput').focus(),20)}
 function picker(){let p=document.getElementById('folderDocumentPicker');if(p)return p;p=document.createElement('div');p.id='folderDocumentPicker';p.className='folder-document-picker';p.innerHTML=`<section class="folder-document-picker-card"><div class="folder-document-picker-head"><div><h3>Ranger ce document</h3><p id="fdpTitle"></p></div><button type="button" class="folder-document-close">×</button></div><div class="folder-document-list" id="folderDocumentList"></div></section>`;document.body.appendChild(p);p.onclick=e=>{if(e.target===p)p.classList.remove('show')};p.querySelector('.folder-document-close').onclick=()=>p.classList.remove('show');return p}
 function chooseDoc(doc){if(!session){const signup=document.getElementById('accessSignupBtn');if(signup)signup.click();setTimeout(()=>document.getElementById('showLoginBtn')?.click(),30);const m=document.getElementById('loginMessage');if(m){m.textContent='Connectez-vous pour ranger vos documents dans vos cases personnelles.';m.className='access-message ok';m.style.display='block'}return}if(!doc?.id)return;const p=picker(),list=p.querySelector('#folderDocumentList');p.querySelector('#fdpTitle').textContent=doc.Titre||'Document';list.innerHTML='';const current=folderAssignments.find(x=>x.document_id===String(doc.id));folders.forEach(f=>{const b=document.createElement('button');b.type='button';b.className='folder-document-option'+(current?.case_id===f.id?' is-current':'');b.innerHTML=`<strong>▱ ${esc(f.name)}</strong><span>${current?.case_id===f.id?'Actuellement ici':'Ajouter ici'}</span>`;b.onclick=()=>assign(doc,f);list.appendChild(b)});if(current){const b=document.createElement('button');b.type='button';b.className='folder-document-option';b.innerHTML='<strong>× Retirer de la case</strong><span>Sans classement</span>';b.onclick=()=>removeAssignment(doc);list.appendChild(b)}p.classList.add('show')}
