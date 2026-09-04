@@ -1502,6 +1502,43 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   </div>
 </div>
 
+
+<!-- ===== CHARGEMENT CONNEXION ===== -->
+<div id="auroreLoginLoading" class="aurore-login-loading" aria-hidden="true">
+  <div class="aurore-login-loading-card" role="status" aria-live="polite">
+    <div class="aurore-login-spinner" aria-hidden="true"></div>
+    <div class="aurore-login-loading-copy">
+      <strong>Veuillez patienter</strong>
+      <span>Connexion à Aurore en cours…</span>
+    </div>
+  </div>
+</div>
+
+<style>
+.aurore-login-loading{
+  position:fixed;inset:0;z-index:10050;display:none;align-items:center;justify-content:center;
+  padding:22px;background:rgba(15,23,42,.18);backdrop-filter:blur(7px);
+}
+.aurore-login-loading.is-visible{display:flex}
+.aurore-login-loading-card{
+  width:min(92vw,360px);display:flex;align-items:center;gap:15px;padding:18px 20px;
+  border:1px solid var(--bordure,#e5e7eb);border-radius:20px;
+  background:var(--papier,#fff);box-shadow:0 22px 60px rgba(15,23,42,.20);
+}
+.aurore-login-spinner{
+  width:34px;height:34px;flex:0 0 34px;border-radius:50%;
+  border:3px solid color-mix(in srgb,var(--violet,#7c3aed) 18%,transparent);
+  border-top-color:var(--violet,#7c3aed);animation:auroreLoginSpin .8s linear infinite;
+}
+.aurore-login-loading-copy{display:grid;gap:4px}
+.aurore-login-loading-copy strong{font-size:.98rem;color:var(--encre,#20242e)}
+.aurore-login-loading-copy span{font-size:.78rem;color:var(--gris,#6b7280)}
+@keyframes auroreLoginSpin{to{transform:rotate(360deg)}}
+@media(prefers-color-scheme:dark){
+  .aurore-login-loading{background:rgba(2,6,23,.42)}
+}
+</style>
+
 <!-- ===== INSCRIPTION ===== -->
 <div id="signupModal" class="signup-modal" style="display:none;" aria-hidden="true">
   <div class="signup-card" role="dialog" aria-modal="true" aria-labelledby="signupTitle">
@@ -1666,6 +1703,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   google?.addEventListener('click',()=>{
     if (google.classList.contains('is-loading')) return;
     google.classList.add('is-loading');
+    afficherChargementConnexion();
     const strong = google.querySelector('strong'); if (strong) strong.textContent = 'Connexion à Google…';
     if(typeof demarrerConnexionGoogle==='function') demarrerConnexionGoogle();
   });
@@ -1708,7 +1746,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   });
 
   loginForm?.addEventListener('submit',async e=>{
-    e.preventDefault(); loginMsg.style.display='none';
+    e.preventDefault(); loginMsg.style.display='none'; afficherChargementConnexion();
     const email=document.getElementById('loginEmail').value.trim(), password=document.getElementById('loginPassword').value, btn=document.getElementById('loginSubmit');
     btn.disabled=true; btn.textContent='Connexion en cours…';
     try{
@@ -1721,7 +1759,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       sauvegarderSession(); await enregistrerConnexion(session); afficherUtilisateurConnecte(); unlock(); fermer();
       if(profilEstComplet(session)) afficherBienvenueApresConnexion(session); else ouvrirEspacePersonnelObligatoire();
     }catch(err){loginMsg.textContent=err.message||'Impossible de vous connecter.';loginMsg.className='access-message err';loginMsg.style.display='block';}
-    finally{btn.disabled=false;btn.textContent='SE CONNECTER';}
+    finally{masquerChargementConnexion();btn.disabled=false;btn.textContent='SE CONNECTER';}
   });
 
   form?.addEventListener('submit',async e=>{
@@ -9845,7 +9883,13 @@ async function telechargerDocumentAvecProgression(doc) {
     if(!list||!session)return;
     const ids=[...new Set(favoris().map(v=>String(v).trim()).filter(Boolean))];
     actualiserCompteursPersonnels();
-    if(!ids.length){list.innerHTML='<div class="personal-empty">Aucun favori pour le moment. Utilisez « Favori » sur un document du site.</div>';return;}
+    if(!ids.length){
+      ['personalFavoritesCount','personalFavoritesBadge'].forEach(id=>{
+        const el=document.getElementById(id); if(el) el.textContent='0';
+      });
+      list.innerHTML='<div class="personal-empty">Aucun favori pour le moment. Utilisez « Favori » sur un document du site.</div>';
+      return;
+    }
     list.innerHTML='<div class="personal-empty">Chargement de vos favoris…</div>';
     try{
       const cacheKey=ids.join(',');
@@ -9870,7 +9914,14 @@ async function telechargerDocumentAvecProgression(doc) {
         favorisDocumentsCache.set(userKey(),{key:cacheKey,docs:[...docs],at:Date.now()});
       }
       const order=new Map(ids.map((id,i)=>[String(id),i]));
+      docs=[...new Map((Array.isArray(docs)?docs:[]).map(d=>[String(d.id),d])).values()];
       docs.sort((a,b)=>(order.get(String(a.id))??9999)-(order.get(String(b.id))??9999));
+      // Le compteur de favoris doit correspondre aux documents réellement affichables,
+      // pas aux doublons/anciennes références qui peuvent rester dans le cache local.
+      const compteurFavorisVisibles=docs.length;
+      ['personalFavoritesCount','personalFavoritesBadge'].forEach(id=>{
+        const el=document.getElementById(id); if(el) el.textContent=String(compteurFavorisVisibles);
+      });
       list.innerHTML='';
       if(!docs.length){list.innerHTML='<div class="personal-empty">Vos favoris ne sont plus disponibles publiquement.</div>';return;}
       docs.forEach(doc=>{
@@ -10817,8 +10868,11 @@ footer>.wrap:last-child{margin-top:18px!important;}
           query:`select=document_id&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc`
         });
         const rows=raw?JSON.parse(raw):[];
-        const ids=(Array.isArray(rows)?rows:[])
-          .map(x=>String(x.document_id??'').trim()).filter(Boolean);
+        const ids=[...new Set(
+          (Array.isArray(rows)?rows:[])
+            .map(x=>String(x.document_id??'').trim())
+            .filter(Boolean)
+        )];
         safeWrite(KEY_FAV+userKey(),ids);
       }catch(e){
         console.warn('[Espace personnel] favoris Supabase:',e);
@@ -10968,7 +11022,14 @@ footer>.wrap:last-child{margin-top:18px!important;}
     const m=document.getElementById('loginMessage');
     if(m){m.textContent='Connectez-vous pour utiliser les favoris et enregistrer des documents pour plus tard dans votre espace personnel.';m.className='access-message ok';m.style.display='block';}
   }
-  function favoris(){return userKey()?safeRead(KEY_FAV+userKey()).map(String):[];}
+  function favoris(){
+    if(!userKey()) return [];
+    return [...new Set(
+      safeRead(KEY_FAV+userKey())
+        .map(v=>String(v).trim())
+        .filter(Boolean)
+    )];
+  }
   function plusTard(){return userKey()?safeRead(KEY_LATER+userKey()):[];}
   function telecharges(){return userKey()?safeRead(KEY_DOWNLOADS+userKey()):[];}
   function depotsPersonnelsLocaux(){return userKey()?safeRead(KEY_DEPOSITS+userKey()):[];}
