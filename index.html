@@ -2249,24 +2249,20 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       <div class="activity-hero">
         <div class="activity-hero-copy">
           <span class="activity-kicker">Espace personnel</span>
-          <h3>Mon activité <span id="personalWelcomeName">vous</span> 👋</h3>
+          <h3>Mon activité <span id="personalWelcomeName">vous</span></h3>
           <p>Retrouvez vos dépôts, vos livres, vos favoris et vos téléchargements dans un espace simple et rapide.</p>
         </div>
         <button type="button" class="activity-refresh" id="personalRefresh" aria-label="Actualiser">↻ <span>Actualiser</span></button>
       </div>
 
       <div class="activity-stats" role="tablist" aria-label="Mon activité">
-        <button type="button" class="activity-stat is-active" data-personal-tab="documents" role="tab" aria-selected="true" aria-controls="personalPanelDocuments">
-          <span class="activity-stat-icon">📄</span><span><b id="personalDocsCount">0</b><small>Mes documents</small></span>
+        <button type="button" class="activity-stat is-active" data-personal-tab="documents" role="tab" aria-selected="true" aria-controls="personalPanelDocuments"><span><b id="personalDocsCount">0</b><small>Mes documents</small></span>
         </button>
-        <button type="button" class="activity-stat" data-personal-tab="books" role="tab" aria-selected="false" aria-controls="personalPanelBooks">
-          <span class="activity-stat-icon">📚</span><span><b id="personalBooksCount">0</b><small>Mes livres</small></span>
+        <button type="button" class="activity-stat" data-personal-tab="books" role="tab" aria-selected="false" aria-controls="personalPanelBooks"><span><b id="personalBooksCount">0</b><small>Mes livres</small></span>
         </button>
-        <button type="button" class="activity-stat" data-personal-tab="favorites" role="tab" aria-selected="false" aria-controls="personalPanelFavorites">
-          <span class="activity-stat-icon">♡</span><span><b id="personalFavoritesCount">0</b><small>Mes favoris</small></span>
+        <button type="button" class="activity-stat" data-personal-tab="favorites" role="tab" aria-selected="false" aria-controls="personalPanelFavorites"><span><b id="personalFavoritesCount">0</b><small>Mes favoris</small></span>
         </button>
-        <button type="button" class="activity-stat" data-personal-tab="downloads" role="tab" aria-selected="false" aria-controls="personalPanelDownloads">
-          <span class="activity-stat-icon">↓</span><span><b id="personalDownloadsCount">0</b><small>À télécharger</small></span>
+        <button type="button" class="activity-stat" data-personal-tab="downloads" role="tab" aria-selected="false" aria-controls="personalPanelDownloads"><span><b id="personalDownloadsCount">0</b><small>À télécharger</small></span>
         </button>
       </div>
 
@@ -6543,9 +6539,22 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const list = document.getElementById('adminListConnexions');
     list.innerHTML = '<p class="admin-empty">Chargement…</p>';
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/Connexions?select=nom,email,date&order=date.desc&limit=10`, { headers: headersAdmin() });
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/Connexions?select=user_id,nom,email,date&order=date.desc&limit=10`, { headers: headersAdmin() });
       if (!res.ok) throw new Error("Statut HTTP " + res.status);
       const data = await res.json();
+
+      const profilsParId = new Map();
+      try {
+        const ids = (data || []).map(c => c.user_id).filter(Boolean);
+        if (ids.length) {
+          const pr = await fetch(`${SUPABASE_URL}/rest/v1/Profils?select=id,nom,email,lycee,niveau,classe,filiere,role&id=in.(${ids.map(encodeURIComponent).join(',')})`, { headers: headersAdmin() });
+          if (pr.ok) {
+            const profils = await pr.json().catch(() => []);
+            (profils || []).forEach(p => profilsParId.set(String(p.id), p));
+          }
+        }
+      } catch (e) { console.warn('[Connexions] informations du profil indisponibles', e); }
+
       if (!data || data.length === 0) {
         list.innerHTML = '<p class="admin-empty">Aucune connexion enregistrée pour le moment.</p>';
         return;
@@ -6557,11 +6566,20 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         card.style.animationDelay = (i * 0.04) + 's';
         const d = new Date(c.date);
         const formatee = d.toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
+        const profil = profilsParId.get(String(c.user_id)) || {};
+        const nom = profil.nom || c.nom || 'Nom inconnu';
+        const email = profil.email || c.email || 'E-mail inconnu';
+        const infosProfil = [
+          profil.lycee ? `Établissement : ${echapperHtmlPub(profil.lycee)}` : '',
+          profil.niveau ? `Niveau : ${echapperHtmlPub(profil.niveau)}` : '',
+          profil.classe ? `Classe : ${echapperHtmlPub(profil.classe)}` : '',
+          profil.filiere ? `Filière : ${echapperHtmlPub(profil.filiere)}` : ''
+        ].filter(Boolean).join('<br>');
         card.innerHTML = `
           <div class="admin-card-icon">${ICONS.user}</div>
           <div class="admin-card-body">
-            <div class="titre">${c.nom || 'Nom inconnu'}</div>
-            <div class="meta">${c.email || 'e-mail inconnu'}<br>${formatee}</div>
+            <div class="titre">${echapperHtmlPub(nom)}</div>
+            <div class="meta">${echapperHtmlPub(email)}<br>${formatee}${infosProfil ? '<br>' + infosProfil : ''}</div>
           </div>
         `;
         list.appendChild(card);
@@ -10301,46 +10319,23 @@ footer>.wrap:last-child{margin-top:18px!important;}
           query:`select=document_id,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc`
         });
         const rows=raw?JSON.parse(raw):[];
+        // CORRECTIF : la table "documents_plus_tard" ne stocke que
+        // document_id/created_at (aucune colonne titre/URL) — remplacer
+        // purement et simplement le cache local par cette lecture minimale
+        // effaçait le titre, l'auteur et surtout Fichier_url déjà connus
+        // localement (enregistrés au moment du clic sur « ＋ Plus tard »),
+        // ce qui vidait l'affichage et cassait le bouton « Voir » (plus
+        // d'URL à ouvrir) dès que l'espace personnel se rechargeait. On
+        // fusionne donc avec les entrées locales existantes au lieu de les
+        // écraser : Supabase reste la source de vérité pour la liste des id
+        // réellement enregistrés, le cache local conserve leurs détails.
         const precedents=new Map(plusTard().map(x=>[String(x.id),x]));
-        const ids=(Array.isArray(rows)?rows:[])
-          .map(x=>String(x?.document_id??'').trim()).filter(Boolean);
-
-        // La table « documents_plus_tard » ne contient volontairement que
-        // l'association compte/document. On recharge donc les vraies
-        // informations depuis Document afin que le titre, l'auteur, l'URL,
-        // le niveau et les boutons « Voir » / « Télécharger maintenant »
-        // restent fonctionnels après un rechargement du site ou sur un
-        // nouvel appareil.
-        let details=new Map();
-        if(ids.length){
-          const docRaw=await apiPersonnel('Document',{
-            query:`select=id,Titre,Auteur,Fichier_url,"Catégorie",Niveau,"Matière",Genre,Telechargement_autorise&Publie=eq.true&id=in.(${ids.join(',')})`
-          });
-          const docRows=docRaw?JSON.parse(docRaw):[];
-          details=new Map((Array.isArray(docRows)?docRows:[]).map(d=>[String(d.id),d]));
-        }
-
-        const merged=(Array.isArray(rows)?rows:[]).map(x=>{
-          if(x.document_id==null)return null;
-          const id=String(x.document_id);
-          const ancien=precedents.get(id)||{};
-          const doc=details.get(id)||{};
-          return {
-            ...ancien,
-            id:x.document_id,
-            titre:doc.Titre||ancien.titre||'Document',
-            auteur:doc.Auteur??ancien.auteur??'',
-            url:doc.Fichier_url||ancien.url||'',
-            categorie:doc['Catégorie']??ancien.categorie??'',
-            niveau:doc.Niveau??ancien.niveau??'',
-            matiere:doc['Matière']??ancien.matiere??'',
-            genre:doc.Genre??ancien.genre??'',
-            telechargement_autorise:doc.Telechargement_autorise!==false,
-            saved_at:x.created_at
-          };
-        }).filter(Boolean);
-
-        safeWrite(KEY_LATER+userKey(),merged);
+        safeWrite(KEY_LATER+userKey(),(Array.isArray(rows)?rows:[])
+          .map(x=>{
+            if(x.document_id==null)return null;
+            const ancien=precedents.get(String(x.document_id))||{};
+            return {...ancien,id:x.document_id,saved_at:x.created_at};
+          }).filter(Boolean));
       }catch(e){
         console.warn('[Espace personnel] Plus tard Supabase:',e);
         if(localStorage.getItem(KEY_LATER+userKey())===null)safeWrite(KEY_LATER+userKey(),[]);
@@ -10357,35 +10352,19 @@ footer>.wrap:last-child{margin-top:18px!important;}
           query:`select=id,document_id,titre_document,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc&limit=100`
         });
         const rows=raw?JSON.parse(raw):[];
+        // CORRECTIF (même cause que « Plus tard » ci-dessus) : la table
+        // "telechargements_documents" ne stocke que id/document_id/
+        // titre_document/created_at — aucune colonne Fichier_url. Écraser le
+        // cache local avec cette seule lecture effaçait l'URL déjà connue
+        // (enregistrée au moment du téléchargement réel), cassant le bouton
+        // « Voir » de l'historique. Fusion avec les entrées locales au lieu
+        // d'un écrasement complet.
         const precedents=new Map(telecharges().map(x=>[String(x.id),x]));
-        const ids=(Array.isArray(rows)?rows:[])
-          .map(x=>String(x?.document_id??'').trim()).filter(Boolean);
-        let details=new Map();
-        if(ids.length){
-          const docRaw=await apiPersonnel('Document',{
-            query:`select=id,Titre,Auteur,Fichier_url,"Catégorie",Niveau,"Matière",Genre,Telechargement_autorise&Publie=eq.true&id=in.(${ids.join(',')})`
-          });
-          const docRows=docRaw?JSON.parse(docRaw):[];
-          details=new Map((Array.isArray(docRows)?docRows:[]).map(d=>[String(d.id),d]));
-        }
         safeWrite(KEY_DOWNLOADS+userKey(),(Array.isArray(rows)?rows:[])
           .map(x=>{
             if(x.document_id==null)return null;
             const ancien=precedents.get(String(x.document_id))||{};
-            const doc=details.get(String(x.document_id))||{};
-            return {
-              ...ancien,
-              id:x.document_id,
-              titre:doc.Titre||x.titre_document||ancien.titre||'Document',
-              auteur:doc.Auteur??ancien.auteur??'',
-              url:doc.Fichier_url||ancien.url||'',
-              categorie:doc['Catégorie']??ancien.categorie??'',
-              niveau:doc.Niveau??ancien.niveau??'',
-              matiere:doc['Matière']??ancien.matiere??'',
-              genre:doc.Genre??ancien.genre??'',
-              telechargement_autorise:doc.Telechargement_autorise!==false,
-              downloaded_at:x.created_at
-            };
+            return {...ancien,id:x.document_id,titre:x.titre_document||ancien.titre||'Document',downloaded_at:x.created_at};
           }).filter(Boolean));
       }catch(e){
         console.warn('[Espace personnel] téléchargements Supabase:',e);
