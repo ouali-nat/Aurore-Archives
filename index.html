@@ -8423,7 +8423,9 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     if(TELECHARGEMENT_TOAST_TIMER) { clearTimeout(TELECHARGEMENT_TOAST_TIMER); TELECHARGEMENT_TOAST_TIMER=null; }
   }
 
-  async function telechargerDocumentAvecProgression(doc) {
+  // Téléchargement interne Aurore : ne jamais naviguer vers le PDF/R2.
+// La lecture d'un PDF passe par ouvrirLecteurPDF(), la visionneuse intégrée.
+async function telechargerDocumentAvecProgression(doc) {
     if(!doc || !doc.Fichier_url || doc.Telechargement_autorise === false || TELECHARGEMENT_DOCUMENT_EN_COURS) return;
     TELECHARGEMENT_DOCUMENT_EN_COURS=true;
     const nomTelechargement=nomFichierTelechargementDepuisDocument(doc);
@@ -8456,7 +8458,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
             afficherCarteTelechargement(doc,'progress',pct,recu,total);
           }
         }
-        blob=new Blob(morceaux,{type:res.headers.get('Content-Type') || 'application/pdf'});
+        blob=new Blob(morceaux,{type:'application/octet-stream'});
       } else {
         afficherCarteTelechargement(doc,'progress',null,0,null,'Téléchargement du fichier…');
         blob=await res.blob();
@@ -8468,11 +8470,13 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       const objectUrl=URL.createObjectURL(blob);
       const a=document.createElement('a');
       a.href=objectUrl;
+      // GARDE Aurore : remise au navigateur uniquement comme téléchargement.
+      // Aucune URL PDF/R2/Worker n'est ouverte et aucune navigation vers un
+      // lecteur externe n'est déclenchée par le site.
       a.target='_self';
-      // Le nom enregistré sur le téléphone est lisible et basé sur le titre
-      // du document, jamais sur le nom technique interne de l'objet R2.
+      a.rel='noopener noreferrer';
+      a.setAttribute('download', nomTelechargement);
       a.download=nomTelechargement;
-      a.rel='noopener';
       document.body.appendChild(a);
       a.click();
       a.remove();
