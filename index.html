@@ -6,24 +6,24 @@
 <link rel="preconnect" href="https://tdeotqfsbvouresfhkab.supabase.co" crossorigin>
 <link rel="preconnect" href="https://lsnb-upload.oualikevin9.workers.dev" crossorigin>
 <link rel="preconnect" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev" crossorigin>
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="manifest.json?v=20260904-2">
 <meta name="theme-color" content="#090812">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Aurore">
-<link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="192x192" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260904-2">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Aurore — Section Archives">
 <meta property="og:description" content="Bibliothèque numérique d'Aurore">
-<meta property="og:image" content="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
+<meta property="og:image" content="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260904-2">
 <meta property="og:image:alt" content="Logo Aurore — Section Archives">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Aurore — Section Archives">
 <meta name="twitter:description" content="Bibliothèque numérique d'Aurore">
-<meta name="twitter:image" content="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
+<meta name="twitter:image" content="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260904-2">
 <title>Aurore — Section Archives — Bibliothèque numérique</title>
-<link rel="preload" as="image" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
+<link rel="preload" as="image" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260904-2">
 <script>
   // Appliqué le plus tôt possible pour éviter un flash du mauvais thème au
   // chargement. Version minimale ; la logique complète (boutons, suivi du
@@ -8469,7 +8469,11 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       setTimeout(()=>URL.revokeObjectURL(objectUrl),60000);
       const enregistre=await enregistrerTelechargementPersonnel(doc);
       if(!enregistre) throw new Error('Le téléchargement a réussi, mais son enregistrement personnel a échoué.');
-      afficherCarteTelechargement(doc,'succes',100,total,total,`Fichier : ${nomExact} · Taille : ${formaterTailleTelechargement(total || blob.size)} · Téléchargement enregistré dans votre espace.`);
+      const tailleFinale = total || blob.size || 0;
+      const dateTelechargement = new Date();
+      const dateTexte = dateTelechargement.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});
+      const heureTexte = dateTelechargement.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      afficherCarteTelechargement(doc,'succes',100,total,total,`Fichier : ${nomExact} · Taille : ${formaterTailleTelechargement(tailleFinale)} · Date : ${dateTexte} · Heure : ${heureTexte} · Merci d’avoir utilisé ${SITE_NOM}.`);
     } catch(e) {
       console.error('[Téléchargement document]',e);
       // Aucun repli vers un lien direct : un lien PDF externe peut être ouvert
@@ -9182,47 +9186,63 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   })();
 
   // ---------- LOGO DU SITE (modifiable depuis l'admin, sans redéploiement) ----------
-  // Le logo est stocké dans le même bucket R2 que les documents/publicités, sous une
-  // clé FIXE (toujours le même nom). Ainsi, chaque nouvel envoi écrase simplement
-  // l'ancien logo, et le site public le récupère automatiquement au chargement,
-  // sans qu'aucun code n'ait besoin d'être modifié ou redéployé.
+  // Source unique du logo. Le même objet R2 est utilisé par le site, le favicon,
+  // l'icône Apple et le manifeste PWA. Le paramètre de version évite les anciens
+  // logos conservés par le navigateur/CDN après un remplacement.
   (function(){
     const LOGO_CLE = 'site-logo-auraster';
+    const LOGO_VERSION_KEY = 'aurore_logo_version';
+    const LOGO_URL_BASE = `${R2_PUBLIC_URL}/${LOGO_CLE}`;
+
+    function logoUrl(version) {
+      return `${LOGO_URL_BASE}?v=${encodeURIComponent(version || Date.now())}`;
+    }
 
     function appliquerLogoDansConteneur(conteneur, url) {
       if (!conteneur) return;
       const img = new Image();
-      img.onload = () => { conteneur.innerHTML = `<img src="${url}" alt="Aurore — Section Archives">`; };
-      img.onerror = () => { conteneur.innerHTML = ''; };
+      img.decoding = 'async';
+      img.onload = () => {
+        conteneur.replaceChildren(img);
+        img.alt = 'Aurore — Section Archives';
+      };
+      img.onerror = () => {
+        // Aucun retour vers une ancienne image locale : cela évite de réafficher
+        // silencieusement l'ancien logo dans une PWA déjà installée.
+        conteneur.replaceChildren();
+      };
       img.src = url;
     }
 
-    function chargerLogoSite() {
-      // Le fichier R2 garde volontairement une clé fixe. On ajoute une
-      // version unique à chaque lecture pour empêcher le navigateur/CDN
-      // de conserver l'ancien logo après une mise à jour.
-      const version = Date.now().toString();
-      const url = `${R2_PUBLIC_URL}/${LOGO_CLE}?v=${version}`;
-      // Le logo n'a volontairement aucun fallback texte : l'ancienne initiale A ne doit jamais réapparaître.
-      const cibles = [document.getElementById('brandLogo'), document.getElementById('adminLogoPreview'), document.getElementById('accessBrandLogo')];
-      cibles.forEach(c => appliquerLogoDansConteneur(c, url));
-
-      // Met également à jour le favicon et l'icône Apple avec le même logo.
-      ['icon','shortcut icon','apple-touch-icon'].forEach(rel => {
-        let link = document.querySelector(`link[rel="${rel}"]`);
-        if (!link) {
-          link = document.createElement('link');
-          link.rel = rel;
-          document.head.appendChild(link);
-        }
+    function mettreAJourLiensLogo(url) {
+      document.querySelectorAll('link[rel="icon"],link[rel="shortcut icon"],link[rel="apple-touch-icon"]').forEach(link => {
         link.href = url;
       });
+      // Le manifeste reste le point d'entrée officiel de l'installation PWA.
+      const manifest = document.querySelector('link[rel="manifest"]');
+      if (manifest) manifest.href = `manifest.json?v=${encodeURIComponent(Date.now())}`;
+      document.querySelector('meta[property="og:image"]')?.setAttribute('content', url);
+      document.querySelector('meta[name="twitter:image"]')?.setAttribute('content', url);
+      const preload = document.querySelector('link[rel="preload"][as="image"]');
+      if (preload) preload.href = url;
+    }
 
-      const preload = new Image();
-      preload.src = url;
+    function chargerLogoSite(versionForcee) {
+      const version = String(versionForcee || Date.now());
+      const url = logoUrl(version);
       try { sessionStorage.setItem('aurore_logo_url', url); } catch(e) {}
+      try { localStorage.setItem(LOGO_VERSION_KEY, version); } catch(e) {}
+
+      const cibles = [
+        document.getElementById('brandLogo'),
+        document.getElementById('adminLogoPreview'),
+        document.getElementById('accessBrandLogo')
+      ];
+      cibles.forEach(c => appliquerLogoDansConteneur(c, url));
+      mettreAJourLiensLogo(url);
     }
     window.chargerLogoSite = chargerLogoSite;
+    window.AURORE_LOGO_URL = () => logoUrl(Date.now());
 
     document.getElementById('adminLogoSave')?.addEventListener('click', async () => {
       const fileInput = document.getElementById('adminLogoFile');
@@ -9230,7 +9250,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       const btn = document.getElementById('adminLogoSave');
       const fichier = fileInput?.files?.[0];
       if (msg) { msg.className = 'form-msg'; msg.style.display = ''; }
-
       if (!fichier) { if(msg){ msg.textContent = "Choisis d'abord une image."; msg.className = 'form-msg err'; } return; }
       if (!['image/png','image/jpeg','image/webp','image/gif'].includes(fichier.type)) {
         if(msg){ msg.textContent = "Format non pris en charge (PNG, JPG, WEBP ou GIF uniquement)."; msg.className = 'form-msg err'; } return;
@@ -9238,18 +9257,23 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       if (fichier.size > 5 * 1024 * 1024) {
         if(msg){ msg.textContent = "Image trop lourde (5 Mo maximum pour le logo)."; msg.className = 'form-msg err'; } return;
       }
-
       if (btn) { btn.disabled = true; btn.textContent = 'Envoi en cours…'; }
       try {
         const res = await fetch(`${R2_WORKER_URL}/${LOGO_CLE}`, {
           method: 'PUT',
-          headers: { 'Content-Type': fichier.type },
-          body: fichier
+          headers: { 'Content-Type': fichier.type, 'Cache-Control': 'no-cache, no-store, must-revalidate' },
+          body: fichier,
+          cache: 'no-store'
         });
         if (!res.ok) throw new Error('Statut ' + res.status);
-        chargerLogoSite();
+        // Nouvelle version persistée : tous les composants du site utilisent
+        // immédiatement la nouvelle URL sans conserver l'ancienne image.
+        const nouvelleVersion = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+        chargerLogoSite(nouvelleVersion);
+        // Force la mise à jour du SW/PWA quand le navigateur le permet.
+        try { await navigator.serviceWorker?.ready?.then(reg => reg.update()); } catch(e) {}
         if (fileInput) fileInput.value = '';
-        if (msg) { msg.textContent = 'Logo mis à jour avec succès — visible immédiatement pour tous les visiteurs.'; msg.className = 'form-msg ok'; }
+        if (msg) { msg.textContent = 'Logo mis à jour avec succès — site, favicon et prochaine installation PWA utilisent désormais le nouveau logo.'; msg.className = 'form-msg ok'; }
       } catch (err) {
         if (msg) { msg.textContent = "Le logo n’a pas pu être envoyé pour le moment. Veuillez réessayer."; msg.className = 'form-msg err'; }
       } finally {
@@ -9260,12 +9284,12 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     document.getElementById('adminLogoReset')?.addEventListener('click', async () => {
       const msg = document.getElementById('adminLogoMsg');
       try {
-        const res = await fetch(`${R2_WORKER_URL}/${LOGO_CLE}`, { method: 'DELETE' });
+        const res = await fetch(`${R2_WORKER_URL}/${LOGO_CLE}`, { method: 'DELETE', cache: 'no-store' });
         if (!res.ok) throw new Error('Statut ' + res.status);
-        chargerLogoSite();
-        if (msg) { msg.textContent = "Logo retiré — l'initiale (A) est de nouveau affichée."; msg.className = 'form-msg ok'; }
+        chargerLogoSite(`${Date.now()}-reset`);
+        if (msg) { msg.textContent = "Logo retiré — aucun ancien logo local ne sera réutilisé automatiquement."; msg.className = 'form-msg ok'; }
       } catch (err) {
-        if (msg) { msg.textContent = "Impossible de retirer le logo automatiquement (le Worker ne supporte peut-être pas la suppression). Envoie un nouveau logo pour le remplacer."; msg.className = 'form-msg err'; }
+        if (msg) { msg.textContent = "Impossible de retirer le logo automatiquement. Envoie un nouveau logo pour le remplacer."; msg.className = 'form-msg err'; }
       }
     });
   })();
@@ -11102,6 +11126,23 @@ footer>.wrap:last-child{margin-top:18px!important;}
 })();
 </script>
 
+
+<script id="aurore-pdf-navigation-guard">
+(function(){
+  document.addEventListener('click',function(e){
+    const a=e.target.closest && e.target.closest('a[href]');
+    if(!a) return;
+    const href=a.getAttribute('href')||'';
+    if(!/\.pdf(?:[?#]|$)/i.test(href)) return;
+    // Les documents publics doivent rester dans le lecteur intégré.
+    e.preventDefault();
+    try{
+      const fake={id:null,Titre:(a.textContent||'Document PDF').replace(/→/g,'').trim(),Fichier_url:a.href,Telechargement_autorise:true};
+      if(typeof window.ouvrirLecteurPDF==='function') window.ouvrirLecteurPDF(fake);
+    }catch(err){ console.warn('[Aurore] ouverture PDF interne impossible',err); }
+  },true);
+})();
+</script>
 </body>
 </html>
 
