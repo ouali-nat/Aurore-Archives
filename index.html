@@ -2298,6 +2298,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
           </div>
           <div class="activity-subsection">
             <div class="activity-subtitle"><b>Historique des téléchargements</b><span id="personalDownloadsHistoryCount">0</span></div>
+            <div class="personal-history-toolbar"><button type="button" id="personalClearDownloads" class="personal-history-clear" title="Effacer tout l’historique">Effacer l’historique</button></div>
             <div id="personalDownloadsHistory" class="personal-list activity-list"><div class="personal-empty">Aucun téléchargement enregistré pour le moment.</div></div>
           </div>
         </section>
@@ -2502,6 +2503,61 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   .admin-user-loading,.admin-user-empty{padding:28px 18px;text-align:center;color:var(--gris);background:var(--papier);border:1px dashed var(--bordure);border-radius:var(--radius);}
   .admin-user-message{margin-bottom:14px;}
   @media (max-width:640px){.admin-user-card{align-items:flex-start;flex-direction:column;}.admin-user-actions{width:100%;justify-content:flex-start;}.admin-user-actions .admin-btn{width:100%;justify-content:center;}}
+
+/* Aurore — Documents récents : finition premium et thème clair */
+.pdf-recent-access{margin:10px 14px 0!important;}
+.pdf-recent-toggle{
+  border:1px solid rgba(124,58,237,.24)!important;
+  background:linear-gradient(135deg,rgba(124,58,237,.13),rgba(192,132,252,.08))!important;
+  color:#f8f6fc!important;border-radius:14px!important;padding:9px 14px!important;
+  box-shadow:0 5px 18px rgba(0,0,0,.14);transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease;
+}
+.pdf-recent-toggle:hover{transform:translateY(-1px);border-color:rgba(192,132,252,.5)!important;box-shadow:0 8px 24px rgba(0,0,0,.2);}
+.pdf-recent-panel{
+  margin-top:9px!important;padding:12px!important;border-radius:17px!important;
+  background:rgba(18,16,28,.97)!important;border:1px solid rgba(255,255,255,.09)!important;
+  box-shadow:0 18px 42px rgba(0,0,0,.32)!important;max-height:245px!important;
+}
+.pdf-recent-panel-title{color:#aaa2b9!important;font-size:.68rem!important;letter-spacing:.13em!important;margin-bottom:10px!important;}
+.pdf-recent-list{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr));gap:8px!important;}
+.pdf-recent-item{
+  position:relative;display:flex!important;align-items:center!important;min-width:0;width:100%;
+  padding:10px 34px 10px 12px!important;border:1px solid rgba(255,255,255,.08)!important;
+  border-radius:13px!important;background:rgba(255,255,255,.045)!important;color:#f4f1f8!important;
+  transition:transform .14s ease,border-color .14s ease,background .14s ease;overflow:hidden;
+}
+.pdf-recent-item:hover{transform:translateY(-1px);background:rgba(124,58,237,.12)!important;border-color:rgba(192,132,252,.36)!important;}
+.pdf-recent-item-title{max-width:100%!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:650!important;font-size:.8rem;}
+.pdf-recent-item::before{content:"";width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:#a78bfa;margin-right:9px;box-shadow:0 0 0 4px rgba(167,139,250,.10);}
+.pdf-recent-item-remove{
+  position:absolute;right:7px;top:50%;transform:translateY(-50%);
+  width:24px;height:24px;border:0;border-radius:8px;background:transparent;color:#a9a2b2;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;line-height:1;
+}
+.pdf-recent-item-remove:hover{background:rgba(198,67,47,.16);color:#ffb4ab;}
+.pdf-recent-empty{color:#aaa2b9!important;padding:8px!important;text-align:center;border:1px dashed rgba(255,255,255,.09);border-radius:12px;}
+[data-theme="light"] #pdfViewerOverlay .pdf-recent-toggle{
+  background:linear-gradient(135deg,#f3edff,#fbf9ff)!important;color:#211d2e!important;
+  border-color:#d8c9f4!important;box-shadow:0 5px 18px rgba(90,70,150,.10);
+}
+[data-theme="light"] #pdfViewerOverlay .pdf-recent-panel{
+  background:#ffffff!important;border-color:#e2ddf0!important;box-shadow:0 18px 42px rgba(90,70,150,.16)!important;
+}
+[data-theme="light"] #pdfViewerOverlay .pdf-recent-panel-title{color:#6b6478!important;}
+[data-theme="light"] #pdfViewerOverlay .pdf-recent-item{
+  background:#f8f6fc!important;color:#211d2e!important;border-color:#e5def1!important;
+}
+[data-theme="light"] #pdfViewerOverlay .pdf-recent-item:hover{background:#f3edff!important;border-color:#cdb9ed!important;}
+[data-theme="light"] #pdfViewerOverlay .pdf-recent-item-remove{color:#756d80;}
+[data-theme="light"] #pdfViewerOverlay .pdf-recent-empty{color:#6b6478!important;border-color:#e2ddf0;}
+/* Historique personnel */
+.personal-history-toolbar{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:8px 0 10px;}
+.personal-history-clear{border:1px solid rgba(198,67,47,.22);background:rgba(198,67,47,.07);color:var(--rouge);border-radius:10px;padding:7px 10px;font:inherit;font-size:.72rem;font-weight:700;cursor:pointer;}
+.personal-history-clear:hover{background:rgba(198,67,47,.12);border-color:rgba(198,67,47,.4);}
+.personal-history-row{position:relative;}
+.personal-history-delete{width:30px;height:30px;border:1px solid var(--bordure);background:var(--fond);color:var(--gris);border-radius:9px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;line-height:1;}
+.personal-history-delete:hover{color:var(--rouge);border-color:rgba(198,67,47,.35);background:rgba(198,67,47,.07);}
+
 </style>
 <style id="aurore-admin-data-tools">
   .admin-data-toolbar{display:grid;grid-template-columns:minmax(220px,1.8fr) repeat(4,minmax(130px,1fr));gap:9px;align-items:center;margin:16px 0 14px;}
@@ -8035,6 +8091,14 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     a.forEach(doc=>{
       const b=document.createElement('button'); b.type='button'; b.className='pdf-recent-item'; b.title=doc.Titre||'Document';
       const s=document.createElement('span'); s.className='pdf-recent-item-title'; s.textContent=doc.Titre||'Document'; b.appendChild(s);
+      const remove=document.createElement('span'); remove.className='pdf-recent-item-remove'; remove.setAttribute('role','button'); remove.setAttribute('tabindex','0'); remove.setAttribute('aria-label','Supprimer ce document des récents'); remove.title='Retirer des récents'; remove.textContent='×'; b.appendChild(remove);
+      const retirer=(e)=>{
+        e.preventDefault(); e.stopPropagation();
+        auroreEcrirePDFRecents(auroreLirePDFRecents().filter(x=>String(x.id)!==String(doc.id)));
+        auroreRendrePDFRecents();
+      };
+      remove.addEventListener('click',retirer);
+      remove.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();retirer(e);}});
       b.addEventListener('click',()=>{
         const panel=document.getElementById('pdfRecentPanel'); const toggle=document.getElementById('pdfRecentToggle');
         if(panel){panel.classList.remove('open');panel.setAttribute('aria-hidden','true');} if(toggle)toggle.setAttribute('aria-expanded','false');
@@ -10604,6 +10668,71 @@ footer>.wrap:last-child{margin-top:18px!important;}
   window.ajouterDocumentPlusTard=ajouterDocumentPlusTard;
   window.actualiserEtatActionsDocument=actualiserEtatActionsDocument;
 
+  async function supprimerTelechargementPersonnel(docIdValue){
+    if(!session||!docIdValue)return;
+    const id=String(docIdValue);
+    const key=KEY_DOWNLOADS+userKey();
+    const arr=telecharges();
+    const next=arr.filter(x=>String(x.id)!==id);
+    if(next.length===arr.length)return;
+    safeWrite(key,next);
+    rendreDocumentsTelecharges();
+    actualiserCompteursPersonnels();
+    try{
+      await apiPersonnel(TABLE_TELECHARGEMENTS_PERSONNELS,{
+        method:'DELETE',
+        query:`user_id=eq.${encodeURIComponent(session.id)}&document_id=eq.${encodeURIComponent(id)}`,
+        headers:{'Prefer':'return=minimal'}
+      });
+    }catch(e){
+      // Le serveur reste la source de vérité : on restaure l'entrée locale si la suppression distante échoue.
+      safeWrite(key,arr);
+      rendreDocumentsTelecharges(e);
+      actualiserCompteursPersonnels();
+      throw e;
+    }
+  }
+
+  async function effacerToutHistoriqueTelechargements(){
+    if(!session)return false;
+    const key=KEY_DOWNLOADS+userKey();
+    const ancien=telecharges();
+    try{
+      await apiPersonnel(TABLE_TELECHARGEMENTS_PERSONNELS,{
+        method:'DELETE',
+        query:`user_id=eq.${encodeURIComponent(session.id)}`,
+        headers:{'Prefer':'return=minimal'}
+      });
+      safeWrite(key,[]);
+      rendreDocumentsTelecharges();
+      actualiserCompteursPersonnels();
+      return true;
+    }catch(e){
+      safeWrite(key,ancien);
+      rendreDocumentsTelecharges(e);
+      actualiserCompteursPersonnels();
+      return false;
+    }
+  }
+
+  async function demanderCodePuisEffacerHistorique(){
+    if(!session)return;
+    if(!codeStocke()){
+      alert('Créez d’abord votre code d’accès personnel depuis votre profil.');
+      return;
+    }
+    const value=window.prompt('Entrez votre code d’accès personnel pour effacer tout l’historique des téléchargements :');
+    if(value===null)return;
+    if(!/^\d{4,8}$/.test(String(value).trim())){alert('Le code doit contenir entre 4 et 8 chiffres.');return;}
+    try{
+      const ok=(await hashCode(String(value).trim()))===codeStocke();
+      if(!ok){alert('Code incorrect. L’historique n’a pas été effacé.');return;}
+      const success=await effacerToutHistoriqueTelechargements();
+      if(!success){alert('Impossible d’effacer l’historique sur le serveur. Vos données ont été conservées.');return;}
+      afficherCarteNotificationTelechargement('Historique des téléchargements effacé');
+    }catch(e){alert('Impossible de vérifier le code ou d’effacer l’historique.');}
+  }
+
   function rendreDocumentsTelecharges(erreurLecture){
     const list=document.getElementById('personalDownloadsHistory'); if(!list||!session)return;
     const arr=telecharges();
@@ -10618,10 +10747,14 @@ footer>.wrap:last-child{margin-top:18px!important;}
       return;
     }
     arr.forEach(d=>{
-      const row=document.createElement('article'); row.className='personal-book';
+      const row=document.createElement('article'); row.className='personal-book personal-history-row';
       const date=d.downloaded_at?new Date(d.downloaded_at).toLocaleString('fr-FR',{dateStyle:'medium',timeStyle:'short'}):'';
-      row.innerHTML=`<div class="personal-book-main"><div class="personal-book-title">${escapeTextePersonnel(d.titre)}</div><div class="personal-book-meta">Téléchargé${date?' · '+escapeTextePersonnel(date):''}</div></div><div class="personal-doc-actions"><button type="button" class="personal-action" data-lire-download>Voir</button></div>`;
+      row.innerHTML=`<div class="personal-book-main"><div class="personal-book-title">${escapeTextePersonnel(d.titre||'Document')}</div><div class="personal-book-meta">Téléchargé${date?' · '+escapeTextePersonnel(date):''}</div></div><div class="personal-doc-actions"><button type="button" class="personal-action" data-lire-download>Voir</button><button type="button" class="personal-history-delete" data-delete-download aria-label="Supprimer ce document de l’historique" title="Supprimer de l’historique">×</button></div>`;
       row.querySelector('[data-lire-download]')?.addEventListener('click',()=>ouvrirLecteurPDF({id:d.id,Titre:d.titre,Auteur:d.auteur,Fichier_url:d.url,'Catégorie':d.categorie,Niveau:d.niveau,'Matière':d.matiere,Genre:d.genre}));
+      row.querySelector('[data-delete-download]')?.addEventListener('click',async()=>{
+        if(!confirm('Supprimer ce document de votre historique de téléchargements ?'))return;
+        try{await supprimerTelechargementPersonnel(d.id);}catch(e){alert('Impossible de supprimer ce document de l’historique.');}
+      });
       list.appendChild(row);
     });
   }
@@ -10780,3 +10913,20 @@ footer>.wrap:last-child{margin-top:18px!important;}
 
 
 
+
+<script id="aurore-clear-history-hook">
+(function(){
+  function bind(){
+    const b=document.getElementById('personalClearDownloads');
+    if(!b||b.dataset.bound==='1')return;
+    b.dataset.bound='1';
+    b.addEventListener('click',async()=>{
+      if(!session||!session.id)return;
+      if(!telecharges().length){alert('Votre historique est déjà vide.');return;}
+      await demanderCodePuisEffacerHistorique();
+    });
+  }
+  document.addEventListener('DOMContentLoaded',bind);
+  setInterval(bind,1200);
+})();
+</script>
