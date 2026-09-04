@@ -1466,6 +1466,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   .profile-fields-grid input:focus{border-color:var(--violet);box-shadow:0 0 0 3px rgba(124,58,237,.10);}
   .profile-required-note{margin-top:10px;font-size:.72rem;color:var(--gris);line-height:1.45;}
   .profile-save-row{display:flex;align-items:center;gap:12px;margin-top:13px;flex-wrap:wrap;}
+  #profilRoleInput{width:100%;padding:11px 12px;border:1px solid var(--bordure);border-radius:10px;background:var(--fond);color:var(--encre);font:inherit;outline:none;}
+  #profilRoleInput:focus{border-color:var(--violet);box-shadow:0 0 0 3px rgba(124,58,237,.10);}
   #profilLyceeSave{border:0;border-radius:10px;padding:10px 14px;background:var(--violet);color:#fff;font-size:.8rem;font-weight:700;cursor:pointer;}
   #profilLyceeSave:disabled{opacity:.65;cursor:wait;}
   #profilSaveMessage{font-size:.76rem;font-weight:700;}
@@ -2231,12 +2233,16 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       <div class="profile-meta-item profile-personal-edit">
         <div class="label">Informations essentielles</div>
         <div class="profile-fields-grid">
+          <label>Type de compte <span>*</span><select id="profilRoleInput"><option value="eleve">Élève</option><option value="enseignant">Enseignant</option><option value="professeur">Professeur</option><option value="parent">Parent</option></select></label>
           <label>Nom du lycée / école <span>*</span><input type="text" id="profilLyceeInput" placeholder="Nom de votre établissement" maxlength="180" autocomplete="organization"></label>
-          <label>Niveau <span>*</span><input type="text" id="profilNiveauInput" placeholder="Ex. Terminale" maxlength="80"></label>
-          <label>Classe <span>*</span><input type="text" id="profilClasseInput" placeholder="Ex. Tle C" maxlength="80"></label>
-          <label>Filière / série <small>(facultatif)</small><input type="text" id="profilFiliereInput" placeholder="Ex. Scientifique / C" maxlength="100"></label>
+          <label id="profilNiveauField">Niveau <span>*</span><input type="text" id="profilNiveauInput" placeholder="Ex. Terminale" maxlength="80"></label>
+          <label id="profilClasseField">Classe <span>*</span><input type="text" id="profilClasseInput" placeholder="Ex. Tle C" maxlength="80"></label>
+          <label id="profilFiliereField">Filière / série <small>(facultatif)</small><input type="text" id="profilFiliereInput" placeholder="Ex. Scientifique / C" maxlength="100"></label>
+          <label id="profilDisciplineField" hidden>Matière / discipline <span>*</span><input type="text" id="profilDisciplineInput" placeholder="Ex. Mathématiques" maxlength="120"></label>
+          <label id="profilFonctionField" hidden>Fonction <span>*</span><input type="text" id="profilFonctionInput" placeholder="Ex. Enseignant" maxlength="120"></label>
+          <label id="profilEnfantField" hidden>Informations sur l'enfant <span>*</span><input type="text" id="profilEnfantInput" placeholder="Nom, classe ou niveau de l'enfant" maxlength="180"></label>
         </div>
-        <div class="profile-required-note">* Ces informations sont nécessaires pour finaliser votre espace personnel.</div>
+        <div class="profile-required-note">* Les informations marquées sont nécessaires pour finaliser votre espace personnel.</div>
         <div class="profile-save-row"><button type="button" id="profilLyceeSave">Enregistrer mon profil</button><span id="profilSaveMessage" aria-live="polite"></span></div>
       </div>
       <div class="profile-meta-item">
@@ -2249,24 +2255,24 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       <div class="activity-hero">
         <div class="activity-hero-copy">
           <span class="activity-kicker">Espace personnel</span>
-          <h3>Mon activité <span id="personalWelcomeName">vous</span> 👋</h3>
+          <h3>Mon activité <span id="personalWelcomeName">vous</span></h3>
           <p>Retrouvez vos dépôts, vos livres, vos favoris et vos téléchargements dans un espace simple et rapide.</p>
         </div>
-        <button type="button" class="activity-refresh" id="personalRefresh" aria-label="Actualiser">↻ <span>Actualiser</span></button>
+        <button type="button" class="activity-refresh" id="personalRefresh" aria-label="Actualiser"><span>Actualiser</span></button>
       </div>
 
       <div class="activity-stats" role="tablist" aria-label="Mon activité">
         <button type="button" class="activity-stat is-active" data-personal-tab="documents" role="tab" aria-selected="true" aria-controls="personalPanelDocuments">
-          <span class="activity-stat-icon">📄</span><span><b id="personalDocsCount">0</b><small>Mes documents</small></span>
+          <span><b id="personalDocsCount">0</b><small>Mes documents</small></span>
         </button>
         <button type="button" class="activity-stat" data-personal-tab="books" role="tab" aria-selected="false" aria-controls="personalPanelBooks">
-          <span class="activity-stat-icon">📚</span><span><b id="personalBooksCount">0</b><small>Mes livres</small></span>
+          <span><b id="personalBooksCount">0</b><small>Mes livres</small></span>
         </button>
         <button type="button" class="activity-stat" data-personal-tab="favorites" role="tab" aria-selected="false" aria-controls="personalPanelFavorites">
-          <span class="activity-stat-icon">♡</span><span><b id="personalFavoritesCount">0</b><small>Mes favoris</small></span>
+          <span><b id="personalFavoritesCount">0</b><small>Mes favoris</small></span>
         </button>
         <button type="button" class="activity-stat" data-personal-tab="downloads" role="tab" aria-selected="false" aria-controls="personalPanelDownloads">
-          <span class="activity-stat-icon">↓</span><span><b id="personalDownloadsCount">0</b><small>À télécharger</small></span>
+          <span><b id="personalDownloadsCount">0</b><small>À télécharger</small></span>
         </button>
       </div>
 
@@ -2948,7 +2954,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   }
 
   function libelleRole(role) {
-    return role === 'admin' ? 'Administrateur' : 'Élève';
+    return ({admin:'Administrateur',eleve:'Élève',enseignant:'Enseignant',professeur:'Professeur',parent:'Parent'})[String(role||'').toLowerCase()] || 'Utilisateur';
   }
 
   function afficherUtilisateurConnecte() {
@@ -2981,6 +2987,10 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   function profilEstComplet(sess=session) {
     if (!sess) return false;
     const i = obtenirInfosProfilLocal();
+    const role=String(sess.role||'eleve').toLowerCase();
+    const enseignant=role==='enseignant'||role==='professeur';
+    if(enseignant) return Boolean(i.lycee.trim() && String(sess.discipline||sess.matiere||'').trim() && String(sess.fonction||'').trim());
+    if(role==='parent') return Boolean(i.lycee.trim() && String(sess.enfant_informations||'').trim());
     return Boolean(i.lycee.trim() && i.niveau.trim() && i.classe.trim());
   }
 
@@ -3005,9 +3015,32 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     document.getElementById('profilNiveauInput').value = infos.niveau;
     document.getElementById('profilClasseInput').value = infos.classe;
     document.getElementById('profilFiliereInput').value = infos.filiere;
+    const roleInput=document.getElementById('profilRoleInput');
+    if(roleInput) roleInput.value=['eleve','enseignant','professeur','parent'].includes(String(session.role||'').toLowerCase())?String(session.role).toLowerCase():'eleve';
+    const discipline=document.getElementById('profilDisciplineInput'); if(discipline) discipline.value=session.discipline||session.matiere||'';
+    const fonction=document.getElementById('profilFonctionInput'); if(fonction) fonction.value=session.fonction||'';
+    const enfant=document.getElementById('profilEnfantInput'); if(enfant) enfant.value=session.enfant_informations||'';
+    mettreAJourChampsProfilSelonRole();
     const msg = document.getElementById('profilSaveMessage');
     if (msg) { msg.textContent = profilEstComplet(session) ? 'Profil complet.' : 'Complétez les informations essentielles pour terminer votre espace.'; msg.className = profilEstComplet(session) ? 'ok' : ''; }
   }
+
+  function mettreAJourChampsProfilSelonRole(){
+    const role=String(document.getElementById('profilRoleInput')?.value||'eleve').toLowerCase();
+    const niveau=document.getElementById('profilNiveauField'), classe=document.getElementById('profilClasseField'), filiere=document.getElementById('profilFiliereField');
+    const discipline=document.getElementById('profilDisciplineField'), fonction=document.getElementById('profilFonctionField'), enfant=document.getElementById('profilEnfantField');
+    const enseignant=role==='enseignant'||role==='professeur';
+    if(niveau)niveau.hidden=enseignant||role==='parent';
+    if(classe)classe.hidden=enseignant||role==='parent';
+    if(filiere)filiere.hidden=enseignant;
+    if(discipline)discipline.hidden=!enseignant;
+    if(fonction)fonction.hidden=!enseignant;
+    if(enfant)enfant.hidden=role!=='parent';
+    const req=(id,on)=>{const el=document.getElementById(id);if(el)el.required=!!on;};
+    req('profilLyceeInput',true); req('profilNiveauInput',!enseignant&&!(''+role==='parent')); req('profilClasseInput',!enseignant&&!(''+role==='parent'));
+    req('profilDisciplineInput',enseignant); req('profilFonctionInput',enseignant); req('profilEnfantInput',role==='parent');
+  }
+  document.getElementById('profilRoleInput')?.addEventListener('change',mettreAJourChampsProfilSelonRole);
 
   async function enregistrerProfilPersonnel(options={}) {
     if (!session || !session.access_token) return false;
@@ -3015,10 +3048,15 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const niveau = document.getElementById('profilNiveauInput').value.trim();
     const classe = document.getElementById('profilClasseInput').value.trim();
     const filiere = document.getElementById('profilFiliereInput').value.trim();
+    const role = String(document.getElementById('profilRoleInput')?.value||'eleve').toLowerCase();
+    const discipline = document.getElementById('profilDisciplineInput')?.value.trim() || '';
+    const fonction = document.getElementById('profilFonctionInput')?.value.trim() || '';
+    const enfant_informations = document.getElementById('profilEnfantInput')?.value.trim() || '';
     const btn = document.getElementById('profilLyceeSave');
     const msg = document.getElementById('profilSaveMessage');
-    if (!lycee || !niveau || !classe) {
-      msg.textContent = 'Veuillez renseigner le lycée / école, le niveau et la classe.'; msg.className='err';
+    const enseignant=role==='enseignant'||role==='professeur';
+    if(!lycee || (enseignant ? (!discipline||!fonction) : (role==='parent' ? !enfant_informations : (!niveau||!classe)))) {
+      msg.textContent = enseignant ? 'Veuillez renseigner l’établissement, la matière / discipline et la fonction.' : (role==='parent' ? 'Veuillez renseigner l’établissement et les informations sur votre enfant.' : 'Veuillez renseigner l’établissement, le niveau et la classe.'); msg.className='err';
       return false;
     }
     const ancienTexte=btn.textContent; btn.disabled=true; btn.textContent='Enregistrement…'; msg.textContent='';
@@ -3039,7 +3077,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         const patch=await fetch(`${SUPABASE_URL}/rest/v1/Profils?id=eq.${encodeURIComponent(session.id)}`,{
           method:'PATCH',
           headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=representation'},
-          body:JSON.stringify({lycee,niveau,classe,filiere})
+          body:JSON.stringify({lycee,niveau,classe,filiere,role,discipline,fonction,enfant_informations})
         });
         if(!patch.ok){
           const pd=await patch.text().catch(()=> '');
@@ -3054,14 +3092,14 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         const authRes=await fetch(`${SUPABASE_URL}/auth/v1/user`,{
           method:'PATCH',
           headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json'},
-          body:JSON.stringify({data:{lycee,niveau,classe,filiere}})
+          body:JSON.stringify({data:{lycee,niveau,classe,filiere,role,discipline,fonction,enfant_informations}})
         });
         if(authRes.ok){ const authData=await authRes.json().catch(()=>({})); md=authData.user_metadata||{}; }
         else console.warn('[Profil] métadonnées Auth non mises à jour',authRes.status);
       } catch(e){ console.warn('[Profil] copie Auth ignorée',e); }
 
-      session.lycee=lycee; session.niveau=niveau; session.classe=classe; session.filiere=filiere;
-      session.user_metadata={...(session.user_metadata||{}),lycee,niveau,classe,filiere,...md};
+      session.lycee=lycee; session.niveau=niveau; session.classe=niveau&&classe?classe:''; session.filiere=filiere; session.role=role; session.discipline=discipline; session.fonction=fonction; session.enfant_informations=enfant_informations;
+      session.user_metadata={...(session.user_metadata||{}),lycee,niveau,classe,filiere,role,discipline,fonction,enfant_informations,...md};
       sauvegarderSession();
       msg.textContent='Votre espace personnel est maintenant configuré.'; msg.className='ok';
       btn.textContent='Profil enregistré ✓';
@@ -6463,7 +6501,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       try {
         const ids = listeProfils.map(p => p.id).filter(Boolean);
         if (ids.length) {
-          const pr = await fetch(`${SUPABASE_URL}/rest/v1/Profils?select=id,lycee,niveau,classe,filiere&id=in.(${ids.map(encodeURIComponent).join(',')})`, { headers: headersAdmin() });
+          const pr = await fetch(`${SUPABASE_URL}/rest/v1/Profils?select=id,lycee,niveau,classe,filiere,role,discipline,fonction,enfant_informations&id=in.(${ids.map(encodeURIComponent).join(',')})`, { headers: headersAdmin() });
           if (pr.ok) {
             const rows = await pr.json();
             (rows || []).forEach(r => profilsScolaires.set(String(r.id), r));
@@ -6493,6 +6531,9 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
               ${scolaire.niveau ? `<span>Niveau : ${echapperHtmlPub(scolaire.niveau)}</span>` : ''}
               ${scolaire.classe ? `<span>Classe : ${echapperHtmlPub(scolaire.classe)}</span>` : ''}
               ${scolaire.filiere ? `<span>Filière : ${echapperHtmlPub(scolaire.filiere)}</span>` : ''}
+              ${scolaire.discipline ? `<span>Discipline : ${echapperHtmlPub(scolaire.discipline)}</span>` : ''}
+              ${scolaire.fonction ? `<span>Fonction : ${echapperHtmlPub(scolaire.fonction)}</span>` : ''}
+              ${scolaire.enfant_informations ? `<span>Enfant : ${echapperHtmlPub(scolaire.enfant_informations)}</span>` : ''}
             </div>
             <div class="admin-user-meta">
               <span class="role-badge ${roleAdmin ? 'admin' : 'eleve'}">${roleAdmin ? 'Administrateur' : 'Utilisateur'}</span>
@@ -9432,7 +9473,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     if(!list||!session)return;
     const ids=[...new Set(favoris().map(v=>String(v).trim()).filter(Boolean))];
     actualiserCompteursPersonnels();
-    if(!ids.length){list.innerHTML='<div class="personal-empty">Aucun favori pour le moment. Utilisez « ♡ Favori » sur un document du site.</div>';return;}
+    if(!ids.length){list.innerHTML='<div class="personal-empty">Aucun favori pour le moment. Utilisez « Favori » sur un document du site.</div>';return;}
     list.innerHTML='<div class="personal-empty">Chargement de vos favoris…</div>';
     try{
       const cacheKey=ids.join(',');
@@ -10704,6 +10745,8 @@ footer>.wrap:last-child{margin-top:18px!important;}
         headers:{'Prefer':'return=minimal'}
       });
       safeWrite(key,[]);
+      safeWrite('aurore_derniere_notification_telechargement_'+userKey(),null);
+      safeWrite('aurore_derniere_notification_telechargement_'+userKey()+'_vue',null);
       rendreDocumentsTelecharges();
       actualiserCompteursPersonnels();
       return true;
@@ -10922,8 +10965,18 @@ footer>.wrap:last-child{margin-top:18px!important;}
     b.dataset.bound='1';
     b.addEventListener('click',async()=>{
       if(!session||!session.id)return;
-      if(!telecharges().length){alert('Votre historique est déjà vide.');return;}
-      await demanderCodePuisEffacerHistorique();
+      // Ne pas se fier uniquement au cache local : l'historique peut exister dans Supabase
+    // même si le navigateur vient d'être nettoyé ou si la synchronisation n'a pas encore eu lieu.
+    let existe=false;
+    try{
+      if(telecharges().length) existe=true;
+      else if(session?.id&&session?.access_token){
+        const raw=await apiPersonnel(TABLE_TELECHARGEMENTS_PERSONNELS,{query:`select=id&user_id=eq.${encodeURIComponent(session.id)}&limit=1`});
+        const rows=raw?JSON.parse(raw):[]; existe=Array.isArray(rows)&&rows.length>0;
+      }
+    }catch(e){console.warn('[Historique] vérification serveur:',e);}
+    if(!existe){alert('Votre historique est déjà vide.');return;}
+    await demanderCodePuisEffacerHistorique();
     });
   }
   document.addEventListener('DOMContentLoaded',bind);
