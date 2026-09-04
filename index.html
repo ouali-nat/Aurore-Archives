@@ -6,7 +6,7 @@
 <link rel="preconnect" href="https://tdeotqfsbvouresfhkab.supabase.co" crossorigin>
 <link rel="preconnect" href="https://lsnb-upload.oualikevin9.workers.dev" crossorigin>
 <link rel="preconnect" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev" crossorigin>
-<link rel="manifest" href="manifest.json?v=20260904-2">
+<link rel="manifest" href="manifest.json?v=20260904-3">
 <meta name="theme-color" content="#090812">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -9218,31 +9218,12 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       document.querySelectorAll('link[rel="icon"],link[rel="shortcut icon"],link[rel="apple-touch-icon"]').forEach(link => {
         link.href = url;
       });
-      // Le manifeste reste le point d'entrée officiel de l'installation PWA.
+      // IMPORTANT : le manifeste doit rester un vrai fichier HTTP/HTTPS.
+      // Un manifeste Blob créé par JavaScript peut être ignoré par Chrome/Android
+      // au moment de l'installation et provoquer l'icône générique ("V").
+      // Le fichier manifest.json reste donc la source officielle de l'installation.
       const manifest = document.querySelector('link[rel="manifest"]');
-      if (manifest) {
-        // Génère un manifeste dynamique afin que l'icône PWA utilise exactement
-        // la même version du logo que celle choisie dans l'administration.
-        try {
-          const version = sessionStorage.getItem(LOGO_VERSION_KEY) || localStorage.getItem(LOGO_VERSION_KEY) || '';
-          const icon = logoUrl(version || Date.now());
-          const payload = {
-            id: './', name: 'Aurore — Section Archives', short_name: 'Aurore',
-            description: 'Bibliothèque numérique d’Aurore', lang: 'fr', dir: 'ltr',
-            start_url: './', scope: './', display: 'standalone', orientation: 'portrait-primary',
-            theme_color: '#08070D', background_color: '#08070D',
-            icons: [
-              {src: icon, sizes: '192x192', purpose: 'any maskable'},
-              {src: icon, sizes: '512x512', purpose: 'any maskable'}
-            ]
-          };
-          if (window.__auroreManifestBlobUrl) URL.revokeObjectURL(window.__auroreManifestBlobUrl);
-          window.__auroreManifestBlobUrl = URL.createObjectURL(new Blob([JSON.stringify(payload)], {type:'application/manifest+json'}));
-          manifest.href = window.__auroreManifestBlobUrl;
-        } catch (_) {
-          manifest.href = `manifest.json?v=${encodeURIComponent(Date.now())}`;
-        }
-      }
+      if (manifest) manifest.href = 'manifest.json?v=20260904-3';
       document.querySelector('meta[property="og:image"]')?.setAttribute('content', url);
       document.querySelector('meta[name="twitter:image"]')?.setAttribute('content', url);
       const preload = document.querySelector('link[rel="preload"][as="image"]');
