@@ -3294,7 +3294,16 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     '<button type="button" id="btnGoogleConnexion" style="display:flex; align-items:center; gap:8px; background:#fff; border:1px solid var(--bordure); border-radius:100px; padding:8px 16px; font-size:0.82rem; font-weight:600; color:#1F1B2E;">' +
     '<svg width="16" height="16" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.6 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l6-6C34.5 5.5 29.5 3.5 24 3.5 12.7 3.5 3.5 12.7 3.5 24S12.7 44.5 24 44.5 44.5 35.3 44.5 24c0-1.2-.1-2.4-.3-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l6-6C34.5 6.5 29.5 4.5 24 4.5c-8 0-14.8 4.6-18 11.2l0.3-1z"/><path fill="#4CAF50" d="M24 44.5c5.4 0 10.3-1.9 14-5.4l-6.5-5.5c-2 1.4-4.6 2.4-7.5 2.4-5.3 0-9.7-3.4-11.3-8.1l-6.6 5.1C9.2 39.8 16 44.5 24 44.5z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.6l6.5 5.5C41.5 36 44.5 30.5 44.5 24c0-1.2-.1-2.4-.3-3.5z"/></svg>' +
     'Se connecter avec Google</button>';
-  document.getElementById('btnGoogleConnexion').addEventListener('click', demarrerConnexionGoogle);
+  document.getElementById('btnGoogleConnexion').addEventListener('click', async (e) => {
+    // Afficher immédiatement le bloc avant de quitter Aurore pour Google.
+    if (typeof window.auroreAfficherVeuillezPatienter === 'function') {
+      window.auroreAfficherVeuillezPatienter('Connexion sécurisée avec Google…');
+    }
+    const btn=e.currentTarget;
+    if(btn){ btn.disabled=true; btn.setAttribute('aria-busy','true'); btn.style.opacity='.72'; btn.style.pointerEvents='none'; }
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    demarrerConnexionGoogle();
+  });
 
   document.getElementById('btnDeconnexion').addEventListener('click', () => {
     session = null;
@@ -3326,6 +3335,9 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
     if (tokenHash && confirmationType === 'signup') {
       try {
+        if (typeof window.auroreAfficherVeuillezPatienter === 'function') {
+          window.auroreAfficherVeuillezPatienter('Validation de votre compte en cours…');
+        }
         const redirectTo = window.location.origin + window.location.pathname;
         const verifyUrl =
           `${SUPABASE_URL}/auth/v1/verify?token=${encodeURIComponent(tokenHash)}` +
@@ -3343,6 +3355,12 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
     // 2. Retour de Google/Supabase : les jetons arrivent dans le fragment de l'URL
     if (window.location.hash.includes('access_token')) {
+      // L'utilisateur revient de Google : afficher immédiatement le même écran
+      // d'attente pendant la récupération de son compte et de son profil.
+      if (typeof window.auroreAfficherVeuillezPatienter === 'function') {
+        window.auroreAfficherVeuillezPatienter('Finalisation de votre connexion…');
+        await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      }
       const params = new URLSearchParams(window.location.hash.substring(1));
       const access_token = params.get('access_token');
       const refresh_token = params.get('refresh_token');
@@ -3361,6 +3379,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       } else if (infos && infos.banni === true) {
         alert('Votre compte a été suspendu par l’administration. Contactez le service client si vous pensez qu’il s’agit d’une erreur.');
       }
+      if (typeof window.auroreCacherVeuillezPatienter === 'function') window.auroreCacherVeuillezPatienter();
       // Nettoie l'URL pour ne pas laisser le jeton visible dans la barre d'adresse
       window.history.replaceState({}, document.title, window.location.pathname);
     } else {
@@ -9948,6 +9967,15 @@ async function telechargerDocumentAvecProgression(doc) {
       }
       const order=new Map(ids.map((id,i)=>[String(id),i]));
       docs.sort((a,b)=>(order.get(String(a.id))??9999)-(order.get(String(b.id))??9999));
+      // Le compteur doit représenter les favoris réellement disponibles dans Aurore,
+      // pas d'anciens identifiants conservés en base ou dans le cache local.
+      const idsDisponibles=new Set(docs.map(doc=>String(doc.id)));
+      const favorisActuels=favoris().filter(id=>idsDisponibles.has(String(id)));
+      if(favorisActuels.length!==favoris().length){
+        safeWrite(KEY_FAV+userKey(),favorisActuels);
+        favorisDocumentsCache.delete(userKey());
+      }
+      actualiserCompteursPersonnels();
       list.innerHTML='';
       if(!docs.length){list.innerHTML='<div class="personal-empty">Vos favoris ne sont plus disponibles publiquement.</div>';return;}
       docs.forEach(doc=>{
@@ -11602,7 +11630,34 @@ async function load(){
   render();
 }
 function render(){const grid=document.getElementById('personalFolderGrid');if(!grid)return;document.getElementById('personalFolderCount').textContent=String(folders.length);grid.innerHTML='';folders.forEach(f=>{const c=document.createElement('article');c.className='personal-folder';c.draggable=true;c.dataset.folderId=f.id;const n=folderAssignments.filter(a=>a.case_id===f.id).length;c.innerHTML=`<div class="personal-folder-top"><div class="personal-folder-icon">▱</div><button type="button" class="personal-folder-menu" aria-label="Options">⋯</button></div><div class="personal-folder-name" title="${esc(f.name)}">${esc(f.name)}</div><div class="personal-folder-count">${n} document${n>1?'s':''}</div><div class="personal-folder-hint">Glisser pour déplacer</div>`;c.addEventListener('click',e=>{if(!e.target.closest('.personal-folder-menu'))openFolder(f)});c.querySelector('.personal-folder-menu').addEventListener('click',e=>{e.stopPropagation();folderMenu(f)});c.addEventListener('dragstart',()=>{draggedFolderId=f.id;c.classList.add('dragging')});c.addEventListener('dragend',()=>{draggedFolderId=null;c.classList.remove('dragging');grid.querySelectorAll('.drag-over').forEach(x=>x.classList.remove('drag-over'))});c.addEventListener('dragover',e=>{e.preventDefault();if(draggedFolderId!==f.id)c.classList.add('drag-over')});c.addEventListener('dragleave',()=>c.classList.remove('drag-over'));c.addEventListener('drop',e=>{e.preventDefault();c.classList.remove('drag-over');if(draggedFolderId&&draggedFolderId!==f.id)reorder(draggedFolderId,f.id)});grid.appendChild(c)});if(folders.length<MAX_FOLDERS){const b=document.createElement('button');b.type='button';b.className='personal-folder-create';b.innerHTML=`<span class="personal-folder-create-icon">＋</span><strong>Créer une case</strong><span>Encore ${MAX_FOLDERS-folders.length} emplacement${MAX_FOLDERS-folders.length>1?'s':''}</span>`;b.onclick=()=>dialog('create');grid.appendChild(b)}}
-async function createFolder(name,quiet=false){if(folders.length>=MAX_FOLDERS){if(!quiet)alert('Vous avez atteint la limite de 10 cases.');return}const clean=String(name||'').trim().replace(/\s+/g,' ').slice(0,60);if(!clean)return;if(folders.some(f=>f.name.toLocaleLowerCase('fr')===clean.toLocaleLowerCase('fr'))){if(!quiet)alert('Une case porte déjà ce nom.');return}try{const raw=await api(FOLDER_TABLE,{method:'POST',headers:{Prefer:'return=representation'},body:{user_id:uid(),name:clean,position:folders.length}});const r=raw?JSON.parse(raw):[];if(!r[0])throw 0;folders=normF([...folders,r[0]]);write(lk(),folders)}catch(e){if(quiet){folders=[...folders,{id:'local-'+Date.now().toString(36),name:clean,position:folders.length}];write(lk(),folders)}else{alert('Impossible de créer la case. Exécutez d’abord le SQL fourni.');return}}render()}
+async function createFolder(name,quiet=false){
+  if(folders.length>=MAX_FOLDERS){if(!quiet)alert('Vous avez atteint la limite de 10 cases.');return}
+  const clean=String(name||'').trim().replace(/\s+/g,' ').slice(0,60);
+  if(!clean)return;
+  if(folders.some(f=>f.name.toLocaleLowerCase('fr')===clean.toLocaleLowerCase('fr'))){if(!quiet)alert('Une case porte déjà ce nom.');return}
+  if(!quiet && typeof window.auroreAfficherVeuillezPatienter==='function'){
+    window.auroreAfficherVeuillezPatienter('Création de votre case en cours…');
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  }
+  try{
+    const raw=await api(FOLDER_TABLE,{method:'POST',headers:{Prefer:'return=representation'},body:{user_id:uid(),name:clean,position:folders.length}});
+    const r=raw?JSON.parse(raw):[];
+    if(!r[0])throw 0;
+    folders=normF([...folders,r[0]]);
+    write(lk(),folders);
+  }catch(e){
+    if(quiet){
+      folders=[...folders,{id:'local-'+Date.now().toString(36),name:clean,position:folders.length}];
+      write(lk(),folders);
+    }else{
+      alert('Impossible de créer la case. Exécutez d’abord le SQL fourni.');
+      return;
+    }
+  }finally{
+    if(!quiet && typeof window.auroreCacherVeuillezPatienter==='function') window.auroreCacherVeuillezPatienter();
+  }
+  render();
+}
 async function renameFolder(f,name){const clean=String(name||'').trim().replace(/\s+/g,' ').slice(0,60);if(!clean)return;if(folders.some(x=>x.id!==f.id&&x.name.toLocaleLowerCase('fr')===clean.toLocaleLowerCase('fr'))){alert('Une autre case porte déjà ce nom.');return}try{await api(FOLDER_TABLE,{method:'PATCH',query:`id=eq.${encodeURIComponent(f.id)}&user_id=eq.${encodeURIComponent(uid())}`,body:{name:clean}})}catch(e){if(!String(f.id).startsWith('local-')){alert('Impossible de renommer cette case pour le moment.');return}}f.name=clean;write(lk(),folders);render()}
 async function deleteFolder(f){if(!confirm(`Supprimer la case « ${f.name} » ? Les documents ne seront pas supprimés.`))return;try{await api(FOLDER_TABLE,{method:'DELETE',query:`id=eq.${encodeURIComponent(f.id)}&user_id=eq.${encodeURIComponent(uid())}`})}catch(e){if(!String(f.id).startsWith('local-')){alert('Impossible de supprimer cette case pour le moment.');return}}folders=folders.filter(x=>x.id!==f.id);folderAssignments=folderAssignments.filter(x=>x.case_id!==f.id);write(lk(),folders);write(ak(),folderAssignments);render();closeFolder()}
 async function reorder(a,b){const i=folders.findIndex(x=>x.id===a),j=folders.findIndex(x=>x.id===b);if(i<0||j<0)return;const arr=[...folders],m=arr.splice(i,1)[0];arr.splice(j,0,m);arr.forEach((x,k)=>x.position=k);folders=arr;write(lk(),folders);render();try{await Promise.all(folders.filter(x=>!String(x.id).startsWith('local-')).map(x=>api(FOLDER_TABLE,{method:'PATCH',query:`id=eq.${encodeURIComponent(x.id)}&user_id=eq.${encodeURIComponent(uid())}`,body:{position:x.position}})))}catch(e){console.warn('[Cases] ordre:',e)}}
