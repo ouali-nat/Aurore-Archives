@@ -1491,6 +1491,33 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   }
   @media(prefers-reduced-motion:reduce){.aurore-floating-home{transition:none;}}
 </style>
+
+<style id="aurore-personal-discovery-role-fix">
+/* Invitation élégante vers l'espace personnel — visible surtout aux nouveaux comptes */
+.aurore-personal-discovery{position:fixed;right:22px;top:92px;z-index:10030;width:min(350px,calc(100vw - 36px));padding:16px 17px 16px 18px;border:1px solid rgba(139,92,246,.24);border-radius:22px;background:linear-gradient(145deg,rgba(255,255,255,.96),rgba(248,246,255,.94));color:#211b31;box-shadow:0 20px 55px rgba(45,30,75,.18),0 2px 12px rgba(45,30,75,.08);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);display:none;animation:auroreDiscoveryIn .38s cubic-bezier(.2,.8,.2,1)}
+.aurore-personal-discovery.show{display:block}
+[data-theme="dark"] .aurore-personal-discovery{background:linear-gradient(145deg,rgba(29,25,40,.97),rgba(20,18,30,.96));color:#f8f7ff;border-color:rgba(196,181,253,.22);box-shadow:0 22px 60px rgba(0,0,0,.42)}
+.aurore-personal-discovery:before{content:"";position:absolute;right:48px;top:-9px;width:17px;height:17px;transform:rotate(45deg);background:#faf8ff;border-left:1px solid rgba(139,92,246,.2);border-top:1px solid rgba(139,92,246,.2)}
+[data-theme="dark"] .aurore-personal-discovery:before{background:#1d1928;border-left-color:rgba(196,181,253,.2);border-top-color:rgba(196,181,253,.2)}
+.aurore-personal-discovery-head{display:flex;gap:12px;align-items:flex-start}
+.aurore-personal-discovery-icon{width:42px;height:42px;flex:0 0 42px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(145deg,rgba(139,92,246,.17),rgba(167,139,250,.08));border:1px solid rgba(139,92,246,.2);color:#7c3aed}
+.aurore-personal-discovery-icon svg{width:21px;height:21px}
+.aurore-personal-discovery-copy{min-width:0;flex:1}.aurore-personal-discovery-kicker{font-size:.66rem;text-transform:uppercase;letter-spacing:.12em;font-weight:800;color:#7c3aed}.aurore-personal-discovery h4{margin:3px 0 4px;font-size:.98rem;letter-spacing:-.02em}.aurore-personal-discovery p{margin:0;color:#6f687e;font-size:.75rem;line-height:1.5}.aurore-personal-discovery-actions{display:flex;gap:8px;margin-top:13px}.aurore-personal-discovery-go{border:0;border-radius:12px;padding:9px 13px;background:#7c3aed;color:#fff;font:inherit;font-size:.72rem;font-weight:800;cursor:pointer;box-shadow:0 8px 18px rgba(124,58,237,.22)}.aurore-personal-discovery-close{border:1px solid var(--bordure,#ddd5e8);border-radius:12px;padding:8px 11px;background:transparent;color:var(--encre,#211b31);font:inherit;font-size:.7rem;font-weight:700;cursor:pointer}.aurore-personal-discovery-go:hover{transform:translateY(-1px)}
+[data-theme="dark"] .aurore-personal-discovery p{color:#aaa2b8}[data-theme="dark"] .aurore-personal-discovery-close{color:#f8f7ff}
+@keyframes auroreDiscoveryIn{from{opacity:0;transform:translateY(-8px) scale(.97)}to{opacity:1;transform:none}}
+@media(max-width:600px){.aurore-personal-discovery{top:auto;right:12px;left:12px;bottom:18px;width:auto}.aurore-personal-discovery:before{display:none}.aurore-personal-discovery-actions{margin-top:11px}.aurore-personal-discovery-go{flex:1}}
+
+/* Les champs du profil deviennent réellement adaptés au rôle choisi. */
+#profilRoleInput{font-weight:750}
+.profile-role-context{grid-column:1/-1;display:flex;align-items:center;gap:9px;margin:-3px 0 2px;padding:10px 12px;border-radius:13px;background:rgba(139,92,246,.065);border:1px solid rgba(139,92,246,.14);font-size:.72rem;color:var(--gris);line-height:1.45}
+.profile-role-context strong{color:var(--encre)}
+[data-theme="dark"] .profile-role-context{background:rgba(139,92,246,.10)}
+[data-theme="dark"] .profile-role-context strong{color:var(--encre)}
+.aurore-profile-success{margin-top:12px;padding:15px 16px;border-radius:15px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);display:flex;gap:11px;align-items:flex-start;color:var(--encre)}
+.aurore-profile-success-icon{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:rgba(34,197,94,.14);color:#16a34a;font-weight:900;flex:0 0 30px}
+.aurore-profile-success strong{display:block;font-size:.82rem;margin-bottom:3px}.aurore-profile-success span{font-size:.72rem;color:var(--gris);line-height:1.45}
+</style>
+
 </head>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <body class="site-locked">
@@ -2439,6 +2466,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         <div class="label">Informations essentielles</div>
         <div class="profile-fields-grid">
           <label>Type de compte <span>*</span><select id="profilRoleInput"><option value="eleve">Élève</option><option value="enseignant">Enseignant</option><option value="professeur">Professeur</option><option value="parent">Parent</option></select></label>
+          <div class="profile-role-context" id="profilRoleContext" aria-live="polite"></div>
           <label>Nom du lycée / école <span>*</span><input type="text" id="profilLyceeInput" placeholder="Nom de votre établissement" maxlength="180" autocomplete="organization"></label>
           <label id="profilNiveauField">Niveau <span>*</span><input type="text" id="profilNiveauInput" placeholder="Ex. Terminale" maxlength="80"></label>
           <label id="profilClasseField">Classe <span>*</span><input type="text" id="profilClasseInput" placeholder="Ex. Tle C" maxlength="80"></label>
@@ -3187,6 +3215,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     }
     const btnAdmin = document.getElementById('btnAdmin');
     btnAdmin.style.display = (session && session.role === 'admin') ? 'inline' : 'none';
+    if(session) setTimeout(auroreAfficherInvitationEspacePersonnel, 450);
   }
 
   function obtenirInfosProfilLocal() {
@@ -3244,16 +3273,31 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const role=String(document.getElementById('profilRoleInput')?.value||'eleve').toLowerCase();
     const niveau=document.getElementById('profilNiveauField'), classe=document.getElementById('profilClasseField'), filiere=document.getElementById('profilFiliereField');
     const discipline=document.getElementById('profilDisciplineField'), fonction=document.getElementById('profilFonctionField'), enfant=document.getElementById('profilEnfantField');
+    const context=document.getElementById('profilRoleContext');
     const enseignant=role==='enseignant'||role==='professeur';
     if(niveau)niveau.hidden=enseignant||role==='parent';
     if(classe)classe.hidden=enseignant||role==='parent';
-    if(filiere)filiere.hidden=enseignant;
+    if(filiere)filiere.hidden=enseignant||role==='parent';
     if(discipline)discipline.hidden=!enseignant;
     if(fonction)fonction.hidden=!enseignant;
     if(enfant)enfant.hidden=role!=='parent';
     const req=(id,on)=>{const el=document.getElementById(id);if(el)el.required=!!on;};
-    req('profilLyceeInput',true); req('profilNiveauInput',!enseignant&&!(''+role==='parent')); req('profilClasseInput',!enseignant&&!(''+role==='parent'));
-    req('profilDisciplineInput',enseignant); req('profilFonctionInput',enseignant); req('profilEnfantInput',role==='parent');
+    req('profilLyceeInput',true);
+    req('profilNiveauInput',!enseignant&&role!=='parent');
+    req('profilClasseInput',!enseignant&&role!=='parent');
+    req('profilFiliereInput',false);
+    req('profilDisciplineInput',enseignant);
+    req('profilFonctionInput',enseignant);
+    req('profilEnfantInput',role==='parent');
+    if(context){
+      const textes={
+        eleve:'Élève : renseignez votre établissement, votre niveau et votre classe. La filière/série reste facultative.',
+        enseignant:'Enseignant : renseignez votre établissement, la matière ou discipline enseignée et votre fonction.',
+        professeur:'Professeur : renseignez votre établissement, la matière ou discipline enseignée et votre fonction.',
+        parent:'Parent : renseignez votre établissement puis les informations utiles concernant votre enfant.'
+      };
+      context.innerHTML='<strong>Informations adaptées à votre profil</strong><span>'+echapperHtmlPub(textes[role]||textes.eleve)+'</span>';
+    }
   }
   document.getElementById('profilRoleInput')?.addEventListener('change',mettreAJourChampsProfilSelonRole);
 
@@ -3282,7 +3326,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       const rpc=await fetch(`${SUPABASE_URL}/rest/v1/rpc/enregistrer_profil_personnel`,{
         method:'POST',
         headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json'},
-        body:JSON.stringify({p_lycee:lycee,p_niveau:niveau,p_classe:classe,p_filiere:filiere})
+        body:JSON.stringify({p_lycee:lycee,p_niveau:niveau,p_classe:classe,p_filiere:filiere,p_role:role,p_discipline:discipline,p_fonction:fonction,p_enfant_informations:enfant_informations})
       });
       if(!rpc.ok){
         const detail=await rpc.text().catch(()=> '');
@@ -3317,6 +3361,9 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       session.user_metadata={...(session.user_metadata||{}),lycee,niveau,classe,filiere,role,discipline,fonction,enfant_informations,...md};
       sauvegarderSession();
       msg.textContent='Votre espace personnel est maintenant configuré.'; msg.className='ok';
+       let success=document.getElementById('auroreProfileSuccess');
+       if(!success){success=document.createElement('div');success.id='auroreProfileSuccess';success.className='aurore-profile-success';success.innerHTML='<div class="aurore-profile-success-icon">✓</div><div><strong>Enregistrement confirmé</strong><span>Vos informations ont été enregistrées et seront reprises dans votre espace personnel.</span></div>';msg.parentElement?.appendChild(success);}
+       else success.style.display='flex';
       btn.textContent='Profil enregistré ✓';
       setTimeout(()=>{btn.textContent=ancienTexte;},1800);
       if(options.forceComplete) afficherUtilisateurConnecte();
@@ -3330,6 +3377,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   document.getElementById('profilLyceeSave').addEventListener('click',()=>enregistrerProfilPersonnel());
 
   document.getElementById('btnOuvrirProfil').addEventListener('click', () => {
+    if (document.getElementById('screen-profil')?.classList.contains('active')) return;
     if (typeof window.ouvrirEspaceAvecCode === 'function') { window.ouvrirEspaceAvecCode(); return; }
     document.getElementById('breadcrumb').innerHTML = '';
     remplirProfil();
@@ -3361,6 +3409,29 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     session = null;
     sauvegarderSession();
     afficherUtilisateurConnecte();
+  });
+
+
+  function auroreAfficherInvitationEspacePersonnel(){
+    const box=document.getElementById('aurorePersonalDiscovery');
+    if(!box||!session||session.role==='admin')return;
+    if(document.getElementById('screen-profil')?.classList.contains('active')){box.classList.remove('show');return;}
+    const key='aurore_personal_discovery_seen_'+String(session.id||'');
+    const seen=localStorage.getItem(key)==='1';
+    if(seen)return;
+    box.classList.add('show');
+  }
+  function auroreMasquerInvitationEspacePersonnel(save=true){
+    const box=document.getElementById('aurorePersonalDiscovery'); if(box)box.classList.remove('show');
+    if(save&&session?.id){try{localStorage.setItem('aurore_personal_discovery_seen_'+String(session.id),'1');}catch(e){}}
+  }
+  document.getElementById('aurorePersonalDiscoveryGo')?.addEventListener('click',()=>{
+    auroreMasquerInvitationEspacePersonnel(false);
+    ouvrirEspaceAvecCode?.();
+  });
+  document.getElementById('aurorePersonalDiscoveryClose')?.addEventListener('click',()=>auroreMasquerInvitationEspacePersonnel(true));
+  document.addEventListener('click',e=>{
+    if(e.target.closest?.('#btnOuvrirProfil')) auroreMasquerInvitationEspacePersonnel(false);
   });
 
   function ouvrirEspacePersonnelObligatoire() {
@@ -8951,7 +9022,22 @@ async function telechargerDocumentAvecProgression(doc) {
         blob=new Blob(morceaux,{type:'application/octet-stream'});
       }else{afficherCarteTelechargement(doc,'progress',null,0,null,'Téléchargement du fichier…');blob=await res.blob();}
       if(signal?.aborted)throw new DOMException('Téléchargement annulé','AbortError');
-      const objectUrl=URL.createObjectURL(blob);const a=document.createElement('a');a.href=objectUrl;a.target='_self';a.rel='noopener noreferrer';a.download=nomTelechargement;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(objectUrl),60000);
+      // Sécurité navigation : on transforme systématiquement le résultat en
+      // flux binaire de téléchargement. Ainsi le navigateur reçoit une URL
+      // Blob dédiée au téléchargement et non l'URL PDF/R2 d'origine, ce qui
+      // évite de basculer automatiquement vers un lecteur externe.
+      const fichierTelecharge=new Blob([blob],{type:'application/octet-stream'});
+      const objectUrl=URL.createObjectURL(fichierTelecharge);
+      const a=document.createElement('a');
+      a.href=objectUrl;
+      a.target='_self';
+      a.rel='noopener noreferrer';
+      a.download=nomTelechargement;
+      a.style.display='none';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(()=>URL.revokeObjectURL(objectUrl),60000);
       const enregistre=await enregistrerTelechargementPersonnel(doc);if(!enregistre)throw new Error('Le téléchargement a réussi, mais son enregistrement personnel a échoué.');
       afficherCarteTelechargement(doc,'succes',100,total,total,'Votre document a été enregistré avec succès dans les téléchargements de votre téléphone. Vous pouvez continuer à utiliser Aurore.');
     }catch(e){
@@ -10077,7 +10163,7 @@ async function telechargerDocumentAvecProgression(doc) {
 
   initialiserEspacePersonnel();
   const _ouvrirProfilOriginal=window.ouvrirEspacePersonnelObligatoire;
-  document.getElementById('btnOuvrirProfil')?.addEventListener('click',()=>chargerDonneesEspacePersonnel());
+  document.getElementById('btnOuvrirProfil')?.addEventListener('click',()=>{ if(document.getElementById('screen-profil')?.classList.contains('active')) return; chargerDonneesEspacePersonnel(); });
   // Chargement discret lorsque le profil est ouvert par le flux de connexion.
   const _afficherEcranOriginal=window.afficherEcran;
   if(typeof _afficherEcranOriginal==='function'){}
@@ -11404,7 +11490,8 @@ footer>.wrap:last-child{margin-top:18px!important;}
     if(!session)return;if(typeof window.auroreUnlockAccess==='function')window.auroreUnlockAccess();document.getElementById('breadcrumb').innerHTML='';remplirProfil();
     const screen=document.getElementById('screen-profil');
     if(screen && options.forceComplete && !screen.querySelector('.profile-completion-banner')){const banner=document.createElement('div');banner.className='profile-completion-banner';banner.textContent='Bienvenue dans votre espace personnel. Avant de commencer, renseignez au minimum votre établissement, votre niveau et votre classe. Ces informations permettent à Aurore de personnaliser et organiser votre expérience.';screen.insertBefore(banner,screen.querySelector('.profile-card'));}
-    afficherEcran('screen-profil');setTimeout(()=>chargerDonneesEspacePersonnel?.(),0);
+    auroreMasquerInvitationEspacePersonnel(false);
+     afficherEcran('screen-profil');setTimeout(()=>chargerDonneesEspacePersonnel?.(),0);
   }
   function ouvrirEspaceAvecCode(options={}){
     if(!session)return;
