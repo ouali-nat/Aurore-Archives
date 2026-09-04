@@ -10301,23 +10301,46 @@ footer>.wrap:last-child{margin-top:18px!important;}
           query:`select=document_id,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc`
         });
         const rows=raw?JSON.parse(raw):[];
-        // CORRECTIF : la table "documents_plus_tard" ne stocke que
-        // document_id/created_at (aucune colonne titre/URL) — remplacer
-        // purement et simplement le cache local par cette lecture minimale
-        // effaçait le titre, l'auteur et surtout Fichier_url déjà connus
-        // localement (enregistrés au moment du clic sur « ＋ Plus tard »),
-        // ce qui vidait l'affichage et cassait le bouton « Voir » (plus
-        // d'URL à ouvrir) dès que l'espace personnel se rechargeait. On
-        // fusionne donc avec les entrées locales existantes au lieu de les
-        // écraser : Supabase reste la source de vérité pour la liste des id
-        // réellement enregistrés, le cache local conserve leurs détails.
         const precedents=new Map(plusTard().map(x=>[String(x.id),x]));
-        safeWrite(KEY_LATER+userKey(),(Array.isArray(rows)?rows:[])
-          .map(x=>{
-            if(x.document_id==null)return null;
-            const ancien=precedents.get(String(x.document_id))||{};
-            return {...ancien,id:x.document_id,saved_at:x.created_at};
-          }).filter(Boolean));
+        const ids=(Array.isArray(rows)?rows:[])
+          .map(x=>String(x?.document_id??'').trim()).filter(Boolean);
+
+        // La table « documents_plus_tard » ne contient volontairement que
+        // l'association compte/document. On recharge donc les vraies
+        // informations depuis Document afin que le titre, l'auteur, l'URL,
+        // le niveau et les boutons « Voir » / « Télécharger maintenant »
+        // restent fonctionnels après un rechargement du site ou sur un
+        // nouvel appareil.
+        let details=new Map();
+        if(ids.length){
+          const docRaw=await apiPersonnel('Document',{
+            query:`select=id,Titre,Auteur,Fichier_url,"Catégorie",Niveau,"Matière",Genre,Telechargement_autorise&Publie=eq.true&id=in.(${ids.join(',')})`
+          });
+          const docRows=docRaw?JSON.parse(docRaw):[];
+          details=new Map((Array.isArray(docRows)?docRows:[]).map(d=>[String(d.id),d]));
+        }
+
+        const merged=(Array.isArray(rows)?rows:[]).map(x=>{
+          if(x.document_id==null)return null;
+          const id=String(x.document_id);
+          const ancien=precedents.get(id)||{};
+          const doc=details.get(id)||{};
+          return {
+            ...ancien,
+            id:x.document_id,
+            titre:doc.Titre||ancien.titre||'Document',
+            auteur:doc.Auteur??ancien.auteur??'',
+            url:doc.Fichier_url||ancien.url||'',
+            categorie:doc['Catégorie']??ancien.categorie??'',
+            niveau:doc.Niveau??ancien.niveau??'',
+            matiere:doc['Matière']??ancien.matiere??'',
+            genre:doc.Genre??ancien.genre??'',
+            telechargement_autorise:doc.Telechargement_autorise!==false,
+            saved_at:x.created_at
+          };
+        }).filter(Boolean);
+
+        safeWrite(KEY_LATER+userKey(),merged);
       }catch(e){
         console.warn('[Espace personnel] Plus tard Supabase:',e);
         if(localStorage.getItem(KEY_LATER+userKey())===null)safeWrite(KEY_LATER+userKey(),[]);
@@ -10334,19 +10357,35 @@ footer>.wrap:last-child{margin-top:18px!important;}
           query:`select=id,document_id,titre_document,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc&limit=100`
         });
         const rows=raw?JSON.parse(raw):[];
-        // CORRECTIF (même cause que « Plus tard » ci-dessus) : la table
-        // "telechargements_documents" ne stocke que id/document_id/
-        // titre_document/created_at — aucune colonne Fichier_url. Écraser le
-        // cache local avec cette seule lecture effaçait l'URL déjà connue
-        // (enregistrée au moment du téléchargement réel), cassant le bouton
-        // « Voir » de l'historique. Fusion avec les entrées locales au lieu
-        // d'un écrasement complet.
         const precedents=new Map(telecharges().map(x=>[String(x.id),x]));
+        const ids=(Array.isArray(rows)?rows:[])
+          .map(x=>String(x?.document_id??'').trim()).filter(Boolean);
+        let details=new Map();
+        if(ids.length){
+          const docRaw=await apiPersonnel('Document',{
+            query:`select=id,Titre,Auteur,Fichier_url,"Catégorie",Niveau,"Matière",Genre,Telechargement_autorise&Publie=eq.true&id=in.(${ids.join(',')})`
+          });
+          const docRows=docRaw?JSON.parse(docRaw):[];
+          details=new Map((Array.isArray(docRows)?docRows:[]).map(d=>[String(d.id),d]));
+        }
         safeWrite(KEY_DOWNLOADS+userKey(),(Array.isArray(rows)?rows:[])
           .map(x=>{
             if(x.document_id==null)return null;
             const ancien=precedents.get(String(x.document_id))||{};
-            return {...ancien,id:x.document_id,titre:x.titre_document||ancien.titre||'Document',downloaded_at:x.created_at};
+            const doc=details.get(String(x.document_id))||{};
+            return {
+              ...ancien,
+              id:x.document_id,
+              titre:doc.Titre||x.titre_document||ancien.titre||'Document',
+              auteur:doc.Auteur??ancien.auteur??'',
+              url:doc.Fichier_url||ancien.url||'',
+              categorie:doc['Catégorie']??ancien.categorie??'',
+              niveau:doc.Niveau??ancien.niveau??'',
+              matiere:doc['Matière']??ancien.matiere??'',
+              genre:doc.Genre??ancien.genre??'',
+              telechargement_autorise:doc.Telechargement_autorise!==false,
+              downloaded_at:x.created_at
+            };
           }).filter(Boolean));
       }catch(e){
         console.warn('[Espace personnel] téléchargements Supabase:',e);
