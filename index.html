@@ -5195,12 +5195,13 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         </div>
         <div class="doc-actions">
           <button type="button" class="dl" style="cursor:pointer;" data-lire="1">Lire</button>
-          ${telechargementOk?`<a class="dl" href="${doc.Fichier_url}" target="_blank" rel="noopener">Télécharger</a>`:''}
+          ${telechargementOk?`<button type="button" class="dl" style="cursor:pointer;" data-telecharger-maintenant="1">Télécharger maintenant</button>`:''}
           <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-favori="1" aria-pressed="false">♡ Favori</button>
           <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-plus-tard="1">＋ Plus tard</button>
           <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-signaler="1">Signaler</button>
         </div>`;
       row.querySelector('[data-lire]').addEventListener('click',()=>ouvrirLecteurPDF(doc));
+      row.querySelector('[data-telecharger-maintenant]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(doc));
       row.querySelector('[data-signaler]').addEventListener('click',()=>ouvrirSignalement(doc));
       row.querySelector('[data-favori]')?.addEventListener('click',()=>basculerFavoriDocument(doc,row.querySelector('[data-favori]')));
       row.querySelector('[data-plus-tard]')?.addEventListener('click',()=>ajouterDocumentPlusTard(doc,row.querySelector('[data-plus-tard]')));
@@ -9315,7 +9316,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   function actualiserCompteursPersonnels(){
     const favCount=favoris().length, laterCount=plusTard().length, downCount=telecharges().length;
     const docsCount=MES_DOCUMENTS_PERSONNELS.length, booksCount=MES_LIVRES_PERSONNELS.length;
-    [['personalDocsCount',docsCount],['personalDocsBadge',docsCount],['personalBooksCount',booksCount],['personalBooksBadge',booksCount],['personalFavoritesCount',favCount],['personalFavoritesBadge',favCount],['personalDownloadsCount',downCount],['personalDownloadsBadge',downCount],['personalLaterCount',laterCount],['personalDownloadsHistoryCount',downCount]].forEach(([id,value])=>{const el=document.getElementById(id);if(el)el.textContent=String(value);});
+    [['personalDocsCount',docsCount],['personalDocsBadge',docsCount],['personalBooksCount',booksCount],['personalBooksBadge',booksCount],['personalFavoritesCount',favCount],['personalFavoritesBadge',favCount],['personalDownloadsCount',laterCount],['personalDownloadsBadge',laterCount],['personalLaterCount',laterCount],['personalDownloadsHistoryCount',downCount]].forEach(([id,value])=>{const el=document.getElementById(id);if(el)el.textContent=String(value);});
   }
 
   async function rendreFavorisPersonnels(){
@@ -9353,8 +9354,9 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       if(!docs.length){list.innerHTML='<div class="personal-empty">Vos favoris ne sont plus disponibles publiquement.</div>';return;}
       docs.forEach(doc=>{
         const row=document.createElement('article');row.className='personal-doc';
-        row.innerHTML=`<div class="personal-doc-main"><div class="personal-doc-title">${escapeTextePersonnel(doc.Titre||'Document')}</div><div class="personal-doc-meta">${escapeTextePersonnel([doc.Niveau,doc['Matière']||doc.Genre].filter(Boolean).join(' · ')||'Document')}</div></div><div class="personal-doc-actions"><button type="button" class="personal-action" data-read>Voir</button><button type="button" class="personal-action is-active" data-remove>♥ Favori</button></div>`;
+        row.innerHTML=`<div class="personal-doc-main"><div class="personal-doc-title">${escapeTextePersonnel(doc.Titre||'Document')}</div><div class="personal-doc-meta">${escapeTextePersonnel([doc.Niveau,doc['Matière']||doc.Genre].filter(Boolean).join(' · ')||'Document')}</div></div><div class="personal-doc-actions"><button type="button" class="personal-action" data-read>Voir</button><button type="button" class="personal-action" data-telecharger-favori>Télécharger maintenant</button><button type="button" class="personal-action is-active" data-remove>♥ Favori</button></div>`;
         row.querySelector('[data-read]')?.addEventListener('click',()=>ouvrirLecteurPDF(doc));
+        row.querySelector('[data-telecharger-favori]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(doc));
         row.querySelector('[data-remove]')?.addEventListener('click',()=>{basculerFavoriDocument(doc,row.querySelector('[data-remove]'));actualiserCompteursPersonnels();setTimeout(rendreFavorisPersonnels,0);});
         list.appendChild(row);
       });
@@ -10299,8 +10301,23 @@ footer>.wrap:last-child{margin-top:18px!important;}
           query:`select=document_id,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc`
         });
         const rows=raw?JSON.parse(raw):[];
+        // CORRECTIF : la table "documents_plus_tard" ne stocke que
+        // document_id/created_at (aucune colonne titre/URL) — remplacer
+        // purement et simplement le cache local par cette lecture minimale
+        // effaçait le titre, l'auteur et surtout Fichier_url déjà connus
+        // localement (enregistrés au moment du clic sur « ＋ Plus tard »),
+        // ce qui vidait l'affichage et cassait le bouton « Voir » (plus
+        // d'URL à ouvrir) dès que l'espace personnel se rechargeait. On
+        // fusionne donc avec les entrées locales existantes au lieu de les
+        // écraser : Supabase reste la source de vérité pour la liste des id
+        // réellement enregistrés, le cache local conserve leurs détails.
+        const precedents=new Map(plusTard().map(x=>[String(x.id),x]));
         safeWrite(KEY_LATER+userKey(),(Array.isArray(rows)?rows:[])
-          .map(x=>({id:x.document_id,saved_at:x.created_at})).filter(x=>x.id!=null));
+          .map(x=>{
+            if(x.document_id==null)return null;
+            const ancien=precedents.get(String(x.document_id))||{};
+            return {...ancien,id:x.document_id,saved_at:x.created_at};
+          }).filter(Boolean));
       }catch(e){
         console.warn('[Espace personnel] Plus tard Supabase:',e);
         if(localStorage.getItem(KEY_LATER+userKey())===null)safeWrite(KEY_LATER+userKey(),[]);
@@ -10317,12 +10334,20 @@ footer>.wrap:last-child{margin-top:18px!important;}
           query:`select=id,document_id,titre_document,created_at&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc&limit=100`
         });
         const rows=raw?JSON.parse(raw):[];
+        // CORRECTIF (même cause que « Plus tard » ci-dessus) : la table
+        // "telechargements_documents" ne stocke que id/document_id/
+        // titre_document/created_at — aucune colonne Fichier_url. Écraser le
+        // cache local avec cette seule lecture effaçait l'URL déjà connue
+        // (enregistrée au moment du téléchargement réel), cassant le bouton
+        // « Voir » de l'historique. Fusion avec les entrées locales au lieu
+        // d'un écrasement complet.
+        const precedents=new Map(telecharges().map(x=>[String(x.id),x]));
         safeWrite(KEY_DOWNLOADS+userKey(),(Array.isArray(rows)?rows:[])
-          .map(x=>({
-            id:x.document_id,
-            titre:x.titre_document||'Document',
-            downloaded_at:x.created_at
-          })).filter(x=>x.id!=null));
+          .map(x=>{
+            if(x.document_id==null)return null;
+            const ancien=precedents.get(String(x.document_id))||{};
+            return {...ancien,id:x.document_id,titre:x.titre_document||ancien.titre||'Document',downloaded_at:x.created_at};
+          }).filter(Boolean));
       }catch(e){
         console.warn('[Espace personnel] téléchargements Supabase:',e);
         erreurLecture=e;
@@ -10331,6 +10356,7 @@ footer>.wrap:last-child{margin-top:18px!important;}
         rendreDocumentsTelecharges(erreurLecture);
         actualiserCompteursPersonnels();
       }
+
     };
 
     // Lancement simultané : les trois ressources ne se bloquent plus entre elles.
@@ -10544,8 +10570,9 @@ footer>.wrap:last-child{margin-top:18px!important;}
     if(!arr.length){list.innerHTML='<div class="personal-empty">Aucun document enregistré pour plus tard. Utilisez « ＋ Plus tard » sur un document du site.</div>';return;}
     arr.forEach(d=>{
       const row=document.createElement('article');row.className='personal-book';
-      row.innerHTML=`<div class="personal-book-main"><div class="personal-book-title">${escapeTextePersonnel(d.titre)}</div><div class="personal-book-meta">Document enregistré pour plus tard${d.niveau?' · '+escapeTextePersonnel(d.niveau):''}</div></div><div class="personal-doc-actions"><button type="button" class="personal-action" data-lire-tard>Voir</button></div>`;
+      row.innerHTML=`<div class="personal-book-main"><div class="personal-book-title">${escapeTextePersonnel(d.titre)}</div><div class="personal-book-meta">Document enregistré pour plus tard${d.niveau?' · '+escapeTextePersonnel(d.niveau):''}</div></div><div class="personal-doc-actions"><button type="button" class="personal-action" data-lire-tard>Voir</button><button type="button" class="personal-action" data-telecharger-tard>Télécharger maintenant</button></div>`;
       row.querySelector('[data-lire-tard]')?.addEventListener('click',()=>ouvrirLecteurPDF({id:d.id,Titre:d.titre,Auteur:d.auteur,Fichier_url:d.url,'Catégorie':d.categorie,Niveau:d.niveau,'Matière':d.matiere,Genre:d.genre}));
+      row.querySelector('[data-telecharger-tard]')?.addEventListener('click',()=>telechargerDocumentAvecProgression({id:d.id,Titre:d.titre,Auteur:d.auteur,Fichier_url:d.url,'Catégorie':d.categorie,Niveau:d.niveau,'Matière':d.matiere,Genre:d.genre}));
       list.appendChild(row);
     });
   }
