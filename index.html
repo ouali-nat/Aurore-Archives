@@ -9198,20 +9198,29 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     }
 
     function chargerLogoSite() {
-      // Cache-bust pour être certain de voir le dernier logo envoyé, y compris
-      // juste après une mise à jour depuis l'admin.
-      const url = `${R2_PUBLIC_URL}/${LOGO_CLE}`;
+      // Le fichier R2 garde volontairement une clé fixe. On ajoute une
+      // version unique à chaque lecture pour empêcher le navigateur/CDN
+      // de conserver l'ancien logo après une mise à jour.
+      const version = Date.now().toString();
+      const url = `${R2_PUBLIC_URL}/${LOGO_CLE}?v=${version}`;
       // Le logo n'a volontairement aucun fallback texte : l'ancienne initiale A ne doit jamais réapparaître.
       const cibles = [document.getElementById('brandLogo'), document.getElementById('adminLogoPreview'), document.getElementById('accessBrandLogo')];
-      let cacheLogo = '';
-      try { cacheLogo = sessionStorage.getItem('aurore_logo_url') || ''; } catch(e) {}
-      if (cacheLogo) cibles.forEach(c => appliquerLogoDansConteneur(c, cacheLogo));
-      appliquerLogoDansConteneur(document.getElementById('brandLogo'), url);
-      appliquerLogoDansConteneur(document.getElementById('adminLogoPreview'), url);
-      appliquerLogoDansConteneur(document.getElementById('accessBrandLogo'), url);
+      cibles.forEach(c => appliquerLogoDansConteneur(c, url));
+
+      // Met également à jour le favicon et l'icône Apple avec le même logo.
+      ['icon','shortcut icon','apple-touch-icon'].forEach(rel => {
+        let link = document.querySelector(`link[rel="${rel}"]`);
+        if (!link) {
+          link = document.createElement('link');
+          link.rel = rel;
+          document.head.appendChild(link);
+        }
+        link.href = url;
+      });
+
       const preload = new Image();
-      preload.onload = () => { try { sessionStorage.setItem('aurore_logo_url', url); } catch(e) {} };
       preload.src = url;
+      try { sessionStorage.setItem('aurore_logo_url', url); } catch(e) {}
     }
     window.chargerLogoSite = chargerLogoSite;
 
