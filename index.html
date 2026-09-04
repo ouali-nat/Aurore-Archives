@@ -1502,43 +1502,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   </div>
 </div>
 
-
-<!-- ===== CHARGEMENT CONNEXION ===== -->
-<div id="auroreLoginLoading" class="aurore-login-loading" aria-hidden="true">
-  <div class="aurore-login-loading-card" role="status" aria-live="polite">
-    <div class="aurore-login-spinner" aria-hidden="true"></div>
-    <div class="aurore-login-loading-copy">
-      <strong>Veuillez patienter</strong>
-      <span>Connexion à Aurore en cours…</span>
-    </div>
-  </div>
-</div>
-
-<style>
-.aurore-login-loading{
-  position:fixed;inset:0;z-index:10050;display:none;align-items:center;justify-content:center;
-  padding:22px;background:rgba(15,23,42,.18);backdrop-filter:blur(7px);
-}
-.aurore-login-loading.is-visible{display:flex}
-.aurore-login-loading-card{
-  width:min(92vw,360px);display:flex;align-items:center;gap:15px;padding:18px 20px;
-  border:1px solid var(--bordure,#e5e7eb);border-radius:20px;
-  background:var(--papier,#fff);box-shadow:0 22px 60px rgba(15,23,42,.20);
-}
-.aurore-login-spinner{
-  width:34px;height:34px;flex:0 0 34px;border-radius:50%;
-  border:3px solid color-mix(in srgb,var(--violet,#7c3aed) 18%,transparent);
-  border-top-color:var(--violet,#7c3aed);animation:auroreLoginSpin .8s linear infinite;
-}
-.aurore-login-loading-copy{display:grid;gap:4px}
-.aurore-login-loading-copy strong{font-size:.98rem;color:var(--encre,#20242e)}
-.aurore-login-loading-copy span{font-size:.78rem;color:var(--gris,#6b7280)}
-@keyframes auroreLoginSpin{to{transform:rotate(360deg)}}
-@media(prefers-color-scheme:dark){
-  .aurore-login-loading{background:rgba(2,6,23,.42)}
-}
-</style>
-
 <!-- ===== INSCRIPTION ===== -->
 <div id="signupModal" class="signup-modal" style="display:none;" aria-hidden="true">
   <div class="signup-card" role="dialog" aria-modal="true" aria-labelledby="signupTitle">
@@ -1635,9 +1598,28 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   .modal-secondary-link:hover:not(:disabled){transform:translateY(-1px);border-color:rgba(167,139,250,.55);box-shadow:0 10px 24px rgba(55,36,82,.10)}
   .modal-secondary-link:disabled{cursor:not-allowed;opacity:.72}
   .modal-secondary-link.is-counting{font-variant-numeric:tabular-nums}
+  .aurore-auth-wait{position:fixed;inset:0;z-index:100000;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(7,6,11,.58);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+  .aurore-auth-wait.show{display:flex}
+  .aurore-auth-wait-card{width:min(390px,calc(100vw - 36px));padding:28px 24px;border:1px solid var(--bordure,rgba(216,180,254,.16));border-radius:24px;background:var(--surface,#111019);box-shadow:0 24px 70px rgba(0,0,0,.28);text-align:center;color:var(--texte,#F8F7FF)}
+  [data-theme="light"] .aurore-auth-wait{background:rgba(248,247,252,.58)}
+  [data-theme="light"] .aurore-auth-wait-card{background:#fff;box-shadow:0 24px 70px rgba(65,45,90,.16)}
+  .aurore-auth-wait-icon{width:58px;height:58px;margin:0 auto 15px;border-radius:18px;display:grid;place-items:center;background:rgba(139,92,246,.12);color:var(--violet,#8B5CF6);border:1px solid rgba(139,92,246,.18)}
+  .aurore-auth-wait-icon svg{width:27px;height:27px;animation:auroreWaitSpin 1.05s linear infinite}
+  .aurore-auth-wait-card strong{display:block;font-size:1.05rem;letter-spacing:-.01em}
+  .aurore-auth-wait-card span{display:block;margin-top:7px;color:var(--gris,#A9A3B8);font-size:.82rem;line-height:1.5}
+  @keyframes auroreWaitSpin{to{transform:rotate(360deg)}}
+  @media(prefers-reduced-motion:reduce){.aurore-auth-wait-icon svg{animation:none}}
   .access-message{border-radius:13px !important}
   @media(max-width:520px){.access-lock{padding:14px}.access-card-body{padding:24px 20px 20px}.access-tabs{margin-left:-20px;margin-right:-20px;padding-left:20px;padding-right:20px}.access-logo{width:52px;height:52px;flex-basis:52px;border-radius:14px}.signup-card{padding:23px 19px}}
 </style>
+
+<div class="aurore-auth-wait" id="auroreAuthWait" aria-hidden="true">
+  <div class="aurore-auth-wait-card" role="status" aria-live="polite">
+    <div class="aurore-auth-wait-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8" opacity=".28"></circle><path d="M20 12a8 8 0 0 1-8 8"></path></svg></div>
+    <strong>Veuillez patienter</strong>
+    <span id="auroreAuthWaitText">Aurore prépare votre espace…</span>
+  </div>
+</div>
 
 <script>
 (function(){
@@ -1661,6 +1643,12 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   const msg=document.getElementById('signupMessage');
   const loginMsg=document.getElementById('loginMessage');
   const redirectConfirmation=()=>window.location.origin+window.location.pathname;
+  const authWait=document.getElementById('auroreAuthWait');
+  const authWaitText=document.getElementById('auroreAuthWaitText');
+  function afficherVeuillezPatienter(texte='Aurore prépare votre espace…'){if(authWaitText)authWaitText.textContent=texte;if(authWait){authWait.classList.add('show');authWait.setAttribute('aria-hidden','false');}}
+  function cacherVeuillezPatienter(){if(authWait){authWait.classList.remove('show');authWait.setAttribute('aria-hidden','true');}}
+  window.auroreAfficherVeuillezPatienter=afficherVeuillezPatienter;
+  window.auroreCacherVeuillezPatienter=cacherVeuillezPatienter;
 
   function afficherMessageInscription(texte,type='ok'){
     msg.textContent=texte;
@@ -1700,11 +1688,12 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   function unlock(){ document.body.classList.remove('site-locked'); if(lock) lock.style.display='none'; }
   window.auroreUnlockAccess=unlock;
   visitor?.addEventListener('click',()=>{ try{localStorage.setItem('aurore_visitor_mode','1');}catch(e){} unlock(); });
-  google?.addEventListener('click',()=>{
+  google?.addEventListener('click',async()=>{
     if (google.classList.contains('is-loading')) return;
+    afficherVeuillezPatienter('Connexion sécurisée avec Google…');
     google.classList.add('is-loading');
-    afficherChargementConnexion();
     const strong = google.querySelector('strong'); if (strong) strong.textContent = 'Connexion à Google…';
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     if(typeof demarrerConnexionGoogle==='function') demarrerConnexionGoogle();
   });
   signupOpen?.addEventListener('click',()=>{modal.style.display='flex';modal.setAttribute('aria-hidden','false');afficherModeInscription();setTimeout(()=>document.getElementById('signupName')?.focus(),50);});
@@ -1746,9 +1735,13 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   });
 
   loginForm?.addEventListener('submit',async e=>{
-    e.preventDefault(); loginMsg.style.display='none'; afficherChargementConnexion();
+    e.preventDefault(); loginMsg.style.display='none';
     const email=document.getElementById('loginEmail').value.trim(), password=document.getElementById('loginPassword').value, btn=document.getElementById('loginSubmit');
     btn.disabled=true; btn.textContent='Connexion en cours…';
+    // Affiche le bloc d'attente avant toute opération réseau. Le navigateur
+    // dispose ainsi d'un cycle de rendu pour l'afficher même si Supabase répond lentement.
+    afficherVeuillezPatienter('Connexion à Aurore en cours…');
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     try{
       const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password})});
       const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error_description||d.msg||d.message||'Identifiants invalides.');
@@ -1756,16 +1749,22 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       if(infos.banni===true) throw new Error('Votre compte a été suspendu par l’administration. Contactez le service client si vous pensez qu’il s’agit d’une erreur.');
       const role=await assurerProfilEtObtenirRole(d.access_token,infos);
       session={access_token:d.access_token,refresh_token:d.refresh_token||null,expires_at:Date.now()+((d.expires_in||3600)*1000),id:infos.id,email:infos.email,nom:infos.nom,avatar:infos.avatar,lycee:infos.lycee||'',niveau:infos.niveau||'',classe:infos.classe||'',filiere:infos.filiere||'',banni:infos.banni===true,provider:infos.provider||'E-mail',role};
-      sauvegarderSession(); await enregistrerConnexion(session); afficherUtilisateurConnecte(); unlock(); fermer();
+      sauvegarderSession();
+      // L'enregistrement statistique d'une connexion ne doit jamais ralentir
+      // l'ouverture du site : il est volontairement lancé en arrière-plan.
+      enregistrerConnexion(session).catch(()=>{});
+      afficherUtilisateurConnecte(); unlock(); fermer();
       if(profilEstComplet(session)) afficherBienvenueApresConnexion(session); else ouvrirEspacePersonnelObligatoire();
     }catch(err){loginMsg.textContent=err.message||'Impossible de vous connecter.';loginMsg.className='access-message err';loginMsg.style.display='block';}
-    finally{masquerChargementConnexion();btn.disabled=false;btn.textContent='SE CONNECTER';}
+    finally{cacherVeuillezPatienter();btn.disabled=false;btn.textContent='SE CONNECTER';}
   });
 
   form?.addEventListener('submit',async e=>{
     e.preventDefault(); const name=document.getElementById('signupName').value.trim(),email=document.getElementById('signupEmail').value.trim(),p=document.getElementById('signupPassword').value,p2=document.getElementById('signupPasswordConfirm').value,btn=document.getElementById('signupSubmit');
     msg.style.display='none'; if(p!==p2){msg.textContent='Les deux mots de passe ne correspondent pas.';msg.className='access-message err';msg.style.display='block';return;} if(p.length<8){msg.textContent='Le mot de passe doit contenir au moins 8 caractères.';msg.className='access-message err';msg.style.display='block';return;}
     btn.disabled=true;btn.textContent='Création en cours…';
+    afficherVeuillezPatienter('Création de votre espace en cours…');
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     try{
       const r=await fetch(`${SUPABASE_URL}/auth/v1/signup`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password:p,data:{full_name:name,name},options:{emailRedirectTo:redirectConfirmation()}})}); const d=await r.json().catch(()=>({}));
       if(!r.ok) throw new Error(d.msg||d.error_description||d.message||('HTTP '+r.status));
@@ -1773,7 +1772,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         const infos=await recupererUtilisateur(d.access_token); if(infos){const role=await assurerProfilEtObtenirRole(d.access_token,infos);session={access_token:d.access_token,refresh_token:d.refresh_token||null,expires_at:Date.now()+((d.expires_in||3600)*1000),id:infos.id,email:infos.email,nom:infos.nom,avatar:infos.avatar,lycee:infos.lycee||'',niveau:infos.niveau||'',classe:infos.classe||'',filiere:infos.filiere||'',provider:infos.provider||'E-mail',role};sauvegarderSession();enregistrerConnexion(session);afficherUtilisateurConnecte();unlock();fermer();ouvrirEspacePersonnelObligatoire();}
       } else {dernierEmailInscription=email;if(resendWrap) resendWrap.style.display='grid';msg.textContent='Compte créé. Consultez votre e-mail pour confirmer votre adresse avant de vous connecter. Vérifiez aussi les courriers indésirables.';msg.className='access-message ok';msg.style.display='block';}
     }catch(err){msg.textContent='Impossible de créer le compte : '+(err.message||'vérifiez les informations saisies.');msg.className='access-message err';msg.style.display='block';}
-    finally{btn.disabled=false;btn.textContent='CRÉER MON COMPTE';}
+    finally{cacherVeuillezPatienter();btn.disabled=false;btn.textContent='CRÉER MON COMPTE';}
   });
 })();
 </script>
@@ -2952,18 +2951,33 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   }
 
   async function recupererUtilisateur(access_token) {
+    // Priorité à la vitesse : l'authentification est validée dès que l'API
+    // Auth répond. La lecture du profil dispose d'un court délai afin qu'une
+    // requête RLS lente ne bloque jamais toute la connexion.
     const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": "Bearer " + access_token }
+      headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": "Bearer " + access_token },
+      cache: 'no-store'
     });
     if (!res.ok) return null;
     const data = await res.json();
     const meta = data.user_metadata || {};
     let profil = {};
     try {
-      const pr = await fetch(`${SUPABASE_URL}/rest/v1/Profils?select=lycee,niveau,classe,filiere,banni&id=eq.${encodeURIComponent(data.id)}&limit=1`, {
-        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + access_token }
+      const profilPromise = fetch(`${SUPABASE_URL}/rest/v1/Profils?select=lycee,niveau,classe,filiere,banni,role&id=eq.${encodeURIComponent(data.id)}&limit=1`, {
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + access_token },
+        cache: 'no-store'
+      }).then(async pr => {
+        if (!pr.ok) return {};
+        const rows = await pr.json().catch(() => []);
+        return rows[0] || {};
       });
-      if (pr.ok) { const rows = await pr.json().catch(() => []); if (rows[0]) profil = rows[0]; }
+      // 2,5 s maximum pour le profil : l'accès au site ne doit pas attendre
+      // une requête secondaire lente. Le profil sera récupéré au prochain
+      // rafraîchissement si Supabase est momentanément lent.
+      profil = await Promise.race([
+        profilPromise,
+        new Promise(resolve => setTimeout(() => resolve({}), 2500))
+      ]);
     } catch (e) {}
     return {
       id: data.id,
@@ -2975,6 +2989,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       classe: profil.classe || meta.classe || '',
       filiere: profil.filiere || meta.filiere || '',
       banni: profil.banni === true,
+      role: profil.role || null,
       provider: (data.app_metadata && Array.isArray(data.app_metadata.providers) && data.app_metadata.providers.includes('google')) ? 'Google' : 'E-mail'
     };
   }
@@ -2982,37 +2997,20 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   // Crée le profil au premier login (ne touche jamais à un profil existant,
   // donc ne peut jamais écraser un rôle déjà attribué). Puis lit le rôle réel.
   async function assurerProfilEtObtenirRole(access_token, infos) {
-    const headersToken = { "apikey": SUPABASE_ANON_KEY, "Authorization": "Bearer " + access_token, "Content-Type": "application/json" };
-    try {
-      const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/Profils?on_conflict=id`, {
-        method: 'POST',
-        headers: { ...headersToken, "Prefer": "resolution=ignore-duplicates,return=representation" },
-        body: JSON.stringify({ id: infos.id, email: infos.email, nom: infos.nom, classe: null, role: 'eleve' })
-      });
-      const insertText = await insertRes.text().catch(() => '');
-      if (!insertRes.ok) {
-        console.error('[Profils] échec de la création', insertRes.status, insertText);
-        alert("Votre profil n’a pas pu être créé pour le moment. Veuillez réessayer dans quelques instants.");
-      }
+    // Si le profil est déjà connu, aucun appel supplémentaire.
+    if (infos && infos.role) return infos.role;
 
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/Profils?select=role&id=eq.${infos.id}`, { headers: headersToken });
-      const selectText = await res.text().catch(() => '');
-      if (!res.ok) {
-        console.error('[Profils] échec de la lecture', res.status, selectText);
-        alert("Votre profil n’a pas pu être chargé pour le moment. Veuillez réessayer dans quelques instants.");
-        return 'eleve';
-      }
-      let rows;
-      try { rows = JSON.parse(selectText); } catch (e) { rows = []; }
-      if (!rows || rows.length === 0) {
-        alert("Le profil n'a pas été trouvé après création. Réponse de l'insertion : " + insertText);
-        return 'eleve';
-      }
-      return rows[0].role || 'eleve';
-    } catch (e) {
-      alert("Une erreur de connexion a empêché la création de votre profil. Vérifiez votre connexion puis réessayez.");
-      return 'eleve';
+    // La création d'un profil manquant ne doit jamais ralentir l'ouverture
+    // du site : elle est effectuée en arrière-plan.
+    const headersToken = { "apikey": SUPABASE_ANON_KEY, "Authorization": "Bearer " + access_token, "Content-Type": "application/json" };
+    if (infos && infos.id) {
+      fetch(`${SUPABASE_URL}/rest/v1/Profils?on_conflict=id`, {
+        method: 'POST',
+        headers: { ...headersToken, "Prefer": "resolution=ignore-duplicates,return=minimal" },
+        body: JSON.stringify({ id: infos.id, email: infos.email, nom: infos.nom, classe: null, role: 'eleve' })
+      }).catch(e => console.warn('[Profils] création différée impossible', e));
     }
+    return 'eleve';
   }
 
   // Enregistre une connexion réussie dans la table "Connexions" (Supabase).
@@ -3379,6 +3377,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     }
     afficherUtilisateurConnecte();
     if (session) {
+      setTimeout(()=>window.chargerCasesPersonnelles?.(),250);
       if (typeof window.auroreUnlockAccess === 'function') window.auroreUnlockAccess();
       chargerNotificationsPersonnelles();
       afficherNotificationTelechargementAuRetour();
@@ -5445,10 +5444,48 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   const TAILLES_DOCUMENTS_CACHE = new Map();
   const TAILLES_DOCUMENTS_PROMESSES = new Map();
   function tailleBadgeMarkup(url){if(!url)return '';return `<span class="document-size-badge" data-document-size data-size-url="${encodeURIComponent(String(url))}" data-size-state="loading" title="Taille du fichier"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h4"/></svg><span data-size-label>Calcul de la taille…</span></span>`;}
-  async function obtenirTailleDocument(url){const key=String(url||'');if(!key)return 0;if(TAILLES_DOCUMENTS_CACHE.has(key))return TAILLES_DOCUMENTS_CACHE.get(key);if(TAILLES_DOCUMENTS_PROMESSES.has(key))return TAILLES_DOCUMENTS_PROMESSES.get(key);const promise=(async()=>{const urls=[];try{const cle=key.indexOf(R2_PUBLIC_URL + '/')===0?key.slice(R2_PUBLIC_URL.length+1):null;if(cle&&typeof R2_WORKER_URL!=='undefined'&&R2_WORKER_URL)urls.push(`${R2_WORKER_URL}/${cle}`);}catch(e){}urls.push(key);for(const cible of [...new Set(urls)]){try{const res=await fetch(cible,{method:'HEAD',cache:'no-store'});if(res.ok){const n=Number(res.headers.get('Content-Length')||0);if(Number.isFinite(n)&&n>0){TAILLES_DOCUMENTS_CACHE.set(key,n);return n;}}}catch(e){}}TAILLES_DOCUMENTS_CACHE.set(key,0);return 0;})();TAILLES_DOCUMENTS_PROMESSES.set(key,promise);try{return await promise}finally{TAILLES_DOCUMENTS_PROMESSES.delete(key)}}
+  async function obtenirTailleDocument(url){
+    const key=String(url||'');
+    if(!key)return 0;
+    if(TAILLES_DOCUMENTS_CACHE.has(key))return TAILLES_DOCUMENTS_CACHE.get(key);
+    if(TAILLES_DOCUMENTS_PROMESSES.has(key))return TAILLES_DOCUMENTS_PROMESSES.get(key);
+    const promise=(async()=>{
+      const urls=[];
+      try{const cle=key.indexOf(R2_PUBLIC_URL + '/')===0?key.slice(R2_PUBLIC_URL.length+1):null;if(cle&&typeof R2_WORKER_URL!=='undefined'&&R2_WORKER_URL)urls.push(`${R2_WORKER_URL}/${cle}`);}catch(e){}
+      urls.push(key);
+      for(const cible of [...new Set(urls)]){
+        try{
+          const head=await fetch(cible,{method:'HEAD',cache:'no-store'});
+          if(head.ok){
+            const n=Number(head.headers.get('Content-Length')||0);
+            if(Number.isFinite(n)&&n>0){TAILLES_DOCUMENTS_CACHE.set(key,n);return n;}
+          }
+        }catch(e){}
+        // Certains serveurs/buckets refusent HEAD ou ne renvoient pas
+        // Content-Length. Une requête Range d'un seul octet permet alors
+        // de récupérer la taille totale via Content-Range sans télécharger
+        // le document complet.
+        try{
+          const range=await fetch(cible,{method:'GET',headers:{Range:'bytes=0-0'},cache:'no-store'});
+          if(range.ok||range.status===206){
+            const cr=range.headers.get('Content-Range')||'';
+            const m=cr.match(/\/([0-9]+)\s*$/);
+            if(m){const n=Number(m[1]);if(Number.isFinite(n)&&n>0){TAILLES_DOCUMENTS_CACHE.set(key,n);return n;}}
+            const n=Number(range.headers.get('Content-Length')||0);
+            if(range.status===206&&Number.isFinite(n)&&n>1){/* taille partielle : ne pas la prendre pour la taille totale */}
+          }
+        }catch(e){}
+      }
+      TAILLES_DOCUMENTS_CACHE.set(key,0);
+      return 0;
+    })();
+    TAILLES_DOCUMENTS_PROMESSES.set(key,promise);
+    try{return await promise}finally{TAILLES_DOCUMENTS_PROMESSES.delete(key)}
+  }
   async function actualiserTaillesDocumentsDans(container=document){const nodes=container.querySelectorAll?container.querySelectorAll('[data-document-size]:not([data-size-done])'):[];for(const el of nodes){el.dataset.sizeDone='1';const label=el.querySelector('[data-size-label]');const encoded=el.getAttribute('data-size-url')||'';let url='';try{url=decodeURIComponent(encoded)}catch(e){url=encoded}if(!url){if(label)label.textContent='Taille indisponible';el.dataset.sizeState='error';continue}const taille=await obtenirTailleDocument(url);if(taille>0){if(label)label.textContent=formaterTailleTelechargement(taille);el.dataset.sizeState='ready';el.title='Taille du fichier : '+formaterTailleTelechargement(taille)}else{if(label)label.textContent='Taille indisponible';el.dataset.sizeState='error'}}}
   const OBSERVATEUR_TAILLES_DOCUMENTS=new MutationObserver(mutations=>{for(const m of mutations)m.addedNodes.forEach(node=>{if(node.nodeType===1&&(node.matches?.('[data-document-size]')||node.querySelector?.('[data-document-size]')))actualiserTaillesDocumentsDans(node)})});
   if(document.body)OBSERVATEUR_TAILLES_DOCUMENTS.observe(document.body,{childList:true,subtree:true});
+  window.auroreActualiserTaillesDocumentsDans=actualiserTaillesDocumentsDans;
 
   function rendreListeDocuments(content, data) {
     documentsCourants = Array.isArray(data) ? data : [];
@@ -7209,6 +7246,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
               Déposé par ${doc.Auteur || 'anonyme'}<br>
               <span style="color:var(--gris);">${ligneCompteDeposant(deposant)}</span>
             </div>
+            ${tailleBadgeMarkup(doc.Fichier_url)}
             <button type="button" class="admin-btn ghost js-open-pdf-in-site">Ouvrir le PDF dans Aurore →</button>
             <div class="admin-actions">
               <button class="admin-btn valider">Valider</button>
@@ -7356,6 +7394,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
               Déposé par ${doc.Auteur || 'anonyme'} · <span class="dl-status">${telechargementOk ? 'Lecture + téléchargement' : 'Lecture seule'}</span><br>
               <span style="color:var(--gris);">${ligneCompteDeposant(deposant)}</span>
             </div>
+            ${tailleBadgeMarkup(doc.Fichier_url)}
             <button type="button" class="admin-btn ghost js-open-pdf-in-site">Ouvrir le PDF dans Aurore →</button>
             <div class="admin-actions">
               <button class="admin-btn ghost dl-toggle">${telechargementOk ? 'Passer en lecture seule' : 'Autoriser le téléchargement'}</button>
@@ -9883,13 +9922,7 @@ async function telechargerDocumentAvecProgression(doc) {
     if(!list||!session)return;
     const ids=[...new Set(favoris().map(v=>String(v).trim()).filter(Boolean))];
     actualiserCompteursPersonnels();
-    if(!ids.length){
-      ['personalFavoritesCount','personalFavoritesBadge'].forEach(id=>{
-        const el=document.getElementById(id); if(el) el.textContent='0';
-      });
-      list.innerHTML='<div class="personal-empty">Aucun favori pour le moment. Utilisez « Favori » sur un document du site.</div>';
-      return;
-    }
+    if(!ids.length){list.innerHTML='<div class="personal-empty">Aucun favori pour le moment. Utilisez « Favori » sur un document du site.</div>';return;}
     list.innerHTML='<div class="personal-empty">Chargement de vos favoris…</div>';
     try{
       const cacheKey=ids.join(',');
@@ -9914,14 +9947,7 @@ async function telechargerDocumentAvecProgression(doc) {
         favorisDocumentsCache.set(userKey(),{key:cacheKey,docs:[...docs],at:Date.now()});
       }
       const order=new Map(ids.map((id,i)=>[String(id),i]));
-      docs=[...new Map((Array.isArray(docs)?docs:[]).map(d=>[String(d.id),d])).values()];
       docs.sort((a,b)=>(order.get(String(a.id))??9999)-(order.get(String(b.id))??9999));
-      // Le compteur de favoris doit correspondre aux documents réellement affichables,
-      // pas aux doublons/anciennes références qui peuvent rester dans le cache local.
-      const compteurFavorisVisibles=docs.length;
-      ['personalFavoritesCount','personalFavoritesBadge'].forEach(id=>{
-        const el=document.getElementById(id); if(el) el.textContent=String(compteurFavorisVisibles);
-      });
       list.innerHTML='';
       if(!docs.length){list.innerHTML='<div class="personal-empty">Vos favoris ne sont plus disponibles publiquement.</div>';return;}
       docs.forEach(doc=>{
@@ -10868,11 +10894,8 @@ footer>.wrap:last-child{margin-top:18px!important;}
           query:`select=document_id&user_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc`
         });
         const rows=raw?JSON.parse(raw):[];
-        const ids=[...new Set(
-          (Array.isArray(rows)?rows:[])
-            .map(x=>String(x.document_id??'').trim())
-            .filter(Boolean)
-        )];
+        const ids=(Array.isArray(rows)?rows:[])
+          .map(x=>String(x.document_id??'').trim()).filter(Boolean);
         safeWrite(KEY_FAV+userKey(),ids);
       }catch(e){
         console.warn('[Espace personnel] favoris Supabase:',e);
@@ -11022,14 +11045,7 @@ footer>.wrap:last-child{margin-top:18px!important;}
     const m=document.getElementById('loginMessage');
     if(m){m.textContent='Connectez-vous pour utiliser les favoris et enregistrer des documents pour plus tard dans votre espace personnel.';m.className='access-message ok';m.style.display='block';}
   }
-  function favoris(){
-    if(!userKey()) return [];
-    return [...new Set(
-      safeRead(KEY_FAV+userKey())
-        .map(v=>String(v).trim())
-        .filter(Boolean)
-    )];
-  }
+  function favoris(){return userKey()?safeRead(KEY_FAV+userKey()).map(String):[];}
   function plusTard(){return userKey()?safeRead(KEY_LATER+userKey()):[];}
   function telecharges(){return userKey()?safeRead(KEY_DOWNLOADS+userKey()):[];}
   function depotsPersonnelsLocaux(){return userKey()?safeRead(KEY_DEPOSITS+userKey()):[];}
@@ -11554,7 +11570,37 @@ async function api(table,o={}){if(!session?.access_token)throw new Error('SESSIO
 const lk=()=>`aurore_cases_personnelles_${uid()}`,ak=()=>`aurore_cases_documents_${uid()}`;const read=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}};const write=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
 function normF(a){return(Array.isArray(a)?a:[]).filter(x=>x&&x.id!=null).map((x,i)=>({id:String(x.id),name:String(x.name||'Sans nom').trim().slice(0,60)||'Sans nom',position:Number.isFinite(+x.position)?+x.position:i})).sort((a,b)=>a.position-b.position)}
 function normA(a){return(Array.isArray(a)?a:[]).filter(x=>x&&x.document_id!=null&&x.case_id!=null).map(x=>({document_id:String(x.document_id),case_id:String(x.case_id)}))}
-async function load(){if(!uid())return;try{const raw=await api(FOLDER_TABLE,{query:`select=id,name,position,created_at&user_id=eq.${encodeURIComponent(uid())}&order=position.asc,created_at.asc`});folders=normF(raw?JSON.parse(raw):[]);if(!folders.length)await createFolder('À classer',true);else write(lk(),folders)}catch(e){folders=normF(read(lk(),[]));if(!folders.length){folders=[{id:'local-default',name:'À classer',position:0}];write(lk(),folders)}}try{const raw=await api(ASSIGN_TABLE,{query:`select=document_id,case_id&user_id=eq.${encodeURIComponent(uid())}`});folderAssignments=normA(raw?JSON.parse(raw):[]);write(ak(),folderAssignments)}catch(e){folderAssignments=normA(read(ak(),[]))}render();}
+async function load(){
+  if(!uid())return;
+  const localFolders=normF(read(lk(),[]));
+  let foldersLoaded=false;
+  try{
+    const raw=await api(FOLDER_TABLE,{query:`select=id,name,position,created_at&user_id=eq.${encodeURIComponent(uid())}&order=position.asc,created_at.asc`});
+    const serverFolders=normF(raw?JSON.parse(raw):[]);
+    if(serverFolders.length){
+      folders=serverFolders; write(lk(),folders);
+    }else if(localFolders.length){
+      // Une réponse vide peut arriver pendant la restauration de session/RLS.
+      // Ne jamais remplacer des cases connues par une case par défaut.
+      folders=localFolders;
+    }else{
+      await createFolder('À classer',true);
+    }
+    foldersLoaded=true;
+  }catch(e){
+    folders=localFolders;
+    if(!folders.length){folders=[{id:'local-default',name:'À classer',position:0}];write(lk(),folders);}
+  }
+  try{
+    const raw=await api(ASSIGN_TABLE,{query:`select=document_id,case_id&user_id=eq.${encodeURIComponent(uid())}`});
+    const serverAssignments=normA(raw?JSON.parse(raw):[]);
+    const localAssignments=normA(read(ak(),[]));
+    // En cas de réponse vide transitoire, conserver les affectations locales.
+    folderAssignments=serverAssignments.length?serverAssignments:localAssignments;
+    write(ak(),folderAssignments);
+  }catch(e){folderAssignments=normA(read(ak(),[]));}
+  render();
+}
 function render(){const grid=document.getElementById('personalFolderGrid');if(!grid)return;document.getElementById('personalFolderCount').textContent=String(folders.length);grid.innerHTML='';folders.forEach(f=>{const c=document.createElement('article');c.className='personal-folder';c.draggable=true;c.dataset.folderId=f.id;const n=folderAssignments.filter(a=>a.case_id===f.id).length;c.innerHTML=`<div class="personal-folder-top"><div class="personal-folder-icon">▱</div><button type="button" class="personal-folder-menu" aria-label="Options">⋯</button></div><div class="personal-folder-name" title="${esc(f.name)}">${esc(f.name)}</div><div class="personal-folder-count">${n} document${n>1?'s':''}</div><div class="personal-folder-hint">Glisser pour déplacer</div>`;c.addEventListener('click',e=>{if(!e.target.closest('.personal-folder-menu'))openFolder(f)});c.querySelector('.personal-folder-menu').addEventListener('click',e=>{e.stopPropagation();folderMenu(f)});c.addEventListener('dragstart',()=>{draggedFolderId=f.id;c.classList.add('dragging')});c.addEventListener('dragend',()=>{draggedFolderId=null;c.classList.remove('dragging');grid.querySelectorAll('.drag-over').forEach(x=>x.classList.remove('drag-over'))});c.addEventListener('dragover',e=>{e.preventDefault();if(draggedFolderId!==f.id)c.classList.add('drag-over')});c.addEventListener('dragleave',()=>c.classList.remove('drag-over'));c.addEventListener('drop',e=>{e.preventDefault();c.classList.remove('drag-over');if(draggedFolderId&&draggedFolderId!==f.id)reorder(draggedFolderId,f.id)});grid.appendChild(c)});if(folders.length<MAX_FOLDERS){const b=document.createElement('button');b.type='button';b.className='personal-folder-create';b.innerHTML=`<span class="personal-folder-create-icon">＋</span><strong>Créer une case</strong><span>Encore ${MAX_FOLDERS-folders.length} emplacement${MAX_FOLDERS-folders.length>1?'s':''}</span>`;b.onclick=()=>dialog('create');grid.appendChild(b)}}
 async function createFolder(name,quiet=false){if(folders.length>=MAX_FOLDERS){if(!quiet)alert('Vous avez atteint la limite de 10 cases.');return}const clean=String(name||'').trim().replace(/\s+/g,' ').slice(0,60);if(!clean)return;if(folders.some(f=>f.name.toLocaleLowerCase('fr')===clean.toLocaleLowerCase('fr'))){if(!quiet)alert('Une case porte déjà ce nom.');return}try{const raw=await api(FOLDER_TABLE,{method:'POST',headers:{Prefer:'return=representation'},body:{user_id:uid(),name:clean,position:folders.length}});const r=raw?JSON.parse(raw):[];if(!r[0])throw 0;folders=normF([...folders,r[0]]);write(lk(),folders)}catch(e){if(quiet){folders=[...folders,{id:'local-'+Date.now().toString(36),name:clean,position:folders.length}];write(lk(),folders)}else{alert('Impossible de créer la case. Exécutez d’abord le SQL fourni.');return}}render()}
 async function renameFolder(f,name){const clean=String(name||'').trim().replace(/\s+/g,' ').slice(0,60);if(!clean)return;if(folders.some(x=>x.id!==f.id&&x.name.toLocaleLowerCase('fr')===clean.toLocaleLowerCase('fr'))){alert('Une autre case porte déjà ce nom.');return}try{await api(FOLDER_TABLE,{method:'PATCH',query:`id=eq.${encodeURIComponent(f.id)}&user_id=eq.${encodeURIComponent(uid())}`,body:{name:clean}})}catch(e){if(!String(f.id).startsWith('local-')){alert('Impossible de renommer cette case pour le moment.');return}}f.name=clean;write(lk(),folders);render()}
