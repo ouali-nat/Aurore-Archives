@@ -1346,6 +1346,19 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   @media(max-width:700px){.aurora-personal-hero{padding:18px;border-radius:20px;align-items:flex-start}.aurora-personal-hero h3{font-size:1.25rem}.aurora-refresh span{display:none}.aurora-refresh{font-size:1.1rem;width:40px;height:40px;padding:0}.aurora-stats{grid-template-columns:repeat(2,1fr)}.aurora-panels .personal-panel{padding:17px}.aurora-list .personal-doc,.aurora-list .personal-book{align-items:flex-start;flex-direction:column}.aurora-list .personal-status{align-self:flex-start}.aurora-list .personal-doc-actions{width:100%;justify-content:flex-start}}
   @media(max-width:390px){.aurora-stats{gap:7px}.aurora-stat{padding:10px}.aurora-stat-icon{width:30px;height:30px;flex-basis:30px}.aurora-stat-copy b{font-size:.95rem}.aurora-stat-copy small{font-size:.62rem}}
 </style>
+
+<style id="aurore-history-confirm-style">
+#aurore-history-confirm-modal{position:fixed;inset:0;z-index:100000;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(9,8,18,.58);backdrop-filter:blur(7px)}
+#aurore-history-confirm-modal.show{display:flex}
+.aurore-history-confirm-card{width:min(430px,100%);padding:22px;border:1px solid var(--bordure);border-radius:20px;background:var(--papier);color:var(--encre);box-shadow:0 24px 70px rgba(0,0,0,.28)}
+.aurore-history-confirm-title{font-weight:800;font-size:1rem;margin-bottom:8px}
+.aurore-history-confirm-text{font-size:.82rem;line-height:1.55;color:var(--gris);margin-bottom:18px}
+.aurore-history-confirm-actions{display:flex;justify-content:flex-end;gap:9px}
+.aurore-history-confirm-actions button{border:1px solid var(--bordure);border-radius:11px;padding:9px 13px;font:inherit;font-size:.78rem;font-weight:700;cursor:pointer}
+.aurore-history-confirm-cancel{background:transparent;color:var(--encre)}
+.aurore-history-confirm-ok{background:var(--accent,#7c3aed);border-color:var(--accent,#7c3aed)!important;color:#fff}
+</style>
+
 </head>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <body class="site-locked">
@@ -6493,24 +6506,26 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       }
       const proprietaire = estProprietaireAdmin();
       list.innerHTML = '';
-      // Les RPC existantes peuvent ne renvoyer que les colonnes de gestion du compte.
-      // On complète alors avec les informations scolaires du profil, sans remplacer
-      // le RPC ni modifier son contrat. En cas de policy restrictive, le reste de
-      // l'administration continue de fonctionner avec les données déjà disponibles.
+      // Le RPC propriétaire retourne les informations complètes de Profils.
+      // Cela évite de dépendre d'une policy RLS qui ne les rend visibles
+      // qu'après promotion d'un utilisateur.
       let profilsScolaires = new Map();
       try {
-        const ids = listeProfils.map(p => p.id).filter(Boolean);
-        if (ids.length) {
-          const pr = await fetch(`${SUPABASE_URL}/rest/v1/Profils?select=id,lycee,niveau,classe,filiere,role,discipline,fonction,enfant_informations&id=in.(${ids.map(encodeURIComponent).join(',')})`, { headers: headersAdmin() });
-          if (pr.ok) {
-            const rows = await pr.json();
-            (rows || []).forEach(r => profilsScolaires.set(String(r.id), r));
-          }
+        const detailRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/lister_profils_admin_details`, {
+          method: 'POST',
+          headers: { ...headersAdmin(), 'Content-Type': 'application/json' },
+          body: '{}'
+        });
+        if (detailRes.ok) {
+          const rows = await detailRes.json();
+          (Array.isArray(rows) ? rows : []).forEach(r => profilsScolaires.set(String(r.id), r));
+        } else {
+          console.warn('[Admin utilisateurs] RPC détaillée indisponible', detailRes.status);
         }
-      } catch (e) { console.warn('[Admin utilisateurs] informations scolaires indisponibles', e); }
+      } catch (e) { console.warn('[Admin utilisateurs] informations détaillées indisponibles', e); }
 
       listeProfils.forEach(profil => {
-        const scolaire = profilsScolaires.get(String(profil.id)) || profil;
+        const scolaire = { ...profil, ...(profilsScolaires.get(String(profil.id)) || {}) };
         const card = document.createElement('article');
         card.className = 'admin-user-card';
         card.dataset.adminId = String(profil.id || '');
@@ -6518,10 +6533,14 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         card.dataset.adminEmail = String(profil.email || '');
         card.dataset.adminRole = String(profil.role || '');
         card.dataset.adminCreated = String(profil.created_at || '');
-        card.dataset.adminSearch = [profil.nom, profil.email, profil.role, profil.created_at].filter(v => v != null && String(v).trim()).join(' ');
+        card.dataset.adminSearch = [
+          scolaire.nom, scolaire.email, scolaire.role, scolaire.created_at,
+          scolaire.lycee, scolaire.niveau, scolaire.classe, scolaire.filiere,
+          scolaire.discipline, scolaire.fonction, scolaire.enfant_informations
+        ].filter(v => v != null && String(v).trim()).join(' ');
         const nom = profil.nom || 'Nom non renseigné';
         const email = profil.email || 'E-mail non renseigné';
-        const roleAdmin = String(profil.role || '').toLowerCase() === 'admin';
+        const roleAdmin = String(scolaire.role || profil.role || '').toLowerCase() === 'admin';
         card.innerHTML = `
           <div class="admin-user-main">
             <div class="admin-user-name">${echapperHtmlPub(nom)}</div>
@@ -6536,7 +6555,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
               ${scolaire.enfant_informations ? `<span>Enfant : ${echapperHtmlPub(scolaire.enfant_informations)}</span>` : ''}
             </div>
             <div class="admin-user-meta">
-              <span class="role-badge ${roleAdmin ? 'admin' : 'eleve'}">${roleAdmin ? 'Administrateur' : 'Utilisateur'}</span>
+              <span class="role-badge ${roleAdmin ? 'admin' : 'eleve'}">${roleAdmin ? 'Administrateur' : echapperHtmlPub(libelleRole(scolaire.role || profil.role || 'eleve'))}</span>
               <span class="admin-user-date">${echapperHtmlPub(formaterDateInscriptionUtilisateur(profil))}</span>
             </div>
           </div>
@@ -10895,6 +10914,8 @@ footer>.wrap:last-child{margin-top:18px!important;}
   window.FAVORIS_CACHE_TTL=FAVORIS_CACHE_TTL;
   window.synchroniserRessourcesSupabase=synchroniserRessourcesSupabase;
   window.enregistrerTelechargementPersonnel=enregistrerTelechargementPersonnel;
+  window.demanderCodePuisEffacerHistorique=demanderCodePuisEffacerHistorique;
+  window.effacerToutHistoriqueTelechargements=effacerToutHistoriqueTelechargements;
   // Deux identifiants présentaient exactement le même défaut que
   // FAVORIS_CACHE_TTL plus haut (déclarés seulement dans la portée locale de
   // cette IIFE, mais appelés directement par le script principal hors de
@@ -10951,35 +10972,75 @@ footer>.wrap:last-child{margin-top:18px!important;}
   }
 })();
 </script>
+
+<div id="aurore-history-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="aurore-history-confirm-title">
+  <div class="aurore-history-confirm-card">
+    <div id="aurore-history-confirm-title" class="aurore-history-confirm-title">Effacer l’historique des téléchargements ?</div>
+    <div class="aurore-history-confirm-text">Cette action supprimera les documents de votre historique de téléchargements. Vos documents enregistrés « À télécharger plus tard » resteront conservés.</div>
+    <div class="aurore-history-confirm-actions">
+      <button type="button" class="aurore-history-confirm-cancel" id="auroreHistoryConfirmCancel">Annuler</button>
+      <button type="button" class="aurore-history-confirm-ok" id="auroreHistoryConfirmOk">Effacer l’historique</button>
+    </div>
+  </div>
+</div>
+
+
+<script id="aurore-history-confirm-script">
+(function(){
+  let bound=false;
+  function openModal(){
+    const m=document.getElementById('aurore-history-confirm-modal');
+    if(!m)return;
+    m.classList.add('show');
+    document.getElementById('auroreHistoryConfirmCancel')?.focus();
+  }
+  function closeModal(){
+    document.getElementById('aurore-history-confirm-modal')?.classList.remove('show');
+  }
+  async function clear(){
+    const btn=document.getElementById('auroreHistoryConfirmOk');
+    if(btn){btn.disabled=true;btn.textContent='Suppression…';}
+    try{
+      if(typeof window.effacerToutHistoriqueTelechargements!=='function'){
+        throw new Error('fonction indisponible');
+      }
+      const ok=await window.effacerToutHistoriqueTelechargements();
+      if(!ok)throw new Error('suppression refusée');
+      closeModal();
+      if(typeof window.afficherCarteNotificationTelechargement==='function'){
+        window.afficherCarteNotificationTelechargement('Historique des téléchargements effacé');
+      }
+    }catch(e){
+      console.error('[Aurore] effacement historique',e);
+      closeModal();
+      const box=document.getElementById('personalDownloadsHistory');
+      if(box)box.insertAdjacentHTML('afterbegin','<div class="personal-empty activity-error">Impossible d’effacer l’historique pour le moment. Vos données ont été conservées.</div>');
+    }finally{
+      if(btn){btn.disabled=false;btn.textContent='Effacer l’historique';}
+    }
+  }
+  function bind(){
+    const b=document.getElementById('personalClearDownloads');
+    if(!b)return;
+    if(!bound){
+      bound=true;
+      b.addEventListener('click',e=>{e.preventDefault();openModal();});
+      document.getElementById('auroreHistoryConfirmCancel')?.addEventListener('click',closeModal);
+      document.getElementById('auroreHistoryConfirmOk')?.addEventListener('click',clear);
+      document.getElementById('aurore-history-confirm-modal')?.addEventListener('click',e=>{
+        if(e.target.id==='aurore-history-confirm-modal')closeModal();
+      });
+    }
+  }
+  document.addEventListener('DOMContentLoaded',bind);
+  setInterval(bind,800);
+})();
+</script>
+
 </body>
 </html>
 
 
 
 
-<script id="aurore-clear-history-hook">
-(function(){
-  function bind(){
-    const b=document.getElementById('personalClearDownloads');
-    if(!b||b.dataset.bound==='1')return;
-    b.dataset.bound='1';
-    b.addEventListener('click',async()=>{
-      if(!session||!session.id)return;
-      // Ne pas se fier uniquement au cache local : l'historique peut exister dans Supabase
-    // même si le navigateur vient d'être nettoyé ou si la synchronisation n'a pas encore eu lieu.
-    let existe=false;
-    try{
-      if(telecharges().length) existe=true;
-      else if(session?.id&&session?.access_token){
-        const raw=await apiPersonnel(TABLE_TELECHARGEMENTS_PERSONNELS,{query:`select=id&user_id=eq.${encodeURIComponent(session.id)}&limit=1`});
-        const rows=raw?JSON.parse(raw):[]; existe=Array.isArray(rows)&&rows.length>0;
-      }
-    }catch(e){console.warn('[Historique] vérification serveur:',e);}
-    if(!existe){alert('Votre historique est déjà vide.');return;}
-    await demanderCodePuisEffacerHistorique();
-    });
-  }
-  document.addEventListener('DOMContentLoaded',bind);
-  setInterval(bind,1200);
-})();
-</script>
+
