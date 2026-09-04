@@ -1642,6 +1642,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   let resendSecondesRestantes=0;
   const msg=document.getElementById('signupMessage');
   const loginMsg=document.getElementById('loginMessage');
+  const accessMessage=document.getElementById('accessMessage');
   const redirectConfirmation=()=>window.location.origin+window.location.pathname;
   const authWait=document.getElementById('auroreAuthWait');
   const authWaitText=document.getElementById('auroreAuthWaitText');
@@ -1690,10 +1691,18 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   visitor?.addEventListener('click',()=>{ try{localStorage.setItem('aurore_visitor_mode','1');}catch(e){} unlock(); });
   google?.addEventListener('click',async()=>{
     if (google.classList.contains('is-loading')) return;
+    // Le bloc est également affiché directement dans le portail d'accès.
+    // Cela garantit que l'utilisateur le voit avant la redirection vers Google,
+    // même lorsque le navigateur quitte la page très rapidement.
     afficherVeuillezPatienter('Connexion sécurisée avec Google…');
+    if(accessMessage){
+      accessMessage.textContent='Veuillez patienter — connexion sécurisée avec Google en cours…';
+      accessMessage.className='access-message ok';
+      accessMessage.style.display='block';
+    }
     google.classList.add('is-loading');
     const strong = google.querySelector('strong'); if (strong) strong.textContent = 'Connexion à Google…';
-    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(resolve,250))));
     if(typeof demarrerConnexionGoogle==='function') demarrerConnexionGoogle();
   });
   signupOpen?.addEventListener('click',()=>{modal.style.display='flex';modal.setAttribute('aria-hidden','false');afficherModeInscription();setTimeout(()=>document.getElementById('signupName')?.focus(),50);});
@@ -3299,9 +3308,15 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     if (typeof window.auroreAfficherVeuillezPatienter === 'function') {
       window.auroreAfficherVeuillezPatienter('Connexion sécurisée avec Google…');
     }
+    const accessMsg=document.getElementById('accessMessage');
+    if(accessMsg){
+      accessMsg.textContent='Veuillez patienter — connexion sécurisée avec Google en cours…';
+      accessMsg.className='access-message ok';
+      accessMsg.style.display='block';
+    }
     const btn=e.currentTarget;
     if(btn){ btn.disabled=true; btn.setAttribute('aria-busy','true'); btn.style.opacity='.72'; btn.style.pointerEvents='none'; }
-    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(resolve,250))));
     demarrerConnexionGoogle();
   });
 
@@ -9972,7 +9987,7 @@ async function telechargerDocumentAvecProgression(doc) {
       const idsDisponibles=new Set(docs.map(doc=>String(doc.id)));
       const favorisActuels=favoris().filter(id=>idsDisponibles.has(String(id)));
       if(favorisActuels.length!==favoris().length){
-        safeWrite(KEY_FAV+userKey(),favorisActuels);
+        window.safeWrite(KEY_FAV+userKey(),favorisActuels);
         favorisDocumentsCache.delete(userKey());
       }
       actualiserCompteursPersonnels();
@@ -11387,6 +11402,10 @@ footer>.wrap:last-child{margin-top:18px!important;}
   // "FAVORIS_CACHE_TTL is not defined", ce qui interrompait le rendu des
   // favoris avant même l'affichage de l'état vide.
   window.FAVORIS_CACHE_TTL=FAVORIS_CACHE_TTL;
+  // Les fonctions de rendu des favoris vivent hors de cette IIFE : elles
+  // utilisent safeWrite pour nettoyer les favoris devenus invalides.
+  // Exposer safeWrite évite un ReferenceError qui bloquait tout le panneau.
+  window.safeWrite=safeWrite;
   window.synchroniserRessourcesSupabase=synchroniserRessourcesSupabase;
   window.enregistrerTelechargementPersonnel=enregistrerTelechargementPersonnel;
   window.demanderCodePuisEffacerHistorique=demanderCodePuisEffacerHistorique;
