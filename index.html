@@ -1359,6 +1359,12 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 .aurore-history-confirm-ok{background:var(--accent,#7c3aed);border-color:var(--accent,#7c3aed)!important;color:#fff}
 </style>
 
+<style id="aurore-download-progress-style">
+.download-progress-toast{position:fixed;left:16px;right:16px;bottom:18px;z-index:10050;width:min(520px,calc(100% - 32px));margin:0 auto;padding:17px 18px;border:1px solid rgba(124,58,237,.22);border-radius:20px;background:var(--papier,#fff);color:var(--encre,#16131d);box-shadow:0 20px 55px rgba(0,0,0,.22),0 4px 18px rgba(124,58,237,.08);backdrop-filter:blur(16px);box-sizing:border-box;animation:auroreDownloadIn .24s ease-out}
+.download-progress-head{display:flex;align-items:center;gap:11px}.download-progress-icon{width:36px;height:36px;display:grid;place-items:center;border-radius:12px;background:rgba(124,58,237,.11);color:#7c3aed;font-size:20px;font-weight:800;flex:0 0 36px}.download-progress-copy{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px}.download-progress-copy strong{font-size:.86rem;line-height:1.25}.download-progress-copy span{font-size:.72rem;color:var(--gris,#716b7d);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.download-progress-percent{font-size:.86rem;font-weight:800;font-variant-numeric:tabular-nums;color:#7c3aed}.download-progress-track{height:8px;margin:14px 0 9px;border-radius:999px;background:rgba(124,58,237,.10);overflow:hidden}.download-progress-bar{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#7c3aed,#a855f7,#c084fc);box-shadow:0 0 16px rgba(124,58,237,.24);transition:width .18s ease}.download-progress-foot{display:flex;align-items:center;gap:10px}.download-progress-detail{font-size:.7rem;color:var(--gris,#716b7d);flex:1;line-height:1.35}.download-progress-close{width:28px;height:28px;border:1px solid var(--bordure,#ddd5e8);border-radius:9px;background:transparent;color:var(--gris,#716b7d);cursor:pointer;font-size:17px;line-height:1}.download-progress-close:hover{background:rgba(124,58,237,.08);color:var(--encre,#16131d)}.download-progress-toast.is-success{border-color:rgba(34,197,94,.28)}.download-progress-toast.is-success .download-progress-icon{color:#16a34a;background:rgba(34,197,94,.10)}.download-progress-toast.is-success .download-progress-bar{background:linear-gradient(90deg,#16a34a,#4ade80)}.download-progress-toast.is-error{border-color:rgba(220,38,38,.28)}.download-progress-toast.is-error .download-progress-icon{color:#dc2626;background:rgba(220,38,38,.10)}.download-progress-toast.is-indeterminate .download-progress-bar{animation:auroreDownloadPulse 1.15s ease-in-out infinite}.download-progress-toast.is-indeterminate .download-progress-percent{color:var(--gris,#716b7d)}
+@keyframes auroreDownloadIn{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}@keyframes auroreDownloadPulse{0%{width:25%}50%{width:72%}100%{width:25%}}
+[data-theme="light"] .download-progress-toast{background:rgba(255,255,255,.96);border-color:rgba(109,40,217,.20);box-shadow:0 18px 45px rgba(39,31,55,.16)}
+</style>
 </head>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <body class="site-locked">
@@ -8466,19 +8472,10 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       afficherCarteTelechargement(doc,'succes',100,total,total,`Fichier : ${nomExact} · Taille : ${formaterTailleTelechargement(total || blob.size)} · Téléchargement enregistré dans votre espace.`);
     } catch(e) {
       console.error('[Téléchargement document]',e);
-      // Repli navigateur : il lance le téléchargement sans prétendre connaître
-      // sa progression. Le nom exact est conservé via l’attribut download.
-      try {
-        const a=document.createElement('a');
-        a.href=doc.Fichier_url;
-        a.download=nomExact;
-        a.rel='noopener';
-        document.body.appendChild(a); a.click(); a.remove();
-        await enregistrerTelechargementPersonnel(doc);
-        afficherCarteTelechargement(doc,'succes',100,null,null,`Téléchargement lancé : ${nomExact} · Merci d’avoir utilisé ${SITE_NOM}.`);
-      } catch(e2) {
-        afficherCarteTelechargement(doc,'erreur',null,null,null,'Le téléchargement n’a pas pu être lancé.');
-      }
+      // Aucun repli vers un lien direct : un lien PDF externe peut être ouvert
+      // par le navigateur dans un lecteur extérieur. On reste donc sur Aurore
+      // et on affiche l'état d'erreur dans la carte de téléchargement.
+      afficherCarteTelechargement(doc,'erreur',null,null,null,'Le téléchargement n’a pas pu être récupéré sans quitter Aurore. Réessayez dans quelques instants.');
     } finally {
       TELECHARGEMENT_DOCUMENT_EN_COURS=false;
     }
