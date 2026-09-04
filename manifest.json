@@ -15,12 +15,12 @@
     {
       "src": "https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260904-2",
       "sizes": "192x192",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260904-2",
       "sizes": "512x512",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }

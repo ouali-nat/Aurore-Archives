@@ -1,198 +1,66 @@
-            /* =========================================================
-   AURORE — SERVICE WORKER / PWA
-   Version : 2026-09-04-2
+/* Service worker — Aurore, Section Archives
+   Rôle : permettre l'installation de la PWA (icône, écran de démarrage) et
+   assurer un minimum de résilience hors-ligne, sans jamais mettre en cache
+   les appels vers Supabase, R2 ou les workers (toujours servis par le
+   réseau). */
 
-   Objectifs :
-   - Garder l'application fluide
-   - Mettre en cache le shell de l'application
-   - Toujours privilégier la version réseau pour index.html
-     et le manifest afin d'éviter les anciennes versions
-   - Fonctionnement hors-ligne de secours
-   - Ne jamais intercepter les fichiers PDF
-   - Ne pas empêcher les téléchargements
-   ========================================================= */
-
-const CACHE_NAME = 'aurore-shell-v2026-09-04-2';
-
-const SHELL = [
+const CACHE_NAME = 'aurore-shell-v1';
+const APP_SHELL = [
   './',
   './index.html',
   './manifest.json'
 ];
 
-/* =========================================================
-   INSTALLATION
-   ========================================================= */
-
-self.addEventListener('install', event => {
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(SHELL))
+      .then((cache) => cache.addAll(APP_SHELL))
       .catch(() => {})
-      .then(() => self.skipWaiting())
   );
 });
 
-
-/* =========================================================
-   ACTIVATION
-   Supprime les anciens caches
-   ========================================================= */
-
-self.addEventListener('activate', event => {
+self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then(keys => {
-        return Promise.all(
-          keys
-            .filter(key => key !== CACHE_NAME)
-            .map(key => caches.delete(key))
-        );
-      })
+      .then((noms) => Promise.all(
+        noms.filter((n) => n !== CACHE_NAME).map((n) => caches.delete(n))
+      ))
       .then(() => self.clients.claim())
   );
 });
 
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
 
-/* =========================================================
-   RESSOURCES CRITIQUES
-   ========================================================= */
+  const url = new URL(req.url);
 
-function estRessourceCritique(request) {
-  const url = new URL(request.url);
-
-  return (
-    request.mode === 'navigate' ||
-    url.pathname.endsWith('/index.html') ||
-    url.pathname.endsWith('/manifest.json') ||
-    url.pathname.endsWith('/sw.js')
-  );
-}
-
-
-/* =========================================================
-   INTERCEPTION DES REQUÊTES
-   ========================================================= */
-
-self.addEventListener('fetch', event => {
-
-  const request = event.request;
-  const url = new URL(request.url);
-
-  /*
-   * Ne traiter que les ressources appartenant
-   * au même domaine que le Service Worker.
-   */
-  if (url.origin !== self.location.origin) {
+  // Navigation (ouverture/rafraîchissement de page) : réseau en priorité,
+  // secours sur la page mise en cache si hors-ligne.
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req).catch(() => caches.match('./index.html'))
+    );
     return;
   }
 
-
-  /* =======================================================
-     NAVIGATION + INDEX + MANIFEST + SW
-     Réseau prioritaire pour éviter les anciennes versions
-     ======================================================= */
-
-  if (estRessourceCritique(request)) {
-
+  // Fichiers du site (même origine uniquement) : cache d'abord, mise à jour
+  // en arrière-plan. Tout ce qui vient d'une autre origine (Supabase, R2,
+  // workers) est laissé tel quel au réseau, sans interception.
+  if (url.origin === self.location.origin) {
     event.respondWith(
-
-      fetch(request, {
-        cache: 'no-store'
-      })
-
-      .then(response => {
-
-        if (response && response.ok) {
-
-          const copie = response.clone();
-
-          caches.open(CACHE_NAME)
-            .then(cache => {
-              cache.put(request, copie);
-            })
-            .catch(() => {});
-        }
-
-        return response;
-      })
-
-      .catch(() => {
-
-        /*
-         * Si le réseau est indisponible,
-         * utiliser la version mise en cache.
-         */
-
-        return caches.match(request)
-          .then(cached => {
-
-            if (cached) {
-              return cached;
+      caches.match(req).then((reponseCache) => {
+        const reponseReseau = fetch(req)
+          .then((res) => {
+            if (res && res.ok) {
+              caches.open(CACHE_NAME).then((cache) => cache.put(req, res.clone()));
             }
-
-            return caches.match('./index.html');
-          });
+            return res;
+          })
+          .catch(() => reponseCache);
+        return reponseCache || reponseReseau;
       })
     );
-
-    return;
   }
-
-
-  /* =======================================================
-     RESSOURCES STATIQUES
-     Cache-first pour améliorer la rapidité
-     ======================================================= */
-
-  if (
-    request.method === 'GET' &&
-    !/\.pdf(?:$|[?#])/i.test(url.pathname)
-  ) {
-
-    event.respondWith(
-
-      caches.match(request)
-
-        .then(cached => {
-
-          /*
-           * Si la ressource existe déjà dans le cache,
-           * on la retourne immédiatement.
-           */
-
-          if (cached) {
-            return cached;
-          }
-
-
-          /*
-           * Sinon, récupération réseau.
-           */
-
-          return fetch(request)
-
-            .then(response => {
-
-              if (
-                response &&
-                response.ok &&
-                response.type === 'basic'
-              ) {
-
-                const copie = response.clone();
-
-                caches.open(CACHE_NAME)
-                  .then(cache => {
-                    cache.put(request, copie);
-                  })
-                  .catch(() => {});
-              }
-
-              return response;
-            });
-        })
-    );
-  }
-
 });
