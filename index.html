@@ -5437,6 +5437,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
             <div class="titre">${doc.Titre||''}</div>
             <div class="meta">Déposé par ${doc.Auteur||'anonyme'}${telechargementOk?'':' · Lecture seule'}</div>
             ${contexte?`<div class="doc-context">${contexte}</div>`:''}
+            ${tailleBadgeMarkup(doc.Fichier_url)}
           </div>
         </div>
         <div class="doc-actions">
@@ -5452,7 +5453,13 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       row.querySelector('[data-signaler]').addEventListener('click',()=>ouvrirSignalement(doc));
       row.querySelector('[data-favori]')?.addEventListener('click',()=>basculerFavoriDocument(doc,row.querySelector('[data-favori]')));
       row.querySelector('[data-plus-tard]')?.addEventListener('click',()=>ajouterDocumentPlusTard(doc,row.querySelector('[data-plus-tard]')));
+      row.querySelector('[data-case]')?.addEventListener('click',(e)=>{
+        e.preventDefault();
+        e.stopPropagation();
+        if(typeof window.ouvrirChoixCaseDocument==='function') window.ouvrirChoixCaseDocument(doc);
+      });
       actualiserEtatActionsDocument(row,doc);
+      actualiserTaillesDocumentsDans(row);
       list.appendChild(row);
     });
     content.innerHTML='';
@@ -7171,6 +7178,12 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
             </div>
           </div>
         `;
+        const ouvrirAdminPdfAttente = card.querySelector('.js-open-pdf-in-site');
+        if (ouvrirAdminPdfAttente) ouvrirAdminPdfAttente.addEventListener('click', () => {
+          const cible = {...doc, id: doc.id, Titre: doc.Titre || 'Document', Fichier_url: doc.Fichier_url, Telechargement_autorise: doc.Telechargement_autorise !== false};
+          if (!cible.Fichier_url) { alert('Le fichier PDF de ce document est introuvable.'); return; }
+          if (typeof window.ouvrirLecteurPDF === 'function') window.ouvrirLecteurPDF(cible);
+        });
         card.querySelector('.valider').addEventListener('click', () => validerDepot(doc.id, card, doc.Titre, deposant));
         card.querySelector('.refuser').addEventListener('click', () => refuserDepot(doc.id, card, doc.Titre, deposant));
         list.appendChild(card);
@@ -7313,6 +7326,12 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
             </div>
           </div>
         `;
+        const ouvrirAdminPdfPublie = card.querySelector('.js-open-pdf-in-site');
+        if (ouvrirAdminPdfPublie) ouvrirAdminPdfPublie.addEventListener('click', () => {
+          const cible = {...doc, id: doc.id, Titre: doc.Titre || 'Document', Fichier_url: doc.Fichier_url, Telechargement_autorise: doc.Telechargement_autorise !== false};
+          if (!cible.Fichier_url) { alert('Le fichier PDF de ce document est introuvable.'); return; }
+          if (typeof window.ouvrirLecteurPDF === 'function') window.ouvrirLecteurPDF(cible);
+        });
         card.querySelector('.refuser').addEventListener('click', () => supprimerDocumentPublie(doc.id, card));
         card.querySelector('.dl-toggle').addEventListener('click', () => basculerTelechargementDocument(doc, card));
         card.querySelector('.avant-toggle').addEventListener('click', () => basculerMiseEnAvantDocument(doc, card));
@@ -7474,6 +7493,11 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         item.className='admin-duplicate-item';
         item.innerHTML=`<div class="admin-duplicate-item-main"><strong>${echapperHtmlPub(doc.Titre||'Sans titre')}</strong><span>${echapperHtmlPub([doc.Niveau,doc.Classe,doc['Matière']||doc.Genre].filter(Boolean).join(' · ')||'Informations non renseignées')}</span><small>${echapperHtmlPub(nomFichierExactDepuisUrl(doc.Fichier_url))}</small></div><div class="admin-duplicate-item-actions"><button type="button" class="admin-btn ghost js-open-pdf-in-site">Ouvrir dans Aurore</button><button type="button" class="admin-btn refuser" data-duplicate-delete="1">Exclure du site</button></div>`;
         item.querySelector('[data-duplicate-delete="1"]').addEventListener('click',()=>exclureDoublonAdmin(doc.id,doc.Titre,wrap));
+        item.querySelector('.js-open-pdf-in-site')?.addEventListener('click',()=>{
+          const cible={...doc,id:doc.id,Titre:doc.Titre||'Document',Fichier_url:doc.Fichier_url,Telechargement_autorise:doc.Telechargement_autorise!==false};
+          if(!cible.Fichier_url){alert('Le fichier PDF de ce document est introuvable.');return;}
+          if(typeof window.ouvrirLecteurPDF==='function')window.ouvrirLecteurPDF(cible);
+        });
         items.appendChild(item);
       });
       list.appendChild(wrap);
@@ -11494,7 +11518,7 @@ function folderMenu(f){
 }
 function dialog(mode,f=null){let d=document.getElementById('personalFolderDialog');if(!d){d=document.createElement('div');d.id='personalFolderDialog';d.className='personal-folder-dialog';d.innerHTML=`<section class="personal-folder-dialog-card"><h3 id="pfdTitle"></h3><p id="pfdText"></p><input id="pfdInput" maxlength="60" autocomplete="off"><div class="personal-folder-message" id="pfdMsg"></div><div class="personal-folder-dialog-actions"><button type="button" id="pfdCancel">Annuler</button><button type="button" class="primary" id="pfdOk">Continuer</button></div></section>`;document.body.appendChild(d);d.onclick=e=>{if(e.target===d)d.classList.remove('show')};d.querySelector('#pfdCancel').onclick=()=>d.classList.remove('show')}d.dataset.mode=mode;d.dataset.folderId=f?.id||'';d.querySelector('#pfdTitle').textContent=mode==='rename'?'Renommer la case':'Créer une case';d.querySelector('#pfdText').textContent=mode==='rename'?`Modifiez le nom de « ${f.name} ».`:'Donnez un nom à votre case. Vous pourrez le modifier plus tard.';d.querySelector('#pfdInput').value=mode==='rename'?f.name:'';d.querySelector('#pfdOk').onclick=async()=>{const v=d.querySelector('#pfdInput').value.trim();if(!v){d.querySelector('#pfdMsg').className='personal-folder-message err';d.querySelector('#pfdMsg').textContent='Entrez un nom.';return}d.querySelector('#pfdOk').disabled=true;try{if(mode==='rename')await renameFolder(f,v);else await createFolder(v);d.classList.remove('show')}finally{d.querySelector('#pfdOk').disabled=false}};d.classList.add('show');setTimeout(()=>d.querySelector('#pfdInput').focus(),20)}
 function picker(){let p=document.getElementById('folderDocumentPicker');if(p)return p;p=document.createElement('div');p.id='folderDocumentPicker';p.className='folder-document-picker';p.innerHTML=`<section class="folder-document-picker-card"><div class="folder-document-picker-head"><div><h3>Ranger ce document</h3><p id="fdpTitle"></p></div><button type="button" class="folder-document-close">×</button></div><div class="folder-document-list" id="folderDocumentList"></div></section>`;document.body.appendChild(p);p.onclick=e=>{if(e.target===p)p.classList.remove('show')};p.querySelector('.folder-document-close').onclick=()=>p.classList.remove('show');return p}
-function chooseDoc(doc){if(!session){const signup=document.getElementById('accessSignupBtn');if(signup)signup.click();setTimeout(()=>document.getElementById('showLoginBtn')?.click(),30);const m=document.getElementById('loginMessage');if(m){m.textContent='Connectez-vous pour ranger vos documents dans vos cases personnelles.';m.className='access-message ok';m.style.display='block'}return}if(!doc?.id)return;const p=picker(),list=p.querySelector('#folderDocumentList');p.querySelector('#fdpTitle').textContent=doc.Titre||'Document';list.innerHTML='';const current=folderAssignments.find(x=>x.document_id===String(doc.id));folders.forEach(f=>{const b=document.createElement('button');b.type='button';b.className='folder-document-option'+(current?.case_id===f.id?' is-current':'');b.innerHTML=`<strong>▱ ${esc(f.name)}</strong><span>${current?.case_id===f.id?'Actuellement ici':'Ajouter ici'}</span>`;b.onclick=()=>assign(doc,f);list.appendChild(b)});if(current){const b=document.createElement('button');b.type='button';b.className='folder-document-option';b.innerHTML='<strong>× Retirer de la case</strong><span>Sans classement</span>';b.onclick=()=>removeAssignment(doc);list.appendChild(b)}p.classList.add('show')}
+async function chooseDoc(doc){if(!session){const signup=document.getElementById('accessSignupBtn');if(signup)signup.click();setTimeout(()=>document.getElementById('showLoginBtn')?.click(),30);const m=document.getElementById('loginMessage');if(m){m.textContent='Connectez-vous pour ranger vos documents dans vos cases personnelles.';m.className='access-message ok';m.style.display='block'}return}if(!doc?.id)return;if(!folders.length){await load();}const p=picker(),list=p.querySelector('#folderDocumentList');p.querySelector('#fdpTitle').textContent=doc.Titre||'Document';list.innerHTML='';const current=folderAssignments.find(x=>x.document_id===String(doc.id));folders.forEach(f=>{const b=document.createElement('button');b.type='button';b.className='folder-document-option'+(current?.case_id===f.id?' is-current':'');b.innerHTML=`<strong>▱ ${esc(f.name)}</strong><span>${current?.case_id===f.id?'Actuellement ici':'Ajouter ici'}</span>`;b.onclick=()=>assign(doc,f);list.appendChild(b)});if(current){const b=document.createElement('button');b.type='button';b.className='folder-document-option';b.innerHTML='<strong>× Retirer de la case</strong><span>Sans classement</span>';b.onclick=()=>removeAssignment(doc);list.appendChild(b)}p.classList.add('show')}
 async function assign(doc,f){
   const did=String(doc.id),fid=String(f.id),old=folderAssignments.find(x=>x.document_id===did);
   if(!session?.id||!doc?.id||!f?.id)return;
@@ -11578,8 +11602,27 @@ async function openFolder(f){
 }
 function closeFolder(){const p=document.getElementById('personalFolderDocs');if(p){p.hidden=true;p.innerHTML=''}}
 window.ouvrirChoixCaseDocument=chooseDoc;window.chargerCasesPersonnelles=load;window.rendreCasesPersonnelles=render;
-function init(){document.getElementById('personalFolderCreate')?.addEventListener('click',()=>dialog('create'));load()}
+function init(){
+  document.getElementById('personalFolderCreate')?.addEventListener('click',()=>dialog('create'));
+  // L'authentification est restaurée de façon asynchrone après DOMContentLoaded.
+  // Ne pas charger les cases avant que session soit disponible : sinon on tombe
+  // sur le cache/local fallback et les cases semblent disparaître après reconnexion.
+  let essais=0;
+  const attendreSession=()=>{
+    if(session?.id){ load(); return; }
+    if(essais++<80) setTimeout(attendreSession,250);
+  };
+  attendreSession();
+}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+window.addEventListener('load',()=>{
+  let essais=0;
+  const recharger=()=>{
+    if(session?.id){ load(); return; }
+    if(essais++<40) setTimeout(recharger,250);
+  };
+  recharger();
+});
 })();
 </script>
 </body>
