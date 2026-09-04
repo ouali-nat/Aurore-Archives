@@ -654,6 +654,13 @@
 [data-theme="light"] .ad-slot-body{background:#fff;}
 [data-theme="light"] .ad-slot-title{background:#FAF8FD;border-color:#E6DFF0;color:#111318;}
 [data-theme="light"] .ad-slot-desc{background:#FCFBFE;border-color:#EEE9F5;color:#4D465A;}
+
+    .pdf-recent-tabs{display:flex;align-items:center;gap:8px;overflow-x:auto;padding:8px 0;margin:0 0 10px;scrollbar-width:thin}
+    .pdf-recent-tab{display:inline-flex;align-items:center;gap:8px;flex:0 0 auto;max-width:230px;padding:8px 11px;border:1px solid var(--bordure);border-radius:12px;background:var(--papier);color:var(--encre);cursor:pointer;font:inherit}
+    .pdf-recent-tab.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+    .pdf-recent-tab-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .pdf-recent-tab-close{border:0;background:transparent;color:inherit;cursor:pointer;font-size:15px;line-height:1;padding:0}
+
 </style>
 
 <style id="auraster-home-redesign">
@@ -2231,10 +2238,11 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       <div class="profile-meta-item profile-personal-edit">
         <div class="label">Informations essentielles</div>
         <div class="profile-fields-grid">
-          <label>Nom du lycée / école <span>*</span><input type="text" id="profilLyceeInput" placeholder="Nom de votre établissement" maxlength="180" autocomplete="organization"></label>
-          <label>Niveau <span>*</span><input type="text" id="profilNiveauInput" placeholder="Ex. Terminale" maxlength="80"></label>
-          <label>Classe <span>*</span><input type="text" id="profilClasseInput" placeholder="Ex. Tle C" maxlength="80"></label>
-          <label>Filière / série <small>(facultatif)</small><input type="text" id="profilFiliereInput" placeholder="Ex. Scientifique / C" maxlength="100"></label>
+          <label>Type de compte <span>*</span><select id="profilRoleInput"><option value="eleve">Élève</option><option value="enseignant">Enseignant</option><option value="professeur">Professeur</option><option value="parent">Parent</option></select></label>
+          <label id="profilLyceeLabel">Nom du lycée / école <span>*</span><input type="text" id="profilLyceeInput" placeholder="Nom de votre établissement" maxlength="180" autocomplete="organization"></label>
+          <label id="profilNiveauLabel">Niveau <span>*</span><input type="text" id="profilNiveauInput" placeholder="Ex. Terminale" maxlength="80"></label>
+          <label id="profilClasseLabel">Classe <span>*</span><input type="text" id="profilClasseInput" placeholder="Ex. Tle C" maxlength="80"></label>
+          <label id="profilFiliereLabel">Filière / série <small>(facultatif)</small><input type="text" id="profilFiliereInput" placeholder="Ex. Scientifique / C" maxlength="100"></label>
         </div>
         <div class="profile-required-note">* Ces informations sont nécessaires pour finaliser votre espace personnel.</div>
         <div class="profile-save-row"><button type="button" id="profilLyceeSave">Enregistrer mon profil</button><span id="profilSaveMessage" aria-live="polite"></span></div>
@@ -2717,7 +2725,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const meta = data.user_metadata || {};
     let profil = {};
     try {
-      const pr = await fetch(`${SUPABASE_URL}/rest/v1/Profils?select=lycee,niveau,classe,filiere&id=eq.${encodeURIComponent(data.id)}&limit=1`, {
+      const pr = await fetch(`${SUPABASE_URL}/rest/v1/Profils?select=lycee,niveau,classe,filiere,role&id=eq.${encodeURIComponent(data.id)}&limit=1`, {
         headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + access_token }
       });
       if (pr.ok) { const rows = await pr.json().catch(() => []); if (rows[0]) profil = rows[0]; }
@@ -2881,7 +2889,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   }
 
   function libelleRole(role) {
-    return role === 'admin' ? 'Administrateur' : 'Élève';
+    return role === 'admin' ? 'Administrateur' : ({enseignant:'Enseignant',professeur:'Professeur',parent:'Parent'}[role] || 'Élève');
   }
 
   function afficherUtilisateurConnecte() {
@@ -2907,13 +2915,16 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       lycee: session?.lycee || meta.lycee || '',
       niveau: session?.niveau || meta.niveau || '',
       classe: session?.classe || meta.classe || '',
-      filiere: session?.filiere || meta.filiere || ''
+      filiere: session?.filiere || meta.filiere || '',
+      role: session?.role || meta.role || 'eleve'
     };
   }
 
   function profilEstComplet(sess=session) {
     if (!sess) return false;
     const i = obtenirInfosProfilLocal();
+    if(i.role==='parent') return Boolean(i.lycee.trim());
+    if(i.role==='enseignant'||i.role==='professeur') return Boolean(i.lycee.trim() && i.niveau.trim());
     return Boolean(i.lycee.trim() && i.niveau.trim() && i.classe.trim());
   }
 
@@ -2934,10 +2945,12 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     else { fallback.style.display = 'flex'; fallback.innerHTML = ICONS.user.replace('width="16"', 'width="34"').replace('height="16"', 'height="34"'); }
 
     const infos = obtenirInfosProfilLocal();
+    const roleInput=document.getElementById('profilRoleInput'); if(roleInput) roleInput.value=infos.role;
     document.getElementById('profilLyceeInput').value = infos.lycee;
     document.getElementById('profilNiveauInput').value = infos.niveau;
     document.getElementById('profilClasseInput').value = infos.classe;
     document.getElementById('profilFiliereInput').value = infos.filiere;
+    actualiserChampsProfilSelonRole();
     const msg = document.getElementById('profilSaveMessage');
     if (msg) { msg.textContent = profilEstComplet(session) ? 'Profil complet.' : 'Complétez les informations essentielles pour terminer votre espace.'; msg.className = profilEstComplet(session) ? 'ok' : ''; }
   }
@@ -2948,10 +2961,12 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const niveau = document.getElementById('profilNiveauInput').value.trim();
     const classe = document.getElementById('profilClasseInput').value.trim();
     const filiere = document.getElementById('profilFiliereInput').value.trim();
+    const role = document.getElementById('profilRoleInput')?.value || session.role || 'eleve';
     const btn = document.getElementById('profilLyceeSave');
     const msg = document.getElementById('profilSaveMessage');
-    if (!lycee || !niveau || !classe) {
-      msg.textContent = 'Veuillez renseigner le lycée / école, le niveau et la classe.'; msg.className='err';
+    const profilValide = role==='parent' ? !!lycee : (role==='enseignant'||role==='professeur' ? !!lycee && !!niveau : !!lycee && !!niveau && !!classe);
+    if (!profilValide) {
+      msg.textContent = role==='parent' ? 'Veuillez renseigner votre établissement.' : (role==='enseignant'||role==='professeur' ? 'Veuillez renseigner l’établissement et la matière / discipline.' : 'Veuillez renseigner le lycée / école, le niveau et la classe.'); msg.className='err';
       return false;
     }
     const ancienTexte=btn.textContent; btn.disabled=true; btn.textContent='Enregistrement…'; msg.textContent='';
@@ -2962,7 +2977,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       const rpc=await fetch(`${SUPABASE_URL}/rest/v1/rpc/enregistrer_profil_personnel`,{
         method:'POST',
         headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json'},
-        body:JSON.stringify({p_lycee:lycee,p_niveau:niveau,p_classe:classe,p_filiere:filiere})
+        body:JSON.stringify({p_lycee:lycee,p_niveau:niveau,p_classe:classe,p_filiere:filiere,p_role:role})
       });
       if(!rpc.ok){
         const detail=await rpc.text().catch(()=> '');
@@ -2972,7 +2987,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         const patch=await fetch(`${SUPABASE_URL}/rest/v1/Profils?id=eq.${encodeURIComponent(session.id)}`,{
           method:'PATCH',
           headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=representation'},
-          body:JSON.stringify({lycee,niveau,classe,filiere})
+          body:JSON.stringify({lycee,niveau,classe,filiere,role})
         });
         if(!patch.ok){
           const pd=await patch.text().catch(()=> '');
@@ -2987,14 +3002,14 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         const authRes=await fetch(`${SUPABASE_URL}/auth/v1/user`,{
           method:'PATCH',
           headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json'},
-          body:JSON.stringify({data:{lycee,niveau,classe,filiere}})
+          body:JSON.stringify({data:{lycee,niveau,classe,filiere,role}})
         });
         if(authRes.ok){ const authData=await authRes.json().catch(()=>({})); md=authData.user_metadata||{}; }
         else console.warn('[Profil] métadonnées Auth non mises à jour',authRes.status);
       } catch(e){ console.warn('[Profil] copie Auth ignorée',e); }
 
-      session.lycee=lycee; session.niveau=niveau; session.classe=classe; session.filiere=filiere;
-      session.user_metadata={...(session.user_metadata||{}),lycee,niveau,classe,filiere,...md};
+      session.lycee=lycee; session.niveau=niveau; session.classe=classe; session.filiere=filiere; session.role=role;
+      session.user_metadata={...(session.user_metadata||{}),lycee,niveau,classe,filiere,role,...md};
       sauvegarderSession();
       msg.textContent='Votre espace personnel est maintenant configuré.'; msg.className='ok';
       btn.textContent='Profil enregistré ✓';
@@ -3006,6 +3021,26 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       msg.textContent='Impossible d’enregistrer votre profil. Vérifiez votre connexion à Supabase puis réessayez.'; msg.className='err'; btn.textContent=ancienTexte; return false;
     } finally { btn.disabled=false; }
   }
+
+  function actualiserChampsProfilSelonRole(){
+    const role=document.getElementById('profilRoleInput')?.value||'eleve';
+    const n=document.getElementById('profilNiveauLabel'), c=document.getElementById('profilClasseLabel'), f=document.getElementById('profilFiliereLabel');
+    const ly=document.getElementById('profilLyceeLabel');
+    if(!n||!c||!f||!ly)return;
+    if(role==='enseignant'||role==='professeur'){
+      n.querySelector('span')?.remove(); const inp=n.querySelector('input'); if(inp){inp.placeholder='Matière / discipline';}
+      c.style.display='none'; f.style.display='none';
+      n.firstChild.textContent='Matière / discipline ';
+    }else if(role==='parent'){
+      n.style.display='none'; c.style.display='none'; f.style.display='none';
+      ly.querySelector('input').placeholder='Établissement de votre enfant';
+    }else{
+      n.style.display=''; c.style.display=''; f.style.display='';
+      n.firstChild.textContent='Niveau '; c.firstChild.textContent='Classe '; f.firstChild.textContent='Filière / série ';
+      n.querySelector('input').placeholder='Ex. Terminale'; ly.querySelector('input').placeholder='Nom de votre établissement';
+    }
+  }
+  document.getElementById('profilRoleInput')?.addEventListener('change',actualiserChampsProfilSelonRole);
 
   document.getElementById('profilLyceeSave').addEventListener('click',()=>enregistrerProfilPersonnel());
 
@@ -6416,7 +6451,9 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         card.dataset.adminSearch = [profil.nom, profil.email, profil.role, profil.created_at].filter(v => v != null && String(v).trim()).join(' ');
         const nom = profil.nom || 'Nom non renseigné';
         const email = profil.email || 'E-mail non renseigné';
-        const roleAdmin = String(profil.role || '').toLowerCase() === 'admin';
+        const roleValeur = String(profil.role || '').toLowerCase();
+        const roleAdmin = roleValeur === 'admin';
+        const roleLibelle = roleAdmin ? 'Administrateur' : ({enseignant:'Enseignant',professeur:'Professeur',parent:'Parent'}[roleValeur] || 'Élève');
         card.innerHTML = `
           <div class="admin-user-main">
             <div class="admin-user-name">${echapperHtmlPub(nom)}</div>
@@ -6428,7 +6465,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
               ${scolaire.filiere ? `<span>Filière : ${echapperHtmlPub(scolaire.filiere)}</span>` : ''}
             </div>
             <div class="admin-user-meta">
-              <span class="role-badge ${roleAdmin ? 'admin' : 'eleve'}">${roleAdmin ? 'Administrateur' : 'Utilisateur'}</span>
+              <span class="role-badge ${roleAdmin ? 'admin' : 'eleve'}">${roleLibelle}</span>
               <span class="admin-user-date">${echapperHtmlPub(formaterDateInscriptionUtilisateur(profil))}</span>
             </div>
           </div>
@@ -8026,9 +8063,38 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     if(stage && etape) stage.textContent=etape;
   }
 
+  /* Aurore — documents récemment ouverts / onglets du lecteur */
+  const AURORE_RECENTS_KEY='aurore_documents_recents_v2';
+  const AURORE_RECENTS_MAX=8;
+  function lireDocumentsRecents(){try{const v=JSON.parse(localStorage.getItem(AURORE_RECENTS_KEY)||'[]');return Array.isArray(v)?v:[];}catch(e){return[];}}
+  function ecrireDocumentsRecents(v){try{localStorage.setItem(AURORE_RECENTS_KEY,JSON.stringify(v.slice(0,AURORE_RECENTS_MAX)));}catch(e){}}
+  function ajouterDocumentRecentLecteur(doc){
+    if(!doc||doc.id==null||!doc.Fichier_url)return;
+    const id=String(doc.id); const arr=lireDocumentsRecents().filter(x=>String(x.id)!==id);
+    arr.unshift({id:doc.id,Titre:doc.Titre||'Document',Auteur:doc.Auteur||'',Fichier_url:doc.Fichier_url||'',"Catégorie":doc['Catégorie']||'',Niveau:doc.Niveau||'',"Matière":doc['Matière']||'',Genre:doc.Genre||'',Telechargement_autorise:doc.Telechargement_autorise!==false});
+    ecrireDocumentsRecents(arr); rendreDocumentsRecentsLecteur();
+  }
+  function rendreDocumentsRecentsLecteur(){
+    const bar=document.getElementById('pdfRecentTabs'); if(!bar)return;
+    const arr=lireDocumentsRecents(); bar.innerHTML='';
+    if(!arr.length){bar.innerHTML='<span style="opacity:.6;font-size:.78rem;padding:4px 2px;">Aucun document récent</span>';return;}
+    const courant=DOC_EN_LECTURE?.id!=null?String(DOC_EN_LECTURE.id):'';
+    arr.forEach(d=>{
+      const tab=document.createElement('button'); tab.type='button'; tab.className='pdf-recent-tab'+(String(d.id)===courant?' active':'');
+      const title=document.createElement('span'); title.className='pdf-recent-tab-title'; title.textContent=d.Titre||'Document';
+      const close=document.createElement('span'); close.className='pdf-recent-tab-close'; close.textContent='×'; close.title='Retirer des documents récents';
+      tab.append(title,close);
+      tab.addEventListener('click',e=>{if(e.target===close){e.stopPropagation();ecrireDocumentsRecents(lireDocumentsRecents().filter(x=>String(x.id)!==String(d.id)));rendreDocumentsRecentsLecteur();return;}ouvrirLecteurPDF(d);});
+      bar.appendChild(tab);
+    });
+  }
+  window.rendreDocumentsRecentsLecteur=rendreDocumentsRecentsLecteur;
+  setTimeout(rendreDocumentsRecentsLecteur,0);
+
   async function ouvrirLecteurPDF(doc) {
     if (!doc || !doc.Fichier_url) return;
     DOC_EN_LECTURE = doc;
+    ajouterDocumentRecentLecteur(doc);
     PDF_EN_COURS = null;
     PDF_OCTETS_COURANTS = null;
     PDF_PAGE_ACTUELLE = 1;
@@ -10359,13 +10425,28 @@ footer>.wrap:last-child{margin-top:18px!important;}
         // (enregistrée au moment du téléchargement réel), cassant le bouton
         // « Voir » de l'historique. Fusion avec les entrées locales au lieu
         // d'un écrasement complet.
+        const serveur=Array.isArray(rows)?rows:[];
         const precedents=new Map(telecharges().map(x=>[String(x.id),x]));
-        safeWrite(KEY_DOWNLOADS+userKey(),(Array.isArray(rows)?rows:[])
-          .map(x=>{
-            if(x.document_id==null)return null;
-            const ancien=precedents.get(String(x.document_id))||{};
-            return {...ancien,id:x.document_id,titre:x.titre_document||ancien.titre||'Document',downloaded_at:x.created_at};
-          }).filter(Boolean));
+        // Récupérer les métadonnées réelles des documents pour reconstruire
+        // correctement l'historique, même après un changement d'appareil.
+        const ids=[...new Set(serveur.map(x=>x.document_id).filter(v=>v!=null).map(String))];
+        let docs=[];
+        if(ids.length){
+          try{
+            const dr=await apiPersonnel('Document',{query:`select=id,Titre,Auteur,Fichier_url,"Catégorie",Niveau,"Matière",Genre,Telechargement_autorise&id=in.(${ids.map(encodeURIComponent).join(',')})`});
+            docs=dr?JSON.parse(dr):[];
+          }catch(e){console.warn('[Historique] métadonnées documents indisponibles',e);}
+        }
+        const docsMap=new Map((Array.isArray(docs)?docs:[]).map(d=>[String(d.id),d]));
+        const distants=serveur.map(x=>{
+          const id=String(x.document_id); const ancien=precedents.get(id)||{}; const d=docsMap.get(id)||{};
+          return {...ancien,...d,id:x.document_id,titre:d.Titre||x.titre_document||ancien.titre||'Document',auteur:d.Auteur||ancien.auteur||'',url:d.Fichier_url||ancien.url||'',categorie:d['Catégorie']||ancien.categorie||'',niveau:d.Niveau||ancien.niveau||'',matiere:d['Matière']||ancien.matiere||'',genre:d.Genre||ancien.genre||'',downloaded_at:x.created_at||ancien.downloaded_at};
+        });
+        // Ne jamais effacer un téléchargement local déjà enregistré si le serveur
+        // n'a pas encore répondu ou si la policy RLS l'a temporairement masqué.
+        const idsDistants=new Set(distants.map(x=>String(x.id)));
+        const locauxRestants=telecharges().filter(x=>!idsDistants.has(String(x.id)));
+        safeWrite(KEY_DOWNLOADS+userKey(),[...distants,...locauxRestants].slice(0,100));
       }catch(e){
         console.warn('[Espace personnel] téléchargements Supabase:',e);
         erreurLecture=e;
