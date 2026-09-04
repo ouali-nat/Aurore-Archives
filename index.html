@@ -2210,7 +2210,11 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
         <div class="admin-tab-panel" data-panel="publies">
           <p class="admin-panel-desc">Retire un document publié si besoin (erreur, doublon, contenu à corriger).</p>
-          <div class="admin-published-actions" id="adminPublishedActions"><button type="button" class="admin-btn ghost admin-danger-soft" id="adminDepublierTout">Tout dépublier</button><span>Le site sera vidé de ses documents publics, sans supprimer les fichiers ni les fiches.</span></div>
+          <div class="admin-published-actions" id="adminPublishedActions">
+            <button type="button" class="admin-btn ghost admin-danger-soft" id="adminSuspendreTout">⏸ Suspendre tous</button>
+            <button type="button" class="admin-btn primary" id="adminRepublierTout" style="display:none;">↻ Republier tous</button>
+            <span id="adminPublicationGlobaleInfo">Suspend temporairement tous les documents publics, sans supprimer les fichiers ni les fiches.</span>
+          </div>
           <div class="admin-data-toolbar" id="adminToolbarPublies">
             <div class="admin-search-control"><span aria-hidden="true">⌕</span><input id="adminSearchPublies" type="search" placeholder="Rechercher un document…" autocomplete="off"></div>
             <select id="adminSortPublies" aria-label="Trier les documents publiés">
@@ -2467,7 +2471,9 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         <div class="profile-fields-grid">
           <label>Type de compte <span>*</span><select id="profilRoleInput"><option value="eleve">Élève</option><option value="enseignant">Enseignant</option><option value="professeur">Professeur</option><option value="parent">Parent</option></select></label>
           <div class="profile-role-context" id="profilRoleContext" aria-live="polite"></div>
-          <label>Nom du lycée / école <span>*</span><input type="text" id="profilLyceeInput" placeholder="Nom de votre établissement" maxlength="180" autocomplete="organization"></label>
+          <label>Nom <span>*</span><input type="text" id="profilNomInput" placeholder="Votre nom" maxlength="100" autocomplete="family-name"></label>
+          <label>Prénom <span>*</span><input type="text" id="profilPrenomInput" placeholder="Votre prénom" maxlength="100" autocomplete="given-name"></label>
+          <label>Établissement <span>*</span><input type="text" id="profilLyceeInput" placeholder="Nom de votre établissement" maxlength="180" autocomplete="organization"></label>
           <label id="profilNiveauField">Niveau <span>*</span><input type="text" id="profilNiveauInput" placeholder="Ex. Terminale" maxlength="80"></label>
           <label id="profilClasseField">Classe <span>*</span><input type="text" id="profilClasseInput" placeholder="Ex. Tle C" maxlength="80"></label>
           <label id="profilFiliereField">Filière / série <small>(facultatif)</small><input type="text" id="profilFiliereInput" placeholder="Ex. Scientifique / C" maxlength="100"></label>
@@ -3232,10 +3238,12 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     if (!sess) return false;
     const i = obtenirInfosProfilLocal();
     const role=String(sess.role||'eleve').toLowerCase();
+    const nom=String(sess.nom||i.nom||'').trim();
+    const prenom=String(sess.prenom||i.prenom||'').trim();
     const enseignant=role==='enseignant'||role==='professeur';
-    if(enseignant) return Boolean(i.lycee.trim() && String(sess.discipline||sess.matiere||'').trim() && String(sess.fonction||'').trim());
-    if(role==='parent') return Boolean(i.lycee.trim() && String(sess.enfant_informations||'').trim());
-    return Boolean(i.lycee.trim() && i.niveau.trim() && i.classe.trim());
+    if(enseignant) return Boolean(nom && prenom && i.lycee.trim() && String(sess.discipline||sess.matiere||'').trim());
+    if(role==='parent') return Boolean(nom && prenom && i.lycee.trim() && String(sess.enfant_informations||'').trim());
+    return Boolean(nom && prenom && i.lycee.trim() && i.niveau.trim() && i.classe.trim());
   }
 
   function remplirProfil() {
@@ -3255,6 +3263,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     else { fallback.style.display = 'flex'; fallback.innerHTML = ICONS.user.replace('width="16"', 'width="34"').replace('height="16"', 'height="34"'); }
 
     const infos = obtenirInfosProfilLocal();
+    const nomInput=document.getElementById('profilNomInput'); if(nomInput) nomInput.value=session.nom||infos.nom||'';
+    const prenomInput=document.getElementById('profilPrenomInput'); if(prenomInput) prenomInput.value=session.prenom||infos.prenom||'';
     document.getElementById('profilLyceeInput').value = infos.lycee;
     document.getElementById('profilNiveauInput').value = infos.niveau;
     document.getElementById('profilClasseInput').value = infos.classe;
@@ -3282,6 +3292,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     if(fonction)fonction.hidden=!enseignant;
     if(enfant)enfant.hidden=role!=='parent';
     const req=(id,on)=>{const el=document.getElementById(id);if(el)el.required=!!on;};
+    req('profilNomInput',true);
+    req('profilPrenomInput',true);
     req('profilLyceeInput',true);
     req('profilNiveauInput',!enseignant&&role!=='parent');
     req('profilClasseInput',!enseignant&&role!=='parent');
@@ -3291,10 +3303,10 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     req('profilEnfantInput',role==='parent');
     if(context){
       const textes={
-        eleve:'Élève : renseignez votre établissement, votre niveau et votre classe. La filière/série reste facultative.',
-        enseignant:'Enseignant : renseignez votre établissement, la matière ou discipline enseignée et votre fonction.',
-        professeur:'Professeur : renseignez votre établissement, la matière ou discipline enseignée et votre fonction.',
-        parent:'Parent : renseignez votre établissement puis les informations utiles concernant votre enfant.'
+        eleve:'Élève : renseignez votre nom, votre prénom, votre établissement, votre niveau et votre classe. La filière/série reste facultative.',
+        enseignant:'Enseignant : renseignez votre nom, votre prénom, l’établissement où vous exercez et votre discipline.',
+        professeur:'Professeur : renseignez votre nom, votre prénom, l’établissement où vous exercez et votre discipline.',
+        parent:'Parent : renseignez votre nom, votre prénom, votre établissement et les informations utiles concernant votre enfant.'
       };
       context.innerHTML='<strong>Informations adaptées à votre profil</strong><span>'+echapperHtmlPub(textes[role]||textes.eleve)+'</span>';
     }
@@ -3303,6 +3315,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
   async function enregistrerProfilPersonnel(options={}) {
     if (!session || !session.access_token) return false;
+    const nom = document.getElementById('profilNomInput').value.trim();
+    const prenom = document.getElementById('profilPrenomInput').value.trim();
     const lycee = document.getElementById('profilLyceeInput').value.trim();
     const niveau = document.getElementById('profilNiveauInput').value.trim();
     const classe = document.getElementById('profilClasseInput').value.trim();
@@ -3314,8 +3328,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const btn = document.getElementById('profilLyceeSave');
     const msg = document.getElementById('profilSaveMessage');
     const enseignant=role==='enseignant'||role==='professeur';
-    if(!lycee || (enseignant ? (!discipline||!fonction) : (role==='parent' ? !enfant_informations : (!niveau||!classe)))) {
-      msg.textContent = enseignant ? 'Veuillez renseigner l’établissement, la matière / discipline et la fonction.' : (role==='parent' ? 'Veuillez renseigner l’établissement et les informations sur votre enfant.' : 'Veuillez renseigner l’établissement, le niveau et la classe.'); msg.className='err';
+    if(!nom || !prenom || !lycee || (enseignant ? !discipline : (role==='parent' ? !enfant_informations : (!niveau||!classe)))) {
+      msg.textContent = enseignant ? 'Veuillez renseigner le nom, le prénom, l’établissement et la discipline.' : (role==='parent' ? 'Veuillez renseigner le nom, le prénom, l’établissement et les informations sur votre enfant.' : 'Veuillez renseigner le nom, le prénom, l’établissement, le niveau et la classe.'); msg.className='err';
       return false;
     }
     const ancienTexte=btn.textContent; btn.disabled=true; btn.textContent='Enregistrement…'; msg.textContent='';
@@ -3326,7 +3340,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       const rpc=await fetch(`${SUPABASE_URL}/rest/v1/rpc/enregistrer_profil_personnel`,{
         method:'POST',
         headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json'},
-        body:JSON.stringify({p_lycee:lycee,p_niveau:niveau,p_classe:classe,p_filiere:filiere,p_role:role,p_discipline:discipline,p_fonction:fonction,p_enfant_informations:enfant_informations})
+        body:JSON.stringify({p_nom:nom,p_prenom:prenom,p_lycee:lycee,p_niveau:niveau,p_classe:classe,p_filiere:filiere,p_role:role,p_discipline:discipline,p_fonction:fonction,p_enfant_informations:enfant_informations})
       });
       if(!rpc.ok){
         const detail=await rpc.text().catch(()=> '');
@@ -3336,7 +3350,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         const patch=await fetch(`${SUPABASE_URL}/rest/v1/Profils?id=eq.${encodeURIComponent(session.id)}`,{
           method:'PATCH',
           headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=representation'},
-          body:JSON.stringify({lycee,niveau,classe,filiere,role,discipline,fonction,enfant_informations})
+          body:JSON.stringify({nom,prenom,lycee,niveau,classe,filiere,role,discipline,fonction,enfant_informations})
         });
         if(!patch.ok){
           const pd=await patch.text().catch(()=> '');
@@ -3351,14 +3365,14 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         const authRes=await fetch(`${SUPABASE_URL}/auth/v1/user`,{
           method:'PATCH',
           headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json'},
-          body:JSON.stringify({data:{lycee,niveau,classe,filiere,role,discipline,fonction,enfant_informations}})
+          body:JSON.stringify({data:{nom,prenom,lycee,niveau,classe,filiere,role,discipline,fonction,enfant_informations}})
         });
         if(authRes.ok){ const authData=await authRes.json().catch(()=>({})); md=authData.user_metadata||{}; }
         else console.warn('[Profil] métadonnées Auth non mises à jour',authRes.status);
       } catch(e){ console.warn('[Profil] copie Auth ignorée',e); }
 
-      session.lycee=lycee; session.niveau=niveau; session.classe=niveau&&classe?classe:''; session.filiere=filiere; session.role=role; session.discipline=discipline; session.fonction=fonction; session.enfant_informations=enfant_informations;
-      session.user_metadata={...(session.user_metadata||{}),lycee,niveau,classe,filiere,role,discipline,fonction,enfant_informations,...md};
+      session.nom=nom; session.prenom=prenom; session.lycee=lycee; session.niveau=niveau; session.classe=niveau&&classe?classe:''; session.filiere=filiere; session.role=role; session.discipline=discipline; session.fonction=fonction; session.enfant_informations=enfant_informations;
+      session.user_metadata={...(session.user_metadata||{}),nom,prenom,lycee,niveau,classe,filiere,role,discipline,fonction,enfant_informations,...md};
       sauvegarderSession();
       msg.textContent='Votre espace personnel est maintenant configuré.'; msg.className='ok';
        let success=document.getElementById('auroreProfileSuccess');
@@ -7641,29 +7655,71 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     }
   }
 
-  async function depublierTousLesDocumentsAdmin() {
+  async function suspendreTousLesDocumentsAdmin() {
     if(!session || session.role !== 'admin'){alert('Cette action est réservée aux administrateurs.');return;}
-    const confirmation=confirm('Vider le site public ?\n\nTous les documents actuellement publiés seront simplement dépubliés. Ils resteront dans la base et pourront être republiés depuis « En attente ».\n\nCette action ne supprime aucun document.');
+    const confirmation=confirm('Suspendre tous les documents publics ?\n\nTous les documents actuellement visibles sur le site seront retirés temporairement. Aucun document ni fichier ne sera supprimé.\n\nIls pourront être ramenés avec « Republier tous ».');
     if(!confirmation) return;
-    const btn=document.getElementById('adminDepublierTout');
-    if(btn){btn.disabled=true;btn.textContent='Dépublication…';}
+    const btn=document.getElementById('adminSuspendreTout');
+    if(btn){btn.disabled=true;btn.textContent='Suspension…';}
     try{
-      let res=await fetch(`${SUPABASE_URL}/rest/v1/rpc/depublier_tous_documents_admin`,{method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json'},body:'{}'});
-      if(!res.ok){
-        const detail=await res.text().catch(()=> '');
-        console.warn('[Admin] RPC dépublication indisponible, tentative directe',detail);
-        // Secours : si le RPC n'est pas encore exposé par PostgREST, l'admin peut
-        // effectuer la même opération via la policy RLS de Document.
-        res=await fetch(`${SUPABASE_URL}/rest/v1/Document?Publie=eq.true`,{method:'PATCH',headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({Publie:false})});
-        if(!res.ok)throw new Error(detail||await res.text().catch(()=> '')||('HTTP '+res.status));
-      }
+      const res=await fetch(`${SUPABASE_URL}/rest/v1/rpc/suspendre_tous_documents_admin`,{
+        method:'POST',
+        headers:{...headersAdmin(),'Content-Type':'application/json'},
+        body:'{}'
+      });
+      if(!res.ok) throw new Error(await res.text().catch(()=> '')||('HTTP '+res.status));
+      const total=Number(await res.json().catch(()=>0))||0;
       await chargerDocumentsPublies();
       await chargerDepotsEnAttente();
-      alert('Le site public a été vidé : les documents sont conservés et peuvent être republiés depuis « En attente ».');
-    }catch(e){console.error('[Admin] tout dépublier',e);alert('La dépublication globale n’a pas pu être effectuée. Vérifiez le SQL administrateur puis réessayez.');}
-    finally{if(btn){btn.disabled=false;btn.textContent='Tout dépublier';}}
+      mettreEtatPublicationGlobale(true);
+      alert(`${total} document(s) ont été suspendus. Ils restent conservés et pourront être ramenés.`);
+    }catch(e){
+      console.error('[Admin] suspension globale',e);
+      alert('La suspension globale n’a pas pu être effectuée. Vérifiez le SQL administrateur puis réessayez.');
+    }finally{
+      if(btn){btn.disabled=false;btn.textContent='⏸ Suspendre tous';}
+    }
   }
-  document.getElementById('adminDepublierTout')?.addEventListener('click',depublierTousLesDocumentsAdmin);
+
+  async function republierTousLesDocumentsAdmin() {
+    if(!session || session.role !== 'admin'){alert('Cette action est réservée aux administrateurs.');return;}
+    const confirmation=confirm('Ramener tous les documents suspendus ?\n\nLes documents qui avaient été publiés avant la suspension seront remis sur le site. Les nouveaux documents restés en attente ne seront pas publiés automatiquement.');
+    if(!confirmation) return;
+    const btn=document.getElementById('adminRepublierTout');
+    if(btn){btn.disabled=true;btn.textContent='Restauration…';}
+    try{
+      const res=await fetch(`${SUPABASE_URL}/rest/v1/rpc/ramener_tous_documents_admin`,{
+        method:'POST',
+        headers:{...headersAdmin(),'Content-Type':'application/json'},
+        body:'{}'
+      });
+      if(!res.ok) throw new Error(await res.text().catch(()=> '')||('HTTP '+res.status));
+      const total=Number(await res.json().catch(()=>0))||0;
+      await chargerDocumentsPublies();
+      await chargerDepotsEnAttente();
+      mettreEtatPublicationGlobale(false);
+      alert(`${total} document(s) ont été ramenés sur le site.`);
+    }catch(e){
+      console.error('[Admin] restauration globale',e);
+      alert('La republication globale n’a pas pu être effectuée. Vérifiez le SQL administrateur puis réessayez.');
+    }finally{
+      if(btn){btn.disabled=false;btn.textContent='↻ Republier tous';}
+    }
+  }
+
+  function mettreEtatPublicationGlobale(suspendu){
+    const suspend=document.getElementById('adminSuspendreTout');
+    const restore=document.getElementById('adminRepublierTout');
+    const info=document.getElementById('adminPublicationGlobaleInfo');
+    if(suspend) suspend.style.display=suspendu?'none':'';
+    if(restore) restore.style.display=suspendu?'':'none';
+    if(info) info.textContent=suspendu
+      ? 'Le site public est suspendu. Les documents sont conservés et peuvent être ramenés.'
+      : 'Suspend temporairement tous les documents publics, sans supprimer les fichiers ni les fiches.';
+  }
+
+  document.getElementById('adminSuspendreTout')?.addEventListener('click',suspendreTousLesDocumentsAdmin);
+  document.getElementById('adminRepublierTout')?.addEventListener('click',republierTousLesDocumentsAdmin);
 
   // ---------- DÉTECTION DES DOUBLONS PUBLIÉS ----------
   // Analyse volontairement déclenchée par l'administrateur. Les documents sont
