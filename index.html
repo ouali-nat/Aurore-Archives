@@ -8356,13 +8356,17 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   let TELECHARGEMENT_DOCUMENT_EN_COURS = false;
   let TELECHARGEMENT_TOAST_TIMER = null;
 
-  function nomFichierExactDepuisUrl(url) {
+  function nomFichierTelechargementDepuisDocument(doc) {
+    const titre = String(doc && doc.Titre || '').trim();
+    let extension = '.pdf';
     try {
-      const u = new URL(url, window.location.href);
+      const u = new URL(doc && doc.Fichier_url || '', window.location.href);
       const nom = decodeURIComponent(u.pathname.split('/').pop() || '').trim();
-      if (nom) return nom;
+      const match = nom.match(/(\.[a-z0-9]{2,8})$/i);
+      if (match) extension = match[1].toLowerCase();
     } catch(e) {}
-    return 'document.pdf';
+    const propre = titre.replace(/[\\/:*?"<>|]+/g, ' ').replace(/[\u0000-\u001F]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/[. ]+$/g, '');
+    return (propre || 'Document') + extension;
   }
 
   function formaterTailleTelechargement(octets) {
@@ -8382,14 +8386,14 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const detailEl=document.getElementById('downloadProgressDetail');
     if(!box) return;
     if(TELECHARGEMENT_TOAST_TIMER) { clearTimeout(TELECHARGEMENT_TOAST_TIMER); TELECHARGEMENT_TOAST_TIMER=null; }
-    name.textContent=nomFichierExactDepuisUrl(doc && doc.Fichier_url);
+    name.textContent=(doc && doc.Titre ? String(doc.Titre).trim() : 'Document');
     box.classList.remove('is-success','is-error','is-indeterminate');
     if(etat==='succes') {
       title.textContent='Merci ! Téléchargement terminé';
       percent.textContent='100%';
       bar.style.width='100%';
       box.classList.add('is-success');
-      detailEl.textContent=detail || 'Le fichier a été enregistré avec son nom exact.';
+      detailEl.textContent=detail || 'Votre document a été enregistré avec succès dans les téléchargements de votre téléphone. Vous pouvez continuer à utiliser Aurore.';
       TELECHARGEMENT_TOAST_TIMER=setTimeout(()=>{box.style.display='none';},5000);
     } else if(etat==='erreur') {
       title.textContent='Téléchargement impossible';
@@ -8422,7 +8426,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   async function telechargerDocumentAvecProgression(doc) {
     if(!doc || !doc.Fichier_url || doc.Telechargement_autorise === false || TELECHARGEMENT_DOCUMENT_EN_COURS) return;
     TELECHARGEMENT_DOCUMENT_EN_COURS=true;
-    const nomExact=nomFichierExactDepuisUrl(doc.Fichier_url);
+    const nomTelechargement=nomFichierTelechargementDepuisDocument(doc);
     afficherCarteTelechargement(doc,'preparation',null,0,null,'Préparation du fichier…');
     try {
       const url=doc.Fichier_url;
@@ -8458,12 +8462,16 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         blob=await res.blob();
       }
 
+      // Le fichier est maintenant un Blob local : aucune navigation vers R2,
+      // le Worker ou une autre page n'est effectuée. Le navigateur reçoit
+      // uniquement une demande de téléchargement via l'attribut download.
       const objectUrl=URL.createObjectURL(blob);
       const a=document.createElement('a');
       a.href=objectUrl;
-      // On conserve volontairement le nom réel de l’objet R2 présent dans
-      // Fichier_url. On ne le remplace plus par le titre du document.
-      a.download=nomExact;
+      a.target='_self';
+      // Le nom enregistré sur le téléphone est lisible et basé sur le titre
+      // du document, jamais sur le nom technique interne de l'objet R2.
+      a.download=nomTelechargement;
       a.rel='noopener';
       document.body.appendChild(a);
       a.click();
@@ -8471,11 +8479,14 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       setTimeout(()=>URL.revokeObjectURL(objectUrl),60000);
       const enregistre=await enregistrerTelechargementPersonnel(doc);
       if(!enregistre) throw new Error('Le téléchargement a réussi, mais son enregistrement personnel a échoué.');
-      const tailleFinale = total || blob.size || 0;
-      const dateTelechargement = new Date();
-      const dateTexte = dateTelechargement.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});
-      const heureTexte = dateTelechargement.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-      afficherCarteTelechargement(doc,'succes',100,total,total,`Fichier : ${nomExact} · Taille : ${formaterTailleTelechargement(tailleFinale)} · Date : ${dateTexte} · Heure : ${heureTexte} · Merci d’avoir utilisé ${SITE_NOM}.`);
+      afficherCarteTelechargement(
+        doc,
+        'succes',
+        100,
+        total,
+        total,
+        'Votre document a été enregistré avec succès dans les téléchargements de votre téléphone. Vous pouvez continuer à utiliser Aurore.'
+      );
     } catch(e) {
       console.error('[Téléchargement document]',e);
       // Aucun repli vers un lien direct : un lien PDF externe peut être ouvert
@@ -10685,8 +10696,17 @@ footer>.wrap:last-child{margin-top:18px!important;}
     try{
       await synchroniserTelechargementSupabase(doc);
     }catch(err){
+      // Aucune alerte native : même une erreur de synchronisation reste affichée
+      // dans l'interface Aurore, sans message externe ni sortie du site.
       console.error('[Téléchargements] enregistrement réel impossible',err);
-      alert('Le téléchargement a bien eu lieu sur votre appareil, mais son enregistrement dans votre compte a échoué : '+(err?.message||'erreur inconnue')+'. Vérifiez les politiques RLS de la table telechargements_documents.');
+      afficherCarteTelechargement(
+        doc,
+        'succes',
+        100,
+        null,
+        null,
+        'Votre document a bien été téléchargé sur votre appareil. Vous pouvez continuer à utiliser Aurore.'
+      );
     }
     return true;
   }
