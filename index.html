@@ -1433,6 +1433,24 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 @media(max-width:700px){.admin-published-actions{align-items:flex-start;flex-direction:column}.admin-published-actions button{width:100%}}
 </style>
 </style>
+
+<style id="aurore-folder-document-actions-fix">
+/* Actions complètes dans une case : mêmes boutons que le reste de l'espace personnel. */
+.personal-folder-doc-row{align-items:flex-start!important;gap:12px!important;padding:12px 13px!important;background:linear-gradient(145deg,var(--fond),rgba(124,58,237,.025))!important;}
+.personal-folder-doc-main{min-width:0;flex:1;display:flex;flex-direction:column;gap:4px;}
+.personal-folder-doc-main strong{font-size:.78rem!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.personal-folder-doc-main span{font-size:.66rem;color:var(--gris);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.personal-folder-doc-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;flex:0 0 auto;}
+.personal-folder-doc-actions button{border:1px solid var(--bordure)!important;background:var(--papier)!important;color:var(--gris)!important;border-radius:9px!important;padding:7px 9px!important;font:inherit!important;font-size:.65rem!important;font-weight:750!important;cursor:pointer;transition:.15s ease;}
+.personal-folder-doc-actions button:hover{border-color:var(--violet)!important;color:var(--encre)!important;background:rgba(124,58,237,.08)!important;}
+.personal-folder-doc-actions button.is-active{border-color:var(--violet)!important;color:var(--violet)!important;background:rgba(124,58,237,.09)!important;}
+.personal-folder-doc-actions button.is-remove{color:var(--rouge)!important;border-color:rgba(224,119,107,.25)!important;background:rgba(224,119,107,.045)!important;}
+.personal-folder-doc-actions button.is-remove:hover{border-color:var(--rouge)!important;background:rgba(224,119,107,.09)!important;}
+@media(max-width:700px){.personal-folder-doc-actions{width:100%;justify-content:flex-start}.personal-folder-doc-actions button{flex:1;min-width:92px}.personal-folder-doc-main span{white-space:normal}}
+[data-theme="light"] .personal-folder-doc-row{background:#fff!important;}
+[data-theme="light"] .personal-folder-doc-actions button{background:#F8F6FB!important;color:#514B5D!important;border-color:#D9D1E4!important;}
+[data-theme="light"] .personal-folder-doc-actions button:hover{background:#F3EDFF!important;color:#211D2E!important;}
+</style>
 </head>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <body class="site-locked">
@@ -11143,8 +11161,12 @@ footer>.wrap:last-child{margin-top:18px!important;}
     arr.forEach(d=>{
       const row=document.createElement('article'); row.className='personal-book personal-history-row';
       const date=d.downloaded_at?new Date(d.downloaded_at).toLocaleString('fr-FR',{dateStyle:'medium',timeStyle:'short'}):'';
-      row.innerHTML=`<div class="personal-book-main"><div class="personal-book-title">${escapeTextePersonnel(d.titre||'Document')}</div><div class="personal-book-meta">Téléchargé${date?' · '+escapeTextePersonnel(date):''}</div></div><div class="personal-doc-actions"><button type="button" class="personal-action" data-lire-download>Voir</button><button type="button" class="personal-history-delete" data-delete-download aria-label="Supprimer ce document de l’historique" title="Supprimer de l’historique">×</button></div>`;
-      row.querySelector('[data-lire-download]')?.addEventListener('click',()=>ouvrirLecteurPDF({id:d.id,Titre:d.titre,Auteur:d.auteur,Fichier_url:d.url,'Catégorie':d.categorie,Niveau:d.niveau,'Matière':d.matiere,Genre:d.genre}));
+      row.innerHTML=`<div class="personal-book-main"><div class="personal-book-title">${escapeTextePersonnel(d.titre||'Document')}</div><div class="personal-book-meta">Téléchargé${date?' · '+escapeTextePersonnel(date):''}</div></div><div class="personal-doc-actions"><button type="button" class="personal-action" data-lire-download>Voir</button><button type="button" class="personal-action" data-telecharger-download>Télécharger</button><button type="button" class="personal-action" data-favori-download>♡ Favori</button><button type="button" class="personal-action doc-action-folder" data-case-download>▣ Case</button><button type="button" class="personal-history-delete" data-delete-download aria-label="Supprimer ce document de l’historique" title="Supprimer de l’historique">×</button></div>`;
+      const historyDoc={id:d.id,Titre:d.titre,Auteur:d.auteur,Fichier_url:d.url,'Catégorie':d.categorie,Niveau:d.niveau,'Matière':d.matiere,Genre:d.genre};
+      row.querySelector('[data-lire-download]')?.addEventListener('click',()=>ouvrirLecteurPDF(historyDoc));
+      row.querySelector('[data-telecharger-download]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(historyDoc));
+      row.querySelector('[data-favori-download]')?.addEventListener('click',e=>basculerFavoriDocument(historyDoc,e.currentTarget));
+      row.querySelector('[data-case-download]')?.addEventListener('click',()=>window.ouvrirChoixCaseDocument?.(historyDoc));
       row.querySelector('[data-delete-download]')?.addEventListener('click',async()=>{
         if(!confirm('Supprimer ce document de votre historique de téléchargements ?'))return;
         try{await supprimerTelechargementPersonnel(d.id);}catch(e){alert('Impossible de supprimer ce document de l’historique.');}
@@ -11161,10 +11183,11 @@ footer>.wrap:last-child{margin-top:18px!important;}
     if(!arr.length){list.innerHTML='<div class="personal-empty">Aucun document enregistré pour plus tard. Utilisez « ＋ Plus tard » sur un document du site.</div>';return;}
     arr.forEach(d=>{
       const row=document.createElement('article');row.className='personal-book';
-      row.innerHTML=`<div class="personal-book-main"><div class="personal-book-title">${escapeTextePersonnel(d.titre)}</div><div class="personal-book-meta">Document enregistré pour plus tard${d.niveau?' · '+escapeTextePersonnel(d.niveau):''}</div></div><div class="personal-doc-actions"><button type="button" class="personal-action" data-lire-tard>Voir</button><button type="button" class="personal-action" data-telecharger-tard>Télécharger maintenant</button><button type="button" class="personal-action doc-action-folder" data-case-later>▣ Case</button></div>`;
+      row.innerHTML=`<div class="personal-book-main"><div class="personal-book-title">${escapeTextePersonnel(d.titre)}</div><div class="personal-book-meta">Document enregistré pour plus tard${d.niveau?' · '+escapeTextePersonnel(d.niveau):''}</div></div><div class="personal-doc-actions"><button type="button" class="personal-action" data-lire-tard>Voir</button><button type="button" class="personal-action" data-telecharger-tard>Télécharger maintenant</button><button type="button" class="personal-action doc-action-folder" data-case-later>▣ Case</button><button type="button" class="personal-action" data-remove-later>Retirer</button></div>`;
       row.querySelector('[data-lire-tard]')?.addEventListener('click',()=>ouvrirLecteurPDF({id:d.id,Titre:d.titre,Auteur:d.auteur,Fichier_url:d.url,'Catégorie':d.categorie,Niveau:d.niveau,'Matière':d.matiere,Genre:d.genre}));
       row.querySelector('[data-telecharger-tard]')?.addEventListener('click',()=>telechargerDocumentAvecProgression({id:d.id,Titre:d.titre,Auteur:d.auteur,Fichier_url:d.url,'Catégorie':d.categorie,Niveau:d.niveau,'Matière':d.matiere,Genre:d.genre}));
       row.querySelector('[data-case-later]')?.addEventListener('click',()=>window.ouvrirChoixCaseDocument?.({id:d.id,Titre:d.titre,Auteur:d.auteur,Fichier_url:d.url,'Catégorie':d.categorie,Niveau:d.niveau,'Matière':d.matiere,Genre:d.genre}));
+      row.querySelector('[data-remove-later]')?.addEventListener('click',()=>ajouterDocumentPlusTard({id:d.id,Titre:d.titre,Auteur:d.auteur,Fichier_url:d.url,'Catégorie':d.categorie,Niveau:d.niveau,'Matière':d.matiere,Genre:d.genre},null));
       list.appendChild(row);
     });
   }
@@ -11483,10 +11506,109 @@ function folderMenu(f){
 function dialog(mode,f=null){let d=document.getElementById('personalFolderDialog');if(!d){d=document.createElement('div');d.id='personalFolderDialog';d.className='personal-folder-dialog';d.innerHTML=`<section class="personal-folder-dialog-card"><h3 id="pfdTitle"></h3><p id="pfdText"></p><input id="pfdInput" maxlength="60" autocomplete="off"><div class="personal-folder-message" id="pfdMsg"></div><div class="personal-folder-dialog-actions"><button type="button" id="pfdCancel">Annuler</button><button type="button" class="primary" id="pfdOk">Continuer</button></div></section>`;document.body.appendChild(d);d.onclick=e=>{if(e.target===d)d.classList.remove('show')};d.querySelector('#pfdCancel').onclick=()=>d.classList.remove('show')}d.dataset.mode=mode;d.dataset.folderId=f?.id||'';d.querySelector('#pfdTitle').textContent=mode==='rename'?'Renommer la case':'Créer une case';d.querySelector('#pfdText').textContent=mode==='rename'?`Modifiez le nom de « ${f.name} ».`:'Donnez un nom à votre case. Vous pourrez le modifier plus tard.';d.querySelector('#pfdInput').value=mode==='rename'?f.name:'';d.querySelector('#pfdOk').onclick=async()=>{const v=d.querySelector('#pfdInput').value.trim();if(!v){d.querySelector('#pfdMsg').className='personal-folder-message err';d.querySelector('#pfdMsg').textContent='Entrez un nom.';return}d.querySelector('#pfdOk').disabled=true;try{if(mode==='rename')await renameFolder(f,v);else await createFolder(v);d.classList.remove('show')}finally{d.querySelector('#pfdOk').disabled=false}};d.classList.add('show');setTimeout(()=>d.querySelector('#pfdInput').focus(),20)}
 function picker(){let p=document.getElementById('folderDocumentPicker');if(p)return p;p=document.createElement('div');p.id='folderDocumentPicker';p.className='folder-document-picker';p.innerHTML=`<section class="folder-document-picker-card"><div class="folder-document-picker-head"><div><h3>Ranger ce document</h3><p id="fdpTitle"></p></div><button type="button" class="folder-document-close">×</button></div><div class="folder-document-list" id="folderDocumentList"></div></section>`;document.body.appendChild(p);p.onclick=e=>{if(e.target===p)p.classList.remove('show')};p.querySelector('.folder-document-close').onclick=()=>p.classList.remove('show');return p}
 function chooseDoc(doc){if(!session){const signup=document.getElementById('accessSignupBtn');if(signup)signup.click();setTimeout(()=>document.getElementById('showLoginBtn')?.click(),30);const m=document.getElementById('loginMessage');if(m){m.textContent='Connectez-vous pour ranger vos documents dans vos cases personnelles.';m.className='access-message ok';m.style.display='block'}return}if(!doc?.id)return;const p=picker(),list=p.querySelector('#folderDocumentList');p.querySelector('#fdpTitle').textContent=doc.Titre||'Document';list.innerHTML='';const current=folderAssignments.find(x=>x.document_id===String(doc.id));folders.forEach(f=>{const b=document.createElement('button');b.type='button';b.className='folder-document-option'+(current?.case_id===f.id?' is-current':'');b.innerHTML=`<strong>▱ ${esc(f.name)}</strong><span>${current?.case_id===f.id?'Actuellement ici':'Ajouter ici'}</span>`;b.onclick=()=>assign(doc,f);list.appendChild(b)});if(current){const b=document.createElement('button');b.type='button';b.className='folder-document-option';b.innerHTML='<strong>× Retirer de la case</strong><span>Sans classement</span>';b.onclick=()=>removeAssignment(doc);list.appendChild(b)}p.classList.add('show')}
-async function assign(doc,f){const did=String(doc.id),fid=String(f.id),old=folderAssignments.find(x=>x.document_id===did);folderAssignments=folderAssignments.filter(x=>x.document_id!==did);folderAssignments.push({document_id:did,case_id:fid});write(ak(),folderAssignments);try{await api(ASSIGN_TABLE,{method:'POST',headers:{Prefer:'return=minimal'},body:{user_id:uid(),document_id:Number(doc.id),case_id:f.id}})}catch(e){folderAssignments=folderAssignments.filter(x=>x.document_id!==did);if(old)folderAssignments.push(old);write(ak(),folderAssignments);alert('Impossible de ranger ce document. Vérifiez le SQL des cases.');return}document.getElementById('folderDocumentPicker')?.classList.remove('show');render()}
-async function removeAssignment(doc){const did=String(doc.id),old=folderAssignments.find(x=>x.document_id===did);folderAssignments=folderAssignments.filter(x=>x.document_id!==did);write(ak(),folderAssignments);try{await api(ASSIGN_TABLE,{method:'DELETE',query:`user_id=eq.${encodeURIComponent(uid())}&document_id=eq.${encodeURIComponent(doc.id)}`})}catch(e){if(old)folderAssignments.push(old);write(ak(),folderAssignments);alert('Impossible de retirer ce document de sa case.');return}document.getElementById('folderDocumentPicker')?.classList.remove('show');render()}
+async function assign(doc,f){
+  const did=String(doc.id),fid=String(f.id),old=folderAssignments.find(x=>x.document_id===did);
+  folderAssignments=folderAssignments.filter(x=>x.document_id!==did);
+  folderAssignments.push({document_id:did,case_id:fid});
+  write(ak(),folderAssignments);
+  try{
+    // Une affectation existe déjà lorsque l'utilisateur déplace un document.
+    // On utilise donc l'upsert sur la contrainte (user_id, document_id) au lieu
+    // d'un INSERT simple qui échouerait avec une contrainte UNIQUE.
+    await api(ASSIGN_TABLE,{
+      method:'POST',
+      query:'on_conflict=user_id,document_id',
+      headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body:{user_id:uid(),document_id:Number(doc.id),case_id:f.id}
+    });
+  }catch(e){
+    folderAssignments=folderAssignments.filter(x=>x.document_id!==did);
+    if(old)folderAssignments.push(old);
+    write(ak(),folderAssignments);
+    console.error('[Cases] affectation',e);
+    alert('Impossible de ranger ce document. Vérifiez le SQL des cases et réessayez.');
+    return;
+  }
+  document.getElementById('folderDocumentPicker')?.classList.remove('show');
+  render();
+  // Si une case est déjà ouverte, son contenu est actualisé immédiatement.
+  const ouverte=folders.find(x=>x.id===fid);
+  if(ouverte) await openFolder(ouverte);
+}
+
+async function removeAssignment(doc){
+  const did=String(doc.id),old=folderAssignments.find(x=>x.document_id===did);
+  folderAssignments=folderAssignments.filter(x=>x.document_id!==did);
+  write(ak(),folderAssignments);
+  try{
+    await api(ASSIGN_TABLE,{method:'DELETE',query:`user_id=eq.${encodeURIComponent(uid())}&document_id=eq.${encodeURIComponent(doc.id)}`,headers:{'Prefer':'return=minimal'}});
+  }catch(e){
+    if(old)folderAssignments.push(old);
+    write(ak(),folderAssignments);
+    console.error('[Cases] retrait',e);
+    alert('Impossible de retirer ce document de sa case.');
+    return;
+  }
+  document.getElementById('folderDocumentPicker')?.classList.remove('show');
+  render();
+  const current=folders.find(x=>old&&x.id===old.case_id);
+  if(current) await openFolder(current);
+}
+
 function findDoc(id){for(const src of [documentsCourants,documentsRecentsCourants,MES_DOCUMENTS_PERSONNELS])if(Array.isArray(src)){const d=src.find(x=>String(x.id)===String(id));if(d)return d}return null}
-function openFolder(f){const p=document.getElementById('personalFolderDocs');if(!p)return;const a=folderAssignments.filter(x=>x.case_id===f.id);p.hidden=false;p.innerHTML=`<div class="personal-folder-docs-head"><strong>▱ ${esc(f.name)}</strong><span>${a.length} document${a.length>1?'s':''}</span></div><div id="pfdList"></div>`;const list=p.querySelector('#pfdList');if(!a.length){list.innerHTML='<div class="personal-empty">Cette case est vide. Utilisez « ▣ Case » sur un document du site.</div>';return}a.forEach(x=>{const d=findDoc(x.document_id),r=document.createElement('div');r.className='personal-folder-doc-row';r.innerHTML=`<strong>${esc(d?.Titre||'Document #'+x.document_id)}</strong><button type="button">Retirer</button>`;r.querySelector('button').onclick=()=>removeAssignment({id:x.document_id});list.appendChild(r)});p.scrollIntoView({behavior:'smooth',block:'nearest'})}
+
+async function recupererDocsDesCases(ids){
+  const wanted=[...new Set((ids||[]).map(String).filter(Boolean))];
+  if(!wanted.length)return [];
+  const connus=new Map();
+  wanted.forEach(id=>{const d=findDoc(id);if(d)connus.set(String(id),d)});
+  const manquants=wanted.filter(id=>!connus.has(id));
+  if(manquants.length){
+    try{
+      const raw=await api('Document',{query:`select=*&id=in.(${manquants.map(id=>id.replace(/[^0-9]/g,'')).filter(Boolean).join(',')})`});
+      const docs=raw?JSON.parse(raw):[];
+      (Array.isArray(docs)?docs:[]).forEach(d=>connus.set(String(d.id),d));
+    }catch(e){console.warn('[Cases] métadonnées documents:',e)}
+  }
+  return wanted.map(id=>connus.get(id)||{id});
+}
+
+async function openFolder(f){
+  const p=document.getElementById('personalFolderDocs');if(!p)return;
+  const a=folderAssignments.filter(x=>x.case_id===f.id);
+  p.hidden=false;
+  p.innerHTML=`<div class="personal-folder-docs-head"><strong>▱ ${esc(f.name)}</strong><span>${a.length} document${a.length>1?'s':''}</span></div><div id="pfdList"></div>`;
+  const list=p.querySelector('#pfdList');
+  if(!a.length){list.innerHTML='<div class="personal-empty">Cette case est vide. Utilisez « ▣ Case » sur un document du site.</div>';return}
+  list.innerHTML='<div class="personal-empty">Chargement des documents…</div>';
+  const docs=await recupererDocsDesCases(a.map(x=>x.document_id));
+  list.innerHTML='';
+  docs.forEach(d=>{
+    const r=document.createElement('article');r.className='personal-folder-doc-row';
+    const id=String(d.id);
+    const canDownload=d.Fichier_url && d.Telechargement_autorise!==false;
+    r.innerHTML=`
+      <div class="personal-folder-doc-main"><strong>${esc(d.Titre||'Document #'+id)}</strong><span>${esc([d.Niveau,d['Matière']||d.Genre].filter(Boolean).join(' · ')||'Document')}</span></div>
+      <div class="personal-folder-doc-actions">
+        ${d.Fichier_url?'<button type="button" data-folder-read>Voir</button>':''}
+        ${canDownload?'<button type="button" data-folder-download>Télécharger</button>':''}
+        <button type="button" data-folder-fav aria-pressed="false">♡ Favori</button>
+        <button type="button" data-folder-later>＋ Plus tard</button>
+        <button type="button" data-folder-case>▣ Case</button>
+        <button type="button" data-folder-remove class="is-remove">Retirer</button>
+      </div>`;
+    r.querySelector('[data-folder-read]')?.addEventListener('click',()=>ouvrirLecteurPDF(d));
+    r.querySelector('[data-folder-download]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(d));
+    const fb=r.querySelector('[data-folder-fav]');
+    const fav=favoris().includes(id);
+    if(fb){fb.classList.toggle('is-active',fav);fb.textContent=fav?'♥ Favori':'♡ Favori';fb.addEventListener('click',()=>{basculerFavoriDocument(d,fb);});}
+    r.querySelector('[data-folder-later]')?.addEventListener('click',e=>ajouterDocumentPlusTard(d,e.currentTarget));
+    r.querySelector('[data-folder-case]')?.addEventListener('click',()=>chooseDoc(d));
+    r.querySelector('[data-folder-remove]')?.addEventListener('click',()=>removeAssignment(d));
+    list.appendChild(r);
+  });
+  p.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
 function closeFolder(){const p=document.getElementById('personalFolderDocs');if(p){p.hidden=true;p.innerHTML=''}}
 window.ouvrirChoixCaseDocument=chooseDoc;window.chargerCasesPersonnelles=load;window.rendreCasesPersonnelles=render;
 function init(){document.getElementById('personalFolderCreate')?.addEventListener('click',()=>dialog('create'));load()}
@@ -11495,6 +11617,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 </script>
 </body>
 </html>
+
 
 
 
