@@ -2348,7 +2348,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         <span class="service-client-note">Contactez-nous directement par WhatsApp ou e-mail.</span>
       </div>
       <div class="service-client-actions">
-        <a href="https://wa.me/22605505861" target="_blank" rel="noopener" class="service-client-link" id="serviceClientWhatsapp"><span>WhatsApp</span><strong id="serviceClientWhatsappDisplay">05505861</strong></a>
+        <a href="https://wa.me/22605505861" rel="noopener" class="service-client-link" id="serviceClientWhatsapp"><span>WhatsApp</span><strong id="serviceClientWhatsappDisplay">05505861</strong></a>
         <a href="mailto:oualikevin9@gmail.com" class="service-client-link" id="serviceClientEmail"><span>E-mail</span><strong id="serviceClientEmailDisplay">oualikevin9@gmail.com</strong></a>
       </div>
     </div>
@@ -2647,7 +2647,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       <div id="pdfViewerErreurBox" class="pdf-reader-erreur" style="display:none;" role="alert">
         <p id="pdfViewerErreurTexte"></p>
         <button type="button" id="pdfViewerReessayer" class="deposer-btn" style="border:none; cursor:pointer;">Réessayer</button>
-        <a id="pdfViewerLienDirect" href="#" target="_blank" rel="noopener" style="display:none;">Ouvrir le document dans un nouvel onglet</a>
+        <a id="pdfViewerLienDirect" href="#" rel="noopener" style="display:none;">Ouvrir le document dans un nouvel onglet</a>
       </div>
       <!-- Diagnostic technique temporaire, réservé à l'administrateur (voir
            session.role==='admin' dans ouvrirLecteurPDF) : jamais montré à un
@@ -6934,7 +6934,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
               Déposé par ${doc.Auteur || 'anonyme'}<br>
               <span style="color:var(--gris);">${ligneCompteDeposant(deposant)}</span>
             </div>
-            <a class="lien-pdf" href="${doc.Fichier_url}" target="_blank" rel="noopener">Ouvrir le PDF →</a>
+            <a class="lien-pdf" href="${doc.Fichier_url}" rel="noopener">Ouvrir le PDF →</a>
             <div class="admin-actions">
               <button class="admin-btn valider">Valider</button>
               <button class="admin-btn refuser">Refuser / Supprimer</button>
@@ -7075,7 +7075,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
               Déposé par ${doc.Auteur || 'anonyme'} · <span class="dl-status">${telechargementOk ? 'Lecture + téléchargement' : 'Lecture seule'}</span><br>
               <span style="color:var(--gris);">${ligneCompteDeposant(deposant)}</span>
             </div>
-            <a class="lien-pdf" href="${doc.Fichier_url}" target="_blank" rel="noopener">Ouvrir le PDF →</a>
+            <a class="lien-pdf" href="${doc.Fichier_url}" rel="noopener">Ouvrir le PDF →</a>
             <div class="admin-actions">
               <button class="admin-btn ghost dl-toggle">${telechargementOk ? 'Passer en lecture seule' : 'Autoriser le téléchargement'}</button>
               <button class="admin-btn ghost avant-toggle">${misEnAvant ? 'Retirer de « Récemment publiés »' : 'Mettre dans « Récemment publiés »'}</button>
@@ -7218,7 +7218,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       docs.forEach(doc=>{
         const item=document.createElement('div');
         item.className='admin-duplicate-item';
-        item.innerHTML=`<div class="admin-duplicate-item-main"><strong>${echapperHtmlPub(doc.Titre||'Sans titre')}</strong><span>${echapperHtmlPub([doc.Niveau,doc.Classe,doc['Matière']||doc.Genre].filter(Boolean).join(' · ')||'Informations non renseignées')}</span><small>${echapperHtmlPub(nomFichierExactDepuisUrl(doc.Fichier_url))}</small></div><div class="admin-duplicate-item-actions"><a class="admin-btn ghost" href="${echapperHtmlPub(doc.Fichier_url||'')}" target="_blank" rel="noopener">Ouvrir</a><button type="button" class="admin-btn refuser" data-duplicate-delete="1">Exclure du site</button></div>`;
+        item.innerHTML=`<div class="admin-duplicate-item-main"><strong>${echapperHtmlPub(doc.Titre||'Sans titre')}</strong><span>${echapperHtmlPub([doc.Niveau,doc.Classe,doc['Matière']||doc.Genre].filter(Boolean).join(' · ')||'Informations non renseignées')}</span><small>${echapperHtmlPub(nomFichierExactDepuisUrl(doc.Fichier_url))}</small></div><div class="admin-duplicate-item-actions"><a class="admin-btn ghost" href="${echapperHtmlPub(doc.Fichier_url||'')}" rel="noopener">Ouvrir</a><button type="button" class="admin-btn refuser" data-duplicate-delete="1">Exclure du site</button></div>`;
         item.querySelector('[data-duplicate-delete="1"]').addEventListener('click',()=>exclureDoublonAdmin(doc.id,doc.Titre,wrap));
         items.appendChild(item);
       });
@@ -7737,7 +7737,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     if(!container) return false;
     if(!ad || !ad.image_url){ container.style.display='none'; container.innerHTML=''; return false; }
     const titre = ad.alt_text || '';
-    const cta = ad.link_url ? `<a class="ad-slot-cta" href="${echapperHtmlPub(ad.link_url)}" target="_blank" rel="noopener">En savoir plus →</a>` : '';
+    const cta = ad.link_url ? `<a class="ad-slot-cta" href="${echapperHtmlPub(ad.link_url)}" rel="noopener">En savoir plus →</a>` : '';
     container.innerHTML = `
       <div class="ad-slot-label">Publicité</div>
       <div class="ad-slot-card">
@@ -11031,6 +11031,65 @@ footer>.wrap:last-child{margin-top:18px!important;}
   }
   document.addEventListener('DOMContentLoaded',bind);
   setInterval(bind,800);
+})();
+</script>
+
+
+<script id="aurore-download-navigation-guard">
+(function(){
+  function isPdfUrl(url){
+    try { return /\.pdf(?:[?#]|$)/i.test(new URL(url, location.href).href); }
+    catch(e){ return /\.pdf(?:[?#]|$)/i.test(String(url||'')); }
+  }
+
+  function markDownload(url, title){
+    try{
+      if(typeof window.enregistrerTelechargementPersonnel === 'function'){
+        const id = (document.body && document.body.dataset && document.body.dataset.documentId) || null;
+        window.enregistrerTelechargementPersonnel({
+          id: id,
+          Titre: title || 'Document PDF',
+          Fichier_url: url
+        });
+      }
+    }catch(e){}
+  }
+
+  document.addEventListener('click', function(e){
+    const a=e.target.closest && e.target.closest('a[href]');
+    if(!a)return;
+    const href=a.getAttribute('href');
+    if(!href || !isPdfUrl(href))return;
+
+    /* Un clic de téléchargement PDF ne doit jamais remplacer la page Aurore. */
+    if(a.hasAttribute('download')){
+      e.preventDefault();
+      e.stopPropagation();
+
+      const url=new URL(href, location.href).href;
+      const filename=(a.getAttribute('download')||'').trim() ||
+        decodeURIComponent(url.split('/').pop().split('?')[0]) || 'document.pdf';
+
+      const blobLink=document.createElement('a');
+      blobLink.href=url;
+      blobLink.download=filename;
+      blobLink.rel='noopener';
+      blobLink.style.display='none';
+      document.body.appendChild(blobLink);
+      blobLink.click();
+      blobLink.remove();
+
+      markDownload(url, a.textContent.trim());
+      return;
+    }
+  }, true);
+
+  /* Empêche les navigations déclenchées par des formulaires vers un PDF. */
+  document.addEventListener('submit', function(e){
+    const form=e.target;
+    if(!form || !form.action || !isPdfUrl(form.action))return;
+    e.preventDefault();
+  }, true);
 })();
 </script>
 
