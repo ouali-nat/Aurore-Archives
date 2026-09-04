@@ -1991,6 +1991,13 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
               <div class="stat-value stat-value-sm" id="statDerniereConnexion">…</div>
             </div>
           </div>
+          <div class="stat-card" data-accent="rouge">
+            <div class="stat-icon" id="statIconVisiteurs"></div>
+            <div class="stat-body">
+              <div class="stat-label">Visiteurs non connectés</div>
+              <div class="stat-value" id="statVisiteursAnonymes">…</div>
+            </div>
+          </div>
         </div>
 
         <div class="admin-tabs" role="tablist">
@@ -1999,6 +2006,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
           <button type="button" class="admin-tab" data-tab="reclamations" role="tab">Réclamations <span class="tab-count" id="tabCountReclamations">0</span></button>
           <button type="button" class="admin-tab" data-tab="vitrine" role="tab">Publicités <span class="tab-count" id="tabCountPubs">0</span></button>
           <button type="button" class="admin-tab" data-tab="connexions" role="tab">Connexions</button>
+          <button type="button" class="admin-tab" data-tab="visiteurs" role="tab">Visiteurs</button>
           <button type="button" class="admin-tab" data-tab="utilisateurs" role="tab">Utilisateurs <span class="tab-count" id="tabCountUtilisateurs">0</span></button>
           <button type="button" class="admin-tab" data-tab="apparence" role="tab">Apparence</button>
           <button type="button" class="admin-tab" data-tab="service-client" role="tab">Service client</button>
@@ -2046,6 +2054,10 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         <div class="admin-tab-panel" data-panel="connexions">
           <p class="admin-panel-desc">Les 10 dernières connexions réussies au site, les plus récentes en premier.</p>
           <div id="adminListConnexions"></div>
+        </div>
+        <div class="admin-tab-panel" data-panel="visiteurs">
+          <p class="admin-panel-desc">Visiteurs non connectés ayant tenté de télécharger un document (ils peuvent toujours lire, mais doivent se connecter pour télécharger). Les plus récents en premier.</p>
+          <div id="adminListVisiteurs"></div>
         </div>
         <div class="admin-tab-panel" data-panel="vitrine">
           <p class="admin-panel-desc">Gère les publicités affichées sur le site (deux emplacements par secteur : Accueil, Livres, Niveaux, Séries, Matières, Documents). Les changements ne nécessitent pas de redéploiement.</p>
@@ -6395,6 +6407,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       document.querySelectorAll('.admin-tab-panel').forEach(p => p.classList.toggle('active', p.getAttribute('data-panel') === cible));
       if (cible === 'reclamations') chargerReclamationsAdmin();
       if (cible === 'connexions') chargerDernieresConnexions();
+      if (cible === 'visiteurs') chargerVisiteursAnonymesAdmin();
       if (cible === 'service-client') chargerServiceClientConfig();
       if (cible === 'utilisateurs') chargerUtilisateursAdmin();
       if (cible === 'doublons') chargerDoublonsAdmin();
@@ -6632,9 +6645,11 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const elConnexions = document.getElementById('statConnexions');
     const elUtilisateurs = document.getElementById('statUtilisateurs');
     const elDerniere = document.getElementById('statDerniereConnexion');
+    const elVisiteurs = document.getElementById('statVisiteursAnonymes');
     elConnexions.textContent = '…';
     elUtilisateurs.textContent = '…';
     elDerniere.textContent = '…';
+    if (elVisiteurs) elVisiteurs.textContent = '…';
 
     try {
       const resConnexions = await fetch(`${SUPABASE_URL}/rest/v1/Connexions?select=id`, {
@@ -6683,6 +6698,69 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     } catch (e) {
       elDerniere.textContent = '—';
       console.error('[Stats admin] dernière connexion', e);
+    }
+
+    if (elVisiteurs) {
+      try {
+        // Comptage via RPC dédié (compter_visites_anonymes, SECURITY DEFINER) :
+        // la table "Visites_anonymes" n'a aucune policy SELECT, donc un GET
+        // direct renverrait toujours 0 même pour un admin — voir le SQL fourni
+        // séparément.
+        const resVisiteurs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/compter_visites_anonymes`, {
+          method: 'POST',
+          headers: { ...headersAdmin(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        if (!resVisiteurs.ok) throw new Error("Statut HTTP " + resVisiteurs.status);
+        const totalVisiteurs = await resVisiteurs.json();
+        elVisiteurs.textContent = (typeof totalVisiteurs === 'number') ? totalVisiteurs : '0';
+      } catch (e) {
+        elVisiteurs.textContent = '—';
+        console.error('[Stats admin] visiteurs anonymes (RPC compter_visites_anonymes manquant ou accès refusé ?)', e);
+      }
+    }
+  }
+
+  // Liste des visiteurs non connectés les plus récents (RPC dédié
+  // lister_visites_anonymes_recentes, lecture seule, admin uniquement — voir
+  // le SQL fourni séparément pour la table "Visites_anonymes" et ses RPC).
+  async function chargerVisiteursAnonymesAdmin() {
+    const list = document.getElementById('adminListVisiteurs');
+    if (!list) return;
+    list.innerHTML = '<p class="admin-empty">Chargement…</p>';
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/lister_visites_anonymes_recentes`, {
+        method: 'POST',
+        headers: { ...headersAdmin(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limite: 15 })
+      });
+      if (!res.ok) throw new Error("Statut HTTP " + res.status);
+      const data = await res.json();
+      if (!data || data.length === 0) {
+        list.innerHTML = '<p class="admin-empty">Aucun visiteur non connecté enregistré pour le moment.</p>';
+        return;
+      }
+      list.innerHTML = '';
+      data.forEach((v, i) => {
+        const card = document.createElement('div');
+        card.className = 'admin-card';
+        card.style.animationDelay = (i * 0.04) + 's';
+        const d = new Date(v.created_at);
+        const formatee = d.toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
+        const contexte = v.contexte === 'tentative_telechargement' ? 'A voulu télécharger' : 'Visite';
+        const doc = v.document_titre ? ` — « ${v.document_titre} »` : '';
+        card.innerHTML = `
+          <div class="admin-card-icon">${ICONS.user}</div>
+          <div class="admin-card-body">
+            <div class="titre">${contexte}${doc}</div>
+            <div class="meta">${formatee}</div>
+          </div>
+        `;
+        list.appendChild(card);
+      });
+    } catch (err) {
+      list.innerHTML = `<p class="admin-empty">Impossible de charger ces éléments pour le moment. Veuillez réessayer dans quelques instants.</p>`;
+      console.error('[Admin visiteurs] chargement', err);
     }
   }
 
@@ -8348,10 +8426,21 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       // Le téléchargement est autorisé pour ce document : une simple navigation
       // vers le fichier (pas de lecture d'octets en JS) ne dépend pas du CORS,
       // donc ce repli fonctionne même si la visionneuse intégrée échoue.
-      lien.href = url;
-      lien.style.display = 'inline-block';
+      // Visiteur non connecté : même règle que le bouton de téléchargement
+      // principal — ce lien direct ne doit pas devenir une façon de contourner
+      // l'obligation de connexion.
+      if (!session) {
+        lien.removeAttribute('href');
+        lien.style.display = 'inline-block';
+        lien.onclick = (e) => { e.preventDefault(); exigerConnexionPourTelechargement(DOC_EN_LECTURE); };
+      } else {
+        lien.href = url;
+        lien.onclick = null;
+        lien.style.display = 'inline-block';
+      }
     } else {
       lien.style.display = 'none';
+      lien.onclick = null;
     }
   }
 
@@ -8442,10 +8531,60 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     if(TELECHARGEMENT_TOAST_TIMER) { clearTimeout(TELECHARGEMENT_TOAST_TIMER); TELECHARGEMENT_TOAST_TIMER=null; }
   }
 
+  // Identifiant anonyme local (pas une donnée personnelle) permettant de
+  // distinguer approximativement des visiteurs différents dans les
+  // statistiques admin, sans aucun compte ni cookie de suivi tiers.
+  function idVisiteurAnonyme() {
+    try {
+      let id = localStorage.getItem('aurore_visitor_id');
+      if (!id) {
+        id = 'v_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+        localStorage.setItem('aurore_visitor_id', id);
+      }
+      return id;
+    } catch (e) { return ''; }
+  }
+
+  // Enregistre une visite/tentative anonyme dans la table "Visites_anonymes"
+  // (RLS : insertion publique autorisée, lecture réservée aux admins via RPC —
+  // voir compter_visites_anonymes / lister_visites_anonymes_recentes). Best
+  // effort : une erreur réseau ici ne doit jamais bloquer la navigation.
+  async function enregistrerVisiteAnonyme(contexte, doc) {
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/Visites_anonymes`, {
+        method: 'POST',
+        headers: { ...HEADERS, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+        body: JSON.stringify({
+          contexte: contexte || 'visite',
+          document_titre: (doc && doc.Titre) || null,
+          visitor_id: idVisiteurAnonyme(),
+          user_agent: (navigator && navigator.userAgent) || null
+        })
+      });
+    } catch (e) { console.warn('[Visites anonymes] enregistrement impossible', e); }
+  }
+
+  // Bloque le téléchargement pour un visiteur non connecté et ouvre la même
+  // fenêtre de connexion/inscription que le reste du site (voir requireLogin()
+  // dans l'espace personnel, même principe rejoué ici car scripts séparés).
+  function exigerConnexionPourTelechargement(doc) {
+    enregistrerVisiteAnonyme('tentative_telechargement', doc);
+    const signup = document.getElementById('accessSignupBtn');
+    if (signup) signup.click();
+    setTimeout(() => document.getElementById('showLoginBtn')?.click(), 30);
+    const m = document.getElementById('loginMessage');
+    if (m) {
+      m.textContent = 'Connectez-vous pour télécharger ce document. La lecture reste libre, seul le téléchargement nécessite un compte.';
+      m.className = 'access-message ok';
+      m.style.display = 'block';
+    }
+  }
+
   // Téléchargement interne Aurore : ne jamais naviguer vers le PDF/R2.
 // La lecture d'un PDF passe par ouvrirLecteurPDF(), la visionneuse intégrée.
 async function telechargerDocumentAvecProgression(doc) {
-    if(!doc || !doc.Fichier_url || doc.Telechargement_autorise === false || TELECHARGEMENT_DOCUMENT_EN_COURS) return;
+    if (!doc || !doc.Fichier_url || doc.Telechargement_autorise === false || TELECHARGEMENT_DOCUMENT_EN_COURS) return;
+    if (!session) { exigerConnexionPourTelechargement(doc); return; }
     TELECHARGEMENT_DOCUMENT_EN_COURS=true;
     const nomTelechargement=nomFichierTelechargementDepuisDocument(doc);
     afficherCarteTelechargement(doc,'preparation',null,0,null,'Préparation du fichier…');
