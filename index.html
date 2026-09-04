@@ -5929,8 +5929,25 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     // un rafraîchissement s'il est refusé, avant de l'utiliser dans les
     // en-têtes envoyés à Supabase.
     if (session && session.access_token) {
-      const verif = await recupererUtilisateur(session.access_token);
-      if (!verif) {
+      // CORRECTIF : cet appel n'était pas protégé par try/catch. Un simple
+      // incident réseau transitoire ici (après un upload potentiellement long)
+      // faisait planter silencieusement toute la fonction de soumission :
+      // aucune exception affichée, aucun message de succès ni d'erreur, le
+      // bouton restant bloqué sur "Envoi en cours…" alors que le fichier était
+      // déjà bien envoyé à 100 % vers R2 et que l'insertion Supabase, plus
+      // bas, n'était jamais atteinte. On échoue désormais "ouvert" : un souci
+      // purement réseau sur cette vérification proactive ne doit pas annuler
+      // un dépôt par ailleurs valide — un vrai refus RLS sera de toute façon
+      // détecté et traité par la nouvelle tentative après rafraîchissement,
+      // plus bas, au moment de l'insertion réelle.
+      let verif;
+      try {
+        verif = await recupererUtilisateur(session.access_token);
+      } catch (verifErr) {
+        etape('[DIAG] Vérification proactive du token impossible (' + verifErr.message + ') — le dépôt continue normalement.', 'err');
+        verif = 'reseau-indisponible';
+      }
+      if (verif === null) {
         etape('Le token semblait valide localement mais a été refusé par Supabase Auth : nouvelle tentative de rafraîchissement.', 'err');
         const ok = await rafraichirSession();
         if (!ok) {
@@ -6184,6 +6201,15 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     // sans wall of text vert en dessous. En cas d'erreur (voir echouer()), le
     // journal reste affiché pour le débogage.
     debugBox.style.display = 'none';
+
+    // Rafraîchit « Mes documents » avec le dépôt qui vient d'être enregistré,
+    // sans toucher au chargeur lui-même : chargerDonneesEspacePersonnel()
+    // n'était auparavant appelée qu'au clic sur « Actualiser » ou à
+    // l'ouverture de l'espace personnel, donc un dépôt effectué pendant que
+    // cet écran était déjà ouvert n'y apparaissait pas immédiatement.
+    if (typeof session !== 'undefined' && session && session.id) {
+      try { chargerDonneesEspacePersonnel(); } catch (eRefresh) { console.warn('[Dépôt] rafraîchissement espace personnel:', eRefresh); }
+    }
 
     msg.innerHTML = "<strong>✅ Document bien reçu — merci !</strong><br>" +
       "Votre document a été enregistré avec succès et est désormais <strong>en attente de validation</strong> par l'administration. " +
@@ -10595,6 +10621,11 @@ footer>.wrap:last-child{margin-top:18px!important;}
   window.telecharges=telecharges;
   window.userKey=userKey;
   window.favorisDocumentsCache=favorisDocumentsCache;
+  // FAVORIS_CACHE_TTL manquait ici : rendreFavorisPersonnels() (script
+  // principal, hors de cette IIFE) le référence directement et levait
+  // "FAVORIS_CACHE_TTL is not defined", ce qui interrompait le rendu des
+  // favoris avant même l'affichage de l'état vide.
+  window.FAVORIS_CACHE_TTL=FAVORIS_CACHE_TTL;
   window.synchroniserRessourcesSupabase=synchroniserRessourcesSupabase;
   window.enregistrerTelechargementPersonnel=enregistrerTelechargementPersonnel;
 })();
