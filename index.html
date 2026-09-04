@@ -10628,6 +10628,20 @@ footer>.wrap:last-child{margin-top:18px!important;}
   window.FAVORIS_CACHE_TTL=FAVORIS_CACHE_TTL;
   window.synchroniserRessourcesSupabase=synchroniserRessourcesSupabase;
   window.enregistrerTelechargementPersonnel=enregistrerTelechargementPersonnel;
+  // Deux identifiants présentaient exactement le même défaut que
+  // FAVORIS_CACHE_TTL plus haut (déclarés seulement dans la portée locale de
+  // cette IIFE, mais appelés directement par le script principal hors de
+  // cette IIFE) et n'étaient exposés nulle part ailleurs dans le fichier :
+  // - memoriserDepotPersonnelLocal() : appelée juste après une insertion
+  //   Supabase réussie lors d'un dépôt (le document était donc déjà
+  //   enregistré) — son ReferenceError interrompait tout le reste de la
+  //   fonction de soumission, empêchant à la fois l'affichage du message de
+  //   succès ET le rafraîchissement de « Mes documents » qui le suit.
+  // - afficherNotificationTelechargementAuRetour() : appelée à l'ouverture du
+  //   site et à l'ouverture de l'espace personnel pour signaler un
+  //   téléchargement effectué juste avant un rechargement de page.
+  window.memoriserDepotPersonnelLocal=memoriserDepotPersonnelLocal;
+  window.afficherNotificationTelechargementAuRetour=afficherNotificationTelechargementAuRetour;
 })();
 </script>
 
