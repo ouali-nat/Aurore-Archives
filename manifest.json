@@ -13,12 +13,12 @@
   "background_color": "#08070D",
   "icons": [
     {
-      "src": "https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster",
+      "src": "https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260904-3",
       "sizes": "192x192",
       "purpose": "any"
     },
     {
-      "src": "https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster",
+      "src": "https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260904-3",
       "sizes": "512x512",
       "purpose": "any"
     }
