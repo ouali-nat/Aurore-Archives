@@ -182,6 +182,12 @@
   }
   .profile-meta-item .label{ font-size:0.76rem; color:var(--gris); font-weight:600; text-transform:uppercase; letter-spacing:0.02em; margin-bottom:6px; }
   .profile-meta-item .value{ font-size:0.95rem; color:var(--encre); font-weight:600; }
+.profile-role-details{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:0}
+.profile-role-details-card{background:var(--fond);border:1px solid var(--bordure);border-radius:var(--radius-sm);padding:18px}
+.profile-role-details-card .kicker{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--gris);font-weight:700;margin-bottom:7px}
+.profile-role-details-card strong{display:block;font-size:.92rem;color:var(--encre);line-height:1.4;white-space:pre-wrap;word-break:break-word}
+.profile-role-details-card.empty strong{color:var(--gris);font-weight:500}
+
 
   /* ---------- BREADCRUMB ---------- */
   /* Fil d'Ariane affiché verticalement (une ligne par étape). Modification
@@ -2565,6 +2571,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       </div>
     </div>
 
+    <section class="profile-role-details" id="profilRoleDetails" aria-live="polite"></section>
+
     <div class="personal-space aurora-personal activity-dashboard" id="personalSpace" aria-label="Mon activité">
       <div class="activity-hero">
         <div class="activity-hero-copy">
@@ -3327,37 +3335,40 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     return Boolean(i.niveau.trim() && i.classe.trim());
   }
 
+  function afficherDetailsProfilUtilisateur(){
+    const host=document.getElementById('profilRoleDetails');
+    if(!host || !session) return;
+    const role=String(session.role||'eleve').toLowerCase();
+    const labels={
+      eleve:[['Établissement',session.lycee],['Niveau',session.niveau],['Classe',session.classe],['Filière / série',session.filiere]],
+      enseignant:[['Établissement',session.lycee],['Discipline',session.discipline],['Fonction',session.fonction]],
+      professeur:[['Établissement',session.lycee],['Discipline',session.discipline],['Fonction',session.fonction]],
+      parent:[['Établissement',session.lycee],['Informations concernant l’enfant',session.enfant_informations]],
+      personnel:[['Établissement',session.lycee],['Fonction',session.fonction]]
+    };
+    const rows=labels[role]||labels.eleve;
+    host.innerHTML='<div style="grid-column:1/-1;font-weight:800;font-size:1rem;margin-bottom:-2px;">Informations enregistrées</div>'+rows.map(([label,value])=>{const v=String(value||'').trim();return `<div class="profile-role-details-card ${v?'':'empty'}"><div class="kicker">${echapperHtmlPub(label)}</div><strong>${v?echapperHtmlPub(v):'Non renseigné'}</strong></div>`;}).join('');
+    host.style.display='grid';
+  }
+
   function remplirProfil() {
     if (!session) return;
-    document.getElementById('profilNom').textContent = session.nom;
-    document.getElementById('profilEmail').textContent = session.email;
-    const providerEl = document.getElementById('profilProvider');
-    if (providerEl) providerEl.textContent = session.provider || 'Compte Aurore';
-    const badge = document.getElementById('profilRoleBadge');
-    badge.textContent = libelleRole(session.role);
-    badge.className = 'role-badge ' + (session.role === 'admin' ? 'admin' : 'eleve');
-
-    const img = document.getElementById('profilAvatar');
-    const fallback = document.getElementById('profilAvatarFallback');
-    appliquerAvatar(img, session.avatar);
-    if (session.avatar) fallback.style.display = 'none';
-    else { fallback.style.display = 'flex'; fallback.innerHTML = ICONS.user.replace('width="16"', 'width="34"').replace('height="16"', 'height="34"'); }
-
+    document.getElementById('profilNom').textContent = session.nom || '';
+    document.getElementById('profilEmail').textContent = session.email || '';
+    const providerEl = document.getElementById('profilProvider'); if (providerEl) providerEl.textContent = session.provider || 'Compte Aurore';
+    const badge = document.getElementById('profilRoleBadge'); const roleSession=String(session.role||'eleve').toLowerCase();
+    badge.textContent = libelleRole(session.role); badge.className = 'role-badge ' + (roleSession === 'admin' ? 'admin' : 'eleve');
+    const img = document.getElementById('profilAvatar'), fallback = document.getElementById('profilAvatarFallback'); appliquerAvatar(img, session.avatar);
+    if (session.avatar) fallback.style.display = 'none'; else { fallback.style.display = 'flex'; fallback.innerHTML = ICONS.user.replace('width="16"', 'width="34"').replace('height="16"', 'height="34"'); }
     const infos = obtenirInfosProfilLocal();
-    document.getElementById('profilNomInput').value = infos.nom || '';
-    document.getElementById('profilPrenomInput').value = infos.prenom || '';
-    document.getElementById('profilLyceeInput').value = infos.lycee;
-    document.getElementById('profilNiveauInput').value = infos.niveau;
-    document.getElementById('profilClasseInput').value = infos.classe;
-    document.getElementById('profilFiliereInput').value = infos.filiere;
-    const roleInput=document.getElementById('profilRoleInput');
-    if(roleInput) roleInput.value=['eleve','enseignant','professeur','parent','personnel'].includes(String(session.role||'').toLowerCase())?String(session.role).toLowerCase():'eleve';
+    document.getElementById('profilNomInput').value = infos.nom || ''; document.getElementById('profilPrenomInput').value = infos.prenom || ''; document.getElementById('profilLyceeInput').value = infos.lycee || '';
+    document.getElementById('profilNiveauInput').value = infos.niveau || ''; document.getElementById('profilClasseInput').value = infos.classe || ''; document.getElementById('profilFiliereInput').value = infos.filiere || '';
+    const roleInput=document.getElementById('profilRoleInput'); if(roleInput) roleInput.value=['eleve','enseignant','professeur','parent','personnel'].includes(roleSession)?roleSession:'eleve';
     const discipline=document.getElementById('profilDisciplineInput'); if(discipline) discipline.value=session.discipline||session.matiere||'';
     const fonction=document.getElementById('profilFonctionInput'); if(fonction) fonction.value=session.fonction||'';
     const enfant=document.getElementById('profilEnfantInput'); if(enfant) enfant.value=session.enfant_informations||'';
-    mettreAJourChampsProfilSelonRole();
-    const msg = document.getElementById('profilSaveMessage');
-    if (msg) { msg.textContent = profilEstComplet(session) ? 'Profil complet.' : 'Complétez les informations essentielles pour terminer votre espace.'; msg.className = profilEstComplet(session) ? 'ok' : ''; }
+    mettreAJourChampsProfilSelonRole(); afficherDetailsProfilUtilisateur();
+    const msg = document.getElementById('profilSaveMessage'); if (msg) { msg.textContent = profilEstComplet(session) ? 'Profil complet.' : 'Complétez les informations essentielles pour terminer votre espace.'; msg.className = profilEstComplet(session) ? 'ok' : ''; }
   }
 
   function mettreAJourChampsProfilSelonRole(){
@@ -3473,20 +3484,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         }
       }
 
-      // Confirmation immédiate après l'écriture réussie dans Profils.
-      msg.textContent='✓ Enregistrement confirmé. Merci ! Vos informations ont bien été enregistrées et transmises à l’administration.';
-      msg.className='ok';
-      msg.style.display='block';
-      let success=document.getElementById('auroreProfileSuccess');
-      if(!success){
-        success=document.createElement('div');
-        success.id='auroreProfileSuccess';
-        success.className='aurore-profile-success';
-        msg.parentElement?.appendChild(success);
-      }
-      success.innerHTML='<div class="aurore-profile-success-icon">✓</div><div><strong>Merci ! Enregistrement confirmé</strong><span>Vos informations ont bien été enregistrées et sont maintenant associées à votre compte pour l’administration.</span></div>';
-      success.style.display='flex';
-
       // 2) Copie dans les métadonnées Auth : utile pour récupérer rapidement
       // le profil dès la connexion suivante, sans remplacer la donnée DB.
       let md={};
@@ -3494,15 +3491,19 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         const authRes=await fetch(`${SUPABASE_URL}/auth/v1/user`,{
           method:'PATCH',
           headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json'},
-          body:JSON.stringify({data:{nom,prenom,lycee,niveau,classe,filiere,role,discipline,fonction,enfant_informations}})
+          body:JSON.stringify({data:{nom,prenom,lycee,niveau,classe,filiere,role:(session.id===PROPRIETAIRE_ADMIN_ID?'admin':role),discipline,fonction,enfant_informations}})
         });
         if(authRes.ok){ const authData=await authRes.json().catch(()=>({})); md=authData.user_metadata||{}; }
         else console.warn('[Profil] métadonnées Auth non mises à jour',authRes.status);
       } catch(e){ console.warn('[Profil] copie Auth ignorée',e); }
 
-      session.nom=nom; session.prenom=prenom; session.lycee=lycee; session.niveau=niveau; session.classe=niveau&&classe?classe:''; session.filiere=filiere; session.role=role; session.discipline=discipline; session.fonction=fonction; session.enfant_informations=enfant_informations;
+      const roleFinal = session.id === PROPRIETAIRE_ADMIN_ID ? 'admin' : role; session.nom=nom; session.prenom=prenom; session.lycee=lycee; session.niveau=niveau; session.classe=niveau&&classe?classe:''; session.filiere=filiere; session.role=roleFinal; session.discipline=discipline; session.fonction=fonction; session.enfant_informations=enfant_informations; afficherDetailsProfilUtilisateur();
       session.user_metadata={...(session.user_metadata||{}),nom,prenom,lycee,niveau,classe,filiere,role,discipline,fonction,enfant_informations,...md};
       sauvegarderSession();
+      msg.textContent='Votre espace personnel est maintenant configuré.'; msg.className='ok';
+       let success=document.getElementById('auroreProfileSuccess');
+       if(!success){success=document.createElement('div');success.id='auroreProfileSuccess';success.className='aurore-profile-success';success.innerHTML='<div class="aurore-profile-success-icon">✓</div><div><strong>Enregistrement confirmé</strong><span>Vos informations ont été enregistrées et seront reprises dans votre espace personnel.</span></div>';msg.parentElement?.appendChild(success);}
+       else success.style.display='flex';
       btn.textContent='Profil enregistré ✓';
       setTimeout(()=>{btn.textContent=ancienTexte;},1800);
       if(options.forceComplete) afficherUtilisateurConnecte();
