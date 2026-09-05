@@ -1146,7 +1146,9 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 }
 [data-theme="light"] .livres-banner h3,
 [data-theme="light"] .livres-banner p,
-[data-theme="light"] .livres-banner .go-arrow{color:#0F1115!important;}
+[data-theme="light"] .livres-banner .go-arrow{color:#09090B!important;font-weight:700!important;}
+[data-theme="light"] .livres-banner p{font-weight:600!important;opacity:1!important;}
+[data-theme="light"] .livres-banner .go-arrow{font-weight:800!important;}
 [data-theme="light"] .livres-banner .icon-wrap{
   background:#6D28D9!important;
   color:#FFFFFF!important;
@@ -1771,6 +1773,197 @@ html[data-color-theme] .profile-form-modal #profilLyceeSave{background:linear-gr
 html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{color:#fff!important;}
 </style>
 
+
+<style id="aurore-dark-light-architecture">
+/* =====================================================
+   MODE SOMBRE — même architecture visuelle que le mode clair,
+   avec profondeur sombre et contraste doux. Fonctionnellement
+   indépendant : aucune règle du mode clair n'est modifiée.
+   ===================================================== */
+[data-theme="dark"]{
+  --dark-page:#090812;
+  --dark-surface:#11101C;
+  --dark-surface-2:#17142A;
+  --dark-surface-3:#1C1930;
+  --dark-border:#302B45;
+  --dark-border-soft:#27223A;
+  --dark-ink:#F7F5FF;
+  --dark-muted:#B8B2C9;
+  --dark-shadow:0 10px 30px rgba(0,0,0,.24);
+  --dark-shadow-hover:0 18px 48px rgba(0,0,0,.34);
+}
+
+/* Fond : même logique que le clair (surface + halos discrets). */
+[data-theme="dark"] body{
+  background:
+    radial-gradient(circle at 8% 0%,rgba(124,58,237,.13) 0,transparent 30%),
+    radial-gradient(circle at 100% 18%,rgba(56,189,248,.07) 0,transparent 27%),
+    linear-gradient(180deg,#090812 0%,#0B0A15 48%,#090812 100%) !important;
+  color:var(--dark-ink);
+}
+
+/* En-tête : surface nette, comme le clair, mais avec profondeur. */
+[data-theme="dark"] header,
+[data-theme="dark"] .header,
+[data-theme="dark"] .topbar{
+  background:rgba(17,16,28,.94) !important;
+  border-color:var(--dark-border) !important;
+  box-shadow:0 5px 22px rgba(0,0,0,.16);
+  backdrop-filter:blur(14px);
+}
+
+/* Cartes principales : séparation claire entre page, surface et surface secondaire. */
+[data-theme="dark"] :is(.card,.section,.panel,.profile-card,.recents-card,.admin-card,
+  .home-annonce,.admin-promo-manager,.ad-slot-card,.home-video-section,
+  .aurora-panels,.aurora-personal-hero,.welcome-modal-card){
+  background:var(--dark-surface) !important;
+  color:var(--dark-ink) !important;
+  border-color:var(--dark-border) !important;
+  box-shadow:var(--dark-shadow);
+}
+
+[data-theme="dark"] :is(.aurora-stat,.aurora-refresh,.service-client-card,.service-client-link,
+  .home-shortcuts,.home-five-level,.access-card,.access-card-body){
+  background:var(--dark-surface-2) !important;
+  color:var(--dark-ink) !important;
+  border-color:var(--dark-border) !important;
+}
+
+[data-theme="dark"] :is(.aurora-list .personal-doc,.aurora-list .personal-book,
+  .aurora-subsection-head span,.aurora-loading){
+  background:var(--dark-page) !important;
+  border-color:var(--dark-border-soft) !important;
+  color:var(--dark-ink) !important;
+}
+
+/* Typographie : même hiérarchie visuelle que le clair, sans texte gris trop faible. */
+[data-theme="dark"] :is(h1,h2,h3,h4,h5,h6,strong,b,.title,.section-title,.card-title,
+  .label,.form-label,.admin-title,.profile-name,.aurora-panel-head h4){
+  color:var(--dark-ink) !important;
+}
+[data-theme="dark"] :is(p,span,small,.muted,.subtitle,.description,.meta,.helper-text,
+  .aurora-personal-hero p,.aurora-panel-intro,.aurora-loading,.home-video-desc){
+  color:var(--dark-muted) !important;
+}
+
+/* Champs : même finition nette et lisible que le mode clair. */
+[data-theme="dark"] :is(input,select,textarea){
+  background:var(--dark-surface-2) !important;
+  color:var(--dark-ink) !important;
+  border:1px solid var(--dark-border) !important;
+  box-shadow:none !important;
+}
+[data-theme="dark"] :is(input,select,textarea)::placeholder{color:#8F89A4 !important;opacity:1;}
+[data-theme="dark"] :is(input,select,textarea):focus{
+  border-color:var(--violet) !important;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--violet) 20%,transparent) !important;
+}
+
+/* Accueil / Hero : architecture claire avec profondeur sombre. */
+[data-theme="dark"] .hero{
+  background:linear-gradient(145deg,#151226 0%,#1B1730 55%,#141322 100%) !important;
+  border-color:var(--dark-border) !important;
+  box-shadow:var(--dark-shadow);
+}
+[data-theme="dark"] .hero .hero-inner,
+[data-theme="dark"] .hero .eyebrow,
+[data-theme="dark"] .hero h1,
+[data-theme="dark"] .hero .sub{color:var(--dark-ink) !important;}
+[data-theme="dark"] .hero .accentword{color:var(--violet) !important;}
+
+/* Cartes de niveaux/catégories : relief léger, comme les cartes du clair. */
+[data-theme="dark"] :is(.level-card,.cat-card){
+  background:linear-gradient(145deg,var(--dark-surface),var(--dark-surface-2)) !important;
+  border-color:var(--dark-border) !important;
+  box-shadow:var(--dark-shadow);
+}
+[data-theme="dark"] :is(.level-card,.cat-card):hover{
+  box-shadow:var(--dark-shadow-hover);
+  border-color:color-mix(in srgb,var(--violet) 42%,var(--dark-border)) !important;
+}
+[data-theme="dark"] .level-card p{color:var(--dark-muted) !important;}
+
+/* Bannière Livres & romans : traitement cohérent avec le clair, mais sombre. */
+[data-theme="dark"] .livres-banner{
+  background:linear-gradient(135deg,#1B1730,#21183A) !important;
+  border:1px solid color-mix(in srgb,var(--violet) 42%,var(--dark-border)) !important;
+  color:var(--dark-ink) !important;
+  box-shadow:var(--dark-shadow);
+}
+[data-theme="dark"] .livres-banner h3{color:var(--dark-ink) !important;}
+[data-theme="dark"] .livres-banner p{color:var(--dark-muted) !important;opacity:1;}
+[data-theme="dark"] .livres-banner .go-arrow{color:var(--dark-ink) !important;}
+[data-theme="dark"] .livres-banner .icon-wrap{
+  background:rgba(167,139,250,.16) !important;
+  border:1px solid rgba(167,139,250,.24);
+}
+
+/* Boutons : accent coloré + texte clair, comme les CTA du clair mais adaptés au fond. */
+[data-theme="dark"] :is(.go,.btn-primary,.btn-deposer,.admin-btn.primary,.access-btn){
+  color:#fff !important;
+  box-shadow:0 7px 18px rgba(0,0,0,.18);
+}
+[data-theme="dark"] :is(.form-submit,.admin-btn.valider){color:#fff !important;}
+
+/* Navigation et badges : conserver la couleur choisie sans écraser les contrastes. */
+[data-theme="dark"] :is(.sublevel-card,.structure-pill,.home-choice,.shortcut-btn,
+  .breadcrumb-btn,.admin-tab.active){
+  background:rgba(167,139,250,.10) !important;
+  border-color:color-mix(in srgb,var(--violet) 48%,var(--dark-border)) !important;
+  color:var(--dark-ink) !important;
+}
+[data-theme="dark"] :is(.sublevel-card,.structure-pill,.home-choice,.shortcut-btn,
+  .breadcrumb-btn,.admin-tab.active) :is(span,p,strong,b,i){color:var(--dark-ink) !important;}
+
+/* États système : surfaces douces et lisibles. */
+[data-theme="dark"] .form-msg.ok{background:#102218 !important;color:#A7F3D0 !important;border-color:#285C42 !important;}
+[data-theme="dark"] .form-msg.err{background:#241316 !important;color:#FCA5A5 !important;border-color:#6B2B32 !important;}
+[data-theme="dark"] :is(.success,.message-success){background:#102218 !important;color:#A7F3D0 !important;border-color:#285C42 !important;}
+[data-theme="dark"] :is(.error,.message-error){background:#241316 !important;color:#FCA5A5 !important;border-color:#6B2B32 !important;}
+
+/* Vidéo / aperçu : même cadre intégré que les cartes du clair. */
+[data-theme="dark"] .home-video-frame,
+[data-theme="dark"] .admin-video-preview{background:#090812 !important;border-color:var(--dark-border) !important;}
+
+/* Publicités : reprendre la séparation douce du clair. */
+[data-theme="dark"] .ad-slot-img{
+  background:#0D0B16 !important;
+  border-color:var(--dark-border) !important;
+  box-shadow:var(--dark-shadow);
+}
+[data-theme="dark"] .ad-slot-title,
+[data-theme="dark"] .ad-slot-desc,
+[data-theme="dark"] .ad-slot-cta{
+  background:var(--dark-surface) !important;
+  border-color:var(--dark-border) !important;
+}
+[data-theme="dark"] .ad-slot-title{color:var(--dark-ink) !important;}
+[data-theme="dark"] .ad-slot-desc{color:var(--dark-muted) !important;}
+
+/* Footer : même rôle de dernière surface que le clair. */
+[data-theme="dark"] footer{
+  background:#11101C !important;
+  color:var(--dark-ink) !important;
+  border-color:var(--dark-border) !important;
+}
+
+/* Icônes SVG : ne pas laisser de gris/blanc incohérent dans les nouvelles surfaces. */
+[data-theme="dark"] :is(.aurora-stat-icon,.aurora-panel-badge,.home-promise-icon,.presentation-icon-wrap) svg{
+  color:var(--violet) !important;
+}
+
+/* Accessibilité : focus clavier visible. */
+[data-theme="dark"] :focus-visible{
+  outline:2px solid var(--violet) !important;
+  outline-offset:2px;
+}
+
+/* Sécurité : le lecteur PDF garde son interface sombre indépendante. */
+[data-theme="dark"] #pdfViewerOverlay,
+[data-theme="dark"] #pdfViewerOverlay *{
+  /* volontairement inchangé */
+}
+</style>
 </head>
 <body class="site-locked">
 
@@ -13157,14 +13350,42 @@ window.addEventListener('load',()=>{
   el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);
   el.addEventListener('click',e=>{if(moved){moved=false;return;}goHome();});
   el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();goHome();}});
-  let lastCenteredSessionId = (typeof session !== 'undefined' && session) ? (session.id||session.email||'') : '';
-  window.addEventListener('aurore:user-connected',e=>{
-    const id=String(e.detail?.id||'');
-    if(id && id!==lastCenteredSessionId){ lastCenteredSessionId=id; centerAndSave(); }
-  });
+  let lastCenteredSessionId='';
+  function sessionId(){
+    try{
+      return (typeof session!=='undefined' && session) ? String(session.id||session.email||'') : '';
+    }catch(e){return '';}
+  }
+  function centerOnConnection(id){
+    id=String(id||'');
+    if(!id || id===lastCenteredSessionId)return;
+    lastCenteredSessionId=id;
+    centerAndSave();
+  }
+  window.addEventListener('aurore:user-connected',e=>centerOnConnection(e.detail?.id||''));
   window.addEventListener('aurore:user-disconnected',()=>{ lastCenteredSessionId=''; });
   addEventListener('resize',()=>{clamp();save();},{passive:true});
-  restore();
+
+  /* Si la session existe déjà au chargement, on considère cela comme une
+     connexion : l'Accueil flottant démarre donc au centre, sans reprendre
+     une ancienne position enregistrée. */
+  const initialSessionId=sessionId();
+  if(initialSessionId){
+    requestAnimationFrame(()=>centerOnConnection(initialSessionId));
+  }else{
+    restore();
+  }
+
+  /* L'authentification peut être résolue après le chargement de ce script.
+     On surveille uniquement l'apparition d'une nouvelle session pour garantir
+     le centrage à chaque connexion, sans modifier le comportement du drag. */
+  let sessionChecks=0;
+  const detectConnection=()=>{
+    const id=sessionId();
+    if(id)centerOnConnection(id);
+    if(sessionChecks++<40)setTimeout(detectConnection,250);
+  };
+  detectConnection();
 })();
 </script>
 
@@ -13434,9 +13655,3 @@ html[data-theme="light"] #pdfViewerOverlay *{color:inherit!important;}
 
 </body>
 </html>
-
-
-
-
-
-
