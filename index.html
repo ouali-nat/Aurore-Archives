@@ -3380,7 +3380,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const infos = obtenirInfosProfilLocal();
     document.getElementById('profilNomInput').value = infos.nom || ''; document.getElementById('profilPrenomInput').value = infos.prenom || ''; document.getElementById('profilLyceeInput').value = infos.lycee || '';
     document.getElementById('profilNiveauInput').value = infos.niveau || ''; document.getElementById('profilClasseInput').value = infos.classe || ''; document.getElementById('profilFiliereInput').value = infos.filiere || '';
-    const roleInput=document.getElementById('profilRoleInput'); if(roleInput) roleInput.value=['eleve','enseignant','professeur','parent','personnel'].includes(roleSession)?roleSession:'eleve';
+    const roleInput=document.getElementById('profilRoleInput'); if(roleInput){ const situation=obtenirRoleSituation(session); roleInput.value=['eleve','enseignant','professeur','parent','personnel'].includes(situation)?situation:'eleve'; }
     const discipline=document.getElementById('profilDisciplineInput'); if(discipline) discipline.value=session.discipline||session.matiere||'';
     const fonction=document.getElementById('profilFonctionInput'); if(fonction) fonction.value=session.fonction||'';
     const enfant=document.getElementById('profilEnfantInput'); if(enfant) enfant.value=session.enfant_informations||'';
@@ -3395,7 +3395,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const context=document.getElementById('profilRoleContext');
     const enseignant=role==='enseignant'||role==='professeur';
     const personnel=role==='personnel';
-    const setVisible=(el,visible)=>{if(!el)return;el.hidden=!visible;el.style.display=visible?'':'none';};
+    const setVisible=(el,visible)=>{if(!el)return;el.hidden=!visible;el.style.setProperty('display',visible?'flex':'none','important');};
     setVisible(niveau,!enseignant&&role!=='parent'&&!personnel);
     setVisible(classe,!enseignant&&role!=='parent'&&!personnel);
     setVisible(filiere,!enseignant&&role!=='parent'&&!personnel);
@@ -3467,6 +3467,16 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const discipline = document.getElementById('profilDisciplineInput')?.value.trim() || '';
     const fonction = document.getElementById('profilFonctionInput')?.value.trim() || '';
     const enfant_informations = document.getElementById('profilEnfantInput')?.value.trim() || '';
+    // Ne jamais conserver les anciennes données d'un autre profil : chaque situation
+    // possède son propre jeu d'informations.
+    const enseignant = role==='enseignant'||role==='professeur';
+    const personnel = role==='personnel';
+    const niveauFinal = (!enseignant && role!=='parent' && !personnel) ? niveau : '';
+    const classeFinale = (!enseignant && role!=='parent' && !personnel) ? classe : '';
+    const filiereFinale = (!enseignant && role!=='parent' && !personnel) ? filiere : '';
+    const disciplineFinale = enseignant ? discipline : '';
+    const fonctionFinale = (enseignant || personnel) ? fonction : '';
+    const enfantFinal = role==='parent' ? enfant_informations : '';
     const btn = document.getElementById('profilLyceeSave');
     const msg = document.getElementById('profilSaveMessage');
     const enseignant=role==='enseignant'||role==='professeur';
@@ -3484,7 +3494,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       const rpc=await fetch(`${SUPABASE_URL}/rest/v1/rpc/enregistrer_profil_personnel`,{
         method:'POST',
         headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json'},
-        body:JSON.stringify({p_nom:nom,p_prenom:prenom,p_lycee:lycee,p_niveau:niveau,p_classe:classe,p_filiere:filiere,p_role:role,p_discipline:discipline,p_fonction:fonction,p_enfant_informations:enfant_informations})
+        body:JSON.stringify({p_nom:nom,p_prenom:prenom,p_lycee:lycee,p_niveau:niveauFinal,p_classe:classeFinale,p_filiere:filiereFinale,p_role:role,p_discipline:disciplineFinale,p_fonction:fonctionFinale,p_enfant_informations:enfantFinal})
       });
       if(!rpc.ok){
         const detail=await rpc.text().catch(()=> '');
@@ -3494,7 +3504,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         const patch=await fetch(`${SUPABASE_URL}/rest/v1/Profils?id=eq.${encodeURIComponent(session.id)}`,{
           method:'PATCH',
           headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=representation'},
-          body:JSON.stringify({nom,prenom,lycee,niveau,classe,filiere,role,discipline,fonction,enfant_informations})
+          body:JSON.stringify({nom,prenom,lycee,niveau:niveauFinal,classe:classeFinale,filiere:filiereFinale,role,discipline:disciplineFinale,fonction:fonctionFinale,enfant_informations:enfantFinal})
         });
         if(!patch.ok){
           const pd=await patch.text().catch(()=> '');
@@ -3509,14 +3519,14 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         const authRes=await fetch(`${SUPABASE_URL}/auth/v1/user`,{
           method:'PATCH',
           headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json'},
-          body:JSON.stringify({data:{nom,prenom,lycee,niveau,classe,filiere,role:(session.id===PROPRIETAIRE_ADMIN_ID?'admin':role),situation_role:role,discipline,fonction,enfant_informations}})
+          body:JSON.stringify({data:{nom,prenom,lycee,niveau:niveauFinal,classe:classeFinale,filiere:filiereFinale,role:(session.id===PROPRIETAIRE_ADMIN_ID?'admin':role),situation_role:role,discipline:disciplineFinale,fonction:fonctionFinale,enfant_informations:enfantFinal}})
         });
         if(authRes.ok){ const authData=await authRes.json().catch(()=>({})); md=authData.user_metadata||{}; }
         else console.warn('[Profil] métadonnées Auth non mises à jour',authRes.status);
       } catch(e){ console.warn('[Profil] copie Auth ignorée',e); }
 
-      const roleFinal = session.id === PROPRIETAIRE_ADMIN_ID ? 'admin' : role; session.nom=nom; session.prenom=prenom; session.lycee=lycee; session.niveau=niveau; session.classe=niveau&&classe?classe:''; session.filiere=filiere; session.role=roleFinal; session.situation_role=role; session.discipline=discipline; session.fonction=fonction; session.enfant_informations=enfant_informations; afficherDetailsProfilUtilisateur();
-      session.user_metadata={...(session.user_metadata||{}),nom,prenom,lycee,niveau,classe,filiere,role:roleFinal,situation_role:role,discipline,fonction,enfant_informations,...md};
+      const roleFinal = session.id === PROPRIETAIRE_ADMIN_ID ? 'admin' : role; session.nom=nom; session.prenom=prenom; session.lycee=lycee; session.niveau=niveauFinal; session.classe=classeFinale; session.filiere=filiereFinale; session.role=roleFinal; session.situation_role=role; session.discipline=disciplineFinale; session.fonction=fonctionFinale; session.enfant_informations=enfantFinal; afficherDetailsProfilUtilisateur();
+      session.user_metadata={...(session.user_metadata||{}),nom,prenom,lycee,niveau:niveauFinal,classe:classeFinale,filiere:filiereFinale,role:roleFinal,situation_role:role,discipline:disciplineFinale,fonction:fonctionFinale,enfant_informations:enfantFinal,...md};
       sauvegarderSession();
       msg.textContent='Votre espace personnel est maintenant configuré.'; msg.className='ok';
        let success=document.getElementById('auroreProfileSuccess');
