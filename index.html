@@ -13300,6 +13300,10 @@ window.addEventListener('load',()=>{
   }
   function centerAndSave(){
     el.classList.add('is-positioned');
+    // Pour un centrage réel, on neutralise temporairement le transform de
+    // centrage CSS : left/top doivent représenter le coin supérieur gauche
+    // réel du bouton, notamment après une connexion.
+    el.style.transform='none';
     const r=el.getBoundingClientRect();
     el.style.left=Math.round((innerWidth-r.width)/2)+'px';
     el.style.top=Math.round((innerHeight-r.height)/2)+'px';
@@ -13654,4 +13658,24 @@ html[data-theme="light"] #pdfViewerOverlay *{color:inherit!important;}
 </style>
 
 </body>
+
+<style id="aurore-final-auth-floating-fix">
+/* Correctifs ciblés : centrage réel après connexion + contraste Google. */
+.aurore-floating-home.is-positioned{transform:none;}
+.aurore-floating-home.is-positioned:hover{transform:translateY(-2px);}
+.aurore-floating-home.is-positioned.dragging{transform:scale(1.025);}
+
+/* Le bouton Google conserve toujours une surface blanche et un texte lisible,
+   quel que soit le thème global du site. */
+.access-google-btn,
+.access-google-btn:hover,
+.access-google-btn:focus-visible{
+  background:#fff!important;
+  color:#202124!important;
+  border-color:#D8D3DF!important;
+}
+.access-google-btn strong{color:#202124!important;}
+.access-google-btn small{color:#5F6368!important;}
+.access-google-btn .google-mark{background:#fff!important;color:#4285F4!important;border-color:#E1DCE6!important;}
+</style>
 </html>
