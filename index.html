@@ -2543,14 +2543,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
           </div>
           <div class="profile-form-section profile-modal-section role-specific-fields">
             <div class="profile-form-section-head"><span>02</span><div><strong id="profileSpecificTitle">Informations Élève</strong><small id="profileSpecificHelp">Ces champs sont adaptés à votre situation.</small></div></div>
-            <div class="profile-fields-grid">
-              <label id="profilNiveauField">Niveau <span>*</span><input type="text" id="profilNiveauInput" placeholder="Ex. 3e, Seconde, Terminale" maxlength="80"></label>
-              <label id="profilClasseField">Classe <span>*</span><input type="text" id="profilClasseInput" placeholder="Ex. Tle A, 3e 2" maxlength="80"></label>
-              <label id="profilFiliereField" class="profile-field-wide">Filière / série <small>(facultatif)</small><input type="text" id="profilFiliereInput" placeholder="Ex. A, C, D, G2…" maxlength="100"></label>
-              <label id="profilDisciplineField">Discipline enseignée <span>*</span><input type="text" id="profilDisciplineInput" placeholder="Ex. Mathématiques, Français…" maxlength="120"></label>
-              <label id="profilFonctionField">Fonction <span id="profilFonctionReqMark">*</span><input type="text" id="profilFonctionInput" placeholder="Ex. professeur principal, censeur, surveillant…" maxlength="120"></label>
-              <label id="profilEnfantField" class="profile-field-wide">Situation de votre enfant <span>*</span><textarea id="profilEnfantInput" rows="3" placeholder="Ex. prénom, niveau/classe et toute information utile pour comprendre votre situation" maxlength="500"></textarea></label>
-            </div>
+            <div class="profile-fields-grid" id="profileSpecificFields"></div>
             <div class="profile-role-hint" id="profilRoleHint"></div>
           </div>
           <div class="profile-form-modal-footer">
@@ -3363,58 +3356,20 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
   function mettreAJourChampsProfilSelonRole(){
     const role=String(document.getElementById('profilRoleInput')?.value||'eleve').toLowerCase();
-    const container=document.getElementById('profileSpecificFields')||document.querySelector('#profileInfoModal .profile-specific-fields');
-    if(!container)return;
-    const configs={
-      eleve:{
-        title:'Informations Élève',
-        intro:'Renseignez les informations qui permettent à Aurore d’adapter votre espace scolaire.',
-        fields:[
-          ['profilNiveauInput','Niveau','Ex. 6e, 3e, Seconde, Terminale…',true,'text'],
-          ['profilClasseInput','Classe','Ex. 3e A, Tle D…',true,'text'],
-          ['profilFiliereInput','Filière / série','Ex. A, C, D, F…',false,'text']
-        ]
-      },
-      enseignant:{
-        title:'Informations Enseignant',
-        intro:'Indiquez la discipline que vous enseignez et votre fonction dans l’établissement.',
-        fields:[
-          ['profilDisciplineInput','Discipline enseignée','Ex. Mathématiques, Français…',true,'text'],
-          ['profilFonctionInput','Fonction','Ex. professeur principal, coordonnateur…',false,'text']
-        ]
-      },
-      professeur:{
-        title:'Informations Professeur',
-        intro:'Indiquez la discipline que vous enseignez et votre fonction dans l’établissement.',
-        fields:[
-          ['profilDisciplineInput','Discipline enseignée','Ex. Mathématiques, Français…',true,'text'],
-          ['profilFonctionInput','Fonction','Ex. professeur principal, coordonnateur…',false,'text']
-        ]
-      },
-      parent:{
-        title:'Informations Parent',
-        intro:'Renseignez les informations utiles concernant votre enfant.',
-        fields:[
-          ['profilEnfantInput','Informations concernant votre enfant','Ex. prénom, niveau/classe et toute information utile…',true,'textarea']
-        ]
-      },
-      personnel:{
-        title:'Informations Personnel',
-        intro:'Indiquez votre fonction au sein de l’établissement.',
-        fields:[
-          ['profilFonctionInput','Fonction','Ex. surveillant, censeur, bibliothécaire…',true,'text']
-        ]
-      }
+    const container=document.getElementById('profileSpecificFields'); if(!container)return;
+    const old={}; ['profilNiveauInput','profilClasseInput','profilFiliereInput','profilDisciplineInput','profilFonctionInput','profilEnfantInput'].forEach(id=>{const e=document.getElementById(id);if(e)old[id]=e.value||'';});
+    const cfgs={
+      eleve:{title:'Informations Élève',intro:'Renseignez uniquement les informations concernant votre scolarité.',fields:[['profilNiveauInput','Niveau','Ex. 6e, 3e, Seconde, Terminale…',true,'text'],['profilClasseInput','Classe','Ex. 3e A, Tle D…',true,'text'],['profilFiliereInput','Filière / série','Ex. A, C, D, G2…',false,'text']]},
+      enseignant:{title:'Informations Enseignant',intro:'Renseignez uniquement les informations liées à votre activité d’enseignement.',fields:[['profilDisciplineInput','Discipline enseignée','Ex. Mathématiques, Français…',true,'text'],['profilFonctionInput','Fonction','Ex. professeur principal, coordonnateur…',false,'text']]},
+      professeur:{title:'Informations Professeur',intro:'Renseignez uniquement les informations liées à votre activité d’enseignement.',fields:[['profilDisciplineInput','Discipline enseignée','Ex. Mathématiques, Français…',true,'text'],['profilFonctionInput','Fonction','Ex. professeur principal, coordonnateur…',false,'text']]},
+      parent:{title:'Informations Parent',intro:'Renseignez uniquement les informations concernant votre enfant.',fields:[['profilEnfantInput','Informations concernant votre enfant','Ex. prénom, niveau, classe et toute information utile…',true,'textarea']]},
+      personnel:{title:'Informations Personnel',intro:'Renseignez uniquement votre fonction dans l’établissement.',fields:[['profilFonctionInput','Fonction','Ex. surveillant, censeur, bibliothécaire…',true,'text']]}
     };
-    const cfg=configs[role]||configs.eleve;
-    container.innerHTML='<div class="profile-specific-heading"><strong>'+echapperHtmlPub(cfg.title)+'</strong><span>'+echapperHtmlPub(cfg.intro)+'</span></div>'+
-      cfg.fields.map(f=>{
-        const tag=f[4]==='textarea'?'textarea':'input';
-        const req=f[3]?' required':'';
-        const star=f[3]?' <span aria-hidden="true">*</span>':' <small>(facultatif)</small>';
-        return '<div class="profile-field"><label for="'+f[0]+'">'+echapperHtmlPub(f[1])+star+'</label>'+
-          '<'+tag+' id="'+f[0]+'" name="'+f[0]+'" placeholder="'+echapperHtmlPub(f[2])+'"'+req+'></'+tag+'></div>';
-      }).join('');
+    const cfg=cfgs[role]||cfgs.eleve;
+    const title=document.getElementById('profileSpecificTitle'), help=document.getElementById('profileSpecificHelp');
+    if(title)title.textContent=cfg.title; if(help)help.textContent=cfg.intro;
+    container.innerHTML=cfg.fields.map(f=>{const tag=f[4]==='textarea'?'textarea':'input',req=f[3]?' required':'',star=f[3]?' <span aria-hidden="true">*</span>':' <small>(facultatif)</small>';return '<label class="profile-dynamic-field" for="'+f[0]+'">'+echapperHtmlPub(f[1])+star+'<'+tag+' id="'+f[0]+'" name="'+f[0]+'" placeholder="'+echapperHtmlPub(f[2])+'" maxlength="500"'+req+'></'+tag+'></label>';}).join('');
+    cfg.fields.forEach(f=>{const e=document.getElementById(f[0]);if(e)e.value=old[f[0]]||'';});
     synchroniserCartesRoleProfil();
   }
   document.getElementById('profilRoleInput')?.addEventListener('change',mettreAJourChampsProfilSelonRole);
@@ -3444,7 +3399,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   })();
   function synchroniserCartesRoleProfil(){const role=String(document.getElementById('profilRoleInput')?.value||'eleve').toLowerCase();document.querySelectorAll('.profile-role-option[data-profile-role]').forEach(btn=>btn.setAttribute('aria-pressed',btn.dataset.profileRole===role?'true':'false'));}
   const _mettreAJourChampsProfilSelonRole=mettreAJourChampsProfilSelonRole;
-  mettreAJourChampsProfilSelonRole=function(){_mettreAJourChampsProfilSelonRole();synchroniserCartesRoleProfil();};
 
   async function enregistrerProfilPersonnel(options={}) {
     if (!session || !session.access_token) return false;
