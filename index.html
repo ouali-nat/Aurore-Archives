@@ -11673,47 +11673,56 @@ footer>.wrap:last-child{margin-top:18px!important;}
       if(codeMsg){codeMsg.textContent='Le code doit contenir entre 4 et 8 chiffres.';codeMsg.className='access-code-message err';codeMsg.style.display='block';}
       return;
     }
+
+    // Vérifier uniquement le code. Toutes les opérations d'ouverture de l'espace
+    // sont volontairement séparées afin qu'une erreur secondaire ne bloque jamais l'accès.
+    let valide=false;
     try{
-      if(!session?.id){
-        try{const saved=sessionStorage.getItem('lsnb_session');if(saved){const candidate=JSON.parse(saved);if(candidate?.id&&candidate?.access_token)session=candidate;}}catch(e){console.warn('[Code] sessionStorage:',e);}
-      }
-      if(!session?.id){
-        if(codeMsg){codeMsg.textContent='Votre connexion Aurore n’est plus active. Reconnectez-vous puis réessayez.';codeMsg.className='access-code-message err';codeMsg.style.display='block';}
-        return;
-      }
+      const stored=codeStocke();
       if(codeMode==='setup'){
-        localStorage.setItem(KEY_CODE+userKey(),await hashCode(value));
-      }else{
-        const stored=codeStocke();
-        if(!stored || await hashCode(value)!==stored){
-          if(codeMsg){codeMsg.textContent='Code incorrect. Réessayez.';codeMsg.className='access-code-message err';codeMsg.style.display='block';}
-          return;
-        }
+        const hashed=await hashCode(value);
+        localStorage.setItem(KEY_CODE+userKey(),hashed);
+        valide=true;
+      }else if(stored){
+        valide=(await hashCode(value))===stored;
       }
-      // Code validé : déverrouiller immédiatement, avant tout chargement réseau.
+    }catch(e){
+      console.error('[Code] vérification:',e);
+      valide=false;
+    }
+
+    if(!valide){
+      if(codeMsg){codeMsg.textContent='Code incorrect. Réessayez.';codeMsg.className='access-code-message err';codeMsg.style.display='block';}
+      return;
+    }
+
+    // IMPORTANT : le code est bon. On ferme le verrou AVANT tout chargement de données.
+    try{
       document.body.classList.remove('site-locked','access-locked');
       document.body.style.overflow='';
       if(lock){lock.classList.remove('show');lock.style.display='none';lock.setAttribute('aria-hidden','true');}
       if(codeModal){codeModal.style.display='none';codeModal.setAttribute('aria-hidden','true');}
-      try{window.auroreUnlockAccess?.();}catch(e){}
-      try{afficherUtilisateurConnecte();}catch(e){}
-      try{remplirProfil();}catch(e){console.warn('[Espace] profil:',e);}
-      const breadcrumb=document.getElementById('breadcrumb');if(breadcrumb)breadcrumb.innerHTML='';
+    }catch(e){ console.warn('[Code] fermeture verrou:',e); }
+
+    // Ouvrir directement l'écran Profil. Rien d'autre ne doit être requis.
+    try{ window.auroreUnlockAccess?.(); }catch(e){}
+    try{ afficherUtilisateurConnecte?.(); }catch(e){}
+    try{ remplirProfil?.(); }catch(e){}
+    try{
+      const breadcrumb=document.getElementById('breadcrumb');
+      if(breadcrumb)breadcrumb.innerHTML='';
+      document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
       const screen=document.getElementById('screen-profil');
-      if(screen){
-        if(espaceOptions?.forceComplete&&!screen.querySelector('.profile-completion-banner')){
-          const banner=document.createElement('div');banner.className='profile-completion-banner';banner.textContent='Bienvenue dans votre espace personnel. Avant de commencer, renseignez les informations demandées pour personnaliser votre espace.';screen.insertBefore(banner,screen.querySelector('.profile-card'));
-        }
-        document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));screen.classList.add('active');window.scrollTo({top:0,behavior:'auto'});
-      }
-      try{auroreMasquerInvitationEspacePersonnel(false);}catch(e){}
-      try{window.chargerCasesPersonnelles?.();}catch(e){}
-      setTimeout(()=>{try{window.chargerDonneesEspacePersonnel?.();}catch(e){console.warn('[Espace] chargement données:',e);}},0);
-    }catch(e){
-      console.error('[Code d’accès] erreur:',e);
-      try{document.body.classList.remove('site-locked');if(lock)lock.style.display='none';if(codeModal)codeModal.style.display='none';}catch(_){}
-      if(codeMsg){codeMsg.textContent='Le code est correct, mais une erreur de chargement est survenue.';codeMsg.className='access-code-message err';codeMsg.style.display='block';}
-    }
+      if(screen)screen.classList.add('active');
+      window.scrollTo(0,0);
+    }catch(e){ console.warn('[Code] ouverture profil:',e); }
+
+    // Le reste est secondaire et ne peut plus empêcher l'accès.
+    setTimeout(()=>{
+      try{ auroreMasquerInvitationEspacePersonnel(false); }catch(e){}
+      try{ window.chargerCasesPersonnelles?.(); }catch(e){}
+      try{ window.chargerDonneesEspacePersonnel?.(); }catch(e){}
+    },0);
   }
   async function restaurerSessionAvantEspace(){
     if(session?.id)return true;
