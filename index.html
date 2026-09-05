@@ -3450,7 +3450,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       <div id="pdfViewerErreurBox" class="pdf-reader-erreur" style="display:none;" role="alert">
         <p id="pdfViewerErreurTexte"></p>
         <button type="button" id="pdfViewerReessayer" class="deposer-btn" style="border:none; cursor:pointer;">Réessayer</button>
-        <a id="pdfViewerLienDirect" href="#" rel="noopener" style="display:none;">Ouvrir le document dans un nouvel onglet</a>
+        <a id="pdfViewerLienDirect" href="#" rel="noopener" style="display:none;">Télécharger le document</a>
       </div>
       <!-- Diagnostic technique temporaire, réservé à l'administrateur (voir
            session.role==='admin' dans ouvrirLecteurPDF) : jamais montré à un
@@ -10074,20 +10074,20 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     document.getElementById('pdfViewerErreurTexte').textContent = message;
     const lien = document.getElementById('pdfViewerLienDirect');
     if (telechargementOk && url) {
-      // Le téléchargement est autorisé pour ce document : une simple navigation
-      // vers le fichier (pas de lecture d'octets en JS) ne dépend pas du CORS,
-      // donc ce repli fonctionne même si la visionneuse intégrée échoue.
+      // Le téléchargement est autorisé pour ce document. Ce lien de secours ne
+      // doit JAMAIS naviguer directement vers le fichier brut (cela quitte
+      // Aurore et bascule sur un lecteur externe, ex. Drive, sur mobile) : il
+      // déclenche le même téléchargement en Blob que le bouton principal, qui
+      // reste à l'intérieur du site.
       // Visiteur non connecté : même règle que le bouton de téléchargement
       // principal — ce lien direct ne doit pas devenir une façon de contourner
       // l'obligation de connexion.
+      lien.removeAttribute('href');
+      lien.style.display = 'inline-block';
       if (!session) {
-        lien.removeAttribute('href');
-        lien.style.display = 'inline-block';
         lien.onclick = (e) => { e.preventDefault(); exigerConnexionPourTelechargement(DOC_EN_LECTURE); };
       } else {
-        lien.href = url;
-        lien.onclick = null;
-        lien.style.display = 'inline-block';
+        lien.onclick = (e) => { e.preventDefault(); telechargerDocumentAvecProgression(DOC_EN_LECTURE); };
       }
     } else {
       lien.style.display = 'none';
