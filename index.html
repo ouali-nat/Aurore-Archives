@@ -6688,7 +6688,24 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       }
       if (!octets) return null;
 
-      const pdf = await pdfjsLib.getDocument({data: octets.slice(0)}).promise;
+      const donneesPDF = octets instanceof Uint8Array ? octets : new Uint8Array(octets);
+      let pdf;
+      try {
+        // Chemin normal : worker PDF.js, rapide et léger.
+        pdf = await pdfjsLib.getDocument({data: donneesPDF.slice(0)}).promise;
+      } catch (premiereErreur) {
+        // Certains PDF extrêmement légers (notamment générés par des outils
+        // minimalistes) posent problème au worker. On réessaie immédiatement
+        // sans worker avec les mêmes octets : cela ne change rien pour les PDF
+        // normaux et évite qu'une couverture reste vide.
+        console.warn('[Couverture livre] premier chargement PDF.js échoué, nouvelle tentative sans worker.', premiereErreur);
+        pdf = await pdfjsLib.getDocument({
+          data: donneesPDF.slice(0),
+          disableWorker: true,
+          isEvalSupported: false
+        }).promise;
+      }
+      if (!pdf || !pdf.numPages) throw new Error('PDF sans première page exploitable');
       const page = await pdf.getPage(1);
       const base = page.getViewport({scale: 1});
       // Rendu assez grand pour être net, tout en restant très rapide.
@@ -6697,6 +6714,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       canvas.width = Math.max(1, Math.round(viewport.width));
       canvas.height = Math.max(1, Math.round(viewport.height));
       const ctx = canvas.getContext('2d', {alpha: false});
+      if (!ctx) throw new Error('Contexte canvas indisponible');
       await page.render({canvasContext: ctx, viewport}).promise;
       const dataUrl = canvas.toDataURL('image/jpeg', 0.72);
       CACHE_COUVERTURES_PREMIERE_PAGE.set(clef, dataUrl);
@@ -6704,7 +6722,9 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       return dataUrl;
     } catch (e) {
       console.warn('[Couverture livre] rendu de la première page impossible pour', doc?.Titre, e);
-      CACHE_COUVERTURES_PREMIERE_PAGE.set(clef, null);
+      // Une erreur transitoire ne doit jamais mémoriser une couverture vide :
+      // un prochain affichage pourra retenter le rendu.
+      CACHE_COUVERTURES_PREMIERE_PAGE.delete(clef);
       return null;
     }
   }
