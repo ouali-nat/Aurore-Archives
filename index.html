@@ -6741,8 +6741,9 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   // aucune attente d'une API de couverture. Le cache local est injecté
   // immédiatement ; sinon le rendu PDF démarre sans délai.
   function appliquerCouvertureSiLivre(row, doc) {
-    const estUnLivre = String(doc['Catégorie'] || doc.Type || '').trim().toLowerCase() === 'livres';
-    if (!estUnLivre || !row || !doc?.Fichier_url) return;
+    // La première page du PDF sert de couverture pour TOUS les documents
+    // du site, pas uniquement les livres/romans.
+    if (!row || !doc?.Fichier_url) return;
 
     const dejaConnue = couverturePremierePagePersistanteImmediate(doc);
     if (dejaConnue) {
@@ -6755,7 +6756,11 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     }).catch(() => {});
   }
 
-  function rendreListeDocuments(content, data) {
+  // Les couvertures de première page sont activées pour toutes les listes de
+  // documents du site. La couverture correspond toujours à la première page du PDF.
+  let COUVERTURES_PREMIERE_PAGE_ACTIVES = true;
+
+  function rendreListeDocuments(content, data, afficherCouverturesRomans = false) {
     documentsCourants = Array.isArray(data) ? data : [];
     if (documentsCourants.length === 0) {
       content.innerHTML = `<div class="doc-empty friendly-empty"><div class="icon-wrap">${ICONS.folder}</div><h3>Aucun document disponible pour le moment.</h3><p>Cette rubrique sera enrichie progressivement.</p></div>`;
@@ -6803,7 +6808,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       });
       actualiserEtatActionsDocument(row,doc);
       actualiserTaillesDocumentsDans(row);
-      appliquerCouvertureSiLivre(row,doc);
+      if (afficherCouverturesRomans) appliquerCouvertureSiLivre(row,doc);
       list.appendChild(row);
     });
     content.innerHTML='';
@@ -6811,6 +6816,8 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   }
 
   async function allerDocuments(matiere) {
+    // Les sections scolaires utilisent elles aussi la couverture de première page.
+    COUVERTURES_PREMIERE_PAGE_ACTIVES = true;
     etat.matiere = matiere;
     const niveauLabel = (etat.classe?.dbNiveaux?.[0]) || (etat.feuilleArbre?.dbNiveaux?.[0]) || (etat.sousNiveau?.dbNiveaux?.[0]) || '';
     const serieLabel = etat.filiere ? ' — Série ' + etat.filiere : '';
@@ -6851,7 +6858,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     docsPageCourante=Math.min(docsPageCourante,pages);
     if(!sorted.length){ content.innerHTML='<div class="site-empty-filter">Aucun document ne correspond à votre recherche.</div>'; afficherPaginationSite('docsPager',0,1,()=>{}); return; }
     const start=(docsPageCourante-1)*SITE_PUBLIC_PAGE_SIZE;
-    rendreListeDocuments(content,sorted.slice(start,start+SITE_PUBLIC_PAGE_SIZE));
+    rendreListeDocuments(content, sorted.slice(start,start+SITE_PUBLIC_PAGE_SIZE), COUVERTURES_PREMIERE_PAGE_ACTIVES);
     afficherPaginationSite('docsPager',sorted.length,docsPageCourante,p=>{docsPageCourante=p;afficherDocumentsPublicsAvecOutils();});
   }
   document.getElementById('docSort').addEventListener('change', () => { docsPageCourante=1; afficherDocumentsPublicsAvecOutils(); });
@@ -6891,6 +6898,8 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   }
 
   async function allerDocumentsLivre(genre) {
+    // Les couvertures sont actives uniquement ici, dans l'emplacement Romans.
+    COUVERTURES_PREMIERE_PAGE_ACTIVES = true;
     document.getElementById('docsTitle').textContent = `Livres et romans — ${genre.nom}`;
     document.querySelector('#screen-docs .back-btn').setAttribute('data-back', 'livres');
     afficherEcran('screen-docs');
@@ -6903,7 +6912,9 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       const res = await fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&${query}`, { headers: HEADERS });
       if (!res.ok) throw new Error("Statut HTTP " + res.status);
       const data = await res.json();
-      rendreListeDocuments(content, data);
+      // Les résultats utilisent eux aussi la première page comme couverture.
+      COUVERTURES_PREMIERE_PAGE_ACTIVES = true;
+      rendreListeDocuments(content, data, true);
     } catch (err) {
       content.innerHTML = `<div class="doc-empty"><div class="icon-wrap">${ICONS.warning}</div><h3>Impossible de charger les documents</h3><p>Le contenu n’a pas pu être récupéré pour le moment. Veuillez réessayer dans quelques instants.</p></div>`;
     }
