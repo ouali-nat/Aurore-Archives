@@ -3070,6 +3070,27 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   </div>
 </div>
 
+<script id="aurore-auth-recovery">
+(function(){
+  // Retire une ancienne registration de Service Worker une seule fois.
+  // Le rechargement n'est fait que si cette page était réellement contrôlée.
+  if (!('serviceWorker' in navigator)) return;
+  var KEY='aurore_sw_recovery_v4';
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.getRegistrations().then(function(regs){
+      if (!regs.length) return;
+      var hadController=!!navigator.serviceWorker.controller;
+      return Promise.all(regs.map(function(reg){ return reg.unregister(); })).then(function(){
+        if (hadController && sessionStorage.getItem(KEY)!=='1') {
+          sessionStorage.setItem(KEY,'1');
+          window.location.reload();
+        }
+      });
+    }).catch(function(e){ console.warn('[Aurore] nettoyage Service Worker:',e); });
+  });
+})();
+</script>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
   // Client Supabase dédié à OAuth Google. Le reste du site conserve ses appels REST.
@@ -3079,7 +3100,17 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     return window.supabase.createClient(
       "https://tdeotqfsbvouresfhkab.supabase.co",
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZW90cWZzYnZvdXJlc2Zoa2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjM4NzMsImV4cCI6MjEwMDUzOTg3M30.l_a1lI_QRy7BTq1fGjiA9n7LCdu7BwR2TTI5pkA70SU",
-      { auth: { flowType: 'implicit', autoRefreshToken: true, persistSession: true, detectSessionInUrl: true, storage: window.localStorage } }
+      { auth: {
+          flowType: 'implicit',
+          autoRefreshToken: false,
+          persistSession: false,
+          detectSessionInUrl: false,
+          storage: {
+            getItem: () => null,
+            setItem: () => {},
+            removeItem: () => {}
+          }
+        } }
     );
   }
   let AURORE_SUPABASE_AUTH = window.supabase ? creerClientAuthGoogle() : null;
@@ -3153,9 +3184,49 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     return HEADERS;
   }
 
-  function demarrerConnexionGoogle() {
-    const retour = window.location.origin + window.location.pathname;
-    window.location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(retour)}`;
+  async function demarrerConnexionGoogle() {
+    // Le client OAuth utilise volontairement un stockage mémoire vide :
+    // aucune ancienne session Supabase conservée dans le navigateur normal
+    // ne peut bloquer le lancement de Google. Les données Aurore restent
+    // intactes dans leur propre stockage.
+    try {
+      const client = await assurerClientAuthGoogle();
+      if (!client) throw new Error('Le service de connexion Google n’est pas disponible.');
+
+      const productionRedirect = 'https://aurore-section-archivescom.vercel.app/';
+      const retour = window.location.origin === 'https://aurore-section-archivescom.vercel.app'
+        ? productionRedirect
+        : (window.location.origin + window.location.pathname);
+
+      const { error } = await client.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: retour,
+          queryParams: {
+            prompt: 'select_account'
+          }
+        }
+      });
+
+      if (error) throw error;
+    } catch (e) {
+      console.error('[Google OAuth] démarrage impossible :', e);
+      const accessMsg = document.getElementById('accessMessage');
+      if (accessMsg) {
+        accessMsg.textContent = 'Connexion Google impossible : ' + (e?.message || 'erreur OAuth');
+        accessMsg.className = 'access-message err';
+        accessMsg.style.display = 'block';
+      }
+      if (typeof window.auroreCacherVeuillezPatienter === 'function') window.auroreCacherVeuillezPatienter();
+      document.querySelectorAll('.access-google-btn.is-loading').forEach(b => {
+        b.classList.remove('is-loading');
+        b.disabled = false;
+        b.style.pointerEvents = '';
+        b.removeAttribute('aria-busy');
+        const strong = b.querySelector('strong');
+        if (strong) strong.textContent = 'Continuer avec Google';
+      });
+    }
   }
 
   async function recupererUtilisateur(access_token) {
@@ -11977,13 +12048,12 @@ footer>.wrap:last-child{margin-top:18px!important;}
   if(!estInstallee()) setTimeout(function(){if(deferredPrompt)afficher();},1200);
   if('serviceWorker' in navigator){
     window.addEventListener('load',function(){
-      navigator.serviceWorker.getRegistrations().then(function(regs){
-        return Promise.all(regs.map(function(reg){ return reg.unregister(); }));
-      }).catch(function(){ return []; }).then(function(){
-        return navigator.serviceWorker.register('./sw.js',{scope:'./',updateViaCache:'none'});
-      }).then(function(reg){
-        console.log('[Aurore PWA] Service worker actif.',reg.scope);
-      }).catch(function(err){console.warn('[Aurore PWA] Service worker indisponible :',err);});
+      navigator.serviceWorker.register('./sw.js?v=20260905',{scope:'./',updateViaCache:'none'})
+        .then(function(reg){
+          try { reg.update(); } catch(e) {}
+          console.log('[Aurore PWA] Service worker actif.',reg.scope);
+        })
+        .catch(function(err){console.warn('[Aurore PWA] Service worker indisponible :',err);});
     });
   }
 })();
