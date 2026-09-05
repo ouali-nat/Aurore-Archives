@@ -3436,14 +3436,28 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         console.warn('[Profil] RPC indisponible',rpc.status,detail);
         // Compatibilité avec une installation où le SQL RPC n'a pas encore
         // été exécuté : on tente le PATCH direct avec le token utilisateur.
+        const profilPayload={id:session.id,nom,prenom,email:session.email||'',lycee,niveau,classe,filiere,role,discipline,fonction,enfant_informations};
+        const userHeaders={'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json','Prefer':'return=representation'};
         const patch=await fetch(`${SUPABASE_URL}/rest/v1/Profils?id=eq.${encodeURIComponent(session.id)}`,{
           method:'PATCH',
-          headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=representation'},
+          headers:userHeaders,
           body:JSON.stringify({nom,prenom,lycee,niveau,classe,filiere,role,discipline,fonction,enfant_informations})
         });
         if(!patch.ok){
           const pd=await patch.text().catch(()=> '');
           throw new Error('PROFIL_DB_'+patch.status+' '+pd);
+        }
+        const patchRows=await patch.json().catch(()=>[]);
+        if(!Array.isArray(patchRows) || patchRows.length===0){
+          const ins=await fetch(`${SUPABASE_URL}/rest/v1/Profils`,{
+            method:'POST',
+            headers:userHeaders,
+            body:JSON.stringify(profilPayload)
+          });
+          if(!ins.ok){
+            const idetail=await ins.text().catch(()=> '');
+            throw new Error('PROFIL_INSERT_'+ins.status+' '+idetail);
+          }
         }
       }
 
