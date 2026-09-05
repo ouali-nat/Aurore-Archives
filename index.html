@@ -1,6 +1,36 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+<script>
+// === Aurore : capteur de diagnostic temporaire ===
+// Affiche à l'écran (en rouge, en bas) toute erreur JavaScript non
+// interceptée ou promesse rejetée, pour pouvoir diagnostiquer un
+// appareil sans accès à la console du navigateur. Ce bloc doit rester
+// le tout premier script chargé pour intercepter aussi les erreurs
+// survenant très tôt dans le chargement de la page.
+(function () {
+  function afficher(msg) {
+    try {
+      var el = document.getElementById('auroreDebugErr');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'auroreDebugErr';
+        el.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:2147483647;background:#b91c1c;color:#fff;padding:10px 12px;border-radius:10px;font:12px/1.45 monospace;max-height:45vh;overflow:auto;white-space:pre-wrap;box-shadow:0 6px 24px rgba(0,0,0,.45)';
+        (document.body || document.documentElement).appendChild(el);
+      }
+      el.textContent += (el.textContent ? '\n\n' : 'DIAGNOSTIC AURORE — à copier :\n\n') + msg;
+    } catch (e) {}
+  }
+  window.addEventListener('error', function (e) {
+    afficher('[Erreur JS] ' + (e.message || e) + '\nFichier : ' + (e.filename || '?') + ':' + (e.lineno || '?') + ':' + (e.colno || '?'));
+  });
+  window.addEventListener('unhandledrejection', function (e) {
+    var r = e.reason;
+    afficher('[Promesse rejetée] ' + (r && r.message ? r.message : String(r)) + (r && r.stack ? ('\n' + r.stack.split('\n').slice(0, 3).join('\n')) : ''));
+  });
+  window.auroreAfficherErreurDebug = afficher;
+})();
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="google-site-verification" content="yzWmwzt0gZoJZKSVp8G7iVle-gUt-PgFSDeAi3K_Vvs" />
@@ -1810,7 +1840,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const strong = google.querySelector('strong'); if (strong) strong.textContent = 'Connexion à Google…';
     // Ne pas retarder la redirection OAuth : sur mobile, chaque délai supplémentaire
     // augmente le risque que le navigateur suspende la page avant la redirection.
-    if(typeof demarrerConnexionGoogle==='function') { try { await demarrerConnexionGoogle(); } catch (err) { console.error('[Google OAuth]', err); } }
+    if(typeof demarrerConnexionGoogle==='function') { try { await demarrerConnexionGoogle(); } catch (err) { console.error('[Google OAuth]', err); window.auroreAfficherErreurDebug?.('[Bouton Google — accès] ' + (err?.message || err)); } } else { window.auroreAfficherErreurDebug?.('[Bouton Google — accès] demarrerConnexionGoogle est introuvable (script non chargé ?)'); }
   });
   signupOpen?.addEventListener('click',()=>{modal.style.display='flex';modal.setAttribute('aria-hidden','false');afficherModeInscription();setTimeout(()=>document.getElementById('signupName')?.focus(),50);});
   showLoginBtn?.addEventListener('click',afficherModeConnexionEmail);
