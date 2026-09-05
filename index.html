@@ -11670,11 +11670,47 @@ footer>.wrap:last-child{margin-top:18px!important;}
   async function confirmCode(){
     const value=String(codeInput.value||'').trim();
     if(!/^\d{4,8}$/.test(value)){codeMsg.textContent='Le code doit contenir entre 4 et 8 chiffres.';codeMsg.className='access-code-message err';return;}
-    if(codeMode==='setup'){
-      try{localStorage.setItem(KEY_CODE+userKey(),await hashCode(value));codeMsg.textContent='Code enregistré. Votre espace va s’ouvrir.';codeMsg.className='access-code-message ok';setTimeout(()=>{closeCode();ouvrirEspaceInterne(espaceOptions);},300);}catch(e){codeMsg.textContent='Impossible d’enregistrer le code sur cet appareil.';codeMsg.className='access-code-message err';}
-      return;
+    const options={...(espaceOptions||{})};
+    try{
+      // Toujours restaurer la session avant de valider l’accès : le code
+      // protège l’espace personnel, il ne remplace pas l’authentification.
+      if(!session?.id){
+        const saved=sessionStorage.getItem('lsnb_session');
+        if(saved){
+          const candidate=JSON.parse(saved);
+          if(candidate?.id&&candidate?.access_token) session=candidate;
+        }
+      }
+      if(!session?.id){
+        codeMsg.textContent='Votre session n’est plus disponible. Reconnectez-vous pour ouvrir votre espace.';
+        codeMsg.className='access-code-message err';
+        return;
+      }
+      if(codeMode==='setup'){
+        localStorage.setItem(KEY_CODE+userKey(),await hashCode(value));
+      }else{
+        const stored=codeStocke();
+        const ok=stored && (await hashCode(value))===stored;
+        if(!ok){codeMsg.textContent='Code incorrect. Réessayez.';codeMsg.className='access-code-message err';return;}
+      }
+      // Déverrouillage immédiat puis ouverture explicite de l’espace.
+      // On ne dépend plus d’un setTimeout ni d’une seconde tentative de session.
+      if(typeof window.auroreUnlockAccess==='function') window.auroreUnlockAccess();
+      closeCode();
+      const opened=await ouvrirEspaceInterne(options);
+      if(!opened){
+        // Dernier filet de sécurité : l’utilisateur est déjà authentifié,
+        // donc on ouvre directement la vue profil plutôt que de le laisser sur l’accueil.
+        if(typeof window.auroreUnlockAccess==='function') window.auroreUnlockAccess();
+        try{afficherUtilisateurConnecte();}catch(e){}
+        try{remplirProfil();}catch(e){}
+        afficherEcran('screen-profil');
+      }
+    }catch(e){
+      console.error('[Code d’accès] ouverture espace impossible',e);
+      codeMsg.textContent='Impossible d’ouvrir votre espace. Rechargez la page puis réessayez.';
+      codeMsg.className='access-code-message err';
     }
-    try{const ok=(await hashCode(value))===codeStocke();if(!ok){codeMsg.textContent='Code incorrect. Réessayez.';codeMsg.className='access-code-message err';return;}closeCode();ouvrirEspaceInterne(espaceOptions);}catch(e){codeMsg.textContent='Impossible de vérifier le code.';codeMsg.className='access-code-message err';}
   }
   async function restaurerSessionAvantEspace(){
     if(session?.id)return true;
@@ -11691,7 +11727,17 @@ footer>.wrap:last-child{margin-top:18px!important;}
     auroreMasquerInvitationEspacePersonnel(false);afficherEcran('screen-profil');setTimeout(()=>chargerDonneesEspacePersonnel?.(),0);return true;
   }
   async function ouvrirEspaceAvecCode(options={}){
-    if(!await restaurerSessionAvantEspace()){let essais=0;const attendre=async()=>{if(await restaurerSessionAvantEspace()){ouvrirEspaceAvecCode(options);return;}if(++essais<20)setTimeout(attendre,250)};setTimeout(attendre,250);return;}
+    if(!await restaurerSessionAvantEspace()){
+      let essais=0;
+      const attendre=async()=>{
+        if(await restaurerSessionAvantEspace()){ouvrirEspaceAvecCode(options);return;}
+        if(++essais<20){setTimeout(attendre,250);return;}
+        const msg=document.getElementById('accessMessage');
+        if(msg){msg.textContent='Votre session a expiré. Reconnectez-vous pour accéder à votre espace personnel.';msg.className='access-message err';msg.style.display='block';}
+      };
+      setTimeout(attendre,0);
+      return;
+    }
     if(!codeStocke())showCode('setup',options);else showCode('verify',options);
   }
   window.ouvrirEspaceAvecCode=ouvrirEspaceAvecCode;
