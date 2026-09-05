@@ -1,34 +1,25 @@
 {
-  "id": "./",
   "name": "Aurore — Section Archives",
   "short_name": "Aurore",
-  "description": "Bibliothèque numérique d'Aurore",
-  "lang": "fr",
-  "dir": "ltr",
+  "description": "Bibliothèque numérique de documents scolaires et éducatifs.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait-primary",
-  "theme_color": "#090812",
   "background_color": "#090812",
+  "theme_color": "#090812",
+  "lang": "fr-FR",
   "icons": [
     {
-      "src": "./icon-192.png",
+      "src": "https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
-      "src": "./icon-512.png",
+      "src": "https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "./icon-maskable-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     }
   ]
 }

@@ -56,15 +56,15 @@
 <link rel="preconnect" href="https://tdeotqfsbvouresfhkab.supabase.co" crossorigin>
 <link rel="preconnect" href="https://lsnb-upload.oualikevin9.workers.dev" crossorigin>
 <link rel="preconnect" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev" crossorigin>
-<link rel="manifest" href="manifest.json?v=20260904-6">
-<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
-<link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png">
+<link rel="manifest" href="manifest.json?v=20260905-1">
+<link rel="icon" type="image/png" sizes="192x192" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260905">
+<link rel="icon" type="image/png" sizes="512x512" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260905">
 <meta name="theme-color" content="#090812">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Aurore">
-<link rel="apple-touch-icon" sizes="512x512" href="./apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="512x512" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260905">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Aurore — Section Archives">
 <meta property="og:url" content="https://aurore-section-archivescom.vercel.app/">
@@ -87,6 +87,16 @@
   "alternateName": "Aurore Section Archives",
   "url": "https://aurore-section-archivescom.vercel.app/",
   "inLanguage": "fr-FR",
+  "description": "Bibliothèque numérique de documents scolaires et éducatifs."
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "Aurore — Section Archives",
+  "url": "https://aurore-section-archivescom.vercel.app/",
+  "logo": "https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster",
   "description": "Bibliothèque numérique de documents scolaires et éducatifs."
 }
 </script>
@@ -10561,16 +10571,20 @@ async function telechargerDocumentAvecProgression(doc) {
     }
 
     function mettreAJourLiensLogo(url) {
-      // Les icônes PWA/favicons restent volontairement des PNG locaux fixes.
-      // Le logo dynamique R2 sert uniquement au site et aux métadonnées sociales.
-      // Cela évite qu'un logo rectangulaire R2 remplace les vraies icônes carrées
-      // au moment où Chrome/Android prépare l'installation.
+      // Une seule source R2 pour le logo du site, le favicon et l'icône Apple.
+      // Le manifeste PWA pointe lui aussi vers le même objet R2.
       const manifest = document.querySelector('link[rel="manifest"]');
-      if (manifest) manifest.href = 'manifest.json?v=20260904-6';
+      if (manifest) manifest.href = `manifest.json?v=${encodeURIComponent(Date.now())}`;
+      document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]').forEach(link => {
+        link.href = url;
+      });
       document.querySelector('meta[property="og:image"]')?.setAttribute('content', url);
       document.querySelector('meta[name="twitter:image"]')?.setAttribute('content', url);
       const preload = document.querySelector('link[rel="preload"][as="image"]');
       if (preload) preload.href = url;
+      const orgLogo = document.querySelector('script[type="application/ld+json"]');
+      // Le JSON-LD initial contient déjà la même URL R2 sans version ;
+      // Google récupérera donc toujours la source officielle du logo.
     }
 
     function chargerLogoSite(versionForcee) {
