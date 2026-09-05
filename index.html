@@ -2739,6 +2739,18 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   .pdf-reader-toolbar button[aria-pressed="true"]{border-color:#7C3AED; background:rgba(124,58,237,0.15);}
   #pdfViewerZoomLevel{min-width:48px; text-align:center; font-size:0.8rem; color:var(--encre); font-weight:700;}
   .pdf-reader-zone{flex:1; overflow:auto; display:flex; flex-direction:column; align-items:center; padding:14px 10px; background:#3b3946; -webkit-user-select:none; user-select:none; position:relative;}
+  .pdf-reader-zone-wrap{flex:1; display:flex; position:relative; min-height:0;}
+  .pdf-reader-zone-wrap #pdfViewerZone{flex:1;}
+  .pdf-reader-scrollbar{position:absolute; top:6px; bottom:6px; right:4px; width:7px; border-radius:6px; background:rgba(255,255,255,.08); z-index:5;}
+  .pdf-reader-scrollbar-thumb{position:absolute; left:0; right:0; top:0; min-height:28px; border-radius:6px; background:rgba(192,132,252,.75); cursor:grab; touch-action:none;}
+  .pdf-reader-scrollbar-thumb:active{cursor:grabbing; background:rgba(192,132,252,.95);}
+  .pdf-page-jump-wrap{position:relative; display:inline-flex;}
+  #pdfViewerPageJumpToggle{background:none; border:none; padding:0; margin:0; min-height:auto; min-width:auto; display:inline-flex; align-items:center; gap:5px; cursor:pointer;}
+  .pdf-page-jump-icon{font-size:0.78rem; opacity:0.75;}
+  .pdf-page-jump-panel{position:absolute; bottom:calc(100% + 10px); left:50%; transform:translateX(-50%); display:none; align-items:center; gap:8px; background:var(--papier); border:1px solid var(--bordure); border-radius:12px; padding:8px; box-shadow:0 12px 30px rgba(0,0,0,.22); z-index:6; white-space:nowrap;}
+  .pdf-page-jump-panel.open{display:flex;}
+  #pdfViewerPageJumpInput{width:76px; padding:8px 9px; border:1px solid var(--bordure); border-radius:9px; background:var(--fond); color:var(--encre); font-size:0.85rem;}
+  #pdfViewerPageJumpGo{border:1px solid var(--bordure); background:var(--marron); color:#fff; border-radius:9px; padding:8px 12px; font-weight:700; font-size:0.8rem; cursor:pointer; min-height:auto;}
   .pdf-reader-loading{display:flex; flex-direction:column; align-items:center; gap:14px; margin-top:14vh; padding:0 16px;}
   .pdf-spinner{width:34px; height:34px; border-radius:50%; border:3px solid rgba(255,255,255,0.25); border-top-color:#C084FC; animation:pdf-spin 0.8s linear infinite;}
   @keyframes pdf-spin{to{transform:rotate(360deg);}}
@@ -2996,6 +3008,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         <div id="pdfRecentList" class="pdf-recent-list"><div class="pdf-recent-empty">Aucun document récent.</div></div>
       </div>
     </div>
+    <div id="pdfViewerZoneWrap" class="pdf-reader-zone-wrap">
     <div id="pdfViewerZone" class="pdf-reader-zone" tabindex="-1">
       <div id="pdfViewerLoading" class="pdf-reader-loading">
         <div class="pdf-spinner" aria-hidden="true"></div>
@@ -3023,9 +3036,22 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       <canvas id="pdfViewerCanvas" aria-hidden="true"></canvas>
       <div id="pdfViewerPages" class="pdf-reader-pages" aria-live="polite"></div>
     </div>
+    <div id="pdfViewerScrollbar" class="pdf-reader-scrollbar" aria-hidden="true" style="display:none;">
+      <div id="pdfViewerScrollbarThumb" class="pdf-reader-scrollbar-thumb"></div>
+    </div>
+    </div>
     <div class="pdf-reader-bottombar">
       <button type="button" id="pdfViewerPrec" aria-label="Page précédente">← Précédent</button>
-      <span id="pdfViewerPage" aria-live="polite">— / —</span>
+      <div class="pdf-page-jump-wrap">
+        <button type="button" id="pdfViewerPageJumpToggle" aria-haspopup="true" aria-expanded="false" aria-label="Aller à une page précise">
+          <span id="pdfViewerPage" aria-live="polite">— / —</span>
+          <span class="pdf-page-jump-icon" aria-hidden="true">🔎</span>
+        </button>
+        <div id="pdfViewerPageJumpPanel" class="pdf-page-jump-panel" aria-hidden="true">
+          <input type="number" id="pdfViewerPageJumpInput" min="1" inputmode="numeric" placeholder="N° de page" aria-label="Numéro de page">
+          <button type="button" id="pdfViewerPageJumpGo">Aller</button>
+        </div>
+      </div>
       <button type="button" id="pdfViewerSuiv" aria-label="Page suivante">Suivant →</button>
 
     </div>
@@ -9870,6 +9896,7 @@ async function telechargerDocumentAvecProgression(doc) {
       installerRenduProgressifPDF();
       installerSuiviPagesPDF();
       document.getElementById('pdfViewerStatut').textContent='';
+      requestAnimationFrame(majBarreDefilementPDF);
     } catch(err){
       console.error('[Lecteur PDF] échec de rendu continu',err);
       afficherErreurLecteur('Erreur d’affichage du document.',DOC_EN_LECTURE?.Telechargement_autorise!==false,DOC_EN_LECTURE?.Fichier_url);
@@ -9928,6 +9955,7 @@ async function telechargerDocumentAvecProgression(doc) {
     requestAnimationFrame(() => {
       if (page) page.scrollIntoView({behavior:'auto', block:'center', inline:'center'});
       document.getElementById('pdfViewerPages')?.focus?.({preventScroll:true});
+      majBarreDefilementPDF();
     });
   }
 
@@ -9937,6 +9965,101 @@ async function telechargerDocumentAvecProgression(doc) {
   function allerPageSuivante()   { pagePDFVisibleCible(1); }
   document.getElementById('pdfViewerPrec').addEventListener('click', allerPagePrecedente);
   document.getElementById('pdfViewerSuiv').addEventListener('click', allerPageSuivante);
+
+  // ---------- BARRE DE DÉFILEMENT PERSONNALISÉE ----------
+  // #pdfViewerZone garde son défilement natif (overflow:auto) : cette barre
+  // n'est qu'un indicateur/raccourci visuel synchronisé dessus, elle ne
+  // remplace rien de l'existant et se masque simplement s'il n'y a rien à
+  // faire défiler ou en mode lecture horizontale (pagination par page, pas
+  // de long défilement vertical dans ce mode).
+  function majBarreDefilementPDF() {
+    const zone = document.getElementById('pdfViewerZone');
+    const track = document.getElementById('pdfViewerScrollbar');
+    const thumb = document.getElementById('pdfViewerScrollbarThumb');
+    if (!zone || !track || !thumb) return;
+    const scrollable = zone.scrollHeight - zone.clientHeight;
+    if (PDF_MODE_LECTURE === 'horizontal' || scrollable <= 1) { track.style.display = 'none'; return; }
+    track.style.display = '';
+    const trackH = track.clientHeight;
+    const ratioVisible = Math.min(1, zone.clientHeight / zone.scrollHeight);
+    const thumbH = Math.max(28, trackH * ratioVisible);
+    const maxThumbTop = Math.max(0, trackH - thumbH);
+    const progression = scrollable > 0 ? (zone.scrollTop / scrollable) : 0;
+    thumb.style.height = thumbH + 'px';
+    thumb.style.top = (progression * maxThumbTop) + 'px';
+  }
+  (function initialiserBarreDefilementPDF() {
+    const zone = document.getElementById('pdfViewerZone');
+    const track = document.getElementById('pdfViewerScrollbar');
+    const thumb = document.getElementById('pdfViewerScrollbarThumb');
+    if (!zone || !track || !thumb) return;
+    zone.addEventListener('scroll', majBarreDefilementPDF, { passive: true });
+    window.addEventListener('resize', majBarreDefilementPDF);
+    let glissementActif = false, yDepart = 0, scrollDepart = 0;
+    thumb.addEventListener('pointerdown', (e) => {
+      glissementActif = true; yDepart = e.clientY; scrollDepart = zone.scrollTop;
+      try { thumb.setPointerCapture(e.pointerId); } catch (err) {}
+      e.preventDefault();
+    });
+    thumb.addEventListener('pointermove', (e) => {
+      if (!glissementActif) return;
+      const trackH = track.clientHeight, thumbH = thumb.clientHeight;
+      const scrollable = zone.scrollHeight - zone.clientHeight;
+      const deplacement = trackH - thumbH;
+      if (deplacement <= 0) return;
+      const deltaScroll = ((e.clientY - yDepart) / deplacement) * scrollable;
+      zone.scrollTop = Math.max(0, Math.min(scrollable, scrollDepart + deltaScroll));
+    });
+    const arreterGlissement = (e) => { glissementActif = false; try { thumb.releasePointerCapture(e.pointerId); } catch (err) {} };
+    thumb.addEventListener('pointerup', arreterGlissement);
+    thumb.addEventListener('pointercancel', arreterGlissement);
+    track.addEventListener('click', (e) => {
+      if (e.target === thumb) return;
+      const rect = track.getBoundingClientRect();
+      const ratio = (e.clientY - rect.top) / rect.height;
+      const scrollable = zone.scrollHeight - zone.clientHeight;
+      zone.scrollTop = Math.max(0, Math.min(scrollable, ratio * scrollable));
+    });
+  })();
+
+  // ---------- RECHERCHE / SAUT DE PAGE ----------
+  function allerPageNumero(n) {
+    const pages = document.querySelectorAll('#pdfViewerPages .pdf-reader-page');
+    if (!pages.length) return;
+    const total = pages.length;
+    const cible = Math.max(1, Math.min(total, Math.round(Number(n)) || 1));
+    pages[cible - 1].scrollIntoView({ behavior: 'smooth', block: PDF_MODE_LECTURE === 'horizontal' ? 'center' : 'start', inline: PDF_MODE_LECTURE === 'horizontal' ? 'center' : 'nearest' });
+    PDF_PAGE_ACTUELLE = cible;
+    document.getElementById('pdfViewerPage').textContent = cible + ' / ' + total;
+  }
+  (function initialiserRecherchePagePDF() {
+    const toggle = document.getElementById('pdfViewerPageJumpToggle');
+    const panel = document.getElementById('pdfViewerPageJumpPanel');
+    const input = document.getElementById('pdfViewerPageJumpInput');
+    const go = document.getElementById('pdfViewerPageJumpGo');
+    if (!toggle || !panel || !input || !go) return;
+    function fermer() { panel.classList.remove('open'); panel.setAttribute('aria-hidden', 'true'); toggle.setAttribute('aria-expanded', 'false'); }
+    function ouvrir() {
+      if (!PDF_EN_COURS) return;
+      input.max = String(PDF_EN_COURS.numPages);
+      input.value = String(PDF_PAGE_ACTUELLE);
+      panel.classList.add('open'); panel.setAttribute('aria-hidden', 'false'); toggle.setAttribute('aria-expanded', 'true');
+      requestAnimationFrame(() => input.focus());
+    }
+    toggle.addEventListener('click', (e) => { e.stopPropagation(); panel.classList.contains('open') ? fermer() : ouvrir(); });
+    function valider() {
+      if (!PDF_EN_COURS || !input.value) return;
+      allerPageNumero(input.value);
+      fermer();
+    }
+    go.addEventListener('click', valider);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); valider(); } });
+    document.addEventListener('click', (e) => {
+      if (!panel.classList.contains('open')) return;
+      if (toggle.contains(e.target) || panel.contains(e.target)) return;
+      fermer();
+    });
+  })();
   // Dissuasion raisonnable : pas de menu contextuel (clic droit) sur la zone de
   // lecture. Cela n'empêche pas une capture d'écran ou l'inspection réseau,
   // mais retire les raccourcis évidents ("Enregistrer l'image sous…").
