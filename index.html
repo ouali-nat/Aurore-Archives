@@ -3068,6 +3068,9 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       niveau: profil.niveau || meta.niveau || '',
       classe: profil.classe || meta.classe || '',
       filiere: profil.filiere || meta.filiere || '',
+      discipline: profil.discipline || meta.discipline || '',
+      fonction: profil.fonction || meta.fonction || '',
+      enfant_informations: profil.enfant_informations || meta.enfant_informations || '',
       banni: profil.banni === true,
       role: profil.role || null,
       provider: (data.app_metadata && Array.isArray(data.app_metadata.providers) && data.app_metadata.providers.includes('google')) ? 'Google' : 'E-mail'
@@ -3135,7 +3138,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         access_token: data.access_token, refresh_token: data.refresh_token,
         expires_at: Date.now() + (data.expires_in * 1000),
         id: infos ? infos.id : session.id, email: infos ? infos.email : session.email,
-        nom: infos ? infos.nom : session.nom, avatar: infos ? infos.avatar : session.avatar, prenom: infos ? infos.prenom : (session.prenom || ''), lycee: infos ? infos.lycee : (session.lycee || ''), niveau: infos ? infos.niveau : (session.niveau || ''), classe: infos ? infos.classe : (session.classe || ''), filiere: infos ? infos.filiere : (session.filiere || ''), banni: infos ? infos.banni === true : (session.banni === true), provider: infos ? infos.provider : (session.provider || 'E-mail'), role
+        nom: infos ? infos.nom : session.nom, avatar: infos ? infos.avatar : session.avatar, prenom: infos ? infos.prenom : (session.prenom || ''), lycee: infos ? infos.lycee : (session.lycee || ''), niveau: infos ? infos.niveau : (session.niveau || ''), classe: infos ? infos.classe : (session.classe || ''), filiere: infos ? infos.filiere : (session.filiere || ''), discipline: infos ? infos.discipline : (session.discipline || ''), fonction: infos ? infos.fonction : (session.fonction || ''), enfant_informations: infos ? infos.enfant_informations : (session.enfant_informations || ''), banni: infos ? infos.banni === true : (session.banni === true), provider: infos ? infos.provider : (session.provider || 'E-mail'), role
       };
       sauvegarderSession();
       return true;
@@ -3520,7 +3523,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       const infos = await recupererUtilisateur(access_token);
       if (infos && infos.banni !== true) {
         const role = await assurerProfilEtObtenirRole(access_token, infos);
-        session = { access_token, refresh_token, expires_at: Date.now() + expires_in * 1000, id: infos.id, email: infos.email, nom: infos.nom, avatar: infos.avatar, lycee: infos.lycee || '', niveau: infos.niveau || '', classe: infos.classe || '', filiere: infos.filiere || '', banni: infos.banni === true, provider: infos.provider || 'Google', role };
+        session = { access_token, refresh_token, expires_at: Date.now() + expires_in * 1000, id: infos.id, email: infos.email, nom: infos.nom, avatar: infos.avatar, prenom: infos.prenom || '', lycee: infos.lycee || '', niveau: infos.niveau || '', classe: infos.classe || '', filiere: infos.filiere || '', discipline: infos.discipline || '', fonction: infos.fonction || '', enfant_informations: infos.enfant_informations || '', banni: infos.banni === true, provider: infos.provider || 'Google', role };
         sauvegarderSession();
         enregistrerConnexion(session);
         if (profilEstComplet(session)) {
