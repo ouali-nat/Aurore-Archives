@@ -3070,27 +3070,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   </div>
 </div>
 
-<script id="aurore-auth-recovery">
-(function(){
-  // Retire une ancienne registration de Service Worker une seule fois.
-  // Le rechargement n'est fait que si cette page était réellement contrôlée.
-  if (!('serviceWorker' in navigator)) return;
-  var KEY='aurore_sw_recovery_v4';
-  window.addEventListener('load', function(){
-    navigator.serviceWorker.getRegistrations().then(function(regs){
-      if (!regs.length) return;
-      var hadController=!!navigator.serviceWorker.controller;
-      return Promise.all(regs.map(function(reg){ return reg.unregister(); })).then(function(){
-        if (hadController && sessionStorage.getItem(KEY)!=='1') {
-          sessionStorage.setItem(KEY,'1');
-          window.location.reload();
-        }
-      });
-    }).catch(function(e){ console.warn('[Aurore] nettoyage Service Worker:',e); });
-  });
-})();
-</script>
-
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
   // Client Supabase dédié à OAuth Google. Le reste du site conserve ses appels REST.
@@ -3100,17 +3079,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     return window.supabase.createClient(
       "https://tdeotqfsbvouresfhkab.supabase.co",
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZW90cWZzYnZvdXJlc2Zoa2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjM4NzMsImV4cCI6MjEwMDUzOTg3M30.l_a1lI_QRy7BTq1fGjiA9n7LCdu7BwR2TTI5pkA70SU",
-      { auth: {
-          flowType: 'implicit',
-          autoRefreshToken: false,
-          persistSession: false,
-          detectSessionInUrl: false,
-          storage: {
-            getItem: () => null,
-            setItem: () => {},
-            removeItem: () => {}
-          }
-        } }
+      { auth: { flowType: 'implicit', autoRefreshToken: true, persistSession: true, detectSessionInUrl: true, storage: window.localStorage } }
     );
   }
   let AURORE_SUPABASE_AUTH = window.supabase ? creerClientAuthGoogle() : null;
@@ -3185,26 +3154,16 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   }
 
   async function demarrerConnexionGoogle() {
-    // Le client OAuth utilise volontairement un stockage mémoire vide :
-    // aucune ancienne session Supabase conservée dans le navigateur normal
-    // ne peut bloquer le lancement de Google. Les données Aurore restent
-    // intactes dans leur propre stockage.
     try {
-      const client = await assurerClientAuthGoogle();
-      if (!client) throw new Error('Le service de connexion Google n’est pas disponible.');
-
-      const productionRedirect = 'https://aurore-section-archivescom.vercel.app/';
-      const retour = window.location.origin === 'https://aurore-section-archivescom.vercel.app'
-        ? productionRedirect
-        : (window.location.origin + window.location.pathname);
-
-      const { error } = await client.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: retour,
-          queryParams: {
-            prompt: 'select_account'
-          }
+      const retour = window.location.origin + window.location.pathname;
+      const url =
+        `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(retour)}`;
+      window.location.assign(url);
+    } catch (error) {
+      console.error('[Aurore] Erreur connexion Google:', error);
+      alert('Impossible de démarrer la connexion Google. Veuillez réessayer.');
+    }
+  }
         }
       });
 
@@ -12048,12 +12007,13 @@ footer>.wrap:last-child{margin-top:18px!important;}
   if(!estInstallee()) setTimeout(function(){if(deferredPrompt)afficher();},1200);
   if('serviceWorker' in navigator){
     window.addEventListener('load',function(){
-      navigator.serviceWorker.register('./sw.js?v=20260905',{scope:'./',updateViaCache:'none'})
-        .then(function(reg){
-          try { reg.update(); } catch(e) {}
-          console.log('[Aurore PWA] Service worker actif.',reg.scope);
-        })
-        .catch(function(err){console.warn('[Aurore PWA] Service worker indisponible :',err);});
+      navigator.serviceWorker.getRegistrations().then(function(regs){
+        return Promise.all(regs.map(function(reg){ return reg.unregister(); }));
+      }).catch(function(){ return []; }).then(function(){
+        return navigator.serviceWorker.register('./sw.js?v=20260905', {scope:'./', updateViaCache:'none'});
+      }).then(function(reg){
+        console.log('[Aurore PWA] Service worker actif.',reg.scope);
+      }).catch(function(err){console.warn('[Aurore PWA] Service worker indisponible :',err);});
     });
   }
 })();
