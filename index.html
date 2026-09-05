@@ -7371,7 +7371,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         card.dataset.adminRole = String(profil.role || '');
         card.dataset.adminCreated = String(profil.created_at || '');
         card.dataset.adminSearch = [
-          scolaire.nom, scolaire.email, scolaire.role, scolaire.created_at,
+          scolaire.nom, scolaire.prenom, scolaire.email, scolaire.role, scolaire.created_at,
           scolaire.lycee, scolaire.niveau, scolaire.classe, scolaire.filiere,
           scolaire.discipline, scolaire.fonction, scolaire.enfant_informations
         ].filter(v => v != null && String(v).trim()).join(' ');
@@ -7385,6 +7385,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
             <div class="admin-user-name">${echapperHtmlPub(nom)}</div>
             <div class="admin-user-email">${echapperHtmlPub(email)}</div>
             <div class="admin-user-school">
+              ${scolaire.prenom ? `<span>Prénom : ${echapperHtmlPub(scolaire.prenom)}</span>` : ''}
               ${scolaire.lycee ? `<span>Établissement : ${echapperHtmlPub(scolaire.lycee)}</span>` : ''}
               ${scolaire.niveau ? `<span>Niveau : ${echapperHtmlPub(scolaire.niveau)}</span>` : ''}
               ${scolaire.classe ? `<span>Classe : ${echapperHtmlPub(scolaire.classe)}</span>` : ''}
