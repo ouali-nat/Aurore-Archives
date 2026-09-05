@@ -5914,6 +5914,12 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     if(!navigationParPopState) enregistrerPositionNavigation();
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
     cible.classList.add('active');
+    // Les publicités sont chargées une seule fois, mais chaque écran peut être
+    // reconstruit après la navigation. On réaffiche donc immédiatement les
+    // emplacements avec les données déjà reçues, sans nouvelle requête réseau.
+    if(typeof peuplerEmplacementsPublicitaires === 'function' && PUBS_ACTIVES?.length){
+      requestAnimationFrame(() => peuplerEmplacementsPublicitaires());
+    }
     const scrollY = Number.isFinite(Number(options.scrollY)) ? Number(options.scrollY) : 0;
     window.scrollTo({top:scrollY,behavior:'auto'});
     if(!navigationParPopState) {
@@ -6149,6 +6155,9 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       grid.appendChild(card);
     });
     chargerStatsNiveaux();
+    if(typeof peuplerEmplacementsPublicitaires === 'function' && PUBS_ACTIVES?.length){
+      requestAnimationFrame(() => peuplerEmplacementsPublicitaires());
+    }
   }
 
   // Rassemble récursivement les libellés "dbNiveaux" d'un niveau macro, en
@@ -9469,14 +9478,17 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     container.innerHTML = `
       <div class="ad-slot-label">Publicité</div>
       <div class="ad-slot-card">
-        <img class="ad-slot-img" src="${echapperHtmlPub(ad.image_url)}" alt="${echapperHtmlPub(titre||'Publicité')}">
+        <img class="ad-slot-img" src="${echapperHtmlPub(ad.image_url)}" alt="${echapperHtmlPub(titre||'Publicité')}" loading="eager" decoding="async" fetchpriority="high">
         <div class="ad-slot-body">
           ${titre ? `<div class="ad-slot-title">${echapperHtmlPub(titre)}</div>` : ''}
           ${ad.description ? `<div class="ad-slot-desc">${echapperHtmlPub(ad.description)}</div>` : ''}
           ${cta}
         </div>
       </div>`;
-    container.style.display='block';
+    // Le style inline initial "display:none" est volontairement remplacé ici
+    // uniquement lorsqu'une publicité valide est réellement disponible.
+    // !important évite qu'une finition CSS ultérieure ne masque une publicité active.
+    container.style.setProperty('display','block','important');
     return true;
   }
 
