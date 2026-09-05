@@ -3078,7 +3078,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   const AURORE_SUPABASE_AUTH = window.supabase ? window.supabase.createClient(
     "https://tdeotqfsbvouresfhkab.supabase.co",
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZW90cWZzYnZvdXJlc2Zoa2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjM4NzMsImV4cCI6MjEwMDUzOTg3M30.l_a1lI_QRy7BTq1fGjiA9n7LCdu7BwR2TTI5pkA70SU",
-    { auth: { flowType: 'implicit', autoRefreshToken: true, persistSession: true, detectSessionInUrl: true } }
+    { auth: { flowType: 'pkce', autoRefreshToken: true, persistSession: true, detectSessionInUrl: false, storage: window.localStorage } }
   ) : null;
 </script>
 <script>
@@ -3122,33 +3122,38 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
   async function demarrerConnexionGoogle() {
     const retour = window.location.origin + window.location.pathname;
+    try {
+      if (!AURORE_SUPABASE_AUTH) {
+        throw new Error('Le module Supabase n’a pas pu être chargé. Rechargez la page puis réessayez.');
+      }
 
-    // Utilise le client officiel Supabase pour construire et lancer OAuth.
-    // Cela évite les divergences entre le flux PKCE/implicit et le traitement
-    // manuel du callback.
-    if (AURORE_SUPABASE_AUTH) {
+      // Flux PKCE officiel Supabase. Le code de retour sera échangé dans le
+      // callback ci-dessous avant toute lecture de Profils.
       const { error } = await AURORE_SUPABASE_AUTH.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: retour,
-          queryParams: { access_type: 'offline', prompt: 'select_account' }
+          skipBrowserRedirect: false,
+          queryParams: { prompt: 'select_account' }
         }
       });
-      if (error) {
-        console.error('[Google OAuth]', error);
-        const accessMsg = document.getElementById('accessMessage');
-        if (accessMsg) {
-          accessMsg.textContent = 'Connexion Google impossible : ' + (error.message || 'erreur OAuth');
-          accessMsg.className = 'access-message err';
-          accessMsg.style.display = 'block';
-        }
-        if (typeof window.auroreCacherVeuillezPatienter === 'function') window.auroreCacherVeuillezPatienter();
+      if (error) throw error;
+    } catch (e) {
+      console.error('[Google OAuth] démarrage impossible :', e);
+      const accessMsg = document.getElementById('accessMessage');
+      if (accessMsg) {
+        accessMsg.textContent = 'Connexion Google impossible : ' + (e.message || 'erreur OAuth');
+        accessMsg.className = 'access-message err';
+        accessMsg.style.display = 'block';
       }
-      return;
+      if (typeof window.auroreCacherVeuillezPatienter === 'function') window.auroreCacherVeuillezPatienter();
+      document.querySelectorAll('.access-google-btn.is-loading').forEach(btn => {
+        btn.classList.remove('is-loading');
+        btn.disabled = false;
+        btn.style.pointerEvents = '';
+        btn.removeAttribute('aria-busy');
+      });
     }
-
-    // Repli exceptionnel si la librairie Supabase n'a pas pu être chargée.
-    window.location.assign(`${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(retour)}`);
   }
 
   async function recupererUtilisateur(access_token) {
@@ -3729,7 +3734,53 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       }
     }
 
-    // 2. Retour de Google/Supabase : les jetons arrivent dans le fragment de l'URL
+    // 2. Retour de Google/Supabase en PKCE : Supabase renvoie ?code=...
+    // Le code est échangé une seule fois contre la session utilisateur.
+    const oauthCode = urlParams.get('code');
+    if (oauthCode && AURORE_SUPABASE_AUTH) {
+      try {
+        if (typeof window.auroreAfficherVeuillezPatienter === 'function') {
+          window.auroreAfficherVeuillezPatienter('Finalisation de votre connexion Google…');
+        }
+        const { data, error } = await AURORE_SUPABASE_AUTH.auth.exchangeCodeForSession(oauthCode);
+        if (error) throw error;
+        const authSession = data?.session;
+        if (!authSession?.access_token) throw new Error('Session Google introuvable après authentification.');
+
+        const access_token = authSession.access_token;
+        const refresh_token = authSession.refresh_token || '';
+        const expires_in = Math.max(60, (authSession.expires_at || Math.floor(Date.now()/1000)+3600) - Math.floor(Date.now()/1000));
+        const infos = await recupererUtilisateur(access_token);
+        if (!infos) throw new Error('Impossible de récupérer votre compte après la connexion Google.');
+        if (infos.banni === true) {
+          alert('Votre compte a été suspendu par l’administration. Contactez le service client si vous pensez qu’il s’agit d’une erreur.');
+        } else {
+          const role = await assurerProfilEtObtenirRole(access_token, infos);
+          session = { access_token, refresh_token, expires_at: Date.now() + expires_in * 1000, id: infos.id, email: infos.email, nom: infos.nom, avatar: infos.avatar, prenom: infos.prenom || '', lycee: infos.lycee || '', niveau: infos.niveau || '', classe: infos.classe || '', filiere: infos.filiere || '', discipline: infos.discipline || '', fonction: infos.fonction || '', enfant_informations: infos.enfant_informations || '', banni: false, provider: 'Google', role };
+          sauvegarderSession();
+          enregistrerConnexion(session).catch(()=>{});
+          afficherUtilisateurConnecte();
+          unlock();
+          if (profilEstComplet(session)) afficherBienvenueApresConnexion(session);
+          else ouvrirEspacePersonnelObligatoire();
+        }
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } catch (e) {
+        console.error('[Google OAuth PKCE] callback impossible :', e);
+        const accessMsg = document.getElementById('accessMessage');
+        if (accessMsg) {
+          accessMsg.textContent = 'La connexion Google a échoué : ' + (e.message || 'erreur inconnue');
+          accessMsg.className = 'access-message err';
+          accessMsg.style.display = 'block';
+        }
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } finally {
+        if (typeof window.auroreCacherVeuillezPatienter === 'function') window.auroreCacherVeuillezPatienter();
+      }
+      return;
+    }
+
+    // 3. Compatibilité avec un ancien retour OAuth implicite contenant les jetons dans le fragment.
     if (window.location.hash.includes('access_token')) {
       // L'utilisateur revient de Google : afficher immédiatement le même écran
       // d'attente pendant la récupération de son compte et de son profil.
