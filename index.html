@@ -1999,6 +1999,11 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   display: none !important;
 }
 </style>
+<style id="aurore-publicites-final-visibility-fix">
+/* Publicités : état piloté uniquement par le contenu. Un emplacement rempli est visible. */
+.ad-slot[id^="ad-"]{display:block!important;visibility:visible!important;opacity:1!important;}
+.ad-slot[id^="ad-"]:empty{display:none!important;visibility:hidden!important;opacity:0!important;}
+</style>
 </head>
 <body class="site-locked">
 
@@ -2433,7 +2438,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     <div class="home-promise-grid" id="presentationGrid"></div>
 
 
-    <div class="ad-slot" id="ad-home-1" style="display:none;"></div>
+    <div class="ad-slot" id="ad-home-1"></div>
 
     <div class="home-recents-cta" id="homeRecentsCta">
       <div class="home-recents-cta-text">
@@ -2474,16 +2479,16 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       <span class="go-arrow">→</span>
     </button>
 
-    <div class="ad-slot ad-slot-alt" id="ad-home-2" style="display:none;"></div>
+    <div class="ad-slot ad-slot-alt" id="ad-home-2"></div>
   </section>
 
   <!-- ===== LIVRES : choix du genre ===== -->
   <section class="screen" id="screen-livres">
     <h2 class="section-title">Livres et romans</h2>
     <p style="color:var(--gris); font-size:0.9rem; max-width:520px;">Choisissez une catégorie pour parcourir les livres publiés.</p>
-    <div class="ad-slot" id="ad-livres-1" style="display:none;"></div>
+    <div class="ad-slot" id="ad-livres-1"></div>
     <div class="matiere-grid" id="genreGrid"></div>
-    <div class="ad-slot ad-slot-alt" id="ad-livres-2" style="display:none;"></div>
+    <div class="ad-slot ad-slot-alt" id="ad-livres-2"></div>
     <button class="back-btn" data-back="home">← Retour à l'accueil</button>
   </section>
 
@@ -2491,19 +2496,19 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   <section class="screen" id="screen-level">
     <h2 class="section-title" id="levelTitle"></h2>
     <p class="hierarchy-note" id="levelNote"></p>
-    <div class="ad-slot" id="ad-niveaux-1" style="display:none;"></div>
+    <div class="ad-slot" id="ad-niveaux-1"></div>
     <div class="sublevel-grid" id="sublevelGrid"></div>
     <div class="cat-grid" id="catGrid" style="display:none"></div>
-    <div class="ad-slot ad-slot-alt" id="ad-niveaux-2" style="display:none;"></div>
+    <div class="ad-slot ad-slot-alt" id="ad-niveaux-2"></div>
     <button class="back-btn" data-back="home">← Retour à l'accueil</button>
   </section>
 
   <!-- ===== SÉRIE (uniquement pour Devoirs) ===== -->
   <section class="screen" id="screen-serie">
     <h2 class="section-title" id="serieTitle">Choisissez la classe</h2>
-    <div class="ad-slot" id="ad-series-1" style="display:none;"></div>
+    <div class="ad-slot" id="ad-series-1"></div>
     <div class="serie-row" id="serieRow"></div>
-    <div class="ad-slot ad-slot-alt" id="ad-series-2" style="display:none;"></div>
+    <div class="ad-slot ad-slot-alt" id="ad-series-2"></div>
     <button class="back-btn" data-back="level">← Retour au niveau</button>
   </section>
 
@@ -2513,9 +2518,9 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     <div class="filtres-stub">
       <span class="chip">Filtres avancés — bientôt disponible</span>
     </div>
-    <div class="ad-slot" id="ad-matieres-1" style="display:none;"></div>
+    <div class="ad-slot" id="ad-matieres-1"></div>
     <div class="matiere-grid" id="matiereGrid"></div>
-    <div class="ad-slot ad-slot-alt" id="ad-matieres-2" style="display:none;"></div>
+    <div class="ad-slot ad-slot-alt" id="ad-matieres-2"></div>
     <button class="back-btn" id="matieresBack">← Retour</button>
   </section>
 
@@ -2541,7 +2546,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
 
   <section class="screen" id="screen-docs">
     <h2 class="section-title" id="docsTitle"></h2>
-    <div class="ad-slot" id="ad-docs-1" style="display:none;"></div>
+    <div class="ad-slot" id="ad-docs-1"></div>
     <div class="site-data-toolbar doc-toolbar" id="docsToolbar">
       <div class="site-search-control"><span aria-hidden="true">⌕</span><input id="docsSearch" type="search" placeholder="Rechercher dans les documents…" autocomplete="off"></div>
       <select id="docSort" aria-label="Trier les documents">
@@ -2553,7 +2558,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     </div>
     <div id="docsContent"></div>
     <div id="docsPager" class="site-pagination"></div>
-    <div class="ad-slot ad-slot-alt" id="ad-docs-2" style="display:none;"></div>
+    <div class="ad-slot ad-slot-alt" id="ad-docs-2"></div>
     <button class="back-btn" data-back="matieres">← Retour aux matières</button>
   </section>
 
