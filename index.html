@@ -3108,7 +3108,14 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     return window.supabase.createClient(
       "https://tdeotqfsbvouresfhkab.supabase.co",
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZW90cWZzYnZvdXJlc2Zoa2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjM4NzMsImV4cCI6MjEwMDUzOTg3M30.l_a1lI_QRy7BTq1fGjiA9n7LCdu7BwR2TTI5pkA70SU",
-      { auth: { flowType: 'pkce', autoRefreshToken: true, persistSession: true, detectSessionInUrl: true, storage: window.localStorage } }
+      // detectSessionInUrl: false — volontaire. Le code gère lui-même l'échange
+      // du ?code=... via exchangeCodeForSession() plus bas dans ce fichier.
+      // Laisser le SDK sur true créait une course : le SDK consommait le
+      // code_verifier PKCE automatiquement à la création du client, avant que
+      // l'appel manuel n'arrive — d'où l'erreur "code verifier not found in
+      // storage" (Google OAuth), intermittente selon la vitesse d'exécution
+      // de la page (extensions, trackers, navigation normale vs privée).
+      { auth: { flowType: 'pkce', autoRefreshToken: true, persistSession: true, detectSessionInUrl: false, storage: window.localStorage } }
     );
   }
   let AURORE_SUPABASE_AUTH = window.supabase ? creerClientAuthGoogle() : null;
