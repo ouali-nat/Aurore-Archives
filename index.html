@@ -3100,7 +3100,17 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     return window.supabase.createClient(
       "https://tdeotqfsbvouresfhkab.supabase.co",
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZW90cWZzYnZvdXJlc2Zoa2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjM4NzMsImV4cCI6MjEwMDUzOTg3M30.l_a1lI_QRy7BTq1fGjiA9n7LCdu7BwR2TTI5pkA70SU",
-      { auth: { flowType: 'implicit', autoRefreshToken: true, persistSession: true, detectSessionInUrl: true, storage: window.localStorage } }
+      { auth: {
+          flowType: 'implicit',
+          autoRefreshToken: false,
+          persistSession: false,
+          detectSessionInUrl: false,
+          storage: {
+            getItem: () => null,
+            setItem: () => {},
+            removeItem: () => {}
+          }
+        } }
     );
   }
   let AURORE_SUPABASE_AUTH = window.supabase ? creerClientAuthGoogle() : null;
@@ -3175,15 +3185,11 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   }
 
   async function demarrerConnexionGoogle() {
-    // Nettoyage ciblé de l'état OAuth Supabase éventuellement corrompu dans
-    // le navigateur normal. Les données Aurore ne sont pas touchées.
+    // Le client OAuth utilise volontairement un stockage mémoire vide :
+    // aucune ancienne session Supabase conservée dans le navigateur normal
+    // ne peut bloquer le lancement de Google. Les données Aurore restent
+    // intactes dans leur propre stockage.
     try {
-      const authKey = 'sb-tdeotqfsbvouresfhkab-auth-token';
-      try {
-        localStorage.removeItem(authKey);
-        localStorage.removeItem(authKey + '-code-verifier');
-      } catch (_) {}
-
       const client = await assurerClientAuthGoogle();
       if (!client) throw new Error('Le service de connexion Google n’est pas disponible.');
 
