@@ -57,28 +57,29 @@
 <link rel="preconnect" href="https://lsnb-upload.oualikevin9.workers.dev" crossorigin>
 <link rel="preconnect" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev" crossorigin>
 <link rel="manifest" href="manifest.json?v=20260905-1">
-<link rel="icon" type="image/png" sizes="192x192" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260905">
-<link rel="icon" type="image/png" sizes="512x512" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260905">
+<link rel="icon" type="image/png" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
+<link rel="icon" type="image/png" sizes="192x192" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
+<link rel="icon" type="image/png" sizes="512x512" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
 <meta name="theme-color" content="#090812">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Aurore">
-<link rel="apple-touch-icon" sizes="512x512" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260905">
+<link rel="apple-touch-icon" sizes="512x512" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Aurore — Section Archives">
 <meta property="og:url" content="https://aurore-section-archivescom.vercel.app/">
 <meta property="og:locale" content="fr_FR">
 <meta property="og:title" content="Aurore — Section Archives">
 <meta property="og:description" content="Bibliothèque numérique d'Aurore">
-<meta property="og:image" content="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260904-2">
+<meta property="og:image" content="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
 <meta property="og:image:alt" content="Logo Aurore — Section Archives">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Aurore — Section Archives">
 <meta name="twitter:description" content="Bibliothèque numérique d'Aurore">
-<meta name="twitter:image" content="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260904-2">
+<meta name="twitter:image" content="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
 <title>Aurore — Section Archives — Bibliothèque numérique</title>
-<link rel="preload" as="image" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260904-2">
+<link rel="preload" as="image" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -4116,63 +4117,72 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     { nom:'Informatique',         mono:'In' },
   ];
 
-  const DOMAINES_PRESCOLAIRE = [
-    { nom:'Langage / communication',              mono:'La' },
-    { nom:'Activités motrices',                   mono:'Am' },
-    { nom:'Arts / culture',                       mono:'Ac' },
-    { nom:"Découverte de l'environnement",        mono:'De' },
+  // Préscolaire : quatre champs disciplinaires, déclinés par section.
+  const PRESCOLAIRE_PS = [
+    { nom:'Langue et communication', mono:'La' },
+    { nom:'Mathématiques, sciences et technologie', mono:'Ms' },
+    { nom:'Sciences humaines et sociales', mono:'Sh' },
+    { nom:'EPS, arts et production', mono:'Ea' },
+  ];
+  const PRESCOLAIRE_MS = [
+    { nom:'Langue et communication', mono:'La' },
+    { nom:'Mathématiques, sciences et technologie', mono:'Ms' },
+    { nom:'Sciences humaines et sociales', mono:'Sh' },
+    { nom:'EPS, arts et production', mono:'Ea' },
+  ];
+  const PRESCOLAIRE_GS = [
+    { nom:'Langue et communication', mono:'La' },
+    { nom:'Mathématiques, sciences et technologie', mono:'Ms' },
+    { nom:'Sciences humaines et sociales', mono:'Sh' },
+    { nom:'EPS, arts et production', mono:'Ea' },
   ];
 
   // Primaire : base cohérente adaptée par niveau (les disciplines encore trop
   // avancées pour une classe donnée ne sont volontairement pas affichées).
   const MATIERES_CP1 = [
-    { nom:'Lecture',            mono:'Le' },
-    { nom:'Français / langue',  mono:'Fr' },
-    { nom:'Vocabulaire',        mono:'Vo' },
-    { nom:'Mathématiques',      mono:'Ma' },
-    { nom:'Arithmétique',       mono:'Ar' },
-    { nom:'EPS / activités physiques', mono:'EP' },
+    { nom:'Lecture', mono:'Le' }, { nom:'Écriture', mono:'Ec' },
+    { nom:'Calcul / arithmétique de base', mono:'Ar' }, { nom:'Éveil', mono:'Ev' },
   ];
   const MATIERES_CP2 = [
-    { nom:'Lecture',            mono:'Le' },
-    { nom:'Français / langue',  mono:'Fr' },
-    { nom:'Grammaire',          mono:'Gr' },
-    { nom:'Vocabulaire',        mono:'Vo' },
-    { nom:'Orthographe',        mono:'Or' },
-    { nom:'Mathématiques',      mono:'Ma' },
-    { nom:'Arithmétique',       mono:'Ar' },
-    { nom:'EPS / activités physiques', mono:'EP' },
+    { nom:'Lecture', mono:'Le' }, { nom:'Écriture', mono:'Ec' },
+    { nom:'Calcul / arithmétique de base', mono:'Ar' }, { nom:'Éveil', mono:'Ev' },
   ];
-  const MATIERES_CE = [
-    { nom:'Français / langue',  mono:'Fr' },
-    { nom:'Grammaire',          mono:'Gr' },
-    { nom:'Conjugaison',        mono:'Cj' },
-    { nom:'Orthographe',        mono:'Or' },
-    { nom:'Vocabulaire',        mono:'Vo' },
-    { nom:'Mathématiques',      mono:'Ma' },
-    { nom:'Arithmétique',       mono:'Ar' },
-    { nom:'Géométrie',          mono:'Gm' },
-    { nom:'Sciences / Observation', mono:'Sc' },
-    { nom:'Histoire',           mono:'Hi' },
-    { nom:'Géographie',         mono:'Ge' },
-    { nom:'Éducation civique et morale', mono:'Cm' },
-    { nom:'EPS / activités physiques', mono:'EP' },
+  const MATIERES_CE1 = [
+    { nom:'Lecture', mono:'Le' }, { nom:'Grammaire', mono:'Gr' },
+    { nom:'Arithmétique', mono:'Ar' }, { nom:'Géométrie', mono:'Gm' },
+    { nom:'TIC', mono:'Ti' }, { nom:"Sciences d'observation", mono:'Sc' },
+    { nom:'Histoire', mono:'Hi' }, { nom:'Géographie', mono:'Ge' },
   ];
-  const MATIERES_CM = [
-    { nom:'Français / langue',  mono:'Fr' },
-    { nom:'Grammaire',          mono:'Gr' },
-    { nom:'Conjugaison',        mono:'Cj' },
-    { nom:'Orthographe',        mono:'Or' },
-    { nom:'Vocabulaire',        mono:'Vo' },
-    { nom:'Mathématiques',      mono:'Ma' },
-    { nom:'Arithmétique',       mono:'Ar' },
-    { nom:'Géométrie',          mono:'Gm' },
-    { nom:'Sciences / Observation', mono:'Sc' },
-    { nom:'Histoire',           mono:'Hi' },
-    { nom:'Géographie',         mono:'Ge' },
-    { nom:'Éducation civique et morale', mono:'Cm' },
-    { nom:'TIC / Informatique', mono:'In' },
-    { nom:'EPS / activités physiques', mono:'EP' },
+  const MATIERES_CE2 = [
+    { nom:'Grammaire', mono:'Gr' }, { nom:'Conjugaison', mono:'Cj' },
+    { nom:'Orthographe', mono:'Or' }, { nom:'Expression orale', mono:'Ex' },
+    { nom:'Arithmétique', mono:'Ar' }, { nom:'Géométrie', mono:'Gm' },
+    { nom:'Système métrique', mono:'Sm' }, { nom:"Sciences d'observation", mono:'Sc' },
+  ];
+  const MATIERES_CM1 = [
+    { nom:'Lecture', mono:'Le' }, { nom:'Grammaire', mono:'Gr' },
+    { nom:'Conjugaison', mono:'Cj' }, { nom:'Orthographe', mono:'Or' },
+    { nom:'Arithmétique', mono:'Ar' }, { nom:'Géométrie', mono:'Gm' },
+    { nom:'Système métrique', mono:'Sm' }, { nom:'TIC', mono:'Ti' },
+    { nom:"Sciences d'observation", mono:'Sc' }, { nom:'Histoire', mono:'Hi' },
+    { nom:'Géographie', mono:'Ge' },
+  ];
+  const MATIERES_CM2 = [...MATIERES_CM1];
+
+  // Seconde TI et Seconde AB3 sont des troncs communs : aucune série F/G ne
+  // doit être enregistrée au niveau Seconde. Les matières sont donc communes
+  // au tronc, puis les séries commencent en Première.
+  const MATIERES_TI = [
+    { nom:'Français', mono:'Fr' }, { nom:'Anglais', mono:'An' },
+    { nom:'Mathématiques', mono:'Ma' }, { nom:'Sciences physiques', mono:'PC' },
+    { nom:'Technologie', mono:'Te' }, { nom:'Dessin technique', mono:'Dt' },
+    { nom:'Informatique / TIC', mono:'In' }, { nom:'EPS', mono:'EP' },
+  ];
+  const MATIERES_AB3 = [
+    { nom:'Français', mono:'Fr' }, { nom:'Anglais', mono:'An' },
+    { nom:'Mathématiques', mono:'Ma' }, { nom:'Économie', mono:'Ec' },
+    { nom:'Droit', mono:'Dr' }, { nom:'Informatique / TIC', mono:'In' },
+    { nom:'Techniques de gestion', mono:'Tg' }, { nom:'EPS', mono:'EP' },
   ];
 
   // 1er cycle : base post-primaire (Langues et communication ; Mathématiques,
@@ -4234,28 +4244,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
   // 2nd cycle technique — tronc commun (Français, Anglais, Philosophie,
   // Histoire-Géographie) + matières propres à chaque série.
-  // 2nde TI — tronc commun industriel avant l'orientation en 1ère E/F1/F2/F3/F4.
-  // Matières vérifiées dans le guide d'orientation COSP/CIOSPB.
-  const MATIERES_TI = [
-    { nom:'Mathématiques', mono:'Ma' }, { nom:'Sciences physiques', mono:'PC' },
-    { nom:'Français', mono:'Fr' }, { nom:'Histoire-Géographie', mono:'HG' },
-    { nom:'Anglais', mono:'An' }, { nom:'EPS', mono:'EP' },
-    { nom:'Dessin technique', mono:'Dt' }, { nom:'Électrotechnique', mono:'Et' },
-    { nom:'Atelier / Terrain', mono:'At' }, { nom:'Philosophie', mono:'Ph' },
-  ];
-
-  // 2nde AB3 — tronc commun tertiaire avant l'orientation en 1ère G1/G2.
-  // Matières vérifiées dans le guide d'orientation COSP/CIOSPB.
-  const MATIERES_AB3 = [
-    { nom:'Mathématiques générales', mono:'Mg' }, { nom:'Mathématiques financières', mono:'Mf' },
-    { nom:'Français', mono:'Fr' }, { nom:'Histoire-Géographie', mono:'HG' },
-    { nom:'Anglais', mono:'An' }, { nom:'EPS', mono:'EP' },
-    { nom:'Initiation comptable', mono:'Ic' }, { nom:'Initiation économique', mono:'Ie' },
-    { nom:'Dactylographie', mono:'Da' }, { nom:'Économie sociale et familiale', mono:'Es' },
-    { nom:'Sténographie', mono:'St' }, { nom:'Organisation des entreprises', mono:'Oe' },
-    { nom:'Philosophie', mono:'Ph' },
-  ];
-
   const MATIERES_F1 = [
     { nom:'Mathématiques', mono:'Ma' }, { nom:'Sciences physiques', mono:'PC' },
     { nom:'Français', mono:'Fr' }, { nom:'Anglais', mono:'An' }, { nom:'Philosophie', mono:'Ph' },
@@ -4779,14 +4767,14 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
   const NIVEAUX = [
     { id:'prescolaire', nom:'Préscolaire', sigle:'PS', accent:'#C084FC', desc:'Premiers apprentissages et éveil — pensé avant tout pour accompagner les enseignants et les parents dans le suivi des enfants', sousNiveaux:[
-      {id:'petite-section',nom:'Petite section',dbNiveaux:['Petite section'],matieres:DOMAINES_PRESCOLAIRE},
-      {id:'moyenne-section',nom:'Moyenne section',dbNiveaux:['Moyenne section'],matieres:DOMAINES_PRESCOLAIRE},
-      {id:'grande-section',nom:'Grande section',dbNiveaux:['Grande section'],matieres:DOMAINES_PRESCOLAIRE}
+      {id:'petite-section',nom:'Petite section',dbNiveaux:['Petite section'],matieres:PRESCOLAIRE_PS},
+      {id:'moyenne-section',nom:'Moyenne section',dbNiveaux:['Moyenne section'],matieres:PRESCOLAIRE_MS},
+      {id:'grande-section',nom:'Grande section',dbNiveaux:['Grande section'],matieres:PRESCOLAIRE_GS}
     ]},
     { id:'primaire', nom:'Primaire', sigle:'PR', accent:'#A78BFA', desc:'Du CP au CM2', sousNiveaux:[
       {id:'cp1',nom:'CP1',dbNiveaux:['CP1'],matieres:MATIERES_CP1},{id:'cp2',nom:'CP2',dbNiveaux:['CP2'],matieres:MATIERES_CP2},
-      {id:'ce1',nom:'CE1',dbNiveaux:['CE1'],matieres:MATIERES_CE},{id:'ce2',nom:'CE2',dbNiveaux:['CE2'],matieres:MATIERES_CE},
-      {id:'cm1',nom:'CM1',dbNiveaux:['CM1'],matieres:MATIERES_CM},{id:'cm2',nom:'CM2',dbNiveaux:['CM2'],matieres:MATIERES_CM}
+      {id:'ce1',nom:'CE1',dbNiveaux:['CE1'],matieres:MATIERES_CE1},{id:'ce2',nom:'CE2',dbNiveaux:['CE2'],matieres:MATIERES_CE2},
+      {id:'cm1',nom:'CM1',dbNiveaux:['CM1'],matieres:MATIERES_CM1},{id:'cm2',nom:'CM2',dbNiveaux:['CM2'],matieres:MATIERES_CM2}
     ]},
     { id:'secondaire-1', nom:'Secondaire — 1er cycle', sigle:'1C', accent:'#8B7CFF', desc:'De la 6e à la 3e', sousNiveaux:[
       {id:'6e',nom:'6e',dbNiveaux:['6e'],matieres:MATIERES_6E},{id:'5e',nom:'5e',dbNiveaux:['5e'],matieres:MATIERES_5E},
@@ -4813,41 +4801,40 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
               {id:'terminale-d',nom:'Terminale D',dbNiveaux:['Terminale'],matieres:MATIERES_D}
             ]},
             {id:'serie-e',nom:'Série E',type:'serie',serie:'E',classes:[
-              {id:'seconde-ti-e',nom:'Seconde TI',dbNiveaux:['Seconde'],matieres:MATIERES_TI},
+              {id:'seconde-e',nom:'Seconde E',dbNiveaux:['Seconde'],matieres:MATIERES_E},
               {id:'premiere-e',nom:'Première E',dbNiveaux:['Première'],matieres:MATIERES_E},
               {id:'terminale-e',nom:'Terminale E',dbNiveaux:['Terminale'],matieres:MATIERES_E}
             ]}
           ]
         },
         { id:'enseignement-technique', nom:'Enseignement technique', type:'groupe', accent:'#8B7CFF',
-          desc:'Technique industrielle (TI) → E, F1, F2, F3, F4 · Technique tertiaire (AB3) → G1, G2 · H', series:[
+          desc:'Seconde TI / Seconde AB3 selon la voie, puis spécialisation en Première',
+          troncCommuns:[
+            {id:'seconde-ti',nom:'Seconde TI — tronc commun industriel',type:'classe-commune',dbNiveaux:['Seconde'],matieres:MATIERES_TI},
+            {id:'seconde-ab3',nom:'Seconde AB3 — tronc commun tertiaire',type:'classe-commune',dbNiveaux:['Seconde'],matieres:MATIERES_AB3}
+          ],
+          series:[
             {id:'serie-f1',nom:'Série F1',type:'serie',serie:'F1',classes:[
-              {id:'seconde-ti-f1',nom:'Seconde TI',dbNiveaux:['Seconde'],matieres:MATIERES_TI},
               {id:'premiere-f1',nom:'Première F1',dbNiveaux:['Première'],matieres:MATIERES_F1},
               {id:'terminale-f1',nom:'Terminale F1',dbNiveaux:['Terminale'],matieres:MATIERES_F1}
             ]},
             {id:'serie-f2',nom:'Série F2',type:'serie',serie:'F2',classes:[
-              {id:'seconde-ti-f2',nom:'Seconde TI',dbNiveaux:['Seconde'],matieres:MATIERES_TI},
               {id:'premiere-f2',nom:'Première F2',dbNiveaux:['Première'],matieres:MATIERES_F2},
               {id:'terminale-f2',nom:'Terminale F2',dbNiveaux:['Terminale'],matieres:MATIERES_F2}
             ]},
             {id:'serie-f3',nom:'Série F3',type:'serie',serie:'F3',classes:[
-              {id:'seconde-ti-f3',nom:'Seconde TI',dbNiveaux:['Seconde'],matieres:MATIERES_TI},
               {id:'premiere-f3',nom:'Première F3',dbNiveaux:['Première'],matieres:MATIERES_F3},
               {id:'terminale-f3',nom:'Terminale F3',dbNiveaux:['Terminale'],matieres:MATIERES_F3}
             ]},
             {id:'serie-f4',nom:'Série F4',type:'serie',serie:'F4',classes:[
-              {id:'seconde-ti-f4',nom:'Seconde TI',dbNiveaux:['Seconde'],matieres:MATIERES_TI},
               {id:'premiere-f4',nom:'Première F4',dbNiveaux:['Première'],matieres:MATIERES_F4},
               {id:'terminale-f4',nom:'Terminale F4',dbNiveaux:['Terminale'],matieres:MATIERES_F4}
             ]},
             {id:'serie-g1',nom:'Série G1',type:'serie',serie:'G1',classes:[
-              {id:'seconde-ab3-g1',nom:'Seconde AB3',dbNiveaux:['Seconde'],matieres:MATIERES_AB3},
               {id:'premiere-g1',nom:'Première G1',dbNiveaux:['Première'],matieres:MATIERES_G1},
               {id:'terminale-g1',nom:'Terminale G1',dbNiveaux:['Terminale'],matieres:MATIERES_G1}
             ]},
             {id:'serie-g2',nom:'Série G2',type:'serie',serie:'G2',classes:[
-              {id:'seconde-ab3-g2',nom:'Seconde AB3',dbNiveaux:['Seconde'],matieres:MATIERES_AB3},
               {id:'premiere-g2',nom:'Première G2',dbNiveaux:['Première'],matieres:MATIERES_G2},
               {id:'terminale-g2',nom:'Terminale G2',dbNiveaux:['Terminale'],matieres:MATIERES_G2}
             ]},
@@ -5535,7 +5522,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         document.getElementById('levelTitle').textContent=`${etat.niveau.nom} · ${sn.nom}`;
         document.getElementById('levelNote').textContent='Choisissez votre série.';
         grid.innerHTML=''; grid.style.display='grid'; cat.style.display='none';
-        (sn.series||[]).forEach(serie=>{ const b=document.createElement('button'); b.className='sublevel-card'; b.innerHTML=`<div class="small">${sn.nom}</div><strong>${serie.nom}</strong><span>Choisir Seconde, Première ou Terminale</span>`; b.onclick=()=>choisirSerieGroupe(serie.id); grid.appendChild(b); });
+        (sn.troncCommuns||[]).forEach(tronc=>{ const b=document.createElement('button'); b.className='sublevel-card'; b.innerHTML=`<div class="small">${sn.nom}</div><strong>${tronc.nom}</strong><span>Tronc commun — ressources, devoirs et documents</span>`; b.onclick=()=>choisirClasseCommuneSecondCycle(tronc.id); grid.appendChild(b); });
+        (sn.series||[]).forEach(serie=>{ const b=document.createElement('button'); b.className='sublevel-card'; b.innerHTML=`<div class="small">${sn.nom}</div><strong>${serie.nom}</strong><span>Choisir Première ou Terminale</span>`; b.onclick=()=>choisirSerieGroupe(serie.id); grid.appendChild(b); });
         majFilAriane(); afficherEcran('screen-level'); return;
       }
       if (etat.serieChoisie && !etat.classe) {
@@ -5730,6 +5718,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     function creuser(noeud) {
       if (!noeud) return;
       if (noeud.dbNiveaux) out.push(...noeud.dbNiveaux);
+      (noeud.troncCommuns || []).forEach(creuser);
       (noeud.series || []).forEach(creuser);
       (noeud.classes || []).forEach(creuser);
       (noeud.enfants || []).forEach(creuser);
@@ -5821,18 +5810,23 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     // Second cycle : Groupe (Enseignement général / technique) -> Série.
     if (etat.sousNiveau.type === 'groupe') {
       document.getElementById('levelTitle').textContent=`${etat.niveau.nom} · ${etat.sousNiveau.nom}`;
-      document.getElementById('levelNote').textContent = etat.sousNiveau.id === 'enseignement-technique'
-        ? 'Choisissez une série. La Seconde TI est le tronc commun industriel vers E, F1, F2, F3 et F4 ; la Seconde AB3 est le tronc commun tertiaire vers G1 et G2.'
-        : 'Choisissez votre série.';
+      document.getElementById('levelNote').textContent='Choisissez votre série.';
       const grid=document.getElementById('sublevelGrid');
       const catGrid=document.getElementById('catGrid');
       grid.style.display='grid'; grid.innerHTML='';
       catGrid.style.display='none';
 
+      (etat.sousNiveau.troncCommuns||[]).forEach(tronc=>{
+        const card=document.createElement('button');
+        card.className='sublevel-card';
+        card.innerHTML=`<div class="small">${etat.sousNiveau.nom}</div><strong>${tronc.nom}</strong><span>Tronc commun — ressources, devoirs et documents</span>`;
+        card.onclick=()=>choisirClasseCommuneSecondCycle(tronc.id);
+        grid.appendChild(card);
+      });
       (etat.sousNiveau.series||[]).forEach(serie=>{
         const card=document.createElement('button');
         card.className='sublevel-card';
-        card.innerHTML=`<div class="small">${etat.sousNiveau.nom}</div><strong>${serie.nom}</strong><span>Choisir Seconde, Première ou Terminale</span>`;
+        card.innerHTML=`<div class="small">${etat.sousNiveau.nom}</div><strong>${serie.nom}</strong><span>Choisir Première ou Terminale</span>`;
         card.onclick=()=>choisirSerieGroupe(serie.id);
         grid.appendChild(card);
       });
@@ -5861,6 +5855,19 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       return;
     }
 
+    afficherCategoriesPourSousNiveau();
+  }
+
+  function choisirClasseCommuneSecondCycle(id) {
+    if (!etat.sousNiveau || etat.sousNiveau.type !== 'groupe') return;
+    const feuille = (etat.sousNiveau.troncCommuns||[]).find(x=>x.id===id) || null;
+    if (!feuille) return;
+    etat.classe = feuille;
+    etat.serieChoisie = null;
+    etat.filiere = '';
+    etat.categorie=null; etat.matiere=null; etat.division=null;
+    document.getElementById('levelTitle').textContent=`${etat.niveau.nom} · ${etat.sousNiveau.nom} · ${feuille.nom}`;
+    document.getElementById('levelNote').textContent='Choisissez ensuite le type de ressource à explorer.';
     afficherCategoriesPourSousNiveau();
   }
 
@@ -5982,13 +5989,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     allerMatieres();
   }
 
-  // Les secondes TI et AB3 sont des troncs communs : elles ne doivent pas
-  // être filtrées comme si elles appartenaient déjà à une série de 1ère.
-  function estSecondeCommune(classe) {
-    const id = String(classe?.id || '').toLowerCase();
-    return id.startsWith('seconde-ti-') || id.startsWith('seconde-ab3-');
-  }
-
   // ---------- MATIÈRES ----------
   // Filtre de compatibilité : les anciennes lignes sans Filiere restent visibles,
   // tandis que les nouvelles lignes peuvent être filtrées par série.
@@ -6038,7 +6038,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
     // Récupère le nombre réel de documents publiés pour ce niveau/catégorie(/série)
     let query = niveauLabel ? `Niveau=eq.${encodeURIComponent(niveauLabel)}&${encodeURIComponent('Catégorie')}=eq.${encodeURIComponent(etat.categorie.nom)}&Publie=eq.true` : `Niveau=eq.__none__&${encodeURIComponent('Catégorie')}=eq.${encodeURIComponent(etat.categorie.nom)}&Publie=eq.true`;
-    if (etat.filiere && !estSecondeCommune(etat.classe)) query += `&Filiere=eq.${encodeURIComponent(etat.filiere)}`;
+    if (etat.filiere) query += `&Filiere=eq.${encodeURIComponent(etat.filiere)}`;
     if (etat.division) query += `&Classe=eq.${encodeURIComponent(etat.division)}`;
 
     try {
@@ -6307,7 +6307,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     content.innerHTML = '<p style="color:var(--gris); font-size:0.9rem;">Chargement des documents…</p>';
 
     let query = `Niveau=eq.${encodeURIComponent(niveauLabel)}&${encodeURIComponent('Catégorie')}=eq.${encodeURIComponent(etat.categorie.nom)}&${encodeURIComponent('Matière')}=eq.${encodeURIComponent(matiere.nom)}&Publie=eq.true&order=id.desc`;
-    if (etat.filiere && !estSecondeCommune(etat.classe)) query += `&Filiere=eq.${encodeURIComponent(etat.filiere)}`;
+    if (etat.filiere) query += `&Filiere=eq.${encodeURIComponent(etat.filiere)}`;
     if (etat.division) query += `&Classe=eq.${encodeURIComponent(etat.division)}`;
 
     try {
@@ -6557,6 +6557,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   function enfantsDeNoeudDepot(noeud) {
     if (!noeud) return null;
     if (Array.isArray(noeud.sousNiveaux)) return noeud.sousNiveaux;
+    if (Array.isArray(noeud.troncCommuns)) return [...noeud.troncCommuns, ...(Array.isArray(noeud.series) ? noeud.series : [])];
     if (Array.isArray(noeud.series))     return noeud.series;
     if (Array.isArray(noeud.classes))    return noeud.classes;
     if (Array.isArray(noeud.enfants))    return noeud.enfants;
@@ -6619,7 +6620,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     // Filiere : uniquement renseignée quand le chemin traverse un noeud de type
     // 'serie' (2nd cycle général/technique) — identique à etat.filiere côté exploration.
     const noeudSerie = depotChemin.find(n => n.type === 'serie');
-    document.getElementById('f_filiere').value = (feuille && estSecondeCommune(feuille)) ? '' : (noeudSerie ? (noeudSerie.serie || '') : '');
+    document.getElementById('f_filiere').value = noeudSerie ? (noeudSerie.serie || '') : '';
     document.getElementById('f_niveau').value = feuille ? (feuille.dbNiveaux?.[0] || (depotChemin[0]?.id === 'prescolaire' ? 'Préscolaire' : feuille.nom)) : '';
 
     const selMatiere = document.getElementById('f_matiere');
@@ -10574,8 +10575,8 @@ async function telechargerDocumentAvecProgression(doc) {
 
   // ---------- LOGO DU SITE (modifiable depuis l'admin, sans redéploiement) ----------
   // Source unique du logo. Le même objet R2 est utilisé par le site, le favicon,
-  // l'icône Apple et le manifeste PWA. Le paramètre de version évite les anciens
-  // logos conservés par le navigateur/CDN après un remplacement.
+  // l'icône Apple et le manifeste PWA. Les éléments Google restent sur une URL stable ;
+  // seul le logo visible dans l'interface peut utiliser une version de cache.
   (function(){
     const LOGO_CLE = 'site-logo-auraster';
     const LOGO_VERSION_KEY = 'aurore_logo_version';
