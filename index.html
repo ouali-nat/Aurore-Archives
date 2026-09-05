@@ -1824,7 +1824,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       const infos=await recupererUtilisateur(d.access_token); if(!infos) throw new Error('Impossible de charger votre profil.');
       if(infos.banni===true) throw new Error('Votre compte a été suspendu par l’administration. Contactez le service client si vous pensez qu’il s’agit d’une erreur.');
       const role=await assurerProfilEtObtenirRole(d.access_token,infos);
-      session={access_token:d.access_token,refresh_token:d.refresh_token||null,expires_at:Date.now()+((d.expires_in||3600)*1000),id:infos.id,email:infos.email,nom:infos.nom,avatar:infos.avatar,lycee:infos.lycee||'',niveau:infos.niveau||'',classe:infos.classe||'',filiere:infos.filiere||'',banni:infos.banni===true,provider:infos.provider||'E-mail',role};
+      session={access_token:d.access_token,refresh_token:d.refresh_token||null,expires_at:Date.now()+((d.expires_in||3600)*1000),id:infos.id,email:infos.email,nom:infos.nom,avatar:infos.avatar,prenom:infos.prenom||'',lycee:infos.lycee||'',niveau:infos.niveau||'',classe:infos.classe||'',filiere:infos.filiere||'',discipline:infos.discipline||'',fonction:infos.fonction||'',enfant_informations:infos.enfant_informations||'',banni:infos.banni===true,provider:infos.provider||'E-mail',role};
       sauvegarderSession();
       // L'enregistrement statistique d'une connexion ne doit jamais ralentir
       // l'ouverture du site : il est volontairement lancé en arrière-plan.
@@ -1845,7 +1845,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       const r=await fetch(`${SUPABASE_URL}/auth/v1/signup`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password:p,data:{full_name:name,name},options:{emailRedirectTo:redirectConfirmation()}})}); const d=await r.json().catch(()=>({}));
       if(!r.ok) throw new Error(d.msg||d.error_description||d.message||('HTTP '+r.status));
       if(d.access_token){
-        const infos=await recupererUtilisateur(d.access_token); if(infos){const role=await assurerProfilEtObtenirRole(d.access_token,infos);session={access_token:d.access_token,refresh_token:d.refresh_token||null,expires_at:Date.now()+((d.expires_in||3600)*1000),id:infos.id,email:infos.email,nom:infos.nom,avatar:infos.avatar,lycee:infos.lycee||'',niveau:infos.niveau||'',classe:infos.classe||'',filiere:infos.filiere||'',provider:infos.provider||'E-mail',role};sauvegarderSession();enregistrerConnexion(session);afficherUtilisateurConnecte();unlock();fermer();ouvrirEspacePersonnelObligatoire();}
+        const infos=await recupererUtilisateur(d.access_token); if(infos){const role=await assurerProfilEtObtenirRole(d.access_token,infos);session={access_token:d.access_token,refresh_token:d.refresh_token||null,expires_at:Date.now()+((d.expires_in||3600)*1000),id:infos.id,email:infos.email,nom:infos.nom,avatar:infos.avatar,prenom:infos.prenom||'',lycee:infos.lycee||'',niveau:infos.niveau||'',classe:infos.classe||'',filiere:infos.filiere||'',discipline:infos.discipline||'',fonction:infos.fonction||'',enfant_informations:infos.enfant_informations||'',provider:infos.provider||'E-mail',role};sauvegarderSession();enregistrerConnexion(session);afficherUtilisateurConnecte();unlock();fermer();ouvrirEspacePersonnelObligatoire();}
       } else {dernierEmailInscription=email;if(resendWrap) resendWrap.style.display='grid';msg.textContent='Compte créé. Consultez votre e-mail pour confirmer votre adresse avant de vous connecter. Vérifiez aussi les courriers indésirables.';msg.className='access-message ok';msg.style.display='block';}
     }catch(err){msg.textContent='Impossible de créer le compte : '+(err.message||'vérifiez les informations saisies.');msg.className='access-message err';msg.style.display='block';}
     finally{cacherVeuillezPatienter();btn.disabled=false;btn.textContent='CRÉER MON COMPTE';}
@@ -6748,6 +6748,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     chargerStatsAdmin();
     chargerDepotsEnAttente();
     chargerDocumentsPublies();
+    actualiserBoutonRepublicationAdmin();
   });
 
   // Navigation par onglets du tableau de bord (purement visuel — ne touche
@@ -7667,6 +7668,31 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     }
   }
 
+  async function lireDocumentsSuspendusAdmin() {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/admin_documents_suspendus?select=document_id&order=suspendu_at.desc`, {
+      headers: headersAdmin(), cache: 'no-store'
+    });
+    if(!res.ok){
+      const detail=await res.text().catch(()=> '');
+      throw new Error(detail || ('HTTP '+res.status));
+    }
+    return await res.json().catch(()=>[]);
+  }
+
+  async function actualiserBoutonRepublicationAdmin() {
+    const rep=document.getElementById('adminRepublierTout');
+    if(!rep || !session || session.role!=='admin') return;
+    try {
+      const suspendus=await lireDocumentsSuspendusAdmin();
+      const actif=Array.isArray(suspendus) && suspendus.length>0;
+      rep.style.display=actif ? 'inline-flex' : 'none';
+      const hint=document.getElementById('adminGlobalPublishHint');
+      if(hint && actif) hint.textContent='Des documents ont été suspendus. Utilisez « Republier tous » pour les ramener.';
+    } catch(e) {
+      console.warn('[Admin] état des suspensions globales indisponible',e);
+    }
+  }
+
   async function suspendreTousLesDocumentsAdmin() {
     if(!session || session.role !== 'admin'){alert('Cette action est réservée aux administrateurs.');return;}
     if(!confirm('Suspendre tous les documents publiés ?\n\nIls seront retirés du site public sans être supprimés. Ils pourront être ramenés avec « Republier tous ».')) return;
@@ -7678,12 +7704,11 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       if(!res.ok) throw new Error(detail||('HTTP '+res.status));
       await chargerDocumentsPublies();
       await chargerDepotsEnAttente();
-      const rep=document.getElementById('adminRepublierTout');
-      if(rep) rep.style.display='inline-flex';
+      await actualiserBoutonRepublicationAdmin();
       const hint=document.getElementById('adminGlobalPublishHint');
       if(hint) hint.textContent='Les documents ont été suspendus. Utilisez « Republier tous » pour les ramener.';
       alert('Le site public a été suspendu. Les documents sont conservés.');
-    }catch(e){console.error('[Admin] suspension globale',e);alert('La suspension globale n’a pas pu être effectuée. Vérifiez le SQL administrateur puis réessayez.');}
+    }catch(e){console.error('[Admin] suspension globale',e);alert('La suspension globale n’a pas pu être effectuée. '+(e.message||'Vérifiez le SQL administrateur puis réessayez.'));}
     finally{if(btn){btn.disabled=false;btn.textContent='⏸ Suspendre tous';}}
   }
 
@@ -7693,16 +7718,54 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const btn=document.getElementById('adminRepublierTout');
     if(btn){btn.disabled=true;btn.textContent='Republication…';}
     try{
+      // On vérifie d'abord ce qui doit réellement être restauré. Cela évite
+      // un faux succès si la RPC retourne 0 alors que des suspensions existent.
+      const suspendus=await lireDocumentsSuspendusAdmin();
+      const ids=(Array.isArray(suspendus)?suspendus:[]).map(x=>String(x.document_id||'')).filter(Boolean);
+      if(!ids.length){
+        if(btn) btn.style.display='none';
+        const hint=document.getElementById('adminGlobalPublishHint');
+        if(hint) hint.textContent='Aucun document suspendu à republier.';
+        alert('Aucun document suspendu n’est actuellement mémorisé.');
+        return;
+      }
+
       const res=await fetch(`${SUPABASE_URL}/rest/v1/rpc/ramener_tous_documents_admin`,{method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json'},body:'{}'});
       const detail=await res.text().catch(()=> '');
       if(!res.ok) throw new Error(detail||('HTTP '+res.status));
+      let rpcCount=0; try { rpcCount=Number(JSON.parse(detail)); } catch(e) { rpcCount=0; }
+
+      // Sécurité de fonctionnement : si la RPC répond sans avoir restauré les
+      // documents mémorisés, on restaure exactement ces IDs via la table
+      // Document, puis on nettoie leur mémorisation. Aucun autre document n'est touché.
+      if(rpcCount===0){
+        const filtre=ids.map(id=>encodeURIComponent(id)).join(',');
+        const patch=await fetch(`${SUPABASE_URL}/rest/v1/Document?id=in.(${filtre})`,{
+          method:'PATCH',
+          headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=representation'},
+          body:JSON.stringify({Publie:true})
+        });
+        const patchText=await patch.text().catch(()=> '');
+        if(!patch.ok) throw new Error('La RPC n’a restauré aucun document et la restauration de secours a échoué (HTTP '+patch.status+'). '+patchText);
+        let restored=[]; try { restored=JSON.parse(patchText); } catch(e) { restored=[]; }
+        if(!Array.isArray(restored) || restored.length===0) throw new Error('Aucun des documents suspendus n’a pu être restauré.');
+        const del=await fetch(`${SUPABASE_URL}/rest/v1/admin_documents_suspendus?document_id=in.(${filtre})`,{
+          method:'DELETE', headers:{...headersAdmin(),'Prefer':'return=minimal'}
+        });
+        if(!del.ok){
+          const dd=await del.text().catch(()=> '');
+          throw new Error('Les documents ont été republiés mais leur mémorisation n’a pas pu être nettoyée. '+dd);
+        }
+        rpcCount=restored.length;
+      }
+
       await chargerDocumentsPublies();
       await chargerDepotsEnAttente();
       if(btn) btn.style.display='none';
       const hint=document.getElementById('adminGlobalPublishHint');
       if(hint) hint.textContent='Les documents suspendus ont été ramenés sur le site public.';
-      alert('Les documents suspendus ont été republiés.');
-    }catch(e){console.error('[Admin] republication globale',e);alert('La republication globale n’a pas pu être effectuée. Vérifiez le SQL administrateur puis réessayez.');}
+      alert(rpcCount+' document(s) suspendu(s) ont été republiés.');
+    }catch(e){console.error('[Admin] republication globale',e);alert('La republication globale n’a pas pu être effectuée. '+(e.message||'Vérifiez le SQL administrateur puis réessayez.'));}
     finally{if(btn){btn.disabled=false;btn.textContent='↻ Republier tous';}}
   }
 
