@@ -1981,6 +1981,24 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   /* volontairement inchangé */
 }
 </style>
+
+<style id="aurore-publicites-rendu-fix">
+/* Correctif rendu publicitaire : un emplacement rempli ne doit jamais rester masqué.
+   La visibilité dépend uniquement de la présence d'une publicité valide. */
+.ad-slot[id^="ad-"] {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+.screen.active .ad-slot[id^="ad-"] {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+.ad-slot[id^="ad-"]:empty {
+  display: none !important;
+}
+</style>
 </head>
 <body class="site-locked">
 
@@ -9485,9 +9503,11 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
           ${cta}
         </div>
       </div>`;
-    // Le style inline initial "display:none" est volontairement remplacé ici
-    // uniquement lorsqu'une publicité valide est réellement disponible.
-    // !important évite qu'une finition CSS ultérieure ne masque une publicité active.
+    // Un emplacement rempli doit être visible, même si un ancien état HTML/CSS
+    // (display:none ou hidden) subsiste. On ne modifie jamais la donnée de publicité.
+    container.removeAttribute('hidden');
+    container.style.removeProperty('visibility');
+    container.style.removeProperty('opacity');
     container.style.setProperty('display','block','important');
     return true;
   }
@@ -9509,6 +9529,21 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       });
     });
     AD_SLOTS_TROUVES = trouves; AD_SLOTS_REMPLIS = remplis;
+    // Recalage de rendu après insertion : utile lorsque l'écran vient juste de
+    // devenir actif ou qu'une finition CSS a été appliquée avant le remplissage.
+    if(remplis){
+      requestAnimationFrame(() => {
+        AD_PAGES.forEach(page => [1,2].forEach(n => {
+          const slot = document.getElementById(`ad-${page}-${n}`);
+          if(slot && slot.children.length) {
+            slot.removeAttribute('hidden');
+            slot.style.setProperty('display','block','important');
+            slot.style.setProperty('visibility','visible','important');
+            slot.style.setProperty('opacity','1','important');
+          }
+        }));
+      });
+    }
     console.log(`[Publicité][PUBLIC] Étape 4/4 — ${trouves}/12 emplacement(s) trouvé(s) dans le DOM, ${remplis}/12 effectivement rempli(s) et affiché(s).`);
     if(manquants.length) console.warn('[Publicité][PUBLIC] IDs introuvables dans le DOM :', manquants);
     if(trouves && !remplis && PUBS_ACTIVES.length){
