@@ -7472,7 +7472,10 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         });
         if (detailRes.ok) {
           const rows = await detailRes.json();
-          (Array.isArray(rows) ? rows : []).forEach(r => profilsScolaires.set(String(r.id), r));
+          const lignesDetails = Array.isArray(rows) ? rows : [];
+          lignesDetails.forEach(r => { if (r && r.id) profilsScolaires.set(String(r.id), r); });
+          console.info('[Admin utilisateurs] Profils détaillés reçus :', lignesDetails.length,
+            'IDs associés :', [...profilsScolaires.keys()]);
         } else {
           console.warn('[Admin utilisateurs] RPC détaillée indisponible', detailRes.status);
         }
@@ -9832,13 +9835,19 @@ async function telechargerDocumentAvecProgression(doc) {
     if(!zone || !wrappers.length) return;
 
     if('IntersectionObserver' in window){
+      // Le lecteur peut être fermé pendant qu'un callback IntersectionObserver
+      // est encore en file d'attente. Dans ce cas PDF_EN_COURS devient null et
+      // l'ancien code provoquait : "Cannot read properties of null (reading 'numPages')".
+      const totalPagesObservees = PDF_EN_COURS ? Number(PDF_EN_COURS.numPages) || 0 : 0;
       pdfRenduObserver=new IntersectionObserver(entries=>{
+        if (!PDF_EN_COURS || PDF_EN_COURS.numPages !== totalPagesObservees) return;
         entries.filter(e=>e.isIntersecting).forEach(e=>{
+          if (!PDF_EN_COURS) return;
           const n=Number(e.target.dataset.page)||1;
           rendreUnePagePDF(n);
           // Prépare aussi les pages voisines pour que le défilement reste fluide.
           if(n>1) rendreUnePagePDF(n-1);
-          if(n<PDF_EN_COURS.numPages) rendreUnePagePDF(n+1);
+          if(PDF_EN_COURS && n<totalPagesObservees) rendreUnePagePDF(n+1);
         });
       },{root:zone,rootMargin:'900px 0px',threshold:0.01});
       wrappers.forEach(w=>pdfRenduObserver.observe(w));
@@ -10025,12 +10034,15 @@ async function telechargerDocumentAvecProgression(doc) {
   // ---------- RECHERCHE / SAUT DE PAGE ----------
   function allerPageNumero(n) {
     const pages = document.querySelectorAll('#pdfViewerPages .pdf-reader-page');
-    if (!pages.length) return;
-    const total = pages.length;
+    if (!PDF_EN_COURS || !pages.length) return;
+    const total = Math.min(pages.length, Number(PDF_EN_COURS.numPages) || pages.length);
     const cible = Math.max(1, Math.min(total, Math.round(Number(n)) || 1));
-    pages[cible - 1].scrollIntoView({ behavior: 'smooth', block: PDF_MODE_LECTURE === 'horizontal' ? 'center' : 'start', inline: PDF_MODE_LECTURE === 'horizontal' ? 'center' : 'nearest' });
+    const pageCible = pages[cible - 1];
+    if (!pageCible) return;
+    pageCible.scrollIntoView({ behavior: 'smooth', block: PDF_MODE_LECTURE === 'horizontal' ? 'center' : 'start', inline: PDF_MODE_LECTURE === 'horizontal' ? 'center' : 'nearest' });
     PDF_PAGE_ACTUELLE = cible;
-    document.getElementById('pdfViewerPage').textContent = cible + ' / ' + total;
+    const indicateur = document.getElementById('pdfViewerPage');
+    if (indicateur) indicateur.textContent = cible + ' / ' + total;
   }
   (function initialiserRecherchePagePDF() {
     const toggle = document.getElementById('pdfViewerPageJumpToggle');
@@ -10211,6 +10223,10 @@ async function telechargerDocumentAvecProgression(doc) {
   function fermerLecteurPDF() {
     PDF_JETON_OUVERTURE++; // invalide tout chargement PDF.js encore en cours
     if (PDF_FETCH_CONTROLLER) { try { PDF_FETCH_CONTROLLER.abort(); } catch(e) {} PDF_FETCH_CONTROLLER=null; }
+    // Stopper les observers avant de vider PDF_EN_COURS : un callback déjà
+    // programmé ne doit plus tenter de lire .numPages sur null.
+    if (pdfRenduObserver) { try { pdfRenduObserver.disconnect(); } catch(e) {} pdfRenduObserver = null; }
+    if (pdfPagesObserver) { try { pdfPagesObserver.disconnect(); } catch(e) {} pdfPagesObserver = null; }
     document.getElementById('pdfViewerOverlay').style.display = 'none';
     const canvas = document.getElementById('pdfViewerCanvas');
     const ctx = canvas.getContext('2d');
