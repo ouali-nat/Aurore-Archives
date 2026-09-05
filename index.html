@@ -3070,27 +3070,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   </div>
 </div>
 
-<script id="aurore-auth-recovery">
-(function(){
-  // Retire une ancienne registration de Service Worker une seule fois.
-  // Le rechargement n'est fait que si cette page était réellement contrôlée.
-  if (!('serviceWorker' in navigator)) return;
-  var KEY='aurore_sw_recovery_v4';
-  window.addEventListener('load', function(){
-    navigator.serviceWorker.getRegistrations().then(function(regs){
-      if (!regs.length) return;
-      var hadController=!!navigator.serviceWorker.controller;
-      return Promise.all(regs.map(function(reg){ return reg.unregister(); })).then(function(){
-        if (hadController && sessionStorage.getItem(KEY)!=='1') {
-          sessionStorage.setItem(KEY,'1');
-          window.location.reload();
-        }
-      });
-    }).catch(function(e){ console.warn('[Aurore] nettoyage Service Worker:',e); });
-  });
-})();
-</script>
-
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
   // Client Supabase dédié à OAuth Google. Le reste du site conserve ses appels REST.
@@ -3100,17 +3079,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     return window.supabase.createClient(
       "https://tdeotqfsbvouresfhkab.supabase.co",
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZW90cWZzYnZvdXJlc2Zoa2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjM4NzMsImV4cCI6MjEwMDUzOTg3M30.l_a1lI_QRy7BTq1fGjiA9n7LCdu7BwR2TTI5pkA70SU",
-      { auth: {
-          flowType: 'implicit',
-          autoRefreshToken: false,
-          persistSession: false,
-          detectSessionInUrl: false,
-          storage: {
-            getItem: () => null,
-            setItem: () => {},
-            removeItem: () => {}
-          }
-        } }
+      { auth: { flowType: 'implicit', autoRefreshToken: true, persistSession: true, detectSessionInUrl: true, storage: window.localStorage } }
     );
   }
   let AURORE_SUPABASE_AUTH = window.supabase ? creerClientAuthGoogle() : null;
@@ -3184,49 +3153,9 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     return HEADERS;
   }
 
-  async function demarrerConnexionGoogle() {
-    // Le client OAuth utilise volontairement un stockage mémoire vide :
-    // aucune ancienne session Supabase conservée dans le navigateur normal
-    // ne peut bloquer le lancement de Google. Les données Aurore restent
-    // intactes dans leur propre stockage.
-    try {
-      const client = await assurerClientAuthGoogle();
-      if (!client) throw new Error('Le service de connexion Google n’est pas disponible.');
-
-      const productionRedirect = 'https://aurore-section-archivescom.vercel.app/';
-      const retour = window.location.origin === 'https://aurore-section-archivescom.vercel.app'
-        ? productionRedirect
-        : (window.location.origin + window.location.pathname);
-
-      const { error } = await client.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: retour,
-          queryParams: {
-            prompt: 'select_account'
-          }
-        }
-      });
-
-      if (error) throw error;
-    } catch (e) {
-      console.error('[Google OAuth] démarrage impossible :', e);
-      const accessMsg = document.getElementById('accessMessage');
-      if (accessMsg) {
-        accessMsg.textContent = 'Connexion Google impossible : ' + (e?.message || 'erreur OAuth');
-        accessMsg.className = 'access-message err';
-        accessMsg.style.display = 'block';
-      }
-      if (typeof window.auroreCacherVeuillezPatienter === 'function') window.auroreCacherVeuillezPatienter();
-      document.querySelectorAll('.access-google-btn.is-loading').forEach(b => {
-        b.classList.remove('is-loading');
-        b.disabled = false;
-        b.style.pointerEvents = '';
-        b.removeAttribute('aria-busy');
-        const strong = b.querySelector('strong');
-        if (strong) strong.textContent = 'Continuer avec Google';
-      });
-    }
+  function demarrerConnexionGoogle() {
+    const retour = window.location.origin + window.location.pathname;
+    window.location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(retour)}`;
   }
 
   async function recupererUtilisateur(access_token) {
@@ -7277,7 +7206,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         const detailRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/lister_profils_admin_details`, {
           method: 'POST',
           headers: { ...headersAdmin(), 'Content-Type': 'application/json' },
-          body: '{}', cache: 'no-store'
+          body: '{}'
         });
         if (detailRes.ok) {
           const rows = await detailRes.json();
@@ -7286,22 +7215,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
           console.warn('[Admin utilisateurs] RPC détaillée indisponible', detailRes.status);
         }
       } catch (e) { console.warn('[Admin utilisateurs] informations détaillées indisponibles', e); }
-
-      // Filet de sécurité : si la RPC détaillée n'est pas encore disponible,
-      // l'administration lit directement les colonnes de Profils. Cela garantit
-      // que les informations saisies dans Mon profil restent visibles dans la
-      // fiche utilisateur de l'administration sans dépendre d'un second RPC.
-      if (profilsScolaires.size === 0) {
-        try {
-          const directRes = await fetch(`${SUPABASE_URL}/rest/v1/Profils?select=id,email,nom,prenom,role,lycee,niveau,classe,filiere,discipline,fonction,enfant_informations,banni,created_at`, {
-            method:'GET', headers:{...headersAdmin(), 'Accept':'application/json'}, cache:'no-store'
-          });
-          if (directRes.ok) {
-            const rows = await directRes.json();
-            (Array.isArray(rows) ? rows : []).forEach(r => profilsScolaires.set(String(r.id), r));
-          }
-        } catch (e) { console.warn('[Admin utilisateurs] lecture directe Profils indisponible', e); }
-      }
 
       listeProfils.forEach(profil => {
         const scolaire = { ...profil, ...(profilsScolaires.get(String(profil.id)) || {}) };
@@ -7317,40 +7230,23 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
           scolaire.lycee, scolaire.niveau, scolaire.classe, scolaire.filiere,
           scolaire.discipline, scolaire.fonction, scolaire.enfant_informations
         ].filter(v => v != null && String(v).trim()).join(' ');
-        const nom = scolaire.nom || profil.nom || 'Nom non renseigné';
-        const prenom = scolaire.prenom || '';
-        const email = scolaire.email || profil.email || 'E-mail non renseigné';
-        const roleValeur = String(scolaire.role || profil.role || 'eleve').toLowerCase();
-        const roleAdmin = roleValeur === 'admin';
-        const situationLibelle = libelleRole(roleValeur);
+        const nom = profil.nom || 'Nom non renseigné';
+        const email = profil.email || 'E-mail non renseigné';
+        const roleAdmin = String(scolaire.role || profil.role || '').toLowerCase() === 'admin';
         const banni = statutsBannissement.get(String(profil.id)) === true;
         card.classList.add('admin-user-card');
         card.innerHTML = `
           <div class="admin-user-main">
-            <div class="admin-user-name">${echapperHtmlPub([prenom,nom].filter(Boolean).join(' ') || nom)}</div>
+            <div class="admin-user-name">${echapperHtmlPub(nom)}</div>
             <div class="admin-user-email">${echapperHtmlPub(email)}</div>
-            <div class="admin-user-profile-details">
-              <div class="admin-user-profile-title">Informations du profil — ${echapperHtmlPub(situationLibelle)}</div>
-              <div class="admin-user-profile-grid">
-                <div class="admin-user-profile-field"><small>Nom</small><strong>${echapperHtmlPub(nom)}</strong></div>
-                <div class="admin-user-profile-field"><small>Prénom</small><strong>${prenom ? echapperHtmlPub(prenom) : 'Non renseigné'}</strong></div>
-                <div class="admin-user-profile-field"><small>Établissement</small><strong>${scolaire.lycee ? echapperHtmlPub(scolaire.lycee) : 'Non renseigné'}</strong></div>
-                ${roleValeur === 'eleve' ? `
-                  <div class="admin-user-profile-field"><small>Niveau</small><strong>${scolaire.niveau ? echapperHtmlPub(scolaire.niveau) : 'Non renseigné'}</strong></div>
-                  <div class="admin-user-profile-field"><small>Classe</small><strong>${scolaire.classe ? echapperHtmlPub(scolaire.classe) : 'Non renseigné'}</strong></div>
-                  <div class="admin-user-profile-field"><small>Filière / série</small><strong>${scolaire.filiere ? echapperHtmlPub(scolaire.filiere) : 'Non renseigné'}</strong></div>
-                ` : ''}
-                ${roleValeur === 'enseignant' || roleValeur === 'professeur' ? `
-                  <div class="admin-user-profile-field"><small>Discipline</small><strong>${scolaire.discipline ? echapperHtmlPub(scolaire.discipline) : 'Non renseigné'}</strong></div>
-                  <div class="admin-user-profile-field"><small>Fonction</small><strong>${scolaire.fonction ? echapperHtmlPub(scolaire.fonction) : 'Non renseigné'}</strong></div>
-                ` : ''}
-                ${roleValeur === 'parent' ? `
-                  <div class="admin-user-profile-field profile-field-wide"><small>Informations concernant l’enfant</small><strong>${scolaire.enfant_informations ? echapperHtmlPub(scolaire.enfant_informations) : 'Non renseigné'}</strong></div>
-                ` : ''}
-                ${roleValeur === 'personnel' ? `
-                  <div class="admin-user-profile-field"><small>Fonction</small><strong>${scolaire.fonction ? echapperHtmlPub(scolaire.fonction) : 'Non renseigné'}</strong></div>
-                ` : ''}
-              </div>
+            <div class="admin-user-school">
+              ${scolaire.lycee ? `<span>Établissement : ${echapperHtmlPub(scolaire.lycee)}</span>` : ''}
+              ${scolaire.niveau ? `<span>Niveau : ${echapperHtmlPub(scolaire.niveau)}</span>` : ''}
+              ${scolaire.classe ? `<span>Classe : ${echapperHtmlPub(scolaire.classe)}</span>` : ''}
+              ${scolaire.filiere ? `<span>Filière : ${echapperHtmlPub(scolaire.filiere)}</span>` : ''}
+              ${scolaire.discipline ? `<span>Discipline : ${echapperHtmlPub(scolaire.discipline)}</span>` : ''}
+              ${scolaire.fonction ? `<span>Fonction : ${echapperHtmlPub(scolaire.fonction)}</span>` : ''}
+              ${scolaire.enfant_informations ? `<span>Enfant : ${echapperHtmlPub(scolaire.enfant_informations)}</span>` : ''}
             </div>
             <div class="admin-user-meta">
               <span class="role-badge ${roleAdmin ? 'admin' : 'eleve'}">${roleAdmin ? 'Administrateur' : echapperHtmlPub(libelleRole(scolaire.role || profil.role || 'eleve'))}</span>
@@ -11429,15 +11325,6 @@ footer>.wrap:last-child{margin-top:18px!important;}
   /* Informations scolaires visibles par l'administration sans toucher au RPC existant. */
   .admin-user-school{display:flex;flex-wrap:wrap;gap:5px 10px;margin-top:7px;font-size:.7rem;color:var(--gris);}
   .admin-user-school span{padding:4px 7px;border:1px solid var(--bordure);border-radius:999px;background:var(--fond);}
-  .admin-user-profile-details{margin-top:10px;padding:11px 12px;border:1px solid var(--bordure);border-radius:14px;background:rgba(255,255,255,.025);}
-  .admin-user-profile-title{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;color:var(--gris);}
-  .admin-user-profile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;}
-  .admin-user-profile-field{min-width:0;padding:7px 9px;border:1px solid var(--bordure);border-radius:10px;background:var(--fond);}
-  .admin-user-profile-field.profile-field-wide{grid-column:1/-1;}
-  .admin-user-profile-field small{display:block;font-size:.62rem;color:var(--gris);margin-bottom:3px;}
-  .admin-user-profile-field strong{display:block;font-size:.76rem;line-height:1.35;overflow-wrap:anywhere;}
-  @media (max-width:560px){.admin-user-profile-grid{grid-template-columns:1fr;}.admin-user-profile-field.profile-field-wide{grid-column:auto;}}
-
 
   /* Lecteur PDF : davantage de surface utile, commandes plus compactes. */
   #pdfViewerOverlay .pdf-reader-shell{max-width:1220px!important;}
@@ -12090,12 +11977,13 @@ footer>.wrap:last-child{margin-top:18px!important;}
   if(!estInstallee()) setTimeout(function(){if(deferredPrompt)afficher();},1200);
   if('serviceWorker' in navigator){
     window.addEventListener('load',function(){
-      navigator.serviceWorker.register('./sw.js?v=20260905',{scope:'./',updateViaCache:'none'})
-        .then(function(reg){
-          try { reg.update(); } catch(e) {}
-          console.log('[Aurore PWA] Service worker actif.',reg.scope);
-        })
-        .catch(function(err){console.warn('[Aurore PWA] Service worker indisponible :',err);});
+      navigator.serviceWorker.getRegistrations().then(function(regs){
+        return Promise.all(regs.map(function(reg){ return reg.unregister(); }));
+      }).catch(function(){ return []; }).then(function(){
+        return navigator.serviceWorker.register('./sw.js',{scope:'./',updateViaCache:'none'});
+      }).then(function(reg){
+        console.log('[Aurore PWA] Service worker actif.',reg.scope);
+      }).catch(function(err){console.warn('[Aurore PWA] Service worker indisponible :',err);});
     });
   }
 })();
