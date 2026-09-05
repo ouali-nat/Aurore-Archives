@@ -3164,30 +3164,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       alert('Impossible de démarrer la connexion Google. Veuillez réessayer.');
     }
   }
-        }
-      });
-
-      if (error) throw error;
-    } catch (e) {
-      console.error('[Google OAuth] démarrage impossible :', e);
-      const accessMsg = document.getElementById('accessMessage');
-      if (accessMsg) {
-        accessMsg.textContent = 'Connexion Google impossible : ' + (e?.message || 'erreur OAuth');
-        accessMsg.className = 'access-message err';
-        accessMsg.style.display = 'block';
-      }
-      if (typeof window.auroreCacherVeuillezPatienter === 'function') window.auroreCacherVeuillezPatienter();
-      document.querySelectorAll('.access-google-btn.is-loading').forEach(b => {
-        b.classList.remove('is-loading');
-        b.disabled = false;
-        b.style.pointerEvents = '';
-        b.removeAttribute('aria-busy');
-        const strong = b.querySelector('strong');
-        if (strong) strong.textContent = 'Continuer avec Google';
-      });
-    }
-  }
-
   async function recupererUtilisateur(access_token) {
     // Auth est prioritaire : l'ouverture du site ne doit pas rester bloquée par
     // une lecture secondaire de Profils. Le timeout protège aussi les mobiles
