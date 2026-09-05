@@ -3363,32 +3363,59 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
   function mettreAJourChampsProfilSelonRole(){
     const role=String(document.getElementById('profilRoleInput')?.value||'eleve').toLowerCase();
-    const fields={
-      niveau:document.getElementById('profilNiveauField'), classe:document.getElementById('profilClasseField'), filiere:document.getElementById('profilFiliereField'),
-      discipline:document.getElementById('profilDisciplineField'), fonction:document.getElementById('profilFonctionField'), enfant:document.getElementById('profilEnfantField')
+    const container=document.getElementById('profileSpecificFields')||document.querySelector('#profileInfoModal .profile-specific-fields');
+    if(!container)return;
+    const configs={
+      eleve:{
+        title:'Informations Élève',
+        intro:'Renseignez les informations qui permettent à Aurore d’adapter votre espace scolaire.',
+        fields:[
+          ['profilNiveauInput','Niveau','Ex. 6e, 3e, Seconde, Terminale…',true,'text'],
+          ['profilClasseInput','Classe','Ex. 3e A, Tle D…',true,'text'],
+          ['profilFiliereInput','Filière / série','Ex. A, C, D, F…',false,'text']
+        ]
+      },
+      enseignant:{
+        title:'Informations Enseignant',
+        intro:'Indiquez la discipline que vous enseignez et votre fonction dans l’établissement.',
+        fields:[
+          ['profilDisciplineInput','Discipline enseignée','Ex. Mathématiques, Français…',true,'text'],
+          ['profilFonctionInput','Fonction','Ex. professeur principal, coordonnateur…',false,'text']
+        ]
+      },
+      professeur:{
+        title:'Informations Professeur',
+        intro:'Indiquez la discipline que vous enseignez et votre fonction dans l’établissement.',
+        fields:[
+          ['profilDisciplineInput','Discipline enseignée','Ex. Mathématiques, Français…',true,'text'],
+          ['profilFonctionInput','Fonction','Ex. professeur principal, coordonnateur…',false,'text']
+        ]
+      },
+      parent:{
+        title:'Informations Parent',
+        intro:'Renseignez les informations utiles concernant votre enfant.',
+        fields:[
+          ['profilEnfantInput','Informations concernant votre enfant','Ex. prénom, niveau/classe et toute information utile…',true,'textarea']
+        ]
+      },
+      personnel:{
+        title:'Informations Personnel',
+        intro:'Indiquez votre fonction au sein de l’établissement.',
+        fields:[
+          ['profilFonctionInput','Fonction','Ex. surveillant, censeur, bibliothécaire…',true,'text']
+        ]
+      }
     };
-    const context=document.getElementById('profilRoleContext'), hint=document.getElementById('profilRoleHint'), title=document.getElementById('profileSpecificTitle'), help=document.getElementById('profileSpecificHelp');
-    const enseignant=role==='enseignant'||role==='professeur', personnel=role==='personnel', parent=role==='parent', eleve=role==='eleve';
-    Object.values(fields).forEach(el=>{if(el)el.hidden=true;});
-    if(eleve){ fields.niveau.hidden=false; fields.classe.hidden=false; fields.filiere.hidden=false; }
-    if(enseignant){ fields.discipline.hidden=false; fields.fonction.hidden=false; }
-    if(personnel){ fields.fonction.hidden=false; }
-    if(parent){ fields.enfant.hidden=false; }
-    const req=(id,on)=>{const el=document.getElementById(id);if(el)el.required=!!on;};
-    req('profilNomInput',true); req('profilPrenomInput',true); req('profilLyceeInput',true);
-    req('profilNiveauInput',eleve); req('profilClasseInput',eleve); req('profilFiliereInput',false);
-    req('profilDisciplineInput',enseignant); req('profilFonctionInput',enseignant||personnel); req('profilEnfantInput',parent);
-    const texts={
-      eleve:['Parcours scolaire','Indiquez votre niveau, votre classe et, si nécessaire, votre série.'],
-      enseignant:['Situation professionnelle','Indiquez la discipline que vous enseignez et votre fonction dans l’établissement.'],
-      professeur:['Situation professionnelle','Indiquez la discipline que vous enseignez et votre fonction dans l’établissement.'],
-      parent:['Situation familiale','Présentez brièvement la situation de votre enfant afin que l’administration puisse vous identifier et vous accompagner.'],
-      personnel:['Situation professionnelle','Indiquez votre fonction au sein de l’établissement.']
-    };
-    const t=texts[role]||texts.eleve;
-    if(title)title.textContent=t[0]; if(help)help.textContent=t[1];
-    if(context)context.innerHTML='<strong>Informations adaptées à votre profil</strong><span>'+echapperHtmlPub(t[1])+'</span>';
-    if(hint)hint.textContent='Ces informations seront enregistrées avec votre profil et accessibles à l’administration dans la fiche utilisateur.';
+    const cfg=configs[role]||configs.eleve;
+    container.innerHTML='<div class="profile-specific-heading"><strong>'+echapperHtmlPub(cfg.title)+'</strong><span>'+echapperHtmlPub(cfg.intro)+'</span></div>'+
+      cfg.fields.map(f=>{
+        const tag=f[4]==='textarea'?'textarea':'input';
+        const req=f[3]?' required':'';
+        const star=f[3]?' <span aria-hidden="true">*</span>':' <small>(facultatif)</small>';
+        return '<div class="profile-field"><label for="'+f[0]+'">'+echapperHtmlPub(f[1])+star+'</label>'+
+          '<'+tag+' id="'+f[0]+'" name="'+f[0]+'" placeholder="'+echapperHtmlPub(f[2])+'"'+req+'></'+tag+'></div>';
+      }).join('');
+    synchroniserCartesRoleProfil();
   }
   document.getElementById('profilRoleInput')?.addEventListener('change',mettreAJourChampsProfilSelonRole);
   document.querySelectorAll('.profile-role-option[data-profile-role]').forEach(btn=>btn.addEventListener('click',()=>{const select=document.getElementById('profilRoleInput');if(select){select.value=btn.dataset.profileRole;select.dispatchEvent(new Event('change',{bubbles:true}));}}));
