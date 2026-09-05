@@ -11668,48 +11668,51 @@ footer>.wrap:last-child{margin-top:18px!important;}
   }
   function closeCode(){codeModal.style.display='none';codeModal.setAttribute('aria-hidden','true');codeResolve?.(false);codeResolve=null;}
   async function confirmCode(){
-    const value=String(codeInput.value||'').trim();
-    if(!/^\d{4,8}$/.test(value)){codeMsg.textContent='Le code doit contenir entre 4 et 8 chiffres.';codeMsg.className='access-code-message err';return;}
-    const options={...(espaceOptions||{})};
+    const value=String(codeInput?.value||'').trim();
+    if(!/^\d{4,8}$/.test(value)){
+      if(codeMsg){codeMsg.textContent='Le code doit contenir entre 4 et 8 chiffres.';codeMsg.className='access-code-message err';codeMsg.style.display='block';}
+      return;
+    }
     try{
-      // Toujours restaurer la session avant de valider l’accès : le code
-      // protège l’espace personnel, il ne remplace pas l’authentification.
       if(!session?.id){
-        const saved=sessionStorage.getItem('lsnb_session');
-        if(saved){
-          const candidate=JSON.parse(saved);
-          if(candidate?.id&&candidate?.access_token) session=candidate;
-        }
+        try{const saved=sessionStorage.getItem('lsnb_session');if(saved){const candidate=JSON.parse(saved);if(candidate?.id&&candidate?.access_token)session=candidate;}}catch(e){console.warn('[Code] sessionStorage:',e);}
       }
       if(!session?.id){
-        codeMsg.textContent='Votre session n’est plus disponible. Reconnectez-vous pour ouvrir votre espace.';
-        codeMsg.className='access-code-message err';
+        if(codeMsg){codeMsg.textContent='Votre connexion Aurore n’est plus active. Reconnectez-vous puis réessayez.';codeMsg.className='access-code-message err';codeMsg.style.display='block';}
         return;
       }
       if(codeMode==='setup'){
         localStorage.setItem(KEY_CODE+userKey(),await hashCode(value));
       }else{
         const stored=codeStocke();
-        const ok=stored && (await hashCode(value))===stored;
-        if(!ok){codeMsg.textContent='Code incorrect. Réessayez.';codeMsg.className='access-code-message err';return;}
+        if(!stored || await hashCode(value)!==stored){
+          if(codeMsg){codeMsg.textContent='Code incorrect. Réessayez.';codeMsg.className='access-code-message err';codeMsg.style.display='block';}
+          return;
+        }
       }
-      // Déverrouillage immédiat puis ouverture explicite de l’espace.
-      // On ne dépend plus d’un setTimeout ni d’une seconde tentative de session.
-      if(typeof window.auroreUnlockAccess==='function') window.auroreUnlockAccess();
-      closeCode();
-      const opened=await ouvrirEspaceInterne(options);
-      if(!opened){
-        // Dernier filet de sécurité : l’utilisateur est déjà authentifié,
-        // donc on ouvre directement la vue profil plutôt que de le laisser sur l’accueil.
-        if(typeof window.auroreUnlockAccess==='function') window.auroreUnlockAccess();
-        try{afficherUtilisateurConnecte();}catch(e){}
-        try{remplirProfil();}catch(e){}
-        afficherEcran('screen-profil');
+      // Code validé : déverrouiller immédiatement, avant tout chargement réseau.
+      document.body.classList.remove('site-locked','access-locked');
+      document.body.style.overflow='';
+      if(lock){lock.classList.remove('show');lock.style.display='none';lock.setAttribute('aria-hidden','true');}
+      if(codeModal){codeModal.style.display='none';codeModal.setAttribute('aria-hidden','true');}
+      try{window.auroreUnlockAccess?.();}catch(e){}
+      try{afficherUtilisateurConnecte();}catch(e){}
+      try{remplirProfil();}catch(e){console.warn('[Espace] profil:',e);}
+      const breadcrumb=document.getElementById('breadcrumb');if(breadcrumb)breadcrumb.innerHTML='';
+      const screen=document.getElementById('screen-profil');
+      if(screen){
+        if(espaceOptions?.forceComplete&&!screen.querySelector('.profile-completion-banner')){
+          const banner=document.createElement('div');banner.className='profile-completion-banner';banner.textContent='Bienvenue dans votre espace personnel. Avant de commencer, renseignez les informations demandées pour personnaliser votre espace.';screen.insertBefore(banner,screen.querySelector('.profile-card'));
+        }
+        document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));screen.classList.add('active');window.scrollTo({top:0,behavior:'auto'});
       }
+      try{auroreMasquerInvitationEspacePersonnel(false);}catch(e){}
+      try{window.chargerCasesPersonnelles?.();}catch(e){}
+      setTimeout(()=>{try{window.chargerDonneesEspacePersonnel?.();}catch(e){console.warn('[Espace] chargement données:',e);}},0);
     }catch(e){
-      console.error('[Code d’accès] ouverture espace impossible',e);
-      codeMsg.textContent='Impossible d’ouvrir votre espace. Rechargez la page puis réessayez.';
-      codeMsg.className='access-code-message err';
+      console.error('[Code d’accès] erreur:',e);
+      try{document.body.classList.remove('site-locked');if(lock)lock.style.display='none';if(codeModal)codeModal.style.display='none';}catch(_){}
+      if(codeMsg){codeMsg.textContent='Le code est correct, mais une erreur de chargement est survenue.';codeMsg.className='access-code-message err';codeMsg.style.display='block';}
     }
   }
   async function restaurerSessionAvantEspace(){
