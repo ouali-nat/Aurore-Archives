@@ -442,6 +442,11 @@
     width:36px; height:36px; border-radius:9px; flex-shrink:0;
     display:flex; align-items:center; justify-content:center;
     background:var(--fond); color:var(--marron);
+    overflow:hidden;
+  }
+  .doc-row .icon-wrap.a-couverture{ background:var(--bordure); }
+  .doc-row .icon-wrap img.doc-cover-img{
+    width:100%; height:100%; object-fit:cover; border-radius:inherit; display:block;
   }
   .doc-row .titre{font-weight:700; font-size:0.9rem;}
   .doc-row .meta{font-size:0.76rem; color:var(--gris); margin-top:2px;}
@@ -6081,6 +6086,89 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   if(document.body)OBSERVATEUR_TAILLES_DOCUMENTS.observe(document.body,{childList:true,subtree:true});
   window.auroreActualiserTaillesDocumentsDans=actualiserTaillesDocumentsDans;
 
+  // ---------- COUVERTURES DE LIVRES (récupérées automatiquement par titre) ----------
+  // Cache mémoire : évite de refaire un appel réseau à chaque réaffichage de la
+  // même liste (recherche, tri, pagination, retour en arrière...).
+  const CACHE_COUVERTURES_LIVRES = new Map();
+  async function recupererCouvertureLivre(titre) {
+    const clef = String(titre || '').trim().toLowerCase();
+    if (!clef) return null;
+    if (CACHE_COUVERTURES_LIVRES.has(clef)) return CACHE_COUVERTURES_LIVRES.get(clef);
+    try {
+      const res = await fetch(`https://www.googleapis.com/books/v1/volumes?maxResults=1&q=${encodeURIComponent('intitle:' + titre)}`);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const donnees = await res.json();
+      const item = Array.isArray(donnees.items) ? donnees.items[0] : null;
+      const liens = item?.volumeInfo?.imageLinks || {};
+      let url = liens.thumbnail || liens.smallThumbnail || null;
+      if (url) url = url.replace(/^http:\/\//, 'https://');
+      CACHE_COUVERTURES_LIVRES.set(clef, url);
+      return url;
+    } catch (e) {
+      console.warn('[Couverture livre] recherche impossible pour', titre, e);
+      CACHE_COUVERTURES_LIVRES.set(clef, null);
+      return null;
+    }
+  }
+  // Repli lorsque l'API ne trouve pas de couverture (cas fréquent pour un
+  // ouvrage scolaire local, non référencé en ligne) : on affiche la première
+  // page du PDF déposé, qui existe forcément. Réutilise volontairement
+  // chargerPdfJs()/recupererOctetsPDF()/memoriserPDFCache() — les mêmes
+  // fonctions que le lecteur PDF plus bas dans ce fichier — pour bénéficier du
+  // même repli Worker→URL directe, et pour que le fichier ne soit pas
+  // re-téléchargé si l'utilisateur ouvre ensuite "Lire" sur ce même livre.
+  const CACHE_COUVERTURES_PREMIERE_PAGE = new Map();
+  async function genererCouverturePremierePagePDF(doc) {
+    const clef = String(doc?.id ?? doc?.Fichier_url ?? '');
+    if (!clef || !doc?.Fichier_url) return null;
+    if (CACHE_COUVERTURES_PREMIERE_PAGE.has(clef)) return CACHE_COUVERTURES_PREMIERE_PAGE.get(clef);
+    try {
+      await chargerPdfJs();
+      const cacheCle = String(doc.Fichier_url);
+      let octets = PDF_CACHE_OCTETS.get(cacheCle) || null;
+      if (!octets) {
+        octets = await recupererOctetsPDF(doc.Fichier_url, null, null, null);
+        memoriserPDFCache(cacheCle, octets);
+      }
+      const pdf = await pdfjsLib.getDocument({ data: octets.slice(0) }).promise;
+      const page = await pdf.getPage(1);
+      const base = page.getViewport({ scale: 1 });
+      const viewport = page.getViewport({ scale: Math.min(1, 90 / base.width) });
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(viewport.width));
+      canvas.height = Math.max(1, Math.round(viewport.height));
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.72);
+      CACHE_COUVERTURES_PREMIERE_PAGE.set(clef, dataUrl);
+      return dataUrl;
+    } catch (e) {
+      console.warn('[Couverture livre] rendu de la première page impossible pour', doc?.Titre, e);
+      CACHE_COUVERTURES_PREMIERE_PAGE.set(clef, null);
+      return null;
+    }
+  }
+  // Tente d'afficher la couverture dans la vignette d'une ligne-document, sans
+  // jamais casser la mise en page si l'image est introuvable ou l'appel échoue :
+  // l'icône générique reste alors affichée telle quelle.
+  function appliquerCouvertureSiLivre(row, doc) {
+    const estUnLivre = (doc['Catégorie'] || doc.Type) === 'Livres';
+    if (!estUnLivre) return;
+    const wrap = row.querySelector('.icon-wrap');
+    if (!wrap) return;
+    const afficher = (url) => {
+      if (!url) return;
+      wrap.classList.add('a-couverture');
+      wrap.innerHTML = `<img class="doc-cover-img" src="${echapperHtmlPub(url)}" alt="Couverture — ${echapperHtmlPub(doc.Titre)}" loading="lazy" onerror="this.closest('.icon-wrap')?.classList.remove('a-couverture'); this.remove();">`;
+    };
+    const viaTitre = doc.Titre ? recupererCouvertureLivre(doc.Titre) : Promise.resolve(null);
+    viaTitre.then(url => {
+      if (url) { afficher(url); return; }
+      // Aucune couverture trouvée en ligne pour ce titre : on se rabat sur la
+      // première page du PDF lui-même.
+      genererCouverturePremierePagePDF(doc).then(afficher);
+    });
+  }
+
   function rendreListeDocuments(content, data) {
     documentsCourants = Array.isArray(data) ? data : [];
     if (documentsCourants.length === 0) {
@@ -6129,6 +6217,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       });
       actualiserEtatActionsDocument(row,doc);
       actualiserTaillesDocumentsDans(row);
+      appliquerCouvertureSiLivre(row,doc);
       list.appendChild(row);
     });
     content.innerHTML='';
