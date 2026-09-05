@@ -2534,17 +2534,23 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
             <div><span class="profile-form-kicker">Informations du profil</span><h3 id="profileInfoModalTitle">Informations Élève</h3><p id="profileInfoModalSubtitle">Renseignez uniquement les informations demandées pour ce rôle.</p></div>
           </div>
           <div class="profile-form-section profile-modal-section">
-            <div class="profile-form-section-head"><span>01</span><div><strong>Votre identité</strong><small>Ces informations permettent à l'administration d'identifier votre demande.</small></div></div>
+            <div class="profile-form-section-head"><span>01</span><div><strong>Identité et établissement</strong><small>Ces informations sont communes à tous les profils.</small></div></div>
             <div class="profile-fields-grid profile-fields-grid-main">
               <label>Nom <span>*</span><input type="text" id="profilNomInput" placeholder="Votre nom" maxlength="100" autocomplete="family-name"></label>
               <label>Prénom <span>*</span><input type="text" id="profilPrenomInput" placeholder="Votre prénom" maxlength="100" autocomplete="given-name"></label>
-              <label class="profile-field-wide">Établissement / structure <span>*</span><input type="text" id="profilLyceeInput" placeholder="Nom de votre établissement ou structure" maxlength="180" autocomplete="organization"></label>
+              <label class="profile-field-wide">Établissement <span>*</span><input type="text" id="profilLyceeInput" placeholder="Nom de votre établissement" maxlength="180" autocomplete="organization"></label>
             </div>
           </div>
-          <div class="profile-form-section profile-modal-section role-specific-fields">
-            <div class="profile-form-section-head"><span>02</span><div><strong id="profileSpecificTitle">Informations Élève</strong><small id="profileSpecificHelp">Ces champs sont adaptés à votre situation.</small></div></div>
-            <div class="profile-fields-grid" id="profileSpecificFields"></div>
-            <div class="profile-role-hint" id="profilRoleHint"></div>
+          <div class="profile-form-section profile-modal-section">
+            <div class="profile-form-section-head"><span>02</span><div><strong id="profileSpecificTitle">Informations Élève</strong><small>Les champs s'adaptent automatiquement au rôle choisi.</small></div></div>
+            <div class="profile-fields-grid">
+              <label id="profilNiveauField">Niveau <span>*</span><input type="text" id="profilNiveauInput" placeholder="Ex. Terminale A" maxlength="80"></label>
+              <label id="profilClasseField">Classe <span>*</span><input type="text" id="profilClasseInput" placeholder="Votre classe" maxlength="80"></label>
+              <label id="profilFiliereField">Filière / série <small>(facultatif)</small><input type="text" id="profilFiliereInput" placeholder="Votre filière ou série" maxlength="100"></label>
+              <label id="profilDisciplineField" hidden>Discipline <span>*</span><input type="text" id="profilDisciplineInput" placeholder="Ex. Mathématiques" maxlength="120"></label>
+              <label id="profilFonctionField" hidden>Fonction <span id="profilFonctionReqMark" hidden>*</span><small id="profilFonctionOptMark">(facultatif)</small><input type="text" id="profilFonctionInput" placeholder="Ex. Surveillant, censeur, bibliothécaire…" maxlength="120"></label>
+              <label id="profilEnfantField" hidden>Informations sur l'enfant <span>*</span><input type="text" id="profilEnfantInput" placeholder="Nom, classe ou niveau de l'enfant" maxlength="180"></label>
+            </div>
           </div>
           <div class="profile-form-modal-footer">
             <div class="profile-required-note"><strong>*</strong> Les champs marqués sont nécessaires pour finaliser votre espace.</div>
@@ -3356,21 +3362,40 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
   function mettreAJourChampsProfilSelonRole(){
     const role=String(document.getElementById('profilRoleInput')?.value||'eleve').toLowerCase();
-    const container=document.getElementById('profileSpecificFields'); if(!container)return;
-    const old={}; ['profilNiveauInput','profilClasseInput','profilFiliereInput','profilDisciplineInput','profilFonctionInput','profilEnfantInput'].forEach(id=>{const e=document.getElementById(id);if(e)old[id]=e.value||'';});
-    const cfgs={
-      eleve:{title:'Informations Élève',intro:'Renseignez uniquement les informations concernant votre scolarité.',fields:[['profilNiveauInput','Niveau','Ex. 6e, 3e, Seconde, Terminale…',true,'text'],['profilClasseInput','Classe','Ex. 3e A, Tle D…',true,'text'],['profilFiliereInput','Filière / série','Ex. A, C, D, G2…',false,'text']]},
-      enseignant:{title:'Informations Enseignant',intro:'Renseignez uniquement les informations liées à votre activité d’enseignement.',fields:[['profilDisciplineInput','Discipline enseignée','Ex. Mathématiques, Français…',true,'text'],['profilFonctionInput','Fonction','Ex. professeur principal, coordonnateur…',false,'text']]},
-      professeur:{title:'Informations Professeur',intro:'Renseignez uniquement les informations liées à votre activité d’enseignement.',fields:[['profilDisciplineInput','Discipline enseignée','Ex. Mathématiques, Français…',true,'text'],['profilFonctionInput','Fonction','Ex. professeur principal, coordonnateur…',false,'text']]},
-      parent:{title:'Informations Parent',intro:'Renseignez uniquement les informations concernant votre enfant.',fields:[['profilEnfantInput','Informations concernant votre enfant','Ex. prénom, niveau, classe et toute information utile…',true,'textarea']]},
-      personnel:{title:'Informations Personnel',intro:'Renseignez uniquement votre fonction dans l’établissement.',fields:[['profilFonctionInput','Fonction','Ex. surveillant, censeur, bibliothécaire…',true,'text']]}
-    };
-    const cfg=cfgs[role]||cfgs.eleve;
-    const title=document.getElementById('profileSpecificTitle'), help=document.getElementById('profileSpecificHelp');
-    if(title)title.textContent=cfg.title; if(help)help.textContent=cfg.intro;
-    container.innerHTML=cfg.fields.map(f=>{const tag=f[4]==='textarea'?'textarea':'input',req=f[3]?' required':'',star=f[3]?' <span aria-hidden="true">*</span>':' <small>(facultatif)</small>';return '<label class="profile-dynamic-field" for="'+f[0]+'">'+echapperHtmlPub(f[1])+star+'<'+tag+' id="'+f[0]+'" name="'+f[0]+'" placeholder="'+echapperHtmlPub(f[2])+'" maxlength="500"'+req+'></'+tag+'></label>';}).join('');
-    cfg.fields.forEach(f=>{const e=document.getElementById(f[0]);if(e)e.value=old[f[0]]||'';});
-    synchroniserCartesRoleProfil();
+    const niveau=document.getElementById('profilNiveauField'), classe=document.getElementById('profilClasseField'), filiere=document.getElementById('profilFiliereField');
+    const discipline=document.getElementById('profilDisciplineField'), fonction=document.getElementById('profilFonctionField'), enfant=document.getElementById('profilEnfantField');
+    const context=document.getElementById('profilRoleContext');
+    const enseignant=role==='enseignant'||role==='professeur';
+    const personnel=role==='personnel';
+    if(niveau)niveau.hidden=enseignant||role==='parent'||personnel;
+    if(classe)classe.hidden=enseignant||role==='parent'||personnel;
+    if(filiere)filiere.hidden=enseignant||role==='parent'||personnel;
+    if(discipline)discipline.hidden=!enseignant;
+    if(fonction)fonction.hidden=!(enseignant||personnel);
+    if(enfant)enfant.hidden=role!=='parent';
+    const reqMark=document.getElementById('profilFonctionReqMark'), optMark=document.getElementById('profilFonctionOptMark');
+    if(reqMark) reqMark.hidden=!personnel;
+    if(optMark) optMark.hidden=personnel;
+    const req=(id,on)=>{const el=document.getElementById(id);if(el)el.required=!!on;};
+    req('profilNomInput',true);
+    req('profilPrenomInput',true);
+    req('profilLyceeInput',true);
+    req('profilNiveauInput',!enseignant&&role!=='parent'&&!personnel);
+    req('profilClasseInput',!enseignant&&role!=='parent'&&!personnel);
+    req('profilFiliereInput',false);
+    req('profilDisciplineInput',enseignant);
+    req('profilFonctionInput',personnel);
+    req('profilEnfantInput',role==='parent');
+    if(context){
+      const textes={
+        eleve:'Élève : renseignez votre établissement, votre niveau et votre classe. La filière/série reste facultative.',
+        enseignant:'Enseignant : renseignez votre nom, prénom, établissement et discipline. La fonction (ex. professeur principal) est facultative.',
+        professeur:'Professeur : renseignez votre nom, prénom, établissement et discipline. La fonction (ex. professeur principal) est facultative.',
+        parent:'Parent : renseignez votre établissement puis les informations utiles concernant votre enfant.',
+        personnel:'Personnel de l\u2019établissement : renseignez votre nom, prénom, établissement et votre fonction (ex. surveillant, censeur, bibliothécaire...).'
+      };
+      context.innerHTML='<strong>Informations adaptées à votre profil</strong><span>'+echapperHtmlPub(textes[role]||textes.eleve)+'</span>';
+    }
   }
   document.getElementById('profilRoleInput')?.addEventListener('change',mettreAJourChampsProfilSelonRole);
   document.querySelectorAll('.profile-role-option[data-profile-role]').forEach(btn=>btn.addEventListener('click',()=>{const select=document.getElementById('profilRoleInput');if(select){select.value=btn.dataset.profileRole;select.dispatchEvent(new Event('change',{bubbles:true}));}}));
@@ -3399,9 +3424,10 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   })();
   function synchroniserCartesRoleProfil(){const role=String(document.getElementById('profilRoleInput')?.value||'eleve').toLowerCase();document.querySelectorAll('.profile-role-option[data-profile-role]').forEach(btn=>btn.setAttribute('aria-pressed',btn.dataset.profileRole===role?'true':'false'));}
   const _mettreAJourChampsProfilSelonRole=mettreAJourChampsProfilSelonRole;
+  mettreAJourChampsProfilSelonRole=function(){_mettreAJourChampsProfilSelonRole();synchroniserCartesRoleProfil();};
 
   async function enregistrerProfilPersonnel(options={}) {
-    if (!session || !session.access_token) return false;
+    if (!session || !session.access_token) { const m=document.getElementById('profilSaveMessage'); if(m){m.textContent='Session expirée. Reconnectez-vous puis réessayez.';m.className='err';} return false; }
     const nom = document.getElementById('profilNomInput').value.trim();
     const prenom = document.getElementById('profilPrenomInput').value.trim();
     const lycee = document.getElementById('profilLyceeInput').value.trim();
@@ -3436,28 +3462,14 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         console.warn('[Profil] RPC indisponible',rpc.status,detail);
         // Compatibilité avec une installation où le SQL RPC n'a pas encore
         // été exécuté : on tente le PATCH direct avec le token utilisateur.
-        const profilPayload={id:session.id,nom,prenom,email:session.email||'',lycee,niveau,classe,filiere,role,discipline,fonction,enfant_informations};
-        const userHeaders={'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json','Prefer':'return=representation'};
         const patch=await fetch(`${SUPABASE_URL}/rest/v1/Profils?id=eq.${encodeURIComponent(session.id)}`,{
           method:'PATCH',
-          headers:userHeaders,
+          headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json','Prefer':'return=representation'},
           body:JSON.stringify({nom,prenom,lycee,niveau,classe,filiere,role,discipline,fonction,enfant_informations})
         });
         if(!patch.ok){
           const pd=await patch.text().catch(()=> '');
           throw new Error('PROFIL_DB_'+patch.status+' '+pd);
-        }
-        const patchRows=await patch.json().catch(()=>[]);
-        if(!Array.isArray(patchRows) || patchRows.length===0){
-          const ins=await fetch(`${SUPABASE_URL}/rest/v1/Profils`,{
-            method:'POST',
-            headers:userHeaders,
-            body:JSON.stringify(profilPayload)
-          });
-          if(!ins.ok){
-            const idetail=await ins.text().catch(()=> '');
-            throw new Error('PROFIL_INSERT_'+ins.status+' '+idetail);
-          }
         }
       }
 
@@ -3477,9 +3489,9 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       session.nom=nom; session.prenom=prenom; session.lycee=lycee; session.niveau=niveau; session.classe=niveau&&classe?classe:''; session.filiere=filiere; session.role=role; session.discipline=discipline; session.fonction=fonction; session.enfant_informations=enfant_informations;
       session.user_metadata={...(session.user_metadata||{}),nom,prenom,lycee,niveau,classe,filiere,role,discipline,fonction,enfant_informations,...md};
       sauvegarderSession();
-      msg.textContent='Merci ! Vos informations ont bien été enregistrées et transmises à l’administration.'; msg.className='ok';
+      msg.textContent='Votre espace personnel est maintenant configuré.'; msg.className='ok';
        let success=document.getElementById('auroreProfileSuccess');
-       if(!success){success=document.createElement('div');success.id='auroreProfileSuccess';success.className='aurore-profile-success';success.innerHTML='<div class="aurore-profile-success-icon">✓</div><div><strong>Enregistrement confirmé</strong><span>Vos informations ont bien été enregistrées. L’administration peut maintenant les consulter dans votre fiche.</span></div>';msg.parentElement?.appendChild(success);}
+       if(!success){success=document.createElement('div');success.id='auroreProfileSuccess';success.className='aurore-profile-success';success.innerHTML='<div class="aurore-profile-success-icon">✓</div><div><strong>Enregistrement confirmé</strong><span>Vos informations ont été enregistrées et seront reprises dans votre espace personnel.</span></div>';msg.parentElement?.appendChild(success);}
        else success.style.display='flex';
       btn.textContent='Profil enregistré ✓';
       setTimeout(()=>{btn.textContent=ancienTexte;},1800);
@@ -3491,7 +3503,26 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     } finally { btn.disabled=false; }
   }
 
-  document.getElementById('profilLyceeSave').addEventListener('click',()=>enregistrerProfilPersonnel());
+  (function(){
+  const saveBtn=document.getElementById('profilLyceeSave');
+  if(!saveBtn) return;
+  saveBtn.addEventListener('click', async function(e){
+    e.preventDefault(); e.stopPropagation();
+    if(this.disabled) return;
+    try {
+      const ok=await enregistrerProfilPersonnel();
+      if(!ok) return;
+      const role=String(document.getElementById('profilRoleInput')?.value||'eleve').toLowerCase();
+      const modal=document.getElementById('profileInfoModal');
+      if(modal){ modal.classList.remove('show'); modal.setAttribute('aria-hidden','true'); document.body.classList.remove('profile-modal-open'); }
+    } catch(err) {
+      console.error('[Profil] clic enregistrement:',err);
+      const msg=document.getElementById('profilSaveMessage');
+      if(msg){msg.textContent='Impossible d’enregistrer pour le moment. Réessayez.';msg.className='err';}
+      this.disabled=false;
+    }
+  }, true);
+})();
 
   document.getElementById('btnOuvrirProfil').addEventListener('click', () => {
     if (document.getElementById('screen-profil')?.classList.contains('active')) return;
@@ -11682,88 +11713,23 @@ footer>.wrap:last-child{margin-top:18px!important;}
   }
   function closeCode(){codeModal.style.display='none';codeModal.setAttribute('aria-hidden','true');codeResolve?.(false);codeResolve=null;}
   async function confirmCode(){
-    const value=String(codeInput?.value||'').trim();
-    if(!/^\d{4,8}$/.test(value)){
-      if(codeMsg){codeMsg.textContent='Le code doit contenir entre 4 et 8 chiffres.';codeMsg.className='access-code-message err';codeMsg.style.display='block';}
+    const value=String(codeInput.value||'').trim();
+    if(!/^\d{4,8}$/.test(value)){codeMsg.textContent='Le code doit contenir entre 4 et 8 chiffres.';codeMsg.className='access-code-message err';return;}
+    if(codeMode==='setup'){
+      try{localStorage.setItem(KEY_CODE+userKey(),await hashCode(value));codeMsg.textContent='Code enregistré. Votre espace va s’ouvrir.';codeMsg.className='access-code-message ok';setTimeout(()=>{closeCode();ouvrirEspaceInterne(espaceOptions);},300);}catch(e){codeMsg.textContent='Impossible d’enregistrer le code sur cet appareil.';codeMsg.className='access-code-message err';}
       return;
     }
-
-    // Vérifier uniquement le code. Toutes les opérations d'ouverture de l'espace
-    // sont volontairement séparées afin qu'une erreur secondaire ne bloque jamais l'accès.
-    let valide=false;
-    try{
-      const stored=codeStocke();
-      if(codeMode==='setup'){
-        const hashed=await hashCode(value);
-        localStorage.setItem(KEY_CODE+userKey(),hashed);
-        valide=true;
-      }else if(stored){
-        valide=(await hashCode(value))===stored;
-      }
-    }catch(e){
-      console.error('[Code] vérification:',e);
-      valide=false;
-    }
-
-    if(!valide){
-      if(codeMsg){codeMsg.textContent='Code incorrect. Réessayez.';codeMsg.className='access-code-message err';codeMsg.style.display='block';}
-      return;
-    }
-
-    // IMPORTANT : le code est bon. On ferme le verrou AVANT tout chargement de données.
-    try{
-      document.body.classList.remove('site-locked','access-locked');
-      document.body.style.overflow='';
-      if(lock){lock.classList.remove('show');lock.style.display='none';lock.setAttribute('aria-hidden','true');}
-      if(codeModal){codeModal.style.display='none';codeModal.setAttribute('aria-hidden','true');}
-    }catch(e){ console.warn('[Code] fermeture verrou:',e); }
-
-    // Ouvrir directement l'écran Profil. Rien d'autre ne doit être requis.
-    try{ window.auroreUnlockAccess?.(); }catch(e){}
-    try{ afficherUtilisateurConnecte?.(); }catch(e){}
-    try{ remplirProfil?.(); }catch(e){}
-    try{
-      const breadcrumb=document.getElementById('breadcrumb');
-      if(breadcrumb)breadcrumb.innerHTML='';
-      document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-      const screen=document.getElementById('screen-profil');
-      if(screen)screen.classList.add('active');
-      window.scrollTo(0,0);
-    }catch(e){ console.warn('[Code] ouverture profil:',e); }
-
-    // Le reste est secondaire et ne peut plus empêcher l'accès.
-    setTimeout(()=>{
-      try{ auroreMasquerInvitationEspacePersonnel(false); }catch(e){}
-      try{ window.chargerCasesPersonnelles?.(); }catch(e){}
-      try{ window.chargerDonneesEspacePersonnel?.(); }catch(e){}
-    },0);
+    try{const ok=(await hashCode(value))===codeStocke();if(!ok){codeMsg.textContent='Code incorrect. Réessayez.';codeMsg.className='access-code-message err';return;}closeCode();ouvrirEspaceInterne(espaceOptions);}catch(e){codeMsg.textContent='Impossible de vérifier le code.';codeMsg.className='access-code-message err';}
   }
-  async function restaurerSessionAvantEspace(){
-    if(session?.id)return true;
-    try{const saved=sessionStorage.getItem('lsnb_session');if(saved){const candidate=JSON.parse(saved);if(candidate?.id&&candidate?.access_token){session=candidate;if(candidate.expires_at&&Date.now()>candidate.expires_at){const ok=await rafraichirSession();if(!ok){session=null;sessionStorage.removeItem('lsnb_session');return false;}}return !!session?.id;}}}catch(e){console.warn('[Espace] restauration session:',e)}
-    return false;
-  }
-  async function ouvrirEspaceInterne(options={}){
-    if(!await restaurerSessionAvantEspace())return false;
-    if(typeof window.auroreUnlockAccess==='function')window.auroreUnlockAccess();
-    try{afficherUtilisateurConnecte()}catch(e){}
-    document.getElementById('breadcrumb').innerHTML='';remplirProfil();
+  function ouvrirEspaceInterne(options={}){
+    if(!session)return;if(typeof window.auroreUnlockAccess==='function')window.auroreUnlockAccess();document.getElementById('breadcrumb').innerHTML='';remplirProfil();
     const screen=document.getElementById('screen-profil');
-    if(screen&&options.forceComplete&&!screen.querySelector('.profile-completion-banner')){const banner=document.createElement('div');banner.className='profile-completion-banner';banner.textContent='Bienvenue dans votre espace personnel. Avant de commencer, renseignez au minimum votre établissement, votre niveau et votre classe. Ces informations permettent à Aurore de personnaliser et organiser votre expérience.';screen.insertBefore(banner,screen.querySelector('.profile-card'));}
-    auroreMasquerInvitationEspacePersonnel(false);afficherEcran('screen-profil');setTimeout(()=>chargerDonneesEspacePersonnel?.(),0);return true;
+    if(screen && options.forceComplete && !screen.querySelector('.profile-completion-banner')){const banner=document.createElement('div');banner.className='profile-completion-banner';banner.textContent='Bienvenue dans votre espace personnel. Avant de commencer, renseignez au minimum votre établissement, votre niveau et votre classe. Ces informations permettent à Aurore de personnaliser et organiser votre expérience.';screen.insertBefore(banner,screen.querySelector('.profile-card'));}
+    auroreMasquerInvitationEspacePersonnel(false);
+     afficherEcran('screen-profil');setTimeout(()=>chargerDonneesEspacePersonnel?.(),0);
   }
-  async function ouvrirEspaceAvecCode(options={}){
-    if(!await restaurerSessionAvantEspace()){
-      let essais=0;
-      const attendre=async()=>{
-        if(await restaurerSessionAvantEspace()){ouvrirEspaceAvecCode(options);return;}
-        if(++essais<20){setTimeout(attendre,250);return;}
-        const msg=document.getElementById('accessMessage');
-        if(msg){msg.textContent='Votre session a expiré. Reconnectez-vous pour accéder à votre espace personnel.';msg.className='access-message err';msg.style.display='block';}
-      };
-      setTimeout(attendre,0);
-      return;
-    }
+  function ouvrirEspaceAvecCode(options={}){
+    if(!session)return;
     if(!codeStocke())showCode('setup',options);else showCode('verify',options);
   }
   window.ouvrirEspaceAvecCode=ouvrirEspaceAvecCode;
@@ -12280,90 +12246,6 @@ window.addEventListener('load',()=>{
   el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();goHome();}});
   addEventListener('resize',()=>{clamp();save();},{passive:true});
   restore();
-})();
-</script>
-
-<script>
-/* Correctif définitif du verrou de l'espace personnel.
-   Ce handler est volontairement indépendant des autres scripts afin qu'une
-   erreur Supabase ou JavaScript dans une fonctionnalité secondaire ne puisse
-   empêcher la validation du code local. */
-(function(){
-  const KEY='aurore_code_espace_';
-  function getSession(){
-    try{
-      if(window.session && window.session.id) return window.session;
-      const raw=sessionStorage.getItem('lsnb_session');
-      const s=raw?JSON.parse(raw):null;
-      if(s?.id){ try{window.session=s;}catch(e){} return s; }
-    }catch(e){}
-    return null;
-  }
-  async function sha256(v){
-    const data=new TextEncoder().encode(String(v));
-    const hash=await crypto.subtle.digest('SHA-256',data);
-    return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
-  }
-  function fermerVerrou(){
-    const modal=document.getElementById('accessCodeModal');
-    const lock=document.getElementById('accessLock');
-    if(modal){modal.style.display='none';modal.setAttribute('aria-hidden','true');}
-    if(lock){lock.style.display='none';lock.classList.remove('show');lock.setAttribute('aria-hidden','true');}
-    document.body.classList.remove('site-locked','access-locked');
-    document.body.style.overflow='';
-    try{window.auroreUnlockAccess?.();}catch(e){}
-  }
-  async function valider(){
-    const input=document.getElementById('accessCodeInput');
-    const msg=document.getElementById('accessCodeMessage');
-    const value=String(input?.value||'').trim();
-    if(!/^\d{4,8}$/.test(value)){
-      if(msg){msg.textContent='Utilisez 4 à 8 chiffres.';msg.className='access-code-message err';msg.style.display='block';}
-      return;
-    }
-    const s=getSession();
-    if(!s?.id){
-      if(msg){msg.textContent='Session utilisateur introuvable. Reconnectez-vous à Aurore puis réessayez.';msg.className='access-code-message err';msg.style.display='block';}
-      return;
-    }
-    try{
-      const stored=localStorage.getItem(KEY+String(s.id));
-      if(!stored){
-        if(msg){msg.textContent='Aucun code d’accès n’est enregistré pour ce compte sur cet appareil.';msg.className='access-code-message err';msg.style.display='block';}
-        return;
-      }
-      const ok=(await sha256(value))===stored;
-      if(!ok){
-        if(msg){msg.textContent='Code incorrect. Réessayez.';msg.className='access-code-message err';msg.style.display='block';}
-        return;
-      }
-      // Le code est valide : aucune requête Supabase n'est nécessaire pour ouvrir l'espace.
-      fermerVerrou();
-      try{document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));document.getElementById('screen-profil')?.classList.add('active');}catch(e){}
-      try{window.scrollTo(0,0);}catch(e){}
-      try{window.remplirProfil?.();}catch(e){}
-      try{window.chargerCasesPersonnelles?.();}catch(e){}
-      try{window.chargerDonneesEspacePersonnel?.();}catch(e){}
-    }catch(e){
-      console.error('[Verrou espace] validation:',e);
-      if(msg){msg.textContent='Impossible de vérifier le code sur cet appareil. Réessayez.';msg.className='access-code-message err';msg.style.display='block';}
-    }
-  }
-  function installer(){
-    const btn=document.getElementById('accessCodeConfirm');
-    const input=document.getElementById('accessCodeInput');
-    if(btn && !btn.dataset.auroreDirectHandler){
-      btn.dataset.auroreDirectHandler='1';
-      btn.addEventListener('click',function(e){e.preventDefault();e.stopImmediatePropagation();valider();},true);
-    }
-    if(input && !input.dataset.auroreDirectHandler){
-      input.dataset.auroreDirectHandler='1';
-      input.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();e.stopImmediatePropagation();valider();}},true);
-    }
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installer,{once:true});else installer();
-  setTimeout(installer,300);
-  setTimeout(installer,1000);
 })();
 </script>
 </body>
