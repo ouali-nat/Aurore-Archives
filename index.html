@@ -3751,7 +3751,13 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     afficherEcran('screen-profil');
   }
 
-  window.addEventListener('load', async () => {
+  // Anciennement sur 'load' : cet événement attend aussi les scripts async
+  // (dont le CDN Supabase), ce qui pouvait retarder longuement le traitement
+  // du retour Google (?code=...) en navigation normale si le CDN était lent
+  // ou filtré — laissant l'utilisateur bloqué sur l'écran verrouillé après
+  // avoir choisi son compte. auroreInitAuth() ne dépend pas des ressources
+  // (images, styles) : DOMContentLoaded suffit et évite ce retard.
+  async function auroreInitAuth() {
     // Le portail reste couvert pendant la vérification initiale de session.
     // Cela évite d'afficher une page immobile sans explication pendant les chargements.
     if (typeof window.auroreAfficherVeuillezPatienter === 'function') {
@@ -3902,7 +3908,12 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       if (!profilEstComplet(session)) ouvrirEspacePersonnelObligatoire();
     }
     if (typeof window.auroreCacherVeuillezPatienter === 'function') window.auroreCacherVeuillezPatienter();
-  });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', auroreInitAuth);
+  } else {
+    auroreInitAuth();
+  }
 
   // ---------- ICÔNES SOBRES (SVG en ligne, pas d'emoji) ----------
   const ICONS = {
