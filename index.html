@@ -3155,6 +3155,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       discipline: profil.discipline || meta.discipline || '',
       fonction: profil.fonction || meta.fonction || '',
       enfant_informations: profil.enfant_informations || meta.enfant_informations || '',
+      situation_role: meta.situation_role || '',
       banni: profil.banni === true,
       role: profil.role || null,
       provider: (data.app_metadata && Array.isArray(data.app_metadata.providers) && data.app_metadata.providers.includes('google')) ? 'Google' : 'E-mail'
@@ -3222,7 +3223,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         access_token: data.access_token, refresh_token: data.refresh_token,
         expires_at: Date.now() + (data.expires_in * 1000),
         id: infos ? infos.id : session.id, email: infos ? infos.email : session.email,
-        nom: infos ? infos.nom : session.nom, avatar: infos ? infos.avatar : session.avatar, prenom: infos ? infos.prenom : (session.prenom || ''), lycee: infos ? infos.lycee : (session.lycee || ''), niveau: infos ? infos.niveau : (session.niveau || ''), classe: infos ? infos.classe : (session.classe || ''), filiere: infos ? infos.filiere : (session.filiere || ''), discipline: infos ? infos.discipline : (session.discipline || ''), fonction: infos ? infos.fonction : (session.fonction || ''), enfant_informations: infos ? infos.enfant_informations : (session.enfant_informations || ''), banni: infos ? infos.banni === true : (session.banni === true), provider: infos ? infos.provider : (session.provider || 'E-mail'), role
+        nom: infos ? infos.nom : session.nom, avatar: infos ? infos.avatar : session.avatar, prenom: infos ? infos.prenom : (session.prenom || ''), lycee: infos ? infos.lycee : (session.lycee || ''), niveau: infos ? infos.niveau : (session.niveau || ''), classe: infos ? infos.classe : (session.classe || ''), filiere: infos ? infos.filiere : (session.filiere || ''), discipline: infos ? infos.discipline : (session.discipline || ''), fonction: infos ? infos.fonction : (session.fonction || ''), enfant_informations: infos ? infos.enfant_informations : (session.enfant_informations || ''), situation_role: infos?.situation_role || session.situation_role || session.user_metadata?.situation_role || '', user_metadata: session.user_metadata || {}, banni: infos ? infos.banni === true : (session.banni === true), provider: infos ? infos.provider : (session.provider || 'E-mail'), role
       };
       sauvegarderSession();
       return true;
@@ -3323,10 +3324,25 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     };
   }
 
+  function obtenirRoleSituation(sess=session) {
+    if (!sess) return 'eleve';
+    const candidats=['eleve','enseignant','professeur','parent','personnel'];
+    // La situation choisie par l'utilisateur est distincte du rôle technique
+    // (admin/eleve) du compte. Elle doit donc être conservée même pour le
+    // compte propriétaire qui reste admin.
+    const explicite=String(sess.situation_role||sess.user_metadata?.situation_role||'').trim().toLowerCase();
+    if(candidats.includes(explicite)) return explicite;
+    if(String(sess.enfant_informations||sess.user_metadata?.enfant_informations||'').trim()) return 'parent';
+    if(String(sess.discipline||sess.matiere||sess.user_metadata?.discipline||'').trim()) return 'enseignant';
+    if(String(sess.fonction||sess.user_metadata?.fonction||'').trim()) return 'personnel';
+    const role=String(sess.role||'eleve').toLowerCase();
+    return candidats.includes(role) ? role : 'eleve';
+  }
+
   function profilEstComplet(sess=session) {
     if (!sess) return false;
     const i = obtenirInfosProfilLocal();
-    const role=String(sess.role||'eleve').toLowerCase();
+    const role=obtenirRoleSituation(sess);
     const enseignant=role==='enseignant'||role==='professeur';
     if(!i.nom.trim() || !i.prenom.trim() || !i.lycee.trim()) return false;
     if(enseignant) return Boolean(String(sess.discipline||sess.matiere||'').trim());
@@ -3338,7 +3354,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   function afficherDetailsProfilUtilisateur(){
     const host=document.getElementById('profilRoleDetails');
     if(!host || !session) return;
-    const role=String(session.role||'eleve').toLowerCase();
+    const role=obtenirRoleSituation(session);
     const labels={
       eleve:[['Établissement',session.lycee],['Niveau',session.niveau],['Classe',session.classe],['Filière / série',session.filiere]],
       enseignant:[['Établissement',session.lycee],['Discipline',session.discipline],['Fonction',session.fonction]],
@@ -3347,7 +3363,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       personnel:[['Établissement',session.lycee],['Fonction',session.fonction]]
     };
     const rows=labels[role]||labels.eleve;
-    host.innerHTML='<div style="grid-column:1/-1;font-weight:800;font-size:1rem;margin-bottom:-2px;">Informations enregistrées</div>'+rows.map(([label,value])=>{const v=String(value||'').trim();return `<div class="profile-role-details-card ${v?'':'empty'}"><div class="kicker">${echapperHtmlPub(label)}</div><strong>${v?echapperHtmlPub(v):'Non renseigné'}</strong></div>`;}).join('');
+    const identite=[['Nom',session.nom],['Prénom',session.prenom],...rows];
+    host.innerHTML='<div style="grid-column:1/-1;font-weight:800;font-size:1rem;margin-bottom:-2px;">Informations enregistrées — '+echapperHtmlPub(libelleRole(role))+'</div>'+identite.map(([label,value])=>{const v=String(value||'').trim();return `<div class="profile-role-details-card ${v?'':'empty'}"><div class="kicker">${echapperHtmlPub(label)}</div><strong>${v?echapperHtmlPub(v):'Non renseigné'}</strong></div>`;}).join('');
     host.style.display='grid';
   }
 
@@ -3378,12 +3395,13 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const context=document.getElementById('profilRoleContext');
     const enseignant=role==='enseignant'||role==='professeur';
     const personnel=role==='personnel';
-    if(niveau)niveau.hidden=enseignant||role==='parent'||personnel;
-    if(classe)classe.hidden=enseignant||role==='parent'||personnel;
-    if(filiere)filiere.hidden=enseignant||role==='parent'||personnel;
-    if(discipline)discipline.hidden=!enseignant;
-    if(fonction)fonction.hidden=!(enseignant||personnel);
-    if(enfant)enfant.hidden=role!=='parent';
+    const setVisible=(el,visible)=>{if(!el)return;el.hidden=!visible;el.style.display=visible?'':'none';};
+    setVisible(niveau,!enseignant&&role!=='parent'&&!personnel);
+    setVisible(classe,!enseignant&&role!=='parent'&&!personnel);
+    setVisible(filiere,!enseignant&&role!=='parent'&&!personnel);
+    setVisible(discipline,enseignant);
+    setVisible(fonction,enseignant||personnel);
+    setVisible(enfant,role==='parent');
     const reqMark=document.getElementById('profilFonctionReqMark'), optMark=document.getElementById('profilFonctionOptMark');
     if(reqMark) reqMark.hidden=!personnel;
     if(optMark) optMark.hidden=personnel;
@@ -3491,14 +3509,14 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         const authRes=await fetch(`${SUPABASE_URL}/auth/v1/user`,{
           method:'PATCH',
           headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json'},
-          body:JSON.stringify({data:{nom,prenom,lycee,niveau,classe,filiere,role:(session.id===PROPRIETAIRE_ADMIN_ID?'admin':role),discipline,fonction,enfant_informations}})
+          body:JSON.stringify({data:{nom,prenom,lycee,niveau,classe,filiere,role:(session.id===PROPRIETAIRE_ADMIN_ID?'admin':role),situation_role:role,discipline,fonction,enfant_informations}})
         });
         if(authRes.ok){ const authData=await authRes.json().catch(()=>({})); md=authData.user_metadata||{}; }
         else console.warn('[Profil] métadonnées Auth non mises à jour',authRes.status);
       } catch(e){ console.warn('[Profil] copie Auth ignorée',e); }
 
-      const roleFinal = session.id === PROPRIETAIRE_ADMIN_ID ? 'admin' : role; session.nom=nom; session.prenom=prenom; session.lycee=lycee; session.niveau=niveau; session.classe=niveau&&classe?classe:''; session.filiere=filiere; session.role=roleFinal; session.discipline=discipline; session.fonction=fonction; session.enfant_informations=enfant_informations; afficherDetailsProfilUtilisateur();
-      session.user_metadata={...(session.user_metadata||{}),nom,prenom,lycee,niveau,classe,filiere,role,discipline,fonction,enfant_informations,...md};
+      const roleFinal = session.id === PROPRIETAIRE_ADMIN_ID ? 'admin' : role; session.nom=nom; session.prenom=prenom; session.lycee=lycee; session.niveau=niveau; session.classe=niveau&&classe?classe:''; session.filiere=filiere; session.role=roleFinal; session.situation_role=role; session.discipline=discipline; session.fonction=fonction; session.enfant_informations=enfant_informations; afficherDetailsProfilUtilisateur();
+      session.user_metadata={...(session.user_metadata||{}),nom,prenom,lycee,niveau,classe,filiere,role:roleFinal,situation_role:role,discipline,fonction,enfant_informations,...md};
       sauvegarderSession();
       msg.textContent='Votre espace personnel est maintenant configuré.'; msg.className='ok';
        let success=document.getElementById('auroreProfileSuccess');
