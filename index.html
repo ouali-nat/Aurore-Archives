@@ -3075,11 +3075,44 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   // Client Supabase dédié à OAuth Google. Le reste du site conserve ses appels REST.
   // flowType implicit permet au navigateur de récupérer directement le retour OAuth
   // dans le fragment, sans exiger un serveur/callback PKCE supplémentaire.
-  const AURORE_SUPABASE_AUTH = window.supabase ? window.supabase.createClient(
-    "https://tdeotqfsbvouresfhkab.supabase.co",
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZW90cWZzYnZvdXJlc2Zoa2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjM4NzMsImV4cCI6MjEwMDUzOTg3M30.l_a1lI_QRy7BTq1fGjiA9n7LCdu7BwR2TTI5pkA70SU",
-    { auth: { flowType: 'implicit', autoRefreshToken: true, persistSession: true, detectSessionInUrl: true, storage: window.localStorage } }
-  ) : null;
+  function creerClientAuthGoogle() {
+    return window.supabase.createClient(
+      "https://tdeotqfsbvouresfhkab.supabase.co",
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZW90cWZzYnZvdXJlc2Zoa2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjM4NzMsImV4cCI6MjEwMDUzOTg3M30.l_a1lI_QRy7BTq1fGjiA9n7LCdu7BwR2TTI5pkA70SU",
+      { auth: { flowType: 'implicit', autoRefreshToken: true, persistSession: true, detectSessionInUrl: true, storage: window.localStorage } }
+    );
+  }
+  let AURORE_SUPABASE_AUTH = window.supabase ? creerClientAuthGoogle() : null;
+
+  // Sur certains réseaux mobiles, le CDN jsdelivr est bloqué ou trop lent au
+  // chargement initial de la page : la librairie Supabase n'est alors pas
+  // encore prête et AURORE_SUPABASE_AUTH reste null. Plutôt que d'abandonner
+  // immédiatement, on retente ici avec un second CDN de secours (unpkg), et on
+  // ne signale l'échec qu'après avoir vraiment épuisé les deux options.
+  function chargerScriptSupabase(url) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = url;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('Échec de chargement : ' + url));
+      document.head.appendChild(s);
+    });
+  }
+
+  async function assurerClientAuthGoogle() {
+    if (AURORE_SUPABASE_AUTH) return AURORE_SUPABASE_AUTH;
+    if (!window.supabase) {
+      try {
+        await chargerScriptSupabase('https://unpkg.com/@supabase/supabase-js@2');
+      } catch (e) {
+        console.error('[Google OAuth] CDN de secours indisponible :', e);
+      }
+    }
+    if (window.supabase && !AURORE_SUPABASE_AUTH) {
+      AURORE_SUPABASE_AUTH = creerClientAuthGoogle();
+    }
+    return AURORE_SUPABASE_AUTH;
+  }
 </script>
 <script>
   // ---------- CONFIGURATION SUPABASE ----------
@@ -3125,14 +3158,15 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const btn = document.getElementById('accessGoogleBtn');
 
     try {
-      if (!AURORE_SUPABASE_AUTH) {
-        throw new Error('Le service de connexion Google n’est pas disponible. Rechargez la page.');
+      const client = await assurerClientAuthGoogle();
+      if (!client) {
+        throw new Error('Impossible de joindre le service de connexion (réseau bloqué ou instable). Essayez avec le Wi-Fi ou changez de réseau mobile, puis réessayez.');
       }
 
       // Aurore est une application 100 % navigateur : on utilise le flux
       // implicit de Supabase. Les jetons reviennent dans le hash de cette page
       // et sont ensuite traités par le bloc d'initialisation ci-dessous.
-      const { data, error } = await AURORE_SUPABASE_AUTH.auth.signInWithOAuth({
+      const { data, error } = await client.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: retour,
@@ -3749,12 +3783,14 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     // 2. Retour de Google/Supabase en PKCE : Supabase renvoie ?code=...
     // Le code est échangé une seule fois contre la session utilisateur.
     const oauthCode = urlParams.get('code');
-    if (oauthCode && AURORE_SUPABASE_AUTH) {
+    if (oauthCode) {
       try {
         if (typeof window.auroreAfficherVeuillezPatienter === 'function') {
           window.auroreAfficherVeuillezPatienter('Finalisation de votre connexion Google…');
         }
-        const { data, error } = await AURORE_SUPABASE_AUTH.auth.exchangeCodeForSession(oauthCode);
+        const client = await assurerClientAuthGoogle();
+        if (!client) throw new Error('Impossible de joindre le service de connexion (réseau bloqué ou instable).');
+        const { data, error } = await client.auth.exchangeCodeForSession(oauthCode);
         if (error) throw error;
         const authSession = data?.session;
         if (!authSession?.access_token) throw new Error('Session Google introuvable après authentification.');
