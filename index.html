@@ -3072,24 +3072,21 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
 <script id="aurore-auth-recovery">
 (function(){
-  // Nettoyage ponctuel d’un ancien Service Worker qui pourrait encore contrôler
-  // une version précédente du site. On recharge une seule fois après retrait.
+  // Retire une ancienne registration de Service Worker une seule fois.
+  // Le rechargement n'est fait que si cette page était réellement contrôlée.
   if (!('serviceWorker' in navigator)) return;
-  var KEY='aurore_sw_recovery_v3';
+  var KEY='aurore_sw_recovery_v4';
   window.addEventListener('load', function(){
     navigator.serviceWorker.getRegistrations().then(function(regs){
+      if (!regs.length) return;
       var hadController=!!navigator.serviceWorker.controller;
       return Promise.all(regs.map(function(reg){ return reg.unregister(); })).then(function(){
         if (hadController && sessionStorage.getItem(KEY)!=='1') {
           sessionStorage.setItem(KEY,'1');
-          var u=new URL(window.location.href);
-          u.searchParams.set('sw_refresh','1');
-          window.location.replace(u.toString());
-        } else {
-          sessionStorage.removeItem(KEY);
+          window.location.reload();
         }
       });
-    }).catch(function(e){ console.warn('[Aurore] récupération Service Worker:',e); });
+    }).catch(function(e){ console.warn('[Aurore] nettoyage Service Worker:',e); });
   });
 })();
 </script>
@@ -3178,10 +3175,15 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   }
 
   async function demarrerConnexionGoogle() {
-    // Utilise le flux OAuth officiel de supabase-js. Cela permet à Supabase
-    // de préparer correctement le retour OAuth et d'éviter les problèmes
-    // liés à un ancien état du navigateur.
+    // Nettoyage ciblé de l'état OAuth Supabase éventuellement corrompu dans
+    // le navigateur normal. Les données Aurore ne sont pas touchées.
     try {
+      const authKey = 'sb-tdeotqfsbvouresfhkab-auth-token';
+      try {
+        localStorage.removeItem(authKey);
+        localStorage.removeItem(authKey + '-code-verifier');
+      } catch (_) {}
+
       const client = await assurerClientAuthGoogle();
       if (!client) throw new Error('Le service de connexion Google n’est pas disponible.');
 
@@ -12040,7 +12042,7 @@ footer>.wrap:last-child{margin-top:18px!important;}
   if(!estInstallee()) setTimeout(function(){if(deferredPrompt)afficher();},1200);
   if('serviceWorker' in navigator){
     window.addEventListener('load',function(){
-      navigator.serviceWorker.register('./sw.js',{scope:'./',updateViaCache:'none'})
+      navigator.serviceWorker.register('./sw.js?v=20260905',{scope:'./',updateViaCache:'none'})
         .then(function(reg){
           try { reg.update(); } catch(e) {}
           console.log('[Aurore PWA] Service worker actif.',reg.scope);
