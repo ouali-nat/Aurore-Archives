@@ -1521,6 +1521,16 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 .profile-role-context span{display:block;margin-left:2px;}
 </style>
 
+
+<style id="aurore-profile-form-redesign">
+.profile-form-redesign{padding:0!important;overflow:hidden;background:var(--papier);border:1px solid var(--bordure);box-shadow:0 18px 50px rgba(45,30,75,.08)}
+.profile-form-head{display:flex;justify-content:space-between;gap:18px;padding:24px;border-bottom:1px solid var(--bordure);background:linear-gradient(135deg,rgba(124,58,237,.10),rgba(255,255,255,.02))}
+.profile-form-kicker{display:block;font-size:.62rem;text-transform:uppercase;letter-spacing:.14em;font-weight:850;color:var(--violet);margin-bottom:5px}.profile-form-head h3{margin:0;color:var(--encre);font-size:1.18rem;letter-spacing:-.02em}.profile-form-head p{margin:6px 0 0;color:var(--gris);font-size:.75rem;line-height:1.5}.profile-form-step{width:48px;height:48px;flex:0 0 48px;border-radius:15px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(124,58,237,.10);color:var(--violet)}.profile-form-step span{font-size:1rem;font-weight:900;line-height:1}.profile-form-step small{font-size:.52rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-top:3px}
+.profile-role-box{margin:18px 24px 0;padding:16px;border:1px solid rgba(124,58,237,.18);border-radius:18px;background:rgba(124,58,237,.045)}.profile-role-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:13px}.profile-role-heading strong{display:block;color:var(--encre);font-size:.82rem}.profile-role-heading small{display:block;color:var(--gris);font-size:.67rem;margin-top:3px}.profile-required-chip{padding:5px 8px;border-radius:999px;background:rgba(124,58,237,.10);color:var(--violet);font-size:.57rem;font-weight:850;text-transform:uppercase;letter-spacing:.06em}.profile-role-options{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.profile-role-option{min-width:0;display:flex;align-items:center;gap:8px;text-align:left;padding:10px;border:1px solid var(--bordure);border-radius:13px;background:var(--papier);color:var(--encre);cursor:pointer;transition:.15s ease}.profile-role-option:hover{transform:translateY(-1px);border-color:rgba(124,58,237,.42)}.profile-role-option[aria-pressed="true"]{border-color:rgba(124,58,237,.65);background:rgba(124,58,237,.10);box-shadow:0 8px 20px rgba(124,58,237,.10)}.profile-role-option-icon{width:29px;height:29px;flex:0 0 29px;border-radius:9px;display:grid;place-items:center;background:rgba(124,58,237,.11);color:var(--violet);font-size:.67rem;font-weight:900}.profile-role-option strong{display:block;font-size:.67rem;line-height:1.1}.profile-role-option small{display:block;color:var(--gris);font-size:.54rem;margin-top:3px}.profile-role-native{position:absolute!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important}.profile-form-redesign .profile-role-context{margin:12px 0 0;font-size:.69rem}.profile-form-section{margin:18px 24px 0;padding:17px;border:1px solid var(--bordure);border-radius:17px;background:rgba(255,255,255,.015)}.profile-form-section-head{display:flex;gap:10px;align-items:flex-start;margin-bottom:14px}.profile-form-section-head>span{width:27px;height:27px;flex:0 0 27px;border-radius:9px;display:grid;place-items:center;background:rgba(124,58,237,.10);color:var(--violet);font-size:.56rem;font-weight:900}.profile-form-section-head strong{display:block;color:var(--encre);font-size:.78rem}.profile-form-section-head small{display:block;color:var(--gris);font-size:.64rem;line-height:1.35;margin-top:3px}.profile-fields-grid-main{grid-template-columns:repeat(2,minmax(0,1fr))}.profile-field-wide{grid-column:1/-1}.profile-form-redesign .profile-fields-grid input{min-height:43px;border-radius:12px;padding:10px 12px;transition:border-color .15s,box-shadow .15s}.profile-form-footer{display:flex;align-items:center;justify-content:space-between;gap:15px;margin:18px 24px 24px;padding-top:16px;border-top:1px dashed var(--bordure)}.profile-form-footer .profile-required-note{margin:0;max-width:52%}.profile-form-redesign #profilLyceeSave{display:inline-flex;align-items:center;gap:12px;border:0;border-radius:12px;padding:11px 15px 11px 16px;background:linear-gradient(135deg,#7c3aed,#5b3cc4);box-shadow:0 10px 24px rgba(124,58,237,.22);color:#fff;font-size:.78rem;font-weight:800;cursor:pointer}.profile-form-redesign #profilLyceeSave b{font-size:1rem}.profile-form-redesign #profilLyceeSave:disabled{opacity:.65;cursor:wait}.profile-form-redesign #profilSaveMessage{max-width:230px;line-height:1.35}.profile-form-redesign .aurore-profile-success{margin:0 24px 22px}
+@media(max-width:900px){.profile-role-options{grid-template-columns:repeat(2,minmax(0,1fr))}.profile-role-option:last-child{grid-column:1/-1}}
+@media(max-width:760px){.profile-form-head{padding:20px 16px}.profile-role-box,.profile-form-section{margin-left:14px;margin-right:14px}.profile-form-footer{margin-left:14px;margin-right:14px;flex-direction:column;align-items:stretch}.profile-form-footer .profile-required-note{max-width:none}.profile-fields-grid-main{grid-template-columns:1fr}.profile-field-wide{grid-column:auto}.profile-form-redesign .profile-save-row{align-items:stretch}.profile-form-redesign #profilLyceeSave{width:100%;justify-content:center}.profile-form-redesign #profilSaveMessage{max-width:none;text-align:center}}
+</style>
+
 </head>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <body class="site-locked">
@@ -2465,23 +2475,46 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         <div class="label">Connecté via</div>
         <div class="value" id="profilProvider">—</div>
       </div>
-      <div class="profile-meta-item profile-personal-edit">
-        <div class="label">Informations essentielles</div>
-        <div class="profile-fields-grid">
-          <label>Type de compte <span>*</span><select id="profilRoleInput"><option value="eleve">Élève</option><option value="enseignant">Enseignant</option><option value="professeur">Professeur</option><option value="parent">Parent</option><option value="personnel">Personnel de l'établissement</option></select></label>
-          <div class="profile-role-context" id="profilRoleContext" aria-live="polite"></div>
-          <label>Nom <span>*</span><input type="text" id="profilNomInput" placeholder="Votre nom" maxlength="100" autocomplete="family-name"></label>
-          <label>Prénom <span>*</span><input type="text" id="profilPrenomInput" placeholder="Votre prénom" maxlength="100" autocomplete="given-name"></label>
-          <label>Établissement <span>*</span><input type="text" id="profilLyceeInput" placeholder="Nom de votre établissement" maxlength="180" autocomplete="organization"></label>
-          <label id="profilNiveauField">Niveau <span>*</span><input type="text" id="profilNiveauInput" placeholder="Ex. A terminal A" maxlength="80"></label>
-          <label id="profilClasseField">Classe <span>*</span><input type="text" id="profilClasseInput" placeholder="Votre classe" maxlength="80"></label>
-          <label id="profilFiliereField">Filière / série <small>(facultatif)</small><input type="text" id="profilFiliereInput" placeholder="Votre filière ou série" maxlength="100"></label>
-          <label id="profilDisciplineField" hidden>Discipline <span>*</span><input type="text" id="profilDisciplineInput" placeholder="Ex. Mathématiques" maxlength="120"></label>
-          <label id="profilFonctionField" hidden>Fonction <span id="profilFonctionReqMark" hidden>*</span><small id="profilFonctionOptMark">(facultatif)</small><input type="text" id="profilFonctionInput" placeholder="Ex. Professeur" maxlength="120"></label>
-          <label id="profilEnfantField" hidden>Informations sur l'enfant <span>*</span><input type="text" id="profilEnfantInput" placeholder="Nom, classe ou niveau de l'enfant" maxlength="180"></label>
+      <div class="profile-meta-item profile-personal-edit profile-form-redesign">
+        <div class="profile-form-head">
+          <div><span class="profile-form-kicker">Configuration du profil</span><h3>Vos informations</h3><p>Choisissez votre type de compte : le formulaire s’adapte automatiquement à votre situation.</p></div>
+          <div class="profile-form-step"><span>1</span><small>Profil</small></div>
         </div>
-        <div class="profile-required-note">* Les informations marquées sont nécessaires pour finaliser votre espace personnel.</div>
-        <div class="profile-save-row"><button type="button" id="profilLyceeSave">Enregistrer mon profil</button><span id="profilSaveMessage" aria-live="polite"></span></div>
+        <div class="profile-role-box">
+          <div class="profile-role-heading"><div><strong>Votre type de compte</strong><small>Ce choix détermine les renseignements demandés.</small></div><span class="profile-required-chip">Obligatoire</span></div>
+          <div class="profile-role-options" role="radiogroup" aria-label="Type de compte">
+            <button type="button" class="profile-role-option" data-profile-role="eleve" aria-pressed="false"><span class="profile-role-option-icon">É</span><span><strong>Élève</strong><small>Niveau et classe</small></span></button>
+            <button type="button" class="profile-role-option" data-profile-role="enseignant" aria-pressed="false"><span class="profile-role-option-icon">E</span><span><strong>Enseignant</strong><small>Discipline</small></span></button>
+            <button type="button" class="profile-role-option" data-profile-role="professeur" aria-pressed="false"><span class="profile-role-option-icon">P</span><span><strong>Professeur</strong><small>Discipline</small></span></button>
+            <button type="button" class="profile-role-option" data-profile-role="parent" aria-pressed="false"><span class="profile-role-option-icon">P</span><span><strong>Parent</strong><small>Enfant</small></span></button>
+            <button type="button" class="profile-role-option" data-profile-role="personnel" aria-pressed="false"><span class="profile-role-option-icon">A</span><span><strong>Personnel</strong><small>Fonction</small></span></button>
+          </div>
+          <select id="profilRoleInput" class="profile-role-native" aria-hidden="true" tabindex="-1"><option value="eleve">Élève</option><option value="enseignant">Enseignant</option><option value="professeur">Professeur</option><option value="parent">Parent</option><option value="personnel">Personnel de l'établissement</option></select>
+          <div class="profile-role-context" id="profilRoleContext" aria-live="polite"></div>
+        </div>
+        <div class="profile-form-section">
+          <div class="profile-form-section-head"><span>01</span><div><strong>Identité et établissement</strong><small>Les informations communes à tous les profils.</small></div></div>
+          <div class="profile-fields-grid profile-fields-grid-main">
+            <label>Nom <span>*</span><input type="text" id="profilNomInput" placeholder="Votre nom" maxlength="100" autocomplete="family-name"></label>
+            <label>Prénom <span>*</span><input type="text" id="profilPrenomInput" placeholder="Votre prénom" maxlength="100" autocomplete="given-name"></label>
+            <label class="profile-field-wide">Établissement <span>*</span><input type="text" id="profilLyceeInput" placeholder="Nom de votre établissement" maxlength="180" autocomplete="organization"></label>
+          </div>
+        </div>
+        <div class="profile-form-section">
+          <div class="profile-form-section-head"><span>02</span><div><strong>Informations de votre profil</strong><small>Seuls les champs correspondant à votre rôle sont affichés.</small></div></div>
+          <div class="profile-fields-grid">
+            <label id="profilNiveauField">Niveau <span>*</span><input type="text" id="profilNiveauInput" placeholder="Ex. Terminale A" maxlength="80"></label>
+            <label id="profilClasseField">Classe <span>*</span><input type="text" id="profilClasseInput" placeholder="Votre classe" maxlength="80"></label>
+            <label id="profilFiliereField">Filière / série <small>(facultatif)</small><input type="text" id="profilFiliereInput" placeholder="Votre filière ou série" maxlength="100"></label>
+            <label id="profilDisciplineField" hidden>Discipline <span>*</span><input type="text" id="profilDisciplineInput" placeholder="Ex. Mathématiques" maxlength="120"></label>
+            <label id="profilFonctionField" hidden>Fonction <span id="profilFonctionReqMark" hidden>*</span><small id="profilFonctionOptMark">(facultatif)</small><input type="text" id="profilFonctionInput" placeholder="Ex. Surveillant, censeur, bibliothécaire…" maxlength="120"></label>
+            <label id="profilEnfantField" hidden>Informations sur l'enfant <span>*</span><input type="text" id="profilEnfantInput" placeholder="Nom, classe ou niveau de l'enfant" maxlength="180"></label>
+          </div>
+        </div>
+        <div class="profile-form-footer">
+          <div class="profile-required-note"><strong>*</strong> Les informations marquées sont nécessaires pour finaliser votre espace personnel.</div>
+          <div class="profile-save-row"><button type="button" id="profilLyceeSave"><span>Enregistrer mon profil</span><b>→</b></button><span id="profilSaveMessage" aria-live="polite"></span></div>
+        </div>
       </div>
       <div class="profile-meta-item">
         <div class="label">Statut du compte</div>
@@ -3322,6 +3355,10 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     }
   }
   document.getElementById('profilRoleInput')?.addEventListener('change',mettreAJourChampsProfilSelonRole);
+  document.querySelectorAll('.profile-role-option[data-profile-role]').forEach(btn=>btn.addEventListener('click',()=>{const select=document.getElementById('profilRoleInput');if(select){select.value=btn.dataset.profileRole;select.dispatchEvent(new Event('change',{bubbles:true}));}}));
+  function synchroniserCartesRoleProfil(){const role=String(document.getElementById('profilRoleInput')?.value||'eleve').toLowerCase();document.querySelectorAll('.profile-role-option[data-profile-role]').forEach(btn=>btn.setAttribute('aria-pressed',btn.dataset.profileRole===role?'true':'false'));}
+  const _mettreAJourChampsProfilSelonRole=mettreAJourChampsProfilSelonRole;
+  mettreAJourChampsProfilSelonRole=function(){_mettreAJourChampsProfilSelonRole();synchroniserCartesRoleProfil();};
 
   async function enregistrerProfilPersonnel(options={}) {
     if (!session || !session.access_token) return false;
@@ -7749,12 +7786,18 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         if(!patch.ok) throw new Error('La RPC n’a restauré aucun document et la restauration de secours a échoué (HTTP '+patch.status+'). '+patchText);
         let restored=[]; try { restored=JSON.parse(patchText); } catch(e) { restored=[]; }
         if(!Array.isArray(restored) || restored.length===0) throw new Error('Aucun des documents suspendus n’a pu être restauré.');
-        const del=await fetch(`${SUPABASE_URL}/rest/v1/admin_documents_suspendus?document_id=in.(${filtre})`,{
-          method:'DELETE', headers:{...headersAdmin(),'Prefer':'return=minimal'}
-        });
-        if(!del.ok){
-          const dd=await del.text().catch(()=> '');
-          throw new Error('Les documents ont été republiés mais leur mémorisation n’a pas pu être nettoyée. '+dd);
+        // Nettoyage sécurisé : un DELETE par document avec un filtre eq explicite.
+        // Cela évite l'erreur PostgREST « DELETE requires a WHERE clause »
+        // rencontrée avec le filtre IN global.
+        for(const id of ids){
+          const del=await fetch(`${SUPABASE_URL}/rest/v1/admin_documents_suspendus?document_id=eq.${encodeURIComponent(id)}`,{
+            method:'DELETE',
+            headers:{...headersAdmin(),'Prefer':'return=minimal'}
+          });
+          if(!del.ok){
+            const dd=await del.text().catch(()=> '');
+            throw new Error('Les documents ont été republiés mais la mémorisation du document '+id+' n’a pas pu être nettoyée. '+dd);
+          }
         }
         rpcCount=restored.length;
       }
