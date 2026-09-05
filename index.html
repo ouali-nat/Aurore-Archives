@@ -56,8 +56,6 @@
 <link rel="preconnect" href="https://tdeotqfsbvouresfhkab.supabase.co" crossorigin>
 <link rel="preconnect" href="https://lsnb-upload.oualikevin9.workers.dev" crossorigin>
 <link rel="preconnect" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev" crossorigin>
-<link rel="preconnect" href="https://www.googleapis.com" crossorigin>
-<link rel="dns-prefetch" href="https://www.googleapis.com">
 <link rel="manifest" href="manifest.json?v=20260905-1">
 <link rel="icon" type="image/png" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
 <link rel="icon" type="image/png" sizes="192x192" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
@@ -6628,96 +6626,81 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   if(document.body)OBSERVATEUR_TAILLES_DOCUMENTS.observe(document.body,{childList:true,subtree:true});
   window.auroreActualiserTaillesDocumentsDans=actualiserTaillesDocumentsDans;
 
-  // ---------- COUVERTURES DE LIVRES (récupérées automatiquement par titre) ----------
-  // Cache mémoire : évite de refaire un appel réseau à chaque réaffichage de la
-  // même liste (recherche, tri, pagination, retour en arrière...).
-  const CACHE_COUVERTURES_LIVRES = new Map();
-  const CLEF_CACHE_COUVERTURES_LIVRES = 'aurore-couvertures-livres-v2';
-  // Cache persistant : après la première récupération, la couverture est
-  // disponible immédiatement lors des recherches/retours sur la page.
-  let CACHE_COUVERTURES_PERSISTANT = {};
-  try { CACHE_COUVERTURES_PERSISTANT = JSON.parse(localStorage.getItem(CLEF_CACHE_COUVERTURES_LIVRES) || '{}') || {}; } catch (e) {}
-  function sauvegarderCouverturePersistante(clef, url) {
-    if (!clef || !url) return;
-    CACHE_COUVERTURES_PERSISTANT[clef] = url;
-    try { localStorage.setItem(CLEF_CACHE_COUVERTURES_LIVRES, JSON.stringify(CACHE_COUVERTURES_PERSISTANT)); } catch (e) {}
-  }
-  // Préchargement léger uniquement pour alimenter le cache navigateur.
-  // L'affichage de la couverture ne doit JAMAIS attendre ce préchargement :
-  // l'image est injectée immédiatement dès que son URL est connue.
-  function prechargerImageCouverture(url) {
-    if (!url) return Promise.resolve(false);
-    return new Promise(resolve => {
-      const img = new Image();
-      img.decoding = 'async';
-      img.onload = () => resolve(true);
-      img.onerror = () => resolve(false);
-      img.src = url;
-    });
-  }
-  async function recupererCouvertureLivre(titre) {
-    const clef = String(titre || '').trim().toLowerCase();
-    if (!clef) return null;
-    if (CACHE_COUVERTURES_LIVRES.has(clef)) return CACHE_COUVERTURES_LIVRES.get(clef);
-    // Priorité absolue au cache local : aucun appel Google n'est nécessaire
-    // lorsqu'une couverture a déjà été récupérée sur cet appareil.
-    const persistante = CACHE_COUVERTURES_PERSISTANT[clef];
-    if (persistante) {
-      CACHE_COUVERTURES_LIVRES.set(clef, persistante);
-      return persistante;
-    }
-    try {
-      const res = await fetch(`https://www.googleapis.com/books/v1/volumes?maxResults=1&q=${encodeURIComponent('intitle:' + titre)}`, {
-        cache: 'force-cache',
-        priority: 'high'
-      });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const donnees = await res.json();
-      const item = Array.isArray(donnees.items) ? donnees.items[0] : null;
-      const liens = item?.volumeInfo?.imageLinks || {};
-      // La petite vignette est nettement plus légère ; elle est suffisante
-      // pour les cartes de la bibliothèque et apparaît plus vite.
-      let url = liens.smallThumbnail || liens.thumbnail || null;
-      if (url) url = url.replace(/^http:\/\//, 'https://');
-      CACHE_COUVERTURES_LIVRES.set(clef, url);
-      sauvegarderCouverturePersistante(clef, url);
-      return url;
-    } catch (e) {
-      console.warn('[Couverture livre] recherche impossible pour', titre, e);
-      CACHE_COUVERTURES_LIVRES.set(clef, null);
-      return null;
-    }
-  }
-  // Repli lorsque l'API ne trouve pas de couverture (cas fréquent pour un
-  // ouvrage scolaire local, non référencé en ligne) : on affiche la première
-  // page du PDF déposé, qui existe forcément. Réutilise volontairement
-  // chargerPdfJs()/recupererOctetsPDF()/memoriserPDFCache() — les mêmes
-  // fonctions que le lecteur PDF plus bas dans ce fichier — pour bénéficier du
-  // même repli Worker→URL directe, et pour que le fichier ne soit pas
-  // re-téléchargé si l'utilisateur ouvre ensuite "Lire" sur ce même livre.
+  // ---------- COUVERTURES DE LIVRES : PREMIÈRE PAGE DU PDF ----------
+  // La couverture d'un livre est TOUJOURS la première page de son PDF.
+  // Aucun service de recherche externe n'est utilisé : dès que le document
+  // est disponible, son PDF est récupéré et la page 1 est rendue directement
+  // dans la vignette. Les rendus déjà créés sont conservés localement afin
+  // que les retours/recherches ultérieurs soient instantanés.
   const CACHE_COUVERTURES_PREMIERE_PAGE = new Map();
-  async function genererCouverturePremierePagePDF(doc) {
-    const clef = String(doc?.id ?? doc?.Fichier_url ?? '');
-    if (!clef || !doc?.Fichier_url) return null;
-    if (CACHE_COUVERTURES_PREMIERE_PAGE.has(clef)) return CACHE_COUVERTURES_PREMIERE_PAGE.get(clef);
+  const CLEF_CACHE_COUVERTURES_PREMIERE_PAGE = 'aurore-couvertures-premiere-page-v1';
+  let CACHE_COUVERTURES_PREMIERE_PAGE_PERSISTANT = {};
+  try {
+    CACHE_COUVERTURES_PREMIERE_PAGE_PERSISTANT = JSON.parse(
+      localStorage.getItem(CLEF_CACHE_COUVERTURES_PREMIERE_PAGE) || '{}'
+    ) || {};
+  } catch (e) {}
+
+  function clefCouverturePremierePage(doc) {
+    return String(doc?.id ?? doc?.Fichier_url ?? '').trim();
+  }
+
+  function sauvegarderCouverturePremierePage(clef, dataUrl) {
+    if (!clef || !dataUrl) return;
+    CACHE_COUVERTURES_PREMIERE_PAGE_PERSISTANT[clef] = dataUrl;
+    // Les vignettes sont volontairement petites pour rester légères.
     try {
+      localStorage.setItem(
+        CLEF_CACHE_COUVERTURES_PREMIERE_PAGE,
+        JSON.stringify(CACHE_COUVERTURES_PREMIERE_PAGE_PERSISTANT)
+      );
+    } catch (e) {
+      // Si le quota local est atteint, le cache mémoire continue de fonctionner.
+    }
+  }
+
+  function couverturePremierePagePersistanteImmediate(doc) {
+    const clef = clefCouverturePremierePage(doc);
+    if (!clef) return null;
+    return CACHE_COUVERTURES_PREMIERE_PAGE.get(clef)
+      || CACHE_COUVERTURES_PREMIERE_PAGE_PERSISTANT[clef]
+      || null;
+  }
+
+  async function genererCouverturePremierePagePDF(doc) {
+    const clef = clefCouverturePremierePage(doc);
+    if (!clef || !doc?.Fichier_url) return null;
+    const dejaEnCache = couverturePremierePagePersistanteImmediate(doc);
+    if (dejaEnCache) {
+      CACHE_COUVERTURES_PREMIERE_PAGE.set(clef, dejaEnCache);
+      return dejaEnCache;
+    }
+
+    try {
+      // pdf.js est lancé dès l'ouverture de la rubrique Livres ; ici il ne
+      // reste normalement qu'à utiliser la bibliothèque déjà prête.
       await chargerPdfJs();
       const cacheCle = String(doc.Fichier_url);
       let octets = PDF_CACHE_OCTETS.get(cacheCle) || null;
       if (!octets) {
         octets = await recupererOctetsPDF(doc.Fichier_url, null, null, null);
-        memoriserPDFCache(cacheCle, octets);
+        if (octets) memoriserPDFCache(cacheCle, octets);
       }
-      const pdf = await pdfjsLib.getDocument({ data: octets.slice(0) }).promise;
+      if (!octets) return null;
+
+      const pdf = await pdfjsLib.getDocument({data: octets.slice(0)}).promise;
       const page = await pdf.getPage(1);
-      const base = page.getViewport({ scale: 1 });
-      const viewport = page.getViewport({ scale: Math.min(1, 90 / base.width) });
+      const base = page.getViewport({scale: 1});
+      // Rendu assez grand pour être net, tout en restant très rapide.
+      const viewport = page.getViewport({scale: Math.min(1.15, 300 / Math.max(1, base.width))});
       const canvas = document.createElement('canvas');
       canvas.width = Math.max(1, Math.round(viewport.width));
       canvas.height = Math.max(1, Math.round(viewport.height));
-      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      const ctx = canvas.getContext('2d', {alpha: false});
+      await page.render({canvasContext: ctx, viewport}).promise;
       const dataUrl = canvas.toDataURL('image/jpeg', 0.72);
       CACHE_COUVERTURES_PREMIERE_PAGE.set(clef, dataUrl);
+      sauvegarderCouverturePremierePage(clef, dataUrl);
       return dataUrl;
     } catch (e) {
       console.warn('[Couverture livre] rendu de la première page impossible pour', doc?.Titre, e);
@@ -6725,51 +6708,31 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       return null;
     }
   }
-  // Lecture SYNCHRONE (aucun await) du cache persistant, pour injecter la
-  // couverture directement dans le HTML de la ligne au moment de sa création.
-  // Pour un document déjà vu sur cet appareil, la couverture est donc bien
-  // affichée dès le premier rendu — jamais un aller-retour réseau plus tard.
-  function couverturePersistanteImmediate(titre) {
-    const clef = String(titre || '').trim().toLowerCase();
-    if (!clef) return null;
-    return CACHE_COUVERTURES_PERSISTANT[clef] || null;
+
+  function appliquerImageCouverture(row, doc, url) {
+    if (!url || !row?.isConnected) return;
+    const wrap = row.querySelector('.icon-wrap');
+    if (!wrap || !wrap.isConnected) return;
+    wrap.classList.add('a-couverture');
+    wrap.innerHTML = `<img class="doc-cover-img" src="${echapperHtmlPub(url)}" alt="Première page — ${echapperHtmlPub(doc.Titre || 'Livre')}" loading="eager" decoding="async" fetchpriority="high">`;
   }
 
-  // Tente d'afficher la couverture dans la vignette d'une ligne-document.
-  // Google Books et la première page du PDF sont lancés EN PARALLÈLE (et non
-  // plus l'un après l'autre) : la couverture s'affiche dès que la première
-  // des deux sources répond, ce qui réduit fortement le délai perçu. L'icône
-  // générique n'est conservée que si aucune des deux sources n'aboutit. Le
-  // système ne modifie ni les données du document ni le lecteur PDF : il ne
-  // fait qu'améliorer la vignette.
+  // Affichage prioritaire de la première page : aucune recherche Google,
+  // aucune attente d'une API de couverture. Le cache local est injecté
+  // immédiatement ; sinon le rendu PDF démarre sans délai.
   function appliquerCouvertureSiLivre(row, doc) {
     const estUnLivre = String(doc['Catégorie'] || doc.Type || '').trim().toLowerCase() === 'livres';
-    if (!estUnLivre) return;
-    const wrap = row.querySelector('.icon-wrap');
-    if (!wrap || !doc.Fichier_url) return;
+    if (!estUnLivre || !row || !doc?.Fichier_url) return;
 
-    // Cas le plus fréquent après la première visite : la couverture est déjà
-    // en cache local, on l'affiche sans le moindre délai, sans même attendre
-    // un cycle de la boucle d'événements.
-    const dejaConnue = couverturePersistanteImmediate(doc.Titre);
+    const dejaConnue = couverturePremierePagePersistanteImmediate(doc);
     if (dejaConnue) {
-      wrap.classList.add('a-couverture');
-      wrap.innerHTML = `<img class="doc-cover-img" src="${echapperHtmlPub(dejaConnue)}" alt="Couverture — ${echapperHtmlPub(doc.Titre)}" loading="eager" decoding="async" fetchpriority="high">`;
+      appliquerImageCouverture(row, doc, dejaConnue);
       return;
     }
 
-    let affichee = false;
-    const afficherSiPremier = (url) => {
-      if (affichee || !url || !row.isConnected || !wrap.isConnected) return;
-      affichee = true;
-      wrap.classList.add('a-couverture');
-      wrap.innerHTML = `<img class="doc-cover-img" src="${echapperHtmlPub(url)}" alt="Couverture — ${echapperHtmlPub(doc.Titre)}" loading="eager" decoding="async" fetchpriority="high">`;
-    };
-
-    // Les deux sources démarrent au même instant : celle qui répond la
-    // première gagne l'affichage, l'autre est simplement ignorée.
-    recupererCouvertureLivre(doc.Titre || '').then(afficherSiPremier).catch(() => {});
-    genererCouverturePremierePagePDF(doc).then(afficherSiPremier).catch(() => {});
+    genererCouverturePremierePagePDF(doc).then(url => {
+      if (url) appliquerImageCouverture(row, doc, url);
+    }).catch(() => {});
   }
 
   function rendreListeDocuments(content, data) {
@@ -6876,6 +6839,8 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
 
   // ---------- LIVRES ET ROMANS ----------
   function allerLivres() {
+    // Prépare pdf.js pendant que l’utilisateur choisit le genre, afin que la première page soit rendue immédiatement après l’ouverture des livres.
+    if (typeof chargerPdfJs === 'function') chargerPdfJs().catch(() => {});
     etat = { niveau:null, sousNiveau:null, serieChoisie:null, classe:null, categorie:null, filiere:null, division:null, matiere:null, cheminArbre:[], feuilleArbre:null };
     const grid = document.getElementById('genreGrid');
     grid.innerHTML = '';
