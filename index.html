@@ -3559,8 +3559,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const enfantFinal = role==='parent' ? enfant_informations : '';
     const btn = document.getElementById('profilLyceeSave');
     const msg = document.getElementById('profilSaveMessage');
-    const enseignant=role==='enseignant'||role==='professeur';
-    const personnel=role==='personnel';
     const champSpecifiqueManquant = enseignant ? !discipline : (role==='parent' ? !enfant_informations : (personnel ? !fonction : (!niveau||!classe)));
     if(!nom || !prenom || !lycee || champSpecifiqueManquant) {
       msg.textContent = enseignant ? 'Veuillez renseigner le nom, le prénom, l’établissement et la discipline.' : (role==='parent' ? 'Veuillez renseigner l’établissement et les informations sur votre enfant.' : (personnel ? 'Veuillez renseigner l’établissement et votre fonction.' : 'Veuillez renseigner l’établissement, le niveau et la classe.')); msg.className='err';
