@@ -115,6 +115,9 @@
       // traduit donc la valeur ici, au moment précis où l'attribut est posé.
       document.documentElement.setAttribute('data-theme', affiche === 'clair' ? 'light' : 'dark');
       document.documentElement.setAttribute('data-theme-choix', choix);
+      var couleurChoisie = localStorage.getItem('auraster-color-theme') || 'violet';
+      var couleursAutorisees = ['violet','rouge','vert','bleu','jaune','orange'];
+      document.documentElement.setAttribute('data-color-theme', couleursAutorisees.indexOf(couleurChoisie) >= 0 ? couleurChoisie : 'violet');
     } catch (e) {}
   })();
 </script>
@@ -1600,6 +1603,170 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 @media(max-width:760px){.profile-form-head{padding:20px 16px}.profile-role-box,.profile-form-section{margin-left:14px;margin-right:14px}.profile-form-footer{margin-left:14px;margin-right:14px;flex-direction:column;align-items:stretch}.profile-form-footer .profile-required-note{max-width:none}.profile-fields-grid-main{grid-template-columns:1fr}.profile-field-wide{grid-column:auto}.profile-form-redesign .profile-save-row{align-items:stretch}.profile-form-redesign #profilLyceeSave{width:100%;justify-content:center}.profile-form-redesign #profilSaveMessage{max-width:none;text-align:center}}
 </style>
 
+
+<style id="aurore-color-themes">
+/* ==========================================================
+   Aurore — palettes de couleur du site
+   Le mode clair/sombre reste indépendant. Cette palette agit
+   uniquement sur l'identité chromatique et ses accents.
+   ========================================================== */
+html[data-color-theme="violet"]{--theme-primary:#8B5CF6;--theme-secondary:#C084FC;--theme-strong:#6D28D9;}
+html[data-color-theme="rouge"]{--theme-primary:#E05260;--theme-secondary:#FF8A96;--theme-strong:#C93648;}
+html[data-color-theme="vert"]{--theme-primary:#2FA66A;--theme-secondary:#75D89C;--theme-strong:#198754;}
+html[data-color-theme="bleu"]{--theme-primary:#3B82F6;--theme-secondary:#7DB3FF;--theme-strong:#1D4ED8;}
+html[data-color-theme="jaune"]{--theme-primary:#D5A51B;--theme-secondary:#F5D36B;--theme-strong:#B77900;}
+html[data-color-theme="orange"]{--theme-primary:#E8791A;--theme-secondary:#FFB36B;--theme-strong:#C85C0D;}
+
+html[data-color-theme]{
+  --theme-soft:color-mix(in srgb,var(--theme-primary) 12%,transparent);
+  --theme-softer:color-mix(in srgb,var(--theme-primary) 7%,transparent);
+  --theme-border:color-mix(in srgb,var(--theme-primary) 30%,var(--bordure));
+  --theme-shadow:color-mix(in srgb,var(--theme-primary) 18%,transparent);
+  --theme-on-accent:#fff;
+  --auraster-purple:var(--theme-primary);
+  --auraster-mauve:var(--theme-secondary);
+  --violet:var(--theme-primary);
+  --bleu:var(--theme-primary);
+  --marron:var(--theme-primary);
+}
+html[data-theme="light"][data-color-theme]{
+  --theme-soft:color-mix(in srgb,var(--theme-primary) 10%,#fff);
+  --theme-softer:color-mix(in srgb,var(--theme-primary) 5%,#fff);
+  --theme-border:color-mix(in srgb,var(--theme-primary) 34%,#DDD6E8);
+  --theme-shadow:color-mix(in srgb,var(--theme-primary) 12%,transparent);
+  --theme-on-accent:#fff;
+}
+
+/* Fond et structure */
+html[data-color-theme] body{
+  background:
+    radial-gradient(circle at 8% 0%,color-mix(in srgb,var(--theme-primary) 12%,transparent),transparent 30%),
+    radial-gradient(circle at 94% 12%,color-mix(in srgb,var(--theme-secondary) 9%,transparent),transparent 28%),
+    var(--fond);
+}
+html[data-color-theme] header{border-bottom-color:var(--theme-border)!important;}
+html[data-color-theme] .brand-logo{background:linear-gradient(135deg,var(--theme-primary),var(--theme-secondary))!important;}
+html[data-color-theme] .deposer-btn{background:linear-gradient(135deg,var(--theme-strong),var(--theme-primary))!important;box-shadow:0 10px 30px var(--theme-shadow)!important;}
+html[data-color-theme] .search-box:focus-within{border-color:var(--theme-primary)!important;box-shadow:0 0 0 4px color-mix(in srgb,var(--theme-primary) 14%,transparent);}
+html[data-color-theme] .user-chip-info:hover{background:var(--theme-softer)!important;}
+
+/* Accents accueil */
+html[data-color-theme] .hero{
+  background:
+    radial-gradient(circle at 85% 10%,color-mix(in srgb,var(--theme-secondary) 24%,transparent),transparent 28%),
+    radial-gradient(circle at 10% 90%,color-mix(in srgb,var(--theme-primary) 22%,transparent),transparent 32%),
+    linear-gradient(145deg,color-mix(in srgb,var(--theme-primary) 10%,var(--fond)),color-mix(in srgb,var(--theme-primary) 20%,var(--fond)) 55%,var(--fond))!important;
+  border-color:color-mix(in srgb,var(--theme-secondary) 24%,var(--bordure))!important;
+}
+html[data-theme="light"][data-color-theme] .hero{
+  background:
+    radial-gradient(circle at 88% 18%,color-mix(in srgb,var(--theme-primary) 18%,transparent),transparent 25%),
+    radial-gradient(circle at 12% 90%,color-mix(in srgb,var(--theme-secondary) 11%,transparent),transparent 27%),
+    linear-gradient(135deg,#fff,color-mix(in srgb,var(--theme-primary) 9%,#fff) 54%,color-mix(in srgb,var(--theme-primary) 5%,#fff))!important;
+  border-color:var(--theme-border)!important;
+}
+html[data-color-theme] .hero-rule{background:linear-gradient(90deg,var(--theme-primary),var(--theme-secondary))!important;}
+html[data-color-theme] .hero-glow.g1{background:var(--theme-secondary)!important;}
+html[data-color-theme] .hero-glow.g2{background:var(--theme-primary)!important;}
+html[data-color-theme] .hero h1 .accentword{background:linear-gradient(90deg,var(--theme-secondary),var(--theme-primary));-webkit-background-clip:text;background-clip:text;color:transparent;}
+html[data-theme="light"][data-color-theme] .hero .accentword{color:var(--theme-strong)!important;background:none!important;}
+html[data-color-theme] .hero .eyebrow{color:var(--theme-secondary)!important;}
+
+/* Cartes, boutons et navigation */
+html[data-color-theme] .presentation-item .icon-wrap{background:var(--theme-primary)!important;}
+html[data-color-theme] .level-card::before{background:linear-gradient(160deg,var(--theme-primary),transparent 62%)!important;}
+html[data-color-theme] .level-card::after{background:var(--theme-primary)!important;}
+html[data-color-theme] .level-badge{background:var(--theme-primary)!important;box-shadow:0 8px 18px -4px var(--theme-primary)!important;}
+html[data-color-theme] .level-card .go{background:linear-gradient(135deg,var(--theme-strong),var(--theme-primary))!important;}
+html[data-color-theme] .livres-banner{background:linear-gradient(135deg,var(--theme-strong),var(--theme-primary))!important;border-color:color-mix(in srgb,var(--theme-secondary) 30%,transparent)!important;}
+html[data-color-theme] .cat-card::before{background:linear-gradient(160deg,var(--theme-primary),transparent 55%)!important;}
+html[data-color-theme] .cat-card::after{background:var(--theme-primary)!important;}
+html[data-color-theme] .cat-card .icon-wrap{background:var(--theme-primary)!important;}
+html[data-color-theme] .serie-pill:hover{border-color:var(--theme-primary)!important;color:var(--theme-primary)!important;}
+html[data-color-theme] .matiere-card:hover{border-color:var(--theme-primary)!important;}
+html[data-color-theme] .matiere-card .mono{background:var(--theme-primary)!important;}
+html[data-color-theme] .breadcrumb button{color:var(--theme-primary)!important;}
+html[data-color-theme] .back-btn:hover{color:var(--theme-primary)!important;}
+html[data-color-theme] a{color:var(--theme-primary);}
+
+/* Formulaires et actions */
+html[data-color-theme] .form-row input:focus,
+html[data-color-theme] .form-row select:focus,
+html[data-color-theme] textarea:focus,
+html[data-color-theme] input:focus,
+html[data-color-theme] select:focus{
+  border-color:var(--theme-primary)!important;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--theme-primary) 16%,transparent)!important;
+}
+html[data-color-theme] .form-submit{background:linear-gradient(135deg,var(--theme-strong),var(--theme-primary))!important;}
+html[data-color-theme] .depot-progress-percent{color:var(--theme-primary)!important;}
+html[data-color-theme] .depot-progress-bar{background:linear-gradient(90deg,var(--theme-strong),var(--theme-secondary))!important;}
+html[data-color-theme] .site-search-control span{color:var(--theme-primary)!important;}
+html[data-color-theme] .site-pagination button:hover:not(:disabled){border-color:var(--theme-primary)!important;color:var(--theme-primary)!important;}
+html[data-color-theme] .site-pagination button.active{background:var(--theme-primary)!important;border-color:var(--theme-primary)!important;}
+
+/* Administration */
+html[data-color-theme] .admin-tab.active{border-bottom-color:var(--theme-primary)!important;}
+html[data-color-theme] .admin-tab.active .tab-count{background:var(--theme-primary)!important;border-color:var(--theme-primary)!important;}
+html[data-color-theme] .admin-btn.primary{background:linear-gradient(135deg,var(--theme-strong),var(--theme-primary))!important;}
+html[data-color-theme] .ad-slot-label,
+html[data-color-theme] .ad-slot-cta{color:var(--theme-primary)!important;}
+html[data-color-theme] .ad-slot-card:hover{border-color:color-mix(in srgb,var(--theme-primary) 55%,var(--bordure))!important;box-shadow:0 18px 50px var(--theme-shadow)!important;}
+html[data-color-theme] .ad-slot-title{border-color:color-mix(in srgb,var(--theme-primary) 16%,transparent)!important;background:var(--theme-softer)!important;}
+html[data-color-theme] .site-data-toolbar{border-color:var(--theme-border)!important;}
+
+/* Espace utilisateur : bloc de choix de couleur */
+.profile-theme-card{grid-column:1/-1!important;position:relative;overflow:hidden;padding:0!important;background:var(--papier)!important;border:1px solid var(--theme-border)!important;box-shadow:var(--ombre)!important;}
+.profile-theme-card::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 100% 0%,color-mix(in srgb,var(--theme-secondary) 14%,transparent),transparent 38%),linear-gradient(135deg,var(--theme-softer),transparent 58%);pointer-events:none;}
+.profile-theme-head{position:relative;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 20px 15px;border-bottom:1px solid var(--bordure);}
+.profile-theme-kicker{display:block;color:var(--theme-primary);font-size:.65rem;font-weight:850;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;}
+.profile-theme-head strong{display:block;color:var(--encre);font-size:.95rem;}
+.profile-theme-head small{display:block;color:var(--gris);font-size:.68rem;line-height:1.45;margin-top:4px;max-width:600px;}
+.profile-theme-current{flex:0 0 auto;padding:7px 10px;border-radius:999px;background:var(--theme-soft);border:1px solid var(--theme-border);color:var(--theme-primary);font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;}
+.profile-theme-options{position:relative;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:9px;padding:15px 20px 18px;}
+.profile-theme-option{appearance:none;min-width:0;border:1px solid var(--bordure);border-radius:15px;background:var(--fond);color:var(--encre);padding:10px 7px;display:flex;flex-direction:column;align-items:center;gap:7px;cursor:pointer;transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease;}
+.profile-theme-option:hover{transform:translateY(-2px);border-color:var(--theme-border);box-shadow:0 9px 24px var(--theme-shadow);}
+.profile-theme-option[aria-pressed="true"]{border-color:var(--theme-primary);background:var(--theme-soft);box-shadow:0 8px 24px var(--theme-shadow);}
+.profile-theme-swatch{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;box-shadow:inset 0 0 0 3px color-mix(in srgb,#fff 18%,transparent),0 5px 12px rgba(0,0,0,.15);}
+.profile-theme-option[data-color-choice="violet"] .profile-theme-swatch{background:linear-gradient(135deg,#6D28D9,#C084FC);}
+.profile-theme-option[data-color-choice="rouge"] .profile-theme-swatch{background:linear-gradient(135deg,#C93648,#FF8A96);}
+.profile-theme-option[data-color-choice="vert"] .profile-theme-swatch{background:linear-gradient(135deg,#198754,#75D89C);}
+.profile-theme-option[data-color-choice="bleu"] .profile-theme-swatch{background:linear-gradient(135deg,#1D4ED8,#7DB3FF);}
+.profile-theme-option[data-color-choice="jaune"] .profile-theme-swatch{background:linear-gradient(135deg,#B77900,#F5D36B);}
+.profile-theme-option[data-color-choice="orange"] .profile-theme-swatch{background:linear-gradient(135deg,#C85C0D,#FFB36B);}
+.profile-theme-option b{font-size:.68rem;line-height:1.1;}
+.profile-theme-option small{font-size:.55rem;color:var(--gris);line-height:1.1;}
+.profile-theme-option[aria-pressed="true"] b{color:var(--theme-primary);}
+@media(max-width:760px){.profile-theme-head{padding:17px 14px 14px}.profile-theme-options{grid-template-columns:repeat(3,minmax(0,1fr));padding:12px 14px 15px;}}
+@media(max-width:430px){.profile-theme-options{grid-template-columns:repeat(2,minmax(0,1fr));}.profile-theme-option{padding:11px 8px;}}
+
+/* Le sélecteur de couleur de l'espace utilisateur reste harmonieux avec
+   les deux modes sans toucher au fonctionnement du sélecteur clair/sombre. */
+html[data-theme="light"][data-color-theme] .profile-theme-card{background:#fff!important;border-color:var(--theme-border)!important;}
+html[data-theme="light"][data-color-theme] .profile-theme-option{background:#FAF9FC;border-color:#DDD6E8;color:#111318;}
+html[data-theme="light"][data-color-theme] .profile-theme-option:hover{background:color-mix(in srgb,var(--theme-primary) 4%,#fff);}
+html[data-theme="light"][data-color-theme] .profile-theme-option[aria-pressed="true"]{background:var(--theme-soft);border-color:var(--theme-primary);}
+html[data-theme="light"][data-color-theme] .profile-theme-head{border-color:#E5DEED;}
+
+/* Sélecteur de thème clair/sombre existant : son état actif suit aussi la
+   nouvelle identité pour éviter un accent violet résiduel. */
+html[data-color-theme] .theme-switch-btn[aria-pressed="true"]{background:var(--theme-primary)!important;}
+html[data-color-theme] .theme-switch-btn:hover{color:var(--theme-primary)!important;}
+
+/* Éléments profil déjà présents : aucune logique métier n'est modifiée. */
+html[data-color-theme] .profile-launcher-badge,
+html[data-color-theme] .profile-launcher-current{background:var(--theme-soft)!important;border-color:var(--theme-border)!important;}
+html[data-color-theme] .profile-launcher-badge,
+html[data-color-theme] .profile-launcher-role .role-icon,
+html[data-color-theme] .profile-form-modal-icon{color:var(--theme-primary)!important;}
+html[data-color-theme] .profile-launcher-role:hover{border-color:var(--theme-border)!important;}
+html[data-color-theme] .profile-launcher-role[aria-pressed="true"]{border-color:var(--theme-primary)!important;background:var(--theme-soft)!important;box-shadow:0 8px 20px var(--theme-shadow)!important;}
+html[data-color-theme] .profile-launcher-role .role-icon{background:var(--theme-soft)!important;}
+html[data-color-theme] .profile-form-modal-head{background:linear-gradient(135deg,var(--theme-soft),rgba(255,255,255,.01))!important;}
+html[data-color-theme] .profile-form-modal #profilLyceeSave{background:linear-gradient(135deg,var(--theme-strong),var(--theme-primary))!important;box-shadow:0 9px 22px var(--theme-shadow)!important;}
+html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{color:#fff!important;}
+</style>
+
 </head>
 <body class="site-locked">
 
@@ -2560,6 +2727,37 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         <h3 id="profilNom"></h3>
         <p id="profilEmail" class="profile-email"></p>
         <span id="profilRoleBadge" class="role-badge"></span>
+      </div>
+    </div>
+
+    <div class="profile-theme-card" aria-label="Choisir la couleur du site">
+      <div class="profile-theme-head">
+        <div>
+          <span class="profile-theme-kicker">Personnalisation</span>
+          <strong>Couleur du site</strong>
+          <small>Choisissez la couleur d'accent qui habillera l'ensemble du site. Votre choix reste compatible avec le mode clair ou sombre.</small>
+        </div>
+        <span class="profile-theme-current" id="profileThemeCurrent">Violet</span>
+      </div>
+      <div class="profile-theme-options" role="radiogroup" aria-label="Choisir la couleur du site">
+        <button type="button" class="profile-theme-option" data-color-choice="violet" aria-pressed="false" title="Thème violet">
+          <span class="profile-theme-swatch" aria-hidden="true"></span><b>Violet</b><small>Élégant</small>
+        </button>
+        <button type="button" class="profile-theme-option" data-color-choice="rouge" aria-pressed="false" title="Thème rouge">
+          <span class="profile-theme-swatch" aria-hidden="true"></span><b>Rouge</b><small>Énergique</small>
+        </button>
+        <button type="button" class="profile-theme-option" data-color-choice="vert" aria-pressed="false" title="Thème vert">
+          <span class="profile-theme-swatch" aria-hidden="true"></span><b>Vert</b><small>Naturel</small>
+        </button>
+        <button type="button" class="profile-theme-option" data-color-choice="bleu" aria-pressed="false" title="Thème bleu">
+          <span class="profile-theme-swatch" aria-hidden="true"></span><b>Bleu</b><small>Calme</small>
+        </button>
+        <button type="button" class="profile-theme-option" data-color-choice="jaune" aria-pressed="false" title="Thème jaune">
+          <span class="profile-theme-swatch" aria-hidden="true"></span><b>Jaune</b><small>Lumineux</small>
+        </button>
+        <button type="button" class="profile-theme-option" data-color-choice="orange" aria-pressed="false" title="Thème orange">
+          <span class="profile-theme-swatch" aria-hidden="true"></span><b>Orange</b><small>Chaleureux</small>
+        </button>
       </div>
     </div>
 
@@ -12940,6 +13138,47 @@ window.addEventListener('load',()=>{
   restore();
 })();
 </script>
+
+<script id="aurore-color-theme-logic">
+(function(){
+  const COLOR_THEME_KEY='auraster-color-theme';
+  const VALID_COLOR_THEMES=['violet','rouge','vert','bleu','jaune','orange'];
+
+  function appliquerCouleurSite(choix){
+    if(!VALID_COLOR_THEMES.includes(choix)) choix='violet';
+    document.documentElement.setAttribute('data-color-theme',choix);
+    try{localStorage.setItem(COLOR_THEME_KEY,choix);}catch(e){}
+    document.querySelectorAll('.profile-theme-option').forEach(btn=>{
+      btn.setAttribute('aria-pressed',btn.dataset.colorChoice===choix?'true':'false');
+    });
+    const label=document.getElementById('profileThemeCurrent');
+    if(label){
+      const noms={violet:'Violet',rouge:'Rouge',vert:'Vert',bleu:'Bleu',jaune:'Jaune',orange:'Orange'};
+      label.textContent=noms[choix]||'Violet';
+    }
+    const meta=document.querySelector('meta[name="theme-color"]');
+    if(meta){
+      const couleurs={
+        violet:'#6D28D9',rouge:'#C93648',vert:'#198754',
+        bleu:'#1D4ED8',jaune:'#B77900',orange:'#C85C0D'
+      };
+      meta.setAttribute('content',couleurs[choix]||couleurs.violet);
+    }
+  }
+
+  function init(){
+    const boutons=document.querySelectorAll('.profile-theme-option');
+    boutons.forEach(btn=>btn.addEventListener('click',()=>appliquerCouleurSite(btn.dataset.colorChoice)));
+    let choix='violet';
+    try{choix=localStorage.getItem(COLOR_THEME_KEY)||'violet';}catch(e){}
+    appliquerCouleurSite(choix);
+  }
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init);
+  else init();
+})();
+</script>
+
 </body>
 </html>
 
