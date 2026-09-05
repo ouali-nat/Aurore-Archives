@@ -3154,18 +3154,29 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   }
 
   async function demarrerConnexionGoogle() {
-    // Connexion OAuth directe vers Supabase : elle ne dépend pas du chargement
-    // de supabase-js ni d'un état local éventuellement ancien. C'est important
-    // pour les navigateurs normaux où un ancien cache/PWA peut perturber le client.
-    const retour = window.location.origin + window.location.pathname;
+    // Utilise le flux OAuth officiel de supabase-js. Cela permet à Supabase
+    // de préparer correctement le retour OAuth et d'éviter les problèmes
+    // liés à un ancien état du navigateur.
     try {
-      const params = new URLSearchParams({
+      const client = await assurerClientAuthGoogle();
+      if (!client) throw new Error('Le service de connexion Google n’est pas disponible.');
+
+      const productionRedirect = 'https://aurore-section-archivescom.vercel.app/';
+      const retour = window.location.origin === 'https://aurore-section-archivescom.vercel.app'
+        ? productionRedirect
+        : (window.location.origin + window.location.pathname);
+
+      const { error } = await client.auth.signInWithOAuth({
         provider: 'google',
-        redirect_to: retour,
-        prompt: 'select_account'
+        options: {
+          redirectTo: retour,
+          queryParams: {
+            prompt: 'select_account'
+          }
+        }
       });
-      const oauthUrl = `${SUPABASE_URL}/auth/v1/authorize?${params.toString()}`;
-      window.location.replace(oauthUrl);
+
+      if (error) throw error;
     } catch (e) {
       console.error('[Google OAuth] démarrage impossible :', e);
       const accessMsg = document.getElementById('accessMessage');
