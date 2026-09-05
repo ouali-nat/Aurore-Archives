@@ -1809,7 +1809,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     }
     google.classList.add('is-loading');
     const strong = google.querySelector('strong'); if (strong) strong.textContent = 'Connexion à Google…';
-    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(resolve,250))));
+    // Ne pas retarder la redirection OAuth : sur mobile, chaque délai supplémentaire
+    // augmente le risque que le navigateur suspende la page avant la redirection.
     if(typeof demarrerConnexionGoogle==='function') demarrerConnexionGoogle();
   });
   signupOpen?.addEventListener('click',()=>{modal.style.display='flex';modal.setAttribute('aria-hidden','false');afficherModeInscription();setTimeout(()=>document.getElementById('signupName')?.focus(),50);});
@@ -3109,61 +3110,87 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   }
 
   function demarrerConnexionGoogle() {
+    // URL de retour minimale et stable : pas de hash/query résiduel.
     const retour = window.location.origin + window.location.pathname;
-    window.location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(retour)}`;
+    const authorizeUrl =
+      `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(retour)}`;
+    window.location.assign(authorizeUrl);
   }
 
   async function recupererUtilisateur(access_token) {
-    // Priorité à la vitesse : l'authentification est validée dès que l'API
-    // Auth répond. La lecture du profil dispose d'un court délai afin qu'une
-    // requête RLS lente ne bloque jamais toute la connexion.
-    const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": "Bearer " + access_token },
-      cache: 'no-store'
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
+    // Auth est prioritaire : l'ouverture du site ne doit pas rester bloquée par
+    // une lecture secondaire de Profils. Le timeout protège aussi les mobiles
+    // lorsque le réseau Supabase répond très lentement.
+    if (!access_token) return null;
+
+    let data;
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        headers: {
+          "apikey": SUPABASE_ANON_KEY,
+          "Authorization": "Bearer " + access_token
+        },
+        cache: 'no-store',
+        signal: controller.signal
+      });
+      clearTimeout(timer);
+      if (!res.ok) return null;
+      data = await res.json();
+    } catch (e) {
+      console.error('[Google Auth] Impossible de joindre Supabase Auth :', e);
+      return null;
+    }
+
     const meta = data.user_metadata || {};
     let profil = {};
+
+    // Le profil est utile pour enrichir l'espace, mais ne doit jamais empêcher
+    // l'utilisateur authentifié d'entrer sur le site.
     try {
-      const profilPromise = fetch(`${SUPABASE_URL}/rest/v1/Profils?select=nom,prenom,lycee,niveau,classe,filiere,discipline,fonction,enfant_informations,banni,role&id=eq.${encodeURIComponent(data.id)}&limit=1`, {
-        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + access_token },
-        cache: 'no-store'
-      }).then(async pr => {
-        if (!pr.ok) return {};
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 1200);
+      const pr = await fetch(
+        `${SUPABASE_URL}/rest/v1/Profils?select=nom,prenom,lycee,niveau,classe,filiere,discipline,fonction,enfant_informations,banni,role&id=eq.${encodeURIComponent(data.id)}&limit=1`,
+        {
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': 'Bearer ' + access_token
+          },
+          cache: 'no-store',
+          signal: controller.signal
+        }
+      );
+      clearTimeout(timer);
+      if (pr.ok) {
         const rows = await pr.json().catch(() => []);
-        return rows[0] || {};
-      });
-      // 2,5 s maximum pour le profil : l'accès au site ne doit pas attendre
-      // une requête secondaire lente. Le profil sera récupéré au prochain
-      // rafraîchissement si Supabase est momentanément lent.
-      profil = await Promise.race([
-        profilPromise,
-        new Promise(resolve => setTimeout(() => resolve({}), 2500))
-      ]);
-    } catch (e) {}
+        profil = rows[0] || {};
+      }
+    } catch (e) {
+      console.warn('[Profil] Lecture secondaire retardée ou indisponible :', e);
+    }
+
     return {
       id: data.id,
       email: data.email,
-      nom: profil.nom || (meta.full_name || meta.name) || data.email,
-      prenom: profil.prenom || meta.given_name || '',
-      avatar: (meta.avatar_url || meta.picture) || null,
-      lycee: profil.lycee || meta.lycee || '',
-      niveau: profil.niveau || meta.niveau || '',
-      classe: profil.classe || meta.classe || '',
-      filiere: profil.filiere || meta.filiere || '',
-      discipline: profil.discipline || meta.discipline || '',
-      fonction: profil.fonction || meta.fonction || '',
-      enfant_informations: profil.enfant_informations || meta.enfant_informations || '',
-      situation_role: meta.situation_role || '',
+      nom: profil.nom || (meta.full_name || meta.name) || data.email?.split('@')[0] || '',
+      prenom: profil.prenom || '',
+      lycee: profil.lycee || '',
+      niveau: profil.niveau || '',
+      classe: profil.classe || '',
+      filiere: profil.filiere || '',
+      discipline: profil.discipline || '',
+      fonction: profil.fonction || '',
+      enfant_informations: profil.enfant_informations || '',
       banni: profil.banni === true,
-      role: profil.role || null,
-      provider: (data.app_metadata && Array.isArray(data.app_metadata.providers) && data.app_metadata.providers.includes('google')) ? 'Google' : 'E-mail'
+      role: profil.role || '',
+      avatar: meta.avatar_url || meta.picture || '',
+      provider: meta.provider || 'Google',
+      situation_role: meta.situation_role || ''
     };
   }
 
-  // Crée le profil au premier login (ne touche jamais à un profil existant,
-  // donc ne peut jamais écraser un rôle déjà attribué). Puis lit le rôle réel.
   async function assurerProfilEtObtenirRole(access_token, infos) {
     // Si le profil est déjà connu, aucun appel supplémentaire.
     if (infos && infos.role) return infos.role;
@@ -3629,6 +3656,24 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const urlParams = new URLSearchParams(window.location.search);
     const tokenHash = urlParams.get('token_hash');
     const confirmationType = urlParams.get('type');
+
+    // Supabase peut revenir avec une erreur OAuth dans la query string.
+    // Afficher une erreur claire au lieu de laisser l'utilisateur bloqué.
+    const oauthError = urlParams.get('error');
+    const oauthErrorDescription = urlParams.get('error_description');
+    if (oauthError) {
+      console.error('[Google OAuth]', oauthError, oauthErrorDescription || '');
+      if (typeof window.auroreCacherVeuillezPatienter === 'function') {
+        window.auroreCacherVeuillezPatienter();
+      }
+      if (accessMessage) {
+        accessMessage.textContent =
+          'La connexion Google n’a pas abouti. Vérifiez votre connexion Internet puis réessayez.';
+        accessMessage.className = 'access-message err';
+        accessMessage.style.display = 'block';
+      }
+      return;
+    }
 
     if (tokenHash && confirmationType === 'signup') {
       try {
