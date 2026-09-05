@@ -56,6 +56,8 @@
 <link rel="preconnect" href="https://tdeotqfsbvouresfhkab.supabase.co" crossorigin>
 <link rel="preconnect" href="https://lsnb-upload.oualikevin9.workers.dev" crossorigin>
 <link rel="preconnect" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev" crossorigin>
+<link rel="preconnect" href="https://www.googleapis.com" crossorigin>
+<link rel="dns-prefetch" href="https://www.googleapis.com">
 <link rel="manifest" href="manifest.json?v=20260905-1">
 <link rel="icon" type="image/png" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
 <link rel="icon" type="image/png" sizes="192x192" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
@@ -6691,52 +6693,51 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       return null;
     }
   }
+  // Lecture SYNCHRONE (aucun await) du cache persistant, pour injecter la
+  // couverture directement dans le HTML de la ligne au moment de sa création.
+  // Pour un document déjà vu sur cet appareil, la couverture est donc bien
+  // affichée dès le premier rendu — jamais un aller-retour réseau plus tard.
+  function couverturePersistanteImmediate(titre) {
+    const clef = String(titre || '').trim().toLowerCase();
+    if (!clef) return null;
+    return CACHE_COUVERTURES_PERSISTANT[clef] || null;
+  }
+
   // Tente d'afficher la couverture dans la vignette d'une ligne-document.
-  // Google Books est prioritaire. Si l'image distante ne charge pas, on tombe
-  // immédiatement sur la première page du PDF ; l'icône générique n'est utilisée
-  // qu'en dernier recours. Le système ne modifie ni les données du document ni
-  // le lecteur PDF : il ne fait qu'améliorer la vignette.
+  // Google Books et la première page du PDF sont lancés EN PARALLÈLE (et non
+  // plus l'un après l'autre) : la couverture s'affiche dès que la première
+  // des deux sources répond, ce qui réduit fortement le délai perçu. L'icône
+  // générique n'est conservée que si aucune des deux sources n'aboutit. Le
+  // système ne modifie ni les données du document ni le lecteur PDF : il ne
+  // fait qu'améliorer la vignette.
   function appliquerCouvertureSiLivre(row, doc) {
     const estUnLivre = String(doc['Catégorie'] || doc.Type || '').trim().toLowerCase() === 'livres';
     if (!estUnLivre) return;
     const wrap = row.querySelector('.icon-wrap');
     if (!wrap || !doc.Fichier_url) return;
 
-    let secoursLance = false;
-    const afficherSecours = () => {
-      if (secoursLance) return;
-      secoursLance = true;
-      genererCouverturePremierePagePDF(doc).then(url => {
-        if (!url || !row.isConnected || !wrap.isConnected) return;
-        wrap.classList.add('a-couverture');
-        wrap.innerHTML = `<img class="doc-cover-img" src="${url}" alt="Couverture — ${echapperHtmlPub(doc.Titre)}" loading="eager" decoding="async">`;
-      }).catch(() => {});
-    };
-
-    const afficherGoogle = (url) => {
-      if (!url || !row.isConnected || !wrap.isConnected) {
-        afficherSecours();
-        return;
-      }
+    // Cas le plus fréquent après la première visite : la couverture est déjà
+    // en cache local, on l'affiche sans le moindre délai, sans même attendre
+    // un cycle de la boucle d'événements.
+    const dejaConnue = couverturePersistanteImmediate(doc.Titre);
+    if (dejaConnue) {
       wrap.classList.add('a-couverture');
-      // Affichage immédiat : ne pas attendre un Image() séparé.
-      // Le navigateur commence le téléchargement dès l'insertion du <img>,
-      // avec une priorité élevée. Le fallback PDF reste disponible en cas
-      // d'échec réseau ou d'URL Google Books indisponible.
+      wrap.innerHTML = `<img class="doc-cover-img" src="${echapperHtmlPub(dejaConnue)}" alt="Couverture — ${echapperHtmlPub(doc.Titre)}" loading="eager" decoding="async" fetchpriority="high">`;
+      return;
+    }
+
+    let affichee = false;
+    const afficherSiPremier = (url) => {
+      if (affichee || !url || !row.isConnected || !wrap.isConnected) return;
+      affichee = true;
+      wrap.classList.add('a-couverture');
       wrap.innerHTML = `<img class="doc-cover-img" src="${echapperHtmlPub(url)}" alt="Couverture — ${echapperHtmlPub(doc.Titre)}" loading="eager" decoding="async" fetchpriority="high">`;
-      const img = wrap.querySelector('img.doc-cover-img');
-      if (!img) { afficherSecours(); return; }
-      img.addEventListener('error', () => {
-        // L'URL Google Books existe peut-être mais l'image peut être refusée,
-        // expirée ou indisponible : dans ce cas, ne laissons pas la vignette vide.
-        afficherSecours();
-      }, {once:true});
-      // Lance en parallèle un préchargement discret pour les réaffichages
-      // suivants, sans jamais bloquer l'affichage actuel.
-      prechargerImageCouverture(url).catch(() => {});
     };
 
-    recupererCouvertureLivre(doc.Titre || '').then(afficherGoogle).catch(() => afficherSecours());
+    // Les deux sources démarrent au même instant : celle qui répond la
+    // première gagne l'affichage, l'autre est simplement ignorée.
+    recupererCouvertureLivre(doc.Titre || '').then(afficherSiPremier).catch(() => {});
+    genererCouverturePremierePagePDF(doc).then(afficherSiPremier).catch(() => {});
   }
 
   function rendreListeDocuments(content, data) {
@@ -9087,9 +9088,18 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         `;
         card.querySelector('[data-action="ouvrir"]').addEventListener('click', async () => {
           try {
-            const dres = await fetch(`${SUPABASE_URL}/rest/v1/Document?id=eq.${r.document_id}&select=Fichier_url`, { headers: HEADERS });
+            const dres = await fetch(`${SUPABASE_URL}/rest/v1/Document?id=eq.${r.document_id}&select=Fichier_url,Titre,Telechargement_autorise`, { headers: HEADERS });
             const ddata = await dres.json();
-            if (ddata && ddata[0] && ddata[0].Fichier_url) window.open(ddata[0].Fichier_url, '_blank', 'noopener');
+            // Reste à l'intérieur d'Aurore : ouverture via le lecteur PDF
+            // interne, jamais via un nouvel onglet / lecteur externe.
+            if (ddata && ddata[0] && ddata[0].Fichier_url) {
+              ouvrirLecteurPDF({
+                id: r.document_id,
+                Titre: ddata[0].Titre || r.document_titre || 'Document',
+                Fichier_url: ddata[0].Fichier_url,
+                Telechargement_autorise: ddata[0].Telechargement_autorise
+              });
+            }
             else alert("Le document associé est introuvable (peut-être déjà retiré).");
           } catch(e) { alert("Impossible d'ouvrir le document."); }
         });
