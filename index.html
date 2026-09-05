@@ -12268,6 +12268,90 @@ window.addEventListener('load',()=>{
   restore();
 })();
 </script>
+
+<script>
+/* Correctif définitif du verrou de l'espace personnel.
+   Ce handler est volontairement indépendant des autres scripts afin qu'une
+   erreur Supabase ou JavaScript dans une fonctionnalité secondaire ne puisse
+   empêcher la validation du code local. */
+(function(){
+  const KEY='aurore_code_espace_';
+  function getSession(){
+    try{
+      if(window.session && window.session.id) return window.session;
+      const raw=sessionStorage.getItem('lsnb_session');
+      const s=raw?JSON.parse(raw):null;
+      if(s?.id){ try{window.session=s;}catch(e){} return s; }
+    }catch(e){}
+    return null;
+  }
+  async function sha256(v){
+    const data=new TextEncoder().encode(String(v));
+    const hash=await crypto.subtle.digest('SHA-256',data);
+    return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  function fermerVerrou(){
+    const modal=document.getElementById('accessCodeModal');
+    const lock=document.getElementById('accessLock');
+    if(modal){modal.style.display='none';modal.setAttribute('aria-hidden','true');}
+    if(lock){lock.style.display='none';lock.classList.remove('show');lock.setAttribute('aria-hidden','true');}
+    document.body.classList.remove('site-locked','access-locked');
+    document.body.style.overflow='';
+    try{window.auroreUnlockAccess?.();}catch(e){}
+  }
+  async function valider(){
+    const input=document.getElementById('accessCodeInput');
+    const msg=document.getElementById('accessCodeMessage');
+    const value=String(input?.value||'').trim();
+    if(!/^\d{4,8}$/.test(value)){
+      if(msg){msg.textContent='Utilisez 4 à 8 chiffres.';msg.className='access-code-message err';msg.style.display='block';}
+      return;
+    }
+    const s=getSession();
+    if(!s?.id){
+      if(msg){msg.textContent='Session utilisateur introuvable. Reconnectez-vous à Aurore puis réessayez.';msg.className='access-code-message err';msg.style.display='block';}
+      return;
+    }
+    try{
+      const stored=localStorage.getItem(KEY+String(s.id));
+      if(!stored){
+        if(msg){msg.textContent='Aucun code d’accès n’est enregistré pour ce compte sur cet appareil.';msg.className='access-code-message err';msg.style.display='block';}
+        return;
+      }
+      const ok=(await sha256(value))===stored;
+      if(!ok){
+        if(msg){msg.textContent='Code incorrect. Réessayez.';msg.className='access-code-message err';msg.style.display='block';}
+        return;
+      }
+      // Le code est valide : aucune requête Supabase n'est nécessaire pour ouvrir l'espace.
+      fermerVerrou();
+      try{document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));document.getElementById('screen-profil')?.classList.add('active');}catch(e){}
+      try{window.scrollTo(0,0);}catch(e){}
+      try{window.remplirProfil?.();}catch(e){}
+      try{window.chargerCasesPersonnelles?.();}catch(e){}
+      try{window.chargerDonneesEspacePersonnel?.();}catch(e){}
+    }catch(e){
+      console.error('[Verrou espace] validation:',e);
+      if(msg){msg.textContent='Impossible de vérifier le code sur cet appareil. Réessayez.';msg.className='access-code-message err';msg.style.display='block';}
+    }
+  }
+  function installer(){
+    const btn=document.getElementById('accessCodeConfirm');
+    const input=document.getElementById('accessCodeInput');
+    if(btn && !btn.dataset.auroreDirectHandler){
+      btn.dataset.auroreDirectHandler='1';
+      btn.addEventListener('click',function(e){e.preventDefault();e.stopImmediatePropagation();valider();},true);
+    }
+    if(input && !input.dataset.auroreDirectHandler){
+      input.dataset.auroreDirectHandler='1';
+      input.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();e.stopImmediatePropagation();valider();}},true);
+    }
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installer,{once:true});else installer();
+  setTimeout(installer,300);
+  setTimeout(installer,1000);
+})();
+</script>
 </body>
 </html>
 
