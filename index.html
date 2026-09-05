@@ -29,6 +29,20 @@
     afficher('[Promesse rejetée] ' + (r && r.message ? r.message : String(r)) + (r && r.stack ? ('\n' + r.stack.split('\n').slice(0, 3).join('\n')) : ''));
   });
   window.auroreAfficherErreurDebug = afficher;
+  // Repère de version toujours visible (discret, coin bas-gauche), pour
+  // vérifier en un coup d'œil si l'onglet a bien chargé LE fichier redéployé
+  // ou une version mise en cache (par le navigateur ou par sw.js) — ce qui
+  // expliquerait qu'un correctif fonctionne en navigation privée (jamais de
+  // cache/service worker) mais pas en navigation normale (potentiellement
+  // encore sur l'ancienne version).
+  window.addEventListener('DOMContentLoaded', function () {
+    try {
+      var v = document.createElement('div');
+      v.textContent = 'build AURORE_2026_09_05_A';
+      v.style.cssText = 'position:fixed;left:6px;bottom:6px;z-index:2147483646;background:rgba(0,0,0,.55);color:#fff;padding:3px 7px;border-radius:6px;font:10px/1 monospace;opacity:.7;pointer-events:none';
+      (document.body || document.documentElement).appendChild(v);
+    } catch (e) {}
+  });
 })();
 </script>
 <meta charset="UTF-8">
@@ -3155,7 +3169,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   const SUPABASE_URL = "https://tdeotqfsbvouresfhkab.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZW90cWZzYnZvdXJlc2Zoa2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjM4NzMsImV4cCI6MjEwMDUzOTg3M30.l_a1lI_QRy7BTq1fGjiA9n7LCdu7BwR2TTI5pkA70SU";
   const HEADERS = { "apikey": SUPABASE_ANON_KEY, "Authorization": "Bearer " + SUPABASE_ANON_KEY };
-  // AURASTER_BUILD_2026_08_27
+  // AURORE_BUILD_2026_09_05_A
 
   // Nom actuel du site, utilisé dans les messages générés dynamiquement
   // (notifications, confirmations, textes de présentation) pour n'avoir
