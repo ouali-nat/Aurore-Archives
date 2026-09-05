@@ -11,6 +11,12 @@
   "icons": [
     {
       "src": "https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster",
+      "sizes": "48x48",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"

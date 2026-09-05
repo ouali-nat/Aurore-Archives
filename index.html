@@ -57,28 +57,29 @@
 <link rel="preconnect" href="https://lsnb-upload.oualikevin9.workers.dev" crossorigin>
 <link rel="preconnect" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev" crossorigin>
 <link rel="manifest" href="manifest.json?v=20260905-1">
-<link rel="icon" type="image/png" sizes="192x192" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260905">
-<link rel="icon" type="image/png" sizes="512x512" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260905">
+<link rel="icon" type="image/png" sizes="48x48" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
+<link rel="icon" type="image/png" sizes="192x192" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
+<link rel="icon" type="image/png" sizes="512x512" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
 <meta name="theme-color" content="#090812">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Aurore">
-<link rel="apple-touch-icon" sizes="512x512" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260905">
+<link rel="apple-touch-icon" sizes="512x512" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Aurore — Section Archives">
 <meta property="og:url" content="https://aurore-section-archivescom.vercel.app/">
 <meta property="og:locale" content="fr_FR">
 <meta property="og:title" content="Aurore — Section Archives">
 <meta property="og:description" content="Bibliothèque numérique d'Aurore">
-<meta property="og:image" content="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260904-2">
+<meta property="og:image" content="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
 <meta property="og:image:alt" content="Logo Aurore — Section Archives">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Aurore — Section Archives">
 <meta name="twitter:description" content="Bibliothèque numérique d'Aurore">
-<meta name="twitter:image" content="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260904-2">
+<meta name="twitter:image" content="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
 <title>Aurore — Section Archives — Bibliothèque numérique</title>
-<link rel="preload" as="image" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260904-2">
+<link rel="preload" as="image" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -10571,20 +10572,21 @@ async function telechargerDocumentAvecProgression(doc) {
     }
 
     function mettreAJourLiensLogo(url) {
-      // Une seule source R2 pour le logo du site, le favicon et l'icône Apple.
-      // Le manifeste PWA pointe lui aussi vers le même objet R2.
+      // URL officielle et stable : le même objet R2 est déclaré pour
+      // favicon, icône Apple, PWA, partage social et données structurées.
+      // On ne modifie jamais ces URLs avec un paramètre de cache-busting :
+      // Google doit toujours retrouver exactement la même URL du logo.
       const manifest = document.querySelector('link[rel="manifest"]');
       if (manifest) manifest.href = `manifest.json?v=${encodeURIComponent(Date.now())}`;
       document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]').forEach(link => {
-        link.href = url;
+        link.href = LOGO_URL_BASE;
       });
-      document.querySelector('meta[property="og:image"]')?.setAttribute('content', url);
-      document.querySelector('meta[name="twitter:image"]')?.setAttribute('content', url);
+      document.querySelector('meta[property="og:image"]')?.setAttribute('content', LOGO_URL_BASE);
+      document.querySelector('meta[name="twitter:image"]')?.setAttribute('content', LOGO_URL_BASE);
       const preload = document.querySelector('link[rel="preload"][as="image"]');
-      if (preload) preload.href = url;
-      const orgLogo = document.querySelector('script[type="application/ld+json"]');
-      // Le JSON-LD initial contient déjà la même URL R2 sans version ;
-      // Google récupérera donc toujours la source officielle du logo.
+      if (preload) preload.href = LOGO_URL_BASE;
+      // Le JSON-LD contient déjà l'URL R2 stable ; aucune modification
+      // dynamique n'est nécessaire pour les données structurées Google.
     }
 
     function chargerLogoSite(versionForcee) {
