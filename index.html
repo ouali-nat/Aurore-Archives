@@ -10284,6 +10284,14 @@ async function telechargerDocumentAvecProgression(doc) {
       setTimeout(()=>URL.revokeObjectURL(objectUrl),60000);
       const enregistre=await enregistrerTelechargementPersonnel(doc);if(!enregistre)throw new Error('Le téléchargement a réussi, mais son enregistrement personnel a échoué.');
       afficherCarteTelechargement(doc,'succes',100,total,total,'Votre document a été enregistré avec succès dans les téléchargements de votre téléphone. Vous pouvez continuer à utiliser Aurore.');
+      // Après l'enregistrement, on affiche le document dans le lecteur intégré
+      // au lieu de laisser l'utilisateur ouvrir la notification système du
+      // téléchargement (ce qui, sur mobile, peut le faire basculer vers une
+      // application externe comme Drive). S'il est déjà ouvert dans le
+      // lecteur, on ne fait rien pour ne pas interrompre sa lecture.
+      if (typeof ouvrirLecteurPDF === 'function' && DOC_EN_LECTURE?.id !== doc.id) {
+        setTimeout(() => { try { ouvrirLecteurPDF(doc); } catch(e) {} }, 350);
+      }
     }catch(e){
       if(e?.name==='AbortError')afficherCarteTelechargement(doc,'annule',null,null,null,'Le téléchargement a été annulé. Aucun fichier n’a été enregistré dans votre historique.');
       else{console.error('[Téléchargement document]',e);afficherCarteTelechargement(doc,'erreur',null,null,null,'Le téléchargement n’a pas pu être récupéré sans quitter Aurore. Réessayez dans quelques instants.');}
@@ -13086,6 +13094,8 @@ footer>.wrap:last-child{margin-top:18px!important;}
 
 <script id="aurore-pdf-navigation-guard">
 (function(){
+  function isPdfHref(href){ return /\.pdf(?:[?#]|$)/i.test(String(href||'')); }
+
   document.addEventListener('click',function(e){
     const a=e.target.closest && e.target.closest('a[href]');
     if(!a) return;
@@ -13098,6 +13108,21 @@ footer>.wrap:last-child{margin-top:18px!important;}
       if(typeof window.ouvrirLecteurPDF==='function') window.ouvrirLecteurPDF(fake);
     }catch(err){ console.warn('[Aurore] ouverture PDF interne impossible',err); }
   },true);
+
+  // Filet de sécurité ultime : quel que soit l'endroit du code (présent ou
+  // ajouté plus tard) qui appellerait window.open sur un PDF, on intercepte
+  // et on route vers le lecteur intégré au lieu de laisser un nouvel onglet
+  // (ou une application externe, sur mobile) s'ouvrir.
+  const ouvertureOriginale = window.open.bind(window);
+  window.open = function(url, ...reste){
+    if (isPdfHref(url)) {
+      try{
+        const fake={id:null,Titre:'Document PDF',Fichier_url:new URL(String(url),location.href).href,Telechargement_autorise:true};
+        if(typeof window.ouvrirLecteurPDF==='function'){ window.ouvrirLecteurPDF(fake); return null; }
+      }catch(err){ console.warn('[Aurore] interception window.open impossible',err); }
+    }
+    return ouvertureOriginale(url, ...reste);
+  };
 })();
 </script>
 <script id="aurore-personal-folders-js">
