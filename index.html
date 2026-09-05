@@ -3427,7 +3427,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   mettreAJourChampsProfilSelonRole=function(){_mettreAJourChampsProfilSelonRole();synchroniserCartesRoleProfil();};
 
   async function enregistrerProfilPersonnel(options={}) {
-    if (!session || !session.access_token) { const m=document.getElementById('profilSaveMessage'); if(m){m.textContent='Session expirée. Reconnectez-vous puis réessayez.';m.className='err';} return false; }
+    if (!session || !session.access_token) return false;
     const nom = document.getElementById('profilNomInput').value.trim();
     const prenom = document.getElementById('profilPrenomInput').value.trim();
     const lycee = document.getElementById('profilLyceeInput').value.trim();
@@ -3464,7 +3464,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         // été exécuté : on tente le PATCH direct avec le token utilisateur.
         const patch=await fetch(`${SUPABASE_URL}/rest/v1/Profils?id=eq.${encodeURIComponent(session.id)}`,{
           method:'PATCH',
-          headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json','Prefer':'return=representation'},
+          headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=representation'},
           body:JSON.stringify({nom,prenom,lycee,niveau,classe,filiere,role,discipline,fonction,enfant_informations})
         });
         if(!patch.ok){
@@ -3472,6 +3472,20 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
           throw new Error('PROFIL_DB_'+patch.status+' '+pd);
         }
       }
+
+      // Confirmation immédiate après l'écriture réussie dans Profils.
+      msg.textContent='✓ Enregistrement confirmé. Merci ! Vos informations ont bien été enregistrées et transmises à l’administration.';
+      msg.className='ok';
+      msg.style.display='block';
+      let success=document.getElementById('auroreProfileSuccess');
+      if(!success){
+        success=document.createElement('div');
+        success.id='auroreProfileSuccess';
+        success.className='aurore-profile-success';
+        msg.parentElement?.appendChild(success);
+      }
+      success.innerHTML='<div class="aurore-profile-success-icon">✓</div><div><strong>Merci ! Enregistrement confirmé</strong><span>Vos informations ont bien été enregistrées et sont maintenant associées à votre compte pour l’administration.</span></div>';
+      success.style.display='flex';
 
       // 2) Copie dans les métadonnées Auth : utile pour récupérer rapidement
       // le profil dès la connexion suivante, sans remplacer la donnée DB.
@@ -3489,10 +3503,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       session.nom=nom; session.prenom=prenom; session.lycee=lycee; session.niveau=niveau; session.classe=niveau&&classe?classe:''; session.filiere=filiere; session.role=role; session.discipline=discipline; session.fonction=fonction; session.enfant_informations=enfant_informations;
       session.user_metadata={...(session.user_metadata||{}),nom,prenom,lycee,niveau,classe,filiere,role,discipline,fonction,enfant_informations,...md};
       sauvegarderSession();
-      msg.textContent='Votre espace personnel est maintenant configuré.'; msg.className='ok';
-       let success=document.getElementById('auroreProfileSuccess');
-       if(!success){success=document.createElement('div');success.id='auroreProfileSuccess';success.className='aurore-profile-success';success.innerHTML='<div class="aurore-profile-success-icon">✓</div><div><strong>Enregistrement confirmé</strong><span>Vos informations ont été enregistrées et seront reprises dans votre espace personnel.</span></div>';msg.parentElement?.appendChild(success);}
-       else success.style.display='flex';
       btn.textContent='Profil enregistré ✓';
       setTimeout(()=>{btn.textContent=ancienTexte;},1800);
       if(options.forceComplete) afficherUtilisateurConnecte();
@@ -3503,26 +3513,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     } finally { btn.disabled=false; }
   }
 
-  (function(){
-  const saveBtn=document.getElementById('profilLyceeSave');
-  if(!saveBtn) return;
-  saveBtn.addEventListener('click', async function(e){
-    e.preventDefault(); e.stopPropagation();
-    if(this.disabled) return;
-    try {
-      const ok=await enregistrerProfilPersonnel();
-      if(!ok) return;
-      const role=String(document.getElementById('profilRoleInput')?.value||'eleve').toLowerCase();
-      const modal=document.getElementById('profileInfoModal');
-      if(modal){ modal.classList.remove('show'); modal.setAttribute('aria-hidden','true'); document.body.classList.remove('profile-modal-open'); }
-    } catch(err) {
-      console.error('[Profil] clic enregistrement:',err);
-      const msg=document.getElementById('profilSaveMessage');
-      if(msg){msg.textContent='Impossible d’enregistrer pour le moment. Réessayez.';msg.className='err';}
-      this.disabled=false;
-    }
-  }, true);
-})();
+  document.getElementById('profilLyceeSave').addEventListener('click',()=>enregistrerProfilPersonnel());
 
   document.getElementById('btnOuvrirProfil').addEventListener('click', () => {
     if (document.getElementById('screen-profil')?.classList.contains('active')) return;
