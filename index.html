@@ -3817,7 +3817,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
           sauvegarderSession();
           enregistrerConnexion(session).catch(()=>{});
           afficherUtilisateurConnecte();
-          unlock();
+          window.auroreUnlockAccess?.();
           if (profilEstComplet(session)) afficherBienvenueApresConnexion(session);
           else ouvrirEspacePersonnelObligatoire();
         }
