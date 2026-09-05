@@ -3079,7 +3079,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     return window.supabase.createClient(
       "https://tdeotqfsbvouresfhkab.supabase.co",
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZW90cWZzYnZvdXJlc2Zoa2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjM4NzMsImV4cCI6MjEwMDUzOTg3M30.l_a1lI_QRy7BTq1fGjiA9n7LCdu7BwR2TTI5pkA70SU",
-      { auth: { flowType: 'implicit', autoRefreshToken: true, persistSession: true, detectSessionInUrl: true, storage: window.localStorage } }
+      { auth: { flowType: 'pkce', autoRefreshToken: true, persistSession: true, detectSessionInUrl: true, storage: window.localStorage } }
     );
   }
   let AURORE_SUPABASE_AUTH = window.supabase ? creerClientAuthGoogle() : null;
@@ -3156,9 +3156,22 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   async function demarrerConnexionGoogle() {
     try {
       const retour = window.location.origin + window.location.pathname;
-      const url =
-        `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(retour)}`;
-      window.location.assign(url);
+      // Important : on passe obligatoirement par le client Supabase (signInWithOAuth)
+      // et non par une redirection manuelle vers /auth/v1/authorize. C'est ce client
+      // qui génère et enregistre le "code_verifier" PKCE dans localStorage avant de
+      // partir vers Google ; sans cet appel, le retour ne peut jamais être validé par
+      // exchangeCodeForSession (ancien bug : la redirection manuelle ne posait aucun
+      // code_verifier, ce qui échouait dès qu'une valeur périmée traînait déjà dans le
+      // localStorage du navigateur — d'où le fonctionnement en navigation privée
+      // uniquement, où le stockage est toujours vide).
+      const client = await assurerClientAuthGoogle();
+      if (!client) throw new Error('Impossible de joindre le service de connexion (réseau bloqué ou instable).');
+      const { error } = await client.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: retour }
+      });
+      if (error) throw error;
+      // signInWithOAuth déclenche lui-même la redirection du navigateur vers Google.
     } catch (error) {
       console.error('[Aurore] Erreur connexion Google:', error);
       alert('Impossible de démarrer la connexion Google. Veuillez réessayer.');
