@@ -56,30 +56,35 @@
 <link rel="preconnect" href="https://tdeotqfsbvouresfhkab.supabase.co" crossorigin>
 <link rel="preconnect" href="https://lsnb-upload.oualikevin9.workers.dev" crossorigin>
 <link rel="preconnect" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://accounts.google.com" crossorigin>
+<link rel="preconnect" href="https://www.googleapis.com" crossorigin>
+<link rel="dns-prefetch" href="//cdn.jsdelivr.net">
+<link rel="dns-prefetch" href="//accounts.google.com">
+<link rel="dns-prefetch" href="//www.googleapis.com">
 <link rel="manifest" href="manifest.json?v=20260905-1">
-<link rel="icon" type="image/png" sizes="48x48" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
-<link rel="icon" type="image/png" sizes="192x192" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
-<link rel="icon" type="image/png" sizes="512x512" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
+<link rel="icon" type="image/png" sizes="192x192" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260905">
+<link rel="icon" type="image/png" sizes="512x512" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260905">
 <meta name="theme-color" content="#090812">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Aurore">
-<link rel="apple-touch-icon" sizes="512x512" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
+<link rel="apple-touch-icon" sizes="512x512" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260905">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Aurore — Section Archives">
 <meta property="og:url" content="https://aurore-section-archivescom.vercel.app/">
 <meta property="og:locale" content="fr_FR">
 <meta property="og:title" content="Aurore — Section Archives">
 <meta property="og:description" content="Bibliothèque numérique d'Aurore">
-<meta property="og:image" content="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
+<meta property="og:image" content="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260904-2">
 <meta property="og:image:alt" content="Logo Aurore — Section Archives">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Aurore — Section Archives">
 <meta name="twitter:description" content="Bibliothèque numérique d'Aurore">
-<meta name="twitter:image" content="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
+<meta name="twitter:image" content="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260904-2">
 <title>Aurore — Section Archives — Bibliothèque numérique</title>
-<link rel="preload" as="image" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
+<link rel="preload" as="image" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster?v=20260904-2">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -461,6 +466,8 @@
   .doc-row .icon-wrap img.doc-cover-img{
     width:100%; height:100%; object-fit:cover; border-radius:inherit; display:block;
   }
+  .doc-cover-img{content-visibility:auto;}
+
   .doc-row .titre{font-weight:700; font-size:0.9rem;}
   .doc-row .meta{font-size:0.76rem; color:var(--gris); margin-top:2px;}
   .doc-row .dl{
@@ -3262,6 +3269,26 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   const SUPABASE_URL = "https://tdeotqfsbvouresfhkab.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZW90cWZzYnZvdXJlc2Zoa2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjM4NzMsImV4cCI6MjEwMDUzOTg3M30.l_a1lI_QRy7BTq1fGjiA9n7LCdu7BwR2TTI5pkA70SU";
   const HEADERS = { "apikey": SUPABASE_ANON_KEY, "Authorization": "Bearer " + SUPABASE_ANON_KEY };
+
+  // Cache très court des lectures publiques : accélère les retours entre écrans
+  // sans toucher au stockage/token de la connexion Google.
+  const AURORE_PUBLIC_CACHE_TTL = 12000;
+  const AURORE_PUBLIC_CACHE = new Map();
+  const AURORE_PUBLIC_INFLIGHT = new Map();
+  async function fetchPublicJson(url, options = {}) {
+    const key = String(url);
+    const cached = AURORE_PUBLIC_CACHE.get(key);
+    if (cached && Date.now() - cached.time < AURORE_PUBLIC_CACHE_TTL) return cached.data;
+    if (AURORE_PUBLIC_INFLIGHT.has(key)) return AURORE_PUBLIC_INFLIGHT.get(key);
+    const promise = fetch(key, options).then(async res => {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      AURORE_PUBLIC_CACHE.set(key, {time:Date.now(), data});
+      return data;
+    }).finally(() => AURORE_PUBLIC_INFLIGHT.delete(key));
+    AURORE_PUBLIC_INFLIGHT.set(key, promise);
+    return promise;
+  }
   // AURORE_BUILD_2026_09_05_A
 
   // Nom actuel du site, utilisé dans les messages générés dynamiquement
@@ -5720,9 +5747,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
   async function chargerStatsNiveaux() {
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/Document?select=Niveau&Publie=eq.true&Niveau=not.is.null`, { headers: HEADERS });
-      if (!res.ok) return;
-      const rows = await res.json();
+      const rows = await fetchPublicJson(`${SUPABASE_URL}/rest/v1/Document?select=Niveau&Publie=eq.true&Niveau=not.is.null`, { headers: HEADERS });
       const stats = {};
       rows.forEach(r => {
         const level = String(r.Niveau || '');
@@ -6129,26 +6154,51 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   // Cache mémoire : évite de refaire un appel réseau à chaque réaffichage de la
   // même liste (recherche, tri, pagination, retour en arrière...).
   const CACHE_COUVERTURES_LIVRES = new Map();
+  const COUVERTURES_LS_KEY = 'aurore_livres_couvertures_v2';
+  let COUVERTURES_LS = {};
+  try {
+    const parsed = JSON.parse(localStorage.getItem(COUVERTURES_LS_KEY) || '{}');
+    if (parsed && typeof parsed === 'object') COUVERTURES_LS = parsed;
+  } catch (e) {}
+  function memoriserCouvertureLivre(clef, url) {
+    CACHE_COUVERTURES_LIVRES.set(clef, url || null);
+    if (!url) return;
+    try {
+      COUVERTURES_LS[clef] = url;
+      const keys = Object.keys(COUVERTURES_LS);
+      while (keys.length > 120) delete COUVERTURES_LS[keys.shift()];
+      localStorage.setItem(COUVERTURES_LS_KEY, JSON.stringify(COUVERTURES_LS));
+    } catch (e) {}
+  }
   async function recupererCouvertureLivre(titre) {
     const clef = String(titre || '').trim().toLowerCase();
     if (!clef) return null;
     if (CACHE_COUVERTURES_LIVRES.has(clef)) return CACHE_COUVERTURES_LIVRES.get(clef);
+    if (COUVERTURES_LS[clef]) {
+      CACHE_COUVERTURES_LIVRES.set(clef, COUVERTURES_LS[clef]);
+      return COUVERTURES_LS[clef];
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
     try {
-      const res = await fetch(`https://www.googleapis.com/books/v1/volumes?maxResults=1&q=${encodeURIComponent('intitle:' + titre)}`);
+      const apiUrl = `https://www.googleapis.com/books/v1/volumes?maxResults=1&printType=books&fields=items(volumeInfo/imageLinks)&q=${encodeURIComponent('intitle:' + titre)}`;
+      const res = await fetch(apiUrl, {signal:controller.signal});
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const donnees = await res.json();
       const item = Array.isArray(donnees.items) ? donnees.items[0] : null;
       const liens = item?.volumeInfo?.imageLinks || {};
       let url = liens.thumbnail || liens.smallThumbnail || null;
       if (url) url = url.replace(/^http:\/\//, 'https://');
-      CACHE_COUVERTURES_LIVRES.set(clef, url);
+      memoriserCouvertureLivre(clef, url);
       return url;
     } catch (e) {
-      console.warn('[Couverture livre] recherche impossible pour', titre, e);
-      CACHE_COUVERTURES_LIVRES.set(clef, null);
+      CACHE_COUVERTURES_LIVRES.delete(clef);
       return null;
+    } finally {
+      clearTimeout(timer);
     }
   }
+
   // Repli lorsque l'API ne trouve pas de couverture (cas fréquent pour un
   // ouvrage scolaire local, non référencé en ligne) : on affiche la première
   // page du PDF déposé, qui existe forcément. Réutilise volontairement
@@ -6197,14 +6247,24 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const afficher = (url) => {
       if (!url) return;
       wrap.classList.add('a-couverture');
-      wrap.innerHTML = `<img class="doc-cover-img" src="${echapperHtmlPub(url)}" alt="Couverture — ${echapperHtmlPub(doc.Titre)}" loading="lazy" onerror="this.closest('.icon-wrap')?.classList.remove('a-couverture'); this.remove();">`;
+      const img = document.createElement('img');
+      img.className = 'doc-cover-img';
+      img.alt = `Couverture — ${doc.Titre || 'Livre'}`;
+      img.decoding = 'async';
+      img.loading = 'eager';
+      img.fetchPriority = 'high';
+      img.src = url;
+      img.onerror = () => { wrap.classList.remove('a-couverture'); img.remove(); };
+      wrap.replaceChildren(img);
     };
     const viaTitre = doc.Titre ? recupererCouvertureLivre(doc.Titre) : Promise.resolve(null);
     viaTitre.then(url => {
       if (url) { afficher(url); return; }
-      // Aucune couverture trouvée en ligne pour ce titre : on se rabat sur la
-      // première page du PDF lui-même.
-      genererCouverturePremierePagePDF(doc).then(afficher);
+      // PDF.js + téléchargement du PDF sont coûteux : le repli est différé
+      // pour laisser les données et les couvertures visibles arriver d'abord.
+      const lancerRepli = () => genererCouverturePremierePagePDF(doc).then(afficher);
+      if ('requestIdleCallback' in window) requestIdleCallback(lancerRepli, {timeout:3500});
+      else setTimeout(lancerRepli, 2500);
     });
   }
 
@@ -6255,9 +6315,11 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
         if(typeof window.ouvrirChoixCaseDocument==='function') window.ouvrirChoixCaseDocument(doc);
       });
       actualiserEtatActionsDocument(row,doc);
-      actualiserTaillesDocumentsDans(row);
-      appliquerCouvertureSiLivre(row,doc);
       list.appendChild(row);
+      appliquerCouvertureSiLivre(row,doc);
+      const chargerTaille = () => actualiserTaillesDocumentsDans(row);
+      if ('requestIdleCallback' in window) requestIdleCallback(chargerTaille, {timeout:2200});
+      else setTimeout(chargerTaille, 900);
     });
     content.innerHTML='';
     content.appendChild(list);
@@ -6281,9 +6343,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     if (etat.division) query += `&Classe=eq.${encodeURIComponent(etat.division)}`;
 
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&${query}`, { headers: HEADERS });
-      if (!res.ok) throw new Error("Statut HTTP " + res.status);
-      const data = filtreSerieSiDisponible(await res.json());
+      const data = filtreSerieSiDisponible(await fetchPublicJson(`${SUPABASE_URL}/rest/v1/Document?select=*&${query}`, { headers: HEADERS }));
       documentsCourants = Array.isArray(data) ? data : [];
       actualiserTriPublicDocuments(documentsCourants);
       docsPageCourante = 1;
@@ -6328,8 +6388,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
     // NB : nécessite que la colonne "Genre" existe dans Document (voir migration
     // SQL fournie : ALTER TABLE "Document" ADD COLUMN IF NOT EXISTS "Genre" text;).
-    fetch(`${SUPABASE_URL}/rest/v1/Document?select=Genre&${encodeURIComponent('Catégorie')}=eq.${encodeURIComponent('Livres')}&Publie=eq.true`, { headers: HEADERS })
-      .then(res => res.ok ? res.json() : [])
+    fetchPublicJson(`${SUPABASE_URL}/rest/v1/Document?select=Genre&${encodeURIComponent('Catégorie')}=eq.${encodeURIComponent('Livres')}&Publie=eq.true`, { headers: HEADERS })
       .then(rows => {
         const compte = {};
         rows.forEach(r => { compte[r.Genre] = (compte[r.Genre] || 0) + 1; });
@@ -6351,9 +6410,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
     const query = `${encodeURIComponent('Catégorie')}=eq.${encodeURIComponent('Livres')}&Genre=eq.${encodeURIComponent(genre.nom)}&Publie=eq.true`;
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&${query}`, { headers: HEADERS });
-      if (!res.ok) throw new Error("Statut HTTP " + res.status);
-      const data = await res.json();
+      const data = await fetchPublicJson(`${SUPABASE_URL}/rest/v1/Document?select=*&${query}`, { headers: HEADERS });
       rendreListeDocuments(content, data);
     } catch (err) {
       content.innerHTML = `<div class="doc-empty"><div class="icon-wrap">${ICONS.warning}</div><h3>Impossible de charger les documents</h3><p>Le contenu n’a pas pu être récupéré pour le moment. Veuillez réessayer dans quelques instants.</p></div>`;
@@ -6461,9 +6518,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const content = document.getElementById('recentsContent');
     content.innerHTML = '<p class="admin-empty">Chargement…</p>';
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&Publie=eq.true&Mis_en_avant=eq.true&order=id.desc&limit=100`, { headers: HEADERS });
-      if (!res.ok) throw new Error("Statut HTTP " + res.status);
-      const data = await res.json();
+      const data = await fetchPublicJson(`${SUPABASE_URL}/rest/v1/Document?select=*&Publie=eq.true&Mis_en_avant=eq.true&order=id.desc&limit=100`, { headers: HEADERS });
       documentsRecentsCourants=Array.isArray(data)?data:[];
       recentsPageCourante=1;
       if(document.getElementById('recentsSearch')) document.getElementById('recentsSearch').value='';
@@ -8909,7 +8964,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     container.innerHTML = `
       <div class="ad-slot-label">Publicité</div>
       <div class="ad-slot-card">
-        <img class="ad-slot-img" src="${echapperHtmlPub(ad.image_url)}" alt="${echapperHtmlPub(titre||'Publicité')}">
+        <img class="ad-slot-img" src="${echapperHtmlPub(ad.image_url)}" alt="${echapperHtmlPub(titre||'Publicité')}" loading="lazy" decoding="async">
         <div class="ad-slot-body">
           ${titre ? `<div class="ad-slot-title">${echapperHtmlPub(titre)}</div>` : ''}
           ${ad.description ? `<div class="ad-slot-desc">${echapperHtmlPub(ad.description)}</div>` : ''}
@@ -9109,7 +9164,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       const item=document.createElement('div');
       item.className='pub-admin-item';
       item.innerHTML = `
-        <img src="${echapperHtmlPub(ad.image_url||'')}" alt="">
+        <img src="${echapperHtmlPub(ad.image_url||'')}" alt="" loading="lazy" decoding="async">
         <div class="pub-admin-item-body">
           <div class="pub-admin-item-title">${echapperHtmlPub(titre)}</div>
           ${ad.description ? `<div class="pub-admin-item-desc">${echapperHtmlPub(ad.description)}</div>` : ''}
@@ -10322,9 +10377,7 @@ async function telechargerDocumentAvecProgression(doc) {
     const url = `${SUPABASE_URL}/rest/v1/Document?select=*&or=(${or})&Publie=eq.true&order=id.desc`;
 
     try {
-      const res = await fetch(url, { headers: HEADERS });
-      if (!res.ok) { const detail = await res.text().catch(()=> ''); throw new Error(`HTTP ${res.status} — ${detail}`); }
-      const data = await res.json();
+      const data = await fetchPublicJson(url, { headers: HEADERS });
       rendreListeDocuments(content, data);
     } catch (err) {
       content.innerHTML = `<div class="doc-empty"><div class="icon-wrap">${ICONS.warning}</div><h3>Recherche indisponible</h3><p>La recherche n’a pas pu aboutir pour le moment. Veuillez réessayer dans quelques instants.</p></div>`;
@@ -10572,21 +10625,20 @@ async function telechargerDocumentAvecProgression(doc) {
     }
 
     function mettreAJourLiensLogo(url) {
-      // URL officielle et stable : le même objet R2 est déclaré pour
-      // favicon, icône Apple, PWA, partage social et données structurées.
-      // On ne modifie jamais ces URLs avec un paramètre de cache-busting :
-      // Google doit toujours retrouver exactement la même URL du logo.
+      // Une seule source R2 pour le logo du site, le favicon et l'icône Apple.
+      // Le manifeste PWA pointe lui aussi vers le même objet R2.
       const manifest = document.querySelector('link[rel="manifest"]');
       if (manifest) manifest.href = `manifest.json?v=${encodeURIComponent(Date.now())}`;
       document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]').forEach(link => {
-        link.href = LOGO_URL_BASE;
+        link.href = url;
       });
-      document.querySelector('meta[property="og:image"]')?.setAttribute('content', LOGO_URL_BASE);
-      document.querySelector('meta[name="twitter:image"]')?.setAttribute('content', LOGO_URL_BASE);
+      document.querySelector('meta[property="og:image"]')?.setAttribute('content', url);
+      document.querySelector('meta[name="twitter:image"]')?.setAttribute('content', url);
       const preload = document.querySelector('link[rel="preload"][as="image"]');
-      if (preload) preload.href = LOGO_URL_BASE;
-      // Le JSON-LD contient déjà l'URL R2 stable ; aucune modification
-      // dynamique n'est nécessaire pour les données structurées Google.
+      if (preload) preload.href = url;
+      const orgLogo = document.querySelector('script[type="application/ld+json"]');
+      // Le JSON-LD initial contient déjà la même URL R2 sans version ;
+      // Google récupérera donc toujours la source officielle du logo.
     }
 
     function chargerLogoSite(versionForcee) {
