@@ -1811,7 +1811,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const strong = google.querySelector('strong'); if (strong) strong.textContent = 'Connexion à Google…';
     // Ne pas retarder la redirection OAuth : sur mobile, chaque délai supplémentaire
     // augmente le risque que le navigateur suspende la page avant la redirection.
-    if(typeof demarrerConnexionGoogle==='function') demarrerConnexionGoogle();
+    if(typeof demarrerConnexionGoogle==='function') { try { await demarrerConnexionGoogle(); } catch (err) { console.error('[Google OAuth]', err); } }
   });
   signupOpen?.addEventListener('click',()=>{modal.style.display='flex';modal.setAttribute('aria-hidden','false');afficherModeInscription();setTimeout(()=>document.getElementById('signupName')?.focus(),50);});
   showLoginBtn?.addEventListener('click',afficherModeConnexionEmail);
@@ -3070,6 +3070,17 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // Client Supabase dédié à OAuth Google. Le reste du site conserve ses appels REST.
+  // flowType implicit permet au navigateur de récupérer directement le retour OAuth
+  // dans le fragment, sans exiger un serveur/callback PKCE supplémentaire.
+  const AURORE_SUPABASE_AUTH = window.supabase ? window.supabase.createClient(
+    "https://tdeotqfsbvouresfhkab.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZW90cWZzYnZvdXJlc2Zoa2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjM4NzMsImV4cCI6MjEwMDUzOTg3M30.l_a1lI_QRy7BTq1fGjiA9n7LCdu7BwR2TTI5pkA70SU",
+    { auth: { flowType: 'implicit', autoRefreshToken: true, persistSession: true, detectSessionInUrl: true } }
+  ) : null;
+</script>
 <script>
   // ---------- CONFIGURATION SUPABASE ----------
   const SUPABASE_URL = "https://tdeotqfsbvouresfhkab.supabase.co";
@@ -3109,12 +3120,35 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     return HEADERS;
   }
 
-  function demarrerConnexionGoogle() {
-    // URL de retour minimale et stable : pas de hash/query résiduel.
+  async function demarrerConnexionGoogle() {
     const retour = window.location.origin + window.location.pathname;
-    const authorizeUrl =
-      `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(retour)}`;
-    window.location.assign(authorizeUrl);
+
+    // Utilise le client officiel Supabase pour construire et lancer OAuth.
+    // Cela évite les divergences entre le flux PKCE/implicit et le traitement
+    // manuel du callback.
+    if (AURORE_SUPABASE_AUTH) {
+      const { error } = await AURORE_SUPABASE_AUTH.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: retour,
+          queryParams: { access_type: 'offline', prompt: 'select_account' }
+        }
+      });
+      if (error) {
+        console.error('[Google OAuth]', error);
+        const accessMsg = document.getElementById('accessMessage');
+        if (accessMsg) {
+          accessMsg.textContent = 'Connexion Google impossible : ' + (error.message || 'erreur OAuth');
+          accessMsg.className = 'access-message err';
+          accessMsg.style.display = 'block';
+        }
+        if (typeof window.auroreCacherVeuillezPatienter === 'function') window.auroreCacherVeuillezPatienter();
+      }
+      return;
+    }
+
+    // Repli exceptionnel si la librairie Supabase n'a pas pu être chargée.
+    window.location.assign(`${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(retour)}`);
   }
 
   async function recupererUtilisateur(access_token) {
@@ -3597,7 +3631,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     const btn=e.currentTarget;
     if(btn){ btn.disabled=true; btn.setAttribute('aria-busy','true'); btn.style.opacity='.72'; btn.style.pointerEvents='none'; }
     await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(resolve,250))));
-    demarrerConnexionGoogle();
+    try { await demarrerConnexionGoogle(); } catch (err) { console.error('[Google OAuth]', err); }
   });
 
   document.getElementById('btnDeconnexion').addEventListener('click', () => {
