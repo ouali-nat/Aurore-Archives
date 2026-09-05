@@ -1557,6 +1557,20 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   .aurore-floating-home .afh-copy small{font-size:.68rem;line-height:1;color:var(--gris,#9690A3);white-space:nowrap;}
   .aurore-floating-home .afh-drag{width:18px;height:28px;display:grid;place-items:center;color:var(--gris,#9690A3);opacity:.75;flex:0 0 18px;}
   .aurore-floating-home .afh-drag::before{content:'⋮⋮';font-size:16px;line-height:12px;letter-spacing:1px;}
+  /* Petit repère visuel : explique le déplacement sans gêner le bouton ni le drag. */
+  .aurore-floating-home::after{
+    content:'Glisser pour déplacer';
+    position:absolute;left:50%;top:calc(100% + 9px);
+    transform:translateX(-50%);
+    padding:5px 9px;border:1px solid var(--theme-border,var(--bordure,#302A3C));
+    border-radius:999px;background:color-mix(in srgb,var(--papier,#12101A) 92%,var(--theme-primary,#7c3aed) 8%);
+    color:var(--gris,#9690A3);font-size:.62rem;font-weight:750;line-height:1;
+    white-space:nowrap;pointer-events:none;opacity:0;
+    box-shadow:0 8px 22px rgba(0,0,0,.16);
+    transition:opacity .18s ease,transform .18s ease;
+  }
+  .aurore-floating-home.is-positioned.show-drag-hint::after{opacity:1;transform:translate(-50%,2px);}
+  .aurore-floating-home.is-positioned.dragging::after{opacity:0;}
   .aurore-floating-home:focus-visible{outline:3px solid color-mix(in srgb,var(--bleu,#7c3aed) 45%,transparent);outline-offset:3px;}
   @media(max-width:600px){
     .aurore-floating-home{left:50%;top:50%;right:auto;bottom:auto;min-width:0;width:58px;height:58px;padding:7px;border-radius:19px;gap:0;}
@@ -13360,11 +13374,16 @@ window.addEventListener('load',()=>{
       return (typeof session!=='undefined' && session) ? String(session.id||session.email||'') : '';
     }catch(e){return '';}
   }
+  function showDragHint(){
+    el.classList.add('show-drag-hint');
+    clearTimeout(el._dragHintTimer);
+    el._dragHintTimer=setTimeout(()=>el.classList.remove('show-drag-hint'),4200);
+  }
   function centerOnConnection(id){
     id=String(id||'');
     if(!id || id===lastCenteredSessionId)return;
     lastCenteredSessionId=id;
-    centerAndSave();
+    requestAnimationFrame(()=>{ centerAndSave(); showDragHint(); });
   }
   window.addEventListener('aurore:user-connected',e=>centerOnConnection(e.detail?.id||''));
   window.addEventListener('aurore:user-disconnected',()=>{ lastCenteredSessionId=''; });
@@ -13657,25 +13676,42 @@ html[data-theme="light"] #pdfViewerOverlay,
 html[data-theme="light"] #pdfViewerOverlay *{color:inherit!important;}
 </style>
 
-</body>
-
 <style id="aurore-final-auth-floating-fix">
 /* Correctifs ciblés : centrage réel après connexion + contraste Google. */
 .aurore-floating-home.is-positioned{transform:none;}
 .aurore-floating-home.is-positioned:hover{transform:translateY(-2px);}
 .aurore-floating-home.is-positioned.dragging{transform:scale(1.025);}
 
-/* Le bouton Google conserve toujours une surface blanche et un texte lisible,
-   quel que soit le thème global du site. */
-.access-google-btn,
-.access-google-btn:hover,
-.access-google-btn:focus-visible{
-  background:#fff!important;
+/* Correctif final Google : contraste forcé, indépendant des règles globales de thème. */
+#accessLock #accessGoogleBtn,
+#accessLock #accessGoogleBtn:hover,
+#accessLock #accessGoogleBtn:focus,
+#accessLock #accessGoogleBtn:focus-visible{
+  background:#FFFFFF!important;
   color:#202124!important;
   border-color:#D8D3DF!important;
+  -webkit-text-fill-color:#202124!important;
 }
-.access-google-btn strong{color:#202124!important;}
-.access-google-btn small{color:#5F6368!important;}
-.access-google-btn .google-mark{background:#fff!important;color:#4285F4!important;border-color:#E1DCE6!important;}
+#accessLock #accessGoogleBtn > span:last-child{
+  color:#202124!important;
+  -webkit-text-fill-color:#202124!important;
+}
+#accessLock #accessGoogleBtn > span:last-child strong{
+  color:#202124!important;
+  -webkit-text-fill-color:#202124!important;
+}
+#accessLock #accessGoogleBtn > span:last-child small{
+  color:#5F6368!important;
+  -webkit-text-fill-color:#5F6368!important;
+}
+#accessLock #accessGoogleBtn .google-mark{
+  background:#FFFFFF!important;
+  color:#4285F4!important;
+  -webkit-text-fill-color:#4285F4!important;
+  border-color:#E1DCE6!important;
+}
+#accessLock #accessGoogleBtn .google-spinner{border-left-color:rgba(66,133,244,.22)!important;border-bottom-color:rgba(66,133,244,.22)!important;}
 </style>
+
+</body>
 </html>
