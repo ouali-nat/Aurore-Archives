@@ -463,6 +463,7 @@
   }
   .doc-row .icon-wrap img.doc-cover-img{
     width:100%; height:100%; object-fit:cover; border-radius:inherit; display:block;
+    aspect-ratio:1/1; background:var(--fond);
   }
   .doc-row .titre{font-weight:700; font-size:0.9rem;}
   .doc-row .meta{font-size:0.76rem; color:var(--gris); margin-top:2px;}
@@ -6607,6 +6608,9 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     CACHE_COUVERTURES_PERSISTANT[clef] = url;
     try { localStorage.setItem(CLEF_CACHE_COUVERTURES_LIVRES, JSON.stringify(CACHE_COUVERTURES_PERSISTANT)); } catch (e) {}
   }
+  // Préchargement léger uniquement pour alimenter le cache navigateur.
+  // L'affichage de la couverture ne doit JAMAIS attendre ce préchargement :
+  // l'image est injectée immédiatement dès que son URL est connue.
   function prechargerImageCouverture(url) {
     if (!url) return Promise.resolve(false);
     return new Promise(resolve => {
@@ -6715,19 +6719,21 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         return;
       }
       wrap.classList.add('a-couverture');
-      // Précharge l'image avant de remplacer l'icône : évite une vignette
-      // blanche/vidée pendant le téléchargement de la couverture.
-      prechargerImageCouverture(url).then(ok => {
-        if (!ok || !row.isConnected || !wrap.isConnected) { afficherSecours(); return; }
-        wrap.innerHTML = `<img class="doc-cover-img" src="${echapperHtmlPub(url)}" alt="Couverture — ${echapperHtmlPub(doc.Titre)}" loading="eager" decoding="async" fetchpriority="high">`;
-        const img = wrap.querySelector('img.doc-cover-img');
-        if (!img) { afficherSecours(); return; }
-        img.addEventListener('error', () => {
+      // Affichage immédiat : ne pas attendre un Image() séparé.
+      // Le navigateur commence le téléchargement dès l'insertion du <img>,
+      // avec une priorité élevée. Le fallback PDF reste disponible en cas
+      // d'échec réseau ou d'URL Google Books indisponible.
+      wrap.innerHTML = `<img class="doc-cover-img" src="${echapperHtmlPub(url)}" alt="Couverture — ${echapperHtmlPub(doc.Titre)}" loading="eager" decoding="async" fetchpriority="high">`;
+      const img = wrap.querySelector('img.doc-cover-img');
+      if (!img) { afficherSecours(); return; }
+      img.addEventListener('error', () => {
         // L'URL Google Books existe peut-être mais l'image peut être refusée,
         // expirée ou indisponible : dans ce cas, ne laissons pas la vignette vide.
         afficherSecours();
-        }, {once:true});
-      });
+      }, {once:true});
+      // Lance en parallèle un préchargement discret pour les réaffichages
+      // suivants, sans jamais bloquer l'affichage actuel.
+      prechargerImageCouverture(url).catch(() => {});
     };
 
     recupererCouvertureLivre(doc.Titre || '').then(afficherGoogle).catch(() => afficherSecours());
