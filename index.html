@@ -1538,7 +1538,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 </style>
 
 </head>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <body class="site-locked">
 
 <!-- ===== PORTAIL D'ACCÈS ===== -->
@@ -9009,8 +9008,24 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   // Rappel honnête : ceci retire les moyens de téléchargement évidents depuis
   // l'interface, mais ne peut pas garantir une protection absolue contre la
   // copie d'un contenu affiché dans un navigateur.
-  if (typeof pdfjsLib !== 'undefined') {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  // pdf.js (~300 Ko) n'est nécessaire que lorsqu'un document est réellement
+  // ouvert : le charger ici plutôt qu'au démarrage de la page évite de
+  // bloquer l'affichage initial pour les visiteurs qui ne lisent aucun PDF.
+  let PDFJS_CHARGEMENT = null;
+  function chargerPdfJs() {
+    if (typeof pdfjsLib !== 'undefined') return Promise.resolve(pdfjsLib);
+    if (PDFJS_CHARGEMENT) return PDFJS_CHARGEMENT;
+    PDFJS_CHARGEMENT = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      s.onload = () => {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        resolve(pdfjsLib);
+      };
+      s.onerror = () => { PDFJS_CHARGEMENT = null; reject(new Error('pdf.js indisponible (réseau bloqué ou instable).')); };
+      document.head.appendChild(s);
+    });
+    return PDFJS_CHARGEMENT;
   }
   let DOC_EN_LECTURE = null;
   let PDF_EN_COURS = null;      // instance PDFDocumentProxy de PDF.js
@@ -9152,10 +9167,14 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     }
     diagLog('Document.Fichier_url = ' + doc.Fichier_url);
 
-    if (typeof pdfjsLib === 'undefined') {
+    try {
+      await chargerPdfJs();
+    } catch (e) {
+      diagLog('→ échec chargement pdf.js : ' + (e?.message || e));
       afficherErreurLecteur("La visionneuse n'a pas pu se charger. Réessayez dans quelques instants.", telechargementOk, doc.Fichier_url);
       return;
     }
+    if (jeton !== PDF_JETON_OUVERTURE) return; // le lecteur a été refermé pendant le chargement de pdf.js
 
     try {
       const cacheCle=String(doc.Fichier_url);
