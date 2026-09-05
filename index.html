@@ -4115,57 +4115,77 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     { nom:'Philosophie',          mono:'Ph' },
     { nom:'EPS',                  mono:'EP' },
     { nom:'Informatique',         mono:'In' },
+    { nom:'Autres',               mono:'Au' },
   ];
 
-  // Préscolaire : quatre champs disciplinaires, déclinés par section.
-  const PRESCOLAIRE_PS = [
-    { nom:'Langue et communication', mono:'La' },
-    { nom:'Mathématiques, sciences et technologie', mono:'Ms' },
-    { nom:'Sciences humaines et sociales', mono:'Sh' },
-    { nom:'EPS, arts et production', mono:'Ea' },
+  // Préscolaire : activités alignées sur les curricula et les guides officiels du MEBAPLN.
+  // Les trois sections partagent la même architecture curriculaire ; le niveau
+  // de difficulté et les contenus progressent de la Petite à la Grande section.
+  // Sources : guides officiels « Activité de langage », « Prélecture »,
+  // « Graphisme » et « Mathématiques », ainsi que les réformes TIC/numérique.
+  const PRESCOLAIRE_ACTIVITES = [
+    { nom:'Activité de langage', mono:'AL' },
+    { nom:'Graphisme', mono:'Gr' },
+    { nom:'Prélecture', mono:'Pr' },
+    { nom:'Mathématiques', mono:'Ma' },
+    { nom:'Exercices sensoriels', mono:'ES' },
+    { nom:'Activités motrices', mono:'AM' },
+    { nom:'Éducation musicale', mono:'Mu' },
+    { nom:'Production / activités manuelles', mono:'PA' },
+    { nom:'TIC et éducation numérique', mono:'TI' },
   ];
-  const PRESCOLAIRE_MS = [
-    { nom:'Langue et communication', mono:'La' },
-    { nom:'Mathématiques, sciences et technologie', mono:'Ms' },
-    { nom:'Sciences humaines et sociales', mono:'Sh' },
-    { nom:'EPS, arts et production', mono:'Ea' },
-  ];
-  const PRESCOLAIRE_GS = [
-    { nom:'Langue et communication', mono:'La' },
-    { nom:'Mathématiques, sciences et technologie', mono:'Ms' },
-    { nom:'Sciences humaines et sociales', mono:'Sh' },
-    { nom:'EPS, arts et production', mono:'Ea' },
-  ];
+  const PRESCOLAIRE_PS = PRESCOLAIRE_ACTIVITES.map(m => ({ ...m }));
+  const PRESCOLAIRE_MS = PRESCOLAIRE_ACTIVITES.map(m => ({ ...m }));
+  const PRESCOLAIRE_GS = PRESCOLAIRE_ACTIVITES.map(m => ({ ...m }));
 
-  // Primaire : base cohérente adaptée par niveau (les disciplines encore trop
-  // avancées pour une classe donnée ne sont volontairement pas affichées).
+  // Bloc commun proposé dans toutes les rubriques documentaires.
+  const MATIERE_AUTRES = { nom:'Autres', mono:'Au' };
+  function matieresAvecAutres(liste) {
+    const base = Array.isArray(liste) ? liste : [];
+    return base.some(m => String(m?.nom || '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase() === 'autres')
+      ? base
+      : [...base, MATIERE_AUTRES];
+  }
+
+  // Primaire : appellations pédagogiques conservatrices, alignées sur les
+  // guides et ressources officielles actuellement publiés par le MEBAPLN.
+  // Les sous-domaines (lecture, grammaire, etc.) restent des contenus du
+  // Français plutôt que des matières séparées dans l'arborescence.
   const MATIERES_CP1 = [
-    { nom:'Lecture', mono:'Le' }, { nom:'Écriture', mono:'Ec' },
-    { nom:'Calcul / arithmétique de base', mono:'Ar' }, { nom:'Éveil', mono:'Ev' },
+    { nom:'Français', mono:'Fr' }, { nom:'Mathématiques', mono:'Ma' },
+    { nom:'Éducation civique et morale (ECM)', mono:'EC' },
+    { nom:'Activités physiques éducatives (APE)', mono:'AP' },
+    { nom:'Exercices sensoriels', mono:'ES' },
+    { nom:'Production', mono:'Pr' },
+    { nom:'TIC et éducation numérique', mono:'Ti' },
   ];
   const MATIERES_CP2 = [
-    { nom:'Lecture', mono:'Le' }, { nom:'Écriture', mono:'Ec' },
-    { nom:'Calcul / arithmétique de base', mono:'Ar' }, { nom:'Éveil', mono:'Ev' },
+    { nom:'Français', mono:'Fr' }, { nom:'Mathématiques', mono:'Ma' },
+    { nom:'Éducation civique et morale (ECM)', mono:'EC' },
+    { nom:'Activités physiques éducatives (APE)', mono:'AP' },
+    { nom:'Sciences d’observation', mono:'Sc' },
+    { nom:'Production', mono:'Pr' },
   ];
   const MATIERES_CE1 = [
-    { nom:'Lecture', mono:'Le' }, { nom:'Grammaire', mono:'Gr' },
-    { nom:'Arithmétique', mono:'Ar' }, { nom:'Géométrie', mono:'Gm' },
-    { nom:'TIC', mono:'Ti' }, { nom:"Sciences d'observation", mono:'Sc' },
+    { nom:'Français', mono:'Fr' }, { nom:'Mathématiques', mono:'Ma' },
+    { nom:'Éducation civique et morale (ECM)', mono:'EC' },
+    { nom:'Sciences d’observation', mono:'Sc' },
     { nom:'Histoire', mono:'Hi' }, { nom:'Géographie', mono:'Ge' },
+    { nom:'Anglais', mono:'An' }, { nom:'Production', mono:'Pr' },
   ];
   const MATIERES_CE2 = [
-    { nom:'Grammaire', mono:'Gr' }, { nom:'Conjugaison', mono:'Cj' },
-    { nom:'Orthographe', mono:'Or' }, { nom:'Expression orale', mono:'Ex' },
-    { nom:'Arithmétique', mono:'Ar' }, { nom:'Géométrie', mono:'Gm' },
-    { nom:'Système métrique', mono:'Sm' }, { nom:"Sciences d'observation", mono:'Sc' },
+    { nom:'Français', mono:'Fr' }, { nom:'Mathématiques', mono:'Ma' },
+    { nom:'Sciences d’observation', mono:'Sc' },
+    { nom:'Éducation civique et morale (ECM)', mono:'EC' },
+    { nom:'Histoire', mono:'Hi' }, { nom:'Géographie', mono:'Ge' },
+    { nom:'Production', mono:'Pr' },
   ];
   const MATIERES_CM1 = [
-    { nom:'Lecture', mono:'Le' }, { nom:'Grammaire', mono:'Gr' },
-    { nom:'Conjugaison', mono:'Cj' }, { nom:'Orthographe', mono:'Or' },
-    { nom:'Arithmétique', mono:'Ar' }, { nom:'Géométrie', mono:'Gm' },
-    { nom:'Système métrique', mono:'Sm' }, { nom:'TIC', mono:'Ti' },
-    { nom:"Sciences d'observation", mono:'Sc' }, { nom:'Histoire', mono:'Hi' },
-    { nom:'Géographie', mono:'Ge' },
+    { nom:'Français', mono:'Fr' }, { nom:'Mathématiques', mono:'Ma' },
+    { nom:'Sciences d’observation', mono:'Sc' },
+    { nom:'Éducation civique et morale (ECM)', mono:'EC' },
+    { nom:'Histoire', mono:'Hi' }, { nom:'Géographie', mono:'Ge' },
+    { nom:'Production', mono:'Pr' },
   ];
   const MATIERES_CM2 = [...MATIERES_CM1];
 
@@ -4582,7 +4602,10 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     L3: matieresDe('Fiabilité et sûreté de fonctionnement','GMAO (Gestion de Maintenance Assistée par Ordinateur)','Maintenance prédictive','Automatismes industriels','Gestion de la maintenance industrielle','Projet tutoré / stage','Anglais technique','Entrepreneuriat et professionnalisation'),
   };
 
-  // Licence -> Sciences : matières distinctes par formation ET par année
+  // Licence -> Sciences : matières organisées par formation et par année.
+  // IMPORTANT : les maquettes de Licence ne constituent pas un programme national unique ;
+  // les contenus et parcours varient selon l’établissement. Les intitulés sont à lire comme
+  // des formations répertoriées, pas comme une liste nationale exhaustive.
   // (L1/L2/L3), même motif que Sciences humaines et sociales / Informatique et
   // technologie ci-dessus. Base pédagogique commune et cohérente (les maquettes
   // précises varient d'un établissement burkinabè à l'autre — Université Joseph
@@ -4784,7 +4807,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       desc:'Seconde, Première et Terminale — enseignement général et enseignement technique',
       sousNiveaux:[
         { id:'enseignement-general', nom:'Enseignement général', type:'groupe', accent:'#C084FC',
-          desc:'Séries A4, C, D et E', series:[
+          desc:'Séries A4, C et D', series:[
             {id:'serie-a4',nom:'Série A4',type:'serie',serie:'A4',classes:[
               {id:'seconde-a4',nom:'Seconde A4',dbNiveaux:['Seconde'],matieres:MATIERES_A4},
               {id:'premiere-a4',nom:'Première A4',dbNiveaux:['Première'],matieres:MATIERES_A4},
@@ -4800,11 +4823,6 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
               {id:'premiere-d',nom:'Première D',dbNiveaux:['Première'],matieres:MATIERES_D},
               {id:'terminale-d',nom:'Terminale D',dbNiveaux:['Terminale'],matieres:MATIERES_D}
             ]},
-            {id:'serie-e',nom:'Série E',type:'serie',serie:'E',classes:[
-              {id:'seconde-e',nom:'Seconde E',dbNiveaux:['Seconde'],matieres:MATIERES_E},
-              {id:'premiere-e',nom:'Première E',dbNiveaux:['Première'],matieres:MATIERES_E},
-              {id:'terminale-e',nom:'Terminale E',dbNiveaux:['Terminale'],matieres:MATIERES_E}
-            ]}
           ]
         },
         { id:'enseignement-technique', nom:'Enseignement technique', type:'groupe', accent:'#8B7CFF',
@@ -4814,6 +4832,10 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
             {id:'seconde-ab3',nom:'Seconde AB3 — tronc commun tertiaire',type:'classe-commune',dbNiveaux:['Seconde'],matieres:MATIERES_AB3}
           ],
           series:[
+            {id:'serie-e',nom:'Série E',type:'serie',serie:'E',classes:[
+              {id:'premiere-e',nom:'Première E',dbNiveaux:['Première'],matieres:MATIERES_E},
+              {id:'terminale-e',nom:'Terminale E',dbNiveaux:['Terminale'],matieres:MATIERES_E}
+            ]},
             {id:'serie-f1',nom:'Série F1',type:'serie',serie:'F1',classes:[
               {id:'premiere-f1',nom:'Première F1',dbNiveaux:['Première'],matieres:MATIERES_F1},
               {id:'terminale-f1',nom:'Terminale F1',dbNiveaux:['Terminale'],matieres:MATIERES_F1}
@@ -4848,20 +4870,20 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       ]
     },
     { id:'cpge', nom:'CPGE — Classes préparatoires aux grandes écoles', type:'arbre', accent:'#E879F9',
-      desc:'Classes préparatoires scientifiques', enfants:[
-        { id:'mpsi', nom:'MPSI', enfants:[
+      desc:'Classes préparatoires répertoriées dans l’offre burkinabè', enfants:[
+        { id:'mpsi', nom:'Mathématiques – Physique et Sciences de l’ingénieur (MPSI)', enfants:[
           { id:'mpsi-annee1', nom:'Année 1', enfants: semestresAnnee(MATIERES_MPSI) }
         ]},
-        { id:'bcpst', nom:'BCPST', enfants:[
+        { id:'bcpst', nom:'Biologie – Chimie – Physique et Sciences de la Terre (BCPST)', enfants:[
           { id:'bcpst-annee1', nom:'Année 1', enfants: semestresAnnee(MATIERES_BCPST) }
         ]},
-        { id:'pcsi', nom:'PCSI', enfants:[
+        { id:'pcsi', nom:'Physique – Chimie et Sciences de l’ingénieur (PCSI)', enfants:[
           { id:'pcsi-annee1', nom:'Année 1', enfants: semestresAnnee(MATIERES_PCSI) }
         ]}
       ]
     },
-    { id:'superieur', nom:'Supérieur', sigle:'SUP', accent:'#E879F9', desc:'Domaines, formations et filières — structure extensible', sousNiveaux:[
-      { id:'licence', nom:'Licence', type:'arbre', accent:'#E879F9', desc:'Choisir un domaine', enfants:[
+    { id:'superieur', nom:'Enseignement supérieur', sigle:'SUP', accent:'#E879F9', desc:'Formations universitaires et professionnelles répertoriées au Burkina Faso — les intitulés et parcours dépendent de l’établissement', sousNiveaux:[
+      { id:'licence', nom:'Licence', type:'arbre', accent:'#E879F9', desc:'Choisir un domaine de formation — l’offre varie selon l’université ou l’établissement', enfants:[
         { id:'lic-sciences', nom:'Sciences', enfants:[
           formationUniversitaireAnnees('lic-maths','Mathématiques', SCI_MATHEMATIQUES),
           formationUniversitaireAnnees('lic-physique','Physique', SCI_PHYSIQUE),
@@ -4930,7 +4952,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
           formationUniversitaireAnnees('lic-sciences-education','Sciences de l\u2019éducation', EDUCATION_SCIENCES)
         ]}
       ]},
-      { id:'master', nom:'Master', type:'arbre', accent:'#E879F9', desc:'Choisir un domaine', enfants:[
+      { id:'master', nom:'Master', type:'arbre', accent:'#E879F9', desc:'Choisir un domaine de formation — l’offre varie selon l’université ou l’établissement', enfants:[
         { id:'mas-sciences', nom:'Sciences', enfants:[
           formationUniversitaireSemestres('mas-maths','Mathématiques', {
             M1: { S1: matieresDe('Analyse avancée','Algèbre avancée','Topologie'), S2: matieresDe('Analyse fonctionnelle','Équations différentielles','Probabilités') },
@@ -5295,7 +5317,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
           })
         ]}
       ]},
-      { id:'doctorat', nom:'Doctorat', type:'arbre', accent:'#E879F9', desc:'Choisir une université, puis une école doctorale', enfants:[
+      { id:'doctorat', nom:'Doctorat', type:'arbre', accent:'#E879F9', desc:'Choisir une université, une école doctorale puis une spécialité', enfants:[
         { id:'doc-unb', nom:'Université Nazi Boni (Bobo-Dioulasso)', desc:'14 spécialités officielles réparties en 3 écoles doctorales', enfants:[
           { id:'doc-unb-edst', nom:'ED/ST — Sciences et Techniques', enfants:[
             specialiteDoctorat('doc-unb-edst-maths','Mathématiques et Applications', matieresDe(
@@ -6001,7 +6023,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 
   async function allerMatieres() {
     const niveauLabel = (etat.classe?.dbNiveaux?.[0]) || (etat.feuilleArbre?.dbNiveaux?.[0]) || (etat.sousNiveau?.dbNiveaux?.[0]) || '';
-    const matieresListe = etat.classe?.matieres || etat.feuilleArbre?.matieres || etat.sousNiveau?.matieres || MATIERES;
+    const matieresListe = matieresAvecAutres(etat.classe?.matieres || etat.feuilleArbre?.matieres || etat.sousNiveau?.matieres || MATIERES);
     const serieLabel = etat.filiere ? ' — Série ' + etat.filiere : '';
     document.getElementById('matieresTitle').textContent =
       `${etat.categorie.nom} — ${etat.serieChoisie?.nom || etat.feuilleArbre?.nom || etat.sousNiveau?.nom || niveauLabel}${serieLabel}`;
@@ -6629,7 +6651,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
       selMatiere.innerHTML = '<option value="">Choisir un niveau d\'abord</option>';
       return;
     }
-    const liste = feuille.matieres || MATIERES;
+    const liste = matieresAvecAutres(feuille.matieres || MATIERES);
     if (liste.length === 0) {
       selMatiere.innerHTML = '<option value="">Aucune matière renseignée pour le moment</option>';
       return;
