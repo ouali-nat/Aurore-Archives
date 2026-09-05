@@ -6620,7 +6620,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     // Filiere : uniquement renseignée quand le chemin traverse un noeud de type
     // 'serie' (2nd cycle général/technique) — identique à etat.filiere côté exploration.
     const noeudSerie = depotChemin.find(n => n.type === 'serie');
-    document.getElementById('f_filiere').value = noeudSerie ? (noeudSerie.serie || '') : '';
+    const estTroncCommun = Boolean(dernier && dernier.type === 'classe-commune' && ['seconde-ti', 'seconde-ab3'].includes(dernier.id));
+    document.getElementById('f_filiere').value = (!estTroncCommun && noeudSerie) ? (noeudSerie.serie || '') : '';
     document.getElementById('f_niveau').value = feuille ? (feuille.dbNiveaux?.[0] || (depotChemin[0]?.id === 'prescolaire' ? 'Préscolaire' : feuille.nom)) : '';
 
     const selMatiere = document.getElementById('f_matiere');
@@ -6821,7 +6822,24 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     if (estLivre && !genre) return echouer("Veuillez choisir un genre pour ce livre.");
     if (!estLivre && !niveau) return echouer("Veuillez sélectionner le niveau jusqu’à la dernière étape proposée.");
     if (!estLivre && !matiere) return echouer("Veuillez sélectionner une matière.");
-    if (!estLivre && ['Seconde','Première','Terminale'].includes(niveau) && !filiere) return echouer("Veuillez sélectionner la série du second cycle.");
+    // Une filière/série est obligatoire uniquement lorsqu'elle existe réellement
+    // dans le parcours choisi. Les troncs communs (Seconde TI et Seconde AB3)
+    // sont des feuilles autonomes : ils ne doivent JAMAIS demander une série.
+    // On teste explicitement le dernier noeud sélectionné afin d'éviter qu'un
+    // état ancien/stale du formulaire puisse déclencher à tort la validation.
+    const dernierNoeudDepot = depotChemin[depotChemin.length - 1] || null;
+    const estTroncCommunDepot = Boolean(
+      dernierNoeudDepot &&
+      dernierNoeudDepot.type === 'classe-commune' &&
+      ['seconde-ti', 'seconde-ab3'].includes(dernierNoeudDepot.id)
+    );
+    const filiereAttendue = !estLivre && !estTroncCommunDepot && Boolean(depotChemin.find(n => n.type === 'serie'));
+    if (estTroncCommunDepot) {
+      // Garantit qu'aucune ancienne valeur de série ne puisse partir vers Supabase.
+      document.getElementById('f_filiere').value = '';
+      etape('Tronc commun détecté (' + dernierNoeudDepot.nom + ') : aucune série n’est requise.', 'ok');
+    }
+    if (filiereAttendue && !filiere) return echouer("Veuillez sélectionner la série du second cycle.");
     if (!fichier) return echouer("Veuillez sélectionner un fichier PDF.");
     if (fichier.type !== 'application/pdf') return echouer("Le fichier doit être un PDF (type détecté : " + (fichier.type || 'inconnu') + ").");
     if (fichier.size > 200 * 1024 * 1024) return echouer("Le fichier dépasse 200 Mo.");
