@@ -628,6 +628,7 @@
   .admin-pending-stat span{font-size:.68rem;color:var(--gris);font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
   .admin-pending-breakdown{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px;}
   .admin-pending-breakdown span{display:inline-flex;align-items:center;gap:5px;padding:6px 9px;border-radius:999px;background:var(--fond);border:1px solid var(--bordure);font-size:.68rem;color:var(--gris);font-weight:700;}
+.admin-pending-breakdown-chip{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border-radius:999px;background:var(--fond);border:1px solid var(--bordure);font-size:.68rem;color:var(--gris);font-weight:700;cursor:pointer;} .admin-pending-breakdown-chip:hover{border-color:var(--violet);color:var(--encre);} .admin-pending-breakdown-chip b{color:var(--encre);}
   .admin-pending-breakdown b{color:var(--encre);}
   .admin-card.pending-card{align-items:stretch;padding:15px 16px;}
   .admin-card.pending-card .admin-card-icon{margin-top:1px;}
@@ -2752,7 +2753,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
             </div>
             <div class="admin-pending-stats" id="adminPendingStats">
               <div class="admin-pending-stat"><strong id="adminPendingTotal">0</strong><span>À valider</span></div>
-              <div class="admin-pending-stat"><strong id="adminPendingCategories">0</strong><span>Catégories</span></div>
+              <div class="admin-pending-stat"><strong id="adminPendingCategories">0</strong><span>Catégories différentes</span></div>
               <div class="admin-pending-stat"><strong id="adminPendingDernier">—</strong><span>Dernier dépôt</span></div>
               <div class="admin-pending-stat"><strong id="adminPendingAuteurs">0</strong><span>Déposants</span></div>
             </div>
@@ -2767,6 +2768,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
             <select id="adminFilterNiveauAttente" aria-label="Filtrer par niveau"><option value="">Tous les niveaux</option></select>
             <select id="adminFilterClasseAttente" aria-label="Filtrer par classe"><option value="">Toutes les classes</option></select>
             <select id="adminFilterMatiereAttente" aria-label="Filtrer par matière"><option value="">Toutes les matières</option></select>
+            <select id="adminFilterCategorieAttente" aria-label="Filtrer par catégorie"><option value="">Toutes les catégories</option></select>
           </div>
           <div id="adminList"></div><div id="adminPagerAttente"></div>
         </div>
@@ -3756,7 +3758,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   const SUPABASE_URL = "https://tdeotqfsbvouresfhkab.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZW90cWZzYnZvdXJlc2Zoa2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjM4NzMsImV4cCI6MjEwMDUzOTg3M30.l_a1lI_QRy7BTq1fGjiA9n7LCdu7BwR2TTI5pkA70SU";
   const HEADERS = { "apikey": SUPABASE_ANON_KEY, "Authorization": "Bearer " + SUPABASE_ANON_KEY };
-  // AURORE_BUILD_2026_09_06_LECTEUR_LARGE_ADMIN_REFONTE_UPLOAD_V2
+  // AURORE_BUILD_2026_09_06_LECTEUR_PROGRESSIF_ADMIN_CATEGORIES_V3
 
   // Nom actuel du site, utilisé dans les messages générés dynamiquement
   // (notifications, confirmations, textes de présentation) pour n'avoir
@@ -8572,6 +8574,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
 
   // ---------- OUTILS ADMIN : recherche, tri, filtres et pagination ----------
   const ADMIN_PAGE_SIZE = 8;
+  const ADMIN_PENDING_PAGE_SIZE = 20;
   const adminCollectionStates = {};
 
   function normaliserAdminTexte(valeur) {
@@ -8625,7 +8628,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     const getSearch=card=>normaliserAdminTexte(card.dataset.adminSearch || card.textContent);
     let visibles=cards.filter(card=>{
       if(q && !getSearch(card).includes(q)) return false;
-      for(const [field,value] of Object.entries(state.filters || {})) if(value && String(card.dataset['admin'+field.charAt(0).toUpperCase()+field.slice(1)] || '') !== value) return false;
+      for(const [field,value] of Object.entries(state.filters || {})) { if(!value) continue; const key = field==='categorie' ? 'adminCategory' : 'admin'+field.charAt(0).toUpperCase()+field.slice(1); if(normaliserAdminTexte(card.dataset[key] || '') !== normaliserAdminTexte(value)) return false; }
       return true;
     });
     const sort=state.sort;
@@ -8646,15 +8649,16 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     // Reorder only the cards already rendered; their event listeners remain attachés.
     visibles.forEach(card=>list.appendChild(card));
     cards.filter(c=>!visibles.includes(c)).forEach(c=>{c.style.display='none';});
-    const total=visibles.length, pages=Math.max(1,Math.ceil(total/ADMIN_PAGE_SIZE));
+    const pageSize = options.pageSize || ADMIN_PAGE_SIZE;
+    const total=visibles.length, pages=Math.max(1,Math.ceil(total/pageSize));
     state.page=Math.min(Math.max(1,state.page),pages);
-    const start=(state.page-1)*ADMIN_PAGE_SIZE, end=start+ADMIN_PAGE_SIZE;
+    const start=(state.page-1)*pageSize, end=start+pageSize;
     visibles.forEach((card,i)=>{card.style.display=(i>=start && i<end)?'':'none';});
     let empty=list.querySelector('.admin-filter-empty');
     if(!total && cards.length){ if(!empty){empty=document.createElement('div');empty.className='admin-filter-empty';list.appendChild(empty);} empty.textContent='Aucun résultat ne correspond à votre recherche ou à vos filtres.'; }
     else if(empty) empty.remove();
     pager.innerHTML='';
-    if(total>ADMIN_PAGE_SIZE){
+    if(total>pageSize){
       const nav=document.createElement('div');nav.className='admin-pagination';
       const prev=document.createElement('button');prev.type='button';prev.textContent='‹';prev.setAttribute('aria-label','Page précédente');prev.disabled=state.page===1;prev.onclick=()=>{state.page--;appliquerCollectionAdmin(key,options)};nav.appendChild(prev);
       for(let i=1;i<=pages;i++){ if(pages>7 && i>2 && i<pages-1 && Math.abs(i-state.page)>1){ if(i===3 || i===pages-2){const dots=document.createElement('span');dots.className='admin-pagination-info';dots.textContent='…';nav.appendChild(dots);} continue;} const b=document.createElement('button');b.type='button';b.textContent=String(i);b.className=i===state.page?'active':'';b.setAttribute('aria-label','Page '+i);b.setAttribute('aria-current',i===state.page?'page':'false');b.onclick=()=>{state.page=i;appliquerCollectionAdmin(key,options)};nav.appendChild(b); }
@@ -8681,6 +8685,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     if(optionData.niveaux && options.filterIds.niveau) remplirOptionsAdminSelect(options.filterIds.niveau, optionData.niveaux, 'Tous les niveaux');
     if(optionData.classes && options.filterIds.classe) remplirOptionsAdminSelect(options.filterIds.classe, optionData.classes, 'Toutes les classes');
     if(optionData.matieres && options.filterIds.matiere) remplirOptionsAdminSelect(options.filterIds.matiere, optionData.matieres, 'Toutes les matières');
+    if(optionData.categories && options.filterIds.categorie) remplirOptionsAdminSelect(options.filterIds.categorie, optionData.categories, 'Toutes les catégories');
     if(optionData.statuts && options.filterIds.statut) remplirOptionsAdminSelect(options.filterIds.statut, optionData.statuts, 'Tous les statuts');
     if(optionData.roles && options.filterIds.role) remplirOptionsAdminSelect(options.filterIds.role, optionData.roles, 'Tous les rôles');
     actualiserTriAdminSelect(options.sortId, optionData);
@@ -8692,7 +8697,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   }
 
   const ADMIN_COLLECTION_CONFIG = {
-    attente:{toolbarId:'adminToolbarAttente',searchId:'adminSearchAttente',sortId:'adminSortAttente',listId:'adminList',pagerId:'adminPagerAttente',filterIds:{niveau:'adminFilterNiveauAttente',classe:'adminFilterClasseAttente',matiere:'adminFilterMatiereAttente'}},
+    attente:{toolbarId:'adminToolbarAttente',searchId:'adminSearchAttente',sortId:'adminSortAttente',listId:'adminList',pagerId:'adminPagerAttente',pageSize:ADMIN_PENDING_PAGE_SIZE,filterIds:{niveau:'adminFilterNiveauAttente',classe:'adminFilterClasseAttente',matiere:'adminFilterMatiereAttente',categorie:'adminFilterCategorieAttente'}},
     publies:{toolbarId:'adminToolbarPublies',searchId:'adminSearchPublies',sortId:'adminSortPublies',listId:'adminListPublies',pagerId:'adminPagerPublies',filterIds:{niveau:'adminFilterNiveauPublies',classe:'adminFilterClassePublies',matiere:'adminFilterMatierePublies'}},
     reclamations:{toolbarId:'adminToolbarReclamations',searchId:'adminSearchReclamations',sortId:'adminSortReclamations',listId:'adminListReclamations',pagerId:'adminPagerReclamations',filterIds:{statut:'adminFilterStatutReclamations'}},
     utilisateurs:{toolbarId:'adminToolbarUtilisateurs',searchId:'adminSearchUtilisateurs',sortId:'adminSortUtilisateurs',listId:'adminUsersList',pagerId:'adminPagerUtilisateurs',filterIds:{role:'adminFilterRoleUtilisateurs'},cardSelector:'.admin-user-card',dateField:'created'}
@@ -8701,28 +8706,35 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   function actualiserResumeDepotsAttente(data) {
     const docs = Array.isArray(data) ? data : [];
     const total = docs.length;
-    const categories = new Set(docs.map(d => String(d?.['Catégorie'] || d?.Genre || 'Autre').trim()).filter(Boolean));
+    const categories = new Set(docs.map(d => String(d?.['Catégorie'] || d?.Genre || '').trim()).filter(Boolean));
     const auteurs = new Set(docs.map(d => String(d?.Auteur || '').trim().toLocaleLowerCase('fr')).filter(Boolean));
     const dernier = docs[0] || null;
     const totalEl=document.getElementById('adminPendingTotal');
     const catEl=document.getElementById('adminPendingCategories');
-    const lastEl=document.getElementById('adminPendingDernier');
-    const authEl=document.getElementById('adminPendingAuteurs');
+    const dernierEl=document.getElementById('adminPendingDernier');
+    const auteursEl=document.getElementById('adminPendingAuteurs');
     if(totalEl) totalEl.textContent=String(total);
     if(catEl) catEl.textContent=String(categories.size);
-    if(authEl) authEl.textContent=String(auteurs.size);
-    if(lastEl){
-      const titre=dernier ? String(dernier.Titre || 'Sans titre') : '—';
-      lastEl.textContent=titre.length>20?titre.slice(0,20)+'…':titre;
-      lastEl.title=titre;
-    }
+    if(dernierEl) dernierEl.textContent=dernier ? String(dernier.Titre || 'Sans titre').slice(0,28) : '—';
+    if(auteursEl) auteursEl.textContent=String(auteurs.size);
     const breakdown=document.getElementById('adminPendingBreakdown');
     if(!breakdown) return;
     const compte=new Map();
-    docs.forEach(d=>{const c=String(d?.['Catégorie']||d?.Genre||'Autre').trim()||'Autre';compte.set(c,(compte.get(c)||0)+1);});
+    docs.forEach(d=>{const c=String(d?.['Catégorie'] || d?.Genre || 'Non classé').trim() || 'Non classé';compte.set(c,(compte.get(c)||0)+1);});
     breakdown.innerHTML='';
-    [...compte.entries()].sort((a,b)=>b[1]-a[1]).slice(0,6).forEach(([nom,n])=>{
-      const span=document.createElement('span'); span.innerHTML=`<b>${n}</b> ${esc(nom)}`; breakdown.appendChild(span);
+    [...compte.entries()].sort((a,b)=>b[1]-a[1]||normaliserAdminTexte(a[0]).localeCompare(normaliserAdminTexte(b[0]),'fr')).slice(0,8).forEach(([cat,n])=>{
+      const b=document.createElement('button'); b.type='button'; b.className='admin-pending-breakdown-chip'; b.innerHTML=`<span>${echapperHtmlPub(cat)}</span><b>${n}</b>`;
+      b.title='Afficher uniquement cette catégorie';
+      b.addEventListener('click',()=>{
+        const select=document.getElementById('adminFilterNiveauAttente');
+        const mat=document.getElementById('adminFilterMatiereAttente');
+        const catSelect=document.getElementById('adminFilterCategorieAttente');
+        if(select) select.value=''; if(mat) mat.value=''; if(catSelect) catSelect.value=cat;
+        const state=adminCollectionStates.attente || (adminCollectionStates.attente={page:1,query:'',sort:'recent',filters:{}});
+        state.filters.categorie=cat; state.page=1;
+        appliquerCollectionAdmin('attente',ADMIN_COLLECTION_CONFIG.attente);
+      });
+      breakdown.appendChild(b);
     });
   }
 
@@ -8738,7 +8750,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
 
       if (!data || data.length === 0) {
         list.innerHTML = '<p class="admin-empty">Aucun dépôt en attente. Tout est à jour.</p>';
-        actualiserOutilsAdminApresChargement('attente', ADMIN_COLLECTION_CONFIG.attente, {niveaux:[],classes:[],matieres:[]});
+        actualiserOutilsAdminApresChargement('attente', ADMIN_COLLECTION_CONFIG.attente, {niveaux:[],classes:[],matieres:[],categories:[]});
         return;
       }
 
@@ -8755,7 +8767,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         card.dataset.adminClass = String(doc.Classe || '');
         card.dataset.adminSubject = String(doc['Matière'] || doc.Genre || '');
         card.dataset.adminSearch = [doc.Titre, doc.Niveau, doc.Classe, doc['Catégorie'], doc['Matière'], doc.Genre, doc.Auteur, deposant && deposant.nom, deposant && deposant.email].filter(v => v != null && String(v).trim()).join(' ');
-        card.dataset.adminCategory = String(doc['Catégorie'] || doc.Genre || 'Autre');
+        card.dataset.adminCategory = String(doc['Catégorie'] || doc.Genre || 'Non classé').trim() || 'Non classé';
         card.dataset.adminAuthor = String(doc.Auteur || '');
         card.dataset.adminSortValue = String(doc.id ?? '0');
         card.style.animationDelay = (i * 0.04) + 's';
@@ -10763,12 +10775,20 @@ async function telechargerDocumentAvecProgression(doc) {
       pdfLargeurBase = Math.max(260, Math.min(980, zone.clientWidth - 10));
       const total=PDF_EN_COURS.numPages;
 
-      // Création instantanée des emplacements : la première page peut être
-      // rendue sans attendre les autres, et le lecteur conserve sa hauteur.
+      // Les emplacements gardent une hauteur estimée : sans cela, les pages
+      // non rendues font ~0px et IntersectionObserver les considère déjà hors
+      // écran. On peut donc réellement rendre 1, puis 2, puis 3… au défilement.
+      let hauteurEstimee = Math.max(260, Math.round(pdfLargeurBase * 1.414));
+      try {
+        const page1Meta = await PDF_EN_COURS.getPage(1);
+        const vp1 = page1Meta.getViewport({scale:1, rotation:PDF_ROTATION});
+        if (vp1.width > 0) hauteurEstimee = Math.max(260, Math.round(pdfLargeurBase * (vp1.height / vp1.width) * PDF_ZOOM));
+      } catch(e) {}
       for(let n=1;n<=total;n++){
         const wrapper=document.createElement('div');
         wrapper.className='pdf-reader-page';
         wrapper.dataset.page=String(n);
+        wrapper.style.minHeight=Math.round(hauteurEstimee + 32)+'px';
         const canvas=document.createElement('canvas');
         canvas.setAttribute('aria-label','Page '+n+' sur '+total);
         const label=document.createElement('span');
@@ -10790,6 +10810,16 @@ async function telechargerDocumentAvecProgression(doc) {
       document.getElementById('pdfViewerErreurBox').style.display='none';
       installerRenduProgressifPDF();
       installerSuiviPagesPDF();
+      const pdfSessionToken = PDF_JETON_OUVERTURE;
+      // Précharge une seule page à la fois : page 2 après la page 1, puis la
+      // suivante si elle existe. Cela rend le comportement déterministe même
+      // si IntersectionObserver est capricieux sur certains Android.
+      (async()=>{
+        for(let n=2;n<=Math.min(total,4);n++){
+          if(PDF_JETON_OUVERTURE !== pdfSessionToken || !PDF_EN_COURS) break;
+          await rendreUnePagePDF(n);
+        }
+      })();
       document.getElementById('pdfViewerStatut').textContent='';
       requestAnimationFrame(majBarreDefilementPDF);
     } catch(err){
@@ -12480,6 +12510,7 @@ footer>.wrap:last-child{margin-top:18px!important;}
   align-items:center!important;
   position:relative!important;
 }
+.pdf-reader-page:not(.pdf-page-rendered){background:rgba(127,110,150,.035)!important;border:1px solid rgba(127,110,150,.10)!important;border-radius:8px!important;}
 .pdf-reader-page canvas{
   display:block!important;
   max-width:none!important;
