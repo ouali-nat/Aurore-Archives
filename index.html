@@ -2118,6 +2118,57 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
 #personalSpace .aurore-personal-document-row .personal-history-delete{background:transparent!important;color:var(--gris)!important;border:1px solid var(--bordure)!important;border-radius:var(--radius-sm)!important;padding:9px 12px!important;font-weight:700!important;cursor:pointer!important;}
 #personalSpace .aurore-personal-document-row .personal-history-delete:hover{color:var(--rouge)!important;border-color:var(--rouge)!important;}
 </style>
+
+<style id="aurore-personal-document-final-rebuild">
+/* Toutes les cartes de documents de l'espace personnel reprennent la structure
+   et les dimensions de .doc-row de la bibliothèque. */
+#personalSpace .personal-list .doc-row{
+  display:flex!important;align-items:center!important;justify-content:space-between!important;
+  gap:14px!important;flex-wrap:wrap!important;width:100%!important;
+  margin:0 0 12px!important;padding:16px 20px!important;
+  background:var(--papier)!important;border:1px solid var(--bordure)!important;
+  border-radius:var(--radius-sm)!important;box-shadow:var(--ombre)!important;
+}
+#personalSpace .personal-list .doc-row .info{
+  display:flex!important;align-items:center!important;gap:12px!important;
+  min-width:0!important;flex:1 1 360px!important;
+}
+#personalSpace .personal-list .doc-row .personal-doc-cover.icon-wrap{
+  width:56px!important;height:56px!important;min-width:56px!important;
+  border-radius:10px!important;background:var(--bordure)!important;
+  overflow:hidden!important;display:flex!important;align-items:center!important;justify-content:center!important;
+}
+#personalSpace .personal-list .doc-row .personal-doc-cover img.doc-cover-img{
+  width:100%!important;height:100%!important;object-fit:cover!important;border-radius:inherit!important;display:block!important;
+}
+#personalSpace .personal-list .doc-row .doc-main-info{min-width:0!important;flex:1 1 auto!important;}
+#personalSpace .personal-list .doc-row .titre{
+  font-weight:700!important;font-size:.9rem!important;line-height:1.35!important;
+  color:var(--encre)!important;min-width:0!important;overflow-wrap:anywhere!important;
+}
+#personalSpace .personal-list .doc-row .meta{
+  font-size:.76rem!important;color:var(--gris)!important;margin-top:2px!important;line-height:1.45!important;
+}
+#personalSpace .personal-list .doc-row .doc-actions{
+  display:flex!important;gap:8px!important;flex-wrap:wrap!important;
+  align-items:center!important;justify-content:flex-end!important;
+}
+#personalSpace .personal-list .doc-row .doc-actions .dl{
+  background:var(--marron)!important;color:#fff!important;border:1px solid var(--marron)!important;
+  padding:9px 18px!important;border-radius:var(--radius-sm)!important;
+  font-weight:700!important;font-size:.8rem!important;cursor:pointer!important;
+}
+#personalSpace .personal-list .doc-row .doc-actions .doc-action-soft{
+  background:transparent!important;color:var(--gris)!important;border:1px solid var(--bordure)!important;
+}
+#personalSpace .personal-list .doc-row .personal-status{margin-top:7px!important;}
+@media(max-width:760px){
+  #personalSpace .personal-list .doc-row{flex-direction:column!important;align-items:stretch!important;}
+  #personalSpace .personal-list .doc-row .doc-actions{width:100%!important;justify-content:flex-start!important;}
+  #personalSpace .personal-list .doc-row .doc-actions .dl{flex:1 1 auto!important;text-align:center!important;}
+}
+</style>
+
 </head>
 <body class="site-locked">
 
@@ -12716,41 +12767,34 @@ async function telechargerDocumentAvecProgression(doc) {
   // reprennent exactement la structure visuelle des documents publics.
   // Cette normalisation ne modifie aucun gestionnaire d'événement existant.
   function appliquerPresentationDocumentAurore(row, doc){
+    // Reconstruction complète : même ossature que la bibliothèque publique.
     if(!row) return row;
-    const ancienCover=row.querySelector('.personal-doc-cover');
+    const cover=row.querySelector('.personal-doc-cover') || document.createElement('div');
+    cover.classList.add('personal-doc-cover','icon-wrap');
+    if(!cover.innerHTML.trim()) cover.innerHTML=ICONS.file;
     const main=row.querySelector('.personal-doc-main,.personal-book-main');
     const actions=row.querySelector('.personal-doc-actions');
     const status=row.querySelector('.personal-status');
-    if(!main||!actions) return row;
-
-    let cover=ancienCover;
-    if(!cover){
-      cover=document.createElement('div');
-      cover.className='personal-doc-cover icon-wrap';
-      cover.innerHTML=ICONS.file;
-    }else{
-      cover.classList.add('icon-wrap');
-    }
+    if(!main) return row;
     main.classList.add('doc-main-info');
     const title=main.querySelector('.personal-doc-title,.personal-book-title');
     const meta=main.querySelector('.personal-doc-meta,.personal-book-meta');
     if(title) title.classList.add('titre');
     if(meta) meta.classList.add('meta');
-
-    actions.classList.add('doc-actions');
-    actions.querySelectorAll('.personal-action').forEach(btn=>{
-      btn.classList.add('dl');
-      if(!btn.matches('[data-read],[data-lire],[data-lire-tard],[data-lire-download]')){
-        btn.classList.add('doc-action-soft');
-      }
-    });
-
+    if(actions){
+      actions.classList.add('doc-actions');
+      actions.querySelectorAll('.personal-action,.personal-history-delete').forEach(btn=>{
+        btn.classList.add('dl');
+        if(!btn.matches('[data-read],[data-lire],[data-lire-tard],[data-lire-download]')) btn.classList.add('doc-action-soft');
+      });
+    }
     const info=document.createElement('div');
     info.className='info';
     info.append(cover,main);
     if(status) main.appendChild(status);
-    row.replaceChildren(info,actions);
-    row.classList.remove('personal-doc','personal-book');
+    row.replaceChildren(info);
+    if(actions) row.appendChild(actions);
+    row.classList.remove('personal-doc','personal-book','personal-history-row');
     row.classList.add('doc-row','aurore-personal-document-row');
     row.__auroreDocumentCouverture=doc||null;
     return row;
@@ -12785,7 +12829,8 @@ async function telechargerDocumentAvecProgression(doc) {
     });
     refus.slice(0,20).forEach(n=>{
       const row=document.createElement('article'); row.className='personal-doc';
-      row.innerHTML=`<div class="personal-doc-main"><div class="personal-doc-title">${escapeTextePersonnel(n.titre_document||'Document')}</div><div class="personal-doc-meta">${escapeTextePersonnel(n.message||'Le dépôt n’a pas été publié.')}</div></div><span class="personal-status refused">× Refusé</span>`;
+      row.innerHTML=`<div class="personal-doc-cover">${ICONS.file}</div><div class="personal-doc-main"><div class="personal-doc-title">${escapeTextePersonnel(n.titre_document||'Document')}</div><div class="personal-doc-meta">${escapeTextePersonnel(n.message||'Le dépôt n’a pas été publié.')}</div></div><span class="personal-status refused">× Refusé</span>`;
+      appliquerPresentationDocumentAurore(row,{Titre:n.titre_document||'Document'});
       list.appendChild(row);
     });
   }
@@ -12866,6 +12911,7 @@ async function telechargerDocumentAvecProgression(doc) {
         row.querySelector('[data-remove]')?.addEventListener('click',()=>{basculerFavoriDocument(doc,row.querySelector('[data-remove]'));actualiserCompteursPersonnels();setTimeout(rendreFavorisPersonnels,0);});
         row.querySelector('[data-case-fav]')?.addEventListener('click',()=>window.ouvrirChoixCaseDocument?.(doc));
         list.appendChild(row);
+        if (doc.Fichier_url && typeof appliquerCouvertureSiLivre === 'function') appliquerCouvertureSiLivre(row,doc);
       });
     }catch(e){
       console.error('[Favoris] chargement impossible',e);
@@ -14174,6 +14220,7 @@ footer>.wrap:last-child{margin-top:18px!important;}
         try{await supprimerTelechargementPersonnel(d.id);}catch(e){alert('Impossible de supprimer ce document de l’historique.');}
       });
       list.appendChild(row);
+      if (d.url && typeof appliquerCouvertureSiLivre === 'function') appliquerCouvertureSiLivre(row,historyDoc);
     });
   }
   window.rendreDocumentsTelecharges=rendreDocumentsTelecharges;
@@ -14192,6 +14239,7 @@ footer>.wrap:last-child{margin-top:18px!important;}
       row.querySelector('[data-case-later]')?.addEventListener('click',()=>window.ouvrirChoixCaseDocument?.({id:d.id,Titre:d.titre,Auteur:d.auteur,Fichier_url:d.url,'Catégorie':d.categorie,Niveau:d.niveau,'Matière':d.matiere,Genre:d.genre}));
       row.querySelector('[data-remove-later]')?.addEventListener('click',()=>ajouterDocumentPlusTard({id:d.id,Titre:d.titre,Auteur:d.auteur,Fichier_url:d.url,'Catégorie':d.categorie,Niveau:d.niveau,'Matière':d.matiere,Genre:d.genre},null));
       list.appendChild(row);
+      if (d.url && typeof appliquerCouvertureSiLivre === 'function') appliquerCouvertureSiLivre(row,{id:d.id,Titre:d.titre,Auteur:d.auteur,Fichier_url:d.url,'Catégorie':d.categorie,Niveau:d.niveau,'Matière':d.matiere,Genre:d.genre});
     });
   }
   window.rendreDocumentsPlusTard=rendreDocumentsPlusTard;
