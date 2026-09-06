@@ -3541,8 +3541,8 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         <p id="pdfViewerStatut" role="status">Préparation de la première page…</p>
       </div>
       <div id="pdfViewerLoadProgressDock" class="pdf-load-progress-dock" aria-live="polite" aria-hidden="true">
-        <div class="pdf-load-progress-head"><span id="pdfViewerProgressStage">Suite du chargement</span><strong id="pdfViewerProgressPercent">0%</strong></div>
-        <div class="pdf-load-progress-speed" id="pdfViewerProgressSpeed">Préparation…</div>
+        <div class="pdf-load-progress-head"><span id="pdfViewerProgressStage">Préparation en cours</span><strong id="pdfViewerProgressPercent">0%</strong></div>
+        <div class="pdf-load-progress-speed" id="pdfViewerProgressSpeed">Vous pouvez commencer la lecture.</div>
         <div class="pdf-load-progress-track"><div id="pdfViewerProgressBar" class="pdf-load-progress-bar"></div></div>
       </div>
       <div id="pdfViewerErreurBox" class="pdf-reader-erreur" style="display:none;" role="alert">
@@ -6921,7 +6921,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
 
   function appliquerImageCouverture(row, doc, url, estImageReelle = false) {
     if (!url || !row?.isConnected) return;
-    const wrap = row.querySelector('.icon-wrap');
+    const wrap = row.querySelector('.icon-wrap, .admin-card-icon');
     if (!wrap || !wrap.isConnected) return;
 
     wrap.classList.add('a-couverture');
@@ -7048,6 +7048,20 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   // Les couvertures de première page sont activées pour toutes les listes de
   // documents du site. La couverture correspond toujours à la première page du PDF.
   let COUVERTURES_PREMIERE_PAGE_ACTIVES = true;
+
+  // Même aperçu pour les deux espaces d'administration : la première page du
+  // PDF devient la vignette du document, sans modifier les actions métier.
+  function appliquerCouvertureAdmin(card, doc) {
+    if (!card || !doc?.Fichier_url) return;
+    card.__auroreDocumentCouverture = doc;
+    const dejaConnue = couverturePremierePagePersistanteImmediate(doc);
+    if (dejaConnue) {
+      appliquerImageCouverture(card, doc, dejaConnue);
+      return;
+    }
+    if (!COUVERTURES_FILE.some(x => x.row === card)) COUVERTURES_FILE.push({row:card, doc});
+    traiterFileCouvertures();
+  }
 
   function obtenirTitreDocument(doc) {
     const valeurs = [
@@ -9399,6 +9413,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         card.querySelector('.valider').addEventListener('click', () => validerDepot(doc.id, card, doc.Titre, deposant));
         card.querySelector('.refuser').addEventListener('click', () => refuserDepot(doc.id, card, doc.Titre, deposant));
         list.appendChild(card);
+        appliquerCouvertureAdmin(card, doc);
       });
       actualiserOutilsAdminApresChargement('attente', ADMIN_COLLECTION_CONFIG.attente, {
         niveaux:data.map(d=>d.Niveau), classes:data.map(d=>d.Classe), matieres:data.map(d=>d['Matière'] || d.Genre), categories:data.map(d=>d['Catégorie'])
@@ -9554,6 +9569,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         card.querySelector('.dl-toggle').addEventListener('click', () => basculerTelechargementDocument(doc, card));
         card.querySelector('.avant-toggle').addEventListener('click', () => basculerMiseEnAvantDocument(doc, card));
         list.appendChild(card);
+        appliquerCouvertureAdmin(card, doc);
       });
       actualiserOutilsAdminApresChargement('publies', ADMIN_COLLECTION_CONFIG.publies, {
         niveaux:data.map(d=>d.Niveau), classes:data.map(d=>d.Classe), matieres:data.map(d=>d['Matière'] || d.Genre), categories:data.map(d=>d['Catégorie'])
@@ -10784,18 +10800,9 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     if(percent) percent.textContent=Math.round(p)+'%';
     if(stage && etape) stage.textContent=etape;
     if(speed){
+      // Dans le lecteur, ce texte reste volontairement simple et non technique.
+      // La précision du pourcentage reste pilotée par les octets réellement reçus.
       if(info.speedText) speed.textContent=info.speedText;
-      else if(info.loaded!=null && info.total!=null){
-        const now=Date.now();
-        const dt=Math.max(.001,(now-(PDF_PROGRESS_TEMPS_PRECEDENT||now))/1000);
-        const delta=Math.max(0,Number(info.loaded)-PDF_PROGRESS_CHARGE_PRECEDENTE);
-        if(delta>0 && dt>=.08){
-          const debit=delta/dt;
-          speed.textContent=debit>=1048576 ? (debit/1048576).toFixed(1)+' Mo/s' : Math.max(1,Math.round(debit/1024))+' Ko/s';
-          PDF_PROGRESS_CHARGE_PRECEDENTE=Number(info.loaded);
-          PDF_PROGRESS_TEMPS_PRECEDENT=now;
-        }
-      }
     }
   }
 
@@ -11019,9 +11026,9 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
                 // La progression représente le chargement réseau du reste du
                 // document. Elle n'empêche jamais la première page de s'afficher.
                 const pct=Math.min(99,Math.max(3,(loaded/total)*100));
-                mettreAJourProgressionLecteurPDF(pct,'Chargement du reste du document',{loaded,total});
+                mettreAJourProgressionLecteurPDF(pct,'Préparation en cours',{loaded,total});
               }else{
-                mettreAJourProgressionLecteurPDF(undefined,'Chargement du reste du document',{speedText:'Réception des données…'});
+                mettreAJourProgressionLecteurPDF(undefined,'Préparation en cours',{speedText:'Vous pouvez continuer votre lecture pendant la préparation du document.'});
               }
             }
           });
@@ -11056,13 +11063,13 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       const progressDock=document.getElementById('pdfViewerLoadProgressDock');
       if(loading) loading.style.display='none';
       if(progressDock){ progressDock.classList.add('is-visible'); progressDock.setAttribute('aria-hidden','false'); }
-      mettreAJourProgressionLecteurPDF(4,'Chargement des pages',{speedText:'Première page prioritaire…'});
+      mettreAJourProgressionLecteurPDF(4,'Préparation en cours',{speedText:'Vous pouvez commencer la lecture.'});
       document.getElementById('pdfViewerStatut').textContent='';
 
       // Première page : priorité absolue, sans attendre les autres.
       await rendrePagePDF(1,true);
       if (jeton !== PDF_JETON_OUVERTURE) return;
-      mettreAJourProgressionLecteurPDF(undefined,'Lecture disponible',{speedText:pdf.numPages>1?'Les autres pages se chargent en arrière-plan…':'Document prêt à lire'});
+      mettreAJourProgressionLecteurPDF(undefined,'Préparation en cours',{speedText:pdf.numPages>1?'Vous pouvez continuer votre lecture pendant la préparation du document.':'Document prêt à lire'});
 
       // Deuxième page et pages voisines : démarrage immédiat mais non bloquant.
       if(pdf.numPages>1) rendreUnePagePDF(2);
@@ -11843,10 +11850,12 @@ async function telechargerDocumentAvecProgression(doc) {
   document.getElementById('pdfViewerZoomOut').addEventListener('click', () => appliquerZoom(-PDF_ZOOM_PAS));
   document.getElementById('pdfViewerAjuster').addEventListener('click', () => appliquerZoom(1,true));
 
-  // Pinçage à deux doigts : zoom simple et stable.
-  // Aucun transform visuel pendant le geste : cela empêche le document de
-  // glisser sous les doigts. Le zoom est appliqué une seule fois à la fin.
-  let pdfPinchActif=false, pdfPinchDistanceInitiale=0, pdfPinchZoomInitial=1, pdfPinchDerniereDistance=0;
+  // Pinçage à deux doigts : zoom progressif par petits pas de 1 %.
+  // Pendant le geste, seule la mise à l'échelle de la zone est ajustée : le
+  // rendu PDF lourd n'est effectué qu'à la fin du geste, ce qui évite les
+  // à-coups visibles tout en gardant une progression naturelle 100, 101, 102…
+  let pdfPinchActif=false, pdfPinchDistanceInitiale=0, pdfPinchZoomInitial=1;
+  let pdfPinchZoomAffiche=1, pdfPinchRaf=0;
   const pdfZoneGeste=document.getElementById('pdfViewerZone');
   if(pdfZoneGeste){
     pdfZoneGeste.addEventListener('touchstart',(e)=>{
@@ -11857,8 +11866,8 @@ async function telechargerDocumentAvecProgression(doc) {
       if(distance<10) return;
       pdfPinchActif=true;
       pdfPinchDistanceInitiale=distance;
-      pdfPinchDerniereDistance=distance;
       pdfPinchZoomInitial=PDF_ZOOM;
+      pdfPinchZoomAffiche=PDF_ZOOM;
     },{passive:true});
 
     pdfZoneGeste.addEventListener('touchmove',(e)=>{
@@ -11867,17 +11876,30 @@ async function telechargerDocumentAvecProgression(doc) {
       const dx=e.touches[0].clientX-e.touches[1].clientX;
       const dy=e.touches[0].clientY-e.touches[1].clientY;
       const distance=Math.hypot(dx,dy);
-      if(distance>=10) pdfPinchDerniereDistance=distance;
+      if(distance<10) return;
+      const ratio=distance/Math.max(1,pdfPinchDistanceInitiale);
+      const cible=Math.max(PDF_ZOOM_MIN,Math.min(PDF_ZOOM_MAX,pdfPinchZoomInitial*ratio));
+      // 1 % par étape : 1.00 → 1.01 → 1.02…
+      const ciblePas=Math.round(cible*100)/100;
+      if(ciblePas===pdfPinchZoomAffiche) return;
+      pdfPinchZoomAffiche=ciblePas;
+      if(pdfPinchRaf) return;
+      pdfPinchRaf=requestAnimationFrame(()=>{
+        pdfPinchRaf=0;
+        const pages=document.getElementById('pdfViewerPages');
+        if(pages) pages.style.zoom=String(pdfPinchZoomAffiche);
+        const niveau=document.getElementById('pdfViewerZoomLevel');
+        if(niveau) niveau.textContent=Math.round(pdfPinchZoomAffiche*100)+'%';
+      });
     },{passive:false});
 
     const terminerPinch=()=>{
       if(!pdfPinchActif) return;
       pdfPinchActif=false;
-      let cible=pdfPinchZoomInitial*(pdfPinchDerniereDistance/Math.max(1,pdfPinchDistanceInitiale));
-      cible=Math.max(PDF_ZOOM_MIN,Math.min(PDF_ZOOM_MAX,cible));
-      // Pas de micro-variations : le lecteur avance par paliers de 5 %,
-      // comme les boutons de zoom, pour un résultat prévisible sur mobile.
-      cible=Math.round(cible*20)/20;
+      if(pdfPinchRaf){cancelAnimationFrame(pdfPinchRaf);pdfPinchRaf=0;}
+      const cible=Math.max(PDF_ZOOM_MIN,Math.min(PDF_ZOOM_MAX,pdfPinchZoomAffiche));
+      // Le rendu définitif est fait une seule fois, après le geste, pour éviter
+      // les saccades liées au rerendu des pages à chaque mouvement du doigt.
       appliquerZoom(cible,true);
     };
     pdfZoneGeste.addEventListener('touchend',terminerPinch,{passive:true});
@@ -15264,6 +15286,105 @@ html[data-theme="light"] .doc-row .icon-wrap.a-couverture{
   .doc-row .titre{font-size:.77rem!important;}
   .doc-row .meta{font-size:.62rem!important;}
   .doc-row .doc-actions{grid-template-columns:1fr 1fr;}
+}
+</style>
+
+
+<style id="aurore-admin-pdf-grid">
+/* Même présentation visuelle des PDF dans les deux listes d'administration. */
+#adminList,#adminListPublies{
+  display:grid!important;
+  grid-template-columns:repeat(auto-fill,minmax(205px,1fr));
+  gap:16px!important;
+  align-items:stretch;
+}
+#adminList .admin-card,#adminListPublies .admin-card{
+  position:relative;
+  min-width:0;
+  height:100%;
+  padding:0!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:stretch!important;
+  gap:0!important;
+  overflow:hidden;
+  border-radius:16px!important;
+  background:var(--papier)!important;
+  border:1px solid var(--bordure)!important;
+  box-shadow:0 2px 7px rgba(35,25,55,.08);
+}
+#adminList .admin-card-icon,#adminListPublies .admin-card-icon{
+  width:100%!important;
+  aspect-ratio:1/1!important;
+  min-height:0!important;
+  margin:0!important;
+  border-radius:0!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  overflow:hidden!important;
+  background:linear-gradient(145deg,#F1EDF7,#E6E0EF)!important;
+  color:var(--violet);
+}
+#adminList .admin-card-icon img.doc-cover-img,#adminListPublies .admin-card-icon img.doc-cover-img{
+  width:100%!important;
+  height:100%!important;
+  object-fit:cover!important;
+  display:block!important;
+  border-radius:0!important;
+}
+#adminList .admin-card-body,#adminListPublies .admin-card-body{
+  min-width:0;
+  display:flex!important;
+  flex-direction:column!important;
+  padding:11px 12px 10px!important;
+  flex:1 1 auto;
+}
+#adminList .admin-card .titre,#adminListPublies .admin-card .titre{
+  font-size:.84rem!important;
+  line-height:1.3!important;
+  font-weight:700!important;
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  overflow:hidden;
+  color:var(--encre)!important;
+}
+#adminList .admin-card .meta,#adminListPublies .admin-card .meta{
+  margin-top:4px!important;
+  font-size:.68rem!important;
+  line-height:1.4!important;
+  overflow:hidden;
+}
+#adminList .admin-card .js-open-pdf-in-site,#adminListPublies .admin-card .js-open-pdf-in-site{
+  width:100%!important;
+  margin-top:9px!important;
+  min-height:34px;
+  border-radius:9px!important;
+  font-size:.68rem!important;
+}
+#adminList .admin-card .admin-actions,#adminListPublies .admin-card .admin-actions{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:6px!important;
+  margin-top:7px!important;
+}
+#adminList .admin-card .admin-btn,#adminListPublies .admin-card .admin-btn{
+  min-width:0;
+  font-size:.65rem!important;
+  line-height:1.2!important;
+  padding:7px 5px!important;
+  min-height:34px;
+  border-radius:9px!important;
+}
+[data-theme="light"] #adminList .admin-card,[data-theme="light"] #adminListPublies .admin-card{background:#fff!important;border-color:#D9D1E4!important;}
+[data-theme="light"] #adminList .admin-card-icon,[data-theme="light"] #adminListPublies .admin-card-icon{background:#F0ECF5!important;}
+@media(max-width:720px){
+  #adminList,#adminListPublies{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px!important;}
+  #adminList .admin-card-body,#adminListPublies .admin-card-body{padding:9px 9px 8px!important;}
+  #adminList .admin-card .titre,#adminListPublies .admin-card .titre{font-size:.77rem!important;}
+  #adminList .admin-card .meta,#adminListPublies .admin-card .meta{font-size:.62rem!important;}
+  #adminList .admin-card .admin-actions,#adminListPublies .admin-card .admin-actions{gap:5px!important;}
 }
 </style>
 
