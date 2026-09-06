@@ -1248,12 +1248,30 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   color:#17131F !important;
 }
 
-/* Exception : le lecteur PDF et ses overlays restent volontairement sombres. */
-[data-theme="light"] #pdfViewerOverlay,
-[data-theme="light"] #pdfViewerOverlay *,
-[data-theme="light"] #pdfViewerOverlay [style*="color:#fff"],
-[data-theme="light"] #pdfViewerOverlay [style*="color: #fff"] {
-  /* aucune modification de lisibilité du lecteur sombre */
+/* Exception : le lecteur PDF et ses overlays restent volontairement sombres.
+   Correctif : cette règle ne contenait aucune déclaration réelle, donc elle
+   ne protégeait rien. Plus haut, des sélecteurs génériques du thème clair
+   (h1-h6, strong, b, styles inline blancs…) forçaient malgré tout une encre
+   sombre sur certains blocs du lecteur (titre du document, pourcentage de
+   progression, message d'erreur), alors que leur fond reste sombre : le
+   texte devenait invisible. On restaure ici, avec une spécificité (ID) qui
+   l'emporte sur ces règles génériques, la couleur claire d'origine de
+   chaque bloc concerné. */
+[data-theme="light"] #pdfViewerOverlay #pdfViewerTitre {
+  color:#f8f6fc !important;
+}
+[data-theme="light"] #pdfViewerOverlay .pdf-reader-error-title {
+  color:#fff !important;
+}
+[data-theme="light"] #pdfViewerOverlay .pdf-load-progress-head strong,
+[data-theme="light"] #pdfViewerOverlay #pdfViewerProgressPercent {
+  color:#e9e3f2 !important;
+}
+[data-theme="light"] #pdfViewerOverlay #pdfViewerDiagBox strong {
+  color:#f59e0b !important;
+}
+[data-theme="light"] #pdfViewerOverlay #pdfViewerDiagLog {
+  color:#f2f2f2 !important;
 }
 </style>
 
@@ -10938,6 +10956,20 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   window.ouvrirLecteurPDF = ouvrirLecteurPDF;
 
   function afficherEtatChargement() {
+    // Correctif « ancien PDF visible à l'ouverture d'un nouveau » : les pages
+    // de l'ancien document restaient dans le DOM jusqu'à ce que le nouveau
+    // PDF soit effectivement reçu (rendrePagePDF), ce qui les affichait par-
+    // dessus/à côté de l'écran de chargement et prêtait à confusion. On les
+    // efface donc ici, dès le tout début de l'ouverture, avant même la
+    // moindre requête réseau vers le nouveau document.
+    const anciennesPages = document.getElementById('pdfViewerPages');
+    if (anciennesPages) {
+      anciennesPages.innerHTML = '';
+      anciennesPages.style.transform = '';
+      anciennesPages.style.transformOrigin = '';
+    }
+    const zone = document.getElementById('pdfViewerZone');
+    if (zone) zone.scrollTop = 0;
     document.getElementById('pdfViewerLoading').style.display = 'flex';
     document.getElementById('pdfViewerErreurBox').style.display = 'none';
     document.getElementById('pdfViewerCanvas').style.display = 'none';
@@ -11829,7 +11861,9 @@ async function telechargerDocumentAvecProgression(doc) {
       const res = await fetch(url, { headers: HEADERS });
       if (!res.ok) { const detail = await res.text().catch(()=> ''); throw new Error(`HTTP ${res.status} — ${detail}`); }
       const data = await res.json();
-      rendreListeDocuments(content, data);
+      // Les résultats de recherche utilisent eux aussi la couverture / première
+      // page du PDF, comme toutes les autres listes de documents du site.
+      rendreListeDocuments(content, data, true);
     } catch (err) {
       content.innerHTML = `<div class="doc-empty"><div class="icon-wrap">${ICONS.warning}</div><h3>Recherche indisponible</h3><p>La recherche n’a pas pu aboutir pour le moment. Veuillez réessayer dans quelques instants.</p></div>`;
     }
