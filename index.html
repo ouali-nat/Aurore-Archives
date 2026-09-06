@@ -3810,8 +3810,8 @@ main, .container, .content, .page-content {
           <h1>Apprends mieux. Trouve plus vite. Avance plus loin.</h1>
           <p class="hero-text">Des ressources bien organisées, un espace personnel simple et une expérience pensée pour rester concentré sur l’essentiel.</p>
           <div class="hero-actions">
-            <a href="#documents">Explorer les documents</a>
-            <a href="#personal-space">Mon espace</a>
+            <a href="#documents" id="footerLienExplorerDocs">Explorer les documents</a>
+            <a href="#personal-space" id="footerLienMonEspace">Mon espace</a>
           </div>
         </div>
         <div class="hero-badge" aria-hidden="true">✦</div>
@@ -7883,6 +7883,18 @@ main, .container, .content, .page-content {
     document.getElementById('breadcrumb').innerHTML = '';
     afficherEcran('screen-recents');
     chargerDocumentsRecents();
+  });
+
+  // Bandeau "Ton espace d'apprentissage" (bas de page) : les deux liens
+  // réutilisent les vrais boutons existants au lieu d'ancres inertes
+  // (#documents / #personal-space) pour arriver sur les bons écrans.
+  document.getElementById('footerLienExplorerDocs')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('btnOuvrirRecents')?.click();
+  });
+  document.getElementById('footerLienMonEspace')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('btnOuvrirProfil')?.click();
   });
 
   function tagsClassementDocument(doc) {
@@ -16290,6 +16302,59 @@ footer > .wrap:nth-child(1){order:1!important;}
     margin-top:34px!important;
     margin-bottom:46px!important;
   }
+}
+</style>
+
+
+<style id="aurore-corrections-2026-09-06">
+/* 1) Quand une publicite est absente (emplacement "ad-slot" vide, masque
+      par les regles ci-dessus), les deux blocs qui l'encadrent ne doivent
+      plus se coller l'un a l'autre : on redonne l'espace normal au bloc
+      qui suit l'emplacement vide. */
+.ad-slot[id^="ad-"]:empty + *{
+  margin-top:32px!important;
+}
+
+/* 2) Carte Besoin d'aide ? : couleurs qui suivent desormais le theme
+      choisi (couleur d'accent + clair/sombre) au lieu de couleurs fixes,
+      une petite touche de design (icones) et un rendu propre sur telephone. */
+.service-client-card{
+  background:linear-gradient(135deg,var(--theme-soft,rgba(139,92,246,.12)),transparent)!important;
+  border:1px solid var(--theme-border,rgba(192,132,252,.22))!important;
+  box-shadow:0 14px 36px var(--theme-shadow,rgba(0,0,0,.24))!important;
+}
+.service-client-kicker{color:var(--theme-primary,#B9A6D9)!important;}
+.service-client-kicker::before{content:"\1F4AC ";}
+.service-client-copy strong{color:var(--encre)!important;}
+.service-client-note{color:var(--gris)!important;}
+.service-client-link{
+  background:var(--papier)!important;
+  border:1px solid var(--theme-border,#352A49)!important;
+  color:var(--encre)!important;
+}
+.service-client-link span{color:var(--theme-primary,#9F97AE)!important;}
+#serviceClientWhatsapp span::before{content:"\1F7E2 ";}
+#serviceClientEmail span::before{content:"\2709\FE0F ";}
+.service-client-link:hover{
+  border-color:var(--theme-primary)!important;
+  background:var(--theme-softer,rgba(139,92,246,.08))!important;
+}
+[data-theme="light"] .service-client-card{
+  background:linear-gradient(135deg,var(--theme-soft,#F5EFFA),#fff)!important;
+}
+[data-theme="light"] .service-client-link{background:#fff!important;}
+@media(max-width:480px){
+  .service-client-card{padding:16px!important;border-radius:18px!important;gap:14px!important;}
+  .service-client-copy strong{font-size:.9rem!important;}
+  .service-client-link{padding:10px 12px!important;}
+}
+
+/* 3) Case video d'accueil retrecie et centree au lieu de prendre toute la
+      largeur du bloc. */
+#screen-home .home-video-frame{
+  max-width:460px!important;
+  width:100%!important;
+  margin:0 auto 12px!important;
 }
 </style>
 
