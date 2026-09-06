@@ -27,13 +27,25 @@
 <link rel="preconnect" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev" crossorigin>
 <link rel="manifest" href="manifest.json?v=20260905-1">
 <link rel="icon" type="image/png" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
+<!-- Les navigateurs (onglet, barre d'adresse, favoris) et Google privilégient
+     souvent une petite taille déclarée explicitement (16/32/48) plutôt que de
+     recalculer eux-mêmes une image 512. Sans ces tailles, le logo peut ne pas
+     apparaître ou apparaître flou dans l'onglet et dans les résultats de recherche. -->
+<link rel="icon" type="image/png" sizes="16x16" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
+<link rel="icon" type="image/png" sizes="32x32" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
+<link rel="icon" type="image/png" sizes="48x48" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
 <link rel="icon" type="image/png" sizes="192x192" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
 <link rel="icon" type="image/png" sizes="512x512" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
+<link rel="shortcut icon" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
 <meta name="theme-color" content="#090812">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Aurore">
+<!-- iOS n'utilise jamais l'icône 512 pour l'écran d'accueil/l'onglet Safari :
+     il veut une taille proche de 180x180, sinon il génère lui-même une
+     icône par défaut (souvent une simple capture de la page). -->
+<link rel="apple-touch-icon" sizes="180x180" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
 <link rel="apple-touch-icon" sizes="512x512" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Aurore — Section Archives">
@@ -436,7 +448,9 @@
   .doc-row .icon-wrap img.doc-cover-img{
     width:100%; height:100%; object-fit:cover; border-radius:inherit; display:block;
     aspect-ratio:1/1; background:var(--fond);
+    opacity:0; animation:aurore-couverture-fade .25s ease forwards;
   }
+  @keyframes aurore-couverture-fade{from{opacity:0;}to{opacity:1;}}
   .doc-row .titre{font-weight:700; font-size:0.9rem;}
   .doc-row .meta{font-size:0.76rem; color:var(--gris); margin-top:2px;}
   .doc-row .dl{
@@ -2389,7 +2403,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       <div id="gSignInBtn"></div>
       <div id="userChip" class="user-chip" style="display:none;">
         <button type="button" id="btnOuvrirProfil" class="user-chip-info" title="Voir mon profil">
-          <img id="userAvatar" class="user-avatar" src="" alt="">
+          <img id="userAvatar" class="user-avatar" src="" alt="" loading="lazy" decoding="async">
           <span id="userIconHost"></span>
           <span id="userNom"></span>
         </button>
@@ -2990,7 +3004,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
 
     <div class="profile-card">
       <div class="profile-avatar-wrap">
-        <img id="profilAvatar" class="profile-avatar" src="" alt="">
+        <img id="profilAvatar" class="profile-avatar" src="" alt="" loading="lazy" decoding="async">
         <div id="profilAvatarFallback" class="profile-avatar-fallback"></div>
       </div>
       <div class="profile-info">
@@ -6656,19 +6670,90 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   window.auroreActualiserTaillesDocumentsDans=actualiserTaillesDocumentsDans;
 
   // ---------- COUVERTURES DE LIVRES : PREMIÈRE PAGE DU PDF ----------
-  // La couverture d'un livre est TOUJOURS la première page de son PDF.
-  // Aucun service de recherche externe n'est utilisé : dès que le document
-  // est disponible, son PDF est récupéré et la page 1 est rendue directement
-  // dans la vignette. Les rendus déjà créés sont conservés localement afin
-  // que les retours/recherches ultérieurs soient instantanés.
+  // La couverture d'un livre est TOUJOURS la première page de son PDF, SAUF
+  // si le document possède déjà une vraie image de couverture (voir plus bas
+  // "Couverture_url" / "Cover_url" / "Miniature_url") : dans ce cas on
+  // affiche directement cette image, sans jamais toucher au PDF — c'est la
+  // méthode la plus rapide et la moins gourmande en données, exactement
+  // comme sur les autres sites où les couvertures s'affichent instantanément.
+  //
+  // Pour les documents sans image dédiée, la première page du PDF est
+  // rendue une seule fois puis conservée dans IndexedDB (pas localStorage :
+  // localStorage plafonne à 5-10 Mo et, une fois ce quota atteint, chaque
+  // nouvelle sauvegarde échouait SILENCIEUSEMENT — résultat, dès que la
+  // bibliothèque grossissait un peu, le cache ne servait plus à rien et
+  // TOUTES les couvertures étaient re-téléchargées et re-générées à chaque
+  // visite. IndexedDB n'a pas cette limite basse et ne casse pas le reste
+  // du site quand il est plein (favoris, "plus tard", thème, etc. utilisent
+  // aussi localStorage et pouvaient être impactés par le même quota).
   const CACHE_COUVERTURES_PREMIERE_PAGE = new Map();
-  const CLEF_CACHE_COUVERTURES_PREMIERE_PAGE = 'aurore-couvertures-premiere-page-v1';
-  let CACHE_COUVERTURES_PREMIERE_PAGE_PERSISTANT = {};
-  try {
-    CACHE_COUVERTURES_PREMIERE_PAGE_PERSISTANT = JSON.parse(
-      localStorage.getItem(CLEF_CACHE_COUVERTURES_PREMIERE_PAGE) || '{}'
-    ) || {};
-  } catch (e) {}
+  const IDB_COUVERTURES_NOM = 'aurore-couvertures-db';
+  const IDB_COUVERTURES_MAGASIN = 'couvertures';
+  const ANCIENNE_CLEF_LOCALSTORAGE_COUVERTURES = 'aurore-couvertures-premiere-page-v1';
+
+  let _idbCouverturesPromesse = null;
+  function ouvrirIDBCouvertures() {
+    if (_idbCouverturesPromesse) return _idbCouverturesPromesse;
+    _idbCouverturesPromesse = new Promise((resolve) => {
+      if (!('indexedDB' in window)) { resolve(null); return; }
+      try {
+        const req = indexedDB.open(IDB_COUVERTURES_NOM, 1);
+        req.onupgradeneeded = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains(IDB_COUVERTURES_MAGASIN)) {
+            db.createObjectStore(IDB_COUVERTURES_MAGASIN);
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+      } catch (e) { resolve(null); }
+    });
+    return _idbCouverturesPromesse;
+  }
+
+  // Charge tout le cache existant en mémoire une seule fois au démarrage
+  // (rapide : ce sont de petites vignettes), puis migre et supprime
+  // l'ancien cache localStorage s'il existe encore, pour libérer sa place.
+  async function initialiserCacheCouvertures() {
+    const db = await ouvrirIDBCouvertures();
+    if (db) {
+      await new Promise((resolve) => {
+        try {
+          const tx = db.transaction(IDB_COUVERTURES_MAGASIN, 'readonly');
+          const store = tx.objectStore(IDB_COUVERTURES_MAGASIN);
+          const req = store.openCursor();
+          req.onsuccess = (e) => {
+            const curseur = e.target.result;
+            if (curseur) {
+              CACHE_COUVERTURES_PREMIERE_PAGE.set(curseur.key, curseur.value);
+              curseur.continue();
+            } else resolve();
+          };
+          req.onerror = () => resolve();
+        } catch (e) { resolve(); }
+      });
+    }
+
+    // Migration ponctuelle depuis l'ancien cache localStorage, puis nettoyage.
+    try {
+      const ancien = localStorage.getItem(ANCIENNE_CLEF_LOCALSTORAGE_COUVERTURES);
+      if (ancien) {
+        const donnees = JSON.parse(ancien) || {};
+        if (db) {
+          const tx = db.transaction(IDB_COUVERTURES_MAGASIN, 'readwrite');
+          const store = tx.objectStore(IDB_COUVERTURES_MAGASIN);
+          Object.keys(donnees).forEach(clef => {
+            if (!CACHE_COUVERTURES_PREMIERE_PAGE.has(clef)) {
+              CACHE_COUVERTURES_PREMIERE_PAGE.set(clef, donnees[clef]);
+            }
+            try { store.put(donnees[clef], clef); } catch (e) {}
+          });
+        }
+        localStorage.removeItem(ANCIENNE_CLEF_LOCALSTORAGE_COUVERTURES);
+      }
+    } catch (e) {}
+  }
+  const CACHE_COUVERTURES_PRET = initialiserCacheCouvertures();
 
   function clefCouverturePremierePage(doc) {
     return String(doc?.id ?? doc?.Fichier_url ?? '').trim();
@@ -6676,24 +6761,22 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
 
   function sauvegarderCouverturePremierePage(clef, dataUrl) {
     if (!clef || !dataUrl) return;
-    CACHE_COUVERTURES_PREMIERE_PAGE_PERSISTANT[clef] = dataUrl;
-    // Les vignettes sont volontairement petites pour rester légères.
-    try {
-      localStorage.setItem(
-        CLEF_CACHE_COUVERTURES_PREMIERE_PAGE,
-        JSON.stringify(CACHE_COUVERTURES_PREMIERE_PAGE_PERSISTANT)
-      );
-    } catch (e) {
-      // Si le quota local est atteint, le cache mémoire continue de fonctionner.
-    }
+    // Écriture IndexedDB asynchrone, sans bloquer l'affichage ; chaque
+    // vignette est écrite individuellement (pas de réécriture de tout le
+    // cache à chaque nouvelle couverture, contrairement à l'ancien système).
+    ouvrirIDBCouvertures().then(db => {
+      if (!db) return;
+      try {
+        const tx = db.transaction(IDB_COUVERTURES_MAGASIN, 'readwrite');
+        tx.objectStore(IDB_COUVERTURES_MAGASIN).put(dataUrl, clef);
+      } catch (e) {}
+    });
   }
 
   function couverturePremierePagePersistanteImmediate(doc) {
     const clef = clefCouverturePremierePage(doc);
     if (!clef) return null;
-    return CACHE_COUVERTURES_PREMIERE_PAGE.get(clef)
-      || CACHE_COUVERTURES_PREMIERE_PAGE_PERSISTANT[clef]
-      || null;
+    return CACHE_COUVERTURES_PREMIERE_PAGE.get(clef) || null;
   }
 
   /*
@@ -6760,14 +6843,18 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       const page = await pdf.getPage(1);
 
       /*
-       * Les couvertures sont volontairement petites : elles sont affichées
-       * dans une vignette de 56 px. Cela réduit fortement la taille du cache
-       * local et le coût CPU du rendu.
+       * Les couvertures sont affichées dans une vignette de 56x56 px CSS.
+       * Même sur un écran très dense (2.5x), 140 px de large est largement
+       * suffisant pour une netteté parfaite — inutile d'aller au-delà.
+       * Avant : cible 180 px avec un plafond de scale à 0.75 (donc jusqu'à
+       * 3-4x plus de pixels que nécessaire pour un carré de 56 px). Chaque
+       * pixel en trop coûte du temps de rendu PDF et du poids de JPEG,
+       * pour un résultat invisible une fois réduit à 56 px par le CSS.
        */
       const base = page.getViewport({scale:1});
-      const largeurCible = 180;
+      const largeurCible = 140;
       const scale = Math.min(
-        0.75,
+        0.45,
         largeurCible / Math.max(1, base.width)
       );
       const viewport = page.getViewport({scale});
@@ -6786,8 +6873,10 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
 
       /*
        * JPEG léger : la couverture n'a pas besoin de la qualité du PDF.
+       * 0.55 reste net sur une vignette de 56 px tout en réduisant nettement
+       * le poids de chaque image comparé à 0.68.
        */
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.68);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.55);
 
       CACHE_COUVERTURES_PREMIERE_PAGE.set(clef, dataUrl);
       sauvegarderCouverturePremierePage(clef, dataUrl);
@@ -6809,12 +6898,19 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   }
 
 
-  function appliquerImageCouverture(row, doc, url) {
+  function appliquerImageCouverture(row, doc, url, estImageReelle = false) {
     if (!url || !row?.isConnected) return;
     const wrap = row.querySelector('.icon-wrap');
     if (!wrap || !wrap.isConnected) return;
     wrap.classList.add('a-couverture');
-    wrap.innerHTML = `<img class="doc-cover-img" src="${echapperHtmlPub(url)}" alt="Première page — ${echapperHtmlPub(doc.Titre || 'Livre')}" loading="eager" decoding="async" fetchpriority="high">`;
+    const alt = estImageReelle ? echapperHtmlPub(doc.Titre || 'Livre') : `Première page — ${echapperHtmlPub(doc.Titre || 'Livre')}`;
+    // Une vraie image de couverture (fournie par le document) est chargée
+    // en "lazy" par le navigateur lui-même : aucun PDF n'est touché, c'est
+    // la méthode la plus rapide et la moins gourmande en données.
+    // Une vignette déjà générée depuis le PDF est déjà en mémoire (data URL),
+    // donc "eager" ne coûte rien de plus ici.
+    const chargement = estImageReelle ? 'lazy' : 'eager';
+    wrap.innerHTML = `<img class="doc-cover-img" src="${echapperHtmlPub(url)}" alt="${alt}" loading="${chargement}" decoding="async" fetchpriority="${estImageReelle ? 'low' : 'high'}">`;
   }
 
   // Affichage prioritaire de la première page : aucune recherche Google,
@@ -6885,9 +6981,21 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   }
 
   function appliquerCouvertureSiLivre(row, doc) {
-    // La première page du PDF sert de couverture pour tous les documents.
     if (!row || !doc?.Fichier_url) return;
 
+    // Si le document a déjà une vraie image de couverture (colonne
+    // Couverture_url / Cover_url / Miniature_url côté données), on l'utilise
+    // directement : pas de PDF touché, pas de rendu, chargement natif et
+    // instantané par le navigateur. C'est le chemin à privilégier à l'avenir
+    // pour que l'affichage soit aussi rapide que sur les autres sites.
+    const urlCouvertureReelle = doc.Couverture_url || doc.Cover_url || doc.Miniature_url;
+    if (urlCouvertureReelle) {
+      appliquerImageCouverture(row, doc, urlCouvertureReelle, true);
+      return;
+    }
+
+    // Sinon (pas de vraie couverture disponible) : repli sur la première
+    // page du PDF, mais servie depuis le cache dès que possible.
     row.__auroreDocumentCouverture = doc;
 
     const dejaConnue = couverturePremierePagePersistanteImmediate(doc);
@@ -6899,16 +7007,26 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     /*
      * On ne télécharge rien pour les lignes hors écran.
      * La première page est demandée lorsque la ligne entre dans la zone visible.
+     * On attend d'abord que le cache IndexedDB soit chargé en mémoire, pour
+     * éviter de relancer un rendu PDF alors que la couverture existe déjà.
      */
-    if (COUVERTURES_OBSERVER) {
-      COUVERTURES_OBSERVER.observe(row);
-    } else {
-      // Repli très limité sur les vieux navigateurs : au maximum deux lignes.
-      if (COUVERTURES_FILE.length < COUVERTURES_CONCURRENCE) {
-        COUVERTURES_FILE.push({row, doc});
-        traiterFileCouvertures();
+    CACHE_COUVERTURES_PRET.then(() => {
+      if (!row.isConnected) return;
+      const connueApresChargement = couverturePremierePagePersistanteImmediate(doc);
+      if (connueApresChargement) {
+        appliquerImageCouverture(row, doc, connueApresChargement);
+        return;
       }
-    }
+      if (COUVERTURES_OBSERVER) {
+        COUVERTURES_OBSERVER.observe(row);
+      } else {
+        // Repli très limité sur les vieux navigateurs : au maximum deux lignes.
+        if (COUVERTURES_FILE.length < COUVERTURES_CONCURRENCE) {
+          COUVERTURES_FILE.push({row, doc});
+          traiterFileCouvertures();
+        }
+      }
+    });
   }
 
 
@@ -10391,7 +10509,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       const item=document.createElement('div');
       item.className='pub-admin-item';
       item.innerHTML = `
-        <img src="${echapperHtmlPub(ad.image_url||'')}" alt="">
+        <img src="${echapperHtmlPub(ad.image_url||'')}" alt="" loading="lazy" decoding="async">
         <div class="pub-admin-item-body">
           <div class="pub-admin-item-title">${echapperHtmlPub(titre)}</div>
           ${ad.description ? `<div class="pub-admin-item-desc">${echapperHtmlPub(ad.description)}</div>` : ''}
@@ -10416,7 +10534,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     const descInput=document.getElementById('adminPromoDescInput');
     if(descInput) descInput.value=ad.description||'';
     const preview=document.getElementById('adminPromoPreview');
-    preview.innerHTML = ad.image_url ? `<img src="${echapperHtmlPub(ad.image_url)}" alt="">` : '<span>Aucune image sélectionnée.</span>';
+    preview.innerHTML = ad.image_url ? `<img src="${echapperHtmlPub(ad.image_url)}" alt="" loading="lazy" decoding="async">` : '<span>Aucune image sélectionnée.</span>';
     const note=document.getElementById('adminPromoFileNote');
     if(note) note.textContent='(laisser vide pour conserver l’image actuelle)';
     document.getElementById('adminPromoSave').textContent='Enregistrer les modifications';
