@@ -449,7 +449,8 @@
     width:100%; height:100%; object-fit:cover; border-radius:inherit; display:block;
     aspect-ratio:1/1; background:var(--fond); opacity:1;
   }
-  .doc-row .titre{font-weight:700; font-size:0.9rem;}
+  .doc-row .titre{font-weight:700; font-size:0.9rem; line-height:1.35; color:var(--encre); min-width:0; overflow-wrap:anywhere;}
+  .doc-main-info{min-width:0; flex:1 1 auto;}
   .doc-row .meta{font-size:0.76rem; color:var(--gris); margin-top:2px;}
   .doc-row .dl{
     background:var(--marron); color:#fff; text-decoration:none; padding:9px 18px;
@@ -6922,9 +6923,10 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     if (!wrap || !wrap.isConnected) return;
 
     wrap.classList.add('a-couverture');
+    const titre = obtenirTitreDocument(doc);
     const alt = estImageReelle
-      ? (doc.Titre || 'Livre')
-      : `Première page — ${doc.Titre || 'Livre'}`;
+      ? titre
+      : `Première page — ${titre}`;
 
     // Une vraie image de couverture est chargée en lazy ; une vignette
     // déjà générée depuis le PDF est injectée immédiatement.
@@ -7018,12 +7020,10 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   function appliquerCouvertureSiLivre(row, doc) {
     if (!row || !doc?.Fichier_url) return;
 
-    const urlCouvertureReelle = doc.Couverture_url || doc.Cover_url || doc.Miniature_url;
-    if (urlCouvertureReelle) {
-      appliquerImageCouverture(row, doc, urlCouvertureReelle, true);
-      return;
-    }
-
+    // Pour la bibliothèque publique, la couverture est toujours un aperçu
+    // fidèle de la PREMIÈRE PAGE du PDF. On ne remplace donc plus cette page
+    // par une éventuelle image de couverture externe : le rendu reste
+    // identique au document réellement consulté.
     row.__auroreDocumentCouverture = doc;
 
     // Google Drive présente les aperçus dès que les tuiles entrent dans la
@@ -7047,6 +7047,20 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   // documents du site. La couverture correspond toujours à la première page du PDF.
   let COUVERTURES_PREMIERE_PAGE_ACTIVES = true;
 
+  function obtenirTitreDocument(doc) {
+    const valeurs = [
+      doc?.Titre,
+      doc?.titre,
+      doc?.Title,
+      doc?.title,
+      doc?.Nom,
+      doc?.nom,
+      doc?.name
+    ];
+    const titre = valeurs.find(v => v != null && String(v).trim() !== '');
+    return String(titre || 'Document sans titre').trim();
+  }
+
   function rendreListeDocuments(content, data, afficherCouverturesRomans = false) {
     // Prépare PDF.js en parallèle de la construction de la liste : le rendu
     // de la première page peut ainsi démarrer dès que les lignes sont visibles.
@@ -7058,6 +7072,14 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     }
     const list=document.createElement('div');
     list.className='doc-list';
+
+    // IMPORTANT : la liste doit être attachée au DOM AVANT la création des
+    // couvertures. Ainsi row.isConnected est vrai dès le premier document et
+    // le rendu de la page 1 peut commencer immédiatement, sans attendre un
+    // second passage ou une nouvelle intersection.
+    content.innerHTML='';
+    content.appendChild(list);
+
     trierDocumentsClient(documentsCourants).forEach(doc=>{
       const row=document.createElement('div');
       row.className='doc-row';
@@ -7068,11 +7090,13 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         (doc['Catégorie']||doc.Type) && `Catégorie : ${doc['Catégorie']||doc.Type}`,
         doc.Genre && `Genre : ${doc.Genre}`
       ].filter(Boolean).join(' · ');
+      const titreDocument = obtenirTitreDocument(doc);
+      row.dataset.documentTitle = titreDocument;
       row.innerHTML=`
         <div class="info">
           <div class="icon-wrap">${ICONS.file}</div>
           <div class="doc-main-info">
-            <div class="titre">${doc.Titre||''}</div>
+            <div class="titre" title="${echapperHtmlPub(titreDocument)}">${echapperHtmlPub(titreDocument)}</div>
             <div class="meta">Déposé par ${doc.Auteur||'anonyme'}${telechargementOk?'':' · Lecture seule'}</div>
             ${contexte?`<div class="doc-context">${contexte}</div>`:''}
             ${tailleBadgeMarkup(doc.Fichier_url)}
@@ -7104,8 +7128,6 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       list.appendChild(row);
       if (COUVERTURES_PREMIERE_PAGE_ACTIVES) appliquerCouvertureSiLivre(row,doc);
     });
-    content.innerHTML='';
-    content.appendChild(list);
   }
 
   async function allerDocuments(matiere) {
