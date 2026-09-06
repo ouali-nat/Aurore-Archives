@@ -2426,64 +2426,6 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   @media(prefers-reduced-motion:reduce){.aurore-auth-wait-icon svg{animation:none}}
   .access-message{border-radius:13px !important}
   @media(max-width:520px){.access-lock{padding:14px}.access-card-body{padding:24px 20px 20px}.access-tabs{margin-left:-20px;margin-right:-20px;padding-left:20px;padding-right:20px}.access-logo{width:52px;height:52px;flex-basis:52px;border-radius:14px}.signup-card{padding:23px 19px}}
-  /* Stabilité écran d'accès : tenir compte des barres de navigateur mobiles
-     sans modifier le fonctionnement de l'authentification. */
-  html,body{min-height:100%;box-sizing:border-box;}
-  *,*::before,*::after{box-sizing:border-box;}
-  body.site-locked{min-height:100dvh;overflow-x:hidden;}
-  body.site-locked .access-lock{
-    min-height:100dvh;
-    height:auto;
-    padding:
-      max(14px,env(safe-area-inset-top))
-      max(14px,env(safe-area-inset-right))
-      max(14px,env(safe-area-inset-bottom))
-      max(14px,env(safe-area-inset-left));
-    align-items:center;
-    justify-content:center;
-    -webkit-overflow-scrolling:touch;
-  }
-  body.site-locked .access-card{
-    flex:0 1 auto;
-    max-height:calc(100dvh - 28px);
-    overflow:auto;
-    -webkit-overflow-scrolling:touch;
-  }
-  body.site-locked .access-card-body{min-width:0;}
-  body.site-locked .access-brand-wrap,
-  body.site-locked .access-heading,
-  body.site-locked .access-panel{min-width:0;}
-  body.site-locked .access-google-btn,
-  body.site-locked .access-secondary-btn,
-  body.site-locked .access-visitor-btn{min-width:0;}
-  body.site-locked .access-google-btn span:last-child,
-  body.site-locked .access-secondary-btn,
-  body.site-locked .access-visitor-btn{overflow-wrap:anywhere;}
-  .signup-modal{
-    min-height:100dvh;
-    -webkit-overflow-scrolling:touch;
-    overscroll-behavior:contain;
-  }
-  .signup-card{
-    max-height:calc(100dvh - 28px);
-    overflow:auto;
-    -webkit-overflow-scrolling:touch;
-    overscroll-behavior:contain;
-  }
-  @media(max-width:760px){
-    body.site-locked .access-card{
-      width:min(100%,560px);
-      max-height:calc(100dvh - 20px);
-    }
-    body.site-locked .access-card-body{padding-left:18px;padding-right:18px;}
-    body.site-locked .access-panels{width:100%;}
-    .signup-modal{padding:10px;}
-    .signup-card{width:100%;max-height:calc(100dvh - 20px);}
-  }
-  @media(max-height:620px){
-    body.site-locked .access-lock{align-items:flex-start;}
-    body.site-locked .access-card{margin-top:6px;margin-bottom:6px;}
-  }
 </style>
 
 <div class="aurore-auth-wait" id="auroreAuthWait" aria-hidden="true">
@@ -3574,7 +3516,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   .pdf-reader-bottombar button{border:1px solid var(--bordure); background:var(--fond); color:var(--encre); border-radius:100px; padding:10px 18px; cursor:pointer; font-weight:600; min-height:44px;}
   .pdf-reader-bottombar button[disabled]{opacity:0.4; cursor:not-allowed;}
   #pdfViewerPage{font-size:0.85rem; color:var(--encre); min-width:90px; text-align:center; font-weight:600;}
-  .pdf-load-progress-dock{position:absolute;right:16px;bottom:16px;z-index:20;width:min(320px,calc(100% - 32px));box-sizing:border-box;padding:10px 12px;border:1px solid rgba(255,255,255,.10);border-radius:13px;background:rgba(12,10,17,.84);backdrop-filter:blur(12px);box-shadow:0 10px 28px rgba(0,0,0,.26);display:none;pointer-events:none;}
+  .pdf-load-progress-dock{position:absolute;left:16px;right:16px;bottom:16px;z-index:20;width:min(520px,calc(100% - 32px));margin:0 auto;box-sizing:border-box;padding:13px 14px;border:1px solid rgba(124,58,237,.22);border-radius:14px;background:rgba(15,13,22,.94);backdrop-filter:blur(12px);box-shadow:0 10px 28px rgba(0,0,0,.26);display:none;pointer-events:none;}
   .pdf-load-progress-dock.is-visible{display:block;}
   @media(max-width:560px){
     .pdf-reader-title{font-size:0.85rem;}
@@ -11307,7 +11249,9 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     // canvas masqués, pagination remise à "— / —".
     afficherEtatChargement();
     reinitialiserProgressionLecteurPDF();
-    mettreAJourProgressionLecteurPDF(0, 'Préparation du document');
+    const progressDockInitial=document.getElementById('pdfViewerLoadProgressDock');
+    if(progressDockInitial){ progressDockInitial.classList.add('is-visible'); progressDockInitial.setAttribute('aria-hidden','false'); }
+    mettreAJourProgressionLecteurPDF(0, 'Envoi du document…', {speedText:'Préparation…'});
     document.getElementById('pdfViewerPage').textContent = '— / —';
     document.getElementById('pdfViewerOverlay').style.display = 'block';
     document.getElementById('pdfViewerZone').focus({ preventScroll: true });
@@ -11352,92 +11296,89 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       let pdf = null;
       let sourceRapide = null;
 
-      // Chargement du document : même mécanique que le dépôt.
-      // XHR est la source de vérité pour la barre : les octets réellement reçus
-      // pilotent directement la progression, avec requestAnimationFrame pour
-      // garder un affichage fluide sur les WebView Android.
+      // Ouverture progressive : PDF.js reçoit directement l'URL et demande
+      // uniquement les octets nécessaires (Range/stream). On ne télécharge
+      // donc plus tout le PDF avant d'afficher la première page.
       const urlPublique = (doc.Fichier_url && String(doc.Fichier_url).indexOf(R2_PUBLIC_URL + '/') === 0)
         ? String(doc.Fichier_url) : null;
       const urlWorker = urlPublique
         ? `${R2_WORKER_URL}/${urlPublique.slice(R2_PUBLIC_URL.length + 1)}`
         : String(doc.Fichier_url);
-      const sources = [urlWorker, urlPublique].filter((v,i,a)=>v && a.indexOf(v)===i);
 
       let derniereErreur = null;
-      let octets = null;
+      const sources = [urlWorker, urlPublique].filter((v,i,a)=>v && a.indexOf(v)===i);
 
+      // IMPORTANT : même mécanique que le dépôt. Le PDF est d’abord reçu
+      // par XHR et la progression est alimentée par les octets réellement
+      // reçus (loaded/total). Aucun chargement de première page séparé.
       for (const source of sources) {
         try {
           sourceRapide = source;
-          diagLog('→ Chargement du PDF avec la progression réelle : ' + source);
-          mettreAJourProgressionLecteurPDF(0,'Connexion au document');
-
-          octets = await chargerPDFAvecProgressionDepotStyle(
+          diagLog('→ Chargement XHR du PDF avec progression dépôt : ' + source);
+          mettreAJourProgressionLecteurPDF(0,'Envoi du document…',{speedText:'Préparation…'});
+          const octets = await chargerPDFAvecProgressionDepotStyle(
             source,
-            PDF_FETCH_CONTROLLER ? PDF_FETCH_CONTROLLER.signal : null,
+            PDF_FETCH_CONTROLLER?.signal,
             (loaded,total)=>{
               if(jeton!==PDF_JETON_OUVERTURE)return;
-              if(total>0){
-                const pct=Math.min(99.9,Math.max(0,(loaded/total)*100));
-                mettreAJourProgressionLecteurPDF(
-                  pct,
-                  pct >= 99.9 ? 'Finalisation du document' : 'Chargement du document',
-                  {loaded,total}
-                );
-              }
+              const pct = total>0 ? Math.min(100,Math.max(0,(loaded/total)*100)) : 0;
+              mettreAJourProgressionLecteurPDF(pct,'Envoi du document…',{loaded,total});
             },
-            (etat,info)=>{
-              if(jeton!==PDF_JETON_OUVERTURE)return;
-              if(etat==='termine'){
-                mettreAJourProgressionLecteurPDF(100,'Document chargé',{speedText:'Ouverture du document…'});
-              }
+            (type,info)=>{
+              if(jeton!==PDF_JETON_OUVERTURE || type!=='progress' || !info?.total)return;
+              const debit=Number(info.speed)||0;
+              const speedText=debit>=1024*1024
+                ? (debit/(1024*1024)).toFixed(1)+' Mo/s'
+                : Math.max(1,Math.round(debit/1024))+' Ko/s';
+              const pct=Math.min(100,Math.max(0,(info.loaded/info.total)*100));
+              mettreAJourProgressionLecteurPDF(pct,'Envoi du document…',{speedText,loaded:info.loaded,total:info.total});
             }
           );
-
-          if(!(octets instanceof ArrayBuffer) || !octets.byteLength){
-            throw new Error('Le document reçu est vide.');
-          }
-
-          PDF_OCTETS_COURANTS = octets;
-          memoriserPDFCache(cacheCle, octets);
-          diagLog('→ Téléchargement terminé : '+octets.byteLength+' octet(s).');
-
-          // PDF.js ne commence le rendu qu'après réception complète du document.
-          // Il n'y a donc plus de logique spéciale « première page ».
-          pdf = await pdfjsLib.getDocument({data:octets}).promise;
+          if(jeton!==PDF_JETON_OUVERTURE)return;
+          if(!octets || !octets.byteLength) throw new Error('Le PDF reçu est vide.');
+          mettreAJourProgressionLecteurPDF(100,'Document chargé',{speedText:'Document prêt.'});
+          pdf = await pdfjsLib.getDocument({data:new Uint8Array(octets),stopAtErrors:false}).promise;
           if(!pdf || !pdf.numPages) throw new Error('PDF sans page exploitable');
           diagLog('→ PDF.js prêt : '+pdf.numPages+' page(s).');
           break;
         } catch(e) {
-          derniereErreur=e; pdf=null; sourceRapide=null; octets=null;
-          diagLog('→ Source de chargement indisponible : '+(e?.message||e));
+          derniereErreur=e; pdf=null; sourceRapide=null;
+          diagLog('→ Source XHR indisponible : '+(e?.message||e));
         }
       }
 
       if(!pdf) {
-        diagLog('→ Chargement XHR/PDF.js indisponible : ouverture native directe du PDF.');
+        // Si Range/stream n'est pas disponible, on utilise uniquement le lecteur
+        // natif en secours : aucun téléchargement complet n'est recopié en JS.
+        diagLog('→ Range/PDF.js indisponible : ouverture native directe du PDF.');
         if (afficherVisionneuseNativePDF(doc.Fichier_url)) return;
-        throw derniereErreur || new Error('Impossible de charger le document.');
+        throw derniereErreur || new Error('Impossible d’ouvrir le flux PDF.');
       }
 
       if (jeton !== PDF_JETON_OUVERTURE) return;
-      diagLog('→ Document chargé : '+pdf.numPages+' page(s). Source : '+(sourceRapide||'mémoire')+'.');
+      diagLog('→ PDF.js a chargé le document : '+pdf.numPages+' page(s).'+(sourceRapide?' Source Range/URL.':' Source mémoire.'));
       PDF_EN_COURS=pdf;
 
+      // Dès que PDF.js possède assez d'informations pour servir les pages, on
+      // retire l'écran de chargement. La première page devient prioritaire ;
+      // les suivantes continuent en arrière-plan. La progression est déplacée
+      // dans un petit dock discret afin de ne jamais recouvrir la lecture.
       const loading=document.getElementById('pdfViewerLoading');
       const progressDock=document.getElementById('pdfViewerLoadProgressDock');
       if(loading) loading.style.display='none';
       if(progressDock){ progressDock.classList.add('is-visible'); progressDock.setAttribute('aria-hidden','false'); }
-      mettreAJourProgressionLecteurPDF(100,'Document prêt',{speedText:'Document chargé, ouverture du lecteur…'});
+      mettreAJourProgressionLecteurPDF(100,'Document chargé',{speedText:'Document prêt.'});
       document.getElementById('pdfViewerStatut').textContent='';
 
-      // Le document est entièrement chargé avant le rendu.
+      // Première page : priorité absolue, sans attendre les autres.
       await rendrePagePDF(1,true);
       if (jeton !== PDF_JETON_OUVERTURE) return;
-      mettreAJourProgressionLecteurPDF(100,'Document prêt',{speedText:'Document prêt à lire'});
+      mettreAJourProgressionLecteurPDF(undefined,'Préparation en cours',{speedText:pdf.numPages>1?'Vous pouvez continuer votre lecture pendant la préparation du document.':'Document prêt à lire'});
+
+      // Deuxième page et pages voisines : démarrage immédiat mais non bloquant.
       if(pdf.numPages>1) rendreUnePagePDF(2);
       installerRenduProgressifPDF();
-      diagLog('→ Page 1 rendue après chargement complet du document.');
+      diagLog('→ Page 1 rendue avec succès ; chargement des autres pages en arrière-plan.');
     } catch (err) {
       if (jeton !== PDF_JETON_OUVERTURE) return;
       console.error('[Lecteur PDF] échec de chargement :', err);
