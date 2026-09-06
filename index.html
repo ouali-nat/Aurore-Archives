@@ -39,7 +39,7 @@
     try {
       var v = document.createElement('div');
       v.id = 'auroreBuildBadge';
-      v.textContent = 'build AURORE_2026_09_05_A';
+      v.textContent = 'build AURORE_2026_09_06_UPLOAD_FLUIDE';
       v.style.cssText = 'position:fixed;left:6px;bottom:6px;z-index:2147483646;background:rgba(0,0,0,.55);color:#fff;padding:3px 7px;border-radius:6px;font:10px/1 monospace;opacity:.7;pointer-events:none';
       (document.body || document.documentElement).appendChild(v);
     } catch (e) {}
@@ -910,6 +910,16 @@ footer{background:#07060B;color:#9189A5;}
 .home-annonce p{
   margin:0;font-size:.86rem;line-height:1.55;color:#E8E2F5;white-space:pre-wrap;
 }
+/* Bloc d’annulation de l’envoi : intégré à la carte de progression. */
+.depot-progress-actions{display:flex;justify-content:flex-end;align-items:center;margin-top:11px;}
+.depot-progress-cancel{appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:7px 12px;border:1px solid rgba(124,58,237,.22);border-radius:10px;background:rgba(255,255,255,.55);color:var(--encre);font:inherit;font-size:.74rem;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(55,36,82,.06);transition:transform .16s ease,background .16s ease,border-color .16s ease,opacity .16s ease;}
+.depot-progress-cancel span{font-size:1rem;line-height:1;}
+.depot-progress-cancel:hover{background:rgba(124,58,237,.09);border-color:rgba(124,58,237,.35);transform:translateY(-1px);}
+.depot-progress-cancel:active{transform:translateY(0);}
+.depot-progress-cancel:disabled{cursor:wait;opacity:.65;transform:none;}
+[data-theme="light"] .depot-progress-cancel{background:rgba(255,255,255,.78);border-color:#D4C7E0;}
+@media(max-width:560px){.depot-progress-actions{margin-top:10px;}.depot-progress-cancel{width:100%;min-height:36px;}}
+
 @media(max-width:760px){
   .home-annonce{padding:14px 16px;border-radius:14px;}
   .home-annonce p{font-size:.82rem;}
@@ -2631,6 +2641,11 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
           </div>
           <div class="depot-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Progression de l'envoi">
             <div class="depot-progress-bar" id="depotProgressBar"></div>
+          </div>
+          <div class="depot-progress-actions" id="depotProgressActions">
+            <button type="button" class="depot-progress-cancel" id="depotProgressCancel" aria-label="Annuler l'envoi du document">
+              <span aria-hidden="true">×</span> Annuler l’envoi
+            </button>
           </div>
         </div>
         <div class="form-msg" id="f_msg"></div>
@@ -7195,93 +7210,52 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   }
 
   async function rechercherDoublonDocument({ titre, niveau, filiere, matiere, categorie, genre, fichier }) {
-    // IMPORTANT : la comparaison porte sur le contenu binaire réel du fichier,
-    // pas sur le titre, la matière ou le nom du fichier. Ainsi un même PDF ne
-    // peut pas être redéposé simplement avec des métadonnées différentes.
+    // DÉPÔT RAPIDE : aucune lecture/téléchargement des anciens PDF ici.
+    // L'ancienne vérification SHA-256 téléchargeait potentiellement plusieurs
+    // documents publiés avant même de commencer l'envoi du nouveau fichier,
+    // ce qui rendait le dépôt très lent sur mobile. La détection stricte par
+    // contenu reste disponible dans l'outil de doublons administrateur.
     const params = new URLSearchParams();
     params.set('select', 'id,Titre,Niveau,Filiere,Classe,"Matière","Catégorie",Genre,Auteur,Fichier_url,Publie');
     params.set('Publie', 'eq.true');
-    params.set('limit', '5000');
+    params.set('Titre', 'eq.' + titre);
+    params.set('limit', '20');
 
-    // La récupération de la liste des documents publiés et le calcul de
-    // l'empreinte SHA-256 du fichier envoyé sont deux opérations indépendantes :
-    // on les lance EN PARALLÈLE au lieu de les enchaîner. Sur un fichier lourd,
-    // ce calcul pouvait à lui seul retarder tout le reste inutilement.
-    let documents, empreinteCible;
     try {
-      [documents, empreinteCible] = await Promise.all([
-        (async () => {
-          let res;
-          try {
-            res = await fetch(`${SUPABASE_URL}/rest/v1/Document?${params.toString()}`, { headers: HEADERS });
-          } catch (e) {
-            throw new Error('La vérification du document n’a pas pu être effectuée. Veuillez réessayer.');
-          }
-          if (!res.ok) {
-            const detail = await res.text().catch(() => '');
-            throw new Error('Impossible de vérifier les documents publiés (statut ' + res.status + '). ' + detail);
-          }
-          return res.json();
-        })(),
-        empreinteSha256(fichier)
-      ]);
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/Document?${params.toString()}`, {
+        headers: HEADERS,
+        cache: 'no-store'
+      });
+      if (!res.ok) return null;
+      const documents = await res.json();
+      if (!Array.isArray(documents) || !documents.length) return null;
+
+      const cible = {
+        niveau: normaliserDoublonValeur(niveau),
+        filiere: normaliserDoublonValeur(filiere),
+        matiere: normaliserDoublonValeur(matiere),
+        categorie: normaliserDoublonValeur(categorie),
+        genre: normaliserDoublonValeur(genre)
+      };
+      return documents.find(doc =>
+        normaliserDoublonValeur(doc.Niveau) === cible.niveau &&
+        normaliserDoublonValeur(doc.Filiere) === cible.filiere &&
+        normaliserDoublonValeur(doc['Matière']) === cible.matiere &&
+        normaliserDoublonValeur(doc['Catégorie']) === cible.categorie &&
+        (!cible.genre || normaliserDoublonValeur(doc.Genre) === cible.genre)
+      ) || null;
     } catch (e) {
-      throw (e && e.message) ? e : new Error('La préparation du fichier n’a pas pu être effectuée. Veuillez réessayer.');
+      // Fail-open : le dépôt ne doit jamais être ralenti/bloqué par le contrôle.
+      console.warn('[Dépôt rapide] vérification indisponible', e);
+      return null;
     }
-    if (!Array.isArray(documents) || !documents.length) return null;
-
-    // Première réduction par taille quand le serveur nous la donne. Les requêtes
-    // HEAD sont désormais lancées EN PARALLÈLE par lots (au lieu d'une par une) :
-    // c'était le principal goulot d'étranglement, surtout avec beaucoup de
-    // documents déjà publiés. Si la taille est inconnue, le candidat reste
-    // vérifiable : on ne déclare jamais un doublon sur la taille seule.
-    const CONCURRENCE_HEAD = 12;
-    const candidats = [];
-    for (let i = 0; i < documents.length; i += CONCURRENCE_HEAD) {
-      const lot = documents.slice(i, i + CONCURRENCE_HEAD);
-      const resultats = await Promise.all(lot.map(async doc => {
-        if (!doc || !doc.Fichier_url) return null;
-        let taille = 0;
-        try {
-          const cle = doc.Fichier_url.indexOf(R2_PUBLIC_URL + '/') === 0
-            ? doc.Fichier_url.slice(R2_PUBLIC_URL.length + 1) : null;
-          const url = cle ? `${R2_WORKER_URL}/${cle}` : doc.Fichier_url;
-          const head = await fetch(url, { method: 'HEAD', cache: 'no-store' });
-          if (head.ok) taille = Number(head.headers.get('content-length') || 0);
-        } catch (e) {}
-        return (!taille || taille === Number(fichier.size || 0)) ? { doc, taille } : null;
-      }));
-      for (const r of resultats) if (r) candidats.push(r);
-    }
-
-    // Vérification du contenu réel, également par petits lots en parallèle
-    // (on limite la concurrence ici car cela télécharge des PDF entiers, pour
-    // ne pas saturer la connexion de l'utilisateur). Un échec réseau sur un
-    // candidat ne permet pas de conclure : on continue avec les autres et on
-    // ne bloque que sur une égalité SHA-256 certaine.
-    const CONCURRENCE_HASH = 3;
-    for (let i = 0; i < candidats.length; i += CONCURRENCE_HASH) {
-      const lot = candidats.slice(i, i + CONCURRENCE_HASH);
-      const resultats = await Promise.all(lot.map(async candidat => {
-        try {
-          const octets = await recupererOctetsPDF(candidat.doc.Fichier_url);
-          const hash = await empreinteSha256(new Blob([octets]));
-          return hash === empreinteCible ? candidat.doc : null;
-        } catch (e) {
-          console.warn('[Doublon dépôt] candidat non vérifiable', candidat.doc.id, e);
-          return null;
-        }
-      }));
-      const trouve = resultats.find(Boolean);
-      if (trouve) return trouve;
-    }
-    return null;
   }
 
-
-  function creerUploadR2AvecProgress(url, fichier, setProgress, setEtatConnexion) {
+  function creerUploadR2AvecProgress(url, fichier, setProgress, setEtatConnexion, setAbort) {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
+      // Permet au bouton d'annulation de stopper immédiatement le PUT en cours.
+      if (typeof setAbort === 'function') setAbort(() => xhr.abort());
       xhr.open('PUT', url, true);
       xhr.setRequestHeader('Content-Type', 'application/pdf');
 
@@ -7289,29 +7263,31 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       // qui ne répond plus, réseau mobile qui coupe) laissait l'utilisateur
       // indéfiniment sur "Envoi en cours…" sans aucun message. On calcule un
       // délai large mais fini, proportionnel à la taille du fichier, en
-      // supposant un débit minimal tolérable d'environ 50 Ko/s (réseau mobile
+      // supposant un débit minimal tolérable d'environ 32 Ko/s (réseau mobile
       // faible) : au-delà, on considère que la connexion est bloquée.
-      const DEBIT_MIN_OCTETS_PAR_SEC = 50 * 1024;
+      const DEBIT_MIN_OCTETS_PAR_SEC = 32 * 1024;
       const TIMEOUT_PLANCHER_MS = 60000; // jamais moins d'1 minute, même pour un petit fichier
       xhr.timeout = Math.max(
         TIMEOUT_PLANCHER_MS,
         Math.ceil((fichier.size / DEBIT_MIN_OCTETS_PAR_SEC) * 1000) + 30000
       );
 
-      // ---- Progression visuelle continue ----
-      // Les événements natifs xhr.upload.progress ne sont pas fiables sur
-      // tous les réseaux/navigateurs mobiles : certains n'en livrent qu'un
-      // seul, juste avant la fin, ce qui donnait l'impression d'un saut
-      // brutal de 0 % à 100 %. On affiche donc en parallèle une estimation
-      // qui avance en continu (approche progressive vers 92 %, jamais
-      // bloquée), et on bascule sur la vraie valeur dès qu'elle la dépasse —
-      // la barre affichée ne recule jamais.
+      // ---- Progression hybride, pensée pour les mobiles ----
+      // Certains navigateurs Android ne déclenchent le premier progress
+      // qu'après plusieurs secondes. Une estimation trop lente donnait donc
+      // l'impression que le dépôt était bloqué. On affiche rapidement une
+      // progression de confort jusqu'à 18 %, puis on laisse la progression
+      // réseau réelle prendre le relais dès qu'elle devient disponible.
+      // IMPORTANT : cette animation ne modifie jamais la vitesse du transfert
+      // et ne prétend jamais avoir terminé avant la réponse du serveur.
       const debutEnvoi = Date.now();
-      // Constante de temps de l'estimation : suppose un débit prudent d'environ
-      // 120 Ko/s, avec un minimum pour que les petits fichiers restent fluides.
-      const CONSTANTE_TEMPS_MS = Math.max(1500, Math.ceil(fichier.size / (120 * 1024)) * 1000);
       let percentAffiche = 0;
       let reelDemarre = false;
+
+      // Objectif de l'estimation : atteindre 18 % en ~1,8 s, puis avancer
+      // très doucement jusqu'à 28 % au maximum pendant la négociation réseau.
+      const ESTIMATION_DEBUT_MS = 1800;
+      const ESTIMATION_MAX = 28;
 
       function pousserPercent(valeur) {
         const v = Math.max(0, Math.min(99, Math.round(valeur)));
@@ -7322,23 +7298,23 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       }
 
       const minuteurEstimation = setInterval(() => {
-        if (reelDemarre) return; // la vraie progression, dès qu'elle démarre, prend le relais
+        if (reelDemarre) return;
         const t = Date.now() - debutEnvoi;
-        if (t > 400 && setEtatConnexion) setEtatConnexion('envoi');
-        const estime = 92 * (1 - Math.exp(-t / CONSTANTE_TEMPS_MS));
+        if (t > 250 && setEtatConnexion) setEtatConnexion('envoi');
+        const ratio = Math.min(1, t / ESTIMATION_DEBUT_MS);
+        const estime = Math.min(ESTIMATION_MAX, 18 * (1 - Math.exp(-3 * ratio)));
         pousserPercent(estime);
-      }, 150);
+      }, 100);
 
       xhr.upload.addEventListener('progress', event => {
         if (!event.lengthComputable) {
-          // Le navigateur ne peut pas calculer de pourcentage (rare, mais
-          // possible selon le réseau/proxy) : l'estimation continue de
-          // tourner pour que la barre reste fluide.
           if (setEtatConnexion) setEtatConnexion('indetermine');
           return;
         }
         reelDemarre = true;
         if (setEtatConnexion) setEtatConnexion('envoi');
+        // La progression réelle est prioritaire et ne recule jamais par
+        // rapport à l'estimation déjà affichée.
         pousserPercent((event.loaded / event.total) * 100);
       });
       xhr.onload = () => {
@@ -7367,6 +7343,9 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     const progressBar = document.getElementById('depotProgressBar');
     const progressPercent = document.getElementById('depotProgressPercent');
     const progressTrack = progressBox ? progressBox.querySelector('[role=progressbar]') : null;
+    const progressCancel = document.getElementById('depotProgressCancel');
+    let annulationDemandee = false;
+    let abortUpload = null;
     msg.className = 'form-msg'; msg.style.display = '';
     // Journal technique : réservé à l'administrateur (diagnostic), jamais montré
     // à un utilisateur normal. Les étapes restent tout de même tracées dans la
@@ -7385,6 +7364,25 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     }
 
     const progressLabel = document.getElementById('depotProgressLabel');
+
+    function afficherBoutonAnnulation(visible) {
+      if (!progressCancel) return;
+      progressCancel.style.display = visible ? 'inline-flex' : 'none';
+      progressCancel.disabled = false;
+    }
+
+    function annulerEnvoi() {
+      if (annulationDemandee) return;
+      annulationDemandee = true;
+      if (progressCancel) {
+        progressCancel.disabled = true;
+        progressCancel.innerHTML = '<span aria-hidden="true">×</span> Annulation…';
+      }
+      if (progressLabel) progressLabel.textContent = 'Annulation de l’envoi…';
+      if (abortUpload) abortUpload();
+    }
+
+    progressCancel?.addEventListener('click', annulerEnvoi);
 
     function afficherProgression(valeur) {
       const pct = Math.max(0, Math.min(100, Math.round(valeur)));
@@ -7413,6 +7411,10 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       progressPercent.textContent = '0 %';
       if (progressTrack) progressTrack.setAttribute('aria-valuenow', '0');
       if (progressLabel) progressLabel.textContent = 'Envoi du document…';
+      afficherBoutonAnnulation(false);
+      if (progressCancel) progressCancel.innerHTML = '<span aria-hidden="true">×</span> Annuler l’envoi';
+      annulationDemandee = false;
+      abortUpload = null;
     }
 
     function echouer(texte) {
@@ -7493,15 +7495,26 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     // ---- 1. Upload du PDF vers Cloudflare R2 via le Worker "lsnb-upload" ----
     afficherProgression(0);
     afficherEtatConnexion('connexion');
+    afficherBoutonAnnulation(true);
     const nomFichier = Date.now() + '_' + fichier.name.replace(/[^a-zA-Z0-9._-]/g, '_');
     etape('Étape 1/5 — Envoi du fichier au Worker Cloudflare (bucket R2 "lsnb-documents"), fichier : ' + nomFichier);
 
     let uploadRes;
     try {
-      uploadRes = await creerUploadR2AvecProgress(`${R2_WORKER_URL}/${nomFichier}`, fichier, afficherProgression, afficherEtatConnexion);
+      uploadRes = await creerUploadR2AvecProgress(`${R2_WORKER_URL}/${nomFichier}`, fichier, afficherProgression, afficherEtatConnexion, fn => { abortUpload = fn; });
     } catch (netErr) {
+      if (annulationDemandee) {
+        masquerProgression();
+        msg.textContent = 'Envoi annulé. Aucun document n’a été enregistré.';
+        msg.className = 'form-msg';
+        btn.disabled = false; btn.textContent = "Envoyer le document";
+        etape('Envoi annulé par l’utilisateur.', 'ok');
+        return;
+      }
       return echouer(netErr && netErr.message ? netErr.message : "Le transfert du fichier n’a pas pu démarrer. Vérifiez votre connexion puis réessayez.");
     }
+    afficherBoutonAnnulation(false);
+    abortUpload = null;
 
     const uploadText = uploadRes.text || '';
     if (!uploadRes.ok) {
