@@ -2075,6 +2075,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
 .ad-slot[id^="ad-"]{display:block!important;visibility:visible!important;opacity:1!important;}
 .ad-slot[id^="ad-"]:empty{display:none!important;visibility:hidden!important;opacity:0!important;}
 </style>
+
 </head>
 <body class="site-locked">
 
@@ -2551,6 +2552,19 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     </button>
 
     <div class="ad-slot ad-slot-alt" id="ad-home-2"></div>
+
+    <!-- ===== ESPACE PERSONNEL : DERNIER BLOC DE L'ACCUEIL ===== -->
+    <section class="home-personal-access" id="homePersonalAccess" aria-label="Accéder à mon espace personnel">
+      <div class="home-personal-access-glow" aria-hidden="true"></div>
+      <div class="home-personal-access-copy">
+        <span class="home-personal-access-kicker">Votre espace</span>
+        <h2>Retrouvez votre espace personnel</h2>
+        <p>Accédez à vos documents, favoris, téléchargements et à vos cases personnelles depuis un seul endroit.</p>
+      </div>
+      <button type="button" class="home-personal-access-btn" id="homePersonalAccessBtn">
+        <span>Ouvrir mon espace personnel</span><b aria-hidden="true">→</b>
+      </button>
+    </section>
   </section>
 
   <!-- ===== LIVRES : choix du genre ===== -->
@@ -3264,11 +3278,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
 </main>
 
 <footer>
-  <div class="wrap">
-    <div>Aurore — Section Archives — Bibliothèque des élèves</div>
-    <div>Bibliothèque numérique d'Aurore</div>
-  </div>
-  <div class="wrap" style="margin-top:18px; align-items:stretch;">
+  <div class="wrap" style="margin-top:0; align-items:stretch;">
     <div class="service-client-card" aria-label="Service client">
       <div class="service-client-copy">
         <span class="service-client-kicker">Besoin d'aide ?</span>
@@ -3283,6 +3293,10 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   </div>
   <div class="wrap" style="margin-top:10px;">
     <button class="admin-note" id="btnAdmin" style="background:none; border:none; text-decoration:underline; padding:0;">Espace administrateur</button>
+  </div>
+  <div class="aurore-footer-identity" aria-label="Identité du site">
+    <strong>Aurore — Section Archives — Bibliothèque des élèves</strong>
+    <span>Bibliothèque numérique d'Aurore</span>
   </div>
 </footer>
 
@@ -10400,11 +10414,11 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       <div class="ad-slot-label">Publicité</div>
       <div class="ad-slot-card">
         <img class="ad-slot-img" src="${echapperHtmlPub(ad.image_url)}" alt="${echapperHtmlPub(titre||'Publicité')}" loading="eager" decoding="async" fetchpriority="high">
-        <div class="ad-slot-body">
-          ${titre ? `<div class="ad-slot-title">${echapperHtmlPub(titre)}</div>` : ''}
-          ${ad.description ? `<div class="ad-slot-desc">${echapperHtmlPub(ad.description)}</div>` : ''}
-          ${cta}
-        </div>
+      </div>
+      <div class="ad-slot-body">
+        ${titre ? `<div class="ad-slot-title">${echapperHtmlPub(titre)}</div>` : ''}
+        ${ad.description ? `<div class="ad-slot-desc">${echapperHtmlPub(ad.description)}</div>` : ''}
+        ${cta}
       </div>`;
     // Un emplacement rempli doit être visible, même si un ancien état HTML/CSS
     // (display:none ou hidden) subsiste. On ne modifie jamais la donnée de publicité.
@@ -12727,6 +12741,17 @@ async function telechargerDocumentAvecProgression(doc) {
 
   initialiserEspacePersonnel();
   const _ouvrirProfilOriginal=window.ouvrirEspacePersonnelObligatoire;
+  document.getElementById('homePersonalAccessBtn')?.addEventListener('click',()=>{
+    if(session){
+      if(typeof window.ouvrirEspaceAvecCode==='function') window.ouvrirEspaceAvecCode();
+      else document.getElementById('btnOuvrirProfil')?.click();
+      return;
+    }
+    const lock=document.getElementById('accessLock');
+    if(lock){ lock.hidden=false; lock.style.display='flex'; }
+    document.body.classList.add('site-locked');
+  });
+
   document.getElementById('btnOuvrirProfil')?.addEventListener('click',()=>{ if(document.getElementById('screen-profil')?.classList.contains('active')) return; chargerDonneesEspacePersonnel(); });
   // Chargement discret lorsque le profil est ouvert par le flux de connexion.
   const _afficherEcranOriginal=window.afficherEcran;
@@ -15489,6 +15514,58 @@ html[data-color-theme] .aurora-list .personal-doc-cover img.doc-cover-img{width:
 html[data-color-theme="rouge"]{--theme-primary:#DC2626;--theme-secondary:#FF6B6B;--theme-strong:#991B1B;}
 html[data-color-theme="rouge"] .ad-slot-card,html[data-color-theme="rouge"] .home-video-section{box-shadow:0 24px 70px rgba(220,38,38,.18)!important;}
 @media(max-width:640px){html[data-color-theme] .ad-slot-card{height:230px!important;min-height:230px!important;border-radius:20px!important;}html[data-color-theme] .ad-slot-body{padding:18px 17px 16px!important;}}
+</style>
+
+<style id="aurore-corrections-finales-20260906">
+/* CORRECTIONS FINALES — ne touche pas à la logique existante. */
+
+/* PUBLICITÉS : la carte .ad-slot-card est EXCLUSIVEMENT la zone photo. */
+.ad-slot{display:block!important;margin:32px 0 38px!important;}
+.ad-slot-card{position:relative!important;display:block!important;width:100%!important;height:220px!important;min-height:220px!important;margin:0!important;padding:0!important;overflow:hidden!important;border-radius:22px!important;border:1px solid rgba(216,180,254,.16)!important;background:#09070E!important;box-shadow:0 18px 48px rgba(0,0,0,.22)!important;}
+.ad-slot-card::after{display:none!important;content:none!important;}
+.ad-slot-img{position:absolute!important;inset:0!important;display:block!important;width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;border-radius:inherit!important;object-fit:cover!important;}
+.ad-slot-body{position:static!important;display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:8px!important;width:100%!important;margin:10px 0 0!important;padding:0!important;background:transparent!important;}
+.ad-slot-title{display:block!important;width:100%!important;max-width:none!important;margin:0!important;padding:11px 14px!important;border:1px solid rgba(192,132,252,.16)!important;border-radius:13px!important;background:#15111F!important;color:#F7F5FF!important;font-size:.96rem!important;line-height:1.35!important;text-shadow:none!important;box-shadow:none!important;}
+.ad-slot-desc{display:block!important;width:100%!important;margin:0!important;padding:10px 14px!important;border:1px solid rgba(192,132,252,.10)!important;border-radius:13px!important;background:#100D17!important;color:#A9A3B8!important;line-height:1.5!important;text-shadow:none!important;}
+.ad-slot-cta{align-self:flex-start!important;margin:0!important;padding:8px 12px!important;border-radius:10px!important;background:#15111F!important;border:1px solid rgba(192,132,252,.15)!important;color:#C084FC!important;text-decoration:none!important;text-shadow:none!important;}
+[data-theme="light"] .ad-slot-card{background:#F7F4FB!important;border-color:#D8CDE3!important;}
+[data-theme="light"] .ad-slot-title{background:#fff!important;color:#171322!important;border-color:#D8CDE3!important;}
+[data-theme="light"] .ad-slot-desc{background:#FCFBFE!important;color:#4D465A!important;border-color:#E6DFF0!important;}
+[data-theme="light"] .ad-slot-cta{background:#fff!important;color:#6D28D9!important;border-color:#D8CDE3!important;}
+
+/* VIDÉO : réduction réelle de la carte et de la surface vidéo. */
+.home-video-section{max-width:820px!important;margin:20px auto 24px!important;}
+.home-video-heading{padding:14px 18px 10px!important;}
+.home-video-frame{width:calc(100% - 24px)!important;margin:0 auto 10px!important;aspect-ratio:16/8.2!important;max-height:410px!important;border-radius:14px!important;overflow:hidden!important;}
+.home-video-frame video{width:100%!important;height:100%!important;border-radius:14px!important;object-fit:cover!important;}
+
+/* ESPACE PERSONNEL : dernier élément visuel de l'accueil. */
+.home-personal-access{position:relative!important;isolation:isolate!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:24px!important;overflow:hidden!important;margin:52px 0 0!important;padding:30px 32px!important;border:1px solid rgba(192,132,252,.22)!important;border-radius:26px!important;background:radial-gradient(circle at 90% 10%,rgba(192,132,252,.20),transparent 34%),linear-gradient(135deg,#171124,#100D18)!important;box-shadow:0 24px 65px rgba(0,0,0,.25)!important;}
+.home-personal-access-glow{position:absolute!important;width:180px!important;height:180px!important;right:-70px!important;bottom:-100px!important;border-radius:50%!important;background:#7C3AED!important;filter:blur(65px)!important;opacity:.18!important;pointer-events:none!important;z-index:-1!important;}
+.home-personal-access-copy{min-width:0!important;flex:1 1 auto!important;}
+.home-personal-access-kicker{display:block!important;margin-bottom:6px!important;color:#C4B5FD!important;font-size:.68rem!important;font-weight:800!important;letter-spacing:.16em!important;text-transform:uppercase!important;}
+.home-personal-access h2{margin:0!important;color:#fff!important;font-size:clamp(1.25rem,2.3vw,1.65rem)!important;line-height:1.2!important;}
+.home-personal-access p{margin:8px 0 0!important;max-width:650px!important;color:#A9A3B8!important;font-size:.86rem!important;line-height:1.55!important;}
+.home-personal-access-btn{flex:0 0 auto!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:12px!important;min-height:46px!important;padding:11px 17px!important;border:1px solid rgba(216,180,254,.24)!important;border-radius:14px!important;background:linear-gradient(135deg,#7C3AED,#A855F7)!important;color:#fff!important;font:inherit!important;font-size:.82rem!important;font-weight:800!important;box-shadow:0 12px 28px rgba(124,58,237,.22)!important;cursor:pointer!important;transition:transform .18s ease,box-shadow .18s ease,filter .18s ease!important;}
+.home-personal-access-btn:hover{transform:translateY(-2px)!important;filter:brightness(1.06)!important;box-shadow:0 16px 34px rgba(124,58,237,.28)!important;}
+.home-personal-access-btn b{font-size:1.05rem!important;line-height:1!important;}
+
+/* IDENTITÉ : exactement à la toute fin du footer. */
+.aurore-footer-identity{display:flex!important;flex-direction:column!important;align-items:center!important;gap:3px!important;margin:24px auto 0!important;padding:18px 20px 4px!important;border-top:1px solid rgba(216,180,254,.08)!important;text-align:center!important;}
+.aurore-footer-identity strong{color:#DCD4E8!important;font-size:.78rem!important;font-weight:750!important;}
+.aurore-footer-identity span{color:#81788F!important;font-size:.70rem!important;}
+
+@media(max-width:640px){
+  .ad-slot-card{height:190px!important;min-height:190px!important;border-radius:18px!important;}
+  .ad-slot-body{margin-top:9px!important;}
+  .ad-slot-title,.ad-slot-desc{padding:10px 12px!important;border-radius:12px!important;}
+  .home-video-section{max-width:none!important;margin:16px 0 22px!important;}
+  .home-video-heading{padding:13px 14px 9px!important;}
+  .home-video-frame{width:calc(100% - 12px)!important;aspect-ratio:16/9!important;max-height:none!important;border-radius:12px!important;}
+  .home-video-frame video{border-radius:12px!important;}
+  .home-personal-access{flex-direction:column!important;align-items:stretch!important;gap:18px!important;margin-top:38px!important;padding:22px 18px!important;border-radius:22px!important;}
+  .home-personal-access-btn{width:100%!important;}
+}
 </style>
 </body>
 </html>
