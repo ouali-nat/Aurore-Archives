@@ -11308,42 +11308,45 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       let derniereErreur = null;
       const sources = [urlWorker, urlPublique].filter((v,i,a)=>v && a.indexOf(v)===i);
 
-      // Chargement progressif : PDF.js récupère uniquement les blocs nécessaires
-      // pour afficher les premières pages. La barre reste visible et suit les
-      // octets réellement reçus par PDF.js.
-      const source = sources[0];
-      sourceRapide = source;
-      diagLog('→ Chargement PDF.js par plages : ' + source);
-
-      const task = pdfjsLib.getDocument({
-        url: source,
-        rangeChunkSize: 256 * 1024,
-        disableRange: false,
-        disableStream: false,
-        disableAutoFetch: true,
-        stopAtErrors: false,
-        onProgress: ({loaded,total})=>{
+      // IMPORTANT : même mécanique que le dépôt. Le PDF est d’abord reçu
+      // par XHR et la progression est alimentée par les octets réellement
+      // reçus (loaded/total). Aucun chargement de première page séparé.
+      for (const source of sources) {
+        try {
+          sourceRapide = source;
+          diagLog('→ Chargement XHR du PDF avec progression dépôt : ' + source);
+          mettreAJourProgressionLecteurPDF(0,'Envoi du document…',{speedText:'Préparation…'});
+          const octets = await chargerPDFAvecProgressionDepotStyle(
+            source,
+            PDF_FETCH_CONTROLLER?.signal,
+            (loaded,total)=>{
+              if(jeton!==PDF_JETON_OUVERTURE)return;
+              const pct = total>0 ? Math.min(100,Math.max(0,(loaded/total)*100)) : 0;
+              mettreAJourProgressionLecteurPDF(pct,'Envoi du document…',{loaded,total});
+            },
+            (type,info)=>{
+              if(jeton!==PDF_JETON_OUVERTURE || type!=='progress' || !info?.total)return;
+              const debit=Number(info.speed)||0;
+              const speedText=debit>=1024*1024
+                ? (debit/(1024*1024)).toFixed(1)+' Mo/s'
+                : Math.max(1,Math.round(debit/1024))+' Ko/s';
+              const pct=Math.min(100,Math.max(0,(info.loaded/info.total)*100));
+              mettreAJourProgressionLecteurPDF(pct,'Envoi du document…',{speedText,loaded:info.loaded,total:info.total});
+            }
+          );
           if(jeton!==PDF_JETON_OUVERTURE)return;
-          if(total>0){
-            const pct=Math.min(100,Math.max(0,(loaded/total)*100));
-            mettreAJourProgressionLecteurPDF(
-              pct,
-              'Chargement du document…',
-              {loaded,total}
-            );
-          } else {
-            mettreAJourProgressionLecteurPDF(
-              undefined,
-              'Chargement du document…',
-              {speedText:'Chargement…'}
-            );
-          }
+          if(!octets || !octets.byteLength) throw new Error('Le PDF reçu est vide.');
+          mettreAJourProgressionLecteurPDF(100,'Document chargé',{speedText:'Document prêt.'});
+          pdf = await pdfjsLib.getDocument({data:new Uint8Array(octets),stopAtErrors:false}).promise;
+          if(!pdf || !pdf.numPages) throw new Error('PDF sans page exploitable');
+          diagLog('→ PDF.js prêt : '+pdf.numPages+' page(s).');
+          break;
+        } catch(e) {
+          derniereErreur=e; pdf=null; sourceRapide=null;
+          diagLog('→ Source XHR indisponible : '+(e?.message||e));
         }
-      });
+      }
 
-      pdf = await task.promise;
-      if(!pdf || !pdf.numPages) throw new Error('PDF sans page exploitable');
-      diagLog('→ PDF.js prêt : '+pdf.numPages+' page(s).');
       if(!pdf) {
         // Si Range/stream n'est pas disponible, on utilise uniquement le lecteur
         // natif en secours : aucun téléchargement complet n'est recopié en JS.
@@ -11878,39 +11881,32 @@ async function telechargerDocumentAvecProgression(doc) {
       document.getElementById('pdfViewerPrec').disabled=total<=1;
       document.getElementById('pdfViewerSuiv').disabled=total<=1;
 
-      // Affichage anticipé : on prépare les 15 premières pages seulement.
-      // L'utilisateur peut commencer à lire immédiatement ; les pages suivantes
-      // restent en chargement différé lorsqu'elles deviennent nécessaires.
-      const pagesInitiales = Math.min(total, 15);
-      mettreAJourProgressionLecteurPDF(
-        undefined,
-        'Préparation de la lecture…',
-        {speedText:'Premières pages en cours de préparation…'}
-      );
-
+      // Priorité absolue à la première page : le document devient lisible dès
+      // que cette page est prête, sans attendre le rendu du reste.
+      mettreAJourProgressionLecteurPDF(88,'Rendu de la première page',{speedText:'Préparation de l’affichage…'});
+      await rendreUnePagePDF(1,true);
+      document.getElementById('pdfViewerLoading').style.display='none';
+      document.getElementById('pdfViewerErreurBox').style.display='none';
+      installerRenduProgressifPDF();
+      installerSuiviPagesPDF();
       const pdfSessionToken = PDF_JETON_OUVERTURE;
+      // Précharge une seule page à la fois : page 2 après la page 1, puis la
+      // suivante si elle existe. Cela rend le comportement déterministe même
+      // si IntersectionObserver est capricieux sur certains Android.
       (async()=>{
-        for(let n=1;n<=pagesInitiales;n++){
+        for(let n=2;n<=Math.min(total,4);n++){
           if(PDF_JETON_OUVERTURE !== pdfSessionToken || !PDF_EN_COURS) break;
           try {
-            await rendreUnePagePDF(n, n===1);
-            if(n===1){
-              document.getElementById('pdfViewerLoading').style.display='none';
-              document.getElementById('pdfViewerErreurBox').style.display='none';
-              installerRenduProgressifPDF();
-              installerSuiviPagesPDF();
-              document.getElementById('pdfViewerStatut').textContent='';
-            }
+            await rendreUnePagePDF(n);
           } catch (error) {
             const message = String(error?.message || error || '');
             if (!/rendering\s+cancelled|RenderingCancelled/i.test(message)) {
               console.warn('[Lecteur PDF] pré-rendu interrompu :', error);
             }
-            break;
           }
         }
       })().catch(()=>{});
-
+      document.getElementById('pdfViewerStatut').textContent='';
       requestAnimationFrame(majBarreDefilementPDF);
     } catch(err){
       console.error('[Lecteur PDF] échec de rendu continu',err);
