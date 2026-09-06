@@ -2,47 +2,16 @@
 <html lang="fr">
 <head>
 <script>
-// === Aurore : capteur de diagnostic temporaire ===
-// Affiche à l'écran (en rouge, en bas) toute erreur JavaScript non
-// interceptée ou promesse rejetée, pour pouvoir diagnostiquer un
-// appareil sans accès à la console du navigateur. Ce bloc doit rester
-// le tout premier script chargé pour intercepter aussi les erreurs
-// survenant très tôt dans le chargement de la page.
+/* Aurore — erreurs de rendu PDF annulé : elles sont normales lorsqu'une
+   page est quittée avant la fin de son rendu. Ne pas les afficher comme
+   une erreur utilisateur. */
 (function () {
-  function afficher(msg) {
-    try {
-      var el = document.getElementById('auroreDebugErr');
-      if (!el) {
-        el = document.createElement('div');
-        el.id = 'auroreDebugErr';
-        el.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:2147483647;background:#b91c1c;color:#fff;padding:10px 12px;border-radius:10px;font:12px/1.45 monospace;max-height:45vh;overflow:auto;white-space:pre-wrap;box-shadow:0 6px 24px rgba(0,0,0,.45)';
-        (document.body || document.documentElement).appendChild(el);
-      }
-      el.textContent += (el.textContent ? '\n\n' : 'DIAGNOSTIC AURORE — à copier :\n\n') + msg;
-    } catch (e) {}
-  }
-  window.addEventListener('error', function (e) {
-    afficher('[Erreur JS] ' + (e.message || e) + '\nFichier : ' + (e.filename || '?') + ':' + (e.lineno || '?') + ':' + (e.colno || '?'));
-  });
-  window.addEventListener('unhandledrejection', function (e) {
-    var r = e.reason;
-    afficher('[Promesse rejetée] ' + (r && r.message ? r.message : String(r)) + (r && r.stack ? ('\n' + r.stack.split('\n').slice(0, 3).join('\n')) : ''));
-  });
-  window.auroreAfficherErreurDebug = afficher;
-  // Repère de version toujours visible (discret, coin bas-gauche), pour
-  // vérifier en un coup d'œil si l'onglet a bien chargé LE fichier redéployé
-  // ou une version mise en cache (par le navigateur ou par sw.js) — ce qui
-  // expliquerait qu'un correctif fonctionne en navigation privée (jamais de
-  // cache/service worker) mais pas en navigation normale (potentiellement
-  // encore sur l'ancienne version).
-  window.addEventListener('DOMContentLoaded', function () {
-    try {
-      var v = document.createElement('div');
-      v.id = 'auroreBuildBadge';
-      v.textContent = 'build AURORE_2026_09_06_UPLOAD_FLUIDE';
-      v.style.cssText = 'position:fixed;left:6px;bottom:6px;z-index:2147483646;background:rgba(0,0,0,.55);color:#fff;padding:3px 7px;border-radius:6px;font:10px/1 monospace;opacity:.7;pointer-events:none';
-      (document.body || document.documentElement).appendChild(v);
-    } catch (e) {}
+  window.addEventListener('unhandledrejection', function (event) {
+    const r = event.reason;
+    const message = String(r?.message || r || '');
+    if (/rendering\s+cancelled|RenderingCancelled/i.test(message)) {
+      event.preventDefault();
+    }
   });
 })();
 </script>
@@ -54,7 +23,7 @@
 <meta name="googlebot" content="index, follow">
 <link rel="canonical" href="https://aurore-section-archivescom.vercel.app/">
 <link rel="preconnect" href="https://tdeotqfsbvouresfhkab.supabase.co" crossorigin>
-<link rel="preconnect" href="https://lsnb-upload.oualikevin9.workers.dev" crossorigin>
+<link rel="preconnect" href="https://lsnb-pdf-worker-v2.oualikevin9.workers.dev" crossorigin>
 <link rel="preconnect" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev" crossorigin>
 <link rel="manifest" href="manifest.json?v=20260905-1">
 <link rel="icon" type="image/png" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
@@ -74,6 +43,9 @@
 <meta property="og:description" content="Bibliothèque numérique d'Aurore">
 <meta property="og:image" content="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
 <meta property="og:image:alt" content="Logo Aurore — Section Archives">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Aurore — Section Archives">
 <meta name="twitter:description" content="Bibliothèque numérique d'Aurore">
@@ -6724,37 +6696,23 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       || null;
   }
 
-  // Génération rapide de la couverture : PDF.js ouvre directement le PDF via
-  // le Worker R2 avec HTTP Range. On ne télécharge donc plus le PDF entier
-  // simplement pour obtenir sa première page.
-  const COUVERTURES_PROMESSES = new Map();
-  const COUVERTURES_FILE_PARALLELISME = 3;
-  let couverturesEnCours = 0;
-  const couverturesEnAttente = [];
-
-  function traiterFileCouvertures() {
-    while (couverturesEnCours < COUVERTURES_FILE_PARALLELISME && couverturesEnAttente.length) {
-      const travail = couverturesEnAttente.shift();
-      couverturesEnCours++;
-      Promise.resolve().then(travail).finally(() => {
-        couverturesEnCours--;
-        traiterFileCouvertures();
-      });
-    }
-  }
-
-  function mettreEnFileCouverture(cle, travail) {
-    if (COUVERTURES_PROMESSES.has(cle)) return COUVERTURES_PROMESSES.get(cle);
-    const promise = new Promise((resolve, reject) => {
-      couverturesEnAttente.push(async () => {
-        try { resolve(await travail()); } catch (e) { reject(e); }
-      });
-    });
-    COUVERTURES_PROMESSES.set(cle, promise);
-    traiterFileCouvertures();
-    return promise;
-  }
-
+  /*
+   * ---------- COUVERTURES : PREMIÈRE PAGE UNIQUEMENT ----------
+   *
+   * Ancien problème : récupérerOctetsPDF() téléchargeait le PDF entier avant
+   * de fabriquer une vignette. Pour un PDF de 50–200 Mo, cela consommait
+   * inutilement le forfait mobile.
+   *
+   * Nouveau comportement :
+   *   1. PDF.js reçoit directement l'URL du Worker v2.
+   *   2. Le Worker prend en charge HTTP Range.
+   *   3. PDF.js ne demande que les portions nécessaires pour obtenir la page 1.
+   *   4. Une fois la page 1 rendue, elle est convertie en petite vignette JPEG.
+   *   5. La vignette est conservée localement pour les visites suivantes.
+   *
+   * On ne précharge plus toutes les couvertures d'une liste : elles sont
+   * demandées uniquement quand la ligne devient visible.
+   */
   async function genererCouverturePremierePagePDF(doc) {
     const clef = clefCouverturePremierePage(doc);
     if (!clef || !doc?.Fichier_url) return null;
@@ -6765,53 +6723,90 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       return dejaEnCache;
     }
 
-    return mettreEnFileCouverture(clef, async () => {
-      const encoreEnCache = couverturePremierePagePersistanteImmediate(doc);
-      if (encoreEnCache) {
-        CACHE_COUVERTURES_PREMIERE_PAGE.set(clef, encoreEnCache);
-        return encoreEnCache;
-      }
-
+    try {
       await chargerPdfJs();
 
-      const publique = String(doc.Fichier_url);
-      const source = publique.indexOf(R2_PUBLIC_URL + '/') === 0
-        ? `${R2_WORKER_URL}/${publique.slice(R2_PUBLIC_URL.length + 1)}`
-        : publique;
+      let source = String(doc.Fichier_url);
+      try {
+        const u = new URL(source, window.location.href);
+        if (
+          typeof R2_PUBLIC_URL !== 'undefined' &&
+          u.href.indexOf(R2_PUBLIC_URL + '/') === 0
+        ) {
+          const cle = u.href.slice(R2_PUBLIC_URL.length + 1);
+          source = `${R2_WORKER_URL}/${cle}`;
+        }
+      } catch(e) {}
 
-      // PDF.js récupère uniquement les plages nécessaires à l'ouverture et à
-      // la page 1. Aucun arrayBuffer du PDF complet n'est créé ici.
+      /*
+       * PDF.js gère lui-même les requêtes Range.
+       * 512 KiB est volontairement beaucoup plus petit que le PDF complet :
+       * la couverture n'a besoin que des données nécessaires à la page 1.
+       */
       const task = pdfjsLib.getDocument({
         url: source,
-        rangeChunkSize: 512 * 1024,
+        rangeChunkSize: 256 * 1024,
         disableAutoFetch: true,
-        disableStream: false
+        disableStream: true,
+        stopAtErrors: false
       });
+
       const pdf = await task.promise;
-      if (!pdf || !pdf.numPages) throw new Error('PDF sans première page exploitable');
+      if (!pdf || !pdf.numPages) {
+        throw new Error('PDF sans première page exploitable');
+      }
 
       const page = await pdf.getPage(1);
-      const base = page.getViewport({scale: 1});
-      const viewport = page.getViewport({
-        scale: Math.min(1.15, 300 / Math.max(1, base.width))
-      });
+
+      /*
+       * Les couvertures sont volontairement petites : elles sont affichées
+       * dans une vignette de 56 px. Cela réduit fortement la taille du cache
+       * local et le coût CPU du rendu.
+       */
+      const base = page.getViewport({scale:1});
+      const largeurCible = 180;
+      const scale = Math.min(
+        0.75,
+        largeurCible / Math.max(1, base.width)
+      );
+      const viewport = page.getViewport({scale});
 
       const canvas = document.createElement('canvas');
       canvas.width = Math.max(1, Math.round(viewport.width));
       canvas.height = Math.max(1, Math.round(viewport.height));
-      const ctx = canvas.getContext('2d', {alpha: false});
+
+      const ctx = canvas.getContext('2d', {alpha:false});
       if (!ctx) throw new Error('Contexte canvas indisponible');
 
-      await page.render({canvasContext: ctx, viewport}).promise;
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.72);
+      await page.render({
+        canvasContext:ctx,
+        viewport
+      }).promise;
+
+      /*
+       * JPEG léger : la couverture n'a pas besoin de la qualité du PDF.
+       */
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.68);
+
       CACHE_COUVERTURES_PREMIERE_PAGE.set(clef, dataUrl);
       sauvegarderCouverturePremierePage(clef, dataUrl);
 
-      // Libère les ressources PDF.js dès que la miniature est produite.
-      try { await pdf.destroy(); } catch (e) {}
+      try { page.cleanup?.(); } catch(e) {}
+      try { pdf.cleanup?.(); } catch(e) {}
+      try { pdf.destroy?.(); } catch(e) {}
+
       return dataUrl;
-    });
+    } catch(e) {
+      console.warn(
+        '[Couverture livre] première page impossible pour',
+        doc?.Titre,
+        e
+      );
+      CACHE_COUVERTURES_PREMIERE_PAGE.delete(clef);
+      return null;
+    }
   }
+
 
   function appliquerImageCouverture(row, doc, url) {
     if (!url || !row?.isConnected) return;
@@ -6824,10 +6819,75 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   // Affichage prioritaire de la première page : aucune recherche Google,
   // aucune attente d'une API de couverture. Le cache local est injecté
   // immédiatement ; sinon le rendu PDF démarre sans délai.
+  /*
+   * File d'attente légère des couvertures.
+   * Maximum 2 rendus simultanés : cela évite de lancer 10/20 téléchargements
+   * Range en même temps lorsque la rubrique contient beaucoup de documents.
+   */
+  const COUVERTURES_FILE = [];
+  const COUVERTURES_EN_COURS = new Set();
+  const COUVERTURES_OBSERVER = ('IntersectionObserver' in window)
+    ? new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (!entry.isIntersecting) return;
+
+          const row = entry.target;
+          COUVERTURES_OBSERVER.unobserve(row);
+
+          const doc = row.__auroreDocumentCouverture;
+          if (!doc) return;
+
+          COUVERTURES_FILE.push({row, doc});
+          traiterFileCouvertures();
+        });
+      }, {
+        root:null,
+        rootMargin:'0px 0px',
+        threshold:0.01
+      })
+    : null;
+
+  let COUVERTURES_ACTIVES = 0;
+  const COUVERTURES_CONCURRENCE = 1;
+
+  function traiterFileCouvertures() {
+    while (
+      COUVERTURES_ACTIVES < COUVERTURES_CONCURRENCE &&
+      COUVERTURES_FILE.length
+    ) {
+      const item = COUVERTURES_FILE.shift();
+      if (!item?.row?.isConnected || !item.doc) continue;
+
+      const clef = clefCouverturePremierePage(item.doc);
+      if (!clef || COUVERTURES_EN_COURS.has(clef)) continue;
+
+      const dejaConnue = couverturePremierePagePersistanteImmediate(item.doc);
+      if (dejaConnue) {
+        appliquerImageCouverture(item.row, item.doc, dejaConnue);
+        continue;
+      }
+
+      COUVERTURES_EN_COURS.add(clef);
+      COUVERTURES_ACTIVES++;
+
+      genererCouverturePremierePagePDF(item.doc)
+        .then(url => {
+          if (url) appliquerImageCouverture(item.row, item.doc, url);
+        })
+        .catch(() => {})
+        .finally(() => {
+          COUVERTURES_EN_COURS.delete(clef);
+          COUVERTURES_ACTIVES--;
+          traiterFileCouvertures();
+        });
+    }
+  }
+
   function appliquerCouvertureSiLivre(row, doc) {
-    // La première page du PDF sert de couverture pour TOUS les documents
-    // du site, pas uniquement les livres/romans.
+    // La première page du PDF sert de couverture pour tous les documents.
     if (!row || !doc?.Fichier_url) return;
+
+    row.__auroreDocumentCouverture = doc;
 
     const dejaConnue = couverturePremierePagePersistanteImmediate(doc);
     if (dejaConnue) {
@@ -6835,10 +6895,21 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       return;
     }
 
-    genererCouverturePremierePagePDF(doc).then(url => {
-      if (url) appliquerImageCouverture(row, doc, url);
-    }).catch(() => {});
+    /*
+     * On ne télécharge rien pour les lignes hors écran.
+     * La première page est demandée lorsque la ligne entre dans la zone visible.
+     */
+    if (COUVERTURES_OBSERVER) {
+      COUVERTURES_OBSERVER.observe(row);
+    } else {
+      // Repli très limité sur les vieux navigateurs : au maximum deux lignes.
+      if (COUVERTURES_FILE.length < COUVERTURES_CONCURRENCE) {
+        COUVERTURES_FILE.push({row, doc});
+        traiterFileCouvertures();
+      }
+    }
   }
+
 
   // Les couvertures de première page sont activées pour toutes les listes de
   // documents du site. La couverture correspond toujours à la première page du PDF.
@@ -7332,39 +7403,191 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       let termine = false;
-      const finir = (fn, valeur) => { if (termine) return; termine = true; fn(valeur); };
+      let reelDemarre = false;
+      let chargeReel = 0;
+      let totalReel = Math.max(0, Number(blob?.size) || 0);
+      let dernierPercent = 0;
+      let dernierCharge = 0;
+      let dernierTemps = Date.now();
+      let frame = 0;
+      let minuteurFallback = 0;
+
+      const finir = (fn, valeur) => {
+        if (termine) return;
+        termine = true;
+        if (frame && typeof cancelAnimationFrame === 'function') {
+          try { cancelAnimationFrame(frame); } catch(e) {}
+        }
+        if (minuteurFallback) {
+          try { clearInterval(minuteurFallback); } catch(e) {}
+        }
+        fn(valeur);
+      };
+
       if (signal) {
         if (signal.aborted) {
           try { xhr.abort(); } catch(e) {}
           return reject(new DOMException('Upload annulé','AbortError'));
         }
-        signal.addEventListener('abort', () => { try { xhr.abort(); } catch(e) {} }, {once:true});
+        signal.addEventListener('abort', () => {
+          try { xhr.abort(); } catch(e) {}
+        }, {once:true});
       }
+
       xhr.open('PUT', url, true);
       if (contentType) xhr.setRequestHeader('Content-Type', contentType);
-      xhr.upload.addEventListener('progress', e => {
-        // Certains navigateurs Android indiquent lengthComputable=false.
-        // Dans ce cas, la taille du Blob envoyé est connue côté application :
-        // on conserve donc une progression réelle au lieu de rester à 0 %.
-        if (onProgress && Number.isFinite(e.loaded)) {
-          const total = e.lengthComputable && e.total > 0 ? e.total : blob.size;
-          onProgress(e.loaded, total);
-        }
-      });
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          finir(resolve, {ok:true,status:xhr.status,text:xhr.responseText||'',headers:xhr.getAllResponseHeaders()||''});
-        } else {
-          finir(resolve, {ok:false,status:xhr.status,text:xhr.responseText||''});
+
+      const pousser = (loaded, total, force = false) => {
+        if (!onProgress) return;
+        const t = Number(total) > 0 ? Number(total) : totalReel;
+        const l = Math.max(0, Number(loaded) || 0);
+        if (t > 0) {
+          chargeReel = Math.max(chargeReel, Math.min(l, t));
+          const pct = Math.max(0, Math.min(99.999, (chargeReel / t) * 100));
+          if (force || pct > dernierPercent) {
+            dernierPercent = pct;
+            onProgress(chargeReel, t);
+          }
         }
       };
-      xhr.onerror = () => finir(reject, new Error('Erreur réseau pendant l’envoi du fichier.'));
-      xhr.onabort = () => finir(reject, new DOMException('Upload annulé','AbortError'));
-      xhr.ontimeout = () => finir(reject, new Error('Le transfert a été interrompu : connexion trop longtemps inactive.'));
+
+      const demanderFrame = () => {
+        if (frame || termine || !onProgress) return;
+        const render = () => {
+          frame = 0;
+          pousser(chargeReel, totalReel);
+        };
+        if (typeof requestAnimationFrame === 'function') {
+          frame = requestAnimationFrame(render);
+        } else {
+          frame = setTimeout(render, 16);
+        }
+      };
+
+      /*
+       * Certains WebView Android ne publient aucun progress event pendant
+       * la phase de négociation / démarrage du flux.
+       *
+       * Ce minuteur n'invente pas d'octets : il anime seulement l'interface
+       * jusqu'au premier événement réel. Dès que XHR fournit loaded/total,
+       * la progression réelle reprend automatiquement.
+       *
+       * On s'arrête volontairement à 90 % pour ne jamais afficher "presque
+       * terminé" si le réseau est réellement bloqué.
+       */
+      const debut = Date.now();
+      const dureeVisuelle = Math.max(
+        4000,
+        Math.min(30000, Math.ceil(Math.max(1, totalReel) / (512 * 1024)) * 1000)
+      );
+
+      if (onProgress && totalReel > 0) {
+        minuteurFallback = setInterval(() => {
+          if (termine || reelDemarre) return;
+          const elapsed = Date.now() - debut;
+          const ratio = Math.min(0.90, 0.90 * (1 - Math.exp(-elapsed / dureeVisuelle)));
+          const visuel = totalReel * ratio;
+          pousser(visuel, totalReel);
+        }, 16);
+      }
+
+      const traiterProgressionUpload = e => {
+        if (!Number.isFinite(e?.loaded)) return;
+
+        const loaded = Math.max(0, Number(e.loaded) || 0);
+        const total = (
+          e.lengthComputable &&
+          Number.isFinite(e.total) &&
+          Number(e.total) > 0
+        ) ? Number(e.total) : totalReel;
+
+        if (total > 0) totalReel = total;
+
+        reelDemarre = loaded > 0;
+
+        if (reelDemarre && minuteurFallback) {
+          try { clearInterval(minuteurFallback); } catch(ignore) {}
+          minuteurFallback = 0;
+        }
+
+        /*
+         * XHR upload progress est la source de vérité : loaded correspond
+         * aux octets réellement transmis. On pousse immédiatement la valeur,
+         * puis requestAnimationFrame maintient l'affichage fluide entre deux
+         * événements réseau.
+         */
+        pousser(loaded, totalReel, true);
+
+        const maintenant = Date.now();
+        const dt = (maintenant - dernierTemps) / 1000;
+        if (dt >= 0.05 && typeof window.auroreUploadSpeedCallback === 'function') {
+          const debit = Math.max(0, (chargeReel - dernierCharge) / dt);
+          if (debit > 0) window.auroreUploadSpeedCallback(debit);
+          dernierTemps = maintenant;
+          dernierCharge = chargeReel;
+        }
+
+        demanderFrame();
+      };
+
+      /*
+       * .onprogress est mieux pris en charge par certains WebView Android
+       * que addEventListener('progress').
+       */
+      xhr.upload.onprogress = traiterProgressionUpload;
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          if (minuteurFallback) {
+            try { clearInterval(minuteurFallback); } catch(e) {}
+            minuteurFallback = 0;
+          }
+          if (onProgress && totalReel > 0) onProgress(totalReel, totalReel);
+          finir(resolve, {
+            ok:true,
+            status:xhr.status,
+            text:xhr.responseText||'',
+            headers:xhr.getAllResponseHeaders()||''
+          });
+        } else {
+          finir(resolve, {
+            ok:false,
+            status:xhr.status,
+            text:xhr.responseText||''
+          });
+        }
+      };
+
+      xhr.onerror = () => finir(
+        reject,
+        new Error('Erreur réseau pendant l’envoi du fichier.')
+      );
+
+      xhr.onabort = () => finir(
+        reject,
+        new DOMException('Upload annulé','AbortError')
+      );
+
+      xhr.ontimeout = () => finir(
+        reject,
+        new Error('Le transfert a été interrompu : connexion trop longtemps inactive.')
+      );
+
+      /*
+       * Le timeout est volontairement nul ici : le réseau peut être lent.
+       * Le Worker/R2 doit pouvoir terminer le transfert sans être interrompu
+       * artificiellement par le navigateur.
+       */
       xhr.timeout = 0;
-      try { xhr.send(blob); } catch(e) { finir(reject,e); }
+
+      try {
+        xhr.send(blob);
+      } catch(e) {
+        finir(reject, e);
+      }
     });
   }
+
 
   async function creerUploadR2Multipart(url, fichier, setProgress, setEtatConnexion, setAbort, setSpeed) {
     const base = String(url).split('?')[0];
@@ -7464,143 +7687,154 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       if (typeof setAbort === 'function') setAbort(() => xhr.abort());
+
       xhr.open('PUT', url, true);
       xhr.setRequestHeader('Content-Type', 'application/pdf');
 
-      // Le timeout ne limite pas le débit : il protège seulement contre une
-      // connexion réellement bloquée.
-      const DEBIT_MIN_OCTETS_PAR_SEC = 32 * 1024;
-      const TIMEOUT_PLANCHER_MS = 60000;
-      xhr.timeout = Math.max(
-        TIMEOUT_PLANCHER_MS,
-        Math.ceil((fichier.size / DEBIT_MIN_OCTETS_PAR_SEC) * 1000) + 30000
-      );
-
-      const debutEnvoi = Date.now();
-      const CONSTANTE_TEMPS_MS = Math.max(
-        1200,
-        Math.ceil(fichier.size / (256 * 1024)) * 1000
-      );
+      const taille = Math.max(0, Number(fichier.size) || 0);
+      const debut = Date.now();
       let reelDemarre = false;
       let dernierCharge = 0;
-      let dernierTemps = debutEnvoi;
-      let dernierPercent = 0;
-      let frame = 0;
+      let dernierTemps = debut;
+      let dernierPct = 0;
+      let timer = 0;
 
-      function pousserPercent(valeur) {
+      const setPct = valeur => {
         const pct = Math.max(0, Math.min(99.999, Number(valeur) || 0));
-        if (pct >= dernierPercent) {
-          dernierPercent = pct;
+        if (pct >= dernierPct) {
+          dernierPct = pct;
           setProgress(pct);
         }
-      }
+      };
 
-      function programmerAffichage(pct) {
-        if (frame) return;
-        const render = () => {
-          frame = 0;
-          pousserPercent(pct);
-        };
-        if (typeof requestAnimationFrame === 'function') {
-          frame = requestAnimationFrame(render);
-        } else {
-          frame = setTimeout(render, 16);
-        }
+      /*
+       * Fallback visuel ultra-fin :
+       * il ne prétend pas mesurer les octets. Il évite seulement que l'interface
+       * reste figée à 0 lorsque Android ne fournit pas encore XHR progress.
+       */
+      if (taille > 0) {
+        const dureeVisuelle = Math.max(
+          4000,
+          Math.min(30000, Math.ceil(taille / (512 * 1024)) * 1000)
+        );
+
+        timer = setInterval(() => {
+          if (reelDemarre) return;
+          const elapsed = Date.now() - debut;
+          const ratio = Math.min(0.90, 0.90 * (1 - Math.exp(-elapsed / dureeVisuelle)));
+          setPct(ratio * 100);
+          setEtatConnexion?.('envoi');
+        }, 16);
       }
 
       setEtatConnexion?.('connexion');
       setSpeed?.('Connexion…');
 
-      // Sur certains WebView Android, xhr.upload.progress peut rester muet
-      // pendant une partie de la négociation. Cette animation de secours évite
-      // l'affichage bloqué à 0 %. Dès qu'un événement réel arrive, il prend
-      // immédiatement le relais et aucune estimation ne remplace les octets
-      // réellement signalés par XHR.
-      const minuteurEstimation = setInterval(() => {
-        if (reelDemarre) return;
-        const t = Date.now() - debutEnvoi;
-        if (t > 250) setEtatConnexion?.('envoi');
-        const estime = 92 * (1 - Math.exp(-t / CONSTANTE_TEMPS_MS));
-        programmerAffichage(estime);
-      }, 16);
+      xhr.upload.addEventListener('progress', e => {
+        if (!Number.isFinite(e.loaded)) return;
 
-      xhr.upload.addEventListener('progress', event => {
-        if (!Number.isFinite(event.loaded)) return;
-
-        if (event.lengthComputable && Number.isFinite(event.total) && event.total > 0) {
-          reelDemarre = true;
-          setEtatConnexion?.('envoi');
-          programmerAffichage((event.loaded / event.total) * 100);
-        } else {
-          // Android peut connaître les octets transmis sans connaître le total.
-          // Le total du File est alors la référence exacte.
-          reelDemarre = true;
-          setEtatConnexion?.('envoi');
-          programmerAffichage((event.loaded / fichier.size) * 100);
+        reelDemarre = true;
+        if (timer) {
+          clearInterval(timer);
+          timer = 0;
         }
 
-        const maintenant = Date.now();
-        const dt = (maintenant - dernierTemps) / 1000;
+        const total = e.lengthComputable && Number(e.total) > 0
+          ? Number(e.total)
+          : taille;
+
+        if (total > 0) {
+          setPct((Number(e.loaded) / total) * 100);
+        }
+
+        setEtatConnexion?.('envoi');
+
+        const now = Date.now();
+        const dt = (now - dernierTemps) / 1000;
         if (dt >= 0.10 && typeof setSpeed === 'function') {
-          const debit = Math.max(0, (event.loaded - dernierCharge) / dt);
+          const debit = Math.max(
+            0,
+            (Number(e.loaded) - dernierCharge) / dt
+          );
+
           if (debit > 0) {
             const mo = debit / (1024 * 1024);
-            setSpeed(mo >= 1
-              ? mo.toFixed(1) + ' Mo/s'
-              : Math.round(debit / 1024) + ' Ko/s');
+            setSpeed(
+              mo >= 1
+                ? mo.toFixed(1) + ' Mo/s'
+                : Math.round(debit / 1024) + ' Ko/s'
+            );
           }
-          dernierTemps = maintenant;
-          dernierCharge = event.loaded;
+
+          dernierTemps = now;
+          dernierCharge = Number(e.loaded);
         }
       });
 
       xhr.onload = () => {
-        clearInterval(minuteurEstimation);
-        if (frame) {
-          try {
-            if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(frame);
-            else clearTimeout(frame);
-          } catch (e) {}
-          frame = 0;
+        if (timer) {
+          clearInterval(timer);
+          timer = 0;
         }
 
         if (xhr.status >= 200 && xhr.status < 300) {
           setProgress(100);
+
           if (typeof setSpeed === 'function') {
-            const duree = Math.max(0.001, (Date.now() - debutEnvoi) / 1000);
-            const debitMoyen = fichier.size / duree;
-            const mo = debitMoyen / (1024 * 1024);
-            setSpeed(mo >= 1
-              ? mo.toFixed(1) + ' Mo/s moyen'
-              : Math.round(debitMoyen / 1024) + ' Ko/s moyen');
+            const duree = Math.max(
+              0.001,
+              (Date.now() - debut) / 1000
+            );
+            const debit = taille / duree;
+            const mo = debit / (1024 * 1024);
+            setSpeed(
+              mo >= 1
+                ? mo.toFixed(1) + ' Mo/s moyen'
+                : Math.round(debit / 1024) + ' Ko/s moyen'
+            );
           }
-          resolve({ok:true,status:xhr.status,text:xhr.responseText || ''});
+
+          resolve({
+            ok:true,
+            status:xhr.status,
+            text:xhr.responseText||'',
+            headers:xhr.getAllResponseHeaders()||''
+          });
         } else {
-          resolve({ok:false,status:xhr.status,text:xhr.responseText || ''});
+          resolve({
+            ok:false,
+            status:xhr.status,
+            text:xhr.responseText||''
+          });
         }
       };
 
       xhr.onerror = () => {
-        clearInterval(minuteurEstimation);
+        if (timer) clearInterval(timer);
         reject(new Error('Erreur réseau pendant l’envoi du fichier.'));
       };
+
       xhr.onabort = () => {
-        clearInterval(minuteurEstimation);
-        reject(new DOMException('Envoi interrompu.','AbortError'));
+        if (timer) clearInterval(timer);
+        reject(new DOMException('Upload annulé','AbortError'));
       };
+
       xhr.ontimeout = () => {
-        clearInterval(minuteurEstimation);
-        reject(new Error('L’envoi a été interrompu car la connexion est restée bloquée trop longtemps. Vérifiez votre connexion internet puis réessayez.'));
+        if (timer) clearInterval(timer);
+        reject(new Error('Le transfert a été interrompu : connexion trop longtemps inactive.'));
       };
+
+      xhr.timeout = 0;
 
       try {
         xhr.send(fichier);
-      } catch (e) {
-        clearInterval(minuteurEstimation);
+      } catch(e) {
+        if (timer) clearInterval(timer);
         reject(e);
       }
     });
   }
+
 
   document.getElementById('depotForm').addEventListener('submit', async function(e){
     e.preventDefault();
@@ -10931,7 +11165,21 @@ async function telechargerDocumentAvecProgression(doc) {
       canvas.style.height = viewport.height + 'px';
       const ctx = canvas.getContext('2d', {alpha:false});
       ctx.setTransform(dpr,0,0,dpr,0,0);
-      await page.render({canvasContext:ctx, viewport}).promise;
+      try {
+        await page.render({canvasContext:ctx, viewport}).promise;
+      } catch (error) {
+        /*
+         * PDF.js rejette volontairement la promesse lorsque le lecteur est
+         * fermé ou qu'un rendu est remplacé. Ce n'est pas une panne.
+         */
+        const message = String(error?.message || error || '');
+        if (/rendering\s+cancelled|RenderingCancelled/i.test(message)) {
+          return;
+        }
+        throw error;
+      }
+
+      if (!PDF_EN_COURS || !wrapper.isConnected) return;
       pdfPagesRendues.add(n);
       wrapper.classList.add('pdf-page-rendered');
     })().finally(()=>pdfRendusEnCours.delete(n));
@@ -11031,9 +11279,16 @@ async function telechargerDocumentAvecProgression(doc) {
       (async()=>{
         for(let n=2;n<=Math.min(total,4);n++){
           if(PDF_JETON_OUVERTURE !== pdfSessionToken || !PDF_EN_COURS) break;
-          await rendreUnePagePDF(n);
+          try {
+            await rendreUnePagePDF(n);
+          } catch (error) {
+            const message = String(error?.message || error || '');
+            if (!/rendering\s+cancelled|RenderingCancelled/i.test(message)) {
+              console.warn('[Lecteur PDF] pré-rendu interrompu :', error);
+            }
+          }
         }
-      })();
+      })().catch(()=>{});
       document.getElementById('pdfViewerStatut').textContent='';
       requestAnimationFrame(majBarreDefilementPDF);
     } catch(err){
@@ -11671,21 +11926,34 @@ async function telechargerDocumentAvecProgression(doc) {
     const LOGO_URL_BASE = `${R2_PUBLIC_URL}/${LOGO_CLE}`;
 
     function logoUrl(version) {
-      return `${LOGO_URL_BASE}?v=${encodeURIComponent(version || Date.now())}`;
+      return version
+        ? `${LOGO_URL_BASE}?v=${encodeURIComponent(version)}`
+        : LOGO_URL_BASE;
     }
 
     function appliquerLogoDansConteneur(conteneur, url) {
       if (!conteneur) return;
       const img = new Image();
       img.decoding = 'async';
+      img.loading = 'eager';
       img.onload = () => {
         conteneur.replaceChildren(img);
         img.alt = 'Aurore — Section Archives';
       };
       img.onerror = () => {
-        // Aucun retour vers une ancienne image locale : cela évite de réafficher
-        // silencieusement l'ancien logo dans une PWA déjà installée.
-        conteneur.replaceChildren();
+        /*
+         * Ne vide jamais le logo déjà affiché à cause d'un échec réseau
+         * ponctuel. On réessaie une seule fois sur l'URL R2 stable.
+         */
+        if (url !== LOGO_URL_BASE) {
+          const secours = new Image();
+          secours.decoding = 'async';
+          secours.onload = () => {
+            conteneur.replaceChildren(secours);
+            secours.alt = 'Aurore — Section Archives';
+          };
+          secours.src = LOGO_URL_BASE;
+        }
       };
       img.src = url;
     }
@@ -11708,8 +11976,11 @@ async function telechargerDocumentAvecProgression(doc) {
     }
 
     function chargerLogoSite(versionForcee) {
-      const version = String(versionForcee || Date.now());
-      const url = logoUrl(version);
+      let version = versionForcee;
+      if (!version) {
+        try { version = localStorage.getItem(LOGO_VERSION_KEY) || ''; } catch(e) {}
+      }
+      const url = logoUrl(String(version || ''));
       try { sessionStorage.setItem('aurore_logo_url', url); } catch(e) {}
       try { localStorage.setItem(LOGO_VERSION_KEY, version); } catch(e) {}
 
