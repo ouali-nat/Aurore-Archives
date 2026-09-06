@@ -7206,53 +7206,62 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     content.appendChild(list);
 
     trierDocumentsClient(documentsCourants).forEach(doc=>{
-      const row=document.createElement('div');
-      row.className='doc-row';
-      const telechargementOk=doc.Telechargement_autorise!==false;
-      const contexte=[
-        doc.Niveau && `Niveau : ${doc.Niveau}`,
-        doc.Filiere && `Filière : ${doc.Filiere}`,
-        (doc['Catégorie']||doc.Type) && `Catégorie : ${doc['Catégorie']||doc.Type}`,
-        doc.Genre && `Genre : ${doc.Genre}`
-      ].filter(Boolean).join(' · ');
-      const titreDocument = obtenirTitreDocument(doc);
-      row.dataset.documentTitle = titreDocument;
-      row.innerHTML=`
-        <div class="info">
-          <div class="icon-wrap">${ICONS.file}</div>
-          <div class="doc-main-info">
-            <div class="titre" title="${echapperHtmlPub(titreDocument)}">${echapperHtmlPub(titreDocument)}</div>
-            <div class="meta">Déposé par ${doc.Auteur||'anonyme'}${telechargementOk?'':' · Lecture seule'}</div>
-            ${contexte?`<div class="doc-context">${contexte}</div>`:''}
-            ${tailleBadgeMarkup(doc.Fichier_url)}
-          </div>
-        </div>
-        <div class="doc-actions">
-          <button type="button" class="dl" style="cursor:pointer;" data-lire="1">Lire</button>
-          ${telechargementOk?`<button type="button" class="dl" style="cursor:pointer;" data-telecharger-maintenant="1">Télécharger maintenant</button>`:''}
-          <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-favori="1" aria-pressed="false">♡ Favori</button>
-          <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-plus-tard="1">＋ Plus tard</button>
-          <button type="button" class="dl doc-action-soft doc-action-folder" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-case="1">▣ Case</button>
-          <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-signaler="1">Signaler</button>
-        </div>`;
-      row.querySelector('[data-lire]').addEventListener('click',()=>ouvrirLecteurPDF(doc));
-      row.querySelector('[data-telecharger-maintenant]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(doc));
-      row.querySelector('[data-signaler]').addEventListener('click',()=>ouvrirSignalement(doc));
-      row.querySelector('[data-favori]')?.addEventListener('click',()=>basculerFavoriDocument(doc,row.querySelector('[data-favori]')));
-      row.querySelector('[data-plus-tard]')?.addEventListener('click',()=>ajouterDocumentPlusTard(doc,row.querySelector('[data-plus-tard]')));
-      row.querySelector('[data-case]')?.addEventListener('click',(e)=>{
-        e.preventDefault();
-        e.stopPropagation();
-        if(typeof window.ouvrirChoixCaseDocument==='function') window.ouvrirChoixCaseDocument(doc);
-      });
-      actualiserEtatActionsDocument(row,doc);
-      actualiserTaillesDocumentsDans(row);
+      const row=creerLigneDocumentPublique(doc);
       // La ligne doit être dans le DOM avant d'être observée par
       // IntersectionObserver : sinon certaines couvertures ne reçoivent jamais
       // le signal d'entrée dans la zone visible.
       list.appendChild(row);
       if (COUVERTURES_PREMIERE_PAGE_ACTIVES) appliquerCouvertureSiLivre(row,doc);
     });
+  }
+
+  // Présentation unique des documents publics : utilisée par la bibliothèque
+  // ET par « Documents récemment publiés / Mis en avant », afin que tous les
+  // documents du site se présentent exactement de la même façon (même ligne,
+  // mêmes actions : Lire, Télécharger, Favori, Plus tard, Case, Signaler).
+  function creerLigneDocumentPublique(doc){
+    const row=document.createElement('div');
+    row.className='doc-row';
+    const telechargementOk=doc.Telechargement_autorise!==false;
+    const contexte=[
+      doc.Niveau && `Niveau : ${doc.Niveau}`,
+      doc.Filiere && `Filière : ${doc.Filiere}`,
+      (doc['Catégorie']||doc.Type) && `Catégorie : ${doc['Catégorie']||doc.Type}`,
+      doc.Genre && `Genre : ${doc.Genre}`
+    ].filter(Boolean).join(' · ');
+    const titreDocument = obtenirTitreDocument(doc);
+    row.dataset.documentTitle = titreDocument;
+    row.innerHTML=`
+      <div class="info">
+        <div class="icon-wrap">${ICONS.file}</div>
+        <div class="doc-main-info">
+          <div class="titre" title="${echapperHtmlPub(titreDocument)}">${echapperHtmlPub(titreDocument)}</div>
+          <div class="meta">Déposé par ${doc.Auteur||'anonyme'}${telechargementOk?'':' · Lecture seule'}</div>
+          ${contexte?`<div class="doc-context">${contexte}</div>`:''}
+          ${tailleBadgeMarkup(doc.Fichier_url)}
+        </div>
+      </div>
+      <div class="doc-actions">
+        <button type="button" class="dl" style="cursor:pointer;" data-lire="1">Lire</button>
+        ${telechargementOk?`<button type="button" class="dl" style="cursor:pointer;" data-telecharger-maintenant="1">Télécharger maintenant</button>`:''}
+        <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-favori="1" aria-pressed="false">♡ Favori</button>
+        <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-plus-tard="1">＋ Plus tard</button>
+        <button type="button" class="dl doc-action-soft doc-action-folder" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-case="1">▣ Case</button>
+        <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-signaler="1">Signaler</button>
+      </div>`;
+    row.querySelector('[data-lire]').addEventListener('click',()=>ouvrirLecteurPDF(doc));
+    row.querySelector('[data-telecharger-maintenant]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(doc));
+    row.querySelector('[data-signaler]').addEventListener('click',()=>ouvrirSignalement(doc));
+    row.querySelector('[data-favori]')?.addEventListener('click',()=>basculerFavoriDocument(doc,row.querySelector('[data-favori]')));
+    row.querySelector('[data-plus-tard]')?.addEventListener('click',()=>ajouterDocumentPlusTard(doc,row.querySelector('[data-plus-tard]')));
+    row.querySelector('[data-case]')?.addEventListener('click',(e)=>{
+      e.preventDefault();
+      e.stopPropagation();
+      if(typeof window.ouvrirChoixCaseDocument==='function') window.ouvrirChoixCaseDocument(doc);
+    });
+    actualiserEtatActionsDocument(row,doc);
+    actualiserTaillesDocumentsDans(row);
+    return row;
   }
 
   async function allerDocuments(matiere) {
@@ -7440,20 +7449,17 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     recentsPageCourante=Math.min(recentsPageCourante,pages);
     if(!data.length){content.innerHTML='<div class="site-empty-filter">Aucun document ne correspond à votre recherche.</div>';afficherPaginationSite('recentsPager',0,1,()=>{});return;}
     const start=(recentsPageCourante-1)*SITE_PUBLIC_PAGE_SIZE;
-    const grid=document.createElement('div'); grid.className='recents-grid';
+    // Présentation identique à la bibliothèque : même ligne .doc-row, mêmes
+    // actions (Lire, Télécharger, Favori, Plus tard, Case, Signaler), même
+    // couverture de première page. Tous les documents du site se présentent
+    // désormais de la même façon, partout.
+    const list=document.createElement('div'); list.className='doc-list';
+    content.innerHTML=''; content.appendChild(list);
     data.slice(start,start+SITE_PUBLIC_PAGE_SIZE).forEach(doc=>{
-      const card=document.createElement('article'); card.className='recents-card'; card.setAttribute('role','button'); card.tabIndex=0;
-      const tags=tagsClassementDocument(doc);
-      card.innerHTML=`<div class="titre">${doc.Titre||''}</div><div class="tags">${tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>${tailleBadgeMarkup(doc.Fichier_url)}<div class="recents-card-actions"><button type="button" data-favori-card aria-label="Ajouter aux favoris">♡ Favori</button><button type="button" data-plus-tard-card aria-label="Télécharger plus tard">＋ Plus tard</button><button type="button" data-case-card class="doc-action-folder" aria-label="Ajouter à une case">▣ Case</button></div>`;
-      card.addEventListener('click',(e)=>{if(e.target.closest('.recents-card-actions')) return;ouvrirApercuDocument(doc);});
-      card.addEventListener('keydown',(e)=>{if((e.key==='Enter'||e.key===' ')&&!e.target.closest('.recents-card-actions')){e.preventDefault();ouvrirApercuDocument(doc);}});
-      card.querySelector('[data-favori-card]')?.addEventListener('click',(e)=>{e.stopPropagation();basculerFavoriDocument(doc,card.querySelector('[data-favori-card]'));});
-      card.querySelector('[data-plus-tard-card]')?.addEventListener('click',(e)=>{e.stopPropagation();ajouterDocumentPlusTard(doc,card.querySelector('[data-plus-tard-card]'));});
-      card.querySelector('[data-case-card]')?.addEventListener('click',(e)=>{e.stopPropagation();window.ouvrirChoixCaseDocument?.(doc);});
-      actualiserEtatActionsDocument(card,doc);
-      grid.appendChild(card);
+      const row=creerLigneDocumentPublique(doc);
+      list.appendChild(row);
+      if (COUVERTURES_PREMIERE_PAGE_ACTIVES) appliquerCouvertureSiLivre(row,doc);
     });
-    content.innerHTML=''; content.appendChild(grid);
     afficherPaginationSite('recentsPager',data.length,recentsPageCourante,p=>{recentsPageCourante=p;rendreRecentsAvecOutils();});
   }
 
