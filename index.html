@@ -3719,7 +3719,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   const SUPABASE_URL = "https://tdeotqfsbvouresfhkab.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZW90cWZzYnZvdXJlc2Zoa2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjM4NzMsImV4cCI6MjEwMDUzOTg3M30.l_a1lI_QRy7BTq1fGjiA9n7LCdu7BwR2TTI5pkA70SU";
   const HEADERS = { "apikey": SUPABASE_ANON_KEY, "Authorization": "Bearer " + SUPABASE_ANON_KEY };
-  // AURORE_BUILD_2026_09_06_UPLOAD_FLUIDE
+  // AURORE_BUILD_2026_09_06_UPLOAD_FLUIDE_V2
 
   // Nom actuel du site, utilisé dans les messages générés dynamiquement
   // (notifications, confirmations, textes de présentation) pour n'avoir
@@ -7261,23 +7261,50 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       xhr.open('PUT', url, true);
       xhr.setRequestHeader('Content-Type', 'application/pdf');
 
+      // Timeout de sécurité : il ne limite PAS le débit. Il sert uniquement à
+      // sortir d'un transfert réellement bloqué.
       const DEBIT_MIN_OCTETS_PAR_SEC = 32 * 1024;
       const TIMEOUT_PLANCHER_MS = 60000;
-      xhr.timeout = Math.max(TIMEOUT_PLANCHER_MS, Math.ceil((fichier.size / DEBIT_MIN_OCTETS_PAR_SEC) * 1000) + 30000);
+      xhr.timeout = Math.max(
+        TIMEOUT_PLANCHER_MS,
+        Math.ceil((fichier.size / DEBIT_MIN_OCTETS_PAR_SEC) * 1000) + 30000
+      );
 
-      // Ne fabrique plus un faux 17–28 % : cette ancienne estimation pouvait
-      // dépasser la progression réelle et donner l'impression que l'envoi
-      // était bloqué. La barre affiche désormais uniquement le transfert réel.
-      // Pendant la négociation, on anime seulement la piste sans inventer un %.
+      // ---- Progression fluide sur mobile ----
+      // Certains navigateurs Android ne publient pas immédiatement les
+      // événements xhr.upload.progress. L'ancienne version gardait donc une
+      // progression visuelle pendant la négociation. On restaure ce comportement
+      // sans toucher au PUT réel : dès que le navigateur fournit la progression
+      // réelle, elle prend le relais.
       const debutEnvoi = Date.now();
+      const CONSTANTE_TEMPS_MS = Math.max(
+        1200,
+        Math.ceil(fichier.size / (256 * 1024)) * 1000
+      );
+      let percentAffiche = 0;
+      let reelDemarre = false;
       let dernierTemps = debutEnvoi;
       let dernierCharge = 0;
-      let reelDemarre = false;
+
+      function pousserPercent(valeur) {
+        const v = Math.max(0, Math.min(99, Math.round(valeur)));
+        if (v > percentAffiche) {
+          percentAffiche = v;
+          setProgress(percentAffiche);
+        }
+      }
 
       if (typeof setSpeed === 'function') setSpeed('Connexion…');
-      const minuteurEtat = setInterval(() => {
-        if (!reelDemarre && setEtatConnexion) setEtatConnexion('connexion');
-      }, 800);
+
+      const minuteurEstimation = setInterval(() => {
+        if (reelDemarre) return;
+        const t = Date.now() - debutEnvoi;
+        if (t > 400 && setEtatConnexion) setEtatConnexion('envoi');
+        // Progression d'attente : monte rapidement puis ralentit vers 92 %.
+        // Elle ne modifie jamais les octets envoyés au Worker.
+        const estime = 92 * (1 - Math.exp(-t / CONSTANTE_TEMPS_MS));
+        pousserPercent(estime);
+      }, 150);
 
       xhr.upload.addEventListener('progress', event => {
         if (!event.lengthComputable) {
@@ -7285,43 +7312,64 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
           if (typeof setSpeed === 'function') setSpeed('Débit en cours…');
           return;
         }
+
         reelDemarre = true;
         if (setEtatConnexion) setEtatConnexion('envoi');
-        const pct = Math.min(99, (event.loaded / event.total) * 100);
-        // Progression strictement réelle : aucune valeur artificielle ne peut
-        // bloquer la barre au-dessus de ce que le téléphone a réellement envoyé.
-        setProgress(pct);
+        // On conserve la règle de l'ancienne barre : elle ne recule jamais.
+        // Cela évite un retour brutal de 20 % à 1 % quand Android envoie son
+        // premier événement tardivement.
+        pousserPercent((event.loaded / event.total) * 100);
 
         const maintenant = Date.now();
         const dt = (maintenant - dernierTemps) / 1000;
         if (dt >= 0.25 && typeof setSpeed === 'function') {
           const debit = Math.max(0, (event.loaded - dernierCharge) / dt);
           if (debit > 0) {
-            const mb = debit / (1024 * 1024);
-            setSpeed(mb >= 1 ? mb.toFixed(1) + ' Mo/s' : Math.round(debit / 1024) + ' Ko/s');
+            const mo = debit / (1024 * 1024);
+            setSpeed(mo >= 1
+              ? mo.toFixed(1) + ' Mo/s'
+              : Math.round(debit / 1024) + ' Ko/s');
           }
           dernierTemps = maintenant;
           dernierCharge = event.loaded;
         }
       });
+
       xhr.onload = () => {
-        clearInterval(minuteurEtat);
+        clearInterval(minuteurEstimation);
         if (xhr.status >= 200 && xhr.status < 300) {
           setProgress(100);
           if (typeof setSpeed === 'function') {
-            const duree = Math.max(.001, (Date.now() - debutEnvoi) / 1000);
-            const mb = (fichier.size / duree) / (1024 * 1024);
-            setSpeed(mb >= 1 ? mb.toFixed(1) + ' Mo/s moyen' : Math.round((fichier.size / duree) / 1024) + ' Ko/s moyen');
+            const duree = Math.max(0.001, (Date.now() - debutEnvoi) / 1000);
+            const debitMoyen = fichier.size / duree;
+            const mo = debitMoyen / (1024 * 1024);
+            setSpeed(mo >= 1
+              ? mo.toFixed(1) + ' Mo/s moyen'
+              : Math.round(debitMoyen / 1024) + ' Ko/s moyen');
           }
           resolve({ ok: true, status: xhr.status, text: xhr.responseText || '' });
         } else {
           resolve({ ok: false, status: xhr.status, text: xhr.responseText || '' });
         }
       };
-      xhr.onerror = () => { clearInterval(minuteurEtat); reject(new Error('Erreur réseau pendant l’envoi du fichier.')); };
-      xhr.onabort = () => { clearInterval(minuteurEtat); reject(new Error('Envoi interrompu.')); };
-      xhr.ontimeout = () => { clearInterval(minuteurEtat); reject(new Error('L’envoi a été interrompu car la connexion est restée bloquée trop longtemps. Vérifiez votre connexion internet puis réessayez.')); };
-      try { xhr.send(fichier); } catch (e) { clearInterval(minuteurEtat); reject(e); }
+      xhr.onerror = () => {
+        clearInterval(minuteurEstimation);
+        reject(new Error('Erreur réseau pendant l’envoi du fichier.'));
+      };
+      xhr.onabort = () => {
+        clearInterval(minuteurEstimation);
+        reject(new Error('Envoi interrompu.'));
+      };
+      xhr.ontimeout = () => {
+        clearInterval(minuteurEstimation);
+        reject(new Error('L’envoi a été interrompu car la connexion est restée bloquée trop longtemps. Vérifiez votre connexion internet puis réessayez.'));
+      };
+      try {
+        xhr.send(fichier);
+      } catch (e) {
+        clearInterval(minuteurEstimation);
+        reject(e);
+      }
     });
   }
 
