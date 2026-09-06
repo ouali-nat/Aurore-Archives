@@ -452,35 +452,6 @@
   .doc-row .titre{font-weight:700; font-size:0.9rem; line-height:1.35; color:var(--encre); min-width:0; overflow-wrap:anywhere;}
   .doc-main-info{min-width:0; flex:1 1 auto;}
   .doc-row .meta{font-size:0.76rem; color:var(--gris); margin-top:2px;}
-  /* ---------- MENU PARTAGE DOCUMENT ---------- */
-  .doc-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto;}
-  .doc-share-wrap{position:relative;display:inline-flex;align-items:center;flex-shrink:0;}
-  .doc-more-btn{
-    width:40px;height:40px;padding:0;border:1px solid var(--bordure);border-radius:12px;
-    background:var(--fond);color:var(--encre);display:inline-flex;align-items:center;justify-content:center;
-    font-size:1.35rem;font-weight:800;line-height:1;cursor:pointer;letter-spacing:2px;
-    transition:background .15s ease,border-color .15s ease,transform .15s ease;
-  }
-  .doc-more-btn:hover,.doc-more-btn[aria-expanded="true"]{background:var(--papier);border-color:var(--violet);transform:translateY(-1px);}
-  .doc-share-menu{
-    position:absolute;right:0;top:calc(100% + 8px);z-index:120;
-    width:210px;padding:7px;background:var(--papier);border:1px solid var(--bordure);
-    border-radius:14px;box-shadow:0 18px 45px rgba(0,0,0,.35);display:none;
-  }
-  .doc-share-menu.open{display:block;animation:docShareMenuIn .14s ease both;}
-  .doc-share-menu button{
-    width:100%;display:flex;align-items:center;gap:9px;padding:10px 11px;border:0;border-radius:10px;
-    background:transparent;color:var(--encre);font:inherit;font-size:.82rem;font-weight:700;text-align:left;cursor:pointer;
-  }
-  .doc-share-menu button:hover{background:rgba(139,92,246,.12);color:#fff;}
-  .doc-share-menu .share-icon{width:22px;text-align:center;flex-shrink:0;}
-  @keyframes docShareMenuIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
-  @media(max-width:560px){
-    .doc-actions{width:100%;justify-content:flex-end;}
-    .doc-share-wrap{position:static;}
-    .doc-share-menu{position:absolute;right:16px;top:auto;margin-top:46px;width:min(210px,calc(100vw - 32px));}
-  }
-
   .doc-row .dl{
     background:var(--marron); color:#fff; text-decoration:none; padding:9px 18px;
     border-radius:var(--radius-sm); font-weight:700; font-size:0.8rem;
@@ -2246,35 +2217,11 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
 [data-theme="light"] #personalSpace .doc-row.aurore-personal-document-row .icon-wrap.a-couverture{background:#F0ECF5!important;}
 [data-theme="light"] #personalSpace .doc-row.aurore-personal-document-row .doc-actions{background:#FBFAFD!important;border-top-color:#E6DFEE!important;}
 </style>
-
-<style id="aurore-recents-library-exact">
-/* Documents récemment publiés : même composant visuel que la bibliothèque. */
-#screen-recents #recentsContent .doc-list{
-  display:grid!important;
-  grid-template-columns:repeat(auto-fill,minmax(205px,1fr))!important;
-  gap:16px!important;
-  margin-top:22px!important;
-  align-items:stretch!important;
-}
-#screen-recents #recentsContent .doc-row{
-  margin:0!important;
-}
-#screen-recents #recentsContent .doc-row .icon-wrap.a-couverture img.doc-cover-img{
-  opacity:1!important;
-}
-@media(max-width:720px){
-  #screen-recents #recentsContent .doc-list{
-    grid-template-columns:repeat(2,minmax(0,1fr))!important;
-    gap:11px!important;
-  }
-}
-@media(max-width:390px){
-  #screen-recents #recentsContent .doc-list{
-    grid-template-columns:1fr 1fr!important;
-  }
-}
+<style id="aurore-professional-actions-final">
+.doc-actions .dl{font-family:inherit;line-height:1.2;min-height:36px;padding:8px 12px;border-radius:9px;border:1px solid var(--bordure);background:var(--fond);color:var(--encre);font-weight:650;font-size:12px;box-shadow:none;}
+.doc-actions .dl:hover{transform:translateY(-1px);}
+.pdf-reader-toolbar button{font-family:inherit;}
 </style>
-
 </head>
 <body class="site-locked">
 
@@ -2775,7 +2722,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     <div class="ad-slot" id="ad-livres-1"></div>
     <div class="matiere-grid" id="genreGrid"></div>
     <div class="ad-slot ad-slot-alt" id="ad-livres-2"></div>
-    <button class="back-btn" data-back="home">← Retour à l'accueil</button>
+    <button class="back-btn" data-back="home">Retour à l'accueil</button>
   </section>
 
   <!-- ===== NIVEAU (Devoirs / Documents) ===== -->
@@ -2786,7 +2733,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     <div class="sublevel-grid" id="sublevelGrid"></div>
     <div class="cat-grid" id="catGrid" style="display:none"></div>
     <div class="ad-slot ad-slot-alt" id="ad-niveaux-2"></div>
-    <button class="back-btn" data-back="home">← Retour à l'accueil</button>
+    <button class="back-btn" data-back="home">Retour à l'accueil</button>
   </section>
 
   <!-- ===== SÉRIE (uniquement pour Devoirs) ===== -->
@@ -2795,7 +2742,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     <div class="ad-slot" id="ad-series-1"></div>
     <div class="serie-row" id="serieRow"></div>
     <div class="ad-slot ad-slot-alt" id="ad-series-2"></div>
-    <button class="back-btn" data-back="level">← Retour au niveau</button>
+    <button class="back-btn" data-back="level">Retour au niveau</button>
   </section>
 
   <!-- ===== MATIÈRES ===== -->
@@ -2807,7 +2754,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     <div class="ad-slot" id="ad-matieres-1"></div>
     <div class="matiere-grid" id="matiereGrid"></div>
     <div class="ad-slot ad-slot-alt" id="ad-matieres-2"></div>
-    <button class="back-btn" id="matieresBack">← Retour</button>
+    <button class="back-btn" id="matieresBack">Retour</button>
   </section>
 
   <!-- ===== DOCUMENTS (connecté à Supabase) ===== -->
@@ -2827,7 +2774,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     </div>
     <div id="recentsContent"></div>
     <div id="recentsPager" class="site-pagination"></div>
-    <button class="back-btn" data-back="home">← Retour à l'accueil</button>
+    <button class="back-btn" data-back="home">Retour à l'accueil</button>
   </section>
 
   <section class="screen" id="screen-docs">
@@ -2845,7 +2792,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     <div id="docsContent"></div>
     <div id="docsPager" class="site-pagination"></div>
     <div class="ad-slot ad-slot-alt" id="ad-docs-2"></div>
-    <button class="back-btn" data-back="matieres">← Retour aux matières</button>
+    <button class="back-btn" data-back="matieres">Retour aux matières</button>
   </section>
 
   <!-- ===== DÉPÔT D'UN DOCUMENT ===== -->
@@ -2937,7 +2884,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         <div id="depotDebugLog"></div>
       </div>
     </div>
-    <button class="back-btn" data-back="home">← Retour à l'accueil</button>
+    <button class="back-btn" data-back="home">Retour à l'accueil</button>
   </section>
 
   <!-- ===== ADMINISTRATION ===== -->
@@ -3260,7 +3207,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         </div>
       </div>
 
-      <button class="back-btn" data-back="home">← Retour à l'accueil</button>
+      <button class="back-btn" data-back="home">Retour à l'accueil</button>
     </div>
   </section>
 
@@ -3473,7 +3420,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       </div>
     </div>
 
-    <button class="back-btn" data-back="home" style="margin-top:28px;">← Retour à l'accueil</button>
+    <button class="back-btn" data-back="home" style="margin-top:28px;">Retour à l'accueil</button>
   </section>
 
 </main>
@@ -3545,7 +3492,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   .pdf-reader-bottombar button{border:1px solid var(--bordure); background:var(--fond); color:var(--encre); border-radius:100px; padding:10px 18px; cursor:pointer; font-weight:600; min-height:44px;}
   .pdf-reader-bottombar button[disabled]{opacity:0.4; cursor:not-allowed;}
   #pdfViewerPage{font-size:0.85rem; color:var(--encre); min-width:90px; text-align:center; font-weight:600;}
-  .pdf-load-progress-dock{position:absolute;left:16px;right:16px;bottom:16px;z-index:20;width:min(520px,calc(100% - 32px));margin:0 auto;box-sizing:border-box;padding:13px 14px;border:1px solid rgba(124,58,237,.22);border-radius:14px;background:rgba(15,13,22,.94);backdrop-filter:blur(12px);box-shadow:0 10px 28px rgba(0,0,0,.26);display:none;pointer-events:none;}
+  .pdf-load-progress-dock{position:absolute;right:16px;bottom:16px;z-index:20;width:min(320px,calc(100% - 32px));box-sizing:border-box;padding:10px 12px;border:1px solid rgba(255,255,255,.10);border-radius:13px;background:rgba(12,10,17,.84);backdrop-filter:blur(12px);box-shadow:0 10px 28px rgba(0,0,0,.26);display:none;pointer-events:none;}
   .pdf-load-progress-dock.is-visible{display:block;}
   @media(max-width:560px){
     .pdf-reader-title{font-size:0.85rem;}
@@ -3785,12 +3732,13 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         <button type="button" id="pdfViewerZoomOut" aria-label="Réduire le zoom">−</button>
         <span id="pdfViewerZoomLevel" aria-live="polite">100%</span>
         <button type="button" id="pdfViewerZoomIn" aria-label="Agrandir le zoom">+</button>
-        <button type="button" id="pdfViewerAjuster" aria-label="Ajuster à la largeur de l'écran" title="Ajuster à la largeur">↔</button>
-        <button type="button" id="pdfViewerModeLecture" aria-pressed="false" aria-label="Passer en lecture horizontale" title="Lecture verticale">↕ Verticale</button>
+        <button type="button" id="pdfViewerAjuster" aria-label="Ajuster à la largeur de l'écran" title="Ajuster à la largeur">Ajuster</button>
+        <button type="button" id="pdfViewerModeLecture" aria-pressed="false" aria-label="Passer en lecture horizontale" title="Lecture verticale">Verticale</button>
       </div>
       <div class="pdf-toolbar-group">
-        <button type="button" id="pdfViewerTelecharger" aria-label="Télécharger le document">⬇ Télécharger</button>
-        <button type="button" id="pdfViewerSignaler" aria-label="Signaler ce document">⚑ Signaler</button>
+        <button type="button" id="pdfViewerTelecharger" aria-label="Télécharger le document">Télécharger</button>
+        <button type="button" id="pdfViewerWhatsApp" aria-label="Partager ce document sur WhatsApp">Partager sur WhatsApp</button>
+        <button type="button" id="pdfViewerSignaler" aria-label="Signaler ce document">Signaler</button>
       </div>
     </div>
     <div id="pdfRecentAccess" class="pdf-recent-access">
@@ -3839,7 +3787,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       <div class="pdf-page-jump-wrap">
         <button type="button" id="pdfViewerPageJumpToggle" aria-haspopup="true" aria-expanded="false" aria-label="Aller à une page précise">
           <span id="pdfViewerPage" aria-live="polite">— / —</span>
-          <span class="pdf-page-jump-icon" aria-hidden="true">🔎</span>
+          <span class="pdf-page-jump-icon" aria-hidden="true"></span>
         </button>
         <div id="pdfViewerPageJumpPanel" class="pdf-page-jump-panel" aria-hidden="true">
           <input type="number" id="pdfViewerPageJumpInput" min="1" inputmode="numeric" placeholder="N° de page" aria-label="Numéro de page">
@@ -7343,111 +7291,6 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     return String(titre || 'Document sans titre').trim();
   }
 
-  /* ---------- PARTAGE DES DOCUMENTS ---------- */
-  function obtenirUrlDocumentPartage(doc) {
-    const candidates = [
-      doc?.Fichier_url, doc?.fichier_url, doc?.FichierUrl, doc?.url, doc?.URL
-    ];
-    const raw = candidates.find(v => v != null && String(v).trim() !== '');
-    if (!raw) return '';
-    try { return new URL(String(raw), location.href).href; } catch (_) { return String(raw); }
-  }
-
-  function obtenirTextePartageDocument(doc) {
-    const titre = obtenirTitreDocument(doc);
-    return `📚 ${titre}\nConsultez ce document sur Aurore — Section Archives.`;
-  }
-
-  async function partagerDocument(doc) {
-    const url = obtenirUrlDocumentPartage(doc);
-    if (!url) { alert('Le lien de ce document n’est pas disponible pour le partage.'); return; }
-    const title = obtenirTitreDocument(doc);
-    const text = obtenirTextePartageDocument(doc);
-    try {
-      if (navigator.share) {
-        await navigator.share({title, text, url});
-      } else if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url);
-        alert('Lien du document copié. Vous pouvez maintenant le coller dans WhatsApp.');
-      } else {
-        window.prompt('Copiez le lien du document :', url);
-      }
-    } catch (err) {
-      if (err?.name !== 'AbortError') {
-        try {
-          await navigator.clipboard.writeText(url);
-          alert('Lien du document copié. Vous pouvez maintenant le partager.');
-        } catch (_) {
-          window.prompt('Copiez le lien du document :', url);
-        }
-      }
-    }
-  }
-
-  function partagerDocumentWhatsApp(doc) {
-    const url = obtenirUrlDocumentPartage(doc);
-    if (!url) { alert('Le lien de ce document n’est pas disponible pour WhatsApp.'); return; }
-    const texte = `${obtenirTextePartageDocument(doc)}\n${url}`;
-    const wa = `https://wa.me/?text=${encodeURIComponent(texte)}`;
-    window.open(wa, '_blank', 'noopener,noreferrer');
-  }
-
-  async function copierLienDocument(doc) {
-    const url = obtenirUrlDocumentPartage(doc);
-    if (!url) { alert('Le lien de ce document n’est pas disponible.'); return; }
-    try {
-      await navigator.clipboard.writeText(url);
-      alert('Lien du document copié.');
-    } catch (_) {
-      window.prompt('Copiez le lien du document :', url);
-    }
-  }
-
-  function fermerMenusPartageDocuments(except = null) {
-    document.querySelectorAll('.doc-share-menu.open').forEach(menu => {
-      if (menu !== except) {
-        menu.classList.remove('open');
-        menu.previousElementSibling?.setAttribute('aria-expanded','false');
-      }
-    });
-  }
-
-  document.addEventListener('click', function(e) {
-    const more = e.target.closest?.('[data-document-more]');
-    if (more) {
-      e.preventDefault();
-      e.stopPropagation();
-      const wrap = more.closest('.doc-share-wrap');
-      const menu = wrap?.querySelector('.doc-share-menu');
-      if (!menu) return;
-      const isOpen = menu.classList.contains('open');
-      fermerMenusPartageDocuments(menu);
-      menu.classList.toggle('open', !isOpen);
-      more.setAttribute('aria-expanded', String(!isOpen));
-      return;
-    }
-
-    const action = e.target.closest?.('[data-share-document],[data-share-whatsapp],[data-copy-document-link]');
-    if (action) {
-      e.preventDefault();
-      e.stopPropagation();
-      const row = action.closest('.doc-row');
-      const index = row ? Number(row.dataset.documentIndex) : -1;
-      const doc = Number.isInteger(index) ? documentsCourants?.[index] : null;
-      /* Les listes sont paginées/triées : conserver le document sur la ligne. */
-      const documentData = row?._auroreDocument || doc;
-      if (documentData) {
-        if (action.hasAttribute('data-share-document')) partagerDocument(documentData);
-        else if (action.hasAttribute('data-share-whatsapp')) partagerDocumentWhatsApp(documentData);
-        else copierLienDocument(documentData);
-      }
-      fermerMenusPartageDocuments();
-      return;
-    }
-
-    if (!e.target.closest?.('.doc-share-wrap')) fermerMenusPartageDocuments();
-  }, true);
-
   function rendreListeDocuments(content, data, afficherCouverturesRomans = false) {
     // Prépare PDF.js en parallèle de la construction de la liste : le rendu
     // de la première page peut ainsi démarrer dès que les lignes sont visibles.
@@ -7470,7 +7313,6 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     trierDocumentsClient(documentsCourants).forEach(doc=>{
       const row=document.createElement('div');
       row.className='doc-row';
-      row._auroreDocument = doc;
       const telechargementOk=doc.Telechargement_autorise!==false;
       const contexte=[
         doc.Niveau && `Niveau : ${doc.Niveau}`,
@@ -7497,14 +7339,6 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
           <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-plus-tard="1">＋ Plus tard</button>
           <button type="button" class="dl doc-action-soft doc-action-folder" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-case="1">▣ Case</button>
           <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-signaler="1">Signaler</button>
-          <div class="doc-share-wrap">
-            <button type="button" class="doc-more-btn" data-document-more="1" aria-label="Options de partage" aria-expanded="false">⋮</button>
-            <div class="doc-share-menu" role="menu">
-              <button type="button" data-share-document="1" role="menuitem"><span class="share-icon">📤</span><span>Partager</span></button>
-              <button type="button" data-share-whatsapp="1" role="menuitem"><span class="share-icon">💬</span><span>Partager sur WhatsApp</span></button>
-              <button type="button" data-copy-document-link="1" role="menuitem"><span class="share-icon">🔗</span><span>Copier le lien</span></button>
-            </div>
-          </div>
         </div>`;
       row.querySelector('[data-lire]').addEventListener('click',()=>ouvrirLecteurPDF(doc));
       row.querySelector('[data-telecharger-maintenant]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(doc));
@@ -7692,7 +7526,6 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     const q=normaliserRechercheSite(document.getElementById('recentsSearch')?.value||'');
     const select=document.getElementById('recentsSort');
     const current=select?.value||'recent';
-
     if(select){
       const opts=[['recent','Plus récent'],['oldest','Plus ancien'],['az','Titre A → Z'],['za','Titre Z → A']];
       if((documentsRecentsCourants||[]).some(d=>String(d.Niveau||'').trim())) opts.push(['niveau','Niveau A → Z']);
@@ -7701,94 +7534,32 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       select.innerHTML=opts.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
       select.value=opts.some(([v])=>v===current)?current:'recent';
     }
-
     const mode=select?.value||'recent';
     let data=(documentsRecentsCourants||[]).filter(doc=>!q||valeurTexteDocument(doc).includes(q));
     data.sort((a,b)=>{
       const cle=(doc)=> mode==='niveau'?doc.Niveau : mode==='classe'?doc.Classe : mode==='matiere'?doc['Matière'] : doc.Titre;
-      if(['az','za','niveau','classe','matiere'].includes(mode)){
-        const c=String(cle(a)||'').localeCompare(String(cle(b)||''),'fr',{sensitivity:'base'});
-        return mode==='za'?-c:c;
-      }
-      const aId=Number(a.id)||0,bId=Number(b.id)||0;
-      return mode==='oldest'?aId-bId:bId-aId;
+      if(['az','za','niveau','classe','matiere'].includes(mode)){const c=String(cle(a)||'').localeCompare(String(cle(b)||''),'fr',{sensitivity:'base'});return mode==='za'?-c:c;}
+      const aId=Number(a.id)||0,bId=Number(b.id)||0; return mode==='oldest'?aId-bId:bId-aId;
     });
-
     const pages=Math.max(1,Math.ceil(data.length/SITE_PUBLIC_PAGE_SIZE));
     recentsPageCourante=Math.min(recentsPageCourante,pages);
-
-    if(!data.length){
-      content.innerHTML='<div class="site-empty-filter">Aucun document ne correspond à votre recherche.</div>';
-      afficherPaginationSite('recentsPager',0,1,()=>{});
-      return;
-    }
-
-    const startIndex=(recentsPageCourante-1)*SITE_PUBLIC_PAGE_SIZE;
-    const list=document.createElement('div');
-    // IMPORTANT : les documents récemment publiés utilisent exactement
-    // le même composant que la bibliothèque publique (.doc-list / .doc-row).
-    // Seules les actions propres à cette section sont conservées.
-    list.className='doc-list';
-
-    content.innerHTML='';
-    content.appendChild(list);
-
-    data.slice(startIndex,startIndex+SITE_PUBLIC_PAGE_SIZE).forEach(doc=>{
-      const row=document.createElement('div');
-      row.className='doc-row';
-      const telechargementOk=doc.Telechargement_autorise!==false;
-      const contexte=[
-        doc.Niveau && `Niveau : ${doc.Niveau}`,
-        doc.Filiere && `Filière : ${doc.Filiere}`,
-        (doc['Catégorie']||doc.Type) && `Catégorie : ${doc['Catégorie']||doc.Type}`,
-        doc.Genre && `Genre : ${doc.Genre}`
-      ].filter(Boolean).join(' · ');
-      const titreDocument=obtenirTitreDocument(doc);
-      row.dataset.documentTitle=titreDocument;
-
-      row.innerHTML=`
-        <div class="info">
-          <div class="icon-wrap">${ICONS.file}</div>
-          <div class="doc-main-info">
-            <div class="titre" title="${echapperHtmlPub(titreDocument)}">${echapperHtmlPub(titreDocument)}</div>
-            <div class="meta">Déposé par ${echapperHtmlPub(doc.Auteur||'anonyme')}${telechargementOk?'':' · Lecture seule'}</div>
-            ${contexte?`<div class="doc-context">${echapperHtmlPub(contexte)}</div>`:''}
-            ${tailleBadgeMarkup(doc.Fichier_url)}
-          </div>
-        </div>
-        <div class="doc-actions">
-          <button type="button" class="dl" style="cursor:pointer;" data-lire="1">Lire</button>
-          ${telechargementOk?`<button type="button" class="dl" style="cursor:pointer;" data-telecharger-maintenant="1">Télécharger maintenant</button>`:''}
-          <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-favori="1" aria-pressed="false">♡ Favori</button>
-          <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-plus-tard="1">＋ Plus tard</button>
-          <button type="button" class="dl doc-action-soft doc-action-folder" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-case="1">▣ Case</button>
-          <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-signaler="1">Signaler</button>
-        </div>`;
-
-      row.querySelector('[data-lire]')?.addEventListener('click',()=>ouvrirLecteurPDF(doc));
-      row.querySelector('[data-telecharger-maintenant]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(doc));
-      row.querySelector('[data-signaler]')?.addEventListener('click',()=>ouvrirSignalement(doc));
-      row.querySelector('[data-favori]')?.addEventListener('click',()=>basculerFavoriDocument(doc,row.querySelector('[data-favori]')));
-      row.querySelector('[data-plus-tard]')?.addEventListener('click',()=>ajouterDocumentPlusTard(doc,row.querySelector('[data-plus-tard]')));
-      row.querySelector('[data-case]')?.addEventListener('click',(e)=>{
-        e.preventDefault();
-        e.stopPropagation();
-        window.ouvrirChoixCaseDocument?.(doc);
-      });
-
-      actualiserEtatActionsDocument(row,doc);
-      list.appendChild(row);
-
-      // Même vignette : première page réelle du PDF, comme dans la bibliothèque.
-      if(doc.Fichier_url && typeof appliquerCouvertureSiLivre==='function'){
-        appliquerCouvertureSiLivre(row,doc);
-      }
+    if(!data.length){content.innerHTML='<div class="site-empty-filter">Aucun document ne correspond à votre recherche.</div>';afficherPaginationSite('recentsPager',0,1,()=>{});return;}
+    const start=(recentsPageCourante-1)*SITE_PUBLIC_PAGE_SIZE;
+    const grid=document.createElement('div'); grid.className='recents-grid';
+    data.slice(start,start+SITE_PUBLIC_PAGE_SIZE).forEach(doc=>{
+      const card=document.createElement('article'); card.className='recents-card'; card.setAttribute('role','button'); card.tabIndex=0;
+      const tags=tagsClassementDocument(doc);
+      card.innerHTML=`<div class="titre">${doc.Titre||''}</div><div class="tags">${tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>${tailleBadgeMarkup(doc.Fichier_url)}<div class="recents-card-actions"><button type="button" data-favori-card aria-label="Ajouter aux favoris">♡ Favori</button><button type="button" data-plus-tard-card aria-label="Télécharger plus tard">＋ Plus tard</button><button type="button" data-case-card class="doc-action-folder" aria-label="Ajouter à une case">▣ Case</button></div>`;
+      card.addEventListener('click',(e)=>{if(e.target.closest('.recents-card-actions')) return;ouvrirApercuDocument(doc);});
+      card.addEventListener('keydown',(e)=>{if((e.key==='Enter'||e.key===' ')&&!e.target.closest('.recents-card-actions')){e.preventDefault();ouvrirApercuDocument(doc);}});
+      card.querySelector('[data-favori-card]')?.addEventListener('click',(e)=>{e.stopPropagation();basculerFavoriDocument(doc,card.querySelector('[data-favori-card]'));});
+      card.querySelector('[data-plus-tard-card]')?.addEventListener('click',(e)=>{e.stopPropagation();ajouterDocumentPlusTard(doc,card.querySelector('[data-plus-tard-card]'));});
+      card.querySelector('[data-case-card]')?.addEventListener('click',(e)=>{e.stopPropagation();window.ouvrirChoixCaseDocument?.(doc);});
+      actualiserEtatActionsDocument(card,doc);
+      grid.appendChild(card);
     });
-
-    afficherPaginationSite('recentsPager',data.length,recentsPageCourante,p=>{
-      recentsPageCourante=p;
-      rendreRecentsAvecOutils();
-    });
+    content.innerHTML=''; content.appendChild(grid);
+    afficherPaginationSite('recentsPager',data.length,recentsPageCourante,p=>{recentsPageCourante=p;rendreRecentsAvecOutils();});
   }
 
   async function chargerDocumentsRecents() {
@@ -11392,9 +11163,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     // canvas masqués, pagination remise à "— / —".
     afficherEtatChargement();
     reinitialiserProgressionLecteurPDF();
-    const progressDockInitial=document.getElementById('pdfViewerLoadProgressDock');
-    if(progressDockInitial){ progressDockInitial.classList.add('is-visible'); progressDockInitial.setAttribute('aria-hidden','false'); }
-    mettreAJourProgressionLecteurPDF(0, 'Envoi du document…', {speedText:'Préparation…'});
+    mettreAJourProgressionLecteurPDF(0, 'Préparation du document');
     document.getElementById('pdfViewerPage').textContent = '— / —';
     document.getElementById('pdfViewerOverlay').style.display = 'block';
     document.getElementById('pdfViewerZone').focus({ preventScroll: true });
@@ -11439,89 +11208,80 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       let pdf = null;
       let sourceRapide = null;
 
-      // Ouverture progressive : PDF.js reçoit directement l'URL et demande
-      // uniquement les octets nécessaires (Range/stream). On ne télécharge
-      // donc plus tout le PDF avant d'afficher la première page.
+      // Chargement du PDF avec la même mécanique XHR que le dépôt :
+      // la barre reflète les octets réellement reçus, sans animation fictive.
       const urlPublique = (doc.Fichier_url && String(doc.Fichier_url).indexOf(R2_PUBLIC_URL + '/') === 0)
         ? String(doc.Fichier_url) : null;
       const urlWorker = urlPublique
         ? `${R2_WORKER_URL}/${urlPublique.slice(R2_PUBLIC_URL.length + 1)}`
         : String(doc.Fichier_url);
-
-      let derniereErreur = null;
       const sources = [urlWorker, urlPublique].filter((v,i,a)=>v && a.indexOf(v)===i);
 
-      // IMPORTANT : même mécanique que le dépôt. Le PDF est d’abord reçu
-      // par XHR et la progression est alimentée par les octets réellement
-      // reçus (loaded/total). Aucun chargement de première page séparé.
+      let octets = null;
+      let derniereErreur = null;
+
       for (const source of sources) {
         try {
           sourceRapide = source;
-          diagLog('→ Chargement XHR du PDF avec progression dépôt : ' + source);
-          mettreAJourProgressionLecteurPDF(0,'Envoi du document…',{speedText:'Préparation…'});
-          const octets = await chargerPDFAvecProgressionDepotStyle(
+          diagLog('→ Chargement XHR du PDF : ' + source);
+          mettreAJourProgressionLecteurPDF(0,'Connexion au document');
+          document.getElementById('pdfViewerStatut').textContent='Chargement du document…';
+
+          octets = await chargerPDFAvecProgressionDepotStyle(
             source,
             PDF_FETCH_CONTROLLER?.signal,
             (loaded,total)=>{
               if(jeton!==PDF_JETON_OUVERTURE)return;
-              const pct = total>0 ? Math.min(100,Math.max(0,(loaded/total)*100)) : 0;
-              mettreAJourProgressionLecteurPDF(pct,'Envoi du document…',{loaded,total});
+              const pct=total>0 ? Math.min(99.999,Math.max(0,(loaded/total)*100)) : 0;
+              mettreAJourProgressionLecteurPDF(pct,'Chargement du document',{loaded,total});
             },
-            (type,info)=>{
-              if(jeton!==PDF_JETON_OUVERTURE || type!=='progress' || !info?.total)return;
-              const debit=Number(info.speed)||0;
-              const speedText=debit>=1024*1024
-                ? (debit/(1024*1024)).toFixed(1)+' Mo/s'
-                : Math.max(1,Math.round(debit/1024))+' Ko/s';
-              const pct=Math.min(100,Math.max(0,(info.loaded/info.total)*100));
-              mettreAJourProgressionLecteurPDF(pct,'Envoi du document…',{speedText,loaded:info.loaded,total:info.total});
+            (etat,info)=>{
+              if(jeton!==PDF_JETON_OUVERTURE)return;
+              if(etat==='progress' && info?.speed>0){
+                const b=info.speed;
+                const txt=b>=1024*1024 ? (b/(1024*1024)).toFixed(1)+' Mo/s' : Math.round(b/1024)+' Ko/s';
+                mettreAJourProgressionLecteurPDF(undefined,'Chargement du document',{speedText:txt});
+              }
             }
           );
-          if(jeton!==PDF_JETON_OUVERTURE)return;
-          if(!octets || !octets.byteLength) throw new Error('Le PDF reçu est vide.');
-          mettreAJourProgressionLecteurPDF(100,'Document chargé',{speedText:'Document prêt.'});
-          pdf = await pdfjsLib.getDocument({data:new Uint8Array(octets),stopAtErrors:false}).promise;
-          if(!pdf || !pdf.numPages) throw new Error('PDF sans page exploitable');
-          diagLog('→ PDF.js prêt : '+pdf.numPages+' page(s).');
+          if(!octets || !octets.byteLength) throw new Error('PDF vide ou sans données.');
           break;
         } catch(e) {
-          derniereErreur=e; pdf=null; sourceRapide=null;
+          derniereErreur=e; octets=null; sourceRapide=null;
           diagLog('→ Source XHR indisponible : '+(e?.message||e));
+          if(e?.name==='AbortError') throw e;
         }
       }
 
-      if(!pdf) {
-        // Si Range/stream n'est pas disponible, on utilise uniquement le lecteur
-        // natif en secours : aucun téléchargement complet n'est recopié en JS.
-        diagLog('→ Range/PDF.js indisponible : ouverture native directe du PDF.');
+      if(!octets) {
         if (afficherVisionneuseNativePDF(doc.Fichier_url)) return;
-        throw derniereErreur || new Error('Impossible d’ouvrir le flux PDF.');
+        throw derniereErreur || new Error('Impossible de charger le PDF.');
       }
 
       if (jeton !== PDF_JETON_OUVERTURE) return;
-      diagLog('→ PDF.js a chargé le document : '+pdf.numPages+' page(s).'+(sourceRapide?' Source Range/URL.':' Source mémoire.'));
-      PDF_EN_COURS=pdf;
+      PDF_OCTETS_COURANTS = octets;
+      mettreAJourProgressionLecteurPDF(100,'Document chargé',{speedText:'Prêt à être affiché'});
+      document.getElementById('pdfViewerStatut').textContent='Affichage du document…';
 
-      // Dès que PDF.js possède assez d'informations pour servir les pages, on
-      // retire l'écran de chargement. La première page devient prioritaire ;
-      // les suivantes continuent en arrière-plan. La progression est déplacée
-      // dans un petit dock discret afin de ne jamais recouvrir la lecture.
+      // Une fois le téléchargement réel terminé, PDF.js travaille sur les
+      // octets reçus. Aucune étape spéciale de « première page » n'est utilisée.
+      const task = pdfjsLib.getDocument({data:new Uint8Array(octets)});
+      pdf = await task.promise;
+      if(!pdf || !pdf.numPages) throw new Error('PDF sans page exploitable');
+      if (jeton !== PDF_JETON_OUVERTURE) return;
+      PDF_EN_COURS=pdf;
+      diagLog('→ PDF chargé : '+pdf.numPages+' page(s).');
+
       const loading=document.getElementById('pdfViewerLoading');
       const progressDock=document.getElementById('pdfViewerLoadProgressDock');
       if(loading) loading.style.display='none';
-      if(progressDock){ progressDock.classList.add('is-visible'); progressDock.setAttribute('aria-hidden','false'); }
-      mettreAJourProgressionLecteurPDF(100,'Document chargé',{speedText:'Document prêt.'});
+      if(progressDock){ progressDock.classList.remove('is-visible'); progressDock.setAttribute('aria-hidden','true'); }
       document.getElementById('pdfViewerStatut').textContent='';
 
-      // Première page : priorité absolue, sans attendre les autres.
       await rendrePagePDF(1,true);
       if (jeton !== PDF_JETON_OUVERTURE) return;
-      mettreAJourProgressionLecteurPDF(undefined,'Préparation en cours',{speedText:pdf.numPages>1?'Vous pouvez continuer votre lecture pendant la préparation du document.':'Document prêt à lire'});
-
-      // Deuxième page et pages voisines : démarrage immédiat mais non bloquant.
       if(pdf.numPages>1) rendreUnePagePDF(2);
       installerRenduProgressifPDF();
-      diagLog('→ Page 1 rendue avec succès ; chargement des autres pages en arrière-plan.');
     } catch (err) {
       if (jeton !== PDF_JETON_OUVERTURE) return;
       console.error('[Lecteur PDF] échec de chargement :', err);
@@ -11546,6 +11306,22 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         afficherErreurLecteur(message, telechargementOk, doc.Fichier_url);
       }
     }
+  }
+
+  function partagerDocumentSurWhatsApp(doc) {
+    const d = doc || DOC_EN_LECTURE;
+    if (!d) return;
+    const titre = String(d.Titre || 'Document').trim();
+    const id = d.id != null ? String(d.id) : '';
+    const url = new URL(window.location.href);
+    url.search = '';
+    url.hash = '';
+    if (id) url.searchParams.set('document', id);
+    // Le lien pointe vers Aurore, jamais directement vers le PDF.
+    // WhatsApp pourra alors utiliser les métadonnées Open Graph du site,
+    // notamment le logo déjà déclaré dans <meta property="og:image">.
+    const message = `Découvrez « ${titre} » sur Aurore — Section Archives.\n\n${url.toString()}`;
+    window.open('https://wa.me/?text=' + encodeURIComponent(message), '_blank', 'noopener,noreferrer');
   }
 
   window.ouvrirLecteurPDF = ouvrirLecteurPDF;
@@ -12094,7 +11870,7 @@ async function telechargerDocumentAvecProgression(doc) {
     zone.classList.toggle('pdf-lecture-vertical', !horizontal);
     if (bouton) {
       bouton.setAttribute('aria-pressed', horizontal ? 'true' : 'false');
-      bouton.textContent = horizontal ? '↔ Horizontale' : '↕ Verticale';
+      bouton.textContent = horizontal ? 'Ajuster Horizontale' : 'Verticale';
       bouton.title = horizontal ? 'Lecture horizontale' : 'Lecture verticale';
       bouton.setAttribute('aria-label', horizontal ? 'Passer en lecture verticale' : 'Passer en lecture horizontale');
     }
@@ -16125,6 +15901,75 @@ document.addEventListener('DOMContentLoaded', function(){
   }
 });
 </script>
+
+<script>document.getElementById('pdfViewerWhatsApp')?.addEventListener('click',()=>partagerDocumentSurWhatsApp(DOC_EN_LECTURE));</script>
+<script>
+(function(){
+  // Un lien partagé ouvre la page Bibliothèque contenant le document,
+  // et non directement le lecteur PDF.
+  const params=new URLSearchParams(location.search);
+  const sharedId=params.get('document');
+  if(!sharedId) return;
+
+  async function ouvrirSectionDuDocumentPartage(){
+    try{
+      const res=await fetch(`${SUPABASE_URL}/rest/v1/Document?id=eq.${encodeURIComponent(sharedId)}&Publie=eq.true`,{
+        headers:HEADERS,cache:'no-store'
+      });
+      if(!res.ok) return;
+      const rows=await res.json();
+      const doc=rows[0];
+      if(!doc) return;
+
+      const niveau=String(doc.Niveau||'').trim();
+      const categorie=String(doc['Catégorie']||doc.Type||'').trim();
+      const matiere=String(doc['Matière']||'').trim();
+      const filiere=String(doc.Filiere||'').trim();
+      const classe=String(doc.Classe||'').trim();
+
+      if(typeof afficherEcran==='function') afficherEcran('screen-docs');
+
+      const title=document.getElementById('docsTitle');
+      const titreParts=[categorie,niveau,classe||filiere,matiere].filter(Boolean);
+      if(title) title.textContent=titreParts.join(' — ') || 'Bibliothèque — Documents';
+
+      const content=document.getElementById('docsContent');
+      if(content) content.innerHTML='<p style="color:var(--gris);font-size:.9rem;">Chargement des documents…</p>';
+
+      let query=`Publie=eq.true&Niveau=eq.${encodeURIComponent(niveau)}&order=id.desc`;
+      if(categorie) query+=`&${encodeURIComponent('Catégorie')}=eq.${encodeURIComponent(categorie)}`;
+      if(matiere) query+=`&${encodeURIComponent('Matière')}=eq.${encodeURIComponent(matiere)}`;
+      if(filiere) query+=`&Filiere=eq.${encodeURIComponent(filiere)}`;
+      if(classe) query+=`&Classe=eq.${encodeURIComponent(classe)}`;
+
+      const docsRes=await fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&${query}`,{
+        headers:HEADERS,cache:'no-store'
+      });
+      const docs=docsRes.ok ? await docsRes.json() : [doc];
+
+      documentsCourants=Array.isArray(docs) && docs.length ? docs : [doc];
+      docsPageCourante=1;
+      if(document.getElementById('docsSearch')) document.getElementById('docsSearch').value='';
+      if(typeof actualiserTriPublicDocuments==='function') actualiserTriPublicDocuments(documentsCourants);
+      if(typeof afficherDocumentsPublicsAvecOutils==='function') afficherDocumentsPublicsAvecOutils();
+
+      requestAnimationFrame(()=>{
+        const cible=Array.from(document.querySelectorAll('#docsContent .doc-row'))
+          .find(r=>String(r.dataset.documentId||'')===String(sharedId));
+        if(cible){
+          cible.scrollIntoView({behavior:'smooth',block:'center'});
+          cible.classList.add('shared-document-highlight');
+          setTimeout(()=>cible.classList.remove('shared-document-highlight'),4000);
+        }
+      });
+    }catch(e){
+      console.warn('[Aurore] section du document partagé indisponible',e);
+    }
+  }
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>setTimeout(ouvrirSectionDuDocumentPartage,900));
+  else setTimeout(ouvrirSectionDuDocumentPartage,900);
+})();
 
 </body>
 </html>
