@@ -7298,24 +7298,51 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         Math.ceil((fichier.size / DEBIT_MIN_OCTETS_PAR_SEC) * 1000) + 30000
       );
 
-      let octetsEnvoyesDetectes = false;
+      // ---- Progression visuelle continue ----
+      // Les événements natifs xhr.upload.progress ne sont pas fiables sur
+      // tous les réseaux/navigateurs mobiles : certains n'en livrent qu'un
+      // seul, juste avant la fin, ce qui donnait l'impression d'un saut
+      // brutal de 0 % à 100 %. On affiche donc en parallèle une estimation
+      // qui avance en continu (approche progressive vers 92 %, jamais
+      // bloquée), et on bascule sur la vraie valeur dès qu'elle la dépasse —
+      // la barre affichée ne recule jamais.
+      const debutEnvoi = Date.now();
+      // Constante de temps de l'estimation : suppose un débit prudent d'environ
+      // 120 Ko/s, avec un minimum pour que les petits fichiers restent fluides.
+      const CONSTANTE_TEMPS_MS = Math.max(1500, Math.ceil(fichier.size / (120 * 1024)) * 1000);
+      let percentAffiche = 0;
+      let reelDemarre = false;
+
+      function pousserPercent(valeur) {
+        const v = Math.max(0, Math.min(99, Math.round(valeur)));
+        if (v > percentAffiche) {
+          percentAffiche = v;
+          setProgress(percentAffiche);
+        }
+      }
+
+      const minuteurEstimation = setInterval(() => {
+        if (reelDemarre) return; // la vraie progression, dès qu'elle démarre, prend le relais
+        const t = Date.now() - debutEnvoi;
+        if (t > 400 && setEtatConnexion) setEtatConnexion('envoi');
+        const estime = 92 * (1 - Math.exp(-t / CONSTANTE_TEMPS_MS));
+        pousserPercent(estime);
+      }, 150);
+
       xhr.upload.addEventListener('progress', event => {
         if (!event.lengthComputable) {
           // Le navigateur ne peut pas calculer de pourcentage (rare, mais
-          // possible selon le réseau/proxy) : on affiche un état "en cours"
-          // clair au lieu de rester figé sur un pourcentage qui ne bougera
-          // jamais, pour ne pas laisser croire à un blocage.
+          // possible selon le réseau/proxy) : l'estimation continue de
+          // tourner pour que la barre reste fluide.
           if (setEtatConnexion) setEtatConnexion('indetermine');
           return;
         }
-        if (!octetsEnvoyesDetectes) {
-          octetsEnvoyesDetectes = true;
-          if (setEtatConnexion) setEtatConnexion('envoi');
-        }
-        // Le 100 % est réservé à onload après réception complète de la réponse.
-        setProgress(Math.min(99, Math.floor((event.loaded / event.total) * 100)));
+        reelDemarre = true;
+        if (setEtatConnexion) setEtatConnexion('envoi');
+        pousserPercent((event.loaded / event.total) * 100);
       });
       xhr.onload = () => {
+        clearInterval(minuteurEstimation);
         if (xhr.status >= 200 && xhr.status < 300) {
           setProgress(100);
           resolve({ ok: true, status: xhr.status, text: xhr.responseText || '' });
@@ -7323,10 +7350,10 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
           resolve({ ok: false, status: xhr.status, text: xhr.responseText || '' });
         }
       };
-      xhr.onerror = () => reject(new Error('Erreur réseau pendant l’envoi du fichier.'));
-      xhr.onabort = () => reject(new Error('Envoi interrompu.'));
-      xhr.ontimeout = () => reject(new Error('L’envoi a été interrompu car la connexion est restée bloquée trop longtemps. Vérifiez votre connexion internet puis réessayez.'));
-      try { xhr.send(fichier); } catch (e) { reject(e); }
+      xhr.onerror = () => { clearInterval(minuteurEstimation); reject(new Error('Erreur réseau pendant l’envoi du fichier.')); };
+      xhr.onabort = () => { clearInterval(minuteurEstimation); reject(new Error('Envoi interrompu.')); };
+      xhr.ontimeout = () => { clearInterval(minuteurEstimation); reject(new Error('L’envoi a été interrompu car la connexion est restée bloquée trop longtemps. Vérifiez votre connexion internet puis réessayez.')); };
+      try { xhr.send(fichier); } catch (e) { clearInterval(minuteurEstimation); reject(e); }
     });
   }
 
