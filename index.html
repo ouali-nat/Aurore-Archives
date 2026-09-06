@@ -2788,6 +2788,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
             </select>
             <select id="adminFilterNiveauPublies" aria-label="Filtrer par niveau"><option value="">Tous les niveaux</option></select>
             <select id="adminFilterClassePublies" aria-label="Filtrer par classe"><option value="">Toutes les classes</option></select>
+            <select id="adminFilterCategoriePublies" aria-label="Filtrer par catégorie"></select>
             <select id="adminFilterMatierePublies" aria-label="Filtrer par matière"><option value="">Toutes les matières</option></select>
           </div>
           <div id="adminListPublies"></div><div id="adminPagerPublies"></div>
@@ -3778,12 +3779,12 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   // qu'un seul endroit à modifier en cas de nouveau changement de nom.
   const SITE_NOM = "Aurore — Section Archives";
 
-  // ---- Stockage des PDF : Cloudflare R2 via le Worker "lsnb-upload" ----
+  // ---- Stockage des PDF : Cloudflare R2 via le Worker "lsnb-pdf-worker-v2" ----
   // R2_WORKER_URL : URL du Worker Cloudflare déployé (reçoit les PDF en PUT).
   // R2_PUBLIC_URL : URL publique de lecture du bucket R2 "lsnb-documents".
   // Rien d'autre à changer : Supabase reste utilisé pour tout le reste
   // (auth, rôles, profils, table Document, statistiques).
-  const R2_WORKER_URL = "https://lsnb-upload.oualikevin9.workers.dev";
+  const R2_WORKER_URL = "https://lsnb-pdf-worker-v2.oualikevin9.workers.dev";
   const R2_PUBLIC_URL = "https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev";
 
   // ---------- CONNEXION GOOGLE ----------
@@ -6670,20 +6671,6 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
             if(Number.isFinite(n)&&n>0){TAILLES_DOCUMENTS_CACHE.set(key,n);return n;}
           }
         }catch(e){}
-        // Certains serveurs/buckets refusent HEAD ou ne renvoient pas
-        // Content-Length. Une requête Range d'un seul octet permet alors
-        // de récupérer la taille totale via Content-Range sans télécharger
-        // le document complet.
-        try{
-          const range=await fetch(cible,{method:'GET',headers:{Range:'bytes=0-0'},cache:'no-store'});
-          if(range.ok||range.status===206){
-            const cr=range.headers.get('Content-Range')||'';
-            const m=cr.match(/\/([0-9]+)\s*$/);
-            if(m){const n=Number(m[1]);if(Number.isFinite(n)&&n>0){TAILLES_DOCUMENTS_CACHE.set(key,n);return n;}}
-            const n=Number(range.headers.get('Content-Length')||0);
-            if(range.status===206&&Number.isFinite(n)&&n>1){/* taille partielle : ne pas la prendre pour la taille totale */}
-          }
-        }catch(e){}
       }
       TAILLES_DOCUMENTS_CACHE.set(key,0);
       return 0;
@@ -7306,122 +7293,151 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     }
   }
 
-  function creerUploadR2AvecProgress(url, fichier, setProgress, setEtatConnexion, setAbort, setSpeed) {
+  // ---------- UPLOAD R2 OPTIMISÉ POUR MOBILE / GROS PDF ----------
+  // Les fichiers < 80 MiB utilisent un PUT direct. Au-dessus, le navigateur
+  // utilise le multipart R2 afin qu'aucune requête unique ne dépasse la limite
+  // Worker et que plusieurs morceaux puissent être envoyés en parallèle.
+  const R2_MULTIPART_SEUIL = 80 * 1024 * 1024;
+  const R2_MULTIPART_TAILLE_PART = 8 * 1024 * 1024;
+  const R2_MULTIPART_CONCURRENCE = 3;
+
+  function xhrUploadR2(url, blob, contentType, onProgress, signal) {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
-      if (typeof setAbort === 'function') setAbort(() => xhr.abort());
+      let termine = false;
+      const finir = (fn, valeur) => { if (termine) return; termine = true; fn(valeur); };
+      if (signal) {
+        if (signal.aborted) { try { xhr.abort(); } catch(e) {} return reject(new DOMException('Upload annulé','AbortError')); }
+        signal.addEventListener('abort', () => { try { xhr.abort(); } catch(e) {} }, {once:true});
+      }
       xhr.open('PUT', url, true);
-      xhr.setRequestHeader('Content-Type', 'application/pdf');
-
-      // Timeout de sécurité : il ne limite PAS le débit. Il sert uniquement à
-      // sortir d'un transfert réellement bloqué.
-      const DEBIT_MIN_OCTETS_PAR_SEC = 32 * 1024;
-      const TIMEOUT_PLANCHER_MS = 60000;
-      xhr.timeout = Math.max(
-        TIMEOUT_PLANCHER_MS,
-        Math.ceil((fichier.size / DEBIT_MIN_OCTETS_PAR_SEC) * 1000) + 30000
-      );
-
-      // ---- Progression fluide sur mobile ----
-      // Certains navigateurs Android ne publient pas immédiatement les
-      // événements xhr.upload.progress. L'ancienne version gardait donc une
-      // progression visuelle pendant la négociation. On restaure ce comportement
-      // sans toucher au PUT réel : dès que le navigateur fournit la progression
-      // réelle, elle prend le relais.
-      const debutEnvoi = Date.now();
-      const CONSTANTE_TEMPS_MS = Math.max(
-        1200,
-        Math.ceil(fichier.size / (256 * 1024)) * 1000
-      );
-      let percentAffiche = 0;
-      let reelDemarre = false;
-      let dernierTemps = debutEnvoi;
-      let dernierCharge = 0;
-
-      function pousserPercent(valeur) {
-        const v = Math.max(0, Math.min(99, Math.round(valeur)));
-        if (v > percentAffiche) {
-          percentAffiche = v;
-          setProgress(percentAffiche);
-        }
-      }
-
-      if (typeof setSpeed === 'function') setSpeed('Connexion…');
-
-      const minuteurEstimation = setInterval(() => {
-        if (reelDemarre) return;
-        const t = Date.now() - debutEnvoi;
-        if (t > 400 && setEtatConnexion) setEtatConnexion('envoi');
-        // Progression d'attente : monte rapidement puis ralentit vers 92 %.
-        // Elle ne modifie jamais les octets envoyés au Worker.
-        const estime = 92 * (1 - Math.exp(-t / CONSTANTE_TEMPS_MS));
-        pousserPercent(estime);
-      }, 150);
-
-      xhr.upload.addEventListener('progress', event => {
-        if (!event.lengthComputable) {
-          if (setEtatConnexion) setEtatConnexion('indetermine');
-          if (typeof setSpeed === 'function') setSpeed('Débit en cours…');
-          return;
-        }
-
-        reelDemarre = true;
-        if (setEtatConnexion) setEtatConnexion('envoi');
-        // On conserve la règle de l'ancienne barre : elle ne recule jamais.
-        // Cela évite un retour brutal de 20 % à 1 % quand Android envoie son
-        // premier événement tardivement.
-        pousserPercent((event.loaded / event.total) * 100);
-
-        const maintenant = Date.now();
-        const dt = (maintenant - dernierTemps) / 1000;
-        if (dt >= 0.25 && typeof setSpeed === 'function') {
-          const debit = Math.max(0, (event.loaded - dernierCharge) / dt);
-          if (debit > 0) {
-            const mo = debit / (1024 * 1024);
-            setSpeed(mo >= 1
-              ? mo.toFixed(1) + ' Mo/s'
-              : Math.round(debit / 1024) + ' Ko/s');
-          }
-          dernierTemps = maintenant;
-          dernierCharge = event.loaded;
-        }
+      if (contentType) xhr.setRequestHeader('Content-Type', contentType);
+      xhr.upload.addEventListener('progress', e => {
+        if (e.lengthComputable && onProgress) onProgress(e.loaded, e.total);
       });
-
       xhr.onload = () => {
-        clearInterval(minuteurEstimation);
         if (xhr.status >= 200 && xhr.status < 300) {
-          setProgress(100);
-          if (typeof setSpeed === 'function') {
-            const duree = Math.max(0.001, (Date.now() - debutEnvoi) / 1000);
-            const debitMoyen = fichier.size / duree;
-            const mo = debitMoyen / (1024 * 1024);
-            setSpeed(mo >= 1
-              ? mo.toFixed(1) + ' Mo/s moyen'
-              : Math.round(debitMoyen / 1024) + ' Ko/s moyen');
-          }
-          resolve({ ok: true, status: xhr.status, text: xhr.responseText || '' });
+          finir(resolve, {ok:true,status:xhr.status,text:xhr.responseText||'',headers:xhr.getAllResponseHeaders()||''});
         } else {
-          resolve({ ok: false, status: xhr.status, text: xhr.responseText || '' });
+          finir(resolve, {ok:false,status:xhr.status,text:xhr.responseText||''});
         }
       };
-      xhr.onerror = () => {
-        clearInterval(minuteurEstimation);
-        reject(new Error('Erreur réseau pendant l’envoi du fichier.'));
-      };
-      xhr.onabort = () => {
-        clearInterval(minuteurEstimation);
-        reject(new Error('Envoi interrompu.'));
-      };
-      xhr.ontimeout = () => {
-        clearInterval(minuteurEstimation);
-        reject(new Error('L’envoi a été interrompu car la connexion est restée bloquée trop longtemps. Vérifiez votre connexion internet puis réessayez.'));
-      };
-      try {
-        xhr.send(fichier);
-      } catch (e) {
-        clearInterval(minuteurEstimation);
-        reject(e);
+      xhr.onerror = () => finir(reject, new Error('Erreur réseau pendant l’envoi du fichier.'));
+      xhr.onabort = () => finir(reject, new DOMException('Upload annulé','AbortError'));
+      xhr.ontimeout = () => finir(reject, new Error('Le transfert a été interrompu : connexion trop longtemps inactive.'));
+      xhr.timeout = 0;
+      try { xhr.send(blob); } catch(e) { finir(reject,e); }
+    });
+  }
+
+  async function creerUploadR2Multipart(url, fichier, setProgress, setEtatConnexion, setAbort, setSpeed) {
+    const base = String(url).split('?')[0];
+    const controller = new AbortController();
+    let uploadId = null;
+    let annule = false;
+    if (typeof setAbort === 'function') setAbort(() => { annule = true; controller.abort(); });
+
+    const debut = Date.now();
+    const taille = fichier.size;
+    const nombreParts = Math.ceil(taille / R2_MULTIPART_TAILLE_PART);
+    const progression = new Array(nombreParts).fill(0);
+    let totalEnvoye = 0;
+    let prochain = 0;
+    const parts = [];
+
+    const actualiser = () => {
+      const pct = taille ? Math.min(99, (totalEnvoye / taille) * 100) : 0;
+      setProgress(pct);
+      const secondes = Math.max(.001, (Date.now() - debut) / 1000);
+      const debit = totalEnvoye / secondes;
+      if (typeof setSpeed === 'function' && debit > 0) {
+        const mo = debit / (1024 * 1024);
+        setSpeed(mo >= 1 ? mo.toFixed(1)+' Mo/s' : Math.round(debit/1024)+' Ko/s');
       }
+    };
+
+    try {
+      setEtatConnexion?.('connexion');
+      const create = await fetch(base + '?action=mpu-create', {
+        method:'POST',
+        headers:{'Content-Type':'application/pdf'},
+        signal:controller.signal,
+        cache:'no-store'
+      });
+      const createText = await create.text();
+      if (!create.ok) throw new Error('Création du transfert multipart refusée (HTTP '+create.status+'). '+createText);
+      let created;
+      try { created = JSON.parse(createText); } catch(e) { throw new Error('Réponse multipart invalide du Worker.'); }
+      uploadId = created.uploadId;
+      if (!uploadId) throw new Error('Le Worker n’a pas fourni d’identifiant multipart.');
+      setEtatConnexion?.('envoi');
+
+      async function envoyerPart() {
+        while (true) {
+          if (controller.signal.aborted) throw new DOMException('Upload annulé','AbortError');
+          const index = prochain++;
+          if (index >= nombreParts) return;
+          const debutPart = index * R2_MULTIPART_TAILLE_PART;
+          const finPart = Math.min(taille, debutPart + R2_MULTIPART_TAILLE_PART);
+          const blob = fichier.slice(debutPart, finPart);
+          const partNumber = index + 1;
+          const partUrl = base + '?action=mpu-uploadpart&uploadId=' + encodeURIComponent(uploadId) + '&partNumber=' + partNumber;
+          const result = await xhrUploadR2(partUrl, blob, 'application/octet-stream', (loaded,total) => {
+            totalEnvoye += loaded - progression[index];
+            progression[index] = loaded;
+            actualiser();
+          }, controller.signal);
+          if (!result.ok) throw new Error('Échec du morceau '+partNumber+' (HTTP '+result.status+'). '+result.text);
+          let body;
+          try { body = JSON.parse(result.text || '{}'); } catch(e) { body = {}; }
+          if (!body.etag) throw new Error('Le Worker n’a pas retourné l’ETag du morceau '+partNumber+'.');
+          parts.push({partNumber, etag:body.etag});
+        }
+      }
+
+      await Promise.all(Array.from({length:Math.min(R2_MULTIPART_CONCURRENCE,nombreParts)}, () => envoyerPart()));
+      parts.sort((a,b)=>a.partNumber-b.partNumber);
+      if (controller.signal.aborted) throw new DOMException('Upload annulé','AbortError');
+
+      const complete = await fetch(base + '?action=mpu-complete&uploadId=' + encodeURIComponent(uploadId), {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({parts}),
+        signal:controller.signal,
+        cache:'no-store'
+      });
+      const completeText = await complete.text();
+      if (!complete.ok) throw new Error('Finalisation du transfert refusée (HTTP '+complete.status+'). '+completeText);
+      setProgress(100);
+      return {ok:true,status:complete.status,text:completeText};
+    } catch(e) {
+      annule = annule || e?.name === 'AbortError';
+      if (uploadId) {
+        try { await fetch(base + '?action=mpu-abort&uploadId=' + encodeURIComponent(uploadId), {method:'POST',cache:'no-store'}); } catch(ignore) {}
+      }
+      if (annule) throw new DOMException('Upload annulé','AbortError');
+      throw e;
+    }
+  }
+
+  function creerUploadR2AvecProgress(url, fichier, setProgress, setEtatConnexion, setAbort, setSpeed) {
+    if (fichier.size > R2_MULTIPART_SEUIL) {
+      return creerUploadR2Multipart(url, fichier, setProgress, setEtatConnexion, setAbort, setSpeed);
+    }
+    return new Promise((resolve, reject) => {
+      const controller = new AbortController();
+      if (typeof setAbort === 'function') setAbort(() => controller.abort());
+      const debut = Date.now();
+      setEtatConnexion?.('connexion');
+      setSpeed?.('Connexion…');
+      xhrUploadR2(url, fichier, 'application/pdf', (loaded,total) => {
+        setEtatConnexion?.('envoi');
+        setProgress(total ? (loaded/total)*100 : 0);
+        const sec=Math.max(.001,(Date.now()-debut)/1000), debit=loaded/sec, mo=debit/(1024*1024);
+        if(debit>0)setSpeed?.(mo>=1?mo.toFixed(1)+' Mo/s':Math.round(debit/1024)+' Ko/s');
+      }, controller.signal).then(r=>{
+        if(r.ok){setProgress(100);resolve(r);}else resolve(r);
+      }).catch(reject);
     });
   }
 
@@ -7586,7 +7602,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
 
     btn.textContent = "Envoi en cours…";
 
-    // ---- 1. Upload du PDF vers Cloudflare R2 via le Worker "lsnb-upload" ----
+    // ---- 1. Upload du PDF vers Cloudflare R2 via le Worker "lsnb-pdf-worker-v2" ----
     afficherProgression(0);
     afficherEtatConnexion('connexion');
     afficherBoutonAnnulation(true);
@@ -8711,7 +8727,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
 
   const ADMIN_COLLECTION_CONFIG = {
     attente:{toolbarId:'adminToolbarAttente',searchId:'adminSearchAttente',sortId:'adminSortAttente',listId:'adminList',pagerId:'adminPagerAttente',pageSize:ADMIN_PENDING_PAGE_SIZE,filterIds:{niveau:'adminFilterNiveauAttente',classe:'adminFilterClasseAttente',matiere:'adminFilterMatiereAttente',categorie:'adminFilterCategorieAttente'}},
-    publies:{toolbarId:'adminToolbarPublies',searchId:'adminSearchPublies',sortId:'adminSortPublies',listId:'adminListPublies',pagerId:'adminPagerPublies',filterIds:{niveau:'adminFilterNiveauPublies',classe:'adminFilterClassePublies',matiere:'adminFilterMatierePublies'}},
+    publies:{toolbarId:'adminToolbarPublies',searchId:'adminSearchPublies',sortId:'adminSortPublies',listId:'adminListPublies',pagerId:'adminPagerPublies',filterIds:{niveau:'adminFilterNiveauPublies',classe:'adminFilterClassePublies',matiere:'adminFilterMatierePublies',categorie:'adminFilterCategoriePublies'}},
     reclamations:{toolbarId:'adminToolbarReclamations',searchId:'adminSearchReclamations',sortId:'adminSortReclamations',listId:'adminListReclamations',pagerId:'adminPagerReclamations',filterIds:{statut:'adminFilterStatutReclamations'}},
     utilisateurs:{toolbarId:'adminToolbarUtilisateurs',searchId:'adminSearchUtilisateurs',sortId:'adminSortUtilisateurs',listId:'adminUsersList',pagerId:'adminPagerUtilisateurs',filterIds:{role:'adminFilterRoleUtilisateurs'},cardSelector:'.admin-user-card',dateField:'created'}
   };
@@ -8779,6 +8795,8 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         card.dataset.adminLevel = String(doc.Niveau || '');
         card.dataset.adminClass = String(doc.Classe || '');
         card.dataset.adminSubject = String(doc['Matière'] || doc.Genre || '');
+        card.dataset.adminCategory = String(doc['Catégorie'] || '');
+        card.dataset.adminAuthor = String(doc.Auteur || deposant && deposant.nom || '');
         card.dataset.adminSearch = [doc.Titre, doc.Niveau, doc.Classe, doc['Catégorie'], doc['Matière'], doc.Genre, doc.Auteur, deposant && deposant.nom, deposant && deposant.email].filter(v => v != null && String(v).trim()).join(' ');
         card.dataset.adminCategory = String(doc['Catégorie'] || doc.Genre || 'Non classé').trim() || 'Non classé';
         card.dataset.adminAuthor = String(doc.Auteur || '');
@@ -8812,7 +8830,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         list.appendChild(card);
       });
       actualiserOutilsAdminApresChargement('attente', ADMIN_COLLECTION_CONFIG.attente, {
-        niveaux:data.map(d=>d.Niveau), classes:data.map(d=>d.Classe), matieres:data.map(d=>d['Matière'] || d.Genre)
+        niveaux:data.map(d=>d.Niveau), classes:data.map(d=>d.Classe), matieres:data.map(d=>d['Matière'] || d.Genre), categories:data.map(d=>d['Catégorie'])
       });
     } catch (err) {
       list.innerHTML = `<p class="admin-empty">Impossible de charger ces éléments pour le moment. Veuillez réessayer dans quelques instants.</p>`;
@@ -8926,6 +8944,8 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         card.dataset.adminLevel = String(doc.Niveau || '');
         card.dataset.adminClass = String(doc.Classe || '');
         card.dataset.adminSubject = String(doc['Matière'] || doc.Genre || '');
+        card.dataset.adminCategory = String(doc['Catégorie'] || '');
+        card.dataset.adminAuthor = String(doc.Auteur || deposant && deposant.nom || '');
         card.dataset.adminSearch = [doc.Titre, doc.Niveau, doc.Classe, doc['Catégorie'], doc['Matière'], doc.Genre, doc.Auteur, deposant && deposant.nom, deposant && deposant.email].filter(v => v != null && String(v).trim()).join(' ');
         card.dataset.adminSortValue = String(doc.id ?? '0');
         card.style.animationDelay = (i * 0.04) + 's';
@@ -8965,7 +8985,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         list.appendChild(card);
       });
       actualiserOutilsAdminApresChargement('publies', ADMIN_COLLECTION_CONFIG.publies, {
-        niveaux:data.map(d=>d.Niveau), classes:data.map(d=>d.Classe), matieres:data.map(d=>d['Matière'] || d.Genre)
+        niveaux:data.map(d=>d.Niveau), classes:data.map(d=>d.Classe), matieres:data.map(d=>d['Matière'] || d.Genre), categories:data.map(d=>d['Catégorie'])
       });
     } catch (err) {
       list.innerHTML = `<p class="admin-empty">Impossible de charger ces éléments pour le moment. Veuillez réessayer dans quelques instants.</p>`;
@@ -9615,7 +9635,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         return;
       }
       // Rappel important : les images publicitaires sont stockées sur Cloudflare R2
-      // (R2_PUBLIC_URL, worker "lsnb-upload"), PAS dans le bucket Supabase Storage "Pdfs"
+      // (R2_PUBLIC_URL, worker "lsnb-pdf-worker"), PAS dans le bucket Supabase Storage "Pdfs"
       // qui sert uniquement aux PDF de la table Document. Si image_url ne commence pas par
       // R2_PUBLIC_URL, l'image ne vient pas de là où on l'attend.
       if(!String(url).startsWith(R2_PUBLIC_URL)){
@@ -10033,7 +10053,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         const name='vitrine_'+Date.now()+'_'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
         // En-têtes volontairement identiques à ceux du dépôt PDF (qui fonctionne) :
         // uniquement Content-Type, sans en-tête personnalisé supplémentaire (pré-vérification
-        // CORS non satisfaite par le Worker sinon). Le Worker "lsnb-upload" n'est pas modifié.
+        // CORS non satisfaite par le Worker sinon). Le Worker "lsnb-pdf-worker-v2" n'est pas modifié.
         const up=await fetch(`${R2_WORKER_URL}/${name}`,{method:'PUT',headers:{'Content-Type':file.type},body:file});
         const body=await up.text().catch(()=> '');
         if(!up.ok) throw new Error('Le stockage a refusé l’image (HTTP '+up.status+'). '+body);
@@ -10309,7 +10329,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         document.getElementById('pdfViewerStatut').textContent='Ouverture instantanée…';
         pdf = await pdfjsLib.getDocument({data: octetsEnCache.slice(0)}).promise;
       } else {
-        const sources = [urlPublique, urlWorker].filter((v,i,a)=>v && a.indexOf(v)===i);
+        const sources = [urlWorker, urlPublique].filter((v,i,a)=>v && a.indexOf(v)===i);
         let derniereErreur = null;
 
         for (const source of sources) {
@@ -10344,20 +10364,12 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         }
 
         if(!pdf) {
-          // Repli uniquement si le serveur ne supporte pas correctement Range/CORS.
-          diagLog('→ Repli : récupération complète du PDF avant rendu.');
-          mettreAJourProgressionLecteurPDF(18,'Téléchargement du document');
-          octetsEnCache=await recupererOctetsPDF(doc.Fichier_url,pct=>{
-            if(jeton!==PDF_JETON_OUVERTURE)return;
-            if(pct!=null){
-              mettreAJourProgressionLecteurPDF(Math.max(18,Math.min(86,pct*.86)),'Téléchargement');
-              document.getElementById('pdfViewerStatut').textContent=`Téléchargement du document… ${pct}%`;
-            }
-          },diagLog,PDF_FETCH_CONTROLLER?.signal);
-          if(jeton!==PDF_JETON_OUVERTURE)return;
-          PDF_OCTETS_COURANTS=octetsEnCache;
-          memoriserPDFCache(cacheCle,octetsEnCache);
-          pdf=await pdfjsLib.getDocument({data:octetsEnCache.slice(0)}).promise;
+          // Aucun téléchargement complet de secours : cela serait catastrophique
+          // pour un PDF de 100–200 Mo sur Android. Le navigateur peut afficher
+          // directement le flux natif sans recopier le fichier en JavaScript.
+          diagLog('→ Range/PDF.js indisponible : ouverture native directe du PDF.');
+          if (afficherVisionneuseNativePDF(doc.Fichier_url)) return;
+          throw derniereErreur || new Error('Impossible d’ouvrir le flux PDF.');
         }
       }
 
@@ -10596,56 +10608,33 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
 async function telechargerDocumentAvecProgression(doc) {
     if (!doc || !doc.Fichier_url || doc.Telechargement_autorise === false || TELECHARGEMENT_DOCUMENT_EN_COURS) return;
     if (!session) { exigerConnexionPourTelechargement(doc); return; }
-    TELECHARGEMENT_DOCUMENT_EN_COURS=true;
-    TELECHARGEMENT_ABORT_CONTROLLER=typeof AbortController!=='undefined'?new AbortController():null;
-    const signal=TELECHARGEMENT_ABORT_CONTROLLER?.signal;
-    const nomTelechargement=nomFichierTelechargementDepuisDocument(doc);
-    afficherCarteTelechargement(doc,'preparation',null,0,null,'Préparation du fichier…');
+    TELECHARGEMENT_DOCUMENT_EN_COURS = true;
+    const nom = nomFichierTelechargementDepuisDocument(doc);
+    afficherCarteTelechargement(doc,'preparation',null,0,null,'Préparation du téléchargement…');
     try {
-      const url=doc.Fichier_url;
-      const cle=(url&&url.indexOf(R2_PUBLIC_URL + '/')===0)?url.slice(R2_PUBLIC_URL.length+1):null;
-      let res=null;
-      if(cle){try{res=await fetch(`${R2_WORKER_URL}/${cle}`,signal?{signal}:undefined);}catch(e){if(e?.name==='AbortError')throw e;}}
-      if(!res||!res.ok){try{res=await fetch(url,signal?{signal}:undefined);}catch(e){if(e?.name==='AbortError')throw e;}}
-      if(!res||!res.ok)throw new Error('Le fichier n’a pas pu être récupéré.');
-      const total=parseInt(res.headers.get('Content-Length')||'',10);
-      let blob;
-      if(res.body&&Number.isFinite(total)&&total>0){
-        const lecteur=res.body.getReader(),morceaux=[];let recu=0;
-        while(true){const {done,value}=await lecteur.read();if(done)break;if(value){morceaux.push(value);recu+=value.byteLength;afficherCarteTelechargement(doc,'progress',Math.min(99,Math.round(recu/total*100)),recu,total);}}
-        blob=new Blob(morceaux,{type:'application/octet-stream'});
-      }else{afficherCarteTelechargement(doc,'progress',null,0,null,'Téléchargement du fichier…');blob=await res.blob();}
-      if(signal?.aborted)throw new DOMException('Téléchargement annulé','AbortError');
-      // Sécurité navigation : on transforme systématiquement le résultat en
-      // flux binaire de téléchargement. Ainsi le navigateur reçoit une URL
-      // Blob dédiée au téléchargement et non l'URL PDF/R2 d'origine, ce qui
-      // évite de basculer automatiquement vers un lecteur externe.
-      const fichierTelecharge=new Blob([blob],{type:'application/octet-stream'});
-      const objectUrl=URL.createObjectURL(fichierTelecharge);
-      const a=document.createElement('a');
-      a.href=objectUrl;
-      a.target='_self';
-      a.rel='noopener noreferrer';
-      a.download=nomTelechargement;
-      a.style.display='none';
+      const source = String(doc.Fichier_url);
+      const cle = source.indexOf(R2_PUBLIC_URL + '/') === 0 ? source.slice(R2_PUBLIC_URL.length + 1) : null;
+      if (!cle) throw new Error('URL de document non reconnue.');
+      const downloadUrl = `${R2_WORKER_URL}/${cle}?download=1&filename=${encodeURIComponent(nom)}`;
+      // Le navigateur télécharge directement le flux HTTP. Aucun Blob, aucun
+      // arrayBuffer et aucune copie de 200 Mo en mémoire JavaScript.
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
       a.remove();
-      setTimeout(()=>URL.revokeObjectURL(objectUrl),60000);
-      const enregistre=await enregistrerTelechargementPersonnel(doc);if(!enregistre)throw new Error('Le téléchargement a réussi, mais son enregistrement personnel a échoué.');
-      afficherCarteTelechargement(doc,'succes',100,total,total,'Votre document a été enregistré avec succès dans les téléchargements de votre téléphone. Vous pouvez continuer à utiliser Aurore.');
-      // Après l'enregistrement, on affiche le document dans le lecteur intégré
-      // au lieu de laisser l'utilisateur ouvrir la notification système du
-      // téléchargement (ce qui, sur mobile, peut le faire basculer vers une
-      // application externe comme Drive). S'il est déjà ouvert dans le
-      // lecteur, on ne fait rien pour ne pas interrompre sa lecture.
-      if (typeof ouvrirLecteurPDF === 'function' && DOC_EN_LECTURE?.id !== doc.id) {
-        setTimeout(() => { try { ouvrirLecteurPDF(doc); } catch(e) {} }, 350);
-      }
-    }catch(e){
-      if(e?.name==='AbortError')afficherCarteTelechargement(doc,'annule',null,null,null,'Le téléchargement a été annulé. Aucun fichier n’a été enregistré dans votre historique.');
-      else{console.error('[Téléchargement document]',e);afficherCarteTelechargement(doc,'erreur',null,null,null,'Le téléchargement n’a pas pu être récupéré sans quitter Aurore. Réessayez dans quelques instants.');}
-    }finally{TELECHARGEMENT_DOCUMENT_EN_COURS=false;TELECHARGEMENT_ABORT_CONTROLLER=null;}
+      await enregistrerTelechargementPersonnel(doc);
+      afficherCarteTelechargement(doc,'succes',100,null,null,'Téléchargement lancé. Le fichier est pris en charge directement par le navigateur.');
+    } catch(e) {
+      console.error('[Téléchargement document]',e);
+      afficherCarteTelechargement(doc,'erreur',null,null,null,'Le téléchargement n’a pas pu être lancé. Réessayez dans quelques instants.');
+    } finally {
+      TELECHARGEMENT_DOCUMENT_EN_COURS = false;
+      TELECHARGEMENT_ABORT_CONTROLLER = null;
+    }
   }
 
   const btnFermerCarteTelechargement=document.getElementById('downloadProgressClose');
@@ -10653,68 +10642,8 @@ async function telechargerDocumentAvecProgression(doc) {
   const btnAnnulerTelechargement=document.getElementById('downloadProgressCancel');
   if(btnAnnulerTelechargement) btnAnnulerTelechargement.addEventListener('click',()=>TELECHARGEMENT_ABORT_CONTROLLER?.abort());
 
-  async function recupererOctetsPDF(url, onProgress, diagLog, signal) {
-    const log = diagLog || function(){};
-    const cle = (url && url.indexOf(R2_PUBLIC_URL + '/') === 0) ? url.slice(R2_PUBLIC_URL.length + 1) : null;
-    if (cle) {
-      log('Tentative 1 — via le Worker Cloudflare : GET ' + R2_WORKER_URL + '/' + cle);
-      try {
-        const res = await fetch(`${R2_WORKER_URL}/${cle}`, signal ? {signal} : undefined);
-        log('→ réponse reçue : HTTP ' + res.status + ' ' + res.statusText
-          + ' | Content-Type: ' + (res.headers.get('Content-Type') || '(absent)')
-          + ' | Content-Length: ' + (res.headers.get('Content-Length') || '(absent)'));
-        if (res.ok) {
-          const buf = await telechargerAvecProgression(res, onProgress);
-          if (buf && buf.byteLength > 0) { log('→ Tentative 1 réussie, ' + buf.byteLength + ' octet(s).'); return buf; }
-          log('→ Tentative 1 : réponse HTTP OK mais 0 octet reçu, on passe à la tentative 2.');
-        } else {
-          log('→ Tentative 1 : statut non-OK, on passe à la tentative 2 (URL publique R2).');
-        }
-      } catch (e) {
-        // Erreur générique du navigateur (souvent un blocage CORS : le message
-        // exact type "Failed to fetch" est volontairement masqué par le
-        // navigateur et ne donne aucun détail exploitable).
-        log('→ Tentative 1 : ÉCHEC réseau/CORS — ' + (e && e.message ? e.message : e) + ' (le navigateur masque les détails CORS par sécurité). On passe à la tentative 2.');
-      }
-    } else {
-      log("URL non reconnue comme une clé R2_PUBLIC_URL connue : tentative via le Worker ignorée, on va directement à l'URL fournie.");
-    }
-    log('Tentative 2 — URL directe fournie en base : GET ' + url);
-    const res2 = await fetch(url, signal ? {signal} : undefined);
-    log('→ réponse reçue : HTTP ' + res2.status + ' ' + res2.statusText
-      + ' | Content-Type: ' + (res2.headers.get('Content-Type') || '(absent)')
-      + ' | Content-Length: ' + (res2.headers.get('Content-Length') || '(absent)'));
-    if (!res2.ok) { log('→ Tentative 2 : ÉCHEC — statut HTTP non-OK.'); throw new Error('HTTP ' + res2.status); }
-    const buf2 = await telechargerAvecProgression(res2, onProgress);
-    log('→ Tentative 2 réussie, ' + buf2.byteLength + ' octet(s).');
-    return buf2;
-  }
-
-  // Lit une réponse fetch par morceaux pour pouvoir afficher une progression
-  // (utile pour les gros documents). Si le flux ou la taille sont indisponibles
-  // (navigateur ancien, en-tête absent), on retombe simplement sur arrayBuffer().
-  async function telechargerAvecProgression(res, onProgress) {
-    const total = parseInt(res.headers.get('Content-Length') || '', 10);
-    if (!res.body || !Number.isFinite(total) || total <= 0) {
-      if (onProgress) onProgress(null);
-      return await res.arrayBuffer();
-    }
-    const lecteur = res.body.getReader();
-    let recu = 0;
-    const morceaux = [];
-    while (true) {
-      const { done, value } = await lecteur.read();
-      if (done) break;
-      morceaux.push(value);
-      recu += value.length;
-      if (onProgress) onProgress(Math.min(99, Math.round((recu / total) * 100)));
-    }
-    if (onProgress) onProgress(100);
-    const octets = new Uint8Array(recu);
-    let decalage = 0;
-    for (const m of morceaux) { octets.set(m, decalage); decalage += m.length; }
-    return octets.buffer;
-  }
+  // Aucun repli de téléchargement complet ici : un gros PDF doit rester un
+  // flux HTTP/Range afin d'éviter de charger 50–200 Mo dans la mémoire du téléphone.
 
   // Rendu PDF optimisé : affichage immédiat de la première page, puis rendu
   // progressif des autres pages uniquement lorsqu'elles approchent de la zone
