@@ -7202,54 +7202,78 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     params.set('select', 'id,Titre,Niveau,Filiere,Classe,"Matière","Catégorie",Genre,Auteur,Fichier_url,Publie');
     params.set('Publie', 'eq.true');
     params.set('limit', '5000');
-    let res;
+
+    // La récupération de la liste des documents publiés et le calcul de
+    // l'empreinte SHA-256 du fichier envoyé sont deux opérations indépendantes :
+    // on les lance EN PARALLÈLE au lieu de les enchaîner. Sur un fichier lourd,
+    // ce calcul pouvait à lui seul retarder tout le reste inutilement.
+    let documents, empreinteCible;
     try {
-      res = await fetch(`${SUPABASE_URL}/rest/v1/Document?${params.toString()}`, { headers: HEADERS });
+      [documents, empreinteCible] = await Promise.all([
+        (async () => {
+          let res;
+          try {
+            res = await fetch(`${SUPABASE_URL}/rest/v1/Document?${params.toString()}`, { headers: HEADERS });
+          } catch (e) {
+            throw new Error('La vérification du document n’a pas pu être effectuée. Veuillez réessayer.');
+          }
+          if (!res.ok) {
+            const detail = await res.text().catch(() => '');
+            throw new Error('Impossible de vérifier les documents publiés (statut ' + res.status + '). ' + detail);
+          }
+          return res.json();
+        })(),
+        empreinteSha256(fichier)
+      ]);
     } catch (e) {
-      throw new Error('La vérification du document n’a pas pu être effectuée. Veuillez réessayer.');
+      throw (e && e.message) ? e : new Error('La préparation du fichier n’a pas pu être effectuée. Veuillez réessayer.');
     }
-    if (!res.ok) {
-      const detail = await res.text().catch(() => '');
-      throw new Error('Impossible de vérifier les documents publiés (statut ' + res.status + '). ' + detail);
-    }
-    const documents = await res.json();
     if (!Array.isArray(documents) || !documents.length) return null;
 
-    let empreinteCible;
-    try {
-      empreinteCible = await empreinteSha256(fichier);
-    } catch (e) {
-      throw new Error('La préparation du fichier n’a pas pu être effectuée. Veuillez réessayer.');
-    }
-
-    // Première réduction par taille quand le serveur nous la donne. Si la taille
-    // est inconnue, le candidat reste vérifiable : on ne déclare jamais un
-    // doublon sur la taille seule.
+    // Première réduction par taille quand le serveur nous la donne. Les requêtes
+    // HEAD sont désormais lancées EN PARALLÈLE par lots (au lieu d'une par une) :
+    // c'était le principal goulot d'étranglement, surtout avec beaucoup de
+    // documents déjà publiés. Si la taille est inconnue, le candidat reste
+    // vérifiable : on ne déclare jamais un doublon sur la taille seule.
+    const CONCURRENCE_HEAD = 12;
     const candidats = [];
-    for (const doc of documents) {
-      if (!doc || !doc.Fichier_url) continue;
-      let taille = 0;
-      try {
-        const cle = doc.Fichier_url.indexOf(R2_PUBLIC_URL + '/') === 0
-          ? doc.Fichier_url.slice(R2_PUBLIC_URL.length + 1) : null;
-        const url = cle ? `${R2_WORKER_URL}/${cle}` : doc.Fichier_url;
-        const head = await fetch(url, { method: 'HEAD', cache: 'no-store' });
-        if (head.ok) taille = Number(head.headers.get('content-length') || 0);
-      } catch (e) {}
-      if (!taille || taille === Number(fichier.size || 0)) candidats.push({ doc, taille });
+    for (let i = 0; i < documents.length; i += CONCURRENCE_HEAD) {
+      const lot = documents.slice(i, i + CONCURRENCE_HEAD);
+      const resultats = await Promise.all(lot.map(async doc => {
+        if (!doc || !doc.Fichier_url) return null;
+        let taille = 0;
+        try {
+          const cle = doc.Fichier_url.indexOf(R2_PUBLIC_URL + '/') === 0
+            ? doc.Fichier_url.slice(R2_PUBLIC_URL.length + 1) : null;
+          const url = cle ? `${R2_WORKER_URL}/${cle}` : doc.Fichier_url;
+          const head = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+          if (head.ok) taille = Number(head.headers.get('content-length') || 0);
+        } catch (e) {}
+        return (!taille || taille === Number(fichier.size || 0)) ? { doc, taille } : null;
+      }));
+      for (const r of resultats) if (r) candidats.push(r);
     }
 
-    // Vérification du contenu réel. Un échec réseau sur un candidat ne permet
-    // pas de conclure : on continue avec les autres et on ne bloque que sur une
-    // égalité SHA-256 certaine.
-    for (const candidat of candidats) {
-      try {
-        const octets = await recupererOctetsPDF(candidat.doc.Fichier_url);
-        const hash = await empreinteSha256(new Blob([octets]));
-        if (hash === empreinteCible) return candidat.doc;
-      } catch (e) {
-        console.warn('[Doublon dépôt] candidat non vérifiable', candidat.doc.id, e);
-      }
+    // Vérification du contenu réel, également par petits lots en parallèle
+    // (on limite la concurrence ici car cela télécharge des PDF entiers, pour
+    // ne pas saturer la connexion de l'utilisateur). Un échec réseau sur un
+    // candidat ne permet pas de conclure : on continue avec les autres et on
+    // ne bloque que sur une égalité SHA-256 certaine.
+    const CONCURRENCE_HASH = 3;
+    for (let i = 0; i < candidats.length; i += CONCURRENCE_HASH) {
+      const lot = candidats.slice(i, i + CONCURRENCE_HASH);
+      const resultats = await Promise.all(lot.map(async candidat => {
+        try {
+          const octets = await recupererOctetsPDF(candidat.doc.Fichier_url);
+          const hash = await empreinteSha256(new Blob([octets]));
+          return hash === empreinteCible ? candidat.doc : null;
+        } catch (e) {
+          console.warn('[Doublon dépôt] candidat non vérifiable', candidat.doc.id, e);
+          return null;
+        }
+      }));
+      const trouve = resultats.find(Boolean);
+      if (trouve) return trouve;
     }
     return null;
   }
