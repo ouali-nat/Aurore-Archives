@@ -14587,29 +14587,42 @@ async function openFolder(f){
   list.innerHTML='<div class="personal-empty">Chargement des documents…</div>';
   const docs=await recupererDocsDesCases(a.map(x=>x.document_id));
   list.innerHTML='';
+  // Présentation identique à la bibliothèque et au reste de l'espace personnel :
+  // même ligne .doc-row, mêmes actions de base (Lire, Télécharger, Favori,
+  // Plus tard, Case), avec en plus « Retirer » propre à une case.
   docs.forEach(d=>{
-    const r=document.createElement('article');r.className='personal-folder-doc-row';
     const id=String(d.id);
+    const r=document.createElement('div');r.className='doc-row';
     const canDownload=d.Fichier_url && d.Telechargement_autorise!==false;
+    const titreDocument=typeof obtenirTitreDocument==='function'?obtenirTitreDocument(d):(d.Titre||'Document #'+id);
+    const contexte=[d.Niveau,d['Matière']||d.Genre].filter(Boolean).join(' · ')||'Document';
+    r.dataset.documentTitle=titreDocument;
     r.innerHTML=`
-      <div class="personal-folder-doc-main"><strong>${esc(d.Titre||'Document #'+id)}</strong><span>${esc([d.Niveau,d['Matière']||d.Genre].filter(Boolean).join(' · ')||'Document')}</span>${tailleBadgeMarkup(d.Fichier_url)}</div>
-      <div class="personal-folder-doc-actions">
-        ${d.Fichier_url?'<button type="button" data-folder-read>Voir</button>':''}
-        ${canDownload?'<button type="button" data-folder-download>Télécharger</button>':''}
-        <button type="button" data-folder-fav aria-pressed="false">♡ Favori</button>
-        <button type="button" data-folder-later>＋ Plus tard</button>
-        <button type="button" data-folder-case>▣ Case</button>
-        <button type="button" data-folder-remove class="is-remove">Retirer</button>
+      <div class="info">
+        <div class="icon-wrap">${ICONS.file}</div>
+        <div class="doc-main-info">
+          <div class="titre" title="${esc(titreDocument)}">${esc(titreDocument)}</div>
+          <div class="meta">${esc(contexte)}</div>
+          ${tailleBadgeMarkup(d.Fichier_url)}
+        </div>
+      </div>
+      <div class="doc-actions">
+        ${d.Fichier_url?'<button type="button" class="dl" data-folder-read="1">Lire</button>':''}
+        ${canDownload?'<button type="button" class="dl" data-folder-download="1">Télécharger maintenant</button>':''}
+        <button type="button" class="dl doc-action-soft" data-favori="1" aria-pressed="false">♡ Favori</button>
+        <button type="button" class="dl doc-action-soft" data-plus-tard="1">＋ Plus tard</button>
+        <button type="button" class="dl doc-action-soft doc-action-folder" data-folder-case="1">▣ Case</button>
+        <button type="button" class="dl doc-action-soft" style="color:var(--rouge); border-color:rgba(224,119,107,.35); background:rgba(224,119,107,.06);" data-folder-remove="1">Retirer</button>
       </div>`;
     r.querySelector('[data-folder-read]')?.addEventListener('click',()=>{if(typeof window.ouvrirLecteurPDF==='function')window.ouvrirLecteurPDF(d);});
     r.querySelector('[data-folder-download]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(d));
-    const fb=r.querySelector('[data-folder-fav]');
-    const fav=favoris().includes(id);
-    if(fb){fb.classList.toggle('is-active',fav);fb.textContent=fav?'♥ Favori':'♡ Favori';fb.addEventListener('click',()=>{basculerFavoriDocument(d,fb);});}
-    r.querySelector('[data-folder-later]')?.addEventListener('click',e=>ajouterDocumentPlusTard(d,e.currentTarget));
+    r.querySelector('[data-favori]')?.addEventListener('click',()=>basculerFavoriDocument(d,r.querySelector('[data-favori]')));
+    r.querySelector('[data-plus-tard]')?.addEventListener('click',e=>ajouterDocumentPlusTard(d,e.currentTarget));
     r.querySelector('[data-folder-case]')?.addEventListener('click',()=>chooseDoc(d));
     r.querySelector('[data-folder-remove]')?.addEventListener('click',()=>removeAssignment(d));
+    if(typeof actualiserEtatActionsDocument==='function') actualiserEtatActionsDocument(r,d);
     list.appendChild(r);
+    if(typeof appliquerCouvertureSiLivre==='function') appliquerCouvertureSiLivre(r,d);
   });
   p.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
