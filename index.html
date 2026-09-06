@@ -7312,9 +7312,22 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       }
       xhr.open('PUT', url, true);
       if (contentType) xhr.setRequestHeader('Content-Type', contentType);
+      // Suivi ultra-fin du flux réellement envoyé par le navigateur.
+      // Certains navigateurs mobiles indiquent parfois lengthComputable=false :
+      // dans ce cas on utilise la taille du Blob connue par l'appelant au lieu
+      // de laisser l'interface figée à 0 %.
       xhr.upload.addEventListener('progress', e => {
-        if (e.lengthComputable && onProgress) onProgress(e.loaded, e.total);
+        if (!onProgress) return;
+        const total = e.lengthComputable && e.total > 0 ? e.total : blob.size;
+        if (e.loaded >= 0 && total > 0) onProgress(Math.min(e.loaded, total), total);
       });
+      // Certains moteurs WebView/Android sont plus fiables avec la propriété
+      // onprogress qu'avec addEventListener pour les événements d'upload.
+      xhr.upload.onprogress = e => {
+        if (!onProgress) return;
+        const total = e.lengthComputable && e.total > 0 ? e.total : blob.size;
+        if (e.loaded >= 0 && total > 0) onProgress(Math.min(e.loaded, total), total);
+      };
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
           finir(resolve, {ok:true,status:xhr.status,text:xhr.responseText||'',headers:xhr.getAllResponseHeaders()||''});
@@ -10616,18 +10629,38 @@ async function telechargerDocumentAvecProgression(doc) {
       const cle = source.indexOf(R2_PUBLIC_URL + '/') === 0 ? source.slice(R2_PUBLIC_URL.length + 1) : null;
       if (!cle) throw new Error('URL de document non reconnue.');
       const downloadUrl = `${R2_WORKER_URL}/${cle}?download=1&filename=${encodeURIComponent(nom)}`;
-      // Le navigateur télécharge directement le flux HTTP. Aucun Blob, aucun
-      // arrayBuffer et aucune copie de 200 Mo en mémoire JavaScript.
-      const a = document.createElement('a');
-      a.href = downloadUrl;
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+
+      // IMPORTANT : ne pas utiliser un lien target=_blank ici. Sur plusieurs
+      // navigateurs Android/WebView, cela ouvre le PDF dans un nouvel onglet
+      // au lieu de déclencher réellement le gestionnaire de téléchargement.
+      // Le Worker renvoie Content-Disposition: attachment et l'iframe invisible
+      // laisse le navigateur prendre en charge le téléchargement sans charger
+      // le PDF en mémoire JavaScript.
+      const verification = await fetch(downloadUrl, {
+        method: 'HEAD',
+        cache: 'no-store'
+      });
+      if (!verification.ok) {
+        throw new Error('Le serveur de téléchargement a répondu HTTP ' + verification.status + '.');
+      }
+
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.width = '1px';
+      iframe.style.height = '1px';
+      iframe.style.opacity = '0';
+      iframe.style.pointerEvents = 'none';
+      iframe.style.border = '0';
+      iframe.setAttribute('aria-hidden', 'true');
+      iframe.src = downloadUrl;
+      document.body.appendChild(iframe);
+      setTimeout(() => { try { iframe.remove(); } catch(e) {} }, 120000);
+
+      // On n'affiche plus "Téléchargé" : à ce stade le navigateur a reçu
+      // l'ordre de téléchargement, mais JavaScript ne peut pas connaître de
+      // manière fiable la fin d'un téléchargement natif sur Android.
       await enregistrerTelechargementPersonnel(doc);
-      afficherCarteTelechargement(doc,'succes',100,null,null,'Téléchargement lancé. Le fichier est pris en charge directement par le navigateur.');
+      afficherCarteTelechargement(doc,'succes',100,null,null,'Téléchargement démarré. Vérifiez le dossier Téléchargements de votre téléphone.');
     } catch(e) {
       console.error('[Téléchargement document]',e);
       afficherCarteTelechargement(doc,'erreur',null,null,null,'Le téléchargement n’a pas pu être lancé. Réessayez dans quelques instants.');
