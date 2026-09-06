@@ -447,10 +447,8 @@
   }
   .doc-row .icon-wrap img.doc-cover-img{
     width:100%; height:100%; object-fit:cover; border-radius:inherit; display:block;
-    aspect-ratio:1/1; background:var(--fond);
-    opacity:0; animation:aurore-couverture-fade .25s ease forwards;
+    aspect-ratio:1/1; background:var(--fond); opacity:1;
   }
-  @keyframes aurore-couverture-fade{from{opacity:0;}to{opacity:1;}}
   .doc-row .titre{font-weight:700; font-size:0.9rem;}
   .doc-row .meta{font-size:0.76rem; color:var(--gris); margin-top:2px;}
   .doc-row .dl{
@@ -3316,7 +3314,8 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   .pdf-load-progress{width:100%;display:flex;flex-direction:column;gap:7px;margin-top:2px;}
   .pdf-load-progress-head{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:.7rem;color:#a9a1b7;}
   .pdf-load-progress-head strong{color:#e9e3f2;font-size:.72rem;}
-  .pdf-load-progress-track{width:100%;height:7px;border-radius:999px;background:#26222f;overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.28);}
+  .pdf-load-progress-speed{font-size:.68rem;color:#a9a1b7;line-height:1.3;min-height:1em;}
+  .pdf-load-progress-track{width:100%;height:8px;border-radius:999px;background:#26222f;overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.28);}
   .pdf-load-progress-bar{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#7c3aed,#c084fc,#e879f9);box-shadow:0 0 14px rgba(192,132,252,.28);transition:width .18s ease;}
   .pdf-reader-erreur{width:min(500px,92%);box-sizing:border-box;margin:12vh auto 0!important;padding:24px!important;border:1px solid rgba(248,113,113,.20);border-radius:20px;background:rgba(45,20,27,.72);box-shadow:0 18px 45px rgba(0,0,0,.22);}
   .pdf-reader-erreur p{color:#f7e8eb!important}.pdf-reader-erreur a{color:#b9f3c8!important;}
@@ -3539,6 +3538,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         <p id="pdfViewerStatut" role="status">Chargement du document…</p>
         <div class="pdf-load-progress" aria-hidden="true">
           <div class="pdf-load-progress-head"><span id="pdfViewerProgressStage">Préparation</span><strong id="pdfViewerProgressPercent">0%</strong></div>
+          <div class="pdf-load-progress-speed" id="pdfViewerProgressSpeed">Préparation…</div>
           <div class="pdf-load-progress-track"><div id="pdfViewerProgressBar" class="pdf-load-progress-bar"></div></div>
         </div>
       </div>
@@ -6928,14 +6928,14 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
 
     // Une vraie image de couverture est chargée en lazy ; une vignette
     // déjà générée depuis le PDF est injectée immédiatement.
-    const chargement = estImageReelle ? 'lazy' : 'eager';
+    const chargement = 'eager';
     const img = document.createElement('img');
     img.className = 'doc-cover-img';
     img.src = String(url);
     img.alt = alt;
     img.loading = chargement;
     img.decoding = 'async';
-    img.fetchPriority = estImageReelle ? 'low' : 'high';
+    img.fetchPriority = 'high';
 
     // Une erreur réseau ne doit jamais laisser la vignette invisible
     // (l'ancien CSS mettait l'image à opacity:0 pendant son apparition).
@@ -6974,13 +6974,13 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         });
       }, {
         root:null,
-        rootMargin:'0px 0px',
+        rootMargin:'900px 0px',
         threshold:0.01
       })
     : null;
 
   let COUVERTURES_ACTIVES = 0;
-  const COUVERTURES_CONCURRENCE = 1;
+  const COUVERTURES_CONCURRENCE = 3;
 
   function traiterFileCouvertures() {
     while (
@@ -7039,29 +7039,36 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       return;
     }
 
-    /*
-     * On ne télécharge rien pour les lignes hors écran.
-     * La première page est demandée lorsque la ligne entre dans la zone visible.
-     * On attend d'abord que le cache IndexedDB soit chargé en mémoire, pour
-     * éviter de relancer un rendu PDF alors que la couverture existe déjà.
-     */
-    CACHE_COUVERTURES_PRET.then(() => {
-      if (!row.isConnected) return;
-      const connueApresChargement = couverturePremierePagePersistanteImmediate(doc);
-      if (connueApresChargement) {
-        appliquerImageCouverture(row, doc, connueApresChargement);
-        return;
+    // Le rendu ne doit plus attendre la fin de l'initialisation IndexedDB.
+    // Le cache mémoire est utilisé immédiatement s'il est déjà prêt ; sinon
+    // la ligne est observée sans délai et sera servie par le cache dès qu'il
+    // arrive, ou rendue depuis le PDF. C'est ce qui rapproche le comportement
+    // de la couverture d'un site qui affiche ses vignettes dès l'arrivée de
+    // la liste, au lieu d'attendre une promesse globale.
+    const connueImmediatement = couverturePremierePagePersistanteImmediate(doc);
+    if (connueImmediatement) {
+      appliquerImageCouverture(row, doc, connueImmediatement);
+      return;
+    }
+    if (COUVERTURES_OBSERVER) {
+      COUVERTURES_OBSERVER.observe(row);
+    } else {
+      if (COUVERTURES_FILE.length < COUVERTURES_CONCURRENCE * 2) {
+        COUVERTURES_FILE.push({row, doc});
+        traiterFileCouvertures();
       }
-      if (COUVERTURES_OBSERVER) {
-        COUVERTURES_OBSERVER.observe(row);
-      } else {
-        // Repli très limité sur les vieux navigateurs : au maximum deux lignes.
-        if (COUVERTURES_FILE.length < COUVERTURES_CONCURRENCE) {
-          COUVERTURES_FILE.push({row, doc});
-          traiterFileCouvertures();
-        }
+    }
+    // Lance aussi immédiatement les premières lignes visibles : IntersectionObserver
+    // peut attendre un cycle de rendu, alors qu'une liste déjà affichée peut
+    // commencer son rendu dès maintenant.
+    try {
+      const r=row.getBoundingClientRect();
+      if (r.top < window.innerHeight + 900 && r.bottom > -200) {
+        if (COUVERTURES_OBSERVER) COUVERTURES_OBSERVER.unobserve(row);
+        if (!COUVERTURES_FILE.some(x=>x.row===row)) COUVERTURES_FILE.push({row,doc});
+        traiterFileCouvertures();
       }
-    });
+    } catch(e) {}
   }
 
 
@@ -7070,6 +7077,9 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   let COUVERTURES_PREMIERE_PAGE_ACTIVES = true;
 
   function rendreListeDocuments(content, data, afficherCouverturesRomans = false) {
+    // Prépare PDF.js en parallèle de la construction de la liste : le rendu
+    // de la première page peut ainsi démarrer dès que les lignes sont visibles.
+    if (afficherCouverturesRomans && typeof chargerPdfJs === 'function') chargerPdfJs().catch(() => {});
     documentsCourants = Array.isArray(data) ? data : [];
     if (documentsCourants.length === 0) {
       content.innerHTML = `<div class="doc-empty friendly-empty"><div class="icon-wrap">${ICONS.folder}</div><h3>Aucun document disponible pour le moment.</h3><p>Cette rubrique sera enrichie progressivement.</p></div>`;
@@ -10749,14 +10759,45 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     return (doc && doc.Titre) ? doc.Titre : 'document';
   }
 
-  function mettreAJourProgressionLecteurPDF(pct, etape) {
+  let PDF_PROGRESS_DEBUT=0;
+  let PDF_PROGRESS_CHARGE_PRECEDENTE=0;
+  let PDF_PROGRESS_TEMPS_PRECEDENT=0;
+  function reinitialiserProgressionLecteurPDF(){
+    PDF_PROGRESS_DEBUT=Date.now();
+    PDF_PROGRESS_CHARGE_PRECEDENTE=0;
+    PDF_PROGRESS_TEMPS_PRECEDENT=PDF_PROGRESS_DEBUT;
+    const bar=document.getElementById('pdfViewerProgressBar');
+    const percent=document.getElementById('pdfViewerProgressPercent');
+    const stage=document.getElementById('pdfViewerProgressStage');
+    const speed=document.getElementById('pdfViewerProgressSpeed');
+    if(bar) bar.style.width='0%';
+    if(percent) percent.textContent='0%';
+    if(stage) stage.textContent='Préparation';
+    if(speed) speed.textContent='Préparation…';
+  }
+  function mettreAJourProgressionLecteurPDF(pct, etape, info={}) {
     const p=Math.max(0,Math.min(100,Number(pct)||0));
     const bar=document.getElementById('pdfViewerProgressBar');
     const percent=document.getElementById('pdfViewerProgressPercent');
     const stage=document.getElementById('pdfViewerProgressStage');
+    const speed=document.getElementById('pdfViewerProgressSpeed');
     if(bar) bar.style.width=p+'%';
     if(percent) percent.textContent=Math.round(p)+'%';
     if(stage && etape) stage.textContent=etape;
+    if(speed){
+      if(info.speedText) speed.textContent=info.speedText;
+      else if(info.loaded!=null && info.total!=null){
+        const now=Date.now();
+        const dt=Math.max(.001,(now-(PDF_PROGRESS_TEMPS_PRECEDENT||now))/1000);
+        const delta=Math.max(0,Number(info.loaded)-PDF_PROGRESS_CHARGE_PRECEDENTE);
+        if(delta>0 && dt>=.08){
+          const debit=delta/dt;
+          speed.textContent=debit>=1048576 ? (debit/1048576).toFixed(1)+' Mo/s' : Math.max(1,Math.round(debit/1024))+' Ko/s';
+          PDF_PROGRESS_CHARGE_PRECEDENTE=Number(info.loaded);
+          PDF_PROGRESS_TEMPS_PRECEDENT=now;
+        }
+      }
+    }
   }
 
   const PDF_RECENTS_KEY='aurore_pdf_recents_v1';
@@ -10833,6 +10874,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     // Réinitialisation de l'affichage : écran de chargement visible, erreur et
     // canvas masqués, pagination remise à "— / —".
     afficherEtatChargement();
+    reinitialiserProgressionLecteurPDF();
     mettreAJourProgressionLecteurPDF(0, 'Préparation du document');
     document.getElementById('pdfViewerPage').textContent = '— / —';
     document.getElementById('pdfViewerOverlay').style.display = 'block';
@@ -10891,7 +10933,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       if (octetsEnCache) {
         PDF_CACHE_OCTETS.delete(cacheCle); PDF_CACHE_OCTETS.set(cacheCle,octetsEnCache);
         PDF_OCTETS_COURANTS = octetsEnCache;
-        mettreAJourProgressionLecteurPDF(70,'Document déjà chargé · ouverture rapide');
+        mettreAJourProgressionLecteurPDF(70,'Document déjà chargé · ouverture rapide',{speedText:'Cache local · ouverture immédiate'});
         document.getElementById('pdfViewerStatut').textContent='Ouverture instantanée…';
         pdf = await pdfjsLib.getDocument({data: octetsEnCache.slice(0)}).promise;
       } else {
@@ -10913,14 +10955,15 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
                 if (jeton !== PDF_JETON_OUVERTURE) return;
                 const loaded=Number(p?.loaded||0), total=Number(p?.total||0);
                 if(total>0){
-                  mettreAJourProgressionLecteurPDF(Math.min(80,Math.max(8,loaded/total*80)),'Chargement par morceaux');
+                  mettreAJourProgressionLecteurPDF(Math.min(80,Math.max(8,loaded/total*80)),'Chargement par morceaux',{loaded,total});
                   document.getElementById('pdfViewerStatut').textContent=`Chargement du document… ${Math.round(loaded/total*100)}%`;
                 }else{
-                  mettreAJourProgressionLecteurPDF(20,'Chargement par morceaux');
+                  mettreAJourProgressionLecteurPDF(20,'Chargement par morceaux',{speedText:'Réception des données…'});
                 }
               }
             });
             pdf = await task.promise;
+            mettreAJourProgressionLecteurPDF(82,'Document reçu · préparation des pages',{speedText:'Document reçu · préparation…'});
             diagLog('→ Source optimisée acceptée. PDF.js peut demander les morceaux nécessaires.');
             break;
           } catch(e) {
@@ -10945,7 +10988,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       mettreAJourProgressionLecteurPDF(94,'Rendu de la première page');
       document.getElementById('pdfViewerStatut').textContent='Préparation de la première page…';
       await rendrePagePDF(1);
-      mettreAJourProgressionLecteurPDF(100,'Document prêt');
+      mettreAJourProgressionLecteurPDF(100,'Document prêt',{speedText:'Prêt à lire'});
       diagLog('→ Page 1 rendue avec succès.');
     } catch (err) {
       if (jeton !== PDF_JETON_OUVERTURE) return;
@@ -11033,7 +11076,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     native.style.display='block';
     native.src=url;
     const statut=document.getElementById('pdfViewerStatut'); if(statut)statut.textContent='';
-    mettreAJourProgressionLecteurPDF(100,'Document prêt');
+    mettreAJourProgressionLecteurPDF(100,'Document prêt',{speedText:'Prêt à lire'});
     return true;
   }
 
@@ -11449,6 +11492,7 @@ async function telechargerDocumentAvecProgression(doc) {
 
       // Priorité absolue à la première page : le document devient lisible dès
       // que cette page est prête, sans attendre le rendu du reste.
+      mettreAJourProgressionLecteurPDF(88,'Rendu de la première page',{speedText:'Préparation de l’affichage…'});
       await rendreUnePagePDF(1,true);
       document.getElementById('pdfViewerLoading').style.display='none';
       document.getElementById('pdfViewerErreurBox').style.display='none';
@@ -11678,20 +11722,30 @@ async function telechargerDocumentAvecProgression(doc) {
     const zone=document.getElementById('pdfViewerZone');
     if(!pages || !zone) return;
 
-    // Changement visuel immédiat : tout le document est agrandi/réduit d'un
-    // seul bloc, sans déformer les lettres. Le rendu PDF haute définition des
-    // pages visibles suit juste après, de façon progressive.
-    const ratio=PDF_ZOOM/ancien;
-    const scrollCentreX=zone.scrollLeft + zone.clientWidth/2;
-    const scrollCentreY=zone.scrollTop + zone.clientHeight/2;
-    pages.style.transform='scale('+PDF_ZOOM+')';
-    pages.style.transformOrigin='top center';
-    pages.style.marginBottom=(Math.max(0,PDF_ZOOM-1)*100)+'px';
-    pages.style.width='calc(100% / '+PDF_ZOOM+')';
+    // Le zoom du lecteur est maintenant un zoom de mise en page, pas une
+    // transformation CSS flottante. Cela évite le décalage du document sous
+    // les doigts sur Android : la zone de défilement connaît réellement la
+    // nouvelle taille du document. On conserve en plus la position relative
+    // de lecture pour que la page courante reste sous les yeux.
+    const ancienScrollTop=zone.scrollTop;
+    const ancienScrollLeft=zone.scrollLeft;
+    const ancienHauteur=Math.max(1,zone.scrollHeight-zone.clientHeight);
+    const ancienLargeur=Math.max(1,zone.scrollWidth-zone.clientWidth);
+
+    pages.style.transform='none';
+    pages.style.transformOrigin='initial';
+    pages.style.width='100%';
+    pages.style.zoom=String(PDF_ZOOM);
+    pages.style.marginBottom='0';
 
     requestAnimationFrame(async()=>{
-      // Les pages déjà visibles sont rerendues à la vraie résolution sans
-      // attendre tout le document. Les autres seront traitées à leur entrée.
+      const nouvelleHauteur=Math.max(0,zone.scrollHeight-zone.clientHeight);
+      const nouvelleLargeur=Math.max(0,zone.scrollWidth-zone.clientWidth);
+      zone.scrollTop=Math.max(0,Math.min(nouvelleHauteur, ancienHauteur ? ancienScrollTop/ancienHauteur*nouvelleHauteur : 0));
+      zone.scrollLeft=Math.max(0,Math.min(nouvelleLargeur, ancienLargeur ? ancienScrollLeft/ancienLargeur*nouvelleLargeur : 0));
+
+      // Les pages visibles sont rerendues à la résolution correspondant au
+      // nouveau zoom, sans attendre tout le document.
       const visibles=[...document.querySelectorAll('#pdfViewerPages .pdf-reader-page')].filter(el=>{
         const r=el.getBoundingClientRect(), z=zone.getBoundingClientRect();
         return r.bottom>z.top-700 && r.top<z.bottom+700;
@@ -11703,35 +11757,28 @@ async function telechargerDocumentAvecProgression(doc) {
       }
       installerRenduProgressifPDF();
     });
-
-    // Recentrage doux sur la page actuellement lue.
-    requestAnimationFrame(()=>{
-      const facteur=ratio;
-      zone.scrollLeft=Math.max(0,(scrollCentreX-zone.clientWidth/2)*facteur + zone.clientWidth/2);
-      zone.scrollTop=Math.max(0,(scrollCentreY-zone.clientHeight/2)*facteur + zone.clientHeight/2);
-    });
   }
 
   document.getElementById('pdfViewerZoomIn').addEventListener('click', () => appliquerZoom(PDF_ZOOM_PAS));
   document.getElementById('pdfViewerZoomOut').addEventListener('click', () => appliquerZoom(-PDF_ZOOM_PAS));
   document.getElementById('pdfViewerAjuster').addEventListener('click', () => appliquerZoom(1,true));
 
-  // Pinçage à deux doigts sur Android/iOS : le geste agit sur l'ensemble du
-  // document. Pendant le geste, une prévisualisation légère évite les saccades ;
-  // à la fin, PDF.js rerend toutes les pages avec la nouvelle résolution.
-  let pdfPinchActif=false, pdfPinchDistanceInitiale=0, pdfPinchZoomInitial=1;
+  // Pinçage à deux doigts : zoom simple et stable.
+  // Aucun transform visuel pendant le geste : cela empêche le document de
+  // glisser sous les doigts. Le zoom est appliqué une seule fois à la fin.
+  let pdfPinchActif=false, pdfPinchDistanceInitiale=0, pdfPinchZoomInitial=1, pdfPinchDerniereDistance=0;
   const pdfZoneGeste=document.getElementById('pdfViewerZone');
   if(pdfZoneGeste){
     pdfZoneGeste.addEventListener('touchstart',(e)=>{
       if(e.touches.length!==2) return;
       const dx=e.touches[0].clientX-e.touches[1].clientX;
       const dy=e.touches[0].clientY-e.touches[1].clientY;
-      pdfPinchDistanceInitiale=Math.hypot(dx,dy);
-      if(pdfPinchDistanceInitiale<10) return;
+      const distance=Math.hypot(dx,dy);
+      if(distance<10) return;
       pdfPinchActif=true;
+      pdfPinchDistanceInitiale=distance;
+      pdfPinchDerniereDistance=distance;
       pdfPinchZoomInitial=PDF_ZOOM;
-      const pages=document.getElementById('pdfViewerPages');
-      if(pages) pages.classList.add('pdf-pinch-preview');
     },{passive:true});
 
     pdfZoneGeste.addEventListener('touchmove',(e)=>{
@@ -11740,34 +11787,22 @@ async function telechargerDocumentAvecProgression(doc) {
       const dx=e.touches[0].clientX-e.touches[1].clientX;
       const dy=e.touches[0].clientY-e.touches[1].clientY;
       const distance=Math.hypot(dx,dy);
-      if(distance<10 || pdfPinchDistanceInitiale<10) return;
-      const ratio=distance/pdfPinchDistanceInitiale;
-      const preview=Math.max(PDF_ZOOM_MIN,Math.min(PDF_ZOOM_MAX,pdfPinchZoomInitial*ratio));
-      const pages=document.getElementById('pdfViewerPages');
-      if(pages){
-        pages.style.transform='scale('+preview+')';
-        pages.style.transformOrigin='top center';
-      }
+      if(distance>=10) pdfPinchDerniereDistance=distance;
     },{passive:false});
 
     const terminerPinch=()=>{
       if(!pdfPinchActif) return;
       pdfPinchActif=false;
-      const pages=document.getElementById('pdfViewerPages');
-      let cible=PDF_ZOOM;
-      if(pages){
-        const match=(pages.style.transform||'').match(/scale\(([^)]+)\)/);
-        if(match) cible=parseFloat(match[1])||PDF_ZOOM;
-        pages.style.transform='';
-        pages.classList.remove('pdf-pinch-preview');
-      }
+      let cible=pdfPinchZoomInitial*(pdfPinchDerniereDistance/Math.max(1,pdfPinchDistanceInitiale));
+      cible=Math.max(PDF_ZOOM_MIN,Math.min(PDF_ZOOM_MAX,cible));
+      // Pas de micro-variations : le lecteur avance par paliers de 5 %,
+      // comme les boutons de zoom, pour un résultat prévisible sur mobile.
       cible=Math.round(cible*20)/20;
       appliquerZoom(cible,true);
     };
     pdfZoneGeste.addEventListener('touchend',terminerPinch,{passive:true});
     pdfZoneGeste.addEventListener('touchcancel',terminerPinch,{passive:true});
   }
-
   // -- Navigation clavier (bonnes pratiques ; pas un audit RGAA/WCAG complet) --
   document.getElementById('pdfViewerOverlay').addEventListener('keydown', (e) => {
     if (document.getElementById('pdfViewerOverlay').style.display === 'none') return;
@@ -14869,6 +14904,9 @@ html[data-theme="light"] #pdfViewerOverlay .pdf-load-progress-head{
   color:#625B6F !important;
 }
 html[data-theme="light"] #pdfViewerOverlay .pdf-load-progress-head strong,
+html[data-theme="light"] #pdfViewerOverlay #pdfViewerProgressSpeed{
+  color:#6B6478 !important;
+}
 html[data-theme="light"] #pdfViewerOverlay #pdfViewerProgressPercent{
   color:#5B21B6 !important;
   -webkit-text-fill-color:#5B21B6 !important;
