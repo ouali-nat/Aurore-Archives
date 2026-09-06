@@ -2874,6 +2874,23 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         </div>
 
         <div class="admin-tab-panel" data-panel="publies">
+          <section class="admin-pending-overview" aria-label="Vue d'ensemble des documents publiés">
+            <div class="admin-pending-overview-head">
+              <div>
+                <span class="admin-overview-kicker">En ligne</span>
+                <h3>Vue d’ensemble des documents publiés</h3>
+                <p>Le même aperçu rapide que pour les dépôts en attente, appliqué aux documents déjà publiés.</p>
+              </div>
+              <button type="button" class="admin-btn ghost admin-pending-refresh" id="adminRefreshPublies">↻ Actualiser</button>
+            </div>
+            <div class="admin-pending-stats" id="adminPubliesStats">
+              <div class="admin-pending-stat"><strong id="adminPubliesTotal">0</strong><span>Publiés</span></div>
+              <div class="admin-pending-stat"><strong id="adminPubliesCategories">0</strong><span>Catégories différentes</span></div>
+              <div class="admin-pending-stat"><strong id="adminPubliesDernier">—</strong><span>Dernier publié</span></div>
+              <div class="admin-pending-stat"><strong id="adminPubliesAuteurs">0</strong><span>Déposants</span></div>
+            </div>
+            <div class="admin-pending-breakdown" id="adminPubliesBreakdown"></div>
+          </section>
           <p class="admin-panel-desc">Retire un document publié si besoin (erreur, doublon, contenu à corriger).</p>
           <div class="admin-published-actions" id="adminPublishedActions"><button type="button" class="admin-btn ghost admin-danger-soft" id="adminSuspendreTout">⏸ Suspendre tous</button><button type="button" class="admin-btn primary" id="adminRepublierTout" style="display:none;">↻ Republier tous</button><span id="adminGlobalPublishHint">Retire temporairement tous les documents du site public sans les supprimer.</span></div>
           <div class="admin-data-toolbar" id="adminToolbarPublies">
@@ -9539,6 +9556,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   }
 
   document.getElementById('adminRefreshAttente')?.addEventListener('click', () => chargerDepotsEnAttente());
+  document.getElementById('adminRefreshPublies')?.addEventListener('click', () => chargerDocumentsPublies());
 
   async function validerDepot(id, card, titreDocument, deposant) {
     try {
@@ -9618,6 +9636,45 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     }
   }
 
+  // Même système de hiérarchisation/organisation que pour les dépôts en
+  // attente (actualiserResumeDepotsAttente), appliqué aux documents publiés :
+  // total, catégories distinctes, dernier document, déposants, et chips de
+  // répartition par catégorie cliquables pour filtrer la liste.
+  function actualiserResumeDocumentsPublies(data) {
+    const docs = Array.isArray(data) ? data : [];
+    const total = docs.length;
+    const categories = new Set(docs.map(d => String(d?.['Catégorie'] || d?.Genre || '').trim()).filter(Boolean));
+    const auteurs = new Set(docs.map(d => String(d?.Auteur || '').trim().toLocaleLowerCase('fr')).filter(Boolean));
+    const dernier = docs[0] || null;
+    const totalEl=document.getElementById('adminPubliesTotal');
+    const catEl=document.getElementById('adminPubliesCategories');
+    const dernierEl=document.getElementById('adminPubliesDernier');
+    const auteursEl=document.getElementById('adminPubliesAuteurs');
+    if(totalEl) totalEl.textContent=String(total);
+    if(catEl) catEl.textContent=String(categories.size);
+    if(dernierEl) dernierEl.textContent=dernier ? String(dernier.Titre || 'Sans titre').slice(0,28) : '—';
+    if(auteursEl) auteursEl.textContent=String(auteurs.size);
+    const breakdown=document.getElementById('adminPubliesBreakdown');
+    if(!breakdown) return;
+    const compte=new Map();
+    docs.forEach(d=>{const c=String(d?.['Catégorie'] || d?.Genre || 'Non classé').trim() || 'Non classé';compte.set(c,(compte.get(c)||0)+1);});
+    breakdown.innerHTML='';
+    [...compte.entries()].sort((a,b)=>b[1]-a[1]||normaliserAdminTexte(a[0]).localeCompare(normaliserAdminTexte(b[0]),'fr')).slice(0,8).forEach(([cat,n])=>{
+      const b=document.createElement('button'); b.type='button'; b.className='admin-pending-breakdown-chip'; b.innerHTML=`<span>${echapperHtmlPub(cat)}</span><b>${n}</b>`;
+      b.title='Afficher uniquement cette catégorie';
+      b.addEventListener('click',()=>{
+        const select=document.getElementById('adminFilterNiveauPublies');
+        const mat=document.getElementById('adminFilterMatierePublies');
+        const catSelect=document.getElementById('adminFilterCategoriePublies');
+        if(select) select.value=''; if(mat) mat.value=''; if(catSelect) catSelect.value=cat;
+        const state=adminCollectionStates.publies || (adminCollectionStates.publies={page:1,query:'',sort:'recent',filters:{}});
+        state.filters.categorie=cat; state.page=1;
+        appliquerCollectionAdmin('publies',ADMIN_COLLECTION_CONFIG.publies);
+      });
+      breakdown.appendChild(b);
+    });
+  }
+
   async function chargerDocumentsPublies() {
     const list = document.getElementById('adminListPublies');
     list.innerHTML = '<p class="admin-empty">Chargement…</p>';
@@ -9626,6 +9683,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       if (!res.ok) throw new Error("Statut HTTP " + res.status);
       const data = await res.json();
       majCompteurOnglet('tabCountPublies', data ? data.length : 0);
+      actualiserResumeDocumentsPublies(data);
 
       if (!data || data.length === 0) {
         list.innerHTML = '<p class="admin-empty">Aucun document publié pour l\'instant.</p>';
@@ -9645,9 +9703,11 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         card.dataset.adminLevel = String(doc.Niveau || '');
         card.dataset.adminClass = String(doc.Classe || '');
         card.dataset.adminSubject = String(doc['Matière'] || doc.Genre || '');
-        card.dataset.adminCategory = String(doc['Catégorie'] || '');
         card.dataset.adminAuthor = String(doc.Auteur || deposant && deposant.nom || '');
         card.dataset.adminSearch = [doc.Titre, doc.Niveau, doc.Classe, doc['Catégorie'], doc['Matière'], doc.Genre, doc.Auteur, deposant && deposant.nom, deposant && deposant.email].filter(v => v != null && String(v).trim()).join(' ');
+        // Même repli « Non classé » que pour les dépôts en attente, afin que
+        // les chips de répartition par catégorie filtrent correctement ici aussi.
+        card.dataset.adminCategory = String(doc['Catégorie'] || doc.Genre || 'Non classé').trim() || 'Non classé';
         card.dataset.adminSortValue = String(doc.id ?? '0');
         card.style.animationDelay = (i * 0.04) + 's';
         const telechargementOk = doc.Telechargement_autorise !== false;
