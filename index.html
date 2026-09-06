@@ -912,12 +912,12 @@ footer{background:#07060B;color:#9189A5;}
 }
 /* Bloc d’annulation de l’envoi : intégré à la carte de progression. */
 .depot-progress-actions{display:flex;justify-content:flex-end;align-items:center;margin-top:11px;}
-.depot-progress-cancel{appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:7px 12px;border:1px solid rgba(124,58,237,.22);border-radius:10px;background:rgba(255,255,255,.55);color:var(--encre);font:inherit;font-size:.74rem;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(55,36,82,.06);transition:transform .16s ease,background .16s ease,border-color .16s ease,opacity .16s ease;}
-.depot-progress-cancel span{font-size:1rem;line-height:1;}
-.depot-progress-cancel:hover{background:rgba(124,58,237,.09);border-color:rgba(124,58,237,.35);transform:translateY(-1px);}
+.depot-progress-cancel{appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:34px;padding:7px 12px;border:1px solid color-mix(in srgb,var(--theme-primary,var(--violet,#7c3aed)) 32%,var(--bordure));border-radius:10px;background:color-mix(in srgb,var(--theme-primary,var(--violet,#7c3aed)) 7%,var(--papier));color:var(--theme-primary,var(--violet,#7c3aed));font:inherit;font-size:.74rem;font-weight:800;cursor:pointer;box-shadow:0 4px 12px var(--theme-shadow,rgba(55,36,82,.06));transition:transform .16s ease,background .16s ease,border-color .16s ease,opacity .16s ease;}
+.depot-progress-cancel span{font-size:1rem;line-height:1;font-weight:900;}
+.depot-progress-cancel:hover{background:color-mix(in srgb,var(--theme-primary,var(--violet,#7c3aed)) 13%,var(--papier));border-color:color-mix(in srgb,var(--theme-primary,var(--violet,#7c3aed)) 55%,var(--bordure));transform:translateY(-1px);}
 .depot-progress-cancel:active{transform:translateY(0);}
 .depot-progress-cancel:disabled{cursor:wait;opacity:.65;transform:none;}
-[data-theme="light"] .depot-progress-cancel{background:rgba(255,255,255,.78);border-color:#D4C7E0;}
+[data-theme="light"] .depot-progress-cancel{background:color-mix(in srgb,var(--theme-primary,var(--violet,#7c3aed)) 6%,#fff);border-color:color-mix(in srgb,var(--theme-primary,var(--violet,#7c3aed)) 35%,#DDD6E8);color:var(--theme-strong,var(--theme-primary,var(--violet,#6d28d9)));}
 @media(max-width:560px){.depot-progress-actions{margin-top:10px;}.depot-progress-cancel{width:100%;min-height:36px;}}
 
 @media(max-width:760px){
@@ -2637,7 +2637,10 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         <div class="depot-progress" id="depotProgress" aria-live="polite" aria-hidden="true">
           <div class="depot-progress-head">
             <span id="depotProgressLabel">Envoi du document…</span>
-            <span class="depot-progress-percent" id="depotProgressPercent">0 %</span>
+            <span class="depot-progress-meta">
+              <span class="depot-progress-speed" id="depotProgressSpeed">Préparation…</span>
+              <span class="depot-progress-percent" id="depotProgressPercent">0 %</span>
+            </span>
           </div>
           <div class="depot-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Progression de l'envoi">
             <div class="depot-progress-bar" id="depotProgressBar"></div>
@@ -3716,7 +3719,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   const SUPABASE_URL = "https://tdeotqfsbvouresfhkab.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZW90cWZzYnZvdXJlc2Zoa2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjM4NzMsImV4cCI6MjEwMDUzOTg3M30.l_a1lI_QRy7BTq1fGjiA9n7LCdu7BwR2TTI5pkA70SU";
   const HEADERS = { "apikey": SUPABASE_ANON_KEY, "Authorization": "Bearer " + SUPABASE_ANON_KEY };
-  // AURORE_BUILD_2026_09_05_A
+  // AURORE_BUILD_2026_09_06_UPLOAD_FLUIDE
 
   // Nom actuel du site, utilisé dans les messages générés dynamiquement
   // (notifications, confirmations, textes de présentation) pour n'avoir
@@ -7251,85 +7254,74 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     }
   }
 
-  function creerUploadR2AvecProgress(url, fichier, setProgress, setEtatConnexion, setAbort) {
+  function creerUploadR2AvecProgress(url, fichier, setProgress, setEtatConnexion, setAbort, setSpeed) {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
-      // Permet au bouton d'annulation de stopper immédiatement le PUT en cours.
       if (typeof setAbort === 'function') setAbort(() => xhr.abort());
       xhr.open('PUT', url, true);
       xhr.setRequestHeader('Content-Type', 'application/pdf');
 
-      // Filet de sécurité : sans timeout, une connexion qui se bloque (Worker
-      // qui ne répond plus, réseau mobile qui coupe) laissait l'utilisateur
-      // indéfiniment sur "Envoi en cours…" sans aucun message. On calcule un
-      // délai large mais fini, proportionnel à la taille du fichier, en
-      // supposant un débit minimal tolérable d'environ 32 Ko/s (réseau mobile
-      // faible) : au-delà, on considère que la connexion est bloquée.
       const DEBIT_MIN_OCTETS_PAR_SEC = 32 * 1024;
-      const TIMEOUT_PLANCHER_MS = 60000; // jamais moins d'1 minute, même pour un petit fichier
-      xhr.timeout = Math.max(
-        TIMEOUT_PLANCHER_MS,
-        Math.ceil((fichier.size / DEBIT_MIN_OCTETS_PAR_SEC) * 1000) + 30000
-      );
+      const TIMEOUT_PLANCHER_MS = 60000;
+      xhr.timeout = Math.max(TIMEOUT_PLANCHER_MS, Math.ceil((fichier.size / DEBIT_MIN_OCTETS_PAR_SEC) * 1000) + 30000);
 
-      // ---- Progression hybride, pensée pour les mobiles ----
-      // Certains navigateurs Android ne déclenchent le premier progress
-      // qu'après plusieurs secondes. Une estimation trop lente donnait donc
-      // l'impression que le dépôt était bloqué. On affiche rapidement une
-      // progression de confort jusqu'à 18 %, puis on laisse la progression
-      // réseau réelle prendre le relais dès qu'elle devient disponible.
-      // IMPORTANT : cette animation ne modifie jamais la vitesse du transfert
-      // et ne prétend jamais avoir terminé avant la réponse du serveur.
+      // Ne fabrique plus un faux 17–28 % : cette ancienne estimation pouvait
+      // dépasser la progression réelle et donner l'impression que l'envoi
+      // était bloqué. La barre affiche désormais uniquement le transfert réel.
+      // Pendant la négociation, on anime seulement la piste sans inventer un %.
       const debutEnvoi = Date.now();
-      let percentAffiche = 0;
+      let dernierTemps = debutEnvoi;
+      let dernierCharge = 0;
       let reelDemarre = false;
 
-      // Objectif de l'estimation : atteindre 18 % en ~1,8 s, puis avancer
-      // très doucement jusqu'à 28 % au maximum pendant la négociation réseau.
-      const ESTIMATION_DEBUT_MS = 1800;
-      const ESTIMATION_MAX = 28;
-
-      function pousserPercent(valeur) {
-        const v = Math.max(0, Math.min(99, Math.round(valeur)));
-        if (v > percentAffiche) {
-          percentAffiche = v;
-          setProgress(percentAffiche);
-        }
-      }
-
-      const minuteurEstimation = setInterval(() => {
-        if (reelDemarre) return;
-        const t = Date.now() - debutEnvoi;
-        if (t > 250 && setEtatConnexion) setEtatConnexion('envoi');
-        const ratio = Math.min(1, t / ESTIMATION_DEBUT_MS);
-        const estime = Math.min(ESTIMATION_MAX, 18 * (1 - Math.exp(-3 * ratio)));
-        pousserPercent(estime);
-      }, 100);
+      if (typeof setSpeed === 'function') setSpeed('Connexion…');
+      const minuteurEtat = setInterval(() => {
+        if (!reelDemarre && setEtatConnexion) setEtatConnexion('connexion');
+      }, 800);
 
       xhr.upload.addEventListener('progress', event => {
         if (!event.lengthComputable) {
           if (setEtatConnexion) setEtatConnexion('indetermine');
+          if (typeof setSpeed === 'function') setSpeed('Débit en cours…');
           return;
         }
         reelDemarre = true;
         if (setEtatConnexion) setEtatConnexion('envoi');
-        // La progression réelle est prioritaire et ne recule jamais par
-        // rapport à l'estimation déjà affichée.
-        pousserPercent((event.loaded / event.total) * 100);
+        const pct = Math.min(99, (event.loaded / event.total) * 100);
+        // Progression strictement réelle : aucune valeur artificielle ne peut
+        // bloquer la barre au-dessus de ce que le téléphone a réellement envoyé.
+        setProgress(pct);
+
+        const maintenant = Date.now();
+        const dt = (maintenant - dernierTemps) / 1000;
+        if (dt >= 0.25 && typeof setSpeed === 'function') {
+          const debit = Math.max(0, (event.loaded - dernierCharge) / dt);
+          if (debit > 0) {
+            const mb = debit / (1024 * 1024);
+            setSpeed(mb >= 1 ? mb.toFixed(1) + ' Mo/s' : Math.round(debit / 1024) + ' Ko/s');
+          }
+          dernierTemps = maintenant;
+          dernierCharge = event.loaded;
+        }
       });
       xhr.onload = () => {
-        clearInterval(minuteurEstimation);
+        clearInterval(minuteurEtat);
         if (xhr.status >= 200 && xhr.status < 300) {
           setProgress(100);
+          if (typeof setSpeed === 'function') {
+            const duree = Math.max(.001, (Date.now() - debutEnvoi) / 1000);
+            const mb = (fichier.size / duree) / (1024 * 1024);
+            setSpeed(mb >= 1 ? mb.toFixed(1) + ' Mo/s moyen' : Math.round((fichier.size / duree) / 1024) + ' Ko/s moyen');
+          }
           resolve({ ok: true, status: xhr.status, text: xhr.responseText || '' });
         } else {
           resolve({ ok: false, status: xhr.status, text: xhr.responseText || '' });
         }
       };
-      xhr.onerror = () => { clearInterval(minuteurEstimation); reject(new Error('Erreur réseau pendant l’envoi du fichier.')); };
-      xhr.onabort = () => { clearInterval(minuteurEstimation); reject(new Error('Envoi interrompu.')); };
-      xhr.ontimeout = () => { clearInterval(minuteurEstimation); reject(new Error('L’envoi a été interrompu car la connexion est restée bloquée trop longtemps. Vérifiez votre connexion internet puis réessayez.')); };
-      try { xhr.send(fichier); } catch (e) { clearInterval(minuteurEstimation); reject(e); }
+      xhr.onerror = () => { clearInterval(minuteurEtat); reject(new Error('Erreur réseau pendant l’envoi du fichier.')); };
+      xhr.onabort = () => { clearInterval(minuteurEtat); reject(new Error('Envoi interrompu.')); };
+      xhr.ontimeout = () => { clearInterval(minuteurEtat); reject(new Error('L’envoi a été interrompu car la connexion est restée bloquée trop longtemps. Vérifiez votre connexion internet puis réessayez.')); };
+      try { xhr.send(fichier); } catch (e) { clearInterval(minuteurEtat); reject(e); }
     });
   }
 
@@ -7342,6 +7334,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     const progressBox = document.getElementById('depotProgress');
     const progressBar = document.getElementById('depotProgressBar');
     const progressPercent = document.getElementById('depotProgressPercent');
+    const progressSpeed = document.getElementById('depotProgressSpeed');
     const progressTrack = progressBox ? progressBox.querySelector('[role=progressbar]') : null;
     const progressCancel = document.getElementById('depotProgressCancel');
     let annulationDemandee = false;
@@ -7410,6 +7403,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       progressBar.style.width = '0%';
       progressPercent.textContent = '0 %';
       if (progressTrack) progressTrack.setAttribute('aria-valuenow', '0');
+      if (progressSpeed) progressSpeed.textContent = 'Préparation…';
       if (progressLabel) progressLabel.textContent = 'Envoi du document…';
       afficherBoutonAnnulation(false);
       if (progressCancel) progressCancel.innerHTML = '<span aria-hidden="true">×</span> Annuler l’envoi';
@@ -7501,7 +7495,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
 
     let uploadRes;
     try {
-      uploadRes = await creerUploadR2AvecProgress(`${R2_WORKER_URL}/${nomFichier}`, fichier, afficherProgression, afficherEtatConnexion, fn => { abortUpload = fn; });
+      uploadRes = await creerUploadR2AvecProgress(`${R2_WORKER_URL}/${nomFichier}`, fichier, afficherProgression, afficherEtatConnexion, fn => { abortUpload = fn; }, vitesse => { if (progressSpeed) progressSpeed.textContent = vitesse; });
     } catch (netErr) {
       if (annulationDemandee) {
         masquerProgression();
@@ -12100,6 +12094,8 @@ footer>.wrap:last-child{margin-top:18px!important;}
   letter-spacing:.01em;
 }
 .depot-progress-label{color:var(--encre)!important;font-weight:700!important;}
+.depot-progress-meta{display:inline-flex;align-items:center;justify-content:flex-end;gap:9px;min-width:0;}
+.depot-progress-speed{font-size:.68rem;color:var(--gris);font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums;}
 .depot-progress-percent{
   min-width:48px;
   text-align:right;
