@@ -2551,6 +2551,21 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     </button>
 
     <div class="ad-slot ad-slot-alt" id="ad-home-2"></div>
+
+    <!-- ===== ACCÈS À L’ESPACE PERSONNEL — FIN DE L’ACCUEIL ===== -->
+    <section class="aurora-personal-end" aria-labelledby="auroraPersonalEndTitle">
+      <div class="aurora-personal-end-inner">
+        <div class="aurora-personal-end-icon" aria-hidden="true">⌂</div>
+        <div class="aurora-personal-end-copy">
+          <span class="aurora-personal-end-kicker">Votre espace</span>
+          <h2 id="auroraPersonalEndTitle">Retrouvez votre espace personnel</h2>
+          <p>Accédez à vos documents, favoris, téléchargements et informations personnelles depuis votre espace Aurore.</p>
+        </div>
+        <button type="button" class="aurora-personal-end-btn" id="auroraPersonalEndBtn" aria-label="Accéder à mon espace personnel">
+          Accéder à mon espace <span aria-hidden="true">→</span>
+        </button>
+      </div>
+    </section>
   </section>
 
   <!-- ===== LIVRES : choix du genre ===== -->
@@ -3262,24 +3277,6 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   </section>
 
 </main>
-
-<!-- ===== ACCÈS À L'ESPACE PERSONNEL — DERNIER BLOC AVANT LE PIED DE PAGE ===== -->
-<section class="personal-end-cta" id="personalEndCta" aria-label="Accéder à votre espace personnel">
-  <div class="personal-end-cta-glow" aria-hidden="true"></div>
-  <div class="personal-end-cta-content">
-    <div class="personal-end-cta-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/><path d="M17 8h4M19 6v4"/></svg>
-    </div>
-    <div class="personal-end-cta-copy">
-      <span class="personal-end-cta-kicker">Votre espace</span>
-      <h2>Retrouvez votre espace personnel</h2>
-      <p>Accédez à vos documents, favoris, téléchargements et à vos cases personnelles depuis un seul endroit.</p>
-    </div>
-    <button type="button" class="personal-end-cta-button" id="personalEndCtaBtn">
-      <span>Accéder à mon espace</span><b aria-hidden="true">→</b>
-    </button>
-  </div>
-</section>
 
 <footer>
   <div class="wrap">
@@ -10418,11 +10415,11 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       <div class="ad-slot-label">Publicité</div>
       <div class="ad-slot-card">
         <img class="ad-slot-img" src="${echapperHtmlPub(ad.image_url)}" alt="${echapperHtmlPub(titre||'Publicité')}" loading="eager" decoding="async" fetchpriority="high">
-        <div class="ad-slot-body">
-          ${titre ? `<div class="ad-slot-title">${echapperHtmlPub(titre)}</div>` : ''}
-          ${ad.description ? `<div class="ad-slot-desc">${echapperHtmlPub(ad.description)}</div>` : ''}
-          ${cta}
-        </div>
+      </div>
+      <div class="ad-slot-body">
+        ${titre ? `<div class="ad-slot-title">${echapperHtmlPub(titre)}</div>` : ''}
+        ${ad.description ? `<div class="ad-slot-desc">${echapperHtmlPub(ad.description)}</div>` : ''}
+        ${cta}
       </div>`;
     // Un emplacement rempli doit être visible, même si un ancien état HTML/CSS
     // (display:none ou hidden) subsiste. On ne modifie jamais la donnée de publicité.
@@ -15509,51 +15506,194 @@ html[data-color-theme="rouge"] .ad-slot-card,html[data-color-theme="rouge"] .hom
 @media(max-width:640px){html[data-color-theme] .ad-slot-card{height:230px!important;min-height:230px!important;border-radius:20px!important;}html[data-color-theme] .ad-slot-body{padding:18px 17px 16px!important;}}
 </style>
 
-<style id="aurore-final-personal-end-cta">
-.personal-end-cta{
-  position:relative;isolation:isolate;overflow:hidden;
-  margin:38px 0 0;padding:1px;border:1px solid var(--bordure);
-  border-radius:26px;background:var(--papier);color:var(--encre);
-  box-shadow:var(--ombre);
+<style id="aurore-final-request-fix">
+/* ==========================================================
+   Correction finale : publicités / espace personnel / vidéo
+   Ne remplace aucune logique métier existante.
+   ========================================================== */
+
+/* PUBLICITÉS — la carte contient UNIQUEMENT la photo. */
+.ad-slot-card{
+  display:block!important;
+  position:relative!important;
+  width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  overflow:hidden!important;
+  padding:0!important;
+  margin:0!important;
+  border:1px solid var(--theme-border,var(--bordure))!important;
+  border-radius:20px!important;
+  background:var(--theme-card,var(--papier))!important;
+  box-shadow:0 10px 28px var(--theme-shadow,rgba(55,36,82,.10))!important;
+  transform:none!important;
 }
-.personal-end-cta-glow{position:absolute;inset:-80px -20% auto;height:210px;z-index:-1;pointer-events:none;background:radial-gradient(circle,rgba(124,58,237,.14),transparent 65%);}
-.personal-end-cta-content{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:18px;padding:22px 24px;border-radius:25px;background:linear-gradient(135deg,rgba(124,58,237,.07),rgba(255,255,255,.02));}
-.personal-end-cta-icon{width:52px;height:52px;display:grid;place-items:center;flex:0 0 52px;border-radius:16px;color:var(--theme-on-accent,#fff);background:linear-gradient(145deg,var(--theme-strong,var(--violet,#7c3aed)),var(--theme-secondary,var(--bleu,#4f46e5)));box-shadow:0 10px 24px var(--theme-shadow,rgba(124,58,237,.20));}
-.personal-end-cta-icon svg{width:25px;height:25px}
-.personal-end-cta-kicker{display:block;margin-bottom:4px;color:var(--violet);font-size:.64rem;font-weight:850;letter-spacing:.14em;text-transform:uppercase}
-.personal-end-cta-copy h2{margin:0 0 5px;color:var(--encre)!important;font-size:1.08rem;line-height:1.25}
-.personal-end-cta-copy p{margin:0;color:var(--gris)!important;font-size:.76rem;line-height:1.5;max-width:680px}
-.personal-end-cta-button{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:44px;padding:10px 15px;border:1px solid var(--violet);border-radius:13px;background:var(--violet);color:var(--theme-on-accent,#fff)!important;font:inherit;font-size:.74rem;font-weight:850;cursor:pointer;box-shadow:0 8px 20px var(--theme-shadow,rgba(124,58,237,.18));transition:transform .16s ease,box-shadow .16s ease,filter .16s ease}
-.personal-end-cta-button:hover{transform:translateY(-2px);filter:brightness(1.04);box-shadow:0 12px 26px var(--theme-shadow,rgba(124,58,237,.24))}
-.personal-end-cta-button b{font-size:1rem;line-height:1}
-@media(max-width:680px){
- .personal-end-cta{margin-top:30px;border-radius:21px}
- .personal-end-cta-content{grid-template-columns:auto minmax(0,1fr);gap:13px;padding:18px}
- .personal-end-cta-button{grid-column:1/-1;width:100%}
- .personal-end-cta-copy h2{font-size:.98rem}
- .personal-end-cta-copy p{font-size:.72rem}
+.ad-slot-card::before,.ad-slot-card::after{display:none!important;content:none!important;}
+.ad-slot-img{
+  position:relative!important;
+  inset:auto!important;
+  display:block!important;
+  width:100%!important;
+  height:220px!important;
+  min-width:0!important;
+  min-height:0!important;
+  object-fit:cover!important;
+  padding:0!important;
+  margin:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:var(--theme-card,var(--papier))!important;
+  box-shadow:none!important;
 }
-@media(prefers-reduced-motion:reduce){.personal-end-cta-button{transition:none}}
+/* Titre / description : hors de la surface photo, juste en dessous. */
+.ad-slot-body{
+  position:static!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:stretch!important;
+  width:100%!important;
+  min-width:0!important;
+  height:auto!important;
+  max-height:none!important;
+  overflow:visible!important;
+  gap:8px!important;
+  padding:10px 0 0!important;
+  margin:0!important;
+  background:transparent!important;
+}
+.ad-slot-title,.ad-slot-desc{
+  display:block!important;
+  width:100%!important;
+  max-width:none!important;
+  box-sizing:border-box!important;
+  text-shadow:none!important;
+}
+.ad-slot-title{
+  padding:11px 14px!important;
+  border:1px solid var(--theme-border,var(--bordure))!important;
+  border-radius:13px!important;
+  background:var(--theme-card,var(--papier))!important;
+  color:var(--encre)!important;
+  font-weight:750!important;
+  line-height:1.4!important;
+}
+.ad-slot-desc{
+  padding:10px 14px!important;
+  border:1px solid var(--theme-border,var(--bordure))!important;
+  border-radius:13px!important;
+  background:var(--theme-card-soft,var(--papier))!important;
+  color:var(--gris)!important;
+  line-height:1.55!important;
+}
+.ad-slot-cta{
+  align-self:flex-start!important;
+  margin:0!important;
+  padding:8px 12px!important;
+  border:1px solid var(--theme-border,var(--bordure))!important;
+  border-radius:11px!important;
+  background:var(--theme-soft,var(--papier))!important;
+  color:var(--theme-primary,var(--violet))!important;
+  text-shadow:none!important;
+}
+[data-theme="dark"] .ad-slot-title{color:var(--dark-ink,var(--encre))!important;background:var(--dark-surface-2,var(--papier))!important;}
+[data-theme="dark"] .ad-slot-desc{color:var(--dark-muted,var(--gris))!important;background:var(--dark-surface-2,var(--papier))!important;}
+@media(max-width:560px){
+  .ad-slot-img{height:180px!important;}
+  .ad-slot-body{padding-top:8px!important;}
+}
+
+/* ESPACE PERSONNEL — dernière pièce visible de l’accueil, avant le footer. */
+.aurora-personal-end{
+  display:block!important;
+  width:100%!important;
+  margin:28px 0 0!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+}
+.aurora-personal-end-inner{
+  position:relative!important;
+  display:grid!important;
+  grid-template-columns:auto minmax(0,1fr) auto!important;
+  align-items:center!important;
+  gap:16px!important;
+  padding:20px!important;
+  border:1px solid var(--theme-border,var(--bordure))!important;
+  border-radius:20px!important;
+  background:linear-gradient(135deg,var(--theme-soft,rgba(124,58,237,.08)),var(--theme-card,var(--papier)))!important;
+  color:var(--encre)!important;
+  box-shadow:0 12px 32px var(--theme-shadow,rgba(55,36,82,.10))!important;
+}
+.aurora-personal-end-icon{
+  width:48px!important;height:48px!important;display:grid!important;place-items:center!important;
+  border-radius:15px!important;
+  background:var(--theme-soft,rgba(124,58,237,.12))!important;
+  color:var(--theme-primary,var(--violet))!important;
+  border:1px solid var(--theme-border,var(--bordure))!important;
+  font-size:1.35rem!important;font-weight:900!important;
+}
+.aurora-personal-end-kicker{
+  display:block!important;margin:0 0 4px!important;
+  color:var(--theme-primary,var(--violet))!important;
+  font-size:.64rem!important;font-weight:900!important;letter-spacing:.14em!important;text-transform:uppercase!important;
+}
+.aurora-personal-end-copy h2{margin:0 0 5px!important;color:var(--encre)!important;font-size:1.18rem!important;line-height:1.2!important;}
+.aurora-personal-end-copy p{margin:0!important;color:var(--gris)!important;font-size:.78rem!important;line-height:1.5!important;max-width:650px!important;}
+.aurora-personal-end-btn{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:9px!important;
+  white-space:nowrap!important;cursor:pointer!important;
+  padding:11px 15px!important;border-radius:12px!important;
+  border:1px solid var(--theme-primary,var(--violet))!important;
+  background:var(--theme-primary,var(--violet))!important;
+  color:#fff!important;font-weight:850!important;font-size:.76rem!important;
+  box-shadow:0 8px 22px var(--theme-shadow,rgba(124,58,237,.18))!important;
+}
+.aurora-personal-end-btn:hover{filter:brightness(1.06);transform:translateY(-1px);}
+[data-theme="dark"] .aurora-personal-end-inner{
+  background:linear-gradient(135deg,var(--theme-soft,rgba(124,58,237,.14)),var(--dark-surface,var(--papier)))!important;
+  color:var(--dark-ink,var(--encre))!important;
+}
+[data-theme="dark"] .aurora-personal-end-copy h2{color:var(--dark-ink,var(--encre))!important;}
+[data-theme="dark"] .aurora-personal-end-copy p{color:var(--dark-muted,var(--gris))!important;}
+@media(max-width:700px){
+  .aurora-personal-end-inner{grid-template-columns:auto minmax(0,1fr)!important;}
+  .aurora-personal-end-btn{grid-column:1/-1!important;width:100%!important;}
+}
+@media(max-width:390px){
+  .aurora-personal-end-inner{padding:16px!important;gap:12px!important;}
+  .aurora-personal-end-icon{width:42px!important;height:42px!important;border-radius:13px!important;}
+}
+
+/* VIDÉO — réduction nette de la surface, sans toucher au lecteur. */
+.home-video-section{max-width:760px!important;margin:18px auto 22px!important;}
+.home-video-heading{padding:13px 16px 9px!important;}
+.home-video-frame{
+  width:calc(100% - 24px)!important;
+  max-width:760px!important;
+  max-height:360px!important;
+  margin:0 auto 8px!important;
+  aspect-ratio:16/8.2!important;
+  border-radius:14px!important;
+  overflow:hidden!important;
+}
+.home-video-frame video{width:100%!important;height:100%!important;border-radius:14px!important;object-fit:contain!important;}
+@media(max-width:640px){
+  .home-video-section{max-width:none!important;margin:15px 0 20px!important;}
+  .home-video-frame{width:calc(100% - 12px)!important;max-height:250px!important;aspect-ratio:16/9!important;border-radius:12px!important;}
+  .home-video-frame video{border-radius:12px!important;}
+}
 </style>
 <script>
-(function(){
-  const btn=document.getElementById('personalEndCtaBtn');
-  if(!btn) return;
-  btn.addEventListener('click',function(){
-    // Utilise la navigation existante : aucun nouveau système d'accès n'est créé.
-    if(typeof window.ouvrirEspaceAvecCode==='function'){
-      window.ouvrirEspaceAvecCode();
-      // Si aucune session n'est ouverte, afficher le portail d'accès existant.
-      setTimeout(function(){
-        const lock=document.getElementById('accessLock');
-        if(lock && document.body.classList.contains('site-locked')) lock.style.display='flex';
-      },0);
-      return;
-    }
-    const lock=document.getElementById('accessLock');
-    if(lock){document.body.classList.add('site-locked');lock.style.display='flex';}
-  });
-})();
+document.addEventListener('DOMContentLoaded', function(){
+  const btn = document.getElementById('auroraPersonalEndBtn');
+  if(btn){
+    btn.addEventListener('click', function(){
+      const existing = document.getElementById('btnOuvrirProfil');
+      if(existing){ existing.click(); return; }
+      if(typeof window.ouvrirEspaceAvecCode === 'function'){ window.ouvrirEspaceAvecCode(); }
+    });
+  }
+});
 </script>
 
 </body>
