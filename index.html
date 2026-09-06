@@ -7307,27 +7307,23 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       let termine = false;
       const finir = (fn, valeur) => { if (termine) return; termine = true; fn(valeur); };
       if (signal) {
-        if (signal.aborted) { try { xhr.abort(); } catch(e) {} return reject(new DOMException('Upload annulé','AbortError')); }
+        if (signal.aborted) {
+          try { xhr.abort(); } catch(e) {}
+          return reject(new DOMException('Upload annulé','AbortError'));
+        }
         signal.addEventListener('abort', () => { try { xhr.abort(); } catch(e) {} }, {once:true});
       }
       xhr.open('PUT', url, true);
       if (contentType) xhr.setRequestHeader('Content-Type', contentType);
-      // Suivi ultra-fin du flux réellement envoyé par le navigateur.
-      // Certains navigateurs mobiles indiquent parfois lengthComputable=false :
-      // dans ce cas on utilise la taille du Blob connue par l'appelant au lieu
-      // de laisser l'interface figée à 0 %.
       xhr.upload.addEventListener('progress', e => {
-        if (!onProgress) return;
-        const total = e.lengthComputable && e.total > 0 ? e.total : blob.size;
-        if (e.loaded >= 0 && total > 0) onProgress(Math.min(e.loaded, total), total);
+        // Certains navigateurs Android indiquent lengthComputable=false.
+        // Dans ce cas, la taille du Blob envoyé est connue côté application :
+        // on conserve donc une progression réelle au lieu de rester à 0 %.
+        if (onProgress && Number.isFinite(e.loaded)) {
+          const total = e.lengthComputable && e.total > 0 ? e.total : blob.size;
+          onProgress(e.loaded, total);
+        }
       });
-      // Certains moteurs WebView/Android sont plus fiables avec la propriété
-      // onprogress qu'avec addEventListener pour les événements d'upload.
-      xhr.upload.onprogress = e => {
-        if (!onProgress) return;
-        const total = e.lengthComputable && e.total > 0 ? e.total : blob.size;
-        if (e.loaded >= 0 && total > 0) onProgress(Math.min(e.loaded, total), total);
-      };
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
           finir(resolve, {ok:true,status:xhr.status,text:xhr.responseText||'',headers:xhr.getAllResponseHeaders()||''});
@@ -7359,7 +7355,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     const parts = [];
 
     const actualiser = () => {
-      const pct = taille ? Math.min(99, (totalEnvoye / taille) * 100) : 0;
+      const pct = taille ? Math.min(99.999, (totalEnvoye / taille) * 100) : 0;
       setProgress(pct);
       const secondes = Math.max(.001, (Date.now() - debut) / 1000);
       const debit = totalEnvoye / secondes;
@@ -7438,19 +7434,121 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       return creerUploadR2Multipart(url, fichier, setProgress, setEtatConnexion, setAbort, setSpeed);
     }
     return new Promise((resolve, reject) => {
-      const controller = new AbortController();
-      if (typeof setAbort === 'function') setAbort(() => controller.abort());
-      const debut = Date.now();
+      const xhr = new XMLHttpRequest();
+      if (typeof setAbort === 'function') setAbort(() => xhr.abort());
+      xhr.open('PUT', url, true);
+      xhr.setRequestHeader('Content-Type', 'application/pdf');
+
+      // Progression réelle : on conserve chaque événement d'upload et on
+      // rafraîchit l'affichage au rythme de l'écran. Ainsi, dès que XHR
+      // signale quelques octets supplémentaires, la barre est actualisée
+      // sans attendre un intervalle de 150/250 ms.
+      const debutEnvoi = Date.now();
+      let dernierTemps = debutEnvoi;
+      let dernierCharge = 0;
+      let chargeReel = 0;
+      let totalReel = fichier.size;
+      let dernierPercent = 0;
+      let frame = 0;
+
+      function pousserPercent(valeur) {
+        const pct = Math.max(0, Math.min(99.999, Number(valeur) || 0));
+        if (pct >= dernierPercent) {
+          dernierPercent = pct;
+          setProgress(pct);
+        }
+      }
+
+      function afficherAuProchainFrame() {
+        if (frame) return;
+        const render = () => {
+          frame = 0;
+          if (totalReel > 0) {
+            pousserPercent((chargeReel / totalReel) * 100);
+          }
+        };
+        if (typeof requestAnimationFrame === 'function') {
+          frame = requestAnimationFrame(render);
+        } else {
+          frame = setTimeout(() => {
+            frame = 0;
+            if (totalReel > 0) pousserPercent((chargeReel / totalReel) * 100);
+          }, 16);
+        }
+      }
+
       setEtatConnexion?.('connexion');
       setSpeed?.('Connexion…');
-      xhrUploadR2(url, fichier, 'application/pdf', (loaded,total) => {
+
+      xhr.upload.addEventListener('progress', e => {
+        if (!Number.isFinite(e.loaded)) return;
+
         setEtatConnexion?.('envoi');
-        setProgress(total ? (loaded/total)*100 : 0);
-        const sec=Math.max(.001,(Date.now()-debut)/1000), debit=loaded/sec, mo=debit/(1024*1024);
-        if(debit>0)setSpeed?.(mo>=1?mo.toFixed(1)+' Mo/s':Math.round(debit/1024)+' Ko/s');
-      }, controller.signal).then(r=>{
-        if(r.ok){setProgress(100);resolve(r);}else resolve(r);
-      }).catch(reject);
+
+        // Le total du navigateur est prioritaire lorsqu'il est disponible.
+        if (e.lengthComputable && Number.isFinite(e.total) && e.total > 0) {
+          totalReel = e.total;
+        }
+
+        // On ne fabrique aucun octet : chargeReel correspond exactement aux
+        // octets que XHR déclare comme déjà transmis.
+        chargeReel = Math.max(chargeReel, e.loaded);
+        afficherAuProchainFrame();
+
+        const maintenant = Date.now();
+        const dt = (maintenant - dernierTemps) / 1000;
+        if (dt >= 0.10 && typeof setSpeed === 'function') {
+          const debit = Math.max(0, (chargeReel - dernierCharge) / dt);
+          if (debit > 0) {
+            const mo = debit / (1024 * 1024);
+            setSpeed(
+              mo >= 1
+                ? mo.toFixed(1) + ' Mo/s'
+                : Math.round(debit / 1024) + ' Ko/s'
+            );
+          }
+          dernierTemps = maintenant;
+          dernierCharge = chargeReel;
+        }
+      });
+
+      xhr.onload = () => {
+        if (frame) {
+          if (typeof cancelAnimationFrame === 'function' && typeof frame === 'number') {
+            try { cancelAnimationFrame(frame); } catch(e) {}
+          } else {
+            try { clearTimeout(frame); } catch(e) {}
+          }
+          frame = 0;
+        }
+        if (xhr.status >= 200 && xhr.status < 300) {
+          setProgress(100);
+          if (typeof setSpeed === 'function') {
+            const duree = Math.max(0.001, (Date.now() - debutEnvoi) / 1000);
+            const debit = fichier.size / duree;
+            const mo = debit / (1024 * 1024);
+            setSpeed(mo >= 1 ? mo.toFixed(1) + ' Mo/s moyen' : Math.round(debit / 1024) + ' Ko/s moyen');
+          }
+          resolve({ok:true,status:xhr.status,text:xhr.responseText||'',headers:xhr.getAllResponseHeaders()||''});
+        } else {
+          resolve({ok:false,status:xhr.status,text:xhr.responseText||''});
+        }
+      };
+      xhr.onerror = () => { clearInterval(minuteur); reject(new Error('Erreur réseau pendant l’envoi du fichier.')); };
+      xhr.onabort = () => { clearInterval(minuteur); reject(new DOMException('Upload annulé','AbortError')); };
+      xhr.ontimeout = () => { clearInterval(minuteur); reject(new Error('Le transfert a été interrompu : connexion trop longtemps inactive.')); };
+      xhr.timeout = 0;
+      try { xhr.send(fichier); } catch(e) {
+        if (frame) {
+          if (typeof cancelAnimationFrame === 'function' && typeof frame === 'number') {
+            try { cancelAnimationFrame(frame); } catch(ignore) {}
+          } else {
+            try { clearTimeout(frame); } catch(ignore) {}
+          }
+          frame = 0;
+        }
+        reject(e);
+      }
     });
   }
 
@@ -7507,11 +7605,14 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     progressCancel?.addEventListener('click', annulerEnvoi);
 
     function afficherProgression(valeur) {
-      const pct = Math.max(0, Math.min(100, Math.round(valeur)));
+      // Mise à jour très fine : on ne force plus la progression à un entier.
+      // Le navigateur peut ainsi refléter les petits changements d'octets
+      // immédiatement, sans attendre le passage au pourcentage suivant.
+      const pct = Math.max(0, Math.min(100, Number(valeur) || 0));
       progressBox.classList.add('active');
       progressBox.setAttribute('aria-hidden', 'false');
-      progressBar.style.width = pct + '%';
-      progressPercent.textContent = pct + ' %';
+      progressBar.style.width = pct.toFixed(2) + '%';
+      progressPercent.textContent = pct >= 99.995 ? '100 %' : pct.toFixed(2) + ' %';
       if (progressTrack) progressTrack.setAttribute('aria-valuenow', String(pct));
     }
 
@@ -10621,49 +10722,119 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
 async function telechargerDocumentAvecProgression(doc) {
     if (!doc || !doc.Fichier_url || doc.Telechargement_autorise === false || TELECHARGEMENT_DOCUMENT_EN_COURS) return;
     if (!session) { exigerConnexionPourTelechargement(doc); return; }
+
     TELECHARGEMENT_DOCUMENT_EN_COURS = true;
-    const nom = nomFichierTelechargementDepuisDocument(doc);
-    afficherCarteTelechargement(doc,'preparation',null,0,null,'Préparation du téléchargement…');
+    TELECHARGEMENT_ABORT_CONTROLLER = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const signal = TELECHARGEMENT_ABORT_CONTROLLER?.signal;
+    const nomTelechargement = nomFichierTelechargementDepuisDocument(doc);
+    afficherCarteTelechargement(doc,'preparation',null,0,null,'Préparation du fichier…');
+
     try {
       const source = String(doc.Fichier_url);
-      const cle = source.indexOf(R2_PUBLIC_URL + '/') === 0 ? source.slice(R2_PUBLIC_URL.length + 1) : null;
-      if (!cle) throw new Error('URL de document non reconnue.');
-      const downloadUrl = `${R2_WORKER_URL}/${cle}?download=1&filename=${encodeURIComponent(nom)}`;
+      const cle = source.indexOf(R2_PUBLIC_URL + '/') === 0
+        ? source.slice(R2_PUBLIC_URL.length + 1)
+        : null;
 
-      // IMPORTANT : ne pas utiliser un lien target=_blank ici. Sur plusieurs
-      // navigateurs Android/WebView, cela ouvre le PDF dans un nouvel onglet
-      // au lieu de déclencher réellement le gestionnaire de téléchargement.
-      // Le Worker renvoie Content-Disposition: attachment et l'iframe invisible
-      // laisse le navigateur prendre en charge le téléchargement sans charger
-      // le PDF en mémoire JavaScript.
-      const verification = await fetch(downloadUrl, {
-        method: 'HEAD',
-        cache: 'no-store'
-      });
-      if (!verification.ok) {
-        throw new Error('Le serveur de téléchargement a répondu HTTP ' + verification.status + '.');
+      let res = null;
+
+      // Tentative 1 : Worker v2, avec le mode téléchargement demandé.
+      if (cle) {
+        try {
+          const workerUrl = `${R2_WORKER_URL}/${cle}?download=1&filename=${encodeURIComponent(nomTelechargement)}`;
+          res = await fetch(workerUrl, signal ? {signal, cache:'no-store'} : {cache:'no-store'});
+        } catch (e) {
+          if (e?.name === 'AbortError') throw e;
+        }
       }
 
-      const iframe = document.createElement('iframe');
-      iframe.style.position = 'fixed';
-      iframe.style.width = '1px';
-      iframe.style.height = '1px';
-      iframe.style.opacity = '0';
-      iframe.style.pointerEvents = 'none';
-      iframe.style.border = '0';
-      iframe.setAttribute('aria-hidden', 'true');
-      iframe.src = downloadUrl;
-      document.body.appendChild(iframe);
-      setTimeout(() => { try { iframe.remove(); } catch(e) {} }, 120000);
+      // Secours : URL publique R2 déjà enregistrée dans Supabase.
+      if (!res || !res.ok) {
+        try {
+          res = await fetch(source, signal ? {signal, cache:'no-store'} : {cache:'no-store'});
+        } catch (e) {
+          if (e?.name === 'AbortError') throw e;
+        }
+      }
 
-      // On n'affiche plus "Téléchargé" : à ce stade le navigateur a reçu
-      // l'ordre de téléchargement, mais JavaScript ne peut pas connaître de
-      // manière fiable la fin d'un téléchargement natif sur Android.
+      if (!res || !res.ok) {
+        throw new Error('Le fichier n’a pas pu être récupéré.');
+      }
+
+      const total = parseInt(res.headers.get('Content-Length') || '', 10);
+      let blob;
+
+      // Même mécanisme que l'ancienne version fonctionnelle : lecture du flux
+      // puis création d'un Blob local avant le déclenchement du téléchargement.
+      if (res.body) {
+        const lecteur = res.body.getReader();
+        const morceaux = [];
+        let recu = 0;
+
+        while (true) {
+          const {done, value} = await lecteur.read();
+          if (done) break;
+          if (!value) continue;
+          morceaux.push(value);
+          recu += value.byteLength;
+
+          if (Number.isFinite(total) && total > 0) {
+            afficherCarteTelechargement(
+              doc,
+              'progress',
+              Math.min(99, Math.round((recu / total) * 100)),
+              recu,
+              total
+            );
+          } else {
+            afficherCarteTelechargement(doc,'progress',null,recu,null,'Téléchargement du fichier…');
+          }
+        }
+
+        blob = new Blob(morceaux, {type:'application/pdf'});
+      } else {
+        afficherCarteTelechargement(doc,'progress',null,0,null,'Téléchargement du fichier…');
+        blob = await res.blob();
+      }
+
+      if (signal?.aborted) {
+        throw new DOMException('Téléchargement annulé','AbortError');
+      }
+
+      if (!blob || blob.size <= 0) {
+        throw new Error('Le fichier téléchargé est vide.');
+      }
+
+      // Déclenchement réel du téléchargement sur Android/WebView :
+      // on utilise le Blob téléchargé, pas une simple navigation vers l'URL PDF.
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.target = '_self';
+      a.rel = 'noopener noreferrer';
+      a.download = nomTelechargement;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+
       await enregistrerTelechargementPersonnel(doc);
-      afficherCarteTelechargement(doc,'succes',100,null,null,'Téléchargement démarré. Vérifiez le dossier Téléchargements de votre téléphone.');
-    } catch(e) {
-      console.error('[Téléchargement document]',e);
-      afficherCarteTelechargement(doc,'erreur',null,null,null,'Le téléchargement n’a pas pu être lancé. Réessayez dans quelques instants.');
+
+      afficherCarteTelechargement(
+        doc,
+        'succes',
+        100,
+        blob.size,
+        blob.size,
+        'Téléchargement terminé. Le fichier a été transmis au téléchargement de votre téléphone.'
+      );
+    } catch (e) {
+      if (e?.name === 'AbortError') {
+        afficherCarteTelechargement(doc,'annule',null,null,null,'Le téléchargement a été annulé.');
+      } else {
+        console.error('[Téléchargement document]', e);
+        afficherCarteTelechargement(doc,'erreur',null,null,null,'Le téléchargement n’a pas pu être effectué. Réessayez dans quelques instants.');
+      }
     } finally {
       TELECHARGEMENT_DOCUMENT_EN_COURS = false;
       TELECHARGEMENT_ABORT_CONTROLLER = null;
