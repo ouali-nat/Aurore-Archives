@@ -6747,7 +6747,8 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         url: source,
         rangeChunkSize: 256 * 1024,
         disableAutoFetch: true,
-        disableStream: true,
+        disableRange: false,
+        disableStream: false,
         stopAtErrors: false
       });
 
@@ -7574,11 +7575,16 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       );
 
       /*
-       * Le timeout est volontairement nul ici : le réseau peut être lent.
-       * Le Worker/R2 doit pouvoir terminer le transfert sans être interrompu
-       * artificiellement par le navigateur.
+       * CORRECTIF « envoi bloqué à 0 % » : un timeout à 0 (illimité) faisait
+       * qu'une connexion qui ne démarrait jamais (DNS/CORS/réseau bloqué,
+       * aucun octet envoyé, aucun événement d'erreur déclenché) laissait la
+       * promesse en attente pour toujours — l'interface restait figée à 0 %
+       * sans jamais afficher de message. On fixe donc un timeout fini,
+       * généreux et proportionnel à la taille du morceau, pour que
+       * xhr.ontimeout (déjà géré plus bas) puisse se déclencher et informer
+       * clairement l'utilisateur au lieu de bloquer silencieusement.
        */
-      xhr.timeout = 0;
+      xhr.timeout = Math.max(30000, Math.ceil((Number(blob?.size) || 0) / (40 * 1024)) * 1000);
 
       try {
         xhr.send(blob);
@@ -7824,7 +7830,13 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         reject(new Error('Le transfert a été interrompu : connexion trop longtemps inactive.'));
       };
 
-      xhr.timeout = 0;
+      /*
+       * CORRECTIF « envoi bloqué à 0 % » : voir explication détaillée dans
+       * xhrUploadR2. Un timeout illimité empêchait toute erreur de remonter
+       * si la connexion ne démarrait jamais — l'utilisateur restait bloqué
+       * sur « 0.00 % / Préparation… » indéfiniment, sans message.
+       */
+      xhr.timeout = Math.max(30000, Math.ceil(taille / (40 * 1024)) * 1000);
 
       try {
         xhr.send(fichier);
