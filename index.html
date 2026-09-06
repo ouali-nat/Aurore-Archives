@@ -15788,5 +15788,38 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 </script>
 
+
+<style id="aurore-espace-personnel-grille-documents">
+/* Harmonisation demandée : l'espace personnel (mes documents / mes livres)
+   reprend exactement la même présentation en grille que les documents
+   publics (doc-row / .doc-list) et que les deux listes de l'administration
+   (dépôts en attente / documents déjà publiés) — un seul et même système de
+   présentation partout, sans toucher aux boutons ni aux gestionnaires
+   existants (les classes et id utilisés par le JavaScript ne changent pas). */
+#personalDocumentsList.personal-list,
+#personalBooksList.personal-list{
+  display:grid!important;
+  grid-template-columns:repeat(auto-fill,minmax(205px,1fr));
+  gap:16px!important;
+  align-items:stretch;
+}
+/* Les états "chargement" / "vide" et les entrées refusées (simples messages,
+   sans fiche document) restent lisibles sur toute la largeur plutôt que
+   d'être écrasés dans une seule colonne de la grille. */
+#personalDocumentsList.personal-list > .personal-empty,
+#personalBooksList.personal-list > .personal-empty,
+#personalDocumentsList.personal-list > .personal-doc:not(.doc-row){
+  grid-column:1 / -1;
+}
+@media(max-width:720px){
+  #personalDocumentsList.personal-list,
+  #personalBooksList.personal-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px!important;}
+}
+@media(max-width:390px){
+  #personalDocumentsList.personal-list,
+  #personalBooksList.personal-list{grid-template-columns:1fr 1fr;}
+}
+</style>
+
 </body>
 </html>
