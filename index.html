@@ -6980,7 +6980,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     : null;
 
   let COUVERTURES_ACTIVES = 0;
-  const COUVERTURES_CONCURRENCE = 3;
+  const COUVERTURES_CONCURRENCE = 4;
 
   function traiterFileCouvertures() {
     while (
@@ -7018,59 +7018,30 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   function appliquerCouvertureSiLivre(row, doc) {
     if (!row || !doc?.Fichier_url) return;
 
-    // Si le document a déjà une vraie image de couverture (colonne
-    // Couverture_url / Cover_url / Miniature_url côté données), on l'utilise
-    // directement : pas de PDF touché, pas de rendu, chargement natif et
-    // instantané par le navigateur. C'est le chemin à privilégier à l'avenir
-    // pour que l'affichage soit aussi rapide que sur les autres sites.
     const urlCouvertureReelle = doc.Couverture_url || doc.Cover_url || doc.Miniature_url;
     if (urlCouvertureReelle) {
       appliquerImageCouverture(row, doc, urlCouvertureReelle, true);
       return;
     }
 
-    // Sinon (pas de vraie couverture disponible) : repli sur la première
-    // page du PDF, mais servie depuis le cache dès que possible.
     row.__auroreDocumentCouverture = doc;
 
+    // Google Drive présente les aperçus dès que les tuiles entrent dans la
+    // vue. Ici on va un cran plus loin : toutes les tuiles de la page courante
+    // sont mises en file immédiatement après leur insertion dans le DOM.
+    // Cela évite le délai perceptible d'IntersectionObserver et conserve le
+    // cache IndexedDB comme chemin instantané pour les visites suivantes.
     const dejaConnue = couverturePremierePagePersistanteImmediate(doc);
     if (dejaConnue) {
       appliquerImageCouverture(row, doc, dejaConnue);
       return;
     }
 
-    // Le rendu ne doit plus attendre la fin de l'initialisation IndexedDB.
-    // Le cache mémoire est utilisé immédiatement s'il est déjà prêt ; sinon
-    // la ligne est observée sans délai et sera servie par le cache dès qu'il
-    // arrive, ou rendue depuis le PDF. C'est ce qui rapproche le comportement
-    // de la couverture d'un site qui affiche ses vignettes dès l'arrivée de
-    // la liste, au lieu d'attendre une promesse globale.
-    const connueImmediatement = couverturePremierePagePersistanteImmediate(doc);
-    if (connueImmediatement) {
-      appliquerImageCouverture(row, doc, connueImmediatement);
-      return;
+    if (!COUVERTURES_FILE.some(x => x.row === row)) {
+      COUVERTURES_FILE.push({row, doc});
     }
-    if (COUVERTURES_OBSERVER) {
-      COUVERTURES_OBSERVER.observe(row);
-    } else {
-      if (COUVERTURES_FILE.length < COUVERTURES_CONCURRENCE * 2) {
-        COUVERTURES_FILE.push({row, doc});
-        traiterFileCouvertures();
-      }
-    }
-    // Lance aussi immédiatement les premières lignes visibles : IntersectionObserver
-    // peut attendre un cycle de rendu, alors qu'une liste déjà affichée peut
-    // commencer son rendu dès maintenant.
-    try {
-      const r=row.getBoundingClientRect();
-      if (r.top < window.innerHeight + 900 && r.bottom > -200) {
-        if (COUVERTURES_OBSERVER) COUVERTURES_OBSERVER.unobserve(row);
-        if (!COUVERTURES_FILE.some(x=>x.row===row)) COUVERTURES_FILE.push({row,doc});
-        traiterFileCouvertures();
-      }
-    } catch(e) {}
+    traiterFileCouvertures();
   }
-
 
   // Les couvertures de première page sont activées pour toutes les listes de
   // documents du site. La couverture correspond toujours à la première page du PDF.
@@ -7131,7 +7102,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       // IntersectionObserver : sinon certaines couvertures ne reçoivent jamais
       // le signal d'entrée dans la zone visible.
       list.appendChild(row);
-      if (afficherCouverturesRomans) appliquerCouvertureSiLivre(row,doc);
+      if (COUVERTURES_PREMIERE_PAGE_ACTIVES) appliquerCouvertureSiLivre(row,doc);
     });
     content.innerHTML='';
     content.appendChild(list);
@@ -10776,7 +10747,11 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     if(speed) speed.textContent='Préparation…';
   }
   function mettreAJourProgressionLecteurPDF(pct, etape, info={}) {
-    const p=Math.max(0,Math.min(100,Number(pct)||0));
+    const percentEl=document.getElementById('pdfViewerProgressPercent');
+    const currentPercent=percentEl ? parseFloat(String(percentEl.textContent).replace(',','.')) : 0;
+    const p=(pct==null || Number.isNaN(Number(pct)))
+      ? Math.max(0,Math.min(100,Number.isFinite(currentPercent)?currentPercent:0))
+      : Math.max(0,Math.min(100,Number(pct)||0));
     const bar=document.getElementById('pdfViewerProgressBar');
     const percent=document.getElementById('pdfViewerProgressPercent');
     const stage=document.getElementById('pdfViewerProgressStage');
@@ -10842,6 +10817,73 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     if(open)auroreRendrePDFRecents();
   });
   document.addEventListener('DOMContentLoaded',auroreRendrePDFRecents);
+
+  // Même mécanique de progression que le dépôt : XHR fournit les octets
+  // réellement reçus, puis requestAnimationFrame garde l'affichage fluide
+  // entre deux événements réseau. Le lecteur utilise ainsi la même logique
+  // de précision que la barre d'envoi, sans progression fictive.
+  function chargerPDFAvecProgressionDepotStyle(url, signal, onProgress, onEtat) {
+    return new Promise((resolve,reject)=>{
+      const xhr=new XMLHttpRequest();
+      let termine=false, total=0, loaded=0, frame=0;
+      let dernierTemps=Date.now(), dernierCharge=0;
+      const finir=(fn,val)=>{
+        if(termine)return;
+        termine=true;
+        if(frame&&typeof cancelAnimationFrame==='function')cancelAnimationFrame(frame);
+        fn(val);
+      };
+      const pousser=(l,t,force=false)=>{
+        loaded=Math.max(loaded,Number(l)||0);
+        if(Number(t)>0)total=Number(t);
+        if(typeof onProgress==='function')onProgress(loaded,total,force);
+      };
+      const frameProgress=()=>{
+        if(termine||!onProgress)return;
+        frame=0;
+        pousser(loaded,total);
+      };
+      const demanderFrame=()=>{
+        if(frame||termine||typeof requestAnimationFrame!=='function')return;
+        frame=requestAnimationFrame(frameProgress);
+      };
+      if(signal){
+        if(signal.aborted){try{xhr.abort();}catch(e){};return reject(new DOMException('Chargement annulé','AbortError'));}
+        signal.addEventListener('abort',()=>{try{xhr.abort();}catch(e){}},{once:true});
+      }
+      xhr.open('GET',url,true);
+      xhr.responseType='arraybuffer';
+      xhr.setRequestHeader('Accept','application/pdf');
+      xhr.timeout=15*60*1000;
+      xhr.onprogress=e=>{
+        const t=(e.lengthComputable&&Number(e.total)>0)?Number(e.total):total;
+        if(t>0)total=t;
+        pousser(e.loaded,total,true);
+        const now=Date.now(),dt=Math.max(.001,(now-dernierTemps)/1000);
+        const delta=Math.max(0,loaded-dernierCharge);
+        if(delta>0&&dt>=.05){
+          const debit=delta/dt;
+          onEtat?.('progress', {loaded,total,speed:debit});
+          dernierCharge=loaded;dernierTemps=now;
+        }
+        demanderFrame();
+      };
+      xhr.onload=()=>{
+        if(xhr.status>=200&&xhr.status<300){
+          if(total<=0)total=loaded||Number(xhr.response?.byteLength)||0;
+          pousser(total,total,true);
+          onEtat?.('termine',{loaded:total,total});
+          finir(resolve,xhr.response);
+        }else{
+          finir(reject,new Error('HTTP '+xhr.status+' lors du chargement du PDF.'));
+        }
+      };
+      xhr.onerror=()=>finir(reject,new Error('Erreur réseau pendant le chargement du PDF.'));
+      xhr.onabort=()=>finir(reject,new DOMException('Chargement annulé','AbortError'));
+      xhr.ontimeout=()=>finir(reject,new Error('Le chargement du PDF a expiré.'));
+      try{xhr.send();}catch(e){finir(reject,e);}
+    });
+  }
 
   async function ouvrirLecteurPDF(doc) {
     if (!doc || !doc.Fichier_url) return;
@@ -10943,32 +10985,40 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         for (const source of sources) {
           try {
             sourceRapide = source;
-            diagLog('→ Tentative lecteur optimisé PDF.js/Range : ' + source);
-            mettreAJourProgressionLecteurPDF(8,'Connexion au document');
-            document.getElementById('pdfViewerStatut').textContent = 'Connexion rapide au document…';
-            const task = pdfjsLib.getDocument({
-              url: source,
-              rangeChunkSize: 1024 * 1024,
-              disableAutoFetch: true,
-              disableStream: false,
-              onProgress: p => {
-                if (jeton !== PDF_JETON_OUVERTURE) return;
-                const loaded=Number(p?.loaded||0), total=Number(p?.total||0);
+            diagLog('→ Tentative lecteur avec progression XHR : ' + source);
+            mettreAJourProgressionLecteurPDF(3,'Connexion au document');
+            document.getElementById('pdfViewerStatut').textContent='Connexion rapide au document…';
+
+            const octets = await chargerPDFAvecProgressionDepotStyle(
+              source,
+              PDF_FETCH_CONTROLLER?.signal,
+              (loaded,total)=>{
+                if(jeton!==PDF_JETON_OUVERTURE)return;
                 if(total>0){
-                  mettreAJourProgressionLecteurPDF(Math.min(80,Math.max(8,loaded/total*80)),'Chargement par morceaux',{loaded,total});
-                  document.getElementById('pdfViewerStatut').textContent=`Chargement du document… ${Math.round(loaded/total*100)}%`;
+                  const pct=Math.min(82,Math.max(3,(loaded/total)*82));
+                  mettreAJourProgressionLecteurPDF(pct,'Chargement du document',{loaded,total});
+                  document.getElementById('pdfViewerStatut').textContent=`Chargement du document… ${Math.round((loaded/total)*100)}%`;
                 }else{
-                  mettreAJourProgressionLecteurPDF(20,'Chargement par morceaux',{speedText:'Réception des données…'});
+                  mettreAJourProgressionLecteurPDF(18,'Chargement du document',{speedText:'Réception des données…'});
+                }
+              },
+              (type,info)=>{
+                if(type==='progress'&&info?.speed){
+                  const d=info.speed;
+                  mettreAJourProgressionLecteurPDF(undefined,null,{speedText:d>=1048576?(d/1048576).toFixed(1)+' Mo/s':Math.max(1,Math.round(d/1024))+' Ko/s'});
                 }
               }
-            });
-            pdf = await task.promise;
-            mettreAJourProgressionLecteurPDF(82,'Document reçu · préparation des pages',{speedText:'Document reçu · préparation…'});
-            diagLog('→ Source optimisée acceptée. PDF.js peut demander les morceaux nécessaires.');
+            );
+            if(jeton!==PDF_JETON_OUVERTURE)return;
+            PDF_OCTETS_COURANTS=octets;
+            memoriserPDFCache(cacheCle,octets);
+            mettreAJourProgressionLecteurPDF(84,'Document reçu · préparation des pages',{speedText:'Document reçu · préparation…'});
+            pdf=await pdfjsLib.getDocument({data:new Uint8Array(octets)}).promise;
+            diagLog('→ Source XHR acceptée. Octets reçus : '+octets.byteLength);
             break;
           } catch(e) {
             derniereErreur=e; pdf=null; sourceRapide=null;
-            diagLog('→ Source optimisée indisponible : '+(e?.message||e));
+            diagLog('→ Source XHR indisponible : '+(e?.message||e));
           }
         }
 
@@ -15015,6 +15065,168 @@ html[data-theme="light"] #pdfViewerOverlay #pdfViewerDiagLog{
 html[data-theme="light"] .doc-row .icon-wrap.a-couverture{
   background:#EEE9F5 !important;
   border:1px solid #DDD5E9;
+}
+</style>
+
+
+<style id="aurore-drive-pdf-grid">
+/* ===== Aurore — vue grille PDF inspirée de Google Drive ===== */
+.doc-list{
+  display:grid!important;
+  grid-template-columns:repeat(auto-fill,minmax(205px,1fr));
+  gap:16px!important;
+  margin-top:22px;
+  align-items:stretch;
+}
+.doc-row{
+  position:relative;
+  min-width:0;
+  min-height:0;
+  height:100%;
+  padding:0!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:stretch!important;
+  justify-content:flex-start!important;
+  gap:0!important;
+  overflow:hidden;
+  border:1px solid var(--bordure);
+  border-radius:16px!important;
+  background:var(--papier);
+  box-shadow:0 2px 7px rgba(35,25,55,.08);
+  transition:box-shadow .16s ease,border-color .16s ease,transform .16s ease;
+}
+.doc-row:hover{
+  transform:translateY(-2px);
+  border-color:color-mix(in srgb,var(--violet) 35%,var(--bordure));
+  box-shadow:0 7px 20px rgba(55,36,82,.13);
+}
+.doc-row>.info{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:stretch!important;
+  gap:0!important;
+  min-width:0;
+  flex:1 1 auto;
+}
+.doc-row .icon-wrap,.doc-row .icon-wrap.a-couverture{
+  width:100%!important;
+  height:auto!important;
+  aspect-ratio:1/1!important;
+  min-height:0!important;
+  flex:none!important;
+  border-radius:0!important;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  background:linear-gradient(145deg,#F1EDF7,#E6E0EF)!important;
+  border:0!important;
+}
+.doc-row .icon-wrap:not(.a-couverture){
+  color:var(--violet);
+}
+.doc-row .icon-wrap img.doc-cover-img{
+  width:100%!important;
+  height:100%!important;
+  aspect-ratio:1/1!important;
+  object-fit:cover!important;
+  border-radius:0!important;
+  display:block!important;
+  opacity:1!important;
+}
+.doc-row .doc-main-info{
+  min-width:0;
+  padding:11px 12px 8px;
+}
+.doc-row .titre{
+  font-size:.84rem!important;
+  line-height:1.3;
+  font-weight:700;
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  overflow:hidden;
+}
+.doc-row .meta{
+  margin-top:4px!important;
+  font-size:.68rem!important;
+  line-height:1.35;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.doc-row .doc-context{
+  display:none!important;
+}
+.doc-row .doc-main-info .taille-badge{
+  margin-top:5px;
+}
+.doc-row .doc-actions{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:6px!important;
+  width:100%!important;
+  padding:8px 10px 10px;
+  margin-top:auto;
+  border-top:1px solid color-mix(in srgb,var(--bordure) 78%,transparent);
+  background:color-mix(in srgb,var(--papier) 94%,var(--fond));
+}
+.doc-row .doc-actions .dl{
+  min-width:0;
+  width:100%;
+  margin:0!important;
+  padding:7px 6px!important;
+  min-height:34px;
+  border-radius:9px!important;
+  font-size:.66rem!important;
+  line-height:1.15;
+  white-space:normal;
+  text-align:center;
+}
+.doc-row .doc-actions .dl:first-child{
+  background:var(--violet)!important;
+  color:#fff!important;
+  border:1px solid var(--violet)!important;
+}
+.doc-row .doc-actions .dl:nth-child(2){
+  background:var(--marron)!important;
+  color:#fff!important;
+  border:1px solid var(--marron)!important;
+}
+.doc-row .doc-actions .doc-action-soft{
+  background:transparent!important;
+  color:var(--gris)!important;
+  border:1px solid var(--bordure)!important;
+}
+.doc-row .doc-actions .doc-action-soft:hover{
+  background:rgba(124,58,237,.07)!important;
+  color:var(--encre)!important;
+  border-color:var(--violet)!important;
+}
+[data-theme="light"] .doc-row{
+  background:#fff!important;
+  border-color:#D9D1E4!important;
+  box-shadow:0 2px 8px rgba(55,36,82,.08);
+}
+[data-theme="light"] .doc-row .icon-wrap,[data-theme="light"] .doc-row .icon-wrap.a-couverture{
+  background:#F0ECF5!important;
+}
+[data-theme="light"] .doc-row .doc-actions{
+  background:#FBFAFD;
+  border-top-color:#E6DFEE;
+}
+@media(max-width:720px){
+  .doc-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px!important;}
+  .doc-row .doc-main-info{padding:9px 9px 7px;}
+  .doc-row .doc-actions{padding:7px 7px 8px;gap:5px!important;}
+  .doc-row .doc-actions .dl{font-size:.61rem!important;padding:7px 4px!important;}
+}
+@media(max-width:390px){
+  .doc-list{grid-template-columns:1fr 1fr;}
+  .doc-row .titre{font-size:.77rem!important;}
+  .doc-row .meta{font-size:.62rem!important;}
+  .doc-row .doc-actions{grid-template-columns:1fr 1fr;}
 }
 </style>
 
