@@ -3020,22 +3020,6 @@ main, .container, .content, .page-content {
       <div class="home-video-frame"><video id="homeVideoPlayer" controls playsinline preload="metadata"></video></div>
     </section>
 
-    <!-- Bloc d’apprentissage : volontairement placé juste sous la vidéo. -->
-    <section class="compact-home-hero" aria-label="Espace d’apprentissage">
-      <div class="hero-inner">
-        <div>
-          <div class="hero-kicker">✦ Ton espace d’apprentissage</div>
-          <h1>Apprends mieux. Trouve plus vite. Avance plus loin.</h1>
-          <p class="hero-text">Des ressources bien organisées, un espace personnel simple et une expérience pensée pour rester concentré sur l’essentiel.</p>
-          <div class="hero-actions">
-            <a href="#documents">Explorer les documents</a>
-            <a href="#personal-space">Mon espace</a>
-          </div>
-        </div>
-        <div class="hero-badge" aria-hidden="true">✦</div>
-      </div>
-    </section>
-
     <div class="home-promise-grid" id="presentationGrid"></div>
 
 
@@ -3814,6 +3798,25 @@ main, .container, .content, .page-content {
         <a href="mailto:oualikevin9@gmail.com" class="service-client-link" id="serviceClientEmail"><span>E-mail</span><strong id="serviceClientEmailDisplay">oualikevin9@gmail.com</strong></a>
       </div>
     </div>
+  </div>
+
+  <!-- Bloc d’apprentissage : déplacé en toute fin de site, juste avant le
+       nom de la bibliothèque. -->
+  <div class="wrap footer-learn-cta">
+    <section class="compact-home-hero" aria-label="Espace d’apprentissage">
+      <div class="hero-inner">
+        <div>
+          <div class="hero-kicker">✦ Ton espace d’apprentissage</div>
+          <h1>Apprends mieux. Trouve plus vite. Avance plus loin.</h1>
+          <p class="hero-text">Des ressources bien organisées, un espace personnel simple et une expérience pensée pour rester concentré sur l’essentiel.</p>
+          <div class="hero-actions">
+            <a href="#documents">Explorer les documents</a>
+            <a href="#personal-space">Mon espace</a>
+          </div>
+        </div>
+        <div class="hero-badge" aria-hidden="true">✦</div>
+      </div>
+    </section>
   </div>
 
   <div class="wrap aurore-final-site-name">
@@ -13274,7 +13277,9 @@ async function telechargerDocumentAvecProgression(doc) {
     <section class="welcome-modal-card" role="dialog" aria-modal="true" aria-labelledby="welcomeModalTitle">
       <button type="button" class="welcome-modal-close" id="welcomeModalClose" aria-label="Fermer">×</button>
       <h2 id="welcomeModalTitle">Bienvenue sur Aurore</h2>
-      <p id="welcomeModalText"></p><button type="button" class="admin-btn primary welcome-modal-ok" id="welcomeModalOk">Continuer vers les documents récemment publiés</button>
+      <p id="welcomeModalText"></p>
+      <div class="welcome-modal-divider" aria-hidden="true"></div>
+      <button type="button" class="admin-btn primary welcome-modal-ok" id="welcomeModalOk">Continuer vers les documents récemment publiés</button>
     </section>
   </div>
 
@@ -16053,10 +16058,11 @@ html[data-color-theme="rouge"] .ad-slot-card,html[data-color-theme="rouge"] .hom
   padding:16px 18px!important;
 }
 
-/* 2) Ton espace d'apprentissage : juste sous la vidéo, avec les couleurs du thème. */
-#screen-home > .compact-home-hero{
-  margin:30px 0 34px!important;
-  min-height:260px!important;
+/* 2) Ton espace d'apprentissage : déplacé en pied de page (voir HTML),
+      juste avant le nom de la bibliothèque. Couleurs du thème conservées. */
+footer .compact-home-hero{
+  margin:0!important;
+  min-height:0!important;
   border-radius:28px!important;
   padding:34px!important;
   background:
@@ -16070,30 +16076,146 @@ html[data-color-theme="rouge"] .ad-slot-card,html[data-color-theme="rouge"] .hom
   box-shadow:0 20px 55px var(--theme-shadow,rgba(139,92,246,.18))!important;
   color:var(--theme-on-accent,#fff)!important;
 }
-#screen-home > .compact-home-hero .hero-inner{
+footer .compact-home-hero .hero-inner{
   max-width:960px!important;
 }
-#screen-home > .compact-home-hero h1{
+footer .compact-home-hero h1{
   font-size:clamp(1.8rem,3.7vw,3rem)!important;
   line-height:1.12!important;
 }
-#screen-home > .compact-home-hero .hero-text{
+footer .compact-home-hero .hero-text{
   font-size:clamp(.95rem,1.7vw,1.08rem)!important;
   line-height:1.65!important;
 }
-#screen-home > .compact-home-hero .hero-actions a,
-#screen-home > .compact-home-hero .hero-actions button{
+footer .compact-home-hero .hero-actions a,
+footer .compact-home-hero .hero-actions button{
   background:color-mix(in srgb,var(--theme-on-accent,#fff) 13%,transparent)!important;
   border-color:color-mix(in srgb,var(--theme-on-accent,#fff) 28%,transparent)!important;
   color:var(--theme-on-accent,#fff)!important;
 }
-#screen-home > .compact-home-hero .hero-actions a:hover,
-#screen-home > .compact-home-hero .hero-actions button:hover{
+footer .compact-home-hero .hero-actions a:hover,
+footer .compact-home-hero .hero-actions button:hover{
   background:color-mix(in srgb,var(--theme-on-accent,#fff) 22%,transparent)!important;
 }
 
-/* 3) Publicités : l'image, le titre et la description restent séparés,
-      puis un espace réel pousse le bloc suivant vers le bas. */
+/* 2bis) Vidéo d'accueil réduite — la forme (cadre 16/9 arrondi) est
+         conservée, seule la présence à l'écran diminue. */
+#screen-home .home-video-section{
+  max-width:640px!important;
+  margin:20px auto 26px!important;
+  padding:0!important;
+  border-radius:22px!important;
+  border:1px solid var(--theme-border,rgba(192,132,252,.22))!important;
+  background:linear-gradient(180deg,var(--papier),#0b0912)!important;
+  box-shadow:0 18px 46px var(--theme-shadow,rgba(139,92,246,.16))!important;
+  overflow:hidden!important;
+}
+#screen-home .home-video-heading{
+  padding:16px 18px 10px!important;
+  margin:0!important;
+  background:linear-gradient(180deg,var(--theme-softer,rgba(192,132,252,.08)),transparent)!important;
+}
+#screen-home .home-video-heading .section-title{font-size:1.02rem!important;}
+#screen-home .home-video-desc{font-size:.8rem!important;}
+#screen-home .home-video-frame{
+  width:calc(100% - 16px)!important;
+  margin:0 auto 12px!important;
+  aspect-ratio:16/9!important;
+  border-radius:16px!important;
+  box-shadow:inset 0 0 0 1px var(--theme-border,rgba(192,132,252,.18))!important;
+}
+@media(max-width:620px){
+  #screen-home .home-video-section{max-width:100%!important;}
+}
+
+/* 3) Publicités : l'image reste en haut, mais le titre et la description
+      sortent complètement du bloc image — ce sont deux blocs de texte
+      propres, en dessous, lisibles dans les deux thèmes. */
+.ad-slot-card::after{content:none!important;display:none!important;}
+.ad-slot-card,
+.ad-slot.ad-slot-alt .ad-slot-card{
+  display:flex!important;
+  flex-direction:column!important;
+  height:auto!important;
+  min-height:0!important;
+  border-radius:20px!important;
+  border:1px solid var(--bordure)!important;
+  background:var(--papier)!important;
+  box-shadow:var(--ombre)!important;
+  overflow:hidden!important;
+}
+.ad-slot-img{
+  position:static!important;
+  grid-column:auto!important;
+  order:0!important;
+  width:100%!important;
+  height:190px!important;
+  min-height:190px!important;
+  max-height:190px!important;
+  object-fit:cover!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+}
+.ad-slot-body{
+  position:static!important;
+  grid-column:auto!important;
+  order:1!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:flex-start!important;
+  justify-content:flex-start!important;
+  gap:9px!important;
+  min-height:0!important;
+  padding:16px 18px 18px!important;
+  background:transparent!important;
+}
+.ad-slot-title{
+  position:static!important;
+  display:block!important;
+  width:auto!important;
+  max-width:100%!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+  color:var(--encre)!important;
+  text-shadow:none!important;
+  font-size:1rem!important;
+  font-weight:800!important;
+  line-height:1.32!important;
+}
+.ad-slot-desc{
+  position:static!important;
+  display:block!important;
+  width:auto!important;
+  max-width:100%!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+  color:var(--gris)!important;
+  text-shadow:none!important;
+  font-size:.86rem!important;
+  line-height:1.5!important;
+}
+.ad-slot-cta{
+  align-self:flex-start!important;
+  width:max-content!important;
+  margin-top:2px!important;
+  padding:8px 13px!important;
+  border-radius:11px!important;
+  background:var(--theme-soft,rgba(139,92,246,.10))!important;
+  border:1px solid var(--theme-border,rgba(192,132,252,.28))!important;
+  color:var(--violet)!important;
+  text-shadow:none!important;
+}
+html[data-color-theme] .ad-slot-title{background:transparent!important;border:0!important;}
+html[data-color-theme] .ad-slot-cta{color:var(--theme-primary)!important;}
+[data-theme="light"] .ad-slot-card{background:#fff!important;border-color:#D8CDE3!important;}
+[data-theme="light"] .ad-slot-title{color:#171322!important;text-shadow:none!important;}
+[data-theme="light"] .ad-slot-desc{color:#4D465A!important;text-shadow:none!important;}
+
 #screen-home .ad-slot{
   margin-top:42px!important;
   margin-bottom:58px!important;
@@ -16101,24 +16223,35 @@ html[data-color-theme="rouge"] .ad-slot-card,html[data-color-theme="rouge"] .hom
 #screen-home .ad-slot + *{
   margin-top:0!important;
 }
-#screen-home .ad-slot-body{
-  gap:12px!important;
-}
-#screen-home .ad-slot-title,
-#screen-home .ad-slot-desc{
-  padding:13px 16px!important;
-}
-#screen-home .ad-slot-title{
-  margin-top:2px!important;
+
+@media(max-width:640px){
+  html[data-color-theme] .ad-slot-card{height:auto!important;min-height:0!important;}
+  .ad-slot-img{height:170px!important;min-height:170px!important;max-height:170px!important;}
 }
 
-/* 4) Le contact est l'avant-dernier bloc ; le nom de la bibliothèque est dernier. */
+/* 3bis) Le CTA "documents récemment publiés" du message de bienvenue est
+         détaché du texte par un vrai séparateur — plus de fusion visuelle. */
+.welcome-modal-divider{
+  height:1px;
+  width:72px;
+  margin:22px auto 20px;
+  background:var(--theme-border,rgba(192,132,252,.35));
+  border-radius:999px;
+}
+#welcomeModalOk{margin-top:2px!important;}
+
+/* 4) Ordre du pied de page : identité de la bibliothèque, bouton admin,
+      contact, "espace d'apprentissage", puis le nom du site en tout dernier. */
 footer{
   display:flex!important;
   flex-direction:column!important;
 }
-footer .aurore-final-site-name{
+footer .footer-learn-cta{
   order:4!important;
+  margin-top:18px!important;
+}
+footer .aurore-final-site-name{
+  order:5!important;
   margin-top:18px!important;
   padding-top:18px!important;
   border-top:1px solid var(--theme-border,rgba(192,132,252,.14))!important;
@@ -16139,7 +16272,7 @@ footer > .wrap:nth-child(1){order:1!important;}
     padding:62px 26px 48px!important;
   }
   #screen-home > .hero h1{font-size:clamp(2.35rem,12vw,3.8rem)!important;}
-  #screen-home > .compact-home-hero{
+  footer .compact-home-hero{
     padding:26px 22px!important;
     min-height:0!important;
   }
@@ -16149,8 +16282,7 @@ footer > .wrap:nth-child(1){order:1!important;}
     min-height:430px!important;
     padding:52px 20px 40px!important;
   }
-  #screen-home > .compact-home-hero{
-    margin:24px 0 30px!important;
+  footer .compact-home-hero{
     border-radius:22px!important;
     padding:22px 18px!important;
   }
