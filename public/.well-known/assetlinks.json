@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.vercel.aurore_section_archivescom.twa",
+      "sha256_cert_fingerprints": [
+        "A9:36:18:8B:3A:39:6A:E6:7E:4B:61:35:E3:B4:9A:96:B7:86:1B:49:A1:56:01:EA:73:D6:31:1C:8C:F1:03:17"
+      ]
+    }
+  }
+]
