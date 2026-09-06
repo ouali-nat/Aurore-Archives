@@ -2418,6 +2418,177 @@ footer{padding:24px 0!important;margin-top:28px!important;}
 }
 </style>
 
+<style>
+
+/* --- Ad isolation / anti-overlap --- */
+.ad-slot, .ad-container, [class*="ad-"], [id*="ad-"] {
+  box-sizing: border-box;
+}
+.ad-slot {
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+  isolation: isolate;
+  contain: layout paint;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.ad-slot > *, .ad-container > * {
+  min-width: 0;
+  max-width: 100%;
+}
+.ad-slot h1, .ad-slot h2, .ad-slot h3, .ad-slot h4,
+.ad-slot p, .ad-slot span, .ad-slot a, .ad-slot button {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.ad-slot p, .ad-slot .description, .ad-slot [class*="description"] {
+  line-height: 1.45;
+  margin-bottom: .65rem;
+}
+.ad-slot .ad-content, .ad-slot [class*="content"] {
+  min-width: 0;
+}
+.ad-slot .ad-actions, .ad-slot [class*="actions"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  align-items: center;
+}
+.ad-slot img, .ad-slot iframe, .ad-slot video {
+  max-width: 100%;
+  height: auto;
+}
+
+/* --- New compact premium home --- */
+.home-hero, .hero, .welcome-hero, .hero-section {
+  max-width: 1180px !important;
+  margin: 14px auto 18px !important;
+  padding: 0 !important;
+}
+.compact-home-hero {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: 26px;
+  padding: clamp(20px, 4vw, 34px) !important;
+  min-height: 0 !important;
+  background:
+    radial-gradient(circle at 88% 18%, rgba(255,255,255,.16), transparent 28%),
+    radial-gradient(circle at 15% 100%, rgba(255,255,255,.10), transparent 32%),
+    linear-gradient(135deg, var(--primary, #6c63ff), var(--secondary, #8e7dff));
+  box-shadow: 0 18px 45px rgba(40, 35, 90, .18);
+  color: #fff;
+}
+.compact-home-hero::before,
+.compact-home-hero::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+  z-index: -1;
+}
+.compact-home-hero::before {
+  width: 180px; height: 180px;
+  right: -70px; top: -85px;
+  background: rgba(255,255,255,.10);
+}
+.compact-home-hero::after {
+  width: 130px; height: 130px;
+  left: 42%; bottom: -90px;
+  background: rgba(255,255,255,.08);
+}
+.compact-home-hero .hero-inner {
+  max-width: 920px;
+  margin: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 22px;
+  align-items: center;
+}
+.compact-home-hero .hero-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  padding: 6px 10px;
+  margin-bottom: 10px;
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: 999px;
+  background: rgba(255,255,255,.10);
+  font-size: .78rem;
+  font-weight: 700;
+}
+.compact-home-hero h1 {
+  margin: 0 0 9px !important;
+  max-width: 720px;
+  font-size: clamp(1.55rem, 3.2vw, 2.55rem) !important;
+  line-height: 1.08 !important;
+  letter-spacing: -.035em;
+}
+.compact-home-hero .hero-text {
+  margin: 0 0 16px !important;
+  max-width: 650px;
+  font-size: clamp(.9rem, 1.7vw, 1.02rem);
+  line-height: 1.55;
+  opacity: .92;
+}
+.compact-home-hero .hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+.compact-home-hero .hero-actions a,
+.compact-home-hero .hero-actions button {
+  min-height: 40px;
+  padding: 9px 15px;
+  border-radius: 12px;
+  font-weight: 750;
+}
+.compact-home-hero .hero-badge {
+  width: 112px;
+  height: 112px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: 28px;
+  background: rgba(255,255,255,.12);
+  backdrop-filter: blur(10px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.18);
+  font-size: 2.8rem;
+}
+@media (max-width: 700px) {
+  .compact-home-hero {
+    border-radius: 20px;
+    padding: 20px !important;
+    margin: 10px 0 14px !important;
+  }
+  .compact-home-hero .hero-inner {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .compact-home-hero .hero-badge {
+    display: none;
+  }
+  .compact-home-hero .hero-actions > * {
+    flex: 1 1 140px;
+    text-align: center;
+  }
+}
+
+/* Denser global layout, while preserving readable tap targets. */
+main, .container, .content, .page-content {
+  max-width: 1180px;
+}
+.grid, .cards-grid, .document-grid, .subjects-grid, .categories-grid {
+  gap: clamp(10px, 1.5vw, 16px) !important;
+}
+.card, .document-card, .subject-card, .category-card {
+  min-width: 0;
+}
+
+</style>
 </head>
 <body class="site-locked">
 
@@ -15833,5 +16004,20 @@ html[data-color-theme="rouge"]{--theme-primary:#DC2626;--theme-secondary:#FF6B6B
 html[data-color-theme="rouge"] .ad-slot-card,html[data-color-theme="rouge"] .home-video-section{box-shadow:0 24px 70px rgba(220,38,38,.18)!important;}
 @media(max-width:640px){html[data-color-theme] .ad-slot-card{height:230px!important;min-height:230px!important;border-radius:20px!important;}html[data-color-theme] .ad-slot-body{padding:18px 17px 16px!important;}}
 </style>
+
+<section class="compact-home-hero" aria-label="Accueil">
+  <div class="hero-inner">
+    <div>
+      <div class="hero-kicker">✦ Ton espace d’apprentissage</div>
+      <h1>Apprends mieux. Trouve plus vite. Avance plus loin.</h1>
+      <p class="hero-text">Des ressources bien organisées, un espace personnel simple et une expérience pensée pour rester concentré sur l’essentiel.</p>
+      <div class="hero-actions">
+        <a href="#documents">Explorer les documents</a>
+        <a href="#personal-space">Mon espace</a>
+      </div>
+    </div>
+    <div class="hero-badge" aria-hidden="true">✦</div>
+  </div>
+</section>
 </body>
 </html>
