@@ -2075,6 +2075,49 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
 .ad-slot[id^="ad-"]{display:block!important;visibility:visible!important;opacity:1!important;}
 .ad-slot[id^="ad-"]:empty{display:none!important;visibility:hidden!important;opacity:0!important;}
 </style>
+
+<style id="aurore-personal-document-presentation-sync">
+/* Espace personnel : même langage visuel que .doc-row de la bibliothèque. */
+#personalSpace .aurore-personal-document-row{
+  background:var(--papier)!important;
+  border:1px solid var(--bordure)!important;
+  border-radius:var(--radius-sm)!important;
+  padding:16px 20px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:14px!important;
+  flex-wrap:wrap!important;
+  box-shadow:var(--ombre)!important;
+}
+#personalSpace .aurore-personal-document-row .info{display:flex!important;align-items:center!important;gap:12px!important;min-width:0!important;flex:1 1 360px!important;}
+#personalSpace .aurore-personal-document-row .personal-doc-cover.icon-wrap{
+  width:56px!important;height:56px!important;min-width:56px!important;
+  border-radius:10px!important;background:var(--bordure)!important;color:var(--marron)!important;
+  overflow:hidden!important;display:flex!important;align-items:center!important;justify-content:center!important;
+}
+#personalSpace .aurore-personal-document-row .personal-doc-cover img.doc-cover-img{
+  width:100%!important;height:100%!important;object-fit:cover!important;border-radius:inherit!important;display:block!important;opacity:1!important;
+}
+#personalSpace .aurore-personal-document-row .doc-main-info{min-width:0!important;flex:1 1 auto!important;}
+#personalSpace .aurore-personal-document-row .titre{font-weight:700!important;font-size:.9rem!important;line-height:1.35!important;color:var(--encre)!important;min-width:0!important;overflow-wrap:anywhere!important;}
+#personalSpace .aurore-personal-document-row .meta{font-size:.76rem!important;color:var(--gris)!important;margin-top:2px!important;line-height:1.45!important;}
+#personalSpace .aurore-personal-document-row .doc-actions{display:flex!important;gap:8px!important;flex-wrap:wrap!important;align-items:center!important;justify-content:flex-end!important;}
+#personalSpace .aurore-personal-document-row .doc-actions .dl{background:var(--marron);color:#fff;border:1px solid var(--marron);text-decoration:none;padding:9px 18px;border-radius:var(--radius-sm);font-weight:700;font-size:.8rem;cursor:pointer;}
+#personalSpace .aurore-personal-document-row .doc-actions .doc-action-soft{background:transparent!important;color:var(--gris)!important;border:1px solid var(--bordure)!important;}
+#personalSpace .aurore-personal-document-row .doc-actions .doc-action-soft:hover{border-color:var(--violet)!important;color:var(--encre)!important;}
+#personalSpace .aurore-personal-document-row .personal-status{margin-top:7px;}
+@media(max-width:760px){
+  #personalSpace .aurore-personal-document-row{flex-direction:column!important;align-items:stretch!important;}
+  #personalSpace .aurore-personal-document-row .doc-actions{width:100%!important;justify-content:flex-start!important;}
+  #personalSpace .aurore-personal-document-row .doc-actions .dl{flex:1 1 auto!important;text-align:center!important;}
+}
+</style>
+
+<style id="aurore-personal-history-delete-sync">
+#personalSpace .aurore-personal-document-row .personal-history-delete{background:transparent!important;color:var(--gris)!important;border:1px solid var(--bordure)!important;border-radius:var(--radius-sm)!important;padding:9px 12px!important;font-weight:700!important;cursor:pointer!important;}
+#personalSpace .aurore-personal-document-row .personal-history-delete:hover{color:var(--rouge)!important;border-color:var(--rouge)!important;}
+</style>
 </head>
 <body class="site-locked">
 
@@ -2551,6 +2594,21 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     </button>
 
     <div class="ad-slot ad-slot-alt" id="ad-home-2"></div>
+
+    <!-- ===== ACCÈS À L’ESPACE PERSONNEL — FIN DE L’ACCUEIL ===== -->
+    <section class="aurora-personal-end" aria-labelledby="auroraPersonalEndTitle">
+      <div class="aurora-personal-end-inner">
+        <div class="aurora-personal-end-icon" aria-hidden="true">⌂</div>
+        <div class="aurora-personal-end-copy">
+          <span class="aurora-personal-end-kicker">Votre espace</span>
+          <h2 id="auroraPersonalEndTitle">Retrouvez votre espace personnel</h2>
+          <p>Accédez à vos documents, favoris, téléchargements et informations personnelles depuis votre espace Aurore.</p>
+        </div>
+        <button type="button" class="aurora-personal-end-btn" id="auroraPersonalEndBtn" aria-label="Accéder à mon espace personnel">
+          Accéder à mon espace <span aria-hidden="true">→</span>
+        </button>
+      </div>
+    </section>
   </section>
 
   <!-- ===== LIVRES : choix du genre ===== -->
@@ -2825,7 +2883,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
             </select>
             <select id="adminFilterNiveauPublies" aria-label="Filtrer par niveau"><option value="">Tous les niveaux</option></select>
             <select id="adminFilterClassePublies" aria-label="Filtrer par classe"><option value="">Toutes les classes</option></select>
-            <select id="adminFilterCategoriePublies" aria-label="Filtrer par catégorie"><option value="">Toutes les catégories</option></select>
+            <select id="adminFilterCategoriePublies" aria-label="Filtrer par catégorie"></select>
             <select id="adminFilterMatierePublies" aria-label="Filtrer par matière"><option value="">Toutes les matières</option></select>
           </div>
           <div id="adminListPublies"></div><div id="adminPagerPublies"></div>
@@ -10400,11 +10458,11 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       <div class="ad-slot-label">Publicité</div>
       <div class="ad-slot-card">
         <img class="ad-slot-img" src="${echapperHtmlPub(ad.image_url)}" alt="${echapperHtmlPub(titre||'Publicité')}" loading="eager" decoding="async" fetchpriority="high">
-        <div class="ad-slot-body">
-          ${titre ? `<div class="ad-slot-title">${echapperHtmlPub(titre)}</div>` : ''}
-          ${ad.description ? `<div class="ad-slot-desc">${echapperHtmlPub(ad.description)}</div>` : ''}
-          ${cta}
-        </div>
+      </div>
+      <div class="ad-slot-body">
+        ${titre ? `<div class="ad-slot-title">${echapperHtmlPub(titre)}</div>` : ''}
+        ${ad.description ? `<div class="ad-slot-desc">${echapperHtmlPub(ad.description)}</div>` : ''}
+        ${cta}
       </div>`;
     // Un emplacement rempli doit être visible, même si un ancien état HTML/CSS
     // (display:none ou hidden) subsiste. On ne modifie jamais la donnée de publicité.
@@ -12588,6 +12646,50 @@ async function telechargerDocumentAvecProgression(doc) {
     return '◷ En attente';
   }
 
+  // Présentation commune Aurore : les documents de l'espace personnel
+  // reprennent exactement la structure visuelle des documents publics.
+  // Cette normalisation ne modifie aucun gestionnaire d'événement existant.
+  function appliquerPresentationDocumentAurore(row, doc){
+    if(!row) return row;
+    const ancienCover=row.querySelector('.personal-doc-cover');
+    const main=row.querySelector('.personal-doc-main,.personal-book-main');
+    const actions=row.querySelector('.personal-doc-actions');
+    const status=row.querySelector('.personal-status');
+    if(!main||!actions) return row;
+
+    let cover=ancienCover;
+    if(!cover){
+      cover=document.createElement('div');
+      cover.className='personal-doc-cover icon-wrap';
+      cover.innerHTML=ICONS.file;
+    }else{
+      cover.classList.add('icon-wrap');
+    }
+    main.classList.add('doc-main-info');
+    const title=main.querySelector('.personal-doc-title,.personal-book-title');
+    const meta=main.querySelector('.personal-doc-meta,.personal-book-meta');
+    if(title) title.classList.add('titre');
+    if(meta) meta.classList.add('meta');
+
+    actions.classList.add('doc-actions');
+    actions.querySelectorAll('.personal-action').forEach(btn=>{
+      btn.classList.add('dl');
+      if(!btn.matches('[data-read],[data-lire],[data-lire-tard],[data-lire-download]')){
+        btn.classList.add('doc-action-soft');
+      }
+    });
+
+    const info=document.createElement('div');
+    info.className='info';
+    info.append(cover,main);
+    if(status) main.appendChild(status);
+    row.replaceChildren(info,actions);
+    row.classList.remove('personal-doc','personal-book');
+    row.classList.add('doc-row','aurore-personal-document-row');
+    row.__auroreDocumentCouverture=doc||null;
+    return row;
+  }
+
   function rendreDocumentsPersonnels(){
     const list=document.getElementById('personalDocumentsList');
     const count=document.getElementById('personalDocsCount');
@@ -12609,6 +12711,7 @@ async function telechargerDocumentAvecProgression(doc) {
       const titre=doc.Titre||'Document sans titre';
       const contexte=[doc.Niveau&&`Niveau : ${doc.Niveau}`,doc.Classe&&`Classe : ${doc.Classe}`,doc.Filiere&&`Filière : ${doc.Filiere}`,doc['Matière']&&`Matière : ${doc['Matière']}`].filter(Boolean).join(' · ');
       row.innerHTML=`<div class="personal-doc-cover">${ICONS.file}</div><div class="personal-doc-main"><div class="personal-doc-title">${escapeTextePersonnel(titre)}</div><div class="personal-doc-meta">${escapeTextePersonnel(contexte||'Document déposé sur Aurore')}</div>${tailleBadgeMarkup(doc.Fichier_url)}</div></div><span class="personal-status ${status}">${texteStatutPersonnel(status)}</span><div class="personal-doc-actions">${doc.Fichier_url?`<button type="button" class="personal-action" data-read="1">Voir le document</button>`:''}<button type="button" class="personal-action doc-action-folder" data-case-personal="1">▣ Case</button></div>`;
+      appliquerPresentationDocumentAurore(row,doc);
       row.querySelector('[data-read]')?.addEventListener('click',()=>ouvrirLecteurPDF(doc));
       row.querySelector('[data-case-personal]')?.addEventListener('click',()=>window.ouvrirChoixCaseDocument?.(doc));
       list.appendChild(row);
@@ -12633,6 +12736,7 @@ async function telechargerDocumentAvecProgression(doc) {
       const row=document.createElement('article'); row.className='personal-book';
       const status=doc.Publie===true?'accepted':'pending';
       row.innerHTML=`<div class="personal-doc-cover">${ICONS.book}</div><div class="personal-book-main"><div class="personal-book-title">${escapeTextePersonnel(doc.Titre||'Livre sans titre')}</div><div class="personal-book-meta">${escapeTextePersonnel(doc.Genre||'Livre')} · ${status==='accepted'?'Publié':'En attente de validation'}</div>${tailleBadgeMarkup(doc.Fichier_url)}</div></div><span class="personal-status ${status}">${texteStatutPersonnel(status)}</span><div class="personal-doc-actions"><button type="button" class="personal-action" data-read="1">Voir</button></div>`;
+      appliquerPresentationDocumentAurore(row,doc);
       row.querySelector('[data-read]')?.addEventListener('click',()=>ouvrirLecteurPDF(doc));
       list.appendChild(row);
       if (doc.Fichier_url && typeof appliquerCouvertureSiLivre === 'function') appliquerCouvertureSiLivre(row,doc);
@@ -12690,6 +12794,7 @@ async function telechargerDocumentAvecProgression(doc) {
       docs.forEach(doc=>{
         const row=document.createElement('article');row.className='personal-doc';
         row.innerHTML=`<div class="personal-doc-main"><div class="personal-doc-title">${escapeTextePersonnel(doc.Titre||'Document')}</div><div class="personal-doc-meta">${escapeTextePersonnel([doc.Niveau,doc['Matière']||doc.Genre].filter(Boolean).join(' · ')||'Document')}</div>${tailleBadgeMarkup(doc.Fichier_url)}</div></div><div class="personal-doc-actions"><button type="button" class="personal-action" data-read>Voir</button><button type="button" class="personal-action" data-telecharger-favori>Télécharger maintenant</button><button type="button" class="personal-action is-active" data-remove>♥ Favori</button><button type="button" class="personal-action doc-action-folder" data-case-fav>▣ Case</button></div>`;
+        appliquerPresentationDocumentAurore(row,doc);
         row.querySelector('[data-read]')?.addEventListener('click',()=>ouvrirLecteurPDF(doc));
         row.querySelector('[data-telecharger-favori]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(doc));
         row.querySelector('[data-remove]')?.addEventListener('click',()=>{basculerFavoriDocument(doc,row.querySelector('[data-remove]'));actualiserCompteursPersonnels();setTimeout(rendreFavorisPersonnels,0);});
@@ -13993,6 +14098,7 @@ footer>.wrap:last-child{margin-top:18px!important;}
       const date=d.downloaded_at?new Date(d.downloaded_at).toLocaleString('fr-FR',{dateStyle:'medium',timeStyle:'short'}):'';
       row.innerHTML=`<div class="personal-book-main"><div class="personal-book-title">${escapeTextePersonnel(d.titre||'Document')}</div><div class="personal-book-meta">Téléchargé${date?' · '+escapeTextePersonnel(date):''}</div></div><div class="personal-doc-actions"><button type="button" class="personal-action" data-lire-download>Voir</button><button type="button" class="personal-action" data-telecharger-download>Télécharger</button><button type="button" class="personal-action" data-favori-download>♡ Favori</button><button type="button" class="personal-action doc-action-folder" data-case-download>▣ Case</button><button type="button" class="personal-history-delete" data-delete-download aria-label="Supprimer ce document de l’historique" title="Supprimer de l’historique">×</button></div>`;
       const historyDoc={id:d.id,Titre:d.titre,Auteur:d.auteur,Fichier_url:d.url,'Catégorie':d.categorie,Niveau:d.niveau,'Matière':d.matiere,Genre:d.genre};
+      appliquerPresentationDocumentAurore(row,historyDoc);
       row.querySelector('[data-lire-download]')?.addEventListener('click',()=>ouvrirLecteurPDF(historyDoc));
       row.querySelector('[data-telecharger-download]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(historyDoc));
       row.querySelector('[data-favori-download]')?.addEventListener('click',e=>basculerFavoriDocument(historyDoc,e.currentTarget));
@@ -14014,6 +14120,7 @@ footer>.wrap:last-child{margin-top:18px!important;}
     arr.forEach(d=>{
       const row=document.createElement('article');row.className='personal-book';
       row.innerHTML=`<div class="personal-book-main"><div class="personal-book-title">${escapeTextePersonnel(d.titre)}</div><div class="personal-book-meta">Document enregistré pour plus tard${d.niveau?' · '+escapeTextePersonnel(d.niveau):''}</div>${tailleBadgeMarkup(d.url)}</div></div><div class="personal-doc-actions"><button type="button" class="personal-action" data-lire-tard>Voir</button><button type="button" class="personal-action" data-telecharger-tard>Télécharger maintenant</button><button type="button" class="personal-action doc-action-folder" data-case-later>▣ Case</button><button type="button" class="personal-action" data-remove-later>Retirer</button></div>`;
+      appliquerPresentationDocumentAurore(row,{id:d.id,Titre:d.titre,Auteur:d.auteur,Fichier_url:d.url,'Catégorie':d.categorie,Niveau:d.niveau,'Matière':d.matiere,Genre:d.genre});
       row.querySelector('[data-lire-tard]')?.addEventListener('click',()=>ouvrirLecteurPDF({id:d.id,Titre:d.titre,Auteur:d.auteur,Fichier_url:d.url,'Catégorie':d.categorie,Niveau:d.niveau,'Matière':d.matiere,Genre:d.genre}));
       row.querySelector('[data-telecharger-tard]')?.addEventListener('click',()=>telechargerDocumentAvecProgression({id:d.id,Titre:d.titre,Auteur:d.auteur,Fichier_url:d.url,'Catégorie':d.categorie,Niveau:d.niveau,'Matière':d.matiere,Genre:d.genre}));
       row.querySelector('[data-case-later]')?.addEventListener('click',()=>window.ouvrirChoixCaseDocument?.({id:d.id,Titre:d.titre,Auteur:d.auteur,Fichier_url:d.url,'Catégorie':d.categorie,Niveau:d.niveau,'Matière':d.matiere,Genre:d.genre}));
@@ -15490,5 +15597,196 @@ html[data-color-theme="rouge"]{--theme-primary:#DC2626;--theme-secondary:#FF6B6B
 html[data-color-theme="rouge"] .ad-slot-card,html[data-color-theme="rouge"] .home-video-section{box-shadow:0 24px 70px rgba(220,38,38,.18)!important;}
 @media(max-width:640px){html[data-color-theme] .ad-slot-card{height:230px!important;min-height:230px!important;border-radius:20px!important;}html[data-color-theme] .ad-slot-body{padding:18px 17px 16px!important;}}
 </style>
+
+<style id="aurore-final-request-fix">
+/* ==========================================================
+   Correction finale : publicités / espace personnel / vidéo
+   Ne remplace aucune logique métier existante.
+   ========================================================== */
+
+/* PUBLICITÉS — la carte contient UNIQUEMENT la photo. */
+.ad-slot-card{
+  display:block!important;
+  position:relative!important;
+  width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  overflow:hidden!important;
+  padding:0!important;
+  margin:0!important;
+  border:1px solid var(--theme-border,var(--bordure))!important;
+  border-radius:20px!important;
+  background:var(--theme-card,var(--papier))!important;
+  box-shadow:0 10px 28px var(--theme-shadow,rgba(55,36,82,.10))!important;
+  transform:none!important;
+}
+.ad-slot-card::before,.ad-slot-card::after{display:none!important;content:none!important;}
+.ad-slot-img{
+  position:relative!important;
+  inset:auto!important;
+  display:block!important;
+  width:100%!important;
+  height:220px!important;
+  min-width:0!important;
+  min-height:0!important;
+  object-fit:cover!important;
+  padding:0!important;
+  margin:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:var(--theme-card,var(--papier))!important;
+  box-shadow:none!important;
+}
+/* Titre / description : hors de la surface photo, juste en dessous. */
+.ad-slot-body{
+  position:static!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:stretch!important;
+  width:100%!important;
+  min-width:0!important;
+  height:auto!important;
+  max-height:none!important;
+  overflow:visible!important;
+  gap:8px!important;
+  padding:10px 0 0!important;
+  margin:0!important;
+  background:transparent!important;
+}
+.ad-slot-title,.ad-slot-desc{
+  display:block!important;
+  width:100%!important;
+  max-width:none!important;
+  box-sizing:border-box!important;
+  text-shadow:none!important;
+}
+.ad-slot-title{
+  padding:11px 14px!important;
+  border:1px solid var(--theme-border,var(--bordure))!important;
+  border-radius:13px!important;
+  background:var(--theme-card,var(--papier))!important;
+  color:var(--encre)!important;
+  font-weight:750!important;
+  line-height:1.4!important;
+}
+.ad-slot-desc{
+  padding:10px 14px!important;
+  border:1px solid var(--theme-border,var(--bordure))!important;
+  border-radius:13px!important;
+  background:var(--theme-card-soft,var(--papier))!important;
+  color:var(--gris)!important;
+  line-height:1.55!important;
+}
+.ad-slot-cta{
+  align-self:flex-start!important;
+  margin:0!important;
+  padding:8px 12px!important;
+  border:1px solid var(--theme-border,var(--bordure))!important;
+  border-radius:11px!important;
+  background:var(--theme-soft,var(--papier))!important;
+  color:var(--theme-primary,var(--violet))!important;
+  text-shadow:none!important;
+}
+[data-theme="dark"] .ad-slot-title{color:var(--dark-ink,var(--encre))!important;background:var(--dark-surface-2,var(--papier))!important;}
+[data-theme="dark"] .ad-slot-desc{color:var(--dark-muted,var(--gris))!important;background:var(--dark-surface-2,var(--papier))!important;}
+@media(max-width:560px){
+  .ad-slot-img{height:180px!important;}
+  .ad-slot-body{padding-top:8px!important;}
+}
+
+/* ESPACE PERSONNEL — dernière pièce visible de l’accueil, avant le footer. */
+.aurora-personal-end{
+  display:block!important;
+  width:100%!important;
+  margin:28px 0 0!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+}
+.aurora-personal-end-inner{
+  position:relative!important;
+  display:grid!important;
+  grid-template-columns:auto minmax(0,1fr) auto!important;
+  align-items:center!important;
+  gap:16px!important;
+  padding:20px!important;
+  border:1px solid var(--theme-border,var(--bordure))!important;
+  border-radius:20px!important;
+  background:linear-gradient(135deg,var(--theme-soft,rgba(124,58,237,.08)),var(--theme-card,var(--papier)))!important;
+  color:var(--encre)!important;
+  box-shadow:0 12px 32px var(--theme-shadow,rgba(55,36,82,.10))!important;
+}
+.aurora-personal-end-icon{
+  width:48px!important;height:48px!important;display:grid!important;place-items:center!important;
+  border-radius:15px!important;
+  background:var(--theme-soft,rgba(124,58,237,.12))!important;
+  color:var(--theme-primary,var(--violet))!important;
+  border:1px solid var(--theme-border,var(--bordure))!important;
+  font-size:1.35rem!important;font-weight:900!important;
+}
+.aurora-personal-end-kicker{
+  display:block!important;margin:0 0 4px!important;
+  color:var(--theme-primary,var(--violet))!important;
+  font-size:.64rem!important;font-weight:900!important;letter-spacing:.14em!important;text-transform:uppercase!important;
+}
+.aurora-personal-end-copy h2{margin:0 0 5px!important;color:var(--encre)!important;font-size:1.18rem!important;line-height:1.2!important;}
+.aurora-personal-end-copy p{margin:0!important;color:var(--gris)!important;font-size:.78rem!important;line-height:1.5!important;max-width:650px!important;}
+.aurora-personal-end-btn{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:9px!important;
+  white-space:nowrap!important;cursor:pointer!important;
+  padding:11px 15px!important;border-radius:12px!important;
+  border:1px solid var(--theme-primary,var(--violet))!important;
+  background:var(--theme-primary,var(--violet))!important;
+  color:#fff!important;font-weight:850!important;font-size:.76rem!important;
+  box-shadow:0 8px 22px var(--theme-shadow,rgba(124,58,237,.18))!important;
+}
+.aurora-personal-end-btn:hover{filter:brightness(1.06);transform:translateY(-1px);}
+[data-theme="dark"] .aurora-personal-end-inner{
+  background:linear-gradient(135deg,var(--theme-soft,rgba(124,58,237,.14)),var(--dark-surface,var(--papier)))!important;
+  color:var(--dark-ink,var(--encre))!important;
+}
+[data-theme="dark"] .aurora-personal-end-copy h2{color:var(--dark-ink,var(--encre))!important;}
+[data-theme="dark"] .aurora-personal-end-copy p{color:var(--dark-muted,var(--gris))!important;}
+@media(max-width:700px){
+  .aurora-personal-end-inner{grid-template-columns:auto minmax(0,1fr)!important;}
+  .aurora-personal-end-btn{grid-column:1/-1!important;width:100%!important;}
+}
+@media(max-width:390px){
+  .aurora-personal-end-inner{padding:16px!important;gap:12px!important;}
+  .aurora-personal-end-icon{width:42px!important;height:42px!important;border-radius:13px!important;}
+}
+
+/* VIDÉO — réduction nette de la surface, sans toucher au lecteur. */
+.home-video-section{max-width:760px!important;margin:18px auto 22px!important;}
+.home-video-heading{padding:13px 16px 9px!important;}
+.home-video-frame{
+  width:calc(100% - 24px)!important;
+  max-width:760px!important;
+  max-height:360px!important;
+  margin:0 auto 8px!important;
+  aspect-ratio:16/8.2!important;
+  border-radius:14px!important;
+  overflow:hidden!important;
+}
+.home-video-frame video{width:100%!important;height:100%!important;border-radius:14px!important;object-fit:contain!important;}
+@media(max-width:640px){
+  .home-video-section{max-width:none!important;margin:15px 0 20px!important;}
+  .home-video-frame{width:calc(100% - 12px)!important;max-height:250px!important;aspect-ratio:16/9!important;border-radius:12px!important;}
+  .home-video-frame video{border-radius:12px!important;}
+}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  const btn = document.getElementById('auroraPersonalEndBtn');
+  if(btn){
+    btn.addEventListener('click', function(){
+      const existing = document.getElementById('btnOuvrirProfil');
+      if(existing){ existing.click(); return; }
+      if(typeof window.ouvrirEspaceAvecCode === 'function'){ window.ouvrirEspaceAvecCode(); }
+    });
+  }
+});
+</script>
+
 </body>
 </html>
