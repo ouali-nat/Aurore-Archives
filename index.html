@@ -2118,6 +2118,105 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
 #personalSpace .aurore-personal-document-row .personal-history-delete{background:transparent!important;color:var(--gris)!important;border:1px solid var(--bordure)!important;border-radius:var(--radius-sm)!important;padding:9px 12px!important;font-weight:700!important;cursor:pointer!important;}
 #personalSpace .aurore-personal-document-row .personal-history-delete:hover{color:var(--rouge)!important;border-color:var(--rouge)!important;}
 </style>
+<style id="aurore-personal-library-exact-sync">
+/* ESPACE PERSONNEL — copie du modèle de présentation de la bibliothèque.
+   Cette couche ne touche ni aux données ni aux gestionnaires d'actions. */
+#personalSpace .personal-list{
+  display:grid!important;
+  grid-template-columns:repeat(auto-fill,minmax(205px,1fr))!important;
+  gap:16px!important;
+  margin-top:22px!important;
+  align-items:stretch!important;
+}
+#personalSpace .personal-list > .doc-row.aurore-personal-document-row{
+  position:relative!important;
+  min-width:0!important;
+  min-height:0!important;
+  height:100%!important;
+  padding:0!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:stretch!important;
+  justify-content:flex-start!important;
+  gap:0!important;
+  overflow:hidden!important;
+  border:1px solid var(--bordure)!important;
+  border-radius:16px!important;
+  background:var(--papier)!important;
+  box-shadow:0 2px 7px rgba(35,25,55,.08)!important;
+}
+#personalSpace .personal-list > .doc-row.aurore-personal-document-row:hover{
+  transform:translateY(-2px)!important;
+  border-color:color-mix(in srgb,var(--violet) 35%,var(--bordure))!important;
+  box-shadow:0 7px 20px rgba(55,36,82,.13)!important;
+}
+#personalSpace .doc-row.aurore-personal-document-row > .info{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:stretch!important;
+  gap:0!important;
+  min-width:0!important;
+  flex:1 1 auto!important;
+}
+#personalSpace .doc-row.aurore-personal-document-row .icon-wrap,
+#personalSpace .doc-row.aurore-personal-document-row .icon-wrap.a-couverture{
+  width:100%!important;
+  height:auto!important;
+  aspect-ratio:1/1!important;
+  min-height:0!important;
+  flex:none!important;
+  border-radius:0!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  overflow:hidden!important;
+  background:linear-gradient(145deg,#F1EDF7,#E6E0EF)!important;
+  border:0!important;
+}
+#personalSpace .doc-row.aurore-personal-document-row .icon-wrap:not(.a-couverture){color:var(--violet)!important;}
+#personalSpace .doc-row.aurore-personal-document-row .icon-wrap img.doc-cover-img{
+  width:100%!important;height:100%!important;aspect-ratio:1/1!important;object-fit:cover!important;border-radius:0!important;display:block!important;opacity:1!important;
+}
+#personalSpace .doc-row.aurore-personal-document-row .doc-main-info{
+  min-width:0!important;padding:11px 12px 8px!important;flex:1 1 auto!important;
+}
+#personalSpace .doc-row.aurore-personal-document-row .titre{
+  font-size:.84rem!important;line-height:1.3!important;font-weight:700!important;display:-webkit-box!important;-webkit-box-orient:vertical!important;-webkit-line-clamp:2!important;overflow:hidden!important;
+}
+#personalSpace .doc-row.aurore-personal-document-row .meta{
+  margin-top:4px!important;font-size:.68rem!important;line-height:1.35!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
+}
+#personalSpace .doc-row.aurore-personal-document-row .doc-context{display:none!important;}
+#personalSpace .doc-row.aurore-personal-document-row .doc-main-info .taille-badge{margin-top:5px!important;}
+#personalSpace .doc-row.aurore-personal-document-row .personal-status{
+  display:inline-flex!important;align-self:flex-start!important;width:max-content!important;margin-top:5px!important;font-size:.61rem!important;padding:4px 7px!important;
+}
+#personalSpace .doc-row.aurore-personal-document-row .doc-actions{
+  display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important;width:100%!important;padding:8px 10px 10px!important;margin-top:auto!important;border-top:1px solid color-mix(in srgb,var(--bordure) 78%,transparent)!important;background:color-mix(in srgb,var(--papier) 94%,var(--fond))!important;
+}
+#personalSpace .doc-row.aurore-personal-document-row .doc-actions .dl{
+  min-width:0!important;width:100%!important;margin:0!important;padding:7px 6px!important;min-height:34px!important;border-radius:9px!important;font-size:.66rem!important;line-height:1.15!important;white-space:normal!important;text-align:center!important;
+}
+#personalSpace .doc-row.aurore-personal-document-row .doc-actions .dl:first-child{background:var(--violet)!important;color:#fff!important;border:1px solid var(--violet)!important;}
+#personalSpace .doc-row.aurore-personal-document-row .doc-actions .dl:nth-child(2){background:var(--marron)!important;color:#fff!important;border:1px solid var(--marron)!important;}
+#personalSpace .doc-row.aurore-personal-document-row .doc-actions .doc-action-soft{background:transparent!important;color:var(--gris)!important;border:1px solid var(--bordure)!important;}
+#personalSpace .doc-row.aurore-personal-document-row .doc-actions .doc-action-soft:hover{background:rgba(124,58,237,.07)!important;color:var(--encre)!important;border-color:var(--violet)!important;}
+#personalSpace .personal-list > .personal-empty{grid-column:1/-1!important;margin-top:0!important;}
+@media(max-width:720px){
+  #personalSpace .personal-list{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:11px!important;}
+  #personalSpace .doc-row.aurore-personal-document-row .doc-main-info{padding:9px 9px 7px!important;}
+  #personalSpace .doc-row.aurore-personal-document-row .doc-actions{padding:7px 7px 8px!important;gap:5px!important;}
+  #personalSpace .doc-row.aurore-personal-document-row .doc-actions .dl{font-size:.61rem!important;padding:7px 4px!important;}
+}
+@media(max-width:390px){
+  #personalSpace .doc-row.aurore-personal-document-row .titre{font-size:.77rem!important;}
+  #personalSpace .doc-row.aurore-personal-document-row .meta{font-size:.62rem!important;}
+}
+[data-theme="light"] #personalSpace .doc-row.aurore-personal-document-row{background:#fff!important;border-color:#D9D1E4!important;box-shadow:0 2px 8px rgba(55,36,82,.08)!important;}
+[data-theme="light"] #personalSpace .doc-row.aurore-personal-document-row .icon-wrap,
+[data-theme="light"] #personalSpace .doc-row.aurore-personal-document-row .icon-wrap.a-couverture{background:#F0ECF5!important;}
+[data-theme="light"] #personalSpace .doc-row.aurore-personal-document-row .doc-actions{background:#FBFAFD!important;border-top-color:#E6DFEE!important;}
+</style>
 </head>
 <body class="site-locked">
 
@@ -2874,23 +2973,6 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         </div>
 
         <div class="admin-tab-panel" data-panel="publies">
-          <section class="admin-pending-overview" aria-label="Vue d'ensemble des documents publiés">
-            <div class="admin-pending-overview-head">
-              <div>
-                <span class="admin-overview-kicker">En ligne</span>
-                <h3>Vue d’ensemble des documents publiés</h3>
-                <p>Le même aperçu rapide que pour les dépôts en attente, appliqué aux documents déjà publiés.</p>
-              </div>
-              <button type="button" class="admin-btn ghost admin-pending-refresh" id="adminRefreshPublies">↻ Actualiser</button>
-            </div>
-            <div class="admin-pending-stats" id="adminPubliesStats">
-              <div class="admin-pending-stat"><strong id="adminPubliesTotal">0</strong><span>Publiés</span></div>
-              <div class="admin-pending-stat"><strong id="adminPubliesCategories">0</strong><span>Catégories différentes</span></div>
-              <div class="admin-pending-stat"><strong id="adminPubliesDernier">—</strong><span>Dernier publié</span></div>
-              <div class="admin-pending-stat"><strong id="adminPubliesAuteurs">0</strong><span>Déposants</span></div>
-            </div>
-            <div class="admin-pending-breakdown" id="adminPubliesBreakdown"></div>
-          </section>
           <p class="admin-panel-desc">Retire un document publié si besoin (erreur, doublon, contenu à corriger).</p>
           <div class="admin-published-actions" id="adminPublishedActions"><button type="button" class="admin-btn ghost admin-danger-soft" id="adminSuspendreTout">⏸ Suspendre tous</button><button type="button" class="admin-btn primary" id="adminRepublierTout" style="display:none;">↻ Republier tous</button><span id="adminGlobalPublishHint">Retire temporairement tous les documents du site public sans les supprimer.</span></div>
           <div class="admin-data-toolbar" id="adminToolbarPublies">
@@ -7223,62 +7305,53 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     content.appendChild(list);
 
     trierDocumentsClient(documentsCourants).forEach(doc=>{
-      const row=creerLigneDocumentPublique(doc);
+      const row=document.createElement('div');
+      row.className='doc-row';
+      const telechargementOk=doc.Telechargement_autorise!==false;
+      const contexte=[
+        doc.Niveau && `Niveau : ${doc.Niveau}`,
+        doc.Filiere && `Filière : ${doc.Filiere}`,
+        (doc['Catégorie']||doc.Type) && `Catégorie : ${doc['Catégorie']||doc.Type}`,
+        doc.Genre && `Genre : ${doc.Genre}`
+      ].filter(Boolean).join(' · ');
+      const titreDocument = obtenirTitreDocument(doc);
+      row.dataset.documentTitle = titreDocument;
+      row.innerHTML=`
+        <div class="info">
+          <div class="icon-wrap">${ICONS.file}</div>
+          <div class="doc-main-info">
+            <div class="titre" title="${echapperHtmlPub(titreDocument)}">${echapperHtmlPub(titreDocument)}</div>
+            <div class="meta">Déposé par ${doc.Auteur||'anonyme'}${telechargementOk?'':' · Lecture seule'}</div>
+            ${contexte?`<div class="doc-context">${contexte}</div>`:''}
+            ${tailleBadgeMarkup(doc.Fichier_url)}
+          </div>
+        </div>
+        <div class="doc-actions">
+          <button type="button" class="dl" style="cursor:pointer;" data-lire="1">Lire</button>
+          ${telechargementOk?`<button type="button" class="dl" style="cursor:pointer;" data-telecharger-maintenant="1">Télécharger maintenant</button>`:''}
+          <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-favori="1" aria-pressed="false">♡ Favori</button>
+          <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-plus-tard="1">＋ Plus tard</button>
+          <button type="button" class="dl doc-action-soft doc-action-folder" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-case="1">▣ Case</button>
+          <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-signaler="1">Signaler</button>
+        </div>`;
+      row.querySelector('[data-lire]').addEventListener('click',()=>ouvrirLecteurPDF(doc));
+      row.querySelector('[data-telecharger-maintenant]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(doc));
+      row.querySelector('[data-signaler]').addEventListener('click',()=>ouvrirSignalement(doc));
+      row.querySelector('[data-favori]')?.addEventListener('click',()=>basculerFavoriDocument(doc,row.querySelector('[data-favori]')));
+      row.querySelector('[data-plus-tard]')?.addEventListener('click',()=>ajouterDocumentPlusTard(doc,row.querySelector('[data-plus-tard]')));
+      row.querySelector('[data-case]')?.addEventListener('click',(e)=>{
+        e.preventDefault();
+        e.stopPropagation();
+        if(typeof window.ouvrirChoixCaseDocument==='function') window.ouvrirChoixCaseDocument(doc);
+      });
+      actualiserEtatActionsDocument(row,doc);
+      actualiserTaillesDocumentsDans(row);
       // La ligne doit être dans le DOM avant d'être observée par
       // IntersectionObserver : sinon certaines couvertures ne reçoivent jamais
       // le signal d'entrée dans la zone visible.
       list.appendChild(row);
       if (COUVERTURES_PREMIERE_PAGE_ACTIVES) appliquerCouvertureSiLivre(row,doc);
     });
-  }
-
-  // Présentation unique des documents publics : utilisée par la bibliothèque
-  // ET par « Documents récemment publiés / Mis en avant », afin que tous les
-  // documents du site se présentent exactement de la même façon (même ligne,
-  // mêmes actions : Lire, Télécharger, Favori, Plus tard, Case, Signaler).
-  function creerLigneDocumentPublique(doc){
-    const row=document.createElement('div');
-    row.className='doc-row';
-    const telechargementOk=doc.Telechargement_autorise!==false;
-    const contexte=[
-      doc.Niveau && `Niveau : ${doc.Niveau}`,
-      doc.Filiere && `Filière : ${doc.Filiere}`,
-      (doc['Catégorie']||doc.Type) && `Catégorie : ${doc['Catégorie']||doc.Type}`,
-      doc.Genre && `Genre : ${doc.Genre}`
-    ].filter(Boolean).join(' · ');
-    const titreDocument = obtenirTitreDocument(doc);
-    row.dataset.documentTitle = titreDocument;
-    row.innerHTML=`
-      <div class="info">
-        <div class="icon-wrap">${ICONS.file}</div>
-        <div class="doc-main-info">
-          <div class="titre" title="${echapperHtmlPub(titreDocument)}">${echapperHtmlPub(titreDocument)}</div>
-          <div class="meta">Déposé par ${doc.Auteur||'anonyme'}${telechargementOk?'':' · Lecture seule'}</div>
-          ${contexte?`<div class="doc-context">${contexte}</div>`:''}
-          ${tailleBadgeMarkup(doc.Fichier_url)}
-        </div>
-      </div>
-      <div class="doc-actions">
-        <button type="button" class="dl" style="cursor:pointer;" data-lire="1">Lire</button>
-        ${telechargementOk?`<button type="button" class="dl" style="cursor:pointer;" data-telecharger-maintenant="1">Télécharger maintenant</button>`:''}
-        <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-favori="1" aria-pressed="false">♡ Favori</button>
-        <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-plus-tard="1">＋ Plus tard</button>
-        <button type="button" class="dl doc-action-soft doc-action-folder" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-case="1">▣ Case</button>
-        <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-signaler="1">Signaler</button>
-      </div>`;
-    row.querySelector('[data-lire]').addEventListener('click',()=>ouvrirLecteurPDF(doc));
-    row.querySelector('[data-telecharger-maintenant]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(doc));
-    row.querySelector('[data-signaler]').addEventListener('click',()=>ouvrirSignalement(doc));
-    row.querySelector('[data-favori]')?.addEventListener('click',()=>basculerFavoriDocument(doc,row.querySelector('[data-favori]')));
-    row.querySelector('[data-plus-tard]')?.addEventListener('click',()=>ajouterDocumentPlusTard(doc,row.querySelector('[data-plus-tard]')));
-    row.querySelector('[data-case]')?.addEventListener('click',(e)=>{
-      e.preventDefault();
-      e.stopPropagation();
-      if(typeof window.ouvrirChoixCaseDocument==='function') window.ouvrirChoixCaseDocument(doc);
-    });
-    actualiserEtatActionsDocument(row,doc);
-    actualiserTaillesDocumentsDans(row);
-    return row;
   }
 
   async function allerDocuments(matiere) {
@@ -7466,17 +7539,20 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     recentsPageCourante=Math.min(recentsPageCourante,pages);
     if(!data.length){content.innerHTML='<div class="site-empty-filter">Aucun document ne correspond à votre recherche.</div>';afficherPaginationSite('recentsPager',0,1,()=>{});return;}
     const start=(recentsPageCourante-1)*SITE_PUBLIC_PAGE_SIZE;
-    // Présentation identique à la bibliothèque : même ligne .doc-row, mêmes
-    // actions (Lire, Télécharger, Favori, Plus tard, Case, Signaler), même
-    // couverture de première page. Tous les documents du site se présentent
-    // désormais de la même façon, partout.
-    const list=document.createElement('div'); list.className='doc-list';
-    content.innerHTML=''; content.appendChild(list);
+    const grid=document.createElement('div'); grid.className='recents-grid';
     data.slice(start,start+SITE_PUBLIC_PAGE_SIZE).forEach(doc=>{
-      const row=creerLigneDocumentPublique(doc);
-      list.appendChild(row);
-      if (COUVERTURES_PREMIERE_PAGE_ACTIVES) appliquerCouvertureSiLivre(row,doc);
+      const card=document.createElement('article'); card.className='recents-card'; card.setAttribute('role','button'); card.tabIndex=0;
+      const tags=tagsClassementDocument(doc);
+      card.innerHTML=`<div class="titre">${doc.Titre||''}</div><div class="tags">${tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>${tailleBadgeMarkup(doc.Fichier_url)}<div class="recents-card-actions"><button type="button" data-favori-card aria-label="Ajouter aux favoris">♡ Favori</button><button type="button" data-plus-tard-card aria-label="Télécharger plus tard">＋ Plus tard</button><button type="button" data-case-card class="doc-action-folder" aria-label="Ajouter à une case">▣ Case</button></div>`;
+      card.addEventListener('click',(e)=>{if(e.target.closest('.recents-card-actions')) return;ouvrirApercuDocument(doc);});
+      card.addEventListener('keydown',(e)=>{if((e.key==='Enter'||e.key===' ')&&!e.target.closest('.recents-card-actions')){e.preventDefault();ouvrirApercuDocument(doc);}});
+      card.querySelector('[data-favori-card]')?.addEventListener('click',(e)=>{e.stopPropagation();basculerFavoriDocument(doc,card.querySelector('[data-favori-card]'));});
+      card.querySelector('[data-plus-tard-card]')?.addEventListener('click',(e)=>{e.stopPropagation();ajouterDocumentPlusTard(doc,card.querySelector('[data-plus-tard-card]'));});
+      card.querySelector('[data-case-card]')?.addEventListener('click',(e)=>{e.stopPropagation();window.ouvrirChoixCaseDocument?.(doc);});
+      actualiserEtatActionsDocument(card,doc);
+      grid.appendChild(card);
     });
+    content.innerHTML=''; content.appendChild(grid);
     afficherPaginationSite('recentsPager',data.length,recentsPageCourante,p=>{recentsPageCourante=p;rendreRecentsAvecOutils();});
   }
 
@@ -9444,7 +9520,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
 
   const ADMIN_COLLECTION_CONFIG = {
     attente:{toolbarId:'adminToolbarAttente',searchId:'adminSearchAttente',sortId:'adminSortAttente',listId:'adminList',pagerId:'adminPagerAttente',pageSize:ADMIN_PENDING_PAGE_SIZE,filterIds:{niveau:'adminFilterNiveauAttente',classe:'adminFilterClasseAttente',matiere:'adminFilterMatiereAttente',categorie:'adminFilterCategorieAttente'}},
-    publies:{toolbarId:'adminToolbarPublies',searchId:'adminSearchPublies',sortId:'adminSortPublies',listId:'adminListPublies',pagerId:'adminPagerPublies',pageSize:ADMIN_PENDING_PAGE_SIZE,filterIds:{niveau:'adminFilterNiveauPublies',classe:'adminFilterClassePublies',matiere:'adminFilterMatierePublies',categorie:'adminFilterCategoriePublies'}},
+    publies:{toolbarId:'adminToolbarPublies',searchId:'adminSearchPublies',sortId:'adminSortPublies',listId:'adminListPublies',pagerId:'adminPagerPublies',filterIds:{niveau:'adminFilterNiveauPublies',classe:'adminFilterClassePublies',matiere:'adminFilterMatierePublies',categorie:'adminFilterCategoriePublies'}},
     reclamations:{toolbarId:'adminToolbarReclamations',searchId:'adminSearchReclamations',sortId:'adminSortReclamations',listId:'adminListReclamations',pagerId:'adminPagerReclamations',filterIds:{statut:'adminFilterStatutReclamations'}},
     utilisateurs:{toolbarId:'adminToolbarUtilisateurs',searchId:'adminSearchUtilisateurs',sortId:'adminSortUtilisateurs',listId:'adminUsersList',pagerId:'adminPagerUtilisateurs',filterIds:{role:'adminFilterRoleUtilisateurs'},cardSelector:'.admin-user-card',dateField:'created'}
   };
@@ -9556,7 +9632,6 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   }
 
   document.getElementById('adminRefreshAttente')?.addEventListener('click', () => chargerDepotsEnAttente());
-  document.getElementById('adminRefreshPublies')?.addEventListener('click', () => chargerDocumentsPublies());
 
   async function validerDepot(id, card, titreDocument, deposant) {
     try {
@@ -9636,45 +9711,6 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     }
   }
 
-  // Même système de hiérarchisation/organisation que pour les dépôts en
-  // attente (actualiserResumeDepotsAttente), appliqué aux documents publiés :
-  // total, catégories distinctes, dernier document, déposants, et chips de
-  // répartition par catégorie cliquables pour filtrer la liste.
-  function actualiserResumeDocumentsPublies(data) {
-    const docs = Array.isArray(data) ? data : [];
-    const total = docs.length;
-    const categories = new Set(docs.map(d => String(d?.['Catégorie'] || d?.Genre || '').trim()).filter(Boolean));
-    const auteurs = new Set(docs.map(d => String(d?.Auteur || '').trim().toLocaleLowerCase('fr')).filter(Boolean));
-    const dernier = docs[0] || null;
-    const totalEl=document.getElementById('adminPubliesTotal');
-    const catEl=document.getElementById('adminPubliesCategories');
-    const dernierEl=document.getElementById('adminPubliesDernier');
-    const auteursEl=document.getElementById('adminPubliesAuteurs');
-    if(totalEl) totalEl.textContent=String(total);
-    if(catEl) catEl.textContent=String(categories.size);
-    if(dernierEl) dernierEl.textContent=dernier ? String(dernier.Titre || 'Sans titre').slice(0,28) : '—';
-    if(auteursEl) auteursEl.textContent=String(auteurs.size);
-    const breakdown=document.getElementById('adminPubliesBreakdown');
-    if(!breakdown) return;
-    const compte=new Map();
-    docs.forEach(d=>{const c=String(d?.['Catégorie'] || d?.Genre || 'Non classé').trim() || 'Non classé';compte.set(c,(compte.get(c)||0)+1);});
-    breakdown.innerHTML='';
-    [...compte.entries()].sort((a,b)=>b[1]-a[1]||normaliserAdminTexte(a[0]).localeCompare(normaliserAdminTexte(b[0]),'fr')).slice(0,8).forEach(([cat,n])=>{
-      const b=document.createElement('button'); b.type='button'; b.className='admin-pending-breakdown-chip'; b.innerHTML=`<span>${echapperHtmlPub(cat)}</span><b>${n}</b>`;
-      b.title='Afficher uniquement cette catégorie';
-      b.addEventListener('click',()=>{
-        const select=document.getElementById('adminFilterNiveauPublies');
-        const mat=document.getElementById('adminFilterMatierePublies');
-        const catSelect=document.getElementById('adminFilterCategoriePublies');
-        if(select) select.value=''; if(mat) mat.value=''; if(catSelect) catSelect.value=cat;
-        const state=adminCollectionStates.publies || (adminCollectionStates.publies={page:1,query:'',sort:'recent',filters:{}});
-        state.filters.categorie=cat; state.page=1;
-        appliquerCollectionAdmin('publies',ADMIN_COLLECTION_CONFIG.publies);
-      });
-      breakdown.appendChild(b);
-    });
-  }
-
   async function chargerDocumentsPublies() {
     const list = document.getElementById('adminListPublies');
     list.innerHTML = '<p class="admin-empty">Chargement…</p>';
@@ -9683,7 +9719,6 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       if (!res.ok) throw new Error("Statut HTTP " + res.status);
       const data = await res.json();
       majCompteurOnglet('tabCountPublies', data ? data.length : 0);
-      actualiserResumeDocumentsPublies(data);
 
       if (!data || data.length === 0) {
         list.innerHTML = '<p class="admin-empty">Aucun document publié pour l\'instant.</p>';
@@ -9703,11 +9738,9 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         card.dataset.adminLevel = String(doc.Niveau || '');
         card.dataset.adminClass = String(doc.Classe || '');
         card.dataset.adminSubject = String(doc['Matière'] || doc.Genre || '');
+        card.dataset.adminCategory = String(doc['Catégorie'] || '');
         card.dataset.adminAuthor = String(doc.Auteur || deposant && deposant.nom || '');
         card.dataset.adminSearch = [doc.Titre, doc.Niveau, doc.Classe, doc['Catégorie'], doc['Matière'], doc.Genre, doc.Auteur, deposant && deposant.nom, deposant && deposant.email].filter(v => v != null && String(v).trim()).join(' ');
-        // Même repli « Non classé » que pour les dépôts en attente, afin que
-        // les chips de répartition par catégorie filtrent correctement ici aussi.
-        card.dataset.adminCategory = String(doc['Catégorie'] || doc.Genre || 'Non classé').trim() || 'Non classé';
         card.dataset.adminSortValue = String(doc.id ?? '0');
         card.style.animationDelay = (i * 0.04) + 's';
         const telechargementOk = doc.Telechargement_autorise !== false;
@@ -12717,52 +12750,96 @@ async function telechargerDocumentAvecProgression(doc) {
   // Cette normalisation ne modifie aucun gestionnaire d'événement existant.
   function appliquerPresentationDocumentAurore(row, doc){
     if(!row) return row;
-    const main=row.querySelector('.personal-doc-main,.personal-book-main,.doc-main-info');
-    const actions=row.querySelector('.personal-doc-actions,.doc-actions');
+    const ancienCover=row.querySelector('.personal-doc-cover');
+    const main=row.querySelector('.personal-doc-main,.personal-book-main');
+    const actions=row.querySelector('.personal-doc-actions');
     const status=row.querySelector('.personal-status');
-    let cover=row.querySelector('.personal-doc-cover,.icon-wrap');
-    if(!main) return row;
+    if(!main||!actions) return row;
 
+    let cover=ancienCover;
     if(!cover){
       cover=document.createElement('div');
-      cover.className='icon-wrap';
+      cover.className='personal-doc-cover icon-wrap';
       cover.innerHTML=ICONS.file;
     }else{
       cover.classList.add('icon-wrap');
     }
-
     main.classList.add('doc-main-info');
-    const title=main.querySelector('.personal-doc-title,.personal-book-title,.titre');
-    const meta=main.querySelector('.personal-doc-meta,.personal-book-meta,.meta');
+    const title=main.querySelector('.personal-doc-title,.personal-book-title');
+    const meta=main.querySelector('.personal-doc-meta,.personal-book-meta');
     if(title) title.classList.add('titre');
     if(meta) meta.classList.add('meta');
 
-    // Le statut reste dans le bloc d'information, sans changer la structure
-    // visuelle de la carte de la bibliothèque.
-    if(status){
-      status.style.marginTop='5px';
-      main.appendChild(status);
-    }
-
-    if(actions){
-      actions.classList.add('doc-actions');
-      actions.querySelectorAll('.personal-action,.personal-history-delete,.dl').forEach(btn=>{
-        btn.classList.add('dl');
-        if(!btn.matches('[data-read],[data-lire],[data-lire-tard],[data-lire-download]')){
-          btn.classList.add('doc-action-soft');
-        }
-      });
-    }
+    actions.classList.add('doc-actions');
+    actions.querySelectorAll('.personal-action').forEach(btn=>{
+      btn.classList.add('dl');
+      if(!btn.matches('[data-read],[data-lire],[data-lire-tard],[data-lire-download]')){
+        btn.classList.add('doc-action-soft');
+      }
+    });
 
     const info=document.createElement('div');
     info.className='info';
     info.append(cover,main);
-    row.replaceChildren(info);
-    if(actions) row.appendChild(actions);
-
-    row.className='doc-row aurore-personal-document-row';
+    if(status) main.appendChild(status);
+    row.replaceChildren(info,actions);
+    row.classList.remove('personal-doc','personal-book');
+    row.classList.add('doc-row','aurore-personal-document-row');
     row.__auroreDocumentCouverture=doc||null;
     return row;
+  }
+
+  function rendreDocumentsPersonnels(){
+    const list=document.getElementById('personalDocumentsList');
+    const count=document.getElementById('personalDocsCount');
+    if(!list) return;
+    const docs=[...MES_DOCUMENTS_PERSONNELS];
+    const refus=[];
+    (MES_NOTIFICATIONS_PERSONNELLES||[]).forEach(n=>{
+      if(String(n.statut||'').toLowerCase()==='refuse') refus.push(n);
+    });
+    if(count) count.textContent=String(docs.length+refus.length);
+    list.innerHTML='';
+    if(!docs.length && !refus.length){
+      list.innerHTML='<div class="personal-empty">Aucun document déposé pour le moment. Vos prochains dépôts apparaîtront ici avec leur statut.</div>';
+      return;
+    }
+    docs.forEach(doc=>{
+      const status=statutDocumentPersonnel(doc);
+      const row=document.createElement('article'); row.className='personal-doc';
+      const titre=doc.Titre||'Document sans titre';
+      const contexte=[doc.Niveau&&`Niveau : ${doc.Niveau}`,doc.Classe&&`Classe : ${doc.Classe}`,doc.Filiere&&`Filière : ${doc.Filiere}`,doc['Matière']&&`Matière : ${doc['Matière']}`].filter(Boolean).join(' · ');
+      row.innerHTML=`<div class="personal-doc-cover">${ICONS.file}</div><div class="personal-doc-main"><div class="personal-doc-title">${escapeTextePersonnel(titre)}</div><div class="personal-doc-meta">${escapeTextePersonnel(contexte||'Document déposé sur Aurore')}</div>${tailleBadgeMarkup(doc.Fichier_url)}</div></div><span class="personal-status ${status}">${texteStatutPersonnel(status)}</span><div class="personal-doc-actions">${doc.Fichier_url?`<button type="button" class="personal-action" data-read="1">Voir le document</button>`:''}<button type="button" class="personal-action doc-action-folder" data-case-personal="1">▣ Case</button></div>`;
+      appliquerPresentationDocumentAurore(row,doc);
+      row.querySelector('[data-read]')?.addEventListener('click',()=>ouvrirLecteurPDF(doc));
+      row.querySelector('[data-case-personal]')?.addEventListener('click',()=>window.ouvrirChoixCaseDocument?.(doc));
+      list.appendChild(row);
+      if (doc.Fichier_url && typeof appliquerCouvertureSiLivre === 'function') appliquerCouvertureSiLivre(row,doc);
+    });
+    refus.slice(0,20).forEach(n=>{
+      const row=document.createElement('article'); row.className='personal-doc';
+      row.innerHTML=`<div class="personal-doc-main"><div class="personal-doc-title">${escapeTextePersonnel(n.titre_document||'Document')}</div><div class="personal-doc-meta">${escapeTextePersonnel(n.message||'Le dépôt n’a pas été publié.')}</div></div><span class="personal-status refused">× Refusé</span>`;
+      list.appendChild(row);
+    });
+  }
+
+  function rendreLivresPersonnels(){
+    const count=document.getElementById('personalBooksCount');
+    if(count) count.textContent=String(MES_LIVRES_PERSONNELS.length);
+    const list=document.getElementById('personalBooksList');
+    if(!list) return;
+    const livres=[...MES_LIVRES_PERSONNELS];
+    list.innerHTML='';
+    if(!livres.length){list.innerHTML='<div class="personal-empty">Vous n’avez encore ajouté aucun livre.</div>';return;}
+    livres.forEach(doc=>{
+      const row=document.createElement('article'); row.className='personal-book';
+      const status=doc.Publie===true?'accepted':'pending';
+      row.innerHTML=`<div class="personal-doc-cover">${ICONS.book}</div><div class="personal-book-main"><div class="personal-book-title">${escapeTextePersonnel(doc.Titre||'Livre sans titre')}</div><div class="personal-book-meta">${escapeTextePersonnel(doc.Genre||'Livre')} · ${status==='accepted'?'Publié':'En attente de validation'}</div>${tailleBadgeMarkup(doc.Fichier_url)}</div></div><span class="personal-status ${status}">${texteStatutPersonnel(status)}</span><div class="personal-doc-actions"><button type="button" class="personal-action" data-read="1">Voir</button></div>`;
+      appliquerPresentationDocumentAurore(row,doc);
+      row.querySelector('[data-read]')?.addEventListener('click',()=>ouvrirLecteurPDF(doc));
+      list.appendChild(row);
+      if (doc.Fichier_url && typeof appliquerCouvertureSiLivre === 'function') appliquerCouvertureSiLivre(row,doc);
+    });
   }
 
   function actualiserCompteursPersonnels(){
@@ -12815,7 +12892,7 @@ async function telechargerDocumentAvecProgression(doc) {
       if(!docs.length){list.innerHTML='<div class="personal-empty">Vos favoris ne sont plus disponibles publiquement.</div>';return;}
       docs.forEach(doc=>{
         const row=document.createElement('article');row.className='personal-doc';
-        row.innerHTML=`<div class="personal-doc-main"><div class="personal-doc-title">${escapeTextePersonnel(doc.Titre||'Document')}</div><div class="personal-doc-meta">${escapeTextePersonnel([doc.Niveau,doc['Matière']||doc.Genre].filter(Boolean).join(' · ')||'Document')}</div>${tailleBadgeMarkup(doc.Fichier_url)}</div><div class="personal-doc-actions"><button type="button" class="personal-action" data-read>Voir</button><button type="button" class="personal-action" data-telecharger-favori>Télécharger maintenant</button><button type="button" class="personal-action is-active" data-remove>♥ Favori</button><button type="button" class="personal-action doc-action-folder" data-case-fav>▣ Case</button></div>`;
+        row.innerHTML=`<div class="personal-doc-main"><div class="personal-doc-title">${escapeTextePersonnel(doc.Titre||'Document')}</div><div class="personal-doc-meta">${escapeTextePersonnel([doc.Niveau,doc['Matière']||doc.Genre].filter(Boolean).join(' · ')||'Document')}</div>${tailleBadgeMarkup(doc.Fichier_url)}</div></div><div class="personal-doc-actions"><button type="button" class="personal-action" data-read>Voir</button><button type="button" class="personal-action" data-telecharger-favori>Télécharger maintenant</button><button type="button" class="personal-action is-active" data-remove>♥ Favori</button><button type="button" class="personal-action doc-action-folder" data-case-fav>▣ Case</button></div>`;
         appliquerPresentationDocumentAurore(row,doc);
         row.querySelector('[data-read]')?.addEventListener('click',()=>ouvrirLecteurPDF(doc));
         row.querySelector('[data-telecharger-favori]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(doc));
@@ -14141,7 +14218,7 @@ footer>.wrap:last-child{margin-top:18px!important;}
     if(!arr.length){list.innerHTML='<div class="personal-empty">Aucun document enregistré pour plus tard. Utilisez « ＋ Plus tard » sur un document du site.</div>';return;}
     arr.forEach(d=>{
       const row=document.createElement('article');row.className='personal-book';
-      row.innerHTML=`<div class="personal-book-main"><div class="personal-book-title">${escapeTextePersonnel(d.titre)}</div><div class="personal-book-meta">Document enregistré pour plus tard${d.niveau?' · '+escapeTextePersonnel(d.niveau):''}</div>${tailleBadgeMarkup(d.url)}</div><div class="personal-doc-actions"><button type="button" class="personal-action" data-lire-tard>Voir</button><button type="button" class="personal-action" data-telecharger-tard>Télécharger maintenant</button><button type="button" class="personal-action doc-action-folder" data-case-later>▣ Case</button><button type="button" class="personal-action" data-remove-later>Retirer</button></div>`;
+      row.innerHTML=`<div class="personal-book-main"><div class="personal-book-title">${escapeTextePersonnel(d.titre)}</div><div class="personal-book-meta">Document enregistré pour plus tard${d.niveau?' · '+escapeTextePersonnel(d.niveau):''}</div>${tailleBadgeMarkup(d.url)}</div></div><div class="personal-doc-actions"><button type="button" class="personal-action" data-lire-tard>Voir</button><button type="button" class="personal-action" data-telecharger-tard>Télécharger maintenant</button><button type="button" class="personal-action doc-action-folder" data-case-later>▣ Case</button><button type="button" class="personal-action" data-remove-later>Retirer</button></div>`;
       appliquerPresentationDocumentAurore(row,{id:d.id,Titre:d.titre,Auteur:d.auteur,Fichier_url:d.url,'Catégorie':d.categorie,Niveau:d.niveau,'Matière':d.matiere,Genre:d.genre});
       row.querySelector('[data-lire-tard]')?.addEventListener('click',()=>ouvrirLecteurPDF({id:d.id,Titre:d.titre,Auteur:d.auteur,Fichier_url:d.url,'Catégorie':d.categorie,Niveau:d.niveau,'Matière':d.matiere,Genre:d.genre}));
       row.querySelector('[data-telecharger-tard]')?.addEventListener('click',()=>telechargerDocumentAvecProgression({id:d.id,Titre:d.titre,Auteur:d.auteur,Fichier_url:d.url,'Catégorie':d.categorie,Niveau:d.niveau,'Matière':d.matiere,Genre:d.genre}));
@@ -14603,42 +14680,29 @@ async function openFolder(f){
   list.innerHTML='<div class="personal-empty">Chargement des documents…</div>';
   const docs=await recupererDocsDesCases(a.map(x=>x.document_id));
   list.innerHTML='';
-  // Présentation identique à la bibliothèque et au reste de l'espace personnel :
-  // même ligne .doc-row, mêmes actions de base (Lire, Télécharger, Favori,
-  // Plus tard, Case), avec en plus « Retirer » propre à une case.
   docs.forEach(d=>{
+    const r=document.createElement('article');r.className='personal-folder-doc-row';
     const id=String(d.id);
-    const r=document.createElement('div');r.className='doc-row';
     const canDownload=d.Fichier_url && d.Telechargement_autorise!==false;
-    const titreDocument=typeof obtenirTitreDocument==='function'?obtenirTitreDocument(d):(d.Titre||'Document #'+id);
-    const contexte=[d.Niveau,d['Matière']||d.Genre].filter(Boolean).join(' · ')||'Document';
-    r.dataset.documentTitle=titreDocument;
     r.innerHTML=`
-      <div class="info">
-        <div class="icon-wrap">${ICONS.file}</div>
-        <div class="doc-main-info">
-          <div class="titre" title="${esc(titreDocument)}">${esc(titreDocument)}</div>
-          <div class="meta">${esc(contexte)}</div>
-          ${tailleBadgeMarkup(d.Fichier_url)}
-        </div>
-      </div>
-      <div class="doc-actions">
-        ${d.Fichier_url?'<button type="button" class="dl" data-folder-read="1">Lire</button>':''}
-        ${canDownload?'<button type="button" class="dl" data-folder-download="1">Télécharger maintenant</button>':''}
-        <button type="button" class="dl doc-action-soft" data-favori="1" aria-pressed="false">♡ Favori</button>
-        <button type="button" class="dl doc-action-soft" data-plus-tard="1">＋ Plus tard</button>
-        <button type="button" class="dl doc-action-soft doc-action-folder" data-folder-case="1">▣ Case</button>
-        <button type="button" class="dl doc-action-soft" style="color:var(--rouge); border-color:rgba(224,119,107,.35); background:rgba(224,119,107,.06);" data-folder-remove="1">Retirer</button>
+      <div class="personal-folder-doc-main"><strong>${esc(d.Titre||'Document #'+id)}</strong><span>${esc([d.Niveau,d['Matière']||d.Genre].filter(Boolean).join(' · ')||'Document')}</span>${tailleBadgeMarkup(d.Fichier_url)}</div>
+      <div class="personal-folder-doc-actions">
+        ${d.Fichier_url?'<button type="button" data-folder-read>Voir</button>':''}
+        ${canDownload?'<button type="button" data-folder-download>Télécharger</button>':''}
+        <button type="button" data-folder-fav aria-pressed="false">♡ Favori</button>
+        <button type="button" data-folder-later>＋ Plus tard</button>
+        <button type="button" data-folder-case>▣ Case</button>
+        <button type="button" data-folder-remove class="is-remove">Retirer</button>
       </div>`;
     r.querySelector('[data-folder-read]')?.addEventListener('click',()=>{if(typeof window.ouvrirLecteurPDF==='function')window.ouvrirLecteurPDF(d);});
     r.querySelector('[data-folder-download]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(d));
-    r.querySelector('[data-favori]')?.addEventListener('click',()=>basculerFavoriDocument(d,r.querySelector('[data-favori]')));
-    r.querySelector('[data-plus-tard]')?.addEventListener('click',e=>ajouterDocumentPlusTard(d,e.currentTarget));
+    const fb=r.querySelector('[data-folder-fav]');
+    const fav=favoris().includes(id);
+    if(fb){fb.classList.toggle('is-active',fav);fb.textContent=fav?'♥ Favori':'♡ Favori';fb.addEventListener('click',()=>{basculerFavoriDocument(d,fb);});}
+    r.querySelector('[data-folder-later]')?.addEventListener('click',e=>ajouterDocumentPlusTard(d,e.currentTarget));
     r.querySelector('[data-folder-case]')?.addEventListener('click',()=>chooseDoc(d));
     r.querySelector('[data-folder-remove]')?.addEventListener('click',()=>removeAssignment(d));
-    if(typeof actualiserEtatActionsDocument==='function') actualiserEtatActionsDocument(r,d);
     list.appendChild(r);
-    if(typeof appliquerCouvertureSiLivre==='function') appliquerCouvertureSiLivre(r,d);
   });
   p.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
@@ -15822,109 +15886,6 @@ document.addEventListener('DOMContentLoaded', function(){
   }
 });
 </script>
-
-
-
-
-<style id="aurore-personal-library-exact-sync">
-/* ESPACE PERSONNEL — copie du modèle de présentation de la bibliothèque.
-   Cette couche ne touche ni aux données ni aux gestionnaires d'actions. */
-#personalSpace .personal-list{
-  display:grid!important;
-  grid-template-columns:repeat(auto-fill,minmax(205px,1fr))!important;
-  gap:16px!important;
-  margin-top:22px!important;
-  align-items:stretch!important;
-}
-#personalSpace .personal-list > .doc-row.aurore-personal-document-row{
-  position:relative!important;
-  min-width:0!important;
-  min-height:0!important;
-  height:100%!important;
-  padding:0!important;
-  display:flex!important;
-  flex-direction:column!important;
-  align-items:stretch!important;
-  justify-content:flex-start!important;
-  gap:0!important;
-  overflow:hidden!important;
-  border:1px solid var(--bordure)!important;
-  border-radius:16px!important;
-  background:var(--papier)!important;
-  box-shadow:0 2px 7px rgba(35,25,55,.08)!important;
-}
-#personalSpace .personal-list > .doc-row.aurore-personal-document-row:hover{
-  transform:translateY(-2px)!important;
-  border-color:color-mix(in srgb,var(--violet) 35%,var(--bordure))!important;
-  box-shadow:0 7px 20px rgba(55,36,82,.13)!important;
-}
-#personalSpace .doc-row.aurore-personal-document-row > .info{
-  display:flex!important;
-  flex-direction:column!important;
-  align-items:stretch!important;
-  gap:0!important;
-  min-width:0!important;
-  flex:1 1 auto!important;
-}
-#personalSpace .doc-row.aurore-personal-document-row .icon-wrap,
-#personalSpace .doc-row.aurore-personal-document-row .icon-wrap.a-couverture{
-  width:100%!important;
-  height:auto!important;
-  aspect-ratio:1/1!important;
-  min-height:0!important;
-  flex:none!important;
-  border-radius:0!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  overflow:hidden!important;
-  background:linear-gradient(145deg,#F1EDF7,#E6E0EF)!important;
-  border:0!important;
-}
-#personalSpace .doc-row.aurore-personal-document-row .icon-wrap:not(.a-couverture){color:var(--violet)!important;}
-#personalSpace .doc-row.aurore-personal-document-row .icon-wrap img.doc-cover-img{
-  width:100%!important;height:100%!important;aspect-ratio:1/1!important;object-fit:cover!important;border-radius:0!important;display:block!important;opacity:1!important;
-}
-#personalSpace .doc-row.aurore-personal-document-row .doc-main-info{
-  min-width:0!important;padding:11px 12px 8px!important;flex:1 1 auto!important;
-}
-#personalSpace .doc-row.aurore-personal-document-row .titre{
-  font-size:.84rem!important;line-height:1.3!important;font-weight:700!important;display:-webkit-box!important;-webkit-box-orient:vertical!important;-webkit-line-clamp:2!important;overflow:hidden!important;
-}
-#personalSpace .doc-row.aurore-personal-document-row .meta{
-  margin-top:4px!important;font-size:.68rem!important;line-height:1.35!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
-}
-#personalSpace .doc-row.aurore-personal-document-row .doc-context{display:none!important;}
-#personalSpace .doc-row.aurore-personal-document-row .doc-main-info .taille-badge{margin-top:5px!important;}
-#personalSpace .doc-row.aurore-personal-document-row .personal-status{
-  display:inline-flex!important;align-self:flex-start!important;width:max-content!important;margin-top:5px!important;font-size:.61rem!important;padding:4px 7px!important;
-}
-#personalSpace .doc-row.aurore-personal-document-row .doc-actions{
-  display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important;width:100%!important;padding:8px 10px 10px!important;margin-top:auto!important;border-top:1px solid color-mix(in srgb,var(--bordure) 78%,transparent)!important;background:color-mix(in srgb,var(--papier) 94%,var(--fond))!important;
-}
-#personalSpace .doc-row.aurore-personal-document-row .doc-actions .dl{
-  min-width:0!important;width:100%!important;margin:0!important;padding:7px 6px!important;min-height:34px!important;border-radius:9px!important;font-size:.66rem!important;line-height:1.15!important;white-space:normal!important;text-align:center!important;
-}
-#personalSpace .doc-row.aurore-personal-document-row .doc-actions .dl:first-child{background:var(--violet)!important;color:#fff!important;border:1px solid var(--violet)!important;}
-#personalSpace .doc-row.aurore-personal-document-row .doc-actions .dl:nth-child(2){background:var(--marron)!important;color:#fff!important;border:1px solid var(--marron)!important;}
-#personalSpace .doc-row.aurore-personal-document-row .doc-actions .doc-action-soft{background:transparent!important;color:var(--gris)!important;border:1px solid var(--bordure)!important;}
-#personalSpace .doc-row.aurore-personal-document-row .doc-actions .doc-action-soft:hover{background:rgba(124,58,237,.07)!important;color:var(--encre)!important;border-color:var(--violet)!important;}
-#personalSpace .personal-list > .personal-empty{grid-column:1/-1!important;margin-top:0!important;}
-@media(max-width:720px){
-  #personalSpace .personal-list{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:11px!important;}
-  #personalSpace .doc-row.aurore-personal-document-row .doc-main-info{padding:9px 9px 7px!important;}
-  #personalSpace .doc-row.aurore-personal-document-row .doc-actions{padding:7px 7px 8px!important;gap:5px!important;}
-  #personalSpace .doc-row.aurore-personal-document-row .doc-actions .dl{font-size:.61rem!important;padding:7px 4px!important;}
-}
-@media(max-width:390px){
-  #personalSpace .doc-row.aurore-personal-document-row .titre{font-size:.77rem!important;}
-  #personalSpace .doc-row.aurore-personal-document-row .meta{font-size:.62rem!important;}
-}
-[data-theme="light"] #personalSpace .doc-row.aurore-personal-document-row{background:#fff!important;border-color:#D9D1E4!important;box-shadow:0 2px 8px rgba(55,36,82,.08)!important;}
-[data-theme="light"] #personalSpace .doc-row.aurore-personal-document-row .icon-wrap,
-[data-theme="light"] #personalSpace .doc-row.aurore-personal-document-row .icon-wrap.a-couverture{background:#F0ECF5!important;}
-[data-theme="light"] #personalSpace .doc-row.aurore-personal-document-row .doc-actions{background:#FBFAFD!important;border-top-color:#E6DFEE!important;}
-</style>
 
 </body>
 </html>
