@@ -635,6 +635,11 @@
   .admin-card.pending-card .titre{font-size:.96rem;}
   .admin-card.pending-card .meta{font-size:.78rem;line-height:1.5;}
   .admin-card.pending-card .admin-actions{margin-top:11px;}
+  .admin-card.published-card{align-items:stretch;padding:15px 16px;}
+  .admin-card.published-card .admin-card-icon{margin-top:1px;}
+  .admin-card.published-card .titre{font-size:.96rem;}
+  .admin-card.published-card .meta{font-size:.78rem;line-height:1.5;}
+  .admin-card.published-card .admin-actions{margin-top:11px;}
   @media(max-width:760px){.admin-pending-stats{grid-template-columns:1fr 1fr;}.admin-pending-overview-head{align-items:stretch;flex-direction:column;}.admin-pending-refresh{align-self:flex-start;}}
   @media(max-width:480px){.admin-pending-overview{padding:15px;border-radius:18px;}.admin-pending-stat{padding:11px 12px;}.admin-pending-stat strong{font-size:1.05rem;}}
 
@@ -3310,6 +3315,13 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   .pdf-load-progress-bar{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#7c3aed,#c084fc,#e879f9);box-shadow:0 0 14px rgba(192,132,252,.28);transition:width .18s ease;}
   .pdf-reader-erreur{width:min(500px,92%);box-sizing:border-box;margin:12vh auto 0!important;padding:24px!important;border:1px solid rgba(248,113,113,.20);border-radius:20px;background:rgba(45,20,27,.72);box-shadow:0 18px 45px rgba(0,0,0,.22);}
   .pdf-reader-erreur p{color:#f7e8eb!important}.pdf-reader-erreur a{color:#b9f3c8!important;}
+  .pdf-reader-erreur{gap:12px!important;text-align:center;}
+  .pdf-reader-error-icon{width:48px;height:48px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:rgba(192,132,252,.14);border:1px solid rgba(192,132,252,.25);color:#d8b4fe;font-size:1.35rem;font-weight:800;}
+  .pdf-reader-error-title{margin:0;color:#fff;font-size:1rem;font-weight:800;}
+  .pdf-reader-error-detail{margin:0!important;color:#cfc8dc!important;font-size:.78rem!important;line-height:1.55!important;}
+  .pdf-reader-error-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:2px;}
+  .pdf-reader-error-actions .deposer-btn,.pdf-reader-error-actions a{min-height:42px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;padding:9px 14px;border-radius:11px;text-decoration:none;}
+
   .pdf-reader-bottombar{min-height:54px;box-sizing:border-box;padding:7px 12px!important;background:#111019!important;border-top:1px solid rgba(255,255,255,.07);gap:9px!important;}
   .pdf-reader-bottombar button{min-height:38px!important;padding:8px 14px!important;border-radius:11px!important;border-color:rgba(255,255,255,.10)!important;background:#1d1a27!important;color:#eeeaf6!important;transition:background .15s ease,border-color .15s ease,transform .15s ease;}
   .pdf-reader-bottombar button:hover:not([disabled]){background:#282237!important;border-color:rgba(192,132,252,.45)!important;transform:translateY(-1px);}
@@ -3541,6 +3553,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         <div id="pdfViewerDiagLog" style="margin-top:6px; white-space:pre-wrap; word-break:break-all;"></div>
       </div>
       <canvas id="pdfViewerCanvas" aria-hidden="true"></canvas>
+      <iframe id="pdfViewerNative" title="Visionneuse PDF de secours" style="display:none;width:100%;height:100%;min-height:520px;border:0;border-radius:10px;background:#fff;"></iframe>
       <div id="pdfViewerPages" class="pdf-reader-pages" aria-live="polite"></div>
     </div>
     <div id="pdfViewerScrollbar" class="pdf-reader-scrollbar" aria-hidden="true" style="display:none;">
@@ -8907,7 +8920,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       data.forEach((doc, i) => {
         const deposant = deposants.get(doc.id) || null;
         const card = document.createElement('div');
-        card.className = 'admin-card';
+        card.className = 'admin-card pending-card published-card';
         card.dataset.adminId = String(doc.id ?? '');
         card.dataset.adminTitle = String(doc.Titre || '');
         card.dataset.adminLevel = String(doc.Niveau || '');
@@ -10371,7 +10384,14 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       } else {
         message = "La visionneuse intégrée n'a pas pu afficher ce document (connexion réseau ou format non pris en charge).";
       }
-      afficherErreurLecteur(message, telechargementOk, doc.Fichier_url);
+      // Dernier secours : si CORS/Range empêche PDF.js de lire les octets,
+      // le lecteur natif du navigateur peut souvent afficher directement l’URL R2
+      // sans exposer les octets au JavaScript. Cela évite de bloquer les gros PDF.
+      if (afficherVisionneuseNativePDF(doc.Fichier_url)) {
+        diagLog('→ Secours visionneuse PDF native activé : affichage direct du fichier.');
+      } else {
+        afficherErreurLecteur(message, telechargementOk, doc.Fichier_url);
+      }
     }
   }
 
@@ -10381,6 +10401,8 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     document.getElementById('pdfViewerLoading').style.display = 'flex';
     document.getElementById('pdfViewerErreurBox').style.display = 'none';
     document.getElementById('pdfViewerCanvas').style.display = 'none';
+    const native=document.getElementById('pdfViewerNative');
+    if(native){native.style.display='none';native.removeAttribute('src');}
     document.getElementById('pdfViewerStatut').textContent = 'Chargement du document…';
     mettreAJourProgressionLecteurPDF(0,'Préparation');
   }
@@ -10388,30 +10410,39 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   function afficherErreurLecteur(message, telechargementOk, url) {
     document.getElementById('pdfViewerLoading').style.display = 'none';
     document.getElementById('pdfViewerCanvas').style.display = 'none';
+    document.getElementById('pdfViewerPages').innerHTML = '';
+    const native=document.getElementById('pdfViewerNative');
+    if(native){native.style.display='none';native.removeAttribute('src');}
     const box = document.getElementById('pdfViewerErreurBox');
     box.style.display = 'flex';
-    document.getElementById('pdfViewerErreurTexte').textContent = message;
-    const lien = document.getElementById('pdfViewerLienDirect');
-    if (telechargementOk && url) {
-      // Le téléchargement est autorisé pour ce document. Ce lien de secours ne
-      // doit JAMAIS naviguer directement vers le fichier brut (cela quitte
-      // Aurore et bascule sur un lecteur externe, ex. Drive, sur mobile) : il
-      // déclenche le même téléchargement en Blob que le bouton principal, qui
-      // reste à l'intérieur du site.
-      // Visiteur non connecté : même règle que le bouton de téléchargement
-      // principal — ce lien direct ne doit pas devenir une façon de contourner
-      // l'obligation de connexion.
-      lien.removeAttribute('href');
-      lien.style.display = 'inline-block';
-      if (!session) {
-        lien.onclick = (e) => { e.preventDefault(); exigerConnexionPourTelechargement(DOC_EN_LECTURE); };
-      } else {
-        lien.onclick = (e) => { e.preventDefault(); telechargerDocumentAvecProgression(DOC_EN_LECTURE); };
-      }
-    } else {
-      lien.style.display = 'none';
-      lien.onclick = null;
+    box.innerHTML = '';
+    const icon=document.createElement('div'); icon.className='pdf-reader-error-icon'; icon.setAttribute('aria-hidden','true'); icon.textContent='!';
+    const title=document.createElement('h3'); title.className='pdf-reader-error-title'; title.textContent='Impossible d’afficher ce document';
+    const detail=document.createElement('p'); detail.className='pdf-reader-error-detail'; detail.textContent=message || 'La connexion au fichier PDF a échoué. Vous pouvez réessayer ou ouvrir le document avec la visionneuse de votre appareil.';
+    const actions=document.createElement('div'); actions.className='pdf-reader-error-actions';
+    const retry=document.createElement('button'); retry.type='button'; retry.className='deposer-btn'; retry.textContent='Réessayer'; retry.addEventListener('click',()=>{ if(DOC_EN_LECTURE) ouvrirLecteurPDF(DOC_EN_LECTURE); });
+    actions.appendChild(retry);
+    if(telechargementOk && url){
+      const lien=document.createElement('a'); lien.href=url; lien.target='_blank'; lien.rel='noopener'; lien.textContent='Ouvrir le PDF';
+      lien.style.background='var(--fond)'; lien.style.color='var(--encre)'; lien.style.border='1px solid var(--bordure)';
+      actions.appendChild(lien);
     }
+    box.append(icon,title,detail,actions);
+  }
+
+  function afficherVisionneuseNativePDF(url){
+    if(!url)return false;
+    const native=document.getElementById('pdfViewerNative');
+    if(!native)return false;
+    document.getElementById('pdfViewerLoading').style.display='none';
+    document.getElementById('pdfViewerErreurBox').style.display='none';
+    document.getElementById('pdfViewerCanvas').style.display='none';
+    document.getElementById('pdfViewerPages').innerHTML='';
+    native.style.display='block';
+    native.src=url;
+    const statut=document.getElementById('pdfViewerStatut'); if(statut)statut.textContent='';
+    mettreAJourProgressionLecteurPDF(100,'Document prêt');
+    return true;
   }
 
   document.getElementById('pdfViewerReessayer').addEventListener('click', () => {
