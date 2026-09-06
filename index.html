@@ -616,6 +616,26 @@
     color:var(--gris); font-size:0.9rem; padding:32px 20px; text-align:center;
     background:var(--papier); border:1px dashed var(--bordure); border-radius:var(--radius);
   }
+  .admin-pending-overview{margin:18px 0 18px;padding:20px;border:1px solid var(--bordure);border-radius:22px;background:linear-gradient(145deg,var(--papier),var(--fond));box-shadow:var(--ombre);}
+  .admin-pending-overview-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;}
+  .admin-overview-kicker{font-size:.68rem;text-transform:uppercase;letter-spacing:.09em;font-weight:800;color:var(--violet);}
+  .admin-pending-overview h3{margin:3px 0 4px;font-size:1.2rem;color:var(--encre);}
+  .admin-pending-overview p{margin:0;color:var(--gris);font-size:.78rem;line-height:1.5;}
+  .admin-pending-refresh{background:var(--fond)!important;color:var(--encre)!important;border:1px solid var(--bordure)!important;white-space:nowrap;}
+  .admin-pending-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-top:16px;}
+  .admin-pending-stat{min-width:0;padding:13px 14px;border:1px solid var(--bordure);border-radius:15px;background:var(--papier);display:flex;flex-direction:column;gap:4px;}
+  .admin-pending-stat strong{font-size:1.18rem;line-height:1.15;color:var(--encre);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .admin-pending-stat span{font-size:.68rem;color:var(--gris);font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
+  .admin-pending-breakdown{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px;}
+  .admin-pending-breakdown span{display:inline-flex;align-items:center;gap:5px;padding:6px 9px;border-radius:999px;background:var(--fond);border:1px solid var(--bordure);font-size:.68rem;color:var(--gris);font-weight:700;}
+  .admin-pending-breakdown b{color:var(--encre);}
+  .admin-card.pending-card{align-items:stretch;padding:15px 16px;}
+  .admin-card.pending-card .admin-card-icon{margin-top:1px;}
+  .admin-card.pending-card .titre{font-size:.96rem;}
+  .admin-card.pending-card .meta{font-size:.78rem;line-height:1.5;}
+  .admin-card.pending-card .admin-actions{margin-top:11px;}
+  @media(max-width:760px){.admin-pending-stats{grid-template-columns:1fr 1fr;}.admin-pending-overview-head{align-items:stretch;flex-direction:column;}.admin-pending-refresh{align-self:flex-start;}}
+  @media(max-width:480px){.admin-pending-overview{padding:15px;border-radius:18px;}.admin-pending-stat{padding:11px 12px;}.admin-pending-stat strong{font-size:1.05rem;}}
 
   @keyframes admFadeUp{
     from{ opacity:0; transform:translateY(8px); }
@@ -2721,7 +2741,24 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         </div>
 
         <div class="admin-tab-panel active" data-panel="attente">
-          <p class="admin-panel-desc">Documents déposés en attente de validation.</p>
+          <section class="admin-pending-overview" aria-label="Vue d'ensemble des dépôts en attente">
+            <div class="admin-pending-overview-head">
+              <div>
+                <span class="admin-overview-kicker">À traiter</span>
+                <h3>Vue d’ensemble des dépôts</h3>
+                <p>Un aperçu rapide avant d’ouvrir les fiches. Les actions de validation restent dans chaque document.</p>
+              </div>
+              <button type="button" class="admin-btn ghost admin-pending-refresh" id="adminRefreshAttente">↻ Actualiser</button>
+            </div>
+            <div class="admin-pending-stats" id="adminPendingStats">
+              <div class="admin-pending-stat"><strong id="adminPendingTotal">0</strong><span>À valider</span></div>
+              <div class="admin-pending-stat"><strong id="adminPendingCategories">0</strong><span>Catégories</span></div>
+              <div class="admin-pending-stat"><strong id="adminPendingDernier">—</strong><span>Dernier dépôt</span></div>
+              <div class="admin-pending-stat"><strong id="adminPendingAuteurs">0</strong><span>Déposants</span></div>
+            </div>
+            <div class="admin-pending-breakdown" id="adminPendingBreakdown"></div>
+          </section>
+          <p class="admin-panel-desc">Documents déposés en attente de validation. Utilisez la recherche ou les filtres pour réduire la liste.</p>
           <div class="admin-data-toolbar" id="adminToolbarAttente">
             <div class="admin-search-control"><span aria-hidden="true">⌕</span><input id="adminSearchAttente" type="search" placeholder="Rechercher un document…" autocomplete="off"></div>
             <select id="adminSortAttente" aria-label="Trier les documents en attente">
@@ -3719,7 +3756,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   const SUPABASE_URL = "https://tdeotqfsbvouresfhkab.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZW90cWZzYnZvdXJlc2Zoa2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjM4NzMsImV4cCI6MjEwMDUzOTg3M30.l_a1lI_QRy7BTq1fGjiA9n7LCdu7BwR2TTI5pkA70SU";
   const HEADERS = { "apikey": SUPABASE_ANON_KEY, "Authorization": "Bearer " + SUPABASE_ANON_KEY };
-  // AURORE_BUILD_2026_09_06_UPLOAD_FLUIDE_V2
+  // AURORE_BUILD_2026_09_06_LECTEUR_LARGE_ADMIN_REFONTE_UPLOAD_V2
 
   // Nom actuel du site, utilisé dans les messages générés dynamiquement
   // (notifications, confirmations, textes de présentation) pour n'avoir
@@ -8661,6 +8698,34 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     utilisateurs:{toolbarId:'adminToolbarUtilisateurs',searchId:'adminSearchUtilisateurs',sortId:'adminSortUtilisateurs',listId:'adminUsersList',pagerId:'adminPagerUtilisateurs',filterIds:{role:'adminFilterRoleUtilisateurs'},cardSelector:'.admin-user-card',dateField:'created'}
   };
 
+  function actualiserResumeDepotsAttente(data) {
+    const docs = Array.isArray(data) ? data : [];
+    const total = docs.length;
+    const categories = new Set(docs.map(d => String(d?.['Catégorie'] || d?.Genre || 'Autre').trim()).filter(Boolean));
+    const auteurs = new Set(docs.map(d => String(d?.Auteur || '').trim().toLocaleLowerCase('fr')).filter(Boolean));
+    const dernier = docs[0] || null;
+    const totalEl=document.getElementById('adminPendingTotal');
+    const catEl=document.getElementById('adminPendingCategories');
+    const lastEl=document.getElementById('adminPendingDernier');
+    const authEl=document.getElementById('adminPendingAuteurs');
+    if(totalEl) totalEl.textContent=String(total);
+    if(catEl) catEl.textContent=String(categories.size);
+    if(authEl) authEl.textContent=String(auteurs.size);
+    if(lastEl){
+      const titre=dernier ? String(dernier.Titre || 'Sans titre') : '—';
+      lastEl.textContent=titre.length>20?titre.slice(0,20)+'…':titre;
+      lastEl.title=titre;
+    }
+    const breakdown=document.getElementById('adminPendingBreakdown');
+    if(!breakdown) return;
+    const compte=new Map();
+    docs.forEach(d=>{const c=String(d?.['Catégorie']||d?.Genre||'Autre').trim()||'Autre';compte.set(c,(compte.get(c)||0)+1);});
+    breakdown.innerHTML='';
+    [...compte.entries()].sort((a,b)=>b[1]-a[1]).slice(0,6).forEach(([nom,n])=>{
+      const span=document.createElement('span'); span.innerHTML=`<b>${n}</b> ${esc(nom)}`; breakdown.appendChild(span);
+    });
+  }
+
   async function chargerDepotsEnAttente() {
     const list = document.getElementById('adminList');
     list.innerHTML = '<p class="admin-empty">Chargement…</p>';
@@ -8669,6 +8734,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       if (!res.ok) throw new Error("Statut HTTP " + res.status);
       const data = await res.json();
       majCompteurOnglet('tabCountAttente', data ? data.length : 0);
+      actualiserResumeDepotsAttente(data);
 
       if (!data || data.length === 0) {
         list.innerHTML = '<p class="admin-empty">Aucun dépôt en attente. Tout est à jour.</p>';
@@ -8682,13 +8748,15 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       data.forEach((doc, i) => {
         const deposant = deposants.get(doc.id) || null;
         const card = document.createElement('div');
-        card.className = 'admin-card';
+        card.className = 'admin-card pending-card';
         card.dataset.adminId = String(doc.id ?? '');
         card.dataset.adminTitle = String(doc.Titre || '');
         card.dataset.adminLevel = String(doc.Niveau || '');
         card.dataset.adminClass = String(doc.Classe || '');
         card.dataset.adminSubject = String(doc['Matière'] || doc.Genre || '');
         card.dataset.adminSearch = [doc.Titre, doc.Niveau, doc.Classe, doc['Catégorie'], doc['Matière'], doc.Genre, doc.Auteur, deposant && deposant.nom, deposant && deposant.email].filter(v => v != null && String(v).trim()).join(' ');
+        card.dataset.adminCategory = String(doc['Catégorie'] || doc.Genre || 'Autre');
+        card.dataset.adminAuthor = String(doc.Auteur || '');
         card.dataset.adminSortValue = String(doc.id ?? '0');
         card.style.animationDelay = (i * 0.04) + 's';
         card.innerHTML = `
@@ -8726,6 +8794,8 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     }
   }
 
+  document.getElementById('adminRefreshAttente')?.addEventListener('click', () => chargerDepotsEnAttente());
+
   async function validerDepot(id, card, titreDocument, deposant) {
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/Document?id=eq.${id}`, {
@@ -8753,6 +8823,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       const list = document.getElementById('adminList');
       if (!list.querySelector('.admin-card')) list.innerHTML = '<p class="admin-empty">Aucun dépôt en attente. Tout est à jour.</p>';
       majCompteurOnglet('tabCountAttente', list.querySelectorAll('.admin-card').length);
+      actualiserResumeDepotsAttente([...list.querySelectorAll('.pending-card')].map(c => ({Titre:c.dataset.adminTitle, 'Catégorie':c.dataset.adminCategory || '' ,Auteur:c.dataset.adminAuthor || ''})));
       chargerDocumentsPublies();
     } catch (err) {
       alert("La validation n’a pas pu être effectuée pour le moment. Veuillez réessayer.");
@@ -10193,43 +10264,83 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
 
     try {
       const cacheCle=String(doc.Fichier_url);
-      let octets=PDF_CACHE_OCTETS.get(cacheCle)||null;
-      if(octets){
-        PDF_CACHE_OCTETS.delete(cacheCle); PDF_CACHE_OCTETS.set(cacheCle,octets);
+      let pdf = null;
+      let sourceRapide = null;
+
+      // GROS PDF : PDF.js travaille maintenant directement avec l'URL et les
+      // requêtes HTTP Range. Ainsi la page 1 peut être obtenue sans attendre
+      // le téléchargement complet d'un fichier de 50, 100 ou 200 Mo.
+      const urlPublique = (doc.Fichier_url && String(doc.Fichier_url).indexOf(R2_PUBLIC_URL + '/') === 0)
+        ? String(doc.Fichier_url) : null;
+      const urlWorker = urlPublique
+        ? `${R2_WORKER_URL}/${urlPublique.slice(R2_PUBLIC_URL.length + 1)}`
+        : String(doc.Fichier_url);
+      let octetsEnCache = PDF_CACHE_OCTETS.get(cacheCle) || null;
+
+      if (octetsEnCache) {
+        PDF_CACHE_OCTETS.delete(cacheCle); PDF_CACHE_OCTETS.set(cacheCle,octetsEnCache);
+        PDF_OCTETS_COURANTS = octetsEnCache;
         mettreAJourProgressionLecteurPDF(70,'Document déjà chargé · ouverture rapide');
         document.getElementById('pdfViewerStatut').textContent='Ouverture instantanée…';
-      }else{
-        octets = await recupererOctetsPDF(doc.Fichier_url, (pct) => {
-          if (jeton !== PDF_JETON_OUVERTURE) return;
-          const statut = document.getElementById('pdfViewerStatut');
-          if (pct != null) {
-            mettreAJourProgressionLecteurPDF(Math.max(4,Math.min(88,pct*.88)),'Téléchargement');
-            statut.textContent = `Téléchargement du document… ${pct}%`;
-          } else {
-            mettreAJourProgressionLecteurPDF(42,'Téléchargement');
-            statut.textContent = 'Téléchargement du document…';
+        pdf = await pdfjsLib.getDocument({data: octetsEnCache.slice(0)}).promise;
+      } else {
+        const sources = [urlPublique, urlWorker].filter((v,i,a)=>v && a.indexOf(v)===i);
+        let derniereErreur = null;
+
+        for (const source of sources) {
+          try {
+            sourceRapide = source;
+            diagLog('→ Tentative lecteur optimisé PDF.js/Range : ' + source);
+            mettreAJourProgressionLecteurPDF(8,'Connexion au document');
+            document.getElementById('pdfViewerStatut').textContent = 'Connexion rapide au document…';
+            const task = pdfjsLib.getDocument({
+              url: source,
+              rangeChunkSize: 1024 * 1024,
+              disableAutoFetch: true,
+              disableStream: false,
+              onProgress: p => {
+                if (jeton !== PDF_JETON_OUVERTURE) return;
+                const loaded=Number(p?.loaded||0), total=Number(p?.total||0);
+                if(total>0){
+                  mettreAJourProgressionLecteurPDF(Math.min(80,Math.max(8,loaded/total*80)),'Chargement par morceaux');
+                  document.getElementById('pdfViewerStatut').textContent=`Chargement du document… ${Math.round(loaded/total*100)}%`;
+                }else{
+                  mettreAJourProgressionLecteurPDF(20,'Chargement par morceaux');
+                }
+              }
+            });
+            pdf = await task.promise;
+            diagLog('→ Source optimisée acceptée. PDF.js peut demander les morceaux nécessaires.');
+            break;
+          } catch(e) {
+            derniereErreur=e; pdf=null; sourceRapide=null;
+            diagLog('→ Source optimisée indisponible : '+(e?.message||e));
           }
-        }, diagLog, PDF_FETCH_CONTROLLER?.signal);
-        if (jeton !== PDF_JETON_OUVERTURE) return;
-        memoriserPDFCache(cacheCle,octets);
+        }
+
+        if(!pdf) {
+          // Repli uniquement si le serveur ne supporte pas correctement Range/CORS.
+          diagLog('→ Repli : récupération complète du PDF avant rendu.');
+          mettreAJourProgressionLecteurPDF(18,'Téléchargement du document');
+          octetsEnCache=await recupererOctetsPDF(doc.Fichier_url,pct=>{
+            if(jeton!==PDF_JETON_OUVERTURE)return;
+            if(pct!=null){
+              mettreAJourProgressionLecteurPDF(Math.max(18,Math.min(86,pct*.86)),'Téléchargement');
+              document.getElementById('pdfViewerStatut').textContent=`Téléchargement du document… ${pct}%`;
+            }
+          },diagLog,PDF_FETCH_CONTROLLER?.signal);
+          if(jeton!==PDF_JETON_OUVERTURE)return;
+          PDF_OCTETS_COURANTS=octetsEnCache;
+          memoriserPDFCache(cacheCle,octetsEnCache);
+          pdf=await pdfjsLib.getDocument({data:octetsEnCache.slice(0)}).promise;
+        }
       }
+
       if (jeton !== PDF_JETON_OUVERTURE) return;
-      PDF_OCTETS_COURANTS = octets;
-      diagLog(`→ ${octets.byteLength} octet(s) reçu(s) au total.`);
-      const octetsInspection = new Uint8Array(octets.slice(0, 5));
-      const signature = String.fromCharCode(...octetsInspection);
-      diagLog('→ signature des 5 premiers octets : ' + JSON.stringify(signature) + (signature === '%PDF-' ? ' (OK, ressemble à un PDF)' : ' (⚠️ NE COMMENCE PAS PAR %PDF- : ce n\'est probablement pas un PDF valide — page d\'erreur HTML/JSON ?)'));
-      mettreAJourProgressionLecteurPDF(91,'Analyse du document');
-      document.getElementById('pdfViewerStatut').textContent = 'Préparation de l\'affichage…';
-      // PDF.js a besoin de sa propre copie des octets (il peut les transférer à
-      // son worker) : on lui donne une copie pour garder PDF_OCTETS_COURANTS
-      // intact en vue de l'impression.
-      const chargement = pdfjsLib.getDocument({ data: octets.slice(0) });
-      const pdf = await chargement.promise;
-      if (jeton !== PDF_JETON_OUVERTURE) return; // le lecteur a été refermé/changé entre-temps
-      diagLog('→ PDF.js a chargé le document : ' + pdf.numPages + ' page(s).');
-      PDF_EN_COURS = pdf;
-      mettreAJourProgressionLecteurPDF(96,'Rendu de la première page');
+      diagLog('→ PDF.js a chargé le document : '+pdf.numPages+' page(s).'+(sourceRapide?' Source Range/URL.':' Source mémoire.'));
+      PDF_EN_COURS=pdf;
+      mettreAJourProgressionLecteurPDF(94,'Rendu de la première page');
+      document.getElementById('pdfViewerStatut').textContent='Préparation de la première page…';
       await rendrePagePDF(1);
       mettreAJourProgressionLecteurPDF(100,'Document prêt');
       diagLog('→ Page 1 rendue avec succès.');
