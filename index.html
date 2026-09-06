@@ -6724,66 +6724,93 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       || null;
   }
 
+  // Génération rapide de la couverture : PDF.js ouvre directement le PDF via
+  // le Worker R2 avec HTTP Range. On ne télécharge donc plus le PDF entier
+  // simplement pour obtenir sa première page.
+  const COUVERTURES_PROMESSES = new Map();
+  const COUVERTURES_FILE_PARALLELISME = 3;
+  let couverturesEnCours = 0;
+  const couverturesEnAttente = [];
+
+  function traiterFileCouvertures() {
+    while (couverturesEnCours < COUVERTURES_FILE_PARALLELISME && couverturesEnAttente.length) {
+      const travail = couverturesEnAttente.shift();
+      couverturesEnCours++;
+      Promise.resolve().then(travail).finally(() => {
+        couverturesEnCours--;
+        traiterFileCouvertures();
+      });
+    }
+  }
+
+  function mettreEnFileCouverture(cle, travail) {
+    if (COUVERTURES_PROMESSES.has(cle)) return COUVERTURES_PROMESSES.get(cle);
+    const promise = new Promise((resolve, reject) => {
+      couverturesEnAttente.push(async () => {
+        try { resolve(await travail()); } catch (e) { reject(e); }
+      });
+    });
+    COUVERTURES_PROMESSES.set(cle, promise);
+    traiterFileCouvertures();
+    return promise;
+  }
+
   async function genererCouverturePremierePagePDF(doc) {
     const clef = clefCouverturePremierePage(doc);
     if (!clef || !doc?.Fichier_url) return null;
+
     const dejaEnCache = couverturePremierePagePersistanteImmediate(doc);
     if (dejaEnCache) {
       CACHE_COUVERTURES_PREMIERE_PAGE.set(clef, dejaEnCache);
       return dejaEnCache;
     }
 
-    try {
-      // pdf.js est lancé dès l'ouverture de la rubrique Livres ; ici il ne
-      // reste normalement qu'à utiliser la bibliothèque déjà prête.
-      await chargerPdfJs();
-      const cacheCle = String(doc.Fichier_url);
-      let octets = PDF_CACHE_OCTETS.get(cacheCle) || null;
-      if (!octets) {
-        octets = await recupererOctetsPDF(doc.Fichier_url, null, null, null);
-        if (octets) memoriserPDFCache(cacheCle, octets);
+    return mettreEnFileCouverture(clef, async () => {
+      const encoreEnCache = couverturePremierePagePersistanteImmediate(doc);
+      if (encoreEnCache) {
+        CACHE_COUVERTURES_PREMIERE_PAGE.set(clef, encoreEnCache);
+        return encoreEnCache;
       }
-      if (!octets) return null;
 
-      const donneesPDF = octets instanceof Uint8Array ? octets : new Uint8Array(octets);
-      let pdf;
-      try {
-        // Chemin normal : worker PDF.js, rapide et léger.
-        pdf = await pdfjsLib.getDocument({data: donneesPDF.slice(0)}).promise;
-      } catch (premiereErreur) {
-        // Certains PDF extrêmement légers (notamment générés par des outils
-        // minimalistes) posent problème au worker. On réessaie immédiatement
-        // sans worker avec les mêmes octets : cela ne change rien pour les PDF
-        // normaux et évite qu'une couverture reste vide.
-        console.warn('[Couverture livre] premier chargement PDF.js échoué, nouvelle tentative sans worker.', premiereErreur);
-        pdf = await pdfjsLib.getDocument({
-          data: donneesPDF.slice(0),
-          disableWorker: true,
-          isEvalSupported: false
-        }).promise;
-      }
+      await chargerPdfJs();
+
+      const publique = String(doc.Fichier_url);
+      const source = publique.indexOf(R2_PUBLIC_URL + '/') === 0
+        ? `${R2_WORKER_URL}/${publique.slice(R2_PUBLIC_URL.length + 1)}`
+        : publique;
+
+      // PDF.js récupère uniquement les plages nécessaires à l'ouverture et à
+      // la page 1. Aucun arrayBuffer du PDF complet n'est créé ici.
+      const task = pdfjsLib.getDocument({
+        url: source,
+        rangeChunkSize: 512 * 1024,
+        disableAutoFetch: true,
+        disableStream: false
+      });
+      const pdf = await task.promise;
       if (!pdf || !pdf.numPages) throw new Error('PDF sans première page exploitable');
+
       const page = await pdf.getPage(1);
       const base = page.getViewport({scale: 1});
-      // Rendu assez grand pour être net, tout en restant très rapide.
-      const viewport = page.getViewport({scale: Math.min(1.15, 300 / Math.max(1, base.width))});
+      const viewport = page.getViewport({
+        scale: Math.min(1.15, 300 / Math.max(1, base.width))
+      });
+
       const canvas = document.createElement('canvas');
       canvas.width = Math.max(1, Math.round(viewport.width));
       canvas.height = Math.max(1, Math.round(viewport.height));
       const ctx = canvas.getContext('2d', {alpha: false});
       if (!ctx) throw new Error('Contexte canvas indisponible');
+
       await page.render({canvasContext: ctx, viewport}).promise;
       const dataUrl = canvas.toDataURL('image/jpeg', 0.72);
       CACHE_COUVERTURES_PREMIERE_PAGE.set(clef, dataUrl);
       sauvegarderCouverturePremierePage(clef, dataUrl);
+
+      // Libère les ressources PDF.js dès que la miniature est produite.
+      try { await pdf.destroy(); } catch (e) {}
       return dataUrl;
-    } catch (e) {
-      console.warn('[Couverture livre] rendu de la première page impossible pour', doc?.Titre, e);
-      // Une erreur transitoire ne doit jamais mémoriser une couverture vide :
-      // un prochain affichage pourra retenter le rendu.
-      CACHE_COUVERTURES_PREMIERE_PAGE.delete(clef);
-      return null;
-    }
+    });
   }
 
   function appliquerImageCouverture(row, doc, url) {
@@ -7433,21 +7460,30 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     if (fichier.size > R2_MULTIPART_SEUIL) {
       return creerUploadR2Multipart(url, fichier, setProgress, setEtatConnexion, setAbort, setSpeed);
     }
+
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       if (typeof setAbort === 'function') setAbort(() => xhr.abort());
       xhr.open('PUT', url, true);
       xhr.setRequestHeader('Content-Type', 'application/pdf');
 
-      // Progression réelle : on conserve chaque événement d'upload et on
-      // rafraîchit l'affichage au rythme de l'écran. Ainsi, dès que XHR
-      // signale quelques octets supplémentaires, la barre est actualisée
-      // sans attendre un intervalle de 150/250 ms.
+      // Le timeout ne limite pas le débit : il protège seulement contre une
+      // connexion réellement bloquée.
+      const DEBIT_MIN_OCTETS_PAR_SEC = 32 * 1024;
+      const TIMEOUT_PLANCHER_MS = 60000;
+      xhr.timeout = Math.max(
+        TIMEOUT_PLANCHER_MS,
+        Math.ceil((fichier.size / DEBIT_MIN_OCTETS_PAR_SEC) * 1000) + 30000
+      );
+
       const debutEnvoi = Date.now();
-      let dernierTemps = debutEnvoi;
+      const CONSTANTE_TEMPS_MS = Math.max(
+        1200,
+        Math.ceil(fichier.size / (256 * 1024)) * 1000
+      );
+      let reelDemarre = false;
       let dernierCharge = 0;
-      let chargeReel = 0;
-      let totalReel = fichier.size;
+      let dernierTemps = debutEnvoi;
       let dernierPercent = 0;
       let frame = 0;
 
@@ -7459,94 +7495,108 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         }
       }
 
-      function afficherAuProchainFrame() {
+      function programmerAffichage(pct) {
         if (frame) return;
         const render = () => {
           frame = 0;
-          if (totalReel > 0) {
-            pousserPercent((chargeReel / totalReel) * 100);
-          }
+          pousserPercent(pct);
         };
         if (typeof requestAnimationFrame === 'function') {
           frame = requestAnimationFrame(render);
         } else {
-          frame = setTimeout(() => {
-            frame = 0;
-            if (totalReel > 0) pousserPercent((chargeReel / totalReel) * 100);
-          }, 16);
+          frame = setTimeout(render, 16);
         }
       }
 
       setEtatConnexion?.('connexion');
       setSpeed?.('Connexion…');
 
-      xhr.upload.addEventListener('progress', e => {
-        if (!Number.isFinite(e.loaded)) return;
+      // Sur certains WebView Android, xhr.upload.progress peut rester muet
+      // pendant une partie de la négociation. Cette animation de secours évite
+      // l'affichage bloqué à 0 %. Dès qu'un événement réel arrive, il prend
+      // immédiatement le relais et aucune estimation ne remplace les octets
+      // réellement signalés par XHR.
+      const minuteurEstimation = setInterval(() => {
+        if (reelDemarre) return;
+        const t = Date.now() - debutEnvoi;
+        if (t > 250) setEtatConnexion?.('envoi');
+        const estime = 92 * (1 - Math.exp(-t / CONSTANTE_TEMPS_MS));
+        programmerAffichage(estime);
+      }, 16);
 
-        setEtatConnexion?.('envoi');
+      xhr.upload.addEventListener('progress', event => {
+        if (!Number.isFinite(event.loaded)) return;
 
-        // Le total du navigateur est prioritaire lorsqu'il est disponible.
-        if (e.lengthComputable && Number.isFinite(e.total) && e.total > 0) {
-          totalReel = e.total;
+        if (event.lengthComputable && Number.isFinite(event.total) && event.total > 0) {
+          reelDemarre = true;
+          setEtatConnexion?.('envoi');
+          programmerAffichage((event.loaded / event.total) * 100);
+        } else {
+          // Android peut connaître les octets transmis sans connaître le total.
+          // Le total du File est alors la référence exacte.
+          reelDemarre = true;
+          setEtatConnexion?.('envoi');
+          programmerAffichage((event.loaded / fichier.size) * 100);
         }
-
-        // On ne fabrique aucun octet : chargeReel correspond exactement aux
-        // octets que XHR déclare comme déjà transmis.
-        chargeReel = Math.max(chargeReel, e.loaded);
-        afficherAuProchainFrame();
 
         const maintenant = Date.now();
         const dt = (maintenant - dernierTemps) / 1000;
         if (dt >= 0.10 && typeof setSpeed === 'function') {
-          const debit = Math.max(0, (chargeReel - dernierCharge) / dt);
+          const debit = Math.max(0, (event.loaded - dernierCharge) / dt);
           if (debit > 0) {
             const mo = debit / (1024 * 1024);
-            setSpeed(
-              mo >= 1
-                ? mo.toFixed(1) + ' Mo/s'
-                : Math.round(debit / 1024) + ' Ko/s'
-            );
+            setSpeed(mo >= 1
+              ? mo.toFixed(1) + ' Mo/s'
+              : Math.round(debit / 1024) + ' Ko/s');
           }
           dernierTemps = maintenant;
-          dernierCharge = chargeReel;
+          dernierCharge = event.loaded;
         }
       });
 
       xhr.onload = () => {
+        clearInterval(minuteurEstimation);
         if (frame) {
-          if (typeof cancelAnimationFrame === 'function' && typeof frame === 'number') {
-            try { cancelAnimationFrame(frame); } catch(e) {}
-          } else {
-            try { clearTimeout(frame); } catch(e) {}
-          }
+          try {
+            if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(frame);
+            else clearTimeout(frame);
+          } catch (e) {}
           frame = 0;
         }
+
         if (xhr.status >= 200 && xhr.status < 300) {
           setProgress(100);
           if (typeof setSpeed === 'function') {
             const duree = Math.max(0.001, (Date.now() - debutEnvoi) / 1000);
-            const debit = fichier.size / duree;
-            const mo = debit / (1024 * 1024);
-            setSpeed(mo >= 1 ? mo.toFixed(1) + ' Mo/s moyen' : Math.round(debit / 1024) + ' Ko/s moyen');
+            const debitMoyen = fichier.size / duree;
+            const mo = debitMoyen / (1024 * 1024);
+            setSpeed(mo >= 1
+              ? mo.toFixed(1) + ' Mo/s moyen'
+              : Math.round(debitMoyen / 1024) + ' Ko/s moyen');
           }
-          resolve({ok:true,status:xhr.status,text:xhr.responseText||'',headers:xhr.getAllResponseHeaders()||''});
+          resolve({ok:true,status:xhr.status,text:xhr.responseText || ''});
         } else {
-          resolve({ok:false,status:xhr.status,text:xhr.responseText||''});
+          resolve({ok:false,status:xhr.status,text:xhr.responseText || ''});
         }
       };
-      xhr.onerror = () => { clearInterval(minuteur); reject(new Error('Erreur réseau pendant l’envoi du fichier.')); };
-      xhr.onabort = () => { clearInterval(minuteur); reject(new DOMException('Upload annulé','AbortError')); };
-      xhr.ontimeout = () => { clearInterval(minuteur); reject(new Error('Le transfert a été interrompu : connexion trop longtemps inactive.')); };
-      xhr.timeout = 0;
-      try { xhr.send(fichier); } catch(e) {
-        if (frame) {
-          if (typeof cancelAnimationFrame === 'function' && typeof frame === 'number') {
-            try { cancelAnimationFrame(frame); } catch(ignore) {}
-          } else {
-            try { clearTimeout(frame); } catch(ignore) {}
-          }
-          frame = 0;
-        }
+
+      xhr.onerror = () => {
+        clearInterval(minuteurEstimation);
+        reject(new Error('Erreur réseau pendant l’envoi du fichier.'));
+      };
+      xhr.onabort = () => {
+        clearInterval(minuteurEstimation);
+        reject(new DOMException('Envoi interrompu.','AbortError'));
+      };
+      xhr.ontimeout = () => {
+        clearInterval(minuteurEstimation);
+        reject(new Error('L’envoi a été interrompu car la connexion est restée bloquée trop longtemps. Vérifiez votre connexion internet puis réessayez.'));
+      };
+
+      try {
+        xhr.send(fichier);
+      } catch (e) {
+        clearInterval(minuteurEstimation);
         reject(e);
       }
     });
