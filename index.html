@@ -6920,15 +6920,32 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     if (!url || !row?.isConnected) return;
     const wrap = row.querySelector('.icon-wrap');
     if (!wrap || !wrap.isConnected) return;
+
     wrap.classList.add('a-couverture');
-    const alt = estImageReelle ? echapperHtmlPub(doc.Titre || 'Livre') : `Première page — ${echapperHtmlPub(doc.Titre || 'Livre')}`;
-    // Une vraie image de couverture (fournie par le document) est chargée
-    // en "lazy" par le navigateur lui-même : aucun PDF n'est touché, c'est
-    // la méthode la plus rapide et la moins gourmande en données.
-    // Une vignette déjà générée depuis le PDF est déjà en mémoire (data URL),
-    // donc "eager" ne coûte rien de plus ici.
+    const alt = estImageReelle
+      ? (doc.Titre || 'Livre')
+      : `Première page — ${doc.Titre || 'Livre'}`;
+
+    // Une vraie image de couverture est chargée en lazy ; une vignette
+    // déjà générée depuis le PDF est injectée immédiatement.
     const chargement = estImageReelle ? 'lazy' : 'eager';
-    wrap.innerHTML = `<img class="doc-cover-img" src="${echapperHtmlPub(url)}" alt="${alt}" loading="${chargement}" decoding="async" fetchpriority="${estImageReelle ? 'low' : 'high'}">`;
+    const img = document.createElement('img');
+    img.className = 'doc-cover-img';
+    img.src = String(url);
+    img.alt = alt;
+    img.loading = chargement;
+    img.decoding = 'async';
+    img.fetchPriority = estImageReelle ? 'low' : 'high';
+
+    // Une erreur réseau ne doit jamais laisser la vignette invisible
+    // (l'ancien CSS mettait l'image à opacity:0 pendant son apparition).
+    img.addEventListener('load', () => { img.style.opacity = '1'; }, {once:true});
+    img.addEventListener('error', () => {
+      wrap.classList.remove('a-couverture');
+      wrap.innerHTML = ICONS.file;
+    }, {once:true});
+
+    wrap.replaceChildren(img);
   }
 
   // Affichage prioritaire de la première page : aucune recherche Google,
@@ -7100,8 +7117,11 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       });
       actualiserEtatActionsDocument(row,doc);
       actualiserTaillesDocumentsDans(row);
-      if (afficherCouverturesRomans) appliquerCouvertureSiLivre(row,doc);
+      // La ligne doit être dans le DOM avant d'être observée par
+      // IntersectionObserver : sinon certaines couvertures ne reçoivent jamais
+      // le signal d'entrée dans la zone visible.
       list.appendChild(row);
+      if (afficherCouverturesRomans) appliquerCouvertureSiLivre(row,doc);
     });
     content.innerHTML='';
     content.appendChild(list);
@@ -14741,6 +14761,223 @@ html[data-theme="light"] #pdfViewerOverlay *{color:inherit!important;}
   border-color:#E1DCE6!important;
 }
 #accessLock #accessGoogleBtn .google-spinner{border-left-color:rgba(66,133,244,.22)!important;border-bottom-color:rgba(66,133,244,.22)!important;}
+</style>
+
+<style id="aurore-pdf-reader-light-mode-final">
+/* ===== Lecteur PDF — véritable adaptation au mode clair =====
+   Le lecteur reste autonome : aucune règle globale du thème clair ne peut
+   rendre ses contrôles invisibles. Palette alignée sur Aurore :
+   blanc, lavande très légère, violet d'accent et encre sombre. */
+html[data-theme="light"] #pdfViewerOverlay{
+  background:
+    radial-gradient(circle at 15% 0%,rgba(124,58,237,.10),transparent 30%),
+    radial-gradient(circle at 90% 100%,rgba(192,132,252,.08),transparent 28%),
+    #F2EFF8 !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-reader-shell{
+  background:#FFFFFF !important;
+  border-color:#DED6EA !important;
+  box-shadow:0 24px 70px rgba(55,38,76,.16),0 0 0 1px rgba(124,58,237,.04) !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-reader-topbar{
+  background:rgba(255,255,255,.97) !important;
+  border-bottom-color:#E5DFEE !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-reader-back{
+  background:#F7F4FB !important;
+  border-color:#DDD5E9 !important;
+  color:#211B2B !important;
+  -webkit-text-fill-color:#211B2B !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-reader-back:hover{
+  background:#EEE7F8 !important;
+  border-color:#7C3AED !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-reader-title{
+  color:#211B2B !important;
+  -webkit-text-fill-color:#211B2B !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-reader-badge{
+  color:#6D28D9 !important;
+  background:#F0E8FC !important;
+  border-color:#D9C5F4 !important;
+  -webkit-text-fill-color:#6D28D9 !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-reader-toolbar{
+  background:#FAF8FD !important;
+  border-bottom-color:#E5DFEE !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-reader-toolbar button{
+  background:#FFFFFF !important;
+  border-color:#DDD5E9 !important;
+  color:#211B2B !important;
+  -webkit-text-fill-color:#211B2B !important;
+  box-shadow:0 2px 8px rgba(55,38,76,.06) !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-reader-toolbar button:hover:not([disabled]){
+  background:#F3EDFB !important;
+  border-color:#7C3AED !important;
+  color:#5B21B6 !important;
+  -webkit-text-fill-color:#5B21B6 !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-reader-toolbar button[aria-pressed="true"]{
+  background:#EDE2FA !important;
+  border-color:#7C3AED !important;
+  color:#5B21B6 !important;
+  -webkit-text-fill-color:#5B21B6 !important;
+}
+html[data-theme="light"] #pdfViewerOverlay #pdfViewerZoomLevel,
+html[data-theme="light"] #pdfViewerOverlay #pdfViewerPage{
+  color:#4B4358 !important;
+  -webkit-text-fill-color:#4B4358 !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-reader-zone{
+  background:
+    radial-gradient(circle at 50% 0%,rgba(124,58,237,.07),transparent 30%),
+    linear-gradient(180deg,#F3F0F7 0%,#EAE6F0 100%) !important;
+  scrollbar-color:#A78BFA transparent !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-reader-zone::-webkit-scrollbar-thumb{
+  background:#A78BFA !important;
+  border-color:#EAE6F0 !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-reader-page canvas{
+  background:#FFFFFF !important;
+  box-shadow:0 10px 30px rgba(55,38,76,.16),0 2px 8px rgba(55,38,76,.10) !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-reader-page-label{
+  background:rgba(255,255,255,.92) !important;
+  border-color:#DDD5E9 !important;
+  color:#211B2B !important;
+  -webkit-text-fill-color:#211B2B !important;
+  box-shadow:0 4px 12px rgba(55,38,76,.10) !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-reader-page-placeholder{
+  background:rgba(255,255,255,.55) !important;
+  border-color:#DDD5E9 !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-reader-loading{
+  background:rgba(255,255,255,.96) !important;
+  border-color:#DDD5E9 !important;
+  box-shadow:0 18px 45px rgba(55,38,76,.12) !important;
+}
+html[data-theme="light"] #pdfViewerOverlay #pdfViewerStatut{
+  color:#211B2B !important;
+  -webkit-text-fill-color:#211B2B !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-load-progress-head{
+  color:#625B6F !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-load-progress-head strong,
+html[data-theme="light"] #pdfViewerOverlay #pdfViewerProgressPercent{
+  color:#5B21B6 !important;
+  -webkit-text-fill-color:#5B21B6 !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-load-progress-track{
+  background:#E4DDEE !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-reader-erreur{
+  background:#FFF8F8 !important;
+  border-color:#E9B8BD !important;
+  box-shadow:0 18px 45px rgba(55,38,76,.10) !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-reader-erreur p,
+html[data-theme="light"] #pdfViewerOverlay .pdf-reader-error-detail{
+  color:#3F3748 !important;
+  -webkit-text-fill-color:#3F3748 !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-reader-error-title{
+  color:#211B2B !important;
+  -webkit-text-fill-color:#211B2B !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-reader-error-icon{
+  background:#F0E8FC !important;
+  border-color:#D9C5F4 !important;
+  color:#6D28D9 !important;
+  -webkit-text-fill-color:#6D28D9 !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-reader-bottombar{
+  background:#FFFFFF !important;
+  border-top:1px solid #E5DFEE !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-reader-bottombar button{
+  background:#F7F4FB !important;
+  border-color:#DDD5E9 !important;
+  color:#211B2B !important;
+  -webkit-text-fill-color:#211B2B !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-reader-bottombar button:hover:not([disabled]){
+  background:#EEE7F8 !important;
+  border-color:#7C3AED !important;
+  color:#5B21B6 !important;
+  -webkit-text-fill-color:#5B21B6 !important;
+}
+html[data-theme="light"] #pdfViewerOverlay #pdfViewerPageJumpToggle{
+  color:#211B2B !important;
+  -webkit-text-fill-color:#211B2B !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-page-jump-icon{
+  color:#6D28D9 !important;
+  -webkit-text-fill-color:#6D28D9 !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-page-jump-panel{
+  background:#FFFFFF !important;
+  border-color:#DDD5E9 !important;
+  box-shadow:0 12px 30px rgba(55,38,76,.16) !important;
+}
+html[data-theme="light"] #pdfViewerOverlay #pdfViewerPageJumpInput{
+  background:#FFFFFF !important;
+  border-color:#DDD5E9 !important;
+  color:#211B2B !important;
+  -webkit-text-fill-color:#211B2B !important;
+}
+html[data-theme="light"] #pdfViewerOverlay #pdfViewerPageJumpInput::placeholder{
+  color:#777080 !important;
+}
+html[data-theme="light"] #pdfViewerOverlay #pdfViewerPageJumpGo{
+  background:#7C3AED !important;
+  border-color:#6D28D9 !important;
+  color:#FFFFFF !important;
+  -webkit-text-fill-color:#FFFFFF !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-reader-scrollbar{
+  background:rgba(124,58,237,.10) !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-reader-scrollbar-thumb{
+  background:#A78BFA !important;
+}
+html[data-theme="light"] #pdfViewerOverlay .pdf-spinner{
+  border-color:#DDD5E9 !important;
+  border-top-color:#C084FC !important;
+  border-right-color:#7C3AED !important;
+}
+html[data-theme="light"] #pdfViewerOverlay #pdfViewerDiagBox{
+  background:#F1EDF6 !important;
+  color:#211B2B !important;
+  border-color:#A78BFA !important;
+}
+html[data-theme="light"] #pdfViewerOverlay #pdfViewerDiagBox strong{
+  color:#B45309 !important;
+  -webkit-text-fill-color:#B45309 !important;
+}
+html[data-theme="light"] #pdfViewerOverlay #pdfViewerDiagLog{
+  color:#3F3748 !important;
+  -webkit-text-fill-color:#3F3748 !important;
+}
+
+/* Couvertures : pas d'opacité bloquante si le navigateur a déjà chargé l'image. */
+.doc-row .icon-wrap.a-couverture img.doc-cover-img{
+  opacity:1 !important;
+  transition:opacity .18s ease;
+}
+.doc-row .icon-wrap.a-couverture{
+  background:#EEE9F5 !important;
+  overflow:hidden;
+}
+html[data-theme="light"] .doc-row .icon-wrap.a-couverture{
+  background:#EEE9F5 !important;
+  border:1px solid #DDD5E9;
+}
 </style>
 
 </body>
