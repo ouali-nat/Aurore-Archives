@@ -759,63 +759,6 @@
 [data-theme="light"] .ad-slot-body{background:#fff;}
 [data-theme="light"] .ad-slot-title{background:#FAF8FD;border-color:#E6DFF0;color:#111318;}
 [data-theme="light"] .ad-slot-desc{background:#FCFBFE;border-color:#EEE9F5;color:#4D465A;}
-
-/* --- Final archive/home hierarchy --- */
-.archive-intro, .archives-intro, .archive-header {
-  min-height: 230px !important;
-  padding: clamp(32px, 5vw, 58px) clamp(22px, 5vw, 64px) !important;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  box-sizing: border-box;
-}
-.archive-intro h1, .archives-intro h1, .archive-header h1 {
-  line-height: 1.12 !important;
-  margin-bottom: 14px !important;
-}
-.archive-intro p, .archives-intro p, .archive-header p {
-  line-height: 1.65 !important;
-  max-width: 720px;
-}
-
-/* Theme-aware hero: uses existing theme variables instead of fixed purple. */
-.compact-home-hero {
-  background:
-    radial-gradient(circle at 88% 15%, color-mix(in srgb, var(--primary, #6c63ff) 22%, transparent), transparent 30%),
-    radial-gradient(circle at 8% 100%, color-mix(in srgb, var(--secondary, #8e7dff) 18%, transparent), transparent 35%),
-    linear-gradient(135deg,
-      color-mix(in srgb, var(--primary, #6c63ff) 88%, var(--background, #fff) 12%),
-      color-mix(in srgb, var(--secondary, #8e7dff) 88%, var(--background, #fff) 12%));
-  color: var(--on-primary, #fff);
-}
-
-/* Place the hero in the normal document flow with a comfortable gap after video. */
-.compact-home-hero {
-  margin-top: 16px !important;
-  margin-bottom: 20px !important;
-}
-
-/* Support common video wrappers/sections without disturbing their internals. */
-.video-section + .compact-home-hero,
-.video-container + .compact-home-hero,
-.video-wrapper + .compact-home-hero,
-#video + .compact-home-hero,
-[id*="video"] + .compact-home-hero {
-  margin-top: 18px !important;
-}
-
-/* Bottom support message: intentionally second-to-last, just before the footer. */
-.support-section, .help-section, .contact-section {
-  margin-top: 24px !important;
-  margin-bottom: 18px !important;
-}
-
-/* Keep the archive/library notice at the very end of the content. */
-.archive-library-notice {
-  margin-top: 24px !important;
-  margin-bottom: 10px !important;
-}
-
 </style>
 
 <style id="auraster-home-redesign">
@@ -2646,130 +2589,6 @@ main, .container, .content, .page-content {
 }
 
 </style>
-<style>
-
-/* === Publicités : réserver une vraie zone sous chaque annonce === */
-.ad-slot {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: stretch !important;
-  justify-content: flex-start !important;
-  height: auto !important;
-  min-height: 0 !important;
-  margin: 0 0 30px !important;
-  padding: 0 !important;
-  overflow: visible !important;
-  position: relative !important;
-  z-index: 1;
-}
-.ad-slot > .ad-media,
-.ad-slot > .ad-image,
-.ad-slot > img,
-.ad-slot > video,
-.ad-slot > iframe {
-  display: block;
-  width: 100%;
-  max-width: 100%;
-  flex: 0 0 auto;
-  margin: 0;
-}
-
-/* Le panneau titre/description reste SOUS la publicité, jamais par-dessus. */
-.ad-slot .ad-info,
-.ad-slot .ad-text,
-.ad-slot .ad-details,
-.ad-slot .ad-description,
-.ad-slot [class*="ad-info"],
-.ad-slot [class*="ad-text"],
-.ad-slot [class*="ad-detail"],
-.ad-slot [class*="description"] {
-  position: relative !important;
-  inset: auto !important;
-  top: auto !important;
-  right: auto !important;
-  bottom: auto !important;
-  left: auto !important;
-  width: 100% !important;
-  max-width: 100% !important;
-  min-width: 0 !important;
-  height: auto !important;
-  min-height: 62px !important;
-  margin: 12px 0 0 !important;
-  padding: 12px 14px !important;
-  box-sizing: border-box !important;
-  overflow: visible !important;
-  z-index: 2;
-  background: var(--card-bg, var(--surface, #fff));
-  border-radius: 12px;
-  box-shadow: 0 3px 12px rgba(0,0,0,.07);
-}
-
-/* Texte de pub : aucune largeur fixe susceptible de pousser dans la carte voisine. */
-.ad-slot h1, .ad-slot h2, .ad-slot h3, .ad-slot h4,
-.ad-slot p, .ad-slot span, .ad-slot a {
-  max-width: 100% !important;
-  min-width: 0 !important;
-  white-space: normal !important;
-  overflow-wrap: anywhere !important;
-  word-break: break-word !important;
-}
-.ad-slot p,
-.ad-slot .description,
-.ad-slot [class*="description"] {
-  line-height: 1.5 !important;
-  margin: 5px 0 0 !important;
-}
-
-/* Boutons sous la description, sans chevauchement. */
-.ad-slot .ad-actions,
-.ad-slot [class*="ad-action"],
-.ad-slot [class*="actions"] {
-  position: relative !important;
-  display: flex !important;
-  flex-wrap: wrap !important;
-  gap: 8px !important;
-  width: 100% !important;
-  margin-top: 10px !important;
-}
-
-/* Écarter le bloc/carte qui suit chaque pub. */
-.ad-slot + *,
-.ad-slot + .card,
-.ad-slot + .document-card,
-.ad-slot + .grid,
-.ad-slot + section {
-  margin-top: 24px !important;
-}
-
-/* Si les pubs sont dans une grille : augmenter l'espace vertical entre rangées. */
-.ad-slot-grid,
-.ads-grid,
-.ad-grid,
-[class*="ads-grid"] {
-  row-gap: 34px !important;
-  align-items: start !important;
-}
-@media (max-width: 700px) {
-  .ad-slot {
-    margin-bottom: 24px !important;
-  }
-  .ad-slot .ad-info,
-  .ad-slot .ad-text,
-  .ad-slot .ad-details,
-  .ad-slot .ad-description,
-  .ad-slot [class*="ad-info"],
-  .ad-slot [class*="ad-text"],
-  .ad-slot [class*="ad-detail"],
-  .ad-slot [class*="description"] {
-    margin-top: 10px !important;
-    padding: 11px 12px !important;
-  }
-  .ad-slot + * {
-    margin-top: 18px !important;
-  }
-}
-
-</style>
 </head>
 <body class="site-locked">
 
@@ -3200,21 +3019,22 @@ main, .container, .content, .page-content {
       </div>
       <div class="home-video-frame"><video id="homeVideoPlayer" controls playsinline preload="metadata"></video></div>
     </section>
-<section class="compact-home-hero" aria-label="Accueil">
-  <div class="hero-inner">
-    <div>
-      <div class="hero-kicker">✦ Ton espace d’apprentissage</div>
-      <h1>Apprends mieux. Trouve plus vite. Avance plus loin.</h1>
-      <p class="hero-text">Des ressources bien organisées, un espace personnel simple et une expérience pensée pour rester concentré sur l’essentiel.</p>
-      <div class="hero-actions">
-        <a href="#documents">Explorer les documents</a>
-        <a href="#personal-space">Mon espace</a>
-      </div>
-    </div>
-    <div class="hero-badge" aria-hidden="true">✦</div>
-  </div>
-</section>
 
+    <!-- Bloc d’apprentissage : volontairement placé juste sous la vidéo. -->
+    <section class="compact-home-hero" aria-label="Espace d’apprentissage">
+      <div class="hero-inner">
+        <div>
+          <div class="hero-kicker">✦ Ton espace d’apprentissage</div>
+          <h1>Apprends mieux. Trouve plus vite. Avance plus loin.</h1>
+          <p class="hero-text">Des ressources bien organisées, un espace personnel simple et une expérience pensée pour rester concentré sur l’essentiel.</p>
+          <div class="hero-actions">
+            <a href="#documents">Explorer les documents</a>
+            <a href="#personal-space">Mon espace</a>
+          </div>
+        </div>
+        <div class="hero-badge" aria-hidden="true">✦</div>
+      </div>
+    </section>
 
     <div class="home-promise-grid" id="presentationGrid"></div>
 
@@ -3952,17 +3772,7 @@ main, .container, .content, .page-content {
           <div id="personalFavoritesList" class="personal-list activity-list"><div class="personal-empty">Chargement de vos favoris…</div></div>
         </section>
 
-        
-      </div>
-    </div>
-
-    <button class="back-btn" data-back="home" style="margin-top:28px;">← Retour à l'accueil</button>
-  </section>
-
-</main>
-
-
-<section class="personal-panel" id="personalPanelDownloads" data-personal-panel="downloads" role="tabpanel" hidden>
+        <section class="personal-panel" id="personalPanelDownloads" data-personal-panel="downloads" role="tabpanel" hidden>
           <div class="activity-panel-title"><div><span>Vos fichiers</span><h4>À télécharger</h4></div><strong id="personalDownloadsBadge">0</strong></div>
           <p>Documents enregistrés pour plus tard et historique de vos téléchargements.</p>
           <div class="activity-subsection">
@@ -3975,11 +3785,23 @@ main, .container, .content, .page-content {
             <div id="personalDownloadsHistory" class="personal-list activity-list"><div class="personal-empty">Aucun téléchargement enregistré pour le moment.</div></div>
           </div>
         </section>
+      </div>
+    </div>
+
+    <button class="back-btn" data-back="home" style="margin-top:28px;">← Retour à l'accueil</button>
+  </section>
+
+</main>
+
 <footer>
   <div class="wrap">
-    <div>Aurore — Section Archives — Bibliothèque des élèves</div>
     <div>Bibliothèque numérique d'Aurore</div>
   </div>
+
+  <div class="wrap" style="margin-top:18px;">
+    <button class="admin-note" id="btnAdmin" style="background:none; border:none; text-decoration:underline; padding:0;">Espace administrateur</button>
+  </div>
+
   <div class="wrap" style="margin-top:18px; align-items:stretch;">
     <div class="service-client-card" aria-label="Service client">
       <div class="service-client-copy">
@@ -3993,8 +3815,9 @@ main, .container, .content, .page-content {
       </div>
     </div>
   </div>
-  <div class="wrap" style="margin-top:10px;">
-    <button class="admin-note" id="btnAdmin" style="background:none; border:none; text-decoration:underline; padding:0;">Espace administrateur</button>
+
+  <div class="wrap aurore-final-site-name">
+    <div>Aurore — Section Archives — Bibliothèque des élèves</div>
   </div>
 </footer>
 
@@ -16203,6 +16026,140 @@ html[data-color-theme="rouge"] .ad-slot-card,html[data-color-theme="rouge"] .hom
 @media(max-width:640px){html[data-color-theme] .ad-slot-card{height:230px!important;min-height:230px!important;border-radius:20px!important;}html[data-color-theme] .ad-slot-body{padding:18px 17px 16px!important;}}
 </style>
 
+
+
+<style id="aurore-requested-home-layout-final">
+/* === Mise en page demandée : accueil plus aéré et hiérarchie claire === */
+
+/* 1) Grand bloc d'introduction : on lui redonne de la présence. */
+#screen-home > .hero{
+  min-height:520px!important;
+  padding:88px 54px 72px!important;
+  margin-top:12px!important;
+}
+#screen-home > .hero .hero-inner{max-width:820px!important;}
+#screen-home > .hero h1{
+  font-size:clamp(2.8rem,6vw,5.4rem)!important;
+  line-height:1.08!important;
+}
+#screen-home > .hero p.sub{
+  font-size:1.08rem!important;
+  max-width:720px!important;
+  margin-top:20px!important;
+}
+#screen-home > .hero .auraster-home-search{
+  max-width:760px!important;
+  margin-top:30px!important;
+  padding:16px 18px!important;
+}
+
+/* 2) Ton espace d'apprentissage : juste sous la vidéo, avec les couleurs du thème. */
+#screen-home > .compact-home-hero{
+  margin:30px 0 34px!important;
+  min-height:260px!important;
+  border-radius:28px!important;
+  padding:34px!important;
+  background:
+    radial-gradient(circle at 88% 18%, color-mix(in srgb,var(--theme-secondary,#C084FC) 24%,transparent), transparent 30%),
+    radial-gradient(circle at 12% 100%, color-mix(in srgb,var(--theme-primary,#8B5CF6) 20%,transparent), transparent 34%),
+    linear-gradient(135deg,
+      color-mix(in srgb,var(--theme-strong,#6D28D9) 88%,var(--fond) 12%),
+      color-mix(in srgb,var(--theme-primary,#8B5CF6) 88%,var(--fond) 12%)
+    )!important;
+  border:1px solid var(--theme-border,rgba(192,132,252,.25))!important;
+  box-shadow:0 20px 55px var(--theme-shadow,rgba(139,92,246,.18))!important;
+  color:var(--theme-on-accent,#fff)!important;
+}
+#screen-home > .compact-home-hero .hero-inner{
+  max-width:960px!important;
+}
+#screen-home > .compact-home-hero h1{
+  font-size:clamp(1.8rem,3.7vw,3rem)!important;
+  line-height:1.12!important;
+}
+#screen-home > .compact-home-hero .hero-text{
+  font-size:clamp(.95rem,1.7vw,1.08rem)!important;
+  line-height:1.65!important;
+}
+#screen-home > .compact-home-hero .hero-actions a,
+#screen-home > .compact-home-hero .hero-actions button{
+  background:color-mix(in srgb,var(--theme-on-accent,#fff) 13%,transparent)!important;
+  border-color:color-mix(in srgb,var(--theme-on-accent,#fff) 28%,transparent)!important;
+  color:var(--theme-on-accent,#fff)!important;
+}
+#screen-home > .compact-home-hero .hero-actions a:hover,
+#screen-home > .compact-home-hero .hero-actions button:hover{
+  background:color-mix(in srgb,var(--theme-on-accent,#fff) 22%,transparent)!important;
+}
+
+/* 3) Publicités : l'image, le titre et la description restent séparés,
+      puis un espace réel pousse le bloc suivant vers le bas. */
+#screen-home .ad-slot{
+  margin-top:42px!important;
+  margin-bottom:58px!important;
+}
+#screen-home .ad-slot + *{
+  margin-top:0!important;
+}
+#screen-home .ad-slot-body{
+  gap:12px!important;
+}
+#screen-home .ad-slot-title,
+#screen-home .ad-slot-desc{
+  padding:13px 16px!important;
+}
+#screen-home .ad-slot-title{
+  margin-top:2px!important;
+}
+
+/* 4) Le contact est l'avant-dernier bloc ; le nom de la bibliothèque est dernier. */
+footer{
+  display:flex!important;
+  flex-direction:column!important;
+}
+footer .aurore-final-site-name{
+  order:4!important;
+  margin-top:18px!important;
+  padding-top:18px!important;
+  border-top:1px solid var(--theme-border,rgba(192,132,252,.14))!important;
+}
+footer .aurore-final-site-name > div{
+  font-weight:800!important;
+  letter-spacing:-.01em;
+}
+footer > .wrap:nth-child(3){
+  order:3!important;
+}
+footer > .wrap:nth-child(2){order:2!important;}
+footer > .wrap:nth-child(1){order:1!important;}
+
+@media(max-width:760px){
+  #screen-home > .hero{
+    min-height:460px!important;
+    padding:62px 26px 48px!important;
+  }
+  #screen-home > .hero h1{font-size:clamp(2.35rem,12vw,3.8rem)!important;}
+  #screen-home > .compact-home-hero{
+    padding:26px 22px!important;
+    min-height:0!important;
+  }
+}
+@media(max-width:560px){
+  #screen-home > .hero{
+    min-height:430px!important;
+    padding:52px 20px 40px!important;
+  }
+  #screen-home > .compact-home-hero{
+    margin:24px 0 30px!important;
+    border-radius:22px!important;
+    padding:22px 18px!important;
+  }
+  #screen-home .ad-slot{
+    margin-top:34px!important;
+    margin-bottom:46px!important;
+  }
+}
+</style>
 
 </body>
 </html>
