@@ -452,6 +452,35 @@
   .doc-row .titre{font-weight:700; font-size:0.9rem; line-height:1.35; color:var(--encre); min-width:0; overflow-wrap:anywhere;}
   .doc-main-info{min-width:0; flex:1 1 auto;}
   .doc-row .meta{font-size:0.76rem; color:var(--gris); margin-top:2px;}
+  /* ---------- MENU PARTAGE DOCUMENT ---------- */
+  .doc-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto;}
+  .doc-share-wrap{position:relative;display:inline-flex;align-items:center;flex-shrink:0;}
+  .doc-more-btn{
+    width:40px;height:40px;padding:0;border:1px solid var(--bordure);border-radius:12px;
+    background:var(--fond);color:var(--encre);display:inline-flex;align-items:center;justify-content:center;
+    font-size:1.35rem;font-weight:800;line-height:1;cursor:pointer;letter-spacing:2px;
+    transition:background .15s ease,border-color .15s ease,transform .15s ease;
+  }
+  .doc-more-btn:hover,.doc-more-btn[aria-expanded="true"]{background:var(--papier);border-color:var(--violet);transform:translateY(-1px);}
+  .doc-share-menu{
+    position:absolute;right:0;top:calc(100% + 8px);z-index:120;
+    width:210px;padding:7px;background:var(--papier);border:1px solid var(--bordure);
+    border-radius:14px;box-shadow:0 18px 45px rgba(0,0,0,.35);display:none;
+  }
+  .doc-share-menu.open{display:block;animation:docShareMenuIn .14s ease both;}
+  .doc-share-menu button{
+    width:100%;display:flex;align-items:center;gap:9px;padding:10px 11px;border:0;border-radius:10px;
+    background:transparent;color:var(--encre);font:inherit;font-size:.82rem;font-weight:700;text-align:left;cursor:pointer;
+  }
+  .doc-share-menu button:hover{background:rgba(139,92,246,.12);color:#fff;}
+  .doc-share-menu .share-icon{width:22px;text-align:center;flex-shrink:0;}
+  @keyframes docShareMenuIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+  @media(max-width:560px){
+    .doc-actions{width:100%;justify-content:flex-end;}
+    .doc-share-wrap{position:static;}
+    .doc-share-menu{position:absolute;right:16px;top:auto;margin-top:46px;width:min(210px,calc(100vw - 32px));}
+  }
+
   .doc-row .dl{
     background:var(--marron); color:#fff; text-decoration:none; padding:9px 18px;
     border-radius:var(--radius-sm); font-weight:700; font-size:0.8rem;
@@ -2739,10 +2768,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     </section>
   </section>
 
-  <style id="aurore-document-share-style">
-.doc-share-wrap{position:relative;display:inline-flex;align-items:center}.doc-share-menu-btn{width:38px;height:38px;padding:0;border:1px solid var(--bordure);border-radius:11px;background:var(--papier);color:var(--gris);font-size:22px;font-weight:800;line-height:1;cursor:pointer;display:grid;place-items:center}.doc-share-menu-btn:hover,.doc-share-menu-btn:focus-visible{color:var(--encre);border-color:var(--accent,#7c3aed);outline:none}.doc-share-menu{position:absolute;right:0;top:calc(100% + 8px);z-index:10030;min-width:190px;padding:7px;border:1px solid var(--bordure);border-radius:14px;background:var(--papier);box-shadow:0 18px 45px rgba(0,0,0,.18);display:none}.doc-share-menu.show{display:grid;gap:3px}.doc-share-menu button{width:100%;border:0;border-radius:9px;background:transparent;color:var(--encre);padding:10px 11px;text-align:left;font:inherit;font-size:.78rem;font-weight:700;cursor:pointer}.doc-share-menu button:hover,.doc-share-menu button:focus-visible{background:rgba(124,58,237,.09);outline:none}.doc-share-menu button span{margin-right:7px}.doc-share-toast{position:fixed;left:16px;right:16px;bottom:18px;z-index:10060;width:min(420px,calc(100% - 32px));margin:auto;padding:12px 15px;border:1px solid var(--bordure);border-radius:14px;background:var(--papier);color:var(--encre);box-shadow:0 16px 45px rgba(0,0,0,.2);font-size:.78rem;font-weight:700;text-align:center}
-</style>
-<!-- ===== LIVRES : choix du genre ===== -->
+  <!-- ===== LIVRES : choix du genre ===== -->
   <section class="screen" id="screen-livres">
     <h2 class="section-title">Livres et romans</h2>
     <p style="color:var(--gris); font-size:0.9rem; max-width:520px;">Choisissez une catégorie pour parcourir les livres publiés.</p>
@@ -7317,65 +7343,110 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     return String(titre || 'Document sans titre').trim();
   }
 
-  function afficherToastPartageDocument(message){
-    const old=document.querySelector('.doc-share-toast');
-    if(old) old.remove();
-    const toast=document.createElement('div');
-    toast.className='doc-share-toast';
-    toast.textContent=message;
-    document.body.appendChild(toast);
-    setTimeout(()=>toast.remove(),2200);
+  /* ---------- PARTAGE DES DOCUMENTS ---------- */
+  function obtenirUrlDocumentPartage(doc) {
+    const candidates = [
+      doc?.Fichier_url, doc?.fichier_url, doc?.FichierUrl, doc?.url, doc?.URL
+    ];
+    const raw = candidates.find(v => v != null && String(v).trim() !== '');
+    if (!raw) return '';
+    try { return new URL(String(raw), location.href).href; } catch (_) { return String(raw); }
   }
 
-  async function partagerDocumentAurore(doc, mode){
-    const url=doc?.Fichier_url ? new URL(String(doc.Fichier_url),window.location.href).href : window.location.href;
-    const titre=obtenirTitreDocument(doc);
-    if(mode==='whatsapp'){
-      const message=`📚 ${titre}\nConsultez ce document sur Aurore — Section Archives.\n🔗 ${url}`;
-      window.open(`https://wa.me/?text=${encodeURIComponent(message)}`,'_blank','noopener');
-      return;
-    }
-    if(mode==='copy'){
-      try{
+  function obtenirTextePartageDocument(doc) {
+    const titre = obtenirTitreDocument(doc);
+    return `📚 ${titre}\nConsultez ce document sur Aurore — Section Archives.`;
+  }
+
+  async function partagerDocument(doc) {
+    const url = obtenirUrlDocumentPartage(doc);
+    if (!url) { alert('Le lien de ce document n’est pas disponible pour le partage.'); return; }
+    const title = obtenirTitreDocument(doc);
+    const text = obtenirTextePartageDocument(doc);
+    try {
+      if (navigator.share) {
+        await navigator.share({title, text, url});
+      } else if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(url);
-        afficherToastPartageDocument('Lien du document copié.');
-      }catch(e){
-        const ta=document.createElement('textarea'); ta.value=url; ta.style.position='fixed'; ta.style.opacity='0';
-        document.body.appendChild(ta); ta.select();
-        try{document.execCommand('copy');afficherToastPartageDocument('Lien du document copié.');}catch(_){afficherToastPartageDocument('Impossible de copier le lien.');}
-        ta.remove();
+        alert('Lien du document copié. Vous pouvez maintenant le coller dans WhatsApp.');
+      } else {
+        window.prompt('Copiez le lien du document :', url);
       }
-      return;
+    } catch (err) {
+      if (err?.name !== 'AbortError') {
+        try {
+          await navigator.clipboard.writeText(url);
+          alert('Lien du document copié. Vous pouvez maintenant le partager.');
+        } catch (_) {
+          window.prompt('Copiez le lien du document :', url);
+        }
+      }
     }
-    if(navigator.share){
-      try{ await navigator.share({title:titre,text:`${titre} — Aurore`,url}); return; }catch(e){ if(e?.name==='AbortError') return; }
-    }
-    try{ await navigator.clipboard.writeText(url); afficherToastPartageDocument('Lien copié. Vous pouvez le partager.'); }catch(e){ afficherToastPartageDocument('Le partage direct n’est pas disponible sur ce navigateur.'); }
   }
 
-  function installerMenuPartageDocument(row,doc){
-    const actions=row?.querySelector('.doc-actions');
-    if(!actions||!doc?.Fichier_url||actions.querySelector('[data-document-share]')) return;
-    const wrap=document.createElement('div');
-    wrap.className='doc-share-wrap';
-    wrap.innerHTML=`<button type="button" class="doc-share-menu-btn" data-document-share aria-label="Partager le document" aria-expanded="false">⋮</button>
-      <div class="doc-share-menu" role="menu">
-        <button type="button" data-share-action="share" role="menuitem"><span>📤</span>Partager</button>
-        <button type="button" data-share-action="whatsapp" role="menuitem"><span>💬</span>Partager sur WhatsApp</button>
-        <button type="button" data-share-action="copy" role="menuitem"><span>🔗</span>Copier le lien</button>
-      </div>`;
-    actions.appendChild(wrap);
-    const trigger=wrap.querySelector('[data-document-share]');
-    const menu=wrap.querySelector('.doc-share-menu');
-    const close=()=>{menu.classList.remove('show');trigger.setAttribute('aria-expanded','false');};
-    trigger.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();const open=menu.classList.toggle('show');trigger.setAttribute('aria-expanded',String(open));});
-    menu.addEventListener('click',async e=>{
-      const btn=e.target.closest('[data-share-action]'); if(!btn) return;
-      e.preventDefault(); e.stopPropagation();
-      const action=btn.dataset.shareAction; close(); await partagerDocumentAurore(doc,action);
-    });
-    document.addEventListener('click',e=>{if(!wrap.contains(e.target))close();},{passive:true});
+  function partagerDocumentWhatsApp(doc) {
+    const url = obtenirUrlDocumentPartage(doc);
+    if (!url) { alert('Le lien de ce document n’est pas disponible pour WhatsApp.'); return; }
+    const texte = `${obtenirTextePartageDocument(doc)}\n${url}`;
+    const wa = `https://wa.me/?text=${encodeURIComponent(texte)}`;
+    window.open(wa, '_blank', 'noopener,noreferrer');
   }
+
+  async function copierLienDocument(doc) {
+    const url = obtenirUrlDocumentPartage(doc);
+    if (!url) { alert('Le lien de ce document n’est pas disponible.'); return; }
+    try {
+      await navigator.clipboard.writeText(url);
+      alert('Lien du document copié.');
+    } catch (_) {
+      window.prompt('Copiez le lien du document :', url);
+    }
+  }
+
+  function fermerMenusPartageDocuments(except = null) {
+    document.querySelectorAll('.doc-share-menu.open').forEach(menu => {
+      if (menu !== except) {
+        menu.classList.remove('open');
+        menu.previousElementSibling?.setAttribute('aria-expanded','false');
+      }
+    });
+  }
+
+  document.addEventListener('click', function(e) {
+    const more = e.target.closest?.('[data-document-more]');
+    if (more) {
+      e.preventDefault();
+      e.stopPropagation();
+      const wrap = more.closest('.doc-share-wrap');
+      const menu = wrap?.querySelector('.doc-share-menu');
+      if (!menu) return;
+      const isOpen = menu.classList.contains('open');
+      fermerMenusPartageDocuments(menu);
+      menu.classList.toggle('open', !isOpen);
+      more.setAttribute('aria-expanded', String(!isOpen));
+      return;
+    }
+
+    const action = e.target.closest?.('[data-share-document],[data-share-whatsapp],[data-copy-document-link]');
+    if (action) {
+      e.preventDefault();
+      e.stopPropagation();
+      const row = action.closest('.doc-row');
+      const index = row ? Number(row.dataset.documentIndex) : -1;
+      const doc = Number.isInteger(index) ? documentsCourants?.[index] : null;
+      /* Les listes sont paginées/triées : conserver le document sur la ligne. */
+      const documentData = row?._auroreDocument || doc;
+      if (documentData) {
+        if (action.hasAttribute('data-share-document')) partagerDocument(documentData);
+        else if (action.hasAttribute('data-share-whatsapp')) partagerDocumentWhatsApp(documentData);
+        else copierLienDocument(documentData);
+      }
+      fermerMenusPartageDocuments();
+      return;
+    }
+
+    if (!e.target.closest?.('.doc-share-wrap')) fermerMenusPartageDocuments();
+  }, true);
 
   function rendreListeDocuments(content, data, afficherCouverturesRomans = false) {
     // Prépare PDF.js en parallèle de la construction de la liste : le rendu
@@ -7399,6 +7470,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     trierDocumentsClient(documentsCourants).forEach(doc=>{
       const row=document.createElement('div');
       row.className='doc-row';
+      row._auroreDocument = doc;
       const telechargementOk=doc.Telechargement_autorise!==false;
       const contexte=[
         doc.Niveau && `Niveau : ${doc.Niveau}`,
@@ -7425,6 +7497,14 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
           <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-plus-tard="1">＋ Plus tard</button>
           <button type="button" class="dl doc-action-soft doc-action-folder" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-case="1">▣ Case</button>
           <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-signaler="1">Signaler</button>
+          <div class="doc-share-wrap">
+            <button type="button" class="doc-more-btn" data-document-more="1" aria-label="Options de partage" aria-expanded="false">⋮</button>
+            <div class="doc-share-menu" role="menu">
+              <button type="button" data-share-document="1" role="menuitem"><span class="share-icon">📤</span><span>Partager</span></button>
+              <button type="button" data-share-whatsapp="1" role="menuitem"><span class="share-icon">💬</span><span>Partager sur WhatsApp</span></button>
+              <button type="button" data-copy-document-link="1" role="menuitem"><span class="share-icon">🔗</span><span>Copier le lien</span></button>
+            </div>
+          </div>
         </div>`;
       row.querySelector('[data-lire]').addEventListener('click',()=>ouvrirLecteurPDF(doc));
       row.querySelector('[data-telecharger-maintenant]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(doc));
@@ -7438,7 +7518,6 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       });
       actualiserEtatActionsDocument(row,doc);
       actualiserTaillesDocumentsDans(row);
-      installerMenuPartageDocument(row,doc);
       // La ligne doit être dans le DOM avant d'être observée par
       // IntersectionObserver : sinon certaines couvertures ne reçoivent jamais
       // le signal d'entrée dans la zone visible.
