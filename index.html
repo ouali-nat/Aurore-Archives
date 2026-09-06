@@ -7279,13 +7279,39 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   }
 
 
-  function creerUploadR2AvecProgress(url, fichier, setProgress) {
+  function creerUploadR2AvecProgress(url, fichier, setProgress, setEtatConnexion) {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('PUT', url, true);
       xhr.setRequestHeader('Content-Type', 'application/pdf');
+
+      // Filet de sécurité : sans timeout, une connexion qui se bloque (Worker
+      // qui ne répond plus, réseau mobile qui coupe) laissait l'utilisateur
+      // indéfiniment sur "Envoi en cours…" sans aucun message. On calcule un
+      // délai large mais fini, proportionnel à la taille du fichier, en
+      // supposant un débit minimal tolérable d'environ 50 Ko/s (réseau mobile
+      // faible) : au-delà, on considère que la connexion est bloquée.
+      const DEBIT_MIN_OCTETS_PAR_SEC = 50 * 1024;
+      const TIMEOUT_PLANCHER_MS = 60000; // jamais moins d'1 minute, même pour un petit fichier
+      xhr.timeout = Math.max(
+        TIMEOUT_PLANCHER_MS,
+        Math.ceil((fichier.size / DEBIT_MIN_OCTETS_PAR_SEC) * 1000) + 30000
+      );
+
+      let octetsEnvoyesDetectes = false;
       xhr.upload.addEventListener('progress', event => {
-        if (!event.lengthComputable) return;
+        if (!event.lengthComputable) {
+          // Le navigateur ne peut pas calculer de pourcentage (rare, mais
+          // possible selon le réseau/proxy) : on affiche un état "en cours"
+          // clair au lieu de rester figé sur un pourcentage qui ne bougera
+          // jamais, pour ne pas laisser croire à un blocage.
+          if (setEtatConnexion) setEtatConnexion('indetermine');
+          return;
+        }
+        if (!octetsEnvoyesDetectes) {
+          octetsEnvoyesDetectes = true;
+          if (setEtatConnexion) setEtatConnexion('envoi');
+        }
         // Le 100 % est réservé à onload après réception complète de la réponse.
         setProgress(Math.min(99, Math.floor((event.loaded / event.total) * 100)));
       });
@@ -7299,6 +7325,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       };
       xhr.onerror = () => reject(new Error('Erreur réseau pendant l’envoi du fichier.'));
       xhr.onabort = () => reject(new Error('Envoi interrompu.'));
+      xhr.ontimeout = () => reject(new Error('L’envoi a été interrompu car la connexion est restée bloquée trop longtemps. Vérifiez votre connexion internet puis réessayez.'));
       try { xhr.send(fichier); } catch (e) { reject(e); }
     });
   }
@@ -7330,6 +7357,8 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       console.log('[Dépôt Auraster]', texte);
     }
 
+    const progressLabel = document.getElementById('depotProgressLabel');
+
     function afficherProgression(valeur) {
       const pct = Math.max(0, Math.min(100, Math.round(valeur)));
       progressBox.classList.add('active');
@@ -7339,12 +7368,24 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       if (progressTrack) progressTrack.setAttribute('aria-valuenow', String(pct));
     }
 
+    // Reflète l'état réel de la connexion pendant l'envoi, pour que
+    // l'utilisateur comprenne pourquoi la barre ne bouge pas encore
+    // (négociation avec le serveur avant que les octets ne partent) au lieu
+    // de croire que le dépôt est bloqué.
+    function afficherEtatConnexion(etat) {
+      if (!progressLabel) return;
+      if (etat === 'connexion') progressLabel.textContent = 'Connexion au serveur…';
+      else if (etat === 'indetermine') progressLabel.textContent = 'Envoi en cours (durée non estimable)…';
+      else if (etat === 'envoi') progressLabel.textContent = 'Envoi du document…';
+    }
+
     function masquerProgression() {
       progressBox.classList.remove('active');
       progressBox.setAttribute('aria-hidden', 'true');
       progressBar.style.width = '0%';
       progressPercent.textContent = '0 %';
       if (progressTrack) progressTrack.setAttribute('aria-valuenow', '0');
+      if (progressLabel) progressLabel.textContent = 'Envoi du document…';
     }
 
     function echouer(texte) {
@@ -7424,14 +7465,15 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
 
     // ---- 1. Upload du PDF vers Cloudflare R2 via le Worker "lsnb-upload" ----
     afficherProgression(0);
+    afficherEtatConnexion('connexion');
     const nomFichier = Date.now() + '_' + fichier.name.replace(/[^a-zA-Z0-9._-]/g, '_');
     etape('Étape 1/5 — Envoi du fichier au Worker Cloudflare (bucket R2 "lsnb-documents"), fichier : ' + nomFichier);
 
     let uploadRes;
     try {
-      uploadRes = await creerUploadR2AvecProgress(`${R2_WORKER_URL}/${nomFichier}`, fichier, afficherProgression);
+      uploadRes = await creerUploadR2AvecProgress(`${R2_WORKER_URL}/${nomFichier}`, fichier, afficherProgression, afficherEtatConnexion);
     } catch (netErr) {
-      return echouer("Le transfert du fichier n’a pas pu démarrer. Vérifiez votre connexion puis réessayez.");
+      return echouer(netErr && netErr.message ? netErr.message : "Le transfert du fichier n’a pas pu démarrer. Vérifiez votre connexion puis réessayez.");
     }
 
     const uploadText = uploadRes.text || '';
