@@ -2352,6 +2352,12 @@ main{width:100%;min-width:0;overflow-x:clip;}
   *,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;}
 }
 </style>
+<style id="aurore-shared-space-system">
+#auroreSharedSpaceInvite{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(18,12,28,.58);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
+.aurore-shared-space-card{width:min(100%,520px);background:var(--fond,#fff);color:var(--encre,#201b27);border:1px solid var(--bordure,#ddd);border-radius:20px;padding:24px;box-shadow:0 24px 70px rgba(0,0,0,.24)}
+.aurore-shared-space-kicker{font-size:.72rem;font-weight:800;letter-spacing:.12em;color:var(--violet,#7c3aed);margin-bottom:8px}.aurore-shared-space-card h2{margin:0 0 10px;font-size:1.25rem}.aurore-shared-space-card p{margin:0;color:var(--gris,#666);line-height:1.55}.aurore-shared-space-actions{display:grid;gap:9px;margin-top:20px}.aurore-shared-space-actions button{border:0;border-radius:12px;padding:12px 14px;font-weight:700;cursor:pointer;background:var(--violet,#7c3aed);color:#fff}.aurore-shared-space-actions button:first-child{background:transparent;color:var(--encre,#201b27);border:1px solid var(--bordure,#ddd)}.aurore-shared-space-actions button:disabled{opacity:.65;cursor:wait}.aurore-shared-space-close{display:block;margin:14px auto 0;border:0;background:none;color:var(--gris,#666);cursor:pointer;font-size:.85rem}.aurore-shared-space-banner{display:flex;flex-direction:column;gap:3px;margin:0 0 14px;padding:13px 15px;border:1px solid var(--bordure,#ddd);border-radius:14px;background:rgba(124,58,237,.06)}.aurore-shared-space-banner strong{font-size:.9rem}.aurore-shared-space-banner span{font-size:.8rem;color:var(--gris,#666)}
+@media(max-width:520px){.aurore-shared-space-card{padding:20px;border-radius:17px}.aurore-shared-space-card h2{font-size:1.1rem}}
+</style>
 </head>
 <body class="site-locked">
 
@@ -6560,6 +6566,109 @@ main{width:100%;min-width:0;overflow-x:clip;}
   } catch(e) {}
 
   // Les liens ?document=ID sont publics : aucune connexion n’est nécessaire.
+  /* ===== INVITATION ESPACE PARTAGÉ — accès explicite et lecture seule ===== */
+  (function gererInvitationEspacePartage(){
+    'use strict';
+    let params;
+    try { params = new URLSearchParams(window.location.search); } catch (_) { return; }
+    if (params.get('sharedSpace') !== '1') return;
+    const ownerId = String(params.get('owner') || '').trim();
+    const documentId = String(params.get('document') || '').trim();
+    if (!ownerId) return;
+
+    function esc(v){
+      return String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+    }
+    function creerModal(){
+      if(document.getElementById('auroreSharedSpaceInvite')) return document.getElementById('auroreSharedSpaceInvite');
+      const m=document.createElement('div');
+      m.id='auroreSharedSpaceInvite';
+      m.setAttribute('role','dialog'); m.setAttribute('aria-modal','true');
+      m.innerHTML=`<div class="aurore-shared-space-card">
+        <div class="aurore-shared-space-kicker">DOCUMENT PARTAGÉ</div>
+        <h2 id="auroreSharedSpaceTitle">Un document vous a été partagé</h2>
+        <p id="auroreSharedSpaceText">Vous pouvez consulter uniquement ce document, ou accepter l'invitation pour découvrir les documents publics partagés par cette personne.</p>
+        <div class="aurore-shared-space-actions">
+          <button type="button" id="auroreSharedSpaceDocument">Ouvrir le document</button>
+          <button type="button" id="auroreSharedSpaceAccept">Accepter et découvrir l'espace</button>
+        </div>
+        <button type="button" id="auroreSharedSpaceClose" class="aurore-shared-space-close">Continuer sans accéder à l'espace</button>
+      </div>`;
+      document.body.appendChild(m);
+      return m;
+    }
+    function fermer(){ const m=document.getElementById('auroreSharedSpaceInvite'); if(m) m.remove(); }
+    function nomDepuisProfil(profil){
+      const p=profil||{};
+      return [p.prenom,p.nom].filter(Boolean).join(' ').trim() || p.nom || 'cet utilisateur';
+    }
+    async function chargerProfil(){
+      try{
+        const r=await fetch(`${SUPABASE_URL}/rest/v1/Profils?select=nom,prenom&id=eq.${encodeURIComponent(ownerId)}&limit=1`,{headers:HEADERS,cache:'no-store'});
+        if(!r.ok)return null; const a=await r.json(); return Array.isArray(a)?a[0]:null;
+      }catch(_){return null;}
+    }
+    async function afficherEspacePartage(){
+      const m=creerModal();
+      const accept=m.querySelector('#auroreSharedSpaceAccept');
+      accept.disabled=true; accept.textContent='Chargement de l’espace…';
+      try{
+        const dep=await fetch(`${SUPABASE_URL}/rest/v1/Depots_deposants?select=document_id&user_id=eq.${encodeURIComponent(ownerId)}&order=id.desc&limit=500`,{headers:HEADERS,cache:'no-store'});
+        if(!dep.ok) throw new Error('DEPOTS_HTTP_'+dep.status);
+        const deps=await dep.json();
+        const ids=[...new Set((Array.isArray(deps)?deps:[]).map(x=>x.document_id).filter(x=>x!=null).map(String))];
+        if(!ids.length) throw new Error('NO_DOCS');
+        const inList=ids.map(id=>encodeURIComponent(id)).join(',');
+        const dr=await fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&id=in.(${inList})&Publie=eq.true&order=id.desc`,{headers:HEADERS,cache:'no-store'});
+        if(!dr.ok) throw new Error('DOCS_HTTP_'+dr.status);
+        const docs=await dr.json();
+        const profil=await chargerProfil();
+        const nom=nomDepuisProfil(profil);
+        const screen=document.getElementById('screen-docs');
+        const content=document.getElementById('docsContent');
+        const title=document.getElementById('docsTitle');
+        const breadcrumb=document.getElementById('breadcrumb');
+        if(!content||!title) throw new Error('SCREEN_UNAVAILABLE');
+        fermer();
+        if(breadcrumb)breadcrumb.innerHTML='';
+        title.textContent=`Espace partagé de ${nom}`;
+        if(screen)screen.classList.add('active');
+        const banner=document.createElement('div');
+        banner.className='aurore-shared-space-banner';
+        banner.innerHTML=`<strong>Espace partagé — lecture seule</strong><span>Vous consultez uniquement les documents publiés que ${esc(nom)} a déposés sur Aurore.</span>`;
+        content.innerHTML=''; content.appendChild(banner);
+        if(typeof rendreListeDocuments==='function'){
+          const holder=document.createElement('div'); holder.className='aurore-shared-space-list'; content.appendChild(holder);
+          rendreListeDocuments(holder,Array.isArray(docs)?docs:[],true);
+        }else{
+          content.insertAdjacentHTML('beforeend','<div class="doc-empty"><h3>Espace partagé indisponible</h3><p>Veuillez réessayer dans quelques instants.</p></div>');
+        }
+        try{ if(documentId) setTimeout(()=>mettreEnEvidenceDocumentPartage(documentId),250); }catch(_){ }
+        try{ history.replaceState({},'',location.pathname+'?sharedSpace=1&owner='+encodeURIComponent(ownerId)+(documentId?'&document='+encodeURIComponent(documentId):'')); }catch(_){ }
+      }catch(err){
+        console.warn('[Aurore] Espace partagé:',err);
+        accept.disabled=false; accept.textContent='Réessayer';
+        const text=m.querySelector('#auroreSharedSpaceText');
+        if(text) text.textContent='L’espace partagé ne peut pas être chargé pour le moment. Le document reste accessible sans ouvrir cet espace.';
+      }
+    }
+    function afficherInvitation(){
+      const m=creerModal();
+      const title=m.querySelector('#auroreSharedSpaceTitle');
+      const text=m.querySelector('#auroreSharedSpaceText');
+      chargerProfil().then(p=>{
+        const nom=nomDepuisProfil(p);
+        if(title) title.textContent=`${nom} vous a partagé un document`;
+        if(text) text.textContent=`Vous pouvez ouvrir uniquement ce document, ou accepter l'invitation pour découvrir les documents publics partagés par ${nom}.`;
+      });
+      m.querySelector('#auroreSharedSpaceDocument').addEventListener('click',()=>{fermer(); setTimeout(()=>mettreEnEvidenceDocumentPartage(documentId),250);},{once:true});
+      m.querySelector('#auroreSharedSpaceClose').addEventListener('click',fermer,{once:true});
+      m.querySelector('#auroreSharedSpaceAccept').addEventListener('click',afficherEspacePartage,{once:true});
+    }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',afficherInvitation,{once:true});
+    else setTimeout(afficherInvitation,80);
+  })();
+
   ouvrirDocumentDepuisLienPartage();
 
   function majFilAriane() {
@@ -7519,6 +7628,14 @@ main{width:100%;min-width:0;overflow-x:clip;}
       url.search = '';
       url.hash = '';
       url.searchParams.set('document', String(id));
+      // Depuis l'espace personnel, le lien transporte aussi une intention
+      // d'accès à l'espace partagé. Cela ne donne jamais accès à l'espace
+      // privé : le visiteur doit accepter explicitement l'invitation.
+      const boutonPersonnel = auroreBoutonMenuDocumentActif?.closest?.('#personalSpace .aurore-personal-document-row');
+      if (boutonPersonnel && session?.id) {
+        url.searchParams.set('sharedSpace', '1');
+        url.searchParams.set('owner', String(session.id));
+      }
       return url.href;
     } catch (_) {
       return `${location.origin}/?document=${encodeURIComponent(String(id))}`;
