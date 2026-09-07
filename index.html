@@ -657,6 +657,9 @@
   .admin-card.published-card .titre{font-size:.96rem;}
   .admin-card.published-card .meta{font-size:.78rem;line-height:1.5;}
   .admin-card.published-card .admin-actions{margin-top:11px;}
+  .admin-published-location-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+  .admin-published-location-actions .admin-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;}
+  .admin-published-location-actions .admin-btn span{font-size:.95rem;line-height:1;}
   /* Les documents publiés reprennent exactement la même carte de présentation
      que les documents en attente ; seules les actions métier diffèrent. */
   .admin-card.pending-card.published-card{
@@ -10285,6 +10288,32 @@ main{width:100%;min-width:0;overflow-x:clip;}
     }
   }
 
+  // Ouvre l’emplacement public exact d’un document publié, sans exposer son
+  // URL PDF. La page publique ?document=ID reconstruit la rubrique
+  // (catégorie / niveau / matière / classe / série) puis met le document en évidence.
+  function voirEmplacementPublicDocument(doc) {
+    const id = doc?.id ?? doc?.ID ?? doc?.document_id;
+    if (id == null || String(id).trim() === '') {
+      alert('L’emplacement public de ce document est indisponible : identifiant manquant.');
+      return;
+    }
+    const url = obtenirUrlDocumentPartage({ id });
+    if (!url) {
+      alert('Impossible de déterminer l’emplacement public de ce document.');
+      return;
+    }
+    // L’administrateur garde son espace ouvert ; l’emplacement public s’ouvre
+    // dans un nouvel onglet. Le paramètre ?document=ID est déjà pris en charge
+    // par ouvrirDocumentDepuisLienPartage().
+    const fenetre = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!fenetre) {
+      // Secours si le navigateur bloque window.open : on navigue dans l’onglet courant.
+      window.location.assign(url);
+    }
+  }
+
+  window.voirEmplacementPublicDocument = voirEmplacementPublicDocument;
+
   async function chargerDocumentsPublies() {
     const list = document.getElementById('adminListPublies');
     list.innerHTML = '<p class="admin-empty">Chargement…</p>';
@@ -10334,7 +10363,10 @@ main{width:100%;min-width:0;overflow-x:clip;}
               <span style="color:var(--gris);">${ligneCompteDeposant(deposant)}</span>
             </div>
             ${tailleBadgeMarkup(doc.Fichier_url)}
-            <button type="button" class="admin-btn ghost js-open-pdf-in-site">Ouvrir le PDF dans Aurore →</button>
+            <div class="admin-published-location-actions">
+              <button type="button" class="admin-btn ghost js-view-public-location" title="Voir où ce document apparaît sur le site public" aria-label="Voir l’emplacement public de ce document"><span aria-hidden="true">◉</span> Voir l’emplacement</button>
+              <button type="button" class="admin-btn ghost js-open-pdf-in-site">Ouvrir le PDF dans Aurore →</button>
+            </div>
             <button type="button" class="doc-more-btn admin-document-more" data-document-more="1" aria-label="Options de partage" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="12" cy="19" r="1.8"></circle></svg></button>
             <div class="admin-actions">
               <button class="admin-btn ghost dl-toggle">${telechargementOk ? 'Passer en lecture seule' : 'Autoriser le téléchargement'}</button>
@@ -10343,6 +10375,10 @@ main{width:100%;min-width:0;overflow-x:clip;}
             </div>
           </div>
         `;
+        const voirEmplacementPublie = card.querySelector('.js-view-public-location');
+        if (voirEmplacementPublie) voirEmplacementPublie.addEventListener('click', () => {
+          voirEmplacementPublicDocument(doc);
+        });
         const ouvrirAdminPdfPublie = card.querySelector('.js-open-pdf-in-site');
         if (ouvrirAdminPdfPublie) ouvrirAdminPdfPublie.addEventListener('click', () => {
           const cible = {...doc, id: doc.id, Titre: doc.Titre || 'Document', Fichier_url: doc.Fichier_url, Telechargement_autorise: doc.Telechargement_autorise !== false};
