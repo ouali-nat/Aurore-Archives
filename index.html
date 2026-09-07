@@ -3136,7 +3136,24 @@ main{width:100%;min-width:0;overflow-x:clip;}
         </div>
 
         <div class="admin-tab-panel" data-panel="publies">
-          <p class="admin-panel-desc">Retire un document publié si besoin (erreur, doublon, contenu à corriger).</p>
+          <section class="admin-pending-overview" aria-label="Vue d'ensemble des documents publiés">
+            <div class="admin-pending-overview-head">
+              <div>
+                <span class="admin-overview-kicker">En ligne</span>
+                <h3>Vue d’ensemble des documents publiés</h3>
+                <p>Un aperçu rapide avant d’ouvrir les fiches. Les actions de gestion restent dans chaque document.</p>
+              </div>
+              <button type="button" class="admin-btn ghost admin-pending-refresh" id="adminRefreshPublies">↻ Actualiser</button>
+            </div>
+            <div class="admin-pending-stats" id="adminPublishedStats">
+              <div class="admin-pending-stat"><strong id="adminPublishedTotal">0</strong><span>Documents publiés</span></div>
+              <div class="admin-pending-stat"><strong id="adminPublishedCategories">0</strong><span>Catégories différentes</span></div>
+              <div class="admin-pending-stat"><strong id="adminPublishedDernier">—</strong><span>Dernière publication</span></div>
+              <div class="admin-pending-stat"><strong id="adminPublishedAuteurs">0</strong><span>Déposants</span></div>
+            </div>
+            <div class="admin-pending-breakdown" id="adminPublishedBreakdown"></div>
+          </section>
+          <p class="admin-panel-desc">Documents actuellement publiés. Utilisez la recherche ou les filtres pour réduire la liste.</p>
           <div class="admin-published-actions" id="adminPublishedActions"><button type="button" class="admin-btn ghost admin-danger-soft" id="adminSuspendreTout">⏸ Suspendre tous</button><button type="button" class="admin-btn primary" id="adminRepublierTout" style="display:none;">↻ Republier tous</button><span id="adminGlobalPublishHint">Retire temporairement tous les documents du site public sans les supprimer.</span></div>
           <div class="admin-data-toolbar" id="adminToolbarPublies">
             <div class="admin-search-control"><span aria-hidden="true">⌕</span><input id="adminSearchPublies" type="search" placeholder="Rechercher un document…" autocomplete="off"></div>
@@ -9970,7 +9987,7 @@ main{width:100%;min-width:0;overflow-x:clip;}
 
   function appliquerCollectionAdmin(key, options) {
     const list=document.getElementById(options.listId), pager=document.getElementById(options.pagerId);
-    if (!list || !pager) return;
+    if (!list) return;
     const state=adminCollectionStates[key] || (adminCollectionStates[key]={page:1,query:'',sort:'recent',filters:{}});
     const cards=[...list.querySelectorAll(options.cardSelector || '.admin-card')];
     const q=normaliserAdminTexte(state.query);
@@ -10081,6 +10098,39 @@ main{width:100%;min-width:0;overflow-x:clip;}
     });
   }
 
+  function actualiserResumeDepotsPublies(data) {
+    const docs = Array.isArray(data) ? data : [];
+    const total = docs.length;
+    const categories = new Set(docs.map(d => String(d?.['Catégorie'] || d?.Genre || '').trim()).filter(Boolean));
+    const auteurs = new Set(docs.map(d => String(d?.Auteur || '').trim().toLocaleLowerCase('fr')).filter(Boolean));
+    const dernier = docs[0] || null;
+    const totalEl=document.getElementById('adminPublishedTotal');
+    const catEl=document.getElementById('adminPublishedCategories');
+    const dernierEl=document.getElementById('adminPublishedDernier');
+    const auteursEl=document.getElementById('adminPublishedAuteurs');
+    if(totalEl) totalEl.textContent=String(total);
+    if(catEl) catEl.textContent=String(categories.size);
+    if(dernierEl) dernierEl.textContent=dernier ? String(dernier.Titre || 'Sans titre').slice(0,28) : '—';
+    if(auteursEl) auteursEl.textContent=String(auteurs.size);
+    const breakdown=document.getElementById('adminPublishedBreakdown');
+    if(!breakdown) return;
+    const compte=new Map();
+    docs.forEach(d=>{const c=String(d?.['Catégorie'] || d?.Genre || 'Non classé').trim() || 'Non classé';compte.set(c,(compte.get(c)||0)+1);});
+    breakdown.innerHTML='';
+    [...compte.entries()].sort((a,b)=>b[1]-a[1]||normaliserAdminTexte(a[0]).localeCompare(normaliserAdminTexte(b[0]),'fr')).slice(0,8).forEach(([cat,n])=>{
+      const b=document.createElement('button'); b.type='button'; b.className='admin-pending-breakdown-chip'; b.innerHTML=`<span>${echapperHtmlPub(cat)}</span><b>${n}</b>`;
+      b.title='Afficher uniquement cette catégorie';
+      b.addEventListener('click',()=>{
+        const catSelect=document.getElementById('adminFilterCategoriePublies');
+        if(catSelect) catSelect.value=cat;
+        const state=adminCollectionStates.publies || (adminCollectionStates.publies={page:1,query:'',sort:'recent',filters:{}});
+        state.filters.categorie=cat; state.page=1;
+        appliquerCollectionAdmin('publies',ADMIN_COLLECTION_CONFIG.publies);
+      });
+      breakdown.appendChild(b);
+    });
+  }
+
   async function chargerDepotsEnAttente() {
     const list = document.getElementById('adminList');
     list.innerHTML = '<p class="admin-empty">Chargement…</p>';
@@ -10155,6 +10205,7 @@ main{width:100%;min-width:0;overflow-x:clip;}
   }
 
   document.getElementById('adminRefreshAttente')?.addEventListener('click', () => chargerDepotsEnAttente());
+  document.getElementById('adminRefreshPublies')?.addEventListener('click', () => chargerDocumentsPublies());
 
   async function validerDepot(id, card, titreDocument, deposant) {
     try {
@@ -10242,6 +10293,7 @@ main{width:100%;min-width:0;overflow-x:clip;}
       if (!res.ok) throw new Error("Statut HTTP " + res.status);
       const data = await res.json();
       majCompteurOnglet('tabCountPublies', data ? data.length : 0);
+      actualiserResumeDepotsPublies(data);
 
       if (!data || data.length === 0) {
         list.innerHTML = '<p class="admin-empty">Aucun document publié pour l\'instant.</p>';
