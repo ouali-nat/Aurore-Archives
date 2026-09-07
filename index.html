@@ -6566,108 +6566,6 @@ main{width:100%;min-width:0;overflow-x:clip;}
   } catch(e) {}
 
   // Les liens ?document=ID sont publics : aucune connexion n’est nécessaire.
-  /* ===== INVITATION ESPACE PARTAGÉ — accès explicite et lecture seule ===== */
-  (function gererInvitationEspacePartage(){
-    'use strict';
-    let params;
-    try { params = new URLSearchParams(window.location.search); } catch (_) { return; }
-    if (params.get('sharedSpace') !== '1') return;
-    const ownerId = String(params.get('owner') || '').trim();
-    const documentId = String(params.get('document') || '').trim();
-    if (!ownerId) return;
-
-    function esc(v){
-      return String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-    }
-    function creerModal(){
-      if(document.getElementById('auroreSharedSpaceInvite')) return document.getElementById('auroreSharedSpaceInvite');
-      const m=document.createElement('div');
-      m.id='auroreSharedSpaceInvite';
-      m.setAttribute('role','dialog'); m.setAttribute('aria-modal','true');
-      m.innerHTML=`<div class="aurore-shared-space-card">
-        <div class="aurore-shared-space-kicker">DOCUMENT PARTAGÉ</div>
-        <h2 id="auroreSharedSpaceTitle">Un document vous a été partagé</h2>
-        <p id="auroreSharedSpaceText">Vous pouvez consulter uniquement ce document, ou accepter l'invitation pour découvrir les documents publics partagés par cette personne.</p>
-        <div class="aurore-shared-space-actions">
-          <button type="button" id="auroreSharedSpaceDocument">Ouvrir le document</button>
-          <button type="button" id="auroreSharedSpaceAccept">Accepter et découvrir l'espace</button>
-        </div>
-        <button type="button" id="auroreSharedSpaceClose" class="aurore-shared-space-close">Continuer sans accéder à l'espace</button>
-      </div>`;
-      document.body.appendChild(m);
-      return m;
-    }
-    function fermer(){ const m=document.getElementById('auroreSharedSpaceInvite'); if(m) m.remove(); }
-    function nomDepuisProfil(profil){
-      const p=profil||{};
-      return [p.prenom,p.nom].filter(Boolean).join(' ').trim() || p.nom || 'cet utilisateur';
-    }
-    async function chargerProfil(){
-      try{
-        const r=await fetch(`${SUPABASE_URL}/rest/v1/Profils?select=nom,prenom&id=eq.${encodeURIComponent(ownerId)}&limit=1`,{headers:HEADERS,cache:'no-store'});
-        if(!r.ok)return null; const a=await r.json(); return Array.isArray(a)?a[0]:null;
-      }catch(_){return null;}
-    }
-    async function afficherEspacePartage(){
-      const m=creerModal();
-      const accept=m.querySelector('#auroreSharedSpaceAccept');
-      accept.disabled=true; accept.textContent='Chargement de l’espace…';
-      try{
-        const dep=await fetch(`${SUPABASE_URL}/rest/v1/Depots_deposants?select=document_id&user_id=eq.${encodeURIComponent(ownerId)}&order=id.desc&limit=500`,{headers:HEADERS,cache:'no-store'});
-        if(!dep.ok) throw new Error('DEPOTS_HTTP_'+dep.status);
-        const deps=await dep.json();
-        const ids=[...new Set((Array.isArray(deps)?deps:[]).map(x=>x.document_id).filter(x=>x!=null).map(String))];
-        if(!ids.length) throw new Error('NO_DOCS');
-        const inList=ids.map(id=>encodeURIComponent(id)).join(',');
-        const dr=await fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&id=in.(${inList})&Publie=eq.true&order=id.desc`,{headers:HEADERS,cache:'no-store'});
-        if(!dr.ok) throw new Error('DOCS_HTTP_'+dr.status);
-        const docs=await dr.json();
-        const profil=await chargerProfil();
-        const nom=nomDepuisProfil(profil);
-        const screen=document.getElementById('screen-docs');
-        const content=document.getElementById('docsContent');
-        const title=document.getElementById('docsTitle');
-        const breadcrumb=document.getElementById('breadcrumb');
-        if(!content||!title) throw new Error('SCREEN_UNAVAILABLE');
-        fermer();
-        if(breadcrumb)breadcrumb.innerHTML='';
-        title.textContent=`Espace partagé de ${nom}`;
-        if(screen)screen.classList.add('active');
-        const banner=document.createElement('div');
-        banner.className='aurore-shared-space-banner';
-        banner.innerHTML=`<strong>Espace partagé — lecture seule</strong><span>Vous consultez uniquement les documents publiés que ${esc(nom)} a déposés sur Aurore.</span>`;
-        content.innerHTML=''; content.appendChild(banner);
-        if(typeof rendreListeDocuments==='function'){
-          const holder=document.createElement('div'); holder.className='aurore-shared-space-list'; content.appendChild(holder);
-          rendreListeDocuments(holder,Array.isArray(docs)?docs:[],true);
-        }else{
-          content.insertAdjacentHTML('beforeend','<div class="doc-empty"><h3>Espace partagé indisponible</h3><p>Veuillez réessayer dans quelques instants.</p></div>');
-        }
-        try{ if(documentId) setTimeout(()=>mettreEnEvidenceDocumentPartage(documentId),250); }catch(_){ }
-        try{ history.replaceState({},'',location.pathname+'?sharedSpace=1&owner='+encodeURIComponent(ownerId)+(documentId?'&document='+encodeURIComponent(documentId):'')); }catch(_){ }
-      }catch(err){
-        console.warn('[Aurore] Espace partagé:',err);
-        accept.disabled=false; accept.textContent='Réessayer';
-        const text=m.querySelector('#auroreSharedSpaceText');
-        if(text) text.textContent='L’espace partagé ne peut pas être chargé pour le moment. Le document reste accessible sans ouvrir cet espace.';
-      }
-    }
-    function afficherInvitation(){
-      const m=creerModal();
-      const title=m.querySelector('#auroreSharedSpaceTitle');
-      const text=m.querySelector('#auroreSharedSpaceText');
-      chargerProfil().then(p=>{
-        const nom=nomDepuisProfil(p);
-        if(title) title.textContent=`${nom} vous a partagé un document`;
-        if(text) text.textContent=`Vous pouvez ouvrir uniquement ce document, ou accepter l'invitation pour découvrir les documents publics partagés par ${nom}.`;
-      });
-      m.querySelector('#auroreSharedSpaceDocument').addEventListener('click',()=>{fermer(); setTimeout(()=>mettreEnEvidenceDocumentPartage(documentId),250);},{once:true});
-      m.querySelector('#auroreSharedSpaceClose').addEventListener('click',fermer,{once:true});
-      m.querySelector('#auroreSharedSpaceAccept').addEventListener('click',afficherEspacePartage,{once:true});
-    }
-    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',afficherInvitation,{once:true});
-    else setTimeout(afficherInvitation,80);
-  })();
 
   ouvrirDocumentDepuisLienPartage();
 
@@ -15221,9 +15119,10 @@ function folderMenu(f){
   let menu=document.getElementById('personalFolderMenuPopover');
   if(!menu){
     menu=document.createElement('div');menu.id='personalFolderMenuPopover';menu.className='personal-folder-menu-popover';
-    menu.innerHTML=`<div class="personal-folder-menu-title"></div><button type="button" data-folder-rename>✎ Renommer</button><button type="button" data-folder-delete>⌫ Supprimer</button>`;
+    menu.innerHTML=`<div class="personal-folder-menu-title"></div><button type="button" data-folder-share>↗ Partager la section</button><button type="button" data-folder-rename>✎ Renommer</button><button type="button" data-folder-delete>⌫ Supprimer</button>`;
     document.body.appendChild(menu);
     menu.addEventListener('click',e=>{e.stopPropagation();});
+    menu.querySelector('[data-folder-share]').addEventListener('click',()=>{const id=menu.dataset.folderId;const target=folders.find(x=>String(x.id)===String(id));menu.classList.remove('show');if(target)window.aurorePartagerSection?.(target)});
     menu.querySelector('[data-folder-rename]').addEventListener('click',()=>{const id=menu.dataset.folderId;const target=folders.find(x=>String(x.id)===String(id));menu.classList.remove('show');if(target)dialog('rename',target)});
     menu.querySelector('[data-folder-delete]').addEventListener('click',()=>{const id=menu.dataset.folderId;const target=folders.find(x=>String(x.id)===String(id));menu.classList.remove('show');if(target)deleteFolder(target)});
     document.addEventListener('click',()=>menu.classList.remove('show'));
@@ -15286,35 +15185,27 @@ async function openFolder(f){
   const p=document.getElementById('personalFolderDocs');if(!p)return;
   const a=folderAssignments.filter(x=>x.case_id===f.id);
   p.hidden=false;
-  p.innerHTML=`<div class="personal-folder-docs-head"><strong>▱ ${esc(f.name)}</strong><span>${a.length} document${a.length>1?'s':''}</span></div><div id="pfdList"></div>`;
+  p.innerHTML=`<div class="personal-section-detail-head"><div><span class="personal-section-kicker">Section personnelle</span><h3>▱ ${esc(f.name)}</h3><p>${a.length} document${a.length!==1?'s':''} · présentation Aurore</p></div><div class="personal-section-detail-actions"><button type="button" data-section-share class="personal-section-share">↗ Partager</button><button type="button" data-section-close class="personal-section-close">Fermer</button></div></div><div class="personal-section-detail-toolbar"><span>Vos documents</span><small>La même présentation que la bibliothèque Aurore</small></div><div id="pfdList" class="doc-list personal-section-doc-list"></div>`;
+  p.querySelector('[data-section-share]')?.addEventListener('click',()=>window.aurorePartagerSection?.(f));
+  p.querySelector('[data-section-close]')?.addEventListener('click',closeFolder);
   const list=p.querySelector('#pfdList');
-  if(!a.length){list.innerHTML='<div class="personal-empty">Cette case est vide. Utilisez « ▣ Case » sur un document du site.</div>';return}
+  if(!a.length){list.innerHTML='<div class="doc-empty"><div class="icon-wrap">▱</div><h3>Cette section est vide</h3><p>Utilisez « Case » sur un document pour le ranger ici.</p></div>';return}
   list.innerHTML='<div class="personal-empty">Chargement des documents…</div>';
-  const docs=await recupererDocsDesCases(a.map(x=>x.document_id));
+  let docs=[];try{docs=await recupererDocsDesCases(a.map(x=>x.document_id));}catch(e){list.innerHTML='<div class="doc-empty"><h3>Impossible de charger cette section</h3><p>Veuillez réessayer dans quelques instants.</p></div>';return}
   list.innerHTML='';
-  docs.forEach(d=>{
-    const r=document.createElement('article');r.className='personal-folder-doc-row';
-    const id=String(d.id);
-    const canDownload=d.Fichier_url && d.Telechargement_autorise!==false;
-    r.innerHTML=`
-      <div class="personal-folder-doc-main"><strong>${esc(d.Titre||'Document #'+id)}</strong><span>${esc([d.Niveau,d['Matière']||d.Genre].filter(Boolean).join(' · ')||'Document')}</span>${tailleBadgeMarkup(d.Fichier_url)}</div>
-      <div class="personal-folder-doc-actions">
-        ${d.Fichier_url?'<button type="button" data-folder-read>Voir</button>':''}
-        ${canDownload?'<button type="button" data-folder-download>Télécharger</button>':''}
-        <button type="button" data-folder-fav aria-pressed="false">♡ Favori</button>
-        <button type="button" data-folder-later>＋ Plus tard</button>
-        <button type="button" data-folder-case>▣ Case</button>
-        <button type="button" data-folder-remove class="is-remove">Retirer</button>
-      </div>`;
-    r.querySelector('[data-folder-read]')?.addEventListener('click',()=>{if(typeof window.ouvrirLecteurPDF==='function')window.ouvrirLecteurPDF(d);});
-    r.querySelector('[data-folder-download]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(d));
-    const fb=r.querySelector('[data-folder-fav]');
-    const fav=favoris().includes(id);
-    if(fb){fb.classList.toggle('is-active',fav);fb.textContent=fav?'♥ Favori':'♡ Favori';fb.addEventListener('click',()=>{basculerFavoriDocument(d,fb);});}
-    r.querySelector('[data-folder-later]')?.addEventListener('click',e=>ajouterDocumentPlusTard(d,e.currentTarget));
-    r.querySelector('[data-folder-case]')?.addEventListener('click',()=>chooseDoc(d));
-    r.querySelector('[data-folder-remove]')?.addEventListener('click',()=>removeAssignment(d));
+  docs.forEach((d,i)=>{
+    const r=document.createElement('article');r.className='doc-row aurore-personal-document-row';r.dataset.documentIndex=String(i);r._auroreDocument=d;
+    const ok=d.Fichier_url && d.Telechargement_autorise!==false;
+    const contexte=[d.Niveau&&`Niveau : ${d.Niveau}`,d.Classe&&`Classe : ${d.Classe}`,d.Filiere&&`Filière : ${d.Filiere}`,d['Matière']&&`Matière : ${d['Matière']||d.Genre}`].filter(Boolean).join(' · ');
+    const titre=obtenirTitreDocument(d);
+    r.innerHTML=`<div class="info"><div class="icon-wrap">${ICONS.file}</div><div class="doc-main-info"><div class="titre" title="${echapperHtmlPub(titre)}">${echapperHtmlPub(titre)}</div><div class="meta">${echapperHtmlPub(contexte||'Document de votre section')}${ok?'':' · Lecture seule'}</div>${tailleBadgeMarkup(d.Fichier_url)}</div></div><div class="doc-actions"><button type="button" class="dl" data-section-read>${ok?'Lire':'Voir'}</button>${ok?'<button type="button" class="dl" data-section-download>Télécharger maintenant</button>':''}<button type="button" class="dl doc-action-soft" data-section-fav>♡ Favori</button><button type="button" class="dl doc-action-soft doc-action-folder" data-section-case>▣ Case</button><button type="button" class="dl doc-action-soft" data-section-remove>Retirer</button><div class="doc-share-wrap"><button type="button" class="doc-more-btn" data-document-more="1" aria-label="Options de partage" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="12" cy="19" r="1.8"></circle></svg></button></div></div>`;
+    r.querySelector('[data-section-read]')?.addEventListener('click',()=>ouvrirLecteurPDF(d));
+    r.querySelector('[data-section-download]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(d));
+    r.querySelector('[data-section-fav]')?.addEventListener('click',()=>basculerFavoriDocument(d,r.querySelector('[data-section-fav]')));
+    r.querySelector('[data-section-case]')?.addEventListener('click',()=>window.ouvrirChoixCaseDocument?.(d));
+    r.querySelector('[data-section-remove]')?.addEventListener('click',()=>removeAssignment(d));
     list.appendChild(r);
+    if(d.Fichier_url&&typeof appliquerCouvertureSiLivre==='function')appliquerCouvertureSiLivre(r,d);
   });
   p.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
@@ -16619,43 +16510,89 @@ document.addEventListener('DOMContentLoaded', function(){
     window.auroreRechercheRobuste=executer;
   })();
 
-  /* ===== PARTAGE — 3 POINTS POUR TOUS LES PDF DE L'ESPACE UTILISATEUR =====
-     Le menu de partage global existant est réutilisé. On ajoute uniquement le
-     bouton dans les lignes personnelles, sans toucher aux données ni aux actions.
-  */
-  (function ajouterPartageEspacePersonnel(){
-    const root=document.getElementById('personalSpace');
-    if(!root) return;
-
-    function ajouterDansRow(row){
-      if(!row || row.dataset.auroreShareReady==='1') return;
-      const doc=row._auroreDocument || row.__auroreDocumentCouverture;
-      if(!doc || !doc.Fichier_url || doc.Publie===false) return;
-      const actions=row.querySelector('.personal-doc-actions,.doc-actions');
-      if(!actions) return;
-
-      let wrap=actions.querySelector('.doc-share-wrap');
-      if(wrap) { row.dataset.auroreShareReady='1'; return; }
-
-      wrap=document.createElement('div');
-      wrap.className='doc-share-wrap';
-      wrap.innerHTML='<button type="button" class="doc-more-btn" data-document-more="1" aria-label="Options de partage" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="12" cy="19" r="1.8"></circle></svg></button>';
-      actions.appendChild(wrap);
-      row.dataset.auroreShareReady='1';
+  /* ===== PARTAGE DE SECTION — couche finale ===== */
+  (function(){
+    'use strict';
+    const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    async function rpc(name,body){
+      const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`,{method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json'},body:JSON.stringify(body||{}),cache:'no-store'});
+      if(!r.ok)throw new Error('RPC '+name+' HTTP '+r.status+' '+await r.text().catch(()=>''));
+      return r.status===204?null:await r.json();
     }
-
-    function scanner(){
-      root.querySelectorAll('.doc-row,.personal-doc,.personal-book,.aurore-personal-document-row').forEach(ajouterDansRow);
+    function getModal(){
+      let m=document.getElementById('auroreSectionShareModal');if(m)return m;
+      m=document.createElement('div');m.id='auroreSectionShareModal';m.className='aurore-section-share-modal';m.innerHTML=`<section class="aurore-section-share-card" role="dialog" aria-modal="true"><button class="aurore-section-share-close" data-close>×</button><span class="aurore-section-share-kicker">PARTAGE DE SECTION</span><h2 id="assmTitle">Partager votre section</h2><p id="assmIntro">Créez un lien public en lecture seule. Votre espace personnel reste totalement privé.</p><div id="assmBody"></div><div class="aurore-section-share-actions"><button type="button" data-copy>Copier le lien</button><button type="button" data-wa>WhatsApp</button><button type="button" data-revoke class="danger">Révoquer</button></div></section>`;document.body.appendChild(m);
+      m.addEventListener('click',e=>{if(e.target===m||e.target.closest('[data-close]'))m.classList.remove('show')});
+      return m;
     }
-
-    scanner();
-    const observer=new MutationObserver(()=>scanner());
-    observer.observe(root,{subtree:true,childList:true});
-
-    // Les listes sont souvent reconstruites après un chargement asynchrone.
-    [100,300,700,1200,2000].forEach(ms=>setTimeout(scanner,ms));
+    let currentShare=null,currentSection=null;
+    async function shareSection(f){
+      if(!session?.id){alert('Connectez-vous pour partager une section.');return;}
+      currentSection=f;const m=getModal(),body=m.querySelector('#assmBody'),actions=m.querySelector('.aurore-section-share-actions');
+      m.querySelector('#assmTitle').textContent=`Partager « ${f.name} »`;
+      body.innerHTML='<div class="aurore-section-share-loading">Préparation du partage…</div>';actions.style.display='none';m.classList.add('show');
+      try{
+        const q=`section_id=eq.${encodeURIComponent(f.id)}&owner_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc&limit=1`;
+        const r=await fetch(`${SUPABASE_URL}/rest/v1/partages_sections_personnelles?select=*&${q}`,{headers:headersAdmin(),cache:'no-store'});
+        if(!r.ok)throw new Error('HTTP '+r.status);const rows=await r.json();currentShare=Array.isArray(rows)&&rows[0]?.active?rows[0]:null;
+        if(!currentShare)currentShare=await rpc('create_section_share',{p_section_id:f.id,p_allow_open:true,p_allow_download:true,p_expires_at:null});
+        const url=new URL(location.href);url.search='';url.hash='';url.searchParams.set('sectionShare',currentShare.token);
+        body.innerHTML=`<div class="aurore-section-share-success"><div class="aurore-share-check">✓</div><strong>Section prête à être partagée</strong><span>Les visiteurs ne verront que les documents publiés de cette section.</span><div class="aurore-section-share-link"><input readonly value="${esc(url.href)}"><button type="button" data-copy>Copier</button></div><div class="aurore-section-share-options"><label><input type="checkbox" data-open ${currentShare.allow_open!==false?'checked':''}> Autoriser l’ouverture des documents</label><label><input type="checkbox" data-download ${currentShare.allow_download!==false?'checked':''}> Autoriser les téléchargements</label></div></div>`;
+        actions.style.display='flex';
+        body.querySelector('[data-open]')?.addEventListener('change',update);body.querySelector('[data-download]')?.addEventListener('change',update);
+        const copy=async()=>{try{await navigator.clipboard.writeText(url.href);body.querySelector('[data-copy]').textContent='Copié ✓';setTimeout(()=>body.querySelector('[data-copy]').textContent='Copier',1600)}catch(_){prompt('Copiez le lien :',url.href)}};
+        body.querySelector('[data-copy]')?.addEventListener('click',copy);actions.querySelector('[data-copy]').onclick=copy;actions.querySelector('[data-wa]').onclick=()=>window.open('https://wa.me/?text='+encodeURIComponent(`Découvrez ma section « ${f.name} » sur Aurore :
+${url.href}`),'_blank','noopener,noreferrer');actions.querySelector('[data-revoke]').onclick=async()=>{if(!confirm('Révoquer le lien de cette section ?'))return;try{await rpc('revoke_section_share',{p_share_id:currentShare.id});m.classList.remove('show');alert('Le partage de la section a été révoqué.')}catch(e){alert('Impossible de révoquer le partage pour le moment.')}};
+        async function update(){try{await rpc('update_section_share',{p_share_id:currentShare.id,p_allow_view:true,p_allow_open:!!body.querySelector('[data-open]')?.checked,p_allow_download:!!body.querySelector('[data-download]')?.checked,p_expires_at:currentShare.expires_at||null});currentShare.allow_open=body.querySelector('[data-open]')?.checked;currentShare.allow_download=body.querySelector('[data-download]')?.checked}catch(e){console.warn('[Aurore] permissions section',e)}}
+      }catch(e){console.error('[Aurore] partage section',e);body.innerHTML='<div class="aurore-section-share-error">Impossible de préparer le partage pour le moment. Vérifiez que le SQL du partage de sections est bien exécuté.</div>';actions.style.display='none'}
+    }
+    window.aurorePartagerSection=shareSection;
+    window.addEventListener('beforeunload',()=>{});
   })();
 </script>
 
+
+<style id="aurore-section-sharing-final-ui">
+.personal-section-detail-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 18px;margin-bottom:12px;border:1px solid var(--bordure);border-radius:18px;background:linear-gradient(135deg,var(--papier),var(--fond));box-shadow:0 8px 24px rgba(0,0,0,.05)}
+.personal-section-kicker,.aurore-section-share-kicker{display:block;font-size:.62rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--violet)}
+.personal-section-detail-head h3{margin:4px 0 3px;font-size:1.15rem;letter-spacing:-.02em}.personal-section-detail-head p{margin:0;color:var(--gris);font-size:.72rem}.personal-section-detail-actions{display:flex;gap:7px;flex-wrap:wrap}.personal-section-detail-actions button{border:1px solid var(--bordure);border-radius:11px;padding:9px 12px;background:var(--fond);color:var(--encre);font:inherit;font-size:.72rem;font-weight:800;cursor:pointer}.personal-section-detail-actions .personal-section-share{background:var(--violet);border-color:var(--violet);color:#fff}.personal-section-detail-actions button:hover{transform:translateY(-1px);border-color:var(--violet)}
+.personal-section-detail-toolbar{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:4px 3px 9px}.personal-section-detail-toolbar span{font-weight:850;font-size:.78rem}.personal-section-detail-toolbar small{color:var(--gris);font-size:.65rem}.personal-section-doc-list{margin-top:0}
+.aurore-section-share-modal{position:fixed;inset:0;z-index:14000;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(8,7,13,.68);backdrop-filter:blur(9px)}.aurore-section-share-modal.show{display:flex}.aurore-section-share-card{position:relative;width:min(560px,100%);max-height:min(760px,92vh);overflow:auto;padding:26px;border:1px solid var(--bordure);border-radius:24px;background:var(--papier);color:var(--encre);box-shadow:0 30px 90px rgba(0,0,0,.35)}.aurore-section-share-close{position:absolute;right:15px;top:15px;width:34px;height:34px;border:1px solid var(--bordure);border-radius:10px;background:var(--fond);color:var(--gris);font-size:1.2rem;cursor:pointer}.aurore-section-share-card h2{margin:6px 42px 7px 0;font-size:1.3rem;letter-spacing:-.025em}.aurore-section-share-card>p{margin:0 0 18px;color:var(--gris);font-size:.76rem;line-height:1.55}.aurore-section-share-loading,.aurore-section-share-error{padding:14px;border:1px solid var(--bordure);border-radius:14px;color:var(--gris);font-size:.75rem}.aurore-section-share-success{display:flex;flex-direction:column;gap:8px}.aurore-share-check{width:38px;height:38px;display:grid;place-items:center;border-radius:50%;background:rgba(34,197,94,.12);color:#16a34a;font-weight:900}.aurore-section-share-success>strong{font-size:.86rem}.aurore-section-share-success>span{color:var(--gris);font-size:.7rem;line-height:1.45}.aurore-section-share-link{display:flex;gap:7px;margin-top:5px}.aurore-section-share-link input{min-width:0;flex:1;padding:11px;border:1px solid var(--bordure);border-radius:11px;background:var(--fond);color:var(--encre);font:inherit;font-size:.68rem}.aurore-section-share-link button,.aurore-section-share-actions button{border:1px solid var(--violet);border-radius:11px;padding:10px 12px;background:var(--violet);color:#fff;font:inherit;font-size:.7rem;font-weight:850;cursor:pointer}.aurore-section-share-options{display:grid;gap:7px;margin-top:8px;padding:12px;border:1px solid var(--bordure);border-radius:13px;background:var(--fond)}.aurore-section-share-options label{display:flex;align-items:center;gap:8px;font-size:.72rem}.aurore-section-share-options input{accent-color:var(--violet)}.aurore-section-share-actions{display:flex;gap:7px;justify-content:flex-end;margin-top:18px}.aurore-section-share-actions button.danger{background:transparent;color:var(--rouge);border-color:var(--bordure)}
+.aurore-shared-section-banner{margin-bottom:15px;padding:17px 18px;border:1px solid var(--bordure);border-radius:18px;background:linear-gradient(135deg,rgba(124,58,237,.11),rgba(192,132,252,.045));box-shadow:0 8px 25px rgba(0,0,0,.06)}.aurore-shared-section-banner .kicker{font-size:.62rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--violet)}.aurore-shared-section-banner h2{margin:5px 0 3px;font-size:1.25rem}.aurore-shared-section-banner p{margin:0;color:var(--gris);font-size:.72rem;line-height:1.5}.aurore-shared-section-banner .meta{margin-top:8px;font-size:.65rem;color:var(--gris)}
+@media(max-width:640px){.personal-section-detail-head{align-items:flex-start;flex-direction:column}.personal-section-detail-actions{width:100%}.personal-section-detail-actions button{flex:1}.personal-section-detail-toolbar{align-items:flex-start;flex-direction:column;gap:3px}.aurore-section-share-card{padding:22px 17px}.aurore-section-share-link{flex-direction:column}.aurore-section-share-link button{width:100%}.aurore-section-share-actions{flex-wrap:wrap}.aurore-section-share-actions button{flex:1}}
+</style>
+<script id="aurore-section-sharing-runtime">
+(function(){
+  'use strict';
+  async function loadSharedSection(){
+    let token='';try{token=new URLSearchParams(location.search).get('sectionShare')||''}catch(_){return false}
+    if(!token)return false;
+    try{localStorage.setItem('aurore_visitor_mode','1')}catch(_){ }
+    try{window.auroreUnlockAccess?.()}catch(_){ }
+    document.body.classList.remove('site-locked');document.getElementById('accessLock')?.style.setProperty('display','none');
+    const content=document.getElementById('docsContent'),title=document.getElementById('docsTitle'),back=document.querySelector('#screen-docs .back-btn');
+    if(!content||!title)return false;
+    content.innerHTML='<p style="color:var(--gris);font-size:.9rem;">Chargement de la section…</p>';title.textContent='Section partagée';if(back){back.setAttribute('data-back','home');back.textContent='← Retour à l’accueil'};document.getElementById('breadcrumb')?.replaceChildren();
+    try{
+      const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_shared_section`,{method:'POST',headers:{...HEADERS,'Content-Type':'application/json'},body:JSON.stringify({p_token:token}),cache:'no-store'});
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      const data=await r.json();if(!data?.success)throw new Error(data?.error||'SHARE_INVALID');
+      const section=data.section||{},share=data.share||{},docs=Array.isArray(data.documents)?data.documents:[];
+      title.textContent=section.name||'Section partagée';
+      const banner=document.createElement('div');banner.className='aurore-shared-section-banner';banner.innerHTML=`<span class="kicker">SECTION PARTAGÉE</span><h2>${esc(section.name||'Section')}</h2><p>Une sélection de documents organisée dans Aurore.</p><div class="meta">${docs.length} document${docs.length!==1?'s':''} · ${share.allow_download?'Téléchargements autorisés selon chaque document':'Lecture et consultation en ligne'}</div>`;
+      content.innerHTML='';content.appendChild(banner);
+      const holder=document.createElement('div');content.appendChild(holder);
+      const prepared=docs.map(d=>{const x={...d};x.Telechargement_autorise=d.download_allowed===true;x.Fichier_url=d.open_allowed===true?d.Fichier_url:null;return x});
+      if(typeof rendreListeDocuments==='function')rendreListeDocuments(holder,prepared,true);else holder.innerHTML='<div class="doc-empty"><h3>Lecteur indisponible</h3><p>Veuillez réessayer.</p></div>';
+      if(share.allow_open===false){holder.querySelectorAll('[data-lire]').forEach(b=>b.remove());}
+      document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));document.getElementById('screen-docs')?.classList.add('active');
+      try{history.replaceState({},'',location.pathname+'?sectionShare='+encodeURIComponent(token))}catch(_){ }
+      return true;
+    }catch(e){console.warn('[Aurore] section partagée:',e);content.innerHTML='<div class="doc-empty"><div class="icon-wrap">!</div><h3>Section indisponible</h3><p>Ce lien est invalide, a été révoqué ou a expiré.</p></div>';document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));document.getElementById('screen-docs')?.classList.add('active');return true}
+  }
+  function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadSharedSection,{once:true});else setTimeout(loadSharedSection,60);
+})();
+</script>
 </body>
 </html>
