@@ -657,6 +657,16 @@
   .admin-card.published-card .titre{font-size:.96rem;}
   .admin-card.published-card .meta{font-size:.78rem;line-height:1.5;}
   .admin-card.published-card .admin-actions{margin-top:11px;}
+  /* Les documents publiés reprennent exactement la même carte de présentation
+     que les documents en attente ; seules les actions métier diffèrent. */
+  .admin-card.pending-card.published-card{
+    align-items:stretch;
+    padding:0!important;
+    display:flex!important;
+    flex-direction:column!important;
+    gap:0!important;
+    overflow:hidden;
+  }
   @media(max-width:760px){.admin-pending-stats{grid-template-columns:1fr 1fr;}.admin-pending-overview-head{align-items:stretch;flex-direction:column;}.admin-pending-refresh{align-self:flex-start;}}
   @media(max-width:480px){.admin-pending-overview{padding:15px;border-radius:18px;}.admin-pending-stat{padding:11px 12px;}.admin-pending-stat strong{font-size:1.05rem;}}
 
@@ -3122,7 +3132,7 @@ main{width:100%;min-width:0;overflow-x:clip;}
             <select id="adminFilterMatiereAttente" aria-label="Filtrer par matière"><option value="">Toutes les matières</option></select>
             <select id="adminFilterCategorieAttente" aria-label="Filtrer par catégorie"><option value="">Toutes les catégories</option></select>
           </div>
-          <div id="adminList"></div><div id="adminPagerAttente"></div>
+          <div id="adminList"></div>
         </div>
 
         <div class="admin-tab-panel" data-panel="publies">
@@ -3138,7 +3148,7 @@ main{width:100%;min-width:0;overflow-x:clip;}
             <select id="adminFilterCategoriePublies" aria-label="Filtrer par catégorie"></select>
             <select id="adminFilterMatierePublies" aria-label="Filtrer par matière"><option value="">Toutes les matières</option></select>
           </div>
-          <div id="adminListPublies"></div><div id="adminPagerPublies"></div>
+          <div id="adminListPublies"></div>
         </div>
         <div class="admin-tab-panel" data-panel="reclamations">
           <p class="admin-panel-desc">Signalements envoyés par des auteurs ou ayants droit à propos d'un document (droits d'auteur, contenu incorrect, etc.).</p>
@@ -3147,10 +3157,10 @@ main{width:100%;min-width:0;overflow-x:clip;}
             <select id="adminSortReclamations" aria-label="Trier les réclamations"><option value="recent">Plus récent</option><option value="oldest">Plus ancien</option><option value="az">A → Z</option><option value="za">Z → A</option><option value="statusaz">Statut A → Z</option></select>
             <select id="adminFilterStatutReclamations" aria-label="Filtrer par statut"><option value="">Tous les statuts</option></select>
           </div>
-          <div id="adminListReclamations"></div><div id="adminPagerReclamations"></div>
+          <div id="adminListReclamations"></div>
         </div>
         <div class="admin-tab-panel" data-panel="connexions">
-          <p class="admin-panel-desc">Les 10 dernières connexions réussies au site, les plus récentes en premier.</p>
+          <p class="admin-panel-desc">Les 30 dernières connexions réussies au site, les plus récentes en premier.</p>
           <div id="adminListConnexions"></div>
         </div>
         <div class="admin-tab-panel" data-panel="visiteurs">
@@ -3332,7 +3342,7 @@ main{width:100%;min-width:0;overflow-x:clip;}
             <select id="adminFilterRoleUtilisateurs" aria-label="Filtrer par rôle"><option value="">Tous les rôles</option></select>
           </div>
           <div id="adminUsersMessage" class="form-msg admin-user-message" style="display:none;"></div>
-          <div id="adminUsersList" class="admin-users-list"><div class="admin-user-loading">Chargement des utilisateurs…</div></div><div id="adminPagerUtilisateurs"></div>
+          <div id="adminUsersList" class="admin-users-list"><div class="admin-user-loading">Chargement des utilisateurs…</div></div>
         </div>
 
         <div class="admin-tab-panel" data-panel="apparence">
@@ -3853,12 +3863,7 @@ main{width:100%;min-width:0;overflow-x:clip;}
   .admin-search-control input{width:100%;min-width:0;border:0!important;outline:0!important;background:transparent!important;color:var(--encre)!important;padding:0!important;font:inherit;}
   .admin-search-control input::placeholder{color:var(--gris);opacity:1;}
   .admin-data-toolbar select:focus,.admin-search-control:focus-within{border-color:var(--violet);box-shadow:0 0 0 3px rgba(124,58,237,.12);outline:none;}
-  .admin-pagination{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;margin:16px 0 6px;}
-  .admin-pagination button{min-width:36px;height:36px;padding:0 10px;border:1px solid var(--bordure);border-radius:10px;background:var(--papier);color:var(--encre);font-weight:700;font-size:.78rem;}
-  .admin-pagination button:hover:not(:disabled){border-color:var(--violet);color:var(--violet);}
-  .admin-pagination button.active{background:var(--violet);border-color:var(--violet);color:#fff;}
-  .admin-pagination button:disabled{opacity:.45;cursor:not-allowed;}
-  .admin-pagination-info{font-size:.76rem;color:var(--gris);margin:0 6px;}
+  /* Pagination admin supprimée : toutes les collections utilisent une liste verticale unique. */
   .admin-filter-empty{padding:18px;text-align:center;color:var(--gris);background:var(--papier);border:1px dashed var(--bordure);border-radius:var(--radius);margin-bottom:10px;}
   @media(max-width:900px){.admin-data-toolbar{grid-template-columns:1fr 1fr;}.admin-search-control{grid-column:1/-1;}}
   @media(max-width:560px){.admin-data-toolbar{grid-template-columns:1fr;}.admin-data-toolbar select,.admin-search-control{grid-column:auto;}.admin-pagination button{min-width:34px;}}
@@ -9814,14 +9819,14 @@ main{width:100%;min-width:0;overflow-x:clip;}
     }
   }
 
-  // Liste des 10 dernières connexions (table "Connexions" déjà utilisée par
+  // Liste des 30 dernières connexions (table "Connexions" déjà utilisée par
   // enregistrerConnexion() et par chargerStatsAdmin() ci-dessus) — aucune
   // nouvelle table, aucune donnée modifiée, lecture seule.
   async function chargerDernieresConnexions() {
     const list = document.getElementById('adminListConnexions');
     list.innerHTML = '<p class="admin-empty">Chargement…</p>';
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/Connexions?select=nom,email,date&order=date.desc&limit=10`, { headers: headersAdmin() });
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/Connexions?select=nom,email,date&order=date.desc&limit=30`, { headers: headersAdmin() });
       if (!res.ok) throw new Error("Statut HTTP " + res.status);
       const data = await res.json();
       if (!data || data.length === 0) {
@@ -9950,8 +9955,8 @@ main{width:100%;min-width:0;overflow-x:clip;}
     const toolbar = document.getElementById(options.toolbarId);
     const search = document.getElementById(options.searchId);
     const sort = document.getElementById(options.sortId);
-    const pager = document.getElementById(options.pagerId);
-    if (!toolbar || !search || !sort || !pager) return;
+    const pager = options.pagerId ? document.getElementById(options.pagerId) : null;
+    if (!toolbar || !search || !sort) return;
 
     const controls = options.filterIds || {};
     Object.entries(controls).forEach(([field,id]) => {
@@ -9993,22 +9998,16 @@ main{width:100%;min-width:0;overflow-x:clip;}
     // Reorder only the cards already rendered; their event listeners remain attachés.
     visibles.forEach(card=>list.appendChild(card));
     cards.filter(c=>!visibles.includes(c)).forEach(c=>{c.style.display='none';});
-    const pageSize = options.pageSize || ADMIN_PAGE_SIZE;
-    const total=visibles.length, pages=Math.max(1,Math.ceil(total/pageSize));
-    state.page=Math.min(Math.max(1,state.page),pages);
-    const start=(state.page-1)*pageSize, end=start+pageSize;
-    visibles.forEach((card,i)=>{card.style.display=(i>=start && i<end)?'':'none';});
+    // Administration : pas de pagination. Tous les résultats filtrés restent
+    // dans une seule liste verticale ; le navigateur gère naturellement le
+    // défilement, même lorsque la liste devient longue.
+    const total=visibles.length;
+    const start=0, end=total;
+    visibles.forEach(card=>{card.style.display='';});
     let empty=list.querySelector('.admin-filter-empty');
     if(!total && cards.length){ if(!empty){empty=document.createElement('div');empty.className='admin-filter-empty';list.appendChild(empty);} empty.textContent='Aucun résultat ne correspond à votre recherche ou à vos filtres.'; }
     else if(empty) empty.remove();
-    pager.innerHTML='';
-    if(total>pageSize){
-      const nav=document.createElement('div');nav.className='admin-pagination';
-      const prev=document.createElement('button');prev.type='button';prev.textContent='‹';prev.setAttribute('aria-label','Page précédente');prev.disabled=state.page===1;prev.onclick=()=>{state.page--;appliquerCollectionAdmin(key,options)};nav.appendChild(prev);
-      for(let i=1;i<=pages;i++){ if(pages>7 && i>2 && i<pages-1 && Math.abs(i-state.page)>1){ if(i===3 || i===pages-2){const dots=document.createElement('span');dots.className='admin-pagination-info';dots.textContent='…';nav.appendChild(dots);} continue;} const b=document.createElement('button');b.type='button';b.textContent=String(i);b.className=i===state.page?'active':'';b.setAttribute('aria-label','Page '+i);b.setAttribute('aria-current',i===state.page?'page':'false');b.onclick=()=>{state.page=i;appliquerCollectionAdmin(key,options)};nav.appendChild(b); }
-      const next=document.createElement('button');next.type='button';next.textContent='›';next.setAttribute('aria-label','Page suivante');next.disabled=state.page===pages;next.onclick=()=>{state.page++;appliquerCollectionAdmin(key,options)};nav.appendChild(next);
-      const info=document.createElement('span');info.className='admin-pagination-info';info.textContent=`${start+1}–${Math.min(end,total)} sur ${total}`;nav.appendChild(info);pager.appendChild(nav);
-    }
+    if(pager) pager.innerHTML='';
   }
 
   function actualiserTriAdminSelect(id, optionData={}) {
@@ -10041,10 +10040,10 @@ main{width:100%;min-width:0;overflow-x:clip;}
   }
 
   const ADMIN_COLLECTION_CONFIG = {
-    attente:{toolbarId:'adminToolbarAttente',searchId:'adminSearchAttente',sortId:'adminSortAttente',listId:'adminList',pagerId:'adminPagerAttente',pageSize:ADMIN_PENDING_PAGE_SIZE,filterIds:{niveau:'adminFilterNiveauAttente',classe:'adminFilterClasseAttente',matiere:'adminFilterMatiereAttente',categorie:'adminFilterCategorieAttente'}},
-    publies:{toolbarId:'adminToolbarPublies',searchId:'adminSearchPublies',sortId:'adminSortPublies',listId:'adminListPublies',pagerId:'adminPagerPublies',filterIds:{niveau:'adminFilterNiveauPublies',classe:'adminFilterClassePublies',matiere:'adminFilterMatierePublies',categorie:'adminFilterCategoriePublies'}},
-    reclamations:{toolbarId:'adminToolbarReclamations',searchId:'adminSearchReclamations',sortId:'adminSortReclamations',listId:'adminListReclamations',pagerId:'adminPagerReclamations',filterIds:{statut:'adminFilterStatutReclamations'}},
-    utilisateurs:{toolbarId:'adminToolbarUtilisateurs',searchId:'adminSearchUtilisateurs',sortId:'adminSortUtilisateurs',listId:'adminUsersList',pagerId:'adminPagerUtilisateurs',filterIds:{role:'adminFilterRoleUtilisateurs'},cardSelector:'.admin-user-card',dateField:'created'}
+    attente:{toolbarId:'adminToolbarAttente',searchId:'adminSearchAttente',sortId:'adminSortAttente',listId:'adminList',pagerId:null,pageSize:Infinity,filterIds:{niveau:'adminFilterNiveauAttente',classe:'adminFilterClasseAttente',matiere:'adminFilterMatiereAttente',categorie:'adminFilterCategorieAttente'}},
+    publies:{toolbarId:'adminToolbarPublies',searchId:'adminSearchPublies',sortId:'adminSortPublies',listId:'adminListPublies',pagerId:null,pageSize:Infinity,filterIds:{niveau:'adminFilterNiveauPublies',classe:'adminFilterClassePublies',matiere:'adminFilterMatierePublies',categorie:'adminFilterCategoriePublies'}},
+    reclamations:{toolbarId:'adminToolbarReclamations',searchId:'adminSearchReclamations',sortId:'adminSortReclamations',listId:'adminListReclamations',pagerId:null,pageSize:Infinity,filterIds:{statut:'adminFilterStatutReclamations'}},
+    utilisateurs:{toolbarId:'adminToolbarUtilisateurs',searchId:'adminSearchUtilisateurs',sortId:'adminSortUtilisateurs',listId:'adminUsersList',pagerId:null,pageSize:Infinity,filterIds:{role:'adminFilterRoleUtilisateurs'},cardSelector:'.admin-user-card',dateField:'created'}
   };
 
   function actualiserResumeDepotsAttente(data) {
