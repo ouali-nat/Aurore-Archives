@@ -464,17 +464,18 @@
   }
   .doc-more-btn:hover,.doc-more-btn[aria-expanded="true"]{background:var(--papier);border-color:var(--violet);transform:translateY(-1px);}
   .doc-share-menu{
-    position:fixed;right:auto;top:auto;left:0;z-index:9999;
+    position:fixed;right:auto;top:auto;left:0;z-index:2147483647!important;
     width:230px;max-width:calc(100vw - 24px);padding:7px;background:var(--papier);
     border:1px solid var(--bordure);border-radius:14px;
-    box-shadow:0 18px 45px rgba(0,0,0,.35);display:none;box-sizing:border-box;
+    box-shadow:0 18px 45px rgba(0,0,0,.35);display:none;box-sizing:border-box;pointer-events:auto;isolation:isolate;
   }
-  .doc-share-menu.open{display:block;animation:docShareMenuIn .14s ease both;}
+  .doc-share-wrap > .doc-share-menu{display:none!important;}
+  #auroreDocumentShareMenu.open{display:block;animation:docShareMenuIn .14s ease both;}
   .doc-share-menu button{
     width:100%;display:flex;align-items:center;gap:9px;padding:10px 11px;border:0;border-radius:10px;
     background:transparent;color:var(--encre);font:inherit;font-size:.82rem;font-weight:700;text-align:left;cursor:pointer;
   }
-  .doc-share-menu button:hover{background:rgba(139,92,246,.12);color:#fff;}
+  .doc-share-menu button:hover{background:rgba(139,92,246,.12);color:var(--encre);}
   .doc-share-menu .share-icon{width:22px;text-align:center;flex-shrink:0;}
   @keyframes docShareMenuIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
   @media(max-width:560px){
@@ -6374,6 +6375,14 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     } catch (_) {}
     if (!documentId) return false;
 
+    // Un lien partagé est une entrée publique : on ouvre directement Aurore
+    // sans afficher le portail d'inscription. La lecture reste libre.
+    try { localStorage.setItem('aurore_visitor_mode','1'); } catch (_) {}
+    try { window.auroreUnlockAccess?.(); } catch (_) {}
+    document.body.classList.remove('site-locked');
+    const accessLock = document.getElementById('accessLock');
+    if (accessLock) accessLock.style.display = 'none';
+
     const content = document.getElementById('docsContent');
     const title = document.getElementById('docsTitle');
     if (!content || !title) return false;
@@ -7480,116 +7489,128 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     }
   }
 
-  function fermerMenusPartageDocuments(except = null) {
-    document.querySelectorAll('.doc-share-menu.open').forEach(menu => {
-      if (menu !== except) {
-        menu.classList.remove('open');
-        const bouton = menu.closest('.doc-share-wrap')?.querySelector('[data-document-more]');
-        bouton?.setAttribute('aria-expanded', 'false');
-      }
-    });
+  /* ---------- MENU DOCUMENT : PORTAIL GLOBAL ----------
+   * Le menu n'est volontairement plus enfant de la carte.
+   * Il est créé directement dans <body>, ce qui élimine les conflits avec
+   * overflow, transform, z-index et les re-rendus de la liste.
+   */
+  let auroreMenuDocumentActif = null;
+  let auroreBoutonMenuDocumentActif = null;
+
+  function obtenirMenuDocumentGlobal() {
+    let menu = document.getElementById('auroreDocumentShareMenu');
+    if (menu) return menu;
+
+    menu = document.createElement('div');
+    menu.id = 'auroreDocumentShareMenu';
+    menu.className = 'doc-share-menu aurore-document-share-menu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-hidden', 'true');
+    menu.innerHTML = `
+      <button type="button" data-share-document="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Partager</span></button>
+      <button type="button" data-share-whatsapp="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Partager sur WhatsApp</span></button>
+      <button type="button" data-copy-document-link="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Copier le lien</span></button>`;
+    document.body.appendChild(menu);
+    return menu;
   }
 
-  function positionnerMenuPartageDocument(more, menu) {
-    const rect = more.getBoundingClientRect();
-    const marge = 12;
-    const largeur = Math.min(230, Math.max(180, window.innerWidth - marge * 2));
-
-    menu.style.width = largeur + 'px';
-    menu.style.left = Math.max(
-      marge,
-      Math.min(rect.right - largeur, window.innerWidth - largeur - marge)
-    ) + 'px';
-
-    // Le menu est fixed et peut donc sortir visuellement de la carte PDF.
-    // Il faut l'afficher avant de mesurer sa hauteur réelle.
-    menu.classList.add('open');
-    const hauteur = menu.getBoundingClientRect().height || 150;
-    const espaceBas = window.innerHeight - rect.bottom;
-    const top = espaceBas >= hauteur + 10
-      ? rect.bottom + 8
-      : Math.max(marge, rect.top - hauteur - 8);
-
-    menu.style.top = Math.max(
-      marge,
-      Math.min(top, window.innerHeight - hauteur - marge)
-    ) + 'px';
-  }
-
-  function basculerMenuPartageDocument(more) {
-    if (!more) return false;
-    const wrap = more.closest('.doc-share-wrap');
-    const menu = wrap?.querySelector('.doc-share-menu');
-    if (!menu) return false;
-
-    const etaitOuvert = menu.classList.contains('open');
-    fermerMenusPartageDocuments(menu);
-
-    if (etaitOuvert) {
+  function fermerMenusPartageDocuments() {
+    const menu = document.getElementById('auroreDocumentShareMenu');
+    if (menu) {
       menu.classList.remove('open');
-      menu.style.top = '';
-      menu.style.left = '';
-      menu.style.width = '';
-      more.setAttribute('aria-expanded', 'false');
+      menu.setAttribute('aria-hidden', 'true');
+    }
+    document.querySelectorAll('.doc-share-menu.open').forEach(m => {
+      if (m !== menu) m.classList.remove('open');
+    });
+    if (auroreBoutonMenuDocumentActif) {
+      auroreBoutonMenuDocumentActif.setAttribute('aria-expanded', 'false');
+    }
+    auroreMenuDocumentActif = null;
+    auroreBoutonMenuDocumentActif = null;
+  }
+
+  function ouvrirMenuPartageDocument(more) {
+    if (!more) return false;
+    const row = more.closest('.doc-row, .admin-card, .aurore-personal-document-row');
+    const index = row ? Number(row.dataset.documentIndex) : -1;
+    const doc = row?._auroreDocument || row?.__auroreDocumentCouverture || (Number.isInteger(index) ? documentsCourants?.[index] : null);
+    if (!doc) {
+      console.warn('[Aurore] Menu impossible : document introuvable.');
       return false;
     }
 
-    positionnerMenuPartageDocument(more, menu);
+    const menu = obtenirMenuDocumentGlobal();
+    const dejaOuvert = menu.classList.contains('open') && auroreBoutonMenuDocumentActif === more;
+    fermerMenusPartageDocuments();
+    if (dejaOuvert) return false;
+
+    auroreMenuDocumentActif = doc;
+    auroreBoutonMenuDocumentActif = more;
+
+    // Affichage temporaire pour mesurer correctement le menu.
+    menu.style.visibility = 'hidden';
+    menu.style.left = '12px';
+    menu.style.top = '12px';
+    menu.classList.add('open');
+    menu.setAttribute('aria-hidden', 'false');
+
+    const rect = more.getBoundingClientRect();
+    const marge = 12;
+    const largeur = Math.min(230, Math.max(180, window.innerWidth - marge * 2));
+    menu.style.width = largeur + 'px';
+    const hauteur = menu.getBoundingClientRect().height || 150;
+
+    let left = rect.right - largeur;
+    left = Math.max(marge, Math.min(left, window.innerWidth - largeur - marge));
+    let top = rect.bottom + 8;
+    if (top + hauteur > window.innerHeight - marge) top = rect.top - hauteur - 8;
+    top = Math.max(marge, Math.min(top, window.innerHeight - hauteur - marge));
+
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+    menu.style.visibility = '';
     more.setAttribute('aria-expanded', 'true');
     return true;
   }
 
-  // Compatibilité avec toute ancienne structure qui appelle cette fonction.
-  window.auroreOuvrirMenuDocument = function(more) {
-    return basculerMenuPartageDocument(more);
-  };
+  window.auroreOuvrirMenuDocument = ouvrirMenuPartageDocument;
 
-  // UN SEUL gestionnaire pour toute la chaîne : trois points -> menu -> actions.
-  // La délégation fonctionne aussi après recherche, tri et pagination.
+  // Un seul gestionnaire capture la chaîne complète : ouverture + actions.
   document.addEventListener('click', function(e) {
     const more = e.target.closest?.('[data-document-more]');
     if (more) {
       e.preventDefault();
       e.stopPropagation();
-      basculerMenuPartageDocument(more);
+      ouvrirMenuPartageDocument(more);
       return;
     }
 
-    const action = e.target.closest?.('[data-share-document],[data-share-whatsapp],[data-copy-document-link]');
+    const action = e.target.closest?.('#auroreDocumentShareMenu [data-share-document],#auroreDocumentShareMenu [data-share-whatsapp],#auroreDocumentShareMenu [data-copy-document-link]');
     if (action) {
       e.preventDefault();
       e.stopPropagation();
-
-      const row = action.closest('.doc-row');
-      const index = row ? Number(row.dataset.documentIndex) : -1;
-      const docParIndex = Number.isInteger(index) ? documentsCourants?.[index] : null;
-      const documentData = row?._auroreDocument || docParIndex;
-
-      if (!documentData) {
-        console.warn('[Aurore] Action de partage impossible : document introuvable.');
-        fermerMenusPartageDocuments();
-        return;
-      }
-
-      // Fermer le menu sans casser l'action asynchrone qui suit.
+      const documentData = auroreMenuDocumentActif;
       fermerMenusPartageDocuments();
-
+      if (!documentData) return;
       if (action.hasAttribute('data-share-document')) {
         Promise.resolve(partagerDocument(documentData)).catch(err => console.warn('[Aurore] Partage:', err));
       } else if (action.hasAttribute('data-share-whatsapp')) {
         partagerDocumentWhatsApp(documentData);
-      } else if (action.hasAttribute('data-copy-document-link')) {
-        Promise.resolve(copierLienDocument(documentData)).catch(err => console.warn('[Aurore] Copie du lien:', err));
+      } else {
+        Promise.resolve(copierLienDocument(documentData)).catch(err => console.warn('[Aurore] Copie:', err));
       }
       return;
     }
 
-    if (!e.target.closest?.('.doc-share-wrap')) fermerMenusPartageDocuments();
-  });
+    if (!e.target.closest?.('#auroreDocumentShareMenu')) fermerMenusPartageDocuments();
+  }, true);
 
-  // Le menu fixed doit rester aligné si l'écran change pendant son ouverture.
-  window.addEventListener('resize', () => fermerMenusPartageDocuments());
-  window.addEventListener('scroll', () => fermerMenusPartageDocuments(), true);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') fermerMenusPartageDocuments();
+  });
+  window.addEventListener('resize', fermerMenusPartageDocuments);
+  window.addEventListener('scroll', fermerMenusPartageDocuments, true);
 
   function rendreListeDocuments(content, data, afficherCouverturesRomans = false) {
     // Prépare PDF.js en parallèle de la construction de la liste : le rendu
@@ -7906,8 +7927,10 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
           <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-plus-tard="1">＋ Plus tard</button>
           <button type="button" class="dl doc-action-soft doc-action-folder" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-case="1">▣ Case</button>
           <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-signaler="1">Signaler</button>
+          <div class="doc-share-wrap"><button type="button" class="doc-more-btn" data-document-more="1" aria-label="Options de partage" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="12" cy="19" r="1.8"></circle></svg></button></div>
         </div>`;
 
+      row._auroreDocument=doc;
       row.querySelector('[data-lire]')?.addEventListener('click',()=>ouvrirLecteurPDF(doc));
       row.querySelector('[data-telecharger-maintenant]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(doc));
       row.querySelector('[data-signaler]')?.addEventListener('click',()=>ouvrirSignalement(doc));
@@ -9973,6 +9996,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         card.dataset.adminAuthor = String(doc.Auteur || '');
         card.dataset.adminSortValue = String(doc.id ?? '0');
         card.style.animationDelay = (i * 0.04) + 's';
+        card._auroreDocument = doc;
         card.innerHTML = `
           <div class="admin-card-icon">${iconePourCategorie(doc)}</div>
           <div class="admin-card-body">
@@ -9984,6 +10008,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
             </div>
             ${tailleBadgeMarkup(doc.Fichier_url)}
             <button type="button" class="admin-btn ghost js-open-pdf-in-site">Ouvrir le PDF dans Aurore →</button>
+            <button type="button" class="doc-more-btn admin-document-more" data-document-more="1" aria-label="Options de partage" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="12" cy="19" r="1.8"></circle></svg></button>
             <div class="admin-actions">
               <button class="admin-btn valider">Valider</button>
               <button class="admin-btn refuser">Refuser / Supprimer</button>
@@ -10138,6 +10163,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
             </div>
             ${tailleBadgeMarkup(doc.Fichier_url)}
             <button type="button" class="admin-btn ghost js-open-pdf-in-site">Ouvrir le PDF dans Aurore →</button>
+            <button type="button" class="doc-more-btn admin-document-more" data-document-more="1" aria-label="Options de partage" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="12" cy="19" r="1.8"></circle></svg></button>
             <div class="admin-actions">
               <button class="admin-btn ghost dl-toggle">${telechargementOk ? 'Passer en lecture seule' : 'Autoriser le téléchargement'}</button>
               <button class="admin-btn ghost avant-toggle">${misEnAvant ? 'Retirer de « Récemment publiés »' : 'Mettre dans « Récemment publiés »'}</button>
@@ -10535,6 +10561,7 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
         card.dataset.adminSearch = [r.document_titre, r.document_id, r.motif, r.statut, r.nom, r.email, r.details].filter(v => v != null).join(' ');
         card.dataset.adminSortValue = String(r.id ?? '0');
         card.style.animationDelay = (i * 0.04) + 's';
+        card._auroreDocument = doc;
         card.innerHTML = `
           <div class="admin-card-icon">${ICONS.warning}</div>
           <div class="admin-card-body">
