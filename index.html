@@ -16535,7 +16535,7 @@ document.addEventListener('DOMContentLoaded', function(){
         const q=`section_id=eq.${encodeURIComponent(f.id)}&owner_id=eq.${encodeURIComponent(session.id)}&order=created_at.desc&limit=1`;
         const r=await fetch(`${SUPABASE_URL}/rest/v1/partages_sections_personnelles?select=*&${q}`,{headers:headersAdmin(),cache:'no-store'});
         if(!r.ok)throw new Error('HTTP '+r.status);const rows=await r.json();currentShare=Array.isArray(rows)&&rows[0]?.active?rows[0]:null;
-        if(!currentShare)currentShare=await rpc('create_section_share',{p_section_id:f.id,p_allow_open:true,p_allow_download:true,p_expires_at:null});
+        if(!currentShare){ const created=await rpc('create_section_share',{p_section_id:f.id,p_allow_open:true,p_allow_download:true,p_expires_at:null}); currentShare=Array.isArray(created)?created[0]:created; }
         const url=new URL(location.href);url.search='';url.hash='';url.searchParams.set('sectionShare',currentShare.token);
         body.innerHTML=`<div class="aurore-section-share-success"><div class="aurore-share-check">✓</div><strong>Section prête à être partagée</strong><span>Les visiteurs ne verront que les documents publiés de cette section.</span><div class="aurore-section-share-link"><input readonly value="${esc(url.href)}"><button type="button" data-copy>Copier</button></div><div class="aurore-section-share-options"><label><input type="checkbox" data-open ${currentShare.allow_open!==false?'checked':''}> Autoriser l’ouverture des documents</label><label><input type="checkbox" data-download ${currentShare.allow_download!==false?'checked':''}> Autoriser les téléchargements</label></div></div>`;
         actions.style.display='flex';
