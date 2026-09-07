@@ -2278,6 +2278,11 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
 }
 </style>
 
+
+<style id="aurore-document-partage-style">
+.aurore-document-partage-cible{outline:3px solid var(--accent,#6c63ff)!important;outline-offset:5px;border-radius:14px;animation:aurorePartagePulse 1s ease-in-out 4;}
+@keyframes aurorePartagePulse{0%,100%{transform:scale(1)}50%{transform:scale(1.01)}}
+</style>
 </head>
 <body class="site-locked">
 
@@ -6366,26 +6371,30 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
   }
 
   // ---------- LIEN DIRECT DE DOCUMENT PARTAGÉ ----------
-  // À l'ouverture d'une URL ?document=ID, on reste sur le domaine Aurore,
-  // affiche la zone Bibliothèque puis le document concerné.
+  // Un lien partagé ne doit PAS ouvrir le PDF automatiquement. Il conduit
+  // simplement le visiteur à l'endroit exact du document dans Aurore.
+  function mettreEnEvidenceDocumentPartage(documentId) {
+    const cible = [...document.querySelectorAll('.doc-row')].find(row =>
+      String(row?._auroreDocument?.id ?? row?.dataset?.documentId ?? '') === String(documentId)
+    );
+    if (!cible) return false;
+    cible.classList.add('aurore-document-partage-cible');
+    cible.scrollIntoView({ behavior:'smooth', block:'center', inline:'nearest' });
+    setTimeout(() => cible.classList.remove('aurore-document-partage-cible'), 5000);
+    return true;
+  }
+
   async function ouvrirDocumentDepuisLienPartage() {
     let documentId = '';
-    try {
-      documentId = new URLSearchParams(window.location.search).get('document') || '';
-    } catch (_) {}
+    try { documentId = new URLSearchParams(window.location.search).get('document') || ''; } catch (_) {}
     if (!documentId) return false;
 
-    // Un lien partagé est une entrée publique : on ouvre directement Aurore
-    // sans afficher le portail d'inscription. La lecture reste libre.
+    // Le partage reste public : aucune inscription ne doit interrompre le parcours.
     try { localStorage.setItem('aurore_visitor_mode','1'); } catch (_) {}
     try { window.auroreUnlockAccess?.(); } catch (_) {}
     document.body.classList.remove('site-locked');
     const accessLock = document.getElementById('accessLock');
     if (accessLock) accessLock.style.display = 'none';
-
-    const content = document.getElementById('docsContent');
-    const title = document.getElementById('docsTitle');
-    if (!content || !title) return false;
 
     try {
       const params = new URLSearchParams();
@@ -6393,46 +6402,54 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
       params.set('id', 'eq.' + documentId);
       params.set('Publie', 'eq.true');
       params.set('limit', '1');
-
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/Document?${params.toString()}`, {
-        headers: HEADERS,
-        cache: 'no-store'
-      });
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/Document?${params.toString()}`, { headers: HEADERS, cache:'no-store' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
-
       const rows = await res.json();
       const doc = Array.isArray(rows) ? rows[0] : null;
-      if (!doc) {
-        title.textContent = 'Bibliothèque — Document indisponible';
-        content.innerHTML = `<div class="doc-empty"><div class="icon-wrap">${ICONS.warning}</div><h3>Document indisponible</h3><p>Ce document n’est plus accessible ou n’existe pas.</p></div>`;
+      if (!doc) return false;
+
+      const categorie = String(doc['Catégorie'] || doc.Type || '').trim();
+      const niveau = String(doc.Niveau || '').trim();
+      const matiere = String(doc['Matière'] || '').trim();
+      const genre = String(doc.Genre || '').trim();
+
+      // Romans/Livres : on ouvre d'abord la rubrique Livres, puis le genre exact.
+      if (categorie === 'Livres') {
+        if (typeof allerLivres === 'function') allerLivres();
+        const genreObjet = (typeof GENRES !== 'undefined' ? GENRES : []).find(g => String(g.nom) === genre);
+        if (genreObjet && typeof allerDocumentsLivre === 'function') {
+          await allerDocumentsLivre(genreObjet);
+        } else {
+          document.getElementById('docsTitle').textContent = genre ? `Livres et romans — ${genre}` : 'Livres et romans';
+          const q = `${encodeURIComponent('Catégorie')}=eq.${encodeURIComponent('Livres')}&Publie=eq.true` + (genre ? `&Genre=eq.${encodeURIComponent(genre)}` : '');
+          const r = await fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&${q}`, {headers:HEADERS});
+          const data = r.ok ? await r.json() : [doc];
+          rendreListeDocuments(document.getElementById('docsContent'), data, true);
+          afficherEcran('screen-docs');
+        }
+      } else {
+        // Autres rubriques : on charge la collection exacte où le document est rangé.
+        let q = `${encodeURIComponent('Catégorie')}=eq.${encodeURIComponent(categorie)}&Publie=eq.true`;
+        if (niveau) q += `&Niveau=eq.${encodeURIComponent(niveau)}`;
+        if (matiere) q += `&${encodeURIComponent('Matière')}=eq.${encodeURIComponent(matiere)}`;
+        if (doc.Filiere) q += `&Filiere=eq.${encodeURIComponent(doc.Filiere)}`;
+        if (doc.Classe) q += `&Classe=eq.${encodeURIComponent(doc.Classe)}`;
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&${q}&order=id.desc`, {headers:HEADERS});
+        const data = r.ok ? await r.json() : [doc];
+        const morceaux = [categorie, niveau, matiere].filter(Boolean);
+        document.getElementById('docsTitle').textContent = morceaux.join(' — ') || 'Documents';
+        const back = document.querySelector('#screen-docs .back-btn');
+        if (back) { back.setAttribute('data-back','home'); back.textContent='← Retour à l’accueil'; }
+        rendreListeDocuments(document.getElementById('docsContent'), data, categorie === 'Livres');
         afficherEcran('screen-docs');
-        return true;
       }
 
-      const categorie = String(doc['Catégorie'] || doc.Type || 'Bibliothèque').trim();
-      const titreDocument = obtenirTitreDocument(doc);
-      title.textContent = `${categorie} — ${titreDocument}`;
-
-      const back = document.querySelector('#screen-docs .back-btn');
-      if (back) {
-        back.setAttribute('data-back', 'home');
-        back.textContent = '← Retour à l’accueil';
-      }
-
-      rendreListeDocuments(content, [doc], categorie === 'Livres');
-      afficherEcran('screen-docs');
-
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          try { ouvrirLecteurPDF(doc); } catch (_) {}
-        }, 120);
-      });
+      // Attend le rendu DOM, puis descend simplement jusqu'au document.
+      requestAnimationFrame(() => setTimeout(() => mettreEnEvidenceDocumentPartage(documentId), 180));
       return true;
     } catch (e) {
-      title.textContent = 'Bibliothèque — Document';
-      content.innerHTML = `<div class="doc-empty"><div class="icon-wrap">${ICONS.warning}</div><h3>Impossible de charger le document</h3><p>Veuillez réessayer dans quelques instants.</p></div>`;
-      afficherEcran('screen-docs');
-      return true;
+      console.warn('[Aurore] lien partagé', e);
+      return false;
     }
   }
 
