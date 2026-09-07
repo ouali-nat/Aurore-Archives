@@ -10682,7 +10682,9 @@ main{width:100%;min-width:0;overflow-x:clip;}
         card.dataset.adminSearch = [r.document_titre, r.document_id, r.motif, r.statut, r.nom, r.email, r.details].filter(v => v != null).join(' ');
         card.dataset.adminSortValue = String(r.id ?? '0');
         card.style.animationDelay = (i * 0.04) + 's';
-        card._auroreDocument = doc;
+        // Un signalement n'est pas un document : conserver le signalement lui-même
+        // évite une ReferenceError qui interrompait tout le rendu de la liste admin.
+        card._auroreSignalement = r;
         card.innerHTML = `
           <div class="admin-card-icon">${ICONS.warning}</div>
           <div class="admin-card-body">
@@ -10701,20 +10703,29 @@ main{width:100%;min-width:0;overflow-x:clip;}
         `;
         card.querySelector('[data-action="ouvrir"]').addEventListener('click', async () => {
           try {
-            const dres = await fetch(`${SUPABASE_URL}/rest/v1/Document?id=eq.${r.document_id}&select=Fichier_url,Titre,Telechargement_autorise`, { headers: HEADERS });
+            if (!r.document_id) {
+              alert("Ce signalement ne contient pas d'identifiant de document. Le document associé ne peut pas être ouvert automatiquement.");
+              return;
+            }
+            const dres = await fetch(`${SUPABASE_URL}/rest/v1/Document?id=eq.${encodeURIComponent(r.document_id)}&select=id,Fichier_url,Titre,Telechargement_autorise`, { headers: HEADERS });
+            if (!dres.ok) throw new Error('HTTP ' + dres.status);
             const ddata = await dres.json();
             // Reste à l'intérieur d'Aurore : ouverture via le lecteur PDF
             // interne, jamais via un nouvel onglet / lecteur externe.
             if (ddata && ddata[0] && ddata[0].Fichier_url) {
               ouvrirLecteurPDF({
-                id: r.document_id,
+                id: ddata[0].id,
                 Titre: ddata[0].Titre || r.document_titre || 'Document',
                 Fichier_url: ddata[0].Fichier_url,
                 Telechargement_autorise: ddata[0].Telechargement_autorise
               });
+            } else {
+              alert("Le document associé est introuvable (peut-être déjà retiré).");
             }
-            else alert("Le document associé est introuvable (peut-être déjà retiré).");
-          } catch(e) { alert("Impossible d'ouvrir le document."); }
+          } catch(e) {
+            console.error('[Réclamations] ouverture du document', e);
+            alert("Impossible d'ouvrir le document pour le moment. Vérifiez que le PDF associé existe encore.");
+          }
         });
         card.querySelector('[data-action="retirer"]').addEventListener('click', async () => {
           if (!confirm("Retirer définitivement le document concerné par cette réclamation ?")) return;
