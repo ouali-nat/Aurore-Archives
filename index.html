@@ -7484,65 +7484,74 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     document.querySelectorAll('.doc-share-menu.open').forEach(menu => {
       if (menu !== except) {
         menu.classList.remove('open');
-        menu.previousElementSibling?.setAttribute('aria-expanded','false');
+        const bouton = menu.closest('.doc-share-wrap')?.querySelector('[data-document-more]');
+        bouton?.setAttribute('aria-expanded', 'false');
       }
     });
   }
 
+  function positionnerMenuPartageDocument(more, menu) {
+    const rect = more.getBoundingClientRect();
+    const marge = 12;
+    const largeur = Math.min(230, Math.max(180, window.innerWidth - marge * 2));
+
+    menu.style.width = largeur + 'px';
+    menu.style.left = Math.max(
+      marge,
+      Math.min(rect.right - largeur, window.innerWidth - largeur - marge)
+    ) + 'px';
+
+    // Le menu est fixed et peut donc sortir visuellement de la carte PDF.
+    // Il faut l'afficher avant de mesurer sa hauteur réelle.
+    menu.classList.add('open');
+    const hauteur = menu.getBoundingClientRect().height || 150;
+    const espaceBas = window.innerHeight - rect.bottom;
+    const top = espaceBas >= hauteur + 10
+      ? rect.bottom + 8
+      : Math.max(marge, rect.top - hauteur - 8);
+
+    menu.style.top = Math.max(
+      marge,
+      Math.min(top, window.innerHeight - hauteur - marge)
+    ) + 'px';
+  }
+
+  function basculerMenuPartageDocument(more) {
+    if (!more) return false;
+    const wrap = more.closest('.doc-share-wrap');
+    const menu = wrap?.querySelector('.doc-share-menu');
+    if (!menu) return false;
+
+    const etaitOuvert = menu.classList.contains('open');
+    fermerMenusPartageDocuments(menu);
+
+    if (etaitOuvert) {
+      menu.classList.remove('open');
+      menu.style.top = '';
+      menu.style.left = '';
+      menu.style.width = '';
+      more.setAttribute('aria-expanded', 'false');
+      return false;
+    }
+
+    positionnerMenuPartageDocument(more, menu);
+    more.setAttribute('aria-expanded', 'true');
+    return true;
+  }
+
+  // Compatibilité avec toute ancienne structure qui appelle cette fonction.
   window.auroreOuvrirMenuDocument = function(more) {
-    try {
-      if (!more) return false;
-      const wrap = more.closest('.doc-share-wrap');
-      const menu = wrap?.querySelector('.doc-share-menu');
-      if (!menu) return false;
-      const isOpen = menu.classList.contains('open');
-      fermerMenusPartageDocuments(menu);
-      if (isOpen) {
-        menu.classList.remove('open'); menu.style.top=''; menu.style.left=''; menu.style.width='';
-        more.setAttribute('aria-expanded','false'); return false;
-      }
-      const rect=more.getBoundingClientRect(), marge=12;
-      const largeur=Math.min(230,Math.max(180,window.innerWidth-24));
-      menu.style.width=largeur+'px';
-      menu.style.left=Math.max(marge,Math.min(rect.right-largeur,window.innerWidth-largeur-marge))+'px';
-      menu.classList.add('open');
-      const hauteur=menu.offsetHeight||menu.scrollHeight||150;
-      const espaceBas=window.innerHeight-rect.bottom;
-      const top=espaceBas>=hauteur+10?rect.bottom+8:Math.max(marge,rect.top-hauteur-8);
-      menu.style.top=Math.max(marge,Math.min(top,window.innerHeight-hauteur-marge))+'px';
-      more.setAttribute('aria-expanded','true');
-    } catch(err) { console.warn('[Aurore] Menu document:',err); }
-    return false;
+    return basculerMenuPartageDocument(more);
   };
 
+  // UN SEUL gestionnaire pour toute la chaîne : trois points -> menu -> actions.
+  // La délégation fonctionne aussi après recherche, tri et pagination.
   document.addEventListener('click', function(e) {
     const more = e.target.closest?.('[data-document-more]');
     if (more) {
       e.preventDefault();
       e.stopPropagation();
-      const wrap = more.closest('.doc-share-wrap');
-      const menu = wrap?.querySelector('.doc-share-menu');
-      if (!menu) return;
-      const isOpen = menu.classList.contains('open');
-      fermerMenusPartageDocuments(menu);
-      if (!isOpen) {
-        const rect = more.getBoundingClientRect();
-        const largeur = Math.min(230, window.innerWidth - 24);
-        const marge = 12;
-        let left = rect.right - largeur;
-        left = Math.max(marge, Math.min(left, window.innerWidth - largeur - marge));
-        menu.style.width = largeur + 'px';
-        menu.style.left = left + 'px';
-        const menuHeight = menu.scrollHeight || 150;
-        const espaceBas = window.innerHeight - rect.bottom;
-        const top = espaceBas >= menuHeight + 10 ? rect.bottom + 8 : Math.max(marge, rect.top - menuHeight - 8);
-        menu.style.top = top + 'px';
-        menu.classList.add('open');
-      } else {
-        menu.classList.remove('open');
-        menu.style.top = ''; menu.style.left = '';
-      }
-      more.setAttribute('aria-expanded', String(!isOpen));
+      basculerMenuPartageDocument(more);
       return;
     }
 
@@ -7550,22 +7559,37 @@ html[data-theme="light"][data-color-theme] .profile-form-modal #profilLyceeSave{
     if (action) {
       e.preventDefault();
       e.stopPropagation();
+
       const row = action.closest('.doc-row');
       const index = row ? Number(row.dataset.documentIndex) : -1;
-      const doc = Number.isInteger(index) ? documentsCourants?.[index] : null;
-      /* Les listes sont paginées/triées : conserver le document sur la ligne. */
-      const documentData = row?._auroreDocument || doc;
-      if (documentData) {
-        if (action.hasAttribute('data-share-document')) partagerDocument(documentData);
-        else if (action.hasAttribute('data-share-whatsapp')) partagerDocumentWhatsApp(documentData);
-        else copierLienDocument(documentData);
+      const docParIndex = Number.isInteger(index) ? documentsCourants?.[index] : null;
+      const documentData = row?._auroreDocument || docParIndex;
+
+      if (!documentData) {
+        console.warn('[Aurore] Action de partage impossible : document introuvable.');
+        fermerMenusPartageDocuments();
+        return;
       }
+
+      // Fermer le menu sans casser l'action asynchrone qui suit.
       fermerMenusPartageDocuments();
+
+      if (action.hasAttribute('data-share-document')) {
+        Promise.resolve(partagerDocument(documentData)).catch(err => console.warn('[Aurore] Partage:', err));
+      } else if (action.hasAttribute('data-share-whatsapp')) {
+        partagerDocumentWhatsApp(documentData);
+      } else if (action.hasAttribute('data-copy-document-link')) {
+        Promise.resolve(copierLienDocument(documentData)).catch(err => console.warn('[Aurore] Copie du lien:', err));
+      }
       return;
     }
 
     if (!e.target.closest?.('.doc-share-wrap')) fermerMenusPartageDocuments();
-  }, true);
+  });
+
+  // Le menu fixed doit rester aligné si l'écran change pendant son ouverture.
+  window.addEventListener('resize', () => fermerMenusPartageDocuments());
+  window.addEventListener('scroll', () => fermerMenusPartageDocuments(), true);
 
   function rendreListeDocuments(content, data, afficherCouverturesRomans = false) {
     // Prépare PDF.js en parallèle de la construction de la liste : le rendu
