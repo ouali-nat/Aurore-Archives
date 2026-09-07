@@ -16382,42 +16382,55 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 
 
-  /* ===== CORRECTION RECHERCHE — nouvelle saisie après effacement =====
-     Une recherche réseau précédente ne doit jamais pouvoir réafficher ses
-     résultats après que l'utilisateur a effacé le terme et en a saisi un autre.
-     La recherche reste compatible avec l'ancien fonctionnement par Entrée. */
-  (function corrigerRechercheApresEffacement(){
-    let sequenceRecherche=0;
-    let timerRecherche=null;
-    let controleurRecherche=null;
+  /* ===== RECHERCHE UNIFIÉE — anti-race + toutes les recherches publiques ===== */
+  (function corrigerRecherchePartout(){
+    let seq=0;
+    let timer=null;
+    let controller=null;
 
-    function synchroniserRecherche(valeur, sourceId){
-      const v=String(valeur ?? '');
+    function annulerRechercheEnCours(){
+      seq++;
+      if(timer){clearTimeout(timer);timer=null;}
+      if(controller){try{controller.abort();}catch(e){} controller=null;}
+    }
+
+    function normaliser(v){
+      return typeof normaliserRechercheSite==='function'
+        ? normaliserRechercheSite(v)
+        : String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+    }
+
+    function synchroniser(v, source){
+      const value=String(v??'');
       ['headerSearchInput','homeSearchInput'].forEach(id=>{
-        if(id===sourceId) return;
+        if(id===source) return;
         const el=document.getElementById(id);
-        if(el && el.value!==v) el.value=v;
+        if(el && el.value!==value) el.value=value;
       });
     }
 
-    async function rechercherRobuste(valeur){
-      const requete=String(valeur ?? '').trim();
-      const seq=++sequenceRecherche;
-      if(timerRecherche){clearTimeout(timerRecherche);timerRecherche=null;}
-      if(controleurRecherche){try{controleurRecherche.abort();}catch(e){} controleurRecherche=null;}
-      synchroniserRecherche(requete,'');
-      if(!requete) return;
+    async function executer(v){
+      const requete=String(v??'').trim();
+      const current=++seq;
+      if(controller){try{controller.abort();}catch(e){} controller=null;}
+      if(!requete){
+        const content=document.getElementById('docsContent');
+        if(content && document.getElementById('screen-docs')?.classList.contains('active')){
+          content.innerHTML='';
+        }
+        return;
+      }
 
       const content=document.getElementById('docsContent');
       const title=document.getElementById('docsTitle');
       const breadcrumb=document.getElementById('breadcrumb');
       const back=document.querySelector('#screen-docs .back-btn');
-      if(!content || !title) return;
+      if(!content||!title) return;
 
       if(breadcrumb) breadcrumb.innerHTML='';
       title.textContent=`Résultats pour « ${requete} »`;
       if(back) back.setAttribute('data-back','home');
-      afficherEcran('screen-docs');
+      if(typeof afficherEcran==='function') afficherEcran('screen-docs');
       content.innerHTML='<p style="color:var(--gris); font-size:0.9rem;">Recherche en cours…</p>';
 
       const terme=requete.replace(/[,()]/g,' ').replace(/\s+/g,' ').trim();
@@ -16426,41 +16439,104 @@ document.addEventListener('DOMContentLoaded', function(){
       const champs=['Titre','Matière','Niveau','Filiere','Catégorie','Auteur'];
       const or=champs.map(c=>`${encodeURIComponent(c)}.ilike.*${termeEnc}*`).join(',');
       const url=`${SUPABASE_URL}/rest/v1/Document?select=*&or=(${or})&Publie=eq.true&order=id.desc`;
-      controleurRecherche=(typeof AbortController!=='undefined')?new AbortController():null;
+      controller=typeof AbortController!=='undefined'?new AbortController():null;
 
       try{
-        const res=await fetch(url,{headers:HEADERS,signal:controleurRecherche?.signal});
-        if(seq!==sequenceRecherche) return;
+        const res=await fetch(url,{headers:HEADERS,signal:controller?.signal,cache:'no-store'});
+        if(current!==seq) return;
         if(!res.ok) throw new Error('HTTP '+res.status);
         const data=await res.json();
-        if(seq!==sequenceRecherche) return;
+        if(current!==seq) return;
         rendreListeDocuments(content,Array.isArray(data)?data:[],true);
       }catch(err){
-        if(err?.name==='AbortError' || seq!==sequenceRecherche) return;
+        if(err?.name==='AbortError'||current!==seq) return;
         content.innerHTML='<div class="doc-empty"><div class="icon-wrap">'+ICONS.warning+'</div><h3>Recherche indisponible</h3><p>La recherche n’a pas pu aboutir pour le moment. Veuillez réessayer dans quelques instants.</p></div>';
       }finally{
-        if(seq===sequenceRecherche) controleurRecherche=null;
+        if(current===seq) controller=null;
       }
     }
 
-    function programmerRecherche(valeur,sourceId){
-      synchroniserRecherche(valeur,sourceId);
-      sequenceRecherche++;
-      if(timerRecherche){clearTimeout(timerRecherche);timerRecherche=null;}
-      if(controleurRecherche){try{controleurRecherche.abort();}catch(e){} controleurRecherche=null;}
-      const terme=String(valeur ?? '').trim();
-      if(!terme) return;
-      timerRecherche=setTimeout(()=>{
-        timerRecherche=null;
-        rechercherRobuste(terme);
-      },280);
+    function programmer(v,source){
+      synchroniser(v,source);
+      annulerRechercheEnCours();
+      const requete=String(v??'').trim();
+      if(!requete) return;
+      timer=setTimeout(()=>{timer=null;executer(requete);},220);
     }
 
+    // Un seul flux de recherche pour les deux champs globaux.
     ['headerSearchInput','homeSearchInput'].forEach(id=>{
       const input=document.getElementById(id);
       if(!input) return;
-      input.addEventListener('input',e=>programmerRecherche(e.target.value,id));
+      input.addEventListener('input',e=>programmer(e.target.value,id));
+      // Capture : neutralise l'ancien gestionnaire Enter qui pouvait lancer
+      // une seconde requête obsolète en parallèle.
+      input.addEventListener('keydown',e=>{
+        if(e.key==='Enter'){
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          programmer(e.currentTarget.value,id);
+        }
+      },true);
     });
+
+    // Toute saisie/effacement dans les recherches internes doit rester fiable.
+    // Elles sont déjà locales, donc aucun appel réseau supplémentaire n'est créé.
+    document.getElementById('docsSearch')?.addEventListener('input',()=>{
+      if(typeof docsPageCourante!=='undefined') docsPageCourante=1;
+      if(typeof afficherDocumentsPublicsAvecOutils==='function') afficherDocumentsPublicsAvecOutils();
+    },true);
+    document.getElementById('recentsSearch')?.addEventListener('input',()=>{
+      if(typeof recentsPageCourante!=='undefined') recentsPageCourante=1;
+      if(typeof rendreRecentsAvecOutils==='function') rendreRecentsAvecOutils();
+    },true);
+
+    // Le bouton d'effacement/retour doit aussi invalider une recherche réseau.
+    document.addEventListener('input',e=>{
+      if(e.target?.id==='headerSearchInput'||e.target?.id==='homeSearchInput') return;
+      if(e.target?.matches?.('input[type="search"]') && !e.target.value.trim()){
+        // Les recherches internes sont locales ; leur gestionnaire existant suffit.
+      }
+    },true);
+
+    window.auroreRechercheRobuste=executer;
+  })();
+
+  /* ===== PARTAGE — 3 POINTS POUR TOUS LES PDF DE L'ESPACE UTILISATEUR =====
+     Le menu de partage global existant est réutilisé. On ajoute uniquement le
+     bouton dans les lignes personnelles, sans toucher aux données ni aux actions.
+  */
+  (function ajouterPartageEspacePersonnel(){
+    const root=document.getElementById('personalSpace');
+    if(!root) return;
+
+    function ajouterDansRow(row){
+      if(!row || row.dataset.auroreShareReady==='1') return;
+      const doc=row._auroreDocument || row.__auroreDocumentCouverture;
+      if(!doc || !doc.Fichier_url || doc.Publie===false) return;
+      const actions=row.querySelector('.personal-doc-actions,.doc-actions');
+      if(!actions) return;
+
+      let wrap=actions.querySelector('.doc-share-wrap');
+      if(wrap) { row.dataset.auroreShareReady='1'; return; }
+
+      wrap=document.createElement('div');
+      wrap.className='doc-share-wrap';
+      wrap.innerHTML='<button type="button" class="doc-more-btn" data-document-more="1" aria-label="Options de partage" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="12" cy="19" r="1.8"></circle></svg></button>';
+      actions.appendChild(wrap);
+      row.dataset.auroreShareReady='1';
+    }
+
+    function scanner(){
+      root.querySelectorAll('.doc-row,.personal-doc,.personal-book,.aurore-personal-document-row').forEach(ajouterDansRow);
+    }
+
+    scanner();
+    const observer=new MutationObserver(()=>scanner());
+    observer.observe(root,{subtree:true,childList:true});
+
+    // Les listes sont souvent reconstruites après un chargement asynchrone.
+    [100,300,700,1200,2000].forEach(ms=>setTimeout(scanner,ms));
   })();
 </script>
 
