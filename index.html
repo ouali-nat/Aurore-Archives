@@ -4115,13 +4115,7 @@ main{width:100%;min-width:0;overflow-x:clip;}
       // l'appel manuel n'arrive — d'où l'erreur "code verifier not found in
       // storage" (Google OAuth), intermittente selon la vitesse d'exécution
       // de la page (extensions, trackers, navigation normale vs privée).
-      { auth: {
-        flowType: 'pkce',
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: false,
-        storage: window.localStorage
-      } }
+      { auth: { flowType: 'pkce', autoRefreshToken: true, persistSession: true, detectSessionInUrl: false, storage: window.localStorage } }
     );
   }
   let AURORE_SUPABASE_AUTH = window.supabase ? creerClientAuthGoogle() : null;
@@ -4207,29 +4201,37 @@ main{width:100%;min-width:0;overflow-x:clip;}
 
   let auroreConnexionGoogleEnCours = false;
   async function demarrerConnexionGoogle() {
-    // Une seule tentative à la fois : chaque tentative PKCE possède son
-    // propre code_verifier stocké avant le départ vers Google.
+    // Garde anti-double-lancement : deux appels concurrents généreraient
+    // chacun leur propre code_verifier PKCE et s'écraseraient mutuellement
+    // en localStorage, reproduisant l'erreur "code verifier not found".
     if (auroreConnexionGoogleEnCours) return;
     auroreConnexionGoogleEnCours = true;
     try {
       const retour = window.location.origin + window.location.pathname;
+      // Nettoyage ciblé d'un ancien verifier PKCE avant une nouvelle tentative.
+      // La session et les autres données Aurore restent intactes.
+      try { window.localStorage.removeItem('sb-tdeotqfsbvouresfhkab-auth-token-code-verifier'); } catch (_) {}
+      // Important : on passe obligatoirement par le client Supabase (signInWithOAuth)
+      // et non par une redirection manuelle vers /auth/v1/authorize. C'est ce client
+      // qui génère et enregistre le "code_verifier" PKCE dans localStorage avant de
+      // partir vers Google ; sans cet appel, le retour ne peut jamais être validé par
+      // exchangeCodeForSession (ancien bug : la redirection manuelle ne posait aucun
+      // code_verifier, ce qui échouait dès qu'une valeur périmée traînait déjà dans le
+      // localStorage du navigateur — d'où le fonctionnement en navigation privée
+      // uniquement, où le stockage est toujours vide).
       const client = await assurerClientAuthGoogle();
-      if (!client) {
-        throw new Error('Impossible de joindre le service de connexion (réseau bloqué ou instable).');
-      }
-
-      // Supabase crée et stocke le code_verifier PKCE avant de rediriger.
-      // Ne pas remplacer cet appel par /auth/v1/authorize construit à la main.
+      if (!client) throw new Error('Impossible de joindre le service de connexion (réseau bloqué ou instable).');
       const { error } = await client.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo: retour }
       });
       if (error) throw error;
-      // La redirection vers Google est déclenchée par Supabase.
+      // signInWithOAuth déclenche lui-même la redirection du navigateur vers Google.
+      // auroreConnexionGoogleEnCours reste "true" à dessein : la page va quitter
+      // Aurore, donc pas besoin de réarmer la garde ici.
     } catch (error) {
       console.error('[Aurore] Erreur connexion Google:', error);
       window.auroreAfficherErreurDebug?.('[Connexion Google] ' + (error?.message || error));
-      window.auroreCacherVeuillezPatienter?.();
       alert('Impossible de démarrer la connexion Google. Veuillez réessayer.');
       auroreConnexionGoogleEnCours = false;
     }
