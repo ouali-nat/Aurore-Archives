@@ -55,6 +55,7 @@
 <meta property="og:description" content="Bibliothèque numérique d'Aurore">
 <meta property="og:image" content="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
 <meta property="og:image:secure_url" content="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
+<meta property="og:image:url" content="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
 <meta property="og:image:alt" content="Logo Aurore — Section Archives">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="512">
@@ -2374,11 +2375,7 @@ main{width:100%;min-width:0;overflow-x:clip;}
 <script id="aurore-shared-route-early">
 (function(){try{if(new URLSearchParams(location.search).has('sectionShare'))document.documentElement.classList.add('aurore-shared-route');}catch(_){}})();
 </script>
-<style id="aurore-buy-documents-style">
-.doc-buy-documents{display:flex!important;align-items:center;gap:9px;color:#fff!important;background:linear-gradient(135deg,#7c3aed,#a855f7)!important;border:0!important;border-radius:11px!important;padding:10px 12px!important;font-weight:800!important}
-.doc-buy-documents:hover{filter:brightness(1.08);transform:translateY(-1px)}
-.doc-buy-documents .buy-mark{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;background:rgba(255,255,255,.16);font-size:.8rem}
-</style></head>
+</head>
 <body class="site-locked">
 
 <!-- ===== PORTAIL D'ACCÈS ===== -->
@@ -7662,8 +7659,7 @@ main{width:100%;min-width:0;overflow-x:clip;}
     menu.innerHTML = `
       <button type="button" data-share-document="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Partager</span></button>
       <button type="button" data-share-whatsapp="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Partager sur WhatsApp</span></button>
-      <button type="button" data-copy-document-link="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Copier le lien</span></button>
-              ${doc['Catégorie']==='Livres'?`<button type="button" class="doc-buy-documents" data-buy-documents="1" role="menuitem"><span class="buy-mark">↗</span><span>Acheter sur Aurore — Section Documents</span></button>`:''}`;
+      <button type="button" data-copy-document-link="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Copier le lien</span></button>`;
     document.body.appendChild(menu);
     return menu;
   }
@@ -7732,7 +7728,9 @@ main{width:100%;min-width:0;overflow-x:clip;}
 
   // Un seul gestionnaire capture la chaîne complète : ouverture + actions.
   document.addEventListener('click', function(e) {
-    const more = e.target.closest?.('[data-document-more]');
+    const target = e.target instanceof Element ? e.target : e.target?.parentElement;
+    const more = target?.closest?.('[data-document-more]');
+
     if (more) {
       e.preventDefault();
       e.stopPropagation();
@@ -7740,13 +7738,16 @@ main{width:100%;min-width:0;overflow-x:clip;}
       return;
     }
 
-    const action = e.target.closest?.('#auroreDocumentShareMenu [data-share-document],#auroreDocumentShareMenu [data-share-whatsapp],#auroreDocumentShareMenu [data-copy-document-link]');
+    const action = target?.closest?.('#auroreDocumentShareMenu [data-share-document],#auroreDocumentShareMenu [data-share-whatsapp],#auroreDocumentShareMenu [data-copy-document-link]');
     if (action) {
       e.preventDefault();
       e.stopPropagation();
+
+      // Garder la référence avant de fermer le menu.
       const documentData = auroreMenuDocumentActif;
-      fermerMenusPartageDocuments();
       if (!documentData) return;
+      fermerMenusPartageDocuments();
+
       if (action.hasAttribute('data-share-document')) {
         Promise.resolve(partagerDocument(documentData)).catch(err => console.warn('[Aurore] Partage:', err));
       } else if (action.hasAttribute('data-share-whatsapp')) {
@@ -7757,7 +7758,7 @@ main{width:100%;min-width:0;overflow-x:clip;}
       return;
     }
 
-    if (!e.target.closest?.('#auroreDocumentShareMenu')) fermerMenusPartageDocuments();
+    if (!target?.closest?.('#auroreDocumentShareMenu')) fermerMenusPartageDocuments();
   }, true);
 
   document.addEventListener('keydown', e => {
@@ -7766,16 +7767,7 @@ main{width:100%;min-width:0;overflow-x:clip;}
   window.addEventListener('resize', fermerMenusPartageDocuments);
   window.addEventListener('scroll', fermerMenusPartageDocuments, true);
 
-  const AURORE_DOCUMENTS_URL = 'https://aurore-section-documentscom.vercel.app/';
-function ouvrirAchatAuroreDocument(doc){
-  const titre=obtenirTitreDocument(doc)||'';
-  const url=new URL(AURORE_DOCUMENTS_URL);
-  url.searchParams.set('recherche',titre);
-  url.searchParams.set('source','archives');
-  window.open(url.toString(),'_blank','noopener,noreferrer');
-}
-
-function rendreListeDocuments(content, data, afficherCouverturesRomans = false) {
+  function rendreListeDocuments(content, data, afficherCouverturesRomans = false) {
     // Prépare PDF.js en parallèle de la construction de la liste : le rendu
     // de la première page peut ainsi démarrer dès que les lignes sont visibles.
     if (afficherCouverturesRomans && typeof chargerPdfJs === 'function') chargerPdfJs().catch(() => {});
@@ -7836,7 +7828,6 @@ function rendreListeDocuments(content, data, afficherCouverturesRomans = false) 
       row.querySelector('[data-lire]').addEventListener('click',()=>ouvrirLecteurPDF(doc));
       row.querySelector('[data-telecharger-maintenant]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(doc));
       row.querySelector('[data-signaler]').addEventListener('click',()=>ouvrirSignalement(doc));
-      row.querySelector('[data-buy-documents]')?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();ouvrirAchatAuroreDocument(doc);});
       row.querySelector('[data-favori]')?.addEventListener('click',()=>basculerFavoriDocument(doc,row.querySelector('[data-favori]')));
       row.querySelector('[data-plus-tard]')?.addEventListener('click',()=>ajouterDocumentPlusTard(doc,row.querySelector('[data-plus-tard]')));
       row.querySelector('[data-case]')?.addEventListener('click',(e)=>{
