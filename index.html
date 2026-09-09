@@ -3185,7 +3185,7 @@ main{width:100%;min-width:0;overflow-x:clip;}
           <div id="adminListConnexions"></div>
         </div>
         <div class="admin-tab-panel" data-panel="visiteurs">
-          <p class="admin-panel-desc">Visiteurs non connectés ayant tenté de télécharger un document (ils peuvent toujours lire, mais doivent se connecter pour télécharger). Les plus récents en premier.</p>
+          <p class="admin-panel-desc">Les 300 derniers visiteurs non connectés ayant tenté de télécharger un document (ils peuvent toujours lire, mais doivent se connecter pour télécharger). Les plus récents en premier.</p>
           <div id="adminListVisiteurs"></div>
         </div>
         <div class="admin-tab-panel" data-panel="vitrine">
@@ -9505,11 +9505,23 @@ main{width:100%;min-width:0;overflow-x:clip;}
         }
       }
     });
+    // Masque aussi directement le contenu de ces panneaux (pas seulement leur
+    // onglet) : évite qu'un panneau resté actif reste visible/accessible.
+    document.querySelectorAll('.admin-tab-panel').forEach(panel => {
+      if (ONGLETS_ADMIN_PROPRIETAIRE.includes(panel.getAttribute('data-panel'))) {
+        if (!proprietaire) panel.classList.remove('active');
+        panel.style.display = proprietaire ? '' : 'none';
+      }
+    });
   }
 
   document.querySelectorAll('.admin-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       const cible = tab.getAttribute('data-tab');
+      // Garde-fou en plus du masquage visuel des onglets : même si ce panneau
+      // était activé par un autre moyen que le clic normal, un admin non
+      // propriétaire ne doit jamais voir son contenu.
+      if (ONGLETS_ADMIN_PROPRIETAIRE.includes(cible) && !estProprietaireAdmin()) return;
       document.querySelectorAll('.admin-tab').forEach(t => t.classList.toggle('active', t === tab));
       document.querySelectorAll('.admin-tab-panel').forEach(p => p.classList.toggle('active', p.getAttribute('data-panel') === cible));
       if (cible === 'reclamations') chargerReclamationsAdmin();
@@ -9899,7 +9911,7 @@ main{width:100%;min-width:0;overflow-x:clip;}
       const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/lister_visites_anonymes_recentes`, {
         method: 'POST',
         headers: { ...headersAdmin(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ limite: 15 })
+        body: JSON.stringify({ limite: 300 })
       });
       if (!res.ok) throw new Error("Statut HTTP " + res.status);
       const data = await res.json();
