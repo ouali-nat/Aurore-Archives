@@ -3181,7 +3181,7 @@ main{width:100%;min-width:0;overflow-x:clip;}
           <div id="adminListReclamations"></div>
         </div>
         <div class="admin-tab-panel" data-panel="connexions">
-          <p class="admin-panel-desc">Les 30 dernières connexions réussies au site, les plus récentes en premier.</p>
+          <p class="admin-panel-desc">Les 300 dernières connexions réussies au site (entrée et sortie), les plus récentes en premier.</p>
           <div id="adminListConnexions"></div>
         </div>
         <div class="admin-tab-panel" data-panel="visiteurs">
@@ -3814,6 +3814,7 @@ main{width:100%;min-width:0;overflow-x:clip;}
   .admin-user-name{font-weight:700;color:var(--encre);margin-bottom:4px;}
   .admin-user-email{font-size:.84rem;color:var(--gris);overflow-wrap:anywhere;}
   .admin-user-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:9px;}
+  .admin-user-sessions{display:flex;flex-direction:column;gap:2px;margin-top:7px;font-size:.82em;opacity:.75;}
   .admin-user-date{font-size:.78rem;color:var(--gris);}
   .admin-user-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;flex-shrink:0;}
   .admin-user-loading,.admin-user-empty{padding:28px 18px;text-align:center;color:var(--gris);background:var(--papier);border:1px dashed var(--bordure);border-radius:var(--radius);}
@@ -4328,24 +4329,61 @@ main{width:100%;min-width:0;overflow-x:clip;}
     return 'eleve';
   }
 
+  // Id de la ligne "Connexions" créée pour la session en cours, afin de
+  // pouvoir y inscrire l'heure de sortie plus tard (déconnexion explicite ou
+  // fermeture de la page). Remis à null quand il n'y a plus de session.
+  let idConnexionCourante = null;
+
   // Enregistre une connexion réussie dans la table "Connexions" (Supabase).
   // N'est appelée qu'après une authentification Google effective (nouveau
   // jeton reçu), jamais lors d'une simple reprise de session déjà ouverte —
   // elle ne modifie en rien le système d'authentification existant.
   async function enregistrerConnexion(sess) {
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/Connexions`, {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/Connexions`, {
         method: 'POST',
         headers: {
           "apikey": SUPABASE_ANON_KEY,
           "Authorization": "Bearer " + sess.access_token,
           "Content-Type": "application/json",
-          "Prefer": "return=minimal"
+          "Prefer": "return=representation"
         },
         body: JSON.stringify({ user_id: sess.id, email: sess.email, nom: sess.nom })
       });
+      if (res.ok) {
+        const lignes = await res.json().catch(() => []);
+        if (Array.isArray(lignes) && lignes[0] && lignes[0].id != null) {
+          idConnexionCourante = lignes[0].id;
+        }
+      }
     } catch (e) {
       console.error('[Connexions] échec de l\'enregistrement', e);
+    }
+  }
+
+  // Inscrit l'heure de sortie sur la ligne de connexion en cours (déconnexion
+  // explicite ou fermeture de la page/onglet). keepalive:true permet à la
+  // requête de survivre à la fermeture de la page (contrairement à un fetch
+  // classique). Sans effet si aucune connexion n'a été enregistrée pour
+  // cette session (ex. session reprise depuis le stockage local).
+  function enregistrerSortieConnexion() {
+    if (idConnexionCourante == null || !session || !session.access_token) return;
+    const id = idConnexionCourante;
+    idConnexionCourante = null;
+    try {
+      fetch(`${SUPABASE_URL}/rest/v1/Connexions?id=eq.${id}`, {
+        method: 'PATCH',
+        headers: {
+          "apikey": SUPABASE_ANON_KEY,
+          "Authorization": "Bearer " + session.access_token,
+          "Content-Type": "application/json",
+          "Prefer": "return=minimal"
+        },
+        body: JSON.stringify({ sortie: new Date().toISOString() }),
+        keepalive: true
+      }).catch(() => {});
+    } catch (e) {
+      console.error('[Connexions] échec de l\'enregistrement de la sortie', e);
     }
   }
 
@@ -4722,11 +4760,17 @@ main{width:100%;min-width:0;overflow-x:clip;}
   });
 
   document.getElementById('btnDeconnexion').addEventListener('click', () => {
+    enregistrerSortieConnexion();
     session = null;
     sauvegarderSession();
     window.dispatchEvent(new CustomEvent('aurore:user-disconnected'));
     afficherUtilisateurConnecte();
   });
+
+  // Fermeture de la page/onglet (ou navigation hors du site) alors qu'une
+  // session est active : on inscrit aussi l'heure de sortie. "pagehide" est
+  // plus fiable que "beforeunload" sur mobile (Safari iOS notamment).
+  window.addEventListener('pagehide', () => { enregistrerSortieConnexion(); });
 
 
   function auroreAfficherInvitationEspacePersonnel(){
@@ -9436,6 +9480,7 @@ main{width:100%;min-width:0;overflow-x:clip;}
     document.getElementById('breadcrumb').innerHTML = '';
     afficherEcran('screen-admin');
     document.getElementById('adminPanel').style.display = 'block';
+    appliquerVisibiliteOngletsProprietaire();
     chargerStatsAdmin();
     chargerDepotsEnAttente();
     chargerDocumentsPublies();
@@ -9444,6 +9489,24 @@ main{width:100%;min-width:0;overflow-x:clip;}
 
   // Navigation par onglets du tableau de bord (purement visuel — ne touche
   // à aucune donnée, se contente d'afficher/masquer les panneaux déjà chargés).
+  // Onglets réservés au compte propriétaire (pub, apparence, vidéos) :
+  // masqués pour les autres administrateurs, qui n'ont pas les droits pour
+  // agir dessus côté base de données (voir policies RLS Publicites/Videos).
+  const ONGLETS_ADMIN_PROPRIETAIRE = ['vitrine', 'apparence', 'videos'];
+  function appliquerVisibiliteOngletsProprietaire() {
+    const proprietaire = estProprietaireAdmin();
+    document.querySelectorAll('.admin-tab').forEach(tab => {
+      if (ONGLETS_ADMIN_PROPRIETAIRE.includes(tab.dataset.tab)) {
+        tab.style.display = proprietaire ? '' : 'none';
+        if (!proprietaire && tab.classList.contains('active')) {
+          tab.classList.remove('active');
+          const premierVisible = document.querySelector('.admin-tab:not([style*="display: none"])');
+          if (premierVisible) premierVisible.click();
+        }
+      }
+    });
+  }
+
   document.querySelectorAll('.admin-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       const cible = tab.getAttribute('data-tab');
@@ -9636,6 +9699,17 @@ main{width:100%;min-width:0;overflow-x:clip;}
         }
       } catch (e) { console.warn('[Admin utilisateurs] informations détaillées indisponibles', e); }
 
+      // Dernière entrée / dernière sortie de chaque utilisateur (vue
+      // "dernieres_sessions_utilisateurs", lecture seule, réservée aux admins).
+      let dernieresSessions = new Map();
+      try {
+        const sessionsRes = await fetch(`${SUPABASE_URL}/rest/v1/dernieres_sessions_utilisateurs?select=user_id,derniere_entree,derniere_sortie`, { headers: headersAdmin() });
+        if (sessionsRes.ok) {
+          const lignes = await sessionsRes.json().catch(() => []);
+          (Array.isArray(lignes) ? lignes : []).forEach(l => { if (l && l.user_id) dernieresSessions.set(String(l.user_id), l); });
+        }
+      } catch (e) { console.warn('[Admin utilisateurs] dernières sessions indisponibles', e); }
+
       listeProfils.forEach(profil => {
         const scolaire = { ...profil, ...(profilsScolaires.get(String(profil.id)) || {}) };
         const card = document.createElement('article');
@@ -9654,6 +9728,10 @@ main{width:100%;min-width:0;overflow-x:clip;}
         const email = profil.email || 'E-mail non renseigné';
         const roleAdmin = String(scolaire.role || profil.role || '').toLowerCase() === 'admin';
         const banni = statutsBannissement.get(String(profil.id)) === true;
+        const derniereSession = dernieresSessions.get(String(profil.id));
+        const formatterSession = (v) => v ? new Date(v).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : null;
+        const derniereEntreeTxt = derniereSession ? formatterSession(derniereSession.derniere_entree) : null;
+        const derniereSortieTxt = derniereSession ? formatterSession(derniereSession.derniere_sortie) : null;
         card.classList.add('admin-user-card');
         card.innerHTML = `
           <div class="admin-user-main">
@@ -9674,6 +9752,11 @@ main{width:100%;min-width:0;overflow-x:clip;}
               ${banni ? '<span class="admin-user-status-banned">● Compte banni</span>' : ''}
               <span class="admin-user-date">${echapperHtmlPub(formaterDateInscriptionUtilisateur(profil))}</span>
             </div>
+            ${derniereEntreeTxt ? `
+            <div class="admin-user-sessions">
+              <span>Dernière entrée : ${echapperHtmlPub(derniereEntreeTxt)}</span>
+              <span>Dernière sortie : ${derniereSortieTxt ? echapperHtmlPub(derniereSortieTxt) : 'Session en cours'}</span>
+            </div>` : ''}
           </div>
           <div class="admin-user-actions"></div>`;
         const actions = card.querySelector('.admin-user-actions');
@@ -9848,14 +9931,14 @@ main{width:100%;min-width:0;overflow-x:clip;}
     }
   }
 
-  // Liste des 30 dernières connexions (table "Connexions" déjà utilisée par
-  // enregistrerConnexion() et par chargerStatsAdmin() ci-dessus) — aucune
-  // nouvelle table, aucune donnée modifiée, lecture seule.
+  // Liste des 300 dernières connexions (table "Connexions" déjà utilisée par
+  // enregistrerConnexion() et par chargerStatsAdmin() ci-dessus), avec heure
+  // d'entrée et de sortie — aucune nouvelle table, lecture seule.
   async function chargerDernieresConnexions() {
     const list = document.getElementById('adminListConnexions');
     list.innerHTML = '<p class="admin-empty">Chargement…</p>';
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/Connexions?select=nom,email,date&order=date.desc&limit=30`, { headers: headersAdmin() });
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/Connexions?select=nom,email,date,sortie&order=date.desc&limit=300`, { headers: headersAdmin() });
       if (!res.ok) throw new Error("Statut HTTP " + res.status);
       const data = await res.json();
       if (!data || data.length === 0) {
@@ -9867,13 +9950,15 @@ main{width:100%;min-width:0;overflow-x:clip;}
         const card = document.createElement('div');
         card.className = 'admin-card';
         card.style.animationDelay = (i * 0.04) + 's';
-        const d = new Date(c.date);
-        const formatee = d.toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
+        const entree = new Date(c.date).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
+        const sortie = c.sortie
+          ? new Date(c.sortie).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })
+          : 'Session en cours';
         card.innerHTML = `
           <div class="admin-card-icon">${ICONS.user}</div>
           <div class="admin-card-body">
             <div class="titre">${c.nom || 'Nom inconnu'}</div>
-            <div class="meta">${c.email || 'e-mail inconnu'}<br>${formatee}</div>
+            <div class="meta">${c.email || 'e-mail inconnu'}<br>Entrée : ${entree}<br>Sortie : ${sortie}</div>
           </div>
         `;
         list.appendChild(card);
