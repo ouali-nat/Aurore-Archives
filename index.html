@@ -3344,6 +3344,7 @@ main{width:100%;min-width:0;overflow-x:clip;}
           <p class="admin-panel-desc">Recherche les documents publiés dont le fichier est strictement identique, même si le titre ou le nom du fichier diffère. L’analyse se fait uniquement à la demande pour éviter des téléchargements inutiles.</p>
           <div class="admin-duplicate-toolbar">
             <button type="button" class="admin-btn primary" id="adminDuplicatesRefresh">Actualiser et rechercher les doublons</button>
+            <button type="button" class="admin-btn ghost" id="adminDuplicatesCancel" style="display:none;">Annuler l’analyse</button>
             <span id="adminDuplicatesStatus" class="admin-duplicate-status">Aucune analyse lancée.</span>
           </div>
           <div id="adminDuplicatesList" class="admin-duplicates-list">
@@ -10762,6 +10763,21 @@ main{width:100%;min-width:0;overflow-x:clip;}
     return result;
   }
 
+  // Deuxième fonction manquante trouvée dans le module doublons : appelée
+  // uniquement à l'affichage des résultats (donc seulement quand un doublon
+  // est réellement détecté), elle n'existait nulle part — ce qui faisait
+  // planter l'affichage juste après une détection réussie ("Impossible
+  // d'analyser les documents publiés"), au lieu d'afficher le résultat.
+  function nomFichierExactDepuisUrl(url) {
+    try {
+      const u = new URL(String(url || ''), window.location.href);
+      const nom = decodeURIComponent(u.pathname.split('/').pop() || '').trim();
+      return nom || 'Fichier inconnu';
+    } catch (e) {
+      return 'Fichier inconnu';
+    }
+  }
+
   function afficherGroupesDoublonsAdmin(groupes, erreurs=0){
     const list=document.getElementById('adminDuplicatesList');
     const count=document.getElementById('tabCountDoublons');
@@ -10801,12 +10817,21 @@ main{width:100%;min-width:0;overflow-x:clip;}
     }
   }
 
+  // Drapeau d'annulation de l'analyse des doublons en cours (voir bouton
+  // "Annuler l'analyse" ci-dessous). L'analyse peut être longue (chaque
+  // fichier publié est réellement téléchargé pour être vérifié), d'où le
+  // besoin de pouvoir l'interrompre proprement.
+  let analyseDoublonsAnnulee = false;
+
   async function chargerDoublonsAdmin(){
     const list=document.getElementById('adminDuplicatesList');
     const status=document.getElementById('adminDuplicatesStatus');
     const btn=document.getElementById('adminDuplicatesRefresh');
+    const btnAnnuler=document.getElementById('adminDuplicatesCancel');
     if(!list||!status) return;
+    analyseDoublonsAnnulee=false;
     if(btn) btn.disabled=true;
+    if(btnAnnuler) btnAnnuler.style.display='';
     list.innerHTML='<div class="admin-duplicate-empty">Analyse des documents publiés…</div>';
     status.textContent='Récupération des documents publiés…';
     adminDuplicateHashCache.clear();
@@ -10823,7 +10848,9 @@ main{width:100%;min-width:0;overflow-x:clip;}
       // requis pour décider si deux fichiers sont candidats.
       const parTaille=new Map();
       let erreurs=0;
+      let annulee=false;
       for(let i=0;i<docs.length;i++){
+        if(analyseDoublonsAnnulee){ annulee=true; break; }
         const doc=docs[i];
         status.textContent=`Lecture des fichiers ${i+1}/${docs.length}…`;
         try{
@@ -10853,15 +10880,29 @@ main{width:100%;min-width:0;overflow-x:clip;}
       }
       groupes.sort((a,b)=>b.documents.length-a.documents.length || b.taille-a.taille);
       afficherGroupesDoublonsAdmin(groupes,erreurs);
-      status.textContent=groupes.length
-        ? `${groupes.length} groupe(s) de doublons stricts détecté(s).`
-        : (erreurs ? `Analyse terminée : aucun doublon confirmé. ${erreurs} document(s) n’ont pas pu être vérifiés.` : 'Analyse terminée : aucun doublon strict détecté.');
+      if(annulee){
+        status.textContent=`Analyse annulée : ${groupes.length} groupe(s) de doublons détecté(s) parmi les fichiers déjà vérifiés.`;
+      } else {
+        status.textContent=groupes.length
+          ? `${groupes.length} groupe(s) de doublons stricts détecté(s).`
+          : (erreurs ? `Analyse terminée : aucun doublon confirmé. ${erreurs} document(s) n’ont pas pu être vérifiés.` : 'Analyse terminée : aucun doublon strict détecté.');
+      }
     }catch(e){
       console.error('[Doublons admin]',e);
       list.innerHTML=`<div class="admin-duplicate-empty error">Impossible d’analyser les documents publiés. ${echapperHtmlPub(e.message||'Erreur inconnue.')}</div>`;
       status.textContent='Analyse impossible.';
-    }finally{if(btn) btn.disabled=false;}
+    }finally{
+      if(btn) btn.disabled=false;
+      if(btnAnnuler) btnAnnuler.style.display='none';
+      analyseDoublonsAnnulee=false;
+    }
   }
+
+  document.getElementById('adminDuplicatesCancel')?.addEventListener('click',()=>{
+    analyseDoublonsAnnulee=true;
+    const status=document.getElementById('adminDuplicatesStatus');
+    if(status) status.textContent='Annulation en cours… (fin de la vérification du fichier en cours)';
+  });
 
   // Garde un seul exemplaire d'un groupe de doublons et exclut (dépublie)
   // tous les autres en une seule action, au lieu de les exclure un par un.
