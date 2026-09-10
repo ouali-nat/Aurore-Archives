@@ -4415,6 +4415,17 @@ main{width:100%;min-width:0;overflow-x:clip;}
     } catch (e) { return false; }
   }
 
+  // Rafraîchit périodiquement le jeton tant que l'onglet reste ouvert.
+  // Sans ça, un utilisateur resté connecté plus longtemps que la durée de vie
+  // du token (~1h) ferme la page avec un access_token expiré : la requête
+  // d'écriture de "sortie" est alors silencieusement refusée par Supabase
+  // (JWT expiré), et la ligne reste pour toujours sur "Session en cours" —
+  // c'est très exactement le problème observé côté admin. Même mécanisme que
+  // le rafraîchissement forcé déjà en place avant un dépôt de document.
+  setInterval(() => {
+    if (session && session.refresh_token) rafraichirSession().catch(() => {});
+  }, 15 * 60 * 1000);
+
   // Affiche à l'utilisateur connecté les notifications personnelles non lues
   // le concernant (ex. "Votre document a été validé et publié"), voir la table
   // "Notifications" (schéma fourni) dont la policy RLS ne permet à chacun de
@@ -4765,6 +4776,8 @@ main{width:100%;min-width:0;overflow-x:clip;}
     sauvegarderSession();
     window.dispatchEvent(new CustomEvent('aurore:user-disconnected'));
     afficherUtilisateurConnecte();
+    // Redevient un visiteur non connecté à partir de maintenant.
+    enregistrerEntreeVisiteurAnonyme();
   });
 
   // Fermeture de la page/onglet (ou navigation hors du site) alors qu'une
@@ -4969,6 +4982,10 @@ main{width:100%;min-width:0;overflow-x:clip;}
       chargerNotificationsPersonnelles();
       afficherNotificationTelechargementAuRetour();
       if (!profilEstComplet(session)) ouvrirEspacePersonnelObligatoire();
+    } else {
+      // Visiteur non connecté : entrée/sortie suivies dans "Visites_anonymes"
+      // (un utilisateur connecté est déjà suivi via "Connexions").
+      enregistrerEntreeVisiteurAnonyme();
     }
     if (typeof window.auroreCacherVeuillezPatienter === 'function') window.auroreCacherVeuillezPatienter();
   }
@@ -7703,7 +7720,8 @@ main{width:100%;min-width:0;overflow-x:clip;}
     menu.innerHTML = `
       <button type="button" data-share-document="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Partager</span></button>
       <button type="button" data-share-whatsapp="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Partager sur WhatsApp</span></button>
-      <button type="button" data-copy-document-link="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Copier le lien</span></button>`;
+      <button type="button" data-copy-document-link="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Copier le lien</span></button>
+      <button type="button" data-chercher-aurore-section="1" role="menuitem" disabled aria-disabled="true" style="opacity:.55;cursor:default;"><span class="share-icon">${ICONS.search || ICONS.share}</span><span>Chercher sur Aurore Section Documents</span></button>`;
     document.body.appendChild(menu);
     return menu;
   }
@@ -7866,6 +7884,7 @@ main{width:100%;min-width:0;overflow-x:clip;}
               <button type="button" data-share-document="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Partager</span></button>
               <button type="button" data-share-whatsapp="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Partager sur WhatsApp</span></button>
               <button type="button" data-copy-document-link="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Copier le lien</span></button>
+              <button type="button" data-chercher-aurore-section="1" role="menuitem" disabled aria-disabled="true" style="opacity:.55;cursor:default;"><span class="share-icon">${ICONS.search || ICONS.share}</span><span>Chercher sur Aurore Section Documents</span></button>
             </div>
           </div>
         </div>`;
@@ -9924,15 +9943,18 @@ main{width:100%;min-width:0;overflow-x:clip;}
         const card = document.createElement('div');
         card.className = 'admin-card';
         card.style.animationDelay = (i * 0.04) + 's';
-        const d = new Date(v.created_at);
-        const formatee = d.toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
+        const entree = new Date(v.created_at).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
+        const sortie = v.sortie
+          ? new Date(v.sortie).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })
+          : 'Session en cours';
         const contexte = v.contexte === 'tentative_telechargement' ? 'A voulu télécharger' : 'Visite';
         const doc = v.document_titre ? ` — « ${v.document_titre} »` : '';
+        const idCourt = v.visitor_id ? String(v.visitor_id).slice(0, 12) : 'inconnu';
         card.innerHTML = `
           <div class="admin-card-icon">${ICONS.user}</div>
           <div class="admin-card-body">
             <div class="titre">${contexte}${doc}</div>
-            <div class="meta">${formatee}</div>
+            <div class="meta">Visiteur : ${echapperHtmlPub(idCourt)}<br>Entrée : ${entree}<br>Sortie : ${sortie}${v.user_agent ? `<br><small>${echapperHtmlPub(v.user_agent)}</small>` : ''}</div>
           </div>
         `;
         list.appendChild(card);
@@ -10705,6 +10727,29 @@ main{width:100%;min-width:0;overflow-x:clip;}
     return await res.json();
   }
 
+  // Cette fonction était appelée par tailleEtHashDocumentDoublon() ci-dessous
+  // mais n'existait nulle part dans le fichier : chaque document tombait donc
+  // systématiquement en erreur ("non vérifiable"), et aucun doublon n'était
+  // jamais détecté. Même repli Worker R2 → URL publique que le téléchargement.
+  async function recupererOctetsPDF(url) {
+    if (!url) throw new Error('URL de fichier manquante.');
+    const source = String(url);
+    const cle = source.indexOf(R2_PUBLIC_URL + '/') === 0
+      ? source.slice(R2_PUBLIC_URL.length + 1)
+      : null;
+    let res = null;
+    if (cle) {
+      try { res = await fetch(`${R2_WORKER_URL}/${cle}`, { cache: 'no-store' }); }
+      catch (e) { /* on retente via l'URL publique ci-dessous */ }
+    }
+    if (!res || !res.ok) {
+      try { res = await fetch(source, { cache: 'no-store' }); }
+      catch (e) { /* laissé tel quel, l'erreur est levée plus bas */ }
+    }
+    if (!res || !res.ok) throw new Error('Le fichier n’a pas pu être récupéré pour vérification.');
+    return new Uint8Array(await res.arrayBuffer());
+  }
+
   async function tailleEtHashDocumentDoublon(doc){
     if(!doc || !doc.Fichier_url) return {taille:0,hash:null};
     const cacheKey=String(doc.Fichier_url);
@@ -10737,8 +10782,9 @@ main{width:100%;min-width:0;overflow-x:clip;}
       docs.forEach(doc=>{
         const item=document.createElement('div');
         item.className='admin-duplicate-item';
-        item.innerHTML=`<div class="admin-duplicate-item-main"><strong>${echapperHtmlPub(doc.Titre||'Sans titre')}</strong><span>${echapperHtmlPub([doc.Niveau,doc.Classe,doc['Matière']||doc.Genre].filter(Boolean).join(' · ')||'Informations non renseignées')}</span><small>${echapperHtmlPub(nomFichierExactDepuisUrl(doc.Fichier_url))}</small></div><div class="admin-duplicate-item-actions"><button type="button" class="admin-btn ghost js-open-pdf-in-site">Ouvrir dans Aurore</button><button type="button" class="admin-btn refuser" data-duplicate-delete="1">Exclure du site</button></div>`;
+        item.innerHTML=`<div class="admin-duplicate-item-main"><strong>${echapperHtmlPub(doc.Titre||'Sans titre')}</strong><span>${echapperHtmlPub([doc.Niveau,doc.Classe,doc['Matière']||doc.Genre].filter(Boolean).join(' · ')||'Informations non renseignées')}</span><small>${echapperHtmlPub(nomFichierExactDepuisUrl(doc.Fichier_url))}</small></div><div class="admin-duplicate-item-actions"><button type="button" class="admin-btn ghost js-open-pdf-in-site">Ouvrir dans Aurore</button><button type="button" class="admin-btn primary" data-duplicate-keep="1">Garder uniquement cette version</button><button type="button" class="admin-btn refuser" data-duplicate-delete="1">Exclure du site</button></div>`;
         item.querySelector('[data-duplicate-delete="1"]').addEventListener('click',()=>exclureDoublonAdmin(doc.id,doc.Titre,wrap));
+        item.querySelector('[data-duplicate-keep="1"]').addEventListener('click',()=>garderUniqueVersionDoublon(g,doc.id,wrap));
         item.querySelector('.js-open-pdf-in-site')?.addEventListener('click',()=>{
           const cible={...doc,id:doc.id,Titre:doc.Titre||'Document',Fichier_url:doc.Fichier_url,Telechargement_autorise:doc.Telechargement_autorise!==false};
           if(!cible.Fichier_url){alert('Le fichier PDF de ce document est introuvable.');return;}
@@ -10815,6 +10861,35 @@ main{width:100%;min-width:0;overflow-x:clip;}
       list.innerHTML=`<div class="admin-duplicate-empty error">Impossible d’analyser les documents publiés. ${echapperHtmlPub(e.message||'Erreur inconnue.')}</div>`;
       status.textContent='Analyse impossible.';
     }finally{if(btn) btn.disabled=false;}
+  }
+
+  // Garde un seul exemplaire d'un groupe de doublons et exclut (dépublie)
+  // tous les autres en une seule action, au lieu de les exclure un par un.
+  async function garderUniqueVersionDoublon(groupe, idAGarder, groupCard){
+    const autres = groupe.documents.filter(d => d.id !== idAGarder);
+    if(!autres.length) return;
+    const titreGarde = groupe.documents.find(d => d.id === idAGarder)?.Titre || 'ce document';
+    if(!confirm(`Garder uniquement « ${titreGarde} » et exclure du site les ${autres.length} autre(s) exemplaire(s) de ce doublon ?\n\nLes documents exclus seront simplement dépubliés (pas supprimés de la base ni du stockage).`)) return;
+    let echecs = 0;
+    for(const doc of autres){
+      try{
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/Document?id=eq.${encodeURIComponent(doc.id)}`,{
+          method:'PATCH',
+          headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=representation'},
+          body:JSON.stringify({Publie:false})
+        });
+        const text = await res.text();
+        if(!res.ok) throw new Error(text||('HTTP '+res.status));
+        let data=[]; try{data=JSON.parse(text)||[]}catch(e){}
+        if(!data.length) throw new Error('Aucune modification effectuée.');
+      }catch(e){
+        echecs++;
+        console.error('[Doublons admin] exclusion groupée',doc.id,e);
+      }
+    }
+    if(echecs) alert(`${echecs} document(s) n'ont pas pu être exclus (droits administrateur ou erreur réseau). Les autres ont bien été exclus.`);
+    await chargerDoublonsAdmin();
+    await chargerDocumentsPublies();
   }
 
   async function exclureDoublonAdmin(id,titre,groupCard){
@@ -12238,6 +12313,51 @@ main{width:100%;min-width:0;overflow-x:clip;}
       });
     } catch (e) { console.warn('[Visites anonymes] enregistrement impossible', e); }
   }
+
+  // Id de la visite anonyme en cours (table "Visites_anonymes"), pour pouvoir
+  // y inscrire l'heure de sortie plus tard — même principe que les
+  // connexions des utilisateurs identifiés (idConnexionCourante). Passe par
+  // les RPC dédiées, car cette table n'a aucune policy SELECT/UPDATE directe.
+  let idVisiteAnonymeCourante = null;
+
+  // Entrée sur le site pour un visiteur non connecté (appelée une fois, une
+  // fois qu'on sait avec certitude qu'aucune session n'est active — voir
+  // auroreInitAuth). Un utilisateur connecté est déjà suivi via "Connexions".
+  async function enregistrerEntreeVisiteurAnonyme() {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/enregistrer_visite_anonyme`, {
+        method: 'POST',
+        headers: { ...HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          p_contexte: 'visite',
+          p_document_titre: null,
+          p_visitor_id: idVisiteurAnonyme(),
+          p_user_agent: (navigator && navigator.userAgent) || null
+        })
+      });
+      if (res.ok) {
+        const id = await res.json().catch(() => null);
+        if (id != null) idVisiteAnonymeCourante = id;
+      }
+    } catch (e) { console.warn('[Visites anonymes] entrée non enregistrée', e); }
+  }
+
+  // Sortie du site pour un visiteur non connecté (fermeture de la page ou de
+  // l'onglet). keepalive:true permet à la requête de survivre à la fermeture.
+  function enregistrerSortieVisiteurAnonyme() {
+    if (idVisiteAnonymeCourante == null) return;
+    const id = idVisiteAnonymeCourante;
+    idVisiteAnonymeCourante = null;
+    try {
+      fetch(`${SUPABASE_URL}/rest/v1/rpc/enregistrer_sortie_visite_anonyme`, {
+        method: 'POST',
+        headers: { ...HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_visite_id: id }),
+        keepalive: true
+      }).catch(() => {});
+    } catch (e) { console.error('[Visites anonymes] échec de l’enregistrement de la sortie', e); }
+  }
+  window.addEventListener('pagehide', () => { enregistrerSortieVisiteurAnonyme(); });
 
   // Bloque le téléchargement pour un visiteur non connecté et ouvre la même
   // fenêtre de connexion/inscription que le reste du site (voir requireLogin()
