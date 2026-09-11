@@ -4061,6 +4061,9 @@ main{width:100%;min-width:0;overflow-x:clip;}
   .wiki-inline-state{display:flex;align-items:center;gap:10px;color:var(--gris);font-size:.85rem;padding:14px 2px;}
   .wiki-inline-state .wiki-spinner{width:16px;height:16px;border-radius:50%;border:2px solid var(--bordure);border-top-color:var(--violet);animation:wikiSpin .8s linear infinite;flex:none;}
   @keyframes wikiSpin{to{transform:rotate(360deg);}}
+  .wiki-load-more-wrap{display:flex;justify-content:center;padding:16px 2px 4px;}
+  .wiki-load-more-btn{background:var(--auraster-panel-2);border:1px solid var(--bordure);color:var(--violet);font-weight:600;font-size:.85rem;border-radius:999px;padding:10px 22px;cursor:pointer;transition:border-color .15s ease,transform .15s ease,background .15s ease;}
+  .wiki-load-more-btn:hover,.wiki-load-more-btn:focus-visible{border-color:var(--violet);background:rgba(139,92,246,.1);transform:translateY(-1px);outline:none;}
 
   /* ---------- Overlay page encyclopédique ---------- */
   #wikiViewerOverlay{background:var(--fond);}
@@ -17487,6 +17490,11 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
   let wikiDebounceTimer = null;
   let wikiAbortController = null;
   let wikiRequeteSeq = 0;
+  const WIKI_TAILLE_PAGE = 12;
+  let wikiTermeCourant = '';
+  let wikiPagesAffichees = [];
+  let wikiContinuationWiki = null;
+  let wikiChargementEnCours = false;
 
   function normaliserWiki(v){
     return typeof normaliserRechercheSite === 'function'
@@ -17506,67 +17514,121 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
   window.auroreReinitialiserSectionWikipedia = function(){
     if(wikiAbortController){ try{ wikiAbortController.abort(); }catch(e){} wikiAbortController = null; }
     wikiRequeteSeq++;
+    wikiTermeCourant = '';
+    wikiPagesAffichees = [];
+    wikiContinuationWiki = null;
+    wikiChargementEnCours = false;
     const section = document.getElementById('wikiResultsSection');
     if(section){ section.style.display = 'none'; section.innerHTML = ''; }
     const sub = document.getElementById('docsSubheading');
     if(sub) sub.style.display = 'none';
   };
 
-  async function auroreRechercherWikipedia(termeBrut){
-    const terme = String(termeBrut||'').trim();
-    const jeton = ++wikiRequeteSeq;
-    if(wikiAbortController){ try{ wikiAbortController.abort(); }catch(e){} wikiAbortController = null; }
-    if(terme.length < 2){
-      const section = document.getElementById('wikiResultsSection');
-      if(section){ section.style.display='none'; section.innerHTML=''; }
-      const sub = document.getElementById('docsSubheading');
-      if(sub) sub.style.display='none';
-      return;
+  function construireCarteWikiHtml(p){
+    const hasThumb = !!(p.thumbnail && p.thumbnail.source);
+    const img = hasThumb
+      ? `<img src="${esc(p.thumbnail.source)}" alt="" loading="lazy" decoding="async" width="${p.thumbnail.width||260}" height="${p.thumbnail.height||160}">`
+      : `<span class="wiki-result-thumb-fallback">${ICONE_GLOBE}</span>`;
+    const extrait = String(p.extract||'').replace(/\s+/g,' ').trim();
+    return `<button type="button" class="wiki-result-card" data-wiki-titre="${esc(p.title)}">
+      <div class="wiki-result-thumb-wrap">${img}</div>
+      <div class="wiki-result-card-body">
+        <span class="wiki-result-badge">Wikipédia</span>
+        <strong>${esc(p.title)}</strong>
+        ${extrait ? `<p>${esc(extrait)}</p>` : ''}
+      </div>
+    </button>`;
+  }
+
+  function attacherEcouteursWiki(){
+    document.querySelectorAll('#wikiResultsSection [data-wiki-titre]').forEach(btn=>{
+      btn.addEventListener('click', ()=> ouvrirArticleWikipedia(btn.getAttribute('data-wiki-titre')));
+    });
+    document.querySelectorAll('#wikiResultsSection .wiki-result-thumb-wrap img').forEach(img=>{
+      img.addEventListener('error', function(){
+        const wrap = img.closest('.wiki-result-thumb-wrap');
+        if(wrap) wrap.innerHTML = `<span class="wiki-result-thumb-fallback">${ICONE_GLOBE}</span>`;
+      }, { once:true });
+    });
+    const btnPlus = document.getElementById('wikiLoadMoreBtn');
+    if(btnPlus) btnPlus.addEventListener('click', ()=> chargerLotWiki(wikiRequeteSeq, false));
+    const btnRetry = document.getElementById('wikiRetryBtn');
+    if(btnRetry) btnRetry.addEventListener('click', ()=> chargerLotWiki(wikiRequeteSeq, false));
+  }
+
+  function rendreResultatsWiki(){
+    const cartes = wikiPagesAffichees.map(construireCarteWikiHtml).join('');
+    let pied = '';
+    if(wikiChargementEnCours){
+      pied = `<div class="wiki-load-more-wrap"><div class="wiki-inline-state"><span class="wiki-spinner"></span> Chargement de résultats supplémentaires…</div></div>`;
+    }else if(wikiContinuationWiki){
+      pied = `<div class="wiki-load-more-wrap"><button type="button" class="wiki-load-more-btn" id="wikiLoadMoreBtn">Voir plus de résultats</button></div>`;
     }
-    afficherEtatSectionWiki(`<div class="wiki-inline-state"><span class="wiki-spinner"></span> Recherche sur Wikipédia…</div>`);
+    afficherEtatSectionWiki(`<div class="wiki-results-grid">${cartes}</div>${pied}`);
+    attacherEcouteursWiki();
+  }
+
+  async function chargerLotWiki(jeton, estPremierLot){
+    if(wikiChargementEnCours) return;
+    wikiChargementEnCours = true;
+    if(!estPremierLot) rendreResultatsWiki();
+    if(wikiAbortController){ try{ wikiAbortController.abort(); }catch(e){} }
     wikiAbortController = (typeof AbortController !== 'undefined') ? new AbortController() : null;
     try{
       const params = new URLSearchParams({
-        action:'query', generator:'search', gsrsearch:terme, gsrlimit:'6', gsrnamespace:'0',
+        action:'query', generator:'search', gsrsearch:wikiTermeCourant, gsrlimit:String(WIKI_TAILLE_PAGE), gsrnamespace:'0',
         prop:'pageimages|extracts', exintro:'1', explaintext:'1', exchars:'170',
-        piprop:'thumbnail', pithumbsize:'260', format:'json', origin:'*', redirects:'1'
+        piprop:'thumbnail', pithumbsize:'240', format:'json', origin:'*', redirects:'1'
       });
+      if(wikiContinuationWiki){
+        Object.keys(wikiContinuationWiki).forEach(k=> params.set(k, wikiContinuationWiki[k]));
+      }
       const res = await fetch(`${WIKI_API}?${params.toString()}`, { signal: wikiAbortController?.signal, cache:'no-store' });
       if(jeton !== wikiRequeteSeq) return;
       if(!res.ok) throw new Error('HTTP '+res.status);
       const data = await res.json();
       if(jeton !== wikiRequeteSeq) return;
       const pages = (data && data.query && data.query.pages) ? Object.values(data.query.pages) : [];
-      if(!pages.length){
-        afficherEtatSectionWiki(`<div class="wiki-inline-state">Aucun résultat Wikipédia pour « ${esc(terme)} ».</div>`);
+      pages.sort((a,b)=> (a.index||0) - (b.index||0));
+      const dejaVus = new Set(wikiPagesAffichees.map(p=>p.pageid));
+      pages.forEach(p=>{ if(!dejaVus.has(p.pageid)){ wikiPagesAffichees.push(p); dejaVus.add(p.pageid); } });
+      wikiContinuationWiki = (data && data.continue) ? data.continue : null;
+      wikiChargementEnCours = false;
+      if(!wikiPagesAffichees.length){
+        afficherEtatSectionWiki(`<div class="wiki-inline-state">Aucun résultat Wikipédia pour « ${esc(wikiTermeCourant)} ».</div>`);
         return;
       }
-      pages.sort((a,b)=> (a.index||0) - (b.index||0));
-      const cartes = pages.slice(0,6).map(p=>{
-        const img = p.thumbnail && p.thumbnail.source
-          ? `<img src="${esc(p.thumbnail.source)}" alt="" loading="lazy">`
-          : `<span class="wiki-result-thumb-fallback">${ICONE_GLOBE}</span>`;
-        const extrait = String(p.extract||'').replace(/\s+/g,' ').trim();
-        return `<button type="button" class="wiki-result-card" data-wiki-titre="${esc(p.title)}">
-          <div class="wiki-result-thumb-wrap">${img}</div>
-          <div class="wiki-result-card-body">
-            <span class="wiki-result-badge">Wikipédia</span>
-            <strong>${esc(p.title)}</strong>
-            ${extrait ? `<p>${esc(extrait)}</p>` : ''}
-          </div>
-        </button>`;
-      }).join('');
-      afficherEtatSectionWiki(`<div class="wiki-results-grid">${cartes}</div>`);
-      document.querySelectorAll('#wikiResultsSection [data-wiki-titre]').forEach(btn=>{
-        btn.addEventListener('click', ()=> ouvrirArticleWikipedia(btn.getAttribute('data-wiki-titre')));
-      });
+      rendreResultatsWiki();
     }catch(err){
+      wikiChargementEnCours = false;
       if(err && err.name === 'AbortError') return;
       if(jeton !== wikiRequeteSeq) return;
-      afficherEtatSectionWiki(`<div class="wiki-inline-state">Recherche Wikipédia momentanément indisponible.</div>`);
+      if(!wikiPagesAffichees.length){
+        afficherEtatSectionWiki(`<div class="wiki-inline-state">Recherche Wikipédia momentanément indisponible.</div>`);
+      }else{
+        const cartes = wikiPagesAffichees.map(construireCarteWikiHtml).join('');
+        afficherEtatSectionWiki(`<div class="wiki-results-grid">${cartes}</div><div class="wiki-load-more-wrap"><div class="wiki-inline-state">Chargement impossible. <button type="button" class="wiki-load-more-btn" id="wikiRetryBtn">Réessayer</button></div></div>`);
+        attacherEcouteursWiki();
+      }
     }finally{
       if(jeton === wikiRequeteSeq) wikiAbortController = null;
     }
+  }
+
+  async function auroreRechercherWikipedia(termeBrut){
+    const terme = String(termeBrut||'').trim();
+    const jeton = ++wikiRequeteSeq;
+    if(wikiAbortController){ try{ wikiAbortController.abort(); }catch(e){} wikiAbortController = null; }
+    if(terme.length < 2){
+      window.auroreReinitialiserSectionWikipedia();
+      return;
+    }
+    wikiTermeCourant = terme;
+    wikiPagesAffichees = [];
+    wikiContinuationWiki = null;
+    wikiChargementEnCours = false;
+    afficherEtatSectionWiki(`<div class="wiki-inline-state"><span class="wiki-spinner"></span> Recherche sur Wikipédia…</div>`);
+    await chargerLotWiki(jeton, true);
   }
 
   function programmerRechercheWiki(valeur){
