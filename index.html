@@ -3181,11 +3181,11 @@ main{width:100%;min-width:0;overflow-x:clip;}
           <div id="adminListReclamations"></div>
         </div>
         <div class="admin-tab-panel" data-panel="connexions">
-          <p class="admin-panel-desc">Les 300 dernières connexions réussies au site (entrée et sortie), les plus récentes en premier.</p>
+          <p class="admin-panel-desc">Les 30 dernières connexions réussies au site, les plus récentes en premier.</p>
           <div id="adminListConnexions"></div>
         </div>
         <div class="admin-tab-panel" data-panel="visiteurs">
-          <p class="admin-panel-desc">Les 300 derniers visiteurs non connectés ayant tenté de télécharger un document (ils peuvent toujours lire, mais doivent se connecter pour télécharger). Les plus récents en premier.</p>
+          <p class="admin-panel-desc">Visiteurs non connectés ayant tenté de télécharger un document (ils peuvent toujours lire, mais doivent se connecter pour télécharger). Les plus récents en premier.</p>
           <div id="adminListVisiteurs"></div>
         </div>
         <div class="admin-tab-panel" data-panel="vitrine">
@@ -3344,7 +3344,6 @@ main{width:100%;min-width:0;overflow-x:clip;}
           <p class="admin-panel-desc">Recherche les documents publiés dont le fichier est strictement identique, même si le titre ou le nom du fichier diffère. L’analyse se fait uniquement à la demande pour éviter des téléchargements inutiles.</p>
           <div class="admin-duplicate-toolbar">
             <button type="button" class="admin-btn primary" id="adminDuplicatesRefresh">Actualiser et rechercher les doublons</button>
-            <button type="button" class="admin-btn ghost" id="adminDuplicatesCancel" style="display:none;">Annuler l’analyse</button>
             <span id="adminDuplicatesStatus" class="admin-duplicate-status">Aucune analyse lancée.</span>
           </div>
           <div id="adminDuplicatesList" class="admin-duplicates-list">
@@ -3545,7 +3544,7 @@ main{width:100%;min-width:0;overflow-x:clip;}
       </div>
 
       <section class="personal-folders" id="personalFolders" aria-label="Mes cases">
-        <div class="personal-folders-head"><div><div class="personal-folders-kicker">Classement personnel</div><div class="personal-folders-title">Mes cases</div><p class="personal-folders-subtitle">Créez vos propres cases pour ranger vos documents comme vous le souhaitez. Glissez une case pour changer son ordre.</p></div><div class="personal-folder-limit"><span id="personalFolderCount">0</span> / 10 cases</div></div>
+        <div class="personal-folders-head"><div><div class="personal-folders-kicker">Classement personnel</div><div class="personal-folders-title">Mes cases</div><p class="personal-folders-subtitle">Créez vos propres cases, déposez-y vos propres documents et rangez ceux de la bibliothèque comme vous le souhaitez. Glissez une case pour changer son ordre.</p></div><div class="personal-folder-limit"><span id="personalFolderCount">0</span> / 10 cases</div></div>
         <div class="personal-folder-grid" id="personalFolderGrid"><button type="button" class="personal-folder-create" id="personalFolderCreate"><span class="personal-folder-create-icon">＋</span><strong>Créer une case</strong><span>Maths, Français, Projets…</span></button></div>
         <div class="personal-folder-docs" id="personalFolderDocs" hidden></div>
       </section>
@@ -3815,7 +3814,6 @@ main{width:100%;min-width:0;overflow-x:clip;}
   .admin-user-name{font-weight:700;color:var(--encre);margin-bottom:4px;}
   .admin-user-email{font-size:.84rem;color:var(--gris);overflow-wrap:anywhere;}
   .admin-user-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:9px;}
-  .admin-user-sessions{display:flex;flex-direction:column;gap:2px;margin-top:7px;font-size:.82em;opacity:.75;}
   .admin-user-date{font-size:.78rem;color:var(--gris);}
   .admin-user-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;flex-shrink:0;}
   .admin-user-loading,.admin-user-empty{padding:28px 18px;text-align:center;color:var(--gris);background:var(--papier);border:1px dashed var(--bordure);border-radius:var(--radius);}
@@ -4330,61 +4328,24 @@ main{width:100%;min-width:0;overflow-x:clip;}
     return 'eleve';
   }
 
-  // Id de la ligne "Connexions" créée pour la session en cours, afin de
-  // pouvoir y inscrire l'heure de sortie plus tard (déconnexion explicite ou
-  // fermeture de la page). Remis à null quand il n'y a plus de session.
-  let idConnexionCourante = null;
-
   // Enregistre une connexion réussie dans la table "Connexions" (Supabase).
   // N'est appelée qu'après une authentification Google effective (nouveau
   // jeton reçu), jamais lors d'une simple reprise de session déjà ouverte —
   // elle ne modifie en rien le système d'authentification existant.
   async function enregistrerConnexion(sess) {
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/Connexions`, {
+      await fetch(`${SUPABASE_URL}/rest/v1/Connexions`, {
         method: 'POST',
         headers: {
           "apikey": SUPABASE_ANON_KEY,
           "Authorization": "Bearer " + sess.access_token,
           "Content-Type": "application/json",
-          "Prefer": "return=representation"
+          "Prefer": "return=minimal"
         },
         body: JSON.stringify({ user_id: sess.id, email: sess.email, nom: sess.nom })
       });
-      if (res.ok) {
-        const lignes = await res.json().catch(() => []);
-        if (Array.isArray(lignes) && lignes[0] && lignes[0].id != null) {
-          idConnexionCourante = lignes[0].id;
-        }
-      }
     } catch (e) {
       console.error('[Connexions] échec de l\'enregistrement', e);
-    }
-  }
-
-  // Inscrit l'heure de sortie sur la ligne de connexion en cours (déconnexion
-  // explicite ou fermeture de la page/onglet). keepalive:true permet à la
-  // requête de survivre à la fermeture de la page (contrairement à un fetch
-  // classique). Sans effet si aucune connexion n'a été enregistrée pour
-  // cette session (ex. session reprise depuis le stockage local).
-  function enregistrerSortieConnexion() {
-    if (idConnexionCourante == null || !session || !session.access_token) return;
-    const id = idConnexionCourante;
-    idConnexionCourante = null;
-    try {
-      fetch(`${SUPABASE_URL}/rest/v1/Connexions?id=eq.${id}`, {
-        method: 'PATCH',
-        headers: {
-          "apikey": SUPABASE_ANON_KEY,
-          "Authorization": "Bearer " + session.access_token,
-          "Content-Type": "application/json",
-          "Prefer": "return=minimal"
-        },
-        body: JSON.stringify({ sortie: new Date().toISOString() }),
-        keepalive: true
-      }).catch(() => {});
-    } catch (e) {
-      console.error('[Connexions] échec de l\'enregistrement de la sortie', e);
     }
   }
 
@@ -4415,17 +4376,6 @@ main{width:100%;min-width:0;overflow-x:clip;}
       return true;
     } catch (e) { return false; }
   }
-
-  // Rafraîchit périodiquement le jeton tant que l'onglet reste ouvert.
-  // Sans ça, un utilisateur resté connecté plus longtemps que la durée de vie
-  // du token (~1h) ferme la page avec un access_token expiré : la requête
-  // d'écriture de "sortie" est alors silencieusement refusée par Supabase
-  // (JWT expiré), et la ligne reste pour toujours sur "Session en cours" —
-  // c'est très exactement le problème observé côté admin. Même mécanisme que
-  // le rafraîchissement forcé déjà en place avant un dépôt de document.
-  setInterval(() => {
-    if (session && session.refresh_token) rafraichirSession().catch(() => {});
-  }, 15 * 60 * 1000);
 
   // Affiche à l'utilisateur connecté les notifications personnelles non lues
   // le concernant (ex. "Votre document a été validé et publié"), voir la table
@@ -4772,19 +4722,11 @@ main{width:100%;min-width:0;overflow-x:clip;}
   });
 
   document.getElementById('btnDeconnexion').addEventListener('click', () => {
-    enregistrerSortieConnexion();
     session = null;
     sauvegarderSession();
     window.dispatchEvent(new CustomEvent('aurore:user-disconnected'));
     afficherUtilisateurConnecte();
-    // Redevient un visiteur non connecté à partir de maintenant.
-    enregistrerEntreeVisiteurAnonyme();
   });
-
-  // Fermeture de la page/onglet (ou navigation hors du site) alors qu'une
-  // session est active : on inscrit aussi l'heure de sortie. "pagehide" est
-  // plus fiable que "beforeunload" sur mobile (Safari iOS notamment).
-  window.addEventListener('pagehide', () => { enregistrerSortieConnexion(); });
 
 
   function auroreAfficherInvitationEspacePersonnel(){
@@ -4983,10 +4925,6 @@ main{width:100%;min-width:0;overflow-x:clip;}
       chargerNotificationsPersonnelles();
       afficherNotificationTelechargementAuRetour();
       if (!profilEstComplet(session)) ouvrirEspacePersonnelObligatoire();
-    } else {
-      // Visiteur non connecté : entrée/sortie suivies dans "Visites_anonymes"
-      // (un utilisateur connecté est déjà suivi via "Connexions").
-      enregistrerEntreeVisiteurAnonyme();
     }
     if (typeof window.auroreCacherVeuillezPatienter === 'function') window.auroreCacherVeuillezPatienter();
   }
@@ -7721,8 +7659,7 @@ main{width:100%;min-width:0;overflow-x:clip;}
     menu.innerHTML = `
       <button type="button" data-share-document="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Partager</span></button>
       <button type="button" data-share-whatsapp="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Partager sur WhatsApp</span></button>
-      <button type="button" data-copy-document-link="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Copier le lien</span></button>
-      <button type="button" data-chercher-aurore-section="1" role="menuitem" disabled aria-disabled="true" style="opacity:.55;cursor:default;"><span class="share-icon">${ICONS.search || ICONS.share}</span><span>Chercher sur Aurore Section Documents</span></button>`;
+      <button type="button" data-copy-document-link="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Copier le lien</span></button>`;
     document.body.appendChild(menu);
     return menu;
   }
@@ -7885,7 +7822,6 @@ main{width:100%;min-width:0;overflow-x:clip;}
               <button type="button" data-share-document="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Partager</span></button>
               <button type="button" data-share-whatsapp="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Partager sur WhatsApp</span></button>
               <button type="button" data-copy-document-link="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Copier le lien</span></button>
-              <button type="button" data-chercher-aurore-section="1" role="menuitem" disabled aria-disabled="true" style="opacity:.55;cursor:default;"><span class="share-icon">${ICONS.search || ICONS.share}</span><span>Chercher sur Aurore Section Documents</span></button>
             </div>
           </div>
         </div>`;
@@ -9500,7 +9436,6 @@ main{width:100%;min-width:0;overflow-x:clip;}
     document.getElementById('breadcrumb').innerHTML = '';
     afficherEcran('screen-admin');
     document.getElementById('adminPanel').style.display = 'block';
-    appliquerVisibiliteOngletsProprietaire();
     chargerStatsAdmin();
     chargerDepotsEnAttente();
     chargerDocumentsPublies();
@@ -9509,39 +9444,9 @@ main{width:100%;min-width:0;overflow-x:clip;}
 
   // Navigation par onglets du tableau de bord (purement visuel — ne touche
   // à aucune donnée, se contente d'afficher/masquer les panneaux déjà chargés).
-  // Onglets réservés au compte propriétaire (pub, apparence, vidéos) :
-  // masqués pour les autres administrateurs, qui n'ont pas les droits pour
-  // agir dessus côté base de données (voir policies RLS Publicites/Videos).
-  const ONGLETS_ADMIN_PROPRIETAIRE = ['vitrine', 'apparence', 'videos'];
-  function appliquerVisibiliteOngletsProprietaire() {
-    const proprietaire = estProprietaireAdmin();
-    document.querySelectorAll('.admin-tab').forEach(tab => {
-      if (ONGLETS_ADMIN_PROPRIETAIRE.includes(tab.dataset.tab)) {
-        tab.style.display = proprietaire ? '' : 'none';
-        if (!proprietaire && tab.classList.contains('active')) {
-          tab.classList.remove('active');
-          const premierVisible = document.querySelector('.admin-tab:not([style*="display: none"])');
-          if (premierVisible) premierVisible.click();
-        }
-      }
-    });
-    // Masque aussi directement le contenu de ces panneaux (pas seulement leur
-    // onglet) : évite qu'un panneau resté actif reste visible/accessible.
-    document.querySelectorAll('.admin-tab-panel').forEach(panel => {
-      if (ONGLETS_ADMIN_PROPRIETAIRE.includes(panel.getAttribute('data-panel'))) {
-        if (!proprietaire) panel.classList.remove('active');
-        panel.style.display = proprietaire ? '' : 'none';
-      }
-    });
-  }
-
   document.querySelectorAll('.admin-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       const cible = tab.getAttribute('data-tab');
-      // Garde-fou en plus du masquage visuel des onglets : même si ce panneau
-      // était activé par un autre moyen que le clic normal, un admin non
-      // propriétaire ne doit jamais voir son contenu.
-      if (ONGLETS_ADMIN_PROPRIETAIRE.includes(cible) && !estProprietaireAdmin()) return;
       document.querySelectorAll('.admin-tab').forEach(t => t.classList.toggle('active', t === tab));
       document.querySelectorAll('.admin-tab-panel').forEach(p => p.classList.toggle('active', p.getAttribute('data-panel') === cible));
       if (cible === 'reclamations') chargerReclamationsAdmin();
@@ -9731,17 +9636,6 @@ main{width:100%;min-width:0;overflow-x:clip;}
         }
       } catch (e) { console.warn('[Admin utilisateurs] informations détaillées indisponibles', e); }
 
-      // Dernière entrée / dernière sortie de chaque utilisateur (vue
-      // "dernieres_sessions_utilisateurs", lecture seule, réservée aux admins).
-      let dernieresSessions = new Map();
-      try {
-        const sessionsRes = await fetch(`${SUPABASE_URL}/rest/v1/dernieres_sessions_utilisateurs?select=user_id,derniere_entree,derniere_sortie`, { headers: headersAdmin() });
-        if (sessionsRes.ok) {
-          const lignes = await sessionsRes.json().catch(() => []);
-          (Array.isArray(lignes) ? lignes : []).forEach(l => { if (l && l.user_id) dernieresSessions.set(String(l.user_id), l); });
-        }
-      } catch (e) { console.warn('[Admin utilisateurs] dernières sessions indisponibles', e); }
-
       listeProfils.forEach(profil => {
         const scolaire = { ...profil, ...(profilsScolaires.get(String(profil.id)) || {}) };
         const card = document.createElement('article');
@@ -9760,10 +9654,6 @@ main{width:100%;min-width:0;overflow-x:clip;}
         const email = profil.email || 'E-mail non renseigné';
         const roleAdmin = String(scolaire.role || profil.role || '').toLowerCase() === 'admin';
         const banni = statutsBannissement.get(String(profil.id)) === true;
-        const derniereSession = dernieresSessions.get(String(profil.id));
-        const formatterSession = (v) => v ? new Date(v).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : null;
-        const derniereEntreeTxt = derniereSession ? formatterSession(derniereSession.derniere_entree) : null;
-        const derniereSortieTxt = derniereSession ? formatterSession(derniereSession.derniere_sortie) : null;
         card.classList.add('admin-user-card');
         card.innerHTML = `
           <div class="admin-user-main">
@@ -9784,11 +9674,6 @@ main{width:100%;min-width:0;overflow-x:clip;}
               ${banni ? '<span class="admin-user-status-banned">● Compte banni</span>' : ''}
               <span class="admin-user-date">${echapperHtmlPub(formaterDateInscriptionUtilisateur(profil))}</span>
             </div>
-            ${derniereEntreeTxt ? `
-            <div class="admin-user-sessions">
-              <span>Dernière entrée : ${echapperHtmlPub(derniereEntreeTxt)}</span>
-              <span>Dernière sortie : ${derniereSortieTxt ? echapperHtmlPub(derniereSortieTxt) : 'Session en cours'}</span>
-            </div>` : ''}
           </div>
           <div class="admin-user-actions"></div>`;
         const actions = card.querySelector('.admin-user-actions');
@@ -9931,7 +9816,7 @@ main{width:100%;min-width:0;overflow-x:clip;}
       const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/lister_visites_anonymes_recentes`, {
         method: 'POST',
         headers: { ...headersAdmin(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ limite: 300 })
+        body: JSON.stringify({ limite: 15 })
       });
       if (!res.ok) throw new Error("Statut HTTP " + res.status);
       const data = await res.json();
@@ -9944,18 +9829,15 @@ main{width:100%;min-width:0;overflow-x:clip;}
         const card = document.createElement('div');
         card.className = 'admin-card';
         card.style.animationDelay = (i * 0.04) + 's';
-        const entree = new Date(v.created_at).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
-        const sortie = v.sortie
-          ? new Date(v.sortie).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })
-          : 'Session en cours';
+        const d = new Date(v.created_at);
+        const formatee = d.toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
         const contexte = v.contexte === 'tentative_telechargement' ? 'A voulu télécharger' : 'Visite';
         const doc = v.document_titre ? ` — « ${v.document_titre} »` : '';
-        const idCourt = v.visitor_id ? String(v.visitor_id).slice(0, 12) : 'inconnu';
         card.innerHTML = `
           <div class="admin-card-icon">${ICONS.user}</div>
           <div class="admin-card-body">
             <div class="titre">${contexte}${doc}</div>
-            <div class="meta">Visiteur : ${echapperHtmlPub(idCourt)}<br>Entrée : ${entree}<br>Sortie : ${sortie}${v.user_agent ? `<br><small>${echapperHtmlPub(v.user_agent)}</small>` : ''}</div>
+            <div class="meta">${formatee}</div>
           </div>
         `;
         list.appendChild(card);
@@ -9966,14 +9848,14 @@ main{width:100%;min-width:0;overflow-x:clip;}
     }
   }
 
-  // Liste des 300 dernières connexions (table "Connexions" déjà utilisée par
-  // enregistrerConnexion() et par chargerStatsAdmin() ci-dessus), avec heure
-  // d'entrée et de sortie — aucune nouvelle table, lecture seule.
+  // Liste des 30 dernières connexions (table "Connexions" déjà utilisée par
+  // enregistrerConnexion() et par chargerStatsAdmin() ci-dessus) — aucune
+  // nouvelle table, aucune donnée modifiée, lecture seule.
   async function chargerDernieresConnexions() {
     const list = document.getElementById('adminListConnexions');
     list.innerHTML = '<p class="admin-empty">Chargement…</p>';
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/Connexions?select=nom,email,date,sortie&order=date.desc&limit=300`, { headers: headersAdmin() });
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/Connexions?select=nom,email,date&order=date.desc&limit=30`, { headers: headersAdmin() });
       if (!res.ok) throw new Error("Statut HTTP " + res.status);
       const data = await res.json();
       if (!data || data.length === 0) {
@@ -9985,15 +9867,13 @@ main{width:100%;min-width:0;overflow-x:clip;}
         const card = document.createElement('div');
         card.className = 'admin-card';
         card.style.animationDelay = (i * 0.04) + 's';
-        const entree = new Date(c.date).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
-        const sortie = c.sortie
-          ? new Date(c.sortie).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })
-          : 'Session en cours';
+        const d = new Date(c.date);
+        const formatee = d.toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
         card.innerHTML = `
           <div class="admin-card-icon">${ICONS.user}</div>
           <div class="admin-card-body">
             <div class="titre">${c.nom || 'Nom inconnu'}</div>
-            <div class="meta">${c.email || 'e-mail inconnu'}<br>Entrée : ${entree}<br>Sortie : ${sortie}</div>
+            <div class="meta">${c.email || 'e-mail inconnu'}<br>${formatee}</div>
           </div>
         `;
         list.appendChild(card);
@@ -10728,29 +10608,6 @@ main{width:100%;min-width:0;overflow-x:clip;}
     return await res.json();
   }
 
-  // Cette fonction était appelée par tailleEtHashDocumentDoublon() ci-dessous
-  // mais n'existait nulle part dans le fichier : chaque document tombait donc
-  // systématiquement en erreur ("non vérifiable"), et aucun doublon n'était
-  // jamais détecté. Même repli Worker R2 → URL publique que le téléchargement.
-  async function recupererOctetsPDF(url) {
-    if (!url) throw new Error('URL de fichier manquante.');
-    const source = String(url);
-    const cle = source.indexOf(R2_PUBLIC_URL + '/') === 0
-      ? source.slice(R2_PUBLIC_URL.length + 1)
-      : null;
-    let res = null;
-    if (cle) {
-      try { res = await fetch(`${R2_WORKER_URL}/${cle}`, { cache: 'no-store' }); }
-      catch (e) { /* on retente via l'URL publique ci-dessous */ }
-    }
-    if (!res || !res.ok) {
-      try { res = await fetch(source, { cache: 'no-store' }); }
-      catch (e) { /* laissé tel quel, l'erreur est levée plus bas */ }
-    }
-    if (!res || !res.ok) throw new Error('Le fichier n’a pas pu être récupéré pour vérification.');
-    return new Uint8Array(await res.arrayBuffer());
-  }
-
   async function tailleEtHashDocumentDoublon(doc){
     if(!doc || !doc.Fichier_url) return {taille:0,hash:null};
     const cacheKey=String(doc.Fichier_url);
@@ -10761,21 +10618,6 @@ main{width:100%;min-width:0;overflow-x:clip;}
     const result={taille:blob.size,hash};
     adminDuplicateHashCache.set(cacheKey,result);
     return result;
-  }
-
-  // Deuxième fonction manquante trouvée dans le module doublons : appelée
-  // uniquement à l'affichage des résultats (donc seulement quand un doublon
-  // est réellement détecté), elle n'existait nulle part — ce qui faisait
-  // planter l'affichage juste après une détection réussie ("Impossible
-  // d'analyser les documents publiés"), au lieu d'afficher le résultat.
-  function nomFichierExactDepuisUrl(url) {
-    try {
-      const u = new URL(String(url || ''), window.location.href);
-      const nom = decodeURIComponent(u.pathname.split('/').pop() || '').trim();
-      return nom || 'Fichier inconnu';
-    } catch (e) {
-      return 'Fichier inconnu';
-    }
   }
 
   function afficherGroupesDoublonsAdmin(groupes, erreurs=0){
@@ -10798,9 +10640,8 @@ main{width:100%;min-width:0;overflow-x:clip;}
       docs.forEach(doc=>{
         const item=document.createElement('div');
         item.className='admin-duplicate-item';
-        item.innerHTML=`<div class="admin-duplicate-item-main"><strong>${echapperHtmlPub(doc.Titre||'Sans titre')}</strong><span>${echapperHtmlPub([doc.Niveau,doc.Classe,doc['Matière']||doc.Genre].filter(Boolean).join(' · ')||'Informations non renseignées')}</span><small>${echapperHtmlPub(nomFichierExactDepuisUrl(doc.Fichier_url))}</small></div><div class="admin-duplicate-item-actions"><button type="button" class="admin-btn ghost js-open-pdf-in-site">Ouvrir dans Aurore</button><button type="button" class="admin-btn primary" data-duplicate-keep="1">Garder uniquement cette version</button><button type="button" class="admin-btn refuser" data-duplicate-delete="1">Exclure du site</button></div>`;
+        item.innerHTML=`<div class="admin-duplicate-item-main"><strong>${echapperHtmlPub(doc.Titre||'Sans titre')}</strong><span>${echapperHtmlPub([doc.Niveau,doc.Classe,doc['Matière']||doc.Genre].filter(Boolean).join(' · ')||'Informations non renseignées')}</span><small>${echapperHtmlPub(nomFichierExactDepuisUrl(doc.Fichier_url))}</small></div><div class="admin-duplicate-item-actions"><button type="button" class="admin-btn ghost js-open-pdf-in-site">Ouvrir dans Aurore</button><button type="button" class="admin-btn refuser" data-duplicate-delete="1">Exclure du site</button></div>`;
         item.querySelector('[data-duplicate-delete="1"]').addEventListener('click',()=>exclureDoublonAdmin(doc.id,doc.Titre,wrap));
-        item.querySelector('[data-duplicate-keep="1"]').addEventListener('click',()=>garderUniqueVersionDoublon(g,doc.id,wrap));
         item.querySelector('.js-open-pdf-in-site')?.addEventListener('click',()=>{
           const cible={...doc,id:doc.id,Titre:doc.Titre||'Document',Fichier_url:doc.Fichier_url,Telechargement_autorise:doc.Telechargement_autorise!==false};
           if(!cible.Fichier_url){alert('Le fichier PDF de ce document est introuvable.');return;}
@@ -10817,21 +10658,12 @@ main{width:100%;min-width:0;overflow-x:clip;}
     }
   }
 
-  // Drapeau d'annulation de l'analyse des doublons en cours (voir bouton
-  // "Annuler l'analyse" ci-dessous). L'analyse peut être longue (chaque
-  // fichier publié est réellement téléchargé pour être vérifié), d'où le
-  // besoin de pouvoir l'interrompre proprement.
-  let analyseDoublonsAnnulee = false;
-
   async function chargerDoublonsAdmin(){
     const list=document.getElementById('adminDuplicatesList');
     const status=document.getElementById('adminDuplicatesStatus');
     const btn=document.getElementById('adminDuplicatesRefresh');
-    const btnAnnuler=document.getElementById('adminDuplicatesCancel');
     if(!list||!status) return;
-    analyseDoublonsAnnulee=false;
     if(btn) btn.disabled=true;
-    if(btnAnnuler) btnAnnuler.style.display='';
     list.innerHTML='<div class="admin-duplicate-empty">Analyse des documents publiés…</div>';
     status.textContent='Récupération des documents publiés…';
     adminDuplicateHashCache.clear();
@@ -10848,9 +10680,7 @@ main{width:100%;min-width:0;overflow-x:clip;}
       // requis pour décider si deux fichiers sont candidats.
       const parTaille=new Map();
       let erreurs=0;
-      let annulee=false;
       for(let i=0;i<docs.length;i++){
-        if(analyseDoublonsAnnulee){ annulee=true; break; }
         const doc=docs[i];
         status.textContent=`Lecture des fichiers ${i+1}/${docs.length}…`;
         try{
@@ -10880,57 +10710,14 @@ main{width:100%;min-width:0;overflow-x:clip;}
       }
       groupes.sort((a,b)=>b.documents.length-a.documents.length || b.taille-a.taille);
       afficherGroupesDoublonsAdmin(groupes,erreurs);
-      if(annulee){
-        status.textContent=`Analyse annulée : ${groupes.length} groupe(s) de doublons détecté(s) parmi les fichiers déjà vérifiés.`;
-      } else {
-        status.textContent=groupes.length
-          ? `${groupes.length} groupe(s) de doublons stricts détecté(s).`
-          : (erreurs ? `Analyse terminée : aucun doublon confirmé. ${erreurs} document(s) n’ont pas pu être vérifiés.` : 'Analyse terminée : aucun doublon strict détecté.');
-      }
+      status.textContent=groupes.length
+        ? `${groupes.length} groupe(s) de doublons stricts détecté(s).`
+        : (erreurs ? `Analyse terminée : aucun doublon confirmé. ${erreurs} document(s) n’ont pas pu être vérifiés.` : 'Analyse terminée : aucun doublon strict détecté.');
     }catch(e){
       console.error('[Doublons admin]',e);
       list.innerHTML=`<div class="admin-duplicate-empty error">Impossible d’analyser les documents publiés. ${echapperHtmlPub(e.message||'Erreur inconnue.')}</div>`;
       status.textContent='Analyse impossible.';
-    }finally{
-      if(btn) btn.disabled=false;
-      if(btnAnnuler) btnAnnuler.style.display='none';
-      analyseDoublonsAnnulee=false;
-    }
-  }
-
-  document.getElementById('adminDuplicatesCancel')?.addEventListener('click',()=>{
-    analyseDoublonsAnnulee=true;
-    const status=document.getElementById('adminDuplicatesStatus');
-    if(status) status.textContent='Annulation en cours… (fin de la vérification du fichier en cours)';
-  });
-
-  // Garde un seul exemplaire d'un groupe de doublons et exclut (dépublie)
-  // tous les autres en une seule action, au lieu de les exclure un par un.
-  async function garderUniqueVersionDoublon(groupe, idAGarder, groupCard){
-    const autres = groupe.documents.filter(d => d.id !== idAGarder);
-    if(!autres.length) return;
-    const titreGarde = groupe.documents.find(d => d.id === idAGarder)?.Titre || 'ce document';
-    if(!confirm(`Garder uniquement « ${titreGarde} » et exclure du site les ${autres.length} autre(s) exemplaire(s) de ce doublon ?\n\nLes documents exclus seront simplement dépubliés (pas supprimés de la base ni du stockage).`)) return;
-    let echecs = 0;
-    for(const doc of autres){
-      try{
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/Document?id=eq.${encodeURIComponent(doc.id)}`,{
-          method:'PATCH',
-          headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'return=representation'},
-          body:JSON.stringify({Publie:false})
-        });
-        const text = await res.text();
-        if(!res.ok) throw new Error(text||('HTTP '+res.status));
-        let data=[]; try{data=JSON.parse(text)||[]}catch(e){}
-        if(!data.length) throw new Error('Aucune modification effectuée.');
-      }catch(e){
-        echecs++;
-        console.error('[Doublons admin] exclusion groupée',doc.id,e);
-      }
-    }
-    if(echecs) alert(`${echecs} document(s) n'ont pas pu être exclus (droits administrateur ou erreur réseau). Les autres ont bien été exclus.`);
-    await chargerDoublonsAdmin();
-    await chargerDocumentsPublies();
+    }finally{if(btn) btn.disabled=false;}
   }
 
   async function exclureDoublonAdmin(id,titre,groupCard){
@@ -12354,51 +12141,6 @@ main{width:100%;min-width:0;overflow-x:clip;}
       });
     } catch (e) { console.warn('[Visites anonymes] enregistrement impossible', e); }
   }
-
-  // Id de la visite anonyme en cours (table "Visites_anonymes"), pour pouvoir
-  // y inscrire l'heure de sortie plus tard — même principe que les
-  // connexions des utilisateurs identifiés (idConnexionCourante). Passe par
-  // les RPC dédiées, car cette table n'a aucune policy SELECT/UPDATE directe.
-  let idVisiteAnonymeCourante = null;
-
-  // Entrée sur le site pour un visiteur non connecté (appelée une fois, une
-  // fois qu'on sait avec certitude qu'aucune session n'est active — voir
-  // auroreInitAuth). Un utilisateur connecté est déjà suivi via "Connexions".
-  async function enregistrerEntreeVisiteurAnonyme() {
-    try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/enregistrer_visite_anonyme`, {
-        method: 'POST',
-        headers: { ...HEADERS, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          p_contexte: 'visite',
-          p_document_titre: null,
-          p_visitor_id: idVisiteurAnonyme(),
-          p_user_agent: (navigator && navigator.userAgent) || null
-        })
-      });
-      if (res.ok) {
-        const id = await res.json().catch(() => null);
-        if (id != null) idVisiteAnonymeCourante = id;
-      }
-    } catch (e) { console.warn('[Visites anonymes] entrée non enregistrée', e); }
-  }
-
-  // Sortie du site pour un visiteur non connecté (fermeture de la page ou de
-  // l'onglet). keepalive:true permet à la requête de survivre à la fermeture.
-  function enregistrerSortieVisiteurAnonyme() {
-    if (idVisiteAnonymeCourante == null) return;
-    const id = idVisiteAnonymeCourante;
-    idVisiteAnonymeCourante = null;
-    try {
-      fetch(`${SUPABASE_URL}/rest/v1/rpc/enregistrer_sortie_visite_anonyme`, {
-        method: 'POST',
-        headers: { ...HEADERS, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ p_visite_id: id }),
-        keepalive: true
-      }).catch(() => {});
-    } catch (e) { console.error('[Visites anonymes] échec de l’enregistrement de la sortie', e); }
-  }
-  window.addEventListener('pagehide', () => { enregistrerSortieVisiteurAnonyme(); });
 
   // Bloque le téléchargement pour un visiteur non connecté et ouvre la même
   // fenêtre de connexion/inscription que le reste du site (voir requireLogin()
@@ -15430,13 +15172,15 @@ footer>.wrap:last-child{margin-top:18px!important;}
 <script id="aurore-personal-folders-js">
 (function(){
 'use strict';
-const FOLDER_TABLE='cases_personnelles',ASSIGN_TABLE='documents_cases_personnelles',MAX_FOLDERS=10;let folders=[],folderAssignments=[],draggedFolderId=null;
+const FOLDER_TABLE='cases_personnelles',ASSIGN_TABLE='documents_cases_personnelles',PRIVATE_TABLE='documents_personnels_prives',MAX_FOLDERS=10,PRIVE_TAILLE_MAX=104857600;let folders=[],folderAssignments=[],privateDocs=[],draggedFolderId=null;
 const esc=v=>typeof escapeTextePersonnel==='function'?escapeTextePersonnel(v==null?'':String(v)):String(v==null?'':v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const uid=()=>session?.id?String(session.id):'';
 async function api(table,o={}){if(!session?.access_token)throw new Error('SESSION_ABSENTE');const r=await fetch(`${SUPABASE_URL}/rest/v1/${table}${o.query?'?'+o.query:''}`,{method:o.method||'GET',headers:{...headersAdmin(),'Content-Type':'application/json',...(o.headers||{})},body:o.body?JSON.stringify(o.body):undefined,cache:'no-store'});if(!r.ok)throw new Error(`${table} HTTP ${r.status} ${await r.text().catch(()=> '')}`);return r.status===204?'':await r.text();}
 const lk=()=>`aurore_cases_personnelles_${uid()}`,ak=()=>`aurore_cases_documents_${uid()}`;const read=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}};const write=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
 function normF(a){return(Array.isArray(a)?a:[]).filter(x=>x&&x.id!=null).map((x,i)=>({id:String(x.id),name:String(x.name||'Sans nom').trim().slice(0,60)||'Sans nom',position:Number.isFinite(+x.position)?+x.position:i})).sort((a,b)=>a.position-b.position)}
 function normA(a){return(Array.isArray(a)?a:[]).filter(x=>x&&x.document_id!=null&&x.case_id!=null).map(x=>({document_id:String(x.document_id),case_id:String(x.case_id)}))}
+function normP(a){return(Array.isArray(a)?a:[]).filter(x=>x&&x.id!=null&&x.case_id!=null).map(x=>({id:String(x.id),case_id:String(x.case_id),titre:String(x.titre||'Document').trim().slice(0,150)||'Document',fichier_url:String(x.fichier_url||''),taille_octets:Number(x.taille_octets)||0,type_fichier:x.type_fichier||null,created_at:x.created_at||null}))}
+const pk=()=>`aurore_cases_documents_prives_${uid()}`;
 async function load(){
   if(!uid())return;
   const localFolders=normF(read(lk(),[]));
@@ -15466,9 +15210,16 @@ async function load(){
     folderAssignments=serverAssignments.length?serverAssignments:localAssignments;
     write(ak(),folderAssignments);
   }catch(e){folderAssignments=normA(read(ak(),[]));}
+  try{
+    const raw=await api(PRIVATE_TABLE,{query:`select=id,case_id,titre,fichier_url,taille_octets,type_fichier,created_at&user_id=eq.${encodeURIComponent(uid())}&order=created_at.asc`});
+    const serverPrivate=normP(raw?JSON.parse(raw):[]);
+    const localPrivate=normP(read(pk(),[]));
+    privateDocs=serverPrivate.length?serverPrivate:localPrivate;
+    write(pk(),privateDocs);
+  }catch(e){privateDocs=normP(read(pk(),[]));}
   render();
 }
-function render(){const grid=document.getElementById('personalFolderGrid');if(!grid)return;document.getElementById('personalFolderCount').textContent=String(folders.length);grid.innerHTML='';folders.forEach(f=>{const c=document.createElement('article');c.className='personal-folder';c.draggable=true;c.dataset.folderId=f.id;const n=folderAssignments.filter(a=>a.case_id===f.id).length;c.innerHTML=`<div class="personal-folder-top"><div class="personal-folder-icon">▱</div><button type="button" class="personal-folder-menu" aria-label="Options">⋯</button></div><div class="personal-folder-name" title="${esc(f.name)}">${esc(f.name)}</div><div class="personal-folder-count">${n} document${n>1?'s':''}</div><div class="personal-folder-hint">Glisser pour déplacer</div>`;c.addEventListener('click',e=>{if(!e.target.closest('.personal-folder-menu'))openFolder(f)});c.querySelector('.personal-folder-menu').addEventListener('click',e=>{e.stopPropagation();folderMenu(f)});c.addEventListener('dragstart',()=>{draggedFolderId=f.id;c.classList.add('dragging')});c.addEventListener('dragend',()=>{draggedFolderId=null;c.classList.remove('dragging');grid.querySelectorAll('.drag-over').forEach(x=>x.classList.remove('drag-over'))});c.addEventListener('dragover',e=>{e.preventDefault();if(draggedFolderId!==f.id)c.classList.add('drag-over')});c.addEventListener('dragleave',()=>c.classList.remove('drag-over'));c.addEventListener('drop',e=>{e.preventDefault();c.classList.remove('drag-over');if(draggedFolderId&&draggedFolderId!==f.id)reorder(draggedFolderId,f.id)});grid.appendChild(c)});if(folders.length<MAX_FOLDERS){const b=document.createElement('button');b.type='button';b.className='personal-folder-create';b.innerHTML=`<span class="personal-folder-create-icon">＋</span><strong>Créer une case</strong><span>Encore ${MAX_FOLDERS-folders.length} emplacement${MAX_FOLDERS-folders.length>1?'s':''}</span>`;b.onclick=()=>dialog('create');grid.appendChild(b)}}
+function render(){const grid=document.getElementById('personalFolderGrid');if(!grid)return;document.getElementById('personalFolderCount').textContent=String(folders.length);grid.innerHTML='';folders.forEach(f=>{const c=document.createElement('article');c.className='personal-folder';c.draggable=true;c.dataset.folderId=f.id;const n=folderAssignments.filter(a=>a.case_id===f.id).length+privateDocs.filter(x=>x.case_id===f.id).length;c.innerHTML=`<div class="personal-folder-top"><div class="personal-folder-icon">▱</div><button type="button" class="personal-folder-menu" aria-label="Options">⋯</button></div><div class="personal-folder-name" title="${esc(f.name)}">${esc(f.name)}</div><div class="personal-folder-count">${n} document${n>1?'s':''}</div><div class="personal-folder-hint">Glisser pour déplacer</div>`;c.addEventListener('click',e=>{if(!e.target.closest('.personal-folder-menu'))openFolder(f)});c.querySelector('.personal-folder-menu').addEventListener('click',e=>{e.stopPropagation();folderMenu(f)});c.addEventListener('dragstart',()=>{draggedFolderId=f.id;c.classList.add('dragging')});c.addEventListener('dragend',()=>{draggedFolderId=null;c.classList.remove('dragging');grid.querySelectorAll('.drag-over').forEach(x=>x.classList.remove('drag-over'))});c.addEventListener('dragover',e=>{e.preventDefault();if(draggedFolderId!==f.id)c.classList.add('drag-over')});c.addEventListener('dragleave',()=>c.classList.remove('drag-over'));c.addEventListener('drop',e=>{e.preventDefault();c.classList.remove('drag-over');if(draggedFolderId&&draggedFolderId!==f.id)reorder(draggedFolderId,f.id)});grid.appendChild(c)});if(folders.length<MAX_FOLDERS){const b=document.createElement('button');b.type='button';b.className='personal-folder-create';b.innerHTML=`<span class="personal-folder-create-icon">＋</span><strong>Créer une case</strong><span>Encore ${MAX_FOLDERS-folders.length} emplacement${MAX_FOLDERS-folders.length>1?'s':''}</span>`;b.onclick=()=>dialog('create');grid.appendChild(b)}}
 async function createFolder(name,quiet=false){
   if(folders.length>=MAX_FOLDERS){if(!quiet)alert('Vous avez atteint la limite de 10 cases.');return}
   const clean=String(name||'').trim().replace(/\s+/g,' ').slice(0,60);
@@ -15566,32 +15317,121 @@ async function recupererDocsDesCases(ids){
   return wanted.map(id=>connus.get(id)||{id});
 }
 
+async function uploaderDocumentPrive(fichier,titre,caseId){
+  if(!session?.id) throw new Error('SESSION_ABSENTE');
+  if(!fichier) throw new Error('FICHIER_MANQUANT');
+  const estPdf=fichier.type==='application/pdf'||/\.pdf$/i.test(fichier.name||'');
+  if(!estPdf) throw new Error('FORMAT_INVALIDE');
+  if(fichier.size>PRIVE_TAILLE_MAX) throw new Error('FICHIER_TROP_LOURD');
+  const nomPropre='perso_'+uid()+'_'+Date.now()+'_'+String(fichier.name||'document.pdf').replace(/[^a-zA-Z0-9._-]/g,'_');
+  const up=await fetch(`${R2_WORKER_URL}/${nomPropre}`,{method:'PUT',headers:{'Content-Type':'application/pdf'},body:fichier});
+  if(!up.ok) throw new Error('STOCKAGE_HTTP_'+up.status);
+  const url=`${R2_PUBLIC_URL}/${nomPropre}`;
+  const raw=await api(PRIVATE_TABLE,{method:'POST',headers:{Prefer:'return=representation'},body:{user_id:uid(),case_id:caseId,titre:String(titre||fichier.name||'Document').trim().slice(0,150),fichier_url:url,taille_octets:fichier.size||0,type_fichier:fichier.type||'application/pdf'}});
+  const rows=raw?JSON.parse(raw):[];
+  if(!rows[0]) throw new Error('ENREGISTREMENT_ECHEC');
+  const doc=normP([rows[0]])[0];
+  privateDocs=[...privateDocs,doc];
+  write(pk(),privateDocs);
+  return doc;
+}
+async function supprimerDocumentPrive(doc){
+  if(!confirm(`Supprimer définitivement « ${doc.titre} » ? Cette action est irréversible.`))return;
+  const old=privateDocs;
+  privateDocs=privateDocs.filter(x=>x.id!==doc.id);
+  write(pk(),privateDocs);
+  try{
+    await api(PRIVATE_TABLE,{method:'DELETE',query:`id=eq.${encodeURIComponent(doc.id)}&user_id=eq.${encodeURIComponent(uid())}`,headers:{Prefer:'return=minimal'}});
+  }catch(e){
+    privateDocs=old;write(pk(),privateDocs);
+    console.error('[Cases] suppression document privé',e);
+    alert('Impossible de supprimer ce document pour le moment.');
+    return;
+  }
+  render();
+  const f=folders.find(x=>x.id===doc.case_id);
+  if(f) await openFolder(f); else closeFolder();
+}
+function toggleUploadPanel(p,f){
+  const panel=p.querySelector('#pfuPanel');if(!panel)return;
+  if(!panel.hidden){panel.hidden=true;panel.innerHTML='';return}
+  panel.hidden=false;
+  const options=folders.map(x=>`<option value="${esc(x.id)}" ${x.id===f.id?'selected':''}>${esc(x.name)}</option>`).join('');
+  panel.innerHTML=`<div class="personal-upload-card"><h4>Ajouter un document</h4><div class="personal-upload-row"><label for="pfuSection">Section</label><select id="pfuSection">${options}</select></div><div class="personal-upload-row"><label for="pfuTitre">Nom du document</label><input type="text" id="pfuTitre" maxlength="150" placeholder="Ex. Cours de mathématiques" autocomplete="off"></div><div class="personal-upload-row"><label for="pfuFichier">Fichier</label><input type="file" id="pfuFichier" accept="application/pdf"></div><small class="personal-upload-note">Format PDF uniquement, 100 Mo maximum. Ce document reste privé, sauf si vous partagez la section (toujours en lecture seule pour vos visiteurs).</small><div class="personal-folder-message" id="pfuMsg"></div><div class="personal-upload-actions"><button type="button" id="pfuCancel">Annuler</button><button type="button" class="primary" id="pfuOk">Déposer</button></div></div>`;
+  panel.querySelector('#pfuCancel').onclick=()=>{panel.hidden=true;panel.innerHTML=''};
+  panel.querySelector('#pfuFichier').addEventListener('change',e=>{
+    const t=panel.querySelector('#pfuTitre');
+    if(t&&!t.value.trim()){const fn=e.target.files[0]?.name||'';t.value=fn.replace(/\.pdf$/i,'')}
+  });
+  panel.querySelector('#pfuOk').onclick=async()=>{
+    const msg=panel.querySelector('#pfuMsg'),btn=panel.querySelector('#pfuOk');
+    const caseId=panel.querySelector('#pfuSection').value;
+    const titre=panel.querySelector('#pfuTitre').value.trim();
+    const fichier=panel.querySelector('#pfuFichier').files[0];
+    msg.className='personal-folder-message';msg.textContent='';
+    if(!caseId){msg.className='personal-folder-message err';msg.textContent='Choisissez une section.';return}
+    if(!titre){msg.className='personal-folder-message err';msg.textContent='Indiquez un nom pour ce document.';return}
+    if(!fichier){msg.className='personal-folder-message err';msg.textContent='Sélectionnez un fichier PDF.';return}
+    const estPdf=fichier.type==='application/pdf'||/\.pdf$/i.test(fichier.name||'');
+    if(!estPdf){msg.className='personal-folder-message err';msg.textContent='Seul le format PDF est accepté.';return}
+    if(fichier.size>PRIVE_TAILLE_MAX){msg.className='personal-folder-message err';msg.textContent='Ce fichier dépasse la taille maximale de 100 Mo.';return}
+    btn.disabled=true;btn.textContent='Envoi en cours…';
+    try{
+      const doc=await uploaderDocumentPrive(fichier,titre,caseId);
+      panel.hidden=true;panel.innerHTML='';
+      render();
+      const dest=folders.find(x=>x.id===doc.case_id)||f;
+      await openFolder(dest);
+    }catch(e){
+      console.error('[Cases] dépôt personnel',e);
+      msg.className='personal-folder-message err';
+      msg.textContent=e&&e.message==='FICHIER_TROP_LOURD'?'Ce fichier dépasse la taille maximale de 100 Mo.':e&&e.message==='FORMAT_INVALIDE'?'Seul le format PDF est accepté.':'Impossible de déposer ce document pour le moment. Réessayez.';
+      btn.disabled=false;btn.textContent='Déposer';
+    }
+  };
+}
 async function openFolder(f){
   const p=document.getElementById('personalFolderDocs');if(!p)return;
   const a=folderAssignments.filter(x=>x.case_id===f.id);
+  const pDocs=privateDocs.filter(x=>x.case_id===f.id);
+  const total=a.length+pDocs.length;
   p.hidden=false;
-  p.innerHTML=`<div class="personal-section-detail-head"><div><span class="personal-section-kicker">Section personnelle</span><h3>▱ ${esc(f.name)}</h3><p>${a.length} document${a.length!==1?'s':''} · présentation Aurore</p></div><div class="personal-section-detail-actions"><button type="button" data-section-share class="personal-section-share">↗ Partager</button><button type="button" data-section-close class="personal-section-close">Fermer</button></div></div><div class="personal-section-detail-toolbar"><span>Vos documents</span><small>La même présentation que la bibliothèque Aurore</small></div><div id="pfdList" class="doc-list personal-section-doc-list"></div>`;
+  p.innerHTML=`<div class="personal-section-detail-head"><div><span class="personal-section-kicker">Section personnelle</span><h3>▱ ${esc(f.name)}</h3><p>${total} document${total!==1?'s':''} · présentation Aurore</p></div><div class="personal-section-detail-actions"><button type="button" data-section-upload class="personal-section-upload">＋ Ajouter un document</button><button type="button" data-section-share class="personal-section-share">↗ Partager</button><button type="button" data-section-close class="personal-section-close">Fermer</button></div></div><div id="pfuPanel" class="personal-upload-panel" hidden></div><div class="personal-section-detail-toolbar"><span>Vos documents</span><small>La même présentation que la bibliothèque Aurore</small></div><div id="pfdList" class="doc-list personal-section-doc-list"></div>`;
   p.querySelector('[data-section-share]')?.addEventListener('click',()=>window.aurorePartagerSection?.(f));
   p.querySelector('[data-section-close]')?.addEventListener('click',closeFolder);
+  p.querySelector('[data-section-upload]')?.addEventListener('click',()=>toggleUploadPanel(p,f));
   const list=p.querySelector('#pfdList');
-  if(!a.length){list.innerHTML='<div class="doc-empty"><div class="icon-wrap">▱</div><h3>Cette section est vide</h3><p>Utilisez « Case » sur un document pour le ranger ici.</p></div>';return}
-  list.innerHTML='<div class="personal-empty">Chargement des documents…</div>';
-  let docs=[];try{docs=await recupererDocsDesCases(a.map(x=>x.document_id));}catch(e){list.innerHTML='<div class="doc-empty"><h3>Impossible de charger cette section</h3><p>Veuillez réessayer dans quelques instants.</p></div>';return}
-  list.innerHTML='';
-  docs.forEach((d,i)=>{
-    const r=document.createElement('article');r.className='doc-row aurore-personal-document-row';r.dataset.documentIndex=String(i);r._auroreDocument=d;
-    const ok=d.Fichier_url && d.Telechargement_autorise!==false;
-    const contexte=[d.Niveau&&`Niveau : ${d.Niveau}`,d.Classe&&`Classe : ${d.Classe}`,d.Filiere&&`Filière : ${d.Filiere}`,d['Matière']&&`Matière : ${d['Matière']||d.Genre}`].filter(Boolean).join(' · ');
-    const titre=obtenirTitreDocument(d);
-    r.innerHTML=`<div class="info"><div class="icon-wrap">${ICONS.file}</div><div class="doc-main-info"><div class="titre" title="${echapperHtmlPub(titre)}">${echapperHtmlPub(titre)}</div><div class="meta">${echapperHtmlPub(contexte||'Document de votre section')}${ok?'':' · Lecture seule'}</div>${tailleBadgeMarkup(d.Fichier_url)}</div></div><div class="doc-actions"><button type="button" class="dl" data-section-read>${ok?'Lire':'Voir'}</button>${ok?'<button type="button" class="dl" data-section-download>Télécharger maintenant</button>':''}<button type="button" class="dl doc-action-soft" data-section-fav>♡ Favori</button><button type="button" class="dl doc-action-soft doc-action-folder" data-section-case>▣ Case</button><button type="button" class="dl doc-action-soft" data-section-remove>Retirer</button><div class="doc-share-wrap"><button type="button" class="doc-more-btn" data-document-more="1" aria-label="Options de partage" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="12" cy="19" r="1.8"></circle></svg></button></div></div>`;
-    r.querySelector('[data-section-read]')?.addEventListener('click',()=>ouvrirLecteurPDF(d));
-    r.querySelector('[data-section-download]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(d));
-    r.querySelector('[data-section-fav]')?.addEventListener('click',()=>basculerFavoriDocument(d,r.querySelector('[data-section-fav]')));
-    r.querySelector('[data-section-case]')?.addEventListener('click',()=>window.ouvrirChoixCaseDocument?.(d));
-    r.querySelector('[data-section-remove]')?.addEventListener('click',()=>removeAssignment(d));
-    list.appendChild(r);
-    if(d.Fichier_url&&typeof appliquerCouvertureSiLivre==='function')appliquerCouvertureSiLivre(r,d);
-  });
+  if(!total){
+    list.innerHTML='<div class="doc-empty"><div class="icon-wrap">▱</div><h3>Cette section est vide</h3><p>Utilisez « Case » sur un document pour le ranger ici, ou ajoutez directement un document depuis votre appareil avec « ＋ Ajouter un document ».</p></div>';
+  }else{
+    list.innerHTML='<div class="personal-empty">Chargement des documents…</div>';
+    let docs=[];
+    if(a.length){try{docs=await recupererDocsDesCases(a.map(x=>x.document_id));}catch(e){list.innerHTML='<div class="doc-empty"><h3>Impossible de charger cette section</h3><p>Veuillez réessayer dans quelques instants.</p></div>';return}}
+    list.innerHTML='';
+    docs.forEach((d,i)=>{
+      const r=document.createElement('article');r.className='doc-row aurore-personal-document-row';r.dataset.documentIndex=String(i);r._auroreDocument=d;
+      const ok=d.Fichier_url && d.Telechargement_autorise!==false;
+      const contexte=[d.Niveau&&`Niveau : ${d.Niveau}`,d.Classe&&`Classe : ${d.Classe}`,d.Filiere&&`Filière : ${d.Filiere}`,d['Matière']&&`Matière : ${d['Matière']||d.Genre}`].filter(Boolean).join(' · ');
+      const titre=obtenirTitreDocument(d);
+      r.innerHTML=`<div class="info"><div class="icon-wrap">${ICONS.file}</div><div class="doc-main-info"><div class="titre" title="${echapperHtmlPub(titre)}">${echapperHtmlPub(titre)}</div><div class="meta">${echapperHtmlPub(contexte||'Document de votre section')}${ok?'':' · Lecture seule'}</div>${tailleBadgeMarkup(d.Fichier_url)}</div></div><div class="doc-actions"><button type="button" class="dl" data-section-read>${ok?'Lire':'Voir'}</button>${ok?'<button type="button" class="dl" data-section-download>Télécharger maintenant</button>':''}<button type="button" class="dl doc-action-soft" data-section-fav>♡ Favori</button><button type="button" class="dl doc-action-soft doc-action-folder" data-section-case>▣ Case</button><button type="button" class="dl doc-action-soft" data-section-remove>Retirer</button><div class="doc-share-wrap"><button type="button" class="doc-more-btn" data-document-more="1" aria-label="Options de partage" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="12" cy="19" r="1.8"></circle></svg></button></div></div>`;
+      r.querySelector('[data-section-read]')?.addEventListener('click',()=>ouvrirLecteurPDF(d));
+      r.querySelector('[data-section-download]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(d));
+      r.querySelector('[data-section-fav]')?.addEventListener('click',()=>basculerFavoriDocument(d,r.querySelector('[data-section-fav]')));
+      r.querySelector('[data-section-case]')?.addEventListener('click',()=>window.ouvrirChoixCaseDocument?.(d));
+      r.querySelector('[data-section-remove]')?.addEventListener('click',()=>removeAssignment(d));
+      list.appendChild(r);
+      if(d.Fichier_url&&typeof appliquerCouvertureSiLivre==='function')appliquerCouvertureSiLivre(r,d);
+    });
+    pDocs.forEach(doc=>{
+      const r=document.createElement('article');r.className='doc-row aurore-personal-document-row';
+      const fauxDoc={id:'prive-'+doc.id,Titre:doc.titre,Fichier_url:doc.fichier_url,Telechargement_autorise:true};
+      r.innerHTML=`<div class="info"><div class="icon-wrap">${ICONS.file}</div><div class="doc-main-info"><div class="titre" title="${esc(doc.titre)}">${esc(doc.titre)}</div><div class="meta">Votre document déposé directement${tailleBadgeMarkup(doc.fichier_url)?' · ':''}</div>${tailleBadgeMarkup(doc.fichier_url)}</div></div><div class="doc-actions"><button type="button" class="dl" data-priv-read>Lire</button><button type="button" class="dl" data-priv-download>Télécharger</button><button type="button" class="dl doc-action-soft" data-priv-delete>Supprimer</button></div>`;
+      r.querySelector('[data-priv-read]')?.addEventListener('click',()=>ouvrirLecteurPDF(fauxDoc));
+      r.querySelector('[data-priv-download]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(fauxDoc));
+      r.querySelector('[data-priv-delete]')?.addEventListener('click',()=>supprimerDocumentPrive(doc));
+      list.appendChild(r);
+    });
+  }
   p.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 function closeFolder(){const p=document.getElementById('personalFolderDocs');if(p){p.hidden=true;p.innerHTML=''}}
@@ -16979,6 +16819,23 @@ ${url.href}`),'_blank','noopener,noreferrer');actions.querySelector('[data-revok
 .personal-section-detail-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 18px;margin-bottom:12px;border:1px solid var(--bordure);border-radius:18px;background:linear-gradient(135deg,var(--papier),var(--fond));box-shadow:0 8px 24px rgba(0,0,0,.05)}
 .personal-section-kicker,.aurore-section-share-kicker{display:block;font-size:.62rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--violet)}
 .personal-section-detail-head h3{margin:4px 0 3px;font-size:1.15rem;letter-spacing:-.02em}.personal-section-detail-head p{margin:0;color:var(--gris);font-size:.72rem}.personal-section-detail-actions{display:flex;gap:7px;flex-wrap:wrap}.personal-section-detail-actions button{border:1px solid var(--bordure);border-radius:11px;padding:9px 12px;background:var(--fond);color:var(--encre);font:inherit;font-size:.72rem;font-weight:800;cursor:pointer}.personal-section-detail-actions .personal-section-share{background:var(--violet);border-color:var(--violet);color:#fff}.personal-section-detail-actions button:hover{transform:translateY(-1px);border-color:var(--violet)}
+.personal-upload-panel{margin-bottom:12px}
+.personal-upload-card{padding:16px 18px;border:1px solid var(--bordure);border-radius:16px;background:var(--papier)}
+.personal-upload-card h4{margin:0 0 12px;font-size:.92rem;color:var(--encre)}
+.personal-upload-row{margin-bottom:11px}
+.personal-upload-row label{display:block;font-size:.7rem;font-weight:800;color:var(--gris);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em}
+.personal-upload-row select,.personal-upload-row input[type="text"]{width:100%;padding:11px 12px;border:1px solid var(--bordure);border-radius:11px;background:var(--fond);color:var(--encre);font:inherit;outline:none}
+.personal-upload-row input[type="file"]{width:100%;font:inherit;color:var(--encre)}
+.personal-upload-row select:focus,.personal-upload-row input[type="text"]:focus{border-color:var(--violet);box-shadow:0 0 0 3px rgba(124,58,237,.11)}
+.personal-upload-note{display:block;color:var(--gris);font-size:.72rem;line-height:1.5;margin-top:2px}
+.personal-upload-actions{display:flex;gap:8px;margin-top:13px}
+.personal-upload-actions button{flex:1;border:1px solid var(--bordure);border-radius:11px;padding:10px 12px;font:inherit;font-size:.78rem;font-weight:800;cursor:pointer;background:var(--fond);color:var(--encre)}
+.personal-upload-actions .primary{background:linear-gradient(135deg,#7C3AED,#A855F7);border-color:transparent;color:#fff}
+.personal-upload-actions button:disabled{opacity:.65;cursor:wait}
+.personal-section-upload{background:transparent}
+[data-theme="light"] .personal-upload-card{background:#fff;border-color:#C9BEDB}
+[data-theme="light"] .personal-upload-row select,[data-theme="light"] .personal-upload-row input[type="text"]{background:#F8F6FB;color:#111318;border-color:#C9BEDB}
+@media(max-width:640px){.personal-upload-actions button{flex:1}}
 .personal-section-detail-toolbar{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:4px 3px 9px}.personal-section-detail-toolbar span{font-weight:850;font-size:.78rem}.personal-section-detail-toolbar small{color:var(--gris);font-size:.65rem}.personal-section-doc-list{margin-top:0}
 .aurore-section-share-modal{position:fixed;inset:0;z-index:14000;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(8,7,13,.68);backdrop-filter:blur(9px)}.aurore-section-share-modal.show{display:flex}.aurore-section-share-card{position:relative;width:min(560px,100%);max-height:min(760px,92vh);overflow:auto;padding:26px;border:1px solid var(--bordure);border-radius:24px;background:var(--papier);color:var(--encre);box-shadow:0 30px 90px rgba(0,0,0,.35)}.aurore-section-share-close{position:absolute;right:15px;top:15px;width:34px;height:34px;border:1px solid var(--bordure);border-radius:10px;background:var(--fond);color:var(--gris);font-size:1.2rem;cursor:pointer}.aurore-section-share-card h2{margin:6px 42px 7px 0;font-size:1.3rem;letter-spacing:-.025em}.aurore-section-share-card>p{margin:0 0 18px;color:var(--gris);font-size:.76rem;line-height:1.55}.aurore-section-share-loading,.aurore-section-share-error{padding:14px;border:1px solid var(--bordure);border-radius:14px;color:var(--gris);font-size:.75rem}.aurore-section-share-success{display:flex;flex-direction:column;gap:8px}.aurore-share-check{width:38px;height:38px;display:grid;place-items:center;border-radius:50%;background:rgba(34,197,94,.12);color:#16a34a;font-weight:900}.aurore-section-share-success>strong{font-size:.86rem}.aurore-section-share-success>span{color:var(--gris);font-size:.7rem;line-height:1.45}.aurore-section-share-link{display:flex;gap:7px;margin-top:5px}.aurore-section-share-link input{min-width:0;flex:1;padding:11px;border:1px solid var(--bordure);border-radius:11px;background:var(--fond);color:var(--encre);font:inherit;font-size:.68rem}.aurore-section-share-link button,.aurore-section-share-actions button{border:1px solid var(--violet);border-radius:11px;padding:10px 12px;background:var(--violet);color:#fff;font:inherit;font-size:.7rem;font-weight:850;cursor:pointer}.aurore-section-share-options{display:grid;gap:7px;margin-top:8px;padding:12px;border:1px solid var(--bordure);border-radius:13px;background:var(--fond)}.aurore-section-share-options label{display:flex;align-items:center;gap:8px;font-size:.72rem}.aurore-section-share-options input{accent-color:var(--violet)}.aurore-section-share-expiry-row{justify-content:space-between!important;padding-top:7px;border-top:1px solid var(--bordure)}.aurore-section-share-expiry-select{border:1px solid var(--bordure);border-radius:8px;padding:4px 7px;font:inherit;font-size:.7rem;background:var(--papier);color:var(--encre)}.aurore-section-share-expiry-info{display:block;margin-top:2px;color:var(--gris);font-size:.66rem}.aurore-section-share-actions{display:flex;gap:7px;justify-content:flex-end;margin-top:18px}.aurore-section-share-actions button.danger{background:transparent;color:var(--rouge);border-color:var(--bordure)}
 .aurore-shared-section-banner{margin-bottom:15px;padding:17px 18px;border:1px solid var(--bordure);border-radius:18px;background:linear-gradient(135deg,rgba(124,58,237,.11),rgba(192,132,252,.045));box-shadow:0 8px 25px rgba(0,0,0,.06)}.aurore-shared-section-banner .kicker{font-size:.62rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--violet)}.aurore-shared-section-banner h2{margin:5px 0 3px;font-size:1.25rem}.aurore-shared-section-banner p{margin:0;color:var(--gris);font-size:.72rem;line-height:1.5}.aurore-shared-section-banner .meta{margin-top:8px;font-size:.65rem;color:var(--gris)}
