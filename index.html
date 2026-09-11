@@ -2939,6 +2939,10 @@ main{width:100%;min-width:0;overflow-x:clip;}
     <div id="sharedSectionContent"></div>
   </section>
 
+  <section class="screen" id="screen-personal-case" aria-label="Case personnelle">
+    <div id="personalCaseContent"></div>
+  </section>
+
   <section class="screen" id="screen-docs">
     <h2 class="section-title" id="docsTitle"></h2>
     <div class="ad-slot" id="ad-docs-1"></div>
@@ -15391,15 +15395,16 @@ function toggleUploadPanel(p,f){
   };
 }
 async function openFolder(f){
-  const p=document.getElementById('personalFolderDocs');if(!p)return;
+  const p=document.getElementById('personalCaseContent');if(!p)return;
   const a=folderAssignments.filter(x=>x.case_id===f.id);
   const pDocs=privateDocs.filter(x=>x.case_id===f.id);
   const total=a.length+pDocs.length;
-  p.hidden=false;
-  p.innerHTML=`<div class="personal-section-detail-head"><div><span class="personal-section-kicker">Section personnelle</span><h3>▱ ${esc(f.name)}</h3><p>${total} document${total!==1?'s':''} · présentation Aurore</p></div><div class="personal-section-detail-actions"><button type="button" data-section-upload class="personal-section-upload">＋ Ajouter un document</button><button type="button" data-section-share class="personal-section-share">↗ Partager</button><button type="button" data-section-close class="personal-section-close">Fermer</button></div></div><div id="pfuPanel" class="personal-upload-panel" hidden></div><div class="personal-section-detail-toolbar"><span>Vos documents</span><small>La même présentation que la bibliothèque Aurore</small></div><div id="pfdList" class="doc-list personal-section-doc-list"></div>`;
+  const dejaOuvert=document.getElementById('screen-personal-case')?.classList.contains('active');
+  p.innerHTML=`<div class="personal-section-detail-head"><div><span class="personal-section-kicker">Section personnelle</span><h3>▱ ${esc(f.name)}</h3><p>${total} document${total!==1?'s':''} · présentation Aurore</p></div><div class="personal-section-detail-actions"><button type="button" data-section-upload class="personal-section-upload">＋ Ajouter un document</button><button type="button" data-section-share class="personal-section-share">↗ Partager</button><button type="button" data-section-close class="personal-section-close">← Retour</button></div></div><div id="pfuPanel" class="personal-upload-panel" hidden></div><div class="personal-section-detail-toolbar"><span>Vos documents</span><small>La même présentation que la bibliothèque Aurore</small></div><div id="pfdList" class="doc-list personal-section-doc-list"></div>`;
   p.querySelector('[data-section-share]')?.addEventListener('click',()=>window.aurorePartagerSection?.(f));
   p.querySelector('[data-section-close]')?.addEventListener('click',closeFolder);
   p.querySelector('[data-section-upload]')?.addEventListener('click',()=>toggleUploadPanel(p,f));
+  if(!dejaOuvert) afficherEcran('screen-personal-case'); else window.scrollTo({top:0,behavior:'smooth'});
   const list=p.querySelector('#pfdList');
   if(!total){
     list.innerHTML='<div class="doc-empty"><div class="icon-wrap">▱</div><h3>Cette section est vide</h3><p>Utilisez « Case » sur un document pour le ranger ici, ou ajoutez directement un document depuis votre appareil avec « ＋ Ajouter un document ».</p></div>';
@@ -15432,9 +15437,11 @@ async function openFolder(f){
       list.appendChild(r);
     });
   }
-  p.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
-function closeFolder(){const p=document.getElementById('personalFolderDocs');if(p){p.hidden=true;p.innerHTML=''}}
+function closeFolder(){
+  if(history.state && history.state.aurasterNavigation) history.back();
+  else afficherEcran('screen-profil');
+}
 window.ouvrirChoixCaseDocument=chooseDoc;window.chargerCasesPersonnelles=load;window.rendreCasesPersonnelles=render;
 function init(){
   document.getElementById('personalFolderCreate')?.addEventListener('click',()=>dialog('create'));
