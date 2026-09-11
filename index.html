@@ -598,6 +598,41 @@
   }
   .admin-tab.active .tab-count{ background:var(--bleu); border-color:var(--bleu); color:#fff; }
 
+  /* ---- blocs de catégories (remplace le défilement horizontal des onglets) ---- */
+  .admin-category-grid{
+    display:grid; grid-template-columns:repeat(4, 1fr); gap:14px; margin-top:32px;
+  }
+  @media (max-width:900px){ .admin-category-grid{ grid-template-columns:repeat(3, 1fr); } }
+  @media (max-width:680px){ .admin-category-grid{ grid-template-columns:repeat(2, 1fr); } }
+  @media (max-width:420px){ .admin-category-grid{ grid-template-columns:1fr; } }
+  .admin-category-card{
+    display:flex; flex-direction:column; align-items:flex-start; gap:10px; text-align:left;
+    background:var(--papier); border:1px solid var(--bordure); border-radius:var(--radius);
+    padding:18px 16px; box-shadow:var(--ombre); cursor:pointer; position:relative;
+    transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    animation:admFadeUp .4s ease both; margin:0; top:0; white-space:normal;
+  }
+  .admin-category-card:hover{ transform:translateY(-3px); box-shadow:var(--ombre-hover); border-color:var(--bleu); color:inherit; }
+  .admin-category-card .admin-category-icon{
+    flex-shrink:0; width:42px; height:42px; border-radius:12px;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(44,95,138,0.1); color:var(--bleu);
+  }
+  .admin-category-card[data-accent="vert"] .admin-category-icon{ background:rgba(63,125,88,0.1); color:var(--vert); }
+  .admin-category-card[data-accent="violet"] .admin-category-icon{ background:rgba(107,78,142,0.1); color:var(--violet); }
+  .admin-category-card[data-accent="rouge"] .admin-category-icon{ background:rgba(178,58,71,0.1); color:var(--rouge); }
+  .admin-category-card[data-accent="ambre"] .admin-category-icon{ background:rgba(184,134,11,0.14); color:#b8860b; }
+  .admin-category-card .admin-category-title{ font-weight:700; font-size:0.94rem; color:var(--encre); line-height:1.25; }
+  .admin-category-card .admin-category-desc{ font-size:0.78rem; color:var(--gris); line-height:1.35; }
+  .admin-category-card .tab-count{
+    position:absolute; top:14px; right:14px; background:var(--bleu); border-color:var(--bleu); color:#fff;
+  }
+  .admin-category-card:not(:has(.tab-count)) .admin-category-title{ margin-right:0; }
+
+  .admin-detail{ margin-top:22px; }
+  .admin-detail-back{ margin-bottom:18px; }
+  .admin-detail-title{ font-family:Georgia,'Times New Roman',serif; font-size:1.2rem; color:var(--encre); margin:0 0 4px; }
+
   .admin-tab-panel{ display:none; animation:admFadeUp .3s ease both; }
   .admin-tab-panel.active{ display:block; }
   .admin-panel-desc{ font-size:0.86rem; color:var(--gris); margin:18px 0 18px; }
@@ -852,7 +887,7 @@ header{
 .user-chip{background:#12101A;border-color:#2A2438;color:#F7F5FF;}
 .user-chip-info:hover{background:#211A2E;}
 .profile-card,.profile-meta-item,.presentation-item,.level-card,.cat-card,
-.matiere-card,.doc-empty,.doc-row,.form-card,.stat-card,.admin-card,.admin-empty{
+.matiere-card,.doc-empty,.doc-row,.form-card,.stat-card,.admin-card,.admin-empty,.admin-category-card{
   background:#15111F;
   border-color:#292238;
   box-shadow:var(--ombre);
@@ -1066,7 +1101,7 @@ footer{background:#07060B;color:#9189A5;}
 body{background:#08070D;color:#F8F7FF;}
 header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,132,252,.10)!important;}
 .hero{background:linear-gradient(145deg,#100C18,#1A1030 58%,#0D0A13)!important;border-color:rgba(192,132,252,.12)!important;}
-.presentation-item,.home-promise,.home-five-level,.level-card,.cat-card,.matiere-card,.doc-empty,.doc-row,.form-card,.stat-card,.admin-card,.admin-empty{background:#12101A!important;border-color:#272331!important;}
+.presentation-item,.home-promise,.home-five-level,.level-card,.cat-card,.matiere-card,.doc-empty,.doc-row,.form-card,.stat-card,.admin-card,.admin-empty,.admin-category-card{background:#12101A!important;border-color:#272331!important;}
 .search-box,.user-chip,.form-row input,.form-row select,.access-input{background:#0D0B13!important;border-color:#2B2635!important;color:#F8F7FF!important;}
 .section-title{color:#FAF8FF!important;}
 .level-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;}
@@ -3096,22 +3131,80 @@ main{width:100%;min-width:0;overflow-x:clip;}
           </div>
         </div>
 
-        <div class="admin-tabs" role="tablist">
-          <button type="button" class="admin-tab active" data-tab="attente" role="tab">En attente <span class="tab-count" id="tabCountAttente">0</span></button>
-          <button type="button" class="admin-tab" data-tab="publies" role="tab">Publiés <span class="tab-count" id="tabCountPublies">0</span></button>
-          <button type="button" class="admin-tab" data-tab="reclamations" role="tab">Réclamations <span class="tab-count" id="tabCountReclamations">0</span></button>
-          <button type="button" class="admin-tab" data-tab="vitrine" role="tab">Publicités <span class="tab-count" id="tabCountPubs">0</span></button>
-          <button type="button" class="admin-tab" data-tab="connexions" role="tab">Connexions</button>
-          <button type="button" class="admin-tab" data-tab="visiteurs" role="tab">Visiteurs</button>
-          <button type="button" class="admin-tab" data-tab="utilisateurs" role="tab">Utilisateurs <span class="tab-count" id="tabCountUtilisateurs">0</span></button>
-          <button type="button" class="admin-tab" data-tab="apparence" role="tab">Apparence</button>
-          <button type="button" class="admin-tab" data-tab="service-client" role="tab">Service client</button>
-          <button type="button" class="admin-tab" data-tab="annonce" role="tab">Annonce accueil</button>
-          <button type="button" class="admin-tab" data-tab="videos" role="tab">Vidéos <span class="tab-count" id="tabCountVideos">0</span></button>
-          <button type="button" class="admin-tab" data-tab="doublons" role="tab">Doublons <span class="tab-count" id="tabCountDoublons">0</span></button>
+        <div class="admin-category-grid" id="adminCategoryGrid" role="tablist">
+          <button type="button" class="admin-tab admin-category-card" data-tab="attente" role="tab" data-accent="bleu">
+            <span class="admin-category-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><path d="M4 6l1 1 2-2"/><path d="M4 12l1 1 2-2"/><path d="M4 18l1 1 2-2"/></svg></span>
+            <span class="admin-category-title">En attente</span>
+            <span class="admin-category-desc">Dépôts à valider</span>
+            <span class="tab-count" id="tabCountAttente">0</span>
+          </button>
+          <button type="button" class="admin-tab admin-category-card" data-tab="publies" role="tab" data-accent="vert">
+            <span class="admin-category-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg></span>
+            <span class="admin-category-title">Publiés</span>
+            <span class="admin-category-desc">Documents en ligne</span>
+            <span class="tab-count" id="tabCountPublies">0</span>
+          </button>
+          <button type="button" class="admin-tab admin-category-card" data-tab="reclamations" role="tab" data-accent="rouge">
+            <span class="admin-category-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L14.7 3.86a2 2 0 0 0-3.4 0z"/></svg></span>
+            <span class="admin-category-title">Réclamations</span>
+            <span class="admin-category-desc">Signalements reçus</span>
+            <span class="tab-count" id="tabCountReclamations">0</span>
+          </button>
+          <button type="button" class="admin-tab admin-category-card" data-tab="vitrine" role="tab" data-accent="violet">
+            <span class="admin-category-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg></span>
+            <span class="admin-category-title">Publicités</span>
+            <span class="admin-category-desc">Emplacements du site</span>
+            <span class="tab-count" id="tabCountPubs">0</span>
+          </button>
+          <button type="button" class="admin-tab admin-category-card" data-tab="connexions" role="tab" data-accent="bleu">
+            <span class="admin-category-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg></span>
+            <span class="admin-category-title">Connexions</span>
+            <span class="admin-category-desc">Historique des connexions</span>
+          </button>
+          <button type="button" class="admin-tab admin-category-card" data-tab="visiteurs" role="tab" data-accent="ambre">
+            <span class="admin-category-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></span>
+            <span class="admin-category-title">Visiteurs</span>
+            <span class="admin-category-desc">Non connectés</span>
+          </button>
+          <button type="button" class="admin-tab admin-category-card" data-tab="utilisateurs" role="tab" data-accent="vert">
+            <span class="admin-category-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+            <span class="admin-category-title">Utilisateurs</span>
+            <span class="admin-category-desc">Comptes inscrits</span>
+            <span class="tab-count" id="tabCountUtilisateurs">0</span>
+          </button>
+          <button type="button" class="admin-tab admin-category-card" data-tab="apparence" role="tab" data-accent="violet">
+            <span class="admin-category-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.5 0 10-4 10-9a9 9 0 0 0-9-9 10 10 0 0 0-10 10c0 4 3 5 5 5h.5a2 2 0 0 1 2 2c0 .5-.2 1-.5 1.4a2 2 0 0 0 1.5 2.6z"/><circle cx="7.5" cy="10.5" r="1.1"/><circle cx="12" cy="7" r="1.1"/><circle cx="16.5" cy="10.5" r="1.1"/></svg></span>
+            <span class="admin-category-title">Apparence</span>
+            <span class="admin-category-desc">Logo du site</span>
+          </button>
+          <button type="button" class="admin-tab admin-category-card" data-tab="service-client" role="tab" data-accent="bleu">
+            <span class="admin-category-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.4 8.5 8.5 0 0 1-4-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-1-4A8.38 8.38 0 0 1 12.5 3a8.4 8.4 0 0 1 8.5 8.5z"/></svg></span>
+            <span class="admin-category-title">Service client</span>
+            <span class="admin-category-desc">WhatsApp &amp; e-mail</span>
+          </button>
+          <button type="button" class="admin-tab admin-category-card" data-tab="annonce" role="tab" data-accent="ambre">
+            <span class="admin-category-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
+            <span class="admin-category-title">Annonce accueil</span>
+            <span class="admin-category-desc">Message de bienvenue</span>
+          </button>
+          <button type="button" class="admin-tab admin-category-card" data-tab="videos" role="tab" data-accent="rouge">
+            <span class="admin-category-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polygon points="10 8 16 12 10 16 10 8"/></svg></span>
+            <span class="admin-category-title">Vidéos</span>
+            <span class="admin-category-desc">Page d'accueil</span>
+            <span class="tab-count" id="tabCountVideos">0</span>
+          </button>
+          <button type="button" class="admin-tab admin-category-card" data-tab="doublons" role="tab" data-accent="violet">
+            <span class="admin-category-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></span>
+            <span class="admin-category-title">Doublons</span>
+            <span class="admin-category-desc">Détection de copies</span>
+            <span class="tab-count" id="tabCountDoublons">0</span>
+          </button>
         </div>
 
-        <div class="admin-tab-panel active" data-panel="attente">
+        <div class="admin-detail" id="adminDetail" style="display:none;">
+          <button type="button" class="admin-btn ghost admin-detail-back" id="adminDetailBack">← Retour aux catégories</button>
+
+        <div class="admin-tab-panel" data-panel="attente">
           <section class="admin-pending-overview" aria-label="Vue d'ensemble des dépôts en attente">
             <div class="admin-pending-overview-head">
               <div>
@@ -3387,6 +3480,7 @@ main{width:100%;min-width:0;overflow-x:clip;}
             </div>
             <div class="form-msg" id="adminLogoMsg"></div>
           </div>
+        </div>
         </div>
       </div>
 
@@ -3756,7 +3850,7 @@ main{width:100%;min-width:0;overflow-x:clip;}
   [data-theme="light"] .hero{background:linear-gradient(145deg,#F3EEFC,#ECE1FA 58%,#F6F4FB)!important;border-color:rgba(124,58,237,.14)!important;}
   [data-theme="light"] .hero-motif{opacity:.05;}
   [data-theme="light"] .hero-glow{opacity:.16;}
-  [data-theme="light"] .presentation-item,[data-theme="light"] .home-promise,[data-theme="light"] .home-five-level,[data-theme="light"] .level-card,[data-theme="light"] .cat-card,[data-theme="light"] .matiere-card,[data-theme="light"] .doc-empty,[data-theme="light"] .doc-row,[data-theme="light"] .form-card,[data-theme="light"] .stat-card,[data-theme="light"] .admin-card,[data-theme="light"] .admin-empty{background:#FFFFFF!important;border-color:#E2DDF0!important;}
+  [data-theme="light"] .presentation-item,[data-theme="light"] .home-promise,[data-theme="light"] .home-five-level,[data-theme="light"] .level-card,[data-theme="light"] .cat-card,[data-theme="light"] .matiere-card,[data-theme="light"] .doc-empty,[data-theme="light"] .doc-row,[data-theme="light"] .form-card,[data-theme="light"] .stat-card,[data-theme="light"] .admin-card,[data-theme="light"] .admin-empty,[data-theme="light"] .admin-category-card{background:#FFFFFF!important;border-color:#E2DDF0!important;}
   [data-theme="light"] .search-box,[data-theme="light"] .user-chip,[data-theme="light"] .form-row input,[data-theme="light"] .form-row select,[data-theme="light"] .access-input{background:#FFFFFF!important;border-color:#DCD4EE!important;color:#211D2E!important;}
   [data-theme="light"] .section-title{color:#211D2E!important;}
   [data-theme="light"] input,[data-theme="light"] select,[data-theme="light"] textarea{background:#FFFFFF!important;}
@@ -9453,6 +9547,10 @@ main{width:100%;min-width:0;overflow-x:clip;}
       const cible = tab.getAttribute('data-tab');
       document.querySelectorAll('.admin-tab').forEach(t => t.classList.toggle('active', t === tab));
       document.querySelectorAll('.admin-tab-panel').forEach(p => p.classList.toggle('active', p.getAttribute('data-panel') === cible));
+      const grille = document.getElementById('adminCategoryGrid');
+      const detail = document.getElementById('adminDetail');
+      if (grille) grille.style.display = 'none';
+      if (detail) detail.style.display = 'block';
       if (cible === 'reclamations') chargerReclamationsAdmin();
       if (cible === 'connexions') chargerDernieresConnexions();
       if (cible === 'visiteurs') chargerVisiteursAnonymesAdmin();
@@ -9460,6 +9558,15 @@ main{width:100%;min-width:0;overflow-x:clip;}
       if (cible === 'utilisateurs') chargerUtilisateursAdmin();
       if (cible === 'doublons') chargerDoublonsAdmin();
     });
+  });
+
+  // Bouton de retour : referme la fiche de gestion ouverte et réaffiche les
+  // blocs de catégories du tableau de bord (aucune donnée n'est modifiée).
+  document.getElementById('adminDetailBack')?.addEventListener('click', () => {
+    const grille = document.getElementById('adminCategoryGrid');
+    const detail = document.getElementById('adminDetail');
+    if (detail) detail.style.display = 'none';
+    if (grille) grille.style.display = 'grid';
   });
 
   document.getElementById('adminUsersRefresh')?.addEventListener('click', chargerUtilisateursAdmin);
@@ -13881,7 +13988,7 @@ footer>.wrap:last-child{margin-top:18px!important;}
 [data-theme="light"] .admin-tab{color:#5B5368!important;}
 [data-theme="light"] .admin-tab.active{background:#EEE7F7!important;color:#5B21B6!important;border-color:#B9A4D6!important;}
 [data-theme="light"] .admin-tab.active *{color:#5B21B6!important;}
-[data-theme="light"] .stat-card{background:#fff!important;border-color:#DDD3E8!important;box-shadow:0 8px 22px rgba(55,36,82,.06)!important;}
+[data-theme="light"] .stat-card,[data-theme="light"] .admin-category-card{background:#fff!important;border-color:#DDD3E8!important;box-shadow:0 8px 22px rgba(55,36,82,.06)!important;}
 [data-theme="light"] .stat-card .stat-value{color:#6D28D9!important;}
 [data-theme="light"] .admin-video-preview{background:#F1ECF5!important;border-color:#D8CEE3!important;}
 [data-theme="light"] .pub-admin-item-actions button{background:#F4EFF8!important;color:#332B3D!important;border-color:#D0C4DA!important;}
@@ -16913,6 +17020,22 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
   .assp-badges{gap:6px;}
   .assp-badge{font-size:.68rem;padding:4px 10px;}
 }
+</style>
+<style id="aurore-admin-category-blocks-final">
+/* Verrouille le look "blocs cliquables" du tableau de bord admin par-dessus
+   toutes les anciennes règles d'onglets (.admin-tab) ajoutées au fil du temps. */
+.admin-category-card.admin-tab{
+  display:flex; flex-direction:column; align-items:flex-start; gap:10px; text-align:left;
+  border-radius:var(--radius,22px); padding:18px 16px; margin:0; margin-right:0; top:0;
+  white-space:normal; border-bottom:none; font-size:0.94rem;
+}
+.admin-category-card.admin-tab:hover{ color:inherit; }
+.admin-category-card .admin-category-icon svg{ display:block; }
+.admin-category-card .admin-category-title{ font-size:0.94rem; }
+.admin-category-grid{ border-bottom:none; overflow:visible; }
+@media(max-width:900px){ .admin-category-grid{ grid-template-columns:repeat(3,1fr) !important; } }
+@media(max-width:680px){ .admin-category-grid{ grid-template-columns:repeat(2,1fr) !important; } }
+@media(max-width:420px){ .admin-category-grid{ grid-template-columns:1fr !important; } }
 </style>
 <script id="aurore-section-sharing-runtime">
 (function(){
