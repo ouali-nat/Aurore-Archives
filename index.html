@@ -2477,6 +2477,65 @@ main{width:100%;min-width:0;overflow-x:clip;}
 [data-theme="light"] .aurore-ia-composer textarea{color:#2C2435!important}[data-theme="light"] .aurore-ia-bubble{background:#fff;color:#403748;border-color:#E4DCE8}[data-theme="light"] .aurore-ia-message.user .aurore-ia-bubble{background:rgba(124,58,237,.09);color:#30263A;border-color:rgba(124,58,237,.18)}
 </style>
 
+<!-- =============================================================
+     AURORE IA — Suivi de l'accent du site + nouvelle conversation
+     + panneau de personnalisation + rendu enrichi des réponses.
+     Bloc additif : ne modifie aucune règle existante, ne fait que
+     surcharger les couleurs figées par les variables d'accent du
+     site et ajoute le style des nouveaux contrôles.
+     ============================================================= -->
+<style id="aurore-ia-accent-sync">
+.aurore-ia-overlay{--aurore-ia-accent:var(--theme-primary,#8B5CF6);--aurore-ia-accent-strong:var(--theme-strong,#6D28D9);--aurore-ia-accent-2:color-mix(in srgb,var(--aurore-ia-accent) 55%,white);}
+.aurore-ia-header-btn{background:color-mix(in srgb,var(--aurore-ia-accent,#8B5CF6) 12%,transparent)!important;border-color:color-mix(in srgb,var(--aurore-ia-accent-2,#C084FC) 30%,transparent)!important;}
+.aurore-ia-header-btn:hover{background:color-mix(in srgb,var(--aurore-ia-accent,#8B5CF6) 22%,transparent)!important;border-color:color-mix(in srgb,var(--aurore-ia-accent-2,#C084FC) 55%,transparent)!important;}
+.aurore-ia-header-btn span:first-child{color:var(--aurore-ia-accent-2,#C4B5FD)!important;}
+.aurore-ia-mark,.aurore-ia-welcome-mark{background:linear-gradient(145deg,var(--aurore-ia-accent,#8B5CF6),var(--aurore-ia-accent-strong,#6D28D9) 58%,var(--aurore-ia-accent-2,#C084FC))!important;}
+.aurore-ia-kicker{color:var(--aurore-ia-accent-2,#B9A2FF)!important;}
+.aurore-ia-tool.active{background:linear-gradient(100deg,color-mix(in srgb,var(--aurore-ia-accent,#7C3AED) 18%,transparent),color-mix(in srgb,var(--aurore-ia-accent,#7C3AED) 5%,transparent))!important;border-color:color-mix(in srgb,var(--aurore-ia-accent-2,#A78BFA) 20%,transparent)!important;}
+.aurore-ia-tool.active:before{background:var(--aurore-ia-accent-2,#A78BFA)!important;}
+.aurore-ia-tool>span{color:var(--aurore-ia-accent-2,#C4B5FD)!important;}
+.aurore-ia-suggestions button:hover{border-color:color-mix(in srgb,var(--aurore-ia-accent-2,#A78BFA) 45%,transparent)!important;background:linear-gradient(145deg,color-mix(in srgb,var(--aurore-ia-accent,#7C3AED) 13%,transparent),rgba(255,255,255,.025))!important;}
+.aurore-ia-composer:focus-within{border-color:color-mix(in srgb,var(--aurore-ia-accent-2,#A78BFA) 40%,transparent)!important;box-shadow:0 18px 50px rgba(0,0,0,.28),0 0 0 4px color-mix(in srgb,var(--aurore-ia-accent,#8B5CF6) 8%,transparent)!important;}
+.aurore-ia-composer>button{background:linear-gradient(145deg,var(--aurore-ia-accent,#8B5CF6),var(--aurore-ia-accent-strong,#6D28D9))!important;box-shadow:0 8px 20px color-mix(in srgb,var(--aurore-ia-accent,#7C3AED) 25%,transparent)!important;}
+.aurore-ia-message.user .aurore-ia-bubble{background:linear-gradient(135deg,color-mix(in srgb,var(--aurore-ia-accent,#7C3AED) 25%,transparent),color-mix(in srgb,var(--aurore-ia-accent-strong,#6D28D9) 13%,transparent))!important;border-color:color-mix(in srgb,var(--aurore-ia-accent-2,#A78BFA) 23%,transparent)!important;}
+[data-theme="light"] .aurore-ia-tool.active{background:color-mix(in srgb,var(--aurore-ia-accent,#7C3AED) 9%,transparent)!important;border-color:color-mix(in srgb,var(--aurore-ia-accent,#7C3AED) 16%,transparent)!important;}
+[data-theme="light"] .aurore-ia-message.user .aurore-ia-bubble{background:color-mix(in srgb,var(--aurore-ia-accent,#7C3AED) 9%,transparent)!important;border-color:color-mix(in srgb,var(--aurore-ia-accent,#7C3AED) 18%,transparent)!important;}
+[data-theme="light"] .aurore-ia-composer:focus-within{border-color:color-mix(in srgb,var(--aurore-ia-accent,#7C3AED) 35%,transparent)!important;}
+/* Boutons icône (nouvelle conversation / personnaliser) */
+.aurore-ia-icon-btn{width:38px;height:38px;border:1px solid rgba(255,255,255,.09);border-radius:12px;background:rgba(255,255,255,.035);color:#C9C1D5;font-size:1.05rem;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:.18s ease;}
+.aurore-ia-icon-btn:hover{background:rgba(255,255,255,.08);border-color:color-mix(in srgb,var(--aurore-ia-accent,#8B5CF6) 55%,transparent);color:#fff;}
+[data-theme="light"] .aurore-ia-icon-btn{border-color:#E3DCEB;background:#fff;color:#5B5164;}
+[data-theme="light"] .aurore-ia-icon-btn:hover{border-color:color-mix(in srgb,var(--aurore-ia-accent,#7C3AED) 45%,#E3DCEB);color:#211A2A;}
+/* Panneau de personnalisation */
+.aurore-ia-customize-panel{position:absolute;top:64px;right:18px;z-index:5;width:min(300px,calc(100% - 36px));display:flex;flex-direction:column;gap:10px;padding:16px;border:1px solid rgba(255,255,255,.10);border-radius:18px;background:rgba(20,16,29,.98);box-shadow:0 24px 60px rgba(0,0,0,.45);backdrop-filter:blur(18px);}
+.aurore-ia-customize-panel[hidden]{display:none;}
+.aurore-ia-customize-title{margin:0 0 2px;font-size:.72rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--aurore-ia-accent-2,#C4B5FD);}
+.aurore-ia-customize-panel label{display:flex;flex-direction:column;gap:5px;font-size:.68rem;font-weight:700;color:#B9B0C5;}
+.aurore-ia-customize-panel input,.aurore-ia-customize-panel textarea{font:inherit;font-size:.78rem;padding:8px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:#F3EFFA;resize:none;}
+.aurore-ia-customize-panel input[type="color"]{padding:3px;height:36px;cursor:pointer;}
+.aurore-ia-customize-actions{display:flex;justify-content:space-between;gap:8px;margin-top:2px;}
+.aurore-ia-customize-actions button{flex:1;border:0;border-radius:10px;padding:9px 10px;font:inherit;font-size:.72rem;font-weight:800;cursor:pointer;}
+#auroreIACfgSave{background:linear-gradient(135deg,var(--aurore-ia-accent,#7C3AED),var(--aurore-ia-accent-strong,#A855F7));color:#fff;}
+#auroreIACfgReset{background:rgba(255,255,255,.06);color:#C9C1D5;}
+[data-theme="light"] .aurore-ia-customize-panel{background:#fff;border-color:#E3DCEB;box-shadow:0 24px 55px rgba(55,36,82,.18);}
+[data-theme="light"] .aurore-ia-customize-panel input,[data-theme="light"] .aurore-ia-customize-panel textarea{background:#FAF8FD;border-color:#E3DCEB;color:#2C2435;}
+[data-theme="light"] .aurore-ia-customize-panel label{color:#5B5164;}
+[data-theme="light"] #auroreIACfgReset{background:#F3F0F8;color:#4B4655;}
+@media(max-width:620px){.aurore-ia-customize-panel{right:8px;left:8px;width:auto;top:60px;}}
+/* Rendu enrichi (markdown léger) des réponses d'Aurore IA */
+.aurore-ia-bubble h1,.aurore-ia-bubble h2,.aurore-ia-bubble h3{margin:0 0 6px;line-height:1.3;color:inherit;font-weight:800;}
+.aurore-ia-bubble h1{font-size:1.05rem;}.aurore-ia-bubble h2{font-size:.98rem;}.aurore-ia-bubble h3{font-size:.9rem;}
+.aurore-ia-bubble p{margin:0 0 8px;}.aurore-ia-bubble p:last-child{margin-bottom:0;}
+.aurore-ia-bubble ul,.aurore-ia-bubble ol{margin:0 0 8px;padding-left:1.15em;}
+.aurore-ia-bubble li{margin:2px 0;}
+.aurore-ia-bubble strong{font-weight:800;color:inherit;}
+.aurore-ia-bubble code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:5px;font-size:.85em;}
+.aurore-ia-bubble table{border-collapse:collapse;margin:6px 0;font-size:.82em;width:100%;}
+.aurore-ia-bubble th,.aurore-ia-bubble td{border:1px solid rgba(255,255,255,.14);padding:5px 8px;text-align:left;}
+[data-theme="light"] .aurore-ia-bubble code{background:rgba(0,0,0,.06);}
+[data-theme="light"] .aurore-ia-bubble th,[data-theme="light"] .aurore-ia-bubble td{border-color:#E3DCEB;}
+</style>
+
 </head>
 <body class="site-locked">
 
@@ -18034,9 +18093,34 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       </div>
       <div class="aurore-ia-top-actions">
         <span class="aurore-ia-status"><i></i> Prêt</span>
+        <button type="button" id="auroreIANewChat" class="aurore-ia-icon-btn" aria-label="Nouvelle conversation" title="Nouvelle conversation">+</button>
+        <button type="button" id="auroreIACustomizeBtn" class="aurore-ia-icon-btn" aria-label="Personnaliser Aurore IA" title="Personnaliser">⚙</button>
         <button type="button" id="auroreIAClose" class="aurore-ia-close" aria-label="Fermer Aurore IA">×</button>
       </div>
     </header>
+
+    <div id="auroreIACustomizePanel" class="aurore-ia-customize-panel" hidden>
+      <p class="aurore-ia-customize-title">Personnaliser Aurore IA</p>
+      <label>Nom affiché
+        <input type="text" id="auroreIACfgName" maxlength="40" placeholder="Aurore IA">
+      </label>
+      <label>Icône
+        <input type="text" id="auroreIACfgIcon" maxlength="4" placeholder="✦">
+      </label>
+      <label>Couleur d'accent
+        <input type="color" id="auroreIACfgAccent">
+      </label>
+      <label>Titre d'accueil
+        <input type="text" id="auroreIACfgWelcomeTitle" maxlength="90" placeholder="Que voulez-vous trouver ou comprendre ?">
+      </label>
+      <label>Message d'accueil
+        <textarea id="auroreIACfgWelcomeText" rows="2" maxlength="220" placeholder="Un espace unique pour interroger les Archives, Wikipédia et le Web, avec les sources clairement séparées."></textarea>
+      </label>
+      <div class="aurore-ia-customize-actions">
+        <button type="button" id="auroreIACfgReset">Réinitialiser</button>
+        <button type="button" id="auroreIACfgSave">Enregistrer</button>
+      </div>
+    </div>
 
     <div class="aurore-ia-body">
       <aside class="aurore-ia-tools" aria-label="Outils Aurore IA">
@@ -18050,11 +18134,11 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
 
       <section class="aurore-ia-chat" aria-label="Conversation Aurore IA">
         <div id="auroreIAConversation" class="aurore-ia-conversation">
-          <div class="aurore-ia-welcome">
+          <div class="aurore-ia-welcome" id="auroreIAWelcomeBlock">
             <div class="aurore-ia-welcome-mark">✦</div>
             <p class="aurore-ia-kicker">Aurore IA</p>
             <h1>Que voulez-vous trouver ou comprendre ?</h1>
-            <p>Un espace unique pour interroger les Archives, Wikipédia et le Web, avec les sources clairement séparées.</p>
+            <p class="aurore-ia-welcome-desc">Un espace unique pour interroger les Archives, Wikipédia et le Web, avec les sources clairement séparées.</p>
             <div class="aurore-ia-suggestions">
               <button type="button" data-ia-prompt="Trouve-moi des documents sur les mathématiques.">Chercher dans les Archives</button>
               <button type="button" data-ia-prompt="Cherche des informations sur le Burkina Faso dans Wikipédia.">Explorer Wikipédia</button>
@@ -18086,6 +18170,125 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
 
   let activeTool='assistant';
   let previousInteractionId=null;
+
+  // ---------------------------------------------------------------
+  // Personnalisation (point 11) : config centralisée, éditable via
+  // le panneau « Personnaliser », persistée en localStorage. Ne
+  // modifie jamais le backend : purement visuel côté client.
+  // ---------------------------------------------------------------
+  const AURORE_IA_DEFAULTS={
+    name:'Aurore IA',
+    icon:'✦',
+    accent:'',
+    welcomeTitle:'Que voulez-vous trouver ou comprendre ?',
+    welcomeText:'Un espace unique pour interroger les Archives, Wikipédia et le Web, avec les sources clairement séparées.'
+  };
+  let AURORE_IA_CONFIG={...AURORE_IA_DEFAULTS};
+  try{
+    const saved=JSON.parse(localStorage.getItem('auroreIAConfig')||'null');
+    if(saved && typeof saved==='object') AURORE_IA_CONFIG={...AURORE_IA_DEFAULTS,...saved};
+  }catch(e){}
+
+  const titleEl=document.getElementById('auroreIATitle');
+  const headerBtnIcon=openBtn.querySelector('span:first-child');
+  const headerBtnLabel=openBtn.querySelector('span:last-child');
+  const marks=()=>document.querySelectorAll('#auroreIAOverlay .aurore-ia-mark, #auroreIAOverlay .aurore-ia-welcome-mark');
+  const welcomeTitleEl=()=>document.querySelector('#auroreIAWelcomeBlock h1');
+  const welcomeTextEl=()=>document.querySelector('#auroreIAWelcomeBlock .aurore-ia-welcome-desc');
+
+  function applyConfig(){
+    const cfg=AURORE_IA_CONFIG;
+    if(titleEl) titleEl.textContent=cfg.name||AURORE_IA_DEFAULTS.name;
+    if(headerBtnLabel) headerBtnLabel.textContent=cfg.name||AURORE_IA_DEFAULTS.name;
+    if(headerBtnIcon) headerBtnIcon.textContent=cfg.icon||AURORE_IA_DEFAULTS.icon;
+    marks().forEach(m=>{m.textContent=cfg.icon||AURORE_IA_DEFAULTS.icon;});
+    const wt=welcomeTitleEl(); if(wt) wt.textContent=cfg.welcomeTitle||AURORE_IA_DEFAULTS.welcomeTitle;
+    const wd=welcomeTextEl(); if(wd) wd.textContent=cfg.welcomeText||AURORE_IA_DEFAULTS.welcomeText;
+    if(cfg.accent){
+      overlay.style.setProperty('--aurore-ia-accent',cfg.accent);
+      overlay.style.setProperty('--aurore-ia-accent-strong',cfg.accent);
+    }else{
+      overlay.style.removeProperty('--aurore-ia-accent');
+      overlay.style.removeProperty('--aurore-ia-accent-strong');
+    }
+  }
+
+  function fillCustomizeForm(){
+    const cfg=AURORE_IA_CONFIG;
+    const byId=id=>document.getElementById(id);
+    if(byId('auroreIACfgName')) byId('auroreIACfgName').value=cfg.name==='Aurore IA'?'':cfg.name;
+    if(byId('auroreIACfgIcon')) byId('auroreIACfgIcon').value=cfg.icon==='✦'?'':cfg.icon;
+    if(byId('auroreIACfgAccent')) byId('auroreIACfgAccent').value=cfg.accent||getComputedAccentHex();
+    if(byId('auroreIACfgWelcomeTitle')) byId('auroreIACfgWelcomeTitle').value=cfg.welcomeTitle===AURORE_IA_DEFAULTS.welcomeTitle?'':cfg.welcomeTitle;
+    if(byId('auroreIACfgWelcomeText')) byId('auroreIACfgWelcomeText').value=cfg.welcomeText===AURORE_IA_DEFAULTS.welcomeText?'':cfg.welcomeText;
+  }
+
+  function getComputedAccentHex(){
+    try{
+      const v=getComputedStyle(overlay).getPropertyValue('--theme-primary').trim();
+      if(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(v)) return v;
+    }catch(e){}
+    return '#8B5CF6';
+  }
+
+  const customizeBtn=document.getElementById('auroreIACustomizeBtn');
+  const customizePanel=document.getElementById('auroreIACustomizePanel');
+  customizeBtn?.addEventListener('click',()=>{
+    const willOpen=customizePanel.hasAttribute('hidden');
+    if(willOpen){ fillCustomizeForm(); customizePanel.removeAttribute('hidden'); }
+    else customizePanel.setAttribute('hidden','');
+  });
+  document.getElementById('auroreIACfgSave')?.addEventListener('click',()=>{
+    const byId=id=>document.getElementById(id);
+    AURORE_IA_CONFIG={
+      name:(byId('auroreIACfgName').value||'').trim()||AURORE_IA_DEFAULTS.name,
+      icon:(byId('auroreIACfgIcon').value||'').trim()||AURORE_IA_DEFAULTS.icon,
+      accent:(byId('auroreIACfgAccent').value||'').trim(),
+      welcomeTitle:(byId('auroreIACfgWelcomeTitle').value||'').trim()||AURORE_IA_DEFAULTS.welcomeTitle,
+      welcomeText:(byId('auroreIACfgWelcomeText').value||'').trim()||AURORE_IA_DEFAULTS.welcomeText
+    };
+    try{localStorage.setItem('auroreIAConfig',JSON.stringify(AURORE_IA_CONFIG));}catch(e){}
+    applyConfig();
+    customizePanel.setAttribute('hidden','');
+  });
+  document.getElementById('auroreIACfgReset')?.addEventListener('click',()=>{
+    AURORE_IA_CONFIG={...AURORE_IA_DEFAULTS};
+    try{localStorage.removeItem('auroreIAConfig');}catch(e){}
+    applyConfig();
+    fillCustomizeForm();
+  });
+  document.addEventListener('click',e=>{
+    if(!customizePanel || customizePanel.hasAttribute('hidden')) return;
+    if(customizePanel.contains(e.target) || e.target===customizeBtn) return;
+    customizePanel.setAttribute('hidden','');
+  });
+
+  applyConfig();
+
+  // ---------------------------------------------------------------
+  // Nouvelle conversation (point 13) : vide les messages, réinitialise
+  // previousInteractionId, remet l'écran d'accueil, ne recharge pas
+  // la page et conserve les préférences visuelles / de personnalisation.
+  // ---------------------------------------------------------------
+  const welcomeTemplateHTML=document.getElementById('auroreIAWelcomeBlock')?.outerHTML||'';
+
+  function bindSuggestions(){
+    conversation.querySelectorAll('[data-ia-prompt]').forEach(btn=>btn.addEventListener('click',()=>{
+      input.value=btn.dataset.iaPrompt||'';
+      form.requestSubmit();
+    }));
+  }
+
+  function nouvelleConversation(){
+    previousInteractionId=null;
+    if(welcomeTemplateHTML) conversation.innerHTML=welcomeTemplateHTML;
+    else conversation.innerHTML='';
+    bindSuggestions();
+    input.value='';
+    input.style.height='auto';
+    input.focus();
+  }
+  document.getElementById('auroreIANewChat')?.addEventListener('click',nouvelleConversation);
 
   async function getSupabaseClient(){
     try{
@@ -18175,10 +18378,87 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     input.style.height=Math.min(input.scrollHeight,150)+'px';
   });
 
+  // Entrée = envoyer, Maj+Entrée = nouvelle ligne (point 9). On ignore
+  // les touches Entrée émises pendant une composition IME (accents,
+  // saisie assistée) pour ne pas envoyer un message à moitié tapé.
+  input.addEventListener('keydown',e=>{
+    if(e.key==='Enter' && !e.shiftKey && !e.isComposing){
+      e.preventDefault();
+      form.requestSubmit();
+    }
+  });
+
   function esc(s){
     return String(s??'').replace(/[&<>"']/g,c=>({
       '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
     }[c]));
+  }
+
+  // Rendu enrichi léger (point 10) : paragraphes, titres, listes,
+  // gras, code, tableaux simples. Le texte brut est toujours échappé
+  // avant toute transformation : aucune balise fournie par le modèle
+  // ou par un document n'est jamais interprétée comme du HTML.
+  function renderAuroreMarkdown(raw){
+    const src=String(raw||'').replace(/\r\n/g,'\n');
+    const lines=src.split('\n');
+    let html='';
+    let i=0;
+    let inList=null; // 'ul' | 'ol' | null
+    function closeList(){ if(inList){ html+='</'+inList+'>'; inList=null; } }
+    function inline(t){
+      t=esc(t);
+      t=t.replace(/`([^`]+)`/g,'<code>$1</code>');
+      t=t.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+      t=t.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g,'$1<em>$2</em>');
+      return t;
+    }
+    while(i<lines.length){
+      const line=lines[i];
+      const heading=line.match(/^(#{1,3})\s+(.*)$/);
+      const ol=line.match(/^\s*\d+[.)]\s+(.*)$/);
+      const ul=line.match(/^\s*[-*•]\s+(.*)$/);
+      if(/^\s*\|.*\|\s*$/.test(line) && lines[i+1] && /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[i+1])){
+        closeList();
+        const headCells=line.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+        html+='<table><thead><tr>'+headCells.map(c=>'<th>'+inline(c)+'</th>').join('')+'</tr></thead><tbody>';
+        i+=2;
+        while(i<lines.length && /^\s*\|.*\|\s*$/.test(lines[i])){
+          const cells=lines[i].trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+          html+='<tr>'+cells.map(c=>'<td>'+inline(c)+'</td>').join('')+'</tr>';
+          i++;
+        }
+        html+='</tbody></table>';
+        continue;
+      }
+      if(heading){
+        closeList();
+        const level=heading[1].length;
+        html+='<h'+level+'>'+inline(heading[2])+'</h'+level+'>';
+        i++;continue;
+      }
+      if(ol){
+        if(inList!=='ol'){ closeList(); html+='<ol>'; inList='ol'; }
+        html+='<li>'+inline(ol[1])+'</li>';
+        i++;continue;
+      }
+      if(ul){
+        if(inList!=='ul'){ closeList(); html+='<ul>'; inList='ul'; }
+        html+='<li>'+inline(ul[1])+'</li>';
+        i++;continue;
+      }
+      if(!line.trim()){ closeList(); i++; continue; }
+      closeList();
+      let para=line;
+      let j=i+1;
+      while(j<lines.length && lines[j].trim() && !/^(#{1,3})\s+/.test(lines[j]) && !/^\s*\d+[.)]\s+/.test(lines[j]) && !/^\s*[-*•]\s+/.test(lines[j])){
+        para+='\n'+lines[j];
+        j++;
+      }
+      html+='<p>'+inline(para).replace(/\n/g,'<br>')+'</p>';
+      i=j;
+    }
+    closeList();
+    return html||'<p></p>';
   }
 
   function addMessage(text,type){
@@ -18192,17 +18472,17 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     conversation.scrollTop=conversation.scrollHeight;
   }
 
-  function addAssistantResponse(text,source='Aurore IA · Gemini'){
+  function addAssistantResponse(text,source){
     const row=document.createElement('div');
     row.className='aurore-ia-message assistant';
     const b=document.createElement('div');
     b.className='aurore-ia-bubble';
-    b.textContent=String(text||'');
+    b.innerHTML=renderAuroreMarkdown(text);
 
     const sourceCard=document.createElement('div');
     sourceCard.className='aurore-ia-source-card';
     const strong=document.createElement('strong');
-    strong.textContent=source;
+    strong.textContent=source||AURORE_IA_CONFIG.name;
     sourceCard.appendChild(strong);
     b.appendChild(sourceCard);
 
