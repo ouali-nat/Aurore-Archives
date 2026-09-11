@@ -3020,6 +3020,8 @@ main{width:100%;min-width:0;overflow-x:clip;}
 
   <section class="screen" id="screen-docs">
     <h2 class="section-title" id="docsTitle"></h2>
+    <div class="wiki-results-section" id="wikiResultsSection" style="display:none;" aria-live="polite"></div>
+    <h3 class="wiki-docs-subheading" id="docsSubheading" style="display:none;">Documents Aurore</h3>
     <div class="ad-slot" id="ad-docs-1"></div>
     <div class="site-data-toolbar doc-toolbar" id="docsToolbar">
       <div class="site-search-control"><span aria-hidden="true">⌕</span><input id="docsSearch" type="search" placeholder="Rechercher dans les documents…" autocomplete="off"></div>
@@ -4036,6 +4038,92 @@ main{width:100%;min-width:0;overflow-x:clip;}
   [data-theme="light"] .admin-pagination button{background:#fff!important;color:#111318!important;border-color:#C9BEDB!important;}
   [data-theme="light"] .admin-pagination button.active{background:#6D28D9!important;border-color:#4C1D95!important;color:#fff!important;}
 </style>
+<style id="aurore-wikipedia-feature-css">
+  .visually-hidden-aurore{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;}
+
+  /* ---------- Cartes de résultats Wikipédia dans la recherche ---------- */
+  .wiki-results-section{margin:4px 0 22px;}
+  .wiki-results-heading{display:flex;align-items:center;gap:9px;margin:0 0 12px;}
+  .wiki-results-heading .wiki-globe-icon{font-size:1.05rem;line-height:1;}
+  .wiki-results-heading strong{font-family:'Georgia','Times New Roman',serif;font-size:1.05rem;color:var(--encre);}
+  .wiki-results-heading span.wiki-results-count{color:var(--gris);font-size:.82rem;}
+  .wiki-docs-subheading{font-family:'Georgia','Times New Roman',serif;font-size:1.02rem;color:var(--encre);margin:2px 0 12px;font-weight:700;}
+  .wiki-results-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;}
+  .wiki-result-card{display:flex;flex-direction:column;text-align:left;background:var(--papier);border:1px solid var(--bordure);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;box-shadow:var(--ombre);padding:0;}
+  .wiki-result-card:hover,.wiki-result-card:focus-visible{transform:translateY(-3px);box-shadow:var(--ombre-hover);border-color:var(--violet);outline:none;}
+  .wiki-result-thumb-wrap{width:100%;aspect-ratio:16/10;background:linear-gradient(135deg,var(--auraster-panel-2),var(--auraster-panel));display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .wiki-result-thumb-wrap img{width:100%;height:100%;object-fit:cover;display:block;}
+  .wiki-result-thumb-fallback{font-size:1.7rem;color:var(--violet);opacity:.75;}
+  .wiki-result-card-body{padding:12px 14px 14px;display:flex;flex-direction:column;gap:5px;flex:1;}
+  .wiki-result-card-body strong{font-size:.92rem;color:var(--encre);line-height:1.3;}
+  .wiki-result-card-body p{font-size:.79rem;color:var(--gris);line-height:1.45;margin:0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+  .wiki-result-badge{align-self:flex-start;font-size:.68rem;letter-spacing:.03em;text-transform:uppercase;color:var(--violet);background:rgba(139,92,246,.12);border-radius:999px;padding:3px 9px;margin-top:2px;}
+  .wiki-inline-state{display:flex;align-items:center;gap:10px;color:var(--gris);font-size:.85rem;padding:14px 2px;}
+  .wiki-inline-state .wiki-spinner{width:16px;height:16px;border-radius:50%;border:2px solid var(--bordure);border-top-color:var(--violet);animation:wikiSpin .8s linear infinite;flex:none;}
+  @keyframes wikiSpin{to{transform:rotate(360deg);}}
+
+  /* ---------- Overlay page encyclopédique ---------- */
+  #wikiViewerOverlay{background:var(--fond);}
+  #wikiViewerOverlay .wiki-shell{height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;opacity:0;transform:translateY(10px);transition:opacity .22s ease,transform .22s ease;}
+  #wikiViewerOverlay.wiki-open .wiki-shell{opacity:1;transform:translateY(0);}
+  .wiki-topbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;background:var(--papier);background:color-mix(in srgb, var(--papier) 92%, transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--bordure);}
+  .wiki-back-btn{display:inline-flex;align-items:center;gap:6px;background:var(--auraster-panel-2);border:1px solid var(--bordure);color:var(--encre);border-radius:999px;padding:9px 16px;font-size:.85rem;font-weight:600;}
+  .wiki-back-btn:hover{border-color:var(--violet);}
+  .wiki-topbar-badge{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;color:var(--gris);background:var(--auraster-panel-2);border:1px solid var(--bordure);border-radius:999px;padding:6px 12px;}
+  .wiki-body{max-width:860px;margin:0 auto;padding:22px 18px 60px;}
+  .wiki-hero-wrap{border-radius:26px;overflow:hidden;box-shadow:var(--ombre);margin-bottom:18px;background:var(--auraster-panel-2);}
+  .wiki-hero-wrap img{width:100%;max-height:420px;object-fit:cover;display:block;}
+  .wiki-hero-caption{font-size:.74rem;color:var(--gris);padding:8px 4px 0;text-align:right;}
+  .wiki-title-block{margin:6px 4px 22px;}
+  .wiki-title-block h1{font-size:1.7rem;line-height:1.2;color:var(--encre);margin-bottom:6px;}
+  .wiki-title-block p{color:var(--gris);font-size:.98rem;line-height:1.5;}
+  .wiki-block{background:var(--papier);border:1px solid var(--bordure);border-radius:26px;padding:22px 22px 24px;margin-bottom:18px;box-shadow:var(--ombre);}
+  .wiki-block-kicker{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--violet);font-weight:700;margin-bottom:10px;display:block;}
+  .wiki-presentation-text{font-size:1rem;line-height:1.75;color:var(--encre);}
+  .wiki-info-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}
+  .wiki-info-card{background:var(--auraster-panel-2);border:1px solid var(--bordure);border-radius:16px;padding:12px 14px;}
+  .wiki-info-card span{display:block;font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:var(--gris);margin-bottom:4px;}
+  .wiki-info-card strong{font-size:.86rem;color:var(--encre);line-height:1.35;font-weight:600;}
+  .wiki-article-content h2{font-size:1.2rem;color:var(--encre);margin:22px 0 10px;padding-top:14px;border-top:1px solid var(--bordure);}
+  .wiki-article-content h2:first-child{margin-top:0;padding-top:0;border-top:none;}
+  .wiki-article-content h3{font-size:1.02rem;color:var(--encre);margin:16px 0 8px;}
+  .wiki-article-content p{font-size:.96rem;line-height:1.75;color:var(--encre);margin:0 0 12px;}
+  .wiki-article-content ul,.wiki-article-content ol{margin:0 0 12px;padding-left:22px;color:var(--encre);font-size:.95rem;line-height:1.65;}
+  .wiki-article-content li{margin-bottom:5px;}
+  .wiki-article-content blockquote{margin:0 0 14px;padding:10px 16px;border-left:3px solid var(--violet);background:var(--auraster-panel-2);border-radius:0 12px 12px 0;font-style:italic;color:var(--gris);}
+  .wiki-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;}
+  .wiki-gallery figure{margin:0;border-radius:18px;overflow:hidden;background:var(--auraster-panel-2);border:1px solid var(--bordure);}
+  .wiki-gallery img{width:100%;height:130px;object-fit:cover;display:block;}
+  .wiki-gallery figcaption{font-size:.72rem;color:var(--gris);padding:7px 10px 9px;line-height:1.35;}
+  .wiki-sources-block{background:var(--auraster-panel-2);border:1px dashed var(--bordure);border-radius:22px;padding:18px 20px;}
+  .wiki-sources-block p{font-size:.82rem;color:var(--gris);line-height:1.6;margin:0 0 8px;}
+  .wiki-sources-block a{color:var(--violet);font-weight:600;}
+  .wiki-sources-block .wiki-source-link-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+  .wiki-sources-block .wiki-credits-list{font-size:.72rem;color:var(--gris);line-height:1.6;}
+  .wiki-sources-block .wiki-credits-list a{font-weight:500;}
+  .wiki-state{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px;padding:70px 20px;color:var(--gris);}
+  .wiki-state .icon-wrap{width:56px;height:56px;border-radius:50%;background:var(--auraster-panel-2);display:flex;align-items:center;justify-content:center;color:var(--violet);}
+  .wiki-state h3{color:var(--encre);font-size:1.1rem;}
+  .wiki-state p{max-width:360px;font-size:.88rem;line-height:1.55;}
+  .wiki-state button{margin-top:4px;background:var(--violet);color:#fff;border:none;border-radius:999px;padding:10px 20px;font-size:.85rem;font-weight:600;}
+  .wiki-skeleton{padding:4px;}
+  .wiki-skeleton-block{border-radius:26px;background:linear-gradient(90deg,var(--auraster-panel-2) 25%,var(--auraster-panel) 37%,var(--auraster-panel-2) 63%);background-size:400% 100%;animation:wikiShimmer 1.4s ease infinite;}
+  @keyframes wikiShimmer{0%{background-position:100% 50%;}100%{background-position:0 50%;}}
+  .wiki-skeleton .wiki-skeleton-hero{height:220px;margin-bottom:18px;}
+  .wiki-skeleton .wiki-skeleton-line{height:16px;border-radius:8px;margin-bottom:10px;}
+  .wiki-disambig-list{display:flex;flex-direction:column;gap:10px;}
+  .wiki-disambig-item{display:flex;align-items:center;gap:12px;background:var(--auraster-panel-2);border:1px solid var(--bordure);border-radius:16px;padding:11px 14px;text-align:left;cursor:pointer;transition:border-color .15s ease,transform .15s ease;}
+  .wiki-disambig-item:hover{border-color:var(--violet);transform:translateX(2px);}
+  .wiki-disambig-item strong{font-size:.88rem;color:var(--encre);}
+  @media(max-width:560px){
+    .wiki-body{padding:16px 12px 50px;}
+    .wiki-title-block h1{font-size:1.4rem;}
+    .wiki-block{padding:17px 15px 19px;border-radius:20px;}
+    .wiki-hero-wrap{border-radius:20px;}
+    .wiki-hero-wrap img{max-height:260px;}
+    .wiki-results-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));}
+  }
+</style>
 <div id="pdfViewerOverlay" role="dialog" aria-modal="true" aria-labelledby="pdfViewerTitre" style="display:none; position:fixed; inset:0; z-index:9998; background:rgba(9,8,18,0.96);">
   <div class="pdf-reader-shell">
     <div class="pdf-reader-topbar">
@@ -4111,6 +4199,19 @@ main{width:100%;min-width:0;overflow-x:clip;}
       </div>
       <button type="button" id="pdfViewerSuiv" aria-label="Page suivante">Suivant →</button>
 
+    </div>
+  </div>
+</div>
+
+<!-- ===== AURORE WIKIPÉDIA — page encyclopédique dédiée (overlay, même motif que le lecteur PDF) ===== -->
+<div id="wikiViewerOverlay" role="dialog" aria-modal="true" aria-labelledby="wikiViewerTitreLive" style="display:none; position:fixed; inset:0; z-index:9990;">
+  <div class="wiki-shell" id="wikiShell">
+    <div class="wiki-topbar">
+      <button type="button" id="wikiViewerFermer" class="wiki-back-btn" aria-label="Retour à Aurore"><span aria-hidden="true">←</span> Retour</button>
+      <span class="wiki-topbar-badge"><span class="wiki-globe-icon" aria-hidden="true">🌐</span> Wikipédia</span>
+    </div>
+    <div id="wikiViewerBody" class="wiki-body">
+      <span id="wikiViewerTitreLive" class="visually-hidden-aurore"></span>
     </div>
   </div>
 </div>
@@ -6553,6 +6654,13 @@ main{width:100%;min-width:0;overflow-x:clip;}
     if(!navigationParPopState) enregistrerPositionNavigation();
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
     cible.classList.add('active');
+    // La section de résultats Wikipédia n'a de sens que pendant une recherche
+    // (voir auroreRechercherWikipedia plus bas) : toute autre arrivée sur
+    // screen-docs (navigation par catégorie, lien partagé, etc.) la réinitialise
+    // pour ne jamais laisser d'anciens résultats Wikipédia affichés à tort.
+    if (id === 'screen-docs' && typeof window.auroreReinitialiserSectionWikipedia === 'function') {
+      window.auroreReinitialiserSectionWikipedia();
+    }
     // Les publicités sont chargées une seule fois, mais chaque écran peut être
     // reconstruit après la navigation. On réaffiche donc immédiatement les
     // emplacements avec les données déjà reçues, sans nouvelle requête réseau.
@@ -6728,6 +6836,13 @@ main{width:100%;min-width:0;overflow-x:clip;}
     // recharger les documents depuis Supabase.
     if (document.getElementById('pdfViewerOverlay')?.style.display === 'block') {
       fermerLecteurPDF();
+      return;
+    }
+    // Même principe pour la page Wikipédia Aurore : elle pousse sa propre
+    // entrée d'historique à l'ouverture (voir ouvrirArticleWikipedia), donc le
+    // Retour la referme simplement sans quitter ni recharger l'écran sous-jacent.
+    if (document.getElementById('wikiViewerOverlay')?.style.display === 'block') {
+      if (typeof window.auroreFermerArticleWikipedia === 'function') window.auroreFermerArticleWikipedia();
       return;
     }
     // Même principe pour la fiche de gestion ouverte depuis un bloc du tableau
@@ -17348,6 +17463,430 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     }
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot,{once:true}); else boot();
+})();
+</script>
+
+<!-- ===== AURORE WIKIPÉDIA — recherche + page encyclopédique dédiée =====
+     Module autonome : n'utilise que des fonctions déjà globales (afficherEcran,
+     ICONS, echapperHtmlPub, creerSnapshotNavigation, navigationParPopState,
+     history) et ses propres écouteurs "input" sur les champs de recherche
+     existants, sans modifier la recherche interne aux documents Aurore. -->
+<script id="aurore-wikipedia-feature">
+(function(){
+  const WIKI_LANG = 'fr';
+  const WIKI_API = `https://${WIKI_LANG}.wikipedia.org/w/api.php`;
+  const WIKI_REST = `https://${WIKI_LANG}.wikipedia.org/api/rest_v1/page/summary/`;
+  const esc = (typeof echapperHtmlPub === 'function') ? echapperHtmlPub : (s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+
+  const ICONE_GLOBE = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
+  const ICONE_ALERTE = (typeof ICONS !== 'undefined' && ICONS.warning) ? ICONS.warning : ICONE_GLOBE;
+
+  /* ---------------------------------------------------------------
+     RECHERCHE — écoute indépendante des champs globaux existants
+     --------------------------------------------------------------- */
+  let wikiDebounceTimer = null;
+  let wikiAbortController = null;
+  let wikiRequeteSeq = 0;
+
+  function normaliserWiki(v){
+    return typeof normaliserRechercheSite === 'function'
+      ? normaliserRechercheSite(v)
+      : String(v==null?'':v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  }
+
+  function afficherEtatSectionWiki(html){
+    const section = document.getElementById('wikiResultsSection');
+    if(!section) return;
+    section.style.display = 'block';
+    section.innerHTML = `<div class="wiki-results-heading"><span class="wiki-globe-icon">${ICONE_GLOBE}</span><strong>Wikipédia</strong></div>` + html;
+    const sub = document.getElementById('docsSubheading');
+    if(sub) sub.style.display = 'block';
+  }
+
+  window.auroreReinitialiserSectionWikipedia = function(){
+    if(wikiAbortController){ try{ wikiAbortController.abort(); }catch(e){} wikiAbortController = null; }
+    wikiRequeteSeq++;
+    const section = document.getElementById('wikiResultsSection');
+    if(section){ section.style.display = 'none'; section.innerHTML = ''; }
+    const sub = document.getElementById('docsSubheading');
+    if(sub) sub.style.display = 'none';
+  };
+
+  async function auroreRechercherWikipedia(termeBrut){
+    const terme = String(termeBrut||'').trim();
+    const jeton = ++wikiRequeteSeq;
+    if(wikiAbortController){ try{ wikiAbortController.abort(); }catch(e){} wikiAbortController = null; }
+    if(terme.length < 2){
+      const section = document.getElementById('wikiResultsSection');
+      if(section){ section.style.display='none'; section.innerHTML=''; }
+      const sub = document.getElementById('docsSubheading');
+      if(sub) sub.style.display='none';
+      return;
+    }
+    afficherEtatSectionWiki(`<div class="wiki-inline-state"><span class="wiki-spinner"></span> Recherche sur Wikipédia…</div>`);
+    wikiAbortController = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    try{
+      const params = new URLSearchParams({
+        action:'query', generator:'search', gsrsearch:terme, gsrlimit:'6', gsrnamespace:'0',
+        prop:'pageimages|extracts', exintro:'1', explaintext:'1', exchars:'170',
+        piprop:'thumbnail', pithumbsize:'260', format:'json', origin:'*', redirects:'1'
+      });
+      const res = await fetch(`${WIKI_API}?${params.toString()}`, { signal: wikiAbortController?.signal, cache:'no-store' });
+      if(jeton !== wikiRequeteSeq) return;
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const data = await res.json();
+      if(jeton !== wikiRequeteSeq) return;
+      const pages = (data && data.query && data.query.pages) ? Object.values(data.query.pages) : [];
+      if(!pages.length){
+        afficherEtatSectionWiki(`<div class="wiki-inline-state">Aucun résultat Wikipédia pour « ${esc(terme)} ».</div>`);
+        return;
+      }
+      pages.sort((a,b)=> (a.index||0) - (b.index||0));
+      const cartes = pages.slice(0,6).map(p=>{
+        const img = p.thumbnail && p.thumbnail.source
+          ? `<img src="${esc(p.thumbnail.source)}" alt="" loading="lazy">`
+          : `<span class="wiki-result-thumb-fallback">${ICONE_GLOBE}</span>`;
+        const extrait = String(p.extract||'').replace(/\s+/g,' ').trim();
+        return `<button type="button" class="wiki-result-card" data-wiki-titre="${esc(p.title)}">
+          <div class="wiki-result-thumb-wrap">${img}</div>
+          <div class="wiki-result-card-body">
+            <span class="wiki-result-badge">Wikipédia</span>
+            <strong>${esc(p.title)}</strong>
+            ${extrait ? `<p>${esc(extrait)}</p>` : ''}
+          </div>
+        </button>`;
+      }).join('');
+      afficherEtatSectionWiki(`<div class="wiki-results-grid">${cartes}</div>`);
+      document.querySelectorAll('#wikiResultsSection [data-wiki-titre]').forEach(btn=>{
+        btn.addEventListener('click', ()=> ouvrirArticleWikipedia(btn.getAttribute('data-wiki-titre')));
+      });
+    }catch(err){
+      if(err && err.name === 'AbortError') return;
+      if(jeton !== wikiRequeteSeq) return;
+      afficherEtatSectionWiki(`<div class="wiki-inline-state">Recherche Wikipédia momentanément indisponible.</div>`);
+    }finally{
+      if(jeton === wikiRequeteSeq) wikiAbortController = null;
+    }
+  }
+
+  function programmerRechercheWiki(valeur){
+    clearTimeout(wikiDebounceTimer);
+    const v = String(valeur||'');
+    if(!v.trim()){
+      window.auroreReinitialiserSectionWikipedia();
+      return;
+    }
+    wikiDebounceTimer = setTimeout(()=> auroreRechercherWikipedia(v), 320);
+  }
+
+  ['headerSearchInput','homeSearchInput'].forEach(id=>{
+    const input = document.getElementById(id);
+    if(!input) return;
+    input.addEventListener('input', e => programmerRechercheWiki(e.target.value));
+    input.addEventListener('keydown', e => { if(e.key==='Enter'){ clearTimeout(wikiDebounceTimer); auroreRechercherWikipedia(e.target.value); } });
+  });
+
+  /* ---------------------------------------------------------------
+     PAGE ENCYCLOPÉDIQUE — ouverture, construction, fermeture
+     --------------------------------------------------------------- */
+  let wikiArticleJeton = 0;
+  let wikiRetourAppui = null; // fonction à rappeler pour "Réessayer"
+
+  function fermerArticleWikipediaReel(){
+    wikiArticleJeton++;
+    const overlay = document.getElementById('wikiViewerOverlay');
+    if(!overlay) return;
+    overlay.classList.remove('wiki-open');
+    overlay.style.display = 'none';
+    const body = document.getElementById('wikiViewerBody');
+    if(body) body.innerHTML = '<span id="wikiViewerTitreLive" class="visually-hidden-aurore"></span>';
+  }
+  window.auroreFermerArticleWikipedia = fermerArticleWikipediaReel;
+
+  function demanderFermetureArticleWikipedia(){
+    if(history.state && history.state.wikiViewer){ history.back(); }
+    else { fermerArticleWikipediaReel(); }
+  }
+  document.getElementById('wikiViewerFermer')?.addEventListener('click', demanderFermetureArticleWikipedia);
+  document.getElementById('wikiViewerOverlay')?.addEventListener('keydown', e=>{
+    if(e.key === 'Escape') demanderFermetureArticleWikipedia();
+  });
+
+  function squelettePageWiki(){
+    return `<div class="wiki-skeleton">
+      <div class="wiki-skeleton-block wiki-skeleton-hero"></div>
+      <div class="wiki-skeleton-block wiki-skeleton-line" style="width:60%;height:26px;"></div>
+      <div class="wiki-skeleton-block wiki-skeleton-line" style="width:90%;"></div>
+      <div class="wiki-skeleton-block wiki-skeleton-line" style="width:80%;"></div>
+      <div class="wiki-skeleton-block wiki-skeleton-line" style="width:70%;"></div>
+    </div>`;
+  }
+
+  function etatWiki({icone, titre, texte, boutonTexte, boutonAction}){
+    const body = document.getElementById('wikiViewerBody');
+    if(!body) return;
+    const btnId = 'wikiStateBtn_'+Math.random().toString(36).slice(2,8);
+    body.innerHTML = `<div class="wiki-state">
+      <div class="icon-wrap">${icone||ICONE_ALERTE}</div>
+      <h3>${esc(titre||'')}</h3>
+      <p>${esc(texte||'')}</p>
+      ${boutonTexte ? `<button type="button" id="${btnId}">${esc(boutonTexte)}</button>` : ''}
+    </div>`;
+    if(boutonTexte && boutonAction) document.getElementById(btnId)?.addEventListener('click', boutonAction);
+  }
+
+  function nomFichierDepuisUrlImage(url){
+    try{
+      const propre = url.split('?')[0];
+      const segs = propre.split('/').filter(Boolean);
+      const dernier = segs[segs.length-1];
+      const m = dernier.match(/^\d+px-(.+)$/);
+      return decodeURIComponent(m ? m[1] : dernier);
+    }catch(e){ return ''; }
+  }
+  function agrandirImageWiki(url){
+    try{ return url.replace(/\/(\d+)px-([^\/]+)$/, (m,px,file)=> '/480px-'+file); }
+    catch(e){ return url; }
+  }
+  function urlAbsolueWiki(src){
+    if(!src) return '';
+    if(src.startsWith('//')) return 'https:'+src;
+    if(src.startsWith('/')) return `https://${WIKI_LANG}.wikipedia.org`+src;
+    return src;
+  }
+
+  const SECTIONS_A_ARRETER = ['notes et references','references','reference','voir aussi','bibliographie','liens externes','articles connexes','annexes','sources','notes'];
+  function normaliserTitreSection(t){
+    return String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  }
+
+  function construireContenuArticle(doc, hero){
+    const racine = doc.querySelector('.mw-parser-output') || doc.body;
+    if(!racine) return { infoCards:[], sections:[], images:[] };
+
+    racine.querySelectorAll('style,script,.mw-editsection,.reference,sup.reference,.noprint,.mw-empty-elt,.navbox,.ambox,.hatnote,.metadata,.sistersitebox,.portal-bar,.authority-control,.shortdescription,.mw-indicators,table.metadata,.reflist,ol.references,.mw-references-wrap,.mw-cite-backlink,.magnify,.printfooter,.catlinks,.geo-nondefault,.geo-multi-punct,.mw-collapsible').forEach(el=>el.remove());
+
+    // ---- Bloc "Informations essentielles" à partir de l'infobox ----
+    const infoCards = [];
+    const infobox = racine.querySelector('.infobox');
+    if(infobox){
+      infobox.querySelectorAll('tr').forEach(tr=>{
+        const th = tr.querySelector('th');
+        const td = tr.querySelector('td');
+        if(!th || !td) return;
+        const label = th.textContent.replace(/\s+/g,' ').trim();
+        const value = td.textContent.replace(/\s+/g,' ').trim();
+        if(label && value && value.length <= 160 && infoCards.length < 8) infoCards.push({label, value});
+      });
+      infobox.remove();
+    }
+
+    // ---- Images du corps de l'article (galerie) ----
+    const images = [];
+    const nomHeroFichier = hero && hero.src ? nomFichierDepuisUrlImage(hero.src) : '';
+    racine.querySelectorAll('.thumb, figure, .image').forEach(conteneur=>{
+      const img = conteneur.querySelector('img');
+      if(!img) return;
+      const src = urlAbsolueWiki(img.getAttribute('src')||'');
+      if(!src) return;
+      const nomFichier = nomFichierDepuisUrlImage(src);
+      if(!nomFichier || nomFichier === nomHeroFichier) { conteneur.remove(); return; }
+      if(images.some(i=>i.nomFichier === nomFichier)) { conteneur.remove(); return; }
+      if(images.length >= 6) { conteneur.remove(); return; }
+      const legendeEl = conteneur.querySelector('.thumbcaption');
+      const legende = legendeEl ? legendeEl.textContent.replace(/\s+/g,' ').trim() : '';
+      images.push({
+        src: agrandirImageWiki(src),
+        legende,
+        nomFichier,
+        lienCommons: nomFichier ? `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(nomFichier)}` : ''
+      });
+      conteneur.remove();
+    });
+
+    // ---- Sections structurées (titres, paragraphes, listes, citations) ----
+    const sections = [];
+    let longueurCumulee = 0;
+    let arreter = false;
+    Array.from(racine.children).forEach(el=>{
+      if(arreter) return;
+      const tag = el.tagName;
+      if(tag === 'H2' || tag === 'H3' || tag === 'H4'){
+        const texte = el.textContent.replace(/\s+/g,' ').trim();
+        if(SECTIONS_A_ARRETER.includes(normaliserTitreSection(texte))){ arreter = true; return; }
+        if(texte) sections.push({ type: tag==='H2' ? 'h2' : 'h3', texte });
+        return;
+      }
+      if(tag === 'P'){
+        const texte = el.textContent.replace(/\s+/g,' ').trim();
+        if(texte){ sections.push({ type:'p', texte }); longueurCumulee += texte.length; }
+        return;
+      }
+      if(tag === 'UL' || tag === 'OL'){
+        const items = Array.from(el.querySelectorAll(':scope > li')).map(li=>li.textContent.replace(/\s+/g,' ').trim()).filter(Boolean);
+        if(items.length){ sections.push({ type: tag==='UL' ? 'ul' : 'ol', items }); longueurCumulee += items.join('').length; }
+        return;
+      }
+      if(tag === 'BLOCKQUOTE'){
+        const texte = el.textContent.replace(/\s+/g,' ').trim();
+        if(texte) sections.push({ type:'quote', texte });
+        return;
+      }
+      // DIV/SECTION : on explore un seul niveau pour les paragraphes/listes qui y sont parfois enveloppés.
+      if(tag === 'DIV' || tag === 'SECTION'){
+        Array.from(el.children).forEach(sousEl=>{
+          if(arreter) return;
+          if(sousEl.tagName === 'P'){
+            const texte = sousEl.textContent.replace(/\s+/g,' ').trim();
+            if(texte){ sections.push({ type:'p', texte }); longueurCumulee += texte.length; }
+          } else if(sousEl.tagName === 'UL' || sousEl.tagName === 'OL'){
+            const items = Array.from(sousEl.querySelectorAll(':scope > li')).map(li=>li.textContent.replace(/\s+/g,' ').trim()).filter(Boolean);
+            if(items.length) sections.push({ type: sousEl.tagName==='UL' ? 'ul' : 'ol', items });
+          }
+        });
+        return;
+      }
+      if(longueurCumulee > 7000) arreter = true;
+    });
+
+    return { infoCards, sections, images };
+  }
+
+  function rendreBlocsArticle(sections){
+    return sections.map(s=>{
+      if(s.type === 'h2') return `<h2>${esc(s.texte)}</h2>`;
+      if(s.type === 'h3') return `<h3>${esc(s.texte)}</h3>`;
+      if(s.type === 'p') return `<p>${esc(s.texte)}</p>`;
+      if(s.type === 'quote') return `<blockquote>${esc(s.texte)}</blockquote>`;
+      if(s.type === 'ul') return `<ul>${s.items.map(i=>`<li>${esc(i)}</li>`).join('')}</ul>`;
+      if(s.type === 'ol') return `<ol>${s.items.map(i=>`<li>${esc(i)}</li>`).join('')}</ol>`;
+      return '';
+    }).join('');
+  }
+
+  async function afficherDesambiguisation(titre){
+    const body = document.getElementById('wikiViewerBody');
+    if(!body) return;
+    try{
+      const params = new URLSearchParams({
+        action:'query', generator:'links', titles:titre, gplnamespace:'0', gpllimit:'20',
+        prop:'pageimages', piprop:'thumbnail', pithumbsize:'80', format:'json', origin:'*', redirects:'1'
+      });
+      const res = await fetch(`${WIKI_API}?${params.toString()}`, { cache:'no-store' });
+      const data = await res.json();
+      const pages = (data && data.query && data.query.pages) ? Object.values(data.query.pages).filter(p=>!p.missing) : [];
+      if(!pages.length){
+        etatWiki({ titre:'Plusieurs significations possibles', texte:`« ${titre} » peut désigner plusieurs choses sur Wikipédia. Essayez une recherche plus précise.`, boutonTexte:'Retour', boutonAction: demanderFermetureArticleWikipedia });
+        return;
+      }
+      pages.sort((a,b)=> (a.index||0)-(b.index||0));
+      const items = pages.slice(0,18).map(p=>`<button type="button" class="wiki-disambig-item" data-wiki-titre="${esc(p.title)}"><strong>${esc(p.title)}</strong></button>`).join('');
+      body.innerHTML = `<div class="wiki-title-block"><h1>${esc(titre)}</h1><p>Cette page peut désigner plusieurs sujets. Choisissez celui que vous cherchez :</p></div>
+        <div class="wiki-block"><div class="wiki-disambig-list">${items}</div></div>`;
+      body.querySelectorAll('[data-wiki-titre]').forEach(btn=>{
+        btn.addEventListener('click', ()=> ouvrirArticleWikipedia(btn.getAttribute('data-wiki-titre'), { pushHistory:false }));
+      });
+    }catch(e){
+      etatWiki({ titre:'Impossible de charger les résultats', texte:'Veuillez réessayer dans quelques instants.', boutonTexte:'Réessayer', boutonAction: ()=>afficherDesambiguisation(titre) });
+    }
+  }
+
+  async function ouvrirArticleWikipedia(titre, options){
+    options = options || {};
+    if(!titre) return;
+    const jeton = ++wikiArticleJeton;
+    const overlay = document.getElementById('wikiViewerOverlay');
+    if(!overlay) return;
+
+    overlay.style.display = 'block';
+    requestAnimationFrame(()=> overlay.classList.add('wiki-open'));
+    const body = document.getElementById('wikiViewerBody');
+    if(body) body.innerHTML = squelettePageWiki();
+    overlay.focus?.({ preventScroll:true });
+
+    if(options.pushHistory !== false){
+      try{
+        if(typeof navigationParPopState !== 'undefined' && !navigationParPopState && typeof creerSnapshotNavigation === 'function'){
+          const ecranActuel = document.querySelector('.screen.active')?.id || 'screen-home';
+          history.pushState({ ...creerSnapshotNavigation(ecranActuel, window.scrollY), wikiViewer:true }, '', location.href);
+        }
+      }catch(e){}
+    }
+
+    let resume;
+    try{
+      const res = await fetch(`${WIKI_REST}${encodeURIComponent(titre.replace(/ /g,'_'))}?redirect=true`, { cache:'no-store' });
+      if(jeton !== wikiArticleJeton) return;
+      if(res.status === 404){
+        etatWiki({ titre:'Article introuvable', texte:`Aucun article Wikipédia ne correspond à « ${titre} ».`, boutonTexte:'Retour', boutonAction: demanderFermetureArticleWikipedia });
+        return;
+      }
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      resume = await res.json();
+      if(jeton !== wikiArticleJeton) return;
+    }catch(err){
+      if(jeton !== wikiArticleJeton) return;
+      etatWiki({ titre:'Impossible de charger cet article', texte:'Vérifiez votre connexion puis réessayez.', boutonTexte:'Réessayer', boutonAction: ()=>ouvrirArticleWikipedia(titre, { pushHistory:false }) });
+      return;
+    }
+
+    if(resume.type === 'disambiguation'){
+      await afficherDesambiguisation(resume.title || titre);
+      return;
+    }
+
+    const titreReel = resume.title || titre;
+    const description = resume.description || '';
+    const presentation = (resume.extract || '').trim();
+    const heroSrc = (resume.originalimage && resume.originalimage.source) || (resume.thumbnail && resume.thumbnail.source) || '';
+    const hero = heroSrc ? { src: heroSrc } : null;
+    const urlOriginal = (resume.content_urls && resume.content_urls.desktop && resume.content_urls.desktop.page) || `https://${WIKI_LANG}.wikipedia.org/wiki/${encodeURIComponent(titreReel.replace(/ /g,'_'))}`;
+
+    let infoCards = [], sections = [], images = [];
+    try{
+      const params = new URLSearchParams({ action:'parse', page:titreReel, prop:'text', format:'json', origin:'*', redirects:'1', disabletoc:'1', disableeditsection:'1' });
+      const res2 = await fetch(`${WIKI_API}?${params.toString()}`, { cache:'no-store' });
+      if(jeton !== wikiArticleJeton) return;
+      if(res2.ok){
+        const data2 = await res2.json();
+        const html = data2 && data2.parse && data2.parse.text && data2.parse.text['*'];
+        if(html){
+          const doc = new DOMParser().parseFromString(html, 'text/html');
+          const construit = construireContenuArticle(doc, hero);
+          infoCards = construit.infoCards; sections = construit.sections; images = construit.images;
+        }
+      }
+    }catch(e){ /* repli silencieux sur le seul résumé, voir ci-dessous */ }
+    if(jeton !== wikiArticleJeton) return;
+
+    const heroHtml = hero ? `<div class="wiki-hero-wrap"><img src="${esc(hero.src)}" alt="${esc(titreReel)}"></div>` : '';
+    const infoHtml = infoCards.length ? `<div class="wiki-block"><span class="wiki-block-kicker">Informations essentielles</span><div class="wiki-info-grid">${infoCards.map(c=>`<div class="wiki-info-card"><span>${esc(c.label)}</span><strong>${esc(c.value)}</strong></div>`).join('')}</div></div>` : '';
+    const presentationHtml = presentation ? `<div class="wiki-block"><span class="wiki-block-kicker">Présentation</span><div class="wiki-presentation-text">${presentation.split(/\n+/).map(p=>`<p>${esc(p)}</p>`).join('')}</div></div>` : '';
+    const articleHtml = sections.length ? `<div class="wiki-block"><span class="wiki-block-kicker">Article</span><div class="wiki-article-content">${rendreBlocsArticle(sections)}</div></div>` : '';
+    const galerieHtml = images.length ? `<div class="wiki-block"><span class="wiki-block-kicker">Images</span><div class="wiki-gallery">${images.map(img=>`<figure><img src="${esc(img.src)}" alt="${esc(img.legende||titreReel)}" loading="lazy">${img.legende ? `<figcaption>${esc(img.legende)}</figcaption>` : ''}</figure>`).join('')}</div></div>` : '';
+    const creditsImages = images.filter(i=>i.lienCommons).map(i=>`<a href="${esc(i.lienCommons)}" target="_blank" rel="noopener noreferrer">${esc(i.nomFichier)}</a>`).join(' · ');
+    const sourcesHtml = `<div class="wiki-block wiki-sources-block">
+        <span class="wiki-block-kicker">Sources</span>
+        <p>Le contenu de cette page provient de Wikipédia et Wikimedia Commons, disponibles sous licence Creative Commons BY-SA. Aurore n'est pas l'auteur de ce contenu et se contente de le présenter de façon plus lisible.</p>
+        <div class="wiki-source-link-row"><a href="${esc(urlOriginal)}" target="_blank" rel="noopener noreferrer">↗ Voir l'article original sur Wikipédia</a></div>
+        ${creditsImages ? `<div class="wiki-credits-list">Crédits images (Wikimedia Commons) : ${creditsImages}</div>` : ''}
+      </div>`;
+
+    const body2 = document.getElementById('wikiViewerBody');
+    if(!body2) return;
+    body2.innerHTML = `
+      ${heroHtml}
+      <div class="wiki-title-block"><h1>${esc(titreReel)}</h1>${description ? `<p>${esc(description)}</p>` : ''}</div>
+      ${infoHtml}
+      ${presentationHtml}
+      ${articleHtml}
+      ${galerieHtml}
+      ${sourcesHtml}
+    `;
+    const badge = document.getElementById('wikiViewerTitreLive');
+    if(badge) badge.textContent = titreReel;
+  }
+
 })();
 </script>
 </body>
