@@ -2412,6 +2412,29 @@ main{width:100%;min-width:0;overflow-x:clip;}
 <script id="aurore-shared-route-early">
 (function(){try{if(new URLSearchParams(location.search).has('sectionShare'))document.documentElement.classList.add('aurore-shared-route');}catch(_){}})();
 </script>
+
+<style id="aurore-ia-stage1-css">
+.aurore-ia-header-btn{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(192,132,252,.22);background:rgba(139,92,246,.10);color:#EDE9FE;border-radius:999px;padding:10px 14px;font:inherit;font-size:.8rem;font-weight:800;white-space:nowrap;cursor:pointer;transition:.18s ease;}
+.aurore-ia-header-btn:hover{background:rgba(139,92,246,.20);border-color:rgba(192,132,252,.45);transform:translateY(-1px);}
+.aurore-ia-header-btn span:first-child{font-size:1rem;color:#C4B5FD;}
+.aurore-ia-overlay{position:fixed;inset:0;z-index:2147483000;display:none;background:rgba(5,4,9,.72);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);padding:18px;}
+.aurore-ia-overlay.open{display:flex;animation:auroreIAFade .18s ease both;}
+.aurore-ia-shell{width:min(1180px,100%);height:min(860px,100%);margin:auto;display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(192,132,252,.18);border-radius:28px;background:#0F0C17;box-shadow:0 35px 100px rgba(0,0,0,.48);}
+.aurore-ia-topbar{height:72px;flex:0 0 72px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:0 20px;border-bottom:1px solid #292238;background:rgba(21,17,31,.92);}
+.aurore-ia-brand{display:flex;align-items:center;gap:11px;min-width:0;}.aurore-ia-brand>div:last-child{display:flex;flex-direction:column;min-width:0}.aurore-ia-brand strong{font-size:1rem;color:#fff}.aurore-ia-brand span{font-size:.72rem;color:#9991AA;margin-top:2px}.aurore-ia-mark,.aurore-ia-welcome-mark{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:13px;background:linear-gradient(135deg,#7C3AED,#C084FC);color:#fff;font-size:1.2rem;box-shadow:0 10px 30px rgba(124,58,237,.24)}
+.aurore-ia-top-actions{display:flex;align-items:center;gap:12px}.aurore-ia-status{display:inline-flex;align-items:center;gap:6px;color:#A9A3B8;font-size:.72rem;font-weight:700}.aurore-ia-status i{width:7px;height:7px;border-radius:50%;background:#86EFAC;box-shadow:0 0 0 4px rgba(134,239,172,.08)}.aurore-ia-close{width:38px;height:38px;border:1px solid #30283F;border-radius:12px;background:#15111F;color:#C9C1D5;font-size:1.4rem;line-height:1;cursor:pointer}.aurore-ia-close:hover{color:#fff;border-color:#8B5CF6}
+.aurore-ia-body{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:0;flex:1}.aurore-ia-tools{padding:20px 14px;border-right:1px solid #292238;background:#110E19;overflow:auto}.aurore-ia-kicker{margin:0 0 10px;font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;font-weight:900;color:#A78BFA}.aurore-ia-tool{width:100%;display:flex;align-items:center;gap:10px;text-align:left;border:1px solid transparent;background:transparent;color:#DCD4E8;border-radius:14px;padding:11px 10px;cursor:pointer;margin-bottom:5px}.aurore-ia-tool:hover{background:#181321;border-color:#292238}.aurore-ia-tool.active{background:rgba(139,92,246,.12);border-color:rgba(167,139,250,.22)}.aurore-ia-tool>span{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:#191423;color:#C4B5FD;flex-shrink:0}.aurore-ia-tool>div{display:flex;flex-direction:column;min-width:0}.aurore-ia-tool strong{font-size:.82rem}.aurore-ia-tool small{font-size:.68rem;color:#81788F;margin-top:2px}.aurore-ia-tool-note{margin-top:18px;padding:12px;border:1px dashed #30283F;border-radius:14px;color:#81788F;font-size:.68rem;line-height:1.55}
+.aurore-ia-chat{min-width:0;display:flex;flex-direction:column;background:radial-gradient(circle at 50% 0%,rgba(139,92,246,.07),transparent 34%),#0F0C17}.aurore-ia-conversation{flex:1;min-height:0;overflow:auto;padding:28px clamp(16px,4vw,46px)}.aurore-ia-welcome{max-width:760px;margin:7vh auto 0}.aurore-ia-welcome h1{margin-top:10px;color:#fff;font-size:clamp(1.7rem,4vw,2.65rem);line-height:1.08;letter-spacing:-.04em}.aurore-ia-welcome>p:not(.aurore-ia-kicker){margin-top:11px;color:#9F97AE;max-width:650px;font-size:.9rem;line-height:1.65}.aurore-ia-suggestions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:24px}.aurore-ia-suggestions button{border:1px solid #292238;background:#15111F;color:#DCD4E8;border-radius:15px;padding:13px 14px;text-align:left;font:inherit;font-size:.75rem;line-height:1.4;cursor:pointer}.aurore-ia-suggestions button:hover{border-color:rgba(167,139,250,.45);background:#191423;color:#fff}
+.aurore-ia-composer{display:flex;align-items:flex-end;gap:9px;margin:0 clamp(16px,4vw,46px);padding:8px 8px 8px 14px;border:1px solid #30283F;border-radius:19px;background:#15111F;box-shadow:0 14px 40px rgba(0,0,0,.20)}.aurore-ia-composer textarea{flex:1;min-width:0;max-height:150px;resize:none;border:0!important;outline:0!important;background:transparent!important;color:#fff!important;font:inherit;font-size:.86rem;line-height:1.5;padding:8px 0}.aurore-ia-composer textarea::placeholder{color:#81788F}.aurore-ia-composer>button{width:40px;height:40px;flex:0 0 40px;border:0;border-radius:12px;background:linear-gradient(135deg,#7C3AED,#A855F7);color:#fff;font-size:1.1rem;font-weight:800;cursor:pointer}.aurore-ia-composer>button:hover{filter:brightness(1.08)}.aurore-ia-disclaimer{margin:9px clamp(16px,4vw,46px) 14px;text-align:center;color:#625B6E;font-size:.62rem}
+.aurore-ia-message{max-width:820px;margin:0 auto 18px;display:flex;gap:10px}.aurore-ia-message.user{justify-content:flex-end}.aurore-ia-bubble{max-width:min(760px,90%);padding:12px 15px;border-radius:17px;border:1px solid #292238;background:#15111F;color:#DDD6E7;font-size:.84rem;line-height:1.6;white-space:pre-wrap}.aurore-ia-message.user .aurore-ia-bubble{background:rgba(124,58,237,.16);border-color:rgba(167,139,250,.22);color:#F5F3FF}.aurore-ia-source-card{margin-top:10px;padding:11px 12px;border:1px solid #292238;border-radius:13px;background:#110E19;font-size:.72rem;color:#A9A3B8}.aurore-ia-source-card strong{display:block;color:#EDE9FE;margin-bottom:3px}.aurore-ia-tool-state{margin-top:9px;display:inline-flex;align-items:center;gap:7px;color:#9F97AE;font-size:.72rem}.aurore-ia-spinner{width:12px;height:12px;border:2px solid #3A314B;border-top-color:#C084FC;border-radius:50%;animation:auroreIASpin .7s linear infinite}.aurore-ia-results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:10px}.aurore-ia-result{border:1px solid #292238;background:#15111F;border-radius:13px;overflow:hidden}.aurore-ia-result img{width:100%;height:100px;object-fit:cover;display:block;background:#110E19}.aurore-ia-result-body{padding:9px}.aurore-ia-result-body strong{display:block;color:#EDE9FE;font-size:.75rem}.aurore-ia-result-body p{margin-top:3px;color:#81788F;font-size:.66rem;line-height:1.45}.aurore-ia-result-body a{display:inline-block;margin-top:5px;color:#C4B5FD;font-size:.66rem;text-decoration:none}
+@keyframes auroreIAFade{from{opacity:0;transform:scale(.985)}to{opacity:1;transform:scale(1)}}@keyframes auroreIASpin{to{transform:rotate(360deg)}}
+@media(max-width:820px){.aurore-ia-body{grid-template-columns:1fr}.aurore-ia-tools{display:flex;gap:6px;overflow:auto;padding:9px;border-right:0;border-bottom:1px solid #292238}.aurore-ia-tools .aurore-ia-kicker,.aurore-ia-tool-note{display:none}.aurore-ia-tool{width:auto;min-width:max-content;margin:0;padding:8px}.aurore-ia-tool>div{display:none}.aurore-ia-tool>span{width:34px;height:34px}.aurore-ia-suggestions{grid-template-columns:1fr}.aurore-ia-welcome{margin-top:4vh}}
+@media(max-width:620px){.aurore-ia-overlay{padding:0}.aurore-ia-shell{width:100%;height:100%;border-radius:0;border:0}.aurore-ia-topbar{height:64px;flex-basis:64px;padding:0 12px}.aurore-ia-status{display:none}.aurore-ia-conversation{padding:20px 12px}.aurore-ia-composer{margin:0 10px}.aurore-ia-disclaimer{margin-left:12px;margin-right:12px}.aurore-ia-header-btn span:last-child{display:none}.aurore-ia-header-btn{padding:10px 11px}}
+[data-theme="light"] .aurore-ia-overlay{background:rgba(28,20,38,.42)}
+[data-theme="light"] .aurore-ia-shell{background:#FAF9FD;border-color:#D8CEE3}.data-theme-light .aurore-ia-shell{background:#FAF9FD}
+[data-theme="light"] .aurore-ia-topbar,[data-theme="light"] .aurore-ia-tools{background:#fff;border-color:#E3DCEB}.aurore-ia-overlay[data-ia-light="1"] .aurore-ia-shell{background:#FAF9FD}
+</style>
+
 </head>
 <body class="site-locked">
 
@@ -2786,6 +2809,7 @@ main{width:100%;min-width:0;overflow-x:clip;}
     <div class="search-box" id="searchIconHost">
       <input type="text" id="headerSearchInput" placeholder="Rechercher une matière, un niveau…">
     </div>
+    <button type="button" class="aurore-ia-header-btn" id="auroreIAHeaderBtn" aria-label="Ouvrir Aurore IA" title="Aurore IA"><span aria-hidden="true">✦</span><span>Aurore IA</span></button>
     <div class="theme-switch" id="themeSwitch" role="group" aria-label="Choix du thème">
       <button type="button" class="theme-switch-btn" data-theme-choice="sombre" title="Thème sombre" aria-pressed="false"><span class="theme-icon-host" data-icon="moon"></span></button>
       <button type="button" class="theme-switch-btn" data-theme-choice="clair" title="Thème clair" aria-pressed="false"><span class="theme-icon-host" data-icon="sun"></span></button>
@@ -17951,5 +17975,261 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
 
 })();
 </script>
+
+<!-- =============================================================
+     AURORE IA — ÉTAPE 2 : connexion sécurisée au modèle IA
+     La clé API reste côté serveur dans Supabase Edge Functions. Le navigateur appelle uniquement la fonction sécurisée « aurore-ia ».
+     ============================================================= -->
+<div id="auroreIAOverlay" class="aurore-ia-overlay" aria-hidden="true">
+  <div class="aurore-ia-shell" role="dialog" aria-modal="true" aria-labelledby="auroreIATitle">
+    <header class="aurore-ia-topbar">
+      <div class="aurore-ia-brand">
+        <div class="aurore-ia-mark" aria-hidden="true">✦</div>
+        <div>
+          <strong id="auroreIATitle">Aurore IA</strong>
+          <span>Votre assistant pour les Archives</span>
+        </div>
+      </div>
+      <div class="aurore-ia-top-actions">
+        <span class="aurore-ia-status"><i></i> Prêt</span>
+        <button type="button" id="auroreIAClose" class="aurore-ia-close" aria-label="Fermer Aurore IA">×</button>
+      </div>
+    </header>
+
+    <div class="aurore-ia-body">
+      <aside class="aurore-ia-tools" aria-label="Outils Aurore IA">
+        <p class="aurore-ia-kicker">Outils</p>
+        <button type="button" class="aurore-ia-tool active" data-ia-tool="assistant"><span>✦</span><div><strong>Assistant</strong><small>Poser une question</small></div></button>
+        <button type="button" class="aurore-ia-tool" data-ia-tool="documents"><span>▣</span><div><strong>Archives</strong><small>Documents Aurore</small></div></button>
+        <button type="button" class="aurore-ia-tool" data-ia-tool="wikipedia"><span>◎</span><div><strong>Wikipédia</strong><small>Encyclopédie</small></div></button>
+        <button type="button" class="aurore-ia-tool" data-ia-tool="web"><span>⌁</span><div><strong>Web</strong><small>Recherche en ligne</small></div></button>
+        <div class="aurore-ia-tool-note">Aurore IA est maintenant connectée au modèle. Les outils Archives et Web seront branchés ensuite.</div>
+      </aside>
+
+      <section class="aurore-ia-chat" aria-label="Conversation Aurore IA">
+        <div id="auroreIAConversation" class="aurore-ia-conversation">
+          <div class="aurore-ia-welcome">
+            <div class="aurore-ia-welcome-mark">✦</div>
+            <p class="aurore-ia-kicker">Aurore IA</p>
+            <h1>Que voulez-vous trouver ou comprendre ?</h1>
+            <p>Un espace unique pour interroger les Archives, Wikipédia et le Web, avec les sources clairement séparées.</p>
+            <div class="aurore-ia-suggestions">
+              <button type="button" data-ia-prompt="Trouve-moi des documents sur les mathématiques.">Chercher dans les Archives</button>
+              <button type="button" data-ia-prompt="Cherche des informations sur le Burkina Faso dans Wikipédia.">Explorer Wikipédia</button>
+              <button type="button" data-ia-prompt="Fais une recherche Web sur ce sujet : intelligence artificielle à l'école.">Rechercher sur le Web</button>
+              <button type="button" data-ia-prompt="Explique-moi comment utiliser efficacement les documents scolaires.">M'expliquer quelque chose</button>
+            </div>
+          </div>
+        </div>
+        <form id="auroreIAForm" class="aurore-ia-composer" autocomplete="off">
+          <textarea id="auroreIAInput" rows="1" placeholder="Écrivez votre question à Aurore IA…" aria-label="Question à Aurore IA"></textarea>
+          <button type="submit" aria-label="Envoyer">↑</button>
+        </form>
+        <p class="aurore-ia-disclaimer">Aurore IA distingue ses réponses des sources Wikipédia et des futures recherches documentaires ou Web.</p>
+      </section>
+    </div>
+  </div>
+</div>
+
+
+<script id="aurore-ia-stage2-js">
+(function(){
+  const overlay=document.getElementById('auroreIAOverlay');
+  const openBtn=document.getElementById('auroreIAHeaderBtn');
+  const closeBtn=document.getElementById('auroreIAClose');
+  const form=document.getElementById('auroreIAForm');
+  const input=document.getElementById('auroreIAInput');
+  const conversation=document.getElementById('auroreIAConversation');
+  if(!overlay||!openBtn||!form||!input||!conversation) return;
+
+  let activeTool='assistant';
+  let previousInteractionId=null;
+
+  function getSupabaseClient(){
+    try{
+      if(typeof AURORE_SUPABASE_AUTH!=='undefined' && AURORE_SUPABASE_AUTH) return AURORE_SUPABASE_AUTH;
+      if(window.supabase && typeof creerClientAuthGoogle==='function') return creerClientAuthGoogle();
+    }catch(e){}
+    return null;
+  }
+
+  async function invokeAuroreIA(message){
+    const client=getSupabaseClient();
+    if(!client) throw new Error('La connexion sécurisée à Aurore n’est pas encore disponible.');
+    const {data,error}=await client.functions.invoke('aurore-ia',{
+      body:{message,previousInteractionId}
+    });
+    if(error){
+      let detail='';
+      try{
+        if(error.context && typeof error.context.json==='function'){
+          const payload=await error.context.json();
+          detail=payload?.error||payload?.message||'';
+        }
+      }catch(e){}
+      throw new Error(detail||error.message||'Le service Aurore IA est momentanément indisponible.');
+    }
+    if(!data?.ok) throw new Error(data?.error||'Aurore IA n’a pas pu répondre.');
+    if(data.id) previousInteractionId=data.id;
+    return data;
+  }
+
+  function open(){
+    overlay.classList.add('open');
+    overlay.setAttribute('aria-hidden','false');
+    document.body.style.overflow='hidden';
+    setTimeout(()=>input.focus(),80);
+  }
+  function close(){
+    overlay.classList.remove('open');
+    overlay.setAttribute('aria-hidden','true');
+    document.body.style.overflow='';
+  }
+
+  openBtn.addEventListener('click',open);
+  closeBtn?.addEventListener('click',close);
+  overlay.addEventListener('click',e=>{if(e.target===overlay)close();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&overlay.classList.contains('open'))close();});
+
+  document.querySelectorAll('.aurore-ia-tool').forEach(btn=>btn.addEventListener('click',()=>{
+    document.querySelectorAll('.aurore-ia-tool').forEach(x=>x.classList.remove('active'));
+    btn.classList.add('active');
+    activeTool=btn.dataset.iaTool||'assistant';
+    const prompts={
+      documents:'Trouve un document dans les Archives : ',
+      wikipedia:'Cherche sur Wikipédia : ',
+      web:'Fais une recherche Web sur : '
+    };
+    if(prompts[activeTool] && !input.value.trim()){
+      input.value=prompts[activeTool];
+      input.focus();
+    }
+  }));
+
+  document.querySelectorAll('[data-ia-prompt]').forEach(btn=>btn.addEventListener('click',()=>{
+    input.value=btn.dataset.iaPrompt||'';
+    form.requestSubmit();
+  }));
+
+  input.addEventListener('input',()=>{
+    input.style.height='auto';
+    input.style.height=Math.min(input.scrollHeight,150)+'px';
+  });
+
+  function esc(s){
+    return String(s??'').replace(/[&<>"']/g,c=>({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+
+  function addMessage(text,type){
+    const row=document.createElement('div');
+    row.className='aurore-ia-message '+type;
+    const b=document.createElement('div');
+    b.className='aurore-ia-bubble';
+    b.textContent=text;
+    row.appendChild(b);
+    conversation.appendChild(row);
+    conversation.scrollTop=conversation.scrollHeight;
+  }
+
+  function addAssistantResponse(text,source='Aurore IA · Gemini'){
+    const row=document.createElement('div');
+    row.className='aurore-ia-message assistant';
+    const b=document.createElement('div');
+    b.className='aurore-ia-bubble';
+    b.textContent=String(text||'');
+
+    const sourceCard=document.createElement('div');
+    sourceCard.className='aurore-ia-source-card';
+    const strong=document.createElement('strong');
+    strong.textContent=source;
+    sourceCard.appendChild(strong);
+    b.appendChild(sourceCard);
+
+    row.appendChild(b);
+    conversation.appendChild(row);
+    conversation.scrollTop=conversation.scrollHeight;
+  }
+
+  function addToolState(label){
+    const row=document.createElement('div');
+    row.className='aurore-ia-message assistant';
+    row.innerHTML='<div class="aurore-ia-bubble"><span class="aurore-ia-tool-state"><i class="aurore-ia-spinner"></i>'+esc(label)+'</span></div>';
+    conversation.appendChild(row);
+    conversation.scrollTop=conversation.scrollHeight;
+    return row;
+  }
+
+  async function wikiSearch(q,row){
+    const box=row?.querySelector('.aurore-ia-bubble');
+    try{
+      const u='https://fr.wikipedia.org/w/api.php?'+new URLSearchParams({
+        action:'query',generator:'search',gsrsearch:q,gsrlimit:'4',gsrnamespace:'0',
+        prop:'pageimages|extracts',exintro:'1',explaintext:'1',exchars:'150',
+        piprop:'thumbnail',pithumbsize:'260',format:'json',origin:'*'
+      });
+      const r=await fetch(u,{cache:'no-store'});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const d=await r.json();
+      const pages=d?.query?.pages?Object.values(d.query.pages).sort((a,b)=>(a.index||0)-(b.index||0)):[];
+      if(!pages.length){
+        box.innerHTML='<div class="aurore-ia-source-card"><strong>Wikipédia</strong>Aucun résultat trouvé pour « '+esc(q)+' ».</div>';
+        return;
+      }
+      box.innerHTML='<div class="aurore-ia-source-card"><strong>Wikipédia</strong>Voici quelques résultats pertinents.</div><div class="aurore-ia-results">'+pages.map(p=>{
+        const title=esc(p.title||'');
+        const ex=esc((p.extract||'').replace(/\s+/g,' ').trim());
+        const img=p.thumbnail?.source?'<img src="'+esc(p.thumbnail.source)+'" alt="" loading="lazy" decoding="async">':'';
+        const href='https://fr.wikipedia.org/wiki/'+encodeURIComponent(String(p.title||'').replace(/ /g,'_'));
+        return '<article class="aurore-ia-result">'+img+'<div class="aurore-ia-result-body"><strong>'+title+'</strong><p>'+ex+'</p><a href="'+href+'" target="_blank" rel="noopener noreferrer">Voir sur Wikipédia ↗</a></div></article>';
+      }).join('')+'</div>';
+    }catch(e){
+      if(box) box.innerHTML='<div class="aurore-ia-source-card"><strong>Wikipédia</strong>La recherche est momentanément indisponible. Vous pourrez réessayer.</div>';
+    }
+    conversation.scrollTop=conversation.scrollHeight;
+  }
+
+  async function submitIA(q){
+    const row=addToolState('Aurore IA réfléchit…');
+    const bubble=row.querySelector('.aurore-ia-bubble');
+    try{
+      const data=await invokeAuroreIA(q);
+      row.remove();
+      addAssistantResponse(data.text||'Aucune réponse.');
+    }catch(error){
+      bubble.innerHTML='<div class="aurore-ia-source-card"><strong>Aurore IA</strong>'+esc(error.message||'Une erreur est survenue.')+'</div>';
+      conversation.scrollTop=conversation.scrollHeight;
+    }
+  }
+
+  form.addEventListener('submit',async e=>{
+    e.preventDefault();
+    const q=input.value.trim();
+    if(!q)return;
+
+    addMessage(q,'user');
+    input.value='';
+    input.style.height='auto';
+
+    const lower=q.toLowerCase();
+    const wantsWiki=activeTool==='wikipedia'||/wikip[eé]dia/.test(lower);
+
+    if(wantsWiki){
+      const row=addToolState('Recherche dans Wikipédia…');
+      await wikiSearch(
+        q.replace(/.*?(?:sur|dans)\s+(?:wikip[eé]dia)\s*/i,'')
+         .replace(/^cherche.*?:\s*/i,'')
+         .trim()||q,
+        row
+      );
+      return;
+    }
+
+    await submitIA(q);
+  });
+})();
+</script>
+
 </body>
 </html>
