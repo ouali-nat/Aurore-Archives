@@ -2516,12 +2516,14 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
 @media(max-width:430px){.aurore-ia-brand-copy span{display:none}.aurore-ia-top-actions{gap:5px}.aurore-ia-welcome{margin-top:3vh}.aurore-ia-plus-menu{width:186px}}
 @media(prefers-reduced-motion:reduce){.aurore-ia-tool,.aurore-ia-suggestions button,.aurore-ia-send,.aurore-ia-plus,.aurore-ia-welcome{transition:none}.aurore-ia-conversation{scroll-behavior:auto}.aurore-ia-message{animation:none}.aurore-ia-typing i{animation:none;opacity:.8}}
 
-/* --- Bouton "3 traits" (menu) --- */
-.aurore-ia-menu-btn{width:38px;height:38px;flex:0 0 38px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:1px solid var(--ia-border);border-radius:12px;background:rgba(255,255,255,.035);color:#DCD5E8;cursor:pointer;transition:.16s ease}
+/* --- Bouton "3 traits" (menu Historique) --- */
+.aurore-ia-menu-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:38px;padding:0 12px;border-radius:12px;border:1px solid var(--ia-border);background:rgba(255,255,255,.035);color:#DCD5E8;font:inherit;font-size:.73rem;font-weight:700;cursor:pointer;transition:.18s ease}
 .aurore-ia-menu-btn:hover{background:rgba(255,255,255,.07);color:#fff;border-color:color-mix(in srgb, var(--ia-accent-3) 25%, transparent)}
-.aurore-ia-menu-btn span{display:block;width:16px;height:2px;border-radius:2px;background:currentColor}
-.aurore-ia-menu-btn span+span{margin-top:0}
+.aurore-ia-menu-btn:active{transform:scale(.96)}
+.aurore-ia-menu-btn-icon{display:flex;flex-direction:column;justify-content:center;gap:3px;width:16px;flex:0 0 16px}
+.aurore-ia-menu-btn-icon span{display:block;width:16px;height:2px;border-radius:2px;background:currentColor}
 .aurore-ia-menu-btn[aria-expanded="true"]{background:color-mix(in srgb, var(--ia-accent) 18%, transparent);border-color:color-mix(in srgb, var(--ia-accent-3) 35%, transparent);color:#fff}
+@media(max-width:560px){.aurore-ia-menu-btn span:last-child{display:none}.aurore-ia-menu-btn{width:38px;min-height:38px;padding:0;flex:0 0 38px}}
 
 /* --- Historique des discussions (demi-page coulissante) --- */
 .aurore-ia-history-overlay{position:fixed;inset:0;background:rgba(5,4,9,.55);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);z-index:210;opacity:0;pointer-events:none;transition:opacity .22s ease}
@@ -18120,9 +18122,6 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
   <div class="aurore-ia-app">
     <header class="aurore-ia-topbar">
       <div class="aurore-ia-left">
-        <button type="button" class="aurore-ia-menu-btn" id="auroreIAMenuBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="auroreIAHistoryPanel" aria-label="Ouvrir l'historique des discussions" title="Historique des discussions">
-          <span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>
-        </button>
         <div class="aurore-ia-brand">
           <div class="aurore-ia-mark" aria-hidden="true"><span>✦</span></div>
           <div class="aurore-ia-brand-copy">
@@ -18133,6 +18132,9 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       </div>
       <div class="aurore-ia-top-actions">
         <span class="aurore-ia-status"><i></i><span id="auroreIAStatusText">Prêt</span></span>
+        <button type="button" class="aurore-ia-menu-btn" id="auroreIAMenuBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="auroreIAHistoryPanel" aria-label="Ouvrir l'historique des discussions" title="Historique des discussions">
+          <span class="aurore-ia-menu-btn-icon" aria-hidden="true"><span></span><span></span><span></span></span><span>Historique</span>
+        </button>
         <button type="button" id="auroreIANew" class="aurore-ia-new" aria-label="Nouvelle conversation">
           <span aria-hidden="true">＋</span><span>Nouvelle conversation</span>
         </button>
