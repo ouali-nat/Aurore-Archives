@@ -18111,7 +18111,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
   const statusText=document.getElementById('auroreIAStatusText');
   if(!openBtn||!form||!input||!conversation||!screen)return;
 
-  let activeTool='assistant', previousInteractionId=null, sending=false;
+  let activeTool='assistant', previousInteractionId=null, sending=false, iaCatalogSnapshot=null, iaFocusDocumentId=null;
 
   async function getSupabaseClient(){
     try{
@@ -18134,7 +18134,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     const {data:sessionData,error:sessionError}=await client.auth.getSession();
     if(sessionError)throw sessionError;
     if(!sessionData?.session)throw new Error('Connectez-vous à Aurore pour utiliser Aurore IA.');
-    const {data,error}=await client.functions.invoke('aurore-ia',{body:{message,previousInteractionId}});
+    const {data,error}=await client.functions.invoke('aurore-ia',{body:{message,previousInteractionId,catalogSnapshot:iaCatalogSnapshot,focusDocumentId:iaFocusDocumentId}});
     if(error){
       let detail='';
       try{
@@ -18147,6 +18147,8 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     }
     if(!data?.ok)throw new Error(data?.error||'Aurore IA n’a pas pu répondre.');
     if(data.id)previousInteractionId=data.id;
+    if(Array.isArray(data.catalogSnapshot))iaCatalogSnapshot=data.catalogSnapshot;
+    if(data.focusDocumentId!=null)iaFocusDocumentId=data.focusDocumentId;
     return data;
   }
 
@@ -18170,7 +18172,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
   backBtn?.addEventListener('click',e=>{e.preventDefault();closeIA();});
 
   newBtn?.addEventListener('click',()=>{
-    previousInteractionId=null;sending=false;
+    previousInteractionId=null;sending=false;iaCatalogSnapshot=null;iaFocusDocumentId=null;
     conversation.innerHTML='<div class="aurore-ia-welcome"><div class="aurore-ia-welcome-orbit" aria-hidden="true"><div class="aurore-ia-welcome-mark">✦</div></div><p class="aurore-ia-kicker">Nouvelle conversation</p><h1>Que voulez-vous<br><span>explorer ?</span></h1><p class="aurore-ia-welcome-text">Votre nouvelle discussion est prête. Posez simplement votre question.</p></div>';
     input.value='';autoGrow();scrollBottom(true);input.focus({preventScroll:true});
   });
