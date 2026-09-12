@@ -2517,10 +2517,10 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
 @media(prefers-reduced-motion:reduce){.aurore-ia-tool,.aurore-ia-suggestions button,.aurore-ia-send,.aurore-ia-plus,.aurore-ia-welcome{transition:none}.aurore-ia-conversation{scroll-behavior:auto}.aurore-ia-message{animation:none}.aurore-ia-typing i{animation:none;opacity:.8}}
 
 /* --- Bouton "3 traits" (menu) --- */
-.aurore-ia-menu-btn{width:38px;height:38px;flex:0 0 38px;display:grid;place-items:center;border:1px solid var(--ia-border);border-radius:12px;background:rgba(255,255,255,.035);color:#DCD5E8;cursor:pointer;transition:.16s ease}
+.aurore-ia-menu-btn{width:38px;height:38px;flex:0 0 38px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:1px solid var(--ia-border);border-radius:12px;background:rgba(255,255,255,.035);color:#DCD5E8;cursor:pointer;transition:.16s ease}
 .aurore-ia-menu-btn:hover{background:rgba(255,255,255,.07);color:#fff;border-color:color-mix(in srgb, var(--ia-accent-3) 25%, transparent)}
 .aurore-ia-menu-btn span{display:block;width:16px;height:2px;border-radius:2px;background:currentColor}
-.aurore-ia-menu-btn span+span{margin-top:3px}
+.aurore-ia-menu-btn span+span{margin-top:0}
 .aurore-ia-menu-btn[aria-expanded="true"]{background:color-mix(in srgb, var(--ia-accent) 18%, transparent);border-color:color-mix(in srgb, var(--ia-accent-3) 35%, transparent);color:#fff}
 
 /* --- Historique des discussions (demi-page coulissante) --- */
