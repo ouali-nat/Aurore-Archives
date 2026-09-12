@@ -2740,6 +2740,42 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
 }
 </style>
 
+
+<style id="aurora-history-final-fix">
+.aurore-ia-history-panel{
+  display:flex!important;visibility:visible;z-index:99999!important;
+  background:linear-gradient(145deg,rgba(22,17,31,.985),rgba(10,8,15,.985));
+  border:1px solid color-mix(in srgb,var(--ia-accent,#A78BFA) 22%,rgba(255,255,255,.10));
+}
+.aurore-ia-history-panel.is-open{display:flex!important;visibility:visible!important;}
+.aurore-ia-history-list{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:4px 2px 12px;display:flex;flex-direction:column;gap:9px;}
+.aurore-ia-history-item{position:relative;display:flex!important;align-items:center;min-height:68px;padding:12px 48px 12px 15px;border:1px solid rgba(255,255,255,.075);border-radius:18px;background:rgba(255,255,255,.035);color:#eee;cursor:pointer;transition:transform .16s ease,border-color .16s ease,background .16s ease;box-shadow:0 8px 24px rgba(0,0,0,.12);}
+.aurore-ia-history-item:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--ia-accent,#A78BFA) 35%,rgba(255,255,255,.08));background:color-mix(in srgb,var(--ia-accent,#A78BFA) 7%,rgba(255,255,255,.035));}
+.aurore-ia-history-item.active{border-color:color-mix(in srgb,var(--ia-accent,#A78BFA) 42%,transparent);background:color-mix(in srgb,var(--ia-accent,#A78BFA) 10%,rgba(255,255,255,.035));}
+.aurore-ia-history-item-copy{display:flex;flex-direction:column;min-width:0;gap:5px;width:100%;}
+.aurore-ia-history-item-copy strong{display:block;color:#fff;font-size:.84rem;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.aurore-ia-history-item-copy small{color:#81798f;font-size:.68rem;}
+.aurore-ia-history-item-delete{right:10px!important;width:30px!important;height:30px!important;border:1px solid rgba(255,255,255,.06)!important;border-radius:10px!important;background:rgba(255,255,255,.035)!important;color:#81798f!important;}
+.aurore-ia-history-item-delete:hover{color:#fff!important;background:rgba(224,119,107,.14)!important;}
+.aurore-history-empty-card{margin:8px 0;min-height:180px;padding:28px 22px;border:1px solid rgba(255,255,255,.08);border-radius:22px;background:radial-gradient(circle at 50% 0%,color-mix(in srgb,var(--ia-accent,#A78BFA) 9%,transparent),transparent 65%),rgba(255,255,255,.025);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:9px;color:#fff;}
+.aurore-history-empty-card strong{font-size:.9rem;}
+.aurore-history-empty-card small{max-width:320px;color:#81798f;font-size:.72rem;line-height:1.55;}
+.aurore-history-empty-dot{width:10px;height:10px;border-radius:50%;background:var(--ia-accent,#A78BFA);box-shadow:0 0 22px color-mix(in srgb,var(--ia-accent,#A78BFA) 65%,transparent);animation:auroraHistoryDot 1.8s ease-in-out infinite;}
+@keyframes auroraHistoryDot{0%,100%{transform:scale(.82);opacity:.65}50%{transform:scale(1.18);opacity:1}}
+[data-theme="light"] .aurore-ia-history-panel{background:rgba(255,255,255,.985);}
+[data-theme="light"] .aurore-ia-history-item{background:#faf8fd;border-color:#e5ddec;color:#30283b;}
+[data-theme="light"] .aurore-ia-history-item-copy strong{color:#211a29;}
+[data-theme="light"] .aurore-history-empty-card{background:#faf8fd;border-color:#e5ddec;color:#211a29;}
+
+/* Aurora chaleureuse : elle accompagne au lieu d'afficher un statut technique. */
+.aurore-ia-activity{width:min(850px,100%);margin:0 auto 15px;display:flex;align-items:center;gap:9px;padding:3px 2px;color:#9189a5;font-size:.72rem;}
+.aurore-ia-activity .aurora-drop{width:10px;height:10px;flex:0 0 10px;border-radius:62% 38% 55% 45%;background:var(--ia-accent,#A78BFA);box-shadow:0 0 20px color-mix(in srgb,var(--ia-accent,#A78BFA) 60%,transparent);animation:auroraDropWarm 1.35s cubic-bezier(.34,1.56,.64,1) infinite;}
+.aurore-ia-activity .aurora-activity-label{transition:opacity .18s ease;color:#9d95ad;}
+@keyframes auroraDropWarm{0%,100%{transform:translateY(0) scale(.82,1);border-radius:62% 38% 55% 45%;opacity:.72}35%{transform:translateY(-5px) scale(1.08,.9);border-radius:48% 52% 42% 58%;opacity:1}60%{transform:translateY(1px) scale(.92,1.08);border-radius:45% 55% 60% 40%;opacity:.9}}
+.aurore-ia-bubble.aurora-typing-answer{background:transparent!important;border-color:transparent!important;box-shadow:none!important;padding:0!important;max-width:850px;}
+.aurore-ia-bubble.aurora-typing-answer .aurore-ia-markdown{color:inherit;}
+@media(max-width:560px){.aurore-ia-history-panel{width:calc(100vw - 18px)!important;height:min(78dvh,700px)!important;border-radius:24px!important;padding:14px!important;}.aurore-ia-history-item{min-height:64px;}.aurore-ia-history-head h2{font-size:1.05rem!important;}}
+</style>
 </head>
 <body class="site-locked">
 
@@ -18392,14 +18428,17 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
 
   async function getSupabaseClient(){
     try{
-      if(typeof assurerClientAuthGoogle==='function'){
-        const client=await assurerClientAuthGoogle();
-        if(client)return client;
-      }
+      /* Ne relance pas le flux Google à chaque question : s'il existe déjà un
+         client Auth, on le réutilise immédiatement. Cela enlève une grosse
+         source de latence avant même l'appel Edge Function. */
       if(typeof AURORE_SUPABASE_AUTH!=='undefined'&&AURORE_SUPABASE_AUTH)return AURORE_SUPABASE_AUTH;
       if(window.supabase&&typeof creerClientAuthGoogle==='function'){
         AURORE_SUPABASE_AUTH=creerClientAuthGoogle();
-        return AURORE_SUPABASE_AUTH;
+        if(AURORE_SUPABASE_AUTH)return AURORE_SUPABASE_AUTH;
+      }
+      if(typeof assurerClientAuthGoogle==='function'){
+        const client=await assurerClientAuthGoogle();
+        if(client){AURORE_SUPABASE_AUTH=client;return client;}
       }
     }catch(e){console.error('[Aurora] Supabase:',e);}
     return null;
@@ -18407,27 +18446,53 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
 
   async function invokeAuroreIA(message){
     const client=await getSupabaseClient();
-    if(!client)throw new Error('La connexion sécurisée à Aurore n’est pas disponible.');
+    if(!client)throw new Error('Aurora n’arrive pas à joindre son espace sécurisé.');
     const {data:sessionData,error:sessionError}=await client.auth.getSession();
     if(sessionError)throw sessionError;
     if(!sessionData?.session)throw new Error('Connectez-vous à Aurore pour utiliser Aurora.');
-    const contexteRecent=messagesActuels.slice(-10).map(m=>({role:m.role==='assistant'?'assistant':'user',text:String(m.text||'').slice(0,3500)}));
-    const {data,error}=await client.functions.invoke('aurore-ia',{body:{message,previousInteractionId,catalogSnapshot:Array.isArray(iaCatalogSnapshot)?iaCatalogSnapshot:null,focusDocumentId:iaFocusDocumentId,conversationContext:contexteRecent}});
-    if(error){
-      let detail='';
+    const contexteRecent=messagesActuels.slice(-8).map(m=>({role:m.role==='assistant'?'assistant':'user',text:String(m.text||'').slice(0,3000)}));
+    const body={message,previousInteractionId,catalogSnapshot:Array.isArray(iaCatalogSnapshot)?iaCatalogSnapshot:null,focusDocumentId:iaFocusDocumentId,conversationContext:contexteRecent};
+    let dernierDetail='';
+    /* Petit retry uniquement pour les pannes transitoires. On évite de refaire
+       plusieurs fois une demande lourde de façon agressive. */
+    for(let tentative=0;tentative<2;tentative++){
       try{
-        if(error.context&&typeof error.context.json==='function'){
-          const payload=await error.context.json();
-          detail=payload?.error||payload?.message||'';
+        const resultat=await Promise.race([
+          client.functions.invoke('aurore-ia',{body}),
+          new Promise((_,reject)=>setTimeout(()=>reject(new Error('TIMEOUT_AURORA')),65000))
+        ]);
+        const {data,error}=resultat||{};
+        if(error){
+          let detail='';
+          try{
+            if(error.context&&typeof error.context.json==='function'){
+              const payload=await error.context.json();
+              detail=payload?.error||payload?.message||'';
+            }
+          }catch(_){}
+          dernierDetail=detail||error.message||'';
+          if(tentative===0 && /429|too many|rate|5\d\d|failed to fetch|network|timeout/i.test(dernierDetail)){
+            await new Promise(r=>setTimeout(r,900));
+            continue;
+          }
+          throw new Error(dernierDetail);
         }
-      }catch(_){}
-      throw new Error(detail||error.message||'Le service Aurora est momentanément indisponible.');
+        if(!data?.ok)throw new Error(data?.error||'Aurora n’a pas pu répondre.');
+        if(data.id)previousInteractionId=data.id;
+        if(Array.isArray(data.catalogSnapshot))iaCatalogSnapshot=data.catalogSnapshot;
+        if(data.focusDocumentId!=null)iaFocusDocumentId=data.focusDocumentId;
+        return data;
+      }catch(e){
+        dernierDetail=e?.message||'';
+        if(tentative===0 && /429|too many|rate|5\d\d|failed to fetch|network|timeout/i.test(dernierDetail)){
+          await new Promise(r=>setTimeout(r,900));
+          continue;
+        }
+        break;
+      }
     }
-    if(!data?.ok)throw new Error(data?.error||'Aurora n’a pas pu répondre.');
-    if(data.id)previousInteractionId=data.id;
-    if(Array.isArray(data.catalogSnapshot))iaCatalogSnapshot=data.catalogSnapshot;
-    if(data.focusDocumentId!=null)iaFocusDocumentId=data.focusDocumentId;
-    return data;
+    if(/TIMEOUT_AURORA/i.test(dernierDetail))throw new Error('Aurora met un peu plus de temps que prévu à préparer cette réponse. Réessaie dans un instant.');
+    throw new Error(dernierDetail||'Aurora rencontre momentanément un problème de connexion. Réessaie dans quelques secondes.');
   }
 
   function setRouteActive(active){document.body.classList.toggle('aurore-ia-route-active',!!active);}
@@ -18486,9 +18551,17 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       return {client,userId:data.user.id};
     }catch(e){return null;}
   }
+  const HISTORIQUE_LOCAL_CLE='aurora-conversations-local-v2';
+  function lireHistoriqueLocal(){
+    try{const x=JSON.parse(localStorage.getItem(HISTORIQUE_LOCAL_CLE)||'[]');return Array.isArray(x)?x:[];}catch(_){return [];}
+  }
+  function ecrireHistoriqueLocal(liste){
+    try{localStorage.setItem(HISTORIQUE_LOCAL_CLE,JSON.stringify(liste.slice(0,40)));}catch(_){}
+  }
   async function chargerHistoriqueDistant(){
+    const local=lireHistoriqueLocal();
     const ctx=await obtenirUtilisateurCourant();
-    if(!ctx)return [];
+    if(!ctx)return local;
     try{
       const {data,error}=await ctx.client
         .from('aurore_ia_conversations')
@@ -18497,8 +18570,9 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
         .order('maj',{ascending:false})
         .limit(40);
       if(error)throw error;
-      return Array.isArray(data)?data:[];
-    }catch(e){console.error('[Aurora] historique:',e);return [];}
+      const distant=Array.isArray(data)?data:[];
+      return distant.length?distant:local;
+    }catch(e){console.error('[Aurora] historique distant:',e);return local;}
   }
   function titreDepuisTexte(texte){
     const t=String(texte||'').replace(/\s+/g,' ').trim();
@@ -18519,6 +18593,12 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       maj:new Date().toISOString()
     };
     if(currentConversationId)donnees.id=currentConversationId;
+    /* L'historique doit rester visible même si Supabase met quelques secondes
+       à répondre ou si la politique RLS bloque momentanément l'écriture. */
+    const local=lireHistoriqueLocal().filter(c=>c.id!==donnees.id);
+    const localConv={...donnees,id:donnees.id||('local-'+Date.now())};
+    ecrireHistoriqueLocal([localConv,...local]);
+    if(!donnees.id)currentConversationId=localConv.id;
     try{
       const {data,error}=await ctx.client
         .from('aurore_ia_conversations')
@@ -18526,8 +18606,12 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
         .select('id')
         .single();
       if(error)throw error;
-      if(data?.id)currentConversationId=data.id;
-    }catch(e){console.error('[Aurora] sauvegarde historique:',e);}
+      if(data?.id){
+        currentConversationId=data.id;
+        const refreshed=lireHistoriqueLocal().filter(c=>c.id!==localConv.id&&c.id!==data.id);
+        ecrireHistoriqueLocal([{...donnees,id:data.id},...refreshed]);
+      }
+    }catch(e){console.error('[Aurora] sauvegarde historique distant:',e);}
   }
   function formaterDateHistorique(ts){
     try{
@@ -18541,7 +18625,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     const liste=await chargerHistoriqueDistant();
     auroreHistoriqueCache=liste;
     if(!liste.length){
-      historyList.innerHTML='<p class="aurore-ia-history-empty">Aucune discussion pour le moment.</p>';
+      historyList.innerHTML='<div class="aurore-history-empty-card"><span class="aurore-history-empty-dot"></span><strong>Vos discussions apparaîtront ici</strong><small>Commencez une conversation avec Aurora et elle restera disponible dans cet espace.</small></div>';
       return;
     }
     historyList.innerHTML=liste.map(c=>{
