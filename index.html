@@ -18260,7 +18260,6 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
 
   let activeTool='assistant', previousInteractionId=null, sending=false, iaCatalogSnapshot=null, iaFocusDocumentId=null, hasMessages=false;
   let currentConversationId=null, messagesActuels=[];
-  const HISTORIQUE_IA_CLE='aurore-ia-conversations-v1';
   const HTML_ACCUEIL_VIDE='<div class="aurore-ia-welcome"><div class="aurore-ia-welcome-orbit" aria-hidden="true"><div class="aurore-ia-welcome-mark">✦</div></div><p class="aurore-ia-kicker">Nouvelle conversation</p><h1>Que voulez-vous<br><span>explorer ?</span></h1><p class="aurore-ia-welcome-text">Votre nouvelle discussion est prête. Posez simplement votre question.</p></div>';
 
   async function getSupabaseClient(){
@@ -18336,31 +18335,59 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     input.focus({preventScroll:true});
   });
 
-  /* ---------- Historique des discussions (stocké localement) ---------- */
-  function chargerHistoriqueStock(){
+  /* ---------- Historique des discussions (stocké dans Supabase, par utilisateur) ---------- */
+  let auroreHistoriqueCache=[];
+  async function obtenirUtilisateurCourant(){
     try{
-      const brut=localStorage.getItem(HISTORIQUE_IA_CLE);
-      const liste=brut?JSON.parse(brut):[];
-      return Array.isArray(liste)?liste:[];
-    }catch(e){return [];}
+      const client=await getSupabaseClient();
+      if(!client)return null;
+      const {data,error}=await client.auth.getUser();
+      if(error||!data?.user)return null;
+      return {client,userId:data.user.id};
+    }catch(e){return null;}
   }
-  function sauvegarderHistoriqueStock(liste){
-    try{localStorage.setItem(HISTORIQUE_IA_CLE,JSON.stringify(liste.slice(0,40)));}catch(e){}
+  async function chargerHistoriqueDistant(){
+    const ctx=await obtenirUtilisateurCourant();
+    if(!ctx)return [];
+    try{
+      const {data,error}=await ctx.client
+        .from('aurore_ia_conversations')
+        .select('id,titre,messages,previous_interaction_id,catalog_snapshot,focus_document_id,maj')
+        .eq('user_id',ctx.userId)
+        .order('maj',{ascending:false})
+        .limit(40);
+      if(error)throw error;
+      return Array.isArray(data)?data:[];
+    }catch(e){console.error('[Aurore IA] historique:',e);return [];}
   }
   function titreDepuisTexte(texte){
     const t=String(texte||'').replace(/\s+/g,' ').trim();
     return t.length>54?t.slice(0,54)+'…':(t||'Nouvelle discussion');
   }
-  function sauvegarderConversationCourante(){
+  async function sauvegarderConversationCourante(){
     if(!messagesActuels.length)return;
-    const liste=chargerHistoriqueStock();
+    const ctx=await obtenirUtilisateurCourant();
+    if(!ctx)return;
     const premierMessage=messagesActuels.find(m=>m.role==='user');
-    const id=currentConversationId||('ia-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7));
-    const donnees={id,titre:titreDepuisTexte(premierMessage?premierMessage.text:''),messages:messagesActuels,previousInteractionId,catalogSnapshot:iaCatalogSnapshot,focusDocumentId:iaFocusDocumentId,maj:Date.now()};
-    currentConversationId=id;
-    const idx=liste.findIndex(c=>c.id===id);
-    if(idx>=0)liste[idx]=donnees;else liste.unshift(donnees);
-    sauvegarderHistoriqueStock(liste);
+    const donnees={
+      user_id:ctx.userId,
+      titre:titreDepuisTexte(premierMessage?premierMessage.text:''),
+      messages:messagesActuels,
+      previous_interaction_id:previousInteractionId,
+      catalog_snapshot:iaCatalogSnapshot,
+      focus_document_id:iaFocusDocumentId,
+      maj:new Date().toISOString()
+    };
+    if(currentConversationId)donnees.id=currentConversationId;
+    try{
+      const {data,error}=await ctx.client
+        .from('aurore_ia_conversations')
+        .upsert(donnees)
+        .select('id')
+        .single();
+      if(error)throw error;
+      if(data?.id)currentConversationId=data.id;
+    }catch(e){console.error('[Aurore IA] sauvegarde historique:',e);}
   }
   function formaterDateHistorique(ts){
     try{
@@ -18368,9 +18395,11 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})+' · '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
     }catch(e){return '';}
   }
-  function rendreListeHistorique(){
+  async function rendreListeHistorique(){
     if(!historyList)return;
-    const liste=chargerHistoriqueStock().sort((a,b)=>(b.maj||0)-(a.maj||0));
+    historyList.innerHTML='<p class="aurore-ia-history-empty">Chargement…</p>';
+    const liste=await chargerHistoriqueDistant();
+    auroreHistoriqueCache=liste;
     if(!liste.length){
       historyList.innerHTML='<p class="aurore-ia-history-empty">Aucune discussion pour le moment.</p>';
       return;
@@ -18384,11 +18413,11 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     }).join('');
   }
   function ouvrirHistorique(){
-    rendreListeHistorique();
     historyOverlay?.removeAttribute('hidden');
     requestAnimationFrame(()=>{historyOverlay?.classList.add('is-open');historyPanel?.classList.add('is-open');});
     historyPanel?.setAttribute('aria-hidden','false');
     menuBtn?.setAttribute('aria-expanded','true');
+    rendreListeHistorique();
   }
   function fermerHistorique(){
     historyOverlay?.classList.remove('is-open');historyPanel?.classList.remove('is-open');
@@ -18397,12 +18426,11 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     setTimeout(()=>{if(!historyPanel?.classList.contains('is-open'))historyOverlay?.setAttribute('hidden','');},260);
   }
   function chargerConversation(id){
-    const liste=chargerHistoriqueStock();
-    const conv=liste.find(c=>c.id===id);
+    const conv=auroreHistoriqueCache.find(c=>c.id===id);
     if(!conv)return;
-    previousInteractionId=conv.previousInteractionId||null;
-    iaCatalogSnapshot=conv.catalogSnapshot||null;
-    iaFocusDocumentId=(conv.focusDocumentId!=null)?conv.focusDocumentId:null;
+    previousInteractionId=conv.previous_interaction_id||null;
+    iaCatalogSnapshot=conv.catalog_snapshot||null;
+    iaFocusDocumentId=(conv.focus_document_id!=null)?conv.focus_document_id:null;
     currentConversationId=conv.id;
     messagesActuels=Array.isArray(conv.messages)?conv.messages.slice():[];
     hasMessages=false;sending=false;
@@ -18430,13 +18458,17 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
   document.addEventListener('keydown',e=>{
     if(e.key==='Escape'&&historyPanel?.classList.contains('is-open'))fermerHistorique();
   });
-  historyList?.addEventListener('click',e=>{
+  historyList?.addEventListener('click',async e=>{
     const delBtn=e.target.closest('[data-conv-delete]');
     if(delBtn){
       e.preventDefault();
       e.stopPropagation();
       const id=delBtn.getAttribute('data-conv-delete');
-      sauvegarderHistoriqueStock(chargerHistoriqueStock().filter(c=>c.id!==id));
+      const ctx=await obtenirUtilisateurCourant();
+      if(ctx){
+        try{await ctx.client.from('aurore_ia_conversations').delete().eq('id',id).eq('user_id',ctx.userId);}
+        catch(err){console.error('[Aurore IA] suppression historique:',err);}
+      }
       if(id===currentConversationId)demarrerNouvelleConversation();
       rendreListeHistorique();
       return;
