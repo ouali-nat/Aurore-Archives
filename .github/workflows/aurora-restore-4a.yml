@@ -1,0 +1,42 @@
+name: Aurora restore 4a
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: ${{ !contains(github.event.head_commit.message, '[aurora-4a]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restore verified index and add keyboard fix
+        run: |
+          git show 4a26e81153d6bc5e6528dd7b0cfffb24b539f90d:index.html > index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          marker='/* Aurora mobile keyboard fix */'
+          if marker not in s:
+              patch="""\n<script>\n/* Aurora mobile keyboard fix */\n(function(){\n  const input=document.getElementById('auroreIAInput');\n  const form=document.getElementById('auroreIAForm');\n  const send=document.querySelector('.aurore-ia-send');\n  if(!input||!form||!send)return;\n  let pointerSubmitting=false;\n  send.addEventListener('pointerdown',function(e){\n    if(send.disabled||!input.value.trim())return;\n    e.preventDefault();\n    e.stopPropagation();\n    pointerSubmitting=true;\n    input.focus({preventScroll:true});\n    requestAnimationFrame(function(){form.requestSubmit();});\n    setTimeout(function(){pointerSubmitting=false;},300);\n  },{passive:false});\n  send.addEventListener('click',function(e){\n    if(pointerSubmitting){e.preventDefault();e.stopImmediatePropagation();}\n  },true);\n})();\n</script>\n"""
+              pos=s.rfind('</body>')
+              if pos<0: pos=s.rfind('</html>')
+              if pos<0: pos=len(s)
+              s=s[:pos]+patch+s[pos:]
+          p.write_text(s,encoding='utf-8')
+          print('INDEX_BYTES',len(s.encode('utf-8')))
+          if len(s.encode('utf-8')) < 1000000: raise SystemExit('Restored index is unexpectedly small')
+          if 'aurora-gemini' not in s: raise SystemExit('Verified 4a index is not connected to aurora-gemini')
+          if marker not in s: raise SystemExit('Keyboard fix missing')
+          PY
+      - name: Commit and remove workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git rm -f .github/workflows/aurora-restore-4a.yml
+          git commit -m "Restore verified index and fix Aurora mobile keyboard [aurora-4a]"
+          git push
