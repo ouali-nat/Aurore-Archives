@@ -2537,52 +2537,58 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
 @media(max-width:560px){.aurore-ia-menu-btn span:last-child{display:none}.aurore-ia-menu-btn{width:38px;min-height:38px;padding:0;flex:0 0 38px}}
 
 /* --- Historique des discussions (demi-page coulissante) --- */
-.aurore-ia-history-overlay{position:fixed;inset:0;background:rgba(5,4,9,.55);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);z-index:210;opacity:0;pointer-events:none;transition:opacity .22s ease}
+/* ===== Historique Aurora : carte flottante centrée, mise en page en flex ===== */
+.aurore-ia-history-overlay{position:fixed;inset:0;background:rgba(3,2,7,.68);backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);z-index:210;opacity:0;pointer-events:none;transition:opacity .22s ease}
 .aurore-ia-history-overlay.is-open{opacity:1;pointer-events:auto}
 .aurore-ia-history-overlay[hidden]{display:none}
-.aurore-ia-history-panel{position:fixed;top:0;bottom:0;left:0;width:min(50vw,460px);max-width:88vw;background:#0D0A14;border-right:1px solid var(--ia-border);box-shadow:24px 0 60px rgba(0,0,0,.35);z-index:211;display:flex;flex-direction:column;padding:18px 14px 14px;transform:translateX(-100%);transition:transform .28s cubic-bezier(.2,.8,.2,1);overflow:hidden}
-.aurore-ia-history-panel.is-open{transform:translateX(0)}
-@media(max-width:560px){.aurore-ia-history-panel{width:min(88vw,420px);padding:16px 11px 12px}.aurore-ia-history-item{padding:12px 40px 12px 11px}.aurore-ia-history-head h2{font-size:.98rem}}
-.aurore-ia-history-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:4px 4px 14px}
-.aurore-ia-history-head h2{margin-top:4px;font-family:inherit;font-size:1.02rem;font-weight:800;letter-spacing:-.01em;color:#fff}
+.aurore-ia-history-panel{position:fixed;top:50%;left:50%;bottom:auto;width:min(620px,calc(100vw - 28px));max-width:none;height:min(72vh,680px);max-height:88vh;transform:translate(-50%,-46%) scale(.97);opacity:0;background:linear-gradient(145deg,rgba(22,17,31,.98),rgba(12,9,18,.98));border:1px solid rgba(255,255,255,.12);border-radius:28px;box-shadow:0 30px 100px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.035) inset;z-index:211;display:flex;flex-direction:column;padding:20px;overflow:hidden;transition:transform .24s cubic-bezier(.2,.8,.2,1),opacity .24s ease;pointer-events:none}
+.aurore-ia-history-panel.is-open{transform:translate(-50%,-50%) scale(1);opacity:1;pointer-events:auto}
+.aurore-ia-history-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:3px 2px 17px;border-bottom:1px solid rgba(255,255,255,.07)}
+.aurore-ia-history-head h2{margin-top:4px;font-family:inherit;font-size:1.12rem;font-weight:800;letter-spacing:-.01em;color:#fff}
 .aurore-ia-history-close{width:32px;height:32px;flex:0 0 32px;display:grid;place-items:center;border:1px solid var(--ia-border);border-radius:10px;background:rgba(255,255,255,.03);color:#C9C2D6;cursor:pointer;transition:.16s ease}
 .aurore-ia-history-close:hover{background:rgba(255,255,255,.08);color:#fff}
-.aurore-ia-history-new{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:11px;margin:2px 0 14px;border:1px solid color-mix(in srgb, var(--ia-accent-3) 30%, transparent);border-radius:14px;background:linear-gradient(135deg,color-mix(in srgb, var(--ia-accent) 20%, transparent),color-mix(in srgb, var(--ia-accent-3) 8%, transparent));color:#fff;font:inherit;font-weight:700;font-size:.82rem;cursor:pointer;transition:.16s ease}
+.aurore-ia-history-new{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;margin:15px 0 13px;border:1px solid color-mix(in srgb, var(--ia-accent-3) 30%, transparent);border-radius:17px;background:linear-gradient(135deg,color-mix(in srgb, var(--ia-accent) 20%, transparent),rgba(255,255,255,.035));color:#fff;font:inherit;font-weight:700;font-size:.82rem;cursor:pointer;transition:.16s ease}
 .aurore-ia-history-new:hover{filter:brightness(1.1)}
-.aurore-ia-history-list{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:5px;padding-right:2px}
+.aurore-ia-history-list{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:8px;padding:2px 2px 4px}
 .aurore-ia-history-empty{margin:22px 6px;color:#81798F;font-size:.78rem;line-height:1.6;text-align:center}
-.aurore-ia-history-item{position:relative;display:flex;align-items:center;width:100%;padding:11px 38px 11px 12px;border-radius:13px;border:1px solid transparent;background:transparent;color:#D8D1E3;text-align:left;font:inherit;cursor:pointer;transition:.16s ease}
-.aurore-ia-history-item:hover{background:rgba(255,255,255,.045);border-color:var(--ia-border)}
-.aurore-ia-history-item.active{background:color-mix(in srgb, var(--ia-accent) 14%, transparent);border-color:color-mix(in srgb, var(--ia-accent-3) 22%, transparent)}
-.aurore-ia-history-item-copy{display:flex;flex-direction:column;min-width:0;gap:2px;pointer-events:none}
-.aurore-ia-history-item-copy strong{font-size:.79rem;font-weight:700;color:#F1ECFB;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.aurore-ia-history-item-copy small{font-size:.65rem;color:#83798F}
-.aurore-ia-history-item-delete{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:27px;height:27px;display:grid;place-items:center;border:0;border-radius:8px;background:transparent;color:#7A7286;font-size:.9rem;line-height:1;cursor:pointer;transition:.16s ease}
-.aurore-ia-history-item-delete:hover{background:color-mix(in srgb, #E0776B 20%, transparent);color:#F3B7AE}
-.aurore-ia-history-item-menu{position:absolute;right:6px;top:50%;transform:translateY(-50%);z-index:2;width:28px;height:28px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.16);border-radius:9px;background:rgba(255,255,255,.06);color:#EAE5F2;font-size:1.05rem;font-weight:900;line-height:1;cursor:pointer;transition:.16s ease}
-.aurore-ia-history-item-menu:hover{background:color-mix(in srgb, var(--ia-accent,#8B5CF6) 22%, rgba(255,255,255,.06));border-color:color-mix(in srgb, var(--ia-accent-3,#C084FC) 40%, transparent);color:#fff}
+
+.aurore-ia-history-item{display:flex;align-items:center;gap:10px;width:100%;min-height:64px;padding:12px 12px 12px 15px;border-radius:17px;border:1px solid rgba(255,255,255,.065);background:rgba(255,255,255,.025);color:#D8D1E3;text-align:left;font:inherit;cursor:pointer;transition:transform .16s ease,border-color .16s ease,background .16s ease}
+.aurore-ia-history-item:hover{transform:translateY(-1px);background:rgba(255,255,255,.045);border-color:var(--ia-border)}
+.aurore-ia-history-item.active{border-color:color-mix(in srgb, var(--ia-accent-3) 30%, transparent);background:color-mix(in srgb, var(--ia-accent) 9%, transparent)}
+.aurore-ia-history-item-copy{flex:1 1 auto;display:flex;flex-direction:column;min-width:0;gap:4px;pointer-events:none}
+.aurore-ia-history-item-copy strong{font-size:.83rem;font-weight:700;color:#F1ECFB;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.aurore-ia-history-item-copy small{font-size:.67rem;color:#83798F}
+
+.aurore-ia-history-item-menu{flex:0 0 32px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;gap:3px;border:1px solid rgba(255,255,255,.16);border-radius:10px;background:rgba(255,255,255,.07);cursor:pointer;transition:.16s ease}
+.aurore-ia-history-item-menu span{display:block;width:4px;height:4px;border-radius:50%;background:#EAE5F2;flex:0 0 auto}
+.aurore-ia-history-item-menu:hover{background:color-mix(in srgb, var(--ia-accent,#8B5CF6) 25%, rgba(255,255,255,.07));border-color:color-mix(in srgb, var(--ia-accent-3,#C084FC) 40%, transparent)}
+.aurore-ia-history-item-menu:hover span{background:#fff}
+
 .aurore-ia-history-menu-popover{position:fixed;z-index:14000;display:none;width:176px;padding:6px;border:1px solid rgba(255,255,255,.16);border-radius:13px;background:#1B1626;box-shadow:0 18px 45px rgba(0,0,0,.35)}
 .aurore-ia-history-menu-popover.show{display:flex;flex-direction:column;gap:2px}
 .aurore-ia-history-menu-popover button{border:0;background:transparent;color:#EAE5F2;border-radius:9px;padding:9px 10px;text-align:left;font:inherit;font-size:.75rem;font-weight:700;cursor:pointer}
 .aurore-ia-history-menu-popover button:hover{background:rgba(255,255,255,.08)}
 .aurore-ia-history-menu-popover [data-hist-delete]:hover{background:rgba(224,119,107,.18);color:#F3B7AE}
-[data-theme="light"] .aurore-ia-history-item-menu{background:#fff;border-color:#D9D0E3;color:#3D3547;box-shadow:0 2px 6px rgba(49,34,68,.08)}
-[data-theme="light"] .aurore-ia-history-item-menu:hover{background:color-mix(in srgb, var(--ia-accent,#8B5CF6) 10%, #fff);border-color:#8B5CF6;color:#211A29}
-[data-theme="light"] .aurore-ia-history-menu-popover{background:#fff;border-color:#E3DCEA;box-shadow:0 18px 45px rgba(49,34,68,.16)}
-[data-theme="light"] .aurore-ia-history-menu-popover button{color:#332C3C}
-[data-theme="light"] .aurore-ia-history-menu-popover button:hover{background:color-mix(in srgb, var(--ia-accent,#8B5CF6) 8%, transparent)}
 
 [data-theme="light"] .aurore-ia-menu-btn{background:rgba(0,0,0,.03);border-color:#D9D0E3;color:#5B5465}
 [data-theme="light"] .aurore-ia-menu-btn:hover{color:#211A29}
-[data-theme="light"] .aurore-ia-history-panel{background:#fff;border-color:#E3DCEA}
+[data-theme="light"] .aurore-ia-history-panel{background:rgba(255,255,255,.98);border-color:#E3DCEA;box-shadow:0 30px 90px rgba(30,20,40,.25)}
 [data-theme="light"] .aurore-ia-history-head h2{color:#17131E}
 [data-theme="light"] .aurore-ia-history-close{background:rgba(0,0,0,.03);border-color:#D9D0E3;color:#5B5465}
-[data-theme="light"] .aurore-ia-history-item{color:#3D3547}
+[data-theme="light"] .aurore-ia-history-item{background:#faf8fd;border-color:#e5ddec;color:#3D3547}
 [data-theme="light"] .aurore-ia-history-item:hover{background:color-mix(in srgb, var(--ia-accent) 6%, transparent)}
 [data-theme="light"] .aurore-ia-history-item.active{background:color-mix(in srgb, var(--ia-accent) 10%, transparent)}
 [data-theme="light"] .aurore-ia-history-item-copy strong{color:#211A29}
 [data-theme="light"] .aurore-ia-history-item-copy small{color:#6D6578}
 [data-theme="light"] .aurore-ia-history-empty{color:#766D81}
+[data-theme="light"] .aurore-ia-history-item-menu{background:#fff;border-color:#D9D0E3}
+[data-theme="light"] .aurore-ia-history-item-menu span{background:#3D3547}
+[data-theme="light"] .aurore-ia-history-item-menu:hover{border-color:#8B5CF6}
+[data-theme="light"] .aurore-ia-history-item-menu:hover span{background:#211A29}
+[data-theme="light"] .aurore-ia-history-menu-popover{background:#fff;border-color:#E3DCEA;box-shadow:0 18px 45px rgba(49,34,68,.16)}
+[data-theme="light"] .aurore-ia-history-menu-popover button{color:#332C3C}
+[data-theme="light"] .aurore-ia-history-menu-popover button:hover{background:color-mix(in srgb, var(--ia-accent,#8B5CF6) 8%, transparent)}
+@media(max-width:560px){.aurore-ia-history-panel{width:calc(100vw - 18px);height:min(78dvh,700px);border-radius:24px;padding:16px}.aurore-ia-history-head h2{font-size:1.02rem}.aurore-ia-history-item{min-height:60px}}
 
 @media(max-width:820px){
   .aurore-ia-history-panel{width:84vw;max-width:84vw;padding:16px 12px 12px}
@@ -2676,77 +2682,11 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
 .aurore-ia-back{height:40px;min-height:40px;border-radius:14px!important;font-size:0!important;width:40px;padding:0!important}
 .aurore-ia-back span:first-child{font-size:1rem}
 .aurore-ia-top-actions{gap:7px!important}
-
-/* Historique : panneau remplacé par une vraie carte flottante, lisible et aérienne. */
-.aurore-ia-history-overlay{
-  background:rgba(3,2,7,.68);
-  backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);
-}
-.aurore-ia-history-panel{
-  top:50%;left:50%;bottom:auto;
-  width:min(620px,calc(100vw - 28px));max-width:none;
-  height:min(72vh,680px);
-  transform:translate(-50%,-46%) scale(.97);
-  opacity:0;
-  border:1px solid rgba(255,255,255,.12);
-  border-radius:28px;
-  background:linear-gradient(145deg,rgba(22,17,31,.98),rgba(12,9,18,.98));
-  box-shadow:0 30px 100px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.035) inset;
-  padding:20px;
-  transition:transform .24s cubic-bezier(.2,.8,.2,1),opacity .24s ease;
-}
-.aurore-ia-history-panel.is-open{transform:translate(-50%,-50%) scale(1);opacity:1}
-.aurore-ia-history-head{
-  padding:3px 2px 17px;
-  border-bottom:1px solid rgba(255,255,255,.07);
-}
-.aurore-ia-history-head h2{font-size:1.15rem!important}
-.aurore-ia-history-new{
-  margin:15px 0 13px!important;
-  border-radius:17px!important;
-  padding:12px!important;
-  background:linear-gradient(135deg,color-mix(in srgb,var(--ia-accent) 20%,transparent),rgba(255,255,255,.035))!important;
-}
-.aurore-ia-history-list{
-  gap:8px;
-  padding:2px 2px 4px;
-}
-.aurore-ia-history-item{
-  min-height:68px;
-  padding:12px 45px 12px 14px;
-  border:1px solid rgba(255,255,255,.065)!important;
-  border-radius:17px!important;
-  background:rgba(255,255,255,.025)!important;
-}
-.aurore-ia-history-item:hover{transform:translateY(-1px);background:rgba(255,255,255,.045)!important}
-.aurore-ia-history-item.active{
-  border-color:color-mix(in srgb,var(--ia-accent-3) 30%,transparent)!important;
-  background:color-mix(in srgb,var(--ia-accent) 9%,transparent)!important;
-}
-.aurore-ia-history-item-copy strong{font-size:.8rem}
-.aurore-ia-history-item-copy small{font-size:.63rem}
-.aurore-ia-history-item-delete{
-  width:30px;height:30px;border-radius:10px;
-}
-.aurore-ia-history-empty{
-  padding:28px 18px;
-  margin:0;
-  border:1px dashed rgba(255,255,255,.10);
-  border-radius:18px;
-}
-[data-theme="light"] .aurore-ia-history-panel{
-  background:rgba(255,255,255,.98);
-  box-shadow:0 30px 90px rgba(30,20,40,.25);
-}
 @media(max-width:560px){
   .aurore-ia-topbar{padding:0 11px}
   .aurore-ia-brand-copy span{display:none}
   .aurore-ia-new{width:40px;padding:0!important;font-size:0!important}
   .aurore-ia-new span:first-child{font-size:1rem}
-  .aurore-ia-history-panel{
-    width:calc(100vw - 22px);height:min(76vh,680px);
-    border-radius:25px;padding:16px;
-  }
   .aurore-ia-conversation{padding-bottom:18px}
   .aurore-ia-welcome{margin-top:7vh}
 }
@@ -2754,32 +2694,11 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
 
 
 <style id="aurora-history-final-fix">
-.aurore-ia-history-panel{
-  display:flex!important;visibility:visible;z-index:99999!important;
-  background:linear-gradient(145deg,rgba(22,17,31,.985),rgba(10,8,15,.985));
-  border:1px solid color-mix(in srgb,var(--ia-accent,#A78BFA) 22%,rgba(255,255,255,.10));
-}
-.aurore-ia-history-panel.is-open{display:flex!important;visibility:visible!important;}
-.aurore-ia-history-list{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:4px 2px 12px;display:flex;flex-direction:column;gap:9px;}
-.aurore-ia-history-item{position:relative;display:flex!important;align-items:center;min-height:68px;padding:12px 48px 12px 15px;border:1px solid rgba(255,255,255,.075);border-radius:18px;background:rgba(255,255,255,.035);color:#eee;cursor:pointer;transition:transform .16s ease,border-color .16s ease,background .16s ease;box-shadow:0 8px 24px rgba(0,0,0,.12);}
-.aurore-ia-history-item:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--ia-accent,#A78BFA) 35%,rgba(255,255,255,.08));background:color-mix(in srgb,var(--ia-accent,#A78BFA) 7%,rgba(255,255,255,.035));}
-.aurore-ia-history-item.active{border-color:color-mix(in srgb,var(--ia-accent,#A78BFA) 42%,transparent);background:color-mix(in srgb,var(--ia-accent,#A78BFA) 10%,rgba(255,255,255,.035));}
-.aurore-ia-history-item-copy{display:flex;flex-direction:column;min-width:0;gap:5px;width:100%;}
-.aurore-ia-history-item-copy strong{display:block;color:#fff;font-size:.84rem;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.aurore-ia-history-item-copy small{color:#81798f;font-size:.68rem;}
-.aurore-ia-history-item-delete{right:10px!important;width:30px!important;height:30px!important;border:1px solid rgba(255,255,255,.06)!important;border-radius:10px!important;background:rgba(255,255,255,.035)!important;color:#81798f!important;}
-.aurore-ia-history-item-delete:hover{color:#fff!important;background:rgba(224,119,107,.14)!important;}
-.aurore-ia-history-item-menu{right:10px!important;z-index:3!important;width:30px!important;height:30px!important;border:1px solid rgba(255,255,255,.16)!important;border-radius:10px!important;background:rgba(255,255,255,.07)!important;color:#EAE5F2!important;opacity:1!important;visibility:visible!important;}
-.aurore-ia-history-item-menu:hover{color:#fff!important;background:color-mix(in srgb,var(--ia-accent,#A78BFA) 25%,rgba(255,255,255,.07))!important;}
-[data-theme="light"] .aurore-ia-history-item-menu{background:#fff!important;border-color:#D9D0E3!important;color:#3D3547!important;}
 .aurore-history-empty-card{margin:8px 0;min-height:180px;padding:28px 22px;border:1px solid rgba(255,255,255,.08);border-radius:22px;background:radial-gradient(circle at 50% 0%,color-mix(in srgb,var(--ia-accent,#A78BFA) 9%,transparent),transparent 65%),rgba(255,255,255,.025);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:9px;color:#fff;}
 .aurore-history-empty-card strong{font-size:.9rem;}
 .aurore-history-empty-card small{max-width:320px;color:#81798f;font-size:.72rem;line-height:1.55;}
 .aurore-history-empty-dot{width:10px;height:10px;border-radius:50%;background:var(--ia-accent,#A78BFA);box-shadow:0 0 22px color-mix(in srgb,var(--ia-accent,#A78BFA) 65%,transparent);animation:auroraHistoryDot 1.8s ease-in-out infinite;}
 @keyframes auroraHistoryDot{0%,100%{transform:scale(.82);opacity:.65}50%{transform:scale(1.18);opacity:1}}
-[data-theme="light"] .aurore-ia-history-panel{background:rgba(255,255,255,.985);}
-[data-theme="light"] .aurore-ia-history-item{background:#faf8fd;border-color:#e5ddec;color:#30283b;}
-[data-theme="light"] .aurore-ia-history-item-copy strong{color:#211a29;}
 [data-theme="light"] .aurore-history-empty-card{background:#faf8fd;border-color:#e5ddec;color:#211a29;}
 
 /* Aurora chaleureuse : elle accompagne au lieu d'afficher un statut technique. */
@@ -2789,7 +2708,6 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
 @keyframes auroraDropWarm{0%,100%{transform:translateY(0) scale(.82,1);border-radius:62% 38% 55% 45%;opacity:.72}35%{transform:translateY(-5px) scale(1.08,.9);border-radius:48% 52% 42% 58%;opacity:1}60%{transform:translateY(1px) scale(.92,1.08);border-radius:45% 55% 60% 40%;opacity:.9}}
 .aurore-ia-bubble.aurora-typing-answer{background:transparent!important;border-color:transparent!important;box-shadow:none!important;padding:0!important;max-width:850px;}
 .aurore-ia-bubble.aurora-typing-answer .aurore-ia-markdown{color:inherit;}
-@media(max-width:560px){.aurore-ia-history-panel{width:calc(100vw - 18px)!important;height:min(78dvh,700px)!important;border-radius:24px!important;padding:14px!important;}.aurore-ia-history-item{min-height:64px;}.aurore-ia-history-head h2{font-size:1.05rem!important;}}
 </style>
 </head>
 <body class="site-locked">
@@ -18647,7 +18565,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       const actif=c.id===currentConversationId;
       return '<div class="aurore-ia-history-item'+(actif?' active':'')+'" data-conv-id="'+esc(c.id)+'" role="button" tabindex="0">'+
         '<span class="aurore-ia-history-item-copy"><strong>'+esc(c.titre||'Discussion')+'</strong><small>'+esc(formaterDateHistorique(c.maj))+'</small></span>'+
-        '<button type="button" class="aurore-ia-history-item-menu" data-conv-menu="'+esc(c.id)+'" aria-haspopup="menu" aria-label="Options de cette discussion" title="Options">⋮</button>'+
+        '<button type="button" class="aurore-ia-history-item-menu" data-conv-menu="'+esc(c.id)+'" aria-haspopup="menu" aria-label="Options de cette discussion" title="Options"><span></span><span></span><span></span></button>'+
       '</div>';
     }).join('');
   }
