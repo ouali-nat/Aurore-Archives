@@ -2559,6 +2559,18 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
 .aurore-ia-history-item-copy small{font-size:.65rem;color:#83798F}
 .aurore-ia-history-item-delete{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:27px;height:27px;display:grid;place-items:center;border:0;border-radius:8px;background:transparent;color:#7A7286;font-size:.9rem;line-height:1;cursor:pointer;transition:.16s ease}
 .aurore-ia-history-item-delete:hover{background:color-mix(in srgb, #E0776B 20%, transparent);color:#F3B7AE}
+.aurore-ia-history-item-menu{position:absolute;right:6px;top:50%;transform:translateY(-50%);z-index:2;width:28px;height:28px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.16);border-radius:9px;background:rgba(255,255,255,.06);color:#EAE5F2;font-size:1.05rem;font-weight:900;line-height:1;cursor:pointer;transition:.16s ease}
+.aurore-ia-history-item-menu:hover{background:color-mix(in srgb, var(--ia-accent,#8B5CF6) 22%, rgba(255,255,255,.06));border-color:color-mix(in srgb, var(--ia-accent-3,#C084FC) 40%, transparent);color:#fff}
+.aurore-ia-history-menu-popover{position:fixed;z-index:14000;display:none;width:176px;padding:6px;border:1px solid rgba(255,255,255,.16);border-radius:13px;background:#1B1626;box-shadow:0 18px 45px rgba(0,0,0,.35)}
+.aurore-ia-history-menu-popover.show{display:flex;flex-direction:column;gap:2px}
+.aurore-ia-history-menu-popover button{border:0;background:transparent;color:#EAE5F2;border-radius:9px;padding:9px 10px;text-align:left;font:inherit;font-size:.75rem;font-weight:700;cursor:pointer}
+.aurore-ia-history-menu-popover button:hover{background:rgba(255,255,255,.08)}
+.aurore-ia-history-menu-popover [data-hist-delete]:hover{background:rgba(224,119,107,.18);color:#F3B7AE}
+[data-theme="light"] .aurore-ia-history-item-menu{background:#fff;border-color:#D9D0E3;color:#3D3547;box-shadow:0 2px 6px rgba(49,34,68,.08)}
+[data-theme="light"] .aurore-ia-history-item-menu:hover{background:color-mix(in srgb, var(--ia-accent,#8B5CF6) 10%, #fff);border-color:#8B5CF6;color:#211A29}
+[data-theme="light"] .aurore-ia-history-menu-popover{background:#fff;border-color:#E3DCEA;box-shadow:0 18px 45px rgba(49,34,68,.16)}
+[data-theme="light"] .aurore-ia-history-menu-popover button{color:#332C3C}
+[data-theme="light"] .aurore-ia-history-menu-popover button:hover{background:color-mix(in srgb, var(--ia-accent,#8B5CF6) 8%, transparent)}
 
 [data-theme="light"] .aurore-ia-menu-btn{background:rgba(0,0,0,.03);border-color:#D9D0E3;color:#5B5465}
 [data-theme="light"] .aurore-ia-menu-btn:hover{color:#211A29}
@@ -2757,6 +2769,9 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
 .aurore-ia-history-item-copy small{color:#81798f;font-size:.68rem;}
 .aurore-ia-history-item-delete{right:10px!important;width:30px!important;height:30px!important;border:1px solid rgba(255,255,255,.06)!important;border-radius:10px!important;background:rgba(255,255,255,.035)!important;color:#81798f!important;}
 .aurore-ia-history-item-delete:hover{color:#fff!important;background:rgba(224,119,107,.14)!important;}
+.aurore-ia-history-item-menu{right:10px!important;z-index:3!important;width:30px!important;height:30px!important;border:1px solid rgba(255,255,255,.16)!important;border-radius:10px!important;background:rgba(255,255,255,.07)!important;color:#EAE5F2!important;opacity:1!important;visibility:visible!important;}
+.aurore-ia-history-item-menu:hover{color:#fff!important;background:color-mix(in srgb,var(--ia-accent,#A78BFA) 25%,rgba(255,255,255,.07))!important;}
+[data-theme="light"] .aurore-ia-history-item-menu{background:#fff!important;border-color:#D9D0E3!important;color:#3D3547!important;}
 .aurore-history-empty-card{margin:8px 0;min-height:180px;padding:28px 22px;border:1px solid rgba(255,255,255,.08);border-radius:22px;background:radial-gradient(circle at 50% 0%,color-mix(in srgb,var(--ia-accent,#A78BFA) 9%,transparent),transparent 65%),rgba(255,255,255,.025);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:9px;color:#fff;}
 .aurore-history-empty-card strong{font-size:.9rem;}
 .aurore-history-empty-card small{max-width:320px;color:#81798f;font-size:.72rem;line-height:1.55;}
@@ -18467,7 +18482,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
           try{
             if(error.context&&typeof error.context.json==='function'){
               const payload=await error.context.json();
-              detail=payload?.error||payload?.message||'';
+              detail=payload?.detail||payload?.error||payload?.message||'';
             }
           }catch(_){}
           dernierDetail=detail||error.message||'';
@@ -18632,7 +18647,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       const actif=c.id===currentConversationId;
       return '<div class="aurore-ia-history-item'+(actif?' active':'')+'" data-conv-id="'+esc(c.id)+'" role="button" tabindex="0">'+
         '<span class="aurore-ia-history-item-copy"><strong>'+esc(c.titre||'Discussion')+'</strong><small>'+esc(formaterDateHistorique(c.maj))+'</small></span>'+
-        '<button type="button" class="aurore-ia-history-item-delete" data-conv-delete="'+esc(c.id)+'" aria-label="Supprimer cette discussion">×</button>'+
+        '<button type="button" class="aurore-ia-history-item-menu" data-conv-menu="'+esc(c.id)+'" aria-haspopup="menu" aria-label="Options de cette discussion" title="Options">⋮</button>'+
       '</div>';
     }).join('');
   }
@@ -18682,19 +18697,60 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
   document.addEventListener('keydown',e=>{
     if(e.key==='Escape'&&historyPanel?.classList.contains('is-open'))fermerHistorique();
   });
-  historyList?.addEventListener('click',async e=>{
-    const delBtn=e.target.closest('[data-conv-delete]');
-    if(delBtn){
+  async function supprimerConversationHistorique(id){
+    const ctx=await obtenirUtilisateurCourant();
+    if(ctx){
+      try{await ctx.client.from('aurore_ia_conversations').delete().eq('id',id).eq('user_id',ctx.userId);}
+      catch(err){console.error('[Aurora] suppression historique:',err);}
+    }
+    const local=lireHistoriqueLocal().filter(c=>c.id!==id);
+    ecrireHistoriqueLocal(local);
+    if(id===currentConversationId)demarrerNouvelleConversation();
+    rendreListeHistorique();
+  }
+  async function renommerConversationHistorique(id){
+    const conv=auroreHistoriqueCache.find(c=>c.id===id);
+    const actuel=conv?.titre||'Discussion';
+    const saisie=prompt('Renommer cette discussion :',actuel);
+    if(saisie==null)return;
+    const nouveauTitre=saisie.trim().replace(/\s+/g,' ').slice(0,80);
+    if(!nouveauTitre||nouveauTitre===actuel)return;
+    const local=lireHistoriqueLocal().map(c=>c.id===id?{...c,titre:nouveauTitre}:c);
+    ecrireHistoriqueLocal(local);
+    rendreListeHistorique();
+    const ctx=await obtenirUtilisateurCourant();
+    if(ctx){
+      try{await ctx.client.from('aurore_ia_conversations').update({titre:nouveauTitre}).eq('id',id).eq('user_id',ctx.userId);}
+      catch(err){console.error('[Aurora] renommage historique:',err);}
+    }
+  }
+  let auroreHistMenuPopover=null;
+  function ouvrirMenuHistorique(id,source){
+    if(!auroreHistMenuPopover){
+      auroreHistMenuPopover=document.createElement('div');
+      auroreHistMenuPopover.id='auroreIAHistoryMenuPopover';
+      auroreHistMenuPopover.className='aurore-ia-history-menu-popover';
+      auroreHistMenuPopover.innerHTML='<button type="button" data-hist-rename>✎ Renommer</button><button type="button" data-hist-delete>⌫ Supprimer</button>';
+      document.body.appendChild(auroreHistMenuPopover);
+      auroreHistMenuPopover.addEventListener('click',e=>e.stopPropagation());
+      auroreHistMenuPopover.querySelector('[data-hist-rename]').addEventListener('click',()=>{const cid=auroreHistMenuPopover.dataset.convId;auroreHistMenuPopover.classList.remove('show');if(cid)renommerConversationHistorique(cid);});
+      auroreHistMenuPopover.querySelector('[data-hist-delete]').addEventListener('click',()=>{const cid=auroreHistMenuPopover.dataset.convId;auroreHistMenuPopover.classList.remove('show');if(cid)supprimerConversationHistorique(cid);});
+      document.addEventListener('click',()=>auroreHistMenuPopover.classList.remove('show'));
+      document.addEventListener('keydown',e=>{if(e.key==='Escape')auroreHistMenuPopover.classList.remove('show');});
+      window.addEventListener('resize',()=>auroreHistMenuPopover.classList.remove('show'));
+    }
+    auroreHistMenuPopover.dataset.convId=id;
+    const r=source.getBoundingClientRect();
+    auroreHistMenuPopover.style.left=Math.min(window.innerWidth-192,Math.max(12,r.right-176))+'px';
+    auroreHistMenuPopover.style.top=Math.min(window.innerHeight-96,r.bottom+6)+'px';
+    auroreHistMenuPopover.classList.add('show');
+  }
+  historyList?.addEventListener('click',e=>{
+    const menuBtn2=e.target.closest('[data-conv-menu]');
+    if(menuBtn2){
       e.preventDefault();
       e.stopPropagation();
-      const id=delBtn.getAttribute('data-conv-delete');
-      const ctx=await obtenirUtilisateurCourant();
-      if(ctx){
-        try{await ctx.client.from('aurore_ia_conversations').delete().eq('id',id).eq('user_id',ctx.userId);}
-        catch(err){console.error('[Aurora] suppression historique:',err);}
-      }
-      if(id===currentConversationId)demarrerNouvelleConversation();
-      rendreListeHistorique();
+      ouvrirMenuHistorique(menuBtn2.getAttribute('data-conv-menu'),menuBtn2);
       return;
     }
     const item=e.target.closest('[data-conv-id]');
@@ -18939,7 +18995,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     e.preventDefault();if(sending)return;
     const q=input.value.trim();if(!q)return;
     closePlusMenu();
-    addMessage(q,'user');input.value='';autoGrow();updateSendState();
+    addMessage(q,'user');input.value='';autoGrow();updateSendState();input.focus({preventScroll:true});
     messagesActuels.push({role:'user',text:q});sauvegarderConversationCourante();
     const lower=q.toLowerCase(),wantsWiki=activeTool==='wikipedia'||/wikip[eé]dia/.test(lower);
     if(wantsWiki){
