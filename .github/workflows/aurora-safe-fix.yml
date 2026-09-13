@@ -1,0 +1,36 @@
+name: Aurora safe fix
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: ${{ !contains(github.event.head_commit.message, '[aurora-fix]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply minimal fixes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          old="client.functions.invoke('aurore-ia',{body})"
+          new="client.functions.invoke('aurora-gemini',{body})"
+          if old in s:
+              s=s.replace(old,new,1)
+          old2="input.addEventListener('keydown',e=>{\n    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();if(!sending&&input.value.trim())form.requestSubmit();}\n  });"
+          new2="input.addEventListener('keydown',e=>{\n    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();if(!sending&&input.value.trim())form.requestSubmit();}\n  });\n  /* Sur Android, conserver le clavier ouvert après l'envoi : le bouton ne vole pas le focus. */\n  sendBtn?.addEventListener('pointerdown',e=>{\n    if(sending||!input.value.trim())return;\n    e.preventDefault();\n    input.focus({preventScroll:true});\n    requestAnimationFrame(()=>form.requestSubmit());\n  });"
+          if old2 in s and "/* Sur Android, conserver le clavier ouvert après l'envoi" not in s:
+              s=s.replace(old2,new2,1)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit and clean up
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git rm -f .github/workflows/aurora-safe-fix.yml
+          git commit -m "Fix Aurora Gemini and mobile keyboard [aurora-fix]" || true
+          git push
