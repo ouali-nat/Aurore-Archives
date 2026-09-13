@@ -1,0 +1,22 @@
+name: Inspect Aurora
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  inspect:
+    if: ${{ !contains(github.event.head_commit.message, '[aurora-inspect]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect handlers
+        run: |
+          grep -n -E "input.addEventListener|sendBtn|requestSubmit|function autoGrow|function updateSendState" index.html | tail -40 || true
+      - name: Remove workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -f .github/workflows/aurora-inspect.yml
+          git commit -m "Remove Aurora inspection workflow [aurora-inspect]"
+          git push
