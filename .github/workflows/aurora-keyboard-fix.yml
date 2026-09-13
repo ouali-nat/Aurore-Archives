@@ -1,0 +1,46 @@
+name: Aurora keyboard fix
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: ${{ !contains(github.event.head_commit.message, '[aurora-keyboard-fix]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch mobile send focus
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          marker='/* Aurora mobile: keep keyboard open after send */'
+          if marker not in s:
+              anchor="  input.addEventListener('focus',()=>{closePlusMenu();setTimeout(()=>scrollBottom(true),260);});"
+              patch="""  /* Aurora mobile: keep keyboard open after send */
+            sendBtn?.addEventListener('pointerdown',e=>{
+              if(sending||!input.value.trim())return;
+              e.preventDefault();
+              input.focus({preventScroll:true});
+              requestAnimationFrame(()=>form.requestSubmit());
+            });
+          """
+              if anchor in s:
+                  s=s.replace(anchor,patch+anchor,1)
+              else:
+                  pattern=r"(input\.addEventListener\(['\"]keydown['\"],e=>\{.*?form\.requestSubmit\(\);\}\);)"
+                  s,n=re.subn(pattern,r"\1\n  "+patch, s, count=1, flags=re.S)
+                  if n==0: raise SystemExit('Aurora keyboard anchor not found')
+              p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit and clean up
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git rm -f .github/workflows/aurora-keyboard-fix.yml
+          git diff --cached --quiet || git commit -m "Fix Aurora mobile keyboard [aurora-keyboard-fix]"
+          git push
