@@ -1,0 +1,55 @@
+name: Restore Aurora safe base
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  restore:
+    if: ${{ !contains(github.event.head_commit.message, '[aurora-restore]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restore known-good index and patch Aurora
+        run: |
+          git show 83580b5ca0ce6e66f953ea54fa3fa87f4f01d577:index.html > index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          old="client.functions.invoke('aurore-ia',{body})"
+          new="client.functions.invoke('aurora-gemini',{body})"
+          if old in s:
+              s=s.replace(old,new,1)
+          marker='/* Aurora mobile: keep keyboard open after send */'
+          if marker not in s:
+              anchor="  input.addEventListener('focus',()=>{closePlusMenu();setTimeout(()=>scrollBottom(true),260);});"
+              patch="""  /* Aurora mobile: keep keyboard open after send */
+            sendBtn?.addEventListener('pointerdown',e=>{
+              if(sending||!input.value.trim())return;
+              e.preventDefault();
+              input.focus({preventScroll:true});
+              requestAnimationFrame(()=>form.requestSubmit());
+            });
+          """
+              if anchor in s:
+                  s=s.replace(anchor,patch+anchor,1)
+              else:
+                  raise SystemExit('Expected Aurora input focus handler not found')
+          p.write_text(s,encoding='utf-8')
+          if "client.functions.invoke('aurora-gemini',{body})" not in s:
+              raise SystemExit('Aurora Gemini invocation not found after patch')
+          if marker not in s:
+              raise SystemExit('Aurora keyboard fix not applied')
+          print('Restored index bytes:', len(s.encode('utf-8')))
+          PY
+      - name: Commit restored index and remove workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git rm -f .github/workflows/restore-aurora-safe.yml
+          git commit -m "Restore full index and fix Aurora [aurora-restore]"
+          git push
