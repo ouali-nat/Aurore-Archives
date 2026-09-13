@@ -1702,47 +1702,76 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   @media(prefers-reduced-motion:reduce){.aurore-floating-home{transition:none;}}
 
   /* ---- Bouton flottant Aurora (logo du site) : ouvre l'IA depuis l'accueil,
-     ouvre un petit panneau d'options (historique + réduire) depuis l'IA. ---- */
-  .aurore-floating-ai .afh-icon{border-radius:50%;overflow:hidden;background:linear-gradient(145deg,var(--violet,#8B5CF6),var(--bleu,#7C9CE0));}
+     ouvre un petit panneau d'options (historique + réduire) depuis l'IA.
+     Il ne se déplace plus au doigt : sa position est fixée par script selon
+     le contexte (ancré sur le repère du header à l'accueil, coin supérieur
+     droit une fois dans l'IA), d'où un format compact en pastille ronde. ---- */
+  .aurore-floating-ai{
+    min-width:0!important;width:52px!important;height:52px!important;padding:0!important;gap:0!important;
+    border-radius:50%!important;justify-content:center;cursor:pointer!important;
+  }
+  .aurore-floating-ai .afh-copy,.aurore-floating-ai .afh-drag{display:none!important;}
+  .aurore-floating-ai::after{display:none!important;}
+  .aurore-floating-ai .afh-icon{width:100%;height:100%;flex:0 0 auto;border-radius:50%;overflow:hidden;background:linear-gradient(145deg,var(--violet,#8B5CF6),var(--bleu,#7C9CE0));}
   .aurore-floating-ai .afh-icon img{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block;}
   .aurore-floating-ai .afh-icon span{font-family:Georgia,serif;font-weight:800;font-size:1.05rem;color:#fff;}
   @media(max-width:600px){.aurore-floating-ai .afh-icon{border-radius:50%;}}
+  /* Repère invisible dans le header : réserve l'emplacement où la pastille
+     Aurora vient s'ancrer à l'accueil ("là où son nom est écrit"). */
+  .aurore-ia-header-btn{width:52px;height:52px;flex:0 0 52px;visibility:hidden;pointer-events:none;}
 
   .aurore-floating-ai-menu{
-    position:fixed;z-index:999999!important;width:min(276px,calc(100vw - 24px));
-    padding:9px;border-radius:20px;
-    background:linear-gradient(150deg,rgba(24,19,34,.98),rgba(13,10,20,.98));
-    border:1px solid rgba(255,255,255,.12);
-    box-shadow:0 26px 70px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.03) inset;
-    backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);
-    opacity:0;transform:translateY(6px) scale(.97);pointer-events:none;
-    transition:opacity .16s ease,transform .16s ease;
+    --afam-a:var(--theme-primary,#8B5CF6);--afam-b:var(--theme-secondary,#7C9CE0);
+    position:fixed;z-index:999999!important;width:min(272px,calc(100vw - 24px));
+    padding:14px;border-radius:24px;isolation:isolate;
+    background:linear-gradient(165deg,rgba(26,20,37,.90),rgba(11,9,17,.94));
+    border:1px solid rgba(255,255,255,.09);
+    box-shadow:0 30px 80px -12px rgba(0,0,0,.6),0 4px 18px rgba(0,0,0,.35),0 0 0 1px rgba(255,255,255,.04) inset;
+    backdrop-filter:blur(26px) saturate(165%);-webkit-backdrop-filter:blur(26px) saturate(165%);
+    opacity:0;transform:translateY(10px) scale(.92);filter:blur(6px);pointer-events:none;
+    transform-origin:var(--afam-origin-x,50%) var(--afam-origin-y,0%);
+    transition:opacity .22s cubic-bezier(.22,1,.36,1),transform .32s cubic-bezier(.22,1.35,.32,1),filter .22s ease;
   }
-  .aurore-floating-ai-menu.is-open{opacity:1;transform:translateY(0) scale(1);pointer-events:auto;}
-  .aurore-floating-ai-menu .afam-title{padding:6px 10px 8px;font-size:.68rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#8B839A;}
+  .aurore-floating-ai-menu::before{
+    content:'';position:absolute;inset:-1px;border-radius:inherit;z-index:-1;padding:1px;
+    background:linear-gradient(135deg,color-mix(in srgb,var(--afam-a) 75%,transparent),transparent 38%,transparent 62%,color-mix(in srgb,var(--afam-b) 65%,transparent));
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;
+    opacity:.7;
+  }
+  .aurore-floating-ai-menu.is-open{opacity:1;transform:translateY(0) scale(1);filter:blur(0);pointer-events:auto;}
+  .aurore-floating-ai-menu .afam-title{display:flex;align-items:center;gap:7px;padding:2px 8px 12px;font-size:.65rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#9E96AE;}
+  .aurore-floating-ai-menu .afam-title::before{content:'';width:6px;height:6px;border-radius:50%;background:linear-gradient(145deg,var(--afam-a),var(--afam-b));box-shadow:0 0 10px color-mix(in srgb,var(--afam-a) 70%,transparent);}
   .afam-item{
-    display:flex;align-items:center;gap:11px;width:100%;padding:10px 10px;
-    border:none;border-radius:14px;background:transparent;color:#EDE8F5;
-    font:inherit;font-size:.83rem;font-weight:600;text-align:left;cursor:pointer;
-    transition:background .15s ease;
+    display:flex;align-items:center;gap:12px;width:100%;padding:12px 11px;
+    border:1px solid transparent;border-radius:16px;background:rgba(255,255,255,.02);color:#EFEAF7;
+    font:inherit;font-size:.84rem;font-weight:650;text-align:left;cursor:pointer;
+    opacity:0;transform:translateY(6px);
+    transition:background .18s ease,border-color .18s ease,transform .18s ease,opacity .3s ease;
+    animation:afamItemIn .32s cubic-bezier(.22,1,.36,1) forwards;
   }
-  .afam-item:hover,.afam-item:focus-visible{background:rgba(255,255,255,.07);outline:none;}
-  .afam-item:active{background:rgba(255,255,255,.11);}
-  .afam-item+.afam-item{margin-top:2px;}
+  .aurore-floating-ai-menu.is-open .afam-item:nth-child(2){animation-delay:.04s}
+  .aurore-floating-ai-menu.is-open .afam-item:nth-child(3){animation-delay:.10s}
+  @keyframes afamItemIn{to{opacity:1;transform:translateY(0);}}
+  .afam-item:hover,.afam-item:focus-visible{background:color-mix(in srgb,var(--afam-a) 12%,transparent);border-color:color-mix(in srgb,var(--afam-a) 30%,transparent);transform:translateX(2px);outline:none;}
+  .afam-item:active{transform:translateX(2px) scale(.985);}
+  .afam-item+.afam-item{margin-top:4px;}
   .afam-icon{
-    width:34px;height:34px;flex:0 0 34px;border-radius:11px;display:grid;place-items:center;
-    background:linear-gradient(145deg,var(--violet,#8B5CF6),var(--bleu,#7C9CE0));color:#fff;
-    box-shadow:0 6px 16px rgba(139,92,246,.30),0 0 0 1px rgba(255,255,255,.12) inset;
+    width:36px;height:36px;flex:0 0 36px;border-radius:12px;display:grid;place-items:center;
+    background:linear-gradient(145deg,var(--afam-a),var(--afam-b));color:#fff;
+    box-shadow:0 8px 18px color-mix(in srgb,var(--afam-a) 38%,transparent),0 0 0 1px rgba(255,255,255,.14) inset;
+    transition:transform .18s ease;
   }
+  .afam-item:hover .afam-icon{transform:scale(1.06) rotate(-2deg);}
   .afam-icon-bars{display:flex;flex-direction:column;gap:3px;}
   .afam-icon-bars span{display:block;width:15px;height:2px;border-radius:2px;background:currentColor;}
   .afam-icon-square{position:relative;}
   .afam-icon-square::before{content:'';position:absolute;inset:8px;border:2px solid currentColor;border-radius:4px;}
   .afam-icon-square::after{content:'';position:absolute;right:8px;bottom:8px;width:6px;height:6px;background:currentColor;border-radius:1px;}
-  [data-theme="light"] .aurore-floating-ai-menu{background:rgba(255,255,255,.98);border-color:#E3DCEA;}
-  [data-theme="light"] .aurore-floating-ai-menu .afam-title{color:#6D6578;}
-  [data-theme="light"] .afam-item{color:#2B2433;}
-  [data-theme="light"] .afam-item:hover,[data-theme="light"] .afam-item:focus-visible{background:rgba(0,0,0,.05);}
+  [data-theme="light"] .aurore-floating-ai-menu{background:linear-gradient(165deg,rgba(255,255,255,.94),rgba(248,246,255,.90));border-color:rgba(30,20,45,.08);box-shadow:0 30px 80px -12px rgba(45,30,75,.28),0 4px 18px rgba(45,30,75,.10);}
+  [data-theme="light"] .aurore-floating-ai-menu .afam-title{color:#71697F;}
+  [data-theme="light"] .afam-item{color:#241F30;background:rgba(0,0,0,.015);}
+  [data-theme="light"] .afam-item:hover,[data-theme="light"] .afam-item:focus-visible{background:color-mix(in srgb,var(--afam-a) 10%,transparent);}
+  @media(prefers-reduced-motion:reduce){.aurore-floating-ai-menu,.afam-item{transition:opacity .12s linear!important;animation:none!important;transform:none!important;filter:none!important;opacity:1!important;}}
 </style>
 
 <style id="aurore-ia-mini-style">
@@ -1754,10 +1783,15 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   max-width:96vw;max-height:92vh;
   border-radius:26px;
   overflow:hidden;
+  border:1px solid rgba(255,255,255,.10);
   box-shadow:0 30px 80px rgba(0,0,0,.45),0 6px 20px rgba(0,0,0,.22),0 0 0 1px rgba(255,255,255,.07) inset;
+  backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);
   z-index:9500;
+  animation:auroreMiniPopIn .26s cubic-bezier(.22,1.35,.32,1);
   transition:box-shadow .18s ease;
 }
+@keyframes auroreMiniPopIn{from{opacity:0;transform:scale(.94) translateY(10px)}to{opacity:1;transform:none}}
+[data-theme="light"] #screen-aurore-ia.aurore-ia-screen.is-mini{border-color:rgba(30,20,45,.10)}
 #screen-aurore-ia.aurore-ia-screen.is-mini .aurore-ia-app{border-radius:inherit}
 #screen-aurore-ia.aurore-ia-screen.is-mini .aurore-ia-topbar{cursor:grab;height:54px;min-height:54px;flex-basis:54px;padding:0 10px;gap:8px}
 #screen-aurore-ia.aurore-ia-screen.is-mini .aurore-ia-topbar:active{cursor:grabbing}
@@ -1788,10 +1822,17 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 .aurore-ia-topbar .aurore-ia-minimize,
 #screen-aurore-ia.aurore-ia-screen.is-mini .aurore-ia-minimize{display:inline-flex!important;visibility:visible!important;opacity:1!important}
 
-.aurore-ia-resize-handle{display:none;position:absolute;right:2px;bottom:2px;width:26px;height:26px;cursor:nwse-resize;touch-action:none;z-index:5}
-.aurore-ia-resize-handle::before{content:'';position:absolute;right:5px;bottom:5px;width:12px;height:12px;border-right:2px solid rgba(255,255,255,.4);border-bottom:2px solid rgba(255,255,255,.4);border-radius:0 0 5px 0}
+.aurore-ia-resize-handle{display:none;position:absolute;right:0;bottom:0;width:34px;height:34px;cursor:nwse-resize;touch-action:none;z-index:6}
+.aurore-ia-resize-handle::before{content:'';position:absolute;right:7px;bottom:7px;width:12px;height:12px;border-right:2px solid rgba(255,255,255,.42);border-bottom:2px solid rgba(255,255,255,.42);border-radius:0 0 5px 0}
 [data-theme="light"] .aurore-ia-resize-handle::before{border-color:rgba(0,0,0,.28)}
 #screen-aurore-ia.aurore-ia-screen.is-mini .aurore-ia-resize-handle{display:block}
+/* Bords invisibles mais généreux : redimensionner d'un simple glissement du
+   doigt depuis n'importe quel côté, pas seulement le petit coin. */
+.aurore-ia-resize-edge{display:none;position:absolute;z-index:5;touch-action:none;background:transparent;}
+.aurore-ia-resize-e{top:8px;right:-6px;bottom:36px;width:16px;cursor:ew-resize;}
+.aurore-ia-resize-w{top:8px;left:-6px;bottom:8px;width:16px;cursor:ew-resize;}
+.aurore-ia-resize-s{left:8px;right:36px;bottom:-6px;height:16px;cursor:ns-resize;}
+#screen-aurore-ia.aurore-ia-screen.is-mini .aurore-ia-resize-edge{display:block}
 
 @media(prefers-reduced-motion:reduce){#screen-aurore-ia.aurore-ia-screen.is-mini{transition:none}}
 </style>
@@ -16182,10 +16223,9 @@ window.addEventListener('load',()=>{
 
 <!-- Aurora flottant et déplaçable : depuis l'accueil il ouvre l'IA, depuis
      l'IA il ouvre un petit panneau d'options (historique + réduire). -->
-<button type="button" id="auroreFloatingAI" class="aurore-floating-home aurore-floating-ai" aria-haspopup="true" aria-expanded="false" aria-label="Aurora" title="Aurora — faites glisser pour déplacer">
+<button type="button" id="auroreFloatingAI" class="aurore-floating-home aurore-floating-ai" aria-haspopup="true" aria-expanded="false" aria-label="Ouvrir Aurora" title="Aurora">
   <span class="afh-icon" id="auroreFloatingAIIcon" aria-hidden="true"><span>A</span></span>
   <span class="afh-copy"><strong>Aurora</strong><small id="auroreFloatingAISub">Poser une question</small></span>
-  <span class="afh-drag" aria-hidden="true"></span>
 </button>
 <div id="auroreFloatingAIMenu" class="aurore-floating-ai-menu" role="menu" aria-hidden="true">
   <div class="afam-title">Aurora</div>
@@ -16323,7 +16363,6 @@ window.addEventListener('load',()=>{
 
 <script id="aurore-floating-ai-js">
 (function(){
-  const KEY='aurore_floating_ai_position_v1';
   const el=document.getElementById('auroreFloatingAI');
   const menu=document.getElementById('auroreFloatingAIMenu');
   const iconBox=document.getElementById('auroreFloatingAIIcon');
@@ -16332,45 +16371,41 @@ window.addEventListener('load',()=>{
   const btnResize=document.getElementById('auroreFAIResize');
   const resizeLabel=document.getElementById('auroreFAIResizeLabel');
   if(!el||!menu)return;
-  let dragging=false,startX=0,startY=0,startLeft=0,startTop=0,moved=false;
 
-  function clamp(){
-    const r=el.getBoundingClientRect();
-    const maxX=Math.max(4,innerWidth-r.width-4),maxY=Math.max(4,innerHeight-r.height-4);
-    const x=Math.min(maxX,Math.max(4,r.left));
-    const y=Math.min(maxY,Math.max(4,r.top));
-    el.style.left=x+'px';el.style.top=y+'px';el.style.right='auto';el.style.bottom='auto';
-  }
-  function save(){
-    const r=el.getBoundingClientRect();
-    try{localStorage.setItem(KEY,JSON.stringify({x:r.left/Math.max(1,innerWidth),y:r.top/Math.max(1,innerHeight)}));}catch(e){}
-  }
-  function defaultPlacement(){
+  // ---- Positionnement fixe (non déplaçable) : la pastille Aurora s'ancre
+  // sur le repère du header ("là où son nom est écrit") à l'accueil, et se
+  // range dans le coin supérieur droit une fois à l'intérieur de l'IA. ----
+  function ancrerSurHeader(){
+    const cible=document.getElementById('auroreIAHeaderBtn');
     el.classList.add('is-positioned');
     el.style.transform='none';
-    const r=el.getBoundingClientRect();
-    // Se place légèrement sous le bouton Accueil par défaut, jamais empilé pile dessus.
-    const decalage=Math.round(r.height*0.62)+14;
-    el.style.left=Math.round((innerWidth-r.width)/2)+'px';
-    el.style.top=Math.round((innerHeight-r.height)/2+decalage)+'px';
+    if(cible){
+      const r=cible.getBoundingClientRect();
+      const w=el.offsetWidth||52,h=el.offsetHeight||52;
+      let left=Math.round(r.left+r.width/2-w/2);
+      let top=Math.round(r.top+r.height/2-h/2);
+      left=Math.min(Math.max(6,left),innerWidth-w-6);
+      top=Math.min(Math.max(6,top),innerHeight-h-6);
+      el.style.left=left+'px';el.style.top=top+'px';
+    }else{
+      el.style.left=Math.round(innerWidth-70)+'px';el.style.top='14px';
+    }
     el.style.right='auto';el.style.bottom='auto';
-    clamp();save();
   }
-  function restore(){
-    try{
-      const p=JSON.parse(localStorage.getItem(KEY)||'null');
-      if(p&&Number.isFinite(p.x)&&Number.isFinite(p.y)){
-        requestAnimationFrame(()=>{
-          el.classList.add('is-positioned');
-          el.style.left=Math.round(p.x*innerWidth)+'px';
-          el.style.top=Math.round(p.y*innerHeight)+'px';
-          el.style.right='auto';el.style.bottom='auto';clamp();
-        });
-      } else { requestAnimationFrame(defaultPlacement); }
-    }catch(e){ requestAnimationFrame(defaultPlacement); }
+  function ancrerCoinIA(){
+    el.classList.add('is-positioned');
+    el.style.transform='none';
+    const h=el.offsetHeight||52;
+    el.style.left='auto';el.style.right='16px';
+    el.style.top=(estEnModeMini()?'64px':'90px');
+    el.style.bottom='auto';
   }
-  restore();
-  addEventListener('resize',()=>{clamp();save();if(menu.classList.contains('is-open'))positionMenu();},{passive:true});
+  function placer(){
+    if(estDansIA())ancrerCoinIA();else ancrerSurHeader();
+    if(menu.classList.contains('is-open'))positionMenu();
+  }
+  addEventListener('resize',placer,{passive:true});
+  addEventListener('load',placer);
 
   // ---- Logo du site sur le repère "A" ----
   function appliquerLogo(){
@@ -16386,26 +16421,6 @@ window.addEventListener('load',()=>{
   let logoChecks=0;
   const logoWatch=setInterval(()=>{appliquerLogo();if(iconBox.querySelector('img')||logoChecks++>40)clearInterval(logoWatch);},300);
 
-  // ---- Drag (identique au bouton Accueil) ----
-  el.addEventListener('pointerdown',e=>{
-    if(e.pointerType==='mouse'&&e.button!==0)return;
-    dragging=true;moved=false;el.classList.add('dragging');el.setPointerCapture?.(e.pointerId);
-    const r=el.getBoundingClientRect();startX=e.clientX;startY=e.clientY;startLeft=r.left;startTop=r.top;e.preventDefault();
-  });
-  el.addEventListener('pointermove',e=>{
-    if(!dragging)return;
-    const dx=e.clientX-startX,dy=e.clientY-startY;
-    if(Math.abs(dx)>4||Math.abs(dy)>4)moved=true;
-    el.style.left=Math.round(startLeft+dx)+'px';el.style.top=Math.round(startTop+dy)+'px';el.style.right='auto';el.style.bottom='auto';clamp();
-    if(menu.classList.contains('is-open'))positionMenu();
-  });
-  const end=e=>{
-    if(!dragging)return;dragging=false;el.classList.remove('dragging');
-    try{el.releasePointerCapture?.(e.pointerId);}catch(_){}
-    if(moved)save();
-  };
-  el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);
-
   // ---- Contexte : accueil ou intérieur de l'IA ----
   function estDansIA(){
     const ecran=document.getElementById('screen-aurore-ia');
@@ -16418,9 +16433,11 @@ window.addEventListener('load',()=>{
   function rafraichirApparence(){
     if(estDansIA()){
       el.setAttribute('title','Aurora — options (historique, réduire)');
+      el.setAttribute('aria-label','Options Aurora');
       if(subLabel)subLabel.textContent='Historique · Réduire';
     }else{
-      el.setAttribute('title','Ouvrir Aurora — faites glisser pour déplacer');
+      el.setAttribute('title','Ouvrir Aurora');
+      el.setAttribute('aria-label','Ouvrir Aurora');
       if(subLabel)subLabel.textContent='Poser une question';
     }
     if(resizeLabel)resizeLabel.textContent=estEnModeMini()?'Agrandir Aurora':'Réduire en fenêtre flottante';
@@ -16464,7 +16481,6 @@ window.addEventListener('load',()=>{
   }
 
   el.addEventListener('click',e=>{
-    if(moved){moved=false;return;}
     if(menu.classList.contains('is-open')){fermerMenu();return;}
     if(estDansIA())ouvrirMenu();else ouvrirAurora();
   });
@@ -16484,6 +16500,19 @@ window.addEventListener('load',()=>{
     fermerMenu();
     document.getElementById('auroreIAMinimize')?.click();
   });
+
+  // ---- Repositionnement automatique : tout changement de contexte (IA
+  // ouverte/fermée, mode réduit activé/désactivé) déplace la pastille sans
+  // jamais laisser l'utilisateur la glisser lui-même. ----
+  placer();
+  rafraichirApparence();
+  const ecranIA=document.getElementById('screen-aurore-ia');
+  if(ecranIA){
+    new MutationObserver(()=>{placer();rafraichirApparence();}).observe(ecranIA,{attributes:true,attributeFilter:['class']});
+  }
+  new MutationObserver(()=>{placer();}).observe(document.body,{attributes:true,attributeFilter:['class']});
+  requestAnimationFrame(placer);
+  setTimeout(placer,400);
 })();
 </script>
 
@@ -18638,6 +18667,9 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
         </div>
       </section>
     </div>
+    <div class="aurore-ia-resize-edge aurore-ia-resize-e" data-edge="e" aria-hidden="true"></div>
+    <div class="aurore-ia-resize-edge aurore-ia-resize-w" data-edge="w" aria-hidden="true"></div>
+    <div class="aurore-ia-resize-edge aurore-ia-resize-s" data-edge="s" aria-hidden="true"></div>
     <div class="aurore-ia-resize-handle" id="auroreIAResizeHandle" aria-hidden="true" title="Redimensionner Aurora"></div>
   </div>
 </section>
@@ -18903,30 +18935,50 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     topbar.addEventListener('pointercancel',fin);
   })();
 
-  // Poignée en bas à droite : redimensionne la fenêtre réduite.
+  // Poignée en bas à droite + bords : redimensionne la fenêtre réduite d'un
+  // glissement naturel au doigt, depuis le coin ou depuis n'importe quel côté.
   (function initRedimensionnementMini(){
-    if(!resizeHandle)return;
-    let actif=false,sx=0,sy=0,sw=0,sh=0,sl=0,st=0;
-    resizeHandle.addEventListener('pointerdown',e=>{
-      if(!screen.classList.contains('is-mini'))return;
-      e.preventDefault();e.stopPropagation();
-      actif=true;
-      const r=screen.getBoundingClientRect();
-      sx=e.clientX;sy=e.clientY;sw=r.width;sh=r.height;sl=r.left;st=r.top;
-      try{resizeHandle.setPointerCapture?.(e.pointerId);}catch(_){}
+    const poignees=[
+      {el:resizeHandle,mode:'se'},
+      {el:document.querySelector('.aurore-ia-resize-e'),mode:'e'},
+      {el:document.querySelector('.aurore-ia-resize-w'),mode:'w'},
+      {el:document.querySelector('.aurore-ia-resize-s'),mode:'s'}
+    ].filter(p=>p.el);
+    poignees.forEach(({el:handle,mode})=>{
+      let actif=false,sx=0,sy=0,sw=0,sh=0,sl=0,st=0;
+      handle.addEventListener('pointerdown',e=>{
+        if(!screen.classList.contains('is-mini'))return;
+        e.preventDefault();e.stopPropagation();
+        actif=true;
+        const r=screen.getBoundingClientRect();
+        sx=e.clientX;sy=e.clientY;sw=r.width;sh=r.height;sl=r.left;st=r.top;
+        try{handle.setPointerCapture?.(e.pointerId);}catch(_){}
+      });
+      handle.addEventListener('pointermove',e=>{
+        if(!actif)return;
+        const dx=e.clientX-sx,dy=e.clientY-sy;
+        if(mode==='se'){
+          const g=clamperGeometrieMini({x:sl,y:st,w:sw+dx,h:sh+dy});
+          screen.style.width=g.w+'px';screen.style.height=g.h+'px';
+        }else if(mode==='e'){
+          const g=clamperGeometrieMini({x:sl,y:st,w:sw+dx,h:sh});
+          screen.style.width=g.w+'px';
+        }else if(mode==='s'){
+          const g=clamperGeometrieMini({x:sl,y:st,w:sw,h:sh+dy});
+          screen.style.height=g.h+'px';
+        }else if(mode==='w'){
+          const g=clamperGeometrieMini({x:sl+dx,y:st,w:sw-dx,h:sh});
+          screen.style.left=g.x+'px';screen.style.width=g.w+'px';
+        }
+      });
+      const fin=e=>{
+        if(!actif)return;actif=false;
+        try{handle.releasePointerCapture?.(e.pointerId);}catch(_){}
+        sauvegarderGeometrieActuelle();
+      };
+      handle.addEventListener('pointerup',fin);
+      handle.addEventListener('pointercancel',fin);
     });
-    resizeHandle.addEventListener('pointermove',e=>{
-      if(!actif)return;
-      const g=clamperGeometrieMini({x:sl,y:st,w:sw+(e.clientX-sx),h:sh+(e.clientY-sy)});
-      screen.style.width=g.w+'px';screen.style.height=g.h+'px';
-    });
-    const fin=e=>{
-      if(!actif)return;actif=false;
-      try{resizeHandle.releasePointerCapture?.(e.pointerId);}catch(_){}
-      sauvegarderGeometrieActuelle();
-    };
-    resizeHandle.addEventListener('pointerup',fin);
-    resizeHandle.addEventListener('pointercancel',fin);
   })();
 
   addEventListener('resize',()=>{
