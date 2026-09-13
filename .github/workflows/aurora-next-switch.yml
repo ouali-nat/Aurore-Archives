@@ -1,0 +1,37 @@
+name: Aurora next switch
+on:
+  push:
+    branches: [aurora-patch-x4]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Switch Aurora endpoint
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          old="client.functions.invoke('aurora-gemini',{body})"
+          new="client.functions.invoke('aurora-gemini-next',{body})"
+          if s.count(old) != 1:
+              raise SystemExit(f'Expected exactly one old endpoint, found {s.count(old)}')
+          p.write_text(s.replace(old,new),encoding='utf-8')
+          print('Aurora endpoint switched successfully')
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Connect Aurora to aurora-gemini-next'
+          git push
+      - name: Remove temporary workflow
+        if: always()
+        run: |
+          git rm .github/workflows/aurora-next-switch.yml || true
+          git commit -m 'Remove temporary Aurora switch workflow' || true
+          git push || true
