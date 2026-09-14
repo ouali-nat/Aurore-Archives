@@ -2864,6 +2864,326 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
 .aurore-ia-bubble.aurora-typing-answer{background:transparent!important;border-color:transparent!important;box-shadow:none!important;padding:0!important;max-width:850px;}
 .aurore-ia-bubble.aurora-typing-answer .aurore-ia-markdown{color:inherit;}
 </style>
+
+<style id="aurore-compact-browser-layout">
+/* =========================================================
+   AURORE — MODE COMPACT NAVIGATEUR
+   Objectif : sur Chrome mobile, conserver une densité proche
+   de la version ordinateur sans empêcher l'utilisation tactile.
+   Aucun changement de structure, JS ou logique métier.
+   ========================================================= */
+
+html, body {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  /* Conteneur plus large : moins d'effet "gros blocs mobiles". */
+  .wrap,
+  .container,
+  .section,
+  .screen > section,
+  .screen > .wrap {
+    width: calc(100% - 24px) !important;
+    max-width: 1180px !important;
+  }
+
+  /* En-tête : conserver une ligne plus proche du bureau lorsque possible. */
+  .header-inner {
+    min-height: 64px;
+    padding: 8px 0 !important;
+    gap: 10px !important;
+  }
+
+  .brand {
+    gap: 9px !important;
+  }
+
+  .brand-logo {
+    width: 34px !important;
+    height: 34px !important;
+    border-radius: 10px !important;
+  }
+
+  .brand-text .site-name {
+    font-size: 1rem !important;
+  }
+
+  .search-box {
+    padding: 7px 12px !important;
+    min-height: 38px;
+  }
+
+  .deposer-btn {
+    padding: 9px 15px !important;
+    font-size: .78rem !important;
+  }
+
+  /* Hero : même esprit que le bureau, mais suffisamment compact pour le tactile. */
+  .hero {
+    padding: 30px 24px 28px !important;
+    border-radius: 20px !important;
+  }
+
+  .hero h1 {
+    font-size: clamp(1.45rem, 5vw, 2rem) !important;
+  }
+
+  .hero p.sub {
+    font-size: .88rem !important;
+    line-height: 1.5 !important;
+  }
+
+  /* Réduire l'espace vertical des sections. */
+  .section-title {
+    margin: 28px 0 14px !important;
+    font-size: 1.08rem !important;
+  }
+
+  /* Grilles : conserver plusieurs éléments côte à côte lorsque l'espace le permet. */
+  .level-grid,
+  .cat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+  }
+
+  .level-card,
+  .cat-card {
+    padding: 18px 16px !important;
+    border-radius: 18px !important;
+  }
+
+  .level-badge {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .level-card h3 {
+    font-size: 1.02rem !important;
+    margin-top: 10px !important;
+  }
+
+  .level-card p,
+  .cat-card p {
+    font-size: .78rem !important;
+  }
+
+  .level-card .go {
+    margin-top: 12px !important;
+    padding: 7px 12px !important;
+  }
+
+  .cat-card .icon-wrap {
+    width: 38px !important;
+    height: 38px !important;
+  }
+
+  .cat-card h3 {
+    font-size: .96rem !important;
+    margin-top: 9px !important;
+  }
+
+  /* Présentation : 2 colonnes comme une interface bureau compacte. */
+  .presentation {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+    margin-top: 18px !important;
+  }
+
+  .presentation-item {
+    padding: 15px !important;
+    border-radius: 16px !important;
+  }
+
+  .presentation-item p {
+    font-size: .76rem !important;
+  }
+
+  /* Matières et séries : densité accrue sans supprimer le tactile. */
+  .matiere-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  .matiere-card {
+    padding: 14px 10px !important;
+  }
+
+  .serie-row {
+    gap: 9px !important;
+  }
+
+  .serie-pill {
+    padding: 11px 18px !important;
+    font-size: .86rem !important;
+  }
+
+  /* Liste des documents : cartes compactes et actions moins envahissantes. */
+  .doc-list {
+    gap: 10px !important;
+  }
+
+  .doc-row {
+    padding: 12px 14px !important;
+    gap: 10px !important;
+    border-radius: 14px !important;
+  }
+
+  .doc-row .icon-wrap.a-couverture {
+    width: 46px !important;
+    height: 46px !important;
+  }
+
+  .doc-row .titre {
+    font-size: .82rem !important;
+  }
+
+  .doc-row .meta {
+    font-size: .70rem !important;
+  }
+
+  .doc-actions {
+    gap: 6px !important;
+  }
+
+  .doc-actions button,
+  .doc-actions a {
+    min-height: 36px;
+  }
+
+  .doc-row .dl {
+    padding: 8px 13px !important;
+    font-size: .74rem !important;
+  }
+
+  /* Formulaires : moins de hauteur perdue. */
+  .form-card {
+    padding: 20px !important;
+    border-radius: 18px !important;
+  }
+
+  .form-row {
+    margin-bottom: 12px !important;
+  }
+
+  .form-row input,
+  .form-row select {
+    padding: 9px 11px !important;
+    font-size: .84rem !important;
+  }
+
+  /* Publicités : éviter les énormes cartes verticales sur téléphone. */
+  .ad-slot {
+    margin: 20px 0 !important;
+  }
+
+  .ad-slot-img {
+    height: 125px !important;
+  }
+
+  .ad-slot-body {
+    padding: 12px 14px 14px !important;
+  }
+
+  /* Administration : densité proche de l'ordinateur. */
+  .stats-grid {
+    gap: 10px !important;
+  }
+
+  .stat-card {
+    padding: 13px 14px !important;
+    border-radius: 16px !important;
+  }
+
+  .stat-icon {
+    width: 38px !important;
+    height: 38px !important;
+  }
+
+  .stat-value {
+    font-size: 1.3rem !important;
+  }
+
+  .admin-category-grid {
+    gap: 10px !important;
+    margin-top: 22px !important;
+  }
+
+  .admin-category-card {
+    padding: 14px 12px !important;
+    border-radius: 17px !important;
+    gap: 7px !important;
+  }
+
+  .admin-category-card .admin-category-icon {
+    width: 38px !important;
+    height: 38px !important;
+  }
+
+  .admin-card {
+    padding: 13px 14px !important;
+    gap: 11px !important;
+    border-radius: 16px !important;
+  }
+
+  .admin-btn {
+    padding: 8px 12px !important;
+    font-size: .75rem !important;
+  }
+
+  /* Les modales et le lecteur PDF gardent leur comportement actuel. */
+  #pdfViewerOverlay,
+  #pdfViewerZone,
+  .pdf-reader-shell {
+    max-width: 100% !important;
+  }
+}
+
+/* Très petits téléphones : on compacte encore légèrement, sans passer
+   à une colonne unique partout. */
+@media (max-width: 390px) {
+  .wrap,
+  .container,
+  .section,
+  .screen > section,
+  .screen > .wrap {
+    width: calc(100% - 18px) !important;
+  }
+
+  .hero {
+    padding: 26px 18px 24px !important;
+  }
+
+  .level-grid,
+  .cat-grid {
+    gap: 9px !important;
+  }
+
+  .level-card,
+  .cat-card {
+    padding: 15px 12px !important;
+  }
+
+  .matiere-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Écran large : laisser l'interface utiliser davantage d'espace,
+   sans l'étirer à l'infini. */
+@media (min-width: 1200px) {
+  .wrap,
+  .container,
+  .section,
+  .screen > section,
+  .screen > .wrap {
+    max-width: 1180px;
+  }
+}
+</style>
+
 </head>
 <body class="site-locked">
 
