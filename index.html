@@ -19077,22 +19077,33 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       /* Client Auth déjà initialisé : on le réutilise. */
       if(typeof AURORE_SUPABASE_AUTH!=='undefined'&&AURORE_SUPABASE_AUTH)return AURORE_SUPABASE_AUTH;
 
-      /* Récupération directe : le flux Aurora ne doit pas dépendre d'un état
-         intermédiaire du chargeur Google. Si supabase-js est déjà présent,
-         on peut reconstruire immédiatement le même client PKCE. */
+      /* Le SDK Supabase est chargé en async dans le <head>. Aurora peut donc
+         arriver ici avant que window.supabase existe. On attend brièvement le
+         chargement naturel au lieu de déclarer immédiatement le client absent.
+         Cela évite le faux message « espace sécurisé » sur les mobiles/réseaux
+         lents, sans modifier le système d'authentification. */
+      if(!window.supabase){
+        const debut=Date.now();
+        while(!window.supabase && Date.now()-debut<5000){
+          await new Promise(resolve=>setTimeout(resolve,100));
+        }
+      }
+
+      /* Si le SDK est maintenant disponible, reconstruire exactement le même
+         client PKCE que celui utilisé par Google/Auth. */
       if(window.supabase&&typeof creerClientAuthGoogle==='function'){
         AURORE_SUPABASE_AUTH=creerClientAuthGoogle();
         if(AURORE_SUPABASE_AUTH)return AURORE_SUPABASE_AUTH;
       }
 
-      /* Dernier recours : charger supabase-js puis créer le client. */
+      /* Dernier recours : utiliser le chargeur avec son CDN de secours. */
       if(typeof assurerClientAuthGoogle==='function'){
         const client=await assurerClientAuthGoogle();
         if(client){AURORE_SUPABASE_AUTH=client;return client;}
       }
 
-      /* Si le chargeur Google a échoué mais que la librairie est disponible
-         sous sa forme standard, ne pas bloquer Aurora pour autant. */
+      /* Ultime filet de sécurité si le SDK est présent mais que le client Auth
+         n'a pas encore été construit. */
       if(window.supabase?.createClient && typeof SUPABASE_URL!=='undefined' && typeof SUPABASE_ANON_KEY!=='undefined'){
         AURORE_SUPABASE_AUTH=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{
           auth:{flowType:'pkce',autoRefreshToken:true,persistSession:true,detectSessionInUrl:false,storage:window.localStorage}
