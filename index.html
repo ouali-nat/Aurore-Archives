@@ -16539,15 +16539,29 @@ window.addEventListener('load',()=>{
   // provoquait des recalculs de mise en page trop fréquents et rendait le
   // glisser du bloc réduit saccadé) : une seule lecture par image, et on
   // ne réécrit la position que si elle a réellement changé.
+  // Le MutationObserver plus bas ne fonctionne pas de façon fiable : ce
+  // script s'exécute avant que #screen-aurore-ia n'existe dans la page (le
+  // bloc HTML de l'IA arrive plus loin dans le document), donc la cible
+  // observée est nulle et jamais réattachée. C'est cette boucle qui doit
+  // détecter tout changement de contexte (IA ouverte/fermée/réduite) et
+  // replacer la pastille en conséquence — y compris son retour à l'ancrage
+  // du header à la fermeture complète.
   let dernierePos='';
+  let dernierContexteIA=null;
   (function boucleSuivi(){
-    if(estDansIA()){
+    const dansIA=estDansIA();
+    if(dansIA){
       const ecran=document.getElementById('screen-aurore-ia');
       if(ecran){
         const r=ecran.getBoundingClientRect();
         const cle=r.left+','+r.top+','+r.width+','+r.height;
         if(cle!==dernierePos){dernierePos=cle;placer();}
       }
+    }
+    if(dansIA!==dernierContexteIA){
+      dernierContexteIA=dansIA;
+      placer();
+      rafraichirApparence();
     }
     requestAnimationFrame(boucleSuivi);
   })();
@@ -16690,14 +16704,12 @@ window.addEventListener('load',()=>{
 
   // ---- Repositionnement automatique : tout changement de contexte (IA
   // ouverte/fermée, mode réduit activé/désactivé) déplace la pastille sans
-  // jamais laisser l'utilisateur la glisser lui-même. ----
+  // jamais laisser l'utilisateur la glisser lui-même. La détection fiable se
+  // fait dans boucleSuivi() ci-dessus (le MutationObserver sur
+  // #screen-aurore-ia ne peut pas être utilisé ici : cet élément n'existe
+  // pas encore dans la page à ce stade du chargement). ----
   placer();
   rafraichirApparence();
-  const ecranIA=document.getElementById('screen-aurore-ia');
-  if(ecranIA){
-    new MutationObserver(()=>{placer();rafraichirApparence();}).observe(ecranIA,{attributes:true,attributeFilter:['class']});
-  }
-  new MutationObserver(()=>{placer();}).observe(document.body,{attributes:true,attributeFilter:['class']});
   requestAnimationFrame(placer);
   setTimeout(placer,400);
 })();
@@ -19094,32 +19106,46 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     if(screen.classList.contains('is-mini'))desactiverModeMini();else activerModeMini();
   });
 
-  // Glisser la barre du haut déplace la fenêtre réduite (souris et tactile).
+  // Glisser le bandeau du haut déplace la fenêtre réduite (souris et
+  // tactile) — depuis n'importe quel point du bandeau, y compris par-dessus
+  // un bouton (historique, nouvelle conversation, retour…). On distingue un
+  // vrai glissement d'un simple tap grâce à un seuil de mouvement : sous ce
+  // seuil, le bouton touché reçoit son clic normalement ; au-delà, on prend
+  // la main sur le déplacement et on bloque le clic qui aurait suivi.
   (function initDeplacementMini(){
     const topbar=screen.querySelector('.aurore-ia-topbar');
     if(!topbar)return;
-    let actif=false,sx=0,sy=0,sl=0,st=0;
+    let actif=false,bouge=false,sx=0,sy=0,sl=0,st=0;
+    const SEUIL=4;
     topbar.addEventListener('pointerdown',e=>{
       if(!screen.classList.contains('is-mini'))return;
-      if(e.target.closest('button'))return;
-      actif=true;
+      actif=true;bouge=false;
       const r=screen.getBoundingClientRect();
       sx=e.clientX;sy=e.clientY;sl=r.left;st=r.top;
       try{topbar.setPointerCapture?.(e.pointerId);}catch(_){}
     });
     topbar.addEventListener('pointermove',e=>{
       if(!actif)return;
+      const dx=e.clientX-sx,dy=e.clientY-sy;
+      if(!bouge&&(Math.abs(dx)>SEUIL||Math.abs(dy)>SEUIL))bouge=true;
+      if(!bouge)return;
       const r=screen.getBoundingClientRect();
-      const g=clamperGeometrieMini({x:sl+(e.clientX-sx),y:st+(e.clientY-sy),w:r.width,h:r.height});
+      const g=clamperGeometrieMini({x:sl+dx,y:st+dy,w:r.width,h:r.height});
       screen.style.left=g.x+'px';screen.style.top=g.y+'px';
     });
     const fin=e=>{
       if(!actif)return;actif=false;
       try{topbar.releasePointerCapture?.(e.pointerId);}catch(_){}
-      sauvegarderGeometrieActuelle();
+      if(bouge)sauvegarderGeometrieActuelle();
     };
     topbar.addEventListener('pointerup',fin);
     topbar.addEventListener('pointercancel',fin);
+    // Capturé avant que l'événement n'atteigne le bouton visé : si le
+    // pointeur a réellement bougé, on empêche l'action du bouton de se
+    // déclencher juste après le glissement.
+    topbar.addEventListener('click',e=>{
+      if(bouge){e.stopPropagation();e.preventDefault();bouge=false;}
+    },true);
   })();
 
   // Poignée en bas à droite + bords : redimensionne la fenêtre réduite d'un
