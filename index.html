@@ -19106,15 +19106,32 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
   }
 
   async function invokeAuroreIA(message){
-    const client=await getSupabaseClient();
-    if(!client)throw new Error('Aurora n’arrive pas à joindre son espace sécurisé.');
+    // Timeout dédié à la phase "obtenir le client + la session" : sur un
+    // réseau instable, client.auth.getSession() peut tenter un rafraîchissement
+    // silencieux du jeton via un appel réseau qui ne se termine ni en succès
+    // ni en erreur (requête qui reste juste en attente). Sans ce garde-fou,
+    // le spinner tournait indéfiniment sans jamais afficher d'erreur.
+    let client,sessionData;
+    try{
+      ({client,sessionData}=await Promise.race([
+        (async()=>{
+          const client=await getSupabaseClient();
+          if(!client)throw new Error('Aurora n’arrive pas à joindre son espace sécurisé.');
+          const {data:sessionData,error:sessionError}=await client.auth.getSession();
+          if(sessionError)throw sessionError;
+          return {client,sessionData};
+        })(),
+        new Promise((_,reject)=>setTimeout(()=>reject(new Error('TIMEOUT_AURORA_SESSION')),15000))
+      ]));
+    }catch(e){
+      if(/TIMEOUT_AURORA_SESSION/i.test(e?.message||''))throw new Error('La connexion à Aurora met trop de temps à répondre. Vérifie ta connexion internet et réessaie.');
+      throw e;
+    }
+    if(!sessionData?.session)throw new Error('Connectez-vous à Aurore pour utiliser Aurora.');
     const contexteRecent=messagesActuels.slice(-8).map(m=>({role:m.role==='assistant'?'assistant':'user',text:String(m.text||'').slice(0,3000)}));
     /* Mode DeepSeek unique : toutes les demandes passent désormais par
        le moteur unifié. Le routeur Aurora et les moteurs spécialisés séparés
        ne sont plus appelés depuis cette interface. */
-    const {data:sessionData,error:sessionError}=await client.auth.getSession();
-    if(sessionError)throw sessionError;
-    if(!sessionData?.session)throw new Error('Connectez-vous à Aurore pour utiliser Aurora.');
     const body={
       message,
       previousInteractionId,
