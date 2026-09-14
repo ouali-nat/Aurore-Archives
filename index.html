@@ -67,7 +67,15 @@
 <title>Aurore — Section Archives — Bibliothèque numérique</title>
 <!-- Rendu mathématique natif dans Aurora : DeepSeek produit du LaTeX,
      KaTeX le transforme en vraies formules typographiques dans l’interface. -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css" onerror="this.remove()">
+<!-- Chargement NON bloquant : sur les réseaux où cdn.jsdelivr.net est lent
+     ou filtré, un <link rel="stylesheet"> classique bloquerait l'affichage
+     de TOUTE la page (et l'exécution des scripts juste après) tant que ce
+     fichier n'est pas arrivé — c'était la cause de l'écran blanc au
+     chargement. Astuce media="print" : le navigateur télécharge le fichier
+     en tâche de fond sans qu'il s'applique (donc sans bloquer le rendu),
+     puis onload bascule sur media="all" une fois prêt. -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css" media="print" onload="this.media='all'" onerror="this.remove()">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css"></noscript>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js" onerror="window.__AURORE_KATEX_FAILED=true"></script>
 <link rel="preload" as="image" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
 <script type="application/ld+json">
@@ -2629,6 +2637,8 @@ body.aurore-ia-kb-open #screen-aurore-ia.aurore-ia-screen{height:var(--ia-vvh,10
 .aurore-ia-markdown .display .katex{font-size:1.12em;}
 [data-theme="light"] .aurore-ia-markdown .katex{color:#211A29;}
 @media(max-width:560px){.aurore-ia-markdown .katex{font-size:1em}.aurore-ia-markdown .display .katex{font-size:1.02em}}
+.aurore-ia-markdown .aurore-math-fallback{font-family:'Courier New',monospace;background:rgba(255,255,255,.06);border-radius:4px;padding:0 4px;white-space:pre-wrap;}
+[data-theme="light"] .aurore-ia-markdown .aurore-math-fallback{background:rgba(0,0,0,.05);}
 .aurore-ia-markdown{font-size:.85rem;line-height:1.7}
 .aurore-ia-markdown>*:first-child{margin-top:0}
 .aurore-ia-markdown>*:last-child{margin-bottom:0}
@@ -19647,11 +19657,25 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     });
   }
 
+  function mathFallback(el){
+    // Filet de sécurité : si KaTeX est indisponible, on affiche le LaTeX brut
+    // au lieu de laisser le span vide (mieux vaut du texte lisible qu'un trou).
+    if(el.dataset.rendered==='1')return;
+    const latex=el.getAttribute('data-latex')||'';
+    const display=el.classList.contains('display');
+    el.textContent=display?('\\['+latex+'\\]'):('\\('+latex+'\\)');
+    el.classList.add('aurore-math-fallback');
+    el.dataset.rendered='fallback';
+  }
+
   function rendreMath(root){
     if(!root)return;
     const nodes=root.querySelectorAll?.('.aurore-math[data-latex]');
     if(!nodes?.length)return;
-    if(window.__AURORE_KATEX_FAILED)return;
+    if(window.__AURORE_KATEX_FAILED){
+      nodes.forEach(mathFallback);
+      return;
+    }
     if(typeof window.katex!=='undefined'){
       nodes.forEach(el=>{
         if(el.dataset.rendered==='1')return;
@@ -19664,9 +19688,17 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
           });
           el.dataset.rendered='1';
           el.removeAttribute('data-latex');
-        }catch(_){}
+        }catch(_){
+          mathFallback(el); // erreur de rendu ponctuelle -> texte brut plutôt que vide
+        }
       });
     }else{
+      root.__auroraMathRetryCount=(root.__auroraMathRetryCount||0)+1;
+      if(root.__auroraMathRetryCount>20){ // ~10s de tentatives (20 x 500ms), puis on abandonne proprement
+        window.__AURORE_KATEX_FAILED=true;
+        nodes.forEach(mathFallback);
+        return;
+      }
       clearTimeout(root.__auroraMathRetry);
       root.__auroraMathRetry=setTimeout(()=>rendreMath(root),500);
     }
