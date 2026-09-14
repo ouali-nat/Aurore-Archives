@@ -19763,8 +19763,11 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
   }
 
   async function ecrireAurora(row,text,shouldStop){
+    /* Réponse instantanée : l’ancienne animation écrivait 1 caractère toutes les
+       12 ms, ce qui pouvait ajouter plusieurs dizaines de secondes à une
+       réponse longue. Le temps d’attente doit venir du traitement, pas de l’UI. */
     const bubble=document.createElement('div');
-    bubble.className='aurore-ia-bubble aurora-typing-answer';
+    bubble.className='aurore-ia-bubble';
     const live=document.createElement('div');
     live.className='aurore-ia-markdown';
     bubble.appendChild(live);
@@ -19772,13 +19775,10 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     row.innerHTML='';row.appendChild(creerAvatarAurora());row.appendChild(bubble);
     rafraichirAvatarsAurora();
     const value=String(text||'');
-    let i=0;
-    const delay=window.matchMedia('(prefers-reduced-motion: reduce)').matches?0:12;
-    while(i<value.length){
-      if(shouldStop&&shouldStop()){live.innerHTML=mdToHtml(value.slice(0,i))||'<p></p>';scrollBottom(false);return;}
-      live.textContent=value.slice(0,++i);
-      if(i%3===0)scrollBottom(false);
-      if(delay)await new Promise(r=>setTimeout(r,delay));
+    if(shouldStop&&shouldStop()){
+      live.innerHTML=mdToHtml(value)||'<p></p>';
+      scrollBottom(false);
+      return;
     }
     live.innerHTML=mdToHtml(value)||'<p></p>';
     scrollBottom(false);
