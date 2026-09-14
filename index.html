@@ -2864,45 +2864,6 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
 .aurore-ia-bubble.aurora-typing-answer{background:transparent!important;border-color:transparent!important;box-shadow:none!important;padding:0!important;max-width:850px;}
 .aurore-ia-bubble.aurora-typing-answer .aurore-ia-markdown{color:inherit;}
 </style>
-
-<style id="aurore-compact-browser-layout">
-/* Aurore — mode mobile ultra-compact */
-@media (max-width:640px){
-  .wrap,.container,.section,.screen>section,.screen>.wrap{width:calc(100% - 10px)}
-  header{min-height:50px;padding:4px 5px;gap:5px}
-  header .brand img,header .logo{width:26px;height:26px}
-  header .site-name{font-size:.82rem}
-  header .search,header input[type="search"]{min-height:30px}
-  .hero{padding:16px 10px 15px;border-radius:13px}
-  .hero h1{font-size:1.18rem}
-  .section-title{font-size:.95rem;margin-bottom:7px}
-  .level-grid,.category-grid,.presentation-grid{gap:5px}
-  .level-card,.category-card{padding:7px 5px;border-radius:9px}
-  .level-card .icon,.category-card .icon{font-size:1.15rem}
-  .level-card h3,.category-card h3{font-size:.75rem}
-  .matiere-grid{gap:5px}
-  .doc-list{gap:5px}
-  .doc-row{padding:5px;gap:6px}
-  .doc-row .icon{width:34px;height:34px;min-width:34px}
-  .doc-row h3,.doc-row .title{font-size:.74rem}
-  .doc-row .meta{font-size:.64rem}
-  .doc-row button,.doc-row a{min-height:28px;padding:4px 6px;font-size:.67rem}
-  form,.form-card{gap:6px}
-  input,select,textarea{min-height:32px;padding:5px 7px}
-  .ad-slot{min-height:36px;padding:5px}
-}
-@media(max-width:390px){
-  .wrap,.container,.section,.screen>section,.screen>.wrap{width:calc(100% - 8px)}
-  header{min-height:47px;padding:3px 4px}
-  header .brand img,header .logo{width:24px;height:24px}
-  .hero{padding:13px 8px}
-  .level-grid,.category-grid,.matiere-grid{gap:4px}
-  .level-card,.category-card{padding:6px 4px}
-  .doc-row{padding:4px;gap:5px}
-  .doc-row .icon{width:31px;height:31px;min-width:31px}
-}
-</style>
-
 </head>
 <body class="site-locked">
 
@@ -19652,11 +19613,24 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     }catch(e){if(box)box.innerHTML='<div class="aurore-ia-source-card"><strong>Wikipédia</strong>La recherche est momentanément indisponible.</div>';scrollBottom(false);}
   }
 
+  let stopUnlockTimer=null;
   function setBusy(busy){
     sending=busy;
+    if(stopUnlockTimer){clearTimeout(stopUnlockTimer);stopUnlockTimer=null;}
     if(statusText)statusText.textContent=busy?'Aurora travaille…':'Prêt';
     if(statusPill)statusPill.classList.toggle('is-busy',busy);
     form.classList.toggle('is-busy',busy);
+    /* Sur Android, le bouton d’envoi et le bouton Stop occupent la même zone.
+       Si Stop apparaît au même instant que la fin du tap sur Envoyer, le clic
+       peut être attribué au nouveau bouton. On laisse donc le tap d’envoi se
+       terminer avant d’armer Stop. */
+    if(stopBtn){
+      stopBtn.disabled=!busy;
+      if(busy){
+        stopBtn.disabled=true;
+        stopUnlockTimer=setTimeout(()=>{if(sending)stopBtn.disabled=false;},450);
+      }
+    }
     updateSendState();
   }
 
@@ -19664,7 +19638,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
   // ou écriture progressive de la réponse), sans casser le fil de la
   // conversation ni la sauvegarde de ce qui a déjà été échangé.
   stopBtn?.addEventListener('click',()=>{
-    if(!sending)return;
+    if(!sending||stopBtn.disabled)return;
     arretDemande=true;
     if(auroraEnCours.labelTimer){clearInterval(auroraEnCours.labelTimer);auroraEnCours.labelTimer=null;}
     const row=auroraEnCours.row;
