@@ -1795,7 +1795,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 @keyframes auroreMiniPopIn{from{opacity:0;transform:scale(.94) translateY(10px)}to{opacity:1;transform:none}}
 [data-theme="light"] #screen-aurore-ia.aurore-ia-screen.is-mini{border-color:rgba(30,20,45,.10)}
 #screen-aurore-ia.aurore-ia-screen.is-mini .aurore-ia-app{border-radius:inherit}
-#screen-aurore-ia.aurore-ia-screen.is-mini .aurore-ia-topbar{cursor:grab;height:54px;min-height:54px;flex-basis:54px;padding:0 10px;gap:8px}
+#screen-aurore-ia.aurore-ia-screen.is-mini .aurore-ia-topbar{cursor:grab;height:54px;min-height:54px;flex-basis:54px;padding:0 10px;gap:8px;touch-action:none;user-select:none;-webkit-user-select:none;}
 #screen-aurore-ia.aurore-ia-screen.is-mini .aurore-ia-topbar:active{cursor:grabbing}
 #screen-aurore-ia.aurore-ia-screen.is-mini .aurore-ia-mark{width:30px;height:30px;flex-basis:30px;border-radius:10px}
 #screen-aurore-ia.aurore-ia-screen.is-mini .aurore-ia-mark span{font-size:.95rem}
@@ -16495,25 +16495,16 @@ window.addEventListener('load',()=>{
   const ICON_EXPAND='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4H4v5"/><path d="M4 4l6 6"/><path d="M15 20h5v-5"/><path d="M20 20l-6-6"/></svg>';
   if(!el||!menu)return;
 
-  // ---- Positionnement fixe (non déplaçable) : la pastille Aurora s'ancre
-  // sur le repère du header ("là où son nom est écrit") à l'accueil, et se
-  // range dans le coin supérieur droit une fois à l'intérieur de l'IA. ----
+  // ---- Positionnement fixe (non déplaçable) : la pastille Aurora reste au
+  // coin supérieur droit de l'écran à l'accueil (position simple et stable,
+  // qui ne dépend pas de la largeur de la barre de recherche ni du reste de
+  // la mise en page de l'en-tête), et se range dans le coin supérieur gauche
+  // du bloc une fois à l'intérieur de l'IA. ----
   function ancrerSurHeader(){
-    const cible=document.getElementById('auroreIAHeaderBtn');
     el.classList.add('is-positioned');
     el.style.transform='none';
-    if(cible){
-      const r=cible.getBoundingClientRect();
-      const w=el.offsetWidth||52,h=el.offsetHeight||52;
-      let left=Math.round(r.left+r.width/2-w/2);
-      let top=Math.round(r.top+r.height/2-h/2);
-      left=Math.min(Math.max(6,left),innerWidth-w-6);
-      top=Math.min(Math.max(6,top),innerHeight-h-6);
-      el.style.left=left+'px';el.style.top=top+'px';
-    }else{
-      el.style.left=Math.round(innerWidth-70)+'px';el.style.top='14px';
-    }
-    el.style.right='auto';el.style.bottom='auto';
+    el.style.left='auto';el.style.right='14px';
+    el.style.top='14px';el.style.bottom='auto';
   }
   function ancrerCoinIA(){
     const ecran=document.getElementById('screen-aurore-ia');
