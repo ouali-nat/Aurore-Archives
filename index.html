@@ -19074,19 +19074,34 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
 
   async function getSupabaseClient(){
     try{
-      /* Ne relance pas le flux Google à chaque question : s'il existe déjà un
-         client Auth, on le réutilise immédiatement. Cela enlève une grosse
-         source de latence avant même l'appel Edge Function. */
+      /* Client Auth déjà initialisé : on le réutilise. */
       if(typeof AURORE_SUPABASE_AUTH!=='undefined'&&AURORE_SUPABASE_AUTH)return AURORE_SUPABASE_AUTH;
+
+      /* Récupération directe : le flux Aurora ne doit pas dépendre d'un état
+         intermédiaire du chargeur Google. Si supabase-js est déjà présent,
+         on peut reconstruire immédiatement le même client PKCE. */
       if(window.supabase&&typeof creerClientAuthGoogle==='function'){
         AURORE_SUPABASE_AUTH=creerClientAuthGoogle();
         if(AURORE_SUPABASE_AUTH)return AURORE_SUPABASE_AUTH;
       }
+
+      /* Dernier recours : charger supabase-js puis créer le client. */
       if(typeof assurerClientAuthGoogle==='function'){
         const client=await assurerClientAuthGoogle();
         if(client){AURORE_SUPABASE_AUTH=client;return client;}
       }
-    }catch(e){console.error('[Aurora] Supabase:',e);}
+
+      /* Si le chargeur Google a échoué mais que la librairie est disponible
+         sous sa forme standard, ne pas bloquer Aurora pour autant. */
+      if(window.supabase?.createClient && typeof SUPABASE_URL!=='undefined' && typeof SUPABASE_ANON_KEY!=='undefined'){
+        AURORE_SUPABASE_AUTH=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{
+          auth:{flowType:'pkce',autoRefreshToken:true,persistSession:true,detectSessionInUrl:false,storage:window.localStorage}
+        });
+        return AURORE_SUPABASE_AUTH;
+      }
+    }catch(e){
+      console.error('[Aurora] Supabase:',e);
+    }
     return null;
   }
 
