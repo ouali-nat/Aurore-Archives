@@ -1775,6 +1775,7 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
 /* Mode réduit : Aurora devient une petite fenêtre flottante, déplaçable et
    redimensionnable, pendant que le reste du site redevient navigable. */
 #screen-aurore-ia.aurore-ia-screen.is-mini{
+  display:block!important;
   position:fixed;inset:auto;
   min-width:280px;min-height:340px;
   max-width:96vw;max-height:92vh;
@@ -1784,8 +1785,8 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   box-shadow:0 30px 80px rgba(0,0,0,.45),0 6px 20px rgba(0,0,0,.22),0 0 0 1px rgba(255,255,255,.07) inset;
   backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);
   z-index:9500;
-  animation:auroreMiniPopIn .26s cubic-bezier(.22,1.35,.32,1);
   transition:box-shadow .18s ease;
+  animation:auroreMiniPopIn .26s cubic-bezier(.22,1.35,.32,1);
 }
 @keyframes auroreMiniPopIn{from{opacity:0;transform:scale(.94) translateY(10px)}to{opacity:1;transform:none}}
 [data-theme="light"] #screen-aurore-ia.aurore-ia-screen.is-mini{border-color:rgba(30,20,45,.10)}
@@ -3768,7 +3769,7 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
           <div id="adminListReclamations"></div>
         </div>
         <div class="admin-tab-panel" data-panel="connexions">
-          <p class="admin-panel-desc">Les 30 dernières connexions réussies au site, les plus récentes en premier.</p>
+          <p class="admin-panel-desc">Les 300 dernières connexions réussies au site, les plus récentes en premier.</p>
           <div id="adminListConnexions"></div>
         </div>
         <div class="admin-tab-panel" data-panel="visiteurs">
@@ -4278,6 +4279,30 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
     .pdf-reader-topbar{min-height:56px;padding:8px 10px!important}.pdf-reader-title{font-size:.82rem!important}
     .pdf-reader-toolbar{justify-content:space-between;overflow-x:auto;flex-wrap:nowrap!important}.pdf-toolbar-group{flex-wrap:nowrap!important}.pdf-reader-toolbar button{min-width:38px!important;padding:7px 9px!important}
     .pdf-reader-zone{padding:10px 4px 20px!important}.pdf-reader-pages{gap:10px!important}.pdf-reader-page-label{right:7px!important;top:7px!important}.pdf-reader-bottombar{padding:7px 8px!important}
+  }
+  /* Lecture immersive : un appui sur le PDF masque les barres du haut et du
+     bas pour ne laisser que le document, plein écran (toutes tailles d'écran). */
+  .pdf-reader-topbar,.pdf-reader-toolbar,.pdf-reader-bottombar{
+    transition:opacity .22s ease,transform .22s ease;
+  }
+  #pdfViewerOverlay.pdf-immersive .pdf-reader-topbar,
+  #pdfViewerOverlay.pdf-immersive .pdf-reader-toolbar{
+    opacity:0;pointer-events:none;transform:translateY(-14px);
+  }
+  #pdfViewerOverlay.pdf-immersive .pdf-reader-bottombar{
+    opacity:0;pointer-events:none;transform:translateY(14px);
+  }
+  #pdfViewerOverlay.pdf-immersive #pdfRecentAccess,
+  #pdfViewerOverlay.pdf-immersive #pdfViewerScrollbar{
+    opacity:0;pointer-events:none;
+  }
+  /* La zone de lecture recouvre alors tout l'écran du lecteur : plus aucune
+     barre ne réserve d'espace, seul le PDF reste visible et interactif. */
+  #pdfViewerOverlay.pdf-immersive .pdf-reader-zone-wrap{
+    position:absolute;inset:0;z-index:4;
+  }
+  #pdfViewerOverlay.pdf-immersive .pdf-reader-shell{
+    position:relative;border-radius:0!important;
   }
 </style>
 <style id="auraster-theme-system">
@@ -10560,7 +10585,7 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
       const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/lister_visites_anonymes_recentes`, {
         method: 'POST',
         headers: { ...headersAdmin(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ limite: 15 })
+        body: JSON.stringify({ limite: 300 })
       });
       if (!res.ok) throw new Error("Statut HTTP " + res.status);
       const data = await res.json();
@@ -10592,14 +10617,14 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
     }
   }
 
-  // Liste des 30 dernières connexions (table "Connexions" déjà utilisée par
+  // Liste des 300 dernières connexions (table "Connexions" déjà utilisée par
   // enregistrerConnexion() et par chargerStatsAdmin() ci-dessus) — aucune
   // nouvelle table, aucune donnée modifiée, lecture seule.
   async function chargerDernieresConnexions() {
     const list = document.getElementById('adminListConnexions');
     list.innerHTML = '<p class="admin-empty">Chargement…</p>';
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/Connexions?select=nom,email,date&order=date.desc&limit=30`, { headers: headersAdmin() });
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/Connexions?select=nom,email,date&order=date.desc&limit=300`, { headers: headersAdmin() });
       if (!res.ok) throw new Error("Statut HTTP " + res.status);
       const data = await res.json();
       if (!data || data.length === 0) {
@@ -12538,6 +12563,7 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
     if(progressDockInitial){ progressDockInitial.classList.add('is-visible'); progressDockInitial.setAttribute('aria-hidden','false'); }
     mettreAJourProgressionLecteurPDF(0, 'Envoi du document…', {speedText:'Préparation…'});
     document.getElementById('pdfViewerPage').textContent = '— / —';
+    document.getElementById('pdfViewerOverlay').classList.remove('pdf-immersive');
     document.getElementById('pdfViewerOverlay').style.display = 'block';
     document.getElementById('pdfViewerZone').focus({ preventScroll: true });
 
@@ -13493,6 +13519,16 @@ async function telechargerDocumentAvecProgression(doc) {
     };
     pdfZoneGeste.addEventListener('touchend',terminerPinch,{passive:true});
     pdfZoneGeste.addEventListener('touchcancel',terminerPinch,{passive:true});
+
+    // Lecture immersive : un appui simple sur le document masque les barres
+    // du haut et du bas pour ne laisser que le PDF, plein écran. Un second
+    // appui les fait réapparaître. On ignore les clics sur un élément
+    // interactif (bouton, lien…) et pendant un pincement à deux doigts.
+    pdfZoneGeste.addEventListener('click',(e)=>{
+      if(pdfPinchActif)return;
+      if(e.target.closest('button,a,input,select,textarea'))return;
+      document.getElementById('pdfViewerOverlay')?.classList.toggle('pdf-immersive');
+    });
   }
   // -- Navigation clavier (bonnes pratiques ; pas un audit RGAA/WCAG complet) --
   document.getElementById('pdfViewerOverlay').addEventListener('keydown', (e) => {
@@ -16412,6 +16448,62 @@ window.addEventListener('load',()=>{
   addEventListener('resize',placer,{passive:true});
   addEventListener('load',placer);
 
+  // Suivi fluide (au lieu d'observer chaque mutation de style, ce qui
+  // provoquait des recalculs de mise en page trop fréquents et rendait le
+  // glisser du bloc réduit saccadé) : une seule lecture par image, et on
+  // ne réécrit la position que si elle a réellement changé.
+  let dernierePos='';
+  (function boucleSuivi(){
+    if(estDansIA()){
+      const ecran=document.getElementById('screen-aurore-ia');
+      if(ecran){
+        const r=ecran.getBoundingClientRect();
+        const cle=r.left+','+r.top+','+r.width+','+r.height;
+        if(cle!==dernierePos){dernierePos=cle;placer();}
+      }
+    }
+    requestAnimationFrame(boucleSuivi);
+  })();
+
+  // ---- Le bouton sert aussi de poignée : le faire glisser quand le bloc
+  // est réduit déplace toute la fenêtre (un simple tap ouvre le menu). ----
+  let dragBloc=false,dragBougé=false,dsx=0,dsy=0,dsl=0,dst=0;
+  el.addEventListener('pointerdown',e=>{
+    if(!estEnModeMini())return;
+    const ecran=document.getElementById('screen-aurore-ia');
+    if(!ecran)return;
+    dragBloc=true;dragBougé=false;
+    const r=ecran.getBoundingClientRect();
+    dsx=e.clientX;dsy=e.clientY;dsl=r.left;dst=r.top;
+    try{el.setPointerCapture?.(e.pointerId);}catch(_){}
+  });
+  el.addEventListener('pointermove',e=>{
+    if(!dragBloc)return;
+    const dx=e.clientX-dsx,dy=e.clientY-dsy;
+    if(!dragBougé&&(Math.abs(dx)>4||Math.abs(dy)>4))dragBougé=true;
+    if(!dragBougé)return;
+    const ecran=document.getElementById('screen-aurore-ia');
+    if(!ecran)return;
+    const w=ecran.offsetWidth,h=ecran.offsetHeight;
+    const nl=Math.min(Math.max(4,dsl+dx),Math.max(4,innerWidth-w-4));
+    const nt=Math.min(Math.max(4,dst+dy),Math.max(4,innerHeight-h-4));
+    ecran.style.left=nl+'px';ecran.style.top=nt+'px';
+    placer();
+  });
+  const finDragBloc=e=>{
+    if(!dragBloc)return;dragBloc=false;
+    try{el.releasePointerCapture?.(e.pointerId);}catch(_){}
+    if(dragBougé){
+      const ecran=document.getElementById('screen-aurore-ia');
+      if(ecran){
+        const r=ecran.getBoundingClientRect();
+        try{localStorage.setItem('aurore_ia_mini_geometry_v1',JSON.stringify({x:r.left,y:r.top,w:r.width,h:r.height}));}catch(_){}
+      }
+    }
+  };
+  el.addEventListener('pointerup',finDragBloc);
+  el.addEventListener('pointercancel',finDragBloc);
+
   // ---- Logo du site sur le repère "A" ----
   function appliquerLogo(){
     try{
@@ -16447,6 +16539,7 @@ window.addEventListener('load',()=>{
     }
     if(resizeLabel)resizeLabel.textContent=estEnModeMini()?'Agrandir Aurora':'Réduire en fenêtre flottante';
     if(resizeIcon)resizeIcon.innerHTML=estEnModeMini()?ICON_EXPAND:ICON_SHRINK;
+    el.style.setProperty('cursor',estEnModeMini()?(dragBloc?'grabbing':'grab'):'pointer','important');
   }
 
   // ---- Panneau d'options : positionnement intelligent près du bouton ----
@@ -16487,6 +16580,7 @@ window.addEventListener('load',()=>{
   }
 
   el.addEventListener('click',e=>{
+    if(dragBougé){dragBougé=false;return;}
     if(menu.classList.contains('is-open')){fermerMenu();return;}
     if(estDansIA())ouvrirMenu();else ouvrirAurora();
   });
@@ -16514,7 +16608,7 @@ window.addEventListener('load',()=>{
   rafraichirApparence();
   const ecranIA=document.getElementById('screen-aurore-ia');
   if(ecranIA){
-    new MutationObserver(()=>{placer();rafraichirApparence();}).observe(ecranIA,{attributes:true,attributeFilter:['class','style']});
+    new MutationObserver(()=>{placer();rafraichirApparence();}).observe(ecranIA,{attributes:true,attributeFilter:['class']});
   }
   new MutationObserver(()=>{placer();}).observe(document.body,{attributes:true,attributeFilter:['class']});
   requestAnimationFrame(placer);
