@@ -19040,7 +19040,14 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     const {data:sessionData,error:sessionError}=await client.auth.getSession();
     if(sessionError)throw sessionError;
     if(!sessionData?.session)throw new Error('Connectez-vous à Aurore pour utiliser Aurora.');
-    const body={message,previousInteractionId,catalogSnapshot:Array.isArray(iaCatalogSnapshot)?iaCatalogSnapshot:null,focusDocumentId:iaFocusDocumentId,conversationContext:contexteRecent};
+    const body={
+      message,
+      previousInteractionId,
+      catalogSnapshot:Array.isArray(iaCatalogSnapshot)?iaCatalogSnapshot:null,
+      focusDocumentId:iaFocusDocumentId,
+      conversationContext:contexteRecent,
+      skillHint:'FORMAT MATHÉMATIQUE OBLIGATOIRE : si ta réponse contient des mathématiques, écris directement les formules en LaTeX standard avec \\( ... \\) pour une formule dans une phrase et \\[ ... \\] pour une formule isolée. N’utilise JAMAIS de marqueurs ou placeholders tels que @@AURORAMATH0@@, @@AURORA_MATH_0@@, [MATH], <math>, ou des jetons similaires. Les formules doivent contenir leur véritable expression mathématique. Si tu ne peux pas produire une formule, écris-la en texte mathématique lisible plutôt que d’émettre un placeholder.'
+    };
     let dernierDetail='';
     /* Petit retry uniquement pour les pannes transitoires. On évite de refaire
        plusieurs fois une demande lourde de façon agressive. */
