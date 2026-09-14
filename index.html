@@ -20040,25 +20040,22 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
 
 
 <script>
-/* Aurora mobile keyboard fix */
+/* Aurora : envoi tactile/clavier robuste.
+   Le clic est converti en un unique submit du formulaire. Cela évite les
+   conflits entre pointerdown/click sur Android et laisse toute la logique
+   réseau dans le gestionnaire submit principal d'Aurora. */
 (function(){
-  const input=document.getElementById('auroreIAInput');
   const form=document.getElementById('auroreIAForm');
-  const send=document.querySelector('.aurore-ia-send');
-  if(!input||!form||!send)return;
-  let pointerSubmitting=false;
-  send.addEventListener('pointerdown',function(e){
-    if(send.disabled||!input.value.trim())return;
+  const input=document.getElementById('auroreIAInput');
+  const send=form?.querySelector('.aurore-ia-send');
+  if(!form||!input||!send)return;
+  send.addEventListener('click',function(e){
     e.preventDefault();
     e.stopPropagation();
-    pointerSubmitting=true;
-    input.focus({preventScroll:true});
-    requestAnimationFrame(function(){form.requestSubmit();});
-    setTimeout(function(){pointerSubmitting=false;},300);
-  },{passive:false});
-  send.addEventListener('click',function(e){
-    if(pointerSubmitting){e.preventDefault();e.stopImmediatePropagation();}
-  },true);
+    if(send.disabled||!input.value.trim())return;
+    if(typeof form.requestSubmit==='function') form.requestSubmit();
+    else form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));
+  });
 })();
 </script>
 </body>
