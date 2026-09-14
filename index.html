@@ -19022,9 +19022,6 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
   async function invokeAuroreIA(message){
     const client=await getSupabaseClient();
     if(!client)throw new Error('Aurora n’arrive pas à joindre son espace sécurisé.');
-    const {data:sessionData,error:sessionError}=await client.auth.getSession();
-    if(sessionError)throw sessionError;
-    if(!sessionData?.session)throw new Error('Connectez-vous à Aurore pour utiliser Aurora.');
     const contexteRecent=messagesActuels.slice(-8).map(m=>({role:m.role==='assistant'?'assistant':'user',text:String(m.text||'').slice(0,3000)}));
     /* Niveau local : le panier conversationnel peut répondre sans Gemini.
        On ne l'utilise que pour les correspondances fortes ; les demandes
@@ -19039,6 +19036,11 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
         return {ok:true,text:String(hit.response||''),model:'aurora-local-knowledge',localConversation:true,intent:hit.intent,score, catalogSnapshot:Array.isArray(iaCatalogSnapshot)?iaCatalogSnapshot:null,focusDocumentId:iaFocusDocumentId};
       }
     }catch(e){ console.warn('[Aurora] panier local indisponible, poursuite vers Gemini',e); }
+    /* L'authentification n'est requise qu'au moment d'appeler le moteur distant.
+       Cela évite un aller-retour auth inutile pour les réponses locales. */
+    const {data:sessionData,error:sessionError}=await client.auth.getSession();
+    if(sessionError)throw sessionError;
+    if(!sessionData?.session)throw new Error('Connectez-vous à Aurore pour utiliser Aurora.');
     const body={message,previousInteractionId,catalogSnapshot:Array.isArray(iaCatalogSnapshot)?iaCatalogSnapshot:null,focusDocumentId:iaFocusDocumentId,conversationContext:contexteRecent};
     let dernierDetail='';
     /* Petit retry uniquement pour les pannes transitoires. On évite de refaire
