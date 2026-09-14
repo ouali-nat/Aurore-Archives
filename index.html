@@ -19151,47 +19151,34 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       conversationContext:contexteRecent,
       skillHint:'FORMAT MATHÉMATIQUE OBLIGATOIRE : si ta réponse contient des mathématiques, écris directement les formules en LaTeX standard avec \\( ... \\) pour une formule dans une phrase et \\[ ... \\] pour une formule isolée. N’utilise JAMAIS de marqueurs ou placeholders tels que @@AURORAMATH0@@, @@AURORA_MATH_0@@, [MATH], <math>, ou des jetons similaires. Les formules doivent contenir leur véritable expression mathématique. Si tu ne peux pas produire une formule, écris-la en texte mathématique lisible plutôt que d’émettre un placeholder.'
     };
-    let dernierDetail='';
-    /* Petit retry uniquement pour les pannes transitoires. On évite de refaire
-       plusieurs fois une demande lourde de façon agressive. */
-    for(let tentative=0;tentative<2;tentative++){
-      try{
-        const resultat=await Promise.race([
-          client.functions.invoke('aurora-deepseek-live',{body}),
-          new Promise((_,reject)=>setTimeout(()=>reject(new Error('TIMEOUT_AURORA')),65000))
-        ]);
-        const {data,error}=resultat||{};
-        if(error){
-          let detail='';
-          try{
-            if(error.context&&typeof error.context.json==='function'){
-              const payload=await error.context.json();
-              detail=payload?.detail||payload?.error||payload?.message||'';
-            }
-          }catch(_){}
-          dernierDetail=detail||error.message||'';
-          if(tentative===0 && /429|too many|rate|5\d\d|failed to fetch|network|timeout/i.test(dernierDetail)){
-            await new Promise(r=>setTimeout(r,900));
-            continue;
+    try{
+      const resultat=await Promise.race([
+        client.functions.invoke('aurora-deepseek-live',{body}),
+        new Promise((_,reject)=>setTimeout(()=>reject(new Error('TIMEOUT_AURORA')),70000))
+      ]);
+      const {data,error}=resultat||{};
+      if(error){
+        let detail='';
+        try{
+          if(error.context&&typeof error.context.json==='function'){
+            const payload=await error.context.json();
+            detail=payload?.detail||payload?.error||payload?.message||'';
+            if(payload?.stage) detail=`[${payload.stage}] ${detail}`;
+            if(payload?.authStatus) detail+=` (HTTP ${payload.authStatus})`;
           }
-          throw new Error(dernierDetail);
-        }
-        if(!data?.ok)throw new Error(data?.error||'Aurora n’a pas pu répondre.');
-        if(data.id)previousInteractionId=data.id;
-        if(Array.isArray(data.catalogSnapshot))iaCatalogSnapshot=data.catalogSnapshot;
-        if(data.focusDocumentId!=null)iaFocusDocumentId=data.focusDocumentId;
-        return data;
-      }catch(e){
-        dernierDetail=e?.message||'';
-        if(tentative===0 && /429|too many|rate|5\d\d|failed to fetch|network|timeout/i.test(dernierDetail)){
-          await new Promise(r=>setTimeout(r,900));
-          continue;
-        }
-        break;
+        }catch(_){}
+        throw new Error(detail||error.message||'Aurora rencontre une erreur lors de l’appel à son moteur.');
       }
+      if(!data?.ok)throw new Error(data?.error||'Aurora n’a pas pu répondre.');
+      if(data.id)previousInteractionId=data.id;
+      if(Array.isArray(data.catalogSnapshot))iaCatalogSnapshot=data.catalogSnapshot;
+      if(data.focusDocumentId!=null)iaFocusDocumentId=data.focusDocumentId;
+      return data;
+    }catch(e){
+      const detail=e?.message||'';
+      if(/TIMEOUT_AURORA/i.test(detail))throw new Error('Aurora n’a pas reçu la réponse de DeepSeek dans le délai prévu.');
+      throw new Error(detail||'Aurora rencontre momentanément un problème de connexion. Réessaie dans quelques secondes.');
     }
-    if(/TIMEOUT_AURORA/i.test(dernierDetail))throw new Error('Aurora met un peu plus de temps que prévu à préparer cette réponse. Réessaie dans un instant.');
-    throw new Error(dernierDetail||'Aurora rencontre momentanément un problème de connexion. Réessaie dans quelques secondes.');
   }
 
   function setRouteActive(active){document.body.classList.toggle('aurore-ia-route-active',!!active);}
