@@ -19129,7 +19129,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     for(let tentative=0;tentative<2;tentative++){
       try{
         const resultat=await Promise.race([
-          client.functions.invoke('aurora-deepseek-general',{body}),
+          client.functions.invoke('aurora-deepseek-live',{body}),
           new Promise((_,reject)=>setTimeout(()=>reject(new Error('TIMEOUT_AURORA')),65000))
         ]);
         const {data,error}=resultat||{};
