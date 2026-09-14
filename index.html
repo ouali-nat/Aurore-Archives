@@ -18084,6 +18084,63 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
 @media(max-width:680px){ .admin-category-grid{ grid-template-columns:repeat(2,1fr) !important; } }
 @media(max-width:420px){ .admin-category-grid{ grid-template-columns:1fr !important; } }
 </style>
+
+<style id="aurore-compactage-vue-ensemble">
+/* ---------- COMPACTAGE DESKTOP : VUE D'ENSEMBLE ----------
+   Objectif : sur un écran large (PC, Chrome...), remplacer les gros blocs
+   empilés un par un (surtout la liste de documents) par une grille compacte
+   qui montre plusieurs éléments en même temps. On resserre aussi les
+   espacements. Rien n'est réduit visuellement (pas de zoom/scale) : c'est
+   la disposition elle-même qui est plus dense. En dessous de 700px (mobile),
+   tout reste inchangé. */
+@media(min-width:700px){
+
+  /* Liste de documents : cartes en grille plutôt qu'un bloc plein-largeur
+     par document. */
+  .doc-list{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(320px,1fr));
+    gap:14px;
+  }
+  .doc-row{
+    flex-direction:column;
+    align-items:flex-start;
+    justify-content:flex-start;
+    padding:14px 16px;
+    height:100%;
+  }
+  .doc-row .info{width:100%;}
+  .doc-main-info{width:100%;}
+  .doc-actions{
+    margin-left:0;
+    width:100%;
+    justify-content:flex-end;
+    margin-top:12px;
+    padding-top:10px;
+    border-top:1px solid var(--bordure);
+  }
+
+  /* Grilles de cartes (niveaux, catégories, matières) : cartes un peu plus
+     compactes pour que davantage de blocs tiennent par ligne. */
+  .level-grid{grid-template-columns:repeat(auto-fit, minmax(215px,1fr)); gap:16px;}
+  .level-card{padding:20px 18px;}
+  .cat-grid{grid-template-columns:repeat(auto-fit, minmax(215px,1fr)); gap:16px;}
+  .cat-card{padding:20px;}
+  .matiere-grid{grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:12px;}
+
+  /* Listes admin du même type (publicités), même logique de grille. */
+  .pub-admin-list{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(300px,1fr));
+  }
+
+  /* Espacements verticaux resserrés entre les sections. */
+  .section-title{margin:26px 0 14px;}
+  .hero{padding:38px 30px 32px;}
+  .livres-banner{padding:18px 22px;}
+}
+</style>
+
 <script id="aurore-section-sharing-runtime">
 (function(){
   'use strict';
