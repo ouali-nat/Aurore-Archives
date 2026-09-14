@@ -3094,8 +3094,33 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
   const redirectConfirmation=()=>window.location.origin+window.location.pathname;
   const authWait=document.getElementById('auroreAuthWait');
   const authWaitText=document.getElementById('auroreAuthWaitText');
-  function afficherVeuillezPatienter(texte='Aurore prépare votre espace…'){if(authWaitText)authWaitText.textContent=texte;if(authWait){authWait.classList.add('show');authWait.setAttribute('aria-hidden','false');}}
-  function cacherVeuillezPatienter(){if(authWait){authWait.classList.remove('show');authWait.setAttribute('aria-hidden','true');}}
+  let auroreAuthWaitSafetyTimer=null;
+  function afficherVeuillezPatienter(texte='Aurore prépare votre espace…'){
+    if(authWaitText)authWaitText.textContent=texte;
+    if(authWait){
+      authWait.classList.add('show');
+      authWait.setAttribute('aria-hidden','false');
+    }
+    clearTimeout(auroreAuthWaitSafetyTimer);
+    // Filet de sécurité : une erreur réseau ou JS inattendue ne doit jamais
+    // laisser l'écran de connexion couvert indéfiniment (impression de page blanche).
+    auroreAuthWaitSafetyTimer=setTimeout(()=>{
+      if(authWait?.classList.contains('show')){
+        cacherVeuillezPatienter();
+        const m=document.getElementById('accessMessage');
+        if(m){
+          m.textContent='La connexion prend plus de temps que prévu. Vous pouvez réessayer sans recharger la page.';
+          m.className='access-message err';
+          m.style.display='block';
+        }
+      }
+    },12000);
+  }
+  function cacherVeuillezPatienter(){
+    clearTimeout(auroreAuthWaitSafetyTimer);
+    auroreAuthWaitSafetyTimer=null;
+    if(authWait){authWait.classList.remove('show');authWait.setAttribute('aria-hidden','true');}
+  }
   window.auroreAfficherVeuillezPatienter=afficherVeuillezPatienter;
   window.auroreCacherVeuillezPatienter=cacherVeuillezPatienter;
 
@@ -5490,7 +5515,7 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
     }
     const btn=e.currentTarget;
     if(btn){ btn.disabled=true; btn.setAttribute('aria-busy','true'); btn.style.opacity='.72'; btn.style.pointerEvents='none'; }
-    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(resolve,250))));
+    // Pas de délai artificiel : le navigateur peut partir immédiatement vers Google.
     try { await demarrerConnexionGoogle(); } catch (err) { console.error('[Google OAuth]', err); }
   });
 
@@ -19605,7 +19630,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     const stash=(body,display)=>{
       const id=maths.length;
       maths.push({latex:String(body||'').trim(),display:!!display});
-      return `@@AURORA_MATH_${id}@@`;
+      return `\u0000AURORAMATH${id}\u0000`;
     };
     s=s.replace(/\$\$([\s\S]*?)\$\$/g,(m,b)=>stash(b,true));
     s=s.replace(/\\\[([\s\S]*?)\\\]/g,(m,b)=>stash(b,true));
@@ -19615,7 +19640,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
   }
 
   function restaurerMath(html,maths){
-    return html.replace(/@@AURORA_MATH_(\d+)@@/g,(m,idx)=>{
+    return html.replace(/\u0000AURORAMATH(\d+)\u0000/g,(m,idx)=>{
       const item=maths[Number(idx)];
       if(!item)return m;
       return '<span class="aurore-math'+(item.display?' display':'')+'" data-latex="'+esc(item.latex)+'"></span>';
