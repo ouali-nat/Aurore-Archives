@@ -67,8 +67,8 @@
 <title>Aurore — Section Archives — Bibliothèque numérique</title>
 <!-- Rendu mathématique natif dans Aurora : DeepSeek produit du LaTeX,
      KaTeX le transforme en vraies formules typographiques dans l’interface. -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css">
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css" onerror="this.remove()">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js" onerror="window.__AURORE_KATEX_FAILED=true"></script>
 <link rel="preload" as="image" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
 <script type="application/ld+json">
 {
@@ -19619,6 +19619,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     if(!root)return;
     const nodes=root.querySelectorAll?.('.aurore-math[data-latex]');
     if(!nodes?.length)return;
+    if(window.__AURORE_KATEX_FAILED)return;
     if(typeof window.katex!=='undefined'){
       nodes.forEach(el=>{
         if(el.dataset.rendered==='1')return;
