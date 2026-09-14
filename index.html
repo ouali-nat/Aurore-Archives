@@ -19165,6 +19165,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
             detail=payload?.detail||payload?.error||payload?.message||'';
             if(payload?.stage) detail=`[${payload.stage}] ${detail}`;
             if(payload?.authStatus) detail+=` (HTTP ${payload.authStatus})`;
+            if(payload?.networkProbe){ const np=payload.networkProbe; detail+=` — diagnostic DeepSeek: ${np.status ? 'HTTP '+np.status : (np.detail||'aucune réponse réseau')}`; }
           }
         }catch(_){}
         throw new Error(detail||error.message||'Aurora rencontre une erreur lors de l’appel à son moteur.');
