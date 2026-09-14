@@ -19023,21 +19023,8 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     const client=await getSupabaseClient();
     if(!client)throw new Error('Aurora n’arrive pas à joindre son espace sécurisé.');
     const contexteRecent=messagesActuels.slice(-8).map(m=>({role:m.role==='assistant'?'assistant':'user',text:String(m.text||'').slice(0,3000)}));
-    /* Niveau local : le panier conversationnel peut répondre sans Gemini.
-       On ne l'utilise que pour les correspondances fortes ; les demandes
-       documentaires/PDF continuent directement vers aurora-gemini-next. */
-    try{
-      const local=await client.rpc('aurora_local_router',{p_message:message});
-      const hit=Array.isArray(local?.data)?local.data[0]:null;
-      const score=Number(hit?.score||0);
-      const msgNorm=String(message||'').toLowerCase().trim();
-      const demandeDocumentaire=/(page\s*\d+|p\.?\s*\d+|document|livre|pdf|chapitre|fichier|archives|wikip\w*|cherche|recherche|analyse|résume|resume|explique|liste)/i.test(msgNorm);
-      if(!local?.error&&hit&&score>=0.80&&!demandeDocumentaire){
-        return {ok:true,text:String(hit.response||''),model:'aurora-local-knowledge',localConversation:true,intent:hit.intent,score, catalogSnapshot:Array.isArray(iaCatalogSnapshot)?iaCatalogSnapshot:null,focusDocumentId:iaFocusDocumentId};
-      }
-    }catch(e){ console.warn('[Aurora] panier local indisponible, poursuite vers Gemini',e); }
-    /* L'authentification n'est requise qu'au moment d'appeler le moteur distant.
-       Cela évite un aller-retour auth inutile pour les réponses locales. */
+    /* Aurora Router : un seul point d'entrée pour le local, Supabase,
+       Wikipédia et le moteur documentaire/raisonnement. */
     const {data:sessionData,error:sessionError}=await client.auth.getSession();
     if(sessionError)throw sessionError;
     if(!sessionData?.session)throw new Error('Connectez-vous à Aurore pour utiliser Aurora.');
@@ -19048,7 +19035,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     for(let tentative=0;tentative<2;tentative++){
       try{
         const resultat=await Promise.race([
-          client.functions.invoke('aurora-gemini-next',{body}),
+          client.functions.invoke('aurora-router',{body}),
           new Promise((_,reject)=>setTimeout(()=>reject(new Error('TIMEOUT_AURORA')),65000))
         ]);
         const {data,error}=resultat||{};
