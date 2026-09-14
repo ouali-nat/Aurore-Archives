@@ -19026,6 +19026,19 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     if(sessionError)throw sessionError;
     if(!sessionData?.session)throw new Error('Connectez-vous à Aurore pour utiliser Aurora.');
     const contexteRecent=messagesActuels.slice(-8).map(m=>({role:m.role==='assistant'?'assistant':'user',text:String(m.text||'').slice(0,3000)}));
+    /* Niveau local : le panier conversationnel peut répondre sans Gemini.
+       On ne l'utilise que pour les correspondances fortes ; les demandes
+       documentaires/PDF continuent directement vers aurora-gemini-next. */
+    try{
+      const local=await client.rpc('aurora_local_router',{p_message:message});
+      const hit=Array.isArray(local?.data)?local.data[0]:null;
+      const score=Number(hit?.score||0);
+      const msgNorm=String(message||'').toLowerCase().trim();
+      const demandeDocumentaire=/(page\s*\d+|p\.?\s*\d+|document|livre|pdf|chapitre|fichier|archives|wikip\w*|cherche|recherche|analyse|résume|resume|explique|liste)/i.test(msgNorm);
+      if(!local?.error&&hit&&score>=0.80&&!demandeDocumentaire){
+        return {ok:true,text:String(hit.response||''),model:'aurora-local-knowledge',localConversation:true,intent:hit.intent,score, catalogSnapshot:Array.isArray(iaCatalogSnapshot)?iaCatalogSnapshot:null,focusDocumentId:iaFocusDocumentId};
+      }
+    }catch(e){ console.warn('[Aurora] panier local indisponible, poursuite vers Gemini',e); }
     const body={message,previousInteractionId,catalogSnapshot:Array.isArray(iaCatalogSnapshot)?iaCatalogSnapshot:null,focusDocumentId:iaFocusDocumentId,conversationContext:contexteRecent};
     let dernierDetail='';
     /* Petit retry uniquement pour les pannes transitoires. On évite de refaire
