@@ -18134,6 +18134,34 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     grid-template-columns:repeat(auto-fill, minmax(300px,1fr));
   }
 
+  /* Espace personnel (mes documents / mes livres) : cartes en grille. */
+  .personal-list{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(300px,1fr));
+    gap:10px;
+  }
+  .personal-doc,.personal-book{height:100%;}
+
+  /* Admin : liste des utilisateurs en grille (au lieu d'une colonne unique). */
+  .admin-users-list{
+    grid-template-columns:repeat(auto-fill, minmax(340px,1fr));
+  }
+
+  /* Admin : documents en attente / publiés, en grille plutôt qu'empilés. */
+  #adminList, #adminListPublies{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(320px,1fr));
+    gap:12px;
+    align-items:start;
+  }
+  #adminList .admin-card, #adminListPublies .admin-card{margin-bottom:0;}
+
+  /* Désambiguïsation Wikipédia : deux options par ligne. */
+  .wiki-disambig-list{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(220px,1fr));
+  }
+
   /* Espacements verticaux resserrés entre les sections. */
   .section-title{margin:26px 0 14px;}
   .hero{padding:38px 30px 32px;}
