@@ -74,9 +74,34 @@
      chargement. Astuce media="print" : le navigateur télécharge le fichier
      en tâche de fond sans qu'il s'applique (donc sans bloquer le rendu),
      puis onload bascule sur media="all" une fois prêt. -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css" media="print" onload="this.media='all'" onerror="this.remove()">
+<!-- CDN de secours : sur ce réseau, cdn.jsdelivr.net s'est révélé bloqué,
+     donc onerror ne suffit pas ici — il faut un vrai second fournisseur.
+     Si jsdelivr échoue, on rebascule sur unpkg (voir script juste après). -->
+<link id="aurore-katex-css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css" media="print" onload="this.media='all'" onerror="document.getElementById('aurore-katex-css-secours').media='print';document.getElementById('aurore-katex-css-secours').removeAttribute('disabled');this.remove()">
+<link id="aurore-katex-css-secours" rel="stylesheet" href="https://unpkg.com/katex@0.16.22/dist/katex.min.css" media="print" onload="this.media='all'" disabled onerror="this.remove()">
 <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css"></noscript>
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js" onerror="window.__AURORE_KATEX_FAILED=true"></script>
+<script>
+  // Chargement de KaTeX avec CDN de secours + timeout, sur le même principe
+  // que le chargement de Supabase plus bas dans ce fichier : sur ce réseau,
+  // jsdelivr s'est révélé bloqué pour KaTeX. Un onerror seul ne suffit pas
+  // (un blocage réseau silencieux ne déclenche parfois ni onload ni onerror),
+  // d'où le timeout explicite avant de basculer sur unpkg.
+  function chargerScriptKatex(url,delaiMs){
+    return new Promise((resolve,reject)=>{
+      const s=document.createElement('script');
+      let fini=false;
+      const minuteur=setTimeout(()=>{if(fini)return;fini=true;reject(new Error('Délai dépassé : '+url));},delaiMs);
+      s.src=url;
+      s.onload=()=>{if(fini)return;fini=true;clearTimeout(minuteur);resolve();};
+      s.onerror=()=>{if(fini)return;fini=true;clearTimeout(minuteur);reject(new Error('Échec de chargement : '+url));};
+      document.head.appendChild(s);
+    });
+  }
+  window.__AURORE_KATEX_READY=chargerScriptKatex('https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js',6000)
+    .catch(()=>chargerScriptKatex('https://unpkg.com/katex@0.16.22/dist/katex.min.js',6000))
+    .then(()=>true)
+    .catch(e=>{console.error('[KaTeX] jsdelivr et unpkg ont tous les deux échoué :',e);window.__AURORE_KATEX_FAILED=true;return false;});
+</script>
 <link rel="preload" as="image" href="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster">
 <script type="application/ld+json">
 {
@@ -19692,9 +19717,21 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
           mathFallback(el); // erreur de rendu ponctuelle -> texte brut plutôt que vide
         }
       });
+    }else if(window.__AURORE_KATEX_READY&&typeof window.__AURORE_KATEX_READY.then==='function'){
+      // KaTeX est en cours de chargement (jsdelivr, puis unpkg en secours si
+      // besoin — voir <head>). On se branche sur cette même promesse au lieu
+      // de sonder à l'aveugle : plus de risque de désynchronisation entre le
+      // délai des CDN et un compteur de tentatives séparé.
+      window.__AURORE_KATEX_READY.then(ok=>{
+        if(ok)rendreMath(root);
+        else nodes.forEach(mathFallback);
+      });
     }else{
+      // Filet de sécurité ultime, si jamais appelé avant que le script du
+      // <head> n'ait posé window.__AURORE_KATEX_READY (ne devrait pas
+      // arriver en pratique). Plafonné pour ne jamais boucler indéfiniment.
       root.__auroraMathRetryCount=(root.__auroraMathRetryCount||0)+1;
-      if(root.__auroraMathRetryCount>20){ // ~10s de tentatives (20 x 500ms), puis on abandonne proprement
+      if(root.__auroraMathRetryCount>20){
         window.__AURORE_KATEX_FAILED=true;
         nodes.forEach(mathFallback);
         return;
