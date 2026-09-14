@@ -1784,7 +1784,11 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   border:1px solid rgba(255,255,255,.10);
   box-shadow:0 30px 80px rgba(0,0,0,.45),0 6px 20px rgba(0,0,0,.22),0 0 0 1px rgba(255,255,255,.07) inset;
   backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);
-  z-index:9500;
+  /* Doit rester au-dessus du lecteur PDF (z-index 9998) et de la sphère de
+     progression (9999) : sinon, ouvrir Aurora réduite pendant la lecture la
+     fait passer derrière l'overlay quasi opaque du lecteur et la rend
+     inutilisable. */
+  z-index:10050;
   transition:box-shadow .18s ease;
   animation:auroreMiniPopIn .26s cubic-bezier(.22,1.35,.32,1);
 }
@@ -4261,6 +4265,34 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
   .pdf-load-progress-speed{font-size:.68rem;color:#a9a1b7;line-height:1.3;min-height:1em;}
   .pdf-load-progress-track{width:100%;height:8px;border-radius:999px;background:#26222f;overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.28);}
   .pdf-load-progress-bar{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#7c3aed,#c084fc,#e879f9);box-shadow:0 0 14px rgba(192,132,252,.28);transition:width .18s ease;}
+
+  /* ---------- Sphère de progression (mode compact) ----------
+     Une fois les premières pages affichées, la barre pleine largeur laisse
+     la place à ce petit indicateur circulaire, casé dans le coin bas-gauche
+     pour ne jamais gêner la lecture. Il reprend le même dégradé violet que
+     la barre, avec un anneau SVG dont le tracé se remplit selon le %. */
+  .pdf-load-progress-sphere{
+    position:fixed; left:14px; bottom:calc(14px + env(safe-area-inset-bottom,0px));
+    width:50px; height:50px; border-radius:50%;
+    display:none; align-items:center; justify-content:center;
+    background:rgba(15,13,22,.92); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    box-shadow:0 10px 26px rgba(0,0,0,.4), 0 0 0 1px rgba(124,58,237,.30) inset;
+    z-index:9999; cursor:pointer; pointer-events:auto;
+    transition:transform .16s ease, box-shadow .16s ease, opacity .16s ease;
+    animation:pdfSphereApparait .22s cubic-bezier(.22,1.35,.32,1);
+  }
+  @keyframes pdfSphereApparait{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+  .pdf-load-progress-sphere.is-visible{display:flex;}
+  .pdf-load-progress-sphere:hover{transform:scale(1.07); box-shadow:0 14px 32px rgba(0,0,0,.46), 0 0 0 1px rgba(124,58,237,.4) inset;}
+  .pdf-load-progress-sphere:active{transform:scale(.96);}
+  .pdf-progress-sphere-ring{position:absolute; inset:0; width:100%; height:100%; transform:rotate(-90deg);}
+  .pdf-progress-sphere-track{fill:none; stroke:#26222f; stroke-width:3;}
+  .pdf-progress-sphere-arc{fill:none; stroke:#c084fc; stroke-width:3; stroke-linecap:round; stroke-dasharray:106.8; stroke-dashoffset:106.8; transition:stroke-dashoffset .18s ease; filter:drop-shadow(0 0 5px rgba(192,132,252,.55));}
+  .pdf-progress-sphere-percent{position:relative; z-index:1; font-size:.66rem; font-weight:700; color:#e9e3f2; letter-spacing:-0.02em;}
+  @media(prefers-reduced-motion:reduce){.pdf-load-progress-sphere{animation:none;}}
+  [data-theme="light"] .pdf-load-progress-sphere{background:rgba(255,255,255,.94); box-shadow:0 10px 26px rgba(39,31,55,.18), 0 0 0 1px rgba(109,40,217,.18) inset;}
+  [data-theme="light"] .pdf-progress-sphere-track{stroke:#eee8f5;}
+  [data-theme="light"] .pdf-progress-sphere-percent{color:#211b2b;}
   .pdf-reader-erreur{width:min(500px,92%);box-sizing:border-box;margin:12vh auto 0!important;padding:24px!important;border:1px solid rgba(248,113,113,.20);border-radius:20px;background:rgba(45,20,27,.72);box-shadow:0 18px 45px rgba(0,0,0,.22);}
   .pdf-reader-erreur p{color:#f7e8eb!important}.pdf-reader-erreur a{color:#b9f3c8!important;}
   .pdf-reader-erreur{gap:12px!important;text-align:center;}
@@ -4676,6 +4708,17 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
       <button type="button" id="pdfViewerSuiv" aria-label="Page suivante">Suivant →</button>
 
     </div>
+  </div>
+  <!-- Sphère de progression compacte : prend le relais de la barre pleine
+       largeur dès que la première page est affichée, pour libérer l'espace
+       de lecture. Casée en bas à gauche, à l'opposé du coin où Aurora
+       réduite se place par défaut (bas-droite), pour ne jamais se superposer. -->
+  <div id="pdfViewerProgressSphere" class="pdf-load-progress-sphere" role="status" aria-live="polite" aria-hidden="true" title="Préparation du document en cours">
+    <svg class="pdf-progress-sphere-ring" viewBox="0 0 40 40">
+      <circle class="pdf-progress-sphere-track" cx="20" cy="20" r="17"></circle>
+      <circle id="pdfViewerProgressSphereArc" class="pdf-progress-sphere-arc" cx="20" cy="20" r="17"></circle>
+    </svg>
+    <span id="pdfViewerProgressSpherePercent" class="pdf-progress-sphere-percent">0%</span>
   </div>
 </div>
 
@@ -12395,6 +12438,9 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
     if(percent) percent.textContent='0%';
     if(stage) stage.textContent='Préparation';
     if(speed) speed.textContent='Préparation…';
+    // Nouveau document : on repart sur la barre pleine largeur, pas la sphère
+    // compacte laissée par une éventuelle lecture précédente.
+    masquerSpherePDF();
   }
   function mettreAJourProgressionLecteurPDF(pct, etape, info={}) {
     const percentEl=document.getElementById('pdfViewerProgressPercent');
@@ -12414,7 +12460,43 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
       // La précision du pourcentage reste pilotée par les octets réellement reçus.
       if(info.speedText) speed.textContent=info.speedText;
     }
+    mettreAJourSpherePDF(p, etape);
   }
+
+  /* ---------- Sphère de progression (mode compact) ---------- */
+  const PDF_SPHERE_CIRCONFERENCE = 2 * Math.PI * 17; // r=17, cf. le SVG de la sphère
+  let pdfModeCompactActif = false;
+  function mettreAJourSpherePDF(p, etape){
+    const arc = document.getElementById('pdfViewerProgressSphereArc');
+    const percentEl = document.getElementById('pdfViewerProgressSpherePercent');
+    const sphere = document.getElementById('pdfViewerProgressSphere');
+    if(arc) arc.style.strokeDashoffset = String(PDF_SPHERE_CIRCONFERENCE * (1 - p / 100));
+    if(percentEl) percentEl.textContent = Math.round(p) + '%';
+    if(sphere && etape) sphere.title = etape;
+  }
+  // Bascule la barre pleine largeur vers la sphère compacte : appelé dès que
+  // la première page est visible et lisible, pour ne plus gêner la lecture.
+  function activerModeCompactProgressionPDF(){
+    if(pdfModeCompactActif) return;
+    pdfModeCompactActif = true;
+    const dock = document.getElementById('pdfViewerLoadProgressDock');
+    const sphere = document.getElementById('pdfViewerProgressSphere');
+    if(dock){ dock.classList.remove('is-visible'); dock.setAttribute('aria-hidden','true'); }
+    if(sphere){ sphere.classList.add('is-visible'); sphere.setAttribute('aria-hidden','false'); }
+  }
+  function masquerSpherePDF(){
+    pdfModeCompactActif = false;
+    const sphere = document.getElementById('pdfViewerProgressSphere');
+    if(sphere){ sphere.classList.remove('is-visible'); sphere.setAttribute('aria-hidden','true'); }
+  }
+  // Clic/tap sur la sphère : petit rappel de l'étape en cours via le badge
+  // (le texte est déjà exposé par l'attribut title / aria-live pour lecteurs
+  // d'écran), et navigation clavier basique.
+  document.getElementById('pdfViewerProgressSphere')?.addEventListener('click', function(){
+    const stage = document.getElementById('pdfViewerProgressStage');
+    const percentEl = document.getElementById('pdfViewerProgressSpherePercent');
+    if(stage && percentEl) this.title = stage.textContent + ' — ' + percentEl.textContent;
+  });
 
   const PDF_RECENTS_KEY='aurore_pdf_recents_v1';
   const PDF_RECENTS_MAX=8;
@@ -12736,6 +12818,7 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
     document.getElementById('pdfViewerLoading').style.display = 'flex';
     const progressDock=document.getElementById('pdfViewerLoadProgressDock');
     if(progressDock){ progressDock.classList.remove('is-visible'); progressDock.setAttribute('aria-hidden','true'); }
+    masquerSpherePDF();
     document.getElementById('pdfViewerErreurBox').style.display = 'none';
     document.getElementById('pdfViewerCanvas').style.display = 'none';
     const native=document.getElementById('pdfViewerNative');
@@ -13198,6 +13281,9 @@ async function telechargerDocumentAvecProgression(doc) {
       await rendreUnePagePDF(1,true);
       document.getElementById('pdfViewerLoading').style.display='none';
       document.getElementById('pdfViewerErreurBox').style.display='none';
+      // Les premières pages sont visibles : la barre pleine largeur laisse la
+      // place à la sphère compacte pour ne plus gêner la lecture.
+      activerModeCompactProgressionPDF();
       installerRenduProgressifPDF();
       installerSuiviPagesPDF();
       const pdfSessionToken = PDF_JETON_OUVERTURE;
@@ -13559,6 +13645,7 @@ async function telechargerDocumentAvecProgression(doc) {
     document.getElementById('pdfViewerOverlay').style.display = 'none';
     const progressDock=document.getElementById('pdfViewerLoadProgressDock');
     if(progressDock){ progressDock.classList.remove('is-visible'); progressDock.setAttribute('aria-hidden','true'); }
+    masquerSpherePDF();
     const canvas = document.getElementById('pdfViewerCanvas');
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
