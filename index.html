@@ -20476,7 +20476,34 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     if(aExp)return [ -5, 5 ];
     return [-10,10];
   }
+  // --- Signal explicite du backend : "Fonction à tracer : ..." / "Fonctions à
+  // tracer : ...". Ce contrat est produit par aurora-deepseek-live (soit par
+  // DeepSeek lui-même, soit injecté par son garde-fou déterministe) dès qu'une
+  // fonction mathématique identifiable est en jeu, MÊME si l'utilisateur n'a
+  // employé aucun verbe de tracé ("Parle-moi de la fonction exponentielle").
+  // Ce signal est prioritaire et autosuffisant : sa seule présence doit
+  // déclencher la construction réelle de la courbe, sans dépendre des mots
+  // choisis par l'utilisateur. ---
+  const AURORA_SIGNAL_A_TRACER=/Fonctions?\s+à\s+tracer\s*:\s*([^\n]+)/iu;
+  function auroraExtraireDuSignalBackend(assistantText){
+    const m=AURORA_SIGNAL_A_TRACER.exec(String(assistantText||''));
+    if(!m)return [];
+    const resultats=[];
+    m[1].split(';').forEach(part=>{
+      const mm=part.trim().match(/^([a-zA-Zα-ωΑ-Ω][\w]*\s*(?:\(\s*x\s*\))?)\s*=\s*(.+)$/);
+      if(!mm)return;
+      let raw=mm[2].trim().replace(/[.\s]+$/,'');
+      if(!raw)return;
+      resultats.push({label:mm[1].trim().replace(/\s+/g,'')+' = '+raw,raw,domain:/\b(?:ln|log)\s*\(/i.test(raw)?'positive':'all'});
+    });
+    return resultats;
+  }
   function auroraDemandeGraphique(userText,assistantText){
+    // Priorité absolue : le contrat backend, indépendant du phrasé utilisateur.
+    const parSignalBackend=auroraExtraireDuSignalBackend(assistantText);
+    if(parSignalBackend.length)return {functions:parSignalBackend.slice(0,6),xRange:auroraDeterminerPlageGraphique(parSignalBackend),intention:'GRAPH_MATH'};
+    // Filet de secours existant : filtre lexical côté utilisateur, pour les cas
+    // où la réponse n'a exceptionnellement pas produit la ligne de contrat.
     const texteUtilisateur=auroraNormaliserDemandeGraphiqueTexte(userText);
     if(!AURORA_DECLENCHEUR_GRAPHIQUE.test(texteUtilisateur))return null;
     let fonctions=auroraExtraireDeriveeGraphique(texteUtilisateur);
