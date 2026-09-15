@@ -3765,6 +3765,11 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
             <span class="admin-category-desc">Détection de copies</span>
             <span class="tab-count" id="tabCountDoublons">0</span>
           </button>
+          <button type="button" class="admin-tab admin-category-card" data-tab="diagnostic-aurora" role="tab" data-accent="rouge">
+            <span class="admin-category-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.9 4.9l2.8 2.8"/><path d="M16.3 16.3l2.8 2.8"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.9 19.1l2.8-2.8"/><path d="M16.3 7.7l2.8-2.8"/><circle cx="12" cy="12" r="3"/></svg></span>
+            <span class="admin-category-title">Diagnostic Aurora</span>
+            <span class="admin-category-desc">État réel du circuit IA</span>
+          </button>
         </div>
 
         <div class="admin-detail" id="adminDetail" style="display:none;">
@@ -4045,6 +4050,34 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
               <button type="button" class="admin-btn ghost" id="adminLogoReset">Revenir à l'initiale (A)</button>
             </div>
             <div class="form-msg" id="adminLogoMsg"></div>
+          </div>
+        </div>
+
+        <div class="admin-tab-panel" data-panel="diagnostic-aurora">
+          <p class="admin-panel-desc">Diagnostic technique réel de la chaîne Aurora : navigateur → session Supabase → Edge Function → DeepSeek → navigateur. Aucun résultat n'est simulé. Réservé à l'administration, sans effet sur l'expérience des élèves/utilisateurs.</p>
+
+          <div class="diag-meta" id="diagMeta">
+            <span class="diag-id" id="diagId">Identifiant : — (pas encore lancé)</span>
+            <span class="diag-global-badge" id="diagGlobalBadge" data-state="pending">⚪ Non testé</span>
+          </div>
+
+          <div class="diag-actions">
+            <button type="button" class="admin-btn primary" id="diagRunFull">Lancer un diagnostic complet</button>
+            <button type="button" class="admin-btn ghost" id="diagRunBonjour">Test Aurora réel</button>
+            <button type="button" class="admin-btn ghost" id="diagRunDeepseek">Tester DeepSeek</button>
+            <button type="button" class="admin-btn ghost" id="diagToggleLog">Voir le journal technique</button>
+          </div>
+
+          <div class="form-msg" id="diagRunMsg" style="display:none;"></div>
+
+          <div class="diag-rows" id="diagRows"></div>
+
+          <div class="diag-log-box" id="diagLogBox" style="display:none;">
+            <div class="diag-log-head">
+              <strong>Journal technique</strong>
+              <button type="button" class="admin-btn ghost" id="diagCopyLog">Copier</button>
+            </div>
+            <pre class="diag-log" id="diagLog"></pre>
           </div>
         </div>
         </div>
@@ -19286,6 +19319,12 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
   // d'un bouton-relais masqué dans l'en-tête.
   window.auroreOuvrirIA=openIA;
 
+  // Exposition en lecture seule pour le Centre de diagnostic Aurora
+  // (administration uniquement) : lui permet d'appeler le circuit réel
+  // (même endpoint, mêmes paramètres) au lieu de dupliquer cette logique.
+  // Ne change rien au fonctionnement normal d'Aurora pour les utilisateurs.
+  window.invokeAuroreIA=invokeAuroreIA;
+
   function closeIA(){
     closePlusMenu();
     if(screen.classList.contains('is-mini')){
@@ -20170,6 +20209,485 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     if(typeof form.requestSubmit==='function') form.requestSubmit();
     else form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));
   });
+})();
+</script>
+
+<!-- ===== AURORA — CENTRE DE DIAGNOSTIC (admin uniquement) =====
+     Ajout ciblé et réversible : ne modifie aucune fonction existante,
+     ne change pas le comportement normal d'Aurora. Visible uniquement dans
+     l'onglet "Diagnostic Aurora" du tableau de bord admin (lui-même déjà
+     réservé aux comptes dont session.role === 'admin'). -->
+<style id="aurora-diagnostic-css">
+  .diag-meta{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:6px 0 4px;}
+  .diag-id{font-size:.76rem;color:var(--gris);font-family:monospace;word-break:break-all;}
+  .diag-global-badge{font-size:.82rem;font-weight:700;padding:4px 12px;border-radius:999px;background:rgba(170,165,189,.15);white-space:nowrap;}
+  .diag-global-badge[data-state="ok"]{background:rgba(127,191,158,.18);color:var(--vert);}
+  .diag-global-badge[data-state="warn"]{background:rgba(230,180,80,.18);color:#d2a13f;}
+  .diag-global-badge[data-state="fail"]{background:rgba(224,119,107,.18);color:var(--rouge);}
+  .diag-actions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;}
+  .diag-rows{display:flex;flex-direction:column;gap:6px;margin-top:8px;}
+  .diag-row{border:1px solid var(--bordure);border-radius:12px;padding:10px 12px;background:var(--fond);}
+  .diag-row[data-state="ok"]{border-color:rgba(127,191,158,.4);}
+  .diag-row[data-state="fail"]{border-color:rgba(224,119,107,.5);}
+  .diag-row[data-state="warn"]{border-color:rgba(230,180,80,.5);}
+  .diag-row-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .diag-row-icon{font-size:1rem;line-height:1;}
+  .diag-row-name{font-weight:700;flex:1 1 auto;min-width:140px;font-size:.86rem;}
+  .diag-row-duration{font-size:.76rem;color:var(--gris);min-width:56px;text-align:right;}
+  .diag-row-time{font-size:.7rem;color:var(--gris);min-width:64px;text-align:right;}
+  .diag-row-msg{font-size:.8rem;color:var(--gris);margin-top:4px;}
+  .diag-row-detail-toggle{font-size:.74rem;background:none;border:none;color:var(--bleu);cursor:pointer;padding:2px 0;font-weight:600;}
+  .diag-row-detail{display:none;font-size:.74rem;background:rgba(170,165,189,.1);border-radius:8px;padding:8px 10px;margin-top:6px;white-space:pre-wrap;word-break:break-word;font-family:monospace;}
+  .diag-row-detail.open{display:block;}
+  .diag-log-box{margin-top:14px;border:1px solid var(--bordure);border-radius:12px;padding:10px 12px;}
+  .diag-log-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+  .diag-log{max-height:260px;overflow:auto;font-size:.72rem;white-space:pre-wrap;margin:0;font-family:monospace;}
+</style>
+<script id="aurora-diagnostic-js">
+(function(){
+  const TAB_ID='diagnostic-aurora';
+  const tabBtn=document.querySelector('.admin-tab[data-tab="'+TAB_ID+'"]');
+  const panel=document.querySelector('.admin-tab-panel[data-panel="'+TAB_ID+'"]');
+  if(!tabBtn||!panel)return;
+
+  const TESTS=[
+    {id:'interface',label:'Interface Aurora'},
+    {id:'session',label:'Session utilisateur'},
+    {id:'token',label:'Token Supabase'},
+    {id:'endpoint',label:'Endpoint Edge Function'},
+    {id:'cors',label:'CORS / transport HTTP'},
+    {id:'edgeauth',label:'Authentification Edge Function'},
+    {id:'reception',label:'Réception de la requête'},
+    {id:'deepseek',label:'DeepSeek API'},
+    {id:'deepseek_resp',label:'Réponse DeepSeek'},
+    {id:'edge_resp',label:'Réponse Edge Function'},
+    {id:'json',label:'Parsing JSON'},
+    {id:'affichage',label:'Affichage Aurora'}
+  ];
+  const IDS_CIRCUIT=['endpoint','cors','edgeauth','reception','deepseek','deepseek_resp','edge_resp','json','affichage'];
+  const ICONS={ok:'🟢',warn:'🟡',fail:'🔴',pending:'⚪'};
+  const MESSAGE_BONJOUR='Bonjour, réponds uniquement : Aurora opérationnelle.';
+  const MESSAGE_DEEPSEEK_TEST='Réponds uniquement : TEST AURORA OK';
+  const echapper=(typeof echapperHtmlPub==='function')?echapperHtmlPub:function(s){
+    const d=document.createElement('div');d.textContent=String(s==null?'':s);return d.innerHTML;
+  };
+
+  let etats={};
+  let diagnosticId=null;
+  let journal=[];
+
+  function estAdmin(){return !!(typeof session!=='undefined'&&session&&session.role==='admin');}
+
+  function heureFr(){return new Date().toLocaleTimeString('fr-FR',{hour12:false});}
+
+  function genererDiagnosticId(){
+    const d=new Date();
+    const pad=n=>String(n).padStart(2,'0');
+    const horod=d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'-'+pad(d.getHours())+pad(d.getMinutes())+pad(d.getSeconds());
+    const rnd=Array.from({length:4},()=>'0123456789ABCDEF'[Math.floor(Math.random()*16)]).join('');
+    return 'AUR-'+horod+'-'+rnd;
+  }
+
+  function logEtape(texte){
+    journal.push(heureFr()+' — '+texte);
+    const el=document.getElementById('diagLog');
+    if(el)el.textContent=journal.join('\n');
+  }
+
+  function maskToken(t){
+    if(!t)return '—';
+    if(t.length<12)return '********';
+    return '********'+t.slice(-4);
+  }
+
+  function decodeJwtPayload(t){
+    try{
+      const partie=t.split('.')[1];
+      const b64=partie.replace(/-/g,'+').replace(/_/g,'/');
+      const pad=b64.length%4?'='.repeat(4-(b64.length%4)):'';
+      const json=decodeURIComponent(atob(b64+pad).split('').map(c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+      return JSON.parse(json);
+    }catch(_){return null;}
+  }
+
+  function avecTimeout(promesse,ms,texte){
+    return Promise.race([promesse,new Promise((_,rej)=>setTimeout(()=>rej(new Error(texte||'TIMEOUT')),ms))]);
+  }
+
+  function setRow(id,state,dureeMs,msg,detail){
+    etats[id]={state,duree:(dureeMs!=null?dureeMs+' ms':'—'),heure:heureFr(),msg:msg||'',detail:detail||''};
+    render();
+  }
+
+  function resetRows(){
+    etats={};
+    TESTS.forEach(t=>{etats[t.id]={state:'pending',duree:'—',heure:'—',msg:'Non testé',detail:''};});
+    render();
+  }
+
+  function render(){
+    const box=document.getElementById('diagRows');
+    if(!box)return;
+    box.innerHTML=TESTS.map(t=>{
+      const e=etats[t.id]||{state:'pending',duree:'—',heure:'—',msg:'Non testé',detail:''};
+      const detailId='diagDetail_'+t.id;
+      let html='<div class="diag-row" data-state="'+e.state+'">'
+        +'<div class="diag-row-top">'
+          +'<span class="diag-row-icon">'+ICONS[e.state]+'</span>'
+          +'<span class="diag-row-name">'+echapper(t.label)+'</span>'
+          +'<span class="diag-row-duration">'+echapper(e.duree)+'</span>'
+          +'<span class="diag-row-time">'+echapper(e.heure)+'</span>'
+        +'</div>'
+        +'<div class="diag-row-msg">'+echapper(e.msg)+'</div>';
+      if(e.detail){
+        html+='<button type="button" class="diag-row-detail-toggle" data-detail-toggle="'+detailId+'">Détail ›</button>'
+          +'<pre class="diag-row-detail" id="'+detailId+'">'+echapper(e.detail)+'</pre>';
+      }
+      html+='</div>';
+      return html;
+    }).join('');
+    box.querySelectorAll('[data-detail-toggle]').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const d=document.getElementById(btn.getAttribute('data-detail-toggle'));
+        if(d)d.classList.toggle('open');
+      });
+    });
+    updateGlobalBadge();
+  }
+
+  function updateGlobalBadge(){
+    const badge=document.getElementById('diagGlobalBadge');
+    if(!badge)return;
+    const states=TESTS.map(t=>(etats[t.id]||{}).state||'pending');
+    let global='pending',label='⚪ Non testé';
+    if(states.every(s=>s==='pending')){global='pending';label='⚪ Non testé';}
+    else if(states.some(s=>s==='fail')){global='fail';label='🔴 Bloqué';}
+    else if(states.some(s=>s==='warn')||states.some(s=>s==='pending')){global='warn';label='🟡 Dégradé';}
+    else{global='ok';label='🟢 Fonctionnel';}
+    badge.dataset.state=global;
+    badge.textContent=label;
+  }
+
+  function setMsg(txt,cls){
+    const el=document.getElementById('diagRunMsg');
+    if(!el)return;
+    el.style.display='block';
+    el.textContent=txt;
+    el.className='form-msg'+(cls?(' '+cls):'');
+  }
+
+  function afficherId(){
+    const el=document.getElementById('diagId');
+    if(!el)return;
+    const endpoint=(typeof SUPABASE_URL!=='undefined'?SUPABASE_URL:'?')+'/functions/v1/aurora-deepseek-live';
+    el.textContent='Identifiant : '+diagnosticId+' — connexion : '+(navigator.onLine?'en ligne':'hors-ligne')+' — endpoint : '+endpoint;
+  }
+
+  function marquerNonTestable(ids,motif){
+    ids.forEach(id=>setRow(id,'pending',null,motif||'Non testé — étape précédente en échec ou non exécutée.'));
+  }
+
+  // ---------- Étapes 1 à 3 : gratuites, sans appel DeepSeek ----------
+
+  async function testerInterface(){
+    const debut=Date.now();
+    const okFn=typeof window.invokeAuroreIA==='function';
+    const okDom=!!document.getElementById('screen-aurore-ia');
+    const duree=Date.now()-debut;
+    if(okFn&&okDom){
+      setRow('interface','ok',duree,'Interface et fonctions Aurora présentes dans la page.');
+      logEtape('Interface Aurora détectée');
+      return true;
+    }
+    setRow('interface','fail',duree,'Fonctions/écran Aurora introuvables.', 'invokeAuroreIA exposé : '+okFn+' — écran #screen-aurore-ia présent : '+okDom);
+    logEtape('Échec — interface Aurora introuvable');
+    return false;
+  }
+
+  async function testerSession(){
+    const debut=Date.now();
+    try{
+      const client=await avecTimeout((async()=>{
+        if(typeof assurerClientAuthGoogle==='function')return await assurerClientAuthGoogle();
+        return (typeof AURORE_SUPABASE_AUTH!=='undefined')?AURORE_SUPABASE_AUTH:null;
+      })(),5000,'TIMEOUT_CLIENT');
+      if(!client)throw new Error('Client Supabase indisponible.');
+      const {data,error}=await avecTimeout(client.auth.getSession(),5000,'TIMEOUT_SESSION');
+      const duree=Date.now()-debut;
+      if(error)throw error;
+      if(!data||!data.session){
+        setRow('session','fail',duree,'Aucune session Supabase active (utilisateur non authentifié côté Auth).');
+        logEtape('Échec — aucune session Supabase active');
+        return null;
+      }
+      setRow('session','ok',duree,'Session trouvée, utilisateur authentifié auprès de Supabase Auth.');
+      logEtape('Session détectée');
+      return data.session;
+    }catch(e){
+      const duree=Date.now()-debut;
+      const brut=String((e&&e.message)||e);
+      const msg=/TIMEOUT/.test(brut)?'Délai dépassé (5 s) lors de la vérification de session.':('Erreur de session : '+brut);
+      setRow('session','fail',duree,msg);
+      logEtape('Échec session — '+msg);
+      return null;
+    }
+  }
+
+  async function testerToken(sessionSupabase){
+    const debut=Date.now();
+    const token=(sessionSupabase&&sessionSupabase.access_token)||'';
+    const duree=Date.now()-debut;
+    if(!token){
+      setRow('token','fail',duree,'Aucun jeton présent dans la session.');
+      logEtape('Échec — jeton absent');
+      return null;
+    }
+    const payload=decodeJwtPayload(token);
+    const exp=(payload&&payload.exp)?new Date(payload.exp*1000):null;
+    const valide=exp?(exp.getTime()>Date.now()):null;
+    const msg='Token présent : oui — Token valide : '+(valide==null?'inconnu':(valide?'oui':'non'))+' — Token aperçu : '+maskToken(token);
+    const detail='Expiration approximative : '+(exp?exp.toLocaleString('fr-FR'):'inconnue')+'\n(Le jeton complet n’est jamais affiché.)';
+    setRow('token',valide===false?'fail':'ok',duree,msg,detail);
+    logEtape(valide===false?'Échec — jeton expiré':'Jeton présent et exploitable');
+    return token;
+  }
+
+  // ---------- Étapes 4 à 12 : un seul appel réel au circuit de production ----------
+  // Réutilise window.invokeAuroreIA (même endpoint, mêmes paramètres qu'Aurora
+  // en production) : aucune logique séparée n'est créée pour ce diagnostic.
+
+  async function executerCircuit(message){
+    IDS_CIRCUIT.forEach(id=>setRow(id,'pending',null,'En cours…'));
+    logEtape('Requête Edge Function envoyée');
+    if(typeof window.invokeAuroreIA!=='function'){
+      IDS_CIRCUIT.forEach(id=>setRow(id,'fail',null,'invokeAuroreIA indisponible dans cette page.'));
+      logEtape('Échec — invokeAuroreIA introuvable');
+      return {ok:false,conclusion:'PROBLEME_NAVIGATEUR'};
+    }
+    const debut=Date.now();
+    try{
+      const data=await window.invokeAuroreIA(message);
+      const duree=Date.now()-debut;
+      logEtape('HTTP 200 reçu');
+      setRow('endpoint','ok',duree,'Edge Function jointe.');
+      setRow('cors','ok',duree,'Transport HTTP réussi, aucune erreur CORS.');
+      setRow('edgeauth','ok',duree,'Jeton accepté par l’Edge Function.');
+      setRow('reception','ok',duree,'Requête reçue et traitée par l’Edge Function.');
+      const dureeDeepseek=(data&&data.elapsedMs!=null)?data.elapsedMs:duree;
+      setRow('deepseek','ok',dureeDeepseek,'Réponse reçue de DeepSeek.'+(data&&data.model?(' Modèle : '+data.model):''));
+      logEtape('DeepSeek répondu');
+      const usage=data&&data.usage;
+      const usageTxt=(usage&&(usage.total_tokens||usage.prompt_tokens||usage.completion_tokens))
+        ?('Tokens — prompt : '+(usage.prompt_tokens==null?'—':usage.prompt_tokens)+', complétion : '+(usage.completion_tokens==null?'—':usage.completion_tokens)+', total : '+(usage.total_tokens==null?'—':usage.total_tokens))
+        :'Réponse reçue — consommation non fournie par l’API';
+      setRow('deepseek_resp','ok',null,usageTxt);
+      setRow('edge_resp','ok',null,'route : '+((data&&data.route)||'—')+' — source : '+((data&&data.source)||'—')+' — finishReason : '+((data&&data.finishReason)||'—'));
+      logEtape('JSON analysé');
+      setRow('json','ok',null,'Réponse JSON valide.');
+      const texte=(data&&typeof data.text==='string')?data.text.trim():'';
+      const placeholderSuspect=/@@AURORAMATH|@@AURORA_MATH|\[MATH\]/i.test(texte);
+      if(texte&&!placeholderSuspect){
+        setRow('affichage','ok',null,'Réponse affichable : « '+texte.slice(0,80)+(texte.length>80?'…':'')+' »');
+      }else{
+        setRow('affichage','fail',null,'Réponse vide ou contenant un repère de formatage non résolu.');
+      }
+      logEtape('Diagnostic terminé');
+      return {ok:true,conclusion:'CIRCUIT_COMPLET',data};
+    }catch(e){
+      const duree=Date.now()-debut;
+      const brut=String((e&&e.message)||e);
+      logEtape('Échec du circuit');
+      logEtape(brut);
+      return analyserEchecCircuit(brut,duree);
+    }
+  }
+
+  function analyserEchecCircuit(brut,duree){
+    // Session/jeton indisponible AVANT même l'envoi réseau (vérifié côté navigateur
+    // par invokeAuroreIA lui-même, avant le fetch()).
+    if(/Session Aurora absente|Connectez-vous à Aurore|espace sécurisé|trop de temps à répondre/i.test(brut)){
+      setRow('endpoint','fail',duree,'Requête non envoyée : session/jeton indisponible côté navigateur.',brut);
+      marquerNonTestable(IDS_CIRCUIT.slice(1));
+      return {ok:false,conclusion:'PROBLEME_AUTH'};
+    }
+    // Échec réseau générique avant toute réponse HTTP (fetch() a levé une TypeError).
+    if(/Impossible de joindre Aurora/i.test(brut)){
+      setRow('endpoint','fail',duree,'La requête n’a pas atteint l’Edge Function.','Erreur navigateur : TypeError: Failed to fetch (ou équivalent réseau/DNS/CORS).');
+      setRow('cors','fail',duree,'Erreur de transport avant toute réponse HTTP (réseau, DNS ou CORS).');
+      marquerNonTestable(IDS_CIRCUIT.slice(2));
+      return {ok:false,conclusion:'PROBLEME_NAVIGATEUR'};
+    }
+    // Timeout côté navigateur en attendant la réponse (AbortController, 70 s).
+    if(/n[’']a pas reçu la réponse de DeepSeek/i.test(brut)){
+      setRow('endpoint','ok',duree,'Edge Function jointe.');
+      setRow('cors','ok',duree,'Transport HTTP réussi.');
+      setRow('edgeauth','ok',duree,'Jeton accepté.');
+      setRow('reception','ok',duree,'Requête reçue par l’Edge Function.');
+      setRow('deepseek','fail',duree,'Délai dépassé côté navigateur en attendant la réponse (AbortError, 70 s).');
+      marquerNonTestable(IDS_CIRCUIT.slice(5));
+      return {ok:false,conclusion:'PROBLEME_DEEPSEEK'};
+    }
+    // Réponse HTTP reçue mais texte illisible (response.text() a échoué).
+    if(/réponse illisible/i.test(brut)){
+      setRow('endpoint','ok',duree,'Edge Function jointe.');
+      setRow('cors','ok',duree,'Transport HTTP réussi.');
+      setRow('edgeauth','ok',duree,'Jeton accepté (réponse HTTP reçue).');
+      setRow('reception','ok',duree,'Requête traitée par l’Edge Function.');
+      setRow('deepseek','warn',duree,'Étape non déterminable — réponse HTTP reçue mais illisible.');
+      setRow('deepseek_resp','warn',duree,'Corps de réponse illisible.');
+      setRow('edge_resp','fail',duree,'Impossible de lire le corps de la réponse Edge Function.',brut);
+      marquerNonTestable(IDS_CIRCUIT.slice(8));
+      return {ok:false,conclusion:'PROBLEME_EDGE_FUNCTION'};
+    }
+    // JSON.parse() a échoué côté navigateur.
+    const mHttpSeul=brut.match(/\(HTTP (\d+)\)/);
+    if(/réponse invalide/i.test(brut)){
+      setRow('endpoint','ok',duree,'Edge Function jointe.');
+      setRow('cors','ok',duree,'Transport HTTP réussi.');
+      setRow('edgeauth','ok',duree,'Jeton accepté (réponse HTTP reçue).');
+      setRow('reception','ok',duree,'Requête traitée par l’Edge Function.');
+      setRow('deepseek','warn',duree,'Non déterminable — réponse HTTP reçue mais JSON invalide.');
+      setRow('deepseek_resp','warn',duree,'Non déterminable.');
+      setRow('edge_resp','warn',duree,'HTTP '+(mHttpSeul?mHttpSeul[1]:'inconnu')+' reçu, contenu non-JSON.');
+      setRow('json','fail',duree,'Échec de l’analyse JSON de la réponse.',brut);
+      marquerNonTestable(IDS_CIRCUIT.slice(8));
+      return {ok:false,conclusion:'PROBLEME_EDGE_FUNCTION'};
+    }
+    // Réponse structurée { ok:false, stage, error, ... } réellement renvoyée par
+    // aurora-deepseek-live (voir invokeAuroreIA : "[stage] erreur (HTTP xxx) — diagnostic DeepSeek : ...").
+    const mStage=brut.match(/^\[([a-z_]+)\]\s*([\s\S]*)$/i);
+    if(mStage){
+      const stage=mStage[1];
+      const reste=mStage[2];
+      const mHttp=reste.match(/\(HTTP (\d+)\)/);
+      const httpCode=mHttp?mHttp[1]:null;
+      const mProbe=reste.match(/diagnostic DeepSeek : ([\s\S]+)$/);
+      const probe=mProbe?mProbe[1]:null;
+
+      setRow('endpoint','ok',duree,'Edge Function jointe.');
+      setRow('cors','ok',duree,'Transport HTTP réussi, réponse reçue.');
+
+      if(stage==='supabase_auth'){
+        setRow('edgeauth','fail',duree,'Session rejetée par l’Edge Function'+(httpCode?(' (HTTP '+httpCode+')'):'')+'.',reste);
+        marquerNonTestable(IDS_CIRCUIT.slice(3));
+        return {ok:false,conclusion:'PROBLEME_AUTH'};
+      }
+      if(stage==='supabase_config'){
+        setRow('edgeauth','fail',duree,'Configuration Supabase interne absente côté Edge Function.',reste);
+        marquerNonTestable(IDS_CIRCUIT.slice(3));
+        return {ok:false,conclusion:'PROBLEME_EDGE_FUNCTION'};
+      }
+      setRow('edgeauth','ok',duree,'Jeton accepté par l’Edge Function.');
+      setRow('reception','ok',duree,'Requête reçue et traitée par l’Edge Function.');
+
+      if(stage==='secret'){
+        setRow('deepseek','fail',duree,'Clé DeepSeek absente des secrets Supabase.',reste);
+        marquerNonTestable(IDS_CIRCUIT.slice(5));
+        return {ok:false,conclusion:'PROBLEME_EDGE_FUNCTION'};
+      }
+      if(stage==='deepseek_generation'){
+        setRow('deepseek','fail',duree,'Connexion à DeepSeek impossible ou expirée.'+(probe?(' Sonde /models : '+probe):''),reste);
+        marquerNonTestable(IDS_CIRCUIT.slice(5));
+        return {ok:false,conclusion:'PROBLEME_DEEPSEEK'};
+      }
+      if(stage==='deepseek_response'){
+        setRow('deepseek','ok',duree,'DeepSeek a répondu'+(httpCode?(' (HTTP '+httpCode+')'):'')+'.');
+        setRow('deepseek_resp','fail',duree,'Lecture ou contenu de la réponse DeepSeek en échec.',reste);
+        marquerNonTestable(IDS_CIRCUIT.slice(6));
+        return {ok:false,conclusion:'PROBLEME_DEEPSEEK'};
+      }
+      setRow('reception','fail',duree,'Erreur interne de l’Edge Function (étape « '+stage+' »).',reste);
+      marquerNonTestable(IDS_CIRCUIT.slice(4));
+      return {ok:false,conclusion:'PROBLEME_EDGE_FUNCTION'};
+    }
+    // Cas non reconnu : le message technique réel est conservé sans être
+    // réinterprété à tort (voir consigne « ne plus tout réduire à un message générique »).
+    setRow('endpoint','warn',duree,'Réponse reçue mais non reconnue par le diagnostic — voir le journal.',brut);
+    marquerNonTestable(IDS_CIRCUIT.slice(1));
+    return {ok:false,conclusion:'INDETERMINE'};
+  }
+
+  const LABELS_CONCLUSION={
+    PROBLEME_NAVIGATEUR:'🔴 PROBLÈME NAVIGATEUR — le navigateur n’arrive pas à joindre l’Edge Function.',
+    PROBLEME_AUTH:'🔴 PROBLÈME AUTH — la session existe mais le jeton n’est pas accepté (ou absent).',
+    PROBLEME_EDGE_FUNCTION:'🔴 PROBLÈME EDGE FUNCTION — la fonction reçoit la requête mais échoue avant DeepSeek.',
+    PROBLEME_DEEPSEEK:'🔴 PROBLÈME DEEPSEEK — la fonction fonctionne mais DeepSeek ne répond pas correctement.',
+    CIRCUIT_COMPLET:'🟢 CIRCUIT COMPLET — navigateur → Supabase → Edge Function → DeepSeek → réponse → navigateur : OK.',
+    PARTIEL:'🟡 Diagnostic partiel — circuit DeepSeek non testé (confirmation refusée).',
+    INDETERMINE:'🟡 Résultat non reconnu automatiquement — voir le journal technique pour le message exact.'
+  };
+
+  function finaliser(conclusion){
+    setMsg(LABELS_CONCLUSION[conclusion]||'Diagnostic terminé.',
+      conclusion==='CIRCUIT_COMPLET'?'ok':((conclusion==='PARTIEL'||conclusion==='INDETERMINE')?'':'err'));
+    logEtape('Diagnostic terminé');
+  }
+
+  async function lancerDiagnosticComplet(){
+    if(!estAdmin())return;
+    diagnosticId=genererDiagnosticId();
+    journal=[];
+    resetRows();
+    afficherId();
+    logEtape('Diagnostic démarré ('+diagnosticId+')');
+    setMsg('Diagnostic en cours…','');
+
+    await testerInterface();
+    const sess=await testerSession();
+    if(!sess){marquerNonTestable(['token'].concat(IDS_CIRCUIT));finaliser('PROBLEME_AUTH');return;}
+    const token=await testerToken(sess);
+    if(!token){marquerNonTestable(IDS_CIRCUIT);finaliser('PROBLEME_AUTH');return;}
+
+    const confirme=window.confirm('Le diagnostic va maintenant appeler réellement Aurora → Supabase → DeepSeek pour tester tout le circuit.\nCela consomme de vrais tokens DeepSeek.\n\nContinuer ?');
+    if(!confirme){
+      marquerNonTestable(IDS_CIRCUIT,'Non testé — confirmation refusée par l’administrateur.');
+      logEtape('Circuit DeepSeek non testé (confirmation refusée)');
+      finaliser('PARTIEL');
+      return;
+    }
+    const resultat=await executerCircuit(MESSAGE_DEEPSEEK_TEST);
+    finaliser(resultat.conclusion);
+  }
+
+  async function lancerTestBonjour(){
+    if(!estAdmin())return;
+    const confirme=window.confirm('Envoyer un vrai message à Aurora (« '+MESSAGE_BONJOUR+' ») ?\nCeci utilise le circuit réel et consomme un vrai appel DeepSeek.');
+    if(!confirme)return;
+    if(!diagnosticId){diagnosticId=genererDiagnosticId();}
+    afficherId();
+    logEtape('Test Aurora réel lancé');
+    setMsg('Test en cours…','');
+    const sess=await testerSession();
+    if(sess)await testerToken(sess);
+    const resultat=await executerCircuit(MESSAGE_BONJOUR);
+    finaliser(resultat.conclusion);
+  }
+
+  async function lancerTestDeepseekSeul(){
+    if(!estAdmin())return;
+    const confirme=window.confirm('Lancer un appel de test dédié à DeepSeek via l’Edge Function réelle ?\nCeci consomme de vrais tokens DeepSeek.');
+    if(!confirme)return;
+    if(!diagnosticId){diagnosticId=genererDiagnosticId();}
+    afficherId();
+    logEtape('Test DeepSeek (dédié) lancé');
+    setMsg('Test en cours…','');
+    const resultat=await executerCircuit(MESSAGE_DEEPSEEK_TEST);
+    finaliser(resultat.conclusion);
+  }
+
+  document.getElementById('diagRunFull')?.addEventListener('click',lancerDiagnosticComplet);
+  document.getElementById('diagRunBonjour')?.addEventListener('click',lancerTestBonjour);
+  document.getElementById('diagRunDeepseek')?.addEventListener('click',lancerTestDeepseekSeul);
+  document.getElementById('diagToggleLog')?.addEventListener('click',()=>{
+    const box=document.getElementById('diagLogBox');
+    if(box)box.style.display=(box.style.display==='none'?'block':'none');
+  });
+  document.getElementById('diagCopyLog')?.addEventListener('click',()=>{
+    const txt=journal.join('\n');
+    if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).catch(()=>{});
+  });
+
+  resetRows();
 })();
 </script>
 </body>
