@@ -20190,13 +20190,20 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
   // graphiquement", "dessine la courbe"...) : une simple présence de LaTeX ou
   // une explication mathématique ("Explique-moi la dérivée de x²") ne doit
   // JAMAIS déclencher de graphique.
-  const AURORA_DECLENCHEUR_GRAPHIQUE=/\b(trace[rz]?s?|repr[ée]sente(?:r|z)?(?:\s+graphiquement)?|dessine[rz]?s?(?:\s+(?:la|les)\s+courbe[s]?)?|graphe|graphique|courbe)\b/i;
+  const AURORA_DECLENCHEUR_GRAPHIQUE=/\b(trace[rz]?s?|construi[st]?s?|construire|repr[ée]sente(?:r|z)?(?:\s+graphiquement)?|dessine[rz]?s?(?:\s+(?:la|les)\s+courbe[s]?)?|graphe|graphique|courbe)\b/i;
   function auroraNormaliserDemandeGraphiqueTexte(texte){
     let s=String(texte||'');
     // Vocabulaire naturel français fréquemment utilisé pour parler des puissances.
+    // Ces règles servent au moteur graphique local : elles ne modifient pas la
+    // réponse textuelle de DeepSeek.
     s=s.replace(/\bx\s+(?:au\s+)?carr[ée]\b/gi,'x^2');
     s=s.replace(/\bx\s+(?:au\s+)?cube\b/gi,'x^3');
     s=s.replace(/\bx\s+puissance\s+(\d+)\b/gi,'x^$1');
+    // "fonction carré", "fonction f carré", "f carré" et variantes
+    // désignent ici la fonction f(x)=x² lorsqu'une demande de tracé est explicite.
+    s=s.replace(/\bfonction(?:\s+f)?\s+(?:au\s+)?carr[ée]\b/gi,'f(x)=x^2');
+    s=s.replace(/\bf\s+(?:au\s+)?carr[ée]\b/gi,'f(x)=x^2');
+    s=s.replace(/\bfonction(?:\s+f)?\s+(?:au\s+)?cube\b/gi,'f(x)=x^3');
     return s;
   }
 
@@ -20227,7 +20234,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       if(expr)resultats.push({label:label+' = '+expr,raw:expr});
     }
     if(resultats.length)return resultats;
-    const motifs=/(?:sin|cos|tan|exp|ln|log|sqrt)\s*\([^)]*\)|x\s*[²³]|x\s*\^\s*\d+|√\s*x|\|x\|/gi;
+    const motifs=/(?:sin|cos|tan|exp|ln|log|sqrt)\s*\([^)]*\)|x\s*[²³]|x\s*\^\s*\d+|√\s*x|\|x\||(?:[+-]?\s*\d*\s*x(?:\s*\^\s*\d+)?(?:\s*[+-]\s*\d+)?)/gi;
     let m2;const vus=new Set();
     while((m2=motifs.exec(s))){
       const brut=m2[0];
