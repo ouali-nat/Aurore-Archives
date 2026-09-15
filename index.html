@@ -19152,47 +19152,28 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       skillHint:'FORMAT MATHÉMATIQUE OBLIGATOIRE : si ta réponse contient des mathématiques, écris directement les formules en LaTeX standard avec \\( ... \\) pour une formule dans une phrase et \\[ ... \\] pour une formule isolée. N’utilise JAMAIS de marqueurs ou placeholders tels que @@AURORAMATH0@@, @@AURORA_MATH_0@@, [MATH], <math>, ou des jetons similaires. Les formules doivent contenir leur véritable expression mathématique. Si tu ne peux pas produire une formule, écris-la en texte mathématique lisible plutôt que d’émettre un placeholder.'
     };
     async function tenterAppelAurora(){
-      /*
-       * Transport direct vers l'Edge Function.
-       * On évite ici client.functions.invoke(), car le moteur DeepSeek
-       * consomme bien les tokens côté serveur mais le SDK peut échouer à
-       * restituer la réponse au navigateur ("Failed to send a request").
-       * Un seul appel est volontaire : aucune relance automatique ne doit
-       * risquer de facturer deux fois la même question.
-       */
-      const accessToken=sessionData.session.access_token;
-      const endpoint=`${SUPABASE_URL}/functions/v1/aurora-deepseek-live`;
-      const controller=new AbortController();
-      const timer=setTimeout(()=>controller.abort(),70000);
-      let response;
-      try{
-        response=await fetch(endpoint,{
-          method:'POST',
-          headers:{
-            'Content-Type':'application/json',
-            'apikey':SUPABASE_ANON_KEY,
-            'Authorization':`Bearer ${accessToken}`
-          },
-          body:JSON.stringify(body),
-          signal:controller.signal,
-          cache:'no-store'
-        });
-      }catch(error){
-        if(error?.name==='AbortError')throw new Error('TIMEOUT_AURORA');
-        throw new Error(error?.message||'Impossible de joindre Aurora.');
-      }finally{
-        clearTimeout(timer);
-      }
-
-      const raw=await response.text();
-      let data=null;
-      try{data=raw?JSON.parse(raw):null;}catch(_){}
-
-      if(!response.ok){
-        const detail=data?.detail||data?.error||data?.message||
-          (raw?String(raw).slice(0,500):`HTTP ${response.status}`);
-        const erreurAppel=new Error(detail);
-        erreurAppel.httpStatus=response.status;
+      const resultat=await Promise.race([
+        client.functions.invoke('aurora-deepseek-live',{body}),
+        new Promise((_,reject)=>setTimeout(()=>reject(new Error('TIMEOUT_AURORA')),70000))
+      ]);
+      const {data,error}=resultat||{};
+      if(error){
+        let detail='';
+        try{
+          if(error.context&&typeof error.context.json==='function'){
+            const payload=await error.context.json();
+            detail=payload?.detail||payload?.error||payload?.message||'';
+            if(payload?.stage) detail=`[${payload.stage}] ${detail}`;
+            if(payload?.authStatus) detail+=` (HTTP ${payload.authStatus})`;
+            if(payload?.networkProbe){ const np=payload.networkProbe; detail+=` — diagnostic DeepSeek: ${np.status ? 'HTTP '+np.status : (np.detail||'aucune réponse réseau')}`; }
+          }
+        }catch(_){}
+        const erreurAppel=new Error(detail||error.message||'Aurora rencontre une erreur lors de l’appel à son moteur.');
+        /* Marque uniquement les échecs réseau purs (la requête n'a même pas
+           atteint la fonction — ex. coupure mobile au moment de la livraison
+           de la réponse), jamais une vraie erreur applicative renvoyée avec
+           un detail exploitable. */
+        erreurAppel.reseauSeul=!detail&&(error?.name==='FunctionsFetchError'||/failed to send a request/i.test(error?.message||''));
         throw erreurAppel;
       }
       if(!data?.ok)throw new Error(data?.error||'Aurora n’a pas pu répondre.');
@@ -19202,7 +19183,19 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       return data;
     }
     try{
-      return await tenterAppelAurora();
+      try{
+        return await tenterAppelAurora();
+      }catch(e){
+        /* La fonction répond de façon fiable en 1-2 secondes côté serveur ;
+           un échec réseau pur mérite donc une unique seconde tentative
+           silencieuse avant d'afficher une erreur à l'utilisateur. On ne
+           retente jamais une erreur applicative (DeepSeek, Supabase, session…). */
+        if(e?.reseauSeul){
+          await new Promise(r=>setTimeout(r,400));
+          return await tenterAppelAurora();
+        }
+        throw e;
+      }
     }catch(e){
       const detail=e?.message||'';
       if(/TIMEOUT_AURORA/i.test(detail))throw new Error('Aurora n’a pas reçu la réponse de DeepSeek dans le délai prévu.');
@@ -20012,8 +20005,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       const data=await invokeAuroreIA(q);
       clearInterval(labelTimer);
       if(arretDemande)return;
-      const texteReponse=typeof data.text==='string' ? data.text.trim() : '';
-      if(!texteReponse)throw new Error('Aurora a reçu une réponse vide de son moteur.');
+      const texteReponse=data.text||'Aucune réponse.';
       await ecrireAurora(row,texteReponse,()=>arretDemande);
       if(arretDemande)return;
       messagesActuels.push({role:'assistant',text:texteReponse});
