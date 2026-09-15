@@ -2710,6 +2710,29 @@ body.aurore-ia-kb-open #screen-aurore-ia.aurore-ia-screen{height:var(--ia-vvh,10
 .aurora-graph-expand-hint svg{width:11px;height:11px;flex:none;}
 [data-theme="light"] .aurora-graph-expand-hint{background:rgba(33,26,41,.55);}
 @media(max-width:420px){.aurora-graph-expand-hint span{display:none;}.aurora-graph-expand-hint{padding:5px;}}
+
+.aurora-graph-geo-btn{position:absolute;left:6px;bottom:6px;display:flex;align-items:center;gap:4px;padding:4px 8px;border:1px solid rgba(255,255,255,.16);border-radius:999px;background:rgba(15,10,24,.62);color:#fff;font:inherit;font-size:.6rem;font-weight:800;letter-spacing:.02em;text-transform:uppercase;cursor:pointer;z-index:3;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
+.aurora-graph-geo-btn:hover{background:rgba(139,92,246,.72);}
+.aurora-graph-geo-btn svg{width:12px;height:12px;flex:none;}
+[data-theme="light"] .aurora-graph-geo-btn{background:rgba(255,255,255,.82);color:#211A29;border-color:#DED5E8;}
+[data-theme="light"] .aurora-graph-geo-btn:hover{background:rgba(237,233,254,.95);}
+@media(max-width:420px){.aurora-graph-geo-btn span{display:none;}.aurora-graph-geo-btn{padding:5px;}}
+#auroraGeoGebraDialog{position:fixed;inset:0;z-index:10010;display:none;align-items:center;justify-content:center;padding:18px;box-sizing:border-box;background:rgba(8,6,14,.72);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);}
+.aurora-geogebra-card{width:min(520px,100%);max-height:min(82vh,620px);overflow:auto;border:1px solid var(--ia-border,#332a3d);border-radius:20px;background:var(--ia-card,#17131d);color:var(--ia-text,#F7F4FF);box-shadow:0 24px 70px rgba(0,0,0,.38);padding:18px;box-sizing:border-box;}
+[data-theme="light"] #auroraGeoGebraDialog{background:rgba(31,25,38,.32);}
+[data-theme="light"] .aurora-geogebra-card{background:#fff;color:#211A29;border-color:#DED5E8;}
+.aurora-geogebra-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;}
+.aurora-geogebra-title{font-size:.9rem;font-weight:850;letter-spacing:.01em;}
+.aurora-geogebra-sub{margin-top:4px;font-size:.72rem;line-height:1.45;color:var(--ia-muted,#958DA6);}
+.aurora-geogebra-close{width:34px;height:34px;border:1px solid var(--ia-border,#332a3d);border-radius:10px;background:transparent;color:inherit;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;flex:none;}
+.aurora-geogebra-expression-list{display:flex;flex-direction:column;gap:8px;margin:12px 0;}
+.aurora-geogebra-expression{display:block;width:100%;box-sizing:border-box;padding:11px 12px;border-radius:11px;background:rgba(139,92,246,.08);border:1px solid var(--ia-border,#332a3d);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.8rem;line-height:1.4;overflow:auto;white-space:nowrap;}
+.aurora-geogebra-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
+.aurora-geogebra-action{flex:1 1 150px;min-height:42px;border-radius:12px;border:1px solid var(--ia-border,#332a3d);background:rgba(255,255,255,.05);color:inherit;font:inherit;font-weight:800;cursor:pointer;padding:9px 12px;}
+.aurora-geogebra-action.primary{border-color:transparent;background:var(--ia-accent,#8B5CF6);color:#fff;}
+.aurora-geogebra-action:hover{filter:brightness(1.08);}
+.aurora-geogebra-note{margin-top:11px;font-size:.66rem;line-height:1.45;color:var(--ia-muted,#958DA6);}
+
 #auroraGraphOverlay{position:fixed;inset:0;z-index:9995;display:none;flex-direction:column;background:rgba(9,7,15,.94);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}
 [data-theme="light"] #auroraGraphOverlay{background:rgba(247,244,251,.98);}
 .aurora-graph-overlay-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.08);flex:none;color:#F7F4FF;box-sizing:border-box;}
@@ -4886,6 +4909,23 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
 
 <!-- ===== AURORA — GRAPHIQUE AGRANDI (overlay additif, même moteur Plotly et
      mêmes données que le petit graphique affiché dans la conversation) ===== -->
+<div id="auroraGeoGebraDialog" role="dialog" aria-modal="true" aria-labelledby="auroraGeoGebraTitle" hidden>
+  <div class="aurora-geogebra-card">
+    <div class="aurora-geogebra-head">
+      <div>
+        <div id="auroraGeoGebraTitle" class="aurora-geogebra-title">Visualiser dans GeoGebra</div>
+        <div class="aurora-geogebra-sub">Aurora a déjà préparé les mêmes expressions. Elles sont prêtes à être copiées dans la calculatrice graphique GeoGebra.</div>
+      </div>
+      <button type="button" id="auroraGeoGebraClose" class="aurora-geogebra-close" aria-label="Fermer">×</button>
+    </div>
+    <div id="auroraGeoGebraExpressions" class="aurora-geogebra-expression-list"></div>
+    <div class="aurora-geogebra-actions">
+      <button type="button" id="auroraGeoGebraCopy" class="aurora-geogebra-action">⧉ Copier les expressions</button>
+      <button type="button" id="auroraGeoGebraOpen" class="aurora-geogebra-action primary">↗ Ouvrir GeoGebra</button>
+    </div>
+    <div class="aurora-geogebra-note">GeoGebra permet de saisir directement des expressions comme <b>f(x)=x^2</b> dans sa barre de saisie. Le bouton de copie prépare automatiquement toutes les fonctions du graphique pour un collage rapide.</div>
+  </div>
+</div>
 <div id="auroraGraphOverlay" role="dialog" aria-modal="true" aria-labelledby="auroraGraphOverlayTitle" style="display:none;">
   <div class="aurora-graph-overlay-header">
     <span id="auroraGraphOverlayTitle" class="aurora-graph-overlay-title">Graphique Aurora</span>
@@ -19148,7 +19188,19 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
         <div class="aurore-ia-composer-zone">
           <form id="auroreIAForm" class="aurore-ia-composer" autocomplete="off">
             <div class="aurore-ia-input-shell">
-              <div class="aurore-ia-plus-wrap" aria-hidden="true"></div>
+              <div class="aurore-ia-plus-wrap" id="auroreIAPlusWrap">
+                <button type="button" id="auroreIAPlus" class="aurore-ia-plus" aria-label="Ajouter un fichier" aria-expanded="false" title="Ajouter une photo ou un PDF">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+                </button>
+                <div id="auroreIAPlusMenu" class="aurore-ia-plus-menu" hidden role="menu" aria-label="Ajouter un fichier">
+                  <button type="button" data-ia-file-kind="camera"><i>📷</i><span>Prendre une photo</span></button>
+                  <button type="button" data-ia-file-kind="image"><i>🖼️</i><span>Choisir une photo / image</span></button>
+                  <button type="button" data-ia-file-kind="pdf"><i>📄</i><span>Ajouter un PDF</span></button>
+                </div>
+                <input type="file" id="auroreIAImageInput" accept="image/jpeg,image/png,image/webp,image/gif" capture="environment" hidden>
+                <input type="file" id="auroreIAPdfInput" accept="application/pdf,.pdf" hidden>
+                <div id="auroreIAAttachments" class="aurore-ia-attachments" aria-live="polite"></div>
+              </div>
               <textarea id="auroreIAInput" rows="1" maxlength="12000" placeholder="Écrivez votre question…" aria-label="Question à Aurora"></textarea>
               <button type="submit" class="aurore-ia-send" aria-label="Envoyer" disabled>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 3 10.2 13.8"></path><path d="m21 3-6.2 18-4.6-7.2L3 9.2 21 3Z"></path></svg>
@@ -19196,6 +19248,10 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
   const historyCloseBtn=document.getElementById('auroreIAHistoryClose');
   const historyNewBtn=document.getElementById('auroreIAHistoryNew');
   const stopBtn=document.getElementById('auroreIAStop');
+  const imageInput=document.getElementById('auroreIAImageInput');
+  const pdfInput=document.getElementById('auroreIAPdfInput');
+  const attachmentsEl=document.getElementById('auroreIAAttachments');
+  let fichiersIA=[];
   let arretDemande=false;
   const auroraEnCours={row:null,labelTimer:null};
   if(!openBtn||!form||!input||!conversation||!screen)return;
@@ -19266,7 +19322,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     return null;
   }
 
-  async function invokeAuroreIA(message){
+  async function invokeAuroreIA(message, attachments=[]){
     // Timeout dédié à la phase "obtenir le client + la session" : sur un
     // réseau instable, client.auth.getSession() peut tenter un rafraîchissement
     // silencieux du jeton via un appel réseau qui ne se termine ni en succès
@@ -19299,6 +19355,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       catalogSnapshot:Array.isArray(iaCatalogSnapshot)?iaCatalogSnapshot:null,
       focusDocumentId:iaFocusDocumentId,
       conversationContext:contexteRecent,
+      attachments:Array.isArray(attachments)?attachments:[],
       skillHint:'FORMAT MATHÉMATIQUE OBLIGATOIRE : si ta réponse contient des mathématiques, écris directement les formules en LaTeX standard avec \\( ... \\) pour une formule dans une phrase et \\[ ... \\] pour une formule isolée. N’utilise JAMAIS de marqueurs ou placeholders tels que @@AURORAMATH0@@, @@AURORA_MATH_0@@, [MATH], <math>, ou des jetons similaires. Les formules doivent contenir leur véritable expression mathématique. Si tu ne peux pas produire une formule, écris-la en texte mathématique lisible plutôt que d’émettre un placeholder. AURORA DISPOSE D’UNE CAPACITÉ GRAPHIQUE NATIVE RÉELLE DANS SON INTERFACE : lorsque l’utilisateur demande explicitement de tracer, construire, dessiner ou représenter graphiquement une fonction/courbe, réponds normalement et ne prétends JAMAIS être incapable de tracer. Le navigateur Aurora possède déjà son moteur graphique interactif ; laisse la demande de graphique être traitée par ce moteur. Les demandes de type « Trace la courbe de x² », « Construis la courbe de la fonction x carré », « Représente graphiquement y=sin(x) » ou « Trace x² et 2x+1 sur le même repère » sont des demandes GRAPH_MATH. N’invente aucun format d’API, aucun outil ou aucun marqueur graphique : le frontend Aurora utilise son moteur natif existant. Pour une simple explication ou une dérivée sans demande de tracé, réponds normalement sans forcer un graphique.'
     };
     async function tenterAppelAurora(){
@@ -19896,11 +19953,114 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
   });
   document.addEventListener('keydown',e=>{if(e.key==='Escape')closePlusMenu();});
 
+  // ---------- Pièces jointes Aurora : photos + PDF ----------
+  const MAX_IMAGE_BYTES=12*1024*1024;
+  const MAX_PDF_BYTES=30*1024*1024;
+  const MAX_PDF_PAGES=8;
+  const MAX_TOTAL_ATTACHMENT_BYTES=38*1024*1024;
+
+  function formatTailleIA(n){
+    if(n<1024*1024)return Math.max(1,Math.round(n/1024))+' Ko';
+    return (n/(1024*1024)).toFixed(1)+' Mo';
+  }
+  function renderAttachments(){
+    if(!attachmentsEl)return;
+    attachmentsEl.innerHTML=fichiersIA.map((f,i)=>`<div class="aurore-ia-attachment-chip">
+      <span class="icon">${f.kind==='pdf'?'📄':'🖼️'}</span>
+      <span class="name"><span>${esc(f.name)}</span><span class="aurore-ia-attachment-status">${esc(f.status||'Prêt pour analyse')}</span></span>
+      <button type="button" data-remove-attachment="${i}" aria-label="Retirer ${esc(f.name)}">×</button>
+    </div>`).join('');
+    attachmentsEl.querySelectorAll('[data-remove-attachment]').forEach(btn=>btn.addEventListener('click',()=>{
+      fichiersIA.splice(Number(btn.dataset.removeAttachment),1);renderAttachments();updateSendState();
+    }));
+  }
+  function totalAttachmentBytes(){
+    return fichiersIA.reduce((n,f)=>n+(f.bytes||0),0);
+  }
+  function readFileAsDataURL(file){
+    return new Promise((resolve,reject)=>{
+      const r=new FileReader();
+      r.onload=()=>resolve(String(r.result||''));
+      r.onerror=()=>reject(new Error('Impossible de lire '+file.name));
+      r.readAsDataURL(file);
+    });
+  }
+  async function chargerImageIA(file){
+    if(file.size>MAX_IMAGE_BYTES)throw new Error(`Image trop volumineuse (${formatTailleIA(file.size)}). Maximum ${formatTailleIA(MAX_IMAGE_BYTES)}.`);
+    const dataUrl=await readFileAsDataURL(file);
+    return await new Promise((resolve,reject)=>{
+      const img=new Image();
+      img.onload=()=>{
+        try{
+          const max=1800, scale=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));
+          const c=document.createElement('canvas');
+          c.width=Math.max(1,Math.round(img.naturalWidth*scale));c.height=Math.max(1,Math.round(img.naturalHeight*scale));
+          const ctx=c.getContext('2d',{alpha:false});
+          ctx.drawImage(img,0,0,c.width,c.height);
+          resolve({dataUrl:c.toDataURL('image/jpeg',.78),bytes:file.size,name:file.name,kind:'image'});
+        }catch(e){reject(e)}
+      };
+      img.onerror=()=>reject(new Error('Image illisible : '+file.name));
+      img.src=dataUrl;
+    });
+  }
+  async function chargerPdfIA(file){
+    if(file.size>MAX_PDF_BYTES)throw new Error(`PDF trop volumineux (${formatTailleIA(file.size)}). Maximum ${formatTailleIA(MAX_PDF_BYTES)}.`);
+    await chargerPdfJs();
+    const data=await file.arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data,disableAutoFetch:false,disableStream:false}).promise;
+    const count=Math.min(pdf.numPages,MAX_PDF_PAGES);
+    const pages=[];
+    for(let n=1;n<=count;n++){
+      const page=await pdf.getPage(n);
+      const base=page.getViewport({scale:1});
+      const scale=Math.min(1.35,1800/Math.max(base.width,base.height));
+      const vp=page.getViewport({scale});
+      const c=document.createElement('canvas');c.width=Math.ceil(vp.width);c.height=Math.ceil(vp.height);
+      const ctx=c.getContext('2d',{alpha:false});
+      await page.render({canvasContext:ctx,viewport:vp}).promise;
+      pages.push({dataUrl:c.toDataURL('image/jpeg',.74),bytes:Math.round(file.size/count),name:`${file.name} — page ${n}`,kind:'image',page:n});
+    }
+    return {pages,originalName:file.name,originalBytes:file.size,totalPages:pdf.numPages};
+  }
+  async function ajouterFichiersIA(fileList,kind){
+    const files=Array.from(fileList||[]);
+    if(!files.length)return;
+    for(const file of files){
+      try{
+        if(totalAttachmentBytes()+file.size>MAX_TOTAL_ATTACHMENT_BYTES)throw new Error(`La taille totale des pièces jointes dépasserait ${formatTailleIA(MAX_TOTAL_ATTACHMENT_BYTES)}.`);
+        if(kind==='pdf'){
+          const pdf=await chargerPdfIA(file);
+          for(const page of pdf.pages){
+            if(totalAttachmentBytes()+page.dataUrl.length*0.75>MAX_TOTAL_ATTACHMENT_BYTES)break;
+            fichiersIA.push({...page,status:`Page ${page.page}/${pdf.totalPages} prête`});
+          }
+          if(pdf.totalPages>MAX_PDF_PAGES)fichiersIA[fichiersIA.length-1].status=`8 premières pages sur ${pdf.totalPages} prêtes`;
+        }else{
+          fichiersIA.push({...await chargerImageIA(file),status:'Image prête pour analyse'});
+        }
+      }catch(e){
+        alert(e?.message||'Impossible d’ajouter ce fichier.');
+      }
+    }
+    renderAttachments();updateSendState();
+  }
+  function ouvrirSelecteurIA(kind){
+    if(kind==='pdf')pdfInput?.click();
+    else imageInput?.click();
+  }
+  imageInput?.addEventListener('change',async()=>{await ajouterFichiersIA(imageInput.files,'image');imageInput.value='';});
+  pdfInput?.addEventListener('change',async()=>{await ajouterFichiersIA(pdfInput.files,'pdf');pdfInput.value='';});
+  plusMenu?.querySelectorAll('[data-ia-file-kind]').forEach(btn=>{
+    btn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();const k=btn.dataset.iaFileKind;closePlusMenu();if(k==='camera'||k==='image')ouvrirSelecteurIA('image');else ouvrirSelecteurIA('pdf');});
+  });
+  renderAttachments();
+
   function autoGrow(){input.style.height='auto';input.style.height=Math.min(input.scrollHeight,170)+'px';}
-  function updateSendState(){if(sendBtn)sendBtn.disabled=sending||!input.value.trim();}
+  function updateSendState(){if(sendBtn)sendBtn.disabled=sending||(!input.value.trim()&&!fichiersIA.length);}
   input.addEventListener('input',()=>{autoGrow();updateSendState();});
   input.addEventListener('keydown',e=>{
-    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();if(!sending&&input.value.trim())form.requestSubmit();}
+    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();if(!sending&&(input.value.trim()||fichiersIA.length))form.requestSubmit();}
   });
   input.addEventListener('focus',()=>{closePlusMenu();setTimeout(()=>scrollBottom(true),260);});
   autoGrow();updateSendState();
@@ -20347,7 +20507,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       if(!demande||!demande.functions.length)return;
       const compilees=[];
       demande.functions.forEach(f=>{
-        try{compilees.push({label:f.label,fn:auroraCompilerExpression(f.raw)});}
+        try{compilees.push({label:f.label,raw:f.raw,fn:auroraCompilerExpression(f.raw)});}
         catch(e){console.warn('[Aurora][Graphique] expression ignorée :',f.raw,e);}
       });
       if(!compilees.length)return;
@@ -20367,7 +20527,14 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       indiceAgrandir.title='Agrandir le graphique';
       indiceAgrandir.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H3v6M15 3h6v6M3 15v6h6M21 15v6h-6"/></svg><span>Agrandir</span>';
       indiceAgrandir.addEventListener('click',(e)=>{e.preventDefault();e.stopPropagation();ouvrirGrandGraphiqueAurora(zonePlot);});
-      wrapPlot.appendChild(zonePlot);wrapPlot.appendChild(indiceAgrandir);
+      const boutonGeo=document.createElement('button');
+      boutonGeo.type='button';
+      boutonGeo.className='aurora-graph-geo-btn';
+      boutonGeo.setAttribute('aria-label','Ouvrir le graphique dans GeoGebra');
+      boutonGeo.title='Ouvrir dans GeoGebra';
+      boutonGeo.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5h5v5M19 5l-8 8"/><path d="M19 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg><span>GeoGebra</span>';
+      boutonGeo.addEventListener('click',(e)=>{e.preventDefault();e.stopPropagation();ouvrirGeoGebraAurora(compilees);});
+      wrapPlot.appendChild(zonePlot);wrapPlot.appendChild(boutonGeo);wrapPlot.appendChild(indiceAgrandir);
       bloc.appendChild(entete);bloc.appendChild(wrapPlot);
       bubble.appendChild(bloc);
       scrollBottom(false);
@@ -20415,6 +20582,75 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       if(zone)zone.innerHTML='<div class="aurora-graph-error">Le graphique n’a pas pu s’afficher.</div>';
     }
   }
+
+
+  /* ==========================================================================
+     AURORA — PASSERELLE GEOGEBRA
+     --------------------------------------------------------------------------
+     Les expressions déjà analysées par Aurora sont réutilisées telles quelles.
+     Aucun nouvel appel IA et aucun recalcul du graphique ne sont nécessaires.
+     GeoGebra accepte directement les fonctions f(x)=... dans sa saisie.
+     ========================================================================== */
+  function auroraExpressionGeoGebra(raw){
+    let s=String(raw||'').trim();
+    s=s.replace(/^\s*(?:y|f\s*\(x\))\s*=\s*/i,'').trim();
+    s=s.replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-');
+    s=s.replace(/π/gi,'pi').replace(/\be\^/gi,'exp(');
+    // Conversion sûre de quelques notations que le moteur Aurora peut produire.
+    s=s.replace(/\bexp\s*\(\s*([^()]+)\s*\)/gi,'exp($1)');
+    s=s.replace(/\bln\s*\(/gi,'ln(');
+    s=s.replace(/\blog\s*\(/gi,'ln(');
+    return s;
+  }
+  function auroraConstruireExpressionsGeoGebra(compilees){
+    return (compilees||[]).map((c,i)=>{
+      const nom=String.fromCharCode(102+i); // f, g, h...
+      return nom+'(x) = '+auroraExpressionGeoGebra(c?.raw||c?.label||'');
+    }).filter(Boolean);
+  }
+  let auroraGeoGebraExpressions=[];
+  function fermerGeoGebraAurora(){
+    const d=document.getElementById('auroraGeoGebraDialog');
+    if(!d)return;
+    d.style.display='none';d.hidden=true;
+    document.body.classList.remove('aurora-geogebra-open');
+  }
+  async function copierExpressionsGeoGebraAurora(){
+    const value=auroraGeoGebraExpressions.join('\n');
+    if(!value)return false;
+    try{
+      if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(value);
+      else{
+        const ta=document.createElement('textarea');ta.value=value;ta.setAttribute('readonly','');ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();
+      }
+      const b=document.getElementById('auroraGeoGebraCopy');
+      if(b){const old=b.innerHTML;b.innerHTML='✓ Expressions copiées';b.classList.add('is-copied');setTimeout(()=>{b.innerHTML=old;b.classList.remove('is-copied');},1600);}
+      return true;
+    }catch(_){return false;}
+  }
+  function ouvrirGeoGebraAurora(compilees){
+    const expressions=auroraConstruireExpressionsGeoGebra(compilees);
+    if(!expressions.length)return;
+    auroraGeoGebraExpressions=expressions;
+    const list=document.getElementById('auroraGeoGebraExpressions');
+    if(list)list.innerHTML=expressions.map(e=>'<code class="aurora-geogebra-expression">'+esc(e)+'</code>').join('');
+    const d=document.getElementById('auroraGeoGebraDialog');
+    if(!d)return;
+    d.hidden=false;d.style.display='flex';document.body.classList.add('aurora-geogebra-open');
+    document.getElementById('auroraGeoGebraCopy')?.focus?.({preventScroll:true});
+  }
+  document.getElementById('auroraGeoGebraClose')?.addEventListener('click',fermerGeoGebraAurora);
+  document.getElementById('auroraGeoGebraCopy')?.addEventListener('click',copierExpressionsGeoGebraAurora);
+  document.getElementById('auroraGeoGebraOpen')?.addEventListener('click',async()=>{
+    await copierExpressionsGeoGebraAurora();
+    window.open('https://www.geogebra.org/graphing','_blank','noopener,noreferrer');
+  });
+  document.getElementById('auroraGeoGebraDialog')?.addEventListener('click',(e)=>{
+    if(e.target===e.currentTarget)fermerGeoGebraAurora();
+  });
+  document.addEventListener('keydown',(e)=>{
+    if(e.key==='Escape'&&document.getElementById('auroraGeoGebraDialog')?.style.display==='flex')fermerGeoGebraAurora();
+  });
 
   /* ==========================================================================
      AURORA — MODE AGRANDI DU GRAPHIQUE (extension additive)
@@ -20695,7 +20931,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     scrollBottom(false);
   }
 
-  async function submitIA(q){
+  async function submitIA(q, attachments=[]){
     arretDemande=false;
     setBusy(true);
     const actions=['Aurora fait le point…','Aurora cherche…','Aurora prépare la réponse…'];
@@ -20707,7 +20943,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     },1400);
     auroraEnCours.labelTimer=labelTimer;
     try{
-      const data=await invokeAuroreIA(q);
+      const data=await invokeAuroreIA(q, attachments);
       clearInterval(labelTimer);
       if(arretDemande)return;
       const texteReponse=data.text||'Aucune réponse.';
@@ -20731,10 +20967,15 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
 
   form.addEventListener('submit',async e=>{
     e.preventDefault();if(sending)return;
-    const q=input.value.trim();if(!q)return;
+    const q=input.value.trim();
+    if(!q && !fichiersIA.length)return;
     closePlusMenu();
-    addMessage(q,'user');input.value='';autoGrow();updateSendState();input.focus({preventScroll:true});
-    messagesActuels.push({role:'user',text:q});sauvegarderConversationCourante();
+    const pieces=fichiersIA.map(f=>f.name).join(', ');
+    const messagePourDiscussion=q || 'Analyse les fichiers joints.';
+    const messageAffiche=q ? (pieces ? q+'\n\n📎 '+pieces : q) : '📎 '+pieces;
+    addMessage(messageAffiche,'user');
+    input.value='';autoGrow();updateSendState();input.focus({preventScroll:true});
+    messagesActuels.push({role:'user',text:messageAffiche});sauvegarderConversationCourante();
     const lower=q.toLowerCase(),wantsWiki=activeTool==='wikipedia'||/wikip[eé]dia/.test(lower);
     if(wantsWiki){
       setBusy(true);
@@ -20742,7 +20983,9 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       await wikiSearch(q.replace(/.*?(?:sur|dans)\s+(?:wikip[eé]dia)\s*/i,'').replace(/^cherche.*?:\s*/i,'').trim()||q,row);
       setBusy(false);return;
     }
-    await submitIA(q);
+    const piecesAEnvoyer=fichiersIA.slice();
+    fichiersIA=[];renderAttachments();
+    await submitIA(messagePourDiscussion, piecesAEnvoyer);
   });
 
   /* --- Confort clavier Android : garde la zone de saisie visible et le bas de la conversation en vue --- */
@@ -21420,3 +21663,18 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
 </script>
 </body>
 </html>
+
+<style id="aurore-ia-attachments-ui">
+.aurore-ia-plus-wrap{display:flex!important;align-items:center;position:relative;flex:0 0 auto!important}
+.aurore-ia-plus-menu{z-index:120!important}
+.aurore-ia-attachments{position:absolute;left:0;bottom:calc(100% + 10px);display:flex;flex-direction:column;gap:6px;width:min(300px,calc(100vw - 32px));pointer-events:none}
+.aurore-ia-attachment-chip{pointer-events:auto;display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--ia-border);border-radius:12px;background:color-mix(in srgb,var(--ia-panel,#161120) 94%,transparent);box-shadow:0 12px 30px rgba(0,0,0,.24);color:#eee8f4;font-size:.68rem}
+.aurore-ia-attachment-chip .icon{width:26px;height:26px;display:grid;place-items:center;border-radius:8px;background:color-mix(in srgb,var(--ia-accent,#8b5cf6) 16%,transparent);flex:0 0 26px}
+.aurore-ia-attachment-chip .name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.aurore-ia-attachment-chip button{width:24px;height:24px;border:0;background:transparent;color:#aaa1b3;cursor:pointer;border-radius:7px}
+.aurore-ia-attachment-chip button:hover{background:rgba(255,255,255,.08);color:#fff}
+.aurore-ia-attachment-status{font-size:.59rem;color:#aaa1b3;margin-top:2px}
+[data-theme="light"] .aurore-ia-attachment-chip{background:#fff;color:#342d3d;border-color:#e3dcea;box-shadow:0 12px 30px rgba(49,34,68,.14)}
+[data-theme="light"] .aurore-ia-attachment-chip button{color:#776d82}
+@media(max-width:640px){.aurore-ia-attachments{width:min(280px,calc(100vw - 24px))}}
+</style>
