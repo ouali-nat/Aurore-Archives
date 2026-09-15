@@ -20564,8 +20564,8 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
         paper_bgcolor:'rgba(0,0,0,0)',
         plot_bgcolor:'rgba(0,0,0,0)',
         font:{color:couleurTexte,size:11},
-        xaxis:{zeroline:true,zerolinecolor:couleurTexte,zerolinewidth:2, fixedrange:false,showline:true,linecolor:couleurTexte,linewidth:1.5,gridcolor:couleurGrille,color:couleurTexte,tickmode:'linear', tick0:0, dtick:Math.max(1,Math.ceil((xMax-xMin)/20)),ticks:'outside',title:{text:'x',font:{size:12,color:couleurTexte}}},
-        yaxis:{zeroline:true,zerolinecolor:couleurTexte,zerolinewidth:2, fixedrange:false,showline:true,linecolor:couleurTexte,linewidth:1.5,gridcolor:couleurGrille,color:couleurTexte,tickmode:'linear', tick0:0, dtick:Math.max(1,Math.ceil((yMax-yMin)/20)),ticks:'outside',title:{text:'y',font:{size:12,color:couleurTexte}},scaleanchor:'x',scaleratio:1, constrain:'domain'},
+        xaxis:{zeroline:true,zerolinecolor:couleurTexte,zerolinewidth:2, fixedrange:false,showline:true,linecolor:couleurTexte,linewidth:1.5,gridcolor:couleurGrille,color:couleurTexte,tickmode:'linear', tick0:0, dtick:Math.max(1,Math.ceil((xMax-xMin)/19)),ticks:'outside',title:{text:'x',font:{size:12,color:couleurTexte}}},
+        yaxis:{zeroline:true,zerolinecolor:couleurTexte,zerolinewidth:2, fixedrange:false,showline:true,linecolor:couleurTexte,linewidth:1.5,gridcolor:couleurGrille,color:couleurTexte,tickmode:'linear', tick0:0, dtick:Math.max(1,Math.ceil((yMax-yMin)/19)),ticks:'outside',title:{text:'y',font:{size:12,color:couleurTexte}},scaleanchor:'x',scaleratio:1, constrain:'domain'},
         annotations:[{x:0,y:0,xref:'x',yref:'y',text:'O',showarrow:false,xshift:10,yshift:-10,font:{size:13,color:couleurTexte}}],
         showlegend:compilees.length>1,
         legend:{orientation:'h',x:0,y:-0.22,font:{size:10,color:couleurTexte}},
@@ -20644,21 +20644,45 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       .replace(/^\s*[a-z]\s*\(\s*x\s*\)\s*=\s*/i,'')
       .replace(/\bexp\s*\(\s*x\s*\)/gi,'e^x')
       .replace(/\blog\s*\(\s*x\s*\)/gi,'ln(x)')
-      .replace(/×/g,'*').replace(/−/g,'-').trim();
-    return e ? (String.fromCharCode(102+i)+'(x)='+e) : '';
+      .replace(/×/g,'*')
+      .replace(/−/g,'-')
+      .trim();
+    if(!e) return '';
+    const name=String.fromCharCode(102+i); // f, g, h...
+    return name+'(x)='+e;
   }).filter(Boolean);
 
   if(!exprs.length){
-    window.open("https://www.geogebra.org/graphing","_blank","noopener");
+    window.open('https://www.geogebra.org/graphing','_blank','noopener');
     return;
   }
 
-  const text=exprs.join('\n');
-  const page="<html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Aurora GeoGebra</title><style>body{font-family:system-ui,sans-serif;padding:24px;background:#f5f7fb;color:#18212f}main{max-width:680px;margin:auto;background:#fff;border-radius:18px;padding:22px}pre{white-space:pre-wrap;background:#f0f3f8;padding:16px;border-radius:12px}button{border:0;border-radius:12px;padding:13px 18px;margin:6px;font-weight:700}#copy{background:#1f6feb;color:#fff}#open{background:#172033;color:#fff}</style></head><body><main><h2>Fonction prête pour GeoGebra</h2><p>Les expressions correspondent au graphique Aurora.</p><pre id=\"e\"></pre><button id=\"copy\">Copier les expressions</button><button id=\"open\">Ouvrir GeoGebra</button><script>const t=__TEXT__;const e=document.getElementById(\"e\");e.textContent=t;document.getElementById(\"copy\").onclick=async()=>{try{await navigator.clipboard.writeText(t);document.getElementById(\"copy\").textContent=\"Copié\";}catch(x){}};document.getElementById(\"open\").onclick=async()=>{try{await navigator.clipboard.writeText(t);}catch(x){} location.href=\"https://www.geogebra.org/graphing\"};<\/script></main></body></html>";
-  const src=page.replace("__TEXT__",JSON.stringify(text).replace(/</g,"\\u003c"));
-  const url=URL.createObjectURL(new Blob([src],{type:"text/html"}));
-  const w=window.open(url,"_blank","noopener");
-  if(!w) location.href="https://www.geogebra.org/graphing";
+  const commands=exprs.map(e=>JSON.stringify(e)).join(',');
+
+  // A self-contained bridge page that loads the official GeoGebra Graphing
+  // app and injects the already-built expressions through the documented API.
+  const page='<!doctype html><html lang="fr"><head>'
+    +'<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+    +'<title>Aurora — GeoGebra</title>'
+    +'<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#fff}'
+    +'#ggb{width:100%;height:100%;}</style>'
+    +'<script src="https://www.geogebra.org/apps/deployggb.js"><\/script>'
+    +'</head><body><div id="ggb"></div><script>'
+    +'const cmds=['+commands+'];'
+    +'const params={appName:"graphing",width:window.innerWidth,height:window.innerHeight,showToolBar:true,showAlgebraInput:true,showMenuBar:false,showResetIcon:true,enableLabelDrags:true,showFullscreenButton:true,appletOnLoad:function(api){'
+    +'for(const c of cmds){try{api.evalCommand(c);}catch(e){}}'
+    +'}};'
+    +'const applet=new GGBApplet(params,true);'
+    +'applet.inject("ggb");'
+    +'<\/script></body></html>';
+
+  const url=URL.createObjectURL(new Blob([page],{type:'text/html'}));
+  const w=window.open(url,'_blank','noopener');
+  if(!w){
+    // Popup blocked: use the same bridge page in the current tab rather than
+    // opening an empty GeoGebra page with no function.
+    location.href=url;
+  }
 }
   document.getElementById('auroraGeoGebraClose')?.addEventListener('click',fermerGeoGebraAurora);
   document.getElementById('auroraGeoGebraCopy')?.addEventListener('click',copierExpressionsGeoGebraAurora);
@@ -20733,8 +20757,8 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
         paper_bgcolor:'rgba(0,0,0,0)',
         plot_bgcolor:'rgba(0,0,0,0)',
         font:{color:couleurTexte,size:13},
-        xaxis:{zeroline:true,zerolinecolor:couleurTexte,zerolinewidth:2, fixedrange:false,showline:true,linecolor:couleurTexte,linewidth:1.5,gridcolor:couleurGrille,color:couleurTexte,tickmode:'linear', tick0:0, dtick:Math.max(1,Math.ceil((xMax-xMin)/20)),ticks:'outside',title:{text:'x',font:{size:12,color:couleurTexte}}},
-        yaxis:{zeroline:true,zerolinecolor:couleurTexte,zerolinewidth:2, fixedrange:false,showline:true,linecolor:couleurTexte,linewidth:1.5,gridcolor:couleurGrille,color:couleurTexte,tickmode:'linear', tick0:0, dtick:Math.max(1,Math.ceil((yMax-yMin)/20)),ticks:'outside',title:{text:'y',font:{size:12,color:couleurTexte}},scaleanchor:'x',scaleratio:1, constrain:'domain'},
+        xaxis:{zeroline:true,zerolinecolor:couleurTexte,zerolinewidth:2, fixedrange:false,showline:true,linecolor:couleurTexte,linewidth:1.5,gridcolor:couleurGrille,color:couleurTexte,tickmode:'linear', tick0:0, dtick:Math.max(1,Math.ceil((xMax-xMin)/19)),ticks:'outside',title:{text:'x',font:{size:12,color:couleurTexte}}},
+        yaxis:{zeroline:true,zerolinecolor:couleurTexte,zerolinewidth:2, fixedrange:false,showline:true,linecolor:couleurTexte,linewidth:1.5,gridcolor:couleurGrille,color:couleurTexte,tickmode:'linear', tick0:0, dtick:Math.max(1,Math.ceil((yMax-yMin)/19)),ticks:'outside',title:{text:'y',font:{size:12,color:couleurTexte}},scaleanchor:'x',scaleratio:1, constrain:'domain'},
         annotations:[{x:0,y:0,xref:'x',yref:'y',text:'O',showarrow:false,xshift:10,yshift:-10,font:{size:13,color:couleurTexte}}],
         showlegend:traces.length>1,
         legend:{orientation:'h',x:0,y:-0.16,font:{size:12,color:couleurTexte}},
