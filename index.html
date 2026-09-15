@@ -16751,6 +16751,17 @@ window.addEventListener('load',()=>{
     if(menu.classList.contains('is-open')){fermerMenu();return;}
     if(estDansIA())ouvrirMenu();else ouvrirAurora();
   });
+
+  // Secours global : le bouton Aurora doit rester cliquable même si un autre
+  // gestionnaire d'événement de la page intercepte le clic.
+  document.addEventListener('click',e=>{
+    const target=e.target?.closest?.('#auroreFloatingAI');
+    if(!target||target!==el)return;
+    if(e.defaultPrevented)return;
+    if(estDansIA())return;
+    e.stopPropagation();
+    ouvrirAurora();
+  },true);
   el.addEventListener('keydown',e=>{
     if(e.key==='Enter'||e.key===' '){
       e.preventDefault();
