@@ -19257,6 +19257,8 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       if(!texte)throw new Error('Aurora a reçu une réponse vide de son moteur.');
       return data;
     }
+    return await tenterAppelAurora();
+  }
 
   function setRouteActive(active){document.body.classList.toggle('aurore-ia-route-active',!!active);}
 
