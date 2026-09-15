@@ -2657,6 +2657,9 @@ body.aurore-ia-kb-open #screen-aurore-ia.aurore-ia-screen{height:var(--ia-vvh,10
 #screen-aurore-ia.aurore-ia-screen.is-mini .aurore-ia-msg-avatar{width:20px;height:20px;flex-basis:20px;border-radius:7px}
 #screen-aurore-ia.aurore-ia-screen.is-mini .aurore-ia-msg-avatar span{font-size:.6rem}
 .aurore-ia-source-card{margin-top:10px;padding:10px 12px;border:1px solid color-mix(in srgb, var(--ia-accent-3) 11%, transparent);border-radius:12px;background:rgba(8,6,13,.32);font-size:.7rem;color:#9D95AA}.aurore-ia-source-card strong{display:block;color:var(--ia-accent-white);margin-bottom:3px}
+/* Indicateur discret du moteur ayant généré la réponse (Cloudflare Workers AI / DeepSeek visuel) */
+.aurore-ia-engine-tag{display:inline-flex;align-items:center;min-height:28px;margin-top:10px;margin-left:6px;padding:5px 9px;border-radius:9px;background:rgba(255,255,255,.03);color:#8f879c;font-size:.62rem;font-weight:700;letter-spacing:.01em;line-height:1;vertical-align:middle;white-space:nowrap}
+[data-theme="light"] .aurore-ia-engine-tag{background:rgba(0,0,0,.025);color:#8A8094}
 .aurore-ia-tool-state{display:inline-flex;align-items:center;gap:9px;color:#9F97AE;font-size:.73rem}
 .aurore-ia-spinner{width:12px;height:12px;border:2px solid #3A314B;border-top-color:var(--ia-accent-3);border-radius:50%;animation:auroreIASpin .7s linear infinite}@keyframes auroreIASpin{to{transform:rotate(360deg)}}
 .aurore-ia-typing{display:inline-flex;align-items:center;gap:4px;padding:2px 0}.aurore-ia-typing i{width:6px;height:6px;border-radius:50%;background:var(--ia-accent-pale);opacity:.5;animation:auroreIATypingDot 1.1s ease-in-out infinite}.aurore-ia-typing i:nth-child(2){animation-delay:.15s}.aurore-ia-typing i:nth-child(3){animation-delay:.3s}
@@ -21231,6 +21234,19 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     setBusy(false);
   });
 
+  /* Détermine le libellé de l'indicateur de moteur à afficher sous une réponse
+     Aurora, à partir des champs réellement retournés par aurora-deepseek-live
+     ("source" en priorité, "route" en repli). N'invente jamais le moteur :
+     si aucune valeur reconnue n'est présente (anciennes réponses, etc.), ne
+     retourne rien et aucun indicateur n'est affiché. */
+  function libelleMoteurAurora(data){
+    if(!data)return null;
+    const source=data.source,route=data.route;
+    if(source==='cloudflare_workers_ai'||route==='cloudflare_workers_ai')return '⚡ Aurora · Cloudflare Workers AI · Llama 3.1 8B';
+    if(source==='deepseek_compatibility'||route==='deepseek_multimodal_compatibility')return '👁 Aurora · Analyse visuelle';
+    return null;
+  }
+
   function creerIndicateurAurora(label='Aurora fait cela…'){
     if(!hasMessages){hasMessages=true;collapseWelcome();}
     const wasBottom=isNearBottom(),row=document.createElement('div');
@@ -21243,7 +21259,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     return row;
   }
 
-  async function ecrireAurora(row,text,shouldStop){
+  async function ecrireAurora(row,text,shouldStop,data){
     /* Réponse instantanée : l’ancienne animation écrivait 1 caractère toutes les
        12 ms, ce qui pouvait ajouter plusieurs dizaines de secondes à une
        réponse longue. Le temps d’attente doit venir du traitement, pas de l’UI. */
@@ -21256,16 +21272,19 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     row.innerHTML='';row.appendChild(creerAvatarAurora());row.appendChild(bubble);
     rafraichirAvatarsAurora();
     const value=String(text||'');
+    const moteurLabel=libelleMoteurAurora(data);
     if(shouldStop&&shouldStop()){
       live.innerHTML=mdToHtml(value)||'<p></p>';
       rendreMath(live);
       ajouterBoutonCopieAurora(bubble,value);
+      if(moteurLabel){const tag=document.createElement('span');tag.className='aurore-ia-engine-tag';tag.textContent=moteurLabel;bubble.appendChild(tag);}
       scrollBottom(false);
       return;
     }
     live.innerHTML=mdToHtml(value)||'<p></p>';
     rendreMath(live);
     ajouterBoutonCopieAurora(bubble,value);
+    if(moteurLabel){const tag=document.createElement('span');tag.className='aurore-ia-engine-tag';tag.textContent=moteurLabel;bubble.appendChild(tag);}
     scrollBottom(false);
   }
 
@@ -21285,7 +21304,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       clearInterval(labelTimer);
       if(arretDemande)return;
       const texteReponse=data.text||'Aucune réponse.';
-      await ecrireAurora(row,texteReponse,()=>arretDemande);
+      await ecrireAurora(row,texteReponse,()=>arretDemande,data);
       if(attachmentGallery){
         attachmentGallery.querySelectorAll('[data-attachment-status]').forEach(el=>el.textContent='Analyse terminée');
       }
