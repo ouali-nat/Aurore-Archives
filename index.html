@@ -19291,7 +19291,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       catalogSnapshot:Array.isArray(iaCatalogSnapshot)?iaCatalogSnapshot:null,
       focusDocumentId:iaFocusDocumentId,
       conversationContext:contexteRecent,
-      skillHint:'FORMAT MATHÉMATIQUE OBLIGATOIRE : si ta réponse contient des mathématiques, écris directement les formules en LaTeX standard avec \\( ... \\) pour une formule dans une phrase et \\[ ... \\] pour une formule isolée. N’utilise JAMAIS de marqueurs ou placeholders tels que @@AURORAMATH0@@, @@AURORA_MATH_0@@, [MATH], <math>, ou des jetons similaires. Les formules doivent contenir leur véritable expression mathématique. Si tu ne peux pas produire une formule, écris-la en texte mathématique lisible plutôt que d’émettre un placeholder.'
+      skillHint:'FORMAT MATHÉMATIQUE OBLIGATOIRE : si ta réponse contient des mathématiques, écris directement les formules en LaTeX standard avec \\( ... \\) pour une formule dans une phrase et \\[ ... \\] pour une formule isolée. N’utilise JAMAIS de marqueurs ou placeholders tels que @@AURORAMATH0@@, @@AURORA_MATH_0@@, [MATH], <math>, ou des jetons similaires. Les formules doivent contenir leur véritable expression mathématique. Si tu ne peux pas produire une formule, écris-la en texte mathématique lisible plutôt que d’émettre un placeholder. AURORA DISPOSE D’UNE CAPACITÉ GRAPHIQUE NATIVE RÉELLE DANS SON INTERFACE : lorsque l’utilisateur demande explicitement de tracer, construire, dessiner ou représenter graphiquement une fonction/courbe, réponds normalement et ne prétends JAMAIS être incapable de tracer. Le navigateur Aurora possède déjà son moteur graphique interactif ; laisse la demande de graphique être traitée par ce moteur. Les demandes de type « Trace la courbe de x² », « Construis la courbe de la fonction x carré », « Représente graphiquement y=sin(x) » ou « Trace x² et 2x+1 sur le même repère » sont des demandes GRAPH_MATH. N’invente aucun format d’API, aucun outil ou aucun marqueur graphique : le frontend Aurora utilise son moteur natif existant. Pour une simple explication ou une dérivée sans demande de tracé, réponds normalement sans forcer un graphique.'
     };
     async function tenterAppelAurora(){
       /* Appel HTTP direct vers l’Edge Function.
@@ -20191,8 +20191,33 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
   // une explication mathématique ("Explique-moi la dérivée de x²") ne doit
   // JAMAIS déclencher de graphique.
   const AURORA_DECLENCHEUR_GRAPHIQUE=/\b(trace[rz]?s?|repr[ée]sente(?:r|z)?(?:\s+graphiquement)?|dessine[rz]?s?(?:\s+(?:la|les)\s+courbe[s]?)?|graphe|graphique|courbe)\b/i;
+  function auroraNormaliserDemandeGraphiqueTexte(texte){
+    let s=String(texte||'');
+    // Vocabulaire naturel français fréquemment utilisé pour parler des puissances.
+    s=s.replace(/\bx\s+(?:au\s+)?carr[ée]\b/gi,'x^2');
+    s=s.replace(/\bx\s+(?:au\s+)?cube\b/gi,'x^3');
+    s=s.replace(/\bx\s+puissance\s+(\d+)\b/gi,'x^$1');
+    return s;
+  }
+
+  function auroraExtraireDeriveeGraphique(texte){
+    const s=auroraNormaliserDemandeGraphiqueTexte(texte);
+    if(!/d[ée]riv[ée]e/i.test(s))return [];
+    // Dérivées élémentaires demandées explicitement pour le tracé.
+    const m2=s.match(/x\s*(?:\^\s*2|²)/i);
+    if(m2)return [{label:"f'(x) = 2x",raw:'2*x'}];
+    const m3=s.match(/x\s*(?:\^\s*3|³)/i);
+    if(m3)return [{label:"f'(x) = 3x^2",raw:'3*x^2'}];
+    const mn=s.match(/x\s*\^\s*(\d+)/i);
+    if(mn){
+      const n=Number(mn[1]);
+      if(Number.isInteger(n)&&n>1&&n<=20)return [{label:`f'(x) = ${n}x^${n-1}`,raw:`${n}*x^${n-1}`}];
+    }
+    return [];
+  }
+
   function auroraExtraireFonctions(texte){
-    const s=String(texte||'');
+    const s=auroraNormaliserDemandeGraphiqueTexte(texte);
     const resultats=[];
     const re=/([a-zA-Zα-ωΑ-Ω][\w]*\s*\(\s*x\s*\)|[a-zA-Zα-ωΑ-Ω])\s*=\s*([^=,;\n]+?)(?=(?:\s*(?:,|et)\s*[a-zA-Zα-ωΑ-Ω][\w]*\s*(?:\(\s*x\s*\))?\s*=)|(?:\s+sur\s+)|[.;\n]|$)/gi;
     let m;
@@ -20213,12 +20238,13 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     return resultats;
   }
   function auroraDemandeGraphique(userText,assistantText){
-    const texteUtilisateur=String(userText||'');
+    const texteUtilisateur=auroraNormaliserDemandeGraphiqueTexte(userText);
     if(!AURORA_DECLENCHEUR_GRAPHIQUE.test(texteUtilisateur))return null;
-    let fonctions=auroraExtraireFonctions(texteUtilisateur);
+    let fonctions=auroraExtraireDeriveeGraphique(texteUtilisateur);
+    if(!fonctions.length)fonctions=auroraExtraireFonctions(texteUtilisateur);
     if(!fonctions.length)fonctions=auroraExtraireFonctions(String(assistantText||''));
     if(!fonctions.length)return null;
-    return {functions:fonctions.slice(0,6),xRange:[-10,10]};
+    return {functions:fonctions.slice(0,6),xRange:[-10,10],intention:'GRAPH_MATH'};
   }
 
   // --- Échantillonnage sécurisé (coupe les asymptotes/valeurs infinies) ---
