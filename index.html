@@ -19193,9 +19193,9 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
                 </button>
                 <div id="auroreIAPlusMenu" class="aurore-ia-plus-menu" hidden role="menu" aria-label="Ajouter un fichier">
-                  <button type="button" data-ia-file-kind="camera"><i>📷</i><span>Prendre une photo</span></button>
-                  <button type="button" data-ia-file-kind="image"><i>🖼️</i><span>Choisir une photo / image</span></button>
-                  <button type="button" data-ia-file-kind="pdf"><i>📄</i><span>Ajouter un PDF</span></button>
+                  <button type="button" data-ia-file-kind="camera"><span>Prendre une photo</span></button>
+                  <button type="button" data-ia-file-kind="image"><span>Choisir une photo / image</span></button>
+                  <button type="button" data-ia-file-kind="pdf"><span>Ajouter un PDF</span></button>
                 </div>
                 <input type="file" id="auroreIAImageInput" accept="image/jpeg,image/png,image/webp,image/gif" capture="environment" hidden>
                 <input type="file" id="auroreIAPdfInput" accept="application/pdf,.pdf" hidden>
@@ -20399,6 +20399,13 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     // de ln(x) et d'éviter que le texte pédagogique autour des équations ne
     // soit pris pour une partie de l'expression.
     const formes=[
+      // Formulations françaises : « fonction exponentielle »,
+      // « construis l'exponentielle », « trace exp(x) », etc.
+      // Elles doivent toujours produire LA fonction exponentielle e^x,
+      // même si la réponse pédagogique contient ensuite d'autres expressions.
+      {re:/\b(?:fonction\s+)?exponentielle\b/i,label:'f(x) = e^x',raw:'exp(x)',domain:'all'},
+      {re:/\bexponentielle\s+de\s+x\b/i,label:'f(x) = e^x',raw:'exp(x)',domain:'all'},
+      {re:/\b(?:fonction\s+)?exp\s*\(\s*x\s*\)\b/i,label:'f(x) = e^x',raw:'exp(x)',domain:'all'},
       {re:/\by\s*=\s*e\s*\^\s*x\b/i,label:'y = e^x',raw:'exp(x)',domain:'all'},
       {re:/\bf\s*\(\s*x\s*\)\s*=\s*e\s*\^\s*x\b/i,label:'f(x) = e^x',raw:'exp(x)',domain:'all'},
       {re:/\by\s*=\s*exp\s*\(\s*x\s*\)/i,label:'y = exp(x)',raw:'exp(x)',domain:'all'},
@@ -20557,8 +20564,8 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
         paper_bgcolor:'rgba(0,0,0,0)',
         plot_bgcolor:'rgba(0,0,0,0)',
         font:{color:couleurTexte,size:11},
-        xaxis:{zeroline:true,zerolinecolor:couleurTexte,zerolinewidth:2,showline:true,linecolor:couleurTexte,linewidth:1.5,gridcolor:couleurGrille,color:couleurTexte,tickmode:'linear',tick0:0,dtick:1,ticks:'outside',title:{text:'x',font:{size:12,color:couleurTexte}}},
-        yaxis:{zeroline:true,zerolinecolor:couleurTexte,zerolinewidth:2,showline:true,linecolor:couleurTexte,linewidth:1.5,gridcolor:couleurGrille,color:couleurTexte,tickmode:'linear',tick0:0,dtick:1,ticks:'outside',title:{text:'y',font:{size:12,color:couleurTexte}},scaleanchor:'x',scaleratio:1},
+        xaxis:{zeroline:true,zerolinecolor:couleurTexte,zerolinewidth:2, fixedrange:false,showline:true,linecolor:couleurTexte,linewidth:1.5,gridcolor:couleurGrille,color:couleurTexte,tickmode:'linear', tick0:0, dtick:1,ticks:'outside',title:{text:'x',font:{size:12,color:couleurTexte}}},
+        yaxis:{zeroline:true,zerolinecolor:couleurTexte,zerolinewidth:2, fixedrange:false,showline:true,linecolor:couleurTexte,linewidth:1.5,gridcolor:couleurGrille,color:couleurTexte,tickmode:'linear', tick0:0, dtick:1,ticks:'outside',title:{text:'y',font:{size:12,color:couleurTexte}},scaleanchor:'x',scaleratio:1, constrain:'domain'},
         annotations:[{x:0,y:0,xref:'x',yref:'y',text:'O',showarrow:false,xshift:10,yshift:-10,font:{size:13,color:couleurTexte}}],
         showlegend:compilees.length>1,
         legend:{orientation:'h',x:0,y:-0.22,font:{size:10,color:couleurTexte}},
@@ -20712,8 +20719,8 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
         paper_bgcolor:'rgba(0,0,0,0)',
         plot_bgcolor:'rgba(0,0,0,0)',
         font:{color:couleurTexte,size:13},
-        xaxis:{zeroline:true,zerolinecolor:couleurTexte,zerolinewidth:2,showline:true,linecolor:couleurTexte,linewidth:1.5,gridcolor:couleurGrille,color:couleurTexte,tickmode:'linear',tick0:0,dtick:1,ticks:'outside',title:{text:'x',font:{size:12,color:couleurTexte}}},
-        yaxis:{zeroline:true,zerolinecolor:couleurTexte,zerolinewidth:2,showline:true,linecolor:couleurTexte,linewidth:1.5,gridcolor:couleurGrille,color:couleurTexte,tickmode:'linear',tick0:0,dtick:1,ticks:'outside',title:{text:'y',font:{size:12,color:couleurTexte}},scaleanchor:'x',scaleratio:1},
+        xaxis:{zeroline:true,zerolinecolor:couleurTexte,zerolinewidth:2, fixedrange:false,showline:true,linecolor:couleurTexte,linewidth:1.5,gridcolor:couleurGrille,color:couleurTexte,tickmode:'linear', tick0:0, dtick:1,ticks:'outside',title:{text:'x',font:{size:12,color:couleurTexte}}},
+        yaxis:{zeroline:true,zerolinecolor:couleurTexte,zerolinewidth:2, fixedrange:false,showline:true,linecolor:couleurTexte,linewidth:1.5,gridcolor:couleurGrille,color:couleurTexte,tickmode:'linear', tick0:0, dtick:1,ticks:'outside',title:{text:'y',font:{size:12,color:couleurTexte}},scaleanchor:'x',scaleratio:1, constrain:'domain'},
         annotations:[{x:0,y:0,xref:'x',yref:'y',text:'O',showarrow:false,xshift:10,yshift:-10,font:{size:13,color:couleurTexte}}],
         showlegend:traces.length>1,
         legend:{orientation:'h',x:0,y:-0.16,font:{size:12,color:couleurTexte}},
@@ -21661,6 +21668,71 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
   resetRows();
 })();
 </script>
+
+<script>
+/* Correctif ciblé du menu + : chaque action ouvre son sélecteur dédié. */
+(function(){
+  const wrap=document.getElementById('auroreIAPlusWrap');
+  const menu=document.getElementById('auroreIAPlusMenu');
+  const imageInput=document.getElementById('auroreIAImageInput');
+  const pdfInput=document.getElementById('auroreIAPdfInput');
+  if(!wrap||!menu||!imageInput||!pdfInput) return;
+
+  menu.addEventListener('click',function(e){
+    const btn=e.target.closest('button[data-ia-file-kind]');
+    if(!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const kind=btn.getAttribute('data-ia-file-kind');
+    if(kind==='camera'){
+      imageInput.setAttribute('capture','environment');
+      imageInput.click();
+    }else if(kind==='image'){
+      imageInput.removeAttribute('capture');
+      imageInput.click();
+    }else if(kind==='pdf'){
+      pdfInput.click();
+    }
+
+    const plus=document.getElementById('auroreIAPlus');
+    if(plus){
+      plus.setAttribute('aria-expanded','false');
+    }
+    menu.hidden=true;
+  },true);
+})();
+</script>
+
+
+<script>
+(function(){
+  const menu=document.getElementById('auroreIAPlusMenu');
+  const imageInput=document.getElementById('auroreIAImageInput');
+  const pdfInput=document.getElementById('auroreIAPdfInput');
+  if(!menu||!imageInput||!pdfInput) return;
+  menu.addEventListener('click',function(e){
+    const btn=e.target.closest('button[data-ia-file-kind]');
+    if(!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const kind=btn.getAttribute('data-ia-file-kind');
+    if(kind==='camera'){
+      imageInput.setAttribute('capture','environment');
+      imageInput.click();
+    }else if(kind==='image'){
+      imageInput.removeAttribute('capture');
+      imageInput.click();
+    }else if(kind==='pdf'){
+      pdfInput.click();
+    }
+    const plus=document.getElementById('auroreIAPlus');
+    if(plus) plus.setAttribute('aria-expanded','false');
+    menu.hidden=true;
+  },true);
+})();
+</script>
+
 </body>
 </html>
 
