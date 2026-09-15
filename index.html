@@ -2706,7 +2706,7 @@ body.aurore-ia-kb-open #screen-aurore-ia.aurore-ia-screen{height:var(--ia-vvh,10
 /* Aurora — agrandissement du graphique au clic (extension additive) */
 .aurora-graph-plot-wrap{position:relative;border-radius:10px;cursor:pointer;}
 .aurora-graph-plot-wrap:focus-visible{outline:2px solid var(--ia-accent,#8B5CF6);outline-offset:3px;}
-.aurora-graph-expand-hint{border:0;cursor:pointer;font:inherit;position:absolute;right:6px;bottom:6px;display:flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;background:rgba(15,10,24,.55);color:#fff;font-size:.6rem;font-weight:800;letter-spacing:.02em;text-transform:uppercase;pointer-events:none;z-index:3;}
+.aurora-graph-expand-hint{border:0;cursor:pointer;font:inherit;position:absolute;right:6px;bottom:6px;display:flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;background:rgba(15,10,24,.55);color:#fff;font-size:.6rem;font-weight:800;letter-spacing:.02em;text-transform:uppercase;pointer-events:auto;z-index:3;}
 .aurora-graph-expand-hint svg{width:11px;height:11px;flex:none;}
 [data-theme="light"] .aurora-graph-expand-hint{background:rgba(33,26,41,.55);}
 @media(max-width:420px){.aurora-graph-expand-hint span{display:none;}.aurora-graph-expand-hint{padding:5px;}}
@@ -20234,23 +20234,72 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
   function auroraExtraireFonctions(texte){
     const s=auroraNormaliserDemandeGraphiqueTexte(texte);
     const resultats=[];
+    // Formes explicites : y=e^x, f(x)=exp(x), y=ln(x), etc.
+    // On les traite avant l'extracteur générique afin de conserver le domaine
+    // de ln(x) et d'éviter que le texte pédagogique autour des équations ne
+    // soit pris pour une partie de l'expression.
+    const formes=[
+      {re:/\by\s*=\s*e\s*\^\s*x\b/i,label:'y = e^x',raw:'exp(x)',domain:'all'},
+      {re:/\bf\s*\(\s*x\s*\)\s*=\s*e\s*\^\s*x\b/i,label:'f(x) = e^x',raw:'exp(x)',domain:'all'},
+      {re:/\by\s*=\s*exp\s*\(\s*x\s*\)/i,label:'y = exp(x)',raw:'exp(x)',domain:'all'},
+      {re:/\bf\s*\(\s*x\s*\)\s*=\s*exp\s*\(\s*x\s*\)/i,label:'f(x) = exp(x)',raw:'exp(x)',domain:'all'},
+      {re:/\by\s*=\s*ln\s*\(\s*x\s*\)/i,label:'y = ln(x)',raw:'ln(x)',domain:'positive'},
+      {re:/\bf\s*\(\s*x\s*\)\s*=\s*ln\s*\(\s*x\s*\)/i,label:'f(x) = ln(x)',raw:'ln(x)',domain:'positive'},
+      {re:/\by\s*=\s*log\s*\(\s*x\s*\)/i,label:'y = ln(x)',raw:'ln(x)',domain:'positive'},
+      {re:/\bf\s*\(\s*x\s*\)\s*=\s*log\s*\(\s*x\s*\)/i,label:'f(x) = ln(x)',raw:'ln(x)',domain:'positive'}
+    ];
+    for(const f of formes){
+      if(f.re.test(s)&&!resultats.some(r=>r.raw===f.raw))resultats.push({label:f.label,raw:f.raw,domain:f.domain});
+    }
+    if(resultats.length)return resultats;
     const re=/([a-zA-Zα-ωΑ-Ω][\w]*\s*\(\s*x\s*\)|[a-zA-Zα-ωΑ-Ω])\s*=\s*([^=,;\n]+?)(?=(?:\s*(?:,|et)\s*[a-zA-Zα-ωΑ-Ω][\w]*\s*(?:\(\s*x\s*\))?\s*=)|(?:\s+sur\s+)|[.;\n]|$)/gi;
     let m;
     while((m=re.exec(s))){
       const label=m[1].trim().replace(/\s+/g,'');
-      const expr=m[2].trim();
-      if(expr)resultats.push({label:label+' = '+expr,raw:expr});
+      let expr=m[2].trim();
+      // e^x est normalisé en exp(x), tout comme ln(x) reste une fonction
+      // reconnue par le compilateur sécurisé.
+      expr=expr.replace(/\be\s*\^\s*x\b/gi,'exp(x)');
+      if(expr)resultats.push({label:label+' = '+expr,raw:expr,domain:/\bln\s*\(\s*x\s*\)/i.test(expr)?'positive':'all'});
     }
     if(resultats.length)return resultats;
-    const motifs=/(?:sin|cos|tan|exp|ln|log|sqrt)\s*\([^)]*\)|x\s*[²³]|x\s*\^\s*\d+|√\s*x|\|x\||(?:[+-]?\s*\d*\s*x(?:\s*\^\s*\d+)?(?:\s*[+-]\s*\d+)?)/gi;
+    // Expressions naturelles sans égalité : « trace la courbe de x²+e^x »,
+    // « construis la courbe de x^2 + exp(x) », etc. On extrait l'expression
+    // située après un marqueur de tracé et avant une éventuelle précision de domaine.
+    const naturel=s.match(/(?:courbe|fonction|graphe|graphique)\s+(?:de|d[eu']|pour)\s+([^.;\n]+?)(?=\s+(?:sur|avec|pour|dans)\s+|[.;\n]|$)/i);
+    if(naturel){
+      let expr=naturel[1].trim()
+        .replace(/\b(?:la|le|les|une|un)\b/gi,'')
+        .replace(/\b(?:fonction|courbe|graphe|graphique)\b/gi,'')
+        .replace(/\by\s*=\s*/i,'')
+        .trim();
+      if(/[xX]/.test(expr)&&/(?:\^|²|³|e\s*\^|exp\s*\(|ln\s*\(|sin\s*\(|cos\s*\(|[+\-*/])/.test(expr)){
+        resultats.push({label:'y = '+expr,raw:expr,domain:/\b(?:ln|log)\s*\(/i.test(expr)?'positive':'all'});
+        return resultats;
+      }
+    }
+    const motifs=/(?:sin|cos|tan|exp|ln|log|sqrt)\s*\([^)]*\)|e\s*\^\s*x|x\s*[²³]|x\s*\^\s*\d+|√\s*x|\|x\||(?:[+-]?\s*(?:\d+(?:[.,]\d+)?\s*\*?\s*)?x(?:\s*\^\s*\d+)?(?:\s*[+-]\s*(?:\d+(?:[.,]\d+)?\s*\*?\s*x|\d+(?:[.,]\d+)?))*)/gi;
     let m2;const vus=new Set();
     while((m2=motifs.exec(s))){
-      const brut=m2[0];
-      if(vus.has(brut))continue;
-      vus.add(brut);
-      resultats.push({label:brut,raw:brut});
+      const brut=m2[0].trim();
+      const cle=brut.toLowerCase();
+      if(vus.has(cle))continue;
+      vus.add(cle);
+      if(/^e\s*\^\s*x$/i.test(brut))resultats.push({label:'y = e^x',raw:'exp(x)',domain:'all'});
+      else resultats.push({label:brut,raw:brut,domain:/^(?:ln|log)\s*\(/i.test(brut)?'positive':'all'});
     }
     return resultats;
+  }
+  function auroraDeterminerPlageGraphique(fonctions){
+    const fs=fonctions||[];
+    const aLn=fs.some(f=>f.domain==='positive'||/\b(?:ln|log)\s*\(/i.test(f.raw));
+    const aExp=fs.some(f=>/\bexp\s*\(/i.test(f.raw)||/\be\s*\^/i.test(f.raw));
+    // Plage lisible pour le couple e^x / ln(x), sans jamais échantillonner x<=0
+    // pour le logarithme. Pour les autres graphiques, on conserve la plage Aurora.
+    if(aLn&&aExp)return [ -3, 6 ];
+    if(aLn)return [ 0.05, 6 ];
+    if(aExp)return [ -5, 5 ];
+    return [-10,10];
   }
   function auroraDemandeGraphique(userText,assistantText){
     const texteUtilisateur=auroraNormaliserDemandeGraphiqueTexte(userText);
@@ -20259,7 +20308,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     if(!fonctions.length)fonctions=auroraExtraireFonctions(texteUtilisateur);
     if(!fonctions.length)fonctions=auroraExtraireFonctions(String(assistantText||''));
     if(!fonctions.length)return null;
-    return {functions:fonctions.slice(0,6),xRange:[-10,10],intention:'GRAPH_MATH'};
+    return {functions:fonctions.slice(0,6),xRange:auroraDeterminerPlageGraphique(fonctions),intention:'GRAPH_MATH'};
   }
 
   // --- Échantillonnage sécurisé (coupe les asymptotes/valeurs infinies) ---
@@ -20341,8 +20390,9 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
         paper_bgcolor:'rgba(0,0,0,0)',
         plot_bgcolor:'rgba(0,0,0,0)',
         font:{color:couleurTexte,size:11},
-        xaxis:{zeroline:true,zerolinecolor:couleurGrille,gridcolor:couleurGrille,color:couleurTexte},
-        yaxis:{zeroline:true,zerolinecolor:couleurGrille,gridcolor:couleurGrille,color:couleurTexte},
+        xaxis:{zeroline:true,zerolinecolor:couleurTexte,zerolinewidth:2,showline:true,linecolor:couleurTexte,linewidth:1.5,gridcolor:couleurGrille,color:couleurTexte,tickmode:'linear',tick0:0,dtick:1,ticks:'outside',title:{text:'x',font:{size:12,color:couleurTexte}}},
+        yaxis:{zeroline:true,zerolinecolor:couleurTexte,zerolinewidth:2,showline:true,linecolor:couleurTexte,linewidth:1.5,gridcolor:couleurGrille,color:couleurTexte,tickmode:'linear',tick0:0,dtick:1,ticks:'outside',title:{text:'y',font:{size:12,color:couleurTexte}},scaleanchor:'x',scaleratio:1},
+        annotations:[{x:0,y:0,xref:'x',yref:'y',text:'O',showarrow:false,xshift:10,yshift:-10,font:{size:13,color:couleurTexte}}],
         showlegend:compilees.length>1,
         legend:{orientation:'h',x:0,y:-0.22,font:{size:10,color:couleurTexte}},
         dragmode:'pan'
@@ -20426,8 +20476,9 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
         paper_bgcolor:'rgba(0,0,0,0)',
         plot_bgcolor:'rgba(0,0,0,0)',
         font:{color:couleurTexte,size:13},
-        xaxis:{zeroline:true,zerolinecolor:couleurGrille,gridcolor:couleurGrille,color:couleurTexte},
-        yaxis:{zeroline:true,zerolinecolor:couleurGrille,gridcolor:couleurGrille,color:couleurTexte},
+        xaxis:{zeroline:true,zerolinecolor:couleurTexte,zerolinewidth:2,showline:true,linecolor:couleurTexte,linewidth:1.5,gridcolor:couleurGrille,color:couleurTexte,tickmode:'linear',tick0:0,dtick:1,ticks:'outside',title:{text:'x',font:{size:12,color:couleurTexte}}},
+        yaxis:{zeroline:true,zerolinecolor:couleurTexte,zerolinewidth:2,showline:true,linecolor:couleurTexte,linewidth:1.5,gridcolor:couleurGrille,color:couleurTexte,tickmode:'linear',tick0:0,dtick:1,ticks:'outside',title:{text:'y',font:{size:12,color:couleurTexte}},scaleanchor:'x',scaleratio:1},
+        annotations:[{x:0,y:0,xref:'x',yref:'y',text:'O',showarrow:false,xshift:10,yshift:-10,font:{size:13,color:couleurTexte}}],
         showlegend:traces.length>1,
         legend:{orientation:'h',x:0,y:-0.16,font:{size:12,color:couleurTexte}},
         dragmode:'pan'
