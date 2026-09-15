@@ -20196,13 +20196,13 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     // Vocabulaire naturel français fréquemment utilisé pour parler des puissances.
     // Ces règles servent au moteur graphique local : elles ne modifient pas la
     // réponse textuelle de DeepSeek.
-    s=s.replace(/\bx\s+(?:au\s+)?carr[ée]\b/gi,'x^2');
+    s=s.replace(/\bx\s+(?:au\s+)?carr(?:é|e)(?![\p{L}\p{N}_])/giu,'x^2');
     s=s.replace(/\bx\s+(?:au\s+)?cube\b/gi,'x^3');
     s=s.replace(/\bx\s+puissance\s+(\d+)\b/gi,'x^$1');
     // "fonction carré", "fonction f carré", "f carré" et variantes
     // désignent ici la fonction f(x)=x² lorsqu'une demande de tracé est explicite.
-    s=s.replace(/\bfonction(?:\s+f)?\s+(?:au\s+)?carr[ée]\b/gi,'f(x)=x^2');
-    s=s.replace(/\bf\s+(?:au\s+)?carr[ée]\b/gi,'f(x)=x^2');
+    s=s.replace(/\bfonction(?:\s+f)?\s+(?:au\s+)?carr(?:é|e)(?![\p{L}\p{N}_])/giu,'f(x)=x^2');
+    s=s.replace(/\bf\s+(?:au\s+)?carr(?:é|e)(?![\p{L}\p{N}_])/giu,'f(x)=x^2');
     s=s.replace(/\bfonction(?:\s+f)?\s+(?:au\s+)?cube\b/gi,'f(x)=x^3');
     return s;
   }
