@@ -7560,6 +7560,18 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
       window.__auroraClosingGeoGebra=false;
       return;
     }
+    // Filet de sécurité : si le Laboratoire GeoGebra est encore visible à cet
+    // instant (drapeau ci-dessus non positionné à temps — bouton Retour
+    // matériel/geste Android ou iOS déclenché directement), on ferme
+    // uniquement le laboratoire ici, exactement comme pour les autres
+    // overlays ci-dessous, au lieu de laisser tomber le traitement jusqu'à la
+    // restauration générale d'écran (qui pouvait auparavant ramener
+    // l'utilisateur jusqu'à l'accueil).
+    if (document.getElementById('auroraGeoGebraWorkspace')) {
+      document.getElementById('auroraGeoGebraWorkspace')?.remove();
+      window.__auroraClosingGeoGebra=false;
+      return;
+    }
     // Le lecteur PDF pousse son propre état d'historique à l'ouverture (voir
     // ouvrirLecteurPDF) pour que le bouton Retour Android le referme sans
     // quitter l'écran pédagogique sous-jacent (Documents/Matière/Série…), qui
@@ -20827,13 +20839,16 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     overlay.remove();
   };
   const close=()=>{
+    // Ferme d'abord immédiatement le laboratoire à l'écran : l'utilisateur
+    // retrouve la discussion sans attendre l'évènement popstate, qui ne sert
+    // plus ici qu'à nettoyer discrètement l'entrée d'historique dédiée.
+    cleanup();
     if(history.state&&history.state.auroraGeoGebraOverlay){
       // Signale au gestionnaire global que ce history.back() est une fermeture
       // du laboratoire et non une demande de navigation vers un autre écran.
       window.__auroraClosingGeoGebra=true;
-      try{history.back();return;}catch(_){window.__auroraClosingGeoGebra=false;}
+      try{history.back();}catch(_){window.__auroraClosingGeoGebra=false;}
     }
-    cleanup();
   };
   back.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();close();});
 
