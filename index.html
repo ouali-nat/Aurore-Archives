@@ -2695,6 +2695,34 @@ body.aurore-ia-kb-open #screen-aurore-ia.aurore-ia-screen{height:var(--ia-vvh,10
 .aurora-graph-error{padding:16px 10px;font-size:.75rem;color:var(--ia-muted);text-align:center;}
 [data-theme="light"] .aurora-graph-block{background:rgba(0,0,0,.02);}
 @media(max-width:560px){.aurora-graph-plot{height:220px;}}
+/* Aurora — agrandissement du graphique au clic (extension additive) */
+.aurora-graph-plot-wrap{position:relative;border-radius:10px;cursor:pointer;}
+.aurora-graph-plot-wrap:focus-visible{outline:2px solid var(--ia-accent,#8B5CF6);outline-offset:3px;}
+.aurora-graph-expand-hint{position:absolute;right:6px;bottom:6px;display:flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;background:rgba(15,10,24,.55);color:#fff;font-size:.6rem;font-weight:800;letter-spacing:.02em;text-transform:uppercase;pointer-events:none;z-index:3;}
+.aurora-graph-expand-hint svg{width:11px;height:11px;flex:none;}
+[data-theme="light"] .aurora-graph-expand-hint{background:rgba(33,26,41,.55);}
+@media(max-width:420px){.aurora-graph-expand-hint span{display:none;}.aurora-graph-expand-hint{padding:5px;}}
+#auroraGraphOverlay{position:fixed;inset:0;z-index:9995;display:none;flex-direction:column;background:rgba(9,7,15,.94);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}
+[data-theme="light"] #auroraGraphOverlay{background:rgba(247,244,251,.98);}
+.aurora-graph-overlay-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.08);flex:none;color:#F7F4FF;box-sizing:border-box;}
+[data-theme="light"] .aurora-graph-overlay-header{border-bottom-color:#DED5E8;color:#211A29;}
+.aurora-graph-overlay-title{font-size:.78rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#C084FC;}
+[data-theme="light"] .aurora-graph-overlay-title{color:#6D28D9;}
+.aurora-graph-overlay-close{width:38px;height:38px;border-radius:12px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:inherit;font-size:1.05rem;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;}
+.aurora-graph-overlay-close:hover{background:rgba(255,255,255,.12);}
+[data-theme="light"] .aurora-graph-overlay-close{background:rgba(0,0,0,.04);border-color:#DED5E8;}
+[data-theme="light"] .aurora-graph-overlay-close:hover{background:rgba(0,0,0,.08);}
+.aurora-graph-overlay-sub{padding:0 16px 6px;font-size:.72rem;color:#958DA6;flex:none;word-break:break-word;box-sizing:border-box;}
+[data-theme="light"] .aurora-graph-overlay-sub{color:#6D6578;}
+.aurora-graph-overlay-body{flex:1;min-height:0;display:flex;flex-direction:column;padding:6px 12px 10px;box-sizing:border-box;}
+.aurora-graph-overlay-plot{flex:1;min-height:0;width:100%;}
+.aurora-graph-overlay-toolbar{display:flex;justify-content:center;flex:none;padding:6px 0 0;}
+.aurora-graph-overlay-reset{padding:7px 16px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#F7F4FF;font-size:.7rem;font-weight:700;cursor:pointer;}
+.aurora-graph-overlay-reset:hover{background:rgba(255,255,255,.12);}
+[data-theme="light"] .aurora-graph-overlay-reset{background:rgba(0,0,0,.04);border-color:#DED5E8;color:#211A29;}
+[data-theme="light"] .aurora-graph-overlay-reset:hover{background:rgba(0,0,0,.08);}
+body.aurora-graph-overlay-open{overflow:hidden;}
+@media(max-width:720px){.aurora-graph-overlay-body{padding:4px 4px 8px;}}
 
 .aurore-ia-results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:10px}.aurore-ia-result{border:1px solid #292238;background:#15111F;border-radius:14px;overflow:hidden}.aurore-ia-result img{width:100%;height:110px;object-fit:cover;display:block;background:#110E19}.aurore-ia-result-body{padding:10px}.aurore-ia-result-body strong{display:block;color:var(--ia-accent-white);font-size:.75rem}.aurore-ia-result-body p{margin-top:4px;color:#81798F;font-size:.66rem;line-height:1.45}.aurore-ia-result-body a{display:inline-block;margin-top:6px;color:var(--ia-accent-pale);font-size:.66rem;text-decoration:none}
 
@@ -4844,6 +4872,22 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
     </div>
     <div id="wikiViewerBody" class="wiki-body">
       <span id="wikiViewerTitreLive" class="visually-hidden-aurore"></span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== AURORA — GRAPHIQUE AGRANDI (overlay additif, même moteur Plotly et
+     mêmes données que le petit graphique affiché dans la conversation) ===== -->
+<div id="auroraGraphOverlay" role="dialog" aria-modal="true" aria-labelledby="auroraGraphOverlayTitle" style="display:none;">
+  <div class="aurora-graph-overlay-header">
+    <span id="auroraGraphOverlayTitle" class="aurora-graph-overlay-title">Graphique Aurora</span>
+    <button type="button" id="auroraGraphOverlayClose" class="aurora-graph-overlay-close" aria-label="Fermer le graphique">✕</button>
+  </div>
+  <div id="auroraGraphOverlaySub" class="aurora-graph-overlay-sub"></div>
+  <div class="aurora-graph-overlay-body">
+    <div id="auroraGraphOverlayPlot" class="aurora-graph-overlay-plot"></div>
+    <div class="aurora-graph-overlay-toolbar">
+      <button type="button" id="auroraGraphOverlayReset" class="aurora-graph-overlay-reset">Réinitialiser le zoom</button>
     </div>
   </div>
 </div>
@@ -7475,6 +7519,13 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
     // Retour la referme simplement sans quitter ni recharger l'écran sous-jacent.
     if (document.getElementById('wikiViewerOverlay')?.style.display === 'block') {
       if (typeof window.auroreFermerArticleWikipedia === 'function') window.auroreFermerArticleWikipedia();
+      return;
+    }
+    // Même principe pour le graphique Aurora agrandi : il pousse son propre
+    // état d'historique à l'ouverture ("auroraGraphOverlay"), donc le Retour
+    // le referme simplement, sans toucher à la conversation Aurora sous-jacente.
+    if (document.getElementById('auroraGraphOverlay')?.style.display === 'flex') {
+      if (typeof window.auroraFermerGrandGraphique === 'function') window.auroraFermerGrandGraphique({fromPopState:true});
       return;
     }
     // Même principe pour la fiche de gestion ouverte depuis un bloc du tableau
@@ -20214,12 +20265,27 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       const entete=document.createElement('div');entete.className='aurora-graph-header';
       entete.innerHTML='<span class="aurora-graph-title">Graphique</span><span class="aurora-graph-sub">'+esc(compilees.map(c=>c.label).join(' · '))+'</span>';
       const idPlot=auroraIdentifiantGraphique();
+      // Conteneur cliquable : le graphique Plotly (zonePlot) reste seul à
+      // recevoir Plotly.newPlot (qui remplace tout son contenu), donc l'indice
+      // visuel "Agrandir" est un frère à part, jamais écrasé par un re-rendu.
+      const wrapPlot=document.createElement('div');wrapPlot.className='aurora-graph-plot-wrap';
+      wrapPlot.setAttribute('role','button');
+      wrapPlot.setAttribute('tabindex','0');
+      wrapPlot.setAttribute('aria-label','Agrandir le graphique');
       const zonePlot=document.createElement('div');zonePlot.className='aurora-graph-plot';zonePlot.id=idPlot;
-      bloc.appendChild(entete);bloc.appendChild(zonePlot);
+      const indiceAgrandir=document.createElement('div');
+      indiceAgrandir.className='aurora-graph-expand-hint';
+      indiceAgrandir.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H3v6M15 3h6v6M3 15v6h6M21 15v6h-6"/></svg><span>Agrandir</span>';
+      wrapPlot.appendChild(zonePlot);wrapPlot.appendChild(indiceAgrandir);
+      bloc.appendChild(entete);bloc.appendChild(wrapPlot);
       bubble.appendChild(bloc);
       scrollBottom(false);
       const Plotly=await assurerPlotlyCharge();
-      const couleurs=[auroraCouleurCSS('--ia-accent','#8B5CF6'),auroraCouleurCSS('--ia-accent-3','#C084FC'),auroraCouleurCSS('--ia-accent-2','#6D28D9'),'#38BDF8','#F472B6'];
+      // Palette volontairement saturée (pas de tons pâles) pour rester lisible
+      // aussi bien en mode sombre qu'en mode clair ; la 1ʳᵉ couleur reprend
+      // l'accent de marque Aurora, les suivantes sont choisies pour rester
+      // clairement distinctes les unes des autres.
+      const couleurs=[auroraCouleurCSS('--ia-accent','#8B5CF6'),'#F59E0B','#10B981','#38BDF8','#F472B6'];
       const xMin=demande.xRange[0],xMax=demande.xRange[1];
       const traces=compilees.map((c,i)=>{
         const {xs,ys}=auroraEchantillonner(c.fn,xMin,xMax,400);
@@ -20246,6 +20312,10 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
         ro.observe(zonePlot);
         zonePlot.__auroraResizeObserver=ro;
       }
+      // Même configuration conservée pour le grand graphique (objectif : une
+      // seule source de vérité, jamais une deuxième courbe recalculée).
+      zonePlot.__auroraGraphConfig={traces:traces,subtitle:compilees.map(c=>c.label).join(' · ')};
+      auroraCablerClicAgrandissement(wrapPlot,zonePlot);
     }catch(e){
       console.error('[Aurora][Graphique] échec du rendu :',e);
       const bubble=row?.querySelector?.('.aurore-ia-bubble');
@@ -20253,6 +20323,128 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       if(zone)zone.innerHTML='<div class="aurora-graph-error">Le graphique n’a pas pu s’afficher.</div>';
     }
   }
+
+  /* ==========================================================================
+     AURORA — MODE AGRANDI DU GRAPHIQUE (extension additive)
+     --------------------------------------------------------------------------
+     Le petit graphique reste seul responsable du calcul des courbes. Cette
+     partie se contente de rejouer, dans un overlay plein écran, exactement
+     les mêmes traces Plotly déjà calculées (aucune deuxième évaluation des
+     fonctions mathématiques). Le petit graphique dans la conversation n'est
+     jamais remplacé : l'overlay est une fenêtre à part, qui se referme pour
+     retrouver la conversation intacte.
+     ========================================================================== */
+  const AURORA_OVERLAY_PLOT_ID='auroraGraphOverlayPlot';
+  function auroraOverlayEl(){return document.getElementById('auroraGraphOverlay');}
+  function auroraOverlayEstOuvert(){const o=auroraOverlayEl();return !!o&&o.style.display==='flex';}
+  function auroraClonerTraces(traces){
+    return (traces||[]).map(t=>Object.assign({},t,{x:(t.x||[]).slice(),y:(t.y||[]).slice(),line:Object.assign({},t.line)}));
+  }
+  // Empêche l'ouverture de l'overlay lorsque le clic provient en réalité d'un
+  // glissement (pan) sur le petit graphique, ou d'un clic sur les icônes de la
+  // barre d'outils Plotly (zoom, réinitialisation…) : dans ces deux cas
+  // l'utilisateur interagit déjà avec le graphique, il ne cherche pas à
+  // l'agrandir.
+  function auroraCablerClicAgrandissement(wrapPlot,zonePlot){
+    if(!wrapPlot||wrapPlot.__auroraClicCable)return;
+    wrapPlot.__auroraClicCable=true;
+    let depart=null;
+    wrapPlot.addEventListener('pointerdown',(e)=>{depart={x:e.clientX,y:e.clientY};});
+    wrapPlot.addEventListener('click',(e)=>{
+      if(e.target&&e.target.closest&&e.target.closest('.modebar'))return;
+      if(depart){
+        const dx=Math.abs((e.clientX||0)-depart.x),dy=Math.abs((e.clientY||0)-depart.y);
+        depart=null;
+        if(dx>6||dy>6)return;
+      }
+      ouvrirGrandGraphiqueAurora(zonePlot);
+    });
+    wrapPlot.addEventListener('keydown',(e)=>{
+      if(e.key==='Enter'||e.key===' '||e.key==='Spacebar'){e.preventDefault();ouvrirGrandGraphiqueAurora(zonePlot);}
+    });
+  }
+  async function ouvrirGrandGraphiqueAurora(zonePlot){
+    try{
+      const cfg=zonePlot&&zonePlot.__auroraGraphConfig;
+      if(!cfg||!cfg.traces||!cfg.traces.length)return;
+      const overlay=auroraOverlayEl();
+      if(!overlay)return;
+      const sub=document.getElementById('auroraGraphOverlaySub');
+      if(sub)sub.textContent=cfg.subtitle||'';
+      // Un seul état d'historique dédié pour l'overlay ("auroraGraphOverlay"),
+      // qui conserve l'état de navigation déjà en place (ne casse pas
+      // l'historique Aurora / lecteur PDF / autres panneaux).
+      if(!(history.state&&history.state.auroraGraphOverlay)){
+        try{
+          const ecranActuel=document.querySelector('.screen.active')?.id||'screen-aurore-ia';
+          const base=(typeof creerSnapshotNavigation==='function')?creerSnapshotNavigation(ecranActuel,window.scrollY):(history.state||{});
+          history.pushState(Object.assign({},base,{auroraGraphOverlay:true}),'',location.href);
+        }catch(_){}
+      }
+      overlay.style.display='flex';
+      document.body.classList.add('aurora-graph-overlay-open');
+      const Plotly=await assurerPlotlyCharge();
+      const plotDiv=document.getElementById(AURORA_OVERLAY_PLOT_ID);
+      if(!plotDiv)return;
+      const traces=auroraClonerTraces(cfg.traces);
+      traces.forEach(t=>{if(t.line)t.line.width=Math.max(t.line.width||2,3);});
+      const couleurTexte=auroraCouleurCSS('--ia-muted','#958DA6');
+      const couleurGrille=auroraCouleurCSS('--ia-border','rgba(255,255,255,.14)');
+      const layout={
+        autosize:true,
+        margin:{l:52,r:20,t:18,b:44},
+        paper_bgcolor:'rgba(0,0,0,0)',
+        plot_bgcolor:'rgba(0,0,0,0)',
+        font:{color:couleurTexte,size:13},
+        xaxis:{zeroline:true,zerolinecolor:couleurGrille,gridcolor:couleurGrille,color:couleurTexte},
+        yaxis:{zeroline:true,zerolinecolor:couleurGrille,gridcolor:couleurGrille,color:couleurTexte},
+        showlegend:traces.length>1,
+        legend:{orientation:'h',x:0,y:-0.16,font:{size:12,color:couleurTexte}},
+        dragmode:'pan'
+      };
+      const config={responsive:true,displaylogo:false,scrollZoom:true,modeBarButtonsToRemove:['lasso2d','select2d'],displayModeBar:true,doubleClick:'reset+autosize'};
+      await Plotly.newPlot(plotDiv,traces,layout,config);
+      if(window.ResizeObserver){
+        if(plotDiv.__auroraOverlayResizeObserver)plotDiv.__auroraOverlayResizeObserver.disconnect();
+        const ro=new ResizeObserver(()=>{try{Plotly.Plots.resize(plotDiv);}catch(_){}});
+        ro.observe(plotDiv);
+        plotDiv.__auroraOverlayResizeObserver=ro;
+      }
+      document.getElementById('auroraGraphOverlayClose')?.focus?.({preventScroll:true});
+    }catch(e){
+      console.error('[Aurora][Graphique] échec de l’agrandissement :',e);
+    }
+  }
+  function fermerGrandGraphiqueAurora(opts){
+    const overlay=auroraOverlayEl();
+    if(!overlay||overlay.style.display!=='flex')return;
+    overlay.style.display='none';
+    document.body.classList.remove('aurora-graph-overlay-open');
+    try{
+      const plotDiv=document.getElementById(AURORA_OVERLAY_PLOT_ID);
+      if(plotDiv){
+        if(plotDiv.__auroraOverlayResizeObserver){plotDiv.__auroraOverlayResizeObserver.disconnect();plotDiv.__auroraOverlayResizeObserver=null;}
+        if(window.Plotly)window.Plotly.purge(plotDiv);
+      }
+    }catch(_){}
+    if(!(opts&&opts.fromPopState)){
+      try{if(history.state&&history.state.auroraGraphOverlay)history.back();}catch(_){}
+    }
+  }
+  // Exposée pour que le gestionnaire "popstate" principal (bouton Retour
+  // Android/navigateur) puisse fermer proprement l'overlay sans dupliquer
+  // cette logique ni toucher au système d'historique existant.
+  window.auroraFermerGrandGraphique=fermerGrandGraphiqueAurora;
+  document.getElementById('auroraGraphOverlayClose')?.addEventListener('click',()=>fermerGrandGraphiqueAurora());
+  document.getElementById('auroraGraphOverlayReset')?.addEventListener('click',()=>{
+    try{
+      const plotDiv=document.getElementById(AURORA_OVERLAY_PLOT_ID);
+      if(plotDiv&&window.Plotly)window.Plotly.relayout(plotDiv,{'xaxis.autorange':true,'yaxis.autorange':true});
+    }catch(_){}
+  });
+  document.addEventListener('keydown',(e)=>{
+    if(e.key==='Escape'&&auroraOverlayEstOuvert())fermerGrandGraphiqueAurora();
+  });
 
   function collapseWelcome(){
     const w=conversation.querySelector('.aurore-ia-welcome');
