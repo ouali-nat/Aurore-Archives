@@ -16681,6 +16681,36 @@ window.addEventListener('load',()=>{
   let logoChecks=0;
   const logoWatch=setInterval(()=>{appliquerLogo();if(iconBox.querySelector('img')||logoChecks++>40)clearInterval(logoWatch);},300);
 
+  // ---- Ouverture par glissement horizontal sur le site ----
+  // Un balayage horizontal franc ouvre Aurora depuis les écrans du site.
+  // On ignore les champs de saisie et les zones qui possèdent leur propre
+  // défilement horizontal afin de ne pas casser les interactions existantes.
+  let gesteHorizontalDepart=null;
+  let gesteHorizontalTemps=0;
+  const zoneAutoriseGeste=target=>{
+    const n=target?.closest?.('input,textarea,select,[contenteditable="true"],.admin-tabs,.admin-tabs *');
+    return !n;
+  };
+  document.addEventListener('touchstart',e=>{
+    if(e.touches.length!==1||estDansIA()||!zoneAutoriseGeste(e.target))return;
+    const t=e.touches[0];
+    gesteHorizontalDepart={x:t.clientX,y:t.clientY};
+    gesteHorizontalTemps=Date.now();
+  },{passive:true});
+  document.addEventListener('touchend',e=>{
+    if(!gesteHorizontalDepart||estDansIA()){gesteHorizontalDepart=null;return;}
+    const t=e.changedTouches[0];
+    const dx=t.clientX-gesteHorizontalDepart.x;
+    const dy=t.clientY-gesteHorizontalDepart.y;
+    const duree=Date.now()-gesteHorizontalTemps;
+    gesteHorizontalDepart=null;
+    // Seuil assez net pour éviter qu'un simple déplacement vertical de page
+    // soit interprété comme une demande d'ouverture.
+    if(Math.abs(dx)>=75&&Math.abs(dx)>Math.abs(dy)*1.35&&duree<=900){
+      ouvrirAurora();
+    }
+  },{passive:true});
+
   // ---- Contexte : accueil ou intérieur de l'IA ----
   function estDansIA(){
     const ecran=document.getElementById('screen-aurore-ia');
@@ -16752,16 +16782,20 @@ window.addEventListener('load',()=>{
     if(estDansIA())ouvrirMenu();else ouvrirAurora();
   });
 
-  // Secours global : le bouton Aurora doit rester cliquable même si un autre
-  // gestionnaire d'événement de la page intercepte le clic.
-  document.addEventListener('click',e=>{
+  // Sécurité de clic mobile : Aurora répond dès l'interaction utilisateur,
+  // en phase capture, sans dépendre de l'ordre des autres gestionnaires.
+  let dernierDeclenchement=0;
+  function declencherAuroraDepuisClic(e){
     const target=e.target?.closest?.('#auroreFloatingAI');
-    if(!target||target!==el)return;
-    if(e.defaultPrevented)return;
-    if(estDansIA())return;
-    e.stopPropagation();
+    if(!target||target!==el||estDansIA())return;
+    const maintenant=Date.now();
+    if(maintenant-dernierDeclenchement<500)return;
+    dernierDeclenchement=maintenant;
     ouvrirAurora();
-  },true);
+  }
+  document.addEventListener('pointerup',declencherAuroraDepuisClic,true);
+  document.addEventListener('touchend',declencherAuroraDepuisClic,true);
+  document.addEventListener('click',declencherAuroraDepuisClic,true);
   el.addEventListener('keydown',e=>{
     if(e.key==='Enter'||e.key===' '){
       e.preventDefault();
