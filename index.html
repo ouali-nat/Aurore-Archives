@@ -7552,6 +7552,14 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
   }
 
   window.addEventListener('popstate',(e)=>{
+    // Fermeture volontaire du Laboratoire mathématique : le retour doit rester
+    // sur la discussion Aurora, même si l'état précédent ne contient pas les
+    // marqueurs habituels de navigation de l'écran. Le gestionnaire dédié au
+    // laboratoire supprimera ensuite uniquement son interface.
+    if(window.__auroraClosingGeoGebra){
+      window.__auroraClosingGeoGebra=false;
+      return;
+    }
     // Le lecteur PDF pousse son propre état d'historique à l'ouverture (voir
     // ouvrirLecteurPDF) pour que le bouton Retour Android le referme sans
     // quitter l'écran pédagogique sous-jacent (Documents/Matière/Série…), qui
@@ -20681,50 +20689,62 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
   style.textContent=`
     #auroraGeoGebraWorkspace{
       position:fixed;inset:0;z-index:2147483000;display:flex;flex-direction:column;
-      background:var(--aurore-bg,#07060B);color:var(--aurore-ink,#F8F7FF);
+      background:var(--fond,var(--aurore-bg,#07060B));color:var(--encre,var(--aurore-ink,#F8F7FF));
       font-family:inherit;overflow:hidden;
     }
     #auroraGeoGebraWorkspace .aurora-ggb-top{
       flex:0 0 auto;display:flex;align-items:center;gap:12px;min-height:64px;
-      padding:10px 14px;background:var(--aurore-surface,#111019);
-      border-bottom:1px solid var(--aurore-line,rgba(216,180,254,.13));
+      padding:10px 14px;background:var(--papier,var(--aurore-surface,#111019));
+      border-bottom:1px solid var(--theme-border,var(--bordure,var(--aurore-line,rgba(216,180,254,.13))));
+      box-shadow:0 8px 28px var(--theme-shadow,rgba(0,0,0,.16));
       box-sizing:border-box;
     }
     #auroraGeoGebraWorkspace .aurora-ggb-back{
-      width:42px;height:42px;border:1px solid var(--aurore-line,rgba(216,180,254,.13));
-      border-radius:14px;background:var(--aurore-surface-2,#171321);color:inherit;
+      width:42px;height:42px;border:1px solid var(--theme-border,var(--bordure,var(--aurore-line,rgba(216,180,254,.13))));
+      border-radius:14px;background:var(--theme-soft,var(--aurore-surface-2,#171321));color:var(--theme-primary,var(--aurore-ink,#F8F7FF));
       display:grid;place-items:center;cursor:pointer;flex:0 0 auto;
     }
     #auroraGeoGebraWorkspace .aurora-ggb-back svg{width:20px;height:20px}
     #auroraGeoGebraWorkspace .aurora-ggb-brand{min-width:0;flex:1}
     #auroraGeoGebraWorkspace .aurora-ggb-brand strong{display:block;font-size:15px;line-height:1.2}
     #auroraGeoGebraWorkspace .aurora-ggb-brand span{
-      display:block;margin-top:3px;color:var(--aurore-muted,#A9A3B8);font-size:12px;
+      display:block;margin-top:3px;color:var(--gris,var(--aurore-muted,#A9A3B8));font-size:12px;
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     }
     #auroraGeoGebraWorkspace .aurora-ggb-badge{
       flex:0 0 auto;padding:7px 10px;border-radius:999px;
-      background:rgba(139,92,246,.14);color:var(--aurore-lilac,#C084FC);
-      border:1px solid rgba(192,132,252,.2);font-size:11px;font-weight:700;
+      background:var(--theme-soft,rgba(139,92,246,.14));color:var(--theme-primary,var(--aurore-lilac,#C084FC));
+      border:1px solid var(--theme-border,rgba(192,132,252,.2));font-size:11px;font-weight:700;
     }
     #auroraGeoGebraWorkspace .aurora-ggb-stage{
       position:relative;flex:1;min-height:0;padding:10px;box-sizing:border-box;
     }
     #auroraGeoGebraWorkspace .aurora-ggb-card{
       position:relative;width:100%;height:100%;overflow:hidden;border-radius:20px;
-      background:#fff;border:1px solid var(--aurore-line,rgba(216,180,254,.13));
-      box-shadow:0 20px 60px rgba(0,0,0,.25);
+      background:var(--papier,#fff);border:1px solid var(--theme-border,var(--bordure,var(--aurore-line,rgba(216,180,254,.13))));
+      box-shadow:0 20px 60px var(--theme-shadow,rgba(0,0,0,.25));
     }
     #auroraGeoGebraWorkspace .aurora-ggb-app{width:100%;height:100%}
     #auroraGeoGebraWorkspace .aurora-ggb-loading{
-      position:absolute;inset:0;display:grid;place-items:center;background:#fff;color:#30273d;
+      position:absolute;inset:0;display:grid;place-items:center;background:var(--papier,#fff);color:var(--encre,#30273d);
       font-size:14px;z-index:2;transition:opacity .2s ease;
     }
     #auroraGeoGebraWorkspace .aurora-ggb-error{
       position:absolute;inset:0;display:none;place-items:center;padding:24px;text-align:center;
-      background:#fff;color:#30273d;z-index:3;
+      background:var(--papier,#fff);color:var(--encre,#30273d);z-index:3;
     }
     #auroraGeoGebraWorkspace .aurora-ggb-error div{max-width:420px}
+    #auroraGeoGebraWorkspace .aurora-ggb-back:hover,
+    #auroraGeoGebraWorkspace .aurora-ggb-back:focus-visible{
+      background:var(--theme-primary,var(--aurore-violet,#8B5CF6));color:#fff;
+      border-color:var(--theme-primary,var(--aurore-violet,#8B5CF6));
+      outline:none;box-shadow:0 8px 22px var(--theme-shadow,rgba(0,0,0,.18));
+    }
+    #auroraGeoGebraWorkspace .aurora-ggb-top::after{
+      content:'';position:absolute;left:0;right:0;top:0;height:2px;
+      background:linear-gradient(90deg,var(--theme-strong,var(--theme-primary,#8B5CF6)),var(--theme-secondary,var(--theme-primary,#C084FC)));
+    }
+    #auroraGeoGebraWorkspace .aurora-ggb-top{position:relative;}
     #auroraGeoGebraWorkspace .aurora-ggb-error strong{display:block;margin-bottom:8px}
     @media(max-width:600px){
       #auroraGeoGebraWorkspace .aurora-ggb-top{min-height:58px;padding:8px 10px}
@@ -20765,7 +20785,10 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
   };
   const close=()=>{
     if(history.state&&history.state.auroraGeoGebraOverlay){
-      try{history.back();return;}catch(_){}
+      // Signale au gestionnaire global que ce history.back() est une fermeture
+      // du laboratoire et non une demande de navigation vers un autre écran.
+      window.__auroraClosingGeoGebra=true;
+      try{history.back();return;}catch(_){window.__auroraClosingGeoGebra=false;}
     }
     cleanup();
   };
@@ -20779,6 +20802,9 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     window.addEventListener('popstate',()=>{
       const el=document.getElementById('auroraGeoGebraWorkspace');
       if(el)el.remove();
+      // Nettoyage de sécurité si le popstate a été déclenché par le bouton
+      // Retour du navigateur/Android plutôt que par le bouton du laboratoire.
+      window.__auroraClosingGeoGebra=false;
     });
   }
 
@@ -20992,6 +21018,52 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     return row;
   }
 
+  // Galerie d'aperçu des pièces jointes : visible avant l'analyse et conservée dans la discussion.
+  function ajouterGaleriePiecesJointesAurora(row, pieces, status='Envoyé pour analyse'){
+    if(!row||!Array.isArray(pieces)||!pieces.length)return null;
+    const bubble=row.querySelector('.aurore-ia-bubble')||row;
+    const galerie=document.createElement('div');
+    galerie.className='aurore-ia-attachment-gallery';
+    galerie.setAttribute('aria-label','Aperçu des fichiers analysés');
+    pieces.forEach((f,i)=>{
+      const item=document.createElement('div');
+      item.className='aurore-ia-attachment-preview';
+      item.dataset.attachmentIndex=String(i);
+      const media=document.createElement('button');
+      media.type='button';media.className='aurore-ia-attachment-preview-media';
+      media.setAttribute('aria-label','Agrandir '+String(f.name||'fichier'));
+      if(f.dataUrl){
+        const img=document.createElement('img');
+        img.src=f.dataUrl;img.alt=f.name||'Aperçu';img.loading='lazy';
+        media.appendChild(img);
+      }else{
+        media.innerHTML='<span class="aurore-ia-file-preview-icon">PDF</span>';
+      }
+      const caption=document.createElement('div');caption.className='aurore-ia-attachment-preview-caption';
+      caption.innerHTML='<strong>'+esc(f.name||'Fichier')+'</strong><span data-attachment-status>'+esc(status)+'</span>';
+      item.appendChild(media);item.appendChild(caption);galerie.appendChild(item);
+      media.addEventListener('click',()=>ouvrirApercuPieceJointeAurora(pieces,i));
+    });
+    bubble.appendChild(galerie);
+    return galerie;
+  }
+
+  function ouvrirApercuPieceJointeAurora(pieces,index){
+    const f=pieces?.[index];if(!f)return;
+    let overlay=document.getElementById('auroreIAAttachmentViewer');
+    if(!overlay){
+      overlay=document.createElement('div');overlay.id='auroreIAAttachmentViewer';overlay.className='aurore-ia-attachment-viewer';
+      overlay.innerHTML='<div class="aurore-ia-attachment-viewer-card" role="dialog" aria-modal="true" aria-label="Aperçu du fichier"><button type="button" class="aurore-ia-attachment-viewer-close" aria-label="Fermer">×</button><div class="aurore-ia-attachment-viewer-title"></div><div class="aurore-ia-attachment-viewer-body"></div></div>';
+      document.body.appendChild(overlay);
+      overlay.querySelector('.aurore-ia-attachment-viewer-close').addEventListener('click',()=>{overlay.style.display='none';});
+      overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.style.display='none';});
+    }
+    overlay.querySelector('.aurore-ia-attachment-viewer-title').textContent=f.name||'Aperçu';
+    const body=overlay.querySelector('.aurore-ia-attachment-viewer-body');body.innerHTML='';
+    if(f.dataUrl){const img=document.createElement('img');img.src=f.dataUrl;img.alt=f.name||'Aperçu';body.appendChild(img);}
+    overlay.style.display='flex';
+  }
+
   async function copierTexteAurora(texte,bouton){
     const value=String(texte||'').trim();
     if(!value||!bouton)return;
@@ -21131,7 +21203,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     scrollBottom(false);
   }
 
-  async function submitIA(q, attachments=[]){
+  async function submitIA(q, attachments=[], attachmentGallery=null){
     arretDemande=false;
     setBusy(true);
     const actions=['Aurora fait le point…','Aurora cherche…','Aurora prépare la réponse…'];
@@ -21148,6 +21220,9 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       if(arretDemande)return;
       const texteReponse=data.text||'Aucune réponse.';
       await ecrireAurora(row,texteReponse,()=>arretDemande);
+      if(attachmentGallery){
+        attachmentGallery.querySelectorAll('[data-attachment-status]').forEach(el=>el.textContent='Analyse terminée');
+      }
       if(arretDemande)return;
       messagesActuels.push({role:'assistant',text:texteReponse});
       sauvegarderConversationCourante();
@@ -21173,7 +21248,9 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     const pieces=fichiersIA.map(f=>f.name).join(', ');
     const messagePourDiscussion=q || 'Analyse les fichiers joints.';
     const messageAffiche=q ? (pieces ? q+'\n\n📎 '+pieces : q) : '📎 '+pieces;
-    addMessage(messageAffiche,'user');
+    const piecesAEnvoyer=fichiersIA.slice();
+    const userRow=addMessage(messageAffiche,'user');
+    const galeriePieces=ajouterGaleriePiecesJointesAurora(userRow,piecesAEnvoyer,'Prêt pour analyse');
     input.value='';autoGrow();updateSendState();input.focus({preventScroll:true});
     messagesActuels.push({role:'user',text:messageAffiche});sauvegarderConversationCourante();
     const lower=q.toLowerCase(),wantsWiki=activeTool==='wikipedia'||/wikip[eé]dia/.test(lower);
@@ -21183,9 +21260,8 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       await wikiSearch(q.replace(/.*?(?:sur|dans)\s+(?:wikip[eé]dia)\s*/i,'').replace(/^cherche.*?:\s*/i,'').trim()||q,row);
       setBusy(false);return;
     }
-    const piecesAEnvoyer=fichiersIA.slice();
     fichiersIA=[];renderAttachments();
-    await submitIA(messagePourDiscussion, piecesAEnvoyer);
+    await submitIA(messagePourDiscussion, piecesAEnvoyer, galeriePieces);
   });
 
   /* --- Confort clavier Android : garde la zone de saisie visible et le bas de la conversation en vue --- */
@@ -21926,6 +22002,26 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
 })();
 </script>
 
+
+<style id="aurore-ia-attachment-preview-ui">
+.aurore-ia-attachment-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:9px;margin-top:10px;width:min(100%,420px)}
+.aurore-ia-attachment-preview{overflow:hidden;border:1px solid color-mix(in srgb,var(--ia-border,#ddd) 75%,transparent);border-radius:14px;background:color-mix(in srgb,var(--ia-panel,#161120) 96%,transparent);box-shadow:0 7px 22px rgba(0,0,0,.12)}
+.aurore-ia-attachment-preview-media{display:block;width:100%;height:92px;padding:0;border:0;background:transparent;cursor:zoom-in;overflow:hidden}
+.aurore-ia-attachment-preview-media img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .2s ease}
+.aurore-ia-attachment-preview-media:hover img{transform:scale(1.04)}
+.aurore-ia-file-preview-icon{height:100%;display:grid;place-items:center;font-weight:800;font-size:.72rem;color:var(--ia-accent,#8b5cf6);background:color-mix(in srgb,var(--ia-accent,#8b5cf6) 10%,transparent)}
+.aurore-ia-attachment-preview-caption{padding:6px 8px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.aurore-ia-attachment-preview-caption strong{font-size:.62rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit}
+.aurore-ia-attachment-preview-caption span{font-size:.55rem;color:color-mix(in srgb,currentColor 58%,transparent)}
+.aurore-ia-attachment-viewer{position:fixed;inset:0;z-index:10050;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(8,6,12,.78);backdrop-filter:blur(10px)}
+.aurore-ia-attachment-viewer-card{position:relative;width:min(920px,96vw);height:min(92vh,900px);display:flex;flex-direction:column;overflow:hidden;border:1px solid color-mix(in srgb,var(--ia-border,#ddd) 80%,transparent);border-radius:22px;background:var(--ia-panel,#161120);box-shadow:0 25px 80px rgba(0,0,0,.38)}
+.aurore-ia-attachment-viewer-title{padding:14px 54px 12px 18px;font-size:.82rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:1px solid color-mix(in srgb,var(--ia-border,#ddd) 65%,transparent)}
+.aurore-ia-attachment-viewer-close{position:absolute;right:12px;top:10px;width:36px;height:36px;border:0;border-radius:12px;background:color-mix(in srgb,currentColor 8%,transparent);color:inherit;font-size:24px;line-height:1;cursor:pointer}
+.aurore-ia-attachment-viewer-body{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:12px;overflow:auto}
+.aurore-ia-attachment-viewer-body img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;border-radius:10px;box-shadow:0 10px 35px rgba(0,0,0,.22)}
+[data-theme="light"] .aurore-ia-attachment-preview{background:#fff}
+@media(max-width:640px){.aurore-ia-attachment-gallery{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.aurore-ia-attachment-preview-media{height:82px}.aurore-ia-attachment-viewer{padding:8px}.aurore-ia-attachment-viewer-card{width:100%;height:94vh;border-radius:18px}}
+</style>
 </body>
 </html>
 
