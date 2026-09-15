@@ -20556,6 +20556,23 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
         const {xs,ys}=auroraEchantillonner(c.fn,xMin,xMax,400);
         return {x:xs,y:ys,mode:'lines',type:'scatter',name:c.label,line:{color:couleurs[i%couleurs.length],width:2.4},connectgaps:false,hoverinfo:'x+y'};
       });
+      // Bornes verticales réelles : elles doivent exister avant la construction
+      // de l'axe Y. L'ancienne version utilisait yMin/yMax sans les calculer,
+      // ce qui interrompait Plotly.newPlot et affichait « Le graphique n’a pas pu s’afficher ».
+      const valeursY=[];
+      traces.forEach(t=>{(t.y||[]).forEach(v=>{if(Number.isFinite(v))valeursY.push(v);});});
+      let yMin=valeursY.length?Math.min(...valeursY):0;
+      let yMax=valeursY.length?Math.max(...valeursY):1;
+      if(!Number.isFinite(yMin)||!Number.isFinite(yMax)||yMin===yMax){
+        yMin=0;yMax=1;
+      }else{
+        // Toujours garder l'origine visible lorsque cela est pertinent.
+        if(yMin>0)yMin=0;
+        if(yMax<0)yMax=0;
+        const amplitude=Math.max(1e-9,yMax-yMin);
+        const marge=amplitude*0.05;
+        yMin-=marge;yMax+=marge;
+      }
       const couleurTexte=auroraCouleurCSS('--ia-muted','#958DA6');
       const couleurGrille=auroraCouleurCSS('--ia-border','rgba(255,255,255,.08)');
       const layout={
@@ -20638,7 +20655,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
   function ouvrirGeoGebraAurora(functions){
   const fs=Array.isArray(functions)?functions:[];
   const exprs=fs.map((f,i)=>{
-    let e=String(f&&f.expr||f||'').trim()
+    let e=String(f && (f.raw||f.expr||f.label) || f || '').trim()
       .replace(/^\s*y\s*=\s*/i,'')
       .replace(/^\s*f\s*\(\s*x\s*\)\s*=\s*/i,'')
       .replace(/^\s*[a-z]\s*\(\s*x\s*\)\s*=\s*/i,'')
