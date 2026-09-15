@@ -19255,20 +19255,46 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
           signal:controller.signal
         });
       }catch(e){
-        if(e?.name==='AbortError')throw new Error('Aurora n’a pas reçu la réponse de DeepSeek dans le délai prévu.');
-        throw new Error('Impossible de joindre Aurora. Vérifie ta connexion internet.');
+        // Capture de l'exception brute levée par fetch() AVANT toute réponse HTTP
+        // (uniquement pour le diagnostic — les messages affichés aux utilisateurs
+        // ci-dessous ne sont pas modifiés).
+        const brute={
+          name:(e&&e.name!=null)?e.name:null,
+          message:(e&&e.message!=null)?e.message:(e!=null?String(e):''),
+          constructorName:(e&&e.constructor&&e.constructor.name)||null,
+          code:(e&&e.code!=null)?e.code:null,
+          causeName:(e&&e.cause&&e.cause.name)||null,
+          causeMessage:(e&&e.cause&&e.cause.message)||null,
+          stack:(e&&e.stack)||null
+        };
+        if(e?.name==='AbortError'){
+          const erreurTimeout=new Error('Aurora n’a pas reçu la réponse de DeepSeek dans le délai prévu.');
+          erreurTimeout.responseReceived=false;
+          erreurTimeout.rawBrowserError=brute;
+          throw erreurTimeout;
+        }
+        const erreurReseau=new Error('Impossible de joindre Aurora. Vérifie ta connexion internet.');
+        erreurReseau.responseReceived=false;
+        erreurReseau.rawBrowserError=brute;
+        throw erreurReseau;
       }finally{
         clearTimeout(timer);
       }
 
       let raw='';
       try{raw=await response.text();}catch(_){
-        throw new Error('Aurora a reçu une réponse illisible de son moteur.');
+        const erreurLecture=new Error('Aurora a reçu une réponse illisible de son moteur.');
+        erreurLecture.responseReceived=true;
+        erreurLecture.httpStatus=response.status;
+        throw erreurLecture;
       }
 
       let data=null;
       try{data=JSON.parse(raw);}catch(_){
-        throw new Error(`Aurora a renvoyé une réponse invalide (HTTP ${response.status}).`);
+        const erreurJson=new Error(`Aurora a renvoyé une réponse invalide (HTTP ${response.status}).`);
+        erreurJson.responseReceived=true;
+        erreurJson.httpStatus=response.status;
+        throw erreurJson;
       }
 
       if(!response.ok||!data?.ok){
@@ -19279,7 +19305,10 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
           const np=data.networkProbe;
           detail+=` — diagnostic DeepSeek : ${np.status ? 'HTTP '+np.status : (np.detail||'aucune réponse réseau')}`;
         }
-        throw new Error(detail);
+        const erreurHttp=new Error(detail);
+        erreurHttp.responseReceived=true;
+        erreurHttp.httpStatus=response.status;
+        throw erreurHttp;
       }
 
       if(data.id)previousInteractionId=data.id;
@@ -20294,6 +20323,77 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     if(el)el.textContent=journal.join('\n');
   }
 
+  // ---------- Capture/affichage de l'exception brute (ajout ciblé) ----------
+
+  function heureFrMs(){
+    const d=new Date();
+    const pad=(n,l)=>String(n).padStart(l||2,'0');
+    return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds())+'.'+pad(d.getMilliseconds(),3);
+  }
+
+  function logEtapeMs(texte){
+    journal.push(heureFrMs()+' — '+texte);
+    const el=document.getElementById('diagLog');
+    if(el)el.textContent=journal.join('\n');
+  }
+
+  function ajouterBlocJournal(bloc){
+    journal.push(bloc);
+    const el=document.getElementById('diagLog');
+    if(el)el.textContent=journal.join('\n');
+  }
+
+  // Lit l'exception brute réellement reçue par le navigateur (déposée par
+  // invokeAuroreIA sur e.rawBrowserError) sans jamais la remplacer par une
+  // interprétation ("réseau"/"DNS"/"CORS") non prouvée.
+  function formaterExceptionBrute(e){
+    const info=(e&&e.rawBrowserError)||null;
+    if(!info){
+      return {
+        nom:'non fourni',
+        message:String((e&&e.message)!=null?e.message:(e!=null?e:'inconnue')),
+        constructeur:'non fourni',
+        code:'non fourni',
+        causeTxt:'non fournie',
+        stack:''
+      };
+    }
+    return {
+      nom:info.name||'non fourni',
+      message:info.message||'',
+      constructeur:info.constructorName||'non fourni',
+      code:(info.code!=null&&info.code!=='')?String(info.code):'non fourni',
+      causeTxt:info.causeName?(info.causeName+(info.causeMessage?(' — '+info.causeMessage):'')):'non fournie',
+      stack:info.stack||''
+    };
+  }
+
+  function construireDetailExceptionBrute(ex){
+    let txt='Erreur brute du navigateur\n\n'
+      +'Nom :\n'+ex.nom+'\n\n'
+      +'Message :\n'+ex.message+'\n\n'
+      +'Constructeur :\n'+ex.constructeur+'\n\n'
+      +'Code :\n'+ex.code+'\n\n'
+      +'Cause :\n'+ex.causeTxt+'\n\n'
+      +'HTTP :\nAucune réponse\n\n'
+      +'Classification :\nTransport interrompu avant réception d’une réponse HTTP\n\n'
+      +'Confiance :\nIndéterminée';
+    if(ex.stack)txt+='\n\n— Détail technique (pile d’appel navigateur) —\n'+ex.stack;
+    return txt;
+  }
+
+  function construirePreuveTechnique(p){
+    return 'PREUVE TECHNIQUE\n\n'
+      +'Session :\n'+p.session+'\n\n'
+      +'Token :\n'+p.token+'\n\n'
+      +'OPTIONS :\n'+p.options+'\n\n'
+      +'POST :\n'+p.post+'\n\n'
+      +'HTTP :\n'+p.http+'\n\n'
+      +'Exception :\n'+p.exception+'\n\n'
+      +'DeepSeek :\n'+p.deepseek+'\n\n'
+      +'Conclusion :\n'+p.conclusion;
+  }
+
   function maskToken(t){
     if(!t)return '—';
     if(t.length<12)return '********';
@@ -20492,17 +20592,55 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
         setRow('affichage','fail',null,'Réponse vide ou contenant un repère de formatage non résolu.');
       }
       logEtape('Diagnostic terminé');
+      {
+        const sessionEtat=(etats.session&&etats.session.state==='ok')?'OK':'non confirmé lors de cet appel';
+        const tokenEtat=(etats.token&&etats.token.state==='ok')?'OK':'non confirmé lors de cet appel';
+        ajouterBlocJournal(construirePreuveTechnique({
+          session:sessionEtat,
+          token:tokenEtat,
+          options:'Non observable côté JavaScript (préflight CORS géré par le navigateur, invisible au code).',
+          post:'Réponse HTTP reçue',
+          http:'HTTP 200',
+          exception:'Aucune',
+          deepseek:'Atteint — réponse reçue'+(data&&data.model?(' (modèle : '+data.model+')'):''),
+          conclusion:'Le circuit complet (navigateur → Supabase → Edge Function → DeepSeek → navigateur) a répondu de bout en bout pour cet appel.'
+        }));
+      }
       return {ok:true,conclusion:'CIRCUIT_COMPLET',data};
     }catch(e){
       const duree=Date.now()-debut;
       const brut=String((e&&e.message)||e);
       logEtape('Échec du circuit');
       logEtape(brut);
-      return analyserEchecCircuit(brut,duree);
+      const resultat=analyserEchecCircuit(brut,duree,e);
+      {
+        const sessionEtat=(etats.session&&etats.session.state==='ok')?'OK':'non confirmé lors de cet appel';
+        const tokenEtat=(etats.token&&etats.token.state==='ok')?'OK':'non confirmé lors de cet appel';
+        const reponseRecue=!!(e&&e.responseReceived);
+        const httpTxt=reponseRecue?('HTTP '+(e.httpStatus!=null?e.httpStatus:'inconnu (voir détail ci-dessus)')):'Aucune réponse HTTP';
+        let exceptionTxt='Aucune (une réponse HTTP a été reçue — voir détail ci-dessus)';
+        if(!reponseRecue){
+          const ex=formaterExceptionBrute(e);
+          exceptionTxt=ex.nom+': '+ex.message;
+        }
+        ajouterBlocJournal(construirePreuveTechnique({
+          session:sessionEtat,
+          token:tokenEtat,
+          options:'Non observable côté JavaScript (préflight CORS géré par le navigateur, invisible au code).',
+          post:reponseRecue?'Réponse HTTP reçue':'Exception levée avant réception d’une réponse HTTP',
+          http:httpTxt,
+          exception:exceptionTxt,
+          deepseek:reponseRecue?'Voir détail ci-dessus (réponse HTTP reçue).':'Non atteint — le POST n’a pas atteint l’Edge Function.',
+          conclusion:reponseRecue
+            ?'Une réponse HTTP a été reçue de l’Edge Function ; voir le détail ci-dessus pour la cause exacte.'
+            :'Les tests échouent avant réception d’une réponse HTTP. Aucune preuve suffisante pour affirmer qu’il s’agit de CORS, de DNS ou du réseau.'
+        }));
+      }
+      return resultat;
     }
   }
 
-  function analyserEchecCircuit(brut,duree){
+  function analyserEchecCircuit(brut,duree,e){
     // Session/jeton indisponible AVANT même l'envoi réseau (vérifié côté navigateur
     // par invokeAuroreIA lui-même, avant le fetch()).
     if(/Session Aurora absente|Connectez-vous à Aurore|espace sécurisé|trop de temps à répondre/i.test(brut)){
@@ -20510,21 +20648,35 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       marquerNonTestable(IDS_CIRCUIT.slice(1));
       return {ok:false,conclusion:'PROBLEME_AUTH'};
     }
-    // Échec réseau générique avant toute réponse HTTP (fetch() a levé une TypeError).
+    // Échec avant toute réponse HTTP (fetch() a levé une exception). On affiche
+    // ici l'exception brute réellement reçue (e.rawBrowserError), jamais une
+    // interprétation ("réseau"/"DNS"/"CORS") qui ne serait pas prouvée.
     if(/Impossible de joindre Aurora/i.test(brut)){
-      setRow('endpoint','fail',duree,'La requête n’a pas atteint l’Edge Function.','Erreur navigateur : TypeError: Failed to fetch (ou équivalent réseau/DNS/CORS).');
-      setRow('cors','fail',duree,'Erreur de transport avant toute réponse HTTP (réseau, DNS ou CORS).');
+      const ex=formaterExceptionBrute(e);
+      const detailBrut=construireDetailExceptionBrute(ex);
+      setRow('endpoint','fail',duree,'La requête n’a pas atteint l’Edge Function — aucune réponse HTTP reçue.',detailBrut);
+      setRow('cors','fail',duree,'Aucune preuve suffisante pour désigner spécifiquement CORS, DNS ou le réseau — voir « Détail technique » ci-dessus pour l’exception brute exacte.');
       marquerNonTestable(IDS_CIRCUIT.slice(2));
+      logEtapeMs('POST Edge Function terminé avec exception');
+      logEtapeMs('error.name = '+ex.nom);
+      logEtapeMs('error.message = '+ex.message);
+      logEtapeMs('HTTP = aucune réponse');
       return {ok:false,conclusion:'PROBLEME_NAVIGATEUR'};
     }
-    // Timeout côté navigateur en attendant la réponse (AbortController, 70 s).
+    // Timeout côté navigateur en attendant la réponse (AbortController, 70 s) :
+    // c'est aussi une exception avant réception d'une réponse HTTP (CAS 1),
+    // on affiche donc l'exception brute plutôt que de supposer que DeepSeek a répondu.
     if(/n[’']a pas reçu la réponse de DeepSeek/i.test(brut)){
-      setRow('endpoint','ok',duree,'Edge Function jointe.');
-      setRow('cors','ok',duree,'Transport HTTP réussi.');
-      setRow('edgeauth','ok',duree,'Jeton accepté.');
-      setRow('reception','ok',duree,'Requête reçue par l’Edge Function.');
+      const ex=formaterExceptionBrute(e);
+      const detailBrut=construireDetailExceptionBrute(ex);
+      setRow('endpoint','warn',duree,'Aucune réponse HTTP reçue avant l’abandon (70 s) — impossible de confirmer que la requête a atteint l’Edge Function.',detailBrut);
+      setRow('cors','warn',duree,'Non déterminable : aucune réponse HTTP reçue avant l’abandon.');
       setRow('deepseek','fail',duree,'Délai dépassé côté navigateur en attendant la réponse (AbortError, 70 s).');
       marquerNonTestable(IDS_CIRCUIT.slice(5));
+      logEtapeMs('POST Edge Function terminé avec exception');
+      logEtapeMs('error.name = '+ex.nom);
+      logEtapeMs('error.message = '+ex.message);
+      logEtapeMs('HTTP = aucune réponse');
       return {ok:false,conclusion:'PROBLEME_DEEPSEEK'};
     }
     // Réponse HTTP reçue mais texte illisible (response.text() a échoué).
