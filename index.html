@@ -20485,14 +20485,30 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
   // déclencher la construction réelle de la courbe, sans dépendre des mots
   // choisis par l'utilisateur. ---
   const AURORA_SIGNAL_A_TRACER=/Fonctions?\s+à\s+tracer\s*:\s*([^\n]+)/iu;
+  // Retire les artefacts Markdown (gras **x**, italique *x*/_x_, code `x`)
+  // qu'un modèle peut ajouter autour de la ligne de contrat ou de l'expression
+  // elle-même, avant toute tentative de compilation mathématique.
+  function auroraNettoyerSignalBrut(s){
+    let out=String(s||'').trim();
+    // Gras/italique Markdown (**x**, *x*, __x__) : uniquement en bordure, car
+    // un astérisque isolé À L'INTÉRIEUR de l'expression est l'opérateur de
+    // multiplication (ex. "2*x+1") et ne doit jamais être supprimé.
+    out=out.replace(/^\*{1,2}|\*{1,2}$/g,'');
+    out=out.replace(/^_{1,2}|_{1,2}$/g,'');
+    out=out.replace(/^`+|`+$/g,'');
+    out=out.trim();
+    out=out.replace(/[.\s]+$/,'').trim();
+    return out;
+  }
   function auroraExtraireDuSignalBackend(assistantText){
     const m=AURORA_SIGNAL_A_TRACER.exec(String(assistantText||''));
     if(!m)return [];
     const resultats=[];
-    m[1].split(';').forEach(part=>{
-      const mm=part.trim().match(/^([a-zA-Zα-ωΑ-Ω][\w]*\s*(?:\(\s*x\s*\))?)\s*=\s*(.+)$/);
+    const segment=auroraNettoyerSignalBrut(m[1]);
+    segment.split(';').forEach(part=>{
+      const mm=auroraNettoyerSignalBrut(part).match(/^([a-zA-Zα-ωΑ-Ω][\w]*\s*(?:\(\s*x\s*\))?)\s*=\s*(.+)$/);
       if(!mm)return;
-      let raw=mm[2].trim().replace(/[.\s]+$/,'');
+      const raw=auroraNettoyerSignalBrut(mm[2]);
       if(!raw)return;
       resultats.push({label:mm[1].trim().replace(/\s+/g,'')+' = '+raw,raw,domain:/\b(?:ln|log)\s*\(/i.test(raw)?'positive':'all'});
     });
