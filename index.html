@@ -16739,6 +16739,10 @@ window.addEventListener('load',()=>{
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&menu.classList.contains('is-open'))fermerMenu();});
 
   function ouvrirAurora(){
+    if(typeof window.auroreOuvrirIA==='function'){
+      window.auroreOuvrirIA();
+      return;
+    }
     document.getElementById('auroreIAHeaderBtn')?.click();
   }
 
@@ -19229,6 +19233,11 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     setRouteActive(true);
     requestAnimationFrame(()=>{input.focus({preventScroll:true});scrollBottom(true);});
   }
+
+  // Point d'entrée public utilisé par le bouton Aurora flottant.
+  // Il appelle directement le vrai ouvreur de l'IA au lieu de dépendre
+  // d'un bouton-relais masqué dans l'en-tête.
+  window.auroreOuvrirIA=openIA;
 
   function closeIA(){
     closePlusMenu();
