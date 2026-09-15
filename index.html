@@ -20768,14 +20768,22 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       traces.forEach(t=>{if(t.line)t.line.width=Math.max(t.line.width||2,3);});
       const couleurTexte=auroraCouleurCSS('--ia-muted','#958DA6');
       const couleurGrille=auroraCouleurCSS('--ia-border','rgba(255,255,255,.14)');
+      const xs=[]; const ys=[];
+      traces.forEach(t=>{(t.x||[]).forEach(v=>{if(Number.isFinite(v))xs.push(v);});(t.y||[]).forEach(v=>{if(Number.isFinite(v))ys.push(v);});});
+      const gxMin=xs.length?Math.min(...xs):-10, gxMax=xs.length?Math.max(...xs):10;
+      let gyMin=ys.length?Math.min(...ys):-1, gyMax=ys.length?Math.max(...ys):1;
+      if(!Number.isFinite(gyMin)||!Number.isFinite(gyMax)||gyMin===gyMax){gyMin=-1;gyMax=1;}
+      if(gyMin>0)gyMin=0; if(gyMax<0)gyMax=0;
+      const gyAmp=Math.max(1e-9,gyMax-gyMin);
+      gyMin-=gyAmp*.05; gyMax+=gyAmp*.05;
       const layout={
         autosize:true,
         margin:{l:52,r:20,t:18,b:44},
         paper_bgcolor:'rgba(0,0,0,0)',
         plot_bgcolor:'rgba(0,0,0,0)',
         font:{color:couleurTexte,size:13},
-        xaxis:{zeroline:true,zerolinecolor:couleurTexte,zerolinewidth:2, fixedrange:false,showline:true,linecolor:couleurTexte,linewidth:1.5,gridcolor:couleurGrille,color:couleurTexte,tickmode:'linear', tick0:0, dtick:Math.max(1,Math.ceil((xMax-xMin)/19)),ticks:'outside',title:{text:'x',font:{size:12,color:couleurTexte}}},
-        yaxis:{zeroline:true,zerolinecolor:couleurTexte,zerolinewidth:2, fixedrange:false,showline:true,linecolor:couleurTexte,linewidth:1.5,gridcolor:couleurGrille,color:couleurTexte,tickmode:'linear', tick0:0, dtick:Math.max(1,Math.ceil((yMax-yMin)/19)),ticks:'outside',title:{text:'y',font:{size:12,color:couleurTexte}},scaleanchor:'x',scaleratio:1, constrain:'domain'},
+        xaxis:{range:[gxMin,gxMax],zeroline:true,zerolinecolor:couleurTexte,zerolinewidth:2,fixedrange:false,showline:true,linecolor:couleurTexte,linewidth:1.5,gridcolor:couleurGrille,color:couleurTexte,tickmode:'linear',tick0:0,dtick:Math.max(1,Math.ceil((gxMax-gxMin)/19)),ticks:'outside',title:{text:'x',font:{size:12,color:couleurTexte}}},
+        yaxis:{range:[gyMin,gyMax],zeroline:true,zerolinecolor:couleurTexte,zerolinewidth:2,fixedrange:false,showline:true,linecolor:couleurTexte,linewidth:1.5,gridcolor:couleurGrille,color:couleurTexte,tickmode:'linear',tick0:0,dtick:Math.max(1,Math.ceil((gyMax-gyMin)/19)),ticks:'outside',title:{text:'y',font:{size:12,color:couleurTexte}}},
         annotations:[{x:0,y:0,xref:'x',yref:'y',text:'O',showarrow:false,xshift:10,yshift:-10,font:{size:13,color:couleurTexte}}],
         showlegend:traces.length>1,
         legend:{orientation:'h',x:0,y:-0.16,font:{size:12,color:couleurTexte}},
@@ -20797,6 +20805,12 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
   function fermerGrandGraphiqueAurora(opts){
     const overlay=auroraOverlayEl();
     if(!overlay||overlay.style.display!=='flex')return;
+    // Le bouton Fermer ne doit jamais déclencher la navigation générale.
+    // Tant que l'entrée dédiée à l'overlay existe, on revient d'abord à
+    // l'entrée de discussion ; le popstate ferme ensuite uniquement l'overlay.
+    if(!(opts&&opts.fromPopState) && history.state&&history.state.auroraGraphOverlay){
+      try{ history.back(); return; }catch(_){}
+    }
     overlay.style.display='none';
     document.body.classList.remove('aurora-graph-overlay-open');
     try{
@@ -20806,9 +20820,6 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
         if(window.Plotly)window.Plotly.purge(plotDiv);
       }
     }catch(_){}
-    if(!(opts&&opts.fromPopState)){
-      try{if(history.state&&history.state.auroraGraphOverlay)history.back();}catch(_){}
-    }
   }
   // Exposée pour que le gestionnaire "popstate" principal (bouton Retour
   // Android/navigateur) puisse fermer proprement l'overlay sans dupliquer
