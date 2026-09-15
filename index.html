@@ -2981,6 +2981,7 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
 .aurore-ia-bubble.aurora-typing-answer{background:transparent!important;border-color:transparent!important;box-shadow:none!important;padding:0!important;max-width:850px;}
 .aurore-ia-bubble.aurora-typing-answer .aurore-ia-markdown{color:inherit;}
 </style>
+<style id="aurora-content-factory-admin-ui">.cf-admin-card{display:flex;gap:15px;align-items:flex-start;background:var(--auraster-panel);border:1px solid var(--bordure);border-radius:var(--radius);padding:16px;margin-bottom:12px;box-shadow:var(--ombre)}.cf-admin-icon{width:46px;height:58px;flex:0 0 46px;border-radius:9px;background:var(--fond);border:1px solid var(--bordure);display:grid;place-items:center;color:var(--violet);font-weight:800;font-size:.7rem}.cf-admin-body{min-width:0;flex:1}.cf-admin-title{font-weight:800;font-size:.96rem;color:var(--encre);overflow-wrap:anywhere}.cf-admin-meta{font-size:.77rem;color:var(--gris);line-height:1.55;margin-top:5px}.cf-admin-status{display:inline-flex;align-items:center;border:1px solid var(--bordure);background:var(--fond);border-radius:999px;padding:4px 9px;font-size:.67rem;font-weight:800;margin-top:9px;color:var(--encre)}.cf-admin-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px}.cf-admin-actions .admin-btn{font-size:.74rem;padding:8px 11px}.cf-admin-error{margin-top:8px;color:var(--rouge);font-size:.74rem;white-space:pre-wrap}@media(max-width:620px){.cf-admin-card{padding:13px;gap:11px}.cf-admin-icon{width:40px;flex-basis:40px;height:52px}.cf-admin-actions .admin-btn{flex:1 1 100%;justify-content:center}}</style>
 </head>
 <body class="site-locked">
 
@@ -3841,6 +3842,12 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
             <span class="admin-category-title">Diagnostic Aurora</span>
             <span class="admin-category-desc">État réel du circuit IA</span>
           </button>
+          <button type="button" class="admin-tab admin-category-card" data-tab="content-factory" role="tab" data-accent="violet">
+            <span class="admin-category-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8H20l-4.9 3.6 1.9 5.8-5-3.6-5 3.6 1.9-5.8L4 8.8h6.1z"/><path d="M19 3v3"/><path d="M20.5 4.5h-3"/></svg></span>
+            <span class="admin-category-title">Content Factory</span>
+            <span class="admin-category-desc">Documents générés par Aurora</span>
+            <span class="tab-count" id="tabCountContentFactory">0</span>
+          </button>
         </div>
 
         <div class="admin-detail" id="adminDetail" style="display:none;">
@@ -4122,6 +4129,21 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
             </div>
             <div class="form-msg" id="adminLogoMsg"></div>
           </div>
+        </div>
+
+        <div class="admin-tab-panel" data-panel="content-factory">
+          <section class="admin-pending-overview" aria-label="Content Factory Aurora">
+            <div class="admin-pending-overview-head">
+              <div><span class="admin-overview-kicker">Aurora IA</span><h3>Content Factory</h3><p>Contrôlez les documents pédagogiques générés par Aurora avant leur publication dans la bibliothèque.</p></div>
+              <button type="button" class="admin-btn ghost admin-pending-refresh" id="adminRefreshContentFactory">↻ Actualiser</button>
+            </div>
+            <div class="admin-pending-stats">
+              <div class="admin-pending-stat"><strong id="cfCountReview">0</strong><span>À contrôler</span></div><div class="admin-pending-stat"><strong id="cfCountApproved">0</strong><span>Validés</span></div><div class="admin-pending-stat"><strong id="cfCountPublished">0</strong><span>Publiés</span></div><div class="admin-pending-stat"><strong id="cfCountFailed">0</strong><span>Échecs</span></div>
+            </div>
+          </section>
+          <p class="admin-panel-desc">Circuit : génération → PDF → contrôle qualité → validation → publication. Rien n'est publié automatiquement par cette interface.</p>
+          <div class="admin-data-toolbar" id="adminToolbarContentFactory"><div class="admin-search-control"><span aria-hidden="true">⌕</span><input id="adminSearchContentFactory" type="search" placeholder="Rechercher un document généré…" autocomplete="off"></div><select id="adminSortContentFactory" aria-label="Trier les documents générés"><option value="recent">Plus récent</option><option value="oldest">Plus ancien</option><option value="az">A → Z</option><option value="za">Z → A</option></select><select id="adminFilterContentFactory" aria-label="Filtrer par statut"><option value="">Tous les statuts</option><option value="review">À contrôler</option><option value="approved">Validés</option><option value="published">Publiés</option><option value="rejected">Rejetés</option><option value="failed">Échecs</option></select></div>
+          <div id="adminContentFactoryList"><div class="admin-empty">Chargement…</div></div>
         </div>
 
         <div class="admin-tab-panel" data-panel="diagnostic-aurora">
@@ -10485,6 +10507,7 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
       if (cible === 'service-client') chargerServiceClientConfig();
       if (cible === 'utilisateurs') chargerUtilisateursAdmin();
       if (cible === 'doublons') chargerDoublonsAdmin();
+      if (cible === 'content-factory' && typeof window.chargerAuroraContentFactoryAdmin === 'function') window.chargerAuroraContentFactoryAdmin();
     });
   });
 
@@ -22107,6 +22130,17 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
 [data-theme="light"] .aurore-ia-attachment-preview{background:#fff}
 @media(max-width:640px){.aurore-ia-attachment-gallery{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.aurore-ia-attachment-preview-media{height:82px}.aurore-ia-attachment-viewer{padding:8px}.aurore-ia-attachment-viewer-card{width:100%;height:94vh;border-radius:18px}}
 </style>
+<script id="aurora-content-factory-admin-js">
+(function(){'use strict';const panel=document.querySelector('.admin-tab-panel[data-panel="content-factory"]');if(!panel)return;const list=document.getElementById('adminContentFactoryList'),count=document.getElementById('tabCountContentFactory');let rows=[];const esc=v=>{const d=document.createElement('div');d.textContent=String(v==null?'':v);return d.innerHTML};const sl=s=>({review:'À contrôler',approved:'Validé',published:'Publié',rejected:'Rejeté',failed:'Échec',generated:'Généré',processing:'Traitement',queued:'En file',draft:'Brouillon'}[s]||s||'Inconnu');const adminOk=()=>!!(window.session&&session.role==='admin');
+async function rpc(name,body){const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`,{method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json'},body:JSON.stringify(body||{})});const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));try{return t?JSON.parse(t):null}catch(_){return t}}
+async function renderPdf(id){const b=document.querySelector(`[data-cf-render="${id}"]`);if(b){b.disabled=true;b.textContent='Génération PDF…'}try{const r=await fetch(`${SUPABASE_URL}/functions/v1/aurora-content-renderer`,{method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json'},body:JSON.stringify({generated_document_id:Number(id)})});const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}}if(!r.ok)throw new Error(d.error||('HTTP '+r.status));await charger();alert('PDF généré et contrôle qualité de base effectué.')}catch(e){alert('Le PDF n’a pas pu être généré. '+(e.message||e))}finally{if(b){b.disabled=false;b.textContent='Générer le PDF'}}}
+async function validateDoc(id){const n=prompt('Note de validation (facultatif) :','');if(n===null)return;try{await rpc('aurora_validate_generated_document',{p_generated_document_id:Number(id),p_notes:n||null});await charger()}catch(e){alert('Validation impossible. '+(e.message||e))}}
+async function rejectDoc(id){const n=prompt('Motif du rejet / corrections demandées :','');if(n===null)return;if(!n.trim()){alert('Indique un motif pour rejeter le document.');return}try{await rpc('aurora_reject_generated_document',{p_generated_document_id:Number(id),p_notes:n.trim()});await charger()}catch(e){alert('Rejet impossible. '+(e.message||e))}}
+async function publishDoc(id){if(!confirm('Publier ce document dans la bibliothèque publique Aurore ?\n\nCette action crée un document publié à partir du PDF validé.'))return;const n=prompt('Note de publication (facultatif) :','');if(n===null)return;try{await rpc('aurora_publish_generated_document',{p_generated_document_id:Number(id),p_notes:n||null});await charger();alert('Document publié dans la bibliothèque Aurore.')}catch(e){alert('Publication impossible. '+(e.message||e))}}
+function apply(){const q=(document.getElementById('adminSearchContentFactory')?.value||'').trim().toLowerCase(),st=document.getElementById('adminFilterContentFactory')?.value||'',sort=document.getElementById('adminSortContentFactory')?.value||'recent';let a=rows.filter(x=>(!st||x.status===st)&&(!q||[x.title,x.subject,x.level,x.class_name,x.document_type,x.status].filter(Boolean).join(' ').toLowerCase().includes(q)));a.sort((x,y)=>{if(sort==='az')return String(x.title).localeCompare(String(y.title),'fr');if(sort==='za')return String(y.title).localeCompare(String(x.title),'fr');const ax=new Date(x.created_at).getTime(),ay=new Date(y.created_at).getTime();return sort==='oldest'?ax-ay:ay-ax});if(!a.length){list.innerHTML='<div class="admin-empty">Aucun document généré pour ces critères.</div>';return}list.innerHTML=a.map(x=>{const pdf=!!x.pdf_url,canRender=['generated','review','approved'].includes(x.status)&&!pdf,canValidate=x.status==='review'&&pdf,canReject=['review','approved'].includes(x.status),canPublish=['approved','review'].includes(x.status)&&pdf;return `<article class="cf-admin-card"><div class="cf-admin-icon">PDF</div><div class="cf-admin-body"><div class="cf-admin-title">${esc(x.title)}</div><div class="cf-admin-meta">${esc([x.subject,x.level,x.class_name,x.document_type].filter(Boolean).join(' · '))}<br>Créé le ${esc(new Date(x.created_at).toLocaleString('fr-FR'))}${x.version?' · Version '+esc(x.version):''}</div><span class="cf-admin-status">${esc(sl(x.status))}${pdf?' · PDF prêt':''}</span>${x.validation_notes?`<div class="cf-admin-meta">${esc(x.validation_notes)}</div>`:''}<div class="cf-admin-actions">${pdf?`<a class="admin-btn ghost" href="${esc(x.pdf_url)}" target="_blank" rel="noopener">Ouvrir le PDF</a>`:''}${canRender?`<button type="button" class="admin-btn primary" data-cf-render="${esc(x.id)}">Générer le PDF</button>`:''}${canValidate?`<button type="button" class="admin-btn valider" data-cf-validate="${esc(x.id)}">Valider</button>`:''}${canReject?`<button type="button" class="admin-btn refuser" data-cf-reject="${esc(x.id)}">Rejeter</button>`:''}${canPublish?`<button type="button" class="admin-btn primary" data-cf-publish="${esc(x.id)}">Publier</button>`:''}${x.published_document_id?`<button type="button" class="admin-btn ghost" disabled>Déjà publié #${esc(x.published_document_id)}</button>`:''}</div>${x.error_message?`<div class="cf-admin-error">${esc(x.error_message)}</div>`:''}</div></article>`}).join('')}
+async function charger(){if(!adminOk()){list.innerHTML='<div class="admin-empty">Cette action est réservée aux administrateurs.</div>';return}list.innerHTML='<div class="admin-empty">Chargement…</div>';try{const r=await fetch(`${SUPABASE_URL}/rest/v1/aurora_generated_documents?select=*&order=created_at.desc`,{headers:headersAdmin(),cache:'no-store'}),t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));rows=t?JSON.parse(t):[];if(!Array.isArray(rows))rows=[];const c={review:0,approved:0,published:0,failed:0};rows.forEach(x=>{if(c[x.status]!=null)c[x.status]++});document.getElementById('cfCountReview').textContent=c.review;document.getElementById('cfCountApproved').textContent=c.approved;document.getElementById('cfCountPublished').textContent=c.published;document.getElementById('cfCountFailed').textContent=c.failed;if(count)count.textContent=String(c.review);apply()}catch(e){list.innerHTML=`<div class="admin-empty">Impossible de charger Content Factory.<br>${esc(e.message||e)}</div>`}}
+document.getElementById('adminRefreshContentFactory')?.addEventListener('click',charger);document.getElementById('adminSearchContentFactory')?.addEventListener('input',apply);document.getElementById('adminSortContentFactory')?.addEventListener('change',apply);document.getElementById('adminFilterContentFactory')?.addEventListener('change',apply);list.addEventListener('click',e=>{const r=e.target.closest('[data-cf-render]'),v=e.target.closest('[data-cf-validate]'),x=e.target.closest('[data-cf-reject]'),p=e.target.closest('[data-cf-publish]');if(r)renderPdf(r.dataset.cfRender);else if(v)validateDoc(v.dataset.cfValidate);else if(x)rejectDoc(x.dataset.cfReject);else if(p)publishDoc(p.dataset.cfPublish)});window.chargerAuroraContentFactoryAdmin=charger})();
+</script>
 </body>
 </html>
 
