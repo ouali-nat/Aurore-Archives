@@ -20664,43 +20664,170 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       .replace(/×/g,'*')
       .replace(/−/g,'-')
       .trim();
-    if(!e) return '';
-    const name=String.fromCharCode(102+i); // f, g, h...
-    return name+'(x)='+e;
+    if(!e)return '';
+    return String.fromCharCode(102+i)+'(x)='+e;
   }).filter(Boolean);
 
-  if(!exprs.length){
-    window.open('https://www.geogebra.org/graphing','_blank','noopener');
-    return;
+  const old=document.getElementById('auroraGeoGebraWorkspace');
+  if(old)old.remove();
+
+  const overlay=document.createElement('div');
+  overlay.id='auroraGeoGebraWorkspace';
+  overlay.setAttribute('role','dialog');
+  overlay.setAttribute('aria-modal','true');
+  overlay.setAttribute('aria-label','Laboratoire mathématique Aurora');
+
+  const style=document.createElement('style');
+  style.textContent=`
+    #auroraGeoGebraWorkspace{
+      position:fixed;inset:0;z-index:2147483000;display:flex;flex-direction:column;
+      background:var(--aurore-bg,#07060B);color:var(--aurore-ink,#F8F7FF);
+      font-family:inherit;overflow:hidden;
+    }
+    #auroraGeoGebraWorkspace .aurora-ggb-top{
+      flex:0 0 auto;display:flex;align-items:center;gap:12px;min-height:64px;
+      padding:10px 14px;background:var(--aurore-surface,#111019);
+      border-bottom:1px solid var(--aurore-line,rgba(216,180,254,.13));
+      box-sizing:border-box;
+    }
+    #auroraGeoGebraWorkspace .aurora-ggb-back{
+      width:42px;height:42px;border:1px solid var(--aurore-line,rgba(216,180,254,.13));
+      border-radius:14px;background:var(--aurore-surface-2,#171321);color:inherit;
+      display:grid;place-items:center;cursor:pointer;flex:0 0 auto;
+    }
+    #auroraGeoGebraWorkspace .aurora-ggb-back svg{width:20px;height:20px}
+    #auroraGeoGebraWorkspace .aurora-ggb-brand{min-width:0;flex:1}
+    #auroraGeoGebraWorkspace .aurora-ggb-brand strong{display:block;font-size:15px;line-height:1.2}
+    #auroraGeoGebraWorkspace .aurora-ggb-brand span{
+      display:block;margin-top:3px;color:var(--aurore-muted,#A9A3B8);font-size:12px;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    }
+    #auroraGeoGebraWorkspace .aurora-ggb-badge{
+      flex:0 0 auto;padding:7px 10px;border-radius:999px;
+      background:rgba(139,92,246,.14);color:var(--aurore-lilac,#C084FC);
+      border:1px solid rgba(192,132,252,.2);font-size:11px;font-weight:700;
+    }
+    #auroraGeoGebraWorkspace .aurora-ggb-stage{
+      position:relative;flex:1;min-height:0;padding:10px;box-sizing:border-box;
+    }
+    #auroraGeoGebraWorkspace .aurora-ggb-card{
+      position:relative;width:100%;height:100%;overflow:hidden;border-radius:20px;
+      background:#fff;border:1px solid var(--aurore-line,rgba(216,180,254,.13));
+      box-shadow:0 20px 60px rgba(0,0,0,.25);
+    }
+    #auroraGeoGebraWorkspace .aurora-ggb-app{width:100%;height:100%}
+    #auroraGeoGebraWorkspace .aurora-ggb-loading{
+      position:absolute;inset:0;display:grid;place-items:center;background:#fff;color:#30273d;
+      font-size:14px;z-index:2;transition:opacity .2s ease;
+    }
+    #auroraGeoGebraWorkspace .aurora-ggb-error{
+      position:absolute;inset:0;display:none;place-items:center;padding:24px;text-align:center;
+      background:#fff;color:#30273d;z-index:3;
+    }
+    #auroraGeoGebraWorkspace .aurora-ggb-error div{max-width:420px}
+    #auroraGeoGebraWorkspace .aurora-ggb-error strong{display:block;margin-bottom:8px}
+    @media(max-width:600px){
+      #auroraGeoGebraWorkspace .aurora-ggb-top{min-height:58px;padding:8px 10px}
+      #auroraGeoGebraWorkspace .aurora-ggb-back{width:40px;height:40px;border-radius:12px}
+      #auroraGeoGebraWorkspace .aurora-ggb-stage{padding:6px}
+      #auroraGeoGebraWorkspace .aurora-ggb-card{border-radius:15px}
+      #auroraGeoGebraWorkspace .aurora-ggb-badge{display:none}
+    }
+  `;
+  overlay.appendChild(style);
+
+  const top=document.createElement('div');top.className='aurora-ggb-top';
+  const back=document.createElement('button');back.type='button';back.className='aurora-ggb-back';
+  back.setAttribute('aria-label','Retour à la discussion');back.title='Retour à la discussion';
+  back.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/><path d="M9 12h11"/></svg>';
+  const brand=document.createElement('div');brand.className='aurora-ggb-brand';
+  const title=document.createElement('strong');title.textContent='Aurora — Laboratoire mathématique';
+  const sub=document.createElement('span');sub.textContent=fs.length?fs.map(f=>String(f?.label||f?.raw||f||'')).join(' · '):'GeoGebra';
+  brand.append(title,sub);
+  const badge=document.createElement('div');badge.className='aurora-ggb-badge';badge.textContent='GeoGebra';
+  top.append(back,brand,badge);
+
+  const stage=document.createElement('div');stage.className='aurora-ggb-stage';
+  const card=document.createElement('div');card.className='aurora-ggb-card';
+  const app=document.createElement('div');app.className='aurora-ggb-app';app.id='auroraGeoGebraApp';
+  const loading=document.createElement('div');loading.className='aurora-ggb-loading';loading.textContent='Chargement du laboratoire mathématique…';
+  const error=document.createElement('div');error.className='aurora-ggb-error';
+  error.innerHTML='<div><strong>GeoGebra n’a pas pu être chargé.</strong><span>Vérifiez la connexion Internet puis réessayez.</span></div>';
+  card.append(app,loading,error);stage.appendChild(card);
+  overlay.append(top,stage);
+  document.body.appendChild(overlay);
+
+  let closed=false,scriptReady=null;
+  const cleanup=()=>{
+    if(closed)return;closed=true;
+    try{if(app.__auroraGgbApi)app.__auroraGgbApi=null;}catch(_){}
+    overlay.remove();
+  };
+  const close=()=>{
+    if(history.state&&history.state.auroraGeoGebraOverlay){
+      try{history.back();return;}catch(_){}
+    }
+    cleanup();
+  };
+  back.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();close();});
+
+  if(!(history.state&&history.state.auroraGeoGebraOverlay)){
+    try{history.pushState({...(history.state||{}),auroraGeoGebraOverlay:true},'',location.href);}catch(_){}
+  }
+  if(!window.__auroraGeoGebraPopstate){
+    window.__auroraGeoGebraPopstate=true;
+    window.addEventListener('popstate',()=>{
+      const el=document.getElementById('auroraGeoGebraWorkspace');
+      if(el)el.remove();
+    });
   }
 
-  const commands=exprs.map(e=>JSON.stringify(e)).join(',');
+  const loadScript=()=>{
+    if(window.GGBApplet)return Promise.resolve();
+    if(window.__auroraGeoGebraScriptPromise)return window.__auroraGeoGebraScriptPromise;
+    window.__auroraGeoGebraScriptPromise=new Promise((resolve,reject)=>{
+      const sc=document.createElement('script');
+      sc.src='https://www.geogebra.org/apps/deployggb.js';
+      sc.async=true;
+      sc.onload=()=>resolve();
+      sc.onerror=()=>reject(new Error('GeoGebra script unavailable'));
+      document.head.appendChild(sc);
+    });
+    return window.__auroraGeoGebraScriptPromise;
+  };
 
-  // A self-contained bridge page that loads the official GeoGebra Graphing
-  // app and injects the already-built expressions through the documented API.
-  const page='<!doctype html><html lang="fr"><head>'
-    +'<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-    +'<title>Aurora — GeoGebra</title>'
-    +'<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#fff}'
-    +'#ggb{width:100%;height:100%;}</style>'
-    +'<script src="https://www.geogebra.org/apps/deployggb.js"><\/script>'
-    +'</head><body><div id="ggb"></div><script>'
-    +'const cmds=['+commands+'];'
-    +'const params={appName:"graphing",width:window.innerWidth,height:window.innerHeight,showToolBar:true,showAlgebraInput:true,showMenuBar:false,showResetIcon:true,enableLabelDrags:true,showFullscreenButton:true,appletOnLoad:function(api){'
-    +'for(const c of cmds){try{api.evalCommand(c);}catch(e){}}'
-    +'}};'
-    +'const applet=new GGBApplet(params,true);'
-    +'applet.inject("ggb");'
-    +'<\/script></body></html>';
-
-  const url=URL.createObjectURL(new Blob([page],{type:'text/html'}));
-  const w=window.open(url,'_blank','noopener');
-  if(!w){
-    // Popup blocked: use the same bridge page in the current tab rather than
-    // opening an empty GeoGebra page with no function.
-    location.href=url;
-  }
+  scriptReady=loadScript().then(()=>{
+    if(closed||!window.GGBApplet)return;
+    const params={
+      appName:'graphing',
+      width:Math.max(320,card.clientWidth),
+      height:Math.max(320,card.clientHeight),
+      showToolBar:true,
+      showAlgebraInput:true,
+      showMenuBar:false,
+      showResetIcon:true,
+      showFullscreenButton:false,
+      showZoomButtons:true,
+      enableLabelDrags:true,
+      enableShiftDragZoom:true,
+      showSuggestionButtons:true,
+      buttonRounding:0.7,
+      buttonShadows:false,
+      language:'fr',
+      appletOnLoad:function(api){
+        app.__auroraGgbApi=api;
+        for(const command of exprs){try{api.evalCommand(command);}catch(e){console.warn('[Aurora][GeoGebra]',e);}}
+        requestAnimationFrame(()=>{loading.style.opacity='0';setTimeout(()=>{loading.style.display='none';},220);});
+      }
+    };
+    const applet=new GGBApplet(params,true);
+    applet.inject(app);
+  }).catch(err=>{
+    console.error('[Aurora][GeoGebra]',err);
+    loading.style.display='none';error.style.display='grid';
+  });
 }
+
   document.getElementById('auroraGeoGebraClose')?.addEventListener('click',fermerGeoGebraAurora);
   document.getElementById('auroraGeoGebraCopy')?.addEventListener('click',copierExpressionsGeoGebraAurora);
   document.getElementById('auroraGeoGebraOpen')?.addEventListener('click',async()=>{
