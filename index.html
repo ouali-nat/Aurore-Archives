@@ -20839,15 +20839,17 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     overlay.remove();
   };
   const close=()=>{
-    // Ferme d'abord immédiatement le laboratoire à l'écran : l'utilisateur
-    // retrouve la discussion sans attendre l'évènement popstate, qui ne sert
-    // plus ici qu'à nettoyer discrètement l'entrée d'historique dédiée.
+    // Ferme immédiatement le laboratoire à l'écran.
     cleanup();
+    // Neutralise l'entrée d'historique dédiée SANS jamais naviguer dedans :
+    // un simple replaceState retire le marqueur sur place, sans déplacer
+    // l'utilisateur dans la pile de navigation. Le bouton de fermeture ne
+    // peut donc plus jamais renvoyer vers l'accueil ou un autre écran.
     if(history.state&&history.state.auroraGeoGebraOverlay){
-      // Signale au gestionnaire global que ce history.back() est une fermeture
-      // du laboratoire et non une demande de navigation vers un autre écran.
-      window.__auroraClosingGeoGebra=true;
-      try{history.back();}catch(_){window.__auroraClosingGeoGebra=false;}
+      try{
+        const {auroraGeoGebraOverlay,...reste}=history.state;
+        history.replaceState(reste,'',location.href);
+      }catch(_){}
     }
   };
   back.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();close();});
@@ -21016,12 +21018,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
   function fermerGrandGraphiqueAurora(opts){
     const overlay=auroraOverlayEl();
     if(!overlay||overlay.style.display!=='flex')return;
-    // Le bouton Fermer ne doit jamais déclencher la navigation générale.
-    // Tant que l'entrée dédiée à l'overlay existe, on revient d'abord à
-    // l'entrée de discussion ; le popstate ferme ensuite uniquement l'overlay.
-    if(!(opts&&opts.fromPopState) && history.state&&history.state.auroraGraphOverlay){
-      try{ history.back(); return; }catch(_){}
-    }
+    // Ferme immédiatement le graphique agrandi à l'écran.
     overlay.style.display='none';
     document.body.classList.remove('aurora-graph-overlay-open');
     try{
@@ -21031,6 +21028,17 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
         if(window.Plotly)window.Plotly.purge(plotDiv);
       }
     }catch(_){}
+    // Neutralise l'entrée d'historique dédiée SANS jamais naviguer dedans :
+    // un simple replaceState retire le marqueur sur place, sans déplacer
+    // l'utilisateur dans la pile de navigation. Le bouton Fermer ne peut donc
+    // plus jamais renvoyer vers l'accueil ou un autre écran. Le retour
+    // matériel Android/iOS reste géré séparément via l'écoute "popstate".
+    if(!(opts&&opts.fromPopState) && history.state&&history.state.auroraGraphOverlay){
+      try{
+        const {auroraGraphOverlay,...reste}=history.state;
+        history.replaceState(reste,'',location.href);
+      }catch(_){}
+    }
   }
   // Exposée pour que le gestionnaire "popstate" principal (bouton Retour
   // Android/navigateur) puisse fermer proprement l'overlay sans dupliquer
