@@ -2686,6 +2686,15 @@ body.aurore-ia-kb-open #screen-aurore-ia.aurore-ia-screen{height:var(--ia-vvh,10
 .aurore-ia-markdown th,.aurore-ia-markdown td{padding:8px 11px;border-bottom:1px solid var(--ia-border);text-align:left;white-space:normal}
 .aurore-ia-markdown th{background:rgba(255,255,255,.04);color:var(--ia-accent-white);font-weight:800}
 .aurore-ia-markdown tr:last-child td{border-bottom:0}
+/* Aurora — bloc graphique interactif (extension additive, mêmes variables CSS) */
+.aurora-graph-block{margin-top:14px;padding:12px 12px 4px;border:1px solid var(--ia-border);border-radius:14px;background:rgba(255,255,255,.03);max-width:100%;overflow:hidden;box-sizing:border-box;}
+.aurora-graph-header{display:flex;flex-direction:column;gap:2px;margin-bottom:6px;}
+.aurora-graph-title{font-size:.66rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ia-accent-pale);}
+.aurora-graph-sub{font-size:.72rem;color:var(--ia-muted);word-break:break-word;}
+.aurora-graph-plot{width:100%;max-width:100%;height:260px;}
+.aurora-graph-error{padding:16px 10px;font-size:.75rem;color:var(--ia-muted);text-align:center;}
+[data-theme="light"] .aurora-graph-block{background:rgba(0,0,0,.02);}
+@media(max-width:560px){.aurora-graph-plot{height:220px;}}
 
 .aurore-ia-results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:10px}.aurore-ia-result{border:1px solid #292238;background:#15111F;border-radius:14px;overflow:hidden}.aurore-ia-result img{width:100%;height:110px;object-fit:cover;display:block;background:#110E19}.aurore-ia-result-body{padding:10px}.aurore-ia-result-body strong{display:block;color:var(--ia-accent-white);font-size:.75rem}.aurore-ia-result-body p{margin-top:4px;color:#81798F;font-size:.66rem;line-height:1.45}.aurore-ia-result-body a{display:inline-block;margin-top:6px;color:var(--ia-accent-pale);font-size:.66rem;text-decoration:none}
 
@@ -19695,9 +19704,12 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       conversation.innerHTML=HTML_ACCUEIL_VIDE;
       appliquerLogoAurora();
     }else{
-      messagesActuels.forEach(m=>{
+      messagesActuels.forEach((m,idxMsg)=>{
         if(m.role==='user')addMessage(m.text,'user');
-        else addAssistantResponse(m.text);
+        else{
+          const rowRestaure=addAssistantResponse(m.text);
+          afficherGraphiqueSiNecessaire(rowRestaure,messagesActuels[idxMsg-1]?.text||'',m.text);
+        }
       });
     }
     input.value='';autoGrow();updateSendState();
@@ -19981,6 +19993,267 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
     return restaurerMath(html,protectedMath.maths);
   }
 
+  /* ==========================================================================
+     AURORA — GRAPHIQUES INTERACTIFS (extension additive)
+     --------------------------------------------------------------------------
+     Ce bloc est 100% additif : il ne modifie, ne remplace et n'appelle aucune
+     fonction existante du circuit Aurora/DeepSeek. Il s'appuie uniquement sur
+     le texte déjà produit (question de l'utilisateur + réponse déjà rendue)
+     pour détecter une demande de courbe, puis dessine cette courbe côté
+     navigateur avec Plotly.js (chargé à la demande, jamais au chargement de
+     la page). Aucune expression n'est jamais évaluée avec eval() : un petit
+     analyseur syntaxique dédié (tokeniser -> arbre -> évaluation) sert de
+     couche de normalisation sécurisée entre le texte et le calcul des points.
+     ========================================================================== */
+
+  // --- Chargement paresseux de Plotly.js (jsdelivr, puis unpkg en secours) ---
+  function chargerScriptGraphique(url,delaiMs){
+    return new Promise((resolve,reject)=>{
+      const s=document.createElement('script');
+      let fini=false;
+      const minuteur=setTimeout(()=>{if(fini)return;fini=true;reject(new Error('Délai dépassé : '+url));},delaiMs);
+      s.src=url;
+      s.onload=()=>{if(fini)return;fini=true;clearTimeout(minuteur);resolve();};
+      s.onerror=()=>{if(fini)return;fini=true;clearTimeout(minuteur);reject(new Error('Échec de chargement : '+url));};
+      document.head.appendChild(s);
+    });
+  }
+  function assurerPlotlyCharge(){
+    if(window.Plotly)return Promise.resolve(window.Plotly);
+    if(window.__AURORA_PLOTLY_READY)return window.__AURORA_PLOTLY_READY;
+    window.__AURORA_PLOTLY_READY=(async()=>{
+      try{
+        await chargerScriptGraphique('https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js',12000);
+      }catch(_){
+        await chargerScriptGraphique('https://unpkg.com/plotly.js-dist-min@2.35.2/plotly.min.js',12000);
+      }
+      if(!window.Plotly)throw new Error('Plotly indisponible après chargement.');
+      return window.Plotly;
+    })();
+    return window.__AURORA_PLOTLY_READY;
+  }
+
+  // --- Lecture d'une variable CSS déjà en place (design cohérent avec Aurora) ---
+  function auroraCouleurCSS(nom,repli){
+    try{
+      const app=document.querySelector('.aurore-ia-app')||document.documentElement;
+      const val=getComputedStyle(app).getPropertyValue(nom).trim();
+      return val||repli;
+    }catch(_){return repli;}
+  }
+
+  // --- Normalisation sécurisée d'une expression mathématique en texte ---
+  function auroraNormaliserExpression(expr){
+    let s=String(expr||'').trim();
+    const supMap={'⁰':'0','¹':'1','²':'2','³':'3','⁴':'4','⁵':'5','⁶':'6','⁷':'7','⁸':'8','⁹':'9'};
+    s=s.replace(/([)\]a-zA-Z0-9])([⁰¹²³⁴⁵⁶⁷⁸⁹]+)/g,(m,base,exp)=>{
+      const chiffres=exp.split('').map(c=>supMap[c]||'').join('');
+      return chiffres?base+'^'+chiffres:base;
+    });
+    s=s.replace(/√\s*\(([^()]*)\)/g,'sqrt($1)');
+    s=s.replace(/√\s*([a-zA-Z0-9.]+)/g,'sqrt($1)');
+    s=s.replace(/\|([^|]+)\|/g,'abs($1)');
+    s=s.replace(/\bln\s*\(/gi,'log(');
+    s=s.replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-');
+    s=s.replace(/(\d),(\d)/g,'$1.$2');
+    s=s.replace(/(\d)(\s*)([a-zA-Z(])/g,(m,d,sp,c)=>d+'*'+c);
+    s=s.replace(/(\))(\s*)([(0-9])/g,(m,p,sp,c)=>p+'*'+c);
+    s=s.replace(/\s+/g,'');
+    return s;
+  }
+
+  // --- Tokeniseur : jamais d'eval(), uniquement des jetons reconnus ---
+  function auroraTokeniser(s){
+    const tokens=[];let i=0;const n=s.length;
+    while(i<n){
+      const c=s[i];
+      if(/[0-9.]/.test(c)){let j=i;while(j<n&&/[0-9.]/.test(s[j]))j++;tokens.push({t:'num',v:parseFloat(s.slice(i,j))});i=j;continue;}
+      if(/[a-zA-Z]/.test(c)){let j=i;while(j<n&&/[a-zA-Z0-9_]/.test(s[j]))j++;tokens.push({t:'id',v:s.slice(i,j).toLowerCase()});i=j;continue;}
+      if('+-*/^(),'.includes(c)){tokens.push({t:c});i++;continue;}
+      throw new Error('caractère non reconnu dans l’expression : '+c);
+    }
+    return tokens;
+  }
+
+  // --- Analyseur syntaxique (descente récursive) -> arbre d'expression ---
+  function auroraAnalyser(tokens){
+    let pos=0;
+    const pic=()=>tokens[pos];
+    const consommer=(t)=>{const tok=tokens[pos];if(!tok||(t&&tok.t!==t))throw new Error('expression mathématique invalide');pos++;return tok;};
+    function parseExpr(){let n=parseTerme();while(pic()&&(pic().t==='+'||pic().t==='-')){const op=consommer().t;n={type:'bin',op,g:n,d:parseTerme()};}return n;}
+    function parseTerme(){let n=parseFacteur();while(pic()&&(pic().t==='*'||pic().t==='/')){const op=consommer().t;n={type:'bin',op,g:n,d:parseFacteur()};}return n;}
+    function parseFacteur(){let n=parseUnaire();if(pic()&&pic().t==='^'){consommer();n={type:'bin',op:'^',g:n,d:parseFacteur()};}return n;}
+    function parseUnaire(){if(pic()&&(pic().t==='-'||pic().t==='+')){const op=consommer().t;return {type:'unaire',op,val:parseUnaire()};}return parsePrimaire();}
+    function parsePrimaire(){
+      const tok=pic();
+      if(!tok)throw new Error('expression mathématique incomplète');
+      if(tok.t==='num'){consommer();return {type:'num',v:tok.v};}
+      if(tok.t==='('){consommer();const e=parseExpr();consommer(')');return e;}
+      if(tok.t==='id'){
+        consommer();
+        if(pic()&&pic().t==='('){consommer();const arg=parseExpr();consommer(')');return {type:'appel',nom:tok.v,arg};}
+        return {type:'id',nom:tok.v};
+      }
+      throw new Error('jeton mathématique inattendu');
+    }
+    const arbre=parseExpr();
+    if(pos!==tokens.length)throw new Error('expression mathématique mal formée');
+    return arbre;
+  }
+
+  const AURORA_FONCTIONS_MATH={sin:Math.sin,cos:Math.cos,tan:Math.tan,exp:Math.exp,log:Math.log,ln:Math.log,sqrt:Math.sqrt,abs:Math.abs};
+  const AURORA_CONSTANTES_MATH={pi:Math.PI,e:Math.E};
+  function auroraEvaluerNoeud(node,x){
+    switch(node.type){
+      case 'num':return node.v;
+      case 'id':
+        if(node.nom==='x')return x;
+        if(node.nom in AURORA_CONSTANTES_MATH)return AURORA_CONSTANTES_MATH[node.nom];
+        throw new Error('identifiant mathématique inconnu : '+node.nom);
+      case 'unaire':{const v=auroraEvaluerNoeud(node.val,x);return node.op==='-'?-v:v;}
+      case 'appel':{const fn=AURORA_FONCTIONS_MATH[node.nom];if(!fn)throw new Error('fonction mathématique inconnue : '+node.nom);return fn(auroraEvaluerNoeud(node.arg,x));}
+      case 'bin':{
+        const g=auroraEvaluerNoeud(node.g,x),d=auroraEvaluerNoeud(node.d,x);
+        if(node.op==='+')return g+d;
+        if(node.op==='-')return g-d;
+        if(node.op==='*')return g*d;
+        if(node.op==='/')return g/d;
+        if(node.op==='^')return Math.pow(g,d);
+        throw new Error('opérateur mathématique inconnu');
+      }
+    }
+    throw new Error('nœud mathématique invalide');
+  }
+  // Compile une expression en une fonction JS pure, SANS jamais utiliser eval()
+  // ni new Function() sur du texte venant de DeepSeek : seul cet analyseur
+  // contrôlé décide de ce qui peut être calculé.
+  function auroraCompilerExpression(expr){
+    const normalisee=auroraNormaliserExpression(expr);
+    const tokens=auroraTokeniser(normalisee);
+    const arbre=auroraAnalyser(tokens);
+    return function(x){return auroraEvaluerNoeud(arbre,x);};
+  }
+
+  // --- Détection discrète d'une demande de graphique dans le texte ---
+  // Le déclencheur porte sur des verbes explicites ("trace", "représente
+  // graphiquement", "dessine la courbe"...) : une simple présence de LaTeX ou
+  // une explication mathématique ("Explique-moi la dérivée de x²") ne doit
+  // JAMAIS déclencher de graphique.
+  const AURORA_DECLENCHEUR_GRAPHIQUE=/\b(trace[rz]?s?|repr[ée]sente(?:r|z)?(?:\s+graphiquement)?|dessine[rz]?s?(?:\s+(?:la|les)\s+courbe[s]?)?|graphe|graphique|courbe)\b/i;
+  function auroraExtraireFonctions(texte){
+    const s=String(texte||'');
+    const resultats=[];
+    const re=/([a-zA-Zα-ωΑ-Ω][\w]*\s*\(\s*x\s*\)|[a-zA-Zα-ωΑ-Ω])\s*=\s*([^=,;\n]+?)(?=(?:\s*(?:,|et)\s*[a-zA-Zα-ωΑ-Ω][\w]*\s*(?:\(\s*x\s*\))?\s*=)|(?:\s+sur\s+)|[.;\n]|$)/gi;
+    let m;
+    while((m=re.exec(s))){
+      const label=m[1].trim().replace(/\s+/g,'');
+      const expr=m[2].trim();
+      if(expr)resultats.push({label:label+' = '+expr,raw:expr});
+    }
+    if(resultats.length)return resultats;
+    const motifs=/(?:sin|cos|tan|exp|ln|log|sqrt)\s*\([^)]*\)|x\s*[²³]|x\s*\^\s*\d+|√\s*x|\|x\|/gi;
+    let m2;const vus=new Set();
+    while((m2=motifs.exec(s))){
+      const brut=m2[0];
+      if(vus.has(brut))continue;
+      vus.add(brut);
+      resultats.push({label:brut,raw:brut});
+    }
+    return resultats;
+  }
+  function auroraDemandeGraphique(userText,assistantText){
+    const texteUtilisateur=String(userText||'');
+    if(!AURORA_DECLENCHEUR_GRAPHIQUE.test(texteUtilisateur))return null;
+    let fonctions=auroraExtraireFonctions(texteUtilisateur);
+    if(!fonctions.length)fonctions=auroraExtraireFonctions(String(assistantText||''));
+    if(!fonctions.length)return null;
+    return {functions:fonctions.slice(0,6),xRange:[-10,10]};
+  }
+
+  // --- Échantillonnage sécurisé (coupe les asymptotes/valeurs infinies) ---
+  function auroraEchantillonner(fn,xMin,xMax,nbPoints){
+    const xs=[],ys=[];
+    const pas=(xMax-xMin)/(nbPoints-1);
+    let precedent=null;
+    for(let i=0;i<nbPoints;i++){
+      const x=xMin+i*pas;
+      let y;
+      try{y=fn(x);}catch(_){y=NaN;}
+      if(typeof y!=='number'||!isFinite(y))y=null;
+      else if(Math.abs(y)>1e6)y=null;
+      else if(precedent!=null&&Math.abs(y-precedent)>50)y=null;
+      xs.push(x);ys.push(y);
+      precedent=(y==null)?null:y;
+    }
+    return {xs,ys};
+  }
+
+  function auroraIdentifiantGraphique(){
+    window.__AURORA_GRAPH_COUNTER=(window.__AURORA_GRAPH_COUNTER||0)+1;
+    return 'aurora-graph-'+window.__AURORA_GRAPH_COUNTER;
+  }
+
+  // --- Point d'entrée : appelé APRÈS le rendu normal d'une réponse Aurora.
+  // N'altère jamais le texte déjà affiché ; ajoute seulement, si pertinent,
+  // un bloc graphique après la bulle de réponse existante. Idempotent (ne
+  // duplique pas le graphique si déjà présent, utile pour l'historique). ---
+  async function afficherGraphiqueSiNecessaire(row,userText,assistantText){
+    try{
+      if(!row)return;
+      const bubble=row.querySelector('.aurore-ia-bubble');
+      if(!bubble||bubble.querySelector('.aurora-graph-block'))return;
+      const demande=auroraDemandeGraphique(userText,assistantText);
+      if(!demande||!demande.functions.length)return;
+      const compilees=[];
+      demande.functions.forEach(f=>{
+        try{compilees.push({label:f.label,fn:auroraCompilerExpression(f.raw)});}
+        catch(e){console.warn('[Aurora][Graphique] expression ignorée :',f.raw,e);}
+      });
+      if(!compilees.length)return;
+      const bloc=document.createElement('div');bloc.className='aurora-graph-block';
+      const entete=document.createElement('div');entete.className='aurora-graph-header';
+      entete.innerHTML='<span class="aurora-graph-title">Graphique</span><span class="aurora-graph-sub">'+esc(compilees.map(c=>c.label).join(' · '))+'</span>';
+      const idPlot=auroraIdentifiantGraphique();
+      const zonePlot=document.createElement('div');zonePlot.className='aurora-graph-plot';zonePlot.id=idPlot;
+      bloc.appendChild(entete);bloc.appendChild(zonePlot);
+      bubble.appendChild(bloc);
+      scrollBottom(false);
+      const Plotly=await assurerPlotlyCharge();
+      const couleurs=[auroraCouleurCSS('--ia-accent','#8B5CF6'),auroraCouleurCSS('--ia-accent-3','#C084FC'),auroraCouleurCSS('--ia-accent-2','#6D28D9'),'#38BDF8','#F472B6'];
+      const xMin=demande.xRange[0],xMax=demande.xRange[1];
+      const traces=compilees.map((c,i)=>{
+        const {xs,ys}=auroraEchantillonner(c.fn,xMin,xMax,400);
+        return {x:xs,y:ys,mode:'lines',type:'scatter',name:c.label,line:{color:couleurs[i%couleurs.length],width:2.4},connectgaps:false,hoverinfo:'x+y'};
+      });
+      const couleurTexte=auroraCouleurCSS('--ia-muted','#958DA6');
+      const couleurGrille=auroraCouleurCSS('--ia-border','rgba(255,255,255,.08)');
+      const layout={
+        autosize:true,
+        margin:{l:38,r:14,t:10,b:32},
+        paper_bgcolor:'rgba(0,0,0,0)',
+        plot_bgcolor:'rgba(0,0,0,0)',
+        font:{color:couleurTexte,size:11},
+        xaxis:{zeroline:true,zerolinecolor:couleurGrille,gridcolor:couleurGrille,color:couleurTexte},
+        yaxis:{zeroline:true,zerolinecolor:couleurGrille,gridcolor:couleurGrille,color:couleurTexte},
+        showlegend:compilees.length>1,
+        legend:{orientation:'h',x:0,y:-0.22,font:{size:10,color:couleurTexte}},
+        dragmode:'pan'
+      };
+      const config={responsive:true,displaylogo:false,scrollZoom:false,modeBarButtonsToRemove:['lasso2d','select2d'],displayModeBar:true};
+      await Plotly.newPlot(idPlot,traces,layout,config);
+      if(window.ResizeObserver){
+        const ro=new ResizeObserver(()=>{try{Plotly.Plots.resize(zonePlot);}catch(_){}});
+        ro.observe(zonePlot);
+        zonePlot.__auroraResizeObserver=ro;
+      }
+    }catch(e){
+      console.error('[Aurora][Graphique] échec du rendu :',e);
+      const bubble=row?.querySelector?.('.aurore-ia-bubble');
+      const zone=bubble?.querySelector?.('.aurora-graph-plot');
+      if(zone)zone.innerHTML='<div class="aurora-graph-error">Le graphique n’a pas pu s’afficher.</div>';
+    }
+  }
+
   function collapseWelcome(){
     const w=conversation.querySelector('.aurore-ia-welcome');
     if(!w)return;
@@ -20141,6 +20414,7 @@ html.aurore-shared-route .breadcrumb{display:none!important;}
       messagesActuels.push({role:'assistant',text:texteReponse});
       sauvegarderConversationCourante();
       if(historyPanel?.classList.contains('is-open'))rendreListeHistorique();
+      afficherGraphiqueSiNecessaire(row,q,texteReponse);
     }
     catch(error){
       clearInterval(labelTimer);
