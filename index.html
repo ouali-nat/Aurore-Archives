@@ -22171,7 +22171,107 @@ async function runGeneration(item){const msg=document.getElementById('cfCreateMs
 async function processQueue(){if(generationRunning)return;const item=generationQueue.shift();updateQueueUI();if(!item)return;try{await runGeneration(item);}catch(e){const msg=document.getElementById('cfCreateMsg');if(msg){msg.dataset.state='error';msg.textContent=`Le document « ${item.title} » n’a pas pu être généré : ${e.message||e}`}setProgress(100,'Échec de ce document — Aurora passe au suivant.');}finally{updateQueueUI();if(generationQueue.length)processQueue();}}
 function enqueueCurrent(){if(!adminOk())return;const title=selectedValue('cfCreateTitle','cfCreateTitleCustom'),subject=selectedValue('cfCreateSubject','cfCreateSubjectCustom'),level=selectedValue('cfCreateLevel','cfCreateLevelCustom'),className=selectedValue('cfCreateClass','cfCreateClassCustom'),prompt=(document.getElementById('cfCreatePrompt')?.value||'').trim(),msg=document.getElementById('cfCreateMsg');if(!title||!prompt){if(msg){msg.dataset.state='error';msg.textContent='Le titre et la demande sont obligatoires. Choisis les valeurs disponibles ou « Autre / nouveau… ».'}return}if((document.getElementById('cfCreateSubject')?.value==='__custom__')&&!subject){if(msg)msg.textContent='Indique la matière.';return}if((document.getElementById('cfCreateLevel')?.value==='__custom__')&&!level){if(msg)msg.textContent='Indique le niveau.';return}if((document.getElementById('cfCreateClass')?.value==='__custom__')&&!className){if(msg)msg.textContent='Indique la classe.';return}generationQueue.push({title,subject,level,className,prompt});if(msg){msg.dataset.state='ok';msg.textContent=`« ${title} » ajouté à la file (${generationQueue.length} en attente${generationRunning?' derrière le document en cours':''}).`}updateQueueUI();if(!generationRunning)processQueue();}
 function bindClassification(){['cfCreateTitle','cfCreateSubject','cfCreateLevel','cfCreateClass'].forEach(id=>document.getElementById(id)?.addEventListener('change',refreshClassificationOptions));bindCustomSelect('cfCreateTitle','cfCreateTitleCustom');bindCustomSelect('cfCreateSubject','cfCreateSubjectCustom');bindCustomSelect('cfCreateLevel','cfCreateLevelCustom');bindCustomSelect('cfCreateClass','cfCreateClassCustom');loadClassificationOptions();}
-async function renderPdf(id){const b=document.querySelector(`[data-cf-render="${id}"]`);if(b){b.disabled=true;b.textContent=b.dataset.hasPdf==='1'?'Régénération PDF…':'Génération PDF…'}try{let accessToken='';try{const client=(typeof assurerClientAuthGoogle==='function')?await assurerClientAuthGoogle():(typeof AURORE_SUPABASE_AUTH!=='undefined'?AURORE_SUPABASE_AUTH:null);if(client?.auth){const gs=await client.auth.getSession();accessToken=gs?.data?.session?.access_token||'';if(accessToken&&session){session.access_token=accessToken;}}}catch(_){accessToken=''}if(!accessToken&&session?.access_token)accessToken=session.access_token;if(!accessToken)throw new Error('Session administrateur absente ou expirée. Reconnectez-vous à Aurore puis réessayez.');const r=await fetch(`${SUPABASE_URL}/functions/v1/aurora-content-renderer`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify({generated_document_id:Number(id)})});const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}}if(!r.ok)throw new Error(d.error||('HTTP '+r.status));await charger();alert('PDF généré et contrôle qualité de base effectué.')}catch(e){alert('Le PDF n’a pas pu être généré. '+(e.message||e))}finally{if(b){b.disabled=false;b.textContent=b.dataset.hasPdf==='1'?'Régénérer le PDF':'Générer le PDF'}}}
+
+async function auroraGeoGebraScriptReady(){
+  if(window.GGBApplet)return;
+  if(window.__auroraGeoGebraScriptPromise)return window.__auroraGeoGebraScriptPromise;
+  window.__auroraGeoGebraScriptPromise=new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    s.src='https://www.geogebra.org/apps/deployggb.js';
+    s.async=true;
+    s.onload=()=>resolve();
+    s.onerror=()=>reject(new Error('GeoGebra est indisponible.'));
+    document.head.appendChild(s);
+  });
+  return window.__auroraGeoGebraScriptPromise;
+}
+function auroraGeoGebraExpr(raw){
+  let s=String(raw||'').trim()
+    .replace(/^\s*(?:f\s*\(\s*x\s*\)|y)\s*=\s*/i,'')
+    .replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-')
+    .replace(/√\s*\(/g,'sqrt(').replace(/\bln\s*\(/gi,'ln(')
+    .replace(/\blog\s*\(/gi,'log(');
+  return s;
+}
+function auroraGeoGebraCommandes(g){
+  const cmds=[];
+  const expr=auroraGeoGebraExpr(g?.expression||'');
+  if(expr)cmds.push('f(x)='+expr);
+  const xmin=Number(g?.x_min),xmax=Number(g?.x_max),ymin=Number(g?.y_min),ymax=Number(g?.y_max);
+  if([xmin,xmax,ymin,ymax].every(Number.isFinite)&&xmax>xmin&&ymax>ymin)cmds.push(`SetCoordSystem(${xmin},${xmax},${ymin},${ymax})`);
+  cmds.push('O=(0,0)','I=(1,0)','J=(0,1)');
+  cmds.push('SetLabelVisible(O,true)','SetLabelVisible(I,true)','SetLabelVisible(J,true)');
+  cmds.push('SetCaption(O,"O")','SetCaption(I,"I")','SetCaption(J,"J")');
+  for(const a of Array.isArray(g?.asymptotes)?g.asymptotes:[]){
+    const v=Number(a?.value); if(!Number.isFinite(v))continue;
+    if(a.type==='vertical')cmds.push(`a${cmds.length}=x=${v}`);
+    if(a.type==='horizontal')cmds.push(`a${cmds.length}=y=${v}`);
+  }
+  return cmds;
+}
+async function auroraGeoGebraExportOne(graph){
+  await auroraGeoGebraScriptReady();
+  const host=document.createElement('div');
+  host.style.cssText='position:fixed;left:-10000px;top:-10000px;width:1400px;height:820px;opacity:0;pointer-events:none;z-index:-1;background:#fff;';
+  document.body.appendChild(host);
+  return await new Promise((resolve,reject)=>{
+    let finished=false;
+    const done=(fn,v)=>{if(finished)return;finished=true;try{api?.remove?.()}catch(_){}host.remove();fn(v);};
+    let api=null;
+    const timer=setTimeout(()=>done(reject,new Error('GeoGebra n’a pas terminé la construction du graphique.')),30000);
+    const params={
+      appName:'graphing',width:1400,height:820,showToolBar:false,showAlgebraInput:false,
+      showMenuBar:false,showResetIcon:false,showFullscreenButton:false,showZoomButtons:false,
+      showSuggestionButtons:false,language:'fr',
+      appletOnLoad:function(a){
+        api=a;
+        try{
+          const xmin=Number(graph?.x_min),xmax=Number(graph?.x_max),ymin=Number(graph?.y_min),ymax=Number(graph?.y_max);
+          if([xmin,xmax,ymin,ymax].every(Number.isFinite)&&xmax>xmin&&ymax>ymin)a.setCoordSystem(xmin,xmax,ymin,ymax);
+          a.setAxesVisible(true,true);
+          a.setGridVisible(true);
+          try{a.setAxisSteps(1,1,1,0)}catch(_){}
+          try{a.setAxisLabels(1,'x','y','')}catch(_){}
+          for(const c of auroraGeoGebraCommandes(graph)){
+            try{a.evalCommand(c)}catch(e){console.warn('[Aurora][GeoGebra export]',c,e)}
+          }
+          setTimeout(()=>{
+            try{
+              if(typeof a.getPNGBase64!=='function')throw new Error('L’export PNG GeoGebra n’est pas disponible.');
+              const b64=a.getPNGBase64(2,false,144);
+              if(!b64)throw new Error('GeoGebra a renvoyé une image vide.');
+              clearTimeout(timer);
+              done(resolve,String(b64).replace(/^data:image\/png;base64,/i,''));
+            }catch(e){clearTimeout(timer);done(reject,e instanceof Error?e:new Error(String(e)))}
+          },1200);
+        }catch(e){clearTimeout(timer);done(reject,e instanceof Error?e:new Error(String(e)))}
+      }
+    };
+    try{const applet=new GGBApplet(params,true);applet.inject(host)}catch(e){clearTimeout(timer);done(reject,e instanceof Error?e:new Error(String(e)))}
+  });
+}
+async function auroraConstruireEtImporterGraphiquesGeoGebra(id,button){
+  const prep=await fetch(`${SUPABASE_URL}/functions/v1/aurora-geogebra`,{
+    method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json'},
+    body:JSON.stringify({generated_document_id:Number(id),action:'prepare'})
+  });
+  const pt=await prep.text();let pd={};try{pd=pt?JSON.parse(pt):{}}catch(_){pd={error:pt}}
+  if(!prep.ok)throw new Error(pd.error||('Préparation GeoGebra HTTP '+prep.status));
+  const graphs=Array.isArray(pd.graphs)?pd.graphs:[];
+  for(let i=0;i<graphs.length;i++){
+    if(button)button.textContent=`GeoGebra ${i+1}/${graphs.length}…`;
+    const png=await auroraGeoGebraExportOne(graphs[i]);
+    const up=await fetch(`${SUPABASE_URL}/functions/v1/aurora-geogebra`,{
+      method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json'},
+      body:JSON.stringify({generated_document_id:Number(id),graph_index:Number(graphs[i].graph_index),png_base64:png})
+    });
+    const ut=await up.text();let ud={};try{ud=ut?JSON.parse(ut):{}}catch(_){ud={error:ut}}
+    if(!up.ok)throw new Error(ud.error||('Import GeoGebra HTTP '+up.status));
+  }
+  return graphs.length;
+}
+
+async function renderPdf(id){const b=document.querySelector(`[data-cf-render="${id}"]`);if(b){b.disabled=true;b.textContent=b.dataset.hasPdf==='1'?'Régénération PDF…':'Génération PDF…'}try{const graphCount=await auroraConstruireEtImporterGraphiquesGeoGebra(id,b);if(b)b.textContent=graphCount?`Génération PDF avec ${graphCount} graphique${graphCount>1?'s':''} GeoGebra…`:'Génération PDF…';const r=await fetch(`${SUPABASE_URL}/functions/v1/aurora-content-renderer-ggb`,{method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json'},body:JSON.stringify({generated_document_id:Number(id)})});const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}}if(!r.ok)throw new Error(d.error||('HTTP '+r.status));await charger();alert(graphCount?`PDF généré avec ${graphCount} graphique${graphCount>1?'s':''} construit${graphCount>1?'s':''} par GeoGebra.`:'PDF généré et contrôle qualité de base effectué.')}catch(e){alert('Le PDF n’a pas pu être généré. '+(e.message||e))}finally{if(b){b.disabled=false;b.textContent=b.dataset.hasPdf==='1'?'Régénérer le PDF':'Générer le PDF'}}}
 async function validateDoc(id){const n=prompt('Note de validation (facultatif) :','');if(n===null)return;try{await rpc('aurora_validate_generated_document',{p_generated_document_id:Number(id),p_notes:n||null});await charger()}catch(e){alert('Validation impossible. '+(e.message||e))}}
 async function rejectDoc(id){const n=prompt('Motif du rejet / corrections demandées :','');if(n===null)return;if(!n.trim()){alert('Indique un motif pour rejeter le document.');return}try{await rpc('aurora_reject_generated_document',{p_generated_document_id:Number(id),p_notes:n.trim()});await charger()}catch(e){alert('Rejet impossible. '+(e.message||e))}}
 async function publishDoc(id){if(!confirm('Publier ce document dans la bibliothèque publique Aurore ?\n\nCette action crée un document publié à partir du PDF validé.'))return;const n=prompt('Note de publication (facultatif) :','');if(n===null)return;try{await rpc('aurora_publish_generated_document',{p_generated_document_id:Number(id),p_notes:n||null});await charger();alert('Document publié dans la bibliothèque Aurore.')}catch(e){alert('Publication impossible. '+(e.message||e))}}
