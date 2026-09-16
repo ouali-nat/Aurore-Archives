@@ -1165,11 +1165,11 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
   .doc-main-info{min-width:0;}
   .doc-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
   .friendly-empty{margin:8px 0;}
-  .service-client-card{width:100%;box-sizing:border-box;display:flex;justify-content:space-between;gap:16px;align-items:center;padding:16px 18px;border:1px solid var(--theme-border,var(--bordure));border-radius:18px;background:linear-gradient(135deg,rgba(124,58,237,.13),rgba(232,121,249,.06));box-shadow:var(--ombre);}
+  .service-client-card{width:100%;box-sizing:border-box;display:flex;justify-content:space-between;gap:24px;align-items:center;padding:22px;border:1px solid rgba(192,132,252,.22);border-radius:20px;background:linear-gradient(135deg,rgba(124,58,237,.13),rgba(232,121,249,.06));box-shadow:var(--ombre);}
   .service-client-copy{display:flex;flex-direction:column;gap:5px;min-width:0;}
-  .service-client-kicker{font-size:.62rem;text-transform:uppercase;letter-spacing:.12em;color:#B9A6D9;font-weight:700;}
+  .service-client-kicker{font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;color:#B9A6D9;font-weight:700;}
   .service-client-copy strong{font-size:1rem;color:#fff;line-height:1.35;}
-  .service-client-note{font-size:.74rem;color:#9F97AE;}
+  .service-client-note{font-size:.78rem;color:#9F97AE;}
   .service-client-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;}
   .service-client-link{min-width:145px;padding:11px 13px;border:1px solid #352A49;border-radius:14px;background:#12101A;color:#fff;text-decoration:none;display:flex;flex-direction:column;gap:3px;}
   .service-client-link span{font-size:.7rem;color:#9F97AE;text-transform:uppercase;letter-spacing:.08em;}
@@ -2990,98 +2990,35 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
 </style>
 <style id="aurora-content-factory-admin-ui">.cf-admin-card{display:flex;gap:15px;align-items:flex-start;background:var(--auraster-panel);border:1px solid var(--bordure);border-radius:var(--radius);padding:16px;margin-bottom:12px;box-shadow:var(--ombre)}.cf-admin-icon{width:46px;height:58px;flex:0 0 46px;border-radius:9px;background:var(--fond);border:1px solid var(--bordure);display:grid;place-items:center;color:var(--violet);font-weight:800;font-size:.7rem}.cf-admin-body{min-width:0;flex:1}.cf-admin-title{font-weight:800;font-size:.96rem;color:var(--encre);overflow-wrap:anywhere}.cf-admin-meta{font-size:.77rem;color:var(--gris);line-height:1.55;margin-top:5px}.cf-admin-status{display:inline-flex;align-items:center;border:1px solid var(--bordure);background:var(--fond);border-radius:999px;padding:4px 9px;font-size:.67rem;font-weight:800;margin-top:9px;color:var(--encre)}.cf-admin-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px}.cf-admin-actions .admin-btn{font-size:.74rem;padding:8px 11px}.cf-admin-error{margin-top:8px;color:var(--rouge);font-size:.74rem;white-space:pre-wrap}@media(max-width:620px){.cf-admin-card{padding:13px;gap:11px}.cf-admin-icon{width:40px;flex-basis:40px;height:52px}.cf-admin-actions .admin-btn{flex:1 1 100%;justify-content:center}}</style>
 
-<style id="aurore-theme-picker-modern">
-/* Sélecteur de couleurs — petits carrés, compact et cohérent avec tous les thèmes */
-.theme-color-picker,
-.color-picker,
-.color-theme-picker,
-.theme-picker-colors,
-.color-options,
-.theme-options{
-  display:grid!important;
-  grid-template-columns:repeat(auto-fit,minmax(34px,34px))!important;
-  gap:8px!important;
-  align-items:center!important;
+<style id="aurore-theme-picker-squares">
+/* Aurore — sélecteur de couleurs : petits carrés, sans toucher au système d'authentification */
+.color-theme-flyout-scroll{
+  grid-template-columns:repeat(5,30px);
+  gap:8px;
+  align-items:center;
 }
-.theme-color-picker button,
-.color-picker button,
-.color-theme-picker button,
-.theme-picker-colors button,
-.color-options button,
-.theme-options button,
-.theme-color-picker [role="button"],
-.color-picker [role="button"],
-.color-theme-picker [role="button"],
-.theme-picker-colors [role="button"],
-.color-options [role="button"],
-.theme-options [role="button"]{
-  width:34px!important;
-  height:34px!important;
-  min-width:34px!important;
-  min-height:34px!important;
+.theme-color-swatch{
+  width:30px!important;
+  height:30px!important;
+  min-width:30px!important;
+  min-height:30px!important;
   padding:0!important;
-  margin:0!important;
-  border-radius:8px!important;
-  border:2px solid color-mix(in srgb,var(--encre,#17131f) 16%,transparent)!important;
-  box-shadow:0 2px 7px rgba(0,0,0,.10)!important;
-  transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease!important;
+  border-radius:7px!important;
+  border:2px solid transparent!important;
+  box-shadow:0 2px 6px rgba(0,0,0,.14);
 }
-.theme-color-picker button:hover,
-.color-picker button:hover,
-.color-theme-picker button:hover,
-.theme-picker-colors button:hover,
-.color-options button:hover,
-.theme-options button:hover{
-  transform:translateY(-2px) scale(1.04)!important;
-  box-shadow:0 5px 12px rgba(0,0,0,.15)!important;
+.theme-color-swatch:hover{
+  transform:translateY(-1px) scale(1.04);
 }
-.theme-color-picker button[aria-selected="true"],
-.color-picker button[aria-selected="true"],
-.color-theme-picker button[aria-selected="true"],
-.theme-picker-colors button[aria-selected="true"],
-.color-options button[aria-selected="true"],
-.theme-options button[aria-selected="true"],
-.theme-color-picker button.active,
-.color-picker button.active,
-.color-theme-picker button.active,
-.theme-picker-colors button.active,
-.color-options button.active,
-.theme-options button.active{
-  border-color:var(--theme-primary,var(--violet,#7c3aed))!important;
-  box-shadow:0 0 0 3px color-mix(in srgb,var(--theme-primary,var(--violet,#7c3aed)) 20%,transparent)!important;
-  transform:scale(1.04)!important;
-}
-/* Empêche les anciens ronds de reprendre le dessus */
-.theme-color-picker *,
-.color-picker *,
-.color-theme-picker *,
-.theme-picker-colors *,
-.color-options *,
-.theme-options *{
-  border-radius:8px!important;
+.theme-color-swatch[aria-pressed="true"]{
+  border-color:var(--papier)!important;
+  box-shadow:0 0 0 2px var(--theme-primary,var(--violet,#7c3aed)),0 2px 6px rgba(0,0,0,.14);
 }
 @media(max-width:600px){
-  .theme-color-picker,
-  .color-picker,
-  .color-theme-picker,
-  .theme-picker-colors,
-  .color-options,
-  .theme-options{
-    grid-template-columns:repeat(auto-fit,minmax(32px,32px))!important;
-    gap:7px!important;
-  }
-  .theme-color-picker button,
-  .color-picker button,
-  .color-theme-picker button,
-  .theme-picker-colors button,
-  .color-options button,
-  .theme-options button{
-    width:32px!important;height:32px!important;min-width:32px!important;min-height:32px!important;
-    border-radius:7px!important;
-  }
+  .color-theme-flyout-scroll{grid-template-columns:repeat(5,28px);gap:7px;}
+  .theme-color-swatch{width:28px!important;height:28px!important;min-width:28px!important;min-height:28px!important;border-radius:6px!important;}
 }
 </style>
-
 </head>
 <body class="site-locked">
 
@@ -3482,21 +3419,21 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
       <input type="text" id="headerSearchInput" placeholder="Rechercher une matière, un niveau…">
     </div>
     <button type="button" class="aurore-ia-header-btn" id="auroreIAHeaderBtn" aria-label="Ouvrir Aurora" title="Aurora"><span aria-hidden="true">✦</span><span>Aurora</span></button>
-    <div class="theme-switch aurore-square-color-picker" id="themeSwitch" role="group" aria-label="Choix du thème">
+    <div class="theme-switch" id="themeSwitch" role="group" aria-label="Choix du thème">
       <button type="button" class="theme-switch-btn" data-theme-choice="sombre" title="Thème sombre" aria-pressed="false"><span class="theme-icon-host" data-icon="moon"></span></button>
       <button type="button" class="theme-switch-btn" data-theme-choice="clair" title="Thème clair" aria-pressed="false"><span class="theme-icon-host" data-icon="sun"></span></button>
       <button type="button" class="theme-switch-btn" data-theme-choice="systeme" title="Thème système" aria-pressed="false"><span class="theme-icon-host" data-icon="monitor"></span></button>
     </div>
-    <div class="color-theme-picker aurore-square-color-picker" id="colorThemePicker">
+    <div class="color-theme-picker" id="colorThemePicker">
       <button type="button" class="color-theme-btn" id="colorThemeBtn" title="Couleur du site" aria-haspopup="true" aria-expanded="false">
         <span class="color-theme-btn-dot" id="colorThemeBtnDot" aria-hidden="true"></span>
       </button>
-      <div class="color-theme-flyout aurore-square-color-picker" id="colorThemeFlyout" role="menu" aria-label="Choisir la couleur du site" aria-hidden="true">
-        <div class="color-theme-flyout-head aurore-square-color-picker">
+      <div class="color-theme-flyout" id="colorThemeFlyout" role="menu" aria-label="Choisir la couleur du site" aria-hidden="true">
+        <div class="color-theme-flyout-head">
           <span>Couleur du site</span>
           <strong id="colorThemeFlyoutCurrent">Violet</strong>
         </div>
-        <div class="color-theme-flyout-scroll aurore-square-color-picker" id="colorThemeFlyoutScroll">
+        <div class="color-theme-flyout-scroll" id="colorThemeFlyoutScroll">
           <button type="button" class="theme-color-swatch" data-color-choice="violet" title="Violet" aria-pressed="false"></button>
           <button type="button" class="theme-color-swatch" data-color-choice="rouge" title="Rouge" aria-pressed="false"></button>
           <button type="button" class="theme-color-swatch" data-color-choice="vert" title="Vert" aria-pressed="false"></button>
@@ -3629,16 +3566,7 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
 
     <!-- ===== ACCÈS À L’ESPACE PERSONNEL — FIN DE L’ACCUEIL ===== -->
     <section class="aurora-personal-end" aria-labelledby="auroraPersonalEndTitle">
-      <style id="personal-space-compact-style">
-.personal-space-compact-card{position:relative;min-height:0!important;padding:18px 58px 18px 20px!important;margin:12px 0!important;border-radius:20px!important;cursor:pointer;overflow:hidden;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
-.personal-space-compact-card::after{content:"›";position:absolute;right:18px;top:50%;transform:translateY(-50%);width:32px;height:32px;display:grid;place-items:center;border-radius:50%;background:color-mix(in srgb,var(--violet) 10%,transparent);color:var(--violet);font-size:1.35rem;line-height:1;pointer-events:none}
-.personal-space-compact-card:hover{transform:translateY(-2px);box-shadow:var(--ombre-hover,0 12px 30px rgba(0,0,0,.12));border-color:var(--violet)!important}
-.personal-space-compact-card:focus-visible{outline:3px solid color-mix(in srgb,var(--violet) 28%,transparent);outline-offset:3px}
-.personal-space-compact-card h2,.personal-space-compact-card h3{margin-bottom:6px!important;font-size:clamp(1rem,2.2vw,1.25rem)!important}
-.personal-space-compact-card p{margin:0!important;max-width:720px;font-size:.82rem!important;line-height:1.5!important}
-@media(max-width:600px){.personal-space-compact-card{padding:15px 48px 15px 15px!important;border-radius:17px!important}.personal-space-compact-card::after{right:12px;width:29px;height:29px}.personal-space-compact-card p{font-size:.78rem!important}}
-</style>
-<div class="aurora-personal-end-inner">
+      <div class="aurora-personal-end-inner">
         <div class="aurora-personal-end-icon" aria-hidden="true">⌂</div>
         <div class="aurora-personal-end-copy">
           <span class="aurora-personal-end-kicker">Votre espace</span>
@@ -3648,7 +3576,7 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
         <button type="button" class="aurora-personal-end-btn" id="auroraPersonalEndBtn" aria-label="Accéder à mon espace personnel">
           Accéder à mon espace <span aria-hidden="true">→</span>
         </button>
-      </div><script>(function(){const bind=()=>{const card=document.querySelector('[data-personal-space-clickable="true"]');if(!card||card.dataset.clickBound)return;card.dataset.clickBound='1';const go=()=>{const target=card.querySelector('a[href]');if(target&&target.href){target.click();return}if(typeof afficherEcran==='function'){try{afficherEcran('screen-profile');return}catch(e){}try{afficherEcran('screen-personal');return}catch(e){}}const f=document.querySelector('[data-screen="screen-profile"],[data-screen="screen-personal"]');if(f)f.click()};card.addEventListener('click',e=>{if(e.target.closest('a,button,input,select,textarea'))return;go()});card.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go()}})};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();new MutationObserver(bind).observe(document.body,{childList:true,subtree:true})})();</script>
+      </div>
     </section>
   </section>
 
@@ -4358,8 +4286,8 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
       </div>
     </div>
 
-    <div class="profile-theme-card profile-theme-card-compact aurore-square-color-picker" aria-label="Choisir la couleur du site">
-      <div class="profile-theme-head aurore-square-color-picker">
+    <div class="profile-theme-card profile-theme-card-compact" aria-label="Choisir la couleur du site">
+      <div class="profile-theme-head">
         <div>
           <span class="profile-theme-kicker">Personnalisation</span>
           <strong>Couleur du site</strong>
@@ -4367,7 +4295,7 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
         </div>
         <span class="profile-theme-current" id="profileThemeCurrent">Violet</span>
       </div>
-      <div class="profile-theme-compact-actions aurore-square-color-picker">
+      <div class="profile-theme-compact-actions">
         <button type="button" class="admin-btn ghost" id="profileOuvrirCouleurs">🎨 Changer la couleur du site</button>
       </div>
     </div>
@@ -4534,117 +4462,9 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
       </div>
     </div>
   </div>
-  
-<style id="admin-space-card-style">
-.admin-space-card{
-  position:relative;
-  width:100%;
-  box-sizing:border-box;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:18px;
-  margin:14px 0!important;
-  padding:17px 54px 17px 20px!important;
-  border:1px solid var(--theme-border,var(--bordure,#ddd6ee))!important;
-  border-radius:19px!important;
-  background:
-    linear-gradient(135deg,
-      color-mix(in srgb,var(--theme-primary,var(--violet,#7c3aed)) 10%,var(--papier,#fff)),
-      var(--papier,#fff)
-    )!important;
-  color:var(--encre,#17131f)!important;
-  box-shadow:0 8px 24px rgba(0,0,0,.07);
-  overflow:hidden;
-  cursor:pointer;
-  text-decoration:none!important;
-  transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;
-}
-.admin-space-card::before{
-  content:"";
-  position:absolute;
-  left:0;
-  top:0;
-  bottom:0;
-  width:4px;
-  background:var(--theme-primary,var(--violet,#7c3aed));
-}
-.admin-space-card:hover{
-  transform:translateY(-2px);
-  border-color:var(--theme-primary,var(--violet,#7c3aed))!important;
-  box-shadow:0 12px 28px rgba(0,0,0,.11);
-}
-.admin-space-card:focus-visible{
-  outline:3px solid color-mix(in srgb,var(--theme-primary,var(--violet,#7c3aed)) 25%,transparent);
-  outline-offset:3px;
-}
-.admin-space-card-main{
-  min-width:0;
-  padding-left:2px;
-}
-.admin-space-kicker{
-  display:block;
-  margin-bottom:3px;
-  color:var(--theme-primary,var(--violet,#7c3aed));
-  font-size:.62rem;
-  line-height:1.2;
-  font-weight:800;
-  letter-spacing:.12em;
-  text-transform:uppercase;
-}
-.admin-space-card h2{
-  margin:0 0 4px!important;
-  color:var(--encre,#17131f)!important;
-  font-size:clamp(1rem,2.2vw,1.2rem)!important;
-  line-height:1.2!important;
-}
-.admin-space-card p{
-  margin:0!important;
-  max-width:760px;
-  color:var(--gris,#6b6475)!important;
-  font-size:.78rem!important;
-  line-height:1.45!important;
-}
-.admin-space-card-action{
-  position:absolute;
-  right:16px;
-  top:50%;
-  transform:translateY(-50%);
-  width:31px;
-  height:31px;
-  display:grid;
-  place-items:center;
-  border-radius:50%;
-  background:color-mix(in srgb,var(--theme-primary,var(--violet,#7c3aed)) 11%,transparent);
-  color:var(--theme-primary,var(--violet,#7c3aed));
-  font-size:1.3rem;
-  line-height:1;
-  transition:transform .18s ease,background .18s ease;
-}
-.admin-space-card:hover .admin-space-card-action{
-  transform:translate(2px,-50%);
-  background:color-mix(in srgb,var(--theme-primary,var(--violet,#7c3aed)) 17%,transparent);
-}
-@media(max-width:600px){
-  .admin-space-card{
-    padding:15px 48px 15px 17px!important;
-    border-radius:17px!important;
-  }
-  .admin-space-card p{font-size:.74rem!important}
-  .admin-space-card-action{right:12px;width:28px;height:28px}
-}
-@media(prefers-reduced-motion:reduce){
-  .admin-space-card,.admin-space-card-action{transition:none}
-}
-</style>
-<div class="wrap admin-space-card" style="margin-top:10px;" role="region" aria-label="Espace administrateur">
-  <div class="admin-space-card-main">
-    <span class="admin-space-kicker">Administration</span>
-    <h2>Espace administrateur</h2>
-    <p>Gérez les documents, les utilisateurs et les activités d’Aurore depuis votre espace d’administration.</p>
+  <div class="wrap" style="margin-top:10px;">
+    <button class="admin-note" id="btnAdmin" style="background:none; border:none; text-decoration:underline; padding:0;">Espace administrateur</button>
   </div>
-  <span class="admin-space-card-action" aria-hidden="true">›</span>
-</div>
 </footer>
 
 <!-- ===== LECTEUR PDF INTÉGRÉ (rendu PDF.js sur canvas — pas de visionneuse native
