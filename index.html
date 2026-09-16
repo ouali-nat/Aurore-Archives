@@ -22256,9 +22256,14 @@ async function auroraGeoGebraExportOne(graph){
     try{const applet=new GGBApplet(params,true);applet.inject(host)}catch(e){clearTimeout(timer);done(reject,e instanceof Error?e:new Error(String(e)))}
   });
 }
-async function auroraConstruireEtImporterGraphiquesGeoGebra(id,button){
+async function auroraConstruireEtImporterGraphiquesGeoGebra(id,button,accessToken){
+  // Utilise le JWT frais transmis par renderPdf() plutôt que headersAdmin()
+  // (qui repose sur la variable locale "session", potentiellement périmée).
+  // Conserve headersAdmin() en repli uniquement si aucun token n'est fourni,
+  // pour ne rien casser ailleurs si cette fonction est un jour appelée sans.
+  const ggbHeaders=accessToken?{"apikey":SUPABASE_ANON_KEY,"Authorization":"Bearer "+accessToken}:headersAdmin();
   const prep=await fetch(`${SUPABASE_URL}/functions/v1/aurora-geogebra`,{
-    method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json'},
+    method:'POST',headers:{...ggbHeaders,'Content-Type':'application/json'},
     body:JSON.stringify({generated_document_id:Number(id),action:'prepare'})
   });
   const pt=await prep.text();let pd={};try{pd=pt?JSON.parse(pt):{}}catch(_){pd={error:pt}}
@@ -22268,7 +22273,7 @@ async function auroraConstruireEtImporterGraphiquesGeoGebra(id,button){
     if(button)button.textContent=`GeoGebra ${i+1}/${graphs.length}…`;
     const png=await auroraGeoGebraExportOne(graphs[i]);
     const up=await fetch(`${SUPABASE_URL}/functions/v1/aurora-geogebra`,{
-      method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json'},
+      method:'POST',headers:{...ggbHeaders,'Content-Type':'application/json'},
       body:JSON.stringify({generated_document_id:Number(id),graph_index:Number(graphs[i].graph_index),png_base64:png})
     });
     const ut=await up.text();let ud={};try{ud=ut?JSON.parse(ut):{}}catch(_){ud={error:ut}}
@@ -22306,11 +22311,13 @@ async function renderPdf(id){
   const b=document.querySelector(`[data-cf-render="${id}"]`);
   if(b){b.disabled=true;b.textContent=b.dataset.hasPdf==='1'?'Régénération PDF…':'Génération PDF…'}
   try{
-    const graphCount=await auroraConstruireEtImporterGraphiquesGeoGebra(id,b);
-    if(b)b.textContent=graphCount?`Génération PDF avec ${graphCount} graphique${graphCount>1?'s':''} GeoGebra…`:'Génération PDF…';
-
-    // Récupère la session Supabase réellement active juste avant l'appel au renderer.
-    // Le renderer v17 vérifie le JWT : la clé anon seule ne suffit pas.
+    // Récupère la session Supabase réellement active EN PREMIER, avant toute
+    // requête de renderPdf() — y compris la préparation GeoGebra. Auparavant
+    // cette vérification n'avait lieu que juste avant l'appel au renderer :
+    // l'étape GeoGebra (headersAdmin(), donc la variable locale "session",
+    // potentiellement périmée) pouvait alors échouer en 401 avant même
+    // d'atteindre le renderer v17, ce qui produisait le même message d'erreur
+    // générique et laissait croire à tort que le renderer refusait le JWT.
     const authClient=await assurerClientAuthGoogle();
     if(!authClient)throw new Error('Client Supabase indisponible.');
     const {data:authData,error:authError}=await authClient.auth.getSession();
@@ -22326,6 +22333,9 @@ async function renderPdf(id){
       if(activeSession.expires_at)session.expires_at=activeSession.expires_at*1000;
       sauvegarderSession();
     }
+
+    const graphCount=await auroraConstruireEtImporterGraphiquesGeoGebra(id,b,accessToken);
+    if(b)b.textContent=graphCount?`Génération PDF avec ${graphCount} graphique${graphCount>1?'s':''} GeoGebra…`:'Génération PDF…';
 
     const r=await fetch(`${SUPABASE_URL}/functions/v1/aurora-content-renderer-ggb`,{
       method:'POST',
