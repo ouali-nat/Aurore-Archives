@@ -22197,8 +22197,11 @@ function auroraGeoGebraCommandes(g){
   const cmds=[];
   const expr=auroraGeoGebraExpr(g?.expression||'');
   if(expr)cmds.push('f(x)='+expr);
-  const xmin=Number(g?.x_min),xmax=Number(g?.x_max),ymin=Number(g?.y_min),ymax=Number(g?.y_max);
-  if([xmin,xmax,ymin,ymax].every(Number.isFinite)&&xmax>xmin&&ymax>ymin)cmds.push(`SetCoordSystem(${xmin},${xmax},${ymin},${ymax})`);
+  const xmin0=Number(g?.x_min),xmax0=Number(g?.x_max),ymin0=Number(g?.y_min),ymax0=Number(g?.y_max);
+  if([xmin0,xmax0,ymin0,ymax0].every(Number.isFinite)&&xmax0>xmin0&&ymax0>ymin0){
+    const xr=Math.max(Math.abs(xmin0),Math.abs(xmax0),1),yr=Math.max(Math.abs(ymin0),Math.abs(ymax0),1);
+    cmds.push(`SetCoordSystem(${-xr},${xr},${-yr},${yr})`);
+  }
   cmds.push('O=(0,0)','I=(1,0)','J=(0,1)');
   cmds.push('SetLabelVisible(O,true)','SetLabelVisible(I,true)','SetLabelVisible(J,true)');
   cmds.push('SetCaption(O,"O")','SetCaption(I,"I")','SetCaption(J,"J")');
@@ -22226,8 +22229,11 @@ async function auroraGeoGebraExportOne(graph){
       appletOnLoad:function(a){
         api=a;
         try{
-          const xmin=Number(graph?.x_min),xmax=Number(graph?.x_max),ymin=Number(graph?.y_min),ymax=Number(graph?.y_max);
-          if([xmin,xmax,ymin,ymax].every(Number.isFinite)&&xmax>xmin&&ymax>ymin)a.setCoordSystem(xmin,xmax,ymin,ymax);
+          const xmin0=Number(graph?.x_min),xmax0=Number(graph?.x_max),ymin0=Number(graph?.y_min),ymax0=Number(graph?.y_max);
+          if([xmin0,xmax0,ymin0,ymax0].every(Number.isFinite)&&xmax0>xmin0&&ymax0>ymin0){
+            const xr=Math.max(Math.abs(xmin0),Math.abs(xmax0),1),yr=Math.max(Math.abs(ymin0),Math.abs(ymax0),1);
+            a.setCoordSystem(-xr,xr,-yr,yr);
+          }
           a.setAxesVisible(true,true);
           a.setGridVisible(true);
           try{a.setAxisSteps(1,1,1,0)}catch(_){}
