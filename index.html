@@ -22277,7 +22277,76 @@ async function auroraConstruireEtImporterGraphiquesGeoGebra(id,button){
   return graphs.length;
 }
 
-async function renderPdf(id){const b=document.querySelector(`[data-cf-render="${id}"]`);if(b){b.disabled=true;b.textContent=b.dataset.hasPdf==='1'?'Régénération PDF…':'Génération PDF…'}try{const graphCount=await auroraConstruireEtImporterGraphiquesGeoGebra(id,b);if(b)b.textContent=graphCount?`Génération PDF avec ${graphCount} graphique${graphCount>1?'s':''} GeoGebra…`:'Génération PDF…';const r=await fetch(`${SUPABASE_URL}/functions/v1/aurora-content-renderer-ggb`,{method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json'},body:JSON.stringify({generated_document_id:Number(id)})});const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}}if(!r.ok)throw new Error(d.error||('HTTP '+r.status));await charger();alert(graphCount?`PDF généré avec ${graphCount} graphique${graphCount>1?'s':''} construit${graphCount>1?'s':''} par GeoGebra.`:'PDF généré et contrôle qualité de base effectué.')}catch(e){alert('Le PDF n’a pas pu être généré. '+(e.message||e))}finally{if(b){b.disabled=false;b.textContent=b.dataset.hasPdf==='1'?'Régénérer le PDF':'Générer le PDF'}}}
+async function obtenirJwtPourRenduPdf(){
+  // Le renderer PDF exige un vrai JWT utilisateur (verify_jwt=true).
+  // On récupère la session Supabase actuelle juste avant l'appel afin de ne
+  // jamais envoyer une clé anon à la place du Bearer token.
+  try{
+    const client=await assurerClientAuthGoogle();
+    if(client){
+      const {data,error}=await client.auth.getSession();
+      if(!error&&data?.session?.access_token){
+        session={...(session||{}),access_token:data.session.access_token,refresh_token:data.session.refresh_token||session?.refresh_token||'',expires_at:data.session.expires_at?data.session.expires_at*1000:(session?.expires_at||0)};
+        sauvegarderSession();
+        return data.session.access_token;
+      }
+    }
+  }catch(e){console.warn('[Content Factory] Session PDF indisponible:',e);}
+  if(session?.access_token){
+    if(session.expires_at&&Date.now()>session.expires_at-60000){
+      const ok=await rafraichirSession();
+      if(!ok)return null;
+    }
+    return session.access_token||null;
+  }
+  return null;
+}
+
+async function renderPdf(id){
+  const b=document.querySelector(`[data-cf-render="${id}"]`);
+  if(b){b.disabled=true;b.textContent=b.dataset.hasPdf==='1'?'Régénération PDF…':'Génération PDF…'}
+  try{
+    const graphCount=await auroraConstruireEtImporterGraphiquesGeoGebra(id,b);
+    if(b)b.textContent=graphCount?`Génération PDF avec ${graphCount} graphique${graphCount>1?'s':''} GeoGebra…`:'Génération PDF…';
+
+    // Récupère la session Supabase réellement active juste avant l'appel au renderer.
+    // Le renderer v17 vérifie le JWT : la clé anon seule ne suffit pas.
+    const authClient=await assurerClientAuthGoogle();
+    if(!authClient)throw new Error('Client Supabase indisponible.');
+    const {data:authData,error:authError}=await authClient.auth.getSession();
+    if(authError)throw authError;
+    const activeSession=authData?.session;
+    const accessToken=activeSession?.access_token;
+    if(!accessToken)throw new Error('Session administrateur expirée. Reconnecte-toi puis réessaie.');
+
+    // Synchronise la session locale sans modifier les autres informations admin.
+    if(session){
+      session.access_token=accessToken;
+      if(activeSession.refresh_token)session.refresh_token=activeSession.refresh_token;
+      if(activeSession.expires_at)session.expires_at=activeSession.expires_at*1000;
+      sauvegarderSession();
+    }
+
+    const r=await fetch(`${SUPABASE_URL}/functions/v1/aurora-content-renderer-ggb`,{
+      method:'POST',
+      headers:{
+        "apikey":SUPABASE_ANON_KEY,
+        "Authorization":"Bearer "+accessToken,
+        "Content-Type":"application/json"
+      },
+      body:JSON.stringify({generated_document_id:Number(id)})
+    });
+    const t=await r.text();let d={};
+    try{d=t?JSON.parse(t):{}}catch(_){d={error:t}}
+    if(!r.ok)throw new Error(d.error||('HTTP '+r.status));
+    await charger();
+    alert(graphCount?`PDF généré avec ${graphCount} graphique${graphCount>1?'s':''} construit${graphCount>1?'s':''} par GeoGebra.`:'PDF généré et contrôle qualité de base effectué.');
+  }catch(e){
+    alert('Le PDF n’a pas pu être généré. '+(e.message||e))
+  }finally{
+    if(b){b.disabled=false;b.textContent=b.dataset.hasPdf==='1'?'Régénérer le PDF':'Générer le PDF'}
+  }
+}
 async function validateDoc(id){const n=prompt('Note de validation (facultatif) :','');if(n===null)return;try{await rpc('aurora_validate_generated_document',{p_generated_document_id:Number(id),p_notes:n||null});await charger()}catch(e){alert('Validation impossible. '+(e.message||e))}}
 async function rejectDoc(id){const n=prompt('Motif du rejet / corrections demandées :','');if(n===null)return;if(!n.trim()){alert('Indique un motif pour rejeter le document.');return}try{await rpc('aurora_reject_generated_document',{p_generated_document_id:Number(id),p_notes:n.trim()});await charger()}catch(e){alert('Rejet impossible. '+(e.message||e))}}
 async function publishDoc(id){if(!confirm('Publier ce document dans la bibliothèque publique Aurore ?\n\nCette action crée un document publié à partir du PDF validé.'))return;const n=prompt('Note de publication (facultatif) :','');if(n===null)return;try{await rpc('aurora_publish_generated_document',{p_generated_document_id:Number(id),p_notes:n||null});await charger();alert('Document publié dans la bibliothèque Aurore.')}catch(e){alert('Publication impossible. '+(e.message||e))}}
