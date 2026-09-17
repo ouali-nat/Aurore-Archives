@@ -60,3 +60,77 @@
   .admin-space-card{padding:14px 14px 14px 18px;flex-direction:column;}
   .admin-space-action{width:100%;justify-content:center;}
 }
+
+/* ===== Aurora IA — barre supérieure compacte =====
+   Le bouton #auroreIAMenuBtn existe déjà et est relié à l'historique.
+   On ne touche donc pas à la logique JS : uniquement placement et présentation. */
+#screen-aurore-ia.aurore-ia-screen .aurore-ia-topbar{
+  justify-content:space-between;
+  position:relative;
+}
+#screen-aurore-ia.aurore-ia-screen .aurore-ia-left{
+  flex:1 1 auto;
+  min-width:0;
+  justify-content:flex-start;
+  gap:10px;
+}
+#screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn{
+  order:1;
+  width:40px;
+  height:40px;
+  min-height:40px;
+  flex:0 0 40px;
+  padding:0!important;
+  border-radius:13px!important;
+  border:1px solid color-mix(in srgb,var(--ia-accent-3) 32%,transparent);
+  background:rgba(255,255,255,.035);
+  color:#F7F4FF;
+  box-shadow:0 7px 20px rgba(0,0,0,.16);
+}
+#screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn:hover{
+  background:color-mix(in srgb,var(--ia-accent) 13%,rgba(255,255,255,.04));
+  border-color:color-mix(in srgb,var(--ia-accent-3) 52%,transparent);
+  transform:translateY(-1px);
+}
+#screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn-icon{
+  width:17px;
+  flex-basis:17px;
+  gap:4px;
+}
+#screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn-icon span{
+  width:17px;
+  height:2px;
+  border-radius:999px;
+}
+#screen-aurore-ia.aurore-ia-screen .aurore-ia-brand{
+  order:2;
+  margin-left:auto;
+  justify-content:flex-end;
+  text-align:right;
+}
+#screen-aurore-ia.aurore-ia-screen .aurore-ia-brand-copy{
+  align-items:flex-end;
+}
+#screen-aurore-ia.aurore-ia-screen .aurore-ia-brand-copy span{
+  text-align:right;
+}
+#screen-aurore-ia.aurore-ia-screen .aurore-ia-top-actions{
+  flex:0 0 auto;
+  gap:7px;
+}
+#screen-aurore-ia.aurore-ia-screen .aurore-ia-new,
+#screen-aurore-ia.aurore-ia-screen .aurore-ia-back{
+  width:40px;
+  min-height:40px;
+  height:40px;
+  padding:0;
+  border-radius:13px;
+}
+@media(max-width:560px){
+  #screen-aurore-ia.aurore-ia-screen .aurore-ia-left{gap:7px;}
+  #screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn{
+    width:38px;height:38px;min-height:38px;flex-basis:38px;border-radius:12px;
+  }
+  #screen-aurore-ia.aurore-ia-screen .aurore-ia-brand-mark{display:block;}
+  #screen-aurore-ia.aurore-ia-screen .aurore-ia-brand-copy strong{font-size:.86rem;}
+}
