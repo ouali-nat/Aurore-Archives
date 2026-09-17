@@ -2,3 +2,146 @@
 /* Publicités : état piloté uniquement par le contenu. Un emplacement rempli est visible. */
 .ad-slot[id^="ad-"]{display:block!important;visibility:visible!important;opacity:1!important;}
 .ad-slot[id^="ad-"]:empty{display:none!important;visibility:hidden!important;opacity:0!important;}
+
+/* =====================================================================
+   VITRINE PUBLICITAIRE — POLISH VISUEL
+   L'image et le bloc titre/description sont volontairement séparés.
+   Aucun changement de chargement, de rotation, de lien ou de données.
+   ===================================================================== */
+.ad-slot[id^="ad-"]{
+  width:100%;
+  max-width:760px;
+  margin:22px auto;
+  box-sizing:border-box;
+  overflow:visible;
+}
+
+/* Carte média : l'image reste dans son propre bloc. */
+.ad-slot[id^="ad-"] .ad-card,
+.ad-slot[id^="ad-"] .publicite-card,
+.ad-slot[id^="ad-"] .pub-card,
+.ad-slot[id^="ad-"] .ad-media,
+.ad-slot[id^="ad-"] .ad-image-wrap,
+.ad-slot[id^="ad-"] > a:first-child{
+  display:block;
+  width:100%;
+  max-width:100%;
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  overflow:hidden;
+  border-radius:18px;
+  background:var(--papier,#fff);
+  border:1px solid var(--bordure,rgba(80,65,120,.14));
+  box-shadow:0 8px 24px rgba(30,20,60,.10);
+}
+
+.ad-slot[id^="ad-"] img{
+  display:block;
+  width:100%;
+  max-width:100%;
+  height:auto;
+  max-height:360px;
+  object-fit:cover;
+  object-position:center;
+  margin:0;
+  border:0;
+  border-radius:17px;
+}
+
+/* Le contenu textuel est un bloc commun indépendant visuellement,
+   immédiatement sous l'image. */
+.ad-slot[id^="ad-"] .ad-content,
+.ad-slot[id^="ad-"] .ad-info,
+.ad-slot[id^="ad-"] .ad-text,
+.ad-slot[id^="ad-"] .ad-caption,
+.ad-slot[id^="ad-"] .publicite-info,
+.ad-slot[id^="ad-"] .publicite-content,
+.ad-slot[id^="ad-"] .pub-content,
+.ad-slot[id^="ad-"] .pub-info{
+  display:block;
+  width:100%;
+  box-sizing:border-box;
+  margin:8px 0 0;
+  padding:14px 16px 15px;
+  border-radius:14px;
+  background:var(--papier,#fff);
+  color:var(--encre,#1f1b2e);
+  border:1px solid var(--bordure,rgba(80,65,120,.14));
+  box-shadow:0 5px 18px rgba(30,20,60,.07);
+}
+
+.ad-slot[id^="ad-"] .ad-title,
+.ad-slot[id^="ad-"] .publicite-title,
+.ad-slot[id^="ad-"] .pub-title,
+.ad-slot[id^="ad-"] .ad-heading{
+  display:block;
+  margin:0;
+  color:var(--encre,#1f1b2e);
+  font-size:clamp(.94rem,2vw,1.05rem);
+  line-height:1.35;
+  font-weight:800;
+  letter-spacing:-.01em;
+}
+
+.ad-slot[id^="ad-"] .ad-description,
+.ad-slot[id^="ad-"] .publicite-description,
+.ad-slot[id^="ad-"] .pub-description,
+.ad-slot[id^="ad-"] .ad-desc{
+  display:block;
+  margin:5px 0 0;
+  color:var(--gris,#6f6a7d);
+  font-size:.86rem;
+  line-height:1.55;
+  font-weight:400;
+}
+
+/* Si le moteur place directement titre/description dans le conteneur,
+   ils restent regroupés sous le média sans modifier le DOM. */
+.ad-slot[id^="ad-"] > .ad-title + .ad-description,
+.ad-slot[id^="ad-"] > .publicite-title + .publicite-description,
+.ad-slot[id^="ad-"] > .pub-title + .pub-description{
+  display:block;
+  width:100%;
+  box-sizing:border-box;
+  margin:8px 0 0;
+  padding:14px 16px 15px;
+  border-radius:14px;
+  background:var(--papier,#fff);
+  border:1px solid var(--bordure,rgba(80,65,120,.14));
+}
+
+/* Dark mode : même structure, contraste adapté aux variables du thème. */
+[data-theme="sombre"] .ad-slot[id^="ad-"] .ad-content,
+[data-theme="sombre"] .ad-slot[id^="ad-"] .ad-info,
+[data-theme="sombre"] .ad-slot[id^="ad-"] .ad-text,
+[data-theme="sombre"] .ad-slot[id^="ad-"] .ad-caption,
+[data-theme="sombre"] .ad-slot[id^="ad-"] .publicite-info,
+[data-theme="sombre"] .ad-slot[id^="ad-"] .publicite-content,
+[data-theme="sombre"] .ad-slot[id^="ad-"] .pub-content,
+[data-theme="sombre"] .ad-slot[id^="ad-"] .pub-info{
+  box-shadow:0 8px 24px rgba(0,0,0,.24);
+}
+
+/* Mobile : image pleine largeur, texte aéré et sans débordement horizontal. */
+@media (max-width:600px){
+  .ad-slot[id^="ad-"]{
+    width:100%;
+    margin:18px auto;
+  }
+  .ad-slot[id^="ad-"] img{
+    max-height:300px;
+  }
+  .ad-slot[id^="ad-"] .ad-content,
+  .ad-slot[id^="ad-"] .ad-info,
+  .ad-slot[id^="ad-"] .ad-text,
+  .ad-slot[id^="ad-"] .ad-caption,
+  .ad-slot[id^="ad-"] .publicite-info,
+  .ad-slot[id^="ad-"] .publicite-content,
+  .ad-slot[id^="ad-"] .pub-content,
+  .ad-slot[id^="ad-"] .pub-info{
+    margin-top:7px;
+    padding:13px 14px 14px;
+    border-radius:13px;
+  }
+}
