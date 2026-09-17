@@ -6,7 +6,7 @@
    comportement cohérent, sans casser les éléments en position fixed. */
 (function(){
   const CLE_STOCKAGE='aurore_site_zoom_v1';
-  const MIN=80, MAX=160, PAS=10, DEFAUT=100;
+  const MIN=40, MAX=160, PAS=1, DEFAUT=100;
 
   function lireZoomSauvegarde(){
     try{
