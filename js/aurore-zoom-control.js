@@ -72,7 +72,8 @@
       '<button type="button" class="azp-reset" id="aurore-zoom-reset">Réinitialiser (100%)</button>';
 
     document.body.appendChild(fab);
-    document.body.appendChild(panel);\n    afficherRappelZoom();
+    document.body.appendChild(panel);
+    afficherRappelZoom();
 
     function ouvrirPanneau(){ panel.classList.add('is-open'); fab.setAttribute('aria-expanded','true'); }
     function fermerPanneau(){ panel.classList.remove('is-open'); fab.setAttribute('aria-expanded','false'); }
