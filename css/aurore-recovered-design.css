@@ -61,123 +61,106 @@
   .admin-space-action{width:100%;justify-content:center;}
 }
 
-/* ===== Aurora IA — barre supérieure : correction de visibilité =====
-   Le bouton existe déjà dans index.html et pilote l'historique. Cette couche
-   ne change donc aucun comportement : elle force seulement un rendu fiable,
-   y compris avec les thèmes clair/sombre et sur mobile. */
+/* ===== Aurora IA — interface volontairement réduite =====
+   L'ancien bloc Aurora flottant est masqué sur la page IA.
+   Le seul repère visuel conservé est le bouton d'historique existant,
+   rendu comme trois traits blancs simples. Le clic et le JavaScript restent inchangés. */
+#screen-aurore-ia.aurore-ia-screen #auroreFloatingAI{
+  display:none!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+}
+#screen-aurore-ia.aurore-ia-screen .aurore-ia-brand,
+#screen-aurore-ia.aurore-ia-screen .aurore-ia-top-actions{
+  display:none!important;
+}
 #screen-aurore-ia.aurore-ia-screen .aurore-ia-topbar{
-  position:relative;
-  justify-content:space-between;
-  overflow:visible;
+  position:relative!important;
+  min-height:0!important;
+  height:0!important;
+  padding:0!important;
+  margin:0!important;
+  overflow:visible!important;
 }
 #screen-aurore-ia.aurore-ia-screen .aurore-ia-left{
-  display:contents;
-}
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn{
-  order:1;
-  display:inline-flex!important;
-  visibility:visible!important;
-  opacity:1!important;
-  position:relative;
-  z-index:30;
-  width:42px!important;
-  height:42px!important;
-  min-width:42px!important;
-  min-height:42px!important;
-  flex:0 0 42px!important;
+  display:block!important;
+  width:100%!important;
+  height:0!important;
   margin:0!important;
   padding:0!important;
-  border:1px solid color-mix(in srgb,var(--ia-accent) 48%,var(--ia-border))!important;
-  border-radius:13px!important;
-  background:color-mix(in srgb,var(--ia-accent) 15%,transparent)!important;
-  color:var(--ia-accent-pale)!important;
-  box-shadow:0 6px 20px color-mix(in srgb,var(--ia-accent) 16%,transparent),0 0 0 1px rgba(255,255,255,.06) inset;
+}
+#screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn{
+  position:absolute!important;
+  top:12px!important;
+  left:12px!important;
+  z-index:999!important;
+  display:flex!important;
+  visibility:visible!important;
+  opacity:1!important;
+  width:44px!important;
+  height:44px!important;
+  min-width:44px!important;
+  min-height:44px!important;
+  padding:0!important;
+  margin:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  color:#fff!important;
+  box-shadow:none!important;
+  transform:none!important;
   -webkit-tap-highlight-color:transparent;
 }
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn:hover{
-  background:color-mix(in srgb,var(--ia-accent) 24%,transparent)!important;
-  border-color:color-mix(in srgb,var(--ia-accent-3) 72%,transparent)!important;
-  color:var(--ia-accent-white)!important;
-  transform:translateY(-1px);
-}
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn:focus-visible{
-  outline:3px solid color-mix(in srgb,var(--ia-accent) 34%,transparent);
-  outline-offset:3px;
+#screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn:hover,
+#screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn:active,
+#screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn:focus{
+  background:transparent!important;
+  color:#fff!important;
+  transform:none!important;
 }
 #screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn-icon{
   display:flex!important;
-  width:18px!important;
-  height:16px!important;
-  flex:0 0 18px!important;
   flex-direction:column!important;
   justify-content:center!important;
   align-items:stretch!important;
-  gap:4px!important;
+  gap:5px!important;
+  width:24px!important;
+  height:19px!important;
+  flex:0 0 24px!important;
 }
 #screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn-icon span,
 #screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn span:last-child{
   display:block!important;
   visibility:visible!important;
-  width:18px!important;
+  width:24px!important;
   height:2px!important;
   min-height:2px!important;
   flex:0 0 2px!important;
   margin:0!important;
+  padding:0!important;
+  border:0!important;
   border-radius:999px!important;
-  background:currentColor!important;
+  background:#fff!important;
+  opacity:1!important;
 }
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-brand{
-  order:2;
-  margin-left:auto!important;
-  margin-right:0!important;
-  justify-content:flex-end;
-  text-align:right;
-}
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-brand-copy{
-  align-items:flex-end;
-}
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-brand-copy span{
-  text-align:right;
-}
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-top-actions{
-  order:3;
-  flex:0 0 auto;
-  gap:7px!important;
-  margin-left:12px;
-}
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-new,
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-back{
-  width:40px;
-  min-width:40px;
-  min-height:40px;
-  height:40px;
-  padding:0;
-  border-radius:13px;
-}
-
-/* L'ancien petit bloc Aurora était positionné en haut à gauche de la page IA.
-   On le décale à droite, sous la barre, pour qu'il ne puisse plus recouvrir
-   le bouton hamburger. Son JavaScript et ses actions restent inchangés. */
-body:has(#screen-aurore-ia.aurore-ia-screen.active) #auroreFloatingAI,
-body:has(#screen-aurore-ia.aurore-ia-screen.is-mini) #auroreFloatingAI{
-  left:auto!important;
-  right:14px!important;
-  top:88px!important;
-  bottom:auto!important;
-  z-index:25!important;
-}
+#screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn::before,
+#screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn::after{display:none!important;content:none!important;}
 
 @media(max-width:560px){
   #screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn{
-    width:40px!important;height:40px!important;min-width:40px!important;min-height:40px!important;flex-basis:40px!important;
+    top:9px!important;
+    left:9px!important;
+    width:42px!important;
+    height:42px!important;
+    min-width:42px!important;
+    min-height:42px!important;
   }
-  #screen-aurore-ia.aurore-ia-screen .aurore-ia-brand{
-    gap:8px;
-    max-width:calc(100vw - 160px);
+  #screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn-icon{
+    width:23px!important;
+    flex-basis:23px!important;
   }
-  #screen-aurore-ia.aurore-ia-screen .aurore-ia-brand-copy strong{font-size:.86rem;}
-  #screen-aurore-ia.aurore-ia-screen .aurore-ia-brand-copy span{max-width:170px;}
-  #screen-aurore-ia.aurore-ia-screen .aurore-ia-top-actions{margin-left:7px;}
-  body:has(#screen-aurore-ia.aurore-ia-screen.active) #auroreFloatingAI,
-  body:has(#screen-aurore-ia.aurore-ia-screen.is-mini) #auroreFloatingAI{right:10px!important;top:82px!important;}
+  #screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn-icon span,
+  #screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn span:last-child{
+    width:23px!important;
+  }
 }
