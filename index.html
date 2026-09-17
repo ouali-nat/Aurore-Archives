@@ -1228,7 +1228,7 @@
 </div>
 </div>
 <div class="wrap" style="margin-top:10px;">
-<div aria-label="Espace administrateur" class="admin-space-card">
+<div aria-label="Espace administrateur" class="admin-space-card" id="adminSpaceCard">
 <div class="admin-space-card-main">
 <span class="admin-space-kicker">Administration</span>
 <strong>Espace administrateur</strong>
@@ -1800,8 +1800,11 @@
       chip.style.display = 'none';
       btnZone.style.display = 'block';
     }
+    const adminSpaceCard = document.getElementById('adminSpaceCard');
     const btnAdmin = document.getElementById('btnAdmin');
-    btnAdmin.style.display = (session && session.role === 'admin') ? 'inline' : 'none';
+    const isAdmin = !!(session && session.role === 'admin');
+    if (adminSpaceCard) adminSpaceCard.style.display = isAdmin ? 'flex' : 'none';
+    if (btnAdmin) btnAdmin.style.display = isAdmin ? 'inline' : 'none';
     if(session) {
       window.dispatchEvent(new CustomEvent('aurore:user-connected',{detail:{id:session.id||session.email||''}}));
       setTimeout(auroreAfficherInvitationEspacePersonnel, 450);
