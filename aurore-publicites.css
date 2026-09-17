@@ -1,0 +1,4 @@
+
+/* Publicités : état piloté uniquement par le contenu. Un emplacement rempli est visible. */
+.ad-slot[id^="ad-"]{display:block!important;visibility:visible!important;opacity:1!important;}
+.ad-slot[id^="ad-"]:empty{display:none!important;visibility:hidden!important;opacity:0!important;}
