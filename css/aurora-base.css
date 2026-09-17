@@ -699,7 +699,7 @@
      jamais par le rendu normal. À retirer une fois le problème identifié. */
   .ad-slot-debug{outline:4px solid #ef4444 !important; outline-offset:2px; min-height:60px !important;}
 
-/* ===== OUTILS DE TRI/RECHERCHE PUBLICS — même logique que l'administration ===== */
+/* ===== OUTILS DE TRI/RECHERCHE PUBLICS — même logique que l’administration ===== */
 .site-data-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:16px 0 18px;padding:10px;border:1px solid var(--bordure);border-radius:16px;background:rgba(255,255,255,.035);}
 .site-search-control{display:flex;align-items:center;gap:9px;flex:1 1 280px;min-width:220px;padding:10px 12px;border:1px solid var(--bordure);border-radius:12px;background:var(--papier);}
 .site-search-control span{color:#A78BFA;display:flex;flex-shrink:0;font-size:1.05rem;}

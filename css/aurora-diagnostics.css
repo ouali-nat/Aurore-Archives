@@ -37,4 +37,3 @@
   .diag-log-box{margin-top:14px;border:1px solid var(--bordure);border-radius:12px;padding:10px 12px;}
   .diag-log-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
   .diag-log{max-height:260px;overflow:auto;font-size:.72rem;white-space:pre-wrap;margin:0;font-family:monospace;}
-

@@ -18,4 +18,3 @@ html[data-color-theme] .welcome-modal-card p:not(.eyebrow){color:var(--gris)!imp
 html[data-color-theme] .welcome-modal-ok{background:linear-gradient(135deg,var(--theme-strong),var(--theme-primary))!important;border-color:var(--theme-strong)!important;color:var(--theme-on-accent)!important;}
 html[data-color-theme] .welcome-modal-close{border-color:var(--theme-border)!important;color:var(--gris)!important;background:var(--theme-softer)!important;}
 html[data-theme="light"][data-color-theme] .aurore-floating-home{background:color-mix(in srgb,#fff 92%,var(--theme-primary) 8%)!important;color:#171322!important;}
-
