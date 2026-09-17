@@ -1,4 +1,3 @@
-
 /* Aurore — corrections de design récupérées, sans toucher à l'authentification */
 .home-recents-cta{
   position:relative;min-height:0!important;padding:16px 52px 16px 20px!important;margin-top:14px;
@@ -63,25 +62,15 @@
 
 /* ===== Aurora IA — reconstruction stricte : un seul contrôle visuel =====
    La structure HTML et le moteur de l'historique sont conservés.
-   Toute identité/logo de la barre IA et tout ancien bouton flottant sont
-   neutralisés visuellement. Le seul élément visible dans cette couche est
-   le bouton existant #auroreIAMenuBtn, redessiné en trois traits blancs. */
-#screen-aurore-ia.aurore-ia-screen #auroreFloatingAI,
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-brand,
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-mark,
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-top-actions{
+   Seul l'ancien bouton flottant Aurora est neutralisé visuellement.
+   Le bandeau (logo, titre, statut, nouvelle conversation, réduction,
+   retour) et le logo d'accueil restent visibles : le hamburger
+   #auroreIAMenuBtn s'ajoute à ces contrôles, il ne les remplace pas. */
+#screen-aurore-ia.aurore-ia-screen #auroreFloatingAI{
   display:none!important;
   visibility:hidden!important;
   opacity:0!important;
   pointer-events:none!important;
-}
-
-/* Le logo de bienvenue Aurora n'est pas un contrôle : on le retire aussi
-   pour éviter qu'un logo ne réapparaisse au centre de l'écran IA. */
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-welcome-orbit,
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-welcome-mark{
-  display:none!important;
-  visibility:hidden!important;
 }
 
 #screen-aurore-ia.aurore-ia-screen .aurore-ia-topbar{
