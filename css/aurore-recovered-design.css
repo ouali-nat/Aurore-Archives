@@ -61,61 +61,86 @@
   .admin-space-action{width:100%;justify-content:center;}
 }
 
-/* ===== Aurora IA — interface volontairement réduite =====
-   L'ancien bloc Aurora flottant est masqué sur la page IA.
-   Le seul repère visuel conservé est le bouton d'historique existant,
-   rendu comme trois traits blancs simples. Le clic et le JavaScript restent inchangés. */
-#screen-aurore-ia.aurore-ia-screen #auroreFloatingAI{
-  display:none!important;
-  visibility:hidden!important;
-  pointer-events:none!important;
-}
+/* ===== Aurora IA — reconstruction stricte : un seul contrôle visuel =====
+   La structure HTML et le moteur de l'historique sont conservés.
+   Toute identité/logo de la barre IA et tout ancien bouton flottant sont
+   neutralisés visuellement. Le seul élément visible dans cette couche est
+   le bouton existant #auroreIAMenuBtn, redessiné en trois traits blancs. */
+#screen-aurore-ia.aurore-ia-screen #auroreFloatingAI,
 #screen-aurore-ia.aurore-ia-screen .aurore-ia-brand,
+#screen-aurore-ia.aurore-ia-screen .aurore-ia-mark,
 #screen-aurore-ia.aurore-ia-screen .aurore-ia-top-actions{
   display:none!important;
+  visibility:hidden!important;
+  opacity:0!important;
+  pointer-events:none!important;
 }
+
+/* Le logo de bienvenue Aurora n'est pas un contrôle : on le retire aussi
+   pour éviter qu'un logo ne réapparaisse au centre de l'écran IA. */
+#screen-aurore-ia.aurore-ia-screen .aurore-ia-welcome-orbit,
+#screen-aurore-ia.aurore-ia-screen .aurore-ia-welcome-mark{
+  display:none!important;
+  visibility:hidden!important;
+}
+
 #screen-aurore-ia.aurore-ia-screen .aurore-ia-topbar{
   position:relative!important;
-  min-height:0!important;
-  height:0!important;
-  padding:0!important;
-  margin:0!important;
-  overflow:visible!important;
-}
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-left{
   display:block!important;
   width:100%!important;
   height:0!important;
+  min-height:0!important;
+  padding:0!important;
+  margin:0!important;
+  border:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  overflow:visible!important;
+  z-index:20!important;
+}
+#screen-aurore-ia.aurore-ia-screen .aurore-ia-left{
+  display:block!important;
+  width:0!important;
+  height:0!important;
+  min-width:0!important;
   margin:0!important;
   padding:0!important;
 }
 #screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn{
   position:absolute!important;
-  top:12px!important;
-  left:12px!important;
-  z-index:999!important;
+  top:14px!important;
+  left:14px!important;
+  z-index:1000!important;
   display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
   visibility:visible!important;
   opacity:1!important;
   width:44px!important;
   height:44px!important;
   min-width:44px!important;
   min-height:44px!important;
-  padding:0!important;
   margin:0!important;
+  padding:0!important;
   border:0!important;
   border-radius:0!important;
   background:transparent!important;
   color:#fff!important;
   box-shadow:none!important;
+  outline:none!important;
   transform:none!important;
+  cursor:pointer!important;
   -webkit-tap-highlight-color:transparent;
 }
 #screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn:hover,
 #screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn:active,
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn:focus{
+#screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn:focus,
+#screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn:focus-visible{
   background:transparent!important;
   color:#fff!important;
+  border:0!important;
+  box-shadow:none!important;
+  outline:none!important;
   transform:none!important;
 }
 #screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn-icon{
@@ -124,27 +149,29 @@
   justify-content:center!important;
   align-items:stretch!important;
   gap:5px!important;
-  width:24px!important;
+  width:25px!important;
   height:19px!important;
-  flex:0 0 24px!important;
+  flex:0 0 25px!important;
+  margin:0!important;
+  padding:0!important;
 }
 #screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn-icon span,
 #screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn span:last-child{
   display:block!important;
   visibility:visible!important;
-  width:24px!important;
+  opacity:1!important;
+  width:25px!important;
   height:2px!important;
   min-height:2px!important;
+  max-height:2px!important;
   flex:0 0 2px!important;
   margin:0!important;
   padding:0!important;
   border:0!important;
   border-radius:999px!important;
   background:#fff!important;
-  opacity:1!important;
+  box-shadow:0 0 5px rgba(255,255,255,.25)!important;
 }
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn::before,
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn::after{display:none!important;content:none!important;}
 
 @media(max-width:560px){
   #screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn{
@@ -155,10 +182,7 @@
     min-width:42px!important;
     min-height:42px!important;
   }
-  #screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn-icon{
-    width:23px!important;
-    flex-basis:23px!important;
-  }
+  #screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn-icon,
   #screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn-icon span,
   #screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn span:last-child{
     width:23px!important;
