@@ -62,7 +62,71 @@
     });
   }
 
+  // Présentation uniquement visuelle : les couleurs deviennent de petits
+  // carrés nets et compacts, sans modifier les boutons ni la logique de choix.
+  function injectColorPickerDesign(){
+    if(document.getElementById('aurore-color-picker-design')) return;
+    const style=document.createElement('style');
+    style.id='aurore-color-picker-design';
+    style.textContent=`
+      .color-theme-flyout{
+        min-width:248px!important;
+        padding:12px!important;
+        border-radius:18px!important;
+        border:1px solid var(--theme-border,var(--bordure))!important;
+        background:color-mix(in srgb,var(--papier) 96%,var(--theme-primary,#8B5CF6) 4%)!important;
+        box-shadow:0 18px 46px rgba(0,0,0,.28),0 0 0 1px color-mix(in srgb,var(--theme-primary,#8B5CF6) 7%,transparent)!important;
+        backdrop-filter:blur(16px);
+      }
+      .color-theme-flyout-head{
+        display:flex!important;
+        align-items:center!important;
+        justify-content:space-between!important;
+        gap:12px!important;
+        padding:2px 2px 10px!important;
+        margin-bottom:2px!important;
+        border-bottom:1px solid color-mix(in srgb,var(--bordure) 75%,transparent)!important;
+      }
+      .color-theme-flyout-head span{font-size:.68rem!important;font-weight:800!important;letter-spacing:.08em!important;text-transform:uppercase!important;color:var(--gris)!important;}
+      .color-theme-flyout-head strong{font-size:.68rem!important;font-weight:800!important;color:var(--theme-primary,#8B5CF6)!important;}
+      .color-theme-flyout-scroll{
+        display:grid!important;
+        grid-template-columns:repeat(6,minmax(0,1fr))!important;
+        gap:8px!important;
+        max-height:250px!important;
+        overflow-y:auto!important;
+        padding:8px 2px 3px!important;
+      }
+      .theme-color-swatch{
+        appearance:none!important;
+        width:28px!important;
+        height:28px!important;
+        min-width:28px!important;
+        min-height:28px!important;
+        justify-self:center!important;
+        border-radius:7px!important;
+        border:2px solid color-mix(in srgb,#fff 18%,transparent)!important;
+        box-shadow:0 3px 8px rgba(0,0,0,.18),inset 0 0 0 1px rgba(255,255,255,.10)!important;
+        transform:none!important;
+        cursor:pointer!important;
+        position:relative!important;
+        transition:transform .14s ease,border-color .14s ease,box-shadow .14s ease!important;
+      }
+      .theme-color-swatch:hover{transform:translateY(-2px) scale(1.04)!important;border-color:rgba(255,255,255,.78)!important;box-shadow:0 6px 13px rgba(0,0,0,.24),inset 0 0 0 1px rgba(255,255,255,.16)!important;}
+      .theme-color-swatch:focus-visible{outline:2px solid var(--theme-primary,#8B5CF6)!important;outline-offset:3px!important;}
+      .theme-color-swatch[aria-pressed="true"]{border-color:#fff!important;box-shadow:0 0 0 2px var(--theme-primary,#8B5CF6),0 5px 13px rgba(0,0,0,.24)!important;}
+      .theme-color-swatch[aria-pressed="true"]::after{content:'✓';position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-size:.72rem;font-weight:900;text-shadow:0 1px 3px rgba(0,0,0,.5);}
+      @media(max-width:430px){
+        .color-theme-flyout{min-width:220px!important;padding:10px!important;}
+        .color-theme-flyout-scroll{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:7px!important;}
+        .theme-color-swatch{width:27px!important;height:27px!important;min-width:27px!important;min-height:27px!important;}
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   function init(){
+    injectColorPickerDesign();
     const boutons=document.querySelectorAll('.profile-theme-option, .theme-color-swatch');
     boutons.forEach(btn=>btn.addEventListener('click',()=>appliquerCouleurSite(btn.dataset.colorChoice)));
     initFlyoutCouleur();
