@@ -90,71 +90,142 @@
 .doc-row .doc-main-info .taille-badge{
   margin-top:5px;
 }
+
+/* ---------- Coin PDF : couverture épurée + un seul bouton d'options ----------
+   Objectif demandé : dans la vignette (bloc aux contours arrondis), on ne voit
+   plus QUE la couverture du PDF. Toutes les actions qui étaient auparavant
+   affichées en permanence sous la couverture (Lire, Télécharger, Favori, Plus
+   tard, Case, Signaler) ainsi que les options de partage (Partager, WhatsApp,
+   Copier le lien) sont maintenant réunies dans un seul menu, ouvert par le
+   bouton à trois points posé à l'angle de la couverture. Rien n'est supprimé :
+   chaque bouton garde exactement le même gestionnaire de clic qu'avant, ils
+   sont seulement regroupés et masqués tant que le menu n'est pas ouvert. */
+.doc-row>.doc-more-btn{
+  position:absolute!important;
+  top:8px!important;
+  right:8px!important;
+  left:auto!important;
+  z-index:20!important;
+  width:32px!important;
+  height:32px!important;
+  min-width:0!important;
+  flex:none!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:50%!important;
+  background:rgba(17,14,28,.52)!important;
+  color:#fff!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  box-shadow:0 2px 8px rgba(0,0,0,.28)!important;
+  backdrop-filter:blur(3px);
+  transition:background .15s ease,transform .15s ease;
+}
+.doc-row>.doc-more-btn svg{width:17px;height:17px;}
+.doc-row>.doc-more-btn:hover,
+.doc-row>.doc-more-btn[aria-expanded="true"]{
+  background:rgba(17,14,28,.8)!important;
+  transform:translateY(-1px);
+}
+[data-theme="light"] .doc-row>.doc-more-btn{
+  background:rgba(255,255,255,.78)!important;
+  color:#211D2E!important;
+}
+[data-theme="light"] .doc-row>.doc-more-btn:hover,
+[data-theme="light"] .doc-row>.doc-more-btn[aria-expanded="true"]{
+  background:rgba(255,255,255,.94)!important;
+}
+
 .doc-row .doc-actions{
-  display:grid!important;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:6px!important;
-  width:100%!important;
-  padding:8px 10px 10px;
-  margin-top:auto;
-  border-top:1px solid color-mix(in srgb,var(--bordure) 78%,transparent);
-  background:color-mix(in srgb,var(--papier) 94%,var(--fond));
-}
-.doc-row .doc-actions .dl{
-  min-width:0;
-  width:100%;
+  display:none!important;
+  flex-direction:column!important;
+  gap:2px!important;
+  position:absolute!important;
+  top:46px!important;
+  right:8px!important;
+  left:auto!important;
+  width:max-content!important;
+  min-width:212px!important;
+  max-width:calc(100% - 16px)!important;
   margin:0!important;
-  padding:7px 6px!important;
-  min-height:34px;
-  border-radius:9px!important;
-  font-size:.66rem!important;
-  line-height:1.15;
-  white-space:normal;
-  text-align:center;
-}
-.doc-row .doc-actions .dl:first-child{
-  background:var(--violet)!important;
-  color:#fff!important;
-  border:1px solid var(--violet)!important;
-}
-.doc-row .doc-actions .dl:nth-child(2){
-  background:var(--marron)!important;
-  color:#fff!important;
-  border:1px solid var(--marron)!important;
-}
-.doc-row .doc-actions .doc-action-soft{
-  background:transparent!important;
-  color:var(--gris)!important;
+  padding:6px!important;
   border:1px solid var(--bordure)!important;
+  border-radius:15px!important;
+  background:var(--papier)!important;
+  box-shadow:0 18px 45px rgba(0,0,0,.35)!important;
+  z-index:25!important;
 }
-.doc-row .doc-actions .doc-action-soft:hover{
-  background:rgba(124,58,237,.07)!important;
+.doc-row.aurore-carte-menu-ouverte{
+  overflow:visible!important;
+  z-index:45!important;
+}
+.doc-row.aurore-carte-menu-ouverte .doc-actions{
+  display:flex!important;
+  animation:aurorCarteMenuIn .14s ease both;
+}
+@keyframes aurorCarteMenuIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+
+.doc-row .doc-actions .dl,
+.doc-row .doc-actions button{
+  width:100%!important;
+  min-width:0!important;
+  margin:0!important;
+  padding:10px 11px!important;
+  min-height:0!important;
+  border:0!important;
+  border-radius:10px!important;
+  background:transparent!important;
   color:var(--encre)!important;
-  border-color:var(--violet)!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:9px!important;
+  font-size:.8rem!important;
+  font-weight:750!important;
+  line-height:1.2!important;
+  white-space:nowrap!important;
+  text-align:left!important;
 }
-[data-theme="light"] .doc-row{
+.doc-row .doc-actions .dl:hover,
+.doc-row .doc-actions button:hover{
+  background:rgba(139,92,246,.13)!important;
+  color:var(--encre)!important;
+}
+.doc-row .doc-actions [data-signaler]{
+  color:var(--rouge)!important;
+}
+.doc-row .doc-actions [data-signaler]:hover{
+  background:rgba(224,119,107,.13)!important;
+}
+.doc-row .doc-actions .share-icon{
+  width:18px;
+  flex-shrink:0;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+[data-theme="light"] .doc-row .doc-actions{
   background:#fff!important;
   border-color:#D9D1E4!important;
-  box-shadow:0 2px 8px rgba(55,36,82,.08);
+}
+
+.doc-row .dl{
+  background:var(--marron); color:#fff; text-decoration:none; padding:9px 18px;
+  border-radius:var(--radius-sm); font-weight:700; font-size:0.8rem;
 }
 [data-theme="light"] .doc-row .icon-wrap,[data-theme="light"] .doc-row .icon-wrap.a-couverture{
   background:#F0ECF5!important;
 }
-[data-theme="light"] .doc-row .doc-actions{
-  background:#FBFAFD;
-  border-top-color:#E6DFEE;
-}
 @media(max-width:720px){
   .doc-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px!important;}
   .doc-row .doc-main-info{padding:9px 9px 7px;}
-  .doc-row .doc-actions{padding:7px 7px 8px;gap:5px!important;}
-  .doc-row .doc-actions .dl{font-size:.61rem!important;padding:7px 4px!important;}
+  .doc-row .doc-actions{min-width:196px!important;}
 }
 @media(max-width:390px){
   .doc-list{grid-template-columns:1fr 1fr;}
   .doc-row .titre{font-size:.77rem!important;}
   .doc-row .meta{font-size:.62rem!important;}
-  .doc-row .doc-actions{grid-template-columns:1fr 1fr;}
+  .doc-row .doc-actions{right:4px!important;min-width:min(228px,calc(100vw - 40px))!important;}
 }
 /* Même présentation visuelle des PDF dans les deux listes d'administration. */
 #adminList,#adminListPublies{
