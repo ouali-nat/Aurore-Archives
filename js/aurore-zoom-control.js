@@ -34,6 +34,17 @@
     if(curseur) curseur.value=String(zoomActuel);
   }
 
+  function afficherRappelZoom(){
+    const CLE_RAPPEL="aurore_zoom_rappel_v1";
+    try{ if(localStorage.getItem(CLE_RAPPEL)==="vu") return; localStorage.setItem(CLE_RAPPEL,"vu"); }catch(e){}
+    const rappel=document.createElement("div");
+    rappel.id="aurore-zoom-hint";
+    rappel.className="aurore-zoom-hint";
+    rappel.innerHTML="<strong>Affichage trop grand ?</strong><span>Réduisez le zoom avec − pour mieux adapter Aurore à votre écran.</span>";
+    document.body.appendChild(rappel);
+    setTimeout(function(){ rappel.classList.add("is-hidden"); setTimeout(function(){ rappel.remove(); },400); },7000);
+  }
+
   function construireControleZoom(){
     if(document.getElementById('aurore-zoom-fab')) return;
 
@@ -61,7 +72,7 @@
       '<button type="button" class="azp-reset" id="aurore-zoom-reset">Réinitialiser (100%)</button>';
 
     document.body.appendChild(fab);
-    document.body.appendChild(panel);
+    document.body.appendChild(panel);\n    afficherRappelZoom();
 
     function ouvrirPanneau(){ panel.classList.add('is-open'); fab.setAttribute('aria-expanded','true'); }
     function fermerPanneau(){ panel.classList.remove('is-open'); fab.setAttribute('aria-expanded','false'); }

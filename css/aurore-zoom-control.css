@@ -61,3 +61,69 @@
   .aurore-zoom-panel{right:12px;bottom:66px;}
 }
 @media(prefers-reduced-motion:reduce){.aurore-zoom-panel{transition:none;}}
+
+/* Rappel de zoom — intégré au langage visuel d'Aurore */
+.aurore-zoom-hint{
+  position:fixed;
+  right:72px;
+  bottom:16px;
+  z-index:9999;
+  width:min(290px,calc(100vw - 92px));
+  padding:12px 15px;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  border:1px solid color-mix(in srgb,var(--violet,#7c3aed) 18%,transparent);
+  border-radius:16px;
+  background:color-mix(in srgb,var(--theme-surface,#17131f) 88%,transparent);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+  box-shadow:0 16px 45px rgba(0,0,0,.18);
+  color:var(--theme-text,#f5f2fa);
+  font-size:.78rem;
+  line-height:1.35;
+  animation:auroreZoomHintIn .35s ease both;
+}
+
+.aurore-zoom-hint strong{
+  font-size:.78rem;
+  font-weight:800;
+  letter-spacing:.01em;
+}
+
+.aurore-zoom-hint span{
+  color:color-mix(in srgb,currentColor 72%,transparent);
+}
+
+.aurore-zoom-hint.is-hidden{
+  opacity:0;
+  transform:translateY(8px) scale(.98);
+  transition:opacity .35s ease,transform .35s ease;
+}
+
+@keyframes auroreZoomHintIn{
+  from{opacity:0;transform:translateY(8px) scale(.98);}
+  to{opacity:1;transform:translateY(0) scale(1);}
+}
+
+[data-theme="light"] .aurore-zoom-hint{
+  background:color-mix(in srgb,#FFFFFF 92%,transparent);
+  border-color:rgba(30,20,45,.08);
+  color:#211c29;
+  box-shadow:0 16px 45px rgba(45,30,75,.14);
+}
+
+@media(max-width:700px){
+  .aurore-zoom-hint{
+    right:66px;
+    bottom:12px;
+    width:min(260px,calc(100vw - 82px));
+    padding:10px 12px;
+    border-radius:14px;
+    font-size:.72rem;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  .aurore-zoom-hint{animation:none;}
+}
