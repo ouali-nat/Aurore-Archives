@@ -782,6 +782,12 @@
     row.querySelector('.doc-actions')?.addEventListener('click', (e) => {
       if (e.target.closest('button')) fermerCarteActionsDocument(row);
     });
+
+    // Un clic sur la carte ouvre directement le document dans le lecteur intégré.
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('button, a, input, select, textarea, .doc-actions')) return;
+      ouvrirLecteurPDF(doc);
+    });
   }
 
   function rendreListeDocuments(content, data, afficherCouverturesRomans = false) {
