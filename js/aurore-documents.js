@@ -547,6 +547,7 @@
    * Le menu n'est volontairement plus enfant de la carte.
    * Il est créé directement dans <body>, ce qui élimine les conflits avec
    * overflow, transform, z-index et les re-rendus de la liste.
+   * (Utilisé par les cartes admin et l'espace personnel — inchangé.)
    */
   let auroreMenuDocumentActif = null;
   let auroreBoutonMenuDocumentActif = null;
@@ -630,6 +631,47 @@
 
   window.auroreOuvrirMenuDocument = ouvrirMenuPartageDocument;
 
+  /* ---------- MENU DOCUMENT : CARTE PDF (bibliothèque / livres / récents) ----------
+   * Nouveau comportement demandé : dans la vignette de couverture PDF, seul le
+   * bouton à trois points reste visible en permanence, à l'angle de la
+   * couverture. Un clic dessus ouvre — juste en dessous de ce bouton, à
+   * l'intérieur de la carte — un seul menu qui regroupe TOUTES les actions
+   * (Lire, Télécharger, Favori, Plus tard, Case, Partager, Partager WhatsApp,
+   * Copier le lien, Signaler). Chaque bouton du menu garde exactement le même
+   * gestionnaire de clic qu'auparavant : rien n'est supprimé, seulement
+   * regroupé et masqué tant que le menu n'est pas ouvert.
+   * Ce mécanisme ne concerne que les cartes de la grille PDF publique
+   * (.doc-row) ; les cartes admin et l'espace personnel continuent d'utiliser
+   * le portail global ci-dessus, inchangé.
+   */
+  function fermerToutesCartesActionsDocument(exceptRow) {
+    document.querySelectorAll('.doc-row.aurore-carte-menu-ouverte').forEach(r => {
+      if (r === exceptRow) return;
+      r.classList.remove('aurore-carte-menu-ouverte');
+      r.querySelector(':scope > .doc-more-btn')?.setAttribute('aria-expanded', 'false');
+    });
+  }
+
+  function fermerCarteActionsDocument(row) {
+    if (!row) return;
+    row.classList.remove('aurore-carte-menu-ouverte');
+    row.querySelector(':scope > .doc-more-btn')?.setAttribute('aria-expanded', 'false');
+  }
+
+  function basculerCarteActionsDocument(row, moreBtn) {
+    if (!row) return;
+    const dejaOuverte = row.classList.contains('aurore-carte-menu-ouverte');
+    fermerToutesCartesActionsDocument(row);
+    fermerMenusPartageDocuments();
+    row.classList.toggle('aurore-carte-menu-ouverte', !dejaOuverte);
+    moreBtn?.setAttribute('aria-expanded', String(!dejaOuverte));
+  }
+
+  function fermerTouteInterfaceActionsDocument() {
+    fermerMenusPartageDocuments();
+    fermerToutesCartesActionsDocument(null);
+  }
+
   // Un seul gestionnaire capture la chaîne complète : ouverture + actions.
   document.addEventListener('click', function(e) {
     const target = e.target instanceof Element ? e.target : e.target?.parentElement;
@@ -638,7 +680,13 @@
     if (more) {
       e.preventDefault();
       e.stopPropagation();
-      ouvrirMenuPartageDocument(more);
+      const carteRow = more.closest('.doc-row');
+      const estCarteAdminOuPersonnelle = more.closest('.admin-card, .aurore-personal-document-row');
+      if (carteRow && !estCarteAdminOuPersonnelle) {
+        basculerCarteActionsDocument(carteRow, more);
+      } else {
+        ouvrirMenuPartageDocument(more);
+      }
       return;
     }
 
@@ -662,14 +710,79 @@
       return;
     }
 
-    if (!target?.closest?.('#auroreDocumentShareMenu')) fermerMenusPartageDocuments();
+    if (
+      !target?.closest?.('#auroreDocumentShareMenu') &&
+      !target?.closest?.('.doc-row.aurore-carte-menu-ouverte .doc-actions')
+    ) {
+      fermerTouteInterfaceActionsDocument();
+    }
   }, true);
 
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') fermerMenusPartageDocuments();
+    if (e.key === 'Escape') fermerTouteInterfaceActionsDocument();
   });
-  window.addEventListener('resize', fermerMenusPartageDocuments);
-  window.addEventListener('scroll', fermerMenusPartageDocuments, true);
+  window.addEventListener('resize', fermerTouteInterfaceActionsDocument);
+  window.addEventListener('scroll', fermerTouteInterfaceActionsDocument, true);
+
+  // Bouton « trois points » posé à l'angle de la couverture, en dehors du
+  // panneau d'actions (toujours visible, même quand le menu est fermé).
+  function boutonPlusCarteDocumentMarkup() {
+    return `<button type="button" class="doc-more-btn" data-document-more="1" aria-label="Options du document" aria-haspopup="true" aria-expanded="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="12" cy="19" r="1.8"></circle></svg></button>`;
+  }
+
+  // Panneau unique regroupant toutes les actions d'un document, ouvert par le
+  // bouton ci-dessus. Les boutons ci-dessous portent exactement les mêmes
+  // attributs data-* qu'auparavant : les gestionnaires de clic attachés par
+  // rendreListeDocuments()/rendreRecentsAvecOutils() n'ont pas besoin de changer.
+  function panneauActionsCarteDocumentMarkup(telechargementOk) {
+    return `<div class="doc-actions" role="menu">
+      <button type="button" class="dl" data-lire="1" role="menuitem"><span class="share-icon">${ICONS.eye || '▶'}</span><span>Lire</span></button>
+      ${telechargementOk?`<button type="button" class="dl" data-telecharger-maintenant="1" role="menuitem"><span class="share-icon">⬇</span><span>Télécharger maintenant</span></button>`:''}
+      <button type="button" class="dl" data-favori="1" aria-pressed="false" role="menuitem"><span class="share-icon">♡</span><span>Favori</span></button>
+      <button type="button" class="dl" data-plus-tard="1" role="menuitem"><span class="share-icon">＋</span><span>Plus tard</span></button>
+      <button type="button" class="dl" data-case="1" role="menuitem"><span class="share-icon">▣</span><span>Ranger dans une case</span></button>
+      <button type="button" data-share-document="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Partager</span></button>
+      <button type="button" data-share-whatsapp="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Partager sur WhatsApp</span></button>
+      <button type="button" data-copy-document-link="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Copier le lien</span></button>
+      <button type="button" class="dl" data-signaler="1" role="menuitem"><span class="share-icon">⚑</span><span>Signaler</span></button>
+    </div>`;
+  }
+
+  // Branche les gestionnaires communs (Lire, Télécharger, Favori, Plus tard,
+  // Case, Signaler, Partager, Partager WhatsApp, Copier le lien) sur un panneau
+  // d'actions donné, puis referme la carte après toute action choisie.
+  function brancherActionsCarteDocument(row, doc) {
+    row.querySelector('[data-lire]')?.addEventListener('click',()=>ouvrirLecteurPDF(doc));
+    row.querySelector('[data-telecharger-maintenant]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(doc));
+    row.querySelector('[data-signaler]')?.addEventListener('click',()=>ouvrirSignalement(doc));
+    row.querySelector('[data-favori]')?.addEventListener('click',()=>basculerFavoriDocument(doc,row.querySelector('[data-favori]')));
+    row.querySelector('[data-plus-tard]')?.addEventListener('click',()=>ajouterDocumentPlusTard(doc,row.querySelector('[data-plus-tard]')));
+    row.querySelector('[data-case]')?.addEventListener('click',(e)=>{
+      e.preventDefault();
+      e.stopPropagation();
+      if(typeof window.ouvrirChoixCaseDocument==='function') window.ouvrirChoixCaseDocument(doc);
+      // stopPropagation() ci-dessus empêche l'événement d'atteindre le
+      // gestionnaire de fermeture posé sur .doc-actions : on referme donc
+      // explicitement la carte ici.
+      fermerCarteActionsDocument(row);
+    });
+    row.querySelector('[data-share-document]')?.addEventListener('click',()=>{
+      Promise.resolve(partagerDocument(doc)).catch(err => console.warn('[Aurore] Partage:', err));
+    });
+    row.querySelector('[data-share-whatsapp]')?.addEventListener('click',()=>{
+      partagerDocumentWhatsApp(doc);
+    });
+    row.querySelector('[data-copy-document-link]')?.addEventListener('click',()=>{
+      Promise.resolve(copierLienDocument(doc)).catch(err => console.warn('[Aurore] Copie:', err));
+    });
+    // N'importe quelle action choisie referme le panneau de la carte.
+    // (L'ouverture/fermeture du panneau via le bouton "trois points" est gérée
+    // par le gestionnaire de clic délégué global, plus bas — inutile de la
+    // dupliquer ici.)
+    row.querySelector('.doc-actions')?.addEventListener('click', (e) => {
+      if (e.target.closest('button')) fermerCarteActionsDocument(row);
+    });
+  }
 
   function rendreListeDocuments(content, data, afficherCouverturesRomans = false) {
     // Prépare PDF.js en parallèle de la construction de la liste : le rendu
@@ -713,32 +826,9 @@
             ${tailleBadgeMarkup(doc.Fichier_url)}
           </div>
         </div>
-        <div class="doc-actions">
-          <button type="button" class="dl" style="cursor:pointer;" data-lire="1">Lire</button>
-          ${telechargementOk?`<button type="button" class="dl" style="cursor:pointer;" data-telecharger-maintenant="1">Télécharger maintenant</button>`:''}
-          <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-favori="1" aria-pressed="false">♡ Favori</button>
-          <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-plus-tard="1">＋ Plus tard</button>
-          <button type="button" class="dl doc-action-soft doc-action-folder" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-case="1">▣ Case</button>
-          <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-signaler="1">Signaler</button>
-          <div class="doc-share-wrap">
-            <button type="button" class="doc-more-btn" data-document-more="1" aria-label="Options de partage" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="12" cy="19" r="1.8"></circle></svg></button>
-            <div class="doc-share-menu" role="menu">
-              <button type="button" data-share-document="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Partager</span></button>
-              <button type="button" data-share-whatsapp="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Partager sur WhatsApp</span></button>
-              <button type="button" data-copy-document-link="1" role="menuitem"><span class="share-icon">${ICONS.share}</span><span>Copier le lien</span></button>
-            </div>
-          </div>
-        </div>`;
-      row.querySelector('[data-lire]').addEventListener('click',()=>ouvrirLecteurPDF(doc));
-      row.querySelector('[data-telecharger-maintenant]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(doc));
-      row.querySelector('[data-signaler]').addEventListener('click',()=>ouvrirSignalement(doc));
-      row.querySelector('[data-favori]')?.addEventListener('click',()=>basculerFavoriDocument(doc,row.querySelector('[data-favori]')));
-      row.querySelector('[data-plus-tard]')?.addEventListener('click',()=>ajouterDocumentPlusTard(doc,row.querySelector('[data-plus-tard]')));
-      row.querySelector('[data-case]')?.addEventListener('click',(e)=>{
-        e.preventDefault();
-        e.stopPropagation();
-        if(typeof window.ouvrirChoixCaseDocument==='function') window.ouvrirChoixCaseDocument(doc);
-      });
+        ${boutonPlusCarteDocumentMarkup()}
+        ${panneauActionsCarteDocumentMarkup(telechargementOk)}`;
+      brancherActionsCarteDocument(row, doc);
       actualiserEtatActionsDocument(row,doc);
       actualiserTaillesDocumentsDans(row);
       // La ligne doit être dans le DOM avant d'être observée par
@@ -985,27 +1075,11 @@
             ${tailleBadgeMarkup(doc.Fichier_url)}
           </div>
         </div>
-        <div class="doc-actions">
-          <button type="button" class="dl" style="cursor:pointer;" data-lire="1">Lire</button>
-          ${telechargementOk?`<button type="button" class="dl" style="cursor:pointer;" data-telecharger-maintenant="1">Télécharger maintenant</button>`:''}
-          <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-favori="1" aria-pressed="false">♡ Favori</button>
-          <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-plus-tard="1">＋ Plus tard</button>
-          <button type="button" class="dl doc-action-soft doc-action-folder" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-case="1">▣ Case</button>
-          <button type="button" class="dl doc-action-soft" style="cursor:pointer; background:transparent; color:var(--gris); border:1px solid var(--bordure);" data-signaler="1">Signaler</button>
-          <div class="doc-share-wrap"><button type="button" class="doc-more-btn" data-document-more="1" aria-label="Options de partage" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="12" cy="19" r="1.8"></circle></svg></button></div>
-        </div>`;
+        ${boutonPlusCarteDocumentMarkup()}
+        ${panneauActionsCarteDocumentMarkup(telechargementOk)}`;
 
       row._auroreDocument=doc;
-      row.querySelector('[data-lire]')?.addEventListener('click',()=>ouvrirLecteurPDF(doc));
-      row.querySelector('[data-telecharger-maintenant]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(doc));
-      row.querySelector('[data-signaler]')?.addEventListener('click',()=>ouvrirSignalement(doc));
-      row.querySelector('[data-favori]')?.addEventListener('click',()=>basculerFavoriDocument(doc,row.querySelector('[data-favori]')));
-      row.querySelector('[data-plus-tard]')?.addEventListener('click',()=>ajouterDocumentPlusTard(doc,row.querySelector('[data-plus-tard]')));
-      row.querySelector('[data-case]')?.addEventListener('click',(e)=>{
-        e.preventDefault();
-        e.stopPropagation();
-        window.ouvrirChoixCaseDocument?.(doc);
-      });
+      brancherActionsCarteDocument(row, doc);
 
       actualiserEtatActionsDocument(row,doc);
       list.appendChild(row);
