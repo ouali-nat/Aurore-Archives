@@ -60,120 +60,13 @@
   .admin-space-action{width:100%;justify-content:center;}
 }
 
-/* ===== Aurora IA — reconstruction stricte : un seul contrôle visuel =====
-   La structure HTML et le moteur de l'historique sont conservés.
-   Seul l'ancien bouton flottant Aurora est neutralisé visuellement.
-   Le bandeau (logo, titre, statut, nouvelle conversation, réduction,
-   retour) et le logo d'accueil restent visibles : le hamburger
-   #auroreIAMenuBtn s'ajoute à ces contrôles, il ne les remplace pas. */
+/* Aurora IA — seul l'ancien bouton flottant est neutralisé visuellement.
+   Le bandeau garde sa disposition native définie dans aurora-ia.css :
+   flex + justify-content:space-between => hamburger + logo à gauche,
+   statut / nouvelle conversation / réduction / retour à droite. */
 #screen-aurore-ia.aurore-ia-screen #auroreFloatingAI{
   display:none!important;
   visibility:hidden!important;
   opacity:0!important;
   pointer-events:none!important;
-}
-
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-topbar{
-  position:relative!important;
-  display:block!important;
-  width:100%!important;
-  height:0!important;
-  min-height:0!important;
-  padding:0!important;
-  margin:0!important;
-  border:0!important;
-  background:transparent!important;
-  box-shadow:none!important;
-  overflow:visible!important;
-  z-index:20!important;
-}
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-left{
-  display:block!important;
-  width:0!important;
-  height:0!important;
-  min-width:0!important;
-  margin:0!important;
-  padding:0!important;
-}
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn{
-  position:absolute!important;
-  top:14px!important;
-  left:14px!important;
-  z-index:1000!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  visibility:visible!important;
-  opacity:1!important;
-  width:44px!important;
-  height:44px!important;
-  min-width:44px!important;
-  min-height:44px!important;
-  margin:0!important;
-  padding:0!important;
-  border:0!important;
-  border-radius:0!important;
-  background:transparent!important;
-  color:#fff!important;
-  box-shadow:none!important;
-  outline:none!important;
-  transform:none!important;
-  cursor:pointer!important;
-  -webkit-tap-highlight-color:transparent;
-}
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn:hover,
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn:active,
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn:focus,
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn:focus-visible{
-  background:transparent!important;
-  color:#fff!important;
-  border:0!important;
-  box-shadow:none!important;
-  outline:none!important;
-  transform:none!important;
-}
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn-icon{
-  display:flex!important;
-  flex-direction:column!important;
-  justify-content:center!important;
-  align-items:stretch!important;
-  gap:5px!important;
-  width:25px!important;
-  height:19px!important;
-  flex:0 0 25px!important;
-  margin:0!important;
-  padding:0!important;
-}
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn-icon span,
-#screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn span:last-child{
-  display:block!important;
-  visibility:visible!important;
-  opacity:1!important;
-  width:25px!important;
-  height:2px!important;
-  min-height:2px!important;
-  max-height:2px!important;
-  flex:0 0 2px!important;
-  margin:0!important;
-  padding:0!important;
-  border:0!important;
-  border-radius:999px!important;
-  background:#fff!important;
-  box-shadow:0 0 5px rgba(255,255,255,.25)!important;
-}
-
-@media(max-width:560px){
-  #screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn{
-    top:9px!important;
-    left:9px!important;
-    width:42px!important;
-    height:42px!important;
-    min-width:42px!important;
-    min-height:42px!important;
-  }
-  #screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn-icon,
-  #screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn-icon span,
-  #screen-aurore-ia.aurore-ia-screen .aurore-ia-menu-btn span:last-child{
-    width:23px!important;
-  }
 }
