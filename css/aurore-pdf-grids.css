@@ -322,3 +322,14 @@
   #adminList .admin-card .meta,#adminListPublies .admin-card .meta{font-size:.62rem!important;}
   #adminList .admin-card .admin-actions,#adminListPublies .admin-card .admin-actions{gap:5px!important;}
 }
+
+/* Couvertures PDF : conserver toute la première page sans recadrer son titre. */
+.doc-row .icon-wrap.a-couverture img.doc-cover-img{
+  object-fit:contain!important;
+  background:#F0ECF5!important;
+}
+#adminList .admin-card-icon.a-couverture img.doc-cover-img,
+#adminListPublies .admin-card-icon.a-couverture img.doc-cover-img{
+  object-fit:contain!important;
+  background:#F0ECF5!important;
+}
