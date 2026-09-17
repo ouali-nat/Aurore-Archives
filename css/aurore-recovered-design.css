@@ -70,3 +70,28 @@
   opacity:0!important;
   pointer-events:none!important;
 }
+
+/* Le bloc "Votre espace" utilise désormais la flèche du design Nouveautés. */
+.personal-space-compact-card.home-recents-cta::after{display:none!important;}
+
+/* "Votre espace" : la flèche reprend exactement le langage visuel de "Nouveautés". */
+.personal-space-compact-card.home-recents-cta .aurora-personal-end-btn.home-recents-arrow{
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  width:30px!important;
+  height:30px!important;
+  border-radius:50%!important;
+  background:color-mix(in srgb,var(--theme-primary,var(--violet,#7c3aed)) 10%,transparent)!important;
+  color:var(--theme-primary,var(--violet,#7c3aed))!important;
+  box-shadow:none!important;
+  font-size:1.35rem!important;
+  line-height:1!important;
+  flex-shrink:0!important;
+}
+@media(max-width:700px){
+  .personal-space-compact-card.home-recents-cta .aurora-personal-end-btn.home-recents-arrow{
+    width:28px!important;
+    height:28px!important;
+  }
+}
