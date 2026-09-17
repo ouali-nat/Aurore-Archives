@@ -25,11 +25,8 @@
     },true);
   }
 
-  /*
-   * Content Factory : reprend la même cascade de classement que le dépôt.
-   * Ce correctif est volontairement isolé ici : le fichier Content Factory
-   * existant reste intact et continue de gérer la génération/PDF/GeoGebra.
-   */
+  /* Content Factory : même logique de classement que le dépôt de documents.
+     Le correctif est isolé ici pour préserver le moteur Content Factory/PDF. */
   function initContentFactoryClassification(){
     const panel=document.querySelector('.admin-tab-panel[data-panel="content-factory"]');
     if(!panel||panel.dataset.classificationAligned==='1')return;
@@ -44,23 +41,30 @@
     const subjectLabel=grid.querySelector('label:has(#cfCreateSubject)');
     const levelLabel=grid.querySelector('label:has(#cfCreateLevel)');
     const classLabel=grid.querySelector('label:has(#cfCreateClass)');
+    const promptLabel=grid.querySelector('label:has(#cfCreatePrompt)');
     if(!levelLabel||!classLabel||!subjectLabel)return;
 
-    /* Le titre reste géré par le Content Factory existant. */
+    /* Le titre reste compatible avec le fonctionnement existant. */
     if(titleLabel)grid.appendChild(titleLabel);
-    grid.appendChild(levelLabel);
+
+    /* Le select interne reste présent pour enqueueCurrent(), mais la sélection
+       visible du niveau utilise directement NIVEAUX comme le dépôt. */
+    levelLabel.style.display='none';
+    classLabel.style.display='none';
+    const niveauLabel=document.createElement('label');
+    niveauLabel.innerHTML='<span>Niveau</span><select id="cfCreateNiveauCascade"><option value="">Choisir un niveau</option></select>';
+    grid.appendChild(niveauLabel);
 
     const filiereLabel=document.createElement('label');
     filiereLabel.innerHTML='<span>Filière</span><select id="cfCreateFiliere"><option value="">Choisir une filière disponible…</option></select>';
     grid.appendChild(filiereLabel);
-    grid.appendChild(classLabel);
     grid.appendChild(subjectLabel);
 
     const categoryLabel=document.createElement('label');
     categoryLabel.innerHTML='<span>Catégorie</span><select id="cfCreateCategory" required><option value="">Choisir une catégorie…</option><option value="Fiches cours">Fiches cours</option><option value="Devoir">Devoir</option><option value="Exercice">Exercice</option></select>';
-    const promptLabel=grid.querySelector('label:has(#cfCreatePrompt)');
     if(promptLabel)grid.insertBefore(categoryLabel,promptLabel);else grid.appendChild(categoryLabel);
 
+    const root=document.getElementById('cfCreateNiveauCascade');
     const filiere=document.getElementById('cfCreateFiliere');
     const category=document.getElementById('cfCreateCategory');
     const customIds=['cfCreateLevelCustom','cfCreateClassCustom','cfCreateSubjectCustom'];
@@ -92,9 +96,28 @@
       const common=last&&last.type==='classe-commune'&&['seconde-ti','seconde-ab3'].includes(last.id);
       return !common&&s?(s.serie||s.nom||''):'';
     }
+    function subjectList(node){
+      const raw=node?.matieres||((typeof MATIERES!=='undefined')?MATIERES:[]);
+      return raw.map(m=>typeof m==='string'?m:(m?.nom||'')).map(x=>String(x||'').trim()).filter(Boolean);
+    }
+    function resolve(){
+      const last=path[path.length-1]||null;
+      const isLeaf=!!(last&&leaf(last));
+      const f=seriesValue(path);
+      const clsName=isLeaf?(last.nom||''):'';
+      const levelValue=isLeaf?(last.dbNiveaux?.[0]||(path[0]?.id==='prescolaire'?'Préscolaire':last.nom||'')):'';
+      setHiddenSelect(level,levelValue);
+      setHiddenSelect(cls,clsName);
+      if(filiere){
+        filiere.innerHTML='<option value="">Choisir une filière disponible…</option>'+(f?`<option value="${esc(f)}">${esc(f)}</option>`:'');
+        filiere.value=f;
+      }
+      const list=isLeaf?subjectList(last):[];
+      subject.innerHTML='<option value="">Choisir une matière</option>'+list.map(name=>`<option value="${esc(name)}">${esc(name)}</option>`).join('');
+    }
     function render(){
-      level.innerHTML='<option value="">Choisir un niveau</option>'+NIVEAUX.map(n=>`<option value="${esc(n.id)}">${esc(n.nom)}</option>`).join('');
-      level.value=path[0]?.id||'';
+      root.innerHTML='<option value="">Choisir un niveau</option>'+NIVEAUX.map(n=>`<option value="${esc(n.id)}">${esc(n.nom)}</option>`).join('');
+      root.value=path[0]?.id||'';
       [...grid.querySelectorAll('[data-cf-cascade]')].forEach(x=>x.remove());
       let current=path[0]||null;
       let depth=1;
@@ -102,7 +125,10 @@
         const kids=children(current)||[];
         const wrap=document.createElement('label');
         wrap.dataset.cfCascade='1';
-        wrap.innerHTML='<span>'+ (current.type==='serie'?'Classe / niveau':'Choix suivant') +'</span><select><option value="">Choisir</option></select>';
+        let label='Choix suivant';
+        if(current.type==='serie')label='Classe';
+        else if(current.type==='classe-commune')label='Classe';
+        wrap.innerHTML=`<span>${label}</span><select><option value="">Choisir</option></select>`;
         const sel=wrap.querySelector('select');
         sel.innerHTML='<option value="">Choisir</option>'+kids.map(x=>`<option value="${esc(x.id)}">${esc(x.nom)}</option>`).join('');
         const chosen=path[depth]||null;
@@ -121,39 +147,15 @@
       }
       resolve();
     }
-    function resolve(){
-      const last=path[path.length-1]||null;
-      const isLeaf=last&&leaf(last);
-      const f=seriesValue(path);
-      const clsName=isLeaf?(last.nom||''):'';
-      const levelValue=isLeaf?(last.dbNiveaux?.[0]||(path[0]?.id==='prescolaire'?'Préscolaire':last.nom||'')):'';
-      setHiddenSelect(level,levelValue);
-      setHiddenSelect(cls,clsName);
-      setHiddenSelect(subject,'');
-      if(filiere){
-        filiere.innerHTML='<option value="">Choisir une filière disponible…</option>'+(f?`<option value="${esc(f)}">${esc(f)}</option>`:'');
-        filiere.value=f;
-      }
-      const list=isLeaf?(last.matieres||((typeof MATIERES!=='undefined')?MATIERES:[])):[];
-      subject.innerHTML='<option value="">Choisir une matière</option>'+list.map(m=>{
-        const name=typeof m==='string'?m:(m?.nom||'');
-        return name?`<option value="${esc(name)}">${esc(name)}</option>`:'';
-      }).filter(Boolean).join('');
-      if(subject.value==='')subject.removeAttribute('data-cf-auto');
-    }
-    level.addEventListener('change',function(){path=[];const n=NIVEAUX.find(x=>x.id===this.value)||null;if(n)path=[n];render();});
-
-    /* Les sélections de filière/matière restent celles du dépôt : aucune saisie
-       libre n'est proposée dans le Content Factory pour le classement scolaire. */
-    filiere.addEventListener('change',function(){
-      const value=this.value;
-      if(value) setHiddenSelect(document.getElementById('cfCreateLevel'),document.getElementById('cfCreateLevel').value);
+    root.addEventListener('change',function(){
+      path=[];
+      const n=NIVEAUX.find(x=>x.id===this.value)||null;
+      if(n)path=[n];
+      render();
     });
-    subject.addEventListener('change',function(){this.dataset.cfSelected='1';});
 
-    /* Transmission contrôlée des nouvelles métadonnées à la RPC existante.
-       On ne remplace fetch globalement : seule la requête de création de job
-       est enrichie, sans toucher aux uploads, PDF, IA ou navigation. */
+    /* Enrichit uniquement la requête RPC Content Factory avec les métadonnées
+       choisies. Les autres fetch (Supabase, PDF, upload, IA) restent inchangés. */
     const nativeFetch=window.fetch.bind(window);
     if(!window.__auroreCfMetadataFetchPatched){
       window.__auroreCfMetadataFetchPatched=true;
