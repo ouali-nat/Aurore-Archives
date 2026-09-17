@@ -1,5 +1,5 @@
 
-  body.site-locked > *:not(#accessLock):not(#signupModal):not(#auroreAuthWait):not(#auroreDebugErr):not(#auroreBuildBadge):not(#screen-shared-section){display:none!important;}
+  body.site-locked > *:not(#accessLock):not(#signupModal):not(#auroreAuthWait):not(#auroreDebugErr):not(#auroreBuildBadge):not(#screen-shared-section):not(#aurore-zoom-fab):not(#aurore-zoom-panel){display:none!important;}
   /* Une URL ?sectionShare=... est publique : elle ne doit jamais être recouverte par le portail d'inscription. */
   html.aurore-shared-route #accessLock,
   html.aurore-shared-route #signupModal{display:none!important;}
