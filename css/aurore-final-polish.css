@@ -1512,3 +1512,21 @@ html[data-theme="light"] .aurore-select-option:hover,html[data-theme="light"] .a
 
 /* ===== AURORE — DROPDOWNS PERSONNALISÉS GLOBAUX ===== */
 .aurore-select{position:relative;width:100%;min-width:0}.aurore-select-native{position:absolute!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important;clip:rect(0 0 0 0)!important;clip-path:inset(50%)!important}.aurore-select-trigger{position:relative;display:flex!important;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:44px;padding:0 12px 0 14px;border:1px solid var(--theme-border,var(--bordure,#3b3548));border-radius:11px;background:var(--theme-card,var(--papier,#15121d));color:var(--encre,#f4f1f8);font:600 .86rem/1.2 "Plus Jakarta Sans","Segoe UI",Arial,sans-serif;cursor:pointer;text-align:left;box-shadow:0 5px 16px var(--theme-shadow,rgba(0,0,0,.08));transition:.18s}.aurore-select-trigger:hover,.aurore-select-open .aurore-select-trigger{border-color:var(--theme-primary,#8b5cf6);box-shadow:0 0 0 3px color-mix(in srgb,var(--theme-primary,#8b5cf6) 11%,transparent)}.aurore-select-trigger:focus-visible{outline:none;border-color:var(--theme-primary,#8b5cf6);box-shadow:0 0 0 3px color-mix(in srgb,var(--theme-primary,#8b5cf6) 14%,transparent)}.aurore-select-value{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.aurore-select-trigger.is-placeholder .aurore-select-value{opacity:.72;font-weight:500}.aurore-select-chevron{width:8px;height:8px;flex:0 0 8px;border-right:1.8px solid currentColor;border-bottom:1.8px solid currentColor;transform:rotate(45deg) translateY(-2px);opacity:.72;transition:.18s}.aurore-select-open .aurore-select-chevron{transform:rotate(225deg) translate(-1px,-1px);opacity:1}.aurore-select-panel{position:absolute;z-index:9999;left:0;right:0;top:calc(100% + 7px);max-height:min(300px,48vh);overflow:auto;padding:5px;border:1px solid var(--theme-border,var(--bordure,#3b3548));border-radius:12px;background:var(--theme-card,var(--papier,#15121d));box-shadow:0 18px 42px var(--theme-shadow,rgba(0,0,0,.22)),0 4px 12px rgba(0,0,0,.08);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}.aurore-select-panel.opens-up{top:auto;bottom:calc(100% + 7px)}.aurore-select-option{display:block;width:100%;padding:9px 10px;border:0;border-radius:8px;background:transparent;color:var(--encre,#f4f1f8);font:500 .82rem/1.3 "Plus Jakarta Sans","Segoe UI",Arial,sans-serif;text-align:left;cursor:pointer}.aurore-select-option:hover,.aurore-select-option:focus-visible,.aurore-select-option[aria-selected="true"]{outline:none;background:var(--theme-soft,color-mix(in srgb,var(--theme-primary,#8b5cf6) 10%,transparent));color:var(--encre,#f4f1f8)}.aurore-select-option[aria-selected="true"]{font-weight:700}.aurore-select-option:disabled{opacity:.45;cursor:not-allowed}.aurore-select-invalid .aurore-select-trigger{border-color:#d44a4a;box-shadow:0 0 0 3px rgba(212,74,74,.12)}html[data-theme="light"] .aurore-select-trigger,html[data-theme="light"] .aurore-select-panel{background:#fff;color:#211d28}html[data-theme="light"] .aurore-select-option{color:#211d28}html[data-theme="light"] .aurore-select-option:hover,html[data-theme="light"] .aurore-select-option:focus-visible,html[data-theme="light"] .aurore-select-option[aria-selected="true"]{color:#211d28;background:color-mix(in srgb,var(--theme-primary,#6d28d9) 9%,#fff)}@media(max-width:640px){.aurore-select-trigger{min-height:42px;padding-left:12px;font-size:.82rem}.aurore-select-panel{max-height:min(280px,55vh)}.aurore-select-option{padding:10px 9px;font-size:.81rem}}
+
+/* ===== AURORE — ACCÈS IA INDÉPENDANT DE L'EN-TÊTE ===== */
+.aurore-floating-ai{
+  right:max(14px,env(safe-area-inset-right,0px))!important;
+  bottom:max(18px,calc(env(safe-area-inset-bottom,0px) + 18px))!important;
+  top:auto!important;
+  left:auto!important;
+  z-index:999999!important;
+}
+.aurore-floating-ai .afh-icon{
+  box-shadow:0 10px 26px color-mix(in srgb,var(--theme-primary,#8b5cf6) 24%,rgba(0,0,0,.20)),0 0 0 1px color-mix(in srgb,var(--theme-primary,#8b5cf6) 28%,transparent) inset;
+}
+@media(max-width:640px){
+  .aurore-floating-ai{
+    right:max(10px,env(safe-area-inset-right,0px))!important;
+    bottom:max(12px,calc(env(safe-area-inset-bottom,0px) + 12px))!important;
+  }
+}
