@@ -366,10 +366,18 @@
 /* AURORE_PDF_LAB_V1 */
 (function(){
   'use strict';
-  const panel=document.querySelector('.admin-tab-panel[data-panel="diagnostic-pdf"]');
-  if(!panel || document.getElementById('aurorePdfLab')) return;
+  function findPdfPanel(){
+    return document.querySelector('.admin-tab-panel[data-panel="diagnostic-pdf"]')
+      || document.querySelector('[data-panel*="diagnostic"][data-panel*="pdf"]')
+      || document.getElementById('pdfDiagRun')?.closest('.admin-tab-panel')
+      || document.getElementById('pdfDiagRun')?.closest('section')
+      || Array.from(document.querySelectorAll('section,div')).find(el=>/Diagnostic PDF/.test((el.textContent||'').trim()) && el.querySelector('#pdfDiagRun'));
+  }
+  function mountLab(){
+    const panel=findPdfPanel();
+    if(!panel || document.getElementById('aurorePdfLab')) return !!panel;
 
-  const css=document.createElement('link');
+    const css=document.createElement('link');
   css.rel='stylesheet';
   css.href='./css/aurore-pdf-lab.css';
   document.head.appendChild(css);
@@ -554,6 +562,20 @@
     }
   }
 
-  document.getElementById('aurorePdfLabRun').addEventListener('click',run);
+  const runBtn=document.getElementById('aurorePdfLabRun');
+  if(runBtn)runBtn.addEventListener('click',run);
   renderStages({});
+  return true;
+  }
+
+  // Le tableau admin peut être monté/rejoué par le routeur après le chargement initial.
+  // On retente brièvement pour que le laboratoire apparaisse même si l'onglet PDF est
+  // injecté ou réinitialisé après le chargement des scripts.
+  let attempts=0;
+  const boot=()=>{
+    attempts++;
+    if(mountLab() || attempts>=30)return;
+    setTimeout(boot,200);
+  };
+  boot();
 })();
