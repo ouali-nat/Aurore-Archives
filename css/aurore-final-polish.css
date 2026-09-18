@@ -941,3 +941,113 @@ body{
   font-synthesis:none;
   text-rendering:optimizeLegibility;
 }
+
+
+/* ==========================================================
+   AURORA SEARCH — BARRE D'ACCUEIL
+   Même langage visuel que la barre de recherche de l'en-tête.
+   Rendu uniquement : aucune modification du fonctionnement.
+   ========================================================== */
+
+.auraster-home-search{
+  position:relative!important;
+  display:flex!important;
+  align-items:center!important;
+  width:min(720px,100%)!important;
+  min-width:0!important;
+  height:46px!important;
+  box-sizing:border-box!important;
+  gap:0!important;
+  margin-top:22px!important;
+  padding:0 8px 0 49px!important;
+  border:1px solid var(--theme-border,var(--bordure))!important;
+  border-radius:13px!important;
+  background:var(--theme-card,var(--papier))!important;
+  box-shadow:0 8px 24px var(--theme-shadow,rgba(55,36,82,.08))!important;
+  transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease,background .2s ease!important;
+}
+.auraster-home-search::before{
+  content:"⌕"!important;
+  position:absolute!important;
+  left:7px!important;
+  top:7px!important;
+  width:32px!important;
+  height:32px!important;
+  display:grid!important;
+  place-items:center!important;
+  box-sizing:border-box!important;
+  border:1px solid color-mix(in srgb,var(--theme-primary,#7C3AED) 24%,var(--theme-border,var(--bordure)))!important;
+  border-radius:9px!important;
+  background:color-mix(in srgb,var(--theme-primary,#7C3AED) 9%,var(--theme-card,var(--papier)))!important;
+  color:var(--theme-primary,#7C3AED)!important;
+  font-size:19px!important;
+  line-height:1!important;
+  font-weight:700!important;
+}
+.auraster-home-search:focus-within{
+  border-color:var(--theme-primary,#7C3AED)!important;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--theme-primary,#7C3AED) 9%,transparent),0 10px 28px var(--theme-shadow,rgba(55,36,82,.10))!important;
+  transform:translateY(-1px)!important;
+}
+.auraster-home-search:focus-within::before{
+  background:color-mix(in srgb,var(--theme-primary,#7C3AED) 14%,var(--theme-card,var(--papier)))!important;
+}
+.auraster-home-search > span{
+  display:none!important;
+}
+.auraster-home-search input{
+  width:100%!important;
+  min-width:0!important;
+  height:100%!important;
+  margin:0!important;
+  padding:0 10px!important;
+  box-sizing:border-box!important;
+  border:0!important;
+  outline:0!important;
+  background:transparent!important;
+  color:var(--encre)!important;
+  font-family:"Plus Jakarta Sans","Segoe UI",Arial,sans-serif!important;
+  font-size:.8rem!important;
+  font-weight:650!important;
+  letter-spacing:.005em!important;
+}
+.auraster-home-search input::placeholder{
+  color:var(--gris)!important;
+  opacity:.78!important;
+  font-weight:600!important;
+}
+[data-theme="dark"] .auraster-home-search{
+  background:var(--dark-surface-2,var(--papier))!important;
+  border-color:var(--theme-border,var(--bordure))!important;
+  box-shadow:0 8px 24px rgba(0,0,0,.18)!important;
+}
+[data-theme="dark"] .auraster-home-search input{
+  color:var(--dark-ink,var(--encre))!important;
+}
+[data-theme="dark"] .auraster-home-search input::placeholder{
+  color:var(--dark-muted,var(--gris))!important;
+}
+html[data-color-theme] .auraster-home-search{
+  --search-accent:var(--theme-primary);
+}
+@media(max-width:760px){
+  .auraster-home-search{
+    width:100%!important;
+    max-width:100%!important;
+    height:42px!important;
+    margin-top:18px!important;
+    padding-left:44px!important;
+    border-radius:12px!important;
+  }
+  .auraster-home-search::before{
+    width:29px!important;
+    height:29px!important;
+    left:6px!important;
+    top:6px!important;
+    border-radius:8px!important;
+    font-size:17px!important;
+  }
+  .auraster-home-search input{
+    font-size:.75rem!important;
+  }
+}
