@@ -16,6 +16,8 @@
   // concurrencer le logo, la recherche ou le compte. Dans l'IA, elle se range
   // dans le coin supérieur gauche de la fenêtre pour rester accessible. ----
   function ancrerSurHeader(){
+    el.classList.remove('is-hidden-in-ia');
+    el.style.removeProperty('display');
     el.classList.add('is-positioned');
     el.style.transform='none';
     el.style.left='auto';
@@ -27,8 +29,9 @@
     const ecran=document.getElementById('screen-aurore-ia');
     // Dans Aurora, le bouton flottant d'accueil disparaît complètement.
     // Les commandes restent accessibles depuis le menu interne d'Aurora.
+    el.classList.add('is-hidden-in-ia');
     el.classList.remove('is-positioned');
-    el.style.display='none';
+    el.style.removeProperty('display');
     el.style.transform='none';
     el.style.left='';el.style.right='';el.style.top='';el.style.bottom='';
   }
