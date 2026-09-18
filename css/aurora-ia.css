@@ -356,3 +356,47 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
   .aurore-ia-conversation{padding-bottom:18px}
   .aurore-ia-welcome{margin-top:7vh}
 }
+
+
+/* ==========================================================
+   AURORA — LOGO PLEIN BLOC
+   Le logo réel doit occuper toute la surface de son emplacement.
+   Aucun changement de logique ou de navigation.
+   ========================================================== */
+#screen-aurore-ia .aurore-ia-mark,
+#screen-aurore-ia .aurore-ia-welcome-mark{
+  padding:0!important;
+  overflow:hidden!important;
+  box-sizing:border-box!important;
+  background-color:var(--ia-bg)!important;
+}
+
+#screen-aurore-ia .aurore-ia-mark img,
+#screen-aurore-ia .aurore-ia-welcome-mark img{
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  max-width:none!important;
+  max-height:none!important;
+  padding:0!important;
+  margin:0!important;
+  object-fit:cover!important;
+  object-position:center!important;
+  border-radius:inherit!important;
+}
+
+/* Si le logo est injecté comme image de fond, il remplit également
+   intégralement le bloc sans laisser de marge artificielle. */
+#screen-aurore-ia .aurore-ia-welcome-mark{
+  background-image:url('https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster')!important;
+  background-size:cover!important;
+  background-position:center!important;
+  background-repeat:no-repeat!important;
+  color:transparent!important;
+}
+
+/* Le petit logo de la barre supérieure conserve exactement ses dimensions
+   mais exploite désormais 100% de sa surface. */
+#screen-aurore-ia.aurore-ia-screen.is-mini .aurore-ia-mark{
+  padding:0!important;
+}
