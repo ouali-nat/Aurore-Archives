@@ -519,3 +519,30 @@
   border-color:transparent!important;
   box-shadow:none!important;
 }
+
+/* ========================================================================
+   CONTRASTE RENFORCÉ — visible à n'importe quel niveau de zoom navigateur
+   Constat (captures fournies) : au dézoom, une bordure/ombre trop proche de
+   la couleur de fond de page (--bordure et --fond sont très voisins,
+   surtout en thème clair) devient invisible à l'anti-aliasing : le bloc
+   titre/taille/déposant paraît alors "avalé" par la page au lieu de rester
+   un cadre à part, alors qu'au zoom fort les mêmes pixels redeviennent
+   visibles. On fixe une bordure et une ombre nettement plus contrastées
+   (couleurs fixes, sans color-mix) sur les 2 blocs, pour qu'ils restent
+   lisibles comme 2 cadres distincts à tout niveau de zoom. */
+.doc-row .icon-wrap,
+.doc-row .icon-wrap.a-couverture,
+.doc-row .doc-main-info,
+#adminList .admin-card-icon,#adminListPublies .admin-card-icon,
+#adminList .admin-card-body,#adminListPublies .admin-card-body{
+  border-color:rgba(139,92,246,.34)!important;
+  box-shadow:0 3px 12px rgba(0,0,0,.22)!important;
+}
+[data-theme="light"] .doc-row .icon-wrap,
+[data-theme="light"] .doc-row .icon-wrap.a-couverture,
+[data-theme="light"] .doc-row .doc-main-info,
+[data-theme="light"] #adminList .admin-card-icon,[data-theme="light"] #adminListPublies .admin-card-icon,
+[data-theme="light"] #adminList .admin-card-body,[data-theme="light"] #adminListPublies .admin-card-body{
+  border-color:#C4B3DE!important;
+  box-shadow:0 3px 14px rgba(80,55,120,.18)!important;
+}
