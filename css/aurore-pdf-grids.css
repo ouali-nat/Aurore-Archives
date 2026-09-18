@@ -546,3 +546,40 @@
   border-color:#C4B3DE!important;
   box-shadow:0 3px 14px rgba(80,55,120,.18)!important;
 }
+
+/* ========================================================================
+   FIX — le bloc titre/taille/déposant disparaît totalement à certains
+   niveaux de zoom navigateur (constaté à 55% : les couvertures restent
+   visibles mais tout le bloc texte en dessous s'efface, alors que
+   l'espace qu'il occupait reste réservé).
+   Cause : à des facteurs de zoom fractionnaires, le calcul interne de
+   -webkit-line-clamp (utilisé sur .titre) combiné à l'overflow:hidden
+   hérité du conteneur (.doc-row / .admin-card — hérité de la toute
+   première règle de ce fichier, qui servait à l'origine à découper les
+   coins arrondis d'une carte unique, désormais obsolète puisque ce
+   conteneur est transparent et sans rayon propre) peut arrondir la
+   hauteur calculée du bloc à 0 et effacer tout son contenu.
+   Correctif : on retire cet overflow:hidden devenu inutile sur le
+   conteneur (chaque bloc interne gère déjà son propre overflow/rayon), et
+   on verrouille la hauteur du bloc titre/taille/déposant pour qu'il ne
+   puisse plus être réduit à 0 par un arrondi de mise en page. */
+.doc-row.doc-row,
+#adminList .admin-card.admin-card,
+#adminListPublies .admin-card.admin-card{
+  overflow:visible!important;
+}
+.doc-row .doc-main-info,
+#adminList .admin-card-body,#adminListPublies .admin-card-body{
+  flex-shrink:0!important;
+  flex-grow:0!important;
+}
+.doc-row .icon-wrap,
+.doc-row .icon-wrap.a-couverture,
+#adminList .admin-card-icon,#adminListPublies .admin-card-icon{
+  flex-shrink:0!important;
+}
+.doc-row .titre,
+#adminList .admin-card .titre,#adminListPublies .admin-card .titre{
+  flex-shrink:0!important;
+  min-height:calc(1.3em * 2)!important;
+}
