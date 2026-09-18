@@ -1,7 +1,7 @@
 /* ===== Aurore — vue grille PDF inspirée de Google Drive ===== */
 .doc-list{
   display:grid!important;
-  grid-template-columns:repeat(auto-fill,minmax(205px,1fr));
+  grid-template-columns:repeat(auto-fill,minmax(min(205px, 44vw),1fr));
   gap:16px!important;
   margin-top:22px;
   align-items:stretch;
@@ -75,6 +75,7 @@
   -webkit-box-orient:vertical;
   -webkit-line-clamp:2;
   overflow:hidden;
+  min-height:calc(1.3em * 2)!important;
 }
 .doc-row .meta{
   margin-top:4px!important;
