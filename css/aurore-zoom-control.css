@@ -127,3 +127,25 @@
 @media(prefers-reduced-motion:reduce){
   .aurore-zoom-hint{animation:none;}
 }
+
+/* ===== AURORE — ZOOM / AURORA : DEUX ACCÈS SÉPARÉS =====
+   Le contrôle de zoom occupe le petit emplacement immédiatement à gauche
+   d'Aurora afin que les deux boutons restent visibles simultanément. */
+.aurore-zoom-fab{
+  right:78px;
+  bottom:16px;
+  z-index:999997;
+}
+.aurore-zoom-panel{
+  right:78px;
+  bottom:72px;
+  z-index:999998;
+}
+.aurore-zoom-hint{
+  right:132px;
+}
+@media(max-width:600px){
+  .aurore-zoom-fab{right:68px;bottom:12px;}
+  .aurore-zoom-panel{right:68px;bottom:66px;}
+  .aurore-zoom-hint{right:120px;}
+}
