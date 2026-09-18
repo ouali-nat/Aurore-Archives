@@ -895,3 +895,18 @@ html[data-theme="light"] #screen-aurore-ia.aurore-ia-screen.is-mini .aurore-ia-m
     border-radius:8px!important;
   }
 }
+
+/* AURORA — MINI : la fenêtre flottante ne doit jamais intercepter les clics hors de son propre cadre. */
+#screen-aurore-ia.aurore-ia-screen.is-mini{
+  position:fixed!important;
+  inset:auto!important;
+  right:auto!important;
+  bottom:auto!important;
+  pointer-events:none!important;
+  display:block!important;
+}
+#screen-aurore-ia.aurore-ia-screen.is-mini .aurore-ia-app{
+  pointer-events:auto!important;
+  width:100%!important;
+  height:100%!important;
+}
