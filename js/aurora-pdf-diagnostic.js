@@ -361,3 +361,199 @@
   });
   reset();
 })();
+
+
+/* AURORE_PDF_LAB_V1 */
+(function(){
+  'use strict';
+  const panel=document.querySelector('.admin-tab-panel[data-panel="diagnostic-pdf"]');
+  if(!panel || document.getElementById('aurorePdfLab')) return;
+
+  const css=document.createElement('link');
+  css.rel='stylesheet';
+  css.href='./css/aurore-pdf-lab.css';
+  document.head.appendChild(css);
+
+  const esc=v=>{const d=document.createElement('div');d.textContent=String(v==null?'':v);return d.innerHTML;};
+  const supa=()=>typeof SUPABASE_URL!=='undefined'?SUPABASE_URL:'';
+  const anon=()=>typeof SUPABASE_ANON_KEY!=='undefined'?SUPABASE_ANON_KEY:'';
+  const admin=()=>!!(typeof session!=='undefined'&&session&&session.role==='admin');
+
+  const lab=document.createElement('section');
+  lab.className='aurore-pdf-lab';
+  lab.id='aurorePdfLab';
+  lab.innerHTML=`
+    <div class="aurore-pdf-lab-head">
+      <div>
+        <p class="aurore-pdf-lab-kicker">Laboratoire isolé</p>
+        <h3>Laboratoire de rendu PDF</h3>
+        <p class="aurore-pdf-lab-intro">Analyse le document avant le rendu pour repérer les corruptions LaTeX, délimiteurs mélangés, caractères de contrôle, formules suspectes et références graphiques. Cette première couche ne remplace ni ne modifie le PDF de production.</p>
+      </div>
+      <span class="aurore-pdf-lab-status" id="aurorePdfLabStatus">⚪ Prêt</span>
+    </div>
+    <div class="aurore-pdf-lab-controls">
+      <input id="aurorePdfLabDocument" inputmode="numeric" type="number" min="1" placeholder="ID du document, ex. 21" aria-label="ID du document à analyser">
+      <button class="primary" id="aurorePdfLabRun" type="button">Analyser le document</button>
+      <button id="aurorePdfLabOpen" type="button" disabled>Ouvrir le PDF</button>
+    </div>
+    <div class="aurore-pdf-lab-grid" id="aurorePdfLabStages"></div>
+    <pre class="aurore-pdf-lab-report" id="aurorePdfLabReport" hidden></pre>
+    <div class="aurore-pdf-lab-links" id="aurorePdfLabLinks"></div>
+    <p class="aurore-pdf-lab-note">Mode actuel : diagnostic non destructif. Aucun fichier, contenu_json, metadata ou PDF existant n'est modifié. Le prochain niveau pourra ajouter le rendu expérimental Browser Rendering dans un endpoint séparé.</p>
+  `;
+
+  const anchor=panel.querySelector('.pdfdiag-controls')||panel.firstElementChild;
+  if(anchor&&anchor.parentNode) anchor.parentNode.insertBefore(lab,anchor.nextSibling);
+  else panel.appendChild(lab);
+
+  const stageDefs=[
+    ['source','Contenu source','Lecture de content_json / source_content'],
+    ['delimiters','Délimiteurs LaTeX','Recherche de $, \\( \\), \\[ \\] et incohérences'],
+    ['commands','Commandes LaTeX','Recherche de commandes connues comme \\infy, \\mathrm{quad} ou text mathbb'],
+    ['controls','Caractères suspects','Détection de caractères de contrôle et séquences inhabituelles'],
+    ['formulas','Formules','Comptage et contrôle structurel des champs formula'],
+    ['graphs','Graphiques','Présence des références GeoGebra / assets'],
+    ['metadata','Diagnostic précédent','Lecture du diagnostic PDF déjà enregistré'],
+    ['pdf','PDF existant','Vérification de pdf_path / pdf_url sans régénération']
+  ];
+
+  function renderStages(results){
+    const host=document.getElementById('aurorePdfLabStages');
+    host.innerHTML=stageDefs.map(([id,name])=>{
+      const r=results[id]||{state:'pending',detail:'Non testé.'};
+      const icon=r.state==='ok'?'🟢':r.state==='warn'?'🟡':r.state==='fail'?'🔴':'⚪';
+      return '<div class="aurore-pdf-lab-stage" data-state="'+r.state+'"><div class="aurore-pdf-lab-stage-top"><span class="aurore-pdf-lab-stage-icon">'+icon+'</span><span class="aurore-pdf-lab-stage-name">'+esc(name)+'</span></div><div class="aurore-pdf-lab-stage-detail">'+esc(r.detail)+'</div></div>';
+    }).join('');
+  }
+
+  function setStatus(state,text){
+    const el=document.getElementById('aurorePdfLabStatus');
+    if(el){el.dataset.state=state;el.textContent=text;}
+  }
+
+  function getToken(){
+    return (typeof session!=='undefined'&&session&&session.access_token)?session.access_token:'';
+  }
+
+  function walk(value, path, out){
+    if(value==null)return;
+    if(typeof value==='string'){
+      out.push({path,text:value});
+      return;
+    }
+    if(Array.isArray(value)){value.forEach((v,i)=>walk(v,path+'['+i+']',out));return;}
+    if(typeof value==='object')Object.keys(value).forEach(k=>walk(value[k],path?path+'.'+k:k,out));
+  }
+
+  function auditMath(texts){
+    let dollar=0,inlineOpen=0,inlineClose=0,displayOpen=0,displayClose=0;
+    let suspicious=[];
+    const badCommands=[/\\\\infy\\b/g,/\\\\mathrm\\{quad\\}/g,/\\\\text\\{mathbb\\{R\\}\\}/g,/\\\\text\\{R\\}/g];
+    texts.forEach(x=>{
+      dollar+=(x.text.match(/\$/g)||[]).length;
+      inlineOpen+=(x.text.match(/\\\\\(/g)||[]).length;
+      inlineClose+=(x.text.match(/\\\\\)/g)||[]).length;
+      displayOpen+=(x.text.match(/\\\\\[/g)||[]).length;
+      displayClose+=(x.text.match(/\\\\\]/g)||[]).length;
+      badCommands.forEach(re=>{if(re.test(x.text))suspicious.push(x.path+' : '+x.text.slice(0,220));re.lastIndex=0;});
+    });
+    return {dollar,inlineOpen,inlineClose,displayOpen,displayClose,suspicious};
+  }
+
+  async function run(){
+    if(!admin()){setStatus('fail','🔴 Réservé aux administrateurs');return;}
+    const id=Number(document.getElementById('aurorePdfLabDocument').value||0);
+    if(!Number.isInteger(id)||id<1){setStatus('warn','🟡 ID requis');return;}
+    const token=getToken();
+    if(!token){setStatus('fail','🔴 Session absente');return;}
+
+    setStatus('warn','🟡 Analyse en cours…');
+    const results={};
+    renderStages(results);
+    const report=document.getElementById('aurorePdfLabReport');
+    report.hidden=false;
+    report.textContent='Lecture du document #'+id+'…';
+    const openBtn=document.getElementById('aurorePdfLabOpen');
+    openBtn.disabled=true;
+    document.getElementById('aurorePdfLabLinks').innerHTML='';
+
+    try{
+      const url=supa()+'/rest/v1/aurora_generated_documents?select=id,title,status,source_format,source_content,content_json,pdf_path,pdf_url,metadata,pdf_diagnostic,updated_at&id=eq.'+encodeURIComponent(id);
+      const r=await fetch(url,{headers:{apikey:anon(),Authorization:'Bearer '+token},cache:'no-store'});
+      const body=await r.text();
+      let data=null; try{data=body?JSON.parse(body):null;}catch(_){}
+      if(!r.ok)throw new Error('HTTP '+r.status+' — '+(body||'corps vide'));
+      const doc=Array.isArray(data)?data[0]:null;
+      if(!doc)throw new Error('Document #'+id+' introuvable.');
+
+      results.source={state:(doc.content_json||doc.source_content)?'ok':'warn',detail:(doc.content_json?'content_json disponible. ':'')+(doc.source_content?'source_content disponible.':'Aucun contenu source exploitable.')};
+      const texts=[];
+      if(doc.source_content)texts.push({path:'source_content',text:String(doc.source_content)});
+      if(doc.content_json)walk(doc.content_json,'content_json',texts);
+      const math=auditMath(texts);
+
+      const delimiterBad=math.inlineOpen!==math.inlineClose||math.displayOpen!==math.displayClose||math.dollar%2!==0;
+      results.delimiters={state:delimiterBad?'warn':'ok',detail:'$='+math.dollar+' · inline '+math.inlineOpen+'/'+math.inlineClose+' · display '+math.displayOpen+'/'+math.displayClose+(delimiterBad?' — déséquilibre détecté.':' — équilibre global.')};
+      results.commands={state:math.suspicious.length?'warn':'ok',detail:math.suspicious.length?math.suspicious.length+' occurrence(s) suspecte(s) détectée(s).':'Aucune commande connue comme suspecte détectée.'};
+
+      const controlHits=[];
+      texts.forEach(x=>{
+        const m=x.text.match(/[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F-\\x9F]/g);
+        if(m)controlHits.push(x.path+' : '+Array.from(new Set(m)).map(c=>'U+'+c.charCodeAt(0).toString(16).toUpperCase().padStart(4,'0')).join(', '));
+      });
+      results.controls={state:controlHits.length?'fail':'ok',detail:controlHits.length?controlHits.length+' champ(s) contiennent des caractères de contrôle/non imprimables.':'Aucun caractère de contrôle/non imprimable détecté dans les champs analysés.'};
+
+      const formulas=[];
+      walk(doc.content_json||{},'content_json',formulas);
+      const formulaFields=formulas.filter(x=>/\\.formula$/.test(x.path));
+      const malformed=formulaFields.filter(x=>/\\infy|\\mathrm\\{quad\\}|\\text\\{mathbb\\{R\\}\\}|\\text\\{R\\}/.test(x.text));
+      results.formulas={state:malformed.length?'warn':'ok',detail:formulaFields.length+' champ(s) formula analysé(s) · '+malformed.length+' anomalie(s) canonique(s) connue(s).'};
+
+      const md=doc.metadata&&typeof doc.metadata==='object'?doc.metadata:{};
+      const geogebra=md.geogebra||md.graphs||null;
+      const graphText=JSON.stringify(doc.content_json||{})+' '+JSON.stringify(md);
+      const graphCount=(graphText.match(/geogebra|graph-/gi)||[]).length;
+      results.graphs={state:graphCount?'ok':'warn',detail:graphCount?'Références graphiques détectées dans les données/metadata.':'Aucune référence GeoGebra/graphique détectée.'};
+
+      const pd=doc.pdf_diagnostic||null;
+      const pr=md.pdf_render||null;
+      results.metadata={state:(pd||pr)?'ok':'warn',detail:(pd||pr)?'Diagnostic PDF persistant présent.':'Aucun diagnostic PDF persistant trouvé.'};
+      results.pdf={state:(doc.pdf_path||doc.pdf_url)?'ok':'warn',detail:(doc.pdf_path||doc.pdf_url)?'Référence PDF présente — aucune régénération effectuée.':'Aucune référence PDF enregistrée.'};
+
+      const summary={
+        id:doc.id,title:doc.title,status:doc.status,source_format:doc.source_format,
+        words:doc.content_json?JSON.stringify(doc.content_json).length:null,
+        formulas:formulaFields.length,
+        delimiter_counts:math,
+        control_hits:controlHits,
+        suspicious_commands:math.suspicious,
+        pdf:{path:doc.pdf_path||null,url:doc.pdf_url||null,diagnostic:pd,metadata_pdf_render:pr},
+        updated_at:doc.updated_at||null
+      };
+      report.textContent=JSON.stringify(summary,null,2);
+
+      if(doc.pdf_url){
+        openBtn.disabled=false;
+        openBtn.onclick=()=>window.open(doc.pdf_url,'_blank','noopener');
+      }
+      if(doc.pdf_path){
+        const link=document.createElement('span');
+        link.textContent='PDF Storage : '+doc.pdf_path;
+        document.getElementById('aurorePdfLabLinks').appendChild(link);
+      }
+
+      renderStages(results);
+      const states=Object.values(results).map(x=>x.state);
+      if(states.includes('fail'))setStatus('fail','🔴 Anomalies critiques');
+      else if(states.includes('warn'))setStatus('warn','🟡 Anomalies à examiner');
+      else setStatus('ok','🟢 Source propre');
+    }catch(e){
+      renderStages({source:{state:'fail',detail:String(e.message||e)}});
+      report.textContent=String(e.stack||e.message||e);
+      setStatus('fail','🔴 Échec du laboratoire');
+    }
+  }
+
+  document.getElementById('aurorePdfLabRun').addEventListener('click',run);
+  renderStages({});
+})();
