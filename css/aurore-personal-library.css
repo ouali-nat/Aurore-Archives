@@ -164,3 +164,23 @@
     grid-template-columns:1fr 1fr!important;
   }
 }
+
+/* ========================================================================
+   FIX — le titre de l'Espace personnel disparaît au dézoom du site
+   (même bug que la bibliothèque publique, voir aurore-pdf-grids.css) :
+   -webkit-line-clamp combiné à la propriété CSS "zoom" (utilisée par le
+   contrôle de zoom du site) peut arrondir la hauteur du bloc "-webkit-box"
+   à 0 à des valeurs de zoom fractionnaires et effacer tout le texte.
+   Correctif : même principe que pour .doc-row générique — on abandonne
+   -webkit-line-clamp et on repasse à un affichage simple qui ne peut
+   jamais disparaître, quel que soit le niveau de zoom. */
+#personalSpace .doc-row.aurore-personal-document-row .titre{
+  display:block!important;
+  -webkit-box-orient:unset!important;
+  -webkit-line-clamp:unset!important;
+  overflow:visible!important;
+  max-height:none!important;
+  min-height:0!important;
+  white-space:normal!important;
+  word-break:break-word!important;
+}
