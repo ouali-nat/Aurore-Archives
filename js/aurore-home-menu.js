@@ -3,7 +3,6 @@
   const btn=document.getElementById('auroreHomeMenuBtn');
   const menu=document.getElementById('auroreHomeMenu');
   const historyBtn=document.getElementById('auroreHomeHistory');
-  const resizeBtn=document.getElementById('auroreHomeResize');
   if(!btn||!menu)return;
 
   function estDansAurora(){
@@ -61,37 +60,6 @@
     e.preventDefault();e.stopPropagation();
     fermer();
     executerDansAurora(()=>document.getElementById('auroreIAMenuBtn')?.click());
-  });
-  resizeBtn?.addEventListener('click',e=>{
-    e.preventDefault();
-    e.stopPropagation();
-    fermer();
-
-    // Réduction directe : le menu 3 traits est déjà dans Aurora plein écran.
-    // Ne repasse pas par openIA() (qui peut modifier l'état de la fenêtre).
-    const cible=document.getElementById('screen-aurore-ia');
-    if(cible?.classList.contains('active')&&!cible.classList.contains('is-mini')){
-      if(typeof window.auroreReduireIA==='function'){
-        window.auroreReduireIA();
-      }else{
-        document.getElementById('auroreIAMinimize')?.click();
-      }
-      return;
-    }
-
-    // Fallback si le menu a été déclenché pendant une transition de navigation.
-    ouvrirAurora();
-    let essais=0;
-    const verifier=()=>{
-      const s=document.getElementById('screen-aurore-ia');
-      if(s?.classList.contains('active')&&!s.classList.contains('is-mini')){
-        if(typeof window.auroreReduireIA==='function')window.auroreReduireIA();
-        else document.getElementById('auroreIAMinimize')?.click();
-        return;
-      }
-      if(++essais<30)requestAnimationFrame(verifier);
-    };
-    requestAnimationFrame(verifier);
   });
   document.addEventListener('click',e=>{
     if(menu.classList.contains('is-open')&&!menu.contains(e.target)&&!btn.contains(e.target))fermer();
