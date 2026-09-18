@@ -1261,7 +1261,7 @@
 <div aria-labelledby="pdfViewerTitre" aria-modal="true" id="pdfViewerOverlay" role="dialog" style="display:none; position:fixed; inset:0; z-index:9998; background:rgba(9,8,18,0.96);">
 <div class="pdf-reader-shell">
 <div class="pdf-reader-topbar">
-<button aria-label="Retour à l'écran précédent" class="pdf-reader-back" id="pdfViewerFermer" type="button"><span aria-hidden="true">←</span> Retour</button>
+<button aria-label="Retour à l'écran précédent" class="pdf-reader-back" id="pdfViewerFermer" type="button"><span aria-hidden="true">Retour</span> Retour</button>
 <strong class="pdf-reader-title" id="pdfViewerTitre"></strong>
 <span class="pdf-reader-badge" id="pdfViewerLectureSeuleBadge" style="display:none;">Lecture seule</span>
 </div>
@@ -1270,12 +1270,12 @@
 <button aria-label="Réduire le zoom" id="pdfViewerZoomOut" type="button">−</button>
 <span aria-live="polite" id="pdfViewerZoomLevel">100%</span>
 <button aria-label="Agrandir le zoom" id="pdfViewerZoomIn" type="button">+</button>
-<button aria-label="Ajuster à la largeur de l'écran" id="pdfViewerAjuster" title="Ajuster à la largeur" type="button">↔</button>
-<button aria-label="Passer en lecture horizontale" aria-pressed="false" id="pdfViewerModeLecture" title="Lecture verticale" type="button">↕ Verticale</button>
+<button aria-label="Ajuster à la largeur de l'écran" id="pdfViewerAjuster" title="Ajuster à la largeur" type="button">Largeur</button>
+<button aria-label="Passer en lecture horizontale" aria-pressed="false" id="pdfViewerModeLecture" title="Lecture verticale" type="button">Verticale</button>
 </div>
 <div class="pdf-toolbar-group">
-<button aria-label="Télécharger le document" id="pdfViewerTelecharger" type="button">⬇ Télécharger</button>
-<button aria-label="Signaler ce document" id="pdfViewerSignaler" type="button">⚑ Signaler</button>
+<button aria-label="Télécharger le document" id="pdfViewerTelecharger" type="button">Télécharger</button>
+<button aria-label="Signaler ce document" id="pdfViewerSignaler" type="button">Signaler</button>
 </div>
 </div>
 <div class="pdf-recent-access" id="pdfRecentAccess">
@@ -1308,7 +1308,7 @@
            octets réellement reçus, signature %PDF) pour localiser précisément
            où la chaîne Auraster → URL en base → Worker/R2 → octets → PDF.js casse. -->
 <div id="pdfViewerDiagBox" style="display:none; margin-top:14px; padding:10px 12px; background:rgba(0,0,0,0.4); border:1px dashed #f59e0b; border-radius:10px; font-family:monospace; font-size:0.76rem; line-height:1.65; color:#f2f2f2; max-width:100%; width:min(560px, 92vw); overflow-x:auto; text-align:left;">
-<strong style="color:#f59e0b;">🔧 Diagnostic lecteur PDF (admin uniquement, temporaire)</strong>
+<strong style="color:#f59e0b;">Diagnostic lecteur PDF (admin uniquement, temporaire)</strong>
 <div id="pdfViewerDiagLog" style="margin-top:6px; white-space:pre-wrap; word-break:break-all;"></div>
 </div>
 <canvas aria-hidden="true" id="pdfViewerCanvas"></canvas>
@@ -1320,18 +1320,18 @@
 </div>
 </div>
 <div class="pdf-reader-bottombar">
-<button aria-label="Page précédente" id="pdfViewerPrec" type="button">← Précédent</button>
+<button aria-label="Page précédente" id="pdfViewerPrec" type="button">Précédent</button>
 <div class="pdf-page-jump-wrap">
 <button aria-expanded="false" aria-haspopup="true" aria-label="Aller à une page précise" id="pdfViewerPageJumpToggle" type="button">
 <span aria-live="polite" id="pdfViewerPage">— / —</span>
-<span aria-hidden="true" class="pdf-page-jump-icon">🔎</span>
+
 </button>
 <div aria-hidden="true" class="pdf-page-jump-panel" id="pdfViewerPageJumpPanel">
 <input aria-label="Numéro de page" id="pdfViewerPageJumpInput" inputmode="numeric" min="1" placeholder="N° de page" type="number"/>
 <button id="pdfViewerPageJumpGo" type="button">Aller</button>
 </div>
 </div>
-<button aria-label="Page suivante" id="pdfViewerSuiv" type="button">Suivant →</button>
+<button aria-label="Page suivante" id="pdfViewerSuiv" type="button">Suivant</button>
 </div>
 </div>
 <!-- Sphère de progression compacte : prend le relais de la barre pleine
