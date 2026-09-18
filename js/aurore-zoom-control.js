@@ -93,8 +93,72 @@
       if(panel.contains(e.target) || fab.contains(e.target)) return;
       fermerPanneau();
     });
-    document.getElementById('aurore-zoom-out').addEventListener('click',function(){appliquerZoomSite(zoomActuel-PAS);});
-    document.getElementById('aurore-zoom-in').addEventListener('click',function(){appliquerZoomSite(zoomActuel+PAS);});
+    const zoomOutBtn=document.getElementById('aurore-zoom-out');
+    const zoomInBtn=document.getElementById('aurore-zoom-in');
+
+    // Un appui simple change le zoom d'un seul pas. Un appui prolongé
+    // répète automatiquement les pas jusqu'au relâchement du bouton.
+    function activerZoomProgressif(btn, direction){
+      let timerDemarrage=null;
+      let timerRepetition=null;
+      let repetitionActive=false;
+      let ignorerProchainClic=false;
+
+      function arreter(){
+        if(timerDemarrage){ clearTimeout(timerDemarrage); timerDemarrage=null; }
+        if(timerRepetition){ clearInterval(timerRepetition); timerRepetition=null; }
+        if(repetitionActive) ignorerProchainClic=true;
+        repetitionActive=false;
+        btn.classList.remove('is-pressing');
+      }
+
+      function commencer(){
+        if(timerDemarrage || timerRepetition) return;
+        btn.classList.add('is-pressing');
+        timerDemarrage=setTimeout(function(){
+          timerDemarrage=null;
+          repetitionActive=true;
+          appliquerZoomSite(zoomActuel + direction*PAS);
+          timerRepetition=setInterval(function(){
+            const prochain=zoomActuel + direction*PAS;
+            if(prochain<=MIN || prochain>=MAX){
+              appliquerZoomSite(prochain);
+              arreter();
+              return;
+            }
+            appliquerZoomSite(prochain);
+          },45);
+        },420);
+      }
+
+      btn.addEventListener('click',function(e){
+        if(ignorerProchainClic){
+          ignorerProchainClic=false;
+          e.preventDefault();
+          return;
+        }
+        appliquerZoomSite(zoomActuel + direction*PAS);
+      });
+
+      btn.addEventListener('pointerdown',function(e){
+        if(e.pointerType==='mouse' && e.button!==0) return;
+        e.preventDefault();
+        try{ btn.setPointerCapture(e.pointerId); }catch(_){}
+        commencer();
+      });
+      btn.addEventListener('pointerup',arreter);
+      btn.addEventListener('pointercancel',arreter);
+      btn.addEventListener('lostpointercapture',arreter);
+      btn.addEventListener('pointerleave',function(e){
+        if(e.pointerType==='mouse') arreter();
+      });
+      btn.addEventListener('keydown',function(e){
+        if(e.key===' ' || e.key==='Enter') e.preventDefault();
+      });
+    }
+
+    activerZoomProgressif(zoomOutBtn,-1);
+    activerZoomProgressif(zoomInBtn,1);
     document.getElementById('aurore-zoom-reset').addEventListener('click',function(){appliquerZoomSite(DEFAUT);});
     document.getElementById('aurore-zoom-range').addEventListener('input',function(e){appliquerZoomSite(parseInt(e.target.value,10)||DEFAUT);});
     document.addEventListener('keydown',function(e){ if(e.key==='Escape') fermerPanneau(); });
