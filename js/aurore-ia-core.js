@@ -343,6 +343,10 @@
     if(screen.classList.contains('is-mini'))desactiverModeMini();else activerModeMini();
   });
 
+  // API interne exposée au menu principal : permet au menu de l'accueil
+  // d'utiliser exactement le même circuit de réduction que le bouton Aurora.
+  window.auroreReduireIA=activerModeMini;
+
   // Glisser le bandeau du haut déplace la fenêtre réduite (souris et
   // tactile) — depuis n'importe quel point du bandeau, y compris par-dessus
   // un bouton (historique, nouvelle conversation, retour…). On distingue un
