@@ -275,6 +275,7 @@
   // ---------- Mode réduit : Aurora en fenêtre flottante, déplaçable et
   // redimensionnable, pendant que le reste du site reste consultable. ----------
   const MINI_GEOM_KEY='aurore_ia_mini_geometry_v1';
+  const MINI_PERSIST_CLASS='aurore-mini-persist';
   const minimizeBtn=document.getElementById('auroreIAMinimize');
   const resizeHandle=document.getElementById('auroreIAResizeHandle');
   // Icônes en forme de carré (plus lisibles que des flèches fines) : le
@@ -320,6 +321,8 @@
     closePlusMenu();
     if(historyPanel?.classList.contains('is-open'))fermerHistorique();
     screen.classList.add('is-mini','active');
+    document.documentElement.classList.add(MINI_PERSIST_CLASS);
+    document.body?.classList.add(MINI_PERSIST_CLASS);
     appliquerGeometrieMini(clamperGeometrieMini(lireGeometrieMini()));
     setRouteActive(false);
     if(minimizeBtn){minimizeBtn.innerHTML=ICON_AGRANDIR;minimizeBtn.setAttribute('aria-label','Agrandir Aurora');minimizeBtn.title='Agrandir Aurora';}
@@ -327,6 +330,8 @@
   function desactiverModeMini(options={}){
     if(!screen.classList.contains('is-mini'))return;
     screen.classList.remove('is-mini');
+    document.documentElement.classList.remove(MINI_PERSIST_CLASS);
+    document.body?.classList.remove(MINI_PERSIST_CLASS);
     screen.style.left='';screen.style.top='';screen.style.width='';screen.style.height='';
     if(minimizeBtn){minimizeBtn.innerHTML=ICON_REDUIRE;minimizeBtn.setAttribute('aria-label','Réduire Aurora en fenêtre flottante');minimizeBtn.title='Réduire Aurora';}
     if(options.fermerCompletement){
@@ -346,6 +351,26 @@
   // API interne exposée au menu principal : permet au menu de l'accueil
   // d'utiliser exactement le même circuit de réduction que le bouton Aurora.
   window.auroreReduireIA=activerModeMini;
+
+  // Le mode réduit est persistant pendant toute la navigation du site.
+  // Certains écrans appellent afficherEcran() et retirent la classe active de
+  // toutes les vues : tant que le mode mini est réellement actif, on remet
+  // Aurora en active immédiatement pour qu'elle reste au-dessus de la page.
+  (function garderMiniVisiblePendantLaNavigation(){
+    const maintenir=()=>{
+      if(!screen.classList.contains('is-mini'))return;
+      document.documentElement.classList.add(MINI_PERSIST_CLASS);
+      document.body?.classList.add(MINI_PERSIST_CLASS);
+      if(!screen.classList.contains('active'))screen.classList.add('active');
+      setRouteActive(false);
+    };
+    const observer=new MutationObserver(maintenir);
+    observer.observe(screen,{attributes:true,attributeFilter:['class','style']});
+    if(document.body)observer.observe(document.body,{attributes:true,attributeFilter:['class']});
+    document.addEventListener('click',()=>requestAnimationFrame(maintenir),true);
+    window.addEventListener('popstate',()=>requestAnimationFrame(maintenir));
+    maintenir();
+  })();
 
   // Glisser le bandeau du haut déplace la fenêtre réduite (souris et
   // tactile) — depuis n'importe quel point du bandeau, y compris par-dessus
