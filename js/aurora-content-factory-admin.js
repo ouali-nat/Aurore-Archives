@@ -213,7 +213,7 @@ async function renderPdf(id){
     const graphCount=await auroraConstruireEtImporterGraphiquesGeoGebra(id,b,accessToken);
     if(b)b.textContent=graphCount?`Génération PDF avec ${graphCount} graphique${graphCount>1?'s':''} GeoGebra…`:'Génération PDF…';
 
-    const r=await fetch(`${SUPABASE_URL}/functions/v1/aurora-content-renderer-ggb`,{
+    const r=await fetch(`${SUPABASE_URL}/functions/v1/aurora-content-pdf-page-orchestrator`,{
       method:'POST',
       headers:{
         "apikey":SUPABASE_ANON_KEY,
