@@ -1953,3 +1953,12 @@ html[data-theme="light"][data-color-theme] .aurore-home-menu{
   .aurore-home-menu{width:min(310px,calc(100vw - 20px))!important;left:10px!important;}
   .aurore-home-menu-item{min-height:58px!important;}
 }
+
+/* ==========================================================
+   AURORE — MENU 3 TRAITS : ACCUEIL UNIQUEMENT
+   Le bouton est masqué de façon prioritaire dans l'interface Aurora.
+   ========================================================== */
+.aurore-home-menu-btn.is-aurora-hidden,
+.aurore-home-menu.is-aurora-hidden{
+  display:none!important;
+}
