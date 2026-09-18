@@ -45,6 +45,12 @@
     setTimeout(function(){ rappel.classList.add("is-hidden"); setTimeout(function(){ rappel.remove(); },400); },7000);
   }
 
+  function synchroniserPositionAurora(){
+    const e=document.getElementById('screen-aurore-ia');
+    const dansAurora=!!(e&&(e.classList.contains('active')||e.classList.contains('is-mini')));
+    document.documentElement.classList.toggle('aurore-dans-ia',dansAurora);
+  }
+
   function construireControleZoom(){
     if(document.getElementById('aurore-zoom-fab')) return;
 
@@ -92,6 +98,18 @@
     document.getElementById('aurore-zoom-reset').addEventListener('click',function(){appliquerZoomSite(DEFAUT);});
     document.getElementById('aurore-zoom-range').addEventListener('input',function(e){appliquerZoomSite(parseInt(e.target.value,10)||DEFAUT);});
     document.addEventListener('keydown',function(e){ if(e.key==='Escape') fermerPanneau(); });
+    let dernierEtat=null;
+    (function surveillerAurora(){
+      const e=document.getElementById('screen-aurore-ia');
+      const etat=!!(e&&(e.classList.contains('active')||e.classList.contains('is-mini')));
+      if(etat!==dernierEtat){
+        dernierEtat=etat;
+        synchroniserPositionAurora();
+        if(!etat) fermerPanneau();
+      }
+      requestAnimationFrame(surveillerAurora);
+    })();
+    synchroniserPositionAurora();
   }
 
   if(document.readyState==='loading'){
