@@ -13,11 +13,11 @@
   function synchroniserVisibilite(){
     const dansAurora=estDansAurora();
     if(dansAurora) fermer();
-    btn.hidden=dansAurora;
-    btn.classList.toggle('is-aurora-hidden',dansAurora);
-    menu.classList.toggle('is-aurora-hidden',dansAurora);
-    btn.setAttribute('aria-hidden',dansAurora?'true':'false');
-    if(dansAurora){
+    btn.hidden=!dansAurora;
+    btn.classList.toggle('is-aurora-hidden',!dansAurora);
+    menu.classList.toggle('is-aurora-hidden',!dansAurora);
+    btn.setAttribute('aria-hidden',dansAurora?'false':'true');
+    if(!dansAurora){
       menu.hidden=true;
       menu.setAttribute('aria-hidden','true');
     }else{
