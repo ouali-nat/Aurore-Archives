@@ -149,3 +149,26 @@
   .aurore-zoom-panel{right:68px;bottom:66px;}
   .aurore-zoom-hint{right:120px;}
 }
+
+/* Aurora occupe son interface sans le bouton flottant : le zoom peut donc
+   reprendre le bord droit, plus discret et moins gênant pour la lecture. */
+#screen-aurore-ia.active ~ .aurore-zoom-fab,
+#screen-aurore-ia.is-mini ~ .aurore-zoom-fab{
+  right:16px;
+}
+#screen-aurore-ia.active ~ .aurore-zoom-panel,
+#screen-aurore-ia.is-mini ~ .aurore-zoom-panel{
+  right:16px;
+}
+#screen-aurore-ia.active ~ .aurore-zoom-hint,
+#screen-aurore-ia.is-mini ~ .aurore-zoom-hint{
+  right:72px;
+}
+@media(max-width:600px){
+  #screen-aurore-ia.active ~ .aurore-zoom-fab,
+  #screen-aurore-ia.is-mini ~ .aurore-zoom-fab{right:12px;}
+  #screen-aurore-ia.active ~ .aurore-zoom-panel,
+  #screen-aurore-ia.is-mini ~ .aurore-zoom-panel{right:12px;}
+  #screen-aurore-ia.active ~ .aurore-zoom-hint,
+  #screen-aurore-ia.is-mini ~ .aurore-zoom-hint{right:66px;}
+}
