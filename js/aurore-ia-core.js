@@ -765,6 +765,23 @@
     if(n<1024*1024)return Math.max(1,Math.round(n/1024))+' Ko';
     return (n/(1024*1024)).toFixed(1)+' Mo';
   }
+  function ouvrirVisionneusePieceJointeAurora(src,name){
+    if(!src)return;
+    let viewer=document.getElementById('auroreIAAttachmentViewer');
+    if(!viewer){
+      viewer=document.createElement('div');
+      viewer.id='auroreIAAttachmentViewer';
+      viewer.className='aurore-ia-attachment-viewer';
+      viewer.innerHTML='<div class="aurore-ia-attachment-viewer-card"><button type="button" class="aurore-ia-attachment-viewer-close" aria-label="Fermer">×</button><div class="aurore-ia-attachment-viewer-title"></div><div class="aurore-ia-attachment-viewer-body"><img alt=""></div></div>';
+      document.body.appendChild(viewer);
+      viewer.querySelector('.aurore-ia-attachment-viewer-close').addEventListener('click',()=>{viewer.style.display='none';});
+      viewer.addEventListener('click',e=>{if(e.target===viewer)viewer.style.display='none';});
+    }
+    viewer.querySelector('.aurore-ia-attachment-viewer-title').textContent=name||'Aperçu';
+    const img=viewer.querySelector('img');img.src=src;img.alt=name||'Aperçu';
+    viewer.style.display='flex';
+  }
+
   function renderAttachments(){
     if(!attachmentsEl)return;
     attachmentsEl.innerHTML=fichiersIA.map((f,i)=>`<div class="aurore-ia-attachment-card">
