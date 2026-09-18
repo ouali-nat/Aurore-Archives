@@ -1128,7 +1128,7 @@ async function telechargerDocumentAvecProgression(doc) {
     };
   }
 
-  async function appliquerZoom(delta, valeurAbsolue=false) {
+  async function appliquerZoom(delta, valeurAbsolue=false, ancrage=null) {
     const cible=valeurAbsolue ? delta : (PDF_ZOOM + delta);
     const prochain=Math.max(PDF_ZOOM_MIN,Math.min(PDF_ZOOM_MAX,+Number(cible).toFixed(2)));
     if(prochain===PDF_ZOOM) return;
@@ -1146,22 +1146,23 @@ async function telechargerDocumentAvecProgression(doc) {
     // les doigts sur Android : la zone de défilement connaît réellement la
     // nouvelle taille du document. On conserve en plus la position relative
     // de lecture pour que la page courante reste sous les yeux.
-    const ancienScrollTop=zone.scrollTop;
-    const ancienScrollLeft=zone.scrollLeft;
-    const ancienHauteur=Math.max(1,zone.scrollHeight-zone.clientHeight);
-    const ancienLargeur=Math.max(1,zone.scrollWidth-zone.clientWidth);
+    // Le point d'ancrage reste fixe à l'écran : le zoom se fait directement
+    // autour de la zone regardée, sans déplacement parasite.
+    const pointX=ancrage && Number.isFinite(ancrage.x) ? Math.max(0,Math.min(zone.clientWidth,ancrage.x)) : zone.clientWidth/2;
+    const pointY=ancrage && Number.isFinite(ancrage.y) ? Math.max(0,Math.min(zone.clientHeight,ancrage.y)) : Math.min(zone.clientHeight*0.38,Math.max(40,zone.clientHeight/2));
+    const ancienX=zone.scrollLeft+pointX;
+    const ancienY=zone.scrollTop+pointY;
+    const ratio=prochain/Math.max(0.01,ancien);
 
     pages.style.transform='none';
-    pages.style.transformOrigin='initial';
+    pages.style.transformOrigin='top left';
     pages.style.width='100%';
     pages.style.zoom=String(PDF_ZOOM);
     pages.style.marginBottom='0';
 
     requestAnimationFrame(async()=>{
-      const nouvelleHauteur=Math.max(0,zone.scrollHeight-zone.clientHeight);
-      const nouvelleLargeur=Math.max(0,zone.scrollWidth-zone.clientWidth);
-      zone.scrollTop=Math.max(0,Math.min(nouvelleHauteur, ancienHauteur ? ancienScrollTop/ancienHauteur*nouvelleHauteur : 0));
-      zone.scrollLeft=Math.max(0,Math.min(nouvelleLargeur, ancienLargeur ? ancienScrollLeft/ancienLargeur*nouvelleLargeur : 0));
+      zone.scrollLeft=Math.max(0,ancienX*ratio-pointX);
+      zone.scrollTop=Math.max(0,ancienY*ratio-pointY);
 
       // Les pages visibles sont rerendues à la résolution correspondant au
       // nouveau zoom, sans attendre tout le document.
@@ -1187,6 +1188,7 @@ async function telechargerDocumentAvecProgression(doc) {
   // rendu PDF lourd n'est effectué qu'à la fin du geste, ce qui évite les
   // à-coups visibles tout en gardant une progression naturelle 100, 101, 102…
   let pdfPinchActif=false, pdfPinchDistanceInitiale=0, pdfPinchZoomInitial=1;
+  let pdfPinchLastX=0, pdfPinchLastY=0;
   let pdfPinchZoomAffiche=1, pdfPinchRaf=0;
   const pdfZoneGeste=document.getElementById('pdfViewerZone');
   if(pdfZoneGeste){
@@ -1196,6 +1198,8 @@ async function telechargerDocumentAvecProgression(doc) {
       const dy=e.touches[0].clientY-e.touches[1].clientY;
       const distance=Math.hypot(dx,dy);
       if(distance<10) return;
+      pdfPinchLastX=((e.touches[0].clientX+e.touches[1].clientX)/2)-pdfZoneGeste.getBoundingClientRect().left;
+      pdfPinchLastY=((e.touches[0].clientY+e.touches[1].clientY)/2)-pdfZoneGeste.getBoundingClientRect().top;
       pdfPinchActif=true;
       pdfPinchDistanceInitiale=distance;
       pdfPinchZoomInitial=PDF_ZOOM;
@@ -1232,7 +1236,7 @@ async function telechargerDocumentAvecProgression(doc) {
       const cible=Math.max(PDF_ZOOM_MIN,Math.min(PDF_ZOOM_MAX,pdfPinchZoomAffiche));
       // Le rendu définitif est fait une seule fois, après le geste, pour éviter
       // les saccades liées au rerendu des pages à chaque mouvement du doigt.
-      appliquerZoom(cible,true);
+      appliquerZoom(cible,true,{x:pdfPinchLastX,y:pdfPinchLastY});
     };
     pdfZoneGeste.addEventListener('touchend',terminerPinch,{passive:true});
     pdfZoneGeste.addEventListener('touchcancel',terminerPinch,{passive:true});
