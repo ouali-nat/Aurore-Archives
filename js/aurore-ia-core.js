@@ -767,13 +767,23 @@
   }
   function renderAttachments(){
     if(!attachmentsEl)return;
-    attachmentsEl.innerHTML=fichiersIA.map((f,i)=>`<div class="aurore-ia-attachment-chip">
-      <span class="icon">${f.kind==='pdf'?'📄':'🖼️'}</span>
-      <span class="name"><span>${esc(f.name)}</span><span class="aurore-ia-attachment-status">${esc(f.status||'Prêt pour analyse')}</span></span>
-      <button type="button" data-remove-attachment="${i}" aria-label="Retirer ${esc(f.name)}">×</button>
+    attachmentsEl.innerHTML=fichiersIA.map((f,i)=>`<div class="aurore-ia-attachment-card">
+      <button type="button" class="aurore-ia-attachment-thumb" data-preview-attachment="${i}" aria-label="Prévisualiser ${esc(f.name)}">
+        ${f.dataUrl ? `<img src="${esc(f.dataUrl)}" alt="${esc(f.name)}">` : '<span class="aurore-ia-file-preview-icon">PDF</span>'}
+        <span class="aurore-ia-attachment-loader" aria-hidden="true"></span>
+      </button>
+      <div class="aurore-ia-attachment-info">
+        <strong>${esc(f.name)}</strong>
+        <span>${esc(f.status||'Prêt pour analyse')}</span>
+      </div>
+      <button type="button" class="aurore-ia-attachment-remove" data-remove-attachment="${i}" aria-label="Retirer ${esc(f.name)}">×</button>
     </div>`).join('');
     attachmentsEl.querySelectorAll('[data-remove-attachment]').forEach(btn=>btn.addEventListener('click',()=>{
       fichiersIA.splice(Number(btn.dataset.removeAttachment),1);renderAttachments();updateSendState();
+    }));
+    attachmentsEl.querySelectorAll('[data-preview-attachment]').forEach(btn=>btn.addEventListener('click',()=>{
+      const f=fichiersIA[Number(btn.dataset.previewAttachment)];
+      if(f?.dataUrl) ouvrirVisionneusePieceJointeAurora(f.dataUrl,f.name);
     }));
   }
   function totalAttachmentBytes(){
@@ -2021,8 +2031,8 @@
   function libelleMoteurAurora(data){
     if(!data)return null;
     const source=data.source,route=data.route;
-    if(source==='cloudflare_workers_ai'||route==='cloudflare_workers_ai')return '⚡ Aurora · Cloudflare Workers AI · Llama 3.1 8B';
-    if(source==='deepseek_compatibility'||route==='deepseek_multimodal_compatibility')return '👁 Aurora · Analyse visuelle';
+    if(source==='cloudflare_workers_ai'||route==='cloudflare_workers_ai')return 'Aurora · Cloudflare Workers AI · Llama 3.1 8B';
+    if(source==='deepseek_compatibility'||route==='deepseek_multimodal_compatibility')return 'Aurora · Analyse visuelle';
     return null;
   }
 
@@ -2111,7 +2121,7 @@
     closePlusMenu();
     const pieces=fichiersIA.map(f=>f.name).join(', ');
     const messagePourDiscussion=q || 'Analyse les fichiers joints.';
-    const messageAffiche=q ? (pieces ? q+'\n\n📎 '+pieces : q) : '📎 '+pieces;
+    const messageAffiche=q ? (pieces ? q+'\n\nFichiers joints :  '+pieces : q) : 'Fichiers joints :  '+pieces;
     const piecesAEnvoyer=fichiersIA.slice();
     const userRow=addMessage(messageAffiche,'user');
     const galeriePieces=ajouterGaleriePiecesJointesAurora(userRow,piecesAEnvoyer,'Prêt pour analyse');
