@@ -277,6 +277,7 @@
   const MINI_GEOM_KEY='aurore_ia_mini_geometry_v1';
   const MINI_PERSIST_CLASS='aurore-mini-persist';
   const minimizeBtn=document.getElementById('auroreIAMinimize');
+  const miniApp=screen.querySelector('.aurore-ia-app');
   const resizeHandle=document.getElementById('auroreIAResizeHandle');
   // Icônes en forme de carré (plus lisibles que des flèches fines) : le
   // premier montre un grand carré avec un petit carré plein dans son coin —
@@ -310,6 +311,14 @@
   function appliquerGeometrieMini(g){
     screen.style.left=g.x+'px';screen.style.top=g.y+'px';
     screen.style.width=g.w+'px';screen.style.height=g.h+'px';
+    /* Sécurité : le contenu doit avoir exactement la taille de la fenêtre,
+       jamais la taille de l'écran. */
+    if(miniApp){
+      miniApp.style.width=g.w+'px';
+      miniApp.style.height=g.h+'px';
+      miniApp.style.maxWidth=g.w+'px';
+      miniApp.style.maxHeight=g.h+'px';
+    }
   }
   function sauvegarderGeometrieActuelle(){
     const r=screen.getBoundingClientRect();
@@ -333,6 +342,7 @@
     document.documentElement.classList.remove(MINI_PERSIST_CLASS);
     document.body?.classList.remove(MINI_PERSIST_CLASS);
     screen.style.left='';screen.style.top='';screen.style.width='';screen.style.height='';
+    if(miniApp){miniApp.style.width='';miniApp.style.height='';miniApp.style.maxWidth='';miniApp.style.maxHeight='';}
     if(minimizeBtn){minimizeBtn.innerHTML=ICON_REDUIRE;minimizeBtn.setAttribute('aria-label','Réduire Aurora en fenêtre flottante');minimizeBtn.title='Réduire Aurora';}
     if(options.fermerCompletement){
       screen.classList.remove('active');
