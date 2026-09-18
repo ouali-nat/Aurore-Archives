@@ -1962,3 +1962,13 @@ html[data-theme="light"][data-color-theme] .aurore-home-menu{
 .aurore-home-menu.is-aurora-hidden{
   display:none!important;
 }
+
+/* Aurora ouvert : son bouton flottant d'accueil ne doit jamais apparaître dans l'interface. */
+.aurore-floating-ai.is-hidden-in-ia,
+#screen-aurore-ia.active ~ .aurore-floating-ai,
+#screen-aurore-ia.is-mini ~ .aurore-floating-ai{
+  display:none!important;
+  visibility:hidden!important;
+  opacity:0!important;
+  pointer-events:none!important;
+}
