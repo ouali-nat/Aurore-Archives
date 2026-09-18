@@ -172,3 +172,15 @@
   #screen-aurore-ia.active ~ .aurore-zoom-hint,
   #screen-aurore-ia.is-mini ~ .aurore-zoom-hint{right:66px;}
 }
+
+
+/* Aurora est ouvert : son logo flottant est absent, le zoom revient donc
+   tout au bord droit pour libérer l'espace de lecture. */
+html.aurore-dans-ia .aurore-zoom-fab{right:10px!important;}
+html.aurore-dans-ia .aurore-zoom-panel{right:10px!important;}
+html.aurore-dans-ia .aurore-zoom-hint{right:66px!important;}
+@media(max-width:600px){
+  html.aurore-dans-ia .aurore-zoom-fab{right:8px!important;}
+  html.aurore-dans-ia .aurore-zoom-panel{right:8px!important;}
+  html.aurore-dans-ia .aurore-zoom-hint{right:62px!important;}
+}
