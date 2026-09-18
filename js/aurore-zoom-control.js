@@ -102,19 +102,24 @@
       let timerDemarrage=null;
       let timerRepetition=null;
       let repetitionActive=false;
-      let ignorerProchainClic=false;
+      let pointerActif=false;
+      let pasCourtEffectue=false;
 
-      function arreter(){
+      function nettoyer(){
         if(timerDemarrage){ clearTimeout(timerDemarrage); timerDemarrage=null; }
         if(timerRepetition){ clearInterval(timerRepetition); timerRepetition=null; }
-        if(repetitionActive) ignorerProchainClic=true;
         repetitionActive=false;
+        pointerActif=false;
+        pasCourtEffectue=false;
         btn.classList.remove('is-pressing');
       }
 
       function commencer(){
         if(timerDemarrage || timerRepetition) return;
         btn.classList.add('is-pressing');
+
+        // Appui maintenu : on attend juste assez longtemps pour distinguer
+        // un clic d'un maintien, puis on enchaîne les pas automatiquement.
         timerDemarrage=setTimeout(function(){
           timerDemarrage=null;
           repetitionActive=true;
@@ -123,7 +128,7 @@
             const prochain=zoomActuel + direction*PAS;
             if(prochain<=MIN || prochain>=MAX){
               appliquerZoomSite(prochain);
-              arreter();
+              nettoyer();
               return;
             }
             appliquerZoomSite(prochain);
@@ -131,32 +136,68 @@
         },420);
       }
 
-      btn.addEventListener('click',function(e){
-        if(ignorerProchainClic){
-          ignorerProchainClic=false;
-          e.preventDefault();
-          return;
-        }
-        appliquerZoomSite(zoomActuel + direction*PAS);
-      });
-
       btn.addEventListener('pointerdown',function(e){
         if(e.pointerType==='mouse' && e.button!==0) return;
         e.preventDefault();
+        pointerActif=true;
+        pasCourtEffectue=false;
         try{ btn.setPointerCapture(e.pointerId); }catch(_){}
         commencer();
       });
-      btn.addEventListener('pointerup',arreter);
-      btn.addEventListener('pointercancel',arreter);
-      btn.addEventListener('lostpointercapture',arreter);
-      btn.addEventListener('pointerleave',function(e){
-        if(e.pointerType==='mouse') arreter();
+
+      btn.addEventListener('pointerup',function(e){
+        if(!pointerActif) return;
+        e.preventDefault();
+
+        // Si le bouton est relâché avant le seuil, c'est un appui court :
+        // un seul pas de 1 %. Aucun clic navigateur supplémentaire ne sera
+        // nécessaire.
+        if(!repetitionActive){
+          if(timerDemarrage){ clearTimeout(timerDemarrage); timerDemarrage=null; }
+          pasCourtEffectue=true;
+          appliquerZoomSite(zoomActuel + direction*PAS);
+        }
+
+        nettoyer();
       });
+
+      btn.addEventListener('pointercancel',function(e){
+        if(pointerActif) e.preventDefault();
+        nettoyer();
+      });
+
+      btn.addEventListener('lostpointercapture',function(){
+        // Sur certains navigateurs mobiles, la capture peut être perdue
+        // après pointerup. Le changement a déjà été effectué à ce stade.
+        if(timerDemarrage) clearTimeout(timerDemarrage);
+        if(timerRepetition) clearInterval(timerRepetition);
+        timerDemarrage=null;
+        timerRepetition=null;
+        repetitionActive=false;
+        pointerActif=false;
+        btn.classList.remove('is-pressing');
+      });
+
+      btn.addEventListener('pointerleave',function(e){
+        if(e.pointerType==='mouse' && pointerActif) nettoyer();
+      });
+
+      // Accessibilité clavier : chaque pression reste un seul pas.
       btn.addEventListener('keydown',function(e){
-        if(e.key===' ' || e.key==='Enter') e.preventDefault();
+        if(e.key===' ' || e.key==='Enter'){
+          e.preventDefault();
+          if(e.repeat) return;
+          appliquerZoomSite(zoomActuel + direction*PAS);
+        }
+      });
+
+      // Le clic natif est volontairement ignoré : le zoom est piloté par
+      // pointerdown/pointerup afin d'être fiable sur Android et ordinateur.
+      btn.addEventListener('click',function(e){
+        e.preventDefault();
+        e.stopPropagation();
       });
     }
-
     activerZoomProgressif(zoomOutBtn,-1);
     activerZoomProgressif(zoomInBtn,1);
     document.getElementById('aurore-zoom-reset').addEventListener('click',function(){appliquerZoomSite(DEFAUT);});
