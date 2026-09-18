@@ -79,7 +79,7 @@
 
     document.body.appendChild(fab);
     document.body.appendChild(panel);
-    afficherRappelZoom();
+    // Aucun panneau ni message de rappel ne doit s'ouvrir automatiquement.
 
     function ouvrirPanneau(){ panel.classList.add('is-open'); fab.setAttribute('aria-expanded','true'); }
     function fermerPanneau(){ panel.classList.remove('is-open'); fab.setAttribute('aria-expanded','false'); }
