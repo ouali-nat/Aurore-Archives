@@ -430,3 +430,56 @@
     bottom:58px!important;
   }
 }
+
+
+/* ---------- OUVERTURE PLEINE PAGE, INDÉPENDANTE DU ZOOM DU SITE ---------- */
+/* Le lecteur est un overlay viewport : son cadre ne doit jamais être réduit
+   par document.documentElement.style.zoom ni par un conteneur parent. */
+html body #pdfViewerOverlay{
+  position:fixed!important;
+  inset:0!important;
+  width:100vw!important;
+  height:100dvh!important;
+  min-width:100vw!important;
+  min-height:100dvh!important;
+  max-width:none!important;
+  max-height:none!important;
+  margin:0!important;
+  padding:0!important;
+  box-sizing:border-box!important;
+  transform:none!important;
+  border:0!important;
+  border-radius:0!important;
+  overflow:hidden!important;
+  z-index:999999!important;
+}
+
+html body #pdfViewerOverlay .pdf-reader-shell{
+  width:100%!important;
+  max-width:none!important;
+  height:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  margin:0!important;
+  border-radius:0!important;
+  border-left:0!important;
+  border-right:0!important;
+  box-sizing:border-box!important;
+}
+
+/* Le zoom global du site ne doit pas modifier la taille physique du lecteur. */
+html[style*="zoom"] body #pdfViewerOverlay,
+html[style*="zoom"] body #pdfViewerOverlay .pdf-reader-shell{
+  width:100vw!important;
+  max-width:none!important;
+  height:100dvh!important;
+  max-height:none!important;
+  margin:0!important;
+}
+
+/* Le contenu PDF conserve son propre zoom interne. */
+#pdfViewerOverlay .pdf-reader-zone-wrap,
+#pdfViewerOverlay .pdf-reader-zone{
+  min-width:0!important;
+  min-height:0!important;
+}
