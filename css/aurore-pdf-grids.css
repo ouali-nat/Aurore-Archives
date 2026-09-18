@@ -334,3 +334,147 @@
   object-fit:contain!important;
   background:#F0ECF5!important;
 }
+
+/* ========================================================================
+   AURORE — CARTES DOCUMENT EN 2 BLOCS INDÉPENDANTS
+   Demande : séparer chaque document en 2 blocs distincts — (1) la
+   couverture avec le bouton « 3 points » à son angle (haut droite, comme
+   avant), (2) juste en dessous, un bloc indépendant qui présente le titre,
+   la taille et le déposant, avec un traitement visuel plus soigné.
+   Appliqué partout : bibliothèque publique, Récemment publiés, espace
+   personnel (qui réutilise .doc-row) et les 2 listes d'administration.
+   Purement visuel : aucune structure DOM/JS n'est modifiée.
+   ======================================================================== */
+
+/* ---- Bibliothèque publique / Récents / Espace personnel (.doc-row) ---- */
+.doc-row{
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+  border-radius:0!important;
+}
+.doc-row:hover{
+  transform:none!important;
+  box-shadow:none!important;
+}
+.doc-row>.info{
+  gap:10px!important;
+}
+.doc-row .icon-wrap,
+.doc-row .icon-wrap.a-couverture{
+  border-radius:16px!important;
+  border:1px solid var(--bordure)!important;
+  box-shadow:0 2px 7px rgba(35,25,55,.08)!important;
+  transition:border-color .16s ease,box-shadow .16s ease;
+}
+.doc-row .icon-wrap img.doc-cover-img{
+  border-radius:15px!important;
+}
+.doc-row:hover .icon-wrap{
+  border-color:color-mix(in srgb,var(--violet) 35%,var(--bordure))!important;
+  box-shadow:0 7px 18px rgba(55,36,82,.13)!important;
+}
+.doc-row .doc-main-info{
+  padding:13px 14px 12px!important;
+  border:1px solid var(--bordure)!important;
+  border-radius:15px!important;
+  background:linear-gradient(180deg,var(--papier),color-mix(in srgb,var(--papier) 92%,var(--violet) 8%))!important;
+  box-shadow:0 2px 9px rgba(35,25,55,.09)!important;
+  transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease;
+}
+.doc-row:hover .doc-main-info{
+  border-color:color-mix(in srgb,var(--violet) 35%,var(--bordure))!important;
+  box-shadow:0 7px 18px rgba(55,36,82,.13)!important;
+  transform:translateY(-2px);
+}
+[data-theme="light"] .doc-row .doc-main-info{
+  background:linear-gradient(180deg,#fff,#FAF7FE)!important;
+}
+.doc-row.aurore-carte-menu-ouverte{overflow:visible!important;}
+
+@media(max-width:720px){
+  .doc-row>.info{gap:8px!important;}
+  .doc-row .doc-main-info{padding:10px 10px 9px!important;}
+}
+@media(max-width:390px){
+  .doc-row .doc-main-info{padding:9px 9px 8px!important;}
+}
+
+/* ---- Administration (attente + publiés) : même logique en 2 blocs ---- */
+#adminList .admin-card,#adminListPublies .admin-card{
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+  gap:10px!important;
+}
+#adminList .admin-card-icon,#adminListPublies .admin-card-icon{
+  border-radius:16px!important;
+  border:1px solid var(--bordure)!important;
+  box-shadow:0 2px 7px rgba(35,25,55,.08)!important;
+}
+#adminList .admin-card-icon img.doc-cover-img,
+#adminListPublies .admin-card-icon img.doc-cover-img{
+  border-radius:15px!important;
+}
+#adminList .admin-card-body,#adminListPublies .admin-card-body{
+  padding:14px 15px 15px!important;
+  border:1px solid var(--bordure)!important;
+  border-radius:15px!important;
+  background:linear-gradient(180deg,var(--papier),color-mix(in srgb,var(--papier) 92%,var(--violet) 8%))!important;
+  box-shadow:0 2px 9px rgba(35,25,55,.09)!important;
+}
+[data-theme="light"] #adminList .admin-card-body,
+[data-theme="light"] #adminListPublies .admin-card-body{
+  background:linear-gradient(180deg,#fff,#FAF7FE)!important;
+}
+
+/* Le bouton « 3 points » (admin-document-more) rejoint l'angle de la
+   couverture, exactement comme sur la bibliothèque publique — il reste dans
+   le bloc titre/taille/déposant en DOM (rien n'est déplacé), mais se pose
+   visuellement sur le bloc couverture grâce à .admin-card qui est déjà
+   positionné (position:relative, voir plus haut dans ce fichier) : comme la
+   couverture est le tout premier bloc en haut de la carte, un
+   positionnement absolu top/right calé sur .admin-card retombe exactement
+   sur son angle. */
+#adminList .admin-card .admin-document-more,
+#adminListPublies .admin-card .admin-document-more{
+  position:absolute!important;
+  top:8px!important;
+  right:8px!important;
+  left:auto!important;
+  z-index:20!important;
+  width:32px!important;
+  height:32px!important;
+  min-width:0!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:50%!important;
+  background:rgba(17,14,28,.52)!important;
+  color:#fff!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  box-shadow:0 2px 8px rgba(0,0,0,.28)!important;
+  backdrop-filter:blur(3px);
+  transition:background .15s ease,transform .15s ease;
+}
+#adminList .admin-card .admin-document-more svg,
+#adminListPublies .admin-card .admin-document-more svg{width:17px!important;height:17px!important;}
+#adminList .admin-card .admin-document-more:hover,
+#adminListPublies .admin-card .admin-document-more:hover{
+  background:rgba(17,14,28,.8)!important;
+  transform:translateY(-1px);
+}
+[data-theme="light"] #adminList .admin-card .admin-document-more,
+[data-theme="light"] #adminListPublies .admin-card .admin-document-more{
+  background:rgba(255,255,255,.78)!important;
+  color:#211D2E!important;
+}
+[data-theme="light"] #adminList .admin-card .admin-document-more:hover,
+[data-theme="light"] #adminListPublies .admin-card .admin-document-more:hover{
+  background:rgba(255,255,255,.94)!important;
+}
+
+@media(max-width:720px){
+  #adminList .admin-card-body,#adminListPublies .admin-card-body{padding:11px 12px 12px!important;}
+}
