@@ -1,1 +1,10 @@
-{"name":"aurore-pdf-gotenberg","private":true,"dependencies":{"@cloudflare/containers":"^0.1.0"},"devDependencies":{"wrangler":"^4.0.0"}}
+{
+  "name": "aurore-pdf-gotenberg",
+  "private": true,
+  "dependencies": {
+    "@cloudflare/containers": "^0.3.7"
+  },
+  "devDependencies": {
+    "wrangler": "^4.134.0"
+  }
+}
