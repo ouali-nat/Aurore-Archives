@@ -485,3 +485,125 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
   border-color:#DED5E8!important;
   color:#443B4E!important;
 }
+
+/* ==========================================================
+   AURORA — RÉPONSES EN MODE CLAIR : BLOC ÉDITORIAL ADAPTATIF
+   Le bloc de réponse ne doit plus rester sombre. Il reprend la couleur
+   active du site avec une surface claire, une hiérarchie nette et un
+   accent discret. Le mode sombre existant reste inchangé.
+   ========================================================== */
+[data-theme="light"] .aurore-ia-app{
+  --ia-bg:#F7F5FA;
+  --ia-text:#211A29;
+  --ia-muted:#756D80;
+  --ia-border:color-mix(in srgb,var(--theme-primary,#8B5CF6) 16%,#DED8E6);
+  background:
+    radial-gradient(760px 440px at 50% -10%,color-mix(in srgb,var(--theme-primary,#8B5CF6) 9%,transparent),transparent 68%),
+    #F7F5FA!important;
+}
+[data-theme="light"] .aurore-ia-chat{
+  background:
+    radial-gradient(700px 420px at 50% 0%,color-mix(in srgb,var(--theme-primary,#8B5CF6) 6%,transparent),transparent 70%),
+    #F7F5FA!important;
+}
+[data-theme="light"] .aurore-ia-conversation{
+  scrollbar-color:color-mix(in srgb,var(--theme-primary,#8B5CF6) 24%,#D9D3E0) transparent;
+}
+[data-theme="light"] .aurore-ia-conversation::-webkit-scrollbar-thumb{
+  background:color-mix(in srgb,var(--theme-primary,#8B5CF6) 22%,#D9D3E0);
+}
+
+/* La réponse Aurora : blanche, légèrement teintée par la palette active. */
+[data-theme="light"] .aurore-ia-message.assistant .aurore-ia-bubble{
+  position:relative;
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb,#fff 97%,var(--theme-primary,#8B5CF6) 3%),
+      color-mix(in srgb,#fff 99%,var(--theme-primary,#8B5CF6) 1%)
+    )!important;
+  color:#292230!important;
+  border:1px solid color-mix(in srgb,var(--theme-primary,#8B5CF6) 17%,#DDD7E4)!important;
+  border-left:3px solid var(--theme-primary,#8B5CF6)!important;
+  box-shadow:
+    0 12px 34px rgba(45,32,58,.075),
+    0 2px 7px color-mix(in srgb,var(--theme-primary,#8B5CF6) 5%,transparent)!important;
+}
+
+/* Petit halo d'accent : très léger, sans effet néon. */
+[data-theme="light"] .aurore-ia-message.assistant .aurore-ia-bubble::before{
+  content:"";
+  position:absolute;
+  left:-3px;
+  top:15px;
+  bottom:15px;
+  width:3px;
+  border-radius:0 4px 4px 0;
+  background:linear-gradient(180deg,var(--theme-primary,#8B5CF6),var(--theme-secondary,#C084FC));
+  opacity:.92;
+}
+
+/* Le texte généré reste parfaitement lisible dans le bloc clair. */
+[data-theme="light"] .aurore-ia-message.assistant .aurore-ia-markdown{
+  color:#292230!important;
+}
+[data-theme="light"] .aurore-ia-message.assistant .aurore-ia-markdown p,
+[data-theme="light"] .aurore-ia-message.assistant .aurore-ia-markdown li{
+  color:#292230!important;
+}
+[data-theme="light"] .aurore-ia-message.assistant .aurore-ia-markdown h1,
+[data-theme="light"] .aurore-ia-message.assistant .aurore-ia-markdown h2,
+[data-theme="light"] .aurore-ia-message.assistant .aurore-ia-markdown h3{
+  color:#211A29!important;
+}
+[data-theme="light"] .aurore-ia-message.assistant .aurore-ia-markdown strong{
+  color:#211A29!important;
+}
+[data-theme="light"] .aurore-ia-message.assistant .aurore-ia-markdown li::marker{
+  color:var(--theme-primary,#8B5CF6)!important;
+}
+[data-theme="light"] .aurore-ia-message.assistant .aurore-ia-markdown blockquote{
+  background:color-mix(in srgb,var(--theme-primary,#8B5CF6) 6%,#fff)!important;
+  border-left-color:var(--theme-primary,#8B5CF6)!important;
+  color:#51485C!important;
+}
+[data-theme="light"] .aurore-ia-message.assistant .aurore-ia-markdown code{
+  background:color-mix(in srgb,var(--theme-primary,#8B5CF6) 7%,#F2EFF5)!important;
+  color:#342A3C!important;
+  border:1px solid color-mix(in srgb,var(--theme-primary,#8B5CF6) 9%,#E5DFE9);
+}
+[data-theme="light"] .aurore-ia-message.assistant .aurore-ia-markdown pre{
+  background:#F1EEF4!important;
+  border-color:color-mix(in srgb,var(--theme-primary,#8B5CF6) 13%,#DDD7E4)!important;
+}
+[data-theme="light"] .aurore-ia-message.assistant .aurore-ia-markdown pre code{
+  color:#302839!important;
+}
+[data-theme="light"] .aurore-ia-message.assistant .aurore-ia-markdown a{
+  color:color-mix(in srgb,var(--theme-primary,#8B5CF6) 78%,#302839)!important;
+}
+[data-theme="light"] .aurore-ia-message.assistant .aurore-ia-table-wrap{
+  border-color:color-mix(in srgb,var(--theme-primary,#8B5CF6) 14%,#DDD7E4)!important;
+}
+[data-theme="light"] .aurore-ia-message.assistant .aurore-ia-markdown th{
+  background:color-mix(in srgb,var(--theme-primary,#8B5CF6) 7%,#F7F4FA)!important;
+  color:color-mix(in srgb,var(--theme-primary,#8B5CF6) 70%,#302839)!important;
+}
+[data-theme="light"] .aurore-ia-message.assistant .aurore-ia-markdown th,
+[data-theme="light"] .aurore-ia-message.assistant .aurore-ia-markdown td{
+  border-bottom-color:#E5DFE9!important;
+}
+
+/* Les cartes de source et graphiques suivent également la surface claire. */
+[data-theme="light"] .aurore-ia-message.assistant .aurore-ia-source-card{
+  background:color-mix(in srgb,var(--theme-primary,#8B5CF6) 4%,#fff)!important;
+  border-color:color-mix(in srgb,var(--theme-primary,#8B5CF6) 13%,#DDD7E4)!important;
+  color:#62596B!important;
+}
+[data-theme="light"] .aurore-ia-message.assistant .aurore-ia-source-card strong{
+  color:color-mix(in srgb,var(--theme-primary,#8B5CF6) 72%,#302839)!important;
+}
+
+/* Avatar Aurora cohérent avec l'accent actif. */
+[data-theme="light"] .aurore-ia-message.assistant .aurore-ia-msg-avatar{
+  box-shadow:0 7px 18px color-mix(in srgb,var(--theme-primary,#8B5CF6) 17%,transparent)!important;
+}
