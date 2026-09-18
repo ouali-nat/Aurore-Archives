@@ -325,3 +325,179 @@ html[data-theme="sombre"] .ad-slot[id^="ad-"] .pub-card{
     margin-top:8px!important;
   }
 }
+
+/* =====================================================================
+   PUBLICITÉS — REFONTE RADICALE / CARTES FLUIDES
+   Objectif : petits panneaux éditoriaux, lisibles en zoom et en mode clair.
+   Le média garde son ratio réel. Aucun voile sombre ni crop forcé.
+   ===================================================================== */
+.ad-slot[id^="ad-"]{
+  --pub-accent:var(--theme-primary,#7c3aed);
+  --pub-accent-2:var(--theme-secondary,#a855f7);
+  --pub-bg:var(--papier,#ffffff);
+  --pub-text:var(--encre,#211d2d);
+  --pub-muted:var(--gris,#6b6575);
+  width:min(100% - 24px,720px)!important;
+  max-width:720px!important;
+  margin:16px auto!important;
+  padding:0!important;
+  position:relative!important;
+  box-sizing:border-box!important;
+  isolation:isolate;
+}
+
+/* Ligne d'accent très légère : elle remplace l'ancienne grosse bordure. */
+.ad-slot[id^="ad-"]::before{
+  content:"";
+  position:absolute;
+  left:12px;
+  right:12px;
+  top:-2px;
+  height:2px;
+  border-radius:99px;
+  background:linear-gradient(90deg,var(--pub-accent),var(--pub-accent-2));
+  opacity:.72;
+  pointer-events:none;
+}
+
+/* La carte média épouse réellement l'image. */
+.ad-slot[id^="ad-"] .ad-card,
+.ad-slot[id^="ad-"] .publicite-card,
+.ad-slot[id^="ad-"] .pub-card,
+.ad-slot[id^="ad-"] .ad-media,
+.ad-slot[id^="ad-"] .ad-image-wrap,
+.ad-slot[id^="ad-"] > a:first-child{
+  display:block!important;
+  width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:0!important;
+  overflow:hidden!important;
+  border:1px solid color-mix(in srgb,var(--pub-accent) 22%,var(--bordure,#ddd6e8))!important;
+  border-radius:14px!important;
+  background:var(--pub-bg)!important;
+  box-shadow:0 5px 16px var(--theme-shadow,rgba(60,45,100,.08))!important;
+}
+
+/* Aucun recadrage : une affiche verticale reste verticale, une bannière reste large. */
+.ad-slot[id^="ad-"] img{
+  display:block!important;
+  width:100%!important;
+  height:auto!important;
+  max-width:100%!important;
+  max-height:none!important;
+  min-height:0!important;
+  object-fit:contain!important;
+  object-position:center!important;
+  aspect-ratio:auto!important;
+  border:0!important;
+  border-radius:13px!important;
+  background:var(--pub-bg)!important;
+  filter:none!important;
+}
+
+/* Petit bandeau d'information séparé, beaucoup plus léger. */
+.ad-slot[id^="ad-"] .ad-content,
+.ad-slot[id^="ad-"] .ad-info,
+.ad-slot[id^="ad-"] .ad-text,
+.ad-slot[id^="ad-"] .ad-caption,
+.ad-slot[id^="ad-"] .publicite-info,
+.ad-slot[id^="ad-"] .publicite-content,
+.ad-slot[id^="ad-"] .pub-content,
+.ad-slot[id^="ad-"] .pub-info{
+  position:relative!important;
+  width:100%!important;
+  margin:7px 0 0!important;
+  padding:10px 13px 10px 16px!important;
+  box-sizing:border-box!important;
+  border:1px solid color-mix(in srgb,var(--pub-accent) 16%,var(--bordure,#ddd6e8))!important;
+  border-radius:11px!important;
+  background:var(--pub-bg)!important;
+  color:var(--pub-text)!important;
+  box-shadow:none!important;
+}
+
+/* Repère couleur compact. */
+.ad-slot[id^="ad-"] .ad-content::before,
+.ad-slot[id^="ad-"] .ad-info::before,
+.ad-slot[id^="ad-"] .ad-text::before,
+.ad-slot[id^="ad-"] .publicite-info::before,
+.ad-slot[id^="ad-"] .publicite-content::before,
+.ad-slot[id^="ad-"] .pub-content::before,
+.ad-slot[id^="ad-"] .pub-info::before{
+  content:"";
+  position:absolute;
+  left:7px;
+  top:9px;
+  bottom:9px;
+  width:2px;
+  border-radius:4px;
+  background:linear-gradient(var(--pub-accent),var(--pub-accent-2));
+}
+
+.ad-slot[id^="ad-"] .ad-title,
+.ad-slot[id^="ad-"] .publicite-title,
+.ad-slot[id^="ad-"] .pub-title,
+.ad-slot[id^="ad-"] .ad-heading{
+  margin:0!important;
+  color:var(--pub-text)!important;
+  font-size:clamp(.84rem,1.5vw,.98rem)!important;
+  line-height:1.3!important;
+  font-weight:800!important;
+}
+
+.ad-slot[id^="ad-"] .ad-description,
+.ad-slot[id^="ad-"] .publicite-description,
+.ad-slot[id^="ad-"] .pub-description,
+.ad-slot[id^="ad-"] .ad-desc{
+  margin:3px 0 0!important;
+  color:var(--pub-muted)!important;
+  font-size:.78rem!important;
+  line-height:1.42!important;
+}
+
+/* Liens : aucune couche graphique ajoutée par-dessus l'image. */
+.ad-slot[id^="ad-"] a,
+.ad-slot[id^="ad-"] a::before,
+.ad-slot[id^="ad-"] a::after{
+  background:transparent!important;
+  box-shadow:none!important;
+  filter:none!important;
+}
+
+/* Zoom : la pub reste contenue dans son propre espace et ne déborde pas. */
+html[style*="zoom"] .ad-slot[id^="ad-"]{
+  overflow:visible!important;
+}
+
+@media(max-width:600px){
+  .ad-slot[id^="ad-"]{
+    width:calc(100% - 16px)!important;
+    margin:13px auto!important;
+  }
+  .ad-slot[id^="ad-"] .ad-content,
+  .ad-slot[id^="ad-"] .ad-info,
+  .ad-slot[id^="ad-"] .ad-text,
+  .ad-slot[id^="ad-"] .ad-caption,
+  .ad-slot[id^="ad-"] .publicite-info,
+  .ad-slot[id^="ad-"] .publicite-content,
+  .ad-slot[id^="ad-"] .pub-content,
+  .ad-slot[id^="ad-"] .pub-info{
+    margin-top:6px!important;
+    padding:9px 11px 9px 14px!important;
+  }
+}
+
+/* Mode sombre : surfaces lisibles et accent du thème, sans assombrissement artificiel. */
+html[data-theme="dark"] .ad-slot[id^="ad-"] .ad-card,
+html[data-theme="dark"] .ad-slot[id^="ad-"] .publicite-card,
+html[data-theme="dark"] .ad-slot[id^="ad-"] .pub-card,
+html[data-theme="dark"] .ad-slot[id^="ad-"] .ad-media,
+html[data-theme="dark"] .ad-slot[id^="ad-"] .ad-image-wrap,
+html[data-theme="dark"] .ad-slot[id^="ad-"] > a:first-child,
+html[data-theme="sombre"] .ad-slot[id^="ad-"] .ad-card,
+html[data-theme="sombre"] .ad-slot[id^="ad-"] .publicite-card,
+html[data-theme="sombre"] .ad-slot[id^="ad-"] .pub-card{
+  background:var(--papier,#171421)!important;
+}
