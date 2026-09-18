@@ -924,3 +924,23 @@ html[data-theme="light"] #screen-aurore-ia.aurore-ia-screen.is-mini .aurore-ia-m
   width:100%!important;
   height:100%!important;
 }
+
+/* Isolation stricte du mode réduit : le calque Aurora n'a aucune surface
+   cliquable. La seule surface existante est la fenêtre flottante. */
+#screen-aurore-ia.aurore-ia-screen.is-mini{
+  width:0!important;
+  height:0!important;
+  min-width:0!important;
+  min-height:0!important;
+  overflow:visible!important;
+  inset:auto!important;
+  left:0!important;
+  top:0!important;
+  right:auto!important;
+  bottom:auto!important;
+  pointer-events:none!important;
+}
+#screen-aurore-ia.aurore-ia-screen.is-mini > .aurore-ia-app{
+  position:fixed!important;
+  pointer-events:auto!important;
+}
