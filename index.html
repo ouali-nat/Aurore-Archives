@@ -1033,6 +1033,13 @@
 <button class="admin-btn ghost" id="pdfDiagRender" type="button">Tester le rendu réel</button>
 <button class="admin-btn ghost" id="pdfDiagToggleLog" type="button">Voir le journal technique</button>
 </div>
+<section class="aurore-pdf-lab" id="aurorePdfLab" aria-labelledby="aurorePdfLabTitle">
+<div class="aurore-pdf-lab-head"><div><span class="aurore-pdf-lab-kicker">LABORATOIRE ISOLÉ</span><h3 id="aurorePdfLabTitle">Laboratoire de rendu PDF</h3><p>Zone de test non destructive pour localiser précisément une corruption : source, LaTeX, MathJax, SVG, Chromium ou PDF final.</p></div><span class="aurore-pdf-lab-status" id="aurorePdfLabStatus">Prêt</span></div>
+<div class="aurore-pdf-lab-controls"><label><span>Document ID</span><input id="aurorePdfLabId" type="number" min="1" value="21" inputmode="numeric"/></label><button class="admin-btn primary" id="aurorePdfLabRun" type="button">Analyser le document</button><button class="admin-btn ghost" id="aurorePdfLabOpen" type="button">Ouvrir le PDF</button></div>
+<div class="aurore-pdf-lab-grid" id="aurorePdfLabStages"></div>
+<div class="aurore-pdf-lab-report"><div class="aurore-pdf-lab-report-head"><strong>Rapport technique</strong><span id="aurorePdfLabPath">Aucun document analysé</span></div><pre id="aurorePdfLabReport">{}</pre></div>
+<div class="aurore-pdf-lab-note">Ce laboratoire lit uniquement les données existantes. Il ne remplace pas le générateur de production et ne modifie aucun document.</div>
+</section>
 <div class="form-msg" id="pdfDiagMsg" style="display:none;"></div>
 <div class="pdfdiag-summary" id="pdfDiagSummary" style="display:none;"></div>
 <div class="diag-rows" id="pdfDiagRows"></div>
@@ -1246,6 +1253,7 @@
 <link rel="stylesheet" href="./css/aurore-pdf-reader-refonte.css">
 <link rel="stylesheet" href="./css/aurore-theme-light.css">
 <link rel="stylesheet" href="./css/aurore-admin-data-tools.css">
+<link href="./css/aurore-pdf-lab.css" rel="stylesheet"/>
 <link rel="stylesheet" href="./css/aurore-wikipedia.css">
 <div aria-labelledby="pdfViewerTitre" aria-modal="true" id="pdfViewerOverlay" role="dialog" style="display:none; position:fixed; inset:0; z-index:9998; background:rgba(9,8,18,0.96);">
 <div class="pdf-reader-shell">
