@@ -183,6 +183,49 @@ async function obtenirJwtPourRenduPdf(){
   return null;
 }
 
+async function renderPdfPageByPageFromBrowser(id,accessToken,b){
+  // Chaque page est invoquee directement depuis le navigateur : chaque appel
+  // possede ainsi sa propre trace Supabase et evite Edge -> Edge en chaine.
+  const h={apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+accessToken,'Content-Type':'application/json'};
+  const r=await fetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?id=eq.'+encodeURIComponent(Number(id))+'&select=id,title,content_json',{headers:h,cache:'no-store'});
+  const t=await r.text();let data=[];try{data=t?JSON.parse(t):[]}catch(_){data=[]}
+  if(!r.ok||!Array.isArray(data)||!data[0])throw new Error('Document genere introuvable.');
+  const d=data[0].content_json||{},parts=[];
+  if(d.introduction)parts.push({title:d.title||'Introduction',content:[String(d.introduction)],graphs:[]});
+  if(Array.isArray(d.learning_objectives)&&d.learning_objectives.length)parts.push({title:'Objectifs',content:["Objectifs d'apprentissage:",...d.learning_objectives.map(String)],graphs:[]});
+  for(const s of Array.isArray(d.sections)?d.sections:[]){
+    const blocks=[];if(s.objective)blocks.push(String(s.objective));if(Array.isArray(s.content))blocks.push(...s.content.map(String));
+    if(Array.isArray(s.exercises))for(const e of s.exercises)blocks.push('Exercice: '+String(e?.question||''));
+    if(s.formula)blocks.push(String(s.formula));
+    if(blocks.length)parts.push({title:s.title||'Section',content:blocks,graphs:Array.isArray(s.graphs)?s.graphs:[]});
+  }
+  if(Array.isArray(d.corrections)&&d.corrections.length)parts.push({title:'Corriges',content:d.corrections.map(c=>'Corrige — exercice '+String(c?.exercise_number||'')+': '+String(c?.solution||'')),graphs:[]});
+  if(!parts.length)throw new Error('Aucun contenu a paginer.');
+  const paths=[],uid=session?.user_id||session?.id;
+  if(!uid)throw new Error('Identifiant utilisateur introuvable pour le rendu PDF.');
+  for(let i=0;i<parts.length;i++){
+    setProgress(8+(i/parts.length)*82,'Rendu page '+(i+1)+'/'+parts.length+'…');
+    if(b)b.textContent='PDF — page '+(i+1)+'/'+parts.length+'…';
+    const pagePath='aurora-content-pages/'+uid+'/'+id+'/page-'+String(i+1).padStart(4,'0')+'.pdf';
+    let done=false,last='';
+    for(let attempt=0;attempt<4&&!done;attempt++){
+      const pr=await fetch(SUPABASE_URL+'/functions/v1/aurora-content-pdf-page',{method:'POST',headers:h,body:JSON.stringify({generated_document_id:Number(id),page_number:i+1,page_path:pagePath,content:parts[i]})});
+      const pt=await pr.text();let pd={};try{pd=pt?JSON.parse(pt):{}}catch(_){pd={error:pt}};
+      if(pr.ok&&pd?.ok){paths.push(pd.page_path);done=true;break}
+      last=pd?.error||('Renderer page HTTP '+pr.status);
+      if(pr.status===429||/rate limit/i.test(String(last))){
+        const retry=Number(pr.headers.get('Retry-After')||0)*1000;
+        await new Promise(res=>setTimeout(res,Math.min(20000,Math.max(1000,retry||4000))));
+      }else throw new Error(last);
+    }
+    if(!done)throw new Error(last||'Renderer page : échec après plusieurs tentatives.');
+  }
+  setProgress(92,'Fusion des pages PDF…');if(b)b.textContent='PDF — fusion des pages…';
+  const mr=await fetch(SUPABASE_URL+'/functions/v1/aurora-content-pdf-merge',{method:'POST',headers:h,body:JSON.stringify({generated_document_id:Number(id),page_paths:paths})});
+  const mt=await mr.text();let md={};try{md=mt?JSON.parse(mt):{}}catch(_){md={error:mt}};
+  if(!mr.ok||!md?.ok)throw new Error(md?.error||('Fusionneur HTTP '+mr.status));
+  setProgress(100,'PDF généré et fusionné.');return md;
+}
 async function renderPdf(id){
   const b=document.querySelector(`[data-cf-render="${id}"]`);
   if(b){b.disabled=true;b.textContent=b.dataset.hasPdf==='1'?'Régénération PDF…':'Génération PDF…'}
@@ -213,18 +256,7 @@ async function renderPdf(id){
     const graphCount=await auroraConstruireEtImporterGraphiquesGeoGebra(id,b,accessToken);
     if(b)b.textContent=graphCount?`Génération PDF avec ${graphCount} graphique${graphCount>1?'s':''} GeoGebra…`:'Génération PDF…';
 
-    const r=await fetch(`${SUPABASE_URL}/functions/v1/aurora-content-pdf-page-orchestrator`,{
-      method:'POST',
-      headers:{
-        "apikey":SUPABASE_ANON_KEY,
-        "Authorization":"Bearer "+accessToken,
-        "Content-Type":"application/json"
-      },
-      body:JSON.stringify({generated_document_id:Number(id)})
-    });
-    const t=await r.text();let d={};
-    try{d=t?JSON.parse(t):{}}catch(_){d={error:t}}
-    if(!r.ok)throw new Error(d.error||('HTTP '+r.status));
+    await renderPdfPageByPageFromBrowser(id,accessToken,b);
     await charger();
     alert(graphCount?`PDF généré avec ${graphCount} graphique${graphCount>1?'s':''} construit${graphCount>1?'s':''} par GeoGebra.`:'PDF généré et contrôle qualité de base effectué.');
   }catch(e){
