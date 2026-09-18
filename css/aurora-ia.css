@@ -910,3 +910,17 @@ html[data-theme="light"] #screen-aurore-ia.aurore-ia-screen.is-mini .aurore-ia-m
   width:100%!important;
   height:100%!important;
 }
+
+/* Correctif critique : en mode réduit, le conteneur Aurora ne doit jamais
+   recouvrir toute la page. Seule la fenêtre elle-même reçoit les clics. */
+#screen-aurore-ia.aurore-ia-screen.is-mini{
+  inset:auto!important;
+  right:auto!important;
+  bottom:auto!important;
+  pointer-events:none!important;
+}
+#screen-aurore-ia.aurore-ia-screen.is-mini > .aurore-ia-app{
+  pointer-events:auto!important;
+  width:100%!important;
+  height:100%!important;
+}
