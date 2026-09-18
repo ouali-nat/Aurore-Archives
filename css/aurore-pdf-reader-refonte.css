@@ -268,3 +268,72 @@
   #pdfViewerOverlay .pdf-recent-access{top:64px!important;right:8px!important;}
   #pdfViewerOverlay .pdf-load-progress-dock{left:8px!important;right:8px!important;bottom:58px!important;}
 }
+
+
+/* ---------- Organisation finale du lecteur : zones strictement séparées ---------- */
+#pdfViewerOverlay .pdf-reader-shell{
+  overflow:hidden!important;
+}
+#pdfViewerOverlay .pdf-reader-topbar,
+#pdfViewerOverlay .pdf-reader-toolbar{
+  position:relative!important;
+  z-index:30!important;
+}
+#pdfViewerOverlay .pdf-reader-zone-wrap{
+  position:relative!important;
+  flex:1 1 0!important;
+  min-height:0!important;
+  overflow:hidden!important;
+}
+#pdfViewerOverlay .pdf-reader-zone{
+  position:absolute!important;
+  inset:0!important;
+  z-index:1!important;
+  overflow:auto!important;
+  padding-top:18px!important;
+}
+#pdfViewerOverlay .pdf-reader-pages{
+  position:relative!important;
+  z-index:1!important;
+  padding-top:8px!important;
+  padding-bottom:36px!important;
+}
+#pdfViewerOverlay .pdf-recent-access{
+  position:absolute!important;
+  top:calc(var(--pdf-reader-topbar-height,56px) + var(--pdf-reader-toolbar-height,52px) + 10px)!important;
+  right:14px!important;
+  z-index:40!important;
+}
+#pdfViewerOverlay .pdf-recent-toggle{
+  position:relative!important;
+  z-index:41!important;
+  white-space:nowrap!important;
+}
+#pdfViewerOverlay .pdf-recent-panel{
+  top:calc(100% + 8px)!important;
+  z-index:42!important;
+}
+#pdfViewerOverlay .pdf-load-progress-dock{
+  bottom:10px!important;
+  z-index:35!important;
+}
+#pdfViewerOverlay .pdf-reader-bottombar{
+  z-index:30!important;
+  min-height:54px!important;
+}
+#pdfViewerOverlay .pdf-reader-loading,
+#pdfViewerOverlay .pdf-reader-erreur{
+  z-index:4!important;
+}
+@media(max-width:700px){
+  #pdfViewerOverlay .pdf-recent-access{
+    top:118px!important;
+    right:8px!important;
+  }
+  #pdfViewerOverlay .pdf-reader-zone{
+    padding-top:12px!important;
+  }
+  #pdfViewerOverlay .pdf-reader-pages{
+    padding-top:6px!important;
+  }
+}
