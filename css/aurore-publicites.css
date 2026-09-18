@@ -529,3 +529,51 @@ html[data-theme="light"] .ad-slot[id^="ad-"]::after{
   background:transparent!important;
   box-shadow:none!important;
 }
+
+
+/* ---------- CORRECTION FINALE : panneau sombre sous la publicité ---------- */
+/* Le bloc qui contient titre/description doit être une vraie surface opaque,
+   jamais un overlay transparent ou un panneau sombre. */
+.ad-slot[id^="ad-"] > div:not(:has(img)),
+.ad-slot[id^="ad-"] > section:not(:has(img)),
+.ad-slot[id^="ad-"] > .ad-content,
+.ad-slot[id^="ad-"] > .ad-info,
+.ad-slot[id^="ad-"] > .ad-text,
+.ad-slot[id^="ad-"] > .ad-caption,
+.ad-slot[id^="ad-"] > .publicite-info,
+.ad-slot[id^="ad-"] > .publicite-content,
+.ad-slot[id^="ad-"] > .pub-content,
+.ad-slot[id^="ad-"] > .pub-info{
+  background:var(--pub-bg,var(--papier,#fff))!important;
+  background-image:none!important;
+  opacity:1!important;
+  filter:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  mix-blend-mode:normal!important;
+  box-shadow:none!important;
+  color:var(--pub-text,var(--encre,#211d2d))!important;
+}
+
+/* Aucun pseudo-élément sombre ne peut se superposer au panneau texte. */
+.ad-slot[id^="ad-"] > div:not(:has(img))::before,
+.ad-slot[id^="ad-"] > div:not(:has(img))::after,
+.ad-slot[id^="ad-"] > section:not(:has(img))::before,
+.ad-slot[id^="ad-"] > section:not(:has(img))::after{
+  background:transparent!important;
+  background-image:none!important;
+  opacity:0!important;
+  box-shadow:none!important;
+  filter:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+
+/* En mode clair : blanc/clair franc, sans transparence ni halo. */
+html[data-theme="light"] .ad-slot[id^="ad-"] > div:not(:has(img)),
+html[data-theme="light"] .ad-slot[id^="ad-"] > section:not(:has(img)){
+  background:#fff!important;
+  background-image:none!important;
+  opacity:1!important;
+  box-shadow:none!important;
+}
