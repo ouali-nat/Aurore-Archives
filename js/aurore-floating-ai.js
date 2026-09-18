@@ -11,16 +11,17 @@
   const ICON_EXPAND='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4H4v5"/><path d="M4 4l6 6"/><path d="M15 20h5v-5"/><path d="M20 20l-6-6"/></svg>';
   if(!el||!menu)return;
 
-  // ---- Positionnement fixe (non déplaçable) : la pastille Aurora reste au
-  // coin supérieur droit de l'écran à l'accueil (position simple et stable,
-  // qui ne dépend pas de la largeur de la barre de recherche ni du reste de
-  // la mise en page de l'en-tête), et se range dans le coin supérieur gauche
-  // du bloc une fois à l'intérieur de l'IA. ----
+  // ---- Positionnement fixe (non déplaçable) : sur les écrans du site,
+  // Aurora reste dans une zone indépendante en bas à droite afin de ne jamais
+  // concurrencer le logo, la recherche ou le compte. Dans l'IA, elle se range
+  // dans le coin supérieur gauche de la fenêtre pour rester accessible. ----
   function ancrerSurHeader(){
     el.classList.add('is-positioned');
     el.style.transform='none';
-    el.style.left='auto';el.style.right='14px';
-    el.style.top='14px';el.style.bottom='auto';
+    el.style.left='auto';
+    el.style.right='max(14px, env(safe-area-inset-right, 0px))';
+    el.style.top='auto';
+    el.style.bottom='max(18px, calc(env(safe-area-inset-bottom, 0px) + 18px))';
   }
   function ancrerCoinIA(){
     const ecran=document.getElementById('screen-aurore-ia');
