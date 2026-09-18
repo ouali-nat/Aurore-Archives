@@ -441,3 +441,47 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
     padding:0!important;
   }
 }
+
+
+/* ==========================================================
+   AURORA — COMPOSITEUR CLAIR
+   La zone de saisie suit réellement le mode clair.
+   ========================================================== */
+[data-theme="light"] .aurore-ia-composer-zone{
+  background:linear-gradient(to bottom,rgba(247,244,251,0),#F7F4FB 24%)!important;
+}
+[data-theme="light"] .aurore-ia-input-shell{
+  background:#FFFFFF!important;
+  border:1px solid #DDD5E7!important;
+  box-shadow:0 10px 28px rgba(50,35,70,.10),0 0 0 1px rgba(255,255,255,.75) inset!important;
+  color:#211A29!important;
+}
+[data-theme="light"] .aurore-ia-input-shell:focus-within{
+  border-color:color-mix(in srgb,var(--ia-accent-3,var(--theme-primary)) 58%,#DDD5E7)!important;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--ia-accent,var(--theme-primary)) 10%,transparent),0 12px 32px rgba(50,35,70,.12)!important;
+}
+[data-theme="light"] #auroreIAInput{
+  color:#211A29!important;
+  caret-color:var(--ia-accent,var(--theme-primary))!important;
+}
+[data-theme="light"] #auroreIAInput::placeholder{
+  color:#766D80!important;
+  opacity:1!important;
+}
+[data-theme="light"] .aurore-ia-plus{
+  background:#F7F4FB!important;
+  border-color:#DED5E8!important;
+  color:#4D4458!important;
+}
+[data-theme="light"] .aurore-ia-plus:hover{
+  background:#EFEAF5!important;
+  color:#211A29!important;
+}
+[data-theme="light"] .aurore-ia-send{
+  color:#fff!important;
+}
+[data-theme="light"] .aurore-ia-stop{
+  background:#F7F4FB!important;
+  border-color:#DED5E8!important;
+  color:#443B4E!important;
+}
