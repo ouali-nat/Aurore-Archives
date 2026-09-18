@@ -400,3 +400,44 @@ body.aurore-ia-kb-open .aurore-ia-welcome{margin-top:2vh}
 #screen-aurore-ia.aurore-ia-screen.is-mini .aurore-ia-mark{
   padding:0!important;
 }
+
+
+/* ==========================================================
+   AURORA — LOGO PLEIN BLOC
+   Le logo réel remplit intégralement son emplacement sans marge interne.
+   ========================================================== */
+
+.aurore-ia-mark,
+.aurore-ia-welcome-mark,
+.aurore-ia-msg-avatar,
+.aurore-ia-history-item-avatar{
+  overflow:hidden!important;
+}
+.aurore-ia-mark img,
+.aurore-ia-welcome-mark img,
+.aurore-ia-msg-avatar img,
+.aurore-ia-history-item-avatar img{
+  width:100%!important;
+  height:100%!important;
+  max-width:none!important;
+  max-height:none!important;
+  display:block!important;
+  padding:0!important;
+  margin:0!important;
+  object-fit:cover!important;
+  object-position:center!important;
+  border-radius:inherit!important;
+  background:transparent!important;
+}
+#screen-aurore-ia .aurore-ia-welcome-mark{
+  background-image:none!important;
+  background-color:transparent!important;
+}
+#screen-aurore-ia .aurore-ia-welcome-mark img{
+  box-shadow:none!important;
+}
+@media(max-width:560px){
+  #screen-aurore-ia .aurore-ia-welcome-mark img{
+    padding:0!important;
+  }
+}
