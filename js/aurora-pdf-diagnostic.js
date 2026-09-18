@@ -375,8 +375,8 @@
   }
   function mountLab(){
     const panel=findPdfPanel();
-    if(!panel || document.getElementById('aurorePdfLab')) return !!panel;
-
+    if(!panel) return false;
+    const existingLab=document.getElementById('aurorePdfLab');
     const css=document.createElement('link');
   css.rel='stylesheet';
   css.href='./css/aurore-pdf-lab.css';
@@ -387,7 +387,8 @@
   const anon=()=>typeof SUPABASE_ANON_KEY!=='undefined'?SUPABASE_ANON_KEY:'';
   const admin=()=>!!(typeof session!=='undefined'&&session&&session.role==='admin');
 
-  const lab=document.createElement('section');
+  const lab=existingLab||document.createElement('section');
+  if(!existingLab){
   lab.className='aurore-pdf-lab';
   lab.id='aurorePdfLab';
   lab.innerHTML=`
@@ -410,9 +411,12 @@
     <p class="aurore-pdf-lab-note">Mode actuel : diagnostic non destructif. Aucun fichier, contenu_json, metadata ou PDF existant n'est modifié. Le prochain niveau pourra ajouter le rendu expérimental Browser Rendering dans un endpoint séparé.</p>
   `;
 
-  const anchor=panel.querySelector('.pdfdiag-controls')||panel.firstElementChild;
-  if(anchor&&anchor.parentNode) anchor.parentNode.insertBefore(lab,anchor.nextSibling);
-  else panel.appendChild(lab);
+  if(!existingLab){
+    const anchor=panel.querySelector('.pdfdiag-controls')||panel.firstElementChild;
+    if(anchor&&anchor.parentNode) anchor.parentNode.insertBefore(lab,anchor.nextSibling);
+    else panel.appendChild(lab);
+  }
+  }
 
   const stageDefs=[
     ['source','Contenu source','Lecture de content_json / source_content'],
@@ -470,7 +474,8 @@
 
   async function run(){
     if(!admin()){setStatus('fail','🔴 Réservé aux administrateurs');return;}
-    const id=Number(document.getElementById('aurorePdfLabDocument').value||0);
+    const input=document.getElementById('aurorePdfLabDocument')||document.getElementById('aurorePdfLabId');
+    const id=Number(input?.value||0);
     if(!Number.isInteger(id)||id<1){setStatus('warn','🟡 ID requis');return;}
     const token=getToken();
     if(!token){setStatus('fail','🔴 Session absente');return;}
@@ -563,7 +568,17 @@
   }
 
   const runBtn=document.getElementById('aurorePdfLabRun');
-  if(runBtn)runBtn.addEventListener('click',run);
+  if(runBtn && runBtn.dataset.bound!=='1'){runBtn.addEventListener('click',run);runBtn.dataset.bound='1';}
+  const openBtn=document.getElementById('aurorePdfLabOpen');
+  if(openBtn && openBtn.dataset.labBound!=='1'){
+    openBtn.addEventListener('click',()=>{
+      const input=document.getElementById('aurorePdfLabDocument')||document.getElementById('aurorePdfLabId');
+      const id=Number(input?.value||0);
+      if(!Number.isInteger(id)||id<1)return;
+      if(openBtn.dataset.pdfUrl)window.open(openBtn.dataset.pdfUrl,'_blank','noopener');
+    });
+    openBtn.dataset.labBound='1';
+  }
   renderStages({});
   return true;
   }
