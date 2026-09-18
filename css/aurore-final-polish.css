@@ -1283,3 +1283,162 @@ html[data-theme="light"][data-color-theme] .admin-search-control input{
 html[data-color-theme] input[type="search"]:not(#homeSearchInput):not(#headerSearchInput){
   font-family:"Plus Jakarta Sans","Segoe UI",Arial,sans-serif!important;
 }
+
+/* =========================================================
+   SERVICE CLIENT — bloc compact, thème-aware
+   Conserve intégralement les IDs/liens utilisés par l'administration.
+   ========================================================= */
+.service-client-card{
+  display:grid!important;
+  grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);
+  gap:14px!important;
+  align-items:center;
+  width:100%;
+  max-width:980px;
+  margin:0 auto;
+  padding:14px 16px!important;
+  border:1px solid color-mix(in srgb,var(--theme-primary,#8b5cf6) 18%,var(--border,#34313d));
+  border-radius:12px!important;
+  background:
+    linear-gradient(90deg,
+      color-mix(in srgb,var(--theme-primary,#8b5cf6) 5%,var(--theme-card,#15121c)),
+      var(--theme-card,#15121c) 48%);
+  box-shadow:0 7px 22px color-mix(in srgb,var(--theme-primary,#8b5cf6) 7%,transparent);
+  overflow:hidden;
+}
+
+.service-client-copy{
+  min-width:0;
+  display:grid!important;
+  gap:3px!important;
+}
+
+.service-client-kicker{
+  display:inline-flex;
+  width:max-content;
+  max-width:100%;
+  padding:3px 7px;
+  border-radius:5px;
+  border:1px solid color-mix(in srgb,var(--theme-primary,#8b5cf6) 20%,transparent);
+  background:color-mix(in srgb,var(--theme-primary,#8b5cf6) 8%,transparent);
+  color:var(--theme-primary,#8b5cf6);
+  font-size:.67rem!important;
+  font-weight:800;
+  line-height:1.1;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+
+.service-client-copy strong{
+  display:block;
+  margin:0!important;
+  color:var(--text,#f4f1f8);
+  font-size:.88rem!important;
+  line-height:1.35;
+}
+
+.service-client-note{
+  display:block;
+  color:var(--gris,#aaa4b5);
+  font-size:.72rem!important;
+  line-height:1.35;
+}
+
+.service-client-actions{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px!important;
+  min-width:0;
+}
+
+.service-client-link{
+  display:flex!important;
+  flex-direction:column;
+  justify-content:center;
+  align-items:flex-start;
+  min-width:0;
+  min-height:54px;
+  padding:9px 10px!important;
+  border:1px solid color-mix(in srgb,var(--theme-primary,#8b5cf6) 15%,var(--border,#34313d));
+  border-radius:9px!important;
+  background:color-mix(in srgb,var(--theme-primary,#8b5cf6) 5%,var(--theme-card,#15121c));
+  color:inherit!important;
+  text-decoration:none!important;
+  transition:border-color .16s ease,background .16s ease,transform .16s ease,box-shadow .16s ease;
+}
+
+.service-client-link span{
+  color:var(--theme-primary,#8b5cf6)!important;
+  font-size:.66rem!important;
+  font-weight:800;
+  line-height:1.1;
+  text-transform:uppercase;
+  letter-spacing:.035em;
+}
+
+.service-client-link strong{
+  display:block;
+  width:100%;
+  margin-top:4px!important;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:var(--text,#f4f1f8)!important;
+  font-size:.76rem!important;
+  line-height:1.2;
+}
+
+.service-client-link:hover,
+.service-client-link:focus-visible{
+  border-color:color-mix(in srgb,var(--theme-primary,#8b5cf6) 38%,var(--border,#34313d));
+  background:color-mix(in srgb,var(--theme-primary,#8b5cf6) 10%,var(--theme-card,#15121c));
+  box-shadow:0 5px 14px color-mix(in srgb,var(--theme-primary,#8b5cf6) 9%,transparent);
+  transform:translateY(-1px);
+}
+
+html[data-theme="light"] .service-client-card{
+  background:
+    linear-gradient(90deg,
+      color-mix(in srgb,var(--theme-primary,#8b5cf6) 5%,#fff),
+      #fff 48%);
+  border-color:color-mix(in srgb,var(--theme-primary,#8b5cf6) 18%,#d8d5df);
+  box-shadow:0 7px 20px color-mix(in srgb,var(--theme-primary,#8b5cf6) 8%,rgba(35,28,48,.08));
+}
+
+html[data-theme="light"] .service-client-copy strong,
+html[data-theme="light"] .service-client-link strong{
+  color:#211d28!important;
+}
+
+html[data-theme="light"] .service-client-note{
+  color:#625b69!important;
+}
+
+@media (max-width:720px){
+  .service-client-card{
+    grid-template-columns:1fr;
+    gap:9px!important;
+    padding:12px!important;
+  }
+  .service-client-actions{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:7px!important;
+  }
+  .service-client-link{
+    min-height:50px;
+    padding:8px 9px!important;
+  }
+}
+
+@media (max-width:390px){
+  .service-client-card{
+    padding:10px!important;
+  }
+  .service-client-actions{
+    grid-template-columns:1fr;
+  }
+  .service-client-link{
+    min-height:46px;
+  }
+}
+\n
