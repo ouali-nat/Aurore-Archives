@@ -183,49 +183,62 @@ async function obtenirJwtPourRenduPdf(){
   return null;
 }
 
+function ensureCfPdfProductionStyles(){if(document.getElementById('cfPdfProductionStyles'))return;const s=document.createElement('style');s.id='cfPdfProductionStyles';s.textContent='.cf-pdf-production{margin:18px 0;padding:18px;border:1px solid rgba(18,80,50,.22);border-radius:18px;background:var(--card-bg,#fff);box-shadow:0 8px 30px rgba(0,0,0,.08)}.cf-pdf-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:14px}.cf-pdf-head strong{font-size:1.05rem}.cf-pdf-head small,.cf-pdf-page-card small{display:block;opacity:.7;margin-top:4px}.cf-pdf-pages{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.cf-pdf-page-card{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px;border:1px solid rgba(0,0,0,.1);border-radius:12px;background:rgba(127,127,127,.06)}.cf-pdf-production-actions{display:flex;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap}.cf-pdf-production-actions span{font-size:.9rem;opacity:.75}@media(max-width:600px){.cf-pdf-head{align-items:flex-start;flex-direction:column}.cf-pdf-pages{grid-template-columns:1fr}}';document.head.appendChild(s)}
+function cfPdfProductionBlock(id,total){
+  let box=document.getElementById('cfPdfProduction');
+  if(!box){box=document.createElement('section');box.id='cfPdfProduction';box.className='cf-pdf-production';const anchor=document.getElementById('cfProgress');(anchor?.parentNode||document.body).insertBefore(box,anchor||null);}
+  box.hidden=false;
+  box.innerHTML='<div class="cf-pdf-head"><div><strong>Production du PDF</strong><div id="cfPdfProductionStage">Préparation…</div></div><span id="cfPdfProductionCount">0/'+total+' page(s)</span></div><div class="cf-pdf-pages" id="cfPdfProductionPages"></div><div class="cf-pdf-production-actions"><button type="button" class="admin-btn primary" id="cfPdfMergeAll" disabled>Fusionner tous les PDF</button><span id="cfPdfProductionWait"></span></div>';
+  return box;
+}
+function cfPdfPageCard(n,status,url){
+  const pages=document.getElementById('cfPdfProductionPages');if(!pages)return;
+  let card=document.getElementById('cfPdfPage-'+n);if(!card){card=document.createElement('div');card.id='cfPdfPage-'+n;card.className='cf-pdf-page-card';pages.appendChild(card)}
+  const label=status==='ok'?'Page prête':status==='working'?'En cours…':status==='error'?'Erreur':'En attente';
+  card.innerHTML='<div><strong>Page '+n+'</strong><small>'+label+'</small></div>'+(status==='ok'&&url?'<a class="admin-btn ghost" href="'+esc(url)+'" target="_blank" rel="noopener">Lire</a>':'');
+}
+function cfPdfWait(ms,label){
+  return new Promise(resolve=>{const out=document.getElementById('cfPdfProductionWait');let left=Math.ceil(ms/1000);const tick=()=>{if(out)out.textContent=(label||'Nouvelle reprise automatique dans ')+' '+left+' s';if(left<=0){if(out)out.textContent='';resolve();return}left--;setTimeout(tick,1000)};tick()});
+}
 async function renderPdfPageByPageFromBrowser(id,accessToken,b){
-  // Chaque page est invoquee directement depuis le navigateur : chaque appel
-  // possede ainsi sa propre trace Supabase et evite Edge -> Edge en chaine.
   const h={apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+accessToken,'Content-Type':'application/json'};
   const r=await fetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?id=eq.'+encodeURIComponent(Number(id))+'&select=id,title,content_json',{headers:h,cache:'no-store'});
   const t=await r.text();let data=[];try{data=t?JSON.parse(t):[]}catch(_){data=[]}
-  if(!r.ok||!Array.isArray(data)||!data[0])throw new Error('Document genere introuvable.');
+  if(!r.ok||!Array.isArray(data)||!data[0])throw new Error('Document généré introuvable.');
   const d=data[0].content_json||{},parts=[];
   if(d.introduction)parts.push({title:d.title||'Introduction',content:[String(d.introduction)],graphs:[]});
   if(Array.isArray(d.learning_objectives)&&d.learning_objectives.length)parts.push({title:'Objectifs',content:["Objectifs d'apprentissage:",...d.learning_objectives.map(String)],graphs:[]});
-  for(const s of Array.isArray(d.sections)?d.sections:[]){
-    const blocks=[];if(s.objective)blocks.push(String(s.objective));if(Array.isArray(s.content))blocks.push(...s.content.map(String));
-    if(Array.isArray(s.exercises))for(const e of s.exercises)blocks.push('Exercice: '+String(e?.question||''));
-    if(s.formula)blocks.push(String(s.formula));
-    if(blocks.length)parts.push({title:s.title||'Section',content:blocks,graphs:Array.isArray(s.graphs)?s.graphs:[]});
-  }
-  if(Array.isArray(d.corrections)&&d.corrections.length)parts.push({title:'Corriges',content:d.corrections.map(c=>'Corrige — exercice '+String(c?.exercise_number||'')+': '+String(c?.solution||'')),graphs:[]});
-  if(!parts.length)throw new Error('Aucun contenu a paginer.');
-  const paths=[],uid=session?.user_id||session?.id;
-  if(!uid)throw new Error('Identifiant utilisateur introuvable pour le rendu PDF.');
+  for(const s of Array.isArray(d.sections)?d.sections:[]){const blocks=[];if(s.objective)blocks.push(String(s.objective));if(Array.isArray(s.content))blocks.push(...s.content.map(String));if(Array.isArray(s.exercises))for(const e of s.exercises)blocks.push('Exercice: '+String(e?.question||''));if(s.formula)blocks.push(String(s.formula));if(blocks.length)parts.push({title:s.title||'Section',content:blocks,graphs:Array.isArray(s.graphs)?s.graphs:[]});}
+  if(Array.isArray(d.corrections)&&d.corrections.length)parts.push({title:'Corrigés',content:d.corrections.map(c=>'Corrigé — exercice '+String(c?.exercise_number||'')+': '+String(c?.solution||'')),graphs:[]});
+  if(!parts.length)throw new Error('Aucun contenu à paginer.');
+  cfPdfProductionBlock(id,parts.length);
+  const paths=[],uid=session?.user_id||session?.id;if(!uid)throw new Error('Identifiant utilisateur introuvable pour le rendu PDF.');
+  const batchSize=5;
   for(let i=0;i<parts.length;i++){
-    setProgress(8+(i/parts.length)*82,'Rendu page '+(i+1)+'/'+parts.length+'…');
-    if(b)b.textContent='PDF — page '+(i+1)+'/'+parts.length+'…';
-    const pagePath='aurora-content-pages/'+uid+'/'+id+'/page-'+String(i+1).padStart(4,'0')+'.pdf';
+    const n=i+1;cfPdfPageCard(n,'working');setProgress(8+(i/parts.length)*82,'Rendu page '+n+'/'+parts.length+'…');if(b)b.textContent='PDF — page '+n+'/'+parts.length+'…';
+    const pagePath='aurora-content-pages/'+uid+'/'+id+'/page-'+String(n).padStart(4,'0')+'.pdf';
     let done=false,last='';
-    for(let attempt=0;attempt<4&&!done;attempt++){
-      const pr=await fetch(SUPABASE_URL+'/functions/v1/aurora-content-pdf-page',{method:'POST',headers:h,body:JSON.stringify({generated_document_id:Number(id),page_number:i+1,page_path:pagePath,content:parts[i]})});
+    for(let attempt=0;attempt<3&&!done;attempt++){
+      const pr=await fetch(SUPABASE_URL+'/functions/v1/aurora-content-pdf-page',{method:'POST',headers:h,body:JSON.stringify({generated_document_id:Number(id),page_number:n,page_path:pagePath,content:parts[i]})});
       const pt=await pr.text();let pd={};try{pd=pt?JSON.parse(pt):{}}catch(_){pd={error:pt}};
-      if(pr.ok&&pd?.ok){paths.push(pd.page_path);done=true;break}
+      if(pr.ok&&pd?.ok){paths.push(pd.page_path);cfPdfPageCard(n,'ok',pd.page_url||'');done=true;break}
       last=pd?.error||('Renderer page HTTP '+pr.status);
-      if(pr.status===429||/rate limit/i.test(String(last))){
-        const retry=Number(pr.headers.get('Retry-After')||0)*1000;
-        await new Promise(res=>setTimeout(res,Math.min(20000,Math.max(1000,retry||4000))));
-      }else throw new Error(last);
+      if(pr.status===429||/rate limit/i.test(String(last))){const retry=Math.max(30000,Number(pr.headers.get('Retry-After')||0)*1000);if(attempt<2){await cfPdfWait(retry,'Reprise automatique dans');continue}}else throw new Error(last);
     }
-    if(!done)throw new Error(last||'Renderer page : échec après plusieurs tentatives.');
+    if(!done){cfPdfPageCard(n,'error');throw new Error(last||'Rendu de la page impossible après plusieurs tentatives.')}
+    const stage=document.getElementById('cfPdfProductionStage');if(stage)stage.textContent='Pages prêtes : '+paths.length+'/'+parts.length;
+    const count=document.getElementById('cfPdfProductionCount');if(count)count.textContent=paths.length+'/'+parts.length+' page(s)';
+    if(paths.length<parts.length&&n%batchSize===0)await cfPdfWait(30000,'Pause de sécurité — prochaine reprise dans');
   }
-  setProgress(92,'Fusion des pages PDF…');if(b)b.textContent='PDF — fusion des pages…';
-  const mr=await fetch(SUPABASE_URL+'/functions/v1/aurora-content-pdf-merge',{method:'POST',headers:h,body:JSON.stringify({generated_document_id:Number(id),page_paths:paths})});
-  const mt=await mr.text();let md={};try{md=mt?JSON.parse(mt):{}}catch(_){md={error:mt}};
-  if(!mr.ok||!md?.ok)throw new Error(md?.error||('Fusionneur HTTP '+mr.status));
-  setProgress(100,'PDF généré et fusionné.');return md;
+  setProgress(100,'Toutes les pages sont prêtes.');if(b)b.textContent='PDF — toutes les pages sont prêtes';
+  const stage=document.getElementById('cfPdfProductionStage');if(stage)stage.textContent='Toutes les pages sont prêtes. Tu peux les lire une par une avant la fusion.';
+  const merge=document.getElementById('cfPdfMergeAll');if(merge){merge.disabled=false;merge.onclick=async()=>{
+    merge.disabled=true;merge.textContent='Fusion en cours…';setProgress(96,'Fusion de toutes les pages PDF…');
+    try{const mr=await fetch(SUPABASE_URL+'/functions/v1/aurora-content-pdf-merge',{method:'POST',headers:h,body:JSON.stringify({generated_document_id:Number(id),page_paths:paths})});const mt=await mr.text();let md={};try{md=mt?JSON.parse(mt):{}}catch(_){md={error:mt}};if(!mr.ok||!md?.ok)throw new Error(md?.error||('Fusionneur HTTP '+mr.status));setProgress(100,'PDF final fusionné.');if(stage)stage.textContent='PDF final fusionné et enregistré dans Aurore.';merge.textContent='PDF finalisé';await charger();alert('Toutes les pages ont été fusionnées. Le PDF final est prêt.')}catch(e){merge.disabled=false;merge.textContent='Fusionner tous les PDF';alert('La fusion n’a pas pu être effectuée. '+(e.message||e))}}
+  };
+  return {pages:paths.length,paths};
 }
+ensureCfPdfProductionStyles();
 async function renderPdf(id){
   const b=document.querySelector(`[data-cf-render="${id}"]`);
   if(b){b.disabled=true;b.textContent=b.dataset.hasPdf==='1'?'Régénération PDF…':'Génération PDF…'}
