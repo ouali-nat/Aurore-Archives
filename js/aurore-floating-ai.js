@@ -127,35 +127,10 @@
   let logoChecks=0;
   const logoWatch=setInterval(()=>{appliquerLogo();if(iconBox.querySelector('img')||logoChecks++>40)clearInterval(logoWatch);},300);
 
-  // ---- Ouverture par glissement horizontal sur le site ----
-  // Un balayage horizontal franc ouvre Aurora depuis les écrans du site.
-  // On ignore les champs de saisie et les zones qui possèdent leur propre
-  // défilement horizontal afin de ne pas casser les interactions existantes.
-  let gesteHorizontalDepart=null;
-  let gesteHorizontalTemps=0;
-  const zoneAutoriseGeste=target=>{
-    const n=target?.closest?.('input,textarea,select,[contenteditable="true"],.admin-tabs,.admin-tabs *');
-    return !n;
-  };
-  document.addEventListener('touchstart',e=>{
-    if(e.touches.length!==1||estDansIA()||!zoneAutoriseGeste(e.target))return;
-    const t=e.touches[0];
-    gesteHorizontalDepart={x:t.clientX,y:t.clientY};
-    gesteHorizontalTemps=Date.now();
-  },{passive:true});
-  document.addEventListener('touchend',e=>{
-    if(!gesteHorizontalDepart||estDansIA()){gesteHorizontalDepart=null;return;}
-    const t=e.changedTouches[0];
-    const dx=t.clientX-gesteHorizontalDepart.x;
-    const dy=t.clientY-gesteHorizontalDepart.y;
-    const duree=Date.now()-gesteHorizontalTemps;
-    gesteHorizontalDepart=null;
-    // Seuil assez net pour éviter qu'un simple déplacement vertical de page
-    // soit interprété comme une demande d'ouverture.
-    if(Math.abs(dx)>=75&&Math.abs(dx)>Math.abs(dy)*1.35&&duree<=900){
-      ouvrirAurora();
-    }
-  },{passive:true});
+  // Aucun balayage horizontal ne déclenche Aurora ni son historique.
+  // L'ouverture et les commandes restent volontairement réservées aux
+  // boutons prévus à cet effet, afin que le défilement tactile du site reste
+  // entièrement naturel.
 
   // ---- Contexte : accueil ou intérieur de l'IA ----
   function estDansIA(){
