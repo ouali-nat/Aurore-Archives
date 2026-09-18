@@ -8,7 +8,7 @@
 
   function estDansAurora(){
     const e=document.getElementById('screen-aurore-ia');
-    return !!(e&&(e.classList.contains('active')||e.classList.contains('is-mini')));
+    return !!(e&&e.classList.contains('active')&&!e.classList.contains('is-mini'));
   }
   function synchroniserVisibilite(){
     const dansAurora=estDansAurora();
@@ -70,8 +70,9 @@
   });
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&menu.classList.contains('is-open'))fermer();});
 
-  // Le menu « 3 traits » appartient à l'accueil : il disparaît dès que
-  // l'écran Aurora devient actif et revient automatiquement à la sortie.
+  // Le menu « 3 traits » appartient à l'interface Aurora plein écran :
+  // il est masqué pendant le mode fenêtre flottante afin de ne jamais
+  // apparaître à l'extérieur de la fenêtre réduite.
   let dernierEtat=null;
   (function surveillerContexte(){
     const etat=estDansAurora();
