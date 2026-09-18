@@ -337,3 +337,96 @@
     padding-top:6px!important;
   }
 }
+
+/* =====================================================================
+   CONTRÔLE FINAL — LECTEUR PDF
+   Hiérarchie stricte : en-tête > outils > zone de lecture > navigation.
+   Le bouton Documents récents appartient à une ligne dédiée et ne recouvre
+   jamais les pages. Le panneau reste au-dessus de cette ligne.
+   ===================================================================== */
+#pdfViewerOverlay{
+  box-sizing:border-box!important;
+}
+#pdfViewerOverlay .pdf-reader-shell{
+  display:grid!important;
+  grid-template-rows:auto auto minmax(0,1fr) auto!important;
+  position:relative!important;
+  overflow:hidden!important;
+}
+#pdfViewerOverlay .pdf-reader-topbar,
+#pdfViewerOverlay .pdf-reader-toolbar{
+  grid-column:1!important;
+  position:relative!important;
+  inset:auto!important;
+}
+#pdfViewerOverlay .pdf-recent-access{
+  position:relative!important;
+  top:auto!important;
+  right:auto!important;
+  grid-column:1!important;
+  grid-row:3!important;
+  justify-self:end!important;
+  align-self:start!important;
+  z-index:50!important;
+  width:auto!important;
+  margin:8px 14px -42px 14px!important;
+  pointer-events:auto!important;
+}
+#pdfViewerOverlay .pdf-recent-toggle{
+  position:relative!important;
+  z-index:51!important;
+  box-sizing:border-box!important;
+}
+#pdfViewerOverlay .pdf-recent-panel{
+  position:absolute!important;
+  top:calc(100% + 7px)!important;
+  right:0!important;
+  z-index:52!important;
+  max-height:min(58vh,500px)!important;
+  overflow:auto!important;
+}
+#pdfViewerOverlay .pdf-reader-zone-wrap{
+  grid-column:1!important;
+  grid-row:3!important;
+  min-height:0!important;
+  position:relative!important;
+  overflow:hidden!important;
+}
+#pdfViewerOverlay .pdf-reader-zone{
+  position:absolute!important;
+  inset:0!important;
+  z-index:1!important;
+  overflow:auto!important;
+  box-sizing:border-box!important;
+  padding-top:18px!important;
+}
+#pdfViewerOverlay .pdf-reader-pages{
+  position:relative!important;
+  z-index:1!important;
+}
+#pdfViewerOverlay .pdf-load-progress-dock{
+  position:absolute!important;
+  left:12px!important;
+  right:12px!important;
+  bottom:64px!important;
+  z-index:60!important;
+}
+#pdfViewerOverlay .pdf-reader-bottombar{
+  grid-column:1!important;
+  grid-row:4!important;
+  position:relative!important;
+  z-index:55!important;
+}
+@media(max-width:700px){
+  #pdfViewerOverlay .pdf-recent-access{
+    margin:7px 8px -40px 8px!important;
+  }
+  #pdfViewerOverlay .pdf-reader-zone{
+    padding-top:12px!important;
+  }
+  #pdfViewerOverlay .pdf-load-progress-dock{
+    left:8px!important;
+    right:8px!important;
+    bottom:58px!important;
+  }
+}
