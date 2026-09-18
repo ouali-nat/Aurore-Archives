@@ -14,6 +14,8 @@
     const dansAurora=estDansAurora();
     if(dansAurora) fermer();
     btn.hidden=dansAurora;
+    btn.classList.toggle('is-aurora-hidden',dansAurora);
+    menu.classList.toggle('is-aurora-hidden',dansAurora);
     btn.setAttribute('aria-hidden',dansAurora?'true':'false');
     if(dansAurora){
       menu.hidden=true;
