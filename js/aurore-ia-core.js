@@ -309,15 +309,15 @@
     return {x,y,w,h};
   }
   function appliquerGeometrieMini(g){
-    screen.style.left=g.x+'px';screen.style.top=g.y+'px';
-    screen.style.width=g.w+'px';screen.style.height=g.h+'px';
-    /* Sécurité : le contenu doit avoir exactement la taille de la fenêtre,
-       jamais la taille de l'écran. */
+    /* Le conteneur plein écran reste neutre : seule l'application flottante
+       possède une géométrie et peut recevoir les clics. */
+    screen.style.left='0px';screen.style.top='0px';
+    screen.style.width='0px';screen.style.height='0px';
     if(miniApp){
-      miniApp.style.width=g.w+'px';
-      miniApp.style.height=g.h+'px';
-      miniApp.style.maxWidth=g.w+'px';
-      miniApp.style.maxHeight=g.h+'px';
+      miniApp.style.position='fixed';
+      miniApp.style.left=g.x+'px';miniApp.style.top=g.y+'px';
+      miniApp.style.width=g.w+'px';miniApp.style.height=g.h+'px';
+      miniApp.style.maxWidth=g.w+'px';miniApp.style.maxHeight=g.h+'px';
     }
   }
   function sauvegarderGeometrieActuelle(){
@@ -342,7 +342,7 @@
     document.documentElement.classList.remove(MINI_PERSIST_CLASS);
     document.body?.classList.remove(MINI_PERSIST_CLASS);
     screen.style.left='';screen.style.top='';screen.style.width='';screen.style.height='';
-    if(miniApp){miniApp.style.width='';miniApp.style.height='';miniApp.style.maxWidth='';miniApp.style.maxHeight='';}
+    if(miniApp){miniApp.style.position='';miniApp.style.left='';miniApp.style.top='';miniApp.style.width='';miniApp.style.height='';miniApp.style.maxWidth='';miniApp.style.maxHeight='';}
     if(minimizeBtn){minimizeBtn.innerHTML=ICON_REDUIRE;minimizeBtn.setAttribute('aria-label','Réduire Aurora en fenêtre flottante');minimizeBtn.title='Réduire Aurora';}
     if(options.fermerCompletement){
       screen.classList.remove('active');
@@ -407,7 +407,7 @@
       if(!bouge)return;
       const r=screen.getBoundingClientRect();
       const g=clamperGeometrieMini({x:sl+dx,y:st+dy,w:r.width,h:r.height});
-      screen.style.left=g.x+'px';screen.style.top=g.y+'px';
+      screen.style.left='0px';screen.style.top='0px';
     });
     const fin=e=>{
       if(!actif)return;actif=false;
