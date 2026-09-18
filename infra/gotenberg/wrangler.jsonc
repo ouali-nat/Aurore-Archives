@@ -3,7 +3,20 @@
   "name": "aurore-pdf-gotenberg",
   "main": "src/index.js",
   "compatibility_date": "2026-09-18",
-  "containers": [{"class_name":"GotenbergContainer","image":"gotenberg/gotenberg:8-chromium","max_instances":2}],
-  "durable_objects": {"bindings":[{"name":"GOTENBERG","class_name":"GotenbergContainer"}]},
-  "migrations": [{"tag":"v1","new_sqlite_classes":["GotenbergContainer"]}]
+  "containers": [{
+    "class_name": "GotenbergContainer",
+    "image": "docker.io/gotenberg/gotenberg:8-chromium",
+    "instance_type": "basic",
+    "max_instances": 2
+  }],
+  "durable_objects": {
+    "bindings": [{
+      "name": "GOTENBERG",
+      "class_name": "GotenbergContainer"
+    }]
+  },
+  "migrations": [{
+    "tag": "v1",
+    "new_sqlite_classes": ["GotenbergContainer"]
+  }]
 }
