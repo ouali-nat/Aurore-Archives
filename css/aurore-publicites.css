@@ -501,3 +501,31 @@ html[data-theme="sombre"] .ad-slot[id^="ad-"] .publicite-card,
 html[data-theme="sombre"] .ad-slot[id^="ad-"] .pub-card{
   background:var(--papier,#171421)!important;
 }
+
+/* ---------- MODE CLAIR : suppression totale de tout halo sombre ---------- */
+html[data-theme="light"] .ad-slot[id^="ad-"],
+html[data-theme="light"] .ad-slot[id^="ad-"] *,
+html[data-theme="light"] .ad-slot[id^="ad-"]::before,
+html[data-theme="light"] .ad-slot[id^="ad-"]::after{
+  filter:none!important;
+}
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-card,
+html[data-theme="light"] .ad-slot[id^="ad-"] .publicite-card,
+html[data-theme="light"] .ad-slot[id^="ad-"] .pub-card,
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-media,
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-image-wrap,
+html[data-theme="light"] .ad-slot[id^="ad-"] > a:first-child,
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-content,
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-info,
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-text,
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-caption,
+html[data-theme="light"] .ad-slot[id^="ad-"] .publicite-info,
+html[data-theme="light"] .ad-slot[id^="ad-"] .publicite-content,
+html[data-theme="light"] .ad-slot[id^="ad-"] .pub-content,
+html[data-theme="light"] .ad-slot[id^="ad-"] .pub-info{
+  box-shadow:none!important;
+}
+html[data-theme="light"] .ad-slot[id^="ad-"]::after{
+  background:transparent!important;
+  box-shadow:none!important;
+}
