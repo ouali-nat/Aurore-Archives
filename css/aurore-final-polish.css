@@ -456,3 +456,67 @@ html[data-color-theme] [class*="matiere-grid"] .matiere-card{--matter-accent:var
   .matiere-grid .matiere-card .badge,
   [class*="matiere-grid"] .matiere-card .badge{font-size:.58rem!important;padding:2px 6px!important;}
 }
+
+
+/* ==========================================================
+   AURORE — NOM DE MATIÈRE : MINI-BLOC ÉDITORIAL
+   Les anciennes abréviations (AL, Bi, etc.) ne sont plus
+   affichées. Le nom devient l'élément visuel principal.
+   ========================================================== */
+.matiere-grid .matiere-card .mono,
+.matiere-grid > .matiere-card .mono,
+[class*="matiere-grid"] .matiere-card .mono{
+  display:none!important;
+}
+
+.matiere-grid .matiere-card .nom,
+.matiere-grid > .matiere-card .nom,
+[class*="matiere-grid"] .matiere-card .nom{
+  position:relative!important;
+  display:flex!important;
+  align-items:center!important;
+  width:auto!important;
+  max-width:100%!important;
+  min-height:34px!important;
+  box-sizing:border-box!important;
+  margin:0 0 8px!important;
+  padding:7px 10px!important;
+  border:1px solid color-mix(in srgb,var(--matter-accent,var(--theme-primary,#7C3AED)) 22%,var(--theme-border,var(--bordure)))!important;
+  border-left:3px solid var(--matter-accent,var(--theme-primary,#7C3AED))!important;
+  border-radius:9px!important;
+  background:color-mix(in srgb,var(--matter-accent,var(--theme-primary,#7C3AED)) 6%,var(--theme-card,#fff))!important;
+  color:var(--encre)!important;
+  font-size:.78rem!important;
+  line-height:1.25!important;
+  font-weight:850!important;
+  letter-spacing:-.006em!important;
+  box-shadow:0 4px 12px color-mix(in srgb,var(--matter-accent,var(--theme-primary,#7C3AED)) 7%,transparent)!important;
+  transition:border-color .2s ease,background .2s ease,transform .2s ease;
+}
+
+.matiere-grid .matiere-card:hover .nom,
+.matiere-grid .matiere-card:focus-visible .nom,
+[class*="matiere-grid"] .matiere-card:hover .nom,
+[class*="matiere-grid"] .matiere-card:focus-visible .nom{
+  border-color:color-mix(in srgb,var(--matter-accent,var(--theme-primary,#7C3AED)) 40%,var(--theme-border,var(--bordure)))!important;
+  background:color-mix(in srgb,var(--matter-accent,var(--theme-primary,#7C3AED)) 10%,var(--theme-card,#fff))!important;
+}
+
+[data-theme="dark"] .matiere-grid .matiere-card .nom,
+[data-theme="dark"] [class*="matiere-grid"] .matiere-card .nom{
+  color:var(--dark-ink,var(--encre))!important;
+  background:color-mix(in srgb,var(--matter-accent,var(--theme-primary,#A78BFA)) 10%,var(--dark-surface-2,#171321))!important;
+}
+
+@media(max-width:640px){
+  .matiere-grid .matiere-card .nom,
+  .matiere-grid > .matiere-card .nom,
+  [class*="matiere-grid"] .matiere-card .nom{
+    min-height:31px!important;
+    margin:0 0 7px!important;
+    padding:6px 8px!important;
+    border-radius:8px!important;
+    font-size:.7rem!important;
+    line-height:1.2!important;
+  }
+}
