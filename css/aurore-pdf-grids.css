@@ -478,3 +478,44 @@
 @media(max-width:720px){
   #adminList .admin-card-body,#adminListPublies .admin-card-body{padding:11px 12px 12px!important;}
 }
+
+/* ========================================================================
+   VERROU FINAL — le conteneur (.doc-row / .admin-card) doit rester
+   totalement invisible, quel que soit le thème.
+   Ailleurs dans le CSS (aurora-base.css en thème sombre par défaut ;
+   aurore-theme-light.css et aurore-visual-refonte.css en thème clair),
+   des règles réappliquent un fond/bordure/ombre !important sur .doc-row et
+   .admin-card avec la même spécificité que notre reset ci-dessus — la
+   feuille chargée en dernier l'emportait, ce qui recollait visuellement les
+   2 blocs en un seul cadre selon le thème/l'ordre de chargement. On
+   augmente ici la spécificité (double classe / ID admin) pour que ce reset
+   gagne systématiquement, sans dépendre de l'ordre des <link>.
+   ======================================================================== */
+.doc-row.doc-row,
+#adminList .admin-card.admin-card,
+#adminListPublies .admin-card.admin-card{
+  background:transparent!important;
+  border:0!important;
+  border-color:transparent!important;
+  box-shadow:none!important;
+}
+.doc-row.doc-row:hover,
+#adminList .admin-card.admin-card:hover,
+#adminListPublies .admin-card.admin-card:hover{
+  border-color:transparent!important;
+  box-shadow:none!important;
+}
+[data-theme="light"] .doc-row.doc-row,
+[data-theme="light"] #adminList .admin-card.admin-card,
+[data-theme="light"] #adminListPublies .admin-card.admin-card{
+  background:transparent!important;
+  border:0!important;
+  border-color:transparent!important;
+  box-shadow:none!important;
+}
+[data-theme="light"] .doc-row.doc-row:hover,
+[data-theme="light"] #adminList .admin-card.admin-card:hover,
+[data-theme="light"] #adminListPublies .admin-card.admin-card:hover{
+  border-color:transparent!important;
+  box-shadow:none!important;
+}
