@@ -44,7 +44,17 @@
   function goHome(){
     try{
       const ecranAurora=document.getElementById('screen-aurore-ia');
-      if(ecranAurora&&(ecranAurora.classList.contains('active')||ecranAurora.classList.contains('is-mini'))&&typeof window.auroreIAFermerVersAccueil==='function'){
+      // Une fenêtre Aurora réduite est un élément persistant : revenir à
+      // l'accueil ne doit surtout pas la fermer. On change uniquement
+      // l'écran situé derrière elle. Le plein écran Aurora, lui, conserve
+      // son comportement normal de fermeture vers l'accueil.
+      if(ecranAurora?.classList.contains('is-mini')){
+        if(typeof afficherEcran==='function')afficherEcran('screen-home');
+        else document.getElementById('screen-home')?.classList.add('active');
+        requestAnimationFrame(()=>window.scrollTo({top:0,behavior:'smooth'}));
+        return;
+      }
+      if(ecranAurora?.classList.contains('active')&&typeof window.auroreIAFermerVersAccueil==='function'){
         window.auroreIAFermerVersAccueil();
         return;
       }
