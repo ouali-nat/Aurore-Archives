@@ -492,7 +492,14 @@
 
     try{
       const url=supa()+'/rest/v1/aurora_generated_documents?select=id,title,status,source_format,source_content,content_json,pdf_path,pdf_url,metadata,pdf_diagnostic,updated_at&id=eq.'+encodeURIComponent(id);
-      const r=await fetch(url,{headers:{apikey:anon(),Authorization:'Bearer '+token},cache:'no-store'});
+      const controller=new AbortController();
+      const timeout=setTimeout(()=>controller.abort(),12000);
+      let r;
+      try{
+        r=await fetch(url,{headers:{apikey:anon(),Authorization:'Bearer '+token},cache:'no-store',signal:controller.signal});
+      }finally{
+        clearTimeout(timeout);
+      }
       const body=await r.text();
       let data=null; try{data=body?JSON.parse(body):null;}catch(_){}
       if(!r.ok)throw new Error('HTTP '+r.status+' — '+(body||'corps vide'));
@@ -561,8 +568,11 @@
       else if(states.includes('warn'))setStatus('warn','🟡 Anomalies à examiner');
       else setStatus('ok','🟢 Source propre');
     }catch(e){
-      renderStages({source:{state:'fail',detail:String(e.message||e)}});
-      report.textContent=String(e.stack||e.message||e);
+      const detail=e?.name==='AbortError'
+        ? 'La lecture de Supabase a dépassé 12 secondes. Le navigateur n’a reçu aucune réponse à temps.'
+        : String(e?.stack||e?.message||e);
+      renderStages({source:{state:'fail',detail}});
+      report.textContent=detail;
       setStatus('fail','🔴 Échec du laboratoire');
     }
   }
