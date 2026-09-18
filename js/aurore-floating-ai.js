@@ -25,17 +25,14 @@
   }
   function ancrerCoinIA(){
     const ecran=document.getElementById('screen-aurore-ia');
-    el.classList.add('is-positioned');
+    // Dans Aurora, le bouton flottant d'accueil disparaît complètement.
+    // Les commandes restent accessibles depuis le menu interne d'Aurora.
+    el.classList.remove('is-positioned');
+    el.style.display='none';
     el.style.transform='none';
-    const w=el.offsetWidth||44,h=el.offsetHeight||44;
-    const r=ecran?ecran.getBoundingClientRect():{left:0,top:0};
-    let left=Math.round(r.left+10);
-    let top=Math.round(r.top+10);
-    left=Math.min(Math.max(4,left),innerWidth-w-4);
-    top=Math.min(Math.max(4,top),innerHeight-h-4);
-    el.style.left=left+'px';el.style.top=top+'px';
-    el.style.right='auto';el.style.bottom='auto';
+    el.style.left='';el.style.right='';el.style.top='';el.style.bottom='';
   }
+
   function placer(){
     if(estDansIA())ancrerCoinIA();else ancrerSurHeader();
     if(menu.classList.contains('is-open'))positionMenu();
