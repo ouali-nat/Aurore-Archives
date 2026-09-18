@@ -6,6 +6,22 @@
   const resizeBtn=document.getElementById('auroreHomeResize');
   if(!btn||!menu)return;
 
+  function estDansAurora(){
+    const e=document.getElementById('screen-aurore-ia');
+    return !!(e&&(e.classList.contains('active')||e.classList.contains('is-mini')));
+  }
+  function synchroniserVisibilite(){
+    const dansAurora=estDansAurora();
+    if(dansAurora) fermer();
+    btn.hidden=dansAurora;
+    btn.setAttribute('aria-hidden',dansAurora?'true':'false');
+    if(dansAurora){
+      menu.hidden=true;
+      menu.setAttribute('aria-hidden','true');
+    }else{
+      menu.hidden=false;
+    }
+  }
   function ouvrir(){
     menu.classList.add('is-open');
     menu.setAttribute('aria-hidden','false');
@@ -51,4 +67,17 @@
     if(menu.classList.contains('is-open')&&!menu.contains(e.target)&&!btn.contains(e.target))fermer();
   });
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&menu.classList.contains('is-open'))fermer();});
+
+  // Le menu « 3 traits » appartient à l'accueil : il disparaît dès que
+  // l'écran Aurora devient actif et revient automatiquement à la sortie.
+  let dernierEtat=null;
+  (function surveillerContexte(){
+    const etat=estDansAurora();
+    if(etat!==dernierEtat){
+      dernierEtat=etat;
+      synchroniserVisibilite();
+    }
+    requestAnimationFrame(surveillerContexte);
+  })();
+  synchroniserVisibilite();
 })();
