@@ -916,3 +916,28 @@ html[data-color-theme] .search-bar{
     min-height:92px!important;
   }
 }
+
+
+/* ==========================================================
+   AURORE — TYPOGRAPHIE
+   Plus Jakarta Sans : interface plus contemporaine et lisible.
+   ========================================================== */
+html,body,
+button,input,select,textarea{
+  font-family:"Plus Jakarta Sans","Segoe UI",Arial,sans-serif!important;
+}
+
+h1,h2,h3,h4,h5,h6,
+.section-title,
+.site-name,
+.site-tag,
+.home-five-level strong,
+.home-secondary-heading strong{
+  font-family:"Plus Jakarta Sans","Segoe UI",Arial,sans-serif!important;
+  letter-spacing:-.018em;
+}
+
+body{
+  font-synthesis:none;
+  text-rendering:optimizeLegibility;
+}
