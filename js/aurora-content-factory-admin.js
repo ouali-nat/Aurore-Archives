@@ -269,9 +269,26 @@ async function renderPdf(id){
     const graphCount=await auroraConstruireEtImporterGraphiquesGeoGebra(id,b,accessToken);
     if(b)b.textContent=graphCount?`Génération PDF avec ${graphCount} graphique${graphCount>1?'s':''} GeoGebra…`:'Génération PDF…';
 
-    await renderPdfPageByPageFromBrowser(id,accessToken,b);
+    // Nouveau pipeline PDF : un seul rendu Gotenberg/Chromium.
+    // Le JWT utilisateur est transmis par cfFetch() ; aurora-content-pdf-v2
+    // vérifie ce JWT puis construit et persiste le PDF final.
+    setProgress(12,'Génération PDF avec Gotenberg + Chromium…');
+    if(b)b.textContent='Génération PDF avec Gotenberg…';
+    const pdfResponse=await cfFetch(`${SUPABASE_URL}/functions/v1/aurora-content-pdf-v2`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({generated_document_id:Number(id)})
+    });
+    const pdfText=await pdfResponse.text();
+    let pdfData={};
+    try{pdfData=pdfText?JSON.parse(pdfText):{}}catch(_){pdfData={error:pdfText}};
+    if(!pdfResponse.ok||!pdfData?.ok){
+      throw new Error(pdfData?.error||(`Renderer PDF HTTP ${pdfResponse.status}`));
+    }
+    setProgress(100,'PDF Gotenberg généré et enregistré.');
+    if(b)b.textContent='PDF Gotenberg prêt';
     await charger();
-    alert(graphCount?`PDF généré avec ${graphCount} graphique${graphCount>1?'s':''} construit${graphCount>1?'s':''} par GeoGebra.`:'PDF généré et contrôle qualité de base effectué.');
+    alert(graphCount?`PDF Gotenberg généré avec ${graphCount} graphique${graphCount>1?'s':''} GeoGebra.`:'PDF Gotenberg généré et enregistré.');
   }catch(e){
     alert('Le PDF n’a pas pu être généré. '+(e.message||e))
   }finally{
