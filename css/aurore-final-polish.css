@@ -1442,3 +1442,46 @@ html[data-theme="light"] .service-client-note{
   }
 }
 \n
+
+/* =========================================================
+   FORMULAIRES — SELECTS NATIFS HARMONISÉS
+   Ne change ni les valeurs, ni les événements, ni les données.
+   ========================================================= */
+html[data-color-theme] select{
+  appearance:auto!important;
+  -webkit-appearance:auto!important;
+  color:var(--encre)!important;
+  background-color:var(--theme-card,var(--papier))!important;
+  border-color:var(--theme-border,var(--bordure))!important;
+  font-family:"Plus Jakarta Sans","Segoe UI",Arial,sans-serif!important;
+  color-scheme:dark;
+}
+
+html[data-theme="light"][data-color-theme] select{
+  color:var(--encre)!important;
+  background-color:#fff!important;
+  border-color:var(--theme-border,var(--bordure))!important;
+  color-scheme:light;
+}
+
+html[data-color-theme] select option{
+  color:var(--encre)!important;
+  background-color:var(--theme-card,var(--papier))!important;
+  font-family:"Plus Jakarta Sans","Segoe UI",Arial,sans-serif!important;
+}
+
+html[data-theme="light"][data-color-theme] select option{
+  color:#211d28!important;
+  background-color:#fff!important;
+}
+
+html[data-theme="dark"][data-color-theme] select option{
+  color:#f4f1f8!important;
+  background-color:var(--dark-surface-2,var(--papier))!important;
+}
+
+html[data-color-theme] select:focus{
+  border-color:var(--theme-primary)!important;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--theme-primary) 13%,transparent)!important;
+}
+\n
