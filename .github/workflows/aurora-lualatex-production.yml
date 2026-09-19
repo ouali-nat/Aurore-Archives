@@ -136,3 +136,5 @@ jobs:
           name: aurora-lualatex-production-${{ hashFiles('infra/lualatex/production/document-id') }}
           path: infra/lualatex/production/document.pdf
           retention-days: 3
+
+# Production bridge: polls Supabase for newly generated Aurora documents.
