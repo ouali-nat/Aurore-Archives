@@ -336,8 +336,10 @@ async function surveillerRenduArrierePlan(id,accessToken,b){
       if(row?.pdf_url&&m.lualatex_status==='completed'){
         setProgress(100,'PDF LuaLaTeX généré et enregistré.');
         if(b){b.disabled=false;b.textContent='PDF LuaLaTeX prêt';}
+        const msg=document.getElementById('cfCreateMsg');
+        if(msg){msg.dataset.state='ok';msg.textContent='✓ PDF terminé automatiquement. Le document est de nouveau disponible dans la liste.';}
         await charger();
-        setTimeout(()=>setProgress(0,'Prêt pour une nouvelle génération.'),1200);
+        setTimeout(()=>setProgress(0,'Prêt pour une nouvelle génération.'),1600);
         return true;
       }
       if(m.lualatex_status==='failed'){
