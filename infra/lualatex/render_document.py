@@ -5,8 +5,14 @@ import re
 from pathlib import Path
 
 
-def tex_text(s):
+def clean_text(s):
+    """Remove non-printable C0/C1 control characters without touching normal Unicode."""
     s = str(s or "")
+    return re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]", "", s)
+
+
+def tex_text(s):
+    s = clean_text(s)
     return (
         s.replace("\\", r"\textbackslash{}")
          .replace("&", r"\&").replace("%", r"\%").replace("#", r"\#")
@@ -23,7 +29,7 @@ def normalize_math(s):
     preserving the doubled backslashes used as array/alignment row breaks,
     including row breaks immediately before \\hline or \\cline.
     """
-    s = str(s or "")
+    s = clean_text(s)
 
     # Protect LaTeX row breaks before normalizing command escapes.
     marker = "__AURORA_ARRAY_ROWBREAK__"
@@ -114,7 +120,16 @@ def _is_table_row(s):
 
 
 def _strip_list_marker(s):
-    return re.sub(r"^\s*(?:\d+[.)]|[-*•])\s+", "", str(s or "")).strip()
+    return re.sub(r"^\s*(?:\d+[.)]|[-*•])\s+", "", clean_text(s)).strip()
+
+
+def _is_numeric_noise(s):
+    """Reject accidental pages/blocks containing only long numeric sequences."""
+    t = clean_text(s).strip()
+    nums = re.findall(r"(?<![A-Za-z])\d+(?![A-Za-z])", t)
+    if len(nums) < 8:
+        return False
+    return bool(re.fullmatch(r"[\d\s,.;:()\-]+", t))
 
 
 def render_table(rows):
@@ -155,8 +170,11 @@ def render_content(items):
     lines = []
     i = 0
     while i < len(items):
-        raw = str(items[i] or "").strip()
+        raw = clean_text(items[i]).strip()
         if not raw:
+            i += 1
+            continue
+        if _is_numeric_noise(raw):
             i += 1
             continue
 
@@ -244,6 +262,7 @@ def render(data):
         r"\geometry{margin=2.2cm}",
         r"\usepackage{graphicx}",
         r"\usepackage{caption}",
+        r"\usepackage{needspace}",
         r"\usepackage{hyperref}",
         r"\hypersetup{hidelinks}",
         r"\title{" + tex_text(title) + r"}",
@@ -262,6 +281,7 @@ def render(data):
     lines.append(r"\end{itemize}")
 
     for sec in data.get("sections", []):
+        lines.append(r"\Needspace{6\baselineskip}")
         lines.append(r"\section{" + tex_text(sec.get("title", "")) + r"}")
         if sec.get("objective"):
             lines.append(r"\begin{quote}")
@@ -269,10 +289,20 @@ def render(data):
             lines.append(r"\end{quote}")
         if sec.get("formula"):
             lines.append(display_formula(sec["formula"]))
-        lines.extend(render_content(sec.get("content", [])))
+        content_items = sec.get("content", [])
+        # Content Factory may also emit a prose list such as
+        # "Exercice 1 : ..." while the structured exercises array below
+        # contains the same exercises. Render the structured version only.
+        if isinstance(content_items, list) and sec.get("exercises"):
+            content_items = [
+                item for item in content_items
+                if not re.match(r"^\s*Exercice\s+\d+\s*:", clean_text(item))
+            ]
+        lines.extend(render_content(content_items))
         lines.extend(render_graphs(sec.get("graphs", [])))
 
         for i, ex in enumerate(sec.get("exercises", []), 1):
+            lines.append(r"\Needspace{5\baselineskip}")
             lines.append(r"\subsection*{Exercice " + str(i) + "}")
             lines.append(inline(ex.get("question", "")) + "\n\n")
             if ex.get("hint"):
@@ -283,6 +313,7 @@ def render(data):
     if data.get("corrections"):
         lines.append(r"\section*{Corrections}")
         for c in data["corrections"]:
+            lines.append(r"\Needspace{5\baselineskip}")
             lines.append(r"\subsection*{Exercice " + str(c.get("exercise_number", "")) + "}")
             lines.append(inline(c.get("solution", "")) + "\n\n")
 
