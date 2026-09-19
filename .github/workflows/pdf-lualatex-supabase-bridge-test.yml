@@ -77,11 +77,9 @@ jobs:
       - name: Compile fetched Supabase document
         working-directory: infra/lualatex
         run: |
-          # LuaLaTeX may return non-zero after producing a valid PDF because
-          # auxiliary files request a rerun. We validate the actual PDF and
-          # only fail when the TeX log contains a real fatal error.
           set +e
-          lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error bridge/document.tex
+          lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error \
+            -output-directory=bridge bridge/document.tex
           rc=$?
           set -e
 
