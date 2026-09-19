@@ -40,13 +40,12 @@ def inline(s):
 
     # A whole item that is itself a math expression is the most common
     # Content Factory representation for display-style formulas/tables.
-    if len(stripped) >= 2:
-        if stripped.startswith("$") and stripped.endswith("$"):
-            return r"\[" + normalize_math(stripped[2:-2].strip()) + r"\]"
-        if stripped.startswith(r"\[") and stripped.endswith(r"\]"):
-            return normalize_math(stripped)
-        if stripped.startswith("$") and stripped.endswith("$"):
-            return "$" + normalize_math(stripped[1:-1].strip()) + "$"
+    if stripped.startswith("$") and stripped.endswith("$") and len(stripped) >= 4:
+        return r"\[" + normalize_math(stripped[2:-2].strip()) + r"\]"
+    if stripped.startswith(r"\[") and stripped.endswith(r"\]"):
+        return normalize_math(stripped)
+    if stripped.startswith("$") and stripped.endswith("$") and len(stripped) >= 2:
+        return r"\[" + normalize_math(stripped[1:-1].strip()) + r"\]"
 
     pattern = re.compile(r"(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\$[\s\S]*?\$)")
     parts = pattern.split(s)
@@ -54,12 +53,12 @@ def inline(s):
     for p in parts:
         if not p:
             continue
-        if p.startswith("$") and p.endswith("$"):
+        if p.startswith("$") and p.endswith("$") and len(p) >= 4:
             out.append(r"\[" + normalize_math(p[2:-2].strip()) + r"\]")
         elif p.startswith(r"\[") and p.endswith(r"\]"):
             out.append(normalize_math(p))
-        elif p.startswith("$") and p.endswith("$"):
-            out.append("$" + normalize_math(p[1:-1].strip()) + "$")
+        elif p.startswith("$") and p.endswith("$") and len(p) >= 2:
+            out.append(r"\[" + normalize_math(p[1:-1].strip()) + r"\]")
         else:
             out.append(tex_text(p))
     return "".join(out)
