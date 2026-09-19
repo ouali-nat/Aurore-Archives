@@ -14,6 +14,19 @@ def tex_text(s):
     )
 
 
+def normalize_math(s):
+    """
+    Normalize JSON-escaped LaTeX commands inside math.
+
+    Content Factory payloads can contain two backslashes for a single
+    LaTeX command (for example \\exp or \\infty). Collapse only doubled
+    backslashes that introduce a command or an escaped brace. Preserve
+    doubled backslashes used as array/alignment row breaks.
+    """
+    s = str(s or "")
+    return re.sub(r"\\\\(?=[A-Za-z{}])", lambda _m: "\\", s)
+
+
 def inline(s):
     """
     Escape ordinary text while preserving LaTeX math blocks.
@@ -29,11 +42,11 @@ def inline(s):
     # Content Factory representation for display-style formulas/tables.
     if len(stripped) >= 2:
         if stripped.startswith("$") and stripped.endswith("$"):
-            return r"\[" + stripped[2:-2].strip() + r"\]"
+            return r"\[" + normalize_math(stripped[2:-2].strip()) + r"\]"
         if stripped.startswith(r"\[") and stripped.endswith(r"\]"):
-            return stripped
+            return normalize_math(stripped)
         if stripped.startswith("$") and stripped.endswith("$"):
-            return "$" + stripped[1:-1].strip() + "$"
+            return "$" + normalize_math(stripped[1:-1].strip()) + "$"
 
     pattern = re.compile(r"(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\$[\s\S]*?\$)")
     parts = pattern.split(s)
@@ -42,11 +55,11 @@ def inline(s):
         if not p:
             continue
         if p.startswith("$") and p.endswith("$"):
-            out.append(r"\[" + p[2:-2].strip() + r"\]")
+            out.append(r"\[" + normalize_math(p[2:-2].strip()) + r"\]")
         elif p.startswith(r"\[") and p.endswith(r"\]"):
-            out.append(p)
+            out.append(normalize_math(p))
         elif p.startswith("$") and p.endswith("$"):
-            out.append("$" + p[1:-1].strip() + "$")
+            out.append("$" + normalize_math(p[1:-1].strip()) + "$")
         else:
             out.append(tex_text(p))
     return "".join(out)
@@ -150,7 +163,7 @@ def render_content(items):
 def display_formula(s):
     if not s:
         return ""
-    return "\n\\[\n" + str(s).strip() + "\n\\]\n"
+    return "\n\\[\n" + normalize_math(str(s).strip()) + "\n\\]\n"
 
 
 def render(data):
@@ -210,11 +223,17 @@ def render(data):
 
 
 def main():
-    # Guardrail for the exact failure mode: a standalone array formula must
-    # survive inline() byte-for-byte instead of being text-escaped.
+    # Guardrails for both production failure modes:
+    # 1) doubled JSON backslashes must become real LaTeX commands;
+    # 2) array row breaks must remain doubled backslashes.
     _probe = r"$\\begin{array}{c|ccccc} x & -\\infty & & 0 & & +\\infty \\ \\hline f(x) & 0 & \\nearrow & 1 & \\nearrow & +\\infty \\end{array}$"
-    if "\\textbackslash{}begin" in inline(_probe):
-        raise SystemExit("inline() math guardrail failed")
+    _probe_out = inline(_probe)
+    if "\\textbackslash{}begin" in _probe_out:
+        raise SystemExit("inline() math guardrail failed: escaped math command")
+    if "\\begin{array}" not in _probe_out or "\\infty" not in _probe_out or "\\\\ \\hline" not in _probe_out:
+        raise SystemExit("inline() math guardrail failed: array structure")
+    if "\\exp(x)" not in inline(r"$\\exp(x)$"):
+        raise SystemExit("inline() math guardrail failed: exp command")
 
     parser = argparse.ArgumentParser(description="Render an Aurore document JSON to LuaLaTeX source.")
     parser.add_argument("input", nargs="?", default="fixtures/document-21.json")
