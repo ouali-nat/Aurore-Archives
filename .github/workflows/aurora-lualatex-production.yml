@@ -113,6 +113,9 @@ jobs:
         run: |
           lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error \
             -output-directory=. document.tex
+          # Second pass resolves the table of contents and final cross-references.
+          lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error \
+            -output-directory=. document.tex
           python3 - <<'PY'
           from pathlib import Path
           pdf = Path("document.pdf")

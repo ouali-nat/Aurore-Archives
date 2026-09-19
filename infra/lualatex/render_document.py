@@ -4,6 +4,8 @@ import json
 import re
 from pathlib import Path
 
+DEFAULT_THEME_COLOR = "4F46E5"
+
 # Production layout hardening test trigger: 2026-09-19.
 
 
@@ -209,6 +211,11 @@ def render_content(items):
             lines.append(r"\end{itemize}")
             continue
 
+        block = labeled_block(raw)
+        if block:
+            lines.extend(block)
+            i += 1
+            continue
         lines.append(inline(raw))
         lines.append("")
         i += 1
@@ -239,50 +246,161 @@ def render_graphs(graphs):
     return lines
 
 
+
+def resolve_theme_color(data):
+    """Return a validated per-document Aurore theme color (RRGGBB)."""
+    candidates = [
+        data.get("theme_color"),
+        data.get("themeColor"),
+        (data.get("_aurore_design") or {}).get("theme_color") if isinstance(data.get("_aurore_design"), dict) else None,
+        (data.get("aurore_design") or {}).get("theme_color") if isinstance(data.get("aurore_design"), dict) else None,
+    ]
+    for value in candidates:
+        raw = clean_text(value).strip().lstrip("#")
+        if re.fullmatch(r"[0-9A-Fa-f]{6}", raw):
+            return raw.upper()
+    return DEFAULT_THEME_COLOR
+
+
+def labeled_block(s):
+    """Render a small editorial callout when prose starts with a known label."""
+    t = clean_text(s).strip()
+    m = re.match(
+        r"^(Définition|Propriété|Théorème|Lemme|Méthode|Exemple|Remarque|Important|À retenir|Conseil|Erreur(?: fréquente)?|Observation)\\s*[:\\-]\\s*(.+)$",
+        t,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if not m:
+        return []
+    return [
+        r"\\AuroreLabeledBlock{" + tex_text(m.group(1)) + r"}{" + inline(m.group(2)) + r"}",
+        "",
+    ]
+
 def display_formula(s):
     if not s:
         return ""
-    return "\n\\[\n" + normalize_math(str(s).strip()) + "\n\\]\n"
+    math = normalize_math(str(s).strip())
+    return "\n".join([
+        r"\\begin{center}",
+        r"\\fcolorbox{aurorebase}{aurorelight}{%",
+        r"\\parbox{0.84\\linewidth}{\\begin{equation*}",
+        r"\\displaystyle " + math,
+        r"\\end{equation*}}}",
+        r"\\end{center}",
+        "",
+    ])
 
 
 def render(data):
     title = data.get("title", "")
+    theme = resolve_theme_color(data)
+    subject = clean_text(data.get("subject") or "")
+    level = clean_text(data.get("level") or "")
+    class_name = clean_text(data.get("class_name") or "")
+    author = clean_text(data.get("author") or "")
+    version = clean_text(data.get("version") or "")
+    info = [v for v in [subject, level, class_name] if v]
     lines = [
-        r"\documentclass[11pt,a4paper]{article}",
-        r"\usepackage{fontspec}",
-        r"\usepackage{amsmath,amssymb,mathtools}",
-        r"\usepackage{geometry}",
-        r"\usepackage{microtype}",
-        r"\usepackage{enumitem}",
-        r"\setlist{itemsep=1.5mm,topsep=2mm,parsep=0pt}",
-        r"\setlength{\parindent}{0pt}",
-        r"\setlength{\parskip}{3pt}",
-        r"\usepackage{unicode-math}",
-        r"\usepackage{polyglossia}",
-        r"\setmainlanguage{french}",
-        r"\setmainfont{Latin Modern Roman}",
-        r"\setmathfont{Latin Modern Math}",
-        r"\geometry{margin=2.2cm}",
-        r"\usepackage{graphicx}",
-        r"\usepackage{caption}",
-        r"\usepackage{needspace}",
-        r"\usepackage{hyperref}",
-        r"\hypersetup{hidelinks}",
-        r"\title{" + tex_text(title) + r"}",
-        r"\author{Aurore — Section Archives}",
-        r"\date{}",
-        r"\begin{document}",
-        r"\maketitle",
-        r"\section*{Introduction}",
+        r"\\documentclass[11pt,a4paper]{article}",
+        r"\\usepackage{fontspec}",
+        r"\\usepackage{amsmath,amssymb,mathtools}",
+        r"\\usepackage[table]{xcolor}",
+        r"\\usepackage{geometry}",
+        r"\\usepackage{microtype}",
+        r"\\usepackage{enumitem}",
+        r"\\setlist{itemsep=1.5mm,topsep=2mm,parsep=0pt}",
+        r"\\setlength{\\parindent}{0pt}",
+        r"\\setlength{\\parskip}{3pt}",
+        r"\\usepackage{unicode-math}",
+        r"\\usepackage{polyglossia}",
+        r"\\setmainlanguage{french}",
+        r"\\setmainfont{Latin Modern Roman}",
+        r"\\setmathfont{Latin Modern Math}",
+        r"\\geometry{margin=2.2cm,top=2.55cm,bottom=2.35cm}",
+        r"\\usepackage{graphicx}",
+        r"\\usepackage{caption}",
+        r"\\usepackage{needspace}",
+        r"\\usepackage{fancyhdr}",
+        r"\\usepackage{titlesec}",
+        r"\\usepackage{array}",
+        r"\\usepackage{tabularx}",
+        r"\\usepackage{hyperref}",
+        r"\\definecolor{aurorebase}{HTML}{" + theme + r"}",
+        r"\\colorlet{auroredeep}{aurorebase!70!black}",
+        r"\\colorlet{aurorelight}{aurorebase!8!white}",
+        r"\\colorlet{aurorepale}{aurorebase!3!white}",
+        r"\\hypersetup{hidelinks,colorlinks=true,linkcolor=auroredeep,urlcolor=auroredeep}",
+        r"\\setlength{\\headheight}{16pt}",
+        r"\\pagestyle{fancy}",
+        r"\\fancyhf{}",
+        r"\\renewcommand{\\headrulewidth}{0.45pt}",
+        r"\\renewcommand{\\footrulewidth}{0pt}",
+        r"\\fancyhead[L]{\\textcolor{auroredeep}{\\small\\textbf{AURORE}}}",
+        r"\\fancyhead[R]{\\textcolor{aurorebase}{\\small Section Archives}}",
+        r"\\fancyfoot[C]{\\textcolor{gray}{\\small Aurore — Section Archives \\textbullet\\; \\thepage}}",
+        r"\\fancypagestyle{plain}{%",
+        r"  \\fancyhf{}%",
+        r"  \\renewcommand{\\headrulewidth}{0.45pt}%",
+        r"  \\fancyhead[L]{\\textcolor{auroredeep}{\\small\\textbf{AURORE}}}%",
+        r"  \\fancyhead[R]{\\textcolor{aurorebase}{\\small Section Archives}}%",
+        r"  \\fancyfoot[C]{\\textcolor{gray}{\\small Aurore — Section Archives \\textbullet\\; \\thepage}}%",
+        r"}",
+        r"\\titleformat{\\section}{\\Large\\bfseries\\color{auroredeep}}{\\thesection}{0.65em}{}",
+        r"\\titleformat{\\subsection}{\\large\\bfseries\\color{auroredeep}}{\\thesubsection}{0.6em}{}",
+        r"\\titlespacing*{\\section}{0pt}{3.0ex plus .6ex minus .2ex}{1.3ex}",
+        r"\\titlespacing*{\\subsection}{0pt}{2.1ex plus .4ex minus .2ex}{0.8ex}",
+        r"\\newcommand{\\AuroreLabeledBlock}[2]{%",
+        r"  \\par\\medskip\\noindent\\fcolorbox{aurorebase}{aurorelight}{%",
+        r"    \\parbox{0.91\\linewidth}{\\textbf{\\textcolor{auroredeep}{#1}}\\par\\smallskip #2}%",
+        r"  }\\par\\medskip%",
+        r"}",
+        r"\\newcommand{\\AuroreExerciseBlock}[2]{%",
+        r"  \\par\\medskip\\noindent\\fcolorbox{aurorebase}{aurorepale}{%",
+        r"    \\parbox{0.91\\linewidth}{\\textbf{\\textcolor{auroredeep}{Exercice #1}}\\par\\smallskip #2}%",
+        r"  }\\par\\medskip%",
+        r"}",
+        r"\\newcommand{\\AuroreCorrectionBlock}[2]{%",
+        r"  \\par\\medskip\\noindent\\fcolorbox{auroredeep}{aurorelight}{%",
+        r"    \\parbox{0.91\\linewidth}{\\textbf{\\textcolor{auroredeep}{Corrigé — Exercice #1}}\\par\\smallskip #2}%",
+        r"  }\\par\\medskip%",
+        r"}",
+        r"\\begin{document}",
+        r"\\thispagestyle{empty}",
+        r"\\vspace*{0.8cm}",
+        r"\\begin{center}",
+        r"\\IfFileExists{../../icon-192-1.png}{%",
+        r"  \\includegraphics[height=1.65cm]{../../icon-192-1.png}\\par",
+        r"}{%",
+        r"  \\fcolorbox{aurorebase}{aurorelight}{\\parbox[c][1.65cm][c]{1.65cm}{\\centering\\fontsize{22}{24}\\selectfont\\bfseries\\color{auroredeep}A}}\\par",
+        r"}",
+        r"\\vspace{0.35cm}",
+        r"{\\fontsize{18}{20}\\selectfont\\bfseries\\color{auroredeep} AURORE}\\par",
+        r"{\\small\\color{aurorebase}Section Archives — Bibliothèque numérique}\\par",
+        r"\\vspace{1.1cm}",
+        r"\\fcolorbox{aurorebase}{aurorelight}{%",
+        r"  \\parbox{0.88\\linewidth}{%",
+        r"    \\centering",
+        r"    {\\fontsize{24}{28}\\selectfont\\bfseries\\color{auroredeep} " + tex_text(title) + r"}\\par",
+        r"    \\vspace{0.35cm}",
+        r"    {\\small\\color{gray} " + tex_text(" · ".join(info)) + r"}",
+        r"  }%",
+        r"}",
+        r"\\vfill",
+        r"{\\small\\color{gray}Document pédagogique édité avec Aurora · identité visuelle Aurore}",
+        r"\\end{center}",
+        r"\\clearpage",
+        r"\\renewcommand{\\contentsname}{Sommaire}",
+        r"\\setcounter{tocdepth}{2}",
+        r"\\tableofcontents",
+        r"\\clearpage",
+        r"\\section*{Introduction}",
+        r"\\addcontentsline{toc}{section}{Introduction}",
         inline(data.get("introduction", "")),
-        r"\section*{Objectifs d'apprentissage}",
-        r"\begin{itemize}",
+        r"\\section*{Objectifs d'apprentissage}",
+        r"\\addcontentsline{toc}{section}{Objectifs d'apprentissage}",
+        r"\\begin{itemize}",
     ]
-
-    for item in data.get("learning_objectives", []):
-        lines.append(r"\item " + inline(item))
-    lines.append(r"\end{itemize}")
-
     exercise_number = 0
 
     for sec in data.get("sections", []):
