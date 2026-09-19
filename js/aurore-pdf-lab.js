@@ -89,10 +89,10 @@
     const raw=String(value??'');
     const dollars=(raw.match(/\$\$/g)||[]).length;
     const singles=(raw.match(/(^|[^$])\$([^$\n]+)\$/g)||[]).length;
-    const display=(raw.match(/\\\\\[/g)||[]).length;
-    const displayEnd=(raw.match(/\\\\\]/g)||[]).length;
-    const inline=(raw.match(/\\\\\(/g)||[]).length;
-    const inlineEnd=(raw.match(/\\\\\)/g)||[]).length;
+    const display=(raw.match(/\\\[/g)||[]).length;
+    const displayEnd=(raw.match(/\\\]/g)||[]).length;
+    const inline=(raw.match(/\\\(/g)||[]).length;
+    const inlineEnd=(raw.match(/\\\)/g)||[]).length;
     const unclosed = dollars%2 || display!==displayEnd || inline!==inlineEnd;
     return {
       dollars,
@@ -104,7 +104,6 @@
       balanced:!unclosed
     };
   }
-
   function collectTextAndMath(content){
     const chunks=[];
     const push=v=>{if(typeof v==='string' && v.trim())chunks.push(v);};
