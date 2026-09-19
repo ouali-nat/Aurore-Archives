@@ -380,7 +380,7 @@ def render(data):
         r"\begin{tikzpicture}[remember picture,overlay]",
         r"\fill[aurorebase!9] ([xshift=-1.3cm,yshift=-1.1cm]current page.north east) circle (2.6cm);",
         r"\fill[aurorebase!5] ([xshift=-2.9cm,yshift=-4.2cm]current page.north east) circle (1.55cm);",
-        r"\fill[aurorebase!8] ([xshift=1.1cm,yshift=1.0cm]current page.south west) rounded corners=14pt rectangle +(3.6cm,.62cm);",
+        r"\fill[aurorebase!8,rounded corners=14pt] ([xshift=1.1cm,yshift=1.0cm]current page.south west) rectangle +(3.6cm,.62cm);",
         r"\end{tikzpicture}",
         r"\vspace*{0.65cm}",
         r"\begin{flushleft}",
