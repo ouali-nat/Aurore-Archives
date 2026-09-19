@@ -319,9 +319,6 @@
     else if(target.id==='aurorePdfLabExport'){e.preventDefault();exportReport();}
   });
 
-  $('aurorePdfLabRun')?.addEventListener('click',run);
-  $('aurorePdfLabOpen')?.addEventListener('click',openPdf);
-  $('aurorePdfLabExport')?.addEventListener('click',exportReport);
 
   renderStages();
 })();
