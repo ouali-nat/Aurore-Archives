@@ -309,6 +309,16 @@
     setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   }
 
+  // Délégation de clic : le laboratoire reste fonctionnel même si le panneau admin
+  // est initialisé après le chargement du script ou si le routeur reconstruit son contenu.
+  document.addEventListener('click',function(e){
+    const target=e.target?.closest?.('#aurorePdfLabRun,#aurorePdfLabOpen,#aurorePdfLabExport');
+    if(!target)return;
+    if(target.id==='aurorePdfLabRun'){e.preventDefault();run().catch(err=>{setStatus('Échec de l’analyse','fail');setStage('conclusion','fail','Analyse interrompue.',String(err?.message||err));log();});}
+    else if(target.id==='aurorePdfLabOpen'){e.preventDefault();openPdf();}
+    else if(target.id==='aurorePdfLabExport'){e.preventDefault();exportReport();}
+  });
+
   $('aurorePdfLabRun')?.addEventListener('click',run);
   $('aurorePdfLabOpen')?.addEventListener('click',openPdf);
   $('aurorePdfLabExport')?.addEventListener('click',exportReport);
