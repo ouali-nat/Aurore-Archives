@@ -241,15 +241,8 @@ async function renderPdfPageByPageFromBrowser(id,accessToken,b){
 ensureCfPdfProductionStyles();
 async function renderPdf(id){
   const b=document.querySelector(`[data-cf-render="${id}"]`);
-  if(b){b.disabled=true;b.textContent=b.dataset.hasPdf==='1'?'Régénération PDF…':'Génération PDF…'}
+  if(b){b.disabled=true;b.textContent=b.dataset.hasPdf==='1'?'Régénération LuaLaTeX…':'Génération LuaLaTeX…'}
   try{
-    // Récupère la session Supabase réellement active EN PREMIER, avant toute
-    // requête de renderPdf() — y compris la préparation GeoGebra. Auparavant
-    // cette vérification n'avait lieu que juste avant l'appel au renderer :
-    // l'étape GeoGebra (headersAdmin(), donc la variable locale "session",
-    // potentiellement périmée) pouvait alors échouer en 401 avant même
-    // d'atteindre le renderer v17, ce qui produisait le même message d'erreur
-    // générique et laissait croire à tort que le renderer refusait le JWT.
     const authClient=await assurerClientAuthGoogle();
     if(!authClient)throw new Error('Client Supabase indisponible.');
     const {data:authData,error:authError}=await authClient.auth.getSession();
@@ -257,8 +250,6 @@ async function renderPdf(id){
     const activeSession=authData?.session;
     const accessToken=activeSession?.access_token;
     if(!accessToken)throw new Error('Session administrateur expirée. Reconnecte-toi puis réessaie.');
-
-    // Synchronise la session locale sans modifier les autres informations admin.
     if(session){
       session.access_token=accessToken;
       if(activeSession.refresh_token)session.refresh_token=activeSession.refresh_token;
@@ -267,28 +258,42 @@ async function renderPdf(id){
     }
 
     const graphCount=await auroraConstruireEtImporterGraphiquesGeoGebra(id,b,accessToken);
-    if(b)b.textContent=graphCount?`Génération PDF avec ${graphCount} graphique${graphCount>1?'s':''} GeoGebra…`:'Génération PDF…';
+    if(b)b.textContent=graphCount?`Mise en file LuaLaTeX avec ${graphCount} graphique${graphCount>1?'s':''} GeoGebra…`:'Mise en file LuaLaTeX…';
+    setProgress(12,'Document envoyé au moteur LuaLaTeX…');
 
-    // Nouveau pipeline PDF : un seul rendu Gotenberg/Chromium.
-    // Le JWT utilisateur est transmis par cfFetch() ; aurora-content-pdf-v2
-    // vérifie ce JWT puis construit et persiste le PDF final.
-    setProgress(12,'Génération PDF avec Gotenberg + Chromium…');
-    if(b)b.textContent='Génération PDF avec Gotenberg…';
-    const pdfResponse=await cfFetch(`${SUPABASE_URL}/functions/v1/aurora-content-pdf-v2`,{
+    const request=await cfFetch(`${SUPABASE_URL}/functions/v1/aurora-lualatex-request`,{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${accessToken}`},
       body:JSON.stringify({generated_document_id:Number(id)})
     });
-    const pdfText=await pdfResponse.text();
-    let pdfData={};
-    try{pdfData=pdfText?JSON.parse(pdfText):{}}catch(_){pdfData={error:pdfText}};
-    if(!pdfResponse.ok||!pdfData?.ok){
-      throw new Error(pdfData?.error||(`Renderer PDF HTTP ${pdfResponse.status}`));
+    const requestText=await request.text();
+    let requestData={};
+    try{requestData=requestText?JSON.parse(requestText):{}}catch(_){requestData={error:requestText}};
+    if(!request.ok||!requestData?.ok)throw new Error(requestData?.error||(`File d'attente LuaLaTeX HTTP ${request.status}`));
+
+    setProgress(18,'En attente du rendu LuaLaTeX…');
+    if(b)b.textContent='LuaLaTeX en préparation…';
+
+    const deadline=Date.now()+15*60*1000;
+    let completed=null;
+    while(Date.now()<deadline){
+      const q=await cfFetch(`${SUPABASE_URL}/rest/v1/aurora_generated_documents?id=eq.${encodeURIComponent(Number(id))}&select=id,pdf_url,pdf_path,metadata,status,updated_at`,{cache:'no-store',headers:{'Authorization':`Bearer ${accessToken}`,'apikey':SUPABASE_ANON_KEY}});
+      const qt=await q.text();
+      let rows=[];
+      try{rows=qt?JSON.parse(qt):[]}catch(_){rows=[]}
+      const row=Array.isArray(rows)?rows[0]:null;
+      const m=row?.metadata&&typeof row.metadata==='object'?row.metadata:{};
+      if(row?.pdf_url&&m.lualatex_status==='completed'){completed=row;break}
+      if(m.lualatex_status==='failed')throw new Error('Le rendu LuaLaTeX a échoué. Consulte les journaux GitHub Actions.');
+      const elapsed=Date.now()-(deadline-15*60*1000);
+      setProgress(Math.min(92,18+Math.floor(elapsed/1000/10)),`LuaLaTeX travaille… ${Math.floor(elapsed/1000)} s`);
+      await new Promise(resolve=>setTimeout(resolve,5000));
     }
-    setProgress(100,'PDF Gotenberg généré et enregistré.');
-    if(b)b.textContent='PDF Gotenberg prêt';
+    if(!completed)throw new Error('Le rendu LuaLaTeX prend plus de temps que prévu. Le document reste en file et sera finalisé automatiquement.');
+    setProgress(100,'PDF LuaLaTeX généré et enregistré.');
+    if(b)b.textContent='PDF LuaLaTeX prêt';
     await charger();
-    alert(graphCount?`PDF Gotenberg généré avec ${graphCount} graphique${graphCount>1?'s':''} GeoGebra.`:'PDF Gotenberg généré et enregistré.');
+    alert(graphCount?`PDF LuaLaTeX généré avec ${graphCount} graphique${graphCount>1?'s':''} GeoGebra.`:'PDF LuaLaTeX généré et enregistré.');
   }catch(e){
     alert('Le PDF n’a pas pu être généré. '+(e.message||e))
   }finally{
