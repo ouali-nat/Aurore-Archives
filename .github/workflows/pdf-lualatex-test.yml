@@ -24,7 +24,7 @@ jobs:
       - name: Render real Aurore document 21
         working-directory: infra/lualatex
         run: |
-          python3 render_document.py
+          python3 render_document.py fixtures/document-21.json -o document-21.tex
           test -s document-21.tex
           grep -q '\\documentclass' document-21.tex
           grep -q '\\section' document-21.tex
@@ -32,8 +32,8 @@ jobs:
       - name: Compile real Aurore document 21
         working-directory: infra/lualatex
         run: |
-          lualatex -interaction=nonstopmode -halt-on-error document-21.tex
-          lualatex -interaction=nonstopmode -halt-on-error document-21.tex
+          lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error document-21.tex
+          lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error document-21.tex
 
       - name: Validate PDF
         working-directory: infra/lualatex
