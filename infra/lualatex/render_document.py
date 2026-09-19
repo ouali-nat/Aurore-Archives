@@ -280,6 +280,8 @@ def render(data):
         lines.append(r"\item " + inline(item))
     lines.append(r"\end{itemize}")
 
+    exercise_number = 0
+
     for sec in data.get("sections", []):
         lines.append(r"\Needspace{6\baselineskip}")
         lines.append(r"\section{" + tex_text(sec.get("title", "")) + r"}")
@@ -301,9 +303,10 @@ def render(data):
         lines.extend(render_content(content_items))
         lines.extend(render_graphs(sec.get("graphs", [])))
 
-        for i, ex in enumerate(sec.get("exercises", []), 1):
+        for ex in sec.get("exercises", []):
+            exercise_number += 1
             lines.append(r"\Needspace{5\baselineskip}")
-            lines.append(r"\subsection*{Exercice " + str(i) + "}")
+            lines.append(r"\subsection*{Exercice " + str(exercise_number) + "}")
             lines.append(inline(ex.get("question", "")) + "\n\n")
             if ex.get("hint"):
                 lines.append(r"\textit{Indication :} " + inline(ex["hint"]) + "\n\n")
