@@ -174,3 +174,5 @@ jobs:
 # Wake queue for document 22 after inline-math correction; no renderer logic change here.
 # Launch production renderer after guardrail fix 2026-09-19.
 # Wake production queue after background-render tracking fix 2026-09-19.
+
+# Wake production queue after renderer fix 2026-09-19.
