@@ -350,7 +350,7 @@ def main():
         raise SystemExit("inline() math guardrail failed: malformed array row break")
 
     _mixed_probe = inline(r"$(e^x)^n = e^{nx}$ pour tout entier $n$")
-    if _mixed_probe != r"\[(e^x)^n = e^{nx}\] pour tout entier \[n\]":
+    if _mixed_probe != r"\((e^x)^n = e^{nx}\) pour tout entier \(n\)":
         raise SystemExit("inline() math guardrail failed: mixed inline formulas")
 
     _array_row_probe = r"$\\begin{array}{c|ccccc} x & -\\infty & & 0 & & +\\infty \\ \\hline f(x) & 0 & \\nearrow & 1 & \\nearrow & +\\infty \\end{array}$"
