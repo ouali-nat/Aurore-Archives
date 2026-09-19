@@ -90,14 +90,26 @@ jobs:
           print(f"Fetched {document['id']}: {document['title']} (GeoGebra assets: {len(graph_assets)})")
           PY
 
-      - name: Ensure LuaLaTeX
+      - name: Ensure LuaLaTeX and Aurore fonts
         if: hashFiles('infra/lualatex/production/document-id') != ''
         run: |
-          if ! command -v lualatex >/dev/null 2>&1; then
+          NEED_UPDATE=0
+          if ! command -v lualatex >/dev/null 2>&1; then NEED_UPDATE=1; fi
+          if ! kpsewhich montserrat.sty >/dev/null 2>&1; then NEED_UPDATE=1; fi
+          if [ "$NEED_UPDATE" = "1" ]; then
             sudo apt-get update
-            sudo apt-get install -y texlive-luatex texlive-lang-french texlive-latex-extra
+            sudo apt-get install -y texlive-luatex texlive-lang-french texlive-latex-extra texlive-fonts-extra
           fi
           lualatex --version
+          kpsewhich montserrat.sty
+
+      - name: Fetch official Aurore site logo
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          mkdir -p infra/lualatex/production/assets
+          curl --fail --silent --show-error --location             "https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster"             -o infra/lualatex/production/assets/aurore-logo.png
+          test -s infra/lualatex/production/assets/aurore-logo.png
+          file infra/lualatex/production/assets/aurore-logo.png
 
       - name: Render LaTeX source
         if: hashFiles('infra/lualatex/production/document-id') != ''
