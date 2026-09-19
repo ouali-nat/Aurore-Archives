@@ -119,7 +119,7 @@ jobs:
             -H "Content-Type: application/pdf" \
             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
             -H "x-aurore-document-id: $DOCUMENT_ID" \
-            -H "x-aurore-commit: ${{ inputs.commit || 'false' }}" \
+            -H "x-aurore-commit: ${{ github.event_name == 'push' && 'true' || inputs.commit || 'false' }}" \
             --data-binary @infra/lualatex/bridge/document.pdf \
             "$SUPABASE_URL/functions/v1/aurora-lualatex-upload-v2" \
             -o infra/lualatex/bridge/upload-response.json
