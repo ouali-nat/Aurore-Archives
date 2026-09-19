@@ -232,6 +232,10 @@ def render(data):
         r"\usepackage{amsmath,amssymb,mathtools}",
         r"\usepackage{geometry}",
         r"\usepackage{microtype}",
+        r"\usepackage{enumitem}",
+        r"\setlist{itemsep=1.5mm,topsep=2mm,parsep=0pt}",
+        r"\setlength{\parindent}{0pt}",
+        r"\setlength{\parskip}{3pt}",
         r"\usepackage{unicode-math}",
         r"\usepackage{polyglossia}",
         r"\setmainlanguage{french}",
@@ -259,11 +263,14 @@ def render(data):
 
     for sec in data.get("sections", []):
         lines.append(r"\section{" + tex_text(sec.get("title", "")) + r"}")
-        lines.extend(render_content(sec.get("content", [])))
-        lines.extend(render_graphs(sec.get("graphs", [])))
-
+        if sec.get("objective"):
+            lines.append(r"\begin{quote}")
+            lines.append(r"\textbf{Objectif :} " + inline(sec["objective"]))
+            lines.append(r"\end{quote}")
         if sec.get("formula"):
             lines.append(display_formula(sec["formula"]))
+        lines.extend(render_content(sec.get("content", [])))
+        lines.extend(render_graphs(sec.get("graphs", [])))
 
         for i, ex in enumerate(sec.get("exercises", []), 1):
             lines.append(r"\subsection*{Exercice " + str(i) + "}")
