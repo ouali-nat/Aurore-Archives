@@ -146,6 +146,25 @@ jobs:
           print(f"PDF path: {data['pdf_path']}")
           PY
 
+      - name: Requeue document after renderer failure
+        if: failure() && hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          curl --fail --silent --show-error \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"error\":\"GitHub Actions run $GITHUB_RUN_ID failed\"}" \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-fail" \
+            -o infra/lualatex/production/failure-response.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("infra/lualatex/production/failure-response.json").read_text())
+          if not data.get("ok"):
+              raise SystemExit(f"Failure cleanup failed: {data}")
+          print(f"LuaLaTeX document requeue: document={data['document_id']} action={data['action']} failure_count={data['failure_count']}")
+          PY
       - name: Upload rendered PDF artifact
         if: hashFiles('infra/lualatex/production/document-id') != ''
         uses: actions/upload-artifact@v4
@@ -176,3 +195,5 @@ jobs:
 # Wake production queue after background-render tracking fix 2026-09-19.
 
 # Wake production queue after renderer fix 2026-09-19.
+
+# Failure requeue bridge verified 2026-09-19.
