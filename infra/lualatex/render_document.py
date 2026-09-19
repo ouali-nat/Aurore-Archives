@@ -4,6 +4,7 @@ import json
 import re
 from pathlib import Path
 
+AURORE_SITE_URL = "https://aurore-section-archivescom.vercel.app/"
 DEFAULT_THEME_COLOR = "6D28D9"
 
 SITE_THEME_PALETTE = {
@@ -32,9 +33,58 @@ SITE_THEME_PALETTE = {
     "azur":      {"primary": "0EA5E9", "secondary": "7DD3FC", "strong": "0369A1"},
     "lavande":   {"primary": "8B5CF6", "secondary": "DDD6FE", "strong": "6D28D9"},
     "safran":    {"primary": "EAB308", "secondary": "FDE68A", "strong": "A16207"},
+    "nuit":      {"primary": "2563EB", "secondary": "93C5FD", "strong": "1E3A8A"},
+    "marine":    {"primary": "0F4C5C", "secondary": "67E8F9", "strong": "0B3440"},
+    "ocean":     {"primary": "0284C7", "secondary": "38BDF8", "strong": "075985"},
+    "ciel":      {"primary": "0EA5E9", "secondary": "BAE6FD", "strong": "0369A1"},
+    "ardoise":   {"primary": "64748B", "secondary": "CBD5E1", "strong": "334155"},
+    "graphite":  {"primary": "52525B", "secondary": "D4D4D8", "strong": "27272A"},
+    "foret":     {"primary": "16A34A", "secondary": "86EFAC", "strong": "166534"},
+    "sapin":     {"primary": "047857", "secondary": "A7F3D0", "strong": "065F46"},
+    "pomme":     {"primary": "65A30D", "secondary": "BEF264", "strong": "3F6212"},
+    "pistache":  {"primary": "84CC16", "secondary": "D9F99D", "strong": "4D7C0F"},
+    "peche":     {"primary": "F97316", "secondary": "FED7AA", "strong": "C2410C"},
+    "abricot":   {"primary": "D97706", "secondary": "FCD34D", "strong": "92400E"},
+    "terracotta":{"primary": "C2410C", "secondary": "FDBA74", "strong": "9A3412"},
+    "framboise": {"primary": "E11D48", "secondary": "FDA4AF", "strong": "9F1239"},
+    "mauve":     {"primary": "8B5CF6", "secondary": "E9D5FF", "strong": "6D28D9"},
+    "pervenche": {"primary": "6366F1", "secondary": "C7D2FE", "strong": "3730A3"},
+    "glacier":   {"primary": "0891B2", "secondary": "CFFAFE", "strong": "155E75"},
+    "sable":     {"primary": "B7791F", "secondary": "FEF3C7", "strong": "854D0E"},
+    "cacao":     {"primary": "92400E", "secondary": "D6B38C", "strong": "451A03"},
 }
 
 # Production layout hardening test trigger: 2026-09-19.
+
+
+def _document_identity(data):
+    """Return a stable Aurore identifier and public document URL when available."""
+    meta = data.get("_aurore_document") if isinstance(data.get("_aurore_document"), dict) else {}
+    raw_id = meta.get("id") or data.get("document_id") or data.get("id")
+    try:
+        document_id = int(raw_id) if raw_id is not None else None
+    except (TypeError, ValueError):
+        document_id = None
+    created_at = str(meta.get("created_at") or data.get("created_at") or "")
+    year_match = re.search(r"(20\d{2})", created_at)
+    year = year_match.group(1) if year_match else "2026"
+    key = f"AUR-{year}-{document_id:06d}" if document_id is not None else "AUR-ARCHIVES"
+    share_url = f"{AURORE_SITE_URL}?document={document_id}" if document_id is not None else AURORE_SITE_URL
+    return {"id": document_id, "key": key, "year": year, "share_url": share_url}
+
+def _has_geogebra(data):
+    """Detect GeoGebra content from the structured graph payload."""
+    sections = data.get("sections", []) if isinstance(data.get("sections"), list) else []
+    for section in sections:
+        if not isinstance(section, dict):
+            continue
+        graphs = section.get("graphs", [])
+        if isinstance(graphs, list) and any(
+            isinstance(g, dict) and (g.get("graph_local_path") or g.get("geogebra_image_path"))
+            for g in graphs
+        ):
+            return True
+    return False
 
 
 def clean_text(s):
@@ -349,6 +399,11 @@ def render(data):
     author = clean_text(data.get("author") or "")
     version = clean_text(data.get("version") or "")
     info = [v for v in [subject, level, class_name] if v]
+    document_identity = _document_identity(data)
+    document_id = document_identity["id"]
+    document_key = document_identity["key"]
+    document_share_url = document_identity["share_url"]
+    has_geogebra = _has_geogebra(data)
     lines = [
         r"\documentclass[11pt,a4paper]{article}",
         r"\usepackage{fontspec}",
@@ -369,6 +424,7 @@ def render(data):
         r"\emergencystretch=2em",
         r"\geometry{margin=2.2cm,top=2.55cm,bottom=2.35cm}",
         r"\usepackage{graphicx}",
+        r"\usepackage{qrcode}",
         r"\usepackage{caption}",
         r"\usepackage{needspace}",
         r"\usepackage{fancyhdr}",
@@ -398,7 +454,9 @@ def render(data):
         r"    \fill[auroreprimary!6] ([xshift=1.95cm,yshift=-5.50cm]current page.south west) circle (0.85cm);",
         r"  \end{tikzpicture}%",
         r"}",
-        r"\hypersetup{hidelinks,colorlinks=true,linkcolor=auroredeep,urlcolor=auroredeep}",
+        r"\hypersetup{hidelinks,colorlinks=true,linkcolor=auroredeep,urlcolor=auroredeep," +
+        r"pdftitle={" + tex_text(title) + r"},pdfauthor={Aurore — Section Archives}," +
+        r"pdfsubject={Document pédagogique},pdfkeywords={" + tex_text(document_key) + r"}}",
         r"\setlength{\headheight}{22pt}",
         r"\pagestyle{fancy}",
         r"\fancyhf{}",
@@ -418,7 +476,7 @@ def render(data):
         r"\titleformat{\subsection}{\large\sffamily\bfseries\color{auroredeep}}{\thesubsection}{0.6em}{}",
         r"\titlespacing*{\section}{0pt}{3.0ex plus .6ex minus .2ex}{1.3ex}",
         r"\titlespacing*{\subsection}{0pt}{2.1ex plus .4ex minus .2ex}{0.8ex}",
-        r"\tcbset{auroreblock/.style={enhanced,breakable,arc=11pt,outer arc=11pt,boxrule=.45pt,colframe=aurorebase!42!white,left=11pt,right=11pt,top=9pt,bottom=9pt,before skip=9pt,after skip=11pt,fonttitle=\sffamily\bfseries,pad at break*=2mm}}",
+        r"\tcbset{auroreblock/.style={enhanced,breakable,arc=11pt,outer arc=11pt,boxrule=.45pt,colframe=aurorebase!42!white,left=9pt,right=9pt,top=7pt,bottom=7pt,before skip=7pt,after skip=9pt,fonttitle=\sffamily\bfseries,pad at break*=1.5mm}}",
         r"\newcommand{\AurorePill}[1]{\tcbox[on line,boxrule=0pt,colback=aurorepale,arc=7pt,left=6pt,right=6pt,top=3pt,bottom=3pt]{\sffamily\bfseries\small\textcolor{auroredeep}{#1}}}",
         r"\newcommand{\AuroreLabeledBlock}[2]{%",
         r"  \begin{tcolorbox}[auroreblock,colback=aurorelight!72!white]%",
@@ -466,7 +524,6 @@ def render(data):
         r"\AuroreTitleBlock{Document pédagogique}{" + tex_text(title) + r"}{Aurore — Section Archives" + (r" · " + tex_text(" · ".join(info)) if info else "") + r"}",
         r"\vfill",
         r"{\sffamily\small\color{gray}Document pédagogique édité avec Aurora · identité visuelle Aurore}",
-        r"\clearpage",
         r"\clearpage",
         r"\renewcommand{\contentsname}{Sommaire}",
         r"\setcounter{tocdepth}{2}",
@@ -523,14 +580,40 @@ def render(data):
             lines.append(r"\Needspace{5\baselineskip}")
             lines.append(r"\AuroreCorrectionBlock{" + str(c.get("exercise_number", "")) + r"}{" + inline(c.get("solution", "")) + r"}")
 
-    lines.extend([
+    rights_lines = [
         r"\clearpage",
-        r"\section*{Bon usage et droits d’auteur}",
-        r"\addcontentsline{toc}{section}{Bon usage et droits d’auteur}",
-        r"\AuroreLabeledBlock{Bon usage}{Ce document a été conçu à des fins pédagogiques. Il accompagne l’apprentissage, la révision et la préparation scolaire. Utilisez-le comme support de travail, vérifiez vos raisonnements et complétez les notions avec les ressources indiquées.}",
-        r"\AuroreLabeledBlock{Droits d’auteur et attribution}{Document édité par Aurore — Section Archives. Les contenus, illustrations, graphiques et sources externes restent soumis aux droits de leurs auteurs respectifs. Respectez les conditions de réutilisation applicables et conservez les crédits lorsqu’ils sont fournis.}",
-        r"\AuroreLabeledBlock{Identité du document}{" + (r"Auteur : " + inline(author) + r"\par " if author else "") + (r"Version : " + inline(version) if version else r"Version : 1") + r"\par Couleur dominante Aurore : \#" + theme + r"}",
+        r"\thispagestyle{plain}",
+        r"\begin{center}",
+        r"\vspace*{0.08\textheight}",
+        r"\begin{tcolorbox}[enhanced,colback=white!97!aurorepale,colframe=aurorebase!28!white,arc=15pt,boxrule=.55pt,left=15pt,right=15pt,top=14pt,bottom=14pt,width=.91\linewidth]",
+        r"  \AurorePill{© Aurore — Section Archives}\par\medskip",
+        r"  {\sffamily\small\color{auroredeep}Ce document pédagogique constitue une création éditoriale d'Aurore.\par\medskip}",
+        r"  {\sffamily\small\color{auroredeep}Les connaissances, formules et notions scientifiques générales restent librement utilisables sous réserve des droits éventuellement applicables aux éléments tiers.\par\medskip}",
+        r"  {\sffamily\small\color{auroredeep}Les éléments provenant de tiers restent soumis à leurs propres conditions de licence et d'utilisation.\par}",
+    ]
+    if has_geogebra:
+        rights_lines.extend([
+            r"  \medskip",
+            r"  {\sffamily\small\itshape\color{aurorebase!80!black}Graphiques réalisés avec GeoGebra®\par}",
+        ])
+    if document_id is not None:
+        rights_lines.extend([
+            r"  \medskip",
+            r"  \begin{minipage}[c]{0.66\linewidth}",
+            r"    {\sffamily\scriptsize\color{gray}Document vérifiable sur Aurore}\par",
+            r"    {\sffamily\small\href{" + document_share_url + r"}{\textcolor{auroredeep}{Vérifier ce document sur Aurore}}}\par",
+            r"    {\sffamily\scriptsize\color{gray}Identifiant : \texttt{" + document_key + r"}}",
+            r"  \end{minipage}",
+            r"  \hfill",
+            r"  \raisebox{0pt}[2.25cm][0pt]{\qrcode[height=2.05cm]{" + document_share_url + r"}}",
+        ])
+    rights_lines.extend([
+        r"  \par\medskip",
+        r"  {\sffamily\scriptsize\color{gray}" + ("Version " + (version or "1") + " · " if version else "Version 1 · ") + r"Couleur dominante Aurore : \#" + theme + r"}",
+        r"\end{tcolorbox}",
+        r"\end{center}",
     ])
+    lines.extend(rights_lines)
     lines.append(r"\end{document}")
     return "\n".join(lines)
 
