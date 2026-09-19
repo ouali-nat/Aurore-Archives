@@ -3,7 +3,7 @@
 const documentThemeColor=metadata=>{
   const m=metadata&&typeof metadata==='object'?metadata:{};
   const d=m.aurore_design&&typeof m.aurore_design==='object'?m.aurore_design:{};
-  return normalizeThemeColor(d.theme_color||d.themeColor||m.theme_color||m.themeColor||'#4F46E5');
+  return normalizeThemeColor(d.theme_color||d.themeColor||m.theme_color||m.themeColor||'#6D28D9');
 };
 async function chooseRegenerationTheme(defaultColor){
   return new Promise(resolve=>{
