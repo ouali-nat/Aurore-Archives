@@ -47,13 +47,13 @@ def normalize_math(s):
     def _fix_array_rows(match):
         block = match.group(0)
         return re.sub(
-            r"(?<!\\)\\(?=\\s+\\\\(?:hline|cline)\\b)",
+            r"(?<!\\)\\(?=\s+\\(?:hline|cline)\b)",
             r"\\\\",
             block,
         )
 
     return re.sub(
-        r"\\\\begin\\{array\\}[\\s\\S]*?\\\\end\\{array\\}",
+        r"\\begin\{array\}[\s\S]*?\\end\{array\}",
         _fix_array_rows,
         s,
     )
@@ -275,7 +275,7 @@ def main():
 
     # Guard against the exact malformed array row break observed in production.
     _malformed_array_probe = inline(
-        r"$\begin{array}{c|c} a & b \\ \\hline c & d \\end{array}$"
+        r"$\begin{array}{c|c} a & b \ \hline c & d \end{array}$"
     )
     if r"\\ \hline" not in _malformed_array_probe:
         raise SystemExit("inline() math guardrail failed: malformed array row break")
