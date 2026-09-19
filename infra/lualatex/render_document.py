@@ -18,29 +18,35 @@ def inline(s):
     """
     Escape ordinary text while preserving LaTeX math blocks.
 
-    The previous implementation only recognized single-dollar math
-    ($...$). Content Factory output can also contain display math
-    ($$...$$ or \[...\]), including array environments with & and
-    braces. Those blocks must remain untouched.
+    Content Factory may emit inline or display math, including multiline
+    array environments. Math must never pass through tex_text(), otherwise
+    backslashes, braces and alignment markers are escaped into invalid TeX.
     """
     s = str(s or "")
-    pattern = re.compile(r"(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\$[^$\n]+\$)")
+    stripped = s.strip()
+
+    # A whole item that is itself a math expression is the most common
+    # Content Factory representation for display-style formulas/tables.
+    if len(stripped) >= 2:
+        if stripped.startswith("$") and stripped.endswith("$"):
+            return r"\[" + stripped[2:-2].strip() + r"\]"
+        if stripped.startswith(r"\[") and stripped.endswith(r"\]"):
+            return stripped
+        if stripped.startswith("$") and stripped.endswith("$"):
+            return "$" + stripped[1:-1].strip() + "$"
+
+    pattern = re.compile(r"(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\$[\s\S]*?\$)")
     parts = pattern.split(s)
     out = []
     for p in parts:
         if not p:
             continue
-        if (
-            (p.startswith("$$") and p.endswith("$$"))
-            or (p.startswith(r"\[") and p.endswith(r"\]"))
-            or (p.startswith("$") and p.endswith("$"))
-        ):
-            if p.startswith("$$") and p.endswith("$$"):
-                out.append(r"\[" + p[2:-2].strip() + r"\]")
-            elif p.startswith(r"\[") and p.endswith(r"\]"):
-                out.append(p)
-            else:
-                out.append("$" + p[1:-1].strip() + "$")
+        if p.startswith("$") and p.endswith("$"):
+            out.append(r"\[" + p[2:-2].strip() + r"\]")
+        elif p.startswith(r"\[") and p.endswith(r"\]"):
+            out.append(p)
+        elif p.startswith("$") and p.endswith("$"):
+            out.append("$" + p[1:-1].strip() + "$")
         else:
             out.append(tex_text(p))
     return "".join(out)
@@ -87,6 +93,17 @@ def render_table(rows):
 
 
 def render_content(items):
+    # Be defensive about Content Factory payloads. Some production payloads
+    # can arrive as a JSON-encoded string instead of a native list.
+    if isinstance(items, str):
+        try:
+            decoded = json.loads(items)
+            items = decoded if isinstance(decoded, list) else [items]
+        except (TypeError, json.JSONDecodeError):
+            items = [items]
+    elif not isinstance(items, list):
+        items = [items]
+
     lines = []
     i = 0
     while i < len(items):
@@ -193,6 +210,12 @@ def render(data):
 
 
 def main():
+    # Guardrail for the exact failure mode: a standalone array formula must
+    # survive inline() byte-for-byte instead of being text-escaped.
+    _probe = r"$\\begin{array}{c|ccccc} x & -\\infty & & 0 & & +\\infty \\ \\hline f(x) & 0 & \\nearrow & 1 & \\nearrow & +\\infty \\end{array}$"
+    if "\\textbackslash{}begin" in inline(_probe):
+        raise SystemExit("inline() math guardrail failed")
+
     parser = argparse.ArgumentParser(description="Render an Aurore document JSON to LuaLaTeX source.")
     parser.add_argument("input", nargs="?", default="fixtures/document-21.json")
     parser.add_argument("-o", "--output", default=None)
