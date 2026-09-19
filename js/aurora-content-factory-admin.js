@@ -11,7 +11,7 @@ async function chooseRegenerationTheme(defaultColor){
     if(!modal){
       modal=document.createElement('div');
       modal.id='cfThemeModal';
-      modal.innerHTML='<div class="cf-theme-modal-backdrop"></div><section class="cf-theme-modal-card" role="dialog" aria-modal="true" aria-labelledby="cfThemeModalTitle"><div class="cf-theme-modal-kicker">Identité Aurore</div><h3 id="cfThemeModalTitle">Choisir la couleur du nouveau PDF</h3><p>Les couleurs proposées reprennent les 25 thèmes officiels du site Aurore. La couleur choisie restera associée à cette version.</p><div class="cf-theme-modal-picker"><input id="cfThemeModalInput" type="color" aria-label="Couleur dominante du PDF"><div><strong id="cfThemeModalValue"></strong><span>Couleur dominante</span></div></div><div class="cf-theme-swatches" aria-label="Couleurs proposées"></div><div class="cf-theme-modal-actions"><button type="button" class="admin-btn ghost" id="cfThemeModalCancel">Annuler</button><button type="button" class="admin-btn primary" id="cfThemeModalApply">Régénérer avec cette couleur</button></div></section></div>';
+      modal.innerHTML='<div class="cf-theme-modal-backdrop"></div><section class="cf-theme-modal-card" role="dialog" aria-modal="true" aria-labelledby="cfThemeModalTitle"><div class="cf-theme-modal-kicker">Identité Aurore</div><h3 id="cfThemeModalTitle">Choisir la couleur du nouveau PDF</h3><p>Les couleurs proposées reprennent les 45 thèmes officiels du site Aurore. La couleur choisie restera associée à cette version.</p><div class="cf-theme-modal-picker"><input id="cfThemeModalInput" type="color" aria-label="Couleur dominante du PDF"><div><strong id="cfThemeModalValue"></strong><span>Couleur dominante</span></div></div><div class="cf-theme-swatches" aria-label="Couleurs proposées"></div><div class="cf-theme-modal-actions"><button type="button" class="admin-btn ghost" id="cfThemeModalCancel">Annuler</button><button type="button" class="admin-btn primary" id="cfThemeModalApply">Régénérer avec cette couleur</button></div></section></div>';
       document.body.appendChild(modal);
       const style=document.createElement('style');
       style.id='cfThemeModalStyles';
@@ -26,7 +26,14 @@ async function chooseRegenerationTheme(defaultColor){
         ['Corail','#C2412D','#FFB4A8'],['Bordeaux','#881337','#FB7185'],['Pourpre','#6B21A8','#D8B4FE'],
         ['Prune','#581C87','#C084FC'],['Or','#9A6700','#F6D365'],['Ambre','#B45309','#FCD34D'],
         ['Menthe','#047857','#A7F3D0'],['Azur','#0369A1','#7DD3FC'],['Lavande','#6D28D9','#DDD6FE'],
-        ['Safran','#A16207','#FDE68A']
+        ['Safran','#A16207','#FDE68A'],
+        ['Nuit','#1E3A8A','#93C5FD'],['Marine','#0B3440','#67E8F9'],['Océan','#075985','#38BDF8'],
+        ['Ciel','#0369A1','#BAE6FD'],['Ardoise','#334155','#CBD5E1'],['Graphite','#27272A','#D4D4D8'],
+        ['Forêt','#166534','#86EFAC'],['Sapin','#065F46','#A7F3D0'],['Pomme','#3F6212','#BEF264'],
+        ['Pistache','#4D7C0F','#D9F99D'],['Pêche','#C2410C','#FED7AA'],['Abricot','#92400E','#FCD34D'],
+        ['Terracotta','#9A3412','#FDBA74'],['Framboise','#9F1239','#FDA4AF'],['Mauve','#6D28D9','#E9D5FF'],
+        ['Pervenche','#3730A3','#C7D2FE'],['Glacier','#155E75','#CFFAFE'],['Sable','#854D0E','#FEF3C7'],
+        ['Cacao','#451A03','#D6B38C']
       ];
       modal.querySelector('.cf-theme-swatches').innerHTML=swatches.map(([label,strong,secondary])=>'<button type="button" class="cf-theme-swatch" data-theme-swatch="'+strong+'" style="background:linear-gradient(135deg,'+strong+','+secondary+')" aria-label="Choisir le thème '+label+'" title="'+label+'"></button>').join('');
     }
