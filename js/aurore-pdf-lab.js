@@ -366,12 +366,7 @@
     return h?(h+' h '+String(m).padStart(2,'0')+' min'):(m?(m+' min '+String(s).padStart(2,'0')+' s'):(s+' s'));
   }
   function ensureProductionUI(){
-    if(document.getElementById('aurorePdfProductionCenter'))return;
-    const host=document.querySelector('.admin-tab-panel[data-panel="content-factory"]')||document.body;
-    const box=document.createElement('section');box.id='aurorePdfProductionCenter';box.className='aurore-pdf-production-center';
-    box.innerHTML='<div class="aurore-pdf-prod-head"><div><span class="aurore-pdf-prod-kicker">Production Aurore</span><h3>Suivi des régénérations PDF</h3><p id="aurorePdfProdSummary">Synchronisation…</p></div><span class="aurore-pdf-prod-live"><i></i> En direct</span></div><div id="aurorePdfProdList" class="aurore-pdf-prod-list"></div>';
-    const anchor=document.getElementById('cfProgress')||host.firstElementChild;
-    if(anchor&&anchor.parentNode===host)host.insertBefore(box,anchor);else host.prepend(box);
+    return !!document.getElementById('aurorePdfProductionCenter');
   }
   function toast(title,message,state='info'){
     let wrap=document.getElementById('aurorePdfToastWrap');
@@ -398,19 +393,21 @@
     list.innerHTML=ordered.map((x,i)=>{
       const m=x.metadata||{},s=m.lualatex_status;
       const proc=s==='processing',wait=s==='queued',done=s==='completed',fail=s==='failed';
-      const p=Math.max(0,Math.min(100,Number(m.lualatex_progress)||0));
+      const rawProgress=Number(m.lualatex_progress);
+      const p=done?100:(wait?0:Math.max(0,Math.min(100,Number.isFinite(rawProgress)?rawProgress:0)));
       const requested=m.lualatex_requested_at||x.created_at;
+      const started=m.lualatex_started_at||m.lualatex_claimed_at||requested;
       const completed=m.lualatex_completed_at||((done||fail)?x.updated_at:null);
       const position=wait?queued.findIndex(q=>q.id===x.id)+1:0;
       const statusLabel=proc?'GÉNÉRATION EN COURS':wait?'EN ATTENTE':done?'PDF TERMINÉ':'ÉCHEC';
       const stage=proc?(m.lualatex_stage||'Génération en cours…'):wait?'En attente du document précédent…':done?'PDF enregistré dans Aurore':(m.lualatex_last_error||'Une nouvelle tentative peut être lancée.');
-      const timeLine=wait?'Demandée à '+qDate(requested):proc?'Lancée à '+qDate(requested)+' · '+qDuration(requested):done?'Lancée à '+qDate(requested)+' · terminée à '+qDate(completed)+' · durée '+qDuration(requested,completed):'Demandée à '+qDate(requested);
+      const timeLine=wait?'Demandée à '+qDate(requested):proc?'Lancée à '+qDate(started)+' · '+qDuration(started):done?'Lancée à '+qDate(started)+' · terminée à '+qDate(completed)+' · durée '+qDuration(started,completed):'Demandée à '+qDate(requested);
       const button=done&&x.pdf_url?'<a class="aurore-pdf-prod-open" href="'+qEsc(x.pdf_url)+'" target="_blank" rel="noopener">Ouvrir le PDF</a>':'';
       return '<article class="aurore-pdf-prod-card '+(proc?'is-processing ':wait?'is-queued ':done?'is-completed ':'is-failed ')+'">'+
         '<div class="aurore-pdf-prod-card-top"><div class="aurore-pdf-prod-main"><span class="aurore-pdf-prod-number">'+(proc?'⚙':wait?'#'+position:done?'✓':'!')+'</span><div><strong>'+qEsc(x.title||'Document pédagogique')+'</strong><small>'+qEsc(statusLabel)+'</small></div></div><span class="aurore-pdf-prod-time">'+qEsc(timeLine)+'</span></div>'+
         '<div class="aurore-pdf-prod-stage">'+qEsc(stage)+'</div>'+
         '<div class="aurore-pdf-prod-progress"><div class="aurore-pdf-prod-bar"><i style="width:'+p+'%"></i></div><span>'+p+'%</span></div>'+
-        '<div class="aurore-pdf-prod-card-bottom"><span>'+ (wait?'Position '+position+' dans la file':proc?qEsc('Temps écoulé : '+qDuration(requested)):done?'Production terminée':'Tentative '+String(m.lualatex_failure_count||1))+'</span>'+button+'</div>'+
+        '<div class="aurore-pdf-prod-card-bottom"><span>'+ (wait?'Position '+position+' dans la file':proc?qEsc('Temps écoulé : '+qDuration(started)):done?'Production terminée':'Tentative '+String(m.lualatex_failure_count||1))+'</span>'+button+'</div>'+
       '</article>';
     }).join('');
   }
