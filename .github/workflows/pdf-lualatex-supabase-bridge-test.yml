@@ -1,0 +1,87 @@
+name: PDF LaTeX Supabase bridge test
+
+on:
+  workflow_dispatch:
+    inputs:
+      document_id:
+        description: "aurora_generated_documents.id to render"
+        required: true
+        default: "21"
+
+permissions:
+  contents: read
+
+jobs:
+  bridge-test:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: https://tdeotqfsbvouresfhkab.supabase.co
+      AURORA_LUALATEX_RENDER_TOKEN: \${{ secrets.AURORA_LUALATEX_RENDER_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate bridge secret
+        run: |
+          test -n "$AURORA_LUALATEX_RENDER_TOKEN"
+
+      - name: Fetch document JSON from Supabase
+        run: |
+          mkdir -p infra/lualatex/bridge
+          curl --fail --silent --show-error \
+            --header "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-source?document_id=\${{ inputs.document_id }}" \
+            -o infra/lualatex/bridge/document-response.json
+          test -s infra/lualatex/bridge/document-response.json
+
+      - name: Extract content_json
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          src = json.loads(Path("infra/lualatex/bridge/document-response.json").read_text(encoding="utf-8"))
+          if "document" not in src or "content_json" not in src["document"]:
+              raise SystemExit("Supabase response does not contain document.content_json")
+
+          document = src["document"]
+          Path("infra/lualatex/bridge/document.json").write_text(
+              json.dumps(document["content_json"], ensure_ascii=False, indent=2),
+              encoding="utf-8",
+          )
+          print(f"Fetched document {document['id']}: {document['title']}")
+          print(f"version={document['version']} status={document['status']}")
+          PY
+
+      - name: Ensure LuaLaTeX
+        run: |
+          if ! command -v lualatex >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y texlive-luatex texlive-lang-french texlive-latex-extra
+          fi
+          lualatex --version
+
+      - name: Render fetched Supabase JSON
+        working-directory: infra/lualatex
+        run: |
+          python3 render_document.py bridge/document.json -o bridge/document.tex
+          test -s bridge/document.tex
+          grep -q '\\documentclass' bridge/document.tex
+          grep -q '\\section' bridge/document.tex
+
+      - name: Compile fetched Supabase document
+        working-directory: infra/lualatex
+        run: |
+          lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error bridge/document.tex
+          lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error bridge/document.tex
+          test -s bridge/document.pdf
+          file bridge/document.pdf
+          grep -a -m1 '%PDF-' bridge/document.pdf
+
+      - name: Upload bridge test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aurore-lualatex-supabase-bridge-\${{ inputs.document_id }}
+          path: infra/lualatex/bridge/document.pdf
+          retention-days: 3
