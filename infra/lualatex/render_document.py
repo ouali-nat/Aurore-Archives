@@ -195,6 +195,29 @@ def render_content(items):
     return lines
 
 
+def render_graphs(graphs):
+    if not isinstance(graphs, list):
+        return []
+    lines = []
+    for graph in graphs:
+        if not isinstance(graph, dict):
+            continue
+        local_path = str(graph.get("graph_local_path") or "").strip()
+        if not local_path:
+            continue
+        safe_path = local_path.replace("\\", "/").replace("#", "\\#").replace("%", "\\%")
+        title = tex_text(graph.get("title") or "Graphique")
+        lines.extend([
+            r"\begin{figure}[htbp]",
+            r"\centering",
+            r"\includegraphics[width=0.92\linewidth,height=10.5cm,keepaspectratio]{" + safe_path + r"}",
+            r"\caption{" + title + r"}",
+            r"\end{figure}",
+            "",
+        ])
+    return lines
+
+
 def display_formula(s):
     if not s:
         return ""
@@ -215,6 +238,8 @@ def render(data):
         r"\setmainfont{Latin Modern Roman}",
         r"\setmathfont{Latin Modern Math}",
         r"\geometry{margin=2.2cm}",
+        r"\usepackage{graphicx}",
+        r"\usepackage{caption}",
         r"\usepackage{hyperref}",
         r"\hypersetup{hidelinks}",
         r"\title{" + tex_text(title) + r"}",
@@ -235,6 +260,7 @@ def render(data):
     for sec in data.get("sections", []):
         lines.append(r"\section{" + tex_text(sec.get("title", "")) + r"}")
         lines.extend(render_content(sec.get("content", [])))
+        lines.extend(render_graphs(sec.get("graphs", [])))
 
         if sec.get("formula"):
             lines.append(display_formula(sec["formula"]))
