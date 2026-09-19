@@ -4,7 +4,35 @@ import json
 import re
 from pathlib import Path
 
-DEFAULT_THEME_COLOR = "4F46E5"
+DEFAULT_THEME_COLOR = "6D28D9"
+
+SITE_THEME_PALETTE = {
+    "violet":    {"primary": "8B5CF6", "secondary": "C084FC", "strong": "6D28D9"},
+    "rouge":     {"primary": "E05260", "secondary": "FF8A96", "strong": "C93648"},
+    "vert":      {"primary": "2FA66A", "secondary": "75D89C", "strong": "198754"},
+    "bleu":      {"primary": "3B82F6", "secondary": "7DB3FF", "strong": "1D4ED8"},
+    "jaune":     {"primary": "D5A51B", "secondary": "F5D36B", "strong": "B77900"},
+    "orange":    {"primary": "E8791A", "secondary": "FFB36B", "strong": "C85C0D"},
+    "cyan":      {"primary": "0891B2", "secondary": "67E8F9", "strong": "0E7490"},
+    "rose":      {"primary": "DB2777", "secondary": "F9A8D4", "strong": "BE185D"},
+    "indigo":    {"primary": "6366F1", "secondary": "A5B4FC", "strong": "4338CA"},
+    "turquoise": {"primary": "14B8A6", "secondary": "67E8F9", "strong": "0F766E"},
+    "emeraude":  {"primary": "10B981", "secondary": "6EE7B7", "strong": "047857"},
+    "lime":      {"primary": "84CC16", "secondary": "BEF264", "strong": "4D7C0F"},
+    "sarcelle":  {"primary": "0D9488", "secondary": "5EEAD4", "strong": "115E59"},
+    "magenta":   {"primary": "D946EF", "secondary": "F0ABFC", "strong": "A21CAF"},
+    "fuchsia":   {"primary": "C026D3", "secondary": "F0ABFC", "strong": "86198F"},
+    "corail":    {"primary": "F06A57", "secondary": "FFB4A8", "strong": "C2412D"},
+    "bordeaux":  {"primary": "9F1239", "secondary": "FB7185", "strong": "881337"},
+    "pourpre":   {"primary": "9333EA", "secondary": "D8B4FE", "strong": "6B21A8"},
+    "prune":     {"primary": "7E22CE", "secondary": "C084FC", "strong": "581C87"},
+    "or":        {"primary": "D4A017", "secondary": "F6D365", "strong": "9A6700"},
+    "ambre":     {"primary": "F59E0B", "secondary": "FCD34D", "strong": "B45309"},
+    "menthe":    {"primary": "10B981", "secondary": "A7F3D0", "strong": "047857"},
+    "azur":      {"primary": "0EA5E9", "secondary": "7DD3FC", "strong": "0369A1"},
+    "lavande":   {"primary": "8B5CF6", "secondary": "DDD6FE", "strong": "6D28D9"},
+    "safran":    {"primary": "EAB308", "secondary": "FDE68A", "strong": "A16207"},
+}
 
 # Production layout hardening test trigger: 2026-09-19.
 
@@ -252,19 +280,36 @@ def render_graphs(graphs):
     return lines
 
 
-def resolve_theme_color(data):
-    """Return a validated per-document Aurore theme color (RRGGBB)."""
+def resolve_theme_palette(data):
+    """Resolve the exact Aurore site palette for the document."""
+    design_candidates = [data.get("_aurore_design"), data.get("aurore_design")]
+    design = next((d for d in design_candidates if isinstance(d, dict)), {})
+    key = clean_text(design.get("theme_key") or data.get("theme_key") or "").strip().lower()
+    if key in SITE_THEME_PALETTE:
+        return SITE_THEME_PALETTE[key]
+
     candidates = [
+        design.get("theme_strong"),
+        design.get("theme_primary"),
+        design.get("theme_color"),
         data.get("theme_color"),
         data.get("themeColor"),
-        (data.get("_aurore_design") or {}).get("theme_color") if isinstance(data.get("_aurore_design"), dict) else None,
-        (data.get("aurore_design") or {}).get("theme_color") if isinstance(data.get("aurore_design"), dict) else None,
     ]
     for value in candidates:
-        raw = clean_text(value).strip().lstrip("#")
-        if re.fullmatch(r"[0-9A-Fa-f]{6}", raw):
-            return raw.upper()
-    return DEFAULT_THEME_COLOR
+        raw = clean_text(value).strip().lstrip("#").upper()
+        if not re.fullmatch(r"[0-9A-F]{6}", raw):
+            continue
+        for palette in SITE_THEME_PALETTE.values():
+            if raw in {palette["strong"], palette["primary"], palette["secondary"]}:
+                return palette
+        return {"primary": raw, "secondary": raw, "strong": raw}
+
+    return SITE_THEME_PALETTE["violet"]
+
+
+def resolve_theme_color(data):
+    """Backward-compatible helper returning the strong Aurore color."""
+    return resolve_theme_palette(data)["strong"]
 
 
 def labeled_block(s):
@@ -294,7 +339,10 @@ def display_formula(s):
 
 def render(data):
     title = data.get("title", "")
-    theme = resolve_theme_color(data)
+    theme_palette = resolve_theme_palette(data)
+    theme = theme_palette["strong"]
+    theme_primary = theme_palette["primary"]
+    theme_secondary = theme_palette["secondary"]
     subject = clean_text(data.get("subject") or "")
     level = clean_text(data.get("level") or "")
     class_name = clean_text(data.get("class_name") or "")
@@ -331,14 +379,23 @@ def render(data):
         r"\usepackage{tikz}",
         r"\usepackage[most]{tcolorbox}",
         r"\definecolor{aurorebase}{HTML}{" + theme + r"}",
-        r"\colorlet{auroredeep}{aurorebase!70!black}",
-        r"\colorlet{aurorelight}{aurorebase!10!white}",
-        r"\colorlet{aurorepale}{aurorebase!3!white}",
+        r"\definecolor{auroreprimary}{HTML}{" + theme_primary + r"}",
+        r"\definecolor{auroresecondary}{HTML}{" + theme_secondary + r"}",
+        r"\colorlet{auroredeep}{aurorebase!82!black}",
+        r"\colorlet{aurorelight}{auroreprimary!10!white}",
+        r"\colorlet{aurorepale}{auroreprimary!3!white}",
         r"\pagecolor{aurorepale}",
         r"\AddToHook{shipout/background}{%",
         r"  \begin{tikzpicture}[remember picture,overlay]",
-        r"    \fill[aurorebase!8] ([xshift=-1.15cm,yshift=-1.0cm]current page.north east) circle (2.25cm);",
-        r"    \fill[aurorebase!5] ([xshift=1.0cm,yshift=1.0cm]current page.south west) circle (1.55cm);",
+        r"    % Aurore : bulles décoratives plus nombreuses, visibles mais très pâles.",
+        r"    \fill[auroresecondary!16] ([xshift=-1.20cm,yshift=-1.00cm]current page.north east) circle (2.55cm);",
+        r"    \fill[auroreprimary!9] ([xshift=1.05cm,yshift=0.85cm]current page.north west) circle (1.55cm);",
+        r"    \fill[aurorebase!8] ([xshift=-0.45cm,yshift=-9.2cm]current page.north east) circle (1.05cm);",
+        r"    \fill[auroresecondary!10] ([xshift=0.80cm,yshift=-13.4cm]current page.north west) circle (1.30cm);",
+        r"    \fill[auroreprimary!8] ([xshift=1.20cm,yshift=1.10cm]current page.south west) circle (2.05cm);",
+        r"    \fill[auroresecondary!11] ([xshift=-1.00cm,yshift=0.90cm]current page.south east) circle (1.60cm);",
+        r"    \fill[aurorebase!7] ([xshift=-2.15cm,yshift=-4.20cm]current page.south east) circle (0.72cm);",
+        r"    \fill[auroreprimary!6] ([xshift=1.95cm,yshift=-5.50cm]current page.south west) circle (0.85cm);",
         r"  \end{tikzpicture}%",
         r"}",
         r"\hypersetup{hidelinks,colorlinks=true,linkcolor=auroredeep,urlcolor=auroredeep}",
@@ -384,24 +441,29 @@ def render(data):
         r"    \begin{equation*}\displaystyle #1\end{equation*}%",
         r"  \end{tcolorbox}%",
         r"}",
+        r"\newcommand{\AuroreTitleBlock}[3]{%",
+        r"  \begin{tcolorbox}[enhanced,colback=white!96!aurorepale,colframe=aurorebase!28!white,arc=16pt,boxrule=.55pt,left=16pt,right=16pt,top=14pt,bottom=15pt,borderline west={2pt}{0pt}{aurorebase!75!white}]%",
+        r"    \AurorePill{#1}\par\medskip",
+        r"    {\sffamily\fontsize{28.5}{34}\selectfont\bfseries\color{auroredeep}#2\par}",
+        r"    \vspace{0.45cm}",
+        r"    \textcolor{auroreprimary}{\rule{0.18\linewidth}{1.25pt}}\par",
+        r"    \vspace{0.45cm}",
+        r"    {\sffamily\normalsize\color{aurorebase!78!black}#3\par}",
+        r"  \end{tcolorbox}%",
+        r"}",
         r"\begin{document}",
         r"\thispagestyle{empty}",
-        r"\vspace*{0.65cm}",
+        r"\fontsize{11.3}{16.1}\selectfont",
+        r"\vspace*{0.55cm}",
         r"\begin{flushleft}",
         r"\IfFileExists{assets/aurore-logo.png}{%",
-        r"  \includegraphics[height=.82cm]{assets/aurore-logo.png}%",
+        r"  \includegraphics[height=.78cm]{assets/aurore-logo.png}%",
         r"}{%",
         r"  \AurorePill{AURORE}%",
         r"}",
         r"\end{flushleft}",
-        r"\vspace{1.45cm}",
-        r"{\sffamily\fontsize{30}{35}\selectfont\bfseries\color{auroredeep} " + tex_text(title) + r"\par}",
-        r"\vspace{0.45cm}",
-        r"\textcolor{aurorebase}{\rule{0.24\linewidth}{1.5pt}}\par",
-        r"\vspace{0.55cm}",
-        r"{\sffamily\large\color{aurorebase}Aurore — Section Archives}\par",
         r"\vspace{0.95cm}",
-        (r"\begin{tcolorbox}[enhanced,colback=white,colframe=aurorebase,arc=9pt,boxrule=.45pt,width=.9\linewidth,left=9pt,right=9pt,top=7pt,bottom=7pt] \sffamily\small " + tex_text(" · ".join(info)) + r"\end{tcolorbox}" if info else r""),
+        r"\AuroreTitleBlock{Document pédagogique}{" + tex_text(title) + r"}{Aurore — Section Archives" + (r" · " + tex_text(" · ".join(info)) if info else "") + r"}",
         r"\vfill",
         r"{\sffamily\small\color{gray}Document pédagogique édité avec Aurora · identité visuelle Aurore}",
         r"\clearpage",
