@@ -171,3 +171,4 @@ jobs:
 
 # Force production queue wake-up after renderer hardening commit 5990ba4 2026-09-19.
 # Force production rerender of document 22 after inline-math layout correction 39006da3 2026-09-19.
+# Wake queue for document 22 after inline-math correction; no renderer logic change here.
