@@ -572,6 +572,22 @@
 <div id="depotDebug" style="display:none; margin-top:18px; background:#0d1620; color:#8fe3a8; font-family:'Courier New',monospace; font-size:0.76rem; line-height:1.6; border-radius:10px; padding:14px; white-space:pre-wrap; word-break:break-word;">
 <div style="color:#f2a03d; font-weight:700; margin-bottom:6px; font-family:'Segoe UI',sans-serif;">Journal de diagnostic du dépôt</div>
 <div id="depotDebugLog"></div>
+
+<div class="admin-tab-panel" data-panel="labo-pdf">
+<p class="admin-panel-desc">Laboratoire PDF indépendant et non destructif. Il lit le contenu existant, contrôle les délimiteurs LaTeX, construit un HTML de test, exécute MathJax+SVG dans un iframe isolé et vérifie le PDF déjà enregistré. Chromium/Gotenberg et les images GeoGebra signées restent explicitement non câblés côté navigateur.</p>
+<section class="aurore-pdf-lab" id="aurorePdfLab" aria-labelledby="aurorePdfLabTitle">
+<div class="aurore-pdf-lab-head"><div><span class="aurore-pdf-lab-kicker">LABORATOIRE ISOLÉ</span><h3 id="aurorePdfLabTitle">Laboratoire de rendu PDF</h3><p>Une lecture par étapes, sans lancement de génération et sans modification de document.</p></div><span class="aurore-pdf-lab-status" id="aurorePdfLabStatus">Prêt</span></div>
+<div class="aurore-pdf-lab-controls">
+<label><span>Document ID</span><input id="aurorePdfLabId" type="number" min="1" value="21" inputmode="numeric"/></label>
+<button class="admin-btn primary" id="aurorePdfLabRun" type="button">Analyser le document</button>
+<button class="admin-btn ghost" id="aurorePdfLabOpen" type="button">Ouvrir le PDF</button>
+<button class="admin-btn ghost" id="aurorePdfLabExport" type="button">Exporter JSON</button>
+</div>
+<div class="aurore-pdf-lab-grid" id="aurorePdfLabStages"></div>
+<div class="aurore-pdf-lab-report"><div class="aurore-pdf-lab-report-head"><strong>Rapport technique</strong><span id="aurorePdfLabPath">Aucun document analysé</span></div><pre id="aurorePdfLabReport">{}</pre></div>
+<div class="aurore-pdf-lab-note">Lecture seule : aucun rendu de production, aucun upload, aucune modification Supabase.</div>
+</section>
+<button class="back-btn" data-back="admin">← Retour à l’administration</button>
 </div>
 </div>
 <button class="back-btn" data-back="home">← Retour à l'accueil</button>
@@ -694,6 +710,11 @@
 <span aria-hidden="true" class="admin-category-icon"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="20"><path d="M6 2h9l5 5v15H6z"></path><path d="M14 2v6h6"></path><path d="M9 13h6"></path><path d="M9 17h6"></path><path d="M9 9h2"></path></svg></span>
 <span class="admin-category-title">Diagnostic PDF</span>
 <span class="admin-category-desc">Isoler le problème de génération PDF</span>
+</button>
+<button class="admin-tab admin-category-card" data-accent="violet" data-tab="labo-pdf" role="tab" type="button">
+<span aria-hidden="true" class="admin-category-icon"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="20"><path d="M4 4h16v16H4z"></path><path d="M8 8h8"></path><path d="M8 12h5"></path><path d="M8 16h8"></path></svg></span>
+<span class="admin-category-title">Laboratoire PDF</span>
+<span class="admin-category-desc">Tester séparément source, LaTeX, MathJax et PDF</span>
 </button>
 <button class="admin-tab admin-category-card" data-accent="violet" data-tab="content-factory" role="tab" type="button">
 <span aria-hidden="true" class="admin-category-icon"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="20"><path d="M12 3l1.9 5.8H20l-4.9 3.6 1.9 5.8-5-3.6-5 3.6 1.9-5.8L4 8.8h6.1z"></path><path d="M19 3v3"></path><path d="M20.5 4.5h-3"></path></svg></span>
@@ -1036,13 +1057,7 @@
 <button class="admin-btn ghost" id="pdfDiagRender" type="button">Tester le rendu réel</button>
 <button class="admin-btn ghost" id="pdfDiagToggleLog" type="button">Voir le journal technique</button>
 </div>
-<section class="aurore-pdf-lab" id="aurorePdfLab" aria-labelledby="aurorePdfLabTitle">
-<div class="aurore-pdf-lab-head"><div><span class="aurore-pdf-lab-kicker">LABORATOIRE ISOLÉ</span><h3 id="aurorePdfLabTitle">Laboratoire de rendu PDF</h3><p>Zone de test non destructive pour localiser précisément une corruption : source, LaTeX, MathJax, SVG, Chromium ou PDF final.</p></div><span class="aurore-pdf-lab-status" id="aurorePdfLabStatus">Prêt</span></div>
-<div class="aurore-pdf-lab-controls"><label><span>Document ID</span><input id="aurorePdfLabId" type="number" min="1" value="21" inputmode="numeric"/></label><button class="admin-btn primary" id="aurorePdfLabRun" type="button">Analyser le document</button><button class="admin-btn ghost" id="aurorePdfLabOpen" type="button">Ouvrir le PDF</button></div>
-<div class="aurore-pdf-lab-grid" id="aurorePdfLabStages"></div>
-<div class="aurore-pdf-lab-report"><div class="aurore-pdf-lab-report-head"><strong>Rapport technique</strong><span id="aurorePdfLabPath">Aucun document analysé</span></div><pre id="aurorePdfLabReport">{}</pre></div>
-<div class="aurore-pdf-lab-note">Ce laboratoire lit uniquement les données existantes. Il ne remplace pas le générateur de production et ne modifie aucun document.</div>
-</section>
+
 <div class="form-msg" id="pdfDiagMsg" style="display:none;"></div>
 <div class="pdfdiag-summary" id="pdfDiagSummary" style="display:none;"></div>
 <div class="diag-rows" id="pdfDiagRows"></div>
@@ -3904,6 +3919,7 @@
      réservé aux comptes dont session.role === 'admin'). -->
 <link href="./css/aurora-diagnostics.css" rel="stylesheet"/>
 <script defer src="js/aurora-pdf-diagnostic.js"></script>
+<script defer src="js/aurore-pdf-lab.js"></script>
 <script defer src="js/aurora-diagnostic.js"></script>
 <script defer src="js/aurore-ia-plus-fix-1.js"></script>
 <script defer src="js/aurore-ia-plus-fix-2.js"></script>
