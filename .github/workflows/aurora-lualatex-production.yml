@@ -167,3 +167,4 @@ jobs:
 # Regex fix for malformed array row breaks verified 2026-09-19.
 
 # GeoGebra asset integration trigger 2026-09-19.
+# Verified compile working directory and relative asset paths 2026-09-19.
