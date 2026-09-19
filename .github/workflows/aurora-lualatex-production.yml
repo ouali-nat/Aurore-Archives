@@ -67,10 +67,27 @@ jobs:
           document = src.get("document")
           if not document or "content_json" not in document:
               raise SystemExit("Source endpoint did not return document.content_json")
+          payload = json.loads(Path("infra/lualatex/production/document-response.json").read_text())
+          content = document["content_json"]
+          graph_assets = payload.get("graph_assets") or []
+          if graph_assets:
+              from urllib.request import urlopen
+              assets_dir = Path("infra/lualatex/production/assets")
+              assets_dir.mkdir(parents=True, exist_ok=True)
+              for asset in graph_assets:
+                  si = int(asset["section_index"])
+                  gi = int(asset["graph_index"])
+                  url = str(asset["url"])
+                  ext = Path(str(asset.get("path") or "")).suffix or ".png"
+                  local = assets_dir / f"graph-{si+1}-{gi+1}{ext}"
+                  with urlopen(url, timeout=30) as response:
+                      local.write_bytes(response.read())
+                  content["sections"][si]["graphs"][gi]["graph_local_path"] = str(local.relative_to(Path("infra/lualatex/production")))
+                  print(f"Fetched GeoGebra asset: {local}")
           Path("infra/lualatex/production/document.json").write_text(
-              json.dumps(document["content_json"], ensure_ascii=False, indent=2)
+              json.dumps(content, ensure_ascii=False, indent=2)
           )
-          print(f"Fetched {document['id']}: {document['title']}")
+          print(f"Fetched {document['id']}: {document['title']} (GeoGebra assets: {len(graph_assets)})")
           PY
 
       - name: Ensure LuaLaTeX
