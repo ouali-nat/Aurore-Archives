@@ -52,6 +52,7 @@ SITE_THEME_PALETTE = {
     "glacier":   {"primary": "0891B2", "secondary": "CFFAFE", "strong": "155E75"},
     "sable":     {"primary": "B7791F", "secondary": "FEF3C7", "strong": "854D0E"},
     "cacao":     {"primary": "92400E", "secondary": "D6B38C", "strong": "451A03"},
+    "lagune":    {"primary": "0D9488", "secondary": "99F6E4", "strong": "0F5257"},
 }
 
 # Production layout hardening test trigger: 2026-09-19.
