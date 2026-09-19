@@ -138,35 +138,56 @@
     const body=texts.slice(0,30).map((x,i)=>'<p data-lab-index="'+i+'">'+inlineMathHtml(x)+'</p>').join('');
     const mathJaxConfig=JSON.stringify({
       tex:{
-        inlineMath:[['\\\\(','\\\\)'],['(html){
+        inlineMath:[['\\\\(','\\\\)'],['$','$']],
+        displayMath:[['\\\\[','\\\\]'],['$$','$$']]
+      },
+      svg:{fontCache:'global'}
+    });
+    return '<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Aurore PDF Lab</title>'+
+      '<style>body{font-family:Arial,"Noto Sans",sans-serif;color:#17221b;font-size:11pt;line-height:1.5;margin:18mm}p{margin:0 0 4mm}.formula{text-align:center;margin:5mm 0}</style>'+
+      '<script>window.__AURORE_MATHJAX_STATUS="loading";window.MathJax='+mathJaxConfig+';</script>'+
+      '<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script></head><body>'+
+      '<h1>'+escapeHtml(q.title||doc?.title||'Document pédagogique')+'</h1><main>'+body+'</main>'+
+      '<div id="aurore-mathjax-sentinel" aria-hidden="true"></div>'+
+      '<script>(async()=>{try{if(!window.MathJax)throw new Error("MathJax global absent.");await MathJax.startup.promise;await MathJax.typesetPromise(document.body);if(document.fonts?.ready)await document.fonts.ready;document.documentElement.setAttribute("data-mathjax-ready","true");window.__AURORE_MATHJAX_STATUS="ready";}catch(e){window.__AURORE_MATHJAX_STATUS="error:"+String(e&&e.message||e);}})();</script>'+
+      '</body></html>';
+  }
+
+  async function testMathJax(html){
     const frame=document.createElement('iframe');
     frame.setAttribute('aria-hidden','true');
     frame.style.cssText='position:fixed;width:1px;height:1px;left:-10000px;top:-10000px;opacity:0;pointer-events:none;border:0;';
     document.body.appendChild(frame);
     try{
-      const doc=frame.contentDocument;
-      if(!doc)throw new Error('Document iframe inaccessible.');
-      doc.open();doc.write(html);doc.close();
+      const fdoc=frame.contentDocument;
+      const fwin=frame.contentWindow;
+      if(!fdoc||!fwin)throw new Error('Document iframe inaccessible.');
+      fdoc.open();fdoc.write(html);fdoc.close();
       const started=performance.now();
+      let lastStatus='';
       while(performance.now()-started<20000){
         await new Promise(r=>setTimeout(r,100));
-        const win=frame.contentWindow;
-        const status=String(win?.__AURORE_MATHJAX_STATUS||'');
-        if(status.startsWith('error:'))throw new Error(status.slice(6));
-        if(status==='ready')break;
+        lastStatus=String(fwin.__AURORE_MATHJAX_STATUS||'');
+        if(lastStatus.startsWith('error:'))throw new Error(lastStatus.slice(6));
+        if(lastStatus==='ready')break;
       }
-      const status=String(frame.contentWindow?.__AURORE_MATHJAX_STATUS||'');
-      const svgCount=doc.querySelectorAll('mjx-container svg').length;
-      const mathCount=doc.querySelectorAll('mjx-container').length;
-      const raw=doc.body?.textContent||'';
-      const rawMath=/\\\\[|\\\\(|\\\\]|\\\\\\)/.test(raw);
+      const status=String(fwin.__AURORE_MATHJAX_STATUS||'');
+      const root=fdoc.documentElement;
+      const body=fdoc.body;
+      const svgCount=body?body.querySelectorAll('mjx-container svg').length:0;
+      const mathCount=body?body.querySelectorAll('mjx-container').length:0;
+      const sentinel=!!fdoc.getElementById('aurore-mathjax-sentinel');
+      const remainingLatex=body?(/\\\\[|\\\\(|\\\\]|\\\\\\)/.test(body.textContent||'')):false;
       if(status!=='ready'){
-        return {state:'fail',message:'MathJax n’a pas terminé son rendu dans le délai de 20 s.',detail:'status='+status+'; svg='+svgCount+'; containers='+mathCount};
+        return {state:'fail',message:'MathJax n’a pas terminé son rendu dans le délai de 20 s.',detail:'status='+status+'; dernier_status='+lastStatus+'; svg='+svgCount+'; containers='+mathCount};
       }
-      if(mathCount===0 && rawMath){
-        return {state:'fail',message:'MathJax est chargé mais aucune expression n’a été transformée en SVG.',detail:'svg='+svgCount+'; containers='+mathCount};
+      if(!root||root.getAttribute('data-mathjax-ready')!=='true'){
+        return {state:'fail',message:'MathJax a signalé la fin du rendu mais le marqueur de fin est absent.',detail:'status='+status+'; sentinel='+sentinel+'; svg='+svgCount+'; containers='+mathCount};
       }
-      return {state:'ok',message:'MathJax a terminé et le DOM contient '+svgCount+' SVG mathématiques.',detail:'status='+status+'; svg='+svgCount+'; containers='+mathCount};
+      if(mathCount===0){
+        return {state:'fail',message:'MathJax est chargé mais aucune expression n’a été transformée en conteneur mathématique.',detail:'svg='+svgCount+'; containers='+mathCount+'; remainingLatex='+remainingLatex};
+      }
+      return {state:'ok',message:'MathJax a terminé et le DOM contient '+svgCount+' SVG mathématiques.',detail:'status='+status+'; svg='+svgCount+'; containers='+mathCount+'; remainingLatex='+remainingLatex};
     }finally{
       frame.remove();
     }
