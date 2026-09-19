@@ -109,7 +109,7 @@ jobs:
 
       - name: Compile PDF
         if: hashFiles('infra/lualatex/production/document-id') != ''
-        working-directory: infra/lualatex
+        working-directory: infra/lualatex/production
         run: |
           lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error \
             -output-directory=production production/document.tex
