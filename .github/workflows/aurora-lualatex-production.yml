@@ -165,3 +165,5 @@ jobs:
 # Multi-inline math sentence fix verified 2026-09-19.
 # Prevent LaTeX arrays from Markdown table detection verified 2026-09-19.
 # Regex fix for malformed array row breaks verified 2026-09-19.
+
+# GeoGebra asset integration trigger 2026-09-19.
