@@ -4,15 +4,18 @@ import json
 import re
 from pathlib import Path
 
+
 def tex_text(s):
     s = str(s or "")
-    return (s.replace("\\", r"\textbackslash{}")
-             .replace("&", r"\&").replace("%", r"\%").replace("#", r"\#")
-             .replace("_", r"\_").replace("{", r"\{").replace("}", r"\}"))
+    return (
+        s.replace("\\", r"\textbackslash{}")
+         .replace("&", r"\&").replace("%", r"\%").replace("#", r"\#")
+         .replace("_", r"\_").replace("{", r"\{").replace("}", r"\}")
+    )
+
 
 def inline(s):
     s = str(s or "")
-    # Preserve inline math while escaping ordinary text.
     parts = re.split(r"(\$[^$\n]+\$)", s)
     out = []
     for p in parts:
@@ -22,21 +25,96 @@ def inline(s):
             out.append(tex_text(p))
     return "".join(out)
 
-def paragraph(s):
+
+def _is_numbered(s):
+    return bool(re.match(r"^\s*\d+[.)]\s+", str(s or "")))
+
+
+def _is_bullet(s):
+    return bool(re.match(r"^\s*(?:[-*•])\s+", str(s or "")))
+
+
+def _is_table_row(s):
     s = str(s or "").strip()
-    if not s:
+    return "|" in s and len([p for p in s.split("|") if p.strip()]) >= 2
+
+
+def _strip_list_marker(s):
+    return re.sub(r"^\s*(?:\d+[.)]|[-*•])\s+", "", str(s or "")).strip()
+
+
+def render_table(rows):
+    cells = [[c.strip() for c in row.strip().strip("|").split("|")] for row in rows]
+    if not cells:
         return ""
-    if s.startswith("- "):
-        return r"\begin{itemize}" + "\n" + r"\item " + inline(s[2:]) + "\n" + r"\end{itemize}"
-    if re.match(r"^\d+\.\s", s):
-        s = re.sub(r"^\d+\.\s+", "", s)
-        return r"\begin{enumerate}" + "\n" + r"\item " + inline(s) + "\n" + r"\end{enumerate}"
-    return inline(s) + "\n\n"
+    width = max(len(r) for r in cells)
+    cells = [r + [""] * (width - len(r)) for r in cells]
+    cells = [
+        r for r in cells
+        if not all(re.fullmatch(r":?-{2,}:?", c.replace(" ", "")) for c in r)
+    ]
+    if not cells:
+        return ""
+
+    spec = "|" + "l" * width + "|"
+    out = [r"\begin{center}", r"\begin{tabular}{" + spec + "}", r"\hline"]
+    for i, row in enumerate(cells):
+        out.append(" & ".join(inline(c) for c in row) + r"\\")
+        if i == 0:
+            out.append(r"\hline")
+    out += [r"\hline", r"\end{tabular}", r"\end{center}"]
+    return "\n".join(out)
+
+
+def render_content(items):
+    lines = []
+    i = 0
+    while i < len(items):
+        raw = str(items[i] or "").strip()
+        if not raw:
+            i += 1
+            continue
+
+        if _is_table_row(raw):
+            table_rows = []
+            while i < len(items) and _is_table_row(str(items[i] or "").strip()):
+                table_rows.append(str(items[i]).strip())
+                i += 1
+            lines.append(render_table(table_rows))
+            continue
+
+        if _is_numbered(raw):
+            group = []
+            while i < len(items) and _is_numbered(str(items[i] or "").strip()):
+                group.append(_strip_list_marker(items[i]))
+                i += 1
+            lines.append(r"\begin{enumerate}")
+            lines.extend(r"\item " + inline(x) for x in group)
+            lines.append(r"\end{enumerate}")
+            continue
+
+        if _is_bullet(raw):
+            group = []
+            while i < len(items) and _is_bullet(str(items[i] or "").strip()):
+                group.append(_strip_list_marker(items[i]))
+                i += 1
+            lines.append(r"\begin{itemize}")
+            lines.extend(r"\item " + inline(x) for x in group)
+            lines.append(r"\end{itemize}")
+            continue
+
+        lines.append(inline(raw))
+        lines.append("")
+        i += 1
+
+    return lines
+
 
 def display_formula(s):
     if not s:
         return ""
     return "\n\\[\n" + str(s).strip() + "\n\\]\n"
+
 
 def render(data):
     title = data.get("title", "")
@@ -54,7 +132,7 @@ def render(data):
         r"\geometry{margin=2.2cm}",
         r"\usepackage{hyperref}",
         r"\hypersetup{hidelinks}",
-        r"\title{" + tex_text(title) + "}",
+        r"\title{" + tex_text(title) + r"}",
         r"\author{Aurore — Section Archives}",
         r"\date{}",
         r"\begin{document}",
@@ -70,11 +148,12 @@ def render(data):
     lines.append(r"\end{itemize}")
 
     for sec in data.get("sections", []):
-        lines.append(r"\section{" + tex_text(sec.get("title", "")) + "}")
-        for item in sec.get("content", []):
-            lines.append(paragraph(item))
+        lines.append(r"\section{" + tex_text(sec.get("title", "")) + r"}")
+        lines.extend(render_content(sec.get("content", [])))
+
         if sec.get("formula"):
             lines.append(display_formula(sec["formula"]))
+
         for i, ex in enumerate(sec.get("exercises", []), 1):
             lines.append(r"\subsection*{Exercice " + str(i) + "}")
             lines.append(inline(ex.get("question", "")) + "\n\n")
@@ -92,21 +171,20 @@ def render(data):
     lines.append(r"\end{document}")
     return "\n".join(lines)
 
+
 def main():
     parser = argparse.ArgumentParser(description="Render an Aurore document JSON to LuaLaTeX source.")
-    parser.add_argument("input", nargs="?", default="fixtures/document-21.json",
-                        help="Input Aurore JSON file.")
-    parser.add_argument("-o", "--output", default=None,
-                        help="Output .tex path. Defaults to input filename with .tex extension.")
+    parser.add_argument("input", nargs="?", default="fixtures/document-21.json")
+    parser.add_argument("-o", "--output", default=None)
     args = parser.parse_args()
 
     src = Path(args.input)
     out = Path(args.output) if args.output else src.with_suffix(".tex")
-
     data = json.loads(src.read_text(encoding="utf-8"))
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(render(data), encoding="utf-8")
     print(f"Generated {out}")
+
 
 if __name__ == "__main__":
     main()
