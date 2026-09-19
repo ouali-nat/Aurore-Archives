@@ -352,4 +352,75 @@
   }else{
     initLab();
   }
+
+  // ===== Aurore — centre de production LuaLaTeX =====
+  const queueState={lastHash:"",polling:false};
+  function qEsc(v){const d=document.createElement('div');d.textContent=String(v??'');return d.innerHTML}
+  function qToken(){return typeof session!=='undefined'&&session?.access_token?session.access_token:''}
+  function qHeaders(){return {apikey:anon(),Authorization:'Bearer '+qToken()}}
+  function ensureProductionUI(){
+    if(document.getElementById('aurorePdfProductionCenter'))return;
+    const host=document.querySelector('.admin-tab-panel[data-panel="content-factory"]')||document.body;
+    const box=document.createElement('section');box.id='aurorePdfProductionCenter';box.className='aurore-pdf-production-center';
+    box.innerHTML='<div class="aurore-pdf-prod-head"><div><span class="aurore-pdf-prod-kicker">Production Aurore</span><h3>File de production PDF</h3><p id="aurorePdfProdSummary">Surveillance automatique…</p></div><span class="aurore-pdf-prod-live"><i></i> En direct</span></div><div id="aurorePdfProdList" class="aurore-pdf-prod-list"></div>';
+    const anchor=document.getElementById('cfProgress')||host.firstElementChild;
+    if(anchor&&anchor.parentNode===host)host.insertBefore(box,anchor);else host.prepend(box);
+  }
+  function toast(title,message,state='info'){
+    let wrap=document.getElementById('aurorePdfToastWrap');
+    if(!wrap){wrap=document.createElement('div');wrap.id='aurorePdfToastWrap';document.body.appendChild(wrap)}
+    const el=document.createElement('div');el.className='aurore-pdf-toast '+state;
+    el.innerHTML='<strong>'+qEsc(title)+'</strong><span>'+qEsc(message)+'</span>';wrap.appendChild(el);
+    requestAnimationFrame(()=>el.classList.add('show'));
+    setTimeout(()=>{el.classList.remove('show');setTimeout(()=>el.remove(),300)},5200);
+  }
+  function renderProduction(rows){
+    ensureProductionUI();
+    const active=rows.filter(x=>['queued','processing'].includes(x.metadata?.lualatex_status));
+    const processing=active.filter(x=>x.metadata.lualatex_status==='processing');
+    const queued=active.filter(x=>x.metadata.lualatex_status==='queued').sort((a,b)=>new Date(a.metadata.lualatex_requested_at||a.created_at)-new Date(b.metadata.lualatex_requested_at||b.created_at));
+    const summary=document.getElementById('aurorePdfProdSummary');
+    if(summary)summary.textContent=processing.length?'1 document en cours · '+queued.length+' en attente':(queued.length?queued.length+' document(s) en attente de génération':'Aucun document en production');
+    const list=document.getElementById('aurorePdfProdList');if(!list)return;
+    if(!active.length){list.innerHTML='<div class="aurore-pdf-prod-empty">La file est vide. Les PDF générés par DeepSeek + Luna sont pris en charge automatiquement.</div>';return}
+    const ordered=[...processing,...queued];
+    list.innerHTML=ordered.map((x,i)=>{const m=x.metadata||{};const proc=m.lualatex_status==='processing';const p=Math.max(0,Math.min(100,Number(m.lualatex_progress)||0));return '<article class="aurore-pdf-prod-row '+(proc?'is-processing':'is-queued')+'"><div class="aurore-pdf-prod-main"><span class="aurore-pdf-prod-number">'+(proc?'⚙':'#'+(i+1))+'</span><div><strong>'+qEsc(x.title)+'</strong><small>'+(proc?qEsc(m.lualatex_stage||'Génération en cours…'):'En attente de génération · position '+(i+1))+'</small></div></div><div class="aurore-pdf-prod-progress"><div class="aurore-pdf-prod-bar"><i style="width:'+p+'%"></i></div><span>'+p+'%</span></div></article>'}).join('');
+  }
+  async function pollProductionQueue(){
+    if(queueState.polling)return;queueState.polling=true;
+    try{
+      const token=qToken();if(!token)return;
+      const r=await fetch(supa()+'/rest/v1/aurora_generated_documents?select=id,title,status,created_at,updated_at,metadata,pdf_url&order=created_at.desc&limit=100',{headers:qHeaders(),cache:'no-store'});
+      if(!r.ok)return;
+      const rows=await r.json();if(!Array.isArray(rows))return;
+      renderProduction(rows);
+      const active=rows.filter(x=>['queued','processing'].includes(x.metadata?.lualatex_status));
+      const hash=active.map(x=>x.id+':'+x.metadata.lualatex_status+':'+(x.metadata.lualatex_progress||0)+':'+(x.metadata.lualatex_stage||'')).join('|');
+      if(queueState.lastHash){
+        for(const x of rows){
+          const m=x.metadata||{};
+          const prevToken=queueState.lastHash.includes(String(x.id)+':processing');
+          const doneToken=queueState.lastHash.includes(String(x.id)+':completed');
+          if(m.lualatex_status==='completed'&&prevToken)toast('PDF prêt','« '+x.title+' » est prêt.','success');
+          if(m.lualatex_status==='queued'&&!prevToken&&!doneToken)toast('PDF en attente','« '+x.title+' » est dans la file de production.','info');
+        }
+      }
+      queueState.lastHash=hash;
+      for(const x of rows){
+        const m=x.metadata||{};
+        if(m.lualatex_status==='failed'&&Number(m.lualatex_failure_count||0)>0){
+          const key='aurore-pdf-fail-'+x.id+'-'+m.lualatex_failure_count;
+          if(!sessionStorage.getItem(key)){sessionStorage.setItem(key,'1');toast('Génération interrompue','« '+x.title+' » nécessite une nouvelle tentative.','error')}
+        }
+      }
+    }catch(e){console.warn('[Aurore PDF queue]',e)}finally{queueState.polling=false}
+  }
+  document.addEventListener('click',e=>{
+    const b=e.target?.closest?.('[data-cf-render]');if(!b)return;
+    const title=b.closest('.cf-admin-card')?.querySelector('.cf-admin-title')?.textContent?.trim()||'Document PDF';
+    toast('Production PDF','« '+title+' » est ajouté à la file. Aurore le générera automatiquement.','info');
+  },true);
+  function initProductionQueue(){ensureProductionUI();pollProductionQueue();setInterval(pollProductionQueue,2000)}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initProductionQueue,{once:true});else initProductionQueue();
+
 })();
