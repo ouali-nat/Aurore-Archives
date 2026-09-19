@@ -448,7 +448,7 @@ def render(data):
         r"\addcontentsline{toc}{section}{Bon usage et droits d’auteur}",
         r"\AuroreLabeledBlock{Bon usage}{Ce document a été conçu à des fins pédagogiques. Il accompagne l’apprentissage, la révision et la préparation scolaire. Utilisez-le comme support de travail, vérifiez vos raisonnements et complétez les notions avec les ressources indiquées.}",
         r"\AuroreLabeledBlock{Droits d’auteur et attribution}{Document édité par Aurore — Section Archives. Les contenus, illustrations, graphiques et sources externes restent soumis aux droits de leurs auteurs respectifs. Respectez les conditions de réutilisation applicables et conservez les crédits lorsqu’ils sont fournis.}",
-        r"\AuroreLabeledBlock{Identité du document}{" + (r"Auteur : " + inline(author) + r"\par " if author else "") + (r"Version : " + inline(version) if version else r"Version : 1") + r"\par Couleur dominante Aurore : #" + theme + r"}",
+        r"\AuroreLabeledBlock{Identité du document}{" + (r"Auteur : " + inline(author) + r"\par " if author else "") + (r"Version : " + inline(version) if version else r"Version : 1") + r"\par Couleur dominante Aurore : \#" + theme + r"}",
     ])
     lines.append(r"\end{document}")
     return "\n".join(lines)
