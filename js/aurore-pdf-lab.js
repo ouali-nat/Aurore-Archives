@@ -158,19 +158,27 @@
     document.body.appendChild(frame);
     try{
       const doc=frame.contentDocument;
+      if(!doc)throw new Error('Document iframe inaccessible.');
       doc.open();doc.write(html);doc.close();
       const started=performance.now();
       while(performance.now()-started<20000){
         await new Promise(r=>setTimeout(r,100));
-        if(doc.readyState==='complete' && doc.defaultView?.status==='ready')break;
-        if(String(doc.defaultView?.status||'').startsWith('mathjax-error:'))throw new Error(doc.defaultView.status);
+        const win=frame.contentWindow;
+        const status=String(win?.__AURORE_MATHJAX_STATUS||'');
+        if(status.startsWith('error:'))throw new Error(status.slice(6));
+        if(status==='ready')break;
       }
-      const status=doc.defaultView?.status||'';
+      const status=String(frame.contentWindow?.__AURORE_MATHJAX_STATUS||'');
       const svgCount=doc.querySelectorAll('mjx-container svg').length;
       const mathCount=doc.querySelectorAll('mjx-container').length;
-      const rawMath=(doc.body.textContent||'').includes('\\\\[')||(doc.body.textContent||'').includes('\\\\(');
-      if(status!=='ready') return {state:'warn',message:'MathJax n’a pas signalé la fin du typage dans le délai de 20 s.',detail:'status='+status+'; svg='+svgCount+'; containers='+mathCount};
-      if(mathCount===0 && rawMath) return {state:'fail',message:'MathJax est chargé mais aucune expression n’a été transformée en SVG.',detail:'svg='+svgCount+'; containers='+mathCount};
+      const raw=doc.body?.textContent||'';
+      const rawMath=/\\\\[|\\\\(|\\\\]|\\\\\\)/.test(raw);
+      if(status!=='ready'){
+        return {state:'fail',message:'MathJax n’a pas terminé son rendu dans le délai de 20 s.',detail:'status='+status+'; svg='+svgCount+'; containers='+mathCount};
+      }
+      if(mathCount===0 && rawMath){
+        return {state:'fail',message:'MathJax est chargé mais aucune expression n’a été transformée en SVG.',detail:'svg='+svgCount+'; containers='+mathCount};
+      }
       return {state:'ok',message:'MathJax a terminé et le DOM contient '+svgCount+' SVG mathématiques.',detail:'status='+status+'; svg='+svgCount+'; containers='+mathCount};
     }finally{
       frame.remove();
