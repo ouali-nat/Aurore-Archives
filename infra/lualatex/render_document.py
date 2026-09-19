@@ -40,7 +40,7 @@ def inline(s):
 
     # A whole item that is itself a math expression is the most common
     # Content Factory representation for display-style formulas/tables.
-    if stripped.startswith("$") and stripped.endswith("$") and len(stripped) >= 4:
+    if stripped.startswith("$$") and stripped.endswith("$$") and len(stripped) >= 4:
         return r"\[" + normalize_math(stripped[2:-2].strip()) + r"\]"
     if stripped.startswith(r"\[") and stripped.endswith(r"\]"):
         return normalize_math(stripped)
@@ -53,7 +53,7 @@ def inline(s):
     for p in parts:
         if not p:
             continue
-        if p.startswith("$") and p.endswith("$") and len(p) >= 4:
+        if p.startswith("$$") and p.endswith("$$") and len(p) >= 4:
             out.append(r"\[" + normalize_math(p[2:-2].strip()) + r"\]")
         elif p.startswith(r"\[") and p.endswith(r"\]"):
             out.append(normalize_math(p))
