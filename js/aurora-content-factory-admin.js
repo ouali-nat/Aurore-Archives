@@ -33,7 +33,7 @@ async function chooseRegenerationTheme(defaultColor){
         ['Pistache','#4D7C0F','#D9F99D'],['Pêche','#C2410C','#FED7AA'],['Abricot','#92400E','#FCD34D'],
         ['Terracotta','#9A3412','#FDBA74'],['Framboise','#9F1239','#FDA4AF'],['Mauve','#6D28D9','#E9D5FF'],
         ['Pervenche','#3730A3','#C7D2FE'],['Glacier','#155E75','#CFFAFE'],['Sable','#854D0E','#FEF3C7'],
-        ['Cacao','#451A03','#D6B38C']
+        ['Cacao','#451A03','#D6B38C'],['Lagune','#0F5257','#99F6E4']
       ];
       modal.querySelector('.cf-theme-swatches').innerHTML=swatches.map(([label,strong,secondary])=>'<button type="button" class="cf-theme-swatch" data-theme-swatch="'+strong+'" aria-label="Choisir le thème '+label+'" title="'+label+'"><span class="cf-theme-swatch-dot" style="background:linear-gradient(135deg,'+strong+','+secondary+')"></span><span><span class="cf-theme-swatch-name">'+label+'</span><span class="cf-theme-swatch-code">'+strong+'</span></span></button>').join('');
     }
