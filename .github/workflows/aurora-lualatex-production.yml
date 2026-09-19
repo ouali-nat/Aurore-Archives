@@ -1,0 +1,132 @@
+name: Aurora LuaLaTeX production renderer
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aurora-lualatex-production
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: https://tdeotqfsbvouresfhkab.supabase.co
+      AURORA_LUALATEX_RENDER_TOKEN: ${{ secrets.AURORA_LUALATEX_RENDER_TOKEN }}
+
+    steps:
+      - name: Checkout renderer
+        uses: actions/checkout@v4
+
+      - name: Validate renderer secret
+        run: test -n "$AURORA_LUALATEX_RENDER_TOKEN"
+
+      - name: Claim next generated document
+        id: claim
+        run: |
+          mkdir -p infra/lualatex/production
+          curl --fail --silent --show-error             --header "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN"             "$SUPABASE_URL/functions/v1/aurora-lualatex-next"             -o infra/lualatex/production/claim.json
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          data = json.loads(Path("infra/lualatex/production/claim.json").read_text())
+          if not data.get("ok"):
+              raise SystemExit(f"Claim failed: {data}")
+
+          if not data.get("pending"):
+              print("No generated document waiting for LuaLaTeX.")
+              Path("infra/lualatex/production/no-work").write_text("true")
+              raise SystemExit(0)
+
+          doc = data["document"]
+          print(f"Claimed document {doc['id']}: {doc['title']}")
+          Path("infra/lualatex/production/document-id").write_text(str(doc["id"]))
+          PY
+
+      - name: Stop when queue is empty
+        if: hashFiles('infra/lualatex/production/no-work') != ''
+        run: echo "Queue empty; nothing to render."
+
+      - name: Fetch claimed document JSON
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          curl --fail --silent --show-error             --header "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN"             "$SUPABASE_URL/functions/v1/aurora-lualatex-source?document_id=$DOCUMENT_ID"             -o infra/lualatex/production/document-response.json
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          src = json.loads(Path("infra/lualatex/production/document-response.json").read_text())
+          document = src.get("document")
+          if not document or "content_json" not in document:
+              raise SystemExit("Source endpoint did not return document.content_json")
+
+          Path("infra/lualatex/production/document.json").write_text(
+              json.dumps(document["content_json"], ensure_ascii=False, indent=2)
+          )
+          print(f"Fetched {document['id']}: {document['title']}")
+          PY
+
+      - name: Ensure LuaLaTeX
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          if ! command -v lualatex >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y texlive-luatex texlive-lang-french texlive-latex-extra
+          fi
+          lualatex --version
+
+      - name: Render LaTeX source
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        working-directory: infra/lualatex
+        run: |
+          python3 render_document.py production/document.json -o production/document.tex
+          test -s production/document.tex
+          grep -q '\\documentclass' production/document.tex
+
+      - name: Compile PDF
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        working-directory: infra/lualatex
+        run: |
+          lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error             -output-directory=production production/document.tex
+          python3 - <<'PY'
+          from pathlib import Path
+          pdf = Path("production/document.pdf")
+          if not pdf.is_file() or pdf.stat().st_size == 0:
+              raise SystemExit("LuaLaTeX did not produce a PDF")
+          if pdf.read_bytes()[:5] != b"%PDF-":
+              raise SystemExit("Invalid PDF header")
+          print(f"Generated PDF: {pdf.stat().st_size} bytes")
+          PY
+
+      - name: Upload PDF and commit database URL
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          curl --fail --silent --show-error             -X POST             -H "Content-Type: application/pdf"             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN"             -H "x-aurore-document-id: $DOCUMENT_ID"             -H "x-aurore-commit: true"             --data-binary @infra/lualatex/production/document.pdf             "$SUPABASE_URL/functions/v1/aurora-lualatex-upload-v2"             -o infra/lualatex/production/upload-response.json
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("infra/lualatex/production/upload-response.json").read_text())
+          if not data.get("ok") or data.get("mode") != "commit" or data.get("database_updated") is not True:
+              raise SystemExit(f"Production upload failed: {data}")
+          print(f"LuaLaTeX production commit OK: document={data['generated_document_id']} bytes={data['bytes']}")
+          print(f"PDF path: {data['pdf_path']}")
+          PY
+
+      - name: Upload rendered PDF artifact
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: aurora-lualatex-production-${{ hashFiles('infra/lualatex/production/document-id') }}
+          path: infra/lualatex/production/document.pdf
+          retention-days: 3
