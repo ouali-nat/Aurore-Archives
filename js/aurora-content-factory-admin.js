@@ -304,14 +304,16 @@ async function renderPdf(id){
       await wait(5000);
     }
     if(!completed){
-      setProgress(92,'Rendu en arrière-plan — tu peux verrouiller l’écran ou quitter cette page.');
+      setProgress(92,'Rendu en arrière-plan — le PDF continue automatiquement.');
       if(b)b.textContent='LuaLaTeX continue en arrière-plan…';
       await charger();
+      surveillerRenduArrierePlan(id,accessToken,b);
       return;
     }
     setProgress(100,'PDF LuaLaTeX généré et enregistré.');
     if(b)b.textContent='PDF LuaLaTeX prêt';
     await charger();
+    setTimeout(()=>setProgress(0,'Prêt pour une nouvelle génération.'),1200);
     alert(graphCount?`PDF LuaLaTeX généré avec ${graphCount} graphique${graphCount>1?'s':''} GeoGebra.`:'PDF LuaLaTeX généré et enregistré.');
   }catch(e){
     alert('Le PDF n’a pas pu être généré. '+(e.message||e))
@@ -323,5 +325,31 @@ async function validateDoc(id){const n=prompt('Note de validation (facultatif) :
 async function rejectDoc(id){const n=prompt('Motif du rejet / corrections demandées :','');if(n===null)return;if(!n.trim()){alert('Indique un motif pour rejeter le document.');return}try{await rpc('aurora_reject_generated_document',{p_generated_document_id:Number(id),p_notes:n.trim()});await charger()}catch(e){alert('Rejet impossible. '+(e.message||e))}}
 async function publishDoc(id){if(!confirm('Publier ce document dans la bibliothèque publique Aurore ?\n\nCette action crée un document publié à partir du PDF validé.'))return;const n=prompt('Note de publication (facultatif) :','');if(n===null)return;try{await rpc('aurora_publish_generated_document',{p_generated_document_id:Number(id),p_notes:n||null});await charger();alert('Document publié dans la bibliothèque Aurore.')}catch(e){alert('Publication impossible. '+(e.message||e))}}
 function apply(){const q=(document.getElementById('adminSearchContentFactory')?.value||'').trim().toLowerCase(),st=document.getElementById('adminFilterContentFactory')?.value||'',sort=document.getElementById('adminSortContentFactory')?.value||'recent';let a=rows.filter(x=>(!st||x.status===st)&&(!q||[x.title,x.subject,x.level,x.class_name,x.document_type,x.status].filter(Boolean).join(' ').toLowerCase().includes(q)));a.sort((x,y)=>{if(sort==='az')return String(x.title).localeCompare(String(y.title),'fr');if(sort==='za')return String(y.title).localeCompare(String(x.title),'fr');const ax=new Date(x.created_at).getTime(),ay=new Date(y.created_at).getTime();return sort==='oldest'?ax-ay:ay-ax});if(!a.length){list.innerHTML='<div class="admin-empty">Aucun document généré pour ces critères.</div>';return}list.innerHTML=a.map(x=>{const pdf=!!x.pdf_url,canRender=['generated','review','approved'].includes(x.status),canValidate=x.status==='review'&&pdf,canReject=['review','approved'].includes(x.status),canPublish=['approved','review'].includes(x.status)&&pdf;return `<article class="cf-admin-card"><div class="cf-admin-icon">PDF</div><div class="cf-admin-body"><div class="cf-admin-title">${esc(x.title)}</div><div class="cf-admin-meta">${esc([x.subject,x.level,x.class_name,x.document_type].filter(Boolean).join(' · '))}<br>Créé le ${esc(new Date(x.created_at).toLocaleString('fr-FR'))}${x.version?' · Version '+esc(x.version):''}</div><span class="cf-admin-status">${esc(sl(x.status))}${pdf?' · PDF prêt':''}</span>${x.validation_notes?`<div class="cf-admin-meta">${esc(x.validation_notes)}</div>`:''}<div class="cf-admin-actions">${pdf?`<a class="admin-btn ghost" href="${esc(x.pdf_url)}" target="_blank" rel="noopener">Ouvrir le PDF</a>`:''}${canRender?`<button type="button" class="admin-btn primary" data-cf-render="${esc(x.id)}" data-has-pdf="${pdf?'1':'0'}">${pdf?'Régénérer le PDF':'Générer le PDF'}</button>`:''}${canValidate?`<button type="button" class="admin-btn valider" data-cf-validate="${esc(x.id)}">Valider</button>`:''}${canReject?`<button type="button" class="admin-btn refuser" data-cf-reject="${esc(x.id)}">Rejeter</button>`:''}${canPublish?`<button type="button" class="admin-btn primary" data-cf-publish="${esc(x.id)}">Publier</button>`:''}${x.published_document_id?`<button type="button" class="admin-btn ghost" disabled>Déjà publié #${esc(x.published_document_id)}</button>`:''}</div>${x.error_message?`<div class="cf-admin-error">${esc(x.error_message)}</div>`:''}</div></article>`}).join('')}
+async function surveillerRenduArrierePlan(id,accessToken,b){
+  const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+  for(let i=0;i<180;i++){
+    try{
+      const q=await cfFetch(\`${SUPABASE_URL}/rest/v1/aurora_generated_documents?id=eq.\${encodeURIComponent(Number(id))}&select=id,pdf_url,metadata,status,updated_at\`,{cache:'no-store',headers:{'Authorization':\`Bearer ${accessToken}\`}});
+      const qt=await q.text();if(!q.ok)throw new Error('HTTP '+q.status);
+      const rows=qt?JSON.parse(qt):[],row=Array.isArray(rows)?rows[0]:null;
+      const m=row?.metadata&&typeof row.metadata==='object'?row.metadata:{};
+      if(row?.pdf_url&&m.lualatex_status==='completed'){
+        setProgress(100,'PDF LuaLaTeX généré et enregistré.');
+        if(b){b.disabled=false;b.textContent='PDF LuaLaTeX prêt';}
+        await charger();
+        setTimeout(()=>setProgress(0,'Prêt pour une nouvelle génération.'),1200);
+        return true;
+      }
+      if(m.lualatex_status==='failed'){
+        setProgress(0,'Prêt — le rendu précédent a échoué.');
+        if(b){b.disabled=false;b.textContent=b.dataset.hasPdf==='1'?'Régénérer le PDF':'Générer le PDF';}
+        await charger();return false;
+      }
+    }catch(e){console.warn('[Content Factory] Suivi arrière-plan:',e);}
+    await wait(10000);
+  }
+  return false;
+}
+
 async function charger(){if(!adminOk()){list.innerHTML='<div class="admin-empty">Cette action est réservée aux administrateurs.</div>';return}list.innerHTML='<div class="admin-empty">Chargement…</div>';try{const r=await cfFetch(`${SUPABASE_URL}/rest/v1/aurora_generated_documents?select=*&order=created_at.desc`,{cache:'no-store'}),t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));rows=t?JSON.parse(t):[];if(!Array.isArray(rows))rows=[];const c={review:0,approved:0,published:0,failed:0};rows.forEach(x=>{if(c[x.status]!=null)c[x.status]++});document.getElementById('cfCountReview').textContent=c.review;document.getElementById('cfCountApproved').textContent=c.approved;document.getElementById('cfCountPublished').textContent=c.published;document.getElementById('cfCountFailed').textContent=c.failed;if(count)count.textContent=String(c.review);apply()}catch(e){list.innerHTML=`<div class="admin-empty">Impossible de charger Content Factory.<br>${esc(e.message||e)}</div>`}}
 document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurrent);document.getElementById('adminRefreshContentFactory')?.addEventListener('click',charger);document.getElementById('adminSearchContentFactory')?.addEventListener('input',apply);document.getElementById('adminSortContentFactory')?.addEventListener('change',apply);document.getElementById('adminFilterContentFactory')?.addEventListener('change',apply);list.addEventListener('click',e=>{const r=e.target.closest('[data-cf-render]'),v=e.target.closest('[data-cf-validate]'),x=e.target.closest('[data-cf-reject]'),p=e.target.closest('[data-cf-publish]');if(r){if(r.dataset.hasPdf==='1'&&!confirm('Ce document possède déjà un PDF. Le nouveau rendu remplacera le PDF actuel. Continuer ?'))return;renderPdf(r.dataset.cfRender)}else if(v)validateDoc(v.dataset.cfValidate);else if(x)rejectDoc(x.dataset.cfReject);else if(p)publishDoc(p.dataset.cfPublish)});bindClassification();window.chargerAuroraContentFactoryAdmin=charger;})();
