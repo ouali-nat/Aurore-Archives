@@ -125,9 +125,9 @@
   }
 
   function inlineMathHtml(s){
-    return normalizeSource(s).split(/(\\\\\[[\s\S]*?\\\\\]|\\\\\([\s\S]*?\\\\\))/g)
-      .map((v,i)=>i%2?v:escapeHtml(v)).join('');
+    return escapeHtml(normalizeSource(s));
   }
+
 
   function buildTestHtml(doc){
     const q=doc?.content_json&&typeof doc.content_json==='object'?doc.content_json:{};
@@ -174,7 +174,8 @@
       const svgCount=body?body.querySelectorAll('mjx-container svg').length:0;
       const mathCount=body?body.querySelectorAll('mjx-container').length:0;
       const sentinel=!!fdoc.getElementById('aurore-mathjax-sentinel');
-      const remainingLatex=body?(/\\\\[|\\\\(|\\\\]|\\\\\\)/.test(body.textContent||'')):false;
+      const bodyText=body?.textContent||'';
+      const remainingLatex=['\\\\[','\\\\(','\\\\]','\\\\)'].some(token=>bodyText.includes(token));
       if(status!=='ready'){
         return {state:'fail',message:'MathJax n’a pas terminé son rendu dans le délai de 20 s.',detail:'status='+status+'; dernier_status='+lastStatus+'; svg='+svgCount+'; containers='+mathCount};
       }
