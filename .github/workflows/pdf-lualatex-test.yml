@@ -21,22 +21,30 @@ jobs:
           fi
           lualatex --version
 
-      - name: Compile Aurore test
+      - name: Render real Aurore document 21
         working-directory: infra/lualatex
         run: |
-          lualatex -interaction=nonstopmode -halt-on-error test-document.tex
-          lualatex -interaction=nonstopmode -halt-on-error test-document.tex
+          python3 render_document.py
+          test -s document-21.tex
+          grep -q '\\documentclass' document-21.tex
+          grep -q '\\section' document-21.tex
+
+      - name: Compile real Aurore document 21
+        working-directory: infra/lualatex
+        run: |
+          lualatex -interaction=nonstopmode -halt-on-error document-21.tex
+          lualatex -interaction=nonstopmode -halt-on-error document-21.tex
 
       - name: Validate PDF
         working-directory: infra/lualatex
         run: |
-          test -s test-document.pdf
-          file test-document.pdf
-          grep -a -m1 '%PDF-' test-document.pdf
+          test -s document-21.pdf
+          file document-21.pdf
+          grep -a -m1 '%PDF-' document-21.pdf
 
       - name: Upload PDF
         uses: actions/upload-artifact@v4
         with:
-          name: aurore-lualatex-test
-          path: infra/lualatex/test-document.pdf
+          name: aurore-document-21-lualatex
+          path: infra/lualatex/document-21.pdf
           retention-days: 3
