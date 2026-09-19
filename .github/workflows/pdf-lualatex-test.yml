@@ -1,6 +1,9 @@
 name: PDF LaTeX test
 
 on:
+  push:
+    branches:
+      - pdf-lualatex-test
   workflow_dispatch:
 
 jobs:
