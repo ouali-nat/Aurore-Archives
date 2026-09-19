@@ -14,6 +14,7 @@ permissions:
 concurrency:
   group: aurora-lualatex-production
   cancel-in-progress: false
+  queue: max
 
 jobs:
   render:
@@ -51,6 +52,16 @@ jobs:
           print(f"Claimed document {doc['id']}: {doc['title']}")
           Path("infra/lualatex/production/document-id").write_text(str(doc["id"]))
           PY
+
+      - name: Mark queue processing
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          curl --fail --silent --show-error -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":5,\"stage\":\"Document pris en charge par LuaLaTeX\"}" \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
 
       - name: Fetch claimed document JSON
         if: hashFiles('infra/lualatex/production/document-id') != ''
@@ -98,6 +109,16 @@ jobs:
           print(f"Fetched {document['id']}: {document['title']} (GeoGebra assets: {len(graph_assets)})")
           PY
 
+      - name: Mark source ready
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          curl --fail --silent --show-error -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":15,\"stage\":\"Contenu et ressources récupérés\"}" \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
+
       - name: Ensure LuaLaTeX and Aurore fonts
         if: hashFiles('infra/lualatex/production/document-id') != ''
         run: |
@@ -113,11 +134,23 @@ jobs:
           kpsewhich montserrat.sty
           kpsewhich qrcode.sty
 
+      - name: Mark renderer ready
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          curl --fail --silent --show-error -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":25,\"stage\":\"Moteur LuaLaTeX et ressources prêts\"}" \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
+
       - name: Fetch official Aurore site logo
         if: hashFiles('infra/lualatex/production/document-id') != ''
         run: |
           mkdir -p infra/lualatex/production/assets
-          curl --fail --silent --show-error --location             "https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster"             -o infra/lualatex/production/assets/aurore-logo.png
+          curl --fail --silent --show-error --location \
+            "https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster" \
+            -o infra/lualatex/production/assets/aurore-logo.png
           test -s infra/lualatex/production/assets/aurore-logo.png
           file infra/lualatex/production/assets/aurore-logo.png
 
@@ -129,13 +162,37 @@ jobs:
           test -s production/document.tex
           grep -q '\\documentclass' production/document.tex
 
-      - name: Compile PDF
+      - name: Mark LaTeX ready
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          curl --fail --silent --show-error -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":35,\"stage\":\"Source LaTeX générée\"}" \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
+
+      - name: Compile PDF — first pass
         if: hashFiles('infra/lualatex/production/document-id') != ''
         working-directory: infra/lualatex/production
         run: |
           lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error \
             -output-directory=. document.tex
-          # Second pass resolves the table of contents and final cross-references.
+
+      - name: Mark PDF compilation progress
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          curl --fail --silent --show-error -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":60,\"stage\":\"Compilation PDF — première passe terminée\"}" \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
+
+      - name: Compile PDF — final pass
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        working-directory: infra/lualatex/production
+        run: |
           lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error \
             -output-directory=. document.tex
           python3 - <<'PY'
@@ -147,6 +204,16 @@ jobs:
               raise SystemExit("Invalid PDF header")
           print(f"Generated PDF: {pdf.stat().st_size} bytes")
           PY
+
+      - name: Mark PDF ready for upload
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          curl --fail --silent --show-error -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":82,\"stage\":\"PDF compilé — vérification terminée\"}" \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
 
       - name: Upload PDF and commit database URL
         if: hashFiles('infra/lualatex/production/document-id') != ''
@@ -171,6 +238,16 @@ jobs:
           print(f"PDF path: {data['pdf_path']}")
           PY
 
+      - name: Mark PDF completed
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          curl --fail --silent --show-error -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":100,\"stage\":\"PDF terminé et enregistré dans Aurore\"}" \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
+
       - name: Requeue document after renderer failure
         if: failure() && hashFiles('infra/lualatex/production/document-id') != ''
         run: |
@@ -190,6 +267,7 @@ jobs:
               raise SystemExit(f"Failure cleanup failed: {data}")
           print(f"LuaLaTeX document requeue: document={data['document_id']} action={data['action']} failure_count={data['failure_count']}")
           PY
+
       - name: Upload rendered PDF artifact
         if: hashFiles('infra/lualatex/production/document-id') != ''
         uses: actions/upload-artifact@v4
@@ -198,31 +276,8 @@ jobs:
           path: infra/lualatex/production/document.pdf
           retention-days: 3
 
-# Production bridge: polls Supabase every 5 minutes and handles explicit LuaLaTeX regeneration requests.
-# Queue wake-up verified 2026-09-19.
-# Renderer math-block fix verified 2026-09-19.
-# Immediate bridge trigger requested 2026-09-19.
-# Math renderer hardening verified 2026-09-19.
-# JSON math-command normalization verified 2026-09-19.
-# Distinction $...$ versus $$...$$ renderer fix verified 2026-09-19.
-# Final delimiter parser correction verified 2026-09-19.
-# Multi-inline math sentence fix verified 2026-09-19.
-# Prevent LaTeX arrays from Markdown table detection verified 2026-09-19.
-# Regex fix for malformed array row breaks verified 2026-09-19.
-
-# GeoGebra asset integration trigger 2026-09-19.
-# PDF identity/QR traceability and 45-color palette 2026-09-19.
-# Validation render for document 22: rights page + QR + GeoGebra + 45-color theme support.
-# Verified compile working directory and relative asset paths 2026-09-19.
-
-# Force production queue wake-up after renderer hardening commit 5990ba4 2026-09-19.
-# Force production rerender of document 22 after inline-math layout correction 39006da3 2026-09-19.
-# Wake queue for document 22 after inline-math correction; no renderer logic change here.
-# Launch production renderer after guardrail fix 2026-09-19.
-# Wake production queue after background-render tracking fix 2026-09-19.
-# Wake production queue after admin background PDF tracking correction 2026-09-19.
-
-# Wake production queue after renderer fix 2026-09-19.
-
-# Failure requeue bridge verified 2026-09-19.
-# Wake queue for pending document #1 diagnostic 2026-09-19.
+# Production bridge: Supabase queue + GitHub Actions, one PDF at a time.
+# Multiple pending runs are intentionally preserved with concurrency.queue=max.
+# Automatic wake-up after DeepSeek/Luna is handled by the Supabase INSERT trigger.
+# Progress is persisted in aurora_generated_documents.metadata.
+# PDF identity/QR traceability and 45-color palette remain unchanged.
