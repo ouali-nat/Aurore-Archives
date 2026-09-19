@@ -94,7 +94,7 @@ def inline(s):
         elif p.startswith(r"\[") and p.endswith(r"\]"):
             out.append(normalize_math(p))
         elif p.startswith("$") and p.endswith("$") and len(p) >= 2:
-            out.append(r"\[" + normalize_math(p[1:-1].strip()) + r"\]")
+            out.append(r"\(" + normalize_math(p[1:-1].strip()) + r"\)")
         else:
             out.append(tex_text(p))
     return "".join(out)
