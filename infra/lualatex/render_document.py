@@ -38,14 +38,13 @@ def inline(s):
     s = str(s or "")
     stripped = s.strip()
 
-    # A whole item that is itself a math expression is the most common
-    # Content Factory representation for display-style formulas/tables.
-    if stripped.startswith("$$") and stripped.endswith("$$") and len(stripped) >= 4:
+    # A whole item may be an explicit display-math block. Single-dollar
+    # math is intentionally handled only by the regex below so a sentence
+    # containing several formulas cannot be mistaken for one math block.
+    if stripped.startswith("$") and stripped.endswith("$") and len(stripped) >= 4:
         return r"\[" + normalize_math(stripped[2:-2].strip()) + r"\]"
     if stripped.startswith(r"\[") and stripped.endswith(r"\]"):
         return normalize_math(stripped)
-    if stripped.startswith("$") and stripped.endswith("$") and len(stripped) >= 2:
-        return r"\[" + normalize_math(stripped[1:-1].strip()) + r"\]"
 
     pattern = re.compile(r"(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\$[\s\S]*?\$)")
     parts = pattern.split(s)
@@ -231,8 +230,13 @@ def main():
         raise SystemExit("inline() math guardrail failed: escaped math command")
     if r"\begin{array}" not in _probe_out or r"\infty" not in _probe_out or "\\\\ \\hline" not in _probe_out:
         raise SystemExit("inline() math guardrail failed: array structure")
-    if r"\exp(x)" not in inline(r"$\\exp(x)$"):
+    _exp_probe = inline(r"$\\exp(x)$")
+    if r"\exp(x)" not in _exp_probe or "$" in _exp_probe:
         raise SystemExit("inline() math guardrail failed: exp command")
+
+    _mixed_probe = inline(r"$(e^x)^n = e^{nx}$ pour tout entier $n$")
+    if _mixed_probe != r"\[(e^x)^n = e^{nx}\] pour tout entier \[n\]":
+        raise SystemExit("inline() math guardrail failed: mixed inline formulas")
 
     parser = argparse.ArgumentParser(description="Render an Aurore document JSON to LuaLaTeX source.")
     parser.add_argument("input", nargs="?", default="fixtures/document-21.json")
