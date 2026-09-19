@@ -109,14 +109,14 @@ jobs:
 
       - name: Upload PDF to Supabase Storage (test mode)
         run: |
-          curl --fail --silent --show-error \\
-            -X POST \\
-            -H "Content-Type: application/pdf" \\
-            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \\
-            -H "x-aurore-document-id: $DOCUMENT_ID" \\
-            -H "x-aurore-commit: false" \\
-            --data-binary @infra/lualatex/bridge/document.pdf \\
-            "$SUPABASE_URL/functions/v1/aurora-lualatex-upload-v2" \\
+          curl --fail --silent --show-error \
+            -X POST \
+            -H "Content-Type: application/pdf" \
+            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            -H "x-aurore-document-id: $DOCUMENT_ID" \
+            -H "x-aurore-commit: false" \
+            --data-binary @infra/lualatex/bridge/document.pdf \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-upload-v2" \
             -o infra/lualatex/bridge/upload-response.json
 
           python3 - <<'PY'
