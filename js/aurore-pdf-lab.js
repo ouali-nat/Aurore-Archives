@@ -136,12 +136,18 @@
     const q=doc?.content_json&&typeof doc.content_json==='object'?doc.content_json:{};
     const texts=collectTextAndMath(q);
     const body=texts.slice(0,30).map((x,i)=>'<p data-lab-index="'+i+'">'+inlineMathHtml(x)+'</p>').join('');
+    // Le code MathJax est sérialisé explicitement pour éviter que les backslashes
+    // des délimiteurs LaTeX soient mangés par la chaîne JavaScript.
+    const mathJaxConfig=JSON.stringify({
+      tex:{inlineMath:[['\\\\(','\\\\)'],['$','$']],displayMath:[['\\\\[','\\\\]'],['$$','$$']]},
+      svg:{fontCache:'global'}
+    });
     return '<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Aurore PDF Lab</title>'+
       '<style>body{font-family:Arial,"Noto Sans",sans-serif;color:#17221b;font-size:11pt;line-height:1.5;margin:18mm}p{margin:0 0 4mm}.formula{text-align:center;margin:5mm 0}</style>'+
-      '<script>window.status="loading";window.MathJax={tex:{inlineMath:[["\\(","\\)"],["$","$"]],displayMath:[["\\[","\\]"],["$$","$$"]]},svg:{fontCache:"global"}};</script>'+
+      '<script>window.__AURORE_MATHJAX_STATUS="loading";window.MathJax='+mathJaxConfig+';</script>'+
       '<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script></head><body>'+
       '<h1>'+escapeHtml(q.title||doc?.title||'Document pédagogique')+'</h1><main>'+body+'</main>'+
-      '<script>(async()=>{try{await MathJax.startup.promise;await MathJax.typesetPromise();if(document.fonts)await document.fonts.ready;}catch(e){window.status="mathjax-error:"+e.message;return;}window.status="ready";})();</script>'+
+      '<script>(async()=>{try{await MathJax.startup.promise;await MathJax.typesetPromise();if(document.fonts)await document.fonts.ready;window.__AURORE_MATHJAX_STATUS="ready";}catch(e){window.__AURORE_MATHJAX_STATUS="error:"+String(e&&e.message||e);}})();</script>'+
       '</body></html>';
   }
 
