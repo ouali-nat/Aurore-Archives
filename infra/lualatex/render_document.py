@@ -71,7 +71,15 @@ def _is_bullet(s):
 
 def _is_table_row(s):
     s = str(s or "").strip()
-    return "|" in s and len([p for p in s.split("|") if p.strip()]) >= 2
+    # Ignore pipe characters that belong to LaTeX math. In particular,
+    # array environments use a column separator such as {c|ccccc}; those
+    # pipes must never cause the math block to be treated as a Markdown table.
+    text_only = re.sub(
+        r"(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\$[\s\S]*?\$)",
+        "",
+        s,
+    )
+    return "|" in text_only and len([p for p in text_only.split("|") if p.strip()]) >= 2
 
 
 def _strip_list_marker(s):
@@ -235,6 +243,10 @@ def main():
     _mixed_probe = inline(r"$(e^x)^n = e^{nx}$ pour tout entier $n$")
     if _mixed_probe != r"\[(e^x)^n = e^{nx}\] pour tout entier \[n\]":
         raise SystemExit("inline() math guardrail failed: mixed inline formulas")
+
+    _array_row_probe = r"$\\begin{array}{c|ccccc} x & -\\infty & & 0 & & +\\infty \\ \\hline f(x) & 0 & \\nearrow & 1 & \\nearrow & +\\infty \\end{array}$"
+    if _is_table_row(_array_row_probe):
+        raise SystemExit("content guardrail failed: LaTeX array misdetected as table")
 
     parser = argparse.ArgumentParser(description="Render an Aurore document JSON to LuaLaTeX source.")
     parser.add_argument("input", nargs="?", default="fixtures/document-21.json")
