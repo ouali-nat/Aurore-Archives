@@ -1,5 +1,56 @@
 
 (function(){'use strict';const panel=document.querySelector('.admin-tab-panel[data-panel="content-factory"]');if(!panel)return;const list=document.getElementById('adminContentFactoryList'),count=document.getElementById('tabCountContentFactory');let rows=[];let generationQueue=[];let generationRunning=false;let classificationLoaded=false;let classificationRows=[];const esc=v=>{const d=document.createElement('div');d.textContent=String(v==null?'':v);return d.innerHTML};const sl=s=>({review:'À contrôler',approved:'Validé',published:'Publié',rejected:'Rejeté',failed:'Échec',generated:'Généré',processing:'Traitement',queued:'En file',draft:'Brouillon'}[s]||s||'Inconnu');const adminOk=()=>!!(session&&session.role==='admin');const normalizeThemeColor=v=>/^#[0-9a-f]{6}$/i.test(String(v||''))?String(v).toUpperCase():'#4F46E5';
+const documentThemeColor=metadata=>{
+  const m=metadata&&typeof metadata==='object'?metadata:{};
+  const d=m.aurore_design&&typeof m.aurore_design==='object'?m.aurore_design:{};
+  return normalizeThemeColor(d.theme_color||d.themeColor||m.theme_color||m.themeColor||'#4F46E5');
+};
+async function chooseRegenerationTheme(defaultColor){
+  return new Promise(resolve=>{
+    let modal=document.getElementById('cfThemeModal');
+    if(!modal){
+      modal=document.createElement('div');
+      modal.id='cfThemeModal';
+      modal.innerHTML='<div class="cf-theme-modal-backdrop"></div><section class="cf-theme-modal-card" role="dialog" aria-modal="true" aria-labelledby="cfThemeModalTitle"><div class="cf-theme-modal-kicker">Identité Aurore</div><h3 id="cfThemeModalTitle">Choisir la couleur du nouveau PDF</h3><p>La régénération crée une nouvelle version visuelle du document. La couleur choisie restera associée à cette version.</p><div class="cf-theme-modal-picker"><input id="cfThemeModalInput" type="color" aria-label="Couleur dominante du PDF"><div><strong id="cfThemeModalValue"></strong><span>Couleur dominante</span></div></div><div class="cf-theme-swatches" aria-label="Couleurs proposées"></div><div class="cf-theme-modal-actions"><button type="button" class="admin-btn ghost" id="cfThemeModalCancel">Annuler</button><button type="button" class="admin-btn primary" id="cfThemeModalApply">Régénérer avec cette couleur</button></div></section></div>';
+      document.body.appendChild(modal);
+      const style=document.createElement('style');
+      style.id='cfThemeModalStyles';
+      style.textContent='.cf-theme-modal-backdrop{position:fixed;inset:0;background:rgba(4,8,20,.42);backdrop-filter:blur(5px);z-index:10030}.cf-theme-modal-card{position:fixed;z-index:10031;left:50%;top:50%;transform:translate(-50%,-50%);width:min(430px,calc(100vw - 28px));box-sizing:border-box;padding:22px;border:1px solid var(--bordure,rgba(0,0,0,.12));border-radius:22px;background:var(--card-bg,#fff);box-shadow:0 22px 70px rgba(0,0,0,.2);color:var(--encre,#111)}.cf-theme-modal-card h3{margin:4px 0 8px;font-size:1.12rem}.cf-theme-modal-card p{margin:0;color:var(--gris,#687080);font-size:.8rem;line-height:1.55}.cf-theme-modal-kicker{font-size:.68rem;font-weight:900;letter-spacing:.09em;text-transform:uppercase;opacity:.68}.cf-theme-modal-picker{display:flex;align-items:center;gap:13px;margin:18px 0 12px;padding:12px;border:1px solid var(--bordure,rgba(0,0,0,.12));border-radius:15px;background:var(--fond,#fafafa)}.cf-theme-modal-picker input{width:62px;height:44px;padding:3px;border:0;border-radius:11px;background:transparent;cursor:pointer}.cf-theme-modal-picker strong{display:block;font-size:.82rem}.cf-theme-modal-picker span{display:block;font-size:.68rem;opacity:.68;margin-top:2px}.cf-theme-swatches{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 18px}.cf-theme-swatch{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,.92);box-shadow:0 0 0 1px rgba(0,0,0,.13);cursor:pointer}.cf-theme-modal-actions{display:flex;justify-content:flex-end;gap:9px;flex-wrap:wrap}@media(max-width:560px){.cf-theme-modal-actions .admin-btn{width:100%;justify-content:center}}';
+      document.head.appendChild(style);
+      const swatches=['#4F46E5','#2563EB','#0F766E','#15803D','#D97706','#B45309','#B42318','#7C3AED','#C026D3','#DB2777'];
+      modal.querySelector('.cf-theme-swatches').innerHTML=swatches.map(v=>'<button type="button" class="cf-theme-swatch" data-theme-swatch="'+v+'" style="background:'+v+'" aria-label="Choisir '+v+'" title="'+v+'"></button>').join('');
+    }
+    const input=document.getElementById('cfThemeModalInput'), value=document.getElementById('cfThemeModalValue');
+    const cancel=document.getElementById('cfThemeModalCancel'), apply=document.getElementById('cfThemeModalApply');
+    const close=v=>{modal.hidden=true;cancel.onclick=null;apply.onclick=null;modal.querySelectorAll('[data-theme-swatch]').forEach(x=>x.onclick=null);resolve(v)};
+    modal.hidden=false;
+    input.value=normalizeThemeColor(defaultColor);
+    value.textContent=normalizeThemeColor(input.value);
+    input.oninput=()=>{input.value=normalizeThemeColor(input.value);value.textContent=input.value.toUpperCase()};
+    modal.querySelectorAll('[data-theme-swatch]').forEach(x=>x.onclick=()=>{input.value=x.dataset.themeSwatch;value.textContent=input.value});
+    cancel.onclick=()=>close(null);
+    apply.onclick=()=>close(normalizeThemeColor(input.value));
+  });
+}
+async function persistGeneratedDocumentTheme(id,themeColor,accessToken){
+  const color=normalizeThemeColor(themeColor);
+  const q=await cfFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?id=eq.'+encodeURIComponent(Number(id))+'&select=id,metadata',{cache:'no-store',headers:{'Authorization':'Bearer '+accessToken}});
+  const qt=await q.text();
+  if(!q.ok)throw new Error('Lecture des métadonnées impossible (HTTP '+q.status+').');
+  let rows=[];try{rows=qt?JSON.parse(qt):[]}catch(_){rows=[]}
+  const current=Array.isArray(rows)&&rows[0]?.metadata&&typeof rows[0].metadata==='object'?rows[0].metadata:{};
+  const currentDesign=current.aurore_design&&typeof current.aurore_design==='object'?current.aurore_design:{};
+  const metadata={...current,aurore_design:{...currentDesign,theme_color:color,version:1}};
+  const u=await cfFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?id=eq.'+encodeURIComponent(Number(id)),{
+    method:'PATCH',cache:'no-store',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},
+    body:JSON.stringify({metadata,updated_at:new Date().toISOString()})
+  });
+  const ut=await u.text();
+  if(!u.ok)throw new Error('Enregistrement de la couleur impossible (HTTP '+u.status+'). '+ut);
+  return color;
+}
+
 async function cfFreshToken(){
   const client=await assurerClientAuthGoogle();
   if(!client)throw new Error('Client Supabase indisponible.');
@@ -239,7 +290,7 @@ async function renderPdfPageByPageFromBrowser(id,accessToken,b){
   return {pages:paths.length,paths};
 }
 ensureCfPdfProductionStyles();
-async function renderPdf(id){
+async function renderPdf(id,themeColor=null){
   const b=document.querySelector(`[data-cf-render="${id}"]`);
   if(b){b.disabled=true;b.textContent=b.dataset.hasPdf==='1'?'Régénération LuaLaTeX…':'Génération LuaLaTeX…'}
   try{
@@ -256,6 +307,10 @@ async function renderPdf(id){
       if(activeSession.expires_at)session.expires_at=activeSession.expires_at*1000;
       sauvegarderSession();
     }
+
+    const rowForTheme=rows.find(x=>Number(x.id)===Number(id));
+    await persistGeneratedDocumentTheme(id,themeColor||documentThemeColor(rowForTheme?.metadata),accessToken);
+    if(b)b.textContent='Préparation de la nouvelle identité Aurore…';
 
     const graphCount=await auroraConstruireEtImporterGraphiquesGeoGebra(id,b,accessToken);
     if(b)b.textContent=graphCount?`Mise en file LuaLaTeX avec ${graphCount} graphique${graphCount>1?'s':''} GeoGebra…`:'Mise en file LuaLaTeX…';
@@ -324,7 +379,7 @@ async function renderPdf(id){
 async function validateDoc(id){const n=prompt('Note de validation (facultatif) :','');if(n===null)return;try{await rpc('aurora_validate_generated_document',{p_generated_document_id:Number(id),p_notes:n||null});await charger()}catch(e){alert('Validation impossible. '+(e.message||e))}}
 async function rejectDoc(id){const n=prompt('Motif du rejet / corrections demandées :','');if(n===null)return;if(!n.trim()){alert('Indique un motif pour rejeter le document.');return}try{await rpc('aurora_reject_generated_document',{p_generated_document_id:Number(id),p_notes:n.trim()});await charger()}catch(e){alert('Rejet impossible. '+(e.message||e))}}
 async function publishDoc(id){if(!confirm('Publier ce document dans la bibliothèque publique Aurore ?\n\nCette action crée un document publié à partir du PDF validé.'))return;const n=prompt('Note de publication (facultatif) :','');if(n===null)return;try{await rpc('aurora_publish_generated_document',{p_generated_document_id:Number(id),p_notes:n||null});await charger();alert('Document publié dans la bibliothèque Aurore.')}catch(e){alert('Publication impossible. '+(e.message||e))}}
-function apply(){const q=(document.getElementById('adminSearchContentFactory')?.value||'').trim().toLowerCase(),st=document.getElementById('adminFilterContentFactory')?.value||'',sort=document.getElementById('adminSortContentFactory')?.value||'recent';let a=rows.filter(x=>(!st||x.status===st)&&(!q||[x.title,x.subject,x.level,x.class_name,x.document_type,x.status].filter(Boolean).join(' ').toLowerCase().includes(q)));a.sort((x,y)=>{if(sort==='az')return String(x.title).localeCompare(String(y.title),'fr');if(sort==='za')return String(y.title).localeCompare(String(x.title),'fr');const ax=new Date(x.created_at).getTime(),ay=new Date(y.created_at).getTime();return sort==='oldest'?ax-ay:ay-ax});if(!a.length){list.innerHTML='<div class="admin-empty">Aucun document généré pour ces critères.</div>';return}list.innerHTML=a.map(x=>{const pdf=!!x.pdf_url,canRender=['generated','review','approved'].includes(x.status),canValidate=x.status==='review'&&pdf,canReject=['review','approved'].includes(x.status),canPublish=['approved','review'].includes(x.status)&&pdf;return `<article class="cf-admin-card"><div class="cf-admin-icon">PDF</div><div class="cf-admin-body"><div class="cf-admin-title">${esc(x.title)}</div><div class="cf-admin-meta">${esc([x.subject,x.level,x.class_name,x.document_type].filter(Boolean).join(' · '))}<br>Créé le ${esc(new Date(x.created_at).toLocaleString('fr-FR'))}${x.version?' · Version '+esc(x.version):''}</div><span class="cf-admin-status">${esc(sl(x.status))}${pdf?' · PDF prêt':''}</span>${x.validation_notes?`<div class="cf-admin-meta">${esc(x.validation_notes)}</div>`:''}<div class="cf-admin-actions">${pdf?`<a class="admin-btn ghost" href="${esc(x.pdf_url)}" target="_blank" rel="noopener">Ouvrir le PDF</a>`:''}${canRender?`<button type="button" class="admin-btn primary" data-cf-render="${esc(x.id)}" data-has-pdf="${pdf?'1':'0'}">${pdf?'Régénérer le PDF':'Générer le PDF'}</button>`:''}${canValidate?`<button type="button" class="admin-btn valider" data-cf-validate="${esc(x.id)}">Valider</button>`:''}${canReject?`<button type="button" class="admin-btn refuser" data-cf-reject="${esc(x.id)}">Rejeter</button>`:''}${canPublish?`<button type="button" class="admin-btn primary" data-cf-publish="${esc(x.id)}">Publier</button>`:''}${x.published_document_id?`<button type="button" class="admin-btn ghost" disabled>Déjà publié #${esc(x.published_document_id)}</button>`:''}</div>${x.error_message?`<div class="cf-admin-error">${esc(x.error_message)}</div>`:''}</div></article>`}).join('')}
+function apply(){const q=(document.getElementById('adminSearchContentFactory')?.value||'').trim().toLowerCase(),st=document.getElementById('adminFilterContentFactory')?.value||'',sort=document.getElementById('adminSortContentFactory')?.value||'recent';let a=rows.filter(x=>(!st||x.status===st)&&(!q||[x.title,x.subject,x.level,x.class_name,x.document_type,x.status].filter(Boolean).join(' ').toLowerCase().includes(q)));a.sort((x,y)=>{if(sort==='az')return String(x.title).localeCompare(String(y.title),'fr');if(sort==='za')return String(y.title).localeCompare(String(x.title),'fr');const ax=new Date(x.created_at).getTime(),ay=new Date(y.created_at).getTime();return sort==='oldest'?ax-ay:ay-ax});if(!a.length){list.innerHTML='<div class="admin-empty">Aucun document généré pour ces critères.</div>';return}list.innerHTML=a.map(x=>{const pdf=!!x.pdf_url,canRender=['generated','review','approved'].includes(x.status),canValidate=x.status==='review'&&pdf,canReject=['review','approved'].includes(x.status),canPublish=['approved','review'].includes(x.status)&&pdf;return `<article class="cf-admin-card"><div class="cf-admin-icon">PDF</div><div class="cf-admin-body"><div class="cf-admin-title">${esc(x.title)}</div><div class="cf-admin-meta">${esc([x.subject,x.level,x.class_name,x.document_type].filter(Boolean).join(' · '))}<br>Créé le ${esc(new Date(x.created_at).toLocaleString('fr-FR'))}${x.version?' · Version '+esc(x.version):''}</div><span class="cf-admin-status">${esc(sl(x.status))}${pdf?' · PDF prêt':''}</span>${x.validation_notes?`<div class="cf-admin-meta">${esc(x.validation_notes)}</div>`:''}<div class="cf-admin-actions">${pdf?`<a class="admin-btn ghost" href="${esc(x.pdf_url)}" target="_blank" rel="noopener">Ouvrir le PDF</a>`:''}${canRender?`<button type="button" class="admin-btn primary" data-cf-render="${esc(x.id)}" data-has-pdf="${pdf?'1':'0'}" data-theme-color="${documentThemeColor(x.metadata)}">${pdf?'Régénérer le PDF':'Générer le PDF'}</button>`:''}${canValidate?`<button type="button" class="admin-btn valider" data-cf-validate="${esc(x.id)}">Valider</button>`:''}${canReject?`<button type="button" class="admin-btn refuser" data-cf-reject="${esc(x.id)}">Rejeter</button>`:''}${canPublish?`<button type="button" class="admin-btn primary" data-cf-publish="${esc(x.id)}">Publier</button>`:''}${x.published_document_id?`<button type="button" class="admin-btn ghost" disabled>Déjà publié #${esc(x.published_document_id)}</button>`:''}</div>${x.error_message?`<div class="cf-admin-error">${esc(x.error_message)}</div>`:''}</div></article>`}).join('')}
 async function surveillerRenduArrierePlan(id,accessToken,b){
   const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   for(let i=0;i<180;i++){
@@ -354,4 +409,4 @@ async function surveillerRenduArrierePlan(id,accessToken,b){
 }
 
 async function charger(){if(!adminOk()){list.innerHTML='<div class="admin-empty">Cette action est réservée aux administrateurs.</div>';return}list.innerHTML='<div class="admin-empty">Chargement…</div>';try{const r=await cfFetch(`${SUPABASE_URL}/rest/v1/aurora_generated_documents?select=id,job_id,created_at,updated_at,created_by,title,subject,level,class_name,document_type,source_format,pdf_path,pdf_url,version,status,validation_notes,published_document_id,metadata,pdf_diagnostic&order=created_at.desc`,{cache:'no-store'}),t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));rows=t?JSON.parse(t):[];if(!Array.isArray(rows))rows=[];const c={review:0,approved:0,published:0,failed:0};rows.forEach(x=>{if(c[x.status]!=null)c[x.status]++});document.getElementById('cfCountReview').textContent=c.review;document.getElementById('cfCountApproved').textContent=c.approved;document.getElementById('cfCountPublished').textContent=c.published;document.getElementById('cfCountFailed').textContent=c.failed;if(count)count.textContent=String(c.review);apply()}catch(e){list.innerHTML=`<div class="admin-empty">Impossible de charger Content Factory.<br>${esc(e.message||e)}</div>`}}
-document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurrent);document.getElementById('adminRefreshContentFactory')?.addEventListener('click',charger);document.getElementById('adminSearchContentFactory')?.addEventListener('input',apply);document.getElementById('adminSortContentFactory')?.addEventListener('change',apply);document.getElementById('adminFilterContentFactory')?.addEventListener('change',apply);list.addEventListener('click',e=>{const r=e.target.closest('[data-cf-render]'),v=e.target.closest('[data-cf-validate]'),x=e.target.closest('[data-cf-reject]'),p=e.target.closest('[data-cf-publish]');if(r){if(r.dataset.hasPdf==='1'&&!confirm('Ce document possède déjà un PDF. Le nouveau rendu remplacera le PDF actuel. Continuer ?'))return;renderPdf(r.dataset.cfRender)}else if(v)validateDoc(v.dataset.cfValidate);else if(x)rejectDoc(x.dataset.cfReject);else if(p)publishDoc(p.dataset.cfPublish)});bindClassification();window.chargerAuroraContentFactoryAdmin=charger;})();
+document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurrent);document.getElementById('adminRefreshContentFactory')?.addEventListener('click',charger);document.getElementById('adminSearchContentFactory')?.addEventListener('input',apply);document.getElementById('adminSortContentFactory')?.addEventListener('change',apply);document.getElementById('adminFilterContentFactory')?.addEventListener('change',apply);list.addEventListener('click',async e=>{const r=e.target.closest('[data-cf-render]'),v=e.target.closest('[data-cf-validate]'),x=e.target.closest('[data-cf-reject]'),p=e.target.closest('[data-cf-publish]');if(r){if(r.dataset.hasPdf==='1'){if(!confirm('Ce document possède déjà un PDF. Le nouveau rendu remplacera le PDF actuel. Continuer ?'))return;const chosen=await chooseRegenerationTheme(r.dataset.themeColor||'#4F46E5');if(!chosen)return;renderPdf(r.dataset.cfRender,chosen)}else{renderPdf(r.dataset.cfRender,r.dataset.themeColor||'#4F46E5')}}else if(v)validateDoc(v.dataset.cfValidate);else if(x)rejectDoc(x.dataset.cfReject);else if(p)publishDoc(p.dataset.cfPublish)});bindClassification();window.chargerAuroraContentFactoryAdmin=charger;})();
