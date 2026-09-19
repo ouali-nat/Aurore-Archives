@@ -141,5 +141,5 @@ jobs:
 # Queue wake-up verified 2026-09-19.
 # Renderer math-block fix verified 2026-09-19.
 # Immediate bridge trigger requested 2026-09-19.
-
 # Math renderer hardening verified 2026-09-19.
+# JSON math-command normalization verified 2026-09-19.
