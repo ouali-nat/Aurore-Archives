@@ -10,6 +10,11 @@ on:
         description: "aurora_generated_documents.id to render"
         required: true
         default: "21"
+      commit:
+        description: "Write generated PDF path/url to the database"
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -114,7 +119,7 @@ jobs:
             -H "Content-Type: application/pdf" \
             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
             -H "x-aurore-document-id: $DOCUMENT_ID" \
-            -H "x-aurore-commit: false" \
+            -H "x-aurore-commit: ${{ inputs.commit || 'false' }}" \
             --data-binary @infra/lualatex/bridge/document.pdf \
             "$SUPABASE_URL/functions/v1/aurora-lualatex-upload-v2" \
             -o infra/lualatex/bridge/upload-response.json
@@ -124,12 +129,13 @@ jobs:
           from pathlib import Path
 
           data = json.loads(Path("infra/lualatex/bridge/upload-response.json").read_text(encoding="utf-8"))
-          if not data.get("ok") or data.get("mode") != "test":
-              raise SystemExit(f"Supabase upload test failed: {data}")
-          if data.get("database_updated") is not False:
-              raise SystemExit("Test upload unexpectedly updated the database")
-          print(f"Supabase Storage upload OK: {data['pdf_path']} ({data['bytes']} bytes)")
-          PY
+          commit = "${{ inputs.commit || 'false' }}" == "true"
+          expected_mode = "commit" if commit else "test"
+          if not data.get("ok") or data.get("mode") != expected_mode:
+              raise SystemExit(f"Supabase upload failed: {data}")
+          if data.get("database_updated") is not commit:
+              raise SystemExit(f"Unexpected database_updated value: {data}")
+          print(f"Supabase upload OK: mode={data['mode']} path={data['pdf_path']} bytes={data['bytes']}")
 
       - name: Upload bridge test artifact
         uses: actions/upload-artifact@v4
