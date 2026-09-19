@@ -15,12 +15,32 @@ def tex_text(s):
 
 
 def inline(s):
+    """
+    Escape ordinary text while preserving LaTeX math blocks.
+
+    The previous implementation only recognized single-dollar math
+    ($...$). Content Factory output can also contain display math
+    ($$...$$ or \[...\]), including array environments with & and
+    braces. Those blocks must remain untouched.
+    """
     s = str(s or "")
-    parts = re.split(r"(\$[^$\n]+\$)", s)
+    pattern = re.compile(r"(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\$[^$\n]+\$)")
+    parts = pattern.split(s)
     out = []
     for p in parts:
-        if p.startswith("$") and p.endswith("$"):
-            out.append("$" + p[1:-1].strip() + "$")
+        if not p:
+            continue
+        if (
+            (p.startswith("$$") and p.endswith("$$"))
+            or (p.startswith(r"\[") and p.endswith(r"\]"))
+            or (p.startswith("$") and p.endswith("$"))
+        ):
+            if p.startswith("$$") and p.endswith("$$"):
+                out.append(r"\[" + p[2:-2].strip() + r"\]")
+            elif p.startswith(r"\[") and p.endswith(r"\]"):
+                out.append(p)
+            else:
+                out.append("$" + p[1:-1].strip() + "$")
         else:
             out.append(tex_text(p))
     return "".join(out)
