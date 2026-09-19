@@ -137,4 +137,4 @@ jobs:
           path: infra/lualatex/production/document.pdf
           retention-days: 3
 
-# Production bridge: polls Supabase for newly generated Aurora documents.\n# Live wiring: also handles explicit LuaLaTeX regeneration requests.
+# Production bridge: polls Supabase every 5 minutes and handles explicit LuaLaTeX regeneration requests.
