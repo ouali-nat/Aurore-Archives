@@ -41,8 +41,6 @@ def inline(s):
     # A whole item may be an explicit display-math block. Single-dollar
     # math is intentionally handled only by the regex below so a sentence
     # containing several formulas cannot be mistaken for one math block.
-    if stripped.startswith("$") and stripped.endswith("$") and len(stripped) >= 4:
-        return r"\[" + normalize_math(stripped[2:-2].strip()) + r"\]"
     if stripped.startswith(r"\[") and stripped.endswith(r"\]"):
         return normalize_math(stripped)
 
