@@ -107,6 +107,30 @@ jobs:
             echo "LuaLaTeX returned $rc, but the PDF is valid and the log contains no fatal TeX error; continuing."
           fi
 
+      - name: Upload PDF to Supabase Storage (test mode)
+        run: |
+          curl --fail --silent --show-error \\
+            -X POST \\
+            -H "Content-Type: application/pdf" \\
+            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \\
+            -H "x-aurore-document-id: $DOCUMENT_ID" \\
+            -H "x-aurore-commit: false" \\
+            --data-binary @infra/lualatex/bridge/document.pdf \\
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-upload-v2" \\
+            -o infra/lualatex/bridge/upload-response.json
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          data = json.loads(Path("infra/lualatex/bridge/upload-response.json").read_text(encoding="utf-8"))
+          if not data.get("ok") or data.get("mode") != "test":
+              raise SystemExit(f"Supabase upload test failed: {data}")
+          if data.get("database_updated") is not False:
+              raise SystemExit("Test upload unexpectedly updated the database")
+          print(f"Supabase Storage upload OK: {data['pdf_path']} ({data['bytes']} bytes)")
+          PY
+
       - name: Upload bridge test artifact
         uses: actions/upload-artifact@v4
         with:
