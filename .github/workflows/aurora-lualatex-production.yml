@@ -1,6 +1,9 @@
 name: Aurora LuaLaTeX production renderer
 
 on:
+  push:
+    paths:
+      - ".github/workflows/aurora-lualatex-production.yml"
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
@@ -27,48 +30,43 @@ jobs:
         run: test -n "$AURORA_LUALATEX_RENDER_TOKEN"
 
       - name: Claim next generated document
-        id: claim
         run: |
           mkdir -p infra/lualatex/production
-          curl --fail --silent --show-error             --header "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN"             "$SUPABASE_URL/functions/v1/aurora-lualatex-next"             -o infra/lualatex/production/claim.json
+          curl --fail --silent --show-error \
+            --header "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-next" \
+            -o infra/lualatex/production/claim.json
 
           python3 - <<'PY'
           import json
           from pathlib import Path
-
           data = json.loads(Path("infra/lualatex/production/claim.json").read_text())
           if not data.get("ok"):
               raise SystemExit(f"Claim failed: {data}")
-
           if not data.get("pending"):
               print("No generated document waiting for LuaLaTeX.")
               Path("infra/lualatex/production/no-work").write_text("true")
               raise SystemExit(0)
-
           doc = data["document"]
           print(f"Claimed document {doc['id']}: {doc['title']}")
           Path("infra/lualatex/production/document-id").write_text(str(doc["id"]))
           PY
 
-      - name: Stop when queue is empty
-        if: hashFiles('infra/lualatex/production/no-work') != ''
-        run: echo "Queue empty; nothing to render."
-
       - name: Fetch claimed document JSON
         if: hashFiles('infra/lualatex/production/document-id') != ''
         run: |
           DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
-          curl --fail --silent --show-error             --header "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN"             "$SUPABASE_URL/functions/v1/aurora-lualatex-source?document_id=$DOCUMENT_ID"             -o infra/lualatex/production/document-response.json
-
+          curl --fail --silent --show-error \
+            --header "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-source?document_id=$DOCUMENT_ID" \
+            -o infra/lualatex/production/document-response.json
           python3 - <<'PY'
           import json
           from pathlib import Path
-
           src = json.loads(Path("infra/lualatex/production/document-response.json").read_text())
           document = src.get("document")
           if not document or "content_json" not in document:
               raise SystemExit("Source endpoint did not return document.content_json")
-
           Path("infra/lualatex/production/document.json").write_text(
               json.dumps(document["content_json"], ensure_ascii=False, indent=2)
           )
@@ -96,7 +94,8 @@ jobs:
         if: hashFiles('infra/lualatex/production/document-id') != ''
         working-directory: infra/lualatex
         run: |
-          lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error             -output-directory=production production/document.tex
+          lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error \
+            -output-directory=production production/document.tex
           python3 - <<'PY'
           from pathlib import Path
           pdf = Path("production/document.pdf")
@@ -111,8 +110,15 @@ jobs:
         if: hashFiles('infra/lualatex/production/document-id') != ''
         run: |
           DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
-          curl --fail --silent --show-error             -X POST             -H "Content-Type: application/pdf"             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN"             -H "x-aurore-document-id: $DOCUMENT_ID"             -H "x-aurore-commit: true"             --data-binary @infra/lualatex/production/document.pdf             "$SUPABASE_URL/functions/v1/aurora-lualatex-upload-v2"             -o infra/lualatex/production/upload-response.json
-
+          curl --fail --silent --show-error \
+            -X POST \
+            -H "Content-Type: application/pdf" \
+            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            -H "x-aurore-document-id: $DOCUMENT_ID" \
+            -H "x-aurore-commit: true" \
+            --data-binary @infra/lualatex/production/document.pdf \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-upload-v2" \
+            -o infra/lualatex/production/upload-response.json
           python3 - <<'PY'
           import json
           from pathlib import Path
