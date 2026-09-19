@@ -112,10 +112,10 @@ jobs:
         working-directory: infra/lualatex/production
         run: |
           lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error \
-            -output-directory=production production/document.tex
+            -output-directory=. document.tex
           python3 - <<'PY'
           from pathlib import Path
-          pdf = Path("production/document.pdf")
+          pdf = Path("document.pdf")
           if not pdf.is_file() or pdf.stat().st_size == 0:
               raise SystemExit("LuaLaTeX did not produce a PDF")
           if pdf.read_bytes()[:5] != b"%PDF-":
