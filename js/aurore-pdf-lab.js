@@ -2,9 +2,6 @@
 (function(){
   'use strict';
 
-  const panel = document.querySelector('.admin-tab-panel[data-panel="labo-pdf"]');
-  if(!panel) return;
-
   const $ = id => document.getElementById(id);
   const esc = v => {
     const d=document.createElement('div');
