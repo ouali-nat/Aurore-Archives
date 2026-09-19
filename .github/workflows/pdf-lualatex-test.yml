@@ -1,0 +1,39 @@
+name: PDF LaTeX test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure LuaLaTeX
+        run: |
+          if ! command -v lualatex >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y texlive-luatex texlive-lang-french texlive-latex-extra
+          fi
+          lualatex --version
+
+      - name: Compile Aurore test
+        working-directory: infra/lualatex
+        run: |
+          lualatex -interaction=nonstopmode -halt-on-error test-document.tex
+          lualatex -interaction=nonstopmode -halt-on-error test-document.tex
+
+      - name: Validate PDF
+        working-directory: infra/lualatex
+        run: |
+          test -s test-document.pdf
+          file test-document.pdf
+          grep -a -m1 '%PDF-' test-document.pdf
+
+      - name: Upload PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: aurore-lualatex-test
+          path: infra/lualatex/test-document.pdf
+          retention-days: 3
