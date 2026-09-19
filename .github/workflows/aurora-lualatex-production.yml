@@ -168,3 +168,5 @@ jobs:
 
 # GeoGebra asset integration trigger 2026-09-19.
 # Verified compile working directory and relative asset paths 2026-09-19.
+
+# Force production queue wake-up after renderer hardening commit 5990ba4 2026-09-19.
