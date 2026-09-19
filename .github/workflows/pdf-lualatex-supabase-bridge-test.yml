@@ -129,7 +129,7 @@ jobs:
           from pathlib import Path
 
           data = json.loads(Path("infra/lualatex/bridge/upload-response.json").read_text(encoding="utf-8"))
-          commit = "${{ inputs.commit || 'false' }}" == "true"
+          commit = "${{ github.event_name == 'push' && 'true' || inputs.commit || 'false' }}" == "true"
           expected_mode = "commit" if commit else "test"
           if not data.get("ok") or data.get("mode") != expected_mode:
               raise SystemExit(f"Supabase upload failed: {data}")
