@@ -147,4 +147,4 @@ jobs:
 # Final delimiter parser correction verified 2026-09-19.
 # Multi-inline math sentence fix verified 2026-09-19.
 # Prevent LaTeX arrays from Markdown table detection verified 2026-09-19.
-# Normalize malformed array row breaks before hline verified 2026-09-19.
+# Regex fix for malformed array row breaks verified 2026-09-19.
