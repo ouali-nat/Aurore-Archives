@@ -419,10 +419,11 @@
       if(!r.ok)return;
       const rows=await r.json();if(!Array.isArray(rows))return;
       renderProduction(rows);
+      const initialState=Object.keys(queueState.known).length===0;
       for(const x of rows){
         const m=x.metadata||{},key=String(x.id),prev=queueState.known[key]||'';
         const now=String(m.lualatex_status||'');
-        if(prev!==now){
+        if(!initialState&&prev!==now){
           if(now==='queued')toast('PDF en attente','« '+x.title+' » a été placé dans la file.','info');
           else if(now==='processing')toast('Génération PDF','« '+x.title+' » est en cours de génération.','info');
           else if(now==='completed')toast('PDF prêt','« '+x.title+' » est prêt.','success');
