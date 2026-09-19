@@ -1,6 +1,9 @@
 name: PDF LaTeX Supabase bridge test
 
 on:
+  push:
+    branches:
+      - pdf-lualatex-test
   workflow_dispatch:
     inputs:
       document_id:
@@ -16,7 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SUPABASE_URL: https://tdeotqfsbvouresfhkab.supabase.co
-      AURORA_LUALATEX_RENDER_TOKEN: \${{ secrets.AURORA_LUALATEX_RENDER_TOKEN }}
+      AURORA_LUALATEX_RENDER_TOKEN: ${{ secrets.AURORA_LUALATEX_RENDER_TOKEN }}
+      DOCUMENT_ID: ${{ inputs.document_id || '21' }}
 
     steps:
       - name: Checkout
@@ -31,7 +35,7 @@ jobs:
           mkdir -p infra/lualatex/bridge
           curl --fail --silent --show-error \
             --header "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
-            "$SUPABASE_URL/functions/v1/aurora-lualatex-source?document_id=\${{ inputs.document_id }}" \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-source?document_id=$DOCUMENT_ID" \
             -o infra/lualatex/bridge/document-response.json
           test -s infra/lualatex/bridge/document-response.json
 
@@ -82,6 +86,6 @@ jobs:
       - name: Upload bridge test artifact
         uses: actions/upload-artifact@v4
         with:
-          name: aurore-lualatex-supabase-bridge-\${{ inputs.document_id }}
+          name: aurore-lualatex-supabase-bridge-${{ inputs.document_id || '21' }}
           path: infra/lualatex/bridge/document.pdf
           retention-days: 3
