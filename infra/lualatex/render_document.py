@@ -4,6 +4,8 @@ import json
 import re
 from pathlib import Path
 
+# Production layout hardening test trigger: 2026-09-19.
+
 
 def clean_text(s):
     """Remove non-printable C0/C1 control characters without touching normal Unicode."""
