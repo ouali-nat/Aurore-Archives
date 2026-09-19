@@ -230,9 +230,9 @@ def main():
     _probe_out = inline(_probe)
     if "\\textbackslash{}begin" in _probe_out:
         raise SystemExit("inline() math guardrail failed: escaped math command")
-    if "\\begin{array}" not in _probe_out or "\\infty" not in _probe_out or "\\\\ \\hline" not in _probe_out:
+    if r"\begin{array}" not in _probe_out or r"\infty" not in _probe_out or "\\\\ \\hline" not in _probe_out:
         raise SystemExit("inline() math guardrail failed: array structure")
-    if "\\exp(x)" not in inline(r"$\\exp(x)$"):
+    if r"\exp(x)" not in inline(r"$\\exp(x)$"):
         raise SystemExit("inline() math guardrail failed: exp command")
 
     parser = argparse.ArgumentParser(description="Render an Aurore document JSON to LuaLaTeX source.")
