@@ -274,22 +274,41 @@ async function renderPdf(id){
     setProgress(18,'En attente du rendu LuaLaTeX…');
     if(b)b.textContent='LuaLaTeX en préparation…';
 
-    const deadline=Date.now()+15*60*1000;
+    // Le rendu est totalement découplé de la page : une fois la demande acceptée,
+    // GitHub Actions continue même si l'écran est verrouillé, l'onglet est fermé
+    // ou le navigateur est mis en veille. Le navigateur ne fait qu'observer.
+    const foregroundDeadline=Date.now()+2*60*1000;
     let completed=null;
-    while(Date.now()<deadline){
+    const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+    while(Date.now()<foregroundDeadline){
+      if(document.visibilityState==='hidden'){
+        setProgress(92,'Rendu en arrière-plan. Le PDF continue même écran verrouillé.');
+        await new Promise(resolve=>{
+          const resume=()=>{document.removeEventListener('visibilitychange',resume);resolve();};
+          document.addEventListener('visibilitychange',resume,{once:true});
+        });
+        continue;
+      }
       const q=await cfFetch(`${SUPABASE_URL}/rest/v1/aurora_generated_documents?id=eq.${encodeURIComponent(Number(id))}&select=id,pdf_url,pdf_path,metadata,status,updated_at`,{cache:'no-store',headers:{'Authorization':`Bearer ${accessToken}`}});
       const qt=await q.text();
+      if(!q.ok)throw new Error(`Lecture de l'état LuaLaTeX impossible (HTTP ${q.status}). Le rendu serveur continue en arrière-plan.`);
       let rows=[];
-      try{rows=qt?JSON.parse(qt):[]}catch(_){rows=[]}
+      try{rows=qt?JSON.parse(qt):[]}catch(_){throw new Error('Réponse Supabase invalide pendant le suivi du rendu.');}
       const row=Array.isArray(rows)?rows[0]:null;
-      const m=row?.metadata&&typeof row.metadata==='object'?row.metadata:{};
-      if(row?.pdf_url&&m.lualatex_status==='completed'){completed=row;break}
+      if(!row)throw new Error('Document introuvable pendant le suivi du rendu.');
+      const m=row.metadata&&typeof row.metadata==='object'?row.metadata:{};
+      if(row.pdf_url&&m.lualatex_status==='completed'){completed=row;break}
       if(m.lualatex_status==='failed')throw new Error('Le rendu LuaLaTeX a échoué. Consulte les journaux GitHub Actions.');
-      const elapsed=Date.now()-(deadline-15*60*1000);
+      const elapsed=Date.now()-(foregroundDeadline-2*60*1000);
       setProgress(Math.min(92,18+Math.floor(elapsed/1000/10)),`LuaLaTeX travaille… ${Math.floor(elapsed/1000)} s`);
-      await new Promise(resolve=>setTimeout(resolve,5000));
+      await wait(5000);
     }
-    if(!completed)throw new Error('Le rendu LuaLaTeX prend plus de temps que prévu. Le document reste en file et sera finalisé automatiquement.');
+    if(!completed){
+      setProgress(92,'Rendu en arrière-plan — tu peux verrouiller l’écran ou quitter cette page.');
+      if(b)b.textContent='LuaLaTeX continue en arrière-plan…';
+      await charger();
+      return;
+    }
     setProgress(100,'PDF LuaLaTeX généré et enregistré.');
     if(b)b.textContent='PDF LuaLaTeX prêt';
     await charger();
