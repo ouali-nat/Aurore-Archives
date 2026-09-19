@@ -80,13 +80,11 @@
     return {status:res.status,ok:res.ok,text,data};
   }
 
-  function normalizeSource(value){
+    function normalizeSource(value){
     return String(value??'')
-      .replace(/\\\\\\\\/g,'\\\\')
-      .replace(/\$\$([\s\S]*?)\$\$/g,'\\\\[$1\\\\]')
-      .replace(/\$([^$\n]+)\$/g,'\\\\($1\\\\)');
+      .replace(/\$\$([\s\S]*?)\$\$/g,'\\[$1\\]')
+      .replace(/\$([^$\n]+)\$/g,'\\($1\\)');
   }
-
   function inspectLatex(value){
     const raw=String(value??'');
     const dollars=(raw.match(/\$\$/g)||[]).length;
@@ -141,7 +139,7 @@
     const body=texts.slice(0,30).map((x,i)=>'<p data-lab-index="'+i+'">'+inlineMathHtml(x)+'</p>').join('');
     return '<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Aurore PDF Lab</title>'+
       '<style>body{font-family:Arial,"Noto Sans",sans-serif;color:#17221b;font-size:11pt;line-height:1.5;margin:18mm}p{margin:0 0 4mm}.formula{text-align:center;margin:5mm 0}</style>'+
-      '<script>window.status="loading";window.MathJax={tex:{inlineMath:[["\\\\\\\\(","\\\\\\\\)"],["$","$"]],displayMath:[["\\\\\\\\[","\\\\\\\\]"],["$$","$$"]]},svg:{fontCache:"global"}};</script>'+
+      '<script>window.status="loading";window.MathJax={tex:{inlineMath:[["\\(","\\)"],["$","$"]],displayMath:[["\\[","\\]"],["$$","$$"]]},svg:{fontCache:"global"}};</script>'+
       '<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script></head><body>'+
       '<h1>'+escapeHtml(q.title||doc?.title||'Document pédagogique')+'</h1><main>'+body+'</main>'+
       '<script>(async()=>{try{await MathJax.startup.promise;await MathJax.typesetPromise();if(document.fonts)await document.fonts.ready;}catch(e){window.status="mathjax-error:"+e.message;return;}window.status="ready";})();</script>'+
