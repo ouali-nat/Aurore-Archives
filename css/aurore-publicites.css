@@ -577,3 +577,90 @@ html[data-theme="light"] .ad-slot[id^="ad-"] > section:not(:has(img)){
   opacity:1!important;
   box-shadow:none!important;
 }
+
+
+/* =====================================================================
+   MODE CLAIR — BLOC PUBLICITAIRE SANS BANDE SOMBRE
+   Correction de dernier niveau : aucun voile, gradient ou ombre ne doit
+   pouvoir apparaître sous l'affiche. Les surfaces restent opaques et claires.
+   ===================================================================== */
+html[data-theme="light"] .ad-slot[id^="ad-"]{
+  background:#fff!important;
+  background-image:none!important;
+  box-shadow:none!important;
+  filter:none!important;
+  opacity:1!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+
+html[data-theme="light"] .ad-slot[id^="ad-"]::before,
+html[data-theme="light"] .ad-slot[id^="ad-"]::after,
+html[data-theme="light"] .ad-slot[id^="ad-"] *::before,
+html[data-theme="light"] .ad-slot[id^="ad-"] *::after{
+  box-shadow:none!important;
+  filter:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  mix-blend-mode:normal!important;
+}
+
+/* Les pseudo-éléments décoratifs internes ne doivent jamais créer un
+   panneau sombre en bas de l'image. */
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-card::after,
+html[data-theme="light"] .ad-slot[id^="ad-"] .publicite-card::after,
+html[data-theme="light"] .ad-slot[id^="ad-"] .pub-card::after,
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-media::after,
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-image-wrap::after,
+html[data-theme="light"] .ad-slot[id^="ad-"] a::after{
+  content:none!important;
+  display:none!important;
+  background:none!important;
+  background-image:none!important;
+  opacity:0!important;
+}
+
+/* Les conteneurs visuels de la publicité ne portent aucune ombre sombre. */
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-card,
+html[data-theme="light"] .ad-slot[id^="ad-"] .publicite-card,
+html[data-theme="light"] .ad-slot[id^="ad-"] .pub-card,
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-media,
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-image-wrap,
+html[data-theme="light"] .ad-slot[id^="ad-"] > a:first-child{
+  background:#fff!important;
+  background-image:none!important;
+  box-shadow:none!important;
+  filter:none!important;
+  opacity:1!important;
+}
+
+/* Le panneau titre/description reste une surface blanche indépendante. */
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-content,
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-info,
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-text,
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-caption,
+html[data-theme="light"] .ad-slot[id^="ad-"] .publicite-info,
+html[data-theme="light"] .ad-slot[id^="ad-"] .publicite-content,
+html[data-theme="light"] .ad-slot[id^="ad-"] .pub-content,
+html[data-theme="light"] .ad-slot[id^="ad-"] .pub-info{
+  background:#fff!important;
+  background-image:none!important;
+  box-shadow:none!important;
+  opacity:1!important;
+  filter:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+
+/* Si un composant publicitaire injecte un panneau générique en bas,
+   on le force également à rester clair sans modifier son contenu. */
+html[data-theme="light"] .ad-slot[id^="ad-"] [class*="overlay"],
+html[data-theme="light"] .ad-slot[id^="ad-"] [class*="Overlay"],
+html[data-theme="light"] .ad-slot[id^="ad-"] [class*="caption"],
+html[data-theme="light"] .ad-slot[id^="ad-"] [class*="content"],
+html[data-theme="light"] .ad-slot[id^="ad-"] [class*="info"]{
+  box-shadow:none!important;
+  filter:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
