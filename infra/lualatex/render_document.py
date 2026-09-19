@@ -18,14 +18,27 @@ def normalize_math(s):
     """
     Normalize JSON-escaped LaTeX commands inside math.
 
-    Content Factory payloads can contain two backslashes for a single
-    LaTeX command (for example \\exp or \\infty). Collapse only doubled
-    backslashes that introduce a command or an escaped brace. Preserve
-    doubled backslashes used as array/alignment row breaks.
+    Content Factory payloads can contain doubled backslashes for commands
+    (for example \\exp or \\infty). Collapse those command escapes while
+    preserving the doubled backslashes used as array/alignment row breaks,
+    including row breaks immediately before \\hline or \\cline.
     """
     s = str(s or "")
-    return re.sub(r"\\\\(?=[A-Za-z{}])", lambda _m: "\\", s)
 
+    # Protect LaTeX row breaks before normalizing command escapes.
+    marker = "__AURORA_ARRAY_ROWBREAK__"
+    s = re.sub(
+        r"\\\\(?=\s*(?:&|\\(?:hline|cline)|$))",
+        marker,
+        s,
+    )
+
+    # A JSON-escaped command such as \\exp represents one LaTeX command
+    # backslash. Do not touch protected array row breaks.
+    s = re.sub(r"\\\\(?=[A-Za-z{}])", lambda _m: "\\", s)
+
+    # Restore protected row breaks as real LaTeX double-backslash commands.
+    return s.replace(marker, "\\\\")
 
 def inline(s):
     """
@@ -232,10 +245,12 @@ def main():
     # 2) array row breaks must remain doubled backslashes.
     _probe = r"$\\begin{array}{c|ccccc} x & -\\infty & & 0 & & +\\infty \\ \\hline f(x) & 0 & \\nearrow & 1 & \\nearrow & +\\infty \\end{array}$"
     _probe_out = inline(_probe)
-    if "\\textbackslash{}begin" in _probe_out:
+    if r"\textbackslash{}begin" in _probe_out:
         raise SystemExit("inline() math guardrail failed: escaped math command")
-    if r"\begin{array}" not in _probe_out or r"\infty" not in _probe_out or "\\\\ \\hline" not in _probe_out:
+    if r"\begin{array}" not in _probe_out or r"\infty" not in _probe_out:
         raise SystemExit("inline() math guardrail failed: array structure")
+    if r"\\ \hline" not in _probe_out and r"\\\hline" not in _probe_out:
+        raise SystemExit("inline() math guardrail failed: array row break before hline")
     _exp_probe = inline(r"$\\exp(x)$")
     if r"\exp(x)" not in _exp_probe or "$" in _exp_probe:
         raise SystemExit("inline() math guardrail failed: exp command")
