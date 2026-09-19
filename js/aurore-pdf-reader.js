@@ -42,6 +42,31 @@
   const PDF_CACHE_OCTETS = new Map();
   const PDF_CACHE_MAX = 4;
   let PDF_FETCH_CONTROLLER = null;
+  // Le lecteur PDF doit devenir réellement indépendant du zoom global du site.
+  // On mémorise le zoom utilisateur à l'ouverture, puis on neutralise
+  // temporairement document.documentElement.style.zoom pendant toute la lecture.
+  // Le zoom interne du PDF (PDF_ZOOM) reste, lui, inchangé.
+  let PDF_ZOOM_SITE_SAUVEGARDE = null;
+  let PDF_ZOOM_SITE_NEUTRALISE = false;
+
+  function neutraliserZoomGlobalPourLecteurPDF() {
+    const racine = document.documentElement;
+    if (!racine) return;
+    if (PDF_ZOOM_SITE_NEUTRALISE) return;
+    PDF_ZOOM_SITE_SAUVEGARDE = racine.style.zoom || '';
+    PDF_ZOOM_SITE_NEUTRALISE = true;
+    racine.style.zoom = '1';
+    window.dispatchEvent(new Event('resize'));
+  }
+
+  function restaurerZoomGlobalApresLecteurPDF() {
+    const racine = document.documentElement;
+    if (!racine || !PDF_ZOOM_SITE_NEUTRALISE) return;
+    racine.style.zoom = PDF_ZOOM_SITE_SAUVEGARDE || '';
+    PDF_ZOOM_SITE_SAUVEGARDE = null;
+    PDF_ZOOM_SITE_NEUTRALISE = false;
+    window.dispatchEvent(new Event('resize'));
+  }
 
   function memoriserPDFCache(cle, octets) {
     if (!cle || !octets) return;
@@ -277,7 +302,14 @@
     mettreAJourProgressionLecteurPDF(0, 'Envoi du document…', {speedText:'Préparation…'});
     document.getElementById('pdfViewerPage').textContent = '— / —';
     document.getElementById('pdfViewerOverlay').classList.remove('pdf-immersive');
-    document.getElementById('pdfViewerOverlay').style.display = 'block';
+    // Le site peut être zoomé à 40–160 %. Le lecteur, lui, doit toujours
+    // prendre 100 % de la fenêtre physique : on neutralise donc le zoom global
+    // uniquement pendant son ouverture.
+    neutraliserZoomGlobalPourLecteurPDF();
+    const overlayLecteur = document.getElementById('pdfViewerOverlay');
+    overlayLecteur.style.display = 'block';
+    // Recalcule immédiatement la géométrie après neutralisation du zoom.
+    window.dispatchEvent(new Event('resize'));
     document.getElementById('pdfViewerZone').focus({ preventScroll: true });
 
     // Historique : on empile un état dédié au lecteur pour que le bouton Retour
@@ -1278,6 +1310,9 @@ async function telechargerDocumentAvecProgression(doc) {
     if (pdfRenduObserver) { try { pdfRenduObserver.disconnect(); } catch(e) {} pdfRenduObserver = null; }
     if (pdfPagesObserver) { try { pdfPagesObserver.disconnect(); } catch(e) {} pdfPagesObserver = null; }
     document.getElementById('pdfViewerOverlay').style.display = 'none';
+    // Le zoom choisi par l'utilisateur est restauré exactement comme avant
+    // l'ouverture du lecteur.
+    restaurerZoomGlobalApresLecteurPDF();
     const progressDock=document.getElementById('pdfViewerLoadProgressDock');
     if(progressDock){ progressDock.classList.remove('is-visible'); progressDock.setAttribute('aria-hidden','true'); }
     masquerSpherePDF();
