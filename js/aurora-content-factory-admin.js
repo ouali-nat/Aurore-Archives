@@ -277,7 +277,7 @@ async function renderPdf(id){
     const deadline=Date.now()+15*60*1000;
     let completed=null;
     while(Date.now()<deadline){
-      const q=await cfFetch(`${SUPABASE_URL}/rest/v1/aurora_generated_documents?id=eq.${encodeURIComponent(Number(id))}&select=id,pdf_url,pdf_path,metadata,status,updated_at`,{cache:'no-store',headers:{'Authorization':`Bearer ${accessToken}`,'apikey':SUPABASE_ANON_KEY}});
+      const q=await cfFetch(`${SUPABASE_URL}/rest/v1/aurora_generated_documents?id=eq.${encodeURIComponent(Number(id))}&select=id,pdf_url,pdf_path,metadata,status,updated_at`,{cache:'no-store',headers:{'Authorization':`Bearer ${accessToken}`}});
       const qt=await q.text();
       let rows=[];
       try{rows=qt?JSON.parse(qt):[]}catch(_){rows=[]}
