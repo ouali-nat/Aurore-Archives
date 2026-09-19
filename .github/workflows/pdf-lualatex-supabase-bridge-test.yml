@@ -77,26 +77,36 @@ jobs:
       - name: Compile fetched Supabase document
         working-directory: infra/lualatex
         run: |
-          # One strict compilation is sufficient for this bridge smoke test.
-          # A second pass can return exit code 1 because auxiliary outline files
-          # are rewritten even when a valid PDF has already been produced.
+          # LuaLaTeX may return non-zero after producing a valid PDF because
+          # auxiliary files request a rerun. We validate the actual PDF and
+          # only fail when the TeX log contains a real fatal error.
           set +e
           lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error bridge/document.tex
           rc=$?
           set -e
 
-          test -s bridge/document.pdf
-          file bridge/document.pdf
-          grep -a -m1 '%PDF-' bridge/document.pdf
+          python3 - <<'PY'
+          from pathlib import Path
 
-          # LuaLaTeX can return non-zero for a rerun/auxiliary-file condition
-          # even after producing a valid PDF. Treat actual TeX errors as fatal.
+          pdf = Path("bridge/document.pdf")
+          if not pdf.is_file() or pdf.stat().st_size == 0:
+              raise SystemExit("LuaLaTeX did not produce a non-empty PDF")
+
+          if pdf.read_bytes()[:5] != b"%PDF-":
+              raise SystemExit("Generated file is not a valid PDF header")
+
+          print(f"Valid PDF generated: {pdf} ({pdf.stat().st_size} bytes)")
+          PY
+
+          echo "LuaLaTeX exit code: $rc"
+
+          if grep -nE '^!' bridge/document.log; then
+            echo "LuaLaTeX reported a fatal TeX error."
+            exit 1
+          fi
+
           if [ "$rc" -ne 0 ]; then
-            if grep -Eq '^! (LaTeX|Package|LuaTeX|.*Error)' bridge/document.log; then
-              echo "LuaLaTeX reported a fatal TeX error."
-              exit "$rc"
-            fi
-            echo "LuaLaTeX returned $rc, but produced a valid PDF without a fatal TeX error; continuing."
+            echo "LuaLaTeX returned $rc, but the PDF is valid and the log contains no fatal TeX error; continuing."
           fi
 
       - name: Upload bridge test artifact
