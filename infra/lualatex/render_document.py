@@ -38,7 +38,25 @@ def normalize_math(s):
     s = re.sub(r"\\\\(?=[A-Za-z{}])", lambda _m: "\\", s)
 
     # Restore protected row breaks as real LaTeX double-backslash commands.
-    return s.replace(marker, "\\\\")
+    s = s.replace(marker, "\\\\")
+
+    # Some Content Factory payloads can arrive with a single backslash
+    # before a horizontal rule ("\\ \\hline") instead of the required
+    # array row break ("\\\\ \\hline"). Canonicalize that malformed
+    # sequence only inside array environments; never alter ordinary math.
+    def _fix_array_rows(match):
+        block = match.group(0)
+        return re.sub(
+            r"(?<!\\)\\(?=\\s+\\\\(?:hline|cline)\\b)",
+            r"\\\\",
+            block,
+        )
+
+    return re.sub(
+        r"\\\\begin\\{array\\}[\\s\\S]*?\\\\end\\{array\\}",
+        _fix_array_rows,
+        s,
+    )
 
 def inline(s):
     """
@@ -254,6 +272,13 @@ def main():
     _exp_probe = inline(r"$\\exp(x)$")
     if r"\exp(x)" not in _exp_probe or "$" in _exp_probe:
         raise SystemExit("inline() math guardrail failed: exp command")
+
+    # Guard against the exact malformed array row break observed in production.
+    _malformed_array_probe = inline(
+        r"$\begin{array}{c|c} a & b \\ \\hline c & d \\end{array}$"
+    )
+    if r"\\ \hline" not in _malformed_array_probe:
+        raise SystemExit("inline() math guardrail failed: malformed array row break")
 
     _mixed_probe = inline(r"$(e^x)^n = e^{nx}$ pour tout entier $n$")
     if _mixed_probe != r"\[(e^x)^n = e^{nx}\] pour tout entier \[n\]":
