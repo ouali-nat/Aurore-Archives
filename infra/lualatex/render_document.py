@@ -19,6 +19,7 @@ def tex_text(s):
         s.replace("\\", r"\textbackslash{}")
          .replace("&", r"\&").replace("%", r"\%").replace("#", r"\#")
          .replace("_", r"\_").replace("{", r"\{").replace("}", r"\}")
+         .replace("^", r"\textasciicircum{}").replace("~", r"\textasciitilde{}")
     )
 
 
