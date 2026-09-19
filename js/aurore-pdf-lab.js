@@ -340,21 +340,15 @@
 
 
   function initLab(){
-    // Le panneau peut être injecté/reconstruit par l'administration.
-    // On réessaie après le DOM et après toute reconstruction du panneau.
     renderStages();
   }
 
+  // Le panneau du laboratoire est présent dans index.html avant ce script.
+  // On initialise après le DOM sans observer le DOM en continu : renderStages()
+  // modifie innerHTML et un MutationObserver provoquerait une boucle infinie.
   if(document.readyState==='loading'){
     document.addEventListener('DOMContentLoaded',initLab,{once:true});
   }else{
     initLab();
   }
-
-  // Sécurité supplémentaire : si le routeur admin reconstruit le laboratoire,
-  // on réinitialise uniquement son affichage, sans recréer les écouteurs globaux.
-  const labObserver=new MutationObserver(()=>{
-    if(document.getElementById('aurorePdfLabStages')) renderStages();
-  });
-  labObserver.observe(document.body,{childList:true,subtree:true});
 })();
