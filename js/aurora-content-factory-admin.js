@@ -329,7 +329,7 @@ async function surveillerRenduArrierePlan(id,accessToken,b){
   const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   for(let i=0;i<180;i++){
     try{
-      const q=await cfFetch(`${SUPABASE_URL}/rest/v1/aurora_generated_documents?id=eq.\${encodeURIComponent(Number(id))}&select=id,pdf_url,metadata,status,updated_at`,{cache:'no-store',headers:{'Authorization':`Bearer ${accessToken}`}});
+      const q=await cfFetch(`${SUPABASE_URL}/rest/v1/aurora_generated_documents?id=eq.${encodeURIComponent(Number(id))}&select=id,pdf_url,metadata,status,updated_at`,{cache:'no-store',headers:{'Authorization':`Bearer ${accessToken}`}});
       const qt=await q.text();if(!q.ok)throw new Error('HTTP '+q.status);
       const rows=qt?JSON.parse(qt):[],row=Array.isArray(rows)?rows[0]:null;
       const m=row?.metadata&&typeof row.metadata==='object'?row.metadata:{};
