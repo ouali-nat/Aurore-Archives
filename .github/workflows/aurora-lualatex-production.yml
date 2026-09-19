@@ -140,3 +140,4 @@ jobs:
 # Production bridge: polls Supabase every 5 minutes and handles explicit LuaLaTeX regeneration requests.
 # Queue wake-up verified 2026-09-19.
 # Renderer math-block fix verified 2026-09-19.
+# Immediate bridge trigger requested 2026-09-19.
