@@ -146,3 +146,4 @@ jobs:
 # Distinction $...$ versus $$...$$ renderer fix verified 2026-09-19.
 # Final delimiter parser correction verified 2026-09-19.
 # Multi-inline math sentence fix verified 2026-09-19.
+# Prevent LaTeX arrays from Markdown table detection verified 2026-09-19.
