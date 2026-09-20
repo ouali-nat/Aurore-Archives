@@ -508,28 +508,42 @@ async function auroraGeoGebraExportOne(graph){
     const done=(fn,v)=>{if(finished)return;finished=true;try{api?.remove?.()}catch(_){}host.remove();fn(v);};
     let api=null;
     const timer=setTimeout(()=>done(reject,new Error('GeoGebra n’a pas terminé la construction du graphique.')),30000);
+    const instrument=auroraGeoGebraInstrument(graph);
+    const is3D=['parametric3d','surface3d','geometry3d'].includes(instrument);
     const params={
-      appName:'graphing',width:1400,height:820,showToolBar:false,showAlgebraInput:false,
+      appName:is3D?'3d':'graphing',width:1400,height:is3D?900:820,showToolBar:false,showAlgebraInput:false,
       showMenuBar:false,showResetIcon:false,showFullscreenButton:false,showZoomButtons:false,
       showSuggestionButtons:false,language:'fr',
       appletOnLoad:function(a){
         api=a;
         try{
           const xmin0=Number(graph?.x_min),xmax0=Number(graph?.x_max),ymin0=Number(graph?.y_min),ymax0=Number(graph?.y_max);
-          if([xmin0,xmax0,ymin0,ymax0].every(Number.isFinite)&&xmax0>xmin0&&ymax0>ymin0){
-            const xr=Math.max(Math.abs(xmin0),Math.abs(xmax0),1),yr=Math.max(Math.abs(ymin0),Math.abs(ymax0),1);
-            a.setCoordSystem(-xr,xr,-yr,yr);
+          if(is3D){
+            const zmin0=Number(graph?.z_min),zmax0=Number(graph?.z_max);
+            if([xmin0,xmax0,ymin0,ymax0,zmin0,zmax0].every(Number.isFinite)&&xmax0>xmin0&&ymax0>ymin0&&zmax0>zmin0){
+              a.setCoordSystem(xmin0,xmax0,ymin0,ymax0,zmin0,zmax0);
+            }
+            try{a.setAxesVisible(3,true,true,true)}catch(_){}
+            try{a.setGridVisible(3,true)}catch(_){}
+            try{a.setAxisLabels(3,'x','y','z')}catch(_){}
+            try{a.setAxisSteps(3,1,1,1,0)}catch(_){}
+          }else{
+            if([xmin0,xmax0,ymin0,ymax0].every(Number.isFinite)&&xmax0>xmin0&&ymax0>ymin0){
+              const xr=Math.max(Math.abs(xmin0),Math.abs(xmax0),1),yr=Math.max(Math.abs(ymin0),Math.abs(ymax0),1);
+              a.setCoordSystem(-xr,xr,-yr,yr);
+            }
+            a.setAxesVisible(true,true);
+            a.setGridVisible(true);
+            try{a.setAxisSteps(1,1,1,0)}catch(_){}
+            try{a.setAxisLabels(1,'x','y','')}catch(_){}
           }
-          a.setAxesVisible(true,true);
-          a.setGridVisible(true);
-          try{a.setAxisSteps(1,1,1,0)}catch(_){}
-          try{a.setAxisLabels(1,'x','y','')}catch(_){}
           for(const c of auroraGeoGebraCommandes(graph)){
             try{a.evalCommand(c)}catch(e){console.warn('[Aurora][GeoGebra export]',c,e)}
           }
           setTimeout(()=>{
             try{
               if(typeof a.getPNGBase64!=='function')throw new Error('L’export PNG GeoGebra n’est pas disponible.');
+              try{if(is3D&&typeof a.showAllObjects==='function')a.showAllObjects()}catch(_){}
               const b64=a.getPNGBase64(2,false,144);
               if(!b64)throw new Error('GeoGebra a renvoyé une image vide.');
               clearTimeout(timer);
