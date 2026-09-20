@@ -241,10 +241,12 @@ function enqueueCurrent(){
   updateQueueUI();if(!generationRunning)processQueue();
 }
 function bindClassification(){
-  const themeInput=document.getElementById('cfCreateThemeColor'),themeValue=document.getElementById('cfCreateThemeColorValue'),themeSwatches=document.getElementById('cfCreateThemeSwatches');
-  const syncThemeColor=()=>{if(themeInput&&themeValue)themeValue.textContent=normalizeThemeColor(themeInput.value);themeSwatches?.querySelectorAll('[data-create-theme]').forEach(b=>b.classList.toggle('is-selected',normalizeThemeColor(b.dataset.createTheme)===normalizeThemeColor(themeInput?.value||'#6D28D9')))};
+  const themeInput=document.getElementById('cfCreateThemeColor'),themeValue=document.getElementById('cfCreateThemeColorValue'),themeSwatches=document.getElementById('cfCreateThemeSwatches'),themeToggle=document.getElementById('cfThemePaletteToggle'),themePalette=document.getElementById('cfCreateThemePalette'),themePreview=document.getElementById('cfThemeColorPreview');
+  const syncThemeColor=()=>{const color=normalizeThemeColor(themeInput?.value||'#6D28D9');if(themeValue)themeValue.textContent=color;if(themePreview)themePreview.style.background=color;themeSwatches?.querySelectorAll('[data-create-theme]').forEach(b=>b.classList.toggle('is-selected',normalizeThemeColor(b.dataset.createTheme)===color))};
   themeInput?.addEventListener('input',syncThemeColor);
-  themeSwatches?.querySelectorAll('[data-create-theme]').forEach(b=>b.addEventListener('click',()=>{if(themeInput){themeInput.value=normalizeThemeColor(b.dataset.createTheme);syncThemeColor()}}));
+  themeSwatches?.querySelectorAll('[data-create-theme]').forEach(b=>b.addEventListener('click',()=>{if(themeInput){themeInput.value=normalizeThemeColor(b.dataset.createTheme);syncThemeColor();if(themePalette)themePalette.hidden=true;if(themeToggle)themeToggle.setAttribute('aria-expanded','false')}}));
+  themeToggle?.addEventListener('click',()=>{if(!themePalette)return;themePalette.hidden=!themePalette.hidden;themeToggle.setAttribute('aria-expanded',String(!themePalette.hidden))});
+  themeInput?.addEventListener('change',syncThemeColor);
   syncThemeColor();
   loadClassificationOptions();
 }
