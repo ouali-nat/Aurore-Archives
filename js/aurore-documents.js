@@ -849,8 +849,7 @@
         target.appendChild(groupList);
         root.appendChild(target);
       } else {
-        target.className='doc-list';
-        root.appendChild(target);
+        target.className='';
       }
 
       groupe.items.forEach(doc=>{
@@ -881,7 +880,8 @@
         brancherActionsCarteDocument(row,doc);
         actualiserEtatActionsDocument(row,doc);
         actualiserTaillesDocumentsDans(row);
-        target.querySelector('.doc-list')?.appendChild(row) || target.appendChild(row);
+        if (separerOrigines) target.querySelector('.doc-list').appendChild(row);
+        else root.appendChild(row);
         if(COUVERTURES_PREMIERE_PAGE_ACTIVES) appliquerCouvertureSiLivre(row,doc);
       });
     });
