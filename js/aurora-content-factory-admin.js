@@ -576,64 +576,105 @@ async function auroraGeoGebraExportOne(graph){
           }
           const commands=auroraGeoGebraCommandes(graph);
           const commandErrors=[];
+          const primaryCommands=[];
+          const primaryLabels=[];
+          const isPrimaryConstructionCommand=command=>{
+            const s=String(command||'').trim();
+            return /^(?:[A-Za-z][A-Za-z0-9_]*=)?(?:Curve|Sphere|Cylinder|Cone|Cube|Prism|Pyramid|Tetrahedron|Polygon|Line|Plane|Vector)\\s*\\(/i.test(s)
+              || /^f\\s*\\(\\s*x(?:\\s*,\\s*y)?\\s*\\)\\s*=/i.test(s);
+          };
+
           for(const command of commands){
             try{
-              const ok=a.evalCommand(command);
-              if(ok!==true){
-                commandErrors.push({command,error:'GeoGebra a refusé la commande (evalCommand=false).'});
-                console.warn('[Aurora][GeoGebra export] commande refusée',command);
+              const text=String(command||'').trim();
+              const primary=isPrimaryConstructionCommand(text);
+              let ok=true;
+              let labels='';
+              if(typeof a.evalCommandGetLabels==='function'){
+                labels=String(a.evalCommandGetLabels(text)||'').trim();
+                if(primary){
+                  if(!labels){
+                    ok=false;
+                    commandErrors.push({command:text,error:'GeoGebra n’a créé aucun objet pour cette construction.'});
+                  }else{
+                    labels.split(',').map(s=>s.trim()).filter(Boolean).forEach(label=>primaryLabels.push(label));
+                  }
+                }
+              }else{
+                const before=typeof a.getObjectNumber==='function'?Number(a.getObjectNumber()):0;
+                ok=a.evalCommand(text)===true;
+                const after=typeof a.getObjectNumber==='function'?Number(a.getObjectNumber()):before;
+                if(primary&&(!ok||after<=before)){
+                  ok=false;
+                  commandErrors.push({command:text,error:'GeoGebra a refusé la construction ou n’a créé aucun nouvel objet.'});
+                }
               }
+              if(primary){
+                primaryCommands.push(text);
+                if(ok)console.info('[Aurora][GeoGebra export] construction créée',text,labels||'');
+              }
+              if(!ok)console.warn('[Aurora][GeoGebra export] commande refusée',text);
             }
             catch(e){
-              commandErrors.push({command,error:String(e)});
+              commandErrors.push({command:String(command||''),error:String(e)});
               console.warn('[Aurora][GeoGebra export]',command,e);
             }
           }
 
-          // Never upload an image containing only the coordinate system.
-          // Wait until GeoGebra has actually created at least one user object.
-          const expected=Math.max(1,
-            instrument==='geometry3d'
-              ? (Array.isArray(graph?.objects)?graph.objects.length:1)
-              : 1
-          );
+          // Do not export a repère-only image. The validation below checks the
+          // actual objects created by the graph construction, not helper points.
+          if(!primaryCommands.length){
+            clearTimeout(timer);
+            done(reject,new Error(
+              'GeoGebra n’a reçu aucune commande de construction exploitable.'
+              +' Instrument: '+instrument+'.'
+            ));
+            return;
+          }
+
           let attempts=0;
           const waitForObjects=()=>{
             attempts++;
             let objectCount=0;
             try{objectCount=typeof a.getObjectNumber==='function'?Number(a.getObjectNumber()):0}catch(_){}
-            if(objectCount>=expected){
+            let missing=[];
+            if(primaryLabels.length&&typeof a.exists==='function'){
+              missing=primaryLabels.filter(label=>{
+                try{return !a.exists(label)}catch(_){return true}
+              });
+            }else if(!primaryLabels.length){
+              const expected=primaryCommands.length;
+              if(objectCount<expected)missing=primaryCommands.slice(0,expected);
+            }
+
+            if(!missing.length&&commandErrors.filter(x=>primaryCommands.includes(x.command)).length===0){
               try{if(is3D&&typeof a.showAllObjects==='function')a.showAllObjects()}catch(_){}
-              try{
-                if(typeof a.setCoordSystem==='function' && is3D){
-                  const xx=[Number(graph?.x_min),Number(graph?.x_max),Number(graph?.y_min),Number(graph?.y_max),Number(graph?.z_min),Number(graph?.z_max)];
-                  if(xx.every(Number.isFinite)&&xx[1]>xx[0]&&xx[3]>xx[2]&&xx[5]>xx[4]){
-                    try{a.setCoordSystem(...xx)}catch(_){}
-                  }
-                }
-              }catch(_){}
               setTimeout(()=>{
                 try{
                   if(typeof a.getPNGBase64!=='function')throw new Error('L’export PNG GeoGebra n’est pas disponible.');
                   const b64=a.getPNGBase64(2,false,144);
                   if(!b64)throw new Error('GeoGebra a renvoyé une image vide.');
                   clearTimeout(timer);
-                  done(resolve,String(b64).replace(/^data:image\/png;base64,/i,''));
+                  done(resolve,String(b64).replace(/^data:image\\/png;base64,/i,''));
                 }catch(e){clearTimeout(timer);done(reject,e instanceof Error?e:new Error(String(e)))}
               },700);
               return;
             }
+
             if(attempts<30){setTimeout(waitForObjects,300);return;}
             clearTimeout(timer);
-            const details=commandErrors.length
-              ? ' Commandes rejetées: '+commandErrors.map(x=>x.command).join(' | ')
+            const rejected=commandErrors.filter(x=>primaryCommands.includes(x.command));
+            const details=(rejected.length?rejected:commandErrors).length
+              ? ' Commandes problématiques: '+(rejected.length?rejected:commandErrors).map(x=>x.command).join(' | ')
               : '';
             done(reject,new Error(
-              'GeoGebra a affiché le repère mais n’a construit aucun objet exploitable.'
-              +' Instrument: '+instrument+'. Objets détectés: '+objectCount+'.'+details
+              'GeoGebra a affiché le repère mais n’a pas construit les objets graphiques demandés.'
+              +' Instrument: '+instrument+'. Objets détectés: '+objectCount+'.'
+              +' Constructions attendues: '+primaryCommands.length+'.'
+              +' Objets manquants: '+missing.join(', ')+'.'+details
             ));
           };
-          waitForObjects();
+          waitForObjects()
         }catch(e){clearTimeout(timer);done(reject,e instanceof Error?e:new Error(String(e)))}
       }
     };
