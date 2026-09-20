@@ -538,7 +538,7 @@ async function auroraGeoGebraExportOne(graph){
   const host=document.createElement('div');
   // Keep the applet fully rendered even though it is outside the viewport.
   // opacity:0 can prevent some GeoGebra canvas/WebGL renderers from painting.
-  host.style.cssText='position:fixed;left:-20000px;top:-20000px;width:1400px;height:900px;opacity:1;visibility:visible;pointer-events:none;z-index:-1;background:#fff;';
+  host.style.cssText='position:fixed;left:0;top:0;width:1400px;height:900px;opacity:0.01;visibility:visible;pointer-events:none;z-index:-1;background:#fff;';
   document.body.appendChild(host);
   return await new Promise((resolve,reject)=>{
     let finished=false;
@@ -648,7 +648,17 @@ async function auroraGeoGebraExportOne(graph){
             }
 
             if(!missing.length&&commandErrors.filter(x=>primaryCommands.includes(x.command)).length===0){
+              // Force the real graphics view to repaint before capture. The
+              // construction can exist in GeoGebra's model while its canvas
+              // still shows only the coordinate system after a hidden/offscreen
+              // applet initialization.
+              try{if(typeof a.setRepaintingActive==='function')a.setRepaintingActive(true)}catch(_){}
+              try{if(typeof a.recalculateEnvironments==='function')a.recalculateEnvironments()}catch(_){}
+              try{if(typeof a.refreshViews==='function')a.refreshViews()}catch(_){}
               try{if(is3D&&typeof a.showAllObjects==='function')a.showAllObjects()}catch(_){}
+              for(const label of primaryLabels){
+                try{if(typeof a.exists==='function'&&a.exists(label)&&typeof a.setVisible==='function')a.setVisible(label,true)}catch(_){}
+              }
               setTimeout(()=>{
                 try{
                   if(typeof a.getPNGBase64!=='function')throw new Error('L’export PNG GeoGebra n’est pas disponible.');
@@ -657,7 +667,7 @@ async function auroraGeoGebraExportOne(graph){
                   clearTimeout(timer);
                   done(resolve,String(b64).replace(/^data:image\\/png;base64,/i,''));
                 }catch(e){clearTimeout(timer);done(reject,e instanceof Error?e:new Error(String(e)))}
-              },700);
+              },1800);
               return;
             }
 
