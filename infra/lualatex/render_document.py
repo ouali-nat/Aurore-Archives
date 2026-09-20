@@ -718,16 +718,32 @@ def labeled_block(s):
 def display_formula(s):
     if not s:
         return ""
-    math = normalize_math(str(s).strip())
-    # Formula fields are already placed inside an equation* environment.
-    # Content Factory may nevertheless wrap them in $...$ (or \\[...\\]).
-    # Strip only those outer display delimiters to avoid nested math mode.
+    raw = str(s).strip()
+
+    # A formula field can be either:
+    #   1) a pure LaTeX expression, which belongs in equation*, or
+    #   2) prose containing several inline $...$ expressions.
+    # Never put the second form inside equation*, because that nests inline
+    # math delimiters inside display math and produces:
+    # "Display math should end with $."
+    has_inline_delimiters = bool(
+        re.search(r"\$[\s\S]*?\$|\\\\\[[\s\S]*?\\\\\]|\\\[[\s\S]*?\\\]", raw)
+    )
+
+    if has_inline_delimiters:
+        return "\n".join([
+            r"\AuroreFormulaBlock{" + inline(raw) + r"}",
+            "",
+        ])
+
+    math = normalize_math(raw)
     if math.startswith("$") and math.endswith("$"):
-        math = math[2:-2].strip()
+        math = math[1:-1].strip()
     elif math.startswith(r"\\[") and math.endswith(r"\\]"):
         math = math[2:-2].strip()
     elif math.startswith(r"\[") and math.endswith(r"\]"):
         math = math[2:-2].strip()
+
     return "\n".join([
         r"\AuroreFormulaBlock{" + math + r"}",
         "",
