@@ -340,6 +340,13 @@
   });
 
 
+  function ensureProductionActionStyles(){
+    if(document.getElementById('aurorePdfProductionActionStyles'))return;
+    const s=document.createElement('style');s.id='aurorePdfProductionActionStyles';
+    s.textContent='.aurore-pdf-prod-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}.aurore-pdf-prod-actions .admin-btn{font-size:.72rem;min-height:34px;padding:0 11px}@media(max-width:600px){.aurore-pdf-prod-actions{width:100%;justify-content:flex-start}.aurore-pdf-prod-actions .admin-btn{flex:1 1 auto}}';
+    document.head.appendChild(s);
+  }
+
   function initLab(){
     renderStages();
   }
@@ -379,35 +386,45 @@
     ensureProductionUI();
     const tracked=rows.filter(x=>{
       const s=x.metadata?.lualatex_status;
-      return ['queued','processing','completed','failed'].includes(s);
+      return !!s || !!x.pdf_url || ['generated','review','approved','published','failed'].includes(x.status);
     });
-    const active=tracked.filter(x=>['queued','processing'].includes(x.metadata.lualatex_status));
-    const processing=active.filter(x=>x.metadata.lualatex_status==='processing');
-    const queued=active.filter(x=>x.metadata.lualatex_status==='queued').sort((a,b)=>new Date(a.metadata.lualatex_requested_at||a.created_at)-new Date(b.metadata.lualatex_requested_at||b.created_at));
-    const finished=tracked.filter(x=>['completed','failed'].includes(x.metadata.lualatex_status)).sort((a,b)=>new Date(b.metadata.lualatex_completed_at||b.updated_at||b.created_at)-new Date(a.metadata.lualatex_completed_at||a.updated_at||a.created_at)).slice(0,5);
+    const active=tracked.filter(x=>['queued','processing'].includes(x.metadata?.lualatex_status));
+    const processing=active.filter(x=>x.metadata?.lualatex_status==='processing');
+    const queued=active.filter(x=>x.metadata?.lualatex_status==='queued').sort((a,b)=>new Date(a.metadata?.lualatex_requested_at||a.created_at)-new Date(b.metadata?.lualatex_requested_at||b.created_at));
+    const finished=tracked.filter(x=>!['queued','processing'].includes(x.metadata?.lualatex_status))
+      .sort((a,b)=>new Date(b.metadata?.lualatex_completed_at||b.updated_at||b.created_at)-new Date(a.metadata?.lualatex_completed_at||a.updated_at||a.created_at)).slice(0,12);
     const summary=document.getElementById('aurorePdfProdSummary');
-    if(summary)summary.textContent=active.length?(processing.length+' en cours · '+queued.length+' en attente · '+finished.length+' récent(s)'):(finished.length+' génération(s) récente(s) · aucune production en cours');
+    if(summary)summary.textContent=active.length?(processing.length+' en cours · '+queued.length+' en attente · '+finished.length+' document(s) récent(s)'):(finished.length+' document(s) · aucune production en cours');
     const list=document.getElementById('aurorePdfProdList');if(!list)return;
-    if(!tracked.length){list.innerHTML='<div class="aurore-pdf-prod-empty">Aucune régénération PDF suivie pour le moment.</div>';return}
+    if(!tracked.length){list.innerHTML='<div class="aurore-pdf-prod-empty">Aucun document à suivre pour le moment.</div>';return}
     const ordered=[...processing,...queued,...finished];
     list.innerHTML=ordered.map((x,i)=>{
-      const m=x.metadata||{},s=m.lualatex_status;
-      const proc=s==='processing',wait=s==='queued',done=s==='completed',fail=s==='failed';
-      const rawProgress=Number(m.lualatex_progress);
-      const p=done?100:(wait?0:Math.max(0,Math.min(100,Number.isFinite(rawProgress)?rawProgress:0)));
+      const m=x.metadata||{},ls=m.lualatex_status;
+      const proc=ls==='processing',wait=ls==='queued',done=ls==='completed',fail=ls==='failed';
+      const p=done?100:(wait?0:Math.max(0,Math.min(100,Number.isFinite(Number(m.lualatex_progress))?Number(m.lualatex_progress):x.pdf_url?100:0)));
       const requested=m.lualatex_requested_at||x.created_at;
       const started=m.lualatex_started_at||m.lualatex_claimed_at||requested;
       const completed=m.lualatex_completed_at||((done||fail)?x.updated_at:null);
       const position=wait?queued.findIndex(q=>q.id===x.id)+1:0;
-      const statusLabel=proc?'GÉNÉRATION EN COURS':wait?'EN ATTENTE':done?'PDF TERMINÉ':'ÉCHEC';
-      const stage=proc?(m.lualatex_stage||'Génération en cours…'):wait?'En attente du document précédent…':done?'PDF enregistré dans Aurore':(m.lualatex_last_error||'Une nouvelle tentative peut être lancée.');
-      const timeLine=wait?'Demandée à '+qDate(requested):proc?'Lancée à '+qDate(started)+' · '+qDuration(started):done?'Lancée à '+qDate(started)+' · terminée à '+qDate(completed)+' · durée '+qDuration(started,completed):'Demandée à '+qDate(requested);
-      const button=done&&x.pdf_url?'<a class="aurore-pdf-prod-open" href="'+qEsc(x.pdf_url)+'" target="_blank" rel="noopener">Ouvrir le PDF</a>':'';
-      return '<article class="aurore-pdf-prod-card '+(proc?'is-processing ':wait?'is-queued ':done?'is-completed ':'is-failed ')+'">'+
-        '<div class="aurore-pdf-prod-card-top"><div class="aurore-pdf-prod-main"><span class="aurore-pdf-prod-number">'+(proc?'⚙':wait?'#'+position:done?'✓':'!')+'</span><div><strong>'+qEsc(x.title||'Document pédagogique')+'</strong><small>'+qEsc(statusLabel)+'</small></div></div><span class="aurore-pdf-prod-time">'+qEsc(timeLine)+'</span></div>'+
+      const statusLabel=proc?'GÉNÉRATION EN COURS':wait?'EN ATTENTE':done?'PDF TERMINÉ':fail?'ÉCHEC':x.pdf_url?'PDF DISPONIBLE':x.status==='review'?'À CONTRÔLER':x.status==='approved'?'VALIDÉ':'À PRODUIRE';
+      const stage=proc?(m.lualatex_stage||'Génération en cours…'):wait?'En attente du document précédent…':done?'PDF enregistré dans Aurore':fail?(m.lualatex_last_error||'Une nouvelle tentative peut être lancée.'):x.pdf_url?'PDF disponible — contrôle humain requis':'Prêt à lancer le rendu PDF';
+      const timeLine=wait?'Demandée à '+qDate(requested):proc?'Lancée à '+qDate(started)+' · '+qDuration(started):done?'Lancée à '+qDate(started)+' · terminée à '+qDate(completed)+' · durée '+qDuration(started,completed):'Créé le '+qDate(x.created_at);
+      const canRender=['generated','review','approved'].includes(x.status)&&!proc&&!wait;
+      const canValidate=x.status==='review'&&!!x.pdf_url;
+      const canReject=['review','approved'].includes(x.status);
+      const canPublish=['approved','review'].includes(x.status)&&!!x.pdf_url;
+      const actions=[];
+      if(x.pdf_url)actions.push('<a class="admin-btn ghost" href="'+qEsc(x.pdf_url)+'" target="_blank" rel="noopener">Ouvrir le PDF</a>');
+      if(canRender)actions.push('<button type="button" class="admin-btn primary" data-cf-render="'+qEsc(x.id)+'" data-has-pdf="'+(x.pdf_url?'1':'0')+'" data-theme-color="'+qEsc((m.aurore_design?.theme_color)||m.theme_color||'#6D28D9')+'">'+(x.pdf_url?'Régénérer':'Générer le PDF')+'</button>');
+      if(canValidate)actions.push('<button type="button" class="admin-btn valider" data-cf-validate="'+qEsc(x.id)+'">Valider</button>');
+      if(canReject)actions.push('<button type="button" class="admin-btn refuser" data-cf-reject="'+qEsc(x.id)+'">Rejeter</button>');
+      if(canPublish)actions.push('<button type="button" class="admin-btn primary" data-cf-publish="'+qEsc(x.id)+'">Publier</button>');
+      if(x.published_document_id)actions.push('<button type="button" class="admin-btn ghost" disabled>Publié #'+qEsc(x.published_document_id)+'</button>');
+      return '<article class="aurore-pdf-prod-card '+(proc?'is-processing ':wait?'is-queued ':done?'is-completed ':fail?'is-failed ':'')+'">'+
+        '<div class="aurore-pdf-prod-card-top"><div class="aurore-pdf-prod-main"><span class="aurore-pdf-prod-number">'+(proc?'⚙':wait?'#'+position:done?'✓':fail?'!':'PDF')+'</span><div><strong>'+qEsc(x.title||'Document pédagogique')+'</strong><small>'+qEsc(statusLabel)+'</small></div></div><span class="aurore-pdf-prod-time">'+qEsc(timeLine)+'</span></div>'+
         '<div class="aurore-pdf-prod-stage">'+qEsc(stage)+'</div>'+
         '<div class="aurore-pdf-prod-progress"><div class="aurore-pdf-prod-bar"><i style="width:'+p+'%"></i></div><span>'+p+'%</span></div>'+
-        '<div class="aurore-pdf-prod-card-bottom"><span>'+ (wait?'Position '+position+' dans la file':proc?qEsc('Temps écoulé : '+qDuration(started)):done?'Production terminée':'Tentative '+String(m.lualatex_failure_count||1))+'</span>'+button+'</div>'+
+        '<div class="aurore-pdf-prod-card-bottom"><span>'+qEsc(wait?'Position '+position+' dans la file':proc?'Temps écoulé : '+qDuration(started):done?'Production terminée':fail?'Production en échec':'Suivi du document')+'</span><div class="aurore-pdf-prod-actions">'+actions.join('')+'</div></div>'+
       '</article>';
     }).join('');
   }
@@ -438,7 +455,7 @@
     const title=b.closest('.cf-admin-card')?.querySelector('.cf-admin-title')?.textContent?.trim()||'Document PDF';
     toast('Production PDF','« '+title+' » est ajouté à la file.','info');
   },true);
-  function initProductionQueue(){ensureProductionUI();pollProductionQueue();setInterval(pollProductionQueue,2000)}
+  function initProductionQueue(){ensureProductionUI();ensureProductionActionStyles();pollProductionQueue();setInterval(pollProductionQueue,2000)}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initProductionQueue,{once:true});else initProductionQueue();
 
 })();
