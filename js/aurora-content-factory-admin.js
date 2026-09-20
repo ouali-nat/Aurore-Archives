@@ -367,7 +367,7 @@ function bindClassification(){
         document.getElementById('cfThemePaletteToggle')?.setAttribute('aria-expanded','false');
       }
     };
-    document.addEventListener('click',onThemeClick,false);
+    document.addEventListener('click',onThemeClick,true);
     document.addEventListener('keydown',e=>{
       if(e.key!=='Escape')return;
       const paletteEl=document.getElementById('cfCreateThemePalette');
