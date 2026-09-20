@@ -469,6 +469,7 @@
     const b=e.target?.closest?.('[data-cf-render],[data-cf-validate],[data-cf-reject],[data-cf-publish]');
     if(!b)return;
     e.preventDefault();
+    e.stopImmediatePropagation();
     if(b.matches('[data-cf-render]'))forwardProductionAction(b,'render');
     else if(b.matches('[data-cf-validate]'))forwardProductionAction(b,'validate');
     else if(b.matches('[data-cf-reject]'))forwardProductionAction(b,'reject');
