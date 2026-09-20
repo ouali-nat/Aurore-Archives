@@ -1,5 +1,6 @@
 // ---------- DOCUMENTS (connecté à Supabase) ----------
   let documentsCourants = [];
+  let documentsPublicsTous = [];
 
   const SITE_PUBLIC_PAGE_SIZE = 10;
   function normaliserRechercheSite(v){
@@ -799,8 +800,8 @@
     const wrap=document.getElementById('docsOriginFilter');
     if(!wrap)return;
     if(!etat?.matiere){wrap.hidden=true;wrap.innerHTML='';return}
-    const aurore=(documentsCourants||[]).filter(documentEstAurore).length;
-    const communaute=(documentsCourants||[]).length-aurore;
+    const aurore=(documentsPublicsTous||[]).filter(documentEstAurore).length;
+    const communaute=(documentsPublicsTous||[]).length-aurore;
     wrap.hidden=false;
     wrap.innerHTML='<button type="button" class="docs-origin-option aurore '+(documentsOrigineCourants==='aurore'?'is-active':'')+'" aria-pressed="'+(documentsOrigineCourants==='aurore')+'" data-doc-origin="aurore"><span class="docs-origin-icon">A</span><span class="docs-origin-main"><strong>Aurore</strong><small>Ressources préparées par Aurore</small></span><span class="docs-origin-count">'+aurore+'</span></button><button type="button" class="docs-origin-option community '+(documentsOrigineCourants==='communaute'?'is-active':'')+'" aria-pressed="'+(documentsOrigineCourants==='communaute')+'" data-doc-origin="communaute"><span class="docs-origin-icon">C</span><span class="docs-origin-main"><strong>Communauté</strong><small>Documents déposés par les utilisateurs</small></span><span class="docs-origin-count">'+communaute+'</span></button>';
     wrap.querySelectorAll('[data-doc-origin]').forEach(btn=>btn.addEventListener('click',()=>{
@@ -889,7 +890,8 @@
       if (!res.ok) throw new Error("Statut HTTP " + res.status);
       const data = filtreSerieSiDisponible(await res.json());
       documentsCourants = Array.isArray(data) ? data : [];
-      actualiserTriPublicDocuments(documentsCourants);
+      documentsPublicsTous = documentsCourants.slice();
+      actualiserTriPublicDocuments(documentsPublicsTous);
       docsPageCourante = 1;
       if(document.getElementById('docsSearch')) document.getElementById('docsSearch').value = '';
       majFiltreOrigineDocuments();
@@ -903,7 +905,7 @@
   function afficherDocumentsPublicsAvecOutils(){
     const content=document.getElementById('docsContent');
     const q=normaliserRechercheSite(document.getElementById('docsSearch')?.value||'');
-    const originData=(documentsCourants||[]).filter(doc=>documentsOrigineCourants==='communaute'?!documentEstAurore(doc):documentEstAurore(doc));
+    const originData=(documentsPublicsTous||[]).filter(doc=>documentsOrigineCourants==='communaute'?!documentEstAurore(doc):documentEstAurore(doc));
     const filtered=originData.filter(doc=>!q||valeurTexteDocument(doc).includes(q));
     const sorted=trierDocumentsClient(filtered);
     const pages=Math.max(1,Math.ceil(sorted.length/SITE_PUBLIC_PAGE_SIZE));
