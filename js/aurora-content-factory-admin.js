@@ -558,7 +558,7 @@ async function auroraGeoGebraExportOne(graph){
           if(is3D){
             const zmin0=Number(graph?.z_min),zmax0=Number(graph?.z_max);
             if([xmin0,xmax0,ymin0,ymax0,zmin0,zmax0].every(Number.isFinite)&&xmax0>xmin0&&ymax0>ymin0&&zmax0>zmin0){
-              a.setCoordSystem(xmin0,xmax0,ymin0,ymax0,zmin0,zmax0);
+              a.setCoordSystem(xmin0,xmax0,ymin0,ymax0,zmin0,zmax0,true);
             }
             try{a.setAxesVisible(3,true,true,true)}catch(_){}
             try{a.setGridVisible(3,true)}catch(_){}
@@ -577,7 +577,13 @@ async function auroraGeoGebraExportOne(graph){
           const commands=auroraGeoGebraCommandes(graph);
           const commandErrors=[];
           for(const command of commands){
-            try{a.evalCommand(command)}
+            try{
+              const ok=a.evalCommand(command);
+              if(ok!==true){
+                commandErrors.push({command,error:'GeoGebra a refusé la commande (evalCommand=false).'});
+                console.warn('[Aurora][GeoGebra export] commande refusée',command);
+              }
+            }
             catch(e){
               commandErrors.push({command,error:String(e)});
               console.warn('[Aurora][GeoGebra export]',command,e);
