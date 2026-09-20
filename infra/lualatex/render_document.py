@@ -88,6 +88,111 @@ def _has_geogebra(data):
     return False
 
 
+
+def _editorial_profile(data):
+    subject = clean_text(data.get("subject") or "").lower()
+    title = clean_text(data.get("title") or "").lower()
+    text = f"{subject} {title}"
+    if re.search(r"svt|biologie|cellule|organite|membrane|genetique|génétique|ecologie|écologie|physiologie|microbiologie", text):
+        return "biologie"
+    if re.search(r"math|mathématique|mathematique|algèbre|algebre|géométrie|geometrie|calcul", subject):
+        return "scientifique"
+    if re.search(r"physique|chimie|géologie|geologie", subject):
+        return "experimental"
+    if re.search(r"anglais|english|espagnol|allemand|arabe|langue", subject):
+        return "langues"
+    if re.search(r"français|francais|littérature|litterature|littéraire|litteraire", subject):
+        return "francais_litterature"
+    if re.search(r"histoire|géographie|geographie|éducation civique|education civique", subject):
+        return "histoire_geographie"
+    if re.search(r"informatique|programmation|algorithmique|numérique|numerique", subject):
+        return "informatique"
+    if re.search(r"technique|technologie|électronique|electronique|mécanique|mecanique", subject):
+        return "technique"
+    return "general"
+
+def _fetch_wikimedia_visuals(data, assets_dir, profile):
+    if profile not in ("biologie", "experimental", "histoire_geographie", "francais_litterature"):
+        return []
+    import urllib.parse
+    import urllib.request
+    assets_dir.mkdir(parents=True, exist_ok=True)
+    if profile == "biologie":
+        queries = ["eukaryotic cell diagram", "animal eukaryotic cell organelles"] if re.search(r"cellule|organite|eucary", f"{data.get('title','')} {data.get('subject','')}", re.I) else [f"{data.get('title','')} biology diagram"]
+    else:
+        queries = [f"{data.get('title','')} {data.get('subject','')} educational diagram"]
+    visuals, seen = [], set()
+    for query in queries:
+        if len(visuals) >= 2:
+            break
+        try:
+            api = "https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrnamespace=6&gsrlimit=10&gsrsearch=" + urllib.parse.quote(query) + "&prop=imageinfo&iiprop=url|size|mime|thumbmime|extmetadata&iilimit=1&iiurlwidth=1200&iiextmetadataversion=latest"
+            req = urllib.request.Request(api, headers={"User-Agent":"Aurore-Section-Archives/1.0"})
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                pages = list((json.loads(resp.read().decode("utf-8")).get("query") or {}).get("pages", {}).values())
+            for page in pages:
+                ii = (page.get("imageinfo") or [{}])[0]
+                meta = ii.get("extmetadata") or {}
+                mime, url = str(ii.get("mime") or "").lower(), str(ii.get("thumburl") or "")
+                rawlic = " ".join(str(meta.get(k,{}).get("value","") if isinstance(meta.get(k),dict) else meta.get(k,"")) for k in ("LicenseShortName","UsageTerms","License")).lower()
+                if mime not in ("image/jpeg","image/png") or not url.startswith("https://upload.wikimedia.org/"):
+                    continue
+                if int(ii.get("width") or 0) < 500 or int(ii.get("height") or 0) < 300:
+                    continue
+                if any(x in rawlic for x in ("fair use","non-commercial","noncommercial","no derivatives")):
+                    continue
+                if not any(x in rawlic for x in ("public domain","cc0","creative commons zero","cc by","cc-by")) or url in seen:
+                    continue
+                try:
+                    req = urllib.request.Request(url, headers={"User-Agent":"Aurore-Section-Archives/1.0"})
+                    with urllib.request.urlopen(req, timeout=30) as resp:
+                        blob = resp.read()
+                    if not (10000 <= len(blob) <= 2500000):
+                        continue
+                    ext = ".png" if mime == "image/png" else ".jpg"
+                    local = assets_dir / f"wikimedia-{len(visuals)+1}{ext}"
+                    local.write_bytes(blob)
+                    def mv(k, default=""):
+                        v=meta.get(k, {})
+                        return str(v.get("value", default) if isinstance(v,dict) else v)
+                    title = str(page.get("title") or "").replace("File:","",1)
+                    visuals.append({"path":str(local.relative_to(Path.cwd())).replace("\\\\","/"),"title":clean_text(title),"caption":clean_text(mv("ImageDescription",title))[:220],"author":clean_text(mv("Artist","Auteur non renseigné"))[:180],"license":clean_text(mv("LicenseShortName",mv("UsageTerms","Licence libre Commons")))[:120],"source_url":str(ii.get("descriptionurl") or "https://commons.wikimedia.org/wiki/"+urllib.parse.quote(str(page.get("title") or "")))})
+                    seen.add(url)
+                    break
+                except Exception:
+                    continue
+        except Exception:
+            continue
+    return visuals
+
+def render_visuals(visuals):
+    lines=[]
+    for v in visuals or []:
+        p=str(v.get("path") or "").replace("\\\\","/").replace("#","\\#").replace("%","\\%")
+        if not p: continue
+        lines += [
+            r"\begin{tcolorbox}[enhanced,breakable,colback=white,colframe=aurorebase!38!white,arc=11pt,boxrule=.45pt,left=8pt,right=8pt,top=8pt,bottom=8pt]",
+            r"\centering",
+            r"\includegraphics[width=.88\linewidth,height=7.8cm,keepaspectratio]{"+p+r"}",
+            r"\par\smallskip{\sffamily\small\bfseries\color{auroredeep} "+tex_text(v.get("title") or "Illustration")+r"}",
+            r"\par{\sffamily\scriptsize\color{gray} "+tex_text(v.get("caption") or "")+r"}",
+            r"\end{tcolorbox}",""
+        ]
+    return lines
+
+def render_wikimedia_references(visuals):
+    if not visuals: return []
+    lines=[r"\clearpage",r"\section*{Références visuelles}",r"\addcontentsline{toc}{section}{Références visuelles}",r"{\sffamily\small Illustrations issues de Wikimedia Commons ; licence et auteur indiqués fichier par fichier.}",""]
+    for v in visuals:
+        lines += [r"\begin{tcolorbox}[enhanced,breakable,colback=white,colframe=aurorebase!25!white,arc=9pt,left=8pt,right=8pt,top=7pt,bottom=7pt]",
+                  r"{\sffamily\bfseries "+tex_text(v.get("title") or "Illustration")+r"}\par",
+                  r"{\sffamily\scriptsize Auteur : "+tex_text(v.get("author") or "")+r"}\par",
+                  r"{\sffamily\scriptsize Licence : "+tex_text(v.get("license") or "")+r"}\par",
+                  r"{\sffamily\scriptsize Source : \href{"+str(v.get("source_url") or "")+r"}{Wikimedia Commons}}",
+                  r"\end{tcolorbox}",""]
+    return lines
+
+
 def clean_text(s):
     """Remove non-printable C0/C1 control characters without touching normal Unicode."""
     s = str(s or "")
@@ -308,7 +413,9 @@ def render_content(items):
     return lines
 
 
-def render_graphs(graphs):
+def render_graphs(graphs, allow=True):
+    if not allow:
+        return []
     if not isinstance(graphs, list):
         return []
     lines = []
@@ -404,7 +511,8 @@ def render(data):
     document_id = document_identity["id"]
     document_key = document_identity["key"]
     document_share_url = document_identity["share_url"]
-    has_geogebra = _has_geogebra(data)
+    profile = _editorial_profile(data)
+    has_geogebra = _has_geogebra(data) and profile == "scientifique"
     lines = [
         r"\documentclass[11pt,a4paper]{article}",
         r"\usepackage{fontspec}",
@@ -564,14 +672,18 @@ def render(data):
                 if not re.match(r"^\s*Exercice\s+\d+\s*:", clean_text(item))
             ]
         lines.extend(render_content(content_items))
-        lines.extend(render_graphs(sec.get("graphs", [])))
+        lines.extend(render_graphs(sec.get("graphs", []), allow=(profile == "scientifique" or profile == "experimental" and any(isinstance(g, dict) and g.get("style") != "geogebra" for g in (sec.get("graphs", []) or []))))
+        if profile in ("biologie", "experimental", "histoire_geographie", "francais_litterature"):
+            lines.extend(render_visuals(data.get("_wikimedia_visuals", [])))
 
         for ex in sec.get("exercises", []):
             exercise_number += 1
             lines.append(r"\Needspace{5\baselineskip}")
+            block_label = "Activité" if profile == "biologie" else ("Application" if profile == "experimental" else "Exercice")
             lines.append(r"\AuroreExerciseBlock{" + str(exercise_number) + r"}{" + inline(ex.get("question", "")) + r"}")
             if ex.get("hint"):
-                lines.append(r"\AuroreLabeledBlock{Indication}{" + inline(ex["hint"]) + r"}")
+                hint_label = "Piste de réflexion" if profile == "biologie" else "Indication"
+                lines.append(r"\AuroreLabeledBlock{" + hint_label + r"}{" + inline(ex["hint"]) + r"}")
             if ex.get("formula"):
                 lines.append(display_formula(ex["formula"]))
 
@@ -614,6 +726,7 @@ def render(data):
         r"\end{tcolorbox}",
         r"\end{center}",
     ])
+    lines.extend(render_wikimedia_references(data.get("_wikimedia_visuals", [])))
     lines.extend(rights_lines)
     lines.append(r"\end{document}")
     return "\n".join(lines)
@@ -659,6 +772,8 @@ def main():
     out = Path(args.output) if args.output else src.with_suffix(".tex")
     data = json.loads(src.read_text(encoding="utf-8"))
     out.parent.mkdir(parents=True, exist_ok=True)
+    profile = _editorial_profile(data)
+    data["_wikimedia_visuals"] = _fetch_wikimedia_visuals(data, out.parent / "assets", profile)
     out.write_text(render(data), encoding="utf-8")
     print(f"Generated {out}")
 
