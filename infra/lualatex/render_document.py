@@ -597,6 +597,10 @@ def render(data):
         r"    \AurorePill{Exercice #1}\par\smallskip #2",
         r"  \end{tcolorbox}%",
         r"}",
+        r"\newcommand{\AuroreActivityBlock}[2]{%",
+        r"  \begin{tcolorbox}[auroreblock,colback=white,colframe=aurorebase!38!white,leftrule=1.5pt]%",
+        r"    \AurorePill{Activité #1}\par\smallskip #2",
+        r"  \end{tcolorbox}%",
         r"\newcommand{\AuroreCorrectionBlock}[2]{%",
         r"  \begin{tcolorbox}[auroreblock,colback=aurorelight!72!white,colframe=auroredeep!38!white,leftrule=1.5pt]%",
         r"    \AurorePill{Corrigé — Exercice #1}\par\smallskip #2",
@@ -673,14 +677,14 @@ def render(data):
             ]
         lines.extend(render_content(content_items))
         lines.extend(render_graphs(sec.get("graphs", []), allow=(profile == "scientifique" or profile == "experimental" and any(isinstance(g, dict) and g.get("style") != "geogebra" for g in (sec.get("graphs", []) or []))))
-        if profile in ("biologie", "experimental", "histoire_geographie", "francais_litterature"):
+        if profile in ("biologie", "experimental", "histoire_geographie", "francais_litterature") and sec is (data.get("sections") or [None])[0]:
             lines.extend(render_visuals(data.get("_wikimedia_visuals", [])))
 
         for ex in sec.get("exercises", []):
             exercise_number += 1
             lines.append(r"\Needspace{5\baselineskip}")
             block_label = "Activité" if profile == "biologie" else ("Application" if profile == "experimental" else "Exercice")
-            lines.append(r"\AuroreExerciseBlock{" + str(exercise_number) + r"}{" + inline(ex.get("question", "")) + r"}")
+            lines.append((r"\AuroreActivityBlock{" if profile == "biologie" else r"\AuroreExerciseBlock{") + str(exercise_number) + r"}{" + inline(ex.get("question", "")) + r"}")
             if ex.get("hint"):
                 hint_label = "Piste de réflexion" if profile == "biologie" else "Indication"
                 lines.append(r"\AuroreLabeledBlock{" + hint_label + r"}{" + inline(ex["hint"]) + r"}")
