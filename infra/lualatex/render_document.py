@@ -601,6 +601,7 @@ def render(data):
         r"  \begin{tcolorbox}[auroreblock,colback=white,colframe=aurorebase!38!white,leftrule=1.5pt]%",
         r"    \AurorePill{Activité #1}\par\smallskip #2",
         r"  \end{tcolorbox}%",
+        r"}",
         r"\newcommand{\AuroreCorrectionBlock}[2]{%",
         r"  \begin{tcolorbox}[auroreblock,colback=aurorelight!72!white,colframe=auroredeep!38!white,leftrule=1.5pt]%",
         r"    \AurorePill{Corrigé — Exercice #1}\par\smallskip #2",
@@ -676,7 +677,8 @@ def render(data):
                 if not re.match(r"^\s*Exercice\s+\d+\s*:", clean_text(item))
             ]
         lines.extend(render_content(content_items))
-        lines.extend(render_graphs(sec.get("graphs", []), allow=(profile == "scientifique" or profile == "experimental" and any(isinstance(g, dict) and g.get("style") != "geogebra" for g in (sec.get("graphs", []) or []))))
+        allow_graphs = (profile == "scientifique" or (profile == "experimental" and any(isinstance(g, dict) and g.get("style") != "geogebra" for g in (sec.get("graphs", []) or []))))
+        lines.extend(render_graphs(sec.get("graphs", []), allow=allow_graphs))
         if profile in ("biologie", "experimental", "histoire_geographie", "francais_litterature") and (_idx == 2 if profile == "biologie" and len(data.get("sections") or []) > 2 else _idx == 0):
             lines.extend(render_visuals(data.get("_wikimedia_visuals", [])))
 
