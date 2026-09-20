@@ -500,7 +500,7 @@ def inline(s):
     if stripped.startswith(r"\[") and stripped.endswith(r"\]"):
         return normalize_math(stripped)
 
-    pattern = re.compile(r"(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\$[\s\S]*?\$)")
+    pattern = re.compile(r"(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|\$[\s\S]*?\$)")
     parts = pattern.split(s)
     out = []
     for p in parts:
@@ -510,6 +510,8 @@ def inline(s):
             out.append(r"\[" + normalize_math(p[2:-2].strip()) + r"\]")
         elif p.startswith(r"\[") and p.endswith(r"\]"):
             out.append(normalize_math(p))
+        elif p.startswith(r"\(") and p.endswith(r"\)"):
+            out.append(r"\(" + normalize_math(p[2:-2].strip()) + r"\)")
         elif p.startswith("$") and p.endswith("$") and len(p) >= 2:
             out.append(r"\(" + normalize_math(p[1:-1].strip()) + r"\)")
         else:
@@ -727,12 +729,12 @@ def display_formula(s):
     # math delimiters inside display math and produces:
     # "Display math should end with $."
     has_inline_delimiters = bool(
-        re.search(r"\$[\s\S]*?\$|\\\\\[[\s\S]*?\\\\\]|\\\[[\s\S]*?\\\]", raw)
+        re.search(r"\$[\s\S]*?\$|\\\\\[[\s\S]*?\\\\\]|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)", raw)
     )
 
     if has_inline_delimiters:
         return "\n".join([
-            r"\AuroreFormulaBlock{" + inline(raw) + r"}",
+            r"\AuroreLabeledBlock{Formule}{" + inline(raw) + r"}",
             "",
         ])
 
@@ -1029,8 +1031,14 @@ def main():
     _mixed_formula_probe = display_formula(
         r"Coordonnées cylindriques : $x=r\\cos\\theta$, $y=r\\sin\\theta$, $z=z$."
     )
-    if "$" in _mixed_formula_probe or r"\\begin{equation*" in _mixed_formula_probe:
-        raise SystemExit("display_formula() guardrail failed: mixed inline math nested in display math")
+    if "$" in _mixed_formula_probe or r"\\begin{equation*" in _mixed_formula_probe or r"\\(Coordonnées" in _mixed_formula_probe:
+        raise SystemExit("display_formula() guardrail failed: mixed inline math nested or escaped incorrectly")
+
+    _paren_formula_probe = display_formula(
+        r"Coordonnées sphériques : \\(x=\\rho\\sin\\phi\\cos\\theta\\), \\(y=\\rho\\sin\\phi\\sin\\theta\\), \\(z=\\rho\\cos\\phi\\)."
+    )
+    if "$" in _paren_formula_probe or r"\\begin{equation*" in _paren_formula_probe or r"\\textbackslash{}" in _paren_formula_probe:
+        raise SystemExit("display_formula() guardrail failed: \\( ... \\) inline math")
 
     _array_row_probe = r"$\\begin{array}{c|ccccc} x & -\\infty & & 0 & & +\\infty \\ \\hline f(x) & 0 & \\nearrow & 1 & \\nearrow & +\\infty \\end{array}$"
     if _is_table_row(_array_row_probe):
