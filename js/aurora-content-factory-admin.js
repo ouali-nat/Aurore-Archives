@@ -120,61 +120,62 @@ function cfEscape(v){return esc(v);}
 function cfSyncSubjectOptions(){
   const sel=document.getElementById('cfCreateSubject');
   const last=cfCreatePath[cfCreatePath.length-1]||null;
-  const leaf=last&&cfIsLeaf(last)?last:null;
+  const feuille=(last&&cfIsLeaf(last))?last:null;
   if(!sel)return;
-  const base=Array.isArray(leaf?.matieres)?leaf.matieres:(Array.isArray(MATIERES)?MATIERES:[]);
-  const names=[...new Set(base.map(x=>typeof x==='string'?x:(x?.nom||'')).map(v=>String(v||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));
-  sel.innerHTML='<option value="">'+(leaf?'Choisir une matière…':'Choisir un parcours scolaire…')+'</option>'+names.map(v=>'<option value="'+cfEscape(v)+'">'+cfEscape(v)+'</option>').join('');
-  sel.disabled=!leaf||!names.length;
+  const liste=typeof matieresAvecAutres==='function' ? matieresAvecAutres(feuille?.matieres || MATIERES) : (Array.isArray(feuille?.matieres)?feuille.matieres:(Array.isArray(MATIERES)?MATIERES:[]));
+  sel.innerHTML='<option value="">'+(feuille?'Choisir':'Choisir un niveau d’abord')+'</option>'+liste.map(m=>{
+    const nom=typeof m==='string'?m:(m?.nom||''); return '<option value="'+cfEscape(nom)+'">'+cfEscape(nom)+'</option>';
+  }).join('');
+  sel.disabled=!feuille||!liste.length;
+}
+function cfClassificationValues(){
+  const last=cfCreatePath[cfCreatePath.length-1]||null;
+  const feuille=(last&&cfIsLeaf(last))?last:null;
+  const serie=cfCreatePath.find(n=>n.type==='serie')||null;
+  const troncCommun=Boolean(last&&last.type==='classe-commune'&&['seconde-ti','seconde-ab3'].includes(last.id));
+  return {
+    level: feuille ? (feuille.dbNiveaux?.[0] || (cfCreatePath[0]?.id==='prescolaire'?'Préscolaire':feuille.nom)) : '',
+    filiere: (!troncCommun&&serie) ? (serie.serie||'') : '',
+    className: feuille ? String(feuille.nom||'').trim() : ''
+  };
 }
 function cfResolveClassification(){
-  const last=cfCreatePath[cfCreatePath.length-1]||null;
-  const leaf=last&&cfIsLeaf(last)?last:null;
-  const series=cfCreatePath.find(n=>n.type==='serie')||null;
-  const common=Boolean(last&&last.type==='classe-commune'&&['seconde-ti','seconde-ab3'].includes(last.id));
-  const level=leaf?(leaf.dbNiveaux?.[0]||(cfCreatePath[0]?.id==='prescolaire'?'Préscolaire':leaf.nom)):'';
-  const filiere=(!common&&series)?(series.serie||''):'';
-  const className=leaf?String(leaf.nom||'').trim():'';
+  const values=cfClassificationValues();
   const set=(id,value)=>{const el=document.getElementById(id);if(el)el.value=value||''};
-  set('cfCreateLevel',level);set('cfCreateFiliere',filiere);set('cfCreateClass',className);
-  const summary=document.getElementById('cfCreateClassificationSummary');
-  if(summary){
-    const labels=cfCreatePath.map(n=>n.nom).filter(Boolean);
-    summary.textContent=labels.length?(labels.join(' · ')+(leaf?'':' — sélection à terminer')):'Aucun parcours sélectionné';
-  }
+  set('cfCreateLevel',values.level);set('cfCreateFiliere',values.filiere);set('cfCreateClass',values.className);
   cfSyncSubjectOptions();
 }
 function cfRenderCascade(){
   const zone=document.getElementById('cfCreateCascade');
   if(!zone)return;
   zone.innerHTML='';
-  const root=document.createElement('select');
-  root.innerHTML='<option value="">Choisir un niveau…</option>'+NIVEAUX.map(n=>'<option value="'+cfEscape(n.id)+'">'+cfEscape(n.nom)+'</option>').join('');
-  root.value=cfCreatePath[0]?.id||'';
-  root.addEventListener('change',()=>{
-    const n=NIVEAUX.find(x=>x.id===root.value)||null;
+  const selRacine=document.createElement('select');
+  selRacine.innerHTML='<option value="">Choisir un niveau</option>'+NIVEAUX.map(n=>'<option value="'+cfEscape(n.id)+'">'+cfEscape(n.nom)+'</option>').join('');
+  selRacine.value=cfCreatePath[0]?.id||'';
+  selRacine.addEventListener('change',()=>{
+    const n=NIVEAUX.find(x=>x.id===selRacine.value)||null;
     cfCreatePath=n?[n]:[];
     cfRenderCascade();cfResolveClassification();
   });
-  zone.appendChild(root);
-  let current=cfCreatePath[0]||null;
-  let depth=1;
-  while(current&&!cfIsLeaf(current)){
-    const children=cfChildren(current)||[];
+  zone.appendChild(selRacine);
+  let courant=cfCreatePath[0]||null,profondeur=1;
+  while(courant&&!cfIsLeaf(courant)){
+    const enfants=cfChildren(courant)||[];
+    const choisi=cfCreatePath[profondeur]||null;
     const sel=document.createElement('select');
-    sel.innerHTML='<option value="">Choisir…</option>'+children.map(n=>'<option value="'+cfEscape(n.id)+'">'+cfEscape(n.nom)+'</option>').join('');
-    sel.value=cfCreatePath[depth]?.id||'';
-    const p=depth;
+    sel.dataset.profondeur=String(profondeur);
+    sel.innerHTML='<option value="">Choisir</option>'+enfants.map(e=>'<option value="'+cfEscape(e.id)+'">'+cfEscape(e.nom)+'</option>').join('');
+    sel.value=choisi?.id||'';
     sel.addEventListener('change',()=>{
-      const child=children.find(x=>x.id===sel.value)||null;
+      const p=parseInt(sel.dataset.profondeur,10);
+      const enfant=enfants.find(x=>x.id===sel.value)||null;
       cfCreatePath=cfCreatePath.slice(0,p);
-      if(child)cfCreatePath.push(child);
+      if(enfant)cfCreatePath.push(enfant);
       cfRenderCascade();cfResolveClassification();
     });
     zone.appendChild(sel);
-    const chosen=cfCreatePath[depth]||null;
-    if(!chosen)break;
-    current=chosen;depth++;
+    if(!choisi)break;
+    courant=choisi;profondeur++;
   }
 }
 const CF_RESOURCE_TYPES={
@@ -227,9 +228,9 @@ async function runGeneration(item){
 async function processQueue(){if(generationRunning)return;const item=generationQueue.shift();updateQueueUI();if(!item)return;try{await runGeneration(item);}catch(e){const msg=document.getElementById('cfCreateMsg');if(msg){msg.dataset.state='error';msg.textContent=`Le document « ${item.title} » n’a pas pu être généré : ${e.message||e}`}setProgress(100,'Échec de ce document — Aurora passe au suivant.');}finally{updateQueueUI();if(generationQueue.length)processQueue();}}
 function enqueueCurrent(){
   if(!adminOk())return;
-  const title=selectedValue('cfCreateTitle'),subject=selectedValue('cfCreateSubject'),level=selectedValue('cfCreateLevel'),className=selectedValue('cfCreateClass'),filiere=selectedValue('cfCreateFiliere'),category=selectedValue('cfCreateCategory'),resourceType=selectedValue('cfCreateResourceType'),reference=selectedValue('cfCreateReference'),prompt=(document.getElementById('cfCreatePrompt')?.value||'').trim(),rights=Boolean(document.getElementById('cfCreateRights')?.checked),themeColor=normalizeThemeColor(document.getElementById('cfCreateThemeColor')?.value),msg=document.getElementById('cfCreateMsg');
+  const classification=cfClassificationValues(),title=selectedValue('cfCreateTitle'),subject=selectedValue('cfCreateSubject'),level=classification.level,className=classification.className,filiere=classification.filiere,category=selectedValue('cfCreateCategory'),resourceType=selectedValue('cfCreateResourceType'),reference=selectedValue('cfCreateReference'),prompt=(document.getElementById('cfCreatePrompt')?.value||'').trim(),rights=Boolean(document.getElementById('cfCreateRights')?.checked),themeColor=normalizeThemeColor(document.getElementById('cfCreateThemeColor')?.value),msg=document.getElementById('cfCreateMsg');
   if(!title){if(msg){msg.dataset.state='error';msg.textContent='Le titre est obligatoire.';}return;}
-  if(!level){if(msg){msg.dataset.state='error';msg.textContent='Sélectionne le parcours scolaire complet.';}return;}
+  if(!level||!className){if(msg){msg.dataset.state='error';msg.textContent='Sélectionne le classement complet, comme dans le formulaire de dépôt.';}return;}
   if(!subject){if(msg){msg.dataset.state='error';msg.textContent='Sélectionne la matière.';}return;}
   if(!category){if(msg){msg.dataset.state='error';msg.textContent='Choisis la catégorie.';}return;}
   if(!resourceType){if(msg){msg.dataset.state='error';msg.textContent='Choisis le type de ressource.';}return;}
