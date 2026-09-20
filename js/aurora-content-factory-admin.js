@@ -526,15 +526,19 @@ function auroraGeoGebraCommandes(g){
         if(p?.label)cmds.push("SetCaption("+n+",\""+String(p.label).replace(/["\\]/g,"").slice(0,40)+"\")");
       }
     }
-    const zmin=auroraGeoGebraFinite(g?.z_min,-10),zmax=auroraGeoGebraFinite(g?.z_max,10);
-    if(xmax>xmin&&ymax>ymin&&zmax>zmin)cmds.push("SetCoordSystem("+[xmin,xmax,ymin,ymax,zmin,zmax].join(",")+")");
+    // The 3D view is configured through the GeoGebra API in appletOnLoad.
+    // Do not inject the 2D SetCoordSystem command into the 3D command queue:
+    // depending on the GeoGebra app/version it can be rejected and obscure
+    // the real construction errors.
   }
   return cmds;
 }
 async function auroraGeoGebraExportOne(graph){
   await auroraGeoGebraScriptReady();
   const host=document.createElement('div');
-  host.style.cssText='position:fixed;left:-10000px;top:-10000px;width:1400px;height:820px;opacity:0;pointer-events:none;z-index:-1;background:#fff;';
+  // Keep the applet fully rendered even though it is outside the viewport.
+  // opacity:0 can prevent some GeoGebra canvas/WebGL renderers from painting.
+  host.style.cssText='position:fixed;left:-20000px;top:-20000px;width:1400px;height:900px;opacity:1;visibility:visible;pointer-events:none;z-index:-1;background:#fff;';
   document.body.appendChild(host);
   return await new Promise((resolve,reject)=>{
     let finished=false;
@@ -570,19 +574,60 @@ async function auroraGeoGebraExportOne(graph){
             try{a.setAxisSteps(1,1,1,0)}catch(_){}
             try{a.setAxisLabels(1,'x','y','')}catch(_){}
           }
-          for(const c of auroraGeoGebraCommandes(graph)){
-            try{a.evalCommand(c)}catch(e){console.warn('[Aurora][GeoGebra export]',c,e)}
+          const commands=auroraGeoGebraCommandes(graph);
+          const commandErrors=[];
+          for(const command of commands){
+            try{a.evalCommand(command)}
+            catch(e){
+              commandErrors.push({command,error:String(e)});
+              console.warn('[Aurora][GeoGebra export]',command,e);
+            }
           }
-          setTimeout(()=>{
-            try{
-              if(typeof a.getPNGBase64!=='function')throw new Error('L’export PNG GeoGebra n’est pas disponible.');
+
+          // Never upload an image containing only the coordinate system.
+          // Wait until GeoGebra has actually created at least one user object.
+          const expected=Math.max(1,
+            instrument==='geometry3d'
+              ? (Array.isArray(graph?.objects)?graph.objects.length:1)
+              : 1
+          );
+          let attempts=0;
+          const waitForObjects=()=>{
+            attempts++;
+            let objectCount=0;
+            try{objectCount=typeof a.getObjectNumber==='function'?Number(a.getObjectNumber()):0}catch(_){}
+            if(objectCount>=expected){
               try{if(is3D&&typeof a.showAllObjects==='function')a.showAllObjects()}catch(_){}
-              const b64=a.getPNGBase64(2,false,144);
-              if(!b64)throw new Error('GeoGebra a renvoyé une image vide.');
-              clearTimeout(timer);
-              done(resolve,String(b64).replace(/^data:image\/png;base64,/i,''));
-            }catch(e){clearTimeout(timer);done(reject,e instanceof Error?e:new Error(String(e)))}
-          },1200);
+              try{
+                if(typeof a.setCoordSystem==='function' && is3D){
+                  const xx=[Number(graph?.x_min),Number(graph?.x_max),Number(graph?.y_min),Number(graph?.y_max),Number(graph?.z_min),Number(graph?.z_max)];
+                  if(xx.every(Number.isFinite)&&xx[1]>xx[0]&&xx[3]>xx[2]&&xx[5]>xx[4]){
+                    try{a.setCoordSystem(...xx)}catch(_){}
+                  }
+                }
+              }catch(_){}
+              setTimeout(()=>{
+                try{
+                  if(typeof a.getPNGBase64!=='function')throw new Error('L’export PNG GeoGebra n’est pas disponible.');
+                  const b64=a.getPNGBase64(2,false,144);
+                  if(!b64)throw new Error('GeoGebra a renvoyé une image vide.');
+                  clearTimeout(timer);
+                  done(resolve,String(b64).replace(/^data:image\/png;base64,/i,''));
+                }catch(e){clearTimeout(timer);done(reject,e instanceof Error?e:new Error(String(e)))}
+              },700);
+              return;
+            }
+            if(attempts<30){setTimeout(waitForObjects,300);return;}
+            clearTimeout(timer);
+            const details=commandErrors.length
+              ? ' Commandes rejetées: '+commandErrors.map(x=>x.command).join(' | ')
+              : '';
+            done(reject,new Error(
+              'GeoGebra a affiché le repère mais n’a construit aucun objet exploitable.'
+              +' Instrument: '+instrument+'. Objets détectés: '+objectCount+'.'+details
+            ));
+          };
+          waitForObjects();
         }catch(e){clearTimeout(timer);done(reject,e instanceof Error?e:new Error(String(e)))}
       }
     };
