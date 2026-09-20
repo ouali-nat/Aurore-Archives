@@ -1,9 +1,9 @@
 
-(function(){'use strict';const panel=document.querySelector('.admin-tab-panel[data-panel="content-factory"]');if(!panel)return;const list=document.getElementById('adminContentFactoryList'),count=document.getElementById('tabCountContentFactory');let rows=[];let generationQueue=[];let generationRunning=false;let cfCreatePath=[];let cfClassificationInitialized=false;const esc=v=>{const d=document.createElement('div');d.textContent=String(v==null?'':v);return d.innerHTML};const sl=s=>({review:'À contrôler',approved:'Validé',published:'Publié',rejected:'Rejeté',failed:'Échec',generated:'Généré',processing:'Traitement',queued:'En file',draft:'Brouillon'}[s]||s||'Inconnu');const adminOk=()=>!!(session&&session.role==='admin');const normalizeThemeColor=v=>/^#[0-9a-f]{6}$/i.test(String(v||''))?String(v).toUpperCase():'#6D28D9';
+(function(){'use strict';const panel=document.querySelector('.admin-tab-panel[data-panel="content-factory"]');if(!panel)return;const list=document.getElementById('adminContentFactoryList'),count=document.getElementById('tabCountContentFactory');let rows=[];let generationQueue=[];let generationRunning=false;let cfCreatePath=[];let cfClassificationInitialized=false;const esc=v=>{const d=document.createElement('div');d.textContent=String(v==null?'':v);return d.innerHTML};const sl=s=>({review:'À contrôler',approved:'Validé',published:'Publié',rejected:'Rejeté',failed:'Échec',generated:'Généré',processing:'Traitement',queued:'En file',draft:'Brouillon'}[s]||s||'Inconnu');const adminOk=()=>!!(session&&session.role==='admin');const normalizeThemeColor=v=>/^#[0-9a-f]{6}$/i.test(String(v||''))?String(v).toUpperCase():'#C85C0D';
 const documentThemeColor=metadata=>{
   const m=metadata&&typeof metadata==='object'?metadata:{};
   const d=m.aurore_design&&typeof m.aurore_design==='object'?m.aurore_design:{};
-  return normalizeThemeColor(d.theme_color||d.themeColor||m.theme_color||m.themeColor||'#6D28D9');
+  return normalizeThemeColor(d.theme_color||d.themeColor||m.theme_color||m.themeColor||'#C85C0D');
 };
 async function chooseRegenerationTheme(defaultColor){
   return new Promise(resolve=>{
@@ -307,7 +307,7 @@ function bindClassification(){
     const value=document.getElementById('cfCreateThemeColorValue');
     const preview=document.getElementById('cfThemeColorPreview');
     const swatches=document.getElementById('cfCreateThemeSwatches');
-    const color=normalizeThemeColor(input?.value||'#6D28D9');
+    const color=normalizeThemeColor(input?.value||'#C85C0D');
     if(input)input.value=color;
     if(value)value.textContent=color;
     if(preview)preview.style.backgroundColor=color;
@@ -367,6 +367,7 @@ function bindClassification(){
         document.getElementById('cfThemePaletteToggle')?.setAttribute('aria-expanded','false');
       }
     };
+    document.addEventListener('pointerup',onThemeClick,true);
     document.addEventListener('click',onThemeClick,true);
     document.addEventListener('keydown',e=>{
       if(e.key!=='Escape')return;
@@ -954,7 +955,7 @@ document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurre
     try{
       const id=Number(detail?.id||0);if(!id)return;
       if(detail.action==='render'){
-        let color=detail.themeColor||'#6D28D9';
+        let color=detail.themeColor||'#C85C0D';
         if(detail.hasPdf){if(!confirm('Ce document possède déjà un PDF. Le nouveau rendu remplacera le PDF actuel. Continuer ?'))return;color=await chooseRegenerationTheme(color);if(!color)return;}
         await renderPdf(id,color);
       }else if(detail.action==='validate')await validateDoc(id);
@@ -963,29 +964,24 @@ document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurre
     }catch(e){alert('Action PDF impossible. '+(e?.message||e))}
   };
   document.addEventListener('aurore-pdf-action',e=>{handlePdfAction(e.detail)});
+  // Route unique de toutes les actions PDF visibles : production, validation,
+  // rejet et publication. Capture phase pour neutraliser les anciens routeurs
+  // concurrents et garantir le même comportement dans toutes les cartes.
   document.addEventListener('click',e=>{
-    const r=e.target?.closest?.('[data-cf-render]'),v=e.target?.closest?.('[data-cf-validate]'),x=e.target?.closest?.('[data-cf-reject]'),p=e.target?.closest?.('[data-cf-publish]');
-    if(r){
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      void handlePdfAction({action:'render',id:r.dataset.cfRender,hasPdf:r.dataset.hasPdf==='1',themeColor:r.dataset.themeColor});
-      return;
-    }
-    if(v){
-      e.preventDefault();
-      void handlePdfAction({action:'validate',id:v.dataset.cfValidate});
-      return;
-    }
-    if(x){
-      e.preventDefault();
-      void handlePdfAction({action:'reject',id:x.dataset.cfReject});
-      return;
-    }
-    if(p){
-      e.preventDefault();
-      void handlePdfAction({action:'publish',id:p.dataset.cfPublish});
-    }
-  });
+    const button=e.target?.closest?.('[data-cf-render],[data-cf-validate],[data-cf-reject],[data-cf-publish]');
+    if(!button)return;
+    const action=button.hasAttribute('data-cf-render')?'render':button.hasAttribute('data-cf-validate')?'validate':button.hasAttribute('data-cf-reject')?'reject':'publish';
+    const id=Number(button.dataset?.['cf'+action.charAt(0).toUpperCase()+action.slice(1)]||0);
+    if(!id)return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    void handlePdfAction({
+      action,
+      id,
+      hasPdf:button.dataset.hasPdf==='1',
+      themeColor:button.dataset.themeColor||'#C85C0D'
+    });
+  },true);
   window.auroraContentFactoryPdfActions={
     render:(id,hasPdf,themeColor)=>handlePdfAction({action:'render',id,hasPdf,themeColor}),
     chooseTheme:(defaultColor)=>chooseRegenerationTheme(defaultColor),
