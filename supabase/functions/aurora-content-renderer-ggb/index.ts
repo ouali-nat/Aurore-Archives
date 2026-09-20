@@ -169,6 +169,7 @@ function profileStyle(d:any){
   const styles:any={
     scientifique:[[.12,.25,.55],[.06,.12,.30],[.24,.42,.75],[.94,.96,.995],[.975,.985,1],[.08,.12,.20],[.36,.42,.52],[.70,.76,.88]],
     experimental:[[.12,.43,.28],[.055,.25,.16],[.30,.58,.42],[.94,.975,.95],[.975,.988,.978],[.07,.10,.08],[.36,.43,.39],[.72,.82,.76]],
+    biologie:[[.12,.38,.30],[.055,.23,.17],[.28,.56,.42],[.94,.975,.95],[.975,.99,.98],[.07,.10,.08],[.34,.42,.37],[.70,.82,.76]],
     langues:[[.55,.20,.45],[.30,.08,.25],[.72,.35,.62],[.99,.95,.98],[.995,.98,.99],[.16,.08,.13],[.42,.34,.40],[.88,.72,.84]],
     francais_litterature:[[.50,.22,.30],[.28,.08,.14],[.70,.34,.42],[.99,.96,.95],[.995,.985,.98],[.15,.08,.09],[.43,.34,.35],[.88,.76,.76]],
     histoire_geographie:[[.45,.31,.12],[.27,.17,.05],[.64,.47,.20],[.98,.96,.90],[.99,.98,.94],[.13,.10,.06],[.40,.35,.26],[.82,.74,.56]],
@@ -182,7 +183,7 @@ function profileStyle(d:any){
 
 
 function visualProfileEnabled(profile:string){
-  return ["experimental","langues","francais_litterature","histoire_geographie","informatique","technique"].includes(profile);
+  return ["biologie","experimental","langues","francais_litterature","histoire_geographie","informatique","technique"].includes(profile);
 }
 function metaPlain(v:any){
   if(v==null)return "";
@@ -196,12 +197,16 @@ function allowedVisualLicense(meta:any){
 }
 function visualQueries(d:any,profile:string){
   const title=String(d?.title||"").trim(), subject=String(d?.subject||"").trim();
-  const suffix:any={experimental:"scientific experiment",langues:"language learning",francais_litterature:"literature",histoire_geographie:"map history",informatique:"computer diagram",technique:"technical diagram"};
+  const suffix:any={biologie:"cell biology diagram",experimental:"scientific experiment",langues:"language learning",francais_litterature:"literature",histoire_geographie:"map history",informatique:"computer diagram",technique:"technical diagram"};
   const out:string[]=[];
   const add=(q:string)=>{q=q.replace(/\s+/g," ").trim();if(q&&!out.includes(q))out.push(q);};
   for(const s of (Array.isArray(d?.sections)?d.sections:[]).slice(0,3)){
-    add([title,subject,String(s?.title||""),suffix[profile]||""].filter(Boolean).join(" "));
+    add([title,subject,String(s?.title||""),profile==="biologie"?"eukaryotic cell organelles":(suffix[profile]||"")].filter(Boolean).join(" "));
     if(out.length>=3)break;
+  }
+  if(profile==="biologie" && out.length<3){
+    add("eukaryotic cell diagram organelles");
+    add("animal plant cell structure diagram");
   }
   return out.slice(0,3);
 }
@@ -620,7 +625,7 @@ async function make(d: any, auth: string) {
   const secs = Array.isArray(d.sections) ? d.sections : [];
   for (let i = 0; i < secs.length; i++) {
     const s = secs[i];
-    const sectionTitles:any={scientifique:{kicker:"NOTION · MÉTHODE · APPLICATION",exercise:"Exercice",objective:"Objectif"},experimental:{kicker:"OBSERVATION · EXPLICATION · APPLICATION",exercise:"Exercice",objective:"Objectif"},langues:{kicker:"LANGUAGE · PRACTICE · COMMUNICATION",exercise:"Activity",objective:"Learning objective"},francais_litterature:{kicker:"LECTURE · ANALYSE · INTERPRÉTATION",exercise:"Activité",objective:"Objectif"},histoire_geographie:{kicker:"REPÈRES · ANALYSE · SYNTHÈSE",exercise:"Activité",objective:"Objectif"},informatique:{kicker:"CONCEPT · CODE · PRATIQUE",exercise:"Mise en pratique",objective:"Objectif"},technique:{kicker:"PRINCIPE · PROCÉDURE · CONTRÔLE",exercise:"Application",objective:"Objectif"}};
+    const sectionTitles:any={biologie:{kicker:"OBSERVATION · STRUCTURE · FONCTION",exercise:"Activité d’observation",objective:"À retenir"},scientifique:{kicker:"NOTION · MÉTHODE · APPLICATION",exercise:"Exercice",objective:"Objectif"},experimental:{kicker:"OBSERVATION · EXPLICATION · APPLICATION",exercise:"Exercice",objective:"Objectif"},langues:{kicker:"LANGUAGE · PRACTICE · COMMUNICATION",exercise:"Activity",objective:"Learning objective"},francais_litterature:{kicker:"LECTURE · ANALYSE · INTERPRÉTATION",exercise:"Activité",objective:"Objectif"},histoire_geographie:{kicker:"REPÈRES · ANALYSE · SYNTHÈSE",exercise:"Activité",objective:"Objectif"},informatique:{kicker:"CONCEPT · CODE · PRATIQUE",exercise:"Mise en pratique",objective:"Objectif"},technique:{kicker:"PRINCIPE · PROCÉDURE · CONTRÔLE",exercise:"Application",objective:"Objectif"}};
     const ps=sectionTitles[contentProfile]||{kicker:"COURS · APPLICATION · SYNTHÈSE",exercise:"Exercice",objective:"Objectif"};
     ensure(42, 12);
     p.drawText(String(i + 1).padStart(2, "0"), { x: X, y: y - 2, font: bold, size: 9, color: mid });
@@ -628,8 +633,8 @@ async function make(d: any, auth: string) {
     p.drawText(clean(s.title || "Section").toUpperCase(), { x: X + 34, y: y - 13, font: bold, size: 15.5, color: dark });
     y -= 42;
     if (s.objective) await flow(ps.objective + " — " + String(s.objective), { z: 9.5, color: muted, after: 8, bg: wash, barColor: mid });
-    if (Array.isArray(s.content)) await renderBlocks(parseBlocks(s.content.map(String)), Array.isArray(s.graphs) ? s.graphs : []);
-    if (Array.isArray(s.graphs) && s.graphs.length) {
+    if (Array.isArray(s.content)) await renderBlocks(parseBlocks(s.content.map(String)), contentProfile==="biologie" ? [] : (Array.isArray(s.graphs) ? s.graphs : []));
+    if (contentProfile!=="biologie" && Array.isArray(s.graphs) && s.graphs.length) {
       for (const g of s.graphs) await renderImage(g);
     }
     if (s.formula) await displayFormula(String(s.formula));
