@@ -317,41 +317,68 @@ function bindClassification(){
     return color;
   };
 
-  // Délégation robuste : le panneau Content Factory peut être reconstruit ou
-  // réinjecté après l'initialisation. Le sélecteur reste donc cliquable.
+  // Délégation robuste : la palette reste fonctionnelle même si le formulaire est réinjecté.
+  // On évite la capture + stopPropagation systématique, qui pouvait neutraliser
+  // d'autres interactions de l'interface. Les éléments sont recherchés à chaque clic.
+  const ensureThemeSwatches=()=>{
+    const swatches=document.getElementById('cfCreateThemeSwatches');
+    if(!swatches)return null;
+    if(!swatches.children.length){
+      swatches.innerHTML=palette.map(([name,color])=>
+        '<button type="button" class="cf-create-theme-swatch" data-create-theme="'+color+
+        '" title="'+name+'" aria-label="Choisir '+name+'" style="--cf-swatch:'+color+'"><span></span></button>'
+      ).join('');
+    }
+    return swatches;
+  };
+
   if(!window.__auroreCfThemePickerBound){
     window.__auroreCfThemePickerBound=true;
-    document.addEventListener('click',e=>{
+    const onThemeClick=e=>{
       const toggle=e.target?.closest?.('#cfThemePaletteToggle');
       const swatch=e.target?.closest?.('#cfCreateThemeSwatches [data-create-theme]');
       const paletteEl=document.getElementById('cfCreateThemePalette');
       const input=document.getElementById('cfCreateThemeColor');
+
       if(toggle){
         e.preventDefault();
-        e.stopPropagation();
+        e.stopImmediatePropagation();
+        ensureThemeSwatches();
         if(!paletteEl)return;
         paletteEl.hidden=!paletteEl.hidden;
         toggle.setAttribute('aria-expanded',String(!paletteEl.hidden));
         syncThemeColor();
         return;
       }
+
       if(swatch){
         e.preventDefault();
-        e.stopPropagation();
+        e.stopImmediatePropagation();
         const color=normalizeThemeColor(swatch.dataset.createTheme);
         if(input)input.value=color;
         syncThemeColor();
         if(paletteEl)paletteEl.hidden=true;
-        const currentToggle=document.getElementById('cfThemePaletteToggle');
-        currentToggle?.setAttribute('aria-expanded','false');
+        document.getElementById('cfThemePaletteToggle')?.setAttribute('aria-expanded','false');
         return;
       }
+
       if(paletteEl&&!paletteEl.hidden&&!e.target?.closest?.('#cfCreateThemePalette')){
         paletteEl.hidden=true;
         document.getElementById('cfThemePaletteToggle')?.setAttribute('aria-expanded','false');
       }
-    },true);
+    };
+    document.addEventListener('click',onThemeClick,false);
+    document.addEventListener('keydown',e=>{
+      if(e.key!=='Escape')return;
+      const paletteEl=document.getElementById('cfCreateThemePalette');
+      if(paletteEl&&!paletteEl.hidden){
+        paletteEl.hidden=true;
+        document.getElementById('cfThemePaletteToggle')?.setAttribute('aria-expanded','false');
+      }
+    });
   }
+
+  ensureThemeSwatches();
 
   themeInput?.addEventListener('input',syncThemeColor);
   themeInput?.addEventListener('change',syncThemeColor);
