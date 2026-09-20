@@ -402,6 +402,9 @@ async function auroraGeoGebraScriptReady(){
   });
   return window.__auroraGeoGebraScriptPromise;
 }
+function auroraGeoGebraImageReady(g){
+  return !!String(g?.geogebra_image_path||"").trim() && String(g?.geogebra_image_source||"").toLowerCase()==="geogebra";
+}
 function auroraGeoGebraInstrument(g){
   const x=g&&typeof g==="object"?g:{};
   const aliases={"function":"function2d","graph":"function2d","courbe":"function2d","parametric":"parametric2d","parametric2d":"parametric2d","parametric3d":"parametric3d","surface":"surface3d","surface3d":"surface3d","geometry3d":"geometry3d","geometrie3d":"geometry3d","3d":"geometry3d"};
@@ -941,7 +944,7 @@ async function renderPdf(id,themeColor=null){
     const documentGraphs=[];
     for(const section of Array.isArray(documentContent.sections)?documentContent.sections:[])
       if(Array.isArray(section?.graphs))documentGraphs.push(...section.graphs);
-    const renderableGraphs=documentGraphs.filter(g=>!!auroraGeoGebraInstrument(g));
+    const renderableGraphs=documentGraphs.filter(g=>!auroraGeoGebraImageReady(g)&&!!auroraGeoGebraInstrument(g));
     const declaredGraphCount=renderableGraphs.length;
     let graphCount=0;
     if(declaredGraphCount>0){
