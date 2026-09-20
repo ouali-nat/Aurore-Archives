@@ -53,36 +53,23 @@ async function allerDocuments(matiere) {
     etat.matiere = matiere;
     const niveauLabel = (etat.classe?.dbNiveaux?.[0]) || (etat.feuilleArbre?.dbNiveaux?.[0]) || (etat.sousNiveau?.dbNiveaux?.[0]) || '';
     const serieLabel = etat.filiere ? ' — Série ' + etat.filiere : '';
-    document.getElementById('docsTitle').textContent =
-      etat.categorie.nom+' — '+(etat.serieChoisie?.nom || etat.feuilleArbre?.nom || etat.sousNiveau?.nom || niveauLabel)+serieLabel+' — '+matiere.nom;
-    majFilAriane();
-    document.querySelector('#screen-docs .back-btn').setAttribute('data-back', 'matieres');
-    afficherEcran('screen-docs');
-
-    const content = document.getElementById('docsContent');
-    content.innerHTML = '<p style="color:var(--gris); font-size:0.9rem;">Chargement des documents…</p>';
-
+    document.getElementById('docsTitle').textContent = etat.categorie.nom+' — '+(etat.serieChoisie?.nom || etat.feuilleArbre?.nom || etat.sousNiveau?.nom || niveauLabel)+serieLabel+' — '+matiere.nom;
+    majFilAriane();document.querySelector('#screen-docs .back-btn').setAttribute('data-back', 'matieres');afficherEcran('screen-docs');
+    const content = document.getElementById('docsContent');content.innerHTML = '<p style="color:var(--gris); font-size:0.9rem;">Chargement des documents…</p>';
     let query = 'Niveau=eq.'+encodeURIComponent(niveauLabel)+'&'+encodeURIComponent('Catégorie')+'=eq.'+encodeURIComponent(etat.categorie.nom)+'&'+encodeURIComponent('Matière')+'=eq.'+encodeURIComponent(matiere.nom)+'&Publie=eq.true&order=id.desc';
     if (etat.filiere) query += '&Filiere=eq.'+encodeURIComponent(etat.filiere);
     if (etat.division) query += '&Classe=eq.'+encodeURIComponent(etat.division);
-
-    try {
-      const res = await fetch(SUPABASE_URL+'/rest/v1/Document?select=*&'+query, { headers: HEADERS });
-      if (!res.ok) throw new Error('Statut HTTP '+res.status);
-      const data = filtreSerieSiDisponible(await res.json());
-      documentsCourants = Array.isArray(data) ? data : [];
-      actualiserTriPublicDocuments(documentsCourants);
-      docsPageCourante = 1;
-      if(document.getElementById('docsSearch')) document.getElementById('docsSearch').value = '';
-      majFiltreOrigineDocuments();
-      afficherDocumentsPublicsAvecOutils();
-    } catch (err) {
-      const wrap=document.getElementById('docsOriginFilter');
-      if(wrap){wrap.hidden=true;wrap.innerHTML='';}
-      content.innerHTML = '<div class="doc-empty"><div class="icon-wrap">'+ICONS.warning+'</div><h3>Impossible de charger les documents</h3><p>Le contenu n’a pas pu être récupéré pour le moment. Veuillez réessayer dans quelques instants.</p></div>';
+    try{
+      const res=await fetch(SUPABASE_URL+'/rest/v1/Document?select=*'+'&'+query,{headers:HEADERS});
+      if(!res.ok)throw new Error('Statut HTTP '+res.status);
+      documentsCourants=filtreSerieSiDisponible(await res.json());if(!Array.isArray(documentsCourants))documentsCourants=[];
+      actualiserTriPublicDocuments(documentsCourants);docsPageCourante=1;if(document.getElementById('docsSearch'))document.getElementById('docsSearch').value='';
+      majFiltreOrigineDocuments();afficherDocumentsPublicsAvecOutils();
+    }catch(err){
+      const wrap=document.getElementById('docsOriginFilter');if(wrap){wrap.hidden=true;wrap.innerHTML='';}
+      content.innerHTML='<div class="doc-empty"><div class="icon-wrap">'+ICONS.warning+'</div><h3>Impossible de charger les documents</h3><p>Le contenu n’a pas pu être récupéré pour le moment. Veuillez réessayer dans quelques instants.</p></div>';
     }
   }
-
   let docsPageCourante = 1;
   function afficherDocumentsPublicsAvecOutils(){
     const content=document.getElementById('docsContent');
@@ -90,15 +77,11 @@ async function allerDocuments(matiere) {
     const originData=(documentsCourants||[]).filter(doc=>documentsOrigineCourants==='communaute'?!documentEstAurore(doc):documentEstAurore(doc));
     const filtered=originData.filter(doc=>!q||valeurTexteDocument(doc).includes(q));
     const sorted=trierDocumentsClient(filtered);
-    const pages=Math.max(1,Math.ceil(sorted.length/SITE_PUBLIC_PAGE_SIZE));
-    docsPageCourante=Math.min(docsPageCourante,pages);
+    const pages=Math.max(1,Math.ceil(sorted.length/SITE_PUBLIC_PAGE_SIZE));docsPageCourante=Math.min(docsPageCourante,pages);
     if(!sorted.length){
-      content.innerHTML=documentsOrigineCourants==='aurore'
-        ? '<div class="docs-origin-empty"><div class="empty-mark">A</div><h3>Aucune ressource Aurore dans cette matière</h3><p>Les publications préparées par Aurore apparaîtront ici dès qu’elles seront validées. Les documents de la communauté restent accessibles séparément.</p><button type="button" class="admin-btn ghost" id="docsSeeCommunity">Voir les documents de la communauté</button></div>'
-        : '<div class="docs-origin-empty"><div class="empty-mark">C</div><h3>Aucun document de la communauté dans cette matière</h3><p>Les contributions déposées et validées par les utilisateurs apparaîtront ici.</p></div>';
+      content.innerHTML=documentsOrigineCourants==='aurore'?'<div class="docs-origin-empty"><div class="empty-mark">A</div><h3>Aucune ressource Aurore dans cette matière</h3><p>Les publications préparées par Aurore apparaîtront ici dès qu’elles seront validées. Les documents de la communauté restent accessibles séparément.</p><button type="button" class="admin-btn ghost" id="docsSeeCommunity">Voir les documents de la communauté</button></div>':'<div class="docs-origin-empty"><div class="empty-mark">C</div><h3>Aucun document de la communauté dans cette matière</h3><p>Les contributions déposées et validées par les utilisateurs apparaîtront ici.</p></div>';
       content.querySelector('#docsSeeCommunity')?.addEventListener('click',()=>{documentsOrigineCourants='communaute';majFiltreOrigineDocuments();afficherDocumentsPublicsAvecOutils();});
-      afficherPaginationSite('docsPager',0,1,()=>{});
-      return;
+      afficherPaginationSite('docsPager',0,1,()=>{});return;
     }
     const start=(docsPageCourante-1)*SITE_PUBLIC_PAGE_SIZE;
     rendreListeDocuments(content,sorted.slice(start,start+SITE_PUBLIC_PAGE_SIZE),COUVERTURES_PREMIERE_PAGE_ACTIVES);
