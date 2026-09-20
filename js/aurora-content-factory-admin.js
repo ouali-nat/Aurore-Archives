@@ -1,5 +1,5 @@
 
-(function(){'use strict';const panel=document.querySelector('.admin-tab-panel[data-panel="content-factory"]');if(!panel)return;const list=document.getElementById('adminContentFactoryList'),count=document.getElementById('tabCountContentFactory');let rows=[];let generationQueue=[];let generationRunning=false;let cfCreatePath=[];const esc=v=>{const d=document.createElement('div');d.textContent=String(v==null?'':v);return d.innerHTML};const sl=s=>({review:'À contrôler',approved:'Validé',published:'Publié',rejected:'Rejeté',failed:'Échec',generated:'Généré',processing:'Traitement',queued:'En file',draft:'Brouillon'}[s]||s||'Inconnu');const adminOk=()=>!!(session&&session.role==='admin');const normalizeThemeColor=v=>/^#[0-9a-f]{6}$/i.test(String(v||''))?String(v).toUpperCase():'#6D28D9';
+(function(){'use strict';const panel=document.querySelector('.admin-tab-panel[data-panel="content-factory"]');if(!panel)return;const list=document.getElementById('adminContentFactoryList'),count=document.getElementById('tabCountContentFactory');let rows=[];let generationQueue=[];let generationRunning=false;let cfCreatePath=[];let cfClassificationInitialized=false;const esc=v=>{const d=document.createElement('div');d.textContent=String(v==null?'':v);return d.innerHTML};const sl=s=>({review:'À contrôler',approved:'Validé',published:'Publié',rejected:'Rejeté',failed:'Échec',generated:'Généré',processing:'Traitement',queued:'En file',draft:'Brouillon'}[s]||s||'Inconnu');const adminOk=()=>!!(session&&session.role==='admin');const normalizeThemeColor=v=>/^#[0-9a-f]{6}$/i.test(String(v||''))?String(v).toUpperCase():'#6D28D9';
 const documentThemeColor=metadata=>{
   const m=metadata&&typeof metadata==='object'?metadata:{};
   const d=m.aurore_design&&typeof m.aurore_design==='object'?m.aurore_design:{};
@@ -192,12 +192,22 @@ function cfUpdateResourceTypes(){
   sel.value=values.includes(current)?current:'';
 }
 function cfInitClassification(){
-  document.getElementById('cfCreateCategory')?.addEventListener('change',cfUpdateResourceTypes);
+  const category=document.getElementById('cfCreateCategory');
+  if(!cfClassificationInitialized){
+    category?.addEventListener('change',cfUpdateResourceTypes);
+    cfClassificationInitialized=true;
+  }
   cfRenderCascade();
   cfResolveClassification();
   cfUpdateResourceTypes();
 }
-async function loadClassificationOptions(){if(!adminOk())return;cfInitClassification();}
+async function loadClassificationOptions(){
+  // Le formulaire est déjà construit côté DOM avant l'exécution de ce script.
+  // Ne pas conditionner son initialisation à la session admin : l'authentification
+  // est finalisée sur DOMContentLoaded, alors que ce fichier defer s'exécute avant.
+  // La soumission reste protégée par adminOk().
+  cfInitClassification();
+}
 function selectedValue(id){return String(document.getElementById(id)?.value||'').trim();}
 async function getJob(jobId){const r=await cfFetch(`${SUPABASE_URL}/rest/v1/aurora_content_jobs?id=eq.${encodeURIComponent(jobId)}&select=id,status,title,generated_document_id,error_message,updated_at`,{cache:'no-store'});const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));const a=t?JSON.parse(t):[];return Array.isArray(a)&&a[0]?a[0]:null;}
 async function waitForJob(jobId){let last=null;for(let i=0;i<180;i++){const j=await getJob(jobId);if(!j)throw new Error('Job introuvable dans Supabase.');last=j;if(j.status==='queued'){setProgress(8,`Job #${jobId} en file — Aurora attend son tour…`)}else if(j.status==='processing'){setProgress(Math.min(88,18+i*.4),`Aurora traite le document #${jobId}…`)}else if(j.status==='review'){setProgress(100,`Document #${jobId} terminé et placé en contrôle.`);return j}else if(j.status==='failed'||j.status==='rejected'){throw new Error(j.error_message||`La génération s’est arrêtée avec le statut ${j.status}.`)}else{setProgress(12,`Statut Aurora : ${j.status}`)}await new Promise(r=>setTimeout(r,2000));}return last;}
