@@ -133,9 +133,12 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
             for page in pages:
                 ii = (page.get("imageinfo") or [{}])[0]
                 meta = ii.get("extmetadata") or {}
-                mime, url = str(ii.get("mime") or "").lower(), str(ii.get("thumburl") or "")
+                mime = str(ii.get("mime") or "").lower()
+                thumb_mime = str(ii.get("thumbmime") or "").lower()
+                url = str(ii.get("thumburl") or ii.get("url") or "")
+                effective_mime = thumb_mime if thumb_mime in ("image/jpeg","image/png") else mime
                 rawlic = " ".join(str(meta.get(k,{}).get("value","") if isinstance(meta.get(k),dict) else meta.get(k,"")) for k in ("LicenseShortName","UsageTerms","License")).lower()
-                if mime not in ("image/jpeg","image/png") or not url.startswith("https://upload.wikimedia.org/"):
+                if effective_mime not in ("image/jpeg","image/png") or not url.startswith("https://upload.wikimedia.org/"):
                     continue
                 if int(ii.get("width") or 0) < 500 or int(ii.get("height") or 0) < 300:
                     continue
@@ -149,7 +152,7 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                         blob = resp.read()
                     if not (10000 <= len(blob) <= 2500000):
                         continue
-                    ext = ".png" if mime == "image/png" else ".jpg"
+                    ext = ".png" if effective_mime == "image/png" else ".jpg"
                     local = assets_dir / f"wikimedia-{len(visuals)+1}{ext}"
                     local.write_bytes(blob)
                     def mv(k, default=""):
