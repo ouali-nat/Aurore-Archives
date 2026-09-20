@@ -111,61 +111,211 @@ def _editorial_profile(data):
         return "technique"
     return "general"
 
+def _visual_profile_config(profile):
+    """Return Wikimedia search guidance for each editorial profile."""
+    return {
+        "biologie": {
+            "terms": "biology biological cell anatomy organelles microscopy diagram",
+            "queries": ["diagram", "structure", "microscopy", "comparison"],
+        },
+        "experimental": {
+            "terms": "physics chemistry geology scientific experiment apparatus diagram",
+            "queries": ["diagram", "experiment", "apparatus", "phenomenon"],
+        },
+        "scientifique": {
+            "terms": "mathematics geometry graph function theorem mathematical diagram",
+            "queries": ["geometry diagram", "function graph", "mathematical diagram", "coordinate system"],
+        },
+        "langues": {
+            "terms": "language English vocabulary communication classroom map culture",
+            "queries": ["vocabulary illustration", "communication situation", "map", "culture"],
+        },
+        "francais_litterature": {
+            "terms": "French literature author artwork literary history language",
+            "queries": ["literary work", "author portrait", "literature", "language diagram"],
+        },
+        "histoire_geographie": {
+            "terms": "history geography historical map territory monument landscape",
+            "queries": ["historical map", "geography map", "landscape", "monument"],
+        },
+        "informatique": {
+            "terms": "computer science programming networking hardware software diagram",
+            "queries": ["computer diagram", "network diagram", "hardware", "programming"],
+        },
+        "technique": {
+            "terms": "engineering technology mechanics electronics machine technical diagram",
+            "queries": ["technical diagram", "mechanism", "machine", "electronic circuit"],
+        },
+        "general": {
+            "terms": "educational scientific educational illustration diagram",
+            "queries": ["educational diagram", "educational illustration"],
+        },
+    }.get(profile, {"terms": "educational illustration diagram", "queries": ["educational diagram"]})
+
+
+def _visual_query_for_section(data, section, profile):
+    """Build a focused Wikimedia query from the section's actual notion."""
+    cfg = _visual_profile_config(profile)
+    title = clean_text(section.get("title") or "").strip()
+    content = section.get("content", [])
+    if isinstance(content, list):
+        content_text = " ".join(clean_text(x) for x in content[:4])
+    else:
+        content_text = clean_text(content)
+    base = f"{title} {content_text}".strip()
+    base = re.sub(r"\\s+", " ", base)[:420]
+
+    # Prefer the section's own notion. Generic terms are appended only to
+    # improve Commons retrieval; they never replace the pedagogical subject.
+    extras = cfg["terms"]
+    candidates = [
+        f"{base} {extras} diagram",
+        f"{title} {cfg['queries'][0]}",
+    ]
+    if len(cfg["queries"]) > 1:
+        candidates.append(f"{title} {cfg['queries'][1]}")
+    return [q.strip() for q in candidates if q.strip()]
+
+
+def _wikimedia_license_ok(rawlic):
+    rawlic = str(rawlic or "").lower()
+    if any(x in rawlic for x in ("fair use", "non-commercial", "noncommercial", "no derivatives")):
+        return False
+    return any(x in rawlic for x in (
+        "public domain", "cc0", "creative commons zero", "cc by", "cc-by", "cc sa", "cc-sa"
+    ))
+
+
 def _fetch_wikimedia_visuals(data, assets_dir, profile):
-    if profile not in ("biologie", "experimental", "histoire_geographie", "francais_litterature"):
-        return []
+    """Fetch contextual, reusable Wikimedia illustrations for all profiles.
+
+    The engine assigns at most one illustration to a major section, with a
+    dynamic total based on document length. It never forces an image when no
+    relevant, openly licensed Commons result is found.
+    """
     import urllib.parse
     import urllib.request
-    assets_dir.mkdir(parents=True, exist_ok=True)
-    if profile == "biologie":
-        queries = ["eukaryotic cell diagram", "animal eukaryotic cell organelles"] if re.search(r"cellule|organite|eucary", f"{data.get('title','')} {data.get('subject','')}", re.I) else [f"{data.get('title','')} biology diagram"]
+
+    sections = data.get("sections", [])
+    if not isinstance(sections, list):
+        return []
+
+    # Short documents stay light; longer courses can receive more visuals.
+    major_sections = [s for s in sections if isinstance(s, dict) and clean_text(s.get("title")).strip()]
+    section_count = len(major_sections)
+    if section_count == 0:
+        return []
+    max_visuals = min(8, max(3, section_count))
+    if section_count <= 3:
+        max_visuals = section_count
+    elif section_count <= 6:
+        max_visuals = min(6, section_count)
     else:
-        queries = [f"{data.get('title','')} {data.get('subject','')} educational diagram"]
-    visuals, seen = [], set()
-    for query in queries:
-        if len(visuals) >= 2:
+        max_visuals = min(8, section_count)
+
+    assets_dir.mkdir(parents=True, exist_ok=True)
+    visuals, seen_pages, seen_urls = [], set(), set()
+
+    for section_index, section in enumerate(major_sections):
+        if len(visuals) >= max_visuals:
             break
-        try:
-            api = "https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrnamespace=6&gsrlimit=10&gsrsearch=" + urllib.parse.quote(query) + "&prop=imageinfo&iiprop=url|size|mime|thumbmime|extmetadata&iilimit=1&iiurlwidth=1200&iiextmetadataversion=latest"
-            req = urllib.request.Request(api, headers={"User-Agent":"Aurore-Section-Archives/1.0"})
-            with urllib.request.urlopen(req, timeout=20) as resp:
-                pages = list((json.loads(resp.read().decode("utf-8")).get("query") or {}).get("pages", {}).values())
-            for page in pages:
-                ii = (page.get("imageinfo") or [{}])[0]
-                meta = ii.get("extmetadata") or {}
-                mime = str(ii.get("mime") or "").lower()
-                thumb_mime = str(ii.get("thumbmime") or "").lower()
-                url = str(ii.get("thumburl") or ii.get("url") or "")
-                effective_mime = thumb_mime if thumb_mime in ("image/jpeg","image/png") else mime
-                rawlic = " ".join(str(meta.get(k,{}).get("value","") if isinstance(meta.get(k),dict) else meta.get(k,"")) for k in ("LicenseShortName","UsageTerms","License")).lower()
-                if effective_mime not in ("image/jpeg","image/png") or not url.startswith("https://upload.wikimedia.org/"):
-                    continue
-                if int(ii.get("width") or 0) < 500 or int(ii.get("height") or 0) < 300:
-                    continue
-                if any(x in rawlic for x in ("fair use","non-commercial","noncommercial","no derivatives")):
-                    continue
-                if not any(x in rawlic for x in ("public domain","cc0","creative commons zero","cc by","cc-by")) or url in seen:
-                    continue
-                try:
-                    req = urllib.request.Request(url, headers={"User-Agent":"Aurore-Section-Archives/1.0"})
-                    with urllib.request.urlopen(req, timeout=30) as resp:
-                        blob = resp.read()
-                    if not (10000 <= len(blob) <= 2500000):
+
+        queries = _visual_query_for_section(data, section, profile)
+        best = None
+
+        for query in queries:
+            try:
+                api = (
+                    "https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*"
+                    "&generator=search&gsrnamespace=6&gsrlimit=12&gsrsearch="
+                    + urllib.parse.quote(query)
+                    + "&prop=imageinfo&iiprop=url|size|mime|thumbmime|extmetadata"
+                    "&iilimit=1&iiurlwidth=1200&iiextmetadataversion=latest"
+                )
+                req = urllib.request.Request(api, headers={"User-Agent": "Aurore-Section-Archives/1.0"})
+                with urllib.request.urlopen(req, timeout=20) as resp:
+                    pages = list((json.loads(resp.read().decode("utf-8")).get("query") or {}).get("pages", {}).values())
+
+                for page in pages:
+                    page_title = str(page.get("title") or "")
+                    page_key = page_title.lower()
+                    if page_key in seen_pages:
                         continue
-                    ext = ".png" if effective_mime == "image/png" else ".jpg"
-                    local = assets_dir / f"wikimedia-{len(visuals)+1}{ext}"
-                    local.write_bytes(blob)
-                    def mv(k, default=""):
-                        v=meta.get(k, {})
-                        return str(v.get("value", default) if isinstance(v,dict) else v)
-                    title = str(page.get("title") or "").replace("File:","",1)
-                    visuals.append({"path":str(local.relative_to(assets_dir.parent)).replace("\\\\","/"),"title":clean_text(title),"caption":clean_text(mv("ImageDescription",title))[:220],"author":clean_text(mv("Artist","Auteur non renseigné"))[:180],"license":clean_text(mv("LicenseShortName",mv("UsageTerms","Licence libre Commons")))[:120],"source_url":str(ii.get("descriptionurl") or "https://commons.wikimedia.org/wiki/"+urllib.parse.quote(str(page.get("title") or "")))})
-                    seen.add(url)
+
+                    ii = (page.get("imageinfo") or [{}])[0]
+                    meta = ii.get("extmetadata") or {}
+                    mime = str(ii.get("mime") or "").lower()
+                    thumb_mime = str(ii.get("thumbmime") or "").lower()
+                    url = str(ii.get("thumburl") or ii.get("url") or "")
+                    effective_mime = thumb_mime if thumb_mime in ("image/jpeg", "image/png") else mime
+                    rawlic = " ".join(
+                        str(meta.get(k, {}).get("value", "") if isinstance(meta.get(k), dict) else meta.get(k, ""))
+                        for k in ("LicenseShortName", "UsageTerms", "License")
+                    )
+                    if effective_mime not in ("image/jpeg", "image/png"):
+                        continue
+                    if not url.startswith("https://upload.wikimedia.org/"):
+                        continue
+                    if url in seen_urls or not _wikimedia_license_ok(rawlic):
+                        continue
+                    if int(ii.get("width") or 0) < 500 or int(ii.get("height") or 0) < 300:
+                        continue
+
+                    # A small relevance check keeps generic Commons hits from
+                    # being inserted merely because they matched a common word.
+                    haystack = " ".join([
+                        page_title.lower(),
+                        clean_text(meta.get("ImageDescription", {}).get("value", "") if isinstance(meta.get("ImageDescription"), dict) else ""),
+                        clean_text(meta.get("Categories", {}).get("value", "") if isinstance(meta.get("Categories"), dict) else ""),
+                    ])
+                    title_words = [w for w in re.findall(r"[a-zA-ZÀ-ÿ]{4,}", clean_text(section.get("title")).lower())]
+                    overlap = sum(1 for w in title_words if w in haystack)
+                    if title_words and overlap == 0 and profile not in ("general",):
+                        continue
+
+                    best = (page, ii, meta, url, effective_mime)
                     break
-                except Exception:
-                    continue
+                if best:
+                    break
+            except Exception:
+                continue
+
+        if not best:
+            continue
+
+        page, ii, meta, url, effective_mime = best
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Aurore-Section-Archives/1.0"})
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                blob = resp.read()
+            if not (10000 <= len(blob) <= 2500000):
+                continue
+
+            ext = ".png" if effective_mime == "image/png" else ".jpg"
+            local = assets_dir / f"wikimedia-{len(visuals)+1}{ext}"
+            local.write_bytes(blob)
+
+            def mv(k, default=""):
+                v = meta.get(k, {})
+                return str(v.get("value", default) if isinstance(v, dict) else v)
+
+            title = str(page.get("title") or "").replace("File:", "", 1)
+            visuals.append({
+                "section_index": section_index,
+                "section_title": clean_text(section.get("title") or ""),
+                "path": str(local.relative_to(assets_dir.parent)).replace("\\", "/"),
+                "title": clean_text(title),
+                "caption": clean_text(mv("ImageDescription", title))[:260],
+                "author": clean_text(mv("Artist", "Auteur non renseigné"))[:180],
+                "license": clean_text(mv("LicenseShortName", mv("UsageTerms", "Licence libre Commons")))[:120],
+                "source_url": str(ii.get("descriptionurl") or "https://commons.wikimedia.org/wiki/" + urllib.parse.quote(str(page.get("title") or ""))),
+            })
+            seen_pages.add(str(page.get("title") or "").lower())
+            seen_urls.add(url)
+            print(f"Wikimedia visual {len(visuals)}: section={section_index + 1} query={queries[0]!r} title={title!r}")
         except Exception:
             continue
+
     return visuals
 
 def render_visuals(visuals):
@@ -682,8 +832,12 @@ def render(data):
         lines.extend(render_content(content_items))
         allow_graphs = (profile == "scientifique" or (profile == "experimental" and any(isinstance(g, dict) and g.get("style") != "geogebra" for g in (sec.get("graphs", []) or []))))
         lines.extend(render_graphs(sec.get("graphs", []), allow=allow_graphs))
-        if profile in ("biologie", "experimental", "histoire_geographie", "francais_litterature") and (_idx == 2 if profile == "biologie" and len(data.get("sections") or []) > 2 else _idx == 0):
-            lines.extend(render_visuals(data.get("_wikimedia_visuals", [])))
+        section_visuals = [
+            v for v in (data.get("_wikimedia_visuals", []) or [])
+            if int(v.get("section_index", -1)) == _idx
+        ]
+        if section_visuals:
+            lines.extend(render_visuals(section_visuals))
 
         for ex in sec.get("exercises", []):
             exercise_number += 1
