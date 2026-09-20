@@ -965,10 +965,26 @@ document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurre
   document.addEventListener('aurore-pdf-action',e=>{handlePdfAction(e.detail)});
   document.addEventListener('click',e=>{
     const r=e.target?.closest?.('[data-cf-render]'),v=e.target?.closest?.('[data-cf-validate]'),x=e.target?.closest?.('[data-cf-reject]'),p=e.target?.closest?.('[data-cf-publish]');
-    if(r)e.preventDefault(),handlePdfAction({action:'render',id:r.dataset.cfRender,hasPdf:r.dataset.hasPdf==='1',themeColor:r.dataset.themeColor});
-    else if(v)e.preventDefault(),handlePdfAction({action:'validate',id:v.dataset.cfValidate});
-    else if(x)e.preventDefault(),handlePdfAction({action:'reject',id:x.dataset.cfReject});
-    else if(p)e.preventDefault(),handlePdfAction({action:'publish',id:p.dataset.cfPublish});
+    if(r){
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      void handlePdfAction({action:'render',id:r.dataset.cfRender,hasPdf:r.dataset.hasPdf==='1',themeColor:r.dataset.themeColor});
+      return;
+    }
+    if(v){
+      e.preventDefault();
+      void handlePdfAction({action:'validate',id:v.dataset.cfValidate});
+      return;
+    }
+    if(x){
+      e.preventDefault();
+      void handlePdfAction({action:'reject',id:x.dataset.cfReject});
+      return;
+    }
+    if(p){
+      e.preventDefault();
+      void handlePdfAction({action:'publish',id:p.dataset.cfPublish});
+    }
   });
   window.auroraContentFactoryPdfActions={render:(id,hasPdf,themeColor)=>handlePdfAction({action:'render',id,hasPdf,themeColor}),validate:id=>handlePdfAction({action:'validate',id}),reject:id=>handlePdfAction({action:'reject',id}),publish:id=>handlePdfAction({action:'publish',id})};
   bindClassification();window.chargerAuroraContentFactoryAdmin=charger;})();
