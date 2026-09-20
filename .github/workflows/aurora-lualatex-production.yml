@@ -186,6 +186,7 @@ jobs:
           curl --fail --silent --show-error -X POST \
             -H "Content-Type: application/json" \
             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            -H "x-aurore-document-id: $DOCUMENT_ID" \
             --data "{\"document_id\":$DOCUMENT_ID,\"progress\":60,\"stage\":\"Compilation PDF — première passe terminée\"}" \
             "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
 
@@ -277,7 +278,7 @@ jobs:
           retention-days: 3
 
 # Production bridge: Supabase queue + GitHub Actions, one PDF at a time.
-# Renderer visual assets fix trigger: Wikimedia paths + thumbnail MIME.
+# Renderer visual assets fix trigger: Wikimedia paths + thumbnail MIME. Validation trigger 2026-09-20.
 # Multiple pending runs are intentionally preserved with concurrency.queue=max.
 # Automatic wake-up after DeepSeek/Luna is handled by the Supabase INSERT trigger.
 # Progress is persisted in aurora_generated_documents.metadata.
