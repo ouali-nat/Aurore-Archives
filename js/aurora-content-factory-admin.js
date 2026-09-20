@@ -122,7 +122,7 @@ function cfSyncSubjectOptions(){
   const last=cfCreatePath[cfCreatePath.length-1]||null;
   const leaf=last&&cfIsLeaf(last)?last:null;
   if(!sel)return;
-  const base=Array.isArray(leaf?.matieres)?leaf.matieres:(Array.isArray(MATIERES)?MATIERES:[]);
+  const rawBase=Array.isArray(leaf?.matieres)?leaf.matieres:(Array.isArray(MATIERES)?MATIERES:[]);const base=typeof matieresAvecAutres==='function'?matieresAvecAutres(rawBase):rawBase;
   const names=[...new Set(base.map(x=>typeof x==='string'?x:(x?.nom||'')).map(v=>String(v||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));
   sel.innerHTML='<option value="">'+(leaf?'Choisir une matière…':'Choisir un parcours scolaire…')+'</option>'+names.map(v=>'<option value="'+cfEscape(v)+'">'+cfEscape(v)+'</option>').join('');
   sel.disabled=!leaf||!names.length;
