@@ -189,7 +189,7 @@ function cfUpdateResourceTypes(){
   const values=CF_RESOURCE_TYPES[category]||CF_RESOURCE_TYPES.Documents;
   const current=sel.value;
   sel.innerHTML='<option value="">Choisir un type…</option>'+values.map(v=>'<option value="'+cfEscape(v)+'">'+cfEscape(v)+'</option>').join('');
-  sel.value=values.includes(current)?current:values[0];
+  sel.value=values.includes(current)?current:'';
 }
 function cfInitClassification(){
   document.getElementById('cfCreateCategory')?.addEventListener('change',cfUpdateResourceTypes);
