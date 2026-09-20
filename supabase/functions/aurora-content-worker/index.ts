@@ -37,13 +37,13 @@ function normalizeGraphInstrument(g:any){
     x_expression:String(x.x_expression||"").trim(),
     y_expression:String(x.y_expression||"").trim(),
     z_expression:String(x.z_expression||"").trim(),
-    parameter:String(x.parameter||"t").trim()||"t",
+    parameter:(/^[xyz]$/i.test(String(x.parameter||""))?"t":String(x.parameter||"t").trim())||"t",
     t_min:n(x.t_min,0),
     t_max:n(x.t_max,2*Math.PI),
     x_min:n(x.x_min,-10),x_max:n(x.x_max,10),
     y_min:n(x.y_min,-10),y_max:n(x.y_max,10),
     z_min:n(x.z_min,-10),z_max:n(x.z_max,10),
-    points_of_interest:Array.isArray(x.points_of_interest)?x.points_of_interest:[],
+    points:Array.isArray(x.points)?x.points:[],points_of_interest:Array.isArray(x.points_of_interest)?x.points_of_interest:[],
     objects:Array.isArray(x.objects)?x.objects:[],
     style:"geogebra"
   };
