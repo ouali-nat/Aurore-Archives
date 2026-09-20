@@ -659,7 +659,7 @@ def render(data):
 
     exercise_number = 0
 
-    for sec in data.get("sections", []):
+    for _idx, sec in enumerate(data.get("sections", [])):
         lines.append(r"\Needspace{6\baselineskip}")
         lines.append(r"\section{" + tex_text(sec.get("title", "")) + r"}")
         if sec.get("objective"):
@@ -677,7 +677,7 @@ def render(data):
             ]
         lines.extend(render_content(content_items))
         lines.extend(render_graphs(sec.get("graphs", []), allow=(profile == "scientifique" or profile == "experimental" and any(isinstance(g, dict) and g.get("style") != "geogebra" for g in (sec.get("graphs", []) or []))))
-        if profile in ("biologie", "experimental", "histoire_geographie", "francais_litterature") and sec is (data.get("sections") or [None])[0]:
+        if profile in ("biologie", "experimental", "histoire_geographie", "francais_litterature") and (_idx == 2 if profile == "biologie" and len(data.get("sections") or []) > 2 else _idx == 0):
             lines.extend(render_visuals(data.get("_wikimedia_visuals", [])))
 
         for ex in sec.get("exercises", []):
