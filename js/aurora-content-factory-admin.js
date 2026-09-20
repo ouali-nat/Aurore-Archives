@@ -614,8 +614,8 @@ async function auroraGeoGebraExportOne(graph){
           const primaryLabels=[];
           const isPrimaryConstructionCommand=command=>{
             const s=String(command||'').trim();
-            return /^(?:[A-Za-z][A-Za-z0-9_]*=)?(?:Curve|Sphere|Cylinder|Cone|Cube|Prism|Pyramid|Tetrahedron|Polygon|Line|Plane|Vector)\\s*\\(/i.test(s)
-              || /^f\\s*\\(\\s*x(?:\\s*,\\s*y)?\\s*\\)\\s*=/i.test(s);
+            return /^(?:[A-Za-z][A-Za-z0-9_]*=)?(?:Curve|Sphere|Cylinder|Cone|Cube|Prism|Pyramid|Tetrahedron|Polygon|Line|Plane|Vector)\s*\(/i.test(s)
+              || /^f\s*\(\s*x(?:\s*,\s*y)?\s*\)\s*=/i.test(s);
           };
 
           for(const command of commands){
@@ -700,7 +700,7 @@ async function auroraGeoGebraExportOne(graph){
                   const b64=a.getPNGBase64(2,false,144);
                   if(!b64)throw new Error('GeoGebra a renvoyé une image vide.');
                   clearTimeout(timer);
-                  done(resolve,String(b64).replace(/^data:image\\/png;base64,/i,''));
+                  done(resolve,String(b64).replace(/^data:image\/png;base64,/i,''));
                 }catch(e){clearTimeout(timer);done(reject,e instanceof Error?e:new Error(String(e)))}
               },1800);
               return;
