@@ -790,58 +790,100 @@
     });
   }
 
-  function rendreListeDocuments(content, data, afficherCouverturesRomans = false) {
-    // Prépare PDF.js en parallèle de la construction de la liste : le rendu
-    // de la première page peut ainsi démarrer dès que les lignes sont visibles.
+  function ensureOrigineDocumentsStyles() {
+    if (document.getElementById('aurore-origin-groups-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'aurore-origin-groups-styles';
+    style.textContent = '.aurore-origin-group{margin:0 0 22px;padding:14px;border:1px solid var(--bordure,rgba(0,0,0,.1));border-radius:18px;background:var(--card-bg,rgba(255,255,255,.55));}.aurore-origin-group-head{margin:0 0 10px;padding:2px 4px 8px;border-bottom:1px solid var(--bordure,rgba(0,0,0,.08));}.aurore-origin-kicker{display:block;font-size:.64rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;opacity:.62;margin-bottom:3px}.aurore-origin-group h3{margin:0;font-size:1rem;color:var(--encre,#111)}.aurore-origin-group p{margin:3px 0 0;font-size:.72rem;color:var(--gris,#687080)}.aurore-origin-group-list{margin:0}.aurore-origin-group-list .doc-row:last-child{margin-bottom:0}.aurore-origin-group-aurore{border-color:rgba(109,40,217,.22)}';
+    document.head.appendChild(style);
+  }
+  ensureOrigineDocumentsStyles();
+
+  function rendreListeDocuments(content, data, afficherCouverturesRomans = false, separerOrigines = false) {
     if (afficherCouverturesRomans && typeof chargerPdfJs === 'function') chargerPdfJs().catch(() => {});
     documentsCourants = Array.isArray(data) ? data : [];
     if (documentsCourants.length === 0) {
-      content.innerHTML = `<div class="doc-empty friendly-empty"><div class="icon-wrap">${ICONS.folder}</div><h3>Aucun document disponible pour le moment.</h3><p>Cette rubrique sera enrichie progressivement.</p></div>`;
+      content.innerHTML = '<div class="doc-empty friendly-empty"><div class="icon-wrap">'+ICONS.folder+'</div><h3>Aucun document disponible pour le moment.</h3><p>Cette rubrique sera enrichie progressivement.</p></div>';
       return;
     }
-    const list=document.createElement('div');
-    list.className='doc-list';
 
-    // IMPORTANT : la liste doit être attachée au DOM AVANT la création des
-    // couvertures. Ainsi row.isConnected est vrai dès le premier document et
-    // le rendu de la page 1 peut commencer immédiatement, sans attendre un
-    // second passage ou une nouvelle intersection.
-    content.innerHTML='';
-    content.appendChild(list);
+    const root = document.createElement('div');
+    root.className = separerOrigines ? 'aurore-origin-groups' : 'doc-list';
+    content.innerHTML = '';
+    content.appendChild(root);
 
-    trierDocumentsClient(documentsCourants).forEach(doc=>{
-      const row=document.createElement('div');
-      row.className='doc-row';
-      row._auroreDocument = doc;
-      const telechargementOk=doc.Telechargement_autorise!==false;
-      const contexte=[
-        doc.Niveau && `Niveau : ${doc.Niveau}`,
-        doc.Filiere && `Filière : ${doc.Filiere}`,
-        (doc['Catégorie']||doc.Type) && `Catégorie : ${doc['Catégorie']||doc.Type}`,
-        doc.Genre && `Genre : ${doc.Genre}`
-      ].filter(Boolean).join(' · ');
-      const titreDocument = obtenirTitreDocument(doc);
-      row.dataset.documentTitle = titreDocument;
-      row.innerHTML=`
-        <div class="info">
-          <div class="icon-wrap">${ICONS.file}</div>
-          <div class="doc-main-info">
-            <div class="titre" title="${echapperHtmlPub(titreDocument)}">${echapperHtmlPub(titreDocument)}</div>
-            <div class="meta">Déposé par ${doc.Auteur||'anonyme'}${telechargementOk?'':' · Lecture seule'}</div>
-            ${contexte?`<div class="doc-context">${contexte}</div>`:''}
-            ${tailleBadgeMarkup(doc.Fichier_url)}
+    const documentsTries = trierDocumentsClient(documentsCourants);
+    const groupes = separerOrigines ? [
+      {
+        key:'aurore',
+        title:'Documents Aurore',
+        subtitle:'Ressources produites et publiées par Aurore',
+        items:documentsTries.filter(doc=>{
+          const source=normaliserRechercheSite(doc?.Source);
+          const auteur=normaliserRechercheSite(doc?.Auteur);
+          return source===normaliserRechercheSite('Aurore — Content Factory') || auteur==='aurore';
+        })
+      },
+      {
+        key:'communaute',
+        title:'Documents de la communauté',
+        subtitle:'Ressources déposées et validées par la communauté',
+        items:documentsTries.filter(doc=>{
+          const source=normaliserRechercheSite(doc?.Source);
+          const auteur=normaliserRechercheSite(doc?.Auteur);
+          return !(source===normaliserRechercheSite('Aurore — Content Factory') || auteur==='aurore');
+        })
+      }
+    ] : [{key:'liste',title:'',subtitle:'',items:documentsTries}];
+
+    groupes.forEach(groupe=>{
+      if(!groupe.items.length)return;
+      const target=document.createElement('div');
+      if(separerOrigines){
+        target.className='aurore-origin-group aurore-origin-group-'+groupe.key;
+        target.innerHTML='<div class="aurore-origin-group-head"><span class="aurore-origin-kicker">'+
+          (groupe.key==='aurore'?'Production Aurore':'Contribution')+
+          '</span><h3>'+echapperHtmlPub(groupe.title)+'</h3><p>'+echapperHtmlPub(groupe.subtitle)+'</p></div>';
+        const groupList=document.createElement('div');
+        groupList.className='doc-list aurore-origin-group-list';
+        target.appendChild(groupList);
+        root.appendChild(target);
+      } else {
+        target.className='doc-list';
+        root.appendChild(target);
+      }
+
+      groupe.items.forEach(doc=>{
+        const row=document.createElement('div');
+        row.className='doc-row';
+        row._auroreDocument=doc;
+        const telechargementOk=doc.Telechargement_autorise!==false;
+        const contexte=[
+          doc.Niveau && `Niveau : ${doc.Niveau}`,
+          doc.Filiere && `Filière : ${doc.Filiere}`,
+          (doc['Catégorie']||doc.Type) && `Catégorie : ${doc['Catégorie']||doc.Type}`,
+          doc.Genre && `Genre : ${doc.Genre}`
+        ].filter(Boolean).join(' · ');
+        const titreDocument=obtenirTitreDocument(doc);
+        row.dataset.documentTitle=titreDocument;
+        row.innerHTML=`
+          <div class="info">
+            <div class="icon-wrap">${ICONS.file}</div>
+            <div class="doc-main-info">
+              <div class="titre" title="${echapperHtmlPub(titreDocument)}">${echapperHtmlPub(titreDocument)}</div>
+              <div class="meta">Déposé par ${doc.Auteur||'anonyme'}${telechargementOk?'':' · Lecture seule'}</div>
+              ${contexte?`<div class="doc-context">${contexte}</div>`:''}
+              ${tailleBadgeMarkup(doc.Fichier_url)}
+            </div>
           </div>
-        </div>
-        ${boutonPlusCarteDocumentMarkup()}
-        ${panneauActionsCarteDocumentMarkup(telechargementOk)}`;
-      brancherActionsCarteDocument(row, doc);
-      actualiserEtatActionsDocument(row,doc);
-      actualiserTaillesDocumentsDans(row);
-      // La ligne doit être dans le DOM avant d'être observée par
-      // IntersectionObserver : sinon certaines couvertures ne reçoivent jamais
-      // le signal d'entrée dans la zone visible.
-      list.appendChild(row);
-      if (COUVERTURES_PREMIERE_PAGE_ACTIVES) appliquerCouvertureSiLivre(row,doc);
+          ${boutonPlusCarteDocumentMarkup()}
+          ${panneauActionsCarteDocumentMarkup(telechargementOk)}`;
+        brancherActionsCarteDocument(row,doc);
+        actualiserEtatActionsDocument(row,doc);
+        actualiserTaillesDocumentsDans(row);
+        target.querySelector('.doc-list')?.appendChild(row) || target.appendChild(row);
+        if(COUVERTURES_PREMIERE_PAGE_ACTIVES) appliquerCouvertureSiLivre(row,doc);
+      });
     });
   }
 
@@ -888,7 +930,7 @@
     docsPageCourante=Math.min(docsPageCourante,pages);
     if(!sorted.length){ content.innerHTML='<div class="site-empty-filter">Aucun document ne correspond à votre recherche.</div>'; afficherPaginationSite('docsPager',0,1,()=>{}); return; }
     const start=(docsPageCourante-1)*SITE_PUBLIC_PAGE_SIZE;
-    rendreListeDocuments(content, sorted.slice(start,start+SITE_PUBLIC_PAGE_SIZE), COUVERTURES_PREMIERE_PAGE_ACTIVES);
+    rendreListeDocuments(content, sorted.slice(start,start+SITE_PUBLIC_PAGE_SIZE), COUVERTURES_PREMIERE_PAGE_ACTIVES, true);
     afficherPaginationSite('docsPager',sorted.length,docsPageCourante,p=>{docsPageCourante=p;afficherDocumentsPublicsAvecOutils();});
   }
   document.getElementById('docSort').addEventListener('change', () => { docsPageCourante=1; afficherDocumentsPublicsAvecOutils(); });
