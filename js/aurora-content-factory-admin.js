@@ -439,7 +439,7 @@ function auroraGeoGebraGeometryCommands(g){
       if(a&&b)cmds.push((name||("u"+seq++))+"=Vector("+a+","+b+")");
       continue;
     }
-    if(["line","plane","sphere","cylinder","cone","polygon"].includes(type)){
+    if(["line","plane","sphere","cylinder","cone","polygon","cube","prism","pyramid","tetrahedron"].includes(type)){
       const ps=Array.isArray(o.points)?o.points:[];
       if(type==="line"){
         const a=ensurePoint(o.from||ps[0],"A"),b=ensurePoint(o.to||ps[1],"B");
@@ -450,6 +450,17 @@ function auroraGeoGebraGeometryCommands(g){
       }else if(type==="sphere"){
         const a=ensurePoint(o.center||o.from||ps[0],"O"),r=Number(o.radius);
         if(a&&Number.isFinite(r)&&r>0)cmds.push((name||("s"+seq++))+"=Sphere("+a+","+r+")");
+      }else if(type==="cube"||type==="prism"||type==="pyramid"||type==="tetrahedron"){
+        const refs=ps.map((q)=>ensurePoint(q,"P")).filter(Boolean);
+        if(type==="cube"&&refs.length>=2)cmds.push((name||("cube"+seq++))+"=Cube("+refs.slice(0,3).join(",")+")");
+        else if(type==="pyramid"&&refs.length>=4)cmds.push((name||("pyr"+seq++))+"=Pyramid("+refs.join(",")+")");
+        else if(type==="prism"&&refs.length>=6)cmds.push((name||("prism"+seq++))+"=Prism("+refs.join(",")+")");
+        else if(type==="tetrahedron"&&refs.length>=3)cmds.push((name||("tetra"+seq++))+"=Tetrahedron("+refs.slice(0,3).join(",")+")");
+        else if((type==="cube"||type==="tetrahedron")&&refs.length>=2)cmds.push((name||("solid"+seq++))+"="+(type==="cube"?"Cube":"Tetrahedron")+"("+refs.slice(0,2).join(",")+")");
+        else if((type==="pyramid"||type==="prism")&&refs.length>=2&&Number.isFinite(Number(o.height))&&Number(o.height)>0){
+          const polyName=type+"Base"+seq++;
+          if(refs.length>=3)cmds.push(polyName+"=Polygon("+refs.slice(0,Math.min(refs.length,6)).join(",")+")",(name||type)+seq+"="+(type==="pyramid"?"Pyramid":"Prism")+"("+polyName+","+Number(o.height)+")");
+        }
       }else if(type==="cylinder"||type==="cone"){
         const a=ensurePoint(o.from||ps[0],"A"),b=ensurePoint(o.to||ps[1],"B"),r=Number(o.radius);
         if(a&&b&&Number.isFinite(r)&&r>0)cmds.push((name||("s"+seq++))+"="+(type==="cylinder"?"Cylinder":"Cone")+"("+a+","+b+","+r+")");
