@@ -642,6 +642,15 @@ def display_formula(s):
     if not s:
         return ""
     math = normalize_math(str(s).strip())
+    # Formula fields are already placed inside an equation* environment.
+    # Content Factory may nevertheless wrap them in $...$ (or \\[...\\]).
+    # Strip only those outer display delimiters to avoid nested math mode.
+    if math.startswith("$") and math.endswith("$"):
+        math = math[2:-2].strip()
+    elif math.startswith(r"\\[") and math.endswith(r"\\]"):
+        math = math[2:-2].strip()
+    elif math.startswith(r"\[") and math.endswith(r"\]"):
+        math = math[2:-2].strip()
     return "\n".join([
         r"\AuroreFormulaBlock{" + math + r"}",
         "",
