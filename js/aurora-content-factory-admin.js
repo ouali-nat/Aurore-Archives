@@ -279,11 +279,24 @@ function enqueueCurrent(){
 }
 function bindClassification(){
   const themeInput=document.getElementById('cfCreateThemeColor'),themeValue=document.getElementById('cfCreateThemeColorValue'),themeSwatches=document.getElementById('cfCreateThemeSwatches'),themeToggle=document.getElementById('cfThemePaletteToggle'),themePalette=document.getElementById('cfCreateThemePalette'),themePreview=document.getElementById('cfThemeColorPreview');
+  const palette=[
+    ['Violet','#6D28D9'],['Rouge','#C93648'],['Vert','#198754'],['Bleu','#1D4ED8'],['Jaune','#B77900'],['Orange','#C85C0D'],
+    ['Cyan','#0E7490'],['Rose','#BE185D'],['Indigo','#4338CA'],['Turquoise','#0F766E'],['Émeraude','#047857'],['Citron vert','#4D7C0F'],
+    ['Sarcelle','#115E59'],['Magenta','#A21CAF'],['Fuchsia','#86198F'],['Corail','#C2412D'],['Bordeaux','#881337'],['Pourpre','#6B21A8'],
+    ['Prune','#581C87'],['Or','#9A6700'],['Ambre','#B45309'],['Menthe','#047857'],['Azur','#0369A1'],['Lavande','#6D28D9'],
+    ['Safran','#A16207'],['Nuit','#1E3A8A'],['Marine','#0B3440'],['Océan','#075985'],['Ciel','#0369A1'],['Ardoise','#334155'],
+    ['Graphite','#27272A'],['Forêt','#166534'],['Sapin','#065F46'],['Pomme','#3F6212'],['Pistache','#4D7C0F'],['Pêche','#C2410C'],
+    ['Abricot','#92400E'],['Terracotta','#9A3412'],['Framboise','#9F1239'],['Mauve','#6D28D9'],['Pervenche','#3730A3'],['Glacier','#155E75'],
+    ['Sable','#854D0E'],['Cacao','#451A03'],['Lagune','#0F5257']
+  ];
+  if(themeSwatches&&!themeSwatches.children.length){
+    themeSwatches.innerHTML=palette.map(([name,color])=>'<button type="button" class="cf-create-theme-swatch" data-create-theme="'+color+'" title="'+name+'" aria-label="Choisir '+name+'" style="--cf-swatch:'+color+'"><span></span></button>').join('');
+  }
   const syncThemeColor=()=>{const color=normalizeThemeColor(themeInput?.value||'#6D28D9');if(themeValue)themeValue.textContent=color;if(themePreview)themePreview.style.background=color;themeSwatches?.querySelectorAll('[data-create-theme]').forEach(b=>b.classList.toggle('is-selected',normalizeThemeColor(b.dataset.createTheme)===color))};
   themeInput?.addEventListener('input',syncThemeColor);
-  themeSwatches?.querySelectorAll('[data-create-theme]').forEach(b=>b.addEventListener('click',()=>{if(themeInput){themeInput.value=normalizeThemeColor(b.dataset.createTheme);syncThemeColor();if(themePalette)themePalette.hidden=true;if(themeToggle)themeToggle.setAttribute('aria-expanded','false')}}));
-  themeToggle?.addEventListener('click',()=>{if(!themePalette)return;themePalette.hidden=!themePalette.hidden;themeToggle.setAttribute('aria-expanded',String(!themePalette.hidden))});
   themeInput?.addEventListener('change',syncThemeColor);
+  themeSwatches?.querySelectorAll('[data-create-theme]').forEach(b=>b.addEventListener('click',()=>{if(themeInput){themeInput.value=normalizeThemeColor(b.dataset.createTheme);syncThemeColor();if(themePalette)themePalette.hidden=true;if(themeToggle)themeToggle.setAttribute('aria-expanded','false')}}));
+  themeToggle?.addEventListener('click',e=>{e.preventDefault();if(!themePalette)return;themePalette.hidden=!themePalette.hidden;themeToggle.setAttribute('aria-expanded',String(!themePalette.hidden))});
   syncThemeColor();
   loadClassificationOptions();
 }
