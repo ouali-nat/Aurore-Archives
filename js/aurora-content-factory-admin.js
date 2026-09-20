@@ -177,7 +177,7 @@ function cfRenderCascade(){
     current=chosen;depth++;
   }
 }
-const CF_RESOURCE_TYPES={
+// La catégorie reste celle du dépôt public. Le type de ressource précise uniquement ce qu'Aurora doit produire.\nconst CF_RESOURCE_TYPES={
   Documents:['Cours','Fiche de cours','Fiche de révision','Résumé','Corrigé','Document pédagogique'],
   Devoirs:['Devoir','Exercice','Série d’exercices','Corrigé de devoir']
 };
