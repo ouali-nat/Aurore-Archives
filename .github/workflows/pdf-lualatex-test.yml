@@ -1,0 +1,67 @@
+name: PDF LaTeX test
+
+on:
+  push:
+    branches:
+      - pdf-lualatex-test
+  workflow_dispatch:
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure LuaLaTeX
+        run: |
+          if ! command -v lualatex >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y texlive-luatex texlive-lang-french texlive-latex-extra
+          fi
+          lualatex --version
+
+      - name: Render fixture document 21
+        working-directory: infra/lualatex
+        run: |
+          python3 render_document.py fixtures/document-21.json -o document-21.tex
+          test -s document-21.tex
+          grep -q '\\documentclass' document-21.tex
+          grep -q '\\section' document-21.tex
+
+      - name: Compile fixture document 21
+        working-directory: infra/lualatex
+        run: |
+          lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error document-21.tex
+          lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error document-21.tex
+          test -s document-21.pdf
+
+      - name: Render exact Supabase document 21
+        working-directory: infra/lualatex
+        run: |
+          python3 render_document.py fixtures/document-21-supabase.json -o document-21-supabase.tex
+          test -s document-21-supabase.tex
+          grep -q '\\documentclass' document-21-supabase.tex
+          grep -q '\\section' document-21-supabase.tex
+
+      - name: Compile exact Supabase document 21
+        working-directory: infra/lualatex
+        run: |
+          lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error document-21-supabase.tex
+          lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error document-21-supabase.tex
+
+      - name: Validate Supabase PDF
+        working-directory: infra/lualatex
+        run: |
+          test -s document-21-supabase.pdf
+          file document-21-supabase.pdf
+          grep -a -m1 '%PDF-' document-21-supabase.pdf
+
+      - name: Upload PDFs
+        uses: actions/upload-artifact@v4
+        with:
+          name: aurore-document-21-lualatex
+          path: |
+            infra/lualatex/document-21.pdf
+            infra/lualatex/document-21-supabase.pdf
+          retention-days: 3

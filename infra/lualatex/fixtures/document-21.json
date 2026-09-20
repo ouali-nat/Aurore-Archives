@@ -1,0 +1,155 @@
+{
+  "title": "Construire la courbe de la fonction exponentielle",
+  "introduction": "La fonction exponentielle est l'une des fonctions les plus importantes en mathématiques, tant par ses propriétés algébriques que par ses applications en sciences physiques, en économie et en biologie.",
+  "learning_objectives": [
+    "Connaître la définition de la fonction exponentielle et ses propriétés algébriques.",
+    "Étudier les variations de la fonction exponentielle à l'aide de sa dérivée.",
+    "Déterminer les limites aux bornes de son domaine de définition.",
+    "Construire la courbe représentative de la fonction exponentielle avec précision.",
+    "Interpréter graphiquement les propriétés de la fonction exponentielle.",
+    "Résoudre des équations et inéquations faisant intervenir la fonction exponentielle.",
+    "Appliquer la fonction exponentielle à des problèmes concrets (croissance, décroissance)."
+  ],
+  "sections": [
+    {
+      "title": "Définition et propriétés algébriques",
+      "content": [
+        "La fonction exponentielle, notée $\\exp$, est l'unique fonction dérivable sur $\\mathbb{R}$ telle que $\\exp' = \\exp$ et $\\exp(0) = 1$. On la note souvent $x \\mapsto e^x$, où $e$ est la constante de Neper, $e \\approx 2{,}71828$.",
+        "Propriétés algébriques : pour tous réels $x$ et $y$, on a :",
+        "1. $e^{x+y} = e^x \\times e^y$",
+        "2. $e^{-x} = \\frac{1}{e^x}$",
+        "3. $e^{x-y} = \\frac{e^x}{e^y}$",
+        "4. $(e^x)^n = e^{nx}$ pour tout entier $n$",
+        "5. $e^0 = 1$ et $e^1 = e$",
+        "La fonction exponentielle est strictement positive sur $\\mathbb{R}$ : pour tout $x \\in \\mathbb{R}$, $e^x > 0$.",
+        "Elle est strictement croissante sur $\\mathbb{R}$ : si $x < y$, alors $e^x < e^y$."
+      ],
+      "formula": "e^{x+y} = e^x \\times e^y, \\quad e^{-x} = \\frac{1}{e^x}, \\quad e^{x-y} = \\frac{e^x}{e^y}"
+    },
+    {
+      "title": "Étude des limites",
+      "content": [
+        "La fonction exponentielle est définie sur $\\mathbb{R}$ tout entier.",
+        "En $+\\infty$, la fonction croît très rapidement : $\\lim_{x \\to +\\infty} e^x = +\\infty$.",
+        "En $-\\infty$, la fonction tend vers $0$ : $\\lim_{x \\to -\\infty} e^x = 0$.",
+        "Ainsi, la droite d'équation $y = 0$ est une asymptote horizontale à la courbe en $-\\infty$.",
+        "Pour tout entier $n$, $\\lim_{x \\to +\\infty} \\frac{e^x}{x^n} = +\\infty$ et $\\lim_{x \\to -\\infty} x^n e^x = 0$."
+      ],
+      "formula": "\\lim_{x \\to +\\infty} e^x = +\\infty, \\quad \\lim_{x \\to -\\infty} e^x = 0",
+      "exercises": [
+        {
+          "question": "Calculer $\\lim_{x \\to +\\infty} e^{-x}$ et $\\lim_{x \\to -\\infty} e^{-x}$.",
+          "hint": "Utiliser $e^{-x} = \\frac{1}{e^x}$.",
+          "formula": "\\lim_{x \\to +\\infty} e^{-x} = 0, \\quad \\lim_{x \\to -\\infty} e^{-x} = +\\infty"
+        }
+      ]
+    },
+    {
+      "title": "Dérivée et variations",
+      "content": [
+        "La fonction exponentielle est dérivable sur $\\mathbb{R}$ et sa dérivée est elle-même : $\\frac{d}{dx} e^x = e^x$.",
+        "Comme $e^x > 0$ pour tout $x$, la dérivée est toujours strictement positive.",
+        "Par conséquent, la fonction exponentielle est strictement croissante sur $\\mathbb{R}$.",
+        "De plus, la tangente en $x=0$ a pour équation $y = x + 1$ car $e^0 = 1$ et la dérivée en 0 vaut 1."
+      ],
+      "formula": "\\frac{d}{dx} e^x = e^x > 0",
+      "exercises": [
+        {
+          "question": "Déterminer l'équation de la tangente à la courbe de $e^x$ au point d'abscisse $x=1$.",
+          "hint": "Utiliser la formule $y = f'(a)(x-a) + f(a)$ avec $a=1$.",
+          "formula": "y = e(x-1) + e = ex"
+        }
+      ]
+    },
+    {
+      "title": "Construction point par point",
+      "content": [
+        "Pour construire la courbe de la fonction exponentielle, on peut placer quelques points remarquables :",
+        "- $x = -2$ : $e^{-2} \\approx 0{,}135$",
+        "- $x = -1$ : $e^{-1} \\approx 0{,}368$",
+        "- $x = 0$ : $e^0 = 1$",
+        "- $x = 1$ : $e^1 \\approx 2{,}718$",
+        "- $x = 2$ : $e^2 \\approx 7{,}389$",
+        "La courbe passe par le point $(0,1)$ et admet l'axe des abscisses comme asymptote horizontale en $-\\infty$."
+      ],
+      "formula": "e^{-2} \\approx 0{,}135, \\quad e^{-1} \\approx 0{,}368, \\quad e^0 = 1, \\quad e^1 \\approx 2{,}718, \\quad e^2 \\approx 7{,}389"
+    },
+    {
+      "title": "Comparaison avec d'autres fonctions",
+      "content": [
+        "La fonction exponentielle croît plus rapidement que toute fonction polynôme en $+\\infty$.",
+        "Pour tout entier $n \\ge 1$, $\\lim_{x \\to +\\infty} \\frac{e^x}{x^n} = +\\infty$.",
+        "De même, $\\lim_{x \\to +\\infty} \\frac{x^n}{e^x} = 0$.",
+        "En $-\\infty$, $\\lim_{x \\to -\\infty} x^n e^x = 0$.",
+        "La fonction logarithme népérien, notée $\\ln$, est la bijection réciproque de la fonction exponentielle."
+      ],
+      "formula": "\\lim_{x \\to +\\infty} \\frac{e^x}{x^n} = +\\infty, \\quad \\lim_{x \\to -\\infty} x^n e^x = 0",
+      "exercises": [
+        {
+          "question": "Calculer $\\lim_{x \\to +\\infty} \\frac{e^x}{x^3}$ et $\\lim_{x \\to -\\infty} x^2 e^x$.",
+          "hint": "Utiliser les croissances comparées.",
+          "formula": "\\lim_{x \\to +\\infty} \\frac{e^x}{x^3} = +\\infty, \\quad \\lim_{x \\to -\\infty} x^2 e^x = 0"
+        }
+      ]
+    },
+    {
+      "title": "Applications concrètes",
+      "content": [
+        "La fonction exponentielle modélise de nombreux phénomènes.",
+        "- Croissance des populations : $P(t) = P_0 e^{kt}$ avec $k > 0$.",
+        "- Décroissance radioactive : $N(t) = N_0 e^{-\\lambda t}$ avec $\\lambda > 0$.",
+        "- Intérêts composés : $C(t) = C_0 e^{rt}$.",
+        "Dans ces modèles, le paramètre $k$ ou $\\lambda$ est le taux de croissance ou de décroissance."
+      ],
+      "formula": "P(t) = P_0 e^{kt}, \\quad N(t) = N_0 e^{-\\lambda t}",
+      "exercises": [
+        {
+          "question": "Une population de bactéries double toutes les heures. Exprimer $P(t)$ en fonction de $t$ et calculer $P(5)$ si $P_0=100$.",
+          "hint": "Utiliser $P(t) = P_0 e^{t\\ln 2}$."
+        }
+      ]
+    },
+    {
+      "title": "Erreurs fréquentes et conseils",
+      "content": [
+        "Erreur 1 : Croire que $e^x$ peut être négatif. En réalité, $e^x > 0$ pour tout $x$.",
+        "Erreur 2 : Confondre $e^{x+y}$ et $e^x + e^y$. La propriété est $e^{x+y} = e^x \\times e^y$.",
+        "Erreur 3 : Oublier que la courbe admet une asymptote horizontale en $-\\infty$.",
+        "Erreur 4 : Tracer la courbe comme une droite ou une parabole.",
+        "Conseil : Toujours vérifier les limites et les points remarquables avant de tracer."
+      ],
+      "exercises": [
+        {
+          "question": "Corriger l'erreur : $e^{2x} = 2e^x$.",
+          "hint": "Utiliser la propriété $(e^x)^n = e^{nx}$."
+        }
+      ]
+    }
+  ],
+  "corrections": [
+    {
+      "exercise_number": 1,
+      "solution": "On utilise $e^{-x} = \\frac{1}{e^x}$. Ainsi, $\\lim_{x \\to +\\infty} e^{-x} = 0$ et $\\lim_{x \\to -\\infty} e^{-x} = +\\infty$."
+    },
+    {
+      "exercise_number": 2,
+      "solution": "La tangente au point d'abscisse $a$ a pour équation $y = e^a(x-a)+e^a$. Pour $a=1$, on obtient $y=ex$."
+    },
+    {
+      "exercise_number": 3,
+      "solution": "On place les points $(-1,0{,}368)$, $(0,1)$, $(1,2{,}718)$ et $(2,7{,}389)$ en respectant la croissance."
+    },
+    {
+      "exercise_number": 4,
+      "solution": "Par croissance comparée, $\\lim_{x \\to +\\infty} \\frac{e^x}{x^3}=+\\infty$ et $\\lim_{x \\to -\\infty}x^2e^x=0$."
+    },
+    {
+      "exercise_number": 5,
+      "solution": "La population double chaque heure : $P(t)=P_0 2^t=P_0e^{t\\ln 2}$. Pour $P_0=100$, $P(5)=3200$."
+    },
+    {
+      "exercise_number": 6,
+      "solution": "On a $e^{2x}=(e^x)^2$, et non $2e^x$."
+    }
+  ]
+}

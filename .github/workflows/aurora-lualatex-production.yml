@@ -1,0 +1,283 @@
+name: Aurora LuaLaTeX production renderer
+
+on:
+  push:
+    paths:
+      - ".github/workflows/aurora-lualatex-production.yml"
+  schedule:
+    - cron: "2/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aurora-lualatex-production
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: https://tdeotqfsbvouresfhkab.supabase.co
+      AURORA_LUALATEX_RENDER_TOKEN: ${{ secrets.AURORA_LUALATEX_RENDER_TOKEN }}
+
+    steps:
+      - name: Checkout renderer
+        uses: actions/checkout@v4
+
+      - name: Validate renderer secret
+        run: test -n "$AURORA_LUALATEX_RENDER_TOKEN"
+
+      - name: Claim next generated document
+        run: |
+          mkdir -p infra/lualatex/production
+          curl --fail --silent --show-error \
+            --header "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-next" \
+            -o infra/lualatex/production/claim.json
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("infra/lualatex/production/claim.json").read_text())
+          if not data.get("ok"):
+              raise SystemExit(f"Claim failed: {data}")
+          if not data.get("pending"):
+              print("No generated document waiting for LuaLaTeX.")
+              Path("infra/lualatex/production/no-work").write_text("true")
+              raise SystemExit(0)
+          doc = data["document"]
+          print(f"Claimed document {doc['id']}: {doc['title']}")
+          Path("infra/lualatex/production/document-id").write_text(str(doc["id"]))
+          PY
+
+      - name: Mark queue processing
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          curl --fail --silent --show-error -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":5,\"stage\":\"Document pris en charge par LuaLaTeX\"}" \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
+
+      - name: Fetch claimed document JSON
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          curl --fail --silent --show-error \
+            --header "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-source?document_id=$DOCUMENT_ID" \
+            -o infra/lualatex/production/document-response.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          src = json.loads(Path("infra/lualatex/production/document-response.json").read_text())
+          document = src.get("document")
+          if not document or "content_json" not in document:
+              raise SystemExit("Source endpoint did not return document.content_json")
+          payload = json.loads(Path("infra/lualatex/production/document-response.json").read_text())
+          content = document["content_json"] if isinstance(document["content_json"], dict) else {}
+          existing_identity = content.get("_aurore_document") if isinstance(content.get("_aurore_document"), dict) else {}
+          content["_aurore_document"] = {
+              **existing_identity,
+              "id": int(document["id"]),
+              "created_at": document.get("created_at"),
+              "version": int(document.get("version") or 1),
+              "title": document.get("title"),
+          }
+          graph_assets = payload.get("graph_assets") or []
+          if graph_assets:
+              from urllib.request import urlopen
+              assets_dir = Path("infra/lualatex/production/assets")
+              assets_dir.mkdir(parents=True, exist_ok=True)
+              for asset in graph_assets:
+                  si = int(asset["section_index"])
+                  gi = int(asset["graph_index"])
+                  url = str(asset["url"])
+                  ext = Path(str(asset.get("path") or "")).suffix or ".png"
+                  local = assets_dir / f"graph-{si+1}-{gi+1}{ext}"
+                  with urlopen(url, timeout=30) as response:
+                      local.write_bytes(response.read())
+                  content["sections"][si]["graphs"][gi]["graph_local_path"] = str(local.relative_to(Path("infra/lualatex/production")))
+                  print(f"Fetched GeoGebra asset: {local}")
+          Path("infra/lualatex/production/document.json").write_text(
+              json.dumps(content, ensure_ascii=False, indent=2)
+          )
+          print(f"Fetched {document['id']}: {document['title']} (GeoGebra assets: {len(graph_assets)})")
+          PY
+
+      - name: Mark source ready
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          curl --fail --silent --show-error -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":15,\"stage\":\"Contenu et ressources récupérés\"}" \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
+
+      - name: Ensure LuaLaTeX and Aurore fonts
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          NEED_UPDATE=0
+          if ! command -v lualatex >/dev/null 2>&1; then NEED_UPDATE=1; fi
+          if ! kpsewhich montserrat.sty >/dev/null 2>&1; then NEED_UPDATE=1; fi
+          if ! kpsewhich qrcode.sty >/dev/null 2>&1; then NEED_UPDATE=1; fi
+          if [ "$NEED_UPDATE" = "1" ]; then
+            sudo apt-get update
+            sudo apt-get install -y texlive-luatex texlive-lang-french texlive-latex-extra texlive-fonts-extra texlive-pictures
+          fi
+          lualatex --version
+          kpsewhich montserrat.sty
+          kpsewhich qrcode.sty
+
+      - name: Mark renderer ready
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          curl --fail --silent --show-error -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":25,\"stage\":\"Moteur LuaLaTeX et ressources prêts\"}" \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
+
+      - name: Fetch official Aurore site logo
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          mkdir -p infra/lualatex/production/assets
+          curl --fail --silent --show-error --location \
+            "https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster" \
+            -o infra/lualatex/production/assets/aurore-logo.png
+          test -s infra/lualatex/production/assets/aurore-logo.png
+          file infra/lualatex/production/assets/aurore-logo.png
+
+      - name: Render LaTeX source
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        working-directory: infra/lualatex
+        run: |
+          python3 render_document.py production/document.json -o production/document.tex
+          test -s production/document.tex
+          grep -q '\\documentclass' production/document.tex
+
+      - name: Mark LaTeX ready
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          curl --fail --silent --show-error -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":35,\"stage\":\"Source LaTeX générée\"}" \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
+
+      - name: Compile PDF — first pass
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        working-directory: infra/lualatex/production
+        run: |
+          lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error \
+            -output-directory=. document.tex
+
+      - name: Mark PDF compilation progress
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          curl --fail --silent --show-error -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":60,\"stage\":\"Compilation PDF — première passe terminée\"}" \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
+
+      - name: Compile PDF — final pass
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        working-directory: infra/lualatex/production
+        run: |
+          lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error \
+            -output-directory=. document.tex
+          python3 - <<'PY'
+          from pathlib import Path
+          pdf = Path("document.pdf")
+          if not pdf.is_file() or pdf.stat().st_size == 0:
+              raise SystemExit("LuaLaTeX did not produce a PDF")
+          if pdf.read_bytes()[:5] != b"%PDF-":
+              raise SystemExit("Invalid PDF header")
+          print(f"Generated PDF: {pdf.stat().st_size} bytes")
+          PY
+
+      - name: Mark PDF ready for upload
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          curl --fail --silent --show-error -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":82,\"stage\":\"PDF compilé — vérification terminée\"}" \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
+
+      - name: Upload PDF and commit database URL
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          curl --fail --silent --show-error \
+            -X POST \
+            -H "Content-Type: application/pdf" \
+            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            -H "x-aurore-document-id: $DOCUMENT_ID" \
+            -H "x-aurore-commit: true" \
+            --data-binary @infra/lualatex/production/document.pdf \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-upload-v2" \
+            -o infra/lualatex/production/upload-response.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("infra/lualatex/production/upload-response.json").read_text())
+          if not data.get("ok") or data.get("mode") != "commit" or data.get("database_updated") is not True:
+              raise SystemExit(f"Production upload failed: {data}")
+          print(f"LuaLaTeX production commit OK: document={data['generated_document_id']} bytes={data['bytes']}")
+          print(f"PDF path: {data['pdf_path']}")
+          PY
+
+      - name: Mark PDF completed
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          curl --fail --silent --show-error -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":100,\"stage\":\"PDF terminé et enregistré dans Aurore\"}" \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
+
+      - name: Requeue document after renderer failure
+        if: failure() && hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          curl --fail --silent --show-error \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"error\":\"GitHub Actions run $GITHUB_RUN_ID failed\"}" \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-fail" \
+            -o infra/lualatex/production/failure-response.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("infra/lualatex/production/failure-response.json").read_text())
+          if not data.get("ok"):
+              raise SystemExit(f"Failure cleanup failed: {data}")
+          print(f"LuaLaTeX document requeue: document={data['document_id']} action={data['action']} failure_count={data['failure_count']}")
+          PY
+
+      - name: Upload rendered PDF artifact
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: aurora-lualatex-production-${{ hashFiles('infra/lualatex/production/document-id') }}
+          path: infra/lualatex/production/document.pdf
+          retention-days: 3
+
+# Production bridge: Supabase queue + GitHub Actions, one PDF at a time.
+# Multiple pending runs are intentionally preserved with concurrency.queue=max.
+# Automatic wake-up after DeepSeek/Luna is handled by the Supabase INSERT trigger.
+# Progress is persisted in aurora_generated_documents.metadata.
+# PDF identity/QR traceability and 45-color palette remain unchanged.

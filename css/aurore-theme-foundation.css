@@ -1,0 +1,302 @@
+
+[data-theme="light"]{
+  --rouge:#B42318;--bleu:#1D4ED8;--violet:#6D28D9;--marron:#7C4A21;--vert:#15803D;
+  --encre:#0F1115;--fond:#F3F1F8;--papier:#FFFFFF;--gris:#4B4655;--bordure:#C9BEDB;
+  --auraster-bg:#F3F1F8;--auraster-panel:#FFFFFF;--auraster-panel-2:#EEE8F7;--auraster-purple:#6D28D9;--auraster-mauve:#9333EA;
+}
+[data-theme="light"] body{background:radial-gradient(circle at 10% 0%,#EEE6FA 0,transparent 34%),radial-gradient(circle at 100% 20%,#E8EEF9 0,transparent 30%),#F3F1F8;color:#0F1115}
+[data-theme="light"] :is(h1,h2,h3,h4,h5,h6,strong,b,.title,.section-title,.card-title,.label,.form-label,.admin-title,.profile-name){color:#0F1115!important}
+[data-theme="light"] :is(p,span,small,.muted,.subtitle,.description,.meta,.helper-text){color:#4B4655}
+[data-theme="light"] header,.header,.topbar{background:#FFF!important;border-color:#C9BEDB!important}
+[data-theme="light"] :is(.card,.section,.panel,.profile-card,.recents-card,.admin-card,.home-annonce,.admin-promo-manager,.ad-slot-card){background:#FFF!important;color:#0F1115!important;border:1px solid #C9BEDB!important;box-shadow:0 5px 18px rgba(55,36,82,.10)}
+[data-theme="light"] :is(input,select,textarea){background:#FFF!important;color:#0F1115!important;border:2px solid #B8A8CC!important}
+[data-theme="light"] :is(input,select,textarea)::placeholder{color:#655C6F!important;opacity:1}
+[data-theme="light"] :is(input,select,textarea):focus{border-color:#6D28D9!important;box-shadow:0 0 0 3px rgba(109,40,217,.16)!important}
+/* Violet surfaces: keep them visibly violet instead of washing into the white page. */
+[data-theme="light"] :is(.niveau-badge,.category-badge,.presentation-icon-wrap,.home-promise-icon,.books-banner,.sublevel-card,.structure-pill,.home-choice,.shortcut-btn,.breadcrumb-btn,.admin-tab.active,.count-badge,.badge-violet,.violet-card,.violet-box){color:#0F1115!important}
+[data-theme="light"] :is(.niveau-badge,.category-badge,.presentation-icon-wrap,.home-promise-icon,.books-banner,.violet-card,.violet-box){background:#6D28D9!important;border-color:#4C1D95!important}
+[data-theme="light"] .books-banner{background:linear-gradient(135deg,#6D28D9,#7C3AED)!important}
+[data-theme="light"] :is(.sublevel-card,.structure-pill,.home-choice,.shortcut-btn){background:#E7D9FA!important;border:2px solid #6D28D9!important}
+[data-theme="light"] :is(.breadcrumb-btn,.admin-tab.active){background:#E7D9FA!important;border-color:#6D28D9!important}
+[data-theme="light"] :is(.niveau-badge,.category-badge,.presentation-icon-wrap,.home-promise-icon,.books-banner,.sublevel-card,.structure-pill,.home-choice,.shortcut-btn,.breadcrumb-btn,.admin-tab.active,.count-badge,.badge-violet,.violet-card,.violet-box) :is(span,p,strong,b,i,svg){color:#0F1115!important;fill:#0F1115}
+[data-theme="light"] :is(.go,.btn-primary,.btn-deposer,.admin-btn.primary,.access-btn){background:#6D28D9!important;color:#0F1115!important;border:2px solid #4C1D95!important}
+[data-theme="light"] :is(.go,.btn-primary,.btn-deposer,.admin-btn.primary,.access-btn) *{color:#0F1115!important}
+[data-theme="light"] :is(.form-submit,.admin-btn.valider){background:#15803D!important;color:#0F1115!important;border:2px solid #166534!important}
+[data-theme="light"] :is(.form-submit,.admin-btn.valider) *{color:#0F1115!important}
+[data-theme="light"] :is(.link,.breadcrumb a,a){color:#5B21B6}
+[data-theme="light"] .matiere-card .mono{color:#15803D!important}
+[data-theme="light"] :is(.success,.message-success){background:#DCFCE7!important;color:#14532D!important;border-color:#15803D!important}
+[data-theme="light"] :is(.error,.message-error){background:#FEE2E2!important;color:#7F1D1D!important;border-color:#B42318!important}
+[data-theme="light"] :is(.info,.announcement,.home-annonce){border-color:#C9BEDB!important}
+[data-theme="light"] footer{background:#E9E4F0!important;color:#0F1115!important;border-color:#C9BEDB!important}
+/* Any legacy white text should become dark in light mode, except the PDF reader overlay which stays dark. */
+[data-theme="light"] :not(.pdf-reader-overlay):not(.pdf-viewer):not(.pdf-modal) :is(.text-white,.white-text,.light-text,.text-light){color:#0F1115!important}
+[data-theme="light"] :not(.pdf-reader-overlay):not(.pdf-viewer):not(.pdf-modal) :is(.btn,.button,.badge,.tag,.chip){text-shadow:none}
+[data-theme="light"] .upload-progress{background:#E7D9FA!important;border:1px solid #6D28D9!important;color:#0F1115!important}
+[data-theme="light"] .upload-progress *{color:#0F1115!important}
+/* Preserve dark PDF reader controls/overlay. */
+[data-theme="light"] :is(.pdf-reader-overlay,.pdf-viewer,.pdf-modal){color:inherit}
+
+
+/* Corrections ciblées du mode clair : accueil, aide et Livres & romans. */
+[data-theme="light"] .hero{
+  background:linear-gradient(145deg,#FFFFFF 0%,#F0E8FB 56%,#E9EAF8 100%)!important;
+  border-color:#BFA9D8!important;
+  color:#0F1115!important;
+}
+[data-theme="light"] .hero .hero-inner,
+[data-theme="light"] .hero .eyebrow,
+[data-theme="light"] .hero h1,
+[data-theme="light"] .hero .sub{color:#0F1115!important;}
+[data-theme="light"] .hero .accentword{color:#5B21B6!important;}
+[data-theme="light"] .hero .hero-rule{background:#6D28D9!important;}
+[data-theme="light"] .auraster-home-search{
+  background:#FFFFFF!important;
+  border:2px solid #A98BC7!important;
+  box-shadow:0 5px 18px rgba(55,36,82,.12)!important;
+}
+[data-theme="light"] .auraster-home-search input{color:#0F1115!important;background:#FFFFFF!important;}
+[data-theme="light"] .auraster-home-search input::placeholder{color:#5F5968!important;}
+
+/* Carte « Besoin d'aide ? » : fond clair et coordonnées parfaitement lisibles. */
+[data-theme="light"] .service-client-card{
+  background:linear-gradient(135deg,#F4ECFC,#F7F5FB)!important;
+  border:2px solid #B99AD8!important;
+  box-shadow:0 6px 20px rgba(55,36,82,.10)!important;
+}
+[data-theme="light"] .service-client-kicker{color:#5B21B6!important;}
+[data-theme="light"] .service-client-copy strong{color:#0F1115!important;}
+[data-theme="light"] .service-client-note{color:#514B5D!important;}
+[data-theme="light"] .service-client-link{
+  background:#FFFFFF!important;
+  color:#0F1115!important;
+  border:2px solid #B99AD8!important;
+  box-shadow:0 3px 10px rgba(55,36,82,.08)!important;
+}
+[data-theme="light"] .service-client-link span{color:#5B21B6!important;}
+[data-theme="light"] .service-client-link strong{color:#0F1115!important;}
+
+/* Livres et romans : violet moins agressif, mais toujours clairement identifiable. */
+[data-theme="light"] .livres-banner{
+  background:linear-gradient(135deg,#E7D9FA,#DCC9F4)!important;
+  border:2px solid #6D28D9!important;
+  color:#0F1115!important;
+  box-shadow:0 6px 18px rgba(109,40,217,.13)!important;
+}
+[data-theme="light"] .livres-banner h3,
+[data-theme="light"] .livres-banner p,
+[data-theme="light"] .livres-banner .go-arrow{color:#09090B!important;font-weight:700!important;}
+[data-theme="light"] .livres-banner p{font-weight:600!important;opacity:1!important;}
+[data-theme="light"] .livres-banner .go-arrow{font-weight:800!important;}
+[data-theme="light"] .livres-banner .icon-wrap{
+  background:#6D28D9!important;
+  color:#FFFFFF!important;
+  border-color:#4C1D95!important;
+}
+[data-theme="light"] .livres-banner .icon-wrap *{color:#FFFFFF!important;fill:#FFFFFF!important;}
+
+
+/* Dernier passage mode clair : aucun texte blanc accidentel sur les surfaces claires.
+   Les overlays/lecteurs volontairement sombres restent exclus. */
+[data-theme="light"] :not(#pdfViewerOverlay) .brand-logo-fallback,
+[data-theme="light"] :not(#pdfViewerOverlay) .section-title,
+[data-theme="light"] :not(#pdfViewerOverlay) .level-card h3,
+[data-theme="light"] :not(#pdfViewerOverlay) .admin-tab,
+[data-theme="light"] :not(#pdfViewerOverlay) .admin-tab.active,
+[data-theme="light"] :not(#pdfViewerOverlay) .back-btn,
+[data-theme="light"] :not(#pdfViewerOverlay) .access-brand,
+[data-theme="light"] :not(#pdfViewerOverlay) .home-promise h4,
+[data-theme="light"] :not(#pdfViewerOverlay) .home-five-level strong,
+[data-theme="light"] :not(#pdfViewerOverlay) .home-secondary-heading strong,
+[data-theme="light"] :not(#pdfViewerOverlay) .home-secondary-choice strong,
+[data-theme="light"] :not(#pdfViewerOverlay) .service-client-copy strong,
+[data-theme="light"] :not(#pdfViewerOverlay) .service-client-link,
+[data-theme="light"] :not(#pdfViewerOverlay) .home-shortcuts button,
+[data-theme="light"] :not(#pdfViewerOverlay) .admin-btn,
+[data-theme="light"] :not(#pdfViewerOverlay) .admin-btn.primary,
+[data-theme="light"] :not(#pdfViewerOverlay) .admin-btn.ghost,
+[data-theme="light"] :not(#pdfViewerOverlay) .form-submit,
+[data-theme="light"] :not(#pdfViewerOverlay) .ad-slot-card,
+[data-theme="light"] :not(#pdfViewerOverlay) .admin-promo-manager,
+[data-theme="light"] :not(#pdfViewerOverlay) .recents-card {
+  color:#17131F !important;
+}
+
+/* Corrige aussi les couleurs blanches écrites directement dans les styles inline. */
+[data-theme="light"] [style*="color:#fff"],
+[data-theme="light"] [style*="color: #fff"],
+[data-theme="light"] [style*="color:#FFF"],
+[data-theme="light"] [style*="color: #FFF"],
+[data-theme="light"] [style*="color:#ffffff"],
+[data-theme="light"] [style*="color: #ffffff"] {
+  color:#17131F !important;
+}
+
+/* Retour, fermeture et actions : texte toujours lisible en clair. */
+[data-theme="light"] .back-btn,
+[data-theme="light"] #apercuFermer,
+[data-theme="light"] #apercuConsulter,
+[data-theme="light"] .admin-btn,
+[data-theme="light"] .admin-action-btn,
+[data-theme="light"] .admin-tab {
+  color:#17131F !important;
+}
+
+/* Le violet reste violet, mais avec une encre sombre lisible. */
+[data-theme="light"] .admin-btn.primary,
+[data-theme="light"] .admin-btn.valider,
+[data-theme="light"] .form-submit,
+[data-theme="light"] .home-five-level,
+[data-theme="light"] .home-shortcuts button,
+[data-theme="light"] .level-badge,
+[data-theme="light"] .category-badge,
+[data-theme="light"] .home-promise .icon-wrap,
+[data-theme="light"] .sublevel-card {
+  color:#17131F !important;
+}
+
+/* Champs : aucune encre blanche résiduelle. */
+[data-theme="light"] input,
+[data-theme="light"] textarea,
+[data-theme="light"] select,
+[data-theme="light"] option {
+  color:#17131F !important;
+}
+
+/* Exception : le lecteur PDF et ses overlays restent volontairement sombres.
+   Correctif : cette règle ne contenait aucune déclaration réelle, donc elle
+   ne protégeait rien. Plus haut, des sélecteurs génériques du thème clair
+   (h1-h6, strong, b, styles inline blancs…) forçaient malgré tout une encre
+   sombre sur certains blocs du lecteur (titre du document, pourcentage de
+   progression, message d'erreur), alors que leur fond reste sombre : le
+   texte devenait invisible. On restaure ici, avec une spécificité (ID) qui
+   l'emporte sur ces règles génériques, la couleur claire d'origine de
+   chaque bloc concerné. */
+[data-theme="light"] #pdfViewerOverlay #pdfViewerTitre {
+  color:#f8f6fc !important;
+}
+[data-theme="light"] #pdfViewerOverlay .pdf-reader-error-title {
+  color:#fff !important;
+}
+[data-theme="light"] #pdfViewerOverlay .pdf-load-progress-head strong,
+[data-theme="light"] #pdfViewerOverlay #pdfViewerProgressPercent {
+  color:#e9e3f2 !important;
+}
+[data-theme="light"] #pdfViewerOverlay #pdfViewerDiagBox strong {
+  color:#f59e0b !important;
+}
+[data-theme="light"] #pdfViewerOverlay #pdfViewerDiagLog {
+  color:#f2f2f2 !important;
+}
+
+
+/* Passage intégral du mode clair : aucune encre blanche, gris clair ou pastel.
+   Le lecteur PDF reste volontairement hors de cette règle. */
+[data-theme="light"] :not(#pdfViewerOverlay):not(#pdfViewerOverlay *){
+  color:#111318 !important;
+}
+
+/* Les SVG suivent aussi l'encre sombre en mode clair. */
+[data-theme="light"] :not(#pdfViewerOverlay):not(#pdfViewerOverlay *) svg{
+  color:#111318 !important;
+  fill:currentColor;
+  stroke:currentColor;
+}
+
+/* Couleurs fonctionnelles conservées : elles ne sont ni blanches ni grises. */
+[data-theme="light"] :not(#pdfViewerOverlay):not(#pdfViewerOverlay *) a,
+[data-theme="light"] :not(#pdfViewerOverlay):not(#pdfViewerOverlay *) .link,
+[data-theme="light"] :not(#pdfViewerOverlay):not(#pdfViewerOverlay *) .breadcrumb button,
+[data-theme="light"] :not(#pdfViewerOverlay):not(#pdfViewerOverlay *) .breadcrumb-btn{
+  color:#5B21B6 !important;
+}
+[data-theme="light"] :not(#pdfViewerOverlay):not(#pdfViewerOverlay *) .matiere-card .mono,
+[data-theme="light"] :not(#pdfViewerOverlay):not(#pdfViewerOverlay *) .success,
+[data-theme="light"] :not(#pdfViewerOverlay):not(#pdfViewerOverlay *) .message-success{
+  color:#166534 !important;
+}
+[data-theme="light"] :not(#pdfViewerOverlay):not(#pdfViewerOverlay *) .error,
+[data-theme="light"] :not(#pdfViewerOverlay):not(#pdfViewerOverlay *) .message-error{
+  color:#991B1B !important;
+}
+[data-theme="light"] :not(#pdfViewerOverlay):not(#pdfViewerOverlay *) .admin-btn.danger,
+[data-theme="light"] :not(#pdfViewerOverlay):not(#pdfViewerOverlay *) .pub-admin-item-status.off,
+[data-theme="light"] :not(#pdfViewerOverlay):not(#pdfViewerOverlay *) .danger{
+  color:#991B1B !important;
+}
+[data-theme="light"] :not(#pdfViewerOverlay):not(#pdfViewerOverlay *) .admin-btn.valider,
+[data-theme="light"] :not(#pdfViewerOverlay):not(#pdfViewerOverlay *) .form-submit{
+  color:#07130B !important;
+}
+[data-theme="light"] :not(#pdfViewerOverlay):not(#pdfViewerOverlay *) .go,
+[data-theme="light"] :not(#pdfViewerOverlay):not(#pdfViewerOverlay *) .btn-primary,
+[data-theme="light"] :not(#pdfViewerOverlay):not(#pdfViewerOverlay *) .btn-deposer,
+[data-theme="light"] :not(#pdfViewerOverlay):not(#pdfViewerOverlay *) .admin-btn.primary,
+[data-theme="light"] :not(#pdfViewerOverlay):not(#pdfViewerOverlay *) .access-btn{
+  color:#111318 !important;
+}
+
+/* Les surfaces qui étaient sombres avec du texte clair deviennent claires en mode clair. */
+[data-theme="light"] .access-card,
+[data-theme="light"] .access-card-body,
+[data-theme="light"] .admin-panel,
+[data-theme="light"] .admin-card,
+[data-theme="light"] .admin-promo-manager,
+[data-theme="light"] .ad-slot-card,
+[data-theme="light"] .service-client-card,
+[data-theme="light"] .recents-card,
+[data-theme="light"] .home-annonce,
+[data-theme="light"] .home-shortcuts,
+[data-theme="light"] .home-five-level{
+  background:#FFFFFF !important;
+}
+
+/* Les journaux de diagnostic ne restent pas noirs en clair, sinon l'encre noire serait illisible. */
+[data-theme="light"] #depotDebug,
+[data-theme="light"] #pdfViewerDiagBox{
+  background:#F1EDF6 !important;
+  border-color:#8B5CF6 !important;
+}
+
+/* Suppression explicite des principales encres blanches/pâles héritées. */
+[data-theme="light"] .brand-logo-fallback,
+[data-theme="light"] .brand-text .site-name,
+[data-theme="light"] .section-title,
+[data-theme="light"] .level-card h3,
+[data-theme="light"] .admin-tab,
+[data-theme="light"] .back-btn,
+[data-theme="light"] .access-brand,
+[data-theme="light"] .home-promise h4,
+[data-theme="light"] .home-five-level strong,
+[data-theme="light"] .home-secondary-heading strong,
+[data-theme="light"] .home-secondary-choice strong,
+[data-theme="light"] .service-client-copy strong,
+[data-theme="light"] .service-client-link,
+[data-theme="light"] .home-shortcuts button,
+[data-theme="light"] .admin-btn,
+[data-theme="light"] .form-submit{
+  color:#111318 !important;
+}
+
+/* Même règle pour les styles inline contenant du blanc, y compris #fff/#FFF/#ffffff. */
+[data-theme="light"] [style*="#fff"],
+[data-theme="light"] [style*="#FFF"],
+[data-theme="light"] [style*="#ffffff"],
+[data-theme="light"] [style*="#FFFFFF"],
+[data-theme="light"] [style*="rgb(255"],
+[data-theme="light"] [style*="rgba(255"]{
+  color:#111318 !important;
+}
+
+/* Le mode clair ne doit pas conserver les gris pâles comme couleur de texte. */
+[data-theme="light"] :is(.muted,.subtitle,.description,.meta,.helper-text,.pub-admin-item-desc,
+  .home-recents-cta,.service-client-note,.access-sub,.hierarchy-note,.stat-label,
+  .stat-value-sm,#diagPubResultats,#diagRenduResultats,#diagHomeResultats){
+  color:#272331 !important;
+}
+
+/* Exception stricte : l'interface du lecteur PDF reste sombre et indépendante. */
+[data-theme="light"] #pdfViewerOverlay,
+[data-theme="light"] #pdfViewerOverlay *{
+  /* volontairement inchangé */
+}

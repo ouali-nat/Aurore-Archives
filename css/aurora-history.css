@@ -1,0 +1,10 @@
+
+#aurore-history-confirm-modal{position:fixed;inset:0;z-index:100000;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(9,8,18,.58);backdrop-filter:blur(7px)}
+#aurore-history-confirm-modal.show{display:flex}
+.aurore-history-confirm-card{width:min(430px,100%);padding:22px;border:1px solid var(--bordure);border-radius:20px;background:var(--papier);color:var(--encre);box-shadow:0 24px 70px rgba(0,0,0,.28)}
+.aurore-history-confirm-title{font-weight:800;font-size:1rem;margin-bottom:8px}
+.aurore-history-confirm-text{font-size:.82rem;line-height:1.55;color:var(--gris);margin-bottom:18px}
+.aurore-history-confirm-actions{display:flex;justify-content:flex-end;gap:9px}
+.aurore-history-confirm-actions button{border:1px solid var(--bordure);border-radius:11px;padding:9px 13px;font:inherit;font-size:.78rem;font-weight:700;cursor:pointer}
+.aurore-history-confirm-cancel{background:transparent;color:var(--encre)}
+.aurore-history-confirm-ok{background:var(--accent,#7c3aed);border-color:var(--accent,#7c3aed)!important;color:#fff}

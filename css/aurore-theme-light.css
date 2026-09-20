@@ -1,0 +1,186 @@
+
+  /* =====================================================
+     THÈME CLAIR — activé via [data-theme="light"] sur <html>.
+     Redéfinit uniquement les variables de couleur + les quelques
+     règles codées en dur (hors variables) identifiées dans le CSS
+     existant. Le lecteur PDF garde volontairement son fond sombre
+     (mode lecture), non concerné par ce changement.
+     ===================================================== */
+  [data-theme="light"]{
+    --rouge:#C6432F; --bleu:#3457B2; --violet:#7C3AED; --marron:#8A5A34; --vert:#1F8F5E;
+    --encre:#211D2E; --fond:#F6F4FB; --papier:#FFFFFF; --gris:#6B6478; --bordure:#E2DDF0;
+    --auraster-bg:#F6F4FB; --auraster-panel:#FFFFFF; --auraster-panel-2:#F1ECFA;
+    --auraster-purple:#7C3AED; --auraster-mauve:#9333EA;
+    --ombre:0 12px 32px rgba(90,70,150,.08); --ombre-hover:0 18px 42px rgba(124,58,237,.14);
+  }
+  [data-theme="light"] body{background:#F6F4FB!important;color:#211D2E!important;}
+  [data-theme="light"] header{background:rgba(255,255,255,.92)!important;border-bottom:1px solid rgba(124,58,237,.12)!important;}
+  [data-theme="light"] .hero{background:linear-gradient(145deg,#F3EEFC,#ECE1FA 58%,#F6F4FB)!important;border-color:rgba(124,58,237,.14)!important;}
+  [data-theme="light"] .hero-motif{opacity:.05;}
+  [data-theme="light"] .hero-glow{opacity:.16;}
+  [data-theme="light"] .presentation-item,[data-theme="light"] .home-promise,[data-theme="light"] .home-five-level,[data-theme="light"] .level-card,[data-theme="light"] .cat-card,[data-theme="light"] .matiere-card,[data-theme="light"] .doc-empty,[data-theme="light"] .doc-row,[data-theme="light"] .form-card,[data-theme="light"] .stat-card,[data-theme="light"] .admin-card,[data-theme="light"] .admin-empty,[data-theme="light"] .admin-category-card{background:#FFFFFF!important;border-color:#E2DDF0!important;}
+  [data-theme="light"] .search-box,[data-theme="light"] .user-chip,[data-theme="light"] .form-row input,[data-theme="light"] .form-row select,[data-theme="light"] .access-input{background:#FFFFFF!important;border-color:#DCD4EE!important;color:#211D2E!important;}
+  [data-theme="light"] .section-title{color:#211D2E!important;}
+  [data-theme="light"] input,[data-theme="light"] select,[data-theme="light"] textarea{background:#FFFFFF!important;}
+  [data-theme="light"] .sublevel-card{background:linear-gradient(145deg, rgba(124,58,237,.07), rgba(147,51,234,.03)) !important; border-color:rgba(124,58,237,.16) !important;}
+  [data-theme="light"] footer{background:#EFEAFA!important;color:#615C72!important;}
+  [data-theme="light"] .depot-progress-track{background:#E5DFF3;}
+  [data-theme="light"] .admin-promo-preview,[data-theme="light"] .pub-admin-item,[data-theme="light"] .pub-admin-item img{background:#F6F4FB;}
+  [data-theme="light"] .admin-btn.ghost{background:#F1ECFA;}
+  [data-theme="light"] .ad-slot-card{border-color:#E2DDF0;}
+  [data-theme="light"] .role-badge.eleve{background:rgba(52,87,178,.10);}
+  [data-theme="light"] .role-badge.admin{background:rgba(198,67,47,.10);}
+
+  /* Le violet doit rester une couleur d'identité clairement visible en thème
+     clair — pas seulement dans les surfaces, mais sur les actions et accents.
+     Les quelques règles ci-dessous existent en double dans le CSS : une
+     version basée sur var(--violet) (déjà correcte), puis une version figée
+     en hex clair-sur-sombre plus loin dans la feuille de style, qui l'emporte
+     par spécificité/ordre. On surcharge donc ces cas précis pour le thème
+     clair uniquement — la version sombre n'est pas touchée.               */
+  [data-theme="light"] .hero-rule{background:linear-gradient(90deg,#7C3AED,#9333EA)!important;}
+  [data-theme="light"] .hero h1 .accentword{background:linear-gradient(90deg,#7C3AED,#9333EA)!important;-webkit-background-clip:text!important;background-clip:text!important;color:#7C3AED;}
+  [data-theme="light"] .admin-tab.active{color:#211D2E!important;border-bottom-color:#7C3AED!important;}
+  [data-theme="light"] .home-shortcuts button:hover{background:rgba(124,58,237,.12)!important;border-color:#7C3AED!important;color:#211D2E!important;}
+  [data-theme="light"] .home-five-level:focus-visible,[data-theme="light"] .home-secondary-choice:focus-visible{outline-color:#7C3AED!important;}
+  [data-theme="light"] .home-secondary-choices{
+    background:#FFFFFF!important;
+    border-color:#E2DDF0!important;
+    box-shadow:0 10px 28px rgba(46,31,74,.08)!important;
+  }
+  [data-theme="light"] .home-secondary-heading strong{color:#211D2E!important;}
+  [data-theme="light"] .home-secondary-heading span{color:#6B6478!important;}
+  [data-theme="light"] .home-secondary-choice{
+    background:#F8F6FC!important;
+    border-color:#DDD6EE!important;
+    color:#211D2E!important;
+  }
+  [data-theme="light"] .home-secondary-choice strong{color:#211D2E!important;}
+  [data-theme="light"] .home-secondary-choice span{color:#6B6478!important;}
+  [data-theme="light"] .home-secondary-choice:hover{border-color:#7C3AED!important;background:#F6F0FE!important;color:#211D2E!important;}
+  [data-theme="light"] a{color:#7C3AED;}
+  [data-theme="light"] .breadcrumb button{color:#7C3AED;}
+  /* Le lecteur PDF garde son propre habillage sombre en permanence, quel que
+     soit le thème choisi (voir plus haut) : sélecteur d'ID, spécificité
+     suffisante pour ne jamais être affecté par la règle de lien ci-dessus. */
+  #pdfViewerOverlay a{color:#8fe3a8;}
+
+  /* ---- Sélecteur de thème (discret, dans le header) ---- */
+  .theme-switch{display:flex;align-items:center;gap:2px;padding:3px;border:1px solid var(--bordure);border-radius:999px;background:var(--papier);flex-shrink:0;}
+  .theme-switch-btn{appearance:none;border:none;background:transparent;color:var(--gris);width:30px;height:30px;border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s ease,color .15s ease;}
+  .theme-switch-btn:hover{color:var(--encre);}
+  .theme-switch-btn[aria-pressed="true"]{background:var(--violet);color:#fff;}
+  @media(max-width:640px){.theme-switch{order:5;}}
+
+  /* ---- sélecteur de couleur du site : bouton + panneau glissant ---- */
+  .color-theme-picker{position:relative; flex-shrink:0;}
+  .color-theme-btn{
+    appearance:none; border:1px solid var(--bordure); background:var(--papier); width:38px; height:38px;
+    border-radius:999px; display:flex; align-items:center; justify-content:center; cursor:pointer;
+    transition:border-color .15s ease, transform .15s ease;
+  }
+  .color-theme-btn:hover{ transform:translateY(-1px); border-color:var(--theme-primary,var(--violet)); }
+  .color-theme-btn-dot{
+    width:17px; height:17px; border-radius:50%;
+    background:linear-gradient(135deg,var(--theme-primary,#6D28D9),var(--theme-secondary,#C084FC));
+    box-shadow:0 0 0 2px var(--papier) inset, 0 0 8px rgba(0,0,0,.18);
+  }
+  @media(max-width:640px){.color-theme-picker{order:5;}}
+
+  .color-theme-flyout{
+    position:absolute; top:calc(100% + 12px); right:0; z-index:70; width:248px; max-width:82vw;
+    background:var(--papier); border:1px solid var(--bordure); border-radius:20px;
+    box-shadow:var(--ombre-hover); padding:14px 14px 12px;
+    opacity:0; visibility:hidden; pointer-events:none;
+    transform:translateY(-10px) scale(.94); transform-origin:top right;
+    transition:opacity .2s ease, transform .22s cubic-bezier(.2,.8,.2,1), visibility .22s;
+  }
+  .color-theme-flyout.open{ opacity:1; visibility:visible; pointer-events:auto; transform:translateY(0) scale(1); }
+  .color-theme-flyout-head{
+    display:flex; align-items:baseline; justify-content:space-between; gap:8px;
+    font-size:.7rem; color:var(--gris); margin-bottom:10px; text-transform:uppercase; letter-spacing:.03em;
+  }
+  .color-theme-flyout-head strong{ color:var(--encre); font-size:.86rem; text-transform:none; letter-spacing:0; font-family:Georgia,'Times New Roman',serif; }
+  .color-theme-flyout-scroll{
+    display:grid; grid-template-columns:repeat(5,1fr); gap:10px;
+    max-height:214px; overflow-y:auto; padding:2px 6px 2px 2px;
+    scrollbar-width:thin; scrollbar-color:var(--bordure) transparent;
+  }
+  .color-theme-flyout-scroll::-webkit-scrollbar{ width:6px; }
+  .color-theme-flyout-scroll::-webkit-scrollbar-thumb{ background:var(--bordure); border-radius:999px; }
+  .theme-color-swatch{
+    width:32px; height:32px; padding:0; border-radius:50%; cursor:pointer; appearance:none;
+    border:2px solid transparent; box-shadow:0 2px 6px rgba(0,0,0,.16);
+    transition:transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+  }
+  .theme-color-swatch:hover{ transform:scale(1.14); }
+  .theme-color-swatch[aria-pressed="true"]{ border-color:var(--papier); box-shadow:0 0 0 2px var(--encre), 0 2px 6px rgba(0,0,0,.16); }
+
+  /* ---- gestion des utilisateurs ---- */
+  .admin-users-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap;}
+  .admin-users-list{display:grid;gap:10px;}
+  .admin-user-card{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:16px 18px;background:var(--papier);border:1px solid var(--bordure);border-radius:var(--radius);}
+  .admin-user-main{min-width:0;flex:1;}
+  .admin-user-name{font-weight:700;color:var(--encre);margin-bottom:4px;}
+  .admin-user-email{font-size:.84rem;color:var(--gris);overflow-wrap:anywhere;}
+  .admin-user-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:9px;}
+  .admin-user-date{font-size:.78rem;color:var(--gris);}
+  .admin-user-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;flex-shrink:0;}
+  .admin-user-loading,.admin-user-empty{padding:28px 18px;text-align:center;color:var(--gris);background:var(--papier);border:1px dashed var(--bordure);border-radius:var(--radius);}
+  .admin-user-message{margin-bottom:14px;}
+  @media (max-width:640px){.admin-user-card{align-items:flex-start;flex-direction:column;}.admin-user-actions{width:100%;justify-content:flex-start;}.admin-user-actions .admin-btn{width:100%;justify-content:center;}}
+
+/* Aurore — Documents récents : finition premium et thème clair */
+.pdf-recent-access{margin:10px 14px 0!important;}
+.pdf-recent-toggle{
+  border:1px solid rgba(124,58,237,.24)!important;
+  background:linear-gradient(135deg,rgba(124,58,237,.13),rgba(192,132,252,.08))!important;
+  color:#f8f6fc!important;border-radius:14px!important;padding:9px 14px!important;
+  box-shadow:0 5px 18px rgba(0,0,0,.14);transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease;
+}
+.pdf-recent-toggle:hover{transform:translateY(-1px);border-color:rgba(192,132,252,.5)!important;box-shadow:0 8px 24px rgba(0,0,0,.2);}
+.pdf-recent-panel{
+  margin-top:9px!important;padding:12px!important;border-radius:17px!important;
+  background:rgba(18,16,28,.97)!important;border:1px solid rgba(255,255,255,.09)!important;
+  box-shadow:0 18px 42px rgba(0,0,0,.32)!important;max-height:245px!important;
+}
+.pdf-recent-panel-title{color:#aaa2b9!important;font-size:.68rem!important;letter-spacing:.13em!important;margin-bottom:10px!important;}
+.pdf-recent-list{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr));gap:8px!important;}
+.pdf-recent-item{
+  position:relative;display:flex!important;align-items:center!important;min-width:0;width:100%;
+  padding:10px 34px 10px 12px!important;border:1px solid rgba(255,255,255,.08)!important;
+  border-radius:13px!important;background:rgba(255,255,255,.045)!important;color:#f4f1f8!important;
+  transition:transform .14s ease,border-color .14s ease,background .14s ease;overflow:hidden;
+}
+.pdf-recent-item:hover{transform:translateY(-1px);background:rgba(124,58,237,.12)!important;border-color:rgba(192,132,252,.36)!important;}
+.pdf-recent-item-title{max-width:100%!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:650!important;font-size:.8rem;}
+.pdf-recent-item::before{content:"";width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:#a78bfa;margin-right:9px;box-shadow:0 0 0 4px rgba(167,139,250,.10);}
+.pdf-recent-item-remove{
+  position:absolute;right:7px;top:50%;transform:translateY(-50%);
+  width:24px;height:24px;border:0;border-radius:8px;background:transparent;color:#a9a2b2;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;line-height:1;
+}
+.pdf-recent-item-remove:hover{background:rgba(198,67,47,.16);color:#ffb4ab;}
+.pdf-recent-empty{color:#aaa2b9!important;padding:8px!important;text-align:center;border:1px dashed rgba(255,255,255,.09);border-radius:12px;}
+[data-theme="light"] #pdfViewerOverlay .pdf-recent-toggle{
+  background:linear-gradient(135deg,#f3edff,#fbf9ff)!important;color:#211d2e!important;
+  border-color:#d8c9f4!important;box-shadow:0 5px 18px rgba(90,70,150,.10);
+}
+[data-theme="light"] #pdfViewerOverlay .pdf-recent-panel{
+  background:#ffffff!important;border-color:#e2ddf0!important;box-shadow:0 18px 42px rgba(90,70,150,.16)!important;
+}
+[data-theme="light"] #pdfViewerOverlay .pdf-recent-panel-title{color:#6b6478!important;}
+[data-theme="light"] #pdfViewerOverlay .pdf-recent-item{
+  background:#f8f6fc!important;color:#211d2e!important;border-color:#e5def1!important;
+}
+[data-theme="light"] #pdfViewerOverlay .pdf-recent-item:hover{background:#f3edff!important;border-color:#cdb9ed!important;}
+[data-theme="light"] #pdfViewerOverlay .pdf-recent-item-remove{color:#756d80;}
+[data-theme="light"] #pdfViewerOverlay .pdf-recent-empty{color:#6b6478!important;border-color:#e2ddf0;}
+/* Historique personnel */
+.personal-history-toolbar{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:8px 0 10px;}
+.personal-history-clear{border:1px solid rgba(198,67,47,.22);background:rgba(198,67,47,.07);color:var(--rouge);border-radius:10px;padding:7px 10px;font:inherit;font-size:.72rem;font-weight:700;cursor:pointer;}
+.personal-history-clear:hover{background:rgba(198,67,47,.12);border-color:rgba(198,67,47,.4);}
+.personal-history-row{position:relative;}
+.personal-history-delete{width:30px;height:30px;border:1px solid var(--bordure);background:var(--fond);color:var(--gris);border-radius:9px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;line-height:1;}
+.personal-history-delete:hover{color:var(--rouge);border-color:rgba(198,67,47,.35);background:rgba(198,67,47,.07);}
+

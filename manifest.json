@@ -1,0 +1,25 @@
+{
+  "name": "Aurore — Section Archives",
+  "short_name": "Aurore",
+  "description": "Bibliothèque numérique de documents scolaires et éducatifs.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#090812",
+  "theme_color": "#090812",
+  "lang": "fr-FR",
+  "icons": [
+    {
+      "src": "https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

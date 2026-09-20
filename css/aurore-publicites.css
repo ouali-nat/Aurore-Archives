@@ -1,0 +1,666 @@
+
+/* Publicités : état piloté uniquement par le contenu. Un emplacement rempli est visible. */
+.ad-slot[id^="ad-"]{display:block!important;visibility:visible!important;opacity:1!important;}
+.ad-slot[id^="ad-"]:empty{display:none!important;visibility:hidden!important;opacity:0!important;}
+
+/* =====================================================================
+   VITRINE PUBLICITAIRE — POLISH VISUEL
+   L'image et le bloc titre/description sont volontairement séparés.
+   Aucun changement de chargement, de rotation, de lien ou de données.
+   ===================================================================== */
+.ad-slot[id^="ad-"]{
+  width:100%;
+  max-width:760px;
+  margin:22px auto;
+  box-sizing:border-box;
+  overflow:visible;
+}
+
+/* Carte média : l'image reste dans son propre bloc. */
+.ad-slot[id^="ad-"] .ad-card,
+.ad-slot[id^="ad-"] .publicite-card,
+.ad-slot[id^="ad-"] .pub-card,
+.ad-slot[id^="ad-"] .ad-media,
+.ad-slot[id^="ad-"] .ad-image-wrap,
+.ad-slot[id^="ad-"] > a:first-child{
+  display:block;
+  width:100%;
+  max-width:100%;
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  overflow:hidden;
+  border-radius:18px;
+  background:var(--papier,#fff);
+  border:1px solid var(--bordure,rgba(80,65,120,.14));
+  box-shadow:0 8px 24px rgba(30,20,60,.10);
+}
+
+.ad-slot[id^="ad-"] img{
+  display:block;
+  width:100%;
+  max-width:100%;
+  height:auto;
+  max-height:360px;
+  object-fit:cover;
+  object-position:center;
+  margin:0;
+  border:0;
+  border-radius:17px;
+}
+
+/* Le contenu textuel est un bloc commun indépendant visuellement,
+   immédiatement sous l'image. */
+.ad-slot[id^="ad-"] .ad-content,
+.ad-slot[id^="ad-"] .ad-info,
+.ad-slot[id^="ad-"] .ad-text,
+.ad-slot[id^="ad-"] .ad-caption,
+.ad-slot[id^="ad-"] .publicite-info,
+.ad-slot[id^="ad-"] .publicite-content,
+.ad-slot[id^="ad-"] .pub-content,
+.ad-slot[id^="ad-"] .pub-info{
+  display:block;
+  width:100%;
+  box-sizing:border-box;
+  margin:8px 0 0;
+  padding:14px 16px 15px;
+  border-radius:14px;
+  background:var(--papier,#fff);
+  color:var(--encre,#1f1b2e);
+  border:1px solid var(--bordure,rgba(80,65,120,.14));
+  box-shadow:0 5px 18px rgba(30,20,60,.07);
+}
+
+.ad-slot[id^="ad-"] .ad-title,
+.ad-slot[id^="ad-"] .publicite-title,
+.ad-slot[id^="ad-"] .pub-title,
+.ad-slot[id^="ad-"] .ad-heading{
+  display:block;
+  margin:0;
+  color:var(--encre,#1f1b2e);
+  font-size:clamp(.94rem,2vw,1.05rem);
+  line-height:1.35;
+  font-weight:800;
+  letter-spacing:-.01em;
+}
+
+.ad-slot[id^="ad-"] .ad-description,
+.ad-slot[id^="ad-"] .publicite-description,
+.ad-slot[id^="ad-"] .pub-description,
+.ad-slot[id^="ad-"] .ad-desc{
+  display:block;
+  margin:5px 0 0;
+  color:var(--gris,#6f6a7d);
+  font-size:.86rem;
+  line-height:1.55;
+  font-weight:400;
+}
+
+/* Si le moteur place directement titre/description dans le conteneur,
+   ils restent regroupés sous le média sans modifier le DOM. */
+.ad-slot[id^="ad-"] > .ad-title + .ad-description,
+.ad-slot[id^="ad-"] > .publicite-title + .publicite-description,
+.ad-slot[id^="ad-"] > .pub-title + .pub-description{
+  display:block;
+  width:100%;
+  box-sizing:border-box;
+  margin:8px 0 0;
+  padding:14px 16px 15px;
+  border-radius:14px;
+  background:var(--papier,#fff);
+  border:1px solid var(--bordure,rgba(80,65,120,.14));
+}
+
+/* Dark mode : même structure, contraste adapté aux variables du thème. */
+[data-theme="sombre"] .ad-slot[id^="ad-"] .ad-content,
+[data-theme="sombre"] .ad-slot[id^="ad-"] .ad-info,
+[data-theme="sombre"] .ad-slot[id^="ad-"] .ad-text,
+[data-theme="sombre"] .ad-slot[id^="ad-"] .ad-caption,
+[data-theme="sombre"] .ad-slot[id^="ad-"] .publicite-info,
+[data-theme="sombre"] .ad-slot[id^="ad-"] .publicite-content,
+[data-theme="sombre"] .ad-slot[id^="ad-"] .pub-content,
+[data-theme="sombre"] .ad-slot[id^="ad-"] .pub-info{
+  box-shadow:0 8px 24px rgba(0,0,0,.24);
+}
+
+/* Mobile : image pleine largeur, texte aéré et sans débordement horizontal. */
+@media (max-width:600px){
+  .ad-slot[id^="ad-"]{
+    width:100%;
+    margin:18px auto;
+  }
+  .ad-slot[id^="ad-"] img{
+    max-height:300px;
+  }
+  .ad-slot[id^="ad-"] .ad-content,
+  .ad-slot[id^="ad-"] .ad-info,
+  .ad-slot[id^="ad-"] .ad-text,
+  .ad-slot[id^="ad-"] .ad-caption,
+  .ad-slot[id^="ad-"] .publicite-info,
+  .ad-slot[id^="ad-"] .publicite-content,
+  .ad-slot[id^="ad-"] .pub-content,
+  .ad-slot[id^="ad-"] .pub-info{
+    margin-top:7px;
+    padding:13px 14px 14px;
+    border-radius:13px;
+  }
+}
+
+
+/* =====================================================================
+   VITRINE PUBLICITAIRE — NOUVELLE CARTE ADAPTATIVE
+   Image native : le cadre épouse son ratio, sans crop ni voile sombre.
+   Design indépendant du mode clair/sombre et de la couleur choisie.
+   ===================================================================== */
+
+.ad-slot[id^="ad-"]{
+  --pub-radius:20px;
+  --pub-surface:var(--papier,#fff);
+  --pub-text:var(--encre,#211d2d);
+  --pub-muted:var(--gris,#716b7e);
+  --pub-accent:var(--theme-primary,#8B5CF6);
+  --pub-accent-2:var(--theme-secondary,#C084FC);
+  width:min(100%,780px)!important;
+  max-width:780px!important;
+  margin:24px auto!important;
+  padding:0!important;
+  position:relative!important;
+  isolation:isolate;
+  overflow:visible!important;
+}
+
+/* La carte entière reste claire : aucun filtre/overlay noir. */
+.ad-slot[id^="ad-"]::before{
+  content:"";
+  position:absolute;
+  inset:-1px;
+  border-radius:calc(var(--pub-radius) + 1px);
+  background:linear-gradient(120deg,var(--pub-accent),color-mix(in srgb,var(--pub-accent-2) 70%,transparent),transparent 72%);
+  opacity:.34;
+  z-index:-2;
+  pointer-events:none;
+}
+
+.ad-slot[id^="ad-"]::after{
+  content:"";
+  position:absolute;
+  inset:2px;
+  border-radius:calc(var(--pub-radius) - 2px);
+  background:var(--pub-surface);
+  z-index:-1;
+  pointer-events:none;
+}
+
+/* Image : le bloc épouse exactement le ratio réel de l'image. */
+.ad-slot[id^="ad-"] .ad-card,
+.ad-slot[id^="ad-"] .publicite-card,
+.ad-slot[id^="ad-"] .pub-card,
+.ad-slot[id^="ad-"] .ad-media,
+.ad-slot[id^="ad-"] .ad-image-wrap,
+.ad-slot[id^="ad-"] > a:first-child{
+  width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  aspect-ratio:auto!important;
+  padding:0!important;
+  overflow:hidden!important;
+  border:1px solid color-mix(in srgb,var(--pub-accent) 30%,var(--bordure,#ddd6e8))!important;
+  border-radius:var(--pub-radius)!important;
+  background:var(--pub-surface)!important;
+  box-shadow:0 10px 28px var(--theme-shadow,rgba(80,65,120,.10))!important;
+}
+
+/* Si l'image est directement dans la carte, elle conserve son cadrage naturel. */
+.ad-slot[id^="ad-"] img{
+  display:block!important;
+  width:100%!important;
+  height:auto!important;
+  max-width:100%!important;
+  max-height:none!important;
+  min-height:0!important;
+  object-fit:contain!important;
+  object-position:center!important;
+  aspect-ratio:auto!important;
+  border:0!important;
+  border-radius:calc(var(--pub-radius) - 1px)!important;
+  background:var(--pub-surface)!important;
+}
+
+/* Évite qu'un lien publicitaire ajoute une couche sombre au-dessus de l'image. */
+.ad-slot[id^="ad-"] a,
+.ad-slot[id^="ad-"] a::before,
+.ad-slot[id^="ad-"] a::after{
+  background:transparent!important;
+  box-shadow:none!important;
+  filter:none!important;
+}
+
+/* Texte : une seconde surface nette, reliée à la couleur du thème. */
+.ad-slot[id^="ad-"] .ad-content,
+.ad-slot[id^="ad-"] .ad-info,
+.ad-slot[id^="ad-"] .ad-text,
+.ad-slot[id^="ad-"] .ad-caption,
+.ad-slot[id^="ad-"] .publicite-info,
+.ad-slot[id^="ad-"] .publicite-content,
+.ad-slot[id^="ad-"] .pub-content,
+.ad-slot[id^="ad-"] .pub-info{
+  position:relative!important;
+  width:100%!important;
+  margin:10px 0 0!important;
+  padding:15px 17px 16px!important;
+  box-sizing:border-box!important;
+  border:1px solid color-mix(in srgb,var(--pub-accent) 25%,var(--bordure,#ddd6e8))!important;
+  border-radius:16px!important;
+  background:linear-gradient(135deg,var(--pub-surface),var(--theme-softer,rgba(139,92,246,.05)))!important;
+  color:var(--pub-text)!important;
+  box-shadow:0 7px 20px var(--theme-shadow,rgba(80,65,120,.08))!important;
+}
+
+.ad-slot[id^="ad-"] .ad-content::before,
+.ad-slot[id^="ad-"] .ad-info::before,
+.ad-slot[id^="ad-"] .ad-text::before,
+.ad-slot[id^="ad-"] .publicite-info::before,
+.ad-slot[id^="ad-"] .publicite-content::before,
+.ad-slot[id^="ad-"] .pub-content::before,
+.ad-slot[id^="ad-"] .pub-info::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:12px;
+  bottom:12px;
+  width:3px;
+  border-radius:3px;
+  background:linear-gradient(var(--pub-accent),var(--pub-accent-2));
+}
+
+.ad-slot[id^="ad-"] .ad-title,
+.ad-slot[id^="ad-"] .publicite-title,
+.ad-slot[id^="ad-"] .pub-title,
+.ad-slot[id^="ad-"] .ad-heading{
+  color:var(--pub-text)!important;
+  font-size:clamp(.92rem,1.7vw,1.06rem)!important;
+  line-height:1.35!important;
+  font-weight:800!important;
+  margin:0!important;
+}
+
+.ad-slot[id^="ad-"] .ad-description,
+.ad-slot[id^="ad-"] .publicite-description,
+.ad-slot[id^="ad-"] .pub-description,
+.ad-slot[id^="ad-"] .ad-desc{
+  color:var(--pub-muted)!important;
+  font-size:.84rem!important;
+  line-height:1.5!important;
+  margin:5px 0 0!important;
+}
+
+/* Le mode sombre garde des surfaces lisibles, jamais noires/assombries. */
+html[data-theme="dark"] .ad-slot[id^="ad-"] .ad-card,
+html[data-theme="dark"] .ad-slot[id^="ad-"] .publicite-card,
+html[data-theme="dark"] .ad-slot[id^="ad-"] .pub-card,
+html[data-theme="dark"] .ad-slot[id^="ad-"] .ad-media,
+html[data-theme="dark"] .ad-slot[id^="ad-"] .ad-image-wrap,
+html[data-theme="dark"] .ad-slot[id^="ad-"] > a:first-child,
+html[data-theme="sombre"] .ad-slot[id^="ad-"] .ad-card,
+html[data-theme="sombre"] .ad-slot[id^="ad-"] .publicite-card,
+html[data-theme="sombre"] .ad-slot[id^="ad-"] .pub-card{
+  background:var(--papier,#171421)!important;
+  box-shadow:0 10px 28px var(--theme-shadow,rgba(0,0,0,.18))!important;
+}
+
+@media(max-width:600px){
+  .ad-slot[id^="ad-"]{
+    width:calc(100% - 20px)!important;
+    margin:18px auto!important;
+  }
+  .ad-slot[id^="ad-"] .ad-content,
+  .ad-slot[id^="ad-"] .ad-info,
+  .ad-slot[id^="ad-"] .ad-text,
+  .ad-slot[id^="ad-"] .ad-caption,
+  .ad-slot[id^="ad-"] .publicite-info,
+  .ad-slot[id^="ad-"] .publicite-content,
+  .ad-slot[id^="ad-"] .pub-content,
+  .ad-slot[id^="ad-"] .pub-info{
+    padding:13px 14px 14px!important;
+    margin-top:8px!important;
+  }
+}
+
+/* =====================================================================
+   PUBLICITÉS — REFONTE RADICALE / CARTES FLUIDES
+   Objectif : petits panneaux éditoriaux, lisibles en zoom et en mode clair.
+   Le média garde son ratio réel. Aucun voile sombre ni crop forcé.
+   ===================================================================== */
+.ad-slot[id^="ad-"]{
+  --pub-accent:var(--theme-primary,#7c3aed);
+  --pub-accent-2:var(--theme-secondary,#a855f7);
+  --pub-bg:var(--papier,#ffffff);
+  --pub-text:var(--encre,#211d2d);
+  --pub-muted:var(--gris,#6b6575);
+  width:min(100% - 24px,720px)!important;
+  max-width:720px!important;
+  margin:16px auto!important;
+  padding:0!important;
+  position:relative!important;
+  box-sizing:border-box!important;
+  isolation:isolate;
+}
+
+/* Ligne d'accent très légère : elle remplace l'ancienne grosse bordure. */
+.ad-slot[id^="ad-"]::before{
+  content:"";
+  position:absolute;
+  left:12px;
+  right:12px;
+  top:-2px;
+  height:2px;
+  border-radius:99px;
+  background:linear-gradient(90deg,var(--pub-accent),var(--pub-accent-2));
+  opacity:.72;
+  pointer-events:none;
+}
+
+/* La carte média épouse réellement l'image. */
+.ad-slot[id^="ad-"] .ad-card,
+.ad-slot[id^="ad-"] .publicite-card,
+.ad-slot[id^="ad-"] .pub-card,
+.ad-slot[id^="ad-"] .ad-media,
+.ad-slot[id^="ad-"] .ad-image-wrap,
+.ad-slot[id^="ad-"] > a:first-child{
+  display:block!important;
+  width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:0!important;
+  overflow:hidden!important;
+  border:1px solid color-mix(in srgb,var(--pub-accent) 22%,var(--bordure,#ddd6e8))!important;
+  border-radius:14px!important;
+  background:var(--pub-bg)!important;
+  box-shadow:0 5px 16px var(--theme-shadow,rgba(60,45,100,.08))!important;
+}
+
+/* Aucun recadrage : une affiche verticale reste verticale, une bannière reste large. */
+.ad-slot[id^="ad-"] img{
+  display:block!important;
+  width:100%!important;
+  height:auto!important;
+  max-width:100%!important;
+  max-height:none!important;
+  min-height:0!important;
+  object-fit:contain!important;
+  object-position:center!important;
+  aspect-ratio:auto!important;
+  border:0!important;
+  border-radius:13px!important;
+  background:var(--pub-bg)!important;
+  filter:none!important;
+}
+
+/* Petit bandeau d'information séparé, beaucoup plus léger. */
+.ad-slot[id^="ad-"] .ad-content,
+.ad-slot[id^="ad-"] .ad-info,
+.ad-slot[id^="ad-"] .ad-text,
+.ad-slot[id^="ad-"] .ad-caption,
+.ad-slot[id^="ad-"] .publicite-info,
+.ad-slot[id^="ad-"] .publicite-content,
+.ad-slot[id^="ad-"] .pub-content,
+.ad-slot[id^="ad-"] .pub-info{
+  position:relative!important;
+  width:100%!important;
+  margin:7px 0 0!important;
+  padding:10px 13px 10px 16px!important;
+  box-sizing:border-box!important;
+  border:1px solid color-mix(in srgb,var(--pub-accent) 16%,var(--bordure,#ddd6e8))!important;
+  border-radius:11px!important;
+  background:var(--pub-bg)!important;
+  color:var(--pub-text)!important;
+  box-shadow:none!important;
+}
+
+/* Repère couleur compact. */
+.ad-slot[id^="ad-"] .ad-content::before,
+.ad-slot[id^="ad-"] .ad-info::before,
+.ad-slot[id^="ad-"] .ad-text::before,
+.ad-slot[id^="ad-"] .publicite-info::before,
+.ad-slot[id^="ad-"] .publicite-content::before,
+.ad-slot[id^="ad-"] .pub-content::before,
+.ad-slot[id^="ad-"] .pub-info::before{
+  content:"";
+  position:absolute;
+  left:7px;
+  top:9px;
+  bottom:9px;
+  width:2px;
+  border-radius:4px;
+  background:linear-gradient(var(--pub-accent),var(--pub-accent-2));
+}
+
+.ad-slot[id^="ad-"] .ad-title,
+.ad-slot[id^="ad-"] .publicite-title,
+.ad-slot[id^="ad-"] .pub-title,
+.ad-slot[id^="ad-"] .ad-heading{
+  margin:0!important;
+  color:var(--pub-text)!important;
+  font-size:clamp(.84rem,1.5vw,.98rem)!important;
+  line-height:1.3!important;
+  font-weight:800!important;
+}
+
+.ad-slot[id^="ad-"] .ad-description,
+.ad-slot[id^="ad-"] .publicite-description,
+.ad-slot[id^="ad-"] .pub-description,
+.ad-slot[id^="ad-"] .ad-desc{
+  margin:3px 0 0!important;
+  color:var(--pub-muted)!important;
+  font-size:.78rem!important;
+  line-height:1.42!important;
+}
+
+/* Liens : aucune couche graphique ajoutée par-dessus l'image. */
+.ad-slot[id^="ad-"] a,
+.ad-slot[id^="ad-"] a::before,
+.ad-slot[id^="ad-"] a::after{
+  background:transparent!important;
+  box-shadow:none!important;
+  filter:none!important;
+}
+
+/* Zoom : la pub reste contenue dans son propre espace et ne déborde pas. */
+html[style*="zoom"] .ad-slot[id^="ad-"]{
+  overflow:visible!important;
+}
+
+@media(max-width:600px){
+  .ad-slot[id^="ad-"]{
+    width:calc(100% - 16px)!important;
+    margin:13px auto!important;
+  }
+  .ad-slot[id^="ad-"] .ad-content,
+  .ad-slot[id^="ad-"] .ad-info,
+  .ad-slot[id^="ad-"] .ad-text,
+  .ad-slot[id^="ad-"] .ad-caption,
+  .ad-slot[id^="ad-"] .publicite-info,
+  .ad-slot[id^="ad-"] .publicite-content,
+  .ad-slot[id^="ad-"] .pub-content,
+  .ad-slot[id^="ad-"] .pub-info{
+    margin-top:6px!important;
+    padding:9px 11px 9px 14px!important;
+  }
+}
+
+/* Mode sombre : surfaces lisibles et accent du thème, sans assombrissement artificiel. */
+html[data-theme="dark"] .ad-slot[id^="ad-"] .ad-card,
+html[data-theme="dark"] .ad-slot[id^="ad-"] .publicite-card,
+html[data-theme="dark"] .ad-slot[id^="ad-"] .pub-card,
+html[data-theme="dark"] .ad-slot[id^="ad-"] .ad-media,
+html[data-theme="dark"] .ad-slot[id^="ad-"] .ad-image-wrap,
+html[data-theme="dark"] .ad-slot[id^="ad-"] > a:first-child,
+html[data-theme="sombre"] .ad-slot[id^="ad-"] .ad-card,
+html[data-theme="sombre"] .ad-slot[id^="ad-"] .publicite-card,
+html[data-theme="sombre"] .ad-slot[id^="ad-"] .pub-card{
+  background:var(--papier,#171421)!important;
+}
+
+/* ---------- MODE CLAIR : suppression totale de tout halo sombre ---------- */
+html[data-theme="light"] .ad-slot[id^="ad-"],
+html[data-theme="light"] .ad-slot[id^="ad-"] *,
+html[data-theme="light"] .ad-slot[id^="ad-"]::before,
+html[data-theme="light"] .ad-slot[id^="ad-"]::after{
+  filter:none!important;
+}
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-card,
+html[data-theme="light"] .ad-slot[id^="ad-"] .publicite-card,
+html[data-theme="light"] .ad-slot[id^="ad-"] .pub-card,
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-media,
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-image-wrap,
+html[data-theme="light"] .ad-slot[id^="ad-"] > a:first-child,
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-content,
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-info,
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-text,
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-caption,
+html[data-theme="light"] .ad-slot[id^="ad-"] .publicite-info,
+html[data-theme="light"] .ad-slot[id^="ad-"] .publicite-content,
+html[data-theme="light"] .ad-slot[id^="ad-"] .pub-content,
+html[data-theme="light"] .ad-slot[id^="ad-"] .pub-info{
+  box-shadow:none!important;
+}
+html[data-theme="light"] .ad-slot[id^="ad-"]::after{
+  background:transparent!important;
+  box-shadow:none!important;
+}
+
+
+/* ---------- CORRECTION FINALE : panneau sombre sous la publicité ---------- */
+/* Le bloc qui contient titre/description doit être une vraie surface opaque,
+   jamais un overlay transparent ou un panneau sombre. */
+.ad-slot[id^="ad-"] > div:not(:has(img)),
+.ad-slot[id^="ad-"] > section:not(:has(img)),
+.ad-slot[id^="ad-"] > .ad-content,
+.ad-slot[id^="ad-"] > .ad-info,
+.ad-slot[id^="ad-"] > .ad-text,
+.ad-slot[id^="ad-"] > .ad-caption,
+.ad-slot[id^="ad-"] > .publicite-info,
+.ad-slot[id^="ad-"] > .publicite-content,
+.ad-slot[id^="ad-"] > .pub-content,
+.ad-slot[id^="ad-"] > .pub-info{
+  background:var(--pub-bg,var(--papier,#fff))!important;
+  background-image:none!important;
+  opacity:1!important;
+  filter:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  mix-blend-mode:normal!important;
+  box-shadow:none!important;
+  color:var(--pub-text,var(--encre,#211d2d))!important;
+}
+
+/* Aucun pseudo-élément sombre ne peut se superposer au panneau texte. */
+.ad-slot[id^="ad-"] > div:not(:has(img))::before,
+.ad-slot[id^="ad-"] > div:not(:has(img))::after,
+.ad-slot[id^="ad-"] > section:not(:has(img))::before,
+.ad-slot[id^="ad-"] > section:not(:has(img))::after{
+  background:transparent!important;
+  background-image:none!important;
+  opacity:0!important;
+  box-shadow:none!important;
+  filter:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+
+/* En mode clair : blanc/clair franc, sans transparence ni halo. */
+html[data-theme="light"] .ad-slot[id^="ad-"] > div:not(:has(img)),
+html[data-theme="light"] .ad-slot[id^="ad-"] > section:not(:has(img)){
+  background:#fff!important;
+  background-image:none!important;
+  opacity:1!important;
+  box-shadow:none!important;
+}
+
+
+/* =====================================================================
+   MODE CLAIR — BLOC PUBLICITAIRE SANS BANDE SOMBRE
+   Correction de dernier niveau : aucun voile, gradient ou ombre ne doit
+   pouvoir apparaître sous l'affiche. Les surfaces restent opaques et claires.
+   ===================================================================== */
+html[data-theme="light"] .ad-slot[id^="ad-"]{
+  background:#fff!important;
+  background-image:none!important;
+  box-shadow:none!important;
+  filter:none!important;
+  opacity:1!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+
+html[data-theme="light"] .ad-slot[id^="ad-"]::before,
+html[data-theme="light"] .ad-slot[id^="ad-"]::after,
+html[data-theme="light"] .ad-slot[id^="ad-"] *::before,
+html[data-theme="light"] .ad-slot[id^="ad-"] *::after{
+  box-shadow:none!important;
+  filter:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  mix-blend-mode:normal!important;
+}
+
+/* Les pseudo-éléments décoratifs internes ne doivent jamais créer un
+   panneau sombre en bas de l'image. */
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-card::after,
+html[data-theme="light"] .ad-slot[id^="ad-"] .publicite-card::after,
+html[data-theme="light"] .ad-slot[id^="ad-"] .pub-card::after,
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-media::after,
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-image-wrap::after,
+html[data-theme="light"] .ad-slot[id^="ad-"] a::after{
+  content:none!important;
+  display:none!important;
+  background:none!important;
+  background-image:none!important;
+  opacity:0!important;
+}
+
+/* Les conteneurs visuels de la publicité ne portent aucune ombre sombre. */
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-card,
+html[data-theme="light"] .ad-slot[id^="ad-"] .publicite-card,
+html[data-theme="light"] .ad-slot[id^="ad-"] .pub-card,
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-media,
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-image-wrap,
+html[data-theme="light"] .ad-slot[id^="ad-"] > a:first-child{
+  background:#fff!important;
+  background-image:none!important;
+  box-shadow:none!important;
+  filter:none!important;
+  opacity:1!important;
+}
+
+/* Le panneau titre/description reste une surface blanche indépendante. */
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-content,
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-info,
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-text,
+html[data-theme="light"] .ad-slot[id^="ad-"] .ad-caption,
+html[data-theme="light"] .ad-slot[id^="ad-"] .publicite-info,
+html[data-theme="light"] .ad-slot[id^="ad-"] .publicite-content,
+html[data-theme="light"] .ad-slot[id^="ad-"] .pub-content,
+html[data-theme="light"] .ad-slot[id^="ad-"] .pub-info{
+  background:#fff!important;
+  background-image:none!important;
+  box-shadow:none!important;
+  opacity:1!important;
+  filter:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+
+/* Si un composant publicitaire injecte un panneau générique en bas,
+   on le force également à rester clair sans modifier son contenu. */
+html[data-theme="light"] .ad-slot[id^="ad-"] [class*="overlay"],
+html[data-theme="light"] .ad-slot[id^="ad-"] [class*="Overlay"],
+html[data-theme="light"] .ad-slot[id^="ad-"] [class*="caption"],
+html[data-theme="light"] .ad-slot[id^="ad-"] [class*="content"],
+html[data-theme="light"] .ad-slot[id^="ad-"] [class*="info"]{
+  box-shadow:none!important;
+  filter:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}

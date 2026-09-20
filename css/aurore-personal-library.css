@@ -1,0 +1,186 @@
+
+/* Espace personnel : même langage visuel que .doc-row de la bibliothèque. */
+#personalSpace .aurore-personal-document-row{
+  background:var(--papier)!important;
+  border:1px solid var(--bordure)!important;
+  border-radius:var(--radius-sm)!important;
+  padding:16px 20px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:14px!important;
+  flex-wrap:wrap!important;
+  box-shadow:var(--ombre)!important;
+}
+#personalSpace .aurore-personal-document-row .info{display:flex!important;align-items:center!important;gap:12px!important;min-width:0!important;flex:1 1 360px!important;}
+#personalSpace .aurore-personal-document-row .personal-doc-cover.icon-wrap{
+  width:56px!important;height:56px!important;min-width:56px!important;
+  border-radius:10px!important;background:var(--bordure)!important;color:var(--marron)!important;
+  overflow:hidden!important;display:flex!important;align-items:center!important;justify-content:center!important;
+}
+#personalSpace .aurore-personal-document-row .personal-doc-cover img.doc-cover-img{
+  width:100%!important;height:100%!important;object-fit:cover!important;border-radius:inherit!important;display:block!important;opacity:1!important;
+}
+#personalSpace .aurore-personal-document-row .doc-main-info{min-width:0!important;flex:1 1 auto!important;}
+#personalSpace .aurore-personal-document-row .titre{font-weight:700!important;font-size:.9rem!important;line-height:1.35!important;color:var(--encre)!important;min-width:0!important;overflow-wrap:anywhere!important;}
+#personalSpace .aurore-personal-document-row .meta{font-size:.76rem!important;color:var(--gris)!important;margin-top:2px!important;line-height:1.45!important;}
+#personalSpace .aurore-personal-document-row .doc-actions{display:flex!important;gap:8px!important;flex-wrap:wrap!important;align-items:center!important;justify-content:flex-end!important;}
+#personalSpace .aurore-personal-document-row .doc-actions .dl{background:var(--marron);color:#fff;border:1px solid var(--marron);text-decoration:none;padding:9px 18px;border-radius:var(--radius-sm);font-weight:700;font-size:.8rem;cursor:pointer;}
+#personalSpace .aurore-personal-document-row .doc-actions .doc-action-soft{background:transparent!important;color:var(--gris)!important;border:1px solid var(--bordure)!important;}
+#personalSpace .aurore-personal-document-row .doc-actions .doc-action-soft:hover{border-color:var(--violet)!important;color:var(--encre)!important;}
+#personalSpace .aurore-personal-document-row .personal-status{margin-top:7px;}
+@media(max-width:760px){
+  #personalSpace .aurore-personal-document-row{flex-direction:column!important;align-items:stretch!important;}
+  #personalSpace .aurore-personal-document-row .doc-actions{width:100%!important;justify-content:flex-start!important;}
+  #personalSpace .aurore-personal-document-row .doc-actions .dl{flex:1 1 auto!important;text-align:center!important;}
+}
+
+
+#personalSpace .aurore-personal-document-row .personal-history-delete{background:transparent!important;color:var(--gris)!important;border:1px solid var(--bordure)!important;border-radius:var(--radius-sm)!important;padding:9px 12px!important;font-weight:700!important;cursor:pointer!important;}
+#personalSpace .aurore-personal-document-row .personal-history-delete:hover{color:var(--rouge)!important;border-color:var(--rouge)!important;}
+
+
+/* ESPACE PERSONNEL — copie du modèle de présentation de la bibliothèque.
+   Cette couche ne touche ni aux données ni aux gestionnaires d'actions. */
+#personalSpace .personal-list{
+  display:grid!important;
+  grid-template-columns:repeat(auto-fill,minmax(205px,1fr))!important;
+  gap:16px!important;
+  margin-top:22px!important;
+  align-items:stretch!important;
+}
+#personalSpace .personal-list > .doc-row.aurore-personal-document-row{
+  position:relative!important;
+  min-width:0!important;
+  min-height:0!important;
+  height:100%!important;
+  padding:0!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:stretch!important;
+  justify-content:flex-start!important;
+  gap:0!important;
+  overflow:hidden!important;
+  border:1px solid var(--bordure)!important;
+  border-radius:16px!important;
+  background:var(--papier)!important;
+  box-shadow:0 2px 7px rgba(35,25,55,.08)!important;
+}
+#personalSpace .personal-list > .doc-row.aurore-personal-document-row:hover{
+  transform:translateY(-2px)!important;
+  border-color:color-mix(in srgb,var(--violet) 35%,var(--bordure))!important;
+  box-shadow:0 7px 20px rgba(55,36,82,.13)!important;
+}
+#personalSpace .doc-row.aurore-personal-document-row > .info{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:stretch!important;
+  gap:0!important;
+  min-width:0!important;
+  flex:1 1 auto!important;
+}
+#personalSpace .doc-row.aurore-personal-document-row .icon-wrap,
+#personalSpace .doc-row.aurore-personal-document-row .icon-wrap.a-couverture{
+  width:100%!important;
+  height:auto!important;
+  aspect-ratio:1/1!important;
+  min-height:0!important;
+  flex:none!important;
+  border-radius:0!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  overflow:hidden!important;
+  background:linear-gradient(145deg,#F1EDF7,#E6E0EF)!important;
+  border:0!important;
+}
+#personalSpace .doc-row.aurore-personal-document-row .icon-wrap:not(.a-couverture){color:var(--violet)!important;}
+#personalSpace .doc-row.aurore-personal-document-row .icon-wrap img.doc-cover-img{
+  width:100%!important;height:100%!important;aspect-ratio:1/1!important;object-fit:cover!important;border-radius:0!important;display:block!important;opacity:1!important;
+}
+#personalSpace .doc-row.aurore-personal-document-row .doc-main-info{
+  min-width:0!important;padding:11px 12px 8px!important;flex:1 1 auto!important;
+}
+#personalSpace .doc-row.aurore-personal-document-row .titre{
+  font-size:.84rem!important;line-height:1.3!important;font-weight:700!important;display:-webkit-box!important;-webkit-box-orient:vertical!important;-webkit-line-clamp:2!important;overflow:hidden!important;
+}
+#personalSpace .doc-row.aurore-personal-document-row .meta{
+  margin-top:4px!important;font-size:.68rem!important;line-height:1.35!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
+}
+#personalSpace .doc-row.aurore-personal-document-row .doc-context{display:none!important;}
+#personalSpace .doc-row.aurore-personal-document-row .doc-main-info .taille-badge{margin-top:5px!important;}
+#personalSpace .doc-row.aurore-personal-document-row .personal-status{
+  display:inline-flex!important;align-self:flex-start!important;width:max-content!important;margin-top:5px!important;font-size:.61rem!important;padding:4px 7px!important;
+}
+#personalSpace .doc-row.aurore-personal-document-row .doc-actions{
+  display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important;width:100%!important;padding:8px 10px 10px!important;margin-top:auto!important;border-top:1px solid color-mix(in srgb,var(--bordure) 78%,transparent)!important;background:color-mix(in srgb,var(--papier) 94%,var(--fond))!important;
+}
+#personalSpace .doc-row.aurore-personal-document-row .doc-actions .dl{
+  min-width:0!important;width:100%!important;margin:0!important;padding:7px 6px!important;min-height:34px!important;border-radius:9px!important;font-size:.66rem!important;line-height:1.15!important;white-space:normal!important;text-align:center!important;
+}
+#personalSpace .doc-row.aurore-personal-document-row .doc-actions .dl:first-child{background:var(--violet)!important;color:#fff!important;border:1px solid var(--violet)!important;}
+#personalSpace .doc-row.aurore-personal-document-row .doc-actions .dl:nth-child(2){background:var(--marron)!important;color:#fff!important;border:1px solid var(--marron)!important;}
+#personalSpace .doc-row.aurore-personal-document-row .doc-actions .doc-action-soft{background:transparent!important;color:var(--gris)!important;border:1px solid var(--bordure)!important;}
+#personalSpace .doc-row.aurore-personal-document-row .doc-actions .doc-action-soft:hover{background:rgba(124,58,237,.07)!important;color:var(--encre)!important;border-color:var(--violet)!important;}
+#personalSpace .personal-list > .personal-empty{grid-column:1/-1!important;margin-top:0!important;}
+@media(max-width:720px){
+  #personalSpace .personal-list{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:11px!important;}
+  #personalSpace .doc-row.aurore-personal-document-row .doc-main-info{padding:9px 9px 7px!important;}
+  #personalSpace .doc-row.aurore-personal-document-row .doc-actions{padding:7px 7px 8px!important;gap:5px!important;}
+  #personalSpace .doc-row.aurore-personal-document-row .doc-actions .dl{font-size:.61rem!important;padding:7px 4px!important;}
+}
+@media(max-width:390px){
+  #personalSpace .doc-row.aurore-personal-document-row .titre{font-size:.77rem!important;}
+  #personalSpace .doc-row.aurore-personal-document-row .meta{font-size:.62rem!important;}
+}
+[data-theme="light"] #personalSpace .doc-row.aurore-personal-document-row{background:#fff!important;border-color:#D9D1E4!important;box-shadow:0 2px 8px rgba(55,36,82,.08)!important;}
+[data-theme="light"] #personalSpace .doc-row.aurore-personal-document-row .icon-wrap,
+[data-theme="light"] #personalSpace .doc-row.aurore-personal-document-row .icon-wrap.a-couverture{background:#F0ECF5!important;}
+[data-theme="light"] #personalSpace .doc-row.aurore-personal-document-row .doc-actions{background:#FBFAFD!important;border-top-color:#E6DFEE!important;}
+
+
+/* Documents récemment publiés : même composant visuel que la bibliothèque. */
+#screen-recents #recentsContent .doc-list{
+  display:grid!important;
+  grid-template-columns:repeat(auto-fill,minmax(205px,1fr))!important;
+  gap:16px!important;
+  margin-top:22px!important;
+  align-items:stretch!important;
+}
+#screen-recents #recentsContent .doc-row{
+  margin:0!important;
+}
+#screen-recents #recentsContent .doc-row .icon-wrap.a-couverture img.doc-cover-img{
+  opacity:1!important;
+}
+@media(max-width:720px){
+  #screen-recents #recentsContent .doc-list{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:11px!important;
+  }
+}
+@media(max-width:390px){
+  #screen-recents #recentsContent .doc-list{
+    grid-template-columns:1fr 1fr!important;
+  }
+}
+
+/* ========================================================================
+   FIX — le titre de l'Espace personnel disparaît au dézoom du site
+   (même bug que la bibliothèque publique, voir aurore-pdf-grids.css) :
+   -webkit-line-clamp combiné à la propriété CSS "zoom" (utilisée par le
+   contrôle de zoom du site) peut arrondir la hauteur du bloc "-webkit-box"
+   à 0 à des valeurs de zoom fractionnaires et effacer tout le texte.
+   Correctif : même principe que pour .doc-row générique — on abandonne
+   -webkit-line-clamp et on repasse à un affichage simple qui ne peut
+   jamais disparaître, quel que soit le niveau de zoom. */
+#personalSpace .doc-row.aurore-personal-document-row .titre{
+  display:block!important;
+  -webkit-box-orient:unset!important;
+  -webkit-line-clamp:unset!important;
+  overflow:visible!important;
+  max-height:none!important;
+  min-height:0!important;
+  white-space:normal!important;
+  word-break:break-word!important;
+}

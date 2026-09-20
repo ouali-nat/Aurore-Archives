@@ -1,0 +1,46 @@
+.aurore-ia-attachment-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:9px;margin-top:10px;width:min(100%,420px)}
+.aurore-ia-attachment-preview{overflow:hidden;border:1px solid color-mix(in srgb,var(--ia-border,#ddd) 75%,transparent);border-radius:14px;background:color-mix(in srgb,var(--ia-panel,#161120) 96%,transparent);box-shadow:0 7px 22px rgba(0,0,0,.12)}
+.aurore-ia-attachment-preview-media{display:block;width:100%;height:92px;padding:0;border:0;background:transparent;cursor:zoom-in;overflow:hidden}
+.aurore-ia-attachment-preview-media img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .2s ease}
+.aurore-ia-attachment-preview-media:hover img{transform:scale(1.04)}
+.aurore-ia-file-preview-icon{height:100%;display:grid;place-items:center;font-weight:800;font-size:.72rem;color:var(--ia-accent,#8b5cf6);background:color-mix(in srgb,var(--ia-accent,#8b5cf6) 10%,transparent)}
+.aurore-ia-attachment-preview-caption{padding:6px 8px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.aurore-ia-attachment-preview-caption strong{font-size:.62rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit}
+.aurore-ia-attachment-preview-caption span{font-size:.55rem;color:color-mix(in srgb,currentColor 58%,transparent)}
+.aurore-ia-attachment-viewer{position:fixed;inset:0;z-index:10050;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(8,6,12,.78);backdrop-filter:blur(10px)}
+.aurore-ia-attachment-viewer-card{position:relative;width:min(920px,96vw);height:min(92vh,900px);display:flex;flex-direction:column;overflow:hidden;border:1px solid color-mix(in srgb,var(--ia-border,#ddd) 80%,transparent);border-radius:22px;background:var(--ia-panel,#161120);box-shadow:0 25px 80px rgba(0,0,0,.38)}
+.aurore-ia-attachment-viewer-title{padding:14px 54px 12px 18px;font-size:.82rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:1px solid color-mix(in srgb,var(--ia-border,#ddd) 65%,transparent)}
+.aurore-ia-attachment-viewer-close{position:absolute;right:12px;top:10px;width:36px;height:36px;border:0;border-radius:12px;background:color-mix(in srgb,currentColor 8%,transparent);color:inherit;font-size:24px;line-height:1;cursor:pointer}
+.aurore-ia-attachment-viewer-body{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:12px;overflow:auto}
+.aurore-ia-attachment-viewer-body img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;border-radius:10px;box-shadow:0 10px 35px rgba(0,0,0,.22)}
+[data-theme="light"] .aurore-ia-attachment-preview{background:#fff}
+@media(max-width:640px){.aurore-ia-attachment-gallery{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.aurore-ia-attachment-preview-media{height:82px}.aurore-ia-attachment-viewer{padding:8px}.aurore-ia-attachment-viewer-card{width:100%;height:94vh;border-radius:18px}}
+.aurore-ia-plus-wrap{display:flex!important;align-items:center;position:relative;flex:0 0 auto!important}
+.aurore-ia-plus-menu{z-index:120!important}
+.aurore-ia-attachments{position:absolute;left:0;bottom:calc(100% + 10px);display:flex;flex-direction:column;gap:6px;width:min(300px,calc(100vw - 32px));pointer-events:none}
+.aurore-ia-attachment-chip{pointer-events:auto;display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--ia-border);border-radius:12px;background:color-mix(in srgb,var(--ia-panel,#161120) 94%,transparent);box-shadow:0 12px 30px rgba(0,0,0,.24);color:#eee8f4;font-size:.68rem}
+.aurore-ia-attachment-chip .icon{width:26px;height:26px;display:grid;place-items:center;border-radius:8px;background:color-mix(in srgb,var(--ia-accent,#8b5cf6) 16%,transparent);flex:0 0 26px}
+.aurore-ia-attachment-chip .name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.aurore-ia-attachment-chip button{width:24px;height:24px;border:0;background:transparent;color:#aaa1b3;cursor:pointer;border-radius:7px}
+.aurore-ia-attachment-chip button:hover{background:rgba(255,255,255,.08);color:#fff}
+.aurore-ia-attachment-status{font-size:.59rem;color:#aaa1b3;margin-top:2px}
+[data-theme="light"] .aurore-ia-attachment-chip{background:#fff;color:#342d3d;border-color:#e3dcea;box-shadow:0 12px 30px rgba(49,34,68,.14)}
+[data-theme="light"] .aurore-ia-attachment-chip button{color:#776d82}
+@media(max-width:640px){.aurore-ia-attachments{width:min(280px,calc(100vw - 24px))}}
+/* Aperçu intégré au clavier Aurora */
+.aurore-ia-composer .aurore-ia-input-shell{position:relative}
+.aurore-ia-attachments{position:absolute!important;left:10px!important;right:48px!important;bottom:8px!important;top:auto!important;width:auto!important;display:flex!important;flex-direction:row!important;flex-wrap:wrap;gap:7px;z-index:5;pointer-events:none!important}
+.aurore-ia-attachment-card{display:flex;align-items:center;gap:7px;width:min(250px,calc(100vw - 90px));min-width:0;padding:6px;border:1px solid var(--ia-border,#ddd);border-radius:12px;background:color-mix(in srgb,var(--ia-panel,#161120) 96%,transparent);box-shadow:0 7px 20px rgba(0,0,0,.16)}
+.aurore-ia-attachment-thumb{position:relative;width:52px;height:52px;flex:0 0 52px;padding:0;border:0;border-radius:9px;overflow:hidden;background:color-mix(in srgb,var(--ia-accent,#8b5cf6) 10%,transparent);cursor:zoom-in}
+.aurore-ia-attachment-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.aurore-ia-attachment-info{min-width:0;display:flex;flex-direction:column;gap:2px;flex:1;text-align:left}
+.aurore-ia-attachment-info strong{font-size:.64rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.aurore-ia-attachment-info span{font-size:.56rem;opacity:.62}
+.aurore-ia-attachment-remove{width:24px;height:24px;flex:0 0 24px;border:0;border-radius:7px;background:transparent;color:inherit;font-size:18px;cursor:pointer}
+.aurore-ia-attachment-remove:hover{background:color-mix(in srgb,currentColor 10%,transparent)}
+.aurore-ia-attachment-loader{position:absolute;inset:3px;border:2px solid transparent;border-top-color:var(--ia-accent,#8b5cf6);border-radius:50%;opacity:0;animation:auroreAttachmentSpin .8s linear infinite}
+.aurore-ia-attachment-card[data-loading="true"] .aurore-ia-attachment-loader{opacity:1}
+@keyframes auroreAttachmentSpin{to{transform:rotate(360deg)}}
+.aurore-ia-input-shell textarea{padding-top:64px!important}
+[data-theme="light"] .aurore-ia-attachment-card{background:#fff}
+@media(max-width:640px){.aurore-ia-attachments{left:8px!important;right:42px!important;bottom:7px!important}.aurore-ia-attachment-card{width:min(235px,calc(100vw - 70px))}}

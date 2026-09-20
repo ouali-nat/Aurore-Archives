@@ -31,36 +31,6 @@
     });
   }
 
-  const SOURCE_DOCUMENT_AURORE = 'Aurore — Content Factory';
-  function estDocumentAurore(doc){
-    const source=String(doc?.Source||'').trim();
-    return source===SOURCE_DOCUMENT_AURORE || (String(doc?.Auteur||'').trim()==='Aurore' && !source);
-  }
-  function rendreDocumentsPublicsSepares(content,data){
-    const liste=Array.isArray(data)?data:[];
-    content.innerHTML='';
-    const aurore=liste.filter(estDocumentAurore);
-    const communaute=liste.filter(doc=>!estDocumentAurore(doc));
-    const categorie=String(etat?.categorie?.nom||'Documents').trim();
-    const titreAurore=categorie==='Devoirs' ? 'Devoirs Aurore' : 'Documents Aurore';
-    const titreCommunaute=categorie==='Devoirs' ? 'Devoirs déposés par la communauté' : 'Documents déposés par la communauté';
-    const ajouterSection=(titre,items,kicker,classe)=>{
-      if(!items.length)return;
-      const section=document.createElement('section');
-      section.className='docs-origin-section '+classe;
-      section.setAttribute('aria-label',titre);
-      section.innerHTML='<div class="docs-origin-head"><div><span class="docs-origin-kicker">'+kicker+'</span><h3>'+titre+'</h3></div><span class="docs-origin-count">'+items.length+'</span></div><div class="docs-origin-list"></div>';
-      content.appendChild(section);
-      rendreListeDocuments(section.querySelector('.docs-origin-list'),items,COUVERTURES_PREMIERE_PAGE_ACTIVES,true);
-    };
-    ajouterSection(titreAurore,aurore,'Production Aurore','is-aurore');
-    ajouterSection(titreCommunaute,communaute,'Communauté','is-community');
-    if(!aurore.length&&!communaute.length){
-      content.innerHTML='<div class="doc-empty friendly-empty"><div class="icon-wrap">'+ICONS.folder+'</div><h3>Aucun document disponible pour le moment.</h3><p>Cette rubrique sera enrichie progressivement.</p></div>';
-    }
-    documentsCourants=liste;
-  }
-
   function afficherPaginationSite(containerId,total,page,onChange){
     const el=document.getElementById(containerId); if(!el) return;
     const pages=Math.ceil(total/SITE_PUBLIC_PAGE_SIZE);
@@ -820,15 +790,13 @@
     });
   }
 
-  function rendreListeDocuments(content, data, afficherCouverturesRomans = false, restaurerDocumentsCourants = false) {
+  function rendreListeDocuments(content, data, afficherCouverturesRomans = false) {
     // Prépare PDF.js en parallèle de la construction de la liste : le rendu
     // de la première page peut ainsi démarrer dès que les lignes sont visibles.
     if (afficherCouverturesRomans && typeof chargerPdfJs === 'function') chargerPdfJs().catch(() => {});
-    const documentsCourantsAvantRendu = documentsCourants;
     documentsCourants = Array.isArray(data) ? data : [];
     if (documentsCourants.length === 0) {
       content.innerHTML = `<div class="doc-empty friendly-empty"><div class="icon-wrap">${ICONS.folder}</div><h3>Aucun document disponible pour le moment.</h3><p>Cette rubrique sera enrichie progressivement.</p></div>`;
-      if(restaurerDocumentsCourants) documentsCourants=documentsCourantsAvantRendu;
       return;
     }
     const list=document.createElement('div');
@@ -875,7 +843,6 @@
       list.appendChild(row);
       if (COUVERTURES_PREMIERE_PAGE_ACTIVES) appliquerCouvertureSiLivre(row,doc);
     });
-    if(restaurerDocumentsCourants) documentsCourants=documentsCourantsAvantRendu;
   }
 
   async function allerDocuments(matiere) {
@@ -921,7 +888,7 @@
     docsPageCourante=Math.min(docsPageCourante,pages);
     if(!sorted.length){ content.innerHTML='<div class="site-empty-filter">Aucun document ne correspond à votre recherche.</div>'; afficherPaginationSite('docsPager',0,1,()=>{}); return; }
     const start=(docsPageCourante-1)*SITE_PUBLIC_PAGE_SIZE;
-    rendreDocumentsPublicsSepares(content, sorted.slice(start,start+SITE_PUBLIC_PAGE_SIZE));
+    rendreListeDocuments(content, sorted.slice(start,start+SITE_PUBLIC_PAGE_SIZE), COUVERTURES_PREMIERE_PAGE_ACTIVES);
     afficherPaginationSite('docsPager',sorted.length,docsPageCourante,p=>{docsPageCourante=p;afficherDocumentsPublicsAvecOutils();});
   }
   document.getElementById('docSort').addEventListener('change', () => { docsPageCourante=1; afficherDocumentsPublicsAvecOutils(); });
