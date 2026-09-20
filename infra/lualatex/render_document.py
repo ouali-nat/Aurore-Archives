@@ -783,6 +783,11 @@ def main():
     out.parent.mkdir(parents=True, exist_ok=True)
     profile = _editorial_profile(data)
     data["_wikimedia_visuals"] = _fetch_wikimedia_visuals(data, out.parent / "assets", profile)
+    for visual in data["_wikimedia_visuals"]:
+        visual_file = out.parent / str(visual.get("path") or "")
+        if not visual_file.is_file() or visual_file.stat().st_size == 0:
+            raise SystemExit(f"Wikimedia asset missing or empty: {visual_file}")
+    print(f"Wikimedia visuals fetched: {len(data['_wikimedia_visuals'])} (profile={profile})")
     out.write_text(render(data), encoding="utf-8")
     print(f"Generated {out}")
 
