@@ -156,7 +156,7 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                         v=meta.get(k, {})
                         return str(v.get("value", default) if isinstance(v,dict) else v)
                     title = str(page.get("title") or "").replace("File:","",1)
-                    visuals.append({"path":str(local.relative_to(Path.cwd())).replace("\\\\","/"),"title":clean_text(title),"caption":clean_text(mv("ImageDescription",title))[:220],"author":clean_text(mv("Artist","Auteur non renseigné"))[:180],"license":clean_text(mv("LicenseShortName",mv("UsageTerms","Licence libre Commons")))[:120],"source_url":str(ii.get("descriptionurl") or "https://commons.wikimedia.org/wiki/"+urllib.parse.quote(str(page.get("title") or "")))})
+                    visuals.append({"path":str(local.relative_to(assets_dir.parent)).replace("\\\\","/"),"title":clean_text(title),"caption":clean_text(mv("ImageDescription",title))[:220],"author":clean_text(mv("Artist","Auteur non renseigné"))[:180],"license":clean_text(mv("LicenseShortName",mv("UsageTerms","Licence libre Commons")))[:120],"source_url":str(ii.get("descriptionurl") or "https://commons.wikimedia.org/wiki/"+urllib.parse.quote(str(page.get("title") or "")))})
                     seen.add(url)
                     break
                 except Exception:
