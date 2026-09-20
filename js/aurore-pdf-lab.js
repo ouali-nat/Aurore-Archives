@@ -507,69 +507,16 @@
     return true;
   }
 
-  // Pont de secours pour le sélecteur compact "Couleur dominante" du formulaire
-  // Content Factory. Ce clic est capturé ici avant les autres délégations globales.
-  if(!window.__auroreCfThemePaletteBridge){
-    window.__auroreCfThemePaletteBridge=true;
-    const syncThemeBridge=()=>{
-      const input=document.getElementById('cfCreateThemeColor');
-      const output=document.getElementById('cfCreateThemeColorValue');
-      const preview=document.getElementById('cfThemeColorPreview');
-      const swatches=document.getElementById('cfCreateThemeSwatches');
-      if(!input)return '#6D28D9';
-      const color=/^#[0-9a-f]{6}$/i.test(String(input.value||''))?String(input.value).toUpperCase():'#6D28D9';
-      input.value=color;
-      if(output)output.textContent=color;
-      if(preview)preview.style.backgroundColor=color;
-      swatches?.querySelectorAll('[data-create-theme]').forEach(b=>{
-        b.classList.toggle('is-selected',String(b.dataset.createTheme||'').toUpperCase()===color);
-      });
-      return color;
-    };
+  document.addEventListener('click',e=>{
+    const button=e.target?.closest?.('[data-cf-render],[data-cf-validate],[data-cf-reject],[data-cf-publish]');
+    if(!button)return;
+    const action=button.hasAttribute('data-cf-render')?'render':button.hasAttribute('data-cf-validate')?'validate':button.hasAttribute('data-cf-reject')?'reject':'publish';
+    if(!forwardProductionAction(button,action))return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  },true);
 
-    document.addEventListener('click',e=>{
-      const toggle=e.target?.closest?.('#cfThemePaletteToggle');
-      const swatch=e.target?.closest?.('#cfCreateThemeSwatches [data-create-theme]');
-      const palette=document.getElementById('cfCreateThemePalette');
-      const input=document.getElementById('cfCreateThemeColor');
-
-      if(toggle){
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        if(!palette)return;
-        palette.hidden=!palette.hidden;
-        toggle.setAttribute('aria-expanded',String(!palette.hidden));
-        syncThemeBridge();
-        return;
-      }
-
-      if(swatch){
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        if(input)input.value=String(swatch.dataset.createTheme||'#6D28D9').toUpperCase();
-        syncThemeBridge();
-        if(palette)palette.hidden=true;
-        document.getElementById('cfThemePaletteToggle')?.setAttribute('aria-expanded','false');
-        return;
-      }
-
-      if(palette&&!palette.hidden&&!e.target?.closest?.('#cfCreateThemePalette')){
-        palette.hidden=true;
-        document.getElementById('cfThemePaletteToggle')?.setAttribute('aria-expanded','false');
-      }
-    },true);
-
-    document.addEventListener('keydown',e=>{
-      if(e.key!=='Escape')return;
-      const palette=document.getElementById('cfCreateThemePalette');
-      if(palette&&!palette.hidden){
-        palette.hidden=true;
-        document.getElementById('cfThemePaletteToggle')?.setAttribute('aria-expanded','false');
-      }
-    });
-
-    syncThemeBridge();
-  }
+  // Le sélecteur de couleur du formulaire est géré exclusivement par Content Factory Admin.
 
   function initProductionQueue(){ensureProductionUI();ensureProductionActionStyles();pollProductionQueue();setInterval(pollProductionQueue,2000)}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initProductionQueue,{once:true});else initProductionQueue();
