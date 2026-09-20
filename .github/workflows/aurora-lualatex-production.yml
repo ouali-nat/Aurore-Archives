@@ -277,6 +277,7 @@ jobs:
           retention-days: 3
 
 # Production bridge: Supabase queue + GitHub Actions, one PDF at a time.
+# Renderer visual assets fix trigger: Wikimedia paths + thumbnail MIME.
 # Multiple pending runs are intentionally preserved with concurrency.queue=max.
 # Automatic wake-up after DeepSeek/Luna is handled by the Supabase INSERT trigger.
 # Progress is persisted in aurora_generated_documents.metadata.
