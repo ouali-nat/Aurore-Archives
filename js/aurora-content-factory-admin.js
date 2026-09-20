@@ -377,6 +377,10 @@ function auroraGeoGebraInstrument(g){
   const aliases={"function":"function2d","graph":"function2d","courbe":"function2d","parametric":"parametric2d","parametric2d":"parametric2d","parametric3d":"parametric3d","surface":"surface3d","surface3d":"surface3d","geometry3d":"geometry3d","geometrie3d":"geometry3d","3d":"geometry3d"};
   return aliases[raw]||["function2d","parametric2d","parametric3d","surface3d","geometry3d"].includes(raw)?(aliases[raw]||raw):"function2d";
 }
+function auroraGeoGebraParameter(raw){
+  const t=String(raw||"t").replace(/[^A-Za-z0-9_]/g,"").trim()||"t";
+  return /^[xyz]$/i.test(t)?"t":t;
+}
 function auroraGeoGebraExpr(raw){
   return String(raw||"").trim()
     .replace(/^\s*(?:f\s*\(\s*x\s*\)|y)\s*=\s*/i,"")
@@ -463,11 +467,11 @@ function auroraGeoGebraCommandes(g){
   const xmin=auroraGeoGebraFinite(g?.x_min,-10),xmax=auroraGeoGebraFinite(g?.x_max,10);
   const ymin=auroraGeoGebraFinite(g?.y_min,-10),ymax=auroraGeoGebraFinite(g?.y_max,10);
   if(instrument==="parametric2d"){
-    const x=auroraGeoGebraExpr3D(g?.x_expression||""),y=auroraGeoGebraExpr3D(g?.y_expression||""),t=(String(g?.parameter||"t").replace(/[^A-Za-z0-9_]/g,"").match(/^[A-Za-z_][A-Za-z0-9_]*$/)&&!^[xyz]$/i.test(String(g?.parameter||"t").replace(/[^A-Za-z0-9_]/g,"")))?String(g?.parameter||"t").replace(/[^A-Za-z0-9_]/g,""):"t";
+    const x=auroraGeoGebraExpr3D(g?.x_expression||""),y=auroraGeoGebraExpr3D(g?.y_expression||""),t=auroraGeoGebraParameter(g?.parameter);
     const tmin=auroraGeoGebraFinite(g?.t_min,0),tmax=auroraGeoGebraFinite(g?.t_max,2*Math.PI);
     if(x&&y&&tmax>tmin)cmds.push("Curve("+x+","+y+","+t+","+tmin+","+tmax+")");
   }else if(instrument==="parametric3d"){
-    const x=auroraGeoGebraExpr3D(g?.x_expression||""),y=auroraGeoGebraExpr3D(g?.y_expression||""),z=auroraGeoGebraExpr3D(g?.z_expression||""),t=(String(g?.parameter||"t").replace(/[^A-Za-z0-9_]/g,"").match(/^[A-Za-z_][A-Za-z0-9_]*$/)&&!^[xyz]$/i.test(String(g?.parameter||"t").replace(/[^A-Za-z0-9_]/g,"")))?String(g?.parameter||"t").replace(/[^A-Za-z0-9_]/g,""):"t";
+    const x=auroraGeoGebraExpr3D(g?.x_expression||""),y=auroraGeoGebraExpr3D(g?.y_expression||""),z=auroraGeoGebraExpr3D(g?.z_expression||""),t=auroraGeoGebraParameter(g?.parameter);
     const tmin=auroraGeoGebraFinite(g?.t_min,0),tmax=auroraGeoGebraFinite(g?.t_max,2*Math.PI);
     if(x&&y&&z&&tmax>tmin)cmds.push("Curve("+x+","+y+","+z+","+t+","+tmin+","+tmax+")");
   }else if(instrument==="surface3d"){
