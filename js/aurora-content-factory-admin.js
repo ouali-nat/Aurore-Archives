@@ -457,11 +457,17 @@ function auroraGeoGebraGeometryCommands(g){
   for(const o of objects){
     if(!o||typeof o!=="object")continue;
     const type=String(o.type||"").toLowerCase();
-    const base=(String(o.name||"").match(/^[A-Za-z][A-Za-z0-9_]*$/)||[])[0];
-    const name=base||null;
+    const requestedName=(String(o.name||"").match(/^[A-Za-z][A-Za-z0-9_]*$/)||[])[0]||"";
+    const reserved=new Set(["Angle","Axes","Bottom","Center","Circle","Cone","Cube","Curve","Cylinder","Distance","Function","Height","Intersect","Line","Midpoint","Plane","Point","Polygon","Prism","Pyramid","Radius","Ray","Segment","Sphere","Surface","Tetrahedron","Top","Vector","Volume"]);
+    const safePreferred=requestedName && !reserved.has(requestedName) ? requestedName : "";
+    const generatedName=()=>{
+      const prefix={point:"P",vector:"u",line:"d",plane:"p",sphere:"sphere",cylinder:"cylinder",cone:"cone",polygon:"poly",cube:"cube",prism:"prism",pyramid:"pyr",tetrahedron:"tetra"}[type]||"obj";
+      return prefix+String(seq++);
+    };
+    const name=safePreferred||generatedName();
     if(type==="point"){
-      const q=auroraGeoGebraPointCommand(name||("P"+seq),o.point||o.points?.[0]||o.coordinates);
-      if(q){cmds.push(q.command);seq++;} 
+      const q=auroraGeoGebraPointCommand(name,o.point||o.points?.[0]||o.coordinates);
+      if(q){cmds.push(q.name+"="+q.command.split("=").slice(1).join("="));} 
       continue;
     }
     if(type==="vector"){
@@ -626,7 +632,8 @@ async function auroraGeoGebraExportOne(graph){
           const isPrimaryConstructionCommand=command=>{
             const s=String(command||'').trim();
             return /^(?:[A-Za-z][A-Za-z0-9_]*=)?(?:Curve|Sphere|Cylinder|Cone|Cube|Prism|Pyramid|Tetrahedron|Polygon|Line|Plane|Vector)\s*\(/i.test(s)
-              || /^f\s*\(\s*x(?:\s*,\s*y)?\s*\)\s*=/i.test(s);
+              || /^f\s*\(\s*x(?:\s*,\s*y)?\s*\)\s*=/.test(s)
+              || (instrument==="geometry3d" && /^(?:[A-Za-z][A-Za-z0-9_]*=)?\s*\(/.test(s));
           };
 
           for(const command of commands){
@@ -670,9 +677,17 @@ async function auroraGeoGebraExportOne(graph){
           // actual objects created by the graph construction, not helper points.
           if(!primaryCommands.length){
             clearTimeout(timer);
+            const graphTitle=String(graph?.title||"Graphique sans titre");
+            const objectTypes=Array.isArray(graph?.objects)
+              ? graph.objects.map(o=>String(o?.type||"inconnu")).filter(Boolean).join(", ")
+              : "";
+            const commandPreview=commands.map(String).slice(0,12).join(" | ");
             done(reject,new Error(
               'GeoGebra n’a reçu aucune commande de construction exploitable.'
+              +' Graphique: '+graphTitle+'.'
               +' Instrument: '+instrument+'.'
+              +(objectTypes?' Types: '+objectTypes+'.':'')
+              +(commandPreview?' Commandes générées: '+commandPreview+'.':' Aucune commande n’a été générée.')
             ));
             return;
           }
@@ -725,6 +740,7 @@ async function auroraGeoGebraExportOne(graph){
               : '';
             done(reject,new Error(
               'GeoGebra a affiché le repère mais n’a pas construit les objets graphiques demandés.'
+              +' Graphique: '+String(graph?.title||"Graphique sans titre")+'.'
               +' Instrument: '+instrument+'. Objets détectés: '+objectCount+'.'
               +' Constructions attendues: '+primaryCommands.length+'.'
               +' Objets manquants: '+missing.join(', ')+'.'+details
