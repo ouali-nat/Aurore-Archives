@@ -492,7 +492,18 @@ function auroraGeoGebraGeometryCommands(g){
           if(refs.length>=3)cmds.push(polyName+"=Polygon("+refs.slice(0,Math.min(refs.length,6)).join(",")+")",(name||type)+seq+"="+(type==="pyramid"?"Pyramid":"Prism")+"("+polyName+","+Number(o.height)+")");
         }
       }else if(type==="cylinder"||type==="cone"){
-        const a=ensurePoint(o.from||ps[0],"A"),b=ensurePoint(o.to||ps[1],"B"),r=Number(o.radius);
+        const r=Number(o.radius);
+        let a=ensurePoint(o.from||ps[0],"A"),b=ensurePoint(o.to||ps[1],"B");
+        // Aurora peut décrire un solide de révolution avec un seul point de
+        // base + une hauteur. Dans ce cas, l'axe est l'axe Oz.
+        if(a&& !b && Number.isFinite(Number(o.height)) && Number(o.height)>0){
+          const baseRaw=o.from||ps[0];
+          const base=auroraGeoGebraPoint3(baseRaw);
+          if(base){
+            const top=[base[0],base[1],base[2]+Number(o.height)];
+            b=ensurePoint(top,"B");
+          }
+        }
         if(a&&b&&Number.isFinite(r)&&r>0)cmds.push((name||("s"+seq++))+"="+(type==="cylinder"?"Cylinder":"Cone")+"("+a+","+b+","+r+")");
       }else if(type==="polygon"){
         const refs=ps.map((q)=>ensurePoint(q,"P")).filter(Boolean);
