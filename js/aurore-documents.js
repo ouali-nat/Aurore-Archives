@@ -794,7 +794,7 @@
     if (document.getElementById('aurore-origin-groups-styles')) return;
     const style = document.createElement('style');
     style.id = 'aurore-origin-groups-styles';
-    style.textContent = '.aurore-origin-group{margin:0 0 22px;padding:14px;border:1px solid var(--bordure,rgba(0,0,0,.1));border-radius:18px;background:var(--card-bg,rgba(255,255,255,.55));}.aurore-origin-group-head{margin:0 0 10px;padding:2px 4px 8px;border-bottom:1px solid var(--bordure,rgba(0,0,0,.08));}.aurore-origin-kicker{display:block;font-size:.64rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;opacity:.62;margin-bottom:3px}.aurore-origin-group h3{margin:0;font-size:1rem;color:var(--encre,#111)}.aurore-origin-group p{margin:3px 0 0;font-size:.72rem;color:var(--gris,#687080)}.aurore-origin-group-list{margin:0}.aurore-origin-group-list .doc-row:last-child{margin-bottom:0}.aurore-origin-group-aurore{border-color:rgba(109,40,217,.22)}';
+    style.textContent = '.aurore-origin-group{margin:0 0 22px;padding:14px;border:1px solid var(--bordure,rgba(0,0,0,.1));border-radius:18px;background:var(--card-bg,rgba(255,255,255,.55));}.aurore-origin-group-head{margin:0 0 10px;padding:2px 4px 8px;border-bottom:1px solid var(--bordure,rgba(0,0,0,.08));}.aurore-origin-kicker{display:block;font-size:.64rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;opacity:.62;margin-bottom:3px}.aurore-origin-group h3{margin:0;font-size:1rem;color:var(--encre,#111)}.aurore-origin-group p{margin:3px 0 0;font-size:.72rem;color:var(--gris,#687080)}.aurore-origin-count{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;padding:0 8px;border-radius:999px;background:rgba(109,40,217,.1);font-size:.72rem;font-weight:900}.aurore-origin-group-head>div{min-width:0}.aurore-origin-group-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.aurore-origin-group-list{margin:0}.aurore-origin-empty{display:flex;align-items:center;gap:10px;padding:14px;border:1px dashed var(--bordure,rgba(0,0,0,.14));border-radius:12px;color:var(--gris,#687080);font-size:.76rem}.aurore-origin-empty-icon{width:24px;height:24px;display:grid;place-items:center;opacity:.68}.aurore-origin-empty-icon svg{width:18px;height:18px}.aurore-origin-group-list .doc-row:last-child{margin-bottom:0}.aurore-origin-group-aurore{border-color:rgba(109,40,217,.22)}';
     document.head.appendChild(style);
   }
   ensureOrigineDocumentsStyles();
@@ -818,6 +818,7 @@
         key:'aurore',
         title:'Documents Aurore',
         subtitle:'Ressources produites et publiées par Aurore',
+        empty:'Aucun document Aurore dans cette matière pour le moment.',
         items:documentsTries.filter(doc=>{
           const source=normaliserRechercheSite(doc?.Source);
           const auteur=normaliserRechercheSite(doc?.Auteur);
@@ -827,29 +828,31 @@
       {
         key:'communaute',
         title:'Documents de la communauté',
-        subtitle:'Ressources déposées et validées par la communauté',
+        subtitle:'Ressources déposées puis validées par la communauté',
+        empty:'Aucun document de la communauté dans cette matière pour le moment.',
         items:documentsTries.filter(doc=>{
           const source=normaliserRechercheSite(doc?.Source);
           const auteur=normaliserRechercheSite(doc?.Auteur);
           return !(source===normaliserRechercheSite('Aurore — Content Factory') || auteur==='aurore');
         })
       }
-    ] : [{key:'liste',title:'',subtitle:'',items:documentsTries}];
+    ] : [{key:'liste',title:'',subtitle:'',empty:'',items:documentsTries}];
 
     groupes.forEach(groupe=>{
-      if(!groupe.items.length)return;
-      const target=document.createElement('div');
+      const target=document.createElement('section');
       if(separerOrigines){
         target.className='aurore-origin-group aurore-origin-group-'+groupe.key;
-        target.innerHTML='<div class="aurore-origin-group-head"><span class="aurore-origin-kicker">'+
+        target.innerHTML='<div class="aurore-origin-group-head"><div><span class="aurore-origin-kicker">'+
           (groupe.key==='aurore'?'Production Aurore':'Contribution')+
-          '</span><h3>'+echapperHtmlPub(groupe.title)+'</h3><p>'+echapperHtmlPub(groupe.subtitle)+'</p></div>';
+          '</span><h3>'+echapperHtmlPub(groupe.title)+'</h3><p>'+echapperHtmlPub(groupe.subtitle)+'</p></div><span class="aurore-origin-count">'+groupe.items.length+'</span></div>';
         const groupList=document.createElement('div');
         groupList.className='doc-list aurore-origin-group-list';
         target.appendChild(groupList);
+        const empty=document.createElement('div');
+        empty.className='aurore-origin-empty';
+        empty.innerHTML='<div class="aurore-origin-empty-icon">'+iconExpr+' </div><span>'+echapperHtmlPub(groupe.empty)+'</span>';
+        if(groupe.items.length===0)groupList.appendChild(empty);
         root.appendChild(target);
-      } else {
-        target.className='';
       }
 
       groupe.items.forEach(doc=>{
