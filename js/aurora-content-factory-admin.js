@@ -586,9 +586,11 @@ function auroraGeoGebraCommandes(g){
 async function auroraGeoGebraExportOne(graph){
   await auroraGeoGebraScriptReady();
   const host=document.createElement('div');
-  // Keep the applet fully rendered even though it is outside the viewport.
-  // opacity:0 can prevent some GeoGebra canvas/WebGL renderers from painting.
-  host.style.cssText='position:fixed;left:0;top:0;width:1400px;height:900px;opacity:0.01;visibility:visible;pointer-events:none;z-index:-1;background:#fff;';
+  // GeoGebra recommande l'injection dans un conteneur DOM identifié.
+  // Le conteneur reste rendu mais ne capte aucun clic de l'interface.
+  const hostId='aurora-ggb-export-'+Date.now()+'-'+Math.random().toString(36).slice(2);
+  host.id=hostId;
+  host.style.cssText='position:fixed;left:0;top:0;width:1400px;height:900px;opacity:0.001;visibility:visible;pointer-events:none;z-index:1;background:#fff;';
   document.body.appendChild(host);
   return await new Promise((resolve,reject)=>{
     let finished=false;
@@ -598,7 +600,7 @@ async function auroraGeoGebraExportOne(graph){
     const instrument=auroraGeoGebraInstrument(graph);
     const is3D=['parametric3d','surface3d','geometry3d'].includes(instrument);
     const params={
-      appName:is3D?'3d':'graphing',width:1400,height:is3D?900:820,showToolBar:false,showAlgebraInput:false,
+      id:'auroraGgbApplet',appName:is3D?'3d':'graphing',width:1400,height:is3D?900:820,showToolBar:false,showAlgebraInput:false,
       showMenuBar:false,showResetIcon:false,showFullscreenButton:false,showZoomButtons:false,
       showSuggestionButtons:false,language:'fr',
       appletOnLoad:function(a){
@@ -759,7 +761,12 @@ async function auroraGeoGebraExportOne(graph){
         }catch(e){clearTimeout(timer);done(reject,e instanceof Error?e:new Error(String(e)))}
       }
     };
-    try{const applet=new GGBApplet(params,true);applet.inject(host)}catch(e){clearTimeout(timer);done(reject,e instanceof Error?e:new Error(String(e)))}
+    try{
+      const applet=new GGBApplet(params,true);
+      const inject=()=>applet.inject(hostId);
+      if(document.readyState==='loading')window.addEventListener('load',inject,{once:true});
+      else requestAnimationFrame(()=>requestAnimationFrame(inject));
+    }catch(e){clearTimeout(timer);done(reject,e instanceof Error?e:new Error(String(e)))}
   });
 }
 async function auroraConstruireEtImporterGraphiquesGeoGebra(id,button,accessToken){
