@@ -372,30 +372,129 @@ async function auroraGeoGebraScriptReady(){
   });
   return window.__auroraGeoGebraScriptPromise;
 }
+function auroraGeoGebraInstrument(g){
+  const raw=String(g?.instrument||g?.graph_type||"function2d").toLowerCase().trim();
+  const aliases={"function":"function2d","graph":"function2d","courbe":"function2d","parametric":"parametric2d","parametric2d":"parametric2d","parametric3d":"parametric3d","surface":"surface3d","surface3d":"surface3d","geometry3d":"geometry3d","geometrie3d":"geometry3d","3d":"geometry3d"};
+  return aliases[raw]||["function2d","parametric2d","parametric3d","surface3d","geometry3d"].includes(raw)?(aliases[raw]||raw):"function2d";
+}
 function auroraGeoGebraExpr(raw){
-  let s=String(raw||'').trim()
-    .replace(/^\s*(?:f\s*\(\s*x\s*\)|y)\s*=\s*/i,'')
-    .replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-')
-    .replace(/√\s*\(/g,'sqrt(').replace(/\bln\s*\(/gi,'ln(')
-    .replace(/\blog\s*\(/gi,'log(');
-  return s;
+  return String(raw||"").trim()
+    .replace(/^\s*(?:f\s*\(\s*x\s*\)|y)\s*=\s*/i,"")
+    .replace(/×/g,"*").replace(/÷/g,"/").replace(/−/g,"-")
+    .replace(/√\s*\(/g,"sqrt(").replace(/\bln\s*\(/gi,"ln(")
+    .replace(/\blog\s*\(/gi,"log(");
+}
+function auroraGeoGebraExpr3D(raw){
+  return auroraGeoGebraExpr(raw)
+    .replace(/\bpi\b/gi,"pi")
+    .replace(/\bsin\s*\(/gi,"sin(").replace(/\bcos\s*\(/gi,"cos(")
+    .replace(/\btan\s*\(/gi,"tan(").replace(/\bexp\s*\(/gi,"exp(");
+}
+function auroraGeoGebraFinite(v,d){
+  const n=Number(v);
+  return Number.isFinite(n)?n:d;
+}
+function auroraGeoGebraPoint3(raw){
+  if(Array.isArray(raw)&&raw.length>=3){
+    const a=raw.slice(0,3).map(Number);
+    if(a.every(Number.isFinite))return a;
+  }
+  if(typeof raw==="string"){
+    const m=raw.trim().match(/^[\[\(]\s*(-?(?:\d+(?:\.\d+)?|\.\d+))\s*,\s*(-?(?:\d+(?:\.\d+)?|\.\d+))\s*,\s*(-?(?:\d+(?:\.\d+)?|\.\d+))\s*[\]\)]$/);
+    if(m)return m.slice(1).map(Number);
+  }
+  return null;
+}
+function auroraGeoGebraPointCommand(name,raw){
+  const p=auroraGeoGebraPoint3(raw);
+  return p?{name:String(name||"P"),point:p,command:String(name||"P")+"=("+p.join(",")+")"}:null;
+}
+function auroraGeoGebraGeometryCommands(g){
+  const cmds=[],objects=Array.isArray(g?.objects)?g.objects:[],points=[];
+  let seq=1;
+  const ensurePoint=(raw,prefix)=>{
+    if(typeof raw==="string"&&/^[A-Za-z][A-Za-z0-9_]*$/.test(raw))return raw;
+    const p=auroraGeoGebraPoint3(raw);
+    if(!p)return null;
+    const name=(prefix||"P")+seq++;
+    cmds.push(name+"=("+p.join(",")+")");
+    return name;
+  };
+  for(const o of objects){
+    if(!o||typeof o!=="object")continue;
+    const type=String(o.type||"").toLowerCase();
+    const base=(String(o.name||"").match(/^[A-Za-z][A-Za-z0-9_]*$/)||[])[0];
+    const name=base||null;
+    if(type==="point"){
+      const q=auroraGeoGebraPointCommand(name||("P"+seq),o.point||o.points?.[0]||o.coordinates);
+      if(q){cmds.push(q.command);seq++;} 
+      continue;
+    }
+    if(type==="vector"){
+      const a=ensurePoint(o.from||o.points?.[0],"A"),b=ensurePoint(o.to||o.points?.[1],"B");
+      if(a&&b)cmds.push((name||("u"+seq++))+"=Vector("+a+","+b+")");
+      continue;
+    }
+    if(["line","plane","sphere","cylinder","cone","polygon"].includes(type)){
+      const ps=Array.isArray(o.points)?o.points:[];
+      if(type==="line"){
+        const a=ensurePoint(o.from||ps[0],"A"),b=ensurePoint(o.to||ps[1],"B");
+        if(a&&b)cmds.push((name||("d"+seq++))+"=Line("+a+","+b+")");
+      }else if(type==="plane"){
+        const a=ensurePoint(ps[0],"A"),b=ensurePoint(ps[1],"B"),c=ensurePoint(ps[2],"C");
+        if(a&&b&&c)cmds.push((name||("p"+seq++))+"=Plane("+a+","+b+","+c+")");
+      }else if(type==="sphere"){
+        const a=ensurePoint(o.center||o.from||ps[0],"O"),r=Number(o.radius);
+        if(a&&Number.isFinite(r)&&r>0)cmds.push((name||("s"+seq++))+"=Sphere("+a+","+r+")");
+      }else if(type==="cylinder"||type==="cone"){
+        const a=ensurePoint(o.from||ps[0],"A"),b=ensurePoint(o.to||ps[1],"B"),r=Number(o.radius);
+        if(a&&b&&Number.isFinite(r)&&r>0)cmds.push((name||("s"+seq++))+"="+(type==="cylinder"?"Cylinder":"Cone")+"("+a+","+b+","+r+")");
+      }else if(type==="polygon"){
+        const refs=ps.map((q)=>ensurePoint(q,"P")).filter(Boolean);
+        if(refs.length>=3)cmds.push((name||("poly"+seq++))+"=Polygon("+refs.join(",")+")");
+      }
+    }
+  }
+  return cmds;
 }
 function auroraGeoGebraCommandes(g){
+  const instrument=auroraGeoGebraInstrument(g);
   const cmds=[];
-  const expr=auroraGeoGebraExpr(g?.expression||'');
-  if(expr)cmds.push('f(x)='+expr);
-  const xmin0=Number(g?.x_min),xmax0=Number(g?.x_max),ymin0=Number(g?.y_min),ymax0=Number(g?.y_max);
-  if([xmin0,xmax0,ymin0,ymax0].every(Number.isFinite)&&xmax0>xmin0&&ymax0>ymin0){
-    const xr=Math.max(Math.abs(xmin0),Math.abs(xmax0),1),yr=Math.max(Math.abs(ymin0),Math.abs(ymax0),1);
-    cmds.push(`SetCoordSystem(${-xr},${xr},${-yr},${yr})`);
+  const xmin=auroraGeoGebraFinite(g?.x_min,-10),xmax=auroraGeoGebraFinite(g?.x_max,10);
+  const ymin=auroraGeoGebraFinite(g?.y_min,-10),ymax=auroraGeoGebraFinite(g?.y_max,10);
+  if(instrument==="parametric2d"){
+    const x=auroraGeoGebraExpr3D(g?.x_expression||""),y=auroraGeoGebraExpr3D(g?.y_expression||""),t=String(g?.parameter||"t").replace(/[^A-Za-z0-9_]/g,"")||"t";
+    const tmin=auroraGeoGebraFinite(g?.t_min,0),tmax=auroraGeoGebraFinite(g?.t_max,2*Math.PI);
+    if(x&&y&&tmax>tmin)cmds.push("Curve("+x+","+y+","+t+","+tmin+","+tmax+")");
+  }else if(instrument==="parametric3d"){
+    const x=auroraGeoGebraExpr3D(g?.x_expression||""),y=auroraGeoGebraExpr3D(g?.y_expression||""),z=auroraGeoGebraExpr3D(g?.z_expression||""),t=String(g?.parameter||"t").replace(/[^A-Za-z0-9_]/g,"")||"t";
+    const tmin=auroraGeoGebraFinite(g?.t_min,0),tmax=auroraGeoGebraFinite(g?.t_max,2*Math.PI);
+    if(x&&y&&z&&tmax>tmin)cmds.push("Curve("+x+","+y+","+z+","+t+","+tmin+","+tmax+")");
+  }else if(instrument==="surface3d"){
+    const expr=auroraGeoGebraExpr3D(g?.expression||"");
+    if(expr)cmds.push("f(x,y)="+expr);
+  }else if(instrument==="geometry3d"){
+    cmds.push(...auroraGeoGebraGeometryCommands(g));
+  }else{
+    const expr=auroraGeoGebraExpr(g?.expression||"");
+    if(expr)cmds.push("f(x)="+expr);
   }
-  cmds.push('O=(0,0)','I=(1,0)','J=(0,1)');
-  cmds.push('SetLabelVisible(O,true)','SetLabelVisible(I,true)','SetLabelVisible(J,true)');
-  cmds.push('SetCaption(O,"O")','SetCaption(I,"I")','SetCaption(J,"J")');
-  for(const a of Array.isArray(g?.asymptotes)?g.asymptotes:[]){
-    const v=Number(a?.value); if(!Number.isFinite(v))continue;
-    if(a.type==='vertical')cmds.push(`a${cmds.length}=x=${v}`);
-    if(a.type==='horizontal')cmds.push(`a${cmds.length}=y=${v}`);
+  if(instrument==="function2d"||instrument==="parametric2d"){
+    if(xmax>xmin&&ymax>ymin){
+      const xr=Math.max(Math.abs(xmin),Math.abs(xmax),1),yr=Math.max(Math.abs(ymin),Math.abs(ymax),1);
+      cmds.push("SetCoordSystem("+[-xr,xr,-yr,yr].join(",")+")");
+    }
+    cmds.push("O=(0,0)","I=(1,0)","J=(0,1)");
+    cmds.push("SetLabelVisible(O,true)","SetLabelVisible(I,true)","SetLabelVisible(J,true)");
+    cmds.push('SetCaption(O,"O")','SetCaption(I,"I")','SetCaption(J,"J")');
+    for(const a of Array.isArray(g?.asymptotes)?g.asymptotes:[]){
+      const v=Number(a?.value);if(!Number.isFinite(v))continue;
+      if(a.type==="vertical")cmds.push("a"+cmds.length+"=x="+v);
+      if(a.type==="horizontal")cmds.push("a"+cmds.length+"=y="+v);
+    }
+  }else{
+    const zmin=auroraGeoGebraFinite(g?.z_min,-10),zmax=auroraGeoGebraFinite(g?.z_max,10);
+    if(xmax>xmin&&ymax>ymin&&zmax>zmin)cmds.push("SetCoordSystem("+[xmin,xmax,ymin,ymax,zmin,zmax].join(",")+")");
   }
   return cmds;
 }
