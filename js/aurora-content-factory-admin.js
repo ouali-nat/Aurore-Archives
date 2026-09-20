@@ -105,17 +105,148 @@ async function cfFetch(url,options={},retry=true){
 async function rpc(name,body){const r=await cfFetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));try{return t?JSON.parse(t):null}catch(_){return t}}
 function setProgress(percent,stage){const box=document.getElementById('cfProgress'),bar=document.getElementById('cfProgressBar'),pct=document.getElementById('cfProgressPercent'),st=document.getElementById('cfProgressStage');if(box)box.hidden=false;if(bar)bar.style.width=Math.max(0,Math.min(100,percent))+'%';if(pct)pct.textContent=Math.round(percent)+'%';if(st)st.textContent=stage||'';}
 function updateQueueUI(){const box=document.getElementById('cfGenerationQueue'),txt=document.getElementById('cfGenerationQueueText'),btn=document.getElementById('cfCreateLaunch');if(!box||!txt)return;const n=generationQueue.length;box.hidden=!generationRunning&&!n;txt.textContent=generationRunning?(n?` — 1 document en cours, ${n} suivant(s) en attente.`:' — 1 document en cours, aucun autre en attente.'):(n?` — ${n} document(s) en attente.`:'');if(btn)btn.textContent=generationRunning?'Ajouter à la file':'Ajouter à la file de génération';}
-function populateSelect(id,values,placeholder,keepValue=true){const sel=document.getElementById(id);if(!sel)return;const current=keepValue?sel.value:'';const clean=[...new Set(values.map(v=>String(v??'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));sel.innerHTML=`<option value="">${esc(placeholder)}</option>`+clean.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('')+'<option value="__custom__">Autre / nouveau…</option>';if(current&&clean.includes(current))sel.value=current;else if(current==='__custom__')sel.value='__custom__';}
-function bindCustomSelect(selectId,inputId){const s=document.getElementById(selectId),i=document.getElementById(inputId);if(!s||!i)return;s.addEventListener('change',()=>{const custom=s.value==='__custom__';i.style.display=custom?'block':'none';if(custom)i.focus();else i.value='';});}
-function refreshClassificationOptions(){const level=document.getElementById('cfCreateLevel')?.value||'',cls=document.getElementById('cfCreateClass')?.value||'',sub=document.getElementById('cfCreateSubject')?.value||'';const realLevel=level==='__custom__'?'':level,realClass=cls==='__custom__'?'':cls,realSub=sub==='__custom__'?'':sub;const base=classificationRows;const forLevel=base.filter(x=>!realClass&&!realSub||(!realClass||x.Classe===realClass)&&(!realSub||(x['Matière']||x.Genre)===realSub));const levels=base.map(x=>x.Niveau);const classes=base.filter(x=>!realLevel||x.Niveau===realLevel).filter(x=>!realSub||(x['Matière']||x.Genre)===realSub).map(x=>x.Classe);const subjects=base.filter(x=>!realLevel||x.Niveau===realLevel).filter(x=>!realClass||x.Classe===realClass).map(x=>x['Matière']||x.Genre);const titles=base.filter(x=>!realLevel||x.Niveau===realLevel).filter(x=>!realClass||x.Classe===realClass).filter(x=>!realSub||(x['Matière']||x.Genre)===realSub).map(x=>x.Titre);populateSelect('cfCreateLevel',levels,'Choisir un niveau disponible…');populateSelect('cfCreateClass',classes,'Choisir une classe disponible…');populateSelect('cfCreateSubject',subjects,'Choisir une matière disponible…');populateSelect('cfCreateTitle',titles,'Choisir un titre existant…');}
-async function loadClassificationOptions(){if(classificationLoaded||!adminOk())return;classificationLoaded=true;try{const url=`${SUPABASE_URL}/rest/v1/Document?select=Titre,Niveau,Classe,%22Mati%C3%A8re%22,Genre&Publie=eq.true&order=Titre.asc&limit=2000`;const r=await cfFetch(url,{cache:'no-store'});const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));const data=t?JSON.parse(t):[];classificationRows=Array.isArray(data)?data:[];refreshClassificationOptions();}catch(e){classificationLoaded=false;const m=document.getElementById('cfCreateMsg');if(m){m.dataset.state='error';m.textContent='Les choix de classement n’ont pas pu être chargés. Réessayez.';}}}
-function selectedValue(selectId,inputId){const s=document.getElementById(selectId),i=document.getElementById(inputId);if(!s)return'';return s.value==='__custom__'?(i?.value||'').trim():(s.value||'').trim();}
+function cfChildren(node){
+  if(!node)return null;
+  if(Array.isArray(node.sousNiveaux))return node.sousNiveaux;
+  if(Array.isArray(node.troncCommuns))return [...node.troncCommuns,...(Array.isArray(node.series)?node.series:[])];
+  if(Array.isArray(node.series))return node.series;
+  if(Array.isArray(node.classes))return node.classes;
+  if(Array.isArray(node.enfants))return node.enfants;
+  return null;
+}
+function cfIsLeaf(node){return cfChildren(node)===null;}
+function cfSelectedValue(id){return String(document.getElementById(id)?.value||'').trim();}
+function cfEscape(v){return esc(v);}
+function cfSyncSubjectOptions(){
+  const sel=document.getElementById('cfCreateSubject');
+  const last=cfCreatePath[cfCreatePath.length-1]||null;
+  const leaf=last&&cfIsLeaf(last)?last:null;
+  if(!sel)return;
+  const base=Array.isArray(leaf?.matieres)?leaf.matieres:(Array.isArray(MATIERES)?MATIERES:[]);
+  const names=[...new Set(base.map(x=>typeof x==='string'?x:(x?.nom||'')).map(v=>String(v||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));
+  sel.innerHTML='<option value="">'+(leaf?'Choisir une matière…':'Choisir un parcours scolaire…')+'</option>'+names.map(v=>'<option value="'+cfEscape(v)+'">'+cfEscape(v)+'</option>').join('');
+  sel.disabled=!leaf||!names.length;
+}
+function cfResolveClassification(){
+  const last=cfCreatePath[cfCreatePath.length-1]||null;
+  const leaf=last&&cfIsLeaf(last)?last:null;
+  const series=cfCreatePath.find(n=>n.type==='serie')||null;
+  const common=Boolean(last&&last.type==='classe-commune'&&['seconde-ti','seconde-ab3'].includes(last.id));
+  const level=leaf?(leaf.dbNiveaux?.[0]||(cfCreatePath[0]?.id==='prescolaire'?'Préscolaire':leaf.nom)):'';
+  const filiere=(!common&&series)?(series.serie||''):'';
+  const className=leaf?String(leaf.nom||'').trim():'';
+  const set=(id,value)=>{const el=document.getElementById(id);if(el)el.value=value||''};
+  set('cfCreateLevel',level);set('cfCreateFiliere',filiere);set('cfCreateClass',className);
+  const summary=document.getElementById('cfCreateClassificationSummary');
+  if(summary){
+    const labels=cfCreatePath.map(n=>n.nom).filter(Boolean);
+    summary.textContent=labels.length?(labels.join(' · ')+(leaf?'':' — sélection à terminer')):'Aucun parcours sélectionné';
+  }
+  cfSyncSubjectOptions();
+}
+function cfRenderCascade(){
+  const zone=document.getElementById('cfCreateCascade');
+  if(!zone)return;
+  zone.innerHTML='';
+  const root=document.createElement('select');
+  root.innerHTML='<option value="">Choisir un niveau…</option>'+NIVEAUX.map(n=>'<option value="'+cfEscape(n.id)+'">'+cfEscape(n.nom)+'</option>').join('');
+  root.value=cfCreatePath[0]?.id||'';
+  root.addEventListener('change',()=>{
+    const n=NIVEAUX.find(x=>x.id===root.value)||null;
+    cfCreatePath=n?[n]:[];
+    cfRenderCascade();cfResolveClassification();
+  });
+  zone.appendChild(root);
+  let current=cfCreatePath[0]||null;
+  let depth=1;
+  while(current&&!cfIsLeaf(current)){
+    const children=cfChildren(current)||[];
+    const sel=document.createElement('select');
+    sel.innerHTML='<option value="">Choisir…</option>'+children.map(n=>'<option value="'+cfEscape(n.id)+'">'+cfEscape(n.nom)+'</option>').join('');
+    sel.value=cfCreatePath[depth]?.id||'';
+    const p=depth;
+    sel.addEventListener('change',()=>{
+      const child=children.find(x=>x.id===sel.value)||null;
+      cfCreatePath=cfCreatePath.slice(0,p);
+      if(child)cfCreatePath.push(child);
+      cfRenderCascade();cfResolveClassification();
+    });
+    zone.appendChild(sel);
+    const chosen=cfCreatePath[depth]||null;
+    if(!chosen)break;
+    current=chosen;depth++;
+  }
+}
+const CF_RESOURCE_TYPES={
+  Documents:['Cours','Fiche de cours','Fiche de révision','Résumé','Corrigé','Document pédagogique'],
+  Devoirs:['Devoir','Exercice','Série d’exercices','Corrigé de devoir']
+};
+function cfUpdateResourceTypes(){
+  const category=cfSelectedValue('cfCreateCategory')||'Documents';
+  const sel=document.getElementById('cfCreateResourceType');
+  if(!sel)return;
+  const values=CF_RESOURCE_TYPES[category]||CF_RESOURCE_TYPES.Documents;
+  const current=sel.value;
+  sel.innerHTML='<option value="">Choisir un type…</option>'+values.map(v=>'<option value="'+cfEscape(v)+'">'+cfEscape(v)+'</option>').join('');
+  sel.value=values.includes(current)?current:values[0];
+}
+function cfInitClassification(){
+  document.getElementById('cfCreateCategory')?.addEventListener('change',cfUpdateResourceTypes);
+  cfRenderCascade();
+  cfResolveClassification();
+  cfUpdateResourceTypes();
+}
+async function loadClassificationOptions(){if(!adminOk())return;cfInitClassification();}
+function selectedValue(id){return String(document.getElementById(id)?.value||'').trim();}
 async function getJob(jobId){const r=await cfFetch(`${SUPABASE_URL}/rest/v1/aurora_content_jobs?id=eq.${encodeURIComponent(jobId)}&select=id,status,title,generated_document_id,error_message,updated_at`,{cache:'no-store'});const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));const a=t?JSON.parse(t):[];return Array.isArray(a)&&a[0]?a[0]:null;}
 async function waitForJob(jobId){let last=null;for(let i=0;i<180;i++){const j=await getJob(jobId);if(!j)throw new Error('Job introuvable dans Supabase.');last=j;if(j.status==='queued'){setProgress(8,`Job #${jobId} en file — Aurora attend son tour…`)}else if(j.status==='processing'){setProgress(Math.min(88,18+i*.4),`Aurora traite le document #${jobId}…`)}else if(j.status==='review'){setProgress(100,`Document #${jobId} terminé et placé en contrôle.`);return j}else if(j.status==='failed'||j.status==='rejected'){throw new Error(j.error_message||`La génération s’est arrêtée avec le statut ${j.status}.`)}else{setProgress(12,`Statut Aurora : ${j.status}`)}await new Promise(r=>setTimeout(r,2000));}return last;}
-async function runGeneration(item){const msg=document.getElementById('cfCreateMsg');generationRunning=true;updateQueueUI();setProgress(2,`Préparation du document « ${item.title} »…`);try{const job=await rpc('aurora_create_content_job',{p_title:item.title,p_subject:item.subject||null,p_level:item.level||null,p_class_name:item.className||null,p_document_type:'fiche de révision',p_prompt:item.prompt,p_instructions:{source:'admin_content_factory',queue:'sequential',theme_color:normalizeThemeColor(item.themeColor||'#6D28D9')}});const jobId=Number(job);if(!Number.isSafeInteger(jobId)||jobId<1)throw new Error('Identifiant de job invalide.');setProgress(8,`Job #${jobId} créé — Aurora commence par celui-ci.`);if(msg){msg.dataset.state='';msg.textContent=`Job #${jobId} en traitement. Les suivants attendent dans la file.`}const workerPromise=cfFetch(`${SUPABASE_URL}/functions/v1/aurora-content-worker`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({job_id:jobId})}).then(async r=>{const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}}return{ok:r.ok,status:r.status,data:d}}).catch(e=>({ok:false,status:0,data:{error:e.message||String(e)}}));const poll=waitForJob(jobId);const [wr,jr]=await Promise.all([workerPromise,poll]);if(jr&&jr.status==='review'){const generatedId=Number(jr.generated_document_id||0);if(generatedId>0){const token=await cfFreshToken();await persistGeneratedDocumentTheme(generatedId,item.themeColor||'#6D28D9',token);}if(msg)msg.dataset.state='ok';await charger();return}if(!wr.ok)throw new Error(wr.data?.error||('HTTP '+wr.status));throw new Error('La génération n’a pas abouti.');}finally{generationRunning=false;updateQueueUI();}}
+async function runGeneration(item){
+  const msg=document.getElementById('cfCreateMsg');generationRunning=true;updateQueueUI();setProgress(2,'Préparation du document « '+item.title+' »…');
+  try{
+    const finalPrompt=item.prompt+(item.reference?'\n\nRÉFÉRENCE PÉDAGOGIQUE FOURNIE PAR L’ADMINISTRATION : '+item.reference:'');
+    const job=await rpc('aurora_create_content_job',{
+      p_title:item.title,p_subject:item.subject||null,p_level:item.level||null,p_class_name:item.className||null,p_document_type:item.resourceType,p_prompt:finalPrompt,
+      p_instructions:{source:'admin_content_factory',origin:'aurore',queue:'sequential',category:item.category,filiere:item.filiere||null,reference:item.reference||null,rights_confirmed:true,theme_color:normalizeThemeColor(item.themeColor||'#6D28D9'),
+        classification:{level:item.level||null,filiere:item.filiere||null,class_name:item.className||null,subject:item.subject||null,category:item.category,resource_type:item.resourceType}}
+    });
+    const jobId=Number(job);if(!Number.isSafeInteger(jobId)||jobId<1)throw new Error('Identifiant de job invalide.');
+    setProgress(8,'Job #'+jobId+' créé — Aurora commence par celui-ci.');
+    if(msg){msg.dataset.state='';msg.textContent='Job #'+jobId+' en traitement. Les suivants attendent dans la file.';}
+    const workerPromise=cfFetch(SUPABASE_URL+'/functions/v1/aurora-content-worker',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({job_id:jobId})}).then(async r=>{const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}}return{ok:r.ok,status:r.status,data:d};}).catch(e=>({ok:false,status:0,data:{error:e.message||String(e)}}));
+    const poll=waitForJob(jobId);const results=await Promise.all([workerPromise,poll]),wr=results[0],jr=results[1];
+    if(jr&&jr.status==='review'){
+      const generatedId=Number(jr.generated_document_id||0);
+      if(generatedId>0){const token=await cfFreshToken();await persistGeneratedDocumentTheme(generatedId,item.themeColor||'#6D28D9',token);}
+      if(msg){msg.dataset.state='ok';msg.textContent='✓ « '+item.title+' » est généré et attend le contrôle.';}
+      await charger();return;
+    }
+    if(!wr.ok)throw new Error(wr.data?.error||('HTTP '+wr.status));
+    throw new Error('La génération n’a pas abouti.');
+  }finally{generationRunning=false;updateQueueUI();}
+}
 async function processQueue(){if(generationRunning)return;const item=generationQueue.shift();updateQueueUI();if(!item)return;try{await runGeneration(item);}catch(e){const msg=document.getElementById('cfCreateMsg');if(msg){msg.dataset.state='error';msg.textContent=`Le document « ${item.title} » n’a pas pu être généré : ${e.message||e}`}setProgress(100,'Échec de ce document — Aurora passe au suivant.');}finally{updateQueueUI();if(generationQueue.length)processQueue();}}
-function enqueueCurrent(){if(!adminOk())return;const title=selectedValue('cfCreateTitle','cfCreateTitleCustom'),subject=selectedValue('cfCreateSubject','cfCreateSubjectCustom'),level=selectedValue('cfCreateLevel','cfCreateLevelCustom'),className=selectedValue('cfCreateClass','cfCreateClassCustom'),prompt=(document.getElementById('cfCreatePrompt')?.value||'').trim(),themeColor=normalizeThemeColor(document.getElementById('cfCreateThemeColor')?.value),msg=document.getElementById('cfCreateMsg');if(!title||!prompt){if(msg){msg.dataset.state='error';msg.textContent='Le titre et la demande sont obligatoires. Choisis les valeurs disponibles ou « Autre / nouveau… ».'}return}if((document.getElementById('cfCreateSubject')?.value==='__custom__')&&!subject){if(msg)msg.textContent='Indique la matière.';return}if((document.getElementById('cfCreateLevel')?.value==='__custom__')&&!level){if(msg)msg.textContent='Indique le niveau.';return}if((document.getElementById('cfCreateClass')?.value==='__custom__')&&!className){if(msg)msg.textContent='Indique la classe.';return}generationQueue.push({title,subject,level,className,prompt,themeColor});if(msg){msg.dataset.state='ok';msg.textContent=`« ${title} » ajouté à la file (${generationQueue.length} en attente${generationRunning?' derrière le document en cours':''}).`}updateQueueUI();if(!generationRunning)processQueue();}
-function bindClassification(){['cfCreateTitle','cfCreateSubject','cfCreateLevel','cfCreateClass'].forEach(id=>document.getElementById(id)?.addEventListener('change',refreshClassificationOptions));bindCustomSelect('cfCreateTitle','cfCreateTitleCustom');const themeInput=document.getElementById('cfCreateThemeColor'),themeValue=document.getElementById('cfCreateThemeColorValue'),themeSwatches=document.getElementById('cfCreateThemeSwatches');const syncThemeColor=()=>{if(themeInput&&themeValue)themeValue.textContent=normalizeThemeColor(themeInput.value);themeSwatches?.querySelectorAll('[data-create-theme]').forEach(b=>b.classList.toggle('is-selected',normalizeThemeColor(b.dataset.createTheme)===normalizeThemeColor(themeInput?.value||'#6D28D9')))};themeInput?.addEventListener('input',syncThemeColor);themeSwatches?.querySelectorAll('[data-create-theme]').forEach(b=>b.addEventListener('click',()=>{if(themeInput){themeInput.value=normalizeThemeColor(b.dataset.createTheme);syncThemeColor()}}));syncThemeColor();bindCustomSelect('cfCreateSubject','cfCreateSubjectCustom');bindCustomSelect('cfCreateLevel','cfCreateLevelCustom');bindCustomSelect('cfCreateClass','cfCreateClassCustom');loadClassificationOptions();}
+function enqueueCurrent(){
+  if(!adminOk())return;
+  const title=selectedValue('cfCreateTitle'),subject=selectedValue('cfCreateSubject'),level=selectedValue('cfCreateLevel'),className=selectedValue('cfCreateClass'),filiere=selectedValue('cfCreateFiliere'),category=selectedValue('cfCreateCategory'),resourceType=selectedValue('cfCreateResourceType'),reference=selectedValue('cfCreateReference'),prompt=(document.getElementById('cfCreatePrompt')?.value||'').trim(),rights=Boolean(document.getElementById('cfCreateRights')?.checked),themeColor=normalizeThemeColor(document.getElementById('cfCreateThemeColor')?.value),msg=document.getElementById('cfCreateMsg');
+  if(!title){if(msg){msg.dataset.state='error';msg.textContent='Le titre est obligatoire.';}return;}
+  if(!level){if(msg){msg.dataset.state='error';msg.textContent='Sélectionne le parcours scolaire complet.';}return;}
+  if(!subject){if(msg){msg.dataset.state='error';msg.textContent='Sélectionne la matière.';}return;}
+  if(!category){if(msg){msg.dataset.state='error';msg.textContent='Choisis la catégorie.';}return;}
+  if(!resourceType){if(msg){msg.dataset.state='error';msg.textContent='Choisis le type de ressource.';}return;}
+  if(!prompt){if(msg){msg.dataset.state='error';msg.textContent='La demande pédagogique est obligatoire.';}return;}
+  if(!rights){if(msg){msg.dataset.state='error';msg.textContent='Confirme l’autorisation d’utiliser la demande et les références fournies.';}return;}
+  generationQueue.push({title,subject,level,className,filiere,category,resourceType,reference,prompt,themeColor,rights});
+  if(msg){msg.dataset.state='ok';msg.textContent='« '+title+' » ajouté à la file ('+generationQueue.length+' en attente'+(generationRunning?' derrière le document en cours':'')+').';}
+  updateQueueUI();if(!generationRunning)processQueue();
+}
+function bindClassification(){
+  const themeInput=document.getElementById('cfCreateThemeColor'),themeValue=document.getElementById('cfCreateThemeColorValue'),themeSwatches=document.getElementById('cfCreateThemeSwatches');
+  const syncThemeColor=()=>{if(themeInput&&themeValue)themeValue.textContent=normalizeThemeColor(themeInput.value);themeSwatches?.querySelectorAll('[data-create-theme]').forEach(b=>b.classList.toggle('is-selected',normalizeThemeColor(b.dataset.createTheme)===normalizeThemeColor(themeInput?.value||'#6D28D9')))};
+  themeInput?.addEventListener('input',syncThemeColor);
+  themeSwatches?.querySelectorAll('[data-create-theme]').forEach(b=>b.addEventListener('click',()=>{if(themeInput){themeInput.value=normalizeThemeColor(b.dataset.createTheme);syncThemeColor()}}));
+  syncThemeColor();
+  loadClassificationOptions();
+}
 
 async function auroraGeoGebraScriptReady(){
   if(window.GGBApplet)return;
