@@ -278,7 +278,12 @@ function enqueueCurrent(){
   updateQueueUI();if(!generationRunning)processQueue();
 }
 function bindClassification(){
-  const themeInput=document.getElementById('cfCreateThemeColor'),themeValue=document.getElementById('cfCreateThemeColorValue'),themeSwatches=document.getElementById('cfCreateThemeSwatches'),themeToggle=document.getElementById('cfThemePaletteToggle'),themePalette=document.getElementById('cfCreateThemePalette'),themePreview=document.getElementById('cfThemeColorPreview');
+  const themeInput=document.getElementById('cfCreateThemeColor');
+  const themeValue=document.getElementById('cfCreateThemeColorValue');
+  const themeSwatches=document.getElementById('cfCreateThemeSwatches');
+  const themeToggle=document.getElementById('cfThemePaletteToggle');
+  const themePalette=document.getElementById('cfCreateThemePalette');
+  const themePreview=document.getElementById('cfThemeColorPreview');
   const palette=[
     ['Violet','#6D28D9'],['Rouge','#C93648'],['Vert','#198754'],['Bleu','#1D4ED8'],['Jaune','#B77900'],['Orange','#C85C0D'],
     ['Cyan','#0E7490'],['Rose','#BE185D'],['Indigo','#4338CA'],['Turquoise','#0F766E'],['Émeraude','#047857'],['Citron vert','#4D7C0F'],
@@ -289,14 +294,67 @@ function bindClassification(){
     ['Abricot','#92400E'],['Terracotta','#9A3412'],['Framboise','#9F1239'],['Mauve','#6D28D9'],['Pervenche','#3730A3'],['Glacier','#155E75'],
     ['Sable','#854D0E'],['Cacao','#451A03'],['Lagune','#0F5257']
   ];
+
   if(themeSwatches&&!themeSwatches.children.length){
-    themeSwatches.innerHTML=palette.map(([name,color])=>'<button type="button" class="cf-create-theme-swatch" data-create-theme="'+color+'" title="'+name+'" aria-label="Choisir '+name+'" style="--cf-swatch:'+color+'"><span></span></button>').join('');
+    themeSwatches.innerHTML=palette.map(([name,color])=>
+      '<button type="button" class="cf-create-theme-swatch" data-create-theme="'+color+
+      '" title="'+name+'" aria-label="Choisir '+name+'" style="--cf-swatch:'+color+'"><span></span></button>'
+    ).join('');
   }
-  const syncThemeColor=()=>{const color=normalizeThemeColor(themeInput?.value||'#6D28D9');if(themeValue)themeValue.textContent=color;if(themePreview)themePreview.style.background=color;themeSwatches?.querySelectorAll('[data-create-theme]').forEach(b=>b.classList.toggle('is-selected',normalizeThemeColor(b.dataset.createTheme)===color))};
+
+  const syncThemeColor=()=>{
+    const input=document.getElementById('cfCreateThemeColor');
+    const value=document.getElementById('cfCreateThemeColorValue');
+    const preview=document.getElementById('cfThemeColorPreview');
+    const swatches=document.getElementById('cfCreateThemeSwatches');
+    const color=normalizeThemeColor(input?.value||'#6D28D9');
+    if(input)input.value=color;
+    if(value)value.textContent=color;
+    if(preview)preview.style.backgroundColor=color;
+    swatches?.querySelectorAll('[data-create-theme]').forEach(b=>{
+      b.classList.toggle('is-selected',normalizeThemeColor(b.dataset.createTheme)===color);
+    });
+    return color;
+  };
+
+  // Délégation robuste : le panneau Content Factory peut être reconstruit ou
+  // réinjecté après l'initialisation. Le sélecteur reste donc cliquable.
+  if(!window.__auroreCfThemePickerBound){
+    window.__auroreCfThemePickerBound=true;
+    document.addEventListener('click',e=>{
+      const toggle=e.target?.closest?.('#cfThemePaletteToggle');
+      const swatch=e.target?.closest?.('#cfCreateThemeSwatches [data-create-theme]');
+      const paletteEl=document.getElementById('cfCreateThemePalette');
+      const input=document.getElementById('cfCreateThemeColor');
+      if(toggle){
+        e.preventDefault();
+        e.stopPropagation();
+        if(!paletteEl)return;
+        paletteEl.hidden=!paletteEl.hidden;
+        toggle.setAttribute('aria-expanded',String(!paletteEl.hidden));
+        syncThemeColor();
+        return;
+      }
+      if(swatch){
+        e.preventDefault();
+        e.stopPropagation();
+        const color=normalizeThemeColor(swatch.dataset.createTheme);
+        if(input)input.value=color;
+        syncThemeColor();
+        if(paletteEl)paletteEl.hidden=true;
+        const currentToggle=document.getElementById('cfThemePaletteToggle');
+        currentToggle?.setAttribute('aria-expanded','false');
+        return;
+      }
+      if(paletteEl&&!paletteEl.hidden&&!e.target?.closest?.('#cfCreateThemePalette')){
+        paletteEl.hidden=true;
+        document.getElementById('cfThemePaletteToggle')?.setAttribute('aria-expanded','false');
+      }
+    },true);
+  }
+
   themeInput?.addEventListener('input',syncThemeColor);
   themeInput?.addEventListener('change',syncThemeColor);
-  themeSwatches?.querySelectorAll('[data-create-theme]').forEach(b=>b.addEventListener('click',()=>{if(themeInput){themeInput.value=normalizeThemeColor(b.dataset.createTheme);syncThemeColor();if(themePalette)themePalette.hidden=true;if(themeToggle)themeToggle.setAttribute('aria-expanded','false')}}));
-  themeToggle?.addEventListener('click',e=>{e.preventDefault();if(!themePalette)return;themePalette.hidden=!themePalette.hidden;themeToggle.setAttribute('aria-expanded',String(!themePalette.hidden))});
   syncThemeColor();
   loadClassificationOptions();
 }
