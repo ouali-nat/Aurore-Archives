@@ -1,6 +1,5 @@
 // ---------- DOCUMENTS (connecté à Supabase) ----------
   let documentsCourants = [];
-  let documentsPublicsTous = [];
 
   const SITE_PUBLIC_PAGE_SIZE = 10;
   function normaliserRechercheSite(v){
@@ -791,24 +790,6 @@
     });
   }
 
-  function documentEstAurore(doc){
-    const source=String(doc?.Source||'').trim();
-    return source==='Aurore — Content Factory'||source==='Aurora IA — Content Factory';
-  }
-  let documentsOrigineCourants='aurore';
-  function majFiltreOrigineDocuments(){
-    const wrap=document.getElementById('docsOriginFilter');
-    if(!wrap)return;
-    if(!etat?.matiere){wrap.hidden=true;wrap.innerHTML='';return}
-    const aurore=(documentsPublicsTous||[]).filter(documentEstAurore).length;
-    const communaute=(documentsPublicsTous||[]).length-aurore;
-    wrap.hidden=false;
-    wrap.innerHTML='<button type="button" class="docs-origin-option aurore '+(documentsOrigineCourants==='aurore'?'is-active':'')+'" aria-pressed="'+(documentsOrigineCourants==='aurore')+'" data-doc-origin="aurore"><span class="docs-origin-icon">A</span><span class="docs-origin-main"><strong>Aurore</strong><small>Ressources préparées par Aurore</small></span><span class="docs-origin-count">'+aurore+'</span></button><button type="button" class="docs-origin-option community '+(documentsOrigineCourants==='communaute'?'is-active':'')+'" aria-pressed="'+(documentsOrigineCourants==='communaute')+'" data-doc-origin="communaute"><span class="docs-origin-icon">C</span><span class="docs-origin-main"><strong>Communauté</strong><small>Documents déposés par les utilisateurs</small></span><span class="docs-origin-count">'+communaute+'</span></button>';
-    wrap.querySelectorAll('[data-doc-origin]').forEach(btn=>btn.addEventListener('click',()=>{
-      documentsOrigineCourants=btn.dataset.docOrigin==='communaute'?'communaute':'aurore';
-      docsPageCourante=1;majFiltreOrigineDocuments();afficherDocumentsPublicsAvecOutils();
-    }));
-  }
   function rendreListeDocuments(content, data, afficherCouverturesRomans = false) {
     // Prépare PDF.js en parallèle de la construction de la liste : le rendu
     // de la première page peut ainsi démarrer dès que les lignes sont visibles.
@@ -833,7 +814,6 @@
       row.className='doc-row';
       row._auroreDocument = doc;
       const telechargementOk=doc.Telechargement_autorise!==false;
-      const estAurore=documentEstAurore(doc);
       const contexte=[
         doc.Niveau && `Niveau : ${doc.Niveau}`,
         doc.Filiere && `Filière : ${doc.Filiere}`,
@@ -868,7 +848,6 @@
   async function allerDocuments(matiere) {
     // Les sections scolaires utilisent elles aussi la couverture de première page.
     COUVERTURES_PREMIERE_PAGE_ACTIVES = true;
-    documentsOrigineCourants='aurore';
     etat.matiere = matiere;
     const niveauLabel = (etat.classe?.dbNiveaux?.[0]) || (etat.feuilleArbre?.dbNiveaux?.[0]) || (etat.sousNiveau?.dbNiveaux?.[0]) || '';
     const serieLabel = etat.filiere ? ' — Série ' + etat.filiere : '';
@@ -890,11 +869,9 @@
       if (!res.ok) throw new Error("Statut HTTP " + res.status);
       const data = filtreSerieSiDisponible(await res.json());
       documentsCourants = Array.isArray(data) ? data : [];
-      documentsPublicsTous = documentsCourants.slice();
-      actualiserTriPublicDocuments(documentsPublicsTous);
+      actualiserTriPublicDocuments(documentsCourants);
       docsPageCourante = 1;
       if(document.getElementById('docsSearch')) document.getElementById('docsSearch').value = '';
-      majFiltreOrigineDocuments();
       afficherDocumentsPublicsAvecOutils();
     } catch (err) {
       content.innerHTML = `<div class="doc-empty"><div class="icon-wrap">${ICONS.warning}</div><h3>Impossible de charger les documents</h3><p>Le contenu n’a pas pu être récupéré pour le moment. Veuillez réessayer dans quelques instants.</p></div>`;
@@ -905,12 +882,11 @@
   function afficherDocumentsPublicsAvecOutils(){
     const content=document.getElementById('docsContent');
     const q=normaliserRechercheSite(document.getElementById('docsSearch')?.value||'');
-    const originData=(documentsPublicsTous||[]).filter(doc=>documentsOrigineCourants==='communaute'?!documentEstAurore(doc):documentEstAurore(doc));
-    const filtered=originData.filter(doc=>!q||valeurTexteDocument(doc).includes(q));
+    const filtered=(documentsCourants||[]).filter(doc=>!q||valeurTexteDocument(doc).includes(q));
     const sorted=trierDocumentsClient(filtered);
     const pages=Math.max(1,Math.ceil(sorted.length/SITE_PUBLIC_PAGE_SIZE));
     docsPageCourante=Math.min(docsPageCourante,pages);
-    if(!sorted.length){ content.innerHTML=documentsOrigineCourants==='aurore' ? '<div class="docs-origin-empty"><div class="empty-mark">A</div><h3>Aucune ressource Aurore dans cette matière</h3><p>Les publications préparées par Aurore apparaîtront ici dès qu’elles seront validées. Les documents de la communauté restent accessibles séparément.</p><button type="button" class="admin-btn ghost" id="docsSeeCommunity">Voir les documents de la communauté</button></div>' : '<div class="docs-origin-empty"><div class="empty-mark">C</div><h3>Aucun document de la communauté dans cette matière</h3><p>Les contributions déposées et validées par les utilisateurs apparaîtront ici.</p></div>'; content.querySelector('#docsSeeCommunity')?.addEventListener('click',()=>{documentsOrigineCourants='communaute';majFiltreOrigineDocuments();afficherDocumentsPublicsAvecOutils();}); afficherPaginationSite('docsPager',0,1,()=>{}); return; }
+    if(!sorted.length){ content.innerHTML='<div class="site-empty-filter">Aucun document ne correspond à votre recherche.</div>'; afficherPaginationSite('docsPager',0,1,()=>{}); return; }
     const start=(docsPageCourante-1)*SITE_PUBLIC_PAGE_SIZE;
     rendreListeDocuments(content, sorted.slice(start,start+SITE_PUBLIC_PAGE_SIZE), COUVERTURES_PREMIERE_PAGE_ACTIVES);
     afficherPaginationSite('docsPager',sorted.length,docsPageCourante,p=>{docsPageCourante=p;afficherDocumentsPublicsAvecOutils();});
@@ -920,7 +896,6 @@
 
   // ---------- LIVRES ET ROMANS ----------
   function allerLivres() {
-    const originWrap=document.getElementById('docsOriginFilter');if(originWrap){originWrap.hidden=true;originWrap.innerHTML='';}
     // Prépare pdf.js pendant que l’utilisateur choisit le genre, afin que la première page soit rendue immédiatement après l’ouverture des livres.
     if (typeof chargerPdfJs === 'function') chargerPdfJs().catch(() => {});
     etat = { niveau:null, sousNiveau:null, serieChoisie:null, classe:null, categorie:null, filiere:null, division:null, matiere:null, cheminArbre:[], feuilleArbre:null };
