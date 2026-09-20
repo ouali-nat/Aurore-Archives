@@ -850,7 +850,7 @@
         target.appendChild(groupList);
         const empty=document.createElement('div');
         empty.className='aurore-origin-empty';
-        empty.innerHTML='<div class="aurore-origin-empty-icon">'+iconExpr+' </div><span>'+echapperHtmlPub(groupe.empty)+'</span>';
+        empty.innerHTML='<div class="aurore-origin-empty-icon">'+ICONS.folder+'</div><span>'+echapperHtmlPub(groupe.empty)+'</span>';
         if(groupe.items.length===0)groupList.appendChild(empty);
         root.appendChild(target);
       }
