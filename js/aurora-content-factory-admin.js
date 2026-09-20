@@ -247,8 +247,15 @@ async function runGeneration(item){
     const poll=waitForJob(jobId);const results=await Promise.all([workerPromise,poll]),wr=results[0],jr=results[1];
     if(jr&&jr.status==='review'){
       const generatedId=Number(jr.generated_document_id||0);
-      if(generatedId>0){const token=await cfFreshToken();await persistGeneratedDocumentTheme(generatedId,item.themeColor||'#6D28D9',token);}
-      if(msg){msg.dataset.state='ok';msg.textContent='✓ « '+item.title+' » est généré et attend le contrôle.';}
+      if(generatedId>0){
+        const token=await cfFreshToken();
+        await persistGeneratedDocumentTheme(generatedId,item.themeColor||'#6D28D9',token);
+        // Dès que le contenu pédagogique est créé, le rendu PDF est lancé automatiquement.
+        // Le contrôle et la publication restent ensuite des actions humaines séparées.
+        if(msg)msg.textContent='« '+item.title+' » est créé. Lancement automatique du PDF…';
+        await renderPdf(generatedId,item.themeColor||'#6D28D9');
+      }
+      if(msg){msg.dataset.state='ok';msg.textContent='✓ « '+item.title+' » est généré, son PDF est lancé et le document attend le contrôle.';}
       await charger();return;
     }
     if(!wr.ok)throw new Error(wr.data?.error||('HTTP '+wr.status));
