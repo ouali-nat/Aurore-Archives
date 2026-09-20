@@ -590,21 +590,25 @@ async function auroraGeoGebraExportOne(graph){
   // Le conteneur reste rendu mais ne capte aucun clic de l'interface.
   const hostId='aurora-ggb-export-'+Date.now()+'-'+Math.random().toString(36).slice(2);
   host.id=hostId;
-  host.style.cssText='position:fixed;left:0;top:0;width:1400px;height:900px;opacity:0.001;visibility:visible;pointer-events:none;z-index:1;background:#fff;';
+  // Ne pas masquer l'applet avec opacity:0/0.001 : WebGL/Canvas peut alors ne
   document.body.appendChild(host);
   return await new Promise((resolve,reject)=>{
     let finished=false;
+    let appletLoaded=false;
     const done=(fn,v)=>{if(finished)return;finished=true;try{api?.remove?.()}catch(_){}host.remove();fn(v);};
     let api=null;
-    const timer=setTimeout(()=>done(reject,new Error('GeoGebra n’a pas terminé la construction du graphique.')),30000);
+    const timer=setTimeout(()=>done(reject,new Error(appletLoaded
+      ? 'GeoGebra a initialisé l’applet mais n’a pas terminé la construction du graphique.'
+      : 'GeoGebra n’a pas terminé l’initialisation de l’applet.')),30000);
     const instrument=auroraGeoGebraInstrument(graph);
     const is3D=['parametric3d','surface3d','geometry3d'].includes(instrument);
     const params={
-      id:'auroraGgbApplet',appName:is3D?'3d':'graphing',width:1400,height:is3D?900:820,showToolBar:false,showAlgebraInput:false,
+      id:hostId,appName:is3D?'3d':'graphing',width:1400,height:is3D?900:820,showToolBar:false,showAlgebraInput:false,
       showMenuBar:false,showResetIcon:false,showFullscreenButton:false,showZoomButtons:false,
       showSuggestionButtons:false,language:'fr',
       appletOnLoad:function(a){
         api=a;
+        appletLoaded=true;
         try{
           // getPNGBase64() exports the active graphics view. Select the
           // intended view explicitly so a 3D construction can never be
