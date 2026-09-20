@@ -187,7 +187,9 @@ function cfRenderCascade(){
   const currentIndex=cfRouteChoices.findIndex(x=>x.path[x.path.length-1]===cfCreatePath[cfCreatePath.length-1]);
   if(currentIndex>=0)route.value=String(currentIndex);
   root.onchange=()=>{
-    cfCreatePath=[];cfRenderCascade();cfResolveClassification();
+    const n=NIVEAUX.find(x=>x.id===root.value)||null;
+    cfCreatePath=n?[n]:[];
+    cfRenderCascade();cfResolveClassification();
   };
   route.onchange=()=>{
     const choice=cfRouteChoices[Number(route.value)];
