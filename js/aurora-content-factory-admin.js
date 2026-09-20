@@ -986,5 +986,11 @@ document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurre
       void handlePdfAction({action:'publish',id:p.dataset.cfPublish});
     }
   });
-  window.auroraContentFactoryPdfActions={render:(id,hasPdf,themeColor)=>handlePdfAction({action:'render',id,hasPdf,themeColor}),validate:id=>handlePdfAction({action:'validate',id}),reject:id=>handlePdfAction({action:'reject',id}),publish:id=>handlePdfAction({action:'publish',id})};
+  window.auroraContentFactoryPdfActions={
+    render:(id,hasPdf,themeColor)=>handlePdfAction({action:'render',id,hasPdf,themeColor}),
+    chooseTheme:(defaultColor)=>chooseRegenerationTheme(defaultColor),
+    validate:id=>handlePdfAction({action:'validate',id}),
+    reject:id=>handlePdfAction({action:'reject',id}),
+    publish:id=>handlePdfAction({action:'publish',id})
+  };
   bindClassification();window.chargerAuroraContentFactoryAdmin=charger;})();
