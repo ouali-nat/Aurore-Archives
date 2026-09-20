@@ -144,6 +144,18 @@ function cfResolveClassification(){
   }
   cfSyncSubjectOptions();
 }
+function cfSeriesClassOptions(node){
+  if(!node||!Array.isArray(node.series)||!node.series.some(s=>Array.isArray(s.classes)))return null;
+  const items=[];
+  if(Array.isArray(node.troncCommuns)){
+    for(const classe of node.troncCommuns)items.push({node:classe,series:null});
+  }
+  for(const serie of node.series){
+    if(!Array.isArray(serie.classes))continue;
+    for(const classe of serie.classes)items.push({node:classe,series:serie});
+  }
+  return items.length?items:null;
+}
 function cfRenderCascade(){
   const zone=document.getElementById('cfCreateCascade');
   if(!zone)return;
@@ -160,21 +172,39 @@ function cfRenderCascade(){
   let current=cfCreatePath[0]||null;
   let depth=1;
   while(current&&!cfIsLeaf(current)){
-    const children=cfChildren(current)||[];
+    const seriesOptions=cfSeriesClassOptions(current);
+    const children=seriesOptions?seriesOptions.map(x=>x.node):(cfChildren(current)||[]);
     const sel=document.createElement('select');
     sel.innerHTML='<option value="">Choisir…</option>'+children.map(n=>'<option value="'+cfEscape(n.id)+'">'+cfEscape(n.nom)+'</option>').join('');
-    sel.value=cfCreatePath[depth]?.id||'';
+    const currentSeriesItem=seriesOptions?.find(x=>cfCreatePath.includes(x.node))||null;
+    sel.value=currentSeriesItem?.node.id||cfCreatePath[depth]?.id||'';
     const p=depth;
     sel.addEventListener('change',()=>{
       const child=children.find(x=>x.id===sel.value)||null;
       cfCreatePath=cfCreatePath.slice(0,p);
-      if(child)cfCreatePath.push(child);
+      if(child){
+        if(seriesOptions){
+          const item=seriesOptions.find(x=>x.node===child);
+          if(item?.series)cfCreatePath.push(item.series);
+          cfCreatePath.push(child);
+        }else{
+          cfCreatePath.push(child);
+        }
+      }
       cfRenderCascade();cfResolveClassification();
     });
     zone.appendChild(sel);
-    const chosen=cfCreatePath[depth]||null;
-    if(!chosen)break;
-    current=chosen;depth++;
+    if(seriesOptions){
+      const chosenItem=seriesOptions.find(x=>cfCreatePath.includes(x.node))||null;
+      if(!chosenItem)break;
+      current=chosenItem.node;
+      depth=cfCreatePath.length;
+    }else{
+      const chosen=cfCreatePath[depth]||null;
+      if(!chosen)break;
+      current=chosen;
+      depth++;
+    }
   }
 }
 // La catégorie reste celle du dépôt public. Le type de ressource précise uniquement ce qu'Aurora doit produire.
