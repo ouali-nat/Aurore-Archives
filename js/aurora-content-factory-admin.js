@@ -403,9 +403,28 @@ async function auroraGeoGebraScriptReady(){
   return window.__auroraGeoGebraScriptPromise;
 }
 function auroraGeoGebraInstrument(g){
-  const raw=String(g?.instrument||g?.graph_type||"function2d").toLowerCase().trim();
+  const x=g&&typeof g==="object"?g:{};
   const aliases={"function":"function2d","graph":"function2d","courbe":"function2d","parametric":"parametric2d","parametric2d":"parametric2d","parametric3d":"parametric3d","surface":"surface3d","surface3d":"surface3d","geometry3d":"geometry3d","geometrie3d":"geometry3d","3d":"geometry3d"};
-  return aliases[raw]||["function2d","parametric2d","parametric3d","surface3d","geometry3d"].includes(raw)?(aliases[raw]||raw):"function2d";
+  const raw=String(x.instrument||x.graph_type||"").toLowerCase().trim();
+  if(raw)return ["function2d","parametric2d","parametric3d","surface3d","geometry3d"].includes(aliases[raw]||raw)?(aliases[raw]||raw):null;
+  const objects=Array.isArray(x.objects)?x.objects:[];
+  if(objects.length){
+    const types=new Set(objects.map(o=>String(o?.type||"").toLowerCase().trim()));
+    if(["sphere","cylinder","cone","cube","prism","pyramid","tetrahedron","plane"].some(t=>types.has(t)))return "geometry3d";
+    if(objects.some(o=>String(o?.from||"").match(/-?\\d/)&&String(o?.to||"").match(/-?\\d/)))return "geometry3d";
+  }
+  const points3=Array.isArray(x.points)&&x.points.some(p=>Array.isArray(p)&&p.length>=3);
+  const poi3=Array.isArray(x.points_of_interest)&&x.points_of_interest.some(p=>Number.isFinite(Number(p?.z)));
+  if(String(x.z_expression||"").trim()&&String(x.x_expression||"").trim()&&String(x.y_expression||"").trim())return "parametric3d";
+  if(String(x.x_expression||"").trim()&&String(x.y_expression||"").trim())return points3||poi3?"parametric3d":"parametric2d";
+  if(String(x.expression||"").trim()){
+    if(String(x.z_label||"").trim()||points3||poi3)return "surface3d";
+    return "function2d";
+  }
+  if(points3||poi3)return "geometry3d";
+  const points2=Array.isArray(x.points)&&x.points.some(p=>Array.isArray(p)&&p.length===2);
+  if(points2||Array.isArray(x.asymptotes)&&x.asymptotes.length)return "function2d";
+  return null;
 }
 function auroraGeoGebraParameter(raw){
   const t=String(raw||"t").replace(/[^A-Za-z0-9_]/g,"").trim()||"t";
@@ -590,7 +609,14 @@ async function auroraGeoGebraExportOne(graph){
   // Le conteneur reste rendu mais ne capte aucun clic de l'interface.
   const hostId='aurora-ggb-export-'+Date.now()+'-'+Math.random().toString(36).slice(2);
   host.id=hostId;
-  // Ne pas masquer l'applet avec opacity:0/0.001 : WebGL/Canvas peut alors ne
+  const instrument=auroraGeoGebraInstrument(graph);
+  if(!instrument)throw new Error('Cet élément ne contient aucune construction GeoGebra exploitable. Il est conservé comme image/illustration et ne doit pas être traité comme un graphique.');
+  const is3D=['parametric3d','surface3d','geometry3d'].includes(instrument);
+  const width=1400,height=is3D?900:820;
+  // Le conteneur doit avoir une vraie surface de rendu. Un div de taille nulle
+  // peut laisser l'applet initialisée mais empêcher Canvas/WebGL de finaliser
+  // correctement la construction.
+  host.style.cssText='position:fixed;left:-1600px;top:0;width:'+width+'px;height:'+height+'px;opacity:1;visibility:visible;pointer-events:none;z-index:1;background:#fff;overflow:hidden;';
   document.body.appendChild(host);
   return await new Promise((resolve,reject)=>{
     let finished=false;
@@ -600,8 +626,6 @@ async function auroraGeoGebraExportOne(graph){
     const timer=setTimeout(()=>done(reject,new Error(appletLoaded
       ? 'GeoGebra a initialisé l’applet mais n’a pas terminé la construction du graphique.'
       : 'GeoGebra n’a pas terminé l’initialisation de l’applet.')),30000);
-    const instrument=auroraGeoGebraInstrument(graph);
-    const is3D=['parametric3d','surface3d','geometry3d'].includes(instrument);
     const params={
       id:hostId,appName:is3D?'3d':'graphing',width:1400,height:is3D?900:820,showToolBar:false,showAlgebraInput:false,
       showMenuBar:false,showResetIcon:false,showFullscreenButton:false,showZoomButtons:false,
@@ -917,7 +941,8 @@ async function renderPdf(id,themeColor=null){
     const documentGraphs=[];
     for(const section of Array.isArray(documentContent.sections)?documentContent.sections:[])
       if(Array.isArray(section?.graphs))documentGraphs.push(...section.graphs);
-    const declaredGraphCount=documentGraphs.length;
+    const renderableGraphs=documentGraphs.filter(g=>!!auroraGeoGebraInstrument(g));
+    const declaredGraphCount=renderableGraphs.length;
     let graphCount=0;
     if(declaredGraphCount>0){
       if(b)b.textContent='Préparation de '+declaredGraphCount+' graphique'+(declaredGraphCount>1?'s':'')+'…';
