@@ -554,6 +554,10 @@ async function auroraGeoGebraExportOne(graph){
       appletOnLoad:function(a){
         api=a;
         try{
+          // getPNGBase64() exports the active graphics view. Select the
+          // intended view explicitly so a 3D construction can never be
+          // captured from Graphics View 1.
+          try{a.evalCommand('SetActiveView('+(is3D?-1:1)+')')}catch(_){}
           const xmin0=Number(graph?.x_min),xmax0=Number(graph?.x_max),ymin0=Number(graph?.y_min),ymax0=Number(graph?.y_max);
           if(is3D){
             const zmin0=Number(graph?.z_min),zmax0=Number(graph?.z_max);
@@ -656,6 +660,7 @@ async function auroraGeoGebraExportOne(graph){
               try{if(typeof a.recalculateEnvironments==='function')a.recalculateEnvironments()}catch(_){}
               try{if(typeof a.refreshViews==='function')a.refreshViews()}catch(_){}
               try{if(is3D&&typeof a.showAllObjects==='function')a.showAllObjects()}catch(_){}
+              try{a.evalCommand('SetActiveView('+(is3D?-1:1)+')')}catch(_){}
               for(const label of primaryLabels){
                 try{if(typeof a.exists==='function'&&a.exists(label)&&typeof a.setVisible==='function')a.setVisible(label,true)}catch(_){}
               }
