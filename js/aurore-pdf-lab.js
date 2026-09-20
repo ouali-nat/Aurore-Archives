@@ -456,25 +456,121 @@
     toast('Production PDF','« '+title+' » est ajouté à la file.','info');
   },true);
   function forwardProductionAction(button,action){
-    const detail={action,id:Number(button?.dataset?.['cf-'+action]||button?.dataset?.cfRender||button?.dataset?.cfValidate||button?.dataset?.cfReject||button?.dataset?.cfPublish||0),hasPdf:button?.dataset?.hasPdf==='1',themeColor:button?.dataset?.themeColor||'#6D28D9'};
+    const detail={
+      action,
+      id:Number(button?.dataset?.['cf-'+action]||button?.dataset?.cfRender||button?.dataset?.cfValidate||button?.dataset?.cfReject||button?.dataset?.cfPublish||0),
+      hasPdf:button?.dataset?.hasPdf==='1',
+      themeColor:button?.dataset?.themeColor||'#6D28D9'
+    };
     if(!detail.id)return false;
-    if(typeof window.auroraContentFactoryPdfActions==='object'){
-      const fn=window.auroraContentFactoryPdfActions[action];
-      if(typeof fn==='function'){fn(detail.id,detail.hasPdf,detail.themeColor);return true}
+
+    const api=window.auroraContentFactoryPdfActions;
+    if(api&&typeof api==='object'){
+      const fn=api[action];
+
+      // Le bouton visible de régénération est capturé ici, en phase capture.
+      // On ouvre donc explicitement le sélecteur de couleur avant de demander
+      // le rendu, au lieu de compter sur un second gestionnaire de clic.
+      if(action==='render'&&detail.hasPdf&&typeof api.chooseTheme==='function'){
+        Promise.resolve()
+          .then(()=>api.chooseTheme(detail.themeColor))
+          .then(color=>{
+            if(!color)return;
+            if(typeof api.render==='function')return api.render(detail.id,false,color);
+            throw new Error('Le moteur PDF Aurore n’est pas disponible.');
+          })
+          .catch(err=>{
+            console.error('[Aurore PDF] choix de couleur/régénération:',err);
+            alert('La régénération du PDF n’a pas pu démarrer. '+(err?.message||err));
+          });
+        return true;
+      }
+
+      if(typeof fn==='function'){
+        try{
+          const result=fn(detail.id,detail.hasPdf,detail.themeColor);
+          if(result&&typeof result.catch==='function')result.catch(err=>{
+            console.error('[Aurore PDF] action:',err);
+            alert('Action PDF impossible. '+(err?.message||err));
+          });
+          return true;
+        }catch(err){
+          console.error('[Aurore PDF] action synchrone:',err);
+          alert('Action PDF impossible. '+(err?.message||err));
+          return true;
+        }
+      }
     }
+
+    // Dernier repli : conserver le circuit CustomEvent historique.
     document.dispatchEvent(new CustomEvent('aurore-pdf-action',{detail}));
     return true;
   }
-  document.addEventListener('click',e=>{
-    const b=e.target?.closest?.('[data-cf-render],[data-cf-validate],[data-cf-reject],[data-cf-publish]');
-    if(!b)return;
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    if(b.matches('[data-cf-render]'))forwardProductionAction(b,'render');
-    else if(b.matches('[data-cf-validate]'))forwardProductionAction(b,'validate');
-    else if(b.matches('[data-cf-reject]'))forwardProductionAction(b,'reject');
-    else if(b.matches('[data-cf-publish]'))forwardProductionAction(b,'publish');
-  },true);
+
+  // Pont de secours pour le sélecteur compact "Couleur dominante" du formulaire
+  // Content Factory. Ce clic est capturé ici avant les autres délégations globales.
+  if(!window.__auroreCfThemePaletteBridge){
+    window.__auroreCfThemePaletteBridge=true;
+    const syncThemeBridge=()=>{
+      const input=document.getElementById('cfCreateThemeColor');
+      const output=document.getElementById('cfCreateThemeColorValue');
+      const preview=document.getElementById('cfThemeColorPreview');
+      const swatches=document.getElementById('cfCreateThemeSwatches');
+      if(!input)return '#6D28D9';
+      const color=/^#[0-9a-f]{6}$/i.test(String(input.value||''))?String(input.value).toUpperCase():'#6D28D9';
+      input.value=color;
+      if(output)output.textContent=color;
+      if(preview)preview.style.backgroundColor=color;
+      swatches?.querySelectorAll('[data-create-theme]').forEach(b=>{
+        b.classList.toggle('is-selected',String(b.dataset.createTheme||'').toUpperCase()===color);
+      });
+      return color;
+    };
+
+    document.addEventListener('click',e=>{
+      const toggle=e.target?.closest?.('#cfThemePaletteToggle');
+      const swatch=e.target?.closest?.('#cfCreateThemeSwatches [data-create-theme]');
+      const palette=document.getElementById('cfCreateThemePalette');
+      const input=document.getElementById('cfCreateThemeColor');
+
+      if(toggle){
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if(!palette)return;
+        palette.hidden=!palette.hidden;
+        toggle.setAttribute('aria-expanded',String(!palette.hidden));
+        syncThemeBridge();
+        return;
+      }
+
+      if(swatch){
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if(input)input.value=String(swatch.dataset.createTheme||'#6D28D9').toUpperCase();
+        syncThemeBridge();
+        if(palette)palette.hidden=true;
+        document.getElementById('cfThemePaletteToggle')?.setAttribute('aria-expanded','false');
+        return;
+      }
+
+      if(palette&&!palette.hidden&&!e.target?.closest?.('#cfCreateThemePalette')){
+        palette.hidden=true;
+        document.getElementById('cfThemePaletteToggle')?.setAttribute('aria-expanded','false');
+      }
+    },true);
+
+    document.addEventListener('keydown',e=>{
+      if(e.key!=='Escape')return;
+      const palette=document.getElementById('cfCreateThemePalette');
+      if(palette&&!palette.hidden){
+        palette.hidden=true;
+        document.getElementById('cfThemePaletteToggle')?.setAttribute('aria-expanded','false');
+      }
+    });
+
+    syncThemeBridge();
+  }
+
   function initProductionQueue(){ensureProductionUI();ensureProductionActionStyles();pollProductionQueue();setInterval(pollProductionQueue,2000)}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initProductionQueue,{once:true});else initProductionQueue();
 
