@@ -1026,6 +1026,12 @@ def main():
     if _mixed_probe != r"\((e^x)^n = e^{nx}\) pour tout entier \(n\)":
         raise SystemExit("inline() math guardrail failed: mixed inline formulas")
 
+    _mixed_formula_probe = display_formula(
+        r"Coordonnées cylindriques : $x=r\\cos\\theta$, $y=r\\sin\\theta$, $z=z$."
+    )
+    if "$" in _mixed_formula_probe or r"\\begin{equation*" in _mixed_formula_probe:
+        raise SystemExit("display_formula() guardrail failed: mixed inline math nested in display math")
+
     _array_row_probe = r"$\\begin{array}{c|ccccc} x & -\\infty & & 0 & & +\\infty \\ \\hline f(x) & 0 & \\nearrow & 1 & \\nearrow & +\\infty \\end{array}$"
     if _is_table_row(_array_row_probe):
         raise SystemExit("content guardrail failed: LaTeX array misdetected as table")
