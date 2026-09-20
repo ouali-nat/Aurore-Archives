@@ -464,7 +464,10 @@ function auroraGeoGebraGeometryCommands(g){
       const prefix={point:"P",vector:"u",line:"d",plane:"p",sphere:"sphere",cylinder:"cylinder",cone:"cone",polygon:"poly",cube:"cube",prism:"prism",pyramid:"pyr",tetrahedron:"tetra"}[type]||"obj";
       return prefix+String(seq++);
     };
-    const name=safePreferred||generatedName();
+    // Les noms fournis par le JSON sont éditoriaux. Pour les objets 3D,
+    // utiliser systématiquement un nom interne neutre évite toute collision
+    // avec les commandes GeoGebra ou avec un point déjà créé (A, B, C…).
+    const name=type==="point"&&safePreferred?safePreferred:generatedName();
     if(type==="point"){
       const q=auroraGeoGebraPointCommand(name,o.point||o.points?.[0]||o.coordinates);
       if(q){cmds.push(q.name+"="+q.command.split("=").slice(1).join("="));} 
@@ -643,13 +646,19 @@ async function auroraGeoGebraExportOne(graph){
               let ok=true;
               let labels='';
               if(typeof a.evalCommandGetLabels==='function'){
+                const before=typeof a.getObjectNumber==='function'?Number(a.getObjectNumber()):0;
                 labels=String(a.evalCommandGetLabels(text)||'').trim();
+                const after=typeof a.getObjectNumber==='function'?Number(a.getObjectNumber()):before;
                 if(primary){
-                  if(!labels){
+                  // Certains objets 3D peuvent être créés correctement sans que
+                  // evalCommandGetLabels() renvoie un label exploitable. Dans ce
+                  // cas, l'augmentation du nombre d'objets est une preuve plus
+                  // fiable que le label retourné par l'API.
+                  if(labels){
+                    labels.split(',').map(s=>s.trim()).filter(Boolean).forEach(label=>primaryLabels.push(label));
+                  }else if(after<=before){
                     ok=false;
                     commandErrors.push({command:text,error:'GeoGebra n’a créé aucun objet pour cette construction.'});
-                  }else{
-                    labels.split(',').map(s=>s.trim()).filter(Boolean).forEach(label=>primaryLabels.push(label));
                   }
                 }
               }else{
