@@ -273,9 +273,9 @@ jobs:
           tex = render(data)
           required = [
               r"\AuroreTitleBlock",
-              r"width=1.68cm,height=1.68cm",
-              r"width=1.38cm,height=1.38cm",
-              r"\raisebox{0.22cm}[2.30cm][0pt]{\qrcode",
+              r"width=1.74cm,height=1.74cm",
+              r"width=1.42cm,height=1.42cm",
+              r"\raisebox{0.36cm}[2.30cm][0pt]{\qrcode",
           ]
           for marker in required:
               if marker not in tex:
