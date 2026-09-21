@@ -423,14 +423,17 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
 
         tokens = re.findall(r"[A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9'’+\-]*", query)
         # Progressively remove trailing qualifiers while preserving the
-        # semantic beginning of the editorial request. Example:
-        # "pH scale household products" -> "pH scale household" -> "pH scale".
+        # semantic beginning of the editorial request. Do not stop after only
+        # one or two trims: long editorial queries such as
+        # "pH scale diagram acids bases neutral" need to reach the stable core
+        # "pH scale" when Commons does not index the full wording.
         if len(tokens) >= 3:
-            for keep in (len(tokens) - 1, len(tokens) - 2):
-                if keep >= 2:
-                    candidates.append(" ".join(tokens[:keep]))
+            for keep in range(len(tokens) - 1, 1, -1):
+                candidates.append(" ".join(tokens[:keep]))
 
-        return list(dict.fromkeys(candidates))[:5]
+        # Keep the search bounded, but retain enough progressively broader
+        # candidates to reach the two-word semantic core.
+        return list(dict.fromkeys(candidates))[:8]
 
     def search_one(query, section, explicit_mode=True):
         api = (
