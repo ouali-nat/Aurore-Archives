@@ -1359,7 +1359,7 @@ def render(data):
         r"        \\textcolor{auroreprimary}{\\rule{0.18\\linewidth}{1.4pt}}\\par",
         r"        \\vspace{0.16cm}",
         r"        {\\sffamily\\small\\color{aurorebase!72!black}#3\\par}",
-        r"      \\end{minipage}\\\\",
+        r"      \\end{minipage}\\",
         r"    \\end{tabularx}",
         r"    \\vspace{0.12cm}",
         r"    \\textcolor{auroresecondary!70!white}{\\rule{\\linewidth}{0.35pt}}",
