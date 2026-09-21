@@ -403,29 +403,42 @@ async function auroraGeoGebraScriptReady(){
   return window.__auroraGeoGebraScriptPromise;
 }
 function auroraGeoGebraImageReady(g){
-  return !!String(g?.geogebra_image_path||"").trim() && String(g?.geogebra_image_source||"").toLowerCase()==="geogebra";
+  const path=String(g?.geogebra_image_path||"").trim();
+  const source=String(g?.geogebra_image_source||"").toLowerCase();
+  if(!path||source!=="geogebra")return false;
+  const instrument=auroraGeoGebraInstrument(g);
+  if(!instrument)return false;
+  const objects=Array.isArray(g?.objects)?g.objects:[];
+  const solid=objects.some(o=>["sphere","cylinder","cone","cube","prism","pyramid","tetrahedron"].includes(String(o?.type||"").toLowerCase()));
+  if(solid&&Number(g?.geogebra_renderer_version||0)<2)return false;
+  return true;
 }
 function auroraGeoGebraInstrument(g){
   const x=g&&typeof g==="object"?g:{};
   const aliases={"function":"function2d","graph":"function2d","courbe":"function2d","parametric":"parametric2d","parametric2d":"parametric2d","parametric3d":"parametric3d","surface":"surface3d","surface3d":"surface3d","geometry3d":"geometry3d","geometrie3d":"geometry3d","3d":"geometry3d"};
   const raw=String(x.instrument||x.graph_type||"").toLowerCase().trim();
-  if(raw)return ["function2d","parametric2d","parametric3d","surface3d","geometry3d"].includes(aliases[raw]||raw)?(aliases[raw]||raw):null;
+  const normalized=aliases[raw]||raw;
   const objects=Array.isArray(x.objects)?x.objects:[];
-  if(objects.length){
-    const types=new Set(objects.map(o=>String(o?.type||"").toLowerCase().trim()));
-    if(["sphere","cylinder","cone","cube","prism","pyramid","tetrahedron","plane"].some(t=>types.has(t)))return "geometry3d";
-    if(objects.some(o=>String(o?.from||"").match(/-?\\d/)&&String(o?.to||"").match(/-?\\d/)))return "geometry3d";
-  }
+  const points2=Array.isArray(x.points)&&x.points.some(p=>Array.isArray(p)&&p.length===2);
   const points3=Array.isArray(x.points)&&x.points.some(p=>Array.isArray(p)&&p.length>=3);
   const poi3=Array.isArray(x.points_of_interest)&&x.points_of_interest.some(p=>Number.isFinite(Number(p?.z)));
-  if(String(x.z_expression||"").trim()&&String(x.x_expression||"").trim()&&String(x.y_expression||"").trim())return "parametric3d";
-  if(String(x.x_expression||"").trim()&&String(x.y_expression||"").trim())return points3||poi3?"parametric3d":"parametric2d";
-  if(String(x.expression||"").trim()){
-    if(String(x.z_label||"").trim()||points3||poi3)return "surface3d";
-    return "function2d";
-  }
+  const hasObjects=objects.some(o=>o&&typeof o==="object"&&["point","vector","line","plane","sphere","cylinder","cone","polygon","cube","prism","pyramid","tetrahedron"].includes(String(o?.type||"").toLowerCase()));
+  const hasExpression=String(x.expression||"").trim();
+  const hasX=String(x.x_expression||"").trim(),hasY=String(x.y_expression||"").trim(),hasZ=String(x.z_expression||"").trim();
+  const valid={
+    function2d:()=>!!hasExpression||points2||Array.isArray(x.asymptotes)&&x.asymptotes.length>0,
+    parametric2d:()=>!!hasX&&!!hasY,
+    parametric3d:()=>!!hasX&&!!hasY&&!!hasZ,
+    surface3d:()=>!!hasExpression,
+    geometry3d:()=>hasObjects||points3||poi3
+  };
+  if(normalized&&valid[normalized]&&valid[normalized]())return normalized;
+  if(raw)return null;
+  if(objects.length&&hasObjects)return "geometry3d";
+  if(hasZ&&hasX&&hasY)return "parametric3d";
+  if(hasX&&hasY)return points3||poi3?"parametric3d":"parametric2d";
+  if(hasExpression)return String(x.z_label||"").trim()||points3||poi3?"surface3d":"function2d";
   if(points3||poi3)return "geometry3d";
-  const points2=Array.isArray(x.points)&&x.points.some(p=>Array.isArray(p)&&p.length===2);
   if(points2||Array.isArray(x.asymptotes)&&x.asymptotes.length)return "function2d";
   return null;
 }
