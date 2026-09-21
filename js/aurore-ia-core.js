@@ -119,8 +119,8 @@
     }
     if(!sessionData?.session)throw new Error('Connectez-vous à Aurore pour utiliser Aurora.');
     const contexteRecent=messagesActuels.slice(-8).map(m=>({role:m.role==='assistant'?'assistant':'user',text:String(m.text||'').slice(0,3000)}));
-    /* Mode DeepSeek unique : toutes les demandes passent désormais par
-       le moteur unifié. Le routeur Aurora et les moteurs spécialisés séparés
+    /* Mode Gemini unique : toutes les demandes passent désormais par
+       le moteur Gemini. Le routeur Aurora et les moteurs spécialisés séparés
        ne sont plus appelés depuis cette interface. */
     const body={
       message,
@@ -198,10 +198,14 @@
       if(!response.ok||!data?.ok){
         let detail=data?.error||`Aurora a renvoyé une erreur HTTP ${response.status}.`;
         if(data?.stage)detail=`[${data.stage}] ${detail}`;
+        if(data?.errorType)detail+=` — type: ${data.errorType}`;
+        if(data?.providerStatus)detail+=` — fournisseur HTTP ${data.providerStatus}`;
         if(data?.authStatus)detail+=` (HTTP ${data.authStatus})`;
+        if(data?.provider&&data.provider!=='deepseek')detail+=` — moteur: ${data.provider}`;
+        if(data?.detail)detail+=` — détail fournisseur: ${String(data.detail).slice(0,1600)}`;
         if(data?.networkProbe){
           const np=data.networkProbe;
-          detail+=` — diagnostic DeepSeek : ${np.status ? 'HTTP '+np.status : (np.detail||'aucune réponse réseau')}`;
+          detail+=` — diagnostic fournisseur : ${np.status ? 'HTTP '+np.status : (np.detail||'aucune réponse réseau')}`;
         }
         const erreurHttp=new Error(detail);
         erreurHttp.responseReceived=true;
