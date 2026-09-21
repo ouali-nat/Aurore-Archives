@@ -1459,55 +1459,55 @@ def render(data):
             lines.append(r"\AuroreCorrectionBlock{" + str(c.get("exercise_number", "")) + r"}{" + inline(c.get("solution", "")) + r"}")
 
     rights_lines = [
-        r"\\clearpage",
-        r"\\thispagestyle{plain}",
-        r"\\begin{center}",
-        r"\\vspace*{0.055\\textheight}",
-        r"\\begin{tcolorbox}[enhanced,colback=white!98!aurorepale,colframe=aurorebase!30!white,arc=16pt,boxrule=.6pt,left=16pt,right=16pt,top=15pt,bottom=16pt,width=.92\\linewidth]",
-        r"  \\AurorePill{Mentions · crédits · vérification}\\par\\smallskip",
-        r"  {\\sffamily\\Large\\bfseries\\color{auroredeep}Édition Aurore}\\par\\smallskip",
-        r"  {\\sffamily\\small\\color{aurorebase!78!black}" + tex_text(title) + r"\\par\\medskip}",
-        r"  \\textcolor{auroreprimary}{\\rule{0.18\\linewidth}{1.15pt}}\\par\\medskip",
-        r"  \\begin{tcolorbox}[colback=aurorelight!55!white,colframe=aurorebase!20!white,arc=11pt,boxrule=.4pt,left=9pt,right=9pt,top=7pt,bottom=7pt]",
-        r"    {\\sffamily\\scriptsize\\bfseries\\color{auroredeep}IDENTITÉ DE L'ÉDITION}\\par\\smallskip",
-        r"    {\\sffamily\\scriptsize Identifiant : \\texttt{" + document_key + r"}\\hfill Version : " + (version or "1") + r"\\par}",
-        r"    {\\sffamily\\scriptsize " + tex_text(" · ".join(info) if info else "Document pédagogique Aurore") + r"\\par}",
-        r"  \\end{tcolorbox}",
-        r"  \\medskip",
-        r"  \\begin{tcolorbox}[enhanced,colback=white,colframe=aurorebase!24!white,arc=12pt,boxrule=.45pt,left=10pt,right=10pt,top=9pt,bottom=9pt]",
-        r"    \\begin{tabularx}{\\linewidth}{@{}X>{\\centering\\arraybackslash}m{2.55cm}@{}}",
-        r"      \\begin{minipage}[c]{\\linewidth}",
-        r"        {\\sffamily\\scriptsize\\bfseries\\color{auroredeep}VÉRIFICATION \\& PUBLICATION}\\par\\smallskip",
-        r"        {\\sffamily\\small\\color{auroredeep}Veuillez scanner le QR code pour vérifier cette édition.\\par}",
+        r"\clearpage",
+        r"\thispagestyle{plain}",
+        r"\begin{center}",
+        r"\vspace*{0.055\textheight}",
+        r"\begin{tcolorbox}[enhanced,colback=white!98!aurorepale,colframe=aurorebase!30!white,arc=16pt,boxrule=.6pt,left=16pt,right=16pt,top=15pt,bottom=16pt,width=.92\linewidth]",
+        r"  \AurorePill{Mentions · crédits · vérification}\par\smallskip",
+        r"  {\sffamily\Large\bfseries\color{auroredeep}Édition Aurore}\par\smallskip",
+        r"  {\sffamily\small\color{aurorebase!78!black}" + tex_text(title) + r"\par\medskip}",
+        r"  \textcolor{auroreprimary}{\rule{0.18\linewidth}{1.15pt}}\par\medskip",
+        r"  \begin{tcolorbox}[colback=aurorelight!55!white,colframe=aurorebase!20!white,arc=11pt,boxrule=.4pt,left=9pt,right=9pt,top=7pt,bottom=7pt]",
+        r"    {\sffamily\scriptsize\bfseries\color{auroredeep}IDENTITÉ DE L'ÉDITION}\par\smallskip",
+        r"    {\sffamily\scriptsize Identifiant : \texttt{" + document_key + r"}\hfill Version : " + (version or "1") + r"\par}",
+        r"    {\sffamily\scriptsize " + tex_text(" · ".join(info) if info else "Document pédagogique Aurore") + r"\par}",
+        r"  \end{tcolorbox}",
+        r"  \medskip",
+        r"  \begin{tcolorbox}[enhanced,colback=white,colframe=aurorebase!24!white,arc=12pt,boxrule=.45pt,left=10pt,right=10pt,top=9pt,bottom=9pt]",
+        r"    \begin{tabularx}{\linewidth}{@{}X>{\centering\arraybackslash}m{2.55cm}@{}}",
+        r"      \begin{minipage}[c]{\linewidth}",
+        r"        {\sffamily\scriptsize\bfseries\color{auroredeep}VÉRIFICATION \& PUBLICATION}\par\smallskip",
+        r"        {\sffamily\small\color{auroredeep}Veuillez scanner le QR code pour vérifier cette édition.\par}",
     if has_geogebra:
         rights_lines.extend([
-            r"        \\medskip",
-            r"        {\\sffamily\\scriptsize\\color{aurorebase!80!black}Graphiques : GeoGebra®\\par}",
+            r"        \medskip",
+            r"        {\sffamily\scriptsize\color{aurorebase!80!black}Graphiques : GeoGebra®\par}",
         ])
     rights_lines.extend([
-        r"      \\end{minipage} &",
+        r"      \end{minipage} &",
     ])
     if document_id is not None:
         rights_lines.extend([
-            r"      \\raisebox{0pt}[2.30cm][0pt]{\\qrcode[height=2.12cm]{" + document_share_url + r"}}",
+            r"      \raisebox{0pt}[2.30cm][0pt]{\qrcode[height=2.12cm]{" + document_share_url + r"}}",
         ])
     else:
-        rights_lines.append(r"      \\rule{0pt}{2.30cm}")
+        rights_lines.append(r"      \rule{0pt}{2.30cm}")
     rights_lines.extend([
         r"      \\\\",
-        r"    \\end{tabularx}",
-        r"  \\end{tcolorbox}",
-        r"  \\medskip",
-        r"  \\begin{tcolorbox}[colback=aurorepale,colframe=aurorebase!18!white,arc=10pt,boxrule=.35pt,left=9pt,right=9pt,top=6pt,bottom=6pt]",
-        r"    {\\sffamily\\normalsize\\bfseries\\color{auroredeep}DROITS \\& RÉUTILISATION}\\par\\smallskip",
-        r"    \\textcolor{auroreprimary}{\\rule{0.16\\linewidth}{1.0pt}}\\par\\smallskip",
-        r"    {\\sffamily\\small\\color{auroredeep}Cette édition constitue une création éditoriale d'Aurore. Les connaissances générales et formules restent réutilisables sous réserve des droits applicables aux éléments tiers.\\par}",
-        r"    {\\sffamily\\footnotesize\\color{gray}Les ressources tierces conservent leurs propres licences et conditions d'utilisation.\\par}",
-        r"  \\end{tcolorbox}",
-        r"  \\medskip",
-        r"  {\\sffamily\\scriptsize\\color{gray}Composition éditoriale : Aurore · Couleur dominante : \\#" + theme + r"\\par}",
-        r"  \\end{tcolorbox}",
-        r"\\end{center}",
+        r"    \end{tabularx}",
+        r"  \end{tcolorbox}",
+        r"  \medskip",
+        r"  \begin{tcolorbox}[colback=aurorepale,colframe=aurorebase!18!white,arc=10pt,boxrule=.35pt,left=9pt,right=9pt,top=6pt,bottom=6pt]",
+        r"    {\sffamily\normalsize\bfseries\color{auroredeep}DROITS \& RÉUTILISATION}\par\smallskip",
+        r"    \textcolor{auroreprimary}{\rule{0.16\linewidth}{1.0pt}}\par\smallskip",
+        r"    {\sffamily\small\color{auroredeep}Cette édition constitue une création éditoriale d'Aurore. Les connaissances générales et formules restent réutilisables sous réserve des droits applicables aux éléments tiers.\par}",
+        r"    {\sffamily\footnotesize\color{gray}Les ressources tierces conservent leurs propres licences et conditions d'utilisation.\par}",
+        r"  \end{tcolorbox}",
+        r"  \medskip",
+        r"  {\sffamily\scriptsize\color{gray}Composition éditoriale : Aurore · Couleur dominante : \#" + theme + r"\par}",
+        r"  \end{tcolorbox}",
+        r"\end{center}",
     ])
     lines.extend(rights_lines)
     lines.extend(render_wikimedia_references(data.get("_wikimedia_visuals", [])))
