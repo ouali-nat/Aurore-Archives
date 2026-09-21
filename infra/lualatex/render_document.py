@@ -380,6 +380,17 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
     )
     max_total = 8
     max_per_section = 3
+    planned_explicit = sum(
+        len(s.get("visuals", []))
+        for _, s in major_sections
+        if isinstance(s.get("visuals"), list)
+    ) if explicit else 0
+    if explicit and planned_explicit > max_total:
+        raise RuntimeError(
+            f"Plan Wikimedia invalide : {planned_explicit} visuels demandés, "
+            f"mais la limite éditoriale est de {max_total}. "
+            "Aucun visuel ne sera silencieusement supprimé."
+        )
 
     def qwords(value):
         return [
@@ -412,11 +423,25 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
             + "&prop=imageinfo&iiprop=url|size|mime|thumbmime|extmetadata"
             "&iilimit=1&iiurlwidth=1200&iiextmetadataversion=latest"
         )
-        req = urllib.request.Request(api, headers={"User-Agent": "Aurore-Section-Archives/1.0"})
+        req = urllib.request.Request(
+            api,
+            headers={"User-Agent": "Aurore-Section-Archives/1.0"},
+        )
         with _open_url_with_retry(req, timeout=20) as resp:
-            pages = list((json.loads(resp.read().decode("utf-8")).get("query") or {}).get("pages", {}).values())
+            pages = list(
+                (json.loads(resp.read().decode("utf-8")).get("query") or {})
+                .get("pages", {})
+                .values()
+            )
 
-        wanted = set(qwords(query))
+        # Ne rejetons plus un bon résultat Commons uniquement parce que son
+        # titre/catégorie ne reprend pas exactement les mêmes mots que la
+        # requête. Le moteur de recherche Commons a déjà effectué le tri ;
+        # nous classons ensuite les fichiers valides par proximité sémantique.
+        wanted = set(qwords(query) + qwords(section.get("title")))
+        best = None
+        best_score = -1
+
         for page in pages:
             page_title = str(page.get("title") or "")
             page_key = page_title.lower()
@@ -428,38 +453,59 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
             mime = str(ii.get("mime") or "").lower()
             thumb_mime = str(ii.get("thumbmime") or "").lower()
             url = str(ii.get("thumburl") or ii.get("url") or "")
-            effective_mime = thumb_mime if thumb_mime in ("image/jpeg", "image/png") else mime
-            rawlic = " ".join(
-                str(meta.get(k, {}).get("value", "") if isinstance(meta.get(k), dict) else meta.get(k, ""))
-                for k in ("LicenseShortName", "UsageTerms", "License")
+            effective_mime = (
+                thumb_mime
+                if thumb_mime in ("image/jpeg", "image/png")
+                else mime
             )
             if effective_mime not in ("image/jpeg", "image/png"):
                 continue
             if not url.startswith("https://upload.wikimedia.org/"):
                 continue
-            if url in seen_urls or not _wikimedia_license_ok(rawlic):
+            if url in seen_urls or not _wikimedia_license_ok(
+                " ".join(
+                    str(
+                        meta.get(k, {}).get("value", "")
+                        if isinstance(meta.get(k), dict)
+                        else meta.get(k, "")
+                    )
+                    for k in ("LicenseShortName", "UsageTerms", "License")
+                )
+            ):
                 continue
             if int(ii.get("width") or 0) < 500 or int(ii.get("height") or 0) < 300:
                 continue
 
-            haystack = " ".join([
-                page_title.lower(),
-                clean_text(meta.get("ImageDescription", {}).get("value", "") if isinstance(meta.get("ImageDescription"), dict) else ""),
-                clean_text(meta.get("Categories", {}).get("value", "") if isinstance(meta.get("Categories"), dict) else ""),
-            ]).lower()
-            if wanted:
-                overlap = sum(1 for word in wanted if word in haystack)
-                min_overlap = 1 if len(wanted) <= 2 else 2
-                if overlap < min_overlap:
-                    continue
-            elif not explicit_mode:
-                title_words = qwords(section.get("title"))
-                if title_words and sum(1 for w in title_words if w in haystack) == 0 and profile != "general":
-                    continue
+            haystack = " ".join(
+                [
+                    page_title.lower(),
+                    clean_text(
+                        meta.get("ImageDescription", {}).get("value", "")
+                        if isinstance(meta.get("ImageDescription"), dict)
+                        else ""
+                    ),
+                    clean_text(
+                        meta.get("Categories", {}).get("value", "")
+                        if isinstance(meta.get("Categories"), dict)
+                        else ""
+                    ),
+                ]
+            ).lower()
 
-            return page, ii, meta, url, effective_mime
+            score = sum(1 for word in wanted if word in haystack)
+            # Les résultats du moteur Commons restent recevables même si
+            # aucun mot n'apparaît littéralement dans les métadonnées.
+            # Dans ce cas, le premier fichier libre et exploitable reste un
+            # meilleur choix que l'abandon silencieux du visuel.
+            if page_title.lower().startswith("file:"):
+                score += 1
 
-        return None
+            if score > best_score:
+                best = (page, ii, meta, url, effective_mime)
+                best_score = score
+
+        return best
+
 
     if explicit:
         for section_index, section in major_sections:
@@ -519,11 +565,13 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                         f"Visuel Wikimedia manquant : section {section_index + 1} "
                         f"query={query_candidates[0]!r} priority={priority or 'recommended'}"
                     )
-                    print(
-                        "WARNING: " + message
-                        + (" (visuel requis, rendu poursuivi sans cette image)" if required else "")
+                    raise RuntimeError(
+                        message
+                        + (
+                            " — le visuel est obligatoire pour ce PDF : "
+                            "la production est arrêtée afin d'éviter un document incomplet."
+                        )
                     )
-                    continue
 
                 page, ii, meta, url, effective_mime = best
                 try:
@@ -581,9 +629,12 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                         "status": "failed",
                         "reason": str(exc),
                     })
-                    print(
-                        "WARNING: " + message
-                        + (" (visuel requis, rendu poursuivi sans cette image)" if required else "")
+                    raise RuntimeError(
+                        message
+                        + (
+                            " — impossible de valider ce visuel ; "
+                            "la production est arrêtée afin d'éviter un PDF incomplet."
+                        )
                     )
 
     else:
@@ -643,6 +694,11 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
         f"Wikimedia visual plan: mode={'explicit' if explicit else 'legacy'} "
         f"fetched={len(visuals)} requested_statuses={len(statuses)}"
     )
+    if explicit and len(visuals) != planned_explicit:
+        raise RuntimeError(
+            f"Plan Wikimedia incomplet : {len(visuals)}/{planned_explicit} "
+            "visuels matérialisés avant LuaLaTeX."
+        )
     return visuals
 
 def render_visuals(visuals):
