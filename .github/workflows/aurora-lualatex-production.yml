@@ -109,6 +109,102 @@ jobs:
           print(f"Fetched {document['id']}: {document['title']} (GeoGebra assets: {len(graph_assets)})")
           PY
 
+      - name: Detect missing GeoGebra assets
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        working-directory: infra/lualatex
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path("production/document.json").read_text())
+          def valid(g):
+              if not isinstance(g,dict): return False
+              instrument=str(g.get("instrument") or g.get("graph_type") or "").lower().strip()
+              aliases={"function":"function2d","graph":"function2d","courbe":"function2d","parametric":"parametric2d","geometrie3d":"geometry3d","3d":"geometry3d"}
+              instrument=aliases.get(instrument,instrument)
+              if instrument=="function2d": return bool(str(g.get("expression") or "").strip() or g.get("asymptotes") or any(isinstance(p,list) and len(p)==2 for p in (g.get("points") or [])))
+              if instrument=="parametric2d": return bool(str(g.get("x_expression") or "").strip() and str(g.get("y_expression") or "").strip())
+              if instrument=="parametric3d": return bool(str(g.get("x_expression") or "").strip() and str(g.get("y_expression") or "").strip() and str(g.get("z_expression") or "").strip())
+              if instrument=="surface3d": return bool(str(g.get("expression") or "").strip())
+              if instrument=="geometry3d":
+                  types={"point","vector","line","plane","sphere","cylinder","cone","polygon","cube","prism","pyramid","tetrahedron"}
+                  objs=g.get("objects") if isinstance(g.get("objects"),list) else []
+                  pts=g.get("points") if isinstance(g.get("points"),list) else []
+                  poi=g.get("points_of_interest") if isinstance(g.get("points_of_interest"),list) else []
+                  return any(isinstance(o,dict) and str(o.get("type") or "").lower() in types for o in objs) or any(isinstance(p,list) and len(p)>=3 for p in pts) or any(isinstance(p,dict) and p.get("z") is not None for p in poi)
+              return False
+          def ready(g):
+              path=str(g.get("geogebra_image_path") or "").strip()
+              source=str(g.get("geogebra_image_source") or "").lower()
+              if not path or source!="geogebra": return False
+              solid=any(isinstance(o,dict) and str(o.get("type") or "").lower() in {"sphere","cylinder","cone","cube","prism","pyramid","tetrahedron"} for o in (g.get("objects") or []))
+              return (not solid) or int(g.get("geogebra_renderer_version") or 0)>=2
+          missing=0
+          total=0
+          for s in data.get("sections") or []:
+              for g in s.get("graphs") or []:
+                  if valid(g):
+                      total+=1
+                      missing+=0 if ready(g) else 1
+          print(f"GeoGebra préflight: {total-missing}/{total} asset(s) prêts; {missing} manquant(s).")
+          if missing:
+              Path("production/geogebra-required").write_text(str(missing))
+          else:
+              Path("production/geogebra-required").unlink(missing_ok=True)
+          PY
+
+      - name: Render missing GeoGebra assets server-side
+        if: hashFiles('infra/lualatex/production/document-id') != '' && hashFiles('infra/lualatex/production/geogebra-required') != ''
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.63.0
+          npx playwright install --with-deps chromium
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          DOCUMENT_ID="$DOCUMENT_ID" node infra/geogebra/render_missing_graphs.mjs
+
+      - name: Verify GeoGebra assets before LaTeX
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        working-directory: infra/lualatex
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path("production/document.json").read_text())
+          def valid(g):
+              instrument=str(g.get("instrument") or g.get("graph_type") or "").lower().strip()
+              aliases={"function":"function2d","graph":"function2d","courbe":"function2d","parametric":"parametric2d","geometrie3d":"geometry3d","3d":"geometry3d"}
+              instrument=aliases.get(instrument,instrument)
+              if instrument=="function2d": return bool(str(g.get("expression") or "").strip() or g.get("asymptotes") or any(isinstance(p,list) and len(p)==2 for p in (g.get("points") or [])))
+              if instrument=="parametric2d": return bool(str(g.get("x_expression") or "").strip() and str(g.get("y_expression") or "").strip())
+              if instrument=="parametric3d": return bool(str(g.get("x_expression") or "").strip() and str(g.get("y_expression") or "").strip() and str(g.get("z_expression") or "").strip())
+              if instrument=="surface3d": return bool(str(g.get("expression") or "").strip())
+              if instrument=="geometry3d":
+                  types={"point","vector","line","plane","sphere","cylinder","cone","polygon","cube","prism","pyramid","tetrahedron"}
+                  objs=g.get("objects") if isinstance(g.get("objects"),list) else []
+                  pts=g.get("points") if isinstance(g.get("points"),list) else []
+                  poi=g.get("points_of_interest") if isinstance(g.get("points_of_interest"),list) else []
+                  return any(isinstance(o,dict) and str(o.get("type") or "").lower() in types for o in objs) or any(isinstance(p,list) and len(p)>=3 for p in pts) or any(isinstance(p,dict) and p.get("z") is not None for p in poi)
+              return False
+          def ready(g):
+              path=str(g.get("geogebra_image_path") or "").strip()
+              source=str(g.get("geogebra_image_source") or "").lower()
+              if not path or source!="geogebra": return False
+              solid=any(isinstance(o,dict) and str(o.get("type") or "").lower() in {"sphere","cylinder","cone","cube","prism","pyramid","tetrahedron"} for o in (g.get("objects") or []))
+              return (not solid) or int(g.get("geogebra_renderer_version") or 0)>=2
+          missing=[]
+          total=0
+          index=0
+          for s in data.get("sections") or []:
+              for g in s.get("graphs") or []:
+                  if valid(g):
+                      total+=1
+                      if not ready(g): missing.append(index)
+                  index+=1
+          print(f"GeoGebra vérification: {total-len(missing)}/{total} asset(s) prêts.")
+          if missing:
+              raise SystemExit("GeoGebra asset(s) manquant(s) avant LuaLaTeX: "+",".join(str(x+1) for x in missing))
+          PY
+
       - name: Mark source ready
         if: hashFiles('infra/lualatex/production/document-id') != ''
         run: |
