@@ -275,7 +275,7 @@ jobs:
               r"\AuroreTitleBlock",
               r"width=1.74cm,height=1.74cm",
               r"width=1.42cm,height=1.42cm",
-              r"\raisebox{0.36cm}[2.30cm][0pt]{\qrcode",
+              r"\raisebox{0.44cm}[2.30cm][0pt]{\qrcode",
           ]
           for marker in required:
               if marker not in tex:
