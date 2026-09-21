@@ -73,6 +73,63 @@ def _document_identity(data):
     share_url = f"{AURORE_SITE_URL}?document={document_id}" if document_id is not None else AURORE_SITE_URL
     return {"id": document_id, "key": key, "year": year, "share_url": share_url}
 
+def _is_renderable_geogebra_graph(graph):
+    """Return True only for an actual GeoGebra construction asset.
+    
+    A legacy illustration can carry a geogebra_image_path even though it has
+    no usable construction data. Such entries must never become a repère-only
+    image in the final PDF.
+    """
+    if not isinstance(graph, dict):
+        return False
+    storage_path = str(graph.get("geogebra_image_path") or graph.get("graph_local_path") or "").strip()
+    if not storage_path:
+        return False
+
+    instrument = str(graph.get("instrument") or graph.get("graph_type") or "").lower().strip()
+    aliases = {
+        "function": "function2d",
+        "graph": "function2d",
+        "courbe": "function2d",
+        "parametric": "parametric2d",
+        "geometrie3d": "geometry3d",
+        "3d": "geometry3d",
+    }
+    instrument = aliases.get(instrument, instrument)
+
+    objects = graph.get("objects") if isinstance(graph.get("objects"), list) else []
+    points = graph.get("points") if isinstance(graph.get("points"), list) else []
+    poi = graph.get("points_of_interest") if isinstance(graph.get("points_of_interest"), list) else []
+    expression = str(graph.get("expression") or "").strip()
+    x_expression = str(graph.get("x_expression") or "").strip()
+    y_expression = str(graph.get("y_expression") or "").strip()
+    z_expression = str(graph.get("z_expression") or "").strip()
+    asymptotes = graph.get("asymptotes") if isinstance(graph.get("asymptotes"), list) else []
+
+    if instrument == "function2d":
+        return bool(expression or asymptotes or any(isinstance(p, (list, tuple)) and len(p) == 2 for p in points))
+    if instrument == "parametric2d":
+        return bool(x_expression and y_expression)
+    if instrument == "parametric3d":
+        return bool(x_expression and y_expression and z_expression)
+    if instrument == "surface3d":
+        return bool(expression)
+    if instrument == "geometry3d":
+        valid_types = {
+            "point", "vector", "line", "plane", "sphere", "cylinder",
+            "cone", "polygon", "cube", "prism", "pyramid", "tetrahedron",
+        }
+        has_objects = any(
+            isinstance(o, dict) and str(o.get("type") or "").lower().strip() in valid_types
+            for o in objects
+        )
+        has_points3 = any(isinstance(p, (list, tuple)) and len(p) >= 3 for p in points)
+        has_poi3 = any(isinstance(p, dict) and p.get("z") is not None for p in poi)
+        return bool(has_objects or has_points3 or has_poi3)
+
+    return False
+
+
 def _has_geogebra(data):
     """Detect GeoGebra content from the structured graph payload."""
     sections = data.get("sections", []) if isinstance(data.get("sections"), list) else []
@@ -118,6 +175,8 @@ def _fetch_geogebra_assets(data, tex_dir):
 
         for graph_index, graph in enumerate(graphs):
             if not isinstance(graph, dict):
+                continue
+            if not _is_renderable_geogebra_graph(graph):
                 continue
 
             existing = str(graph.get("graph_local_path") or "").strip()
