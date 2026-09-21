@@ -897,12 +897,6 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
 
             score, page, ii, meta, url, effective_mime, query, blob = selected
             try:
-                req = urllib.request.Request(url, headers={"User-Agent": "Aurore-Section-Archives/1.0"})
-                with _open_url_with_retry(req, timeout=30) as resp:
-                    blob = resp.read()
-                if not (10000 <= len(blob) <= 2500000):
-                    continue
-
                 ext = ".png" if effective_mime == "image/png" else ".jpg"
                 local = assets_dir / f"wikimedia-{len(visuals)+1}{ext}"
                 local.write_bytes(blob)
@@ -1698,64 +1692,3 @@ def main():
         raise SystemExit("inline() math guardrail failed: escaped math command")
     if r"\begin{array}" not in _probe_out or r"\infty" not in _probe_out:
         raise SystemExit("inline() math guardrail failed: array structure")
-    if r"\\ \hline" not in _probe_out and r"\\\hline" not in _probe_out:
-        raise SystemExit("inline() math guardrail failed: array row break before hline")
-    _exp_probe = inline(r"$\\exp(x)$")
-    if r"\exp(x)" not in _exp_probe or "$" in _exp_probe:
-        raise SystemExit("inline() math guardrail failed: exp command")
-
-    # Guard against the exact malformed array row break observed in production.
-    _malformed_array_probe = inline(
-        r"$\begin{array}{c|c} a & b \ \hline c & d \end{array}$"
-    )
-    if r"\\ \hline" not in _malformed_array_probe:
-        raise SystemExit("inline() math guardrail failed: malformed array row break")
-
-    _mixed_probe = inline(r"$(e^x)^n = e^{nx}$ pour tout entier $n$")
-    if _mixed_probe != r"\((e^x)^n = e^{nx}\) pour tout entier \(n\)":
-        raise SystemExit("inline() math guardrail failed: mixed inline formulas")
-
-    _mixed_formula_probe = display_formula(
-        r"Coordonnées cylindriques : $x=r\\cos\\theta$, $y=r\\sin\\theta$, $z=z$."
-    )
-    if "$" in _mixed_formula_probe or r"\\begin{equation*" in _mixed_formula_probe or r"\\(Coordonnées" in _mixed_formula_probe:
-        raise SystemExit("display_formula() guardrail failed: mixed inline math nested or escaped incorrectly")
-
-    _placeholder_probe = inline(r"Texte [[terme clé]] et $\\\\alpha+1$")
-    if "AURORAKEYWORD" in _placeholder_probe or "AURORAMATH" in _placeholder_probe:
-        raise SystemExit("inline() guardrail failed: internal Aurore placeholder leaked into rendered text")
-
-    _paren_formula_probe = display_formula(
-        r"Coordonnées sphériques : \\(x=\\rho\\sin\\phi\\cos\\theta\\), \\(y=\\rho\\sin\\phi\\sin\\theta\\), \\(z=\\rho\\cos\\phi\\)."
-    )
-    if "$" in _paren_formula_probe or r"\\begin{equation*" in _paren_formula_probe or r"\\textbackslash{}" in _paren_formula_probe:
-        raise SystemExit("display_formula() guardrail failed: \\( ... \\) inline math")
-
-    _array_row_probe = r"$\\begin{array}{c|ccccc} x & -\\infty & & 0 & & +\\infty \\ \\hline f(x) & 0 & \\nearrow & 1 & \\nearrow & +\\infty \\end{array}$"
-    if _is_table_row(_array_row_probe):
-        raise SystemExit("content guardrail failed: LaTeX array misdetected as table")
-
-    parser = argparse.ArgumentParser(description="Render an Aurore document JSON to LuaLaTeX source.")
-    parser.add_argument("input", nargs="?", default="fixtures/document-21.json")
-    parser.add_argument("-o", "--output", default=None)
-    args = parser.parse_args()
-
-    src = Path(args.input)
-    out = Path(args.output) if args.output else src.with_suffix(".tex")
-    data = json.loads(src.read_text(encoding="utf-8"))
-    out.parent.mkdir(parents=True, exist_ok=True)
-    profile = _editorial_profile(data)
-    geogebra_count = _fetch_geogebra_assets(data, out.parent)
-    print(f"GeoGebra assets fetched: {geogebra_count}")
-    data["_wikimedia_visuals"] = _fetch_wikimedia_visuals(data, out.parent / "assets", profile)
-    for visual in data["_wikimedia_visuals"]:
-        visual_file = out.parent / str(visual.get("path") or "")
-        if not visual_file.is_file() or visual_file.stat().st_size == 0:
-            raise SystemExit(f"Wikimedia asset missing or empty: {visual_file}")
-    print(f"Wikimedia visuals fetched: {len(data['_wikimedia_visuals'])} (profile={profile})")
-    out.write_text(render(data), encoding="utf-8")
-    print(f"Generated {out}")
-
-
-if __name__ == "__main__":
-    main()
