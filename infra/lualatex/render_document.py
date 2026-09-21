@@ -138,8 +138,7 @@ def _has_geogebra(data):
             continue
         graphs = section.get("graphs", [])
         if isinstance(graphs, list) and any(
-            isinstance(g, dict) and (g.get("graph_local_path") or g.get("geogebra_image_path"))
-            for g in graphs
+            _is_renderable_geogebra_graph(g) for g in graphs
         ):
             return True
     return False
@@ -874,6 +873,8 @@ def render_graphs(graphs, allow=True):
     lines = []
     for graph in graphs:
         if not isinstance(graph, dict):
+            continue
+        if not _is_renderable_geogebra_graph(graph):
             continue
         local_path = str(graph.get("graph_local_path") or "").strip()
         if not local_path:
