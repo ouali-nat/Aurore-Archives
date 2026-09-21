@@ -25,45 +25,62 @@ const GRAPH_INSTRUMENTS=new Set(["function2d","parametric2d","parametric3d","sur
 function normalizeGraphInstrument(g:any){
   const x=g&&typeof g==="object"?g:{};
   const aliases:any={"function":"function2d","graph":"function2d","courbe":"function2d","parametric":"parametric2d","parametric2d":"parametric2d","parametric3d":"parametric3d","surface":"surface3d","surface3d":"surface3d","geometry3d":"geometry3d","geometrie3d":"geometry3d","3d":"geometry3d"};
-  let instrument=String(x.instrument||x.graph_type||"function2d").toLowerCase().trim();
-  instrument=aliases[instrument]||instrument;
-  if(!GRAPH_INSTRUMENTS.has(instrument))instrument="function2d";
-  const n=(v:any,d=0)=>{const z=Number(v);return Number.isFinite(z)?z:d};
-  return {
+  const raw=String(x.instrument||x.graph_type||"").toLowerCase().trim();
+  const normalized=aliases[raw]||raw;
+  const objects=Array.isArray(x.objects)?x.objects:[];
+  const points2=Array.isArray(x.points)&&x.points.some((p:any)=>Array.isArray(p)&&p.length===2);
+  const points3=Array.isArray(x.points)&&x.points.some((p:any)=>Array.isArray(p)&&p.length>=3);
+  const poi3=Array.isArray(x.points_of_interest)&&x.points_of_interest.some((p:any)=>Number.isFinite(Number(p?.z)));
+  const hasObjects=objects.some((o:any)=>o&&typeof o==="object"&&["point","vector","line","plane","sphere","cylinder","cone","polygon","cube","prism","pyramid","tetrahedron"].includes(String(o?.type||"").toLowerCase()));
+  const hasExpression=String(x.expression||"").trim();
+  const hasX=String(x.x_expression||"").trim(),hasY=String(x.y_expression||"").trim(),hasZ=String(x.z_expression||"").trim();
+  const valid:any={
+    function2d:()=>!!hasExpression||points2||Array.isArray(x.asymptotes)&&x.asymptotes.length>0,
+    parametric2d:()=>!!hasX&&!!hasY,
+    parametric3d:()=>!!hasX&&!!hasY&&!!hasZ,
+    surface3d:()=>!!hasExpression,
+    geometry3d:()=>hasObjects||points3||poi3
+  };
+  if(normalized&&valid[normalized]&&valid[normalized]())return {
     ...x,
-    instrument,
+    instrument:normalized,
     title:String(x.title||"Graphique"),
     expression:String(x.expression||"").trim(),
     x_expression:String(x.x_expression||"").trim(),
     y_expression:String(x.y_expression||"").trim(),
     z_expression:String(x.z_expression||"").trim(),
     parameter:(/^[xyz]$/i.test(String(x.parameter||""))?"t":String(x.parameter||"t").trim())||"t",
-    t_min:n(x.t_min,0),
-    t_max:n(x.t_max,2*Math.PI),
-    x_min:n(x.x_min,-10),x_max:n(x.x_max,10),
-    y_min:n(x.y_min,-10),y_max:n(x.y_max,10),
-    z_min:n(x.z_min,-10),z_max:n(x.z_max,10),
-    points:Array.isArray(x.points)?x.points:[],points_of_interest:Array.isArray(x.points_of_interest)?x.points_of_interest:[],
+    t_min:Number.isFinite(Number(x.t_min))?Number(x.t_min):0,
+    t_max:Number.isFinite(Number(x.t_max))?Number(x.t_max):2*Math.PI,
+    x_min:Number.isFinite(Number(x.x_min))?Number(x.x_min):-10,
+    x_max:Number.isFinite(Number(x.x_max))?Number(x.x_max):10,
+    y_min:Number.isFinite(Number(x.y_min))?Number(x.y_min):-10,
+    y_max:Number.isFinite(Number(x.y_max))?Number(x.y_max):10,
+    z_min:Number.isFinite(Number(x.z_min))?Number(x.z_min):-10,
+    z_max:Number.isFinite(Number(x.z_max))?Number(x.z_max):10,
+    points:Array.isArray(x.points)?x.points:[],
+    points_of_interest:Array.isArray(x.points_of_interest)?x.points_of_interest:[],
     objects:Array.isArray(x.objects)?x.objects:[],
     style:"geogebra"
   };
+  if(raw)return null;
+  if(objects.length&&hasObjects)return {...x,instrument:"geometry3d",style:"geogebra"};
+  if(hasZ&&hasX&&hasY)return {...x,instrument:"parametric3d",style:"geogebra"};
+  if(hasX&&hasY)return {...x,instrument:points3||poi3?"parametric3d":"parametric2d",style:"geogebra"};
+  if(hasExpression)return {...x,instrument:String(x.z_label||"").trim()||points3||poi3?"surface3d":"function2d",style:"geogebra"};
+  if(points3||poi3)return {...x,instrument:"geometry3d",style:"geogebra"};
+  if(points2||Array.isArray(x.asymptotes)&&x.asymptotes.length)return {...x,instrument:"function2d",style:"geogebra"};
+  return null;
 }
 function normalizeVisualPlan(v:any){
   const x=v&&typeof v==="object"?v:{};
   const type=String(x.type||"wikimedia").toLowerCase().trim();
-  if(type!=="wikimedia") return null;
+  if(type!=="wikimedia")return null;
   const priorityRaw=String(x.priority||"recommended").toLowerCase().trim();
   const priority=priorityRaw==="required"||x.required===true?"required":priorityRaw==="optional"?"optional":"recommended";
   const purposeRaw=String(x.purpose||"illustration").toLowerCase().trim();
   const purposes=new Set(["illustration","schema","photo","historical","experimental"]);
-  return {
-    type:"wikimedia",
-    purpose:purposes.has(purposeRaw)?purposeRaw:"illustration",
-    query:String(x.query||"").trim().slice(0,240),
-    required:priority==="required",
-    priority,
-    caption:String(x.caption||"").trim().slice(0,280)
-  };
+  return {type:"wikimedia",purpose:purposes.has(purposeRaw)?purposeRaw:"illustration",query:String(x.query||"").trim().slice(0,240),required:priority==="required",priority,caption:String(x.caption||"").trim().slice(0,280)};
 }
 
 function parse(t:string){t=t.trim().replace(/^```json\s*/i,"").replace(/```$/i,"");try{return JSON.parse(t)}catch(first){try{return JSON.parse(jsonrepair(t))}catch{const a=t.indexOf("{"),b=t.lastIndexOf("}");if(a>=0&&b>a){try{return JSON.parse(jsonrepair(t.slice(a,b+1)))}catch{}}throw first}}}
@@ -117,7 +134,7 @@ function normalizeMathText(v:any){
   return out.join("");
 }
 function normalize(d:any,j:any){d=d&&typeof d==='object'?d:{};d.title=String(d.title||j.title);d.introduction=normalizeMathText(d.introduction||"");d.learning_objectives=Array.isArray(d.learning_objectives)?d.learning_objectives.map(normalizeMathText):[];let formulaBudget=10;d.sections=Array.isArray(d.sections)?d.sections:[];const profileNow=editorialProfile(j).profile;
-d.sections=d.sections.map((s:any)=>{const sf=s.formula&&formulaBudget>0?normalizeMathSegment(s.formula):"";if(sf)formulaBudget--;const rawGraphs=Array.isArray(s.graphs)?s.graphs:[];const normalizedGraphs=rawGraphs.map(normalizeGraphInstrument);const keepGraphs=profileNow==="scientifique"||profileNow==="experimental"&&normalizedGraphs.some((g:any)=>g&&g.style!=="geogebra");const rawVisuals=Array.isArray(s.visuals)?s.visuals:[];const normalizedVisuals=rawVisuals.map(normalizeVisualPlan).filter(Boolean).slice(0,3);return {title:String(s.title||"Section"),objective:normalizeMathText(s.objective||""),content:Array.isArray(s.content)?s.content.map(normalizeMathText):[],formula:sf,graphs:keepGraphs?normalizedGraphs:[],visuals:normalizedVisuals,exercises:Array.isArray(s.exercises)?s.exercises.map((q:any)=>{const f=q.formula&&formulaBudget>0?normalizeMathSegment(q.formula):"";if(f)formulaBudget--;return {question:normalizeMathText(q.question||""),hint:normalizeMathText(q.hint||""),formula:f}}):[]}});d.corrections=Array.isArray(d.corrections)?d.corrections.map((c:any,i:number)=>{const f=c.formula&&formulaBudget>0?normalizeMathSegment(c.formula):"";if(f)formulaBudget--;return {exercise_number:Number(c.exercise_number)||i+1,solution:normalizeMathText(c.solution||""),formula:f}}):[];d._factory={...(d._factory||{}),formula_render_budget:10,math_policy:"LaTeX obligatoire",math_normalizer:"deterministic-v4"};return d}
+d.sections=d.sections.map((s:any)=>{const sf=s.formula&&formulaBudget>0?normalizeMathSegment(s.formula):"";if(sf)formulaBudget--;const rawGraphs=Array.isArray(s.graphs)?s.graphs:[];const rawVisuals=Array.isArray(s.visuals)?s.visuals:[];const normalizedVisuals=rawVisuals.map(normalizeVisualPlan).filter((v:any)=>!!v).slice(0,3);const normalizedGraphs=rawGraphs.map(normalizeGraphInstrument).filter((g:any)=>!!g);const keepGraphs=profileNow==="scientifique"||profileNow==="experimental"&&normalizedGraphs.some((g:any)=>g&&g.style!=="geogebra");return {title:String(s.title||"Section"),objective:normalizeMathText(s.objective||""),content:Array.isArray(s.content)?s.content.map(normalizeMathText):[],formula:sf,graphs:keepGraphs?normalizedGraphs:[],visuals:normalizedVisuals,exercises:Array.isArray(s.exercises)?s.exercises.map((q:any)=>{const f=q.formula&&formulaBudget>0?normalizeMathSegment(q.formula):"";if(f)formulaBudget--;return {question:normalizeMathText(q.question||""),hint:normalizeMathText(q.hint||""),formula:f}}):[]}});d.corrections=Array.isArray(d.corrections)?d.corrections.map((c:any,i:number)=>{const f=c.formula&&formulaBudget>0?normalizeMathSegment(c.formula):"";if(f)formulaBudget--;return {exercise_number:Number(c.exercise_number)||i+1,solution:normalizeMathText(c.solution||""),formula:f}}):[];d._factory={...(d._factory||{}),formula_render_budget:10,math_policy:"LaTeX obligatoire",math_normalizer:"deterministic-v4"};return d}
 function count(d:any){const a=[d.introduction,...d.learning_objectives,...d.sections.flatMap((s:any)=>[s.title,s.objective,...s.content,...s.exercises.flatMap((q:any)=>[q.question,q.hint,q.formula])]),...d.corrections.flatMap((c:any)=>[c.solution,c.formula])];return a.join(" ").split(/\s+/).filter(Boolean).length}
 function valid(d:any){return !!d&&typeof d==='object'&&String(d.title||'').trim().length>0&&String(d.introduction||'').trim().length>0&&Array.isArray(d.sections)&&d.sections.length>0&&d.sections.some((s:any)=>Array.isArray(s.content)&&s.content.some((x:any)=>String(x||'').trim().length>0))}
 function author(j:any){return {model:"deepseek-chat",response_format:{type:"json_object"},temperature:.2,max_tokens:14000,messages:[{role:"system",content:`Tu es DEEPSEEK, auteur scientifique principal d'Aurore. Rédige un document pédagogique LONG et détaillé en français. JSON strict. Vise 7-10 sections, au moins 4500 mots, 6-10 exercices progressifs et un corrigé détaillé pour chaque exercice. Développe définitions, propriétés, méthodes, exemples, interprétations, applications et erreurs fréquentes. RÈGLE DE FIL PÉDAGOGIQUE : construis le document comme un cours qui se déroule étape par étape. Chaque section doit découler naturellement de la précédente ; introduis les notions dans l'ordre nécessaire, réutilise les notations déjà définies, rappelle brièvement le prérequis utile avant une nouvelle notion et ajoute des transitions explicites. Ne saute pas directement à une technique avancée sans avoir posé les bases. Les exercices doivent suivre la progression du cours : compréhension, application directe, combinaison de notions, puis approfondissement ; chaque exercice doit exploiter ce qui vient d'être enseigné. Évite les répétitions et les changements brusques de sujet. La conclusion doit reprendre le fil et relier les notions entre elles.\n\nRÈGLE ABSOLUE — MATHÉMATIQUES EN LATEX : toute expression mathématique DOIT être écrite en LaTeX. N'écris JAMAIS de symbole mathématique Unicode dans une expression : utilise \\infty, \\approx, \\le, \\ge, \\ne, \\in, \\sqrt{}, \\times, \\div, \\pm, \\pi, \\alpha, \\mathbb{R}, etc. Les variables et lettres a,b,c,d,x,y,f,g doivent être en LaTeX lorsqu'elles appartiennent à une expression mathématique. Utilise $...$ pour les expressions inline et $$...$$ pour les expressions isolées importantes. Les exposants doivent être x^{2}, x^{n}, e^{x}; les indices a_{1}, x_{n}. Les fractions doivent utiliser \\frac{a}{b}. Les racines utilisent \\sqrt{x}. Exemple : La fonction $f$ est définie sur $\\mathbb{R}$ et vérifie $$f(x)=ax^2+bx+c.$$\n\nNe transforme PAS les lettres ordinaires du français en mathématiques : seules les lettres appartenant à une expression mathématique sont concernées. N'utilise pas @@...@@. Les champs formula doivent contenir du LaTeX pur, sans symboles Unicode. Si un graphique est utile, ajoute sections[].graphs avec un instrument choisi selon la notion. function2d = courbe classique y=f(x) ; parametric2d = trajectoire x(t),y(t) ; parametric3d = trajectoire spatiale x(t),y(t),z(t) ; surface3d = surface z=f(x,y) ; geometry3d = points, vecteurs, droites, plans et solides dans l’espace. N’utilise la 3D que lorsqu’elle améliore réellement la compréhension spatiale ; jamais comme décoration. Pour parametric2d/parametric3d, renseigne x_expression, y_expression, z_expression si nécessaire, parameter, t_min et t_max. Pour surface3d, renseigne expression et les bornes x_min,x_max,y_min,y_max. Pour geometry3d, renseigne des objects explicites avec coordonnées numériques ; types utiles : point, vector, line, plane, sphere, cylinder, cone, polygon, cube, prism, pyramid, tetrahedron. Pour les solides, donne les sommets/points nécessaires ou une hauteur/rayon cohérente. Privilégie une construction qui sert directement la notion étudiée. Les bornes doivent être finies et permettre de voir l’objet. Les instruments 2D existants restent prioritaires lorsqu’ils suffisent. RÈGLES DE CHOIX OBLIGATOIRES : si la demande ou le titre contient « courbe paramétrée », « trajectoire paramétrée » ou « équations paramétriques », crée au moins un graph instrument=parametric2d avec x_expression et y_expression valides ; ne te contente pas d’expliquer la notion en texte. Si la demande contient « courbe paramétrée 3D », « trajectoire spatiale », « hélice », « espace » avec une courbe, crée au moins un instrument=parametric3d avec x_expression,y_expression,z_expression et t_min<t_max. Si la demande porte sur « surface », « surface 3D », « z=f(x,y) », crée un instrument=surface3d. Si elle porte sur « solide », « cube », « pyramide », « prisme », « tétraèdre », « sphère », « cylindre », « cône » ou une construction de géométrie dans l’espace, crée au moins un instrument=geometry3d avec des objects exploitables. Pour un cours qui enseigne explicitement plusieurs de ces notions, utilise plusieurs instruments correspondants. Exemple obligatoire pour une hélice : instrument=parametric3d, x_expression=cos(t), y_expression=sin(t), z_expression=t, parameter=t, t_min=0, t_max=6.283185307179586. Exemple de surface : instrument=surface3d, expression=x^2-y^2, x_min=-3, x_max=3, y_min=-3, y_max=3. Les graphiques doivent servir immédiatement l’explication ou un exercice ; jamais être décoratifs. RÈGLE VISUELLE OBLIGATOIRE — ILLUSTRATIONS DOCUMENTAIRES : si une illustration documentaire améliore nettement la compréhension, ajoute sections[].visuals avec type="wikimedia". Utilise une requête courte, précise et exploitable par Wikimedia Commons, idéalement en anglais (ex. "eukaryotic cell organelles diagram", "convex lens optical bench experiment", "electromagnetic spectrum diagram"). Pour la physique, les expériences, appareils, phénomènes, montages, matériaux et observations réelles doivent privilégier Wikimedia quand une illustration documentaire est utile. Pour les mathématiques, n’utilise Wikimedia que lorsqu’une image documentaire apporte quelque chose que GeoGebra ne peut pas apporter ; les courbes, constructions, fonctions et solides mathématiques restent dans sections[].graphs. Pour la biologie/SVT, les structures anatomiques et cellulaires peuvent demander une illustration documentaire. Pour histoire-géographie, technique, informatique et langues, une image Wikimedia peut aussi être utile selon le sujet. Chaque visuel doit avoir une fonction pédagogique explicite, une query précise et une courte caption. N’ajoute pas d’images décoratives. Maximum 3 visuels demandés par section et vise au maximum 8 visuels sur tout le document. Utilise priority="required" seulement si le visuel est important pour comprendre la notion ; sinon "recommended" ou "optional".`},{role:"user",content:`DEMANDE: ${j.prompt||j.title}\nMATIERE: ${j.subject||""}\nNIVEAU: ${j.level||""}\nCLASSE: ${j.class_name||""}\nTYPE: ${j.document_type}\nSCHEMA: ${JSON.stringify(SCHEMA)}\nPROFIL ÉDITORIAL: ${editorialProfile(j).profile}\nMODE DE RESSOURCE: ${editorialProfile(j).mode}\nCONSIGNES DE PRÉSENTATION: ${editorialProfile(j).instruction}\nProduis le manuscrit complet sans markdown.`}]}}
