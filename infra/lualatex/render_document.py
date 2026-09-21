@@ -1334,6 +1334,14 @@ def render(data):
 
     exercise_number = 0
 
+    corrections_by_number = {}
+    for c in data.get("corrections", []) or []:
+        try:
+            corrections_by_number[int(c.get("exercise_number", 0) or 0)] = c
+        except (TypeError, ValueError):
+            continue
+    used_correction_numbers = set()
+
     for _idx, sec in enumerate(data.get("sections", [])):
         lines.append(r"\Needspace{6\baselineskip}")
         lines.append(r"\section{" + tex_text(sec.get("title", "")) + r"}")
@@ -1362,32 +1370,24 @@ def render(data):
         if section_visuals:
             lines.extend(render_visuals(section_visuals))
 
-    corrections_by_number = {}
-    for c in data.get("corrections", []) or []:
-        try:
-            corrections_by_number[int(c.get("exercise_number", 0) or 0)] = c
-        except (TypeError, ValueError):
-            continue
-    used_correction_numbers = set()
-
-    for ex in sec.get("exercises", []):
-        exercise_number += 1
-        lines.append(r"\Needspace{5\baselineskip}")
-        block_label = "Activité" if profile == "biologie" else ("Application" if profile == "experimental" else "Exercice")
-        lines.append((r"\AuroreActivityBlock{" if profile == "biologie" else r"\AuroreExerciseBlock{") + str(exercise_number) + r"}{" + inline(ex.get("question", "")) + r"}")
-        if ex.get("hint"):
-            hint_label = "Piste de réflexion" if profile == "biologie" else "Indication"
-            lines.append(r"\AuroreLabeledBlock{" + hint_label + r"}{" + inline(ex["hint"]) + r"}")
-        if ex.get("formula"):
-            lines.append(display_formula(ex["formula"]))
-        correction = corrections_by_number.get(exercise_number)
-        if correction is not None:
+        for ex in sec.get("exercises", []):
+            exercise_number += 1
             lines.append(r"\Needspace{5\baselineskip}")
-            lines.append(
-                r"\AuroreCorrectionBlock{" + str(correction.get("exercise_number", exercise_number)) +
-                r"}{" + inline(correction.get("solution", "")) + r"}"
-            )
-            used_correction_numbers.add(exercise_number)
+            block_label = "Activité" if profile == "biologie" else ("Application" if profile == "experimental" else "Exercice")
+            lines.append((r"\AuroreActivityBlock{" if profile == "biologie" else r"\AuroreExerciseBlock{") + str(exercise_number) + r"}{" + inline(ex.get("question", "")) + r"}")
+            if ex.get("hint"):
+                hint_label = "Piste de réflexion" if profile == "biologie" else "Indication"
+                lines.append(r"\AuroreLabeledBlock{" + hint_label + r"}{" + inline(ex["hint"]) + r"}")
+            if ex.get("formula"):
+                lines.append(display_formula(ex["formula"]))
+            correction = corrections_by_number.get(exercise_number)
+            if correction is not None:
+                lines.append(r"\Needspace{5\baselineskip}")
+                lines.append(
+                    r"\AuroreCorrectionBlock{" + str(correction.get("exercise_number", exercise_number)) +
+                    r"}{" + inline(correction.get("solution", "")) + r"}"
+                )
+                used_correction_numbers.add(exercise_number)
 
     unmatched = [
         c for c in data.get("corrections", [])
