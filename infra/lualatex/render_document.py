@@ -1225,6 +1225,8 @@ def _has_usable_content_json(data):
 
 
 def render(data):
+    if not _has_usable_content_json(data):
+        raise ValueError("LuaLaTeX source rejected: structured content_json is required")
     title = data.get("title", "")
     theme_palette = resolve_theme_palette(data)
     theme = theme_palette["strong"]
