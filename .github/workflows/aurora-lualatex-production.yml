@@ -391,3 +391,5 @@ jobs:
 # Queue validation trigger: re-render informatique + histoire 2026-09-21.
 
 # Queue wake retry: informatique 2026-09-21.
+
+# production renderer source validation: escaped colophon text
