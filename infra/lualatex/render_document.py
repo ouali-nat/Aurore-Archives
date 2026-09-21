@@ -1442,6 +1442,7 @@ def render(data):
         r"    {\sffamily\scriptsize\bfseries\color{auroredeep}VÉRIFICATION & PUBLICATION}\par\smallskip",
         r"    {\sffamily\small\color{auroredeep}Scanne le QR code pour vérifier dynamiquement l'état public de cette édition.\par}",
         r"    {\sffamily\scriptsize\color{gray}La destination publique et l'intégrité du PDF sont contrôlées au moment du scan.\par\medskip}",
+    ]
     if has_geogebra:
         rights_lines.extend([
             r"    \medskip",
@@ -1459,6 +1460,7 @@ def render(data):
             r"    \raisebox{0pt}[2.30cm][0pt]{\qrcode[height=2.12cm]{" + document_share_url + r"}}",
         ])
     rights_lines.extend([
+        r"    \end{tcolorbox}",
         r"    \medskip",
         r"    \begin{tcolorbox}[colback=aurorepale,colframe=aurorebase!18!white,arc=10pt,boxrule=.35pt,left=9pt,right=9pt,top=6pt,bottom=6pt]",
         r"      {\sffamily\scriptsize\bfseries\color{auroredeep}DROITS & RÉUTILISATION}\par\smallskip",
