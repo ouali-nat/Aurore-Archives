@@ -5,6 +5,7 @@ import { chromium } from "playwright";
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const RENDER_TOKEN = process.env.AURORA_LUALATEX_RENDER_TOKEN;
 const DOCUMENT_ID = Number(process.env.DOCUMENT_ID);
+const GEO_GEBRA_RENDERER_VERSION = 3;
 
 if (!SUPABASE_URL || !RENDER_TOKEN || !Number.isSafeInteger(DOCUMENT_ID)) {
   throw new Error("SUPABASE_URL, AURORA_LUALATEX_RENDER_TOKEN et DOCUMENT_ID sont requis.");
@@ -44,7 +45,30 @@ function instrumentOf(g) {
     geometrie3d: "geometry3d",
     "3d": "geometry3d",
   };
-  return aliases[raw] || raw;
+  const normalized = aliases[raw] || raw;
+  const objects = Array.isArray(g?.objects) ? g.objects : [];
+  const points = Array.isArray(g?.points) ? g.points : [];
+  const poi = Array.isArray(g?.points_of_interest) ? g.points_of_interest : [];
+  const hasObjects = objects.some((o) =>
+    o && typeof o === "object" &&
+    ["point","vector","line","plane","sphere","cylinder","cone","polygon","cube","prism","pyramid","tetrahedron"]
+      .includes(String(o?.type || "").toLowerCase()),
+  );
+  const hasExpression = String(g?.expression || "").trim();
+  const hasX = String(g?.x_expression || "").trim();
+  const hasY = String(g?.y_expression || "").trim();
+  const hasZ = String(g?.z_expression || "").trim();
+  if (["function2d","parametric2d","parametric3d","surface3d","geometry3d"].includes(normalized)) return normalized;
+  if (raw) return null;
+  if (hasObjects) return "geometry3d";
+  if (hasZ && hasX && hasY) return "parametric3d";
+  if (hasX && hasY) return points.some((p) => Array.isArray(p) && p.length >= 3) || poi.some((p) => p && Number.isFinite(Number(p?.z)))
+    ? "parametric3d"
+    : "parametric2d";
+  if (hasExpression) return "function2d";
+  if (points.some((p) => Array.isArray(p) && p.length >= 3) || poi.some((p) => p && Number.isFinite(Number(p?.z)))) return "geometry3d";
+  if (points.some((p) => Array.isArray(p) && p.length === 2) || (Array.isArray(g?.asymptotes) && g.asymptotes.length)) return "function2d";
+  return null;
 }
 
 function validGraph(g) {
@@ -62,19 +86,9 @@ function validGraph(g) {
       points.some((p) => Array.isArray(p) && p.length === 2),
     );
   }
-  if (instrument === "parametric2d") {
-    return Boolean(String(g?.x_expression || "").trim() && String(g?.y_expression || "").trim());
-  }
-  if (instrument === "parametric3d") {
-    return Boolean(
-      String(g?.x_expression || "").trim() &&
-      String(g?.y_expression || "").trim() &&
-      String(g?.z_expression || "").trim(),
-    );
-  }
-  if (instrument === "surface3d") {
-    return Boolean(String(g?.expression || "").trim());
-  }
+  if (instrument === "parametric2d") return Boolean(String(g?.x_expression || "").trim() && String(g?.y_expression || "").trim());
+  if (instrument === "parametric3d") return Boolean(String(g?.x_expression || "").trim() && String(g?.y_expression || "").trim() && String(g?.z_expression || "").trim());
+  if (instrument === "surface3d") return Boolean(String(g?.expression || "").trim());
   const validTypes = new Set([
     "point","vector","line","plane","sphere","cylinder","cone","polygon","cube",
     "prism","pyramid","tetrahedron",
@@ -92,7 +106,7 @@ function imageReady(g) {
   const hasSolid = (Array.isArray(g?.objects) ? g.objects : []).some((o) =>
     solids.has(String(o?.type || "").toLowerCase()),
   );
-  return !hasSolid || Number(g?.geogebra_renderer_version || 0) >= 2;
+  return Number(g?.geogebra_renderer_version || 0) >= GEO_GEBRA_RENDERER_VERSION && (!hasSolid || Number(g?.geogebra_renderer_version || 0) >= GEO_GEBRA_RENDERER_VERSION);
 }
 
 const pending = [];
@@ -333,10 +347,26 @@ const renderGraphInBrowser = async (graph) => {
     if (instrument === "function2d" || instrument === "parametric2d") {
       const xmin=finite(graph?.x_min,-10), xmax=finite(graph?.x_max,10), ymin=finite(graph?.y_min,-10), ymax=finite(graph?.y_max,10);
       if (xmax>xmin && ymax>ymin) {
-        const xr=Math.max(Math.abs(xmin),Math.abs(xmax),1), yr=Math.max(Math.abs(ymin),Math.abs(ymax),1);
-        commands.push("SetCoordSystem("+[-xr,xr,-yr,yr].join(",")+")");
+        commands.push("SetCoordSystem("+[xmin,xmax,ymin,ymax].join(",")+")");
       }
-      commands.push("O=(0,0)","I=(1,0)","J=(0,1)","SetLabelVisible(O,true)","SetLabelVisible(I,true)","SetLabelVisible(J,true)");
+      if (instrument === "function2d" && Array.isArray(graph?.points)) {
+        let pointIndex = 0;
+        for (const raw of graph.points) {
+          if (!Array.isArray(raw) || raw.length < 2) continue;
+          const px = Number(raw[0]), py = Number(raw[1]);
+          if (!Number.isFinite(px) || !Number.isFinite(py)) continue;
+          pointIndex += 1;
+          commands.push("P"+pointIndex+"=("+px+","+py+")");
+        }
+      }
+      commands.push(
+        "O=(0,0)",
+        "I=(1,0)",
+        "J=(0,1)",
+        "SetLabelVisible(O,true)",
+        "SetLabelVisible(I,true)",
+        "SetLabelVisible(J,true)",
+      );
     }
 
     try {
@@ -370,13 +400,19 @@ const renderGraphInBrowser = async (graph) => {
                 try { a.setAxisLabels(3,"x","y","z"); } catch {}
                 try { a.setAxisSteps(3,1,1,1,0); } catch {}
               } else {
-                try { a.setAxesVisible(true,true); } catch {}
-                try { a.setGridVisible(true); } catch {}
+                const showAxes = graph?.axes !== false;
+                const showGrid = graph?.grid !== false;
+                try { a.setAxesVisible(showAxes,showAxes); } catch {}
+                try { a.setGridVisible(showGrid); } catch {}
                 try { a.setAxisSteps(1,1,1,0); } catch {}
-                try { a.setAxisLabels(1,"x","y",""); } catch {}
+                try { a.setAxisLabels(1,String(graph?.x_label || "x"),String(graph?.y_label || "y")); } catch {}
               }
 
-              const primary = commands.filter((c) => /(?:Curve|Sphere|Cylinder|Cone|Cube|Prism|Pyramid|Tetrahedron|Polygon|Line|Plane|Vector)\s*\(/i.test(c) || /^f\s*\(\s*x(?:\s*,\s*y)?\s*\)\s*=/.test(c));
+              const primary = commands.filter((c) =>
+                /(?:Curve|Sphere|Cylinder|Cone|Cube|Prism|Pyramid|Tetrahedron|Polygon|Line|Plane|Vector)\s*\(/i.test(c) ||
+                /^f\s*\(\s*x(?:\s*,\s*y)?\s*\)\s*=/.test(c) ||
+                /^[A-Za-z][A-Za-z0-9_]*=\([^)]*\)$/.test(c)
+              );
               if (!primary.length) {
                 clearTimeout(timer);
                 finish(reject, new Error("Aucune commande GeoGebra de construction exploitable."));
@@ -458,7 +494,7 @@ for (const item of pending) {
   }
   content.sections[item.sectionIndex].graphs[item.graphIndex].geogebra_image_path = uploadData.path;
   content.sections[item.sectionIndex].graphs[item.graphIndex].geogebra_image_source = "geogebra";
-  content.sections[item.sectionIndex].graphs[item.graphIndex].geogebra_renderer_version = 2;
+  content.sections[item.sectionIndex].graphs[item.graphIndex].geogebra_renderer_version = GEO_GEBRA_RENDERER_VERSION;
   content.sections[item.sectionIndex].graphs[item.graphIndex].geogebra_image_updated_at = new Date().toISOString();
   console.log(`  → PNG enregistré: ${uploadData.path} (${uploadData.bytes} bytes)`);
 }
@@ -483,4 +519,4 @@ for (const section of Array.isArray(content.sections) ? content.sections : []) {
 if (remaining.length) {
   throw new Error(`Préparation GeoGebra incomplète. Graphiques manquants: ${remaining.map((n)=>n+1).join(", ")}`);
 }
-console.log(`GeoGebra server-side OK: ${pending.length} graphique(s) prêt(s) pour LuaLaTeX.`);
+console.log(`GeoGebra server-side OK: ${pending.length} graphique(s) prêt(s) pour LuaLaTeX (renderer v${GEO_GEBRA_RENDERER_VERSION}).`);
