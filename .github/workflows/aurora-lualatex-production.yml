@@ -304,6 +304,7 @@ jobs:
           test -s production/document.tex
           grep -q '\\documentclass' production/document.tex
 
+      # Regression guard: a persisted GeoGebra asset must survive through the generated TeX source.
       - name: Verify GeoGebra inclusion in LaTeX source
         if: hashFiles('infra/lualatex/production/document-id') != ''
         working-directory: infra/lualatex
