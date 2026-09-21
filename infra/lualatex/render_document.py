@@ -91,18 +91,27 @@ def _document_identity(data):
 
 def _is_renderable_geogebra_graph(graph):
     """Return True only for an actual GeoGebra construction asset.
-    
-    A legacy illustration can carry a geogebra_image_path even though it has
-    no usable construction data. Such entries must never become a repère-only
-    image in the final PDF.
+
+    Production Content Factory payloads may omit instrument while still
+    carrying a valid GeoGebra source, expression and/or points. The explicit
+    GeoGebra source/style markers are therefore accepted as a fallback, while
+    a bare storage path alone is never enough to make a legacy illustration
+    render as a graph.
     """
     if not isinstance(graph, dict):
         return False
-    storage_path = str(graph.get("geogebra_image_path") or graph.get("graph_local_path") or "").strip()
+
+    storage_path = str(
+        graph.get("geogebra_image_path") or graph.get("graph_local_path") or ""
+    ).strip()
     if not storage_path:
         return False
 
-    instrument = str(graph.get("instrument") or graph.get("graph_type") or "").lower().strip()
+    source = str(graph.get("geogebra_image_source") or "").lower().strip()
+    style = str(graph.get("style") or "").lower().strip()
+    instrument = str(
+        graph.get("instrument") or graph.get("graph_type") or ""
+    ).lower().strip()
     aliases = {
         "function": "function2d",
         "graph": "function2d",
@@ -115,7 +124,11 @@ def _is_renderable_geogebra_graph(graph):
 
     objects = graph.get("objects") if isinstance(graph.get("objects"), list) else []
     points = graph.get("points") if isinstance(graph.get("points"), list) else []
-    poi = graph.get("points_of_interest") if isinstance(graph.get("points_of_interest"), list) else []
+    poi = (
+        graph.get("points_of_interest")
+        if isinstance(graph.get("points_of_interest"), list)
+        else []
+    )
     expression = str(graph.get("expression") or "").strip()
     x_expression = str(graph.get("x_expression") or "").strip()
     y_expression = str(graph.get("y_expression") or "").strip()
@@ -123,7 +136,11 @@ def _is_renderable_geogebra_graph(graph):
     asymptotes = graph.get("asymptotes") if isinstance(graph.get("asymptotes"), list) else []
 
     if instrument == "function2d":
-        return bool(expression or asymptotes or any(isinstance(p, (list, tuple)) and len(p) == 2 for p in points))
+        return bool(
+            expression
+            or asymptotes
+            or any(isinstance(p, (list, tuple)) and len(p) == 2 for p in points)
+        )
     if instrument == "parametric2d":
         return bool(x_expression and y_expression)
     if instrument == "parametric3d":
@@ -136,15 +153,47 @@ def _is_renderable_geogebra_graph(graph):
             "cone", "polygon", "cube", "prism", "pyramid", "tetrahedron",
         }
         has_objects = any(
-            isinstance(o, dict) and str(o.get("type") or "").lower().strip() in valid_types
+            isinstance(o, dict)
+            and str(o.get("type") or "").lower().strip() in valid_types
             for o in objects
         )
-        has_points3 = any(isinstance(p, (list, tuple)) and len(p) >= 3 for p in points)
-        has_poi3 = any(isinstance(p, dict) and p.get("z") is not None for p in poi)
+        has_points3 = any(
+            isinstance(p, (list, tuple)) and len(p) >= 3 for p in points
+        )
+        has_poi3 = any(
+            isinstance(p, dict) and p.get("z") is not None for p in poi
+        )
         return bool(has_objects or has_points3 or has_poi3)
 
-    return False
+    # Current Content Factory schema can omit instrument. In that case,
+    # require an explicit GeoGebra marker plus real construction data.
+    if not instrument and source == "geogebra":
+        return bool(
+            expression
+            or x_expression
+            or y_expression
+            or z_expression
+            or asymptotes
+            or points
+            or objects
+            or poi
+        )
 
+    # Some older payloads carry only the style marker. Accept those only when
+    # there is structured construction data, never on path alone.
+    if not instrument and style == "geogebra":
+        return bool(
+            expression
+            or x_expression
+            or y_expression
+            or z_expression
+            or asymptotes
+            or points
+            or objects
+            or poi
+        )
+
+    return False
 
 def _open_url_with_retry(req, timeout=30, attempts=4):
     """Open an HTTP request with bounded retries for Wikimedia/CDN 429 responses."""
