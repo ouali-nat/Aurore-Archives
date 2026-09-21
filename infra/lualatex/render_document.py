@@ -523,7 +523,12 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                     continue
 
                 priority = str(raw.get("priority") or "").lower().strip()
-                required = bool(raw.get("required")) or priority == "required"
+                raw_required = raw.get("required")
+                required = (
+                    priority == "required"
+                    or raw_required is True
+                    or str(raw_required).strip().lower() in ("1", "true", "yes", "oui")
+                )
                 query_candidates = candidates_for_directive(raw, section)
                 if not query_candidates:
                     status = {
@@ -568,7 +573,7 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                     raise RuntimeError(
                         message
                         + (
-                            " — le visuel est obligatoire pour ce PDF : "
+                            " — visuel explicitement demandé dans le plan éditorial ; "
                             "la production est arrêtée afin d'éviter un document incomplet."
                         )
                     )
@@ -632,7 +637,7 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                     raise RuntimeError(
                         message
                         + (
-                            " — impossible de valider ce visuel ; "
+                            " — impossible de valider ce visuel explicitement demandé ; "
                             "la production est arrêtée afin d'éviter un PDF incomplet."
                         )
                     )
@@ -692,7 +697,9 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
     data["_wikimedia_visual_status"] = statuses
     print(
         f"Wikimedia visual plan: mode={'explicit' if explicit else 'legacy'} "
-        f"fetched={len(visuals)} requested_statuses={len(statuses)}"
+        f"fetched={len(visuals)}"
+        + (f"/{planned_explicit}" if explicit else "")
+        + f" requested_statuses={len(statuses)}"
     )
     if explicit and len(visuals) != planned_explicit:
         raise RuntimeError(
