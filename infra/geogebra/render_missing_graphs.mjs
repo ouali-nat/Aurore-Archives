@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import http from "node:http";
 import { chromium } from "playwright";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -117,6 +118,35 @@ if (!pending.length) {
   process.exit(0);
 }
 
+const server = http.createServer((req, res) => {
+  if (req.url !== "/geogebra.html") {
+    res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("Not found");
+    return;
+  }
+  res.writeHead(200, {
+    "Content-Type": "text/html; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
+  res.end(`<!doctype html>
+<html lang="fr">
+<head><meta charset="utf-8"><title>Aurore GeoGebra renderer</title></head>
+<body style="margin:0;background:#fff">
+  <script src="https://www.geogebra.org/apps/deployggb.js"></script>
+</body>
+</html>`);
+});
+await new Promise((resolve, reject) => {
+  server.once("error", reject);
+  server.listen(0, "127.0.0.1", resolve);
+});
+const address = server.address();
+if (!address || typeof address === "string") {
+  await new Promise((resolve) => server.close(resolve));
+  throw new Error("Impossible de démarrer le serveur local GeoGebra.");
+}
+const localOrigin = `http://127.0.0.1:${address.port}`;
+
 const browser = await chromium.launch({
   headless: true,
   args: [
@@ -125,14 +155,24 @@ const browser = await chromium.launch({
     "--enable-webgl",
     "--ignore-gpu-blocklist",
     "--use-gl=swiftshader",
+    "--disable-features=IsolateOrigins,site-per-process",
   ],
 });
 
 const page = await browser.newPage({ viewport: { width: 1600, height: 1100 }, deviceScaleFactor: 1 });
-await page.setContent(`<!doctype html><html><head><meta charset="utf-8"></head><body>
-<script src="https://www.geogebra.org/apps/deployggb.js"></script>
-</body></html>`, { waitUntil: "load" });
+page.on("pageerror", (error) => console.warn("[GeoGebra pageerror]", error.message));
+page.on("console", (message) => {
+  if (message.type() === "error" || message.type() === "warning") {
+    console.warn("[GeoGebra console]", message.type(), message.text());
+  }
+});
+page.on("requestfailed", (request) => {
+  console.warn("[GeoGebra requestfailed]", request.method(), request.url(), request.failure()?.errorText || "unknown");
+});
+await page.goto(`${localOrigin}/geogebra.html`, { waitUntil: "domcontentloaded", timeout: 60000 });
 await page.waitForFunction(() => typeof window.GGBApplet === "function", { timeout: 60000 });
+await page.waitForTimeout(2000);
+console.log(`GeoGebra host page ready: ${localOrigin}`);
 
 const renderGraphInBrowser = async (graph) => {
   return await page.evaluate(async (graph) => {
@@ -424,6 +464,7 @@ for (const item of pending) {
 }
 
 await browser.close();
+await new Promise((resolve) => server.close(resolve));
 
 await fs.writeFile(
   "infra/lualatex/production/document.json",
