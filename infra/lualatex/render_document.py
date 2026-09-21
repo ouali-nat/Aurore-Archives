@@ -794,7 +794,7 @@ def render_wikimedia_references(visuals):
     if not visuals: return []
     lines=[
         r"\clearpage",
-        r"\section*{Crédits visuels & licences}",
+        r"\section*{Crédits visuels \& licences}",
         r"\addcontentsline{toc}{section}{Crédits visuels et licences}",
         r"{\sffamily\small Les illustrations documentaires utilisées dans cette édition sont listées ci-dessous avec leur auteur, leur licence et leur source.}",""
     ]
@@ -1439,7 +1439,7 @@ def render(data):
         r"  \end{tcolorbox}",
         r"  \medskip",
         r"  \begin{tcolorbox}[enhanced,colback=white,colframe=aurorebase!24!white,arc=12pt,boxrule=.45pt,left=10pt,right=10pt,top=8pt,bottom=8pt]",
-        r"    {\sffamily\scriptsize\bfseries\color{auroredeep}VÉRIFICATION & PUBLICATION}\par\smallskip",
+        r"    {\sffamily\scriptsize\bfseries\color{auroredeep}VÉRIFICATION \& PUBLICATION}\par\smallskip",
         r"    {\sffamily\small\color{auroredeep}Scanne le QR code pour vérifier dynamiquement l'état public de cette édition.\par}",
         r"    {\sffamily\scriptsize\color{gray}La destination publique et l'intégrité du PDF sont contrôlées au moment du scan.\par\medskip}",
     ]
@@ -1463,7 +1463,7 @@ def render(data):
         r"    \end{tcolorbox}",
         r"    \medskip",
         r"    \begin{tcolorbox}[colback=aurorepale,colframe=aurorebase!18!white,arc=10pt,boxrule=.35pt,left=9pt,right=9pt,top=6pt,bottom=6pt]",
-        r"      {\sffamily\scriptsize\bfseries\color{auroredeep}DROITS & RÉUTILISATION}\par\smallskip",
+        r"      {\sffamily\scriptsize\bfseries\color{auroredeep}DROITS \& RÉUTILISATION}\par\smallskip",
         r"      {\sffamily\scriptsize\color{auroredeep}Cette édition constitue une création éditoriale d'Aurore. Les connaissances générales et formules restent réutilisables sous réserve des droits applicables aux éléments tiers.\par}",
         r"      {\sffamily\scriptsize\color{gray}Les ressources tierces conservent leurs propres licences et conditions d'utilisation.\par}",
         r"    \end{tcolorbox}",
