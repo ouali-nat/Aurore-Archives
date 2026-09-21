@@ -5,6 +5,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const RENDER_TOKEN = Deno.env.get("AURORA_LUALATEX_RENDER_TOKEN") || "";
+const GEO_GEBRA_RENDERER_VERSION = 3;
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
 const cors = {
@@ -55,7 +56,7 @@ function geogebraImageReady(g:any) {
   if(!path||source!=="geogebra") return false;
   const instrument=detectGraphInstrument(g); if(!instrument||!GRAPH_INSTRUMENTS.has(instrument)) return false;
   const objects=Array.isArray(g?.objects)?g.objects:[], solid=objects.some((o:any)=>["sphere","cylinder","cone","cube","prism","pyramid","tetrahedron"].includes(String(o?.type||"").toLowerCase()));
-  if(solid&&Number(g?.geogebra_renderer_version||0)<2) return false;
+  if(Number(g?.geogebra_renderer_version||0)<GEO_GEBRA_RENDERER_VERSION) return false;
   return true;
 }
 function graphList(content:any) {
@@ -72,7 +73,7 @@ function graphList(content:any) {
 function setGraphImage(content:any,index:number,path:string) {
   const c=structuredClone(content||{}); let n=0;
   for(const s of Array.isArray(c.sections)?c.sections:[]) for(const g of Array.isArray(s?.graphs)?s.graphs:[]) {
-    if(n===index){g.geogebra_image_path=path;g.geogebra_image_source="geogebra";g.geogebra_renderer_version=2;g.geogebra_image_updated_at=new Date().toISOString();return c;} n++;
+    if(n===index){g.geogebra_image_path=path;g.geogebra_image_source="geogebra";g.geogebra_renderer_version=GEO_GEBRA_RENDERER_VERSION;g.geogebra_image_updated_at=new Date().toISOString();return c;} n++;
   }
   throw new Error("Graphique #"+(index+1)+" introuvable dans le document");
 }
@@ -118,7 +119,7 @@ Deno.serve(async req=>{
     if(up.error) throw new Error("Storage GeoGebra: "+up.error.message);
 
     const content=setGraphImage(doc.content_json,index,path);
-    const metadata={...(doc.metadata||{}),geogebra:{source:serverMode?"GeoGebra Apps API — GitHub renderer":"GeoGebra Apps API",graph_index:index,updated_at:new Date().toISOString(),path,renderer_version:2}};
+    const metadata={...(doc.metadata||{}),geogebra:{source:serverMode?"GeoGebra Apps API — GitHub renderer":"GeoGebra Apps API",graph_index:index,updated_at:new Date().toISOString(),path,renderer_version:GEO_GEBRA_RENDERER_VERSION}};
     let updateQuery=admin.from("aurora_generated_documents").update({content_json:content,metadata}).eq("id",id);
     if(userId) updateQuery=updateQuery.eq("created_by",userId);
     const {error:ue}=await updateQuery;
