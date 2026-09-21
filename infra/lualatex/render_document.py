@@ -59,7 +59,13 @@ SITE_THEME_PALETTE = {
 
 
 def _document_identity(data):
-    """Return a stable Aurore identifier and public document URL when available."""
+    """Return a stable Aurore identifier and public verification URL.
+
+    The QR target intentionally resolves through the public Aurore interface
+    instead of pointing straight at an internal/admin location or a storage
+    object. Publication status and PDF integrity can therefore be checked
+    later without regenerating the already-issued PDF.
+    """
     meta = data.get("_aurore_document") if isinstance(data.get("_aurore_document"), dict) else {}
     raw_id = meta.get("id") or data.get("document_id") or data.get("id")
     try:
@@ -70,8 +76,18 @@ def _document_identity(data):
     year_match = re.search(r"(20\d{2})", created_at)
     year = year_match.group(1) if year_match else "2026"
     key = f"AUR-{year}-{document_id:06d}" if document_id is not None else "AUR-ARCHIVES"
-    share_url = f"{AURORE_SITE_URL}?document={document_id}" if document_id is not None else AURORE_SITE_URL
-    return {"id": document_id, "key": key, "year": year, "share_url": share_url}
+    verification_url = (
+        f"{AURORE_SITE_URL}?verify_document={document_id}"
+        if document_id is not None
+        else AURORE_SITE_URL
+    )
+    return {
+        "id": document_id,
+        "key": key,
+        "year": year,
+        "share_url": verification_url,
+        "verification_url": verification_url,
+    }
 
 def _is_renderable_geogebra_graph(graph):
     """Return True only for an actual GeoGebra construction asset.
@@ -776,7 +792,12 @@ def render_visuals(visuals):
 
 def render_wikimedia_references(visuals):
     if not visuals: return []
-    lines=[r"\clearpage",r"\section*{Références visuelles}",r"\addcontentsline{toc}{section}{Références visuelles}",r"{\sffamily\small Illustrations issues de Wikimedia Commons ; licence et auteur indiqués fichier par fichier.}",""]
+    lines=[
+        r"\clearpage",
+        r"\section*{Crédits visuels & licences}",
+        r"\addcontentsline{toc}{section}{Crédits visuels et licences}",
+        r"{\sffamily\small Les illustrations documentaires utilisées dans cette édition sont listées ci-dessous avec leur auteur, leur licence et leur source.}",""
+    ]
     for v in visuals:
         lines += [r"\begin{tcolorbox}[enhanced,breakable,colback=white,colframe=aurorebase!25!white,arc=9pt,left=8pt,right=8pt,top=7pt,bottom=7pt]",
                   r"{\sffamily\bfseries "+tex_text(v.get("title") or "Illustration")+r"}\par",
@@ -1184,7 +1205,7 @@ def render(data):
     document_identity = _document_identity(data)
     document_id = document_identity["id"]
     document_key = document_identity["key"]
-    document_share_url = document_identity["share_url"]
+    document_share_url = document_identity["verification_url"]
     profile = _editorial_profile(data)
     has_geogebra = _has_geogebra(data)
     lines = [
@@ -1222,19 +1243,19 @@ def render(data):
         r"\definecolor{auroresecondary}{HTML}{" + theme_secondary + r"}",
         r"\colorlet{auroredeep}{aurorebase!82!black}",
         r"\colorlet{aurorelight}{auroreprimary!10!white}",
-        r"\colorlet{aurorepale}{auroreprimary!3!white}",
+        r"\colorlet{aurorepale}{auroreprimary!4!white}",
         r"\pagecolor{aurorepale}",
         r"\AddToHook{shipout/background}{%",
         r"  \begin{tikzpicture}[remember picture,overlay]",
-        r"    % Aurore : bulles décoratives plus nombreuses, visibles mais très pâles.",
-        r"    \fill[auroresecondary!16] ([xshift=-1.20cm,yshift=-1.00cm]current page.north east) circle (2.55cm);",
-        r"    \fill[auroreprimary!9] ([xshift=1.05cm,yshift=0.85cm]current page.north west) circle (1.55cm);",
-        r"    \fill[aurorebase!8] ([xshift=-0.45cm,yshift=-9.2cm]current page.north east) circle (1.05cm);",
-        r"    \fill[auroresecondary!10] ([xshift=0.80cm,yshift=-13.4cm]current page.north west) circle (1.30cm);",
-        r"    \fill[auroreprimary!8] ([xshift=1.20cm,yshift=1.10cm]current page.south west) circle (2.05cm);",
-        r"    \fill[auroresecondary!11] ([xshift=-1.00cm,yshift=0.90cm]current page.south east) circle (1.60cm);",
-        r"    \fill[aurorebase!7] ([xshift=-2.15cm,yshift=-4.20cm]current page.south east) circle (0.72cm);",
-        r"    \fill[auroreprimary!6] ([xshift=1.95cm,yshift=-5.50cm]current page.south west) circle (0.85cm);",
+        r"    % Aurore : motif de bulles plus présent, avec plusieurs niveaux de contraste.",
+        r"    \fill[auroresecondary!24] ([xshift=-1.20cm,yshift=-1.00cm]current page.north east) circle (2.55cm);",
+        r"    \fill[auroreprimary!15] ([xshift=1.05cm,yshift=0.85cm]current page.north west) circle (1.55cm);",
+        r"    \fill[aurorebase!11] ([xshift=-0.45cm,yshift=-9.2cm]current page.north east) circle (1.05cm);",
+        r"    \fill[auroresecondary!17] ([xshift=0.80cm,yshift=-13.4cm]current page.north west) circle (1.30cm);",
+        r"    \fill[auroreprimary!14] ([xshift=1.20cm,yshift=1.10cm]current page.south west) circle (2.05cm);",
+        r"    \fill[auroresecondary!19] ([xshift=-1.00cm,yshift=0.90cm]current page.south east) circle (1.60cm);",
+        r"    \fill[aurorebase!10] ([xshift=-2.15cm,yshift=-4.20cm]current page.south east) circle (0.72cm);",
+        r"    \fill[auroreprimary!11] ([xshift=1.95cm,yshift=-5.50cm]current page.south west) circle (0.85cm);",
         r"  \end{tikzpicture}%",
         r"}",
         r"\hypersetup{hidelinks,colorlinks=true,linkcolor=auroredeep,urlcolor=auroredeep," +
@@ -1245,13 +1266,13 @@ def render(data):
         r"\fancyhf{}",
         r"\renewcommand{\headrulewidth}{0.55pt}",
         r"\renewcommand{\footrulewidth}{0pt}",
-        r"\fancyhead[L]{\IfFileExists{assets/aurore-logo.png}{\includegraphics[height=.58cm]{assets/aurore-logo.png}}{\textcolor{aurorebase}{\rule{.58cm}{.58cm}}}}",
+        r"\fancyhead[L]{\IfFileExists{assets/aurore-logo.png}{\includegraphics[height=.60cm]{assets/aurore-logo.png}}{\textcolor{aurorebase}{\rule{.60cm}{.60cm}}}}",
         r"\fancyhead[R]{\textcolor{aurorebase!75!black}{\small\sffamily Section Archives}}",
         r"\fancyfoot[C]{\textcolor{gray}{\small Aurore — Section Archives \textbullet\; \thepage}}",
         r"\fancypagestyle{plain}{%",
         r"  \fancyhf{}%",
         r"  \renewcommand{\headrulewidth}{0.55pt}%",
-        r"  \fancyhead[L]{\IfFileExists{assets/aurore-logo.png}{\includegraphics[height=.58cm]{assets/aurore-logo.png}}{\textcolor{aurorebase}{\rule{.58cm}{.58cm}}}}%",
+        r"  \fancyhead[L]{\IfFileExists{assets/aurore-logo.png}{\includegraphics[height=.60cm]{assets/aurore-logo.png}}{\textcolor{aurorebase}{\rule{.60cm}{.60cm}}}%",
         r"  \fancyhead[R]{\textcolor{aurorebase!75!black}{\small\sffamily Section Archives}}%",
         r"  \fancyfoot[C]{\textcolor{gray}{\small Aurore — Section Archives \textbullet\; \thepage}}%",
         r"}",
@@ -1288,27 +1309,29 @@ def render(data):
         r"  \end{tcolorbox}%",
         r"}",
         r"\newcommand{\AuroreTitleBlock}[3]{%",
-        r"  \begin{tcolorbox}[enhanced,colback=white!96!aurorepale,colframe=aurorebase!28!white,arc=16pt,boxrule=.55pt,left=16pt,right=16pt,top=14pt,bottom=15pt,borderline west={2pt}{0pt}{aurorebase!75!white}]%",
+        r"  \begin{tcolorbox}[enhanced,colback=white!96!aurorepale,colframe=aurorebase!34!white,arc=16pt,boxrule=.6pt,left=16pt,right=16pt,top=15pt,bottom=16pt,borderline west={2.2pt}{0pt}{aurorebase!78!white}]%",
+        r"    \begin{center}",
+        r"    \IfFileExists{assets/aurore-logo.png}{%",
+        r"      \begin{tcolorbox}[colback=white,colframe=aurorebase!25!white,boxrule=.5pt,arc=12pt,boxsep=5pt,width=4.35cm]",
+        r"        \centering\includegraphics[height=1.08cm]{assets/aurore-logo.png}%",
+        r"      \end{tcolorbox}%",
+        r"    }{%",
+        r"      \AurorePill{AURORE}%",
+        r"    }",
+        r"    \vspace{0.18cm}",
         r"    \AurorePill{#1}\par\medskip",
         r"    {\sffamily\fontsize{28.5}{34}\selectfont\bfseries\color{auroredeep}#2\par}",
-        r"    \vspace{0.45cm}",
-        r"    \textcolor{auroreprimary}{\rule{0.18\linewidth}{1.25pt}}\par",
-        r"    \vspace{0.45cm}",
+        r"    \vspace{0.42cm}",
+        r"    \textcolor{auroreprimary}{\rule{0.22\linewidth}{1.25pt}}\par",
+        r"    \vspace{0.42cm}",
         r"    {\sffamily\normalsize\color{aurorebase!78!black}#3\par}",
+        r"    \end{center}",
         r"  \end{tcolorbox}%",
         r"}",
         r"\begin{document}",
         r"\thispagestyle{empty}",
         r"\fontsize{11.3}{16.1}\selectfont",
-        r"\vspace*{0.55cm}",
-        r"\begin{flushleft}",
-        r"\IfFileExists{assets/aurore-logo.png}{%",
-        r"  \includegraphics[height=.78cm]{assets/aurore-logo.png}%",
-        r"}{%",
-        r"  \AurorePill{AURORE}%",
-        r"}",
-        r"\end{flushleft}",
-        r"\vspace{0.95cm}",
+        r"\vspace*{0.72cm}",
         r"\AuroreTitleBlock{Document pédagogique}{" + tex_text(title) + r"}{Aurore — Section Archives" + (r" · " + tex_text(" · ".join(info)) if info else "") + r"}",
         r"\vfill",
         r"{\sffamily\small\color{gray}Document pédagogique édité avec Aurora · identité visuelle Aurore}",
@@ -1403,37 +1426,52 @@ def render(data):
         r"\clearpage",
         r"\thispagestyle{plain}",
         r"\begin{center}",
-        r"\vspace*{0.08\textheight}",
-        r"\begin{tcolorbox}[enhanced,colback=white!97!aurorepale,colframe=aurorebase!28!white,arc=15pt,boxrule=.55pt,left=15pt,right=15pt,top=14pt,bottom=14pt,width=.91\linewidth]",
-        r"  \AurorePill{© Aurore — Section Archives}\par\medskip",
-        r"  {\sffamily\small\color{auroredeep}Ce document pédagogique constitue une création éditoriale d'Aurore.\par\medskip}",
-        r"  {\sffamily\small\color{auroredeep}Les connaissances, formules et notions scientifiques générales restent librement utilisables sous réserve des droits éventuellement applicables aux éléments tiers.\par\medskip}",
-        r"  {\sffamily\small\color{auroredeep}Les éléments provenant de tiers restent soumis à leurs propres conditions de licence et d'utilisation.\par}",
-    ]
+        r"\vspace*{0.055\textheight}",
+        r"\begin{tcolorbox}[enhanced,colback=white!98!aurorepale,colframe=aurorebase!30!white,arc=16pt,boxrule=.6pt,left=16pt,right=16pt,top=15pt,bottom=16pt,width=.92\linewidth]",
+        r"  \AurorePill{Mentions · crédits · vérification}\par\smallskip",
+        r"  {\sffamily\Large\bfseries\color{auroredeep}Édition Aurore}\par\smallskip",
+        r"  {\sffamily\small\color{aurorebase!78!black}" + tex_text(title) + r"\par\medskip}",
+        r"  \textcolor{auroreprimary}{\rule{0.18\linewidth}{1.15pt}}\par\medskip",
+        r"  \begin{tcolorbox}[colback=aurorelight!55!white,colframe=aurorebase!20!white,arc=11pt,boxrule=.4pt,left=9pt,right=9pt,top=7pt,bottom=7pt]",
+        r"    {\sffamily\scriptsize\bfseries\color{auroredeep}IDENTITÉ DE L'ÉDITION}\par\smallskip",
+        r"    {\sffamily\scriptsize Identifiant : \texttt{" + document_key + r"}\hfill Version : " + (version or "1") + r"\par}",
+        r"    {\sffamily\scriptsize " + tex_text(" · ".join(info) if info else "Document pédagogique Aurore") + r"\par}",
+        r"  \end{tcolorbox}",
+        r"  \medskip",
+        r"  \begin{tcolorbox}[enhanced,colback=white,colframe=aurorebase!24!white,arc=12pt,boxrule=.45pt,left=10pt,right=10pt,top=8pt,bottom=8pt]",
+        r"    {\sffamily\scriptsize\bfseries\color{auroredeep}VÉRIFICATION & PUBLICATION}\par\smallskip",
+        r"    {\sffamily\small\color{auroredeep}Scanne le QR code pour vérifier dynamiquement l'état public de cette édition.\par}",
+        r"    {\sffamily\scriptsize\color{gray}La destination publique et l'intégrité du PDF sont contrôlées au moment du scan.\par\medskip}",
     if has_geogebra:
         rights_lines.extend([
-            r"  \medskip",
-            r"  {\sffamily\small\itshape\color{aurorebase!80!black}Graphiques réalisés avec GeoGebra®\par}",
+            r"    \medskip",
+            r"    {\sffamily\scriptsize\color{aurorebase!80!black}Graphiques : GeoGebra®\par}",
         ])
     if document_id is not None:
         rights_lines.extend([
-            r"  \medskip",
-            r"  \begin{minipage}[c]{0.66\linewidth}",
-            r"    {\sffamily\scriptsize\color{gray}Document vérifiable sur Aurore}\par",
-            r"    {\sffamily\small\href{" + document_share_url + r"}{\textcolor{auroredeep}{Vérifier ce document sur Aurore}}}\par",
-            r"    {\sffamily\scriptsize\color{gray}Identifiant : \texttt{" + document_key + r"}}",
-            r"  \end{minipage}",
-            r"  \hfill",
-            r"  \raisebox{0pt}[2.25cm][0pt]{\qrcode[height=2.05cm]{" + document_share_url + r"}}",
+            r"    \medskip",
+            r"    \begin{minipage}[c]{0.67\linewidth}",
+            r"      {\sffamily\scriptsize\bfseries\color{auroredeep}Résolveur public Aurore}\par\smallskip",
+            r"      {\sffamily\small\href{" + document_share_url + r"}{\textcolor{auroredeep}{Vérifier la publication de ce document}}}\par",
+            r"      {\sffamily\scriptsize\color{gray}Le QR ne pointe ni vers l'administration ni vers un stockage interne. Il retrouvera automatiquement la publication publique lorsque celle-ci existe.}",
+            r"    \end{minipage}",
+            r"    \hfill",
+            r"    \raisebox{0pt}[2.30cm][0pt]{\qrcode[height=2.12cm]{" + document_share_url + r"}}",
         ])
     rights_lines.extend([
-        r"  \par\medskip",
-        r"  {\sffamily\scriptsize\color{gray}" + ("Version " + (version or "1") + " · " if version else "Version 1 · ") + r"Couleur dominante Aurore : \#" + theme + r"}",
-        r"\end{tcolorbox}",
+        r"    \medskip",
+        r"    \begin{tcolorbox}[colback=aurorepale,colframe=aurorebase!18!white,arc=10pt,boxrule=.35pt,left=9pt,right=9pt,top=6pt,bottom=6pt]",
+        r"      {\sffamily\scriptsize\bfseries\color{auroredeep}DROITS & RÉUTILISATION}\par\smallskip",
+        r"      {\sffamily\scriptsize\color{auroredeep}Cette édition constitue une création éditoriale d'Aurore. Les connaissances générales et formules restent réutilisables sous réserve des droits applicables aux éléments tiers.\par}",
+        r"      {\sffamily\scriptsize\color{gray}Les ressources tierces conservent leurs propres licences et conditions d'utilisation.\par}",
+        r"    \end{tcolorbox}",
+        r"    \medskip",
+        r"    {\sffamily\scriptsize\color{gray}Composition éditoriale : Aurore · moteur de composition : LuaLaTeX · Couleur dominante : \#" + theme + r"\par}",
+        r"  \end{tcolorbox}",
         r"\end{center}",
     ])
-    lines.extend(render_wikimedia_references(data.get("_wikimedia_visuals", [])))
     lines.extend(rights_lines)
+    lines.extend(render_wikimedia_references(data.get("_wikimedia_visuals", [])))
     lines.append(r"\end{document}")
     return "\n".join(lines)
 
