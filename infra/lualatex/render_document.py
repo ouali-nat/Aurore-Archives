@@ -151,8 +151,28 @@ def _fetch_geogebra_assets(data, tex_dir):
     a local file, so the production renderer must download those assets before
     writing the .tex file.
     """
+    import time
+    import urllib.error
     import urllib.parse
     import urllib.request
+
+    def open_with_retry(req, timeout=30, attempts=4):
+        last = None
+        for attempt in range(attempts):
+            try:
+                return urllib.request.urlopen(req, timeout=timeout)
+            except urllib.error.HTTPError as exc:
+                last = exc
+                if exc.code != 429 or attempt >= attempts - 1:
+                    raise
+                retry_after = exc.headers.get("Retry-After") if getattr(exc, "headers", None) else None
+                try:
+                    delay = max(2.0, min(20.0, float(retry_after)))
+                except (TypeError, ValueError):
+                    delay = min(20.0, 2.0 ** attempt)
+                print(f"WARNING: Wikimedia rate limit 429; retrying in {delay:.1f}s (attempt {attempt + 2}/{attempts})")
+                time.sleep(delay)
+        raise last
 
     sections = data.get("sections", []) if isinstance(data.get("sections"), list) else []
     if not sections:
@@ -386,7 +406,7 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
             "&iilimit=1&iiurlwidth=1200&iiextmetadataversion=latest"
         )
         req = urllib.request.Request(api, headers={"User-Agent": "Aurore-Section-Archives/1.0"})
-        with urllib.request.urlopen(req, timeout=20) as resp:
+        with open_with_retry(req, timeout=20) as resp:
             pages = list((json.loads(resp.read().decode("utf-8")).get("query") or {}).get("pages", {}).values())
 
         wanted = set(qwords(query))
@@ -422,7 +442,8 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
             ]).lower()
             if wanted:
                 overlap = sum(1 for word in wanted if word in haystack)
-                if overlap == 0:
+                min_overlap = 1 if len(wanted) <= 2 else 2
+                if overlap < min_overlap:
                     continue
             elif not explicit_mode:
                 title_words = qwords(section.get("title"))
@@ -499,7 +520,7 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                 page, ii, meta, url, effective_mime = best
                 try:
                     req = urllib.request.Request(url, headers={"User-Agent": "Aurore-Section-Archives/1.0"})
-                    with urllib.request.urlopen(req, timeout=30) as resp:
+                    with open_with_retry(req, timeout=30) as resp:
                         blob = resp.read()
                     if not (10000 <= len(blob) <= 2500000):
                         raise RuntimeError("downloaded image size outside production bounds")
@@ -703,6 +724,40 @@ def normalize_math(s):
         s,
     )
 
+def _render_bare_latex_fragments(text):
+    """Preserve LaTeX commands embedded in prose even when delimiters are missing.
+
+    Some generated solutions contain fragments such as \\overline{OA},
+    \\frac{1}{f'}, \\gamma or \\text{cm} without surrounding $...$.
+    Those fragments must remain real TeX instead of being escaped as text.
+    """
+    s = normalize_math(str(text or ""))
+    placeholders = []
+
+    def protect(raw):
+        token = f"__AURORA_MATH_{len(placeholders)}__"
+        placeholders.append(raw)
+        return token
+
+    patterns = [
+        r"\\frac\{(?:[^{}]|\{[^{}]*\})*\}\{(?:[^{}]|\{[^{}]*\})*\}",
+        r"\\overline\{[^{}]*\}",
+        r"\\text\{[^{}]*\}",
+        r"\\(?:sqrt|mathrm|mathbf|mathit)\{[^{}]*\}",
+        r"\\(?:gamma|delta|alpha|beta|theta|lambda|mu|pi|infty|approx|pm|times|cdot|leq|geq|neq)\b",
+        r"\\,",
+        r"\\quad",
+    ]
+
+    for pattern in patterns:
+        s = re.sub(pattern, lambda m: protect(r"\(" + m.group(0) + r"\)"), s)
+
+    escaped = tex_text(s)
+    for i, raw in enumerate(placeholders):
+        escaped = escaped.replace(f"__AURORA_MATH_{i}__", raw)
+    return escaped
+
+
 def inline(s):
     """
     Escape ordinary text while preserving LaTeX math blocks.
@@ -735,7 +790,7 @@ def inline(s):
         elif p.startswith("$") and p.endswith("$") and len(p) >= 2:
             out.append(r"\(" + normalize_math(p[1:-1].strip()) + r"\)")
         else:
-            out.append(tex_text(p))
+            out.append(_render_bare_latex_fragments(p))
     return "".join(out)
 
 
