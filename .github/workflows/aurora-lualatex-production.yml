@@ -393,3 +393,5 @@ jobs:
 # Queue wake retry: informatique 2026-09-21.
 
 # production renderer source validation: escaped colophon text
+
+# Renderer editorial validation wake: 2026-09-21 — run current renderer safely.
