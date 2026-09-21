@@ -13,8 +13,7 @@ permissions:
 
 concurrency:
   group: aurora-lualatex-production
-  cancel-in-progress: false
-  queue: max
+  cancel-in-progress: true
 
 jobs:
   render:
@@ -29,6 +28,10 @@ jobs:
 
       - name: Validate renderer secret
         run: test -n "$AURORA_LUALATEX_RENDER_TOKEN"
+
+      - name: Validate renderer Python syntax
+        working-directory: infra/lualatex
+        run: python3 -m py_compile render_document.py
 
       - name: Claim next generated document
         run: |
@@ -230,6 +233,58 @@ jobs:
           kpsewhich montserrat.sty
           kpsewhich qrcode.sty
 
+
+      - name: Smoke-test renderer and title layout
+        working-directory: infra/lualatex
+        run: |
+          rm -rf production/smoke
+          mkdir -p production/smoke
+          python3 - <<'PY'
+          from pathlib import Path
+          import sys
+          sys.path.insert(0, ".")
+          from render_document import render
+
+          data = {
+              "title": "Document de validation Aurore",
+              "introduction": "Test de composition éditoriale.",
+              "subject": "Mathématiques",
+              "level": "Terminale",
+              "class_name": "Classe de validation",
+              "version": "1",
+              "learning_objectives": ["Objectif de contrôle"],
+              "_aurore_document": {
+                  "id": 999999,
+                  "created_at": "2026-09-21T00:00:00Z",
+                  "version": 1,
+                  "title": "Document de validation Aurore",
+              },
+              "sections": [
+                  {
+                      "title": "Section test",
+                      "content": ["Contenu de validation."],
+                      "graphs": [],
+                      "exercises": [],
+                  }
+              ],
+          }
+
+          tex = render(data)
+          required = [
+              r"\AuroreTitleBlock",
+              r"width=1.68cm,height=1.68cm",
+              r"width=1.38cm,height=1.38cm",
+              r"\raisebox{0.22cm}[2.30cm][0pt]{\qrcode",
+          ]
+          for marker in required:
+              if marker not in tex:
+                  raise SystemExit(f"Renderer smoke check failed: missing {marker}")
+          Path("production/smoke/document.tex").write_text(tex, encoding="utf-8")
+          PY
+          lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error             -output-directory=production/smoke production/smoke/document.tex
+          test -s production/smoke/document.pdf
+          test "$(head -c 5 production/smoke/document.pdf)" = "%PDF-"
+
       - name: Mark renderer ready
         if: hashFiles('infra/lualatex/production/document-id') != ''
         run: |
@@ -376,7 +431,7 @@ jobs:
 # Production bridge: Supabase queue + GitHub Actions, one PDF at a time.
 # Manual wake trigger: 2026-09-21.
 # Renderer visual assets fix trigger: Wikimedia paths + thumbnail MIME. Validation trigger 2026-09-20.
-# Multiple pending runs are intentionally preserved with concurrency.queue=max.
+# Corrective renderer runs cancel obsolete queued/in-progress runs.
 # Automatic wake-up after DeepSeek/Luna is handled by the Supabase INSERT trigger.
 # Wikimedia completeness validation trigger: 2026-09-21.
 # Renderer Wikimedia fallback hardening trigger: 2026-09-21.
@@ -398,4 +453,4 @@ jobs:
 
 # PDF title/QR editorial layout wake: 2026-09-21.
 
-# Forced renderer wake: corrective generation priority 2026-09-21.
+# Forced renderer wake: title/logo/QR correction + syntax smoke validation 2026-09-21.
