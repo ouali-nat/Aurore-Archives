@@ -1411,7 +1411,7 @@ def render(data):
         lines.append(r"\Needspace{6\baselineskip}")
         lines.append(r"\section{" + tex_text(sec.get("title", "")) + r"}")
         if sec.get("objective"):
-            lines.append(r"\AuroreLabeledBlock{Ce que tu vas apprendre}{" + inline(sec["objective"]) + r"}")
+            lines.append(r"\AuroreLabeledBlock{À découvrir}{" + inline(sec["objective"]) + r"}")
         if sec.get("formula"):
             lines.append(display_formula(sec["formula"]))
         content_items = sec.get("content", [])
@@ -1483,7 +1483,6 @@ def render(data):
         r"  \begin{tcolorbox}[enhanced,colback=white,colframe=aurorebase!24!white,arc=12pt,boxrule=.45pt,left=10pt,right=10pt,top=8pt,bottom=8pt]",
         r"    {\sffamily\scriptsize\bfseries\color{auroredeep}VÉRIFICATION \& PUBLICATION}\par\smallskip",
         r"    {\sffamily\small\color{auroredeep}Veuillez scanner le QR code pour vérifier cette édition.\par}",
-        r"    {\sffamily\scriptsize\color{gray}La vérification est effectuée depuis l'interface publique Aurore.\par\medskip}",
     ]
     if has_geogebra:
         rights_lines.extend([
@@ -1505,8 +1504,9 @@ def render(data):
         r"    \end{tcolorbox}",
         r"    \medskip",
         r"    \begin{tcolorbox}[colback=aurorepale,colframe=aurorebase!18!white,arc=10pt,boxrule=.35pt,left=9pt,right=9pt,top=6pt,bottom=6pt]",
-        r"      {\sffamily\small\bfseries\color{auroredeep}DROITS \& RÉUTILISATION}\par\smallskip",
-        r"      {\sffamily\footnotesize\color{auroredeep}Cette édition constitue une création éditoriale d'Aurore. Les connaissances générales et formules restent réutilisables sous réserve des droits applicables aux éléments tiers.\par}",
+        r"      {\sffamily\normalsize\bfseries\color{auroredeep}DROITS \& RÉUTILISATION}\par\smallskip",
+        r"      \textcolor{auroreprimary}{\rule{0.16\linewidth}{1.0pt}}\par\smallskip",
+        r"      {\sffamily\small\color{auroredeep}Cette édition constitue une création éditoriale d'Aurore. Les connaissances générales et formules restent réutilisables sous réserve des droits applicables aux éléments tiers.\par}",
         r"      {\sffamily\footnotesize\color{gray}Les ressources tierces conservent leurs propres licences et conditions d'utilisation.\par}",
         r"    \end{tcolorbox}",
         r"    \medskip",
