@@ -875,9 +875,26 @@ def _render_bare_latex_fragments(text):
     for pattern in patterns:
         s = re.sub(pattern, lambda m: protect(r"\(" + m.group(0) + r"\)"), s)
 
+    keyword_tokens = []
+    def protect_keyword(raw):
+        token = f"__AURORA_KEYWORD_{len(keyword_tokens)}__"
+        keyword_tokens.append(raw)
+        return token
+
+    # Controlled editorial markup: [[terme clé]] becomes a theme-colored bold term.
+    s = re.sub(
+        r"\[\[([^\[\]]{1,80})\]\]",
+        lambda m: protect_keyword(
+            r"\\textcolor{aurorebase}{\\bfseries " + tex_text(m.group(1).strip()) + r"}"
+        ),
+        s,
+    )
+
     escaped = tex_text(s)
     for i, raw in enumerate(placeholders):
         escaped = escaped.replace(f"__AURORA_MATH_{i}__", raw)
+    for i, raw in enumerate(keyword_tokens):
+        escaped = escaped.replace(f"__AURORA_KEYWORD_{i}__", raw)
     return escaped
 
 
@@ -1106,7 +1123,7 @@ def labeled_block(s):
     """Render a small editorial callout when prose starts with a known label."""
     t = clean_text(s).strip()
     m = re.match(
-        r"^(Définition|Propriété|Théorème|Lemme|Méthode|Exemple|Remarque|Important|À retenir|Conseil|Erreur(?: fréquente)?|Observation)\s*[:\-]\s*(.+)$",
+        r"^(Définition|Propriété(?: à connaître)?|Théorème|Lemme|Méthode|Exemple(?: guidé)?|Remarque|Important|À retenir|Conseil|Astuce|Attention|Erreur(?: fréquente)?|Observation|Formule utile|Relation utile|Proposition|Vocabulaire utile|Point essentiel|Ce que tu vas apprendre|Piste de réflexion)\s*[:\-]\s*(.+)$",
         t,
         flags=re.IGNORECASE | re.DOTALL,
     )
@@ -1238,10 +1255,10 @@ def render(data):
         r"  \fancyhead[R]{\textcolor{aurorebase!75!black}{\small\sffamily Section Archives}}%",
         r"  \fancyfoot[C]{\textcolor{gray}{\small Aurore — Section Archives \textbullet\; \thepage}}%",
         r"}",
-        r"\titleformat{\section}{\Large\sffamily\bfseries\color{auroredeep}}{\thesection}{0.65em}{}",
-        r"\titleformat{\subsection}{\large\sffamily\bfseries\color{auroredeep}}{\thesubsection}{0.6em}{}",
-        r"\titlespacing*{\section}{0pt}{3.0ex plus .6ex minus .2ex}{1.3ex}",
-        r"\titlespacing*{\subsection}{0pt}{2.1ex plus .4ex minus .2ex}{0.8ex}",
+        r"\titleformat{\section}{\Large\sffamily\bfseries\color{auroredeep}}{\thesection}{0.65em}{}[\vspace{0.25ex}\textcolor{aurorebase!78!white}{\titlerule[0.7pt]}]",
+        r"\titleformat{\subsection}{\large\sffamily\bfseries\color{auroredeep}}{\thesubsection}{0.6em}{}[\vspace{0.18ex}\textcolor{aurorebase!38!white}{\titlerule[0.45pt]}]",
+        r"\titlespacing*{\section}{0pt}{3.0ex plus .6ex minus .2ex}{1.55ex}",
+        r"\titlespacing*{\subsection}{0pt}{2.1ex plus .4ex minus .2ex}{0.95ex}",
         r"\tcbset{auroreblock/.style={enhanced,breakable,arc=11pt,outer arc=11pt,boxrule=.45pt,colframe=aurorebase!42!white,left=9pt,right=9pt,top=7pt,bottom=7pt,before skip=7pt,after skip=9pt,fonttitle=\sffamily\bfseries,pad at break*=1.5mm}}",
         r"\newcommand{\AurorePill}[1]{\tcbox[on line,boxrule=0pt,colback=aurorepale,arc=7pt,left=6pt,right=6pt,top=3pt,bottom=3pt]{\sffamily\bfseries\small\textcolor{auroredeep}{#1}}}",
         r"\newcommand{\AuroreLabeledBlock}[2]{%",
@@ -1266,7 +1283,7 @@ def render(data):
         r"}",
         r"\newcommand{\AuroreFormulaBlock}[1]{%",
         r"  \begin{tcolorbox}[auroreblock,colback=aurorepale,colframe=aurorebase!38!white,arc=12pt,halign=center]%",
-        r"    \AurorePill{Formule}\par\smallskip",
+        r"    \AurorePill{Formule utile}\par\smallskip",
         r"    \begin{equation*}\displaystyle #1\end{equation*}%",
         r"  \end{tcolorbox}%",
         r"}",
@@ -1321,7 +1338,7 @@ def render(data):
         lines.append(r"\Needspace{6\baselineskip}")
         lines.append(r"\section{" + tex_text(sec.get("title", "")) + r"}")
         if sec.get("objective"):
-            lines.append(r"\AuroreLabeledBlock{Objectif}{" + inline(sec["objective"]) + r"}")
+            lines.append(r"\AuroreLabeledBlock{Ce que tu vas apprendre}{" + inline(sec["objective"]) + r"}")
         if sec.get("formula"):
             lines.append(display_formula(sec["formula"]))
         content_items = sec.get("content", [])
@@ -1353,12 +1370,33 @@ def render(data):
             if ex.get("hint"):
                 hint_label = "Piste de réflexion" if profile == "biologie" else "Indication"
                 lines.append(r"\AuroreLabeledBlock{" + hint_label + r"}{" + inline(ex["hint"]) + r"}")
+    corrections_by_number = {}
+    for c in data.get("corrections", []) or []:
+        try:
+            corrections_by_number[int(c.get("exercise_number", 0) or 0)] = c
+        except (TypeError, ValueError):
+            continue
+    used_correction_numbers = set()
+
             if ex.get("formula"):
                 lines.append(display_formula(ex["formula"]))
 
-    if data.get("corrections"):
-        lines.append(r"\section*{Corrections}")
-        for c in data["corrections"]:
+            correction = corrections_by_number.get(exercise_number)
+            if correction is not None:
+                lines.append(r"\Needspace{5\baselineskip}")
+                lines.append(
+                    r"\AuroreCorrectionBlock{" + str(correction.get("exercise_number", exercise_number)) +
+                    r"}{" + inline(correction.get("solution", "")) + r"}"
+                )
+                used_correction_numbers.add(exercise_number)
+
+    unmatched = [
+        c for c in data.get("corrections", [])
+        if int(c.get("exercise_number", 0) or 0) not in used_correction_numbers
+    ]
+    if unmatched:
+        lines.append(r"\section*{Corrections complémentaires}")
+        for c in unmatched:
             lines.append(r"\Needspace{5\baselineskip}")
             lines.append(r"\AuroreCorrectionBlock{" + str(c.get("exercise_number", "")) + r"}{" + inline(c.get("solution", "")) + r"}")
 
