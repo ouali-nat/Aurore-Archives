@@ -1688,10 +1688,12 @@ def main():
     # 2) array row breaks must remain doubled backslashes.
     _probe = r"$\\begin{array}{c|ccccc} x & -\\infty & & 0 & & +\\infty \\ \\hline f(x) & 0 & \\nearrow & 1 & \\nearrow & +\\infty \\end{array}$"
     _probe_out = inline(_probe)
-    if r"\\textbackslash{}begin" in _probe_out:
+    if r"\textbackslash{}begin" in _probe_out:
         raise SystemExit("inline() math guardrail failed: escaped math command")
-    if r"\\begin{array}" not in _probe_out or r"\\infty" not in _probe_out:
+    if r"\begin{array}" not in _probe_out or r"\infty" not in _probe_out:
         raise SystemExit("inline() math guardrail failed: array structure")
+    if r"\\ \hline" not in _probe_out and r"\\\hline" not in _probe_out:
+        raise SystemExit("inline() math guardrail failed: array row break before hline")
 
     parser = argparse.ArgumentParser(description="Render an Aurore document JSON to LuaLaTeX source.")
     parser.add_argument("input", nargs="?", default="fixtures/document-21.json")
