@@ -130,6 +130,33 @@ def _is_renderable_geogebra_graph(graph):
     return False
 
 
+def _open_url_with_retry(req, timeout=30, attempts=4):
+    """Open an HTTP request with bounded retries for Wikimedia/CDN 429 responses."""
+    import time
+    import urllib.error
+    import urllib.request
+
+    last = None
+    for attempt in range(attempts):
+        try:
+            return urllib.request.urlopen(req, timeout=timeout)
+        except urllib.error.HTTPError as exc:
+            last = exc
+            if exc.code != 429 or attempt >= attempts - 1:
+                raise
+            retry_after = exc.headers.get("Retry-After") if getattr(exc, "headers", None) else None
+            try:
+                delay = max(2.0, min(20.0, float(retry_after)))
+            except (TypeError, ValueError):
+                delay = min(20.0, 2.0 ** attempt)
+            print(
+                f"WARNING: Wikimedia rate limit 429; retrying in {delay:.1f}s "
+                f"(attempt {attempt + 2}/{attempts})"
+            )
+            time.sleep(delay)
+    raise last
+
+
 def _has_geogebra(data):
     """Detect GeoGebra content from the structured graph payload."""
     sections = data.get("sections", []) if isinstance(data.get("sections"), list) else []
@@ -151,28 +178,8 @@ def _fetch_geogebra_assets(data, tex_dir):
     a local file, so the production renderer must download those assets before
     writing the .tex file.
     """
-    import time
-    import urllib.error
     import urllib.parse
     import urllib.request
-
-    def open_with_retry(req, timeout=30, attempts=4):
-        last = None
-        for attempt in range(attempts):
-            try:
-                return urllib.request.urlopen(req, timeout=timeout)
-            except urllib.error.HTTPError as exc:
-                last = exc
-                if exc.code != 429 or attempt >= attempts - 1:
-                    raise
-                retry_after = exc.headers.get("Retry-After") if getattr(exc, "headers", None) else None
-                try:
-                    delay = max(2.0, min(20.0, float(retry_after)))
-                except (TypeError, ValueError):
-                    delay = min(20.0, 2.0 ** attempt)
-                print(f"WARNING: Wikimedia rate limit 429; retrying in {delay:.1f}s (attempt {attempt + 2}/{attempts})")
-                time.sleep(delay)
-        raise last
 
     sections = data.get("sections", []) if isinstance(data.get("sections"), list) else []
     if not sections:
@@ -218,7 +225,7 @@ def _fetch_geogebra_assets(data, tex_dir):
             local = assets_dir / filename
 
             try:
-                with urllib.request.urlopen(url, timeout=30) as response:
+                with _open_url_with_retry(urllib.request.Request(url, headers={"User-Agent": "Aurore-Section-Archives/1.0"}), timeout=30) as response:
                     payload = response.read()
             except Exception as exc:
                 raise RuntimeError(
@@ -406,7 +413,7 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
             "&iilimit=1&iiurlwidth=1200&iiextmetadataversion=latest"
         )
         req = urllib.request.Request(api, headers={"User-Agent": "Aurore-Section-Archives/1.0"})
-        with open_with_retry(req, timeout=20) as resp:
+        with _open_url_with_retry(req, timeout=20) as resp:
             pages = list((json.loads(resp.read().decode("utf-8")).get("query") or {}).get("pages", {}).values())
 
         wanted = set(qwords(query))
@@ -512,15 +519,16 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                         f"Visuel Wikimedia manquant : section {section_index + 1} "
                         f"query={query_candidates[0]!r} priority={priority or 'recommended'}"
                     )
-                    if required:
-                        raise RuntimeError(message)
-                    print("WARNING: " + message)
+                    print(
+                        "WARNING: " + message
+                        + (" (visuel requis, rendu poursuivi sans cette image)" if required else "")
+                    )
                     continue
 
                 page, ii, meta, url, effective_mime = best
                 try:
                     req = urllib.request.Request(url, headers={"User-Agent": "Aurore-Section-Archives/1.0"})
-                    with open_with_retry(req, timeout=30) as resp:
+                    with _open_url_with_retry(req, timeout=30) as resp:
                         blob = resp.read()
                     if not (10000 <= len(blob) <= 2500000):
                         raise RuntimeError("downloaded image size outside production bounds")
@@ -573,9 +581,10 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                         "status": "failed",
                         "reason": str(exc),
                     })
-                    if required:
-                        raise RuntimeError(message) from exc
-                    print("WARNING: " + message)
+                    print(
+                        "WARNING: " + message
+                        + (" (visuel requis, rendu poursuivi sans cette image)" if required else "")
+                    )
 
     else:
         # Backward-compatible path for old documents generated before
@@ -599,7 +608,7 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
             page, ii, meta, url, effective_mime = best
             try:
                 req = urllib.request.Request(url, headers={"User-Agent": "Aurore-Section-Archives/1.0"})
-                with urllib.request.urlopen(req, timeout=30) as resp:
+                with _open_url_with_retry(req, timeout=30) as resp:
                     blob = resp.read()
                 if not (10000 <= len(blob) <= 2500000):
                     continue
