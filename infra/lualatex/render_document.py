@@ -1382,8 +1382,8 @@ def render(data):
         r"\section*{Introduction}",
         r"\addcontentsline{toc}{section}{Introduction}",
         inline(data.get("introduction", "")),
-        r"\\section*{Objectifs d'apprentissage}",
-        r"\\addcontentsline{toc}{section}{Objectifs d'apprentissage}",
+        r"\section*{Objectifs d'apprentissage}",
+        r"\addcontentsline{toc}{section}{Objectifs d'apprentissage}",
     ]
 
     learning_objectives = [
@@ -1392,10 +1392,10 @@ def render(data):
         if str(item).strip()
     ]
     if learning_objectives:
-        lines.append(r"\\begin{itemize}")
+        lines.append(r"\begin{itemize}")
         for item in learning_objectives:
-            lines.append(r"\\item " + inline(item))
-        lines.append(r"\\end{itemize}")
+            lines.append(r"\item " + inline(item))
+        lines.append(r"\end{itemize}")
 
     exercise_number = 0
 
