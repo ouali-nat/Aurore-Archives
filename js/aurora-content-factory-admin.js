@@ -226,8 +226,10 @@ async function loadClassificationOptions(){
   // Ne pas conditionner son initialisation à la session admin : l'authentification
   // est finalisée sur DOMContentLoaded, alors que ce fichier defer s'exécute avant.
   // La soumission reste protégée par adminOk().
-  cfInitClassification();
+  cfInitClassification();["cfAiGemini","cfAiLlama","cfAiDeepSeek"].forEach(id=>document.getElementById(id)?.addEventListener("change",syncAiStrategyHint));syncAiStrategyHint();
 }
+function selectedAiProviders(){return ["gemini","llama","deepseek"].filter(x=>document.getElementById("cfAi"+x.charAt(0).toUpperCase()+x.slice(1))?.checked);}
+function syncAiStrategyHint(){const a=selectedAiProviders(),hint=document.getElementById("cfAiStrategyHint");if(hint)hint.textContent=a.length?"Stratégie active : "+a.map(x=>x==="gemini"?"Gemini":x==="llama"?"Llama":"DeepSeek").join(" + ")+". Aurore choisira le rôle de chaque moteur selon le type de ressource.":"Sélectionne au moins une IA.";}
 function selectedValue(id){return String(document.getElementById(id)?.value||'').trim();}
 async function getJob(jobId){const r=await cfFetch(`${SUPABASE_URL}/rest/v1/aurora_content_jobs?id=eq.${encodeURIComponent(jobId)}&select=id,status,title,generated_document_id,error_message,updated_at`,{cache:'no-store'});const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));const a=t?JSON.parse(t):[];return Array.isArray(a)&&a[0]?a[0]:null;}
 async function waitForJob(jobId){let last=null;for(let i=0;i<180;i++){const j=await getJob(jobId);if(!j)throw new Error('Job introuvable dans Supabase.');last=j;if(j.status==='queued'){setProgress(8,`Job #${jobId} en file — Aurora attend son tour…`)}else if(j.status==='processing'){setProgress(Math.min(88,18+i*.4),`Aurora traite le document #${jobId}…`)}else if(j.status==='review'){setProgress(100,`Document #${jobId} terminé et placé en contrôle.`);return j}else if(j.status==='failed'||j.status==='rejected'){throw new Error(j.error_message||`La génération s’est arrêtée avec le statut ${j.status}.`)}else{setProgress(12,`Statut Aurora : ${j.status}`)}await new Promise(r=>setTimeout(r,2000));}return last;}
@@ -271,24 +273,24 @@ async function runGeneration(item){
 async function processQueue(){if(generationRunning)return;const item=generationQueue.shift();updateQueueUI();if(!item)return;try{await runGeneration(item);}catch(e){const msg=document.getElementById('cfCreateMsg');if(msg){msg.dataset.state='error';msg.textContent=`Le document « ${item.title} » n’a pas pu être généré : ${e.message||e}`}setProgress(100,'Échec de ce document — Aurora passe au suivant.');}finally{updateQueueUI();if(generationQueue.length)processQueue();}}
 async function enqueueCurrent(){
   if(!adminOk())return;
-  const title=selectedValue('cfCreateTitle'),subject=selectedValue('cfCreateSubject'),level=selectedValue('cfCreateLevel'),className=selectedValue('cfCreateClass'),filiere=selectedValue('cfCreateFiliere'),category=selectedValue('cfCreateCategory'),resourceType=selectedValue('cfCreateResourceType'),reference=selectedValue('cfCreateReference'),prompt=(document.getElementById('cfCreatePrompt')?.value||'').trim(),rights=Boolean(document.getElementById('cfCreateRights')?.checked),themeColor=normalizeThemeColor(document.getElementById('cfCreateThemeColor')?.value),msg=document.getElementById('cfCreateMsg');
+  const title=selectedValue('cfCreateTitle'),subject=selectedValue('cfCreateSubject'),level=selectedValue('cfCreateLevel'),className=selectedValue('cfCreateClass'),filiere=selectedValue('cfCreateFiliere'),category=selectedValue('cfCreateCategory'),resourceType=selectedValue('cfCreateResourceType'),reference=selectedValue('cfCreateReference'),prompt=(document.getElementById('cfCreatePrompt')?.value||'').trim(),rights=Boolean(document.getElementById('cfCreateRights')?.checked),themeColor=normalizeThemeColor(document.getElementById('cfCreateThemeColor')?.value),msg=document.getElementById('cfCreateMsg'),aiSelected=selectedAiProviders(),msg=document.getElementById('cfCreateMsg');
   if(!title){if(msg){msg.dataset.state='error';msg.textContent='Le titre est obligatoire.';}return;}
   if(!level){if(msg){msg.dataset.state='error';msg.textContent='Sélectionne le parcours scolaire complet.';}return;}
   if(!subject){if(msg){msg.dataset.state='error';msg.textContent='Sélectionne la matière.';}return;}
   if(!category){if(msg){msg.dataset.state='error';msg.textContent='Choisis la catégorie.';}return;}
-  if(!resourceType){if(msg){msg.dataset.state='error';msg.textContent='Choisis le type de ressource.';}return;}
+  if(!resourceType){if(msg){msg.dataset.state='error';msg.textContent='Choisis le type de ressource.';}return;}if(!aiSelected.length){if(msg){msg.dataset.state='error';msg.textContent='Sélectionne au moins une IA.';}return;}
   if(!prompt){if(msg){msg.dataset.state='error';msg.textContent='La demande pédagogique est obligatoire.';}return;}
   if(!rights){if(msg){msg.dataset.state='error';msg.textContent='Confirme l’autorisation d’utiliser la demande et les références fournies.';}return;}
   try{
     const finalPrompt=prompt+(reference?'\n\nRÉFÉRENCE PÉDAGOGIQUE FOURNIE PAR L’ADMINISTRATION : '+reference:'');
     const job=await rpc('aurora_create_content_job',{
       p_title:title,p_subject:subject||null,p_level:level||null,p_class_name:className||null,p_document_type:resourceType,p_prompt:finalPrompt,
-      p_instructions:{source:'admin_content_factory',origin:'aurore',queue:'sequential',category,filiere:filiere||null,reference:reference||null,rights_confirmed:true,theme_color:normalizeThemeColor(themeColor||'#6D28D9'),
+      p_instructions:{source:'admin_content_factory',origin:'aurore',queue:'sequential',category,filiere:filiere||null,reference:reference||null,rights_confirmed:true,theme_color:normalizeThemeColor(themeColor||'#6D28D9'),ai:{selected:aiSelected,mode:'auto'},
         classification:{level:level||null,filiere:filiere||null,class_name:className||null,subject:subject||null,category,resource_type:resourceType}}
     });
     const jobId=Number(job);
     if(!Number.isSafeInteger(jobId)||jobId<1)throw new Error('Identifiant de job invalide.');
-    generationQueue.push({title,subject,level,className,filiere,category,resourceType,reference,prompt,themeColor,rights,jobId});
+    generationQueue.push({title,subject,level,className,filiere,category,resourceType,reference,prompt,themeColor,rights,aiSelected,jobId});
     if(msg){msg.dataset.state='ok';msg.textContent='« '+title+' » enregistré dans Supabase (#'+jobId+') et protégé contre la fermeture de la page. ('+generationQueue.length+' affiché'+(generationQueue.length>1?'s':'')+' dans la file'+(generationRunning?' derrière le document en cours':'')+').';}
     updateQueueUI();if(!generationRunning)processQueue();
   }catch(e){
