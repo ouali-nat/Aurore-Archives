@@ -895,7 +895,7 @@ def _render_bare_latex_fragments(text):
     placeholders = []
 
     def protect(raw):
-        token = f"__AURORA_MATH_{len(placeholders)}__"
+        token = f"AURORAMATHTOKEN{len(placeholders)}"
         placeholders.append(raw)
         return token
 
@@ -914,7 +914,7 @@ def _render_bare_latex_fragments(text):
 
     keyword_tokens = []
     def protect_keyword(raw):
-        token = f"__AURORA_KEYWORD_{len(keyword_tokens)}__"
+        token = f"AURORAKEYWORDTOKEN{len(keyword_tokens)}"
         keyword_tokens.append(raw)
         return token
 
@@ -929,9 +929,9 @@ def _render_bare_latex_fragments(text):
 
     escaped = tex_text(s)
     for i, raw in enumerate(placeholders):
-        escaped = escaped.replace(f"__AURORA_MATH_{i}__", raw)
+        escaped = escaped.replace(f"AURORAMATHTOKEN{i}", raw)
     for i, raw in enumerate(keyword_tokens):
-        escaped = escaped.replace(f"__AURORA_KEYWORD_{i}__", raw)
+        escaped = escaped.replace(f"AURORAKEYWORDTOKEN{i}", raw)
     return escaped
 
 
@@ -1526,6 +1526,10 @@ def main():
     )
     if "$" in _mixed_formula_probe or r"\\begin{equation*" in _mixed_formula_probe or r"\\(Coordonnées" in _mixed_formula_probe:
         raise SystemExit("display_formula() guardrail failed: mixed inline math nested or escaped incorrectly")
+
+    _placeholder_probe = inline(r"Texte [[terme clé]] et $\\\\alpha+1$")
+    if "AURORAKEYWORD" in _placeholder_probe or "AURORAMATH" in _placeholder_probe:
+        raise SystemExit("inline() guardrail failed: internal Aurore placeholder leaked into rendered text")
 
     _paren_formula_probe = display_formula(
         r"Coordonnées sphériques : \\(x=\\rho\\sin\\phi\\cos\\theta\\), \\(y=\\rho\\sin\\phi\\sin\\theta\\), \\(z=\\rho\\cos\\phi\\)."
