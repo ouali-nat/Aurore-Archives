@@ -120,22 +120,8 @@ jobs:
           import json
           from pathlib import Path
           data=json.loads(Path("production/document.json").read_text())
-          def valid(g):
-              if not isinstance(g,dict): return False
-              instrument=str(g.get("instrument") or g.get("graph_type") or "").lower().strip()
-              aliases={"function":"function2d","graph":"function2d","courbe":"function2d","parametric":"parametric2d","geometrie3d":"geometry3d","3d":"geometry3d"}
-              instrument=aliases.get(instrument,instrument)
-              if instrument=="function2d": return bool(str(g.get("expression") or "").strip() or g.get("asymptotes") or any(isinstance(p,list) and len(p)==2 for p in (g.get("points") or [])))
-              if instrument=="parametric2d": return bool(str(g.get("x_expression") or "").strip() and str(g.get("y_expression") or "").strip())
-              if instrument=="parametric3d": return bool(str(g.get("x_expression") or "").strip() and str(g.get("y_expression") or "").strip() and str(g.get("z_expression") or "").strip())
-              if instrument=="surface3d": return bool(str(g.get("expression") or "").strip())
-              if instrument=="geometry3d":
-                  types={"point","vector","line","plane","sphere","cylinder","cone","polygon","cube","prism","pyramid","tetrahedron"}
-                  objs=g.get("objects") if isinstance(g.get("objects"),list) else []
-                  pts=g.get("points") if isinstance(g.get("points"),list) else []
-                  poi=g.get("points_of_interest") if isinstance(g.get("points_of_interest"),list) else []
-                  return any(isinstance(o,dict) and str(o.get("type") or "").lower() in types for o in objs) or any(isinstance(p,list) and len(p)>=3 for p in pts) or any(isinstance(p,dict) and p.get("z") is not None for p in poi)
-              return False
+          from render_document import _is_renderable_geogebra_graph as valid
+
           def ready(g):
               path=str(g.get("geogebra_image_path") or "").strip()
               source=str(g.get("geogebra_image_source") or "").lower()
@@ -173,21 +159,8 @@ jobs:
           import json
           from pathlib import Path
           data=json.loads(Path("production/document.json").read_text())
-          def valid(g):
-              instrument=str(g.get("instrument") or g.get("graph_type") or "").lower().strip()
-              aliases={"function":"function2d","graph":"function2d","courbe":"function2d","parametric":"parametric2d","geometrie3d":"geometry3d","3d":"geometry3d"}
-              instrument=aliases.get(instrument,instrument)
-              if instrument=="function2d": return bool(str(g.get("expression") or "").strip() or g.get("asymptotes") or any(isinstance(p,list) and len(p)==2 for p in (g.get("points") or [])))
-              if instrument=="parametric2d": return bool(str(g.get("x_expression") or "").strip() and str(g.get("y_expression") or "").strip())
-              if instrument=="parametric3d": return bool(str(g.get("x_expression") or "").strip() and str(g.get("y_expression") or "").strip() and str(g.get("z_expression") or "").strip())
-              if instrument=="surface3d": return bool(str(g.get("expression") or "").strip())
-              if instrument=="geometry3d":
-                  types={"point","vector","line","plane","sphere","cylinder","cone","polygon","cube","prism","pyramid","tetrahedron"}
-                  objs=g.get("objects") if isinstance(g.get("objects"),list) else []
-                  pts=g.get("points") if isinstance(g.get("points"),list) else []
-                  poi=g.get("points_of_interest") if isinstance(g.get("points_of_interest"),list) else []
-                  return any(isinstance(o,dict) and str(o.get("type") or "").lower() in types for o in objs) or any(isinstance(p,list) and len(p)>=3 for p in pts) or any(isinstance(p,dict) and p.get("z") is not None for p in poi)
-              return False
+          from render_document import _is_renderable_geogebra_graph as valid
+
           def ready(g):
               path=str(g.get("geogebra_image_path") or "").strip()
               source=str(g.get("geogebra_image_source") or "").lower()
@@ -280,6 +253,22 @@ jobs:
           for marker in required:
               if marker not in tex:
                   raise SystemExit(f"Renderer smoke check failed: missing {marker}")
+          from render_document import _is_renderable_geogebra_graph, render_graphs
+          regression_graph = {
+              "style": "geogebra",
+              "geogebra_image_source": "geogebra",
+              "geogebra_image_path": "aurora-content/test/graph.png",
+              "graph_local_path": "assets/geogebra-test.png",
+              "expression": "y = 0",
+              "points": [[0, 0], [1, 0]],
+          }
+          if not _is_renderable_geogebra_graph(regression_graph):
+              raise SystemExit("Renderer smoke check failed: schema-valid GeoGebra graph was rejected")
+          graph_tex = "\n".join(render_graphs([regression_graph]))
+          expected_graph = r"\includegraphics[width=0.92\linewidth,height=10.5cm,keepaspectratio]{assets/geogebra-test.png}"
+          if expected_graph not in graph_tex:
+              raise SystemExit("Renderer smoke check failed: GeoGebra graph was not emitted")
+
           Path("production/smoke/document.tex").write_text(tex, encoding="utf-8")
           PY
           lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error \
@@ -314,6 +303,32 @@ jobs:
           python3 render_document.py production/document.json -o production/document.tex
           test -s production/document.tex
           grep -q '\\documentclass' production/document.tex
+
+      - name: Verify GeoGebra inclusion in LaTeX source
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        working-directory: infra/lualatex
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          from render_document import _is_renderable_geogebra_graph
+
+          data = json.loads(Path("production/document.json").read_text())
+          tex = Path("production/document.tex").read_text(encoding="utf-8")
+          expected = []
+          for section in data.get("sections") or []:
+              for graph in section.get("graphs") or []:
+                  if not _is_renderable_geogebra_graph(graph):
+                      continue
+                  local = str(graph.get("graph_local_path") or "").strip()
+                  if local:
+                      expected.append(local.replace("\\", "/"))
+
+          missing = [path for path in expected if path not in tex]
+          print(f"GeoGebra LaTeX inclusion: {len(expected)-len(missing)}/{len(expected)} graph(s) present.")
+          if missing:
+              raise SystemExit("GeoGebra graph(s) missing from LaTeX source: " + ", ".join(missing))
+          PY
 
       - name: Mark LaTeX ready
         if: hashFiles('infra/lualatex/production/document-id') != ''
