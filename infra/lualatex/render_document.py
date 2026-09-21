@@ -1160,7 +1160,7 @@ def labeled_block(s):
     """Render a small editorial callout when prose starts with a known label."""
     t = clean_text(s).strip()
     m = re.match(
-        r"^(Définition|Propriété(?: à connaître)?|Théorème|Lemme|Méthode|Exemple(?: guidé)?|Remarque|Important|À retenir|Conseil|Astuce|Attention|Erreur(?: fréquente)?|Observation|Formule utile|Relation utile|Proposition|Vocabulaire utile|Point essentiel|Ce que tu vas apprendre|Piste de réflexion)\s*[:\-]\s*(.+)$",
+        r"^(Définition|Propriété(?: à connaître)?|Théorème|Lemme|Méthode|Exemple(?: guidé)?|Remarque|Important|À retenir|Conseil|Astuce|Attention|Erreur(?: fréquente)?|Observation|Formule utile|Relation utile|Proposition|Vocabulaire utile|Point essentiel|À découvrir|Piste de réflexion)\s*[:\-]\s*(.+)$",
         t,
         flags=re.IGNORECASE | re.DOTALL,
     )
@@ -1204,6 +1204,24 @@ def display_formula(s):
         r"\AuroreFormulaBlock{" + math + r"}",
         "",
     ])
+
+
+def _has_usable_content_json(data):
+    if not isinstance(data, dict):
+        return False
+    if not str(data.get("title") or "").strip():
+        return False
+    if not str(data.get("introduction") or "").strip():
+        return False
+    sections = data.get("sections")
+    if not isinstance(sections, list) or not sections:
+        return False
+    return any(
+        isinstance(section, dict)
+        and isinstance(section.get("content"), list)
+        and any(str(item or "").strip() for item in section.get("content", []))
+        for section in sections
+    )
 
 
 def render(data):
@@ -1362,14 +1380,20 @@ def render(data):
         r"\section*{Introduction}",
         r"\addcontentsline{toc}{section}{Introduction}",
         inline(data.get("introduction", "")),
-        r"\section*{Objectifs d'apprentissage}",
-        r"\addcontentsline{toc}{section}{Objectifs d'apprentissage}",
-        r"\begin{itemize}",
+        r"\\section*{Objectifs d'apprentissage}",
+        r"\\addcontentsline{toc}{section}{Objectifs d'apprentissage}",
     ]
 
-    for item in data.get("learning_objectives", []):
-        lines.append(r"\item " + inline(item))
-    lines.append(r"\end{itemize}")
+    learning_objectives = [
+        str(item).strip()
+        for item in data.get("learning_objectives", []) or []
+        if str(item).strip()
+    ]
+    if learning_objectives:
+        lines.append(r"\\begin{itemize}")
+        for item in learning_objectives:
+            lines.append(r"\\item " + inline(item))
+        lines.append(r"\\end{itemize}")
 
     exercise_number = 0
 
@@ -1456,8 +1480,8 @@ def render(data):
         r"  \medskip",
         r"  \begin{tcolorbox}[enhanced,colback=white,colframe=aurorebase!24!white,arc=12pt,boxrule=.45pt,left=10pt,right=10pt,top=8pt,bottom=8pt]",
         r"    {\sffamily\scriptsize\bfseries\color{auroredeep}VÉRIFICATION \& PUBLICATION}\par\smallskip",
-        r"    {\sffamily\small\color{auroredeep}Scanne le QR code pour vérifier dynamiquement l'état public de cette édition.\par}",
-        r"    {\sffamily\scriptsize\color{gray}La destination publique et l'intégrité du PDF sont contrôlées au moment du scan.\par\medskip}",
+        r"    {\sffamily\small\color{auroredeep}Veuillez scanner le QR code pour vérifier cette édition.\par}",
+        r"    {\sffamily\scriptsize\color{gray}La vérification est effectuée depuis l'interface publique Aurore.\par\medskip}",
     ]
     if has_geogebra:
         rights_lines.extend([
@@ -1470,7 +1494,7 @@ def render(data):
             r"    \begin{minipage}[c]{0.67\linewidth}",
             r"      {\sffamily\scriptsize\bfseries\color{auroredeep}Résolveur public Aurore}\par\smallskip",
             r"      {\sffamily\small\href{" + document_share_url + r"}{\textcolor{auroredeep}{Vérifier la publication de ce document}}}\par",
-            r"      {\sffamily\scriptsize\color{gray}Le QR ne pointe ni vers l'administration ni vers un stockage interne. Il retrouvera automatiquement la publication publique lorsque celle-ci existe.}",
+            r"      {\sffamily\scriptsize\color{gray}La vérification s'effectue depuis l'interface publique Aurore.}",
             r"    \end{minipage}",
             r"    \hfill",
             r"    \raisebox{0pt}[2.30cm][0pt]{\qrcode[height=2.12cm]{" + document_share_url + r"}}",
@@ -1479,12 +1503,12 @@ def render(data):
         r"    \end{tcolorbox}",
         r"    \medskip",
         r"    \begin{tcolorbox}[colback=aurorepale,colframe=aurorebase!18!white,arc=10pt,boxrule=.35pt,left=9pt,right=9pt,top=6pt,bottom=6pt]",
-        r"      {\sffamily\scriptsize\bfseries\color{auroredeep}DROITS \& RÉUTILISATION}\par\smallskip",
-        r"      {\sffamily\scriptsize\color{auroredeep}Cette édition constitue une création éditoriale d'Aurore. Les connaissances générales et formules restent réutilisables sous réserve des droits applicables aux éléments tiers.\par}",
-        r"      {\sffamily\scriptsize\color{gray}Les ressources tierces conservent leurs propres licences et conditions d'utilisation.\par}",
+        r"      {\sffamily\small\bfseries\color{auroredeep}DROITS \& RÉUTILISATION}\par\smallskip",
+        r"      {\sffamily\footnotesize\color{auroredeep}Cette édition constitue une création éditoriale d'Aurore. Les connaissances générales et formules restent réutilisables sous réserve des droits applicables aux éléments tiers.\par}",
+        r"      {\sffamily\footnotesize\color{gray}Les ressources tierces conservent leurs propres licences et conditions d'utilisation.\par}",
         r"    \end{tcolorbox}",
         r"    \medskip",
-        r"    {\sffamily\scriptsize\color{gray}Composition éditoriale : Aurore · moteur de composition : LuaLaTeX · Couleur dominante : \#" + theme + r"\par}",
+        r"    {\sffamily\scriptsize\color{gray}Composition éditoriale : Aurore · Couleur dominante : \#" + theme + r"\par}",
         r"  \end{tcolorbox}",
         r"\end{center}",
     ])
