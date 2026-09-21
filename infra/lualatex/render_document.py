@@ -164,7 +164,7 @@ def _open_url_with_retry(req, timeout=30, attempts=4):
             try:
                 delay = max(2.0, min(20.0, float(retry_after)))
             except (TypeError, ValueError):
-                delay = min(20.0, 2.0 ** attempt)
+                delay = min(20.0, max(5.0, 2.0 ** attempt))
             print(
                 f"WARNING: Wikimedia rate limit 429; retrying in {delay:.1f}s "
                 f"(attempt {attempt + 2}/{attempts})"
@@ -241,7 +241,7 @@ def _fetch_geogebra_assets(data, tex_dir):
             local = assets_dir / filename
 
             try:
-                with _open_url_with_retry(urllib.request.Request(url, headers={"User-Agent": "Aurore-Section-Archives/1.0"}), timeout=30) as response:
+                with _open_url_with_retry(urllib.request.Request(url, headers={"User-Agent": "Aurore-Section-Archives/1.0 (https://aurore-section-archivescom.vercel.app/)"}), timeout=30) as response:
                     payload = response.read()
             except Exception as exc:
                 raise RuntimeError(
@@ -389,6 +389,7 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
     visuals = []
     statuses = []
     seen_pages, seen_urls = set(), set()
+    search_cache = {}
 
     explicit = any(
         isinstance(s.get("visuals"), list) and s.get("visuals")
@@ -449,9 +450,13 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
 
         # Keep the search bounded, but retain enough progressively broader
         # candidates to reach the two-word semantic core.
-        return list(dict.fromkeys(candidates))[:8]
+        return list(dict.fromkeys(candidates))[:4]
 
     def search_one(query, section, explicit_mode=True):
+        cache_key = query.strip().lower()
+        if cache_key in search_cache:
+            return search_cache[cache_key]
+
         api = (
             "https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*"
             "&generator=search&gsrnamespace=6&gsrlimit=12&gsrsearch="
@@ -461,7 +466,7 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
         )
         req = urllib.request.Request(
             api,
-            headers={"User-Agent": "Aurore-Section-Archives/1.0"},
+            headers={"User-Agent": "Aurore-Section-Archives/1.0 (https://aurore-section-archivescom.vercel.app/)"},
         )
         with _open_url_with_retry(req, timeout=20) as resp:
             pages = list(
@@ -528,7 +533,9 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                 ]
             ).lower()
 
-            score = sum(1 for word in wanted if word in haystack)
+            title_lower = page_title.lower()
+            title_words = set(qwords(page_title))
+            score = sum(2 if word in title_words else 1 for word in wanted if word in haystack)
             # Les résultats du moteur Commons restent recevables même si
             # aucun mot n'apparaît littéralement dans les métadonnées.
             # Dans ce cas, le premier fichier libre et exploitable reste un
@@ -540,7 +547,16 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                 best = (page, ii, meta, url, effective_mime)
                 best_score = score
 
-        return best
+        # Never accept an arbitrary Commons image merely because it is downloadable.
+        # A required editorial visual must have meaningful lexical overlap with the
+        # requested concept. This prevents failures such as a "prokaryotic cell"
+        # query resolving to an unrelated "Time Dilation" image.
+        if best is not None and best_score >= 3:
+            search_cache[cache_key] = best
+            return best
+
+        search_cache[cache_key] = None
+        return None
 
 
     if explicit:
