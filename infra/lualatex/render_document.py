@@ -1491,7 +1491,7 @@ def render(data):
     ]
     if document_id is not None:
         rights_lines.extend([
-            r"      \raisebox{0.36cm}[2.30cm][0pt]{\qrcode[height=2.12cm]{" + document_share_url + r"}}",
+            r"      \raisebox{0.44cm}[2.30cm][0pt]{\qrcode[height=2.12cm]{" + document_share_url + r"}}",
         ])
     else:
         rights_lines.append(r"      \rule{0pt}{2.30cm}")
