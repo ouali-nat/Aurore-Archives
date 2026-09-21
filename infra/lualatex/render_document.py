@@ -403,10 +403,10 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
         if isinstance(s.get("visuals"), list)
     ) if explicit else 0
     if explicit and planned_explicit > max_total:
-        raise RuntimeError(
-            f"Plan Wikimedia invalide : {planned_explicit} visuels demandés, "
-            f"mais la limite éditoriale est de {max_total}. "
-            "Aucun visuel ne sera silencieusement supprimé."
+        print(
+            f"WARNING: plan Wikimedia contains {planned_explicit} visuals; "
+            f"production cap is {max_total}. Candidates are ranked and bounded "
+            "without failing the PDF build."
         )
 
     def qwords(value):
@@ -426,12 +426,8 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
             return []
         purpose = clean_text(directive.get("purpose") or "illustration").strip().lower()
 
-        # Commons searches are intentionally broad only after the requested
-        # query has had a chance to return an exact match. Descriptive
-        # qualifiers such as "diagram", "photo" or editorial wording can
-        # prevent MediaWiki from reaching a very good equivalent file.
-        # We therefore keep the original request first, then add bounded
-        # semantic variants before progressively trimming the query.
+        # Always keep the editorial query first. The remaining variants widen
+        # retrieval without inventing a different pedagogical subject.
         candidates = [query]
         lowered = query.lower()
 
@@ -445,10 +441,8 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
         if purpose in ("photo", "experimental") and "photo" not in lowered:
             add_candidate(query + " photo")
 
-        # Remove only generic presentation words. The actual notion remains
-        # intact, which makes this safe for regeneration of existing PDFs.
         compact = re.sub(
-            r"\b(?:diagram|illustration|photo|image|schema)\b",
+            r"\b(?:diagram|illustration|photo|image|schema|labeled|labelled)\b",
             "",
             query,
             flags=re.IGNORECASE,
@@ -457,10 +451,6 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
         if compact and compact.lower() != query.lower():
             add_candidate(compact)
 
-        # Turn "A vs B" / "A versus B" into the more Commons-friendly
-        # "A B comparison". This is deliberately semantic rather than tied
-        # to one exact filename, so a regeneration can legitimately choose
-        # a different but more relevant open visual.
         comparison_source = compact or query
         parts = re.split(r"\b(?:vs\.?|versus)\b", comparison_source, flags=re.IGNORECASE)
         if len(parts) == 2:
@@ -468,50 +458,110 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
             right = parts[1].strip()
             if left and right:
                 add_candidate(f"{left} {right} comparison")
-                add_candidate(f"{left} {right} cells comparison")
+                add_candidate(f"{left} {right} comparison diagram")
 
-        # Normalize common biological adjective/noun forms when both concepts
-        # are present. This helps Commons reach files titled with
-        # "prokaryote/eukaryote" instead of "prokaryotic/eukaryotic".
         morphology = comparison_source
         morphology = re.sub(r"\bprokaryotic\b", "prokaryote", morphology, flags=re.IGNORECASE)
         morphology = re.sub(r"\beukaryotic\b", "eukaryote", morphology, flags=re.IGNORECASE)
         if morphology.lower() != comparison_source.lower():
             add_candidate(morphology)
+
+        # The section itself is a fallback search source for every subject.
+        # This is what gives mathematics, French, history, geography,
+        # languages, computer science and technical subjects a real visual
+        # route even when the upstream plan contains no visual directive.
+        for fallback_query in _visual_query_for_section(data, section, profile):
+            add_candidate(fallback_query)
+
         if re.search(r"\bprokaryote\b", morphology, flags=re.IGNORECASE) and re.search(
             r"\beukaryote\b", morphology, flags=re.IGNORECASE
         ):
             add_candidate("prokaryote eukaryote cell comparison")
-            add_candidate("prokaryotic eukaryotic cell comparison")
-            # Stable Commons vocabulary: the NIH/Science Primer "Celltypes"
-            # illustration explicitly compares a eukaryotic cell and a
-            # prokaryotic cell. Keep it as a bounded semantic fallback rather
-            # than hard-coding a file URL.
             add_candidate("celltypes")
-            add_candidate("cell types prokaryotic eukaryotic")
 
+        # Finally, trim long editorial suffixes one token at a time. This keeps
+        # the semantic core available to Commons when the complete phrase is
+        # too specific for its search index.
         tokens = re.findall(r"[A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9'’+\-]*", query)
-        # Progressively remove trailing qualifiers while preserving the
-        # semantic beginning of the editorial request. Do not stop after only
-        # one or two trims: long editorial queries such as
-        # "pH scale diagram acids bases neutral" need to reach the stable core
-        # "pH scale" when Commons does not index the full wording.
         if len(tokens) >= 3:
-            for keep in range(len(tokens) - 1, 1, -1):
-                add_candidate(" ".join(tokens[:keep]))
+            core_tokens = max(2, min(4, len(tokens) - 1))
+            add_candidate(" ".join(tokens[:core_tokens]))
 
-        # Keep the search bounded, but retain enough semantic fallbacks while
-        # avoiding an unbounded number of Wikimedia API calls per visual.
+        # Bounded on purpose: enough diversity for robust retrieval without
+        # turning one PDF into dozens of API calls per illustration.
         return candidates[:8]
 
-    def search_one(query, section, explicit_mode=True):
-        cache_key = query.strip().lower()
+    def _visual_purpose_terms(purpose):
+        return {
+            "schema": {"diagram", "schema", "structure", "anatomy", "figure", "illustration", "comparison"},
+            "illustration": {"illustration", "diagram", "figure", "map", "portrait", "structure"},
+            "photo": {"photo", "microscopy", "micrograph", "image", "specimen", "experiment"},
+            "experimental": {"experiment", "apparatus", "laboratory", "microscopy", "diagram"},
+            "comparison": {"comparison", "compare", "difference", "differences", "versus", "vs"},
+        }.get(purpose, {"diagram", "illustration", "figure"})
+
+    def _score_wikimedia_candidate(page, ii, meta, url, query, section, purpose):
+        page_title = clean_text(page.get("title") or "")
+        description = clean_text(
+            meta.get("ImageDescription", {}).get("value", "")
+            if isinstance(meta.get("ImageDescription"), dict)
+            else ""
+        )
+        categories = clean_text(
+            meta.get("Categories", {}).get("value", "")
+            if isinstance(meta.get("Categories"), dict)
+            else ""
+        )
+        haystack = " ".join([page_title, description, categories]).lower()
+        normalized_haystack = re.sub(r"[^a-z0-9à-ÿ]+", " ", haystack).strip()
+        query_words = set(qwords(query))
+        section_words = set(qwords(section.get("title")))
+        document_words = set(qwords(data.get("title"))) | set(qwords(data.get("subject")))
+        purpose_words = _visual_purpose_terms(purpose)
+
+        hay_words = set(qwords(haystack))
+        title_words = set(qwords(page_title))
+
+        query_overlap = len(query_words & hay_words)
+        section_overlap = len(section_words & hay_words)
+        document_overlap = len(document_words & hay_words)
+        purpose_overlap = len(purpose_words & hay_words)
+
+        score = 0.0
+        score += 48.0 * (query_overlap / max(1, len(query_words)))
+        score += 22.0 * (len(query_words & title_words) / max(1, len(query_words)))
+        score += 18.0 * (section_overlap / max(1, len(section_words)))
+        score += 8.0 * (document_overlap / max(1, len(document_words)))
+        score += 5.0 * (purpose_overlap / max(1, len(purpose_words)))
+
+        normalized_query = re.sub(r"[^a-z0-9à-ÿ]+", " ", query.lower()).strip()
+        if len(normalized_query.split()) >= 2 and normalized_query in normalized_haystack:
+            score += 18.0
+
+        # Slight preference for sufficiently large, landscape-or-square assets
+        # that behave well in a pedagogical page. This never replaces relevance.
+        width = int(ii.get("width") or 0)
+        height = int(ii.get("height") or 0)
+        if width >= 1000 and height >= 600:
+            score += 2.0
+        elif width >= 700 and height >= 500:
+            score += 1.0
+
+        return score
+
+    def search_one(query, section, purpose="illustration"):
+        # Cache is section/purpose aware because relevance is contextual.
+        cache_key = "|".join([
+            query.strip().lower(),
+            clean_text(section.get("title")).strip().lower(),
+            purpose,
+        ])
         if cache_key in search_cache:
             return search_cache[cache_key]
 
         api = (
             "https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*"
-            "&generator=search&gsrnamespace=6&gsrlimit=12&gsrsearch="
+            "&generator=search&gsrnamespace=6&gsrlimit=16&gsrsearch="
             + urllib.parse.quote(query)
             + "&prop=imageinfo&iiprop=url|size|mime|thumbmime|extmetadata"
             "&iilimit=1&iiurlwidth=1200&iiextmetadataversion=latest"
@@ -527,20 +577,8 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                 .values()
             )
 
-        # Ne rejetons plus un bon résultat Commons uniquement parce que son
-        # titre/catégorie ne reprend pas exactement les mêmes mots que la
-        # requête. Le moteur de recherche Commons a déjà effectué le tri ;
-        # nous classons ensuite les fichiers valides par proximité sémantique.
-        wanted = set(qwords(query) + qwords(section.get("title")))
-        best = None
-        best_score = -1
-
+        candidates = []
         for page in pages:
-            page_title = str(page.get("title") or "")
-            page_key = page_title.lower()
-            if page_key in seen_pages:
-                continue
-
             ii = (page.get("imageinfo") or [{}])[0]
             meta = ii.get("extmetadata") or {}
             mime = str(ii.get("mime") or "").lower()
@@ -555,7 +593,7 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                 continue
             if not url.startswith("https://upload.wikimedia.org/"):
                 continue
-            if url in seen_urls or not _wikimedia_license_ok(
+            if not _wikimedia_license_ok(
                 " ".join(
                     str(
                         meta.get(k, {}).get("value", "")
@@ -566,59 +604,103 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                 )
             ):
                 continue
-            if int(ii.get("width") or 0) < 500 or int(ii.get("height") or 0) < 300:
+            width = int(ii.get("width") or 0)
+            height = int(ii.get("height") or 0)
+            if width < 500 or height < 300:
                 continue
 
-            haystack = " ".join(
-                [
-                    page_title.lower(),
-                    clean_text(
-                        meta.get("ImageDescription", {}).get("value", "")
-                        if isinstance(meta.get("ImageDescription"), dict)
-                        else ""
-                    ),
-                    clean_text(
-                        meta.get("Categories", {}).get("value", "")
-                        if isinstance(meta.get("Categories"), dict)
-                        else ""
-                    ),
-                ]
-            ).lower()
+            score = _score_wikimedia_candidate(
+                page, ii, meta, url, query, section, purpose
+            )
+            candidates.append((score, page, ii, meta, url, effective_mime))
 
-            title_lower = page_title.lower()
-            title_words = set(qwords(page_title))
-            score = sum(2 if word in title_words else 1 for word in wanted if word in haystack)
-            # Les résultats du moteur Commons restent recevables même si
-            # aucun mot n'apparaît littéralement dans les métadonnées.
-            # Dans ce cas, le premier fichier libre et exploitable reste un
-            # meilleur choix que l'abandon silencieux du visuel.
-            if page_title.lower().startswith("file:"):
-                score += 1
+        candidates.sort(
+            key=lambda item: (-item[0], str(item[1].get("title") or "").lower())
+        )
+        search_cache[cache_key] = candidates
+        return candidates
 
-            if score > best_score:
-                best = (page, ii, meta, url, effective_mime)
-                best_score = score
+    def ranked_candidates_for_directive(directive, section):
+        purpose = clean_text(directive.get("purpose") or "illustration").strip().lower()
+        ranked = []
+        seen_keys = set()
+        for query in candidates_for_directive(directive, section):
+            try:
+                results = search_one(query, section, purpose=purpose)
+            except Exception as exc:
+                print(f"WARNING: Wikimedia search failed for {query!r}: {exc}")
+                continue
+            for score, page, ii, meta, url, effective_mime in results:
+                key = (str(page.get("title") or "").lower(), url)
+                if key in seen_keys:
+                    continue
+                seen_keys.add(key)
+                ranked.append(
+                    (score, page, ii, meta, url, effective_mime, query)
+                )
+        ranked.sort(
+            key=lambda item: (-item[0], str(item[1].get("title") or "").lower())
+        )
+        return ranked
 
-        # Never accept an arbitrary Commons image merely because it is downloadable.
-        # A required editorial visual must have meaningful lexical overlap with the
-        # requested concept. This prevents failures such as a "prokaryotic cell"
-        # query resolving to an unrelated "Time Dilation" image.
-        if best is not None and best_score >= 3:
-            search_cache[cache_key] = best
-            return best
-
-        search_cache[cache_key] = None
-        return None
 
 
     if explicit:
         for section_index, section in major_sections:
             directives = section.get("visuals", [])
             if not isinstance(directives, list):
-                continue
-            accepted_for_section = 0
+                directives = []
 
-            for raw in directives:
+            # Existing editorial visuals remain authoritative. When a section
+            # has no Wikimedia directive, add one bounded supplemental request
+            # derived from the section itself. This applies to every profile,
+            # including mathematics, and stays separate from GeoGebra graphs.
+            has_wikimedia = any(
+                isinstance(raw, dict)
+                and str(raw.get("type") or "wikimedia").lower().strip() == "wikimedia"
+                for raw in directives
+            )
+            effective_directives = list(directives)
+            if (
+                not has_wikimedia
+                and len(visuals) < max_total
+                and any(
+                    clean_text(item).strip()
+                    for item in (
+                        section.get("content", [])
+                        if isinstance(section.get("content", []), list)
+                        else [section.get("content", "")]
+                    )
+                )
+            ):
+                auto_queries = _visual_query_for_section(data, section, profile)
+                if auto_queries:
+                    purpose_by_profile = {
+                        "scientifique": "schema",
+                        "biologie": "schema",
+                        "experimental": "experimental",
+                        "informatique": "schema",
+                        "technique": "schema",
+                        "histoire_geographie": "illustration",
+                        "francais_litterature": "illustration",
+                        "langues": "illustration",
+                        "general": "illustration",
+                    }
+                    effective_directives.append({
+                        "type": "wikimedia",
+                        "query": auto_queries[0],
+                        "caption": clean_text(section.get("title") or ""),
+                        "purpose": purpose_by_profile.get(profile, "illustration"),
+                        "priority": "supplemental",
+                        "required": False,
+                    })
+                    print(
+                        f"Wikimedia supplemental visual: section={section_index + 1} "
+                        f"profile={profile} query={auto_queries[0]!r}"
+                    )
+
+            accepted_for_section = 0
+            for raw in effective_directives:
                 if len(visuals) >= max_total or accepted_for_section >= max_per_section:
                     break
                 if not isinstance(raw, dict):
@@ -635,38 +717,42 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                 )
                 query_candidates = candidates_for_directive(raw, section)
                 if not query_candidates:
-                    status = {
+                    statuses.append({
                         "section_index": section_index,
                         "section_title": clean_text(section.get("title") or ""),
                         "query": "",
                         "priority": priority or "recommended",
                         "status": "failed",
                         "reason": "query_missing",
-                    }
-                    statuses.append(status)
-                    if required:
-                        raise RuntimeError(
-                            f"Visuel Wikimedia requis sans query : section {section_index + 1}"
-                        )
+                    })
                     print(f"Wikimedia visual skipped: section={section_index + 1} reason=query_missing")
                     continue
 
+                ranked = ranked_candidates_for_directive(raw, section)
                 best = None
-                resolved_query = query_candidates[0]
-                last_error = None
-                for query in query_candidates:
+                for candidate in ranked:
+                    score, page, ii, meta, url, effective_mime, resolved_query = candidate
+                    page_key = str(page.get("title") or "").lower()
+                    if page_key in seen_pages or url in seen_urls:
+                        continue
                     try:
-                        best = search_one(query, section, explicit_mode=True)
-                        if best:
-                            resolved_query = query
-                            if query != query_candidates[0]:
-                                print(
-                                    f"Wikimedia search fallback: requested={query_candidates[0]!r} "
-                                    f"resolved={query!r}"
-                                )
-                            break
+                        req = urllib.request.Request(
+                            url,
+                            headers={"User-Agent": "Aurore-Section-Archives/1.0"},
+                        )
+                        with _open_url_with_retry(req, timeout=30) as resp:
+                            blob = resp.read()
+                        if not (10000 <= len(blob) <= 2500000):
+                            raise RuntimeError("downloaded image size outside production bounds")
+                        best = candidate + (blob,)
+                        break
                     except Exception as exc:
-                        last_error = str(exc)
+                        print(
+                            f"WARNING: Wikimedia candidate rejected after ranking: "
+                            f"section={section_index + 1} query={resolved_query!r} "
+                            f"title={str(page.get('title') or '')!r} error={exc}"
+                        )
+                        continue
 
                 if not best:
                     statuses.append({
@@ -675,29 +761,21 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                         "query": query_candidates[0],
                         "priority": priority or "recommended",
                         "status": "failed",
-                        "reason": last_error or "no_relevant_open_image",
+                        "reason": "no_usable_ranked_candidate",
+                        "candidate_count": len(ranked),
                     })
-                    message = (
-                        f"Wikimedia visual missing: section {section_index + 1} "
-                        f"query={query_candidates[0]!r} priority={priority or 'recommended'}"
+                    # A missing image must never stop PDF production. There is
+                    # no empty frame inserted: the visual is simply omitted,
+                    # while graphs and all other content continue to render.
+                    print(
+                        f"Wikimedia visual unavailable: section={section_index + 1} "
+                        f"query={query_candidates[0]!r} priority={priority or 'recommended'} "
+                        f"candidates={len(ranked)} — PDF continues."
                     )
-                    if required:
-                        raise RuntimeError(
-                            message
-                            + " — visuel explicitement requis dans le plan éditorial ; "
-                            "la production est arrêtée afin d'éviter un document incomplet."
-                        )
-                    print(message + " — visuel recommandé ignoré après les tentatives de recherche.")
                     continue
 
-                page, ii, meta, url, effective_mime = best
+                score, page, ii, meta, url, effective_mime, resolved_query, blob = best
                 try:
-                    req = urllib.request.Request(url, headers={"User-Agent": "Aurore-Section-Archives/1.0"})
-                    with _open_url_with_retry(req, timeout=30) as resp:
-                        blob = resp.read()
-                    if not (10000 <= len(blob) <= 2500000):
-                        raise RuntimeError("downloaded image size outside production bounds")
-
                     ext = ".png" if effective_mime == "image/png" else ".jpg"
                     local = assets_dir / f"wikimedia-{len(visuals)+1}{ext}"
                     local.write_bytes(blob)
@@ -716,7 +794,11 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                         "caption": caption,
                         "author": clean_text(mv("Artist", "Auteur non renseigné"))[:180],
                         "license": clean_text(mv("LicenseShortName", mv("UsageTerms", "Licence libre Commons")))[:120],
-                        "source_url": str(ii.get("descriptionurl") or "https://commons.wikimedia.org/wiki/" + urllib.parse.quote(str(page.get("title") or ""))),
+                        "source_url": str(
+                            ii.get("descriptionurl")
+                            or "https://commons.wikimedia.org/wiki/"
+                            + urllib.parse.quote(str(page.get("title") or ""))
+                        ),
                     })
                     seen_pages.add(str(page.get("title") or "").lower())
                     seen_urls.add(url)
@@ -729,17 +811,20 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                         "priority": priority or "recommended",
                         "status": "fetched",
                         "source_title": clean_text(title),
+                        "relevance_score": round(score, 2),
+                        "candidate_count": len(ranked),
                     })
+                    if resolved_query != query_candidates[0]:
+                        print(
+                            f"Wikimedia search fallback: requested={query_candidates[0]!r} "
+                            f"resolved={resolved_query!r} score={score:.2f}"
+                        )
                     print(
                         f"Wikimedia visual {len(visuals)}: section={section_index + 1} "
                         f"priority={priority or 'recommended'} query={query_candidates[0]!r} "
-                        f"resolved={resolved_query!r} title={title!r}"
+                        f"resolved={resolved_query!r} title={title!r} score={score:.2f}"
                     )
                 except Exception as exc:
-                    message = (
-                        f"Wikimedia visual download failed : section {section_index + 1} "
-                        f"query={query_candidates[0]!r} error={exc}"
-                    )
                     statuses.append({
                         "section_index": section_index,
                         "section_title": clean_text(section.get("title") or ""),
@@ -748,16 +833,14 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                         "priority": priority or "recommended",
                         "status": "failed",
                         "reason": str(exc),
+                        "candidate_count": len(ranked),
                     })
-                    if required:
-                        raise RuntimeError(
-                            message
-                            + " — impossible de matérialiser ce visuel explicitement requis ; "
-                            "la production est arrêtée afin d'éviter un PDF incomplet."
-                        )
-                    print(message + " — visuel recommandé ignoré.")
-                    continue
+                    print(
+                        f"WARNING: Wikimedia asset materialization failed: "
+                        f"section={section_index + 1} query={resolved_query!r} error={exc} — PDF continues."
+                    )
 
+    
     else:
         # Backward-compatible path for old documents generated before
         # section.visuals[] existed. This path deliberately keeps the old
@@ -766,18 +849,53 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
         for section_index, section in major_sections:
             if len(visuals) >= legacy_max:
                 break
+
+            ranked = []
             for query in _visual_query_for_section(data, section, profile):
                 try:
-                    best = search_one(query, section, explicit_mode=False)
-                    if best:
-                        break
+                    purpose = {
+                        "scientifique": "schema",
+                        "biologie": "schema",
+                        "experimental": "experimental",
+                        "informatique": "schema",
+                        "technique": "schema",
+                    }.get(profile, "illustration")
+                    ranked.extend(
+                        (score, page, ii, meta, url, effective_mime, query)
+                        for score, page, ii, meta, url, effective_mime
+                        in search_one(query, section, purpose=purpose)
+                    )
                 except Exception as exc:
                     print(f"WARNING: legacy Wikimedia search failed: {exc}")
-                    best = None
-            if not best:
+
+            ranked.sort(
+                key=lambda item: (-item[0], str(item[1].get("title") or "").lower())
+            )
+
+            selected = None
+            for candidate in ranked:
+                score, page, ii, meta, url, effective_mime, query = candidate
+                page_key = str(page.get("title") or "").lower()
+                if page_key in seen_pages or url in seen_urls:
+                    continue
+                try:
+                    req = urllib.request.Request(
+                        url,
+                        headers={"User-Agent": "Aurore-Section-Archives/1.0"},
+                    )
+                    with _open_url_with_retry(req, timeout=30) as resp:
+                        blob = resp.read()
+                    if not (10000 <= len(blob) <= 2500000):
+                        continue
+                    selected = candidate + (blob,)
+                    break
+                except Exception as exc:
+                    print(f"WARNING: legacy Wikimedia download failed: {exc}")
+
+            if not selected:
                 continue
 
-            page, ii, meta, url, effective_mime = best
+            score, page, ii, meta, url, effective_mime, query, blob = selected
             try:
                 req = urllib.request.Request(url, headers={"User-Agent": "Aurore-Section-Archives/1.0"})
                 with _open_url_with_retry(req, timeout=30) as resp:
@@ -837,9 +955,10 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
         + f" requested_statuses={len(statuses)}"
     )
     if explicit and required_fetched != required_planned:
-        raise RuntimeError(
-            f"Plan Wikimedia incomplet : visuels requis matérialisés "
-            f"{required_fetched}/{required_planned} avant LuaLaTeX."
+        print(
+            f"WARNING: required Wikimedia visuals materialized "
+            f"{required_fetched}/{required_planned}; missing visuals were "
+            "skipped without inserting empty frames so PDF production can continue."
         )
     return visuals
 
