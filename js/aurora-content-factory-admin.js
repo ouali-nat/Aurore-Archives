@@ -234,15 +234,21 @@ async function waitForJob(jobId){let last=null;for(let i=0;i<180;i++){const j=aw
 async function runGeneration(item){
   const msg=document.getElementById('cfCreateMsg');generationRunning=true;updateQueueUI();setProgress(2,'Préparation du document « '+item.title+' »…');
   try{
-    const finalPrompt=item.prompt+(item.reference?'\n\nRÉFÉRENCE PÉDAGOGIQUE FOURNIE PAR L’ADMINISTRATION : '+item.reference:'');
-    const job=await rpc('aurora_create_content_job',{
-      p_title:item.title,p_subject:item.subject||null,p_level:item.level||null,p_class_name:item.className||null,p_document_type:item.resourceType,p_prompt:finalPrompt,
-      p_instructions:{source:'admin_content_factory',origin:'aurore',queue:'sequential',category:item.category,filiere:item.filiere||null,reference:item.reference||null,rights_confirmed:true,theme_color:normalizeThemeColor(item.themeColor||'#6D28D9'),
-        classification:{level:item.level||null,filiere:item.filiere||null,class_name:item.className||null,subject:item.subject||null,category:item.category,resource_type:item.resourceType}}
-    });
-    const jobId=Number(job);if(!Number.isSafeInteger(jobId)||jobId<1)throw new Error('Identifiant de job invalide.');
-    setProgress(8,'Job #'+jobId+' créé — Aurora commence par celui-ci.');
-    if(msg){msg.dataset.state='';msg.textContent='Job #'+jobId+' en traitement. Les suivants attendent dans la file.';}
+    let jobId=Number(item.jobId||0);
+    if(!jobId){
+      const finalPrompt=item.prompt+(item.reference?'\n\nRÉFÉRENCE PÉDAGOGIQUE FOURNIE PAR L’ADMINISTRATION : '+item.reference:'');
+      const job=await rpc('aurora_create_content_job',{
+        p_title:item.title,p_subject:item.subject||null,p_level:item.level||null,p_class_name:item.className||null,p_document_type:item.resourceType,p_prompt:finalPrompt,
+        p_instructions:{source:'admin_content_factory',origin:'aurore',queue:'sequential',category:item.category,filiere:item.filiere||null,reference:item.reference||null,rights_confirmed:true,theme_color:normalizeThemeColor(item.themeColor||'#6D28D9'),
+          classification:{level:item.level||null,filiere:item.filiere||null,class_name:item.className||null,subject:item.subject||null,category:item.category,resource_type:item.resourceType}}
+      });
+      jobId=Number(job);
+      if(!Number.isSafeInteger(jobId)||jobId<1)throw new Error('Identifiant de job invalide.');
+      setProgress(8,'Job #'+jobId+' créé — Aurora commence par celui-ci.');
+    }else{
+      setProgress(8,'Job #'+jobId+' déjà enregistré dans Supabase — reprise serveur.');
+    }
+    if(msg){msg.dataset.state='';msg.textContent='Job #'+jobId+' en traitement. La file serveur continue même si cette page est fermée.';}
     const workerPromise=cfFetch(SUPABASE_URL+'/functions/v1/aurora-content-worker',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({job_id:jobId})}).then(async r=>{const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}}return{ok:r.ok,status:r.status,data:d};}).catch(e=>({ok:false,status:0,data:{error:e.message||String(e)}}));
     const poll=waitForJob(jobId);const results=await Promise.all([workerPromise,poll]),wr=results[0],jr=results[1];
     if(jr&&jr.status==='review'){
@@ -263,7 +269,7 @@ async function runGeneration(item){
   }finally{generationRunning=false;updateQueueUI();}
 }
 async function processQueue(){if(generationRunning)return;const item=generationQueue.shift();updateQueueUI();if(!item)return;try{await runGeneration(item);}catch(e){const msg=document.getElementById('cfCreateMsg');if(msg){msg.dataset.state='error';msg.textContent=`Le document « ${item.title} » n’a pas pu être généré : ${e.message||e}`}setProgress(100,'Échec de ce document — Aurora passe au suivant.');}finally{updateQueueUI();if(generationQueue.length)processQueue();}}
-function enqueueCurrent(){
+async function enqueueCurrent(){
   if(!adminOk())return;
   const title=selectedValue('cfCreateTitle'),subject=selectedValue('cfCreateSubject'),level=selectedValue('cfCreateLevel'),className=selectedValue('cfCreateClass'),filiere=selectedValue('cfCreateFiliere'),category=selectedValue('cfCreateCategory'),resourceType=selectedValue('cfCreateResourceType'),reference=selectedValue('cfCreateReference'),prompt=(document.getElementById('cfCreatePrompt')?.value||'').trim(),rights=Boolean(document.getElementById('cfCreateRights')?.checked),themeColor=normalizeThemeColor(document.getElementById('cfCreateThemeColor')?.value),msg=document.getElementById('cfCreateMsg');
   if(!title){if(msg){msg.dataset.state='error';msg.textContent='Le titre est obligatoire.';}return;}
@@ -273,9 +279,21 @@ function enqueueCurrent(){
   if(!resourceType){if(msg){msg.dataset.state='error';msg.textContent='Choisis le type de ressource.';}return;}
   if(!prompt){if(msg){msg.dataset.state='error';msg.textContent='La demande pédagogique est obligatoire.';}return;}
   if(!rights){if(msg){msg.dataset.state='error';msg.textContent='Confirme l’autorisation d’utiliser la demande et les références fournies.';}return;}
-  generationQueue.push({title,subject,level,className,filiere,category,resourceType,reference,prompt,themeColor,rights});
-  if(msg){msg.dataset.state='ok';msg.textContent='« '+title+' » ajouté à la file ('+generationQueue.length+' en attente'+(generationRunning?' derrière le document en cours':'')+').';}
-  updateQueueUI();if(!generationRunning)processQueue();
+  try{
+    const finalPrompt=prompt+(reference?'\n\nRÉFÉRENCE PÉDAGOGIQUE FOURNIE PAR L’ADMINISTRATION : '+reference:'');
+    const job=await rpc('aurora_create_content_job',{
+      p_title:title,p_subject:subject||null,p_level:level||null,p_class_name:className||null,p_document_type:resourceType,p_prompt:finalPrompt,
+      p_instructions:{source:'admin_content_factory',origin:'aurore',queue:'sequential',category,filiere:filiere||null,reference:reference||null,rights_confirmed:true,theme_color:normalizeThemeColor(themeColor||'#6D28D9'),
+        classification:{level:level||null,filiere:filiere||null,class_name:className||null,subject:subject||null,category,resource_type:resourceType}}
+    });
+    const jobId=Number(job);
+    if(!Number.isSafeInteger(jobId)||jobId<1)throw new Error('Identifiant de job invalide.');
+    generationQueue.push({title,subject,level,className,filiere,category,resourceType,reference,prompt,themeColor,rights,jobId});
+    if(msg){msg.dataset.state='ok';msg.textContent='« '+title+' » enregistré dans Supabase (#'+jobId+') et protégé contre la fermeture de la page. ('+generationQueue.length+' affiché'+(generationQueue.length>1?'s':'')+' dans la file'+(generationRunning?' derrière le document en cours':'')+').';}
+    updateQueueUI();if(!generationRunning)processQueue();
+  }catch(e){
+    if(msg){msg.dataset.state='error';msg.textContent='Impossible d’enregistrer « '+title+' » dans la file serveur : '+(e.message||e);}
+  }
 }
 function bindClassification(){
   const themeInput=document.getElementById('cfCreateThemeColor');
