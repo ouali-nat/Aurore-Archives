@@ -1051,6 +1051,7 @@
 .cf-rebuild .cf-create-theme-palette{margin-top:9px}
 @media(max-width:800px){.cf-rebuild-head{padding:16px}.cf-rebuild-grid{grid-template-columns:1fr 1fr}.cf-rebuild-grid .cf-rebuild-title{grid-column:1/-1}}
 @media(max-width:560px){.cf-rebuild-head{flex-direction:column}.cf-rebuild-badge{align-self:flex-start}.cf-rebuild-form{padding:9px}.cf-rebuild-card{padding:12px}.cf-rebuild-grid,.cf-rebuild-grid-2{grid-template-columns:1fr}.cf-rebuild-actions{flex-direction:column;align-items:stretch}.cf-rebuild-actions .admin-btn{width:100%}}
+.cf-ai-provider-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px}.cf-ai-provider{display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border:1px solid var(--bordure,rgba(0,0,0,.1));border-radius:14px;background:var(--fond,#fafafa);cursor:pointer}.cf-ai-provider input{margin-top:3px}.cf-ai-provider strong{display:block;font-size:.78rem}.cf-ai-provider small{display:block;margin-top:3px;font-size:.64rem;line-height:1.4;color:var(--gris,#687080)}@media(max-width:700px){.cf-ai-provider-grid{grid-template-columns:1fr}}
 </style>
 <section aria-label="Créer une ressource Aurore" class="cf-create-box cf-rebuild">
   <header class="cf-rebuild-head">
@@ -1091,8 +1092,18 @@
       <label class="cf-rebuild-field"><span>Consigne de génération</span><textarea id="cfCreatePrompt" required>Crée une fiche de révision sur le sujet indiqué avec cours, exercices et corrigés.</textarea></label>
     </section>
 
-    <section class="cf-rebuild-card" aria-label="Présentation du PDF">
-      <div class="cf-rebuild-title"><span class="cf-rebuild-no">04</span><div><strong>L'identité du PDF</strong><small>La couleur sera mémorisée avec cette génération</small></div></div>
+    <section class="cf-rebuild-card" aria-label="Intelligences utilisées">
+  <div class="cf-rebuild-title"><span class="cf-rebuild-no">04</span><div><strong>Les intelligences utilisées</strong><small>Choisis les moteurs disponibles. Aurore applique ensuite les rôles spécialisés sans rendre DeepSeek obligatoire.</small></div></div>
+  <div class="cf-ai-provider-grid" id="cfAiProviders">
+    <label class="cf-ai-provider"><input id="cfAiGemini" type="checkbox" checked><span><strong>Gemini</strong><small>Production principale · cours et contenus complets</small></span></label>
+    <label class="cf-ai-provider"><input id="cfAiLlama" type="checkbox" checked><span><strong>Llama</strong><small>QCM · exercices · tâches courtes · secours</small></span></label>
+    <label class="cf-ai-provider"><input id="cfAiDeepSeek" type="checkbox"><span><strong>DeepSeek</strong><small>Optionnel · utilisé uniquement si disponible</small></span></label>
+  </div>
+  <div class="cf-route-note" id="cfAiStrategyHint">Stratégie active : Gemini + Llama. DeepSeek reste facultatif.</div>
+</section>
+
+<section class="cf-rebuild-card" aria-label="Présentation du PDF">
+      <div class="cf-rebuild-title"><span class="cf-rebuild-no">05</span><div><strong>L'identité du PDF</strong><small>La couleur sera mémorisée avec cette génération</small></div></div>
       <label class="cf-rebuild-field"><span>Couleur dominante</span>
         <div class="cf-rebuild-theme">
           <button type="button" class="cf-theme-color-button cf-theme-color-square" id="cfThemePaletteToggle" aria-haspopup="true" aria-expanded="false" title="Choisir la couleur du PDF" aria-label="Choisir la couleur du PDF">
@@ -1123,7 +1134,7 @@
 <div hidden id="adminContentFactoryList" aria-hidden="true"></div>
 </div>
 <div class="admin-tab-panel" data-panel="diagnostic-aurora">
-<p class="admin-panel-desc">Diagnostic technique réel de la chaîne Aurora : navigateur → session Supabase → Edge Function → DeepSeek → navigateur. Aucun résultat n'est simulé. Réservé à l'administration, sans effet sur l'expérience des élèves/utilisateurs.</p>
+<p class="admin-panel-desc">Diagnostic technique réel de la chaîne Aurora : navigateur → session Supabase → Edge Function → moteurs IA (Gemini, Llama, DeepSeek) → navigateur. Aucun résultat n'est simulé. Réservé à l'administration, sans effet sur l'expérience des élèves/utilisateurs.</p>
 <div class="diag-meta" id="diagMeta">
 <span class="diag-id" id="diagId">Identifiant : — (pas encore lancé)</span>
 <span class="diag-global-badge" data-state="pending" id="diagGlobalBadge">⚪ Non testé</span>
