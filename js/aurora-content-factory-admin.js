@@ -1122,3 +1122,45 @@ document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurre
     publish:id=>handlePdfAction({action:'publish',id})
   };
   bindClassification();window.chargerAuroraContentFactoryAdmin=charger;})();
+
+
+/* Aurore — liste exhaustive des documents générés.
+   Cette vue est volontairement indépendante des compteurs review/approved/published.
+   Elle affiche TOUS les enregistrements de aurora_generated_documents à l'administrateur,
+   y compris failed, generated et ceux qui n'ont pas encore de PDF. */
+(function installExhaustiveGeneratedDocumentsView(){
+  'use strict';
+  const ROOT_ID='auroreAllGeneratedDocuments';
+  const LIST_ID='auroreAllGeneratedDocumentsList';
+  let timer=null, busy=false;
+  const escAll=v=>{const d=document.createElement('div');d.textContent=String(v??'');return d.innerHTML};
+  const admin=()=>!!(window.session&&window.session.role==='admin');
+  const getToken=()=>window.session?.access_token||'';
+  function ensure(){
+    const host=document.getElementById('aurorePdfProductionCenter');
+    if(!host||document.getElementById(ROOT_ID))return;
+    const box=document.createElement('section');box.id=ROOT_ID;box.className='aurore-all-generated-documents';
+    box.innerHTML='<div class="aurore-all-generated-head"><div><span class="aurore-pdf-prod-kicker">Inventaire complet</span><h3>Tous les documents générés</h3><p id="auroreAllGeneratedSummary">Synchronisation…</p></div><button type="button" class="admin-btn ghost" id="auroreAllGeneratedRefresh">↻ Actualiser</button></div><div id="auroreAllGeneratedDocumentsList"><div class="aurore-pdf-prod-empty">Chargement…</div></div>';
+    host.insertAdjacentElement('afterend',box);
+    document.getElementById('auroreAllGeneratedRefresh')?.addEventListener('click',()=>load(true));
+  }
+  function style(){
+    if(document.getElementById('aurore-all-generated-style'))return;
+    const s=document.createElement('style');s.id='aurore-all-generated-style';s.textContent='.aurore-all-generated-documents{margin-top:18px;padding:18px;border:1px solid var(--bordure,rgba(0,0,0,.12));border-radius:20px;background:var(--papier,#fff)}.aurore-all-generated-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:14px}.aurore-all-generated-head h3{margin:3px 0 5px}.aurore-all-generated-head p{margin:0;font-size:.72rem;color:var(--gris)}.aurore-all-generated-list{display:grid;gap:9px}.aurore-all-generated-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px;border:1px solid var(--bordure,rgba(0,0,0,.1));border-radius:14px;background:var(--fond,#fafafa)}.aurore-all-generated-no{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:.66rem;font-weight:900;background:var(--papier,#fff);border:1px solid var(--bordure,rgba(0,0,0,.1))}.aurore-all-generated-title{font-weight:850;font-size:.78rem;line-height:1.3}.aurore-all-generated-meta{margin-top:3px;font-size:.64rem;color:var(--gris);line-height:1.45}.aurore-all-generated-status{font-size:.62rem;font-weight:850;white-space:nowrap;padding:5px 8px;border-radius:999px;background:color-mix(in srgb,currentColor 8%,transparent)}.aurore-all-generated-status.ok{color:#16834b}.aurore-all-generated-status.bad{color:#b42318}.aurore-all-generated-status.work{color:#9a6700}.aurore-all-generated-actions{margin-top:6px;display:flex;gap:7px;flex-wrap:wrap}.aurore-all-generated-actions a,.aurore-all-generated-actions button{font-size:.62rem;padding:5px 8px}.aurore-all-generated-empty{padding:18px;text-align:center;color:var(--gris)}@media(max-width:620px){.aurore-all-generated-head{flex-direction:column}.aurore-all-generated-row{grid-template-columns:auto minmax(0,1fr)}.aurore-all-generated-status{grid-column:2}.aurore-all-generated-actions{grid-column:2}}';document.head.appendChild(s);
+  }
+  const statusLabel=s=>({review:'À contrôler',approved:'Validé',published:'Publié',failed:'Échec',generated:'Généré',processing:'Traitement',queued:'En file',draft:'Brouillon',rejected:'Rejeté'}[s]||s||'Inconnu');
+  const statusClass=s=>['failed','rejected'].includes(s)?'bad':['processing','queued'].includes(s)?'work':'ok';
+  async function load(force){
+    if(busy||!admin())return; ensure();style();const list=document.getElementById(LIST_ID),summary=document.getElementById('auroreAllGeneratedSummary');if(!list)return;
+    const token=getToken();if(!token){list.innerHTML='<div class="aurore-all-generated-empty">Session administrateur en attente…</div>';return}
+    busy=true;try{
+      const url=(window.SUPABASE_URL||'')+'/rest/v1/aurora_generated_documents?select=id,created_at,updated_at,title,subject,level,class_name,document_type,pdf_url,version,status,validation_notes,metadata&order=created_at.desc&limit=1000';
+      const r=await fetch(url,{cache:'no-store',headers:{apikey:window.SUPABASE_ANON_KEY||'',Authorization:'Bearer '+token}});const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));const rows=t?JSON.parse(t):[];if(!Array.isArray(rows))throw new Error('Réponse Supabase invalide.');
+      if(summary)summary.textContent=rows.length+' document(s) généré(s) visibles — aucun statut n’est exclu de cet inventaire.';
+      if(!rows.length){list.innerHTML='<div class="aurore-all-generated-empty">Aucun document généré dans aurora_generated_documents.</div>';return}
+      list.innerHTML='<div class="aurore-all-generated-list">'+rows.map(x=>{const m=x.metadata&&typeof x.metadata==='object'?x.metadata:{};const pdf=!!x.pdf_url;const stage=m.lualatex_stage||m.lualatex_status||'';return '<article class="aurore-all-generated-row"><div class="aurore-all-generated-no">#'+escAll(x.id)+'</div><div><div class="aurore-all-generated-title">'+escAll(x.title)+'</div><div class="aurore-all-generated-meta">'+escAll([x.subject,x.level,x.class_name,x.document_type].filter(Boolean).join(' · '))+'<br>Créé le '+escAll(new Date(x.created_at).toLocaleString('fr-FR'))+(stage?' · '+escAll(stage):'')+'</div><div class="aurore-all-generated-actions">'+(pdf?'<a class="admin-btn ghost" href="'+escAll(x.pdf_url)+'" target="_blank" rel="noopener">Ouvrir le PDF</a>':'')+'<button type="button" class="admin-btn ghost" data-cf-render="'+escAll(x.id)+'" data-has-pdf="'+(pdf?'1':'0')+'" data-theme-color="'+escAll((m.aurore_design&&m.aurore_design.theme_color)||'#C85C0D')+'">'+(pdf?'Régénérer le PDF':'Générer le PDF')+'</button></div></div><span class="aurore-all-generated-status '+statusClass(x.status)+'">'+escAll(statusLabel(x.status))+(pdf?' · PDF prêt':' · Sans PDF')+'</span></article>'}).join('')+'</div>';
+    }catch(e){if(list)list.innerHTML='<div class="aurore-all-generated-empty">Impossible de charger l’inventaire complet.<br>'+escAll(e?.message||e)+'</div>'}finally{busy=false}
+  }
+  function boot(){ensure();style();load(false);if(timer)clearInterval(timer);timer=setInterval(()=>load(false),10000)}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
+})();
