@@ -383,3 +383,5 @@ jobs:
 # Progress is persisted in aurora_generated_documents.metadata.
 # PDF identity/QR traceability and 45-color palette remain unchanged.
 # Wikimedia long-query core fallback trigger: 2026-09-21.
+
+# Student-first PDF editorial validation: 2026-09-21.
