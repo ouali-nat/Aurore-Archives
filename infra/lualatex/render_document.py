@@ -989,22 +989,35 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
         for status in statuses
         if status.get("priority") == "required" and status.get("status") == "fetched"
     ) if explicit else 0
-
+    failed = sum(1 for status in statuses if status.get("status") != "fetched")
+    required_missing = max(0, required_planned - required_fetched)
+    visual_qa = {
+        "mode": "explicit" if explicit else "legacy",
+        "planned": int(planned_explicit if explicit else len(statuses)),
+        "selected": int(len(statuses)),
+        "retrieved": int(len(visuals)),
+        "embedded": 0,
+        "required_planned": int(required_planned),
+        "required_retrieved": int(required_fetched),
+        "required_missing": int(required_missing),
+        "failed": int(failed),
+        "status": "blocked" if required_missing else ("warning" if failed else "pass"),
+        "editorial_cap": int(max_total),
+    }
+    data["_visual_qa"] = visual_qa
     print(
-        f"Wikimedia visual plan: mode={'explicit' if explicit else 'legacy'} "
-        f"fetched={len(visuals)}"
-        + (f"/{planned_explicit}" if explicit else "")
-        + (f" required={required_fetched}/{required_planned}" if explicit else "")
-        + f" requested_statuses={len(statuses)}"
+        f"Wikimedia visual QA: status={visual_qa['status']} "
+        f"planned={visual_qa['planned']} selected={visual_qa['selected']} "
+        f"retrieved={visual_qa['retrieved']} required={visual_qa['required_retrieved']}/{visual_qa['required_planned']} "
+        f"failed={visual_qa['failed']}"
     )
-    if explicit and required_fetched != required_planned:
-        print(
-            f"WARNING: required Wikimedia visuals materialized "
-            f"{required_fetched}/{required_planned}; missing visuals were "
-            "skipped without inserting empty frames so PDF production can continue."
+    if explicit and required_missing:
+        raise RuntimeError(
+            "VISUAL_QA_BLOCKED: "
+            f"{required_missing} illustration(s) obligatoire(s) manquante(s) "
+            f"({required_fetched}/{required_planned} récupérées)."
         )
     return visuals
-
 def render_visuals(visuals):
     lines=[]
     for v in visuals or []:
@@ -1771,7 +1784,29 @@ def main():
         f"Wikimedia visuals fetched: {len(data['_wikimedia_visuals'])} "
         f"(profile={profile})"
     )
-    out.write_text(render(data), encoding="utf-8")
+    tex = render(data)
+    missing_embedded = [
+        str(v.get("path") or "")
+        for v in data["_wikimedia_visuals"]
+        if str(v.get("path") or "") and str(v.get("path") or "") not in tex
+    ]
+    if missing_embedded:
+        data["_visual_qa"]["status"] = "blocked"
+        data["_visual_qa"]["embedded"] = len(data["_wikimedia_visuals"]) - len(missing_embedded)
+        data["_visual_qa"]["embedded_missing"] = missing_embedded
+        raise SystemExit(
+            "VISUAL_QA_BLOCKED: illustration(s) récupérée(s) mais absente(s) du LaTeX: "
+            + ", ".join(missing_embedded)
+        )
+    data["_visual_qa"]["embedded"] = len(data["_wikimedia_visuals"])
+    data["_visual_qa"]["status"] = (
+        "blocked" if data["_visual_qa"].get("required_missing", 0)
+        else ("warning" if data["_visual_qa"].get("failed", 0) else "pass")
+    )
+    out.write_text(tex, encoding="utf-8")
+    qa_path = out.with_suffix(".visual-qa.json")
+    qa_path.write_text(json.dumps(data["_visual_qa"], ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"Wikimedia visual QA saved: {qa_path}")
     print(f"Generated {out}")
 
 
