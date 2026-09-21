@@ -408,12 +408,29 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
         if not query:
             return []
         purpose = clean_text(directive.get("purpose") or "illustration").strip().lower()
+
+        # Commons searches are intentionally broad only after the requested
+        # query has had a chance to return an exact match. In practice,
+        # descriptive qualifiers such as "household products", "color chart"
+        # or "photo" can make MediaWiki's full-text search return zero files
+        # even when a valid Commons illustration exists for the notion.
         candidates = [query]
-        if purpose in ("schema", "illustration", "experimental") and "diagram" not in query.lower():
+        lowered = query.lower()
+        if purpose in ("schema", "illustration", "experimental") and "diagram" not in lowered:
             candidates.append(query + " diagram")
-        if purpose in ("photo", "experimental") and "photo" not in query.lower():
+        if purpose in ("photo", "experimental") and "photo" not in lowered:
             candidates.append(query + " photo")
-        return list(dict.fromkeys(candidates))[:3]
+
+        tokens = re.findall(r"[A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9'’+\-]*", query)
+        # Progressively remove trailing qualifiers while preserving the
+        # semantic beginning of the editorial request. Example:
+        # "pH scale household products" -> "pH scale household" -> "pH scale".
+        if len(tokens) >= 3:
+            for keep in (len(tokens) - 1, len(tokens) - 2):
+                if keep >= 2:
+                    candidates.append(" ".join(tokens[:keep]))
+
+        return list(dict.fromkeys(candidates))[:5]
 
     def search_one(query, section, explicit_mode=True):
         api = (
@@ -548,11 +565,18 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                     continue
 
                 best = None
+                resolved_query = query_candidates[0]
                 last_error = None
                 for query in query_candidates:
                     try:
                         best = search_one(query, section, explicit_mode=True)
                         if best:
+                            resolved_query = query
+                            if query != query_candidates[0]:
+                                print(
+                                    f"Wikimedia search fallback: requested={query_candidates[0]!r} "
+                                    f"resolved={query!r}"
+                                )
                             break
                     except Exception as exc:
                         last_error = str(exc)
@@ -567,16 +591,17 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                         "reason": last_error or "no_relevant_open_image",
                     })
                     message = (
-                        f"Visuel Wikimedia manquant : section {section_index + 1} "
+                        f"Wikimedia visual missing: section {section_index + 1} "
                         f"query={query_candidates[0]!r} priority={priority or 'recommended'}"
                     )
-                    raise RuntimeError(
-                        message
-                        + (
-                            " — visuel explicitement demandé dans le plan éditorial ; "
+                    if required:
+                        raise RuntimeError(
+                            message
+                            + " — visuel explicitement requis dans le plan éditorial ; "
                             "la production est arrêtée afin d'éviter un document incomplet."
                         )
-                    )
+                    print(message + " — visuel recommandé ignoré après les tentatives de recherche.")
+                    continue
 
                 page, ii, meta, url, effective_mime = best
                 try:
@@ -613,34 +638,38 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                         "section_index": section_index,
                         "section_title": clean_text(section.get("title") or ""),
                         "query": query_candidates[0],
+                        "resolved_query": resolved_query,
                         "priority": priority or "recommended",
                         "status": "fetched",
                         "source_title": clean_text(title),
                     })
                     print(
                         f"Wikimedia visual {len(visuals)}: section={section_index + 1} "
-                        f"priority={priority or 'recommended'} query={query_candidates[0]!r} title={title!r}"
+                        f"priority={priority or 'recommended'} query={query_candidates[0]!r} "
+                        f"resolved={resolved_query!r} title={title!r}"
                     )
                 except Exception as exc:
                     message = (
-                        f"Visuel Wikimedia download failed : section {section_index + 1} "
+                        f"Wikimedia visual download failed : section {section_index + 1} "
                         f"query={query_candidates[0]!r} error={exc}"
                     )
                     statuses.append({
                         "section_index": section_index,
                         "section_title": clean_text(section.get("title") or ""),
                         "query": query_candidates[0],
+                        "resolved_query": resolved_query,
                         "priority": priority or "recommended",
                         "status": "failed",
                         "reason": str(exc),
                     })
-                    raise RuntimeError(
-                        message
-                        + (
-                            " — impossible de valider ce visuel explicitement demandé ; "
+                    if required:
+                        raise RuntimeError(
+                            message
+                            + " — impossible de matérialiser ce visuel explicitement requis ; "
                             "la production est arrêtée afin d'éviter un PDF incomplet."
                         )
-                    )
+                    print(message + " — visuel recommandé ignoré.")
+                    continue
 
     else:
         # Backward-compatible path for old documents generated before
@@ -695,16 +724,35 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                 print(f"WARNING: legacy Wikimedia download failed: {exc}")
 
     data["_wikimedia_visual_status"] = statuses
+    required_planned = sum(
+        1
+        for _, section in major_sections
+        if isinstance(section.get("visuals"), list)
+        for raw in section.get("visuals", [])
+        if isinstance(raw, dict)
+        and (
+            str(raw.get("priority") or "").lower().strip() == "required"
+            or raw.get("required") is True
+            or str(raw.get("required")).strip().lower() in ("1", "true", "yes", "oui")
+        )
+    ) if explicit else 0
+    required_fetched = sum(
+        1
+        for status in statuses
+        if status.get("priority") == "required" and status.get("status") == "fetched"
+    ) if explicit else 0
+
     print(
         f"Wikimedia visual plan: mode={'explicit' if explicit else 'legacy'} "
         f"fetched={len(visuals)}"
         + (f"/{planned_explicit}" if explicit else "")
+        + (f" required={required_fetched}/{required_planned}" if explicit else "")
         + f" requested_statuses={len(statuses)}"
     )
-    if explicit and len(visuals) != planned_explicit:
+    if explicit and required_fetched != required_planned:
         raise RuntimeError(
-            f"Plan Wikimedia incomplet : {len(visuals)}/{planned_explicit} "
-            "visuels matérialisés avant LuaLaTeX."
+            f"Plan Wikimedia incomplet : visuels requis matérialisés "
+            f"{required_fetched}/{required_planned} avant LuaLaTeX."
         )
     return visuals
 
