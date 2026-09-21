@@ -1479,8 +1479,8 @@ def render(data):
         r"      \begin{minipage}[c]{\linewidth}",
         r"        {\sffamily\scriptsize\bfseries\color{auroredeep}VÉRIFICATION \& PUBLICATION}\par\smallskip",
         r"        {\sffamily\small\color{auroredeep}Veuillez scanner le QR code pour vérifier cette édition.\par}",
-        (r"        \\medskip\\par" + r"        {\\sffamily\\scriptsize\\color{aurorebase!80!black}Graphiques : GeoGebra®\\par}") if has_geogebra else "",
-        r"      \\end{minipage} &",
+        (r"        \medskip" + r"        {\sffamily\scriptsize\color{aurorebase!80!black}Graphiques : GeoGebra®\par}") if has_geogebra else "",
+        r"      \end{minipage} &",
     ]
     if document_id is not None:
         rights_lines.extend([
@@ -1489,7 +1489,7 @@ def render(data):
     else:
         rights_lines.append(r"      \rule{0pt}{2.30cm}")
     rights_lines.extend([
-        r"      \\\\",
+        r"      \\",
         r"    \end{tabularx}",
         r"  \end{tcolorbox}",
         r"  \medskip",
