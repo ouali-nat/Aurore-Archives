@@ -1382,8 +1382,6 @@ def render(data):
         r"\section*{Introduction}",
         r"\addcontentsline{toc}{section}{Introduction}",
         inline(data.get("introduction", "")),
-        r"\section*{Objectifs d'apprentissage}",
-        r"\addcontentsline{toc}{section}{Objectifs d'apprentissage}",
     ]
 
     learning_objectives = [
@@ -1392,6 +1390,8 @@ def render(data):
         if str(item).strip()
     ]
     if learning_objectives:
+        lines.append(r"\section*{À découvrir}")
+        lines.append(r"\addcontentsline{toc}{section}{À découvrir}")
         lines.append(r"\begin{itemize}")
         for item in learning_objectives:
             lines.append(r"\item " + inline(item))
@@ -1492,12 +1492,6 @@ def render(data):
     if document_id is not None:
         rights_lines.extend([
             r"    \medskip",
-            r"    \begin{minipage}[c]{0.67\linewidth}",
-            r"      {\sffamily\scriptsize\bfseries\color{auroredeep}Résolveur public Aurore}\par\smallskip",
-            r"      {\sffamily\small\href{" + document_share_url + r"}{\textcolor{auroredeep}{Vérifier la publication de ce document}}}\par",
-            r"      {\sffamily\scriptsize\color{gray}La vérification s'effectue depuis l'interface publique Aurore.}",
-            r"    \end{minipage}",
-            r"    \hfill",
             r"    \raisebox{0pt}[2.30cm][0pt]{\qrcode[height=2.12cm]{" + document_share_url + r"}}",
         ])
     rights_lines.extend([
