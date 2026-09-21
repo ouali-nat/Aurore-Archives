@@ -483,6 +483,12 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
         ):
             add_candidate("prokaryote eukaryote cell comparison")
             add_candidate("prokaryotic eukaryotic cell comparison")
+            # Stable Commons vocabulary: the NIH/Science Primer "Celltypes"
+            # illustration explicitly compares a eukaryotic cell and a
+            # prokaryotic cell. Keep it as a bounded semantic fallback rather
+            # than hard-coding a file URL.
+            add_candidate("celltypes")
+            add_candidate("cell types prokaryotic eukaryotic")
 
         tokens = re.findall(r"[A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9'’+\-]*", query)
         # Progressively remove trailing qualifiers while preserving the
