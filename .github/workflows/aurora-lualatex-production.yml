@@ -278,6 +278,7 @@ jobs:
           retention-days: 3
 
 # Production bridge: Supabase queue + GitHub Actions, one PDF at a time.
+# Manual wake trigger: 2026-09-21.
 # Renderer visual assets fix trigger: Wikimedia paths + thumbnail MIME. Validation trigger 2026-09-20.
 # Multiple pending runs are intentionally preserved with concurrency.queue=max.
 # Automatic wake-up after DeepSeek/Luna is handled by the Supabase INSERT trigger.
