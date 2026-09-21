@@ -470,6 +470,7 @@ jobs:
 # Renderer editorial validation wake: 2026-09-21 — run current renderer safely.
 
 # PDF title/QR editorial layout wake: 2026-09-21.
+# Final regression wake: QR vertical position + GeoGebra renderer v3.
 
 # Forced renderer wake: title/logo/QR correction + syntax smoke validation 2026-09-21.
 
