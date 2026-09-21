@@ -1272,7 +1272,7 @@ def render(data):
         r"\fancypagestyle{plain}{%",
         r"  \fancyhf{}%",
         r"  \renewcommand{\headrulewidth}{0.55pt}%",
-        r"  \fancyhead[L]{\IfFileExists{assets/aurore-logo.png}{\includegraphics[height=.60cm]{assets/aurore-logo.png}}{\textcolor{aurorebase}{\rule{.60cm}{.60cm}}}%",
+        r"  \fancyhead[L]{\IfFileExists{assets/aurore-logo.png}{\includegraphics[height=.60cm]{assets/aurore-logo.png}}{\textcolor{aurorebase}{\rule{.60cm}{.60cm}}}}%",
         r"  \fancyhead[R]{\textcolor{aurorebase!75!black}{\small\sffamily Section Archives}}%",
         r"  \fancyfoot[C]{\textcolor{gray}{\small Aurore — Section Archives \textbullet\; \thepage}}%",
         r"}",
