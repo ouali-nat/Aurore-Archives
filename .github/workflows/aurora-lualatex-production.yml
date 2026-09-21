@@ -305,6 +305,25 @@ jobs:
           test -s production/document.tex
           grep -q '\\documentclass' production/document.tex
 
+      - name: Persist visual QA
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        working-directory: infra/lualatex
+        run: |
+          DOCUMENT_ID="$(cat production/document-id)"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          qa_path=Path("production/document.visual-qa.json")
+          if not qa_path.is_file():
+              raise SystemExit("Visual QA sidecar missing")
+          qa=json.loads(qa_path.read_text(encoding="utf-8"))
+          body={"document_id":int(Path("production/document-id").read_text().strip()),"progress":38,"stage":"QA visuelle Wikimedia","metadata_patch":{"visual_qa":qa}}
+          Path("production/visual-qa-progress.json").write_text(json.dumps(body,ensure_ascii=False),encoding="utf-8")
+          print(json.dumps(qa,ensure_ascii=False))
+          PY
+          curl --fail --silent --show-error -X POST             -H "Content-Type: application/json"             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN"             --data-binary @production/visual-qa-progress.json             "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
+          echo "Visual QA persisted in Supabase."
+
       - name: Verify GeoGebra inclusion in LaTeX source
         if: hashFiles('infra/lualatex/production/document-id') != ''
         working-directory: infra/lualatex
