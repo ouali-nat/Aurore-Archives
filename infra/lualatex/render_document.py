@@ -323,11 +323,11 @@ def _wikimedia_license_ok(rawlic):
 
 
 def _fetch_wikimedia_visuals(data, assets_dir, profile):
-    """Fetch contextual, reusable Wikimedia illustrations for all profiles.
+    """Fetch Wikimedia visuals from an explicit editorial plan, with legacy fallback.
 
-    The engine assigns at most one illustration to a major section, with a
-    dynamic total based on document length. It never forces an image when no
-    relevant, openly licensed Commons result is found.
+    New documents use section.visuals[] written and validated by DeepSeek/Luna.
+    Older documents that do not carry that contract keep the previous automatic
+    retrieval path so existing production content is not broken.
     """
     import urllib.parse
     import urllib.request
@@ -336,122 +336,284 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
     if not isinstance(sections, list):
         return []
 
-    # Short documents stay light; longer courses can receive more visuals.
-    major_sections = [s for s in sections if isinstance(s, dict) and clean_text(s.get("title")).strip()]
-    section_count = len(major_sections)
-    if section_count == 0:
+    major_sections = [
+        (idx, s) for idx, s in enumerate(sections)
+        if isinstance(s, dict) and clean_text(s.get("title")).strip()
+    ]
+    if not major_sections:
         return []
-    max_visuals = min(8, max(3, section_count))
-    if section_count <= 3:
-        max_visuals = section_count
-    elif section_count <= 6:
-        max_visuals = min(6, section_count)
-    else:
-        max_visuals = min(8, section_count)
 
     assets_dir.mkdir(parents=True, exist_ok=True)
-    visuals, seen_pages, seen_urls = [], set(), set()
+    visuals = []
+    statuses = []
+    seen_pages, seen_urls = set(), set()
 
-    for section_index, section in enumerate(major_sections):
-        if len(visuals) >= max_visuals:
-            break
+    explicit = any(
+        isinstance(s.get("visuals"), list) and s.get("visuals")
+        for _, s in major_sections
+    )
+    max_total = 8
+    max_per_section = 3
 
-        queries = _visual_query_for_section(data, section, profile)
-        best = None
+    def qwords(value):
+        return [
+            w.lower() for w in re.findall(r"[a-zA-ZÀ-ÿ]{4,}", clean_text(value))
+            if w.lower() not in {
+                "diagram", "illustration", "photo", "image", "schema",
+                "educational", "scientific", "showing", "the", "with",
+                "from", "pour", "dans", "avec", "une", "des", "les",
+                "sur", "du", "d'une", "et"
+            }
+        ]
 
-        for query in queries:
-            try:
-                api = (
-                    "https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*"
-                    "&generator=search&gsrnamespace=6&gsrlimit=12&gsrsearch="
-                    + urllib.parse.quote(query)
-                    + "&prop=imageinfo&iiprop=url|size|mime|thumbmime|extmetadata"
-                    "&iilimit=1&iiurlwidth=1200&iiextmetadataversion=latest"
-                )
-                req = urllib.request.Request(api, headers={"User-Agent": "Aurore-Section-Archives/1.0"})
-                with urllib.request.urlopen(req, timeout=20) as resp:
-                    pages = list((json.loads(resp.read().decode("utf-8")).get("query") or {}).get("pages", {}).values())
+    def candidates_for_directive(directive, section):
+        query = clean_text(directive.get("query") or "").strip()
+        if not query:
+            return []
+        purpose = clean_text(directive.get("purpose") or "illustration").strip().lower()
+        candidates = [query]
+        if purpose in ("schema", "illustration", "experimental") and "diagram" not in query.lower():
+            candidates.append(query + " diagram")
+        if purpose in ("photo", "experimental") and "photo" not in query.lower():
+            candidates.append(query + " photo")
+        return list(dict.fromkeys(candidates))[:3]
 
-                for page in pages:
-                    page_title = str(page.get("title") or "")
-                    page_key = page_title.lower()
-                    if page_key in seen_pages:
-                        continue
+    def search_one(query, section, explicit_mode=True):
+        api = (
+            "https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*"
+            "&generator=search&gsrnamespace=6&gsrlimit=12&gsrsearch="
+            + urllib.parse.quote(query)
+            + "&prop=imageinfo&iiprop=url|size|mime|thumbmime|extmetadata"
+            "&iilimit=1&iiurlwidth=1200&iiextmetadataversion=latest"
+        )
+        req = urllib.request.Request(api, headers={"User-Agent": "Aurore-Section-Archives/1.0"})
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            pages = list((json.loads(resp.read().decode("utf-8")).get("query") or {}).get("pages", {}).values())
 
-                    ii = (page.get("imageinfo") or [{}])[0]
-                    meta = ii.get("extmetadata") or {}
-                    mime = str(ii.get("mime") or "").lower()
-                    thumb_mime = str(ii.get("thumbmime") or "").lower()
-                    url = str(ii.get("thumburl") or ii.get("url") or "")
-                    effective_mime = thumb_mime if thumb_mime in ("image/jpeg", "image/png") else mime
-                    rawlic = " ".join(
-                        str(meta.get(k, {}).get("value", "") if isinstance(meta.get(k), dict) else meta.get(k, ""))
-                        for k in ("LicenseShortName", "UsageTerms", "License")
+        wanted = set(qwords(query))
+        for page in pages:
+            page_title = str(page.get("title") or "")
+            page_key = page_title.lower()
+            if page_key in seen_pages:
+                continue
+
+            ii = (page.get("imageinfo") or [{}])[0]
+            meta = ii.get("extmetadata") or {}
+            mime = str(ii.get("mime") or "").lower()
+            thumb_mime = str(ii.get("thumbmime") or "").lower()
+            url = str(ii.get("thumburl") or ii.get("url") or "")
+            effective_mime = thumb_mime if thumb_mime in ("image/jpeg", "image/png") else mime
+            rawlic = " ".join(
+                str(meta.get(k, {}).get("value", "") if isinstance(meta.get(k), dict) else meta.get(k, ""))
+                for k in ("LicenseShortName", "UsageTerms", "License")
+            )
+            if effective_mime not in ("image/jpeg", "image/png"):
+                continue
+            if not url.startswith("https://upload.wikimedia.org/"):
+                continue
+            if url in seen_urls or not _wikimedia_license_ok(rawlic):
+                continue
+            if int(ii.get("width") or 0) < 500 or int(ii.get("height") or 0) < 300:
+                continue
+
+            haystack = " ".join([
+                page_title.lower(),
+                clean_text(meta.get("ImageDescription", {}).get("value", "") if isinstance(meta.get("ImageDescription"), dict) else ""),
+                clean_text(meta.get("Categories", {}).get("value", "") if isinstance(meta.get("Categories"), dict) else ""),
+            ]).lower()
+            if wanted:
+                overlap = sum(1 for word in wanted if word in haystack)
+                if overlap == 0:
+                    continue
+            elif not explicit_mode:
+                title_words = qwords(section.get("title"))
+                if title_words and sum(1 for w in title_words if w in haystack) == 0 and profile != "general":
+                    continue
+
+            return page, ii, meta, url, effective_mime
+
+        return None
+
+    if explicit:
+        for section_index, section in major_sections:
+            directives = section.get("visuals", [])
+            if not isinstance(directives, list):
+                continue
+            accepted_for_section = 0
+
+            for raw in directives:
+                if len(visuals) >= max_total or accepted_for_section >= max_per_section:
+                    break
+                if not isinstance(raw, dict):
+                    continue
+                if str(raw.get("type") or "wikimedia").lower().strip() != "wikimedia":
+                    continue
+
+                priority = str(raw.get("priority") or "").lower().strip()
+                required = bool(raw.get("required")) or priority == "required"
+                query_candidates = candidates_for_directive(raw, section)
+                if not query_candidates:
+                    status = {
+                        "section_index": section_index,
+                        "section_title": clean_text(section.get("title") or ""),
+                        "query": "",
+                        "priority": priority or "recommended",
+                        "status": "failed",
+                        "reason": "query_missing",
+                    }
+                    statuses.append(status)
+                    if required:
+                        raise RuntimeError(
+                            f"Visuel Wikimedia requis sans query : section {section_index + 1}"
+                        )
+                    print(f"Wikimedia visual skipped: section={section_index + 1} reason=query_missing")
+                    continue
+
+                best = None
+                last_error = None
+                for query in query_candidates:
+                    try:
+                        best = search_one(query, section, explicit_mode=True)
+                        if best:
+                            break
+                    except Exception as exc:
+                        last_error = str(exc)
+
+                if not best:
+                    statuses.append({
+                        "section_index": section_index,
+                        "section_title": clean_text(section.get("title") or ""),
+                        "query": query_candidates[0],
+                        "priority": priority or "recommended",
+                        "status": "failed",
+                        "reason": last_error or "no_relevant_open_image",
+                    })
+                    message = (
+                        f"Visuel Wikimedia manquant : section {section_index + 1} "
+                        f"query={query_candidates[0]!r} priority={priority or 'recommended'}"
                     )
-                    if effective_mime not in ("image/jpeg", "image/png"):
-                        continue
-                    if not url.startswith("https://upload.wikimedia.org/"):
-                        continue
-                    if url in seen_urls or not _wikimedia_license_ok(rawlic):
-                        continue
-                    if int(ii.get("width") or 0) < 500 or int(ii.get("height") or 0) < 300:
-                        continue
+                    if required:
+                        raise RuntimeError(message)
+                    print("WARNING: " + message)
+                    continue
 
-                    # A small relevance check keeps generic Commons hits from
-                    # being inserted merely because they matched a common word.
-                    haystack = " ".join([
-                        page_title.lower(),
-                        clean_text(meta.get("ImageDescription", {}).get("value", "") if isinstance(meta.get("ImageDescription"), dict) else ""),
-                        clean_text(meta.get("Categories", {}).get("value", "") if isinstance(meta.get("Categories"), dict) else ""),
-                    ])
-                    title_words = [w for w in re.findall(r"[a-zA-ZÀ-ÿ]{4,}", clean_text(section.get("title")).lower())]
-                    overlap = sum(1 for w in title_words if w in haystack)
-                    if title_words and overlap == 0 and profile not in ("general",):
-                        continue
+                page, ii, meta, url, effective_mime = best
+                try:
+                    req = urllib.request.Request(url, headers={"User-Agent": "Aurore-Section-Archives/1.0"})
+                    with urllib.request.urlopen(req, timeout=30) as resp:
+                        blob = resp.read()
+                    if not (10000 <= len(blob) <= 2500000):
+                        raise RuntimeError("downloaded image size outside production bounds")
 
-                    best = (page, ii, meta, url, effective_mime)
-                    break
-                if best:
-                    break
-            except Exception:
+                    ext = ".png" if effective_mime == "image/png" else ".jpg"
+                    local = assets_dir / f"wikimedia-{len(visuals)+1}{ext}"
+                    local.write_bytes(blob)
+
+                    def mv(k, default=""):
+                        v = meta.get(k, {})
+                        return str(v.get("value", default) if isinstance(v, dict) else v)
+
+                    title = str(page.get("title") or "").replace("File:", "", 1)
+                    caption = clean_text(raw.get("caption") or mv("ImageDescription", title))[:280]
+                    visuals.append({
+                        "section_index": section_index,
+                        "section_title": clean_text(section.get("title") or ""),
+                        "path": str(local.relative_to(assets_dir.parent)).replace("\\", "/"),
+                        "title": clean_text(title),
+                        "caption": caption,
+                        "author": clean_text(mv("Artist", "Auteur non renseigné"))[:180],
+                        "license": clean_text(mv("LicenseShortName", mv("UsageTerms", "Licence libre Commons")))[:120],
+                        "source_url": str(ii.get("descriptionurl") or "https://commons.wikimedia.org/wiki/" + urllib.parse.quote(str(page.get("title") or ""))),
+                    })
+                    seen_pages.add(str(page.get("title") or "").lower())
+                    seen_urls.add(url)
+                    accepted_for_section += 1
+                    statuses.append({
+                        "section_index": section_index,
+                        "section_title": clean_text(section.get("title") or ""),
+                        "query": query_candidates[0],
+                        "priority": priority or "recommended",
+                        "status": "fetched",
+                        "source_title": clean_text(title),
+                    })
+                    print(
+                        f"Wikimedia visual {len(visuals)}: section={section_index + 1} "
+                        f"priority={priority or 'recommended'} query={query_candidates[0]!r} title={title!r}"
+                    )
+                except Exception as exc:
+                    message = (
+                        f"Visuel Wikimedia download failed : section {section_index + 1} "
+                        f"query={query_candidates[0]!r} error={exc}"
+                    )
+                    statuses.append({
+                        "section_index": section_index,
+                        "section_title": clean_text(section.get("title") or ""),
+                        "query": query_candidates[0],
+                        "priority": priority or "recommended",
+                        "status": "failed",
+                        "reason": str(exc),
+                    })
+                    if required:
+                        raise RuntimeError(message) from exc
+                    print("WARNING: " + message)
+
+    else:
+        # Backward-compatible path for old documents generated before
+        # section.visuals[] existed. This path deliberately keeps the old
+        # relevance logic and the same 8-visual ceiling.
+        legacy_max = min(8, max(1, len(major_sections)))
+        for section_index, section in major_sections:
+            if len(visuals) >= legacy_max:
+                break
+            for query in _visual_query_for_section(data, section, profile):
+                try:
+                    best = search_one(query, section, explicit_mode=False)
+                    if best:
+                        break
+                except Exception as exc:
+                    print(f"WARNING: legacy Wikimedia search failed: {exc}")
+                    best = None
+            if not best:
                 continue
 
-        if not best:
-            continue
+            page, ii, meta, url, effective_mime = best
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "Aurore-Section-Archives/1.0"})
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    blob = resp.read()
+                if not (10000 <= len(blob) <= 2500000):
+                    continue
 
-        page, ii, meta, url, effective_mime = best
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "Aurore-Section-Archives/1.0"})
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                blob = resp.read()
-            if not (10000 <= len(blob) <= 2500000):
-                continue
+                ext = ".png" if effective_mime == "image/png" else ".jpg"
+                local = assets_dir / f"wikimedia-{len(visuals)+1}{ext}"
+                local.write_bytes(blob)
 
-            ext = ".png" if effective_mime == "image/png" else ".jpg"
-            local = assets_dir / f"wikimedia-{len(visuals)+1}{ext}"
-            local.write_bytes(blob)
+                def mv(k, default=""):
+                    v = meta.get(k, {})
+                    return str(v.get("value", default) if isinstance(v, dict) else v)
 
-            def mv(k, default=""):
-                v = meta.get(k, {})
-                return str(v.get("value", default) if isinstance(v, dict) else v)
+                title = str(page.get("title") or "").replace("File:", "", 1)
+                visuals.append({
+                    "section_index": section_index,
+                    "section_title": clean_text(section.get("title") or ""),
+                    "path": str(local.relative_to(assets_dir.parent)).replace("\\", "/"),
+                    "title": clean_text(title),
+                    "caption": clean_text(mv("ImageDescription", title))[:260],
+                    "author": clean_text(mv("Artist", "Auteur non renseigné"))[:180],
+                    "license": clean_text(mv("LicenseShortName", mv("UsageTerms", "Licence libre Commons")))[:120],
+                    "source_url": str(ii.get("descriptionurl") or "https://commons.wikimedia.org/wiki/" + urllib.parse.quote(str(page.get("title") or ""))),
+                })
+                seen_pages.add(str(page.get("title") or "").lower())
+                seen_urls.add(url)
+                print(f"Wikimedia legacy visual {len(visuals)}: section={section_index + 1} query={query!r} title={title!r}")
+            except Exception as exc:
+                print(f"WARNING: legacy Wikimedia download failed: {exc}")
 
-            title = str(page.get("title") or "").replace("File:", "", 1)
-            visuals.append({
-                "section_index": section_index,
-                "section_title": clean_text(section.get("title") or ""),
-                "path": str(local.relative_to(assets_dir.parent)).replace("\\", "/"),
-                "title": clean_text(title),
-                "caption": clean_text(mv("ImageDescription", title))[:260],
-                "author": clean_text(mv("Artist", "Auteur non renseigné"))[:180],
-                "license": clean_text(mv("LicenseShortName", mv("UsageTerms", "Licence libre Commons")))[:120],
-                "source_url": str(ii.get("descriptionurl") or "https://commons.wikimedia.org/wiki/" + urllib.parse.quote(str(page.get("title") or ""))),
-            })
-            seen_pages.add(str(page.get("title") or "").lower())
-            seen_urls.add(url)
-            print(f"Wikimedia visual {len(visuals)}: section={section_index + 1} query={queries[0]!r} title={title!r}")
-        except Exception:
-            continue
-
+    data["_wikimedia_visual_status"] = statuses
+    print(
+        f"Wikimedia visual plan: mode={'explicit' if explicit else 'legacy'} "
+        f"fetched={len(visuals)} requested_statuses={len(statuses)}"
+    )
     return visuals
 
 def render_visuals(visuals):
