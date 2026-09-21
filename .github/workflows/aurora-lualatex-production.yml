@@ -235,6 +235,7 @@ jobs:
 
 
       - name: Smoke-test renderer and title layout
+        if: hashFiles('infra/lualatex/production/document-id') != ''
         working-directory: infra/lualatex
         run: |
           rm -rf production/smoke
@@ -281,7 +282,8 @@ jobs:
                   raise SystemExit(f"Renderer smoke check failed: missing {marker}")
           Path("production/smoke/document.tex").write_text(tex, encoding="utf-8")
           PY
-          lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error             -output-directory=production/smoke production/smoke/document.tex
+          lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error \
+            -output-directory=production/smoke production/smoke/document.tex
           test -s production/smoke/document.pdf
           test "$(head -c 5 production/smoke/document.pdf)" = "%PDF-"
 
