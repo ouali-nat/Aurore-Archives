@@ -1688,7 +1688,41 @@ def main():
     # 2) array row breaks must remain doubled backslashes.
     _probe = r"$\\begin{array}{c|ccccc} x & -\\infty & & 0 & & +\\infty \\ \\hline f(x) & 0 & \\nearrow & 1 & \\nearrow & +\\infty \\end{array}$"
     _probe_out = inline(_probe)
-    if r"\textbackslash{}begin" in _probe_out:
+    if r"\\textbackslash{}begin" in _probe_out:
         raise SystemExit("inline() math guardrail failed: escaped math command")
-    if r"\begin{array}" not in _probe_out or r"\infty" not in _probe_out:
+    if r"\\begin{array}" not in _probe_out or r"\\infty" not in _probe_out:
         raise SystemExit("inline() math guardrail failed: array structure")
+
+    parser = argparse.ArgumentParser(description="Render an Aurore document JSON to LuaLaTeX source.")
+    parser.add_argument("input", nargs="?", default="fixtures/document-21.json")
+    parser.add_argument("-o", "--output", default=None)
+    args = parser.parse_args()
+
+    src = Path(args.input)
+    out = Path(args.output) if args.output else src.with_suffix(".tex")
+    data = json.loads(src.read_text(encoding="utf-8"))
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    if not _has_usable_content_json(data):
+        raise SystemExit("Structured content_json is missing or unusable")
+
+    profile = _editorial_profile(data)
+    geogebra_count = _fetch_geogebra_assets(data, out.parent)
+    print(f"GeoGebra assets fetched: {geogebra_count}")
+    data["_wikimedia_visuals"] = _fetch_wikimedia_visuals(
+        data, out.parent / "assets", profile
+    )
+    for visual in data["_wikimedia_visuals"]:
+        visual_file = out.parent / str(visual.get("path") or "")
+        if not visual_file.is_file() or visual_file.stat().st_size == 0:
+            raise SystemExit(f"Wikimedia asset missing or empty: {visual_file}")
+    print(
+        f"Wikimedia visuals fetched: {len(data['_wikimedia_visuals'])} "
+        f"(profile={profile})"
+    )
+    out.write_text(render(data), encoding="utf-8")
+    print(f"Generated {out}")
+
+
+if __name__ == "__main__":
+    main()
