@@ -195,8 +195,22 @@
     void cancelPdf(button);
   }, true);
 
+  let mutationObserver = null;
+
+  function observeProductionList() {
+    const root = document.getElementById('aurorePdfProdList');
+    if (!root || mutationObserver) return;
+    mutationObserver = new MutationObserver(function () {
+      // Content Factory peut reconstruire les cartes après chaque synchronisation.
+      // Réappliquer le bouton immédiatement évite le clignotement « Annuler ».
+      void refreshButtons();
+    });
+    mutationObserver.observe(root, { childList: true, subtree: true });
+  }
+
   function boot() {
     ensureStyles();
+    observeProductionList();
     refreshButtons();
     window.setInterval(refreshButtons, 2000);
   }
