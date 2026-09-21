@@ -427,16 +427,62 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
         purpose = clean_text(directive.get("purpose") or "illustration").strip().lower()
 
         # Commons searches are intentionally broad only after the requested
-        # query has had a chance to return an exact match. In practice,
-        # descriptive qualifiers such as "household products", "color chart"
-        # or "photo" can make MediaWiki's full-text search return zero files
-        # even when a valid Commons illustration exists for the notion.
+        # query has had a chance to return an exact match. Descriptive
+        # qualifiers such as "diagram", "photo" or editorial wording can
+        # prevent MediaWiki from reaching a very good equivalent file.
+        # We therefore keep the original request first, then add bounded
+        # semantic variants before progressively trimming the query.
         candidates = [query]
         lowered = query.lower()
+
+        def add_candidate(value):
+            value = re.sub(r"\s+", " ", str(value or "")).strip()
+            if value and value not in candidates:
+                candidates.append(value)
+
         if purpose in ("schema", "illustration", "experimental") and "diagram" not in lowered:
-            candidates.append(query + " diagram")
+            add_candidate(query + " diagram")
         if purpose in ("photo", "experimental") and "photo" not in lowered:
-            candidates.append(query + " photo")
+            add_candidate(query + " photo")
+
+        # Remove only generic presentation words. The actual notion remains
+        # intact, which makes this safe for regeneration of existing PDFs.
+        compact = re.sub(
+            r"\b(?:diagram|illustration|photo|image|schema)\b",
+            "",
+            query,
+            flags=re.IGNORECASE,
+        )
+        compact = re.sub(r"\s+", " ", compact).strip()
+        if compact and compact.lower() != query.lower():
+            add_candidate(compact)
+
+        # Turn "A vs B" / "A versus B" into the more Commons-friendly
+        # "A B comparison". This is deliberately semantic rather than tied
+        # to one exact filename, so a regeneration can legitimately choose
+        # a different but more relevant open visual.
+        comparison_source = compact or query
+        parts = re.split(r"\b(?:vs\.?|versus)\b", comparison_source, flags=re.IGNORECASE)
+        if len(parts) == 2:
+            left = parts[0].strip()
+            right = parts[1].strip()
+            if left and right:
+                add_candidate(f"{left} {right} comparison")
+                add_candidate(f"{left} {right} cells comparison")
+
+        # Normalize common biological adjective/noun forms when both concepts
+        # are present. This helps Commons reach files titled with
+        # "prokaryote/eukaryote" instead of "prokaryotic/eukaryotic".
+        morphology = comparison_source
+        morphology = re.sub(r"\bprokaryotic\b", "prokaryote", morphology, flags=re.IGNORECASE)
+        morphology = re.sub(r"\beukaryotic\b", "eukaryote", morphology, flags=re.IGNORECASE)
+        if morphology.lower() != comparison_source.lower():
+            add_candidate(morphology)
+        if re.search(r"\bprokaryote\b", morphology, flags=re.IGNORECASE) and re.search(
+            r"\beukaryote\b", morphology, flags=re.IGNORECASE
+        ):
+            add_candidate("prokaryote eukaryote cell comparison")
+            add_candidate("prokaryotic eukaryotic cell comparison")
 
         tokens = re.findall(r"[A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9'’+\-]*", query)
         # Progressively remove trailing qualifiers while preserving the
@@ -446,11 +492,11 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
         # "pH scale" when Commons does not index the full wording.
         if len(tokens) >= 3:
             for keep in range(len(tokens) - 1, 1, -1):
-                candidates.append(" ".join(tokens[:keep]))
+                add_candidate(" ".join(tokens[:keep]))
 
-        # Keep the search bounded, but retain enough progressively broader
-        # candidates to reach the two-word semantic core.
-        return list(dict.fromkeys(candidates))[:4]
+        # Keep the search bounded, but retain enough semantic fallbacks while
+        # avoiding an unbounded number of Wikimedia API calls per visual.
+        return candidates[:8]
 
     def search_one(query, section, explicit_mode=True):
         cache_key = query.strip().lower()
