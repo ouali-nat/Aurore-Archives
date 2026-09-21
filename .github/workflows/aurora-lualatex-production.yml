@@ -395,3 +395,5 @@ jobs:
 # production renderer source validation: escaped colophon text
 
 # Renderer editorial validation wake: 2026-09-21 — run current renderer safely.
+
+# PDF title/QR editorial layout wake: 2026-09-21.
