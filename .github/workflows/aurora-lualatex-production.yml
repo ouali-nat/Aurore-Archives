@@ -379,5 +379,6 @@ jobs:
 # Multiple pending runs are intentionally preserved with concurrency.queue=max.
 # Automatic wake-up after DeepSeek/Luna is handled by the Supabase INSERT trigger.
 # Wikimedia completeness validation trigger: 2026-09-21.
+# Renderer Wikimedia fallback hardening trigger: 2026-09-21.
 # Progress is persisted in aurora_generated_documents.metadata.
 # PDF identity/QR traceability and 45-color palette remain unchanged.
