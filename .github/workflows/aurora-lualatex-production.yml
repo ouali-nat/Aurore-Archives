@@ -398,4 +398,4 @@ jobs:
 
 # PDF title/QR editorial layout wake: 2026-09-21.
 
-# Forced renderer wake: 2026-09-21.
+# Forced renderer wake: 2026-09-21 title escaping fix.
