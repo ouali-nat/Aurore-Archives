@@ -158,6 +158,7 @@ def _arrow_marker(lines: list[str], marker_id: str, color: str, size: int = 10) 
         f'<marker id="{marker_id}" markerWidth="{size}" markerHeight="{size}" refX="{size - 1}" refY="{size / 2}" orient="auto" markerUnits="strokeWidth">',
         f'<path d="M0 0 L{size} {size / 2} L0 {size} Z" fill="{color}"/>',
         "</marker>",
+        "</defs>",
     ])
 
 def _label_with_box(lines: list[str], text: object, x: float, y: float, c: dict,
