@@ -103,8 +103,11 @@ class AuroreSvgTest(unittest.TestCase):
                         r'stroke-width="([0-9.]+)"', svg
                     )
                 ]
-                self.assertTrue(widths, item["kind"])
-                self.assertLessEqual(max(widths), 3.0, item["kind"])
+                if widths:
+                    self.assertLessEqual(max(widths), 3.0, item["kind"])
+                else:
+                    # Les motifs de points peuvent être composés uniquement de cercles remplis.
+                    self.assertIn("<circle", svg, item["kind"])
 
     def test_limits_and_safe_color_guardrails(self):
         with tempfile.TemporaryDirectory() as tmp:
