@@ -341,7 +341,18 @@ const renderGraphInBrowser = async (graph) => {
     } else if (instrument === "geometry3d") {
       commands.push(...geometryCommands(graph));
     } else {
-      const e=expr(graph?.expression); if (e) commands.push("f(x)="+e);
+      const raw = String(graph?.expression || "").trim();
+      const e = expr(raw);
+      if (e) {
+        // Conics from Content Factory are often implicit equations
+        // (for example x^2+y^2=4). GeoGebra must receive the relation
+        // itself, not an invalid f(x)=<implicit-equation> wrapper.
+        const isImplicitEquation =
+          e.indexOf("=") > 0 &&
+          e.indexOf("=") === e.lastIndexOf("=") &&
+          /[xy]/i.test(e);
+        commands.push(isImplicitEquation ? e : "f(x)=" + e);
+      }
     }
 
     if (instrument === "function2d" || instrument === "parametric2d") {
@@ -411,6 +422,7 @@ const renderGraphInBrowser = async (graph) => {
               const primary = commands.filter((c) =>
                 /(?:Curve|Sphere|Cylinder|Cone|Cube|Prism|Pyramid|Tetrahedron|Polygon|Line|Plane|Vector)\s*\(/i.test(c) ||
                 /^f\s*\(\s*x(?:\s*,\s*y)?\s*\)\s*=/.test(c) ||
+                /^[^=]+=[^=]+$/.test(c) ||
                 /^[A-Za-z][A-Za-z0-9_]*=\([^)]*\)$/.test(c)
               );
               if (!primary.length) {
