@@ -14,7 +14,7 @@ permissions:
 # GeoGebra renderer v3 regression validation uses existing generated documents only.
 concurrency:
   group: aurora-lualatex-production
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   render:
@@ -497,3 +497,4 @@ jobs:
 # Document 339 corrective generation wake: 2026-09-22.
 
 # Document 339 queue wake: status review + queued — 2026-09-22.
+# Keep the production run alive until PDF + GitHub artifact are completed; do not cancel active rendering.
