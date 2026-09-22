@@ -940,9 +940,27 @@ async function renderPdfPageByPageFromBrowser(id,accessToken,b){
   return {pages:paths.length,paths};
 }
 ensureCfPdfProductionStyles();
+function ensureLiveCancelButton(id,renderButton){
+  if(!renderButton)return null;
+  const host=renderButton.parentElement;
+  if(!host)return null;
+  let cancel=host.querySelector('[data-cf-cancel="'+CSS.escape(String(id))+'"]');
+  if(!cancel){
+    cancel=document.createElement('button');
+    cancel.type='button';
+    cancel.className='admin-btn danger cf-pdf-cancel-static';
+    cancel.dataset.cfCancel=String(id);
+    cancel.textContent='Annuler la génération';
+    cancel.title='Annuler cette génération PDF';
+    host.insertBefore(cancel,renderButton.nextSibling);
+  }
+  cancel.disabled=false;
+  cancel.textContent='Annuler la génération';
+  return cancel;
+}
 async function renderPdf(id,themeColor=null){
   const b=document.querySelector(`[data-cf-render="${id}"]`);
-  if(b){b.disabled=true;b.textContent=b.dataset.hasPdf==='1'?'Régénération LuaLaTeX…':'Génération LuaLaTeX…'}
+  if(b){b.disabled=true;b.textContent=b.dataset.hasPdf==='1'?'Régénération LuaLaTeX…':'Génération LuaLaTeX…';ensureLiveCancelButton(id,b)}
   try{
     const authClient=await assurerClientAuthGoogle();
     if(!authClient)throw new Error('Client Supabase indisponible.');
@@ -1046,7 +1064,14 @@ async function renderPdf(id,themeColor=null){
     setTimeout(()=>setProgress(0,'Prêt pour une nouvelle génération.'),1200);
     alert(graphCount?`PDF LuaLaTeX généré avec ${graphCount} graphique${graphCount>1?'s':''} GeoGebra.`:'PDF LuaLaTeX généré et enregistré.');
   }catch(e){
-    alert('Le PDF n’a pas pu être généré. '+(e.message||e))
+    const wasCancelled=window.__aurorePdfCancelRequested?.has(Number(id));
+    if(wasCancelled){
+      setProgress(100,'Génération annulée par l’administration.');
+      await charger();
+    }else{
+      alert('Le PDF n’a pas pu être généré. '+(e.message||e));
+      await charger();
+    }
   }finally{
     if(b){b.disabled=false;b.textContent=b.dataset.hasPdf==='1'?'Régénérer le PDF':'Générer le PDF'}
   }
@@ -1057,6 +1082,7 @@ cfAdminCardStyles.id='cf-admin-card-enhancements';
 cfAdminCardStyles.textContent=`.cf-admin-card-large{position:relative;padding:20px!important;border-radius:22px!important;border-top:4px solid var(--cf-document-theme,#C85C0D)!important;box-shadow:0 12px 30px rgba(0,0,0,.07)}.cf-admin-icon-large{width:58px!important;height:58px!important;border-radius:16px!important;font-size:.72rem!important;background:var(--cf-document-theme,#C85C0D)!important;color:#fff!important}.cf-admin-kicker{font-size:.65rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;opacity:.62;margin-bottom:4px}.cf-admin-meta-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:10px}.cf-admin-meta-grid span{padding:8px 10px;border:1px solid var(--bordure,rgba(0,0,0,.1));border-radius:11px;background:var(--fond,#fafafa)}.cf-admin-meta-grid strong{display:block;font-size:.61rem;opacity:.62;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}.cf-admin-section-label{margin-top:14px;font-size:.65rem;font-weight:900;text-transform:uppercase;letter-spacing:.06em;opacity:.62}.cf-admin-classification{margin-top:5px;padding:11px 12px;border-radius:13px;background:color-mix(in srgb,var(--cf-document-theme,#C85C0D) 7%,var(--fond,#fafafa));border:1px solid color-mix(in srgb,var(--cf-document-theme,#C85C0D) 18%,var(--bordure,rgba(0,0,0,.1)));line-height:1.55;font-size:.72rem}.cf-admin-theme-row{display:flex;align-items:center;gap:9px;margin-top:12px;padding:10px;border:1px solid var(--bordure,rgba(0,0,0,.1));border-radius:13px}.cf-admin-theme-row span:nth-child(2){flex:1}.cf-admin-theme-row small{display:block;opacity:.62;font-size:.62rem;margin-top:2px}.cf-admin-theme-dot{width:24px;height:24px;border-radius:8px;flex:0 0 24px;box-shadow:0 0 0 1px rgba(0,0,0,.16)}.cf-admin-generation-state{margin-top:10px;padding:10px 12px;border-radius:12px;background:rgba(180,120,0,.08);font-size:.7rem}.cf-admin-note{margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--fond,#fafafa);font-size:.7rem}.cf-admin-actions-stable{min-height:42px;align-items:center}.cf-admin-actions-stable .admin-btn{transition:none}.cf-pdf-cancel-static{min-width:155px}.cf-pdf-cancel-static:disabled{opacity:.8;cursor:wait}@media(max-width:620px){.cf-admin-card-large{padding:15px!important}.cf-admin-meta-grid{grid-template-columns:1fr}.cf-admin-theme-row{align-items:flex-start;flex-wrap:wrap}.cf-admin-theme-row .admin-btn{width:100%}.cf-admin-actions-stable{display:grid!important;grid-template-columns:1fr}.cf-admin-actions-stable .admin-btn,.cf-admin-actions-stable a{width:100%;justify-content:center}}`;
 document.head.appendChild(cfAdminCardStyles);
 async function cancelPdfGeneration(id){
+  window.__aurorePdfCancelRequested=window.__aurorePdfCancelRequested||new Set();
   const button=document.querySelector('[data-cf-cancel="'+CSS.escape(String(id))+'"]');
   if(!confirm('Annuler la génération PDF de ce document ?\\n\\nLa demande sera transmise à Aurore et la production sera marquée comme annulée.'))return;
   if(button){
@@ -1065,6 +1091,7 @@ async function cancelPdfGeneration(id){
     button.dataset.cancelState='requested';
   }
   try{
+    window.__aurorePdfCancelRequested.add(Number(id));
     await rpc('aurora_cancel_pdf_generation',{p_generated_document_id:Number(id)});
     await charger();
   }catch(e){
