@@ -496,5 +496,5 @@ jobs:
 # Manual corrective wake: 2026-09-21 11:48 UTC.
 # Document 339 corrective generation wake: 2026-09-22.
 
-# Document 339 queue wake: status review + queued — 2026-09-22.
+# Document 339 retry after upload metadata fix: created_by + queue reset — 2026-09-22.
 # Keep the production run alive until PDF + GitHub artifact are completed; do not cancel active rendering.
