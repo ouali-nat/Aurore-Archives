@@ -20,7 +20,7 @@
   // Le SDK Supabase est chargé en async pour que le navigateur puisse afficher
   // Aurore et traiter rapidement le retour Google. On attend brièvement son
   // chargement principal ; si le CDN reste bloqué, on bascule vers unpkg.
-  function chargerScriptSupabase(url, delaiMs = 7000) {
+  function chargerScriptSupabase(url, delaiMs = 5000) {
     return new Promise((resolve, reject) => {
       const s = document.createElement('script');
       let fini = false;
@@ -46,7 +46,7 @@
     });
   }
 
-  async function attendreSdkSupabasePrincipal(delaiMs = 4500) {
+  async function attendreSdkSupabasePrincipal(delaiMs = 2200) {
     if (window.supabase) return true;
     const debut = Date.now();
     while (!window.supabase && Date.now() - debut < delaiMs) {
@@ -78,3 +78,11 @@
     }
     return AURORE_SUPABASE_AUTH;
   }
+
+  // Préchauffage OAuth Google : le premier clic ne doit pas attendre le CDN.
+  // Le SDK est chargé avant ce bootstrap (defer), donc le cas nominal construit
+  // immédiatement le client PKCE. En cas de CDN indisponible, le secours démarre
+  // pendant le chargement de la page au lieu d'attendre le clic utilisateur.
+  assurerClientAuthGoogle().catch((e) => {
+    console.warn('[Google OAuth] Préparation anticipée indisponible :', e);
+  });
