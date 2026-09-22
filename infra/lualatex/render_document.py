@@ -1096,6 +1096,9 @@ def normalize_math(s):
     # % becomes a TeX comment and can swallow the closing delimiter/braces.
     s = re.sub(r"\\\\(?=[%&#_^~])", lambda _m: "\\", s)
 
+    # Restore protected array row breaks as real LaTeX double-backslash commands.
+    s = s.replace(marker, "\\\\")
+
     # before a horizontal rule ("\\ \\hline") instead of the required
     # array row break ("\\\\ \\hline"). Canonicalize that malformed
     # sequence only inside array environments; never alter ordinary math.
@@ -1772,6 +1775,8 @@ def main():
         raise SystemExit("inline() math guardrail failed: array structure")
     if r"\\ \hline" not in _probe_out and r"\\\hline" not in _probe_out:
         raise SystemExit("inline() math guardrail failed: array row break before hline")
+    if "__AURORA_ARRAY_ROWBREAK__" in _probe_out:
+        raise SystemExit("inline() math guardrail failed: protected array row break leaked")
 
     _probe_percent = inline(r"$25\\%$")
     if r"25\%" not in _probe_percent or r"25\\%" in _probe_percent:
