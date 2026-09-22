@@ -1411,37 +1411,59 @@
 <link rel="stylesheet" href="./css/aurore-admin-data-tools.css" media="print" onload="this.media='all'">
 <link href="./css/aurore-pdf-lab.css" rel="stylesheet" media="print" onload="this.media='all'"/>
 <link rel="stylesheet" href="./css/aurore-wikipedia.css" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="./css/aurore-pdf-menu.css">
 <div aria-labelledby="pdfViewerTitre" aria-modal="true" id="pdfViewerOverlay" role="dialog" style="display:none; position:fixed; inset:0; z-index:9998; background:rgba(9,8,18,0.96);">
 <div class="pdf-reader-shell">
 <div class="pdf-reader-topbar">
-<button aria-label="Retour à l’écran précédent" class="pdf-reader-back" id="pdfViewerFermer" type="button">Retour</button>
-<strong class="pdf-reader-title" id="pdfViewerTitre"></strong>
-<span class="pdf-reader-badge" id="pdfViewerLectureSeuleBadge" style="display:none;">Lecture seule</span>
-</div>
-<div aria-label="Outils du document" class="pdf-reader-toolbar" role="toolbar">
-<div class="pdf-toolbar-group">
-<button aria-label="Réduire le zoom" id="pdfViewerZoomOut" type="button">−</button>
+<div class="pdf-reader-menu-wrap" id="pdfViewerMenuWrap">
+<button aria-expanded="false" aria-haspopup="true" aria-label="Menu du document" class="pdf-reader-menu-toggle" id="pdfViewerMenuToggle" type="button">
+<svg aria-hidden="true" fill="currentColor" height="19" viewBox="0 0 24 24" width="19"><circle cx="12" cy="5" r="2.1"></circle><circle cx="12" cy="12" r="2.1"></circle><circle cx="12" cy="19" r="2.1"></circle></svg>
+</button>
+<div aria-hidden="true" class="pdf-reader-menu-panel" id="pdfViewerMenuPanel" role="menu">
+<div class="pdf-menu-section">
+<span class="pdf-menu-section-title">Zoom</span>
+<div class="pdf-menu-zoom-row">
+<button aria-label="Réduire le zoom" class="pdf-menu-zoom-btn" id="pdfViewerZoomOut" type="button">−</button>
 <span aria-live="polite" id="pdfViewerZoomLevel">100%</span>
-<button aria-label="Agrandir le zoom" id="pdfViewerZoomIn" type="button">+</button>
-<button aria-label="Ajuster à la largeur de l'écran" id="pdfViewerAjuster" title="Ajuster à la largeur" type="button">Largeur</button>
-<button aria-label="Passer en lecture horizontale" aria-pressed="false" id="pdfViewerModeLecture" title="Lecture verticale" type="button">Verticale</button>
+<button aria-label="Agrandir le zoom" class="pdf-menu-zoom-btn" id="pdfViewerZoomIn" type="button">+</button>
 </div>
-<div class="pdf-toolbar-group">
-<button aria-label="Télécharger le document" id="pdfViewerTelecharger" type="button">Télécharger</button>
-<button aria-label="Signaler ce document" id="pdfViewerSignaler" type="button">Signaler</button>
+<button aria-label="Ajuster à la largeur de l'écran" class="pdf-menu-item" id="pdfViewerAjuster" role="menuitem" type="button">
+<svg aria-hidden="true" fill="none" height="17" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" viewBox="0 0 24 24" width="17"><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"></path></svg>
+<span>Ajuster à la largeur</span>
+</button>
 </div>
-</div>
+<div class="pdf-menu-divider"></div>
+<button aria-label="Passer en lecture horizontale" aria-pressed="false" class="pdf-menu-item" id="pdfViewerModeLecture" role="menuitem" title="Lecture verticale" type="button">
+<svg aria-hidden="true" fill="none" height="17" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" viewBox="0 0 24 24" width="17"><rect height="18" rx="2" width="12" x="6" y="3"></rect><path d="M9 8h6"></path></svg>
+<span id="pdfViewerModeLectureLabel">Lecture verticale</span>
+</button>
+<div class="pdf-menu-divider"></div>
 <div class="pdf-recent-access" id="pdfRecentAccess">
-<button aria-expanded="false" class="pdf-recent-toggle" id="pdfRecentToggle" type="button">Documents récents</button>
+<button aria-expanded="false" class="pdf-menu-item pdf-recent-toggle" id="pdfRecentToggle" role="menuitem" type="button">
+<svg aria-hidden="true" fill="none" height="17" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" viewBox="0 0 24 24" width="17"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.2 2"></path></svg>
+<span>Documents récents</span>
+</button>
 <div aria-hidden="true" class="pdf-recent-panel" id="pdfRecentPanel">
 <div class="pdf-recent-panel-title">Documents précédemment ouverts</div>
 <div class="pdf-recent-list" id="pdfRecentList"><div class="pdf-recent-empty">Aucun document récent.</div></div>
 </div>
 </div>
+<div class="pdf-menu-divider"></div>
+<button aria-label="Télécharger le document" class="pdf-menu-item" id="pdfViewerTelecharger" role="menuitem" type="button">
+<svg aria-hidden="true" fill="none" height="17" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" viewBox="0 0 24 24" width="17"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"></path></svg>
+<span>Télécharger</span>
+</button>
+<button aria-label="Signaler ce document" class="pdf-menu-item" id="pdfViewerSignaler" role="menuitem" type="button">
+<svg aria-hidden="true" fill="none" height="17" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" viewBox="0 0 24 24" width="17"><path d="M12 9v4m0 4h.01M10.3 3.9L2.6 17.5a1.8 1.8 0 0 0 1.55 2.7h15.7a1.8 1.8 0 0 0 1.55 0 1.8 1.8 0 0 0 1.55 0L13.7 3.9a1.8 1.8 0 0 0-3.4 0z"></path></svg>
+<span>Signaler</span>
+</button>
+</div>
+</div>
+<button aria-label="Retour à l'écran précédent" class="pdf-reader-back" id="pdfViewerFermer" type="button">Retour</button>
+<strong class="pdf-reader-title" id="pdfViewerTitre"></strong>
+<span class="pdf-reader-badge" id="pdfViewerLectureSeuleBadge" style="display:none;">Lecture seule</span>
+</div>
 <div aria-hidden="true" aria-live="polite" class="pdf-load-progress-dock" id="pdfViewerLoadProgressDock">
-<div class="pdf-load-progress-head"><span id="pdfViewerProgressStage">Préparation en cours</span><strong id="pdfViewerProgressPercent">0%</strong></div>
-<div class="pdf-load-progress-speed" id="pdfViewerProgressSpeed">Vous pouvez commencer la lecture.</div>
-<div class="pdf-load-progress-track"><div class="pdf-load-progress-bar" id="pdfViewerProgressBar"></div></div>
 </div>
 <div class="pdf-reader-zone-wrap" id="pdfViewerZoneWrap">
 <div class="pdf-reader-zone" id="pdfViewerZone" tabindex="-1">
