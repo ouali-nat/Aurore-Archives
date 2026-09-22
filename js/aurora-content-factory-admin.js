@@ -1051,10 +1051,107 @@ async function renderPdf(id,themeColor=null){
     if(b){b.disabled=false;b.textContent=b.dataset.hasPdf==='1'?'Régénérer le PDF':'Générer le PDF'}
   }
 }
+
+const cfAdminCardStyles=document.createElement('style');
+cfAdminCardStyles.id='cf-admin-card-enhancements';
+cfAdminCardStyles.textContent=`.cf-admin-card-large{position:relative;padding:20px!important;border-radius:22px!important;border-top:4px solid var(--cf-document-theme,#C85C0D)!important;box-shadow:0 12px 30px rgba(0,0,0,.07)}.cf-admin-icon-large{width:58px!important;height:58px!important;border-radius:16px!important;font-size:.72rem!important;background:var(--cf-document-theme,#C85C0D)!important;color:#fff!important}.cf-admin-kicker{font-size:.65rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;opacity:.62;margin-bottom:4px}.cf-admin-meta-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:10px}.cf-admin-meta-grid span{padding:8px 10px;border:1px solid var(--bordure,rgba(0,0,0,.1));border-radius:11px;background:var(--fond,#fafafa)}.cf-admin-meta-grid strong{display:block;font-size:.61rem;opacity:.62;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}.cf-admin-section-label{margin-top:14px;font-size:.65rem;font-weight:900;text-transform:uppercase;letter-spacing:.06em;opacity:.62}.cf-admin-classification{margin-top:5px;padding:11px 12px;border-radius:13px;background:color-mix(in srgb,var(--cf-document-theme,#C85C0D) 7%,var(--fond,#fafafa));border:1px solid color-mix(in srgb,var(--cf-document-theme,#C85C0D) 18%,var(--bordure,rgba(0,0,0,.1)));line-height:1.55;font-size:.72rem}.cf-admin-theme-row{display:flex;align-items:center;gap:9px;margin-top:12px;padding:10px;border:1px solid var(--bordure,rgba(0,0,0,.1));border-radius:13px}.cf-admin-theme-row span:nth-child(2){flex:1}.cf-admin-theme-row small{display:block;opacity:.62;font-size:.62rem;margin-top:2px}.cf-admin-theme-dot{width:24px;height:24px;border-radius:8px;flex:0 0 24px;box-shadow:0 0 0 1px rgba(0,0,0,.16)}.cf-admin-generation-state{margin-top:10px;padding:10px 12px;border-radius:12px;background:rgba(180,120,0,.08);font-size:.7rem}.cf-admin-note{margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--fond,#fafafa);font-size:.7rem}.cf-admin-actions-stable{min-height:42px;align-items:center}.cf-admin-actions-stable .admin-btn{transition:none}.cf-pdf-cancel-static{min-width:155px}.cf-pdf-cancel-static:disabled{opacity:.8;cursor:wait}@media(max-width:620px){.cf-admin-card-large{padding:15px!important}.cf-admin-meta-grid{grid-template-columns:1fr}.cf-admin-theme-row{align-items:flex-start;flex-wrap:wrap}.cf-admin-theme-row .admin-btn{width:100%}.cf-admin-actions-stable{display:grid!important;grid-template-columns:1fr}.cf-admin-actions-stable .admin-btn,.cf-admin-actions-stable a{width:100%;justify-content:center}}`;
+document.head.appendChild(cfAdminCardStyles);
+async function cancelPdfGeneration(id){
+  const button=document.querySelector('[data-cf-cancel="'+CSS.escape(String(id))+'"]');
+  if(!confirm('Annuler la génération PDF de ce document ?\\n\\nLa demande sera transmise à Aurore et la production sera marquée comme annulée.'))return;
+  if(button){
+    button.disabled=true;
+    button.textContent='Annulation demandée…';
+    button.dataset.cancelState='requested';
+  }
+  try{
+    await rpc('aurora_cancel_pdf_generation',{p_generated_document_id:Number(id)});
+    await charger();
+  }catch(e){
+    if(button){button.disabled=false;button.textContent='Annuler la génération';button.dataset.cancelState='active'}
+    alert('Annulation impossible. '+(e.message||e))
+  }
+}
+async function changeDocumentTheme(id,currentColor){
+  const color=await chooseRegenerationTheme(currentColor);
+  if(!color)return;
+  try{
+    const token=await cfFreshToken();
+    await persistGeneratedDocumentTheme(id,color,token);
+    await charger();
+    alert('Couleur enregistrée. Pour appliquer cette couleur au PDF existant, utilise « Régénérer le PDF ».');
+  }catch(e){alert('Changement de couleur impossible. '+(e.message||e))}
+}
 async function validateDoc(id){const n=prompt('Note de validation (facultatif) :','');if(n===null)return;try{await rpc('aurora_validate_generated_document',{p_generated_document_id:Number(id),p_notes:n||null});await charger()}catch(e){alert('Validation impossible. '+(e.message||e))}}
 async function rejectDoc(id){const n=prompt('Motif du rejet / corrections demandées :','');if(n===null)return;if(!n.trim()){alert('Indique un motif pour rejeter le document.');return}try{await rpc('aurora_reject_generated_document',{p_generated_document_id:Number(id),p_notes:n.trim()});await charger()}catch(e){alert('Rejet impossible. '+(e.message||e))}}
 async function publishDoc(id){if(!confirm('Publier ce document dans la bibliothèque publique Aurore ?\n\nCette action crée un document publié à partir du PDF validé.'))return;const n=prompt('Note de publication (facultatif) :','');if(n===null)return;try{await rpc('aurora_publish_generated_document',{p_generated_document_id:Number(id),p_notes:n||null});await charger();alert('Document publié dans la bibliothèque Aurore.')}catch(e){alert('Publication impossible. '+(e.message||e))}}
-function apply(){const q=(document.getElementById('adminSearchContentFactory')?.value||'').trim().toLowerCase(),st=document.getElementById('adminFilterContentFactory')?.value||'',sort=document.getElementById('adminSortContentFactory')?.value||'recent';let a=rows.filter(x=>(!st||x.status===st)&&(!q||[x.title,x.subject,x.matiere,x.level,x.class_name,x.document_type,x.domaine,x.formation,x.specialite,x.annee,x.semestre,x.filiere,x.status].filter(Boolean).join(' ').toLowerCase().includes(q)));a.sort((x,y)=>{if(sort==='az')return String(x.title).localeCompare(String(y.title),'fr');if(sort==='za')return String(y.title).localeCompare(String(x.title),'fr');const ax=new Date(x.created_at).getTime(),ay=new Date(y.created_at).getTime();return sort==='oldest'?ax-ay:ay-ax});if(!a.length){list.innerHTML='<div class="admin-empty">Aucun document généré pour ces critères.</div>';return}list.innerHTML=a.map(x=>{const pdf=!!x.pdf_url,canRender=['generated','review','approved'].includes(x.status),canValidate=x.status==='review'&&pdf,canReject=['review','approved'].includes(x.status),canPublish=['approved','review'].includes(x.status)&&pdf;const theme=documentThemeColor(x.metadata)||x.theme_color||'#C85C0D';const classification=[x.domaine,x.formation,x.specialite,x.annee,x.semestre,x.filiere,x.matiere||x.subject,x.class_name,x.level].filter(Boolean).join(' · ');return `<article class="cf-admin-card"><div class="cf-admin-icon">PDF</div><div class="cf-admin-body"><div class="cf-admin-title">${esc(x.title)}</div><div class="cf-admin-meta">${esc(classification||[x.subject,x.level,x.class_name,x.document_type].filter(Boolean).join(' · '))}<br>Type : ${esc(x.document_type)} · Créé le ${esc(new Date(x.created_at).toLocaleString('fr-FR'))}${x.version?' · Version '+esc(x.version):''}</div><div class="cf-admin-meta" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${esc(theme)};box-shadow:0 0 0 1px rgba(0,0,0,.18)"></span><strong>Thème proposé :</strong> ${esc(theme)}</div><span class="cf-admin-status">${esc(sl(x.status))}${pdf?' · PDF prêt':''}</span>${x.validation_notes?`<div class="cf-admin-meta">${esc(x.validation_notes)}</div>`:''}<div class="cf-admin-actions">${pdf?`<a class="admin-btn ghost" href="${esc(x.pdf_url)}" target="_blank" rel="noopener">Ouvrir le PDF</a>`:''}${canRender?`<button type="button" class="admin-btn primary" data-cf-render="${esc(x.id)}" data-has-pdf="${pdf?'1':'0'}" data-theme-color="${esc(theme)}">${pdf?'Régénérer le PDF':'Valider et générer le PDF'}</button>`:''}${canValidate?`<button type="button" class="admin-btn valider" data-cf-validate="${esc(x.id)}">Valider le PDF</button>`:''}${canReject?`<button type="button" class="admin-btn refuser" data-cf-reject="${esc(x.id)}">Rejeter</button>`:''}${canPublish?`<button type="button" class="admin-btn primary" data-cf-publish="${esc(x.id)}">Publier</button>`:''}${x.published_document_id?`<button type="button" class="admin-btn ghost" disabled>Déjà publié #${esc(x.published_document_id)}</button>`:''}</div>${x.error_message?`<div class="cf-admin-error">${esc(x.error_message)}</div>`:''}</div></article>`}).join('')}
+function apply(){
+  const q=(document.getElementById('adminSearchContentFactory')?.value||'').trim().toLowerCase(),
+        st=document.getElementById('adminFilterContentFactory')?.value||'',
+        sort=document.getElementById('adminSortContentFactory')?.value||'recent';
+  let a=rows.filter(x=>(!st||x.status===st)&&(!q||[x.title,x.subject,x.matiere,x.level,x.class_name,x.document_type,x.domaine,x.formation,x.specialite,x.annee,x.semestre,x.filiere,x.status].filter(Boolean).join(' ').toLowerCase().includes(q)));
+  a.sort((x,y)=>{
+    if(sort==='az')return String(x.title).localeCompare(String(y.title),'fr');
+    if(sort==='za')return String(y.title).localeCompare(String(x.title),'fr');
+    const ax=new Date(x.created_at).getTime(),ay=new Date(y.created_at).getTime();
+    return sort==='oldest'?ax-ay:ay-ax
+  });
+  if(!a.length){list.innerHTML='<div class="admin-empty">Aucun document généré pour ces critères.</div>';return}
+  list.innerHTML=a.map(x=>{
+    const m=x.metadata&&typeof x.metadata==='object'?x.metadata:{};
+    const pdf=!!x.pdf_url;
+    const active=['queued','processing'].includes(m.lualatex_status);
+    const cancelRequested=m.lualatex_cancel_requested===true;
+    const canRender=['generated','review','approved','failed'].includes(x.status)&&!active;
+    const canValidate=x.status==='review'&&pdf&&!active;
+    const canReject=['review','approved'].includes(x.status)&&!active;
+    const canPublish=['approved','review'].includes(x.status)&&pdf&&!active;
+    const theme=documentThemeColor(m)||x.theme_color||'#C85C0D';
+    const classification=[
+      x.domaine,x.formation,x.specialite,x.annee,x.semestre,x.filiere,
+      x.matiere||x.subject,x.class_name,x.level
+    ].filter(Boolean).join(' · ');
+    const stage=m.lualatex_stage||m.lualatex_status||'';
+    const origin=m.origin||m.source||m.producer||'';
+    const actionBusy=active||cancelRequested;
+    return `<article class="cf-admin-card cf-admin-card-large" data-generated-document-id="${esc(x.id)}" style="--cf-document-theme:${esc(theme)}">
+      <div class="cf-admin-icon cf-admin-icon-large">PDF</div>
+      <div class="cf-admin-body">
+        <div class="cf-admin-kicker">Document IA · #${esc(x.id)}</div>
+        <div class="cf-admin-title">${esc(x.title||'Sans titre')}</div>
+        <div class="cf-admin-meta cf-admin-meta-grid">
+          <span><strong>Statut</strong> ${esc(sl(x.status))}${pdf?' · PDF prêt':''}</span>
+          ${x.version?'<span><strong>Version</strong> '+esc(x.version)+'</span>':''}
+          ${x.document_type?'<span><strong>Type</strong> '+esc(x.document_type)+'</span>':''}
+          ${origin?'<span><strong>Origine</strong> '+esc(origin)+'</span>':''}
+          <span><strong>Créé</strong> ${esc(new Date(x.created_at).toLocaleString('fr-FR'))}</span>
+          ${x.updated_at?'<span><strong>Modifié</strong> '+esc(new Date(x.updated_at).toLocaleString('fr-FR'))+'</span>':''}
+        </div>
+        <div class="cf-admin-section-label">Classement enregistré par l’IA</div>
+        <div class="cf-admin-classification">${esc(classification||'Aucune classification détaillée enregistrée.')}</div>
+        <div class="cf-admin-theme-row">
+          <span class="cf-admin-theme-dot" style="background:${esc(theme)}"></span>
+          <span><strong>Couleur du document</strong><small>${esc(theme)}</small></span>
+          <button type="button" class="admin-btn ghost cf-change-theme" data-cf-theme="${esc(x.id)}" data-theme-color="${esc(theme)}" ${actionBusy?'disabled':''}>Changer la couleur</button>
+        </div>
+        ${stage?'<div class="cf-admin-generation-state"><strong>Production PDF :</strong> '+esc(stage)+'</div>':''}
+        ${x.validation_notes?'<div class="cf-admin-note"><strong>Note administrative :</strong> '+esc(x.validation_notes)+'</div>':''}
+        ${m.lualatex_last_error?'<div class="cf-admin-error">'+esc(m.lualatex_last_error)+'</div>':''}
+        <div class="cf-admin-actions cf-admin-actions-stable">
+          ${pdf?'<a class="admin-btn ghost" href="'+esc(x.pdf_url)+'" target="_blank" rel="noopener">Ouvrir le PDF</a>':''}
+          ${active||cancelRequested
+            ?'<button type="button" class="admin-btn danger cf-pdf-cancel-static" data-cf-cancel="'+esc(x.id)+'" data-cancel-state="'+(cancelRequested?'requested':'active')+'">'+(cancelRequested?'Annulation demandée…':'Annuler la génération')+'</button>'
+            :''}
+          ${canRender?'<button type="button" class="admin-btn primary" data-cf-render="'+esc(x.id)+'" data-has-pdf="'+(pdf?'1':'0')+'" data-theme-color="'+esc(theme)+'">'+(pdf?'Régénérer le PDF':'Générer le PDF')+'</button>':''}
+          ${canValidate?'<button type="button" class="admin-btn valider" data-cf-validate="'+esc(x.id)+'">Valider le PDF</button>':''}
+          ${canReject?'<button type="button" class="admin-btn refuser" data-cf-reject="'+esc(x.id)+'">Rejeter</button>':''}
+          ${canPublish?'<button type="button" class="admin-btn primary" data-cf-publish="'+esc(x.id)+'">Publier</button>':''}
+          ${x.published_document_id?'<button type="button" class="admin-btn ghost" disabled>Déjà publié #'+esc(x.published_document_id)+'</button>':''}
+        </div>
+      </div>
+    </article>`
+  }).join('')
+}
 async function surveillerRenduArrierePlan(id,accessToken,b){
   const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   for(let i=0;i<180;i++){
@@ -1103,8 +1200,10 @@ document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurre
   // rejet et publication. Capture phase pour neutraliser les anciens routeurs
   // concurrents et garantir le même comportement dans toutes les cartes.
   document.addEventListener('click',e=>{
-    const button=e.target?.closest?.('[data-cf-render],[data-cf-validate],[data-cf-reject],[data-cf-publish]');
+    const button=e.target?.closest?.('[data-cf-render],[data-cf-validate],[data-cf-reject],[data-cf-publish],[data-cf-cancel],[data-cf-theme]');
     if(!button)return;
+    if(button.hasAttribute('data-cf-cancel')){e.preventDefault();e.stopImmediatePropagation();void cancelPdfGeneration(Number(button.dataset.cfCancel));return;}
+    if(button.hasAttribute('data-cf-theme')){e.preventDefault();e.stopImmediatePropagation();void changeDocumentTheme(Number(button.dataset.cfTheme),button.dataset.themeColor||'#C85C0D');return;}
     const action=button.hasAttribute('data-cf-render')?'render':button.hasAttribute('data-cf-validate')?'validate':button.hasAttribute('data-cf-reject')?'reject':'publish';
     const id=Number(button.dataset?.['cf'+action.charAt(0).toUpperCase()+action.slice(1)]||0);
     if(!id)return;
