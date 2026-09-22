@@ -34,6 +34,9 @@ jobs:
         working-directory: infra/lualatex
         run: python3 -m py_compile render_document.py
 
+      - name: Validate GeoGebra renderer JavaScript syntax
+        run: node --check infra/geogebra/render_missing_graphs.mjs
+
       - name: Claim next generated document
         run: |
           mkdir -p infra/lualatex/production
@@ -480,11 +483,12 @@ jobs:
           PY
 
       - name: Upload rendered PDF artifact
-        if: hashFiles('infra/lualatex/production/document-id') != ''
+        if: always() && hashFiles('infra/lualatex/production/document-id') != '' && hashFiles('infra/lualatex/production/document.pdf') != ''
         uses: actions/upload-artifact@v4
         with:
           name: aurora-lualatex-production-${{ hashFiles('infra/lualatex/production/document-id') }}
           path: infra/lualatex/production/document.pdf
+          if-no-files-found: error
           retention-days: 3
 
 # Production bridge: Supabase queue + GitHub Actions, one PDF at a time.
@@ -524,3 +528,5 @@ jobs:
 # Document 339 requeued for actual production PDF + artifact: 2026-09-22.
 
 # FORCED PRODUCTION WAKE: document 339 requeued and ready — 2026-09-22.
+
+# Implicit conic GeoGebra fix + non-blocking Wikimedia QA + artifact resilience — 2026-09-22.
