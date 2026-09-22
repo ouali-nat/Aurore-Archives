@@ -61,7 +61,7 @@ SITE_THEME_PALETTE = {
     "lagune":    {"primary": "0D9488", "secondary": "99F6E4", "strong": "0F5257"},
 }
 
-# Production layout hardening test trigger: 2026-09-19.
+# Production layout hardening test trigger: 2026-09-19.\n# Exercise JSON compatibility: accept question/statement/enonce and inline corrections.
 
 
 def _document_identity(data):
@@ -1762,12 +1762,26 @@ def render(data):
         for ex in sec.get("exercises", []):
             exercise_number += 1
             lines.append(r"\Needspace{5\baselineskip}")
-            # Exercise documents always use the explicit Exercice label.
-            # Other document types keep their existing pedagogical labels.
+            # Accept both the canonical editorial schema (question + top-level
+            # corrections) and the exercise-pipeline schema (statement +
+            # inline correction). This keeps older generated exercise JSON
+            # renderable instead of producing empty exercise boxes.
+            question = (
+                ex.get("question")
+                or ex.get("statement")
+                or ex.get("enonce")
+                or ex.get("content")
+                or ""
+            )
+            inline_correction = (
+                ex.get("solution")
+                or ex.get("correction")
+                or ""
+            )
             if is_exercise_document:
-                lines.append(r"\AuroreExerciseBlock{" + str(exercise_number) + r"}{" + inline(ex.get("question", "")) + r"}")
+                lines.append(r"\AuroreExerciseBlock{" + str(exercise_number) + r"}{" + inline(question) + r"}")
             else:
-                lines.append((r"\AuroreActivityBlock{" if profile == "biologie" else r"\AuroreExerciseBlock{") + str(exercise_number) + r"}{" + inline(ex.get("question", "")) + r"}")
+                lines.append((r"\AuroreActivityBlock{" if profile == "biologie" else r"\AuroreExerciseBlock{") + str(exercise_number) + r"}{" + inline(question) + r"}")
             if ex.get("hint"):
                 hint_label = "Piste de réflexion" if profile == "biologie" else "Indication"
                 lines.append(r"\AuroreLabeledBlock{" + hint_label + r"}{" + inline(ex["hint"]) + r"}")
@@ -1775,12 +1789,19 @@ def render(data):
                 lines.append(display_formula(ex["formula"]))
             correction = corrections_by_number.get(exercise_number)
             if correction is not None:
+                solution = correction.get("solution") or correction.get("correction") or correction.get("details") or ""
                 lines.append(r"\Needspace{5\baselineskip}")
                 lines.append(
                     r"\AuroreCorrectionBlock{" + str(correction.get("exercise_number", exercise_number)) +
-                    r"}{" + inline(correction.get("solution", "")) + r"}"
+                    r"}{" + inline(solution) + r"}"
                 )
                 used_correction_numbers.add(exercise_number)
+            elif inline_correction:
+                lines.append(r"\Needspace{5\baselineskip}")
+                lines.append(
+                    r"\AuroreCorrectionBlock{" + str(exercise_number) +
+                    r"}{" + inline(inline_correction) + r"}"
+                )
 
     unmatched = [
         c for c in data.get("corrections", [])
