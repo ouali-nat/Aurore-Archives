@@ -88,7 +88,7 @@ function normalizeVisualPlan(v:any){
   return {type:"wikimedia",purpose:purposes.has(purposeRaw)?purposeRaw:"illustration",query:String(x.query||"").trim().slice(0,240),required:priority==="required",priority,caption:String(x.caption||"").trim().slice(0,280)};
 }
 
-function aiSelection(j:any){return ["llama"];}
+function aiSelection(j:any){return ["gemini","llama"];}
 function aiMode(j:any){const t=String(j?.document_type||"").toLowerCase();if(/qcm|quiz|questionnaire/.test(t))return "qcm";if(/exercice|entrainement/.test(t))return "exercices";if(/devoir|evaluation|controle|examen|epreuve/.test(t))return "evaluation";return "course";}
 const GEMINI_GRAPH={instrument:{type:"STRING"},title:{type:"STRING"},expression:{type:"STRING"},x_expression:{type:"STRING"},y_expression:{type:"STRING"},z_expression:{type:"STRING"},parameter:{type:"STRING"},t_min:{type:"NUMBER"},t_max:{type:"NUMBER"},x_min:{type:"NUMBER"},x_max:{type:"NUMBER"},y_min:{type:"NUMBER"},y_max:{type:"NUMBER"},z_min:{type:"NUMBER"},z_max:{type:"NUMBER"}};
 const GEMINI_VISUAL={type:{type:"STRING"},purpose:{type:"STRING"},query:{type:"STRING"},required:{type:"BOOLEAN"},priority:{type:"STRING"},caption:{type:"STRING"}};
