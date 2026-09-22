@@ -229,7 +229,7 @@ jobs:
           curl --fail --silent --show-error -X POST \
             -H "Content-Type: application/json" \
             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
-            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":15,\"stage\":\"Contenu et ressources récupérés\"}" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":22,\"stage\":\"Contenu et ressources récupérés\"}" \
             "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
 
       - name: Ensure LuaLaTeX and Aurore fonts
@@ -323,7 +323,7 @@ jobs:
           curl --fail --silent --show-error -X POST \
             -H "Content-Type: application/json" \
             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
-            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":25,\"stage\":\"Moteur LuaLaTeX et ressources prêts\"}" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":55,\"stage\":\"Moteur LuaLaTeX et ressources prêts\"}" \
             "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
 
       - name: Fetch official Aurore site logo (non-blocking fallback)
@@ -362,7 +362,7 @@ jobs:
           if not qa_path.is_file():
               raise SystemExit("Visual QA sidecar missing")
           qa=json.loads(qa_path.read_text(encoding="utf-8"))
-          body={"document_id":int(Path("production/document-id").read_text().strip()),"progress":38,"stage":"QA visuelle Wikimedia","metadata_patch":{"visual_qa":qa}}
+          body={"document_id":int(Path("production/document-id").read_text().strip()),"progress":40,"stage":"QA visuelle Wikimedia","metadata_patch":{"visual_qa":qa}}
           Path("production/visual-qa-progress.json").write_text(json.dumps(body,ensure_ascii=False),encoding="utf-8")
           print(json.dumps(qa,ensure_ascii=False))
           PY
@@ -402,7 +402,7 @@ jobs:
           curl --fail --silent --show-error -X POST \
             -H "Content-Type: application/json" \
             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
-            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":35,\"stage\":\"Source LaTeX générée\"}" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":48,\"stage\":\"Source LaTeX générée\"}" \
             "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
 
       - name: Compile PDF — first pass
@@ -420,7 +420,7 @@ jobs:
             -H "Content-Type: application/json" \
             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
             -H "x-aurore-document-id: $DOCUMENT_ID" \
-            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":60,\"stage\":\"Compilation PDF — première passe terminée\"}" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":68,\"stage\":\"Compilation PDF — première passe terminée\"}" \
             "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
 
       - name: Compile PDF — final pass
@@ -446,7 +446,7 @@ jobs:
           curl --fail --silent --show-error -X POST \
             -H "Content-Type: application/json" \
             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
-            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":82,\"stage\":\"PDF compilé — vérification terminée\"}" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":86,\"stage\":\"PDF compilé — vérification terminée\"}" \
             "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
 
       - name: Upload PDF and commit database URL
