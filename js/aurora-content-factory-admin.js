@@ -1571,16 +1571,16 @@ async function load(force){
   loading=true;
   const thisLoad=++loadGeneration;
   try{
-    const [generatedReq,jobsReq]=await Promise.all([
-      adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?select=id,job_id,created_at,updated_at,created_by,title,subject,matiere,level,class_name,document_type,domaine,formation,specialite,annee,semestre,filiere,theme_color,source_format,pdf_path,pdf_url,version,status,validation_notes,published_document_id,metadata,pdf_diagnostic&order=created_at.desc&limit=2000',{cache:'no-store'}),
-      adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?select=id,created_at,updated_at,status,title,subject,level,class_name,document_type,generated_document_id,error_message&status=in.(draft,queued,processing)&order=created_at.desc&limit=500',{cache:'no-store'})
-    ]);
+    const generatedReq=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?select=id,job_id,created_at,updated_at,created_by,title,subject,matiere,level,class_name,document_type,domaine,formation,specialite,annee,semestre,filiere,theme_color,source_format,pdf_path,pdf_url,version,status,validation_notes,published_document_id,metadata,pdf_diagnostic&order=created_at.desc&limit=2000',{cache:'no-store'});
     const gt=await generatedReq.text();
     if(!generatedReq.ok)throw new Error(gt||('HTTP '+generatedReq.status));
     const generated=gt?JSON.parse(gt):[];
-    const jt=await jobsReq.text();
-    if(!jobsReq.ok)throw new Error(jt||('HTTP '+jobsReq.status));
-    const jobs=jt?JSON.parse(jt):[];
+    let jobs=[];
+    try{
+      const jobsReq=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?select=id,created_at,updated_at,status,title,subject,level,class_name,document_type,generated_document_id,error_message&status=in.(draft,queued,processing)&order=created_at.desc&limit=500',{cache:'no-store'});
+      const jt=await jobsReq.text();
+      if(jobsReq.ok)jobs=jt?JSON.parse(jt):[];
+    }catch(_){jobs=[];}
 
     let next=Array.isArray(generated)?generated:[];
     const generatedJobIds=new Set(next.map(x=>String(x.job_id||'')).filter(Boolean));
