@@ -3,6 +3,7 @@ import argparse
 import json
 import re
 from pathlib import Path
+from aurore_svg import render_graphics
 
 AURORE_SITE_URL = "https://aurore-section-archivescom.vercel.app/"
 DEFAULT_THEME_COLOR = "6D28D9"
@@ -1346,6 +1347,34 @@ def render_content(items):
     return lines
 
 
+def render_aurore_graphics(graphics, assets_dir, theme):
+    """Materialize deterministic Aurore SVG graphics and expose PDF companions."""
+    generated = render_graphics(graphics, assets_dir, theme=theme)
+    lines = []
+    import subprocess
+    for item in generated:
+        svg_path = Path(item["svg_path"])
+        pdf_path = svg_path.with_suffix(".pdf")
+        subprocess.run(
+            ["rsvg-convert", "-f", "pdf", "-o", str(pdf_path), str(svg_path)],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        rel = str(pdf_path.relative_to(Path(assets_dir).parent)).replace("\\\\", "/")
+        safe = rel.replace("#", "\\\\#").replace("%", "\\\\%")
+        lines.extend([
+            r"\\begin{tcolorbox}[enhanced,breakable,colback=white,colframe=aurorebase!32!white,arc=11pt,boxrule=.45pt,left=8pt,right=8pt,top=8pt,bottom=8pt]",
+            r"\\centering",
+            r"\\includegraphics[width=.92\\linewidth,keepaspectratio]{" + safe + r"}",
+            r"\\par\\smallskip{\\sffamily\\small\\color{gray} " + tex_text(item.get("title") or item.get("kind") or "Graphisme Aurore") + r"}",
+            r"\\end{tcolorbox}",
+            "",
+        ])
+    return lines
+
+
 def render_graphs(graphs, allow=True):
     if not allow:
         return []
@@ -1678,6 +1707,14 @@ def render(data):
         # Do not gate them by editorial profile here: the renderer must render
         # every valid GeoGebra instrument that has a materialized PNG.
         lines.extend(render_graphs(sec.get("graphs", []), allow=True))
+        # Aurore SVG graphics are independent of GeoGebra/Wikimedia.
+        section_graphics = sec.get("graphics", [])
+        if section_graphics:
+            lines.extend(render_aurore_graphics(section_graphics, Path("assets") / "aurore", {
+                "primary": "#" + theme_primary,
+                "secondary": "#" + theme_secondary,
+                "strong": "#" + theme,
+            }))
         section_visuals = [
             v for v in (data.get("_wikimedia_visuals", []) or [])
             if int(v.get("section_index", -1)) == _idx
