@@ -1733,10 +1733,10 @@ window.addEventListener('popstate',()=>{
   else{
     adminHistoryActive=false;
     window.__auroreAdminPdfHistoryActive=false;
-    // La page Aurore est l'entrée précédente réelle : recharger sans le
-    // fragment admin ferme proprement l'espace administratif et restaure
-    // « Aurore — Section Archives » au lieu d'afficher son centre admin.
-    try{location.replace(location.pathname+location.search);}catch(_){goHome(false);}
+    // Le fragment admin est une entrée interne du Content Factory. Le Retour
+    // Android doit donc revenir au centre Content Factory précédent, sans
+    // recharger toute l'application ni retomber sur l'accueil Aurore.
+    goHome(false);
   }
 });
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
