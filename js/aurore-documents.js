@@ -1010,10 +1010,13 @@
     // Les sections scolaires utilisent elles aussi la couverture de première page.
     COUVERTURES_PREMIERE_PAGE_ACTIVES = true;
     etat.matiere = matiere;
+
     const niveauLabel = (etat.classe?.dbNiveaux?.[0]) || (etat.feuilleArbre?.dbNiveaux?.[0]) || (etat.sousNiveau?.dbNiveaux?.[0]) || '';
+    const serieNom = etat.serieChoisie?.nom || '';
+    const contexteNom = etat.classe?.nom || etat.feuilleArbre?.nom || serieNom || etat.sousNiveau?.nom || niveauLabel;
     const serieLabel = etat.filiere ? ' — Série ' + etat.filiere : '';
     document.getElementById('docsTitle').textContent =
-      `${etat.categorie.nom} — ${etat.serieChoisie?.nom || etat.feuilleArbre?.nom || etat.sousNiveau?.nom || niveauLabel}${serieLabel} — ${matiere.nom}`;
+      `${etat.categorie.nom} — ${contexteNom}${serieLabel} — ${matiere.nom}`;
     majFilAriane();
     document.querySelector('#screen-docs .back-btn').setAttribute('data-back', 'matieres');
     afficherEcran('screen-docs');
@@ -1021,9 +1024,21 @@
     const content = document.getElementById('docsContent');
     content.innerHTML = '<p style="color:var(--gris); font-size:0.9rem;">Chargement des documents…</p>';
 
-    let query = `Niveau=eq.${encodeURIComponent(niveauLabel)}&${encodeURIComponent('Catégorie')}=eq.${encodeURIComponent(etat.categorie.nom)}&${encodeURIComponent('Matière')}=eq.${encodeURIComponent(matiere.nom)}&Publie=eq.true&order=id.desc`;
-    if (etat.filiere) query += `&Filiere=eq.${encodeURIComponent(etat.filiere)}`;
-    if (etat.division) query += `&Classe=eq.${encodeURIComponent(etat.division)}`;
+    // Une série peut momentanément être sélectionnée sans classe (notamment
+    // après restauration/navigation). Dans ce cas on ne fabrique jamais
+    // "Niveau=eq." vide : la série est filtrée par Filiere et les documents
+    // publiés sont récupérés tous niveaux de la série. Avec une classe connue,
+    // le filtre Niveau reste précis.
+    const filtres = [
+      niveauLabel ? `Niveau=eq.${encodeURIComponent(niveauLabel)}` : '',
+      `${encodeURIComponent('Catégorie')}=eq.${encodeURIComponent(etat.categorie.nom)}`,
+      `${encodeURIComponent('Matière')}=eq.${encodeURIComponent(matiere.nom)}`,
+      'Publie=eq.true'
+    ].filter(Boolean);
+    if (etat.filiere) filtres.push(`Filiere=eq.${encodeURIComponent(etat.filiere)}`);
+    if (etat.division) filtres.push(`Classe=eq.${encodeURIComponent(etat.division)}`);
+    filtres.push('order=id.desc');
+    const query = filtres.join('&');
 
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&${query}`, { headers: HEADERS });
@@ -1035,6 +1050,7 @@
       if(document.getElementById('docsSearch')) document.getElementById('docsSearch').value = '';
       afficherDocumentsPublicsAvecOutils();
     } catch (err) {
+      console.warn('[Aurore] Chargement documents public impossible:', err);
       content.innerHTML = `<div class="doc-empty"><div class="icon-wrap">${ICONS.warning}</div><h3>Impossible de charger les documents</h3><p>Le contenu n’a pas pu être récupéré pour le moment. Veuillez réessayer dans quelques instants.</p></div>`;
     }
   }
