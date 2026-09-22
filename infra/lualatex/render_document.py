@@ -8,6 +8,11 @@ from aurore_svg import render_graphics
 AURORE_SITE_URL = "https://aurore-section-archivescom.vercel.app/"
 DEFAULT_THEME_COLOR = "6D28D9"
 
+AURORE_EDITORIAL_DECORATIVE_KINDS = {
+    "separator", "title_decor", "separator_leaf",
+    "leaf_branch", "deco_feuillage", "dots", "mini_tree",
+}
+
 SITE_THEME_PALETTE = {
     "violet":    {"primary": "8B5CF6", "secondary": "C084FC", "strong": "6D28D9"},
     "rouge":     {"primary": "E05260", "secondary": "FF8A96", "strong": "C93648"},
@@ -1348,10 +1353,11 @@ def render_content(items):
 
 
 def render_aurore_graphics(graphics, assets_dir, theme):
-    """Materialize deterministic Aurore SVG graphics and expose PDF companions."""
+    """Materialize SVG graphics and keep editorial motifs visually subordinate."""
     generated = render_graphics(graphics, assets_dir, theme=theme)
     lines = []
     import subprocess
+
     for item in generated:
         svg_path = Path(item["svg_path"])
         pdf_path = svg_path.with_suffix(".pdf")
@@ -1369,18 +1375,36 @@ def render_aurore_graphics(graphics, assets_dir, theme):
                 f"Conversion Aurore SVG -> PDF échouée pour {svg_path.name}"
                 + (f": {detail}" if detail else "")
             ) from exc
-        rel = str(pdf_path.relative_to(Path(assets_dir).parent.parent.parent)).replace("\\\\", "/")
-        safe = rel.replace("#", "\\\\#").replace("%", "\\\\%")
-        lines.extend([
-            r"\begin{tcolorbox}[enhanced,breakable,colback=white,colframe=aurorebase!32!white,arc=11pt,boxrule=.45pt,left=8pt,right=8pt,top=8pt,bottom=8pt]",
-            r"\centering",
-            r"\includegraphics[width=.92\linewidth,keepaspectratio]{" + safe + r"}",
-            r"\par\smallskip{\sffamily\small\color{gray} " + tex_text(item.get("title") or item.get("kind") or "Graphisme Aurore") + r"}",
-            r"\end{tcolorbox}",
-            "",
-        ])
-    return lines
 
+        rel = str(pdf_path.relative_to(Path(assets_dir).parent.parent.parent)).replace("\\", "/")
+        safe = rel.replace("#", "\\#").replace("%", "\\%")
+        kind = str(item.get("kind") or "").strip().lower()
+        is_decorative = (
+            item.get("role") == "editorial"
+            or kind in AURORE_EDITORIAL_DECORATIVE_KINDS
+        )
+
+        if is_decorative:
+            # Micro-motif : pas de grand encadré, pas de légende, pas de pleine largeur.
+            lines.extend([
+                r"\par\smallskip",
+                r"\noindent\makebox[\linewidth][c]{%",
+                r"\includegraphics[width=.68\linewidth,height=.42cm,keepaspectratio]{" + safe + r"}%",
+                r"}",
+                r"\par\smallskip",
+                "",
+            ])
+        else:
+            # Schéma scientifique : conserve son espace pédagogique et sa légende.
+            lines.extend([
+                r"\begin{tcolorbox}[enhanced,breakable,colback=white,colframe=aurorebase!32!white,arc=11pt,boxrule=.45pt,left=8pt,right=8pt,top=8pt,bottom=8pt]",
+                r"\centering",
+                r"\includegraphics[width=.92\linewidth,keepaspectratio]{" + safe + r"}",
+                r"\par\smallskip{\sffamily\small\color{gray} " + tex_text(item.get("title") or item.get("kind") or "Graphisme Aurore") + r"}",
+                r"\end{tcolorbox}",
+                "",
+            ])
+    return lines
 
 def render_graphs(graphs, allow=True):
     if not allow:
