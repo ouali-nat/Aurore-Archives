@@ -133,6 +133,9 @@ jobs:
           total=0
           for s in data.get("sections") or []:
               for g in s.get("graphs") or []:
+                  # Count every structurally valid GeoGebra graph, even when
+                  # its PNG has not been created yet. This is what activates
+                  # the server-side GeoGebra renderer for fresh graphs.
                   if valid(g):
                       total+=1
                       missing+=0 if ready(g) else 1
