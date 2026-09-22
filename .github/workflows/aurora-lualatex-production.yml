@@ -241,9 +241,10 @@ jobs:
           if ! kpsewhich qrcode.sty >/dev/null 2>&1; then NEED_UPDATE=1; fi
           if [ "$NEED_UPDATE" = "1" ]; then
             sudo apt-get update
-            sudo apt-get install -y texlive-luatex texlive-lang-french texlive-latex-extra texlive-fonts-extra texlive-pictures
+            sudo apt-get install -y texlive-luatex texlive-lang-french texlive-latex-extra texlive-fonts-extra texlive-pictures librsvg2-bin
           fi
           lualatex --version
+          rsvg-convert --version
           kpsewhich montserrat.sty
           kpsewhich qrcode.sty
 
@@ -278,6 +279,9 @@ jobs:
                       "title": "Section test",
                       "content": ["Contenu de validation."],
                       "graphs": [],
+                      "graphics": [
+                          {"kind": "separator", "style": "leaf_branch", "title": "Séparateur SVG Aurore"}
+                      ],
                       "exercises": [],
                   }
               ],
@@ -294,6 +298,12 @@ jobs:
               if marker not in tex:
                   raise SystemExit(f"Renderer smoke check failed: missing {marker}")
           from render_document import _is_renderable_geogebra_graph, render_graphs
+          from render_document import render_aurore_graphics
+          import tempfile
+          with tempfile.TemporaryDirectory() as td:
+              generated = render_aurore_graphics([{"kind":"separator","style":"leaf_branch","title":"Smoke SVG Aurore"}], Path(td) / "assets" / "aurore", {"primary":"#8B5CF6","secondary":"#C084FC","strong":"#6D28D9"})
+              if not generated or not (Path(td) / "assets" / "aurore" / "aurore-graphic-1.svg").is_file() or not (Path(td) / "assets" / "aurore" / "aurore-graphic-1.pdf").is_file():
+                  raise SystemExit("Renderer smoke check failed: Aurore SVG/PDF asset missing")
           regression_graph = {
               "style": "geogebra",
               "geogebra_image_source": "geogebra",
