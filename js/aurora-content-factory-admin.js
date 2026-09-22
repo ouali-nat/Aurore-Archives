@@ -1462,10 +1462,10 @@ function renderPage(k){
   const titles={pending:'Documents en attente',generated:'Documents générés',published:'Documents publiés'};
   const desc={pending:'Tous les documents nécessitant encore une intervention.',generated:'Tous les PDF déjà produits et non publiés.',published:'Tous les documents intégrés à la bibliothèque publique.'};
   p.innerHTML=
-    '<div class="aap3head"><div><button type="button" class="admin-btn ghost" id="aap3back">← Administration</button><h2>'+titles[k]+'</h2><p>'+desc[k]+'</p></div>'+
+    '<div class="aap3head"><div><button type="button" class="admin-btn ghost" id="aap3back">'+(k==='pending'?'← Administration':'← Documents en attente')+'</button><h2>'+titles[k]+'</h2><p>'+desc[k]+'</p></div>'+
     '<div class="aap3tools"><input id="aap3search" type="search" placeholder="Titre, classe, matière…"><select id="aap3sort"><option value="recent">Plus récents</option><option value="oldest">Plus anciens</option><option value="az">Titre A → Z</option><option value="za">Titre Z → A</option></select><button type="button" class="admin-btn ghost" id="aap3refresh">Actualiser</button></div></div>'+
     '<div class="aap3list" id="aap3list"></div>';
-  p.querySelector('#aap3back').onclick=()=>goHome(true);
+  p.querySelector('#aap3back').onclick=()=>{if(k==='pending')goHome(true);else openPage('pending');};
   p.querySelector('#aap3search').value=query;
   p.querySelector('#aap3search').oninput=e=>{query=e.target.value||'';draw()};
   p.querySelector('#aap3sort').value=sort;
