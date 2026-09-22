@@ -6,6 +6,7 @@
   // un changement ultérieur de "etat" ne modifie jamais l'entrée précédente.
   let navigationParPopState = false;
   let navigationInitialisee = false;
+  let navigationCompteur = 0;
 
   function etatNavigationVide() {
     return {niveau:null,sousNiveau:null,serieChoisie:null,classe:null,categorie:null,filiere:null,division:null,matiere:null,cheminArbre:[],feuilleArbre:null};
@@ -14,13 +15,24 @@
     try { return JSON.parse(JSON.stringify(etat)); }
     catch(e) { return etatNavigationVide(); }
   }
-  function creerSnapshotNavigation(ecran, scrollY) {
+  function creerSnapshotNavigation(ecran, scrollY, navigationId = navigationCompteur) {
     return {
       aurasterNavigation:true,
+      navigationId:Number.isFinite(Number(navigationId)) ? Number(navigationId) : 0,
       ecranAuraster:ecran,
       etatAuraster:clonerEtatNavigation(),
       scrollY:Number.isFinite(Number(scrollY)) ? Number(scrollY) : 0
     };
+  }
+
+  function urlEntreeNavigation(navigationId) {
+    try {
+      const u = new URL(location.href);
+      u.hash = 'aurore-nav-' + String(navigationId);
+      return u.href;
+    } catch (_) {
+      return location.href;
+    }
   }
   function enregistrerPositionNavigation() {
     if (navigationParPopState) return;
@@ -68,7 +80,14 @@
     const scrollY = Number.isFinite(Number(options.scrollY)) ? Number(options.scrollY) : 0;
     window.scrollTo({top:scrollY,behavior:'auto'});
     if(!navigationParPopState) {
-      try { history.pushState(creerSnapshotNavigation(id,0),'',location.href); } catch(e) {}
+      try {
+        const navigationId = ++navigationCompteur;
+        history.pushState(
+          creerSnapshotNavigation(id,0,navigationId),
+          '',
+          urlEntreeNavigation(navigationId)
+        );
+      } catch(e) {}
     }
   }
 
@@ -314,7 +333,13 @@
   },{passive:true});
 
   try {
-    if(!history.state || !history.state.aurasterNavigation) history.replaceState(creerSnapshotNavigation('screen-home',window.scrollY),'',location.href);
+    if(history.state && history.state.aurasterNavigation) {
+      navigationCompteur = Math.max(0, Number(history.state.navigationId) || 0);
+    } else {
+      const initial = creerSnapshotNavigation('screen-home',window.scrollY,0);
+      history.replaceState(initial,'',location.href);
+      navigationCompteur = 0;
+    }
     if('scrollRestoration' in history) history.scrollRestoration='manual';
     navigationInitialisee=true;
   } catch(e) {}
