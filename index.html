@@ -2314,11 +2314,12 @@
       if (typeof window.auroreCacherVeuillezPatienter === 'function') {
         window.auroreCacherVeuillezPatienter();
       }
-      if (accessMessage) {
-        accessMessage.textContent =
+      const accessMsg = document.getElementById('accessMessage');
+      if (accessMsg) {
+        accessMsg.textContent =
           'La connexion Google n’a pas abouti. Vérifiez votre connexion Internet puis réessayez.';
-        accessMessage.className = 'access-message err';
-        accessMessage.style.display = 'block';
+        accessMsg.className = 'access-message err';
+        accessMsg.style.display = 'block';
       }
       return;
     }
