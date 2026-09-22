@@ -32,7 +32,7 @@ jobs:
 
       - name: Validate renderer Python syntax
         working-directory: infra/lualatex
-        run: python3 -m py_compile render_document.py
+        run: python3 -m py_compile render_document.py aurore_svg.py
 
       - name: Validate GeoGebra renderer JavaScript syntax
         run: node --check infra/geogebra/render_missing_graphs.mjs
