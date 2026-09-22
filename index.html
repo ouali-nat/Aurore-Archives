@@ -1093,13 +1093,13 @@
     </section>
 
     <section class="cf-rebuild-card" aria-label="Intelligences utilisées">
-  <div class="cf-rebuild-title"><span class="cf-rebuild-no">04</span><div><strong>Moteur de production temporaire</strong><small>Pour ce test critique, Llama est le seul moteur utilisé pour générer le document. Gemini et DeepSeek restent débranchés.</small></div></div>
+  <div class="cf-rebuild-title"><span class="cf-rebuild-no">04</span><div><strong>Moteur de production</strong><small>Choisis un seul moteur pour cette génération. Le reste du circuit PDF reste inchangé.</small></div></div>
   <div class="cf-ai-provider-grid" id="cfAiProviders">
-    <label class="cf-ai-provider"><input id="cfAiGemini" type="checkbox" disabled><span><strong>Gemini</strong><small>Débranché temporairement pour le test</small></span></label>
-    <label class="cf-ai-provider"><input id="cfAiLlama" type="checkbox" checked disabled><span><strong>Llama</strong><small>Seul moteur de production actuellement actif</small></span></label>
-    <label class="cf-ai-provider"><input id="cfAiDeepSeek" type="checkbox" disabled><span><strong>DeepSeek</strong><small>Débranché temporairement</small></span></label>
+    <label class="cf-ai-provider"><input id="cfAiGemini" name="cfAiProvider" type="radio" value="gemini"><span><strong>Gemini 3.5 Flash-Lite</strong><small>Génération Gemini dédiée au Content Factory</small></span></label>
+    <label class="cf-ai-provider"><input id="cfAiLlama" name="cfAiProvider" type="radio" value="llama" checked><span><strong>Llama</strong><small>Génération Llama actuelle</small></span></label>
+    <label class="cf-ai-provider"><input id="cfAiDeepSeek" type="radio" value="deepseek" disabled><span><strong>DeepSeek</strong><small>Non disponible dans ce circuit</small></span></label>
   </div>
-  <div class="cf-route-note" id="cfAiStrategyHint">Stratégie temporaire de production : Llama uniquement. Gemini et DeepSeek sont débranchés pour ce test.</div>
+  <div class="cf-route-note" id="cfAiStrategyHint">Un seul moteur sera utilisé pour la génération. La structure, les visuels, les graphiques, le QA et le rendu PDF restent identiques.</div>
 </section>
 
 <section class="cf-rebuild-card" aria-label="Présentation du PDF">
