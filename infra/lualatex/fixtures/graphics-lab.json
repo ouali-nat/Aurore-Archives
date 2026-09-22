@@ -1,0 +1,207 @@
+{
+  "title": "Laboratoire graphique Aurore — SVT, physique et électricité",
+  "subject": "Sciences",
+  "level": "Seconde",
+  "introduction": "Document de test interne du moteur graphique vectoriel Aurore.",
+  "learning_objectives": [
+    "Vérifier les schémas SVT, les forces, les ressorts et les circuits."
+  ],
+  "sections": [
+    {
+      "title": "SVT — Organisation cellulaire",
+      "objective": "Comparer une cellule animale et une cellule végétale.",
+      "content": [
+        "Les schémas sont construits en SVG vectoriel et composés dans LuaLaTeX."
+      ],
+      "graphics": [
+        {
+          "kind": "title_decor",
+          "title": "Cellules"
+        },
+        {
+          "kind": "animal_cell",
+          "title": "Organisation d'une cellule animale"
+        },
+        {
+          "kind": "plant_cell",
+          "title": "Organisation d'une cellule végétale"
+        },
+        {
+          "kind": "leaf_branch"
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Physique — Forces et ressorts",
+      "objective": "Représenter un bilan des forces et la construction d'un système masse–ressort.",
+      "content": [
+        "Les vecteurs sont déterministes et leurs légendes sont des textes vectoriels."
+      ],
+      "graphics": [
+        {
+          "kind": "force_diagram",
+          "object": "bloc",
+          "object_label": "Bloc",
+          "support": true,
+          "forces": [
+            {
+              "name": "Poids",
+              "symbol": "P",
+              "direction": "vertical",
+              "sense": "down",
+              "value": "20 N"
+            },
+            {
+              "name": "Réaction",
+              "symbol": "R",
+              "direction": "vertical",
+              "sense": "up",
+              "value": "20 N"
+            },
+            {
+              "name": "Traction",
+              "symbol": "T",
+              "direction": "horizontal",
+              "sense": "right",
+              "value": "8 N"
+            }
+          ]
+        },
+        {
+          "kind": "spring",
+          "turns": 13,
+          "label": "Ressort"
+        },
+        {
+          "kind": "mass_spring",
+          "mass_label": "m",
+          "turns": 11
+        },
+        {
+          "kind": "mini_tree"
+        }
+      ],
+      "exercises": []
+    },
+    {
+      "title": "Électricité — Circuits personnalisés",
+      "objective": "Assembler plusieurs composants dans un même schéma.",
+      "content": [
+        "Chaque circuit est défini par des composants et des connexions structurées."
+      ],
+      "graphics": [
+        {
+          "kind": "circuit_custom",
+          "title": "Circuit série",
+          "components": [
+            {
+              "id": "G",
+              "type": "battery",
+              "label": "Générateur",
+              "x": 210,
+              "y": 335
+            },
+            {
+              "id": "I",
+              "type": "switch",
+              "label": "Interrupteur",
+              "x": 480,
+              "y": 210,
+              "closed": false
+            },
+            {
+              "id": "L",
+              "type": "lamp",
+              "label": "Lampe",
+              "x": 780,
+              "y": 335
+            },
+            {
+              "id": "R",
+              "type": "resistor",
+              "label": "Résistance",
+              "x": 480,
+              "y": 510
+            }
+          ],
+          "connections": [
+            [
+              "G",
+              "I"
+            ],
+            [
+              "I",
+              "L"
+            ],
+            [
+              "L",
+              "R"
+            ],
+            [
+              "R",
+              "G"
+            ]
+          ]
+        },
+        {
+          "kind": "circuit_custom",
+          "title": "Mesure",
+          "components": [
+            {
+              "id": "G",
+              "type": "battery",
+              "x": 190,
+              "y": 350
+            },
+            {
+              "id": "A",
+              "type": "ammeter",
+              "label": "Ampèremètre",
+              "x": 480,
+              "y": 220
+            },
+            {
+              "id": "V",
+              "type": "voltmeter",
+              "label": "Voltmètre",
+              "x": 760,
+              "y": 220
+            },
+            {
+              "id": "L",
+              "type": "lamp",
+              "label": "Lampe",
+              "x": 760,
+              "y": 480
+            }
+          ],
+          "connections": [
+            [
+              "G",
+              "A"
+            ],
+            [
+              "A",
+              "L"
+            ],
+            [
+              "L",
+              "G"
+            ],
+            [
+              "L",
+              "V"
+            ]
+          ],
+          "note": "Exemple de montage personnalisé."
+        },
+        {
+          "kind": "separator",
+          "style": "leaf_branch"
+        }
+      ],
+      "exercises": []
+    }
+  ]
+}
