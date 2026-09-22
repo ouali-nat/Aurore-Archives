@@ -154,7 +154,7 @@
 <link rel="stylesheet" href="./css/aurora-content-factory-admin.css" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="./css/aurore-recovered-design.css" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="./css/aurore-zoom-control.css" media="print" onload="this.media='all'">
-</meta><style id="cf-admin-create-form-v2">
+<style id="cf-admin-create-form-v2">
 /* Formulaire Content Factory : ordre strict identique au dépôt public. */
 .cf-admin-create-form .cf-create-grid{grid-template-columns:1fr}
 .cf-admin-create-form .cf-create-form-row-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;grid-column:1/-1}
@@ -184,6 +184,7 @@
 .cf-admin-create-form .cf-create-theme-swatch{width:24px;height:24px;padding:0;aspect-ratio:1;border:1px solid color-mix(in srgb,var(--theme-primary,#6d28d9) 18%,transparent);border-radius:6px;background:var(--theme-swatch-bg);cursor:pointer;box-sizing:border-box}
 .cf-admin-create-form .cf-create-theme-swatch.is-selected{outline:2px solid var(--theme-primary,#6d28d9);outline-offset:2px}
 @media(max-width:680px){.cf-admin-create-form .cf-create-theme-palette{width:min(330px,calc(100vw - 36px))}.cf-admin-create-form .cf-create-theme-swatches{grid-template-columns:repeat(8,24px)}}
+</style>
 <style id="cf-studio-refonte-v1">
 .cf-studio-box{margin-top:18px!important;border:1px solid color-mix(in srgb,var(--theme-primary,#6d28d9) 22%,transparent)!important;border-radius:22px!important;background:linear-gradient(145deg,color-mix(in srgb,var(--theme-primary,#6d28d9) 7%,var(--surface,#fff)),var(--surface,#fff) 52%)!important;box-shadow:0 18px 50px rgba(0,0,0,.10)!important;overflow:visible!important}
 .cf-studio-hero{display:flex;align-items:center;gap:14px;padding:18px 20px;border-bottom:1px solid color-mix(in srgb,var(--theme-primary,#6d28d9) 14%,transparent)}
@@ -201,7 +202,9 @@
 @media(max-width:760px){.cf-studio-hero{align-items:flex-start}.cf-studio-status{display:none}.cf-studio-grid-2{grid-template-columns:1fr}.cf-studio-form{padding-left:14px;padding-right:14px}.cf-studio-head p{font-size:.71rem}}
 @media(prefers-reduced-motion:no-preference){.cf-studio-box{animation:cfStudioIn .25s ease-out}.cf-studio-section{scroll-margin-top:20px}@keyframes cfStudioIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}}
 </style>
-<style id="cf-admin-production-unified">#adminToolbarContentFactory,#adminContentFactoryList{display:none!important}</style></head>
+<style id="cf-admin-production-unified">#adminToolbarContentFactory,#adminContentFactoryList{display:none!important}</style>
+<link rel="stylesheet" href="./css/aurore-access-lock.css">
+</head>
 <body class="site-locked">
 <!-- ===== PORTAIL D'ACCÈS ===== -->
 <div class="access-lock" id="accessLock">
@@ -284,7 +287,7 @@
 <p class="signup-footnote">Vous préférez ne pas créer de compte ? Vous pouvez toujours visiter Aurore sans vous inscrire.</p>
 </div>
 </div>
-<link rel="stylesheet" href="./css/aurore-access-lock.css" media="print" onload="this.media='all'">
+
 <div aria-hidden="true" class="aurore-auth-wait" id="auroreAuthWait">
 <div aria-live="polite" class="aurore-auth-wait-card" role="status">
 <div aria-hidden="true" class="aurore-auth-wait-icon"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2" viewbox="0 0 24 24"><circle cx="12" cy="12" opacity=".28" r="8"></circle><path d="M20 12a8 8 0 0 1-8 8"></path></svg></div>
