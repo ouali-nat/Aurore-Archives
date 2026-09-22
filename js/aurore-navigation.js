@@ -5,7 +5,6 @@
   // Une entrée = un écran réellement atteint. Les snapshots sont immuables :
   // un changement ultérieur de "etat" ne modifie jamais l'entrée précédente.
   let navigationParPopState = false;
-  let navigationRestaurationEnCours = false;
   let navigationInitialisee = false;
 
   function etatNavigationVide() {
@@ -73,7 +72,7 @@
     }
   }
 
-  async function restaurerVueHistorique(ecran, options={}) {
+  async function restaurerVueHistorique(ecran) {
     if (ecran === 'screen-home') {
       rendreAccueil();
       document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
