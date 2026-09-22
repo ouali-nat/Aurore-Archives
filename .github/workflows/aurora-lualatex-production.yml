@@ -522,3 +522,5 @@ jobs:
 # Keep the production run alive until PDF + GitHub artifact are completed; do not cancel active rendering.
 # GeoGebra + Wikimedia non-blocking policy wake: 2026-09-22.
 # Document 339 requeued for actual production PDF + artifact: 2026-09-22.
+
+# FORCED PRODUCTION WAKE: document 339 requeued and ready — 2026-09-22.
