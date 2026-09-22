@@ -1438,7 +1438,7 @@ async function confirmContentJob(id){
     const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}};
     if(!r.ok)throw new Error(d?.error||t||('HTTP '+r.status));
     if(d?.job?.status!=='queued')throw new Error('La demande n’est pas passée en file de production.');
-    // Le réveil est asynchrone : 202 signifie que le worker a bien été déclenché.
+    // Déclenche le worker sans attendre sa production complète.
     const wake=await adminInventoryFetch(SUPABASE_URL+'/functions/v1/aurora-content-auto-wake',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
@@ -1448,6 +1448,20 @@ async function confirmContentJob(id){
       const wt=await wake.text().catch(()=> '');
       throw new Error('Le serveur de production n’a pas pu être réveillé ('+wake.status+'). '+wt.slice(0,240));
     }
+    // Vérification réelle en base : on ne réaffiche jamais « Confirmer »
+    // tant que Supabase n’a pas confirmé queued/processing.
+    let verified=false;
+    for(let attempt=0;attempt<8;attempt++){
+      const check=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?select=id,status,generated_document_id,error_message&id=eq.'+jobId,{
+        cache:'no-store'
+      });
+      const ct=await check.text();let cj=null;try{cj=ct?JSON.parse(ct):null}catch(_){}
+      const row=Array.isArray(cj)?cj[0]:null;
+      if(row&&['queued','processing','completed'].includes(String(row.status).toLowerCase())){verified=true;break}
+      if(row&&['failed','rejected'].includes(String(row.status).toLowerCase()))throw new Error(row.error_message||('La demande a été refusée : '+row.status));
+      await new Promise(resolve=>setTimeout(resolve,750));
+    }
+    if(!verified)throw new Error('La confirmation a été envoyée mais Supabase n’a pas encore confirmé la mise en file.');
     await load(true);
   }catch(e){
     alert('La génération n’a pas pu être confirmée : '+(e.message||e));
@@ -1680,10 +1694,8 @@ function boot(){
     document.head.appendChild(s);
   }
   panel.querySelectorAll('#adminContentFactoryList,#auroreAllGeneratedDocuments,#aurorePdfProductionCenter').forEach(e=>{e.dataset.aap3Hidden='1'});
-  try{
-    const homeState={auroreAdminPdfPage:'home'};
-    if(!location.hash.match(/^#admin-pdf-(pending|generated|published)$/))history.replaceState(homeState,'',location.pathname+location.search);
-  }catch(_){}
+  // Ne jamais remplacer l’entrée historique réelle d’Aurore.
+  // Le bouton Retour Android doit pouvoir sortir de l’administration.
   load();
   if(loadTimer)clearInterval(loadTimer);
   loadTimer=setInterval(()=>load(false),5000);
