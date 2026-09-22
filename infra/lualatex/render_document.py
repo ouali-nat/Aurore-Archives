@@ -1090,10 +1090,7 @@ def normalize_math(s):
     # backslash. Do not touch protected array row breaks.
     s = re.sub(r"\\\\(?=[A-Za-z{}])", lambda _m: "\\", s)
 
-    # Restore protected row breaks as real LaTeX double-backslash commands.
-    s = s.replace(marker, "\\\\")
-
-    # Some Content Factory payloads can arrive with a single backslash
+NaN
     # before a horizontal rule ("\\ \\hline") instead of the required
     # array row break ("\\\\ \\hline"). Canonicalize that malformed
     # sequence only inside array environments; never alter ordinary math.
@@ -1770,6 +1767,10 @@ def main():
         raise SystemExit("inline() math guardrail failed: array structure")
     if r"\\ \hline" not in _probe_out and r"\\\hline" not in _probe_out:
         raise SystemExit("inline() math guardrail failed: array row break before hline")
+
+    _probe_percent = inline(r"$25\\%$")
+    if r"25\\%" not in _probe_percent or r"25\\\\%" in _probe_percent:
+        raise SystemExit("inline() math guardrail failed: doubled TeX punctuation")
 
     parser = argparse.ArgumentParser(description="Render an Aurore document JSON to LuaLaTeX source.")
     parser.add_argument("input", nargs="?", default="fixtures/document-21.json")
