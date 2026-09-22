@@ -255,27 +255,6 @@ def _render_plant_cell(spec: dict, c: dict) -> list[str]:
     lines += _svg_close()
     return lines
 
-def _render_separator(spec: dict, c: dict) -> list[str]:
-    width, height = 1200, 110
-    style = str(spec.get("style") or "dots").lower()
-    lines = _svg_open(width, height, "Séparateur Aurore")
-    if style == "line":
-        lines.append(f'<line x1="70" y1="55" x2="1130" y2="55" stroke="{c["primary"]}" stroke-width="5" stroke-linecap="round"/>')
-    elif style == "leaf_branch":
-        lines.extend([
-            f'<path d="M80 62 C300 20 470 90 650 52 C820 18 970 82 1120 45" fill="none" stroke="{c["strong"]}" stroke-width="4" stroke-linecap="round"/>',
-            f'<ellipse cx="300" cy="42" rx="26" ry="11" transform="rotate(-24 300 42)" fill="{c["secondary"]}"/>',
-            f'<ellipse cx="510" cy="67" rx="26" ry="11" transform="rotate(25 510 67)" fill="{c["primary"]}"/>',
-            f'<ellipse cx="840" cy="39" rx="26" ry="11" transform="rotate(-20 840 39)" fill="{c["secondary"]}"/>',
-        ])
-    else:
-        for x, r in [(430, 7), (555, 11), (600, 16), (645, 11), (770, 7)]:
-            lines.append(f'<circle cx="{x}" cy="55" r="{r}" fill="{c["primary"]}"/>')
-        lines.append(f'<line x1="80" y1="55" x2="390" y2="55" stroke="{c["secondary"]}" stroke-width="3" stroke-linecap="round"/>')
-        lines.append(f'<line x1="810" y1="55" x2="1120" y2="55" stroke="{c["secondary"]}" stroke-width="3" stroke-linecap="round"/>')
-    lines += _svg_close()
-    return lines
-
 def _render_leaf_branch(spec: dict, c: dict) -> list[str]:
     width, height = 1200, 170
     lines = _svg_open(width, height, "Branche décorative Aurore")
