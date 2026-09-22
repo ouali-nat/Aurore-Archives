@@ -190,7 +190,8 @@
       list.appendChild(b);
     });
   }
-  document.getElementById('pdfRecentToggle')?.addEventListener('click',()=>{
+  document.getElementById('pdfRecentToggle')?.addEventListener('click',(e)=>{
+    e.stopPropagation();
     const panel=document.getElementById('pdfRecentPanel'); const btn=document.getElementById('pdfRecentToggle'); if(!panel||!btn)return;
     const open=!panel.classList.contains('open'); panel.classList.toggle('open',open); panel.setAttribute('aria-hidden',String(!open)); btn.setAttribute('aria-expanded',String(open));
     if(open)auroreRendrePDFRecents();
@@ -277,6 +278,7 @@
     PDF_MODE_LECTURE = 'vertical';
     document.getElementById('pdfViewerZoomLevel').textContent = '100%';
     mettreAJourModeLecturePDF();
+    fermerMenuLecteurPDF();
     const jeton = ++PDF_JETON_OUVERTURE;
     if (PDF_FETCH_CONTROLLER) { try { PDF_FETCH_CONTROLLER.abort(); } catch(e) {} }
     PDF_FETCH_CONTROLLER = (typeof AbortController !== 'undefined') ? new AbortController() : null;
@@ -288,7 +290,7 @@
     const btnDl = document.getElementById('pdfViewerTelecharger');
     if (telechargementOk) {
       btnDl.style.display = 'inline-flex';
-      btnDl.onclick = () => { telechargerDocumentAvecProgression(doc); };
+      btnDl.onclick = () => { fermerMenuLecteurPDF(); telechargerDocumentAvecProgression(doc); };
     } else {
       btnDl.style.display = 'none';
       btnDl.onclick = null;
@@ -830,7 +832,10 @@ async function telechargerDocumentAvecProgression(doc) {
       const echelleAjustement = largeurDispo / vpBase.width;
       const echelle = Math.max(0.25, Math.min(8, echelleAjustement * PDF_ZOOM));
       const viewport = page.getViewport({scale:echelle, rotation:PDF_ROTATION});
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      // Haute résolution : jusqu'à 3x la densité physique de l'écran (au lieu
+      // de 2x) pour un rendu net du texte sur les téléphones/tablettes à
+      // forte densité, tout en restant borné pour ne pas saturer la mémoire.
+      const dpr = Math.min(window.devicePixelRatio || 1, 3);
 
       canvas.width = Math.max(1, Math.round(viewport.width * dpr));
       canvas.height = Math.max(1, Math.round(viewport.height * dpr));
@@ -1010,8 +1015,9 @@ async function telechargerDocumentAvecProgression(doc) {
     zone.classList.toggle('pdf-lecture-horizontal', horizontal);
     zone.classList.toggle('pdf-lecture-vertical', !horizontal);
     if (bouton) {
+      const label = document.getElementById('pdfViewerModeLectureLabel');
+      if (label) label.textContent = horizontal ? 'Lecture horizontale' : 'Lecture verticale';
       bouton.setAttribute('aria-pressed', horizontal ? 'true' : 'false');
-      bouton.textContent = horizontal ? '↔ Horizontale' : '↕ Verticale';
       bouton.title = horizontal ? 'Lecture horizontale' : 'Lecture verticale';
       bouton.setAttribute('aria-label', horizontal ? 'Passer en lecture verticale' : 'Passer en lecture horizontale');
     }
@@ -1031,6 +1037,49 @@ async function telechargerDocumentAvecProgression(doc) {
   }
 
   document.getElementById('pdfViewerModeLecture')?.addEventListener('click', changerModeLecturePDF);
+
+  // ---------- MENU "3 POINTS" (regroupe zoom / ajuster / mode / récents / téléchargement / signalement) ----------
+  // Un unique bouton en haut à gauche ouvre un panneau qui rassemble tous les
+  // outils autrefois répartis sur une barre d'outils pleine largeur. Les
+  // boutons eux-mêmes (id inchangés) gardent exactement leur comportement.
+  function ouvrirMenuLecteurPDF() {
+    const toggle = document.getElementById('pdfViewerMenuToggle');
+    const panel = document.getElementById('pdfViewerMenuPanel');
+    if (!toggle || !panel) return;
+    panel.classList.add('open');
+    panel.setAttribute('aria-hidden', 'false');
+    toggle.setAttribute('aria-expanded', 'true');
+  }
+  function fermerMenuLecteurPDF() {
+    const toggle = document.getElementById('pdfViewerMenuToggle');
+    const panel = document.getElementById('pdfViewerMenuPanel');
+    if (!toggle || !panel) return;
+    panel.classList.remove('open');
+    panel.setAttribute('aria-hidden', 'true');
+    toggle.setAttribute('aria-expanded', 'false');
+    // Referme aussi le sous-panneau "Documents récents" s'il était ouvert.
+    const recentPanel = document.getElementById('pdfRecentPanel');
+    const recentToggle = document.getElementById('pdfRecentToggle');
+    if (recentPanel) { recentPanel.classList.remove('open'); recentPanel.setAttribute('aria-hidden','true'); }
+    if (recentToggle) recentToggle.setAttribute('aria-expanded','false');
+  }
+  (function initialiserMenuLecteurPDF() {
+    const toggle = document.getElementById('pdfViewerMenuToggle');
+    const panel = document.getElementById('pdfViewerMenuPanel');
+    if (!toggle || !panel) return;
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      panel.classList.contains('open') ? fermerMenuLecteurPDF() : ouvrirMenuLecteurPDF();
+    });
+    document.addEventListener('click', (e) => {
+      if (!panel.classList.contains('open')) return;
+      if (toggle.contains(e.target) || panel.contains(e.target)) return;
+      fermerMenuLecteurPDF();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && panel.classList.contains('open')) fermerMenuLecteurPDF();
+    });
+  })();
 
   function allerPagePrecedente() { pagePDFVisibleCible(-1); }
   function allerPageSuivante()   { pagePDFVisibleCible(1); }
@@ -1310,6 +1359,7 @@ async function telechargerDocumentAvecProgression(doc) {
     if (pdfRenduObserver) { try { pdfRenduObserver.disconnect(); } catch(e) {} pdfRenduObserver = null; }
     if (pdfPagesObserver) { try { pdfPagesObserver.disconnect(); } catch(e) {} pdfPagesObserver = null; }
     document.getElementById('pdfViewerOverlay').style.display = 'none';
+    fermerMenuLecteurPDF();
     // Le zoom choisi par l'utilisateur est restauré exactement comme avant
     // l'ouverture du lecteur.
     restaurerZoomGlobalApresLecteurPDF();
@@ -1326,6 +1376,7 @@ async function telechargerDocumentAvecProgression(doc) {
   }
   document.getElementById('pdfViewerFermer').addEventListener('click', demanderFermetureLecteur);
   document.getElementById('pdfViewerSignaler').addEventListener('click', () => {
+    fermerMenuLecteurPDF();
     if (DOC_EN_LECTURE) ouvrirSignalement(DOC_EN_LECTURE);
   });
 
@@ -1413,4 +1464,3 @@ async function telechargerDocumentAvecProgression(doc) {
   document.getElementById('headerSearchInput')?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') lancerRecherche(e.target.value);
   });
-
