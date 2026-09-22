@@ -323,7 +323,7 @@ jobs:
           curl --fail --silent --show-error -X POST \
             -H "Content-Type: application/json" \
             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
-            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":55,\"stage\":\"Moteur LuaLaTeX et ressources prêts\"}" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":32,\"stage\":\"Moteur LuaLaTeX et ressources prêts\"}" \
             "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
 
       - name: Fetch official Aurore site logo (non-blocking fallback)
