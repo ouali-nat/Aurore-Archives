@@ -1756,7 +1756,7 @@ def render(data):
         r"    {\sffamily\footnotesize\color{gray}Les ressources tierces conservent leurs propres licences et conditions d'utilisation.\par}",
         r"  \end{tcolorbox}",
         r"  \medskip",
-        r"  {\sffamily\scriptsize\color{gray}Composition éditoriale : Aurore · Couleur dominante : \#" + theme + r"\par}",
+        r"  {\sffamily\scriptsize\color{gray}Assistance éditoriale : Aurore · Couleur dominante : \#" + theme + r"\par}",
         r"  \end{tcolorbox}",
         r"\end{center}",
     ])
