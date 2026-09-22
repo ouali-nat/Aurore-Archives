@@ -312,13 +312,19 @@ jobs:
             --data "{\"document_id\":$DOCUMENT_ID,\"progress\":25,\"stage\":\"Moteur LuaLaTeX et ressources prêts\"}" \
             "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
 
-      - name: Fetch official Aurore site logo
+      - name: Fetch official Aurore site logo (non-blocking fallback)
         if: hashFiles('infra/lualatex/production/document-id') != ''
         run: |
           mkdir -p infra/lualatex/production/assets
-          curl --fail --silent --show-error --location \
+          if curl --fail --silent --show-error --location --max-time 20 \
             "https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster" \
-            -o infra/lualatex/production/assets/aurore-logo.png
+            -o infra/lualatex/production/assets/aurore-logo.png && \
+            test -s infra/lualatex/production/assets/aurore-logo.png; then
+            echo "Logo Aurore récupéré depuis le stockage public R2."
+          else
+            echo "::warning::Logo R2 indisponible. Utilisation du logo du dépôt GitHub comme repli."
+            cp apple-touch-icon.png infra/lualatex/production/assets/aurore-logo.png
+          fi
           test -s infra/lualatex/production/assets/aurore-logo.png
           file infra/lualatex/production/assets/aurore-logo.png
 
