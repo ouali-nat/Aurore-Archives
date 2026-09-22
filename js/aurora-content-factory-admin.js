@@ -1607,6 +1607,8 @@ async function adminInventoryFetch(url,options={}){
   }
   return response;
 }
+// Exposé globalement : certains contrôles administratifs déclenchés depuis d'autres blocs du site utilisent ce même transport.
+window.adminInventoryFetch=adminInventoryFetch;
 async function load(force){
   if(loading&& !force)return;
   if(!adminAllowed())return;
