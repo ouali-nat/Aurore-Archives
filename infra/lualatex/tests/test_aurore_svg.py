@@ -2,6 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 import sys
+import xml.etree.ElementTree as ET
 
 HERE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(HERE))
@@ -70,6 +71,7 @@ class AuroreSvgTest(unittest.TestCase):
                 self.assertTrue(svg.startswith("<svg "))
                 self.assertTrue(svg.endswith("</svg>\n"))
                 self.assertIn('xmlns="http://www.w3.org/2000/svg"', svg)
+                ET.fromstring(svg)
                 self.assertNotIn("<image", svg)
                 self.assertNotIn("data:image", svg)
 
