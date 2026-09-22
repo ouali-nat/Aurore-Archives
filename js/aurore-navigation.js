@@ -5,6 +5,7 @@
   // Une entrée = un écran réellement atteint. Les snapshots sont immuables :
   // un changement ultérieur de "etat" ne modifie jamais l'entrée précédente.
   let navigationParPopState = false;
+  let navigationRestaurationEnCours = false;
   let navigationInitialisee = false;
 
   function etatNavigationVide() {
@@ -72,7 +73,7 @@
     }
   }
 
-  function restaurerVueHistorique(ecran) {
+  async function restaurerVueHistorique(ecran, options={}) {
     if (ecran === 'screen-home') {
       rendreAccueil();
       document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -130,11 +131,16 @@
       return;
     }
     if (ecran === 'screen-matieres') {
-      if(etat.categorie) allerMatieres();
+      // La restauration peut recharger les compteurs de matières. On attend
+      // réellement la fin du rendu avant de restaurer la position de scroll,
+      // sinon le contenu qui arrive après le "Retour" décale l'utilisateur.
+      if(etat.categorie) await allerMatieres();
       return;
     }
     if (ecran === 'screen-docs') {
-      if(etat.matiere) allerDocuments(etat.matiere);
+      // Même principe pour les documents : attendre la reconstruction complète
+      // de la liste évite que le chargement réseau écrase la position restaurée.
+      if(etat.matiere) await allerDocuments(etat.matiere);
       return;
     }
     const cible=document.getElementById(ecran);
@@ -225,72 +231,79 @@
     }
   }
 
-  window.addEventListener('popstate',(e)=>{
+  window.addEventListener('popstate', async (e)=>{
     // Fermeture volontaire du Laboratoire mathématique : le retour doit rester
     // sur la discussion Aurora, même si l'état précédent ne contient pas les
-    // marqueurs habituels de navigation de l'écran. Le gestionnaire dédié au
-    // laboratoire supprimera ensuite uniquement son interface.
+    // marqueurs habituels de navigation de l'écran.
     if(window.__auroraClosingGeoGebra){
       window.__auroraClosingGeoGebra=false;
       return;
     }
+
     // Filet de sécurité : si le Laboratoire GeoGebra est encore visible à cet
     // instant (drapeau ci-dessus non positionné à temps — bouton Retour
-    // matériel/geste Android ou iOS déclenché directement), on ferme
-    // uniquement le laboratoire ici, exactement comme pour les autres
-    // overlays ci-dessous, au lieu de laisser tomber le traitement jusqu'à la
-    // restauration générale d'écran (qui pouvait auparavant ramener
-    // l'utilisateur jusqu'à l'accueil).
+    // matériel/geste Android ou iOS déclenché directement), on ferme uniquement
+    // le laboratoire ici.
     if (document.getElementById('auroraGeoGebraWorkspace')) {
       document.getElementById('auroraGeoGebraWorkspace')?.remove();
       window.__auroraClosingGeoGebra=false;
       return;
     }
-    // Le lecteur PDF pousse son propre état d'historique à l'ouverture (voir
-    // ouvrirLecteurPDF) pour que le bouton Retour Android le referme sans
-    // quitter l'écran pédagogique sous-jacent (Documents/Matière/Série…), qui
-    // lui n'a jamais changé pendant que le lecteur était ouvert : on se contente
-    // donc de fermer l'overlay, sans rejouer la restauration d'écran ni
-    // recharger les documents depuis Supabase.
+
+    // Le lecteur PDF pousse son propre état d'historique à l'ouverture : le
+    // Retour matériel doit donc fermer uniquement l'overlay.
     if (document.getElementById('pdfViewerOverlay')?.style.display === 'block') {
       fermerLecteurPDF();
       return;
     }
-    // Même principe pour la page Wikipédia Aurore : elle pousse sa propre
-    // entrée d'historique à l'ouverture (voir ouvrirArticleWikipedia), donc le
-    // Retour la referme simplement sans quitter ni recharger l'écran sous-jacent.
+
+    // Même principe pour la page Wikipédia Aurore.
     if (document.getElementById('wikiViewerOverlay')?.style.display === 'block') {
       if (typeof window.auroreFermerArticleWikipedia === 'function') window.auroreFermerArticleWikipedia();
       return;
     }
-    // Même principe pour le graphique Aurora agrandi : il pousse son propre
-    // état d'historique à l'ouverture ("auroraGraphOverlay"), donc le Retour
-    // le referme simplement, sans toucher à la conversation Aurora sous-jacente.
+
+    // Même principe pour le graphique Aurora agrandi.
     if (document.getElementById('auroraGraphOverlay')?.style.display === 'flex') {
       if (typeof window.auroraFermerGrandGraphique === 'function') window.auroraFermerGrandGraphique({fromPopState:true});
       return;
     }
-    // Le module PDF possède sa propre pile d'historique. Tant qu'elle est active,
-    // il doit être le seul gestionnaire à traiter le Retour Android.
+
+    // Le module PDF admin possède sa propre pile d'historique.
     if (window.__auroreAdminPdfHistoryActive) return;
-    // Même principe pour la fiche de gestion ouverte depuis un bloc du tableau
-    // de bord admin : elle a poussé sa propre entrée d'historique à l'ouverture
-    // (voir plus haut), donc le premier Retour la referme simplement et remet
-    // la grille de catégories, sans quitter l'écran admin ni recharger de données.
+
+    // Même principe pour la fiche de gestion admin.
     if (document.getElementById('adminDetail')?.style.display === 'block') {
       fermerFicheAdmin();
       return;
     }
+
     const state=e.state;
     if(!state || !state.aurasterNavigation) return;
+
     navigationParPopState=true;
+    navigationRestaurationEnCours=true;
     try {
+      // Le snapshot est restauré avant toute nouvelle navigation. Le verrou
+      // reste actif pendant les éventuels fetch() de restauration : aucun
+      // callback asynchrone ne peut recréer une entrée d'historique.
       etat=state.etatAuraster ? JSON.parse(JSON.stringify(state.etatAuraster)) : etatNavigationVide();
-      restaurerVueHistorique(state.ecranAuraster);
+      await restaurerVueHistorique(state.ecranAuraster);
       majFilAriane();
-      requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo({top:Number(state.scrollY)||0,behavior:'auto'})));
+
+      const scrollY = Number(state.scrollY) || 0;
+
+      // Attendre deux frames : le DOM restauré est peint avant la remise à la
+      // position exacte enregistrée dans l'historique.
+      await new Promise(resolve => requestAnimationFrame(() =>
+        requestAnimationFrame(resolve)
+      ));
+      window.scrollTo({top:scrollY,behavior:'auto'});
+    } catch(err) {
+      console.warn('[Aurore] restauration historique',err);
     } finally {
-      setTimeout(()=>{ navigationParPopState=false; },0);
+      navigationRestaurationEnCours=false;
+      navigationParPopState=false;
     }
   });
 
