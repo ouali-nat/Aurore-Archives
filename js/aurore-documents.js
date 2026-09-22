@@ -794,10 +794,37 @@
     if (document.getElementById('aurore-origin-groups-styles')) return;
     const style = document.createElement('style');
     style.id = 'aurore-origin-groups-styles';
-    style.textContent = '.aurore-origin-group{margin:0 0 22px;padding:14px;border:1px solid var(--bordure,rgba(0,0,0,.1));border-radius:18px;background:var(--card-bg,rgba(255,255,255,.55));}.aurore-origin-group-head{margin:0 0 10px;padding:2px 4px 8px;border-bottom:1px solid var(--bordure,rgba(0,0,0,.08));}.aurore-origin-kicker{display:block;font-size:.64rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;opacity:.62;margin-bottom:3px}.aurore-origin-group h3{margin:0;font-size:1rem;color:var(--encre,#111)}.aurore-origin-group p{margin:3px 0 0;font-size:.72rem;color:var(--gris,#687080)}.aurore-origin-count{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;padding:0 8px;border-radius:999px;background:rgba(109,40,217,.1);font-size:.72rem;font-weight:900}.aurore-origin-group-head>div{min-width:0}.aurore-origin-group-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.aurore-origin-group-list{margin:0}.aurore-origin-empty{display:flex;align-items:center;gap:10px;padding:14px;border:1px dashed var(--bordure,rgba(0,0,0,.14));border-radius:12px;color:var(--gris,#687080);font-size:.76rem}.aurore-origin-empty-icon{width:24px;height:24px;display:grid;place-items:center;opacity:.68}.aurore-origin-empty-icon svg{width:18px;height:18px}.aurore-origin-group-list .doc-row:last-child{margin-bottom:0}.aurore-origin-group-aurore{border-color:rgba(109,40,217,.22)}';
+    style.textContent = '.aurore-origin-groups{display:flex;flex-direction:column;gap:16px;margin-top:20px}.aurore-origin-group{margin:0;padding:14px;border:1px solid var(--bordure,rgba(0,0,0,.1));border-radius:18px;background:var(--card-bg,rgba(255,255,255,.55))}.aurore-origin-group-head{margin:0 0 11px;padding:2px 4px 9px;border-bottom:1px solid var(--bordure,rgba(0,0,0,.08));display:flex;align-items:center;justify-content:space-between;gap:12px}.aurore-origin-kicker{display:block;font-size:.62rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;opacity:.62;margin-bottom:3px}.aurore-origin-group h3{margin:0;font-size:1rem;color:var(--encre,#111)}.aurore-origin-group p{margin:3px 0 0;font-size:.72rem;color:var(--gris,#687080)}.aurore-origin-count,.aurore-resource-count{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;padding:0 8px;border-radius:999px;background:color-mix(in srgb,var(--theme-primary,#6d28d9) 10%,transparent);color:var(--theme-primary,#6d28d9);font-size:.7rem;font-weight:900;flex:0 0 auto}.aurore-origin-group-list{margin:0}.aurore-origin-empty{display:flex;align-items:center;gap:10px;padding:14px;border:1px dashed var(--bordure,rgba(0,0,0,.14));border-radius:12px;color:var(--gris,#687080);font-size:.76rem}.aurore-origin-empty-icon{width:24px;height:24px;display:grid;place-items:center;opacity:.68}.aurore-origin-empty-icon svg{width:18px;height:18px}.aurore-origin-group-list .doc-row:last-child{margin-bottom:0}.aurore-resource-overview{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.aurore-resource-panel{min-width:0;border:1px solid color-mix(in srgb,var(--theme-primary,#6d28d9) 16%,var(--bordure));border-radius:15px;background:color-mix(in srgb,var(--papier,#fff) 95%,var(--theme-primary,#6d28d9) 5%);overflow:hidden}.aurore-resource-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 13px 9px;border-bottom:1px solid color-mix(in srgb,var(--theme-primary,#6d28d9) 10%,var(--bordure))}.aurore-resource-panel-kicker{display:block;font-size:.59rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--theme-primary,#6d28d9);opacity:.8;margin-bottom:2px}.aurore-resource-panel h4{margin:0;color:var(--encre,#111);font-size:.86rem;line-height:1.25}.aurore-resource-panel p{margin:3px 0 0;color:var(--gris,#687080);font-size:.66rem;line-height:1.35}.aurore-resource-window{height:255px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:9px;background:color-mix(in srgb,var(--fond,#f7f5fb) 82%,var(--theme-primary,#6d28d9) 2%);scrollbar-width:thin}.aurore-resource-window:focus-visible{outline:2px solid color-mix(in srgb,var(--theme-primary,#6d28d9) 38%,transparent);outline-offset:-2px}.aurore-resource-list{display:flex!important;flex-direction:column!important;gap:9px!important;margin:0!important}.aurore-resource-list .doc-row{padding:10px 11px!important;border-radius:12px!important;box-shadow:none!important;background:var(--papier,#fff)!important}.aurore-resource-list .doc-row .info{gap:9px}.aurore-resource-list .doc-row .icon-wrap{width:44px;height:44px;border-radius:9px}.aurore-resource-list .doc-row .icon-wrap.a-couverture{width:48px;height:48px}.aurore-resource-list .doc-row .titre{font-size:.76rem}.aurore-resource-list .doc-row .meta{font-size:.63rem}.aurore-resource-list .doc-row .doc-context{font-size:.61rem;line-height:1.3}.aurore-resource-list .doc-row .doc-actions{width:100%;margin-left:0}.aurore-community-window{height:290px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:2px 2px 2px 0;scrollbar-width:thin}.aurore-community-window .doc-list{margin:0!important}@media(max-width:820px){.aurore-resource-overview{grid-template-columns:1fr}}@media(max-width:620px){.aurore-origin-group{padding:11px}.aurore-resource-window{height:230px}.aurore-community-window{height:255px}.aurore-resource-panel-head{padding:11px 11px 8px}}';
     document.head.appendChild(style);
   }
   ensureOrigineDocumentsStyles();
+
+  function estDocumentAurore(doc) {
+    const source = normaliserRechercheSite(doc?.Source);
+    const auteur = normaliserRechercheSite(doc?.Auteur);
+    return source === normaliserRechercheSite('Aurore — Content Factory') || auteur === 'aurore';
+  }
+
+  function typeRessourceAurore(doc) {
+    const valeurs = [
+      doc?.document_type,
+      doc?.resource_type,
+      doc?.resourceType,
+      doc?.['Type de ressource'],
+      doc?.['Type de contenu'],
+      doc?.Type,
+      doc?.Genre,
+      doc?.metadata?.classification?.resource_type,
+      doc?.metadata?.resource_type,
+      doc?.Titre
+    ].filter(v => v != null && String(v).trim() !== '').map(v => normaliserRechercheSite(v)).join(' | ');
+
+    if (/(^|[| ])qcm|quiz|questions? a choix|questionnaire/.test(valeurs)) return 'qcm';
+    if (/(^|[| ])exerc|exos|travaux diriges|td\b|application/.test(valeurs)) return 'exercices';
+    if (/revision|synthese|resume|fiche de revision|notions essentielles|formules essentielles/.test(valeurs)) return 'revision';
+    if (/cours|lecon|chapitre|lesson/.test(valeurs)) return 'cours';
+    return 'cours';
+  }
 
   function rendreListeDocuments(content, data, afficherCouverturesRomans = false, separerOrigines = false) {
     if (afficherCouverturesRomans && typeof chargerPdfJs === 'function') chargerPdfJs().catch(() => {});
@@ -813,81 +840,111 @@
     content.appendChild(root);
 
     const documentsTries = trierDocumentsClient(documentsCourants);
-    const groupes = separerOrigines ? [
-      {
-        key:'aurore',
-        title:'Documents Aurore',
-        subtitle:'Ressources produites et publiées par Aurore',
-        empty:'Aucun document Aurore dans cette matière pour le moment.',
-        items:documentsTries.filter(doc=>{
-          const source=normaliserRechercheSite(doc?.Source);
-          const auteur=normaliserRechercheSite(doc?.Auteur);
-          return source===normaliserRechercheSite('Aurore — Content Factory') || auteur==='aurore';
-        })
-      },
-      {
-        key:'communaute',
-        title:'Documents de la communauté',
-        subtitle:'Ressources déposées puis validées par la communauté',
-        empty:'Aucun document de la communauté dans cette matière pour le moment.',
-        items:documentsTries.filter(doc=>{
-          const source=normaliserRechercheSite(doc?.Source);
-          const auteur=normaliserRechercheSite(doc?.Auteur);
-          return !(source===normaliserRechercheSite('Aurore — Content Factory') || auteur==='aurore');
-        })
-      }
-    ] : [{key:'liste',title:'',subtitle:'',empty:'',items:documentsTries}];
 
-    groupes.forEach(groupe=>{
-      const target=document.createElement('section');
-      if(separerOrigines){
-        target.className='aurore-origin-group aurore-origin-group-'+groupe.key;
-        target.innerHTML='<div class="aurore-origin-group-head"><div><span class="aurore-origin-kicker">'+
-          (groupe.key==='aurore'?'Production Aurore':'Contribution')+
-          '</span><h3>'+echapperHtmlPub(groupe.title)+'</h3><p>'+echapperHtmlPub(groupe.subtitle)+'</p></div><span class="aurore-origin-count">'+groupe.items.length+'</span></div>';
-        const groupList=document.createElement('div');
-        groupList.className='doc-list aurore-origin-group-list';
-        target.appendChild(groupList);
-        const empty=document.createElement('div');
-        empty.className='aurore-origin-empty';
-        empty.innerHTML='<div class="aurore-origin-empty-icon">'+ICONS.folder+'</div><span>'+echapperHtmlPub(groupe.empty)+'</span>';
-        if(groupe.items.length===0)groupList.appendChild(empty);
-        root.appendChild(target);
+    const creerLigne = doc => {
+      const row = document.createElement('div');
+      row.className = 'doc-row';
+      row._auroreDocument = doc;
+      const telechargementOk = doc.Telechargement_autorise !== false;
+      const contexte = [
+        doc.Niveau && 'Niveau : ' + doc.Niveau,
+        doc.Filiere && 'Filière : ' + doc.Filiere,
+        (doc['Catégorie'] || doc.Type) && 'Catégorie : ' + (doc['Catégorie'] || doc.Type),
+        doc.Genre && 'Genre : ' + doc.Genre
+      ].filter(Boolean).join(' · ');
+      const titreDocument = obtenirTitreDocument(doc);
+      row.dataset.documentTitle = titreDocument;
+      row.innerHTML =
+        '<div class="info">' +
+          '<div class="icon-wrap">' + ICONS.file + '</div>' +
+          '<div class="doc-main-info">' +
+            '<div class="titre" title="' + echapperHtmlPub(titreDocument) + '">' + echapperHtmlPub(titreDocument) + '</div>' +
+            '<div class="meta">Déposé par ' + (doc.Auteur || 'anonyme') + (telechargementOk ? '' : ' · Lecture seule') + '</div>' +
+            (contexte ? '<div class="doc-context">' + contexte + '</div>' : '') +
+            tailleBadgeMarkup(doc.Fichier_url) +
+          '</div>' +
+        '</div>' +
+        boutonPlusCarteDocumentMarkup() +
+        panneauActionsCarteDocumentMarkup(telechargementOk);
+      brancherActionsCarteDocument(row, doc);
+      actualiserEtatActionsDocument(row, doc);
+      actualiserTaillesDocumentsDans(row);
+      if (COUVERTURES_PREMIERE_PAGE_ACTIVES) appliquerCouvertureSiLivre(row, doc);
+      return row;
+    };
+
+    if (!separerOrigines) {
+      documentsTries.forEach(doc => root.appendChild(creerLigne(doc)));
+      return;
+    }
+
+    const auroreDocs = documentsTries.filter(estDocumentAurore);
+    const communauteDocs = documentsTries.filter(doc => !estDocumentAurore(doc));
+
+    const auroreSection = document.createElement('section');
+    auroreSection.className = 'aurore-origin-group aurore-origin-group-aurore';
+    auroreSection.innerHTML = '<div class="aurore-origin-group-head"><div><span class="aurore-origin-kicker">Bibliothèque pédagogique</span><h3>Documents Aurore</h3><p>Ressources produites et publiées par Aurore, regroupées par usage.</p></div><span class="aurore-origin-count">' + auroreDocs.length + '</span></div>';
+
+    const overview = document.createElement('div');
+    overview.className = 'aurore-resource-overview';
+
+    const types = [
+      {key:'cours',title:'Cours',desc:'Pour apprendre et comprendre les notions.'},
+      {key:'revision',title:'Fiches de révision',desc:'Pour mémoriser l’essentiel avant de réviser.'},
+      {key:'exercices',title:'Exercices',desc:'Pour pratiquer et vérifier sa maîtrise.'},
+      {key:'qcm',title:'QCM',desc:'Pour se tester rapidement sur les notions.'}
+    ];
+
+    types.forEach(type => {
+      const items = auroreDocs.filter(doc => typeRessourceAurore(doc) === type.key);
+      const panel = document.createElement('section');
+      panel.className = 'aurore-resource-panel';
+      panel.dataset.resourceType = type.key;
+      panel.innerHTML = '<div class="aurore-resource-panel-head"><div><span class="aurore-resource-panel-kicker">Aurore</span><h4>' + type.title + '</h4><p>' + type.desc + '</p></div><span class="aurore-resource-count">' + items.length + '</span></div>';
+
+      const windowBox = document.createElement('div');
+      windowBox.className = 'aurore-resource-window';
+      windowBox.tabIndex = 0;
+
+      const list = document.createElement('div');
+      list.className = 'doc-list aurore-resource-list';
+
+      if (!items.length) {
+        const empty = document.createElement('div');
+        empty.className = 'aurore-origin-empty';
+        empty.innerHTML = '<div class="aurore-origin-empty-icon">' + ICONS.folder + '</div><span>Aucune ressource dans cette rubrique pour le moment.</span>';
+        list.appendChild(empty);
+      } else {
+        items.forEach(doc => list.appendChild(creerLigne(doc)));
       }
 
-      groupe.items.forEach(doc=>{
-        const row=document.createElement('div');
-        row.className='doc-row';
-        row._auroreDocument=doc;
-        const telechargementOk=doc.Telechargement_autorise!==false;
-        const contexte=[
-          doc.Niveau && `Niveau : ${doc.Niveau}`,
-          doc.Filiere && `Filière : ${doc.Filiere}`,
-          (doc['Catégorie']||doc.Type) && `Catégorie : ${doc['Catégorie']||doc.Type}`,
-          doc.Genre && `Genre : ${doc.Genre}`
-        ].filter(Boolean).join(' · ');
-        const titreDocument=obtenirTitreDocument(doc);
-        row.dataset.documentTitle=titreDocument;
-        row.innerHTML=`
-          <div class="info">
-            <div class="icon-wrap">${ICONS.file}</div>
-            <div class="doc-main-info">
-              <div class="titre" title="${echapperHtmlPub(titreDocument)}">${echapperHtmlPub(titreDocument)}</div>
-              <div class="meta">Déposé par ${doc.Auteur||'anonyme'}${telechargementOk?'':' · Lecture seule'}</div>
-              ${contexte?`<div class="doc-context">${contexte}</div>`:''}
-              ${tailleBadgeMarkup(doc.Fichier_url)}
-            </div>
-          </div>
-          ${boutonPlusCarteDocumentMarkup()}
-          ${panneauActionsCarteDocumentMarkup(telechargementOk)}`;
-        brancherActionsCarteDocument(row,doc);
-        actualiserEtatActionsDocument(row,doc);
-        actualiserTaillesDocumentsDans(row);
-        if (separerOrigines) target.querySelector('.doc-list').appendChild(row);
-        else root.appendChild(row);
-        if(COUVERTURES_PREMIERE_PAGE_ACTIVES) appliquerCouvertureSiLivre(row,doc);
-      });
+      windowBox.appendChild(list);
+      panel.appendChild(windowBox);
+      overview.appendChild(panel);
     });
+
+    auroreSection.appendChild(overview);
+    root.appendChild(auroreSection);
+
+    const commSection = document.createElement('section');
+    commSection.className = 'aurore-origin-group aurore-origin-group-communaute';
+    commSection.innerHTML = '<div class="aurore-origin-group-head"><div><span class="aurore-origin-kicker">Contribution</span><h3>Documents de la communauté</h3><p>Ressources déposées puis validées par la communauté.</p></div><span class="aurore-origin-count">' + communauteDocs.length + '</span></div>';
+
+    if (!communauteDocs.length) {
+      const empty = document.createElement('div');
+      empty.className = 'aurore-origin-empty';
+      empty.innerHTML = '<div class="aurore-origin-empty-icon">' + ICONS.folder + '</div><span>Aucun document de la communauté dans cette matière pour le moment.</span>';
+      commSection.appendChild(empty);
+    } else {
+      const commWindow = document.createElement('div');
+      commWindow.className = 'aurore-community-window';
+      const commList = document.createElement('div');
+      commList.className = 'doc-list aurore-origin-group-list';
+      communauteDocs.forEach(doc => commList.appendChild(creerLigne(doc)));
+      commWindow.appendChild(commList);
+      commSection.appendChild(commWindow);
+    }
+    root.appendChild(commSection);
   }
 
   async function allerDocuments(matiere) {
