@@ -1313,27 +1313,286 @@ document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurre
 
 
 
-/* AURORE_ADMIN_PDF_3PAGES_V1 */
+
+/* AURORE_ADMIN_PDF_3PAGES_V2 */
 (function(){
 'use strict';
-const panel=document.querySelector('.admin-tab-panel[data-panel="content-factory"]');if(!panel)return;
+const panel=document.querySelector('.admin-tab-panel[data-panel="content-factory"]');
+if(!panel)return;
 const E=v=>{const d=document.createElement('div');d.textContent=String(v==null?'':v);return d.innerHTML};
 const M=x=>x&&typeof x.metadata==='object'?x.metadata:{};
-const theme=x=>normalizeThemeColor((M(x).aurore_design&&M(x).aurore_design.theme_color)||M(x).theme_color||x.theme_color||'#C85C0D');
-const active=x=>['queued','processing'].includes(M(x).lualatex_status);
-const pub=x=>x.status==='published'||!!x.published_document_id;
-const gen=x=>!!x.pdf_url&&!pub(x);
-const pending=x=>!pub(x)&&(!x.pdf_url||active(x));
-let rows=[],page=null,q='',sort='recent';
-function addStyle(){if(document.getElementById('aap3css'))return;const s=document.createElement('style');s.id='aap3css';s.textContent='[data-theme="dark"] .aap3,[data-theme="dark"] .aap3block,[data-theme="dark"] .aap3page,[data-theme="dark"] .aap3card{background:var(--dark-surface,#11101C)!important;color:var(--dark-ink,#F7F5FF)!important;border-color:var(--dark-border,#302B45)!important}[data-theme="dark"] .aap3hero{background:linear-gradient(135deg,#151226,#1C1930)!important;border-color:var(--dark-border,#302B45)!important}[data-theme="dark"] .aap3tools input,[data-theme="dark"] .aap3tools select{background:var(--dark-surface-2,#17142A)!important;color:var(--dark-ink,#F7F5FF)!important;border-color:var(--dark-border,#302B45)!important}[data-theme="dark"] .aap3grid div,[data-theme="dark"] .aap3class{background:var(--dark-surface-2,#17142A)!important;border-color:var(--dark-border-soft,#27223A)!important}[data-theme="dark"] .aap3hero p,[data-theme="dark"] .aap3block p,[data-theme="dark"] .aap3head p,[data-theme="dark"] .aap3prod,[data-theme="dark"] .aap3color small{color:var(--dark-muted,#B8B2C9)!important}[data-theme="dark"] .aap3title,[data-theme="dark"] .aap3grid span,[data-theme="dark"] .aap3class,[data-theme="dark"] .aap3color b{color:var(--dark-ink,#F7F5FF)!important}[data-theme="dark"] .aap3actions .admin-btn{color:var(--dark-ink,#F7F5FF)!important;border-color:var(--dark-border,#302B45)!important;background:var(--dark-surface-2,#17142A)!important}[data-theme="dark"] .aap3actions .admin-btn.primary{color:#fff!important;background:var(--violet,#6D28D9)!important;border-color:var(--violet,#6D28D9)!important}[data-theme="dark"] .aap3status{background:color-mix(in srgb,var(--aap3theme) 18%,var(--dark-surface-2,#17142A))!important}.aap3{border:1px solid var(--bordure,rgba(0,0,0,.12));border-radius:22px;background:var(--surface,#fff);overflow:hidden;box-shadow:0 14px 44px rgba(0,0,0,.08)}.aap3hero{padding:20px;border-bottom:1px solid var(--bordure,rgba(0,0,0,.1));background:linear-gradient(135deg,color-mix(in srgb,#6d28d9 7%,var(--surface,#fff)),var(--surface,#fff))}.aap3hero h2{margin:4px 0}.aap3hero p{margin:0;color:var(--gris);font-size:.74rem;line-height:1.5}.aap3k{font-size:.62rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:#6d28d9}.aap3blocks{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:16px}.aap3block{border:1px solid var(--bordure,rgba(0,0,0,.12));border-radius:17px;background:var(--surface,#fff);padding:16px;text-align:left;cursor:pointer;color:var(--texte,#273043);min-height:135px}.aap3block:hover{box-shadow:0 10px 28px rgba(0,0,0,.09);transform:translateY(-1px)}.aap3num{font-size:1.3rem;font-weight:900}.aap3block h3{margin:12px 0 4px;font-size:.84rem}.aap3block p{margin:0;color:var(--gris);font-size:.66rem;line-height:1.4}.aap3page{display:none}.aap3page.on{display:block}.aap3head{padding:16px 18px;border-bottom:1px solid var(--bordure,rgba(0,0,0,.1));display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}.aap3head h2{margin:4px 0;font-size:1.05rem}.aap3head p{margin:0;color:var(--gris);font-size:.68rem}.aap3tools{display:flex;gap:7px;flex-wrap:wrap}.aap3tools input,.aap3tools select{min-height:37px;border:1px solid var(--bordure,rgba(0,0,0,.14));border-radius:9px;background:var(--surface,#fff);color:var(--texte);padding:0 9px;font:inherit;font-size:.68rem}.aap3list{padding:14px 18px 20px;display:grid;gap:12px}.aap3card{border:1px solid var(--bordure,rgba(0,0,0,.12));border-left:5px solid var(--aap3theme,#c85c0d);border-radius:16px;padding:14px;background:var(--surface,#fff)}.aap3top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.aap3id{font-size:.6rem;font-weight:900;color:var(--aap3theme)}.aap3title{font-size:.88rem;font-weight:850;line-height:1.35;margin-top:3px}.aap3status{font-size:.59rem;font-weight:850;padding:5px 8px;border-radius:999px;background:color-mix(in srgb,var(--aap3theme) 10%,transparent);color:var(--aap3theme);white-space:nowrap}.aap3grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:12px}.aap3grid div{padding:8px;border-radius:9px;background:color-mix(in srgb,var(--aap3theme) 4%,var(--surface,#fff));border:1px solid color-mix(in srgb,var(--aap3theme) 9%,var(--bordure,rgba(0,0,0,.1)))}.aap3grid b{display:block;font-size:.54rem;opacity:.55;text-transform:uppercase}.aap3grid span{display:block;margin-top:3px;font-size:.65rem;font-weight:750;line-height:1.25}.aap3class{margin-top:9px;padding:8px 10px;border-radius:9px;background:var(--fond,#fafafa);font-size:.63rem;color:var(--gris);line-height:1.4}.aap3prod{margin-top:8px;font-size:.63rem;color:var(--gris)}.aap3color{display:flex;align-items:center;gap:8px;margin-top:9px}.aap3dot{width:23px;height:23px;border-radius:7px}.aap3color small{display:block;font-size:.56rem;color:var(--gris)}.aap3actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px}.aap3actions .admin-btn{min-height:35px;font-size:.62rem}.aap3empty{padding:35px 12px;text-align:center;color:var(--gris);font-size:.72rem}.aap3empty strong{display:block;color:var(--texte);margin-bottom:4px}@media(max-width:850px){.aap3blocks{grid-template-columns:1fr}.aap3grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:500px){.aap3head{padding:14px}.aap3list{padding:12px}.aap3top{flex-direction:column}.aap3tools{width:100%}.aap3tools input{flex:1;min-width:0}.aap3card{padding:12px}}';document.head.appendChild(s)}
-function shell(){let r=document.getElementById('auroreAdminPdf3');if(r)return r;r=document.createElement('section');r.id='auroreAdminPdf3';r.className='aap3';r.innerHTML='<div class="aap3home"><div class="aap3hero"><div class="aap3k">Administration · Gestion PDF</div><h2>Centre de gestion des documents</h2><p>Trois espaces distincts pour suivre le document depuis sa réception jusqu’à sa publication.</p></div><div class="aap3blocks"><button class="aap3block" data-aap="pending"><div class="aap3num" id="aap3pending">0</div><h3>Documents en attente</h3><p>Réception, contrôle, préparation, génération ou erreur nécessitant une intervention.</p></button><button class="aap3block" data-aap="generated"><div class="aap3num" id="aap3generated">0</div><h3>Documents générés</h3><p>PDF disponibles pour contrôle, régénération, validation ou publication.</p></button><button class="aap3block" data-aap="published"><div class="aap3num" id="aap3published">0</div><h3>Documents publiés</h3><p>Documents actuellement présents dans la bibliothèque publique.</p></button></div></div><div class="aap3page" data-page="pending"></div><div class="aap3page" data-page="generated"></div><div class="aap3page" data-page="published"></div>';panel.insertBefore(r,panel.firstElementChild);r.querySelectorAll('[data-aap]').forEach(b=>b.onclick=()=>openPage(b.dataset.aap));return r}
-function label(s){return ({review:'À contrôler',approved:'Validé',published:'Publié',rejected:'Rejeté',failed:'Échec',generated:'Généré',processing:'Traitement',queued:'En file',draft:'Brouillon'}[s]||s||'Inconnu')}
-function classif(x){return [['Matière',x.matiere||x.subject],['Niveau',x.level],['Classe',x.class_name],['Filière',x.filiere],['Catégorie',M(x).classification?.category||M(x).category||x.document_type]].filter(a=>a[1]).map(a=>'<b>'+E(a[0])+' :</b> '+E(a[1])).join(' · ')||'Classification non renseignée'}
-function acts(x,k){const m=M(x),a=active(x),c=m.lualatex_cancel_requested===true,p=!!x.pdf_url,t=theme(x);let z='';if(p)z+='<a class="admin-btn ghost" href="'+E(x.pdf_url)+'" target="_blank" rel="noopener">Ouvrir le PDF</a>';if(a||c)z+='<button type="button" class="admin-btn danger" data-cf-cancel="'+E(x.id)+'" '+(c?'disabled':'')+'>'+(c?'Annulation demandée…':'Annuler la génération')+'</button>';if(k!=='published'&&!a&&!c)z+='<button type="button" class="admin-btn ghost cf-change-theme" data-cf-theme="'+E(x.id)+'" data-theme-color="'+E(t)+'">Changer la couleur</button>';if(k==='pending'&&!a&&!c)z+='<button type="button" class="admin-btn primary" data-cf-render="'+E(x.id)+'" data-has-pdf="'+(p?'1':'0')+'" data-theme-color="'+E(t)+'">'+(p?'Régénérer le PDF':'Générer le PDF')+'</button>';if(k==='generated'&&!a&&!c)z+='<button type="button" class="admin-btn primary" data-cf-render="'+E(x.id)+'" data-has-pdf="1" data-theme-color="'+E(t)+'">Régénérer le PDF</button>';if(x.status==='review'&&p&&!a&&!c)z+='<button type="button" class="admin-btn valider" data-cf-validate="'+E(x.id)+'">Valider le PDF</button>';if(['review','approved'].includes(x.status)&&!a&&!c&&k!=='published')z+='<button type="button" class="admin-btn refuser" data-cf-reject="'+E(x.id)+'">Rejeter</button>';if(['approved','review'].includes(x.status)&&p&&!a&&!c&&k!=='published')z+='<button type="button" class="admin-btn primary" data-cf-publish="'+E(x.id)+'">Publier</button>';return z}
-function card(x,k){const d=new Date(x.created_at||Date.now()),m=M(x),t=theme(x),stage=m.lualatex_stage||m.lualatex_status||'',origin=m.origin||m.producer||x.source_format||'—';return '<article class="aap3card" style="--aap3theme:'+E(t)+'"><div class="aap3top"><div><div class="aap3id">Document #'+E(x.id)+'</div><div class="aap3title">'+E(x.title||'Sans titre')+'</div></div><span class="aap3status">'+E(label(x.status))+(x.pdf_url?' · PDF prêt':'')+'</span></div><div class="aap3grid"><div><b>Date</b><span>'+E(d.toLocaleDateString('fr-FR'))+'</span></div><div><b>Heure</b><span>'+E(d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}))+'</span></div><div><b>Classe</b><span>'+E(x.class_name||'—')+'</span></div><div><b>Niveau</b><span>'+E(x.level||'—')+'</span></div><div><b>Matière</b><span>'+E(x.matiere||x.subject||'—')+'</span></div><div><b>Type</b><span>'+E(x.document_type||'—')+'</span></div><div><b>Version</b><span>'+E(x.version||'—')+'</span></div><div><b>Origine</b><span>'+E(origin)+'</span></div></div><div class="aap3class">'+classif(x)+'</div>'+(stage?'<div class="aap3prod"><b>Production :</b> '+E(stage)+(m.lualatex_progress!=null?' · '+E(m.lualatex_progress)+' %':'')+'</div>':'')+(x.validation_notes?'<div class="aap3prod"><b>Note :</b> '+E(x.validation_notes)+'</div>':'')+(m.lualatex_last_error?'<div class="aap3prod" style="color:#b42318"><b>Erreur :</b> '+E(m.lualatex_last_error)+'</div>':'')+'<div class="aap3color"><span class="aap3dot" style="background:'+E(t)+'"></span><span><b>Couleur du document</b><small>'+E(t)+' · modifiable avant génération</small></span></div><div class="aap3actions">'+acts(x,k)+'</div></article>'}
-function data(k){return k==='pending'?rows.filter(pending):k==='generated'?rows.filter(gen):rows.filter(pub)}
-function openPage(k,fromPopState){if(!fromPopState){try{history.pushState({auroreAdminPdfPage:k},'',location.pathname+location.search+'#admin-pdf-'+k)}catch(_){}}page=k;const r=shell(),home=r.querySelector('.aap3home');home.style.display='none';r.querySelectorAll('.aap3page').forEach(p=>p.classList.toggle('on',p.dataset.page===k));const p=r.querySelector('.aap3page[data-page="'+k+'"]');p.innerHTML='<div class="aap3head"><div><button class="admin-btn ghost" id="aap3back">← Administration</button><h2>'+({pending:'Documents en attente',generated:'Documents générés',published:'Documents publiés'}[k])+'</h2><p>'+({pending:'Tous les documents nécessitant encore une intervention.',generated:'Tous les PDF déjà produits et non publiés.',published:'Tous les documents intégrés à la bibliothèque publique.'}[k])+'</p></div><div class="aap3tools"><input id="aap3search" type="search" placeholder="Titre, classe, matière…"><select id="aap3sort"><option value="recent">Plus récents</option><option value="oldest">Plus anciens</option><option value="az">Titre A → Z</option><option value="za">Titre Z → A</option></select><button class="admin-btn ghost" id="aap3refresh">Actualiser</button></div></div><div class="aap3list" id="aap3list"></div>';p.querySelector('#aap3back').onclick=()=>{page=null;home.style.display='block';r.querySelectorAll('.aap3page').forEach(x=>x.classList.remove('on'))};p.querySelector('#aap3search').oninput=e=>{q=e.target.value;draw()};p.querySelector('#aap3sort').onchange=e=>{sort=e.target.value;draw()};p.querySelector('#aap3refresh').onclick=()=>load();draw();function draw(){let a=data(k),s=q.toLowerCase();if(s)a=a.filter(x=>[x.title,x.class_name,x.level,x.matiere,x.subject,x.document_type,x.filiere,x.status,M(x).origin,M(x).producer].filter(Boolean).join(' ').toLowerCase().includes(s));a.sort((x,y)=>sort==='az'?String(x.title).localeCompare(String(y.title),'fr'):sort==='za'?String(y.title).localeCompare(String(x.title),'fr'):(sort==='oldest'?1:-1)*(new Date(x.created_at||0)-new Date(y.created_at||0)));p.querySelector('#aap3list').innerHTML=a.length?a.map(x=>card(x,k)).join(''):'<div class="aap3empty"><strong>Aucun document dans cette catégorie.</strong>Les données sont synchronisées avec Aurore.</div>'}}
-async function load(){if(!adminOk())return;const r=shell();try{const x=await cfFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?select=id,job_id,created_at,updated_at,created_by,title,subject,matiere,level,class_name,document_type,domaine,formation,specialite,annee,semestre,filiere,theme_color,source_format,pdf_path,pdf_url,version,status,validation_notes,published_document_id,metadata,pdf_diagnostic&order=created_at.desc&limit=2000',{cache:'no-store'});const t=await x.text();if(!x.ok)throw new Error(t||('HTTP '+x.status));const generated=t?JSON.parse(t):[];rows=Array.isArray(generated)?generated:[];const legacyReq=await cfFetch(SUPABASE_URL+'/rest/v1/Document?select=id,Titre,Niveau,Classe,Mati%C3%A8re,Fichier_url,Auteur,Cat%C3%A9gorie,Publie,Genre,Filiere,Source&order=id.desc&limit=2000',{cache:'no-store'});const lt=await legacyReq.text();if(!legacyReq.ok)throw new Error(lt||('HTTP '+legacyReq.status));const legacy=lt?JSON.parse(lt):[];for(const d of (Array.isArray(legacy)?legacy:[])){const pub=d.Publie===true;rows.push({id:'legacy-'+d.id,created_at:null,updated_at:null,created_by:null,title:d.Titre||'Sans titre',subject:d['Matière']||'',matiere:d['Matière']||'',level:d.Niveau||'',class_name:d.Classe||'',document_type:d.Genre||'Document',filiere:d.Filiere||'',theme_color:'#6D28D9',source_format:'legacy',pdf_path:null,pdf_url:d.Fichier_url||null,version:1,status:pub?'published':'review',validation_notes:'Document historique Aurore',published_document_id:pub?d.id:null,metadata:{origin:'Bibliothèque historique',legacy_document_id:d.id,category:d['Catégorie']||'',source:d.Source||'',producer:d.Auteur||''},pdf_diagnostic:null,legacy:true});}r.querySelector('#aap3pending').textContent=data('pending').length;r.querySelector('#aap3generated').textContent=data('generated').length;r.querySelector('#aap3published').textContent=data('published').length;if(page)openPage(page)}catch(e){console.error('[Aurore Admin PDF 3 pages]',e)}}
-window.addEventListener('popstate',()=>{const m=location.hash.match(/^#admin-pdf-(pending|generated|published)$/);if(m)openPage(m[1],true);else{page=null;const r=document.getElementById('auroreAdminPdf3');if(r){r.querySelector('.aap3home').style.display='block';r.querySelectorAll('.aap3page').forEach(x=>x.classList.remove('on'))}}});function boot(){addStyle();shell();['#adminContentFactoryList','#auroreAllGeneratedDocuments','#aurorePdfProductionCenter','.cf-studio-box','.cf-admin-create-form'].forEach(s=>panel.querySelectorAll(s).forEach(e=>{e.dataset.aap3Hidden='1'}));if(!document.getElementById('aap3hide')){const s=document.createElement('style');s.id='aap3hide';s.textContent='[data-aap3-hidden="1"]{display:none!important}';document.head.appendChild(s)}load();setInterval(load,15000)}
+const roleValue=()=>{try{return String((typeof session!=='undefined'&&session&&session.role)||'').toLowerCase()}catch(_){return ''}};
+const adminAllowed=()=>{const r=roleValue();return r==='admin'||r==='administrateur'||r.includes('admin')};
+const normalize=typeof normalizeThemeColor==='function'?normalizeThemeColor:(v=>/^#[0-9a-f]{6}$/i.test(String(v||''))?String(v).toUpperCase():'#C85C0D');
+const theme=x=>normalize((M(x).aurore_design&&M(x).aurore_design.theme_color)||M(x).theme_color||x.theme_color||'#C85C0D');
+const active=x=>['queued','processing'].includes(String(M(x).lualatex_status||'').toLowerCase());
+const isPublished=x=>x.status==='published'||x.published_document_id!=null;
+const isGenerated=x=>!x.legacy&&!!x.pdf_url&&!isPublished(x)||x.legacy&&!isPublished(x)&&!!x.pdf_url;
+const isPending=x=>!isPublished(x)&&!x.pdf_url||(!x.legacy&&!isPublished(x)&&active(x));
+const isLegacy=x=>x.legacy===true;
+let rows=[];
+let page=null;
+let query='';
+let sort='recent';
+let loading=false;
+let loadTimer=null;
+let loadGeneration=0;
+
+function addStyle(){
+  if(document.getElementById('aap3cssV2'))return;
+  const s=document.createElement('style');
+  s.id='aap3cssV2';
+  s.textContent=[
+    '.aap3{border:1px solid var(--bordure,rgba(0,0,0,.12));border-radius:22px;background:var(--surface,#fff);overflow:hidden;box-shadow:0 14px 44px rgba(0,0,0,.08);}',
+    '.aap3hero{padding:20px;border-bottom:1px solid var(--bordure,rgba(0,0,0,.1));background:linear-gradient(135deg,color-mix(in srgb,#6d28d9 7%,var(--surface,#fff)),var(--surface,#fff));}',
+    '.aap3hero h2{margin:4px 0}.aap3hero p{margin:0;color:var(--gris);font-size:.74rem;line-height:1.5}.aap3k{font-size:.62rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:#6d28d9}',
+    '.aap3blocks{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:16px}.aap3block{border:1px solid var(--bordure,rgba(0,0,0,.12));border-radius:17px;background:var(--surface,#fff);padding:16px;text-align:left;cursor:pointer;color:var(--texte,#273043);min-height:135px}',
+    '.aap3block:hover{box-shadow:0 10px 28px rgba(0,0,0,.09);transform:translateY(-1px)}.aap3num{font-size:1.3rem;font-weight:900}.aap3block h3{margin:12px 0 4px;font-size:.84rem}.aap3block p{margin:0;color:var(--gris);font-size:.66rem;line-height:1.4}',
+    '.aap3page{display:none}.aap3page.on{display:block}.aap3head{padding:16px 18px;border-bottom:1px solid var(--bordure,rgba(0,0,0,.1));display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}',
+    '.aap3head h2{margin:4px 0;font-size:1.05rem}.aap3head p{margin:0;color:var(--gris);font-size:.68rem}.aap3tools{display:flex;gap:7px;flex-wrap:wrap}.aap3tools input,.aap3tools select{min-height:37px;border:1px solid var(--bordure,rgba(0,0,0,.14));border-radius:9px;background:var(--surface,#fff);color:var(--texte,#273043);padding:0 9px;font:inherit;font-size:.68rem;min-width:0}',
+    '.aap3list{padding:14px 18px 20px;display:grid;gap:12px}.aap3card{border:1px solid var(--bordure,rgba(0,0,0,.12));border-left:5px solid var(--aap3theme,#c85c0d);border-radius:16px;padding:14px;background:var(--surface,#fff);min-width:0}',
+    '.aap3top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.aap3id{font-size:.6rem;font-weight:900;color:var(--aap3theme)}.aap3title{font-size:.88rem;font-weight:850;line-height:1.35;margin-top:3px;overflow-wrap:anywhere}.aap3status{font-size:.59rem;font-weight:850;padding:5px 8px;border-radius:999px;background:color-mix(in srgb,var(--aap3theme) 10%,transparent);color:var(--aap3theme);white-space:nowrap}',
+    '.aap3grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-top:12px}.aap3grid div{padding:8px;border-radius:9px;background:color-mix(in srgb,var(--aap3theme) 4%,var(--surface,#fff));border:1px solid color-mix(in srgb,var(--aap3theme) 9%,var(--bordure,rgba(0,0,0,.1)));min-width:0}',
+    '.aap3grid b{display:block;font-size:.54rem;opacity:.55;text-transform:uppercase}.aap3grid span{display:block;margin-top:3px;font-size:.65rem;font-weight:750;line-height:1.25;overflow-wrap:anywhere}.aap3class{margin-top:9px;padding:8px 10px;border-radius:9px;background:var(--fond,#fafafa);font-size:.63rem;color:var(--gris);line-height:1.4;overflow-wrap:anywhere}',
+    '.aap3prod{margin-top:8px;font-size:.63rem;color:var(--gris);overflow-wrap:anywhere}.aap3color{display:flex;align-items:center;gap:8px;margin-top:9px;min-width:0}.aap3dot{width:23px;height:23px;border-radius:7px;flex:0 0 23px}.aap3color small{display:block;font-size:.56rem;color:var(--gris)}',
+    '.aap3actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px}.aap3actions .admin-btn{min-height:35px;font-size:.62rem}.aap3empty{padding:35px 12px;text-align:center;color:var(--gris);font-size:.72rem}.aap3empty strong{display:block;color:var(--texte);margin-bottom:4px}',
+    '.aap3error{margin:12px 18px 0;padding:10px 12px;border:1px solid rgba(180,35,24,.25);border-radius:11px;background:rgba(180,35,24,.06);color:#b42318;font-size:.7rem;line-height:1.45}',
+    'html[data-theme="dark"] .aap3,html[data-theme="dark"] .aap3block,html[data-theme="dark"] .aap3page,html[data-theme="dark"] .aap3card{background:#11101C!important;color:#F7F5FF!important;border-color:#302B45!important}',
+    'html[data-theme="dark"] .aap3hero{background:linear-gradient(135deg,#151226,#1C1930)!important;border-color:#302B45!important}',
+    'html[data-theme="dark"] .aap3hero h2,html[data-theme="dark"] .aap3block h3,html[data-theme="dark"] .aap3title,html[data-theme="dark"] .aap3grid span,html[data-theme="dark"] .aap3class,html[data-theme="dark"] .aap3color b{color:#F7F5FF!important}',
+    'html[data-theme="dark"] .aap3hero p,html[data-theme="dark"] .aap3block p,html[data-theme="dark"] .aap3head p,html[data-theme="dark"] .aap3prod,html[data-theme="dark"] .aap3color small{color:#B8B2C9!important}',
+    'html[data-theme="dark"] .aap3tools input,html[data-theme="dark"] .aap3tools select,html[data-theme="dark"] .aap3grid div{background:#17142A!important;color:#F7F5FF!important;border-color:#302B45!important}',
+    'html[data-theme="dark"] .aap3class{background:#17142A!important}html[data-theme="dark"] .aap3actions .admin-btn{background:#17142A!important;color:#F7F5FF!important;border-color:#302B45!important}',
+    'html[data-theme="dark"] .aap3actions .admin-btn.primary{background:#6D28D9!important;border-color:#6D28D9!important;color:#fff!important}',
+    'html[data-theme="dark"] .aap3status{background:color-mix(in srgb,var(--aap3theme) 25%,#17142A)!important}',
+    '#auroreAdminPdf3 [hidden]{display:none!important}',
+    '@media(max-width:850px){.aap3blocks{grid-template-columns:1fr}.aap3grid{grid-template-columns:repeat(2,minmax(0,1fr))}}',
+    '@media(max-width:500px){.aap3head{padding:14px}.aap3list{padding:12px}.aap3top{flex-direction:column}.aap3status{align-self:flex-start}.aap3tools{width:100%}.aap3tools input{flex:1}.aap3card{padding:12px}.aap3actions .admin-btn{width:100%;justify-content:center}}'
+  ].join('');
+  document.head.appendChild(s);
+}
+
+function shell(){
+  let r=document.getElementById('auroreAdminPdf3');
+  if(r)return r;
+  r=document.createElement('section');
+  r.id='auroreAdminPdf3';
+  r.className='aap3';
+  r.innerHTML=
+    '<div class="aap3home">'+
+      '<div class="aap3hero"><div class="aap3k">Administration · Gestion PDF</div><h2>Centre de gestion des documents</h2><p>Trois espaces distincts pour suivre le document depuis sa réception jusqu’à sa publication.</p></div>'+
+      '<div class="aap3blocks">'+
+        '<button type="button" class="aap3block" data-aap="pending"><div class="aap3num" id="aap3pending">0</div><h3>Documents en attente</h3><p>Réception, contrôle, préparation, génération ou erreur nécessitant une intervention.</p></button>'+
+        '<button type="button" class="aap3block" data-aap="generated"><div class="aap3num" id="aap3generated">0</div><h3>Documents générés</h3><p>PDF disponibles pour contrôle, régénération, validation ou publication.</p></button>'+
+        '<button type="button" class="aap3block" data-aap="published"><div class="aap3num" id="aap3published">0</div><h3>Documents publiés</h3><p>Documents actuellement présents dans la bibliothèque publique.</p></button>'+
+      '</div>'+
+    '</div>'+
+    '<div class="aap3page" data-page="pending"></div><div class="aap3page" data-page="generated"></div><div class="aap3page" data-page="published"></div>';
+  panel.insertBefore(r,panel.firstElementChild);
+  r.querySelectorAll('[data-aap]').forEach(b=>b.addEventListener('click',()=>openPage(b.dataset.aap)));
+  return r;
+}
+
+function label(s){
+  return ({review:'À contrôler',approved:'Validé',published:'Publié',rejected:'Rejeté',failed:'Échec',generated:'Généré',processing:'Traitement',queued:'En file',draft:'Brouillon'}[s]||s||'Inconnu');
+}
+function classification(x){
+  const m=M(x);
+  return [
+    ['Matière',x.matiere||x.subject],
+    ['Niveau',x.level],
+    ['Classe',x.class_name],
+    ['Filière',x.filiere],
+    ['Catégorie',m.classification?.category||m.category||x.document_type]
+  ].filter(a=>a[1]).map(a=>'<b>'+E(a[0])+' :</b> '+E(a[1])).join(' · ')||'Classification non renseignée';
+}
+function timestamp(x){
+  if(!x.created_at)return {date:'—',time:'—',sort:0};
+  const d=new Date(x.created_at);
+  if(Number.isNaN(d.getTime()))return {date:'—',time:'—',sort:0};
+  return {date:d.toLocaleDateString('fr-FR'),time:d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),sort:d.getTime()};
+}
+function actions(x,k){
+  const m=M(x),a=active(x),c=m.lualatex_cancel_requested===true,p=!!x.pdf_url,t=theme(x);
+  let z='';
+  if(p)z+='<a class="admin-btn ghost" href="'+E(x.pdf_url)+'" target="_blank" rel="noopener">Ouvrir le PDF</a>';
+  if(isLegacy(x))return z||'<span class="aap3prod">Document historique · aucune action IA disponible</span>';
+  if(a||c)z+='<button type="button" class="admin-btn danger" data-cf-cancel="'+E(x.id)+'" '+(c?'disabled':'')+'>'+(c?'Annulation demandée…':'Annuler la génération')+'</button>';
+  if(k!=='published'&&!a&&!c)z+='<button type="button" class="admin-btn ghost cf-change-theme" data-cf-theme="'+E(x.id)+'" data-theme-color="'+E(t)+'">Changer la couleur</button>';
+  if(k==='pending'&&!a&&!c)z+='<button type="button" class="admin-btn primary" data-cf-render="'+E(x.id)+'" data-has-pdf="'+(p?'1':'0')+'" data-theme-color="'+E(t)+'">'+(p?'Régénérer le PDF':'Générer le PDF')+'</button>';
+  if(k==='generated'&&!a&&!c)z+='<button type="button" class="admin-btn primary" data-cf-render="'+E(x.id)+'" data-has-pdf="1" data-theme-color="'+E(t)+'">Régénérer le PDF</button>';
+  if(x.status==='review'&&p&&!a&&!c)z+='<button type="button" class="admin-btn valider" data-cf-validate="'+E(x.id)+'">Valider le PDF</button>';
+  if(['review','approved'].includes(x.status)&&!a&&!c&&k!=='published')z+='<button type="button" class="admin-btn refuser" data-cf-reject="'+E(x.id)+'">Rejeter</button>';
+  if(['approved','review'].includes(x.status)&&p&&!a&&!c&&k!=='published')z+='<button type="button" class="admin-btn primary" data-cf-publish="'+E(x.id)+'">Publier</button>';
+  return z;
+}
+function card(x,k){
+  const ts=timestamp(x),m=M(x),t=theme(x),stage=m.lualatex_stage||m.lualatex_status||'',origin=m.origin||m.producer||x.source_format||'—';
+  return '<article class="aap3card" style="--aap3theme:'+E(t)+'">'+
+    '<div class="aap3top"><div><div class="aap3id">Document '+(isLegacy(x)?'historique ':'')+'#'+E(x.id)+'</div><div class="aap3title">'+E(x.title||'Sans titre')+'</div></div><span class="aap3status">'+E(label(x.status))+(x.pdf_url?' · PDF prêt':'')+'</span></div>'+
+    '<div class="aap3grid">'+
+      '<div><b>Date</b><span>'+E(ts.date)+'</span></div><div><b>Heure</b><span>'+E(ts.time)+'</span></div>'+
+      '<div><b>Classe</b><span>'+E(x.class_name||'—')+'</span></div><div><b>Niveau</b><span>'+E(x.level||'—')+'</span></div>'+
+      '<div><b>Matière</b><span>'+E(x.matiere||x.subject||'—')+'</span></div><div><b>Type</b><span>'+E(x.document_type||'—')+'</span></div>'+
+      '<div><b>Version</b><span>'+E(x.version||'—')+'</span></div><div><b>Origine</b><span>'+E(origin)+'</span></div>'+
+    '</div>'+
+    '<div class="aap3class">'+classification(x)+'</div>'+
+    (stage?'<div class="aap3prod"><b>Production :</b> '+E(stage)+(m.lualatex_progress!=null?' · '+E(m.lualatex_progress)+' %':'')+'</div>':'')+
+    (x.validation_notes?'<div class="aap3prod"><b>Note :</b> '+E(x.validation_notes)+'</div>':'')+
+    (m.lualatex_last_error?'<div class="aap3prod"><b>Erreur :</b> '+E(m.lualatex_last_error)+'</div>':'')+
+    '<div class="aap3color"><span class="aap3dot" style="background:'+E(t)+'"></span><span><b>Couleur du document</b><small>'+E(t)+(isLegacy(x)?' · historique':' · modifiable avant génération')+'</small></span></div>'+
+    '<div class="aap3actions">'+actions(x,k)+'</div>'+
+  '</article>';
+}
+function data(k){
+  if(k==='published')return rows.filter(isPublished);
+  if(k==='generated')return rows.filter(x=>isGenerated(x));
+  return rows.filter(x=>isPending(x));
+}
+function updateCounts(){
+  const r=shell();
+  r.querySelector('#aap3pending').textContent=String(data('pending').length);
+  r.querySelector('#aap3generated').textContent=String(data('generated').length);
+  r.querySelector('#aap3published').textContent=String(data('published').length);
+}
+function renderPage(k){
+  const r=shell();
+  const p=r.querySelector('.aap3page[data-page="'+k+'"]');
+  if(!p)return;
+  const titles={pending:'Documents en attente',generated:'Documents générés',published:'Documents publiés'};
+  const desc={pending:'Tous les documents nécessitant encore une intervention.',generated:'Tous les PDF déjà produits et non publiés.',published:'Tous les documents intégrés à la bibliothèque publique.'};
+  p.innerHTML=
+    '<div class="aap3head"><div><button type="button" class="admin-btn ghost" id="aap3back">← Administration</button><h2>'+titles[k]+'</h2><p>'+desc[k]+'</p></div>'+
+    '<div class="aap3tools"><input id="aap3search" type="search" placeholder="Titre, classe, matière…"><select id="aap3sort"><option value="recent">Plus récents</option><option value="oldest">Plus anciens</option><option value="az">Titre A → Z</option><option value="za">Titre Z → A</option></select><button type="button" class="admin-btn ghost" id="aap3refresh">Actualiser</button></div></div>'+
+    '<div class="aap3list" id="aap3list"></div>';
+  p.querySelector('#aap3back').onclick=()=>goHome(true);
+  p.querySelector('#aap3search').value=query;
+  p.querySelector('#aap3search').oninput=e=>{query=e.target.value||'';draw()};
+  p.querySelector('#aap3sort').value=sort;
+  p.querySelector('#aap3sort').onchange=e=>{sort=e.target.value;draw()};
+  p.querySelector('#aap3refresh').onclick=()=>load(true);
+  function draw(){
+    let a=data(k).slice();
+    const s=query.toLowerCase().trim();
+    if(s)a=a.filter(x=>[x.title,x.class_name,x.level,x.matiere,x.subject,x.document_type,x.filiere,x.status,M(x).origin,M(x).producer].filter(Boolean).join(' ').toLowerCase().includes(s));
+    a.sort((x,y)=>{
+      if(sort==='az')return String(x.title||'').localeCompare(String(y.title||''),'fr');
+      if(sort==='za')return String(y.title||'').localeCompare(String(x.title||''),'fr');
+      const tx=timestamp(x).sort,ty=timestamp(y).sort;
+      return sort==='oldest'?tx-ty:ty-tx;
+    });
+    p.querySelector('#aap3list').innerHTML=a.length?a.map(x=>card(x,k)).join(''):'<div class="aap3empty"><strong>Aucun document dans cette catégorie.</strong>Les données sont synchronisées avec Aurore.</div>';
+  }
+  draw();
+}
+function showError(message){
+  const r=shell();
+  let box=r.querySelector('.aap3error');
+  if(!box){box=document.createElement('div');box.className='aap3error';r.insertBefore(box,r.firstElementChild?.nextSibling||null)}
+  box.textContent='Synchronisation impossible : '+String(message||'erreur inconnue');
+}
+function clearError(){document.querySelector('#auroreAdminPdf3 .aap3error')?.remove()}
+function openPage(k,fromPop){
+  page=k;
+  if(!fromPop){
+    try{
+      const target=location.pathname+location.search+'#admin-pdf-'+k;
+      history.pushState({auroreAdminPdfPage:k},'',target);
+    }catch(_){}
+  }
+  const r=shell();
+  r.querySelector('.aap3home').style.display='none';
+  r.querySelectorAll('.aap3page').forEach(x=>x.classList.toggle('on',x.dataset.page===k));
+  renderPage(k);
+}
+function goHome(useHistory){
+  if(useHistory){
+    try{
+      if(location.hash.match(/^#admin-pdf-(pending|generated|published)$/)){history.back();return}
+    }catch(_){}
+  }
+  page=null;
+  try{
+    const clean=location.pathname+location.search;
+    history.replaceState({auroreAdminPdfPage:'home'},'',clean);
+  }catch(_){}
+  const r=shell();
+  r.querySelector('.aap3home').style.display='block';
+  r.querySelectorAll('.aap3page').forEach(x=>x.classList.remove('on'));
+}
+async function load(force){
+  if(loading&& !force)return;
+  if(!adminAllowed())return;
+  loading=true;
+  const thisLoad=++loadGeneration;
+  try{
+    const generatedReq=await cfFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?select=id,job_id,created_at,updated_at,created_by,title,subject,matiere,level,class_name,document_type,domaine,formation,specialite,annee,semestre,filiere,theme_color,source_format,pdf_path,pdf_url,version,status,validation_notes,published_document_id,metadata,pdf_diagnostic&order=created_at.desc&limit=2000',{cache:'no-store'});
+    const gt=await generatedReq.text();
+    if(!generatedReq.ok)throw new Error(gt||('HTTP '+generatedReq.status));
+    const generated=gt?JSON.parse(gt):[];
+
+    let next=Array.isArray(generated)?generated:[];
+    try{
+      const legacyReq=await cfFetch(SUPABASE_URL+'/rest/v1/Document?select=id,Titre,Niveau,Classe,Mati%C3%A8re,Fichier_url,Auteur,Cat%C3%A9gorie,Publie,Genre,Filiere,Source&order=id.desc&limit=2000',{cache:'no-store'});
+      const lt=await legacyReq.text();
+      if(legacyReq.ok){
+        const legacy=lt?JSON.parse(lt):[];
+        const generatedPdf=new Set(next.map(x=>String(x.pdf_url||'')).filter(Boolean));
+        for(const d of (Array.isArray(legacy)?legacy:[])){
+          const pdf=String(d.Fichier_url||'');
+          const linkedPublished=next.some(x=>String(x.published_document_id||'')===String(d.id));
+          if(generatedPdf.has(pdf)&&pdf)continue;
+          next.push({
+            id:'legacy-'+d.id,created_at:null,updated_at:null,created_by:null,
+            title:d.Titre||'Sans titre',subject:d['Matière']||'',matiere:d['Matière']||'',
+            level:d.Niveau||'',class_name:d.Classe||'',document_type:d.Genre||'Document',
+            filiere:d.Filiere||'',theme_color:'#6D28D9',source_format:'legacy',
+            pdf_path:null,pdf_url:pdf||null,version:1,status:d.Publie===true?'published':'review',
+            validation_notes:'Document historique Aurore',published_document_id:d.Publie===true?d.id:null,
+            metadata:{origin:'Bibliothèque historique',legacy_document_id:d.id,category:d['Catégorie']||'',source:d.Source||'',producer:d.Auteur||''},
+            pdf_diagnostic:null,legacy:true,legacy_linked_to_generated:linkedPublished
+          });
+        }
+      }
+    }catch(legacyError){
+      console.warn('[Aurore Admin PDF] historique indisponible',legacyError);
+    }
+    if(thisLoad!==loadGeneration)return;
+    rows=next;
+    clearError();
+    updateCounts();
+    if(page)renderPage(page);
+  }catch(e){
+    console.error('[Aurore Admin PDF 3 pages V2]',e);
+    if(!rows.length){
+      updateCounts();
+      showError(e?.message||e);
+    }
+  }finally{
+    if(thisLoad===loadGeneration)loading=false;
+  }
+}
+function boot(){
+  addStyle();
+  shell();
+  if(!document.getElementById('aap3hideV2')){
+    const s=document.createElement('style');
+    s.id='aap3hideV2';
+    s.textContent='[data-aap3-hidden="1"]{display:none!important}.admin-tab-panel[data-panel="content-factory"]>.admin-pending-overview{display:none!important}';
+    document.head.appendChild(s);
+  }
+  panel.querySelectorAll('#adminContentFactoryList,#auroreAllGeneratedDocuments,#aurorePdfProductionCenter').forEach(e=>{e.dataset.aap3Hidden='1'});
+  try{
+    const homeState={auroreAdminPdfPage:'home'};
+    if(!location.hash.match(/^#admin-pdf-(pending|generated|published)$/))history.replaceState(homeState,'',location.pathname+location.search);
+  }catch(_){}
+  load();
+  if(loadTimer)clearInterval(loadTimer);
+  loadTimer=setInterval(()=>load(false),5000);
+}
+window.addEventListener('popstate',()=>{
+  const m=location.hash.match(/^#admin-pdf-(pending|generated|published)$/);
+  if(m)openPage(m[1],true);else goHome(false);
+});
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
