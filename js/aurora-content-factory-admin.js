@@ -1105,8 +1105,14 @@ async function changeDocumentTheme(id,currentColor){
   try{
     const token=await cfFreshToken();
     await persistGeneratedDocumentTheme(id,color,token);
+    const row=rows.find(x=>Number(x.id)===Number(id));
+    const hasPdf=!!row?.pdf_url;
     await charger();
-    alert('Couleur enregistrée. Pour appliquer cette couleur au PDF existant, utilise « Régénérer le PDF ».');
+    if(hasPdf && confirm('Couleur enregistrée. Veux-tu régénérer maintenant le PDF pour appliquer cette nouvelle couleur ?')){
+      await handlePdfAction({action:'render',id:Number(id),hasPdf:true,themeColor:color});
+    }else{
+      alert('Couleur enregistrée. Elle sera utilisée lors de la prochaine génération du PDF.');
+    }
   }catch(e){alert('Changement de couleur impossible. '+(e.message||e))}
 }
 async function validateDoc(id){const n=prompt('Note de validation (facultatif) :','');if(n===null)return;try{await rpc('aurora_validate_generated_document',{p_generated_document_id:Number(id),p_notes:n||null});await charger()}catch(e){alert('Validation impossible. '+(e.message||e))}}
