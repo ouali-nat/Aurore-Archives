@@ -1717,7 +1717,7 @@ def render(data):
         # Aurore SVG graphics are independent of GeoGebra/Wikimedia.
         section_graphics = sec.get("graphics", [])
         if section_graphics:
-            graphics_root = Path(data.get("_render_assets_dir") or "assets") / "aurore"
+            graphics_root = Path(data.get("_render_assets_dir") or "assets") / "aurore" / f"section-{_idx + 1}"
             lines.extend(render_aurore_graphics(section_graphics, graphics_root, {
                 "primary": "#" + theme_primary,
                 "secondary": "#" + theme_secondary,
