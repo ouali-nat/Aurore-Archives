@@ -1026,11 +1026,12 @@ async function renderPdf(id,themeColor=null){
     // GitHub Actions continue même si l'écran est verrouillé, l'onglet est fermé
     // ou le navigateur est mis en veille. Le navigateur ne fait qu'observer.
     const foregroundDeadline=Date.now()+2*60*1000;
+    let lastProgress=18;
     let completed=null;
     const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
     while(Date.now()<foregroundDeadline){
       if(document.visibilityState==='hidden'){
-        setProgress(92,'Rendu en arrière-plan. Le PDF continue même écran verrouillé.');
+        setProgress(lastProgress,`Rendu en arrière-plan · progression serveur ${lastProgress.toFixed(2)}%`);
         await new Promise(resolve=>{
           const resume=()=>{document.removeEventListener('visibilitychange',resume);resolve();};
           document.addEventListener('visibilitychange',resume,{once:true});
@@ -1047,12 +1048,15 @@ async function renderPdf(id,themeColor=null){
       const m=row.metadata&&typeof row.metadata==='object'?row.metadata:{};
       if(row.pdf_url&&m.lualatex_status==='completed'){completed=row;break}
       if(m.lualatex_status==='failed')throw new Error('Le rendu LuaLaTeX a échoué. Consulte les journaux GitHub Actions.');
-      const elapsed=Date.now()-(foregroundDeadline-2*60*1000);
-      setProgress(Math.min(92,18+Math.floor(elapsed/1000/10)),`LuaLaTeX travaille… ${Math.floor(elapsed/1000)} s`);
+      const meta=row.metadata&&typeof row.metadata==='object'?row.metadata:{};
+      const realProgress=Number.isFinite(Number(meta.lualatex_progress))?Math.max(0,Math.min(100,Number(meta.lualatex_progress))):18;
+      const realStage=String(meta.lualatex_stage||'Rendu LuaLaTeX en cours');
+      lastProgress=realProgress;
+      setProgress(realProgress,`${realStage} · ${realProgress.toFixed(2)}%`);
       await wait(5000);
     }
     if(!completed){
-      setProgress(92,'Rendu en arrière-plan — le PDF continue automatiquement.');
+      setProgress(lastProgress,'Rendu en arrière-plan — la progression serveur continue automatiquement.');
       if(b)b.textContent='LuaLaTeX continue en arrière-plan…';
       await charger();
       surveillerRenduArrierePlan(id,accessToken,b);
@@ -1201,6 +1205,9 @@ async function surveillerRenduArrierePlan(id,accessToken,b){
       const qt=await q.text();if(!q.ok)throw new Error('HTTP '+q.status);
       const rows=qt?JSON.parse(qt):[],row=Array.isArray(rows)?rows[0]:null;
       const m=row?.metadata&&typeof row.metadata==='object'?row.metadata:{};
+      const bgProgress=Number.isFinite(Number(m.lualatex_progress))?Math.max(0,Math.min(100,Number(m.lualatex_progress))):0;
+      const bgStage=String(m.lualatex_stage||'Rendu LuaLaTeX en cours');
+      setProgress(bgProgress,`${bgStage} · ${bgProgress.toFixed(2)}%`);
       if(row?.pdf_url&&m.lualatex_status==='completed'){
         setProgress(100,'PDF LuaLaTeX généré et enregistré.');
         if(b){b.disabled=false;b.textContent='PDF LuaLaTeX prêt';}
@@ -1211,7 +1218,7 @@ async function surveillerRenduArrierePlan(id,accessToken,b){
         return true;
       }
       if(m.lualatex_status==='failed'){
-        setProgress(0,'Prêt — le rendu précédent a échoué.');
+        setProgress(bgProgress,'Le rendu précédent a échoué.');
         if(b){b.disabled=false;b.textContent=b.dataset.hasPdf==='1'?'Régénérer le PDF':'Générer le PDF';}
         await charger();return false;
       }
@@ -1328,6 +1335,8 @@ const adminAllowed=()=>{const r=roleValue();return r==='admin'||r==='administrat
 const normalize=typeof normalizeThemeColor==='function'?normalizeThemeColor:(v=>/^#[0-9a-f]{6}$/i.test(String(v||''))?String(v).toUpperCase():'#C85C0D');
 const theme=x=>normalize((M(x).aurore_design&&M(x).aurore_design.theme_color)||M(x).theme_color||x.theme_color||'#C85C0D');
 const active=x=>['queued','processing'].includes(String(M(x).lualatex_status||'').toLowerCase());
+const progressNumber=x=>{const p=Number(M(x).lualatex_progress);return Number.isFinite(p)?Math.max(0,Math.min(100,p)):0};
+const progressText=x=>{const p=progressNumber(x);return Number.isInteger(p)?String(p)+'%':p.toFixed(2)+'%'};
 const isPublished=x=>x.status==='published'||x.published_document_id!=null;
 const isGenerated=x=>!x.legacy&&!!x.pdf_url&&!isPublished(x)||x.legacy&&!isPublished(x)&&!!x.pdf_url;
 const isCancelled=x=>{if(!x)return false;const m=M(x);if(m.lualatex_cancel_requested===true)return true;const s=String(m.lualatex_status||'').toLowerCase();if(['cancelled','canceled'].includes(s))return true;const txt=String((m.lualatex_stage||'')+' '+(m.lualatex_last_error||'')+' '+(x.validation_notes||'')).toLowerCase();return /génération annulée|generation annulee|génération arrêtée|generation arretee|annulation demandée|annulation demandee/.test(txt);};
@@ -1359,7 +1368,7 @@ function addStyle(){
     '.aap3grid b{display:block;font-size:.54rem;opacity:.55;text-transform:uppercase}.aap3grid span{display:block;margin-top:3px;font-size:.65rem;font-weight:750;line-height:1.25;overflow-wrap:anywhere}.aap3class{margin-top:9px;padding:8px 10px;border-radius:9px;background:var(--fond,#fafafa);font-size:.63rem;color:var(--gris);line-height:1.4;overflow-wrap:anywhere}',
     '.aap3prod{margin-top:8px;font-size:.63rem;color:var(--gris);overflow-wrap:anywhere}.aap3color{display:flex;align-items:center;gap:8px;margin-top:9px;min-width:0}.aap3dot{width:23px;height:23px;border-radius:7px;flex:0 0 23px}.aap3color small{display:block;font-size:.56rem;color:var(--gris)}',
     '.aap3actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px}.aap3actions .admin-btn{min-height:35px;font-size:.62rem}.aap3empty{padding:35px 12px;text-align:center;color:var(--gris);font-size:.72rem}.aap3empty strong{display:block;color:var(--texte);margin-bottom:4px}',
-    '.aap3error{margin:12px 18px 0;padding:10px 12px;border:1px solid rgba(180,35,24,.25);border-radius:11px;background:rgba(180,35,24,.06);color:#b42318;font-size:.7rem;line-height:1.45}',
+    '.aap3error{margin:12px 18px 0;padding:10px 12px;border:1px solid rgba(180,35,24,.25);border-radius:11px;background:rgba(180,35,24,.06);color:#b42318;font-size:.7rem;line-height:1.45}','.aap3progress{margin-bottom:11px;padding:10px 11px;border:1px solid color-mix(in srgb,var(--aap3theme) 18%,var(--bordure,rgba(0,0,0,.12)));border-radius:11px;background:color-mix(in srgb,var(--aap3theme) 4%,var(--surface,#fff))}','.aap3progress-head{display:flex;justify-content:space-between;gap:9px;align-items:center;font-size:.6rem}.aap3progress-head b{text-transform:uppercase;letter-spacing:.05em;opacity:.68}.aap3progress-head span{font-variant-numeric:tabular-nums;font-weight:900;color:var(--aap3theme)}','.aap3progress-track{height:9px;margin-top:7px;border-radius:999px;background:color-mix(in srgb,var(--aap3theme) 9%,var(--fond,#f3f4f6));overflow:hidden;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--aap3theme) 10%,transparent)}','.aap3progress-track span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,color-mix(in srgb,var(--aap3theme) 68%,#fff),var(--aap3theme));transition:width .35s linear;min-width:0}','.aap3progress-stage{margin-top:6px;font-size:.59rem;line-height:1.35;color:var(--gris);overflow-wrap:anywhere}',
     'html[data-theme="dark"] .aap3,html[data-theme="dark"] .aap3block,html[data-theme="dark"] .aap3page,html[data-theme="dark"] .aap3card{background:#11101C!important;color:#F7F5FF!important;border-color:#302B45!important}',
     'html[data-theme="dark"] .aap3hero{background:linear-gradient(135deg,#151226,#1C1930)!important;border-color:#302B45!important}',
     'html[data-theme="dark"] .aap3hero h2,html[data-theme="dark"] .aap3block h3,html[data-theme="dark"] .aap3title,html[data-theme="dark"] .aap3grid span,html[data-theme="dark"] .aap3class,html[data-theme="dark"] .aap3color b{color:#F7F5FF!important}',
@@ -1455,8 +1464,12 @@ function card(x,k){
       '<div class="aap3actions">'+actions(x,k)+'</div></article>';
   }
   const ts=timestamp(x),m=M(x),t=theme(x),stage=m.lualatex_stage||m.lualatex_status||'',origin=m.origin||m.producer||x.source_format||'—';
+  const serverStatus=String(m.lualatex_status||'').toLowerCase();
+  const hasRealProgress=['queued','processing','completed','failed'].includes(serverStatus)||m.lualatex_progress!=null;
+  const pValue=progressNumber(x);
+  const progressBlock=hasRealProgress?'<div class="aap3progress" aria-label="Progression réelle de la génération PDF"><div class="aap3progress-head"><b>Progression réelle</b><span>'+E(progressText(x))+'</span></div><div class="aap3progress-track"><span style="width:'+E(pValue)+'%"></span></div><div class="aap3progress-stage">'+E(stage||'En attente du moteur PDF')+'</div></div>':'';
   return '<article class="aap3card" style="--aap3theme:'+E(t)+'">'+
-    '<div class="aap3top"><div><div class="aap3id">Document '+(isLegacy(x)?'historique ':'')+'#'+E(x.id)+'</div><div class="aap3title">'+E(x.title||'Sans titre')+'</div></div><span class="aap3status">'+E(label(x.status))+(x.pdf_url?' · PDF prêt':'')+'</span></div>'+
+    progressBlock+'<div class="aap3top"><div><div class="aap3id">Document '+(isLegacy(x)?'historique ':'')+'#'+E(x.id)+'</div><div class="aap3title">'+E(x.title||'Sans titre')+'</div></div><span class="aap3status">'+E(label(x.status))+(x.pdf_url?' · PDF prêt':'')+'</span></div>'+
     '<div class="aap3grid">'+
       '<div><b>Date</b><span>'+E(ts.date)+'</span></div><div><b>Heure</b><span>'+E(ts.time)+'</span></div>'+
       '<div><b>Classe</b><span>'+E(x.class_name||'—')+'</span></div><div><b>Niveau</b><span>'+E(x.level||'—')+'</span></div>'+
@@ -1464,7 +1477,7 @@ function card(x,k){
       '<div><b>Version</b><span>'+E(x.version||'—')+'</span></div><div><b>Origine</b><span>'+E(origin)+'</span></div>'+
     '</div>'+
     '<div class="aap3class">'+classification(x)+'</div>'+
-    (stage?'<div class="aap3prod"><b>Production :</b> '+E(stage)+(m.lualatex_progress!=null?' · '+E(m.lualatex_progress)+' %':'')+'</div>':'')+
+    (stage?'<div class="aap3prod"><b>Production :</b> '+E(stage)+(hasRealProgress?' · '+E(progressText(x)):'')+'</div>':'')+
     (x.validation_notes?'<div class="aap3prod"><b>Note :</b> '+E(x.validation_notes)+'</div>':'')+
     (m.lualatex_last_error?'<div class="aap3prod"><b>Erreur :</b> '+E(m.lualatex_last_error)+'</div>':'')+
     '<div class="aap3color"><span class="aap3dot" style="background:'+E(t)+'"></span><span><b>Couleur du document</b><small>'+E(t)+(isLegacy(x)?' · historique':' · modifiable avant génération')+'</small></span></div>'+
