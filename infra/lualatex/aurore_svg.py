@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import html
 import re
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 MAX_GRAPHICS = 24
@@ -529,16 +530,24 @@ RENDERERS = {
     "callout": _render_callout,
     "cell": _render_cell,
     "animal_cell": _render_animal_cell,
+    "cellule_animale": _render_animal_cell,
     "plant_cell": _render_plant_cell,
+    "cellule_vegetale": _render_plant_cell,
     "separator_leaf": _render_leaf_branch,
     "leaf_branch": _render_leaf_branch,
+    "deco_feuillage": _render_leaf_branch,
     "dots": _render_dots,
     "mini_tree": _render_mini_tree,
     "circuit": _render_circuit,
     "circuit_custom": _render_circuit_custom,
+    "circuit_personnalise": _render_circuit_custom,
+    "schema_circuit": _render_circuit_custom,
     "force_diagram": _render_force_diagram,
+    "forces": _render_force_diagram,
     "spring": _render_spring,
+    "ressort": _render_spring,
     "mass_spring": _render_mass_spring,
+    "masse_ressort": _render_mass_spring,
     "tree": _render_tree,
 }
 def render_graphics(graphics: object, assets_dir: Path, theme: dict | None = None) -> list[dict]:
@@ -562,6 +571,12 @@ def render_graphics(graphics: object, assets_dir: Path, theme: dict | None = Non
         spec = dict(raw)
         spec["theme"] = theme or raw.get("theme") or {}
         svg = "\n".join(renderer(spec, _colors(spec))) + "\n"
+        try:
+            ET.fromstring(svg)
+        except ET.ParseError as exc:
+            raise ValueError(
+                f"Aurore SVG: XML invalide pour le graphique {index + 1} ({kind}): {exc}"
+            ) from exc
         svg_path = assets_dir / f"aurore-graphic-{index + 1}.svg"
         svg_path.write_text(svg, encoding="utf-8")
         out.append({"index": index, "kind": kind, "svg_path": str(svg_path), "title": _safe_text(raw.get("title") or kind)})
