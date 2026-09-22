@@ -1090,7 +1090,12 @@ def normalize_math(s):
     # backslash. Do not touch protected array row breaks.
     s = re.sub(r"\\\\(?=[A-Za-z{}])", lambda _m: "\\", s)
 
-NaN
+    # JSON-escaped TeX punctuation can also arrive doubled (for example
+    # \\% for a percentage inside math). Unlike array row breaks, these
+    # sequences must collapse to one command backslash; otherwise the
+    # % becomes a TeX comment and can swallow the closing delimiter/braces.
+    s = re.sub(r"\\\\(?=[%&#_^~])", lambda _m: "\\", s)
+
     # before a horizontal rule ("\\ \\hline") instead of the required
     # array row break ("\\\\ \\hline"). Canonicalize that malformed
     # sequence only inside array environments; never alter ordinary math.
