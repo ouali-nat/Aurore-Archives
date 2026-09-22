@@ -1,0 +1,264 @@
+/* ==========================================================
+   AURORE — LECTEUR PDF : MENU "3 POINTS" (topbar simplifiée)
+   Remplace l'ancienne barre d'outils pleine largeur par un seul
+   bouton en haut à gauche qui ouvre un panneau regroupant tous
+   les outils (zoom, ajustement, mode de lecture, documents
+   récents, téléchargement, signalement). N'affecte aucune
+   logique : uniquement le rendu visuel et l'ouverture/fermeture
+   du panneau.
+   ========================================================== */
+
+#pdfViewerOverlay .pdf-reader-topbar{
+  gap:10px!important;
+}
+
+/* ---------- Bouton "3 points" ---------- */
+#pdfViewerOverlay .pdf-reader-menu-wrap{
+  position:relative!important;
+  flex:0 0 auto!important;
+}
+#pdfViewerOverlay .pdf-reader-menu-toggle{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:40px!important;
+  height:40px!important;
+  min-width:40px!important;
+  min-height:40px!important;
+  padding:0!important;
+  border:1px solid var(--bordure)!important;
+  border-radius:12px!important;
+  background:var(--fond)!important;
+  color:var(--encre)!important;
+  cursor:pointer!important;
+  box-shadow:none!important;
+  transition:border-color .16s ease,background .16s ease,transform .16s ease;
+}
+#pdfViewerOverlay .pdf-reader-menu-toggle:hover{
+  border-color:var(--violet,#8B5CF6)!important;
+  background:color-mix(in srgb,var(--violet,#8B5CF6) 9%,var(--fond))!important;
+}
+#pdfViewerOverlay .pdf-reader-menu-toggle[aria-expanded="true"]{
+  border-color:var(--violet,#8B5CF6)!important;
+  background:color-mix(in srgb,var(--violet,#8B5CF6) 14%,var(--fond))!important;
+  color:var(--violet,#8B5CF6)!important;
+}
+#pdfViewerOverlay .pdf-reader-menu-toggle:active{transform:scale(.95);}
+
+/* ---------- Panneau du menu ---------- */
+#pdfViewerOverlay .pdf-reader-menu-panel{
+  position:absolute!important;
+  top:calc(100% + 9px)!important;
+  left:0!important;
+  z-index:70!important;
+  width:min(300px,calc(100vw - 28px))!important;
+  max-height:min(76vh,600px)!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  display:flex!important;
+  flex-direction:column!important;
+  gap:2px!important;
+  padding:9px!important;
+  box-sizing:border-box!important;
+  border:1px solid var(--bordure)!important;
+  border-radius:18px!important;
+  background:var(--papier)!important;
+  box-shadow:0 22px 55px rgba(0,0,0,.28),0 2px 10px rgba(0,0,0,.10)!important;
+  opacity:0!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+  transform:translateY(-6px) scale(.97)!important;
+  transform-origin:top left!important;
+  transition:opacity .16s ease,transform .16s ease,visibility .16s ease!important;
+}
+#pdfViewerOverlay .pdf-reader-menu-panel.open{
+  opacity:1!important;
+  visibility:visible!important;
+  pointer-events:auto!important;
+  transform:translateY(0) scale(1)!important;
+}
+
+/* ---------- Sections / éléments du menu ---------- */
+#pdfViewerOverlay .pdf-menu-section{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:7px!important;
+  padding:6px 6px 8px!important;
+}
+#pdfViewerOverlay .pdf-menu-section-title{
+  font-size:.64rem!important;
+  font-weight:800!important;
+  letter-spacing:.08em!important;
+  text-transform:uppercase!important;
+  color:var(--gris,#9E96AE)!important;
+}
+#pdfViewerOverlay .pdf-menu-zoom-row{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:6px!important;
+  padding:4px!important;
+  border:1px solid var(--bordure)!important;
+  border-radius:12px!important;
+  background:var(--fond)!important;
+}
+#pdfViewerOverlay .pdf-menu-zoom-btn{
+  width:36px!important;
+  height:36px!important;
+  flex:0 0 36px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  border:1px solid var(--bordure)!important;
+  border-radius:9px!important;
+  background:var(--papier)!important;
+  color:var(--encre)!important;
+  font-size:1.1rem!important;
+  font-weight:700!important;
+  cursor:pointer!important;
+}
+#pdfViewerOverlay .pdf-menu-zoom-btn:hover{border-color:var(--violet,#8B5CF6)!important;}
+#pdfViewerOverlay #pdfViewerZoomLevel{
+  flex:1!important;
+  text-align:center!important;
+  font-size:.86rem!important;
+  font-weight:800!important;
+  color:var(--violet,#8B5CF6)!important;
+  font-variant-numeric:tabular-nums;
+}
+
+#pdfViewerOverlay .pdf-menu-item{
+  display:flex!important;
+  align-items:center!important;
+  gap:11px!important;
+  width:100%!important;
+  min-height:44px!important;
+  padding:9px 10px!important;
+  border:1px solid transparent!important;
+  border-radius:11px!important;
+  background:transparent!important;
+  color:var(--encre)!important;
+  font-size:.84rem!important;
+  font-weight:650!important;
+  text-align:left!important;
+  cursor:pointer!important;
+}
+#pdfViewerOverlay .pdf-menu-item svg{flex:0 0 17px!important;color:var(--violet,#8B5CF6)!important;}
+#pdfViewerOverlay .pdf-menu-item:hover{
+  background:color-mix(in srgb,var(--violet,#8B5CF6) 9%,var(--fond))!important;
+  border-color:var(--bordure)!important;
+}
+#pdfViewerOverlay .pdf-menu-item[aria-pressed="true"]{
+  background:color-mix(in srgb,var(--violet,#8B5CF6) 14%,var(--fond))!important;
+  border-color:var(--violet,#8B5CF6)!important;
+  color:var(--violet,#8B5CF6)!important;
+}
+
+#pdfViewerOverlay .pdf-menu-divider{
+  height:1px!important;
+  margin:5px 4px!important;
+  background:var(--bordure)!important;
+  opacity:.7!important;
+}
+
+/* ---------- "Documents récents" imbriqué dans le menu ---------- */
+#pdfViewerOverlay .pdf-recent-access{
+  display:flex!important;
+  flex-direction:column!important;
+  width:100%!important;
+}
+#pdfViewerOverlay .pdf-recent-panel{
+  position:relative!important;
+  top:auto!important;right:auto!important;left:auto!important;
+  width:100%!important;
+  max-height:0!important;
+  overflow:hidden!important;
+  margin:0!important;
+  padding:0 2px!important;
+  border:0!important;
+  border-radius:11px!important;
+  background:var(--fond)!important;
+  box-shadow:none!important;
+  opacity:0!important;
+  transition:max-height .2s ease,opacity .18s ease,padding .2s ease!important;
+}
+#pdfViewerOverlay .pdf-recent-panel.open{
+  max-height:260px!important;
+  overflow-y:auto!important;
+  opacity:1!important;
+  padding:8px!important;
+  margin-top:4px!important;
+  border:1px solid var(--bordure)!important;
+}
+#pdfViewerOverlay .pdf-recent-panel-title{
+  margin:0 0 6px 2px!important;
+  font-size:.64rem!important;
+  font-weight:800!important;
+  letter-spacing:.05em!important;
+  text-transform:uppercase!important;
+  color:var(--gris,#9E96AE)!important;
+}
+#pdfViewerOverlay .pdf-recent-item{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:8px!important;
+  width:100%!important;
+  padding:8px 9px!important;
+  margin-bottom:3px!important;
+  border:1px solid var(--bordure)!important;
+  border-radius:9px!important;
+  background:var(--papier)!important;
+  color:var(--encre)!important;
+  font-size:.78rem!important;
+  cursor:pointer!important;
+  text-align:left!important;
+}
+#pdfViewerOverlay .pdf-recent-item:hover{border-color:var(--violet,#8B5CF6)!important;}
+#pdfViewerOverlay .pdf-recent-item-title{
+  flex:1!important;
+  min-width:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+#pdfViewerOverlay .pdf-recent-item-remove{
+  flex:0 0 auto!important;
+  width:20px!important;
+  height:20px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  border-radius:6px!important;
+  color:var(--gris,#9E96AE)!important;
+  font-size:.9rem!important;
+  cursor:pointer!important;
+}
+#pdfViewerOverlay .pdf-recent-item-remove:hover{
+  background:rgba(220,38,38,.12)!important;
+  color:#DC2626!important;
+}
+#pdfViewerOverlay .pdf-recent-empty{
+  padding:10px 4px!important;
+  color:var(--gris,#9E96AE)!important;
+  font-size:.76rem!important;
+}
+
+/* ---------- Mobile ---------- */
+@media(max-width:700px){
+  #pdfViewerOverlay .pdf-reader-menu-panel{
+    width:min(300px,calc(100vw - 20px))!important;
+    left:0!important;
+  }
+  #pdfViewerOverlay .pdf-reader-menu-toggle{
+    width:38px!important;
+    height:38px!important;
+    min-width:38px!important;
+    min-height:38px!important;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  #pdfViewerOverlay .pdf-reader-menu-panel,
+  #pdfViewerOverlay .pdf-recent-panel{transition:none!important;}
+}
