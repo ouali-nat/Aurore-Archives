@@ -167,7 +167,7 @@ async function gemini(j:any){
   d._editorial={status:"completed",engine:r.model,provider:"gemini"};
   return d;
 }
-function fallbackFromPlainTextfunction fallbackFromPlainText(raw:string,j:any){
+function fallbackFromPlainText(raw:string,j:any){
   const text=String(raw||"").trim();
   const cleanLine=(s:string)=>String(s||"")
     .replace(/\r/g,"")
@@ -289,7 +289,7 @@ async function llamaFull(j:any){
   d._editorial={status:"completed",engine:model,provider:"llama"};
   return d;
 }
-function requestedActivityCountfunction requestedActivityCount(j:any){
+function requestedActivityCount(j:any){
   const p=String(j?.prompt||"").toLowerCase();
   const q=p.match(/(?:ajoute|ajouter|présente|propose)[^\\n]{0,80}?(\\d+)\\s+questions?/i);
   const e=p.match(/(\\d+)\\s+exercices?/i);
@@ -371,7 +371,7 @@ function qualityGate(j:any,d:any){
   if(badCorrection)reasons.push("corrigé invalide");
   return {ok:reasons.length===0,reasons,stats:{word_count:words,sections,activities,corrections,visuals:usableVisuals,min_visuals:MIN_VISUALS,required_graphs:requiredGraphs,present_graphs:graphState.present,missing_graphs:graphState.missing,requested}};
 }
-async function geminiRepairasync function geminiRepair(j:any,d:any,gate:any){
+async function geminiRepair(j:any,d:any,gate:any){
   const req=graphRequirements(j);
   const prompt=`Révise entièrement ce manuscrit Aurore et retourne le DOCUMENT COMPLET. Minimum ${MIN_WORDS} mots, cible ${TARGET_MIN_WORDS}-${TARGET_MAX_WORDS}. Raisons : ${gate.reasons.join(" ; ")}. Développe les notions sans répétitions artificielles, restaure les activités et leurs corrigés, ajoute au moins ${MIN_VISUALS} illustrations Wikimedia pertinentes avec query et caption. GRAPHIQUES REQUIS : ${req.length?req.join(", "):"aucun"}. Tous les instruments requis doivent être présents et valides. Respecte le schéma JSON.\nDEMANDE:\n${j.prompt||j.title}\nMANUSCRIT:\n${JSON.stringify(d)}\nSCHEMA:\n${JSON.stringify(SCHEMA)}`;
   const r=await callGeminiText(prompt,false), x=normalize(parse(r.text),j);
@@ -404,7 +404,7 @@ async function llamaRepair(j:any,d:any,gate:any){
   x._editorial={status:"completed",engine:model,provider:"llama"};
   return x;
 }
-async function generateContentasync function generateContent(j:any){const selected=aiSelection(j),providers:any={},warnings:string[]=[];let d:any=null;const order=aiMode(j)==="qcm"&&selected.includes("llama")?["llama",...selected.filter((x:string)=>x!=="llama")]:selected;for(const name of order){try{d=name==="gemini"?await gemini(j):name==="llama"?await llamaFull(j):await deepseek(j);providers[name]={status:"completed",model:d?._provider?.model||d?._editorial?.engine||name};break}catch(e){providers[name]={status:"failed",reason:String(e)};warnings.push(`${name}: ${String(e)}`);}}if(!d)throw Error("Aucun moteur IA sélectionné n'est disponible. "+warnings.join(" | "));d._factory={...(d._factory||{}),ai_selection:selected,ai_mode:aiMode(j),ai_providers:providers,provider_warnings:warnings};return d;}
+async function generateContent(j:any){const selected=aiSelection(j),providers:any={},warnings:string[]=[];let d:any=null;const order=aiMode(j)==="qcm"&&selected.includes("llama")?["llama",...selected.filter((x:string)=>x!=="llama")]:selected;for(const name of order){try{d=name==="gemini"?await gemini(j):name==="llama"?await llamaFull(j):await deepseek(j);providers[name]={status:"completed",model:d?._provider?.model||d?._editorial?.engine||name};break}catch(e){providers[name]={status:"failed",reason:String(e)};warnings.push(`${name}: ${String(e)}`);}}if(!d)throw Error("Aucun moteur IA sélectionné n'est disponible. "+warnings.join(" | "));d._factory={...(d._factory||{}),ai_selection:selected,ai_mode:aiMode(j),ai_providers:providers,provider_warnings:warnings};return d;}
 function ensureVisualPlan(j:any,d:any){
   const profile=editorialProfile(j).profile, sections=Array.isArray(d.sections)?d.sections:[];
   const hints:any={biologie:"biology anatomy structure diagram",experimental:"science experiment apparatus phenomenon diagram",scientifique:"mathematics geometry educational diagram",langues:"language learning communication illustration",francais_litterature:"French literature historical cultural illustration",histoire_geographie:"historical geography map territory illustration",informatique:"computer science algorithm software diagram",technique:"technical engineering mechanism diagram",general:"educational explanatory diagram"};
@@ -430,7 +430,7 @@ function ensureVisualPlan(j:any,d:any){
   d._factory={...(d._factory||{}),visual_plan:{planned:flat().length,usable:all.length,required:all.filter((v:any)=>v.required||v.priority==="required").length,minimum:MIN_VISUALS,profile,status:all.length>=MIN_VISUALS?"pass":"blocked"}};
   return d;
 }
-function htmlfunction html(d:any){const e=(v:any)=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");return`<html><body><h1>${e(d.title)}</h1><p>${e(d.introduction)}</p>${d.sections.map((s:any,i:number)=>`<section><h2>${i+1}. ${e(s.title)}</h2>${s.content.map((p:string)=>`<p>${e(p)}</p>`).join("")}${s.formula?`<p>${e(s.formula)}</p>`:""}${s.exercises.map((q:any,n:number)=>`<div><b>Exercice ${n+1}</b><p>${e(q.question)}</p><p>${e(q.hint)}</p>${q.formula?`<p>Formule : ${e(q.formula)}</p>`:""}</div>`).join("")}</section>`).join("")}<section><h2>Corrigés détaillés</h2>${d.corrections.map((c:any)=>`<div><b>Exercice ${c.exercise_number}</b><p>${e(c.solution)}</p>${c.formula?`<p>Formule : ${e(c.formula)}</p>`:""}</div>`).join("")}</section></body></html>`}
+function html(d:any){const e=(v:any)=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");return`<html><body><h1>${e(d.title)}</h1><p>${e(d.introduction)}</p>${d.sections.map((s:any,i:number)=>`<section><h2>${i+1}. ${e(s.title)}</h2>${s.content.map((p:string)=>`<p>${e(p)}</p>`).join("")}${s.formula?`<p>${e(s.formula)}</p>`:""}${s.exercises.map((q:any,n:number)=>`<div><b>Exercice ${n+1}</b><p>${e(q.question)}</p><p>${e(q.hint)}</p>${q.formula?`<p>Formule : ${e(q.formula)}</p>`:""}</div>`).join("")}</section>`).join("")}<section><h2>Corrigés détaillés</h2>${d.corrections.map((c:any)=>`<div><b>Exercice ${c.exercise_number}</b><p>${e(c.solution)}</p>${c.formula?`<p>Formule : ${e(c.formula)}</p>`:""}</div>`).join("")}</section></body></html>`}
 Deno.serve(async req=>{if(req.method==='OPTIONS')return new Response('ok',{headers:H});if(req.method!=='POST')return out({error:'Méthode non autorisée'},405);const a=req.headers.get('Authorization');if(!a?.startsWith('Bearer '))return out({error:'Authentification requise'},401);const internal=a===`Bearer ${SR}`;let userId:string|null=null;if(!internal){const u=createClient(URL,ANON,{global:{headers:{Authorization:a}},auth:{autoRefreshToken:false,persistSession:false}});const me=await u.auth.getUser();if(me.error||!me.data.user)return out({error:'Session invalide'},401);userId=me.data.user.id;}let b:any;try{b=await req.json()}catch{return out({error:'JSON invalide'},400)}const requestedId=Number(b?.job_id||0);if(!internal&&(!Number.isSafeInteger(requestedId)||requestedId<1))return out({error:'job_id invalide'},400);if(requestedId&&(!Number.isSafeInteger(requestedId)||requestedId<1))return out({error:'job_id invalide'},400);if(requestedId&&!internal){const own=await db.from('aurora_content_jobs').select('id').eq('id',requestedId).eq('created_by',userId).maybeSingle();if(own.error||!own.data)return out({error:'Job introuvable'},404);}const cl=await db.rpc('aurora_claim_content_job',{p_job_id:requestedId||null});if(cl.error)return out({error:cl.error.message},500);if(!cl.data)return out({ok:true,internal,processed:false,status:'idle',message:'Aucun job de contenu disponible.'},200);const j=cl.data;try{
     let d=await generateContent(j);
     d=ensureVisualPlan(j,d);
