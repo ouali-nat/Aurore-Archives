@@ -52,14 +52,14 @@ async function chooseRegenerationTheme(defaultColor){
 }
 async function persistGeneratedDocumentTheme(id,themeColor,accessToken){
   const color=normalizeThemeColor(themeColor);
-  const q=await cfFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?id=eq.'+encodeURIComponent(Number(id))+'&select=id,metadata',{cache:'no-store',headers:{'Authorization':'Bearer '+accessToken}});
+  const q=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?id=eq.'+encodeURIComponent(Number(id))+'&select=id,metadata',{cache:'no-store',headers:{'Authorization':'Bearer '+accessToken}});
   const qt=await q.text();
   if(!q.ok)throw new Error('Lecture des métadonnées impossible (HTTP '+q.status+').');
   let rows=[];try{rows=qt?JSON.parse(qt):[]}catch(_){rows=[]}
   const current=Array.isArray(rows)&&rows[0]?.metadata&&typeof rows[0].metadata==='object'?rows[0].metadata:{};
   const currentDesign=current.aurore_design&&typeof current.aurore_design==='object'?current.aurore_design:{};
   const metadata={...current,aurore_design:{...currentDesign,theme_color:color,version:1},theme_color:color};
-  const u=await cfFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?id=eq.'+encodeURIComponent(Number(id)),{
+  const u=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?id=eq.'+encodeURIComponent(Number(id)),{
     method:'PATCH',cache:'no-store',
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},
     body:JSON.stringify({metadata,theme_color:color,updated_at:new Date().toISOString()})
@@ -102,7 +102,7 @@ async function cfFetch(url,options={},retry=true){
   }
   return r;
 }
-async function rpc(name,body){const r=await cfFetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));try{return t?JSON.parse(t):null}catch(_){return t}}
+async function rpc(name,body){const r=await adminInventoryFetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));try{return t?JSON.parse(t):null}catch(_){return t}}
 function setProgress(percent,stage){const box=document.getElementById('cfProgress'),bar=document.getElementById('cfProgressBar'),pct=document.getElementById('cfProgressPercent'),st=document.getElementById('cfProgressStage');if(box)box.hidden=false;if(bar)bar.style.width=Math.max(0,Math.min(100,percent))+'%';if(pct)pct.textContent=Math.round(percent)+'%';if(st)st.textContent=stage||'';}
 function updateQueueUI(){const box=document.getElementById('cfGenerationQueue'),txt=document.getElementById('cfGenerationQueueText'),btn=document.getElementById('cfCreateLaunch');if(!box||!txt)return;const n=generationQueue.length;box.hidden=!generationRunning&&!n;txt.textContent=generationRunning?(n?` — 1 document en cours, ${n} suivant(s) en attente.`:' — 1 document en cours, aucun autre en attente.'):(n?` — ${n} document(s) en attente.`:'');if(btn)btn.textContent=generationRunning?'Ajouter à la file':'Ajouter à la file de génération';}
 function cfChildren(node){
@@ -231,7 +231,7 @@ async function loadClassificationOptions(){
 function selectedAiProviders(){const out=[];if(document.getElementById("cfAiGemini")?.checked)out.push("gemini");if(document.getElementById("cfAiLlama")?.checked)out.push("llama");return out;}
 function syncAiStrategyHint(){const a=selectedAiProviders(),hint=document.getElementById("cfAiStrategyHint");if(hint)hint.textContent=a.length?"Stratégie active : "+a.map(x=>x==="gemini"?"Gemini":x==="llama"?"Llama":"DeepSeek").join(" + ")+". Aurore choisira le rôle de chaque moteur selon le type de ressource.":"Sélectionne au moins une IA.";}
 function selectedValue(id){return String(document.getElementById(id)?.value||'').trim();}
-async function getJob(jobId){const r=await cfFetch(`${SUPABASE_URL}/rest/v1/aurora_content_jobs?id=eq.${encodeURIComponent(jobId)}&select=id,status,title,generated_document_id,error_message,updated_at`,{cache:'no-store'});const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));const a=t?JSON.parse(t):[];return Array.isArray(a)&&a[0]?a[0]:null;}
+async function getJob(jobId){const r=await adminInventoryFetch(`${SUPABASE_URL}/rest/v1/aurora_content_jobs?id=eq.${encodeURIComponent(jobId)}&select=id,status,title,generated_document_id,error_message,updated_at`,{cache:'no-store'});const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));const a=t?JSON.parse(t):[];return Array.isArray(a)&&a[0]?a[0]:null;}
 async function waitForJob(jobId){let last=null;for(let i=0;i<180;i++){const j=await getJob(jobId);if(!j)throw new Error('Job introuvable dans Supabase.');last=j;if(j.status==='queued'){setProgress(8,`Job #${jobId} en file — Aurora attend son tour…`)}else if(j.status==='processing'){setProgress(Math.min(88,18+i*.4),`Aurora traite le document #${jobId}…`)}else if(j.status==='review'){setProgress(100,`Document #${jobId} terminé et placé en contrôle.`);return j}else if(j.status==='failed'||j.status==='rejected'){throw new Error(j.error_message||`La génération s’est arrêtée avec le statut ${j.status}.`)}else{setProgress(12,`Statut Aurora : ${j.status}`)}await new Promise(r=>setTimeout(r,2000));}return last;}
 async function runGeneration(item){
   const msg=document.getElementById('cfCreateMsg');generationRunning=true;updateQueueUI();setProgress(2,'Préparation du document « '+item.title+' »…');
@@ -1009,7 +1009,7 @@ async function renderPdf(id,themeColor=null){
       :'Mise en file LuaLaTeX…';
     setProgress(12,'Document envoyé au moteur LuaLaTeX…');
 
-    const request=await cfFetch(`${SUPABASE_URL}/functions/v1/aurora-lualatex-request`,{
+    const request=await adminInventoryFetch(`${SUPABASE_URL}/functions/v1/aurora-lualatex-request`,{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':`Bearer ${accessToken}`},
       body:JSON.stringify({generated_document_id:Number(id)})
@@ -1037,7 +1037,7 @@ async function renderPdf(id,themeColor=null){
         });
         continue;
       }
-      const q=await cfFetch(`${SUPABASE_URL}/rest/v1/aurora_generated_documents?id=eq.${encodeURIComponent(Number(id))}&select=id,pdf_url,pdf_path,metadata,status,updated_at`,{cache:'no-store',headers:{'Authorization':`Bearer ${accessToken}`}});
+      const q=await adminInventoryFetch(`${SUPABASE_URL}/rest/v1/aurora_generated_documents?id=eq.${encodeURIComponent(Number(id))}&select=id,pdf_url,pdf_path,metadata,status,updated_at`,{cache:'no-store',headers:{'Authorization':`Bearer ${accessToken}`}});
       const qt=await q.text();
       if(!q.ok)throw new Error(`Lecture de l'état LuaLaTeX impossible (HTTP ${q.status}). Le rendu serveur continue en arrière-plan.`);
       let rows=[];
@@ -1093,7 +1093,7 @@ async function cancelPdfGeneration(id){
     const wait=ms=>new Promise(r=>setTimeout(r,ms)); const deadline=Date.now()+240000; let done=false;
     while(Date.now()<deadline){
       try{
-        const r=await cfFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?id=eq.'+encodeURIComponent(numericId)+'&select=id,status,pdf_url,metadata,updated_at',{cache:'no-store'});
+        const r=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?id=eq.'+encodeURIComponent(numericId)+'&select=id,status,pdf_url,metadata,updated_at',{cache:'no-store'});
         const t=await r.text(), a=t?JSON.parse(t):[], row=Array.isArray(a)?a[0]:null, m=row?.metadata&&typeof row.metadata==='object'?row.metadata:{};
         if(!['queued','processing'].includes(m.lualatex_status)&&m.lualatex_cancel_requested!==true){done=true;break}
       }catch(_){}
@@ -1197,7 +1197,7 @@ async function surveillerRenduArrierePlan(id,accessToken,b){
   const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   for(let i=0;i<180;i++){
     try{
-      const q=await cfFetch(`${SUPABASE_URL}/rest/v1/aurora_generated_documents?id=eq.${encodeURIComponent(Number(id))}&select=id,pdf_url,metadata,status,updated_at`,{cache:'no-store',headers:{'Authorization':`Bearer ${accessToken}`}});
+      const q=await adminInventoryFetch(`${SUPABASE_URL}/rest/v1/aurora_generated_documents?id=eq.${encodeURIComponent(Number(id))}&select=id,pdf_url,metadata,status,updated_at`,{cache:'no-store',headers:{'Authorization':`Bearer ${accessToken}`}});
       const qt=await q.text();if(!q.ok)throw new Error('HTTP '+q.status);
       const rows=qt?JSON.parse(qt):[],row=Array.isArray(rows)?rows[0]:null;
       const m=row?.metadata&&typeof row.metadata==='object'?row.metadata:{};
@@ -1221,7 +1221,7 @@ async function surveillerRenduArrierePlan(id,accessToken,b){
   return false;
 }
 
-async function charger(){if(!adminOk()){list.innerHTML='<div class="admin-empty">Cette action est réservée aux administrateurs.</div>';return}list.innerHTML='<div class="admin-empty">Chargement…</div>';try{const r=await cfFetch(`${SUPABASE_URL}/rest/v1/aurora_generated_documents?select=id,job_id,created_at,updated_at,created_by,title,subject,matiere,level,class_name,document_type,domaine,formation,specialite,annee,semestre,filiere,theme_color,source_format,pdf_path,pdf_url,version,status,validation_notes,published_document_id,metadata,pdf_diagnostic&order=created_at.desc`,{cache:'no-store'}),t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));rows=t?JSON.parse(t):[];if(!Array.isArray(rows))rows=[];const c={review:0,approved:0,published:0,failed:0};rows.forEach(x=>{if(c[x.status]!=null)c[x.status]++});document.getElementById('cfCountReview').textContent=c.review;document.getElementById('cfCountApproved').textContent=c.approved;document.getElementById('cfCountPublished').textContent=c.published;document.getElementById('cfCountFailed').textContent=c.failed;if(count)count.textContent=String(c.review);apply()}catch(e){list.innerHTML=`<div class="admin-empty">Impossible de charger Content Factory.<br>${esc(e.message||e)}</div>`}}
+async function charger(){if(!adminOk()){list.innerHTML='<div class="admin-empty">Cette action est réservée aux administrateurs.</div>';return}list.innerHTML='<div class="admin-empty">Chargement…</div>';try{const r=await adminInventoryFetch(`${SUPABASE_URL}/rest/v1/aurora_generated_documents?select=id,job_id,created_at,updated_at,created_by,title,subject,matiere,level,class_name,document_type,domaine,formation,specialite,annee,semestre,filiere,theme_color,source_format,pdf_path,pdf_url,version,status,validation_notes,published_document_id,metadata,pdf_diagnostic&order=created_at.desc`,{cache:'no-store'}),t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));rows=t?JSON.parse(t):[];if(!Array.isArray(rows))rows=[];const c={review:0,approved:0,published:0,failed:0};rows.forEach(x=>{if(c[x.status]!=null)c[x.status]++});document.getElementById('cfCountReview').textContent=c.review;document.getElementById('cfCountApproved').textContent=c.approved;document.getElementById('cfCountPublished').textContent=c.published;document.getElementById('cfCountFailed').textContent=c.failed;if(count)count.textContent=String(c.review);apply()}catch(e){list.innerHTML=`<div class="admin-empty">Impossible de charger Content Factory.<br>${esc(e.message||e)}</div>`}}
 document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurrent);document.getElementById('adminRefreshContentFactory')?.addEventListener('click',charger);document.getElementById('adminSearchContentFactory')?.addEventListener('input',apply);document.getElementById('adminSortContentFactory')?.addEventListener('change',apply);document.getElementById('adminFilterContentFactory')?.addEventListener('change',apply);
   const handlePdfAction=async detail=>{
     try{
@@ -1520,20 +1520,38 @@ function goHome(useHistory){
   r.querySelector('.aap3home').style.display='block';
   r.querySelectorAll('.aap3page').forEach(x=>x.classList.remove('on'));
 }
+async function adminInventoryFetch(url,options={}){
+  const token=(typeof session!=='undefined'&&session&&session.access_token)||'';
+  const headers={...(options.headers||{}),apikey:SUPABASE_ANON_KEY};
+  if(token)headers.Authorization='Bearer '+token;
+  const response=await fetch(url,{...options,headers,cache:'no-store'});
+  if((response.status===401||response.status===403)&&typeof assurerClientAuthGoogle==='function'){
+    try{
+      const client=await assurerClientAuthGoogle();
+      const refreshed=await client?.auth.refreshSession();
+      const fresh=refreshed?.data?.session?.access_token;
+      if(fresh){
+        const retryHeaders={...(options.headers||{}),apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+fresh};
+        return fetch(url,{...options,headers:retryHeaders,cache:'no-store'});
+      }
+    }catch(_){}
+  }
+  return response;
+}
 async function load(force){
   if(loading&& !force)return;
   if(!adminAllowed())return;
   loading=true;
   const thisLoad=++loadGeneration;
   try{
-    const generatedReq=await cfFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?select=id,job_id,created_at,updated_at,created_by,title,subject,matiere,level,class_name,document_type,domaine,formation,specialite,annee,semestre,filiere,theme_color,source_format,pdf_path,pdf_url,version,status,validation_notes,published_document_id,metadata,pdf_diagnostic&order=created_at.desc&limit=2000',{cache:'no-store'});
+    const generatedReq=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?select=id,job_id,created_at,updated_at,created_by,title,subject,matiere,level,class_name,document_type,domaine,formation,specialite,annee,semestre,filiere,theme_color,source_format,pdf_path,pdf_url,version,status,validation_notes,published_document_id,metadata,pdf_diagnostic&order=created_at.desc&limit=2000',{cache:'no-store'});
     const gt=await generatedReq.text();
     if(!generatedReq.ok)throw new Error(gt||('HTTP '+generatedReq.status));
     const generated=gt?JSON.parse(gt):[];
 
     let next=Array.isArray(generated)?generated:[];
     try{
-      const legacyReq=await cfFetch(SUPABASE_URL+'/rest/v1/Document?select=id,Titre,Niveau,Classe,Mati%C3%A8re,Fichier_url,Auteur,Cat%C3%A9gorie,Publie,Genre,Filiere,Source&order=id.desc&limit=2000',{cache:'no-store'});
+      const legacyReq=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/Document?select=id,Titre,Niveau,Classe,Mati%C3%A8re,Fichier_url,Auteur,Cat%C3%A9gorie,Publie,Genre,Filiere,Source&order=id.desc&limit=2000',{cache:'no-store'});
       const lt=await legacyReq.text();
       if(legacyReq.ok){
         const legacy=lt?JSON.parse(lt):[];
