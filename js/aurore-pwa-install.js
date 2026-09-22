@@ -21,15 +21,16 @@
   if(installBtn)installBtn.addEventListener('click',lancerInstallation);
   if(hintBtn)hintBtn.addEventListener('click',function(){lancerInstallation();});
   if(!estInstallee()) setTimeout(function(){if(deferredPrompt)afficher();},1200);
+  // En production, on conserve l'enregistrement existant. Le retirer puis le
+  // recréer à chaque visite ajoute des échanges réseau inutiles et peut ralentir
+  // l'ouverture, notamment sur les réseaux mobiles.
   if('serviceWorker' in navigator){
     window.addEventListener('load',function(){
-      navigator.serviceWorker.getRegistrations().then(function(regs){
-        return Promise.all(regs.map(function(reg){ return reg.unregister(); }));
-      }).catch(function(){ return []; }).then(function(){
-        return navigator.serviceWorker.register('./sw.js?v=20260907', {scope:'./', updateViaCache:'none'});
+      navigator.serviceWorker.getRegistration('./').then(function(existing){
+        if(existing) return existing;
+        return navigator.serviceWorker.register('./sw.js?v=20260922-1',{scope:'./',updateViaCache:'none'});
       }).then(function(reg){
-        console.log('[Aurore PWA] Service worker actif.',reg.scope);
+        if(reg) console.log('[Aurore PWA] Service worker actif.',reg.scope);
       }).catch(function(err){console.warn('[Aurore PWA] Service worker indisponible :',err);});
     });
-  }
-})();
+  }})();
