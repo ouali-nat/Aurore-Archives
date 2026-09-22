@@ -1355,13 +1355,20 @@ def render_aurore_graphics(graphics, assets_dir, theme):
     for item in generated:
         svg_path = Path(item["svg_path"])
         pdf_path = svg_path.with_suffix(".pdf")
-        subprocess.run(
-            ["rsvg-convert", "-f", "pdf", "-o", str(pdf_path), str(svg_path)],
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
+        try:
+            subprocess.run(
+                ["rsvg-convert", "-f", "pdf", "-o", str(pdf_path), str(svg_path)],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+        except subprocess.CalledProcessError as exc:
+            detail = (exc.stderr or exc.stdout or "").strip()
+            raise RuntimeError(
+                f"Conversion Aurore SVG -> PDF échouée pour {svg_path.name}"
+                + (f": {detail}" if detail else "")
+            ) from exc
         rel = str(pdf_path.relative_to(Path(assets_dir).parent.parent)).replace("\\\\", "/")
         safe = rel.replace("#", "\\\\#").replace("%", "\\\\%")
         lines.extend([
