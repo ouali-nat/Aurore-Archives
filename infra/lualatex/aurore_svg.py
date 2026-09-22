@@ -173,7 +173,8 @@ def render_graphics(graphics: object, assets_dir: Path, theme: dict | None = Non
     for index, raw in enumerate(graphics):
         if not isinstance(raw, dict):
             continue
-        if len(raw.get("elements", [])) if isinstance(raw.get("elements"), list) else 0 > MAX_ELEMENTS:
+        element_count = len(raw.get("elements", [])) if isinstance(raw.get("elements"), list) else 0
+        if element_count > MAX_ELEMENTS:
             raise ValueError(f"Aurore SVG: trop d'éléments dans le graphique {index + 1}")
         kind = str(raw.get("kind") or raw.get("type") or "separator").strip().lower()
         renderer = RENDERERS.get(kind)
