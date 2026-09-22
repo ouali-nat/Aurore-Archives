@@ -1093,14 +1093,9 @@
       <label class="cf-rebuild-field"><span>Consigne de génération</span><textarea id="cfCreatePrompt" required>Crée une fiche de révision sur le sujet indiqué avec cours, exercices et corrigés.</textarea></label>
     </section>
 
-    <section class="cf-rebuild-card" aria-label="Intelligences utilisées">
-  <div class="cf-rebuild-title"><span class="cf-rebuild-no">04</span><div><strong>Moteur de production</strong><small>Choisis un seul moteur pour cette génération. Le reste du circuit PDF reste inchangé.</small></div></div>
-  <div class="cf-ai-provider-grid" id="cfAiProviders">
-    <label class="cf-ai-provider"><input id="cfAiGemini" name="cfAiProvider" type="radio" value="gemini"><span><strong>Gemini 3.5 Flash-Lite</strong><small>Génération Gemini dédiée au Content Factory</small></span></label>
-    <label class="cf-ai-provider"><input id="cfAiLlama" name="cfAiProvider" type="radio" value="llama" checked><span><strong>Llama</strong><small>Génération Llama actuelle</small></span></label>
-    <label class="cf-ai-provider"><input id="cfAiDeepSeek" type="radio" value="deepseek" disabled><span><strong>DeepSeek</strong><small>Non disponible dans ce circuit</small></span></label>
-  </div>
-  <div class="cf-route-note" id="cfAiStrategyHint">Un seul moteur sera utilisé pour la génération. La structure, les visuels, les graphiques, le QA et le rendu PDF restent identiques.</div>
+    <section class="cf-rebuild-card" aria-label="Édition pédagogique">
+  <div class="cf-rebuild-title"><span class="cf-rebuild-no">04</span><div><strong>Éditeur pédagogique</strong><small>Le contenu est préparé par ChatGPT puis transmis au circuit Aurore pour le rendu PDF déterministe.</small></div></div>
+  <div class="cf-route-note" id="cfAiStrategyHint">Éditeur actif : ChatGPT · schéma éditorial aurora-editorial-1 · contrôle humain avant tout rendu et toute publication.</div>
 </section>
 
 <section class="cf-rebuild-card" aria-label="Présentation du PDF">
@@ -1121,7 +1116,7 @@
 
     <section class="cf-rebuild-card" aria-label="Validation">
       <label class="cf-rebuild-rights"><input id="cfCreateRights" type="checkbox"><span><strong>Autoriser la production</strong><span>Je confirme que cette demande et les références fournies peuvent être utilisées par Aurore pour produire la ressource et la soumettre au contrôle avant publication.</span></span></label>
-      <div class="cf-rebuild-actions"><button class="admin-btn primary" id="cfCreateLaunch" type="button">Lancer la production</button><span class="cf-rebuild-msg" id="cfCreateMsg" aria-live="polite"></span></div>
+      <div class="cf-rebuild-actions"><button class="admin-btn primary" id="cfCreateLaunch" type="button">Enregistrer la demande</button><span class="cf-rebuild-msg" id="cfCreateMsg" aria-live="polite"></span></div>
     </section>
   </form>
 
