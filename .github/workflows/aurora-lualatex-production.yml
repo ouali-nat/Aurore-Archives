@@ -239,6 +239,7 @@ jobs:
           if ! command -v lualatex >/dev/null 2>&1; then NEED_UPDATE=1; fi
           if ! kpsewhich montserrat.sty >/dev/null 2>&1; then NEED_UPDATE=1; fi
           if ! kpsewhich qrcode.sty >/dev/null 2>&1; then NEED_UPDATE=1; fi
+          if ! command -v rsvg-convert >/dev/null 2>&1; then NEED_UPDATE=1; fi
           if [ "$NEED_UPDATE" = "1" ]; then
             sudo apt-get update
             sudo apt-get install -y texlive-luatex texlive-lang-french texlive-latex-extra texlive-fonts-extra texlive-pictures librsvg2-bin
