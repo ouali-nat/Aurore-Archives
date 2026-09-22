@@ -1075,12 +1075,13 @@
       if (!brutes.length && divisionDb) {
         brutes = await recupererDocumentsAvecRepli([...filtresBase, 'order=id.desc']);
       }
-      const filtre = filtreSerieSiDisponible(brutes);
-      // Si le filtre de compatibilité historique écarte tout alors que la
-      // requête DB a bien retourné des documents, on conserve le résultat DB.
-      const data = Array.isArray(filtre) && (filtre.length || !brutes.length)
-        ? filtre
-        : brutes;
+      // La requête Supabase applique déjà les filtres de niveau, série,
+      // catégorie, matière et publication. Ne repasser aucun filtre
+      // secondaire ici : l'ancien helper filtreSerieSiDisponible() n'existe
+      // plus dans le dépôt et provoquait un ReferenceError, ce qui envoyait
+      // l'interface dans « Impossible de charger les documents » même quand
+      // Supabase avait correctement répondu.
+      const data = Array.isArray(brutes) ? brutes : [];
       documentsCourants = Array.isArray(data) ? data : [];
       actualiserTriPublicDocuments(documentsCourants);
       docsPageCourante = 1;
