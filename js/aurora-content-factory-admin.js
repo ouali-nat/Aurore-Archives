@@ -1426,13 +1426,33 @@ function timestamp(x){
 }
 async function confirmContentJob(id){
   try{
-    const r=await cfFetch(SUPABASE_URL+'/functions/v1/aurora-content-factory',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'queue_job',job_id:Number(id)})});
+    const jobId=Number(id);
+    if(!Number.isSafeInteger(jobId)||jobId<=0)throw new Error('Identifiant de demande invalide.');
+    // Cette action est dans le nouvel espace admin : utiliser son fetch local
+    // garantit que le même jeton Supabase que l'inventaire est envoyé à l'Edge Function.
+    const r=await adminInventoryFetch(SUPABASE_URL+'/functions/v1/aurora-content-factory',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'queue_job',job_id:jobId})
+    });
     const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}};
     if(!r.ok)throw new Error(d?.error||t||('HTTP '+r.status));
-    const wake=await cfFetch(SUPABASE_URL+'/functions/v1/aurora-content-auto-wake',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({job_id:Number(id)})});
-    if(!wake.ok){const wt=await wake.text().catch(()=> '');console.warn('[Aurore] réveil du job non confirmé',wt);}
+    if(d?.job?.status!=='queued')throw new Error('La demande n’est pas passée en file de production.');
+    // Le réveil est asynchrone : 202 signifie que le worker a bien été déclenché.
+    const wake=await adminInventoryFetch(SUPABASE_URL+'/functions/v1/aurora-content-auto-wake',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({job_id:jobId})
+    });
+    if(!wake.ok){
+      const wt=await wake.text().catch(()=> '');
+      throw new Error('Le serveur de production n’a pas pu être réveillé ('+wake.status+'). '+wt.slice(0,240));
+    }
     await load(true);
-  }catch(e){alert('La génération n’a pas pu être confirmée : '+(e.message||e));}
+  }catch(e){
+    alert('La génération n’a pas pu être confirmée : '+(e.message||e));
+    await load(true);
+  }
 }
 function actions(x,k){
   if(x.contentJob){
@@ -1533,16 +1553,13 @@ function showError(message){
 }
 function clearError(){document.querySelector('#auroreAdminPdf3 .aap3error')?.remove()}
 function openPage(k,fromPop){
-  const previousPage=page;
   page=k;
   if(!fromPop){
     try{
       const clean=location.pathname+location.search;
       const target=clean+'#admin-pdf-'+k;
-      // Première ouverture depuis l'accueil : créer une entrée d'accueil
-      // dédiée. Le retour Android depuis « Documents en attente » revient
-      // ainsi aux trois catégories sans quitter l'administration.
-      if(previousPage===null)history.replaceState({auroreAdminPdfPage:'home'},'',clean);
+      // Ne pas remplacer l'entrée Aurore actuelle : elle doit rester
+      // l'entrée précédente du navigateur pour le bouton Retour Android.
       history.pushState({auroreAdminPdfPage:k},'',target);
     }catch(_){}
   }
@@ -1673,7 +1690,13 @@ function boot(){
 }
 window.addEventListener('popstate',()=>{
   const m=location.hash.match(/^#admin-pdf-(pending|generated|published)$/);
-  if(m)openPage(m[1],true);else goHome(false);
+  if(m)openPage(m[1],true);
+  else{
+    // La page Aurore est l'entrée précédente réelle : recharger sans le
+    // fragment admin ferme proprement l'espace administratif et restaure
+    // « Aurore — Section Archives » au lieu d'afficher son centre admin.
+    try{location.replace(location.pathname+location.search);}catch(_){goHome(false);}
+  }
 });
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
