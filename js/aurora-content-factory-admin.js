@@ -1349,6 +1349,8 @@ let sort='recent';
 let loading=false;
 let loadTimer=null;
 let loadGeneration=0;
+let adminHistoryActive=false;
+window.__auroreAdminPdfHistoryActive=false;
 
 function addStyle(){
   if(document.getElementById('aap3cssV2'))return;
@@ -1570,6 +1572,8 @@ function showError(message){
 function clearError(){document.querySelector('#auroreAdminPdf3 .aap3error')?.remove()}
 function openPage(k,fromPop){
   page=k;
+  adminHistoryActive=true;
+  window.__auroreAdminPdfHistoryActive=true;
   if(!fromPop){
     try{
       const clean=location.pathname+location.search;
@@ -1591,6 +1595,8 @@ function goHome(useHistory){
     }catch(_){}
   }
   page=null;
+  adminHistoryActive=false;
+  window.__auroreAdminPdfHistoryActive=false;
   try{
     const clean=location.pathname+location.search;
     history.replaceState({auroreAdminPdfPage:'home'},'',clean);
@@ -1698,14 +1704,20 @@ function boot(){
   panel.querySelectorAll('#adminContentFactoryList,#auroreAllGeneratedDocuments,#aurorePdfProductionCenter').forEach(e=>{e.dataset.aap3Hidden='1'});
   // Ne jamais remplacer l’entrée historique réelle d’Aurore.
   // Le bouton Retour Android doit pouvoir sortir de l’administration.
+  const initialHash=location.hash.match(/^#admin-pdf-(pending|generated|published)$/);
+  if(initialHash){adminHistoryActive=true;window.__auroreAdminPdfHistoryActive=true;}
   load();
+  if(initialHash)openPage(initialHash[1],true);
   if(loadTimer)clearInterval(loadTimer);
   loadTimer=setInterval(()=>load(false),5000);
 }
 window.addEventListener('popstate',()=>{
   const m=location.hash.match(/^#admin-pdf-(pending|generated|published)$/);
-  if(m)openPage(m[1],true);
+  if(!adminHistoryActive && !m)return;
+  if(m){adminHistoryActive=true;window.__auroreAdminPdfHistoryActive=true;openPage(m[1],true);}
   else{
+    adminHistoryActive=false;
+    window.__auroreAdminPdfHistoryActive=false;
     // La page Aurore est l'entrée précédente réelle : recharger sans le
     // fragment admin ferme proprement l'espace administratif et restaure
     // « Aurore — Section Archives » au lieu d'afficher son centre admin.
