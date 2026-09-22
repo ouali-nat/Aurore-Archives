@@ -4,6 +4,9 @@ on:
   push:
     paths:
       - ".github/workflows/aurora-lualatex-production.yml"
+      - "infra/lualatex/render_document.py"
+      - "infra/lualatex/aurore_svg.py"
+      - "infra/geogebra/render_missing_graphs.mjs"
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
