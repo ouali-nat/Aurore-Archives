@@ -182,9 +182,7 @@ def render_graphics(graphics: object, assets_dir: Path, theme: dict | None = Non
             raise ValueError(f"Aurore SVG: type non supporté: {kind}")
         spec = dict(raw)
         spec["theme"] = theme or raw.get("theme") or {}
-        svg = "
-".join(renderer(spec, _colors(spec))) + "
-"
+        svg = "\n".join(renderer(spec, _colors(spec))) + "\n"
         svg_path = assets_dir / f"aurore-graphic-{index + 1}.svg"
         svg_path.write_text(svg, encoding="utf-8")
         out.append({"index": index, "kind": kind, "svg_path": str(svg_path), "title": _safe_text(raw.get("title") or kind)})
