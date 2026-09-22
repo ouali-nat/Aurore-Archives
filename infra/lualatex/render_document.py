@@ -1710,7 +1710,8 @@ def render(data):
         # Aurore SVG graphics are independent of GeoGebra/Wikimedia.
         section_graphics = sec.get("graphics", [])
         if section_graphics:
-            lines.extend(render_aurore_graphics(section_graphics, Path("assets") / "aurore", {
+            graphics_root = Path(data.get("_render_assets_dir") or "assets") / "aurore"
+            lines.extend(render_aurore_graphics(section_graphics, graphics_root, {
                 "primary": "#" + theme_primary,
                 "secondary": "#" + theme_secondary,
                 "strong": "#" + theme,
@@ -1858,6 +1859,7 @@ def main():
         f"Wikimedia visuals fetched: {len(data['_wikimedia_visuals'])} "
         f"(profile={profile})"
     )
+    data["_render_assets_dir"] = str(out.parent / "assets")
     tex = render(data)
     missing_embedded = [
         str(v.get("path") or "")
