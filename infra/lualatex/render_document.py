@@ -1774,7 +1774,7 @@ def main():
         raise SystemExit("inline() math guardrail failed: array row break before hline")
 
     _probe_percent = inline(r"$25\\%$")
-    if r"25\\%" not in _probe_percent or r"25\\\\%" in _probe_percent:
+    if r"25\%" not in _probe_percent or r"25\\%" in _probe_percent:
         raise SystemExit("inline() math guardrail failed: doubled TeX punctuation")
 
     parser = argparse.ArgumentParser(description="Render an Aurore document JSON to LuaLaTeX source.")
