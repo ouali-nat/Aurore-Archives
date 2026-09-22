@@ -1,4 +1,33 @@
 
+
+(function(){
+'use strict';
+if(typeof window==='undefined'||typeof window.adminInventoryFetch==='function')return;
+window.adminInventoryFetch=async function(url,options={},retry=true){
+  const token=(typeof session!=='undefined'&&session&&session.access_token)||'';
+  const headers={...(options.headers||{}),apikey:SUPABASE_ANON_KEY};
+  if(token)headers.Authorization='Bearer '+token;
+  const response=await fetch(url,{...options,headers,cache:'no-store'});
+  if((response.status===401||response.status===403)&&retry&&typeof assurerClientAuthGoogle==='function'){
+    try{
+      const client=await assurerClientAuthGoogle();
+      const refreshed=await client?.auth.refreshSession();
+      const fresh=refreshed?.data?.session?.access_token;
+      if(fresh){
+        const s=refreshed.data.session;
+        try{
+          session={...(session||{}),access_token:fresh,refresh_token:s.refresh_token||session?.refresh_token||'',expires_at:s.expires_at?s.expires_at*1000:(session?.expires_at||0)};
+          if(typeof sauvegarderSession==='function')sauvegarderSession();
+        }catch(_){}
+        const retryHeaders={...(options.headers||{}),apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+fresh};
+        return fetch(url,{...options,headers:retryHeaders,cache:'no-store'});
+      }
+    }catch(_){}
+  }
+  return response;
+};
+})();
+
 (function(){'use strict';const panel=document.querySelector('.admin-tab-panel[data-panel="content-factory"]');if(!panel)return;const list=document.getElementById('adminContentFactoryList'),count=document.getElementById('tabCountContentFactory');let rows=[];let generationQueue=[];let generationRunning=false;let cfCreatePath=[];let cfClassificationInitialized=false;const esc=v=>{const d=document.createElement('div');d.textContent=String(v==null?'':v);return d.innerHTML};const sl=s=>({review:'À contrôler',approved:'Validé',published:'Publié',rejected:'Rejeté',failed:'Échec',generated:'Généré',processing:'Traitement',queued:'En file',draft:'Brouillon'}[s]||s||'Inconnu');const adminOk=()=>!!(session&&session.role==='admin');const normalizeThemeColor=v=>/^#[0-9a-f]{6}$/i.test(String(v||''))?String(v).toUpperCase():'#C85C0D';
 const documentThemeColor=metadata=>{
   const m=metadata&&typeof metadata==='object'?metadata:{};
