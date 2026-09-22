@@ -419,7 +419,7 @@ jobs:
       - name: Mark PDF ready for upload
         if: hashFiles('infra/lualatex/production/document-id') != ''
         run: |
-          DOCUMENT_ID="$(cat infra/lualatex/production/document-id")"
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
           curl --fail --silent --show-error -X POST \
             -H "Content-Type: application/json" \
             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
@@ -452,7 +452,7 @@ jobs:
       - name: Mark PDF completed
         if: hashFiles('infra/lualatex/production/document-id') != ''
         run: |
-          DOCUMENT_ID="$(cat infra/lualatex/production/document-id")"
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
           curl --fail --silent --show-error -X POST \
             -H "Content-Type: application/json" \
             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
@@ -462,7 +462,7 @@ jobs:
       - name: Requeue document after renderer failure
         if: failure() && hashFiles('infra/lualatex/production/document-id') != ''
         run: |
-          DOCUMENT_ID="$(cat infra/lualatex/production/document-id")"
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
           curl --fail --silent --show-error \
             -X POST \
             -H "Content-Type: application/json" \
