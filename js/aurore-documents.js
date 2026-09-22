@@ -958,8 +958,8 @@
       const panel = document.createElement('section');
       panel.className = 'aurore-resource-panel';
       panel.dataset.resourceType = type.key;
-      panel.querySelector('.aurore-resource-more').addEventListener('click', () => ouvrirVueRessourceAurore(type.key, type.title));
       panel.innerHTML = '<div class="aurore-resource-panel-head"><div class="aurore-resource-panel-head-main"><span class="aurore-resource-panel-kicker">Aurore</span><h4>' + type.title + '</h4><p>' + type.desc + '</p></div><div style="display:flex;align-items:center;gap:8px"><span class="aurore-resource-count">' + items.length + '</span><button type="button" class="aurore-resource-more" aria-label="Voir tous les ' + type.title.toLowerCase() + '">Voir plus</button></div></div>';
+      panel.querySelector('.aurore-resource-more')?.addEventListener('click', () => ouvrirVueRessourceAurore(type.key, type.title));
 
       const windowBox = document.createElement('div');
       windowBox.className = 'aurore-resource-window';
