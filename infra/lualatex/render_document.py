@@ -1552,6 +1552,11 @@ def render(data):
     document_key = document_identity["key"]
     document_share_url = document_identity["verification_url"]
     profile = _editorial_profile(data)
+    raw_document_type = data.get("document_type")
+    if not raw_document_type and isinstance(data.get("metadata"), dict):
+        raw_document_type = data["metadata"].get("document_type")
+    document_type = str(raw_document_type or "").strip().lower()
+    is_exercise_document = document_type in {"exercice", "exercices", "exercise", "exercises", "serie_exercices", "série_exercices"}
     has_geogebra = _has_geogebra(data)
     lines = [
         r"\documentclass[11pt,a4paper]{article}",
@@ -1678,7 +1683,7 @@ def render(data):
         r"  \IfFileExists{assets/aurore-logo.png}{\includegraphics[width=1.42cm,height=1.42cm,keepaspectratio]{assets/aurore-logo.png}}{\textcolor{aurorebase}{\rule{1.05cm}{1.05cm}}}%",
         r"\end{tcolorbox}",
         r"\vspace{0.17cm}",
-        r"\AuroreTitleBlock{Document pédagogique}{" + tex_text(title) + r"}{Aurore — Section Archives" + (r" · " + tex_text(" · ".join(info)) if info else "") + r"}",
+        r"\AuroreTitleBlock{" + ("Série d'exercices" if is_exercise_document else "Document pédagogique") + r"}{" + tex_text(title) + r"}{Aurore — Section Archives" + (r" · " + tex_text(" · ".join(info)) if info else "") + r"}",
         r"\vfill",
         r"{\sffamily\small\color{gray}Document pédagogique édité avec Aurora · identité visuelle Aurore}",
         r"\clearpage",
@@ -1757,8 +1762,12 @@ def render(data):
         for ex in sec.get("exercises", []):
             exercise_number += 1
             lines.append(r"\Needspace{5\baselineskip}")
-            block_label = "Activité" if profile == "biologie" else ("Application" if profile == "experimental" else "Exercice")
-            lines.append((r"\AuroreActivityBlock{" if profile == "biologie" else r"\AuroreExerciseBlock{") + str(exercise_number) + r"}{" + inline(ex.get("question", "")) + r"}")
+            # Exercise documents always use the explicit Exercice label.
+            # Other document types keep their existing pedagogical labels.
+            if is_exercise_document:
+                lines.append(r"\AuroreExerciseBlock{" + str(exercise_number) + r"}{" + inline(ex.get("question", "")) + r"}")
+            else:
+                lines.append((r"\AuroreActivityBlock{" if profile == "biologie" else r"\AuroreExerciseBlock{") + str(exercise_number) + r"}{" + inline(ex.get("question", "")) + r"}")
             if ex.get("hint"):
                 hint_label = "Piste de réflexion" if profile == "biologie" else "Indication"
                 lines.append(r"\AuroreLabeledBlock{" + hint_label + r"}{" + inline(ex["hint"]) + r"}")
