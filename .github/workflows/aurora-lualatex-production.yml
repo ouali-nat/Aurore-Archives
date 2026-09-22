@@ -501,3 +501,4 @@ jobs:
 
 # Document 339 retry after upload metadata fix: created_by + queue reset — 2026-09-22.
 # Keep the production run alive until PDF + GitHub artifact are completed; do not cancel active rendering.
+# GeoGebra + Wikimedia non-blocking policy wake: 2026-09-22.
