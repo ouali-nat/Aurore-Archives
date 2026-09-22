@@ -14,7 +14,7 @@ permissions:
 # GeoGebra renderer v3 regression validation uses existing generated documents only.
 concurrency:
   group: aurora-lualatex-production
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   render:
