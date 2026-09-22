@@ -228,47 +228,47 @@ async function loadClassificationOptions(){
   // La soumission reste protégée par adminOk().
   cfInitClassification();["cfAiGemini","cfAiLlama","cfAiDeepSeek"].forEach(id=>document.getElementById(id)?.addEventListener("change",syncAiStrategyHint));syncAiStrategyHint();
 }
-function selectedAiProviders(){const out=[];if(document.getElementById("cfAiGemini")?.checked)out.push("gemini");if(document.getElementById("cfAiLlama")?.checked)out.push("llama");return out;}
-function syncAiStrategyHint(){const a=selectedAiProviders(),hint=document.getElementById("cfAiStrategyHint");if(hint)hint.textContent=a.length?"Stratégie active : "+a.map(x=>x==="gemini"?"Gemini":x==="llama"?"Llama":"DeepSeek").join(" + ")+". Aurore choisira le rôle de chaque moteur selon le type de ressource.":"Sélectionne au moins une IA.";}
+function selectedAiProviders(){return ["chatgpt_editor"];}
+function syncAiStrategyHint(){const hint=document.getElementById("cfAiStrategyHint");if(hint)hint.textContent="Éditeur actif : ChatGPT · schéma éditorial aurora-editorial-1 · contenu soumis au contrôle humain avant tout rendu/publication.";}
 function selectedValue(id){return String(document.getElementById(id)?.value||'').trim();}
 async function getJob(jobId){const r=await adminInventoryFetch(`${SUPABASE_URL}/rest/v1/aurora_content_jobs?id=eq.${encodeURIComponent(jobId)}&select=id,status,title,generated_document_id,error_message,updated_at`,{cache:'no-store'});const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));const a=t?JSON.parse(t):[];return Array.isArray(a)&&a[0]?a[0]:null;}
 async function waitForJob(jobId){let last=null;for(let i=0;i<180;i++){const j=await getJob(jobId);if(!j)throw new Error('Job introuvable dans Supabase.');last=j;if(j.status==='queued'){setProgress(8,`Job #${jobId} en file — Aurora attend son tour…`)}else if(j.status==='processing'){setProgress(Math.min(88,18+i*.4),`Aurora traite le document #${jobId}…`)}else if(j.status==='review'){setProgress(100,`Document #${jobId} terminé et placé en contrôle.`);return j}else if(j.status==='failed'||j.status==='rejected'){throw new Error(j.error_message||`La génération s’est arrêtée avec le statut ${j.status}.`)}else{setProgress(12,`Statut Aurora : ${j.status}`)}await new Promise(r=>setTimeout(r,2000));}return last;}
 async function runGeneration(item){
-  const msg=document.getElementById('cfCreateMsg');generationRunning=true;updateQueueUI();setProgress(2,'Préparation du document « '+item.title+' »…');
+  const msg=document.getElementById('cfCreateMsg');
+  generationRunning=true;
+  updateQueueUI();
+  setProgress(8,'Demande éditoriale « '+item.title+' » enregistrée.');
   try{
     let jobId=Number(item.jobId||0);
     if(!jobId){
       const finalPrompt=item.prompt+(item.reference?'\n\nRÉFÉRENCE PÉDAGOGIQUE FOURNIE PAR L’ADMINISTRATION : '+item.reference:'');
       const job=await rpc('aurora_create_content_job',{
         p_title:item.title,p_subject:item.subject||null,p_level:item.level||null,p_class_name:item.className||null,p_document_type:item.resourceType,p_prompt:finalPrompt,
-        p_instructions:{source:'admin_content_factory',origin:'aurore',queue:'sequential',category:item.category,filiere:item.filiere||null,reference:item.reference||null,rights_confirmed:true,theme_color:normalizeThemeColor(item.themeColor||'#6D28D9'),ai:{selected:selectedAiProviders(),mode:'single_provider'},
-          classification:{level:item.level||null,filiere:item.filiere||null,class_name:item.className||null,subject:item.subject||null,category:item.category,resource_type:item.resourceType}}
+        p_instructions:{
+          source:'admin_content_factory',
+          origin:'gpt_editorial_queue',
+          queue:'sequential',
+          category:item.category,
+          filiere:item.filiere||null,
+          reference:item.reference||null,
+          rights_confirmed:true,
+          theme_color:normalizeThemeColor(item.themeColor||'#6D28D9'),
+          editorial:{role:'editor',engine:'ChatGPT',schema_version:'aurora-editorial-1',status:'pending'}
+        }
       });
       jobId=Number(job);
-      if(!Number.isSafeInteger(jobId)||jobId<1)throw new Error('Identifiant de job invalide.');
-      setProgress(8,'Job #'+jobId+' créé — Aurora commence par celui-ci.');
-    }else{
-      setProgress(8,'Job #'+jobId+' déjà enregistré dans Supabase — reprise serveur.');
+      if(!Number.isSafeInteger(jobId)||jobId<1)throw new Error('Identifiant de demande invalide.');
     }
-    if(msg){msg.dataset.state='';msg.textContent='Job #'+jobId+' en traitement. La file serveur continue même si cette page est fermée.';}
-    const workerPromise=cfFetch(SUPABASE_URL+'/functions/v1/aurora-content-auto-wake',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({job_id:jobId})}).then(async r=>{const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}}return{ok:r.ok,status:r.status,data:d};}).catch(e=>({ok:false,status:0,data:{error:e.message||String(e)}}));
-    const poll=waitForJob(jobId);const results=await Promise.all([workerPromise,poll]),wr=results[0],jr=results[1];
-    if(jr&&jr.status==='review'){
-      const generatedId=Number(jr.generated_document_id||0);
-      if(generatedId>0){
-        const token=await cfFreshToken();
-        await persistGeneratedDocumentTheme(generatedId,item.themeColor||'#6D28D9',token);
-        // Dès que le contenu pédagogique est créé, le rendu PDF est lancé automatiquement.
-        // Le contrôle et la publication restent ensuite des actions humaines séparées.
-        if(msg)msg.textContent='« '+item.title+' » est créé. Lancement automatique du PDF…';
-        await renderPdf(generatedId,item.themeColor||'#6D28D9');
-      }
-      if(msg){msg.dataset.state='ok';msg.textContent='✓ « '+item.title+' » est généré, son PDF est lancé et le document attend le contrôle.';}
-      await charger();return;
+    if(msg){
+      msg.dataset.state='ok';
+      msg.textContent='✓ Demande #'+jobId+' enregistrée. Elle attend maintenant l’éditeur ChatGPT ; le rendu PDF sera lancé séparément après intégration du contenu.';
     }
-    if(!wr.ok)throw new Error(wr.data?.error||('HTTP '+wr.status));
-    throw new Error('La génération n’a pas abouti.');
-  }finally{generationRunning=false;updateQueueUI();}
+    setProgress(100,'En attente de l’éditeur ChatGPT · aucun moteur de contenu automatique.');
+    await charger();
+  }finally{
+    generationRunning=false;
+    updateQueueUI();
+  }
 }
 async function processQueue(){if(generationRunning)return;const item=generationQueue.shift();updateQueueUI();if(!item)return;try{await runGeneration(item);}catch(e){const msg=document.getElementById('cfCreateMsg');if(msg){msg.dataset.state='error';msg.textContent=`Le document « ${item.title} » n’a pas pu être généré : ${e.message||e}`}setProgress(100,'Échec de ce document — Aurora passe au suivant.');}finally{updateQueueUI();if(generationQueue.length)processQueue();}}
 async function enqueueCurrent(){
@@ -278,14 +278,14 @@ async function enqueueCurrent(){
   if(!level){if(msg){msg.dataset.state='error';msg.textContent='Sélectionne le parcours scolaire complet.';}return;}
   if(!subject){if(msg){msg.dataset.state='error';msg.textContent='Sélectionne la matière.';}return;}
   if(!category){if(msg){msg.dataset.state='error';msg.textContent='Choisis la catégorie.';}return;}
-  if(!resourceType){if(msg){msg.dataset.state='error';msg.textContent='Choisis le type de ressource.';}return;}if(!aiSelected.length){if(msg){msg.dataset.state='error';msg.textContent='Sélectionne au moins une IA.';}return;}
+  if(!resourceType){if(msg){msg.dataset.state='error';msg.textContent='Choisis le type de ressource.';}return;}
   if(!prompt){if(msg){msg.dataset.state='error';msg.textContent='La demande pédagogique est obligatoire.';}return;}
   if(!rights){if(msg){msg.dataset.state='error';msg.textContent='Confirme l’autorisation d’utiliser la demande et les références fournies.';}return;}
   try{
     const finalPrompt=prompt+(reference?'\n\nRÉFÉRENCE PÉDAGOGIQUE FOURNIE PAR L’ADMINISTRATION : '+reference:'');
     const job=await rpc('aurora_create_content_job',{
       p_title:title,p_subject:subject||null,p_level:level||null,p_class_name:className||null,p_document_type:resourceType,p_prompt:finalPrompt,
-      p_instructions:{source:'admin_content_factory',origin:'aurore',queue:'sequential',category,filiere:filiere||null,reference:reference||null,rights_confirmed:true,theme_color:normalizeThemeColor(themeColor||'#6D28D9'),ai:{selected:aiSelected,mode:'auto'},
+      p_instructions:{source:'admin_content_factory',origin:'aurore',queue:'sequential',category,filiere:filiere||null,reference:reference||null,rights_confirmed:true,theme_color:normalizeThemeColor(themeColor||'#6D28D9'),editorial:{role:'editor',engine:'ChatGPT',schema_version:'aurora-editorial-1',status:'pending'},
         classification:{level:level||null,filiere:filiere||null,class_name:className||null,subject:subject||null,category,resource_type:resourceType}}
     });
     const jobId=Number(job);
@@ -1430,8 +1430,6 @@ async function confirmContentJob(id){
   try{
     const jobId=Number(id);
     if(!Number.isSafeInteger(jobId)||jobId<=0)throw new Error('Identifiant de demande invalide.');
-    // Cette action est dans le nouvel espace admin : utiliser son fetch local
-    // garantit que le même jeton Supabase que l'inventaire est envoyé à l'Edge Function.
     const r=await adminInventoryFetch(SUPABASE_URL+'/functions/v1/aurora-content-factory',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
@@ -1439,34 +1437,20 @@ async function confirmContentJob(id){
     });
     const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}};
     if(!r.ok)throw new Error(d?.error||t||('HTTP '+r.status));
-    if(d?.job?.status!=='queued')throw new Error('La demande n’est pas passée en file de production.');
-    // Déclenche le worker sans attendre sa production complète.
-    const wake=await adminInventoryFetch(SUPABASE_URL+'/functions/v1/aurora-content-auto-wake',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({job_id:jobId})
-    });
-    if(!wake.ok){
-      const wt=await wake.text().catch(()=> '');
-      throw new Error('Le serveur de production n’a pas pu être réveillé ('+wake.status+'). '+wt.slice(0,240));
-    }
-    // Vérification réelle en base : on ne réaffiche jamais « Confirmer »
-    // tant que Supabase n’a pas confirmé queued/processing.
-    let verified=false;
+    const expected=['queued','processing','review','completed'];
+    let row=null;
     for(let attempt=0;attempt<8;attempt++){
-      const check=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?select=id,status,generated_document_id,error_message&id=eq.'+jobId,{
-        cache:'no-store'
-      });
+      const check=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?select=id,status,generated_document_id,error_message&id=eq.'+jobId,{cache:'no-store'});
       const ct=await check.text();let cj=null;try{cj=ct?JSON.parse(ct):null}catch(_){}
-      const row=Array.isArray(cj)?cj[0]:null;
-      if(row&&['queued','processing','completed'].includes(String(row.status).toLowerCase())){verified=true;break}
+      row=Array.isArray(cj)?cj[0]:null;
+      if(row&&expected.includes(String(row.status).toLowerCase()))break;
       if(row&&['failed','rejected'].includes(String(row.status).toLowerCase()))throw new Error(row.error_message||('La demande a été refusée : '+row.status));
       await new Promise(resolve=>setTimeout(resolve,750));
     }
-    if(!verified)throw new Error('La confirmation a été envoyée mais Supabase n’a pas encore confirmé la mise en file.');
+    if(!row||!expected.includes(String(row.status).toLowerCase()))throw new Error('La demande a été envoyée mais Supabase n’a pas encore confirmé son état.');
     await load(true);
   }catch(e){
-    alert('La génération n’a pas pu être confirmée : '+(e.message||e));
+    alert('La demande n’a pas pu être confirmée : '+(e.message||e));
     await load(true);
   }
 }
