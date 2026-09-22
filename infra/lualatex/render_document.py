@@ -1527,8 +1527,23 @@ def _has_usable_content_json(data):
         return False
     return any(
         isinstance(section, dict)
-        and isinstance(section.get("content"), list)
-        and any(str(item or "").strip() for item in section.get("content", []))
+        and (
+            (
+                isinstance(section.get("content"), list)
+                and any(str(item or "").strip() for item in section.get("content", []))
+            )
+            or (
+                isinstance(section.get("exercises"), list)
+                and any(
+                    isinstance(ex, dict)
+                    and any(
+                        str(ex.get(key) or "").strip()
+                        for key in ("question", "statement", "enonce", "content", "solution", "correction")
+                    )
+                    for ex in section.get("exercises", [])
+                )
+            )
+        )
         for section in sections
     )
 
@@ -1730,12 +1745,24 @@ def render(data):
         if sec.get("formula"):
             lines.append(display_formula(sec["formula"]))
         content_items = sec.get("content", [])
-        # Exercise documents may carry the same statement/correction both in
-        # section.content and in the structured exercises array. When the
-        # structured exercise records exist, they are authoritative: do not
-        # render the same material a second time before the exercise boxes.
+        # Exercise documents can carry long editorial detail in section.content
+        # while the structured exercise records repeat the statement/correction.
+        # Keep the unique section material visible and suppress only exact
+        # duplicates already represented by the structured exercise record.
         if sec.get("exercises") and is_exercise_document:
-            content_items = []
+            structured_texts = set()
+            for ex in sec.get("exercises", []) or []:
+                if not isinstance(ex, dict):
+                    continue
+                for key in ("question", "statement", "enonce", "content", "solution", "correction"):
+                    value = clean_text(ex.get(key) or "").strip()
+                    if value:
+                        structured_texts.add(value)
+            if isinstance(content_items, list):
+                content_items = [
+                    item for item in content_items
+                    if clean_text(item).strip() not in structured_texts
+                ]
         elif isinstance(content_items, list) and sec.get("exercises"):
             # For non-exercise documents, keep legacy prose while suppressing
             # duplicate "Exercice N :" lines already represented structurally.
