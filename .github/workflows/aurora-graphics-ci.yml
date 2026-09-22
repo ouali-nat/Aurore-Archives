@@ -49,6 +49,20 @@ jobs:
           test -n "$(find /tmp/aurore-graphics-lab/assets/aurore -name '*.svg' -type f | head -n 1)"
           test -n "$(find /tmp/aurore-graphics-lab/assets/aurore -name '*.pdf' -type f | head -n 1)"
 
+      - name: Diagnose generated SVG conversion
+        if: failure()
+        run: |
+          echo "Inspecting generated Aurore SVG files..."
+          find /tmp/aurore-graphics-lab/assets/aurore -name '*.svg' -type f -print | sort
+          first_svg="$(find /tmp/aurore-graphics-lab/assets/aurore -name '*.svg' -type f | sort | head -n 1)"
+          if [ -n "$first_svg" ]; then
+            echo "Testing first SVG: $first_svg"
+            rsvg-convert -f pdf -o /tmp/aurore-graphics-lab/diagnostic.pdf "$first_svg"
+          else
+            echo "No SVG was generated before failure."
+            exit 0
+          fi
+
       - name: Compile graphics laboratory PDF
         working-directory: /tmp/aurore-graphics-lab
         run: |
