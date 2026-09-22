@@ -1241,6 +1241,8 @@ document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurre
   // rejet et publication. Capture phase pour neutraliser les anciens routeurs
   // concurrents et garantir le même comportement dans toutes les cartes.
   document.addEventListener('click',e=>{
+    const confirm=e.target?.closest?.('[data-cf-confirm-job]');
+    if(confirm){e.preventDefault();e.stopImmediatePropagation();confirm.disabled=true;confirm.textContent='Confirmation…';void confirmContentJob(Number(confirm.dataset.cfConfirmJob));return;}
     const button=e.target?.closest?.('[data-cf-render],[data-cf-validate],[data-cf-reject],[data-cf-publish],[data-cf-cancel],[data-cf-theme]');
     if(!button)return;
     if(button.hasAttribute('data-cf-cancel')){e.preventDefault();e.stopImmediatePropagation();void cancelPdfGeneration(Number(button.dataset.cfCancel));return;}
@@ -1328,7 +1330,8 @@ const theme=x=>normalize((M(x).aurore_design&&M(x).aurore_design.theme_color)||M
 const active=x=>['queued','processing'].includes(String(M(x).lualatex_status||'').toLowerCase());
 const isPublished=x=>x.status==='published'||x.published_document_id!=null;
 const isGenerated=x=>!x.legacy&&!!x.pdf_url&&!isPublished(x)||x.legacy&&!isPublished(x)&&!!x.pdf_url;
-const isPending=x=>!isPublished(x)&&!x.pdf_url||(!x.legacy&&!isPublished(x)&&active(x));
+const isCancelled=x=>{if(!x)return false;const m=M(x);if(m.lualatex_cancel_requested===true)return true;const s=String(m.lualatex_status||'').toLowerCase();if(['cancelled','canceled'].includes(s))return true;const txt=String((m.lualatex_stage||'')+' '+(m.lualatex_last_error||'')+' '+(x.validation_notes||'')).toLowerCase();return /génération annulée|generation annulee|génération arrêtée|generation arretee|annulation demandée|annulation demandee/.test(txt);};
+const isPending=x=>!isCancelled(x)&&(!isPublished(x)&&!x.pdf_url||(!x.legacy&&!isPublished(x)&&active(x)));
 const isLegacy=x=>x.legacy===true;
 let rows=[];
 let page=null;
@@ -1412,7 +1415,23 @@ function timestamp(x){
   if(Number.isNaN(d.getTime()))return {date:'—',time:'—',sort:0};
   return {date:d.toLocaleDateString('fr-FR'),time:d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),sort:d.getTime()};
 }
+async function confirmContentJob(id){
+  try{
+    const r=await cfFetch(SUPABASE_URL+'/functions/v1/aurora-content-factory',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'queue_job',job_id:Number(id)})});
+    const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}};
+    if(!r.ok)throw new Error(d?.error||t||('HTTP '+r.status));
+    const wake=await cfFetch(SUPABASE_URL+'/functions/v1/aurora-content-auto-wake',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({job_id:Number(id)})});
+    if(!wake.ok){const wt=await wake.text().catch(()=> '');console.warn('[Aurore] réveil du job non confirmé',wt);}
+    await load(true);
+  }catch(e){alert('La génération n’a pas pu être confirmée : '+(e.message||e));}
+}
 function actions(x,k){
+  if(x.contentJob){
+    if(x.job_status==='draft')return '<button type="button" class="admin-btn primary" data-cf-confirm-job="'+E(x.job_id)+'">Confirmer la génération</button>';
+    if(x.job_status==='queued')return '<span class="aap3prod">Génération confirmée · en file serveur</span>';
+    if(x.job_status==='processing')return '<span class="aap3prod">Génération confirmée · traitement en cours</span>';
+    return '';
+  }
   const m=M(x),a=active(x),c=m.lualatex_cancel_requested===true,p=!!x.pdf_url,t=theme(x);
   let z='';
   if(p)z+='<a class="admin-btn ghost" href="'+E(x.pdf_url)+'" target="_blank" rel="noopener">Ouvrir le PDF</a>';
@@ -1427,6 +1446,14 @@ function actions(x,k){
   return z;
 }
 function card(x,k){
+  if(x.contentJob){
+    const ts=timestamp(x),m=M(x),stage=x.job_status==='queued'?'En file serveur':x.job_status==='processing'?'Production en cours':'Nouvelle demande';
+    return '<article class="aap3card" style="--aap3theme:#6D28D9">'+
+      '<div class="aap3top"><div><div class="aap3id">Nouvelle demande · Job #'+E(x.job_id)+'</div><div class="aap3title">'+E(x.title||'Sans titre')+'</div></div><span class="aap3status">'+E(stage)+'</span></div>'+
+      '<div class="aap3grid"><div><b>Date</b><span>'+E(ts.date)+'</span></div><div><b>Heure</b><span>'+E(ts.time)+'</span></div><div><b>Classe</b><span>'+E(x.class_name||'—')+'</span></div><div><b>Niveau</b><span>'+E(x.level||'—')+'</span></div><div><b>Matière</b><span>'+E(x.matiere||x.subject||'—')+'</span></div><div><b>Type</b><span>'+E(x.document_type||'—')+'</span></div><div><b>Origine</b><span>Content Factory</span></div><div><b>Statut</b><span>'+E(x.job_status||'—')+'</span></div></div>'+
+      '<div class="aap3prod"><b>Production :</b> '+E(stage)+' · La demande est placée avant les anciens documents pour validation humaine.</div>'+
+      '<div class="aap3actions">'+actions(x,k)+'</div></article>';
+  }
   const ts=timestamp(x),m=M(x),t=theme(x),stage=m.lualatex_stage||m.lualatex_status||'',origin=m.origin||m.producer||x.source_format||'—';
   return '<article class="aap3card" style="--aap3theme:'+E(t)+'">'+
     '<div class="aap3top"><div><div class="aap3id">Document '+(isLegacy(x)?'historique ':'')+'#'+E(x.id)+'</div><div class="aap3title">'+E(x.title||'Sans titre')+'</div></div><span class="aap3status">'+E(label(x.status))+(x.pdf_url?' · PDF prêt':'')+'</span></div>'+
@@ -1445,9 +1472,9 @@ function card(x,k){
   '</article>';
 }
 function data(k){
-  if(k==='published')return rows.filter(isPublished);
-  if(k==='generated')return rows.filter(x=>isGenerated(x));
-  return rows.filter(x=>isPending(x));
+  if(k==='published')return rows.filter(x=>!x.contentJob&&isPublished(x)&&!isCancelled(x));
+  if(k==='generated')return rows.filter(x=>!x.contentJob&&isGenerated(x)&&!isCancelled(x));
+  return rows.filter(x=>isPending(x)||x.contentJob);
 }
 function updateCounts(){
   const r=shell();
@@ -1544,12 +1571,29 @@ async function load(force){
   loading=true;
   const thisLoad=++loadGeneration;
   try{
-    const generatedReq=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?select=id,job_id,created_at,updated_at,created_by,title,subject,matiere,level,class_name,document_type,domaine,formation,specialite,annee,semestre,filiere,theme_color,source_format,pdf_path,pdf_url,version,status,validation_notes,published_document_id,metadata,pdf_diagnostic&order=created_at.desc&limit=2000',{cache:'no-store'});
+    const [generatedReq,jobsReq]=await Promise.all([
+      adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?select=id,job_id,created_at,updated_at,created_by,title,subject,matiere,level,class_name,document_type,domaine,formation,specialite,annee,semestre,filiere,theme_color,source_format,pdf_path,pdf_url,version,status,validation_notes,published_document_id,metadata,pdf_diagnostic&order=created_at.desc&limit=2000',{cache:'no-store'}),
+      adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?select=id,created_at,updated_at,status,title,subject,level,class_name,document_type,generated_document_id,error_message&status=in.(draft,queued,processing)&order=created_at.desc&limit=500',{cache:'no-store'})
+    ]);
     const gt=await generatedReq.text();
     if(!generatedReq.ok)throw new Error(gt||('HTTP '+generatedReq.status));
     const generated=gt?JSON.parse(gt):[];
+    const jt=await jobsReq.text();
+    if(!jobsReq.ok)throw new Error(jt||('HTTP '+jobsReq.status));
+    const jobs=jt?JSON.parse(jt):[];
 
     let next=Array.isArray(generated)?generated:[];
+    const generatedJobIds=new Set(next.map(x=>String(x.job_id||'')).filter(Boolean));
+    for(const j of (Array.isArray(jobs)?jobs:[])){
+      if(j.generated_document_id!=null||generatedJobIds.has(String(j.id)))continue;
+      next.unshift({
+        id:'job-'+j.id,job_id:j.id,created_at:j.created_at,updated_at:j.updated_at,
+        title:j.title||'Nouvelle demande',subject:j.subject||'',matiere:j.subject||'',
+        level:j.level||'',class_name:j.class_name||'',document_type:j.document_type||'',
+        status:'review',version:1,pdf_url:null,pdf_path:null,contentJob:true,job_status:j.status,
+        metadata:{origin:'Content Factory',job_status:j.status},validation_notes:j.error_message||''
+      });
+    }
     try{
       const legacyReq=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/Document?select=id,Titre,Niveau,Classe,Mati%C3%A8re,Fichier_url,Auteur,Cat%C3%A9gorie,Publie,Genre,Filiere,Source&order=id.desc&limit=2000',{cache:'no-store'});
       const lt=await legacyReq.text();
@@ -1576,7 +1620,7 @@ async function load(force){
       console.warn('[Aurore Admin PDF] historique indisponible',legacyError);
     }
     if(thisLoad!==loadGeneration)return;
-    rows=next;
+    rows=next.filter(x=>!isCancelled(x));
     clearError();
     updateCounts();
     if(page)renderPage(page);
