@@ -1362,7 +1362,7 @@ def render_aurore_graphics(graphics, assets_dir, theme):
             stderr=subprocess.PIPE,
             text=True,
         )
-        rel = str(pdf_path.relative_to(Path(assets_dir).parent)).replace("\\\\", "/")
+        rel = str(pdf_path.relative_to(Path(assets_dir).parent.parent)).replace("\\\\", "/")
         safe = rel.replace("#", "\\\\#").replace("%", "\\\\%")
         lines.extend([
             r"\\begin{tcolorbox}[enhanced,breakable,colback=white,colframe=aurorebase!32!white,arc=11pt,boxrule=.45pt,left=8pt,right=8pt,top=8pt,bottom=8pt]",
