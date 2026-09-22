@@ -568,3 +568,5 @@ jobs:
 
 # Classification propagation wake: 2026-09-22.
 # FORCED PRODUCTION RUN: restore/verify PDFs after admin inventory correction — 2026-09-22.
+
+# FORCED WAKE: document 347 queued after LaTeX single-backslash fix — 2026-09-22.
