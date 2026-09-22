@@ -95,7 +95,51 @@ const GEMINI_VISUAL={type:{type:"STRING"},purpose:{type:"STRING"},query:{type:"S
 const GEMINI_SCHEMA:any={type:"OBJECT",properties:{title:{type:"STRING"},introduction:{type:"STRING"},learning_objectives:{type:"ARRAY",items:{type:"STRING"}},sections:{type:"ARRAY",items:{type:"OBJECT",properties:{title:{type:"STRING"},objective:{type:"STRING"},content:{type:"ARRAY",items:{type:"STRING"}},formula:{type:"STRING"},graphs:{type:"ARRAY",items:{type:"OBJECT",properties:GEMINI_GRAPH}},visuals:{type:"ARRAY",items:{type:"OBJECT",properties:GEMINI_VISUAL}},exercises:{type:"ARRAY",items:{type:"OBJECT",properties:{question:{type:"STRING"},hint:{type:"STRING"},formula:{type:"STRING"}}}}}}},corrections:{type:"ARRAY",items:{type:"OBJECT",properties:{exercise_number:{type:"NUMBER"},solution:{type:"STRING"},formula:{type:"STRING"}}}}},required:["title","introduction","sections","corrections"]};
 function buildAuthorPrompt(j:any){const p=editorialProfile(j);return `Produis le support pédagogique complet d'Aurore en JSON strict. Pour un cours complet, vise environ 3500 à 4500 mots lorsque le sujet s’y prête, sans répétitions ni remplissage. Directement destiné aux élèves : progression naturelle, explications développées, exemples, erreurs fréquentes, 5 à 8 sections utiles, 2 à 3 exercices globaux avec corrigés. Respecte réellement le profil éditorial. Toute mathématique doit être en LaTeX. Les visuels Wikimedia doivent être précis et pédagogiquement utiles, maximum 3 par section et 8 au total. DEMANDE:${j.prompt||j.title} MATIERE:${j.subject||""} NIVEAU:${j.level||""} CLASSE:${j.class_name||""} TYPE:${j.document_type} PROFIL:${p.profile} MODE:${p.mode} CONSIGNES:${p.instruction} SCHEMA:${JSON.stringify(SCHEMA)}`;}
 async function callGeminiText(prompt:string,light=false){if(!GK)throw Error("GEMINI_API_KEY manquant");const models=light?Array.from(new Set([GLM,"gemini-3.5-flash-lite","gemini-3.1-flash-lite"].filter(Boolean))):Array.from(new Set([GM,"gemini-3.8-flash","gemini-3.5-flash",GLM].filter(Boolean)));const errors:string[]=[];for(const model of models){try{const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":GK},body:JSON.stringify({contents:[{role:"user",parts:[{text:prompt}]}],generationConfig:{temperature:light?.12:.22,maxOutputTokens:light?2400:14000,responseMimeType:"application/json",responseSchema:GEMINI_SCHEMA}})});const body:any=await r.json().catch(()=>null);if(r.ok){const text=(body?.candidates?.[0]?.content?.parts||[]).map((p:any)=>p?.text||"").join("\n").trim();if(text)return{text,model:body?.modelVersion||model};errors.push(`${model}: réponse vide`);}else{errors.push(`${model}: ${body?.error?.message||`Gemini HTTP ${r.status}`}`);}}catch(e){errors.push(`${model}: ${e instanceof Error?e.message:String(e)}`)}}throw Error(errors.join(" | ")||"Gemini indisponible");}
-async function gemini(j:any){const r=await callGeminiText(buildAuthorPrompt(j),false);const d=normalize(parse(r.text),j);if(!valid(d))throw Error("Gemini a renvoyé un manuscrit vide ou incomplet");d._provider={name:"gemini",model:r.model,status:"completed"};d._editorial={status:"completed",engine:r.model,provider:"gemini"};return d;}
+function coerceModelDraft(raw:any,j:any){
+  const d=raw&&typeof raw==="object"&&!Array.isArray(raw)?{...raw}:{};
+  const textOf=(v:any)=>{
+    if(v==null)return "";
+    if(typeof v==="string")return v;
+    if(typeof v==="number"||typeof v==="boolean")return String(v);
+    if(typeof v==="object"){
+      for(const k of ["text","content","body","description","solution","question","value"]){
+        if(typeof v?.[k]==="string"&&v[k].trim())return v[k];
+      }
+      try{return JSON.stringify(v);}catch(_){return String(v);}
+    }
+    return String(v);
+  };
+  let sections=Array.isArray(d.sections)?d.sections:[];
+  if(!sections.length&&Array.isArray(d.chapters))sections=d.chapters;
+  if(!sections.length&&Array.isArray(d.content))sections=[{title:"Cours",content:d.content}];
+  sections=sections.map((s:any,i:number)=>{
+    const x=s&&typeof s==="object"&&!Array.isArray(s)?s:{title:textOf(s)};
+    let content=x.content;
+    if(content==null)content=x.body??x.text??x.paragraphs??[];
+    if(!Array.isArray(content))content=content==null?[]:[content];
+    return {
+      ...x,
+      title:textOf(x.title||x.heading)||`Section ${i+1}`,
+      objective:textOf(x.objective||x.goal||""),
+      content:content.map(textOf).filter((v:string)=>v.trim()),
+      formula:textOf(x.formula||""),
+      graphs:Array.isArray(x.graphs)?x.graphs:[],
+      visuals:Array.isArray(x.visuals)?x.visuals:[],
+      exercises:Array.isArray(x.exercises)?x.exercises:[]
+    };
+  });
+  d.title=textOf(d.title||j?.title||"Ressource Aurore")||"Ressource Aurore";
+  d.introduction=textOf(d.introduction||d.intro||d.summary||"");
+  if(!d.introduction){
+    const first=sections.flatMap((s:any)=>s.content||[])[0]||"";
+    d.introduction=String(first);
+  }
+  d.learning_objectives=Array.isArray(d.learning_objectives)?d.learning_objectives.map(textOf).filter((v:string)=>v.trim()):[];
+  d.sections=sections;
+  d.corrections=Array.isArray(d.corrections)?d.corrections:[];
+  return d;
+}
+async function gemini(j:any){const r=await callGeminiText(buildAuthorPrompt(j),false);const raw=parse(r.text);const candidate=coerceModelDraft(raw,j);let d=normalize(candidate,j);if(!valid(d))throw Error("Gemini a renvoyé un manuscrit vide ou incomplet");d._provider={name:"gemini",model:r.model,status:"completed"};d._editorial={status:"completed",engine:r.model,provider:"gemini"};return d;}
 function fallbackFromPlainText(raw:string,j:any){const cleaned=String(raw||"").trim().replace(/^```(?:markdown|md)?\s*/i,"").replace(/```$/,"").trim();const lines=cleaned.split(/\r?\n/).map((x:string)=>x.trim()).filter(Boolean);const sections:any[]=[];let current:any={title:"Cours",objective:"",content:[],formula:"",graphs:[],visuals:[],exercises:[]};for(const line of lines){const heading=line.match(/^(?:#{1,3}\s+|\*\*([^*]+)\*\*\s*$|(?:[0-9]{1,2})[.)]\s+)(.+)?$/);if(heading){if(current.content.length||current.title!=="Cours")sections.push(current);const title=String(heading[2]||heading[1]||"Section").replace(/\*+/g,"").trim();current={title:title||"Section",objective:"",content:[],formula:"",graphs:[],visuals:[],exercises:[]};}else{current.content.push(line.replace(/^[-*]\s+/,"").trim())}}if(current.content.length||!sections.length)sections.push(current);return normalize({title:String(j.title||"Ressource Aurore"),introduction:sections[0]?.content?.slice(0,2).join(" ")||"Support pédagogique généré par Aurore.",learning_objectives:[],sections:sections.length>1?sections:sections.map((s:any)=>({...s,title:s.title||"Cours"})),corrections:[]},j);}
 async function llamaFull(j:any){if(!CFA||!CFT)throw Error("Cloudflare Llama indisponible");const r=await fetch(`https://api.cloudflare.com/client/v4/accounts/${CFA}/ai/run/${CFM}`,{method:"POST",headers:{Authorization:`Bearer ${CFT}`,"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"system",content:"Moteur de secours Aurore. Retourne uniquement un objet JSON valide conforme au schéma fourni. N'utilise aucun Markdown, aucune phrase avant ou après le JSON."},{role:"user",content:`DEMANDE:${j.prompt||j.title}\nMATIERE:${j.subject||""}\nNIVEAU:${j.level||""}\nCLASSE:${j.class_name||""}\nTYPE:${j.document_type}\nSCHEMA:${JSON.stringify(SCHEMA)}`}],max_tokens:8500,temperature:.2})});if(!r.ok)throw Error(`Llama HTTP ${r.status}`);const p:any=await r.json(),raw=p?.result?.response;if(typeof raw!=="string"||!raw.trim())throw Error("Llama réponse vide");let d:any;try{d=normalize(parse(raw),j);}catch(e){d=fallbackFromPlainText(raw,j);d._factory={...(d._factory||{}),llama_fallback:{status:"plain_text_to_structured",reason:String(e)}};}if(!valid(d))throw Error("Llama a renvoyé un manuscrit vide ou incomplet");d._provider={name:"llama",model:CFM,status:"completed"};d._editorial={status:"completed",engine:CFM,provider:"llama"};return d;}
 async function generateContent(j:any){const selected=aiSelection(j),providers:any={},warnings:string[]=[];let d:any=null;const order=aiMode(j)==="qcm"&&selected.includes("llama")?["llama",...selected.filter((x:string)=>x!=="llama")]:selected;for(const name of order){try{d=name==="gemini"?await gemini(j):name==="llama"?await llamaFull(j):await deepseek(j);providers[name]={status:"completed",model:d?._provider?.model||d?._editorial?.engine||name};break}catch(e){providers[name]={status:"failed",reason:String(e)};warnings.push(`${name}: ${String(e)}`);}}if(!d)throw Error("Aucun moteur IA sélectionné n'est disponible. "+warnings.join(" | "));d._factory={...(d._factory||{}),ai_selection:selected,ai_mode:aiMode(j),ai_providers:providers,provider_warnings:warnings};return d;}
