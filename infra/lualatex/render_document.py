@@ -1365,11 +1365,11 @@ def render_aurore_graphics(graphics, assets_dir, theme):
         rel = str(pdf_path.relative_to(Path(assets_dir).parent.parent)).replace("\\\\", "/")
         safe = rel.replace("#", "\\\\#").replace("%", "\\\\%")
         lines.extend([
-            r"\\begin{tcolorbox}[enhanced,breakable,colback=white,colframe=aurorebase!32!white,arc=11pt,boxrule=.45pt,left=8pt,right=8pt,top=8pt,bottom=8pt]",
-            r"\\centering",
-            r"\\includegraphics[width=.92\\linewidth,keepaspectratio]{" + safe + r"}",
-            r"\\par\\smallskip{\\sffamily\\small\\color{gray} " + tex_text(item.get("title") or item.get("kind") or "Graphisme Aurore") + r"}",
-            r"\\end{tcolorbox}",
+            r"\begin{tcolorbox}[enhanced,breakable,colback=white,colframe=aurorebase!32!white,arc=11pt,boxrule=.45pt,left=8pt,right=8pt,top=8pt,bottom=8pt]",
+            r"\centering",
+            r"\includegraphics[width=.92\linewidth,keepaspectratio]{" + safe + r"}",
+            r"\par\smallskip{\sffamily\small\color{gray} " + tex_text(item.get("title") or item.get("kind") or "Graphisme Aurore") + r"}",
+            r"\end{tcolorbox}",
             "",
         ])
     return lines
