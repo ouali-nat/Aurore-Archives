@@ -1361,7 +1361,6 @@ const E=v=>{const d=document.createElement('div');d.textContent=String(v==null?'
 const M=x=>x&&typeof x.metadata==='object'?x.metadata:{};
 const roleValue=()=>{try{return String((typeof session!=='undefined'&&session&&session.role)||'').toLowerCase()}catch(_){return ''}};
 const adminAllowed=()=>{const r=roleValue();return r==='admin'||r==='administrateur'||r.includes('admin')};
-const adminInventoryFetch=window.adminInventoryFetch;
 const normalize=typeof normalizeThemeColor==='function'?normalizeThemeColor:(v=>/^#[0-9a-f]{6}$/i.test(String(v||''))?String(v).toUpperCase():'#C85C0D');
 const theme=x=>normalize((M(x).aurore_design&&M(x).aurore_design.theme_color)||M(x).theme_color||x.theme_color||'#C85C0D');
 const active=x=>['queued','processing'].includes(String(M(x).lualatex_status||'').toLowerCase());
