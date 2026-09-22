@@ -826,6 +826,64 @@
     return 'cours';
   }
 
+  function ouvrirVueRessourceAurore(type, titre) {
+    const items = (documentsCourants || [])
+      .filter(estDocumentAurore)
+      .filter(doc => typeRessourceAurore(doc) === type);
+    const content = document.getElementById('docsContent');
+    if (!content) return;
+
+    const matiereNom = etat.matiere?.nom || '';
+    const niveauLabel = (etat.classe?.dbNiveaux?.[0]) || (etat.feuilleArbre?.dbNiveaux?.[0]) || (etat.sousNiveau?.dbNiveaux?.[0]) || '';
+    const serieLabel = etat.filiere ? ' — Série ' + etat.filiere : '';
+    document.getElementById('docsTitle').textContent =
+      [etat.categorie?.nom, etat.serieChoisie?.nom || etat.feuilleArbre?.nom || etat.sousNiveau?.nom || niveauLabel, matiereNom, 'Aurore — ' + titre]
+        .filter(Boolean).join(' — ');
+    const back = document.querySelector('#screen-docs .back-btn');
+    if (back) back.setAttribute('data-back', 'matieres');
+
+    afficherEcran('screen-docs');
+
+    if (!items.length) {
+      content.innerHTML = '<div class="doc-empty friendly-empty"><div class="icon-wrap">' + ICONS.folder + '</div><h3>Aucune ressource dans cette rubrique</h3><p>Cette section sera enrichie progressivement.</p></div>';
+      return;
+    }
+
+    const list = document.createElement('div');
+    list.className = 'doc-list aurore-general-resource-list';
+    trierDocumentsClient(items).forEach(doc => list.appendChild((() => {
+      const row = document.createElement('div');
+      row.className = 'doc-row';
+      row._auroreDocument = doc;
+      const telechargementOk = doc.Telechargement_autorise !== false;
+      const contexte = [
+        doc.Niveau && 'Niveau : ' + doc.Niveau,
+        doc.Filiere && 'Filière : ' + doc.Filiere,
+        (doc['Catégorie'] || doc.Type) && 'Catégorie : ' + (doc['Catégorie'] || doc.Type),
+        doc.Genre && 'Genre : ' + doc.Genre
+      ].filter(Boolean).join(' · ');
+      const titreDocument = obtenirTitreDocument(doc);
+      row.dataset.documentTitle = titreDocument;
+      row.innerHTML =
+        '<div class="info"><div class="icon-wrap">' + ICONS.file + '</div><div class="doc-main-info">' +
+        '<div class="titre" title="' + echapperHtmlPub(titreDocument) + '">' + echapperHtmlPub(titreDocument) + '</div>' +
+        '<div class="meta">Déposé par ' + (doc.Auteur || 'Aurore') + (telechargementOk ? '' : ' · Lecture seule') + '</div>' +
+        (contexte ? '<div class="doc-context">' + contexte + '</div>' : '') +
+        tailleBadgeMarkup(doc.Fichier_url) + '</div></div>' +
+        boutonPlusCarteDocumentMarkup() + panneauActionsCarteDocumentMarkup(telechargementOk);
+      brancherActionsCarteDocument(row, doc);
+      actualiserEtatActionsDocument(row, doc);
+      actualiserTaillesDocumentsDans(row);
+      if (COUVERTURES_PREMIERE_PAGE_ACTIVES) appliquerCouvertureSiLivre(row, doc);
+      return row;
+    })()));
+
+    content.innerHTML = '';
+    content.appendChild(list);
+    document.getElementById('docsPager')?.replaceChildren();
+    window.scrollTo({top: 0, behavior: 'auto'});
+  }
+
   function rendreListeDocuments(content, data, afficherCouverturesRomans = false, separerOrigines = false) {
     if (afficherCouverturesRomans && typeof chargerPdfJs === 'function') chargerPdfJs().catch(() => {});
     documentsCourants = Array.isArray(data) ? data : [];
