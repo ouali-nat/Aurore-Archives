@@ -1011,11 +1011,14 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
         f"retrieved={visual_qa['retrieved']} required={visual_qa['required_retrieved']}/{visual_qa['required_planned']} "
         f"failed={visual_qa['failed']}"
     )
+    # A missing Wikimedia visual is never a generation blocker.
+    # "required" means editorially preferred/important, not a hard build gate:
+    # GeoGebra/math graphs and the rest of the document must still compile.
     if explicit and required_missing:
-        raise RuntimeError(
-            "VISUAL_QA_BLOCKED: "
-            f"{required_missing} illustration(s) obligatoire(s) manquante(s) "
-            f"({required_fetched}/{required_planned} récupérées)."
+        print(
+            "WARNING: Wikimedia required visual(s) unavailable: "
+            f"{required_missing} missing ({required_fetched}/{required_planned} fetched). "
+            "PDF generation continues; no Wikimedia gap can block production."
         )
     return visuals
 def render_visuals(visuals):
