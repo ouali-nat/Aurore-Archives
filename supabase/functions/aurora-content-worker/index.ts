@@ -412,28 +412,36 @@ async function llamaRepair(j:any,d:any,gate:any){
 }
 async function llamaExpansionPass(j:any,d:any,pass:number){
   const sections=(d.sections||[]).map((sec:any,i:number)=>({index:i,title:sec.title,content:(sec.content||[]).slice(-4)}));
+  const needSections=Math.max(0,5-(d.sections||[]).length);
   const prompt=[
-    "Tu es le moteur Llama autonome d'Aurore. N'écris PAS un nouveau cours résumé.",
-    "Ajoute du contenu pédagogique substantiel au manuscrit existant sans supprimer ce qui existe.",
-    "Objectif de ce passage : ajouter environ 900 à 1300 mots, répartis sur les sections existantes.",
-    "Pour chaque section, fournis 2 à 4 paragraphes nouveaux de 120 à 180 mots, non redondants, avec exemples guidés, explications, transitions, erreurs fréquentes ou interprétations utiles selon le sujet.",
-    "Tu peux ajouter une nouvelle section seulement si elle est nécessaire pour assurer une progression de 5 à 8 sections.",
-    "Ne réécris pas les exercices/corrigés existants ; enrichis le cours.",
-    "Réponds uniquement en JSON : {\"additions\":[{\"section_index\":0,\"content\":[\"paragraphe\",\"paragraphe\"]}]}",
+    "Tu es le moteur Llama autonome d'Aurore. N'écris PAS un résumé court.",
+    "Enrichis le manuscrit existant sans supprimer ce qui existe.",
+    "Objectif de ce passage : ajouter environ 900 à 1300 mots utiles.",
+    "Pour les sections existantes, ajoute 2 à 4 paragraphes nouveaux de 120 à 180 mots, non redondants, avec exemples guidés, explications, transitions, erreurs fréquentes ou interprétations utiles.",
+    needSections>0 ? "Le manuscrit ne possède que "+(d.sections||[]).length+" sections. Crée aussi "+needSections+" nouvelles sections pédagogiques nécessaires à une progression de cours, chacune avec 3 à 5 paragraphes substantielles." : "Ne crée pas de nouvelles sections si la structure est déjà suffisante.",
+    "Ne réécris pas les exercices/corrigés existants.",
+    "Réponds uniquement en JSON sous la forme {\"additions\":[{\"section_index\":0,\"content\":[\"paragraphe\"]}],\"new_sections\":[{\"title\":\"Titre\",\"content\":[\"paragraphe\"]}]}",
     "Passage "+pass+". Sujet : "+String(j.prompt||j.title||""),
     "Sections existantes : "+JSON.stringify(sections)
   ].join("\n");
   let raw="";
-  try{raw=await runLlamaText(CFM,prompt,6500);}
-  catch(first){raw=await runLlamaText(CFM_FALLBACK,prompt,6500);}
+  try{raw=await runLlamaText(CFM,prompt,7000);}catch(first){raw=await runLlamaText(CFM_FALLBACK,prompt,7000);}
   let parsed:any;
   try{parsed=parse(raw);}catch{return d;}
-  const adds=Array.isArray(parsed?.additions)?parsed.additions:[];
-  for(const item of adds){
+  const additions=Array.isArray(parsed?.additions)?parsed.additions:[];
+  for(const item of additions){
     const idx=Number(item?.section_index);
     if(!Number.isInteger(idx)||idx<0||idx>=d.sections.length)continue;
     const content=Array.isArray(item?.content)?item.content.map((x:any)=>normalizeMathText(x)).filter((x:string)=>x.trim()):[];
     d.sections[idx].content=[...(d.sections[idx].content||[]),...content];
+  }
+  const newSections=Array.isArray(parsed?.new_sections)?parsed.new_sections:[];
+  for(const item of newSections){
+    if(d.sections.length>=8)break;
+    const title=String(item?.title||"Approfondissement").trim();
+    const content=Array.isArray(item?.content)?item.content.map((x:any)=>normalizeMathText(x)).filter((x:string)=>x.trim()):[];
+    if(!content.length)continue;
+    d.sections.push({title,objective:"",content,formula:"",graphs:[],visuals:[],exercises:[]});
   }
   return d;
 }
