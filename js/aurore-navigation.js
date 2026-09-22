@@ -270,6 +270,9 @@
       if (typeof window.auroraFermerGrandGraphique === 'function') window.auroraFermerGrandGraphique({fromPopState:true});
       return;
     }
+    // Le module PDF possède sa propre pile d'historique. Tant qu'elle est active,
+    // il doit être le seul gestionnaire à traiter le Retour Android.
+    if (window.__auroreAdminPdfHistoryActive) return;
     // Même principe pour la fiche de gestion ouverte depuis un bloc du tableau
     // de bord admin : elle a poussé sa propre entrée d'historique à l'ouverture
     // (voir plus haut), donc le premier Retour la referme simplement et remet
