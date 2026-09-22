@@ -124,15 +124,20 @@ const GEMINI_LIGHT_SCHEMA:any={type:"OBJECT",properties:{
 function graphRequirements(j:any){
   const c=(String(j?.title||"")+" "+String(j?.prompt||"")+" "+String(j?.subject||"")).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
   const required:string[]=[]; const add=(x:string)=>{if(!required.includes(x))required.push(x);};
-  if(/courbe parametree|trajectoire parametree|equations parametriques/.test(c))add("parametric2d");
-  if(/courbe parametree 3d|trajectoire spatiale|helice 3d|helice/.test(c))add("parametric3d");
-  if(/surface 3d|surface de|z\s*=/.test(c) && /math|mathematique|geometr/.test(c))add("surface3d");
-  if(/solide|cube|pyramide|prisme|tetraedre|sphere|cylindre|cone|geometrie dans l'espace|geometrie 3d/.test(c) && /math|mathematique|geometr|solide|cube|pyramide|prisme|tetraedre|sphere|cylindre|cone/.test(c))add("geometry3d");
+  const param2d=/courbe parametree|trajectoire parametree|equations parametriques/.test(c);
+  const param3d=/courbe parametree 3d|trajectoire spatiale|helice 3d|helice/.test(c);
+  const math=/math|mathematique|algebre|geometr|calcul|fonction|courbe|derive|limite|integrale|trigonometrie/.test(c);
+  if(param2d)add("parametric2d");
+  if(param3d)add("parametric3d");
+  if(/surface 3d|surface de|z\s*=/.test(c) && math)add("surface3d");
+  if(/solide|cube|pyramide|prisme|tetraedre|sphere|cylindre|cone|geometrie dans l'espace|geometrie 3d/.test(c) && math)add("geometry3d");
   if(/conique|ellipse|parabole|hyperbole/.test(c))add("function2d");
-  if(/fonction|courbe|derivee|derive|variations?|limite|tangente|integrale|trigonometrie|logarithme|exponentielle/.test(c) && /math|mathematique|algebre|geometr|fonction|courbe|derive|limite|integrale|trigonometrie/.test(c))add("function2d");
+  const explicitFunction=/fonction|derivee|derive|variations?|limite|tangente|integrale|trigonometrie|logarithme|exponentielle/.test(c);
+  if(math && (explicitFunction || (!param2d&&!param3d&&/courbe/.test(c))))add("function2d");
   if(/graphique obligatoire|graphique|courbe experimentale|evolution graphique|representation graphique/.test(c) && /physique|chimie|svt|biologie|science/.test(c))add("function2d");
   return required;
 }
+
 function graphRequirementSatisfied(graphs:any[],required:string[]){
   const present=new Set<string>();
   for(const raw of Array.isArray(graphs)?graphs:[]){const g=normalizeGraphInstrument(raw);if(g?.instrument)present.add(g.instrument);}
@@ -400,11 +405,78 @@ async function llamaRepair(j:any,d:any,gate:any){
   try{raw=await runLlamaText(CFM,prompt,10000);}catch(first){model=CFM_FALLBACK;raw=await runLlamaText(CFM_FALLBACK,prompt,10000);}
   let x:any; try{x=normalize(parse(raw),j);}catch{x=fallbackFromPlainText(raw,j);}
   if(!valid(x))throw Error("Llama correction : manuscrit vide ou incomplet");
+  if(count(x)<MIN_WORDS)x=await llamaExpandUntilReady(j,x);
   x._provider={name:"llama",model,status:"completed"};
   x._editorial={status:"completed",engine:model,provider:"llama"};
   return x;
 }
+async function llamaExpansionPass(j:any,d:any,pass:number){
+  const sections=(d.sections||[]).map((sec:any,i:number)=>({index:i,title:sec.title,content:(sec.content||[]).slice(-4)}));
+  const prompt=[
+    "Tu es le moteur Llama autonome d'Aurore. N'écris PAS un nouveau cours résumé.",
+    "Ajoute du contenu pédagogique substantiel au manuscrit existant sans supprimer ce qui existe.",
+    "Objectif de ce passage : ajouter environ 900 à 1300 mots, répartis sur les sections existantes.",
+    "Pour chaque section, fournis 2 à 4 paragraphes nouveaux de 120 à 180 mots, non redondants, avec exemples guidés, explications, transitions, erreurs fréquentes ou interprétations utiles selon le sujet.",
+    "Tu peux ajouter une nouvelle section seulement si elle est nécessaire pour assurer une progression de 5 à 8 sections.",
+    "Ne réécris pas les exercices/corrigés existants ; enrichis le cours.",
+    "Réponds uniquement en JSON : {\"additions\":[{\"section_index\":0,\"content\":[\"paragraphe\",\"paragraphe\"]}]}",
+    "Passage "+pass+". Sujet : "+String(j.prompt||j.title||""),
+    "Sections existantes : "+JSON.stringify(sections)
+  ].join("\n");
+  let raw="";
+  try{raw=await runLlamaText(CFM,prompt,6500);}
+  catch(first){raw=await runLlamaText(CFM_FALLBACK,prompt,6500);}
+  let parsed:any;
+  try{parsed=parse(raw);}catch{return d;}
+  const adds=Array.isArray(parsed?.additions)?parsed.additions:[];
+  for(const item of adds){
+    const idx=Number(item?.section_index);
+    if(!Number.isInteger(idx)||idx<0||idx>=d.sections.length)continue;
+    const content=Array.isArray(item?.content)?item.content.map((x:any)=>normalizeMathText(x)).filter((x:string)=>x.trim()):[];
+    d.sections[idx].content=[...(d.sections[idx].content||[]),...content];
+  }
+  return d;
+}
+async function llamaExpandUntilReady(j:any,d:any){
+  let x=d;
+  for(let pass=1;pass<=3 && count(x)<MIN_WORDS;pass++){
+    x=await llamaExpansionPass(j,x,pass);
+  }
+  x._factory={...(x._factory||{}),llama_expansion:{passes:3,word_count:count(x),minimum:MIN_WORDS}};
+  return x;
+}
 async function generateContent(j:any){const selected=aiSelection(j),providers:any={},warnings:string[]=[];let d:any=null;const order=aiMode(j)==="qcm"&&selected.includes("llama")?["llama",...selected.filter((x:string)=>x!=="llama")]:selected;for(const name of order){try{d=name==="gemini"?await gemini(j):name==="llama"?await llamaFull(j):await deepseek(j);providers[name]={status:"completed",model:d?._provider?.model||d?._editorial?.engine||name};break}catch(e){providers[name]={status:"failed",reason:String(e)};warnings.push(`${name}: ${String(e)}`);}}if(!d)throw Error("Aucun moteur IA sélectionné n'est disponible. "+warnings.join(" | "));d._factory={...(d._factory||{}),ai_selection:selected,ai_mode:aiMode(j),ai_providers:providers,provider_warnings:warnings};return d;}
+function ensureGraphPlan(j:any,d:any){
+  const required=graphRequirements(j);
+  if(!required.length)return d;
+  const sections=Array.isArray(d.sections)?d.sections:[];
+  if(!sections.length)return d;
+  const flat=()=>sections.flatMap((sec:any)=>Array.isArray(sec.graphs)?sec.graphs:[]);
+  const present=()=>new Set(flat().map((g:any)=>normalizeGraphInstrument(g)?.instrument).filter(Boolean));
+  const pi=Math.PI, safe=(g:any)=>normalizeGraphInstrument(g);
+  const make=(instrument:string)=>{
+    if(instrument==="parametric2d")return safe({instrument,title:"Exemple de courbe paramétrée plane",x_expression:"cos(t)",y_expression:"sin(t)",parameter:"t",t_min:0,t_max:2*pi,x_min:-1.5,x_max:1.5,y_min:-1.5,y_max:1.5,grid:true,axes:true,style:"geogebra"});
+    if(instrument==="parametric3d")return safe({instrument,title:"Exemple de trajectoire paramétrée dans l'espace",x_expression:"cos(t)",y_expression:"sin(t)",z_expression:"t",parameter:"t",t_min:0,t_max:2*pi,x_min:-1.5,x_max:1.5,y_min:-1.5,y_max:1.5,z_min:0,z_max:2*pi,grid:true,axes:true,style:"geogebra"});
+    if(instrument==="surface3d")return safe({instrument,title:"Exemple de surface : z=f(x,y)",expression:"x^2-y^2",x_min:-3,x_max:3,y_min:-3,y_max:3,z_min:-9,z_max:9,grid:true,axes:true,style:"geogebra"});
+    if(instrument==="geometry3d")return safe({instrument,title:"Construction géométrique dans l'espace",objects:[
+      {type:"cube",name:"Cube ABCDEFGH",points:["[0,0,0]","[2,0,0]","[2,2,0]","[0,2,0]","[0,0,2]","[2,0,2]","[2,2,2]","[0,2,2]"]}
+    ],x_min:-1,x_max:3,y_min:-1,y_max:3,z_min:-1,z_max:3,grid:true,axes:true,style:"geogebra"});
+    return safe({instrument:"function2d",title:"Exemple de courbe fonctionnelle",expression:"x^2",x_min:-3,x_max:3,y_min:-1,y_max:10,grid:true,axes:true,style:"geogebra"});
+  };
+  const seen=present();
+  for(const inst of required){
+    if(seen.has(inst))continue;
+    const g=make(inst);
+    if(!g)continue;
+    const idx=Math.min(required.indexOf(inst),sections.length-1);
+    sections[idx].graphs=Array.isArray(sections[idx].graphs)?sections[idx].graphs:[];
+    sections[idx].graphs.push(g);
+    seen.add(inst);
+  }
+  d._factory={...(d._factory||{}),graph_plan:{required,present:Array.from(seen),minimum_required:required.length}};
+  return d;
+}
+
 function ensureVisualPlan(j:any,d:any){
   const profile=editorialProfile(j).profile, sections=Array.isArray(d.sections)?d.sections:[];
   const hints:any={biologie:"biology anatomy structure diagram",experimental:"science experiment apparatus phenomenon diagram",scientifique:"mathematics geometry educational diagram",langues:"language learning communication illustration",francais_litterature:"French literature historical cultural illustration",histoire_geographie:"historical geography map territory illustration",informatique:"computer science algorithm software diagram",technique:"technical engineering mechanism diagram",general:"educational explanatory diagram"};
@@ -434,6 +506,7 @@ function html(d:any){const e=(v:any)=>String(v??"").replace(/&/g,"&amp;").replac
 Deno.serve(async req=>{if(req.method==='OPTIONS')return new Response('ok',{headers:H});if(req.method!=='POST')return out({error:'Méthode non autorisée'},405);const a=req.headers.get('Authorization');if(!a?.startsWith('Bearer '))return out({error:'Authentification requise'},401);const internal=a===`Bearer ${SR}`;let userId:string|null=null;if(!internal){const u=createClient(URL,ANON,{global:{headers:{Authorization:a}},auth:{autoRefreshToken:false,persistSession:false}});const me=await u.auth.getUser();if(me.error||!me.data.user)return out({error:'Session invalide'},401);userId=me.data.user.id;}let b:any;try{b=await req.json()}catch{return out({error:'JSON invalide'},400)}const requestedId=Number(b?.job_id||0);if(!internal&&(!Number.isSafeInteger(requestedId)||requestedId<1))return out({error:'job_id invalide'},400);if(requestedId&&(!Number.isSafeInteger(requestedId)||requestedId<1))return out({error:'job_id invalide'},400);if(requestedId&&!internal){const own=await db.from('aurora_content_jobs').select('id').eq('id',requestedId).eq('created_by',userId).maybeSingle();if(own.error||!own.data)return out({error:'Job introuvable'},404);}const cl=await db.rpc('aurora_claim_content_job',{p_job_id:requestedId||null});if(cl.error)return out({error:cl.error.message},500);if(!cl.data)return out({ok:true,internal,processed:false,status:'idle',message:'Aucun job de contenu disponible.'},200);const j=cl.data;try{
     let d=await generateContent(j);
     d=ensureVisualPlan(j,d);
+    d=ensureGraphPlan(j,d);
     if(!valid(d))throw Error('QA contenu: manuscrit vide après traitement IA');
     let gate=qualityGate(j,d);
     if(!gate.ok){
@@ -442,6 +515,7 @@ Deno.serve(async req=>{if(req.method==='OPTIONS')return new Response('ok',{heade
       else if(provider==="llama")d=await llamaRepair(j,d,gate);
       else throw Error("QA contenu bloquante : moteur IA inconnu.");
       d=ensureVisualPlan(j,d);
+      d=ensureGraphPlan(j,d);
       gate=qualityGate(j,d);
       if(!gate.ok)throw Error("QA contenu bloquante après correction : "+gate.reasons.join(" | "));
     }
