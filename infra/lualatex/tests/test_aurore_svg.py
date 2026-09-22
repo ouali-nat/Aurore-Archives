@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 HERE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(HERE))
 
-from aurore_svg import MAX_ELEMENTS, MAX_GRAPHICS, RENDERERS, render_graphics
+from aurore_svg import EDITORIAL_DECORATIVE_KINDS, MAX_ELEMENTS, MAX_GRAPHICS, RENDERERS, render_graphics
 
 
 GRAPHIC_SPECS = [
@@ -74,6 +74,37 @@ class AuroreSvgTest(unittest.TestCase):
                 ET.fromstring(svg)
                 self.assertNotIn("<image", svg)
                 self.assertNotIn("data:image", svg)
+
+
+    def test_graphic_roles_are_stable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            generated = render_graphics(GRAPHIC_SPECS, Path(tmp))
+            for item in generated:
+                if item["kind"] in EDITORIAL_DECORATIVE_KINDS:
+                    self.assertEqual(item["role"], "editorial", item["kind"])
+                else:
+                    self.assertEqual(item["role"], "scientific", item["kind"])
+
+    def test_decorative_motifs_use_small_strokes(self):
+        decorative = [
+            {"kind": "separator", "style": "dots"},
+            {"kind": "title_decor"},
+            {"kind": "leaf_branch"},
+            {"kind": "dots"},
+            {"kind": "mini_tree"},
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            generated = render_graphics(decorative, Path(tmp))
+            for item in generated:
+                svg = Path(item["svg_path"]).read_text(encoding="utf-8")
+                widths = [
+                    float(value)
+                    for value in __import__("re").findall(
+                        r'stroke-width="([0-9.]+)"', svg
+                    )
+                ]
+                self.assertTrue(widths, item["kind"])
+                self.assertLessEqual(max(widths), 3.0, item["kind"])
 
     def test_limits_and_safe_color_guardrails(self):
         with tempfile.TemporaryDirectory() as tmp:
