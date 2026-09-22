@@ -1029,21 +1029,39 @@
     // "Niveau=eq." vide : la série est filtrée par Filiere et les documents
     // publiés sont récupérés tous niveaux de la série. Avec une classe connue,
     // le filtre Niveau reste précis.
+    // Les valeurs affichées dans l'arbre peuvent être plus explicites que
+    // celles stockées en base (ex. « Série C » dans l'interface, « C » en DB).
+    // On normalise uniquement la valeur de la série avant la requête afin de
+    // ne pas perdre les documents de Seconde C.
+    const serieDb = etat.filiere
+      ? normaliserRechercheSite(etat.filiere)
+          .replace(/^serie\\s+/,'')
+          .trim()
+          .toUpperCase()
+      : '';
+    const divisionDb = etat.division ? String(etat.division).trim() : '';
+
     const filtres = [
       niveauLabel ? `Niveau=eq.${encodeURIComponent(niveauLabel)}` : '',
       `${encodeURIComponent('Catégorie')}=eq.${encodeURIComponent(etat.categorie.nom)}`,
       `${encodeURIComponent('Matière')}=eq.${encodeURIComponent(matiere.nom)}`,
       'Publie=eq.true'
     ].filter(Boolean);
-    if (etat.filiere) filtres.push(`Filiere=eq.${encodeURIComponent(etat.filiere)}`);
-    if (etat.division) filtres.push(`Classe=eq.${encodeURIComponent(etat.division)}`);
+    if (serieDb) filtres.push(`Filiere=eq.${encodeURIComponent(serieDb)}`);
+    if (divisionDb) filtres.push(`Classe=eq.${encodeURIComponent(divisionDb)}`);
     filtres.push('order=id.desc');
     const query = filtres.join('&');
 
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&${query}`, { headers: HEADERS });
       if (!res.ok) throw new Error("Statut HTTP " + res.status);
-      const data = filtreSerieSiDisponible(await res.json());
+      const brutes = await res.json();
+      const filtre = filtreSerieSiDisponible(brutes);
+      // Si le filtre de compatibilité historique écarte tout alors que la
+      // requête DB a bien retourné des documents, on conserve le résultat DB.
+      const data = Array.isArray(filtre) && (filtre.length || !brutes.length)
+        ? filtre
+        : brutes;
       documentsCourants = Array.isArray(data) ? data : [];
       actualiserTriPublicDocuments(documentsCourants);
       docsPageCourante = 1;
