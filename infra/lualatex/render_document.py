@@ -1730,10 +1730,15 @@ def render(data):
         if sec.get("formula"):
             lines.append(display_formula(sec["formula"]))
         content_items = sec.get("content", [])
-        # Content Factory may also emit a prose list such as
-        # "Exercice 1 : ..." while the structured exercises array below
-        # contains the same exercises. Render the structured version only.
-        if isinstance(content_items, list) and sec.get("exercises"):
+        # Exercise documents may carry the same statement/correction both in
+        # section.content and in the structured exercises array. When the
+        # structured exercise records exist, they are authoritative: do not
+        # render the same material a second time before the exercise boxes.
+        if sec.get("exercises") and is_exercise_document:
+            content_items = []
+        elif isinstance(content_items, list) and sec.get("exercises"):
+            # For non-exercise documents, keep legacy prose while suppressing
+            # duplicate "Exercice N :" lines already represented structurally.
             content_items = [
                 item for item in content_items
                 if not re.match(r"^\s*Exercice\s+\d+\s*:", clean_text(item))
