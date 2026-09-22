@@ -1533,10 +1533,16 @@ function showError(message){
 }
 function clearError(){document.querySelector('#auroreAdminPdf3 .aap3error')?.remove()}
 function openPage(k,fromPop){
+  const previousPage=page;
   page=k;
   if(!fromPop){
     try{
-      const target=location.pathname+location.search+'#admin-pdf-'+k;
+      const clean=location.pathname+location.search;
+      const target=clean+'#admin-pdf-'+k;
+      // Première ouverture depuis l'accueil : créer une entrée d'accueil
+      // dédiée. Le retour Android depuis « Documents en attente » revient
+      // ainsi aux trois catégories sans quitter l'administration.
+      if(previousPage===null)history.replaceState({auroreAdminPdfPage:'home'},'',clean);
       history.pushState({auroreAdminPdfPage:k},'',target);
     }catch(_){}
   }
