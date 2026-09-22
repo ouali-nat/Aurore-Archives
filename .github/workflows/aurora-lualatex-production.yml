@@ -95,6 +95,20 @@ jobs:
               "version": int(document.get("version") or 1),
               "title": document.get("title"),
           }
+          # Preserve classification/visual metadata alongside content_json.
+          # The renderer receives content_json as its document.json, so these
+          # fields must not be lost when the source is fetched from Supabase.
+          for key in (
+              "subject", "matiere", "level", "class_name", "document_type",
+              "theme_color", "themeColor", "domaine", "formation",
+              "specialite", "annee", "semestre", "filiere"
+          ):
+              if document.get(key) is not None and key not in content:
+                  content[key] = document.get(key)
+          if isinstance(document.get("metadata"), dict):
+              for key in ("visual_plan", "visuals", "aurore_design"):
+                  if key in document["metadata"] and key not in content:
+                      content[key] = document["metadata"][key]
           graph_assets = payload.get("graph_assets") or []
           if graph_assets:
               from urllib.request import urlopen
