@@ -228,7 +228,7 @@ async function loadClassificationOptions(){
   // La soumission reste protégée par adminOk().
   cfInitClassification();["cfAiGemini","cfAiLlama","cfAiDeepSeek"].forEach(id=>document.getElementById(id)?.addEventListener("change",syncAiStrategyHint));syncAiStrategyHint();
 }
-function selectedAiProviders(){return ["llama"];}
+function selectedAiProviders(){const out=[];if(document.getElementById("cfAiGemini")?.checked)out.push("gemini");if(document.getElementById("cfAiLlama")?.checked)out.push("llama");return out;}
 function syncAiStrategyHint(){const a=selectedAiProviders(),hint=document.getElementById("cfAiStrategyHint");if(hint)hint.textContent=a.length?"Stratégie active : "+a.map(x=>x==="gemini"?"Gemini":x==="llama"?"Llama":"DeepSeek").join(" + ")+". Aurore choisira le rôle de chaque moteur selon le type de ressource.":"Sélectionne au moins une IA.";}
 function selectedValue(id){return String(document.getElementById(id)?.value||'').trim();}
 async function getJob(jobId){const r=await cfFetch(`${SUPABASE_URL}/rest/v1/aurora_content_jobs?id=eq.${encodeURIComponent(jobId)}&select=id,status,title,generated_document_id,error_message,updated_at`,{cache:'no-store'});const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));const a=t?JSON.parse(t):[];return Array.isArray(a)&&a[0]?a[0]:null;}
@@ -241,7 +241,7 @@ async function runGeneration(item){
       const finalPrompt=item.prompt+(item.reference?'\n\nRÉFÉRENCE PÉDAGOGIQUE FOURNIE PAR L’ADMINISTRATION : '+item.reference:'');
       const job=await rpc('aurora_create_content_job',{
         p_title:item.title,p_subject:item.subject||null,p_level:item.level||null,p_class_name:item.className||null,p_document_type:item.resourceType,p_prompt:finalPrompt,
-        p_instructions:{source:'admin_content_factory',origin:'aurore',queue:'sequential',category:item.category,filiere:item.filiere||null,reference:item.reference||null,rights_confirmed:true,theme_color:normalizeThemeColor(item.themeColor||'#6D28D9'),ai:{selected:['llama'],mode:'llama_only'},
+        p_instructions:{source:'admin_content_factory',origin:'aurore',queue:'sequential',category:item.category,filiere:item.filiere||null,reference:item.reference||null,rights_confirmed:true,theme_color:normalizeThemeColor(item.themeColor||'#6D28D9'),ai:{selected:selectedAiProviders(),mode:'single_provider'},
           classification:{level:item.level||null,filiere:item.filiere||null,class_name:item.className||null,subject:item.subject||null,category:item.category,resource_type:item.resourceType}}
       });
       jobId=Number(job);
