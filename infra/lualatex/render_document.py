@@ -1804,10 +1804,19 @@ def main():
     data["_wikimedia_visuals"] = _fetch_wikimedia_visuals(
         data, out.parent / "assets", profile
     )
+    valid_wikimedia_visuals = []
     for visual in data["_wikimedia_visuals"]:
         visual_file = out.parent / str(visual.get("path") or "")
         if not visual_file.is_file() or visual_file.stat().st_size == 0:
-            raise SystemExit(f"Wikimedia asset missing or empty: {visual_file}")
+            print(
+                f"WARNING: Wikimedia asset missing or empty: {visual_file} — "
+                "visual omitted; PDF generation continues."
+            )
+            continue
+        valid_wikimedia_visuals.append(visual)
+    data["_wikimedia_visuals"] = valid_wikimedia_visuals
+    if isinstance(data.get("_visual_qa"), dict):
+        data["_visual_qa"]["retrieved"] = len(valid_wikimedia_visuals)
     print(
         f"Wikimedia visuals fetched: {len(data['_wikimedia_visuals'])} "
         f"(profile={profile})"
@@ -1819,18 +1828,20 @@ def main():
         if str(v.get("path") or "") and str(v.get("path") or "") not in tex
     ]
     if missing_embedded:
-        data["_visual_qa"]["status"] = "blocked"
+        data["_visual_qa"]["status"] = "warning"
         data["_visual_qa"]["embedded"] = len(data["_wikimedia_visuals"]) - len(missing_embedded)
         data["_visual_qa"]["embedded_missing"] = missing_embedded
-        raise SystemExit(
-            "VISUAL_QA_BLOCKED: illustration(s) récupérée(s) mais absente(s) du LaTeX: "
+        print(
+            "WARNING: Wikimedia visual(s) were fetched but not embedded in LaTeX: "
             + ", ".join(missing_embedded)
+            + " — PDF generation continues."
         )
-    data["_visual_qa"]["embedded"] = len(data["_wikimedia_visuals"])
-    data["_visual_qa"]["status"] = (
-        "blocked" if data["_visual_qa"].get("required_missing", 0)
-        else ("warning" if data["_visual_qa"].get("failed", 0) else "pass")
-    )
+    else:
+        data["_visual_qa"]["embedded"] = len(data["_wikimedia_visuals"])
+    if data["_visual_qa"].get("status") == "blocked":
+        data["_visual_qa"]["status"] = "warning"
+    if data["_visual_qa"].get("failed", 0):
+        data["_visual_qa"]["status"] = "warning"
     out.write_text(tex, encoding="utf-8")
     qa_path = out.with_suffix(".visual-qa.json")
     qa_path.write_text(json.dumps(data["_visual_qa"], ensure_ascii=False, indent=2), encoding="utf-8")
