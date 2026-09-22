@@ -986,12 +986,19 @@
     const q=normaliserRechercheSite(document.getElementById('docsSearch')?.value||'');
     const filtered=(documentsCourants||[]).filter(doc=>!q||valeurTexteDocument(doc).includes(q));
     const sorted=trierDocumentsClient(filtered);
-    const pages=Math.max(1,Math.ceil(sorted.length/SITE_PUBLIC_PAGE_SIZE));
-    docsPageCourante=Math.min(docsPageCourante,pages);
-    if(!sorted.length){ content.innerHTML='<div class="site-empty-filter">Aucun document ne correspond à votre recherche.</div>'; afficherPaginationSite('docsPager',0,1,()=>{}); return; }
-    const start=(docsPageCourante-1)*SITE_PUBLIC_PAGE_SIZE;
-    rendreListeDocuments(content, sorted.slice(start,start+SITE_PUBLIC_PAGE_SIZE), COUVERTURES_PREMIERE_PAGE_ACTIVES, true);
-    afficherPaginationSite('docsPager',sorted.length,docsPageCourante,p=>{docsPageCourante=p;afficherDocumentsPublicsAvecOutils();});
+
+    // Vue d'ensemble : toutes les ressources de la matière restent sur une
+    // seule page. Les listes Aurore et Communauté possèdent leurs propres
+    // fenêtres de défilement pour éviter une page interminable.
+    if(!sorted.length){
+      content.innerHTML='<div class="site-empty-filter">Aucun document ne correspond à votre recherche.</div>';
+      afficherPaginationSite('docsPager',0,1,()=>{});
+      return;
+    }
+
+    docsPageCourante=1;
+    rendreListeDocuments(content, sorted, COUVERTURES_PREMIERE_PAGE_ACTIVES, true);
+    afficherPaginationSite('docsPager',0,1,()=>{});
   }
   document.getElementById('docSort').addEventListener('change', () => { docsPageCourante=1; afficherDocumentsPublicsAvecOutils(); });
   document.getElementById('docsSearch')?.addEventListener('input', () => { docsPageCourante=1; afficherDocumentsPublicsAvecOutils(); });
