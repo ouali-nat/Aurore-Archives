@@ -6,7 +6,12 @@ const DS=Deno.env.get("DEEPSEEK_API_KEY");
 const GK=Deno.env.get("GEMINI_API_KEY")||Deno.env.get("GOOGLE_API_KEY")||Deno.env.get("GOOGLE_GENERATIVE_AI_API_KEY");
 const GM=String(Deno.env.get("GEMINI_CONTENT_MODEL")||"gemini-3.8-flash").trim();
 const GLM=String(Deno.env.get("GEMINI_LIGHT_MODEL")||"gemini-3.5-flash-lite").trim();
-const CFA=Deno.env.get("CLOUDFLARE_ACCOUNT_ID");const CFT=Deno.env.get("CLOUDFLARE_AI_TOKEN");const CFM="@cf/meta/llama-3.1-8b-instruct-fp8";
+const CFA=Deno.env.get("CLOUDFLARE_ACCOUNT_ID");const CFT=Deno.env.get("CLOUDFLARE_AI_TOKEN");const CFM="@cf/meta/llama-3.1-8b-instruct-fast";
+const CFM_FALLBACK="@cf/meta/llama-3.1-8b-instruct-fp8";
+const MIN_WORDS=3000;
+const TARGET_MIN_WORDS=3200;
+const TARGET_MAX_WORDS=4000;
+const MIN_VISUALS=3;
 function editorialProfile(j:any){
   const s=String(j?.subject||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
   const context=(s+" "+String(j?.title||"")+" "+String(j?.prompt||"")).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
@@ -88,19 +93,210 @@ function normalizeVisualPlan(v:any){
   return {type:"wikimedia",purpose:purposes.has(purposeRaw)?purposeRaw:"illustration",query:String(x.query||"").trim().slice(0,240),required:priority==="required",priority,caption:String(x.caption||"").trim().slice(0,280)};
 }
 
-function aiSelection(j:any){return ["llama"];}
+function aiSelection(j:any){
+  const raw=j?.instructions?.ai?.selected;
+  const selected=Array.isArray(raw)?raw.map((x:any)=>String(x||"").toLowerCase().trim()).filter((x:string)=>x==="gemini"||x==="llama"):[];
+  return selected.length?Array.from(new Set(selected)):[ "llama" ];
+}
 function aiMode(j:any){const t=String(j?.document_type||"").toLowerCase();if(/qcm|quiz|questionnaire/.test(t))return "qcm";if(/exercice|entrainement/.test(t))return "exercices";if(/devoir|evaluation|controle|examen|epreuve/.test(t))return "evaluation";return "course";}
 const GEMINI_GRAPH={instrument:{type:"STRING"},title:{type:"STRING"},expression:{type:"STRING"},x_expression:{type:"STRING"},y_expression:{type:"STRING"},z_expression:{type:"STRING"},parameter:{type:"STRING"},t_min:{type:"NUMBER"},t_max:{type:"NUMBER"},x_min:{type:"NUMBER"},x_max:{type:"NUMBER"},y_min:{type:"NUMBER"},y_max:{type:"NUMBER"},z_min:{type:"NUMBER"},z_max:{type:"NUMBER"}};
 const GEMINI_VISUAL={type:{type:"STRING"},purpose:{type:"STRING"},query:{type:"STRING"},required:{type:"BOOLEAN"},priority:{type:"STRING"},caption:{type:"STRING"}};
 const GEMINI_SCHEMA:any={type:"OBJECT",properties:{title:{type:"STRING"},introduction:{type:"STRING"},learning_objectives:{type:"ARRAY",items:{type:"STRING"}},sections:{type:"ARRAY",items:{type:"OBJECT",properties:{title:{type:"STRING"},objective:{type:"STRING"},content:{type:"ARRAY",items:{type:"STRING"}},formula:{type:"STRING"},graphs:{type:"ARRAY",items:{type:"OBJECT",properties:GEMINI_GRAPH}},visuals:{type:"ARRAY",items:{type:"OBJECT",properties:GEMINI_VISUAL}},exercises:{type:"ARRAY",items:{type:"OBJECT",properties:{question:{type:"STRING"},hint:{type:"STRING"},formula:{type:"STRING"}}}}}}},corrections:{type:"ARRAY",items:{type:"OBJECT",properties:{exercise_number:{type:"NUMBER"},solution:{type:"STRING"},formula:{type:"STRING"}}}}},required:["title","introduction","sections","corrections"]};
-function buildAuthorPrompt(j:any){const p=editorialProfile(j);return `Produis le support pédagogique complet d'Aurore en JSON strict. Directement destiné aux élèves : progression naturelle, explications développées, exemples, erreurs fréquentes, 5 à 8 sections utiles, 2 à 3 exercices globaux avec corrigés. Respecte réellement le profil éditorial. Toute mathématique doit être en LaTeX. Les visuels Wikimedia doivent être précis et pédagogiquement utiles, maximum 3 par section et 8 au total. DEMANDE:${j.prompt||j.title} MATIERE:${j.subject||""} NIVEAU:${j.level||""} CLASSE:${j.class_name||""} TYPE:${j.document_type} PROFIL:${p.profile} MODE:${p.mode} CONSIGNES:${p.instruction} SCHEMA:${JSON.stringify(SCHEMA)}`;}
-async function callGeminiText(prompt:string,light=false){if(!GK)throw Error("GEMINI_API_KEY manquant");const models=light?Array.from(new Set([GLM,"gemini-3.5-flash-lite","gemini-3.1-flash-lite"].filter(Boolean))):Array.from(new Set([GM,"gemini-3.8-flash","gemini-3.5-flash",GLM].filter(Boolean)));const errors:string[]=[];for(const model of models){try{const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":GK},body:JSON.stringify({contents:[{role:"user",parts:[{text:prompt}]}],generationConfig:{temperature:light?.12:.22,maxOutputTokens:light?2400:14000,responseMimeType:"application/json",responseSchema:GEMINI_SCHEMA}})});const body:any=await r.json().catch(()=>null);if(r.ok){const text=(body?.candidates?.[0]?.content?.parts||[]).map((p:any)=>p?.text||"").join("\n").trim();if(text)return{text,model:body?.modelVersion||model};errors.push(`${model}: réponse vide`);}else{errors.push(`${model}: ${body?.error?.message||`Gemini HTTP ${r.status}`}`);}}catch(e){errors.push(`${model}: ${e instanceof Error?e.message:String(e)}`)}}throw Error(errors.join(" | ")||"Gemini indisponible");}
-async function gemini(j:any){const r=await callGeminiText(buildAuthorPrompt(j),false);const d=normalize(parse(r.text),j);if(!valid(d))throw Error("Gemini a renvoyé un manuscrit vide ou incomplet");d._provider={name:"gemini",model:r.model,status:"completed"};d._editorial={status:"completed",engine:r.model,provider:"gemini"};return d;}
-function fallbackFromPlainText(raw:string,j:any){const cleaned=String(raw||"").trim().replace(/^\`\`\`(?:markdown|md)?\\s*/i,"").replace(/\`\`\`$/,"").trim();const lines=cleaned.split(/\\r?\\n/).map((x:string)=>x.trim()).filter(Boolean);const sections:any[]=[];let current:any={title:"Cours",objective:"",content:[],formula:"",graphs:[],visuals:[],exercises:[]};for(const line of lines){const heading=line.match(/^(?:#{1,3}\\s+|\\*\\*([^*]+)\\*\\*\\s*$|(?:[0-9]{1,2})[.)]\\s+)(.+)?$/);if(heading){if(current.content.length||current.title!=="Cours")sections.push(current);const title=String(heading[2]||heading[1]||"Section").replace(/\\*+/g,"").trim();current={title:title||"Section",objective:"",content:[],formula:"",graphs:[],visuals:[],exercises:[]};}else{current.content.push(line.replace(/^[-*]\\s+/,"").trim())}}if(current.content.length||!sections.length)sections.push(current);return normalize({title:String(j.title||"Ressource Aurore"),introduction:sections[0]?.content?.slice(0,2).join(" ")||"Support pédagogique généré par Aurore.",learning_objectives:[],sections:sections.length>1?sections:sections.map((s:any)=>({...s,title:s.title||"Cours"})),corrections:[]},j);}
-async function llamaFull(j:any){if(!CFA||!CFT)throw Error("Cloudflare Llama indisponible");const r=await fetch(`https://api.cloudflare.com/client/v4/accounts/${CFA}/ai/run/${CFM}`,{method:"POST",headers:{Authorization:`Bearer ${CFT}`,"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"system",content:"Moteur de secours Aurore. Retourne uniquement un objet JSON valide conforme au schéma fourni. N'utilise aucun Markdown, aucune phrase avant ou après le JSON."},{role:"user",content:`DEMANDE:${j.prompt||j.title}\nMATIERE:${j.subject||""}\nNIVEAU:${j.level||""}\nCLASSE:${j.class_name||""}\nTYPE:${j.document_type}\nSCHEMA:${JSON.stringify(SCHEMA)}`}],max_tokens:8500,temperature:.2})});if(!r.ok)throw Error(`Llama HTTP ${r.status}`);const p:any=await r.json(),raw=p?.result?.response;if(typeof raw!=="string"||!raw.trim())throw Error("Llama réponse vide");let d:any;try{d=normalize(parse(raw),j);}catch(e){d=fallbackFromPlainText(raw,j);d._factory={...(d._factory||{}),llama_fallback:{status:"plain_text_to_structured",reason:String(e)}};}if(!valid(d))throw Error("Llama a renvoyé un manuscrit vide ou incomplet");d._provider={name:"llama",model:CFM,status:"completed"};d._editorial={status:"completed",engine:CFM,provider:"llama"};return d;}
-async function generateContent(j:any){const selected=aiSelection(j),providers:any={},warnings:string[]=[];let d:any=null;const order=aiMode(j)==="qcm"&&selected.includes("llama")?["llama",...selected.filter((x:string)=>x!=="llama")]:selected;for(const name of order){try{d=name==="gemini"?await gemini(j):name==="llama"?await llamaFull(j):await deepseek(j);providers[name]={status:"completed",model:d?._provider?.model||d?._editorial?.engine||name};break}catch(e){providers[name]={status:"failed",reason:String(e)};warnings.push(`${name}: ${String(e)}`);}}if(!d)throw Error("Aucun moteur IA sélectionné n'est disponible. "+warnings.join(" | "));d._factory={...(d._factory||{}),ai_selection:selected,ai_mode:aiMode(j),ai_providers:providers,provider_warnings:warnings};return d;}
-function ensureVisualPlan(j:any,d:any){const profile=editorialProfile(j).profile,context=(String(j?.title||"")+" "+String(j?.prompt||"")+" "+String(j?.subject||"")).toLowerCase(),sections=d.sections||[];const specs=profile==="biologie"&&/cellul|organite|membrane|mitose|meiose/.test(context)?[{q:"animal cell organelles diagram labeled",r:true,p:"schema",c:"Organisation d'une cellule animale et de ses principaux organites."},{q:"plant cell vs animal cell comparison diagram",r:true,p:"schema",c:"Comparaison entre cellule végétale et cellule animale."},{q:"prokaryotic vs eukaryotic cell diagram",r:true,p:"schema",c:"Comparaison entre organisation procaryote et eucaryote."},{q:"plasma membrane structure diagram",r:true,p:"schema",c:"Structure de la membrane plasmique."},{q:"onion epidermis cells microscope",r:false,p:"photo",c:"Observation microscopique de cellules végétales."}]:profile==="biologie"?[{q:"biological cell structure diagram labeled",r:true,p:"schema",c:"Schéma documentaire de la structure cellulaire."},{q:"biology microscopy cells",r:false,p:"photo",c:"Observation microscopique liée au cours."}]:profile==="experimental"?[{q:`${j.subject||"science"} ${j.title||""} experiment apparatus diagram`,r:false,p:"experimental",c:"Illustration documentaire du phénomène étudié."}]:[];const flat=()=>sections.flatMap((s:any)=>Array.isArray(s.visuals)?s.visuals:[]);for(let si=0;si<specs.length;si++){const spec=specs[si];if(flat().some((x:any)=>String(x?.query||"").toLowerCase().includes(spec.q.toLowerCase())||spec.q.toLowerCase().includes(String(x?.query||"").toLowerCase())))continue;const idx=Math.min(si,Math.max(0,sections.length-1)),arr=Array.isArray(sections[idx]?.visuals)?sections[idx].visuals:[];if(arr.length<3)arr.push(normalizeVisualPlan({type:"wikimedia",purpose:spec.p,query:spec.q,required:spec.r,priority:spec.r?"required":"recommended",caption:spec.c}));sections[idx].visuals=arr.slice(0,3);}let required=0;for(const sec of sections)for(const v of (sec.visuals||[])){if(v.required||v.priority==="required"){required++;if(required>5){v.required=false;v.priority="recommended";}}}const all=flat();for(let i=all.length-1;i>=8;i--)if(all[i].priority!=="required"&&!all[i].required)all[i]._drop=true;for(const sec of sections)sec.visuals=(sec.visuals||[]).filter((v:any)=>!v._drop).slice(0,3);d._factory={...(d._factory||{}),visual_plan:{planned:flat().length,required:flat().filter((v:any)=>v.required||v.priority==="required").length,profile}};return d;}
-async function llamaSpecialist(j:any,d:any){if(!CFA||!CFT||!aiSelection(j).includes("llama"))return d;try{const r=await fetch(`https://api.cloudflare.com/client/v4/accounts/${CFA}/ai/run/${CFM}`,{method:"POST",headers:{Authorization:`Bearer ${CFT}`,"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"system",content:'Retourne uniquement {"items":[{"question":"","hint":"","formula":"","solution":""}]} en JSON valide. Produis au maximum 3 exercices/QCM complémentaires, sans réécrire le cours.'},{role:"user",content:`TYPE:${j.document_type} TITRE:${j.title} MATIERE:${j.subject} NIVEAU:${j.level}\n${JSON.stringify((d.sections||[]).map((s:any)=>({title:s.title,content:(s.content||[]).slice(0,2)})).slice(0,8))}`}],max_tokens:1700,temperature:.12})});if(!r.ok)throw Error(`Llama spécialiste HTTP ${r.status}`);const p:any=await r.json(),x=parse(String(p?.result?.response||""));const items=Array.isArray(x?.items)?x.items.slice(0,3):[];if(items.length){const last=Math.max(0,d.sections.length-1),n=d.sections[last]?.exercises?.length||0;d.sections[last].exercises=[...(d.sections[last].exercises||[]),...items.map((it:any)=>({question:normalizeMathText(it.question||""),hint:normalizeMathText(it.hint||""),formula:it.formula?normalizeMathSegment(it.formula):""}))].slice(0,3);d.corrections=[...(d.corrections||[]),...items.map((it:any,k:number)=>({exercise_number:n+k+1,solution:normalizeMathText(it.solution||""),formula:it.formula?normalizeMathSegment(it.formula):""}))].slice(-3);}d._factory={...(d._factory||{}),llama_specialist:{status:"completed",items:items.length,model:CFM}};return d;}catch(e){d._factory={...(d._factory||{}),llama_specialist:{status:"warning",reason:String(e)}};return d;}}
+const LLAMA_SCHEMA:any={type:"object",properties:{title:{type:"string"},introduction:{type:"string"},learning_objectives:{type:"array",items:{type:"string"}},sections:{type:"array",items:{type:"object",properties:{title:{type:"string"},objective:{type:"string"},content:{type:"array",items:{type:"string"}},exercises:{type:"array",items:{type:"object",properties:{question:{type:"string"},hint:{type:"string"},formula:{type:"string"}},required:["question"]}}},required:["title","content"]}},corrections:{type:"array",items:{type:"object",properties:{exercise_number:{type:"number"},solution:{type:"string"},formula:{type:"string"}},required:["exercise_number","solution"]}}},required:["title","introduction","sections","corrections"]};
+const GEMINI_LIGHT_SCHEMA:any={type:"OBJECT",properties:{
+  title:{type:"STRING"},
+  introduction:{type:"STRING"},
+  learning_objectives:{type:"ARRAY",items:{type:"STRING"}},
+  sections:{type:"ARRAY",minItems:4,items:{type:"OBJECT",properties:{
+    title:{type:"STRING"},
+    objective:{type:"STRING"},
+    content:{type:"ARRAY",minItems:1,items:{type:"STRING"}},
+    formula:{type:"STRING"},
+    exercises:{type:"ARRAY",items:{type:"OBJECT",properties:{
+      question:{type:"STRING"},hint:{type:"STRING"},formula:{type:"STRING"}
+    },required:["question"]}}
+  },required:["title","content"]}},
+  corrections:{type:"ARRAY",items:{type:"OBJECT",properties:{
+    exercise_number:{type:"NUMBER"},solution:{type:"STRING"},formula:{type:"STRING"}
+  },required:["exercise_number","solution"]}}
+},required:["title","introduction","sections","corrections"]};
+
+function graphRequirements(j:any){
+  const c=(String(j?.title||"")+" "+String(j?.prompt||"")+" "+String(j?.subject||"")).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+  const required:string[]=[]; const add=(x:string)=>{if(!required.includes(x))required.push(x);};
+  if(/courbe parametree|trajectoire parametree|equations parametriques/.test(c))add("parametric2d");
+  if(/courbe parametree 3d|trajectoire spatiale|helice 3d|helice/.test(c))add("parametric3d");
+  if(/surface 3d|surface de|z\s*=/.test(c) && /math|mathematique|geometr/.test(c))add("surface3d");
+  if(/solide|cube|pyramide|prisme|tetraedre|sphere|cylindre|cone|geometrie dans l'espace|geometrie 3d/.test(c) && /math|mathematique|geometr|solide|cube|pyramide|prisme|tetraedre|sphere|cylindre|cone/.test(c))add("geometry3d");
+  if(/conique|ellipse|parabole|hyperbole/.test(c))add("function2d");
+  if(/fonction|courbe|derivee|derive|variations?|limite|tangente|integrale|trigonometrie|logarithme|exponentielle/.test(c) && /math|mathematique|algebre|geometr|fonction|courbe|derive|limite|integrale|trigonometrie/.test(c))add("function2d");
+  if(/graphique obligatoire|graphique|courbe experimentale|evolution graphique|representation graphique/.test(c) && /physique|chimie|svt|biologie|science/.test(c))add("function2d");
+  return required;
+}
+function graphRequirementSatisfied(graphs:any[],required:string[]){
+  const present=new Set<string>();
+  for(const raw of Array.isArray(graphs)?graphs:[]){const g=normalizeGraphInstrument(raw);if(g?.instrument)present.add(g.instrument);}
+  return {present:Array.from(present),missing:required.filter(x=>!present.has(x))};
+}
+function buildAuthorPrompt(j:any){
+  const p=editorialProfile(j), graphReq=graphRequirements(j);
+  return `Produis le support pédagogique complet d'Aurore en JSON strict, directement destiné aux élèves. Le document final DOIT contenir au moins ${MIN_WORDS} mots ; vise ${TARGET_MIN_WORDS} à ${TARGET_MAX_WORDS} mots sans remplissage artificiel. Vise 5 à 8 sections réellement développées : explications, exemples guidés, transitions, erreurs fréquentes et mise en relation des notions. Respecte les activités explicitement demandées et fournis un corrigé correspondant à chacune. Toute mathématique doit être en LaTeX. Le pipeline exige au moins ${MIN_VISUALS} illustrations Wikimedia utiles, chacune avec query et caption, maximum 3 par section et 8 au total. Les courbes/constructions restent dans sections[].graphs. GRAPHIQUES REQUIS : ${graphReq.length?graphReq.join(", "):"aucun instrument imposé"}. Tout instrument requis doit apparaître avec des paramètres valides. DEMANDE:${j.prompt||j.title} MATIERE:${j.subject||""} NIVEAU:${j.level||""} CLASSE:${j.class_name||""} TYPE:${j.document_type} PROFIL:${p.profile} MODE:${p.mode} CONSIGNES:${p.instruction} SCHEMA:${JSON.stringify(SCHEMA)}`;
+}
+async function callGeminiText(prompt:string,light=false){
+  if(!GK)throw Error("GEMINI_API_KEY manquant");
+  const model=light?String(GLM||"gemini-3.5-flash-lite"):String(GM||"gemini-3.8-flash");
+  const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{
+    method:"POST",
+    headers:{"Content-Type":"application/json","x-goog-api-key":GK},
+    body:JSON.stringify({
+      contents:[{role:"user",parts:[{text:prompt}]}],
+      generationConfig:{temperature:light?.12:.22,maxOutputTokens:light?8000:14000,responseMimeType:"application/json",responseSchema:light?GEMINI_LIGHT_SCHEMA:GEMINI_SCHEMA}
+    })
+  });
+  const body:any=await r.json().catch(function(){return null;});
+  if(!r.ok)throw Error(body?.error?.message||("Gemini HTTP "+r.status));
+  const text=(body?.candidates?.[0]?.content?.parts||[]).map(function(p:any){return p?.text||"";}).join("\n").trim();
+  if(!text)throw Error("Gemini réponse vide");
+  return {text:text,model:body?.modelVersion||model};
+}
+async function gemini(j:any){
+  const r=await callGeminiText(buildAuthorPrompt(j),false);
+  const d=normalize(parse(r.text),j);
+  if(!valid(d))throw Error("Gemini a renvoyé un manuscrit vide ou incomplet");
+  d._provider={name:"gemini",model:r.model,status:"completed"};
+  d._editorial={status:"completed",engine:r.model,provider:"gemini"};
+  return d;
+}
+function fallbackFromPlainTextfunction fallbackFromPlainText(raw:string,j:any){
+  const text=String(raw||"").trim();
+  const cleanLine=(s:string)=>String(s||"")
+    .replace(/\r/g,"")
+    .replace(/^\s*[-*]\s+/,"")
+    .replace(/^\s*#{1,6}\s*/,"")
+    .replace(/\*\*/g,"")
+    .replace(/\*([^*]+)\*/g,"$1")
+    .trim();
+
+  const lines=text.split("\n").map(cleanLine).filter(Boolean);
+  const titleLine=lines.find(x=>/^(titre|title)\s*:/i.test(x));
+  const title=String((titleLine||"").replace(/^(titre|title)\s*:\s*/i,"").trim()||j.title||"Ressource Aurore");
+  let introduction="";
+  const sections:any[]=[];
+  const corrections:any[]=[];
+  let current:any=null;
+  let mode="content";
+  let correctionCounter=0;
+
+  const newSection=(name:string)=>{
+    current={title:cleanLine(name)||"Section",objective:"",content:[],formula:"",graphs:[],visuals:[],exercises:[]};
+    sections.push(current);
+    mode="content";
+  };
+
+  for(const line of lines){
+    if(/^(titre|title)\s*:/i.test(line)) continue;
+    if(/^(introduction|présentation|presentation)\s*:?[\s]*$/i.test(line)){mode="intro";continue;}
+    if(/^(exercices?|activités?|questions?)\s*:?[\s]*$/i.test(line)){if(!current)newSection("Cours");mode="exercise";continue;}
+    if(/^(corrigés?|corriges?|solutions?)\s*:?[\s]*$/i.test(line)){mode="correction";continue;}
+
+    const heading=line.match(/^(?:#{1,6}\s*)?(.+)$/);
+    const sectionHeading=line.match(/^(?:section|chapitre|partie)\s+\d+\s*[:.)-]?\s*(.+)$/i);
+    if(sectionHeading){newSection(sectionHeading[1]);continue;}
+    if(/^#{1,6}\s+/.test(line) && !/^(?:#\s*intro|##\s*exerc)/i.test(line)){newSection(line.replace(/^#{1,6}\s*/,""));continue;}
+
+    const numbered=line.match(/^\d+[.)-]\s*(.+)$/);
+    if(mode==="exercise"&&numbered){
+      if(!current)newSection("Cours");
+      current.exercises.push({question:numbered[1],hint:"",formula:""});
+      continue;
+    }
+    if(mode==="correction"&&numbered){
+      correctionCounter++;
+      corrections.push({exercise_number:correctionCounter,solution:numbered[1],formula:""});
+      continue;
+    }
+    if(mode==="intro"){introduction+=(introduction?" ":"")+line;continue;}
+    if(!current)newSection("Cours");
+    if(mode==="correction"){
+      correctionCounter++;
+      corrections.push({exercise_number:correctionCounter,solution:line,formula:""});
+    }else{
+      current.content.push(line);
+    }
+  }
+
+  if(!sections.length)newSection("Cours");
+  if(!introduction) introduction=sections[0]?.content?.slice(0,2).join(" ")||"Support pédagogique généré par Aurore.";
+  return normalize({title,introduction,learning_objectives:[],sections,corrections},j);
+}
+async function runLlamaText(model:string,prompt:string,maxTokens:number){
+  if(!CFA||!CFT) throw Error("Cloudflare Llama indisponible");
+  const endpoint="https://api.cloudflare.com/client/v4/accounts/"+CFA+"/ai/run/"+model;
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),80000);
+  try{
+    const r=await fetch(endpoint,{
+      method:"POST",
+      headers:{Authorization:"Bearer "+CFT,"Content-Type":"application/json"},
+      body:JSON.stringify({
+        messages:[
+          {role:"system",content:"Moteur de production autonome Aurore. Produis uniquement le contenu pédagogique demandé."},
+          {role:"user",content:prompt}
+        ],
+        max_tokens:maxTokens,
+        temperature:0.15
+      }),
+      signal:controller.signal
+    });
+    const p:any=await r.json().catch(()=>null);
+    if(!r.ok) throw Error("Llama HTTP "+r.status+(p?.errors?.[0]?.message?": "+p.errors[0].message:""));
+    const raw=String(p?.result?.response||"").trim();
+    if(!raw) throw Error("Llama réponse vide");
+    return raw;
+  }catch(e){
+    if(controller.signal.aborted) throw Error("Llama timeout après 80 s");
+    throw e;
+  }finally{
+    clearTimeout(timeout);
+  }
+}
+
+async function llamaFull(j:any){
+  const p=editorialProfile(j), graphReq=graphRequirements(j);
+  const prompt=[
+    "Tu es le seul moteur IA de ce document Aurore. Aucun autre modèle ne complètera ton travail.",
+    "Produis le document COMPLET. Le PDF final doit contenir au moins "+MIN_WORDS+" mots et viser "+TARGET_MIN_WORDS+" à "+TARGET_MAX_WORDS+" mots utiles.",
+    "Développe réellement les notions, les exemples, les transitions et les erreurs fréquentes. Vise 5 à 8 sections substantielles.",
+    "Utilise de préférence un JSON conforme au schéma fourni, sans markdown. Si le JSON échoue, produis un texte structuré avec Titre:, Introduction:, sections numérotées, Exercices: et Corrigés:.",
+    "Toute mathématique doit être en LaTeX.",
+    "Le pipeline ajoutera au moins "+MIN_VISUALS+" illustrations Wikimedia utiles.",
+    graphReq.length?"GRAPHIQUES OBLIGATOIRES : "+graphReq.join(", ")+". Ils doivent être présents dans sections[].graphs avec des paramètres valides.":"Aucun instrument graphique spécifique n'est imposé.",
+    "PROFIL : "+p.profile,
+    "CONSIGNES : "+p.instruction,
+    "DEMANDE : "+String(j.prompt||j.title||""),
+    "MATIERE : "+String(j.subject||""),
+    "NIVEAU : "+String(j.level||""),
+    "CLASSE : "+String(j.class_name||""),
+    "TYPE : "+String(j.document_type||""),
+    "SCHEMA : "+JSON.stringify(SCHEMA)
+  ].join("\n");
+  let raw="",model=CFM;
+  try{raw=await runLlamaText(CFM,prompt,9500);}catch(first){model=CFM_FALLBACK;raw=await runLlamaText(CFM_FALLBACK,prompt,9500);}
+  let d:any; try{d=normalize(parse(raw),j);}catch{d=fallbackFromPlainText(raw,j);}
+  if(!valid(d))d=fallbackFromPlainText(raw,j);
+  if(!valid(d))throw Error("Llama a renvoyé un manuscrit vide ou incomplet");
+  d._provider={name:"llama",model,status:"completed"};
+  d._editorial={status:"completed",engine:model,provider:"llama"};
+  return d;
+}
+function requestedActivityCountfunction requestedActivityCount(j:any){
+  const p=String(j?.prompt||"").toLowerCase();
+  const q=p.match(/(?:ajoute|ajouter|présente|propose)[^\\n]{0,80}?(\\d+)\\s+questions?/i);
+  const e=p.match(/(\\d+)\\s+exercices?/i);
+  const questions=q?Number(q[1]):0;
+  const exercises=e?Number(e[1]):0;
+  return {questions,exercises,total:questions+exercises};
+}
 function parse(t:string){t=t.trim().replace(/^```json\s*/i,"").replace(/```$/i,"");try{return JSON.parse(t)}catch(first){try{return JSON.parse(jsonrepair(t))}catch{const a=t.indexOf("{"),b=t.lastIndexOf("}");if(a>=0&&b>a){try{return JSON.parse(jsonrepair(t.slice(a,b+1)))}catch{}}throw first}}}
 function normalizeMathSegment(v:any){
   let s=String(v??"");
@@ -155,8 +351,99 @@ function normalize(d:any,j:any){d=d&&typeof d==='object'?d:{};d.title=String(d.t
 d.sections=d.sections.map((s:any)=>{const sf=s.formula&&formulaBudget>0?normalizeMathSegment(s.formula):"";if(sf)formulaBudget--;const rawGraphs=Array.isArray(s.graphs)?s.graphs:[];const rawVisuals=Array.isArray(s.visuals)?s.visuals:[];const normalizedVisuals=rawVisuals.map(normalizeVisualPlan).filter((v:any)=>!!v).slice(0,3);const normalizedGraphs=rawGraphs.map(normalizeGraphInstrument).filter((g:any)=>!!g);const keepGraphs=normalizedGraphs.length>0;return {title:String(s.title||"Section"),objective:normalizeMathText(s.objective||""),content:Array.isArray(s.content)?s.content.map(normalizeMathText):[],formula:sf,graphs:keepGraphs?normalizedGraphs:[],visuals:normalizedVisuals,exercises:Array.isArray(s.exercises)?s.exercises.map((q:any)=>{const f=q.formula&&formulaBudget>0?normalizeMathSegment(q.formula):"";if(f)formulaBudget--;return {question:normalizeMathText(q.question||""),hint:normalizeMathText(q.hint||""),formula:f}}):[]}});d.corrections=Array.isArray(d.corrections)?d.corrections.map((c:any,i:number)=>{const f=c.formula&&formulaBudget>0?normalizeMathSegment(c.formula):"";if(f)formulaBudget--;return {exercise_number:Number(c.exercise_number)||i+1,solution:normalizeMathText(c.solution||""),formula:f}}):[];d._factory={...(d._factory||{}),formula_render_budget:10,math_policy:"LaTeX obligatoire",math_normalizer:"deterministic-v4"};return d}
 function count(d:any){const a=[d.introduction,...d.learning_objectives,...d.sections.flatMap((s:any)=>[s.title,s.objective,...s.content,...s.exercises.flatMap((q:any)=>[q.question,q.hint,q.formula])]),...d.corrections.flatMap((c:any)=>[c.solution,c.formula])];return a.join(" ").split(/\s+/).filter(Boolean).length}
 function valid(d:any){return !!d&&typeof d==='object'&&String(d.title||'').trim().length>0&&String(d.introduction||'').trim().length>0&&Array.isArray(d.sections)&&d.sections.length>0&&d.sections.some((s:any)=>Array.isArray(s.content)&&s.content.some((x:any)=>String(x||'').trim().length>0))}
-function author(j:any){return {model:"deepseek-chat",response_format:{type:"json_object"},temperature:.2,max_tokens:14000,messages:[{role:"system",content:`Tu es DEEPSEEK, auteur scientifique principal d'Aurore. Rédige un véritable support d'apprentissage destiné directement aux élèves. JSON strict. La priorité est la compréhension : explique les idées simplement, progressivement et avec des transitions naturelles. Ne parle pas du fait que tu écris un cours, ne justifie pas la pertinence pédagogique du document et n'adopte pas le ton d'un guide pour enseignant. Entre directement dans la notion, pars si possible d'une situation concrète ou d'une question que l'élève peut se poser, puis construis la réponse étape par étape. Vise en général 5-8 sections utiles, sans gonfler artificiellement le nombre de sections. La longueur doit venir de la qualité des explications, des exemples guidés, des liens entre les notions et des erreurs fréquentes utiles, pas de répétitions. Limite l'entraînement final à 2 ou 3 exercices globaux, assez riches pour mobiliser plusieurs notions du chapitre, avec un corrigé détaillé pour chacun. De petites questions de vérification peuvent être intégrées dans l'explication, mais ne transforme pas le cours en succession de 10 ou 12 mini-exercices. Chaque problème global doit faire travailler plusieurs étapes du raisonnement et progresser du plus accessible vers le plus complexe. RÈGLE DE FIL PÉDAGOGIQUE : construis le document comme un cours qui se déroule étape par étape. Chaque section doit découler naturellement de la précédente ; introduis les notions dans l'ordre nécessaire, réutilise les notations déjà définies, rappelle brièvement le prérequis utile avant une nouvelle notion et ajoute des transitions explicites. Ne saute pas directement à une technique avancée sans avoir posé les bases. Évite les répétitions et les changements brusques de sujet. La conclusion doit reprendre le fil et relier les notions entre elles. RÈGLE DE STYLE ÉLÈVE : utilise un vocabulaire direct et naturel. Préfère « Formule utile », « Relation utile », « Propriété à connaître », « Proposition », « Méthode », « Exemple guidé », « Vocabulaire utile », « À retenir », « Attention », « Astuce » et « Erreur fréquente » lorsque le contenu s'y prête. Pour mettre un terme à mémoriser en évidence, entoure-le de doubles crochets, par exemple [[pH]], [[acide fort]] ou [[variable]]. N'utilise ces marqueurs que pour des mots ou courtes expressions réellement utiles à retenir.\n\nRÈGLE ABSOLUE — MATHÉMATIQUES EN LATEX : toute expression mathématique DOIT être écrite en LaTeX. N'écris JAMAIS de symbole mathématique Unicode dans une expression : utilise \\infty, \\approx, \\le, \\ge, \\ne, \\in, \\sqrt{}, \\times, \\div, \\pm, \\pi, \\alpha, \\mathbb{R}, etc. Les variables et lettres a,b,c,d,x,y,f,g doivent être en LaTeX lorsqu'elles appartiennent à une expression mathématique. Utilise $...$ pour les expressions inline et $$...$$ pour les expressions isolées importantes. Les exposants doivent être x^{2}, x^{n}, e^{x}; les indices a_{1}, x_{n}. Les fractions doivent utiliser \\frac{a}{b}. Les racines utilisent \\sqrt{x}. Exemple : La fonction $f$ est définie sur $\\mathbb{R}$ et vérifie $$f(x)=ax^2+bx+c.$$\n\nNe transforme PAS les lettres ordinaires du français en mathématiques : seules les lettres appartenant à une expression mathématique sont concernées. N'utilise pas @@...@@. Les champs formula doivent contenir du LaTeX pur, sans symboles Unicode. Si un graphique est utile, ajoute sections[].graphs avec un instrument choisi selon la notion. function2d = courbe classique y=f(x) ; parametric2d = trajectoire x(t),y(t) ; parametric3d = trajectoire spatiale x(t),y(t),z(t) ; surface3d = surface z=f(x,y) ; geometry3d = points, vecteurs, droites, plans et solides dans l’espace. N’utilise la 3D que lorsqu’elle améliore réellement la compréhension spatiale ; jamais comme décoration. Pour parametric2d/parametric3d, renseigne x_expression, y_expression, z_expression si nécessaire, parameter, t_min et t_max. Pour surface3d, renseigne expression et les bornes x_min,x_max,y_min,y_max. Pour geometry3d, renseigne des objects explicites avec coordonnées numériques ; types utiles : point, vector, line, plane, sphere, cylinder, cone, polygon, cube, prism, pyramid, tetrahedron. Pour les solides, donne les sommets/points nécessaires ou une hauteur/rayon cohérente. Privilégie une construction qui sert directement la notion étudiée. Les bornes doivent être finies et permettre de voir l’objet. Les instruments 2D existants restent prioritaires lorsqu’ils suffisent. RÈGLES DE CHOIX OBLIGATOIRES : si la demande ou le titre contient « courbe paramétrée », « trajectoire paramétrée » ou « équations paramétriques », crée au moins un graph instrument=parametric2d avec x_expression et y_expression valides ; ne te contente pas d’expliquer la notion en texte. Si la demande contient « courbe paramétrée 3D », « trajectoire spatiale », « hélice », « espace » avec une courbe, crée au moins un instrument=parametric3d avec x_expression,y_expression,z_expression et t_min<t_max. Si la demande porte sur « surface », « surface 3D », « z=f(x,y) », crée un instrument=surface3d. Si elle porte sur « solide », « cube », « pyramide », « prisme », « tétraèdre », « sphère », « cylindre », « cône » ou une construction de géométrie dans l’espace, crée au moins un instrument=geometry3d avec des objects exploitables. Pour un cours qui enseigne explicitement plusieurs de ces notions, utilise plusieurs instruments correspondants. Exemple obligatoire pour une hélice : instrument=parametric3d, x_expression=cos(t), y_expression=sin(t), z_expression=t, parameter=t, t_min=0, t_max=6.283185307179586. Exemple de surface : instrument=surface3d, expression=x^2-y^2, x_min=-3, x_max=3, y_min=-3, y_max=3. Les graphiques doivent servir immédiatement l’explication ou un exercice ; jamais être décoratifs. RÈGLE VISUELLE OBLIGATOIRE — ILLUSTRATIONS DOCUMENTAIRES : si une illustration documentaire améliore nettement la compréhension, ajoute sections[].visuals avec type="wikimedia". Utilise une requête courte, précise et exploitable par Wikimedia Commons, idéalement en anglais (ex. "eukaryotic cell organelles diagram", "convex lens optical bench experiment", "electromagnetic spectrum diagram"). Pour la physique, les expériences, appareils, phénomènes, montages, matériaux et observations réelles doivent privilégier Wikimedia quand une illustration documentaire est utile. Pour les mathématiques, n’utilise Wikimedia que lorsqu’une image documentaire apporte quelque chose que GeoGebra ne peut pas apporter ; les courbes, constructions, fonctions et solides mathématiques restent dans sections[].graphs. Pour la biologie/SVT, les structures anatomiques et cellulaires peuvent demander une illustration documentaire. Pour histoire-géographie, technique, informatique et langues, une image Wikimedia peut aussi être utile selon le sujet. Chaque visuel doit avoir une fonction pédagogique explicite, une query précise et une courte caption. N’ajoute pas d’images décoratives. Maximum 3 visuels demandés par section et vise au maximum 8 visuels sur tout le document. Utilise priority="required" seulement si le visuel est important pour comprendre la notion ; sinon "recommended" ou "optional".`},{role:"user",content:`DEMANDE: ${j.prompt||j.title}\nMATIERE: ${j.subject||""}\nNIVEAU: ${j.level||""}\nCLASSE: ${j.class_name||""}\nTYPE: ${j.document_type}\nSCHEMA: ${JSON.stringify(SCHEMA)}\nPROFIL ÉDITORIAL: ${editorialProfile(j).profile}\nMODE DE RESSOURCE: ${editorialProfile(j).mode}\nCONSIGNES DE PRÉSENTATION: ${editorialProfile(j).instruction}\nProduis le manuscrit complet sans markdown.`}]}}
-async function deepseek(j:any){if(!DS)throw Error("DEEPSEEK_API_KEY manquant");const c=new AbortController(),tm=setTimeout(()=>c.abort(),85000);try{const r=await fetch("https://api.deepseek.com/chat/completions",{method:"POST",signal:c.signal,headers:{Authorization:`Bearer ${DS}`,"Content-Type":"application/json"},body:JSON.stringify(author(j))});const t=await r.text();if(!r.ok)throw Error(`DeepSeek HTTP ${r.status}`);const p=parse(t),raw=p?.choices?.[0]?.message?.content;if(typeof raw!=="string"||!raw.trim())throw Error("DeepSeek réponse vide");let parsed:any;try{parsed=parse(raw)}catch(first){const repairBody={messages:[{role:"system",content:"Tu es un réparateur JSON strict. Transforme le texte fourni en un objet JSON valide correspondant exactement au schéma demandé. Ne résume rien, ne supprime aucune information utile, ne change pas le sens. Retourne uniquement le JSON valide, sans markdown."},{role:"user",content:"SCHEMA:"+JSON.stringify(SCHEMA)+"\nTEXTE À RÉPARER:\n"+raw}],response_format:{type:"json_object"},temperature:0,max_tokens:16000};const rr=await fetch("https://api.deepseek.com/chat/completions",{method:"POST",signal:c.signal,headers:{Authorization:`Bearer ${DS}`,"Content-Type":"application/json"},body:JSON.stringify(repairBody)});const rt=await rr.text();if(!rr.ok)throw Error(`DeepSeek réparation HTTP ${rr.status}`);const rp=parse(rt),rc=rp?.choices?.[0]?.message?.content;if(typeof rc!=="string"||!rc.trim())throw Error("DeepSeek réparation vide");parsed=parse(rc)}const d=normalize(parsed,j);if(!valid(d))throw Error("DeepSeek a renvoyé un manuscrit vide ou incomplet");return d}finally{clearTimeout(tm)}}
-async function luna(j:any,d:any){if(!CFA||!CFT){d._editorial={status:"skipped"};return d}const c=new AbortController(),tm=setTimeout(()=>c.abort(),75000);try{const body={messages:[{role:"system",content:`Tu es LUNA, directrice éditoriale pédagogique d'Aurore. Contrôle et enrichis le manuscrit de DEEPSEEK sans le raccourcir. Tu travailles pour un support destiné directement aux élèves, pas pour un guide d'enseignant. JSON strict selon le schéma. Vérifie niveau, progression, cohérence scientifique, clarté des paragraphes, notations, exercices/corrigés et graphiques. Supprime les formulations qui parlent du document, de sa pertinence ou de sa construction pédagogique au lieu d'enseigner directement la notion. Veille à ce que les paragraphes portent chacun une idée principale et s'enchaînent par des transitions naturelles. Conserve 2 ou 3 exercices finaux globaux et substantiels lorsque le manuscrit en contient davantage, en regroupant les compétences plutôt qu'en multipliant les mini-exercices. Chaque exercice retenu doit mobiliser plusieurs notions et être suivi d'un corrigé détaillé. Utilise les labels « Formule utile », « Relation utile », « Propriété à connaître », « Proposition », « Méthode », « Exemple guidé », « Vocabulaire utile », « À retenir », « Attention », « Astuce » et « Erreur fréquente » lorsque cela améliore la lecture. Entoure les termes courts à mémoriser de doubles crochets, par exemple [[pH]] ou [[acide fort]], lorsque c'est réellement utile. Vérifie aussi sections[].visuals : garde seulement les visuels réellement utiles ; corrige les queries trop vagues ou hors sujet ; privilégie Wikimedia pour les illustrations documentaires, expériences, appareils et phénomènes réels en physique, mais laisse les courbes/constructions mathématiques à sections[].graphs. Respecte au maximum 3 visuels par section et 8 sur le document. N’invente pas de visuel simplement pour remplir une page. Mets priority="required" uniquement lorsqu’une illustration est pédagogiquement nécessaire. Développe les passages trop courts, ajoute transitions, exemples et erreurs fréquentes utiles. Ne supprime pas de contenu correct. CONTRÔLE DU FIL PÉDAGOGIQUE : vérifie que les sections forment une progression continue et logique, que chaque notion nouvelle est préparée par les précédentes, que les notations restent stables, que les transitions expliquent pourquoi on passe à l'étape suivante et que les exercices montent réellement en difficulté. Si une rupture est détectée, réorganise ou enrichis le contenu pour rétablir la continuité sans supprimer une notion correcte. Vérifie aussi que les corrections utilisent les méthodes réellement introduites dans le cours.\n\nPOLITIQUE LATEX OBLIGATOIRE : conserve et corrige les expressions mathématiques en LaTeX. Toute variable, fonction, nombre avec exposant ou indice, relation, fraction, racine, ensemble et symbole mathématique doit être dans $...$ ou $$...$$. N'utilise aucun symbole mathématique Unicode comme ∞, ≈, ≤, ≥, √, π, α, ℝ. Remplace-les par \\infty, \\approx, \\le, \\ge, \\sqrt{}, \\pi, \\alpha, \\mathbb{R}. Ne convertis en mathématiques que les lettres qui appartiennent réellement à une expression mathématique.`},{role:"user",content:`CONTEXTE: ${j.title} · ${j.subject||""} · ${j.level||""} · ${j.class_name||""}\nSCHEMA: ${JSON.stringify(SCHEMA)}\nMANUSCRIT:\n${JSON.stringify(d)}`}],max_tokens:10000,temperature:.12};const r=await fetch(`https://api.cloudflare.com/client/v4/accounts/${CFA}/ai/run/${CFM}`,{method:"POST",signal:c.signal,headers:{Authorization:`Bearer ${CFT}`,"Content-Type":"application/json"},body:JSON.stringify(body)});if(!r.ok)throw Error(`Luna editorial HTTP ${r.status}`);const p=await r.json(),raw=p?.result?.response;if(typeof raw!=="string")throw Error("Luna editorial réponse vide");const x=normalize(parse(raw),j);if(!valid(x))throw Error("Luna a vidé ou invalidé le manuscrit");x._editorial={status:"completed",engine:CFM};return x}finally{clearTimeout(tm)}}
-function html(d:any){const e=(v:any)=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");return`<html><body><h1>${e(d.title)}</h1><p>${e(d.introduction)}</p>${d.sections.map((s:any,i:number)=>`<section><h2>${i+1}. ${e(s.title)}</h2>${s.content.map((p:string)=>`<p>${e(p)}</p>`).join("")}${s.formula?`<p>${e(s.formula)}</p>`:""}${s.exercises.map((q:any,n:number)=>`<div><b>Exercice ${n+1}</b><p>${e(q.question)}</p><p>${e(q.hint)}</p>${q.formula?`<p>Formule : ${e(q.formula)}</p>`:""}</div>`).join("")}</section>`).join("")}<section><h2>Corrigés détaillés</h2>${d.corrections.map((c:any)=>`<div><b>Exercice ${c.exercise_number}</b><p>${e(c.solution)}</p>${c.formula?`<p>Formule : ${e(c.formula)}</p>`:""}</div>`).join("")}</section></body></html>`}
-Deno.serve(async req=>{if(req.method==='OPTIONS')return new Response('ok',{headers:H});if(req.method!=='POST')return out({error:'Méthode non autorisée'},405);const a=req.headers.get('Authorization');if(!a?.startsWith('Bearer '))return out({error:'Authentification requise'},401);const internal=a===`Bearer ${SR}`;let userId:string|null=null;if(!internal){const u=createClient(URL,ANON,{global:{headers:{Authorization:a}},auth:{autoRefreshToken:false,persistSession:false}});const me=await u.auth.getUser();if(me.error||!me.data.user)return out({error:'Session invalide'},401);userId=me.data.user.id;}let b:any;try{b=await req.json()}catch{return out({error:'JSON invalide'},400)}const requestedId=Number(b?.job_id||0);if(!internal&&(!Number.isSafeInteger(requestedId)||requestedId<1))return out({error:'job_id invalide'},400);if(requestedId&&(!Number.isSafeInteger(requestedId)||requestedId<1))return out({error:'job_id invalide'},400);if(requestedId&&!internal){const own=await db.from('aurora_content_jobs').select('id').eq('id',requestedId).eq('created_by',userId).maybeSingle();if(own.error||!own.data)return out({error:'Job introuvable'},404);}const cl=await db.rpc('aurora_claim_content_job',{p_job_id:requestedId||null});if(cl.error)return out({error:cl.error.message},500);if(!cl.data)return out({ok:true,internal,processed:false,status:'idle',message:'Aucun job de contenu disponible.'},200);const j=cl.data;try{let d=await generateContent(j);d=ensureVisualPlan(j,d);d=await llamaSpecialist(j,d);if(!valid(d))throw Error('QA contenu: manuscrit vide après traitement IA');d.qa={word_count:count(d),sections:d.sections.length,exercises:d.sections.reduce((n:number,s:any)=>n+s.exercises.length,0),corrections:d.corrections.length,warnings:[]};if(d.qa.word_count<3500)d.qa.warnings.push('Contenu un peu court : privilégier l’explication et les exemples plutôt que les répétitions');if(d.qa.exercises<2)d.qa.warnings.push('Moins de 2 exercices globaux');if(d.qa.exercises>3)d.qa.warnings.push('Plus de 3 exercices : regrouper les compétences en problèmes globaux');if(d.qa.corrections<d.qa.exercises)d.qa.warnings.push('Corrigés incomplets');d._factory={...(d._factory||{}),content_profile:editorialProfile(j).profile,resource_mode:editorialProfile(j).mode,pipeline:'Gemini primary -> Llama specialist -> deterministic Aurore fusion -> renderer',generated_at:new Date().toISOString(),math_policy:'LaTeX obligatoire dans tout contexte mathématique',instrument_policy:'purposeful_2d_3d_v1'};const themeColor=String(j?.instructions?.theme_color||'').trim();if(themeColor)d._aurore_design={...(d._aurore_design||{}),theme_color:themeColor,version:1};const payload={...d};const editorialStatus=d?._editorial?.status||'failed';const pdfEligible=editorialStatus==='completed';const ins=await db.from('aurora_generated_documents').insert({job_id:j.id,created_by:j.created_by,title:d.title||j.title,subject:j.subject,level:j.level,class_name:j.class_name,document_type:j.document_type,source_format:'html',source_content:html(d),content_json:payload,pdf_path:null,pdf_url:null,version:1,status:pdfEligible?'review':'draft',validation_notes:`Pipeline IA : Gemini production principale, Llama spécialisé, DeepSeek optionnel. ${d.qa.word_count} mots · ${d.qa.sections} sections · ${d.qa.exercises} exercices · ${d.qa.corrections} corrigés. ${pdfEligible?'':'PDF bloqué : édition Luna non terminée. '}Budget formules PDF: 10. Politique mathématique : LaTeX obligatoire. Visuels : plan Wikimedia validé, maximum 3 par section et 8 par document. Production serveur : le navigateur n'est pas requis après la mise en file.`,metadata:{pipeline:'Gemini -> Llama -> deterministic fusion -> aurora-content-renderer-ggb',qa:d.qa,editorial:d._editorial||{},math_policy:'latex-required',aurore_design:d._aurore_design||{}}}).select().single();if(ins.error)throw Error(ins.error.message);await db.from('aurora_content_jobs').update({status:'review',generated_document_id:ins.data.id,error_message:null,updated_at:new Date().toISOString()}).eq('id',j.id);return out({ok:true,job_id:j.id,generated_document_id:ins.data.id,status:pdfEligible?'review':'draft',pipeline:'Gemini -> Llama -> deterministic fusion -> renderer',qa:d.qa,content_validated:true,content_json_saved:true,pdf_eligible:pdfEligible,server_side:internal})}catch(e){const m=String(e);const attempts=Number(j?.metadata?.content_worker_failure_count||0)+1;const retry=attempts<=3;if(retry){await db.from('aurora_content_jobs').update({status:'queued',error_message:m,metadata:{...(j.metadata||{}),content_worker_failure_count:attempts,content_worker_last_error:m,content_worker_requeued_at:new Date().toISOString()},updated_at:new Date().toISOString()}).eq('id',j.id)}else{await db.rpc('aurora_finish_content_job',{p_job_id:j.id,p_status:'failed',p_error:m})}return out({ok:false,error:m,job_id:j.id,requeued:retry,failure_count:attempts},retry?503:500)}});
+
+function qualityGate(j:any,d:any){
+  const reasons:string[]=[], words=count(d), sections=Array.isArray(d?.sections)?d.sections.length:0;
+  const activities=Array.isArray(d?.sections)?d.sections.reduce((n:number,s:any)=>n+(Array.isArray(s?.exercises)?s.exercises.length:0),0):0;
+  const corrections=Array.isArray(d?.corrections)?d.corrections.length:0, mode=editorialProfile(j).mode;
+  const minSections=/cours|fiche|revision/.test(mode)?5:3;
+  const visuals=Array.isArray(d?.sections)?d.sections.flatMap((s:any)=>Array.isArray(s?.visuals)?s.visuals:[]):[];
+  const usableVisuals=visuals.filter((v:any)=>String(v?.query||"").trim()&&String(v?.caption||"").trim()).length;
+  const requiredGraphs=graphRequirements(j), graphState=graphRequirementSatisfied(Array.isArray(d?.sections)?d.sections.flatMap((s:any)=>Array.isArray(s?.graphs)?s.graphs:[]):[],requiredGraphs);
+  const requested=requestedActivityCount(j), minActivities=requested.total>0?requested.total:(mode==="cours"?2:1);
+  if(words<MIN_WORDS)reasons.push("manuscrit trop court ("+words+" mots, minimum "+MIN_WORDS+")");
+  if(sections<minSections)reasons.push("structure trop courte ("+sections+" sections, minimum "+minSections+")");
+  if(activities<minActivities)reasons.push("activités insuffisantes ("+activities+", minimum "+minActivities+")");
+  if(corrections<activities)reasons.push("corrigés incomplets ("+corrections+" pour "+activities+" activités)");
+  if(usableVisuals<MIN_VISUALS)reasons.push("illustrations insuffisantes ("+usableVisuals+", minimum "+MIN_VISUALS+")");
+  if(graphState.missing.length)reasons.push("graphiques requis absents : "+graphState.missing.join(", "));
+  const badCorrection=Array.isArray(d?.corrections)&&d.corrections.some((x:any)=>!String(x?.solution||"").trim()||!Number.isFinite(Number(x?.exercise_number)));
+  if(badCorrection)reasons.push("corrigé invalide");
+  return {ok:reasons.length===0,reasons,stats:{word_count:words,sections,activities,corrections,visuals:usableVisuals,min_visuals:MIN_VISUALS,required_graphs:requiredGraphs,present_graphs:graphState.present,missing_graphs:graphState.missing,requested}};
+}
+async function geminiRepairasync function geminiRepair(j:any,d:any,gate:any){
+  const req=graphRequirements(j);
+  const prompt=`Révise entièrement ce manuscrit Aurore et retourne le DOCUMENT COMPLET. Minimum ${MIN_WORDS} mots, cible ${TARGET_MIN_WORDS}-${TARGET_MAX_WORDS}. Raisons : ${gate.reasons.join(" ; ")}. Développe les notions sans répétitions artificielles, restaure les activités et leurs corrigés, ajoute au moins ${MIN_VISUALS} illustrations Wikimedia pertinentes avec query et caption. GRAPHIQUES REQUIS : ${req.length?req.join(", "):"aucun"}. Tous les instruments requis doivent être présents et valides. Respecte le schéma JSON.\nDEMANDE:\n${j.prompt||j.title}\nMANUSCRIT:\n${JSON.stringify(d)}\nSCHEMA:\n${JSON.stringify(SCHEMA)}`;
+  const r=await callGeminiText(prompt,false), x=normalize(parse(r.text),j);
+  if(!valid(x))throw Error("Gemini correction : manuscrit vide ou incomplet");
+  x._provider={name:"gemini",model:r.model,status:"completed"};
+  x._editorial={status:"completed",engine:r.model,provider:"gemini"};
+  return x;
+}
+async function llamaRepair(j:any,d:any,gate:any){
+  const req=graphRequirements(j), p=editorialProfile(j);
+  const prompt=[
+    "Tu es le seul moteur IA de correction de ce document Aurore. Retourne le DOCUMENT COMPLET.",
+    "Minimum "+MIN_WORDS+" mots ; cible "+TARGET_MIN_WORDS+"-"+TARGET_MAX_WORDS+" mots pédagogiques.",
+    "Conserve le contenu correct mais développe explications, exemples, transitions et erreurs fréquentes.",
+    "Le pipeline exige au moins "+MIN_VISUALS+" directives Wikimedia avec query et caption.",
+    req.length?"Graphiques obligatoires : "+req.join(", ")+". Chaque instrument requis doit être présent et valide.":"Aucun instrument graphique imposé.",
+    "Utilise de préférence le schéma JSON fourni ; sinon texte structuré avec Titre:, Introduction:, sections, Exercices: et Corrigés:.",
+    "Profil : "+p.profile,
+    "Consignes : "+p.instruction,
+    "Raisons du rejet : "+gate.reasons.join(" ; "),
+    "DEMANDE : "+String(j.prompt||j.title||""),
+    "SCHEMA : "+JSON.stringify(SCHEMA),
+    "MANUSCRIT : "+JSON.stringify(d)
+  ].join("\n");
+  let raw="",model=CFM;
+  try{raw=await runLlamaText(CFM,prompt,10000);}catch(first){model=CFM_FALLBACK;raw=await runLlamaText(CFM_FALLBACK,prompt,10000);}
+  let x:any; try{x=normalize(parse(raw),j);}catch{x=fallbackFromPlainText(raw,j);}
+  if(!valid(x))throw Error("Llama correction : manuscrit vide ou incomplet");
+  x._provider={name:"llama",model,status:"completed"};
+  x._editorial={status:"completed",engine:model,provider:"llama"};
+  return x;
+}
+async function generateContentasync function generateContent(j:any){const selected=aiSelection(j),providers:any={},warnings:string[]=[];let d:any=null;const order=aiMode(j)==="qcm"&&selected.includes("llama")?["llama",...selected.filter((x:string)=>x!=="llama")]:selected;for(const name of order){try{d=name==="gemini"?await gemini(j):name==="llama"?await llamaFull(j):await deepseek(j);providers[name]={status:"completed",model:d?._provider?.model||d?._editorial?.engine||name};break}catch(e){providers[name]={status:"failed",reason:String(e)};warnings.push(`${name}: ${String(e)}`);}}if(!d)throw Error("Aucun moteur IA sélectionné n'est disponible. "+warnings.join(" | "));d._factory={...(d._factory||{}),ai_selection:selected,ai_mode:aiMode(j),ai_providers:providers,provider_warnings:warnings};return d;}
+function ensureVisualPlan(j:any,d:any){
+  const profile=editorialProfile(j).profile, sections=Array.isArray(d.sections)?d.sections:[];
+  const hints:any={biologie:"biology anatomy structure diagram",experimental:"science experiment apparatus phenomenon diagram",scientifique:"mathematics geometry educational diagram",langues:"language learning communication illustration",francais_litterature:"French literature historical cultural illustration",histoire_geographie:"historical geography map territory illustration",informatique:"computer science algorithm software diagram",technique:"technical engineering mechanism diagram",general:"educational explanatory diagram"};
+  const suffixes=["labeled diagram","structure or process diagram","application or observation illustration"];
+  const flat=()=>sections.flatMap((s:any)=>Array.isArray(s.visuals)?s.visuals:[]);
+  for(const sec of sections)sec.visuals=Array.isArray(sec.visuals)?sec.visuals.map(normalizeVisualPlan).filter((v:any)=>!!v).slice(0,3):[];
+  if(!sections.length){d.sections=[{title:String(j.title||"Notion principale"),objective:"",content:[],formula:"",graphs:[],visuals:[],exercises:[]}];sections.push(d.sections[0]);}
+  let all=flat(),n=0;
+  while(all.length<MIN_VISUALS&&n<12){
+    const idx=Math.min(n,sections.length-1),sec=sections[idx];
+    const title=String(sec?.title||j.title||"Notion").replace(/\s+/g," ").trim().slice(0,120);
+    const content=Array.isArray(sec?.content)?String(sec.content.slice(0,2).join(" ")).replace(/\s+/g," ").trim().slice(0,120):"";
+    const query=(title+" "+content+" "+(hints[profile]||hints.general)+" "+suffixes[n%suffixes.length]).trim().slice(0,240);
+    const purpose=profile==="experimental"?"experimental":profile==="biologie"?"schema":"illustration";
+    const caption=("Illustration documentaire liée à « "+title+" » pour clarifier la notion étudiée.").slice(0,280);
+    const target=sections[idx];
+    if((target.visuals||[]).length<3)target.visuals.push(normalizeVisualPlan({type:"wikimedia",purpose,query,required:true,priority:"required",caption}));
+    all=flat();n++;
+  }
+  all=flat().filter((v:any)=>String(v?.query||"").trim()&&String(v?.caption||"").trim());
+  for(let i=0;i<all.length;i++)if(i<MIN_VISUALS){all[i].required=true;all[i].priority="required";}
+  for(const sec of sections)sec.visuals=(sec.visuals||[]).slice(0,3);
+  d._factory={...(d._factory||{}),visual_plan:{planned:flat().length,usable:all.length,required:all.filter((v:any)=>v.required||v.priority==="required").length,minimum:MIN_VISUALS,profile,status:all.length>=MIN_VISUALS?"pass":"blocked"}};
+  return d;
+}
+function htmlfunction html(d:any){const e=(v:any)=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");return`<html><body><h1>${e(d.title)}</h1><p>${e(d.introduction)}</p>${d.sections.map((s:any,i:number)=>`<section><h2>${i+1}. ${e(s.title)}</h2>${s.content.map((p:string)=>`<p>${e(p)}</p>`).join("")}${s.formula?`<p>${e(s.formula)}</p>`:""}${s.exercises.map((q:any,n:number)=>`<div><b>Exercice ${n+1}</b><p>${e(q.question)}</p><p>${e(q.hint)}</p>${q.formula?`<p>Formule : ${e(q.formula)}</p>`:""}</div>`).join("")}</section>`).join("")}<section><h2>Corrigés détaillés</h2>${d.corrections.map((c:any)=>`<div><b>Exercice ${c.exercise_number}</b><p>${e(c.solution)}</p>${c.formula?`<p>Formule : ${e(c.formula)}</p>`:""}</div>`).join("")}</section></body></html>`}
+Deno.serve(async req=>{if(req.method==='OPTIONS')return new Response('ok',{headers:H});if(req.method!=='POST')return out({error:'Méthode non autorisée'},405);const a=req.headers.get('Authorization');if(!a?.startsWith('Bearer '))return out({error:'Authentification requise'},401);const internal=a===`Bearer ${SR}`;let userId:string|null=null;if(!internal){const u=createClient(URL,ANON,{global:{headers:{Authorization:a}},auth:{autoRefreshToken:false,persistSession:false}});const me=await u.auth.getUser();if(me.error||!me.data.user)return out({error:'Session invalide'},401);userId=me.data.user.id;}let b:any;try{b=await req.json()}catch{return out({error:'JSON invalide'},400)}const requestedId=Number(b?.job_id||0);if(!internal&&(!Number.isSafeInteger(requestedId)||requestedId<1))return out({error:'job_id invalide'},400);if(requestedId&&(!Number.isSafeInteger(requestedId)||requestedId<1))return out({error:'job_id invalide'},400);if(requestedId&&!internal){const own=await db.from('aurora_content_jobs').select('id').eq('id',requestedId).eq('created_by',userId).maybeSingle();if(own.error||!own.data)return out({error:'Job introuvable'},404);}const cl=await db.rpc('aurora_claim_content_job',{p_job_id:requestedId||null});if(cl.error)return out({error:cl.error.message},500);if(!cl.data)return out({ok:true,internal,processed:false,status:'idle',message:'Aucun job de contenu disponible.'},200);const j=cl.data;try{
+    let d=await generateContent(j);
+    d=ensureVisualPlan(j,d);
+    if(!valid(d))throw Error('QA contenu: manuscrit vide après traitement IA');
+    let gate=qualityGate(j,d);
+    if(!gate.ok){
+      const provider=String(d?._provider?.name||"").toLowerCase();
+      if(provider==="gemini")d=await geminiRepair(j,d,gate);
+      else if(provider==="llama")d=await llamaRepair(j,d,gate);
+      else throw Error("QA contenu bloquante : moteur IA inconnu.");
+      d=ensureVisualPlan(j,d);
+      gate=qualityGate(j,d);
+      if(!gate.ok)throw Error("QA contenu bloquante après correction : "+gate.reasons.join(" | "));
+    }
+    d.qa={...gate.stats,warnings:[]};
+    if(d.qa.exercises>3)d.qa.warnings.push('Plus de 3 exercices : regrouper les compétences en problèmes globaux');const themeColor=String(j?.instructions?.theme_color||'').trim();if(themeColor)d._aurore_design={...(d._aurore_design||{}),theme_color:themeColor,version:1};const payload={...d};const editorialStatus=d?._editorial?.status||'failed';const pdfEligible=editorialStatus==='completed';const ins=await db.from('aurora_generated_documents').insert({job_id:j.id,created_by:j.created_by,title:d.title||j.title,subject:j.subject,level:j.level,class_name:j.class_name,document_type:j.document_type,source_format:'html',source_content:html(d),content_json:payload,pdf_path:null,pdf_url:null,version:1,status:pdfEligible?'review':'draft',validation_notes:`Moteur IA autonome : ${d?._provider?.name||'unknown'} (${d?._provider?.model||'inconnu'}), sans dépendance à un autre modèle. ${d.qa.word_count} mots · ${d.qa.sections} sections · ${d.qa.exercises} exercices · ${d.qa.corrections} corrigés. ${pdfEligible?'':'PDF bloqué : édition Luna non terminée. '}Budget formules PDF: 10. Politique mathématique : LaTeX obligatoire. Visuels : plan Wikimedia validé, maximum 3 par section et 8 par document. Production serveur : le navigateur n'est pas requis après la mise en file.`,metadata:{pipeline:(d?._provider?.name||'unknown')+' -> deterministic normalization -> aurora-content-renderer-ggb',qa:d.qa,editorial:d._editorial||{},math_policy:'latex-required',aurore_design:d._aurore_design||{}}}).select().single();if(ins.error)throw Error(ins.error.message);await db.from('aurora_content_jobs').update({status:'review',generated_document_id:ins.data.id,error_message:null,updated_at:new Date().toISOString()}).eq('id',j.id);return out({ok:true,job_id:j.id,generated_document_id:ins.data.id,status:pdfEligible?'review':'draft',pipeline:(d?._provider?.name||'unknown')+' -> deterministic normalization -> renderer',qa:d.qa,content_validated:true,content_json_saved:true,pdf_eligible:pdfEligible,server_side:internal})}catch(e){const m=String(e);const attempts=Number(j?.metadata?.content_worker_failure_count||0)+1;const retry=attempts<=3;if(retry){await db.from('aurora_content_jobs').update({status:'queued',error_message:m,metadata:{...(j.metadata||{}),content_worker_failure_count:attempts,content_worker_last_error:m,content_worker_requeued_at:new Date().toISOString()},updated_at:new Date().toISOString()}).eq('id',j.id)}else{await db.rpc('aurora_finish_content_job',{p_job_id:j.id,p_status:'failed',p_error:m})}return out({ok:false,error:m,job_id:j.id,requeued:retry,failure_count:attempts},retry?503:500)}});
