@@ -1738,7 +1738,13 @@
     } catch (error) {
       console.error('[Aurore] Erreur connexion Google:', error);
       window.auroreAfficherErreurDebug?.('[Connexion Google] ' + (error?.message || error));
-      alert('Impossible de démarrer la connexion Google. Veuillez réessayer.');
+      const msg = document.getElementById('accessMessage');
+      if (msg) {
+        msg.textContent = 'Impossible de démarrer la connexion Google. Vérifiez votre connexion puis réessayez.';
+        msg.className = 'access-message err';
+        msg.style.display = 'block';
+      }
+      if (typeof window.auroreCacherVeuillezPatienter === 'function') window.auroreCacherVeuillezPatienter();
       auroreConnexionGoogleEnCours = false;
     }
   }
@@ -2366,6 +2372,11 @@
           enregistrerConnexion(session).catch(()=>{});
           afficherUtilisateurConnecte();
           window.auroreUnlockAccess?.();
+          // Après le retour Google, reconstruire explicitement l'accueil avant
+          // d'afficher le message de bienvenue. Cela évite de rester sur un
+          // écran intermédiaire ou sur le portail de connexion après OAuth.
+          if (typeof afficherEcran === 'function') afficherEcran('screen-home');
+          try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch (_) {}
           if (profilEstComplet(session)) afficherBienvenueApresConnexion(session);
           else ouvrirEspacePersonnelObligatoire();
         }
@@ -2403,6 +2414,10 @@
         session = { access_token, refresh_token, expires_at: Date.now() + expires_in * 1000, id: infos.id, email: infos.email, nom: infos.nom, avatar: infos.avatar, prenom: infos.prenom || '', lycee: infos.lycee || '', niveau: infos.niveau || '', classe: infos.classe || '', filiere: infos.filiere || '', discipline: infos.discipline || '', fonction: infos.fonction || '', enfant_informations: infos.enfant_informations || '', banni: infos.banni === true, provider: infos.provider || 'Google', role };
         sauvegarderSession();
         enregistrerConnexion(session);
+        afficherUtilisateurConnecte();
+        window.auroreUnlockAccess?.();
+        if (typeof afficherEcran === 'function') afficherEcran('screen-home');
+        try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch (_) {}
         if (profilEstComplet(session)) {
           afficherBienvenueApresConnexion(session);
         } else {
