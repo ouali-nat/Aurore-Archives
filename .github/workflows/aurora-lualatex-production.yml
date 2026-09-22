@@ -156,9 +156,6 @@ jobs:
           total=0
           for s in data.get("sections") or []:
               for g in s.get("graphs") or []:
-                  # Count every structurally valid GeoGebra graph, even when
-                  # its PNG has not been created yet. This is what activates
-                  # the server-side GeoGebra renderer for fresh graphs.
                   if valid(g):
                       total+=1
                       missing+=0 if ready(g) else 1
@@ -232,7 +229,6 @@ jobs:
           lualatex --version
           kpsewhich montserrat.sty
           kpsewhich qrcode.sty
-
 
       - name: Smoke-test renderer and title layout
         if: hashFiles('infra/lualatex/production/document-id') != ''
@@ -423,7 +419,7 @@ jobs:
       - name: Mark PDF ready for upload
         if: hashFiles('infra/lualatex/production/document-id') != ''
         run: |
-          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id")"
           curl --fail --silent --show-error -X POST \
             -H "Content-Type: application/json" \
             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
@@ -456,7 +452,7 @@ jobs:
       - name: Mark PDF completed
         if: hashFiles('infra/lualatex/production/document-id') != ''
         run: |
-          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id")"
           curl --fail --silent --show-error -X POST \
             -H "Content-Type: application/json" \
             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
@@ -466,7 +462,7 @@ jobs:
       - name: Requeue document after renderer failure
         if: failure() && hashFiles('infra/lualatex/production/document-id') != ''
         run: |
-          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id")"
           curl --fail --silent --show-error \
             -X POST \
             -H "Content-Type: application/json" \
@@ -525,3 +521,4 @@ jobs:
 # Document 339 retry after upload metadata fix: created_by + queue reset — 2026-09-22.
 # Keep the production run alive until PDF + GitHub artifact are completed; do not cancel active rendering.
 # GeoGebra + Wikimedia non-blocking policy wake: 2026-09-22.
+# Document 339 requeued for actual production PDF + artifact: 2026-09-22.
