@@ -15,6 +15,12 @@ from pathlib import Path
 MAX_GRAPHICS = 24
 MAX_ELEMENTS = 120
 
+# Deux familles explicites : micro-décoration éditoriale et schémas scientifiques.
+EDITORIAL_DECORATIVE_KINDS = frozenset({
+    "separator", "title_decor", "separator_leaf", "leaf_branch",
+    "deco_feuillage", "dots", "mini_tree",
+})
+
 PALETTE = {
     "primary": "#8B5CF6",
     "secondary": "#C084FC",
@@ -59,46 +65,46 @@ def _svg_close() -> list[str]:
     return ["</svg>"]
 
 def _render_separator(spec: dict, c: dict) -> list[str]:
-    width, height = 1200, 110
+    """Séparateur éditorial discret."""
+    width, height = 1200, 72
     style = str(spec.get("style") or "dots").lower()
     lines = _svg_open(width, height, "Séparateur Aurore")
     if style == "line":
-        lines.append(f'<line x1="70" y1="55" x2="1130" y2="55" stroke="{c["primary"]}" stroke-width="5" stroke-linecap="round"/>')
+        lines.append(f'<line x1="180" y1="36" x2="1020" y2="36" stroke="{c["primary"]}" stroke-width="1.2" stroke-linecap="round"/>')
     elif style == "leaf_branch":
         lines.extend([
-            f'<path d="M80 62 C300 20 470 90 650 52 C820 18 970 82 1120 45" fill="none" stroke="{c["strong"]}" stroke-width="4" stroke-linecap="round"/>',
-            f'<ellipse cx="300" cy="42" rx="26" ry="11" transform="rotate(-24 300 42)" fill="{c["secondary"]}"/>',
-            f'<ellipse cx="510" cy="67" rx="26" ry="11" transform="rotate(25 510 67)" fill="{c["primary"]}"/>',
-            f'<ellipse cx="840" cy="39" rx="26" ry="11" transform="rotate(-20 840 39)" fill="{c["secondary"]}"/>',
+            f'<path d="M190 40 C380 20 500 55 650 36 C790 18 900 50 1010 30" fill="none" stroke="{c["strong"]}" stroke-width="1.1" stroke-linecap="round"/>',
+            f'<ellipse cx="380" cy="27" rx="11" ry="4.5" transform="rotate(-24 380 27)" fill="{c["secondary"]}"/>',
+            f'<ellipse cx="545" cy="43" rx="11" ry="4.5" transform="rotate(25 545 43)" fill="{c["primary"]}"/>',
+            f'<ellipse cx="820" cy="25" rx="11" ry="4.5" transform="rotate(-20 820 25)" fill="{c["secondary"]}"/>',
         ])
     else:
-        for x, r in [(430, 7), (555, 11), (600, 16), (645, 11), (770, 7)]:
-            lines.append(f'<circle cx="{x}" cy="55" r="{r}" fill="{c["primary"]}"/>')
-        lines.append(f'<line x1="80" y1="55" x2="390" y2="55" stroke="{c["secondary"]}" stroke-width="3" stroke-linecap="round"/>')
-        lines.append(f'<line x1="810" y1="55" x2="1120" y2="55" stroke="{c["secondary"]}" stroke-width="3" stroke-linecap="round"/>')
+        for x, r in [(564, 2.3), (588, 3.6), (600, 4.8), (612, 3.6), (636, 2.3)]:
+            lines.append(f'<circle cx="{x}" cy="36" r="{r}" fill="{c["primary"]}"/>')
+        lines.append(f'<line x1="240" y1="36" x2="530" y2="36" stroke="{c["secondary"]}" stroke-width="1.0" stroke-linecap="round"/>')
+        lines.append(f'<line x1="670" y1="36" x2="960" y2="36" stroke="{c["secondary"]}" stroke-width="1.0" stroke-linecap="round"/>')
     lines += _svg_close()
     return lines
-
 def _render_title_decor(spec: dict, c: dict) -> list[str]:
-    width, height = 1200, 150
+    """Accent de titre très léger."""
+    width, height = 1200, 92
     lines = _svg_open(width, height, "Décoration de titre Aurore")
     lines.extend([
-        f'<path d="M70 118 C180 65 240 75 335 110" fill="none" stroke="{c["strong"]}" stroke-width="5" stroke-linecap="round"/>',
-        f'<path d="M865 110 C960 75 1020 65 1130 118" fill="none" stroke="{c["strong"]}" stroke-width="5" stroke-linecap="round"/>',
-        f'<circle cx="600" cy="72" r="24" fill="{c["primary"]}"/>',
-        f'<circle cx="600" cy="72" r="10" fill="{c["paper"]}"/>',
-        f'<path d="M335 110 Q470 25 600 72 Q730 25 865 110" fill="none" stroke="{c["secondary"]}" stroke-width="3"/>',
+        f'<path d="M220 66 C310 40 365 43 440 61" fill="none" stroke="{c["strong"]}" stroke-width="1.3" stroke-linecap="round"/>',
+        f'<path d="M760 61 C835 43 890 40 980 66" fill="none" stroke="{c["strong"]}" stroke-width="1.3" stroke-linecap="round"/>',
+        f'<circle cx="600" cy="46" r="7" fill="{c["primary"]}"/>',
+        f'<circle cx="600" cy="46" r="3" fill="{c["paper"]}"/>',
+        f'<path d="M440 61 Q520 24 600 46 Q680 24 760 61" fill="none" stroke="{c["secondary"]}" stroke-width="0.9"/>',
     ])
     lines += _svg_close()
     return lines
-
 def _render_callout(spec: dict, c: dict) -> list[str]:
     width, height = 1200, 250
     label = _safe_text(spec.get("label") or "À retenir", 80)
     body = _safe_text(spec.get("text") or "", 260)
     lines = _svg_open(width, height, label)
     lines.extend([
-        f'<rect x="35" y="30" width="1130" height="190" rx="28" fill="{c["soft"]}" stroke="{c["primary"]}" stroke-width="4"/>',
+        f'<rect x="35" y="30" width="1130" height="190" rx="28" fill="{c["soft"]}" stroke="{c["primary"]}" stroke-width="2"/>',
         f'<rect x="35" y="30" width="18" height="190" rx="9" fill="{c["strong"]}"/>',
         f'<text x="85" y="92" font-family="DejaVu Sans, sans-serif" font-size="34" font-weight="700" fill="{c["strong"]}">{_esc(label)}</text>',
         f'<text x="85" y="145" font-family="DejaVu Sans, sans-serif" font-size="25" fill="{c["ink"]}">{_esc(body)}</text>',
@@ -178,17 +184,17 @@ def _render_cell(spec: dict, c: dict) -> list[str]:
     width, height = 1200, 720
     lines = _svg_open(width, height, "Schéma de cellule")
     lines.extend([
-        f'<ellipse cx="600" cy="360" rx="470" ry="270" fill="{c["soft"]}" stroke="{c["strong"]}" stroke-width="7"/>',
-        f'<ellipse cx="600" cy="360" rx="150" ry="115" fill="{c["paper"]}" stroke="{c["primary"]}" stroke-width="6"/>',
+        f'<ellipse cx="600" cy="360" rx="470" ry="270" fill="{c["soft"]}" stroke="{c["strong"]}" stroke-width="3.2"/>',
+        f'<ellipse cx="600" cy="360" rx="150" ry="115" fill="{c["paper"]}" stroke="{c["primary"]}" stroke-width="3"/>',
         f'<text x="600" y="370" text-anchor="middle" font-family="DejaVu Sans" font-size="30" font-weight="700" fill="{c["strong"]}">Noyau</text>',
     ])
     mitochondria = [(300,250),(870,255),(330,500),(840,490)]
     for x, y in mitochondria:
-        lines.append(f'<ellipse cx="{x}" cy="{y}" rx="62" ry="35" fill="{c["secondary"]}" stroke="{c["strong"]}" stroke-width="4"/>')
-        lines.append(f'<path d="M{x-35} {y} q18 -20 36 0 q18 20 36 0" fill="none" stroke="{c["strong"]}" stroke-width="3"/>')
+        lines.append(f'<ellipse cx="{x}" cy="{y}" rx="62" ry="35" fill="{c["secondary"]}" stroke="{c["strong"]}" stroke-width="2"/>')
+        lines.append(f'<path d="M{x-35} {y} q18 -20 36 0 q18 20 36 0" fill="none" stroke="{c["strong"]}" stroke-width="1.4"/>')
     labels = [("Membrane",95,115,190,190),("Cytoplasme",940,150,790,240),("Mitochondrie",930,590,840,500)]
     for label,x,y,tx,ty in labels:
-        lines.append(f'<line x1="{x}" y1="{y}" x2="{tx}" y2="{ty}" stroke="{c["ink"]}" stroke-width="3"/>')
+        lines.append(f'<line x1="{x}" y1="{y}" x2="{tx}" y2="{ty}" stroke="{c["ink"]}" stroke-width="1.4"/>')
         lines.append(f'<text x="{x}" y="{y-8}" font-family="DejaVu Sans" font-size="25" fill="{c["ink"]}">{_esc(label)}</text>')
     lines += _svg_close()
     return lines
@@ -198,17 +204,17 @@ def _render_animal_cell(spec: dict, c: dict) -> list[str]:
     title = _safe_text(spec.get("title") or "Organisation d'une cellule animale", 160)
     lines = _svg_open(width, height, title)
     lines.extend([
-        f'<ellipse cx="600" cy="385" rx="455" ry="285" fill="{c["soft"]}" stroke="{c["strong"]}" stroke-width="8"/>',
-        f'<ellipse cx="600" cy="385" rx="160" ry="125" fill="{c["paper"]}" stroke="{c["primary"]}" stroke-width="7"/>',
+        f'<ellipse cx="600" cy="385" rx="455" ry="285" fill="{c["soft"]}" stroke="{c["strong"]}" stroke-width="3"/>',
+        f'<ellipse cx="600" cy="385" rx="160" ry="125" fill="{c["paper"]}" stroke="{c["primary"]}" stroke-width="3.2"/>',
         f'<text x="600" y="395" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="31" font-weight="700" fill="{c["strong"]}">Noyau</text>',
-        f'<ellipse cx="395" cy="265" rx="72" ry="39" fill="{c["secondary"]}" stroke="{c["strong"]}" stroke-width="4"/>',
-        f'<path d="M350 265 q20 -22 40 0 q20 22 40 0" fill="none" stroke="{c["strong"]}" stroke-width="3"/>',
-        f'<ellipse cx="825" cy="515" rx="72" ry="39" fill="{c["secondary"]}" stroke="{c["strong"]}" stroke-width="4"/>',
-        f'<path d="M780 515 q20 -22 40 0 q20 22 40 0" fill="none" stroke="{c["strong"]}" stroke-width="3"/>',
-        f'<ellipse cx="850" cy="275" rx="54" ry="30" fill="{c["secondary"]}" stroke="{c["strong"]}" stroke-width="4"/>',
-        f'<path d="M815 275 q17 -17 34 0 q17 17 34 0" fill="none" stroke="{c["strong"]}" stroke-width="3"/>',
-        f'<ellipse cx="370" cy="520" rx="54" ry="30" fill="{c["secondary"]}" stroke="{c["strong"]}" stroke-width="4"/>',
-        f'<path d="M335 520 q17 -17 34 0 q17 17 34 0" fill="none" stroke="{c["strong"]}" stroke-width="3"/>',
+        f'<ellipse cx="395" cy="265" rx="72" ry="39" fill="{c["secondary"]}" stroke="{c["strong"]}" stroke-width="2"/>',
+        f'<path d="M350 265 q20 -22 40 0 q20 22 40 0" fill="none" stroke="{c["strong"]}" stroke-width="1.4"/>',
+        f'<ellipse cx="825" cy="515" rx="72" ry="39" fill="{c["secondary"]}" stroke="{c["strong"]}" stroke-width="2"/>',
+        f'<path d="M780 515 q20 -22 40 0 q20 22 40 0" fill="none" stroke="{c["strong"]}" stroke-width="1.4"/>',
+        f'<ellipse cx="850" cy="275" rx="54" ry="30" fill="{c["secondary"]}" stroke="{c["strong"]}" stroke-width="2"/>',
+        f'<path d="M815 275 q17 -17 34 0 q17 17 34 0" fill="none" stroke="{c["strong"]}" stroke-width="1.4"/>',
+        f'<ellipse cx="370" cy="520" rx="54" ry="30" fill="{c["secondary"]}" stroke="{c["strong"]}" stroke-width="2"/>',
+        f'<path d="M335 520 q17 -17 34 0 q17 17 34 0" fill="none" stroke="{c["strong"]}" stroke-width="1.4"/>',
     ])
     labels = [
         ("Membrane plasmique", 78, 135, 190, 235),
@@ -217,7 +223,7 @@ def _render_animal_cell(spec: dict, c: dict) -> list[str]:
         ("Mitochondrie", 905, 625, 825, 520),
     ]
     for label, x, y, tx, ty in labels:
-        lines.append(f'<line x1="{x}" y1="{y}" x2="{tx}" y2="{ty}" stroke="{c["ink"]}" stroke-width="3"/>')
+        lines.append(f'<line x1="{x}" y1="{y}" x2="{tx}" y2="{ty}" stroke="{c["ink"]}" stroke-width="1.4"/>')
         _label_with_box(lines, label, x, y - 8, c, size=24)
     lines.append(f'<text x="600" y="725" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="22" fill="{c["ink"]}">Schéma simplifié à visée pédagogique</text>')
     lines += _svg_close()
@@ -228,18 +234,18 @@ def _render_plant_cell(spec: dict, c: dict) -> list[str]:
     title = _safe_text(spec.get("title") or "Organisation d'une cellule végétale", 160)
     lines = _svg_open(width, height, title)
     lines.extend([
-        f'<rect x="120" y="85" width="960" height="610" rx="105" fill="{c["secondary"]}" fill-opacity="0.28" stroke="{c["strong"]}" stroke-width="9"/>',
-        f'<rect x="155" y="118" width="890" height="544" rx="88" fill="{c["soft"]}" stroke="{c["primary"]}" stroke-width="6"/>',
-        f'<ellipse cx="620" cy="390" rx="205" ry="155" fill="{c["paper"]}" stroke="{c["strong"]}" stroke-width="6"/>',
+        f'<rect x="120" y="85" width="960" height="610" rx="105" fill="{c["secondary"]}" fill-opacity="0.28" stroke="{c["strong"]}" stroke-width="3.5"/>',
+        f'<rect x="155" y="118" width="890" height="544" rx="88" fill="{c["soft"]}" stroke="{c["primary"]}" stroke-width="3"/>',
+        f'<ellipse cx="620" cy="390" rx="205" ry="155" fill="{c["paper"]}" stroke="{c["strong"]}" stroke-width="3"/>',
         f'<text x="620" y="400" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="30" font-weight="700" fill="{c["strong"]}">Grande vacuole</text>',
-        f'<ellipse cx="360" cy="275" rx="84" ry="46" fill="{c["secondary"]}" stroke="{c["strong"]}" stroke-width="4"/>',
-        f'<ellipse cx="360" cy="275" rx="52" ry="23" fill="none" stroke="{c["strong"]}" stroke-width="3"/>',
-        f'<ellipse cx="875" cy="250" rx="84" ry="46" fill="{c["secondary"]}" stroke="{c["strong"]}" stroke-width="4"/>',
-        f'<ellipse cx="875" cy="250" rx="52" ry="23" fill="none" stroke="{c["strong"]}" stroke-width="3"/>',
-        f'<ellipse cx="870" cy="535" rx="84" ry="46" fill="{c["secondary"]}" stroke="{c["strong"]}" stroke-width="4"/>',
-        f'<ellipse cx="870" cy="535" rx="52" ry="23" fill="none" stroke="{c["strong"]}" stroke-width="3"/>',
-        f'<ellipse cx="350" cy="540" rx="66" ry="34" fill="{c["secondary"]}" stroke="{c["strong"]}" stroke-width="4"/>',
-        f'<ellipse cx="850" cy="380" rx="82" ry="46" fill="none" stroke="{c["strong"]}" stroke-width="5"/>',
+        f'<ellipse cx="360" cy="275" rx="84" ry="46" fill="{c["secondary"]}" stroke="{c["strong"]}" stroke-width="2"/>',
+        f'<ellipse cx="360" cy="275" rx="52" ry="23" fill="none" stroke="{c["strong"]}" stroke-width="1.4"/>',
+        f'<ellipse cx="875" cy="250" rx="84" ry="46" fill="{c["secondary"]}" stroke="{c["strong"]}" stroke-width="2"/>',
+        f'<ellipse cx="875" cy="250" rx="52" ry="23" fill="none" stroke="{c["strong"]}" stroke-width="1.4"/>',
+        f'<ellipse cx="870" cy="535" rx="84" ry="46" fill="{c["secondary"]}" stroke="{c["strong"]}" stroke-width="2"/>',
+        f'<ellipse cx="870" cy="535" rx="52" ry="23" fill="none" stroke="{c["strong"]}" stroke-width="1.4"/>',
+        f'<ellipse cx="350" cy="540" rx="66" ry="34" fill="{c["secondary"]}" stroke="{c["strong"]}" stroke-width="2"/>',
+        f'<ellipse cx="850" cy="380" rx="82" ry="46" fill="none" stroke="{c["strong"]}" stroke-width="2.5"/>',
         f'<circle cx="850" cy="380" r="16" fill="{c["strong"]}"/>',
     ])
     labels = [
@@ -251,57 +257,53 @@ def _render_plant_cell(spec: dict, c: dict) -> list[str]:
         ("Vacuole", 935, 585, 745, 490),
     ]
     for label, x, y, tx, ty in labels:
-        lines.append(f'<line x1="{x}" y1="{y}" x2="{tx}" y2="{ty}" stroke="{c["ink"]}" stroke-width="3"/>')
+        lines.append(f'<line x1="{x}" y1="{y}" x2="{tx}" y2="{ty}" stroke="{c["ink"]}" stroke-width="1.4"/>')
         _label_with_box(lines, label, x, y - 8, c, size=23)
     lines.append(f'<text x="600" y="742" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="22" fill="{c["ink"]}">Schéma simplifié à visée pédagogique</text>')
     lines += _svg_close()
     return lines
 
 def _render_leaf_branch(spec: dict, c: dict) -> list[str]:
-    width, height = 1200, 170
+    """Petit motif botanique pour marge ou séparateur."""
+    width, height = 1200, 100
     lines = _svg_open(width, height, "Branche décorative Aurore")
     leaf_count = _int(spec.get("leaf_count"), 7, 3, 12)
-    lines.append(f'<path d="M80 112 C300 34 430 138 620 76 C800 20 975 135 1120 58" fill="none" stroke="{c["strong"]}" stroke-width="5" stroke-linecap="round"/>')
-    xs = [95 + i * (1010 / max(1, leaf_count - 1)) for i in range(leaf_count)]
+    lines.append(f'<path d="M210 66 C390 35 500 76 645 50 C785 28 900 68 990 42" fill="none" stroke="{c["strong"]}" stroke-width="1.2" stroke-linecap="round"/>')
+    xs = [235 + i * (730 / max(1, leaf_count - 1)) for i in range(leaf_count)]
     for i, x in enumerate(xs):
-        y = 100 - 35 * (0.5 + 0.5 * ((i % 3) / 2))
+        y = 58 - 12 * (0.5 + 0.5 * ((i % 3) / 2))
         side = -1 if i % 2 == 0 else 1
         fill = c["secondary"] if i % 2 == 0 else c["primary"]
-        lines.append(
-            f'<ellipse cx="{x:.1f}" cy="{y + side * 18:.1f}" rx="28" ry="12" '
-            f'transform="rotate({-26 if side < 0 else 26} {x:.1f} {y + side * 18:.1f})" fill="{fill}"/>'
-        )
+        lines.append(f'<ellipse cx="{x:.1f}" cy="{y + side * 6:.1f}" rx="10" ry="4" transform="rotate({-26 if side < 0 else 26} {x:.1f} {y + side * 6:.1f})" fill="{fill}"/>')
     lines += _svg_close()
     return lines
-
 def _render_dots(spec: dict, c: dict) -> list[str]:
-    width, height = 1200, 120
+    """Motif de points minimal."""
+    width, height = 1200, 64
     lines = _svg_open(width, height, "Motif de points Aurore")
-    count = _int(spec.get("count"), 7, 3, 13)
-    spacing = 84
+    count = _int(spec.get("count"), 5, 3, 13)
+    spacing = _num(spec.get("spacing"), 36, 18, 60)
     start_x = 600 - (count - 1) * spacing / 2
-    radii = [7, 10, 15, 10, 7, 5, 8, 12, 6, 9, 5, 11, 7]
+    radii = [2.0, 3.0, 4.2, 3.0, 2.0, 2.5, 3.6, 2.4, 2.8, 2.2, 3.2, 2.5, 2.0]
     for i in range(count):
         radius = radii[i % len(radii)]
         fill = c["primary"] if i % 2 == 0 else c["secondary"]
-        lines.append(f'<circle cx="{start_x + i * spacing:.1f}" cy="{60 + (i % 2) * 2}" r="{radius}" fill="{fill}"/>')
+        lines.append(f'<circle cx="{start_x + i * spacing:.1f}" cy="{31 + (i % 2) * 1.5}" r="{radius}" fill="{fill}"/>')
     lines += _svg_close()
     return lines
-
 def _render_mini_tree(spec: dict, c: dict) -> list[str]:
-    width, height = 460, 420
+    """Petit arbre décoratif réservé aux marges/coins."""
+    width, height = 1200, 120
     lines = _svg_open(width, height, "Petit arbre décoratif Aurore")
-    x = 230
     lines.extend([
-        f'<path d="M230 390 C224 320 228 260 230 220" fill="none" stroke="{c["strong"]}" stroke-width="24" stroke-linecap="round"/>',
-        f'<path d="M230 290 C180 250 135 220 95 185 M230 292 C280 250 330 220 365 180" fill="none" stroke="{c["strong"]}" stroke-width="15" stroke-linecap="round"/>',
-        f'<ellipse cx="95" cy="175" rx="72" ry="42" fill="{c["secondary"]}" stroke="{c["primary"]}" stroke-width="4"/>',
-        f'<ellipse cx="365" cy="170" rx="76" ry="44" fill="{c["secondary"]}" stroke="{c["primary"]}" stroke-width="4"/>',
-        f'<ellipse cx="230" cy="112" rx="90" ry="50" fill="{c["secondary"]}" stroke="{c["primary"]}" stroke-width="4"/>',
+        f'<path d="M600 98 C597 82 599 66 600 52" fill="none" stroke="{c["strong"]}" stroke-width="2.6" stroke-linecap="round"/>',
+        f'<path d="M600 74 C575 62 552 52 535 42 M600 74 C625 62 648 52 665 42" fill="none" stroke="{c["strong"]}" stroke-width="2.1" stroke-linecap="round"/>',
+        f'<ellipse cx="535" cy="40" rx="20" ry="10" fill="{c["secondary"]}"/>',
+        f'<ellipse cx="665" cy="40" rx="20" ry="10" fill="{c["secondary"]}"/>',
+        f'<ellipse cx="600" cy="24" rx="25" ry="12" fill="{c["secondary"]}"/>',
     ])
     lines += _svg_close()
     return lines
-
 def _render_force_diagram(spec: dict, c: dict) -> list[str]:
     width, height = 1200, 720
     title = _safe_text(spec.get("title") or "Représentation des forces", 160)
@@ -310,18 +312,18 @@ def _render_force_diagram(spec: dict, c: dict) -> list[str]:
     cy = 390.0
     shape = str(spec.get("object") or "bloc").lower().strip()
     if shape in {"point", "particle", "masse"}:
-        lines.append(f'<circle cx="{cx}" cy="{cy}" r="34" fill="{c["soft"]}" stroke="{c["strong"]}" stroke-width="5"/>')
+        lines.append(f'<circle cx="{cx}" cy="{cy}" r="34" fill="{c["soft"]}" stroke="{c["strong"]}" stroke-width="2.5"/>')
     elif shape in {"sphère", "sphere", "ball", "balle"}:
-        lines.append(f'<circle cx="{cx}" cy="{cy}" r="82" fill="{c["secondary"]}" fill-opacity="0.55" stroke="{c["strong"]}" stroke-width="6"/>')
+        lines.append(f'<circle cx="{cx}" cy="{cy}" r="82" fill="{c["secondary"]}" fill-opacity="0.55" stroke="{c["strong"]}" stroke-width="3"/>')
     else:
-        lines.append(f'<rect x="{cx-120}" y="{cy-76}" width="240" height="152" rx="18" fill="{c["soft"]}" stroke="{c["strong"]}" stroke-width="6"/>')
+        lines.append(f'<rect x="{cx-120}" y="{cy-76}" width="240" height="152" rx="18" fill="{c["soft"]}" stroke="{c["strong"]}" stroke-width="3"/>')
     lines.append(f'<text x="{cx}" y="{cy+10}" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="27" font-weight="700" fill="{c["strong"]}">{_esc(spec.get("object_label") or "Objet")}</text>')
     if spec.get("support"):
         lines.extend([
-            f'<line x1="170" y1="500" x2="1030" y2="500" stroke="{c["ink"]}" stroke-width="8"/>',
-            f'<path d="M180 500 l-20 28 m70-28 l-20 28 m70-28 l-20 28 m70-28 l-20 28 m70-28 l-20 28 m70-28 l-20 28 m70-28 l-20 28" stroke="{c["secondary"]}" stroke-width="4"/>',
+            f'<line x1="170" y1="500" x2="1030" y2="500" stroke="{c["ink"]}" stroke-width="3"/>',
+            f'<path d="M180 500 l-20 28 m70-28 l-20 28 m70-28 l-20 28 m70-28 l-20 28 m70-28 l-20 28 m70-28 l-20 28 m70-28 l-20 28" stroke="{c["secondary"]}" stroke-width="2"/>',
         ])
-    _arrow_marker(lines, "force-arrow", c["strong"], 10)
+    _arrow_marker(lines, "force-arrow", c["strong"], 7)
     forces = spec.get("forces") if isinstance(spec.get("forces"), list) else []
     palette = [c["strong"], c["primary"], c["secondary"], c["ink"]]
     for idx, force in enumerate(forces[:10]):
@@ -334,7 +336,7 @@ def _render_force_diagram(spec: dict, c: dict) -> list[str]:
         x1 = cx + 22 * __import__("math").cos(angle)
         y1 = cy + 22 * __import__("math").sin(angle)
         color = _hex(force.get("color"), palette[idx % len(palette)])
-        lines.append(f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="{color}" stroke-width="7" stroke-linecap="round" marker-end="url(#force-arrow)"/>')
+        lines.append(f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="{color}" stroke-width="3.2" stroke-linecap="round" marker-end="url(#force-arrow)"/>')
         label = _safe_text(force.get("name") or force.get("symbol") or f"Force {idx+1}", 80)
         value = _safe_text(force.get("value") or "", 60)
         suffix = f" · {value}" if value else ""
@@ -345,10 +347,10 @@ def _render_force_diagram(spec: dict, c: dict) -> list[str]:
             anchor = "start"
         elif __import__("math").cos(angle) < -0.35:
             anchor = "end"
-        _label_with_box(lines, label + suffix, lx, ly, c, accent=color, size=23, anchor=anchor)
+        _label_with_box(lines, label + suffix, lx, ly, c, accent=color, size=18, anchor=anchor)
         if force.get("symbol") and force.get("symbol") not in label:
             sy = ly + 25 if abs(__import__("math").sin(angle)) < 0.75 else ly
-            _label_with_box(lines, force.get("symbol"), lx, sy, c, accent=color, size=21, anchor=anchor)
+            _label_with_box(lines, force.get("symbol"), lx, sy, c, accent=color, size=17, anchor=anchor)
     lines += _svg_close()
     return lines
 
@@ -381,14 +383,14 @@ def _render_spring(spec: dict, c: dict) -> list[str]:
     compression = _num(spec.get("compression"), 0.0, 0.0, 0.75)
     anchor = str(spec.get("anchor") or "left").lower().strip()
     lines.extend([
-        f'<rect x="85" y="205" width="90" height="110" rx="12" fill="{c["soft"]}" stroke="{c["strong"]}" stroke-width="6"/>',
-        f'<path d="M95 220 v80 M115 220 v80 M135 220 v80 M155 220 v80" stroke="{c["secondary"]}" stroke-width="4"/>',
-        f'<line x1="1020" y1="205" x2="1020" y2="315" stroke="{c["strong"]}" stroke-width="6"/>',
-        f'<polyline points="{_spring_points(x1, x2, y, turns, amplitude, compression)}" fill="none" stroke="{c["primary"]}" stroke-width="7" stroke-linejoin="round" stroke-linecap="round"/>',
+        f'<rect x="85" y="205" width="90" height="110" rx="12" fill="{c["soft"]}" stroke="{c["strong"]}" stroke-width="3"/>',
+        f'<path d="M95 220 v80 M115 220 v80 M135 220 v80 M155 220 v80" stroke="{c["secondary"]}" stroke-width="2"/>',
+        f'<line x1="1020" y1="205" x2="1020" y2="315" stroke="{c["strong"]}" stroke-width="3"/>',
+        f'<polyline points="{_spring_points(x1, x2, y, turns, amplitude, compression)}" fill="none" stroke="{c["primary"]}" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"/>',
     ])
     if anchor in {"right", "droite", "both", "deux"}:
-        lines.append(f'<rect x="1035" y="205" width="80" height="110" rx="12" fill="{c["soft"]}" stroke="{c["strong"]}" stroke-width="6"/>')
-        lines.append(f'<path d="M1045 220 v80 M1065 220 v80 M1085 220 v80 M1105 220 v80" stroke="{c["secondary"]}" stroke-width="4"/>')
+        lines.append(f'<rect x="1035" y="205" width="80" height="110" rx="12" fill="{c["soft"]}" stroke="{c["strong"]}" stroke-width="3"/>')
+        lines.append(f'<path d="M1045 220 v80 M1065 220 v80 M1085 220 v80 M1105 220 v80" stroke="{c["secondary"]}" stroke-width="2"/>')
     label = _safe_text(spec.get("label") or "Ressort", 80)
     _label_with_box(lines, label, 600, 115, c, accent=c["strong"], size=28, anchor="middle")
     if compression > 0:
@@ -402,14 +404,14 @@ def _render_mass_spring(spec: dict, c: dict) -> list[str]:
     lines = _svg_open(width, height, title)
     x1, x2, y = 160.0, 820.0, 315.0
     lines.extend([
-        f'<rect x="80" y="225" width="85" height="180" rx="12" fill="{c["soft"]}" stroke="{c["strong"]}" stroke-width="6"/>',
-        f'<path d="M92 240 v150 M112 240 v150 M132 240 v150 M152 240 v150" stroke="{c["secondary"]}" stroke-width="4"/>',
-        f'<polyline points="{_spring_points(x1, x2, y, _int(spec.get("turns"), 11, 4, 24), _num(spec.get("amplitude"), 28, 12, 55), 0)}" fill="none" stroke="{c["primary"]}" stroke-width="7" stroke-linejoin="round" stroke-linecap="round"/>',
-        f'<rect x="825" y="225" width="235" height="180" rx="22" fill="{c["soft"]}" stroke="{c["strong"]}" stroke-width="7"/>',
+        f'<rect x="80" y="225" width="85" height="180" rx="12" fill="{c["soft"]}" stroke="{c["strong"]}" stroke-width="3"/>',
+        f'<path d="M92 240 v150 M112 240 v150 M132 240 v150 M152 240 v150" stroke="{c["secondary"]}" stroke-width="2"/>',
+        f'<polyline points="{_spring_points(x1, x2, y, _int(spec.get("turns"), 11, 4, 24), _num(spec.get("amplitude"), 28, 12, 55), 0)}" fill="none" stroke="{c["primary"]}" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"/>',
+        f'<rect x="825" y="225" width="235" height="180" rx="22" fill="{c["soft"]}" stroke="{c["strong"]}" stroke-width="3.2"/>',
         f'<text x="942" y="325" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="38" font-weight="700" fill="{c["strong"]}">{_esc(spec.get("mass_label") or "m")}</text>',
-        f'<line x1="1058" y1="180" x2="1058" y2="485" stroke="{c["ink"]}" stroke-width="5"/>',
+        f'<line x1="1058" y1="180" x2="1058" y2="485" stroke="{c["ink"]}" stroke-width="2.5"/>',
         f'<text x="600" y="120" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="27" font-weight="700" fill="{c["strong"]}">{_esc(spec.get("label") or "Masse–ressort")}</text>',
-        f'<line x1="170" y1="465" x2="1080" y2="465" stroke="{c["ink"]}" stroke-width="6"/>',
+        f'<line x1="170" y1="465" x2="1080" y2="465" stroke="{c["ink"]}" stroke-width="3"/>',
     ])
     lines += _svg_close()
     return lines
@@ -422,35 +424,35 @@ def _draw_circuit_component(lines: list[str], comp: dict, c: dict, idx: int) -> 
     stroke = _hex(comp.get("stroke"), c["strong"])
     if kind in {"battery", "pile", "generator"}:
         lines.extend([
-            f'<line x1="{x-14:.1f}" y1="{y-45:.1f}" x2="{x-14:.1f}" y2="{y+45:.1f}" stroke="{stroke}" stroke-width="8"/>',
-            f'<line x1="{x+18:.1f}" y1="{y-25:.1f}" x2="{x+18:.1f}" y2="{y+25:.1f}" stroke="{stroke}" stroke-width="8"/>',
+            f'<line x1="{x-14:.1f}" y1="{y-45:.1f}" x2="{x-14:.1f}" y2="{y+45:.1f}" stroke="{stroke}" stroke-width="3"/>',
+            f'<line x1="{x+18:.1f}" y1="{y-25:.1f}" x2="{x+18:.1f}" y2="{y+25:.1f}" stroke="{stroke}" stroke-width="3"/>',
         ])
     elif kind in {"lamp", "bulb", "lampe"}:
         lines.extend([
-            f'<circle cx="{x:.1f}" cy="{y:.1f}" r="47" fill="{fill}" stroke="{stroke}" stroke-width="6"/>',
-            f'<path d="M{x-25:.1f} {y-25:.1f} L{x+25:.1f} {y+25:.1f} M{x+25:.1f} {y-25:.1f} L{x-25:.1f} {y+25:.1f}" stroke="{stroke}" stroke-width="6"/>',
+            f'<circle cx="{x:.1f}" cy="{y:.1f}" r="47" fill="{fill}" stroke="{stroke}" stroke-width="3"/>',
+            f'<path d="M{x-25:.1f} {y-25:.1f} L{x+25:.1f} {y+25:.1f} M{x+25:.1f} {y-25:.1f} L{x-25:.1f} {y+25:.1f}" stroke="{stroke}" stroke-width="3"/>',
         ])
     elif kind in {"resistor", "résistance", "resistance"}:
-        lines.append(f'<rect x="{x-72:.1f}" y="{y-28:.1f}" width="144" height="56" rx="5" fill="{fill}" stroke="{stroke}" stroke-width="6"/>')
+        lines.append(f'<rect x="{x-72:.1f}" y="{y-28:.1f}" width="144" height="56" rx="5" fill="{fill}" stroke="{stroke}" stroke-width="3"/>')
     elif kind in {"switch", "interrupteur"}:
         closed = bool(comp.get("closed", False))
         lines.extend([
             f'<circle cx="{x-48:.1f}" cy="{y:.1f}" r="9" fill="{stroke}"/>',
             f'<circle cx="{x+48:.1f}" cy="{y:.1f}" r="9" fill="{stroke}"/>',
-            f'<line x1="{x-42:.1f}" y1="{y:.1f}" x2="{x+42:.1f}" y2="{y if closed else y-35:.1f}" stroke="{stroke}" stroke-width="7" stroke-linecap="round"/>',
+            f'<line x1="{x-42:.1f}" y1="{y:.1f}" x2="{x+42:.1f}" y2="{y if closed else y-35:.1f}" stroke="{stroke}" stroke-width="3.2" stroke-linecap="round"/>',
         ])
     elif kind in {"ammeter", "ampèremètre"}:
         lines.extend([
-            f'<circle cx="{x:.1f}" cy="{y:.1f}" r="45" fill="{fill}" stroke="{stroke}" stroke-width="6"/>',
+            f'<circle cx="{x:.1f}" cy="{y:.1f}" r="45" fill="{fill}" stroke="{stroke}" stroke-width="3"/>',
             f'<text x="{x:.1f}" y="{y+14:.1f}" text-anchor="middle" font-family="DejaVu Sans" font-size="35" font-weight="700" fill="{stroke}">A</text>',
         ])
     elif kind in {"voltmeter", "voltmètre"}:
         lines.extend([
-            f'<circle cx="{x:.1f}" cy="{y:.1f}" r="45" fill="{fill}" stroke="{stroke}" stroke-width="6"/>',
+            f'<circle cx="{x:.1f}" cy="{y:.1f}" r="45" fill="{fill}" stroke="{stroke}" stroke-width="3"/>',
             f'<text x="{x:.1f}" y="{y+14:.1f}" text-anchor="middle" font-family="DejaVu Sans" font-size="35" font-weight="700" fill="{stroke}">V</text>',
         ])
     else:
-        lines.append(f'<rect x="{x-68:.1f}" y="{y-34:.1f}" width="136" height="68" rx="12" fill="{fill}" stroke="{stroke}" stroke-width="6"/>')
+        lines.append(f'<rect x="{x-68:.1f}" y="{y-34:.1f}" width="136" height="68" rx="12" fill="{fill}" stroke="{stroke}" stroke-width="3"/>')
     label = _safe_text(comp.get("label") or comp.get("id") or kind, 60)
     _label_with_box(lines, label, x, y + 82, c, accent=stroke, size=21, anchor="middle")
     return x, y
@@ -488,7 +490,7 @@ def _render_circuit_custom(spec: dict, c: dict) -> list[str]:
         midx = (ax + bx) / 2
         # Deterministic orthogonal routing for readability.
         path = f"M{ax:.1f} {ay:.1f} H{midx:.1f} V{by:.1f} H{bx:.1f}"
-        lines.insert(2, f'<path d="{path}" fill="none" stroke="{wire_color}" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>')
+        lines.insert(2, f'<path d="{path}" fill="none" stroke="{wire_color}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>')
     note = _safe_text(spec.get("note") or "", 200)
     if note:
         _label_with_box(lines, note, 600, 675, c, size=21, anchor="middle")
@@ -499,31 +501,32 @@ def _render_circuit(spec: dict, c: dict) -> list[str]:
     width, height = 1200, 520
     lines = _svg_open(width, height, "Circuit électrique")
     lines.extend([
-        f'<path d="M150 150 H400 M800 150 H1050 V370 H150 V150" fill="none" stroke="{c["ink"]}" stroke-width="7"/>',
-        f'<rect x="400" y="110" width="120" height="80" rx="12" fill="{c["soft"]}" stroke="{c["strong"]}" stroke-width="5"/>',
+        f'<path d="M150 150 H400 M800 150 H1050 V370 H150 V150" fill="none" stroke="{c["ink"]}" stroke-width="3.2"/>',
+        f'<rect x="400" y="110" width="120" height="80" rx="12" fill="{c["soft"]}" stroke="{c["strong"]}" stroke-width="2.5"/>',
         f'<text x="460" y="160" text-anchor="middle" font-family="DejaVu Sans" font-size="27" font-weight="700" fill="{c["strong"]}">Pile</text>',
-        f'<rect x="680" y="110" width="120" height="80" rx="12" fill="{c["soft"]}" stroke="{c["primary"]}" stroke-width="5"/>',
+        f'<rect x="680" y="110" width="120" height="80" rx="12" fill="{c["soft"]}" stroke="{c["primary"]}" stroke-width="2.5"/>',
         f'<text x="740" y="160" text-anchor="middle" font-family="DejaVu Sans" font-size="27" font-weight="700" fill="{c["strong"]}">Lampe</text>',
-        f'<circle cx="600" cy="370" r="55" fill="{c["soft"]}" stroke="{c["strong"]}" stroke-width="5"/>',
+        f'<circle cx="600" cy="370" r="55" fill="{c["soft"]}" stroke="{c["strong"]}" stroke-width="2.5"/>',
         f'<text x="600" y="380" text-anchor="middle" font-family="DejaVu Sans" font-size="25" fill="{c["strong"]}">I</text>',
     ])
     lines += _svg_close()
     return lines
 
 def _render_tree(spec: dict, c: dict) -> list[str]:
+    """Schéma botanique scientifique, jamais une décoration générique."""
     width, height = 1200, 680
     lines = _svg_open(width, height, "Schéma d'arbre")
     lines.extend([
-        f'<path d="M600 620 C590 480 600 370 600 250" fill="none" stroke="{c["strong"]}" stroke-width="24" stroke-linecap="round"/>',
-        f'<path d="M600 390 C470 330 370 270 250 200 M600 390 C730 330 830 270 950 200" fill="none" stroke="{c["strong"]}" stroke-width="18" stroke-linecap="round"/>',
-        f'<path d="M600 300 C520 240 460 190 400 130 M600 300 C680 240 740 190 800 130" fill="none" stroke="{c["strong"]}" stroke-width="16" stroke-linecap="round"/>',
+        f'<path d="M600 620 C590 480 600 370 600 250" fill="none" stroke="{c["strong"]}" stroke-width="7" stroke-linecap="round"/>',
+        f'<path d="M600 390 C470 330 370 270 250 200 M600 390 C730 330 830 270 950 200" fill="none" stroke="{c["strong"]}" stroke-width="5.5" stroke-linecap="round"/>',
+        f'<path d="M600 300 C520 240 460 190 400 130 M600 300 C680 240 740 190 800 130" fill="none" stroke="{c["strong"]}" stroke-width="4.5" stroke-linecap="round"/>',
     ])
     for x,y,rx,ry in [(250,190,100,45),(950,190,100,45),(400,120,90,42),(800,120,90,42),(600,245,105,48)]:
-        lines.append(f'<ellipse cx="{x}" cy="{y}" rx="{rx}" ry="{ry}" fill="{c["secondary"]}" stroke="{c["primary"]}" stroke-width="4"/>')
-    lines.append(f'<text x="600" y="655" text-anchor="middle" font-family="DejaVu Sans" font-size="28" fill="{c["ink"]}">Aurore · schéma botanique</text>')
+        lines.append(f'<ellipse cx="{x}" cy="{y}" rx="{rx}" ry="{ry}" fill="{c["secondary"]}" stroke="{c["primary"]}" stroke-width="1.6"/>')
+    if spec.get("caption"):
+        lines.append(f'<text x="600" y="655" text-anchor="middle" font-family="DejaVu Sans" font-size="14" fill="{c["ink"]}">{_esc(spec.get("caption"))}</text>')
     lines += _svg_close()
     return lines
-
 RENDERERS = {
     "separator": _render_separator,
     "title_decor": _render_title_decor,
@@ -579,5 +582,6 @@ def render_graphics(graphics: object, assets_dir: Path, theme: dict | None = Non
             ) from exc
         svg_path = assets_dir / f"aurore-graphic-{index + 1}.svg"
         svg_path.write_text(svg, encoding="utf-8")
-        out.append({"index": index, "kind": kind, "svg_path": str(svg_path), "title": _safe_text(raw.get("title") or kind)})
+        role = "editorial" if kind in EDITORIAL_DECORATIVE_KINDS else "scientific"
+        out.append({"index": index, "kind": kind, "role": role, "svg_path": str(svg_path), "title": _safe_text(raw.get("title") or kind)})
     return out
