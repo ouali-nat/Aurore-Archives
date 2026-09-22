@@ -251,7 +251,7 @@ async function runGeneration(item){
       setProgress(8,'Job #'+jobId+' déjà enregistré dans Supabase — reprise serveur.');
     }
     if(msg){msg.dataset.state='';msg.textContent='Job #'+jobId+' en traitement. La file serveur continue même si cette page est fermée.';}
-    const workerPromise=cfFetch(SUPABASE_URL+'/functions/v1/aurora-content-worker',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({job_id:jobId})}).then(async r=>{const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}}return{ok:r.ok,status:r.status,data:d};}).catch(e=>({ok:false,status:0,data:{error:e.message||String(e)}}));
+    const workerPromise=cfFetch(SUPABASE_URL+'/functions/v1/aurora-content-auto-wake',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({job_id:jobId})}).then(async r=>{const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}}return{ok:r.ok,status:r.status,data:d};}).catch(e=>({ok:false,status:0,data:{error:e.message||String(e)}}));
     const poll=waitForJob(jobId);const results=await Promise.all([workerPromise,poll]),wr=results[0],jr=results[1];
     if(jr&&jr.status==='review'){
       const generatedId=Number(jr.generated_document_id||0);
