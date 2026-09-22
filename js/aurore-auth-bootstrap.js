@@ -17,16 +17,10 @@
   }
   let AURORE_SUPABASE_AUTH = window.supabase ? creerClientAuthGoogle() : null;
 
-  // Sur certains réseaux mobiles, le CDN jsdelivr est bloqué ou trop lent au
-  // chargement initial de la page : la librairie Supabase n'est alors pas
-  // encore prête et AURORE_SUPABASE_AUTH reste null. Plutôt que d'abandonner
-  // immédiatement, on retente ici avec un second CDN de secours (unpkg), et on
-  // ne signale l'échec qu'après avoir vraiment épuisé les deux options.
-  // Timeout explicite : certains blocages réseau (DNS filtrant, pare-feu)
-  // ne déclenchent ni onload ni onerror — la requête reste juste en attente
-  // indéfiniment. Sans ce délai, un CDN de secours filtré de la même façon
-  // bloquerait la connexion Google pour toujours au lieu d'échouer proprement.
-  function chargerScriptSupabase(url, delaiMs = 8000) {
+  // Le SDK Supabase est chargé en async pour que le navigateur puisse afficher
+  // Aurore et traiter rapidement le retour Google. On attend brièvement son
+  // chargement principal ; si le CDN reste bloqué, on bascule vers unpkg.
+  function chargerScriptSupabase(url, delaiMs = 7000) {
     return new Promise((resolve, reject) => {
       const s = document.createElement('script');
       let fini = false;
@@ -36,21 +30,49 @@
         reject(new Error('Délai dépassé (' + delaiMs + 'ms) : ' + url));
       }, delaiMs);
       s.src = url;
-      s.onload = () => { if (fini) return; fini = true; clearTimeout(minuteur); resolve(); };
-      s.onerror = () => { if (fini) return; fini = true; clearTimeout(minuteur); reject(new Error('Échec de chargement : ' + url)); };
+      s.onload = () => {
+        if (fini) return;
+        fini = true;
+        clearTimeout(minuteur);
+        resolve();
+      };
+      s.onerror = () => {
+        if (fini) return;
+        fini = true;
+        clearTimeout(minuteur);
+        reject(new Error('Échec de chargement : ' + url));
+      };
       document.head.appendChild(s);
     });
   }
 
+  async function attendreSdkSupabasePrincipal(delaiMs = 4500) {
+    if (window.supabase) return true;
+    const debut = Date.now();
+    while (!window.supabase && Date.now() - debut < delaiMs) {
+      if (window.__AURORE_SUPABASE_SDK_FAILED) break;
+      await new Promise(r => setTimeout(r, 80));
+    }
+    return !!window.supabase;
+  }
+
+  let __auroreSupabaseFallbackPromise = null;
   async function assurerClientAuthGoogle() {
     if (AURORE_SUPABASE_AUTH) return AURORE_SUPABASE_AUTH;
+
+    await attendreSdkSupabasePrincipal();
+
     if (!window.supabase) {
+      if (!__auroreSupabaseFallbackPromise) {
+        __auroreSupabaseFallbackPromise = chargerScriptSupabase('https://unpkg.com/@supabase/supabase-js@2');
+      }
       try {
-        await chargerScriptSupabase('https://unpkg.com/@supabase/supabase-js@2');
+        await __auroreSupabaseFallbackPromise;
       } catch (e) {
-        console.error('[Google OAuth] CDN de secours indisponible :', e);
+        console.error('[Google OAuth] CDN principal et secours indisponibles :', e);
       }
     }
+
     if (window.supabase && !AURORE_SUPABASE_AUTH) {
       AURORE_SUPABASE_AUTH = creerClientAuthGoogle();
     }
