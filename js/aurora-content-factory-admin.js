@@ -1306,7 +1306,7 @@ document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurre
   // concurrents et garantir le même comportement dans toutes les cartes.
   document.addEventListener('click',e=>{
     const confirm=e.target?.closest?.('[data-cf-confirm-job]');
-    if(confirm){e.preventDefault();e.stopImmediatePropagation();confirm.disabled=true;confirm.textContent='Confirmation…';void (window.auroreAdminConfirmContentJob?window.auroreAdminConfirmContentJob(Number(confirm.dataset.cfConfirmJob)):Promise.reject(new Error('Le contrôleur de confirmation n’est pas chargé.'))).catch(error=>{alert('La génération n’a pas pu être confirmée : '+(error?.message||error));confirm.disabled=false;confirm.textContent='Générer le document';});return;}
+    if(confirm){e.preventDefault();e.stopImmediatePropagation();confirm.disabled=true;confirm.textContent='Confirmation…';void (window.auroreAdminConfirmContentJob?window.auroreAdminConfirmContentJob(Number(confirm.dataset.cfConfirmJob)):Promise.reject(new Error('Le contrôleur de confirmation n’est pas chargé.'))).catch(error=>{alert('La génération n’a pas pu être confirmée : '+(error?.message||error));confirm.disabled=false;confirm.textContent='Choisir la couleur et générer le document';});return;}
     const button=e.target?.closest?.('[data-cf-render],[data-cf-validate],[data-cf-reject],[data-cf-publish],[data-cf-cancel],[data-cf-theme]');
     if(!button)return;
     if(button.hasAttribute('data-cf-cancel')){e.preventDefault();e.stopImmediatePropagation();void cancelPdfGeneration(Number(button.dataset.cfCancel));return;}
@@ -1572,7 +1572,7 @@ async function confirmContentJob(id){
 window.auroreAdminConfirmContentJob=confirmContentJob;
 function actions(x,k){
   if(x.contentJob){
-    if(x.job_status==='draft')return '<button type="button" class="admin-btn primary" data-cf-confirm-job="'+E(x.job_id)+'">Générer le document</button>';
+    if(x.job_status==='draft')return '<button type="button" class="admin-btn primary" data-cf-confirm-job="'+E(x.job_id)+'">Choisir la couleur et générer le document</button>';
     if(x.job_status==='queued')return '<span class="aap3prod">Génération confirmée · en file serveur</span>';
     if(x.job_status==='processing')return '<span class="aap3prod">Génération confirmée · traitement en cours</span>';
     return '';
