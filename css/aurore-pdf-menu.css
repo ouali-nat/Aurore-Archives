@@ -297,3 +297,94 @@
 #pdfViewerOverlay .pdf-recent-panel.open{
   margin-bottom:10px!important;
 }
+
+
+/* ---------- Présentation finale : chaque outil devient un bloc cohérent ---------- */
+#pdfViewerOverlay .pdf-reader-menu-panel{
+  gap:8px!important;
+  padding:10px!important;
+  background:var(--papier)!important;
+}
+#pdfViewerOverlay .pdf-reader-menu-panel > .pdf-menu-section,
+#pdfViewerOverlay .pdf-reader-menu-panel > .pdf-menu-item,
+#pdfViewerOverlay .pdf-reader-menu-panel > .pdf-recent-access{
+  box-sizing:border-box!important;
+  border:1px solid var(--bordure)!important;
+  border-radius:14px!important;
+  background:color-mix(in srgb,var(--fond) 88%,var(--theme-primary,var(--violet,#8B5CF6)) 12%)!important;
+  box-shadow:0 3px 10px rgba(0,0,0,.045)!important;
+}
+#pdfViewerOverlay .pdf-reader-menu-panel > .pdf-menu-section{
+  padding:10px!important;
+  gap:8px!important;
+}
+#pdfViewerOverlay .pdf-reader-menu-panel > .pdf-menu-divider{
+  display:none!important;
+}
+#pdfViewerOverlay .pdf-reader-menu-panel > .pdf-menu-item{
+  margin:0!important;
+  padding:10px 11px!important;
+  min-height:46px!important;
+}
+#pdfViewerOverlay .pdf-reader-menu-panel > .pdf-menu-item:hover,
+#pdfViewerOverlay .pdf-reader-menu-panel > .pdf-recent-access:hover{
+  border-color:color-mix(in srgb,var(--theme-primary,var(--violet,#8B5CF6)) 55%,var(--bordure))!important;
+  background:color-mix(in srgb,var(--theme-primary,var(--violet,#8B5CF6)) 10%,var(--fond))!important;
+}
+#pdfViewerOverlay .pdf-reader-menu-panel > .pdf-recent-access{
+  padding:4px!important;
+}
+#pdfViewerOverlay .pdf-reader-menu-panel > .pdf-recent-access .pdf-recent-toggle{
+  border:0!important;
+  background:transparent!important;
+  border-radius:10px!important;
+  min-height:42px!important;
+  margin:0!important;
+}
+#pdfViewerOverlay .pdf-reader-menu-panel > .pdf-recent-access .pdf-recent-panel.open{
+  margin:4px 0 0!important;
+}
+#pdfViewerOverlay #pdfViewerTelecharger,
+#pdfViewerOverlay #pdfViewerSignaler{
+  border-color:color-mix(in srgb,var(--theme-primary,var(--violet,#8B5CF6)) 24%,var(--bordure))!important;
+}
+#pdfViewerOverlay #pdfViewerTelecharger{margin-top:0!important;}
+#pdfViewerOverlay #pdfViewerSignaler{margin-top:0!important;}
+#pdfViewerOverlay .pdf-menu-zoom-row{
+  background:var(--papier)!important;
+  border-color:var(--bordure)!important;
+  padding:5px!important;
+}
+#pdfViewerOverlay .pdf-menu-zoom-btn{
+  border-color:color-mix(in srgb,var(--theme-primary,var(--violet,#8B5CF6)) 28%,var(--bordure))!important;
+  background:var(--fond)!important;
+  color:var(--encre)!important;
+}
+#pdfViewerOverlay .pdf-menu-zoom-btn:hover{
+  border-color:var(--theme-primary,var(--violet,#8B5CF6))!important;
+  background:color-mix(in srgb,var(--theme-primary,var(--violet,#8B5CF6)) 10%,var(--fond))!important;
+}
+#pdfViewerOverlay #pdfViewerAjuster{
+  margin-top:2px!important;
+  border-color:color-mix(in srgb,var(--theme-primary,var(--violet,#8B5CF6)) 34%,var(--bordure))!important;
+  background:color-mix(in srgb,var(--theme-primary,var(--violet,#8B5CF6)) 8%,var(--papier))!important;
+}
+#pdfViewerOverlay #pdfViewerAjuster span,
+#pdfViewerOverlay #pdfViewerModeLectureLabel,
+#pdfViewerOverlay #pdfRecentToggle span,
+#pdfViewerOverlay #pdfViewerTelecharger span,
+#pdfViewerOverlay #pdfViewerSignaler span{
+  color:var(--encre)!important;
+}
+#pdfViewerOverlay .pdf-reader-menu-panel .pdf-menu-item svg{
+  color:var(--theme-primary,var(--violet,#8B5CF6))!important;
+}
+#pdfViewerOverlay .pdf-reader-menu-panel #pdfViewerZoomLevel{
+  color:var(--theme-strong,var(--theme-primary,var(--violet,#8B5CF6)))!important;
+}
+@media(max-width:700px){
+  #pdfViewerOverlay .pdf-reader-menu-panel{gap:7px!important;padding:8px!important;}
+  #pdfViewerOverlay .pdf-reader-menu-panel > .pdf-menu-section,
+  #pdfViewerOverlay .pdf-reader-menu-panel > .pdf-menu-item,
+  #pdfViewerOverlay .pdf-reader-menu-panel > .pdf-recent-access{border-radius:13px!important;}
+}
