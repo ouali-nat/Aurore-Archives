@@ -1325,7 +1325,7 @@ document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurre
   },true);
   window.auroraContentFactoryPdfActions={
     render:(id,hasPdf,themeColor)=>handlePdfAction({action:'render',id,hasPdf,themeColor}),
-    chooseTheme:(defaultColor)=>chooseRegenerationTheme(defaultColor),
+    chooseTheme:(defaultColor,mode='regeneration')=>chooseRegenerationTheme(defaultColor,mode),
     validate:id=>handlePdfAction({action:'validate',id}),
     reject:id=>handlePdfAction({action:'reject',id}),
     publish:id=>handlePdfAction({action:'publish',id})
@@ -1533,7 +1533,9 @@ async function confirmContentJob(id){
     const design=metadata.aurore_design&&typeof metadata.aurore_design==='object'?metadata.aurore_design:{};
     const defaultColor=normalizeThemeColor(design.theme_color||metadata.theme_color||'#C85C0D');
 
-    const color=await chooseRegenerationTheme(defaultColor,'generation');
+    const chooseTheme=window.auroraContentFactoryPdfActions?.chooseTheme;
+    if(typeof chooseTheme!=='function')throw new Error('Le sélecteur de couleur du Content Factory n’est pas disponible.');
+    const color=await chooseTheme(defaultColor,'generation');
     if(!color){
       await load(true);
       return;
