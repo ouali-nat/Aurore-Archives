@@ -750,9 +750,10 @@
   // bouton ci-dessus. Les boutons ci-dessous portent exactement les mêmes
   // attributs data-* qu'auparavant : les gestionnaires de clic attachés par
   // rendreListeDocuments()/rendreRecentsAvecOutils() n'ont pas besoin de changer.
-  // Petit bouton permanent « Ouvrir » : accès direct au lecteur PDF du document.
+  // L'ouverture se fait depuis la carte/document. Aucun mini-bloc « Ouvrir »
+  // séparé ne doit être affiché sous la couverture PDF.
   function boutonOuvrirCarteDocumentMarkup() {
-    return '<button type="button" class="doc-open-btn" data-ouvrir-pdf="1" aria-label="Ouvrir le PDF" title="Ouvrir le PDF"><span aria-hidden="true">↗</span><span>Ouvrir</span></button>';
+    return '';
   }
 
   function panneauActionsCarteDocumentMarkup(telechargementOk) {
