@@ -1238,6 +1238,10 @@ def _auto_math_normalize_fragment(fragment):
     }))
     value = re.sub(r"(\\in|\\notin)\s*R\b", r"\1\\mathbb{R}", value)
     value = re.sub(r"\\sqrt\s+([A-Za-z0-9_]+)", r"\\sqrt{\1}", value)
+    value = re.sub(r"\bz([0-9]+)\b", r"z_{\1}", value)
+    value = re.sub(r"\bC\(([^(),]+),([^(),]+)\)", r"\\binom{\1}{\2}", value)
+    value = re.sub(r"\bVar(?=\s*\()", r"\\operatorname{Var}", value)
+    value = re.sub(r"\bE(?=\s*\()", r"\\mathbb{E}", value)
     value = re.sub(
         r"\b(?:conjugué|conjuguée)\s+([A-Za-z](?:_[A-Za-z0-9]+)?)",
         r"\\overline{\1}",
@@ -2074,8 +2078,7 @@ def render(data):
                 used_correction_numbers.add(number)
         for number, solution in inline_exercise_corrections:
             if solution and number not in corrections_by_number:
-                lines.append(r"\Needspace{4\baselineskip}")
-                lines.append(r"\AuroreExerciseSeriesCorrection{" + str(number) + r"}{" + inline(solution) + r"}")
+                lines.append(r"\AuroreExerciseSeriesCorrection{" + str(number) + r"}{" + inline(solution, auto_math=True) + r"}")
 
     unmatched = [] if is_exercise_document else [
         c for c in data.get("corrections", [])
