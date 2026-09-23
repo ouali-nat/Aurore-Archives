@@ -1,8 +1,6 @@
 import sys
 from pathlib import Path
 
-import pytest
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from render_document import (
     _document_kind,
@@ -98,5 +96,8 @@ def test_exercise_render_uses_exercise_cover_and_ignores_section_content():
 def test_locked_profile_cannot_switch_kind():
     good = exercise_doc()
     good["_aurore_profile"] = {"kind": "cours", "lock": True}
-    with pytest.raises(ValueError):
+    try:
         _edition_profile(good)
+    except ValueError:
+        return
+    raise AssertionError("A locked course profile was allowed on an exercise document")
