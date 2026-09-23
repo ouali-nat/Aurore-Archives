@@ -341,6 +341,10 @@ const renderGraphInBrowser = async (graph) => {
       const e=expr(graph?.expression); if (e) commands.push("f(x,y)="+e);
     } else if (instrument === "geometry3d") {
       commands.push(...geometryCommands(graph));
+    } else if (instrument === "complex_plane") {
+      // Complex-plane illustrations are represented by explicit 2D solution
+      // points. Do not inject the symbolic z^6=64 relation as f(x)=...;
+      // GeoGebra only needs the solution points and the coordinate axes.
     } else {
       const raw = String(graph?.expression || "").trim();
       const e = expr(raw);
@@ -371,14 +375,16 @@ const renderGraphInBrowser = async (graph) => {
           commands.push("P"+pointIndex+"=("+px+","+py+")");
         }
       }
-      commands.push(
-        "O=(0,0)",
-        "I=(1,0)",
-        "J=(0,1)",
-        "SetLabelVisible(O,true)",
-        "SetLabelVisible(I,true)",
-        "SetLabelVisible(J,true)",
-      );
+      if (instrument !== "complex_plane") {
+        commands.push(
+          "O=(0,0)",
+          "I=(1,0)",
+          "J=(0,1)",
+          "SetLabelVisible(O,true)",
+          "SetLabelVisible(I,true)",
+          "SetLabelVisible(J,true)",
+        );
+      }
     }
 
     try {
@@ -420,12 +426,14 @@ const renderGraphInBrowser = async (graph) => {
                 try { a.setAxisLabels(1,String(graph?.x_label || "x"),String(graph?.y_label || "y")); } catch {}
               }
 
-              const primary = commands.filter((c) =>
-                /(?:Curve|Sphere|Cylinder|Cone|Cube|Prism|Pyramid|Tetrahedron|Polygon|Line|Plane|Vector)\s*\(/i.test(c) ||
-                /^f\s*\(\s*x(?:\s*,\s*y)?\s*\)\s*=/.test(c) ||
-                /^[^=]+=[^=]+$/.test(c) ||
-                /^[A-Za-z][A-Za-z0-9_]*=\([^)]*\)$/.test(c)
-              );
+              const primary = instrument === "complex_plane"
+                ? commands.filter((c) => /^P\d+=\([-0-9.,]+\)$/.test(c))
+                : commands.filter((c) =>
+                    /(?:Curve|Sphere|Cylinder|Cone|Cube|Prism|Pyramid|Tetrahedron|Polygon|Line|Plane|Vector)\s*\(/i.test(c) ||
+                    /^f\s*\(\s*x(?:\s*,\s*y)?\s*\)\s*=/.test(c) ||
+                    /^[^=]+=[^=]+$/.test(c) ||
+                    /^[A-Za-z][A-Za-z0-9_]*=\([^)]*\)$/.test(c)
+                  );
               if (!primary.length) {
                 clearTimeout(timer);
                 finish(reject, new Error("Aucune commande GeoGebra de construction exploitable."));
