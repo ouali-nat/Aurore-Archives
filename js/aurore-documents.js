@@ -1178,7 +1178,7 @@
       windowBox.tabIndex = 0;
 
       const list = document.createElement('div');
-      list.className = 'doc-list aurore-resource-list';
+      list.className = 'doc-list aurore-general-resource-list';
 
       if (!items.length) {
         const empty = document.createElement('div');
