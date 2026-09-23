@@ -1713,6 +1713,7 @@ def display_formula(s):
     ])
 
 
+# Aurore editorial profiles are resolved before rendering so course/exercise regeneration stays isolated.
 _EXERCISE_DOCUMENT_TYPES = frozenset({
     "exercice", "exercices", "exercise", "exercises",
     "serie exercices", "série exercices", "serie d exercices",
