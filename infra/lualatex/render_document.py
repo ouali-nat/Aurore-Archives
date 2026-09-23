@@ -1342,9 +1342,10 @@ def _render_bare_latex_fragments(text, auto_math=False):
     patterns = [
         r"\\frac\{(?:[^{}]|\{[^{}]*\})*\}\{(?:[^{}]|\{[^{}]*\})*\}",
         r"\\overline\{[^{}]*\}",
+        r"\\(?:textbf|textit|textrm|textsf|texttt|emph|underline)\{[^{}]*\}",
         r"\\text\{[^{}]*\}",
         r"\\(?:sqrt|mathrm|mathbf|mathit)\{[^{}]*\}",
-        r"\\(?:gamma|delta|alpha|beta|theta|lambda|mu|pi|infty|approx|pm|times|cdot|leq|geq|neq)\b",
+        r"\\(?:gamma|delta|alpha|beta|theta|lambda|mu|pi|infty|approx|pm|times|cdot|leq|geq|neq|iff|Longrightarrow|Rightarrow|Longleftarrow|Leftrightarrow)\b",
         r"\\,",
         r"\\quad",
     ]
@@ -1512,16 +1513,40 @@ def _split_exercise_text(value, mode="question"):
 
 def render_exercise_text(value, mode="question"):
     lines = []
+    display_pattern = re.compile(r"(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\])")
     for part in _split_exercise_text(value, mode=mode):
         m = re.match(r"^(\d+[.)])\s+(.+)$", part, flags=re.DOTALL)
+        prefix = ""
+        body = m.group(2) if m else part
         if m:
-            lines.append(
-                r"{\sffamily\bfseries\color{auroredeep}" + tex_text(m.group(1)) + r"}\enspace "
-                + inline(m.group(2), auto_math=True)
+            prefix = (
+                r"{\sffamily\bfseries\color{auroredeep}" + tex_text(m.group(1)) +
+                r"}\enspace "
             )
-        else:
-            lines.append(inline(part, auto_math=True))
-        lines.append(r"\par\smallskip")
+
+        segments = [x for x in display_pattern.split(body) if x]
+        first_text = True
+        for segment in segments:
+            if display_pattern.fullmatch(segment):
+                math = segment
+                if math.startswith("$") and math.endswith("$"):
+                    math = math[2:-2].strip()
+                else:
+                    math = math[2:-2].strip()
+                lines.append(r"\par\medskip")
+                lines.append(r"\begin{equation*}" + normalize_math(math) + r"\end{equation*}")
+                lines.append(r"\par\smallskip")
+                continue
+
+            rendered = inline(segment, auto_math=True)
+            if not rendered.strip():
+                continue
+            if first_text and prefix:
+                lines.append(prefix + rendered)
+            else:
+                lines.append(rendered)
+            first_text = False
+            lines.append(r"\par\smallskip")
     return lines
 
 
