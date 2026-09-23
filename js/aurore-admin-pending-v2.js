@@ -111,18 +111,34 @@ function render(){
  if(!STATE.filtered.length){list.innerHTML='<div class="admin-pending-v2-empty"><strong>Aucun document Aurore dans le sas.</strong><span>Le sas ne contient que les demandes Content Factory encore sans document PDF associé.</span></div>';return}
  list.innerHTML=STATE.filtered.map(j=>{
    const s=statusOf(j),label=s==='processing'?'Génération en cours':s==='queued'?'En file d’attente':'Brouillon';
-   return '<article class="admin-pending-v2-card" style="--pending-theme:'+esc(j.theme)+'"><div class="admin-pending-v2-card-accent"></div><div class="admin-pending-v2-card-main">'+
+   return '<article class="admin-pending-v2-card" data-pending-job-id="'+j.id+'" style="--pending-theme:'+esc(j.theme)+'"><div class="admin-pending-v2-card-accent"></div><div class="admin-pending-v2-card-main">'+
    '<div class="admin-pending-v2-card-head"><div><span class="admin-pending-v2-source">Aurore — Content Factory</span><h3 class="admin-pending-v2-title">'+esc(j.title)+'</h3></div><span class="admin-pending-v2-id">Job #'+j.id+'</span></div>'+
    progress(j)+
-   '<div class="admin-pending-v2-grid"><div><b>Date</b><span>'+esc(fmt(j.created))+'</span></div><div><b>Classe</b><span>'+esc(j.className)+'</span></div><div><b>Niveau</b><span>'+esc(j.level)+'</span></div><div><b>Matière</b><span>'+esc(j.subject)+'</span></div><div><b>Type</b><span>'+esc(j.type)+'</span></div><div><b>État</b><span>'+esc(label)+'</span></div></div>'+
+   '<div class="admin-pending-v2-grid"><div><b>Date</b><span>'+esc(fmt(j.created))+'</span></div><div><b>Classe</b><span>'+esc(j.className)+'</span></div><div><b>Niveau</b><span>'+esc(j.level)+'</span></div><div><b>Matière</b><span>'+esc(j.subject)+'</span></div><div><b>Type</b><span>'+esc(j.type)+'</span></div><div><b>État</b><span data-pending-state>'+esc(label)+'</span></div></div>'+
    '<div class="admin-pending-v2-classification">Matière : '+esc(j.subject)+' · Niveau : '+esc(j.level)+' · Classe : '+esc(j.className)+' · Origine : Aurore</div>'+
-   '<div class="admin-pending-v2-status"><strong>'+esc(label)+'</strong> · PDF pas encore associé</div>'+
+   '<div class="admin-pending-v2-status"><strong data-pending-status>'+esc(label)+'</strong> · PDF pas encore associé</div>'+
    '<div class="admin-pending-v2-theme"><span style="background:'+esc(j.theme)+'"></span><div><b>Couleur du document</b><small>'+esc(j.theme)+' · modifiable avant lancement</small></div></div>'+
    (j.error?'<div class="admin-pending-v2-error">'+esc(j.error)+'</div>':'')+
    '<div class="admin-pending-v2-note">La régénération PDF, la validation et la publication interviennent dans l’espace « Documents générés » dès que le document PDF existe.</div>'+
    actions(j)+'</div></article>';
  }).join('');
  list.querySelectorAll('[data-action]').forEach(b=>b.addEventListener('click',()=>runAction(b)));
+}
+function syncPendingDynamic(){
+ STATE.jobs.forEach(j=>{
+  const card=document.querySelector('[data-pending-job-id="'+CSS.escape(String(j.id))+'"]');
+  if(!card)return;
+  const nextProgress=progress(j),currentProgress=card.querySelector('.admin-pending-v2-progress');
+  if(currentProgress)currentProgress.outerHTML=nextProgress;
+  else{
+   const grid=card.querySelector('.admin-pending-v2-grid');
+   if(grid)grid.insertAdjacentHTML('beforebegin',nextProgress);
+  }
+  const label=statusOf(j)==='processing'?'Génération en cours':statusOf(j)==='queued'?'En file d’attente':'Brouillon';
+  const state=card.querySelector('[data-pending-state]'),status=card.querySelector('[data-pending-status]');
+  if(state)state.textContent=label;
+  if(status)status.textContent=label;
+ });
 }
 async function runAction(b){
  const j=STATE.jobs.find(x=>x.id===Number(b.dataset.id));if(!j)return;b.disabled=true;
@@ -147,8 +163,8 @@ async function chargerDocumentsEnAttenteAdminV2(){
   const nextJobs=(Array.isArray(raw)?raw:[]).map(normalise);
   const nextFingerprint=JSON.stringify(nextJobs.map(j=>({
    id:j.id,title:j.title,level:j.level,className:j.className,subject:j.subject,type:j.type,
-   created:j.created,updated:j.updated,status:j.status,generatedDocumentId:j.generatedDocumentId,
-   theme:j.theme,error:j.error,progress:j.progress,stage:j.stage
+   created:j.created,status:j.status,generatedDocumentId:j.generatedDocumentId,
+   theme:j.theme,error:j.error
   })));
   const changed=nextFingerprint!==STATE.fingerprint;
   const liveIds=new Set(nextJobs.map(j=>j.id));
@@ -159,7 +175,7 @@ async function chargerDocumentsEnAttenteAdminV2(){
   populate('adminPendingV2Level',STATE.jobs.map(j=>j.level),'Tous les niveaux');
   populate('adminPendingV2Subject',STATE.jobs.map(j=>j.subject),'Toutes les matières');
   const note=document.getElementById('adminPendingV2Note');if(note)note.textContent='Sas Aurore uniquement : demandes brouillon, en file ou en production qui n’ont pas encore produit de document PDF. Les documents générés ont leur propre page.';
-  if(initialLoad || changed) render();
+  if(initialLoad || changed) render(); else syncPendingDynamic();
  }catch(e){
   console.error('[ADMIN][AURORE PENDING] chargement',e);
   if(!STATE.loaded){
