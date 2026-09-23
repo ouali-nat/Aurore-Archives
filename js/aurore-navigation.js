@@ -272,18 +272,21 @@
     // Retour matériel doit donc fermer uniquement l'overlay.
     if (document.getElementById('pdfViewerOverlay')?.style.display === 'block') {
       fermerLecteurPDF();
+      if (await restaurerSnapshotNavigation(e.state)) return;
       return;
     }
 
     // Même principe pour la page Wikipédia Aurore.
     if (document.getElementById('wikiViewerOverlay')?.style.display === 'block') {
       if (typeof window.auroreFermerArticleWikipedia === 'function') window.auroreFermerArticleWikipedia();
+      if (await restaurerSnapshotNavigation(e.state)) return;
       return;
     }
 
     // Même principe pour le graphique Aurora agrandi.
     if (document.getElementById('auroraGraphOverlay')?.style.display === 'flex') {
       if (typeof window.auroraFermerGrandGraphique === 'function') window.auroraFermerGrandGraphique({fromPopState:true});
+      if (await restaurerSnapshotNavigation(e.state)) return;
       return;
     }
 
@@ -293,36 +296,14 @@
     // Même principe pour la fiche de gestion admin.
     if (document.getElementById('adminDetail')?.style.display === 'block') {
       fermerFicheAdmin();
+      if (await restaurerSnapshotNavigation(e.state)) return;
       return;
     }
 
     const state=e.state;
     if(!state || !state.aurasterNavigation) return;
 
-    navigationParPopState=true;
-    navigationRestaurationEnCours=true;
-    try {
-      // Le snapshot est restauré avant toute nouvelle navigation. Le verrou
-      // reste actif pendant les éventuels fetch() de restauration : aucun
-      // callback asynchrone ne peut recréer une entrée d'historique.
-      etat=state.etatAuraster ? JSON.parse(JSON.stringify(state.etatAuraster)) : etatNavigationVide();
-      await restaurerVueHistorique(state.ecranAuraster);
-      majFilAriane();
-
-      const scrollY = Number(state.scrollY) || 0;
-
-      // Attendre deux frames : le DOM restauré est peint avant la remise à la
-      // position exacte enregistrée dans l'historique.
-      await new Promise(resolve => requestAnimationFrame(() =>
-        requestAnimationFrame(resolve)
-      ));
-      window.scrollTo({top:scrollY,behavior:'auto'});
-    } catch(err) {
-      console.warn('[Aurore] restauration historique',err);
-    } finally {
-      navigationRestaurationEnCours=false;
-      navigationParPopState=false;
-    }
+    await restaurerSnapshotNavigation(state);
   });
 
   window.addEventListener('scroll',()=>{
@@ -347,6 +328,30 @@
   // Les liens ?document=ID sont publics : aucune connexion n’est nécessaire.
 
   ouvrirDocumentDepuisLienPartage();
+
+  async function restaurerSnapshotNavigation(state) {
+    if(!state || !state.aurasterNavigation) return false;
+    navigationParPopState=true;
+    navigationRestaurationEnCours=true;
+    try {
+      etat=state.etatAuraster ? JSON.parse(JSON.stringify(state.etatAuraster)) : etatNavigationVide();
+      await restaurerVueHistorique(state.ecranAuraster);
+      majFilAriane();
+
+      const scrollY=Number(state.scrollY)||0;
+      await new Promise(resolve => requestAnimationFrame(() =>
+        requestAnimationFrame(resolve)
+      ));
+      window.scrollTo({top:scrollY,behavior:'auto'});
+      return true;
+    } catch(err) {
+      console.warn('[Aurore] restauration historique',err);
+      return false;
+    } finally {
+      navigationRestaurationEnCours=false;
+      navigationParPopState=false;
+    }
+  }
 
   function majFilAriane() {
     const bc = document.getElementById('breadcrumb');
