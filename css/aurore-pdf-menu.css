@@ -388,3 +388,62 @@
   #pdfViewerOverlay .pdf-reader-menu-panel > .pdf-menu-item,
   #pdfViewerOverlay .pdf-reader-menu-panel > .pdf-recent-access{border-radius:13px!important;}
 }
+
+
+/* ---------- Thème et empilement final du menu PDF ---------- */
+#pdfViewerOverlay .pdf-reader-menu-toggle,
+#pdfViewerOverlay .pdf-reader-menu-toggle svg,
+#pdfViewerOverlay .pdf-menu-item svg,
+#pdfViewerOverlay .pdf-menu-section-title,
+#pdfViewerOverlay .pdf-recent-item-remove{
+  color:var(--encre)!important;
+}
+#pdfViewerOverlay .pdf-reader-menu-toggle:hover,
+#pdfViewerOverlay .pdf-reader-menu-toggle[aria-expanded="true"]{
+  border-color:var(--theme-primary,var(--violet,#8B5CF6))!important;
+  color:var(--theme-primary,var(--violet,#8B5CF6))!important;
+}
+#pdfViewerOverlay .pdf-reader-menu-panel{
+  position:absolute!important;
+  isolation:isolate!important;
+}
+#pdfViewerOverlay .pdf-recent-access{
+  position:relative!important;
+  z-index:1!important;
+}
+#pdfViewerOverlay .pdf-recent-panel{
+  position:relative!important;
+  z-index:2!important;
+}
+#pdfViewerOverlay #pdfViewerTelecharger{
+  position:relative!important;
+  z-index:1!important;
+  margin-top:0!important;
+}
+#pdfViewerOverlay #pdfViewerSignaler{
+  position:relative!important;
+  z-index:1!important;
+  margin-top:0!important;
+}
+#pdfViewerOverlay .pdf-menu-divider{
+  flex:0 0 1px!important;
+}
+
+/* Lecture immersive : seul le PDF reste visible. */
+#pdfViewerOverlay.pdf-immersive .pdf-reader-topbar,
+#pdfViewerOverlay.pdf-immersive .pdf-reader-bottombar,
+#pdfViewerOverlay.pdf-immersive .pdf-load-progress-dock{
+  opacity:0!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+  transform:translateY(-10px)!important;
+}
+#pdfViewerOverlay.pdf-immersive .pdf-reader-zone-wrap{
+  inset:0!important;
+  height:100%!important;
+}
+#pdfViewerOverlay.pdf-immersive .pdf-reader-zone{
+  height:100%!important;
+  padding-top:18px!important;
+  padding-bottom:18px!important;
+}
