@@ -147,7 +147,7 @@ jobs:
               if not isinstance(g, dict):
                   return False
               instrument=str(g.get("instrument") or g.get("graph_type") or "").lower().strip()
-              aliases={"function":"function2d","graph":"function2d","courbe":"function2d","parametric":"parametric2d","geometrie3d":"geometry3d","3d":"geometry3d"}
+              aliases={"function":"function2d","graph":"function2d","courbe":"function2d","complex_plane":"complex_plane","parametric":"parametric2d","geometrie3d":"geometry3d","3d":"geometry3d"}
               instrument=aliases.get(instrument,instrument)
               points=g.get("points") if isinstance(g.get("points"),list) else []
               objects=g.get("objects") if isinstance(g.get("objects"),list) else []
@@ -157,7 +157,7 @@ jobs:
               y=str(g.get("y_expression") or "").strip()
               z=str(g.get("z_expression") or "").strip()
               asym=g.get("asymptotes") if isinstance(g.get("asymptotes"),list) else []
-              if instrument=="function2d": return bool(expr or asym or any(isinstance(p,list) and len(p)==2 for p in points))
+              if instrument in ("function2d","complex_plane"): return bool(expr or asym or any(isinstance(p,list) and len(p)==2 for p in points))
               if instrument=="parametric2d": return bool(x and y)
               if instrument=="parametric3d": return bool(x and y and z)
               if instrument=="surface3d": return bool(expr)
