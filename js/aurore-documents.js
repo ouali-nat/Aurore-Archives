@@ -840,29 +840,39 @@
     style.textContent = `
       /* Accès direct au PDF : petit bouton permanent sur chaque carte publique. */
       .doc-open-btn{
-        position:absolute!important;
-        left:8px!important;
-        top:8px!important;
-        z-index:6!important;
-        display:inline-flex!important;
+        position:relative!important;
+        left:auto!important;
+        top:auto!important;
+        z-index:4!important;
+        align-self:stretch!important;
+        width:calc(100% - 22px)!important;
+        margin:0 11px 10px!important;
+        box-sizing:border-box!important;
+        display:flex!important;
         align-items:center!important;
         justify-content:center!important;
-        gap:4px!important;
-        min-height:28px!important;
-        padding:4px 8px!important;
-        border:1px solid rgba(255,255,255,.7)!important;
-        border-radius:999px!important;
-        background:rgba(255,255,255,.94)!important;
-        color:var(--theme-primary,#6d28d9)!important;
-        box-shadow:0 2px 8px rgba(0,0,0,.14)!important;
-        font-size:.62rem!important;
-        line-height:1!important;
+        gap:6px!important;
+        min-height:36px!important;
+        padding:7px 10px!important;
+        border:1px solid color-mix(in srgb,var(--theme-primary,#6d28d9) 42%,var(--bordure,#ddd))!important;
+        border-radius:10px!important;
+        background:color-mix(in srgb,var(--theme-primary,#6d28d9) 10%,var(--fond,#f7f5fb))!important;
+        color:var(--theme-strong,var(--theme-primary,#6d28d9))!important;
+        box-shadow:0 3px 10px rgba(0,0,0,.06)!important;
+        font-size:.68rem!important;
+        line-height:1.1!important;
         font-weight:900!important;
         cursor:pointer!important;
-        backdrop-filter:blur(6px)!important;
+        transition:transform .15s ease,background .15s ease,border-color .15s ease,box-shadow .15s ease!important;
       }
-      .doc-open-btn span:first-child{font-size:.8rem!important;line-height:1!important}
-      .doc-open-btn:active{transform:translateY(1px)!important}
+      .doc-open-btn:hover{
+        transform:translateY(-1px)!important;
+        background:color-mix(in srgb,var(--theme-primary,#6d28d9) 16%,var(--fond,#f7f5fb))!important;
+        border-color:var(--theme-primary,#6d28d9)!important;
+        box-shadow:0 6px 14px rgba(0,0,0,.09)!important;
+      }
+      .doc-open-btn span:first-child{font-size:.82rem!important;line-height:1!important}
+      .doc-open-btn:active{transform:translateY(0)!important}
       .doc-open-btn:focus-visible{outline:2px solid var(--theme-primary,#6d28d9)!important;outline-offset:2px!important}
 
       #screen-docs .doc-list:not(.aurore-resource-list){
