@@ -53,11 +53,9 @@
   }
 
   function calculerZoomInitialPDF() {
-    // Compensation douce du zoom global : 109 % sur le site ouvre
-    // naturellement le lecteur autour de 75 %, sans toucher au zoom global.
-    const zoomSite = lireZoomGlobalPourLecteurPDF();
-    const cible = PDF_ZOOM_CONFORT_BASE * (100 / zoomSite);
-    return Math.max(PDF_ZOOM_MIN, Math.min(1, Math.round(cible * 100) / 100));
+    // Le lecteur démarre volontairement à 60 %. Le zoom global du site est
+    // neutralisé à 100 % pendant la lecture puis restauré à la fermeture.
+    return 0.60;
   }
   let PDF_MODE_LECTURE = 'vertical'; // vertical = défilement continu ; horizontal = pages côte à côte
   // Cache mémoire court : rouvrir un PDF déjà consulté évite un nouveau téléchargement.
@@ -1327,6 +1325,37 @@ async function telechargerDocumentAvecProgression(doc) {
 
   document.getElementById('pdfViewerZoomIn').addEventListener('click', () => appliquerZoom(PDF_ZOOM_PAS));
   document.getElementById('pdfViewerZoomOut').addEventListener('click', () => appliquerZoom(-PDF_ZOOM_PAS));
+
+  // Appui prolongé : après le premier pas, le zoom continue de 1 % en 1 %
+  // tant que le doigt/souris reste appuyé sur + ou −.
+  function installerAppuiProlongeZoom(id, delta) {
+    const bouton=document.getElementById(id);
+    if(!bouton) return;
+    let timer=null;
+    let actif=false;
+    let dernierPas=0;
+    const arreter=()=>{
+      actif=false;
+      if(timer){clearInterval(timer);timer=null;}
+    };
+    bouton.addEventListener('pointerdown',()=>{
+      arreter();
+      actif=true;
+      dernierPas=Date.now();
+      timer=setInterval(()=>{
+        if(!actif) return;
+        dernierPas=Date.now();
+        appliquerZoom(delta);
+      },90);
+    });
+    ['pointerup','pointercancel','pointerleave'].forEach(type=>{
+      bouton.addEventListener(type,arreter);
+    });
+    bouton.addEventListener('blur',arreter);
+  }
+  installerAppuiProlongeZoom('pdfViewerZoomIn', PDF_ZOOM_PAS);
+  installerAppuiProlongeZoom('pdfViewerZoomOut', -PDF_ZOOM_PAS);
+
   document.getElementById('pdfViewerAjuster').addEventListener('click', () => appliquerZoom(1,true));
 
   // Pinçage à deux doigts : zoom progressif par petits pas de 1 %.
