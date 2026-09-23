@@ -1729,16 +1729,36 @@ async function load(force){
   loading=true;
   const thisLoad=++loadGeneration;
   try{
-    const generatedReq=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?select=id,job_id,created_at,updated_at,created_by,title,subject,matiere,level,class_name,document_type,domaine,formation,specialite,annee,semestre,filiere,theme_color,source_format,pdf_path,pdf_url,version,status,validation_notes,published_document_id,metadata,pdf_diagnostic&order=created_at.desc&limit=2000',{cache:'no-store'});
-    const gt=await generatedReq.text();
-    if(!generatedReq.ok)throw new Error(gt||('HTTP '+generatedReq.status));
-    const generated=gt?JSON.parse(gt):[];
+    // Les demandes Content Factory sont affichées indépendamment de l'inventaire
+    // des PDF : une erreur sur aurora_generated_documents ne doit jamais masquer
+    // une demande brouillon/en file qui attend encore sa production.
+    let generated=[];
+    try{
+      const generatedReq=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?select=id,job_id,created_at,updated_at,created_by,title,subject,matiere,level,class_name,document_type,domaine,formation,specialite,annee,semestre,filiere,theme_color,source_format,pdf_path,pdf_url,version,status,validation_notes,published_document_id,metadata,pdf_diagnostic&order=created_at.desc&limit=2000',{cache:'no-store'});
+      const gt=await generatedReq.text();
+      if(generatedReq.ok){
+        const parsed=gt?JSON.parse(gt):[];
+        generated=Array.isArray(parsed)?parsed:[];
+      }else{
+        console.warn('[Aurore Admin PDF] inventaire aurora_generated_documents indisponible',generatedReq.status);
+      }
+    }catch(generatedError){
+      console.warn('[Aurore Admin PDF] lecture des PDF générés indisponible',generatedError);
+    }
+
     let jobs=[];
     try{
       const jobsReq=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?select=id,created_at,updated_at,status,title,subject,level,class_name,document_type,generated_document_id,error_message,metadata&status=in.(draft,queued,processing)&order=created_at.desc&limit=500',{cache:'no-store'});
       const jt=await jobsReq.text();
-      if(jobsReq.ok)jobs=jt?JSON.parse(jt):[];
-    }catch(_){jobs=[];}
+      if(jobsReq.ok){
+        const parsedJobs=jt?JSON.parse(jt):[];
+        jobs=Array.isArray(parsedJobs)?parsedJobs:[];
+      }else{
+        console.warn('[Aurore Admin PDF] demandes Content Factory indisponibles',jobsReq.status);
+      }
+    }catch(jobsError){
+      console.warn('[Aurore Admin PDF] lecture des demandes Content Factory indisponible',jobsError);
+    }
 
     let next=Array.isArray(generated)?generated:[];
     const generatedJobIds=new Set(next.map(x=>String(x.job_id||'')).filter(Boolean));
