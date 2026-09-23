@@ -468,7 +468,9 @@
     traiterFileCouvertures();
   }
 
-  window.auroreAppliquerCouverturePremierePage = appliquerCouvertureAdmin;\n\n  function obtenirTitreDocument(doc) {
+  window.auroreAppliquerCouverturePremierePage = appliquerCouvertureAdmin;
+
+  function obtenirTitreDocument(doc) {
     const valeurs = [
       doc?.Titre,
       doc?.titre,
