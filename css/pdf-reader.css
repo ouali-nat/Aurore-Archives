@@ -44,3 +44,20 @@
     .pdf-toolbar-group{justify-content:center; flex:1 1 auto;}
     .pdf-reader-toolbar button{padding:8px 10px; font-size:0.78rem;}
   }
+
+
+/* ---------- Surface de lecture : plus de marges noires ---------- */
+#pdfViewerOverlay .pdf-reader-zone{
+  background:var(--fond,#F3F0F7)!important;
+  padding:8px!important;
+}
+#pdfViewerOverlay .pdf-reader-zone-wrap{
+  background:var(--fond,#F3F0F7)!important;
+}
+#pdfViewerOverlay .pdf-reader-page canvas{
+  background:#FFFFFF!important;
+}
+html[data-theme="dark"] #pdfViewerOverlay .pdf-reader-zone,
+html[data-theme="dark"] #pdfViewerOverlay .pdf-reader-zone-wrap{
+  background:var(--fond,#0F0D16)!important;
+}
