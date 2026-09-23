@@ -545,6 +545,15 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
+      - name: Upload downloadable ZIP artifact
+        if: success() && hashFiles('infra/lualatex/production/document-id') != '' && hashFiles('infra/lualatex/production/aurora-document-*.zip') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: aurora-document-zip-${{ hashFiles('infra/lualatex/production/document-id') }}
+          path: infra/lualatex/production/aurora-document-*.zip
+          if-no-files-found: error
+          retention-days: 7
+
 # Production bridge: Supabase queue + GitHub Actions, one PDF at a time.
 # Manual wake trigger: 2026-09-21.
 # Renderer visual assets fix trigger: Wikimedia paths + thumbnail MIME. Validation trigger 2026-09-20.
