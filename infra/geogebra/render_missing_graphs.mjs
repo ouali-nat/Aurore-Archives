@@ -41,6 +41,7 @@ function instrumentOf(g) {
     function: "function2d",
     graph: "function2d",
     courbe: "function2d",
+    complex_plane: "complex_plane",
     parametric: "parametric2d",
     geometrie3d: "geometry3d",
     "3d": "geometry3d",
@@ -58,7 +59,7 @@ function instrumentOf(g) {
   const hasX = String(g?.x_expression || "").trim();
   const hasY = String(g?.y_expression || "").trim();
   const hasZ = String(g?.z_expression || "").trim();
-  if (["function2d","parametric2d","parametric3d","surface3d","geometry3d"].includes(normalized)) return normalized;
+  if (["function2d","complex_plane","parametric2d","parametric3d","surface3d","geometry3d"].includes(normalized)) return normalized;
   if (raw) return null;
   if (hasObjects) return "geometry3d";
   if (hasZ && hasX && hasY) return "parametric3d";
@@ -79,7 +80,7 @@ function validGraph(g) {
   const objects = Array.isArray(g?.objects) ? g.objects : [];
   const points = Array.isArray(g?.points) ? g.points : [];
   const poi = Array.isArray(g?.points_of_interest) ? g.points_of_interest : [];
-  if (instrument === "function2d") {
+  if (instrument === "function2d" || instrument === "complex_plane") {
     return Boolean(
       String(g?.expression || "").trim() ||
       (Array.isArray(g?.asymptotes) && g.asymptotes.length) ||
