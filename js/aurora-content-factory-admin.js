@@ -1503,11 +1503,11 @@ async function charger(force=false){
       const jt=await jr.text();
       if(jr.ok){
         const jobs=jt?JSON.parse(jt):[];
-        const known=new Set(rows.map(x=>String(x.job_id||'')).filter(Boolean));
+        const known=new Set(nextRows.map(x=>String(x.job_id||'')).filter(Boolean));
         for(const job of (Array.isArray(jobs)?jobs:[])){
           if(job.generated_document_id!=null||known.has(String(job.id)))continue;
           const jm=job.metadata&&typeof job.metadata==='object'?job.metadata:{};
-          rows.push({
+          nextRows.push({
             id:'job-'+job.id,
             job_id:job.id,
             created_at:job.created_at,
