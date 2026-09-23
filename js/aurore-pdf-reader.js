@@ -295,7 +295,7 @@
     PDF_PAGE_ACTUELLE = 1;
     PDF_ZOOM = calculerZoomInitialPDF();
     PDF_ROTATION = 0;
-    PDF_MODE_LECTURE = 'vertical';
+    PDF_MODE_LECTURE = 'horizontal';
     document.getElementById('pdfViewerZoomLevel').textContent = Math.round(PDF_ZOOM * 100) + '%';
     mettreAJourModeLecturePDF();
     fermerMenuLecteurPDF();
