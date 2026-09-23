@@ -377,6 +377,7 @@
     const sort=document.getElementById('adminPendingV2Sort');
     const refresh=document.getElementById('adminPendingV2Refresh');
     const back=document.getElementById('adminPendingV2Back');
+    const backBottom=document.getElementById('adminPendingV2BackBottom');
 
     search?.addEventListener('input',e=>{STATE.query=e.target.value||'';renderCards();});
     source?.addEventListener('change',e=>{STATE.source=e.target.value||'';renderCards();});
@@ -384,13 +385,16 @@
     subject?.addEventListener('change',e=>{STATE.subject=e.target.value||'';renderCards();});
     sort?.addEventListener('change',e=>{STATE.sort=e.target.value||'recent';renderCards();});
     refresh?.addEventListener('click',()=>chargerDocumentsEnAttenteAdminV2());
-    back?.addEventListener('click',()=>{
+
+    const closePage=()=>{
       if(history.state?.aurasterNavigation && history.state.ecranAuraster==='screen-admin-pending'){
         history.back();
       }else if(typeof afficherEcran==='function'){
         afficherEcran('screen-admin');
       }
-    });
+    };
+    back?.addEventListener('click',closePage);
+    backBottom?.addEventListener('click',closePage);
   }
 
   window.chargerDocumentsEnAttenteAdminV2=chargerDocumentsEnAttenteAdminV2;
