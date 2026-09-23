@@ -260,6 +260,23 @@ async function loadClassificationOptions(){
 function selectedAiProviders(){return ["chatgpt_editor"];}
 function syncAiStrategyHint(){const hint=document.getElementById("cfAiStrategyHint");if(hint)hint.textContent="Éditeur actif : ChatGPT · schéma éditorial aurora-editorial-1 · contenu soumis au contrôle humain avant tout rendu/publication.";}
 function selectedValue(id){return String(document.getElementById(id)?.value||'').trim();}
+function contentFactoryProfile(resourceType){
+  const raw=String(resourceType||'').trim().toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[-_]+/g,' ');
+  if(raw.includes('exercice')||raw.includes('devoir')||raw.includes('corrige de devoir')||raw==='corrige'){
+    return {
+      kind:'exercices',
+      version:'exercise-sheet-v2',
+      lock:true,
+      document_type:'exercices',
+      paired_corrections:true,
+      exercise_sheet_intro:'Énoncés indépendants, consignes précises, calculs justifiés et corrigés exclusivement liés aux questions posées.'
+    };
+  }
+  if(raw.includes('cours')||raw.includes('revision')||raw.includes('resume')||raw.includes('document pedagogique')||raw==='cours'){
+    return {kind:'cours',version:'course-v2',lock:true,document_type:resourceType||'cours'};
+  }
+  return {kind:'document',version:'document-v1',lock:true,document_type:resourceType||'document'};
+}
 async function getJob(jobId){const r=await adminInventoryFetch(`${SUPABASE_URL}/rest/v1/aurora_content_jobs?id=eq.${encodeURIComponent(jobId)}&select=id,status,title,generated_document_id,error_message,updated_at`,{cache:'no-store'});const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));const a=t?JSON.parse(t):[];return Array.isArray(a)&&a[0]?a[0]:null;}
 async function waitForJob(jobId){let last=null;for(let i=0;i<180;i++){const j=await getJob(jobId);if(!j)throw new Error('Job introuvable dans Supabase.');last=j;if(j.status==='queued'){setProgress(8,`Job #${jobId} en file — Aurora attend son tour…`)}else if(j.status==='processing'){setProgress(Math.min(88,18+i*.4),`Aurora traite le document #${jobId}…`)}else if(j.status==='review'){setProgress(100,`Document #${jobId} terminé et placé en contrôle.`);return j}else if(j.status==='failed'||j.status==='rejected'){throw new Error(j.error_message||`La génération s’est arrêtée avec le statut ${j.status}.`)}else{setProgress(12,`Statut Aurora : ${j.status}`)}await new Promise(r=>setTimeout(r,2000));}return last;}
 async function runGeneration(item){
@@ -282,7 +299,8 @@ async function runGeneration(item){
           reference:item.reference||null,
           rights_confirmed:true,
           theme_color:normalizeThemeColor(item.themeColor||'#6D28D9'),
-          editorial:{role:'editor',engine:'ChatGPT',schema_version:'aurora-editorial-1',status:'pending'}
+          editorial:{role:'editor',engine:'ChatGPT',schema_version:'aurora-editorial-1',status:'pending'},
+          profile:contentFactoryProfile(item.resourceType)
         }
       });
       jobId=Number(job);
@@ -314,12 +332,12 @@ async function enqueueCurrent(){
     const finalPrompt=prompt+(reference?'\n\nRÉFÉRENCE PÉDAGOGIQUE FOURNIE PAR L’ADMINISTRATION : '+reference:'');
     const job=await rpc('aurora_create_content_job',{
       p_title:title,p_subject:subject||null,p_level:level||null,p_class_name:className||null,p_document_type:resourceType,p_prompt:finalPrompt,
-      p_instructions:{source:'admin_content_factory',origin:'aurore',queue:'sequential',category,filiere:filiere||null,reference:reference||null,rights_confirmed:true,theme_color:normalizeThemeColor(themeColor||'#6D28D9'),editorial:{role:'editor',engine:'ChatGPT',schema_version:'aurora-editorial-1',status:'pending'},
+      p_instructions:{source:'admin_content_factory',origin:'aurore',queue:'sequential',category,filiere:filiere||null,reference:reference||null,rights_confirmed:true,theme_color:normalizeThemeColor(themeColor||'#6D28D9'),editorial:{role:'editor',engine:'ChatGPT',schema_version:'aurora-editorial-1',status:'pending'},profile:contentFactoryProfile(resourceType),paired_corrections:contentFactoryProfile(resourceType).paired_corrections===true,
         classification:{level:level||null,filiere:filiere||null,class_name:className||null,subject:subject||null,category,resource_type:resourceType}}
     });
     const jobId=Number(job);
     if(!Number.isSafeInteger(jobId)||jobId<1)throw new Error('Identifiant de job invalide.');
-    generationQueue.push({title,subject,level,className,filiere,category,resourceType,reference,prompt,themeColor,rights,aiSelected,jobId});
+    generationQueue.push({title,subject,level,className,filiere,category,resourceType,reference,prompt,themeColor,rights,aiSelected,jobId,profile:contentFactoryProfile(resourceType)});
     if(msg){msg.dataset.state='ok';msg.textContent='« '+title+' » enregistré dans Supabase (#'+jobId+') et protégé contre la fermeture de la page. ('+generationQueue.length+' affiché'+(generationQueue.length>1?'s':'')+' dans la file'+(generationRunning?' derrière le document en cours':'')+').';}
     updateQueueUI();if(!generationRunning)processQueue();
   }catch(e){

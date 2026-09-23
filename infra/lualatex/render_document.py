@@ -2,6 +2,7 @@
 import argparse
 import json
 import re
+import unicodedata
 from pathlib import Path
 from aurore_svg import render_graphics
 
@@ -1712,6 +1713,142 @@ def display_formula(s):
     ])
 
 
+_EXERCISE_DOCUMENT_TYPES = frozenset({
+    "exercice", "exercices", "exercise", "exercises",
+    "serie exercices", "série exercices", "serie d exercices",
+    "série d exercices", "devoir", "devoirs", "corrige", "corrigé",
+    "corrige de devoir", "corrigé de devoir",
+})
+
+_COURSE_DOCUMENT_TYPES = frozenset({
+    "cours", "course", "fiche de cours", "fiches cours",
+    "fiche revision", "fiche de revision", "fiche de révision",
+    "resume", "résumé", "document pedagogique", "document pédagogique",
+})
+
+_EXERCISE_LEAK_MARKERS = (
+    "développement complémentaire",
+    "pour une dérivée",
+    "pour une intégrale",
+    "pour une loi binomiale",
+    "pour un tableau de signes",
+    "pour une approximation normale",
+)
+
+
+def _normalized_document_type(value):
+    raw = str(value or "").strip().lower()
+    raw = unicodedata.normalize("NFKD", raw)
+    raw = "".join(ch for ch in raw if not unicodedata.combining(ch))
+    raw = re.sub(r"[_/\\-]+", " ", raw)
+    raw = re.sub(r"\s+", " ", raw).strip()
+    return raw
+
+
+def _document_kind(data):
+    raw = data.get("document_type") if isinstance(data, dict) else None
+    if not raw and isinstance(data.get("metadata"), dict):
+        raw = data["metadata"].get("document_type")
+    normalized = _normalized_document_type(raw)
+    if (
+        normalized in _EXERCISE_DOCUMENT_TYPES
+        or "exercice" in normalized
+        or "exercise" in normalized
+        or "devoir" in normalized
+    ):
+        return "exercices"
+    if normalized in _COURSE_DOCUMENT_TYPES or normalized.startswith("cours "):
+        return "cours"
+    return "document"
+
+
+def _edition_profile(data):
+    kind = _document_kind(data)
+    profile = {
+        "kind": kind,
+        "version": "exercise-sheet-v2" if kind == "exercices" else (
+            "course-v2" if kind == "cours" else "document-v1"
+        ),
+        "locked": False,
+        "source": "document_type",
+    }
+    locked = data.get("_aurore_profile")
+    if not isinstance(locked, dict) and isinstance(data.get("metadata"), dict):
+        locked = data["metadata"].get("aurore_profile")
+    if isinstance(locked, dict):
+        locked_kind = _document_kind({"document_type": locked.get("document_type") or locked.get("kind")})
+        if locked.get("kind") and locked_kind != kind:
+            raise ValueError(
+                f"Profil éditorial verrouillé incompatible avec document_type: "
+                f"{locked_kind!r} != {kind!r}"
+            )
+        if locked.get("version"):
+            profile["version"] = str(locked["version"])
+        profile["locked"] = bool(locked.get("lock", locked.get("locked", True)))
+        profile["source"] = str(locked.get("source") or "metadata")
+    return profile
+
+
+def _exercise_profile_qa_issues(data):
+    """Reject course-style filler when the document contract is an exercise sheet."""
+    if _document_kind(data) != "exercices":
+        return []
+    issues = []
+    sections = data.get("sections") if isinstance(data.get("sections"), list) else []
+    meta = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+    instructions = data.get("instructions") if isinstance(data.get("instructions"), dict) else {}
+    declared = _declared_exercise_count(data)
+    paired = bool(
+        meta.get("paired_corrections")
+        or instructions.get("paired_corrections")
+        or meta.get("exercise_pipeline")
+    )
+    actual = 0
+    long_contents = []
+    for section_index, section in enumerate(sections, start=1):
+        if not isinstance(section, dict):
+            issues.append(f"section {section_index}: objet invalide")
+            continue
+        exercises = section.get("exercises") if isinstance(section.get("exercises"), list) else []
+        if not exercises:
+            issues.append(f"section {section_index}: aucun exercice structuré")
+        section_content = section.get("content")
+        if isinstance(section_content, list):
+            for item in section_content:
+                txt = clean_text(item)
+                low = txt.lower()
+                if not txt:
+                    continue
+                if len(txt) >= 160:
+                    long_contents.append(txt)
+                if any(marker in low for marker in _EXERCISE_LEAK_MARKERS):
+                    issues.append(
+                        f"section {section_index}: contenu générique de cours détecté dans section.content"
+                    )
+        for ex_index, ex in enumerate(exercises, start=1):
+            if not isinstance(ex, dict):
+                issues.append(f"section {section_index}, exercice {ex_index}: objet invalide")
+                continue
+            actual += 1
+            statement = ex.get("question") or ex.get("statement") or ex.get("enonce") or ex.get("content")
+            correction = ex.get("solution") or ex.get("correction") or ex.get("details")
+            if not clean_text(statement):
+                issues.append(f"exercice {actual}: énoncé vide")
+            if paired and not clean_text(correction):
+                issues.append(f"exercice {actual}: corrigé apparié manquant")
+            low_correction = clean_text(correction).lower()
+            marker_hits = sum(marker in low_correction for marker in _EXERCISE_LEAK_MARKERS)
+            if "développement complémentaire" in low_correction or marker_hits >= 3:
+                issues.append(
+                    f"exercice {actual}: corrigé contaminé par des blocs génériques de cours"
+                )
+    if declared is not None and actual != declared:
+        issues.append(f"nombre d'exercices incohérent: reçu {actual}, déclaré {declared}")
+    if len(long_contents) != len(set(long_contents)) and long_contents:
+        issues.append("contenu de section dupliqué entre plusieurs exercices")
+    return list(dict.fromkeys(issues))
+
+
 def _declared_exercise_count(data):
     """Read the exercise count declared by the generation contract."""
     meta = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
@@ -1737,10 +1874,24 @@ def _has_usable_content_json(data):
         return False
     if not str(data.get("title") or "").strip():
         return False
-    if not str(data.get("introduction") or "").strip():
-        return False
     sections = data.get("sections")
     if not isinstance(sections, list) or not sections:
+        return False
+    if _document_kind(data) == "exercices":
+        return any(
+            isinstance(section, dict)
+            and isinstance(section.get("exercises"), list)
+            and any(
+                isinstance(ex, dict)
+                and any(
+                    str(ex.get(key) or "").strip()
+                    for key in ("question", "statement", "enonce", "content")
+                )
+                for ex in section.get("exercises", [])
+            )
+            for section in sections
+        )
+    if not str(data.get("introduction") or "").strip():
         return False
     return any(
         isinstance(section, dict)
@@ -1784,11 +1935,16 @@ def render(data):
     document_key = document_identity["key"]
     document_share_url = document_identity["verification_url"]
     profile = _editorial_profile(data)
-    raw_document_type = data.get("document_type")
-    if not raw_document_type and isinstance(data.get("metadata"), dict):
-        raw_document_type = data["metadata"].get("document_type")
-    document_type = str(raw_document_type or "").strip().lower()
-    is_exercise_document = document_type in {"exercice", "exercices", "exercise", "exercises", "serie_exercices", "série_exercices"}
+    edition_profile = _edition_profile(data)
+    document_kind = edition_profile["kind"]
+    document_type = document_kind
+    is_exercise_document = document_kind == "exercices"
+    if is_exercise_document:
+        exercise_qa = _exercise_profile_qa_issues(data)
+        if exercise_qa:
+            raise ValueError(
+                "Exercise profile QA failed: " + " | ".join(exercise_qa[:8])
+            )
     has_geogebra = _has_geogebra(data)
     lines = [
         r"\documentclass[11pt,a4paper]{article}",
@@ -1798,9 +1954,9 @@ def render(data):
         r"\usepackage{geometry}",
         r"\usepackage{microtype}",
         r"\usepackage{enumitem}",
-        r"\setlist{itemsep=1.5mm,topsep=2mm,parsep=0pt}",
+        r"\setlist{itemsep=1.5mm,topsep=2mm,parsep=0pt}" if not is_exercise_document else r"\setlist{itemsep=1mm,topsep=1.5mm,parsep=0pt}",
         r"\setlength{\parindent}{0pt}",
-        r"\setlength{\parskip}{3pt}",
+        r"\setlength{\parskip}{2.5pt}" if is_exercise_document else r"\setlength{\parskip}{3pt}",
         r"\usepackage{unicode-math}",
         r"\usepackage{polyglossia}",
         r"\setmainlanguage{french}",
@@ -1808,7 +1964,7 @@ def render(data):
         r"\setmathfont{Latin Modern Math}",
         r"\defaultfontfeatures{Ligatures=TeX}",
         r"\emergencystretch=2em",
-        r"\geometry{margin=2.2cm,top=2.55cm,bottom=2.35cm}",
+        r"\geometry{margin=2.05cm,top=2.25cm,bottom=2.15cm}" if is_exercise_document else r"\geometry{margin=2.2cm,top=2.55cm,bottom=2.35cm}",
         r"\usepackage{graphicx}",
         r"\usepackage{qrcode}",
         r"\usepackage{caption}",
@@ -1826,7 +1982,7 @@ def render(data):
         r"\colorlet{auroredeep}{aurorebase!82!black}",
         r"\colorlet{aurorelight}{auroreprimary!10!white}",
         r"\colorlet{aurorepale}{auroreprimary!4!white}",
-        r"\pagecolor{aurorepale}",
+        r"\pagecolor{white!99!aurorepale}" if is_exercise_document else r"\pagecolor{aurorepale}",
         r"\AddToHook{shipout/background}{%",
         r"  \begin{tikzpicture}[remember picture,overlay]",
         r"    % Aurore : motif de bulles plus présent, avec plusieurs niveaux de contraste.",
@@ -1904,6 +2060,17 @@ def render(data):
         r"    \begin{equation*}\displaystyle #1\end{equation*}%",
         r"  \end{tcolorbox}%",
         r"}",
+        r"\newcommand{\AuroreExerciseCover}[3]{%",
+        r"  \begin{tcolorbox}[enhanced,colback=white,colframe=aurorebase!48!white,arc=9pt,boxrule=.65pt,left=16pt,right=16pt,top=13pt,bottom=13pt,borderline west={3.5pt}{0pt}{auroreprimary!95!white}]%",
+        r"    {\sffamily\scriptsize\bfseries\color{aurorebase!82!black}AURORE · SECTION ARCHIVES\par}",
+        r"    \vspace{0.16cm}",
+        r"    {\sffamily\bfseries\color{auroredeep}\fontsize{10}{12}\selectfont FICHE D'EXERCICES\par}",
+        r"    \vspace{0.10cm}",
+        r"    {\sffamily\bfseries\color{auroredeep}\fontsize{23}{28}\selectfont #2\par}",
+        r"    \vspace{0.14cm}",
+        r"    {\sffamily\small\color{aurorebase!70!black}#3\par}",
+        r"  \end{tcolorbox}%",
+        r"}",
         r"\newcommand{\AuroreTitleBlock}[3]{%",
         r"  \begin{tcolorbox}[enhanced,colback=white!99!aurorepale,colframe=aurorebase!28!white,arc=17pt,boxrule=.55pt,left=20pt,right=20pt,top=15pt,bottom=16pt,borderline west={2.8pt}{0pt}{auroreprimary!92!white},borderline north={0.85pt}{0pt}{auroresecondary!78!white}]%",
         r"    \centering",
@@ -1929,7 +2096,13 @@ def render(data):
         r"  \IfFileExists{assets/aurore-logo.png}{\includegraphics[width=1.42cm,height=1.42cm,keepaspectratio]{assets/aurore-logo.png}}{\textcolor{aurorebase}{\rule{1.05cm}{1.05cm}}}%",
         r"\end{tcolorbox}",
         r"\vspace{0.17cm}",
-        r"\AuroreTitleBlock{" + ("Série d'exercices" if is_exercise_document else "Document pédagogique") + r"}{" + tex_text(title) + r"}{Aurore — Section Archives" + (r" · " + tex_text(" · ".join(info)) if info else "") + r"}",
+        (
+            r"\AuroreExerciseCover{Série d'exercices}{" + tex_text(title) + r"}{Aurore — Section Archives" +
+            (r" · " + tex_text(" · ".join(info)) if info else "") + r"}"
+            if is_exercise_document
+            else r"\AuroreTitleBlock{Document pédagogique}{" + tex_text(title) + r"}{Aurore — Section Archives" +
+            (r" · " + tex_text(" · ".join(info)) if info else "") + r"}"
+        ),
         r"\vfill",
         r"{\sffamily\small\color{gray}Document pédagogique édité avec Aurora · identité visuelle Aurore}",
         r"\clearpage",
@@ -1946,6 +2119,22 @@ def render(data):
     ]
     if is_exercise_document:
         lines = lines[:-3]
+        exercise_instructions = ""
+        if isinstance(data.get("instructions"), dict):
+            exercise_instructions = clean_text(data["instructions"].get("exercise_sheet_intro") or "")
+        if not exercise_instructions:
+            exercise_instructions = (
+                "Traiter chaque exercice indépendamment. Justifier les étapes de calcul, "
+                "indiquer les conditions de validité et terminer chaque question par une conclusion. "
+                "Les corrigés sont regroupés dans une section dédiée afin de préserver l'espace de travail."
+            )
+        lines.extend([
+            r"\section*{Consignes de travail}",
+            r"\addcontentsline{toc}{section}{Consignes de travail}",
+            r"\AuroreLabeledBlock{Méthode}{" + inline(exercise_instructions, auto_math=False) + r"}",
+            r"\section*{Énoncés}",
+            r"\addcontentsline{toc}{section}{Énoncés}",
+        ])
 
     learning_objectives = [
         str(item).strip()
@@ -2007,9 +2196,9 @@ def render(data):
             section_title = clean_text(sec.get("title") or "").strip()
             if section_title and len(exercises) > 1:
                 lines.append(r"\AuroreExerciseSeriesHeading{" + tex_text(section_title) + r"}")
-            content_items = [] if exercises else sec.get("content", [])
-            if content_items:
-                lines.extend(render_content(content_items, auto_math=True))
+            # En profil exercices, section.content est volontairement ignoré :
+            # seuls les champs structurés de l'exercice peuvent entrer dans le PDF.
+            content_items = []
             if sec.get("formula"): lines.append(display_formula(sec["formula"]))
             lines.extend(render_graphs(sec.get("graphs", []), allow=True, exercise_mode=True))
             section_graphics = sec.get("graphics", [])
@@ -2181,17 +2370,20 @@ def main():
     if not raw_document_type and isinstance(data.get("metadata"), dict):
         raw_document_type = data["metadata"].get("document_type")
     main_document_type = str(raw_document_type or "").strip().lower()
-    main_is_exercise_document = main_document_type in {
-        "exercice", "exercices", "exercise", "exercises",
-        "serie_exercices", "série_exercices",
-    }
+    requested_profile = _edition_profile(data)
+    main_is_exercise_document = requested_profile["kind"] == "exercices"
     main_metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+    print(
+        f"Document profile: kind={requested_profile['kind']} "
+        f"version={requested_profile['version']} locked={requested_profile['locked']}"
+    )
     main_graphics = main_metadata.get("graphics") if isinstance(main_metadata.get("graphics"), dict) else {}
     external_images_disabled = (
         main_graphics.get("wikimedia") is False
         or main_graphics.get("external_images") is False
         or main_metadata.get("exercise_pipeline") is True
         or data.get("exercise_pipeline") is True
+        or requested_profile["kind"] == "exercices"
     )
 
     if main_is_exercise_document and external_images_disabled:
