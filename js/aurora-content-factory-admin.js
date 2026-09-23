@@ -1748,7 +1748,7 @@ async function load(force){
 
     let jobs=[];
     try{
-      const jobsReq=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?select=id,created_at,updated_at,status,title,subject,level,class_name,document_type,generated_document_id,error_message,metadata&status=in.(draft,queued,processing)&order=created_at.desc&limit=500',{cache:'no-store'});
+      const jobsReq=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?select=id,created_at,updated_at,status,title,subject,level,class_name,document_type,generated_document_id,error_message,metadata&status=in.(draft,queued,processing,review)&order=created_at.desc&limit=500',{cache:'no-store'});
       const jt=await jobsReq.text();
       if(jobsReq.ok){
         const parsedJobs=jt?JSON.parse(jt):[];
@@ -1777,7 +1777,7 @@ async function load(force){
           if(jobsRpc.ok){
             const payload=jobsRpcText?JSON.parse(jobsRpcText):{};
             const listed=Array.isArray(payload?.jobs)?payload.jobs:[];
-            jobs=listed.filter(j=>['draft','queued','processing'].includes(String(j?.status||'').toLowerCase()));
+            jobs=listed.filter(j=>['draft','queued','processing','review'].includes(String(j?.status||'').toLowerCase()));
           }else{
             console.warn('[Aurore Admin PDF] repli Edge Function Content Factory indisponible',jobsRpc.status);
           }
