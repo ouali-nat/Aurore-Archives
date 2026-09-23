@@ -8,16 +8,27 @@ const SCHEMA_VERSION="aurora-editorial-1";
 const MAX_BODY_BYTES=2500000;
 const MAX_TEXT=2000000;
 const CORS={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"content-type, x-aurore-gpt-key, authorization","Access-Control-Allow-Methods":"POST, OPTIONS","Content-Type":"application/json"};
+const EXERCISE_LEAK_MARKERS=["développement complémentaire","pour une dérivée","pour une intégrale","pour une loi binomiale","pour un tableau de signes","pour une approximation normale"];
+function normalizeDocumentType(v:unknown){
+  return String(v??"").trim().toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/[_-]+/g," ").replace(/\s+/g," ").trim();
+}
+function resolveProfile(v:unknown){
+  const t=normalizeDocumentType(v);
+  if(t.includes("exercice")||t.includes("devoir")||t.includes("corrigé de devoir")||t==="corrigé"||t==="corrige")return {kind:"exercices",version:"exercise-sheet-v2"};
+  if(t==="cours"||t.startsWith("cours ")||t.includes("fiche de cours")||t.includes("fiches cours")||t.includes("fiche de révision")||t.includes("résumé")||t.includes("document pédagogique")||t==="course")return {kind:"cours",version:"course-v2"};
+  return {kind:"document",version:"document-v1"};
+}
 const reply=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:CORS});
 async function sha256(value:string){const bytes=new TextEncoder().encode(value);const digest=await crypto.subtle.digest("SHA-256",bytes);return Array.from(new Uint8Array(digest)).map(x=>x.toString(16).padStart(2,"0")).join("");}
 function text(v:unknown,max=500){return String(v??"").trim().slice(0,max);}
 function nullable(v:unknown,max=500){const x=text(v,max);return x||null;}
 function validColor(v:unknown){const x=text(v,32);return !x||/^#[0-9a-fA-F]{6}$/.test(x);}
-function validateEditorialContent(content:any){
+function validateEditorialContent(content:any,profile:any,instructions:any){
   if(!content||typeof content!=="object"||Array.isArray(content))throw new Error("content_json doit être un objet JSON.");
   if(typeof content.title!=="string"||!content.title.trim())throw new Error("content_json.title est obligatoire.");
   if(!Array.isArray(content.sections)||content.sections.length<1||content.sections.length>30)throw new Error("content_json.sections doit contenir de 1 à 30 sections.");
-  let visuals=0,graphs=0;
+  let visuals=0,graphs=0,exercises=0;
+  const longSectionContents:string[]=[];
   for(const s of content.sections){
     if(!s||typeof s!=="object"||!String(s.title||"").trim())throw new Error("Chaque section doit avoir un titre.");
     if(Array.isArray(s.visuals)){
@@ -26,9 +37,37 @@ function validateEditorialContent(content:any){
       for(const v of s.visuals)if(String(v?.type||"wikimedia").toLowerCase()!=="wikimedia")throw new Error("Les visuels documentaires doivent utiliser type=wikimedia.");
     }
     if(Array.isArray(s.graphs))graphs+=s.graphs.length;
+    if(Array.isArray(s.content)){
+      for(const item of s.content){
+        const raw=text(item,20000).toLowerCase();
+        if(raw.length>=160)longSectionContents.push(raw);
+        if(profile.kind==="exercices"&&EXERCISE_LEAK_MARKERS.some(marker=>raw.includes(marker))){
+          throw new Error(`Section ${String(s.title)} : contenu générique de cours interdit dans un PDF d'exercices.`);
+        }
+      }
+    }
+    if(Array.isArray(s.exercises)){
+      exercises+=s.exercises.length;
+      for(let i=0;i<s.exercises.length;i++){
+        const ex=s.exercises[i]||{};
+        const statement=ex.question||ex.statement||ex.enonce||ex.content||"";
+        const correction=ex.solution||ex.correction||ex.details||"";
+        if(profile.kind==="exercices"&&!text(statement,20000))throw new Error(`Exercice ${i+1} de la section ${String(s.title)} : énoncé obligatoire.`);
+        if(profile.kind==="exercices"&&instructions.paired_corrections&&!text(correction,20000))throw new Error(`Exercice ${i+1} de la section ${String(s.title)} : corrigé apparié obligatoire.`);
+        if(profile.kind==="exercices"){
+          const low=text(correction,50000).toLowerCase();
+          const hits=EXERCISE_LEAK_MARKERS.reduce((n,marker)=>n+(low.includes(marker)?1:0),0);
+          if(low.includes("développement complémentaire")||hits>=3){
+            throw new Error(`Exercice ${i+1} de la section ${String(s.title)} : corrigé contaminé par un bloc générique de cours.`);
+          }
+        }
+      }
+    }
   }
   if(visuals>8)throw new Error("Maximum 8 visuels documentaires par document.");
   if(graphs>24)throw new Error("Maximum 24 graphiques/constructions par document.");
+  if(profile.kind==="exercices"&&exercises<1)throw new Error("Un document d'exercices doit contenir au moins un exercice structuré.");
+  if(profile.kind==="exercices"&&longSectionContents.length!==new Set(longSectionContents).size)throw new Error("Contenu de section dupliqué entre plusieurs exercices.");
   if(JSON.stringify(content).length>MAX_TEXT)throw new Error("content_json dépasse la taille maximale autorisée.");
   return {sections:content.sections.length,visuals,graphs,exercises:content.sections.reduce((n:number,s:any)=>n+(Array.isArray(s.exercises)?s.exercises.length:0),0),corrections:Array.isArray(content.corrections)?content.corrections.length:0};
 }
@@ -52,7 +91,6 @@ Deno.serve(async req=>{
     }
     const payload=await req.json();
     const content=payload?.content_json;
-    const counts=validateEditorialContent(content);
     const title=text(payload.title||content.title,300);if(!title)return reply({ok:false,error:"Le titre est obligatoire."},400);
     const themeColor=text(payload.theme_color||payload.classification?.theme_color,32);if(!validColor(themeColor))return reply({ok:false,error:"theme_color doit être une couleur hexadécimale #RRGGBB."},400);
     const ingestId=text(payload.ingest_id||crypto.randomUUID(),120);
@@ -60,13 +98,24 @@ Deno.serve(async req=>{
     const level=nullable(payload.level||payload.classification?.niveau);
     const className=nullable(payload.class_name||payload.classification?.classe);
     const documentType=nullable(payload.document_type,120)||"cours";
+    const profile=resolveProfile(documentType);
+    const incomingInstructions=payload.instructions&&typeof payload.instructions==="object"?payload.instructions:{};
+    const editorialInstructions={
+      ...incomingInstructions,
+      paired_corrections:profile.kind==="exercices" ? incomingInstructions.paired_corrections!==false : false,
+      profile:{kind:profile.kind,version:profile.version,lock:true,document_type:profile.kind==="exercices"?"exercices":documentType},
+      exercise_sheet_intro:profile.kind==="exercices"
+        ? (incomingInstructions.exercise_sheet_intro||"Énoncés indépendants, consignes précises, calculs justifiés et corrigés exclusivement liés aux questions posées.")
+        : undefined
+    };
+    const counts=validateEditorialContent(content,profile,editorialInstructions);
     const prompt=nullable(payload.prompt,4000);
     const classification=payload.classification&&typeof payload.classification==="object"?payload.classification:{};
     const contentHash=await sha256(JSON.stringify(content));
     const {data:result,error}=await db.rpc("aurora_ingest_editorial_document",{
       p_ingest_id:ingestId,p_created_by:createdBy,p_title:title,p_subject:subject,p_level:level,p_class_name:className,p_document_type:documentType,p_prompt:prompt,p_content_json:content,
-      p_instructions:{origin:"gpt_editorial_ingest",producer:"ChatGPT",human_review_required:true,manual_publication_only:true,lualatex_requested:false,schema_version:SCHEMA_VERSION,category:nullable(classification.categorie,100)||"Documents",domaine:nullable(classification.domaine,200),formation:nullable(classification.formation,200),specialite:nullable(classification.specialite,200),annee:nullable(classification.annee,100),semestre:nullable(classification.semestre,100),filiere:nullable(classification.filiere,200),theme_color:themeColor||"#C85C0D"},
-      p_metadata:{origin:"gpt_editorial_ingest",producer:"ChatGPT",schema_version:SCHEMA_VERSION,content_sha256:contentHash,human_review_required:true,manual_publication_only:true,source:"chatgpt_editor",counts},
+      p_instructions:{...editorialInstructions,origin:"gpt_editorial_ingest",producer:"ChatGPT",human_review_required:true,manual_publication_only:true,lualatex_requested:false,schema_version:SCHEMA_VERSION,category:nullable(classification.categorie,100)||"Documents",domaine:nullable(classification.domaine,200),formation:nullable(classification.formation,200),specialite:nullable(classification.specialite,200),annee:nullable(classification.annee,100),semestre:nullable(classification.semestre,100),filiere:nullable(classification.filiere,200),theme_color:themeColor||"#C85C0D"},
+      p_metadata:{origin:"gpt_editorial_ingest",producer:"ChatGPT",schema_version:SCHEMA_VERSION,content_sha256:contentHash,human_review_required:true,manual_publication_only:true,source:"chatgpt_editor",counts,aurore_profile:{kind:profile.kind,version:profile.version,lock:true,source:"document_type"}},
       p_domaine:nullable(classification.domaine,200),p_formation:nullable(classification.formation,200),p_specialite:nullable(classification.specialite,200),p_annee:nullable(classification.annee,100),p_semestre:nullable(classification.semestre,100),p_filiere:nullable(classification.filiere,200),p_matiere:subject,p_theme_color:themeColor||"#C85C0D"
     });
     if(error)throw error;
