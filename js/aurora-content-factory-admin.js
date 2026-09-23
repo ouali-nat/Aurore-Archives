@@ -1591,6 +1591,48 @@ function timestamp(x){
   if(Number.isNaN(d.getTime()))return {date:'—',time:'—',sort:0};
   return {date:d.toLocaleDateString('fr-FR'),time:d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),sort:d.getTime()};
 }
+function editorialStage(status){
+  const s=String(status||'').toLowerCase();
+  if(s==='draft')return 'Brouillon — prêt à transmettre';
+  if(s==='queued')return 'En attente de l’éditeur ChatGPT';
+  if(s==='processing')return 'Édition ChatGPT en préparation';
+  if(s==='review')return 'Contenu reçu — contrôle humain';
+  return status||'Statut inconnu';
+}
+async function copyEditorialBrief(job){
+  try{
+    const m=job?.metadata&&typeof job.metadata==='object'?job.metadata:{};
+    const payload={
+      job_id:Number(job?.job_id||job?.id||0)||null,
+      title:job?.title||'',
+      subject:job?.subject||job?.matiere||'',
+      level:job?.level||'',
+      class_name:job?.class_name||'',
+      document_type:job?.document_type||'',
+      prompt:job?.prompt||'',
+      instructions:job?.instructions&&typeof job.instructions==='object'?job.instructions:{},
+      metadata:m,
+      theme_color:m.aurore_design?.theme_color||m.theme_color||job?.theme_color||'#C85C0D',
+      contract:'aurora-editorial-1 · contrôle humain obligatoire · publication manuelle uniquement'
+    };
+    const text=JSON.stringify(payload,null,2);
+    await navigator.clipboard.writeText(text);
+    alert('La fiche éditoriale du Job #'+payload.job_id+' a été copiée. Elle peut être utilisée par l’éditeur ChatGPT sans créer une nouvelle demande.');
+  }catch(e){
+    const text=JSON.stringify({
+      job_id:Number(job?.job_id||job?.id||0)||null,
+      title:job?.title||'',
+      subject:job?.subject||job?.matiere||'',
+      level:job?.level||'',
+      class_name:job?.class_name||'',
+      document_type:job?.document_type||'',
+      prompt:job?.prompt||'',
+      instructions:job?.instructions||{},
+      metadata:job?.metadata||{}
+    },null,2);
+    try{window.prompt('Copiez la fiche éditoriale du Content Factory :',text)}catch(_){}
+  }
+}
 async function persistContentJobTheme(id,themeColor,accessToken){
   const color=normalizeThemeColor(themeColor);
   const q=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?id=eq.'+encodeURIComponent(Number(id))+'&select=id,status,metadata',{
@@ -1680,9 +1722,11 @@ async function confirmContentJob(id){
 window.auroreAdminConfirmContentJob=confirmContentJob;
 function actions(x,k){
   if(x.contentJob){
-    if(x.job_status==='draft')return '<button type="button" class="admin-btn primary" data-cf-confirm-job="'+E(x.job_id)+'">Choisir la couleur et générer le document</button>';
-    if(x.job_status==='queued')return '<span class="aap3prod">Génération confirmée · en file serveur</span>';
-    if(x.job_status==='processing')return '<span class="aap3prod">Génération confirmée · traitement en cours</span>';
+    if(x.job_status==='draft')return '<button type="button" class="admin-btn primary" data-cf-confirm-job="'+E(x.job_id)+'">Choisir la couleur et transmettre la demande</button>';
+    if(['queued','processing'].includes(String(x.job_status||'').toLowerCase())){
+      return '<span class="aap3prod">'+E(editorialStage(x.job_status))+'</span><button type="button" class="admin-btn ghost" data-cf-copy-editorial="'+E(x.job_id)+'">Copier la fiche éditoriale ChatGPT</button>';
+    }
+    if(x.job_status==='review')return '<span class="aap3prod">Contenu reçu · contrôle humain requis</span>';
     return '';
   }
   const m=M(x),a=active(x),c=m.lualatex_cancel_requested===true,p=!!x.pdf_url,t=theme(x);
@@ -1700,11 +1744,11 @@ function actions(x,k){
 }
 function card(x,k){
   if(x.contentJob){
-    const ts=timestamp(x),m=M(x),jobTheme=normalizeThemeColor(m.aurore_design?.theme_color||m.theme_color||'#C85C0D'),stage=x.job_status==='queued'?'En file serveur':x.job_status==='processing'?'Production en cours':'Nouvelle demande';
+    const ts=timestamp(x),m=M(x),jobTheme=normalizeThemeColor(m.aurore_design?.theme_color||m.theme_color||'#C85C0D'),stage=editorialStage(x.job_status);
     return '<article class="aap3card" style="--aap3theme:'+E(jobTheme)+'">'+
       '<div class="aap3top"><div><div class="aap3id">Nouvelle demande · Job #'+E(x.job_id)+'</div><div class="aap3title">'+E(x.title||'Sans titre')+'</div></div><span class="aap3status">'+E(stage)+'</span></div>'+
       '<div class="aap3grid"><div><b>Date</b><span>'+E(ts.date)+'</span></div><div><b>Heure</b><span>'+E(ts.time)+'</span></div><div><b>Classe</b><span>'+E(x.class_name||'—')+'</span></div><div><b>Niveau</b><span>'+E(x.level||'—')+'</span></div><div><b>Matière</b><span>'+E(x.matiere||x.subject||'—')+'</span></div><div><b>Type</b><span>'+E(x.document_type||'—')+'</span></div><div><b>Origine</b><span>Content Factory</span></div><div><b>Statut</b><span>'+E(x.job_status||'—')+'</span></div></div>'+(m.theme_color?'<div class="aap3color"><span class="aap3dot" style="background:'+E(jobTheme)+'"></span><span><b>Couleur du document</b><small>'+E(jobTheme)+' · choisie avant lancement</small></span></div>':'')+
-      '<div class="aap3prod"><b>Production :</b> '+E(stage)+' · La demande est placée avant les anciens documents pour validation humaine.</div>'+
+      '<div class="aap3prod"><b>Circuit éditorial :</b> '+E(stage)+' · La demande reste dans le contrôle administratif ; aucun PDF n’est publié automatiquement.</div>'+
       '<div class="aap3actions">'+actions(x,k)+'</div></article>';
   }
   const ts=timestamp(x),m=M(x),t=theme(x),stage=m.lualatex_stage||m.lualatex_status||'',origin=m.origin||m.producer||x.source_format||'—';
@@ -1856,7 +1900,7 @@ async function load(force){
 
     let jobs=[];
     try{
-      const jobsReq=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?select=id,created_at,updated_at,status,title,subject,level,class_name,document_type,generated_document_id,error_message,metadata&status=in.(draft,queued,processing,review)&order=created_at.desc&limit=500',{cache:'no-store'});
+      const jobsReq=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?select=id,created_at,updated_at,status,title,subject,level,class_name,document_type,generated_document_id,error_message,prompt,instructions,metadata,domaine,formation,specialite,annee,semestre,filiere&status=in.(draft,queued,processing,review)&order=created_at.desc&limit=500',{cache:'no-store'});
       const jt=await jobsReq.text();
       if(jobsReq.ok){
         const parsedJobs=jt?JSON.parse(jt):[];
@@ -1903,6 +1947,8 @@ async function load(force){
         id:'job-'+j.id,job_id:j.id,created_at:j.created_at,updated_at:j.updated_at,
         title:j.title||'Nouvelle demande',subject:j.subject||'',matiere:j.subject||'',
         level:j.level||'',class_name:j.class_name||'',document_type:j.document_type||'',
+        prompt:j.prompt||'',instructions:j.instructions&&typeof j.instructions==='object'?j.instructions:{},
+        domaine:j.domaine||'',formation:j.formation||'',specialite:j.specialite||'',annee:j.annee||'',semestre:j.semestre||'',filiere:j.filiere||'',
         status:'review',version:1,pdf_url:null,pdf_path:null,contentJob:true,job_status:j.status,
         metadata:{...(j.metadata&&typeof j.metadata==='object'?j.metadata:{}),origin:'Content Factory',job_status:j.status},validation_notes:j.error_message||''
       });
