@@ -34,9 +34,31 @@
   let PDF_OCTETS_COURANTS = null; // ArrayBuffer déjà téléchargé, réutilisé pour l'impression
   let PDF_PAGE_ACTUELLE = 1;
   let PDF_JETON_OUVERTURE = 0;  // évite qu'un chargement obsolète n'écrase un lecteur déjà refermé
-  let PDF_ZOOM = 1;             // multiplicateur appliqué par-dessus l'ajustement à la largeur (100% = ajusté)
+  let PDF_ZOOM = 1;             // zoom réel du rendu par rapport à la largeur de référence
   let PDF_ROTATION = 0;         // 0/90/180/270
-  const PDF_ZOOM_MIN = 0.5, PDF_ZOOM_MAX = 3, PDF_ZOOM_PAS = 0.25;
+  const PDF_ZOOM_MIN = 0.5, PDF_ZOOM_MAX = 3, PDF_ZOOM_PAS = 0.01;
+  const PDF_ZOOM_CONFORT_BASE = 0.82;
+
+  function lireZoomGlobalPourLecteurPDF() {
+    let valeur = NaN;
+    try {
+      const sauvegarde = parseFloat(localStorage.getItem('aurore_site_zoom_v1'));
+      if (Number.isFinite(sauvegarde)) valeur = sauvegarde;
+    } catch (e) {}
+    if (!Number.isFinite(valeur)) {
+      const cssZoom = parseFloat(getComputedStyle(document.documentElement).zoom || document.documentElement.style.zoom || '1');
+      if (Number.isFinite(cssZoom) && cssZoom > 0) valeur = cssZoom * 100;
+    }
+    return Math.max(40, Math.min(160, Number.isFinite(valeur) ? valeur : 100));
+  }
+
+  function calculerZoomInitialPDF() {
+    // Compensation douce du zoom global : 109 % sur le site ouvre
+    // naturellement le lecteur autour de 75 %, sans toucher au zoom global.
+    const zoomSite = lireZoomGlobalPourLecteurPDF();
+    const cible = PDF_ZOOM_CONFORT_BASE * (100 / zoomSite);
+    return Math.max(PDF_ZOOM_MIN, Math.min(1, Math.round(cible * 100) / 100));
+  }
   let PDF_MODE_LECTURE = 'vertical'; // vertical = défilement continu ; horizontal = pages côte à côte
   // Cache mémoire court : rouvrir un PDF déjà consulté évite un nouveau téléchargement.
   const PDF_CACHE_OCTETS = new Map();
@@ -273,10 +295,10 @@
     PDF_EN_COURS = null;
     PDF_OCTETS_COURANTS = null;
     PDF_PAGE_ACTUELLE = 1;
-    PDF_ZOOM = 1;
+    PDF_ZOOM = calculerZoomInitialPDF();
     PDF_ROTATION = 0;
     PDF_MODE_LECTURE = 'vertical';
-    document.getElementById('pdfViewerZoomLevel').textContent = '100%';
+    document.getElementById('pdfViewerZoomLevel').textContent = Math.round(PDF_ZOOM * 100) + '%';
     mettreAJourModeLecturePDF();
     fermerMenuLecteurPDF();
     const jeton = ++PDF_JETON_OUVERTURE;
@@ -846,8 +868,10 @@ async function telechargerDocumentAvecProgression(doc) {
 
       // Toutes les pages utilisent exactement la même largeur CSS disponible.
       // Seule la hauteur varie selon le ratio propre à chaque page.
-      wrapper.style.width = Math.max(1, Math.round(largeurDispo)) + 'px';
-      wrapper.style.maxWidth = Math.max(1, Math.round(largeurDispo)) + 'px';
+      // La largeur du wrapper suit exactement celle de la page rendue.
+      // Cela évite tout effet de double échelle ou de centrage ambigu.
+      wrapper.style.width = Math.max(1, Math.round(viewport.width)) + 'px';
+      wrapper.style.maxWidth = 'none';
       wrapper.style.marginLeft = 'auto';
       wrapper.style.marginRight = 'auto';
 
@@ -855,7 +879,7 @@ async function telechargerDocumentAvecProgression(doc) {
       canvas.height = Math.max(1, Math.round(viewport.height * dpr));
       canvas.style.width = viewport.width + 'px';
       canvas.style.height = viewport.height + 'px';
-      canvas.style.maxWidth = '100%';
+      canvas.style.maxWidth = 'none';
       canvas.style.display = 'block';
       canvas.style.marginLeft = 'auto';
       canvas.style.marginRight = 'auto';
@@ -1248,14 +1272,18 @@ async function telechargerDocumentAvecProgression(doc) {
   async function appliquerZoom(delta, valeurAbsolue=false, ancrage=null) {
     const cible=valeurAbsolue ? delta : (PDF_ZOOM + delta);
     const prochain=Math.max(PDF_ZOOM_MIN,Math.min(PDF_ZOOM_MAX,+Number(cible).toFixed(2)));
-    if(prochain===PDF_ZOOM) return;
+    const pages=document.getElementById('pdfViewerPages');
+    const zone=document.getElementById('pdfViewerZone');
+    if(prochain===PDF_ZOOM) {
+      if(pages) pages.style.zoom='1';
+      const niveauActuel=document.getElementById('pdfViewerZoomLevel');
+      if(niveauActuel) niveauActuel.textContent=Math.round(PDF_ZOOM*100)+'%';
+      return;
+    }
     const ancien=PDF_ZOOM;
     PDF_ZOOM=prochain;
     const niveau=document.getElementById('pdfViewerZoomLevel');
     if(niveau) niveau.textContent=Math.round(PDF_ZOOM*100)+'%';
-
-    const pages=document.getElementById('pdfViewerPages');
-    const zone=document.getElementById('pdfViewerZone');
     if(!pages || !zone) return;
 
     // Le zoom du lecteur est maintenant un zoom de mise en page, pas une
@@ -1272,9 +1300,10 @@ async function telechargerDocumentAvecProgression(doc) {
     const ratio=prochain/Math.max(0.01,ancien);
 
     pages.style.transform='none';
-    pages.style.transformOrigin='top left';
+    pages.style.transformOrigin='top center';
     pages.style.width='100%';
-    pages.style.zoom=String(PDF_ZOOM);
+    // PDF_ZOOM est déjà intégré à l'échelle PDF.js : aucun zoom CSS permanent.
+    pages.style.zoom='1';
     pages.style.marginBottom='0';
 
     requestAnimationFrame(async()=>{
@@ -1340,7 +1369,10 @@ async function telechargerDocumentAvecProgression(doc) {
       pdfPinchRaf=requestAnimationFrame(()=>{
         pdfPinchRaf=0;
         const pages=document.getElementById('pdfViewerPages');
-        if(pages) pages.style.zoom=String(pdfPinchZoomAffiche);
+        if(pages) {
+          // Aperçu temporaire relatif au zoom réellement rendu.
+          pages.style.zoom=String(pdfPinchZoomAffiche / Math.max(0.01,pdfPinchZoomInitial));
+        }
         const niveau=document.getElementById('pdfViewerZoomLevel');
         if(niveau) niveau.textContent=Math.round(pdfPinchZoomAffiche*100)+'%';
       });
