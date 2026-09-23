@@ -988,3 +988,172 @@
     font-size:.72rem!important;
   }
 }
+
+/* ========================================================================
+   AURORE — CARTES DOCUMENTS UNIFIÉES
+   Modèle commun : couverture PDF réelle en premier, 3 points dans son
+   angle supérieur droit, fiche texte/statu/actions en dessous.
+   Les listes compactes de ressources restent volontairement compactes.
+   ======================================================================== */
+
+.doc-row.aurore-personal-document-row{
+  position:relative!important;
+  width:100%!important;
+  min-width:0!important;
+  display:block!important;
+  overflow:visible!important;
+  padding:0!important;
+  margin:0!important;
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+  transform:none!important;
+}
+.doc-row.aurore-personal-document-row>.info{
+  width:100%!important;
+  min-width:0!important;
+  display:flex!important;
+  flex-direction:column!important;
+  gap:9px!important;
+  align-items:stretch!important;
+}
+.doc-row.aurore-personal-document-row .personal-doc-cover{
+  position:relative!important;
+  width:100%!important;
+  height:auto!important;
+  aspect-ratio:3 / 4!important;
+  min-height:0!important;
+  flex:0 0 auto!important;
+  margin:0!important;
+  overflow:hidden!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  border:1px solid var(--pdf-line)!important;
+  border-radius:18px!important;
+  background:
+    radial-gradient(circle at 20% 15%,color-mix(in srgb,var(--pdf-accent) 16%,transparent),transparent 42%),
+    linear-gradient(145deg,color-mix(in srgb,var(--pdf-accent) 8%,var(--pdf-card-bg)),var(--pdf-card-bg))!important;
+  box-shadow:0 10px 24px rgba(0,0,0,.16)!important;
+  isolation:isolate!important;
+}
+.doc-row.aurore-personal-document-row .personal-doc-cover::before{
+  content:""!important;
+  position:absolute!important;
+  inset:0!important;
+  border-radius:inherit!important;
+  border:1px solid color-mix(in srgb,var(--pdf-accent) 12%,transparent)!important;
+  pointer-events:none!important;
+  z-index:2!important;
+}
+.doc-row.aurore-personal-document-row .personal-doc-cover img.doc-cover-img{
+  width:100%!important;
+  height:100%!important;
+  max-width:100%!important;
+  max-height:100%!important;
+  object-fit:contain!important;
+  object-position:center!important;
+  display:block!important;
+  border-radius:17px!important;
+  background:var(--pdf-page-bg)!important;
+  position:relative!important;
+  z-index:1!important;
+}
+.doc-row.aurore-personal-document-row .doc-main-info{
+  width:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  padding:12px 13px 13px!important;
+}
+.doc-row.aurore-personal-document-row .personal-doc-title{
+  display:block!important;
+  width:100%!important;
+  height:auto!important;
+  overflow:visible!important;
+  white-space:normal!important;
+  overflow-wrap:anywhere!important;
+  text-overflow:clip!important;
+  font-size:clamp(.72rem,.84rem,.94rem)!important;
+  line-height:1.35!important;
+  font-weight:800!important;
+  color:var(--pdf-text)!important;
+}
+.doc-row.aurore-personal-document-row .personal-doc-meta{
+  display:block!important;
+  width:100%!important;
+  height:auto!important;
+  overflow:visible!important;
+  white-space:normal!important;
+  overflow-wrap:anywhere!important;
+  margin-top:7px!important;
+  color:var(--pdf-muted)!important;
+  font-size:.68rem!important;
+  line-height:1.4!important;
+}
+.doc-row.aurore-personal-document-row .personal-status{
+  display:inline-flex!important;
+  margin-top:8px!important;
+}
+.doc-row.aurore-personal-document-row>.personal-doc-actions{
+  width:100%!important;
+  min-width:0!important;
+  display:flex!important;
+  flex-wrap:wrap!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  gap:7px!important;
+  margin-top:0!important;
+  padding:0 2px 1px!important;
+}
+.doc-row.aurore-personal-document-row>.personal-doc-actions .personal-action{
+  flex:0 0 auto!important;
+}
+.doc-row.aurore-personal-document-row>.doc-more-btn{
+  position:absolute!important;
+  top:9px!important;
+  right:9px!important;
+  z-index:20!important;
+  width:34px!important;
+  height:34px!important;
+  min-width:34px!important;
+  padding:0!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  border-radius:10px!important;
+  color:var(--theme-primary,var(--violet,#7C3AED))!important;
+  background:color-mix(in srgb,var(--papier,#fff) 88%,transparent)!important;
+  border:1px solid color-mix(in srgb,var(--theme-primary,var(--violet,#7C3AED)) 28%,var(--bordure,#d8d0e2))!important;
+  box-shadow:0 6px 16px rgba(0,0,0,.16)!important;
+  backdrop-filter:blur(9px)!important;
+}
+.doc-row.aurore-personal-document-row>.doc-more-btn svg{
+  width:18px!important;
+  height:18px!important;
+  color:currentColor!important;
+  fill:currentColor!important;
+}
+html[data-theme="dark"] .doc-row.aurore-personal-document-row>.doc-more-btn{
+  color:var(--theme-primary,#A78BFA)!important;
+  background:color-mix(in srgb,var(--papier,#171420) 88%,transparent)!important;
+  border-color:color-mix(in srgb,var(--theme-primary,#A78BFA) 45%,var(--bordure,#5B5268))!important;
+}
+.doc-row.aurore-personal-document-row>.doc-more-btn:hover,
+.doc-row.aurore-personal-document-row>.doc-more-btn[aria-expanded="true"]{
+  color:#fff!important;
+  background:var(--theme-primary,var(--violet,#7C3AED))!important;
+  border-color:var(--theme-primary,var(--violet,#7C3AED))!important;
+}
+.doc-row.aurore-personal-document-row .doc-actions{
+  top:47px!important;
+  right:8px!important;
+}
+@media(max-width:720px){
+  .doc-row.aurore-personal-document-row .personal-doc-cover{
+    border-radius:15px!important;
+  }
+  .doc-row.aurore-personal-document-row .doc-main-info{
+    padding:10px 10px 11px!important;
+    border-radius:12px!important;
+  }
+}
