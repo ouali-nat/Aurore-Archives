@@ -671,7 +671,7 @@
 <div class="admin-category-grid" id="adminCategoryGrid" role="tablist">
 <button class="admin-tab admin-category-card" data-accent="bleu" data-tab="attente" role="tab" type="button">
 <span aria-hidden="true" class="admin-category-icon"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="20"><path d="M9 6h11"></path><path d="M9 12h11"></path><path d="M9 18h11"></path><path d="M4 6l1 1 2-2"></path><path d="M4 12l1 1 2-2"></path><path d="M4 18l1 1 2-2"></path></svg></span>
-<span class="admin-category-title">En attente</span>
+<span class="admin-category-title">Documents en attente</span>
 <span class="admin-category-desc">Dépôts à valider</span>
 <span class="tab-count" id="tabCountAttente">0</span>
 </button>
@@ -1213,6 +1213,61 @@
 </div>
 </section>
 <!-- ===== MON PROFIL ===== -->
+<!-- ===== ADMINISTRATION — DOCUMENTS EN ATTENTE (PAGE DÉDIÉE) ===== -->
+<section class="screen" id="screen-admin-pending" aria-labelledby="adminPendingV2Title">
+<div class="admin-pending-v2-shell">
+<header class="admin-pending-v2-top">
+<div>
+<span class="admin-pending-v2-kicker">Administration · contrôle</span>
+<h2 id="adminPendingV2Title">Documents en attente</h2>
+<p>Cette page reprend depuis zéro le chargement et l’affichage. Les dépôts communautaires et les documents produits par Aurore restent séparés dans leurs circuits, mais sont visibles ici dans une interface de contrôle unique.</p>
+</div>
+<button class="admin-btn ghost admin-pending-v2-back" id="adminPendingV2Back" type="button">← Retour au tableau de bord</button>
+</header>
+
+<div class="admin-pending-v2-summary" aria-label="Résumé des documents en attente">
+<div class="admin-pending-v2-stat"><strong id="adminPendingV2Total">0</strong><span>Total en attente</span></div>
+<div class="admin-pending-v2-stat"><strong id="adminPendingV2Community">0</strong><span>Dépôts Communauté</span></div>
+<div class="admin-pending-v2-stat"><strong id="adminPendingV2Aurora">0</strong><span>Documents Aurore</span></div>
+<div class="admin-pending-v2-stat"><strong id="adminPendingV2Visible">0</strong><span>Résultats affichés</span></div>
+</div>
+
+<div class="admin-pending-v2-toolbar" role="search">
+<label class="admin-pending-v2-search" aria-label="Rechercher un document">
+<span aria-hidden="true">⌕</span>
+<input autocomplete="off" id="adminPendingV2Search" type="search" placeholder="Rechercher par titre, niveau, classe, matière ou auteur…">
+</label>
+<select id="adminPendingV2Source" aria-label="Filtrer par source">
+<option value="">Toutes les sources</option>
+<option value="community">Communauté</option>
+<option value="aurora">Aurore</option>
+</select>
+<select id="adminPendingV2Level" aria-label="Filtrer par niveau">
+<option value="">Tous les niveaux</option>
+</select>
+<select id="adminPendingV2Subject" aria-label="Filtrer par matière">
+<option value="">Toutes les matières</option>
+</select>
+<select id="adminPendingV2Sort" aria-label="Trier les documents">
+<option value="recent">Plus récent</option>
+<option value="oldest">Plus ancien</option>
+<option value="az">Titre A → Z</option>
+<option value="za">Titre Z → A</option>
+</select>
+</div>
+
+<div class="admin-pending-v2-results">
+<span><strong id="adminPendingV2Visible">0</strong> document(s) affiché(s)</span>
+<button class="admin-btn ghost" id="adminPendingV2Refresh" type="button">↻ Actualiser</button>
+</div>
+
+<div class="admin-pending-v2-list" id="adminPendingV2List" aria-live="polite"></div>
+<p class="admin-pending-v2-note" id="adminPendingV2Note"></p>
+
+<button class="back-btn" type="button" id="adminPendingV2BackBottom">← Retour au tableau de bord</button>
+</div>
+</section>
+<!-- ===== FIN DOCUMENTS EN ATTENTE ===== -->
 <section class="screen" id="screen-profil">
 <h2 class="section-title">Mon profil</h2>
 <div class="profile-card">
@@ -3863,6 +3918,7 @@
 <script defer src="js/aurore-upload-depot.js"></script>
 <script defer src="js/aurore-admin-users.js"></script>
 <script defer src="js/aurore-admin-documents.js?v=20260923-adminpending3"></script>
+<script defer src="js/aurore-admin-pending-v2.js?v=20260923-adminpending-v2"></script>
 <script defer src="js/aurore-admin-duplicates.js"></script>
 <script defer src="js/aurore-admin-claims.js"></script>
 <script defer src="js/aurore-publicites.js"></script>
@@ -3982,6 +4038,7 @@
 <link rel="stylesheet" href="./css/aurore-shared-route-guard.css" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="./css/aurore-shared-route.css" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="./css/aurore-admin-category.css" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="./css/aurore-admin-pending-v2.css">
 <link rel="stylesheet" href="./css/aurore-compactage.css" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="./css/aurore-resource-overview.css?v=20260922-design1">
 <script defer src="js/aurore-section-sharing-runtime.js"></script>
