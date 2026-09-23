@@ -1406,7 +1406,7 @@ def render_aurore_graphics(graphics, assets_dir, theme):
             ])
     return lines
 
-def render_graphs(graphs, allow=True):
+def render_graphs(graphs, allow=True, exercise_mode=False):
     if not allow:
         return []
     if not isinstance(graphs, list):
@@ -1425,7 +1425,7 @@ def render_graphs(graphs, allow=True):
         lines.extend([
             r"\begin{tcolorbox}[enhanced,breakable,colback=white,colframe=aurorebase,arc=7pt,boxrule=.45pt,left=8pt,right=8pt,top=8pt,bottom=8pt]",
             r"\centering",
-            r"\includegraphics[width=0.92\linewidth,height=10.5cm,keepaspectratio]{" + safe_path + r"}",
+            r"\includegraphics[width=" + ("0.88" if exercise_mode else "0.92") + r"\linewidth,height=" + ("7.2cm" if exercise_mode else "10.5cm") + r",keepaspectratio]{" + safe_path + r"}",
             r"\par\smallskip{\sffamily\small\color{gray} " + title + r"}",
             r"\end{tcolorbox}",
             "",
@@ -1667,6 +1667,20 @@ def render(data):
         r"    \AurorePill{Corrigé — Exercice #1}\par\smallskip #2",
         r"  \end{tcolorbox}%",
         r"}",
+        r"% Exercise-series layout: compact, math-first, isolated from the legacy course layout.",
+        r"\newcommand{\AuroreExerciseSeriesHeading}[1]{%",
+        r"  \par\needspace{4\baselineskip}{\sffamily\large\bfseries\color{auroredeep}#1}\par\vspace{0.18cm}\textcolor{aurorebase!55!white}{\rule{\linewidth}{0.55pt}}\vspace{0.35cm}%",
+        r"}",
+        r"\newcommand{\AuroreExerciseSeriesBlock}[2]{%",
+        r"  \begin{tcolorbox}[enhanced,breakable,arc=6pt,boxrule=.45pt,colframe=aurorebase!55!white,colback=white,left=7pt,right=7pt,top=5pt,bottom=6pt,before skip=5pt,after skip=7pt,pad at break*=1mm]%",
+        r"    {\sffamily\bfseries\color{auroredeep}Exercice #1}\par\smallskip #2%",
+        r"  \end{tcolorbox}%",
+        r"}",
+        r"\newcommand{\AuroreExerciseSeriesCorrection}[2]{%",
+        r"  \begin{tcolorbox}[enhanced,breakable,arc=6pt,boxrule=.35pt,colframe=aurorebase!28!white,colback=aurorepale,left=7pt,right=7pt,top=5pt,bottom=6pt,before skip=5pt,after skip=7pt,pad at break*=1mm]%",
+        r"    {\sffamily\bfseries\color{auroredeep}Corrigé — Exercice #1}\par\smallskip #2%",
+        r"  \end{tcolorbox}%",
+        r"}",
         r"\newcommand{\AuroreFormulaBlock}[1]{%",
         r"  \begin{tcolorbox}[auroreblock,colback=aurorepale,colframe=aurorebase!38!white,arc=12pt,halign=center]%",
         r"    \AurorePill{Formule utile}\par\smallskip",
@@ -1713,13 +1727,15 @@ def render(data):
         r"\addcontentsline{toc}{section}{Introduction}",
         inline(data.get("introduction", "")),
     ]
+    if is_exercise_document:
+        lines = lines[:-3]
 
     learning_objectives = [
         str(item).strip()
         for item in data.get("learning_objectives", []) or []
         if str(item).strip()
     ]
-    if learning_objectives:
+    if learning_objectives and not is_exercise_document:
         lines.append(r"\section*{À découvrir}")
         lines.append(r"\addcontentsline{toc}{section}{À découvrir}")
         lines.append(r"\begin{itemize}")
@@ -1737,105 +1753,97 @@ def render(data):
             continue
     used_correction_numbers = set()
 
+    inline_exercise_corrections = []
+
     for _idx, sec in enumerate(data.get("sections", [])):
+        if is_exercise_document:
+            exercises = sec.get("exercises", []) or []
+            if not isinstance(exercises, list):
+                exercises = []
+            section_title = clean_text(sec.get("title") or "").strip()
+            if section_title and len(exercises) > 1:
+                lines.append(r"\AuroreExerciseSeriesHeading{" + tex_text(section_title) + r"}")
+            content_items = sec.get("content", [])
+            if isinstance(content_items, list):
+                structured_texts = set()
+                for ex in exercises:
+                    if isinstance(ex, dict):
+                        for key in ("question", "statement", "enonce", "content", "solution", "correction"):
+                            value = clean_text(ex.get(key) or "").strip()
+                            if value: structured_texts.add(value)
+                content_items = [item for item in content_items if clean_text(item).strip() not in structured_texts and not re.match(r"^\s*Exercice\s+\d+\s*:", clean_text(item))]
+            if content_items: lines.extend(render_content(content_items))
+            if sec.get("formula"): lines.append(display_formula(sec["formula"]))
+            lines.extend(render_graphs(sec.get("graphs", []), allow=True, exercise_mode=True))
+            section_graphics = sec.get("graphics", [])
+            if section_graphics:
+                graphics_root = Path(data.get("_render_assets_dir") or "assets") / "aurore" / f"section-{_idx + 1}"
+                lines.extend(render_aurore_graphics(section_graphics, graphics_root, {"primary":"#"+theme_primary,"secondary":"#"+theme_secondary,"strong":"#"+theme}))
+            section_visuals = [v for v in (data.get("_wikimedia_visuals", []) or []) if int(v.get("section_index", -1)) == _idx]
+            if section_visuals: lines.extend(render_visuals(section_visuals))
+            for ex in exercises:
+                if not isinstance(ex, dict): continue
+                exercise_number += 1
+                question = ex.get("question") or ex.get("statement") or ex.get("enonce") or ex.get("content") or ""
+                inline_correction = ex.get("solution") or ex.get("correction") or ""
+                lines.append(r"\Needspace{4\baselineskip}")
+                lines.append(r"\AuroreExerciseSeriesBlock{" + str(exercise_number) + r"}{" + inline(question) + r"}")
+                if ex.get("hint"): lines.append(r"\AuroreLabeledBlock{Indication}{" + inline(ex["hint"]) + r"}")
+                if ex.get("formula"): lines.append(display_formula(ex["formula"]))
+                if inline_correction: inline_exercise_corrections.append((exercise_number, inline_correction))
+            continue
+
         lines.append(r"\Needspace{6\baselineskip}")
         lines.append(r"\section{" + tex_text(sec.get("title", "")) + r"}")
-        if sec.get("objective"):
-            lines.append(r"\AuroreLabeledBlock{À découvrir}{" + inline(sec["objective"]) + r"}")
-        if sec.get("formula"):
-            lines.append(display_formula(sec["formula"]))
+        if sec.get("objective"): lines.append(r"\AuroreLabeledBlock{À découvrir}{" + inline(sec["objective"]) + r"}")
+        if sec.get("formula"): lines.append(display_formula(sec["formula"]))
         content_items = sec.get("content", [])
-        # Exercise documents can carry long editorial detail in section.content
-        # while the structured exercise records repeat the statement/correction.
-        # Keep the unique section material visible and suppress only exact
-        # duplicates already represented by the structured exercise record.
-        if sec.get("exercises") and is_exercise_document:
-            structured_texts = set()
-            for ex in sec.get("exercises", []) or []:
-                if not isinstance(ex, dict):
-                    continue
-                for key in ("question", "statement", "enonce", "content", "solution", "correction"):
-                    value = clean_text(ex.get(key) or "").strip()
-                    if value:
-                        structured_texts.add(value)
-            if isinstance(content_items, list):
-                content_items = [
-                    item for item in content_items
-                    if clean_text(item).strip() not in structured_texts
-                ]
-        elif isinstance(content_items, list) and sec.get("exercises"):
-            # For non-exercise documents, keep legacy prose while suppressing
-            # duplicate "Exercice N :" lines already represented structurally.
-            content_items = [
-                item for item in content_items
-                if not re.match(r"^\s*Exercice\s+\d+\s*:", clean_text(item))
-            ]
+        if isinstance(content_items, list) and sec.get("exercises"):
+            content_items = [item for item in content_items if not re.match(r"^\s*Exercice\s+\d+\s*:", clean_text(item))]
         lines.extend(render_content(content_items))
-        # Graphs are already explicitly requested/generated by Content Factory.
-        # Do not gate them by editorial profile here: the renderer must render
-        # every valid GeoGebra instrument that has a materialized PNG.
         lines.extend(render_graphs(sec.get("graphs", []), allow=True))
-        # Aurore SVG graphics are independent of GeoGebra/Wikimedia.
         section_graphics = sec.get("graphics", [])
         if section_graphics:
             graphics_root = Path(data.get("_render_assets_dir") or "assets") / "aurore" / f"section-{_idx + 1}"
-            lines.extend(render_aurore_graphics(section_graphics, graphics_root, {
-                "primary": "#" + theme_primary,
-                "secondary": "#" + theme_secondary,
-                "strong": "#" + theme,
-            }))
-        section_visuals = [
-            v for v in (data.get("_wikimedia_visuals", []) or [])
-            if int(v.get("section_index", -1)) == _idx
-        ]
-        if section_visuals:
-            lines.extend(render_visuals(section_visuals))
-
+            lines.extend(render_aurore_graphics(section_graphics, graphics_root, {"primary":"#"+theme_primary,"secondary":"#"+theme_secondary,"strong":"#"+theme}))
+        section_visuals = [v for v in (data.get("_wikimedia_visuals", []) or []) if int(v.get("section_index", -1)) == _idx]
+        if section_visuals: lines.extend(render_visuals(section_visuals))
         for ex in sec.get("exercises", []):
             exercise_number += 1
             lines.append(r"\Needspace{5\baselineskip}")
-            # Accept both the canonical editorial schema (question + top-level
-            # corrections) and the exercise-pipeline schema (statement +
-            # inline correction). This keeps older generated exercise JSON
-            # renderable instead of producing empty exercise boxes.
-            question = (
-                ex.get("question")
-                or ex.get("statement")
-                or ex.get("enonce")
-                or ex.get("content")
-                or ""
-            )
-            inline_correction = (
-                ex.get("solution")
-                or ex.get("correction")
-                or ""
-            )
-            if is_exercise_document:
-                lines.append(r"\AuroreExerciseBlock{" + str(exercise_number) + r"}{" + inline(question) + r"}")
-            else:
-                lines.append((r"\AuroreActivityBlock{" if profile == "biologie" else r"\AuroreExerciseBlock{") + str(exercise_number) + r"}{" + inline(question) + r"}")
-            if ex.get("hint"):
-                hint_label = "Piste de réflexion" if profile == "biologie" else "Indication"
-                lines.append(r"\AuroreLabeledBlock{" + hint_label + r"}{" + inline(ex["hint"]) + r"}")
-            if ex.get("formula"):
-                lines.append(display_formula(ex["formula"]))
+            question = ex.get("question") or ex.get("statement") or ex.get("enonce") or ex.get("content") or ""
+            inline_correction = ex.get("solution") or ex.get("correction") or ""
+            lines.append((r"\AuroreActivityBlock{" if profile == "biologie" else r"\AuroreExerciseBlock{") + str(exercise_number) + r"}{" + inline(question) + r"}")
+            if ex.get("hint"): lines.append(r"\AuroreLabeledBlock{Indication}{" + inline(ex["hint"]) + r"}")
+            if ex.get("formula"): lines.append(display_formula(ex["formula"]))
             correction = corrections_by_number.get(exercise_number)
             if correction is not None:
                 solution = correction.get("solution") or correction.get("correction") or correction.get("details") or ""
                 lines.append(r"\Needspace{5\baselineskip}")
-                lines.append(
-                    r"\AuroreCorrectionBlock{" + str(correction.get("exercise_number", exercise_number)) +
-                    r"}{" + inline(solution) + r"}"
-                )
+                lines.append(r"\AuroreCorrectionBlock{" + str(correction.get("exercise_number", exercise_number)) + r"}{" + inline(solution) + r"}")
                 used_correction_numbers.add(exercise_number)
             elif inline_correction:
                 lines.append(r"\Needspace{5\baselineskip}")
-                lines.append(
-                    r"\AuroreCorrectionBlock{" + str(exercise_number) +
-                    r"}{" + inline(inline_correction) + r"}"
-                )
+                lines.append(r"\AuroreCorrectionBlock{" + str(exercise_number) + r"}{" + inline(inline_correction) + r"}")
 
-    unmatched = [
+    if is_exercise_document:
+        if corrections_by_number or inline_exercise_corrections:
+            lines.append(r"\clearpage")
+            lines.append(r"\section*{Corrigés}")
+            lines.append(r"\addcontentsline{toc}{section}{Corrigés}")
+        for number in sorted(corrections_by_number):
+            correction = corrections_by_number[number]
+            solution = correction.get("solution") or correction.get("correction") or correction.get("details") or ""
+            if solution:
+                lines.append(r"\Needspace{4\baselineskip}")
+                lines.append(r"\AuroreExerciseSeriesCorrection{" + str(number) + r"}{" + inline(solution) + r"}")
+                used_correction_numbers.add(number)
+        for number, solution in inline_exercise_corrections:
+            if solution and number not in corrections_by_number:
+                lines.append(r"\Needspace{4\baselineskip}")
+                lines.append(r"\AuroreExerciseSeriesCorrection{" + str(number) + r"}{" + inline(solution) + r"}")
+
+    unmatched = [] if is_exercise_document else [
         c for c in data.get("corrections", [])
         if int(c.get("exercise_number", 0) or 0) not in used_correction_numbers
     ]
