@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - pdf-lualatex-test
+      - fix/course-exercise-profile-isolation-20260923
   workflow_dispatch:
 
 jobs:
@@ -20,6 +21,11 @@ jobs:
             sudo apt-get install -y texlive-luatex texlive-lang-french texlive-latex-extra
           fi
           lualatex --version
+
+      - name: Run document profile unit tests
+        working-directory: infra/lualatex
+        run: |
+          python3 -m unittest discover -s tests -p 'test_*.py'
 
       - name: Render fixture document 21
         working-directory: infra/lualatex
