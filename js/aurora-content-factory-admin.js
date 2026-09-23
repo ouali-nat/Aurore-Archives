@@ -1184,6 +1184,16 @@ async function changeDocumentTheme(id,currentColor){
     }
   }catch(e){alert('Changement de couleur impossible. '+(e.message||e))}
 }
+// API publique minimale pour la page dédiée « Documents en attente ».
+// Elle réutilise exactement le moteur PDF/validation du Content Factory,
+// sans dupliquer le circuit de production.
+window.auroreAdminGeneratedActions={
+  render: async (id,themeColor)=>renderPdf(Number(id),themeColor||null),
+  changeTheme: async (id,currentColor)=>changeDocumentTheme(Number(id),currentColor),
+  validate: async id=>validateDoc(Number(id)),
+  reject: async id=>rejectDoc(Number(id)),
+  publish: async id=>publishDoc(Number(id))
+};
 async function validateDoc(id){const n=prompt('Note de validation (facultatif) :','');if(n===null)return;try{await rpc('aurora_validate_generated_document',{p_generated_document_id:Number(id),p_notes:n||null});await charger()}catch(e){alert('Validation impossible. '+(e.message||e))}}
 async function rejectDoc(id){const n=prompt('Motif du rejet / corrections demandées :','');if(n===null)return;if(!n.trim()){alert('Indique un motif pour rejeter le document.');return}try{await rpc('aurora_reject_generated_document',{p_generated_document_id:Number(id),p_notes:n.trim()});await charger()}catch(e){alert('Rejet impossible. '+(e.message||e))}}
 async function publishDoc(id){if(!confirm('Publier ce document dans la bibliothèque publique Aurore ?\n\nCette action crée un document publié à partir du PDF validé.'))return;const n=prompt('Note de publication (facultatif) :','');if(n===null)return;try{await rpc('aurora_publish_generated_document',{p_generated_document_id:Number(id),p_notes:n||null});await charger();alert('Document publié dans la bibliothèque Aurore.')}catch(e){alert('Publication impossible. '+(e.message||e))}}
