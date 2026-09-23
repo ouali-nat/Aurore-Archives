@@ -15,7 +15,7 @@ function normalizeDocumentType(v:unknown){
 function resolveProfile(v:unknown){
   const t=normalizeDocumentType(v);
   if(t.includes("exercice")||t.includes("devoir")||t.includes("corrigé de devoir")||t==="corrigé"||t==="corrige")return {kind:"exercices",version:"exercise-sheet-v2"};
-  if(t==="cours"||t.startsWith("cours ")||t.includes("fiche de cours")||t.includes("fiches cours")||t.includes("fiche de révision")||t.includes("résumé")||t.includes("document pédagogique")||t==="course")return {kind:"cours",version:"course-v2"};
+  if(t==="cours"||t.startsWith("cours ")||t.includes("fiche de cours")||t.includes("fiches cours")||t.includes("fiche de revision")||t.includes("fiche revision")||t.includes("resume")||t.includes("document pedagogique")||t==="course")return {kind:"cours",version:"course-v2"};
   return {kind:"document",version:"document-v1"};
 }
 const reply=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:CORS});
