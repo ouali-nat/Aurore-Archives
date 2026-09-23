@@ -57,20 +57,38 @@ async function launch(j){
  const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));
 }
 async function deleteJob(j){
- if(statusOf(j)==='processing'){alert('Suppression protégée pendant la production en cours.');return}
+ if(statusOf(j)==='processing'){alert('Une génération est en cours. Utilise « Annuler la génération » pour arrêter proprement le job.');return}
  if(!confirm('Supprimer définitivement la demande Aurore #'+j.id+' ?\n\nSeule la demande encore dans le sas sera supprimée. Aucun document publié n’est touché.'))return;
  const r=await adminFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?id=eq.'+encodeURIComponent(j.id),{method:'DELETE',headers:{Prefer:'return=minimal'}});
  const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));
  await chargerDocumentsEnAttenteAdminV2();
 }
+async function cancelJob(j){
+ const s=statusOf(j);
+ if(!['queued','processing'].includes(s))return;
+ if(!confirm('Annuler la génération du job Aurore #'+j.id+' ?\n\nLe job sera arrêté et retiré du sas de production. Cette action ne supprime aucun PDF déjà validé ou publié.'))return;
+ try{
+  const r=await adminFetch(SUPABASE_URL+'/rest/v1/rpc/aurora_cancel_content_job',{
+   method:'POST',
+   headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({p_job_id:Number(j.id)})
+  });
+  const t=await r.text();
+  if(!r.ok)throw new Error(t||('HTTP '+r.status));
+  await chargerDocumentsEnAttenteAdminV2();
+ }catch(e){
+  throw e;
+ }
+}
 function actions(j){
- const s=statusOf(j),disabled=s==='processing';
+ const s=statusOf(j),active=['queued','processing'].includes(s);
  let h='<div class="admin-pending-v2-actions">';
- h+='<button type="button" class="admin-btn ghost" data-action="theme" data-id="'+j.id+'" '+(disabled?'disabled title="Couleur verrouillée pendant la production."':'')+'>Changer la couleur</button>';
+ h+='<button type="button" class="admin-btn ghost" data-action="theme" data-id="'+j.id+'" '+(active?'disabled title="Couleur verrouillée pendant la production."':'')+'>Changer la couleur</button>';
  if(s==='draft')h+='<button type="button" class="admin-btn primary" data-action="launch" data-id="'+j.id+'">Lancer la production</button>';
  else if(s==='queued')h+='<button type="button" class="admin-btn ghost" disabled>En file d’attente</button>';
  else h+='<button type="button" class="admin-btn primary" disabled>Production en cours…</button>';
- h+='<button type="button" class="admin-btn danger" data-action="delete" data-id="'+j.id+'" '+(disabled?'disabled title="Suppression protégée pendant une production active."':'')+'>Supprimer</button>';
+ if(active)h+='<button type="button" class="admin-btn danger admin-pending-v2-cancel" data-action="cancel" data-id="'+j.id+'">Annuler la génération</button>';
+ h+='<button type="button" class="admin-btn danger" data-action="delete" data-id="'+j.id+'" '+(active?'disabled title="Annulation requise avant suppression."':'')+'>Supprimer</button>';
  return h+'</div>';
 }
 function render(){
@@ -96,12 +114,19 @@ function render(){
  list.querySelectorAll('[data-action]').forEach(b=>b.addEventListener('click',()=>runAction(b)));
 }
 async function runAction(b){
- const j=STATE.jobs.find(x=>x.id===Number(b.dataset.id));if(!j)return;b.disabled=true;
+ const j=STATE.jobs.find(x=>x.id===Number(b.dataset.id));if(!j)return;
+ const original=b.textContent;
+ b.disabled=true;
+ if(b.dataset.action==='cancel')b.textContent='Annulation…';
+ else if(b.dataset.action==='launch')b.textContent='Lancement…';
+ else if(b.dataset.action==='delete')b.textContent='Suppression…';
+ else if(b.dataset.action==='theme')b.textContent='Enregistrement…';
  try{
   if(b.dataset.action==='theme'){if(await chooseTheme(j))await chargerDocumentsEnAttenteAdminV2()}
   else if(b.dataset.action==='launch'){await launch(j);await chargerDocumentsEnAttenteAdminV2()}
+  else if(b.dataset.action==='cancel'){await cancelJob(j)}
   else if(b.dataset.action==='delete'){await deleteJob(j)}
- }catch(e){console.error('[ADMIN][AURORE PENDING]',e);alert('Action impossible pour le job #'+j.id+'. '+(e?.message||e));b.disabled=false}
+ }catch(e){console.error('[ADMIN][AURORE PENDING]',e);alert('Action impossible pour le job #'+j.id+'. '+(e?.message||e));b.disabled=false;b.textContent=original}
 }
 async function chargerDocumentsEnAttenteAdminV2(){
  const list=document.getElementById('adminPendingV2List');if(!list)return;
