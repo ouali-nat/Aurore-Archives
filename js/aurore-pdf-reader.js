@@ -1323,31 +1323,43 @@ async function telechargerDocumentAvecProgression(doc) {
     });
   }
 
-  document.getElementById('pdfViewerZoomIn').addEventListener('click', () => appliquerZoom(PDF_ZOOM_PAS));
-  document.getElementById('pdfViewerZoomOut').addEventListener('click', () => appliquerZoom(-PDF_ZOOM_PAS));
-
-  // Appui prolongé : après le premier pas, le zoom continue de 1 % en 1 %
-  // tant que le doigt/souris reste appuyé sur + ou −.
+  // Un appui bref = un seul pas de 1 %. Un appui prolongé (≈350 ms)
+  // lance ensuite une progression continue, toujours de 1 % en 1 %.
   function installerAppuiProlongeZoom(id, delta) {
     const bouton=document.getElementById(id);
     if(!bouton) return;
-    let timer=null;
-    let actif=false;
-    let dernierPas=0;
+    let depart=null;
+    let intervalle=null;
+    let appuiLong=false;
+    let ignorerClic=false;
+
     const arreter=()=>{
-      actif=false;
-      if(timer){clearInterval(timer);timer=null;}
+      if(depart){clearTimeout(depart);depart=null;}
+      if(intervalle){clearInterval(intervalle);intervalle=null;}
+      if(appuiLong) ignorerClic=true;
+      appuiLong=false;
     };
-    bouton.addEventListener('pointerdown',()=>{
-      arreter();
-      actif=true;
-      dernierPas=Date.now();
-      timer=setInterval(()=>{
-        if(!actif) return;
-        dernierPas=Date.now();
-        appliquerZoom(delta);
-      },90);
+
+    bouton.addEventListener('click',(e)=>{
+      if(ignorerClic){
+        ignorerClic=false;
+        e.preventDefault();
+        return;
+      }
+      appliquerZoom(delta);
     });
+
+    bouton.addEventListener('pointerdown',()=>{
+      if(depart) clearTimeout(depart);
+      if(intervalle) clearInterval(intervalle);
+      appuiLong=false;
+      depart=setTimeout(()=>{
+        depart=null;
+        appuiLong=true;
+        intervalle=setInterval(()=>appliquerZoom(delta),90);
+      },350);
+    });
+
     ['pointerup','pointercancel','pointerleave'].forEach(type=>{
       bouton.addEventListener(type,arreter);
     });
