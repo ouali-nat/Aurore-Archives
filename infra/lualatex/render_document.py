@@ -1487,6 +1487,32 @@ def render_table(rows):
     return "\n".join(out)
 
 
+def _split_exercise_text(value, mode="question"):
+    """Split exercise statements/corrections into readable pedagogical steps."""
+    text = clean_text(value).replace("\\r\\n", "\\n").replace("\\r", "\\n").strip()
+    if not text:
+        return []
+    text = re.sub(r"\\s+(?=(?:\\d+[.)]|[A-Za-z][.)])\\s+)", "\\n", text)
+    chunks = [part.strip() for part in re.split(r"\\n+", text) if part.strip()]
+    if mode == "correction":
+        refined = []
+        for chunk in chunks:
+            parts = re.split(r"(?<=[.!?])\\s+(?=(?:Donc|Ainsi|Alors|Pour |Par |Avec |On |Si |Les |Le |La |Enfin|Il |Cela |Ce |Cette|On en déduit|Calcul|Vérif))", chunk, flags=re.IGNORECASE)
+            refined.extend(p.strip() for p in parts if p.strip())
+        chunks = refined
+    return chunks
+
+def render_exercise_text(value, mode="question"):
+    lines = []
+    for part in _split_exercise_text(value, mode=mode):
+        m = re.match(r"^(\\d+[.)])\\s+(.+)$", part, flags=re.DOTALL)
+        if m:
+            lines.append(r"{\\sffamily\\bfseries\\color{auroredeep}" + tex_text(m.group(1)) + r"}\\enspace " + inline(m.group(2), auto_math=True))
+        else:
+            lines.append(inline(part, auto_math=True))
+        lines.append(r"\\par\\smallskip")
+    return lines
+
 def render_content(items, auto_math=False):
     # Be defensive about Content Factory payloads. Some production payloads
     # can arrive as a JSON-encoded string instead of a native list.
@@ -2201,14 +2227,16 @@ def render(data):
             # seuls les champs structurés de l'exercice peuvent entrer dans le PDF.
             content_items = []
             if sec.get("formula"): lines.append(display_formula(sec["formula"]))
-            lines.extend(render_graphs(sec.get("graphs", []), allow=True, exercise_mode=True))
             section_graphics = sec.get("graphics", [])
-            if section_graphics:
-                graphics_root = Path(data.get("_render_assets_dir") or "assets") / "aurore" / f"section-{_idx + 1}"
-                lines.extend(render_aurore_graphics(section_graphics, graphics_root, {"primary":"#"+theme_primary,"secondary":"#"+theme_secondary,"strong":"#"+theme}))
             section_visuals = [v for v in (data.get("_wikimedia_visuals", []) or []) if int(v.get("section_index", -1)) == _idx]
-            if section_visuals: lines.extend(render_visuals(section_visuals))
-            for ex in exercises:
+            section_graphs = sec.get("graphs", []) or []
+            if not exercises:
+                lines.extend(render_graphs(section_graphs, allow=True, exercise_mode=True))
+                if section_graphics:
+                    graphics_root = Path(data.get("_render_assets_dir") or "assets") / "aurore" / f"section-{_idx + 1}"
+                    lines.extend(render_aurore_graphics(section_graphics, graphics_root, {"primary":"#"+theme_primary,"secondary":"#"+theme_secondary,"strong":"#"+theme}))
+                if section_visuals: lines.extend(render_visuals(section_visuals))
+            for ex_index, ex in enumerate(exercises):
                 if not isinstance(ex, dict):
                     continue
                 if declared_exercise_count is not None and exercise_number >= declared_exercise_count:
@@ -2216,9 +2244,18 @@ def render(data):
                 exercise_number += 1
                 question = ex.get("question") or ex.get("statement") or ex.get("enonce") or ex.get("content") or ""
                 inline_correction = ex.get("solution") or ex.get("correction") or ""
-                lines.append(r"\AuroreExerciseSeriesBlock{" + str(exercise_number) + r"}{" + inline(question, auto_math=True) + r"}")
-                if ex.get("hint"): lines.append(r"\AuroreLabeledBlock{Indication}{" + inline(ex["hint"], auto_math=True) + r"}")
-                if ex.get("formula"): lines.append(display_formula(ex["formula"]))
+                body = []
+                body.extend(render_exercise_text(question, mode="question"))
+                if ex_index == 0:
+                    body.extend(render_graphs(section_graphs, allow=True, exercise_mode=True))
+                    if section_graphics:
+                        graphics_root = Path(data.get("_render_assets_dir") or "assets") / "aurore" / f"section-{_idx + 1}"
+                        body.extend(render_aurore_graphics(section_graphics, graphics_root, {"primary":"#"+theme_primary,"secondary":"#"+theme_secondary,"strong":"#"+theme}))
+                    if section_visuals: body.extend(render_visuals(section_visuals))
+                if ex.get("hint"):
+                    body.append(r"\AuroreLabeledBlock{Indication}{" + inline(ex["hint"], auto_math=True) + r"}")
+                if ex.get("formula"): body.append(display_formula(ex["formula"]))
+                lines.append(r"\AuroreExerciseSeriesBlock{" + str(exercise_number) + r"}{" + "\n".join(body) + r"}")
                 if inline_correction: inline_exercise_corrections.append((exercise_number, inline_correction))
             continue
 
@@ -2264,7 +2301,8 @@ def render(data):
             correction = corrections_by_number[number]
             solution = correction.get("solution") or correction.get("correction") or correction.get("details") or ""
             if solution:
-                lines.append(r"\AuroreExerciseSeriesCorrection{" + str(number) + r"}{" + inline(solution, auto_math=True) + r"}")
+                correction_body = "\n".join(render_exercise_text(solution, mode="correction"))
+                lines.append(r"\AuroreExerciseSeriesCorrection{" + str(number) + r"}{" + correction_body + r"}")
                 used_correction_numbers.add(number)
         for number, solution in inline_exercise_corrections:
             if solution and number not in corrections_by_number:
