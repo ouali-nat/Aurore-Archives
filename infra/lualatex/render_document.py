@@ -1136,7 +1136,26 @@ def normalize_math(s):
     # Restore protected array row breaks as real LaTeX double-backslash commands.
     s = s.replace(marker, "\\\\")
 
-    # before a horizontal rule ("\\ \\hline") instead of the required
+    # Some payloads arrive already partially normalized: a JSON row break
+    # can reach this point as a single backslash before the next one-character
+    # cell. Inside matrix/alignment environments that is a lost row separator.
+    # Repair only this narrow shape; real commands such as \\gamma are untouched.
+    def _repair_lost_matrix_rows(match):
+        block = match.group(0)
+        return re.sub(
+            r"(?<=[A-Za-z0-9})])\\\\(?=[A-Za-z0-9](?:\\s*&))",
+            r"\\\\\\\\",
+            block,
+        )
+
+    s = re.sub(
+        r"\\\\begin\\{(?:matrix|pmatrix|bmatrix|Bmatrix|vmatrix|Vmatrix|smallmatrix|cases|array|aligned|alignedat|gathered|split|rcases)\\}[\\s\\S]*?\\\\end\\{(?:matrix|pmatrix|bmatrix|Bmatrix|vmatrix|Vmatrix|smallmatrix|cases|array|aligned|alignedat|gathered|split|rcases)\\}",
+        _repair_lost_matrix_rows,
+        s,
+    )
+
+    # before a horizontal rule
+ ("\\ \\hline") instead of the required
     # array row break ("\\\\ \\hline"). Canonicalize that malformed
     # sequence only inside array environments; never alter ordinary math.
     def _fix_array_rows(match):
