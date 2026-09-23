@@ -57,7 +57,7 @@
     // neutralisé à 100 % pendant la lecture puis restauré à la fermeture.
     return 0.60;
   }
-  let PDF_MODE_LECTURE = 'vertical'; // vertical = défilement continu ; horizontal = pages côte à côte
+  let PDF_MODE_LECTURE = 'horizontal'; // horizontal = pages côte à côte (mode par défaut) ; vertical = défilement continu
   // Cache mémoire court : rouvrir un PDF déjà consulté évite un nouveau téléchargement.
   const PDF_CACHE_OCTETS = new Map();
   const PDF_CACHE_MAX = 4;
