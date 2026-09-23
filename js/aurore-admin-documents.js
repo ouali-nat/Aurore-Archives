@@ -7,15 +7,28 @@
       // 2) les documents Aurore produits par Content Factory et encore soumis au
       // contrôle humain (aurora_generated_documents). On ne mélange jamais leurs
       // mécanismes de validation/publication : ici on ne fait que les afficher.
-      const [res, resAurore] = await Promise.all([
+      const [communityResult, auroreResult] = await Promise.allSettled([
         fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&Publie=eq.false&order=id.desc`, { headers: headersAdmin() }),
         fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_list_aurora_generated_documents`, { method: 'POST', headers: { ...headersAdmin(), 'Content-Type': 'application/json' }, body: '{}', cache: 'no-store' })
       ]);
-      if (!res.ok) throw new Error("Statut HTTP " + res.status);
-      if (!resAurore.ok) throw new Error("Statut HTTP Aurore " + resAurore.status);
 
-      const data = await res.json();
-      const dataAurore = await resAurore.json();
+      // Les deux circuits sont indépendants : une erreur sur les dépôts
+      // communautaires ne doit jamais masquer les documents Aurore.
+      let data = [];
+      let dataAurore = [];
+
+      if (communityResult.status === 'fulfilled' && communityResult.value.ok) {
+        data = await communityResult.value.json();
+      } else {
+        console.warn('[ADMIN][ATTENTE] Lecture communauté indisponible ; poursuite avec Aurore.', communityResult.reason || communityResult.value?.status);
+      }
+
+      if (auroreResult.status === 'fulfilled' && auroreResult.value.ok) {
+        dataAurore = await auroreResult.value.json();
+      } else {
+        const status = auroreResult.status === 'fulfilled' ? auroreResult.value.status : auroreResult.reason;
+        throw new Error("Lecture des documents Aurore impossible" + (status ? " (" + status + ")" : ""));
+      }
 
       const totalAttente = (data?.length || 0) + (dataAurore?.length || 0);
       majCompteurOnglet('tabCountAttente', totalAttente);
@@ -27,7 +40,14 @@
         return;
       }
 
-      const deposants = await recupererDeposants((data || []).map(d => d.id));
+      let deposants = new Map();
+      if (data && data.length) {
+        try {
+          deposants = await recupererDeposants(data.map(d => d.id));
+        } catch (err) {
+          console.warn('[ADMIN][ATTENTE] Informations déposants indisponibles ; affichage des documents poursuivi.', err);
+        }
+      }
 
       list.innerHTML = '';
 
