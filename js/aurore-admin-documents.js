@@ -2,22 +2,37 @@
     const list = document.getElementById('adminList');
     list.innerHTML = '<p class="admin-empty">Chargement…</p>';
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&Publie=eq.false&order=id.desc`, { headers: headersAdmin() });
+      // Deux circuits doivent apparaître dans « Documents en attente » :
+      // 1) les dépôts communautaires classiques (table Document) ;
+      // 2) les documents Aurore produits par Content Factory et encore soumis au
+      // contrôle humain (aurora_generated_documents). On ne mélange jamais leurs
+      // mécanismes de validation/publication : ici on ne fait que les afficher.
+      const [res, resAurore] = await Promise.all([
+        fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&Publie=eq.false&order=id.desc`, { headers: headersAdmin() }),
+        fetch(`${SUPABASE_URL}/rest/v1/aurora_generated_documents?select=*&status=in.(queued,processing,generated,review)&order=id.desc`, { headers: headersAdmin() })
+      ]);
       if (!res.ok) throw new Error("Statut HTTP " + res.status);
+      if (!resAurore.ok) throw new Error("Statut HTTP Aurore " + resAurore.status);
+
       const data = await res.json();
-      majCompteurOnglet('tabCountAttente', data ? data.length : 0);
+      const dataAurore = await resAurore.json();
+
+      const totalAttente = (data?.length || 0) + (dataAurore?.length || 0);
+      majCompteurOnglet('tabCountAttente', totalAttente);
       actualiserResumeDepotsAttente(data);
 
-      if (!data || data.length === 0) {
-        list.innerHTML = '<p class="admin-empty">Aucun dépôt en attente. Tout est à jour.</p>';
+      if ((!data || data.length === 0) && (!dataAurore || dataAurore.length === 0)) {
+        list.innerHTML = '<p class="admin-empty">Aucun document en attente. Tout est à jour.</p>';
         actualiserOutilsAdminApresChargement('attente', ADMIN_COLLECTION_CONFIG.attente, {niveaux:[],classes:[],matieres:[],categories:[]});
         return;
       }
 
-      const deposants = await recupererDeposants(data.map(d => d.id));
+      const deposants = await recupererDeposants((data || []).map(d => d.id));
 
       list.innerHTML = '';
-      data.forEach((doc, i) => {
+
+      // Documents déposés par la communauté : comportement historique inchangé.
+      (data || []).forEach((doc, i) => {
         const deposant = deposants.get(doc.id) || null;
         const card = document.createElement('div');
         card.className = 'admin-card pending-card';
@@ -63,11 +78,78 @@
         list.appendChild(card);
         appliquerCouvertureAdmin(card, doc);
       });
+
+      // Documents Aurore / Content Factory : visibles dès leur arrivée dans
+      // aurora_generated_documents, même lorsque le PDF n'est pas encore prêt.
+      (dataAurore || []).forEach((doc, i) => {
+        const card = document.createElement('div');
+        const niveau = doc.level || 'Non précisé';
+        const classe = doc.class_name || niveau;
+        const matiere = doc.subject || doc.matiere || 'Non précisée';
+        const statut = String(doc.status || 'review');
+        const pdfUrl = doc.pdf_url || '';
+        const statutLabel = statut === 'review'
+          ? 'À contrôler'
+          : statut === 'processing'
+            ? 'PDF en génération'
+            : statut === 'queued'
+              ? 'En file de génération'
+              : 'Document généré — contrôle requis';
+
+        card.className = 'admin-card pending-card aurora-generated-card';
+        card.dataset.adminId = 'aurora-' + String(doc.id ?? '');
+        card.dataset.adminTitle = String(doc.title || '');
+        card.dataset.adminLevel = String(niveau);
+        card.dataset.adminClass = String(classe);
+        card.dataset.adminSubject = String(matiere);
+        card.dataset.adminCategory = 'Aurore — Content Factory';
+        card.dataset.adminAuthor = 'Aurore';
+        card.dataset.adminSearch = [doc.title, niveau, classe, matiere, 'Aurore', 'Content Factory', statutLabel].filter(Boolean).join(' ');
+        card.dataset.adminSortValue = String(doc.id ?? '0');
+        card.style.animationDelay = ((data || []).length + i) * 0.04 + 's';
+        card.innerHTML = `
+          <div class="admin-card-icon">✦</div>
+          <div class="admin-card-body">
+            <div class="titre">${doc.title || 'Document Aurore sans titre'}</div>
+            <div class="meta">
+              <b>${niveau}</b> · ${classe} · ${matiere}<br>
+              <strong>Aurore — Content Factory</strong> · Auteur : Aurore<br>
+              <span style="color:var(--gris);">${statutLabel}</span>
+            </div>
+            ${pdfUrl
+              ? '<button type="button" class="admin-btn ghost js-open-aurora-pdf">Ouvrir le PDF dans Aurore →</button>'
+              : '<div class="admin-empty" style="margin:.6rem 0 0;">Le PDF est encore en préparation. Le document reste visible ici pour le contrôle du circuit.</div>'}
+            <div class="admin-actions">
+              <span class="admin-btn ghost" style="cursor:default;opacity:.85;">Contrôle humain requis</span>
+            </div>
+          </div>
+        `;
+
+        const ouvrirAuroraPdf = card.querySelector('.js-open-aurora-pdf');
+        if (ouvrirAuroraPdf) ouvrirAuroraPdf.addEventListener('click', () => {
+          if (!pdfUrl) return;
+          const cible = {
+            id: doc.id,
+            Titre: doc.title || 'Document Aurore',
+            Fichier_url: pdfUrl,
+            Telechargement_autorise: false
+          };
+          if (typeof window.ouvrirLecteurPDF === 'function') window.ouvrirLecteurPDF(cible);
+          else window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+        });
+
+        list.appendChild(card);
+      });
+
       actualiserOutilsAdminApresChargement('attente', ADMIN_COLLECTION_CONFIG.attente, {
-        niveaux:data.map(d=>d.Niveau), classes:data.map(d=>d.Classe), matieres:data.map(d=>d['Matière'] || d.Genre), categories:data.map(d=>d['Catégorie'])
+        niveaux:(data || []).map(d=>d.Niveau).concat((dataAurore || []).map(d=>d.level)),
+        classes:(data || []).map(d=>d.Classe).concat((dataAurore || []).map(d=>d.class_name)),
+        matieres:(data || []).map(d=>d['Matière'] || d.Genre).concat((dataAurore || []).map(d=>d.subject || d.matiere)),
+        categories:(data || []).map(d=>d['Catégorie']).concat((dataAurore || []).map(()=>'Aurore — Content Factory'))
       });
     } catch (err) {
-      list.innerHTML = `<p class="admin-empty">Impossible de charger ces éléments pour le moment. Veuillez réessayer dans quelques instants.</p>`;
+      console.error('[ADMIN][ATTENTE] Échec du chargement des documents en attente :', err);
+      list.innerHTML = '<p class="admin-empty">Impossible de charger ces éléments pour le moment. Veuillez réessayer dans quelques instants.</p>';
     }
   }
 
