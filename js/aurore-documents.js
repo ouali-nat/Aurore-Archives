@@ -734,6 +734,11 @@
   // bouton ci-dessus. Les boutons ci-dessous portent exactement les mêmes
   // attributs data-* qu'auparavant : les gestionnaires de clic attachés par
   // rendreListeDocuments()/rendreRecentsAvecOutils() n'ont pas besoin de changer.
+  // Petit bouton permanent « Ouvrir » : accès direct au lecteur PDF du document.
+  function boutonOuvrirCarteDocumentMarkup() {
+    return '<button type="button" class="doc-open-btn" data-ouvrir-pdf="1" aria-label="Ouvrir le PDF" title="Ouvrir le PDF"><span aria-hidden="true">↗</span><span>Ouvrir</span></button>';
+  }
+
   function panneauActionsCarteDocumentMarkup(telechargementOk) {
     return `<div class="doc-actions" role="menu">
       <button type="button" class="dl" data-lire="1" role="menuitem"><span class="share-icon">${ICONS.eye || '▶'}</span><span>Lire</span></button>
@@ -752,6 +757,12 @@
   // Case, Signaler, Partager, Partager WhatsApp, Copier le lien) sur un panneau
   // d'actions donné, puis referme la carte après toute action choisie.
   function brancherActionsCarteDocument(row, doc) {
+    row.querySelector('[data-ouvrir-pdf]')?.addEventListener('click',(e)=>{
+      e.preventDefault();
+      e.stopPropagation();
+      fermerCarteActionsDocument(row);
+      ouvrirLecteurPDF(doc);
+    });
     row.querySelector('[data-lire]')?.addEventListener('click',()=>ouvrirLecteurPDF(doc));
     row.querySelector('[data-telecharger-maintenant]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(doc));
     row.querySelector('[data-signaler]')?.addEventListener('click',()=>ouvrirSignalement(doc));
@@ -988,7 +999,7 @@
         '<div class="meta">Déposé par ' + (doc.Auteur || 'Aurore') + (telechargementOk ? '' : ' · Lecture seule') + '</div>' +
         (contexte ? '<div class="doc-context">' + contexte + '</div>' : '') +
         tailleBadgeMarkup(doc.Fichier_url) + '</div></div>' +
-        boutonPlusCarteDocumentMarkup() + panneauActionsCarteDocumentMarkup(telechargementOk);
+        boutonOuvrirCarteDocumentMarkup() + boutonPlusCarteDocumentMarkup() + panneauActionsCarteDocumentMarkup(telechargementOk);
       brancherActionsCarteDocument(row, doc);
       actualiserEtatActionsDocument(row, doc);
       actualiserTaillesDocumentsDans(row);
@@ -1040,6 +1051,7 @@
             tailleBadgeMarkup(doc.Fichier_url) +
           '</div>' +
         '</div>' +
+        boutonOuvrirCarteDocumentMarkup() +
         boutonPlusCarteDocumentMarkup() +
         panneauActionsCarteDocumentMarkup(telechargementOk);
       brancherActionsCarteDocument(row, doc);
@@ -1421,6 +1433,7 @@
             ${tailleBadgeMarkup(doc.Fichier_url)}
           </div>
         </div>
+        ${boutonOuvrirCarteDocumentMarkup()}
         ${boutonPlusCarteDocumentMarkup()}
         ${panneauActionsCarteDocumentMarkup(telechargementOk)}`;
 
