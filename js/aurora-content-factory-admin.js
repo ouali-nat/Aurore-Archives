@@ -28,7 +28,7 @@ window.adminInventoryFetch=async function(url,options={},retry=true){
 };
 })();
 
-(function(){'use strict';const panel=document.querySelector('.admin-tab-panel[data-panel="content-factory"]');if(!panel)return;const list=document.getElementById('adminContentFactoryList'),count=document.getElementById('tabCountContentFactory');let rows=[];let generationQueue=[];let generationRunning=false;let cfCreatePath=[];let cfClassificationInitialized=false;const esc=v=>{const d=document.createElement('div');d.textContent=String(v==null?'':v);return d.innerHTML};const sl=s=>({review:'À contrôler',approved:'Validé',published:'Publié',rejected:'Rejeté',failed:'Échec',generated:'Généré',processing:'Traitement',queued:'En file',draft:'Brouillon'}[s]||s||'Inconnu');const adminOk=()=>!!(session&&session.role==='admin');const normalizeThemeColor=v=>/^#[0-9a-f]{6}$/i.test(String(v||''))?String(v).toUpperCase():'#C85C0D';
+(function(){'use strict';const panel=document.querySelector('.admin-tab-panel[data-panel="content-factory"]');if(!panel)return;const list=document.getElementById('adminContentFactoryList'),count=document.getElementById('tabCountContentFactory');let rows=[];let generationQueue=[];let generationRunning=false;let cfCreatePath=[];let cfClassificationInitialized=false;let inventoryLoaded=false;let inventoryFingerprint='';let productionCardSignatures=new Map();const esc=v=>{const d=document.createElement('div');d.textContent=String(v==null?'':v);return d.innerHTML};const sl=s=>({review:'À contrôler',approved:'Validé',published:'Publié',rejected:'Rejeté',failed:'Échec',generated:'Généré',processing:'Traitement',queued:'En file',draft:'Brouillon'}[s]||s||'Inconnu');const adminOk=()=>!!(session&&session.role==='admin');const normalizeThemeColor=v=>/^#[0-9a-f]{6}$/i.test(String(v||''))?String(v).toUpperCase():'#C85C0D';
 const documentThemeColor=metadata=>{
   const m=metadata&&typeof metadata==='object'?metadata:{};
   const d=m.aurore_design&&typeof m.aurore_design==='object'?m.aurore_design:{};
@@ -1333,6 +1333,144 @@ async function surveillerRenduArrierePlan(id,accessToken,b){
   return false;
 }
 
+function productionThemeColor(x){
+ const m=x&&x.metadata&&typeof x.metadata==='object'?x.metadata:{};
+ const d=m.aurore_design&&typeof m.aurore_design==='object'?m.aurore_design:{};
+ return normalizeThemeColor(d.theme_color||d.themeColor||x.theme_color||m.theme_color||'#C85C0D');
+}
+function productionActive(x){
+ const m=x&&x.metadata&&typeof x.metadata==='object'?x.metadata:{};
+ return ['queued','processing'].includes(String(m.lualatex_status||'').toLowerCase());
+}
+function productionCancelled(x){
+ const m=x&&x.metadata&&typeof x.metadata==='object'?x.metadata:{};
+ return m.lualatex_cancel_requested===true;
+}
+function productionProgressValue(x){
+ const m=x&&x.metadata&&typeof x.metadata==='object'?x.metadata:{};
+ const n=Number(m.lualatex_progress);
+ return Number.isFinite(n)?Math.max(0,Math.min(100,n)):0;
+}
+function productionProgressStage(x){
+ const m=x&&x.metadata&&typeof x.metadata==='object'?x.metadata:{};
+ return String(m.lualatex_stage||m.lualatex_status||(
+   productionActive(x)?'Rendu PDF en cours':'Production PDF'
+ ));
+}
+function productionTime(x){
+ const start=x?.created_at?new Date(x.created_at):null;
+ const end=x?.updated_at?new Date(x.updated_at):null;
+ const duration=start&&end&&!Number.isNaN(start.getTime())&&!Number.isNaN(end.getTime())&&end>=start
+   ?Math.max(0,Math.round((end-start)/1000)):0;
+ if(duration<60)return duration+' s';
+ const m=Math.floor(duration/60),s=duration%60;
+ return m+' min '+String(s).padStart(2,'0')+' s';
+}
+function productionStatusLabel(x){
+ const s=String(x?.status||'').toLowerCase(),m=x?.metadata&&typeof x.metadata==='object'?x.metadata:{};
+ if(m.lualatex_cancel_requested===true)return 'Annulation demandée';
+ if(m.lualatex_status==='processing')return 'Génération en cours';
+ if(m.lualatex_status==='queued')return 'En file d’attente';
+ return ({review:'À contrôler',approved:'Validé',published:'Publié',failed:'Échec',generated:'Généré',rejected:'Rejeté'}[s]||s||'Inconnu');
+}
+function productionStructuralSignature(x){
+ const m=x?.metadata&&typeof x.metadata==='object'?x.metadata:{};
+ return JSON.stringify([
+   x.id,x.title,x.subject,x.matiere,x.level,x.class_name,x.document_type,x.version,x.status,
+   x.pdf_url,x.pdf_path,x.published_document_id,x.validation_notes,productionThemeColor(x),
+   m.origin,m.producer,m.source,m.human_review_required
+ ]);
+}
+function productionClassification(x){
+ return [x?.subject||x?.matiere,x?.level,x?.class_name,x?.document_type].filter(Boolean).join(' · ');
+}
+function productionCardHtml(x){
+ const m=x.metadata&&typeof x.metadata==='object'?x.metadata:{};
+ const theme=productionThemeColor(x),pdf=!!x.pdf_url,active=productionActive(x),cancelled=productionCancelled(x);
+ const status=productionStatusLabel(x),progress=productionProgressValue(x),stage=productionProgressStage(x);
+ const origin=m.origin||m.source||m.producer||'Aurore — Content Factory';
+ const classification=productionClassification(x);
+ const canRender=['generated','review','approved','failed'].includes(String(x.status||''))&&!active&&!cancelled;
+ const canValidate=x.status==='review'&&pdf&&!active&&!cancelled;
+ const canReject=['review','approved'].includes(x.status)&&!active&&!cancelled;
+ const canPublish=['approved','review'].includes(x.status)&&pdf&&!active&&!cancelled;
+ return '<article class="cf-prod-card" data-production-id="'+esc(x.id)+'" style="--cf-production-theme:'+esc(theme)+'">'+
+  '<div class="cf-prod-accent"></div><div class="cf-prod-main">'+
+  '<div class="cf-prod-head"><div class="cf-prod-head-title"><span class="cf-prod-source">Aurore — Content Factory</span><h4>'+esc(x.title||'Document Aurore sans titre')+'</h4></div><div class="cf-prod-head-side"><span class="cf-prod-status">'+esc(status)+'</span><span class="cf-prod-id">#'+esc(x.id)+'</span></div></div>'+
+  '<div class="cf-prod-progress" '+(productionActive(x)||m.lualatex_progress!=null?'':'hidden')+'><div class="cf-prod-progress-head"><strong>Progression de production</strong><span data-prod-progress-label>'+esc(Number.isInteger(progress)?progress+'%':progress.toFixed(2)+'%')+'</span></div><div class="cf-prod-progress-track"><i data-prod-progress-bar style="width:'+esc(progress)+'%"></i></div><small data-prod-progress-stage>'+esc(stage)+'</small></div>'+
+  '<div class="cf-prod-meta-grid">'+
+    '<div><b>Date</b><span>'+esc(x.created_at?new Date(x.created_at).toLocaleString('fr-FR'):'Date non disponible')+'</span></div>'+
+    '<div><b>Classe</b><span>'+esc(x.class_name||'—')+'</span></div>'+
+    '<div><b>Niveau</b><span>'+esc(x.level||'—')+'</span></div>'+
+    '<div><b>Matière</b><span>'+esc(x.matiere||x.subject||'—')+'</span></div>'+
+    '<div><b>Type</b><span>'+esc(x.document_type||'—')+'</span></div>'+
+    '<div><b>Version</b><span>'+esc(x.version||'—')+'</span></div>'+
+    '<div><b>Origine</b><span>'+esc(origin)+'</span></div>'+
+    '<div><b>Durée suivie</b><span data-prod-duration>'+esc(productionTime(x))+'</span></div>'+
+  '</div>'+
+  '<div class="cf-prod-classification"><b>Classement :</b> '+esc(classification||'Non renseigné')+'</div>'+
+  '<div class="cf-prod-theme"><span class="cf-prod-theme-dot" style="background:'+esc(theme)+'"></span><div><b>Couleur du document</b><small>'+esc(theme)+' · mémorisée avec cette version</small></div></div>'+
+  (x.validation_notes?'<div class="cf-prod-note"><b>Note administrative</b><span>'+esc(x.validation_notes)+'</span></div>':'')+
+  (m.lualatex_last_error?'<div class="cf-prod-error"><b>Erreur de production</b><span>'+esc(m.lualatex_last_error)+'</span></div>':'')+
+  '<div class="cf-prod-actions">'+
+   (pdf?'<a class="admin-btn ghost" href="'+esc(x.pdf_url)+'" target="_blank" rel="noopener">Ouvrir le PDF</a>':'')+
+   (active||cancelled?'<button type="button" class="admin-btn danger cf-pdf-cancel-static" data-cf-cancel="'+esc(x.id)+'" '+(cancelled?'disabled aria-busy="true"':'')+'>'+(cancelled?'Annulation demandée…':'Annuler la génération')+'</button>':'')+
+   '<button type="button" class="admin-btn ghost cf-change-theme" data-cf-theme="'+esc(x.id)+'" data-theme-color="'+esc(theme)+'" '+(active||cancelled?'disabled':'')+'>Changer la couleur</button>'+
+   (canRender?'<button type="button" class="admin-btn primary" data-cf-render="'+esc(x.id)+'" data-has-pdf="'+(pdf?'1':'0')+'" data-theme-color="'+esc(theme)+'">'+(pdf?'Régénérer le PDF':'Générer le PDF')+'</button>':'')+
+   (canValidate?'<button type="button" class="admin-btn valider" data-cf-validate="'+esc(x.id)+'">Valider</button>':'')+
+   (canReject?'<button type="button" class="admin-btn refuser" data-cf-reject="'+esc(x.id)+'">Rejeter</button>':'')+
+   (canPublish?'<button type="button" class="admin-btn primary" data-cf-publish="'+esc(x.id)+'">Publier</button>':'')+
+  '</div></div></article>';
+}
+function syncProductionCardDynamic(card,x){
+ const m=x?.metadata&&typeof x.metadata==='object'?x.metadata:{},active=productionActive(x),cancelled=productionCancelled(x);
+ const p=productionProgressValue(x);
+ const progressLabel=card.querySelector('[data-prod-progress-label]');
+ const progressBar=card.querySelector('[data-prod-progress-bar]');
+ const progressStage=card.querySelector('[data-prod-progress-stage]');
+ const duration=card.querySelector('[data-prod-duration]');
+ const status=card.querySelector('.cf-prod-status');
+ const progressBox=card.querySelector('.cf-prod-progress');
+ if(progressLabel)progressLabel.textContent=Number.isInteger(p)?p+'%':p.toFixed(2)+'%';
+ if(progressBar)progressBar.style.width=p+'%';
+ if(progressStage)progressStage.textContent=productionProgressStage(x);
+ if(duration)duration.textContent=productionTime(x);
+ if(status)status.textContent=productionStatusLabel(x);
+ if(progressBox)progressBox.hidden=!(active||m.lualatex_progress!=null);
+ const cancel=card.querySelector('[data-cf-cancel]');
+ if(cancel){
+   cancel.disabled=cancelled;
+   cancel.textContent=cancelled?'Annulation demandée…':'Annuler la génération';
+   if(cancelled)cancel.setAttribute('aria-busy','true'); else cancel.removeAttribute('aria-busy');
+ }
+}
+function renderProductionCenter(){
+ const list=document.getElementById('aurorePdfProdList'),summary=document.getElementById('aurorePdfProdSummary');
+ if(!list)return;
+ const recent=rows.filter(x=>!x.contentJob).slice().sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0)).slice(0,12);
+ const activeCount=recent.filter(productionActive).length;
+ const queuedCount=recent.filter(x=>String(x?.metadata?.lualatex_status||'').toLowerCase()==='queued').length;
+ if(summary)summary.textContent=activeCount+' en cours · '+queuedCount+' en attente · '+recent.length+' document(s) récent(s)';
+ const wanted=new Set(recent.map(x=>String(x.id)));
+ list.querySelectorAll('[data-production-id]').forEach(card=>{if(!wanted.has(String(card.dataset.productionId)))card.remove()});
+ if(!recent.length){
+   if(!list.querySelector('.cf-prod-empty'))list.innerHTML='<div class="cf-prod-empty">Aucun document Aurore récent à afficher.</div>';
+   productionCardSignatures.clear();return;
+ }
+ list.querySelector('.cf-prod-empty')?.remove();
+ for(const x of recent){
+   const key=String(x.id),sig=productionStructuralSignature(x);
+   let card=list.querySelector('[data-production-id="'+CSS.escape(key)+'"]');
+   if(!card||productionCardSignatures.get(key)!==sig){
+     const holder=document.createElement('div');holder.innerHTML=productionCardHtml(x).trim();
+     const fresh=holder.firstElementChild;
+     if(card)card.replaceWith(fresh);else list.appendChild(fresh);
+     card=fresh;productionCardSignatures.set(key,sig);
+   }
+   syncProductionCardDynamic(card,x);
+   list.appendChild(card);
+ }
+}
 async function charger(){
   if(!adminOk()){list.innerHTML='<div class="admin-empty">Cette action est réservée aux administrateurs.</div>';return}
   list.innerHTML='<div class="admin-empty">Chargement…</div>';
