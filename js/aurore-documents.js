@@ -982,6 +982,61 @@
     return 'cours';
   }
 
+  function ouvrirVueRessourceAuroreCommunaute() {
+    const items = (documentsCourants || []).filter(doc => !estDocumentAurore(doc));
+    const content = document.getElementById('docsContent');
+    if (!content) return;
+
+    const matiereNom = etat.matiere?.nom || '';
+    const niveauLabel = (etat.classe?.dbNiveaux?.[0]) || (etat.feuilleArbre?.dbNiveaux?.[0]) || (etat.sousNiveau?.dbNiveaux?.[0]) || '';
+    document.getElementById('docsTitle').textContent =
+      [etat.categorie?.nom, etat.serieChoisie?.nom || etat.feuilleArbre?.nom || etat.sousNiveau?.nom || niveauLabel, matiereNom, 'Documents de la communauté']
+        .filter(Boolean).join(' — ');
+    const back = document.querySelector('#screen-docs .back-btn');
+    if (back) back.setAttribute('data-back', 'matieres');
+
+    afficherEcran('screen-docs');
+
+    if (!items.length) {
+      content.innerHTML = '<div class="doc-empty friendly-empty"><div class="icon-wrap">' + ICONS.folder + '</div><h3>Aucun document de la communauté</h3><p>Cette section sera enrichie progressivement.</p></div>';
+      return;
+    }
+
+    const list = document.createElement('div');
+    list.className = 'doc-list';
+    trierDocumentsClient(items).forEach(doc => {
+      const row = document.createElement('div');
+      row.className = 'doc-row';
+      row._auroreDocument = doc;
+      const telechargementOk = doc.Telechargement_autorise !== false;
+      const contexte = [
+        doc.Niveau && 'Niveau : ' + doc.Niveau,
+        doc.Filiere && 'Filière : ' + doc.Filiere,
+        (doc['Catégorie'] || doc.Type) && 'Catégorie : ' + (doc['Catégorie'] || doc.Type),
+        doc.Genre && 'Genre : ' + doc.Genre
+      ].filter(Boolean).join(' · ');
+      const titreDocument = obtenirTitreDocument(doc);
+      row.dataset.documentTitle = titreDocument;
+      row.innerHTML =
+        '<div class="info"><div class="icon-wrap">' + ICONS.file + '</div><div class="doc-main-info">' +
+        '<div class="titre" title="' + echapperHtmlPub(titreDocument) + '">' + echapperHtmlPub(titreDocument) + '</div>' +
+        '<div class="meta">Déposé par ' + (doc.Auteur || 'anonyme') + (telechargementOk ? '' : ' · Lecture seule') + '</div>' +
+        (contexte ? '<div class="doc-context">' + echapperHtmlPub(contexte) + '</div>' : '') +
+        tailleBadgeMarkup(doc.Fichier_url) + '</div></div>' +
+        boutonOuvrirCarteDocumentMarkup() + boutonPlusCarteDocumentMarkup() + panneauActionsCarteDocumentMarkup(telechargementOk);
+      brancherActionsCarteDocument(row, doc);
+      actualiserEtatActionsDocument(row, doc);
+      actualiserTaillesDocumentsDans(row);
+      if (COUVERTURES_PREMIERE_PAGE_ACTIVES) appliquerCouvertureSiLivre(row, doc);
+      list.appendChild(row);
+    });
+
+    content.innerHTML = '';
+    content.appendChild(list);
+    document.getElementById('docsPager')?.replaceChildren();
+    window.scrollTo({top: 0, behavior: 'auto'});
+  }
+
   function ouvrirVueRessourceAurore(type, titre) {
     const items = (documentsCourants || [])
       .filter(estDocumentAurore)
@@ -1144,7 +1199,8 @@
 
     const commSection = document.createElement('section');
     commSection.className = 'aurore-origin-group aurore-origin-group-communaute';
-    commSection.innerHTML = '<div class="aurore-origin-group-head"><div><span class="aurore-origin-kicker">Contribution</span><h3>Documents de la communauté</h3><p>Ressources déposées puis validées par la communauté.</p></div><span class="aurore-origin-count">' + communauteDocs.length + '</span></div>';
+    commSection.innerHTML = '<div class="aurore-origin-group-head"><div><span class="aurore-origin-kicker">Contribution</span><h3>Documents de la communauté</h3><p>Ressources déposées puis validées par la communauté.</p></div><div style="display:flex;align-items:center;gap:8px"><span class="aurore-origin-count">' + communauteDocs.length + '</span><button type="button" class="aurore-resource-more" aria-label="Voir tous les documents de la communauté">Voir plus</button></div></div>';
+    commSection.querySelector('.aurore-resource-more')?.addEventListener('click', () => ouvrirVueRessourceAuroreCommunaute());
 
     if (!communauteDocs.length) {
       const empty = document.createElement('div');
@@ -1155,7 +1211,7 @@
       const commWindow = document.createElement('div');
       commWindow.className = 'aurore-community-window';
       const commList = document.createElement('div');
-      commList.className = 'doc-list aurore-origin-group-list';
+      commList.className = 'doc-list aurore-general-resource-list';
       communauteDocs.forEach(doc => commList.appendChild(creerLigne(doc)));
       commWindow.appendChild(commList);
       commSection.appendChild(commWindow);
