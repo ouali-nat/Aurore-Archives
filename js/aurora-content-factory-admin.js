@@ -1024,7 +1024,7 @@ async function renderPdf(id,themeColor=null){
     const documentGraphs=[];
     for(const section of Array.isArray(documentContent.sections)?documentContent.sections:[])
       if(Array.isArray(section?.graphs))documentGraphs.push(...section.graphs);
-    const renderableGraphs=documentGraphs.filter(g=>!auroraGeoGebraImageReady(g)&&!!auroraGeoGebraInstrument(g));
+    const renderableGraphs=documentGraphs.filter(g=>!!auroraGeoGebraInstrument(g));
     const declaredGraphCount=renderableGraphs.length;
     let graphCount=0;
     if(declaredGraphCount>0){
@@ -1094,7 +1094,7 @@ async function renderPdf(id,themeColor=null){
     }
     setProgress(100,'PDF LuaLaTeX généré et enregistré.');
     if(b)b.textContent='PDF LuaLaTeX prêt';
-    await charger();
+    try{await charger();}catch(refreshError){console.warn('[Content Factory] PDF généré mais actualisation de la liste impossible:',refreshError);}
     setTimeout(()=>setProgress(0,'Prêt pour une nouvelle génération.'),1200);
     alert(graphCount?`PDF LuaLaTeX généré avec ${graphCount} graphique${graphCount>1?'s':''} GeoGebra.`:'PDF LuaLaTeX généré et enregistré.');
   }catch(e){
