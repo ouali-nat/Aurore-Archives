@@ -1342,9 +1342,10 @@ def _render_bare_latex_fragments(text, auto_math=False):
     patterns = [
         r"\\frac\{(?:[^{}]|\{[^{}]*\})*\}\{(?:[^{}]|\{[^{}]*\})*\}",
         r"\\overline\{[^{}]*\}",
+        r"\\(?:textbf|textit|textrm|textsf|texttt|emph|underline)\{[^{}]*\}",
         r"\\text\{[^{}]*\}",
         r"\\(?:sqrt|mathrm|mathbf|mathit)\{[^{}]*\}",
-        r"\\(?:gamma|delta|alpha|beta|theta|lambda|mu|pi|infty|approx|pm|times|cdot|leq|geq|neq)\b",
+        r"\\(?:gamma|delta|alpha|beta|theta|lambda|mu|pi|infty|approx|pm|times|cdot|leq|geq|neq|iff|Longrightarrow|Rightarrow|Longleftarrow|Leftrightarrow)\b",
         r"\\,",
         r"\\quad",
     ]
