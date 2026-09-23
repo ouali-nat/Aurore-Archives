@@ -177,6 +177,25 @@
     row.classList.remove('personal-doc','personal-book');
     row.classList.add('doc-row','aurore-personal-document-row');
     row.__auroreDocumentCouverture=doc||null;
+
+    // Même interaction que les cartes publiques : le bouton 3 points reste
+    // posé sur la couverture et ouvre l'ensemble des actions existantes.
+    try {
+      if (typeof boutonPlusCarteDocumentMarkup === 'function') {
+        row.insertAdjacentHTML(
+          'beforeend',
+          boutonPlusCarteDocumentMarkup() +
+          (typeof panneauActionsCarteDocumentMarkup === 'function'
+            ? panneauActionsCarteDocumentMarkup(doc?.Telechargement_autorise !== false)
+            : '')
+        );
+        if (typeof brancherActionsCarteDocument === 'function') {
+          brancherActionsCarteDocument(row, doc);
+        }
+      }
+    } catch (e) {
+      console.warn('[Espace personnel] menu document:', e);
+    }
     return row;
   }
 
