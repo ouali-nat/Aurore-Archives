@@ -1213,57 +1213,39 @@
 </div>
 </section>
 <!-- ===== MON PROFIL ===== -->
-<!-- ===== ADMINISTRATION — DOCUMENTS EN ATTENTE (PAGE DÉDIÉE) ===== -->
+<!-- ===== ADMINISTRATION — DOCUMENTS EN ATTENTE / SAS AURORE ===== -->
 <section class="screen" id="screen-admin-pending" aria-labelledby="adminPendingV2Title">
 <div class="admin-pending-v2-shell">
 <header class="admin-pending-v2-top">
 <div>
-<span class="admin-pending-v2-kicker">Administration · contrôle</span>
+<span class="admin-pending-v2-kicker">Administration · sas de production Aurore</span>
 <h2 id="adminPendingV2Title">Documents en attente</h2>
-<p>Cette page reprend depuis zéro le chargement et l’affichage. Les dépôts communautaires et les documents produits par Aurore restent séparés dans leurs circuits, mais sont visibles ici dans une interface de contrôle unique.</p>
+<p>Seuls les documents Aurore nouvellement injectés qui attendent encore leur production PDF apparaissent ici. Dès qu’un document PDF est créé, il quitte ce sas et rejoint l’espace de contrôle des documents générés.</p>
 </div>
 <button class="admin-btn ghost admin-pending-v2-back" id="adminPendingV2Back" type="button">← Retour au tableau de bord</button>
 </header>
-
-<div class="admin-pending-v2-summary" aria-label="Résumé des documents en attente">
-<div class="admin-pending-v2-stat"><strong id="adminPendingV2Total">0</strong><span>Total en attente</span></div>
-<div class="admin-pending-v2-stat"><strong id="adminPendingV2Community">0</strong><span>Dépôts Communauté</span></div>
-<div class="admin-pending-v2-stat"><strong id="adminPendingV2Aurora">0</strong><span>Documents Aurore</span></div>
-<div class="admin-pending-v2-stat"><strong id="adminPendingV2Filtered">0</strong><span>Résultats affichés</span></div>
+<div class="admin-pending-v2-summary" aria-label="État du sas de production">
+<div class="admin-pending-v2-stat admin-pending-v2-stat-main"><strong id="adminPendingV2Total">0</strong><span>Documents en attente</span></div>
+<div class="admin-pending-v2-stat"><strong id="adminPendingV2Processing">0</strong><span>Génération en cours</span></div>
+<div class="admin-pending-v2-stat"><strong id="adminPendingV2Queued">0</strong><span>En file d’attente</span></div>
 </div>
-
 <div class="admin-pending-v2-toolbar" role="search">
 <label class="admin-pending-v2-search" aria-label="Rechercher un document">
 <span aria-hidden="true">⌕</span>
-<input autocomplete="off" id="adminPendingV2Search" type="search" placeholder="Rechercher par titre, niveau, classe, matière ou auteur…">
+<input autocomplete="off" id="adminPendingV2Search" type="search" placeholder="Rechercher par titre, niveau, classe, matière ou identifiant…">
 </label>
-<select id="adminPendingV2Source" aria-label="Filtrer par source">
-<option value="">Toutes les sources</option>
-<option value="community">Communauté</option>
-<option value="aurora">Aurore</option>
-</select>
-<select id="adminPendingV2Level" aria-label="Filtrer par niveau">
-<option value="">Tous les niveaux</option>
-</select>
-<select id="adminPendingV2Subject" aria-label="Filtrer par matière">
-<option value="">Toutes les matières</option>
-</select>
+<select id="adminPendingV2Level" aria-label="Filtrer par niveau"><option value="">Tous les niveaux</option></select>
+<select id="adminPendingV2Subject" aria-label="Filtrer par matière"><option value="">Toutes les matières</option></select>
 <select id="adminPendingV2Sort" aria-label="Trier les documents">
-<option value="recent">Plus récent</option>
-<option value="oldest">Plus ancien</option>
-<option value="az">Titre A → Z</option>
-<option value="za">Titre Z → A</option>
+<option value="recent">Plus récent</option><option value="oldest">Plus ancien</option><option value="az">Titre A → Z</option><option value="za">Titre Z → A</option>
 </select>
 </div>
-
 <div class="admin-pending-v2-results">
 <span><strong id="adminPendingV2Visible">0</strong> document(s) affiché(s)</span>
 <button class="admin-btn ghost" id="adminPendingV2Refresh" type="button">↻ Actualiser</button>
 </div>
-
 <div class="admin-pending-v2-list" id="adminPendingV2List" aria-live="polite"></div>
 <p class="admin-pending-v2-note" id="adminPendingV2Note"></p>
-
 <button class="back-btn" type="button" id="adminPendingV2BackBottom">← Retour au tableau de bord</button>
 </div>
 </section>
