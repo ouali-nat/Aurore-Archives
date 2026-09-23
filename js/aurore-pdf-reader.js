@@ -310,7 +310,12 @@
     neutraliserZoomGlobalPourLecteurPDF();
     const overlayLecteur = document.getElementById('pdfViewerOverlay');
     overlayLecteur.style.display = 'block';
-    // Recalcule immédiatement la géométrie après neutralisation du zoom.
+    // L'overlay vient de passer de display:none à display:block : on attend
+    // un cycle de rendu pour que clientWidth/clientHeight représentent bien
+    // la fenêtre physique. Cela évite qu'un zoom du site précédent ou une
+    // largeur encore à 0 soit utilisée pour calculer les pages.
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    if (jeton !== PDF_JETON_OUVERTURE) return;
     window.dispatchEvent(new Event('resize'));
     document.getElementById('pdfViewerZone').focus({ preventScroll: true });
 
@@ -827,9 +832,11 @@ async function telechargerDocumentAvecProgression(doc) {
     const promesse = (async()=>{
       const page = await PDF_EN_COURS.getPage(n);
       if (!PDF_EN_COURS || !wrapper.isConnected) return;
-      const largeurDispo = pdfLargeurBase || Math.max(260, Math.min(980, document.getElementById('pdfViewerZone').clientWidth - 10));
+      const zoneLecteur = document.getElementById('pdfViewerZone');
+      const largeurFenetre = zoneLecteur ? Math.max(1, zoneLecteur.clientWidth - 20) : 1;
+      const largeurDispo = pdfLargeurBase > 0 ? Math.min(pdfLargeurBase, largeurFenetre) : Math.min(980, largeurFenetre);
       const vpBase = page.getViewport({scale:1, rotation:PDF_ROTATION});
-      const echelleAjustement = largeurDispo / vpBase.width;
+      const echelleAjustement = largeurDispo / Math.max(1, vpBase.width);
       const echelle = Math.max(0.25, Math.min(8, echelleAjustement * PDF_ZOOM));
       const viewport = page.getViewport({scale:echelle, rotation:PDF_ROTATION});
       // Haute résolution : jusqu'à 3x la densité physique de l'écran (au lieu
@@ -837,10 +844,21 @@ async function telechargerDocumentAvecProgression(doc) {
       // forte densité, tout en restant borné pour ne pas saturer la mémoire.
       const dpr = Math.min(window.devicePixelRatio || 1, 3);
 
+      // Toutes les pages utilisent exactement la même largeur CSS disponible.
+      // Seule la hauteur varie selon le ratio propre à chaque page.
+      wrapper.style.width = Math.max(1, Math.round(largeurDispo)) + 'px';
+      wrapper.style.maxWidth = Math.max(1, Math.round(largeurDispo)) + 'px';
+      wrapper.style.marginLeft = 'auto';
+      wrapper.style.marginRight = 'auto';
+
       canvas.width = Math.max(1, Math.round(viewport.width * dpr));
       canvas.height = Math.max(1, Math.round(viewport.height * dpr));
       canvas.style.width = viewport.width + 'px';
       canvas.style.height = viewport.height + 'px';
+      canvas.style.maxWidth = '100%';
+      canvas.style.display = 'block';
+      canvas.style.marginLeft = 'auto';
+      canvas.style.marginRight = 'auto';
       const ctx = canvas.getContext('2d', {alpha:false});
       ctx.setTransform(dpr,0,0,dpr,0,0);
       try {
@@ -909,10 +927,28 @@ async function telechargerDocumentAvecProgression(doc) {
       pages.innerHTML = '';
       pages.style.transform = '';
       pages.style.transformOrigin = '';
+      // Une nouvelle ouverture doit toujours repartir de 100 % et de la
+      // largeur réelle du lecteur. Le zoom CSS de l'ancien document ne doit
+      // jamais être conservé, même si PDF_ZOOM vient d'être réinitialisé.
+      pages.style.zoom = '1';
+      pages.style.width = '100%';
+      pages.style.maxWidth = '100%';
+      pages.style.margin = '0 auto';
+      pages.style.marginBottom = '0';
       document.getElementById('pdfViewerLoading').style.display = 'flex';
       document.getElementById('pdfViewerStatut').textContent = 'Ouverture du document…';
 
-      pdfLargeurBase = Math.max(260, Math.min(980, zone.clientWidth - 10));
+      // Largeur automatique unique pour toute la série de pages.
+      // On retire une petite marge interne afin qu'aucune page ne déborde,
+      // même sur un écran mobile étroit.
+      pdfLargeurBase = Math.max(1, Math.min(980, zone.clientWidth - 20));
+      pages.style.width = pdfLargeurBase + 'px';
+      pages.style.maxWidth = '100%';
+      pages.style.zoom = '1';
+      pages.style.transform = 'none';
+      pages.style.transformOrigin = 'top center';
+      pages.style.marginLeft = 'auto';
+      pages.style.marginRight = 'auto';
       const total=PDF_EN_COURS.numPages;
 
       // Les emplacements gardent une hauteur estimée : sans cela, les pages
