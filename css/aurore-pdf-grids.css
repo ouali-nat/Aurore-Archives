@@ -1157,3 +1157,24 @@ html[data-theme="dark"] .doc-row.aurore-personal-document-row>.doc-more-btn{
     border-radius:12px!important;
   }
 }
+
+/* Priorité finale des trois points sur toutes les cartes PDF principales.
+   Le thème pilote la couleur : on n'impose plus du blanc en mode sombre. */
+.doc-row:not(.aurore-resource-list .doc-row)>.doc-more-btn,
+#adminList .admin-card>.admin-document-more,
+#adminListPublies .admin-card>.admin-document-more{
+  color:var(--theme-primary,var(--violet,#7C3AED))!important;
+  background:color-mix(in srgb,var(--papier,#fff) 88%,transparent)!important;
+  border-color:color-mix(in srgb,var(--theme-primary,var(--violet,#7C3AED)) 28%,var(--bordure,#d8d0e2))!important;
+}
+.doc-row:not(.aurore-resource-list .doc-row)>.doc-more-btn svg{
+  color:currentColor!important;
+  fill:currentColor!important;
+}
+html[data-theme="dark"] .doc-row:not(.aurore-resource-list .doc-row)>.doc-more-btn,
+html[data-theme="dark"] #adminList .admin-card>.admin-document-more,
+html[data-theme="dark"] #adminListPublies .admin-card>.admin-document-more{
+  color:var(--theme-primary,#A78BFA)!important;
+  background:color-mix(in srgb,var(--papier,#171420) 90%,transparent)!important;
+  border-color:color-mix(in srgb,var(--theme-primary,#A78BFA) 42%,var(--bordure,#5B5268))!important;
+}
