@@ -1489,29 +1489,40 @@ def render_table(rows):
 
 def _split_exercise_text(value, mode="question"):
     """Split exercise statements/corrections into readable pedagogical steps."""
-    text = clean_text(value).replace("\\r\\n", "\\n").replace("\\r", "\\n").strip()
+    text = clean_text(value).replace("\r\n", "\n").replace("\r", "\n").strip()
     if not text:
         return []
-    text = re.sub(r"\\s+(?=(?:\\d+[.)]|[A-Za-z][.)])\\s+)", "\\n", text)
-    chunks = [part.strip() for part in re.split(r"\\n+", text) if part.strip()]
+    # Expose numbered subquestions without discarding their original wording.
+    text = re.sub(r"\s+(?=(?:\d+[.)]|[A-Za-z][.)])\s+)", "\n", text)
+    chunks = [part.strip() for part in re.split(r"\n+", text) if part.strip()]
+
     if mode == "correction":
         refined = []
         for chunk in chunks:
-            parts = re.split(r"(?<=[.!?])\\s+(?=(?:Donc|Ainsi|Alors|Pour |Par |Avec |On |Si |Les |Le |La |Enfin|Il |Cela |Ce |Cette|On en déduit|Calcul|Vérif))", chunk, flags=re.IGNORECASE)
+            parts = re.split(
+                r"(?<=[.!?])\s+(?=(?:Donc|Ainsi|Alors|Pour |Par |Avec |On |Si |Les |Le |La |Enfin|Il |Cela |Ce |Cette|On en déduit|Calcul|Vérif))",
+                chunk,
+                flags=re.IGNORECASE,
+            )
             refined.extend(p.strip() for p in parts if p.strip())
         chunks = refined
     return chunks
 
+
 def render_exercise_text(value, mode="question"):
     lines = []
     for part in _split_exercise_text(value, mode=mode):
-        m = re.match(r"^(\\d+[.)])\\s+(.+)$", part, flags=re.DOTALL)
+        m = re.match(r"^(\d+[.)])\s+(.+)$", part, flags=re.DOTALL)
         if m:
-            lines.append(r"{\\sffamily\\bfseries\\color{auroredeep}" + tex_text(m.group(1)) + r"}\\enspace " + inline(m.group(2), auto_math=True))
+            lines.append(
+                r"{\sffamily\bfseries\color{auroredeep}" + tex_text(m.group(1)) + r"}\enspace "
+                + inline(m.group(2), auto_math=True)
+            )
         else:
             lines.append(inline(part, auto_math=True))
-        lines.append(r"\\par\\smallskip")
+        lines.append(r"\par\smallskip")
     return lines
+
 
 def render_content(items, auto_math=False):
     # Be defensive about Content Factory payloads. Some production payloads
