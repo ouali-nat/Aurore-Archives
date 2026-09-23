@@ -1849,9 +1849,19 @@ def _exercise_profile_qa_issues(data):
             issues.append(f"section {section_index}: objet invalide")
             continue
         exercises = section.get("exercises") if isinstance(section.get("exercises"), list) else []
-        if not exercises:
-            issues.append(f"section {section_index}: aucun exercice structuré")
         section_content = section.get("content")
+        # A series may end with a structured editorial/support section
+        # (methods, reminders, reference sheet, etc.) that intentionally
+        # contains prose instead of another exercise. Such a section must
+        # not be rejected merely because it has no exercises array.
+        # Keep the QA strict for empty sections and for sections that contain
+        # neither exercises nor usable supporting content.
+        has_supporting_content = (
+            isinstance(section_content, list)
+            and any(clean_text(item) for item in section_content)
+        )
+        if not exercises and not has_supporting_content:
+            issues.append(f"section {section_index}: aucun exercice structuré ni contenu de soutien")
         if isinstance(section_content, list):
             for item in section_content:
                 txt = clean_text(item)
