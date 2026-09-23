@@ -519,3 +519,50 @@ html[data-theme="dark"] .doc-row .doc-more-btn:hover{
 #pdfViewerOverlay.pdf-immersive .pdf-reader-zone{
   padding:0!important;
 }
+
+/* ---------- Séparation robuste : Documents récents -> Télécharger ---------- */
+#pdfViewerOverlay .pdf-reader-menu-panel{
+  align-items:stretch!important;
+}
+#pdfViewerOverlay .pdf-reader-menu-panel > .pdf-recent-access{
+  position:relative!important;
+  order:3!important;
+  flex:0 0 auto!important;
+  width:100%!important;
+  min-width:0!important;
+  height:auto!important;
+  margin:0!important;
+}
+#pdfViewerOverlay .pdf-reader-menu-panel > #pdfViewerTelecharger{
+  order:5!important;
+  position:relative!important;
+  flex:0 0 auto!important;
+  width:100%!important;
+  min-width:0!important;
+  margin-top:14px!important;
+  clear:both!important;
+}
+#pdfViewerOverlay .pdf-reader-menu-panel > #pdfViewerSignaler{
+  order:6!important;
+  flex:0 0 auto!important;
+}
+#pdfViewerOverlay .pdf-recent-panel{
+  position:static!important;
+  width:100%!important;
+  max-height:240px!important;
+  box-sizing:border-box!important;
+  margin-top:5px!important;
+  margin-bottom:0!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+}
+#pdfViewerOverlay .pdf-recent-panel.open{
+  display:block!important;
+  opacity:1!important;
+  visibility:visible!important;
+  height:auto!important;
+  max-height:240px!important;
+  padding:8px!important;
+  margin-top:5px!important;
+  margin-bottom:2px!important;
+}
