@@ -1471,15 +1471,16 @@ function renderProductionCenter(){
    list.appendChild(card);
  }
 }
-async function charger(){
-  if(!adminOk()){list.innerHTML='<div class="admin-empty">Cette action est réservée aux administrateurs.</div>';return}
-  list.innerHTML='<div class="admin-empty">Chargement…</div>';
+async function charger(force=false){
+  if(!adminOk()){if(list)list.innerHTML='<div class="admin-empty">Cette action est réservée aux administrateurs.</div>';return}
+  const initialLoad=!inventoryLoaded;
+  if(initialLoad&&list)list.innerHTML='<div class="admin-empty">Chargement…</div>';
   try{
     const r=await adminInventoryFetch(`${SUPABASE_URL}/rest/v1/aurora_generated_documents?select=id,job_id,created_at,updated_at,created_by,title,subject,matiere,level,class_name,document_type,domaine,formation,specialite,annee,semestre,filiere,theme_color,source_format,pdf_path,pdf_url,version,status,validation_notes,published_document_id,metadata,pdf_diagnostic&order=created_at.desc`,{cache:'no-store'});
     const t=await r.text();
     if(!r.ok)throw new Error(t||('HTTP '+r.status));
-    rows=t?JSON.parse(t):[];
-    if(!Array.isArray(rows))rows=[];
+    let nextRows=t?JSON.parse(t):[];
+    if(!Array.isArray(nextRows))nextRows=[];
 
     // Les demandes IA récentes existent parfois encore uniquement dans
     // aurora_content_jobs (ex. Job #93) avant la réception du contenu éditorial.
@@ -1531,6 +1532,16 @@ async function charger(){
       console.warn('[Content Factory] demandes éditoriales en attente indisponibles',jobError);
     }
 
+    const nextFingerprint=JSON.stringify(nextRows.map(x=>{
+      const m=x&&x.metadata&&typeof x.metadata==='object'?x.metadata:{};
+      return [x.id,x.job_id,x.updated_at,x.status,x.title,x.pdf_url,x.pdf_path,x.version,x.published_document_id,x.validation_notes,
+        documentThemeColor(m),m.lualatex_status,m.lualatex_cancel_requested,m.origin,m.producer,x.contentJob,x.job_status];
+    }));
+    const changed=nextFingerprint!==inventoryFingerprint;
+    rows=nextRows;
+    inventoryFingerprint=nextFingerprint;
+    inventoryLoaded=true;
+    window.auroreContentFactoryAdminRows=rows;
     const c={review:0,approved:0,published:0,failed:0};
     rows.forEach(x=>{if(!x.contentJob&&c[x.status]!=null)c[x.status]++});
     document.getElementById('cfCountReview').textContent=c.review;
@@ -1538,12 +1549,14 @@ async function charger(){
     document.getElementById('cfCountPublished').textContent=c.published;
     document.getElementById('cfCountFailed').textContent=c.failed;
     if(count)count.textContent=String(c.review);
-    apply();
+    if(initialLoad||changed||force)apply();
+    renderProductionCenter();
   }catch(e){
-    list.innerHTML=`<div class="admin-empty">Impossible de charger Content Factory.<br>${esc(e.message||e)}</div>`
+    console.error('[Content Factory] chargement',e);
+    if(!inventoryLoaded&&list)list.innerHTML=`<div class="admin-empty">Impossible de charger Content Factory.<br>${esc(e.message||e)}</div>`;
   }
 }
-document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurrent);document.getElementById('adminRefreshContentFactory')?.addEventListener('click',charger);document.getElementById('adminSearchContentFactory')?.addEventListener('input',apply);document.getElementById('adminSortContentFactory')?.addEventListener('change',apply);document.getElementById('adminFilterContentFactory')?.addEventListener('change',apply);
+document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurrent);document.getElementById('adminRefreshContentFactory')?.addEventListener('click',()=>charger(true));document.getElementById('adminSearchContentFactory')?.addEventListener('input',apply);document.getElementById('adminSortContentFactory')?.addEventListener('change',apply);document.getElementById('adminFilterContentFactory')?.addEventListener('change',apply);
   const handlePdfAction=async detail=>{
     try{
       const id=Number(detail?.id||0);if(!id)return;
