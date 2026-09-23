@@ -447,3 +447,75 @@
   padding-top:18px!important;
   padding-bottom:18px!important;
 }
+
+
+/* ---------- Ajustements finaux du lecteur PDF ---------- */
+/* Le panneau doit garder une largeur confortable : les blocs
+   « Documents récents » et « Télécharger » ne se chevauchent plus. */
+#pdfViewerOverlay .pdf-reader-menu-panel{
+  width:min(360px,calc(100vw - 20px))!important;
+  gap:10px!important;
+}
+#pdfViewerOverlay .pdf-reader-menu-panel > .pdf-menu-section,
+#pdfViewerOverlay .pdf-reader-menu-panel > .pdf-menu-item,
+#pdfViewerOverlay .pdf-reader-menu-panel > .pdf-recent-access{
+  flex:0 0 auto!important;
+  min-width:0!important;
+}
+#pdfViewerOverlay .pdf-recent-panel.open{
+  max-height:230px!important;
+  overflow-y:auto!important;
+}
+
+/* Les trois points des couvertures PDF restent visibles dans tous les thèmes,
+   avec un contraste explicite, y compris en mode sombre. */
+.doc-row .doc-more-btn{
+  color:var(--encre,#211B2B)!important;
+  background:var(--papier,#fff)!important;
+  border:1px solid var(--bordure,#d8d0e2)!important;
+  box-shadow:0 4px 14px rgba(0,0,0,.18)!important;
+  z-index:20!important;
+}
+.doc-row .doc-more-btn svg{
+  color:currentColor!important;
+  fill:currentColor!important;
+}
+html[data-theme="dark"] .doc-row .doc-more-btn{
+  color:#F8F7FF!important;
+  background:#171420!important;
+  border-color:#5B5268!important;
+}
+html[data-theme="dark"] .doc-row .doc-more-btn:hover{
+  background:#211B2B!important;
+  border-color:var(--theme-primary,#A78BFA)!important;
+  color:#FFFFFF!important;
+}
+
+/* En lecture immersive, aucune barre d'en-tête/outil ne reste visible. */
+#pdfViewerOverlay.pdf-immersive .pdf-reader-topbar,
+#pdfViewerOverlay.pdf-immersive .pdf-reader-toolbar,
+#pdfViewerOverlay.pdf-immersive .pdf-reader-bottombar,
+#pdfViewerOverlay.pdf-immersive .pdf-load-progress-dock{
+  opacity:0!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+  display:none!important;
+  height:0!important;
+  min-height:0!important;
+  padding:0!important;
+  margin:0!important;
+  border:0!important;
+  overflow:hidden!important;
+  transform:none!important;
+}
+#pdfViewerOverlay.pdf-immersive .pdf-reader-zone-wrap,
+#pdfViewerOverlay.pdf-immersive .pdf-reader-zone{
+  position:absolute!important;
+  inset:0!important;
+  width:100%!important;
+  height:100%!important;
+  min-height:100%!important;
+}
+#pdfViewerOverlay.pdf-immersive .pdf-reader-zone{
+  padding:0!important;
+}
