@@ -697,8 +697,8 @@
       e.preventDefault();
       e.stopPropagation();
       const carteRow = more.closest('.doc-row');
-      const estCarteAdminOuPersonnelle = more.closest('.admin-card, .aurore-personal-document-row');
-      if (carteRow && !estCarteAdminOuPersonnelle) {
+      const estCarteAdmin = more.closest('.admin-card');
+      if (carteRow && !estCarteAdmin) {
         basculerCarteActionsDocument(carteRow, more);
       } else {
         ouvrirMenuPartageDocument(more);
