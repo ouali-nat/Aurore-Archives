@@ -474,7 +474,7 @@
       grid.appendChild(card);
     });
     chargerStatsNiveaux();
-    if(typeof peuplerEmplacementsPublicitaires === 'function' && PUBS_ACTIVES?.length){
+    if(typeof peuplerEmplacementsPublicitaires === 'function' && typeof PUBS_ACTIVES !== 'undefined' && PUBS_ACTIVES?.length){
       requestAnimationFrame(() => peuplerEmplacementsPublicitaires());
     }
   }
