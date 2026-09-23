@@ -1413,6 +1413,15 @@ document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurre
   // rejet et publication. Capture phase pour neutraliser les anciens routeurs
   // concurrents et garantir le même comportement dans toutes les cartes.
   document.addEventListener('click',e=>{
+    const copyButton=e.target?.closest?.('[data-cf-copy-editorial]');
+    if(copyButton){
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      const jobId=Number(copyButton.dataset.cfCopyEditorial||0);
+      const row=window.auroreContentFactoryAdminRows?.find(x=>x.contentJob&&Number(x.job_id)===jobId);
+      if(row) void copyEditorialBrief(row);
+      return;
+    }
     const confirm=e.target?.closest?.('[data-cf-confirm-job]');
     if(confirm){e.preventDefault();e.stopImmediatePropagation();confirm.disabled=true;confirm.textContent='Confirmation…';void (window.auroreAdminConfirmContentJob?window.auroreAdminConfirmContentJob(Number(confirm.dataset.cfConfirmJob)):Promise.reject(new Error('Le contrôleur de confirmation n’est pas chargé.'))).catch(error=>{alert('La génération n’a pas pu être confirmée : '+(error?.message||error));confirm.disabled=false;confirm.textContent='Choisir la couleur et générer le document';});return;}
     const button=e.target?.closest?.('[data-cf-render],[data-cf-validate],[data-cf-reject],[data-cf-publish],[data-cf-cancel],[data-cf-theme]');
@@ -1980,6 +1989,7 @@ async function load(force){
     }
     if(thisLoad!==loadGeneration)return;
     rows=next.filter(x=>!isCancelled(x));
+    window.auroreContentFactoryAdminRows=rows;
     clearError();
     updateCounts();
     if(page)renderPage(page);
