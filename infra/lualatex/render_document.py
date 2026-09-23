@@ -1090,13 +1090,40 @@ def normalize_math(s):
     s = clean_text(s)
 
     # Protect LaTeX row breaks before normalizing command escapes.
+    #
+    # A matrix row can be followed immediately by a one-letter entry, e.g.
+    # ``e&f\\\\g&h``. The older protection only recognized row breaks before
+    # ``&``/``\\hline``/end-of-input, so ``\\\\g`` was collapsed to ``\\g`` and
+    # LuaLaTeX treated it as an undefined control sequence. Preserve row
+    # separators inside matrix/array/alignment environments before collapsing
+    # JSON-overescaped commands.
     marker = "__AURORA_ARRAY_ROWBREAK__"
-    s = re.sub(
-        r"\\\\(?=\s*(?:&|\\(?:hline|cline)|$))",
-        marker,
-        s,
+    row_env_pattern = re.compile(
+        r"\\begin\\{(?:array|matrix|pmatrix|bmatrix|Bmatrix|vmatrix|Vmatrix|"
+        r"smallmatrix|cases|aligned|alignedat|gathered|split|rcases)\\}"
+        r"[\\s\\S]*?"
+        r"\\end\\{(?:array|matrix|pmatrix|bmatrix|Bmatrix|vmatrix|Vmatrix|"
+        r"smallmatrix|cases|aligned|alignedat|gathered|split|rcases)\\}"
     )
 
+    def _protect_math_rows(match):
+        block = match.group(0)
+        # Row breaks followed by the next cell (including one-letter
+        # variables) are preserved. Clearly overescaped commands such as
+        # ``\\\\frac`` or ``\\\\cdot`` are not matched unless they form a row cell.
+        block = re.sub(
+            r"\\\\(?=(?:[A-Za-z0-9]+)(?:\\s*&|\\s*$))",
+            marker,
+            block,
+        )
+        block = re.sub(
+            r"\\\\(?=\\s*(?:&|\\\\(?:hline|cline)|$))",
+            marker,
+            block,
+        )
+        return block
+
+    s = row_env_pattern.sub(_protect_math_rows, s)
     # A JSON-escaped command such as \\exp represents one LaTeX command
     # backslash. Do not touch protected array row breaks.
     s = re.sub(r"\\\\(?=[A-Za-z{}])", lambda _m: "\\", s)
