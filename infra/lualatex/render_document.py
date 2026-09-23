@@ -2,6 +2,7 @@
 import argparse
 import json
 import re
+import unicodedata
 from pathlib import Path
 from aurore_svg import render_graphics
 
