@@ -1099,25 +1099,24 @@ def normalize_math(s):
     # JSON-overescaped commands.
     marker = "__AURORA_ARRAY_ROWBREAK__"
     row_env_pattern = re.compile(
-        r"\\begin\\{(?:array|matrix|pmatrix|bmatrix|Bmatrix|vmatrix|Vmatrix|"
-        r"smallmatrix|cases|aligned|alignedat|gathered|split|rcases)\\}"
-        r"[\\s\\S]*?"
-        r"\\end\\{(?:array|matrix|pmatrix|bmatrix|Bmatrix|vmatrix|Vmatrix|"
-        r"smallmatrix|cases|aligned|alignedat|gathered|split|rcases)\\}"
+        r"\\begin\{(?:array|matrix|pmatrix|bmatrix|Bmatrix|vmatrix|Vmatrix|"
+        r"smallmatrix|cases|aligned|alignedat|gathered|split|rcases)\}"
+        r"[\s\S]*?"
+        r"\\end\{(?:array|matrix|pmatrix|bmatrix|Bmatrix|vmatrix|Vmatrix|"
+        r"smallmatrix|cases|aligned|alignedat|gathered|split|rcases)\}"
     )
 
     def _protect_math_rows(match):
         block = match.group(0)
-        # Row breaks followed by the next cell (including one-letter
-        # variables) are preserved. Clearly overescaped commands such as
-        # ``\\\\frac`` or ``\\\\cdot`` are not matched unless they form a row cell.
+        # Preserve row separators before the first cell of the next row,
+        # including one-letter variables such as ``\\g`` / ``\\c``.
         block = re.sub(
-            r"\\\\(?=(?:[A-Za-z0-9]+)(?:\\s*&|\\s*$))",
+            r"\\\\(?=(?:[A-Za-z0-9]+)(?:\s*&|\s*$))",
             marker,
             block,
         )
         block = re.sub(
-            r"\\\\(?=\\s*(?:&|\\\\(?:hline|cline)|$))",
+            r"\\\\(?=\s*(?:&|\\\\(?:hline|cline)|$))",
             marker,
             block,
         )
