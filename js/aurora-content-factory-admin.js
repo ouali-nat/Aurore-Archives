@@ -1009,33 +1009,13 @@ async function renderPdf(id,themeColor=null){
     await persistGeneratedDocumentTheme(id,themeColor||documentThemeColor(rowForTheme?.metadata),accessToken);
     if(b)b.textContent='Préparation de la nouvelle identité Aurore…';
 
-    // GeoGebra est optionnel : un document sans graphique va directement
-    // vers la file LuaLaTeX sans initialiser ni exécuter GeoGebra.
-    const graphSource=await fetch(
-      SUPABASE_URL+'/rest/v1/aurora_generated_documents?id=eq.'+encodeURIComponent(Number(id))+'&select=id,content_json',
-      {cache:'no-store',headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+accessToken}}
-    );
-    const graphSourceText=await graphSource.text();
-    if(!graphSource.ok)throw new Error('Lecture du contenu graphique impossible (HTTP '+graphSource.status+').');
-    let graphSourceRows=[];
-    try{graphSourceRows=graphSourceText?JSON.parse(graphSourceText):[]}catch(_){graphSourceRows=[]}
-    const documentContent=Array.isArray(graphSourceRows)&&graphSourceRows[0]?.content_json&&typeof graphSourceRows[0].content_json==='object'
-      ?graphSourceRows[0].content_json:{};
-    const documentGraphs=[];
-    for(const section of Array.isArray(documentContent.sections)?documentContent.sections:[])
-      if(Array.isArray(section?.graphs))documentGraphs.push(...section.graphs);
-    const renderableGraphs=documentGraphs.filter(g=>!auroraGeoGebraImageReady(g)&&!!auroraGeoGebraInstrument(g));
-    const declaredGraphCount=renderableGraphs.length;
-    let graphCount=0;
-    if(declaredGraphCount>0){
-      if(b)b.textContent='Préparation de '+declaredGraphCount+' graphique'+(declaredGraphCount>1?'s':'')+'…';
-      graphCount=await auroraConstruireEtImporterGraphiquesGeoGebra(id,b,accessToken);
-    }else if(b){
-      b.textContent='Aucun graphique à préparer — mise en file LuaLaTeX…';
-    }
-    if(b)b.textContent=graphCount
-      ?'Mise en file LuaLaTeX avec '+graphCount+' graphique'+(graphCount>1?'s':'')+' GeoGebra…'
-      :'Mise en file LuaLaTeX…';
+    // Les graphiques ne sont plus préparés dans le navigateur.
+    // Le pipeline LuaLaTeX serveur récupère les assets GeoGebra existants et,
+    // si nécessaire, reconstruit les graphiques manquants dans GitHub Actions.
+    // Cela évite qu'une régénération de cours ancien dépende de GeoGebra/CORS
+    // dans le navigateur et garantit le même chemin de production pour les cours
+    // et les séries d'exercices, avec leur présentation déterminée par le document.
+    if(b)b.textContent='Mise en file LuaLaTeX…';
     setProgress(12,'Document envoyé au moteur LuaLaTeX…');
 
     const request=await adminInventoryFetch(`${SUPABASE_URL}/functions/v1/aurora-lualatex-request`,{
