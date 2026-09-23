@@ -5,6 +5,10 @@ on:
     branches:
       - pdf-lualatex-test
       - fix/course-exercise-profile-isolation-20260923
+  pull_request:
+    paths:
+      - "infra/lualatex/**"
+      - ".github/workflows/pdf-lualatex-test.yml"
   workflow_dispatch:
 
 jobs:
