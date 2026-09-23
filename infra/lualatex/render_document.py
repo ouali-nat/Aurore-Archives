@@ -1125,15 +1125,208 @@ def normalize_math(s):
         s,
     )
 
-def _render_bare_latex_fragments(text):
+_AUTO_MATH_START_RE = re.compile(
+    r"(?<![A-Za-z0-9_])(?:"
+    r"conjugué|conjuguée|Var|Im|Re|arg|mod|AB|AC|BC|ABC|P|C|"
+    r"E_[A-Za-z0-9]+|f(?:['’′]{1,2})?(?:\([A-Za-z0-9_,]+\))?|"
+    r"z(?:['’′]|_[A-Za-z0-9]+|[0-9]+)?|[abcmnpqxykTEX])"
+)
+_AUTO_MATH_STANDALONE_RE = re.compile(
+    r"(?<![A-Za-z0-9_])(?:E_[A-Za-z0-9]+|z_[A-Za-z0-9]+|"
+    r"f['’′]{1,2}|Δ|Ω)(?=\s*[:;,])"
+)
+_AUTO_MATH_ATOM_RE = re.compile(
+    r"(?:"
+    r"\d+(?:[.,]\d+)?|"
+    r"(?:conjugué|conjuguée|Var|Im|Re|arg|mod|AB|AC|BC|ABC|P|C|"
+    r"E_[A-Za-z0-9]+|f(?:['’′]{1,2})?(?:\([A-Za-z0-9_,]+\))?|"
+    r"z(?:['’′]|_[A-Za-z0-9]+|[0-9]+)?|[abcimnpqxykTEXRe])|"
+    r"\\[A-Za-z]+|"
+    r"\((?:[^()\n]|\([^()\n]*\))*\)|"
+    r"\{(?:[^{}\n]|\{[^{}\n]*\})*\}|"
+    r"\[(?:[^\[\]\n]|\[[^\[\]\n]*\])*\}|"
+    r"[²³⁴⁵⁶⁷⁸⁹⁰₀₁₂₃₄₅₆₇₈₉πΔΩ√−≤≥≠≈∈∉×±]"
+    r")"
+)
+_AUTO_MATH_OP_RE = re.compile(r"(?:=|[+\-*/^_<>]|∈|∉|≤|≥|≠|≈|±)")
+_AUTO_MATH_ABS_PREFIX_RE = re.compile(
+    r"(?<!\w)\|[^|\n]{1,100}\|\s*(?:=|≠|≤|≥|<|>)\s*"
+)
+
+def _auto_math_read_atom(s, pos):
+    match = _AUTO_MATH_ATOM_RE.match(s, pos)
+    return (match.end(), match.group(0)) if match else None
+
+def _auto_math_read_signed_atom(s, pos):
+    p = pos
+    while p < len(s) and s[p] in " \t":
+        p += 1
+    if p < len(s) and s[p] in "+-":
+        p += 1
+        while p < len(s) and s[p] in " \t":
+            p += 1
+    return _auto_math_read_atom(s, p)
+
+def _auto_math_parse_expression(s, start):
+    first = _auto_math_read_atom(s, start)
+    if not first:
+        return None
+
+    pos, first_atom = first
+    meaningful = False
+    spaced_function = first_atom in {"arg", "mod"}
+
+    while True:
+        base = pos
+        while pos < len(s) and s[pos] in " \t":
+            pos += 1
+        had_space = pos > base
+
+        if pos >= len(s):
+            pos = base
+            break
+
+        operator = _AUTO_MATH_OP_RE.match(s, pos)
+        if operator:
+            meaningful = True
+            pos = operator.end()
+            next_atom = _auto_math_read_signed_atom(s, pos)
+            if not next_atom:
+                pos = base
+                break
+            pos = next_atom[0]
+            spaced_function = False
+            continue
+
+        if spaced_function:
+            next_atom = _auto_math_read_atom(s, pos)
+            if next_atom:
+                meaningful = True
+                pos = next_atom[0]
+                spaced_function = False
+                continue
+
+        if not had_space:
+            next_atom = _auto_math_read_atom(s, pos)
+            if next_atom:
+                meaningful = True
+                pos = next_atom[0]
+                continue
+
+        pos = base
+        break
+
+    candidate = s[start:pos].strip()
+    if not meaningful:
+        return None
+    return pos, candidate
+
+def _auto_math_normalize_fragment(fragment):
+    value = str(fragment or "")
+    value = value.translate(str.maketrans({
+        "²": "^2", "³": "^3", "⁴": "^4", "⁵": "^5", "⁶": "^6",
+        "⁷": "^7", "⁸": "^8", "⁹": "^9", "⁰": "^0",
+        "₁": "_1", "₂": "_2", "₃": "_3", "₄": "_4", "₅": "_5",
+        "₆": "_6", "₇": "_7", "₈": "_8", "₉": "_9",
+        "π": r"\pi", "Δ": r"\Delta", "Ω": r"\Omega", "√": r"\sqrt ",
+        "−": "-", "≤": r"\leq", "≥": r"\geq", "≠": r"\neq",
+        "≈": r"\approx", "∈": r"\in", "∉": r"\notin",
+        "×": r"\times", "∞": r"\infty", "±": r"\pm",
+        "α": r"\alpha", "β": r"\beta", "γ": r"\gamma",
+        "θ": r"\theta", "λ": r"\lambda", "μ": r"\mu",
+        "′": "'", "’": "'", "…": r"\ldots",
+    }))
+    value = re.sub(r"(\\in|\\notin)\s*R\b", r"\1\\mathbb{R}", value)
+    value = re.sub(r"\\sqrt\s+([A-Za-z0-9_]+)", r"\\sqrt{\1}", value)
+    value = re.sub(
+        r"\b(?:conjugué|conjuguée)\s+([A-Za-z](?:_[A-Za-z0-9]+)?)",
+        r"\\overline{\1}",
+        value,
+        flags=re.IGNORECASE,
+    )
+    value = re.sub(r"\bIm(?=\s*\()", r"\\operatorname{Im}", value)
+    value = re.sub(r"\bRe(?=\s*\()", r"\\operatorname{Re}", value)
+    value = re.sub(r"\barg(?=\s*(?:\(|[A-Za-z]))", r"\\arg", value)
+    return value
+
+def _auto_mathize_plain_text(text):
+    """Protect clearly mathematical plain-text fragments before TeX escaping.
+
+    This is intentionally used only for exercise-series content. It recognizes
+    common structured math syntax (equations, moduli, arguments, roots,
+    indices, powers and statistical formulas) without turning normal French
+    prose into mathematics.
+    """
+    s = str(text or "")
+    placeholders = []
+
+    def protect(raw):
+        token = f"AURORAMATHTOKEN{len(placeholders)}"
+        placeholders.append(raw)
+        return token
+
+    matches = []
+
+    for match in _AUTO_MATH_STANDALONE_RE.finditer(s):
+        matches.append((match.start(), match.end(), match.group(0)))
+
+    for match in _AUTO_MATH_ABS_PREFIX_RE.finditer(s):
+        end = match.end()
+        if end < len(s) and s[end] == "|":
+            rhs = re.match(r"\|[^|\n]{1,100}\|", s[end:])
+            if rhs:
+                end += rhs.end()
+        else:
+            parsed = _auto_math_parse_expression(s, end)
+            if parsed:
+                end = parsed[0]
+            else:
+                atom = _auto_math_read_atom(s, end)
+                if atom:
+                    end = atom[0]
+        matches.append((match.start(), end, s[match.start():end]))
+
+    for match in _AUTO_MATH_START_RE.finditer(s):
+        if match.end() < len(s) and s[match.end()].isalpha():
+            continue
+        parsed = _auto_math_parse_expression(s, match.start())
+        if parsed:
+            matches.append((match.start(), parsed[0], parsed[1]))
+
+    for match in re.finditer(r"(?<![\w])(?:Δ|Ω|√)", s):
+        parsed = _auto_math_parse_expression(s, match.start())
+        if parsed:
+            matches.append((match.start(), parsed[0], parsed[1]))
+
+    matches.sort(key=lambda item: (item[0], -(item[1] - item[0])))
+    chosen = []
+    last_end = -1
+    for item in matches:
+        if item[0] < last_end:
+            continue
+        chosen.append(item)
+        last_end = item[1]
+
+    output = []
+    cursor = 0
+    for start, end, candidate in chosen:
+        output.append(s[cursor:start])
+        output.append(protect(r"\(" + _auto_math_normalize_fragment(candidate) + r"\)"))
+        cursor = end
+    output.append(s[cursor:])
+    return "".join(output), placeholders
+
+def _render_bare_latex_fragments(text, auto_math=False):
     """Preserve LaTeX commands embedded in prose even when delimiters are missing.
 
-    Some generated solutions contain fragments such as \\overline{OA},
-    \\frac{1}{f'}, \\gamma or \\text{cm} without surrounding $...$.
+    Some generated solutions contain fragments such as \\\\overline{OA},
+    \\\\frac{1}{f'}, \\\\gamma or \\\\text{cm} without surrounding $...$.
     Those fragments must remain real TeX instead of being escaped as text.
     """
     s = normalize_math(str(text or ""))
     placeholders = []
+    if auto_math:
+        s, placeholders = _auto_mathize_plain_text(s)
 
     def protect(raw):
         token = f"AURORAMATHTOKEN{len(placeholders)}"
@@ -1176,7 +1369,7 @@ def _render_bare_latex_fragments(text):
     return escaped
 
 
-def inline(s):
+def inline(s, auto_math=False):
     """
     Escape ordinary text while preserving LaTeX math blocks.
 
@@ -1222,7 +1415,7 @@ def inline(s):
         elif p.startswith("$") and p.endswith("$") and len(p) >= 2:
             out.append(r"\(" + normalize_math(p[1:-1].strip()) + r"\)")
         else:
-            out.append(_render_bare_latex_fragments(p))
+            out.append(_render_bare_latex_fragments(p, auto_math=auto_math))
     return "".join(out)
 
 
@@ -1289,7 +1482,7 @@ def render_table(rows):
     return "\n".join(out)
 
 
-def render_content(items):
+def render_content(items, auto_math=False):
     # Be defensive about Content Factory payloads. Some production payloads
     # can arrive as a JSON-encoded string instead of a native list.
     if isinstance(items, str):
@@ -1326,7 +1519,7 @@ def render_content(items):
                 group.append(_strip_list_marker(items[i]))
                 i += 1
             lines.append(r"\begin{enumerate}")
-            lines.extend(r"\item " + inline(x) for x in group)
+            lines.extend(r"\item " + inline(x, auto_math=auto_math) for x in group)
             lines.append(r"\end{enumerate}")
             continue
 
@@ -1340,12 +1533,12 @@ def render_content(items):
             lines.append(r"\end{itemize}")
             continue
 
-        block = labeled_block(raw)
+        block = labeled_block(raw, auto_math=auto_math)
         if block:
             lines.extend(block)
             i += 1
             continue
-        lines.append(inline(raw))
+        lines.append(inline(raw, auto_math=auto_math))
         lines.append("")
         i += 1
 
@@ -1465,7 +1658,7 @@ def resolve_theme_color(data):
     return resolve_theme_palette(data)["strong"]
 
 
-def labeled_block(s):
+def labeled_block(s, auto_math=False):
     """Render a small editorial callout when prose starts with a known label."""
     t = clean_text(s).strip()
     m = re.match(
@@ -1476,7 +1669,7 @@ def labeled_block(s):
     if not m:
         return []
     return [
-        r"\AuroreLabeledBlock{" + tex_text(m.group(1)) + r"}{" + inline(m.group(2)) + r"}",
+        r"\AuroreLabeledBlock{" + tex_text(m.group(1)) + r"}{" + inline(m.group(2), auto_math=auto_math) + r"}",
         "",
     ]
 
@@ -1514,6 +1707,26 @@ def display_formula(s):
         "",
     ])
 
+
+def _declared_exercise_count(data):
+    """Read the exercise count declared by the generation contract."""
+    meta = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+    instructions = data.get("instructions") if isinstance(data.get("instructions"), dict) else {}
+    qa = meta.get("qa") if isinstance(meta.get("qa"), dict) else {}
+    candidates = [
+        data.get("exercise_count"),
+        meta.get("exercise_count"),
+        instructions.get("exercise_count"),
+        qa.get("exercise_count"),
+    ]
+    for value in candidates:
+        try:
+            count = int(value)
+        except (TypeError, ValueError):
+            continue
+        if count > 0:
+            return count
+    return None
 
 def _has_usable_content_json(data):
     if not isinstance(data, dict):
@@ -1754,6 +1967,33 @@ def render(data):
     used_correction_numbers = set()
 
     inline_exercise_corrections = []
+    declared_exercise_count = _declared_exercise_count(data) if is_exercise_document else None
+    structured_exercise_count = sum(
+        len(sec.get("exercises", []))
+        for sec in data.get("sections", [])
+        if isinstance(sec, dict) and isinstance(sec.get("exercises"), list)
+    ) if is_exercise_document else 0
+    if (
+        is_exercise_document
+        and declared_exercise_count is not None
+        and structured_exercise_count < declared_exercise_count
+    ):
+        raise ValueError(
+            "Série d'exercices incomplète: "
+            f"{structured_exercise_count} exercice(s) reçu(s), "
+            f"{declared_exercise_count} attendu(s)."
+        )
+    if (
+        is_exercise_document
+        and declared_exercise_count is not None
+        and structured_exercise_count > declared_exercise_count
+    ):
+        print(
+            "Exercise-series QA: "
+            f"{structured_exercise_count} exercice(s) reçu(s), "
+            f"{declared_exercise_count} déclaré(s); "
+            "les exercices excédentaires seront ignorés."
+        )
 
     for _idx, sec in enumerate(data.get("sections", [])):
         if is_exercise_document:
@@ -1763,16 +2003,9 @@ def render(data):
             section_title = clean_text(sec.get("title") or "").strip()
             if section_title and len(exercises) > 1:
                 lines.append(r"\AuroreExerciseSeriesHeading{" + tex_text(section_title) + r"}")
-            content_items = sec.get("content", [])
-            if isinstance(content_items, list):
-                structured_texts = set()
-                for ex in exercises:
-                    if isinstance(ex, dict):
-                        for key in ("question", "statement", "enonce", "content", "solution", "correction"):
-                            value = clean_text(ex.get(key) or "").strip()
-                            if value: structured_texts.add(value)
-                content_items = [item for item in content_items if clean_text(item).strip() not in structured_texts and not re.match(r"^\s*Exercice\s+\d+\s*:", clean_text(item))]
-            if content_items: lines.extend(render_content(content_items))
+            content_items = [] if exercises else sec.get("content", [])
+            if content_items:
+                lines.extend(render_content(content_items, auto_math=True))
             if sec.get("formula"): lines.append(display_formula(sec["formula"]))
             lines.extend(render_graphs(sec.get("graphs", []), allow=True, exercise_mode=True))
             section_graphics = sec.get("graphics", [])
@@ -1782,13 +2015,15 @@ def render(data):
             section_visuals = [v for v in (data.get("_wikimedia_visuals", []) or []) if int(v.get("section_index", -1)) == _idx]
             if section_visuals: lines.extend(render_visuals(section_visuals))
             for ex in exercises:
-                if not isinstance(ex, dict): continue
+                if not isinstance(ex, dict):
+                    continue
+                if declared_exercise_count is not None and exercise_number >= declared_exercise_count:
+                    break
                 exercise_number += 1
                 question = ex.get("question") or ex.get("statement") or ex.get("enonce") or ex.get("content") or ""
                 inline_correction = ex.get("solution") or ex.get("correction") or ""
-                lines.append(r"\Needspace{4\baselineskip}")
-                lines.append(r"\AuroreExerciseSeriesBlock{" + str(exercise_number) + r"}{" + inline(question) + r"}")
-                if ex.get("hint"): lines.append(r"\AuroreLabeledBlock{Indication}{" + inline(ex["hint"]) + r"}")
+                lines.append(r"\AuroreExerciseSeriesBlock{" + str(exercise_number) + r"}{" + inline(question, auto_math=True) + r"}")
+                if ex.get("hint"): lines.append(r"\AuroreLabeledBlock{Indication}{" + inline(ex["hint"], auto_math=True) + r"}")
                 if ex.get("formula"): lines.append(display_formula(ex["formula"]))
                 if inline_correction: inline_exercise_corrections.append((exercise_number, inline_correction))
             continue
@@ -1835,8 +2070,7 @@ def render(data):
             correction = corrections_by_number[number]
             solution = correction.get("solution") or correction.get("correction") or correction.get("details") or ""
             if solution:
-                lines.append(r"\Needspace{4\baselineskip}")
-                lines.append(r"\AuroreExerciseSeriesCorrection{" + str(number) + r"}{" + inline(solution) + r"}")
+                lines.append(r"\AuroreExerciseSeriesCorrection{" + str(number) + r"}{" + inline(solution, auto_math=True) + r"}")
                 used_correction_numbers.add(number)
         for number, solution in inline_exercise_corrections:
             if solution and number not in corrections_by_number:
@@ -1940,9 +2174,44 @@ def main():
     profile = _editorial_profile(data)
     geogebra_count = _fetch_geogebra_assets(data, out.parent)
     print(f"GeoGebra assets fetched: {geogebra_count}")
-    data["_wikimedia_visuals"] = _fetch_wikimedia_visuals(
-        data, out.parent / "assets", profile
+    raw_document_type = data.get("document_type")
+    if not raw_document_type and isinstance(data.get("metadata"), dict):
+        raw_document_type = data["metadata"].get("document_type")
+    main_document_type = str(raw_document_type or "").strip().lower()
+    main_is_exercise_document = main_document_type in {
+        "exercice", "exercices", "exercise", "exercises",
+        "serie_exercices", "série_exercices",
+    }
+    main_metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+    main_graphics = main_metadata.get("graphics") if isinstance(main_metadata.get("graphics"), dict) else {}
+    external_images_disabled = (
+        main_graphics.get("wikimedia") is False
+        or main_graphics.get("external_images") is False
+        or main_metadata.get("exercise_pipeline") is True
+        or data.get("exercise_pipeline") is True
     )
+
+    if main_is_exercise_document and external_images_disabled:
+        data["_wikimedia_visuals"] = []
+        data["_visual_qa"] = {
+            "mode": "disabled",
+            "reason": "exercise_series_external_images_disabled",
+            "planned": 0,
+            "selected": 0,
+            "retrieved": 0,
+            "embedded": 0,
+            "required_planned": 0,
+            "required_retrieved": 0,
+            "required_missing": 0,
+            "failed": 0,
+            "status": "pass",
+            "editorial_cap": 0,
+        }
+        print("Wikimedia visuals disabled for exercise-series production.")
+    else:
+        data["_wikimedia_visuals"] = _fetch_wikimedia_visuals(
+            data, out.parent / "assets", profile
+        )
     valid_wikimedia_visuals = []
     for visual in data["_wikimedia_visuals"]:
         visual_file = out.parent / str(visual.get("path") or "")
