@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const STATE={jobs:[],filtered:[],query:'',level:'',subject:'',sort:'recent',timer:null,loaded:false,fingerprint:'',refreshing:false,cancelling:new Set()};
+const STATE={jobs:[],filtered:[],query:'',level:'',subject:'',sort:'recent',timer:null,loaded:false,fingerprint:'',refreshing:false};
 const esc=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 const clean=(v,f='')=>{const x=String(v??'').trim();return x||f};
 const dateValue=v=>{const d=v?new Date(v):null;return d&&!Number.isNaN(d.getTime())?d:null};
@@ -56,13 +56,17 @@ async function launch(j){
  const r=await adminFetch(SUPABASE_URL+'/functions/v1/aurora-content-factory',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'queue_job',job_id:j.id})});
  const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));
 }
+async function deleteJob(j){
+ if(statusOf(j)==='processing'){alert('Une génération est en cours. Utilise « Annuler la génération » pour arrêter proprement le job.');return}
+ if(!confirm('Supprimer définitivement la demande Aurore #'+j.id+' ?\n\nSeule la demande encore dans le sas sera supprimée. Aucun document publié n’est touché.'))return;
+ const r=await adminFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?id=eq.'+encodeURIComponent(j.id),{method:'DELETE',headers:{Prefer:'return=minimal'}});
+ const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));
+ await chargerDocumentsEnAttenteAdminV2();
+}
 async function cancelJob(j){
  const s=statusOf(j);
- if(!['queued','processing'].includes(s)||STATE.cancelling.has(j.id))return;
- const wording=s==='processing'?'La production est déjà en cours. Aurore marquera le job comme annulé et empêchera son rattachement ultérieur à un PDF.':'La demande est encore en file. Elle sera retirée du circuit avant sa production.';
- if(!confirm('Annuler la génération du job #'+j.id+' ?\n\n'+wording))return;
- STATE.cancelling.add(j.id);
- render();
+ if(!['queued','processing'].includes(s))return;
+ if(!confirm('Annuler la génération du job Aurore #'+j.id+' ?\n\nLe job sera arrêté et retiré du sas de production. Cette action ne supprime aucun PDF déjà validé ou publié.'))return;
  try{
   const r=await adminFetch(SUPABASE_URL+'/rest/v1/rpc/aurora_cancel_content_job',{
    method:'POST',
@@ -71,35 +75,20 @@ async function cancelJob(j){
   });
   const t=await r.text();
   if(!r.ok)throw new Error(t||('HTTP '+r.status));
-  let data=null;try{data=t?JSON.parse(t):null}catch(_){data=null}
-  if(data&&data.id==null&&data.error)throw new Error(data.error);
-  STATE.cancelling.delete(j.id);
   await chargerDocumentsEnAttenteAdminV2();
  }catch(e){
-  STATE.cancelling.delete(j.id);
-  render();
-  console.error('[ADMIN][AURORE PENDING] annulation',e);
-  alert('Annulation impossible pour le job #'+j.id+'. '+(e?.message||e));
+  throw e;
  }
-}
-async function deleteJob(j){
- if(statusOf(j)==='processing'){alert('Suppression protégée pendant la production en cours.');return}
- if(!confirm('Supprimer définitivement la demande Aurore #'+j.id+' ?\n\nSeule la demande encore dans le sas sera supprimée. Aucun document publié n’est touché.'))return;
- const r=await adminFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?id=eq.'+encodeURIComponent(j.id),{method:'DELETE',headers:{Prefer:'return=minimal'}});
- const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));
- await chargerDocumentsEnAttenteAdminV2();
 }
 function actions(j){
- const s=statusOf(j),productionLocked=['queued','processing'].includes(s),cancelling=STATE.cancelling.has(j.id);
+ const s=statusOf(j),active=['queued','processing'].includes(s);
  let h='<div class="admin-pending-v2-actions">';
- h+='<button type="button" class="admin-btn ghost" data-action="theme" data-id="'+j.id+'" '+(productionLocked||cancelling?'disabled title="Couleur verrouillée pendant la production."':'')+'>Changer la couleur</button>';
+ h+='<button type="button" class="admin-btn ghost" data-action="theme" data-id="'+j.id+'" '+(active?'disabled title="Couleur verrouillée pendant la production."':'')+'>Changer la couleur</button>';
  if(s==='draft')h+='<button type="button" class="admin-btn primary" data-action="launch" data-id="'+j.id+'">Lancer la production</button>';
- else if(s==='queued')h+='<span class="admin-pending-v2-live-label">En file d’attente · prêt à être pris en charge</span>';
- else h+='<span class="admin-pending-v2-live-label">Génération en cours · surveillance serveur active</span>';
- if(['queued','processing'].includes(s)){
-   h+='<button type="button" class="admin-btn danger" data-action="cancel" data-id="'+j.id+'" '+(cancelling?'disabled aria-busy="true"':'')+'>'+ (cancelling?'Annulation demandée…':'Annuler la génération') +'</button>';
- }
- h+='<button type="button" class="admin-btn danger" data-action="delete" data-id="'+j.id+'" '+(productionLocked||cancelling?'disabled title="Suppression protégée pendant le circuit de production."':'')+'>Supprimer</button>';
+ else if(s==='queued')h+='<button type="button" class="admin-btn ghost" disabled>En file d’attente</button>';
+ else h+='<button type="button" class="admin-btn primary" disabled>Production en cours…</button>';
+ if(active)h+='<button type="button" class="admin-btn danger admin-pending-v2-cancel" data-action="cancel" data-id="'+j.id+'">Annuler la génération</button>';
+ h+='<button type="button" class="admin-btn danger" data-action="delete" data-id="'+j.id+'" '+(active?'disabled title="Annulation requise avant suppression."':'')+'>Supprimer</button>';
  return h+'</div>';
 }
 function render(){
@@ -130,10 +119,6 @@ function syncPendingDynamic(){
   if(!card)return;
   const nextProgress=progress(j),currentProgress=card.querySelector('.admin-pending-v2-progress');
   if(currentProgress)currentProgress.outerHTML=nextProgress;
-  else{
-   const grid=card.querySelector('.admin-pending-v2-grid');
-   if(grid)grid.insertAdjacentHTML('beforebegin',nextProgress);
-  }
   const label=statusOf(j)==='processing'?'Génération en cours':statusOf(j)==='queued'?'En file d’attente':'Brouillon';
   const state=card.querySelector('[data-pending-state]'),status=card.querySelector('[data-pending-status]');
   if(state)state.textContent=label;
@@ -141,13 +126,19 @@ function syncPendingDynamic(){
  });
 }
 async function runAction(b){
- const j=STATE.jobs.find(x=>x.id===Number(b.dataset.id));if(!j)return;b.disabled=true;
+ const j=STATE.jobs.find(x=>x.id===Number(b.dataset.id));if(!j)return;
+ const original=b.textContent;
+ b.disabled=true;
+ if(b.dataset.action==='cancel')b.textContent='Annulation…';
+ else if(b.dataset.action==='launch')b.textContent='Lancement…';
+ else if(b.dataset.action==='delete')b.textContent='Suppression…';
+ else if(b.dataset.action==='theme')b.textContent='Enregistrement…';
  try{
   if(b.dataset.action==='theme'){if(await chooseTheme(j))await chargerDocumentsEnAttenteAdminV2()}
   else if(b.dataset.action==='launch'){await launch(j);await chargerDocumentsEnAttenteAdminV2()}
-  else if(b.dataset.action==='delete'){await deleteJob(j)}
   else if(b.dataset.action==='cancel'){await cancelJob(j)}
- }catch(e){console.error('[ADMIN][AURORE PENDING]',e);alert('Action impossible pour le job #'+j.id+'. '+(e?.message||e));b.disabled=false}
+  else if(b.dataset.action==='delete'){await deleteJob(j)}
+ }catch(e){console.error('[ADMIN][AURORE PENDING]',e);alert('Action impossible pour le job #'+j.id+'. '+(e?.message||e));b.disabled=false;b.textContent=original}
 }
 async function chargerDocumentsEnAttenteAdminV2(){
  const list=document.getElementById('adminPendingV2List');if(!list)return;
@@ -167,15 +158,13 @@ async function chargerDocumentsEnAttenteAdminV2(){
    theme:j.theme,error:j.error
   })));
   const changed=nextFingerprint!==STATE.fingerprint;
-  const liveIds=new Set(nextJobs.map(j=>j.id));
-  for(const id of [...STATE.cancelling])if(!liveIds.has(id))STATE.cancelling.delete(id);
   STATE.jobs=nextJobs;
   STATE.fingerprint=nextFingerprint;
   STATE.loaded=true;
   populate('adminPendingV2Level',STATE.jobs.map(j=>j.level),'Tous les niveaux');
   populate('adminPendingV2Subject',STATE.jobs.map(j=>j.subject),'Toutes les matières');
   const note=document.getElementById('adminPendingV2Note');if(note)note.textContent='Sas Aurore uniquement : demandes brouillon, en file ou en production qui n’ont pas encore produit de document PDF. Les documents générés ont leur propre page.';
-  if(initialLoad || changed) render(); else syncPendingDynamic();
+  if(initialLoad || changed) render();
  }catch(e){
   console.error('[ADMIN][AURORE PENDING] chargement',e);
   if(!STATE.loaded){
