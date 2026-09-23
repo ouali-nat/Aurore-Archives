@@ -452,7 +452,7 @@
 
   // Les couvertures de première page sont activées pour toutes les listes de
   // documents du site. La couverture correspond toujours à la première page du PDF.
-  let COUVERTURES_PREMIERE_PAGE_ACTIVES = true;
+  // Toutes les cartes représentant un document PDF utilisent la même source :\n  // la première page réelle du PDF. Le drapeau historique reste conservé pour\n  // compatibilité avec les anciens parcours, mais ne doit plus empêcher une\n  // couverture lorsqu'un Fichier_url existe.\n  let COUVERTURES_PREMIERE_PAGE_ACTIVES = true;
 
   // Même aperçu pour les deux espaces d'administration : la première page du
   // PDF devient la vignette du document, sans modifier les actions métier.
@@ -468,7 +468,7 @@
     traiterFileCouvertures();
   }
 
-  function obtenirTitreDocument(doc) {
+  window.auroreAppliquerCouverturePremierePage = appliquerCouvertureAdmin;\n\n  function obtenirTitreDocument(doc) {
     const valeurs = [
       doc?.Titre,
       doc?.titre,
@@ -1054,7 +1054,7 @@
       brancherActionsCarteDocument(row, doc);
       actualiserEtatActionsDocument(row, doc);
       actualiserTaillesDocumentsDans(row);
-      if (COUVERTURES_PREMIERE_PAGE_ACTIVES) appliquerCouvertureSiLivre(row, doc);
+      if (doc?.Fichier_url) appliquerCouvertureSiLivre(row, doc);
       list.appendChild(row);
     });
 
@@ -1112,7 +1112,7 @@
       brancherActionsCarteDocument(row, doc);
       actualiserEtatActionsDocument(row, doc);
       actualiserTaillesDocumentsDans(row);
-      if (COUVERTURES_PREMIERE_PAGE_ACTIVES) appliquerCouvertureSiLivre(row, doc);
+      if (doc?.Fichier_url) appliquerCouvertureSiLivre(row, doc);
       return row;
     })()));
 
@@ -1166,7 +1166,7 @@
       brancherActionsCarteDocument(row, doc);
       actualiserEtatActionsDocument(row, doc);
       actualiserTaillesDocumentsDans(row);
-      if (COUVERTURES_PREMIERE_PAGE_ACTIVES) appliquerCouvertureSiLivre(row, doc);
+      if (doc?.Fichier_url) appliquerCouvertureSiLivre(row, doc);
       return row;
     };
 
