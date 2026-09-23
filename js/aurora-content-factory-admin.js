@@ -34,13 +34,13 @@ const documentThemeColor=metadata=>{
   const d=m.aurore_design&&typeof m.aurore_design==='object'?m.aurore_design:{};
   return normalizeThemeColor(d.theme_color||d.themeColor||m.theme_color||m.themeColor||'#C85C0D');
 };
-async function chooseRegenerationTheme(defaultColor){
+async function chooseRegenerationTheme(defaultColor,mode='regeneration'){
   return new Promise(resolve=>{
     let modal=document.getElementById('cfThemeModal');
     if(!modal){
       modal=document.createElement('div');
       modal.id='cfThemeModal';
-      modal.innerHTML='<div class="cf-theme-modal-backdrop"></div><section class="cf-theme-modal-card" role="dialog" aria-modal="true" aria-labelledby="cfThemeModalTitle"><div class="cf-theme-modal-kicker">Identité Aurore</div><h3 id="cfThemeModalTitle">Choisir la couleur du nouveau PDF</h3><p>Les couleurs proposées reprennent les 45 thèmes officiels du site Aurore. La couleur choisie restera associée à cette version.</p><div class="cf-theme-modal-picker"><input id="cfThemeModalInput" type="color" aria-label="Couleur dominante du PDF"><div><strong id="cfThemeModalValue"></strong><span>Couleur dominante</span></div></div><div class="cf-theme-swatches" aria-label="Couleurs proposées"></div><div class="cf-theme-modal-actions"><button type="button" class="admin-btn ghost" id="cfThemeModalCancel">Annuler</button><button type="button" class="admin-btn primary" id="cfThemeModalApply">Régénérer avec cette couleur</button></div></section></div>';
+      modal.innerHTML='<div class="cf-theme-modal-backdrop"></div><section class="cf-theme-modal-card" role="dialog" aria-modal="true" aria-labelledby="cfThemeModalTitle"><div class="cf-theme-modal-kicker">Identité Aurore</div><h3 id="cfThemeModalTitle">Choisir la couleur du nouveau PDF</h3><p class="cf-theme-modal-description">Les couleurs proposées reprennent les 45 thèmes officiels du site Aurore. La couleur choisie restera associée à cette version.</p><div class="cf-theme-modal-picker"><input id="cfThemeModalInput" type="color" aria-label="Couleur dominante du PDF"><div><strong id="cfThemeModalValue"></strong><span>Couleur dominante</span></div></div><div class="cf-theme-swatches" aria-label="Couleurs proposées"></div><div class="cf-theme-modal-actions"><button type="button" class="admin-btn ghost" id="cfThemeModalCancel">Annuler</button><button type="button" class="admin-btn primary" id="cfThemeModalApply">Régénérer avec cette couleur</button></div></section></div>';
       document.body.appendChild(modal);
       const style=document.createElement('style');
       style.id='cfThemeModalStyles';
@@ -69,6 +69,15 @@ async function chooseRegenerationTheme(defaultColor){
     const input=document.getElementById('cfThemeModalInput'), value=document.getElementById('cfThemeModalValue');
     const cancel=document.getElementById('cfThemeModalCancel'), apply=document.getElementById('cfThemeModalApply');
     const close=v=>{modal.hidden=true;cancel.onclick=null;apply.onclick=null;modal.querySelectorAll('[data-theme-swatch]').forEach(x=>x.onclick=null);resolve(v)};
+    const generationMode=mode==='generation';
+    const titleEl=modal.querySelector('#cfThemeModalTitle');
+    const descEl=modal.querySelector('.cf-theme-modal-description');
+    const applyEl=modal.querySelector('#cfThemeModalApply');
+    if(titleEl)titleEl.textContent=generationMode?'Choisir la couleur du document':'Choisir la couleur du nouveau PDF';
+    if(descEl)descEl.textContent=generationMode
+      ?'Choisis la couleur avant de lancer la production. Elle sera enregistrée sur la demande puis reprise par le rendu PDF.'
+      :'La couleur choisie restera associée à cette version du PDF.';
+    if(applyEl)applyEl.textContent=generationMode?'Générer avec cette couleur':'Régénérer avec cette couleur';
     modal.hidden=false;
     input.value=normalizeThemeColor(defaultColor);
     value.textContent=normalizeThemeColor(input.value);
@@ -1297,7 +1306,7 @@ document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurre
   // concurrents et garantir le même comportement dans toutes les cartes.
   document.addEventListener('click',e=>{
     const confirm=e.target?.closest?.('[data-cf-confirm-job]');
-    if(confirm){e.preventDefault();e.stopImmediatePropagation();confirm.disabled=true;confirm.textContent='Confirmation…';void (window.auroreAdminConfirmContentJob?window.auroreAdminConfirmContentJob(Number(confirm.dataset.cfConfirmJob)):Promise.reject(new Error('Le contrôleur de confirmation n’est pas chargé.'))).catch(error=>{alert('La génération n’a pas pu être confirmée : '+(error?.message||error));confirm.disabled=false;confirm.textContent='Confirmer la génération';});return;}
+    if(confirm){e.preventDefault();e.stopImmediatePropagation();confirm.disabled=true;confirm.textContent='Confirmation…';void (window.auroreAdminConfirmContentJob?window.auroreAdminConfirmContentJob(Number(confirm.dataset.cfConfirmJob)):Promise.reject(new Error('Le contrôleur de confirmation n’est pas chargé.'))).catch(error=>{alert('La génération n’a pas pu être confirmée : '+(error?.message||error));confirm.disabled=false;confirm.textContent='Générer le document';});return;}
     const button=e.target?.closest?.('[data-cf-render],[data-cf-validate],[data-cf-reject],[data-cf-publish],[data-cf-cancel],[data-cf-theme]');
     if(!button)return;
     if(button.hasAttribute('data-cf-cancel')){e.preventDefault();e.stopImmediatePropagation();void cancelPdfGeneration(Number(button.dataset.cfCancel));return;}
@@ -1474,10 +1483,64 @@ function timestamp(x){
   if(Number.isNaN(d.getTime()))return {date:'—',time:'—',sort:0};
   return {date:d.toLocaleDateString('fr-FR'),time:d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),sort:d.getTime()};
 }
+async function persistContentJobTheme(id,themeColor,accessToken){
+  const color=normalizeThemeColor(themeColor);
+  const q=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?id=eq.'+encodeURIComponent(Number(id))+'&select=id,status,metadata',{
+    cache:'no-store',
+    headers:{'Authorization':'Bearer '+accessToken}
+  });
+  const qt=await q.text();
+  if(!q.ok)throw new Error('Lecture de la demande impossible (HTTP '+q.status+').');
+  let rows=[];try{rows=qt?JSON.parse(qt):[]}catch(_){rows=[]}
+  const row=Array.isArray(rows)?rows[0]:null;
+  if(!row)throw new Error('Demande introuvable.');
+  if(row.status!=='draft')throw new Error('Cette demande a déjà quitté le brouillon.');
+  const current=row.metadata&&typeof row.metadata==='object'?row.metadata:{};
+  const currentDesign=current.aurore_design&&typeof current.aurore_design==='object'?current.aurore_design:{};
+  const metadata={
+    ...current,
+    theme_color:color,
+    aurore_design:{...currentDesign,theme_color:color,version:1},
+    manual_publication_only:true
+  };
+  const u=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?id=eq.'+encodeURIComponent(Number(id)),{
+    method:'PATCH',
+    cache:'no-store',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},
+    body:JSON.stringify({metadata,updated_at:new Date().toISOString()})
+  });
+  const ut=await u.text();
+  if(!u.ok)throw new Error('Enregistrement de la couleur impossible (HTTP '+u.status+'). '+ut);
+  return color;
+}
+
 async function confirmContentJob(id){
   try{
     const jobId=Number(id);
     if(!Number.isSafeInteger(jobId)||jobId<=0)throw new Error('Identifiant de demande invalide.');
+    const token=await cfFreshToken();
+    const read=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?id=eq.'+encodeURIComponent(jobId)+'&select=id,status,metadata',{
+      cache:'no-store',
+      headers:{'Authorization':'Bearer '+token}
+    });
+    const rt=await read.text();
+    let jobs=[];try{jobs=rt?JSON.parse(rt):[]}catch(_){jobs=[]}
+    const job=Array.isArray(jobs)?jobs[0]:null;
+    if(!job)throw new Error('Demande introuvable.');
+    if(job.status!=='draft')throw new Error('Cette demande n’est plus en brouillon.');
+
+    const metadata=job.metadata&&typeof job.metadata==='object'?job.metadata:{};
+    const design=metadata.aurore_design&&typeof metadata.aurore_design==='object'?metadata.aurore_design:{};
+    const defaultColor=normalizeThemeColor(design.theme_color||metadata.theme_color||'#C85C0D');
+
+    const color=await chooseRegenerationTheme(defaultColor,'generation');
+    if(!color){
+      await load(true);
+      return;
+    }
+
+    await persistContentJobTheme(jobId,color,token);
+
     const r=await adminInventoryFetch(SUPABASE_URL+'/functions/v1/aurora-content-factory',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
@@ -1485,6 +1548,7 @@ async function confirmContentJob(id){
     });
     const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}};
     if(!r.ok)throw new Error(d?.error||t||('HTTP '+r.status));
+
     const expected=['queued','processing','review','completed'];
     let row=null;
     for(let attempt=0;attempt<8;attempt++){
@@ -1498,7 +1562,7 @@ async function confirmContentJob(id){
     if(!row||!expected.includes(String(row.status).toLowerCase()))throw new Error('La demande a été envoyée mais Supabase n’a pas encore confirmé son état.');
     await load(true);
   }catch(e){
-    alert('La demande n’a pas pu être confirmée : '+(e.message||e));
+    alert('La génération n’a pas pu être lancée : '+(e.message||e));
     await load(true);
   }
 }
@@ -1506,7 +1570,7 @@ async function confirmContentJob(id){
 window.auroreAdminConfirmContentJob=confirmContentJob;
 function actions(x,k){
   if(x.contentJob){
-    if(x.job_status==='draft')return '<button type="button" class="admin-btn primary" data-cf-confirm-job="'+E(x.job_id)+'">Confirmer la génération</button>';
+    if(x.job_status==='draft')return '<button type="button" class="admin-btn primary" data-cf-confirm-job="'+E(x.job_id)+'">Générer le document</button>';
     if(x.job_status==='queued')return '<span class="aap3prod">Génération confirmée · en file serveur</span>';
     if(x.job_status==='processing')return '<span class="aap3prod">Génération confirmée · traitement en cours</span>';
     return '';
@@ -1526,10 +1590,10 @@ function actions(x,k){
 }
 function card(x,k){
   if(x.contentJob){
-    const ts=timestamp(x),m=M(x),stage=x.job_status==='queued'?'En file serveur':x.job_status==='processing'?'Production en cours':'Nouvelle demande';
-    return '<article class="aap3card" style="--aap3theme:#6D28D9">'+
+    const ts=timestamp(x),m=M(x),jobTheme=normalizeThemeColor(m.aurore_design?.theme_color||m.theme_color||'#C85C0D'),stage=x.job_status==='queued'?'En file serveur':x.job_status==='processing'?'Production en cours':'Nouvelle demande';
+    return '<article class="aap3card" style="--aap3theme:'+E(jobTheme)+'">'+
       '<div class="aap3top"><div><div class="aap3id">Nouvelle demande · Job #'+E(x.job_id)+'</div><div class="aap3title">'+E(x.title||'Sans titre')+'</div></div><span class="aap3status">'+E(stage)+'</span></div>'+
-      '<div class="aap3grid"><div><b>Date</b><span>'+E(ts.date)+'</span></div><div><b>Heure</b><span>'+E(ts.time)+'</span></div><div><b>Classe</b><span>'+E(x.class_name||'—')+'</span></div><div><b>Niveau</b><span>'+E(x.level||'—')+'</span></div><div><b>Matière</b><span>'+E(x.matiere||x.subject||'—')+'</span></div><div><b>Type</b><span>'+E(x.document_type||'—')+'</span></div><div><b>Origine</b><span>Content Factory</span></div><div><b>Statut</b><span>'+E(x.job_status||'—')+'</span></div></div>'+
+      '<div class="aap3grid"><div><b>Date</b><span>'+E(ts.date)+'</span></div><div><b>Heure</b><span>'+E(ts.time)+'</span></div><div><b>Classe</b><span>'+E(x.class_name||'—')+'</span></div><div><b>Niveau</b><span>'+E(x.level||'—')+'</span></div><div><b>Matière</b><span>'+E(x.matiere||x.subject||'—')+'</span></div><div><b>Type</b><span>'+E(x.document_type||'—')+'</span></div><div><b>Origine</b><span>Content Factory</span></div><div><b>Statut</b><span>'+E(x.job_status||'—')+'</span></div></div>'+(m.theme_color?'<div class="aap3color"><span class="aap3dot" style="background:'+E(jobTheme)+'"></span><span><b>Couleur du document</b><small>'+E(jobTheme)+' · choisie avant lancement</small></span></div>':'')+
       '<div class="aap3prod"><b>Production :</b> '+E(stage)+' · La demande est placée avant les anciens documents pour validation humaine.</div>'+
       '<div class="aap3actions">'+actions(x,k)+'</div></article>';
   }
@@ -1669,7 +1733,7 @@ async function load(force){
     const generated=gt?JSON.parse(gt):[];
     let jobs=[];
     try{
-      const jobsReq=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?select=id,created_at,updated_at,status,title,subject,level,class_name,document_type,generated_document_id,error_message&status=in.(draft,queued,processing)&order=created_at.desc&limit=500',{cache:'no-store'});
+      const jobsReq=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?select=id,created_at,updated_at,status,title,subject,level,class_name,document_type,generated_document_id,error_message,metadata&status=in.(draft,queued,processing)&order=created_at.desc&limit=500',{cache:'no-store'});
       const jt=await jobsReq.text();
       if(jobsReq.ok)jobs=jt?JSON.parse(jt):[];
     }catch(_){jobs=[];}
@@ -1683,7 +1747,7 @@ async function load(force){
         title:j.title||'Nouvelle demande',subject:j.subject||'',matiere:j.subject||'',
         level:j.level||'',class_name:j.class_name||'',document_type:j.document_type||'',
         status:'review',version:1,pdf_url:null,pdf_path:null,contentJob:true,job_status:j.status,
-        metadata:{origin:'Content Factory',job_status:j.status},validation_notes:j.error_message||''
+        metadata:{...(j.metadata&&typeof j.metadata==='object'?j.metadata:{}),origin:'Content Factory',job_status:j.status},validation_notes:j.error_message||''
       });
     }
     try{
