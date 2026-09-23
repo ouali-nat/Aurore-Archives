@@ -1520,7 +1520,7 @@ def render_exercise_text(value, mode="question"):
         body = m.group(2) if m else part
         if m:
             prefix = (
-                r"{\sffamily\bfseries\color{auroredeep}" + tex_text(m.group(1)) +
+                r"\par\medskip\noindent{\sffamily\bfseries\color{auroredeep}" + tex_text(m.group(1)) +
                 r"}\enspace "
             )
 
@@ -1541,6 +1541,13 @@ def render_exercise_text(value, mode="question"):
             rendered = inline(segment, auto_math=True)
             if not rendered.strip():
                 continue
+            if mode == "correction":
+                rendered = re.sub(
+                    r"^(\s*)(?:Donc|Ainsi|Alors|On en déduit|Il s'ensuit|Il s’ensuit)\b[,:]?\s*",
+                    r"\\(\\Longrightarrow\\)\\enspace ",
+                    rendered,
+                    flags=re.IGNORECASE,
+                )
             if first_text and prefix:
                 lines.append(prefix + rendered)
             else:
