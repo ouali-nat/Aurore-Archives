@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const STATE={jobs:[],filtered:[],query:'',level:'',subject:'',sort:'recent',timer:null,loaded:false,fingerprint:'',refreshing:false};
+const STATE={jobs:[],filtered:[],query:'',level:'',subject:'',sort:'recent',timer:null,loaded:false,fingerprint:'',refreshing:false,cancelling:new Set()};
 const esc=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 const clean=(v,f='')=>{const x=String(v??'').trim();return x||f};
 const dateValue=v=>{const d=v?new Date(v):null;return d&&!Number.isNaN(d.getTime())?d:null};
@@ -56,6 +56,32 @@ async function launch(j){
  const r=await adminFetch(SUPABASE_URL+'/functions/v1/aurora-content-factory',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'queue_job',job_id:j.id})});
  const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));
 }
+async function cancelJob(j){
+ const s=statusOf(j);
+ if(!['queued','processing'].includes(s)||STATE.cancelling.has(j.id))return;
+ const wording=s==='processing'?'La production est déjà en cours. Aurore marquera le job comme annulé et empêchera son rattachement ultérieur à un PDF.':'La demande est encore en file. Elle sera retirée du circuit avant sa production.';
+ if(!confirm('Annuler la génération du job #'+j.id+' ?\n\n'+wording))return;
+ STATE.cancelling.add(j.id);
+ render();
+ try{
+  const r=await adminFetch(SUPABASE_URL+'/rest/v1/rpc/aurora_cancel_content_job',{
+   method:'POST',
+   headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({p_job_id:Number(j.id)})
+  });
+  const t=await r.text();
+  if(!r.ok)throw new Error(t||('HTTP '+r.status));
+  let data=null;try{data=t?JSON.parse(t):null}catch(_){data=null}
+  if(data&&data.id==null&&data.error)throw new Error(data.error);
+  STATE.cancelling.delete(j.id);
+  await chargerDocumentsEnAttenteAdminV2();
+ }catch(e){
+  STATE.cancelling.delete(j.id);
+  render();
+  console.error('[ADMIN][AURORE PENDING] annulation',e);
+  alert('Annulation impossible pour le job #'+j.id+'. '+(e?.message||e));
+ }
+}
 async function deleteJob(j){
  if(statusOf(j)==='processing'){alert('Suppression protégée pendant la production en cours.');return}
  if(!confirm('Supprimer définitivement la demande Aurore #'+j.id+' ?\n\nSeule la demande encore dans le sas sera supprimée. Aucun document publié n’est touché.'))return;
@@ -64,13 +90,16 @@ async function deleteJob(j){
  await chargerDocumentsEnAttenteAdminV2();
 }
 function actions(j){
- const s=statusOf(j),disabled=s==='processing';
+ const s=statusOf(j),productionLocked=['queued','processing'].includes(s),cancelling=STATE.cancelling.has(j.id);
  let h='<div class="admin-pending-v2-actions">';
- h+='<button type="button" class="admin-btn ghost" data-action="theme" data-id="'+j.id+'" '+(disabled?'disabled title="Couleur verrouillée pendant la production."':'')+'>Changer la couleur</button>';
+ h+='<button type="button" class="admin-btn ghost" data-action="theme" data-id="'+j.id+'" '+(productionLocked||cancelling?'disabled title="Couleur verrouillée pendant la production."':'')+'>Changer la couleur</button>';
  if(s==='draft')h+='<button type="button" class="admin-btn primary" data-action="launch" data-id="'+j.id+'">Lancer la production</button>';
- else if(s==='queued')h+='<button type="button" class="admin-btn ghost" disabled>En file d’attente</button>';
- else h+='<button type="button" class="admin-btn primary" disabled>Production en cours…</button>';
- h+='<button type="button" class="admin-btn danger" data-action="delete" data-id="'+j.id+'" '+(disabled?'disabled title="Suppression protégée pendant une production active."':'')+'>Supprimer</button>';
+ else if(s==='queued')h+='<span class="admin-pending-v2-live-label">En file d’attente · prêt à être pris en charge</span>';
+ else h+='<span class="admin-pending-v2-live-label">Génération en cours · surveillance serveur active</span>';
+ if(['queued','processing'].includes(s)){
+   h+='<button type="button" class="admin-btn danger" data-action="cancel" data-id="'+j.id+'" '+(cancelling?'disabled aria-busy="true"':'')+'>'+ (cancelling?'Annulation demandée…':'Annuler la génération') +'</button>';
+ }
+ h+='<button type="button" class="admin-btn danger" data-action="delete" data-id="'+j.id+'" '+(productionLocked||cancelling?'disabled title="Suppression protégée pendant le circuit de production."':'')+'>Supprimer</button>';
  return h+'</div>';
 }
 function render(){
@@ -101,6 +130,7 @@ async function runAction(b){
   if(b.dataset.action==='theme'){if(await chooseTheme(j))await chargerDocumentsEnAttenteAdminV2()}
   else if(b.dataset.action==='launch'){await launch(j);await chargerDocumentsEnAttenteAdminV2()}
   else if(b.dataset.action==='delete'){await deleteJob(j)}
+  else if(b.dataset.action==='cancel'){await cancelJob(j)}
  }catch(e){console.error('[ADMIN][AURORE PENDING]',e);alert('Action impossible pour le job #'+j.id+'. '+(e?.message||e));b.disabled=false}
 }
 async function chargerDocumentsEnAttenteAdminV2(){
@@ -121,6 +151,8 @@ async function chargerDocumentsEnAttenteAdminV2(){
    theme:j.theme,error:j.error,progress:j.progress,stage:j.stage
   })));
   const changed=nextFingerprint!==STATE.fingerprint;
+  const liveIds=new Set(nextJobs.map(j=>j.id));
+  for(const id of [...STATE.cancelling])if(!liveIds.has(id))STATE.cancelling.delete(id);
   STATE.jobs=nextJobs;
   STATE.fingerprint=nextFingerprint;
   STATE.loaded=true;
