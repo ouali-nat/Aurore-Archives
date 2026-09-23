@@ -1191,15 +1191,54 @@ function apply(){
   const q=(document.getElementById('adminSearchContentFactory')?.value||'').trim().toLowerCase(),
         st=document.getElementById('adminFilterContentFactory')?.value||'',
         sort=document.getElementById('adminSortContentFactory')?.value||'recent';
-  let a=rows.filter(x=>(!st||x.status===st)&&(!q||[x.title,x.subject,x.matiere,x.level,x.class_name,x.document_type,x.domaine,x.formation,x.specialite,x.annee,x.semestre,x.filiere,x.status].filter(Boolean).join(' ').toLowerCase().includes(q)));
+  let a=rows.filter(x=>(!st||x.status===st)&&(!q||[x.title,x.subject,x.matiere,x.level,x.class_name,x.document_type,x.domaine,x.formation,x.specialite,x.annee,x.semestre,x.filiere,x.status,x.job_id].filter(Boolean).join(' ').toLowerCase().includes(q)));
   a.sort((x,y)=>{
     if(sort==='az')return String(x.title).localeCompare(String(y.title),'fr');
     if(sort==='za')return String(y.title).localeCompare(String(x.title),'fr');
     const ax=new Date(x.created_at).getTime(),ay=new Date(y.created_at).getTime();
     return sort==='oldest'?ax-ay:ay-ax
   });
-  if(!a.length){list.innerHTML='<div class="admin-empty">Aucun document généré pour ces critères.</div>';return}
+  if(!a.length){list.innerHTML='<div class="admin-empty">Aucun document ou demande éditoriale pour ces critères.</div>';return}
   list.innerHTML=a.map(x=>{
+    if(x.contentJob){
+      const m=x.metadata&&typeof x.metadata==='object'?x.metadata:{};
+      const theme=normalizeThemeColor(m.theme_color||m.aurore_design?.theme_color||x.theme_color||'#C85C0D');
+      const classification=[x.matiere||x.subject,x.class_name,x.level,x.filiere].filter(Boolean).join(' · ');
+      const status=String(x.job_status||x.status||'').toLowerCase();
+      const stage=status==='queued'
+        ?'En file : la demande attend l’éditeur ChatGPT. Aucun PDF n’est encore produit.'
+        :status==='processing'
+          ?'Traitement éditorial en cours.'
+          :status==='review'
+            ?'Contenu reçu : contrôle humain requis avant le rendu PDF.'
+            :'Demande éditoriale enregistrée.';
+      const confirm=status==='draft'
+        ?'<button type="button" class="admin-btn primary" data-cf-confirm-job="'+esc(x.job_id)+'">Choisir la couleur et lancer la production</button>'
+        :'';
+      return `<article class="cf-admin-card cf-admin-card-large cf-admin-editorial-request" data-content-job-id="${esc(x.job_id)}" style="--cf-document-theme:${esc(theme)}">
+        <div class="cf-admin-icon cf-admin-icon-large">IA</div>
+        <div class="cf-admin-body">
+          <div class="cf-admin-kicker">Demande éditoriale · Job #${esc(x.job_id)}</div>
+          <div class="cf-admin-title">${esc(x.title||'Nouvelle demande')}</div>
+          <div class="cf-admin-meta cf-admin-meta-grid">
+            <span><strong>Statut</strong> ${esc(sl(status))}</span>
+            ${x.document_type?'<span><strong>Type</strong> '+esc(x.document_type)+'</span>':''}
+            <span><strong>Origine</strong> Content Factory</span>
+            <span><strong>Créé</strong> ${esc(new Date(x.created_at).toLocaleString('fr-FR'))}</span>
+            ${x.updated_at?'<span><strong>Modifié</strong> '+esc(new Date(x.updated_at).toLocaleString('fr-FR'))+'</span>':''}
+          </div>
+          <div class="cf-admin-section-label">Classement enregistré</div>
+          <div class="cf-admin-classification">${esc(classification||'Aucune classification détaillée enregistrée.')}</div>
+          <div class="cf-admin-theme-row">
+            <span class="cf-admin-theme-dot" style="background:${esc(theme)}"></span>
+            <span><strong>Couleur du document</strong><small>${esc(theme)}</small></span>
+          </div>
+          <div class="cf-admin-generation-state"><strong>Production :</strong> ${esc(stage)}</div>
+          ${x.validation_notes?'<div class="cf-admin-note"><strong>Message :</strong> '+esc(x.validation_notes)+'</div>':''}
+          <div class="cf-admin-actions cf-admin-actions-stable">${confirm}</div>
+        </div>
+      </article>`;
+    }
     const m=x.metadata&&typeof x.metadata==='object'?x.metadata:{};
     const pdf=!!x.pdf_url;
     const active=['queued','processing'].includes(m.lualatex_status);
@@ -1209,10 +1248,7 @@ function apply(){
     const canReject=['review','approved'].includes(x.status)&&!active;
     const canPublish=['approved','review'].includes(x.status)&&pdf&&!active;
     const theme=documentThemeColor(m)||x.theme_color||'#C85C0D';
-    const classification=[
-      x.domaine,x.formation,x.specialite,x.annee,x.semestre,x.filiere,
-      x.matiere||x.subject,x.class_name,x.level
-    ].filter(Boolean).join(' · ');
+    const classification=[x.domaine,x.formation,x.specialite,x.annee,x.semestre,x.filiere,x.matiere||x.subject,x.class_name,x.level].filter(Boolean).join(' · ');
     const stage=m.lualatex_stage||m.lualatex_status||'';
     const origin=m.origin||m.source||m.producer||'';
     const actionBusy=active||cancelRequested;
@@ -1254,6 +1290,7 @@ function apply(){
     </article>`
   }).join('')
 }
+
 async function surveillerRenduArrierePlan(id,accessToken,b){
   const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   for(let i=0;i<180;i++){
@@ -1285,7 +1322,78 @@ async function surveillerRenduArrierePlan(id,accessToken,b){
   return false;
 }
 
-async function charger(){if(!adminOk()){list.innerHTML='<div class="admin-empty">Cette action est réservée aux administrateurs.</div>';return}list.innerHTML='<div class="admin-empty">Chargement…</div>';try{const r=await adminInventoryFetch(`${SUPABASE_URL}/rest/v1/aurora_generated_documents?select=id,job_id,created_at,updated_at,created_by,title,subject,matiere,level,class_name,document_type,domaine,formation,specialite,annee,semestre,filiere,theme_color,source_format,pdf_path,pdf_url,version,status,validation_notes,published_document_id,metadata,pdf_diagnostic&order=created_at.desc`,{cache:'no-store'}),t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));rows=t?JSON.parse(t):[];if(!Array.isArray(rows))rows=[];const c={review:0,approved:0,published:0,failed:0};rows.forEach(x=>{if(c[x.status]!=null)c[x.status]++});document.getElementById('cfCountReview').textContent=c.review;document.getElementById('cfCountApproved').textContent=c.approved;document.getElementById('cfCountPublished').textContent=c.published;document.getElementById('cfCountFailed').textContent=c.failed;if(count)count.textContent=String(c.review);apply()}catch(e){list.innerHTML=`<div class="admin-empty">Impossible de charger Content Factory.<br>${esc(e.message||e)}</div>`}}
+async function charger(){
+  if(!adminOk()){list.innerHTML='<div class="admin-empty">Cette action est réservée aux administrateurs.</div>';return}
+  list.innerHTML='<div class="admin-empty">Chargement…</div>';
+  try{
+    const r=await adminInventoryFetch(`${SUPABASE_URL}/rest/v1/aurora_generated_documents?select=id,job_id,created_at,updated_at,created_by,title,subject,matiere,level,class_name,document_type,domaine,formation,specialite,annee,semestre,filiere,theme_color,source_format,pdf_path,pdf_url,version,status,validation_notes,published_document_id,metadata,pdf_diagnostic&order=created_at.desc`,{cache:'no-store'});
+    const t=await r.text();
+    if(!r.ok)throw new Error(t||('HTTP '+r.status));
+    rows=t?JSON.parse(t):[];
+    if(!Array.isArray(rows))rows=[];
+
+    // Les demandes IA récentes existent parfois encore uniquement dans
+    // aurora_content_jobs (ex. Job #93) avant la réception du contenu éditorial.
+    // Elles doivent malgré tout être visibles dans la réception Content Factory.
+    try{
+      const jr=await adminInventoryFetch(`${SUPABASE_URL}/rest/v1/aurora_content_jobs?select=id,created_at,updated_at,status,title,subject,level,class_name,document_type,generated_document_id,error_message,metadata&status=in.(draft,queued,processing,review)&order=created_at.desc&limit=500`,{cache:'no-store'});
+      const jt=await jr.text();
+      if(jr.ok){
+        const jobs=jt?JSON.parse(jt):[];
+        const known=new Set(rows.map(x=>String(x.job_id||'')).filter(Boolean));
+        for(const job of (Array.isArray(jobs)?jobs:[])){
+          if(job.generated_document_id!=null||known.has(String(job.id)))continue;
+          const jm=job.metadata&&typeof job.metadata==='object'?job.metadata:{};
+          rows.push({
+            id:'job-'+job.id,
+            job_id:job.id,
+            created_at:job.created_at,
+            updated_at:job.updated_at,
+            created_by:null,
+            title:job.title||'Nouvelle demande',
+            subject:job.subject||'',
+            matiere:job.subject||'',
+            level:job.level||'',
+            class_name:job.class_name||'',
+            document_type:job.document_type||'',
+            domaine:job.domaine||'',
+            formation:job.formation||'',
+            specialite:job.specialite||'',
+            annee:job.annee||'',
+            semestre:job.semestre||'',
+            filiere:job.filiere||'',
+            theme_color:jm.theme_color||jm.aurore_design?.theme_color||'#C85C0D',
+            source_format:'editorial-request',
+            pdf_path:null,
+            pdf_url:null,
+            version:null,
+            status:job.status,
+            validation_notes:job.error_message||'',
+            published_document_id:null,
+            metadata:{...jm,origin:jm.origin||'Content Factory',content_job:true,job_status:job.status},
+            pdf_diagnostic:null,
+            contentJob:true,
+            job_status:job.status
+          });
+          known.add(String(job.id));
+        }
+      }
+    }catch(jobError){
+      console.warn('[Content Factory] demandes éditoriales en attente indisponibles',jobError);
+    }
+
+    const c={review:0,approved:0,published:0,failed:0};
+    rows.forEach(x=>{if(!x.contentJob&&c[x.status]!=null)c[x.status]++});
+    document.getElementById('cfCountReview').textContent=c.review;
+    document.getElementById('cfCountApproved').textContent=c.approved;
+    document.getElementById('cfCountPublished').textContent=c.published;
+    document.getElementById('cfCountFailed').textContent=c.failed;
+    if(count)count.textContent=String(c.review);
+    apply();
+  }catch(e){
+    list.innerHTML=`<div class="admin-empty">Impossible de charger Content Factory.<br>${esc(e.message||e)}</div>`
+  }
+}
 document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurrent);document.getElementById('adminRefreshContentFactory')?.addEventListener('click',charger);document.getElementById('adminSearchContentFactory')?.addEventListener('input',apply);document.getElementById('adminSortContentFactory')?.addEventListener('change',apply);document.getElementById('adminFilterContentFactory')?.addEventListener('change',apply);
   const handlePdfAction=async detail=>{
     try{
