@@ -74,7 +74,7 @@
     // Les publicités sont chargées une seule fois, mais chaque écran peut être
     // reconstruit après la navigation. On réaffiche donc immédiatement les
     // emplacements avec les données déjà reçues, sans nouvelle requête réseau.
-    if(typeof peuplerEmplacementsPublicitaires === 'function' && PUBS_ACTIVES?.length){
+    if(typeof peuplerEmplacementsPublicitaires === 'function' && typeof PUBS_ACTIVES !== 'undefined' && PUBS_ACTIVES?.length){
       requestAnimationFrame(() => peuplerEmplacementsPublicitaires());
     }
     const scrollY = Number.isFinite(Number(options.scrollY)) ? Number(options.scrollY) : 0;
@@ -766,6 +766,17 @@
     const aFiliere = rows.some(r => Object.prototype.hasOwnProperty.call(r, 'Filiere'));
     if (!aFiliere) return rows;
     return rows.filter(r => !r.Filiere || String(r.Filiere).toUpperCase() === String(etat.filiere).toUpperCase());
+  }
+
+  // Initialisation explicite : les portes de la bibliothèque sont générées
+  // dynamiquement. Sans cet appel, #homeFiveLevels reste vide après un chargement
+  // propre de la page et les parcours scolaire/matières ne reçoivent aucun handler.
+  try {
+    rendrePresentation();
+    rendreAccueil();
+    majFilAriane();
+  } catch (err) {
+    console.error('[Aurore] initialisation de la navigation impossible:', err);
   }
 
   async function allerMatieres() {
