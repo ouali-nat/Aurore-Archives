@@ -51,3 +51,18 @@
   #pdfViewerOverlay .pdf-reader-page canvas{max-width:min(100%,1040px);box-shadow:0 4px 18px rgba(0,0,0,.28);}
   #pdfViewerOverlay .pdf-reader-bottombar{padding:7px 10px!important;}
   #pdfViewerOverlay .pdf-reader-bottombar button{min-height:36px!important;padding:7px 13px!important;font-size:.76rem;}
+
+/* Présentation unifiée pilotée par aurore-pdf-grids.css.
+   Les anciennes règles de ligne restent intactes pour les autres zones,
+   mais ne doivent plus reprendre la main sur Mes documents. */
+.aurore-personal-document-row.personal-doc,
+.aurore-personal-document-row.personal-book{
+  display:block!important;
+  align-items:initial!important;
+  flex-direction:initial!important;
+  justify-content:initial!important;
+  gap:0!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+}
