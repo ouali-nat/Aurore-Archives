@@ -9,7 +9,7 @@
       // mécanismes de validation/publication : ici on ne fait que les afficher.
       const [res, resAurore] = await Promise.all([
         fetch(`${SUPABASE_URL}/rest/v1/Document?select=*&Publie=eq.false&order=id.desc`, { headers: headersAdmin() }),
-        fetch(`${SUPABASE_URL}/rest/v1/aurora_generated_documents?select=*&status=in.(queued,processing,generated,review)&order=id.desc`, { headers: headersAdmin() })
+        fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_list_aurora_generated_documents`, { headers: headersAdmin(), cache: 'no-store' })
       ]);
       if (!res.ok) throw new Error("Statut HTTP " + res.status);
       if (!resAurore.ok) throw new Error("Statut HTTP Aurore " + resAurore.status);
