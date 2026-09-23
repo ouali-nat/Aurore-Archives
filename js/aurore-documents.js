@@ -822,6 +822,33 @@
     const style = document.createElement('style');
     style.id = 'aurore-bibliotheque-docs-style';
     style.textContent = `
+      /* Accès direct au PDF : petit bouton permanent sur chaque carte publique. */
+      .doc-open-btn{
+        position:absolute!important;
+        left:8px!important;
+        top:8px!important;
+        z-index:6!important;
+        display:inline-flex!important;
+        align-items:center!important;
+        justify-content:center!important;
+        gap:4px!important;
+        min-height:28px!important;
+        padding:4px 8px!important;
+        border:1px solid rgba(255,255,255,.7)!important;
+        border-radius:999px!important;
+        background:rgba(255,255,255,.94)!important;
+        color:var(--theme-primary,#6d28d9)!important;
+        box-shadow:0 2px 8px rgba(0,0,0,.14)!important;
+        font-size:.62rem!important;
+        line-height:1!important;
+        font-weight:900!important;
+        cursor:pointer!important;
+        backdrop-filter:blur(6px)!important;
+      }
+      .doc-open-btn span:first-child{font-size:.8rem!important;line-height:1!important}
+      .doc-open-btn:active{transform:translateY(1px)!important}
+      .doc-open-btn:focus-visible{outline:2px solid var(--theme-primary,#6d28d9)!important;outline-offset:2px!important}
+
       #screen-docs .doc-list:not(.aurore-resource-list){
         display:grid!important;
         grid-template-columns:repeat(auto-fill,minmax(150px,1fr))!important;
