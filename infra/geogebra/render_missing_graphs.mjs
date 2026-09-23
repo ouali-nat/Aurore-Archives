@@ -73,7 +73,7 @@ function instrumentOf(g) {
 
 function validGraph(g) {
   const instrument = instrumentOf(g);
-  if (!["function2d", "parametric2d", "parametric3d", "surface3d", "geometry3d"].includes(instrument)) {
+  if (!["function2d", "complex_plane", "parametric2d", "parametric3d", "surface3d", "geometry3d"].includes(instrument)) {
     return false;
   }
   const objects = Array.isArray(g?.objects) ? g.objects : [];
@@ -298,7 +298,7 @@ const renderGraphInBrowser = async (graph) => {
 
     function graphInstrument(g) {
       const raw = String(g?.instrument || g?.graph_type || "").toLowerCase().trim();
-      const aliases = { function:"function2d",graph:"function2d",courbe:"function2d",parametric:"parametric2d",geometrie3d:"geometry3d","3d":"geometry3d" };
+      const aliases = { function:"function2d",graph:"function2d",courbe:"function2d",complex_plane:"complex_plane",parametric:"parametric2d",geometrie3d:"geometry3d","3d":"geometry3d" };
       const normalized = aliases[raw] || raw;
       const objects = Array.isArray(g?.objects) ? g.objects : [];
       const hasObjects = objects.some((o) =>
@@ -309,7 +309,7 @@ const renderGraphInBrowser = async (graph) => {
       const hasY = String(g?.y_expression || "").trim();
       const hasZ = String(g?.z_expression || "").trim();
       const hasExpression = String(g?.expression || "").trim();
-      if (["function2d","parametric2d","parametric3d","surface3d","geometry3d"].includes(normalized)) return normalized;
+      if (["function2d","complex_plane","parametric2d","parametric3d","surface3d","geometry3d"].includes(normalized)) return normalized;
       if (hasObjects) return "geometry3d";
       if (hasZ && hasX && hasY) return "parametric3d";
       if (hasX && hasY) return "parametric2d";
@@ -355,12 +355,12 @@ const renderGraphInBrowser = async (graph) => {
       }
     }
 
-    if (instrument === "function2d" || instrument === "parametric2d") {
+    if (instrument === "function2d" || instrument === "complex_plane" || instrument === "parametric2d") {
       const xmin=finite(graph?.x_min,-10), xmax=finite(graph?.x_max,10), ymin=finite(graph?.y_min,-10), ymax=finite(graph?.y_max,10);
       if (xmax>xmin && ymax>ymin) {
         commands.push("SetCoordSystem("+[xmin,xmax,ymin,ymax].join(",")+")");
       }
-      if (instrument === "function2d" && Array.isArray(graph?.points)) {
+      if ((instrument === "function2d" || instrument === "complex_plane") && Array.isArray(graph?.points)) {
         let pointIndex = 0;
         for (const raw of graph.points) {
           if (!Array.isArray(raw) || raw.length < 2) continue;
