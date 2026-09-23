@@ -1760,6 +1760,33 @@ async function load(force){
       console.warn('[Aurore Admin PDF] lecture des demandes Content Factory indisponible',jobsError);
     }
 
+    // Repli via l’Edge Function officielle : le panneau ne doit pas devenir
+    // vide simplement parce que la lecture REST directe est temporairement
+    // refusée ou désynchronisée par RLS/session.
+    if(!jobs.length){
+      try{
+        const token=typeof cfFreshToken==='function'?await cfFreshToken():(typeof session!=='undefined'&&session?.access_token)||'';
+        if(token){
+          const jobsRpc=await fetch(SUPABASE_URL+'/functions/v1/aurora-content-factory',{
+            method:'POST',
+            cache:'no-store',
+            headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':SUPABASE_ANON_KEY},
+            body:JSON.stringify({action:'list_jobs'})
+          });
+          const jobsRpcText=await jobsRpc.text();
+          if(jobsRpc.ok){
+            const payload=jobsRpcText?JSON.parse(jobsRpcText):{};
+            const listed=Array.isArray(payload?.jobs)?payload.jobs:[];
+            jobs=listed.filter(j=>['draft','queued','processing'].includes(String(j?.status||'').toLowerCase()));
+          }else{
+            console.warn('[Aurore Admin PDF] repli Edge Function Content Factory indisponible',jobsRpc.status);
+          }
+        }
+      }catch(jobsFallbackError){
+        console.warn('[Aurore Admin PDF] repli liste Content Factory échoué',jobsFallbackError);
+      }
+    }
+
     let next=Array.isArray(generated)?generated:[];
     const generatedJobIds=new Set(next.map(x=>String(x.job_id||'')).filter(Boolean));
     for(const j of (Array.isArray(jobs)?jobs:[])){
