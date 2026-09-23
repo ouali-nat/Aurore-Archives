@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const STATE={jobs:[],filtered:[],query:'',level:'',subject:'',sort:'recent',timer:null};
+const STATE={jobs:[],filtered:[],query:'',level:'',subject:'',sort:'recent',timer:null,loaded:false,fingerprint:'',refreshing:false};
 const esc=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 const clean=(v,f='')=>{const x=String(v??'').trim();return x||f};
 const dateValue=v=>{const d=v?new Date(v):null;return d&&!Number.isNaN(d.getTime())?d:null};
@@ -105,15 +105,41 @@ async function runAction(b){
 }
 async function chargerDocumentsEnAttenteAdminV2(){
  const list=document.getElementById('adminPendingV2List');if(!list)return;
- list.innerHTML='<div class="admin-pending-v2-empty"><strong>Chargement du sas Aurore…</strong><span>Lecture exclusive des demandes sans document PDF associé.</span></div>';
+ const initialLoad=!STATE.loaded;
+ if(initialLoad){
+  list.innerHTML='<div class="admin-pending-v2-empty"><strong>Chargement du sas Aurore…</strong><span>Lecture exclusive des demandes sans document PDF associé.</span></div>';
+ }
+ STATE.refreshing=true;
  try{
   const url=SUPABASE_URL+'/rest/v1/aurora_content_jobs?select=id,created_at,updated_at,status,title,subject,level,class_name,document_type,generated_document_id,error_message,metadata&status=in.(draft,queued,processing)&generated_document_id=is.null&order=created_at.desc&limit=100';
   const r=await adminFetch(url,{cache:'no-store'});const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));
-  const raw=t?JSON.parse(t):[];STATE.jobs=(Array.isArray(raw)?raw:[]).map(normalise);
-  populate('adminPendingV2Level',STATE.jobs.map(j=>j.level),'Tous les niveaux');populate('adminPendingV2Subject',STATE.jobs.map(j=>j.subject),'Toutes les matières');
+  const raw=t?JSON.parse(t):[];
+  const nextJobs=(Array.isArray(raw)?raw:[]).map(normalise);
+  const nextFingerprint=JSON.stringify(nextJobs.map(j=>({
+   id:j.id,title:j.title,level:j.level,className:j.className,subject:j.subject,type:j.type,
+   created:j.created,updated:j.updated,status:j.status,generatedDocumentId:j.generatedDocumentId,
+   theme:j.theme,error:j.error,progress:j.progress,stage:j.stage
+  })));
+  const changed=nextFingerprint!==STATE.fingerprint;
+  STATE.jobs=nextJobs;
+  STATE.fingerprint=nextFingerprint;
+  STATE.loaded=true;
+  populate('adminPendingV2Level',STATE.jobs.map(j=>j.level),'Tous les niveaux');
+  populate('adminPendingV2Subject',STATE.jobs.map(j=>j.subject),'Toutes les matières');
   const note=document.getElementById('adminPendingV2Note');if(note)note.textContent='Sas Aurore uniquement : demandes brouillon, en file ou en production qui n’ont pas encore produit de document PDF. Les documents générés ont leur propre page.';
-  render();
- }catch(e){console.error('[ADMIN][AURORE PENDING] chargement',e);STATE.jobs=[];STATE.filtered=[];list.innerHTML='<div class="admin-pending-v2-error"><strong>Impossible de charger le sas Aurore.</strong><br>'+esc(e?.message||e)+'</div>';setText('adminPendingV2Total',0);setText('adminPendingV2Processing',0);setText('adminPendingV2Queued',0);setText('adminPendingV2Visible',0)}
+  if(initialLoad || changed) render();
+ }catch(e){
+  console.error('[ADMIN][AURORE PENDING] chargement',e);
+  if(!STATE.loaded){
+   STATE.jobs=[];STATE.filtered=[];
+   list.innerHTML='<div class="admin-pending-v2-error"><strong>Impossible de charger le sas Aurore.</strong><br>'+esc(e?.message||e)+'</div>';
+   setText('adminPendingV2Total',0);setText('adminPendingV2Processing',0);setText('adminPendingV2Queued',0);setText('adminPendingV2Visible',0);
+  }else{
+   console.warn('[ADMIN][AURORE PENDING] rafraîchissement conservé à l’écran',e);
+  }
+ }finally{
+  STATE.refreshing=false;
+ }
 }
 async function compterDocumentsEnAttente(){
  try{
