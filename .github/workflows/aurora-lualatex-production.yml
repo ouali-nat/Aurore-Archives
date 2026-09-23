@@ -518,6 +518,24 @@ jobs:
           print(f"LuaLaTeX document requeue: document={data['document_id']} action={data['action']} failure_count={data['failure_count']}")
           PY
 
+      - name: Create downloadable ZIP package
+        if: success() && hashFiles('infra/lualatex/production/document-id') != '' && hashFiles('infra/lualatex/production/document.pdf') != ''
+        working-directory: infra/lualatex/production
+        run: |
+          DOCUMENT_ID="$(cat document-id)"
+          mkdir -p "aurora-document-$DOCUMENT_ID"
+          cp document.pdf "aurora-document-$DOCUMENT_ID/"
+          cp document.tex "aurora-document-$DOCUMENT_ID/"
+          cp document.json "aurora-document-$DOCUMENT_ID/"
+          [ -f document.visual-qa.json ] && cp document.visual-qa.json "aurora-document-$DOCUMENT_ID/" || true
+          [ -f upload-response.json ] && cp upload-response.json "aurora-document-$DOCUMENT_ID/" || true
+          if [ -d assets ]; then cp -r assets "aurora-document-$DOCUMENT_ID/"; fi
+          printf 'Aurore — document %s\\n' "$DOCUMENT_ID" > "aurora-document-$DOCUMENT_ID/README.txt"
+          printf 'PDF final + source LuaLaTeX + contenu JSON + QA + ressources utilisées.\\n' >> "aurora-document-$DOCUMENT_ID/README.txt"
+          zip -r "aurora-document-$DOCUMENT_ID.zip" "aurora-document-$DOCUMENT_ID" >/dev/null
+          test -s "aurora-document-$DOCUMENT_ID.zip"
+          echo "ZIP prêt : aurora-document-$DOCUMENT_ID.zip"
+
       - name: Upload rendered PDF artifact
         if: always() && hashFiles('infra/lualatex/production/document-id') != '' && hashFiles('infra/lualatex/production/document.pdf') != ''
         uses: actions/upload-artifact@v4
