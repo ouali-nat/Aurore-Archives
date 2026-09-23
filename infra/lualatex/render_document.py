@@ -1174,7 +1174,7 @@ def _auto_math_parse_expression(s, start):
 
     pos, first_atom = first
     meaningful = False
-    spaced_function = first_atom in {"arg", "mod"}
+    spaced_function = first_atom in {"arg", "mod", "conjugué", "conjuguée"}
 
     while True:
         base = pos
@@ -1293,7 +1293,7 @@ def _auto_mathize_plain_text(text):
         if parsed:
             matches.append((match.start(), parsed[0], parsed[1]))
 
-    for match in re.finditer(r"(?<![\w])(?:Δ|Ω|√)", s):
+    for match in re.finditer(r"(?<![\w])(?:Δ|Ω|√|∫|Σ|∑)", s):
         parsed = _auto_math_parse_expression(s, match.start())
         if parsed:
             matches.append((match.start(), parsed[0], parsed[1]))
@@ -1529,7 +1529,7 @@ def render_content(items, auto_math=False):
                 group.append(_strip_list_marker(items[i]))
                 i += 1
             lines.append(r"\begin{itemize}")
-            lines.extend(r"\item " + inline(x) for x in group)
+            lines.extend(r"\item " + inline(x, auto_math=auto_math) for x in group)
             lines.append(r"\end{itemize}")
             continue
 
