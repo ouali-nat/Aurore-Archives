@@ -1154,8 +1154,7 @@ def normalize_math(s):
         s,
     )
 
-    # before a horizontal rule
- ("\\ \\hline") instead of the required
+    # Before a horizontal rule ("\\ \\hline") instead of the required
     # array row break ("\\\\ \\hline"). Canonicalize that malformed
     # sequence only inside array environments; never alter ordinary math.
     def _fix_array_rows(match):
