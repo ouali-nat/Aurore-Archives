@@ -270,7 +270,41 @@
 
       const page = await pdf.getPage(1);
 
-      /*,       * Les cartes bibliothèque sont plus grandes que les anciennes,       * vignettes 56x56. 140 px + JPEG 0.55 créait du flou sur mobile.,       * La première page est maintenant rendue à ~360 px avec jusqu'à,       * 2x la densité écran, puis compressée en WebP.,       */,      const base = page.getViewport({scale:1});,      const largeurCible = 360;,      const scale = Math.min(,        0.8,,        largeurCible / Math.max(1, base.width),      );,      const viewport = page.getViewport({scale});,,      const canvas = document.createElement('canvas');,      const dpr = Math.min(2, Math.max(1, Number(window.devicePixelRatio) || 1));,      canvas.width = Math.max(1, Math.round(viewport.width * dpr));,      canvas.height = Math.max(1, Math.round(viewport.height * dpr));,,      const ctx = canvas.getContext('2d', {alpha:false});,      if (!ctx) throw new Error('Contexte canvas indisponible');,,      await page.render({,        canvasContext:ctx,,        viewport: viewport.clone({scale: viewport.scale * dpr}),      }).promise;,,      let dataUrl = '';,      try {,        dataUrl = canvas.toDataURL('image/webp', 0.82);,      } catch (e) {},      if (!dataUrl || dataUrl === 'data:,') {,        dataUrl = canvas.toDataURL('image/jpeg', 0.84);,      },      CACHE_COUVERTURES_PREMIERE_PAGE.set(clef, dataUrl);
+      /*
+       * Les cartes bibliothèque sont plus grandes que les anciennes
+       * vignettes 56x56. 140 px + JPEG 0.55 créait du flou sur mobile.
+       * La première page est maintenant rendue à ~360 px avec jusqu'à
+       * 2x la densité écran, puis compressée en WebP.
+       */
+      const base = page.getViewport({scale:1});
+      const largeurCible = 360;
+      const scale = Math.min(
+        0.8,
+        largeurCible / Math.max(1, base.width)
+      );
+      const viewport = page.getViewport({scale});
+
+      const canvas = document.createElement('canvas');
+      const dpr = Math.min(2, Math.max(1, Number(window.devicePixelRatio) || 1));
+      canvas.width = Math.max(1, Math.round(viewport.width * dpr));
+      canvas.height = Math.max(1, Math.round(viewport.height * dpr));
+
+      const ctx = canvas.getContext('2d', {alpha:false});
+      if (!ctx) throw new Error('Contexte canvas indisponible');
+
+      await page.render({
+        canvasContext:ctx,
+        viewport: viewport.clone({scale: viewport.scale * dpr})
+      }).promise;
+
+      let dataUrl = '';
+      try {
+        dataUrl = canvas.toDataURL('image/webp', 0.82);
+      } catch (e) {}
+      if (!dataUrl || dataUrl === 'data:,') {
+        dataUrl = canvas.toDataURL('image/jpeg', 0.84);
+      }
+      CACHE_COUVERTURES_PREMIERE_PAGE.set(clef, dataUrl);
       sauvegarderCouverturePremierePage(clef, dataUrl);
 
       try { page.cleanup?.(); } catch(e) {}
