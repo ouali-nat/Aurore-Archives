@@ -8,7 +8,11 @@
     afficherEcran('screen-admin');
     document.getElementById('adminPanel').style.display = 'block';
     chargerStatsAdmin();
-    chargerDepotsEnAttente();
+    if (typeof window.chargerCompteurDocumentsEnAttenteAdmin === 'function') {
+      window.chargerCompteurDocumentsEnAttenteAdmin();
+    } else {
+      chargerDepotsEnAttente();
+    }
     chargerDocumentsPublies();
     actualiserBoutonRepublicationAdmin();
   });
@@ -18,6 +22,15 @@
   document.querySelectorAll('.admin-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       const cible = tab.getAttribute('data-tab');
+
+      // « Documents en attente » est désormais une vraie page dédiée.
+      // Le tableau de bord reste un centre de pilotage : aucune liste de
+      // documents ne doit être injectée directement dans ce dashboard.
+      if (cible === 'attente' && typeof window.ouvrirDocumentsEnAttenteAdmin === 'function') {
+        window.ouvrirDocumentsEnAttenteAdmin();
+        return;
+      }
+
       document.querySelectorAll('.admin-tab').forEach(t => t.classList.toggle('active', t === tab));
       document.querySelectorAll('.admin-tab-panel').forEach(p => p.classList.toggle('active', p.getAttribute('data-panel') === cible));
       const grille = document.getElementById('adminCategoryGrid');
