@@ -256,8 +256,8 @@
   async function recupererSources(){
     const headers=typeof headersAdmin==='function' ? headersAdmin() : {};
     const [communityResult,auroreResult]=await Promise.allSettled([
-      fetch(\`${SUPABASE_URL}/rest/v1/Document?select=*&Publie=eq.false&order=id.desc\`,{headers,cache:'no-store'}),
-      fetch(\`${SUPABASE_URL}/rest/v1/rpc/admin_list_aurora_generated_documents\`,{
+      fetch(SUPABASE_URL+'/rest/v1/Document?select=*&Publie=eq.false&order=id.desc',{headers,cache:'no-store'}),
+      fetch(SUPABASE_URL+'/rest/v1/rpc/admin_list_aurora_generated_documents',{
         method:'POST',
         headers:{...headers,'Content-Type':'application/json'},
         body:'{}',
