@@ -158,6 +158,7 @@
     const list=document.getElementById('adminPendingV2List');
     if(!list) return;
     appliquerFiltres();
+    setText('adminPendingV2Filtered', STATE.filtered.length);
     setText('adminPendingV2Visible', STATE.filtered.length);
     if(!STATE.filtered.length){
       list.innerHTML='<div class="admin-pending-v2-empty"><strong>Aucun document ne correspond à votre sélection.</strong><span>Modifiez la recherche ou les filtres pour afficher les documents en attente.</span></div>';
