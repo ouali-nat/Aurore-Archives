@@ -2370,12 +2370,9 @@ def main():
     if not raw_document_type and isinstance(data.get("metadata"), dict):
         raw_document_type = data["metadata"].get("document_type")
     main_document_type = str(raw_document_type or "").strip().lower()
-    main_is_exercise_document = main_document_type in {
-        "exercice", "exercices", "exercise", "exercises",
-        "serie_exercices", "série_exercices",
-    }
-    main_metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
     requested_profile = _edition_profile(data)
+    main_is_exercise_document = requested_profile["kind"] == "exercices"
+    main_metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
     print(
         f"Document profile: kind={requested_profile['kind']} "
         f"version={requested_profile['version']} locked={requested_profile['locked']}"
@@ -2386,6 +2383,7 @@ def main():
         or main_graphics.get("external_images") is False
         or main_metadata.get("exercise_pipeline") is True
         or data.get("exercise_pipeline") is True
+        or requested_profile["kind"] == "exercices"
     )
 
     if main_is_exercise_document and external_images_disabled:
