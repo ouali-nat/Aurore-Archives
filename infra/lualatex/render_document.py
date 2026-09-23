@@ -123,6 +123,7 @@ def _is_renderable_geogebra_graph(graph):
         "function": "function2d",
         "graph": "function2d",
         "courbe": "function2d",
+        "complex_plane": "complex_plane",
         "parametric": "parametric2d",
         "geometrie3d": "geometry3d",
         "3d": "geometry3d",
@@ -142,7 +143,7 @@ def _is_renderable_geogebra_graph(graph):
     z_expression = str(graph.get("z_expression") or "").strip()
     asymptotes = graph.get("asymptotes") if isinstance(graph.get("asymptotes"), list) else []
 
-    if instrument == "function2d":
+    if instrument in {"function2d", "complex_plane"}:
         return bool(
             expression
             or asymptotes
@@ -2317,7 +2318,8 @@ def render(data):
                 used_correction_numbers.add(number)
         for number, solution in inline_exercise_corrections:
             if solution and number not in corrections_by_number:
-                lines.append(r"\AuroreExerciseSeriesCorrection{" + str(number) + r"}{" + inline(solution, auto_math=True) + r"}")
+                correction_body = "\n".join(render_exercise_text(solution, mode="correction"))
+                lines.append(r"\AuroreExerciseSeriesCorrection{" + str(number) + r"}{" + correction_body + r"}")
 
     unmatched = [] if is_exercise_document else [
         c for c in data.get("corrections", [])
