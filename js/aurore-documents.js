@@ -799,6 +799,124 @@
   }
   ensureOrigineDocumentsStyles();
 
+  /*
+   * Présentation publique des documents = bibliothèque Aurore.
+   * On conserve la logique des actions existantes, mais les documents publics
+   * sont affichés en cartes PDF : couverture en haut, titre visible dessous,
+   * puis métadonnées et actions. Portée strictement à #screen-docs pour ne
+   * pas modifier les cartes admin ou l'espace personnel.
+   */
+  (function appliquerPresentationBibliothequeDocuments(){
+    if (document.getElementById('aurore-bibliotheque-docs-style')) return;
+    const style = document.createElement('style');
+    style.id = 'aurore-bibliotheque-docs-style';
+    style.textContent = `
+      #screen-docs .doc-list:not(.aurore-resource-list){
+        display:grid!important;
+        grid-template-columns:repeat(auto-fill,minmax(150px,1fr))!important;
+        gap:14px!important;
+        align-items:start!important;
+      }
+      #screen-docs .doc-list:not(.aurore-resource-list) > .doc-row{
+        position:relative!important;
+        display:flex!important;
+        flex-direction:column!important;
+        min-width:0!important;
+        overflow:visible!important;
+        padding:0!important;
+        border-radius:16px!important;
+        background:var(--papier,#fff)!important;
+        border:1px solid color-mix(in srgb,var(--theme-primary,#6d28d9) 12%,var(--bordure,#ddd))!important;
+        box-shadow:0 4px 14px rgba(0,0,0,.06)!important;
+      }
+      #screen-docs .doc-list:not(.aurore-resource-list) > .doc-row > .info{
+        display:flex!important;
+        flex-direction:column!important;
+        align-items:stretch!important;
+        gap:0!important;
+        width:100%!important;
+      }
+      #screen-docs .doc-list:not(.aurore-resource-list) > .doc-row .icon-wrap{
+        position:relative!important;
+        width:100%!important;
+        height:auto!important;
+        aspect-ratio:1/1!important;
+        min-height:150px!important;
+        max-height:none!important;
+        flex:0 0 auto!important;
+        border-radius:16px 16px 8px 8px!important;
+        overflow:hidden!important;
+        display:flex!important;
+        align-items:center!important;
+        justify-content:center!important;
+        background:color-mix(in srgb,var(--theme-primary,#6d28d9) 7%,var(--fond,#f7f5fb))!important;
+      }
+      #screen-docs .doc-list:not(.aurore-resource-list) > .doc-row .icon-wrap.a-couverture{
+        background:#fff!important;
+      }
+      #screen-docs .doc-list:not(.aurore-resource-list) > .doc-row .doc-cover-img{
+        width:100%!important;
+        height:100%!important;
+        object-fit:cover!important;
+        display:block!important;
+      }
+      #screen-docs .doc-list:not(.aurore-resource-list) > .doc-row .doc-main-info{
+        min-width:0!important;
+        padding:10px 11px 11px!important;
+      }
+      #screen-docs .doc-list:not(.aurore-resource-list) > .doc-row .titre{
+        display:-webkit-box!important;
+        -webkit-line-clamp:2!important;
+        -webkit-box-orient:vertical!important;
+        overflow:hidden!important;
+        font-size:.78rem!important;
+        line-height:1.28!important;
+        font-weight:800!important;
+      }
+      #screen-docs .doc-list:not(.aurore-resource-list) > .doc-row .meta{
+        margin-top:5px!important;
+        font-size:.62rem!important;
+        line-height:1.3!important;
+      }
+      #screen-docs .doc-list:not(.aurore-resource-list) > .doc-row .doc-context{
+        font-size:.58rem!important;
+        line-height:1.3!important;
+        margin-top:3px!important;
+      }
+      #screen-docs .doc-list:not(.aurore-resource-list) > .doc-row .doc-size-badge{
+        margin-top:5px!important;
+      }
+      #screen-docs .doc-list:not(.aurore-resource-list) > .doc-row > .doc-more-btn{
+        position:absolute!important;
+        z-index:5!important;
+        top:8px!important;
+        right:8px!important;
+        width:32px!important;
+        height:32px!important;
+        border-radius:50%!important;
+        backdrop-filter:blur(7px)!important;
+        background:rgba(255,255,255,.9)!important;
+        box-shadow:0 2px 8px rgba(0,0,0,.14)!important;
+      }
+      #screen-docs .doc-list:not(.aurore-resource-list) > .doc-row > .doc-actions{
+        margin:0!important;
+        width:100%!important;
+        padding:0 10px 10px!important;
+        box-sizing:border-box!important;
+      }
+      @media(max-width:420px){
+        #screen-docs .doc-list:not(.aurore-resource-list){
+          grid-template-columns:repeat(2,minmax(0,1fr))!important;
+          gap:10px!important;
+        }
+        #screen-docs .doc-list:not(.aurore-resource-list) > .doc-row .icon-wrap{
+          min-height:0!important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  })();
+
   function estDocumentAurore(doc) {
     const source = normaliserRechercheSite(doc?.Source);
     const auteur = normaliserRechercheSite(doc?.Auteur);
