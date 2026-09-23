@@ -166,7 +166,11 @@
   const CACHE_COUVERTURES_PRET = initialiserCacheCouvertures();
 
   function clefCouverturePremierePage(doc) {
-    return String(doc?.id ?? doc?.Fichier_url ?? '').trim();
+    // Version du rendu incluse dans la clé : les anciennes vignettes basse
+    // résolution ne doivent jamais être reprises après une amélioration.
+    const id = String(doc?.id ?? '').trim();
+    const url = String(doc?.Fichier_url ?? '').trim();
+    return 'v2|' + (id || url);
   }
 
   function sauvegarderCouverturePremierePage(clef, dataUrl) {
@@ -220,75 +224,53 @@
       await chargerPdfJs();
 
       let source = String(doc.Fichier_url);
+      const sources = [];
       try {
         const u = new URL(source, window.location.href);
         if (
           typeof R2_PUBLIC_URL !== 'undefined' &&
-          u.href.indexOf(R2_PUBLIC_URL + '/') === 0
+          u.href.indexOf(R2_PUBLIC_URL + '/') === 0 &&
+          typeof R2_WORKER_URL !== 'undefined' &&
+          R2_WORKER_URL
         ) {
           const cle = u.href.slice(R2_PUBLIC_URL.length + 1);
-          source = `${R2_WORKER_URL}/${cle}`;
+          sources.push(R2_WORKER_URL + '/' + cle);
         }
       } catch(e) {}
+      sources.push(source);
 
       /*
-       * PDF.js gère lui-même les requêtes Range.
-       * 512 KiB est volontairement beaucoup plus petit que le PDF complet :
-       * la couverture n'a besoin que des données nécessaires à la page 1.
+       * PDF.js essaie d'abord le Worker v2 (Range), puis l'URL publique R2
+       * si le flux du Worker échoue sur certains navigateurs/réseaux.
+       * Le rendu reste limité à la première page : pas de téléchargement
+       * volontaire du PDF complet pour fabriquer la vignette.
        */
-      const task = pdfjsLib.getDocument({
-        url: source,
-        rangeChunkSize: 256 * 1024,
-        disableAutoFetch: true,
-        disableRange: false,
-        disableStream: false,
-        stopAtErrors: false
-      });
-
-      const pdf = await task.promise;
+      let pdf = null;
+      let derniereErreur = null;
+      for (const candidate of [...new Set(sources)]) {
+        try {
+          const task = pdfjsLib.getDocument({
+            url: candidate,
+            rangeChunkSize: 256 * 1024,
+            disableAutoFetch: true,
+            disableRange: false,
+            disableStream: false,
+            stopAtErrors: false
+          });
+          pdf = await task.promise;
+          if (pdf?.numPages) break;
+        } catch (e) {
+          derniereErreur = e;
+          pdf = null;
+        }
+      }
       if (!pdf || !pdf.numPages) {
-        throw new Error('PDF sans première page exploitable');
+        throw derniereErreur || new Error('PDF sans première page exploitable');
       }
 
       const page = await pdf.getPage(1);
 
-      /*
-       * Les couvertures sont affichées dans une vignette de 56x56 px CSS.
-       * Même sur un écran très dense (2.5x), 140 px de large est largement
-       * suffisant pour une netteté parfaite — inutile d'aller au-delà.
-       * Avant : cible 180 px avec un plafond de scale à 0.75 (donc jusqu'à
-       * 3-4x plus de pixels que nécessaire pour un carré de 56 px). Chaque
-       * pixel en trop coûte du temps de rendu PDF et du poids de JPEG,
-       * pour un résultat invisible une fois réduit à 56 px par le CSS.
-       */
-      const base = page.getViewport({scale:1});
-      const largeurCible = 140;
-      const scale = Math.min(
-        0.45,
-        largeurCible / Math.max(1, base.width)
-      );
-      const viewport = page.getViewport({scale});
-
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.max(1, Math.round(viewport.width));
-      canvas.height = Math.max(1, Math.round(viewport.height));
-
-      const ctx = canvas.getContext('2d', {alpha:false});
-      if (!ctx) throw new Error('Contexte canvas indisponible');
-
-      await page.render({
-        canvasContext:ctx,
-        viewport
-      }).promise;
-
-      /*
-       * JPEG léger : la couverture n'a pas besoin de la qualité du PDF.
-       * 0.55 reste net sur une vignette de 56 px tout en réduisant nettement
-       * le poids de chaque image comparé à 0.68.
-       */
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.55);
-
-      CACHE_COUVERTURES_PREMIERE_PAGE.set(clef, dataUrl);
+      /*,       * Les cartes bibliothèque sont plus grandes que les anciennes,       * vignettes 56x56. 140 px + JPEG 0.55 créait du flou sur mobile.,       * La première page est maintenant rendue à ~360 px avec jusqu'à,       * 2x la densité écran, puis compressée en WebP.,       */,      const base = page.getViewport({scale:1});,      const largeurCible = 360;,      const scale = Math.min(,        0.8,,        largeurCible / Math.max(1, base.width),      );,      const viewport = page.getViewport({scale});,,      const canvas = document.createElement('canvas');,      const dpr = Math.min(2, Math.max(1, Number(window.devicePixelRatio) || 1));,      canvas.width = Math.max(1, Math.round(viewport.width * dpr));,      canvas.height = Math.max(1, Math.round(viewport.height * dpr));,,      const ctx = canvas.getContext('2d', {alpha:false});,      if (!ctx) throw new Error('Contexte canvas indisponible');,,      await page.render({,        canvasContext:ctx,,        viewport: viewport.clone({scale: viewport.scale * dpr}),      }).promise;,,      let dataUrl = '';,      try {,        dataUrl = canvas.toDataURL('image/webp', 0.82);,      } catch (e) {},      if (!dataUrl || dataUrl === 'data:,') {,        dataUrl = canvas.toDataURL('image/jpeg', 0.84);,      },      CACHE_COUVERTURES_PREMIERE_PAGE.set(clef, dataUrl);
       sauvegarderCouverturePremierePage(clef, dataUrl);
 
       try { page.cleanup?.(); } catch(e) {}
