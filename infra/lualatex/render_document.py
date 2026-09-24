@@ -1836,8 +1836,11 @@ def display_formula(s):
     # environment. AuroreFormulaBlock itself provides the equation* wrapper,
     # so keeping the incoming wrapper would nest equation* inside equation*
     # and makes LuaLaTeX fail with "Bad math environment delimiter".
+    # Accept both normal and JSON-overescaped equation delimiters. The
+    # surrounding AuroreFormulaBlock already supplies equation*, so an
+    # incoming equation* wrapper must always be removed.
     equation_wrapper = re.fullmatch(
-        r"\\begin\{equation\*\}([\\s\\S]*?)\\end\{equation\*\}",
+        r"\\{1,2}begin\{equation\*\}([\\s\\S]*?)\\{1,2}end\{equation\*\}",
         math.strip(),
     )
     if equation_wrapper:
