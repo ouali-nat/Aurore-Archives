@@ -1082,6 +1082,8 @@ def _repair_common_math_command_corruption(s):
     s = s.replace(r"\topminfty", r"\to+\infty")
     s = s.replace(r"\to+infty", r"\to+\infty")
     s = s.replace(r"\to-infty", r"\to-\infty")
+    # Repair a compact limit target where ``\\ell`` lost its backslash (e.g. ``\\toell``).
+    s = s.replace(r"\toell", r"\to\ell")
     s = s.replace(r"\too", r"\to")
     s = s.replace("}ight)", r"}\right)")
     s = s.replace("]ight]", r"]\right]")
