@@ -1540,7 +1540,7 @@ def inline(s, auto_math=False):
     # closing dollar is immediately followed by an accidental extra dollar.
     # Without this repair, later formulas can be paired incorrectly and
     # LuaLaTeX eventually reports a missing closing math delimiter.
-    s = re.sub(r"(?<!\\$)\\$([^$\\n]{1,240})\\$\\$(?=\\s|$|[,.!?;:])", r"$\\1$", s)
+    s = re.sub(r"(?<!\$)\$([^$\n]{1,240})\$\$(?=\s|$|[,.!?;:])", r"$\1$", s)
     stripped = s.strip()
 
     # A whole item may be an explicit display-math block. Single-dollar
