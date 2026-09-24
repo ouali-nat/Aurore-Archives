@@ -70,7 +70,7 @@ async function launch(j){
 async function deleteJob(j){
  if(statusOf(j)==='processing'){alert('Une génération est en cours. Utilise « Annuler la génération » pour arrêter proprement le job.');return}
  if(!confirm('Supprimer définitivement la demande Aurore #'+j.id+' ?\n\nSeule la demande encore dans le sas sera supprimée. Aucun document publié n’est touché.'))return;
- const r=await adminFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?id=eq.'+encodeURIComponent(j.id),{method:'DELETE',headers:{Prefer:'return=minimal'}});
+ const r=await adminFetch(SUPABASE_URL+'/rest/v1/rpc/aurora_delete_content_job',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({p_job_id:Number(j.id)})});
  const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));
  await chargerDocumentsEnAttenteAdminV2();
 }
