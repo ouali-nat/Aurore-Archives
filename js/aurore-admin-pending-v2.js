@@ -51,7 +51,18 @@ async function chooseTheme(j){
  const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));return true;
 }
 async function launch(j){
- if(statusOf(j)!=='draft')return;
+ const s=statusOf(j);
+ if(j.generatedDocumentId){
+   if(!['draft','review','cancelled'].includes(s))return;
+   const button=document.querySelector('[data-action="launch"][data-id="'+CSS.escape(String(j.id))+'"]');
+   if(button)button.dataset.relaunchDocumentId=String(j.generatedDocumentId);
+   if(typeof window.__auroreContentFactoryRenderPdf==='function'){
+     await window.__auroreContentFactoryRenderPdf(Number(j.generatedDocumentId),j.theme);
+     return;
+   }
+   throw new Error('Le module de production PDF n’est pas disponible.');
+ }
+ if(s!=='draft')return;
  if(typeof window.auroreAdminConfirmContentJob==='function'){await window.auroreAdminConfirmContentJob(j.id);return;}
  const r=await adminFetch(SUPABASE_URL+'/functions/v1/aurora-content-factory',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'queue_job',job_id:j.id})});
  const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));
@@ -84,7 +95,7 @@ function actions(j){
  const s=statusOf(j),active=['queued','processing'].includes(s);
  let h='<div class="admin-pending-v2-actions">';
  h+='<button type="button" class="admin-btn ghost" data-action="theme" data-id="'+j.id+'" '+(active?'disabled title="Couleur verrouillée pendant la production."':'')+'>Changer la couleur</button>';
- if(s==='draft')h+='<button type="button" class="admin-btn primary" data-action="launch" data-id="'+j.id+'">Lancer la production</button>';
+ if(s==='draft'||(j.generatedDocumentId&&['review','cancelled'].includes(s)))h+='<button type="button" class="admin-btn primary" data-action="launch" data-id="'+j.id+'">'+(j.generatedDocumentId?'Relancer la production':'Lancer la production')+'</button>';
  else if(s==='queued')h+='<button type="button" class="admin-btn ghost" disabled>En file d’attente</button>';
  else h+='<button type="button" class="admin-btn primary" disabled>Production en cours…</button>';
  if(active)h+='<button type="button" class="admin-btn danger admin-pending-v2-cancel" data-action="cancel" data-id="'+j.id+'">Annuler la génération</button>';
@@ -148,10 +159,23 @@ async function chargerDocumentsEnAttenteAdminV2(){
  }
  STATE.refreshing=true;
  try{
-  const url=SUPABASE_URL+'/rest/v1/aurora_content_jobs?select=id,created_at,updated_at,status,title,subject,level,class_name,document_type,generated_document_id,error_message,metadata&status=in.(draft,queued,processing)&generated_document_id=is.null&order=created_at.desc&limit=100';
+  const url=SUPABASE_URL+'/rest/v1/aurora_content_jobs?select=id,created_at,updated_at,status,title,subject,level,class_name,document_type,generated_document_id,error_message,metadata&status=in.(draft,queued,processing,review)&order=created_at.desc&limit=100';
   const r=await adminFetch(url,{cache:'no-store'});const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));
   const raw=t?JSON.parse(t):[];
-  const nextJobs=(Array.isArray(raw)?raw:[]).map(normalise);
+  const docIds=[...new Set((Array.isArray(raw)?raw:[]).map(j=>Number(j.generated_document_id||0)).filter(Number.isSafeInteger).filter(Boolean))];
+  let docMap=new Map();
+  if(docIds.length){
+    const dr=await adminFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?id=in.('+docIds.join(',')+')&select=id,pdf_url,pdf_path,status,metadata',{cache:'no-store'});
+    const dt=await dr.text();if(!dr.ok)throw new Error(dt||('HTTP '+dr.status));
+    const docs=dt?JSON.parse(dt):[];
+    for(const d of (Array.isArray(docs)?docs:[]))docMap.set(Number(d.id),d);
+  }
+  const nextJobs=(Array.isArray(raw)?raw:[]).filter(j=>{
+    const gid=Number(j.generated_document_id||0);
+    if(!gid)return true;
+    const d=docMap.get(gid);
+    return !!d && !d.pdf_url && !d.pdf_path;
+  }).map(normalise);
   const nextFingerprint=JSON.stringify(nextJobs.map(j=>({
    id:j.id,title:j.title,level:j.level,className:j.className,subject:j.subject,type:j.type,
    created:j.created,status:j.status,generatedDocumentId:j.generatedDocumentId,
