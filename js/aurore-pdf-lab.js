@@ -544,7 +544,18 @@
   },true);
   // Les actions PDF sont routées exclusivement par Content Factory Admin.
 
-  function initProductionQueue(){ensureProductionUI();ensureProductionActionStyles();pollProductionQueue();setInterval(pollProductionQueue,2000)}
+  function productionCenterVisible(){
+    const center=document.getElementById('aurorePdfProductionCenter');
+    if(!center || document.visibilityState!=='visible') return false;
+    return !!(center.offsetWidth || center.offsetHeight || center.getClientRects().length);
+  }
+  function initProductionQueue(){
+    ensureProductionUI();
+    ensureProductionActionStyles();
+    if(productionCenterVisible()) pollProductionQueue();
+    setInterval(()=>{if(productionCenterVisible()) pollProductionQueue()},3500);
+    document.addEventListener('visibilitychange',()=>{if(productionCenterVisible()) pollProductionQueue()});
+  }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initProductionQueue,{once:true});else initProductionQueue();
 
 })();
