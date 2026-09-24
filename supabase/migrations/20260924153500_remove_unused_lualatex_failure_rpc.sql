@@ -1,0 +1,1 @@
+drop function if exists public.aurora_lualatex_failure(bigint,text);
