@@ -1087,6 +1087,12 @@ def normalize_math(s):
     preserving the doubled backslashes used as array/alignment row breaks,
     including row breaks immediately before \\hline or \\cline.
     """
+    s = str(s or "")
+    # JSON decoding can turn a single LaTeX \\to into a TAB + "o", and
+    # a single LaTeX \\frac into FORM FEED + "rac". Repair those control
+    # characters before clean_text() removes them. This is intentionally
+    # scoped to math normalization, so ordinary prose tabs are unaffected.
+    s = s.replace("\\t", r"\\t").replace("\\f", r"\\f")
     s = clean_text(s)
 
     # Protect LaTeX row breaks before normalizing command escapes.
