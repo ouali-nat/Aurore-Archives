@@ -72,7 +72,7 @@ jobs:
           rendered_inline = inline(malformed_inline)
           if "$" in rendered_inline:
               raise SystemExit(f"Inline dollar regression: stray dollar delimiter remains: {rendered_inline!r}")
-          if r"\\[-\\infty.\\]" not in rendered_inline or r"\\[+\\infty.\\]" not in rendered_inline:
+          if r"\[-\infty.\]" not in rendered_inline or r"\[+\infty.\]" not in rendered_inline:
               raise SystemExit(f"Inline display-dollar regression: display math was not preserved: {rendered_inline!r}")
           PY
 
