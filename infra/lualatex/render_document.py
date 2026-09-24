@@ -1085,6 +1085,7 @@ def _repair_common_math_command_corruption(s):
     s = s.replace(r"\inftyfty", r"\infty")
     s = s.replace(r"\texttext", r"\text")
     s = s.replace(r"\mathbbmathbb", r"\mathbb")
+    s = s.replace(r"\inmathbb", r"\in\mathbb")
     s = s.replace(r"\lnln", r"\ln")
     s = re.sub(r"(?<!\\)\b([A-Za-z])in(?=\s*mathbb\b)", lambda m: m.group(1) + r"\in", s)
     s = re.sub(r"(?<!\\)\blim(?=\s*[_({])", lambda _m: r"\lim", s)
