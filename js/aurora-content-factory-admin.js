@@ -97,6 +97,9 @@ async function updateProductionAttemptFromDocument(id,state,accessToken,extra={}
     const docRows=qt?JSON.parse(qt):[]; const attemptId=docRows?.[0]?.metadata?.production_attempt_id;
     if(!attemptId)return;
     const body={status:String(state),metadata:extra,updated_at:new Date().toISOString()};
+    if(extra?.pdf_url)body.pdf_url=extra.pdf_url;
+    if(extra?.pdf_path)body.pdf_path=extra.pdf_path;
+    if(extra?.error_message)body.error_message=extra.error_message;
     if(['pdf_ready','failed','cancelled'].includes(String(state)))body.finished_at=new Date().toISOString();
     await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_generated_document_production_attempts?id=eq.'+encodeURIComponent(Number(attemptId)),{method:'PATCH',cache:'no-store',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(body)});
   }catch(e){console.warn('[Content Factory] historique tentative:',e)}
