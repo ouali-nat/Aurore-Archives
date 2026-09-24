@@ -1190,7 +1190,7 @@ def normalize_math(s):
         # Repair a lost row break before the end of a one-column matrix,
         # e.g. x\\y\\end{pmatrix}.
         block = re.sub(
-            r"(?<=[A-Za-z0-9})])\\(?=[A-Za-z](?:\s*\\end\\{))",
+            r"(?<=[A-Za-z0-9})])\\(?=[A-Za-z](?:\s*\\end\{))",
             r"\\\\",
             block,
         )
