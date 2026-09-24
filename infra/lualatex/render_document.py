@@ -1155,7 +1155,7 @@ def normalize_math(s):
         block = match.group(0)
         # Use literal replacement here to avoid regex ambiguity around
         # backslash escaping: exactly three backslashes become two.
-        block = block.replace("\\\\\", "\\\\")
+        block = block.replace(chr(92) * 3, chr(92) * 2)
         return block
 
     s = re.sub(
