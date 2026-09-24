@@ -17,8 +17,34 @@ const shapes=[
   {name:'bubbles5',gen:function(){return bubbles(5,32,13,20,-90)}},
   {name:'bubbles7',gen:function(){return bubbles(7,34,10,15,0)}}
 ];
-let index=0,timer=0;const reduce=window.matchMedia('(prefers-reduced-motion: reduce)');
+let index=0,timer=0,cycles=0;const reduce=window.matchMedia('(prefers-reduced-motion: reduce)');
 function apply(){const s=shapes[index];hero.dataset.shape=s.name;hero.style.setProperty('--hero-clip','polygon('+s.gen()+')');index=(index+1)%shapes.length}
-function schedule(){clearTimeout(timer);if(reduce.matches||document.hidden)return;timer=setTimeout(function(){apply();schedule()},3000)}
-apply();index=0;schedule();document.addEventListener('visibilitychange',schedule);if(reduce.addEventListener)reduce.addEventListener('change',schedule)}
+
+/* --- Séparation du bandeau en 3 blocs distincts, qui animent puis fusionnent --- */
+const motif=hero.querySelector('.hero-motif');
+if(motif&&!motif.querySelector('.hero-split-blob')){
+  [1,2,3].forEach(function(n){
+    const wrap=document.createElement('div');
+    wrap.className='hero-split-blob';
+    wrap.setAttribute('data-b',String(n));
+    const core=document.createElement('div');
+    core.className='hero-split-blob-core';
+    wrap.appendChild(core);
+    motif.appendChild(wrap);
+  });
+}
+let splitTimerA=0,splitTimerB=0;
+function splitAndMerge(){
+  if(reduce.matches||document.hidden||!motif)return;
+  hero.classList.add('is-split');
+  clearTimeout(splitTimerA);
+  splitTimerA=setTimeout(function(){hero.classList.add('is-floating')},420);
+  clearTimeout(splitTimerB);
+  splitTimerB=setTimeout(function(){hero.classList.remove('is-floating');hero.classList.remove('is-split')},420+2200);
+}
+
+function schedule(){clearTimeout(timer);if(reduce.matches||document.hidden)return;timer=setTimeout(function(){apply();cycles++;if(cycles%4===0)splitAndMerge();schedule()},3000)}
+apply();index=0;cycles=0;schedule();
+document.addEventListener('visibilitychange',schedule);
+if(reduce.addEventListener)reduce.addEventListener('change',schedule)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init()})();
