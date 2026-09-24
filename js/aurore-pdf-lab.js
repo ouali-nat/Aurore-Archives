@@ -385,18 +385,20 @@
   function productionSignature(x){
     const m=x.metadata&&typeof x.metadata==='object'?x.metadata:{};
     const ls=String(m.lualatex_status||'');
+    const ps=String(m.production_status||'');
     const cancel=m.lualatex_cancel_requested===true;
     const theme=String(m.aurore_design?.theme_color||m.theme_color||x.theme_color||'#6D28D9').toUpperCase();
     return JSON.stringify([
       x.id,x.job_id,x.title,x.status,x.pdf_url,x.pdf_path,x.version,x.published_document_id,
       x.subject,x.matiere,x.level,x.class_name,x.document_type,x.domaine,x.formation,x.specialite,
-      x.annee,x.semestre,x.filiere,x.source_format,theme,m.origin,m.source,m.producer,ls,cancel
+      x.annee,x.semestre,x.filiere,x.source_format,theme,m.origin,m.source,m.producer,ls,ps,cancel
     ]);
   }
   function productionDynamicState(x){
     const m=x.metadata&&typeof x.metadata==='object'?x.metadata:{};
     const ls=String(m.lualatex_status||'');
-    const proc=ls==='processing',wait=ls==='queued',done=ls==='completed',fail=ls==='failed';
+    const ps=String(m.production_status||'');
+    const proc=ps==='processing'||ls==='processing',wait=ps==='queued'||ls==='queued',done=ps==='pdf_ready'||ls==='completed',fail=ps==='failed'||ls==='failed';
     const p=done?100:(wait?0:(Number.isFinite(Number(m.lualatex_progress))?Math.max(0,Math.min(100,Number(m.lualatex_progress))):(x.pdf_url?100:0)));
     const requested=m.lualatex_requested_at||x.created_at;
     const started=m.lualatex_started_at||m.lualatex_claimed_at||requested;
@@ -405,7 +407,7 @@
     const stage=proc?(m.lualatex_stage||'Génération en cours…'):wait?'En attente du document précédent…':fail?(m.lualatex_last_error||'Une nouvelle tentative peut être lancée.'):x.status==='published'?'Document publié — aucune régénération autorisée':x.status==='approved'?'PDF validé — une régénération imposera une nouvelle validation':x.status==='review'&&x.pdf_url?'PDF prêt — contrôle humain requis':done?'PDF enregistré dans Aurore':x.pdf_url?'PDF disponible — contrôle humain requis':'Prêt à lancer le rendu PDF';
     const timeLine=wait?'Demandée à '+qDate(requested):proc?'Lancée à '+qDate(started)+' · '+qDuration(started):done?'Lancée à '+qDate(started)+' · terminée à '+qDate(completed)+' · durée '+qDuration(started,completed):'Créé le '+qDate(x.created_at);
     const footer=wait?'Position '+String(queueState.queuedPositions?.[String(x.id)]||'—')+' dans la file':proc?'Temps écoulé : '+qDuration(started):done?'Production terminée':fail?'Production en échec':'Suivi du document';
-    return {m,ls,proc,wait,done,fail,p,statusLabel,stage,timeLine,footer};
+    return {m,ls,ps,proc,wait,done,fail,p,statusLabel,stage,timeLine,footer};
   }
   function buildProductionCard(x){
     const m=x.metadata&&typeof x.metadata==='object'?x.metadata:{},d=productionDynamicState(x);
@@ -472,10 +474,11 @@
   }
   function renderProduction(rows){
     ensureProductionUI();
-    const tracked=rows.filter(x=>{
-      const s=x.metadata?.lualatex_status;
-      return !!s || !!x.pdf_url || ['generated','review','approved','published','failed'].includes(x.status);
-    });
+    // Le centre « Production & validation PDF » est réservé aux documents
+    // dont un fichier PDF existe réellement. Un document sans PDF reste dans
+    // le sas de production et ne doit pas apparaître ici simplement parce
+    // qu'un job ou un statut de rendu existe.
+    const tracked=rows.filter(x=>!!x.pdf_url||!!x.pdf_path);
     const active=tracked.filter(x=>['queued','processing'].includes(x.metadata?.lualatex_status));
     const processing=active.filter(x=>x.metadata?.lualatex_status==='processing');
     const queued=active.filter(x=>x.metadata?.lualatex_status==='queued')

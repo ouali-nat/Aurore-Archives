@@ -89,6 +89,43 @@ async function chooseRegenerationTheme(defaultColor,mode='regeneration'){
   });
 }
 window.auroreContentFactoryChooseTheme=async function(defaultColor,mode='generation'){return chooseRegenerationTheme(defaultColor,mode)};
+async function updateProductionAttemptFromDocument(id,state,accessToken,extra={}){
+  try{
+    const token=accessToken||await cfFreshToken();
+    const q=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?id=eq.'+encodeURIComponent(Number(id))+'&select=id,metadata',{cache:'no-store',headers:{'Authorization':'Bearer '+token}});
+    const qt=await q.text(); if(!q.ok)return;
+    const docRows=qt?JSON.parse(qt):[]; const attemptId=docRows?.[0]?.metadata?.production_attempt_id;
+    if(!attemptId)return;
+    const body={status:String(state),metadata:extra,updated_at:new Date().toISOString()};
+    if(extra?.pdf_url)body.pdf_url=extra.pdf_url;
+    if(extra?.pdf_path)body.pdf_path=extra.pdf_path;
+    if(extra?.error_message)body.error_message=extra.error_message;
+    if(['pdf_ready','failed','cancelled'].includes(String(state)))body.finished_at=new Date().toISOString();
+    await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_generated_document_production_attempts?id=eq.'+encodeURIComponent(Number(attemptId)),{method:'PATCH',cache:'no-store',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(body)});
+  }catch(e){console.warn('[Content Factory] historique tentative:',e)}
+}
+async function startProductionAttempt(id,accessToken){
+  const token=accessToken||await cfFreshToken();
+  const r=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/rpc/aurora_start_pdf_production_attempt',{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({p_generated_document_id:Number(id)})});
+  const t=await r.text(); if(!r.ok)throw new Error(t||('Création de la tentative impossible (HTTP '+r.status+').'));
+  let data=null;try{data=t?JSON.parse(t):null}catch(_){data=null}
+  return data;
+}
+async function setGeneratedProductionState(id,state,accessToken,extra={}){
+  const token=accessToken||await cfFreshToken();
+  const q=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?id=eq.'+encodeURIComponent(Number(id))+'&select=id,metadata',{cache:'no-store',headers:{'Authorization':'Bearer '+token}});
+  const qt=await q.text();
+  if(!q.ok)throw new Error('Lecture de l’état de production impossible (HTTP '+q.status+').');
+  let rows=[];try{rows=qt?JSON.parse(qt):[]}catch(_){rows=[]}
+  const current=Array.isArray(rows)&&rows[0]?.metadata&&typeof rows[0].metadata==='object'?rows[0].metadata:{};
+  const metadata={...current,production_status:String(state),production_status_updated_at:new Date().toISOString(),...extra};
+  const u=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?id=eq.'+encodeURIComponent(Number(id)),{
+    method:'PATCH',cache:'no-store',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+    body:JSON.stringify({metadata,updated_at:new Date().toISOString()})
+  });
+  const ut=await u.text();if(!u.ok)throw new Error('Enregistrement de l’état de production impossible (HTTP '+u.status+'). '+ut);
+  return metadata;
+}
 async function persistGeneratedDocumentTheme(id,themeColor,accessToken){
   const color=normalizeThemeColor(themeColor);
   const q=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?id=eq.'+encodeURIComponent(Number(id))+'&select=id,metadata',{cache:'no-store',headers:{'Authorization':'Bearer '+accessToken}});
@@ -1035,6 +1072,7 @@ async function renderPdf(id,themeColor=null){
 
     const rowForTheme=rows.find(x=>Number(x.id)===Number(id));
     await persistGeneratedDocumentTheme(id,themeColor||documentThemeColor(rowForTheme?.metadata),accessToken);
+    const productionAttempt=await startProductionAttempt(id,accessToken);
     if(b)b.textContent='Préparation de la nouvelle identité Aurore…';
 
     // GeoGebra est optionnel : un document sans graphique va directement
@@ -1065,6 +1103,8 @@ async function renderPdf(id,themeColor=null){
       ?'Mise en file LuaLaTeX avec '+graphCount+' graphique'+(graphCount>1?'s':'')+' GeoGebra…'
       :'Mise en file LuaLaTeX…';
 
+    await setGeneratedProductionState(id,'queued',accessToken,{production_attempt_started_at:new Date().toISOString(),production_attempt_id:productionAttempt?.id||null,production_attempt_no:productionAttempt?.attempt_no||null});
+    await updateProductionAttemptFromDocument(id,'queued',accessToken,{production_started_at:new Date().toISOString()});
     setProgress(12,'Document envoyé au moteur LuaLaTeX…');
 
     const request=await adminInventoryFetch(`${SUPABASE_URL}/functions/v1/aurora-lualatex-request`,{
@@ -1120,6 +1160,8 @@ async function renderPdf(id,themeColor=null){
       surveillerRenduArrierePlan(id,accessToken,b);
       return;
     }
+    await setGeneratedProductionState(id,'pdf_ready',accessToken,{production_completed_at:new Date().toISOString()});
+    await updateProductionAttemptFromDocument(id,'pdf_ready',accessToken,{pdf_url:completed?.pdf_url||null,pdf_path:completed?.pdf_path||null});
     setProgress(100,'PDF LuaLaTeX généré et enregistré.');
     if(b)b.textContent='PDF LuaLaTeX prêt';
     try{await charger();}catch(refreshError){console.warn('[Content Factory] PDF généré mais actualisation de la liste impossible:',refreshError);}
@@ -1128,9 +1170,11 @@ async function renderPdf(id,themeColor=null){
   }catch(e){
     const wasCancelled=window.__aurorePdfCancelRequested?.has(Number(id));
     if(wasCancelled){
+      try{await setGeneratedProductionState(id,'cancelled',session?.access_token||null,{production_cancelled_at:new Date().toISOString()});await updateProductionAttemptFromDocument(id,'cancelled',session?.access_token||null,{})}catch(stateError){console.warn('[Content Factory] état annulé:',stateError)}
       setProgress(100,'Génération annulée par l’administration.');
       await charger();
     }else{
+      try{await setGeneratedProductionState(id,'failed',session?.access_token||null,{production_failed_at:new Date().toISOString(),production_last_error:String(e?.message||e)});await updateProductionAttemptFromDocument(id,'failed',session?.access_token||null,{error_message:String(e?.message||e)})}catch(stateError){console.warn('[Content Factory] état échec:',stateError)}
       alert('Le PDF n’a pas pu être généré. '+(e.message||e));
       await charger();
     }
