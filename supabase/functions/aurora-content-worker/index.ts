@@ -125,7 +125,7 @@ function repairCommonMathCommandCorruption(s:string){
     .replace(/(?<!\\)\bmathbb(?=\s*(?:\{|[A-Za-z]))/g,"\\mathbb")
     .replace(/(?<!\\)\b(?:qquad|quad)\b/g,"\\$&")
     .replace(/(?<!\\)\bwidetilde(?=\s*(?:\{|[A-Za-z]))/g,"\\widetilde")
-    .replace(/(?<!\\)\bsetminus(?=\s*(?:\{|[A-Za-z]))/g,"\\setminus");
+    .replace(/(?<!\\)setminus(?=\s*(?:\{|[A-Za-z]))/g,"\\setminus");
   return s;
 }
 function normalizeMathSegment(v:any){
