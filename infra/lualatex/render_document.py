@@ -1102,6 +1102,7 @@ def _repair_common_math_command_corruption(s):
     s = re.sub(r"(?<!\\)\b(sin|cos|tan|exp)(?=\s*\()", lambda m: "\\" + m.group(1), s)
     s = re.sub(r"(?<!\\)\bleft(?=\s*[\(\[|])", lambda _m: r"\left", s)
     s = re.sub(r"(?<!\\)\bright(?=\s*[\)\]|])", lambda _m: r"\right", s)
+    s = re.sub(r"(?<!\\)\\bight(?=\\s*[\\)\\]|])", lambda _m: r"\\right", s)
     s = re.sub(r"(?<!\\)\btext(?=\s*\{)", lambda _m: r"\text", s)
     s = re.sub(r"(?<!\\)\bmathbb(?=\s*(?:\{|[A-Za-z]))", lambda _m: r"\mathbb", s)
     s = re.sub(r"(?<!\\)\b(?:qquad|quad)\b", lambda m: "\\" + m.group(0), s)
