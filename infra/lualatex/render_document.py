@@ -1190,7 +1190,7 @@ def normalize_math(s):
         return block
 
     s = re.sub(
-        r"\\\\begin\\{(?:matrix|pmatrix|bmatrix|Bmatrix|vmatrix|Vmatrix|smallmatrix|cases|array|aligned|alignedat|gathered|split|rcases)\\}[\\s\\S]*?\\\\end\\{(?:matrix|pmatrix|bmatrix|Bmatrix|vmatrix|Vmatrix|smallmatrix|cases|array|aligned|alignedat|gathered|split|rcases)\\}",
+        r"\\begin\{(?:matrix|pmatrix|bmatrix|Bmatrix|vmatrix|Vmatrix|smallmatrix|cases|array|aligned|alignedat|gathered|split|rcases)\}[\s\S]*?\\end\{(?:matrix|pmatrix|bmatrix|Bmatrix|vmatrix|Vmatrix|smallmatrix|cases|array|aligned|alignedat|gathered|split|rcases)\}",
         _repair_lost_matrix_rows,
         s,
     )
