@@ -1534,6 +1534,11 @@ def inline(s, auto_math=False):
     backslashes, braces and alignment markers are escaped into invalid TeX.
     """
     s = str(s or "")
+    # Repair the specific upstream typo $....$: an inline formula whose
+    # closing dollar is immediately followed by an accidental extra dollar.
+    # Without this repair, later formulas can be paired incorrectly and
+    # LuaLaTeX eventually reports a missing closing math delimiter.
+    s = re.sub(r"(\\$[^$\\n]{1,240}\\.)\\$\\$", r"\\1$", s)
     stripped = s.strip()
 
     # Generated manuscripts can occasionally contain one stray dollar
