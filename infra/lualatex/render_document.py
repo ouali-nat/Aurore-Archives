@@ -1065,11 +1065,18 @@ def render_wikimedia_references(visuals):
 def clean_text(s):
     """Remove non-printable C0/C1 control characters without touching normal Unicode."""
     s = str(s or "")
+    # Repair JSON control escapes before clean_text() removes them.
+    s = s.replace("\f" + "rac", r"\frac")
+    s = s.replace("\t" + "ext", r"\text")
+    s = s.replace("\t" + "imes", r"\times")
+    s = s.replace("\t" + "heta", r"\theta")
+    s = s.replace("\t" + "o", r"\to")
     return re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]", "", s)
 
 
 def tex_text(s):
     s = clean_text(s)
+    s = _repair_common_math_command_corruption(s)
     return (
         s.replace("\\", r"\textbackslash{}")
          .replace("&", r"\&").replace("%", r"\%").replace("#", r"\#")
@@ -1116,7 +1123,6 @@ def normalize_math(s):
     # a single LaTeX \\frac into FORM FEED + "rac". Repair those control
     # characters before clean_text() removes them. This is intentionally
     # scoped to math normalization, so ordinary prose tabs are unaffected.
-    s = s.replace("\\t", r"\\t").replace("\\f", r"\\f")
     s = clean_text(s)
 
     # Protect LaTeX row breaks before normalizing command escapes.
@@ -1169,6 +1175,7 @@ def normalize_math(s):
     # A JSON-escaped command such as \\exp represents one LaTeX command
     # backslash. Do not touch protected array row breaks.
     s = re.sub(r"\\\\(?=[A-Za-z{}])", lambda _m: "\\", s)
+    s = _repair_common_math_command_corruption(s)
 
     # JSON-escaped TeX punctuation can also arrive doubled (for example
     # \\% for a percentage inside math). Unlike array row breaks, these
