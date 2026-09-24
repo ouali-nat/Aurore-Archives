@@ -1205,7 +1205,7 @@ def normalize_math(s):
     # Repair a narrow invalid \\t sequence when it is clearly a truncated \\to command.
     # This can arise at an editorial JavaScript/Python escape boundary.
     # Valid commands such as \\text, \\times and \\theta are left untouched.
-    s = re.sub(r"\\\\t(?=\\s*(?:[,.;:$)\\]}]|$))", r"\\\\to", s)
+    s = re.sub(r"\\t(?=\\s*(?:[,.;:$)\\]}]|$))", r"\\to", s)
 
     # Before a horizontal rule ("\\ \\hline") instead of the required
     # array row break ("\\\\ \\hline"). Canonicalize that malformed
