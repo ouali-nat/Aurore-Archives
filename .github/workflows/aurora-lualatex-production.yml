@@ -46,7 +46,7 @@ jobs:
       - name: Claim next generated document
         run: |
           mkdir -p infra/lualatex/production
-          curl --fail --silent --show-error \
+          curl --fail --silent --show-error --retry 4 --retry-delay 2 \
             --header "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
             "$SUPABASE_URL/functions/v1/aurora-lualatex-next" \
             -o infra/lualatex/production/claim.json
@@ -80,7 +80,7 @@ jobs:
         if: hashFiles('infra/lualatex/production/document-id') != ''
         run: |
           DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
-          curl --fail --silent --show-error \
+          curl --fail --silent --show-error --retry 4 --retry-delay 2 \
             --header "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
             "$SUPABASE_URL/functions/v1/aurora-lualatex-source?document_id=$DOCUMENT_ID" \
             -o infra/lualatex/production/document-response.json
@@ -347,7 +347,7 @@ jobs:
         if: hashFiles('infra/lualatex/production/document-id') != ''
         run: |
           DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
-          curl --fail --silent --show-error -X POST \
+          curl --fail --silent --show-error --retry 4 --retry-delay 2 -X POST \
             -H "Content-Type: application/json" \
             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
             --data "{\"document_id\":$DOCUMENT_ID,\"progress\":32,\"stage\":\"Moteur LuaLaTeX et ressources prêts\"}" \
@@ -357,7 +357,7 @@ jobs:
         if: hashFiles('infra/lualatex/production/document-id') != ''
         run: |
           mkdir -p infra/lualatex/production/assets
-          if curl --fail --silent --show-error --location --max-time 20 \
+          if curl --fail --silent --show-error --retry 4 --retry-delay 2 --location --max-time 20 \
             "https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster" \
             -o infra/lualatex/production/assets/aurore-logo.png && \
             test -s infra/lualatex/production/assets/aurore-logo.png; then
@@ -426,7 +426,7 @@ jobs:
         if: hashFiles('infra/lualatex/production/document-id') != ''
         run: |
           DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
-          curl --fail --silent --show-error -X POST \
+          curl --fail --silent --show-error --retry 4 --retry-delay 2 -X POST \
             -H "Content-Type: application/json" \
             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
             --data "{\"document_id\":$DOCUMENT_ID,\"progress\":48,\"stage\":\"Source LaTeX générée\"}" \
@@ -443,7 +443,7 @@ jobs:
         if: hashFiles('infra/lualatex/production/document-id') != ''
         run: |
           DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
-          curl --fail --silent --show-error -X POST \
+          curl --fail --silent --show-error --retry 4 --retry-delay 2 -X POST \
             -H "Content-Type: application/json" \
             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
             -H "x-aurore-document-id: $DOCUMENT_ID" \
@@ -470,7 +470,7 @@ jobs:
         if: hashFiles('infra/lualatex/production/document-id') != ''
         run: |
           DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
-          curl --fail --silent --show-error -X POST \
+          curl --fail --silent --show-error --retry 4 --retry-delay 2 -X POST \
             -H "Content-Type: application/json" \
             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
             --data "{\"document_id\":$DOCUMENT_ID,\"progress\":86,\"stage\":\"PDF compilé — vérification terminée\"}" \
@@ -480,7 +480,7 @@ jobs:
         if: hashFiles('infra/lualatex/production/document-id') != ''
         run: |
           DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
-          curl --fail --silent --show-error \
+          curl --fail --silent --show-error --retry 4 --retry-delay 2 \
             -X POST \
             -H "Content-Type: application/pdf" \
             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
