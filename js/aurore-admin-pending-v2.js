@@ -65,7 +65,7 @@ async function launch(j){
  if(s!=='draft')return;
  if(typeof window.auroreAdminConfirmContentJob==='function'){await window.auroreAdminConfirmContentJob(j.id);return;}
  const r=await adminFetch(SUPABASE_URL+'/rest/v1/rpc/aurora_queue_content_job',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({p_job_id:Number(j.id)})});
- const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));
+ const t=await r.text();if(!r.ok)throw new Error(t||('Mise en file impossible (HTTP '+r.status+').'));
 }
 async function deleteJob(j){
  const s=statusOf(j);
