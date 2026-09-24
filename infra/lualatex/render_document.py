@@ -1155,11 +1155,15 @@ def normalize_math(s):
     # Repair only this narrow shape; real commands such as \\gamma are untouched.
     def _repair_lost_matrix_rows(match):
         block = match.group(0)
-        return re.sub(
-            r"(?<=[A-Za-z0-9})])\\\\(?=[A-Za-z0-9](?:\\s*&))",
-            r"\\\\\\\\",
+        # After command normalization a lost row separator can be reduced to
+        # a single backslash: ``f\\g&h``. Inside a matrix this shape cannot be
+        # be a valid one-letter TeX command, so restore the row break.
+        block = re.sub(
+            r"(?<=[A-Za-z0-9})])\\\\(?=[A-Za-z](?:\\s*&))",
+            r"\\\\",
             block,
         )
+        return block
 
     s = re.sub(
         r"\\\\begin\\{(?:matrix|pmatrix|bmatrix|Bmatrix|vmatrix|Vmatrix|smallmatrix|cases|array|aligned|alignedat|gathered|split|rcases)\\}[\\s\\S]*?\\\\end\\{(?:matrix|pmatrix|bmatrix|Bmatrix|vmatrix|Vmatrix|smallmatrix|cases|array|aligned|alignedat|gathered|split|rcases)\\}",
