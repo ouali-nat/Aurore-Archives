@@ -1120,6 +1120,7 @@ def normalize_math(s):
     s = s.replace("\t" + "imes", r"\times")
     s = s.replace("\t" + "heta", r"\theta")
     s = s.replace("\t" + "o", r"\to")
+    s = s.replace("\r" + "ight", r"\right")
     s = clean_text(s)
     s = _repair_common_math_command_corruption(s)
 
