@@ -66,7 +66,7 @@ async function deleteJob(j){
 async function cancelJob(j){
  const s=statusOf(j);
  if(!['queued','processing'].includes(s))return;
- if(!confirm('Annuler la génération du job Aurore #'+j.id+' ?\n\nLe job sera arrêté et retiré du sas de production. Cette action ne supprime aucun PDF déjà validé ou publié.'))return;
+ if(!confirm('Annuler la production du job Aurore #'+j.id+' ?\n\nLa production sera arrêtée, mais la demande et son contenu seront conservés. Elle restera disponible pour être relancée plus tard. Annuler ne supprime pas le document.'))return;
  try{
   const r=await adminFetch(SUPABASE_URL+'/rest/v1/rpc/aurora_cancel_content_job',{
    method:'POST',
