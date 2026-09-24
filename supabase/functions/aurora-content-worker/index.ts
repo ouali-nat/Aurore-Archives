@@ -111,7 +111,8 @@ function repairCommonMathCommandCorruption(s:string){
     .replace(/\\texttext\b/g,"\\text")
     .replace(/\\mathbbmathbb\b/g,"\\mathbb")
     .replace(/\\lnln\b/g,"\\ln");
-  s=s.replace(/(?<!\\)\blim(?=\s*[_({])/g,"\\lim")
+  s=s.replace(/(?<!\\)\b([A-Za-z])in(?=\s*mathbb\b)/g,"$1\\in")
+    .replace(/(?<!\\)\blim(?=\s*[_({])/g,"\\lim")
     .replace(/(?<!\\)\bsqrt(?=\s*\{)/g,"\\sqrt")
     .replace(/(?<!\\)\bfrac(?=\s*(?:\{|[0-9]))/g,"\\frac")
     .replace(/(?<!\\)\binfty\b/g,"\\infty")
@@ -121,7 +122,10 @@ function repairCommonMathCommandCorruption(s:string){
     .replace(/(?<!\\)\bleft(?=\s*[\(\[|])/g,"\\left")
     .replace(/(?<!\\)\bright(?=\s*[\)\]|])/g,"\\right")
     .replace(/(?<!\\)\btext(?=\s*\{)/g,"\\text")
-    .replace(/(?<!\\)\bmathbb(?=\s*(?:\{|[A-Za-z]))/g,"\\mathbb");
+    .replace(/(?<!\\)\bmathbb(?=\s*(?:\{|[A-Za-z]))/g,"\\mathbb")
+    .replace(/(?<!\\)\b(?:qquad|quad)\b/g,"\\$&")
+    .replace(/(?<!\\)\bwidetilde(?=\s*(?:\{|[A-Za-z]))/g,"\\widetilde")
+    .replace(/(?<!\\)\bsetminus(?=\s*(?:\{|[A-Za-z]))/g,"\\setminus");
   return s;
 }
 function normalizeMathSegment(v:any){
