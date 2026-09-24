@@ -1100,7 +1100,7 @@ def _repair_common_math_command_corruption(s):
     s = re.sub(r"(?<!\\)\bmathbb(?=\s*(?:\{|[A-Za-z]))", lambda _m: r"\mathbb", s)
     s = re.sub(r"(?<!\\)\b(?:qquad|quad)\b", lambda m: "\\" + m.group(0), s)
     s = re.sub(r"(?<!\\)\bwidetilde(?=\s*(?:\{|[A-Za-z]))", lambda _m: r"\widetilde", s)
-    s = re.sub(r"(?<!\\)\bsetminus(?=\s*(?:\{|[A-Za-z]))", lambda _m: r"\setminus", s)
+    s = re.sub(r"(?<!\\)setminus(?=\s*(?:\{|[A-Za-z]))", lambda _m: r"\setminus", s)
     return s
 
 def normalize_math(s):
