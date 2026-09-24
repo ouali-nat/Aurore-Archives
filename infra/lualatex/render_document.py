@@ -62,7 +62,7 @@ SITE_THEME_PALETTE = {
     "lagune":    {"primary": "0D9488", "secondary": "99F6E4", "strong": "0F5257"},
 }
 
-# Production layout hardening test trigger: 2026-09-19.\n# Exercise JSON compatibility: accept question/statement/enonce and inline corrections.
+# Production layout hardening test trigger: 2026-09-19.\n# Matrix equation-wrapper hardening verified for production retry.\n# Exercise JSON compatibility: accept question/statement/enonce and inline corrections.
 
 
 def _document_identity(data):
