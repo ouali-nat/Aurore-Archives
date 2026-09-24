@@ -104,6 +104,8 @@ jobs:
           # Preserve classification/visual metadata alongside content_json.
           # The renderer receives content_json as its document.json, so these
           # fields must not be lost when the source is fetched from Supabase.
+          # Category is a hard contract: courses and exercise sheets must keep
+          # their editorial path through generation and regeneration.
           for key in (
               "subject", "matiere", "level", "class_name", "document_type",
               "theme_color", "themeColor", "domaine", "formation",
