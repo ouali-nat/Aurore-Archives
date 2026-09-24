@@ -1086,6 +1086,7 @@ def _repair_common_math_command_corruption(s):
     s = s.replace(r"\texttext", r"\text")
     s = s.replace(r"\mathbbmathbb", r"\mathbb")
     s = s.replace(r"\lnln", r"\ln")
+    s = re.sub(r"(?<!\\)\b([A-Za-z])in(?=\s*mathbb\b)", lambda m: m.group(1) + r"\in", s)
     s = re.sub(r"(?<!\\)\blim(?=\s*[_({])", lambda _m: r"\lim", s)
     s = re.sub(r"(?<!\\)\bsqrt(?=\s*\{)", lambda _m: r"\sqrt", s)
     s = re.sub(r"(?<!\\)\bfrac(?=\s*(?:\{|[0-9]))", lambda _m: r"\frac", s)
@@ -1097,7 +1098,11 @@ def _repair_common_math_command_corruption(s):
     s = re.sub(r"(?<!\\)\bright(?=\s*[\)\]|])", lambda _m: r"\right", s)
     s = re.sub(r"(?<!\\)\btext(?=\s*\{)", lambda _m: r"\text", s)
     s = re.sub(r"(?<!\\)\bmathbb(?=\s*(?:\{|[A-Za-z]))", lambda _m: r"\mathbb", s)
+    s = re.sub(r"(?<!\\)\b(?:qquad|quad)\b", lambda m: "\\" + m.group(0), s)
+    s = re.sub(r"(?<!\\)\bwidetilde(?=\s*(?:\{|[A-Za-z]))", lambda _m: r"\widetilde", s)
+    s = re.sub(r"(?<!\\)\bsetminus(?=\s*(?:\{|[A-Za-z]))", lambda _m: r"\setminus", s)
     return s
+
 def normalize_math(s):
     """
     Normalize JSON-escaped LaTeX commands inside math.
