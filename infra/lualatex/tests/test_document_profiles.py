@@ -9,6 +9,7 @@ from render_document import (
     _exercise_profile_qa_issues,
     _has_usable_content_json,
     normalize_math,
+    inline,
     render,
 )
 
@@ -104,6 +105,18 @@ def test_locked_profile_cannot_switch_kind():
         return
     raise AssertionError("A locked course profile was allowed on an exercise document")
 
+
+
+def test_stray_math_delimiter_does_not_swallow_prose():
+    text = (
+        "Vérification algébrique finale : pour toute valeur de $a,$ "
+        "la formule de prolongement donne $a(a-2)=a^2-2a,$ qui est exactement "
+        "la valeur du polynôme $x^2-2x$ en $x=a.$ La fonction prolongée "
+        "est donc cohérente point par point."
+    )
+    rendered = inline(text, auto_math=True)
+    assert "AURORAMATHTOKEN" not in rendered
+    assert "La fonction prolongée est donc cohérente point par point." in rendered
 
 def test_math_command_corruption_is_repaired():
     assert normalize_math(r"\fracrac3{(x-1)^2}") == r"\frac3{(x-1)^2}"
