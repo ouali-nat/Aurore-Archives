@@ -1083,6 +1083,8 @@ def _repair_common_math_command_corruption(s):
     s = s.replace(r"\to+infty", r"\to+\infty")
     s = s.replace(r"\to-infty", r"\to-\infty")
     s = s.replace(r"\too", r"\to")
+    s = s.replace("}ight)", r"}\right)")
+    s = s.replace("]ight]", r"]\right]")
     s = s.replace(r"\fracrac", r"\frac")
     s = s.replace(r"\leftleft", r"\left")
     s = s.replace(r"\rightright", r"\right")
