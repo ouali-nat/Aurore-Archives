@@ -1065,26 +1065,16 @@ def render_wikimedia_references(visuals):
 def clean_text(s):
     """Remove non-printable C0/C1 control characters without touching normal Unicode."""
     s = str(s or "")
-    # Repair JSON control escapes before clean_text() removes them.
-    s = s.replace("\f" + "rac", r"\frac")
-    s = s.replace("\t" + "ext", r"\text")
-    s = s.replace("\t" + "imes", r"\times")
-    s = s.replace("\t" + "heta", r"\theta")
-    s = s.replace("\t" + "o", r"\to")
     return re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]", "", s)
-
 
 def tex_text(s):
     s = clean_text(s)
-    s = _repair_common_math_command_corruption(s)
     return (
         s.replace("\\", r"\textbackslash{}")
          .replace("&", r"\&").replace("%", r"\%").replace("#", r"\#")
          .replace("_", r"\_").replace("{", r"\{").replace("}", r"\}")
          .replace("^", r"\textasciicircum{}").replace("~", r"\textasciitilde{}")
     )
-
-
 
 def _repair_common_math_command_corruption(s):
     """Repair narrow, known math-command corruption without touching prose."""
@@ -1119,11 +1109,15 @@ def normalize_math(s):
     including row breaks immediately before \\hline or \\cline.
     """
     s = str(s or "")
-    # JSON decoding can turn a single LaTeX \\to into a TAB + "o", and
-    # a single LaTeX \\frac into FORM FEED + "rac". Repair those control
-    # characters before clean_text() removes them. This is intentionally
-    # scoped to math normalization, so ordinary prose tabs are unaffected.
+    # Repair JSON control escapes before clean_text() removes them.
+    s = s.replace("\f" + "rac", r"\frac")
+    s = s.replace("\t" + "ext", r"\text")
+    s = s.replace("\t" + "imes", r"\times")
+    s = s.replace("\t" + "heta", r"\theta")
+    s = s.replace("\t" + "o", r"\to")
     s = clean_text(s)
+    s = _repair_common_math_command_corruption(s)
+
 
     # Protect LaTeX row breaks before normalizing command escapes.
     #
