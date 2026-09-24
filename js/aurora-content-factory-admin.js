@@ -89,6 +89,21 @@ async function chooseRegenerationTheme(defaultColor,mode='regeneration'){
   });
 }
 window.auroreContentFactoryChooseTheme=async function(defaultColor,mode='generation'){return chooseRegenerationTheme(defaultColor,mode)};
+async function setGeneratedProductionState(id,state,accessToken,extra={}){
+  const token=accessToken||await cfFreshToken();
+  const q=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?id=eq.'+encodeURIComponent(Number(id))+'&select=id,metadata',{cache:'no-store',headers:{'Authorization':'Bearer '+token}});
+  const qt=await q.text();
+  if(!q.ok)throw new Error('Lecture de l’état de production impossible (HTTP '+q.status+').');
+  let rows=[];try{rows=qt?JSON.parse(qt):[]}catch(_){rows=[]}
+  const current=Array.isArray(rows)&&rows[0]?.metadata&&typeof rows[0].metadata==='object'?rows[0].metadata:{};
+  const metadata={...current,production_status:String(state),production_status_updated_at:new Date().toISOString(),...extra};
+  const u=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?id=eq.'+encodeURIComponent(Number(id)),{
+    method:'PATCH',cache:'no-store',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+    body:JSON.stringify({metadata,updated_at:new Date().toISOString()})
+  });
+  const ut=await u.text();if(!u.ok)throw new Error('Enregistrement de l’état de production impossible (HTTP '+u.status+'). '+ut);
+  return metadata;
+}
 async function persistGeneratedDocumentTheme(id,themeColor,accessToken){
   const color=normalizeThemeColor(themeColor);
   const q=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?id=eq.'+encodeURIComponent(Number(id))+'&select=id,metadata',{cache:'no-store',headers:{'Authorization':'Bearer '+accessToken}});
@@ -1065,6 +1080,7 @@ async function renderPdf(id,themeColor=null){
       ?'Mise en file LuaLaTeX avec '+graphCount+' graphique'+(graphCount>1?'s':'')+' GeoGebra…'
       :'Mise en file LuaLaTeX…';
 
+    await setGeneratedProductionState(id,'queued',accessToken,{production_attempt_started_at:new Date().toISOString()});
     setProgress(12,'Document envoyé au moteur LuaLaTeX…');
 
     const request=await adminInventoryFetch(`${SUPABASE_URL}/functions/v1/aurora-lualatex-request`,{
@@ -1120,6 +1136,7 @@ async function renderPdf(id,themeColor=null){
       surveillerRenduArrierePlan(id,accessToken,b);
       return;
     }
+    await setGeneratedProductionState(id,'pdf_ready',accessToken,{production_completed_at:new Date().toISOString()});
     setProgress(100,'PDF LuaLaTeX généré et enregistré.');
     if(b)b.textContent='PDF LuaLaTeX prêt';
     try{await charger();}catch(refreshError){console.warn('[Content Factory] PDF généré mais actualisation de la liste impossible:',refreshError);}
@@ -1128,9 +1145,11 @@ async function renderPdf(id,themeColor=null){
   }catch(e){
     const wasCancelled=window.__aurorePdfCancelRequested?.has(Number(id));
     if(wasCancelled){
+      try{await setGeneratedProductionState(id,'cancelled',session?.access_token||null,{production_cancelled_at:new Date().toISOString()})}catch(stateError){console.warn('[Content Factory] état annulé:',stateError)}
       setProgress(100,'Génération annulée par l’administration.');
       await charger();
     }else{
+      try{await setGeneratedProductionState(id,'failed',session?.access_token||null,{production_failed_at:new Date().toISOString(),production_last_error:String(e?.message||e)})}catch(stateError){console.warn('[Content Factory] état échec:',stateError)}
       alert('Le PDF n’a pas pu être généré. '+(e.message||e));
       await charger();
     }
