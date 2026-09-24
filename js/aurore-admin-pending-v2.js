@@ -56,8 +56,8 @@ async function launch(j){
    if(!['draft','review','cancelled'].includes(s))return;
    const button=document.querySelector('[data-action="launch"][data-id="'+CSS.escape(String(j.id))+'"]');
    if(button)button.dataset.relaunchDocumentId=String(j.generatedDocumentId);
-   if(typeof window.__auroreContentFactoryRenderPdf==='function'){
-     await window.__auroreContentFactoryRenderPdf(Number(j.generatedDocumentId),j.theme);
+   if(typeof window.auroreAdminGeneratedActions?.render==='function'){
+     await window.auroreAdminGeneratedActions.render(Number(j.generatedDocumentId),j.theme);
      return;
    }
    throw new Error('Le module de production PDF n’est pas disponible.');
