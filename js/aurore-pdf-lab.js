@@ -478,7 +478,7 @@
     // dont un fichier PDF existe réellement. Un document sans PDF reste dans
     // le sas de production et ne doit pas apparaître ici simplement parce
     // qu'un job ou un statut de rendu existe.
-    const tracked=rows.filter(x=>!!x.pdf_url||!!x.pdf_path);
+    const tracked=rows.filter(x=>!x.metadata?.admin_deleted&&(!x.metadata?.lualatex_cancelled_hidden)&& (!!x.pdf_url||!!x.pdf_path));
     const active=tracked.filter(x=>['queued','processing'].includes(x.metadata?.lualatex_status));
     const processing=active.filter(x=>x.metadata?.lualatex_status==='processing');
     const queued=active.filter(x=>x.metadata?.lualatex_status==='queued')
