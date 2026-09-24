@@ -1541,22 +1541,6 @@ def inline(s, auto_math=False):
     s = re.sub(r"(\\$[^$\\n]{1,240}\\.)\\$\\$", r"\\1$", s)
     stripped = s.strip()
 
-    # Generated manuscripts can occasionally contain one stray dollar
-    # delimiter at the end of an otherwise valid inline formula, for example
-    # ... en $x=a.$ La fonction ....
-    # Removing the first delimiter is dangerous because it can move a large
-    # prose tail inside math mode, producing placeholder leakage such as
-    # AURORAMATHTOKEN0 in the PDF.
-    # When the delimiter count is odd, drop the final unmatched delimiter so
-    # earlier valid math pairs remain intact.
-    unescaped_dollars = len(re.findall(r"(?<!\\)\\$", s))
-    if unescaped_dollars % 2 == 1:
-        dollars = list(re.finditer(r"(?<!\\)\\$", s))
-        if dollars:
-            last = dollars[-1]
-            s = s[:last.start()] + s[last.end():]
-            stripped = s.strip()
-
     # A whole item may be an explicit display-math block. Single-dollar
     # math is intentionally handled only by the regex below so a sentence
     # containing several formulas cannot be mistaken for one math block.
