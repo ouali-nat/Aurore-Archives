@@ -1086,19 +1086,18 @@ def _repair_common_math_command_corruption(s):
     s = s.replace(r"\texttext", r"\text")
     s = s.replace(r"\mathbbmathbb", r"\mathbb")
     s = s.replace(r"\lnln", r"\ln")
-    s = re.sub(r"(?<!\\)\blim(?=\s*[_({])", r"\lim", s)
-    s = re.sub(r"(?<!\\)\bsqrt(?=\s*\{)", r"\sqrt", s)
-    s = re.sub(r"(?<!\\)\bfrac(?=\s*(?:\{|[0-9]))", r"\frac", s)
-    s = re.sub(r"(?<!\\)\binfty\b", r"\infty", s)
-    s = re.sub(r"(?<!\\)\bln(?=\s*\()", r"\ln", s)
-    s = re.sub(r"(?<!\\)\blog(?=\s*\()", r"\log", s)
+    s = re.sub(r"(?<!\\)\blim(?=\s*[_({])", lambda _m: r"\lim", s)
+    s = re.sub(r"(?<!\\)\bsqrt(?=\s*\{)", lambda _m: r"\sqrt", s)
+    s = re.sub(r"(?<!\\)\bfrac(?=\s*(?:\{|[0-9]))", lambda _m: r"\frac", s)
+    s = re.sub(r"(?<!\\)\binfty\b", lambda _m: r"\infty", s)
+    s = re.sub(r"(?<!\\)\bln(?=\s*\()", lambda _m: r"\ln", s)
+    s = re.sub(r"(?<!\\)\blog(?=\s*\()", lambda _m: r"\log", s)
     s = re.sub(r"(?<!\\)\b(sin|cos|tan|exp)(?=\s*\()", lambda m: "\\" + m.group(1), s)
-    s = re.sub(r"(?<!\\)\bleft(?=\s*[\(\[|])", r"\left", s)
-    s = re.sub(r"(?<!\\)\bright(?=\s*[\)\]|])", r"\right", s)
-    s = re.sub(r"(?<!\\)\btext(?=\s*\{)", r"\text", s)
-    s = re.sub(r"(?<!\\)\bmathbb(?=\s*(?:\{|[A-Za-z]))", r"\mathbb", s)
+    s = re.sub(r"(?<!\\)\bleft(?=\s*[\(\[|])", lambda _m: r"\left", s)
+    s = re.sub(r"(?<!\\)\bright(?=\s*[\)\]|])", lambda _m: r"\right", s)
+    s = re.sub(r"(?<!\\)\btext(?=\s*\{)", lambda _m: r"\text", s)
+    s = re.sub(r"(?<!\\)\bmathbb(?=\s*(?:\{|[A-Za-z]))", lambda _m: r"\mathbb", s)
     return s
-
 def normalize_math(s):
     """
     Normalize JSON-escaped LaTeX commands inside math.
