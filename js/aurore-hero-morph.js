@@ -21,6 +21,7 @@ let index=0,timer=0,cycles=0;const reduce=window.matchMedia('(prefers-reduced-mo
 function apply(){const s=shapes[index];hero.dataset.shape=s.name;hero.style.setProperty('--hero-clip','polygon('+s.gen()+')');index=(index+1)%shapes.length}
 
 /* --- Séparation du bandeau en 3 blocs distincts, qui animent puis fusionnent --- */
+/* Rythme morphing : 1 s de transition + 0,3 s de respiration entre deux formes. */
 const motif=hero.querySelector('.hero-motif');
 if(motif&&!motif.querySelector('.hero-split-blob')){
   [1,2,3].forEach(function(n){
@@ -38,12 +39,12 @@ function splitAndMerge(){
   if(reduce.matches||document.hidden||!motif)return;
   hero.classList.add('is-split');
   clearTimeout(splitTimerA);
-  splitTimerA=setTimeout(function(){hero.classList.add('is-floating')},420);
+  splitTimerA=setTimeout(function(){hero.classList.add('is-floating')},1000);
   clearTimeout(splitTimerB);
-  splitTimerB=setTimeout(function(){hero.classList.remove('is-floating');hero.classList.remove('is-split')},420+2200);
+  splitTimerB=setTimeout(function(){hero.classList.remove('is-floating');hero.classList.remove('is-split')},1000+2200);
 }
 
-function schedule(){clearTimeout(timer);if(reduce.matches||document.hidden)return;timer=setTimeout(function(){apply();cycles++;if(cycles%4===0)splitAndMerge();schedule()},3000)}
+function schedule(){clearTimeout(timer);if(reduce.matches||document.hidden)return;timer=setTimeout(function(){apply();cycles++;if(cycles%4===0)splitAndMerge();schedule()},1300)}
 apply();index=0;cycles=0;schedule();
 document.addEventListener('visibilitychange',schedule);
 if(reduce.addEventListener)reduce.addEventListener('change',schedule)}
