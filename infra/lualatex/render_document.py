@@ -1839,12 +1839,24 @@ def display_formula(s):
     # Accept both normal and JSON-overescaped equation delimiters. The
     # surrounding AuroreFormulaBlock already supplies equation*, so an
     # incoming equation* wrapper must always be removed.
+    # Some payloads are not a clean standalone wrapper: extra braces or
+    # surrounding serialization can leave equation* delimiters inside the
+    # formula field. AuroreFormulaBlock supplies the only equation* wrapper
+    # needed by the renderer, so remove any incoming equation* delimiters
+    # after normalizing their JSON escaping. This also handles the exact
+    # failure shape observed in production:
+    #   \\begin{equation*} ... \\end{equation*}
+    # ending immediately before AuroreFormulaBlock's closing brace.
     equation_wrapper = re.fullmatch(
         r"\\{1,2}begin\{equation\*\}([\\s\\S]*?)\\{1,2}end\{equation\*\}",
         math.strip(),
     )
     if equation_wrapper:
         math = equation_wrapper.group(1).strip()
+    else:
+        math = re.sub(r"\\{1,2}begin\{equation\*\}", "", math)
+        math = re.sub(r"\\{1,2}end\{equation\*\}", "", math)
+        math = math.strip()
 
     if math.startswith("$") and math.endswith("$"):
         math = math[1:-1].strip()
