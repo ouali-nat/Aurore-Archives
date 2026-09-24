@@ -1174,7 +1174,7 @@ def normalize_math(s):
         # a single backslash: ``f\\g&h``. Inside a matrix this shape cannot be
         # be a valid one-letter TeX command, so restore the row break.
         block = re.sub(
-            r"(?<=[A-Za-z0-9})])\\(?=[A-Za-z](?:\\s*&))",
+            r"(?<=[A-Za-z0-9})])\\(?=[A-Za-z](?:\s*&))",
             r"\\\\",
             block,
         )
@@ -1183,7 +1183,7 @@ def normalize_math(s):
         # the next equation (for example 3-backslash-x+3y=7), restore it only
         # when the following token clearly starts an equation.
         block = re.sub(
-            r"(?<=[A-Za-z0-9})])\\(?=[A-Za-z](?:\\s*[+\\-=]))",
+            r"(?<=[A-Za-z0-9})])\\(?=[A-Za-z](?:\s*[+\-=]))",
             r"\\\\",
             block,
         )
