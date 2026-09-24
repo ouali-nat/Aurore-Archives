@@ -117,4 +117,3 @@ def test_math_command_corruption_is_repaired():
 def test_math_json_control_escape_repair():
     assert normalize_math("\f" + "rac{1}{2}") == r"\frac{1}{2}"
     assert normalize_math("\t" + "ext{x}") == r"\text{x}"
-    assert normalize_math("\t" + "ext{x}") == r"\\text{x}"
