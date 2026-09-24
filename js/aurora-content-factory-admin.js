@@ -179,6 +179,15 @@ async function cfFetch(url,options={},retry=true){
   return r;
 }
 async function rpc(name,body){const r=await adminInventoryFetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));try{return t?JSON.parse(t):null}catch(_){return t}}
+// Point d'entrée unique pour le sas Content Factory : un brouillon est seulement
+// mis en file après validation administrative. Aucun rendu PDF n'est déclenché ici.
+window.auroreAdminConfirmContentJob=async function(jobId){
+  const id=Number(jobId);
+  if(!Number.isSafeInteger(id)||id<1)throw new Error('Identifiant de job invalide.');
+  const job=await rpc('aurora_queue_content_job',{p_job_id:id});
+  if(!job||Number(job.id)!==id)throw new Error('Le job n’a pas pu être mis en file.');
+  return job;
+};
 function setProgress(percent,stage){const box=document.getElementById('cfProgress'),bar=document.getElementById('cfProgressBar'),pct=document.getElementById('cfProgressPercent'),st=document.getElementById('cfProgressStage');if(box)box.hidden=false;if(bar)bar.style.width=Math.max(0,Math.min(100,percent))+'%';if(pct)pct.textContent=Math.round(percent)+'%';if(st)st.textContent=stage||'';}
 function updateQueueUI(){const box=document.getElementById('cfGenerationQueue'),txt=document.getElementById('cfGenerationQueueText'),btn=document.getElementById('cfCreateLaunch');if(!box||!txt)return;const n=generationQueue.length;box.hidden=!generationRunning&&!n;txt.textContent=generationRunning?(n?` — 1 document en cours, ${n} suivant(s) en attente.`:' — 1 document en cours, aucun autre en attente.'):(n?` — ${n} document(s) en attente.`:'');if(btn)btn.textContent=generationRunning?'Ajouter à la file':'Ajouter à la file de génération';}
 function cfChildren(node){
