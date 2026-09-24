@@ -110,6 +110,9 @@ def test_math_command_corruption_is_repaired():
     assert normalize_math(r"lim_{x\\to1}sqrt{x^2+1}") == r"\\lim_{x\\to1}\\sqrt{x^2+1}"
     assert normalize_math(r"left(1,2\\right)") == r"\\left(1,2\\right)"
     assert normalize_math(r"ln(1+x)+infty") == r"\\ln(1+x)+\\infty"
+    assert normalize_math(r"ainmathbb R") == r"a\in\mathbb R"
+    assert normalize_math(r"mathbb Rsetminus{a}") == r"\mathbb R\setminus{a}"
+    assert normalize_math(r"widetilde f(a)=quad x") == r"\widetilde f(a)=\quad x"
 
 
 def test_math_json_control_escape_repair():
