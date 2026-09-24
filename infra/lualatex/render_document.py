@@ -1149,7 +1149,7 @@ def normalize_math(s):
     # Restore protected array row breaks as real LaTeX double-backslash commands.
     s = s.replace(marker, "\\\\")
 
-    # Some payloads arrive already partially normalized: a JSON row break
+    # Canonicalize an over-escaped matrix row break (three backslashes)\n    # that can remain after JSON/LaTeX normalization.\n    def _repair_overescaped_matrix_rows(match):\n        block = match.group(0)\n        block = re.sub(r"\\\\\\\\\\\\(?=[A-Za-z](?:\\s*&))", r"\\\\", block)\n        return block\n\n    s = re.sub(\n        r"\\\\begin\\{(?:matrix|pmatrix|bmatrix|Bmatrix|vmatrix|Vmatrix|smallmatrix|cases|array|aligned|alignedat|gathered|split|rcases)\\}[\\s\\S]*?\\\\end\\{(?:matrix|pmatrix|bmatrix|Bmatrix|vmatrix|Vmatrix|smallmatrix|cases|array|aligned|alignedat|gathered|split|rcases)\\}",\n        _repair_overescaped_matrix_rows,\n        s,\n    )\n\n    # Some payloads arrive already partially normalized: a JSON row break
     # can reach this point as a single backslash before the next one-character
     # cell. Inside matrix/alignment environments that is a lost row separator.
     # Repair only this narrow shape; real commands such as \\gamma are untouched.
