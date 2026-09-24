@@ -1,3 +1,93 @@
+  // ---------- OUTILS DE NAVIGATION ADMIN ----------
+  function appelerChargeurAdmin(nom, ...args) {
+    try {
+      const fn = window[nom];
+      if (typeof fn !== 'function') { console.warn('[Admin navigation] Chargeur indisponible :', nom); return false; }
+      fn(...args); return true;
+    } catch (err) { console.error('[Admin navigation] Erreur du chargeur ' + nom, err); return false; }
+  }
+
+  function afficherMessageServiceClient(texte, type='') {
+    const el = document.getElementById('adminServiceMsg');
+    if (!el) return;
+    el.textContent = texte || '';
+    el.className = 'form-msg' + (type ? ' ' + type : '');
+    el.style.display = texte ? 'block' : 'none';
+  }
+
+  function normaliserNumeroWhatsAppAdmin(valeur) {
+    const brut = String(valeur || '').trim();
+    if (!brut) return '';
+    const chiffres = brut.replace(/\\D/g, '');
+    if (!chiffres) return '';
+    if (brut.startsWith('+')) return chiffres;
+    if (chiffres.startsWith('226')) return chiffres;
+    return '226' + chiffres.replace(/^0+/, '');
+  }
+
+  async function chargerServiceClientConfig() {
+    const whatsapp = document.getElementById('adminServiceWhatsappInput');
+    const email = document.getElementById('adminServiceEmailInput');
+    const texte = document.getElementById('adminServiceTextInput');
+    if (!whatsapp || !email || !texte) return;
+    afficherMessageServiceClient('Chargement…');
+    try {
+      const res = await fetch(SUPABASE_URL + '/rest/v1/service_client?select=id,whatsapp,email,texte&order=id.asc&limit=1', { headers: headersAdmin() });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const rows = await res.json();
+      const cfg = Array.isArray(rows) && rows[0] ? rows[0] : {};
+      whatsapp.value = cfg.whatsapp || '';
+      email.value = cfg.email || '';
+      texte.value = cfg.texte || '';
+      afficherMessageServiceClient('Coordonnées actuelles chargées.');
+    } catch (err) {
+      console.error('[Service client] chargement', err);
+      afficherMessageServiceClient('Impossible de charger les coordonnées pour le moment.', 'err');
+    }
+  }
+
+  async function enregistrerServiceClientConfig() {
+    const whatsappInput = document.getElementById('adminServiceWhatsappInput');
+    const emailInput = document.getElementById('adminServiceEmailInput');
+    const texteInput = document.getElementById('adminServiceTextInput');
+    const bouton = document.getElementById('adminServiceSave');
+    if (!whatsappInput || !emailInput || !texteInput || !bouton) return;
+    const whatsapp = normaliserNumeroWhatsAppAdmin(whatsappInput.value);
+    const email = String(emailInput.value || '').trim();
+    const texte = String(texteInput.value || '').trim();
+    if (!whatsapp || !email || !texte) { afficherMessageServiceClient('Veuillez renseigner le numéro WhatsApp, l’e-mail et le texte du service client.', 'err'); return; }
+    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) { afficherMessageServiceClient('L’adresse e-mail renseignée est invalide.', 'err'); return; }
+    bouton.disabled = true; bouton.textContent = 'Enregistrement…'; afficherMessageServiceClient('Enregistrement en cours…');
+    try {
+      const res = await fetch(SUPABASE_URL + '/rest/v1/service_client?id=eq.1', {
+        method: 'PATCH',
+        headers: { ...headersAdmin(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+        body: JSON.stringify({ whatsapp, email, texte, updated_at: new Date().toISOString() })
+      });
+      const detail = await res.text().catch(() => '');
+      if (!res.ok) throw new Error(detail || ('HTTP ' + res.status));
+      let rows = []; try { rows = detail ? JSON.parse(detail) : []; } catch (_) {}
+      if (!Array.isArray(rows) || !rows.length) throw new Error('Aucune ligne de configuration mise à jour.');
+      const localNumero = whatsapp.replace(/^226/, '0');
+      const wa = document.getElementById('serviceClientWhatsapp');
+      const waDisplay = document.getElementById('serviceClientWhatsappDisplay');
+      const mail = document.getElementById('serviceClientEmail');
+      const mailDisplay = document.getElementById('serviceClientEmailDisplay');
+      const publicText = document.getElementById('serviceClientPublicText');
+      if (wa) wa.href = 'https://wa.me/' + whatsapp;
+      if (waDisplay) waDisplay.textContent = localNumero || whatsapp;
+      if (mail) mail.href = 'mailto:' + email;
+      if (mailDisplay) mailDisplay.textContent = email;
+      if (publicText) publicText.textContent = texte;
+      afficherMessageServiceClient('Coordonnées du service client enregistrées avec succès.', 'ok');
+    } catch (err) {
+      console.error('[Service client] enregistrement', err);
+      afficherMessageServiceClient('Impossible d’enregistrer les coordonnées pour le moment. Veuillez réessayer.', 'err');
+    } finally { bouton.disabled = false; bouton.textContent = 'Enregistrer les coordonnées'; }
+  }
+
+  document.getElementById('adminServiceSave')?.addEventListener('click', enregistrerServiceClientConfig);
+
   // ---------- ESPACE ADMINISTRATEUR ----------
   // Le bouton "Espace administrateur" n'est déjà visible que pour les e-mails
   // dont le profil a role = 'admin' (voir afficherUtilisateurConnecte). La vraie
@@ -44,13 +134,13 @@
       if (!navigationParPopState) {
         try { history.pushState({ ...creerSnapshotNavigation('screen-admin', window.scrollY), adminDetail:true }, '', location.href); } catch(e) {}
       }
-      if (cible === 'reclamations') chargerReclamationsAdmin();
-      if (cible === 'connexions') chargerDernieresConnexions();
-      if (cible === 'visiteurs') chargerVisiteursAnonymesAdmin();
-      if (cible === 'service-client') chargerServiceClientConfig();
-      if (cible === 'utilisateurs') chargerUtilisateursAdmin();
-      if (cible === 'doublons') chargerDoublonsAdmin();
-      if (cible === 'content-factory' && typeof window.chargerAuroraContentFactoryAdmin === 'function') window.chargerAuroraContentFactoryAdmin();
+      if (cible === 'reclamations') appelerChargeurAdmin('chargerReclamationsAdmin');
+      if (cible === 'connexions') appelerChargeurAdmin('chargerDernieresConnexions');
+      if (cible === 'visiteurs') appelerChargeurAdmin('chargerVisiteursAnonymesAdmin');
+      if (cible === 'service-client') appelerChargeurAdmin('chargerServiceClientConfig');
+      if (cible === 'utilisateurs') appelerChargeurAdmin('chargerUtilisateursAdmin');
+      if (cible === 'doublons') appelerChargeurAdmin('chargerDoublonsAdmin');
+      if (cible === 'content-factory') appelerChargeurAdmin('chargerAuroraContentFactoryAdmin');
     });
   });
 
