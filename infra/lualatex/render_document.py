@@ -1153,7 +1153,9 @@ def normalize_math(s):
     # that can remain after JSON/LaTeX normalization.
     def _repair_overescaped_matrix_rows(match):
         block = match.group(0)
-        block = re.sub(r"\\\\\\(?=[A-Za-z](?:\s*&))", r"\\", block)
+        # Use literal replacement here to avoid regex ambiguity around
+        # backslash escaping: exactly three backslashes become two.
+        block = block.replace("\\\", "\\")
         return block
 
     s = re.sub(
