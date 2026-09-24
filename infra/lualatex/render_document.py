@@ -1155,7 +1155,7 @@ def normalize_math(s):
         block = match.group(0)
         # Use literal replacement here to avoid regex ambiguity around
         # backslash escaping: exactly three backslashes become two.
-        block = block.replace(chr(92) * 3, chr(92) * 2)
+        block = block.replace("\\\", "\\")
         return block
 
     s = re.sub(
@@ -1598,3 +1598,1057 @@ def render_exercise_text(value, mode="question"):
             prefix = (
                 r"\par\medskip\noindent{\sffamily\bfseries\color{auroredeep}" + tex_text(m.group(1)) +
                 r"}\enspace "
+            )
+
+        segments = [x for x in display_pattern.split(body) if x]
+        first_text = True
+        for segment in segments:
+            if display_pattern.fullmatch(segment):
+                math = segment
+                if math.startswith("$") and math.endswith("$"):
+                    math = math[2:-2].strip()
+                else:
+                    math = math[2:-2].strip()
+                lines.append(r"\par\medskip")
+                lines.append(r"\begin{equation*}" + normalize_math(math) + r"\end{equation*}")
+                lines.append(r"\par\smallskip")
+                continue
+
+            rendered = inline(segment, auto_math=True)
+            if not rendered.strip():
+                continue
+            if mode == "correction":
+                rendered = re.sub(
+                    r"^(\s*)(?:Donc|Ainsi|Alors|On en déduit|Il s'ensuit|Il s’ensuit)\b[,:]?\s*",
+                    r"\\(\\Longrightarrow\\)\\enspace ",
+                    rendered,
+                    flags=re.IGNORECASE,
+                )
+            if first_text and prefix:
+                lines.append(prefix + rendered)
+            else:
+                lines.append(rendered)
+            first_text = False
+            lines.append(r"\par\smallskip")
+    return lines
+
+
+def render_content(items, auto_math=False):
+    # Be defensive about Content Factory payloads. Some production payloads
+    # can arrive as a JSON-encoded string instead of a native list.
+    if isinstance(items, str):
+        try:
+            decoded = json.loads(items)
+            items = decoded if isinstance(decoded, list) else [items]
+        except (TypeError, json.JSONDecodeError):
+            items = [items]
+    elif not isinstance(items, list):
+        items = [items]
+
+    lines = []
+    i = 0
+    while i < len(items):
+        raw = clean_text(items[i]).strip()
+        if not raw:
+            i += 1
+            continue
+        if _is_numeric_noise(raw):
+            i += 1
+            continue
+
+        if _is_table_row(raw):
+            table_rows = []
+            while i < len(items) and _is_table_row(str(items[i] or "").strip()):
+                table_rows.append(str(items[i]).strip())
+                i += 1
+            lines.append(render_table(table_rows))
+            continue
+
+        if _is_numbered(raw):
+            group = []
+            while i < len(items) and _is_numbered(str(items[i] or "").strip()):
+                group.append(_strip_list_marker(items[i]))
+                i += 1
+            lines.append(r"\begin{enumerate}")
+            lines.extend(r"\item " + inline(x, auto_math=auto_math) for x in group)
+            lines.append(r"\end{enumerate}")
+            continue
+
+        if _is_bullet(raw):
+            group = []
+            while i < len(items) and _is_bullet(str(items[i] or "").strip()):
+                group.append(_strip_list_marker(items[i]))
+                i += 1
+            lines.append(r"\begin{itemize}")
+            lines.extend(r"\item " + inline(x, auto_math=auto_math) for x in group)
+            lines.append(r"\end{itemize}")
+            continue
+
+        block = labeled_block(raw, auto_math=auto_math)
+        if block:
+            lines.extend(block)
+            i += 1
+            continue
+        lines.append(inline(raw, auto_math=auto_math))
+        lines.append("")
+        i += 1
+
+    return lines
+
+
+def render_aurore_graphics(graphics, assets_dir, theme):
+    """Materialize SVG graphics and keep editorial motifs visually subordinate."""
+    generated = render_graphics(graphics, assets_dir, theme=theme)
+    lines = []
+    import subprocess
+
+    for item in generated:
+        svg_path = Path(item["svg_path"])
+        pdf_path = svg_path.with_suffix(".pdf")
+        try:
+            subprocess.run(
+                ["rsvg-convert", "-f", "pdf", "-o", str(pdf_path), str(svg_path)],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+        except subprocess.CalledProcessError as exc:
+            detail = (exc.stderr or exc.stdout or "").strip()
+            raise RuntimeError(
+                f"Conversion Aurore SVG -> PDF échouée pour {svg_path.name}"
+                + (f": {detail}" if detail else "")
+            ) from exc
+
+        rel = str(pdf_path.relative_to(Path(assets_dir).parent.parent.parent)).replace("\\", "/")
+        safe = rel.replace("#", "\\#").replace("%", "\\%")
+        kind = str(item.get("kind") or "").strip().lower()
+        is_decorative = (
+            item.get("role") == "editorial"
+            or kind in AURORE_EDITORIAL_DECORATIVE_KINDS
+        )
+
+        if is_decorative:
+            # Micro-motif : pas de grand encadré, pas de légende, pas de pleine largeur.
+            lines.extend([
+                r"\par\smallskip",
+                r"\noindent\makebox[\linewidth][c]{%",
+                r"\includegraphics[width=.68\linewidth,height=.42cm,keepaspectratio]{" + safe + r"}%",
+                r"}",
+                r"\par\smallskip",
+                "",
+            ])
+        else:
+            # Schéma scientifique : conserve son espace pédagogique et sa légende.
+            lines.extend([
+                r"\begin{tcolorbox}[enhanced,breakable,colback=white,colframe=aurorebase!32!white,arc=11pt,boxrule=.45pt,left=8pt,right=8pt,top=8pt,bottom=8pt]",
+                r"\centering",
+                r"\includegraphics[width=.92\linewidth,keepaspectratio]{" + safe + r"}",
+                r"\par\smallskip{\sffamily\small\color{gray} " + tex_text(item.get("title") or item.get("kind") or "Graphisme Aurore") + r"}",
+                r"\end{tcolorbox}",
+                "",
+            ])
+    return lines
+
+def render_graphs(graphs, allow=True, exercise_mode=False):
+    if not allow:
+        return []
+    if not isinstance(graphs, list):
+        return []
+    lines = []
+    for graph in graphs:
+        if not isinstance(graph, dict):
+            continue
+        if not _is_renderable_geogebra_graph(graph):
+            continue
+        local_path = str(graph.get("graph_local_path") or "").strip()
+        if not local_path:
+            continue
+        safe_path = local_path.replace("\\", "/").replace("#", "\\#").replace("%", "\\%")
+        title = tex_text(graph.get("title") or "Graphique")
+        lines.extend([
+            r"\begin{tcolorbox}[enhanced,breakable,colback=white,colframe=aurorebase,arc=7pt,boxrule=.45pt,left=8pt,right=8pt,top=8pt,bottom=8pt]",
+            r"\centering",
+            r"\includegraphics[width=" + ("0.88" if exercise_mode else "0.92") + r"\linewidth,height=" + ("7.2cm" if exercise_mode else "10.5cm") + r",keepaspectratio]{" + safe_path + r"}",
+            r"\par\smallskip{\sffamily\small\color{gray} " + title + r"}",
+            r"\end{tcolorbox}",
+            "",
+        ])
+    return lines
+
+
+def resolve_theme_palette(data):
+    """Resolve the exact Aurore site palette for the document."""
+    design_candidates = [data.get("_aurore_design"), data.get("aurore_design")]
+    design = next((d for d in design_candidates if isinstance(d, dict)), {})
+    key = clean_text(design.get("theme_key") or data.get("theme_key") or "").strip().lower()
+    if key in SITE_THEME_PALETTE:
+        return SITE_THEME_PALETTE[key]
+
+    candidates = [
+        design.get("theme_strong"),
+        design.get("theme_primary"),
+        design.get("theme_color"),
+        data.get("theme_color"),
+        data.get("themeColor"),
+    ]
+    for value in candidates:
+        raw = clean_text(value).strip().lstrip("#").upper()
+        if not re.fullmatch(r"[0-9A-F]{6}", raw):
+            continue
+        for palette in SITE_THEME_PALETTE.values():
+            if raw in {palette["strong"], palette["primary"], palette["secondary"]}:
+                return palette
+        return {"primary": raw, "secondary": raw, "strong": raw}
+
+    return SITE_THEME_PALETTE["violet"]
+
+
+def resolve_theme_color(data):
+    """Backward-compatible helper returning the strong Aurore color."""
+    return resolve_theme_palette(data)["strong"]
+
+
+def labeled_block(s, auto_math=False):
+    """Render a small editorial callout when prose starts with a known label."""
+    t = clean_text(s).strip()
+    m = re.match(
+        r"^(Définition|Propriété(?: à connaître)?|Théorème|Lemme|Méthode|Exemple(?: guidé)?|Remarque|Important|À retenir|Conseil|Astuce|Attention|Erreur(?: fréquente)?|Observation|Formule utile|Relation utile|Proposition|Vocabulaire utile|Point essentiel|À découvrir|Piste de réflexion)\s*[:\-]\s*(.+)$",
+        t,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if not m:
+        return []
+    return [
+        r"\AuroreLabeledBlock{" + tex_text(m.group(1)) + r"}{" + inline(m.group(2), auto_math=auto_math) + r"}",
+        "",
+    ]
+
+def display_formula(s):
+    if not s:
+        return ""
+    raw = str(s).strip()
+
+    # A formula field can be either:
+    #   1) a pure LaTeX expression, which belongs in equation*, or
+    #   2) prose containing several inline $...$ expressions.
+    # Never put the second form inside equation*, because that nests inline
+    # math delimiters inside display math and produces:
+    # "Display math should end with $."
+    has_inline_delimiters = bool(
+        re.search(r"\$[\s\S]*?\$|\\\\\[[\s\S]*?\\\\\]|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)", raw)
+    )
+
+    if has_inline_delimiters:
+        return "\n".join([
+            r"\AuroreLabeledBlock{Formule}{" + inline(raw) + r"}",
+            "",
+        ])
+
+    math = normalize_math(raw)
+
+    # Content Factory formula fields may already contain a full equation*
+    # environment. AuroreFormulaBlock itself provides the equation* wrapper,
+    # so keeping the incoming wrapper would nest equation* inside equation*
+    # and makes LuaLaTeX fail with "Bad math environment delimiter".
+    # Accept both normal and JSON-overescaped equation delimiters. The
+    # surrounding AuroreFormulaBlock already supplies equation*, so an
+    # incoming equation* wrapper must always be removed.
+    # Some payloads are not a clean standalone wrapper: extra braces or
+    # surrounding serialization can leave equation* delimiters inside the
+    # formula field. AuroreFormulaBlock supplies the only equation* wrapper
+    # needed by the renderer, so remove any incoming equation* delimiters
+    # after normalizing their JSON escaping. This also handles the exact
+    # failure shape observed in production:
+    #   \\begin{equation*} ... \\end{equation*}
+    # ending immediately before AuroreFormulaBlock's closing brace.
+    equation_wrapper = re.fullmatch(
+        r"\\{1,2}begin\{equation\*\}([\\s\\S]*?)\\{1,2}end\{equation\*\}",
+        math.strip(),
+    )
+    if equation_wrapper:
+        math = equation_wrapper.group(1).strip()
+    else:
+        math = re.sub(r"\\{1,2}begin\{equation\*\}", "", math)
+        math = re.sub(r"\\{1,2}end\{equation\*\}", "", math)
+        math = math.strip()
+
+    if math.startswith("$") and math.endswith("$"):
+        math = math[1:-1].strip()
+    elif math.startswith(r"\\[") and math.endswith(r"\\]"):
+        math = math[2:-2].strip()
+    elif math.startswith(r"\[") and math.endswith(r"\]"):
+        math = math[2:-2].strip()
+
+    return "\n".join([
+        r"\AuroreFormulaBlock{" + math + r"}",
+        "",
+    ])
+
+
+# Aurore editorial profiles are resolved before rendering so course/exercise regeneration stays isolated.
+_EXERCISE_DOCUMENT_TYPES = frozenset({
+    "exercice", "exercices", "exercise", "exercises",
+    "serie exercices", "série exercices", "serie d exercices",
+    "série d exercices", "devoir", "devoirs", "corrige", "corrigé",
+    "corrige de devoir", "corrigé de devoir",
+})
+
+_COURSE_DOCUMENT_TYPES = frozenset({
+    "cours", "course", "fiche de cours", "fiches cours",
+    "fiche revision", "fiche de revision", "fiche de révision",
+    "resume", "résumé", "document pedagogique", "document pédagogique",
+})
+
+_EXERCISE_LEAK_MARKERS = (
+    "développement complémentaire",
+    "pour une dérivée",
+    "pour une intégrale",
+    "pour une loi binomiale",
+    "pour un tableau de signes",
+    "pour une approximation normale",
+)
+
+
+def _normalized_document_type(value):
+    raw = str(value or "").strip().lower()
+    raw = unicodedata.normalize("NFKD", raw)
+    raw = "".join(ch for ch in raw if not unicodedata.combining(ch))
+    raw = re.sub(r"[_/\\-]+", " ", raw)
+    raw = re.sub(r"\s+", " ", raw).strip()
+    return raw
+
+
+def _document_kind(data):
+    raw = data.get("document_type") if isinstance(data, dict) else None
+    if not raw and isinstance(data.get("metadata"), dict):
+        raw = data["metadata"].get("document_type")
+    normalized = _normalized_document_type(raw)
+    if (
+        normalized in _EXERCISE_DOCUMENT_TYPES
+        or "exercice" in normalized
+        or "exercise" in normalized
+        or "devoir" in normalized
+    ):
+        return "exercices"
+    if normalized in _COURSE_DOCUMENT_TYPES or normalized.startswith("cours "):
+        return "cours"
+    return "document"
+
+
+def _edition_profile(data):
+    kind = _document_kind(data)
+    profile = {
+        "kind": kind,
+        "version": "exercise-sheet-v2" if kind == "exercices" else (
+            "course-v2" if kind == "cours" else "document-v1"
+        ),
+        "locked": False,
+        "source": "document_type",
+    }
+    locked = data.get("_aurore_profile")
+    if not isinstance(locked, dict) and isinstance(data.get("metadata"), dict):
+        locked = data["metadata"].get("aurore_profile")
+    if isinstance(locked, dict):
+        locked_kind = _document_kind({"document_type": locked.get("document_type") or locked.get("kind")})
+        if locked.get("kind") and locked_kind != kind:
+            raise ValueError(
+                f"Profil éditorial verrouillé incompatible avec document_type: "
+                f"{locked_kind!r} != {kind!r}"
+            )
+        if locked.get("version"):
+            profile["version"] = str(locked["version"])
+        profile["locked"] = bool(locked.get("lock", locked.get("locked", True)))
+        profile["source"] = str(locked.get("source") or "metadata")
+    return profile
+
+
+def _exercise_profile_qa_issues(data):
+    """Reject course-style filler when the document contract is an exercise sheet."""
+    if _document_kind(data) != "exercices":
+        return []
+    issues = []
+    sections = data.get("sections") if isinstance(data.get("sections"), list) else []
+    meta = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+    instructions = data.get("instructions") if isinstance(data.get("instructions"), dict) else {}
+    declared = _declared_exercise_count(data)
+    paired = bool(
+        meta.get("paired_corrections")
+        or instructions.get("paired_corrections")
+        or meta.get("exercise_pipeline")
+    )
+    actual = 0
+    long_contents = []
+    for section_index, section in enumerate(sections, start=1):
+        if not isinstance(section, dict):
+            issues.append(f"section {section_index}: objet invalide")
+            continue
+        exercises = section.get("exercises") if isinstance(section.get("exercises"), list) else []
+        section_content = section.get("content")
+        # A series may end with a structured editorial/support section
+        # (methods, reminders, reference sheet, etc.) that intentionally
+        # contains prose instead of another exercise. Such a section must
+        # not be rejected merely because it has no exercises array.
+        # Keep the QA strict for empty sections and for sections that contain
+        # neither exercises nor usable supporting content.
+        has_supporting_content = (
+            isinstance(section_content, list)
+            and any(clean_text(item) for item in section_content)
+        )
+        if not exercises and not has_supporting_content:
+            issues.append(f"section {section_index}: aucun exercice structuré ni contenu de soutien")
+        if isinstance(section_content, list):
+            for item in section_content:
+                txt = clean_text(item)
+                low = txt.lower()
+                if not txt:
+                    continue
+                if len(txt) >= 160:
+                    long_contents.append(txt)
+                if any(marker in low for marker in _EXERCISE_LEAK_MARKERS):
+                    issues.append(
+                        f"section {section_index}: contenu générique de cours détecté dans section.content"
+                    )
+        for ex_index, ex in enumerate(exercises, start=1):
+            if not isinstance(ex, dict):
+                issues.append(f"section {section_index}, exercice {ex_index}: objet invalide")
+                continue
+            actual += 1
+            statement = ex.get("question") or ex.get("statement") or ex.get("enonce") or ex.get("content")
+            correction = ex.get("solution") or ex.get("correction") or ex.get("details")
+            if not clean_text(statement):
+                issues.append(f"exercice {actual}: énoncé vide")
+            if paired and not clean_text(correction):
+                issues.append(f"exercice {actual}: corrigé apparié manquant")
+            low_correction = clean_text(correction).lower()
+            marker_hits = sum(marker in low_correction for marker in _EXERCISE_LEAK_MARKERS)
+            if "développement complémentaire" in low_correction or marker_hits >= 3:
+                issues.append(
+                    f"exercice {actual}: corrigé contaminé par des blocs génériques de cours"
+                )
+    if declared is not None and actual != declared:
+        issues.append(f"nombre d'exercices incohérent: reçu {actual}, déclaré {declared}")
+    if len(long_contents) != len(set(long_contents)) and long_contents:
+        issues.append("contenu de section dupliqué entre plusieurs exercices")
+    return list(dict.fromkeys(issues))
+
+
+def _declared_exercise_count(data):
+    """Read the exercise count declared by the generation contract."""
+    meta = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+    instructions = data.get("instructions") if isinstance(data.get("instructions"), dict) else {}
+    qa = meta.get("qa") if isinstance(meta.get("qa"), dict) else {}
+    candidates = [
+        data.get("exercise_count"),
+        meta.get("exercise_count"),
+        instructions.get("exercise_count"),
+        qa.get("exercise_count"),
+    ]
+    for value in candidates:
+        try:
+            count = int(value)
+        except (TypeError, ValueError):
+            continue
+        if count > 0:
+            return count
+    return None
+
+def _has_usable_content_json(data):
+    if not isinstance(data, dict):
+        return False
+    if not str(data.get("title") or "").strip():
+        return False
+    sections = data.get("sections")
+    if not isinstance(sections, list) or not sections:
+        return False
+    if _document_kind(data) == "exercices":
+        return any(
+            isinstance(section, dict)
+            and isinstance(section.get("exercises"), list)
+            and any(
+                isinstance(ex, dict)
+                and any(
+                    str(ex.get(key) or "").strip()
+                    for key in ("question", "statement", "enonce", "content")
+                )
+                for ex in section.get("exercises", [])
+            )
+            for section in sections
+        )
+    if not str(data.get("introduction") or "").strip():
+        return False
+    return any(
+        isinstance(section, dict)
+        and (
+            (
+                isinstance(section.get("content"), list)
+                and any(str(item or "").strip() for item in section.get("content", []))
+            )
+            or (
+                isinstance(section.get("exercises"), list)
+                and any(
+                    isinstance(ex, dict)
+                    and any(
+                        str(ex.get(key) or "").strip()
+                        for key in ("question", "statement", "enonce", "content", "solution", "correction")
+                    )
+                    for ex in section.get("exercises", [])
+                )
+            )
+        )
+        for section in sections
+    )
+
+
+def render(data):
+    if not _has_usable_content_json(data):
+        raise ValueError("LuaLaTeX source rejected: structured content_json is required")
+    title = data.get("title", "")
+    theme_palette = resolve_theme_palette(data)
+    theme = theme_palette["strong"]
+    theme_primary = theme_palette["primary"]
+    theme_secondary = theme_palette["secondary"]
+    subject = clean_text(data.get("subject") or "")
+    level = clean_text(data.get("level") or "")
+    class_name = clean_text(data.get("class_name") or "")
+    author = clean_text(data.get("author") or "")
+    version = clean_text(data.get("version") or "")
+    info = [v for v in [subject, level, class_name] if v]
+    document_identity = _document_identity(data)
+    document_id = document_identity["id"]
+    document_key = document_identity["key"]
+    document_share_url = document_identity["verification_url"]
+    profile = _editorial_profile(data)
+    edition_profile = _edition_profile(data)
+    document_kind = edition_profile["kind"]
+    document_type = document_kind
+    is_exercise_document = document_kind == "exercices"
+    if is_exercise_document:
+        exercise_qa = _exercise_profile_qa_issues(data)
+        if exercise_qa:
+            raise ValueError(
+                "Exercise profile QA failed: " + " | ".join(exercise_qa[:8])
+            )
+    has_geogebra = _has_geogebra(data)
+    lines = [
+        r"\documentclass[11pt,a4paper]{article}",
+        r"\usepackage{fontspec}",
+        r"\usepackage{amsmath,amssymb,mathtools}",
+        r"\usepackage[table]{xcolor}",
+        r"\usepackage{geometry}",
+        r"\usepackage{microtype}",
+        r"\usepackage{enumitem}",
+        r"\setlist{itemsep=1.5mm,topsep=2mm,parsep=0pt}" if not is_exercise_document else r"\setlist{itemsep=1mm,topsep=1.5mm,parsep=0pt}",
+        r"\setlength{\parindent}{0pt}",
+        r"\setlength{\parskip}{2.5pt}" if is_exercise_document else r"\setlength{\parskip}{3pt}",
+        r"\usepackage{unicode-math}",
+        r"\usepackage{polyglossia}",
+        r"\setmainlanguage{french}",
+        r"\IfFontExistsTF{Montserrat}{\setmainfont{Montserrat}}{\setmainfont{Latin Modern Roman}}",
+        r"\setmathfont{Latin Modern Math}",
+        r"\defaultfontfeatures{Ligatures=TeX}",
+        r"\emergencystretch=2em",
+        r"\geometry{margin=2.05cm,top=2.25cm,bottom=2.15cm}" if is_exercise_document else r"\geometry{margin=2.2cm,top=2.55cm,bottom=2.35cm}",
+        r"\usepackage{graphicx}",
+        r"\usepackage{qrcode}",
+        r"\usepackage{caption}",
+        r"\usepackage{needspace}",
+        r"\usepackage{fancyhdr}",
+        r"\usepackage{titlesec}",
+        r"\usepackage{array}",
+        r"\usepackage{tabularx}",
+        r"\usepackage{hyperref}",
+        r"\usepackage{tikz}",
+        r"\usepackage[most]{tcolorbox}",
+        r"\definecolor{aurorebase}{HTML}{" + theme + r"}",
+        r"\definecolor{auroreprimary}{HTML}{" + theme_primary + r"}",
+        r"\definecolor{auroresecondary}{HTML}{" + theme_secondary + r"}",
+        r"\colorlet{auroredeep}{aurorebase!82!black}",
+        r"\colorlet{aurorelight}{auroreprimary!10!white}",
+        r"\colorlet{aurorepale}{auroreprimary!4!white}",
+        r"\pagecolor{white!99!aurorepale}" if is_exercise_document else r"\pagecolor{aurorepale}",
+        r"\AddToHook{shipout/background}{%",
+        r"  \begin{tikzpicture}[remember picture,overlay]",
+        r"    % Aurore : motif de bulles plus présent, avec plusieurs niveaux de contraste.",
+        r"    \fill[auroresecondary!24] ([xshift=-1.20cm,yshift=-1.00cm]current page.north east) circle (2.55cm);",
+        r"    \fill[auroreprimary!15] ([xshift=1.05cm,yshift=0.85cm]current page.north west) circle (1.55cm);",
+        r"    \fill[aurorebase!11] ([xshift=-0.45cm,yshift=-9.2cm]current page.north east) circle (1.05cm);",
+        r"    \fill[auroresecondary!17] ([xshift=0.80cm,yshift=-13.4cm]current page.north west) circle (1.30cm);",
+        r"    \fill[auroreprimary!14] ([xshift=1.20cm,yshift=1.10cm]current page.south west) circle (2.05cm);",
+        r"    \fill[auroresecondary!19] ([xshift=-1.00cm,yshift=0.90cm]current page.south east) circle (1.60cm);",
+        r"    \fill[aurorebase!10] ([xshift=-2.15cm,yshift=-4.20cm]current page.south east) circle (0.72cm);",
+        r"    \fill[auroreprimary!11] ([xshift=1.95cm,yshift=-5.50cm]current page.south west) circle (0.85cm);",
+        r"  \end{tikzpicture}%",
+        r"}",
+        r"\hypersetup{hidelinks,colorlinks=true,linkcolor=auroredeep,urlcolor=auroredeep," +
+        r"pdftitle={" + tex_text(title) + r"},pdfauthor={Aurore — Section Archives}," +
+        r"pdfsubject={Document pédagogique},pdfkeywords={" + tex_text(document_key) + r"}}",
+        r"\setlength{\headheight}{22pt}",
+        r"\pagestyle{fancy}",
+        r"\fancyhf{}",
+        r"\renewcommand{\headrulewidth}{0.55pt}",
+        r"\renewcommand{\footrulewidth}{0pt}",
+        r"\fancyhead[L]{\IfFileExists{assets/aurore-logo.png}{\includegraphics[height=.60cm]{assets/aurore-logo.png}}{\textcolor{aurorebase}{\rule{.60cm}{.60cm}}}}",
+        r"\fancyhead[R]{\textcolor{aurorebase!75!black}{\small\sffamily Section Archives}}",
+        r"\fancyfoot[C]{\textcolor{gray}{\small Aurore — Section Archives \textbullet\; \thepage}}",
+        r"\fancypagestyle{plain}{%",
+        r"  \fancyhf{}%",
+        r"  \renewcommand{\headrulewidth}{0.55pt}%",
+        r"  \fancyhead[L]{\IfFileExists{assets/aurore-logo.png}{\includegraphics[height=.60cm]{assets/aurore-logo.png}}{\textcolor{aurorebase}{\rule{.60cm}{.60cm}}}}%",
+        r"  \fancyhead[R]{\textcolor{aurorebase!75!black}{\small\sffamily Section Archives}}%",
+        r"  \fancyfoot[C]{\textcolor{gray}{\small Aurore — Section Archives \textbullet\; \thepage}}%",
+        r"}",
+        r"\titleformat{\section}{\Large\sffamily\bfseries\color{auroredeep}}{\thesection}{0.65em}{}[\vspace{0.25ex}\textcolor{aurorebase!78!white}{\titlerule[0.7pt]}]",
+        r"\titleformat{\subsection}{\large\sffamily\bfseries\color{auroredeep}}{\thesubsection}{0.6em}{}[\vspace{0.18ex}\textcolor{aurorebase!38!white}{\titlerule[0.45pt]}]",
+        r"\titlespacing*{\section}{0pt}{3.0ex plus .6ex minus .2ex}{1.55ex}",
+        r"\titlespacing*{\subsection}{0pt}{2.1ex plus .4ex minus .2ex}{0.95ex}",
+        r"\tcbset{auroreblock/.style={enhanced,breakable,arc=11pt,outer arc=11pt,boxrule=.45pt,colframe=aurorebase!42!white,left=9pt,right=9pt,top=7pt,bottom=7pt,before skip=7pt,after skip=9pt,fonttitle=\sffamily\bfseries,pad at break*=1.5mm}}",
+        r"\newcommand{\AurorePill}[1]{\tcbox[on line,boxrule=0pt,colback=aurorepale,arc=7pt,left=6pt,right=6pt,top=3pt,bottom=3pt]{\sffamily\bfseries\small\textcolor{auroredeep}{#1}}}",
+        r"\newcommand{\AuroreLabeledBlock}[2]{%",
+        r"  \begin{tcolorbox}[auroreblock,colback=aurorelight!72!white]%",
+        r"    \AurorePill{#1}\par\smallskip #2",
+        r"  \end{tcolorbox}%",
+        r"}",
+        r"\newcommand{\AuroreExerciseBlock}[2]{%",
+        r"  \begin{tcolorbox}[auroreblock,colback=white,colframe=aurorebase!38!white,leftrule=1.5pt]%",
+        r"    \AurorePill{Exercice #1}\par\smallskip #2",
+        r"  \end{tcolorbox}%",
+        r"}",
+        r"\newcommand{\AuroreActivityBlock}[2]{%",
+        r"  \begin{tcolorbox}[auroreblock,colback=white,colframe=aurorebase!38!white,leftrule=1.5pt]%",
+        r"    \AurorePill{Activité #1}\par\smallskip #2",
+        r"  \end{tcolorbox}%",
+        r"}",
+        r"\newcommand{\AuroreCorrectionBlock}[2]{%",
+        r"  \begin{tcolorbox}[auroreblock,colback=aurorelight!72!white,colframe=auroredeep!38!white,leftrule=1.5pt]%",
+        r"    \AurorePill{Corrigé — Exercice #1}\par\smallskip #2",
+        r"  \end{tcolorbox}%",
+        r"}",
+        r"% Exercise-series layout: compact, math-first, isolated from the legacy course layout.",
+        r"\newcommand{\AuroreExerciseSeriesHeading}[1]{%",
+        r"  \par\needspace{4\baselineskip}{\sffamily\large\bfseries\color{auroredeep}#1}\par\vspace{0.18cm}\textcolor{aurorebase!55!white}{\rule{\linewidth}{0.55pt}}\vspace{0.35cm}%",
+        r"}",
+        r"\newcommand{\AuroreExerciseSeriesBlock}[2]{%",
+        r"  \begin{tcolorbox}[enhanced,breakable,arc=6pt,boxrule=.45pt,colframe=aurorebase!55!white,colback=white,left=7pt,right=7pt,top=5pt,bottom=6pt,before skip=5pt,after skip=7pt,pad at break*=1mm]%",
+        r"    {\sffamily\bfseries\color{auroredeep}Exercice #1}\par\smallskip #2%",
+        r"  \end{tcolorbox}%",
+        r"}",
+        r"\newcommand{\AuroreExerciseSeriesCorrection}[2]{%",
+        r"  \begin{tcolorbox}[enhanced,breakable,arc=6pt,boxrule=.35pt,colframe=aurorebase!28!white,colback=aurorepale,left=7pt,right=7pt,top=5pt,bottom=6pt,before skip=5pt,after skip=7pt,pad at break*=1mm]%",
+        r"    {\sffamily\bfseries\color{auroredeep}Corrigé — Exercice #1}\par\smallskip #2%",
+        r"  \end{tcolorbox}%",
+        r"}",
+        r"\newcommand{\AuroreFormulaBlock}[1]{%",
+        r"  \begin{tcolorbox}[auroreblock,colback=aurorepale,colframe=aurorebase!38!white,arc=12pt,halign=center]%",
+        r"    \AurorePill{Formule utile}\par\smallskip",
+        r"    \begin{equation*}\displaystyle #1\end{equation*}%",
+        r"  \end{tcolorbox}%",
+        r"}",
+        r"\newcommand{\AuroreExerciseCover}[3]{%",
+        r"  \begin{tcolorbox}[enhanced,colback=white,colframe=aurorebase!48!white,arc=9pt,boxrule=.65pt,left=16pt,right=16pt,top=13pt,bottom=13pt,borderline west={3.5pt}{0pt}{auroreprimary!95!white}]%",
+        r"    {\sffamily\scriptsize\bfseries\color{aurorebase!82!black}AURORE · SECTION ARCHIVES\par}",
+        r"    \vspace{0.16cm}",
+        r"    {\sffamily\bfseries\color{auroredeep}\fontsize{10}{12}\selectfont FICHE D'EXERCICES\par}",
+        r"    \vspace{0.10cm}",
+        r"    {\sffamily\bfseries\color{auroredeep}\fontsize{23}{28}\selectfont #2\par}",
+        r"    \vspace{0.14cm}",
+        r"    {\sffamily\small\color{aurorebase!70!black}#3\par}",
+        r"  \end{tcolorbox}%",
+        r"}",
+        r"\newcommand{\AuroreTitleBlock}[3]{%",
+        r"  \begin{tcolorbox}[enhanced,colback=white!99!aurorepale,colframe=aurorebase!28!white,arc=17pt,boxrule=.55pt,left=20pt,right=20pt,top=15pt,bottom=16pt,borderline west={2.8pt}{0pt}{auroreprimary!92!white},borderline north={0.85pt}{0pt}{auroresecondary!78!white}]%",
+        r"    \centering",
+        r"    {\sffamily\fontsize{8.8}{10.2}\selectfont\bfseries\color{aurorebase!80!black}AURORE\enspace ·\enspace SECTION ARCHIVES\par}",
+        r"    \vspace{0.15cm}",
+        r"    \AurorePill{#1}\par",
+        r"    \vspace{0.18cm}",
+        r"    {\sffamily\fontsize{28}{34}\selectfont\bfseries\color{auroredeep}#2\par}",
+        r"    \vspace{0.22cm}",
+        r"    \textcolor{auroreprimary}{\rule{0.16\linewidth}{1.35pt}}\par",
+        r"    \vspace{0.16cm}",
+        r"    {\sffamily\small\color{aurorebase!70!black}#3\par}",
+        r"    \vspace{0.15cm}",
+        r"    \textcolor{auroresecondary!62!white}{\rule{0.74\linewidth}{0.32pt}}",
+        r"  \end{tcolorbox}%",
+        r"}",
+        r"\begin{document}",
+        r"\thispagestyle{empty}",
+        r"\fontsize{11.3}{16.1}\selectfont",
+        r"\vspace*{0.22cm}",
+        r"\noindent",
+        r"\begin{tcolorbox}[enhanced,colback=white!98!aurorepale,colframe=auroreprimary!62!white,arc=11pt,boxrule=.6pt,left=3pt,right=3pt,top=3pt,bottom=3pt,width=1.74cm,height=1.74cm,valign=center,halign=center]",
+        r"  \IfFileExists{assets/aurore-logo.png}{\includegraphics[width=1.42cm,height=1.42cm,keepaspectratio]{assets/aurore-logo.png}}{\textcolor{aurorebase}{\rule{1.05cm}{1.05cm}}}%",
+        r"\end{tcolorbox}",
+        r"\vspace{0.17cm}",
+        (
+            r"\AuroreExerciseCover{Série d'exercices}{" + tex_text(title) + r"}{Aurore — Section Archives" +
+            (r" · " + tex_text(" · ".join(info)) if info else "") + r"}"
+            if is_exercise_document
+            else r"\AuroreTitleBlock{Document pédagogique}{" + tex_text(title) + r"}{Aurore — Section Archives" +
+            (r" · " + tex_text(" · ".join(info)) if info else "") + r"}"
+        ),
+        r"\vfill",
+        r"{\sffamily\small\color{gray}Document pédagogique édité avec Aurora · identité visuelle Aurore}",
+        r"\clearpage",
+        r"\renewcommand{\contentsname}{Sommaire}",
+        r"\setcounter{tocdepth}{2}",
+        r"\begin{tcolorbox}[enhanced,colback=white!92!aurorepale,colframe=aurorebase!38!white,arc=13pt,boxrule=.5pt,left=12pt,right=12pt,top=10pt,bottom=10pt]",
+        r"  \AurorePill{Sommaire}\par\medskip",
+        r"  \tableofcontents",
+        r"\end{tcolorbox}",
+        r"\clearpage",
+        r"\section*{Introduction}",
+        r"\addcontentsline{toc}{section}{Introduction}",
+        inline(data.get("introduction", "")),
+    ]
+    if is_exercise_document:
+        lines = lines[:-3]
+        exercise_instructions = ""
+        if isinstance(data.get("instructions"), dict):
+            exercise_instructions = clean_text(data["instructions"].get("exercise_sheet_intro") or "")
+        if not exercise_instructions:
+            exercise_instructions = (
+                "Traiter chaque exercice indépendamment. Justifier les étapes de calcul, "
+                "indiquer les conditions de validité et terminer chaque question par une conclusion. "
+                "Les corrigés sont regroupés dans une section dédiée afin de préserver l'espace de travail."
+            )
+        lines.extend([
+            r"\section*{Consignes de travail}",
+            r"\addcontentsline{toc}{section}{Consignes de travail}",
+            r"\AuroreLabeledBlock{Méthode}{" + inline(exercise_instructions, auto_math=False) + r"}",
+            r"\section*{Énoncés}",
+            r"\addcontentsline{toc}{section}{Énoncés}",
+        ])
+
+    learning_objectives = [
+        str(item).strip()
+        for item in data.get("learning_objectives", []) or []
+        if str(item).strip()
+    ]
+    if learning_objectives and not is_exercise_document:
+        lines.append(r"\section*{À découvrir}")
+        lines.append(r"\addcontentsline{toc}{section}{À découvrir}")
+        lines.append(r"\begin{itemize}")
+        for item in learning_objectives:
+            lines.append(r"\item " + inline(item))
+        lines.append(r"\end{itemize}")
+
+    exercise_number = 0
+
+    corrections_by_number = {}
+    for c in data.get("corrections", []) or []:
+        try:
+            corrections_by_number[int(c.get("exercise_number", 0) or 0)] = c
+        except (TypeError, ValueError):
+            continue
+    used_correction_numbers = set()
+
+    inline_exercise_corrections = []
+    declared_exercise_count = _declared_exercise_count(data) if is_exercise_document else None
+    structured_exercise_count = sum(
+        len(sec.get("exercises", []))
+        for sec in data.get("sections", [])
+        if isinstance(sec, dict) and isinstance(sec.get("exercises"), list)
+    ) if is_exercise_document else 0
+    if (
+        is_exercise_document
+        and declared_exercise_count is not None
+        and structured_exercise_count < declared_exercise_count
+    ):
+        raise ValueError(
+            "Série d'exercices incomplète: "
+            f"{structured_exercise_count} exercice(s) reçu(s), "
+            f"{declared_exercise_count} attendu(s)."
+        )
+    if (
+        is_exercise_document
+        and declared_exercise_count is not None
+        and structured_exercise_count > declared_exercise_count
+    ):
+        print(
+            "Exercise-series QA: "
+            f"{structured_exercise_count} exercice(s) reçu(s), "
+            f"{declared_exercise_count} déclaré(s); "
+            "les exercices excédentaires seront ignorés."
+        )
+
+    for _idx, sec in enumerate(data.get("sections", [])):
+        if is_exercise_document:
+            exercises = sec.get("exercises", []) or []
+            if not isinstance(exercises, list):
+                exercises = []
+            section_title = clean_text(sec.get("title") or "").strip()
+            if section_title and len(exercises) > 1:
+                lines.append(r"\AuroreExerciseSeriesHeading{" + tex_text(section_title) + r"}")
+            # En profil exercices, section.content est volontairement ignoré :
+            # seuls les champs structurés de l'exercice peuvent entrer dans le PDF.
+            content_items = []
+            if sec.get("formula"): lines.append(display_formula(sec["formula"]))
+            section_graphics = sec.get("graphics", [])
+            section_visuals = [v for v in (data.get("_wikimedia_visuals", []) or []) if int(v.get("section_index", -1)) == _idx]
+            section_graphs = sec.get("graphs", []) or []
+            if not exercises:
+                lines.extend(render_graphs(section_graphs, allow=True, exercise_mode=True))
+                if section_graphics:
+                    graphics_root = Path(data.get("_render_assets_dir") or "assets") / "aurore" / f"section-{_idx + 1}"
+                    lines.extend(render_aurore_graphics(section_graphics, graphics_root, {"primary":"#"+theme_primary,"secondary":"#"+theme_secondary,"strong":"#"+theme}))
+                if section_visuals: lines.extend(render_visuals(section_visuals))
+            for ex_index, ex in enumerate(exercises):
+                if not isinstance(ex, dict):
+                    continue
+                if declared_exercise_count is not None and exercise_number >= declared_exercise_count:
+                    break
+                exercise_number += 1
+                question = ex.get("question") or ex.get("statement") or ex.get("enonce") or ex.get("content") or ""
+                inline_correction = ex.get("solution") or ex.get("correction") or ""
+                body = []
+                body.extend(render_exercise_text(question, mode="question"))
+                if ex_index == 0:
+                    body.extend(render_graphs(section_graphs, allow=True, exercise_mode=True))
+                    if section_graphics:
+                        graphics_root = Path(data.get("_render_assets_dir") or "assets") / "aurore" / f"section-{_idx + 1}"
+                        body.extend(render_aurore_graphics(section_graphics, graphics_root, {"primary":"#"+theme_primary,"secondary":"#"+theme_secondary,"strong":"#"+theme}))
+                    if section_visuals: body.extend(render_visuals(section_visuals))
+                if ex.get("hint"):
+                    body.append(r"\AuroreLabeledBlock{Indication}{" + inline(ex["hint"], auto_math=True) + r"}")
+                if ex.get("formula"): body.append(display_formula(ex["formula"]))
+                lines.append(r"\AuroreExerciseSeriesBlock{" + str(exercise_number) + r"}{" + "\n".join(body) + r"}")
+                if inline_correction: inline_exercise_corrections.append((exercise_number, inline_correction))
+            continue
+
+        lines.append(r"\Needspace{6\baselineskip}")
+        lines.append(r"\section{" + tex_text(sec.get("title", "")) + r"}")
+        if sec.get("objective"): lines.append(r"\AuroreLabeledBlock{À découvrir}{" + inline(sec["objective"]) + r"}")
+        if sec.get("formula"): lines.append(display_formula(sec["formula"]))
+        content_items = sec.get("content", [])
+        if isinstance(content_items, list) and sec.get("exercises"):
+            content_items = [item for item in content_items if not re.match(r"^\s*Exercice\s+\d+\s*:", clean_text(item))]
+        lines.extend(render_content(content_items))
+        lines.extend(render_graphs(sec.get("graphs", []), allow=True))
+        section_graphics = sec.get("graphics", [])
+        if section_graphics:
+            graphics_root = Path(data.get("_render_assets_dir") or "assets") / "aurore" / f"section-{_idx + 1}"
+            lines.extend(render_aurore_graphics(section_graphics, graphics_root, {"primary":"#"+theme_primary,"secondary":"#"+theme_secondary,"strong":"#"+theme}))
+        section_visuals = [v for v in (data.get("_wikimedia_visuals", []) or []) if int(v.get("section_index", -1)) == _idx]
+        if section_visuals: lines.extend(render_visuals(section_visuals))
+        for ex in sec.get("exercises", []):
+            exercise_number += 1
+            lines.append(r"\Needspace{5\baselineskip}")
+            question = ex.get("question") or ex.get("statement") or ex.get("enonce") or ex.get("content") or ""
+            inline_correction = ex.get("solution") or ex.get("correction") or ""
+            lines.append((r"\AuroreActivityBlock{" if profile == "biologie" else r"\AuroreExerciseBlock{") + str(exercise_number) + r"}{" + inline(question) + r"}")
+            if ex.get("hint"): lines.append(r"\AuroreLabeledBlock{Indication}{" + inline(ex["hint"]) + r"}")
+            if ex.get("formula"): lines.append(display_formula(ex["formula"]))
+            correction = corrections_by_number.get(exercise_number)
+            if correction is not None:
+                solution = correction.get("solution") or correction.get("correction") or correction.get("details") or ""
+                lines.append(r"\Needspace{5\baselineskip}")
+                lines.append(r"\AuroreCorrectionBlock{" + str(correction.get("exercise_number", exercise_number)) + r"}{" + inline(solution) + r"}")
+                used_correction_numbers.add(exercise_number)
+            elif inline_correction:
+                lines.append(r"\Needspace{5\baselineskip}")
+                lines.append(r"\AuroreCorrectionBlock{" + str(exercise_number) + r"}{" + inline(inline_correction) + r"}")
+
+    if is_exercise_document:
+        if corrections_by_number or inline_exercise_corrections:
+            lines.append(r"\clearpage")
+            lines.append(r"\section*{Corrigés}")
+            lines.append(r"\addcontentsline{toc}{section}{Corrigés}")
+        for number in sorted(corrections_by_number):
+            correction = corrections_by_number[number]
+            solution = correction.get("solution") or correction.get("correction") or correction.get("details") or ""
+            if solution:
+                correction_body = "\n".join(render_exercise_text(solution, mode="correction"))
+                lines.append(r"\AuroreExerciseSeriesCorrection{" + str(number) + r"}{" + correction_body + r"}")
+                used_correction_numbers.add(number)
+        for number, solution in inline_exercise_corrections:
+            if solution and number not in corrections_by_number:
+                correction_body = "\n".join(render_exercise_text(solution, mode="correction"))
+                lines.append(r"\AuroreExerciseSeriesCorrection{" + str(number) + r"}{" + correction_body + r"}")
+
+    unmatched = [] if is_exercise_document else [
+        c for c in data.get("corrections", [])
+        if int(c.get("exercise_number", 0) or 0) not in used_correction_numbers
+    ]
+    if unmatched:
+        lines.append(r"\section*{Corrections complémentaires}")
+        for c in unmatched:
+            lines.append(r"\Needspace{5\baselineskip}")
+            lines.append(r"\AuroreCorrectionBlock{" + str(c.get("exercise_number", "")) + r"}{" + inline(c.get("solution", "")) + r"}")
+
+    rights_lines = [
+        r"\clearpage",
+        r"\thispagestyle{plain}",
+        r"\begin{center}",
+        r"\vspace*{0.055\textheight}",
+        r"\begin{tcolorbox}[enhanced,colback=white!98!aurorepale,colframe=aurorebase!30!white,arc=16pt,boxrule=.6pt,left=16pt,right=16pt,top=15pt,bottom=16pt,width=.92\linewidth]",
+        r"  \AurorePill{Mentions · crédits · vérification}\par\smallskip",
+        r"  {\sffamily\Large\bfseries\color{auroredeep}Édition Aurore}\par\smallskip",
+        r"  {\sffamily\small\color{aurorebase!78!black}" + tex_text(title) + r"\par\medskip}",
+        r"  \textcolor{auroreprimary}{\rule{0.18\linewidth}{1.15pt}}\par\medskip",
+        r"  \begin{tcolorbox}[colback=aurorelight!55!white,colframe=aurorebase!20!white,arc=11pt,boxrule=.4pt,left=9pt,right=9pt,top=7pt,bottom=7pt]",
+        r"    {\sffamily\scriptsize\bfseries\color{auroredeep}IDENTITÉ DE L'ÉDITION}\par\smallskip",
+        r"    {\sffamily\scriptsize Identifiant : \texttt{" + document_key + r"}\hfill Version : " + (version or "1") + r"\par}",
+        r"    {\sffamily\scriptsize " + tex_text(" · ".join(info) if info else "Document pédagogique Aurore") + r"\par}",
+        r"  \end{tcolorbox}",
+        r"  \medskip",
+        r"  \begin{tcolorbox}[enhanced,colback=white,colframe=aurorebase!58!white,arc=13pt,boxrule=.65pt,left=10pt,right=10pt,top=7pt,bottom=8pt,borderline={0.7pt}{0pt}{auroreprimary!38!white}]",
+        r"    \begin{tabularx}{\linewidth}{@{}X>{\centering\arraybackslash}m{2.55cm}@{}}",
+        r"      \begin{minipage}[c]{\linewidth}",
+        r"        {\sffamily\scriptsize\bfseries\color{auroredeep}VÉRIFICATION \& PUBLICATION}\par\smallskip",
+        r"        {\sffamily\small\color{auroredeep}Veuillez scanner le QR code pour vérifier cette édition.\par}",
+        (r"        \medskip" + r"        {\sffamily\scriptsize\color{aurorebase!80!black}Graphiques : GeoGebra®\par}") if has_geogebra else "",
+        r"      \end{minipage} &",
+    ]
+    if document_id is not None:
+        rights_lines.extend([
+            r"      \raisebox{0.62cm}[2.30cm][0pt]{\qrcode[height=2.12cm]{" + document_share_url + r"}}",
+        ])
+    else:
+        rights_lines.append(r"      \rule{0pt}{2.30cm}")
+    rights_lines.extend([
+        r"      \\",
+        r"    \end{tabularx}",
+        r"  \end{tcolorbox}",
+        r"  \medskip",
+        r"  \begin{tcolorbox}[colback=aurorepale,colframe=aurorebase!18!white,arc=10pt,boxrule=.35pt,left=9pt,right=9pt,top=6pt,bottom=6pt]",
+        r"    {\sffamily\normalsize\bfseries\color{auroredeep}DROITS \& RÉUTILISATION}\par\smallskip",
+        r"    \textcolor{auroreprimary}{\rule{0.16\linewidth}{1.0pt}}\par\smallskip",
+        r"    {\sffamily\small\color{auroredeep}Cette édition constitue une création éditoriale d'Aurore. Les connaissances générales et formules restent réutilisables sous réserve des droits applicables aux éléments tiers.\par}",
+        r"    {\sffamily\footnotesize\color{gray}Les ressources tierces conservent leurs propres licences et conditions d'utilisation.\par}",
+        r"  \end{tcolorbox}",
+        r"  \medskip",
+        r"  {\sffamily\scriptsize\color{gray}Assistance éditoriale : Aurore · Couleur dominante : \#" + theme + r"\par}",
+        r"  \end{tcolorbox}",
+        r"\end{center}",
+    ])
+    lines.extend(rights_lines)
+    lines.extend(render_wikimedia_references(data.get("_wikimedia_visuals", [])))
+    lines.append(r"\end{document}")
+    return "\n".join(lines)
+
+
+def main():
+    # Guardrails for both production failure modes:
+    # 1) doubled JSON backslashes must become real LaTeX commands;
+    # 2) array row breaks must remain doubled backslashes.
+    _probe = r"$\\begin{array}{c|ccccc} x & -\\infty & & 0 & & +\\infty \\ \\hline f(x) & 0 & \\nearrow & 1 & \\nearrow & +\\infty \\end{array}$"
+    _probe_out = inline(_probe)
+    if r"\textbackslash{}begin" in _probe_out:
+        raise SystemExit("inline() math guardrail failed: escaped math command")
+    if r"\begin{array}" not in _probe_out or r"\infty" not in _probe_out:
+        raise SystemExit("inline() math guardrail failed: array structure")
+    if r"\\ \hline" not in _probe_out and r"\\\hline" not in _probe_out:
+        raise SystemExit("inline() math guardrail failed: array row break before hline")
+    if "__AURORA_ARRAY_ROWBREAK__" in _probe_out:
+        raise SystemExit("inline() math guardrail failed: protected array row break leaked")
+
+    _probe_percent = inline(r"$25\\%$")
+    if r"25\%" not in _probe_percent or r"25\\%" in _probe_percent:
+        raise SystemExit("inline() math guardrail failed: doubled TeX punctuation")
+
+    parser = argparse.ArgumentParser(description="Render an Aurore document JSON to LuaLaTeX source.")
+    parser.add_argument("input", nargs="?", default="fixtures/document-21.json")
+    parser.add_argument("-o", "--output", default=None)
+    args = parser.parse_args()
+
+    src = Path(args.input)
+    out = Path(args.output) if args.output else src.with_suffix(".tex")
+    data = json.loads(src.read_text(encoding="utf-8"))
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    if not _has_usable_content_json(data):
+        raise SystemExit("Structured content_json is missing or unusable")
+
+    profile = _editorial_profile(data)
+    geogebra_count = _fetch_geogebra_assets(data, out.parent)
+    print(f"GeoGebra assets fetched: {geogebra_count}")
+    raw_document_type = data.get("document_type")
+    if not raw_document_type and isinstance(data.get("metadata"), dict):
+        raw_document_type = data["metadata"].get("document_type")
+    main_document_type = str(raw_document_type or "").strip().lower()
+    requested_profile = _edition_profile(data)
+    main_is_exercise_document = requested_profile["kind"] == "exercices"
+    main_metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+    print(
+        f"Document profile: kind={requested_profile['kind']} "
+        f"version={requested_profile['version']} locked={requested_profile['locked']}"
+    )
+    main_graphics = main_metadata.get("graphics") if isinstance(main_metadata.get("graphics"), dict) else {}
+    external_images_disabled = (
+        main_graphics.get("wikimedia") is False
+        or main_graphics.get("external_images") is False
+        or main_metadata.get("exercise_pipeline") is True
+        or data.get("exercise_pipeline") is True
+        or requested_profile["kind"] == "exercices"
+    )
+
+    if main_is_exercise_document and external_images_disabled:
+        data["_wikimedia_visuals"] = []
+        data["_visual_qa"] = {
+            "mode": "disabled",
+            "reason": "exercise_series_external_images_disabled",
+            "planned": 0,
+            "selected": 0,
+            "retrieved": 0,
+            "embedded": 0,
+            "required_planned": 0,
+            "required_retrieved": 0,
+            "required_missing": 0,
+            "failed": 0,
+            "status": "pass",
+            "editorial_cap": 0,
+        }
+        print("Wikimedia visuals disabled for exercise-series production.")
+    else:
+        data["_wikimedia_visuals"] = _fetch_wikimedia_visuals(
+            data, out.parent / "assets", profile
+        )
+    valid_wikimedia_visuals = []
+    for visual in data["_wikimedia_visuals"]:
+        visual_file = out.parent / str(visual.get("path") or "")
+        if not visual_file.is_file() or visual_file.stat().st_size == 0:
+            print(
+                f"WARNING: Wikimedia asset missing or empty: {visual_file} — "
+                "visual omitted; PDF generation continues."
+            )
+            continue
+        valid_wikimedia_visuals.append(visual)
+    data["_wikimedia_visuals"] = valid_wikimedia_visuals
+    if isinstance(data.get("_visual_qa"), dict):
+        data["_visual_qa"]["retrieved"] = len(valid_wikimedia_visuals)
+    print(
+        f"Wikimedia visuals fetched: {len(data['_wikimedia_visuals'])} "
+        f"(profile={profile})"
+    )
+    data["_render_assets_dir"] = str(out.parent / "assets")
+    tex = render(data)
+    missing_embedded = [
+        str(v.get("path") or "")
+        for v in data["_wikimedia_visuals"]
+        if str(v.get("path") or "") and str(v.get("path") or "") not in tex
+    ]
+    if missing_embedded:
+        data["_visual_qa"]["status"] = "warning"
+        data["_visual_qa"]["embedded"] = len(data["_wikimedia_visuals"]) - len(missing_embedded)
+        data["_visual_qa"]["embedded_missing"] = missing_embedded
+        print(
+            "WARNING: Wikimedia visual(s) were fetched but not embedded in LaTeX: "
+            + ", ".join(missing_embedded)
+            + " — PDF generation continues."
+        )
+    else:
+        data["_visual_qa"]["embedded"] = len(data["_wikimedia_visuals"])
+    if data["_visual_qa"].get("status") == "blocked":
+        data["_visual_qa"]["status"] = "warning"
+    if data["_visual_qa"].get("failed", 0):
+        data["_visual_qa"]["status"] = "warning"
+    out.write_text(tex, encoding="utf-8")
+    qa_path = out.with_suffix(".visual-qa.json")
+    qa_path.write_text(json.dumps(data["_visual_qa"], ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"Wikimedia visual QA saved: {qa_path}")
+    print(f"Generated {out}")
+
+
+if __name__ == "__main__":
+    main()
