@@ -1831,6 +1831,18 @@ def display_formula(s):
         ])
 
     math = normalize_math(raw)
+
+    # Content Factory formula fields may already contain a full equation*
+    # environment. AuroreFormulaBlock itself provides the equation* wrapper,
+    # so keeping the incoming wrapper would nest equation* inside equation*
+    # and makes LuaLaTeX fail with "Bad math environment delimiter".
+    equation_wrapper = re.fullmatch(
+        r"\\begin\{equation\*\}([\\s\\S]*?)\\end\{equation\*\}",
+        math.strip(),
+    )
+    if equation_wrapper:
+        math = equation_wrapper.group(1).strip()
+
     if math.startswith("$") and math.endswith("$"):
         math = math[1:-1].strip()
     elif math.startswith(r"\\[") and math.endswith(r"\\]"):
