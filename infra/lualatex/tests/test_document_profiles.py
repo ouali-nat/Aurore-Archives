@@ -126,6 +126,7 @@ def test_math_command_corruption_is_repaired():
     assert normalize_math(r"ainmathbb R") == r"a\in\mathbb R"
     assert normalize_math(r"mathbb Rsetminus{a}") == r"\mathbb R\setminus{a}"
     assert normalize_math(r"widetilde f(a)=quad x") == r"\widetilde f(a)=\quad x"
+    assert normalize_math(r"u(x)\\toell") == r"u(x)\\to\\ell"
 
 def test_math_json_control_escape_repair():
     assert normalize_math("\f" + "rac{1}{2}") == r"\frac{1}{2}"
