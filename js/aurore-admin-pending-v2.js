@@ -48,7 +48,7 @@ async function chooseTheme(j){
  const m=metadataOf(j),d=m.aurore_design&&typeof m.aurore_design==='object'?m.aurore_design:{},c=themeColor(color);
  const metadata={...m,theme_color:c,aurore_design:{...d,theme_color:c,version:1}};
  const r=await adminFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?id=eq.'+encodeURIComponent(j.id),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({metadata,updated_at:new Date().toISOString()})});
- const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));return true;
+ const t=await r.text();if(!r.ok)throw new Error(t||('Mise en file impossible (HTTP '+r.status+').'));return true;
 }
 async function launch(j){
  const s=statusOf(j);
@@ -64,7 +64,7 @@ async function launch(j){
  }
  if(s!=='draft')return;
  if(typeof window.auroreAdminConfirmContentJob==='function'){await window.auroreAdminConfirmContentJob(j.id);return;}
- const r=await adminFetch(SUPABASE_URL+'/functions/v1/aurora-content-factory',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'queue_job',job_id:j.id})});
+ const r=await adminFetch(SUPABASE_URL+'/rest/v1/rpc/aurora_queue_content_job',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({p_job_id:Number(j.id)})});
  const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));
 }
 async function deleteJob(j){
