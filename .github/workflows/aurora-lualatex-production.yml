@@ -17,6 +17,7 @@ permissions:
   contents: read
 
 # GeoGebra renderer v3 regression validation uses existing generated documents only.
+# Renderer normalization trigger: matrix row-break hardening.
 concurrency:
   group: aurora-lualatex-production
   cancel-in-progress: false
