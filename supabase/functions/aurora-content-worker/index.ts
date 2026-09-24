@@ -102,33 +102,53 @@ async function generateContent(j:any){const selected=aiSelection(j),providers:an
 function ensureVisualPlan(j:any,d:any){const profile=editorialProfile(j).profile,context=(String(j?.title||"")+" "+String(j?.prompt||"")+" "+String(j?.subject||"")).toLowerCase(),sections=d.sections||[];const specs=profile==="biologie"&&/cellul|organite|membrane|mitose|meiose/.test(context)?[{q:"animal cell organelles diagram labeled",r:true,p:"schema",c:"Organisation d'une cellule animale et de ses principaux organites."},{q:"plant cell vs animal cell comparison diagram",r:true,p:"schema",c:"Comparaison entre cellule végétale et cellule animale."},{q:"prokaryotic vs eukaryotic cell diagram",r:true,p:"schema",c:"Comparaison entre organisation procaryote et eucaryote."},{q:"plasma membrane structure diagram",r:true,p:"schema",c:"Structure de la membrane plasmique."},{q:"onion epidermis cells microscope",r:false,p:"photo",c:"Observation microscopique de cellules végétales."}]:profile==="biologie"?[{q:"biological cell structure diagram labeled",r:true,p:"schema",c:"Schéma documentaire de la structure cellulaire."},{q:"biology microscopy cells",r:false,p:"photo",c:"Observation microscopique liée au cours."}]:profile==="experimental"?[{q:`${j.subject||"science"} ${j.title||""} experiment apparatus diagram`,r:false,p:"experimental",c:"Illustration documentaire du phénomène étudié."}]:[];const flat=()=>sections.flatMap((s:any)=>Array.isArray(s.visuals)?s.visuals:[]);for(let si=0;si<specs.length;si++){const spec=specs[si];if(flat().some((x:any)=>String(x?.query||"").toLowerCase().includes(spec.q.toLowerCase())||spec.q.toLowerCase().includes(String(x?.query||"").toLowerCase())))continue;const idx=Math.min(si,Math.max(0,sections.length-1)),arr=Array.isArray(sections[idx]?.visuals)?sections[idx].visuals:[];if(arr.length<3)arr.push(normalizeVisualPlan({type:"wikimedia",purpose:spec.p,query:spec.q,required:spec.r,priority:spec.r?"required":"recommended",caption:spec.c}));sections[idx].visuals=arr.slice(0,3);}let required=0;for(const sec of sections)for(const v of (sec.visuals||[])){if(v.required||v.priority==="required"){required++;if(required>5){v.required=false;v.priority="recommended";}}}const all=flat();for(let i=all.length-1;i>=8;i--)if(all[i].priority!=="required"&&!all[i].required)all[i]._drop=true;for(const sec of sections)sec.visuals=(sec.visuals||[]).filter((v:any)=>!v._drop).slice(0,3);d._factory={...(d._factory||{}),visual_plan:{planned:flat().length,required:flat().filter((v:any)=>v.required||v.priority==="required").length,profile}};return d;}
 async function llamaSpecialist(j:any,d:any){if(!CFA||!CFT||!aiSelection(j).includes("llama"))return d;try{const r=await fetch(`https://api.cloudflare.com/client/v4/accounts/${CFA}/ai/run/${CFM}`,{method:"POST",headers:{Authorization:`Bearer ${CFT}`,"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"system",content:'Retourne uniquement {"items":[{"question":"","hint":"","formula":"","solution":""}]} en JSON valide. Produis au maximum 3 exercices/QCM complémentaires, sans réécrire le cours.'},{role:"user",content:`TYPE:${j.document_type} TITRE:${j.title} MATIERE:${j.subject} NIVEAU:${j.level}\n${JSON.stringify((d.sections||[]).map((s:any)=>({title:s.title,content:(s.content||[]).slice(0,2)})).slice(0,8))}`}],max_tokens:1700,temperature:.12})});if(!r.ok)throw Error(`Llama spécialiste HTTP ${r.status}`);const p:any=await r.json(),x=parse(String(p?.result?.response||""));const items=Array.isArray(x?.items)?x.items.slice(0,3):[];if(items.length){const last=Math.max(0,d.sections.length-1),n=d.sections[last]?.exercises?.length||0;d.sections[last].exercises=[...(d.sections[last].exercises||[]),...items.map((it:any)=>({question:normalizeMathText(it.question||""),hint:normalizeMathText(it.hint||""),formula:it.formula?normalizeMathSegment(it.formula):""}))].slice(0,3);d.corrections=[...(d.corrections||[]),...items.map((it:any,k:number)=>({exercise_number:n+k+1,solution:normalizeMathText(it.solution||""),formula:it.formula?normalizeMathSegment(it.formula):""}))].slice(-3);}d._factory={...(d._factory||{}),llama_specialist:{status:"completed",items:items.length,model:CFM}};return d;}catch(e){d._factory={...(d._factory||{}),llama_specialist:{status:"warning",reason:String(e)}};return d;}}
 function parse(t:string){t=t.trim().replace(/^```json\s*/i,"").replace(/```$/i,"");try{return JSON.parse(t)}catch(first){try{return JSON.parse(jsonrepair(t))}catch{const a=t.indexOf("{"),b=t.lastIndexOf("}");if(a>=0&&b>a){try{return JSON.parse(jsonrepair(t.slice(a,b+1)))}catch{}}throw first}}}
+function repairCommonMathCommandCorruption(s:string){
+  s=s.replace(/\\fracrac\b/g,"\\frac")
+    .replace(/\\leftleft\b/g,"\\left")
+    .replace(/\\rightright\b/g,"\\right")
+    .replace(/\\sqrtqrt\b/g,"\\sqrt")
+    .replace(/\\inftyfty\b/g,"\\infty")
+    .replace(/\\texttext\b/g,"\\text")
+    .replace(/\\mathbbmathbb\b/g,"\\mathbb")
+    .replace(/\\lnln\b/g,"\\ln");
+  s=s.replace(/(?<!\\)\blim(?=\s*[_({])/g,"\\lim")
+    .replace(/(?<!\\)\bsqrt(?=\s*\{)/g,"\\sqrt")
+    .replace(/(?<!\\)\bfrac(?=\s*(?:\{|[0-9]))/g,"\\frac")
+    .replace(/(?<!\\)\binfty\b/g,"\\infty")
+    .replace(/(?<!\\)\bln(?=\s*\()/g,"\\ln")
+    .replace(/(?<!\\)\blog(?=\s*\()/g,"\\log")
+    .replace(/(?<!\\)\b(sin|cos|tan|exp)(?=\s*\()/g,"\\$1")
+    .replace(/(?<!\\)\bleft(?=\s*[\(\[|])/g,"\\left")
+    .replace(/(?<!\\)\bright(?=\s*[\)\]|])/g,"\\right")
+    .replace(/(?<!\\)\btext(?=\s*\{)/g,"\\text")
+    .replace(/(?<!\\)\bmathbb(?=\s*(?:\{|[A-Za-z]))/g,"\\mathbb");
+  return s;
+}
 function normalizeMathSegment(v:any){
   let s=String(v??"");
+  // Recover common LaTeX commands that JSON interprets as control characters
+  // when the producer forgot to double the command backslash.
+  s=s.replace(/\frac\b/g,"\\frac")
+    .replace(/\text\b/g,"\\text")
+    .replace(/\times\b/g,"\\times")
+    .replace(/\theta\b/g,"\\theta")
+    .replace(/\to\b/g,"\\to")
+    .replace(/\left\b/g,"\\left")
+    .replace(/\right\b/g,"\\right");
+  s=repairCommonMathCommandCorruption(s);
   s=s.replace(/\\\\+/g,"\\");
   s=s.replace(/∞/g,"\\infty").replace(/ℝ/g,"\\mathbb{R}").replace(/≈/g,"\\approx").replace(/≤/g,"\\le").replace(/≥/g,"\\ge").replace(/≠/g,"\\ne").replace(/∈/g,"\\in");
-  s=s.replace(/\\infy\\b/g,"\\infty");
-  s=s.replace(/\\mathrm\\{quad\\}/g,"\\quad");
-  s=s.replace(/\\text\\{mathbb\\{R\\}\\}/g,"\\mathbb{R}");
-  s=s.replace(/\\text\\{R\\}/g,"\\mathbb{R}");
-  if((s.match(/\\left\\b/g)||[]).length!==(s.match(/\\right\\b/g)||[]).length){
-    s=s.replace(/\\left\\b/g,"").replace(/\\right\\b/g,"");
+  s=s.replace(/\\infy\b/g,"\\infty");
+  s=s.replace(/\\mathrm\{quad\}/g,"\\quad");
+  s=s.replace(/\\text\{mathbb\{R\}\}/g,"\\mathbb{R}");
+  s=s.replace(/\\text\{R\}/g,"\\mathbb{R}");
+  s=repairCommonMathCommandCorruption(s);
+  if((s.match(/\\left\b/g)||[]).length!==(s.match(/\\right\b/g)||[]).length){
+    s=s.replace(/\\left\b/g,"").replace(/\\right\b/g,"");
   }
   s=s.replace(/\\^([A-Za-z0-9+\\-])/g,"^{$1}");
   s=s.replace(/_([A-Za-z0-9])/g,"_{$1}");
   return s;
-}
-function validateMathSegment(v:any){
-  const s=String(v??"");
-  const left=(s.match(/\\left\\b/g)||[]).length;
-  const right=(s.match(/\\right\\b/g)||[]).length;
-  if(left!==right)return false;
-  let depth=0,escaped=false;
-  for(const ch of s){
-    if(ch==="{"&&!escaped)depth++;
-    else if(ch==="}"&&!escaped){depth--;if(depth<0)return false}
-    if(ch==="\\\\"&&!escaped)escaped=true; else escaped=false;
-  }
-  return depth===0;
 }
 function normalizeMathText(v:any){
   const s=String(v??"");
