@@ -8,6 +8,7 @@ from render_document import (
     _edition_profile,
     _exercise_profile_qa_issues,
     _has_usable_content_json,
+    normalize_math,
     render,
 )
 
@@ -102,3 +103,20 @@ def test_locked_profile_cannot_switch_kind():
     except ValueError:
         return
     raise AssertionError("A locked course profile was allowed on an exercise document")
+
+
+def test_math_command_corruption_is_repaired():
+    cases = {
+        r"\\fracrac3{(x-1)^2}": r"\\frac3{(x-1)^2}",
+        r"$?": r"$?",
+    }
+    assert normalize_math(r"\\fracrac3{(x-1)^2}") == r"\\frac3{(x-1)^2}"
+    assert normalize_math(r"lim_{x\\to1}sqrt{x^2+1}") == r"\\lim_{x\\to1}\\sqrt{x^2+1}"
+    assert normalize_math(r"left(1,2\\right)") == r"\\left(1,2\\right)"
+    assert normalize_math(r"ln(1+x)+infty") == r"\\ln(1+x)+\\infty"
+
+
+def test_math_json_control_escape_repair_is_narrow():
+    assert normalize_math("\\f" + "rac{1}{2}") == r"\\frac{1}{2}"
+    assert normalize_math("\\t" + "ext{x}") == r"\\text{x}"
+    assert normalize_math("Prose \\t" + "est") == r"Prose \\test"
