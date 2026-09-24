@@ -340,15 +340,15 @@ jobs:
                   raise SystemExit(f"Renderer smoke check failed: matrix row repair produced {actual!r}, expected {expected!r}")
 
           command_regressions = [
-              (r"\\fracrac3{(x-1)^2}", r"\\frac3{(x-1)^2}"),
-              (r"lim_{x\\to1}sqrt{x^2+1}", r"\\lim_{x\\to1}\\sqrt{x^2+1}"),
-              (r"left(1,2\\right)", r"\\left(1,2\\right)"),
-              (r"ln(1+x)+infty", r"\\ln(1+x)+\\infty"),
-              (r"ainmathbb R", r"a\\in\\mathbb R"),
-              (r"mathbb Rsetminus{a}", r"\\mathbb R\\setminus{a}"),
-              (r"widetilde f(a)=quad x", r"\\widetilde f(a)=\\quad x"),
-              ("\f" + "rac{1}{2}", r"\\frac{1}{2}"),
-              ("\t" + "ext{x}", r"\\text{x}"),
+              (r"\fracrac3{(x-1)^2}", r"\frac3{(x-1)^2}"),
+              (r"lim_{x\to1}sqrt{x^2+1}", r"\lim_{x\to1}\sqrt{x^2+1}"),
+              (r"left(1,2\right)", r"\left(1,2\right)"),
+              (r"ln(1+x)+infty", r"\ln(1+x)+\infty"),
+              (r"ainmathbb R", r"a\in\mathbb R"),
+              (r"mathbb Rsetminus{a}", r"\mathbb R\setminus{a}"),
+              (r"widetilde f(a)=quad x", r"\widetilde f(a)=\quad x"),
+              ("\f" + "rac{1}{2}", r"\frac{1}{2}"),
+              ("\t" + "ext{x}", r"\text{x}"),
           ]
           for raw, expected in command_regressions:
               actual = normalize_math(raw)
