@@ -1536,18 +1536,20 @@ def inline(s, auto_math=False):
     s = str(s or "")
     stripped = s.strip()
 
-    # Generated manuscripts occasionally contain one stray dollar delimiter
-    # (for example: "... 60\\text{ m}^2$. La nouvelle ... $60\\text{ m}^2$").
-    # An odd number of unescaped $ delimiters makes the regex below pair
-    # unrelated formulas and can turn ordinary text into invalid TeX.
-    # Remove only the first unmatched delimiter so the valid math block that
-    # follows remains intact. This is a renderer hardening guard; valid math
-    # with an even number of delimiters is left untouched.
-    unescaped_dollars = len(re.findall(r"(?<!\\)\$", s))
+    # Generated manuscripts can occasionally contain one stray dollar
+    # delimiter at the end of an otherwise valid inline formula, for example
+    # ... en $x=a.$ La fonction ....
+    # Removing the first delimiter is dangerous because it can move a large
+    # prose tail inside math mode, producing placeholder leakage such as
+    # AURORAMATHTOKEN0 in the PDF.
+    # When the delimiter count is odd, drop the final unmatched delimiter so
+    # earlier valid math pairs remain intact.
+    unescaped_dollars = len(re.findall(r"(?<!\\)\\$", s))
     if unescaped_dollars % 2 == 1:
-        first = re.search(r"(?<!\\)\$", s)
-        if first:
-            s = s[:first.start()] + s[first.end():]
+        dollars = list(re.finditer(r"(?<!\\)\\$", s))
+        if dollars:
+            last = dollars[-1]
+            s = s[:last.start()] + s[last.end():]
             stripped = s.strip()
 
     # A whole item may be an explicit display-math block. Single-dollar
