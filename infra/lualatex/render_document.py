@@ -1098,12 +1098,25 @@ def normalize_math(s):
     # separators inside matrix/array/alignment environments before collapsing
     # JSON-overescaped commands.
     marker = "__AURORA_ARRAY_ROWBREAK__"
+    # Content Factory payloads can reach this renderer with JSON escaping
+    # still present: environment commands may therefore appear as \\begin/\\end
+    # instead of \\begin/\\end. Normalize only these delimiters first.
+    # We must not normalize arbitrary doubled backslashes here because \\\\ is
+    # also the row separator inside matrices/arrays.
+    math_env_names = (
+        r"array|matrix|pmatrix|bmatrix|Bmatrix|vmatrix|Vmatrix|"
+        r"smallmatrix|cases|aligned|alignedat|gathered|split|rcases"
+    )
+    s = re.sub(
+        rf"\\\\(?=begin\\{{(?:{math_env_names})\\}}|end\\{{(?:{math_env_names})\\}})",
+        r"\\",
+        s,
+    )
+
     row_env_pattern = re.compile(
-        r"\\begin\{(?:array|matrix|pmatrix|bmatrix|Bmatrix|vmatrix|Vmatrix|"
-        r"smallmatrix|cases|aligned|alignedat|gathered|split|rcases)\}"
-        r"[\s\S]*?"
-        r"\\end\{(?:array|matrix|pmatrix|bmatrix|Bmatrix|vmatrix|Vmatrix|"
-        r"smallmatrix|cases|aligned|alignedat|gathered|split|rcases)\}"
+        rf"\\begin\\{{(?:{math_env_names})\\}}"
+        rf"[\\s\\S]*?"
+        rf"\\end\\{{(?:{math_env_names})\\}}"
     )
 
     def _protect_math_rows(match):
