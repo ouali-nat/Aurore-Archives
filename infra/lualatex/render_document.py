@@ -1078,6 +1078,11 @@ def tex_text(s):
 
 def _repair_common_math_command_corruption(s):
     """Repair narrow, known math-command corruption without touching prose."""
+    # Repair compact limit-direction corruption produced upstream (e.g. \\topminfty).
+    s = s.replace(r"\\topminfty", r"\\to+\\infty")
+    s = s.replace(r"\\to+infty", r"\\to+\\infty")
+    s = s.replace(r"\\to-infty", r"\\to-\\infty")
+    s = s.replace(r"\\too", r"\\to")
     s = s.replace(r"\fracrac", r"\frac")
     s = s.replace(r"\leftleft", r"\left")
     s = s.replace(r"\rightright", r"\right")
