@@ -64,7 +64,11 @@ jobs:
               actual = normalize_math(raw)
               if actual != expected:
                   raise SystemExit(f"Math normalization regression: {actual!r}, expected {expected!r}")
-          malformed_inline = r"Calcul 66. Le dénominateur tend vers $0^-,$ donc $-\\infty.$ À droite, $+\\infty.$"
+          malformed_inline = (
+              r"Calcul 66. Le dénominateur tend vers $0^-,$" + "$"
+              + r" donc $" + "$" + r"-\\infty." + "$" + "$"
+              + r" À droite, " + "$" + "$" + r"+\\infty." + "$" + "$"
+          )
           rendered_inline = inline(malformed_inline)
           if "$" in rendered_inline:
               raise SystemExit(f"Inline dollar regression: stray dollar delimiter remains: {rendered_inline!r}")
