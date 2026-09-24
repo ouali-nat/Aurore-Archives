@@ -43,6 +43,29 @@ jobs:
       - name: Validate GeoGebra renderer JavaScript syntax
         run: node --check infra/geogebra/render_missing_graphs.mjs
 
+      - name: Smoke-test math normalization
+        working-directory: infra/lualatex
+        run: |
+          python3 - <<'PY'
+          from render_document import normalize_math
+
+          regressions = [
+              (r"\\fracrac3{(x-1)^2}", r"\\frac3{(x-1)^2}"),
+              (r"lim_{x\\to1}sqrt{x^2+1}", r"\\lim_{x\\to1}\\sqrt{x^2+1}"),
+              (r"left(1,2\\right)", r"\\left(1,2\\right)"),
+              (r"ln(1+x)+infty", r"\\ln(1+x)+\\infty"),
+              (r"ainmathbb R", r"a\\in\\mathbb R"),
+              (r"mathbb Rsetminus{a}", r"\\mathbb R\\setminus{a}"),
+              (r"widetilde f(a)=quad x", r"\\widetilde f(a)=\\quad x"),
+              ("\f" + "rac{1}{2}", r"\\frac{1}{2}"),
+              ("\t" + "ext{x}", r"\\text{x}"),
+          ]
+          for raw, expected in regressions:
+              actual = normalize_math(raw)
+              if actual != expected:
+                  raise SystemExit(f"Math normalization regression: {actual!r}, expected {expected!r}")
+          PY
+
       - name: Claim next generated document
         run: |
           mkdir -p infra/lualatex/production
@@ -258,6 +281,7 @@ jobs:
           kpsewhich qrcode.sty
 
       - name: Smoke-test renderer and title layout
+        if: hashFiles('infra/lualatex/production/document-id') != ''
         working-directory: infra/lualatex
         run: |
           rm -rf production/smoke
