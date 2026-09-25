@@ -1,72 +1,59 @@
-# Aurore — contrat éditorial v1
+
+# Aurore — contrat éditorial v2
 
 ## Circuit de production
 
-Le circuit cible est volontairement séparé en deux responsabilités :
+Le circuit sépare volontairement deux responsabilités : ChatGPT prépare le manuscrit pédagogique structuré, puis Aurore valide le JSON et assure la production PDF avec le pipeline LuaLaTeX/GeoGebra. La publication reste une action humaine.
 
-1. **Édition** : ChatGPT produit le manuscrit pédagogique structuré.
-2. **Production** : Aurore valide le JSON, prépare les ressources, rend le PDF avec le pipeline LuaLaTeX/GeoGebra, vérifie l’artefact, puis laisse la publication à une action humaine.
+## Mémoire obligatoire avant injection
 
-Aucun moteur de génération de contenu automatique n’est nécessaire pour le rendu PDF.
+Avant toute injection provenant de l’édition ChatGPT, l’assistante doit appeler la fonction Edge aurora-editorial-memory avec la matière et le type de document. Le service récupère la mémoire générale Aurore et, lorsque la matière est Mathématiques, récupère également la mémoire spécialisée Mathématiques.
+
+Le service ouvre alors une session mémoire à usage unique, valable pendant une fenêtre limitée. La réponse fournit les règles nécessaires, leurs versions, une empreinte du paquet mémoire et un session_id. L’assistante doit transmettre ce session_id dans memory_session_id lors de l’appel suivant à aurora-gpt-ingest.
+
+L’ingestion refuse l’appel si la session est absente, expirée, déjà consommée ou incompatible avec la matière. Une seconde barrière existe directement sur aurora_generated_documents : toute insertion portant l’origine gpt_editorial_ingest sans session mémoire valide est bloquée par la base.
+
+Pour les Mathématiques, l’insertion est bloquée tant qu’une mémoire générale et la mémoire Mathématiques n’ont pas toutes deux été récupérées dans la même session.
+
+## Mémoire générale Aurore
+
+La table aurora_editorial_memory contient les règles versionnées relatives à la chaîne éditoriale, à la structure des cours, à la qualité pédagogique, aux exercices et corrigés, aux graphiques/visuels, au contrôle PDF et à la traçabilité.
+
+## Mémoire Mathématiques
+
+La table aurora_math_editorial_memory contient les règles spécifiques aux documents mathématiques : séparation des blocs, formules, syntaxe LaTeX sûre, progression pédagogique, anti-patterns connus et contrôle qualité du PDF.
+
+La mémoire mathématique reprend notamment les leçons de la production du document 364 : une validité JSON minimale ne garantit pas une bonne composition PDF ; les formules importantes doivent être suffisamment structurées, les blocs trop monolithiques doivent être évités et les répétitions doivent être détectées avant rendu.
 
 ## Contrat aurora-editorial-1
 
-Le pont aurora-gpt-ingest reçoit notamment :
+Le pont conserve les champs établis par le contrat précédent : ingest_id, title, subject, level, class_name, document_type, prompt, classification et content_json.
 
-- ingest_id : identifiant stable et idempotent du document.
-- title
-- subject
-- level
-- class_name
-- document_type
-- prompt : contexte éditorial facultatif.
-- classification : catégorie, filière, domaine, formation, spécialité, année, semestre, couleur.
-- content_json
-
-content_json doit contenir :
-
-- title
-- sections[], avec au minimum title
-- sections[].content[]
-- sections[].graphs[] pour les graphiques/constructions générés par Aurore
-- sections[].visuals[] pour les illustrations documentaires
-- corrections[] au besoin
+content_json doit contenir title, sections[] avec au minimum title, sections[].content[], sections[].graphs[] pour les graphiques/constructions, sections[].visuals[] pour les illustrations documentaires et corrections[] au besoin.
 
 ## Visuels
 
-Les illustrations documentaires utilisent type: "wikimedia" et une fonction pédagogique explicite.
+Les illustrations documentaires utilisent type wikimedia et une fonction pédagogique explicite. Les limites restent de 3 visuels maximum par section, 8 visuels maximum par document et 24 graphiques/constructions maximum par document.
 
-Limites du contrat :
+## Idempotence et traçabilité
 
-- 3 visuels maximum par section
-- 8 visuels maximum par document
-- 24 graphiques/constructions maximum par document
-- les courbes et constructions mathématiques restent dans graphs
-- Wikimedia est utilisé lorsqu’une illustration documentaire apporte une information que le graphique/construction ne peut pas fournir
+ingest_id reste stable pendant les retries réseau et empêche la duplication. Lorsqu’un document est injecté, Aurore conserve dans metadata.memory_gate la preuve de la session mémoire utilisée : identifiant de session, versions des mémoires, identifiants des règles et empreinte du paquet mémoire.
 
-Le document enregistre séparément les visuels demandés, planifiés et réellement récupérés dans metadata.visual_qa.
-
-## Idempotence
-
-ingest_id possède une contrainte unique côté base. Un même document envoyé plusieurs fois ne crée pas de doublon : le pont renvoie l’enregistrement existant.
-
-Le contenu reçoit aussi un SHA-256 enregistré dans les métadonnées.
+La table aurora_editorial_memory_sessions conserve l’historique technique de chaque récupération et empêche la réutilisation d’une session consommée.
 
 ## Cycle des statuts
 
-- draft : demande non confirmée
-- queued : demande confirmée, en attente de l’éditeur
-- review : contenu éditorial intégré, contrôle humain / rendu PDF disponibles
-- approved : validation du contenu/PDF
-- published : publication effectuée
-- failed / rejected : arrêt nécessitant une nouvelle action
+draft : demande non confirmée.
+queued : demande confirmée, en attente.
+review : contenu éditorial intégré, contrôle humain / rendu PDF disponibles.
+approved : validation du contenu/PDF.
+published : publication effectuée.
+failed / rejected : arrêt nécessitant une nouvelle action.
 
 Le PDF est produit après l’intégration du contenu, jamais comme une étape de génération de texte.
 
 ## Intégration d’un futur document
 
-Un futur document suit toujours le même schéma :
+récupération mémoire → édition ChatGPT → validation JSON → aurora-gpt-ingest avec session mémoire → sas administratif → ressources/GeoGebra → LuaLaTeX → vérification PDF → contrôle humain → publication.
 
-**demande → édition ChatGPT → aurora-gpt-ingest → contrôle JSON → ressources/GeoGebra → LuaLaTeX → vérification PDF → contrôle humain → publication**
-
-Le ingest_id doit rester stable pendant les retries réseau.
+La récupération mémoire n’est donc plus une simple recommandation éditoriale : elle constitue une précondition technique d’insertion pour les documents issus de l’édition ChatGPT.
