@@ -125,6 +125,9 @@ def _is_renderable_geogebra_graph(graph):
         "courbe": "function2d",
         "complex_plane": "complex_plane",
         "parametric": "parametric2d",
+        "geometry2d": "geometry2d",
+        "vector2d": "geometry2d",
+        "plan2d": "geometry2d",
         "geometrie3d": "geometry3d",
         "3d": "geometry3d",
     }
@@ -151,6 +154,15 @@ def _is_renderable_geogebra_graph(graph):
         )
     if instrument == "parametric2d":
         return bool(x_expression and y_expression)
+    if instrument == "geometry2d":
+        valid_types = {"point", "vector", "line", "segment", "ray", "polygon"}
+        has_objects = any(
+            isinstance(o, dict)
+            and str(o.get("type") or "").lower().strip() in valid_types
+            for o in objects
+        )
+        has_points2 = any(isinstance(p, (list, tuple)) and len(p) >= 2 for p in points)
+        return bool(has_objects or has_points2)
     if instrument == "parametric3d":
         return bool(x_expression and y_expression and z_expression)
     if instrument == "surface3d":
@@ -1992,6 +2004,112 @@ def _math_visual_plan_qa(data):
     return {"enabled": True, "planned_graphs": planned_graphs}
 
 
+def _geogebra_visual_plan_qa(data):
+    """Validate GeoGebra planning for non-math courses before production."""
+    if not isinstance(data, dict):
+        return {"enabled": False, "planned_graphs": 0}
+    subject = clean_text(data.get("subject") or "").lower()
+    profile = _edition_profile(data)
+    if profile.get("kind") != "cours" or "math" in subject:
+        return {"enabled": False, "planned_graphs": 0}
+    sections = data.get("sections")
+    if not isinstance(sections, list):
+        raise ValueError("GeoGebra visual plan QA failed: sections must be a list")
+    graphs_by_id = {}
+    graph_count = 0
+    for section_index, section in enumerate(sections, start=1):
+        graphs = section.get("graphs") if isinstance(section, dict) and isinstance(section.get("graphs"), list) else []
+        graph_count += len(graphs)
+        for graph in graphs:
+            if not isinstance(graph, dict):
+                raise ValueError(f"GeoGebra visual plan QA failed: invalid graph in section {section_index}")
+            graph_id = clean_text(graph.get("id") or "").strip()
+            if not graph_id:
+                # Existing production payloads may use name instead of id.
+                # New gpt_editorial_ingest documents are required to use stable ids.
+                metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+                if clean_text(metadata.get("origin") or "").strip().lower() == "gpt_editorial_ingest":
+                    raise ValueError(f"GeoGebra visual plan QA failed: missing stable graph id in section {section_index}")
+                continue
+            if graph_id in graphs_by_id:
+                raise ValueError(f"GeoGebra visual plan QA failed: duplicate graph id {graph_id}")
+            graphs_by_id[graph_id] = (section_index, graph)
+    if graph_count == 0:
+        return {"enabled": False, "planned_graphs": 0, "graph_count": 0}
+
+    metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+    origin = clean_text(metadata.get("origin") or "").strip().lower()
+    plan = data.get("geogebra_plan")
+    if not isinstance(plan, dict) and isinstance(metadata.get("geogebra_plan"), dict):
+        plan = metadata.get("geogebra_plan")
+    if origin != "gpt_editorial_ingest" and not isinstance(plan, dict):
+        return {"enabled": False, "legacy": True, "planned_graphs": 0, "graph_count": graph_count}
+    if not isinstance(plan, dict):
+        raise ValueError("GeoGebra visual plan QA failed: geogebra_plan is required when non-math GeoGebra graphs are present")
+    if plan.get("schema_version") != "geogebra-visual-plan-1":
+        raise ValueError("GeoGebra visual plan QA failed: invalid schema_version")
+    decisions = plan.get("decisions")
+    if not isinstance(decisions, list) or len(decisions) != len(sections):
+        raise ValueError("GeoGebra visual plan QA failed: one decision is required per section")
+
+    by_section = {}
+    for decision in decisions:
+        if not isinstance(decision, dict):
+            raise ValueError("GeoGebra visual plan QA failed: decision must be an object")
+        try:
+            number = int(decision.get("section_number"))
+        except (TypeError, ValueError):
+            raise ValueError("GeoGebra visual plan QA failed: invalid section_number")
+        if number in by_section or number < 1 or number > len(sections):
+            raise ValueError("GeoGebra visual plan QA failed: duplicate or out-of-range section_number")
+        by_section[number] = decision
+
+    referenced = set()
+    planned = 0
+    for index, section in enumerate(sections, start=1):
+        if index not in by_section:
+            raise ValueError(f"GeoGebra visual plan QA failed: missing decision for section {index}")
+        decision = by_section[index]
+        choice = clean_text(decision.get("decision") or "").strip().lower()
+        graphs = section.get("graphs") if isinstance(section, dict) and isinstance(section.get("graphs"), list) else []
+        if choice not in ("build", "not_needed"):
+            raise ValueError(f"GeoGebra visual plan QA failed: invalid decision for section {index}")
+        if choice == "not_needed":
+            if graphs:
+                raise ValueError(f"GeoGebra visual plan QA failed: section {index} is not_needed but contains graphs")
+            if len(clean_text(decision.get("rationale") or "").strip()) < 8:
+                raise ValueError(f"GeoGebra visual plan QA failed: rationale missing for section {index}")
+            continue
+        graph_ids = decision.get("graph_ids")
+        if not isinstance(graph_ids, list) or not graph_ids:
+            raise ValueError(f"GeoGebra visual plan QA failed: build requires graph_ids for section {index}")
+        if len(graph_ids) != len(graphs):
+            raise ValueError(f"GeoGebra visual plan QA failed: section {index} graph ownership mismatch")
+        local_seen = set()
+        for raw_id in graph_ids:
+            graph_id = clean_text(raw_id).strip()
+            if not graph_id or graph_id in local_seen or graph_id in referenced:
+                raise ValueError(f"GeoGebra visual plan QA failed: duplicate/empty graph id in section {index}")
+            local_seen.add(graph_id)
+            if graph_id not in graphs_by_id:
+                raise ValueError(f"GeoGebra visual plan QA failed: graph_id {graph_id} not found")
+            actual_section, graph = graphs_by_id[graph_id]
+            if actual_section != index:
+                raise ValueError(f"GeoGebra visual plan QA failed: graph_id {graph_id} belongs to section {actual_section}")
+            if not _is_renderable_geogebra_graph(graph):
+                raise ValueError(f"GeoGebra visual plan QA failed: graph_id {graph_id} is not a renderable construction")
+            local_path = clean_text(graph.get("graph_local_path") or "").strip()
+            image_path = clean_text(graph.get("geogebra_image_path") or "").strip()
+            if not local_path or not image_path:
+                raise ValueError(f"GeoGebra visual plan QA failed: asset missing for graph_id {graph_id}")
+            referenced.add(graph_id)
+            planned += 1
+    orphaned = sorted(set(graphs_by_id) - referenced)
+    if orphaned:
+        raise ValueError("GeoGebra visual plan QA failed: graph(s) present outside the declared build plan: " + ", ".join(orphaned))
+    return {"enabled": True, "schema_version": "geogebra-visual-plan-1", "planned_graphs": planned, "graph_count": graph_count}
+
+
 def render_graphs(graphs, allow=True, exercise_mode=False):
     if not allow:
         return []
@@ -2504,6 +2622,7 @@ def render(data):
             )
     has_geogebra = _has_geogebra(data)
     _math_visual_plan_qa(data)
+    _geogebra_visual_plan_qa(data)
     _documentary_visual_plan_qa(data)
     lines = [
         r"\documentclass[11pt,a4paper]{article}",
