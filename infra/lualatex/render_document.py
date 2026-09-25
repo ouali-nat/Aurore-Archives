@@ -2559,7 +2559,7 @@ def render(data):
         content_items = sec.get("content", [])
         if isinstance(content_items, list) and sec.get("exercises"):
             content_items = [item for item in content_items if not re.match(r"^\s*Exercice\s+\d+\s*:", clean_text(item))]
-        lines.extend(render_content(content_items))
+        lines.extend(render_content(content_items, auto_math=(profile == "scientifique")))
         lines.extend(render_graphs(sec.get("graphs", []), allow=True))
         section_graphics = sec.get("graphics", [])
         if section_graphics:
