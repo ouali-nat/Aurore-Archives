@@ -1914,11 +1914,14 @@ def _math_visual_plan_qa(data):
             if not isinstance(graph, dict):
                 continue
             graph_id = clean_text(graph.get("id") or "").strip()
-            if graph_id:
-                if graph_id in all_graph_ids:
-                    raise ValueError(f"Math visual plan QA failed: duplicate graph_id {graph_id}.")
-                all_graph_ids.add(graph_id)
-                graphs_by_id[graph_id] = (section_index, graph)
+            if not graph_id:
+                raise ValueError(
+                    f"Math visual plan QA failed: section {section_index} contains a graph without id."
+                )
+            if graph_id in all_graph_ids:
+                raise ValueError(f"Math visual plan QA failed: duplicate graph_id {graph_id}.")
+            all_graph_ids.add(graph_id)
+            graphs_by_id[graph_id] = (section_index, graph)
 
     referenced_ids = set()
     planned_graphs = 0
@@ -2364,7 +2367,7 @@ def render(data):
                 "Exercise profile QA failed: " + " | ".join(exercise_qa[:8])
             )
     has_geogebra = _has_geogebra(data)
-    math_visual_qa = _math_visual_plan_qa(data)
+    _math_visual_plan_qa(data)
     lines = [
         r"\documentclass[11pt,a4paper]{article}",
         r"\usepackage{fontspec}",
