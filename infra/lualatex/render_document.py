@@ -1568,10 +1568,6 @@ def _escape_unmatched_math_delimiters(s):
             out.append(s[i])
             i += 1
     s = "".join(out)
-    positions = [m.start() for m in re.finditer(r"(?<!\\\\)\\$", s)]
-    if len(positions) % 2:
-        pos = positions[-1]
-        s = s[:pos] + r"\\$" + s[pos + 1:]
     return s
 
 
