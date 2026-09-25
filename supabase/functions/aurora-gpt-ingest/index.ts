@@ -92,8 +92,9 @@ Deno.serve(async req=>{
     const payload=await req.json();
     const content=payload?.content_json;
     const memorySessionId=text(payload.memory_session_id,100);
-    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(memorySessionId)){
-      return reply({ok:false,error:"Session mémoire obligatoire : appelez aurora-editorial-memory avant l’ingestion."},428);
+    const memorySessionToken=text(payload.memory_session_token,200);
+    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(memorySessionId)||!memorySessionToken){
+      return reply({ok:false,error:"Session mémoire obligatoire : récupérez la mémoire puis transmettez session_id et memory_session_token."},428);
     }
     const title=text(payload.title||content.title,300);if(!title)return reply({ok:false,error:"Le titre est obligatoire."},400);
     const themeColor=text(payload.theme_color||payload.classification?.theme_color,32);if(!validColor(themeColor))return reply({ok:false,error:"theme_color doit être une couleur hexadécimale #RRGGBB."},400);
@@ -108,10 +109,11 @@ Deno.serve(async req=>{
     const profile=resolveProfile(documentType);
     const memorySubject=String(subject||"").trim().toLowerCase().replace(/\s+/g," ");
     const memoryRequiresMath=memorySubject.includes("math");
+    const memoryTokenHash=await sha256(memorySessionToken);
     const {data:memorySession,error:memorySessionError}=await db.from("aurora_editorial_memory_sessions")
       .select("session_id,requested_subject,requires_math,general_rule_ids,math_rule_ids,expires_at,used_at,bundle_sha256")
-      .eq("session_id",memorySessionId).is("used_at",null).gt("expires_at",new Date().toISOString()).maybeSingle();
-    if(memorySessionError||!memorySession)return reply({ok:false,error:"Session mémoire absente, expirée ou déjà consommée. Récupérez de nouveau la mémoire éditoriale avant l’ingestion."},428);
+      .eq("session_id",memorySessionId).eq("token_hash",memoryTokenHash).is("used_at",null).gt("expires_at",new Date().toISOString()).maybeSingle();
+    if(memorySessionError||!memorySession)return reply({ok:false,error:"Session mémoire absente, expirée, déjà consommée ou jeton invalide. Récupérez de nouveau la mémoire éditoriale avant l’ingestion."},428);
     const generalMemoryCount=Array.isArray(memorySession.general_rule_ids)?memorySession.general_rule_ids.length:0;
     const mathMemoryCount=Array.isArray(memorySession.math_rule_ids)?memorySession.math_rule_ids.length:0;
     if(generalMemoryCount<1)return reply({ok:false,error:"Mémoire éditoriale générale non récupérée."},428);
