@@ -1200,7 +1200,7 @@ async function cancelPdfGeneration(id){
   window.__aurorePdfCancelRequested=window.__aurorePdfCancelRequested||new Set();
   const numericId=Number(id), selector='[data-cf-cancel="'+CSS.escape(String(numericId))+'"]';
   const keep=()=>document.querySelectorAll(selector).forEach(b=>{b.disabled=true;b.textContent='Annulation demandée…';b.dataset.cancelState='requested';b.setAttribute('aria-busy','true')});
-  if(!confirm('Annuler la génération PDF de ce document ?\\n\\nLa demande sera transmise à Aurore. Le bouton restera visible jusqu’à la fin réelle de la génération.'))return;
+  if(!confirm('Annuler la génération PDF de ce document ?\\n\\nLa demande sera transmise à Aurore. Le bouton restera visible jusqu’à la fin réelle de la génération.'))return false;
   keep();
   try{
     window.__aurorePdfCancelRequested.add(numericId);
@@ -1214,8 +1214,8 @@ async function cancelPdfGeneration(id){
       }catch(_){}
       keep(); await wait(3000);
     }
-    if(done){window.__aurorePdfCancelRequested.delete(numericId);await charger()}
-    else{keep();const msg=document.getElementById('cfCreateMsg');if(msg)msg.textContent='Annulation demandée. La production termine son arrêt côté serveur.'}
+    if(done){window.__aurorePdfCancelRequested.delete(numericId);await charger();return true}
+    else{keep();const msg=document.getElementById('cfCreateMsg');if(msg)msg.textContent='Annulation demandée. La production termine son arrêt côté serveur.';return false}
   }catch(e){
     window.__aurorePdfCancelRequested.delete(numericId);
     document.querySelectorAll(selector).forEach(b=>{b.disabled=false;b.textContent='Annuler la génération';b.dataset.cancelState='active';b.removeAttribute('aria-busy')});
@@ -1307,7 +1307,7 @@ function apply(){
     const pdf=!!x.pdf_url;
     const active=['queued','processing'].includes(m.lualatex_status);
     const cancelRequested=m.lualatex_cancel_requested===true;
-    const canRender=!active&&x.status!=='published'&&(['generated','review','approved','failed'].includes(x.status)||(x.status==='draft'&&!!pdfUrl));
+    const canRender=x.status!=='published'&&(['generated','review','approved','failed'].includes(x.status)||(x.status==='draft'&&!!pdfUrl)||active);
     const canValidate=x.status==='review'&&pdf&&!active;
     const canReject=['review','approved'].includes(x.status)&&!active;
     const canPublish=['approved','review'].includes(x.status)&&pdf&&!active;
@@ -1344,7 +1344,7 @@ function apply(){
           ${active||cancelRequested
             ?'<button type="button" class="admin-btn danger cf-pdf-cancel-static" data-cf-cancel="'+esc(x.id)+'" data-cancel-state="'+(cancelRequested?'requested':'active')+'">'+(cancelRequested?'Annulation demandée…':'Annuler la génération')+'</button>'
             :''}
-          ${canRender?'<button type="button" class="admin-btn primary" data-cf-render="'+esc(x.id)+'" data-has-pdf="'+(pdf?'1':'0')+'" data-theme-color="'+esc(theme)+'">'+(pdf?'Régénérer le PDF':'Générer le PDF')+'</button>':''}
+          ${canRender?'<button type="button" class="admin-btn primary" data-cf-render="'+esc(x.id)+'" data-has-pdf="'+(pdf?'1':'0')+'" data-production-active="'+(active?'1':'0')+'" data-theme-color="'+esc(theme)+'">'+(active?'Relancer la génération':(pdf?'Régénérer le PDF':'Générer le PDF'))+'</button>':''}
           ${canValidate?'<button type="button" class="admin-btn valider" data-cf-validate="'+esc(x.id)+'">Valider le PDF</button>':''}
           ${canReject?'<button type="button" class="admin-btn refuser" data-cf-reject="'+esc(x.id)+'">Rejeter</button>':''}
           ${canPublish?'<button type="button" class="admin-btn primary" data-cf-publish="'+esc(x.id)+'">Publier</button>':''}
@@ -1463,6 +1463,10 @@ document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurre
     try{
       const id=Number(detail?.id||0);if(!id)return;
       if(detail.action==='render'){
+        if(detail.productionActive){
+          const cancelled=await cancelPdfGeneration(id);
+          if(!cancelled)return;
+        }
         let color=detail.themeColor||'#C85C0D';
         if(detail.hasPdf){if(!confirm('Ce document possède déjà un PDF. Le nouveau rendu remplacera le PDF actuel. Continuer ?'))return;}
         color=await chooseRegenerationTheme(color);if(!color)return;
@@ -1523,7 +1527,8 @@ document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurre
       action,
       id,
       hasPdf:button.dataset.hasPdf==='1',
-      themeColor:button.dataset.themeColor||'#C85C0D'
+      themeColor:button.dataset.themeColor||'#C85C0D',
+      productionActive:button.dataset.productionActive==='1'
     }).finally(()=>{
       window.__aurorePdfActionBusy.delete(busyKey);
       if(button.isConnected){

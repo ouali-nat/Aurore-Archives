@@ -417,7 +417,7 @@
     const cancelSet=window.__aurorePdfCancelRequested instanceof Set?window.__aurorePdfCancelRequested:new Set();
     const busy=k=>busySet.has(k+':'+String(x.id));
     const cancelBusy=cancelSet.has(Number(x.id))||d.m.lualatex_cancel_requested===true||busy('cancel');
-    const canRender=!d.proc&&!d.wait&&!d.m.lualatex_cancel_requested&&x.status!=='published'&&(['generated','review','approved','failed'].includes(x.status)||(x.status==='draft'&&!!x.pdf_url));
+    const canRender=!d.proc&&!d.m.lualatex_cancel_requested&&x.status!=='published'&&(['generated','review','approved','failed'].includes(x.status)||(x.status==='draft'&&!!x.pdf_url)||d.wait);
     const canValidate=x.status==='review'&&!!x.pdf_url&&!d.proc&&!d.wait&&!d.m.lualatex_cancel_requested;
     const canReject=['review','approved'].includes(x.status)&&!d.proc&&!d.wait&&!d.m.lualatex_cancel_requested;
     const canPublish=['approved','review'].includes(x.status)&&!!x.pdf_url&&!d.proc&&!d.wait&&!d.m.lualatex_cancel_requested;
@@ -428,7 +428,7 @@
     const actions=[];
     if(x.pdf_url)actions.push('<a class="admin-btn ghost" href="'+qEsc(x.pdf_url)+'" target="_blank" rel="noopener">Ouvrir le PDF actuel</a>');
     if(d.proc||d.wait)actions.push('<button type="button" class="admin-btn danger cf-pdf-cancel-static" data-cf-cancel="'+qEsc(x.id)+'" '+(cancelBusy?'disabled aria-busy="true"':'')+'>'+ (cancelBusy?'Annulation demandée…':'Annuler la génération') +'</button>');
-    if(canRender)actions.push('<button type="button" class="admin-btn primary" data-cf-render="'+qEsc(x.id)+'" data-has-pdf="'+(x.pdf_url?'1':'0')+'" data-theme-color="'+qEsc(theme)+'" '+(busy('render')?'disabled aria-busy="true"':'')+'>'+ (busy('render')?(x.pdf_url?'Régénération…':'Génération…'):(x.status==='approved'?'Régénérer · revalider':x.pdf_url?'Régénérer':'Générer le PDF')) +'</button>');
+    if(canRender)actions.push('<button type="button" class="admin-btn primary" data-cf-render="'+qEsc(x.id)+'" data-has-pdf="'+(x.pdf_url?'1':'0')+'" data-production-active="'+((d.proc||d.wait)?'1':'0')+'" data-theme-color="'+qEsc(theme)+'" '+(busy('render')?'disabled aria-busy="true"':'')+'>'+ (busy('render')?(x.pdf_url?'Régénération…':'Génération…'):(d.proc||d.wait?'Relancer la génération':x.status==='approved'?'Régénérer · revalider':x.pdf_url?'Régénérer':'Générer le PDF')) +'</button>');
     if(canValidate)actions.push('<button type="button" class="admin-btn valider" data-cf-validate="'+qEsc(x.id)+'" '+(busy('validate')?'disabled aria-busy="true"':'')+'>'+ (busy('validate')?'Validation…':'Valider') +'</button>');
     if(canReject)actions.push('<button type="button" class="admin-btn refuser" data-cf-reject="'+qEsc(x.id)+'" '+(busy('reject')?'disabled aria-busy="true"':'')+'>Rejeter</button>');
     if(canPublish)actions.push('<button type="button" class="admin-btn primary" data-cf-publish="'+qEsc(x.id)+'" '+(busy('publish')?'disabled aria-busy="true"':'')+'>'+ (busy('publish')?'Publication…':'Publier') +'</button>');
