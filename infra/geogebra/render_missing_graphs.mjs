@@ -43,6 +43,9 @@ function instrumentOf(g) {
     courbe: "function2d",
     complex_plane: "complex_plane",
     parametric: "parametric2d",
+    geometry2d: "geometry2d",
+    vector2d: "geometry2d",
+    plan2d: "geometry2d",
     geometrie3d: "geometry3d",
     "3d": "geometry3d",
   };
@@ -59,7 +62,7 @@ function instrumentOf(g) {
   const hasX = String(g?.x_expression || "").trim();
   const hasY = String(g?.y_expression || "").trim();
   const hasZ = String(g?.z_expression || "").trim();
-  if (["function2d","complex_plane","parametric2d","parametric3d","surface3d","geometry3d"].includes(normalized)) return normalized;
+  if (["function2d","complex_plane","parametric2d","parametric3d","surface3d","geometry2d","geometry3d"].includes(normalized)) return normalized;
   if (raw) return null;
   if (hasObjects) return "geometry3d";
   if (hasZ && hasX && hasY) return "parametric3d";
@@ -88,6 +91,11 @@ function validGraph(g) {
     );
   }
   if (instrument === "parametric2d") return Boolean(String(g?.x_expression || "").trim() && String(g?.y_expression || "").trim());
+  if (instrument === "geometry2d") {
+    const validTypes = new Set(["point","vector","line","segment","ray","polygon"]);
+    return objects.some((o) => validTypes.has(String(o?.type || "").toLowerCase()))
+      || points.some((p) => Array.isArray(p) && p.length >= 2);
+  }
   if (instrument === "parametric3d") return Boolean(String(g?.x_expression || "").trim() && String(g?.y_expression || "").trim() && String(g?.z_expression || "").trim());
   if (instrument === "surface3d") return Boolean(String(g?.expression || "").trim());
   const validTypes = new Set([
@@ -114,14 +122,40 @@ function imageReady(g) {
 function validatePlannedGraphs() {
   const subject = String(content.subject || "").toLowerCase();
   const documentType = String(content.document_type || "").toLowerCase();
-  if (!/math/.test(subject) || !/cours/.test(documentType) || /exercice|devoir|corrig/.test(documentType)) return;
+  const isMath = /math/.test(subject);
+  if (!/cours/.test(documentType) || /exercice|devoir|corrig/.test(documentType)) return;
 
-  const plan = content?.visual_plan && typeof content.visual_plan === "object"
-    ? content.visual_plan
-    : content?.metadata?.visual_plan && typeof content.metadata.visual_plan === "object"
-      ? content.metadata.visual_plan
-      : null;
-  if (!plan) return;
+  const graphCount = (Array.isArray(content.sections) ? content.sections : [])
+    .reduce((n, section) => n + (Array.isArray(section?.graphs) ? section.graphs.length : 0), 0);
+  if (!graphCount) return;
+
+  const metadata = content?.metadata && typeof content.metadata === "object" ? content.metadata : {};
+  const origin = String(metadata.origin || "").trim().toLowerCase();
+  const plan = isMath
+    ? (content?.visual_plan && typeof content.visual_plan === "object"
+        ? content.visual_plan
+        : metadata.visual_plan && typeof metadata.visual_plan === "object"
+          ? metadata.visual_plan
+          : null)
+    : (content?.geogebra_plan && typeof content.geogebra_plan === "object"
+        ? content.geogebra_plan
+        : metadata.geogebra_plan && typeof metadata.geogebra_plan === "object"
+          ? metadata.geogebra_plan
+          : null);
+  if (!plan) {
+    if (origin === "gpt_editorial_ingest") {
+      throw new Error(
+        isMath
+          ? "Plan graphique Math manquant."
+          : "Plan GeoGebra manquant pour un cours non mathématique utilisant des graphiques.",
+      );
+    }
+    return;
+  }
+  const expectedSchema = isMath ? "math-visual-plan-1" : "geogebra-visual-plan-1";
+  if (plan.schema_version !== expectedSchema) {
+    throw new Error("Plan graphique GeoGebra invalide : schema_version inattendue.");
+  }
 
   const decisions = Array.isArray(plan.decisions) ? plan.decisions : [];
   for (const decision of decisions) {
@@ -251,6 +285,57 @@ const renderGraphInBrowser = async (graph) => {
         .replace(/\bln\s*\(/gi, "ln(")
         .replace(/\blog\s*\(/gi, "log(");
     }
+    function point2(raw) {
+      if (Array.isArray(raw) && raw.length >= 2) {
+        const p = raw.slice(0, 2).map(Number);
+        return p.every(Number.isFinite) ? p : null;
+      }
+      if (typeof raw === "string") {
+        const m = raw.trim().match(/^[\[\(]\s*(-?(?:\d+(?:\.\d+)?|\.\d+))\s*,\s*(-?(?:\d+(?:\.\d+)?|\.\d+))\s*[\]\)]$/);
+        return m ? m.slice(1).map(Number) : null;
+      }
+      return null;
+    }
+
+    function geometry2DCommands(g) {
+      const cmds = [];
+      const objects = Array.isArray(g?.objects) ? g.objects : [];
+      let seq = 1;
+      const ensurePoint2 = (raw, prefix) => {
+        if (typeof raw === "string" && /^[A-Za-z][A-Za-z0-9_]*$/.test(raw)) return raw;
+        const p = point2(raw);
+        if (!p) return null;
+        const name = (prefix || "P") + seq++;
+        cmds.push(name + "=(" + p.join(",") + ")");
+        return name;
+      };
+      for (const o of objects) {
+        if (!o || typeof o !== "object") continue;
+        const type = String(o.type || "").toLowerCase();
+        const generated = () => {
+          const prefix = { point:"P", vector:"u", line:"d", segment:"s", ray:"r", polygon:"poly" }[type] || "obj";
+          return prefix + seq++;
+        };
+        const requested = String(o.name || "").match(/^[A-Za-z][A-Za-z0-9_]*$/)?.[0] || "";
+        const name = requested || generated();
+        const ps = Array.isArray(o.points) ? o.points : [];
+        if (type === "point") {
+          const p = point2(o.point || ps[0] || o.coordinates);
+          if (p) cmds.push(name + "=(" + p.join(",") + ")");
+        } else if (["vector","line","segment","ray"].includes(type)) {
+          const a = ensurePoint2(o.from || ps[0], "A");
+          const b = ensurePoint2(o.to || ps[1], "B");
+          if (!a || !b) continue;
+          const command = type === "vector" ? "Vector" : type === "line" ? "Line" : type === "segment" ? "Segment" : "Ray";
+          cmds.push(name + "=" + command + "(" + a + "," + b + ")");
+        } else if (type === "polygon") {
+          const refs = ps.map((q) => ensurePoint2(q, "P")).filter(Boolean);
+          if (refs.length >= 3) cmds.push(name + "=Polygon(" + refs.join(",") + ")");
+        }
+      }
+      return cmds;
+    }
+
     function point3(raw) {
       if (Array.isArray(raw) && raw.length >= 3) {
         const p = raw.slice(0, 3).map(Number);
@@ -340,7 +425,7 @@ const renderGraphInBrowser = async (graph) => {
 
     function graphInstrument(g) {
       const raw = String(g?.instrument || g?.graph_type || "").toLowerCase().trim();
-      const aliases = { function:"function2d",graph:"function2d",courbe:"function2d",complex_plane:"complex_plane",parametric:"parametric2d",geometrie3d:"geometry3d","3d":"geometry3d" };
+      const aliases = { function:"function2d",graph:"function2d",courbe:"function2d",complex_plane:"complex_plane",parametric:"parametric2d",geometry2d:"geometry2d",vector2d:"geometry2d",plan2d:"geometry2d",geometrie3d:"geometry3d","3d":"geometry3d" };
       const normalized = aliases[raw] || raw;
       const objects = Array.isArray(g?.objects) ? g.objects : [];
       const hasObjects = objects.some((o) =>
@@ -351,7 +436,7 @@ const renderGraphInBrowser = async (graph) => {
       const hasY = String(g?.y_expression || "").trim();
       const hasZ = String(g?.z_expression || "").trim();
       const hasExpression = String(g?.expression || "").trim();
-      if (["function2d","complex_plane","parametric2d","parametric3d","surface3d","geometry3d"].includes(normalized)) return normalized;
+      if (["function2d","complex_plane","parametric2d","parametric3d","surface3d","geometry2d","geometry3d"].includes(normalized)) return normalized;
       if (hasObjects) return "geometry3d";
       if (hasZ && hasX && hasY) return "parametric3d";
       if (hasX && hasY) return "parametric2d";
@@ -380,6 +465,8 @@ const renderGraphInBrowser = async (graph) => {
       if (x && y && z && tmax > tmin) commands.push("Curve("+x+","+y+","+z+","+t+","+tmin+","+tmax+")");
     } else if (instrument === "surface3d") {
       const e=expr(graph?.expression); if (e) commands.push("f(x,y)="+e);
+    } else if (instrument === "geometry2d") {
+      commands.push(...geometry2DCommands(graph));
     } else if (instrument === "geometry3d") {
       commands.push(...geometryCommands(graph));
     } else if (instrument === "complex_plane") {
@@ -401,7 +488,7 @@ const renderGraphInBrowser = async (graph) => {
       }
     }
 
-    if (instrument === "function2d" || instrument === "complex_plane" || instrument === "parametric2d") {
+    if (instrument === "function2d" || instrument === "complex_plane" || instrument === "parametric2d" || instrument === "geometry2d") {
       const xmin=finite(graph?.x_min,-10), xmax=finite(graph?.x_max,10), ymin=finite(graph?.y_min,-10), ymax=finite(graph?.y_max,10);
       if (xmax>xmin && ymax>ymin) {
         commands.push("SetCoordSystem("+[xmin,xmax,ymin,ymax].join(",")+")");
@@ -470,7 +557,7 @@ const renderGraphInBrowser = async (graph) => {
               const primary = instrument === "complex_plane"
                 ? commands.filter((c) => /^P\d+=\([-0-9.,]+\)$/.test(c))
                 : commands.filter((c) =>
-                    /(?:Curve|Sphere|Cylinder|Cone|Cube|Prism|Pyramid|Tetrahedron|Polygon|Line|Plane|Vector)\s*\(/i.test(c) ||
+                    /(?:Curve|Sphere|Cylinder|Cone|Cube|Prism|Pyramid|Tetrahedron|Polygon|Line|Segment|Ray|Plane|Vector)\s*\(/i.test(c) ||
                     /^f\s*\(\s*x(?:\s*,\s*y)?\s*\)\s*=/.test(c) ||
                     /^[^=]+=[^=]+$/.test(c) ||
                     /^[A-Za-z][A-Za-z0-9_]*=\([^)]*\)$/.test(c)
