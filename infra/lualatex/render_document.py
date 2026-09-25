@@ -1546,14 +1546,16 @@ def _repair_accidental_inline_double_dollar(s):
     )
 
 
+_UNMATCHED_DISPLAY_DOLLAR_TOKEN = "AURORAUNMATCHEDDISPLAYDOLLARTOKEN"
+
 def _escape_unmatched_math_delimiters(s):
-    """Escape an unpaired display-math delimiter from truncated upstream content."""
+    """Protect an unpaired, unescaped $$ so the inline parser cannot consume it as empty math."""
     s = str(s or "")
-    matches = list(re.finditer(r"\\$\\$", s))
+    matches = list(re.finditer(r"(?<!\\)\$\$", s))
     if len(matches) % 2 == 0:
         return s
     match = matches[-1]
-    return s[:match.start()] + r"\\$\\$" + s[match.end():]
+    return s[:match.start()] + _UNMATCHED_DISPLAY_DOLLAR_TOKEN + s[match.end():]
 
 def inline(s, auto_math=False):
     """
@@ -1589,7 +1591,7 @@ def inline(s, auto_math=False):
             out.append(r"\(" + normalize_math(p[1:-1].strip()) + r"\)")
         else:
             out.append(_render_bare_latex_fragments(p, auto_math=auto_math))
-    return "".join(out)
+    return "".join(out).replace(_UNMATCHED_DISPLAY_DOLLAR_TOKEN, r"\$\$")
 
 
 def _is_numbered(s):
