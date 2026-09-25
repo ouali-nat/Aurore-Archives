@@ -367,7 +367,7 @@ jobs:
 
           json_control_regressions = [
               ("x\n" + "eq1", r"x\neq1"),
-              ("x\n" + "notin A", r"x\notin A"),
+              ("x\n" + "otin A", r"x\notin A"),
               ("x\n" + "abla f", r"x\nabla f"),
           ]
           for raw, expected in json_control_regressions:
