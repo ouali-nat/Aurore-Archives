@@ -23,7 +23,7 @@ function decodeBase64(v: string) {
   return out;
 }
 
-const GRAPH_INSTRUMENTS = new Set(["function2d","parametric2d","parametric3d","surface3d","geometry3d"]);
+const GRAPH_INSTRUMENTS = new Set(["function2d","complex_plane","parametric2d","parametric3d","surface3d","geometry2d","geometry3d"]);
 function detectGraphInstrument(g: any) {
   const x = g && typeof g === "object" ? g : {};
   const aliases: Record<string,string> = { function:"function2d", graph:"function2d", courbe:"function2d", parametric:"parametric2d", parametric2d:"parametric2d", parametric3d:"parametric3d", surface:"surface3d", surface3d:"surface3d", geometry3d:"geometry3d", geometrie3d:"geometry3d", "3d":"geometry3d" };
@@ -59,23 +59,37 @@ function geogebraImageReady(g:any) {
   if(Number(g?.geogebra_renderer_version||0)<GEO_GEBRA_RENDERER_VERSION) return false;
   return true;
 }
-function graphList(content:any) {
+function graphEntries(content:any) {
   const out:any[]=[]; let i=0;
-  for(const s of Array.isArray(content?.sections)?content.sections:[]) for(const g of Array.isArray(s?.graphs)?s.graphs:[]) {
-    if(!geogebraImageReady(g)) {
-      const instrument=detectGraphInstrument(g);
-      if(instrument) out.push({graph_index:i,instrument,title:String(g?.title||"Graphique"),expression:String(g?.expression||""),x_expression:String(g?.x_expression||""),y_expression:String(g?.y_expression||""),z_expression:String(g?.z_expression||""),parameter:String(g?.parameter||"t"),t_min:Number(g?.t_min),t_max:Number(g?.t_max),x_min:Number(g?.x_min),x_max:Number(g?.x_max),y_min:Number(g?.y_min),y_max:Number(g?.y_max),z_min:Number(g?.z_min),z_max:Number(g?.z_max),z_label:String(g?.z_label||""),asymptotes:Array.isArray(g?.asymptotes)?g.asymptotes:[],points:Array.isArray(g?.points)?g.points:[],points_of_interest:Array.isArray(g?.points_of_interest)?g.points_of_interest:[],objects:Array.isArray(g?.objects)?g.objects:[]});
+  const push=(g:any,owner:any)=>{out.push({graph_index:i,graph:g,owner});i++;};
+  for(const [sectionIndex,s] of (Array.isArray(content?.sections)?content.sections:[]).entries()){
+    for(const g of Array.isArray(s?.graphs)?s.graphs:[]) push(g,{kind:"section",sectionIndex});
+    for(const [exerciseIndex,e] of (Array.isArray(s?.exercises)?s.exercises:[]).entries()){
+      for(const g of Array.isArray(e?.statement_graphs)?e.statement_graphs:[]) push(g,{kind:"statement",sectionIndex,exerciseIndex});
+      for(const g of Array.isArray(e?.correction_graphs)?e.correction_graphs:[]) push(g,{kind:"correction",sectionIndex,exerciseIndex});
     }
-    i++;
+  }
+  for(const [correctionIndex,corr] of (Array.isArray(content?.corrections)?content.corrections:[]).entries()){
+    for(const g of Array.isArray(corr?.graphs)?corr.graphs:[]) push(g,{kind:"top_correction",correctionIndex});
   }
   return out;
 }
+function graphList(content:any) {
+  return graphEntries(content).filter((entry:any)=>!geogebraImageReady(entry.graph)).map((entry:any)=>{
+    const g=entry.graph, instrument=detectGraphInstrument(g);
+    return instrument ? {graph_index:entry.graph_index,instrument,title:String(g?.title||"Graphique"),expression:String(g?.expression||""),x_expression:String(g?.x_expression||""),y_expression:String(g?.y_expression||""),z_expression:String(g?.z_expression||""),parameter:String(g?.parameter||"t"),t_min:Number(g?.t_min),t_max:Number(g?.t_max),x_min:Number(g?.x_min),x_max:Number(g?.x_max),y_min:Number(g?.y_min),y_max:Number(g?.y_max),z_min:Number(g?.z_min),z_max:Number(g?.z_max),z_label:String(g?.z_label||""),asymptotes:Array.isArray(g?.asymptotes)?g.asymptotes:[],points:Array.isArray(g?.points)?g.points:[],points_of_interest:Array.isArray(g?.points_of_interest)?g.points_of_interest:[],objects:Array.isArray(g?.objects)?g.objects:[]} : null;
+  }).filter(Boolean);
+}
 function setGraphImage(content:any,index:number,path:string) {
-  const c=structuredClone(content||{}); let n=0;
-  for(const s of Array.isArray(c.sections)?c.sections:[]) for(const g of Array.isArray(s?.graphs)?s.graphs:[]) {
-    if(n===index){g.geogebra_image_path=path;g.geogebra_image_source="geogebra";g.geogebra_renderer_version=GEO_GEBRA_RENDERER_VERSION;g.geogebra_image_updated_at=new Date().toISOString();return c;} n++;
-  }
-  throw new Error("Graphique #"+(index+1)+" introuvable dans le document");
+  const c=structuredClone(content||{});
+  const entry=graphEntries(c).find((item:any)=>item.graph_index===index);
+  if(!entry) throw new Error("Graphique #"+(index+1)+" introuvable dans le document");
+  const g=entry.graph;
+  g.geogebra_image_path=path;
+  g.geogebra_image_source="geogebra";
+  g.geogebra_renderer_version=GEO_GEBRA_RENDERER_VERSION;
+  g.geogebra_image_updated_at=new Date().toISOString();
+  return c;
 }
 
 Deno.serve(async req=>{
