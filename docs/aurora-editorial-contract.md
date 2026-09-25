@@ -35,6 +35,19 @@ content_json doit contenir title, sections[] avec au minimum title, sections[].c
 
 Les illustrations documentaires utilisent type wikimedia et une fonction pédagogique explicite. Les limites restent de 3 visuels maximum par section, 8 visuels maximum par document et 24 graphiques/constructions maximum par document.
 
+
+## Barrière qualité des cours
+
+Pour document_type=cours, le contrat est désormais bloquant sur trois axes avant insertion : une introduction pédagogique explicite d’au moins 80 caractères, au moins 3000 mots utiles pour un cours standard, et, hors Mathématiques, un plan documentaire Wikimedia explicite couvrant chaque section.
+
+Le seul raccourci autorisé est un format court explicitement déclaré avec `course_quality.format_profile=short_course` et une justification `course_quality.short_format_reason` d’au moins 30 caractères. Il est interdit de déduire ou de déclarer silencieusement une exception.
+
+Le contrôle est appliqué par PostgreSQL sur les insertions et les changements de contenu d’un cours, quelle que soit la voie de création. Les documents directs, administratifs ou manuels ne peuvent donc plus contourner la barrière éditoriale.
+
+## Séparation stricte des moteurs visuels
+
+`no_svg_automatic` signifie uniquement qu’aucune génération automatique d’Aurore SVG ne doit être lancée. Cela ne désactive ni Wikimedia Commons ni GeoGebra. Pour un cours documentaire, le plan Wikimedia reste obligatoire ; pour les représentations scientifiques calculables, GeoGebra reste indépendant et peut être combiné avec Wikimedia.
+
 ## Idempotence et traçabilité
 
 ingest_id reste stable pendant les retries réseau et empêche la duplication. Lorsqu’un document est injecté, Aurore conserve dans metadata.memory_gate la preuve de la session mémoire utilisée : identifiant de session, versions des mémoires, identifiants des règles et empreinte du paquet mémoire.
