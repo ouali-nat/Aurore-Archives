@@ -9,7 +9,7 @@ Le circuit sépare volontairement deux responsabilités : ChatGPT prépare le ma
 
 Avant toute injection provenant de l’édition ChatGPT, l’assistante doit appeler la fonction Edge aurora-editorial-memory avec la matière et le type de document. Le service récupère la mémoire générale Aurore et, lorsque la matière est Mathématiques, récupère également la mémoire spécialisée Mathématiques.
 
-Le service ouvre alors une session mémoire à usage unique, valable pendant une fenêtre limitée. La réponse fournit les règles nécessaires, leurs versions, une empreinte du paquet mémoire et un session_id. L’assistante doit transmettre ce session_id dans memory_session_id lors de l’appel suivant à aurora-gpt-ingest.
+Le service ouvre alors une session mémoire à usage unique, valable pendant une fenêtre limitée. La réponse fournit les règles nécessaires, leurs versions, une empreinte du paquet mémoire et un session_id. L’assistante doit transmettre le session_id et le memory_session_token dans memory_session_id et memory_session_token lors de l’appel suivant à aurora-gpt-ingest.
 
 L’ingestion refuse l’appel si la session est absente, expirée, déjà consommée ou incompatible avec la matière. Une seconde barrière existe directement sur aurora_generated_documents : toute insertion portant l’origine gpt_editorial_ingest sans session mémoire valide est bloquée par la base.
 
