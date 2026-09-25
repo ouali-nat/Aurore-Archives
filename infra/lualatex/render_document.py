@@ -1900,7 +1900,10 @@ def _math_visual_plan_qa(data):
         metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
         plan = metadata.get("visual_plan")
     if not isinstance(plan, dict):
-        raise ValueError("Math visual plan QA failed: visual_plan is required for a mathematics course.")
+        # Legacy compatibility: documents created before the math visual
+        # contract may legitimately lack visual_plan. New documents are
+        # blocked earlier by editorial ingest/DB validation.
+        return {"enabled": False, "legacy": True, "planned_graphs": 0}
     if plan.get("schema_version") != "math-visual-plan-1":
         raise ValueError("Math visual plan QA failed: unsupported visual_plan schema.")
     decisions = plan.get("decisions")
@@ -2312,8 +2315,10 @@ def _has_usable_content_json(data):
             )
             for section in sections
         )
-    if not str(data.get("introduction") or "").strip():
-        return False
+    # Compatibility: older structured course documents may have no
+    # top-level introduction; section content remains sufficient evidence
+    # that the document is renderable. New editorial ingest may add stricter
+    # fields, but the PDF renderer must not invalidate legacy documents.
     return any(
         isinstance(section, dict)
         and (
