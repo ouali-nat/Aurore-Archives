@@ -33,6 +33,11 @@ Pour tout document de type **cours**, les règles suivantes sont des barrières 
 
 Le contrôle technique PostgreSQL applique ces règles à toutes les voies d’insertion, y compris les opérations manuelles ou administratives.
 
+
+### Fiabilité des visuels Wikimedia
+
+Pour les cours non mathématiques, les requêtes Wikimedia doivent privilégier des termes discriminants : nom de fichier ou référence archivistique quand elle est connue, lieu, date, catégorie ou intitulé historique précis. Une requête trop longue et générique peut retourner un document hors sujet ou aucun candidat. La sélection finale doit être vérifiée par son titre, sa description ou ses catégories. Un visuel manquant ou hors sujet doit corriger le plan documentaire avant la production PDF, et non être masqué en passant le visuel de `required` à facultatif.
+
 ## 2. Règles spécifiques — Mathématiques
 
 Ces règles s'ajoutent au socle commun uniquement lorsque la matière est **Mathématiques**.
