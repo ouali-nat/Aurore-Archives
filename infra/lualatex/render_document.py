@@ -2820,7 +2820,7 @@ def main():
         f"version={requested_profile['version']} locked={requested_profile['locked']}"
     )
     main_graphics = main_metadata.get("graphics") if isinstance(main_metadata.get("graphics"), dict) else {}
-    is_math_subject = bool(re.search(r"\bmath(?:ématique|ematique)?\b", clean_text(subject).lower()))
+    is_math_subject = "math" in clean_text(subject).lower()
     documentary_plan = data.get("visual_plan")
     if not isinstance(documentary_plan, dict) and isinstance(main_metadata.get("visual_plan"), dict):
         documentary_plan = main_metadata.get("visual_plan")
