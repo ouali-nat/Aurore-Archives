@@ -1,186 +1,115 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { jsonrepair } from "https://esm.sh/jsonrepair@3.13.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-const URL=Deno.env.get("SUPABASE_URL")!;const SECRET_KEYS_RAW=Deno.env.get("SUPABASE_SECRET_KEYS")||"";let SECRET_KEY="";try{SECRET_KEY=String(JSON.parse(SECRET_KEYS_RAW||"{}")?.default||"").trim();}catch(_){SECRET_KEY="";}const LEGACY_SR=String(Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")||"").trim();const SR=SECRET_KEY||LEGACY_SR;const ANON=Deno.env.get("SUPABASE_ANON_KEY")!;
-const DS=Deno.env.get("DEEPSEEK_API_KEY");
-const GK=Deno.env.get("GEMINI_API_KEY")||Deno.env.get("GOOGLE_API_KEY")||Deno.env.get("GOOGLE_GENERATIVE_AI_API_KEY");
-const GM=String(Deno.env.get("GEMINI_CONTENT_MODEL")||"gemini-3.8-flash").trim();
-const GLM=String(Deno.env.get("GEMINI_LIGHT_MODEL")||"gemini-3.5-flash-lite").trim();
-const CFA=Deno.env.get("CLOUDFLARE_ACCOUNT_ID");const CFT=Deno.env.get("CLOUDFLARE_AI_TOKEN");const CFM="@cf/meta/llama-3.1-8b-instruct-fp8";
-function editorialProfile(j:any){
-  const s=String(j?.subject||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
-  const context=(s+" "+String(j?.title||"")+" "+String(j?.prompt||"")).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
-  const t=String(j?.document_type||"").toLowerCase();
-  let profile="general";
-  if(/math|mathematique|mathematics|algebre|geometrie|calcul|fonction|courbe|limite|derivee|derive|integrale|equation|logarithme|log|\\bln\\b|exponentielle|trigonometrie|complexe|vecteur|repere/.test(context)) profile="scientifique";
-  else if(/svt|biologie|cellule|organite|membrane|genetique|ecologie|corps humain|physiologie|microbiologie|sciences de la vie/.test(context)) profile="biologie";
-  else if(/physique|chimie|science de la terre|geologie/.test(s)) profile="experimental";
-  else if(/anglais|english|espagnol|allemand|arabe|langue/.test(s)) profile="langues";
-  else if(/francais|litterature|litteraire/.test(s)) profile="francais_litterature";
-  else if(/histoire|geographie|education civique/.test(s)) profile="histoire_geographie";
-  else if(/informatique|programmation|algorithmique|numerique/.test(s)) profile="informatique";
-  else if(/technique|technologie|electronique|mecanique/.test(s)) profile="technique";
-  const assessment=/devoir|examen|evaluation|controle|epreuve|quiz/.test(t);
-  const mode=assessment?"evaluation":/exercice|entrainement/.test(t)?"entrainement":/fiche|revision/.test(t)?"revision":"cours";
-  const instruction:any={biologie:"Profil SVT/biologie obligatoire. Construis un vrai cours de biologie, pas un cours scientifique générique : introduction du vivant et problématique → repères et vocabulaire → organisation biologique → structures et fonctions → observation/microscopie ou documents scientifiques → comparaison et mise en relation → bilan des notions → activités d'analyse de schéma/document → exercices de compréhension et d'application → corrigés. Pour un chapitre sur la cellule, privilégie dans cet ordre : notion de cellule → cellule procaryote/eucaryote → organisation générale → membrane, cytoplasme et noyau → principaux organites et fonctions → cellule animale/végétale → observation au microscope → bilan. N'invente pas de démonstrations mathématiques. N'utilise aucun graphique GeoGebra sauf si le sujet demande réellement une donnée biologique quantitative ; pour une structure biologique, utilise un schéma/une illustration documentaire. Limite les exercices à quelques activités intégrées au fil du cours puis regroupe un court entraînement final.",scientifique:"Profil scientifique obligatoire. Organise le cours dans cet ordre logique quand le sujet le permet : prérequis → notions fondamentales → définitions → propriétés/théorèmes → démonstration ou justification → méthode pas à pas → exemples calculés → interprétation → exercices progressifs → problème d'approfondissement → corrigés. Utilise les formules LaTeX uniquement dans les expressions mathématiques. Ne force pas des graphiques s'ils ne sont pas pertinents.",experimental:"Profil expérimental obligatoire. Organise le cours autour de : situation-problème → phénomène → observation → hypothèse/interprétation → loi ou principe → grandeurs et unités → protocole ou méthode expérimentale → résultats/tableau → exploitation → application → exercices → corrigés. N'utilise des formules que lorsqu'elles sont réellement nécessaires.",langues:"Profil langues obligatoire. Organise le document autour de : objectifs communicatifs → vocabulaire contextualisé → expressions utiles → point de grammaire → exemples en contexte → compréhension/lecture ou écoute décrite → dialogue ou interaction → activité de production → exercice de réemploi → correction/answers. N'insère jamais de démonstration mathématique, de théorème ou de formule artificielle. Les exemples doivent rester dans la langue étudiée avec traduction/explication si utile.",francais_litterature:"Profil français/littérature obligatoire. Organise le document autour de : contexte et repères → support ou extrait → compréhension/observation → notions littéraires → procédés et indices → analyse détaillée → interprétation → problématique → méthode de commentaire/dissertation selon le sujet → activité d'application → corrigé et analyse. Privilégie les citations courtes, l'argumentation et l'analyse plutôt que les listes mécaniques.",histoire_geographie:"Profil histoire-géographie obligatoire. Organise le document autour de : repères → contexte spatial/temporel → acteurs et territoires → événements ou phénomènes → causes → déroulement/organisation → conséquences → documents/sources à analyser → chronologie ou tableau si utile → synthèse → activités → corrigés. Décris les cartes de façon pédagogique si une carte graphique n'est pas disponible.",informatique:"Profil informatique obligatoire. Organise le document autour de : objectif/problème → concepts fondamentaux → vocabulaire technique → logique/algorithme → exemple pas à pas → code ou commandes dans des blocs dédiés → explication ligne par ligne → erreurs fréquentes → exercice de mise en pratique → corrigé. N'utilise pas de formules mathématiques sans nécessité.",technique:"Profil technique obligatoire. Organise le document autour de : objectif → matériel/composants → prérequis et sécurité → principe de fonctionnement → procédure étape par étape → schéma/tableau si utile → contrôle/diagnostic → application → exercice pratique → corrigé. Privilégie les consignes opératoires et les résultats attendus.",general:"Structure pédagogique générale progressive, mais adapte réellement les exemples, activités et exercices à la matière sans importer artificiellement une structure scientifique."};
-  return {profile,mode,instruction:instruction[profile]||instruction.general};
-}const db=createClient(URL,SR,{auth:{autoRefreshToken:false,persistSession:false}});const H={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS"};const out=(x:unknown,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{...H,"Content-Type":"application/json"}});
-const SCHEMA={title:"string",introduction:"string",learning_objectives:["string"],sections:[{title:"string",objective:"string",content:["string"],formula:"string",graphs:[{instrument:"function2d|parametric2d|parametric3d|surface3d|geometry3d",title:"string",expression:"string",x_expression:"string",y_expression:"string",z_expression:"string",parameter:"t",t_min:"number",t_max:"number",x_label:"string",y_label:"string",z_label:"string",x_min:"number",x_max:"number",y_min:"number",y_max:"number",z_min:"number",z_max:"number",grid:"boolean",axes:"boolean",points:[["number","number"]],points_of_interest:[{x:"number",y:"number",z:"number",label:"string"}],objects:[{type:"point|vector|line|plane|sphere|cylinder|cone|polygon|cube|prism|pyramid|tetrahedron",name:"string",points:["[x,y,z]"],from:"[x,y,z]",to:"[x,y,z]",radius:"number",height:"number"}],asymptotes:[{type:"vertical|horizontal",value:"number"}],style:"geogebra"}],visuals:[{type:"wikimedia",purpose:"illustration|schema|photo|historical|experimental",query:"string",required:"boolean",priority:"required|recommended|optional",caption:"string"}],exercises:[{question:"string",hint:"string",formula:"string"}]}],corrections:[{exercise_number:"number",solution:"string",formula:"string"}]};
-const GRAPH_INSTRUMENTS=new Set(["function2d","parametric2d","parametric3d","surface3d","geometry3d"]);
-function normalizeGraphInstrument(g:any){
-  const x=g&&typeof g==="object"?g:{};
-  const aliases:any={"function":"function2d","graph":"function2d","courbe":"function2d","parametric":"parametric2d","parametric2d":"parametric2d","parametric3d":"parametric3d","surface":"surface3d","surface3d":"surface3d","geometry3d":"geometry3d","geometrie3d":"geometry3d","3d":"geometry3d"};
-  const raw=String(x.instrument||x.graph_type||"").toLowerCase().trim();
-  const normalized=aliases[raw]||raw;
-  const objects=Array.isArray(x.objects)?x.objects:[];
-  const points2=Array.isArray(x.points)&&x.points.some((p:any)=>Array.isArray(p)&&p.length===2);
-  const points3=Array.isArray(x.points)&&x.points.some((p:any)=>Array.isArray(p)&&p.length>=3);
-  const poi3=Array.isArray(x.points_of_interest)&&x.points_of_interest.some((p:any)=>Number.isFinite(Number(p?.z)));
-  const hasObjects=objects.some((o:any)=>o&&typeof o==="object"&&["point","vector","line","plane","sphere","cylinder","cone","polygon","cube","prism","pyramid","tetrahedron"].includes(String(o?.type||"").toLowerCase()));
-  const hasExpression=String(x.expression||"").trim();
-  const hasX=String(x.x_expression||"").trim(),hasY=String(x.y_expression||"").trim(),hasZ=String(x.z_expression||"").trim();
-  const valid:any={
-    function2d:()=>!!hasExpression||points2||Array.isArray(x.asymptotes)&&x.asymptotes.length>0,
-    parametric2d:()=>!!hasX&&!!hasY,
-    parametric3d:()=>!!hasX&&!!hasY&&!!hasZ,
-    surface3d:()=>!!hasExpression,
-    geometry3d:()=>hasObjects||points3||poi3
-  };
-  if(normalized&&valid[normalized]&&valid[normalized]())return {
-    ...x,
-    instrument:normalized,
-    title:String(x.title||"Graphique"),
-    expression:String(x.expression||"").trim(),
-    x_expression:String(x.x_expression||"").trim(),
-    y_expression:String(x.y_expression||"").trim(),
-    z_expression:String(x.z_expression||"").trim(),
-    parameter:(/^[xyz]$/i.test(String(x.parameter||""))?"t":String(x.parameter||"t").trim())||"t",
-    t_min:Number.isFinite(Number(x.t_min))?Number(x.t_min):0,
-    t_max:Number.isFinite(Number(x.t_max))?Number(x.t_max):2*Math.PI,
-    x_min:Number.isFinite(Number(x.x_min))?Number(x.x_min):-10,
-    x_max:Number.isFinite(Number(x.x_max))?Number(x.x_max):10,
-    y_min:Number.isFinite(Number(x.y_min))?Number(x.y_min):-10,
-    y_max:Number.isFinite(Number(x.y_max))?Number(x.y_max):10,
-    z_min:Number.isFinite(Number(x.z_min))?Number(x.z_min):-10,
-    z_max:Number.isFinite(Number(x.z_max))?Number(x.z_max):10,
-    points:Array.isArray(x.points)?x.points:[],
-    points_of_interest:Array.isArray(x.points_of_interest)?x.points_of_interest:[],
-    objects:Array.isArray(x.objects)?x.objects:[],
-    style:"geogebra"
-  };
-  if(raw)return null;
-  if(objects.length&&hasObjects)return {...x,instrument:"geometry3d",style:"geogebra"};
-  if(hasZ&&hasX&&hasY)return {...x,instrument:"parametric3d",style:"geogebra"};
-  if(hasX&&hasY)return {...x,instrument:points3||poi3?"parametric3d":"parametric2d",style:"geogebra"};
-  if(hasExpression)return {...x,instrument:String(x.z_label||"").trim()||points3||poi3?"surface3d":"function2d",style:"geogebra"};
-  if(points3||poi3)return {...x,instrument:"geometry3d",style:"geogebra"};
-  if(points2||Array.isArray(x.asymptotes)&&x.asymptotes.length)return {...x,instrument:"function2d",style:"geogebra"};
-  return null;
-}
-function normalizeVisualPlan(v:any){
-  const x=v&&typeof v==="object"?v:{};
-  const type=String(x.type||"wikimedia").toLowerCase().trim();
-  if(type!=="wikimedia")return null;
-  const priorityRaw=String(x.priority||"recommended").toLowerCase().trim();
-  const priority=priorityRaw==="required"||x.required===true?"required":priorityRaw==="optional"?"optional":"recommended";
-  const purposeRaw=String(x.purpose||"illustration").toLowerCase().trim();
-  const purposes=new Set(["illustration","schema","photo","historical","experimental"]);
-  return {type:"wikimedia",purpose:purposes.has(purposeRaw)?purposeRaw:"illustration",query:String(x.query||"").trim().slice(0,240),required:priority==="required",priority,caption:String(x.caption||"").trim().slice(0,280)};
-}
 
-function aiSelection(j:any){return ["gemini","llama"];}
-function aiMode(j:any){const t=String(j?.document_type||"").toLowerCase();if(/qcm|quiz|questionnaire/.test(t))return "qcm";if(/exercice|entrainement/.test(t))return "exercices";if(/devoir|evaluation|controle|examen|epreuve/.test(t))return "evaluation";return "course";}
-const GEMINI_GRAPH={instrument:{type:"STRING"},title:{type:"STRING"},expression:{type:"STRING"},x_expression:{type:"STRING"},y_expression:{type:"STRING"},z_expression:{type:"STRING"},parameter:{type:"STRING"},t_min:{type:"NUMBER"},t_max:{type:"NUMBER"},x_min:{type:"NUMBER"},x_max:{type:"NUMBER"},y_min:{type:"NUMBER"},y_max:{type:"NUMBER"},z_min:{type:"NUMBER"},z_max:{type:"NUMBER"}};
-const GEMINI_VISUAL={type:{type:"STRING"},purpose:{type:"STRING"},query:{type:"STRING"},required:{type:"BOOLEAN"},priority:{type:"STRING"},caption:{type:"STRING"}};
-const GEMINI_SCHEMA:any={type:"OBJECT",properties:{title:{type:"STRING"},introduction:{type:"STRING"},learning_objectives:{type:"ARRAY",items:{type:"STRING"}},sections:{type:"ARRAY",items:{type:"OBJECT",properties:{title:{type:"STRING"},objective:{type:"STRING"},content:{type:"ARRAY",items:{type:"STRING"}},formula:{type:"STRING"},graphs:{type:"ARRAY",items:{type:"OBJECT",properties:GEMINI_GRAPH}},visuals:{type:"ARRAY",items:{type:"OBJECT",properties:GEMINI_VISUAL}},exercises:{type:"ARRAY",items:{type:"OBJECT",properties:{question:{type:"STRING"},hint:{type:"STRING"},formula:{type:"STRING"}}}}}}},corrections:{type:"ARRAY",items:{type:"OBJECT",properties:{exercise_number:{type:"NUMBER"},solution:{type:"STRING"},formula:{type:"STRING"}}}}},required:["title","introduction","sections","corrections"]};
-function buildAuthorPrompt(j:any){const p=editorialProfile(j);return `Produis le support pédagogique complet d'Aurore en JSON strict. Pour un cours complet, vise environ 3500 à 4500 mots lorsque le sujet s’y prête, sans répétitions ni remplissage. Directement destiné aux élèves : progression naturelle, explications développées, exemples, erreurs fréquentes, 5 à 8 sections utiles, 2 à 3 exercices globaux avec corrigés. Respecte réellement le profil éditorial. Toute mathématique doit être en LaTeX. Les visuels Wikimedia doivent être précis et pédagogiquement utiles, maximum 3 par section et 8 au total. DEMANDE:${j.prompt||j.title} MATIERE:${j.subject||""} NIVEAU:${j.level||""} CLASSE:${j.class_name||""} TYPE:${j.document_type} PROFIL:${p.profile} MODE:${p.mode} CONSIGNES:${p.instruction} SCHEMA:${JSON.stringify(SCHEMA)}`;}
-async function callGeminiText(prompt:string,light=false){if(!GK)throw Error("GEMINI_API_KEY manquant");const models=light?Array.from(new Set([GLM,"gemini-3.5-flash-lite","gemini-3.1-flash-lite"].filter(Boolean))):Array.from(new Set([GM,"gemini-3.8-flash","gemini-3.5-flash",GLM].filter(Boolean)));const errors:string[]=[];for(const model of models){try{const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":GK},body:JSON.stringify({contents:[{role:"user",parts:[{text:prompt}]}],generationConfig:{temperature:light?.12:.22,maxOutputTokens:light?2400:14000,responseMimeType:"application/json",responseSchema:GEMINI_SCHEMA}})});const body:any=await r.json().catch(()=>null);if(r.ok){const text=(body?.candidates?.[0]?.content?.parts||[]).map((p:any)=>p?.text||"").join("\n").trim();if(text)return{text,model:body?.modelVersion||model};errors.push(`${model}: réponse vide`);}else{errors.push(`${model}: ${body?.error?.message||`Gemini HTTP ${r.status}`}`);}}catch(e){errors.push(`${model}: ${e instanceof Error?e.message:String(e)}`)}}throw Error(errors.join(" | ")||"Gemini indisponible");}
-async function gemini(j:any){const r=await callGeminiText(buildAuthorPrompt(j),false);const d=normalize(parse(r.text),j);if(!valid(d))throw Error("Gemini a renvoyé un manuscrit vide ou incomplet");d._provider={name:"gemini",model:r.model,status:"completed"};d._editorial={status:"completed",engine:r.model,provider:"gemini"};return d;}
-function fallbackFromPlainText(raw:string,j:any){const cleaned=String(raw||"").trim().replace(/^```(?:markdown|md)?\s*/i,"").replace(/```$/,"").trim();const lines=cleaned.split(/\r?\n/).map((x:string)=>x.trim()).filter(Boolean);const sections:any[]=[];let current:any={title:"Cours",objective:"",content:[],formula:"",graphs:[],visuals:[],exercises:[]};for(const line of lines){const heading=line.match(/^(?:#{1,3}\s+|\*\*([^*]+)\*\*\s*$|(?:[0-9]{1,2})[.)]\s+)(.+)?$/);if(heading){if(current.content.length||current.title!=="Cours")sections.push(current);const title=String(heading[2]||heading[1]||"Section").replace(/\*+/g,"").trim();current={title:title||"Section",objective:"",content:[],formula:"",graphs:[],visuals:[],exercises:[]};}else{current.content.push(line.replace(/^[-*]\s+/,"").trim())}}if(current.content.length||!sections.length)sections.push(current);return normalize({title:String(j.title||"Ressource Aurore"),introduction:sections[0]?.content?.slice(0,2).join(" ")||"Support pédagogique généré par Aurore.",learning_objectives:[],sections:sections.length>1?sections:sections.map((s:any)=>({...s,title:s.title||"Cours"})),corrections:[]},j);}
-async function llamaFull(j:any){if(!CFA||!CFT)throw Error("Cloudflare Llama indisponible");const r=await fetch(`https://api.cloudflare.com/client/v4/accounts/${CFA}/ai/run/${CFM}`,{method:"POST",headers:{Authorization:`Bearer ${CFT}`,"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"system",content:"Moteur de secours Aurore. Retourne uniquement un objet JSON valide conforme au schéma fourni. N'utilise aucun Markdown, aucune phrase avant ou après le JSON."},{role:"user",content:`DEMANDE:${j.prompt||j.title}\nMATIERE:${j.subject||""}\nNIVEAU:${j.level||""}\nCLASSE:${j.class_name||""}\nTYPE:${j.document_type}\nSCHEMA:${JSON.stringify(SCHEMA)}`}],max_tokens:8500,temperature:.2})});if(!r.ok)throw Error(`Llama HTTP ${r.status}`);const p:any=await r.json(),raw=p?.result?.response;if(typeof raw!=="string"||!raw.trim())throw Error("Llama réponse vide");let d:any;try{d=normalize(parse(raw),j);}catch(e){d=fallbackFromPlainText(raw,j);d._factory={...(d._factory||{}),llama_fallback:{status:"plain_text_to_structured",reason:String(e)}};}if(!valid(d))throw Error("Llama a renvoyé un manuscrit vide ou incomplet");d._provider={name:"llama",model:CFM,status:"completed"};d._editorial={status:"completed",engine:CFM,provider:"llama"};return d;}
-async function generateContent(j:any){const selected=aiSelection(j),providers:any={},warnings:string[]=[];let d:any=null;const order=aiMode(j)==="qcm"&&selected.includes("llama")?["llama",...selected.filter((x:string)=>x!=="llama")]:selected;for(const name of order){try{d=name==="gemini"?await gemini(j):name==="llama"?await llamaFull(j):await deepseek(j);providers[name]={status:"completed",model:d?._provider?.model||d?._editorial?.engine||name};break}catch(e){providers[name]={status:"failed",reason:String(e)};warnings.push(`${name}: ${String(e)}`);}}if(!d)throw Error("Aucun moteur IA sélectionné n'est disponible. "+warnings.join(" | "));d._factory={...(d._factory||{}),ai_selection:selected,ai_mode:aiMode(j),ai_providers:providers,provider_warnings:warnings};return d;}
-function ensureVisualPlan(j:any,d:any){const profile=editorialProfile(j).profile,context=(String(j?.title||"")+" "+String(j?.prompt||"")+" "+String(j?.subject||"")).toLowerCase(),sections=d.sections||[];const specs=profile==="biologie"&&/cellul|organite|membrane|mitose|meiose/.test(context)?[{q:"animal cell organelles diagram labeled",r:true,p:"schema",c:"Organisation d'une cellule animale et de ses principaux organites."},{q:"plant cell vs animal cell comparison diagram",r:true,p:"schema",c:"Comparaison entre cellule végétale et cellule animale."},{q:"prokaryotic vs eukaryotic cell diagram",r:true,p:"schema",c:"Comparaison entre organisation procaryote et eucaryote."},{q:"plasma membrane structure diagram",r:true,p:"schema",c:"Structure de la membrane plasmique."},{q:"onion epidermis cells microscope",r:false,p:"photo",c:"Observation microscopique de cellules végétales."}]:profile==="biologie"?[{q:"biological cell structure diagram labeled",r:true,p:"schema",c:"Schéma documentaire de la structure cellulaire."},{q:"biology microscopy cells",r:false,p:"photo",c:"Observation microscopique liée au cours."}]:profile==="experimental"?[{q:`${j.subject||"science"} ${j.title||""} experiment apparatus diagram`,r:false,p:"experimental",c:"Illustration documentaire du phénomène étudié."}]:[];const flat=()=>sections.flatMap((s:any)=>Array.isArray(s.visuals)?s.visuals:[]);for(let si=0;si<specs.length;si++){const spec=specs[si];if(flat().some((x:any)=>String(x?.query||"").toLowerCase().includes(spec.q.toLowerCase())||spec.q.toLowerCase().includes(String(x?.query||"").toLowerCase())))continue;const idx=Math.min(si,Math.max(0,sections.length-1)),arr=Array.isArray(sections[idx]?.visuals)?sections[idx].visuals:[];if(arr.length<3)arr.push(normalizeVisualPlan({type:"wikimedia",purpose:spec.p,query:spec.q,required:spec.r,priority:spec.r?"required":"recommended",caption:spec.c}));sections[idx].visuals=arr.slice(0,3);}let required=0;for(const sec of sections)for(const v of (sec.visuals||[])){if(v.required||v.priority==="required"){required++;if(required>5){v.required=false;v.priority="recommended";}}}const all=flat();for(let i=all.length-1;i>=8;i--)if(all[i].priority!=="required"&&!all[i].required)all[i]._drop=true;for(const sec of sections)sec.visuals=(sec.visuals||[]).filter((v:any)=>!v._drop).slice(0,3);d._factory={...(d._factory||{}),visual_plan:{planned:flat().length,required:flat().filter((v:any)=>v.required||v.priority==="required").length,profile}};return d;}
-async function llamaSpecialist(j:any,d:any){if(!CFA||!CFT||!aiSelection(j).includes("llama"))return d;try{const r=await fetch(`https://api.cloudflare.com/client/v4/accounts/${CFA}/ai/run/${CFM}`,{method:"POST",headers:{Authorization:`Bearer ${CFT}`,"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"system",content:'Retourne uniquement {"items":[{"question":"","hint":"","formula":"","solution":""}]} en JSON valide. Produis au maximum 3 exercices/QCM complémentaires, sans réécrire le cours.'},{role:"user",content:`TYPE:${j.document_type} TITRE:${j.title} MATIERE:${j.subject} NIVEAU:${j.level}\n${JSON.stringify((d.sections||[]).map((s:any)=>({title:s.title,content:(s.content||[]).slice(0,2)})).slice(0,8))}`}],max_tokens:1700,temperature:.12})});if(!r.ok)throw Error(`Llama spécialiste HTTP ${r.status}`);const p:any=await r.json(),x=parse(String(p?.result?.response||""));const items=Array.isArray(x?.items)?x.items.slice(0,3):[];if(items.length){const last=Math.max(0,d.sections.length-1),n=d.sections[last]?.exercises?.length||0;d.sections[last].exercises=[...(d.sections[last].exercises||[]),...items.map((it:any)=>({question:normalizeMathText(it.question||""),hint:normalizeMathText(it.hint||""),formula:it.formula?normalizeMathSegment(it.formula):""}))].slice(0,3);d.corrections=[...(d.corrections||[]),...items.map((it:any,k:number)=>({exercise_number:n+k+1,solution:normalizeMathText(it.solution||""),formula:it.formula?normalizeMathSegment(it.formula):""}))].slice(-3);}d._factory={...(d._factory||{}),llama_specialist:{status:"completed",items:items.length,model:CFM}};return d;}catch(e){d._factory={...(d._factory||{}),llama_specialist:{status:"warning",reason:String(e)}};return d;}}
-function parse(t:string){t=t.trim().replace(/^```json\s*/i,"").replace(/```$/i,"");try{return JSON.parse(t)}catch(first){try{return JSON.parse(jsonrepair(t))}catch{const a=t.indexOf("{"),b=t.lastIndexOf("}");if(a>=0&&b>a){try{return JSON.parse(jsonrepair(t.slice(a,b+1)))}catch{}}throw first}}}
-function repairCommonMathCommandCorruption(s:string){
-  s=s.replace(/\\fracrac\b/g,"\\frac")
-    .replace(/\\leftleft\b/g,"\\left")
-    .replace(/\\rightright\b/g,"\\right")
-    .replace(/\\sqrtqrt\b/g,"\\sqrt")
-    .replace(/\\inftyfty\b/g,"\\infty")
-    .replace(/\\texttext\b/g,"\\text")
-    .replace(/\\mathbbmathbb\b/g,"\\mathbb")
-    .replace(/\\lnln\b/g,"\\ln");
-  s=s.replace(/(?<!\\)\b([A-Za-z])in(?=\s*mathbb\b)/g,"$1\\in")
-    .replace(/(?<!\\)\blim(?=\s*[_({])/g,"\\lim")
-    .replace(/(?<!\\)\bsqrt(?=\s*\{)/g,"\\sqrt")
-    .replace(/(?<!\\)\bfrac(?=\s*(?:\{|[0-9]))/g,"\\frac")
-    .replace(/(?<!\\)\binfty\b/g,"\\infty")
-    .replace(/(?<!\\)\bln(?=\s*\()/g,"\\ln")
-    .replace(/(?<!\\)\blog(?=\s*\()/g,"\\log")
-    .replace(/(?<!\\)\b(sin|cos|tan|exp)(?=\s*\()/g,"\\$1")
-    .replace(/(?<!\\)\bleft(?=\s*[\(\[|])/g,"\\left")
-    .replace(/(?<!\\)\bright(?=\s*[\)\]|])/g,"\\right")
-    .replace(/(?<!\\)\btext(?=\s*\{)/g,"\\text")
-    .replace(/(?<!\\)\bmathbb(?=\s*(?:\{|[A-Za-z]))/g,"\\mathbb")
-    .replace(/(?<!\\)\b(?:qquad|quad)\b/g,"\\$&")
-    .replace(/(?<!\\)\bwidetilde(?=\s*(?:\{|[A-Za-z]))/g,"\\widetilde")
-    .replace(/(?<!\\)setminus(?=\s*(?:\{|[A-Za-z]))/g,"\\setminus");
-  return s;
+const URL = Deno.env.get("SUPABASE_URL")!;
+const SECRET_KEYS_RAW = Deno.env.get("SUPABASE_SECRET_KEYS") || "";
+let SECRET_KEY = "";
+try {
+  SECRET_KEY = String(JSON.parse(SECRET_KEYS_RAW || "{}")?.default || "").trim();
+} catch (_) {
+  SECRET_KEY = "";
 }
-function normalizeMathSegment(v:any){
-  let s=String(v??"");
-  // Recover common LaTeX commands that JSON interprets as control characters
-  // when the producer forgot to double the command backslash.
-  s=s.replace(/\frac\b/g,"\\frac")
-    .replace(/\text\b/g,"\\text")
-    .replace(/\times\b/g,"\\times")
-    .replace(/\theta\b/g,"\\theta")
-    .replace(/\to\b/g,"\\to")
-    .replace(/\left\b/g,"\\left")
-    .replace(/\right\b/g,"\\right");
-  s=repairCommonMathCommandCorruption(s);
-  s=s.replace(/\\\\+/g,"\\");
-  s=s.replace(/∞/g,"\\infty").replace(/ℝ/g,"\\mathbb{R}").replace(/≈/g,"\\approx").replace(/≤/g,"\\le").replace(/≥/g,"\\ge").replace(/≠/g,"\\ne").replace(/∈/g,"\\in");
-  s=s.replace(/\\infy\b/g,"\\infty");
-  s=s.replace(/\\mathrm\{quad\}/g,"\\quad");
-  s=s.replace(/\\text\{mathbb\{R\}\}/g,"\\mathbb{R}");
-  s=s.replace(/\\text\{R\}/g,"\\mathbb{R}");
-  s=repairCommonMathCommandCorruption(s);
-  if((s.match(/\\left\b/g)||[]).length!==(s.match(/\\right\b/g)||[]).length){
-    s=s.replace(/\\left\b/g,"").replace(/\\right\b/g,"");
+const LEGACY_SR = String(Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "").trim();
+const SR = SECRET_KEY || LEGACY_SR;
+const ANON = Deno.env.get("SUPABASE_ANON_KEY") || "";
+
+const db = createClient(URL, SR, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
+
+const H = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+const out = (x: unknown, s = 200) =>
+  new Response(JSON.stringify(x), {
+    status: s,
+    headers: { ...H, "Content-Type": "application/json" },
+  });
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: H });
+  if (req.method !== "POST") return out({ error: "Méthode non autorisée" }, 405);
+
+  const a = req.headers.get("Authorization");
+  if (!a?.startsWith("Bearer ")) return out({ error: "Authentification requise" }, 401);
+
+  const internal = !!SR && a === `Bearer ${SR}`;
+  let userId: string | null = null;
+
+  if (!internal) {
+    if (!ANON) return out({ error: "Configuration d'authentification incomplète" }, 503);
+    const u = createClient(URL, ANON, {
+      global: { headers: { Authorization: a } },
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const me = await u.auth.getUser();
+    if (me.error || !me.data.user) return out({ error: "Session invalide" }, 401);
+    userId = me.data.user.id;
   }
-  s=s.replace(/\\^([A-Za-z0-9+\\-])/g,"^{$1}");
-  s=s.replace(/_([A-Za-z0-9])/g,"_{$1}");
-  return s;
-}
-function normalizeMathText(v:any){
-  const s=String(v??"");
-  const out:string[]=[];
-  let text="",i=0;
-  const flush=()=>{if(text){out.push(text);text=""}};
-  const math=(raw:string)=>{const m=normalizeMathSegment(raw);out.push(validateMathSegment(m)?("$"+m+"$"):raw);};
-  while(i<s.length){
-    let open="",close="";
-    if(s.startsWith("\\(",i)){open="\\(";close="\\)";}
-    else if(s.startsWith("\\[",i)){open="\\[";close="\\]";}
-    else if(s.startsWith("$$",i)){open="$$";close="$$";}
-    else if(s[i]==="$"){open="$";close="$";}
-    if(open){
-      const j=s.indexOf(close,i+open.length);
-      if(j>=0){flush();math(s.slice(i+open.length,j));i=j+close.length;continue}
-    }
-    text+=s[i++];
+
+  let body: any = {};
+  try {
+    body = await req.json();
+  } catch (_) {}
+
+  const requestedId = Number(body?.job_id || 0);
+  if (requestedId && (!Number.isSafeInteger(requestedId) || requestedId < 1)) {
+    return out({ error: "job_id invalide" }, 400);
   }
-  flush();
-  return out.join("");
-}
-function normalize(d:any,j:any){d=d&&typeof d==='object'?d:{};d.title=String(d.title||j.title);d.introduction=normalizeMathText(d.introduction||"");d.learning_objectives=Array.isArray(d.learning_objectives)?d.learning_objectives.map(normalizeMathText):[];let formulaBudget=10;d.sections=Array.isArray(d.sections)?d.sections:[];const profileNow=editorialProfile(j).profile;
-d.sections=d.sections.map((s:any)=>{const sf=s.formula&&formulaBudget>0?normalizeMathSegment(s.formula):"";if(sf)formulaBudget--;const rawGraphs=Array.isArray(s.graphs)?s.graphs:[];const rawVisuals=Array.isArray(s.visuals)?s.visuals:[];const normalizedVisuals=rawVisuals.map(normalizeVisualPlan).filter((v:any)=>!!v).slice(0,3);const normalizedGraphs=rawGraphs.map(normalizeGraphInstrument).filter((g:any)=>!!g);const keepGraphs=normalizedGraphs.length>0;return {title:String(s.title||"Section"),objective:normalizeMathText(s.objective||""),content:Array.isArray(s.content)?s.content.map(normalizeMathText):[],formula:sf,graphs:keepGraphs?normalizedGraphs:[],visuals:normalizedVisuals,exercises:Array.isArray(s.exercises)?s.exercises.map((q:any)=>{const f=q.formula&&formulaBudget>0?normalizeMathSegment(q.formula):"";if(f)formulaBudget--;return {question:normalizeMathText(q.question||""),hint:normalizeMathText(q.hint||""),formula:f}}):[]}});d.corrections=Array.isArray(d.corrections)?d.corrections.map((c:any,i:number)=>{const f=c.formula&&formulaBudget>0?normalizeMathSegment(c.formula):"";if(f)formulaBudget--;return {exercise_number:Number(c.exercise_number)||i+1,solution:normalizeMathText(c.solution||""),formula:f}}):[];d._factory={...(d._factory||{}),formula_render_budget:10,math_policy:"LaTeX obligatoire",math_normalizer:"deterministic-v4"};return d}
-function count(d:any){const a=[d.introduction,...d.learning_objectives,...d.sections.flatMap((s:any)=>[s.title,s.objective,...s.content,...s.exercises.flatMap((q:any)=>[q.question,q.hint,q.formula])]),...d.corrections.flatMap((c:any)=>[c.solution,c.formula])];return a.join(" ").split(/\s+/).filter(Boolean).length}
-function valid(d:any){return !!d&&typeof d==='object'&&String(d.title||'').trim().length>0&&String(d.introduction||'').trim().length>0&&Array.isArray(d.sections)&&d.sections.length>0&&d.sections.some((s:any)=>Array.isArray(s.content)&&s.content.some((x:any)=>String(x||'').trim().length>0))}
-function author(j:any){return {model:"deepseek-chat",response_format:{type:"json_object"},temperature:.2,max_tokens:14000,messages:[{role:"system",content:`Tu es DEEPSEEK, auteur scientifique principal d'Aurore. Rédige un véritable support d'apprentissage destiné directement aux élèves. JSON strict. La priorité est la compréhension : explique les idées simplement, progressivement et avec des transitions naturelles. Ne parle pas du fait que tu écris un cours, ne justifie pas la pertinence pédagogique du document et n'adopte pas le ton d'un guide pour enseignant. Entre directement dans la notion, pars si possible d'une situation concrète ou d'une question que l'élève peut se poser, puis construis la réponse étape par étape. Vise environ 3500 à 4500 mots pour un cours complet lorsque le sujet s’y prête, sans gonfler artificiellement le nombre de sections. La longueur doit venir de la qualité des explications, des exemples guidés, des liens entre les notions et des erreurs fréquentes utiles, pas de répétitions. Limite l'entraînement final à 2 ou 3 exercices globaux, assez riches pour mobiliser plusieurs notions du chapitre, avec un corrigé détaillé pour chacun. De petites questions de vérification peuvent être intégrées dans l'explication, mais ne transforme pas le cours en succession de 10 ou 12 mini-exercices. Chaque problème global doit faire travailler plusieurs étapes du raisonnement et progresser du plus accessible vers le plus complexe. RÈGLE DE FIL PÉDAGOGIQUE : construis le document comme un cours qui se déroule étape par étape. Chaque section doit découler naturellement de la précédente ; introduis les notions dans l'ordre nécessaire, réutilise les notations déjà définies, rappelle brièvement le prérequis utile avant une nouvelle notion et ajoute des transitions explicites. Ne saute pas directement à une technique avancée sans avoir posé les bases. Évite les répétitions et les changements brusques de sujet. La conclusion doit reprendre le fil et relier les notions entre elles. RÈGLE DE STYLE ÉLÈVE : utilise un vocabulaire direct et naturel. Préfère « Formule utile », « Relation utile », « Propriété à connaître », « Proposition », « Méthode », « Exemple guidé », « Vocabulaire utile », « À retenir », « Attention », « Astuce » et « Erreur fréquente » lorsque le contenu s'y prête. Pour mettre un terme à mémoriser en évidence, entoure-le de doubles crochets, par exemple [[pH]], [[acide fort]] ou [[variable]]. N'utilise ces marqueurs que pour des mots ou courtes expressions réellement utiles à retenir.\n\nRÈGLE ABSOLUE — MATHÉMATIQUES EN LATEX : toute expression mathématique DOIT être écrite en LaTeX. N'écris JAMAIS de symbole mathématique Unicode dans une expression : utilise \\infty, \\approx, \\le, \\ge, \\ne, \\in, \\sqrt{}, \\times, \\div, \\pm, \\pi, \\alpha, \\mathbb{R}, etc. Les variables et lettres a,b,c,d,x,y,f,g doivent être en LaTeX lorsqu'elles appartiennent à une expression mathématique. Utilise $...$ pour les expressions inline et $$...$$ pour les expressions isolées importantes. Les exposants doivent être x^{2}, x^{n}, e^{x}; les indices a_{1}, x_{n}. Les fractions doivent utiliser \\frac{a}{b}. Les racines utilisent \\sqrt{x}. Exemple : La fonction $f$ est définie sur $\\mathbb{R}$ et vérifie $$f(x)=ax^2+bx+c.$$\n\nNe transforme PAS les lettres ordinaires du français en mathématiques : seules les lettres appartenant à une expression mathématique sont concernées. N'utilise pas @@...@@. Les champs formula doivent contenir du LaTeX pur, sans symboles Unicode. Si un graphique est utile, ajoute sections[].graphs avec un instrument choisi selon la notion. function2d = courbe classique y=f(x) ; parametric2d = trajectoire x(t),y(t) ; parametric3d = trajectoire spatiale x(t),y(t),z(t) ; surface3d = surface z=f(x,y) ; geometry3d = points, vecteurs, droites, plans et solides dans l’espace. N’utilise la 3D que lorsqu’elle améliore réellement la compréhension spatiale ; jamais comme décoration. Pour parametric2d/parametric3d, renseigne x_expression, y_expression, z_expression si nécessaire, parameter, t_min et t_max. Pour surface3d, renseigne expression et les bornes x_min,x_max,y_min,y_max. Pour geometry3d, renseigne des objects explicites avec coordonnées numériques ; types utiles : point, vector, line, plane, sphere, cylinder, cone, polygon, cube, prism, pyramid, tetrahedron. Pour les solides, donne les sommets/points nécessaires ou une hauteur/rayon cohérente. Privilégie une construction qui sert directement la notion étudiée. Les bornes doivent être finies et permettre de voir l’objet. Les instruments 2D existants restent prioritaires lorsqu’ils suffisent. RÈGLES DE CHOIX OBLIGATOIRES : si la demande ou le titre contient « courbe paramétrée », « trajectoire paramétrée » ou « équations paramétriques », crée au moins un graph instrument=parametric2d avec x_expression et y_expression valides ; ne te contente pas d’expliquer la notion en texte. Si la demande contient « courbe paramétrée 3D », « trajectoire spatiale », « hélice », « espace » avec une courbe, crée au moins un instrument=parametric3d avec x_expression,y_expression,z_expression et t_min<t_max. Si la demande porte sur « surface », « surface 3D », « z=f(x,y) », crée un instrument=surface3d. Si elle porte sur « solide », « cube », « pyramide », « prisme », « tétraèdre », « sphère », « cylindre », « cône » ou une construction de géométrie dans l’espace, crée au moins un instrument=geometry3d avec des objects exploitables. Pour un cours qui enseigne explicitement plusieurs de ces notions, utilise plusieurs instruments correspondants. Exemple obligatoire pour une hélice : instrument=parametric3d, x_expression=cos(t), y_expression=sin(t), z_expression=t, parameter=t, t_min=0, t_max=6.283185307179586. Exemple de surface : instrument=surface3d, expression=x^2-y^2, x_min=-3, x_max=3, y_min=-3, y_max=3. Les graphiques doivent servir immédiatement l’explication ou un exercice ; jamais être décoratifs. RÈGLE VISUELLE OBLIGATOIRE — ILLUSTRATIONS DOCUMENTAIRES : si une illustration documentaire améliore nettement la compréhension, ajoute sections[].visuals avec type="wikimedia". Utilise une requête courte, précise et exploitable par Wikimedia Commons, idéalement en anglais (ex. "eukaryotic cell organelles diagram", "convex lens optical bench experiment", "electromagnetic spectrum diagram"). Pour la physique, les expériences, appareils, phénomènes, montages, matériaux et observations réelles doivent privilégier Wikimedia quand une illustration documentaire est utile. Pour les mathématiques, n’utilise Wikimedia que lorsqu’une image documentaire apporte quelque chose que GeoGebra ne peut pas apporter ; les courbes, constructions, fonctions et solides mathématiques restent dans sections[].graphs. Pour la biologie/SVT, les structures anatomiques et cellulaires peuvent demander une illustration documentaire. Pour histoire-géographie, technique, informatique et langues, une image Wikimedia peut aussi être utile selon le sujet. Chaque visuel doit avoir une fonction pédagogique explicite, une query précise et une courte caption. N’ajoute pas d’images décoratives. Maximum 3 visuels demandés par section et vise au maximum 8 visuels sur tout le document. Utilise priority="required" seulement si le visuel est important pour comprendre la notion ; sinon "recommended" ou "optional".`},{role:"user",content:`DEMANDE: ${j.prompt||j.title}\nMATIERE: ${j.subject||""}\nNIVEAU: ${j.level||""}\nCLASSE: ${j.class_name||""}\nTYPE: ${j.document_type}\nSCHEMA: ${JSON.stringify(SCHEMA)}\nPROFIL ÉDITORIAL: ${editorialProfile(j).profile}\nMODE DE RESSOURCE: ${editorialProfile(j).mode}\nCONSIGNES DE PRÉSENTATION: ${editorialProfile(j).instruction}\nProduis le manuscrit complet sans markdown.`}]}}
-async function deepseek(j:any){if(!DS)throw Error("DEEPSEEK_API_KEY manquant");const c=new AbortController(),tm=setTimeout(()=>c.abort(),85000);try{const r=await fetch("https://api.deepseek.com/chat/completions",{method:"POST",signal:c.signal,headers:{Authorization:`Bearer ${DS}`,"Content-Type":"application/json"},body:JSON.stringify(author(j))});const t=await r.text();if(!r.ok)throw Error(`DeepSeek HTTP ${r.status}`);const p=parse(t),raw=p?.choices?.[0]?.message?.content;if(typeof raw!=="string"||!raw.trim())throw Error("DeepSeek réponse vide");let parsed:any;try{parsed=parse(raw)}catch(first){const repairBody={messages:[{role:"system",content:"Tu es un réparateur JSON strict. Transforme le texte fourni en un objet JSON valide correspondant exactement au schéma demandé. Ne résume rien, ne supprime aucune information utile, ne change pas le sens. Retourne uniquement le JSON valide, sans markdown."},{role:"user",content:"SCHEMA:"+JSON.stringify(SCHEMA)+"\nTEXTE À RÉPARER:\n"+raw}],response_format:{type:"json_object"},temperature:0,max_tokens:16000};const rr=await fetch("https://api.deepseek.com/chat/completions",{method:"POST",signal:c.signal,headers:{Authorization:`Bearer ${DS}`,"Content-Type":"application/json"},body:JSON.stringify(repairBody)});const rt=await rr.text();if(!rr.ok)throw Error(`DeepSeek réparation HTTP ${rr.status}`);const rp=parse(rt),rc=rp?.choices?.[0]?.message?.content;if(typeof rc!=="string"||!rc.trim())throw Error("DeepSeek réparation vide");parsed=parse(rc)}const d=normalize(parsed,j);if(!valid(d))throw Error("DeepSeek a renvoyé un manuscrit vide ou incomplet");return d}finally{clearTimeout(tm)}}
-async function luna(j:any,d:any){if(!CFA||!CFT){d._editorial={status:"skipped"};return d}const c=new AbortController(),tm=setTimeout(()=>c.abort(),75000);try{const body={messages:[{role:"system",content:`Tu es LUNA, directrice éditoriale pédagogique d'Aurore. Contrôle et enrichis le manuscrit de DEEPSEEK sans le raccourcir. Tu travailles pour un support destiné directement aux élèves, pas pour un guide d'enseignant. JSON strict selon le schéma. Vérifie niveau, progression, cohérence scientifique, clarté des paragraphes, notations, exercices/corrigés et graphiques. Supprime les formulations qui parlent du document, de sa pertinence ou de sa construction pédagogique au lieu d'enseigner directement la notion. Veille à ce que les paragraphes portent chacun une idée principale et s'enchaînent par des transitions naturelles. Conserve 2 ou 3 exercices finaux globaux et substantiels lorsque le manuscrit en contient davantage, en regroupant les compétences plutôt qu'en multipliant les mini-exercices. Chaque exercice retenu doit mobiliser plusieurs notions et être suivi d'un corrigé détaillé. Utilise les labels « Formule utile », « Relation utile », « Propriété à connaître », « Proposition », « Méthode », « Exemple guidé », « Vocabulaire utile », « À retenir », « Attention », « Astuce » et « Erreur fréquente » lorsque cela améliore la lecture. Entoure les termes courts à mémoriser de doubles crochets, par exemple [[pH]] ou [[acide fort]], lorsque c'est réellement utile. Vérifie aussi sections[].visuals : garde seulement les visuels réellement utiles ; corrige les queries trop vagues ou hors sujet ; privilégie Wikimedia pour les illustrations documentaires, expériences, appareils et phénomènes réels en physique, mais laisse les courbes/constructions mathématiques à sections[].graphs. Respecte au maximum 3 visuels par section et 8 sur le document. N’invente pas de visuel simplement pour remplir une page. Mets priority="required" uniquement lorsqu’une illustration est pédagogiquement nécessaire. Développe les passages trop courts, ajoute transitions, exemples et erreurs fréquentes utiles. Ne supprime pas de contenu correct. CONTRÔLE DU FIL PÉDAGOGIQUE : vérifie que les sections forment une progression continue et logique, que chaque notion nouvelle est préparée par les précédentes, que les notations restent stables, que les transitions expliquent pourquoi on passe à l'étape suivante et que les exercices montent réellement en difficulté. Si une rupture est détectée, réorganise ou enrichis le contenu pour rétablir la continuité sans supprimer une notion correcte. Vérifie aussi que les corrections utilisent les méthodes réellement introduites dans le cours.\n\nPOLITIQUE LATEX OBLIGATOIRE : conserve et corrige les expressions mathématiques en LaTeX. Toute variable, fonction, nombre avec exposant ou indice, relation, fraction, racine, ensemble et symbole mathématique doit être dans $...$ ou $$...$$. N'utilise aucun symbole mathématique Unicode comme ∞, ≈, ≤, ≥, √, π, α, ℝ. Remplace-les par \\infty, \\approx, \\le, \\ge, \\sqrt{}, \\pi, \\alpha, \\mathbb{R}. Ne convertis en mathématiques que les lettres qui appartiennent réellement à une expression mathématique.`},{role:"user",content:`CONTEXTE: ${j.title} · ${j.subject||""} · ${j.level||""} · ${j.class_name||""}\nSCHEMA: ${JSON.stringify(SCHEMA)}\nMANUSCRIT:\n${JSON.stringify(d)}`}],max_tokens:10000,temperature:.12};const r=await fetch(`https://api.cloudflare.com/client/v4/accounts/${CFA}/ai/run/${CFM}`,{method:"POST",signal:c.signal,headers:{Authorization:`Bearer ${CFT}`,"Content-Type":"application/json"},body:JSON.stringify(body)});if(!r.ok)throw Error(`Luna editorial HTTP ${r.status}`);const p=await r.json(),raw=p?.result?.response;if(typeof raw!=="string")throw Error("Luna editorial réponse vide");const x=normalize(parse(raw),j);if(!valid(x))throw Error("Luna a vidé ou invalidé le manuscrit");x._editorial={status:"completed",engine:CFM};return x}finally{clearTimeout(tm)}}
-function html(d:any){const e=(v:any)=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");return`<html><body><h1>${e(d.title)}</h1><p>${e(d.introduction)}</p>${d.sections.map((s:any,i:number)=>`<section><h2>${i+1}. ${e(s.title)}</h2>${s.content.map((p:string)=>`<p>${e(p)}</p>`).join("")}${s.formula?`<p>${e(s.formula)}</p>`:""}${s.exercises.map((q:any,n:number)=>`<div><b>Exercice ${n+1}</b><p>${e(q.question)}</p><p>${e(q.hint)}</p>${q.formula?`<p>Formule : ${e(q.formula)}</p>`:""}</div>`).join("")}</section>`).join("")}<section><h2>Corrigés détaillés</h2>${d.corrections.map((c:any)=>`<div><b>Exercice ${c.exercise_number}</b><p>${e(c.solution)}</p>${c.formula?`<p>Formule : ${e(c.formula)}</p>`:""}</div>`).join("")}</section></body></html>`}
-Deno.serve(async req=>{if(req.method==='OPTIONS')return new Response('ok',{headers:H});if(req.method!=='POST')return out({error:'Méthode non autorisée'},405);const a=req.headers.get('Authorization');if(!a?.startsWith('Bearer '))return out({error:'Authentification requise'},401);const internal=a===`Bearer ${SR}`;let userId:string|null=null;if(!internal){const u=createClient(URL,ANON,{global:{headers:{Authorization:a}},auth:{autoRefreshToken:false,persistSession:false}});const me=await u.auth.getUser();if(me.error||!me.data.user)return out({error:'Session invalide'},401);userId=me.data.user.id;}let b:any;try{b=await req.json()}catch{return out({error:'JSON invalide'},400)}const requestedId=Number(b?.job_id||0);if(!internal&&(!Number.isSafeInteger(requestedId)||requestedId<1))return out({error:'job_id invalide'},400);if(requestedId&&(!Number.isSafeInteger(requestedId)||requestedId<1))return out({error:'job_id invalide'},400);if(requestedId&&!internal){const own=await db.from('aurora_content_jobs').select('id').eq('id',requestedId).eq('created_by',userId).maybeSingle();if(own.error||!own.data)return out({error:'Job introuvable'},404);}const cl=await db.rpc('aurora_claim_content_job',{p_job_id:requestedId||null});if(cl.error)return out({error:cl.error.message},500);if(!cl.data)return out({ok:true,internal,processed:false,status:'idle',message:'Aucun job de contenu disponible.'},200);const j=cl.data;try{let d=await generateContent(j);d=ensureVisualPlan(j,d);d=await llamaSpecialist(j,d);if(!valid(d))throw Error('QA contenu: manuscrit vide après traitement IA');d.qa={word_count:count(d),sections:d.sections.length,exercises:d.sections.reduce((n:number,s:any)=>n+s.exercises.length,0),corrections:d.corrections.length,warnings:[]};if(d.qa.word_count<3500)d.qa.warnings.push('Contenu un peu court : privilégier l’explication et les exemples plutôt que les répétitions');if(d.qa.exercises<2)d.qa.warnings.push('Moins de 2 exercices globaux');if(d.qa.exercises>3)d.qa.warnings.push('Plus de 3 exercices : regrouper les compétences en problèmes globaux');if(d.qa.corrections<d.qa.exercises)d.qa.warnings.push('Corrigés incomplets');d._factory={...(d._factory||{}),content_profile:editorialProfile(j).profile,resource_mode:editorialProfile(j).mode,pipeline:'Gemini primary -> Llama specialist -> deterministic Aurore fusion -> renderer',generated_at:new Date().toISOString(),math_policy:'LaTeX obligatoire dans tout contexte mathématique',instrument_policy:'purposeful_2d_3d_v1'};const themeColor=String(j?.instructions?.theme_color||'').trim();if(themeColor)d._aurore_design={...(d._aurore_design||{}),theme_color:themeColor,version:1};const payload={...d};const editorialStatus=d?._editorial?.status||'failed';const pdfEligible=editorialStatus==='completed';const ins=await db.from('aurora_generated_documents').insert({job_id:j.id,created_by:j.created_by,title:d.title||j.title,subject:j.subject,level:j.level,class_name:j.class_name,document_type:j.document_type,source_format:'html',source_content:html(d),content_json:payload,pdf_path:null,pdf_url:null,version:1,status:pdfEligible?'review':'draft',validation_notes:`Pipeline IA : Gemini production principale, Llama spécialisé, DeepSeek optionnel. ${d.qa.word_count} mots · ${d.qa.sections} sections · ${d.qa.exercises} exercices · ${d.qa.corrections} corrigés. ${pdfEligible?'':'PDF bloqué : édition Luna non terminée. '}Budget formules PDF: 10. Politique mathématique : LaTeX obligatoire. Visuels : plan Wikimedia validé, maximum 3 par section et 8 par document. Production serveur : le navigateur n'est pas requis après la mise en file.`,metadata:{pipeline:'Gemini -> Llama -> deterministic fusion -> aurora-content-renderer-ggb',qa:d.qa,editorial:d._editorial||{},math_policy:'latex-required',aurore_design:d._aurore_design||{}}}).select().single();if(ins.error)throw Error(ins.error.message);await db.from('aurora_content_jobs').update({status:'review',generated_document_id:ins.data.id,error_message:null,updated_at:new Date().toISOString()}).eq('id',j.id);return out({ok:true,job_id:j.id,generated_document_id:ins.data.id,status:pdfEligible?'review':'draft',pipeline:'Gemini -> Llama -> deterministic fusion -> renderer',qa:d.qa,content_validated:true,content_json_saved:true,pdf_eligible:pdfEligible,server_side:internal})}catch(e){const m=String(e);const attempts=Number(j?.metadata?.content_worker_failure_count||0)+1;const retry=attempts<=3;if(retry){await db.from('aurora_content_jobs').update({status:'queued',error_message:m,metadata:{...(j.metadata||{}),content_worker_failure_count:attempts,content_worker_last_error:m,content_worker_requeued_at:new Date().toISOString()},updated_at:new Date().toISOString()}).eq('id',j.id)}else{await db.rpc('aurora_finish_content_job',{p_job_id:j.id,p_status:'failed',p_error:m})}return out({ok:false,error:m,job_id:j.id,requeued:retry,failure_count:attempts},retry?503:500)}});
+
+  let q = db
+    .from("aurora_content_jobs")
+    .select("id,status,title,generated_document_id,error_message,updated_at,created_by")
+    .limit(1);
+
+  if (requestedId) {
+    q = q.eq("id", requestedId);
+  } else {
+    q = q
+      .in("status", ["queued", "processing", "review"])
+      .order("created_at", { ascending: true });
+  }
+
+  const { data: job, error } = await q.maybeSingle();
+  if (error) return out({ error: error.message }, 500);
+  if (!job) {
+    return out({
+      ok: true,
+      processed: false,
+      status: "idle",
+      editorial_required: true,
+      message: "Aucune demande de contenu trouvée.",
+    });
+  }
+
+  if (!internal && userId && job.created_by && job.created_by !== userId) {
+    return out({ error: "Job introuvable ou non autorisé" }, 404);
+  }
+
+  if (job.generated_document_id) {
+    return out({
+      ok: true,
+      processed: false,
+      ready_for_pdf: true,
+      editorial_required: false,
+      job_id: job.id,
+      generated_document_id: job.generated_document_id,
+      status: job.status,
+      message: "Le contenu éditorial est déjà intégré. Aucun moteur de génération de contenu n'est appelé.",
+    });
+  }
+
+  return out({
+    ok: true,
+    processed: false,
+    ready_for_pdf: false,
+    editorial_required: true,
+    job_id: job.id,
+    status: job.status,
+    message:
+      "Contenu éditorial non intégré. Aucun moteur IA de génération de contenu n'est appelé. " +
+      "Le document doit d'abord être fourni via le circuit d'ingestion éditoriale Aurore.",
+  });
+});
