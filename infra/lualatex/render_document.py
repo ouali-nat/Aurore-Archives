@@ -2344,6 +2344,135 @@ def _has_usable_content_json(data):
     )
 
 
+def _documentary_visual_plan_qa(data):
+    """Validate the cross-subject documentary illustration contract at render time."""
+    if not isinstance(data, dict):
+        return {"enabled": False, "legacy": True, "planned_visuals": 0}
+
+    subject = clean_text(data.get("subject") or "").lower()
+    profile = _edition_profile(data)
+    is_math = "math" in subject
+    sections = data.get("sections")
+    if not isinstance(sections, list):
+        raise ValueError("Documentary visual plan QA failed: sections must be a list")
+
+    total_visuals = sum(
+        len(section.get("visuals") or [])
+        for section in sections
+        if isinstance(section, dict) and isinstance(section.get("visuals"), list)
+    )
+
+    if is_math:
+        return {"enabled": False, "math": True, "planned_visuals": 0, "ignored_documentary_visuals": total_visuals}
+
+    metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+    origin = clean_text(metadata.get("origin") or "").strip().lower()
+    plan = data.get("visual_plan")
+    if not isinstance(plan, dict) and isinstance(metadata.get("visual_plan"), dict):
+        plan = metadata.get("visual_plan")
+
+    if origin != "gpt_editorial_ingest" and not isinstance(plan, dict):
+        return {"enabled": False, "legacy": True, "planned_visuals": 0}
+
+    if not isinstance(plan, dict):
+        raise ValueError("Documentary visual plan QA failed: visual_plan is required")
+    if plan.get("schema_version") != "documentary-visual-plan-1":
+        raise ValueError("Documentary visual plan QA failed: invalid schema_version")
+
+    decisions = plan.get("decisions")
+    if not isinstance(decisions, list) or len(decisions) != len(sections):
+        raise ValueError("Documentary visual plan QA failed: one decision is required per section")
+
+    by_section = {}
+    for decision in decisions:
+        try:
+            number = int(decision.get("section_number"))
+        except (TypeError, ValueError, AttributeError):
+            raise ValueError("Documentary visual plan QA failed: invalid section_number")
+        if number in by_section or number < 1 or number > len(sections):
+            raise ValueError("Documentary visual plan QA failed: duplicate or out-of-range section_number")
+        by_section[number] = decision
+
+    visual_map = {}
+    referenced = []
+    planned = 0
+
+    for index, section in enumerate(sections, start=1):
+        if index not in by_section:
+            raise ValueError(f"Documentary visual plan QA failed: missing decision for section {index}")
+        decision = by_section[index]
+        choice = clean_text(decision.get("decision") or "").strip().lower()
+        if choice not in ("build", "not_needed"):
+            raise ValueError(f"Documentary visual plan QA failed: invalid decision for section {index}")
+
+        visuals = section.get("visuals") if isinstance(section.get("visuals"), list) else []
+        if choice == "not_needed":
+            if visuals:
+                raise ValueError(f"Documentary visual plan QA failed: section {index} is not_needed but contains visuals")
+            if len(clean_text(decision.get("rationale") or "").strip()) < 8:
+                raise ValueError(f"Documentary visual plan QA failed: rationale missing for section {index}")
+            continue
+
+        visual_ids = decision.get("visual_ids")
+        if not isinstance(visual_ids, list) or not visual_ids:
+            raise ValueError(f"Documentary visual plan QA failed: build requires visual_ids for section {index}")
+        if len(visual_ids) != len(visuals):
+            raise ValueError(f"Documentary visual plan QA failed: section {index} visual ownership mismatch")
+
+        local_refs = set()
+        for visual in visuals:
+            if not isinstance(visual, dict):
+                raise ValueError(f"Documentary visual plan QA failed: invalid visual in section {index}")
+            if clean_text(visual.get("type") or "wikimedia").strip().lower() != "wikimedia":
+                raise ValueError(f"Documentary visual plan QA failed: section {index} must use type=wikimedia")
+            visual_id = clean_text(visual.get("id") or "").strip()
+            if not visual_id:
+                raise ValueError(f"Documentary visual plan QA failed: missing stable visual id in section {index}")
+            if visual_id in visual_map:
+                raise ValueError(f"Documentary visual plan QA failed: duplicate visual id {visual_id}")
+            if len(clean_text(visual.get("query") or "").strip()) < 4:
+                raise ValueError(f"Documentary visual plan QA failed: query missing for visual {visual_id}")
+            if len(clean_text(visual.get("title") or "").strip()) < 2:
+                raise ValueError(f"Documentary visual plan QA failed: title missing for visual {visual_id}")
+            if len(clean_text(visual.get("caption") or "").strip()) < 4:
+                raise ValueError(f"Documentary visual plan QA failed: caption missing for visual {visual_id}")
+            if clean_text(visual.get("purpose") or "").strip().lower() not in (
+                "illustration", "schema", "photo", "experimental", "comparison"
+            ):
+                raise ValueError(f"Documentary visual plan QA failed: invalid purpose for visual {visual_id}")
+            if visual.get("required") is not True and str(visual.get("required") or "").strip().lower() not in ("1", "true", "yes", "oui"):
+                raise ValueError(f"Documentary visual plan QA failed: visual {visual_id} must be required")
+            visual_map[visual_id] = index
+
+        for raw_id in visual_ids:
+            visual_id = clean_text(raw_id or "").strip()
+            if not visual_id or visual_id in local_refs:
+                raise ValueError(f"Documentary visual plan QA failed: duplicate/empty visual id in section {index}")
+            local_refs.add(visual_id)
+            if visual_id not in visual_map or visual_map[visual_id] != index:
+                raise ValueError(f"Documentary visual plan QA failed: visual {visual_id} does not belong to section {index}")
+            referenced.append(visual_id)
+            planned += 1
+
+    if not visual_map:
+        raise ValueError("Documentary visual plan QA failed: at least one documentary visual is required")
+    if len(visual_map) > 8:
+        raise ValueError("Documentary visual plan QA failed: maximum 8 documentary visuals")
+    if len(set(referenced)) != len(visual_map):
+        raise ValueError("Documentary visual plan QA failed: visual referenced more than once")
+    if set(referenced) != set(visual_map):
+        raise ValueError("Documentary visual plan QA failed: orphan documentary visual")
+
+    return {
+        "enabled": True,
+        "schema_version": "documentary-visual-plan-1",
+        "planned_visuals": planned,
+        "sections_with_visuals": sum(
+            1 for decision in by_section.values()
+            if clean_text(decision.get("decision") or "").strip().lower() == "build"
+        ),
+    }
+
 def render(data):
     if not _has_usable_content_json(data):
         raise ValueError("LuaLaTeX source rejected: structured content_json is required")
@@ -2375,6 +2504,7 @@ def render(data):
             )
     has_geogebra = _has_geogebra(data)
     _math_visual_plan_qa(data)
+    _documentary_visual_plan_qa(data)
     lines = [
         r"\documentclass[11pt,a4paper]{article}",
         r"\usepackage{fontspec}",
