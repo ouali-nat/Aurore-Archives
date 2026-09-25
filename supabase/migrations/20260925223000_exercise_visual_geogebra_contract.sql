@@ -23,7 +23,7 @@ values
      'exercices','énoncés indépendants et corrections correspondantes'
    ),
    'visual_rule','Pour une série d’exercices, les images documentaires ne sont ni obligatoires ni soumises à un quota. Elles ne sont utilisées que si le problème lui-même en a besoin. Les représentations GeoGebra relèvent d’un contrat séparé et peuvent être utilisées en Mathématiques et en Physique-Chimie.'
- ));
+ ))
 on conflict (rule_key, version) do update
 set title=excluded.title, priority=excluded.priority, mandatory=excluded.mandatory,
     active=excluded.active, content=excluded.content, updated_at=now();
@@ -63,7 +63,7 @@ values
      'graph_locations',jsonb_build_array('exercise.statement_graphs','exercise.correction_graphs','corrections[].graphs')
    ),
    'other_subjects','Pour les autres matières, ne pas demander de graphique GeoGebra automatiquement et ne pas imposer d’images. Une extension ultérieure devra être explicitement décidée.'
- ));
+ ))
 on conflict (rule_key, version) do update
 set title=excluded.title, priority=excluded.priority, mandatory=excluded.mandatory,
     active=excluded.active, content=excluded.content, updated_at=now();
@@ -82,7 +82,7 @@ values
      'schema_version','exercise-geogebra-plan-1',
      'graph_locations',jsonb_build_array('exercise.statement_graphs','exercise.correction_graphs','corrections[].graphs')
    )
- ));
+ ))
 on conflict (rule_key, version) do update
 set title=excluded.title, priority=excluded.priority, mandatory=excluded.mandatory,
     active=excluded.active, content=excluded.content, updated_at=now();
