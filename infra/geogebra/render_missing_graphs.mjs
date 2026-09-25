@@ -185,17 +185,7 @@ function validatePlannedGraphs() {
 
 validatePlannedGraphs();
 
-const pending = [];
-let globalGraphIndex = 0;
-for (const [sectionIndex, section] of (Array.isArray(content.sections) ? content.sections : []).entries()) {
-  for (const [graphIndex, graph] of (Array.isArray(section?.graphs) ? section.graphs : []).entries()) {
-    if (validGraph(graph) && !imageReady(graph)) {
-      pending.push({ sectionIndex, graphIndex, globalGraphIndex, graph });
-    }
-    globalGraphIndex++;
-  }
-}
-
+function graphEntries(content) {,  const out = [];,  let graphIndex = 0;,  const push = (graph, owner) => {,    out.push({ graphIndex, graph, owner });,    graphIndex++;,  };,  for (const [sectionIndex, section] of (Array.isArray(content.sections) ? content.sections : []).entries()) {,    for (const graph of (Array.isArray(section?.graphs) ? section.graphs : [])) {,      push(graph, { kind: "section", sectionIndex });,    },    for (const [exerciseIndex, exercise] of (Array.isArray(section?.exercises) ? section.exercises : []).entries()) {,      for (const graph of (Array.isArray(exercise?.statement_graphs) ? exercise.statement_graphs : [])) {,        push(graph, { kind: "statement", sectionIndex, exerciseIndex });,      },      for (const graph of (Array.isArray(exercise?.correction_graphs) ? exercise.correction_graphs : [])) {,        push(graph, { kind: "correction", sectionIndex, exerciseIndex });,      },    },  },  for (const [correctionIndex, correction] of (Array.isArray(content.corrections) ? content.corrections : []).entries()) {,    for (const graph of (Array.isArray(correction?.graphs) ? correction.graphs : [])) {,      push(graph, { kind: "top_correction", correctionIndex });,    },  },  return out;,},,const pending = graphEntries(content),  .filter((entry) => validGraph(entry.graph) && !imageReady(entry.graph));
 console.log(`GeoGebra server-side: ${pending.length} graphique(s) à rendre pour le document #${DOCUMENT_ID}.`);
 
 if (!pending.length) {
@@ -620,7 +610,7 @@ const renderGraphInBrowser = async (graph) => {
 };
 
 for (const item of pending) {
-  console.log(`GeoGebra ${item.globalGraphIndex + 1}/${pending.length}: ${item.graph?.title || "Graphique"}`);
+  console.log(`GeoGebra ${item.graphIndex + 1}: ${item.graph?.title || "Graphique"} (${pending.indexOf(item) + 1}/${pending.length})`);
   const pngBase64 = await renderGraphInBrowser(item.graph);
   const uploadResponse = await fetch(`${SUPABASE_URL}/functions/v1/aurora-geogebra`, {
     method: "POST",
@@ -630,7 +620,7 @@ for (const item of pending) {
     },
     body: JSON.stringify({
       generated_document_id: DOCUMENT_ID,
-      graph_index: item.globalGraphIndex,
+      graph_index: item.graphIndex,
       png_base64: pngBase64,
       action: "server-upload",
     }),
@@ -638,7 +628,7 @@ for (const item of pending) {
   const uploadData = await uploadResponse.json().catch(() => ({}));
   if (!uploadResponse.ok || !uploadData?.ok) {
     throw new Error(
-      `GeoGebra upload échoué pour ${item.globalGraphIndex + 1}: ${JSON.stringify(uploadData)}`,
+      `GeoGebra upload échoué pour ${item.graphIndex + 1}: ${JSON.stringify(uploadData)}`,
     );
   }
   content.sections[item.sectionIndex].graphs[item.graphIndex].geogebra_image_path = uploadData.path;
@@ -657,14 +647,7 @@ await fs.writeFile(
   "utf8",
 );
 
-const remaining=[];
-globalGraphIndex=0;
-for (const section of Array.isArray(content.sections) ? content.sections : []) {
-  for (const graph of Array.isArray(section?.graphs) ? section.graphs : []) {
-    if (validGraph(graph) && !imageReady(graph)) remaining.push(globalGraphIndex);
-    globalGraphIndex++;
-  }
-}
+const remaining = graphEntries(content),  .filter((entry) => validGraph(entry.graph) && !imageReady(entry.graph)),  .map((entry) => entry.graphIndex);
 if (remaining.length) {
   throw new Error(`Préparation GeoGebra incomplète. Graphiques manquants: ${remaining.map((n)=>n+1).join(", ")}`);
 }
