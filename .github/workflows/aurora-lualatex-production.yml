@@ -16,6 +16,7 @@ on:
 permissions:
   contents: read
 
+# Course quality is enforced in Supabase before a document enters the LuaLaTeX queue.
 # GeoGebra renderer v3 regression validation uses existing generated documents only.
 # Production-only trigger: validate the Terminale C matrix document.
 concurrency:
