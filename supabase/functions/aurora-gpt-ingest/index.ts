@@ -82,6 +82,14 @@ function validateMathVisualPlan(content:any,subject:any,profile:any){
       plannedGraphs++;
     }
   }
+  for(let sectionIndex=0;sectionIndex<content.sections.length;sectionIndex++){
+    const graphs=Array.isArray(content.sections[sectionIndex]?.graphs)?content.sections[sectionIndex].graphs:[];
+    for(const graph of graphs){
+      const graphId=String(graph?.id||"").trim();
+      if(!graphId) throw new Error(`Section ${sectionIndex+1} : chaque graphique doit avoir un id stable.`);
+      if(!graphMap.has(graphId)) throw new Error(`Graphique ${graphId} : présent dans le document mais absent du plan de construction.`);
+    }
+  }
   return {enabled:true,graphable_sections:content.sections.filter((s:any)=>MATH_GRAPHABLE_PATTERN.test(normalizeForGraphMatch([s.title,...(Array.isArray(s.content)?s.content:[])].join(" ")))).length,planned_graphs:plannedGraphs};
 }
 function validateEditorialContent(content:any,profile:any,instructions:any,subjectForValidation:any=null){
