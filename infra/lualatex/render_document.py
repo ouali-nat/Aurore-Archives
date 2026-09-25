@@ -1527,6 +1527,20 @@ def _render_bare_latex_fragments(text, auto_math=False):
     return escaped
 
 
+def _repair_accidental_inline_double_dollar(s):
+    """Repair an inline formula whose closing $ is followed by an extra $.
+
+    This must run before any display-math splitting. Otherwise a sequence such
+    as "$0^-, $ donc $-\\infty.$" is misread as a display block containing
+    the word "donc", leaving LuaLaTeX in the wrong math state later.
+    """
+    return re.sub(
+        r"(?<!\$)\$([^$\n]{1,240})\$\$(?=\s|$|[,.!?;:])",
+        r"$\1$",
+        str(s or ""),
+    )
+
+
 def inline(s, auto_math=False):
     """
     Escape ordinary text while preserving LaTeX math blocks.
@@ -1535,12 +1549,7 @@ def inline(s, auto_math=False):
     array environments. Math must never pass through tex_text(), otherwise
     backslashes, braces and alignment markers are escaped into invalid TeX.
     """
-    s = str(s or "")
-    # Repair the specific upstream typo $....$: an inline formula whose
-    # closing dollar is immediately followed by an accidental extra dollar.
-    # Without this repair, later formulas can be paired incorrectly and
-    # LuaLaTeX eventually reports a missing closing math delimiter.
-    s = re.sub(r"(?<!\$)\$([^$\n]{1,240})\$\$(?=\s|$|[,.!?;:])", r"$\1$", s)
+    s = _repair_accidental_inline_double_dollar(str(s or ""))
     stripped = s.strip()
 
     # A whole item may be an explicit display-math block. Single-dollar
@@ -1657,6 +1666,9 @@ def render_exercise_text(value, mode="question"):
     lines = []
     display_pattern = re.compile(r"(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\])")
     for part in _split_exercise_text(value, mode=mode):
+        # Repair ambiguous inline/display dollar boundaries before splitting
+        # $...$ blocks; otherwise the splitter itself can consume prose as math.
+        part = _repair_accidental_inline_double_dollar(part)
         m = re.match(r"^(\d+[.)])\s+(.+)$", part, flags=re.DOTALL)
         prefix = ""
         body = m.group(2) if m else part
