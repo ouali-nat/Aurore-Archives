@@ -94,6 +94,9 @@ Deno.serve(async req=>{
     const title=text(payload.title||content.title,300);if(!title)return reply({ok:false,error:"Le titre est obligatoire."},400);
     const themeColor=text(payload.theme_color||payload.classification?.theme_color,32);if(!validColor(themeColor))return reply({ok:false,error:"theme_color doit être une couleur hexadécimale #RRGGBB."},400);
     const ingestId=text(payload.ingest_id||crypto.randomUUID(),120);
+    const rawJobId=payload.job_id;
+    const jobId=rawJobId===undefined||rawJobId===null||String(rawJobId).trim()===""?null:Number(rawJobId);
+    if(jobId!==null&&(!Number.isSafeInteger(jobId)||jobId<1))return reply({ok:false,error:"job_id doit être un entier positif."},400);
     const subject=nullable(payload.subject||payload.classification?.matiere);
     const level=nullable(payload.level||payload.classification?.niveau);
     const className=nullable(payload.class_name||payload.classification?.classe);
@@ -116,7 +119,7 @@ Deno.serve(async req=>{
       p_ingest_id:ingestId,p_created_by:createdBy,p_title:title,p_subject:subject,p_level:level,p_class_name:className,p_document_type:documentType,p_prompt:prompt,p_content_json:content,
       p_instructions:{...editorialInstructions,origin:"gpt_editorial_ingest",producer:"ChatGPT",human_review_required:true,manual_publication_only:true,lualatex_requested:false,schema_version:SCHEMA_VERSION,category:nullable(classification.categorie,100)||"Documents",domaine:nullable(classification.domaine,200),formation:nullable(classification.formation,200),specialite:nullable(classification.specialite,200),annee:nullable(classification.annee,100),semestre:nullable(classification.semestre,100),filiere:nullable(classification.filiere,200),theme_color:themeColor||"#C85C0D"},
       p_metadata:{origin:"gpt_editorial_ingest",producer:"ChatGPT",schema_version:SCHEMA_VERSION,content_sha256:contentHash,human_review_required:true,manual_publication_only:true,source:"chatgpt_editor",counts,aurore_profile:{kind:profile.kind,version:profile.version,lock:true,source:"document_type"}},
-      p_domaine:nullable(classification.domaine,200),p_formation:nullable(classification.formation,200),p_specialite:nullable(classification.specialite,200),p_annee:nullable(classification.annee,100),p_semestre:nullable(classification.semestre,100),p_filiere:nullable(classification.filiere,200),p_matiere:subject,p_theme_color:themeColor||"#C85C0D"
+      p_domaine:nullable(classification.domaine,200),p_formation:nullable(classification.formation,200),p_specialite:nullable(classification.specialite,200),p_annee:nullable(classification.annee,100),p_semestre:nullable(classification.semestre,100),p_filiere:nullable(classification.filiere,200),p_matiere:subject,p_theme_color:themeColor||"#C85C0D",p_job_id:jobId
     });
     if(error)throw error;
     await db.from("aurora_gpt_ingest_keys").update({last_used_at:new Date().toISOString()}).eq("id",keyRow.id);
