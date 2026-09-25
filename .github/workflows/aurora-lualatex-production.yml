@@ -48,7 +48,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import render_document
-          from render_document import normalize_math, _math_visual_plan_qa, _documentary_visual_plan_qa
+          from render_document import normalize_math, _math_visual_plan_qa, _geogebra_visual_plan_qa, _documentary_visual_plan_qa
 
           regressions = [
               (r"\fracrac3{(x-1)^2}", r"\frac3{(x-1)^2}"),
@@ -156,6 +156,76 @@ jobs:
           documentary_qa = _documentary_visual_plan_qa(history_course)
           if documentary_qa.get("planned_visuals") != 1 or not documentary_qa.get("enabled"):
               raise SystemExit(f"Documentary visual plan smoke test failed: {documentary_qa!r}")
+
+          physics_course = {
+              "title": "Forces et mouvement",
+              "subject": "Physique",
+              "document_type": "cours",
+              "metadata": {"origin": "gpt_editorial_ingest"},
+              "sections": [{
+                  "title": "Forces",
+                  "content": ["Une force est une grandeur vectorielle qui peut être représentée par une flèche."],
+                  "visuals": [{
+                      "id": "physics-apparatus",
+                      "type": "wikimedia",
+                      "query": "physics spring laboratory apparatus",
+                      "title": "Dispositif expérimental",
+                      "caption": "Photographie documentaire du dispositif utilisé pour relier l'observation au modèle.",
+                      "purpose": "experimental",
+                      "required": True
+                  }],
+                  "graphs": [{
+                      "id": "force-poids",
+                      "title": "Vecteur poids",
+                      "purpose": "Représenter direction et sens du poids.",
+                      "instrument": "geometry2d",
+                      "objects": [{
+                          "type": "vector",
+                          "from": [0, 0],
+                          "to": [0, -4]
+                      }],
+                      "x_min": -5,
+                      "x_max": 5,
+                      "y_min": -5,
+                      "y_max": 5,
+                      "graph_local_path": "assets/geogebra/force-poids.png",
+                      "geogebra_image_path": "aurora-content/test/force-poids.png"
+                  }]
+              }],
+              "visual_plan": {
+                  "schema_version": "documentary-visual-plan-1",
+                  "decisions": [{
+                      "section_number": 1,
+                      "decision": "build",
+                      "rationale": "La photographie situe le dispositif réel étudié.",
+                      "visual_ids": ["physics-apparatus"]
+                  }]
+              },
+              "geogebra_plan": {
+                  "schema_version": "geogebra-visual-plan-1",
+                  "decisions": [{
+                      "section_number": 1,
+                      "decision": "build",
+                      "rationale": "Le vecteur rend la force immédiatement lisible.",
+                      "graph_ids": ["force-poids"]
+                  }]
+              }
+          }
+          geogebra_qa = _geogebra_visual_plan_qa(physics_course)
+          if geogebra_qa.get("planned_graphs") != 1 or not geogebra_qa.get("enabled"):
+              raise SystemExit(f"Physics GeoGebra plan smoke test failed: {geogebra_qa!r}")
+
+          broken_physics = dict(physics_course)
+          broken_physics["geogebra_plan"] = {
+              "schema_version": "geogebra-visual-plan-1",
+              "decisions": []
+          }
+          try:
+              _geogebra_visual_plan_qa(broken_physics)
+          except ValueError:
+              pass
+          else:
+              raise SystemExit("Physics GeoGebra plan smoke test failed: missing decision was accepted.")
 
           broken_documentary = dict(history_course)
           broken_documentary["visual_plan"] = {
