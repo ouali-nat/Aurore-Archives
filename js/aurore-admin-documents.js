@@ -106,15 +106,36 @@
         const niveau = doc.level || 'Non précisé';
         const classe = doc.class_name || niveau;
         const matiere = doc.subject || doc.matiere || 'Non précisée';
-        const statut = String(doc.status || 'review');
+        const statut = String(doc.status || 'review').toLowerCase();
         const pdfUrl = doc.pdf_url || '';
+        const metadata = doc.metadata && typeof doc.metadata === 'object' ? doc.metadata : {};
+        const lualatexStatus = String(metadata.lualatex_status || '').toLowerCase();
+        const cancelRequested = metadata.lualatex_cancel_requested === true;
+        const activeProduction = ['queued','processing'].includes(lualatexStatus) || cancelRequested;
+        const hasPdf = !!pdfUrl;
         const statutLabel = statut === 'review'
           ? 'À contrôler'
           : statut === 'processing'
             ? 'PDF en génération'
             : statut === 'queued'
               ? 'En file de génération'
-              : 'Document généré — contrôle requis';
+              : statut === 'failed'
+                ? 'Production PDF en échec — régénération manuelle disponible'
+                : hasPdf
+                  ? 'PDF terminé — contrôle requis'
+                  : 'Document généré — contrôle requis';
+
+        const themeColor = String(
+          metadata.theme_color ||
+          metadata.aurore_design?.theme_color ||
+          doc.theme_color ||
+          '#C85C0D'
+        );
+
+        const showRender = ['generated','review','approved','failed'].includes(statut) && !activeProduction;
+        const showValidate = statut === 'review' && hasPdf && !activeProduction;
+        const showReject = ['review','approved'].includes(statut) && !activeProduction;
+        const showPublish = ['approved','review'].includes(statut) && hasPdf && !activeProduction;
 
         card.className = 'admin-card pending-card aurora-generated-card';
         card.dataset.adminId = 'aurora-' + String(doc.id ?? '');
@@ -140,7 +161,24 @@
               ? '<button type="button" class="admin-btn ghost js-open-aurora-pdf">Ouvrir le PDF dans Aurore →</button>'
               : '<div class="admin-empty" style="margin:.6rem 0 0;">Le PDF est encore en préparation. Le document reste visible ici pour le contrôle du circuit.</div>'}
             <div class="admin-actions">
-              <span class="admin-btn ghost" style="cursor:default;opacity:.85;">Contrôle humain requis</span>
+              ${activeProduction
+                ? '<button type="button" class="admin-btn danger js-cancel-aurora-pdf" '+(cancelRequested?'disabled':'')+'>'+ (cancelRequested ? 'Annulation demandée…' : 'Annuler la génération') +'</button>'
+                : ''}
+              ${showRender
+                ? '<button type="button" class="admin-btn primary js-render-aurora-pdf" data-has-pdf="'+(hasPdf?'1':'0')+'" data-theme-color="'+echapperHtmlPub(themeColor)+'">'+(hasPdf?'Régénérer le PDF':'Générer le PDF')+'</button>'
+                : ''}
+              ${showValidate
+                ? '<button type="button" class="admin-btn valider js-validate-aurora-pdf">Valider le PDF</button>'
+                : ''}
+              ${showReject
+                ? '<button type="button" class="admin-btn refuser js-reject-aurora-pdf">Rejeter</button>'
+                : ''}
+              ${showPublish
+                ? '<button type="button" class="admin-btn primary js-publish-aurora-pdf">Publier</button>'
+                : ''}
+              ${!activeProduction && !showRender && !showValidate && !showReject && !showPublish
+                ? '<span class="admin-btn ghost" style="cursor:default;opacity:.85;">Contrôle humain requis</span>'
+                : ''}
             </div>
           </div>
         `;
@@ -156,6 +194,24 @@
           };
           if (typeof window.ouvrirLecteurPDF === 'function') window.ouvrirLecteurPDF(cible);
           else window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+        });
+
+        const dispatchPdfAction = (action) => {
+          document.dispatchEvent(new CustomEvent('aurore-pdf-action', {
+            detail: {
+              id: Number(doc.id),
+              action,
+              hasPdf,
+              themeColor
+            }
+          }));
+        };
+        card.querySelector('.js-render-aurora-pdf')?.addEventListener('click', () => dispatchPdfAction('render'));
+        card.querySelector('.js-validate-aurora-pdf')?.addEventListener('click', () => dispatchPdfAction('validate'));
+        card.querySelector('.js-reject-aurora-pdf')?.addEventListener('click', () => dispatchPdfAction('reject'));
+        card.querySelector('.js-publish-aurora-pdf')?.addEventListener('click', () => dispatchPdfAction('publish'));
+        card.querySelector('.js-cancel-aurora-pdf')?.addEventListener('click', () => {
+          document.querySelector('[data-cf-cancel="'+CSS.escape(String(doc.id))+'"]')?.click();
         });
 
         list.appendChild(card);
