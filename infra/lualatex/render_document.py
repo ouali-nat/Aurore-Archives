@@ -242,27 +242,363 @@ def _open_url_with_retry(req, timeout=30, attempts=4):
     raise last
 
 
+
+def _exercise_geogebra_subject_supported(subject):
+    """Return True for Mathématiques and Physique-Chimie exercise sheets."""
+    normalized = unicodedata.normalize("NFKD", clean_text(subject or "").lower())
+    normalized = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    return bool(
+        re.search(r"math", normalized)
+        or re.search(r"physique", normalized)
+        or re.search(r"chimie", normalized)
+        or re.search(r"sciences[ -]+physiques", normalized)
+        or re.search(r"\bpc\b", normalized)
+    )
+
+
+def _exercise_geogebra_plan_qa(data):
+    """Validate per-exercise GeoGebra ownership for new Math/PC exercise sheets."""
+    if not isinstance(data, dict):
+        return {"enabled": False, "planned_graphs": 0}
+    if _edition_profile(data).get("kind") != "exercices":
+        return {"enabled": False, "planned_graphs": 0}
+
+    sections = data.get("sections")
+    if not isinstance(sections, list):
+        raise ValueError("Exercise GeoGebra plan QA failed: sections must be a list")
+
+    metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+    origin = clean_text(metadata.get("origin") or "").strip().lower()
+    supported = _exercise_geogebra_subject_supported(data.get("subject") or "")
+
+    total_exercises = 0
+    section_level_graphs = 0
+    graph_count = 0
+
+    for section in sections:
+        if not isinstance(section, dict):
+            continue
+        legacy_graphs = section.get("graphs")
+        if isinstance(legacy_graphs, list):
+            section_level_graphs += len(legacy_graphs)
+        exercises = section.get("exercises")
+        if not isinstance(exercises, list):
+            continue
+        total_exercises += len(exercises)
+        for exercise in exercises:
+            if not isinstance(exercise, dict):
+                continue
+            for key in ("statement_graphs", "correction_graphs"):
+                graphs = exercise.get(key)
+                if isinstance(graphs, list):
+                    graph_count += len(graphs)
+
+    corrections = data.get("corrections")
+    if not isinstance(corrections, list):
+        corrections = []
+    correction_by_number = {}
+    for correction in corrections:
+        if not isinstance(correction, dict):
+            continue
+        try:
+            number = int(correction.get("exercise_number", 0) or 0)
+        except (TypeError, ValueError):
+            continue
+        if number > 0:
+            correction_by_number[number] = correction
+        if isinstance(correction.get("graphs"), list):
+            graph_count += len(correction["graphs"])
+
+    if not supported:
+        if origin == "gpt_editorial_ingest" and (section_level_graphs > 0 or graph_count > 0):
+            raise ValueError(
+                "Exercise GeoGebra plan QA failed: GeoGebra exercise is currently reserved "
+                "for Mathématiques and Physique-Chimie."
+            )
+        return {
+            "enabled": False,
+            "planned_graphs": 0,
+            "subject_supported": False,
+            "legacy": origin != "gpt_editorial_ingest",
+        }
+
+    if section_level_graphs > 0 and origin == "gpt_editorial_ingest":
+        raise ValueError(
+            "Exercise GeoGebra plan QA failed: new Math/PC exercise graphs must be attached "
+            "to the exercise statement/correction, not section.graphs."
+        )
+
+    plan = data.get("exercise_geogebra_plan")
+    if not isinstance(plan, dict):
+        plan = metadata.get("exercise_geogebra_plan")
+    if origin != "gpt_editorial_ingest" and not isinstance(plan, dict):
+        return {"enabled": False, "legacy": True, "planned_graphs": 0, "graph_count": graph_count}
+    if not isinstance(plan, dict):
+        raise ValueError(
+            "Exercise GeoGebra plan QA failed: exercise_geogebra_plan is required "
+            "for new Math/PC exercise sheets."
+        )
+    if plan.get("schema_version") != "exercise-geogebra-plan-1":
+        raise ValueError("Exercise GeoGebra plan QA failed: unsupported exercise_geogebra_plan schema.")
+
+    decisions = plan.get("decisions")
+    if not isinstance(decisions, list) or len(decisions) != total_exercises:
+        raise ValueError(
+            "Exercise GeoGebra plan QA failed: one decision is required for every exercise."
+        )
+
+    decisions_by_number = {}
+    for decision in decisions:
+        if not isinstance(decision, dict):
+            raise ValueError("Exercise GeoGebra plan QA failed: each decision must be an object.")
+        try:
+            number = int(decision.get("exercise_number"))
+        except (TypeError, ValueError):
+            raise ValueError("Exercise GeoGebra plan QA failed: invalid exercise_number.")
+        if number < 1 or number > total_exercises or number in decisions_by_number:
+            raise ValueError(
+                "Exercise GeoGebra plan QA failed: duplicate or out-of-range exercise_number."
+            )
+        decisions_by_number[number] = decision
+
+    all_graph_ids = {}
+    referenced_ids = set()
+    planned_graphs = 0
+
+    def validate_channel(exercise_number, channel_name, decision, graphs):
+        nonlocal planned_graphs
+        if not isinstance(decision, dict):
+            raise ValueError(
+                f"Exercise {exercise_number}: {channel_name} GeoGebra decision is missing."
+            )
+
+        choice = clean_text(decision.get("decision") or "").strip().lower()
+        if choice not in {"build", "not_needed"}:
+            raise ValueError(
+                f"Exercise {exercise_number}: {channel_name} GeoGebra decision must be build or not_needed."
+            )
+        if not isinstance(graphs, list):
+            raise ValueError(
+                f"Exercise {exercise_number}: {channel_name}_graphs must be a list."
+            )
+
+        if choice == "not_needed":
+            if graphs:
+                raise ValueError(
+                    f"Exercise {exercise_number}: {channel_name} is not_needed but contains graphs."
+                )
+            if len(clean_text(decision.get("rationale") or "").strip()) < 8:
+                raise ValueError(
+                    f"Exercise {exercise_number}: rationale is required for {channel_name}/not_needed."
+                )
+            return
+
+        graph_ids = decision.get("graph_ids")
+        if not isinstance(graph_ids, list) or not graph_ids:
+            raise ValueError(
+                f"Exercise {exercise_number}: build requires graph_ids for {channel_name}."
+            )
+        if len(graph_ids) != len(graphs):
+            raise ValueError(
+                f"Exercise {exercise_number}: {channel_name} graph_ids must cover exactly its graphs."
+            )
+
+        local_seen = set()
+        for raw_id in graph_ids:
+            graph_id = clean_text(raw_id).strip()
+            if not graph_id or graph_id in local_seen or graph_id in referenced_ids:
+                raise ValueError(
+                    f"Exercise {exercise_number}: duplicate or empty GeoGebra graph id."
+                )
+            local_seen.add(graph_id)
+
+            graph = next(
+                (
+                    item for item in graphs
+                    if isinstance(item, dict) and clean_text(item.get("id") or "").strip() == graph_id
+                ),
+                None,
+            )
+            if graph is None:
+                raise ValueError(
+                    f"Exercise {exercise_number}: graph_id {graph_id} not found in {channel_name}_graphs."
+                )
+            if graph_id in all_graph_ids:
+                raise ValueError(f"Exercise GeoGebra plan QA failed: duplicate graph_id {graph_id}.")
+
+            instrument = str(graph.get("instrument") or graph.get("graph_type") or "").strip().lower()
+            instrument = {
+                "function": "function2d",
+                "graph": "function2d",
+                "courbe": "function2d",
+                "parametric": "parametric2d",
+                "vector2d": "geometry2d",
+                "plan2d": "geometry2d",
+                "geometrie3d": "geometry3d",
+                "3d": "geometry3d",
+            }.get(instrument, instrument)
+            if instrument not in {
+                "function2d", "complex_plane", "parametric2d",
+                "parametric3d", "surface3d", "geometry2d", "geometry3d",
+            }:
+                raise ValueError(
+                    f"Graphique {graph_id}: instrument GeoGebra non supporté ({instrument or 'absent'})."
+                )
+            if len(clean_text(graph.get("title") or graph.get("name") or "").strip()) < 1:
+                raise ValueError(f"Graphique {graph_id}: title/name obligatoire.")
+            if len(clean_text(graph.get("purpose") or "").strip()) < 3:
+                raise ValueError(f"Graphique {graph_id}: purpose obligatoire.")
+
+            if instrument in {"function2d", "complex_plane"}:
+                if not (
+                    clean_text(graph.get("expression") or "").strip()
+                    or (isinstance(graph.get("points"), list) and graph["points"])
+                    or (isinstance(graph.get("asymptotes"), list) and graph["asymptotes"])
+                ):
+                    raise ValueError(
+                        f"Graphique {graph_id}: expression, points ou asymptotes nécessaires."
+                    )
+            elif instrument == "parametric2d":
+                if not (
+                    clean_text(graph.get("x_expression") or "").strip()
+                    and clean_text(graph.get("y_expression") or "").strip()
+                ):
+                    raise ValueError(f"Graphique {graph_id}: x_expression et y_expression requis.")
+            elif instrument == "parametric3d":
+                if not (
+                    clean_text(graph.get("x_expression") or "").strip()
+                    and clean_text(graph.get("y_expression") or "").strip()
+                    and clean_text(graph.get("z_expression") or "").strip()
+                ):
+                    raise ValueError(f"Graphique {graph_id}: x_expression, y_expression et z_expression requis.")
+            elif instrument == "surface3d":
+                if not clean_text(graph.get("expression") or "").strip():
+                    raise ValueError(f"Graphique {graph_id}: expression requise pour surface3d.")
+            elif instrument == "geometry2d":
+                objects = graph.get("objects") if isinstance(graph.get("objects"), list) else []
+                points = graph.get("points") if isinstance(graph.get("points"), list) else []
+                valid_types = {"point", "vector", "line", "segment", "ray", "polygon"}
+                if not points and not any(
+                    isinstance(obj, dict)
+                    and str(obj.get("type") or "").strip().lower() in valid_types
+                    for obj in objects
+                ):
+                    raise ValueError(f"Graphique {graph_id}: objects ou points requis pour geometry2d.")
+            elif instrument == "geometry3d":
+                objects = graph.get("objects") if isinstance(graph.get("objects"), list) else []
+                points = graph.get("points") if isinstance(graph.get("points"), list) else []
+                poi = graph.get("points_of_interest") if isinstance(graph.get("points_of_interest"), list) else []
+                if not points and not objects and not poi:
+                    raise ValueError(
+                        f"Graphique {graph_id}: objects, points ou points_of_interest requis pour geometry3d."
+                    )
+
+            local_path = clean_text(graph.get("graph_local_path") or "").strip()
+            image_path = clean_text(graph.get("geogebra_image_path") or "").strip()
+            if not local_path or not image_path:
+                raise ValueError(f"Graphique {graph_id}: asset GeoGebra manquant pour la production.")
+
+            for key in ("x_min", "x_max", "y_min", "y_max", "z_min", "z_max", "t_min", "t_max"):
+                if key in graph and graph.get(key) is not None:
+                    try:
+                        float(graph.get(key))
+                    except (TypeError, ValueError):
+                        raise ValueError(f"Graphique {graph_id}: {key} doit être numérique.")
+            for left, right in (
+                ("x_min", "x_max"), ("y_min", "y_max"),
+                ("z_min", "z_max"), ("t_min", "t_max"),
+            ):
+                if graph.get(left) is not None and graph.get(right) is not None:
+                    if float(graph[right]) <= float(graph[left]):
+                        raise ValueError(f"Graphique {graph_id}: {left} < {right} est requis.")
+
+            all_graph_ids[graph_id] = (exercise_number, channel_name)
+            referenced_ids.add(graph_id)
+            planned_graphs += 1
+
+    exercise_number = 0
+    for section in sections:
+        if not isinstance(section, dict):
+            continue
+        exercises = section.get("exercises")
+        if not isinstance(exercises, list):
+            continue
+        for exercise in exercises:
+            exercise_number += 1
+            decision = decisions_by_number.get(exercise_number)
+            if decision is None:
+                raise ValueError(
+                    f"Exercise GeoGebra plan QA failed: missing decision for exercise {exercise_number}."
+                )
+
+            statement_graphs = exercise.get("statement_graphs") if isinstance(exercise, dict) and isinstance(exercise.get("statement_graphs"), list) else []
+            correction_graphs = exercise.get("correction_graphs") if isinstance(exercise, dict) and isinstance(exercise.get("correction_graphs"), list) else []
+            correction_entry = correction_by_number.get(exercise_number)
+            top_correction_graphs = (
+                correction_entry.get("graphs")
+                if isinstance(correction_entry, dict) and isinstance(correction_entry.get("graphs"), list)
+                else []
+            )
+            if correction_graphs and top_correction_graphs:
+                raise ValueError(
+                    f"Exercise {exercise_number}: use correction_graphs or corrections[].graphs, not both."
+                )
+
+            validate_channel(
+                exercise_number, "statement", decision.get("statement") or {}, statement_graphs
+            )
+            validate_channel(
+                exercise_number,
+                "correction",
+                decision.get("correction") or {},
+                correction_graphs if correction_graphs else top_correction_graphs,
+            )
+
+    if planned_graphs > 24:
+        raise ValueError("Exercise GeoGebra plan QA failed: maximum 24 constructions per document.")
+
+    return {
+        "enabled": True,
+        "schema_version": "exercise-geogebra-plan-1",
+        "planned_graphs": planned_graphs,
+        "total_exercises": total_exercises,
+    }
+
+
 def _has_geogebra(data):
-    """Detect GeoGebra content from the structured graph payload."""
+    """Detect GeoGebra content across courses and per-exercise channels."""
     sections = data.get("sections", []) if isinstance(data.get("sections"), list) else []
     for section in sections:
         if not isinstance(section, dict):
             continue
-        graphs = section.get("graphs", [])
-        if isinstance(graphs, list) and any(
-            _is_renderable_geogebra_graph(g) for g in graphs
-        ):
+        graphs = section.get("graphs")
+        if isinstance(graphs, list) and any(_is_renderable_geogebra_graph(g) for g in graphs):
             return True
+        exercises = section.get("exercises")
+        if isinstance(exercises, list):
+            for exercise in exercises:
+                if not isinstance(exercise, dict):
+                    continue
+                for key in ("statement_graphs", "correction_graphs"):
+                    graphs = exercise.get(key)
+                    if isinstance(graphs, list) and any(
+                        _is_renderable_geogebra_graph(g) for g in graphs
+                    ):
+                        return True
+    corrections = data.get("corrections")
+    if isinstance(corrections, list):
+        for correction in corrections:
+            if not isinstance(correction, dict):
+                continue
+            graphs = correction.get("graphs")
+            if isinstance(graphs, list) and any(
+                _is_renderable_geogebra_graph(g) for g in graphs
+            ):
+                return True
     return False
 
 def _fetch_geogebra_assets(data, tex_dir):
-    """Materialize GeoGebra PNGs from the public Supabase Storage bucket.
-
-    GeoGebra stores the generated PNG in Supabase Storage and content_json
-    keeps the storage path in geogebra_image_path. LuaLaTeX can only include
-    a local file, so the production renderer must download those assets before
-    writing the .tex file.
-    """
+    """Materialize GeoGebra PNGs from Supabase Storage for every supported channel."""
     import urllib.parse
     import urllib.request
 
@@ -272,65 +608,129 @@ def _fetch_geogebra_assets(data, tex_dir):
 
     assets_dir = Path(tex_dir) / "assets" / "geogebra"
     assets_dir.mkdir(parents=True, exist_ok=True)
-
-    # The GeoGebra Edge Function uploads to the public "Pdfs" bucket.
     storage_base = "https://tdeotqfsbvouresfhkab.supabase.co/storage/v1/object/public/Pdfs"
     count = 0
+    serial = 0
+    used_filenames = set()
 
-    for section_index, section in enumerate(sections):
+    def unique_name(base):
+        nonlocal serial
+        name = base
+        while name in used_filenames:
+            serial += 1
+            name = f"{Path(base).stem}-{serial}.png"
+        used_filenames.add(name)
+        return name
+
+    def materialize(graph, filename, label):
+        nonlocal count
+        if not isinstance(graph, dict) or not _is_renderable_geogebra_graph(graph):
+            return
+
+        existing = str(graph.get("graph_local_path") or "").strip()
+        if existing:
+            existing_path = Path(tex_dir) / existing
+            if existing_path.is_file() and existing_path.stat().st_size > 0:
+                return
+
+        storage_path = str(graph.get("geogebra_image_path") or "").strip().lstrip("/")
+        if not storage_path:
+            return
+        if ".." in Path(storage_path).parts:
+            raise RuntimeError(f"Chemin GeoGebra invalide: {storage_path}")
+
+        url = storage_base + "/" + urllib.parse.quote(storage_path, safe="/")
+        local = assets_dir / filename
+        local.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            with _open_url_with_retry(
+                urllib.request.Request(
+                    url,
+                    headers={
+                        "User-Agent":
+                            "Aurore-Section-Archives/1.0 "
+                            "(https://aurore-section-archivescom.vercel.app/)"
+                    },
+                ),
+                timeout=30,
+            ) as response:
+                payload = response.read()
+        except Exception as exc:
+            raise RuntimeError(
+                f"Impossible de télécharger le graphique GeoGebra {label} "
+                f"depuis Supabase Storage: {exc}"
+            ) from exc
+
+        if not payload.startswith(b"\x89PNG\r\n\x1a\n"):
+            raise RuntimeError(
+                f"Le fichier GeoGebra {storage_path} n'est pas un PNG valide."
+            )
+
+        local.write_bytes(payload)
+        graph["graph_local_path"] = str(local.relative_to(tex_dir)).replace("\\", "/")
+        graph["geogebra_local_source"] = "supabase-storage"
+        count += 1
+        print(f"GeoGebra asset {count}: {label} path={storage_path}")
+
+    exercise_number = 0
+    for section_index, section in enumerate(sections, start=1):
         if not isinstance(section, dict):
             continue
-        graphs = section.get("graphs", [])
-        if not isinstance(graphs, list):
-            continue
 
-        for graph_index, graph in enumerate(graphs):
-            if not isinstance(graph, dict):
-                continue
-            if not _is_renderable_geogebra_graph(graph):
-                continue
-
-            existing = str(graph.get("graph_local_path") or "").strip()
-            if existing:
-                existing_path = Path(tex_dir) / existing
-                if existing_path.is_file() and existing_path.stat().st_size > 0:
-                    continue
-
-            storage_path = str(graph.get("geogebra_image_path") or "").strip().lstrip("/")
-            if not storage_path:
-                continue
-
-            # Prevent path traversal and keep the source restricted to the
-            # expected Storage object path.
-            if ".." in Path(storage_path).parts:
-                raise RuntimeError(f"Chemin GeoGebra invalide: {storage_path}")
-
-            url = storage_base + "/" + urllib.parse.quote(storage_path, safe="/")
-            filename = f"graph-{section_index + 1}-{graph_index + 1}.png"
-            local = assets_dir / filename
-
-            try:
-                with _open_url_with_retry(urllib.request.Request(url, headers={"User-Agent": "Aurore-Section-Archives/1.0 (https://aurore-section-archivescom.vercel.app/)"}), timeout=30) as response:
-                    payload = response.read()
-            except Exception as exc:
-                raise RuntimeError(
-                    f"Impossible de télécharger le graphique GeoGebra "
-                    f"{section_index + 1}.{graph_index + 1} depuis Supabase Storage: {exc}"
-                ) from exc
-
-            if not payload.startswith(b"\x89PNG\r\n\x1a\n"):
-                raise RuntimeError(
-                    f"Le fichier GeoGebra {storage_path} n'est pas un PNG valide."
+        section_graphs = section.get("graphs")
+        if isinstance(section_graphs, list):
+            for graph_index, graph in enumerate(section_graphs, start=1):
+                materialize(
+                    graph,
+                    unique_name(f"graph-{section_index}-{graph_index}.png"),
+                    f"section={section_index} graph={graph_index}",
                 )
 
-            local.write_bytes(payload)
-            graph["graph_local_path"] = str(local.relative_to(tex_dir)).replace("\\", "/")
-            graph["geogebra_local_source"] = "supabase-storage"
-            count += 1
-            print(
-                f"GeoGebra asset {count}: section={section_index + 1} "
-                f"graph={graph_index + 1} path={storage_path}"
-            )
+        exercises = section.get("exercises")
+        if not isinstance(exercises, list):
+            continue
+        for exercise in exercises:
+            if not isinstance(exercise, dict):
+                continue
+            exercise_number += 1
+
+            statement_graphs = exercise.get("statement_graphs")
+            if isinstance(statement_graphs, list):
+                for graph_index, graph in enumerate(statement_graphs, start=1):
+                    materialize(
+                        graph,
+                        unique_name(f"exercise-{exercise_number}-statement-{graph_index}.png"),
+                        f"exercise={exercise_number} statement={graph_index}",
+                    )
+
+            correction_graphs = exercise.get("correction_graphs")
+            if isinstance(correction_graphs, list):
+                for graph_index, graph in enumerate(correction_graphs, start=1):
+                    materialize(
+                        graph,
+                        unique_name(f"exercise-{exercise_number}-correction-{graph_index}.png"),
+                        f"exercise={exercise_number} correction={graph_index}",
+                    )
+
+    corrections = data.get("corrections")
+    if isinstance(corrections, list):
+        for correction in corrections:
+            if not isinstance(correction, dict):
+                continue
+            try:
+                number = int(correction.get("exercise_number", 0) or 0)
+            except (TypeError, ValueError):
+                number = 0
+            graphs = correction.get("graphs")
+            if not isinstance(graphs, list):
+                continue
+            for graph_index, graph in enumerate(graphs, start=1):
+                materialize(
+                    graph,
+                    unique_name(f"correction-{number or 'unpaired'}-{graph_index}.png"),
+                    f"correction={number or 'unpaired'} graph={graph_index}",
+                )
 
     return count
 
@@ -2623,6 +3023,7 @@ def render(data):
     has_geogebra = _has_geogebra(data)
     _math_visual_plan_qa(data)
     _geogebra_visual_plan_qa(data)
+    _exercise_geogebra_plan_qa(data)
     _documentary_visual_plan_qa(data)
     lines = [
         r"\documentclass[11pt,a4paper]{article}",
@@ -2897,6 +3298,9 @@ def render(data):
                 inline_correction = ex.get("solution") or ex.get("correction") or ""
                 body = []
                 body.extend(render_exercise_text(question, mode="question"))
+                statement_graphs = ex.get("statement_graphs", [])
+                if isinstance(statement_graphs, list):
+                    body.extend(render_graphs(statement_graphs, allow=True, exercise_mode=True))
                 if ex_index == 0:
                     body.extend(render_graphs(section_graphs, allow=True, exercise_mode=True))
                     if section_graphics:
@@ -2907,7 +3311,14 @@ def render(data):
                     body.append(r"\AuroreLabeledBlock{Indication}{" + inline(ex["hint"], auto_math=True) + r"}")
                 if ex.get("formula"): body.append(display_formula(ex["formula"]))
                 lines.append(r"\AuroreExerciseSeriesBlock{" + str(exercise_number) + r"}{" + "\n".join(body) + r"}")
-                if inline_correction: inline_exercise_corrections.append((exercise_number, inline_correction))
+                if inline_correction:
+                    inline_exercise_corrections.append(
+                        (
+                            exercise_number,
+                            inline_correction,
+                            correction_graphs if isinstance(correction_graphs, list) else [],
+                        )
+                    )
             continue
 
         lines.append(r"\Needspace{6\baselineskip}")
@@ -2952,13 +3363,34 @@ def render(data):
             correction = corrections_by_number[number]
             solution = correction.get("solution") or correction.get("correction") or correction.get("details") or ""
             if solution:
-                correction_body = "\n".join(render_exercise_text(solution, mode="correction"))
-                lines.append(r"\AuroreExerciseSeriesCorrection{" + str(number) + r"}{" + correction_body + r"}")
+                correction_body_lines = []
+                correction_graphs = correction.get("graphs", [])
+                if isinstance(correction_graphs, list):
+                    correction_body_lines.extend(
+                        render_graphs(correction_graphs, allow=True, exercise_mode=True)
+                    )
+                correction_body_lines.extend(
+                    render_exercise_text(solution, mode="correction")
+                )
+                correction_body = "\n".join(correction_body_lines)
+                lines.append(
+                    r"\AuroreExerciseSeriesCorrection{" + str(number) + r"}{" + correction_body + r"}"
+                )
                 used_correction_numbers.add(number)
-        for number, solution in inline_exercise_corrections:
+        for number, solution, correction_graphs in inline_exercise_corrections:
             if solution and number not in corrections_by_number:
-                correction_body = "\n".join(render_exercise_text(solution, mode="correction"))
-                lines.append(r"\AuroreExerciseSeriesCorrection{" + str(number) + r"}{" + correction_body + r"}")
+                correction_body_lines = []
+                if isinstance(correction_graphs, list):
+                    correction_body_lines.extend(
+                        render_graphs(correction_graphs, allow=True, exercise_mode=True)
+                    )
+                correction_body_lines.extend(
+                    render_exercise_text(solution, mode="correction")
+                )
+                correction_body = "\n".join(correction_body_lines)
+                lines.append(
+                    r"\AuroreExerciseSeriesCorrection{" + str(number) + r"}{" + correction_body + r"}"
+                )
 
     unmatched = [] if is_exercise_document else [
         c for c in data.get("corrections", [])
