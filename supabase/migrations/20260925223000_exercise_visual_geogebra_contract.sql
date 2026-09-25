@@ -411,8 +411,7 @@ begin
 
   return new;
 end;
-$function$
-
+$function$;
 
 drop trigger if exists aurora_generated_documents_exercise_geogebra_plan
 on public.aurora_generated_documents;
