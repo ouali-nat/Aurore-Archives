@@ -77,7 +77,7 @@ function instrumentOf(g) {
 
 function validGraph(g) {
   const instrument = instrumentOf(g);
-  if (!["function2d", "complex_plane", "parametric2d", "parametric3d", "surface3d", "geometry3d"].includes(instrument)) {
+  if (!["function2d", "complex_plane", "parametric2d", "parametric3d", "surface3d", "geometry2d", "geometry3d"].includes(instrument)) {
     return false;
   }
   const objects = Array.isArray(g?.objects) ? g.objects : [];
