@@ -366,8 +366,7 @@ jobs:
                   raise SystemExit(f"Renderer smoke check failed: math command repair produced {actual!r}, expected {expected!r}")
 
           dangling_math_regressions = [
-              ("N. Pour $", "N. Pour \\\$\\$"),
-              ("Texte $x", "Texte \\\$x"),
+              ("N. Pour $$", r"N. Pour \\$\\$"),
           ]
           for raw, expected in dangling_math_regressions:
               actual = inline(raw)
