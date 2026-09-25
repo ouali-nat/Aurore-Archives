@@ -370,10 +370,39 @@ function validateExerciseGeoGebraPlan(content:any,subject:any,profile:any){
   return {enabled:true,schema_version:EXERCISE_GEOGEBRA_PLAN_SCHEMA,planned_graphs:plannedGraphs,subject_supported:true,total_exercises:totalExercises};
 }
 
+function countCourseWords(content:any){
+  const pieces:string[]=[];
+  if(typeof content?.introduction==="string") pieces.push(content.introduction);
+  for(const section of (Array.isArray(content?.sections)?content.sections:[])){
+    if(Array.isArray(section?.content)){
+      for(const item of section.content){
+        if(typeof item==="string") pieces.push(item);
+      }
+    }
+  }
+  return pieces.join(" ").trim().split(/\s+/).filter(Boolean).length;
+}
+function validateCourseQuality(content:any,subject:any,profile:any){
+  if(profile?.kind!=="cours") return {applies:false,word_count:null,introduction:false,visuals_required:false};
+  if(typeof content?.introduction!=="string" || content.introduction.trim().length<40){
+    throw new Error("Cours : introduction pédagogique explicite obligatoire (content_json.introduction).");
+  }
+  const shortFormat=content?.course_profile?.short_format===true || content?.metadata?.course_profile?.short_format===true;
+  const wordCount=countCourseWords(content);
+  if(shortFormat){
+    const reason=String(content?.course_profile?.short_format_reason||content?.metadata?.course_profile?.short_format_reason||"").trim();
+    if(reason.length<20) throw new Error("Cours court : short_format_reason explicite obligatoire (20 caractères minimum).");
+  }else if(wordCount<3000){
+    throw new Error(`Cours standard : minimum obligatoire de 3000 mots utiles; ${wordCount} mots détectés. Déclarer explicitement un format court justifié si nécessaire.`);
+  }
+  return {applies:true,word_count:wordCount,introduction:true,visuals_required:!normalizeForGraphMatch(subject).includes("math"),short_format:shortFormat};
+}
+
 function validateEditorialContent(content:any,profile:any,instructions:any,subjectForValidation:any=null){
   if(!content||typeof content!=="object"||Array.isArray(content))throw new Error("content_json doit être un objet JSON.");
   if(typeof content.title!=="string"||!content.title.trim())throw new Error("content_json.title est obligatoire.");
   if(!Array.isArray(content.sections)||content.sections.length<1||content.sections.length>30)throw new Error("content_json.sections doit contenir de 1 à 30 sections.");
+  const courseQuality=validateCourseQuality(content,subjectForValidation,profile);
   let visuals=0,graphs=0,exercises=0;
   const longSectionContents:string[]=[];
   for(const s of content.sections){
@@ -431,7 +460,7 @@ function validateEditorialContent(content:any,profile:any,instructions:any,subje
   if(profile.kind==="exercices"&&exercises<1)throw new Error("Un document d'exercices doit contenir au moins un exercice structuré.");
   if(profile.kind==="exercices"&&longSectionContents.length!==new Set(longSectionContents).size)throw new Error("Contenu de section dupliqué entre plusieurs exercices.");
   if(JSON.stringify(content).length>MAX_TEXT)throw new Error("content_json dépasse la taille maximale autorisée.");
-  return {sections:content.sections.length,visuals,graphs,exercises:content.sections.reduce((n:number,s:any)=>n+(Array.isArray(s.exercises)?s.exercises.length:0),0),corrections:Array.isArray(content.corrections)?content.corrections.length:0,graph_plan:graphPlan,geogebra_plan:geogebraPlan,exercise_geogebra_plan:exerciseGeogebraPlan,documentary_visual_plan:documentaryPlan};
+  return {sections:content.sections.length,visuals,graphs,exercises:content.sections.reduce((n:number,s:any)=>n+(Array.isArray(s.exercises)?s.exercises.length:0),0),corrections:Array.isArray(content.corrections)?content.corrections.length:0,graph_plan:graphPlan,geogebra_plan:geogebraPlan,exercise_geogebra_plan:exerciseGeogebraPlan,documentary_visual_plan:documentaryPlan,course_quality:courseQuality};
 }
 Deno.serve(async req=>{
   if(req.method==="OPTIONS")return new Response("ok",{headers:CORS});
