@@ -48,7 +48,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import render_document
-          from render_document import normalize_math, _math_visual_plan_qa
+          from render_document import normalize_math, _math_visual_plan_qa, _documentary_visual_plan_qa
 
           regressions = [
               (r"\fracrac3{(x-1)^2}", r"\frac3{(x-1)^2}"),
@@ -124,6 +124,85 @@ jobs:
           legacy_qa = _math_visual_plan_qa(legacy_course)
           if not legacy_qa.get("legacy") or legacy_qa.get("enabled"):
               raise SystemExit(f"Legacy renderer compatibility smoke test failed: {legacy_qa!r}")
+
+          history_course = {
+              "title": "Hitler et l'Allemagne nazie",
+              "subject": "Histoire",
+              "document_type": "cours",
+              "metadata": {"origin": "gpt_editorial_ingest"},
+              "sections": [{
+                  "title": "Repères historiques",
+                  "content": ["Hitler et l'arrivée du nazisme au pouvoir."],
+                  "visuals": [{
+                      "id": "hitler-portrait",
+                      "type": "wikimedia",
+                      "query": "Adolf Hitler portrait historical",
+                      "title": "Portrait historique d'Adolf Hitler",
+                      "caption": "Document historique permettant d'identifier la figure politique étudiée.",
+                      "purpose": "photo",
+                      "required": True
+                  }]
+              }],
+              "visual_plan": {
+                  "schema_version": "documentary-visual-plan-1",
+                  "decisions": [{
+                      "section_number": 1,
+                      "decision": "build",
+                      "rationale": "Le document historique facilite l'identification du personnage étudié.",
+                      "visual_ids": ["hitler-portrait"]
+                  }]
+              }
+          }
+          documentary_qa = _documentary_visual_plan_qa(history_course)
+          if documentary_qa.get("planned_visuals") != 1 or not documentary_qa.get("enabled"):
+              raise SystemExit(f"Documentary visual plan smoke test failed: {documentary_qa!r}")
+
+          broken_documentary = dict(history_course)
+          broken_documentary["visual_plan"] = {
+              "schema_version": "documentary-visual-plan-1",
+              "decisions": []
+          }
+          try:
+              _documentary_visual_plan_qa(broken_documentary)
+          except ValueError:
+              pass
+          else:
+              raise SystemExit("Documentary visual plan smoke test failed: missing decision was accepted.")
+
+          legacy_history = {
+              "title": "Ancien cours d'histoire",
+              "subject": "Histoire",
+              "document_type": "cours",
+              "sections": [{
+                  "title": "La Révolution française",
+                  "content": ["Un ancien document sans nouveau contrat documentaire."]
+              }]
+          }
+          legacy_history_qa = _documentary_visual_plan_qa(legacy_history)
+          if not legacy_history_qa.get("legacy") or legacy_history_qa.get("enabled"):
+              raise SystemExit(f"Legacy documentary compatibility smoke test failed: {legacy_history_qa!r}")
+
+          math_with_wikimedia = {
+              "title": "Ancien cours de fonctions",
+              "subject": "Mathématiques",
+              "document_type": "cours",
+              "sections": [{
+                  "title": "Fonctions",
+                  "content": ["Étude graphique d'une fonction."],
+                  "visuals": [{
+                      "id": "bad-math-photo",
+                      "type": "wikimedia",
+                      "query": "mathematics graph",
+                      "title": "Illustration",
+                      "caption": "Visuel documentaire accidentel.",
+                      "purpose": "illustration",
+                      "required": True
+                  }]
+              }]
+          }
+          math_wikimedia_qa = _documentary_visual_plan_qa(math_with_wikimedia)
+          if math_wikimedia_qa.get("enabled") or math_wikimedia_qa.get("ignored_documentary_visuals") != 1:
+              raise SystemExit(f"Math documentary exclusion smoke test failed: {math_wikimedia_qa!r}")
           PY
 
       - name: Claim next generated document
