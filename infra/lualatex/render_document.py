@@ -1546,6 +1546,35 @@ def _repair_accidental_inline_double_dollar(s):
     )
 
 
+def _escape_unmatched_math_delimiters(s):
+    """Escape dangling $/$ delimiters so truncated upstream math cannot break the document."""
+    s = str(s or "")
+    out = []
+    i = 0
+    display_open = False
+    while i < len(s):
+        if s.startswith("$", i):
+            if display_open:
+                out.append("$")
+                display_open = False
+            else:
+                if s.find("$", i + 2) == -1:
+                    out.append(r"\\$\\$")
+                else:
+                    out.append("$")
+                    display_open = True
+            i += 2
+        else:
+            out.append(s[i])
+            i += 1
+    s = "".join(out)
+    positions = [m.start() for m in re.finditer(r"(?<!\\\\)\\$", s)]
+    if len(positions) % 2:
+        pos = positions[-1]
+        s = s[:pos] + r"\\$" + s[pos + 1:]
+    return s
+
+
 def inline(s, auto_math=False):
     """
     Escape ordinary text while preserving LaTeX math blocks.
@@ -1555,6 +1584,7 @@ def inline(s, auto_math=False):
     backslashes, braces and alignment markers are escaped into invalid TeX.
     """
     s = _repair_accidental_inline_double_dollar(str(s or ""))
+    s = _escape_unmatched_math_delimiters(s)
     stripped = s.strip()
 
     # A whole item may be an explicit display-math block. Single-dollar
