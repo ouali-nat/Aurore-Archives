@@ -3239,6 +3239,7 @@ def render(data):
     used_correction_numbers = set()
 
     inline_exercise_corrections = []
+    exercise_correction_graphs_by_number = {}
     declared_exercise_count = _declared_exercise_count(data) if is_exercise_document else None
     structured_exercise_count = sum(
         len(sec.get("exercises", []))
@@ -3296,6 +3297,11 @@ def render(data):
                 exercise_number += 1
                 question = ex.get("question") or ex.get("statement") or ex.get("enonce") or ex.get("content") or ""
                 inline_correction = ex.get("solution") or ex.get("correction") or ""
+                correction_graphs = ex.get("correction_graphs", [])
+                if isinstance(correction_graphs, list):
+                    exercise_correction_graphs_by_number[exercise_number] = correction_graphs
+                else:
+                    correction_graphs = []
                 body = []
                 body.extend(render_exercise_text(question, mode="question"))
                 statement_graphs = ex.get("statement_graphs", [])
@@ -3364,7 +3370,9 @@ def render(data):
             solution = correction.get("solution") or correction.get("correction") or correction.get("details") or ""
             if solution:
                 correction_body_lines = []
-                correction_graphs = correction.get("graphs", [])
+                correction_graphs = correction.get("graphs")
+                if not isinstance(correction_graphs, list):
+                    correction_graphs = exercise_correction_graphs_by_number.get(number, [])
                 if isinstance(correction_graphs, list):
                     correction_body_lines.extend(
                         render_graphs(correction_graphs, allow=True, exercise_mode=True)
