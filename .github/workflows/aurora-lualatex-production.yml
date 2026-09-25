@@ -625,7 +625,7 @@ jobs:
           retention-days: 7
 
 # Production bridge: Supabase queue + GitHub Actions, one PDF at a time.
-# Recovery wake after LuaLaTeX boundary + failure-cleanup fixes: 2026-09-25.
+# Recovery wake after LuaLaTeX boundary + failure-cleanup fixes: 2026-09-25. Final JSON-newline repair wake: 2026-09-25.
 # Manual wake trigger: 2026-09-21.
 # Renderer visual assets fix trigger: Wikimedia paths + thumbnail MIME. Validation trigger 2026-09-20.
 # Corrective renderer runs cancel obsolete queued/in-progress runs.
