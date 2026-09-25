@@ -382,27 +382,39 @@ function countCourseWords(content:any){
   }
   return pieces.join(" ").trim().split(/\s+/).filter(Boolean).length;
 }
-function validateCourseQuality(content:any,subject:any,profile:any){
+function validateCourseQuality(content:any,subject:any,profile:any,instructions:any={}){
   if(profile?.kind!=="cours") return {applies:false,word_count:null,introduction:false,visuals_required:false};
-  if(typeof content?.introduction!=="string" || content.introduction.trim().length<40){
-    throw new Error("Cours : introduction pédagogique explicite obligatoire (content_json.introduction).");
+  const introduction=typeof content?.introduction==="string" ? content.introduction.trim() : "";
+  if(introduction.length<80){
+    throw new Error("Cours : introduction pédagogique explicite obligatoire (minimum 80 caractères).");
   }
-  const shortFormat=content?.course_profile?.short_format===true || content?.metadata?.course_profile?.short_format===true;
+  const qc=instructions?.course_quality&&typeof instructions.course_quality==="object" ? instructions.course_quality : {};
+  const shortFormat=String(qc?.format_profile||"").trim().toLowerCase()==="short_course"
+    || content?.course_profile?.short_format===true
+    || content?.metadata?.course_profile?.short_format===true;
   const wordCount=countCourseWords(content);
   if(shortFormat){
-    const reason=String(content?.course_profile?.short_format_reason||content?.metadata?.course_profile?.short_format_reason||"").trim();
-    if(reason.length<20) throw new Error("Cours court : short_format_reason explicite obligatoire (20 caractères minimum).");
+    const reason=String(qc?.short_format_reason||content?.course_profile?.short_format_reason||content?.metadata?.course_profile?.short_format_reason||"").trim();
+    if(reason.length<30) throw new Error("Cours court : short_format_reason explicite obligatoire (30 caractères minimum).");
   }else if(wordCount<3000){
-    throw new Error(`Cours standard : minimum obligatoire de 3000 mots utiles; ${wordCount} mots détectés. Déclarer explicitement un format court justifié si nécessaire.`);
+    throw new Error("Cours standard : minimum obligatoire de 3000 mots utiles; "+wordCount+" mots détectés. Déclarer explicitement un format court justifié si nécessaire.");
   }
-  return {applies:true,word_count:wordCount,introduction:true,visuals_required:!normalizeForGraphMatch(subject).includes("math"),short_format:shortFormat};
+  return {
+    applies:true,
+    word_count:wordCount,
+    minimum_word_count:3000,
+    introduction:true,
+    visuals_required:!normalizeForGraphMatch(subject).includes("math"),
+    short_format:shortFormat,
+    short_format_reason:shortFormat ? String(qc?.short_format_reason||content?.course_profile?.short_format_reason||content?.metadata?.course_profile?.short_format_reason||"").trim() : null
+  };
 }
 
 function validateEditorialContent(content:any,profile:any,instructions:any,subjectForValidation:any=null){
   if(!content||typeof content!=="object"||Array.isArray(content))throw new Error("content_json doit être un objet JSON.");
   if(typeof content.title!=="string"||!content.title.trim())throw new Error("content_json.title est obligatoire.");
   if(!Array.isArray(content.sections)||content.sections.length<1||content.sections.length>30)throw new Error("content_json.sections doit contenir de 1 à 30 sections.");
-  const courseQuality=validateCourseQuality(content,subjectForValidation,profile);
+  const courseQuality=validateCourseQuality(content,subjectForValidation,profile,instructions);
   let visuals=0,graphs=0,exercises=0;
   const longSectionContents:string[]=[];
   for(const s of content.sections){
@@ -514,6 +526,7 @@ Deno.serve(async req=>{
       ...incomingInstructions,
       paired_corrections:profile.kind==="exercices" ? incomingInstructions.paired_corrections!==false : false,
       profile:{kind:profile.kind,version:profile.version,lock:true,document_type:profile.kind==="exercices"?"exercices":documentType},
+      course_quality: incomingInstructions.course_quality&&typeof incomingInstructions.course_quality==="object" ? incomingInstructions.course_quality : {format_profile:"standard_course",minimum_word_count:3000},
       exercise_sheet_intro:profile.kind==="exercices"
         ? (incomingInstructions.exercise_sheet_intro||"Énoncés indépendants, consignes précises, calculs justifiés et corrigés exclusivement liés aux questions posées.")
         : undefined
@@ -525,7 +538,7 @@ Deno.serve(async req=>{
     const {data:result,error}=await db.rpc("aurora_ingest_editorial_document",{
       p_ingest_id:ingestId,p_created_by:createdBy,p_title:title,p_subject:subject,p_level:level,p_class_name:className,p_document_type:documentType,p_prompt:prompt,p_content_json:content,
       p_instructions:{...editorialInstructions,origin:"gpt_editorial_ingest",producer:"ChatGPT",human_review_required:true,manual_publication_only:true,lualatex_requested:false,schema_version:SCHEMA_VERSION,category:nullable(classification.categorie,100)||"Documents",domaine:nullable(classification.domaine,200),formation:nullable(classification.formation,200),specialite:nullable(classification.specialite,200),annee:nullable(classification.annee,100),semestre:nullable(classification.semestre,100),filiere:nullable(classification.filiere,200),theme_color:themeColor||"#C85C0D"},
-      p_metadata:{origin:"gpt_editorial_ingest",producer:"ChatGPT",schema_version:SCHEMA_VERSION,content_sha256:contentHash,human_review_required:true,manual_publication_only:true,source:"chatgpt_editor",counts,aurore_profile:{kind:profile.kind,version:profile.version,lock:true,source:"document_type"},memory_session_id:memorySessionId,memory_schema:"aurora-editorial-memory-2",memory_gate_requested:true,memory_bundle_sha256:memorySession.bundle_sha256||null},
+      p_metadata:{origin:"gpt_editorial_ingest",producer:"ChatGPT",schema_version:SCHEMA_VERSION,content_sha256:contentHash,human_review_required:true,manual_publication_only:true,source:"chatgpt_editor",counts,course_quality:counts.course_quality||null,aurore_profile:{kind:profile.kind,version:profile.version,lock:true,source:"document_type"},memory_session_id:memorySessionId,memory_schema:"aurora-editorial-memory-2",memory_gate_requested:true,memory_bundle_sha256:memorySession.bundle_sha256||null},
       p_domaine:nullable(classification.domaine,200),p_formation:nullable(classification.formation,200),p_specialite:nullable(classification.specialite,200),p_annee:nullable(classification.annee,100),p_semestre:nullable(classification.semestre,100),p_filiere:nullable(classification.filiere,200),p_matiere:subject,p_theme_color:themeColor||"#C85C0D",p_job_id:jobId
     });
     if(error){
