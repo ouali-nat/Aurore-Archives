@@ -27,9 +27,26 @@ Deno.serve(async(req:Request)=>{
  const {error:ue}=await db.from("aurora_generated_documents").update({metadata:nextMetadata,updated_at:now}).eq("id",id);
  if(ue)return out({error:ue.message},500);
  const attemptId=Number(metadata.production_attempt_id||0);
+ let attemptHistoryUpdated=true;
+ let attemptHistoryError="";
  if(Number.isSafeInteger(attemptId)&&attemptId>0){
    const {error:attemptError}=await db.from("aurora_generated_document_production_attempts").update({status:"failed",finished_at:now,error_message:failureReason,metadata:{failure_recorded_at:now,failure_source:"aurora-lualatex-fail"},updated_at:now}).eq("id",attemptId);
-   if(attemptError)return out({ok:false,document_id:id,error:"Document marqué en échec, mais l’historique de tentative n’a pas pu être finalisé.",details:attemptError.message},500);
+   if(attemptError){
+     // The document itself is already durably marked failed above. Do not turn
+     // this secondary history-write problem into another HTTP 500.
+     attemptHistoryUpdated=false;
+     attemptHistoryError=attemptError.message;
+     console.error("Production attempt history update failed:", attemptError.message);
+   }
  }
- return out({ok:true,document_id:id,action:"failed",failure_count:failureCount,automatic_retry:false,admin_regeneration_available:true});
+ return out({
+   ok:true,
+   document_id:id,
+   action:"failed",
+   failure_count:failureCount,
+   automatic_retry:false,
+   admin_regeneration_available:true,
+   attempt_history_updated:attemptHistoryUpdated,
+   ...(attemptHistoryError?{attempt_history_error:attemptHistoryError}:{}),
+ });
 });
