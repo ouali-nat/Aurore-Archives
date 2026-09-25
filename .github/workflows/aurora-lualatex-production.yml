@@ -18,6 +18,7 @@ permissions:
 
 # Course quality is enforced in Supabase before a document enters the LuaLaTeX queue.
 # Wikimedia directives use retrieval-friendly archival queries; no SVG generation is requested for this course.
+# History course retry: six validated documentary visuals are sufficient after Wikimedia rate-limit protection.
 # Retry after visual QA: documentary assets must resolve before PDF acceptance.
 # GeoGebra renderer v3 regression validation uses existing generated documents only.
 # Production-only trigger: validate the Terminale C matrix document.
