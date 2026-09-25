@@ -36,6 +36,8 @@ function detectGraphInstrument(g: any) {
   const hasExpression = String(x.expression || "").trim(), hasX = String(x.x_expression || "").trim(), hasY = String(x.y_expression || "").trim(), hasZ = String(x.z_expression || "").trim();
   const valid: Record<string,()=>boolean> = {
     function2d:()=>!!hasExpression || points2 || (Array.isArray(x.asymptotes)&&x.asymptotes.length>0),
+    complex_plane:()=>points2 || !!hasExpression,
+    geometry2d:()=>hasObjects || points2,
     parametric2d:()=>!!hasX&&!!hasY,
     parametric3d:()=>!!hasX&&!!hasY&&!!hasZ,
     surface3d:()=>!!hasExpression,
