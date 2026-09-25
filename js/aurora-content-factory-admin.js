@@ -1307,7 +1307,7 @@ function apply(){
     const pdf=!!x.pdf_url;
     const active=['queued','processing'].includes(m.lualatex_status);
     const cancelRequested=m.lualatex_cancel_requested===true;
-    const canRender=['generated','review','approved','failed'].includes(x.status)&&!active;
+    const canRender=!active&&x.status!=='published'&&(['generated','review','approved','failed'].includes(x.status)||(x.status==='draft'&&!!pdfUrl));
     const canValidate=x.status==='review'&&pdf&&!active;
     const canReject=['review','approved'].includes(x.status)&&!active;
     const canPublish=['approved','review'].includes(x.status)&&pdf&&!active;

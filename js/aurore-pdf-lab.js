@@ -398,7 +398,7 @@
     const m=x.metadata&&typeof x.metadata==='object'?x.metadata:{};
     const ls=String(m.lualatex_status||'');
     const ps=String(m.production_status||'');
-    const proc=ps==='processing'||ls==='processing',wait=ps==='queued'||ls==='queued',done=ps==='pdf_ready'||ls==='completed',fail=ps==='failed'||ls==='failed';
+    const fail=ls==='failed'||ps==='failed',done=!fail&&(ls==='completed'||ps==='pdf_ready'),proc=!fail&&!done&&(ps==='processing'||ls==='processing'),wait=!fail&&!done&&!proc&&(ps==='queued'||ls==='queued');
     const p=done?100:(wait?0:(Number.isFinite(Number(m.lualatex_progress))?Math.max(0,Math.min(100,Number(m.lualatex_progress))):(x.pdf_url?100:0)));
     const requested=m.lualatex_requested_at||x.created_at;
     const started=m.lualatex_started_at||m.lualatex_claimed_at||requested;
@@ -417,7 +417,7 @@
     const cancelSet=window.__aurorePdfCancelRequested instanceof Set?window.__aurorePdfCancelRequested:new Set();
     const busy=k=>busySet.has(k+':'+String(x.id));
     const cancelBusy=cancelSet.has(Number(x.id))||d.m.lualatex_cancel_requested===true||busy('cancel');
-    const canRender=['generated','review','approved'].includes(x.status)&&!d.proc&&!d.wait&&!d.m.lualatex_cancel_requested;
+    const canRender=!d.proc&&!d.wait&&!d.m.lualatex_cancel_requested&&x.status!=='published'&&(['generated','review','approved','failed'].includes(x.status)||(x.status==='draft'&&!!x.pdf_url));
     const canValidate=x.status==='review'&&!!x.pdf_url&&!d.proc&&!d.wait&&!d.m.lualatex_cancel_requested;
     const canReject=['review','approved'].includes(x.status)&&!d.proc&&!d.wait&&!d.m.lualatex_cancel_requested;
     const canPublish=['approved','review'].includes(x.status)&&!!x.pdf_url&&!d.proc&&!d.wait&&!d.m.lualatex_cancel_requested;
