@@ -115,9 +115,6 @@ jobs:
           PY
 
       - name: Claim next generated document
-
-
-      - name: Claim next generated document
         run: |
           mkdir -p infra/lualatex/production
           curl --fail --silent --show-error --retry 4 --retry-delay 2 \
