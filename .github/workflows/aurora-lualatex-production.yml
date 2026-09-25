@@ -47,7 +47,8 @@ jobs:
         working-directory: infra/lualatex
         run: |
           python3 - <<'PY'
-          from render_document import normalize_math, inline
+          import render_document
+from render_document import normalize_math
 
           regressions = [
               (r"\fracrac3{(x-1)^2}", r"\frac3{(x-1)^2}"),
@@ -69,7 +70,7 @@ jobs:
               + r" donc $" + "$" + r"-\\infty." + "$" + "$"
               + r" À droite, " + "$" + "$" + r"+\\infty." + "$" + "$"
           )
-          rendered_inline = inline(malformed_inline)
+          rendered_inline = render_document.inline(malformed_inline)
           if "$" in rendered_inline:
               raise SystemExit(f"Inline dollar regression: stray dollar delimiter remains: {rendered_inline!r}")
           if r"\[-\infty.\]" not in rendered_inline or r"\[+\infty.\]" not in rendered_inline:
@@ -339,7 +340,7 @@ jobs:
           for marker in required:
               if marker not in tex:
                   raise SystemExit(f"Renderer smoke check failed: missing {marker}")
-          from render_document import _is_renderable_geogebra_graph, render_graphs, normalize_math, inline
+          from render_document import _is_renderable_geogebra_graph, render_graphs, normalize_math
           matrix_regressions = [
               (r"\begin{pmatrix}x\y\end{pmatrix}", r"\begin{pmatrix}x\\y\end{pmatrix}"),
               (r"\begin{pmatrix}x&1\y&2\end{pmatrix}", r"\begin{pmatrix}x&1\\y&2\end{pmatrix}"),
@@ -369,7 +370,7 @@ jobs:
               ("N. Pour $$", r"N. Pour \\$\\$"),
           ]
           for raw, expected in dangling_math_regressions:
-              actual = inline(raw)
+              actual = render_document.inline(raw)
               if actual != expected:
                   raise SystemExit(f"Renderer smoke check failed: dangling math delimiter repair produced {actual!r}, expected {expected!r}")
 
