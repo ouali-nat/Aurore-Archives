@@ -677,7 +677,9 @@ await fs.writeFile(
   "utf8",
 );
 
-const remaining = graphEntries(content),  .filter((entry) => validGraph(entry.graph) && !imageReady(entry.graph)),  .map((entry) => entry.graphIndex);
+const remaining = graphEntries(content)
+  .filter((entry) => validGraph(entry.graph) && !imageReady(entry.graph))
+  .map((entry) => entry.graphIndex);
 if (remaining.length) {
   throw new Error(`Préparation GeoGebra incomplète. Graphiques manquants: ${remaining.map((n)=>n+1).join(", ")}`);
 }
