@@ -301,6 +301,7 @@ jobs:
           from pathlib import Path
           import sys
           sys.path.insert(0, ".")
+          import render_document
           from render_document import render
 
           data = {
@@ -577,7 +578,7 @@ jobs:
             --data "{\"document_id\":$DOCUMENT_ID,\"progress\":100,\"stage\":\"PDF terminé et enregistré dans Aurore\"}" \
             "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
 
-      - name: Requeue document after renderer failure
+      - name: Mark document failed after renderer failure
         if: failure() && hashFiles('infra/lualatex/production/document-id') != ''
         run: |
           DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
@@ -594,7 +595,7 @@ jobs:
           data = json.loads(Path("infra/lualatex/production/failure-response.json").read_text())
           if not data.get("ok"):
               raise SystemExit(f"Failure cleanup failed: {data}")
-          print(f"LuaLaTeX document requeue: document={data['document_id']} action={data['action']} failure_count={data['failure_count']}")
+          print(f"LuaLaTeX failure recorded: document={data['document_id']} action={data['action']} failure_count={data['failure_count']} automatic_retry={data.get('automatic_retry')}")
           PY
 
       - name: Create downloadable ZIP package
