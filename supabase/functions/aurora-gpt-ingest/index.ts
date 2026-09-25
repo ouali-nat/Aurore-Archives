@@ -91,6 +91,10 @@ Deno.serve(async req=>{
     }
     const payload=await req.json();
     const content=payload?.content_json;
+    const memorySessionId=text(payload.memory_session_id,100);
+    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(memorySessionId)){
+      return reply({ok:false,error:"Session mémoire obligatoire : appelez aurora-editorial-memory avant l’ingestion."},428);
+    }
     const title=text(payload.title||content.title,300);if(!title)return reply({ok:false,error:"Le titre est obligatoire."},400);
     const themeColor=text(payload.theme_color||payload.classification?.theme_color,32);if(!validColor(themeColor))return reply({ok:false,error:"theme_color doit être une couleur hexadécimale #RRGGBB."},400);
     const ingestId=text(payload.ingest_id||crypto.randomUUID(),120);
@@ -102,6 +106,16 @@ Deno.serve(async req=>{
     const className=nullable(payload.class_name||payload.classification?.classe);
     const documentType=nullable(payload.document_type,120)||"cours";
     const profile=resolveProfile(documentType);
+    const memorySubject=String(subject||"").trim().toLowerCase().replace(/\s+/g," ");
+    const memoryRequiresMath=memorySubject.includes("math");
+    const {data:memorySession,error:memorySessionError}=await db.from("aurora_editorial_memory_sessions")
+      .select("session_id,requested_subject,requires_math,general_rule_ids,math_rule_ids,expires_at,used_at,bundle_sha256")
+      .eq("session_id",memorySessionId).is("used_at",null).gt("expires_at",new Date().toISOString()).maybeSingle();
+    if(memorySessionError||!memorySession)return reply({ok:false,error:"Session mémoire absente, expirée ou déjà consommée. Récupérez de nouveau la mémoire éditoriale avant l’ingestion."},428);
+    const generalMemoryCount=Array.isArray(memorySession.general_rule_ids)?memorySession.general_rule_ids.length:0;
+    const mathMemoryCount=Array.isArray(memorySession.math_rule_ids)?memorySession.math_rule_ids.length:0;
+    if(generalMemoryCount<1)return reply({ok:false,error:"Mémoire éditoriale générale non récupérée."},428);
+    if(memoryRequiresMath&&(!memorySession.requires_math||mathMemoryCount<1))return reply({ok:false,error:"Mémoire Mathématiques non récupérée pour ce document."},428);
     const incomingInstructions=payload.instructions&&typeof payload.instructions==="object"?payload.instructions:{};
     const editorialInstructions={
       ...incomingInstructions,
@@ -118,10 +132,16 @@ Deno.serve(async req=>{
     const {data:result,error}=await db.rpc("aurora_ingest_editorial_document",{
       p_ingest_id:ingestId,p_created_by:createdBy,p_title:title,p_subject:subject,p_level:level,p_class_name:className,p_document_type:documentType,p_prompt:prompt,p_content_json:content,
       p_instructions:{...editorialInstructions,origin:"gpt_editorial_ingest",producer:"ChatGPT",human_review_required:true,manual_publication_only:true,lualatex_requested:false,schema_version:SCHEMA_VERSION,category:nullable(classification.categorie,100)||"Documents",domaine:nullable(classification.domaine,200),formation:nullable(classification.formation,200),specialite:nullable(classification.specialite,200),annee:nullable(classification.annee,100),semestre:nullable(classification.semestre,100),filiere:nullable(classification.filiere,200),theme_color:themeColor||"#C85C0D"},
-      p_metadata:{origin:"gpt_editorial_ingest",producer:"ChatGPT",schema_version:SCHEMA_VERSION,content_sha256:contentHash,human_review_required:true,manual_publication_only:true,source:"chatgpt_editor",counts,aurore_profile:{kind:profile.kind,version:profile.version,lock:true,source:"document_type"}},
+      p_metadata:{origin:"gpt_editorial_ingest",producer:"ChatGPT",schema_version:SCHEMA_VERSION,content_sha256:contentHash,human_review_required:true,manual_publication_only:true,source:"chatgpt_editor",counts,aurore_profile:{kind:profile.kind,version:profile.version,lock:true,source:"document_type"},memory_session_id:memorySessionId,memory_schema:"aurora-editorial-memory-1",memory_gate_requested:true,memory_bundle_sha256:memorySession.bundle_sha256||null},
       p_domaine:nullable(classification.domaine,200),p_formation:nullable(classification.formation,200),p_specialite:nullable(classification.specialite,200),p_annee:nullable(classification.annee,100),p_semestre:nullable(classification.semestre,100),p_filiere:nullable(classification.filiere,200),p_matiere:subject,p_theme_color:themeColor||"#C85C0D",p_job_id:jobId
     });
-    if(error)throw error;
+    if(error){
+      const message=String(error.message||error);
+      if(message.toLowerCase().includes("mémoire éditoriale")||message.toLowerCase().includes("mémoire mathématique")){
+        return reply({ok:false,error:message},428);
+      }
+      throw error;
+    }
     await db.from("aurora_gpt_ingest_keys").update({last_used_at:new Date().toISOString()}).eq("id",keyRow.id);
     const out=Array.isArray(result)?result[0]:result;
     if(!out?.ok)throw new Error("Le contrat d’ingestion éditoriale a refusé le document.");
