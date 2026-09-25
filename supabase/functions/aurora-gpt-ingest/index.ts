@@ -125,50 +125,50 @@ function validateDocumentaryVisualPlan(content:any,subject:any,profile:any){
   for(let sectionIndex=0;sectionIndex<content.sections.length;sectionIndex++){
     const section=content.sections[sectionIndex];
     const decision=decisionMap.get(sectionIndex+1);
-    if(!decision) throw new Error(\`Cours non mathématique : décision documentaire manquante pour la section \${sectionIndex+1}.\`);
+    if(!decision) throw new Error(`Cours non mathématique : décision documentaire manquante pour la section ${sectionIndex+1}.`);
     const choice=String(decision.decision||"").trim().toLowerCase();
-    if(choice!=="build"&&choice!=="not_needed") throw new Error(\`Section \${sectionIndex+1} : decision documentaire doit être build ou not_needed.\`);
+    if(choice!=="build"&&choice!=="not_needed") throw new Error(`Section ${sectionIndex+1} : decision documentaire doit être build ou not_needed.`);
     const visuals=Array.isArray(section.visuals)?section.visuals:[];
     for(const v of visuals){
-      if(!v||typeof v!=="object") throw new Error(\`Section \${sectionIndex+1} : visuel documentaire invalide.\`);
-      if(String(v.type||"wikimedia").toLowerCase()!=="wikimedia") throw new Error(\`Section \${sectionIndex+1} : les visuels documentaires doivent utiliser type=wikimedia.\`);
+      if(!v||typeof v!=="object") throw new Error(`Section ${sectionIndex+1} : visuel documentaire invalide.`);
+      if(String(v.type||"wikimedia").toLowerCase()!=="wikimedia") throw new Error(`Section ${sectionIndex+1} : les visuels documentaires doivent utiliser type=wikimedia.`);
       const id=String(v.id||"").trim();
-      if(!id) throw new Error(\`Section \${sectionIndex+1} : chaque visuel documentaire doit avoir un id stable.\`);
-      if(allVisualIds.has(id)) throw new Error(\`visual_id dupliqué : \${id}.\`);
-      if(String(v.query||"").trim().length<4) throw new Error(\`Visuel \${id} : query obligatoire.\`);
-      if(String(v.title||"").trim().length<2) throw new Error(\`Visuel \${id} : title obligatoire.\`);
-      if(String(v.caption||"").trim().length<4) throw new Error(\`Visuel \${id} : caption pédagogique obligatoire.\`);
+      if(!id) throw new Error(`Section ${sectionIndex+1} : chaque visuel documentaire doit avoir un id stable.`);
+      if(allVisualIds.has(id)) throw new Error(`visual_id dupliqué : ${id}.`);
+      if(String(v.query||"").trim().length<4) throw new Error(`Visuel ${id} : query obligatoire.`);
+      if(String(v.title||"").trim().length<2) throw new Error(`Visuel ${id} : title obligatoire.`);
+      if(String(v.caption||"").trim().length<4) throw new Error(`Visuel ${id} : caption pédagogique obligatoire.`);
       const purpose=String(v.purpose||"").trim().toLowerCase();
-      if(!["illustration","schema","photo","experimental","comparison"].includes(purpose)) throw new Error(\`Visuel \${id} : purpose invalide.\`);
+      if(!["illustration","schema","photo","experimental","comparison"].includes(purpose)) throw new Error(`Visuel ${id} : purpose invalide.`);
       const required=v.required===true||["1","true","yes","oui"].includes(String(v.required??"").trim().toLowerCase())||String(v.priority||"").trim().toLowerCase()==="required";
-      if(!required) throw new Error(\`Visuel \${id} : required=true est obligatoire pour une illustration planifiée.\`);
+      if(!required) throw new Error(`Visuel ${id} : required=true est obligatoire pour une illustration planifiée.`);
       allVisualIds.set(id,{section:sectionIndex+1,visual:v});
     }
     if(choice==="not_needed"){
-      if(visuals.length>0) throw new Error(\`Section \${sectionIndex+1} : not_needed ne peut pas contenir de visuel.\`);
-      if(String(decision.rationale||"").trim().length<8) throw new Error(\`Section \${sectionIndex+1} : rationale obligatoire lorsque l'illustration est écartée.\`);
+      if(visuals.length>0) throw new Error(`Section ${sectionIndex+1} : not_needed ne peut pas contenir de visuel.`);
+      if(String(decision.rationale||"").trim().length<8) throw new Error(`Section ${sectionIndex+1} : rationale obligatoire lorsque l'illustration est écartée.`);
       continue;
     }
     buildSections++;
-    if(!Array.isArray(decision.visual_ids)||decision.visual_ids.length<1) throw new Error(\`Section \${sectionIndex+1} : build exige au moins un visual_id.\`);
+    if(!Array.isArray(decision.visual_ids)||decision.visual_ids.length<1) throw new Error(`Section ${sectionIndex+1} : build exige au moins un visual_id.`);
     const seenInDecision=new Set<string>();
     for(const rawId of decision.visual_ids){
       const id=String(rawId||"").trim();
-      if(!id) throw new Error(\`Section \${sectionIndex+1} : visual_id vide interdit.\`);
-      if(seenInDecision.has(id)) throw new Error(\`Section \${sectionIndex+1} : visual_id \${id} dupliqué dans la décision.\`);
+      if(!id) throw new Error(`Section ${sectionIndex+1} : visual_id vide interdit.`);
+      if(seenInDecision.has(id)) throw new Error(`Section ${sectionIndex+1} : visual_id ${id} dupliqué dans la décision.`);
       seenInDecision.add(id);
       const entry=allVisualIds.get(id);
-      if(!entry) throw new Error(\`Section \${sectionIndex+1} : visual_id \${id} introuvable dans la section.\`);
-      if(entry.section!==sectionIndex+1) throw new Error(\`Visual \${id} : un visual ne peut être référencé que par sa propre section.\`);
+      if(!entry) throw new Error(`Section ${sectionIndex+1} : visual_id ${id} introuvable dans la section.`);
+      if(entry.section!==sectionIndex+1) throw new Error(`Visual ${id} : un visual ne peut être référencé que par sa propre section.`);
       plannedVisuals++;
     }
-    if(seenInDecision.size!==visuals.length) throw new Error(\`Section \${sectionIndex+1} : tous les visuels déclarés doivent être référencés exactement une fois dans visual_plan.\`);
+    if(seenInDecision.size!==visuals.length) throw new Error(`Section ${sectionIndex+1} : tous les visuels déclarés doivent être référencés exactement une fois dans visual_plan.`);
   }
   if(buildSections<1||allVisualIds.size<1) throw new Error("Cours non mathématique : au moins une illustration documentaire est obligatoire.");
   if(allVisualIds.size>8) throw new Error("Cours non mathématique : maximum 8 illustrations documentaires par document.");
   for(const [id,entry] of allVisualIds){
     const referenced=plan.decisions.some((d:any)=>Array.isArray(d?.visual_ids)&&d.visual_ids.some((x:any)=>String(x||"").trim()===id));
-    if(!referenced) throw new Error(\`Visuel \${id} : présent dans le document mais absent du visual_plan.\`);
+    if(!referenced) throw new Error(`Visuel ${id} : présent dans le document mais absent du visual_plan.`);
   }
   return {enabled:true,schema_version:DOCUMENTARY_VISUAL_PLAN_SCHEMA,planned_visuals:plannedVisuals,sections_with_visuals:buildSections};
 }
