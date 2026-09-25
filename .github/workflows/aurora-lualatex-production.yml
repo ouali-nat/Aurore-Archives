@@ -48,7 +48,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import render_document
-          from render_document import normalize_math
+          from render_document import normalize_math, _math_visual_plan_qa
 
           regressions = [
               (r"\fracrac3{(x-1)^2}", r"\frac3{(x-1)^2}"),
@@ -76,6 +76,44 @@ jobs:
           if r"\[-\infty.\]" not in rendered_inline or r"\[+\infty.\]" not in rendered_inline:
               raise SystemExit(f"Inline display-dollar regression: display math was not preserved: {rendered_inline!r}")
           PY
+
+          math_course = {
+              "subject": "Mathématiques",
+              "document_type": "cours",
+              "sections": [{
+                  "title": "Fonctions",
+                  "content": ["Étude et représentation d'une fonction."],
+                  "graphs": [{
+                      "id": "f1",
+                      "title": "Courbe de la fonction carrée",
+                      "purpose": "Lire l'allure et les variations.",
+                      "instrument": "function2d",
+                      "expression": "x^2",
+                      "graph_local_path": "assets/graph-1-1.png",
+                      "geogebra_image_path": "aurore-content/test/f1.png"
+                  }]
+              }],
+              "visual_plan": {
+                  "schema_version": "math-visual-plan-1",
+                  "decisions": [{
+                      "section_number": 1,
+                      "decision": "build",
+                      "rationale": "Courbe centrale pour interpréter la fonction.",
+                      "graph_ids": ["f1"]
+                  }]
+              }
+          }
+          qa = _math_visual_plan_qa(math_course)
+          if qa.get("planned_graphs") != 1:
+              raise SystemExit(f"Math visual plan smoke test failed: {qa!r}")
+          broken = dict(math_course)
+          broken["visual_plan"] = {"schema_version": "math-visual-plan-1", "decisions": []}
+          try:
+              _math_visual_plan_qa(broken)
+          except ValueError:
+              pass
+          else:
+              raise SystemExit("Math visual plan smoke test failed: missing decision was accepted.")
 
       - name: Claim next generated document
         run: |
