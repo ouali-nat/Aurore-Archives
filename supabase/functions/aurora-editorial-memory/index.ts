@@ -5,7 +5,7 @@ const SUPABASE_URL=Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const db=createClient(SUPABASE_URL,SERVICE_ROLE,{auth:{autoRefreshToken:false,persistSession:false}});
 const CORS={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"content-type, x-aurore-gpt-key, authorization","Access-Control-Allow-Methods":"POST, OPTIONS","Content-Type":"application/json"};
-const MEMORY_SCHEMA="aurora-editorial-memory-1";
+const MEMORY_SCHEMA="aurora-editorial-memory-2";
 
 const reply=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:CORS});
 
