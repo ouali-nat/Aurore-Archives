@@ -18,6 +18,21 @@
 10. Vérifier le PDF effectivement produit, et pas uniquement le statut de succès du pipeline.
 11. Toute validation humaine et toute publication restent distinctes de la génération. Aucune règle éditoriale ne doit introduire une publication automatique.
 
+
+## 1 bis. Contrat obligatoire des cours standard
+
+Pour tout document de type **cours**, les règles suivantes sont des barrières de qualité et non de simples recommandations.
+
+1. `content_json.introduction` est obligatoire et doit installer le sujet, les objectifs et les repères du cours.
+2. Un cours standard doit contenir **au moins 3000 mots utiles**. Le comptage couvre l’introduction et les blocs textuels de `sections[].content[]`.
+3. Une exception de format court n’est autorisée que si elle est déclarée explicitement avec `course_quality.format_profile=short_course` et accompagnée de `course_quality.short_format_reason`.
+4. Pour un cours non mathématique, `content_json.visual_plan` est obligatoire. Chaque section reçoit une décision `build` ou `not_needed`; une section `build` référence des visuels Wikimedia identifiés et une section `not_needed` justifie son absence.
+5. Au moins un visuel documentaire doit être planifié dans un cours non mathématique. Les limites restent de 3 visuels par section et 8 par document.
+6. `no_svg_automatic` ne signifie jamais `no_visual` : cette instruction désactive uniquement la génération automatique d’Aurore SVG. Wikimedia et GeoGebra restent disponibles selon leur contrat propre.
+7. Ces contrôles doivent réussir **avant** l’insertion ou la mise en file LuaLaTeX. Une génération PDF réussie ne peut pas compenser un contenu éditorial incomplet.
+
+Le contrôle technique PostgreSQL applique ces règles à toutes les voies d’insertion, y compris les opérations manuelles ou administratives.
+
 ## 2. Règles spécifiques — Mathématiques
 
 Ces règles s'ajoutent au socle commun uniquement lorsque la matière est **Mathématiques**.
