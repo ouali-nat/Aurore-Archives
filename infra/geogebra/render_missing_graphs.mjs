@@ -185,7 +185,37 @@ function validatePlannedGraphs() {
 
 validatePlannedGraphs();
 
-function graphEntries(content) {,  const out = [];,  let graphIndex = 0;,  const push = (graph, owner) => {,    out.push({ graphIndex, graph, owner });,    graphIndex++;,  };,  for (const [sectionIndex, section] of (Array.isArray(content.sections) ? content.sections : []).entries()) {,    for (const graph of (Array.isArray(section?.graphs) ? section.graphs : [])) {,      push(graph, { kind: "section", sectionIndex });,    },    for (const [exerciseIndex, exercise] of (Array.isArray(section?.exercises) ? section.exercises : []).entries()) {,      for (const graph of (Array.isArray(exercise?.statement_graphs) ? exercise.statement_graphs : [])) {,        push(graph, { kind: "statement", sectionIndex, exerciseIndex });,      },      for (const graph of (Array.isArray(exercise?.correction_graphs) ? exercise.correction_graphs : [])) {,        push(graph, { kind: "correction", sectionIndex, exerciseIndex });,      },    },  },  for (const [correctionIndex, correction] of (Array.isArray(content.corrections) ? content.corrections : []).entries()) {,    for (const graph of (Array.isArray(correction?.graphs) ? correction.graphs : [])) {,      push(graph, { kind: "top_correction", correctionIndex });,    },  },  return out;,},,const pending = graphEntries(content),  .filter((entry) => validGraph(entry.graph) && !imageReady(entry.graph));
+function graphEntries(content) {
+  const out = [];
+  let graphIndex = 0;
+  const push = (graph, owner) => {
+    out.push({ graphIndex, graph, owner });
+    graphIndex++;
+  };
+  for (const [sectionIndex, section] of (Array.isArray(content.sections) ? content.sections : []).entries()) {
+    for (const graph of (Array.isArray(section?.graphs) ? section.graphs : [])) {
+      push(graph, { kind: "section", sectionIndex });
+    }
+    for (const [exerciseIndex, exercise] of (Array.isArray(section?.exercises) ? section.exercises : []).entries()) {
+      for (const graph of (Array.isArray(exercise?.statement_graphs) ? exercise.statement_graphs : [])) {
+        push(graph, { kind: "statement", sectionIndex, exerciseIndex });
+      }
+      for (const graph of (Array.isArray(exercise?.correction_graphs) ? exercise.correction_graphs : [])) {
+        push(graph, { kind: "correction", sectionIndex, exerciseIndex });
+      }
+    }
+  }
+  for (const [correctionIndex, correction] of (Array.isArray(content.corrections) ? content.corrections : []).entries()) {
+    for (const graph of (Array.isArray(correction?.graphs) ? correction.graphs : [])) {
+      push(graph, { kind: "top_correction", correctionIndex });
+    }
+  }
+  return out;
+}
+
+const pending = graphEntries(content)
+  .filter((entry) => validGraph(entry.graph) && !imageReady(entry.graph));
+
 console.log(`GeoGebra server-side: ${pending.length} graphique(s) à rendre pour le document #${DOCUMENT_ID}.`);
 
 if (!pending.length) {
