@@ -6,6 +6,7 @@ const SERVICE_ROLE=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const db=createClient(SUPABASE_URL,SERVICE_ROLE,{auth:{autoRefreshToken:false,persistSession:false}});
 const SCHEMA_VERSION="aurora-editorial-1";
 const DOCUMENTARY_VISUAL_PLAN_SCHEMA="documentary-visual-plan-1";
+const GEOGEBRA_VISUAL_PLAN_SCHEMA="geogebra-visual-plan-1";
 const MAX_BODY_BYTES=2500000;
 const MAX_TEXT=2000000;
 const CORS={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"content-type, x-aurore-gpt-key, authorization","Access-Control-Allow-Methods":"POST, OPTIONS","Content-Type":"application/json"};
@@ -28,10 +29,10 @@ function normalizeForGraphMatch(v:unknown){
   return String(v??"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"");
 }
 const MATH_GRAPHABLE_PATTERN=/(fonction|courbe|droite|parabole|ellipse|hyperbole|conique|transformation|translation|rotation|symetrie|homothetie|intersection|tangente|asymptote|suite|systeme|repere|geometrie analytique|lieu geometrique|surface|parametrique|3d)/i;
-const SUPPORTED_GRAPH_INSTRUMENTS=new Set(["function2d","complex_plane","parametric2d","parametric3d","surface3d","geometry3d"]);
+const SUPPORTED_GRAPH_INSTRUMENTS=new Set(["function2d","complex_plane","parametric2d","parametric3d","surface3d","geometry2d","geometry3d"]);
 function normalizeGraphInstrument(v:unknown){
   const raw=String(v??"").trim().toLowerCase();
-  const aliases:any={function2d:"function2d",function:"function2d",graph:"function2d",courbe:"function2d",complex_plane:"complex_plane",parametric:"parametric2d",parametric2d:"parametric2d",parametric3d:"parametric3d",surface3d:"surface3d",geometry3d:"geometry3d",geometrie3d:"geometry3d","3d":"geometry3d"};
+  const aliases:any={function2d:"function2d",function:"function2d",graph:"function2d",courbe:"function2d",complex_plane:"complex_plane",parametric:"parametric2d",parametric2d:"parametric2d",parametric3d:"parametric3d",surface3d:"surface3d",geometry2d:"geometry2d",vector2d:"geometry2d",plan2d:"geometry2d",geometry3d:"geometry3d",geometrie3d:"geometry3d","3d":"geometry3d"};
   return aliases[raw]||raw;
 }
 function validateMathVisualPlan(content:any,subject:any,profile:any){
@@ -72,7 +73,8 @@ function validateMathVisualPlan(content:any,subject:any,profile:any){
       const objects=Array.isArray(graph.objects)?graph.objects.length:0;
       const parametric2d=String(graph.x_expression||"").trim()&&String(graph.y_expression||"").trim();
       const parametric3d=String(graph.x_expression||"").trim()&&String(graph.y_expression||"").trim()&&String(graph.z_expression||"").trim();
-      const validConstruction=(instrument==="function2d"||instrument==="complex_plane") ? Boolean(source||pointData||Array.isArray(graph.asymptotes)&&graph.asymptotes.length) : instrument==="parametric2d" ? Boolean(parametric2d) : instrument==="parametric3d" ? Boolean(parametric3d) : instrument==="surface3d" ? Boolean(source) : Boolean(objects||pointData);
+      const geometry2dTypes=new Set(["point","vector","line","segment","ray","polygon"]);
+      const validConstruction=(instrument==="function2d"||instrument==="complex_plane") ? Boolean(source||pointData||Array.isArray(graph.asymptotes)&&graph.asymptotes.length) : instrument==="parametric2d" ? Boolean(parametric2d) : instrument==="parametric3d" ? Boolean(parametric3d) : instrument==="surface3d" ? Boolean(source) : instrument==="geometry2d" ? Boolean(objects.some((o:any)=>geometry2dTypes.has(String(o?.type||"").toLowerCase()))||pointData) : Boolean(objects||pointData);
       if(!validConstruction) throw new Error(`Graphique ${graphId} : données de construction insuffisantes pour ${instrument}.`);
       for(const key of ["x_min","x_max","y_min","y_max","z_min","z_max","t_min","t_max"]){
         if(graph[key]!==undefined&&graph[key]!==null&&(!Number.isFinite(Number(graph[key])))) throw new Error(`Graphique ${graphId} : ${key} doit être numérique.`);
@@ -92,6 +94,86 @@ function validateMathVisualPlan(content:any,subject:any,profile:any){
     }
   }
   return {enabled:true,graphable_sections:content.sections.filter((s:any)=>MATH_GRAPHABLE_PATTERN.test(normalizeForGraphMatch([s.title,...(Array.isArray(s.content)?s.content:[])].join(" ")))).length,planned_graphs:plannedGraphs};
+}
+
+function validateGeoGebraVisualPlan(content:any,subject:any,profile:any){
+  const isCourse=profile.kind==="cours";
+  const isMath=normalizeForGraphMatch(subject).includes("math");
+  if(!isCourse||isMath) return {enabled:false,planned_graphs:0,non_math:false};
+  const graphCount=content.sections.reduce((n:number,s:any)=>n+(Array.isArray(s?.graphs)?s.graphs.length:0),0);
+  if(graphCount<1) return {enabled:false,planned_graphs:0,non_math:true};
+  const plan=(content.geogebra_plan&&typeof content.geogebra_plan==="object"?content.geogebra_plan:null)
+    || (content.metadata&&typeof content.metadata==="object"&&content.metadata.geogebra_plan&&typeof content.metadata.geogebra_plan==="object"?content.metadata.geogebra_plan:null);
+  if(!plan) throw new Error("Cours non mathématique avec GeoGebra : geogebra_plan obligatoire lorsque sections[].graphs est utilisé.");
+  if(plan.schema_version!==GEOGEBRA_VISUAL_PLAN_SCHEMA) throw new Error("Cours avec GeoGebra : geogebra_plan.schema_version invalide.");
+  if(!Array.isArray(plan.decisions)||plan.decisions.length!==content.sections.length) throw new Error("Cours avec GeoGebra : une décision GeoGebra est requise pour chaque section.");
+  const decisionMap=new Map<number,any>();
+  for(const d of plan.decisions){
+    const n=Number(d?.section_number);
+    if(!Number.isInteger(n)||n<1||n>content.sections.length) throw new Error("geogebra_plan : section_number invalide.");
+    if(decisionMap.has(n)) throw new Error("geogebra_plan : section_number dupliqué.");
+    decisionMap.set(n,d);
+  }
+  const allGraphIds=new Map<string,{section:number,graph:any}>();
+  let plannedGraphs=0;
+  const geometry2dTypes=new Set(["point","vector","line","segment","ray","polygon"]);
+  for(let sectionIndex=0;sectionIndex<content.sections.length;sectionIndex++){
+    const section=content.sections[sectionIndex];
+    const decision=decisionMap.get(sectionIndex+1);
+    if(!decision) throw new Error(`Cours avec GeoGebra : décision manquante pour la section ${sectionIndex+1}.`);
+    const choice=String(decision.decision||"").trim().toLowerCase();
+    const graphs=Array.isArray(section?.graphs)?section.graphs:[];
+    if(choice!=="build"&&choice!=="not_needed") throw new Error(`Section ${sectionIndex+1} : décision GeoGebra doit être build ou not_needed.`);
+    if(choice==="not_needed"){
+      if(graphs.length>0) throw new Error(`Section ${sectionIndex+1} : not_needed ne peut pas contenir de graphique GeoGebra.`);
+      if(String(decision.rationale||"").trim().length<8) throw new Error(`Section ${sectionIndex+1} : rationale obligatoire lorsque GeoGebra est écarté.`);
+      continue;
+    }
+    if(!Array.isArray(decision.graph_ids)||decision.graph_ids.length<1) throw new Error(`Section ${sectionIndex+1} : build exige au moins un graph_id.`);
+    if(decision.graph_ids.length!==graphs.length) throw new Error(`Section ${sectionIndex+1} : les graph_ids doivent couvrir exactement tous les graphiques de la section.`);
+    const seen=new Set<string>();
+    for(const graphIdRaw of decision.graph_ids){
+      const graphId=String(graphIdRaw||"").trim();
+      if(!graphId) throw new Error(`Section ${sectionIndex+1} : graph_id vide interdit.`);
+      if(seen.has(graphId)||allGraphIds.has(graphId)) throw new Error(`graph_id dupliqué : ${graphId}.`);
+      seen.add(graphId);
+      const graph=graphs.find((g:any)=>String(g?.id||"").trim()===graphId);
+      if(!graph) throw new Error(`Section ${sectionIndex+1} : graph_id ${graphId} introuvable dans sections[${sectionIndex}].graphs.`);
+      const instrument=normalizeGraphInstrument(graph.instrument||graph.graph_type);
+      if(!SUPPORTED_GRAPH_INSTRUMENTS.has(instrument)) throw new Error(`Graphique ${graphId} : instrument GeoGebra non supporté (${instrument||"absent"}).`);
+      if(String(graph.title||graph.name||"").trim().length<1||String(graph.purpose||"").trim().length<3) throw new Error(`Graphique ${graphId} : title/name et purpose sont obligatoires.`);
+      const source=String(graph.expression||graph.mathematical_source||"").trim();
+      const pointData=Array.isArray(graph.points)?graph.points.length:0;
+      const objects=Array.isArray(graph.objects)?graph.objects:[];
+      const xExpr=String(graph.x_expression||"").trim();
+      const yExpr=String(graph.y_expression||"").trim();
+      const zExpr=String(graph.z_expression||"").trim();
+      const validConstruction=instrument==="function2d"||instrument==="complex_plane" ? Boolean(source||pointData||Array.isArray(graph.asymptotes)&&graph.asymptotes.length)
+        : instrument==="parametric2d" ? Boolean(xExpr&&yExpr)
+        : instrument==="parametric3d" ? Boolean(xExpr&&yExpr&&zExpr)
+        : instrument==="surface3d" ? Boolean(source)
+        : instrument==="geometry2d" ? Boolean(objects.some((o:any)=>geometry2dTypes.has(String(o?.type||"").toLowerCase()))||pointData)
+        : Boolean(objects.length||pointData);
+      if(!validConstruction) throw new Error(`Graphique ${graphId} : données de construction insuffisantes pour ${instrument}.`);
+      for(const key of ["x_min","x_max","y_min","y_max","z_min","z_max","t_min","t_max"]){
+        if(graph[key]!==undefined&&graph[key]!==null&&!Number.isFinite(Number(graph[key]))) throw new Error(`Graphique ${graphId} : ${key} doit être numérique.`);
+      }
+      const ranges=[["x_min","x_max"],["y_min","y_max"],["z_min","z_max"],["t_min","t_max"]];
+      for(const [a,b] of ranges) if(graph[a]!==undefined&&graph[b]!==undefined&&Number(graph[b])<=Number(graph[a])) throw new Error(`Graphique ${graphId} : ${a}<${b} est requis.`);
+      allGraphIds.set(graphId,{section:sectionIndex+1,graph});
+      plannedGraphs++;
+    }
+  }
+  for(let sectionIndex=0;sectionIndex<content.sections.length;sectionIndex++){
+    const graphs=Array.isArray(content.sections[sectionIndex]?.graphs)?content.sections[sectionIndex].graphs:[];
+    for(const graph of graphs){
+      const graphId=String(graph?.id||"").trim();
+      if(!graphId) throw new Error(`Section ${sectionIndex+1} : chaque graphique doit avoir un id stable.`);
+      if(!allGraphIds.has(graphId)) throw new Error(`Graphique ${graphId} : présent dans le document mais absent du geogebra_plan.`);
+    }
+  }
+  if(plannedGraphs>24) throw new Error("Maximum 24 graphiques/constructions GeoGebra par document.");
+  return {enabled:true,schema_version:GEOGEBRA_VISUAL_PLAN_SCHEMA,planned_graphs:plannedGraphs,non_math:true};
 }
 
 function validateDocumentaryVisualPlan(content:any,subject:any,profile:any){
@@ -216,11 +298,12 @@ function validateEditorialContent(content:any,profile:any,instructions:any,subje
   if(visuals>8)throw new Error("Maximum 8 visuels documentaires par document.");
   if(graphs>24)throw new Error("Maximum 24 graphiques/constructions par document.");
   const graphPlan=validateMathVisualPlan(content, subjectForValidation, profile);
+  const geogebraPlan=validateGeoGebraVisualPlan(content, subjectForValidation, profile);
   const documentaryPlan=validateDocumentaryVisualPlan(content, subjectForValidation, profile);
   if(profile.kind==="exercices"&&exercises<1)throw new Error("Un document d'exercices doit contenir au moins un exercice structuré.");
   if(profile.kind==="exercices"&&longSectionContents.length!==new Set(longSectionContents).size)throw new Error("Contenu de section dupliqué entre plusieurs exercices.");
   if(JSON.stringify(content).length>MAX_TEXT)throw new Error("content_json dépasse la taille maximale autorisée.");
-  return {sections:content.sections.length,visuals,graphs,exercises:content.sections.reduce((n:number,s:any)=>n+(Array.isArray(s.exercises)?s.exercises.length:0),0),corrections:Array.isArray(content.corrections)?content.corrections.length:0,graph_plan:graphPlan,documentary_visual_plan:documentaryPlan};
+  return {sections:content.sections.length,visuals,graphs,exercises:content.sections.reduce((n:number,s:any)=>n+(Array.isArray(s.exercises)?s.exercises.length:0),0),corrections:Array.isArray(content.corrections)?content.corrections.length:0,graph_plan:graphPlan,geogebra_plan:geogebraPlan,documentary_visual_plan:documentaryPlan};
 }
 Deno.serve(async req=>{
   if(req.method==="OPTIONS")return new Response("ok",{headers:CORS});
