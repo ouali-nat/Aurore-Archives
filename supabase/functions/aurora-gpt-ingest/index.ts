@@ -384,6 +384,12 @@ function validateEditorialContent(content:any,profile:any,instructions:any,subje
       for(const v of s.visuals)if(String(v?.type||"wikimedia").toLowerCase()!=="wikimedia")throw new Error("Les visuels documentaires doivent utiliser type=wikimedia.");
     }
     if(Array.isArray(s.graphs))graphs+=s.graphs.length;
+    if(Array.isArray(s.exercises)){
+      for(const ex of s.exercises){
+        if(Array.isArray(ex?.statement_graphs))graphs+=ex.statement_graphs.length;
+        if(Array.isArray(ex?.correction_graphs))graphs+=ex.correction_graphs.length;
+      }
+    }
     if(Array.isArray(s.content)){
       for(const item of s.content){
         const raw=text(item,20000).toLowerCase();
@@ -409,6 +415,11 @@ function validateEditorialContent(content:any,profile:any,instructions:any,subje
           }
         }
       }
+    }
+  }
+  if(Array.isArray(content.corrections)){
+    for(const correction of content.corrections){
+      if(Array.isArray(correction?.graphs))graphs+=correction.graphs.length;
     }
   }
   if(visuals>8)throw new Error("Maximum 8 visuels documentaires par document.");
