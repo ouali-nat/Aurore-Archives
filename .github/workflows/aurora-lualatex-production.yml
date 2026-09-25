@@ -369,6 +369,7 @@ jobs:
 
           dangling_math_regressions = [
               ("N. Pour $$", r"N. Pour \$\$"),
+              ("N. Pour $", r"N. Pour \$"),
           ]
           for raw, expected in dangling_math_regressions:
               actual = render_document.inline(raw)
