@@ -364,6 +364,16 @@ jobs:
               actual = normalize_math(raw)
               if actual != expected:
                   raise SystemExit(f"Renderer smoke check failed: math command repair produced {actual!r}, expected {expected!r}")
+
+          json_control_regressions = [
+              ("x\n" + "eq1", r"x\neq1"),
+              ("x\n" + "notin A", r"x\notin A"),
+              ("x\n" + "abla f", r"x\nabla f"),
+          ]
+          for raw, expected in json_control_regressions:
+              actual = normalize_math(raw)
+              if actual != expected:
+                  raise SystemExit(f"Renderer smoke check failed: JSON control escape repair produced {actual!r}, expected {expected!r}")
           from render_document import render_aurore_graphics
           import tempfile
           with tempfile.TemporaryDirectory() as td:
@@ -480,13 +490,6 @@ jobs:
             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
             --data "{\"document_id\":$DOCUMENT_ID,\"progress\":48,\"stage\":\"Source LaTeX générée\"}" \
             "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
-
-      - name: Diagnose generated LaTeX around compilation failure
-        if: hashFiles('infra/lualatex/production/document-id') != ''
-        working-directory: infra/lualatex/production
-        run: |
-          echo "===== document.tex lines 400-435 ====="
-          nl -ba document.tex | sed -n '400,435p'
 
       - name: Compile PDF — first pass
         if: hashFiles('infra/lualatex/production/document-id') != ''

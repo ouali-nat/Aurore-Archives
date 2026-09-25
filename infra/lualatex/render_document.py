@@ -1136,6 +1136,11 @@ def normalize_math(s):
     s = s.replace("\t" + "imes", r"\times")
     s = s.replace("\t" + "heta", r"\theta")
     s = s.replace("\t" + "o", r"\to")
+    # JSON decodes LaTeX commands beginning with \\n (for example \\neq)
+    # as an actual newline followed by the command name. Restore the common
+    # math commands before clean_text() can discard that control character.
+    for command in ("eq", "notin", "exists", "abla", "mid", "parallel", "rightarrow", "leftarrow"):
+        s = s.replace("\n" + command, "\\" + command)
     # JSON decodes \\right as CR + "ight"; restore the lost backslash before clean_text().
     s = s.replace("\r" + "ight", r"\right")
     s = clean_text(s)
