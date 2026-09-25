@@ -719,7 +719,8 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
             )
             effective_directives = list(directives)
             if (
-                not has_wikimedia
+                not explicit
+                and not has_wikimedia
                 and len(visuals) < max_total
                 and any(
                     clean_text(item).strip()
@@ -844,6 +845,7 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                     title = str(page.get("title") or "").replace("File:", "", 1)
                     caption = clean_text(raw.get("caption") or mv("ImageDescription", title))[:280]
                     visuals.append({
+                        "visual_id": clean_text(raw.get("id") or ""),
                         "section_index": section_index,
                         "section_title": clean_text(section.get("title") or ""),
                         "path": str(local.relative_to(assets_dir.parent)).replace("\\", "/"),
@@ -2818,19 +2820,35 @@ def main():
         f"version={requested_profile['version']} locked={requested_profile['locked']}"
     )
     main_graphics = main_metadata.get("graphics") if isinstance(main_metadata.get("graphics"), dict) else {}
+    is_math_subject = bool(re.search(r"\bmath(?:ématique|ematique)?\b", clean_text(subject).lower()))
+    documentary_plan = data.get("visual_plan")
+    if not isinstance(documentary_plan, dict) and isinstance(main_metadata.get("visual_plan"), dict):
+        documentary_plan = main_metadata.get("visual_plan")
+    has_documentary_plan = (
+        requested_profile["kind"] == "cours"
+        and not is_math_subject
+        and isinstance(documentary_plan, dict)
+        and documentary_plan.get("schema_version") == "documentary-visual-plan-1"
+    )
     external_images_disabled = (
         main_graphics.get("wikimedia") is False
         or main_graphics.get("external_images") is False
         or main_metadata.get("exercise_pipeline") is True
         or data.get("exercise_pipeline") is True
         or requested_profile["kind"] == "exercices"
+        or is_math_subject
     )
 
-    if main_is_exercise_document and external_images_disabled:
+    if external_images_disabled:
         data["_wikimedia_visuals"] = []
+        disable_reason = (
+            "math_documentary_visuals_disabled"
+            if is_math_subject
+            else "exercise_series_external_images_disabled"
+        )
         data["_visual_qa"] = {
             "mode": "disabled",
-            "reason": "exercise_series_external_images_disabled",
+            "reason": disable_reason,
             "planned": 0,
             "selected": 0,
             "retrieved": 0,
@@ -2872,19 +2890,28 @@ def main():
         if str(v.get("path") or "") and str(v.get("path") or "") not in tex
     ]
     if missing_embedded:
-        data["_visual_qa"]["status"] = "warning"
+        data["_visual_qa"]["status"] = "blocked" if has_documentary_plan else "warning"
         data["_visual_qa"]["embedded"] = len(data["_wikimedia_visuals"]) - len(missing_embedded)
         data["_visual_qa"]["embedded_missing"] = missing_embedded
-        print(
-            "WARNING: Wikimedia visual(s) were fetched but not embedded in LaTeX: "
-            + ", ".join(missing_embedded)
-            + " — PDF generation continues."
+        message = (
+            "Documentary visual plan QA failed: required Wikimedia visual(s) "
+            "were fetched but not embedded in LaTeX: "
+            if has_documentary_plan
+            else "WARNING: Wikimedia visual(s) were fetched but not embedded in LaTeX: "
         )
+        print(message + ", ".join(missing_embedded))
+        if has_documentary_plan:
+            raise SystemExit(message + ", ".join(missing_embedded))
     else:
         data["_visual_qa"]["embedded"] = len(data["_wikimedia_visuals"])
-    if data["_visual_qa"].get("status") == "blocked":
+    if has_documentary_plan and data["_visual_qa"].get("required_missing", 0):
+        raise SystemExit(
+            "Documentary visual plan QA failed: "
+            f"{data['_visual_qa']['required_missing']} required visual(s) were not retrieved."
+        )
+    if data["_visual_qa"].get("status") == "blocked" and not has_documentary_plan:
         data["_visual_qa"]["status"] = "warning"
-    if data["_visual_qa"].get("failed", 0):
+    if data["_visual_qa"].get("failed", 0) and not has_documentary_plan:
         data["_visual_qa"]["status"] = "warning"
     out.write_text(tex, encoding="utf-8")
     qa_path = out.with_suffix(".visual-qa.json")
