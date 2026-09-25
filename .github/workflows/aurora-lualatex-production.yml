@@ -75,8 +75,6 @@ jobs:
               raise SystemExit(f"Inline dollar regression: stray dollar delimiter remains: {rendered_inline!r}")
           if r"\[-\infty.\]" not in rendered_inline or r"\[+\infty.\]" not in rendered_inline:
               raise SystemExit(f"Inline display-dollar regression: display math was not preserved: {rendered_inline!r}")
-          PY
-
           math_course = {
               "subject": "Mathématiques",
               "document_type": "cours",
@@ -114,6 +112,10 @@ jobs:
               pass
           else:
               raise SystemExit("Math visual plan smoke test failed: missing decision was accepted.")
+          PY
+
+      - name: Claim next generated document
+
 
       - name: Claim next generated document
         run: |
