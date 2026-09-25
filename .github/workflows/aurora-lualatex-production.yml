@@ -48,7 +48,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import render_document
-          from render_document import normalize_math, _math_visual_plan_qa, _geogebra_visual_plan_qa, _documentary_visual_plan_qa
+          from render_document import normalize_math, _math_visual_plan_qa, _geogebra_visual_plan_qa, _exercise_geogebra_plan_qa, _documentary_visual_plan_qa
 
           regressions = [
               (r"\fracrac3{(x-1)^2}", r"\frac3{(x-1)^2}"),
@@ -153,6 +153,97 @@ jobs:
                   }]
               }
           }
+
+          exercise_sheet = {
+              "title": "Fonctions — série d'exercices",
+              "subject": "Mathématiques",
+              "document_type": "exercices",
+              "metadata": {"origin": "gpt_editorial_ingest"},
+              "sections": [{
+                  "title": "Courbes",
+                  "exercises": [{
+                      "question": "Étudier puis tracer la courbe de f.",
+                      "statement_graphs": [],
+                      "correction_graphs": [{
+                          "id": "corr-f1",
+                          "title": "Construction de la courbe de f",
+                          "purpose": "Vérifier graphiquement la représentation obtenue.",
+                          "instrument": "function2d",
+                          "expression": "x^2-2*x",
+                          "graph_local_path": "assets/geogebra/exercise-1-correction-1.png",
+                          "geogebra_image_path": "aurora-content/test/exercise-corr-f1.png"
+                      }]
+                  }, {
+                      "question": "Résoudre l'exercice sans construction graphique.",
+                      "statement_graphs": [],
+                      "correction_graphs": []
+                  }]
+              }],
+              "exercise_geogebra_plan": {
+                  "schema_version": "exercise-geogebra-plan-1",
+                  "decisions": [{
+                      "exercise_number": 1,
+                      "statement": {"decision": "not_needed", "rationale": "La construction est demandée à l'élève."},
+                      "correction": {"decision": "build", "rationale": "Le graphique aide à vérifier la construction.", "graph_ids": ["corr-f1"]}
+                  }, {
+                      "exercise_number": 2,
+                      "statement": {"decision": "not_needed", "rationale": "Aucune donnée graphique n'est nécessaire."},
+                      "correction": {"decision": "not_needed", "rationale": "Le résultat est algébrique et le graphique n'apporte rien."}
+                  }]
+              }
+          }
+          exercise_qa = _exercise_geogebra_plan_qa(exercise_sheet)
+          if exercise_qa.get("planned_graphs") != 1 or not exercise_qa.get("enabled"):
+              raise SystemExit(f"Exercise GeoGebra plan smoke test failed: {exercise_qa!r}")
+
+          broken_exercise = dict(exercise_sheet)
+          broken_exercise["exercise_geogebra_plan"] = {
+              "schema_version": "exercise-geogebra-plan-1",
+              "decisions": [{
+                  "exercise_number": 1,
+                  "statement": {"decision": "build", "rationale": "Construction prévue.", "graph_ids": ["corr-f1"]},
+                  "correction": {"decision": "not_needed", "rationale": "Pas de correction graphique."}
+              }]
+          }
+          try:
+              _exercise_geogebra_plan_qa(broken_exercise)
+          except ValueError:
+              pass
+          else:
+              raise SystemExit("Exercise GeoGebra plan smoke test failed: decision count mismatch was accepted.")
+
+          unsupported_exercise = {
+              "title": "Histoire — série",
+              "subject": "Histoire",
+              "document_type": "exercices",
+              "metadata": {"origin": "gpt_editorial_ingest"},
+              "sections": [{
+                  "title": "Cartographie",
+                  "exercises": [{
+                      "question": "Lire la carte.",
+                      "statement_graphs": [{
+                          "id": "h1",
+                          "title": "Carte",
+                          "purpose": "Support de lecture.",
+                          "instrument": "function2d",
+                          "expression": "x"
+                      }],
+                      "correction_graphs": []
+                  }]
+              }],
+              "exercise_geogebra_plan": {"schema_version": "exercise-geogebra-plan-1", "decisions": [{
+                  "exercise_number": 1,
+                  "statement": {"decision": "build", "rationale": "La représentation est nécessaire.", "graph_ids": ["h1"]},
+                  "correction": {"decision": "not_needed", "rationale": "Pas de graphique en correction."}
+              }]}
+          }
+          try:
+              _exercise_geogebra_plan_qa(unsupported_exercise)
+          except ValueError:
+              pass
+          else:
+              raise SystemExit("Exercise GeoGebra plan smoke test failed: unsupported subject was accepted.")
+
           documentary_qa = _documentary_visual_plan_qa(history_course)
           if documentary_qa.get("planned_visuals") != 1 or not documentary_qa.get("enabled"):
               raise SystemExit(f"Documentary visual plan smoke test failed: {documentary_qa!r}")
@@ -382,7 +473,7 @@ jobs:
               if not isinstance(g, dict):
                   return False
               instrument=str(g.get("instrument") or g.get("graph_type") or "").lower().strip()
-              aliases={"function":"function2d","graph":"function2d","courbe":"function2d","complex_plane":"complex_plane","parametric":"parametric2d","geometrie3d":"geometry3d","3d":"geometry3d"}
+              aliases={"function":"function2d","graph":"function2d","courbe":"function2d","complex_plane":"complex_plane","parametric":"parametric2d","geometry2d":"geometry2d","vector2d":"geometry2d","plan2d":"geometry2d","geometrie3d":"geometry3d","3d":"geometry3d"}
               instrument=aliases.get(instrument,instrument)
               points=g.get("points") if isinstance(g.get("points"),list) else []
               objects=g.get("objects") if isinstance(g.get("objects"),list) else []
@@ -396,6 +487,9 @@ jobs:
               if instrument=="parametric2d": return bool(x and y)
               if instrument=="parametric3d": return bool(x and y and z)
               if instrument=="surface3d": return bool(expr)
+              if instrument=="geometry2d":
+                  valid_types={"point","vector","line","segment","ray","polygon"}
+                  return any(isinstance(o,dict) and str(o.get("type") or "").lower() in valid_types for o in objects) or any(isinstance(p,list) and len(p)>=2 for p in points)
               if instrument=="geometry3d":
                   valid_types={"point","vector","line","plane","sphere","cylinder","cone","polygon","cube","prism","pyramid","tetrahedron"}
                   return any(isinstance(o,dict) and str(o.get("type") or "").lower() in valid_types for o in objects) or any(isinstance(p,list) and len(p)>=3 for p in points) or any(isinstance(p,dict) and p.get("z") is not None for p in poi)
@@ -409,13 +503,25 @@ jobs:
               version=int(g.get("geogebra_renderer_version") or 0)
               if not path or source!="geogebra": return False
               return version >= 3
+          def all_graphs(data):
+              for section in data.get("sections") or []:
+                  for graph in section.get("graphs") or []:
+                      yield graph
+                  for exercise in section.get("exercises") or []:
+                      for graph in exercise.get("statement_graphs") or []:
+                          yield graph
+                      for graph in exercise.get("correction_graphs") or []:
+                          yield graph
+              for correction in data.get("corrections") or []:
+                  for graph in correction.get("graphs") or []:
+                      yield graph
+
           missing=0
           total=0
-          for s in data.get("sections") or []:
-              for g in s.get("graphs") or []:
-                  if valid(g):
-                      total+=1
-                      missing+=0 if ready(g) else 1
+          for g in all_graphs(data):
+              if valid(g):
+                  total+=1
+                  missing+=0 if ready(g) else 1
           print(f"GeoGebra préflight: {total-missing}/{total} asset(s) prêts; {missing} manquant(s).")
           if missing:
               Path("production/geogebra-required").write_text(str(missing))
@@ -448,15 +554,27 @@ jobs:
               version=int(g.get("geogebra_renderer_version") or 0)
               if not path or source!="geogebra": return False
               return version >= 3
+          def all_graphs(data):
+              for section in data.get("sections") or []:
+                  for graph in section.get("graphs") or []:
+                      yield graph
+                  for exercise in section.get("exercises") or []:
+                      for graph in exercise.get("statement_graphs") or []:
+                          yield graph
+                      for graph in exercise.get("correction_graphs") or []:
+                          yield graph
+              for correction in data.get("corrections") or []:
+                  for graph in correction.get("graphs") or []:
+                      yield graph
+
           missing=[]
           total=0
           index=0
-          for s in data.get("sections") or []:
-              for g in s.get("graphs") or []:
-                  if valid(g):
-                      total+=1
-                      if not ready(g): missing.append(index)
-                  index+=1
+          for g in all_graphs(data):
+              if valid(g):
+                  total+=1
+                  if not ready(g): missing.append(index)
+              index+=1
           print(f"GeoGebra vérification: {total-len(missing)}/{total} asset(s) prêts.")
           if missing:
               raise SystemExit("GeoGebra asset(s) manquant(s) avant LuaLaTeX: "+",".join(str(x+1) for x in missing))
