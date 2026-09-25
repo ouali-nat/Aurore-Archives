@@ -112,6 +112,18 @@ jobs:
               pass
           else:
               raise SystemExit("Math visual plan smoke test failed: missing decision was accepted.")
+          legacy_course = {
+              "title": "Ancien cours de coniques",
+              "subject": "Mathématiques",
+              "document_type": "cours",
+              "sections": [{
+                  "title": "Parabole",
+                  "content": ["Une parabole est l'ensemble des points définis par une relation quadratique."]
+              }]
+          }
+          legacy_qa = _math_visual_plan_qa(legacy_course)
+          if not legacy_qa.get("legacy") or legacy_qa.get("enabled"):
+              raise SystemExit(f"Legacy renderer compatibility smoke test failed: {legacy_qa!r}")
           PY
 
       - name: Claim next generated document
