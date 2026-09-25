@@ -48,7 +48,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import render_document
-from render_document import normalize_math
+          from render_document import normalize_math
 
           regressions = [
               (r"\fracrac3{(x-1)^2}", r"\frac3{(x-1)^2}"),
