@@ -1614,16 +1614,46 @@ def _is_bullet(s):
 
 
 def _is_table_row(s):
+    """Detect genuine pipe-delimited table rows without hijacking prose/math.
+
+    A plain French sentence can legitimately contain the probability
+    conditional notation P(A|B), and a document may contain several such
+    expressions. Treating any pipe as a Markdown table separator produces
+    pathological multi-column boxes. We therefore require a Markdown-like
+    delimiter pattern outside explicit math: either leading/trailing pipes,
+    or at least two separators surrounded by whitespace, or a separator row.
+    """
     s = str(s or "").strip()
-    # Ignore pipe characters that belong to LaTeX math. In particular,
-    # array environments use a column separator such as {c|ccccc}; those
-    # pipes must never cause the math block to be treated as a Markdown table.
+    if not s:
+        return False
+
+    # Explicit Markdown separator rows remain valid tables.
+    if re.fullmatch(r"\|?\s*:?-{2,}:?\s*(?:\|\s*:?-{2,}:?\s*)+\|?", s):
+        return True
+
+    # Remove explicit math blocks before looking for prose-level table pipes.
     text_only = re.sub(
-        r"(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\$[\s\S]*?\$)",
+        r"(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|\$[\s\S]*?\$)",
         "",
         s,
-    )
-    return "|" in text_only and len([p for p in text_only.split("|") if p.strip()]) >= 2
+    ).strip()
+
+    if "|" not in text_only:
+        return False
+
+    # Strong Markdown signals.
+    if text_only.startswith("|") or text_only.endswith("|"):
+        parts = [p.strip() for p in text_only.strip("|").split("|")]
+        return len(parts) >= 2 and all(parts)
+
+    # Internal separators must look like prose table delimiters (whitespace
+    # on both sides). This excludes mathematical P(A|B), P(A|B^c), etc.
+    spaced = re.findall(r"\s+\|\s+", text_only)
+    if len(spaced) < 1:
+        return False
+
+    parts = [p.strip() for p in re.split(r"\s+\|\s+", text_only) if p.strip()]
+    return len(parts) >= 2
 
 
 def _strip_list_marker(s):
