@@ -70,11 +70,11 @@ function validateMathVisualPlan(content:any,subject:any,profile:any){
       if(String(graph.title||"").trim().length<1||String(graph.purpose||"").trim().length<3) throw new Error(`Graphique ${graphId} : title et purpose sont obligatoires.`);
       const source=String(graph.expression||graph.mathematical_source||graph.x_expression||"").trim();
       const pointData=Array.isArray(graph.points)?graph.points.length:0;
-      const objects=Array.isArray(graph.objects)?graph.objects.length:0;
+      const objects=Array.isArray(graph.objects)?graph.objects:[];
       const parametric2d=String(graph.x_expression||"").trim()&&String(graph.y_expression||"").trim();
       const parametric3d=String(graph.x_expression||"").trim()&&String(graph.y_expression||"").trim()&&String(graph.z_expression||"").trim();
       const geometry2dTypes=new Set(["point","vector","line","segment","ray","polygon"]);
-      const validConstruction=(instrument==="function2d"||instrument==="complex_plane") ? Boolean(source||pointData||Array.isArray(graph.asymptotes)&&graph.asymptotes.length) : instrument==="parametric2d" ? Boolean(parametric2d) : instrument==="parametric3d" ? Boolean(parametric3d) : instrument==="surface3d" ? Boolean(source) : instrument==="geometry2d" ? Boolean(objects.some((o:any)=>geometry2dTypes.has(String(o?.type||"").toLowerCase()))||pointData) : Boolean(objects||pointData);
+      const validConstruction=(instrument==="function2d"||instrument==="complex_plane") ? Boolean(source||pointData||Array.isArray(graph.asymptotes)&&graph.asymptotes.length) : instrument==="parametric2d" ? Boolean(parametric2d) : instrument==="parametric3d" ? Boolean(parametric3d) : instrument==="surface3d" ? Boolean(source) : instrument==="geometry2d" ? Boolean(objects.some((o:any)=>geometry2dTypes.has(String(o?.type||"").toLowerCase()))||pointData) : Boolean(objects.length||pointData);
       if(!validConstruction) throw new Error(`Graphique ${graphId} : données de construction insuffisantes pour ${instrument}.`);
       for(const key of ["x_min","x_max","y_min","y_max","z_min","z_max","t_min","t_max"]){
         if(graph[key]!==undefined&&graph[key]!==null&&(!Number.isFinite(Number(graph[key])))) throw new Error(`Graphique ${graphId} : ${key} doit être numérique.`);
