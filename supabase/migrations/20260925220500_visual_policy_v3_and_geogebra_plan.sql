@@ -266,7 +266,7 @@ begin
       elsif v_instrument='parametric3d' then
         if length(trim(coalesce(v_graph->>'x_expression',''))) = 0
            or length(trim(coalesce(v_graph->>'y_expression',''))) = 0
-           or length(trim(coalesce(v_graph->'z_expression',''))) = 0 then
+           or length(trim(coalesce(v_graph->>'z_expression',''))) = 0 then
           raise exception 'Graphique % : x_expression, y_expression et z_expression sont requis', v_id;
         end if;
       elsif v_instrument='surface3d' then
