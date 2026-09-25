@@ -1485,7 +1485,18 @@ def _render_bare_latex_fragments(text, auto_math=False):
     \\\\frac{1}{f'}, \\\\gamma or \\\\text{cm} without surrounding $...$.
     Those fragments must remain real TeX instead of being escaped as text.
     """
-    s = normalize_math(str(text or ""))
+    raw_text = str(text or "")
+    if _UNMATCHED_DISPLAY_DOLLAR_TOKEN in raw_text:
+        pieces = raw_text.split(_UNMATCHED_DISPLAY_DOLLAR_TOKEN)
+        rendered = []
+        for idx, piece in enumerate(pieces):
+            if piece:
+                rendered.append(_render_bare_latex_fragments(piece, auto_math=auto_math))
+            if idx < len(pieces) - 1:
+                rendered.append(r"\$\$")
+        return "".join(rendered)
+
+    s = normalize_math(raw_text)
     placeholders = []
     if auto_math:
         s, placeholders = _auto_mathize_plain_text(s)
