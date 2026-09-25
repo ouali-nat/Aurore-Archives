@@ -481,6 +481,206 @@ jobs:
             --data "{\"document_id\":$DOCUMENT_ID,\"progress\":48,\"stage\":\"Source LaTeX générée\"}" \
             "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
 
+      - name: Diagnose generated LaTeX around compilation failure
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        working-directory: infra/lualatex/production
+        run: |
+          echo "===== document.tex lines 400-435 ====="
+          nl -ba document.tex | sed -n '400,435p'
+          echo "===== math delimiter scan in lines 400-435 ====="
+          sed -n '400,435p' document.tex | grep -n '\        if: hashFiles('infra/lualatex/production/document-id') != ''
+        working-directory: infra/lualatex/production
+        run: |
+          lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error \
+            -output-directory=. document.tex
+
+      - name: Mark PDF compilation progress
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          curl --fail --silent --show-error --retry 4 --retry-delay 2 -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            -H "x-aurore-document-id: $DOCUMENT_ID" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":68,\"stage\":\"Compilation PDF — première passe terminée\"}" \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
+
+      - name: Compile PDF — final pass
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        working-directory: infra/lualatex/production
+        run: |
+          lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error \
+            -output-directory=. document.tex
+          python3 - <<'PY'
+          from pathlib import Path
+          pdf = Path("document.pdf")
+          if not pdf.is_file() or pdf.stat().st_size == 0:
+              raise SystemExit("LuaLaTeX did not produce a PDF")
+          if pdf.read_bytes()[:5] != b"%PDF-":
+              raise SystemExit("Invalid PDF header")
+          print(f"Generated PDF: {pdf.stat().st_size} bytes")
+          PY
+
+      - name: Mark PDF ready for upload
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          curl --fail --silent --show-error --retry 4 --retry-delay 2 -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":86,\"stage\":\"PDF compilé — vérification terminée\"}" \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
+
+      - name: Upload PDF and commit database URL
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          curl --fail --silent --show-error --retry 4 --retry-delay 2 \
+            -X POST \
+            -H "Content-Type: application/pdf" \
+            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            -H "x-aurore-document-id: $DOCUMENT_ID" \
+            -H "x-aurore-commit: true" \
+            --data-binary @infra/lualatex/production/document.pdf \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-upload-v2" \
+            -o infra/lualatex/production/upload-response.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("infra/lualatex/production/upload-response.json").read_text())
+          if not data.get("ok") or data.get("mode") != "commit" or data.get("database_updated") is not True:
+              raise SystemExit(f"Production upload failed: {data}")
+          print(f"LuaLaTeX production commit OK: document={data['generated_document_id']} bytes={data['bytes']}")
+          print(f"PDF path: {data['pdf_path']}")
+          PY
+
+      - name: Mark PDF completed
+        if: hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          curl --fail --silent --show-error -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"progress\":100,\"stage\":\"PDF terminé et enregistré dans Aurore\"}" \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
+
+      - name: Requeue document after renderer failure
+        if: failure() && hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          curl --fail --silent --show-error \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"error\":\"GitHub Actions run $GITHUB_RUN_ID failed\"}" \
+            "$SUPABASE_URL/functions/v1/aurora-lualatex-fail" \
+            -o infra/lualatex/production/failure-response.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("infra/lualatex/production/failure-response.json").read_text())
+          if not data.get("ok"):
+              raise SystemExit(f"Failure cleanup failed: {data}")
+          print(f"LuaLaTeX document requeue: document={data['document_id']} action={data['action']} failure_count={data['failure_count']}")
+          PY
+
+      - name: Create downloadable ZIP package
+        if: success() && hashFiles('infra/lualatex/production/document-id') != '' && hashFiles('infra/lualatex/production/document.pdf') != ''
+        working-directory: infra/lualatex/production
+        run: |
+          DOCUMENT_ID="$(cat document-id)"
+          mkdir -p "aurora-document-$DOCUMENT_ID"
+          cp document.pdf "aurora-document-$DOCUMENT_ID/"
+          cp document.tex "aurora-document-$DOCUMENT_ID/"
+          cp document.json "aurora-document-$DOCUMENT_ID/"
+          [ -f document.visual-qa.json ] && cp document.visual-qa.json "aurora-document-$DOCUMENT_ID/" || true
+          [ -f upload-response.json ] && cp upload-response.json "aurora-document-$DOCUMENT_ID/" || true
+          if [ -d assets ]; then cp -r assets "aurora-document-$DOCUMENT_ID/"; fi
+          printf 'Aurore — document %s\\n' "$DOCUMENT_ID" > "aurora-document-$DOCUMENT_ID/README.txt"
+          printf 'PDF final + source LuaLaTeX + contenu JSON + QA + ressources utilisées.\\n' >> "aurora-document-$DOCUMENT_ID/README.txt"
+          zip -r "aurora-document-$DOCUMENT_ID.zip" "aurora-document-$DOCUMENT_ID" >/dev/null
+          test -s "aurora-document-$DOCUMENT_ID.zip"
+          echo "ZIP prêt : aurora-document-$DOCUMENT_ID.zip"
+
+      - name: Upload rendered PDF artifact
+        if: always() && hashFiles('infra/lualatex/production/document-id') != '' && hashFiles('infra/lualatex/production/document.pdf') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: aurora-lualatex-production-${{ hashFiles('infra/lualatex/production/document-id') }}
+          path: infra/lualatex/production/document.pdf
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Upload downloadable ZIP artifact
+        if: success() && hashFiles('infra/lualatex/production/document-id') != '' && hashFiles('infra/lualatex/production/aurora-document-*.zip') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: aurora-document-zip-${{ hashFiles('infra/lualatex/production/document-id') }}
+          path: infra/lualatex/production/aurora-document-*.zip
+          if-no-files-found: error
+          retention-days: 7
+
+# Production bridge: Supabase queue + GitHub Actions, one PDF at a time.
+# Recovery wake after LuaLaTeX boundary + failure-cleanup fixes: 2026-09-25.
+# Manual wake trigger: 2026-09-21.
+# Renderer visual assets fix trigger: Wikimedia paths + thumbnail MIME. Validation trigger 2026-09-20.
+# Corrective renderer runs cancel obsolete queued/in-progress runs.
+# Automatic wake-up after DeepSeek/Luna is handled by the Supabase INSERT trigger.
+# Wikimedia completeness validation trigger: 2026-09-21.
+# Renderer Wikimedia fallback hardening trigger: semantic regeneration v3 — 2026-09-21.
+# Progress is persisted in aurora_generated_documents.metadata.
+# PDF identity/QR traceability and 45-color palette remain unchanged.
+# Wikimedia long-query core fallback trigger: 2026-09-21.
+
+# Student-first PDF editorial validation: 2026-09-21.
+
+# Renderer validation dispatch bridge: 2026-09-21.
+
+# Queue validation trigger: re-render informatique + histoire 2026-09-21.
+
+# Queue wake retry: informatique 2026-09-21.
+
+# production renderer source validation: escaped colophon text
+
+# Renderer editorial validation wake: 2026-09-21 — run current renderer safely.
+
+# PDF title/QR editorial layout wake: 2026-09-21.
+# Final regression wake: QR vertical position + GeoGebra renderer v3.
+
+# Forced renderer wake: title/logo/QR correction + syntax smoke validation 2026-09-21.
+
+# Manual corrective wake: 2026-09-21 11:48 UTC.
+# Document 339 corrective generation wake: 2026-09-22.
+
+# Document 339 retry after upload metadata fix: created_by + queue reset — 2026-09-22.
+# Keep the production run alive until PDF + GitHub artifact are completed; do not cancel active rendering.
+# GeoGebra + Wikimedia non-blocking policy wake: 2026-09-22.
+# Document 339 requeued for actual production PDF + artifact: 2026-09-22.
+
+# FORCED PRODUCTION WAKE: document 339 requeued and ready — 2026-09-22.
+
+# Implicit conic GeoGebra fix + non-blocking Wikimedia QA + artifact resilience — 2026-09-22.
+
+# Forced post-fix wake: document 339 queued with implicit-conic GeoGebra fix — 2026-09-22.
+
+# SVT Wikimedia visual rendering test wake: 2026-09-22.
+
+# Classification propagation wake: 2026-09-22.
+# FORCED PRODUCTION RUN: restore/verify PDFs after admin inventory correction — 2026-09-22.
+
+# FORCED WAKE: document 347 queued after LaTeX single-backslash fix — 2026-09-22.
+
+# FORCED WAKE: document 348 — Forces et lois de Newton — 2026-09-22.
+
+# FORCED WAKE: exercise pipeline document 350 — 2026-09-22.
+
+# FORCED WAKE: document 353 — exercice test — 2026-09-23
+# FORCED WAKE: document 353 — exercise queue claim fix — 2026-09-23
+
+# FORCED WAKE: document 363 — Calculs de limites — 2026-09-24
+# FORCED PRODUCTION WAKE: document 363 — post-fix double-dollar renderer verification — 2026-09-24
+ || true
+
       - name: Compile PDF — first pass
         if: hashFiles('infra/lualatex/production/document-id') != ''
         working-directory: infra/lualatex/production
