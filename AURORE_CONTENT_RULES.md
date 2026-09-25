@@ -177,7 +177,7 @@ Cette organisation permet d'enrichir progressivement Aurore sans réécrire ou f
 
 Avant toute génération destinée à l’ingestion Aurore, l’assistante doit récupérer la mémoire éditoriale générale via le service aurora-editorial-memory. Lorsque la matière est Mathématiques, le même appel récupère également le module Mathématiques.
 
-La réponse ouvre une session mémoire à usage unique. L’assistante doit conserver le session_id et le transmettre dans memory_session_id à aurora-gpt-ingest. Une session absente, expirée, déjà consommée ou incompatible avec la matière doit arrêter l’ingestion.
+La réponse ouvre une session mémoire à usage unique. L’assistante doit conserver le session_id et le memory_session_token et les transmettre dans memory_session_id et memory_session_token à aurora-gpt-ingest. Une session absente, expirée, déjà consommée ou incompatible avec la matière doit arrêter l’ingestion.
 
 Cette exigence est appliquée à deux niveaux : le pont aurora-gpt-ingest refuse les appels sans session valide, et PostgreSQL bloque directement toute nouvelle insertion issue de gpt_editorial_ingest sans mémoire vérifiée. Les versions des mémoires et l’empreinte du paquet utilisé sont enregistrées avec le document.
 
