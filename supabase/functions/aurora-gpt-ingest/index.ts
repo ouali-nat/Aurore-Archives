@@ -303,27 +303,27 @@ function validateExerciseGeoGebraPlan(content:any,subject:any,profile:any){
   let plannedGraphs=0;
   const validateChannel=(exerciseNumber:number,kind:"statement"|"correction",decision:any,graphs:any[])=>{
     const choice=String(decision?.decision||"").trim().toLowerCase();
-    if(choice!=="build"&&choice!=="not_needed") throw new Error(\`Exercice \${exerciseNumber} : décision GeoGebra \${kind} doit être build ou not_needed.\`);
-    if(!Array.isArray(graphs)) throw new Error(\`Exercice \${exerciseNumber} : \${kind}_graphs doit être un tableau.\`);
+    if(choice!=="build"&&choice!=="not_needed") throw new Error(`Exercice ${exerciseNumber} : décision GeoGebra ${kind} doit être build ou not_needed.`);
+    if(!Array.isArray(graphs)) throw new Error(`Exercice ${exerciseNumber} : ${kind}_graphs doit être un tableau.`);
     if(choice==="not_needed"){
-      if(graphs.length>0) throw new Error(\`Exercice \${exerciseNumber} : \${kind} est not_needed mais contient des graphiques.\`);
-      if(String(decision?.rationale||"").trim().length<8) throw new Error(\`Exercice \${exerciseNumber} : rationale obligatoire pour \${kind}/not_needed.\`);
+      if(graphs.length>0) throw new Error(`Exercice ${exerciseNumber} : ${kind} est not_needed mais contient des graphiques.`);
+      if(String(decision?.rationale||"").trim().length<8) throw new Error(`Exercice ${exerciseNumber} : rationale obligatoire pour ${kind}/not_needed.`);
       return;
     }
-    if(!Array.isArray(decision?.graph_ids)||decision.graph_ids.length<1) throw new Error(\`Exercice \${exerciseNumber} : build exige au moins un graph_id pour \${kind}.\`);
-    if(decision.graph_ids.length!==graphs.length) throw new Error(\`Exercice \${exerciseNumber} : les graph_ids de \${kind} doivent couvrir exactement ses graphiques.\`);
+    if(!Array.isArray(decision?.graph_ids)||decision.graph_ids.length<1) throw new Error(`Exercice ${exerciseNumber} : build exige au moins un graph_id pour ${kind}.`);
+    if(decision.graph_ids.length!==graphs.length) throw new Error(`Exercice ${exerciseNumber} : les graph_ids de ${kind} doivent couvrir exactement ses graphiques.`);
     const local=new Set<string>();
     for(const rawId of decision.graph_ids){
       const id=String(rawId||"").trim();
-      if(!id||local.has(id)||referenced.has(id)) throw new Error(\`graph_id GeoGebra dupliqué ou vide : \${id||"(vide)"}.\`);
+      if(!id||local.has(id)||referenced.has(id)) throw new Error(`graph_id GeoGebra dupliqué ou vide : ${id||"(vide)"}.`);
       local.add(id);
       const graph=graphs.find((g:any)=>String(g?.id||"").trim()===id);
-      if(!graph) throw new Error(\`Exercice \${exerciseNumber} : graph_id \${id} introuvable dans \${kind}_graphs.\`);
-      if(allGraphIds.has(id)) throw new Error(\`graph_id GeoGebra dupliqué : \${id}.\`);
+      if(!graph) throw new Error(`Exercice ${exerciseNumber} : graph_id ${id} introuvable dans ${kind}_graphs.`);
+      if(allGraphIds.has(id)) throw new Error(`graph_id GeoGebra dupliqué : ${id}.`);
       allGraphIds.add(id);
       const instrument=normalizeGraphInstrument(graph.instrument||graph.graph_type);
-      if(!SUPPORTED_GRAPH_INSTRUMENTS.has(instrument)) throw new Error(\`Graphique \${id} : instrument GeoGebra non supporté (\${instrument||"absent"}).\`);
-      if(String(graph.title||graph.name||"").trim().length<1||String(graph.purpose||"").trim().length<3) throw new Error(\`Graphique \${id} : title/name et purpose sont obligatoires.\`);
+      if(!SUPPORTED_GRAPH_INSTRUMENTS.has(instrument)) throw new Error(`Graphique ${id} : instrument GeoGebra non supporté (${instrument||"absent"}).`);
+      if(String(graph.title||graph.name||"").trim().length<1||String(graph.purpose||"").trim().length<3) throw new Error(`Graphique ${id} : title/name et purpose sont obligatoires.`);
       const source=String(graph.expression||graph.mathematical_source||"").trim();
       const points=Array.isArray(graph.points)?graph.points.length:0;
       const objects=Array.isArray(graph.objects)?graph.objects:[];
@@ -338,12 +338,12 @@ function validateExerciseGeoGebraPlan(content:any,subject:any,profile:any){
         : instrument==="surface3d" ? Boolean(source)
         : instrument==="geometry2d" ? Boolean(points||objects.some((o:any)=>geo2d.has(String(o?.type||"").toLowerCase())))
         : Boolean(points||objects.length);
-      if(!constructionOk) throw new Error(\`Graphique \${id} : données de construction insuffisantes pour \${instrument}.\`);
+      if(!constructionOk) throw new Error(`Graphique ${id} : données de construction insuffisantes pour ${instrument}.`);
       for(const key of ["x_min","x_max","y_min","y_max","z_min","z_max","t_min","t_max"]){
-        if(graph[key]!==undefined&&graph[key]!==null&&!Number.isFinite(Number(graph[key]))) throw new Error(\`Graphique \${id} : \${key} doit être numérique.\`);
+        if(graph[key]!==undefined&&graph[key]!==null&&!Number.isFinite(Number(graph[key]))) throw new Error(`Graphique ${id} : ${key} doit être numérique.`);
       }
       for(const [a,b] of [["x_min","x_max"],["y_min","y_max"],["z_min","z_max"],["t_min","t_max"]]){
-        if(graph[a]!==undefined&&graph[b]!==undefined&&Number(graph[b])<=Number(graph[a])) throw new Error(\`Graphique \${id} : \${a}<\${b} est requis.\`);
+        if(graph[a]!==undefined&&graph[b]!==undefined&&Number(graph[b])<=Number(graph[a])) throw new Error(`Graphique ${id} : ${a}<${b} est requis.`);
       }
       referenced.add(id);
       plannedGraphs++;
@@ -354,14 +354,14 @@ function validateExerciseGeoGebraPlan(content:any,subject:any,profile:any){
     for(const ex of (Array.isArray(section?.exercises)?section.exercises:[])){
       exerciseNumber++;
       const decision=decisionMap.get(exerciseNumber);
-      if(!decision) throw new Error(\`exercise_geogebra_plan : décision manquante pour l’exercice \${exerciseNumber}.\`);
+      if(!decision) throw new Error(`exercise_geogebra_plan : décision manquante pour l’exercice ${exerciseNumber}.`);
       const statementGraphs=Array.isArray(ex?.statement_graphs)?ex.statement_graphs:[];
       const correctionGraphs=Array.isArray(ex?.correction_graphs)?ex.correction_graphs:[];
       let topCorrectionGraphs:any[]=[];
       const matches=corrections.filter((c:any)=>Number(c?.exercise_number)===exerciseNumber);
-      if(matches.length>1) throw new Error(\`Exercice \${exerciseNumber} : plusieurs corrections structurées sont rattachées au même exercice.\`);
+      if(matches.length>1) throw new Error(`Exercice ${exerciseNumber} : plusieurs corrections structurées sont rattachées au même exercice.`);
       if(matches.length===1&&Array.isArray(matches[0]?.graphs)) topCorrectionGraphs=matches[0].graphs;
-      if(correctionGraphs.length>0&&topCorrectionGraphs.length>0) throw new Error(\`Exercice \${exerciseNumber} : choisir correction_graphs ou corrections[].graphs, pas les deux.\`);
+      if(correctionGraphs.length>0&&topCorrectionGraphs.length>0) throw new Error(`Exercice ${exerciseNumber} : choisir correction_graphs ou corrections[].graphs, pas les deux.`);
       validateChannel(exerciseNumber,"statement",decision.statement||{},statementGraphs);
       validateChannel(exerciseNumber,"correction",decision.correction||{},correctionGraphs.length>0?correctionGraphs:topCorrectionGraphs);
     }
