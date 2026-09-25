@@ -110,6 +110,47 @@ function imageReady(g) {
   return Number(g?.geogebra_renderer_version || 0) >= GEO_GEBRA_RENDERER_VERSION && (!hasSolid || Number(g?.geogebra_renderer_version || 0) >= GEO_GEBRA_RENDERER_VERSION);
 }
 
+
+function validatePlannedGraphs() {
+  const subject = String(content.subject || "").toLowerCase();
+  const documentType = String(content.document_type || "").toLowerCase();
+  if (!/math/.test(subject) || !/cours/.test(documentType) || /exercice|devoir|corrig/.test(documentType)) return;
+
+  const plan = content?.visual_plan && typeof content.visual_plan === "object"
+    ? content.visual_plan
+    : content?.metadata?.visual_plan && typeof content.metadata.visual_plan === "object"
+      ? content.metadata.visual_plan
+      : null;
+  if (!plan) return;
+
+  const decisions = Array.isArray(plan.decisions) ? plan.decisions : [];
+  for (const decision of decisions) {
+    if (String(decision?.decision || "").trim().toLowerCase() !== "build") continue;
+    const sectionNumber = Number(decision?.section_number);
+    const graphIds = Array.isArray(decision?.graph_ids) ? decision.graph_ids : [];
+    if (!Number.isSafeInteger(sectionNumber) || sectionNumber < 1 || sectionNumber > content.sections.length) {
+      throw new Error("Plan graphique GeoGebra invalide : section_number hors limites.");
+    }
+    if (!graphIds.length) {
+      throw new Error(`Plan graphique GeoGebra invalide : la section ${sectionNumber} demande une construction sans graph_id.`);
+    }
+    const section = content.sections[sectionNumber - 1];
+    for (const rawId of graphIds) {
+      const graphId = String(rawId || "").trim();
+      const graph = (Array.isArray(section?.graphs) ? section.graphs : [])
+        .find((g) => String(g?.id || "").trim() === graphId);
+      if (!graph) {
+        throw new Error(`Plan graphique GeoGebra invalide : graph_id ${graphId} introuvable en section ${sectionNumber}.`);
+      }
+      if (!validGraph(graph)) {
+        throw new Error(`Construction GeoGebra invalide pour graph_id ${graphId}.`);
+      }
+    }
+  }
+}
+
+validatePlannedGraphs();
+
 const pending = [];
 let globalGraphIndex = 0;
 for (const [sectionIndex, section] of (Array.isArray(content.sections) ? content.sections : []).entries()) {
