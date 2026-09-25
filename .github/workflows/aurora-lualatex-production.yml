@@ -365,6 +365,15 @@ jobs:
               if actual != expected:
                   raise SystemExit(f"Renderer smoke check failed: math command repair produced {actual!r}, expected {expected!r}")
 
+          dangling_math_regressions = [
+              ("N. Pour $", "N. Pour \\\$\\$"),
+              ("Texte $x", "Texte \\\$x"),
+          ]
+          for raw, expected in dangling_math_regressions:
+              actual = inline(raw)
+              if actual != expected:
+                  raise SystemExit(f"Renderer smoke check failed: dangling math delimiter repair produced {actual!r}, expected {expected!r}")
+
           json_control_regressions = [
               ("x\n" + "eq1", r"x\neq1"),
               ("x\n" + "otin A", r"x\notin A"),
