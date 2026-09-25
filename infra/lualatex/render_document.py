@@ -1886,6 +1886,104 @@ def render_aurore_graphics(graphics, assets_dir, theme):
             ])
     return lines
 
+
+
+def _math_visual_plan_qa(data):
+    """Validate the graph plan and the concrete GeoGebra assets before LaTeX."""
+    subject = clean_text(data.get("subject") or "").lower()
+    edition = _edition_profile(data)
+    if edition.get("kind") != "cours" or not re.search(r"math", subject):
+        return {"enabled": False, "planned_graphs": 0}
+
+    plan = data.get("visual_plan")
+    if not isinstance(plan, dict):
+        metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+        plan = metadata.get("visual_plan")
+    if not isinstance(plan, dict):
+        raise ValueError("Math visual plan QA failed: visual_plan is required for a mathematics course.")
+    if plan.get("schema_version") != "math-visual-plan-1":
+        raise ValueError("Math visual plan QA failed: unsupported visual_plan schema.")
+    decisions = plan.get("decisions")
+    if not isinstance(decisions, list):
+        raise ValueError("Math visual plan QA failed: visual_plan.decisions must be an array.")
+
+    graphs_by_id = {}
+    all_graph_ids = set()
+    for section_index, section in enumerate(data.get("sections") or [], start=1):
+        for graph in section.get("graphs") or []:
+            if not isinstance(graph, dict):
+                continue
+            graph_id = clean_text(graph.get("id") or "").strip()
+            if graph_id:
+                if graph_id in all_graph_ids:
+                    raise ValueError(f"Math visual plan QA failed: duplicate graph_id {graph_id}.")
+                all_graph_ids.add(graph_id)
+                graphs_by_id[graph_id] = (section_index, graph)
+
+    referenced_ids = set()
+    planned_graphs = 0
+    for decision in decisions:
+        if not isinstance(decision, dict):
+            continue
+        choice = clean_text(decision.get("decision") or "").lower()
+        section_number = decision.get("section_number")
+        if choice not in {"build", "not_needed"}:
+            continue
+        try:
+            section_number = int(section_number)
+        except (TypeError, ValueError):
+            raise ValueError("Math visual plan QA failed: invalid section_number.")
+        graph_ids = decision.get("graph_ids") or []
+        if choice == "not_needed":
+            if graph_ids:
+                raise ValueError(
+                    f"Math visual plan QA failed: section {section_number} is not_needed but declares graph_ids."
+                )
+            continue
+        if not isinstance(graph_ids, list) or not graph_ids:
+            raise ValueError(
+                f"Math visual plan QA failed: section {section_number} build has no graph_ids."
+            )
+        for raw_id in graph_ids:
+            graph_id = clean_text(raw_id).strip()
+            if not graph_id:
+                raise ValueError(
+                    f"Math visual plan QA failed: empty graph_id in section {section_number}."
+                )
+            if graph_id in referenced_ids:
+                raise ValueError(f"Math visual plan QA failed: graph_id {graph_id} is referenced twice.")
+            referenced_ids.add(graph_id)
+            if graph_id not in graphs_by_id:
+                raise ValueError(
+                    f"Math visual plan QA failed: graph_id {graph_id} is absent from content_json.sections[].graphs."
+                )
+            actual_section, graph = graphs_by_id[graph_id]
+            if actual_section != section_number:
+                raise ValueError(
+                    f"Math visual plan QA failed: graph_id {graph_id} belongs to section {actual_section}, "
+                    f"not section {section_number}."
+                )
+            if not _is_renderable_geogebra_graph(graph):
+                raise ValueError(
+                    f"Math visual plan QA failed: graph_id {graph_id} is not a renderable GeoGebra construction."
+                )
+            local_path = clean_text(graph.get("graph_local_path") or "").strip()
+            image_path = clean_text(graph.get("geogebra_image_path") or "").strip()
+            if not local_path or not image_path:
+                raise ValueError(
+                    f"Math visual plan QA failed: GeoGebra asset missing for graph_id {graph_id}."
+                )
+            planned_graphs += 1
+
+    orphaned = sorted(all_graph_ids - referenced_ids)
+    if orphaned:
+        raise ValueError(
+            "Math visual plan QA failed: graph(s) present outside the declared build plan: "
+            + ", ".join(orphaned)
+        )
+    return {"enabled": True, "planned_graphs": planned_graphs}
+
+
 def render_graphs(graphs, allow=True, exercise_mode=False):
     if not allow:
         return []
@@ -2266,6 +2364,7 @@ def render(data):
                 "Exercise profile QA failed: " + " | ".join(exercise_qa[:8])
             )
     has_geogebra = _has_geogebra(data)
+    math_visual_qa = _math_visual_plan_qa(data)
     lines = [
         r"\documentclass[11pt,a4paper]{article}",
         r"\usepackage{fontspec}",
