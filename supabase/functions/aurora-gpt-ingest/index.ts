@@ -23,7 +23,68 @@ async function sha256(value:string){const bytes=new TextEncoder().encode(value);
 function text(v:unknown,max=500){return String(v??"").trim().slice(0,max);}
 function nullable(v:unknown,max=500){const x=text(v,max);return x||null;}
 function validColor(v:unknown){const x=text(v,32);return !x||/^#[0-9a-fA-F]{6}$/.test(x);}
-function validateEditorialContent(content:any,profile:any,instructions:any){
+function normalizeForGraphMatch(v:unknown){
+  return String(v??"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"");
+}
+const MATH_GRAPHABLE_PATTERN=/(fonction|courbe|droite|parabole|ellipse|hyperbole|conique|transformation|translation|rotation|symetrie|homothetie|intersection|tangente|asymptote|suite|systeme|repere|geometrie analytique|lieu geometrique|surface|parametrique|3d)/i;
+const SUPPORTED_GRAPH_INSTRUMENTS=new Set(["function2d","complex_plane","parametric2d","parametric3d","surface3d","geometry3d"]);
+function normalizeGraphInstrument(v:unknown){
+  const raw=String(v??"").trim().toLowerCase();
+  const aliases:any={function2d:"function2d",function:"function2d",graph:"function2d",courbe:"function2d",complex_plane:"complex_plane",parametric:"parametric2d",parametric2d:"parametric2d",parametric3d:"parametric3d",surface3d:"surface3d",geometry3d:"geometry3d",geometrie3d:"geometry3d","3d":"geometry3d"};
+  return aliases[raw]||raw;
+}
+function validateMathVisualPlan(content:any,subject:any,profile:any){
+  if(profile.kind!=="cours"||!normalizeForGraphMatch(subject).includes("math")) return {enabled:false,graphable_sections:0,planned_graphs:0};
+  const plan=(content.visual_plan&&typeof content.visual_plan==="object"?content.visual_plan:null)
+    || (content.metadata&&typeof content.metadata==="object"&&content.metadata.visual_plan&&typeof content.metadata.visual_plan==="object"?content.metadata.visual_plan:null);
+  if(!plan) throw new Error("Cours de mathématiques : visual_plan obligatoire.");
+  if(plan.schema_version!=="math-visual-plan-1") throw new Error("Cours de mathématiques : visual_plan.schema_version invalide.");
+  if(!Array.isArray(plan.decisions)) throw new Error("Cours de mathématiques : visual_plan.decisions doit être un tableau.");
+  const graphMap=new Map<string,{section:number,graph:any}>();
+  let plannedGraphs=0;
+  for(let sectionIndex=0;sectionIndex<content.sections.length;sectionIndex++){
+    const section=content.sections[sectionIndex];
+    const sectionText=normalizeForGraphMatch([section.title,...(Array.isArray(section.content)?section.content:[])].join(" "));
+    const graphable=MATH_GRAPHABLE_PATTERN.test(sectionText);
+    const decision=plan.decisions.find((d:any)=>Number(d?.section_number)===sectionIndex+1);
+    if(!graphable) continue;
+    if(!decision) throw new Error(`Cours de mathématiques : décision graphique manquante pour la section ${sectionIndex+1}.`);
+    const choice=String(decision.decision||"").trim().toLowerCase();
+    if(choice!=="build"&&choice!=="not_needed") throw new Error(`Section ${sectionIndex+1} : decision doit être build ou not_needed.`);
+    if(choice==="not_needed"){
+      if(String(decision.rationale||"").trim().length<8) throw new Error(`Section ${sectionIndex+1} : rationale obligatoire lorsque la construction est écartée.`);
+      continue;
+    }
+    if(!Array.isArray(decision.graph_ids)||decision.graph_ids.length<1) throw new Error(`Section ${sectionIndex+1} : build exige au moins un graph_id.`);
+    for(const graphIdRaw of decision.graph_ids){
+      const graphId=String(graphIdRaw||"").trim();
+      if(!graphId) throw new Error(`Section ${sectionIndex+1} : graph_id vide interdit.`);
+      if(graphMap.has(graphId)) throw new Error(`graph_id dupliqué : ${graphId}.`);
+      const graphs=Array.isArray(section.graphs)?section.graphs:[];
+      const graph=graphs.find((g:any)=>String(g?.id||"").trim()===graphId);
+      if(!graph) throw new Error(`Section ${sectionIndex+1} : graph_id ${graphId} introuvable dans sections[${sectionIndex}].graphs.`);
+      const instrument=normalizeGraphInstrument(graph.instrument||graph.graph_type);
+      if(!SUPPORTED_GRAPH_INSTRUMENTS.has(instrument)) throw new Error(`Graphique ${graphId} : instrument GeoGebra non supporté (${instrument||"absent"}).`);
+      if(String(graph.title||"").trim().length<1||String(graph.purpose||"").trim().length<3) throw new Error(`Graphique ${graphId} : title et purpose sont obligatoires.`);
+      const source=String(graph.expression||graph.mathematical_source||graph.x_expression||"").trim();
+      const pointData=Array.isArray(graph.points)?graph.points.length:0;
+      const objects=Array.isArray(graph.objects)?graph.objects.length:0;
+      const parametric2d=String(graph.x_expression||"").trim()&&String(graph.y_expression||"").trim();
+      const parametric3d=String(graph.x_expression||"").trim()&&String(graph.y_expression||"").trim()&&String(graph.z_expression||"").trim();
+      const validConstruction=(instrument==="function2d"||instrument==="complex_plane") ? Boolean(source||pointData||Array.isArray(graph.asymptotes)&&graph.asymptotes.length) : instrument==="parametric2d" ? Boolean(parametric2d) : instrument==="parametric3d" ? Boolean(parametric3d) : instrument==="surface3d" ? Boolean(source) : Boolean(objects||pointData);
+      if(!validConstruction) throw new Error(`Graphique ${graphId} : données de construction insuffisantes pour ${instrument}.`);
+      for(const key of ["x_min","x_max","y_min","y_max","z_min","z_max","t_min","t_max"]){
+        if(graph[key]!==undefined&&graph[key]!==null&&(!Number.isFinite(Number(graph[key])))) throw new Error(`Graphique ${graphId} : ${key} doit être numérique.`);
+      }
+      const ranges=[["x_min","x_max"],["y_min","y_max"],["z_min","z_max"],["t_min","t_max"]];
+      for(const [a,b] of ranges) if(graph[a]!==undefined&&graph[b]!==undefined&&Number(graph[b])<=Number(graph[a])) throw new Error(`Graphique ${graphId} : ${a}<${b} est requis.`);
+      graphMap.set(graphId,{section:sectionIndex+1,graph});
+      plannedGraphs++;
+    }
+  }
+  return {enabled:true,graphable_sections:content.sections.filter((s:any)=>MATH_GRAPHABLE_PATTERN.test(normalizeForGraphMatch([s.title,...(Array.isArray(s.content)?s.content:[])].join(" ")))).length,planned_graphs:plannedGraphs};
+}
+function validateEditorialContent(content:any,profile:any,instructions:any,subjectForValidation:any=null){
   if(!content||typeof content!=="object"||Array.isArray(content))throw new Error("content_json doit être un objet JSON.");
   if(typeof content.title!=="string"||!content.title.trim())throw new Error("content_json.title est obligatoire.");
   if(!Array.isArray(content.sections)||content.sections.length<1||content.sections.length>30)throw new Error("content_json.sections doit contenir de 1 à 30 sections.");
@@ -66,10 +127,11 @@ function validateEditorialContent(content:any,profile:any,instructions:any){
   }
   if(visuals>8)throw new Error("Maximum 8 visuels documentaires par document.");
   if(graphs>24)throw new Error("Maximum 24 graphiques/constructions par document.");
+  const graphPlan=validateMathVisualPlan(content, subjectForValidation, profile);
   if(profile.kind==="exercices"&&exercises<1)throw new Error("Un document d'exercices doit contenir au moins un exercice structuré.");
   if(profile.kind==="exercices"&&longSectionContents.length!==new Set(longSectionContents).size)throw new Error("Contenu de section dupliqué entre plusieurs exercices.");
   if(JSON.stringify(content).length>MAX_TEXT)throw new Error("content_json dépasse la taille maximale autorisée.");
-  return {sections:content.sections.length,visuals,graphs,exercises:content.sections.reduce((n:number,s:any)=>n+(Array.isArray(s.exercises)?s.exercises.length:0),0),corrections:Array.isArray(content.corrections)?content.corrections.length:0};
+  return {sections:content.sections.length,visuals,graphs,exercises:content.sections.reduce((n:number,s:any)=>n+(Array.isArray(s.exercises)?s.exercises.length:0),0),corrections:Array.isArray(content.corrections)?content.corrections.length:0,graph_plan:graphPlan};
 }
 Deno.serve(async req=>{
   if(req.method==="OPTIONS")return new Response("ok",{headers:CORS});
@@ -127,7 +189,7 @@ Deno.serve(async req=>{
         ? (incomingInstructions.exercise_sheet_intro||"Énoncés indépendants, consignes précises, calculs justifiés et corrigés exclusivement liés aux questions posées.")
         : undefined
     };
-    const counts=validateEditorialContent(content,profile,editorialInstructions);
+    const counts=validateEditorialContent(content,profile,editorialInstructions,subject);
     const prompt=nullable(payload.prompt,4000);
     const classification=payload.classification&&typeof payload.classification==="object"?payload.classification:{};
     const contentHash=await sha256(JSON.stringify(content));
