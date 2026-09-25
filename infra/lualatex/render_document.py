@@ -1601,7 +1601,7 @@ def inline(s, auto_math=False):
         elif p.startswith("$") and p.endswith("$") and len(p) >= 2:
             out.append(r"\(" + normalize_math(p[1:-1].strip()) + r"\)")
         else:
-            out.append(_render_bare_latex_fragments(p, auto_math=auto_math).replace("$", r"\$"))
+            out.append(re.sub(r"(?<!\\)\$", r"\$", _render_bare_latex_fragments(p, auto_math=auto_math)))
     return "".join(out).replace(_UNMATCHED_DISPLAY_DOLLAR_TOKEN, r"\$\$")
 
 
