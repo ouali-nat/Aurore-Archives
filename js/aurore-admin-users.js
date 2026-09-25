@@ -107,6 +107,22 @@
     actualiserBoutonRepublicationAdmin();
   });
 
+  // La carte entière reprend le comportement de "Nouveautés" :
+  // une sélection n'importe où sur le bloc ouvre l'administration.
+  const adminSpaceCard = document.getElementById('adminSpaceCard');
+  if (adminSpaceCard) {
+    adminSpaceCard.addEventListener('click', (e) => {
+      if (e.target.closest('#btnAdmin')) return;
+      document.getElementById('btnAdmin')?.click();
+    });
+    adminSpaceCard.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        document.getElementById('btnAdmin')?.click();
+      }
+    });
+  }
+
   // Navigation par onglets du tableau de bord (purement visuel — ne touche
   // à aucune donnée, se contente d'afficher/masquer les panneaux déjà chargés).
   document.querySelectorAll('.admin-tab').forEach(tab => {

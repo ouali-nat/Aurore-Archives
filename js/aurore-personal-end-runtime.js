@@ -1,11 +1,31 @@
 
 document.addEventListener('DOMContentLoaded', function(){
+  const card = document.querySelector('.aurora-personal-end-inner.personal-space-compact-card');
   const btn = document.getElementById('auroraPersonalEndBtn');
+
+  function ouvrirEspace(){
+    const existing = document.getElementById('btnOuvrirProfil');
+    if(existing){ existing.click(); return; }
+    if(typeof window.ouvrirEspaceAvecCode === 'function'){ window.ouvrirEspaceAvecCode(); }
+  }
+
+  if(card){
+    card.addEventListener('click', function(e){
+      if(e.target.closest('#auroraPersonalEndBtn')) return;
+      ouvrirEspace();
+    });
+    card.addEventListener('keydown', function(e){
+      if(e.key === 'Enter' || e.key === ' '){
+        e.preventDefault();
+        ouvrirEspace();
+      }
+    });
+  }
+
   if(btn){
-    btn.addEventListener('click', function(){
-      const existing = document.getElementById('btnOuvrirProfil');
-      if(existing){ existing.click(); return; }
-      if(typeof window.ouvrirEspaceAvecCode === 'function'){ window.ouvrirEspaceAvecCode(); }
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      ouvrirEspace();
     });
   }
 });
