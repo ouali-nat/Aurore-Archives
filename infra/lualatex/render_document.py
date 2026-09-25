@@ -1547,29 +1547,13 @@ def _repair_accidental_inline_double_dollar(s):
 
 
 def _escape_unmatched_math_delimiters(s):
-    """Escape dangling $/$ delimiters so truncated upstream math cannot break the document."""
+    """Escape an unpaired display-math delimiter from truncated upstream content."""
     s = str(s or "")
-    out = []
-    i = 0
-    display_open = False
-    while i < len(s):
-        if s.startswith("$", i):
-            if display_open:
-                out.append("$")
-                display_open = False
-            else:
-                if s.find("$", i + 2) == -1:
-                    out.append(r"\\$\\$")
-                else:
-                    out.append("$")
-                    display_open = True
-            i += 2
-        else:
-            out.append(s[i])
-            i += 1
-    s = "".join(out)
-    return s
-
+    matches = list(re.finditer(r"\\$\\$", s))
+    if len(matches) % 2 == 0:
+        return s
+    match = matches[-1]
+    return s[:match.start()] + r"\\$\\$" + s[match.end():]
 
 def inline(s, auto_math=False):
     """
