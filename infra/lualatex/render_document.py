@@ -1140,7 +1140,7 @@ def normalize_math(s):
     # as an actual newline followed by the command name. Restore the common
     # math commands before clean_text() can discard that control character.
     for command in ("eq", "notin", "exists", "abla", "mid", "parallel", "rightarrow", "leftarrow"):
-        s = s.replace("\n" + command, "\\" + command)
+        s = s.replace("\n" + command, "\\n" + command)
     # JSON decodes \\right as CR + "ight"; restore the lost backslash before clean_text().
     s = s.replace("\r" + "ight", r"\right")
     s = clean_text(s)
