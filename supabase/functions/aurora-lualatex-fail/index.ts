@@ -19,7 +19,7 @@ Deno.serve(async(req:Request)=>{
    const {error:ue}=await db.from("aurora_generated_documents").update({metadata:nextMetadata,updated_at:now}).eq("id",id);
    if(ue)return out({error:ue.message},500);
    const attemptId=Number(metadata.production_attempt_id||0);
-   if(Number.isSafeInteger(attemptId)&&attemptId>0){await db.from("aurora_generated_document_production_attempts").update({status:"cancelled",finished_at:now,error_message:null,metadata:{cancel_requested_at:now,renderer_may_still_be_stopping:true},updated_at:now}).eq("id",attemptId);}
+   if(Number.isSafeInteger(attemptId)&&attemptId>0){await db.from("aurora_generated_document_production_attempts").update({status:"cancelled",finished_at:now,error_message:null,metadata:{cancel_requested_at:now,renderer_may_still_be_stopping:true}}).eq("id",attemptId);}
    return out({ok:true,document_id:id,action:"cancelled",failure_count:Number(metadata.lualatex_failure_count||0)});
  }
  const failureCount=Number(metadata.lualatex_failure_count||0)+1;
@@ -30,7 +30,7 @@ Deno.serve(async(req:Request)=>{
  let attemptHistoryUpdated=true;
  let attemptHistoryError="";
  if(Number.isSafeInteger(attemptId)&&attemptId>0){
-   const {error:attemptError}=await db.from("aurora_generated_document_production_attempts").update({status:"failed",finished_at:now,error_message:failureReason,metadata:{failure_recorded_at:now,failure_source:"aurora-lualatex-fail"},updated_at:now}).eq("id",attemptId);
+   const {error:attemptError}=await db.from("aurora_generated_document_production_attempts").update({status:"failed",finished_at:now,error_message:failureReason,metadata:{failure_recorded_at:now,failure_source:"aurora-lualatex-fail"}}).eq("id",attemptId);
    if(attemptError){
      // The document itself is already durably marked failed above. Do not turn
      // this secondary history-write problem into another HTTP 500.
