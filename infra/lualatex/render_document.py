@@ -1505,12 +1505,13 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
     )
     # Temporary Wikimedia transport failures are warnings, not build blockers.
     # Structural failures in an explicit required visual plan remain blocking.
-    if explicit and required_missing:
+    if explicit and visual_qa.get("required_missing", 0):
         print(
             "WARNING: Wikimedia required visual(s) unavailable: "
-            f"{required_missing} missing ({required_fetched}/{required_planned} fetched); "
-            f"{required_external_unavailable} temporarily unavailable externally; "
-            f"{required_structural_missing} structurally unresolved."
+            f"{visual_qa.get('required_missing', 0)} missing "
+            f"({visual_qa.get('required_retrieved', 0)}/{visual_qa.get('required_planned', 0)} fetched); "
+            f"{visual_qa.get('required_external_unavailable', 0)} temporarily unavailable externally; "
+            f"{visual_qa.get('required_structural_missing', 0)} structurally unresolved."
         )
     return visuals
 def render_visuals(visuals):
