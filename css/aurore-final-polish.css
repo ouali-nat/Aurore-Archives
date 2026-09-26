@@ -1821,6 +1821,158 @@ html[data-theme="light"][data-color-theme] .sublevel-card{
   .serie-pill{min-height:56px!important;}
 }
 
+
+/* ==========================================================
+   AURORE — ÉLARGISSEMENT DES RAMIFICATIONS DE LA BIBLIOTHÈQUE
+   Même respiration que « Explorez par niveau » pour chaque porte
+   et chaque bloc pédagogique rencontré à l'intérieur.
+   ========================================================== */
+
+#screen-level .sublevel-grid,
+#screen-level .cat-grid,
+#screen-level .level-grid,
+#screen-serie .serie-row,
+#screen-matieres .cat-grid{
+  width:100%!important;
+  box-sizing:border-box!important;
+  padding:18px!important;
+  margin-top:16px!important;
+  gap:14px!important;
+  border:1px solid var(--theme-border,var(--bordure))!important;
+  border-radius:20px!important;
+  background:linear-gradient(145deg,
+    color-mix(in srgb,var(--theme-primary,#7C3AED) 3%,var(--theme-card,var(--papier))),
+    var(--theme-card,var(--papier)))!important;
+  box-shadow:0 12px 34px var(--theme-shadow,rgba(55,36,82,.07))!important;
+  align-items:stretch!important;
+}
+
+#screen-level .sublevel-grid{
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+}
+
+#screen-level .cat-grid,
+#screen-matieres .cat-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+}
+
+#screen-serie .serie-row{
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+}
+
+#screen-level .level-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+}
+
+#screen-level .sublevel-card,
+#screen-level .cat-grid .cat-card,
+#screen-level .level-grid .level-card,
+#screen-serie .serie-pill,
+#screen-matieres .cat-grid .cat-card{
+  min-width:0!important;
+  width:100%!important;
+  box-sizing:border-box!important;
+}
+
+#screen-level .sublevel-card{
+  min-height:145px!important;
+  padding:18px 17px 16px!important;
+  border-radius:15px!important;
+}
+
+#screen-level .cat-grid .cat-card,
+#screen-matieres .cat-grid .cat-card{
+  min-height:132px!important;
+  padding:17px!important;
+  border-radius:15px!important;
+}
+
+#screen-serie .serie-pill{
+  min-height:92px!important;
+  border-radius:14px!important;
+  padding:15px!important;
+}
+
+#screen-level .level-grid .level-card{
+  min-height:142px!important;
+  padding:17px!important;
+  border-radius:15px!important;
+}
+
+/* Une grande porte reste visuellement dominante sans créer de vide
+   lorsque le nombre de ramifications est impair. */
+#screen-level .sublevel-grid > .sublevel-card:last-child:nth-child(4n+1){
+  grid-column:2 / 3!important;
+}
+
+@media(max-width:1100px){
+  #screen-level .sublevel-grid,
+  #screen-level .cat-grid,
+  #screen-level .level-grid,
+  #screen-serie .serie-row,
+  #screen-matieres .cat-grid{
+    padding:15px!important;
+    gap:12px!important;
+  }
+  #screen-level .sublevel-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;}
+  #screen-level .cat-grid,
+  #screen-level .level-grid,
+  #screen-matieres .cat-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;}
+  #screen-serie .serie-row{grid-template-columns:repeat(3,minmax(0,1fr))!important;}
+  #screen-level .sublevel-grid > .sublevel-card:last-child:nth-child(4n+1){grid-column:auto!important;}
+}
+
+@media(max-width:620px){
+  #screen-level .sublevel-grid,
+  #screen-level .cat-grid,
+  #screen-level .level-grid,
+  #screen-serie .serie-row,
+  #screen-matieres .cat-grid{
+    padding:10px!important;
+    gap:8px!important;
+    margin-top:12px!important;
+    border-radius:15px!important;
+  }
+  #screen-level .sublevel-grid,
+  #screen-level .cat-grid,
+  #screen-level .level-grid,
+  #screen-serie .serie-row,
+  #screen-matieres .cat-grid{
+    grid-template-columns:1fr 1fr!important;
+  }
+  #screen-level .sublevel-card{
+    min-height:116px!important;
+    padding:13px 12px 12px!important;
+    border-radius:11px!important;
+  }
+  #screen-level .cat-grid .cat-card,
+  #screen-matieres .cat-grid .cat-card{
+    min-height:104px!important;
+    padding:12px!important;
+    border-radius:11px!important;
+  }
+  #screen-serie .serie-pill{
+    min-height:68px!important;
+    border-radius:10px!important;
+    padding:10px!important;
+  }
+  #screen-level .level-grid .level-card{
+    min-height:112px!important;
+    padding:12px!important;
+    border-radius:11px!important;
+  }
+}
+
+@media(max-width:390px){
+  #screen-level .sublevel-grid,
+  #screen-level .cat-grid,
+  #screen-level .level-grid,
+  #screen-serie .serie-row,
+  #screen-matieres .cat-grid{
+    grid-template-columns:1fr!important;
+  }
+}
+
 /* ==========================================================
    AURORE — MENU ACCUEIL STYLE CHATGPT
    Trois traits en haut à gauche : historique + réduction Aurora.
@@ -2052,5 +2204,146 @@ html[data-theme="light"][data-color-theme] .aurore-home-menu{
   #screen-home .home-five-levels{grid-template-columns:1fr!important;padding:12px!important;gap:10px!important;}
   #screen-home .home-five-level,#screen-home .home-five-level:nth-child(4),#screen-home .home-five-level:nth-child(5){
     grid-column:1!important;min-height:112px!important;
+  }
+}
+
+/* ==========================================================
+   AURORE — APERÇUS DE COUVERTURE DES GRANDES PORTES
+   Les portes de la bibliothèque utilisent les mêmes premières pages PDF
+   que les cartes de documents, sans changer la navigation.
+   ========================================================== */
+
+#screen-home .home-five-level .home-door-copy{
+  position:relative!important;
+  z-index:2!important;
+  display:flex!important;
+  flex:1 1 auto!important;
+  min-width:0!important;
+  flex-direction:column!important;
+  align-items:flex-start!important;
+  justify-content:space-between!important;
+  gap:8px!important;
+  padding-right:72px!important;
+}
+
+#screen-home .home-five-level .home-door-copy > span:not(.home-door-kicker){
+  display:block!important;
+  color:var(--gris)!important;
+  font-size:.68rem!important;
+  line-height:1.35!important;
+  font-weight:550!important;
+}
+
+#screen-home .home-five-level .home-door-cover-stack{
+  position:absolute!important;
+  z-index:3!important;
+  right:11px!important;
+  top:50%!important;
+  width:62px!important;
+  height:82px!important;
+  transform:translateY(-50%)!important;
+  pointer-events:none!important;
+}
+
+#screen-home .home-five-level .home-door-cover-stack[hidden],
+#screen-home .home-five-level .home-door-cover[hidden]{
+  display:none!important;
+}
+
+#screen-home .home-five-level .home-door-cover{
+  position:absolute!important;
+  display:block!important;
+  width:49px!important;
+  height:68px!important;
+  overflow:hidden!important;
+  border:1px solid color-mix(in srgb,var(--theme-primary,#7C3AED) 25%,var(--theme-border,var(--bordure)))!important;
+  border-radius:7px!important;
+  background:var(--theme-card,var(--papier))!important;
+  box-shadow:0 7px 16px var(--theme-shadow,rgba(55,36,82,.14))!important;
+  transform-origin:center bottom!important;
+}
+
+#screen-home .home-five-level .home-door-cover .icon-wrap{
+  width:100%!important;
+  height:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:0!important;
+  display:grid!important;
+  place-items:center!important;
+  overflow:hidden!important;
+  border:0!important;
+  border-radius:inherit!important;
+  background:linear-gradient(145deg,var(--theme-soft,var(--papier)),var(--theme-card,var(--papier)))!important;
+  box-shadow:none!important;
+  color:var(--theme-primary,#7C3AED)!important;
+}
+
+#screen-home .home-five-level .home-door-cover .icon-wrap.a-couverture{
+  background:var(--theme-card,var(--papier))!important;
+}
+
+#screen-home .home-five-level .home-door-cover .doc-cover-img{
+  width:100%!important;
+  height:100%!important;
+  display:block!important;
+  object-fit:cover!important;
+  border-radius:inherit!important;
+  opacity:1!important;
+}
+
+#screen-home .home-five-level .home-door-cover-back{
+  right:0!important;
+  bottom:1px!important;
+  transform:rotate(7deg)!important;
+  opacity:.72!important;
+}
+
+#screen-home .home-five-level .home-door-cover-front{
+  left:0!important;
+  top:0!important;
+  transform:rotate(-4deg)!important;
+}
+
+#screen-home .home-five-level .home-door-cover-front .icon-wrap{
+  box-shadow:0 5px 13px var(--theme-shadow,rgba(55,36,82,.12))!important;
+}
+
+#screen-home .home-five-level:nth-child(5) .home-door-copy{
+  padding-right:82px!important;
+}
+
+@media(max-width:640px){
+  #screen-home .home-five-level .home-door-copy{
+    padding-right:58px!important;
+  }
+  #screen-home .home-five-level .home-door-cover-stack{
+    right:8px!important;
+    width:50px!important;
+    height:68px!important;
+  }
+  #screen-home .home-five-level .home-door-cover{
+    width:39px!important;
+    height:55px!important;
+    border-radius:6px!important;
+  }
+  #screen-home .home-five-level .home-door-copy > span:not(.home-door-kicker){
+    font-size:.62rem!important;
+  }
+  #screen-home .home-five-level:nth-child(5) .home-door-copy{
+    padding-right:64px!important;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  #screen-home .home-five-level .home-door-cover{
+    transform:none!important;
+  }
+  #screen-home .home-five-level .home-door-cover-back{
+    transform:translateX(5px)!important;
+  }
+  #screen-home .home-five-level .home-door-cover-front{
+    transform:none!important;
   }
 }
