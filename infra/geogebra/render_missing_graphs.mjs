@@ -590,37 +590,38 @@ const renderGraphInBrowser = async (graph) => {
               // GeoGebra peut appeler onLoad avant que le moteur de construction
               // soit réellement prêt. Attendre brièvement avant les premières
               // commandes évite les applets initialisées mais non constructibles.
-              await new Promise(resolve => setTimeout(resolve, 1500));
-              for (const command of commands) {
-                try { a.evalCommand(command); } catch (e) { console.warn("GeoGebra command failed:", command, e); }
-              }
-              let attempts=0;
-              const ready=()=>{
-                attempts++;
-                const count=typeof a.getObjectNumber==="function" ? Number(a.getObjectNumber()) : 0;
-                if (count >= primary.length) {
-                  try { a.setRepaintingActive?.(true); } catch {}
-                  try { a.recalculateEnvironments?.(); } catch {}
-                  try { a.refreshViews?.(); } catch {}
-                  try { if (is3D) a.showAllObjects?.(); } catch {}
-                  try { a.evalCommand("SetActiveView("+(is3D?-1:1)+")"); } catch {}
-                  setTimeout(()=>{
-                    try {
-                      const out=String(a.getPNGBase64(2,false,144)||"").replace(/^data:image\/png;base64,/i,"");
-                      if (!out) throw new Error("GeoGebra a renvoyé une image vide.");
-                      clearTimeout(timer);
-                      finish(resolve,out);
-                    } catch(e) {
-                      clearTimeout(timer);
-                      finish(reject,e);
-                    }
-                  },1800);
-                  return;
+              setTimeout(() => {
+                for (const command of commands) {
+                  try { a.evalCommand(command); } catch (e) { console.warn("GeoGebra command failed:", command, e); }
                 }
-                if (attempts < 120) setTimeout(ready,250);
-                else { clearTimeout(timer); finish(reject,new Error("GeoGebra n'a pas créé les objets attendus.")); }
-              };
-              ready();
+                let attempts=0;
+                const ready=()=>{
+                  attempts++;
+                  const count=typeof a.getObjectNumber==="function" ? Number(a.getObjectNumber()) : 0;
+                  if (count >= primary.length) {
+                    try { a.setRepaintingActive?.(true); } catch {}
+                    try { a.recalculateEnvironments?.(); } catch {}
+                    try { a.refreshViews?.(); } catch {}
+                    try { if (is3D) a.showAllObjects?.(); } catch {}
+                    try { a.evalCommand("SetActiveView("+(is3D?-1:1)+")"); } catch {}
+                    setTimeout(()=>{
+                      try {
+                        const out=String(a.getPNGBase64(2,false,144)||"").replace(/^data:image\/png;base64,/i,"");
+                        if (!out) throw new Error("GeoGebra a renvoyé une image vide.");
+                        clearTimeout(timer);
+                        finish(resolve,out);
+                      } catch(e) {
+                        clearTimeout(timer);
+                        finish(reject,e);
+                      }
+                    },1800);
+                    return;
+                  }
+                  if (attempts < 120) setTimeout(ready,250);
+                  else { clearTimeout(timer); finish(reject,new Error("GeoGebra n'a pas créé les objets attendus.")); }
+                };
+                ready();
+              }, 1500);
             } catch(e) {
               clearTimeout(timer);
               finish(reject,e);
