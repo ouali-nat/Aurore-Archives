@@ -851,6 +851,52 @@ def _wikimedia_license_ok(rawlic):
     ))
 
 
+def _build_wikimedia_visual_qa(statuses, planned_explicit, retrieved, explicit, max_total):
+    """Build Wikimedia QA with temporary external outages separated from plan errors."""
+    required_planned = sum(
+        1
+        for status in statuses
+        if status.get("priority") == "required"
+        and status.get("planned", True) is not False
+    ) if explicit else 0
+    required_fetched = sum(
+        1
+        for status in statuses
+        if status.get("priority") == "required" and status.get("status") == "fetched"
+    ) if explicit else 0
+    failed = sum(1 for status in statuses if status.get("status") != "fetched")
+    required_missing = max(0, required_planned - required_fetched)
+    required_external_unavailable = sum(
+        1
+        for status in statuses
+        if status.get("priority") == "required"
+        and status.get("status") != "fetched"
+        and status.get("external_temporary") is True
+    ) if explicit else 0
+    required_structural_missing = max(
+        0, required_missing - required_external_unavailable
+    )
+    return {
+        "mode": "explicit" if explicit else "legacy",
+        "planned": int(planned_explicit if explicit else len(statuses)),
+        "selected": int(len(statuses)),
+        "retrieved": int(retrieved),
+        "embedded": 0,
+        "required_planned": int(required_planned),
+        "required_retrieved": int(required_fetched),
+        "required_missing": int(required_missing),
+        "required_external_unavailable": int(required_external_unavailable),
+        "required_structural_missing": int(required_structural_missing),
+        "failed": int(failed),
+        "status": (
+            "blocked"
+            if required_structural_missing
+            else ("warning" if failed or required_missing else "pass")
+        ),
+        "editorial_cap": int(max_total),
+    }
+
+
 def _fetch_wikimedia_visuals(data, assets_dir, profile):
     """Fetch Wikimedia visuals from an explicit editorial plan, with legacy fallback.
 
@@ -1447,54 +1493,9 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                 print(f"WARNING: legacy Wikimedia download failed: {exc}")
 
     data["_wikimedia_visual_status"] = statuses
-    required_planned = sum(
-        1
-        for _, section in major_sections
-        if isinstance(section.get("visuals"), list)
-        for raw in section.get("visuals", [])
-        if isinstance(raw, dict)
-        and (
-            str(raw.get("priority") or "").lower().strip() == "required"
-            or raw.get("required") is True
-            or str(raw.get("required")).strip().lower() in ("1", "true", "yes", "oui")
-        )
-    ) if explicit else 0
-    required_fetched = sum(
-        1
-        for status in statuses
-        if status.get("priority") == "required" and status.get("status") == "fetched"
-    ) if explicit else 0
-    failed = sum(1 for status in statuses if status.get("status") != "fetched")
-    required_missing = max(0, required_planned - required_fetched)
-    required_external_unavailable = sum(
-        1
-        for status in statuses
-        if status.get("priority") == "required"
-        and status.get("status") != "fetched"
-        and status.get("external_temporary") is True
-    ) if explicit else 0
-    required_structural_missing = max(
-        0, required_missing - required_external_unavailable
+    visual_qa = _build_wikimedia_visual_qa(
+        statuses, planned_explicit, len(visuals), explicit, max_total
     )
-    visual_qa = {
-        "mode": "explicit" if explicit else "legacy",
-        "planned": int(planned_explicit if explicit else len(statuses)),
-        "selected": int(len(statuses)),
-        "retrieved": int(len(visuals)),
-        "embedded": 0,
-        "required_planned": int(required_planned),
-        "required_retrieved": int(required_fetched),
-        "required_missing": int(required_missing),
-        "required_external_unavailable": int(required_external_unavailable),
-        "required_structural_missing": int(required_structural_missing),
-        "failed": int(failed),
-        "status": (
-            "blocked"
-            if required_structural_missing
-            else ("warning" if failed or required_missing else "pass")
-        ),
-        "editorial_cap": int(max_total),
-    }
     data["_visual_qa"] = visual_qa
     print(
         f"Wikimedia visual QA: status={visual_qa['status']} "
