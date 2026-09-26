@@ -164,12 +164,28 @@
     wikiDebounceTimer = setTimeout(()=> auroreRechercherWikipedia(v), 320);
   }
 
-  ['headerSearchInput','homeSearchInput'].forEach(id=>{
-    const input = document.getElementById(id);
-    if(!input) return;
-    input.addEventListener('input', e => programmerRechercheWiki(e.target.value));
-    input.addEventListener('keydown', e => { if(e.key==='Enter'){ clearTimeout(wikiDebounceTimer); auroreRechercherWikipedia(e.target.value); } });
-  });
+  // La recherche d'accueil reste volontairement explicite : aucune recherche
+  // Wikipédia pendant la frappe. Elle part uniquement après validation par Entrée.
+  const homeSearchInput = document.getElementById('homeSearchInput');
+  if(homeSearchInput){
+    homeSearchInput.addEventListener('keydown', e => {
+      if(e.key !== 'Enter') return;
+      clearTimeout(wikiDebounceTimer);
+      auroreRechercherWikipedia(e.target.value);
+    });
+  }
+
+  // La recherche d'en-tête conserve son comportement de recherche progressive.
+  const headerSearchInput = document.getElementById('headerSearchInput');
+  if(headerSearchInput){
+    headerSearchInput.addEventListener('input', e => programmerRechercheWiki(e.target.value));
+    headerSearchInput.addEventListener('keydown', e => {
+      if(e.key === 'Enter'){
+        clearTimeout(wikiDebounceTimer);
+        auroreRechercherWikipedia(e.target.value);
+      }
+    });
+  }
 
   /* ---------------------------------------------------------------
      PAGE ENCYCLOPÉDIQUE — ouverture, construction, fermeture
