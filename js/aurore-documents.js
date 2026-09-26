@@ -1118,7 +1118,14 @@
       brancherActionsCarteDocument(row, doc);
       actualiserEtatActionsDocument(row, doc);
       actualiserTaillesDocumentsDans(row);
-      if (doc?.Fichier_url) appliquerCouvertureSiLivre(row, doc);
+      if (doc?.Fichier_url) {
+        // La ligne doit d'abord être montée dans le DOM. Le rendu de couverture
+        // est donc déclenché au microtask suivant, exactement comme dans
+        // « Récemment publié » où list.appendChild(row) précède cet appel.
+        queueMicrotask(() => {
+          if (row.isConnected) appliquerCouvertureSiLivre(row, doc);
+        });
+      }
       return row;
     })()));
 
