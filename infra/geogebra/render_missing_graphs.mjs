@@ -709,10 +709,13 @@ for (const item of pending) {
       `GeoGebra upload échoué pour ${item.graphIndex + 1}: ${JSON.stringify(uploadData)}`,
     );
   }
-  content.sections[item.sectionIndex].graphs[item.graphIndex].geogebra_image_path = uploadData.path;
-  content.sections[item.sectionIndex].graphs[item.graphIndex].geogebra_image_source = "geogebra";
-  content.sections[item.sectionIndex].graphs[item.graphIndex].geogebra_renderer_version = GEO_GEBRA_RENDERER_VERSION;
-  content.sections[item.sectionIndex].graphs[item.graphIndex].geogebra_image_updated_at = new Date().toISOString();
+  // item.graph is the exact graph object returned by graphEntries().
+  // graphIndex is global across the document, so it must not be used as a
+  // section-local array index when persisting the generated asset metadata.
+  item.graph.geogebra_image_path = uploadData.path;
+  item.graph.geogebra_image_source = "geogebra";
+  item.graph.geogebra_renderer_version = GEO_GEBRA_RENDERER_VERSION;
+  item.graph.geogebra_image_updated_at = new Date().toISOString();
   console.log(`  → PNG enregistré: ${uploadData.path} (${uploadData.bytes} bytes)`);
 }
 
