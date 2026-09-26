@@ -427,6 +427,10 @@
   function appliquerCouvertureSiLivre(row, doc) {
     if (!row || !doc?.Fichier_url) return;
 
+    // Cette fonction est désormais le point d'entrée commun à toutes les
+    // bibliothèques publiques : Livres, matières et ramifications pédagogiques.
+    if (typeof chargerPdfJs === 'function') chargerPdfJs().catch(() => {});
+
     // Pour la bibliothèque publique, la couverture est toujours un aperçu
     // fidèle de la PREMIÈRE PAGE du PDF. On ne remplace donc plus cette page
     // par une éventuelle image de couverture externe : le rendu reste
@@ -1125,7 +1129,12 @@
   }
 
   function rendreListeDocuments(content, data, afficherCouverturesRomans = false, separerOrigines = false) {
-    if (afficherCouverturesRomans && typeof chargerPdfJs === 'function') chargerPdfJs().catch(() => {});
+    // Toute liste publique de documents peut afficher la première page réelle
+    // du PDF. Le paramètre historique afficherCouverturesRomans est conservé
+    // uniquement pour compatibilité avec les anciens appels.
+    if (typeof chargerPdfJs === 'function' && Array.isArray(data) && data.some(doc => doc?.Fichier_url)) {
+      chargerPdfJs().catch(() => {});
+    }
     documentsCourants = Array.isArray(data) ? data : [];
     if (documentsCourants.length === 0) {
       content.innerHTML = '<div class="doc-empty friendly-empty"><div class="icon-wrap">'+ICONS.folder+'</div><h3>Aucun document disponible pour le moment.</h3><p>Cette rubrique sera enrichie progressivement.</p></div>';
