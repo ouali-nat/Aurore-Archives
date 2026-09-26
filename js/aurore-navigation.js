@@ -397,6 +397,81 @@
     `;
   }
 
+  // ---------- APERÇUS DE COUVERTURE DES GRANDES PORTES ----------
+  // Chaque grande porte de l'accueil reçoit un petit aperçu composé de vraies
+  // premières pages des PDF présents dans tout son parcours. La navigation et
+  // les filtres restent inchangés : on ajoute uniquement un repère visuel.
+  let COUVERTURES_PORTES_ACCUEIL_CACHE = null;
+  let COUVERTURES_PORTES_ACCUEIL_PROMESSE = null;
+
+  function niveauxPourPorteAccueil(porte) {
+    const ids = porte.id === 'secondaire' ? ['secondaire-1','secondaire-2'] : [porte.id];
+    const labels = [];
+    ids.forEach(id => {
+      const macro = NIVEAUX.find(n => n.id === id);
+      if (macro) labels.push(...collecterDbNiveaux(macro));
+    });
+    return [...new Set(labels.map(v => String(v || '').trim()).filter(Boolean))];
+  }
+
+  async function chargerCouverturesPortesAccueil(portes, overview) {
+    if (!overview) return;
+    try {
+      if (!COUVERTURES_PORTES_ACCUEIL_PROMESSE) {
+        COUVERTURES_PORTES_ACCUEIL_PROMESSE = fetch(
+          SUPABASE_URL + '/rest/v1/Document?select=id,Titre,Niveau,Fichier_url,Publie&Publie=eq.true&Niveau=not.is.null&Fichier_url=not.is.null&order=id.desc&limit=1000',
+          { headers: HEADERS }
+        ).then(res => {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.json();
+        }).then(rows => {
+          COUVERTURES_PORTES_ACCUEIL_CACHE = Array.isArray(rows) ? rows : [];
+          return COUVERTURES_PORTES_ACCUEIL_CACHE;
+        });
+      }
+
+      const documents = await COUVERTURES_PORTES_ACCUEIL_PROMESSE;
+      const parNiveau = new Map();
+      documents.forEach(doc => {
+        const niveau = String(doc?.Niveau || '').trim();
+        if (!niveau || !doc?.Fichier_url) return;
+        if (!parNiveau.has(niveau)) parNiveau.set(niveau, []);
+        parNiveau.get(niveau).push(doc);
+      });
+
+      portes.forEach(porte => {
+        const card = overview.querySelector('[data-home-door-id="' + porte.id + '"]');
+        if (!card) return;
+        const labels = new Set(niveauxPourPorteAccueil(porte));
+        const selection = [];
+        const deja = new Set();
+        labels.forEach(label => {
+          (parNiveau.get(label) || []).forEach(doc => {
+            const id = String(doc.id ?? doc.Fichier_url);
+            if (deja.has(id) || selection.length >= 2) return;
+            deja.add(id);
+            selection.push(doc);
+          });
+        });
+        if (!selection.length || typeof window.auroreAppliquerCouverturePremierePage !== 'function') return;
+
+        const stack = card.querySelector('.home-door-cover-stack');
+        if (!stack) return;
+        stack.hidden = false;
+        selection.forEach((doc, index) => {
+          const tile = stack.querySelector('[data-cover-slot="' + index + '"]');
+          if (!tile) return;
+          tile.hidden = false;
+          window.auroreAppliquerCouverturePremierePage(tile, doc);
+        });
+      });
+    } catch (err) {
+      // Les portes restent parfaitement utilisables si la récupération distante
+      // des aperçus échoue : aucun contenu pédagogique n'en dépend.
+      console.warn('[Aurore] Aperçus des grandes portes indisponibles.', err);
+    }
+  }
+
   // ---------- ACCUEIL ----------
   function rendreAccueil() {
     const overview = document.getElementById('homeFiveLevels');
@@ -417,6 +492,7 @@
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'home-five-level';
+        b.dataset.homeDoorId = porte.id;
 
         const niveauReference = porte.id === 'secondaire'
           ? NIVEAUX.find(n => n.id === 'secondaire-2')
@@ -425,9 +501,15 @@
         if (niveauReference?.accent) b.style.setProperty('--accent', niveauReference.accent);
 
         b.innerHTML = `
-          <span class="home-door-kicker">${porte.kicker}</span>
-          <strong>${porte.label}</strong>
-          <span>${porte.desc}</span>
+          <span class="home-door-copy">
+            <span class="home-door-kicker">${porte.kicker}</span>
+            <strong>${porte.label}</strong>
+            <span>${porte.desc}</span>
+          </span>
+          <span class="home-door-cover-stack" hidden aria-hidden="true">
+            <span class="home-door-cover home-door-cover-back" data-cover-slot="1" hidden><span class="icon-wrap"></span></span>
+            <span class="home-door-cover home-door-cover-front" data-cover-slot="0" hidden><span class="icon-wrap"></span></span>
+          </span>
         `;
 
         b.onclick = () => {
@@ -445,6 +527,7 @@
 
         overview.appendChild(b);
       });
+      chargerCouverturesPortesAccueil(portesAccueil, overview);
     }
 
     if (secondaryChoices) {
