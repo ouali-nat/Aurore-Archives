@@ -545,7 +545,7 @@ const renderGraphInBrowser = async (graph) => {
           try { host.remove(); } catch {}
           fn(value);
         };
-        const timer = setTimeout(() => finish(reject, new Error(loaded ? "GeoGebra n'a pas terminé la construction." : "GeoGebra n'a pas chargé l'applet.")), 45000);
+        const timer = setTimeout(() => finish(reject, new Error(loaded ? "GeoGebra n'a pas terminé la construction." : "GeoGebra n'a pas chargé l'applet.")), 60000);
         const params = {
           id: hostId,
           appName: is3D ? "3d" : "graphing",
@@ -587,6 +587,10 @@ const renderGraphInBrowser = async (graph) => {
                 finish(reject, new Error("Aucune commande GeoGebra de construction exploitable."));
                 return;
               }
+              // GeoGebra peut appeler onLoad avant que le moteur de construction
+              // soit réellement prêt. Attendre brièvement avant les premières
+              // commandes évite les applets initialisées mais non constructibles.
+              await new Promise(resolve => setTimeout(resolve, 1500));
               for (const command of commands) {
                 try { a.evalCommand(command); } catch (e) { console.warn("GeoGebra command failed:", command, e); }
               }
