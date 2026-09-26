@@ -181,10 +181,20 @@
     const icon = document.getElementById('homeSearchIcon');
     if (icon && typeof ICONS !== 'undefined') icon.innerHTML = ICONS.search;
     const input = document.getElementById('homeSearchInput');
-    if (input) input.addEventListener('keydown', (e) => {
-      if (e.key !== 'Enter') return;
-      lancerRecherche(input.value);
-    });
+    if (input) {
+      input.addEventListener('input', () => {
+        // La saisie ne lance jamais une recherche.
+        // Elle ne fait que mettre à jour la valeur du champ.
+      });
+      input.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        e.stopPropagation();
+        const query = input.value.trim();
+        if (!query) return;
+        lancerRecherche(query);
+      });
+    }
     chargerAnnoncesActives();
     // Le diagnostic réseau se lance désormais depuis le panneau visible de l'onglet
     // Publicités de l'admin (bouton #diagReseauBtn), pas automatiquement au chargement.
@@ -357,8 +367,25 @@
 
   const WELCOME_TABLE='message_bienvenue';
   async function chargerMessageBienvenue(){try{const r=await fetch(`${SUPABASE_URL}/rest/v1/${WELCOME_TABLE}?select=id,title,message,active&id=eq.1`,{headers:HEADERS});if(!r.ok)throw new Error('HTTP '+r.status);return (await r.json())[0]||null;}catch(e){console.warn('[Bienvenue] configuration indisponible.',e);return null;}}
-  async function afficherBienvenueApresConnexion(sess){if(!sess)return;const cfg=await chargerMessageBienvenue(),modal=document.getElementById('welcomeModal');if(!cfg||cfg.active!==true||!cfg.message||!modal)return;const key='aurore_welcome_seen_'+(sess.id||sess.email||''),first=localStorage.getItem(key)!=='1';document.getElementById('welcomeModalTitle').textContent=first?(cfg.title||'Bienvenue sur Aurore'):(cfg.title||'Content de vous revoir sur Aurore');document.getElementById('welcomeModalText').textContent=String(cfg.message).replace(/\{nom\}/gi,sess.nom||'').replace(/\{email\}/gi,sess.email||'');modal.hidden=false;modal.setAttribute('aria-hidden','false');localStorage.setItem(key,'1');}
-  function fermerBienvenue(){const m=document.getElementById('welcomeModal');if(m){m.hidden=true;m.setAttribute('aria-hidden','true');}}
+  async function afficherBienvenueApresConnexion(sess){
+    if(!sess)return;
+    const cfg=await chargerMessageBienvenue(),modal=document.getElementById('welcomeModal');
+    if(!cfg||cfg.active!==true||!cfg.message||!modal)return;
+    const key='aurore_welcome_seen_'+(sess.id||sess.email||''),first=localStorage.getItem(key)!=='1';
+    const title=document.getElementById('welcomeModalTitle'),textNode=document.getElementById('welcomeModalText');
+    if(title)title.textContent=first?(cfg.title||'Bienvenue sur Aurore'):(cfg.title||'Content de vous revoir sur Aurore');
+    if(textNode)textNode.textContent=String(cfg.message).replace(/\{nom\}/gi,sess.nom||'').replace(/\{email\}/gi,sess.email||'');
+    const card=modal.querySelector('.welcome-modal-card');
+    modal.hidden=false;
+    modal.setAttribute('aria-hidden','false');
+    if(card){
+      card.classList.remove('is-opening');
+      void card.offsetWidth;
+      card.classList.add('is-opening');
+    }
+    localStorage.setItem(key,'1');
+  }
+  function fermerBienvenue(){const m=document.getElementById('welcomeModal');if(m){m.querySelector('.welcome-modal-card')?.classList.remove('is-opening');m.hidden=true;m.setAttribute('aria-hidden','true');}}
   function continuerDepuisBienvenue(){fermerBienvenue();const card=document.getElementById('homeRecentsCta');if(card){card.click();}else{afficherEcran('screen-recents');chargerDocumentsRecents();}}
   document.addEventListener('click',e=>{const target=e.target.closest?.('[data-welcome-close],#welcomeModalClose,#welcomeModalOk');if(!target)return;if(target.id==='welcomeModalOk')continuerDepuisBienvenue();else fermerBienvenue();});
   function initialiserEditeurBienvenueAdmin(){const panel=document.querySelector('.admin-tab-panel[data-panel="annonce"]');if(!panel||document.getElementById('adminWelcomeEditor'))return;const box=document.createElement('div');box.className='admin-service-editor';box.id='adminWelcomeEditor';box.innerHTML=`<div class="form-row"><label for="adminWelcomeTitle">Titre du message de bienvenue</label><input id="adminWelcomeTitle" type="text" maxlength="180" placeholder="Bienvenue sur Aurore"></div><div class="form-row"><label for="adminWelcomeMessage">Message</label><textarea id="adminWelcomeMessage" rows="7" maxlength="1200" placeholder="Bienvenue {nom} ! Nous sommes heureux de vous accueillir sur Aurore — Section Archives."></textarea><small>Variables disponibles : {nom} et {email}.</small></div><div class="form-row" style="display:flex;align-items:center;gap:10px;"><input type="checkbox" id="adminWelcomeActive" style="width:18px;height:18px;"><label for="adminWelcomeActive" style="margin:0;">Afficher après une connexion</label></div><div class="admin-promo-actions"><button type="button" class="admin-btn primary" id="adminWelcomeSave">Enregistrer le message de bienvenue</button></div><div class="form-msg" id="adminWelcomeMsg"></div>`;panel.appendChild(box);document.getElementById('adminWelcomeSave').onclick=saveWelcome;chargerMessageBienvenue().then(c=>{if(c){document.getElementById('adminWelcomeTitle').value=c.title||'';document.getElementById('adminWelcomeMessage').value=c.message||'';document.getElementById('adminWelcomeActive').checked=c.active===true;}});}
