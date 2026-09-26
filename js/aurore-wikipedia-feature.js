@@ -164,17 +164,8 @@
     wikiDebounceTimer = setTimeout(()=> auroreRechercherWikipedia(v), 320);
   }
 
-  // La recherche d'accueil reste volontairement explicite : aucune recherche
-  // Wikipédia pendant la frappe. Elle part uniquement après validation par Entrée.
-  const homeSearchInput = document.getElementById('homeSearchInput');
-  if(homeSearchInput){
-    homeSearchInput.addEventListener('keydown', e => {
-      if(e.key !== 'Enter') return;
-      clearTimeout(wikiDebounceTimer);
-      auroreRechercherWikipedia(e.target.value);
-    });
-  }
-
+  // La recherche d'accueil est gérée exclusivement par site-config.js.
+  // Aucun écouteur Wikipédia n'est attaché pendant la frappe.
   // La recherche d'en-tête conserve son comportement de recherche progressive.
   const headerSearchInput = document.getElementById('headerSearchInput');
   if(headerSearchInput){
