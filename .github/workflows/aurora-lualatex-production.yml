@@ -19,7 +19,8 @@ permissions:
 # Course quality is enforced in Supabase before a document enters the LuaLaTeX queue.
 # Wikimedia directives use retrieval-friendly archival queries; no SVG generation is requested for this course.
 # History course retry: six validated documentary visuals are sufficient after Wikimedia rate-limit protection.
-# Retry after visual QA: documentary assets must resolve before PDF acceptance.
+# Temporary Wikimedia transport failures are warnings; structurally unresolved required visuals remain blocking.
+# Retry after visual QA: fetched assets must be embedded; temporary external gaps are recorded for human validation.
 # GeoGebra renderer v3 regression validation uses existing generated documents only.
 # Production-only trigger: validate the Terminale C matrix document.
 concurrency:
@@ -251,6 +252,39 @@ jobs:
           documentary_qa = _documentary_visual_plan_qa(history_course)
           if documentary_qa.get("planned_visuals") != 1 or not documentary_qa.get("enabled"):
               raise SystemExit(f"Documentary visual plan smoke test failed: {documentary_qa!r}")
+
+          wikimedia_qa = render_document._build_wikimedia_visual_qa(
+              [
+                  {"priority": "required", "status": "failed", "external_temporary": True},
+                  {"priority": "required", "status": "fetched"},
+              ],
+              planned_explicit=2,
+              retrieved=1,
+              explicit=True,
+              max_total=8,
+          )
+          if (
+              wikimedia_qa.get("status") != "warning"
+              or wikimedia_qa.get("required_external_unavailable") != 1
+              or wikimedia_qa.get("required_structural_missing") != 0
+          ):
+              raise SystemExit(f"Wikimedia transient-failure QA regression: {wikimedia_qa!r}")
+
+          structural_wikimedia_qa = render_document._build_wikimedia_visual_qa(
+              [
+                  {"priority": "required", "status": "failed", "external_temporary": False},
+                  {"priority": "required", "status": "fetched"},
+              ],
+              planned_explicit=2,
+              retrieved=1,
+              explicit=True,
+              max_total=8,
+          )
+          if (
+              structural_wikimedia_qa.get("status") != "blocked"
+              or structural_wikimedia_qa.get("required_structural_missing") != 1
+          ):
+              raise SystemExit(f"Wikimedia structural-failure QA regression: {structural_wikimedia_qa!r}")
 
           physics_course = {
               "title": "Forces et mouvement",
