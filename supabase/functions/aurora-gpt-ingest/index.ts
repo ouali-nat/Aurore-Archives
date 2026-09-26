@@ -18,6 +18,9 @@ const PHYSICS_CHEMISTRY_COURSE_THRESHOLDS={
   minimum_calculation_blocks:6,
   minimum_demonstration_blocks:2,
   minimum_scientific_block_ratio:0.55,
+  minimum_scientific_word_ratio:0.70,
+  minimum_quantitative_work_word_ratio:0.35,
+  maximum_narrative_only_word_ratio:0.25,
   maximum_narrative_only_block_ratio:0.25
 };
 function normalizeDocumentType(v:unknown){
@@ -414,30 +417,41 @@ function analyzePhysicsChemistryCourse(content:any){
   }
   const nonEmpty=blocks.map(x=>x.trim()).filter(Boolean);
   let scientificBlocks=0, relationCount=0, calculationBlocks=0, demonstrationBlocks=0, narrativeOnlyLongBlocks=0;
+  let totalWords=0, scientificWords=0, quantitativeWorkWords=0, narrativeOnlyWords=0;
   for(const block of nonEmpty){
     const hasSyntax=SCIENTIFIC_SYNTAX_PATTERN.test(block);
     const hasUnit=SCIENTIFIC_UNIT_PATTERN.test(block);
     const hasCalc=CALCULATION_ACTION_PATTERN.test(block);
     const hasDemo=DEMONSTRATION_ACTION_PATTERN.test(block);
     const scientific=hasSyntax||hasUnit;
-    if(scientific)scientificBlocks++;
+    const words=block.split(/\s+/).filter(Boolean).length;
+    totalWords+=words;
+    if(scientific){scientificBlocks++;scientificWords+=words;}
     if(hasSyntax){
       relationCount+=(block.match(/\\(?:frac|dfrac|tfrac|sqrt|Rightarrow|Longrightarrow|Longleftrightarrow)|[=≈≃≤≥→⇌↔]/gi)||[]).length;
     }
-    if(scientific&&hasCalc)calculationBlocks++;
-    if(scientific&&hasDemo)demonstrationBlocks++;
-    if(block.length>=140&&!scientific&&!hasCalc) narrativeOnlyLongBlocks++;
+    if(scientific&&hasCalc){calculationBlocks++;quantitativeWorkWords+=words;}
+    if(scientific&&hasDemo){demonstrationBlocks++;quantitativeWorkWords+=words;}
+    if(block.length>=140&&!scientific&&!hasCalc){narrativeOnlyLongBlocks++;narrativeOnlyWords+=words;}
   }
-  const total=nonEmpty.length||1;
+  const totalBlocks=nonEmpty.length||1;
+  const denominator=totalWords||1;
   return {
     total_blocks:nonEmpty.length,
+    total_words:totalWords,
     scientific_blocks:scientificBlocks,
-    scientific_block_ratio:scientificBlocks/total,
+    scientific_block_ratio:scientificBlocks/totalBlocks,
+    scientific_words:scientificWords,
+    scientific_word_ratio:scientificWords/denominator,
+    quantitative_work_words:quantitativeWorkWords,
+    quantitative_work_word_ratio:Math.min(1,quantitativeWorkWords/denominator),
     relation_count:relationCount,
     calculation_blocks:calculationBlocks,
     demonstration_blocks:demonstrationBlocks,
     narrative_only_long_blocks:narrativeOnlyLongBlocks,
-    narrative_only_long_ratio:narrativeOnlyLongBlocks/total
+    narrative_only_long_words:narrativeOnlyWords,
+    narrative_only_long_ratio:narrativeOnlyLongBlocks/totalBlocks,
+    narrative_only_long_word_ratio:narrativeOnlyWords/denominator
   };
 }
 function validatePhysicsChemistryCourseQuality(content:any,subject:any,profile:any){
@@ -451,10 +465,16 @@ function validatePhysicsChemistryCourseQuality(content:any,subject:any,profile:a
   if(metrics.demonstration_blocks<t.minimum_demonstration_blocks)
     throw new Error(`Cours Physique-Chimie : au moins ${t.minimum_demonstration_blocks} blocs de démonstration/établissement sont requis ; ${metrics.demonstration_blocks} détectés.`);
   if(metrics.scientific_block_ratio<t.minimum_scientific_block_ratio)
-    throw new Error(`Cours Physique-Chimie : densité scientifique insuffisante (${(metrics.scientific_block_ratio*100).toFixed(1)}%). Le cours est trop narratif.`);
+    throw new Error(`Cours Physique-Chimie : densité scientifique insuffisante par blocs (${(metrics.scientific_block_ratio*100).toFixed(1)}%). Le cours est trop narratif.`);
+  if(metrics.scientific_word_ratio<t.minimum_scientific_word_ratio)
+    throw new Error(`Cours Physique-Chimie : densité scientifique insuffisante dans le volume de contenu (${(metrics.scientific_word_ratio*100).toFixed(1)}% des mots ; minimum ${(t.minimum_scientific_word_ratio*100).toFixed(0)}%).`);
+  if(metrics.quantitative_work_word_ratio<t.minimum_quantitative_work_word_ratio)
+    throw new Error(`Cours Physique-Chimie : part insuffisante du contenu consacré aux calculs/manipulations/démonstrations (${(metrics.quantitative_work_word_ratio*100).toFixed(1)}% des mots ; minimum ${(t.minimum_quantitative_work_word_ratio*100).toFixed(0)}%).`);
+  if(metrics.narrative_only_long_word_ratio>t.maximum_narrative_only_word_ratio)
+    throw new Error(`Cours Physique-Chimie : trop de volume narratif long sans contenu scientifique (${(metrics.narrative_only_long_word_ratio*100).toFixed(1)}% des mots).`);
   if(metrics.narrative_only_long_ratio>t.maximum_narrative_only_block_ratio)
     throw new Error(`Cours Physique-Chimie : trop de blocs narratifs longs sans contenu scientifique (${(metrics.narrative_only_long_ratio*100).toFixed(1)}%).`);
-  return {applies:true,profile_key:PHYSICS_CHEMISTRY_PROFILE_KEY,profile_version:1,mode:"quantitative_calculatoire",thresholds:t,metrics};
+  return {applies:true,profile_key:PHYSICS_CHEMISTRY_PROFILE_KEY,profile_version:2,mode:"quantitative_calculatoire",thresholds:t,metrics};
 }
 function validateCourseQuality(content:any,subject:any,profile:any,instructions:any={}){
   if(profile?.kind!=="cours") return {applies:false,word_count:null,introduction:false,visuals_required:false};
