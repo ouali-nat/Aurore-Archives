@@ -79,6 +79,26 @@ jobs:
               actual = normalize_math(raw)
               if actual != expected:
                   raise SystemExit(f"Math normalization regression: {actual!r}, expected {expected!r}")
+
+          prime_cases = [
+              ("f'(x)", r"f^{\prime}(x)"),
+              ("f''(x)", r"f^{\prime\prime}(x)"),
+              ("exp''(x)=exp(x)>0", r"exp^{\prime\prime}(x)=exp(x)>0"),
+          ]
+          for raw, expected in prime_cases:
+              actual = normalize_math(raw)
+              if actual != expected:
+                  raise SystemExit(f"Derivative-prime regression: {actual!r}, expected {expected!r}")
+
+          formula_block = render_document.display_formula([
+              "exp'(x)>0",
+              "exp''(x)=exp(x)>0",
+              "e^(2x)=(e^x)^2",
+          ])
+          if formula_block.count(r"\AuroreFormulaBlock{") != 3:
+              raise SystemExit(f"Formula-list rendering regression: {formula_block!r}")
+          if "['" in formula_block or "']" in formula_block:
+              raise SystemExit(f"Formula-list stringification regression: {formula_block!r}")
           malformed_inline = (
               r"Calcul 66. Le dénominateur tend vers $0^-,$" + "$"
               + r" donc $" + "$" + r"-\\infty." + "$" + "$"
@@ -103,6 +123,14 @@ jobs:
                       "expression": "x^2",
                       "graph_local_path": "assets/graph-1-1.png",
                       "geogebra_image_path": "aurore-content/test/f1.png"
+                  }, {
+                      "id": "f2",
+                      "title": "Points d'intérêt",
+                      "purpose": "Vérifier l'acceptation des points {x,y}.",
+                      "instrument": "function2d",
+                      "points": [{"x": 0, "y": 1}],
+                      "graph_local_path": "assets/graph-2-2.png",
+                      "geogebra_image_path": "aurore-content/test/f2.png"
                   }]
               }],
               "visual_plan": {
@@ -111,12 +139,12 @@ jobs:
                       "section_number": 1,
                       "decision": "build",
                       "rationale": "Courbe centrale pour interpréter la fonction.",
-                      "graph_ids": ["f1"]
+                      "graph_ids": ["f1", "f2"]
                   }]
               }
           }
           qa = _math_visual_plan_qa(math_course)
-          if qa.get("planned_graphs") != 1:
+          if qa.get("planned_graphs") != 2:
               raise SystemExit(f"Math visual plan smoke test failed: {qa!r}")
           broken = dict(math_course)
           broken["visual_plan"] = {"schema_version": "math-visual-plan-1", "decisions": []}
