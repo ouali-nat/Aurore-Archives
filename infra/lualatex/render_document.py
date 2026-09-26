@@ -96,6 +96,24 @@ def _document_identity(data):
         "verification_url": verification_url,
     }
 
+def _is_numeric_point(point, dimensions=2):
+    """Accept Aurore point data as either coordinate arrays or {x,y[,z]} objects."""
+    if isinstance(point, (list, tuple)):
+        if len(point) < dimensions:
+            return False
+        try:
+            return all(float(point[i]) == float(point[i]) for i in range(dimensions))
+        except (TypeError, ValueError):
+            return False
+    if isinstance(point, dict):
+        keys = ("x", "y", "z")[:dimensions]
+        try:
+            return all(float(point.get(key)) == float(point.get(key)) for key in keys)
+        except (TypeError, ValueError):
+            return False
+    return False
+
+
 def _is_renderable_geogebra_graph(graph):
     """Return True only for an actual GeoGebra construction asset.
 
@@ -150,7 +168,7 @@ def _is_renderable_geogebra_graph(graph):
         return bool(
             expression
             or asymptotes
-            or any(isinstance(p, (list, tuple)) and len(p) == 2 for p in points)
+            or any(_is_numeric_point(p, 2) for p in points)
         )
     if instrument == "parametric2d":
         return bool(x_expression and y_expression)
@@ -161,7 +179,7 @@ def _is_renderable_geogebra_graph(graph):
             and str(o.get("type") or "").lower().strip() in valid_types
             for o in objects
         )
-        has_points2 = any(isinstance(p, (list, tuple)) and len(p) >= 2 for p in points)
+        has_points2 = any(_is_numeric_point(p, 2) for p in points)
         return bool(has_objects or has_points2)
     if instrument == "parametric3d":
         return bool(x_expression and y_expression and z_expression)
@@ -177,9 +195,7 @@ def _is_renderable_geogebra_graph(graph):
             and str(o.get("type") or "").lower().strip() in valid_types
             for o in objects
         )
-        has_points3 = any(
-            isinstance(p, (list, tuple)) and len(p) >= 3 for p in points
-        )
+        has_points3 = any(_is_numeric_point(p, 3) for p in points)
         has_poi3 = any(
             isinstance(p, dict) and p.get("z") is not None for p in poi
         )
@@ -1631,6 +1647,18 @@ def normalize_math(s):
     s = clean_text(s)
     s = _repair_common_math_command_corruption(s)
 
+    # TeX treats a literal apostrophe in math as a superscript shorthand.
+    # Therefore f''(x) can become a forbidden double superscript. Canonicalize
+    # first/second/third derivative notation explicitly.
+    def _repair_math_primes(match):
+        base, primes = match.group(1), match.group(2)
+        return base + "^{" + (r"\\prime" * len(primes)) + "}"
+
+    s = re.sub(
+        r"(?<!\\)([A-Za-z0-9)\\]])('{1,3})(?=[\\s\\(\\)\\[\\]\\{\\},.;:=+\\-*/<>^_]|$)",
+        _repair_math_primes,
+        s,
+    )
 
     # Protect LaTeX row breaks before normalizing command escapes.
     #
@@ -2658,6 +2686,12 @@ def labeled_block(s, auto_math=False):
 def display_formula(s):
     if not s:
         return ""
+    # Content Factory stores formulae either as a single string or as a list
+    # of independent formulae. Never stringify a list into Python repr inside
+    # equation*; render each formula separately.
+    if isinstance(s, (list, tuple)):
+        blocks = [display_formula(item) for item in s if str(item or "").strip()]
+        return "\n".join(block for block in blocks if block)
     raw = str(s).strip()
 
     # A formula field can be either:
