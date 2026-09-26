@@ -574,26 +574,46 @@ async function validateEditorialMemoryAcknowledgement(ack:any,memorySession:any,
   if(ack.read_confirmed!==true)throw new Error("Lecture obligatoire : les consignes éditoriales doivent être accusées comme lues avant toute progression.");
   const gate=memorySession?.metadata?.editorial_read_gate;
   if(!gate?.required)throw new Error("Lecture obligatoire : la session mémoire ne porte pas un verrou éditorial valide.");
-  if(String(ack.session_id||"")!==String(memorySession.session_id||""))throw new Error("Lecture obligatoire : session_id de l’attestation invalide.");
-  if(String(ack.bundle_sha256||"")!==String(memorySession.bundle_sha256||""))throw new Error("Lecture obligatoire : l’empreinte du paquet mémoire ne correspond pas.");
-  const expectedFields={
-    session_id:String(memorySession.session_id),
+  const expected={
+    session_id:String(memorySession.session_id||""),
     bundle_sha256:String(memorySession.bundle_sha256||""),
+    protocol_version:gate.protocol_version??null,
+    protocol_sha256:gate.protocol_sha256??null,
     general_rule_keys:Array.isArray(gate.general_rule_keys)?gate.general_rule_keys.map((x:any)=>String(x)):[],
+    structure_rule_keys:Array.isArray(gate.structure_rule_keys)?gate.structure_rule_keys.map((x:any)=>String(x)):[],
     math_rule_keys:Array.isArray(gate.math_rule_keys)?gate.math_rule_keys.map((x:any)=>String(x)):[],
+    family_key:gate.family_key?String(gate.family_key):null,
+    family_version:gate.family_version==null?null:Number(gate.family_version),
+    family_sha256:gate.family_sha256?String(gate.family_sha256):null,
     subject_profile_key:gate.subject_profile_key?String(gate.subject_profile_key):null,
-    subject_profile_version:gate.subject_profile_version==null?null:Number(gate.subject_profile_version)
+    subject_profile_version:gate.subject_profile_version==null?null:Number(gate.subject_profile_version),
+    subject_profile_sha256:gate.subject_profile_sha256?String(gate.subject_profile_sha256):null,
+    document_profile_key:gate.document_profile_key?String(gate.document_profile_key):null,
+    document_profile_version:gate.document_profile_version==null?null:Number(gate.document_profile_version),
+    document_profile_sha256:gate.document_profile_sha256?String(gate.document_profile_sha256):null
   };
-  if(!sameStringArray(ack.general_rule_keys,expectedFields.general_rule_keys)||!sameStringArray(ack.math_rule_keys,expectedFields.math_rule_keys))
-    throw new Error("Lecture obligatoire : les identifiants de règles accusés comme lus ne correspondent pas au paquet mémoire.");
-  if((ack.subject_profile_key||null)!==expectedFields.subject_profile_key||
-     (ack.subject_profile_version==null?null:Number(ack.subject_profile_version))!==expectedFields.subject_profile_version)
-    throw new Error("Lecture obligatoire : le profil disciplinaire accusé comme lu ne correspond pas à la session.");
-  const expectedDigest=await sha256(JSON.stringify(expectedFields)+"|"+memorySessionToken);
-  if(String(ack.ack_sha256||"")!==expectedDigest)
-    throw new Error("Lecture obligatoire : l’attestation cryptographique ne correspond pas à la session mémoire.");
-  return {verified:true,read_confirmed:true,session_id:memorySession.session_id,bundle_sha256:memorySession.bundle_sha256,ack_sha256:expectedDigest,general_rule_keys:expectedFields.general_rule_keys,math_rule_keys:expectedFields.math_rule_keys,subject_profile_key:expectedFields.subject_profile_key,subject_profile_version:expectedFields.subject_profile_version};
+  if(String(ack.session_id||"")!==expected.session_id)throw new Error("Lecture obligatoire : session_id de l’attestation invalide.");
+  if(String(ack.bundle_sha256||"")!==expected.bundle_sha256)throw new Error("Lecture obligatoire : l’empreinte du paquet mémoire ne correspond pas.");
+  if(String(ack.protocol_version??"")!==String(expected.protocol_version??"")||String(ack.protocol_sha256||"")!==String(expected.protocol_sha256||""))
+    throw new Error("Lecture obligatoire : protocole central non attesté.");
+  if(!sameStringArray(ack.general_rule_keys,expected.general_rule_keys)||!sameStringArray(ack.structure_rule_keys,expected.structure_rule_keys)||!sameStringArray(ack.math_rule_keys,expected.math_rule_keys))
+    throw new Error("Lecture obligatoire : toutes les couches de règles du paquet mémoire doivent être attestées.");
+  if((ack.family_key||null)!==expected.family_key||String(ack.family_version??"")!==String(expected.family_version??"")||String(ack.family_sha256||"")!==String(expected.family_sha256||""))
+    throw new Error("Lecture obligatoire : profil de famille disciplinaire non attesté ou différent.");
+  if((ack.subject_profile_key||null)!==expected.subject_profile_key||String(ack.subject_profile_version??"")!==String(expected.subject_profile_version??"")||String(ack.subject_profile_sha256||"")!==String(expected.subject_profile_sha256||""))
+    throw new Error("Lecture obligatoire : profil matière non attesté ou différent.");
+  if((ack.document_profile_key||null)!==expected.document_profile_key||String(ack.document_profile_version??"")!==String(expected.document_profile_version??"")||String(ack.document_profile_sha256||"")!==String(expected.document_profile_sha256||""))
+    throw new Error("Lecture obligatoire : profil documentaire non attesté ou différent.");
+  const expectedDigest=await sha256(JSON.stringify(expected)+"|"+memorySessionToken);
+  if(String(ack.ack_sha256||"")!==expectedDigest)throw new Error("Lecture obligatoire : l’attestation cryptographique ne correspond pas au paquet mémoire complet.");
+  return {verified:true,read_confirmed:true,session_id:expected.session_id,bundle_sha256:expected.bundle_sha256,ack_sha256:expectedDigest,
+    protocol_version:expected.protocol_version,protocol_sha256:expected.protocol_sha256,
+    general_rule_keys:expected.general_rule_keys,structure_rule_keys:expected.structure_rule_keys,math_rule_keys:expected.math_rule_keys,
+    family_key:expected.family_key,family_version:expected.family_version,family_sha256:expected.family_sha256,
+    subject_profile_key:expected.subject_profile_key,subject_profile_version:expected.subject_profile_version,subject_profile_sha256:expected.subject_profile_sha256,
+    document_profile_key:expected.document_profile_key,document_profile_version:expected.document_profile_version,document_profile_sha256:expected.document_profile_sha256};
 }
+
 Deno.serve(async req=>{
   if(req.method==="OPTIONS")return new Response("ok",{headers:CORS});
   if(req.method!=="POST")return reply({ok:false,error:"Méthode POST requise."},405);
@@ -637,6 +657,9 @@ Deno.serve(async req=>{
       .select("session_id,requested_subject,requires_math,general_rule_ids,math_rule_ids,expires_at,used_at,bundle_sha256,metadata")
       .eq("session_id",memorySessionId).eq("token_hash",memoryTokenHash).is("used_at",null).gt("expires_at",new Date().toISOString()).maybeSingle();
     if(memorySessionError||!memorySession)return reply({ok:false,error:"Session mémoire absente, expirée, déjà consommée ou jeton invalide. Récupérez de nouveau la mémoire éditoriale avant l’ingestion."},428);
+    if(String(memorySession.metadata?.memory_schema||"")!=="aurora-editorial-memory-3"){
+      return reply({ok:false,error:"Session mémoire obsolète : récupérez le nouveau paquet mémoire Aurore avant toute génération."},428);
+    }
     const generalMemoryCount=Array.isArray(memorySession.general_rule_ids)?memorySession.general_rule_ids.length:0;
     const mathMemoryCount=Array.isArray(memorySession.math_rule_ids)?memorySession.math_rule_ids.length:0;
     if(generalMemoryCount<1)return reply({ok:false,error:"Mémoire éditoriale générale non récupérée."},428);
@@ -664,7 +687,7 @@ Deno.serve(async req=>{
     const {data:result,error}=await db.rpc("aurora_ingest_editorial_document",{
       p_ingest_id:ingestId,p_created_by:createdBy,p_title:title,p_subject:subject,p_level:level,p_class_name:className,p_document_type:documentType,p_prompt:prompt,p_content_json:content,
       p_instructions:{...editorialInstructions,origin:"gpt_editorial_ingest",producer:"ChatGPT",human_review_required:true,manual_publication_only:true,lualatex_requested:false,schema_version:SCHEMA_VERSION,category:nullable(classification.categorie,100)||"Documents",domaine:nullable(classification.domaine,200),formation:nullable(classification.formation,200),specialite:nullable(classification.specialite,200),annee:nullable(classification.annee,100),semestre:nullable(classification.semestre,100),filiere:nullable(classification.filiere,200),theme_color:themeColor||"#C85C0D",editorial_memory_gate:editorialMemoryGate},
-      p_metadata:{origin:"gpt_editorial_ingest",producer:"ChatGPT",schema_version:SCHEMA_VERSION,content_sha256:contentHash,human_review_required:true,manual_publication_only:true,source:"chatgpt_editor",counts,course_quality:counts.course_quality||null,physics_chemistry_quality:counts.physics_chemistry_quality||null,aurore_profile:{kind:profile.kind,version:profile.version,lock:true,source:"document_type"},memory_session_id:memorySessionId,memory_schema:"aurora-editorial-memory-2",memory_gate_requested:true,memory_bundle_sha256:memorySession.bundle_sha256||null,editorial_memory_gate:editorialMemoryGate},
+      p_metadata:{origin:"gpt_editorial_ingest",producer:"ChatGPT",schema_version:SCHEMA_VERSION,content_sha256:contentHash,human_review_required:true,manual_publication_only:true,source:"chatgpt_editor",counts,course_quality:counts.course_quality||null,physics_chemistry_quality:counts.physics_chemistry_quality||null,aurore_profile:{kind:profile.kind,version:profile.version,lock:true,source:"document_type"},memory_session_id:memorySessionId,memory_schema:"aurora-editorial-memory-3",memory_gate_requested:true,memory_bundle_sha256:memorySession.bundle_sha256||null,editorial_memory_gate:editorialMemoryGate},
       p_domaine:nullable(classification.domaine,200),p_formation:nullable(classification.formation,200),p_specialite:nullable(classification.specialite,200),p_annee:nullable(classification.annee,100),p_semestre:nullable(classification.semestre,100),p_filiere:nullable(classification.filiere,200),p_matiere:subject,p_theme_color:themeColor||"#C85C0D",p_job_id:jobId
     });
     if(error){
