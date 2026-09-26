@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import math
 import json
 import re
 import unicodedata
@@ -102,13 +103,13 @@ def _is_numeric_point(point, dimensions=2):
         if len(point) < dimensions:
             return False
         try:
-            return all(float(point[i]) == float(point[i]) for i in range(dimensions))
+            return all(math.isfinite(float(point[i])) for i in range(dimensions))
         except (TypeError, ValueError):
             return False
     if isinstance(point, dict):
         keys = ("x", "y", "z")[:dimensions]
         try:
-            return all(float(point.get(key)) == float(point.get(key)) for key in keys)
+            return all(math.isfinite(float(point.get(key))) for key in keys)
         except (TypeError, ValueError):
             return False
     return False
@@ -1652,7 +1653,7 @@ def normalize_math(s):
     # first/second/third derivative notation explicitly.
     def _repair_math_primes(match):
         base, primes = match.group(1), match.group(2)
-        return base + "^{" + (r"\\prime" * len(primes)) + "}"
+        return base + "^{" + (r"\prime" * len(primes)) + "}"
 
     s = re.sub(
         r"(?<!\\)([A-Za-z0-9)\\]])('{1,3})(?=[\\s\\(\\)\\[\\]\\{\\},.;:=+\\-*/<>^_]|$)",
