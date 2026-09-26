@@ -16,7 +16,16 @@ async function sha256(value:string){
 }
 
 function text(v:unknown,max=500){return String(v??"").trim().slice(0,max);}
-function normalizedSubject(v:unknown){return text(v,200).toLowerCase().replace(/\s+/g," ");}
+function normalizedSubject(v:unknown){
+  return text(v,200).toLowerCase().normalize("NFKD").replace(/[\\u0300-\\u036f]/g,"").replace(/\s+/g," ");
+}
+function normalizedSubjectKey(v:unknown){
+  return normalizedSubject(v).replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+}
+function isPhysicsChemistrySubject(v:unknown){
+  const s=normalizedSubject(v).replace(/[_-]+/g," ").replace(/\s+/g," ").trim();
+  return s.includes("physique")||s.includes("chimie")||s.includes("sciences physiques")||s==="pc";
+}
 
 async function authenticate(req:Request){
   const rawKey=req.headers.get("x-aurore-gpt-key")||"";
@@ -46,6 +55,7 @@ Deno.serve(async req=>{
     if(!subject)return reply({ok:false,error:"La matière est obligatoire pour récupérer le contrat éditorial."},400);
 
     const mathRequired=normalizedSubject(subject).includes("math");
+    const physicsChemistryRequired=isPhysicsChemistrySubject(subject);
 
     const {data:general,error:generalError}=await db.from("aurora_editorial_memory")
       .select("id,rule_key,version,title,priority,mandatory,content")
@@ -63,17 +73,84 @@ Deno.serve(async req=>{
       if(!math.length)return reply({ok:false,error:"La mémoire Mathématiques est requise mais indisponible."},503);
     }
 
+    const {data:profiles,error:profilesError}=await db.from("aurora_editorial_subject_profiles")
+      .select("subject_key,subject_name,version,status,active,content")
+      .eq("active",true).eq("status","ready");
+    if(profilesError)throw profilesError;
+    const normalizedKey=normalizedSubjectKey(subject);
+    let subjectProfile=(profiles||[]).find((p:any)=>{
+      return normalizedSubjectKey(p?.subject_key)===normalizedKey||normalizedSubjectKey(p?.subject_name)===normalizedKey;
+    })||null;
+    if(!subjectProfile){
+      const {data:aliases,error:aliasesError}=await db.from("aurora_editorial_subject_aliases")
+        .select("alias,subject_key")
+        .eq("active",true);
+      if(aliasesError)throw aliasesError;
+      const alias=(aliases||[]).find((a:any)=>normalizedSubjectKey(a?.alias)===normalizedKey);
+      if(alias){
+        subjectProfile=(profiles||[]).find((p:any)=>String(p?.subject_key||"")===String(alias.subject_key||""))||null;
+      }
+    }
+    if(physicsChemistryRequired&&!subjectProfile){
+      return reply({ok:false,error:"Profil éditorial Physique-Chimie obligatoire mais indisponible. La génération ne peut pas progresser."},503);
+    }
+
     const token=crypto.randomUUID();
     const tokenHash=await sha256(token);
     const generalIds=general.map((x:any)=>Number(x.id));
     const mathIds=math.map((x:any)=>Number(x.id));
+    const generalRuleKeys=general.map((x:any)=>String(x.rule_key||"")).filter(Boolean);
+    const mathRuleKeys=math.map((x:any)=>String(x.rule_key||"")).filter(Boolean);
     const generalVersion=Math.max(...general.map((x:any)=>Number(x.version)||0),0);
     const mathVersion=math.length?Math.max(...math.map((x:any)=>Number(x.version)||0),0):null;
-    const bundle={schema:MEMORY_SCHEMA,subject,document_type:documentType,general,math:mathRequired?math:[]};
+    const subjectProfileHash=subjectProfile
+      ? await sha256(JSON.stringify({subject_key:subjectProfile.subject_key,version:subjectProfile.version,content:subjectProfile.content}))
+      : null;
+    const bundle={
+      schema:MEMORY_SCHEMA,
+      subject,
+      document_type:documentType,
+      general,
+      math:mathRequired?math:[],
+      subject_profile:subjectProfile?{
+        subject_key:subjectProfile.subject_key,
+        subject_name:subjectProfile.subject_name,
+        version:subjectProfile.version,
+        content:subjectProfile.content,
+        content_sha256:subjectProfileHash
+      }:null
+    };
     const bundleHash=await sha256(JSON.stringify(bundle));
+    const readAckFields={
+      session_id:"SESSION_ID_PLACEHOLDER",
+      bundle_sha256:bundleHash,
+      general_rule_keys:generalRuleKeys,
+      math_rule_keys:mathRuleKeys,
+      subject_profile_key:subjectProfile?.subject_key||null,
+      subject_profile_version:subjectProfile?.version??null
+    };
     const expiresAt=new Date(Date.now()+30*60*1000).toISOString();
 
+    const sessionId=crypto.randomUUID();
+    readAckFields.session_id=sessionId;
+    const sessionAckDigest=await sha256(JSON.stringify(readAckFields)+"|"+token);
+    const sessionMetadata={
+      memory_schema:MEMORY_SCHEMA,
+      key_id:keyId,
+      editorial_read_gate:{
+        required:true,
+        read_before_generation:true,
+        ack_algorithm:"sha256(canonical_fields_json|session_token)",
+        ack_sha256:sessionAckDigest,
+        required_rule_keys:generalRuleKeys,
+        math_rule_keys:mathRuleKeys,
+        subject_profile_key:subjectProfile?.subject_key||null,
+        subject_profile_version:subjectProfile?.version??null,
+        subject_profile_sha256:subjectProfileHash
+      }
+    };
     const {data:session,error:sessionError}=await db.from("aurora_editorial_memory_sessions").insert({
+      session_id:sessionId,
       token_hash:tokenHash,
       requested_subject:subject,
       requested_document_type:documentType,
@@ -85,7 +162,7 @@ Deno.serve(async req=>{
       bundle_sha256:bundleHash,
       consumer:"aurore-assistant",
       expires_at:expiresAt,
-      metadata:{memory_schema:MEMORY_SCHEMA,key_id:keyId}
+      metadata:sessionMetadata
     }).select("session_id,retrieved_at,expires_at").single();
     if(sessionError||!session)throw sessionError||new Error("Impossible d’ouvrir la session mémoire.");
 
@@ -104,6 +181,21 @@ Deno.serve(async req=>{
       general_memory_version:generalVersion,
       math_memory_version:mathVersion,
       bundle_sha256:bundleHash,
+      editorial_read_gate:{
+        status:"reading_required",
+        read_before_generation:true,
+        session_id:session.session_id,
+        ack_algorithm:"sha256(canonical_fields_json|session_token)",
+        required_rule_keys:generalRuleKeys,
+        math_rule_keys:mathRuleKeys,
+        subject_profile:subjectProfile?{
+          subject_key:subjectProfile.subject_key,
+          subject_name:subjectProfile.subject_name,
+          version:subjectProfile.version,
+          content:subjectProfile.content,
+          content_sha256:subjectProfileHash
+        }:null
+      },
       general_memory:general,
       math_memory:mathRequired?math:[]
     });
