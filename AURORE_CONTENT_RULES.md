@@ -36,7 +36,11 @@ Le contrôle technique PostgreSQL applique ces règles à toutes les voies d’i
 
 ### Fiabilité des visuels Wikimedia
 
-Pour les cours non mathématiques, les requêtes Wikimedia doivent privilégier des termes discriminants : nom de fichier ou référence archivistique quand elle est connue, lieu, date, catégorie ou intitulé historique précis. Une requête trop longue et générique peut retourner un document hors sujet ou aucun candidat. La sélection finale doit être vérifiée par son titre, sa description ou ses catégories. Un visuel manquant ou hors sujet doit corriger le plan documentaire avant la production PDF, et non être masqué en passant le visuel de `required` à facultatif.
+Pour les cours non mathématiques, les requêtes Wikimedia doivent privilégier des termes discriminants : nom de fichier ou référence archivistique quand elle est connue, lieu, date, catégorie ou intitulé historique précis. Une requête trop longue et générique peut retourner un document hors sujet ou aucun candidat. La sélection finale doit être vérifiée par son titre, sa description ou ses catégories.
+
+Un visuel **réellement hors sujet, introuvable ou mal spécifié** impose de corriger le plan documentaire avant la production : l’éditrice ne doit pas rendre artificiellement un visuel `required` facultatif pour contourner un problème éditorial. En revanche, une indisponibilité **temporaire du service Wikimedia** (notamment HTTP 429, timeout ou incident réseau) est un problème d’acheminement externe, pas une erreur de contenu : le plan doit rester fidèle à l’intention pédagogique, le pipeline doit signaler l’absence en avertissement, et une nouvelle récupération peut être tentée ultérieurement sans régénérer inutilement le contenu pédagogique.
+
+Le renderer Aurore distingue donc deux cas : les échecs structurels du plan restent bloquants, tandis que les indisponibilités temporaires de Wikimedia n’empêchent pas la production du PDF avec les ressources effectivement disponibles. Le diagnostic doit conserver la cause de l’absence afin que la validation humaine sache exactement ce qui manque.
 
 ## 2. Règles spécifiques — Mathématiques
 
