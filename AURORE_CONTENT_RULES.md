@@ -157,7 +157,13 @@ Les règles spécifiques aux autres matières doivent rester indépendantes du m
 
 ### Physique-Chimie
 
-Ajouter séparément les règles concernant les formules physiques, unités SI, conversions, lois, équations, bilans, réactions chimiques, protocoles, mesures, incertitudes, schémas et interprétation des résultats.
+Le profil Physique-Chimie est un **profil éditorial bloquant** : le cours ne doit pas être rédigé comme un cours littéraire auquel on ajoute quelques formules. La prose sert à relier les raisonnements ; elle ne constitue pas le squelette principal du document.
+
+Pour un cours standard de Physique-Chimie, la structure attendue privilégie les **relations ou équations**, la définition des grandeurs et des unités, les transformations mathématiques, les établissements ou démonstrations, les applications numériques, les bilans et l’interprétation scientifique. Lorsqu’une notion est quantitative, le traitement doit suivre autant que pertinent la chaîne : relation/équation → grandeurs et unités → transformation ou établissement → application numérique/bilan → résultat avec unité → interprétation.
+
+Le garde-fou technique exige au minimum 8 relations ou formules scientifiques exploitables, 6 blocs de calcul/manipulation, 2 blocs de démonstration ou établissement, une densité de blocs scientifiques d’au moins 55 % et au plus 25 % de blocs narratifs longs sans contenu scientifique. Ces seuils sont des contrôles de qualité du contenu, pas une demande artificielle de produire un pourcentage de symboles.
+
+Les réactions chimiques et bilans doivent apparaître explicitement lorsqu’ils sont pertinents. GeoGebra reste disponible pour les représentations quantitatives, trajectoires, phénomènes dynamiques et constructions scientifiques utiles ; Wikimedia reste documentaire et ne remplace jamais le travail scientifique. La règle n’autorise aucun remplissage artificiel pour atteindre les 3000 mots.
 
 ### SVT
 
@@ -199,10 +205,12 @@ Cette organisation permet d'enrichir progressivement Aurore sans réécrire ou f
 
 ## 12. Barrière mémoire avant injection
 
-Avant toute génération destinée à l’ingestion Aurore, l’assistante doit récupérer la mémoire éditoriale générale via le service aurora-editorial-memory. Lorsque la matière est Mathématiques, le même appel récupère également le module Mathématiques.
+Avant toute génération destinée à l’ingestion Aurore, l’assistante doit récupérer la mémoire éditoriale générale via le service aurora-editorial-memory. Le même appel récupère également le profil disciplinaire actif lorsqu’un profil spécialisé est requis ; pour les Mathématiques, il récupère aussi le module Mathématiques.
 
-La réponse ouvre une session mémoire à usage unique. L’assistante doit conserver le session_id et le memory_session_token et les transmettre dans memory_session_id et memory_session_token à aurora-gpt-ingest. Une session absente, expirée, déjà consommée ou incompatible avec la matière doit arrêter l’ingestion.
+**La lecture des consignes est désormais une étape bloquante.** La session mémoire renvoyée par aurora-editorial-memory ouvre un paquet déterminé par les règles actives, le document et le profil disciplinaire. L’assistante doit lire ce paquet avant de produire le contenu, puis construire editorial_memory_ack avec session_id, bundle_sha256, les identifiants de règles reçus, le profil disciplinaire et une ack_sha256 liée à la session. Tant que cette attestation n’est pas valide, aurora-gpt-ingest refuse toute progression vers la validation du contenu ou l’injection.
 
-Cette exigence est appliquée à deux niveaux : le pont aurora-gpt-ingest refuse les appels sans session valide, et PostgreSQL bloque directement toute nouvelle insertion issue de gpt_editorial_ingest sans mémoire vérifiée. Les versions des mémoires et l’empreinte du paquet utilisé sont enregistrées avec le document.
+Cette exigence est appliquée à deux niveaux : le pont aurora-gpt-ingest bloque toute demande sans attestation correcte, et PostgreSQL bloque directement toute nouvelle insertion issue de gpt_editorial_ingest sans preuve de lecture validée. L’empreinte du paquet, l’identité du profil, les versions de mémoire et l’attestation sont conservées avec le document.
 
-Pour Mathématiques, le document ne peut être inséré que si la mémoire générale et la mémoire Mathématiques ont toutes deux été récupérées dans la même session.
+Une simple déclaration textuelle du type « consignes lues » ne constitue pas une preuve suffisante : l’attestation est liée cryptographiquement à la session et au paquet effectivement récupérés. Une session absente, expirée, déjà consommée, incompatible ou sans paquet requis doit arrêter l’ingestion.
+
+Pour Physique-Chimie, la présence d’un profil disciplinaire actif physique-chimie est obligatoire avant la génération. Pour Mathématiques, le document ne peut être inséré que si la mémoire générale et la mémoire Mathématiques ont toutes deux été récupérées dans la même session.
