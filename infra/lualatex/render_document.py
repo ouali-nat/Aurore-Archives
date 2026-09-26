@@ -242,6 +242,24 @@ def _open_url_with_retry(req, timeout=30, attempts=4):
     raise last
 
 
+def _classify_wikimedia_external_failure(exc):
+    """Classify temporary Wikimedia transport failures without hiding structural errors."""
+    import socket
+    import urllib.error
+
+    if isinstance(exc, urllib.error.HTTPError):
+        if exc.code == 429:
+            return "rate_limited"
+        if exc.code in (408, 500, 502, 503, 504):
+            return f"temporary_http_{exc.code}"
+        return f"http_{exc.code}"
+    if isinstance(exc, (TimeoutError, socket.timeout)):
+        return "timeout"
+    if isinstance(exc, urllib.error.URLError):
+        return "network_error"
+    return None
+
+
 
 def _exercise_geogebra_subject_supported(subject):
     """Return True for Mathématiques and Physique-Chimie exercise sheets."""
@@ -859,6 +877,7 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
     statuses = []
     seen_pages, seen_urls = set(), set()
     search_cache = {}
+    search_failure_log = []
 
     explicit = any(
         isinstance(s.get("visuals"), list) and s.get("visuals")
@@ -1097,6 +1116,9 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
             try:
                 results = search_one(query, section, purpose=purpose)
             except Exception as exc:
+                failure_class = _classify_wikimedia_external_failure(exc)
+                if failure_class:
+                    search_failure_log.append(failure_class)
                 print(f"WARNING: Wikimedia search failed for {query!r}: {exc}")
                 continue
             for score, page, ii, meta, url, effective_mime in results:
@@ -1198,7 +1220,10 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                     print(f"Wikimedia visual skipped: section={section_index + 1} reason=query_missing")
                     continue
 
+                search_failure_start = len(search_failure_log)
                 ranked = ranked_candidates_for_directive(raw, section)
+                directive_search_failures = search_failure_log[search_failure_start:]
+                candidate_failure_classes = []
                 best = None
                 for candidate in ranked:
                     score, page, ii, meta, url, effective_mime, resolved_query = candidate
@@ -1217,6 +1242,9 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                         best = candidate + (blob,)
                         break
                     except Exception as exc:
+                        failure_class = _classify_wikimedia_external_failure(exc)
+                        if failure_class:
+                            candidate_failure_classes.append(failure_class)
                         print(
                             f"WARNING: Wikimedia candidate rejected after ranking: "
                             f"section={section_index + 1} query={resolved_query!r} "
@@ -1225,22 +1253,47 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                         continue
 
                 if not best:
+                    temporary_failures = [
+                        failure
+                        for failure in (directive_search_failures + candidate_failure_classes)
+                        if failure in {
+                            "rate_limited",
+                            "timeout",
+                            "network_error",
+                        } or str(failure).startswith("temporary_http_")
+                    ]
+                    all_failures_temporary = bool(
+                        (directive_search_failures or candidate_failure_classes)
+                        and len(temporary_failures)
+                        == len(directive_search_failures + candidate_failure_classes)
+                    )
+                    failure_reason = (
+                        "temporary_external_unavailable"
+                        if all_failures_temporary
+                        else "no_usable_ranked_candidate"
+                    )
                     statuses.append({
                         "section_index": section_index,
                         "section_title": clean_text(section.get("title") or ""),
                         "query": query_candidates[0],
                         "priority": priority or "recommended",
                         "status": "failed",
-                        "reason": "no_usable_ranked_candidate",
+                        "reason": failure_reason,
+                        "external_temporary": all_failures_temporary,
+                        "failure_classes": list(
+                            dict.fromkeys(
+                                directive_search_failures + candidate_failure_classes
+                            )
+                        ),
                         "candidate_count": len(ranked),
                     })
-                    # A missing image must never stop PDF production. There is
-                    # no empty frame inserted: the visual is simply omitted,
-                    # while graphs and all other content continue to render.
+                    # Do not silently rewrite the editorial plan. The final QA stage
+                    # distinguishes temporary external unavailability from a structural
+                    # plan failure and decides whether production may continue.
                     print(
                         f"Wikimedia visual unavailable: section={section_index + 1} "
                         f"query={query_candidates[0]!r} priority={priority or 'recommended'} "
-                        f"candidates={len(ranked)} — PDF continues."
+                        f"candidates={len(ranked)} reason={failure_reason}."
                     )
                     continue
 
@@ -1413,6 +1466,16 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
     ) if explicit else 0
     failed = sum(1 for status in statuses if status.get("status") != "fetched")
     required_missing = max(0, required_planned - required_fetched)
+    required_external_unavailable = sum(
+        1
+        for status in statuses
+        if status.get("priority") == "required"
+        and status.get("status") != "fetched"
+        and status.get("external_temporary") is True
+    ) if explicit else 0
+    required_structural_missing = max(
+        0, required_missing - required_external_unavailable
+    )
     visual_qa = {
         "mode": "explicit" if explicit else "legacy",
         "planned": int(planned_explicit if explicit else len(statuses)),
@@ -1422,8 +1485,14 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
         "required_planned": int(required_planned),
         "required_retrieved": int(required_fetched),
         "required_missing": int(required_missing),
+        "required_external_unavailable": int(required_external_unavailable),
+        "required_structural_missing": int(required_structural_missing),
         "failed": int(failed),
-        "status": "blocked" if required_missing else ("warning" if failed else "pass"),
+        "status": (
+            "blocked"
+            if required_structural_missing
+            else ("warning" if failed or required_missing else "pass")
+        ),
         "editorial_cap": int(max_total),
     }
     data["_visual_qa"] = visual_qa
@@ -1433,14 +1502,14 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
         f"retrieved={visual_qa['retrieved']} required={visual_qa['required_retrieved']}/{visual_qa['required_planned']} "
         f"failed={visual_qa['failed']}"
     )
-    # A missing Wikimedia visual is never a generation blocker.
-    # "required" means editorially preferred/important, not a hard build gate:
-    # GeoGebra/math graphs and the rest of the document must still compile.
+    # Temporary Wikimedia transport failures are warnings, not build blockers.
+    # Structural failures in an explicit required visual plan remain blocking.
     if explicit and required_missing:
         print(
             "WARNING: Wikimedia required visual(s) unavailable: "
-            f"{required_missing} missing ({required_fetched}/{required_planned} fetched). "
-            "PDF generation continues; no Wikimedia gap can block production."
+            f"{required_missing} missing ({required_fetched}/{required_planned} fetched); "
+            f"{required_external_unavailable} temporarily unavailable externally; "
+            f"{required_structural_missing} structurally unresolved."
         )
     return visuals
 def render_visuals(visuals):
@@ -3593,10 +3662,11 @@ def main():
             raise SystemExit(message + ", ".join(missing_embedded))
     else:
         data["_visual_qa"]["embedded"] = len(data["_wikimedia_visuals"])
-    if has_documentary_plan and data["_visual_qa"].get("required_missing", 0):
+    if has_documentary_plan and data["_visual_qa"].get("required_structural_missing", 0):
         raise SystemExit(
             "Documentary visual plan QA failed: "
-            f"{data['_visual_qa']['required_missing']} required visual(s) were not retrieved."
+            f"{data['_visual_qa']['required_structural_missing']} required visual(s) "
+            "remain structurally unresolved (not a temporary Wikimedia transport failure)."
         )
     if data["_visual_qa"].get("status") == "blocked" and not has_documentary_plan:
         data["_visual_qa"]["status"] = "warning"
