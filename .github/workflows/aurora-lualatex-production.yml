@@ -83,7 +83,7 @@ jobs:
           prime_cases = [
               ("f'(x)", r"f^{\prime}(x)"),
               ("f''(x)", r"f^{\prime\prime}(x)"),
-              ("exp''(x)=exp(x)>0", r"exp^{\prime\prime}(x)=exp(x)>0"),
+              ("exp''(x)=exp(x)>0", r"exp^{\prime\prime}(x)=\exp(x)>0"),
           ]
           for raw, expected in prime_cases:
               actual = normalize_math(raw)
