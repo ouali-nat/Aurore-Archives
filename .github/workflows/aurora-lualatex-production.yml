@@ -996,6 +996,7 @@ jobs:
 # Automatic wake-up after DeepSeek/Luna is handled by the Supabase INSERT trigger.
 # Wikimedia completeness validation trigger: 2026-09-21.
 # Renderer Wikimedia fallback hardening trigger: semantic regeneration v3 — 2026-09-21.
+# Wikimedia transient-availability QA guard wake: 2026-09-26.
 # Progress is persisted in aurora_generated_documents.metadata.
 # PDF identity/QR traceability and 45-color palette remain unchanged.
 # Wikimedia long-query core fallback trigger: 2026-09-21.
