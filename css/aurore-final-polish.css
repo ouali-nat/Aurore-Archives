@@ -1973,6 +1973,21 @@ html[data-theme="light"][data-color-theme] .sublevel-card{
   }
 }
 
+
+/* ==========================================================
+   AURORE — COUVERTURE PDF : RENDU DIRECT DE LA PREMIÈRE PAGE
+   ========================================================== */
+.doc-row .icon-wrap canvas.doc-cover-canvas{
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  object-fit:cover!important;
+  background:#fff!important;
+}
+#screen-home .home-five-level .home-door-cover .doc-cover-canvas{
+  background:#fff!important;
+}
+
 /* ==========================================================
    AURORE — MENU ACCUEIL STYLE CHATGPT
    Trois traits en haut à gauche : historique + réduction Aurora.
@@ -2223,7 +2238,7 @@ html[data-theme="light"][data-color-theme] .aurore-home-menu{
   align-items:flex-start!important;
   justify-content:space-between!important;
   gap:8px!important;
-  padding-right:72px!important;
+  padding-right:92px!important;
 }
 
 #screen-home .home-five-level .home-door-copy > span:not(.home-door-kicker){
@@ -2253,8 +2268,8 @@ html[data-theme="light"][data-color-theme] .aurore-home-menu{
 #screen-home .home-five-level .home-door-cover{
   position:absolute!important;
   display:block!important;
-  width:49px!important;
-  height:68px!important;
+  width:43px!important;
+  height:60px!important;
   overflow:hidden!important;
   border:1px solid color-mix(in srgb,var(--theme-primary,#7C3AED) 25%,var(--theme-border,var(--bordure)))!important;
   border-radius:7px!important;
@@ -2284,7 +2299,8 @@ html[data-theme="light"][data-color-theme] .aurore-home-menu{
   background:var(--theme-card,var(--papier))!important;
 }
 
-#screen-home .home-five-level .home-door-cover .doc-cover-img{
+#screen-home .home-five-level .home-door-cover .doc-cover-img,
+#screen-home .home-five-level .home-door-cover .doc-cover-canvas{
   width:100%!important;
   height:100%!important;
   display:block!important;
@@ -2316,16 +2332,16 @@ html[data-theme="light"][data-color-theme] .aurore-home-menu{
 
 @media(max-width:640px){
   #screen-home .home-five-level .home-door-copy{
-    padding-right:58px!important;
+    padding-right:66px!important;
   }
   #screen-home .home-five-level .home-door-cover-stack{
-    right:8px!important;
-    width:50px!important;
-    height:68px!important;
+    right:7px!important;
+    width:47px!important;
+    height:64px!important;
   }
   #screen-home .home-five-level .home-door-cover{
-    width:39px!important;
-    height:55px!important;
+    width:35px!important;
+    height:49px!important;
     border-radius:6px!important;
   }
   #screen-home .home-five-level .home-door-copy > span:not(.home-door-kicker){
