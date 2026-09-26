@@ -407,3 +407,11 @@ html[data-theme="light"][data-color-theme] .welcome-modal-content{
   .welcome-modal-backdrop{opacity:1;}
   .welcome-modal-card.is-opening{opacity:1;transform:none;}
 }
+
+
+/* Le contrôle de fermeture reste disponible pendant toute l'ouverture. */
+.welcome-modal-card.is-opening .welcome-modal-close{
+  animation:none!important;
+  opacity:1!important;
+  transform:none!important;
+}
