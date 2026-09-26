@@ -39,3 +39,269 @@
 [data-theme="light"] .form-msg.ok{background:#ECFDF3!important;color:#166534!important;border-color:#86EFAC!important;}
 [data-theme="light"] .form-msg.err{background:#FFF7F7!important;color:#991B1B!important;border-color:#FCA5A5!important;}
 .welcome-modal-card p{line-height:1.65!important;}
+
+
+/* ===== Aurore — Welcome Fusion : quatre formes → panneau de bienvenue ===== */
+.welcome-modal{
+  overflow:hidden;
+  background:color-mix(in srgb,var(--theme-primary,#8B5CF6) 5%,transparent);
+}
+.welcome-modal[hidden]{display:none}
+.welcome-modal-backdrop{
+  background:
+    radial-gradient(circle at 50% 38%,color-mix(in srgb,var(--theme-primary,#8B5CF6) 14%,transparent),transparent 42%),
+    rgba(10,7,18,.66);
+  backdrop-filter:blur(9px) saturate(1.08);
+}
+.welcome-modal-card{
+  isolation:isolate;
+  overflow:hidden;
+  min-height:360px;
+  padding:0;
+  border:1px solid color-mix(in srgb,var(--theme-primary,#8B5CF6) 26%,var(--bordure));
+  border-radius:32px;
+  background:
+    radial-gradient(circle at 18% 12%,color-mix(in srgb,var(--theme-secondary,#C084FC) 8%,transparent),transparent 28%),
+    var(--papier);
+  box-shadow:
+    0 34px 110px color-mix(in srgb,var(--theme-primary,#8B5CF6) 18%,rgba(0,0,0,.24)),
+    0 18px 50px rgba(0,0,0,.20);
+}
+.welcome-modal-card::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  border-radius:inherit;
+  background:
+    linear-gradient(145deg,color-mix(in srgb,var(--theme-primary,#8B5CF6) 6%,transparent),transparent 38%),
+    radial-gradient(circle at 85% 10%,color-mix(in srgb,var(--theme-secondary,#C084FC) 10%,transparent),transparent 30%);
+  pointer-events:none;
+}
+.welcome-modal-close{
+  z-index:8;
+  right:15px;
+  top:15px;
+  width:40px;
+  height:40px;
+  border-color:color-mix(in srgb,var(--theme-primary,#8B5CF6) 18%,var(--bordure));
+  background:color-mix(in srgb,var(--papier) 74%,transparent);
+  color:var(--encre);
+  box-shadow:0 8px 22px rgba(0,0,0,.08);
+  transition:transform .2s ease,background .2s ease,border-color .2s ease;
+}
+.welcome-modal-close:hover{
+  transform:rotate(5deg) scale(1.04);
+  border-color:color-mix(in srgb,var(--theme-primary,#8B5CF6) 38%,var(--bordure));
+  background:color-mix(in srgb,var(--theme-primary,#8B5CF6) 7%,var(--papier));
+}
+.welcome-fusion-stage{
+  position:relative;
+  height:170px;
+  overflow:hidden;
+  display:grid;
+  place-items:center;
+}
+.welcome-fusion-surface{
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:34px;
+  height:34px;
+  border-radius:18px;
+  transform:translate(-50%,-50%) scale(.2);
+  opacity:0;
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb,var(--theme-strong,#6D28D9) 96%,#111),
+      color-mix(in srgb,var(--theme-primary,#8B5CF6) 92%,#111) 52%,
+      color-mix(in srgb,var(--theme-secondary,#C084FC) 88%,#fff)
+    );
+  box-shadow:
+    0 0 0 1px color-mix(in srgb,var(--theme-primary,#8B5CF6) 36%,transparent),
+    0 16px 40px color-mix(in srgb,var(--theme-primary,#8B5CF6) 28%,transparent),
+    0 0 72px color-mix(in srgb,var(--theme-secondary,#C084FC) 26%,transparent);
+  filter:saturate(1.06);
+}
+.welcome-fusion-glow{
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:48px;
+  height:48px;
+  border-radius:50%;
+  transform:translate(-50%,-50%) scale(.2);
+  opacity:0;
+  background:radial-gradient(circle,color-mix(in srgb,var(--theme-secondary,#C084FC) 45%,transparent),transparent 68%);
+  filter:blur(8px);
+  pointer-events:none;
+}
+.welcome-orb{
+  position:absolute;
+  width:56px;
+  height:56px;
+  border-radius:50%;
+  opacity:0;
+  transform:translate3d(0,0,0) scale(.2);
+  background:
+    radial-gradient(circle at 34% 28%,color-mix(in srgb,#fff 80%,var(--theme-secondary,#C084FC)),transparent 23%),
+    linear-gradient(145deg,var(--theme-primary,#8B5CF6),var(--theme-strong,#6D28D9));
+  box-shadow:
+    inset 0 2px 7px rgba(255,255,255,.28),
+    0 12px 30px color-mix(in srgb,var(--theme-primary,#8B5CF6) 26%,transparent),
+    0 0 42px color-mix(in srgb,var(--theme-secondary,#C084FC) 18%,transparent);
+  filter:saturate(1.06);
+}
+.welcome-orb-b{
+  background:
+    radial-gradient(circle at 33% 28%,color-mix(in srgb,#fff 76%,var(--theme-primary,#8B5CF6)),transparent 22%),
+    linear-gradient(145deg,var(--theme-secondary,#C084FC),var(--theme-primary,#8B5CF6));
+}
+.welcome-orb-c{
+  background:
+    radial-gradient(circle at 34% 28%,color-mix(in srgb,#fff 72%,var(--theme-secondary,#C084FC)),transparent 22%),
+    linear-gradient(145deg,var(--theme-primary,#8B5CF6),color-mix(in srgb,var(--theme-secondary,#C084FC) 72%,var(--theme-strong,#6D28D9)));
+}
+.welcome-orb-d{
+  background:
+    radial-gradient(circle at 34% 28%,color-mix(in srgb,#fff 78%,var(--theme-primary,#8B5CF6)),transparent 22%),
+    linear-gradient(145deg,var(--theme-strong,#6D28D9),var(--theme-primary,#8B5CF6));
+}
+.welcome-modal-content{
+  position:relative;
+  z-index:3;
+  margin:-16px 28px 28px;
+  padding:24px 30px 28px;
+  border-radius:26px;
+  border:1px solid color-mix(in srgb,var(--theme-primary,#8B5CF6) 13%,var(--bordure));
+  background:color-mix(in srgb,var(--papier) 94%,var(--theme-primary,#8B5CF6));
+  box-shadow:0 16px 38px rgba(0,0,0,.08);
+  text-align:center;
+  opacity:0;
+  transform:translateY(16px) scale(.985);
+}
+.welcome-modal-eyebrow{
+  margin:0 0 8px;
+  color:var(--theme-primary,#8B5CF6);
+  font-size:.68rem;
+  font-weight:800;
+  letter-spacing:.12em;
+  line-height:1.2;
+  text-transform:uppercase;
+}
+.welcome-modal-card h2{
+  position:relative;
+  margin:0 0 11px;
+  font-size:clamp(1.55rem,4vw,2rem);
+  letter-spacing:-.035em;
+  color:var(--encre);
+}
+.welcome-modal-card p:not(.eyebrow):not(.welcome-modal-eyebrow){
+  max-width:500px;
+  margin:0 auto 20px;
+  color:var(--gris);
+  line-height:1.68;
+}
+.welcome-modal-ok{
+  min-height:46px;
+  padding:11px 18px;
+  border-radius:14px;
+  box-shadow:0 12px 25px color-mix(in srgb,var(--theme-primary,#8B5CF6) 18%,transparent);
+}
+
+/* Entrée : 4 formes séparées → convergence → fusion → révélation du panneau. */
+.welcome-modal-card.is-opening .welcome-orb{
+  animation:auroreWelcomeOrbEntry 1.65s cubic-bezier(.18,.82,.22,1) forwards;
+}
+.welcome-modal-card.is-opening .welcome-orb-a{--orb-x:-82px;--orb-y:-36px;--orb-delay:.05s;}
+.welcome-modal-card.is-opening .welcome-orb-b{--orb-x:82px;--orb-y:-30px;--orb-delay:.10s;}
+.welcome-modal-card.is-opening .welcome-orb-c{--orb-x:-78px;--orb-y:38px;--orb-delay:.15s;}
+.welcome-modal-card.is-opening .welcome-orb-d{--orb-x:76px;--orb-y:38px;--orb-delay:.20s;}
+.welcome-modal-card.is-opening .welcome-fusion-surface{
+  animation:auroreWelcomeSurface 1.9s cubic-bezier(.2,.74,.19,1) .76s forwards;
+}
+.welcome-modal-card.is-opening .welcome-fusion-glow{
+  animation:auroreWelcomeGlow 1.8s ease .72s forwards;
+}
+.welcome-modal-card.is-opening .welcome-modal-content{
+  animation:auroreWelcomeContent .72s cubic-bezier(.2,.74,.22,1) 1.04s forwards;
+}
+.welcome-modal-card.is-opening .welcome-modal-close{
+  animation:auroreWelcomeClose .5s ease 1.05s both;
+}
+@keyframes auroreWelcomeOrbEntry{
+  0%{opacity:0;transform:translate3d(var(--orb-x),var(--orb-y),0) scale(.25);}
+  12%{opacity:1;transform:translate3d(var(--orb-x),var(--orb-y),0) scale(1);}
+  55%{opacity:1;transform:translate3d(calc(var(--orb-x)*.46),calc(var(--orb-y)*.46),0) scale(1.05);}
+  82%{opacity:.96;transform:translate3d(0,0,0) scale(.78);}
+  100%{opacity:0;transform:translate3d(0,0,0) scale(.16);}
+}
+@keyframes auroreWelcomeSurface{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.22);border-radius:18px;}
+  18%{opacity:.95;transform:translate(-50%,-50%) scale(.64);border-radius:24px;}
+  50%{opacity:1;transform:translate(-50%,-50%) scale(1);border-radius:28px;}
+  100%{opacity:1;transform:translate(-50%,-50%) scale(15);border-radius:32px;}
+}
+@keyframes auroreWelcomeGlow{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.2);}
+  30%{opacity:.95;transform:translate(-50%,-50%) scale(1);}
+  72%{opacity:.5;transform:translate(-50%,-50%) scale(2.8);}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(5.2);}
+}
+@keyframes auroreWelcomeContent{
+  0%{opacity:0;transform:translateY(16px) scale(.985);}
+  100%{opacity:1;transform:translateY(0) scale(1);}
+}
+@keyframes auroreWelcomeClose{
+  0%{opacity:0;transform:scale(.7);}
+  100%{opacity:1;transform:scale(1);}
+}
+
+/* La matière fusionnée reste perceptible derrière le contenu au milieu de la transition. */
+.welcome-modal-card.is-opening .welcome-modal-content{
+  background:
+    linear-gradient(180deg,color-mix(in srgb,var(--papier) 96%,var(--theme-primary,#8B5CF6)),var(--papier)),
+    var(--papier);
+}
+html[data-theme="light"][data-color-theme] .welcome-modal-card{
+  border-color:color-mix(in srgb,var(--theme-primary) 22%,#D8CDE3);
+  background:
+    radial-gradient(circle at 18% 10%,color-mix(in srgb,var(--theme-secondary) 12%,transparent),transparent 30%),
+    #fff;
+  box-shadow:
+    0 34px 105px color-mix(in srgb,var(--theme-primary) 12%,transparent),
+    0 18px 45px rgba(55,36,82,.12);
+}
+html[data-theme="light"][data-color-theme] .welcome-modal-backdrop{
+  background:
+    radial-gradient(circle at 50% 36%,color-mix(in srgb,var(--theme-primary) 12%,transparent),transparent 42%),
+    rgba(16,12,24,.52);
+}
+html[data-theme="light"][data-color-theme] .welcome-modal-content{
+  background:color-mix(in srgb,#fff 96%,var(--theme-primary));
+  border-color:color-mix(in srgb,var(--theme-primary) 15%,#D8CDE3);
+}
+@media(max-width:620px){
+  .welcome-modal-card{min-height:340px;border-radius:27px;}
+  .welcome-fusion-stage{height:146px;}
+  .welcome-orb{width:48px;height:48px;}
+  .welcome-modal-content{margin:-10px 16px 18px;padding:20px 18px 22px;border-radius:22px;}
+  .welcome-modal-close{right:11px;top:11px;width:38px;height:38px;}
+  .welcome-modal-card h2{font-size:1.45rem;}
+  .welcome-modal-card p:not(.eyebrow):not(.welcome-modal-eyebrow){font-size:.88rem;}
+  .welcome-modal-ok{width:100%;}
+}
+@media(prefers-reduced-motion:reduce){
+  .welcome-modal-card.is-opening .welcome-orb,
+  .welcome-modal-card.is-opening .welcome-fusion-surface,
+  .welcome-modal-card.is-opening .welcome-fusion-glow,
+  .welcome-modal-card.is-opening .welcome-modal-content,
+  .welcome-modal-card.is-opening .welcome-modal-close{
+    animation:none!important;
+  }
+  .welcome-modal-card .welcome-orb{opacity:0;transform:translate3d(0,0,0) scale(.16);}
+  .welcome-modal-card .welcome-fusion-surface{opacity:1;transform:translate(-50%,-50%) scale(15);border-radius:32px;}
+  .welcome-modal-card .welcome-fusion-glow{opacity:0;}
+  .welcome-modal-card .welcome-modal-content{opacity:1;transform:none;}
+  .welcome-modal-card .welcome-modal-close{opacity:1;transform:none;}
+}

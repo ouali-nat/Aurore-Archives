@@ -580,7 +580,7 @@ html[data-color-theme] [class*="matiere-grid"] .matiere-card{--matter-accent:var
   width:100%!important;
   height:100%!important;
   min-width:0!important;
-  padding:0 10px!important;
+  padding:0 16px!important;
   margin:0!important;
   box-sizing:border-box!important;
   border:0!important;
@@ -1049,6 +1049,8 @@ html[data-color-theme] .auraster-home-search{
   }
   .auraster-home-search input{
     font-size:.75rem!important;
+    padding-left:14px!important;
+    padding-right:14px!important;
   }
 }
 
