@@ -734,6 +734,11 @@ jobs:
                   {
                       "title": "Section test",
                       "content": ["Contenu de validation."],
+                      "formula": [
+                          "f'(x)=exp(x)",
+                          "exp''(x)=exp(x)>0",
+                          "e^(2x)=(e^x)^2"
+                      ],
                       "graphs": [],
                       "graphics": [
                           {"kind": "separator", "style": "leaf_branch", "title": "Séparateur SVG Aurore"}
@@ -812,6 +817,17 @@ jobs:
           }
           if not _is_renderable_geogebra_graph(regression_graph):
               raise SystemExit("Renderer smoke check failed: schema-valid GeoGebra graph was rejected")
+
+          regression_object_point_graph = {
+              "style": "geogebra",
+              "geogebra_image_source": "geogebra",
+              "geogebra_image_path": "aurora-content/test/object-points.png",
+              "graph_local_path": "assets/geogebra-object-points.png",
+              "instrument": "function2d",
+              "points": [{"x": 0, "y": 1}, {"x": 2, "y": 3}],
+          }
+          if not _is_renderable_geogebra_graph(regression_object_point_graph):
+              raise SystemExit("Renderer smoke check failed: object-form GeoGebra points were rejected")
           graph_tex = "\n".join(render_graphs([regression_graph]))
           expected_graph = r"\includegraphics[width=0.92\linewidth,height=10.5cm,keepaspectratio]{assets/geogebra-test.png}"
           if expected_graph not in graph_tex:
