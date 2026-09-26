@@ -35,6 +35,36 @@ content._aurore_document = {
   title: document.title,
 };
 
+function pointHasXY(point) {
+  if (Array.isArray(point)) {
+    return point.length >= 2
+      && Number.isFinite(Number(point[0]))
+      && Number.isFinite(Number(point[1]));
+  }
+  return !!point
+    && Number.isFinite(Number(point.x))
+    && Number.isFinite(Number(point.y));
+}
+
+function pointHasXYZ(point) {
+  if (Array.isArray(point)) {
+    return point.length >= 3
+      && Number.isFinite(Number(point[0]))
+      && Number.isFinite(Number(point[1]))
+      && Number.isFinite(Number(point[2]));
+  }
+  return !!point
+    && Number.isFinite(Number(point.x))
+    && Number.isFinite(Number(point.y))
+    && Number.isFinite(Number(point.z));
+}
+
+function pointXY(point) {
+  return Array.isArray(point)
+    ? [Number(point[0]), Number(point[1])]
+    : [Number(point.x), Number(point.y)];
+}
+
 function instrumentOf(g) {
   const raw = String(g?.instrument || g?.graph_type || "").toLowerCase().trim();
   const aliases = {
@@ -66,12 +96,12 @@ function instrumentOf(g) {
   if (raw) return null;
   if (hasObjects) return "geometry3d";
   if (hasZ && hasX && hasY) return "parametric3d";
-  if (hasX && hasY) return points.some((p) => Array.isArray(p) && p.length >= 3) || poi.some((p) => p && Number.isFinite(Number(p?.z)))
+  if (hasX && hasY) return points.some(pointHasXYZ) || poi.some((p) => p && Number.isFinite(Number(p?.z)))
     ? "parametric3d"
     : "parametric2d";
   if (hasExpression) return "function2d";
-  if (points.some((p) => Array.isArray(p) && p.length >= 3) || poi.some((p) => p && Number.isFinite(Number(p?.z)))) return "geometry3d";
-  if (points.some((p) => Array.isArray(p) && p.length === 2) || (Array.isArray(g?.asymptotes) && g.asymptotes.length)) return "function2d";
+  if (points.some(pointHasXYZ) || poi.some((p) => p && Number.isFinite(Number(p?.z)))) return "geometry3d";
+  if (points.some(pointHasXY) || (Array.isArray(g?.asymptotes) && g.asymptotes.length)) return "function2d";
   return null;
 }
 
@@ -87,14 +117,14 @@ function validGraph(g) {
     return Boolean(
       String(g?.expression || "").trim() ||
       (Array.isArray(g?.asymptotes) && g.asymptotes.length) ||
-      points.some((p) => Array.isArray(p) && p.length === 2),
+      points.some(pointHasXY),
     );
   }
   if (instrument === "parametric2d") return Boolean(String(g?.x_expression || "").trim() && String(g?.y_expression || "").trim());
   if (instrument === "geometry2d") {
     const validTypes = new Set(["point","vector","line","segment","ray","polygon"]);
     return objects.some((o) => validTypes.has(String(o?.type || "").toLowerCase()))
-      || points.some((p) => Array.isArray(p) && p.length >= 2);
+      || points.some(pointHasXY);
   }
   if (instrument === "parametric3d") return Boolean(String(g?.x_expression || "").trim() && String(g?.y_expression || "").trim() && String(g?.z_expression || "").trim());
   if (instrument === "surface3d") return Boolean(String(g?.expression || "").trim());
@@ -103,7 +133,7 @@ function validGraph(g) {
     "prism","pyramid","tetrahedron",
   ]);
   return objects.some((o) => validTypes.has(String(o?.type || "").toLowerCase()))
-    || points.some((p) => Array.isArray(p) && p.length >= 3)
+    || points.some(pointHasXYZ)
     || poi.some((p) => p && Number.isFinite(Number(p?.z)));
 }
 
@@ -516,9 +546,8 @@ const renderGraphInBrowser = async (graph) => {
       if ((instrument === "function2d" || instrument === "complex_plane") && Array.isArray(graph?.points)) {
         let pointIndex = 0;
         for (const raw of graph.points) {
-          if (!Array.isArray(raw) || raw.length < 2) continue;
-          const px = Number(raw[0]), py = Number(raw[1]);
-          if (!Number.isFinite(px) || !Number.isFinite(py)) continue;
+          if (!pointHasXY(raw)) continue;
+          const [px, py] = pointXY(raw);
           pointIndex += 1;
           commands.push("P"+pointIndex+"=("+px+","+py+")");
         }
