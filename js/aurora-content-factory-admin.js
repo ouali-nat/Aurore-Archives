@@ -799,7 +799,7 @@ async function auroraGeoGebraExportOne(graph){
           }
           // L'applet peut appeler onLoad avant que son moteur soit prêt
           // à accepter les premières commandes de construction.
-          await new Promise(resolve=>setTimeout(resolve,1500));
+          setTimeout(()=>{
           const commands=auroraGeoGebraCommandes(graph);
           const commandErrors=[];
           const primaryCommands=[];
@@ -928,6 +928,7 @@ async function auroraGeoGebraExportOne(graph){
             ));
           };
           waitForObjects()
+          },1500);
         }catch(e){clearTimeout(timer);done(reject,e instanceof Error?e:new Error(String(e)))}
       }
     };
@@ -1550,7 +1551,7 @@ document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurre
     });
   },true);
   window.auroraContentFactoryPdfActions={
-    render:(id,hasPdf,themeColor)=>handlePdfAction({action:'render',id,hasPdf,themeColor}),
+    render:(id,themeColor)=>renderPdf(Number(id),themeColor||null),
     chooseTheme:(defaultColor,mode='regeneration')=>chooseRegenerationTheme(defaultColor,mode),
     validate:id=>handlePdfAction({action:'validate',id}),
     reject:id=>handlePdfAction({action:'reject',id}),
