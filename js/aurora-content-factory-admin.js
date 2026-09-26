@@ -797,6 +797,9 @@ async function auroraGeoGebraExportOne(graph){
             try{a.setAxisSteps(1,1,1,0)}catch(_){}
             try{a.setAxisLabels(1,'x','y','')}catch(_){}
           }
+          // L'applet peut appeler onLoad avant que son moteur soit prêt
+          // à accepter les premières commandes de construction.
+          await new Promise(resolve=>setTimeout(resolve,1500));
           const commands=auroraGeoGebraCommandes(graph);
           const commandErrors=[];
           const primaryCommands=[];
@@ -1104,7 +1107,15 @@ async function renderPdf(id,themeColor=null){
     let graphCount=0;
     if(declaredGraphCount>0){
       if(b)b.textContent='Préparation de '+declaredGraphCount+' graphique'+(declaredGraphCount>1?'s':'')+'…';
-      graphCount=await auroraConstruireEtImporterGraphiquesGeoGebra(id,b,accessToken);
+      try{
+        graphCount=await auroraConstruireEtImporterGraphiquesGeoGebra(id,b,accessToken);
+      }catch(geoError){
+        // GeoGebra navigateur = optimisation facultative.
+        // Le renderer GitHub Actions reprend tous les graphiques manquants.
+        console.warn('[Content Factory] GeoGebra navigateur non terminé; relais au renderer GitHub.',geoError);
+        graphCount=0;
+        if(b)b.textContent='GeoGebra navigateur non disponible — relais au renderer GitHub…';
+      }
     }else if(b){
       b.textContent='Aucun graphique à préparer — mise en file LuaLaTeX…';
     }
