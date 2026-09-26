@@ -55,6 +55,15 @@ jobs:
           import render_document
           from render_document import normalize_math, _math_visual_plan_qa, _geogebra_visual_plan_qa, _exercise_geogebra_plan_qa, _documentary_visual_plan_qa
 
+          # Guard against regression of the Wikimedia QA diagnostic scope bug fixed in render_document.py.
+          import inspect
+          wikimedia_fetch_source = inspect.getsource(render_document._fetch_wikimedia_visuals)
+          if "if explicit and required_missing:" in wikimedia_fetch_source:
+              raise SystemExit("Wikimedia QA diagnostic regression: stale required_missing local reference remains.")
+          if "visual_qa.get(\"required_missing\", 0)" not in wikimedia_fetch_source:
+              raise SystemExit("Wikimedia QA diagnostic regression: computed visual_qa fields are not used.")
+
+
           regressions = [
               (r"\fracrac3{(x-1)^2}", r"\frac3{(x-1)^2}"),
               (r"lim_{x\to1}sqrt{x^2+1}", r"\lim_{x\to1}\sqrt{x^2+1}"),
