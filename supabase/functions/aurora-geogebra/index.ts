@@ -101,6 +101,7 @@ Deno.serve(async req=>{
   const renderToken=req.headers.get("x-aurore-render-token")||"", bearer=req.headers.get("Authorization")||"";
   const serverMode=!!RENDER_TOKEN && renderToken===RENDER_TOKEN;
   let userId:string|null=null;
+  let isAdmin=false;
 
   if(!serverMode){
     if(!bearer.startsWith("Bearer ")) return json({error:"Authentification requise"},401);
@@ -108,6 +109,8 @@ Deno.serve(async req=>{
     const user=await uc.auth.getUser();
     if(user.error||!user.data.user) return json({error:"Session invalide"},401);
     userId=user.data.user.id;
+    const {data:profile}=await admin.from("Profils").select("role").eq("id",userId).maybeSingle();
+    isAdmin=/^(admin|administrateur)$/i.test(String(profile?.role||""));
   }
 
   try{
@@ -116,7 +119,7 @@ Deno.serve(async req=>{
     if(serverMode&&action!=="server-upload"&&action!=="prepare") return json({error:"Action serveur GeoGebra non autorisée"},403);
 
     let query=admin.from("aurora_generated_documents").select("id,created_by,status,content_json,title,version,metadata").eq("id",id);
-    if(userId) query=query.eq("created_by",userId);
+    if(userId && !isAdmin) query=query.eq("created_by",userId);
     const {data:doc,error:de}=await query.maybeSingle();
     if(de||!doc) return json({error:"Document généré introuvable"},404);
     if(!["generated","review","approved"].includes(doc.status)) return json({error:"Rendu impossible depuis "+doc.status},409);
@@ -137,7 +140,7 @@ Deno.serve(async req=>{
     const content=setGraphImage(doc.content_json,index,path);
     const metadata={...(doc.metadata||{}),geogebra:{source:serverMode?"GeoGebra Apps API — GitHub renderer":"GeoGebra Apps API",graph_index:index,updated_at:new Date().toISOString(),path,renderer_version:GEO_GEBRA_RENDERER_VERSION}};
     let updateQuery=admin.from("aurora_generated_documents").update({content_json:content,metadata}).eq("id",id);
-    if(userId) updateQuery=updateQuery.eq("created_by",userId);
+    if(userId && !isAdmin) updateQuery=updateQuery.eq("created_by",userId);
     const {error:ue}=await updateQuery;
     if(ue) throw new Error("Mise à jour du document: "+ue.message);
     const pub=admin.storage.from("Pdfs").getPublicUrl(path);
