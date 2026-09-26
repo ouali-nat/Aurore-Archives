@@ -12,6 +12,14 @@ const MAX_BODY_BYTES=2500000;
 const MAX_TEXT=2000000;
 const CORS={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"content-type, x-aurore-gpt-key, authorization","Access-Control-Allow-Methods":"POST, OPTIONS","Content-Type":"application/json"};
 const EXERCISE_LEAK_MARKERS=["développement complémentaire","pour une dérivée","pour une intégrale","pour une loi binomiale","pour un tableau de signes","pour une approximation normale"];
+const PHYSICS_CHEMISTRY_PROFILE_KEY="physique-chimie";
+const PHYSICS_CHEMISTRY_COURSE_THRESHOLDS={
+  minimum_scientific_relations:8,
+  minimum_calculation_blocks:6,
+  minimum_demonstration_blocks:2,
+  minimum_scientific_block_ratio:0.55,
+  maximum_narrative_only_block_ratio:0.25
+};
 function normalizeDocumentType(v:unknown){
   return String(v??"").trim().toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/[_-]+/g," ").replace(/\s+/g," ").trim();
 }
@@ -28,6 +36,14 @@ function nullable(v:unknown,max=500){const x=text(v,max);return x||null;}
 function validColor(v:unknown){const x=text(v,32);return !x||/^#[0-9a-fA-F]{6}$/.test(x);}
 function normalizeForGraphMatch(v:unknown){
   return String(v??"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"");
+}
+function isPhysicsChemistrySubject(v:unknown){
+  const s=normalizeForGraphMatch(v).replace(/[_-]+/g," ").replace(/\s+/g," ").trim();
+  return s.includes("physique")||s.includes("chimie")||s.includes("sciences physiques")||s==="pc";
+}
+function sameStringArray(a:unknown,b:unknown){
+  if(!Array.isArray(a)||!Array.isArray(b)||a.length!==b.length)return false;
+  return a.every((x,i)=>String(x??"")===String(b[i]??""));
 }
 const MATH_GRAPHABLE_PATTERN=/(fonction|courbe|droite|parabole|ellipse|hyperbole|conique|transformation|translation|rotation|symetrie|homothetie|intersection|tangente|asymptote|suite|systeme|repere|geometrie analytique|lieu geometrique|surface|parametrique|3d)/i;
 const SUPPORTED_GRAPH_INSTRUMENTS=new Set(["function2d","complex_plane","parametric2d","parametric3d","surface3d","geometry2d","geometry3d"]);
@@ -382,6 +398,64 @@ function countCourseWords(content:any){
   }
   return pieces.join(" ").trim().split(/\s+/).filter(Boolean).length;
 }
+const SCIENTIFIC_SYNTAX_PATTERN=/(?:\\(?:frac|dfrac|tfrac|sqrt|Delta|mathrm|mathbf|vec|cdot|times|approx|sim|leq|geq|Rightarrow|Longrightarrow|Longleftrightarrow|rightarrow|leftrightarrow|pm|pi|alpha|beta|gamma|lambda|mu|rho|Omega|sum|int|partial|nabla)\b|\$[^$]+\$|\\\([^]*?\\\)|\\\[[^]*?\\\]|[=≈≃≤≥→⇌↔])/i;
+const SCIENTIFIC_UNIT_PATTERN=/\b\d+(?:[.,]\d+)?\s*(?:mol(?:\/L)?|g|kg|mg|L|mL|Pa|kPa|J|kJ|W|V|A|K|N|Hz|m\/s|m|cm|mm|s|min|h|°C|Ω|C)\b/i;
+const CALCULATION_ACTION_PATTERN=/\b(?:calcul|détermin|remplac|substitu|résolv|évalu|dédu|obten|convert|isol|simplif|exprimer|appliqu)\w*/i;
+const DEMONSTRATION_ACTION_PATTERN=/\b(?:démonstr|dériv|établ|montr|justif|prouv|part|dédui)\w*/i;
+function analyzePhysicsChemistryCourse(content:any){
+  const blocks:string[]=[];
+  if(typeof content?.introduction==="string"&&content.introduction.trim())blocks.push(content.introduction);
+  for(const section of (Array.isArray(content?.sections)?content.sections:[])){
+    if(Array.isArray(section?.content)){
+      for(const item of section.content){
+        if(typeof item==="string"&&item.trim())blocks.push(item);
+      }
+    }
+  }
+  const nonEmpty=blocks.map(x=>x.trim()).filter(Boolean);
+  let scientificBlocks=0, relationCount=0, calculationBlocks=0, demonstrationBlocks=0, narrativeOnlyLongBlocks=0;
+  for(const block of nonEmpty){
+    const hasSyntax=SCIENTIFIC_SYNTAX_PATTERN.test(block);
+    const hasUnit=SCIENTIFIC_UNIT_PATTERN.test(block);
+    const hasCalc=CALCULATION_ACTION_PATTERN.test(block);
+    const hasDemo=DEMONSTRATION_ACTION_PATTERN.test(block);
+    const scientific=hasSyntax||hasUnit;
+    if(scientific)scientificBlocks++;
+    if(hasSyntax){
+      relationCount+=(block.match(/\\(?:frac|dfrac|tfrac|sqrt|Rightarrow|Longrightarrow|Longleftrightarrow)|[=≈≃≤≥→⇌↔]/gi)||[]).length;
+    }
+    if(scientific&&hasCalc)calculationBlocks++;
+    if(scientific&&hasDemo)demonstrationBlocks++;
+    if(block.length>=140&&!scientific&&!hasCalc) narrativeOnlyLongBlocks++;
+  }
+  const total=nonEmpty.length||1;
+  return {
+    total_blocks:nonEmpty.length,
+    scientific_blocks:scientificBlocks,
+    scientific_block_ratio:scientificBlocks/total,
+    relation_count:relationCount,
+    calculation_blocks:calculationBlocks,
+    demonstration_blocks:demonstrationBlocks,
+    narrative_only_long_blocks:narrativeOnlyLongBlocks,
+    narrative_only_long_ratio:narrativeOnlyLongBlocks/total
+  };
+}
+function validatePhysicsChemistryCourseQuality(content:any,subject:any,profile:any){
+  if(profile?.kind!=="cours"||!isPhysicsChemistrySubject(subject))return {applies:false,profile_key:null};
+  const metrics=analyzePhysicsChemistryCourse(content);
+  const t=PHYSICS_CHEMISTRY_COURSE_THRESHOLDS;
+  if(metrics.relation_count<t.minimum_scientific_relations)
+    throw new Error(`Cours Physique-Chimie : au moins ${t.minimum_scientific_relations} relations/formules scientifiques exploitables sont requises ; ${metrics.relation_count} détectées.`);
+  if(metrics.calculation_blocks<t.minimum_calculation_blocks)
+    throw new Error(`Cours Physique-Chimie : au moins ${t.minimum_calculation_blocks} blocs de calcul/manipulation scientifique sont requis ; ${metrics.calculation_blocks} détectés.`);
+  if(metrics.demonstration_blocks<t.minimum_demonstration_blocks)
+    throw new Error(`Cours Physique-Chimie : au moins ${t.minimum_demonstration_blocks} blocs de démonstration/établissement sont requis ; ${metrics.demonstration_blocks} détectés.`);
+  if(metrics.scientific_block_ratio<t.minimum_scientific_block_ratio)
+    throw new Error(`Cours Physique-Chimie : densité scientifique insuffisante (${(metrics.scientific_block_ratio*100).toFixed(1)}%). Le cours est trop narratif.`);
+  if(metrics.narrative_only_long_ratio>t.maximum_narrative_only_block_ratio)
+    throw new Error(`Cours Physique-Chimie : trop de blocs narratifs longs sans contenu scientifique (${(metrics.narrative_only_long_ratio*100).toFixed(1)}%).`);
+  return {applies:true,profile_key:PHYSICS_CHEMISTRY_PROFILE_KEY,profile_version:1,mode:"quantitative_calculatoire",thresholds:t,metrics};
+}
 function validateCourseQuality(content:any,subject:any,profile:any,instructions:any={}){
   if(profile?.kind!=="cours") return {applies:false,word_count:null,introduction:false,visuals_required:false};
   const introduction=typeof content?.introduction==="string" ? content.introduction.trim() : "";
@@ -415,6 +489,7 @@ function validateEditorialContent(content:any,profile:any,instructions:any,subje
   if(typeof content.title!=="string"||!content.title.trim())throw new Error("content_json.title est obligatoire.");
   if(!Array.isArray(content.sections)||content.sections.length<1||content.sections.length>30)throw new Error("content_json.sections doit contenir de 1 à 30 sections.");
   const courseQuality=validateCourseQuality(content,subjectForValidation,profile,instructions);
+  const physicsChemistryQuality=validatePhysicsChemistryCourseQuality(content,subjectForValidation,profile);
   let visuals=0,graphs=0,exercises=0;
   const longSectionContents:string[]=[];
   for(const s of content.sections){
@@ -472,7 +547,32 @@ function validateEditorialContent(content:any,profile:any,instructions:any,subje
   if(profile.kind==="exercices"&&exercises<1)throw new Error("Un document d'exercices doit contenir au moins un exercice structuré.");
   if(profile.kind==="exercices"&&longSectionContents.length!==new Set(longSectionContents).size)throw new Error("Contenu de section dupliqué entre plusieurs exercices.");
   if(JSON.stringify(content).length>MAX_TEXT)throw new Error("content_json dépasse la taille maximale autorisée.");
-  return {sections:content.sections.length,visuals,graphs,exercises:content.sections.reduce((n:number,s:any)=>n+(Array.isArray(s.exercises)?s.exercises.length:0),0),corrections:Array.isArray(content.corrections)?content.corrections.length:0,graph_plan:graphPlan,geogebra_plan:geogebraPlan,exercise_geogebra_plan:exerciseGeogebraPlan,documentary_visual_plan:documentaryPlan,course_quality:courseQuality};
+  return {sections:content.sections.length,visuals,graphs,exercises:content.sections.reduce((n:number,s:any)=>n+(Array.isArray(s.exercises)?s.exercises.length:0),0),corrections:Array.isArray(content.corrections)?content.corrections.length:0,graph_plan:graphPlan,geogebra_plan:geogebraPlan,exercise_geogebra_plan:exerciseGeogebraPlan,documentary_visual_plan:documentaryPlan,course_quality:courseQuality,physics_chemistry_quality:physicsChemistryQuality};
+}
+async function validateEditorialMemoryAcknowledgement(ack:any,memorySession:any,memorySessionToken:string){
+  if(!ack||typeof ack!=="object")throw new Error("Lecture obligatoire : editorial_memory_ack est absent.");
+  if(ack.read_confirmed!==true)throw new Error("Lecture obligatoire : les consignes éditoriales doivent être accusées comme lues avant toute progression.");
+  const gate=memorySession?.metadata?.editorial_read_gate;
+  if(!gate?.required)throw new Error("Lecture obligatoire : la session mémoire ne porte pas un verrou éditorial valide.");
+  if(String(ack.session_id||"")!==String(memorySession.session_id||""))throw new Error("Lecture obligatoire : session_id de l’attestation invalide.");
+  if(String(ack.bundle_sha256||"")!==String(memorySession.bundle_sha256||""))throw new Error("Lecture obligatoire : l’empreinte du paquet mémoire ne correspond pas.");
+  const expectedFields={
+    session_id:String(memorySession.session_id),
+    bundle_sha256:String(memorySession.bundle_sha256||""),
+    general_rule_keys:Array.isArray(gate.general_rule_keys)?gate.general_rule_keys.map((x:any)=>String(x)):[],
+    math_rule_keys:Array.isArray(gate.math_rule_keys)?gate.math_rule_keys.map((x:any)=>String(x)):[],
+    subject_profile_key:gate.subject_profile_key?String(gate.subject_profile_key):null,
+    subject_profile_version:gate.subject_profile_version==null?null:Number(gate.subject_profile_version)
+  };
+  if(!sameStringArray(ack.general_rule_keys,expectedFields.general_rule_keys)||!sameStringArray(ack.math_rule_keys,expectedFields.math_rule_keys))
+    throw new Error("Lecture obligatoire : les identifiants de règles accusés comme lus ne correspondent pas au paquet mémoire.");
+  if((ack.subject_profile_key||null)!==expectedFields.subject_profile_key||
+     (ack.subject_profile_version==null?null:Number(ack.subject_profile_version))!==expectedFields.subject_profile_version)
+    throw new Error("Lecture obligatoire : le profil disciplinaire accusé comme lu ne correspond pas à la session.");
+  const expectedDigest=await sha256(JSON.stringify(expectedFields)+"|"+memorySessionToken);
+  if(String(ack.ack_sha256||"")!==expectedDigest)
+    throw new Error("Lecture obligatoire : l’attestation cryptographique ne correspond pas à la session mémoire.");
+  return {verified:true,read_confirmed:true,session_id:memorySession.session_id,bundle_sha256:memorySession.bundle_sha256,ack_sha256:expectedDigest,general_rule_keys:expectedFields.general_rule_keys,math_rule_keys:expectedFields.math_rule_keys,subject_profile_key:expectedFields.subject_profile_key,subject_profile_version:expectedFields.subject_profile_version};
 }
 Deno.serve(async req=>{
   if(req.method==="OPTIONS")return new Response("ok",{headers:CORS});
@@ -514,13 +614,19 @@ Deno.serve(async req=>{
     const memoryRequiresMath=memorySubject.includes("math");
     const memoryTokenHash=await sha256(memorySessionToken);
     const {data:memorySession,error:memorySessionError}=await db.from("aurora_editorial_memory_sessions")
-      .select("session_id,requested_subject,requires_math,general_rule_ids,math_rule_ids,expires_at,used_at,bundle_sha256")
+      .select("session_id,requested_subject,requires_math,general_rule_ids,math_rule_ids,expires_at,used_at,bundle_sha256,metadata")
       .eq("session_id",memorySessionId).eq("token_hash",memoryTokenHash).is("used_at",null).gt("expires_at",new Date().toISOString()).maybeSingle();
     if(memorySessionError||!memorySession)return reply({ok:false,error:"Session mémoire absente, expirée, déjà consommée ou jeton invalide. Récupérez de nouveau la mémoire éditoriale avant l’ingestion."},428);
     const generalMemoryCount=Array.isArray(memorySession.general_rule_ids)?memorySession.general_rule_ids.length:0;
     const mathMemoryCount=Array.isArray(memorySession.math_rule_ids)?memorySession.math_rule_ids.length:0;
     if(generalMemoryCount<1)return reply({ok:false,error:"Mémoire éditoriale générale non récupérée."},428);
     if(memoryRequiresMath&&(!memorySession.requires_math||mathMemoryCount<1))return reply({ok:false,error:"Mémoire Mathématiques non récupérée pour ce document."},428);
+    let editorialMemoryGate;
+    try{
+      editorialMemoryGate=await validateEditorialMemoryAcknowledgement(payload.editorial_memory_ack,memorySession,memorySessionToken);
+    }catch(gateError){
+      return reply({ok:false,error:gateError instanceof Error?gateError.message:String(gateError)},428);
+    }
     const incomingInstructions=payload.instructions&&typeof payload.instructions==="object"?payload.instructions:{};
     const editorialInstructions={
       ...incomingInstructions,
@@ -537,8 +643,8 @@ Deno.serve(async req=>{
     const contentHash=await sha256(JSON.stringify(content));
     const {data:result,error}=await db.rpc("aurora_ingest_editorial_document",{
       p_ingest_id:ingestId,p_created_by:createdBy,p_title:title,p_subject:subject,p_level:level,p_class_name:className,p_document_type:documentType,p_prompt:prompt,p_content_json:content,
-      p_instructions:{...editorialInstructions,origin:"gpt_editorial_ingest",producer:"ChatGPT",human_review_required:true,manual_publication_only:true,lualatex_requested:false,schema_version:SCHEMA_VERSION,category:nullable(classification.categorie,100)||"Documents",domaine:nullable(classification.domaine,200),formation:nullable(classification.formation,200),specialite:nullable(classification.specialite,200),annee:nullable(classification.annee,100),semestre:nullable(classification.semestre,100),filiere:nullable(classification.filiere,200),theme_color:themeColor||"#C85C0D"},
-      p_metadata:{origin:"gpt_editorial_ingest",producer:"ChatGPT",schema_version:SCHEMA_VERSION,content_sha256:contentHash,human_review_required:true,manual_publication_only:true,source:"chatgpt_editor",counts,course_quality:counts.course_quality||null,aurore_profile:{kind:profile.kind,version:profile.version,lock:true,source:"document_type"},memory_session_id:memorySessionId,memory_schema:"aurora-editorial-memory-2",memory_gate_requested:true,memory_bundle_sha256:memorySession.bundle_sha256||null},
+      p_instructions:{...editorialInstructions,origin:"gpt_editorial_ingest",producer:"ChatGPT",human_review_required:true,manual_publication_only:true,lualatex_requested:false,schema_version:SCHEMA_VERSION,category:nullable(classification.categorie,100)||"Documents",domaine:nullable(classification.domaine,200),formation:nullable(classification.formation,200),specialite:nullable(classification.specialite,200),annee:nullable(classification.annee,100),semestre:nullable(classification.semestre,100),filiere:nullable(classification.filiere,200),theme_color:themeColor||"#C85C0D",editorial_memory_gate:editorialMemoryGate},
+      p_metadata:{origin:"gpt_editorial_ingest",producer:"ChatGPT",schema_version:SCHEMA_VERSION,content_sha256:contentHash,human_review_required:true,manual_publication_only:true,source:"chatgpt_editor",counts,course_quality:counts.course_quality||null,physics_chemistry_quality:counts.physics_chemistry_quality||null,aurore_profile:{kind:profile.kind,version:profile.version,lock:true,source:"document_type"},memory_session_id:memorySessionId,memory_schema:"aurora-editorial-memory-2",memory_gate_requested:true,memory_bundle_sha256:memorySession.bundle_sha256||null,editorial_memory_gate:editorialMemoryGate},
       p_domaine:nullable(classification.domaine,200),p_formation:nullable(classification.formation,200),p_specialite:nullable(classification.specialite,200),p_annee:nullable(classification.annee,100),p_semestre:nullable(classification.semestre,100),p_filiere:nullable(classification.filiere,200),p_matiere:subject,p_theme_color:themeColor||"#C85C0D",p_job_id:jobId
     });
     if(error){
