@@ -431,28 +431,17 @@
       }
 
       const documents = await COUVERTURES_PORTES_ACCUEIL_PROMESSE;
-      const parNiveau = new Map();
-      documents.forEach(doc => {
-        const niveau = String(doc?.Niveau || '').trim();
-        if (!niveau || !doc?.Fichier_url) return;
-        if (!parNiveau.has(niveau)) parNiveau.set(niveau, []);
-        parNiveau.get(niveau).push(doc);
-      });
 
       portes.forEach(porte => {
         const card = overview.querySelector('[data-home-door-id="' + porte.id + '"]');
         if (!card) return;
         const labels = new Set(niveauxPourPorteAccueil(porte));
-        const selection = [];
-        const deja = new Set();
-        labels.forEach(label => {
-          (parNiveau.get(label) || []).forEach(doc => {
-            const id = String(doc.id ?? doc.Fichier_url);
-            if (deja.has(id) || selection.length >= 2) return;
-            deja.add(id);
-            selection.push(doc);
-          });
-        });
+        // Les documents sont déjà triés par id décroissant par Supabase :
+        // on garde donc les deux plus récents de tout le parcours, pas deux
+        // documents arbitraires d'un seul niveau.
+        const selection = documents.filter(doc =>
+          labels.has(String(doc?.Niveau || '').trim()) && doc?.Fichier_url
+        ).slice(0, 2);
         if (!selection.length || typeof window.auroreAppliquerCouverturePremierePage !== 'function') return;
 
         const stack = card.querySelector('.home-door-cover-stack');
