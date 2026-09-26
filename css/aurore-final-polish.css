@@ -2347,3 +2347,102 @@ html[data-theme="light"][data-color-theme] .aurore-home-menu{
     transform:none!important;
   }
 }
+
+
+/* ==========================================================
+   AURORE — COUVERTURES PDF DANS TOUTE L'ARBORESCENCE PUBLIQUE
+   Les petites listes de ressources conservent leur format compact, mais
+   affichent elles aussi la première page réelle du PDF dans un format portrait.
+   ========================================================== */
+
+#screen-docs .doc-row .icon-wrap.a-couverture{
+  overflow:hidden!important;
+  background:var(--papier,#fff)!important;
+}
+
+#screen-docs .doc-row .icon-wrap.a-couverture > .doc-cover-img{
+  width:100%!important;
+  height:100%!important;
+  max-width:none!important;
+  max-height:none!important;
+  display:block!important;
+  object-fit:cover!important;
+  object-position:top center!important;
+  border-radius:inherit!important;
+}
+
+#screen-docs .aurore-general-resource-list{
+  min-width:0!important;
+}
+
+#screen-docs .aurore-general-resource-list .doc-row{
+  overflow:hidden!important;
+  min-width:0!important;
+}
+
+#screen-docs .aurore-general-resource-list .doc-row .info{
+  min-width:0!important;
+  align-items:stretch!important;
+}
+
+#screen-docs .aurore-general-resource-list .doc-row .icon-wrap.a-couverture{
+  width:68px!important;
+  height:88px!important;
+  min-width:68px!important;
+  min-height:88px!important;
+  flex:0 0 68px!important;
+  border-radius:10px!important;
+  align-self:stretch!important;
+}
+
+#screen-docs .aurore-general-resource-list .doc-row .icon-wrap:not(.a-couverture){
+  flex:0 0 44px!important;
+}
+
+#screen-docs .aurore-general-resource-list .doc-row .doc-main-info{
+  min-width:0!important;
+  padding-block:1px!important;
+}
+
+#screen-docs .aurore-general-resource-list .doc-row .titre{
+  overflow-wrap:anywhere!important;
+}
+
+@media(max-width:520px){
+  #screen-docs .aurore-general-resource-list .doc-row .icon-wrap.a-couverture{
+    width:60px!important;
+    height:78px!important;
+    min-width:60px!important;
+    min-height:78px!important;
+    flex-basis:60px!important;
+  }
+}
+
+/* ==========================================================
+   AURORE — PROTECTION DU TEXTE SUR LES GRANDES PORTES
+   Les mini-couvertures ne doivent jamais recouvrir le libellé pédagogique.
+   ========================================================== */
+
+#screen-home .home-five-level .home-door-copy{
+  box-sizing:border-box!important;
+  width:100%!important;
+  max-width:calc(100% - 78px)!important;
+  padding-right:0!important;
+}
+
+#screen-home .home-five-level:nth-child(5) .home-door-copy{
+  max-width:calc(100% - 88px)!important;
+  padding-right:0!important;
+}
+
+@media(max-width:640px){
+  #screen-home .home-five-level .home-door-copy{
+    max-width:calc(100% - 58px)!important;
+    padding-right:0!important;
+  }
+
+  #screen-home .home-five-level:nth-child(5) .home-door-copy{
+    max-width:calc(100% - 64px)!important;
+    padding-right:0!important;
+  }
+}
