@@ -544,6 +544,27 @@ jobs:
           import json
           from pathlib import Path
           data=json.loads(Path("production/document.json").read_text())
+          def point_has_xy(p):
+              if isinstance(p, (list, tuple)):
+                  return len(p) >= 2 and all(_finite(v) for v in p[:2])
+              if isinstance(p, dict):
+                  return _finite(p.get("x")) and _finite(p.get("y"))
+              return False
+
+          def point_has_xyz(p):
+              if isinstance(p, (list, tuple)):
+                  return len(p) >= 3 and all(_finite(v) for v in p[:3])
+              if isinstance(p, dict):
+                  return _finite(p.get("x")) and _finite(p.get("y")) and _finite(p.get("z"))
+              return False
+
+          def _finite(value):
+              try:
+                  import math
+                  return math.isfinite(float(value))
+              except (TypeError, ValueError):
+                  return False
+
           def valid(g):
               if not isinstance(g, dict):
                   return False
@@ -558,16 +579,16 @@ jobs:
               y=str(g.get("y_expression") or "").strip()
               z=str(g.get("z_expression") or "").strip()
               asym=g.get("asymptotes") if isinstance(g.get("asymptotes"),list) else []
-              if instrument in ("function2d","complex_plane"): return bool(expr or asym or any(isinstance(p,list) and len(p)==2 for p in points))
+              if instrument in ("function2d","complex_plane"): return bool(expr or asym or any(point_has_xy(p) for p in points))
               if instrument=="parametric2d": return bool(x and y)
               if instrument=="parametric3d": return bool(x and y and z)
               if instrument=="surface3d": return bool(expr)
               if instrument=="geometry2d":
                   valid_types={"point","vector","line","segment","ray","polygon"}
-                  return any(isinstance(o,dict) and str(o.get("type") or "").lower() in valid_types for o in objects) or any(isinstance(p,list) and len(p)>=2 for p in points)
+                  return any(isinstance(o,dict) and str(o.get("type") or "").lower() in valid_types for o in objects) or any(point_has_xy(p) for p in points)
               if instrument=="geometry3d":
                   valid_types={"point","vector","line","plane","sphere","cylinder","cone","polygon","cube","prism","pyramid","tetrahedron"}
-                  return any(isinstance(o,dict) and str(o.get("type") or "").lower() in valid_types for o in objects) or any(isinstance(p,list) and len(p)>=3 for p in points) or any(isinstance(p,dict) and p.get("z") is not None for p in poi)
+                  return any(isinstance(o,dict) and str(o.get("type") or "").lower() in valid_types for o in objects) or any(point_has_xyz(p) for p in points) or any(isinstance(p,dict) and p.get("z") is not None for p in poi)
               if not instrument:
                   return bool(expr or (x and y) or (x and y and z) or asym or points or objects or poi)
               return False
