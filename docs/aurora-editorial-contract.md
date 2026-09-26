@@ -9,9 +9,9 @@ Le circuit sépare volontairement deux responsabilités : ChatGPT prépare le ma
 
 Avant toute injection provenant de l’édition ChatGPT, l’assistante doit appeler la fonction Edge aurora-editorial-memory avec la matière et le type de document. Le service récupère la mémoire générale Aurore et, lorsque la matière est Mathématiques, récupère également la mémoire spécialisée Mathématiques.
 
-Le service ouvre alors une session mémoire à usage unique, valable pendant une fenêtre limitée. La réponse fournit les règles nécessaires, leurs versions, une empreinte du paquet mémoire et un session_id. L’assistante doit transmettre le session_id et le memory_session_token dans memory_session_id et memory_session_token lors de l’appel suivant à aurora-gpt-ingest.
+Le service ouvre alors une session mémoire à usage unique, valable pendant une fenêtre limitée. La réponse fournit les règles nécessaires, leurs versions, une empreinte du paquet mémoire, le profil disciplinaire actif et un session_id. L’assistante doit lire ce paquet avant de produire le contenu, puis transmettre le session_id et le memory_session_token dans memory_session_id et memory_session_token ainsi qu’une attestation editorial_memory_ack lors de l’appel suivant à aurora-gpt-ingest.
 
-L’ingestion refuse l’appel si la session est absente, expirée, déjà consommée ou incompatible avec la matière. Une seconde barrière existe directement sur aurora_generated_documents : toute insertion portant l’origine gpt_editorial_ingest sans session mémoire valide est bloquée par la base.
+L’attestation doit correspondre à la session, à l’empreinte du paquet, aux identifiants de règles reçus et au profil disciplinaire ; une empreinte SHA-256 liée à la session empêche une simple déclaration textuelle de contourner cette étape. Tant que l’attestation n’est pas valide, l’ingestion refuse de progresser. Une seconde barrière existe directement sur aurora_generated_documents : toute insertion portant l’origine gpt_editorial_ingest sans session mémoire et preuve de lecture valides est bloquée par la base.
 
 Pour les Mathématiques, l’insertion est bloquée tant qu’une mémoire générale et la mémoire Mathématiques n’ont pas toutes deux été récupérées dans la même session.
 
@@ -38,7 +38,7 @@ Les illustrations documentaires utilisent type wikimedia et une fonction pédago
 
 ## Barrière qualité des cours
 
-Pour document_type=cours, le contrat est désormais bloquant sur trois axes avant insertion : une introduction pédagogique explicite d’au moins 80 caractères, au moins 3000 mots utiles pour un cours standard, et, hors Mathématiques, un plan documentaire Wikimedia explicite couvrant chaque section.
+Pour document_type=cours, le contrat est désormais bloquant sur plusieurs axes avant insertion : une introduction pédagogique explicite d’au moins 80 caractères, au moins 3000 mots utiles pour un cours standard, et, hors Mathématiques, un plan documentaire Wikimedia explicite couvrant chaque section. Pour les matières Physique, Chimie, Physique-Chimie, Sciences physiques ou PC, le profil disciplinaire physique-chimie impose en plus une structure quantitative et calculatoire : relations/formules, calculs/manipulations, démonstrations ou établissements et densité scientifique minimale, avec rejet si le contenu reste principalement narratif.
 
 Le seul raccourci autorisé est un format court explicitement déclaré avec `course_quality.format_profile=short_course` et une justification `course_quality.short_format_reason` d’au moins 30 caractères. Il est interdit de déduire ou de déclarer silencieusement une exception.
 
