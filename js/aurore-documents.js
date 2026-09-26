@@ -1060,7 +1060,15 @@
       brancherActionsCarteDocument(row, doc);
       actualiserEtatActionsDocument(row, doc);
       actualiserTaillesDocumentsDans(row);
-      if (doc?.Fichier_url) appliquerCouvertureSiLivre(row, doc);
+      if (doc?.Fichier_url) {
+        // Le rendu doit être lancé après l'insertion de la ligne dans le DOM.
+        // Cette liste construit d'abord les lignes, puis les monte dans le DOM.
+        // Le microtask permet donc à la même file de couverture de démarrer
+        // exactement comme dans « Récemment publié ».
+        queueMicrotask(() => {
+          if (row.isConnected) appliquerCouvertureSiLivre(row, doc);
+        });
+      }
       list.appendChild(row);
     });
 
@@ -1184,7 +1192,15 @@
       brancherActionsCarteDocument(row, doc);
       actualiserEtatActionsDocument(row, doc);
       actualiserTaillesDocumentsDans(row);
-      if (doc?.Fichier_url) appliquerCouvertureSiLivre(row, doc);
+      if (doc?.Fichier_url) {
+        // Le rendu doit être lancé après l'insertion de la ligne dans le DOM.
+        // Cette liste construit d'abord les lignes, puis les monte dans le DOM.
+        // Le microtask permet donc à la même file de couverture de démarrer
+        // exactement comme dans « Récemment publié ».
+        queueMicrotask(() => {
+          if (row.isConnected) appliquerCouvertureSiLivre(row, doc);
+        });
+      }
       return row;
     };
 
