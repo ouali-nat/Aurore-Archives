@@ -272,9 +272,9 @@
 
       /*
        * Les cartes bibliothèque sont plus grandes que les anciennes
-       * vignettes 56x56. 140 px + JPEG 0.55 créait du flou sur mobile.
-       * La première page est maintenant rendue à ~360 px avec jusqu'à
-       * 2x la densité écran, puis compressée en WebP.
+       * vignettes 56x56. La première page est rendue à ~360 px avec jusqu'à
+       * 2x la densité écran, puis sérialisée en JPEG pour une compatibilité
+       * maximale sur les navigateurs mobiles.
        */
       const base = page.getViewport({scale:1});
       const largeurCible = 360;
@@ -297,21 +297,32 @@
         viewport: viewport.clone({scale: viewport.scale * dpr})
       }).promise;
 
+      // JPEG en premier : voie de décodage fiable sur les navigateurs mobiles.
       let dataUrl = '';
       try {
-        dataUrl = canvas.toDataURL('image/webp', 0.82);
+        dataUrl = canvas.toDataURL('image/jpeg', 0.84);
       } catch (e) {}
       if (!dataUrl || dataUrl === 'data:,') {
-        dataUrl = canvas.toDataURL('image/jpeg', 0.84);
+        try {
+          dataUrl = canvas.toDataURL('image/webp', 0.82);
+        } catch (e) {}
       }
+      if (!dataUrl || dataUrl === 'data:,') {
+        throw new Error('Impossible de sérialiser la première page');
+      }
+
       CACHE_COUVERTURES_PREMIERE_PAGE.set(clef, dataUrl);
       sauvegarderCouverturePremierePage(clef, dataUrl);
+
+      // Le canvas reste utilisable après cleanup/destroy du PDF : il contient
+      // déjà les pixels de la première page et évite un second décodage.
+      const previewCanvas = canvas;
 
       try { page.cleanup?.(); } catch(e) {}
       try { pdf.cleanup?.(); } catch(e) {}
       try { pdf.destroy?.(); } catch(e) {}
 
-      return dataUrl;
+      return {dataUrl, canvas:previewCanvas};
     } catch(e) {
       console.warn(
         '[Couverture livre] première page impossible pour',
@@ -324,8 +335,8 @@
   }
 
 
-  function appliquerImageCouverture(row, doc, url, estImageReelle = false) {
-    if (!url || !row?.isConnected) return;
+  function appliquerImageCouverture(row, doc, source, estImageReelle = false) {
+    if (!source || !row?.isConnected) return;
     const wrap = row.querySelector('.icon-wrap, .admin-card-icon, .personal-doc-cover');
     if (!wrap || !wrap.isConnected) return;
 
@@ -335,20 +346,41 @@
       ? titre
       : `Première page — ${titre}`;
 
-    // Une vraie image de couverture est chargée en lazy ; une vignette
-    // déjà générée depuis le PDF est injectée immédiatement.
-    const chargement = 'eager';
+    const previewCanvas = source && typeof source === 'object' &&
+      source.canvas instanceof HTMLCanvasElement
+      ? source.canvas
+      : null;
+    const imageUrl = typeof source === 'string'
+      ? source
+      : String(source?.dataUrl || '');
+
+    // Pour un rendu fraîchement produit, PDF.js a déjà rasterisé la page :
+    // on affiche donc directement ce canvas au lieu de repasser par une image.
+    if (previewCanvas) {
+      previewCanvas.className = 'doc-cover-canvas';
+      previewCanvas.setAttribute('role', 'img');
+      previewCanvas.setAttribute(
+        'aria-label',
+        row.closest('.home-door-cover') ? '' : alt
+      );
+      previewCanvas.removeAttribute('title');
+      wrap.replaceChildren(previewCanvas);
+      return;
+    }
+
+    if (!imageUrl) return;
+
+    // Les couvertures déjà en cache IndexedDB restent de simples images data:.
     const img = document.createElement('img');
     img.className = 'doc-cover-img';
-    img.src = String(url);
-    img.alt = alt;
-    img.loading = chargement;
+    img.src = imageUrl;
+    img.alt = row.closest('.home-door-cover') ? '' : alt;
+    img.loading = 'eager';
     img.decoding = 'async';
     img.fetchPriority = 'high';
 
-    // Une erreur réseau ne doit jamais laisser la vignette invisible
-    // (l'ancien CSS mettait l'image à opacity:0 pendant son apparition).
-    img.addEventListener('load', () => { img.style.opacity = '1'; }, {once:true});
+    // En cas d'échec, on revient proprement à l'icône document sans afficher
+    // le texte alt comme contenu visuel dans la carte.
     img.addEventListener('error', () => {
       wrap.classList.remove('a-couverture');
       wrap.innerHTML = ICONS.file;
@@ -921,7 +953,8 @@
       #screen-docs .doc-list:not(.aurore-resource-list) > .doc-row .icon-wrap.a-couverture{
         background:#fff!important;
       }
-      #screen-docs .doc-list:not(.aurore-resource-list) > .doc-row .doc-cover-img{
+      #screen-docs .doc-list:not(.aurore-resource-list) > .doc-row .doc-cover-img,
+      #screen-docs .doc-list:not(.aurore-resource-list) > .doc-row .doc-cover-canvas{
         width:100%!important;
         height:100%!important;
         object-fit:cover!important;
