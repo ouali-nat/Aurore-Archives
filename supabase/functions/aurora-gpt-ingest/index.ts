@@ -55,6 +55,20 @@ function normalizeGraphInstrument(v:unknown){
   const aliases:any={function2d:"function2d",function:"function2d",graph:"function2d",courbe:"function2d",complex_plane:"complex_plane",parametric:"parametric2d",parametric2d:"parametric2d",parametric3d:"parametric3d",surface3d:"surface3d",geometry2d:"geometry2d",vector2d:"geometry2d",plan2d:"geometry2d",geometry3d:"geometry3d",geometrie3d:"geometry3d","3d":"geometry3d"};
   return aliases[raw]||raw;
 }
+function graphPointHasDimensions(point:any,dimensions:number){
+  if(Array.isArray(point)){
+    if(point.length<dimensions)return false;
+    return point.slice(0,dimensions).every((v:any)=>Number.isFinite(Number(v)));
+  }
+  if(point&&typeof point==="object"){
+    const keys=["x","y","z"].slice(0,dimensions);
+    return keys.every((key:string)=>Number.isFinite(Number(point[key])));
+  }
+  return false;
+}
+function graphHasPointData(graph:any,dimensions:number){
+  return Array.isArray(graph?.points)&&graph.points.some((point:any)=>graphPointHasDimensions(point,dimensions));
+}
 function validateMathVisualPlan(content:any,subject:any,profile:any){
   if(profile.kind!=="cours"||!normalizeForGraphMatch(subject).includes("math")) return {enabled:false,graphable_sections:0,planned_graphs:0};
   const plan=(content.visual_plan&&typeof content.visual_plan==="object"?content.visual_plan:null)
@@ -89,12 +103,13 @@ function validateMathVisualPlan(content:any,subject:any,profile:any){
       if(!SUPPORTED_GRAPH_INSTRUMENTS.has(instrument)) throw new Error(`Graphique ${graphId} : instrument GeoGebra non supporté (${instrument||"absent"}).`);
       if(String(graph.title||"").trim().length<1||String(graph.purpose||"").trim().length<3) throw new Error(`Graphique ${graphId} : title et purpose sont obligatoires.`);
       const source=String(graph.expression||graph.mathematical_source||graph.x_expression||"").trim();
-      const pointData=Array.isArray(graph.points)?graph.points.length:0;
+      const hasPoint2=graphHasPointData(graph,2);
+      const hasPoint3=graphHasPointData(graph,3);
       const objects=Array.isArray(graph.objects)?graph.objects:[];
       const parametric2d=String(graph.x_expression||"").trim()&&String(graph.y_expression||"").trim();
       const parametric3d=String(graph.x_expression||"").trim()&&String(graph.y_expression||"").trim()&&String(graph.z_expression||"").trim();
       const geometry2dTypes=new Set(["point","vector","line","segment","ray","polygon"]);
-      const validConstruction=(instrument==="function2d"||instrument==="complex_plane") ? Boolean(source||pointData||Array.isArray(graph.asymptotes)&&graph.asymptotes.length) : instrument==="parametric2d" ? Boolean(parametric2d) : instrument==="parametric3d" ? Boolean(parametric3d) : instrument==="surface3d" ? Boolean(source) : instrument==="geometry2d" ? Boolean(objects.some((o:any)=>geometry2dTypes.has(String(o?.type||"").toLowerCase()))||pointData) : Boolean(objects.length||pointData);
+      const validConstruction=(instrument==="function2d"||instrument==="complex_plane") ? Boolean(source||hasPoint2||Array.isArray(graph.asymptotes)&&graph.asymptotes.length) : instrument==="parametric2d" ? Boolean(parametric2d) : instrument==="parametric3d" ? Boolean(parametric3d) : instrument==="surface3d" ? Boolean(source) : instrument==="geometry2d" ? Boolean(objects.some((o:any)=>geometry2dTypes.has(String(o?.type||"").toLowerCase()))||hasPoint2) : Boolean(objects.length||hasPoint3);
       if(!validConstruction) throw new Error(`Graphique ${graphId} : données de construction insuffisantes pour ${instrument}.`);
       for(const key of ["x_min","x_max","y_min","y_max","z_min","z_max","t_min","t_max"]){
         if(graph[key]!==undefined&&graph[key]!==null&&(!Number.isFinite(Number(graph[key])))) throw new Error(`Graphique ${graphId} : ${key} doit être numérique.`);
@@ -163,17 +178,18 @@ function validateGeoGebraVisualPlan(content:any,subject:any,profile:any){
       if(!SUPPORTED_GRAPH_INSTRUMENTS.has(instrument)) throw new Error(`Graphique ${graphId} : instrument GeoGebra non supporté (${instrument||"absent"}).`);
       if(String(graph.title||graph.name||"").trim().length<1||String(graph.purpose||"").trim().length<3) throw new Error(`Graphique ${graphId} : title/name et purpose sont obligatoires.`);
       const source=String(graph.expression||graph.mathematical_source||"").trim();
-      const pointData=Array.isArray(graph.points)?graph.points.length:0;
+      const hasPoint2=graphHasPointData(graph,2);
+      const hasPoint3=graphHasPointData(graph,3);
       const objects=Array.isArray(graph.objects)?graph.objects:[];
       const xExpr=String(graph.x_expression||"").trim();
       const yExpr=String(graph.y_expression||"").trim();
       const zExpr=String(graph.z_expression||"").trim();
-      const validConstruction=instrument==="function2d"||instrument==="complex_plane" ? Boolean(source||pointData||Array.isArray(graph.asymptotes)&&graph.asymptotes.length)
+      const validConstruction=instrument==="function2d"||instrument==="complex_plane" ? Boolean(source||hasPoint2||Array.isArray(graph.asymptotes)&&graph.asymptotes.length)
         : instrument==="parametric2d" ? Boolean(xExpr&&yExpr)
         : instrument==="parametric3d" ? Boolean(xExpr&&yExpr&&zExpr)
         : instrument==="surface3d" ? Boolean(source)
-        : instrument==="geometry2d" ? Boolean(objects.some((o:any)=>geometry2dTypes.has(String(o?.type||"").toLowerCase()))||pointData)
-        : Boolean(objects.length||pointData);
+        : instrument==="geometry2d" ? Boolean(objects.some((o:any)=>geometry2dTypes.has(String(o?.type||"").toLowerCase()))||hasPoint2)
+        : Boolean(objects.length||hasPoint3);
       if(!validConstruction) throw new Error(`Graphique ${graphId} : données de construction insuffisantes pour ${instrument}.`);
       for(const key of ["x_min","x_max","y_min","y_max","z_min","z_max","t_min","t_max"]){
         if(graph[key]!==undefined&&graph[key]!==null&&!Number.isFinite(Number(graph[key]))) throw new Error(`Graphique ${graphId} : ${key} doit être numérique.`);
