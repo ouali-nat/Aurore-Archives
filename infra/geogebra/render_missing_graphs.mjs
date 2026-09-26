@@ -335,6 +335,20 @@ const renderGraphInBrowser = async (graph) => {
         .replace(/\bln\s*\(/gi, "ln(")
         .replace(/\blog\s*\(/gi, "log(");
     }
+    // These helpers run inside page.evaluate(), so they must be declared in the
+    // Chromium page context rather than relying on Node-scope helpers.
+    function pointHasXY(raw) {
+      if (Array.isArray(raw)) {
+        return raw.length >= 2 && Number.isFinite(Number(raw[0])) && Number.isFinite(Number(raw[1]));
+      }
+      return !!raw && Number.isFinite(Number(raw.x)) && Number.isFinite(Number(raw.y));
+    }
+    function pointXY(raw) {
+      return Array.isArray(raw)
+        ? [Number(raw[0]), Number(raw[1])]
+        : [Number(raw.x), Number(raw.y)];
+    }
+
     function point2(raw) {
       if (Array.isArray(raw) && raw.length >= 2) {
         const p = raw.slice(0, 2).map(Number);
