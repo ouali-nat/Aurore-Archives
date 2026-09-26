@@ -1821,6 +1821,158 @@ html[data-theme="light"][data-color-theme] .sublevel-card{
   .serie-pill{min-height:56px!important;}
 }
 
+
+/* ==========================================================
+   AURORE — ÉLARGISSEMENT DES RAMIFICATIONS DE LA BIBLIOTHÈQUE
+   Même respiration que « Explorez par niveau » pour chaque porte
+   et chaque bloc pédagogique rencontré à l'intérieur.
+   ========================================================== */
+
+#screen-level .sublevel-grid,
+#screen-level .cat-grid,
+#screen-level .level-grid,
+#screen-serie .serie-row,
+#screen-matieres .cat-grid{
+  width:100%!important;
+  box-sizing:border-box!important;
+  padding:18px!important;
+  margin-top:16px!important;
+  gap:14px!important;
+  border:1px solid var(--theme-border,var(--bordure))!important;
+  border-radius:20px!important;
+  background:linear-gradient(145deg,
+    color-mix(in srgb,var(--theme-primary,#7C3AED) 3%,var(--theme-card,var(--papier))),
+    var(--theme-card,var(--papier)))!important;
+  box-shadow:0 12px 34px var(--theme-shadow,rgba(55,36,82,.07))!important;
+  align-items:stretch!important;
+}
+
+#screen-level .sublevel-grid{
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+}
+
+#screen-level .cat-grid,
+#screen-matieres .cat-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+}
+
+#screen-serie .serie-row{
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+}
+
+#screen-level .level-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+}
+
+#screen-level .sublevel-card,
+#screen-level .cat-grid .cat-card,
+#screen-level .level-grid .level-card,
+#screen-serie .serie-pill,
+#screen-matieres .cat-grid .cat-card{
+  min-width:0!important;
+  width:100%!important;
+  box-sizing:border-box!important;
+}
+
+#screen-level .sublevel-card{
+  min-height:145px!important;
+  padding:18px 17px 16px!important;
+  border-radius:15px!important;
+}
+
+#screen-level .cat-grid .cat-card,
+#screen-matieres .cat-grid .cat-card{
+  min-height:132px!important;
+  padding:17px!important;
+  border-radius:15px!important;
+}
+
+#screen-serie .serie-pill{
+  min-height:92px!important;
+  border-radius:14px!important;
+  padding:15px!important;
+}
+
+#screen-level .level-grid .level-card{
+  min-height:142px!important;
+  padding:17px!important;
+  border-radius:15px!important;
+}
+
+/* Une grande porte reste visuellement dominante sans créer de vide
+   lorsque le nombre de ramifications est impair. */
+#screen-level .sublevel-grid > .sublevel-card:last-child:nth-child(4n+1){
+  grid-column:2 / 3!important;
+}
+
+@media(max-width:1100px){
+  #screen-level .sublevel-grid,
+  #screen-level .cat-grid,
+  #screen-level .level-grid,
+  #screen-serie .serie-row,
+  #screen-matieres .cat-grid{
+    padding:15px!important;
+    gap:12px!important;
+  }
+  #screen-level .sublevel-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;}
+  #screen-level .cat-grid,
+  #screen-level .level-grid,
+  #screen-matieres .cat-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;}
+  #screen-serie .serie-row{grid-template-columns:repeat(3,minmax(0,1fr))!important;}
+  #screen-level .sublevel-grid > .sublevel-card:last-child:nth-child(4n+1){grid-column:auto!important;}
+}
+
+@media(max-width:620px){
+  #screen-level .sublevel-grid,
+  #screen-level .cat-grid,
+  #screen-level .level-grid,
+  #screen-serie .serie-row,
+  #screen-matieres .cat-grid{
+    padding:10px!important;
+    gap:8px!important;
+    margin-top:12px!important;
+    border-radius:15px!important;
+  }
+  #screen-level .sublevel-grid,
+  #screen-level .cat-grid,
+  #screen-level .level-grid,
+  #screen-serie .serie-row,
+  #screen-matieres .cat-grid{
+    grid-template-columns:1fr 1fr!important;
+  }
+  #screen-level .sublevel-card{
+    min-height:116px!important;
+    padding:13px 12px 12px!important;
+    border-radius:11px!important;
+  }
+  #screen-level .cat-grid .cat-card,
+  #screen-matieres .cat-grid .cat-card{
+    min-height:104px!important;
+    padding:12px!important;
+    border-radius:11px!important;
+  }
+  #screen-serie .serie-pill{
+    min-height:68px!important;
+    border-radius:10px!important;
+    padding:10px!important;
+  }
+  #screen-level .level-grid .level-card{
+    min-height:112px!important;
+    padding:12px!important;
+    border-radius:11px!important;
+  }
+}
+
+@media(max-width:390px){
+  #screen-level .sublevel-grid,
+  #screen-level .cat-grid,
+  #screen-level .level-grid,
+  #screen-serie .serie-row,
+  #screen-matieres .cat-grid{
+    grid-template-columns:1fr!important;
+  }
+}
+
 /* ==========================================================
    AURORE — MENU ACCUEIL STYLE CHATGPT
    Trois traits en haut à gauche : historique + réduction Aurora.
