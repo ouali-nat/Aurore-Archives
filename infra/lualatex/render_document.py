@@ -2284,9 +2284,8 @@ def render_exercise_text(value, mode="question"):
                     math = math[2:-2].strip()
                 else:
                     math = math[2:-2].strip()
-                lines.append(r"\par\medskip")
-                lines.append(r"\begin{equation*}" + normalize_math(math) + r"\end{equation*}")
-                lines.append(r"\par\smallskip")
+                math_label = "Étape de calcul" if mode == "correction" else "Expression mathématique"
+                lines.append(r"\AuroreMathBlock{" + math_label + r"}{" + normalize_math(math) + r"}")
                 continue
 
             rendered = inline(segment, auto_math=True)
@@ -2308,7 +2307,78 @@ def render_exercise_text(value, mode="question"):
     return lines
 
 
-def render_content(items, auto_math=False):
+_CONTENT_DISPLAY_MATH_RE = re.compile(
+    r"(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\])"
+)
+
+def _standalone_inline_math(raw):
+    text = _repair_accidental_inline_double_dollar(str(raw or "").strip())
+    match = re.fullmatch(r"\$([\s\S]*?)\$|\\\(([\s\S]*?)\\\)", text)
+    if not match:
+        return None
+    groups = match.groups()
+    return next(group for group in groups if group is not None).strip()
+
+def _display_math_body(segment):
+    value = str(segment or "").strip()
+    if value.startswith("$$") and value.endswith("$$"):
+        return value[2:-2].strip()
+    if value.startswith(r"\[") and value.endswith(r"\]"):
+        return value[2:-2].strip()
+    return value
+
+def _render_content_item(raw, auto_math=False):
+    """Render course content with dedicated blocks for standalone/display mathematics."""
+    text = _repair_accidental_inline_double_dollar(clean_text(raw).strip())
+    if not text:
+        return []
+
+    standalone = _standalone_inline_math(text)
+    if standalone:
+        return [
+            r"\AuroreMathBlock{Formule ou relation}{" + normalize_math(standalone) + r"}",
+            "",
+        ]
+
+    if _CONTENT_DISPLAY_MATH_RE.search(text):
+        lines = []
+        segments = [segment for segment in _CONTENT_DISPLAY_MATH_RE.split(text) if segment]
+        for segment in segments:
+            if _CONTENT_DISPLAY_MATH_RE.fullmatch(segment.strip()):
+                lines.append(
+                    r"\AuroreMathBlock{Formule ou relation}{" +
+                    normalize_math(_display_math_body(segment)) +
+                    r"}"
+                )
+                continue
+            for paragraph in re.split(r"\n{2,}", segment):
+                paragraph = paragraph.strip()
+                if not paragraph:
+                    continue
+                rendered = inline(paragraph, auto_math=auto_math)
+                if rendered.strip():
+                    lines.append(rendered)
+                    lines.append(r"\par\medskip")
+        return lines
+
+    rendered = inline(text, auto_math=auto_math)
+    if not rendered.strip():
+        return []
+    return [rendered, r"\par\medskip"]
+
+def _two_column_candidate(value):
+    text = clean_text(value).strip()
+    if not text or len(text) < 45 or len(text) > 330:
+        return False
+    if _is_numeric_noise(text) or _is_table_row(text) or _is_numbered(text) or _is_bullet(text):
+        return False
+    if labeled_block(text):
+        return False
+    if _CONTENT_DISPLAY_MATH_RE.search(text) or _standalone_inline_math(text):
+        return False
+    return True
+
+def render_content(items, auto_math=False, allow_two_columns=False):
     # Be defensive about Content Factory payloads. Some production payloads
     # can arrive as a JSON-encoded string instead of a native list.
     if isinstance(items, str):
@@ -2330,6 +2400,23 @@ def render_content(items, auto_math=False):
         if _is_numeric_noise(raw):
             i += 1
             continue
+
+        if allow_two_columns and _two_column_candidate(raw):
+            group = []
+            j = i
+            while j < len(items) and len(group) < 8 and _two_column_candidate(items[j]):
+                group.append(clean_text(items[j]).strip())
+                j += 1
+            if len(group) >= 6:
+                lines.append(r"\begin{multicols}{2}")
+                for item in group:
+                    rendered = inline(item, auto_math=auto_math)
+                    if rendered.strip():
+                        lines.append(rendered)
+                        lines.append(r"\par\medskip")
+                lines.append(r"\end{multicols}")
+                i = j
+                continue
 
         if _is_table_row(raw):
             table_rows = []
@@ -2354,9 +2441,13 @@ def render_content(items, auto_math=False):
             while i < len(items) and _is_bullet(str(items[i] or "").strip()):
                 group.append(_strip_list_marker(items[i]))
                 i += 1
+            if len(group) >= 4:
+                lines.append(r"\begin{multicols}{2}")
             lines.append(r"\begin{itemize}")
             lines.extend(r"\item " + inline(x, auto_math=auto_math) for x in group)
             lines.append(r"\end{itemize}")
+            if len(group) >= 4:
+                lines.append(r"\end{multicols}")
             continue
 
         block = labeled_block(raw, auto_math=auto_math)
@@ -2364,12 +2455,11 @@ def render_content(items, auto_math=False):
             lines.extend(block)
             i += 1
             continue
-        lines.append(inline(raw, auto_math=auto_math))
-        lines.append("")
+
+        lines.extend(_render_content_item(raw, auto_math=auto_math))
         i += 1
 
     return lines
-
 
 def render_aurore_graphics(graphics, assets_dir, theme):
     """Materialize SVG graphics and keep editorial motifs visually subordinate."""
@@ -2709,7 +2799,7 @@ def labeled_block(s, auto_math=False):
         "",
     ]
 
-def display_formula(s):
+def display_formula(s, label="Formule utile"):
     if not s:
         return ""
     # Content Factory stores formulae either as a single string or as a list
@@ -2731,8 +2821,19 @@ def display_formula(s):
     )
 
     if has_inline_delimiters:
+        stripped_inline = raw.strip()
+        inline_match = re.fullmatch(
+            r"\$([\s\S]*?)\$|\\\(([\s\S]*?)\\\)",
+            stripped_inline,
+        )
+        if inline_match:
+            math = normalize_math(next(group for group in inline_match.groups() if group is not None).strip())
+            return "\n".join([
+                r"\AuroreMathBlock{" + tex_text(label) + r"}{" + math + r"}",
+                "",
+            ])
         return "\n".join([
-            r"\AuroreLabeledBlock{Formule}{" + inline(raw) + r"}",
+            r"\AuroreLabeledBlock{" + tex_text(label) + r"}{" + inline(raw) + r"}",
             "",
         ])
 
@@ -2772,7 +2873,7 @@ def display_formula(s):
         math = math[2:-2].strip()
 
     return "\n".join([
-        r"\AuroreFormulaBlock{" + math + r"}",
+        r"\AuroreMathBlock{" + tex_text(label) + r"}{" + math + r"}",
         "",
     ])
 
@@ -3171,6 +3272,7 @@ def render(data):
         r"\usepackage{geometry}",
         r"\usepackage{microtype}",
         r"\usepackage{enumitem}",
+        r"\usepackage{multicol}",
         r"\setlist{itemsep=1.5mm,topsep=2mm,parsep=0pt}" if not is_exercise_document else r"\setlist{itemsep=1mm,topsep=1.5mm,parsep=0pt}",
         r"\setlength{\parindent}{0pt}",
         r"\setlength{\parskip}{2.5pt}" if is_exercise_document else r"\setlength{\parskip}{3pt}",
@@ -3235,8 +3337,9 @@ def render(data):
         r"\titleformat{\subsection}{\large\sffamily\bfseries\color{auroredeep}}{\thesubsection}{0.6em}{}[\vspace{0.18ex}\textcolor{aurorebase!38!white}{\titlerule[0.45pt]}]",
         r"\titlespacing*{\section}{0pt}{3.0ex plus .6ex minus .2ex}{1.55ex}",
         r"\titlespacing*{\subsection}{0pt}{2.1ex plus .4ex minus .2ex}{0.95ex}",
-        r"\tcbset{auroreblock/.style={enhanced,breakable,arc=11pt,outer arc=11pt,boxrule=.45pt,colframe=aurorebase!42!white,left=9pt,right=9pt,top=7pt,bottom=7pt,before skip=7pt,after skip=9pt,fonttitle=\sffamily\bfseries,pad at break*=1.5mm}}",
-        r"\newcommand{\AurorePill}[1]{\tcbox[on line,boxrule=0pt,colback=aurorepale,arc=7pt,left=6pt,right=6pt,top=3pt,bottom=3pt]{\sffamily\bfseries\small\textcolor{auroredeep}{#1}}}",
+        r"\tcbset{auroreblock/.style={enhanced,breakable,arc=13pt,outer arc=13pt,boxrule=.45pt,colframe=aurorebase!40!white,left=10pt,right=10pt,top=8pt,bottom=8pt,before skip=8pt,after skip=10pt,fonttitle=\sffamily\bfseries,pad at break*=2mm}}",
+        r"\setlength{\columnsep}{8mm}",
+        r"\newcommand{\AurorePill}[1]{\tcbox[on line,boxrule=0pt,colback=auroreprimary!10!white,colframe=auroreprimary!18!white,arc=8pt,left=7pt,right=7pt,top=3pt,bottom=3pt]{\sffamily\bfseries\small\textcolor{auroredeep}{#1}}}",
         r"\newcommand{\AuroreLabeledBlock}[2]{%",
         r"  \begin{tcolorbox}[auroreblock,colback=aurorelight!72!white]%",
         r"    \AurorePill{#1}\par\smallskip #2",
@@ -3271,11 +3374,17 @@ def render(data):
         r"    {\sffamily\bfseries\color{auroredeep}Corrigé — Exercice #1}\par\smallskip #2%",
         r"  \end{tcolorbox}%",
         r"}",
-        r"\newcommand{\AuroreFormulaBlock}[1]{%",
-        r"  \begin{tcolorbox}[auroreblock,colback=aurorepale,colframe=aurorebase!38!white,arc=12pt,halign=center]%",
-        r"    \AurorePill{Formule utile}\par\smallskip",
-        r"    \begin{equation*}\displaystyle #1\end{equation*}%",
+        r"\newcommand{\AuroreMathBlock}[2]{%",
+        r"  \begin{tcolorbox}[enhanced,breakable,arc=14pt,outer arc=14pt,boxrule=.55pt,colframe=auroreprimary!60!white,colback=white!98!aurorepale,leftrule=2.2pt,left=12pt,right=12pt,top=9pt,bottom=9pt,before skip=10pt,after skip=12pt,halign=center,drop shadow]%",
+        r"    \AurorePill{#1}\par\smallskip",
+        r"    \begin{equation*}\displaystyle #2\end{equation*}%",
         r"  \end{tcolorbox}%",
+        r"}",
+        r"\newcommand{\AuroreFormulaBlock}[1]{%",
+        r"  \AuroreMathBlock{Formule utile}{#1}%",
+        r"}",
+        r"\newcommand{\AuroreCalculationBlock}[1]{%",
+        r"  \AuroreMathBlock{Étape de calcul}{#1}%",
         r"}",
         r"\newcommand{\AuroreExerciseCover}[3]{%",
         r"  \begin{tcolorbox}[enhanced,colback=white,colframe=aurorebase!48!white,arc=9pt,boxrule=.65pt,left=16pt,right=16pt,top=13pt,bottom=13pt,borderline west={3.5pt}{0pt}{auroreprimary!95!white}]%",
@@ -3361,10 +3470,14 @@ def render(data):
     if learning_objectives and not is_exercise_document:
         lines.append(r"\section*{À découvrir}")
         lines.append(r"\addcontentsline{toc}{section}{À découvrir}")
+        if len(learning_objectives) >= 4:
+            lines.append(r"\begin{multicols}{2}")
         lines.append(r"\begin{itemize}")
         for item in learning_objectives:
             lines.append(r"\item " + inline(item))
         lines.append(r"\end{itemize}")
+        if len(learning_objectives) >= 4:
+            lines.append(r"\end{multicols}")
 
     exercise_number = 0
 
@@ -3472,7 +3585,17 @@ def render(data):
         content_items = sec.get("content", [])
         if isinstance(content_items, list) and sec.get("exercises"):
             content_items = [item for item in content_items if not re.match(r"^\s*Exercice\s+\d+\s*:", clean_text(item))]
-        lines.extend(render_content(content_items, auto_math=(profile == "scientifique")))
+        scientific_two_column_layout = (
+            not is_exercise_document
+            and bool(re.search(r"math|physique|chimie", subject.lower()))
+        )
+        lines.extend(
+            render_content(
+                content_items,
+                auto_math=(profile == "scientifique"),
+                allow_two_columns=scientific_two_column_layout,
+            )
+        )
         lines.extend(render_graphs(sec.get("graphs", []), allow=True))
         section_graphics = sec.get("graphics", [])
         if section_graphics:
