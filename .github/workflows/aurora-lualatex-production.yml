@@ -1194,31 +1194,6 @@ jobs:
           command -v "$ENGINE" >/dev/null 2>&1
           test -s production/document.tex
 
-      - name: Prepare native LaTeX compilation wrapper
-        if: success() && hashFiles('infra/lualatex/production/document-id') != ''
-        working-directory: infra/lualatex
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          source = Path("production/document.tex")
-          text = source.read_text(encoding="utf-8")
-          if "\\documentclass" not in text:
-              native = Path("production/native-entrypoint.tex")
-              native.write_text(text, encoding="utf-8")
-              wrapper = (
-                  r"\documentclass{sesamanuel}" + "\n"
-                  + r"\begin{document}" + "\n"
-                  + r"\input{native-entrypoint.tex}" + "\n"
-                  + r"\end{document}" + "\n"
-              )
-              source.write_text(wrapper, encoding="utf-8")
-              print("Native LaTeX fragment wrapped with sesamanuel document class.")
-          else:
-              print("Native LaTeX source already contains a documentclass; no wrapper needed.")
-          PY
-          test -s production/document.tex
-
       - name: Persist visual QA
         if: hashFiles('infra/lualatex/production/document-id') != ''
         working-directory: infra/lualatex
