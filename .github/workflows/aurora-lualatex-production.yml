@@ -856,7 +856,7 @@ jobs:
           fi
           if [ "$NEED_UPDATE" = "1" ]; then
             sudo apt-get update
-            sudo apt-get install -y texlive-luatex texlive-xetex texlive-lang-french texlive-latex-extra texlive-fonts-extra texlive-pictures librsvg2-bin
+            sudo apt-get install -y texlive-luatex texlive-xetex texlive-lang-french texlive-latex-extra texlive-fonts-extra texlive-pictures texlive-pstricks librsvg2-bin
           fi
           lualatex --version
           rsvg-convert --version
@@ -1279,7 +1279,7 @@ jobs:
           from pathlib import Path
           pdf = Path("document.pdf")
           if not pdf.is_file() or pdf.stat().st_size == 0:
-              raise SystemExit("LuaLaTeX did not produce a PDF")
+              raise SystemExit("TeX engine did not produce a PDF")
           if pdf.read_bytes()[:5] != b"%PDF-":
               raise SystemExit("Invalid PDF header")
           print(f"Generated PDF: {pdf.stat().st_size} bytes")
