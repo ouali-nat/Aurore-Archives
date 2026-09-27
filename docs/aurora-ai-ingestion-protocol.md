@@ -30,7 +30,9 @@ L’IA éditoriale ne doit pas fabriquer un PDF final et l’envoyer directement
 
 ## 3. Structure canonique du JSON
 
-Pour un cours, utiliser au minimum `title`, `introduction` et `sections`. Chaque section doit avoir un titre et un contenu structuré. Les formules importantes doivent être rangées dans les structures dédiées. Les exercices doivent être placés dans `sections[].exercises[]`. Les constructions mathématiques doivent être dans `sections[].graphs`. Les visuels documentaires doivent être dans `sections[].visuals`.
+Pour un cours, utiliser au minimum `title`, `introduction` et `sections`. Chaque section doit avoir un titre et un contenu structuré. Les formules importantes doivent être rangées dans les structures dédiées.
+
+Le point d’entrée connecteur accepte plusieurs formes éditoriales courantes et les canonise avant les gates : `sections[].content` peut être une chaîne, un tableau de chaînes ou un tableau de blocs textuels simples portant `text` ou `content`. Le système stocke ensuite la forme canonique en tableau de chaînes. Pour les cours de mathématiques, lorsqu’il existe exactement une décision graphique par section et que les `section_number` sont absents, ils sont complétés dans l’ordre. Les graphiques placés à la racine de `content_json.graphs` peuvent aussi être redistribués vers `sections[].graphs` lorsqu’ils déclarent `section_number` ou `section`. Ces adaptations sont uniquement des transformations de format ; elles ne fabriquent ni contenu scientifique, ni formule, ni décision graphique pédagogique et ne désactivent aucun gate. Les exercices doivent être placés dans `sections[].exercises[]`. Les constructions mathématiques doivent être dans `sections[].graphs`. Les visuels documentaires doivent être dans `sections[].visuals`.
 
 Pour une série d’exercices, le profil `exercise-sheet-v2` est obligatoire. Les énoncés vont dans `sections[].exercises[]`. Les corrections vont dans `corrections[]`. L’appariement exercice/correction est stable. Il est interdit de cacher les exercices dans un long texte de `section.content` et il est interdit de placer le corrigé dans la question.
 
