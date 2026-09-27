@@ -2285,7 +2285,7 @@ def render_exercise_text(value, mode="question"):
                 else:
                     math = math[2:-2].strip()
                 math_label = "Étape de calcul" if mode == "correction" else "Expression mathématique"
-                lines.append(r"\AuroreMathBlock{" + math_label + r"}{" + normalize_math(math) + r"}")
+                lines.append(_math_render_command(math, math_label))
                 continue
 
             rendered = inline(segment, auto_math=True)
@@ -2328,42 +2328,72 @@ def _display_math_body(segment):
     return value
 
 
-_MATH_RELATION_RE = re.compile(
-    r"(?<![\w])"
+_PLAIN_MATH_ATOM = (
     r"(?:"
-    r"(?:\\(?:lim|frac|sqrt|sum|int|prod|log|ln|exp|sin|cos|tan|mathbb|overline|vec)\b"
-       r"[^.!?;]{0,110}?(?:=|\\to|→|\\leq|\\geq|≤|≥|≠)"
-       r"[^.!?;]{0,90})"
-    r"|"
-    r"(?:[A-Za-z𝑥𝑦𝑧𝑡𝑛𝑓𝑔𝑎𝑏𝑐𝑒𝑘𝑙𝑚𝑝𝑞𝑟𝑠𝑢𝑣𝑤𝑅]"
-       r"[A-Za-z0-9𝑥𝑦𝑧𝑡𝑛𝑓𝑔𝑎𝑏𝑐𝑒𝑘𝑙𝑚𝑝𝑞𝑟𝑠𝑢𝑣𝑤𝑅₀₁₂₃₄₅₆₇₈₉²³⁰¹⁻−+*/().,\s]{2,75}"
-       r"(?:=|→|≤|≥|≠)"
-       r"[A-Za-z0-9𝑥𝑦𝑧𝑡𝑛𝑓𝑔𝑎𝑏𝑐𝑒𝑘𝑙𝑚𝑝𝑞𝑟𝑠𝑢𝑣𝑤𝑅₀₁₂₃₄₅₆₇₈₉²³⁰¹⁻−+*/().,\s]{1,65})"
+    r"[A-Za-z𝑥𝑦𝑧𝑡𝑛𝑓𝑔𝑎𝑏𝑐𝑒𝑘𝑙𝑚𝑝𝑞𝑟𝑠𝑢𝑣𝑤𝑅](?:[⁰¹²³⁻⁺₀₁₂₃₄₅₆₇₈₉]+)?(?![A-Za-z])"
+    r"|(?:lim|ln|log|exp|sin|cos|tan|max|min|sup|inf)(?![A-Za-z])"
+    r"|[0-9]+(?:[.,][0-9]+)?"
+    r"|\\(?:lim|ln|log|exp|sin|cos|tan|to|leq|geq|neq|in|notin|subset|subseteq|supset|supseteq|cdot|times|pm|mathbb|setminus)\b"
+    r"|[()\[\]{},.+*/=≤≥≠→∈∞ℝℕℤℚℝαβγδπφω^_'’×⋅−-]"
+    r"|\s+"
     r")"
+)
+
+_PLAIN_MATH_RELATION_RE = re.compile(
+    r"(?<![A-Za-zÀ-ÿ0-9_])"
+    r"(?P<expr>"
+    + _PLAIN_MATH_ATOM + r"{1,120}?"
+    + r"(?:=|→|≤|≥|≠|∈)"
+    + _PLAIN_MATH_ATOM + r"{1,90}?"
+    + r")"
     r"(?=\s|[,.!?;:]|$)"
 )
+
+def _looks_like_plain_math_fragment(fragment):
+    value = str(fragment or "").strip()
+    if not value:
+        return False
+    if not re.search(r"(?:=|→|≤|≥|≠|∈)", value):
+        return False
+    if not re.search(r"[0-9𝑥𝑦𝑧𝑡𝑛𝑓𝑔𝑎𝑏𝑐𝑒𝑘𝑙𝑚𝑝𝑞𝑟𝑠𝑢𝑣𝑤𝑅]", value):
+        return False
+    # Plain prose words are forbidden; one-letter mathematical variables are
+    # allowed. This keeps phrases such as "tend vers" out of math boxes.
+    words = re.findall(r"(?<![\\A-Za-zÀ-ÿ])[A-Za-zÀ-ÿ]{2,}(?![A-Za-zÀ-ÿ])", value)
+    allowed_words = {"lim", "ln", "log", "exp", "sin", "cos", "tan", "max", "min", "sup", "inf"}
+    return all(word.lower() in allowed_words for word in words)
 
 def _math_fragment_is_blockworthy(fragment):
     value = str(fragment or "").strip()
     if not value:
         return False
-    if re.search(r"(?:=|\\to|→|\\leq|\\geq|≤|≥|≠)", value):
+    if re.search(r"(?:=|→|≤|≥|≠|∈)", value):
         return True
-    if re.search(r"\\(?:frac|lim|sqrt|sum|int|prod|mathbb|overline)\b", value):
+    if re.search(r"\\(?:lim|frac|sqrt|sum|int|prod|log|ln|exp|sin|cos|tan|mathbb|overline|vec|to|leq|geq|neq|in)\b", value):
         return True
     if "/" in value and re.search(r"\d|[𝑥𝑦𝑧𝑡𝑛𝑓𝑔]", value):
         return True
     return False
 
+def _math_render_command(body, label="Formule ou relation"):
+    normalized = normalize_math(str(body or "").strip())
+    if not normalized:
+        return ""
+    # Short relations use a natural-width box; long relations remain breakable.
+    compact_measure = len(re.sub(r"\\(?:text|operatorname|mathrm|mathbb)\b", "", normalized))
+    if "\n" not in normalized and compact_measure <= 58:
+        return r"\AuroreMathCompact{" + label + r"}{" + normalized + r"}"
+    return r"\AuroreMathBlock{" + label + r"}{" + normalized + r"}"
+
 def _split_embedded_math(text):
-    """Split prose around substantial inline mathematical relations."""
+    """Split prose around substantial plain-text mathematical relations."""
     source = _repair_accidental_inline_double_dollar(str(text or ""))
     pieces = []
     cursor = 0
-    for match in _MATH_RELATION_RE.finditer(source):
+    for match in _PLAIN_MATH_RELATION_RE.finditer(source):
         start, end = match.span()
         fragment = match.group(0).strip()
-        if not _math_fragment_is_blockworthy(fragment):
+        if not _looks_like_plain_math_fragment(fragment):
             continue
         if start > cursor:
             prose = source[cursor:start].strip()
@@ -2385,7 +2415,7 @@ def _render_content_item(raw, auto_math=False):
     standalone = _standalone_inline_math(text)
     if standalone:
         return [
-            r"\AuroreMathBlock{Formule ou relation}{" + normalize_math(standalone) + r"}",
+            _math_render_command(standalone),
             "",
         ]
 
@@ -2395,9 +2425,7 @@ def _render_content_item(raw, auto_math=False):
         for segment in segments:
             if _CONTENT_DISPLAY_MATH_RE.fullmatch(segment.strip()):
                 lines.append(
-                    r"\AuroreMathBlock{Formule ou relation}{" +
-                    normalize_math(_display_math_body(segment)) +
-                    r"}"
+                    _math_render_command(_display_math_body(segment))
                 )
                 continue
             for paragraph in re.split(r"\n{2,}", segment):
@@ -2415,8 +2443,7 @@ def _render_content_item(raw, auto_math=False):
                         body = part[1:-1].strip() if part.startswith("$") else part[2:-2].strip()
                         if _math_fragment_is_blockworthy(body):
                             lines.append(
-                                r"\AuroreMathBlock{Formule ou relation}{" +
-                                normalize_math(body) + r"}"
+                                _math_render_command(body)
                             )
                         else:
                             rendered = inline(part, auto_math=auto_math)
@@ -2435,8 +2462,7 @@ def _render_content_item(raw, auto_math=False):
         for kind, value in embedded:
             if kind == "math":
                 lines.append(
-                    r"\AuroreMathBlock{Formule ou relation}{" +
-                    normalize_math(value) + r"}"
+                    _math_render_command(value)
                 )
             else:
                 rendered = inline(value, auto_math=auto_math)
@@ -2913,7 +2939,7 @@ def display_formula(s, label="Formule utile"):
         if inline_match:
             math = normalize_math(next(group for group in inline_match.groups() if group is not None).strip())
             return "\n".join([
-                r"\AuroreMathBlock{" + tex_text(label) + r"}{" + math + r"}",
+                _math_render_command(math, tex_text(label)),
                 "",
             ])
         return "\n".join([
@@ -2957,7 +2983,7 @@ def display_formula(s, label="Formule utile"):
         math = math[2:-2].strip()
 
     return "\n".join([
-        r"\AuroreMathBlock{" + tex_text(label) + r"}{" + math + r"}",
+        _math_render_command(math, tex_text(label)),
         "",
     ])
 
@@ -3457,6 +3483,12 @@ def render(data):
         r"  \begin{tcolorbox}[enhanced,breakable,arc=6pt,boxrule=.35pt,colframe=aurorebase!28!white,colback=aurorepale,left=7pt,right=7pt,top=5pt,bottom=6pt,before skip=5pt,after skip=7pt,pad at break*=1mm]%",
         r"    {\sffamily\bfseries\color{auroredeep}Corrigé — Exercice #1}\par\smallskip #2%",
         r"  \end{tcolorbox}%",
+        r"}",
+        r"\newcommand{\AuroreMathCompact}[2]{%",
+        r"  \par\smallskip\noindent\hfill%",
+        r"  \tcbox[on line,enhanced,boxrule=.45pt,colframe=auroreprimary!58!white,colback=white!99!aurorepale,arc=7pt,left=7pt,right=7pt,top=3pt,bottom=3pt]%",
+        r"    {{\sffamily\scriptsize\bfseries\color{auroredeep}#1}\enspace$\displaystyle #2$}%",
+        r"  \hfill\par\smallskip%",
         r"}",
         r"\newcommand{\AuroreMathBlock}[2]{%",
         r"  \begin{tcolorbox}[enhanced,breakable,arc=8pt,outer arc=8pt,boxrule=.45pt,colframe=auroreprimary!58!white,colback=white!99!aurorepale,leftrule=1.6pt,left=7pt,right=7pt,top=3.5pt,bottom=4.5pt,before skip=5pt,after skip=6pt,halign=center,pad at break*=1mm]%",
