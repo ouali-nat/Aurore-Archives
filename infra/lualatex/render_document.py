@@ -2071,20 +2071,18 @@ def _repair_accidental_inline_double_dollar(s):
     )
 
 
-def _repair_overescaped_inline_math_delimiters(s):
-    """Canonicalize over-escaped \( and \) delimiters emitted by JSON/content layers.
+def _repair_overescaped_math_delimiters(s):
+    """Canonicalize over-escaped inline and display math delimiters.
 
-    Editorial content can arrive with several consecutive backslashes before
-    a parenthesis, e.g. \\\\) where the intended LaTeX delimiter is \).
-    Such a sequence is not recognized by the inline parser and can leave
-    LuaLaTeX with an unterminated math state. Only backslash runs immediately
-    before parentheses are touched; LaTeX commands and matrix row breaks are
-    left unchanged.
+    Content may pass through several JSON/string-escaping layers before it
+    reaches the renderer. Delimiters intended as \\( ... \\) or \\[ ... \\]
+    can therefore arrive with several consecutive backslashes. The inline
+    parser must see one canonical backslash before delimiter parsing.
+
+    Only backslash runs immediately before parentheses or brackets are
+    normalized. Ordinary LaTeX commands remain untouched.
     """
-    return re.sub(r"\\{2,}(?=[()])", r"\\", str(s or ""))
-    # This boundary normalization runs before delimiter parsing so over-escaped
-    # content-layer sequences become canonical LaTeX delimiters.
-
+    return re.sub(r"\\\\{2,}(?=[()\\[\\]])", r"\\", str(s or ""))
 
 _UNMATCHED_DISPLAY_DOLLAR_TOKEN = "AURORAUNMATCHEDDISPLAYDOLLARTOKEN"
 
@@ -2106,7 +2104,7 @@ def inline(s, auto_math=False):
     backslashes, braces and alignment markers are escaped into invalid TeX.
     """
     s = _repair_accidental_inline_double_dollar(str(s or ""))
-    s = _repair_overescaped_inline_math_delimiters(s)
+    s = _repair_overescaped_math_delimiters(s)
     s = _escape_unmatched_math_delimiters(s)
     stripped = s.strip()
 
