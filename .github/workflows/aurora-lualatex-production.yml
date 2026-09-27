@@ -115,6 +115,42 @@ jobs:
               raise SystemExit(f"Formula-list compatibility wrapper leaked: {formula_block!r}")
           if "['" in formula_block or "']" in formula_block:
               raise SystemExit(f"Formula-list stringification regression: {formula_block!r}")
+
+
+          embedded_case = (
+              "Il faut distinguer une limite infinie. De même, "
+              "(x²−1)/(x−1)=x+1 est valable seulement pour x différent de 1."
+          )
+          embedded_parts = render_document._split_embedded_math(embedded_case)
+          embedded_math = [value for kind, value in embedded_parts if kind == "math"]
+          if embedded_math != ["(x²−1)/(x−1)=x+1"]:
+              raise SystemExit(f"Embedded-math extraction regression: {embedded_parts!r}")
+          rendered_embedded = render_document._render_content_item(embedded_case)
+          rendered_joined = "\n".join(rendered_embedded)
+          if r"\AuroreMathCompact" not in rendered_joined and r"\AuroreMathBlock" not in rendered_joined:
+              raise SystemExit(f"Embedded-math block regression: {rendered_joined!r}")
+          if "différent de 1" not in rendered_joined:
+              raise SystemExit(f"Embedded-math prose-loss regression: {rendered_joined!r}")
+          false_positive_case = (
+              "Si f(x) tend vers L, la droite y=L est une asymptote horizontale."
+          )
+          false_parts = render_document._split_embedded_math(false_positive_case)
+          if any(
+              kind == "math" and (
+                  "tend vers" in value or "asymptote" in value or "Si f(x)" in value
+              )
+              for kind, value in false_parts
+          ):
+              raise SystemExit(f"Embedded-math prose false-positive regression: {false_parts!r}")
+
+          short_math = render_document._math_render_command("x+1=2")
+          if not short_math.startswith(r"\AuroreMathCompact{"):
+              raise SystemExit(f"Adaptive math box regression: {short_math!r}")
+          long_math = render_document._math_render_command(
+              r"\lim_{x\to+\infty}\frac{3x^2-1}{x^2+4}=\lim_{x\to+\infty}\frac{3-1/x^2}{1+4/x^2}=3"
+          )
+          if not long_math.startswith(r"\AuroreMathBlock{"):
+              raise SystemExit(f"Long math fallback regression: {long_math!r}")
           malformed_inline = (
               r"Calcul 66. Le dénominateur tend vers $0^-,$" + "$"
               + r" donc $" + "$" + r"-\\infty." + "$" + "$"
