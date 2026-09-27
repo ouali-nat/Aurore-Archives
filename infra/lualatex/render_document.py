@@ -1679,9 +1679,10 @@ def normalize_math(s):
         r"array|matrix|pmatrix|bmatrix|Bmatrix|vmatrix|Vmatrix|"
         r"smallmatrix|cases|aligned|alignedat|gathered|split|rcases"
     )
+    overescaped_slashes = re.escape(chr(92)) + r"{2,}"
     s = re.sub(
-        rf"\\\\(?=begin\\{{(?:{math_env_names})\\}}|end\\{{(?:{math_env_names})\\}})",
-        r"\\",
+        overescaped_slashes + rf"(?=begin\{{(?:{math_env_names})\}}|end\{{(?:{math_env_names})\}})",
+        lambda _m: chr(92),
         s,
     )
 
@@ -1710,14 +1711,14 @@ def normalize_math(s):
     s = row_env_pattern.sub(_protect_math_rows, s)
     # A JSON-escaped command such as \\exp represents one LaTeX command
     # backslash. Do not touch protected array row breaks.
-    s = re.sub(r"\\\\(?=[A-Za-z{}])", lambda _m: "\\", s)
+    s = re.sub(overescaped_slashes + r"(?=[A-Za-z{}])", lambda _m: chr(92), s)
     s = _repair_common_math_command_corruption(s)
 
     # JSON-escaped TeX punctuation can also arrive doubled (for example
     # \\% for a percentage inside math). Unlike array row breaks, these
     # sequences must collapse to one command backslash; otherwise the
     # % becomes a TeX comment and can swallow the closing delimiter/braces.
-    s = re.sub(r"\\\\(?=[%&#_^~])", lambda _m: "\\", s)
+    s = re.sub(overescaped_slashes + r"(?=[%&#_^~])", lambda _m: chr(92), s)
 
     # Restore protected array row breaks as real LaTeX double-backslash commands.
     s = s.replace(marker, "\\\\")
