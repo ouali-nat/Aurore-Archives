@@ -1648,6 +1648,16 @@ def normalize_math(s):
     s = clean_text(s)
     s = _repair_common_math_command_corruption(s)
 
+    # A Unicode inequality may be normalized to a TeX control word inside
+    # prose, e.g. `X≤k` -> `X\\leqk`. TeX then reads `\\leqk` as one
+    # undefined control sequence. Separate control words from following
+    # letters globally; this is safe for the canonical math commands below.
+    s = re.sub(
+        r"\\\\(?:leq|geq|neq|approx|in|notin|iff|Longleftrightarrow|Longrightarrow|Rightarrow)(?=[A-Za-z])",
+        lambda m: m.group(0) + " ",
+        s,
+    )
+
     # TeX treats a literal apostrophe in math as a superscript shorthand.
     # Therefore f''(x) can become a forbidden double superscript. Canonicalize
     # first/second/third derivative notation explicitly.
