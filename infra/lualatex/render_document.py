@@ -2331,9 +2331,10 @@ def _display_math_body(segment):
 _PLAIN_MATH_ATOM = (
     r"(?:"
     r"[A-Za-z𝑥𝑦𝑧𝑡𝑛𝑓𝑔𝑎𝑏𝑐𝑒𝑘𝑙𝑚𝑝𝑞𝑟𝑠𝑢𝑣𝑤𝑅](?:[⁰¹²³⁻⁺₀₁₂₃₄₅₆₇₈₉]+)?(?![A-Za-z])"
+    r"|(?:lim|ln|log|exp|sin|cos|tan|max|min|sup|inf)(?![A-Za-z])"
     r"|[0-9]+(?:[.,][0-9]+)?"
-    r"|\\(?:to|leq|geq|neq|in|notin|subset|subseteq|supset|supseteq|cdot|times|pm)\b"
-    r"|[()\[\]{},.+*/=≤≥≠→∈^_'’×⋅−-]"
+    r"|\\(?:lim|ln|log|exp|sin|cos|tan|to|leq|geq|neq|in|notin|subset|subseteq|supset|supseteq|cdot|times|pm|mathbb|setminus)\b"
+    r"|[()\[\]{},.+*/=≤≥≠→∈∞ℝℕℤℚℝαβγδπφω^_'’×⋅−-]"
     r"|\s+"
     r")"
 )
@@ -2359,7 +2360,8 @@ def _looks_like_plain_math_fragment(fragment):
     # Plain prose words are forbidden; one-letter mathematical variables are
     # allowed. This keeps phrases such as "tend vers" out of math boxes.
     words = re.findall(r"(?<![\\A-Za-zÀ-ÿ])[A-Za-zÀ-ÿ]{2,}(?![A-Za-zÀ-ÿ])", value)
-    return not words
+    allowed_words = {"lim", "ln", "log", "exp", "sin", "cos", "tan", "max", "min", "sup", "inf"}
+    return all(word.lower() in allowed_words for word in words)
 
 def _math_fragment_is_blockworthy(fragment):
     value = str(fragment or "").strip()
