@@ -1,2 +1,5 @@
 [functions.aurora-content-worker]
 verify_jwt = false
+
+[functions.aurora-connector-ingest]
+verify_jwt = false
