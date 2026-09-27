@@ -2082,6 +2082,8 @@ def _repair_overescaped_inline_math_delimiters(s):
     left unchanged.
     """
     return re.sub(r"\\{2,}(?=[()])", r"\\", str(s or ""))
+    # This boundary normalization runs before delimiter parsing so over-escaped
+    # content-layer sequences become canonical LaTeX delimiters.
 
 
 _UNMATCHED_DISPLAY_DOLLAR_TOKEN = "AURORAUNMATCHEDDISPLAYDOLLARTOKEN"
