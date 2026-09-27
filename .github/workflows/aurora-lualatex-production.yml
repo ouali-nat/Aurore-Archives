@@ -1069,7 +1069,15 @@ jobs:
         run: |
           python3 render_document.py production/document.json -o production/document.tex
           test -s production/document.tex
-          grep -q '\\documentclass' production/document.tex
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path("production/document.tex").read_text(encoding="utf-8")
+          print("LaTeX source ready:", len(text), "characters")
+          if "\\documentclass" in text:
+              print("Source type: complete LaTeX document")
+          else:
+              print("Source type: native LaTeX fragment; compilation wrapper will be prepared next")
+          PY
 
       - name: Prepare native LaTeX compilation wrapper
         if: success()
