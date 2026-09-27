@@ -1083,7 +1083,7 @@ jobs:
         if: success() && hashFiles('infra/lualatex/production/document-id') != ''
         working-directory: infra/lualatex
         run: |
-          echo "===== Native LaTeX header (document 476 compatibility check) ====="
+          echo "===== Native LaTeX header (claimed document) ====="
           sed -n '1,40p' production/document.tex
           echo "===== Document class declarations ====="
           grep -nE '\\documentclass|\\usepackage|\\chapter' production/document.tex | head -40 || true
@@ -1092,7 +1092,7 @@ jobs:
           echo "===== End native header ====="
 
       - name: Prepare native LaTeX compilation wrapper
-        if: success()
+        if: success() && hashFiles('infra/lualatex/production/document-id') != ''
         working-directory: infra/lualatex
         run: |
           python3 - <<'PY'
