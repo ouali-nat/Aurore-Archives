@@ -2082,7 +2082,7 @@ def _repair_overescaped_math_delimiters(s):
     Only backslash runs immediately before parentheses or brackets are
     normalized. Ordinary LaTeX commands remain untouched.
     """
-    return re.sub(r"\\\\{2,}(?=[()\\[\\]])", r"\\", str(s or ""))
+    return re.sub(r"\\\\{2,}(?=[()\\[\\]])", lambda _m: chr(92), str(s or ""))
 
 _UNMATCHED_DISPLAY_DOLLAR_TOKEN = "AURORAUNMATCHEDDISPLAYDOLLARTOKEN"
 
