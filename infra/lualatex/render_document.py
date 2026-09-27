@@ -2375,7 +2375,7 @@ def _math_fragment_is_blockworthy(fragment):
         return True
     return False
 
-def _math_render_command(body, label="Formule ou relation"):
+def _math_render_command(body, label="Relation"):
     normalized = normalize_math(str(body or "").strip())
     if not normalized:
         return ""
