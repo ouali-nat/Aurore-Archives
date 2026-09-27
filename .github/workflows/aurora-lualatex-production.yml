@@ -839,18 +839,30 @@ jobs:
         if: hashFiles('infra/lualatex/production/document-id') != ''
         run: |
           NEED_UPDATE=0
+          NEED_XETEX=0
           if ! command -v lualatex >/dev/null 2>&1; then NEED_UPDATE=1; fi
           if ! kpsewhich montserrat.sty >/dev/null 2>&1; then NEED_UPDATE=1; fi
           if ! kpsewhich qrcode.sty >/dev/null 2>&1; then NEED_UPDATE=1; fi
           if ! command -v rsvg-convert >/dev/null 2>&1; then NEED_UPDATE=1; fi
+          if [ -f infra/lualatex/production/document.json ] && python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path("infra/lualatex/production/document.json").read_text(encoding="utf-8"))
+          raise SystemExit(0 if str(data.get("source_format") or "").lower()=="latex" else 1)
+          PY
+          then
+            NEED_XETEX=1
+            if ! command -v xelatex >/dev/null 2>&1; then NEED_UPDATE=1; fi
+          fi
           if [ "$NEED_UPDATE" = "1" ]; then
             sudo apt-get update
-            sudo apt-get install -y texlive-luatex texlive-lang-french texlive-latex-extra texlive-fonts-extra texlive-pictures librsvg2-bin
+            sudo apt-get install -y texlive-luatex texlive-xetex texlive-lang-french texlive-latex-extra texlive-fonts-extra texlive-pictures librsvg2-bin
           fi
           lualatex --version
           rsvg-convert --version
           kpsewhich montserrat.sty
           kpsewhich qrcode.sty
+          if [ "$NEED_XETEX" = "1" ]; then xelatex --version; fi
 
       - name: Ensure renderer smoke dependencies
         if: github.event_name == 'push'
@@ -1079,17 +1091,113 @@ jobs:
               print("Source type: native LaTeX fragment; compilation wrapper will be prepared next")
           PY
 
-      - name: Inspect native LaTeX header
-        if: success() && hashFiles('infra/lualatex/production/document-id') != ''
+      - name: Prepare native LaTeX source layout and engine
+        if: success() && hashFiles('infra/lualatex/production/document-id') != '' && hashFiles('infra/lualatex/production/document.json') != ''
         working-directory: infra/lualatex
         run: |
-          echo "===== Native LaTeX header (claimed document) ====="
-          sed -n '1,40p' production/document.tex
-          echo "===== Document class declarations ====="
-          grep -nE '\\documentclass|\\usepackage|\\chapter' production/document.tex | head -40 || true
-          echo "===== First class-related files ====="
-          find production -maxdepth 1 -type f \( -name '*.cls' -o -name '*.sty' \) -printf '%f\n' | sort | head -40
-          echo "===== End native header ====="
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          import shutil
+
+          root = Path("production")
+          source = root / "document.tex"
+          original = source.read_text(encoding="utf-8")
+
+          def strip_comments(line: str) -> str:
+              escaped = False
+              for i, char in enumerate(line):
+                  if char == "%" and not escaped:
+                      return line[:i]
+                  if char == "\" and not escaped:
+                      escaped = True
+                  else:
+                      escaped = False
+              return line
+
+          def active_text(value: str) -> str:
+              return "\n".join(strip_comments(line) for line in value.splitlines())
+
+          active = active_text(original)
+          class_match = re.search(r"\\documentclass(?:\[[^\]]*\])?\{([^}]+)\}", active)
+          document_class = class_match.group(1).strip() if class_match else ""
+
+          # Restore directory-qualified references that were flattened in the storage manifest.
+          available = {p.name: p for p in root.iterdir() if p.is_file()}
+          queue = [p for p in root.glob("*.tex")]
+          seen = set()
+
+          ref_pattern = re.compile(
+              r"\\(?:input|include|includegraphics|lstinputlisting)\s*\{([^}]+)\}"
+          )
+          while queue:
+              current = queue.pop(0)
+              key = str(current.resolve())
+              if key in seen:
+                  continue
+              seen.add(key)
+              try:
+                  text = active_text(current.read_text(encoding="utf-8"))
+              except (OSError, UnicodeDecodeError):
+                  continue
+
+              for ref in ref_pattern.findall(text):
+                  ref = ref.strip()
+                  if "/" not in ref or ref.startswith("/") or ".." in Path(ref).parts:
+                      continue
+                  destination = root / ref
+                  candidates = [root / ref]
+                  if not destination.suffix:
+                      candidates.append(root / (ref + ".tex"))
+
+                  candidate = next((p for p in candidates if p.is_file()), None)
+                  if candidate is None:
+                      basename = Path(ref).name
+                      fallback = available.get(basename)
+                      if fallback is not None:
+                          candidate = fallback
+                      elif not Path(ref).suffix:
+                          fallback = available.get(basename + ".tex")
+                          if fallback is not None:
+                              candidate = fallback
+
+                  if candidate is None:
+                      continue
+
+                  if not destination.suffix and candidate.suffix:
+                      destination = destination.with_suffix(candidate.suffix)
+                  destination.parent.mkdir(parents=True, exist_ok=True)
+                  if not destination.exists():
+                      shutil.copy2(candidate, destination)
+                      queue.append(destination)
+                      print(f"Restored native source path: {destination.relative_to(root)}")
+
+          native = root / "native-entrypoint.tex"
+          if not class_match:
+              native.write_text(original, encoding="utf-8")
+              wrapper = (
+                  r"\documentclass{sesamanuel}" + "\n"
+                  + r"\begin{document}" + "\n"
+                  + r"\input{native-entrypoint.tex}" + "\n"
+                  + r"\end{document}" + "\n"
+              )
+              source.write_text(wrapper, encoding="utf-8")
+              engine = "xelatex"
+              kind = "fragment"
+          elif document_class.lower() == "sesamanuel":
+              engine = "xelatex"
+              kind = "sesamanuel"
+          else:
+              engine = "lualatex"
+              kind = "complete"
+
+          (root / "native-tex-engine").write_text(engine + "\n", encoding="utf-8")
+          (root / "native-tex-kind").write_text(kind + "\n", encoding="utf-8")
+          print(f"Native LaTeX preparation: class={document_class or 'none'} kind={kind} engine={engine}")
+          PY
+          ENGINE="$(cat production/native-tex-engine)"
+          command -v "$ENGINE" >/dev/null 2>&1
+          test -s production/document.tex
 
       - name: Prepare native LaTeX compilation wrapper
         if: success() && hashFiles('infra/lualatex/production/document-id') != ''
@@ -1175,7 +1283,8 @@ jobs:
         if: hashFiles('infra/lualatex/production/document-id') != ''
         working-directory: infra/lualatex/production
         run: |
-          lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error \
+          ENGINE="$(cat native-tex-engine 2>/dev/null || echo lualatex)"
+          "$ENGINE" -no-shell-escape -interaction=nonstopmode -halt-on-error \
             -output-directory=. document.tex
 
       - name: Mark PDF compilation progress
@@ -1193,7 +1302,8 @@ jobs:
         if: hashFiles('infra/lualatex/production/document-id') != ''
         working-directory: infra/lualatex/production
         run: |
-          lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error \
+          ENGINE="$(cat native-tex-engine 2>/dev/null || echo lualatex)"
+          "$ENGINE" -no-shell-escape -interaction=nonstopmode -halt-on-error \
             -output-directory=. document.tex
           python3 - <<'PY'
           from pathlib import Path
