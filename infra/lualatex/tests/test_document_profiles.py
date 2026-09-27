@@ -118,6 +118,12 @@ def test_stray_math_delimiter_does_not_swallow_prose():
     assert "AURORAMATHTOKEN" not in rendered
     assert "La fonction prolongée est donc cohérente point par point." in rendered
 
+def test_overescaped_inline_math_delimiters_are_repaired():
+    source = r"Début \\(x+1\\\\), puis \\\\(y+1\\)."
+    rendered = inline(source, auto_math=True)
+    assert rendered == r"Début \(x+1\), puis \(y+1\)."
+
+
 def test_math_command_corruption_is_repaired():
     assert normalize_math(r"\fracrac3{(x-1)^2}") == r"\frac3{(x-1)^2}"
     assert normalize_math(r"lim_{x\to1}sqrt{x^2+1}") == r"\lim_{x\to1}\sqrt{x^2+1}"
