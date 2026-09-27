@@ -1,10 +1,10 @@
 # Aurore — Protocole obligatoire d’insertion éditoriale pour les IA
 
-Ce document est la référence opérationnelle pour toute intelligence artificielle qui génère ou injecte un document dans Aurore — Section Archives. Il ne remplace pas le verrou Supabase : il le documente. La règle centrale est que la mémoire doit être récupérée et lue avant la génération finale destinée à l’injection, puis l’IA doit présenter une attestation correspondant à la totalité du paquet mémoire. Une session mémoire est limitée dans le temps, liée à la matière et au type de document, et ne peut être consommée qu’une fois.
+Ce document est la référence opérationnelle pour toute intelligence artificielle qui génère ou injecte un document dans Aurore — Section Archives. Il ne remplace pas le verrou Supabase : il le documente. La génération éditoriale normale récupère et lit la mémoire Aurore avant la production finale. Le chemin Edge Function utilise une session mémoire temporaire et une attestation cryptographique ; le chemin connecteur de confiance utilise le bridge service_role qui vérifie directement l’instantané mémoire actif en base. Dans les deux cas, les contrats documentaires, le préflight scientifique, les règles de volume et le contrôle humain restent obligatoires.
 
 ## 1. Ordre obligatoire avant génération
 
-L’IA doit d’abord déterminer le document réel : matière, niveau, classe, type de document, objectif pédagogique et éventuelles spécialisations. Elle doit ensuite récupérer la mémoire éditoriale Aurore.
+L’IA doit d’abord déterminer le document réel : matière, niveau, classe, type de document, objectif pédagogique et éventuelles spécialisations. Elle doit ensuite récupérer la mémoire éditoriale Aurore lorsque le flux utilisé repose sur une session mémoire.
 
 Le paquet mémoire canonique comprend, dans cet ordre :
 
@@ -18,31 +18,33 @@ Le paquet mémoire canonique comprend, dans cet ordre :
 8. mémoire spécialisée, par exemple la mémoire Mathématiques ;
 9. validateurs liés à la nature du document.
 
-L’IA ne doit pas commencer la génération finale avant d’avoir récupéré ce paquet. La session retournée contient une empreinte de paquet ainsi qu’une attestation cryptographique. Supabase les vérifie au moment de l’injection.
+Pour le chemin connecteur de confiance, l’endpoint `aurora-connector-ingest` transmet le document au bridge `aurora_connector_ingest_editorial_document`. Ce bridge est réservé à `service_role` et vérifie en base la présence des couches mémoire actives avant de transmettre au RPC canonique. Il ne demande donc pas une session mémoire temporaire au connecteur.
 
 ## 2. Où insérer les données
 
-aurora_content_jobs représente la demande et le sas. Il contient la classification, le statut et les instructions, mais n’est pas la source structurée finale du document.
+`aurora_content_jobs` représente la demande et le sas. Il contient la classification, le statut et les instructions, mais n’est pas la source structurée finale du document.
 
-aurora_generated_documents est la destination éditoriale structurée. Le contenu réel du document est stocké dans content_json. Lorsqu’un document provient d’un job existant, il doit être relié par job_id.
+`aurora_generated_documents` est la destination éditoriale structurée. Le contenu réel du document est stocké dans `content_json`. Lorsqu’un document provient d’un job existant, il doit être relié par `job_id`.
 
-L’IA éditoriale ne doit pas fabriquer un PDF final et l’envoyer directement dans Storage. La production PDF est séparée. Une fois le contenu injecté et placé en contrôle, l’administration peut lancer aurora-lualatex-request. Cette étape démarre GitHub Actions puis LuaLaTeX, les constructions GeoGebra et les contrôles QA. La publication reste humaine.
+L’IA éditoriale ne doit pas fabriquer un PDF final et l’envoyer directement dans Storage. La production PDF est séparée. Une fois le contenu injecté et placé en contrôle, l’administration peut lancer `aurora-lualatex-request`. Cette étape démarre GitHub Actions puis LuaLaTeX, les constructions GeoGebra et les contrôles QA. La publication reste humaine.
 
 ## 3. Structure canonique du JSON
 
-Pour un cours, utiliser au minimum title, introduction et sections. Chaque section doit avoir un titre et un contenu structuré. Les formules importantes doivent être rangées dans les structures dédiées. Les exercices doivent être placés dans sections[].exercises[]. Les constructions mathématiques doivent être dans sections[].graphs. Les visuels documentaires doivent être dans sections[].visuals.
+Pour un cours, utiliser au minimum `title`, `introduction` et `sections`. Chaque section doit avoir un titre et un contenu structuré. Les formules importantes doivent être rangées dans les structures dédiées. Les exercices doivent être placés dans `sections[].exercises[]`. Les constructions mathématiques doivent être dans `sections[].graphs`. Les visuels documentaires doivent être dans `sections[].visuals`.
 
-Pour une série d’exercices, le profil exercise-sheet-v2 est obligatoire. Les énoncés vont dans sections[].exercises[]. Les corrections vont dans corrections[]. L’appariement exercice/correction est stable. Il est interdit de cacher les exercices dans un long texte de section.content et il est interdit de placer le corrigé dans la question.
+Pour une série d’exercices, le profil `exercise-sheet-v2` est obligatoire. Les énoncés vont dans `sections[].exercises[]`. Les corrections vont dans `corrections[]`. L’appariement exercice/correction est stable. Il est interdit de cacher les exercices dans un long texte de `section.content` et il est interdit de placer le corrigé dans la question.
 
 ## 4. Cours
 
-Le profil standard d’un cours vise au moins 3 000 mots utiles. Une longueur inférieure doit correspondre à un profil court explicitement justifié. Le volume doit venir de vraies explications, définitions, démonstrations, exemples, applications, interprétations et synthèses. Il est interdit de gonfler le cours par répétition, reformulation artificielle ou duplication d’annexes.
+Le profil standard d’un cours utilise un volume de **1 200 à 2 000 mots utiles**. Une longueur inférieure est refusée pour un cours standard ; une longueur supérieure est également refusée. Une extension n’est pertinente que lorsqu’un profil documentaire distinct l’autorise explicitement.
+
+Le volume doit venir de vraies explications, définitions, démonstrations, exemples, applications, interprétations et synthèses. Il est interdit de gonfler le cours par répétition, reformulation artificielle ou duplication d’annexes.
 
 Une notion doit être introduite avant son utilisation importante. Les paramètres et notations doivent être expliqués. Une formule importante doit être interprétable. La discipline conserve sa propre manière de raisonner : le protocole Aurore est commun, mais la structure scientifique, littéraire, linguistique, historique ou informatique n’est pas forcée dans un modèle unique.
 
 ## 5. Mathématiques
 
-Pour un cours de mathématiques, chaque section contenant une notion naturellement graphable doit recevoir une décision explicite dans visual_plan : build ou not_needed. Une décision build doit posséder de véritables graph_ids et chaque graphique doit être défini dans la section correspondante.
+Pour un cours de mathématiques, chaque section contenant une notion naturellement graphable doit recevoir une décision explicite dans `visual_plan` : `build` ou `not_needed`. Une décision `build` doit posséder de véritables `graph_ids` et chaque graphique doit être défini dans la section correspondante.
 
 Les notions typiquement graphables comprennent les fonctions, courbes, droites, coniques, transformations, intersections, tangentes, asymptotes, suites lorsque la représentation est utile, systèmes, lieux géométriques, courbes paramétriques, surfaces et objets 3D lorsque le moteur les supporte.
 
@@ -58,26 +60,44 @@ Les règles générales restent identiques, mais la famille disciplinaire ajoute
 
 Lorsqu’une matière n’a pas encore de profil spécialisé, utiliser la famille générique et signaler le manque. Ne jamais inventer silencieusement une règle de matière.
 
-## 7. PDF
+## 7. Préflight scientifique et volume
 
-Le PDF n’est pas le résultat direct de l’IA éditoriale. Le document éditorial doit d’abord être accepté dans aurora_generated_documents, puis le PDF est lancé manuellement par l’administration. Le pipeline utilise GitHub Actions et LuaLaTeX, avec production et contrôle des assets GeoGebra et QA.
+Tout document scientifique ou quantitatif passe par le préflight scientifique Aurore. Pour les Mathématiques, les cours graphables doivent notamment contenir de vraies formules LaTeX et au moins une construction graphique lorsque la nature du cours la rend graphable. Pour les exercices de Mathématiques, le préflight attend également un volume suffisant de blocs mathématiques.
+
+Le contrôle de volume compte les mots éditoriaux utiles et bloque les cours ou séries standard hors de la plage autorisée. Une sortie purement narrative qui contient seulement quelques symboles ou formules décoratives n’est pas considérée comme un contenu scientifique conforme.
+
+## 8. PDF
+
+Le PDF n’est pas le résultat direct de l’IA éditoriale. Le document éditorial doit d’abord être accepté dans `aurora_generated_documents`, puis le PDF est lancé manuellement par l’administration. Le pipeline utilise GitHub Actions et LuaLaTeX, avec production et contrôle des assets GeoGebra et QA.
 
 Il faut corriger d’abord le contenu source lorsqu’une erreur structurelle est identifiée. Le renderer ne doit pas être modifié pour masquer un JSON mal structuré.
 
-## 8. Erreurs connues
+## 9. Erreurs connues
 
-Les erreurs historiques ont été intégrées à la mémoire : exercices cachés dans section.content, cours sans introduction, mauvais type de contenu, JSON techniquement valide mais PDF pédagogiquement insuffisant, syntaxe LaTeX mal formée, graphiques déclarés sans assets utilisables, cours trop courts ou gonflés artificiellement.
+Les erreurs historiques ont été intégrées à la mémoire : exercices cachés dans `section.content`, cours sans introduction, mauvais type de contenu, JSON techniquement valide mais PDF pédagogiquement insuffisant, syntaxe LaTeX mal formée, graphiques déclarés sans assets utilisables, cours trop courts ou gonflés artificiellement.
 
 Ces cas servent de règles de prévention. Lorsqu’un problème survient, vérifier d’abord la classification, la structure JSON, le profil documentaire et les données de construction avant de toucher au renderer.
 
-## 9. Règle de non-contournement
+## 10. Points d’entrée officiels
 
-Une IA ne doit jamais sauter la récupération de mémoire en envoyant directement un document vers la table de production. Le point d’entrée éditorial prévu est aurora-gpt-ingest. La session doit être valide, non expirée, non consommée et adaptée à la matière et au type de document. La base PostgreSQL vérifie elle-même la session et l’attestation.
+Le point d’entrée Edge Function historique est `aurora-gpt-ingest`. Il utilise une clé éditoriale Aurore et une session mémoire valide lorsque ce chemin est utilisé.
 
-Une ancienne session, une attestation calculée sur un sous-ensemble des règles, un profil documentaire différent, une famille différente ou une empreinte de paquet incohérente doivent provoquer un refus.
+Le point d’entrée connecteur dédié est :
 
-La chaîne officielle est :
+`https://tdeotqfsbvouresfhkab.supabase.co/functions/v1/aurora-connector-ingest`
 
-IA → récupération mémoire → lecture → attestation complète → génération JSON → validation → aurora-gpt-ingest → Supabase → contrôle humain → lancement PDF manuel → GitHub Actions → LuaLaTeX/GeoGebra/QA → Content Factory → validation → publication.
+Il accepte `POST` avec `Content-Type: application/json` et la clé éditoriale dans `x-aurore-gpt-key`. Le corps est le payload éditorial Aurore. `ingest_id` peut être fourni par le connecteur ; s’il est absent, le endpoint peut générer un identifiant stable à partir d’une clé d’idempotence fournie par le client, ou à partir des champs éditoriaux stables du document.
 
-Toute future extension de matière, de document ou de règle doit respecter ce même ordre et ne doit pas désactiver la barrière mémoire.
+Ce endpoint ne crée pas lui-même un document en dehors des contrôles Aurore. Il transmet au bridge de confiance, qui vérifie la mémoire active puis appelle le RPC canonique d’insertion. Le préflight scientifique, le volume, les profils documentaires, les contrats Mathématiques, l’idempotence en aval, la mise en contrôle et la publication manuelle restent inchangés.
+
+## 11. Règle de non-contournement
+
+Une IA ne doit jamais sauter les contrôles Aurore en envoyant directement un document vers une table de production avec des privilèges arbitraires. Le point d’entrée doit être `aurora-gpt-ingest` ou `aurora-connector-ingest`.
+
+Le chemin Edge Function vérifie la session et l’attestation mémoire. Le chemin connecteur, lui, est réservé au bridge `service_role`, qui vérifie l’instantané mémoire courant en base. Une ancienne session, une attestation incohérente, une couche mémoire absente, un profil documentaire incompatible, un contenu trop court ou trop long, une structure graphique invalide ou un préflight scientifique en échec doivent provoquer un refus.
+
+La chaîne officielle est donc :
+
+IA → génération éditoriale conforme → point d’entrée officiel → vérification mémoire adaptée au chemin → RPC canonique → Supabase → contrôle humain → lancement PDF manuel → GitHub Actions → LuaLaTeX/GeoGebra/QA → Content Factory → validation → publication.
+
+Toute future extension de matière, de document ou de règle doit respecter ce même principe et ne doit pas désactiver les barrières Aurore.
