@@ -48,7 +48,7 @@ function sameStringArray(a:unknown,b:unknown){
   if(!Array.isArray(a)||!Array.isArray(b)||a.length!==b.length)return false;
   return a.every((x,i)=>String(x??"")===String(b[i]??""));
 }
-const MATH_GRAPHABLE_PATTERN=/(fonction|courbe|droite|parabole|ellipse|hyperbole|conique|transformation|translation|rotation|symetrie|homothetie|intersection|tangente|asymptote|suite|systeme|repere|geometrie analytique|lieu geometrique|surface|parametrique|3d)/i;
+const MATH_GRAPHABLE_PATTERN=/(fonction|courbe|droite|parabole|ellipse|hyperbole|conique|transformation|translation|rotation|symetrie|homothetie|intersection|tangente|asymptote|suite|systeme|repere|geometrie analytique|lieu geometrique|surface|parametrique|3d|divisibilite|pgcd|euclide|bezout|congruence|modulo|residu|nombre premier)/i;
 const SUPPORTED_GRAPH_INSTRUMENTS=new Set(["function2d","complex_plane","parametric2d","parametric3d","surface3d","geometry2d","geometry3d"]);
 function normalizeGraphInstrument(v:unknown){
   const raw=String(v??"").trim().toLowerCase();
