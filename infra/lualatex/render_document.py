@@ -2988,9 +2988,7 @@ def _documentary_visual_plan_qa(data):
     if not isinstance(data, dict):
         return {"enabled": False, "legacy": True, "planned_visuals": 0}
 
-    subject = clean_text(data.get("subject") or "").lower()
-    profile = _edition_profile(data)
-    is_math = "math" in subject
+    subject = clean_text(data.get("subject") or "").lower()\n    # Canonical Aurore editorial payloads may expose the discipline under\n    # `matiere` or `specialite` after the connector normalization step.\n    # Keep the documentary QA aligned with the mathematical QA contract.\n    discipline = " ".join(\n        clean_text(data.get(key) or "").lower()\n        for key in ("subject", "matiere", "specialite")\n    )\n    profile = _edition_profile(data)\n    is_math = "math" in discipline
     sections = data.get("sections")
     if not isinstance(sections, list):
         raise ValueError("Documentary visual plan QA failed: sections must be a list")
