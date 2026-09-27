@@ -70,3 +70,13 @@ Le PDF est produit après l’intégration du contenu, jamais comme une étape d
 récupération mémoire → édition ChatGPT → validation JSON → aurora-gpt-ingest avec session mémoire → sas administratif → ressources/GeoGebra → LuaLaTeX → vérification PDF → contrôle humain → publication.
 
 La récupération mémoire n’est donc plus une simple recommandation éditoriale : elle constitue une précondition technique d’insertion pour les documents issus de l’édition ChatGPT.
+
+## Présentation de référence — cours PC et exercices Maths/PC
+
+Le niveau de construction pédagogique validé sur le cours de référence devient un principe transversal de présentation pour les **cours de Physique-Chimie** et pour les **exercices de Mathématiques et de Physique-Chimie**, sans transformer leur contenu en copie du cours de référence.
+
+Pour un cours de Physique-Chimie, la progression doit construire les notions avant leur mobilisation et articuler, lorsque pertinent, phénomène ou problème, définition, relation ou loi, grandeurs et unités, établissement ou démonstration, exemple réellement calculé, application, interprétation, conditions de validité et synthèse. Les calculs, substitutions, bilans et résultats sont isolés et lisibles. La prose sert de liaison et ne sert jamais à fabriquer artificiellement le volume.
+
+Pour les exercices de Mathématiques et de Physique-Chimie, chaque exercice doit être un véritable objet d’apprentissage. Il comporte un objectif identifiable, un énoncé structuré en questions et sous-questions séparées, une progression interne lorsque le sujet s’y prête et un corrigé correspondant exactement aux mêmes données et notations. Les corrections montrent les étapes essentielles du raisonnement et des calculs, avec résultats, unités et interprétation lorsque pertinents. En Mathématiques, le LaTeX authentique, les manipulations ligne par ligne et les implications/équivalences justifiées sont privilégiés. En Physique-Chimie, la chaîne relation → grandeurs/unités → transformation → application numérique/bilan → résultat → interprétation est appliquée lorsqu’elle est pertinente.
+
+Le contrat privilégie 2 à 4 exercices substantiels et complets plutôt qu’une accumulation de mini-exercices. Les graphiques GeoGebra restent conditionnés par leur valeur pédagogique et doivent être réellement rendables puis vérifiés dans le PDF ; une déclaration JSON ne constitue pas une preuve de rendu.
