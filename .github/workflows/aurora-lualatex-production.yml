@@ -80,12 +80,15 @@ jobs:
               if actual != expected:
                   raise SystemExit(f"Math normalization regression: {actual!r}, expected {expected!r}")
 
-          overescaped_delimiters = r"Début \\(x+1\\\\), puis \\\\(y+1\\)."
-          overescaped_expected = r"Début \(x+1\), puis \(y+1\)."
+          overescaped_delimiters = (
+              r"Début \\(x+1\\\\), puis \\\\[a=\\\\frac{1}{2}\\\\], "
+              r"fin \\\\(y+1\\)."
+          )
+          overescaped_expected = r"Début \(x+1\), puis \[a=\frac{1}{2}\], fin \(y+1\)."
           overescaped_actual = render_document.inline(overescaped_delimiters, auto_math=True)
           if overescaped_actual != overescaped_expected:
               raise SystemExit(
-                  f"Over-escaped inline math delimiter regression: {overescaped_actual!r}, expected {overescaped_expected!r}"
+                  f"Over-escaped math delimiter regression: {overescaped_actual!r}, expected {overescaped_expected!r}"
               )
 
           prime_cases = [
