@@ -22,6 +22,7 @@ permissions:
 # Temporary Wikimedia transport failures are warnings; structurally unresolved required visuals remain blocking.
 # Retry after visual QA: fetched assets must be embedded; temporary external gaps are recorded for human validation.
 # GeoGebra renderer v3 regression validation uses existing generated documents only.
+# Requeue-safe production retry: document 455 after math discipline QA normalization fix.
 # Production-only trigger: validate the Terminale C matrix document.
 # Math escaping contract: collapse repeated JSON backslashes before LaTeX delimiters/commands before compilation.
 concurrency:
