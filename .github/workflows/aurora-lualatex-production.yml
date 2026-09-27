@@ -12,6 +12,12 @@ on:
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
+    inputs:
+      manual_wake:
+        description: "Réveil manuel du moteur LuaLaTeX"
+        required: false
+        default: "true"
+        type: string
 
 permissions:
   contents: read
