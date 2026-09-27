@@ -552,6 +552,14 @@ const renderGraphInBrowser = async (graph) => {
       }
     }
 
+    // Render every companion expression as a real GeoGebra construction.
+    if (instrument === "function2d" && Array.isArray(graph?.companion_expressions)) {
+      for (const rawCompanion of graph.companion_expressions) {
+        const companion = expr(String(rawCompanion || "").trim());
+        if (companion) commands.push(companion);
+      }
+    }
+
     if (instrument === "function2d" || instrument === "complex_plane" || instrument === "parametric2d" || instrument === "geometry2d") {
       const xmin=finite(graph?.x_min,-10), xmax=finite(graph?.x_max,10), ymin=finite(graph?.y_min,-10), ymax=finite(graph?.y_max,10);
       if (xmax>xmin && ymax>ymin) {
