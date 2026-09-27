@@ -1010,10 +1010,10 @@ jobs:
 
           Path("production/smoke/document.tex").write_text(tex, encoding="utf-8")
           raw_source = r"""\\documentclass{article}
-\\begin{document}
-Source native \\textbf{Aurore}.
-\\end{document}
-"""
+          \\begin{document}
+          Source native \\textbf{Aurore}.
+          \\end{document}
+          """
           Path("production/smoke/native-source.tex").write_text(raw_source, encoding="utf-8")
           Path("production/smoke/native-source.json").write_text(
               __import__("json").dumps({
