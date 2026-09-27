@@ -1105,14 +1105,9 @@ jobs:
           original = source.read_text(encoding="utf-8")
 
           def strip_comments(line: str) -> str:
-              escaped = False
               for i, char in enumerate(line):
-                  if char == "%" and not escaped:
+                  if char == "%" and (i == 0 or line[i - 1] != chr(92)):
                       return line[:i]
-                  if char == "\" and not escaped:
-                      escaped = True
-                  else:
-                      escaped = False
               return line
 
           def active_text(value: str) -> str:
