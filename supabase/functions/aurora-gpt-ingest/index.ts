@@ -696,14 +696,23 @@ Deno.serve(async req=>{
         ? (incomingInstructions.exercise_sheet_intro||"Énoncés indépendants, consignes précises, calculs justifiés et corrigés exclusivement liés aux questions posées.")
         : undefined
     };
+    const {data:scientificPreflight,error:scientificPreflightError}=await db.rpc("aurora_scientific_preflight",{p_subject:subject,p_document_type:documentType,p_content_json:content});
+    if(scientificPreflightError) throw scientificPreflightError;
+    if(!scientificPreflight || scientificPreflight.status!=="pass"){
+      return reply({
+        ok:false,
+        error:"Préflight scientifique Aurore bloqué.",
+        preflight:scientificPreflight||null
+      },422);
+    }
     const counts=validateEditorialContent(content,profile,editorialInstructions,subject);
     const prompt=nullable(payload.prompt,4000);
     const classification=payload.classification&&typeof payload.classification==="object"?payload.classification:{};
     const contentHash=await sha256(JSON.stringify(content));
     const {data:result,error}=await db.rpc("aurora_ingest_editorial_document",{
       p_ingest_id:ingestId,p_created_by:createdBy,p_title:title,p_subject:subject,p_level:level,p_class_name:className,p_document_type:documentType,p_prompt:prompt,p_content_json:content,
-      p_instructions:{...editorialInstructions,origin:"gpt_editorial_ingest",producer:"ChatGPT",human_review_required:true,manual_publication_only:true,lualatex_requested:false,schema_version:SCHEMA_VERSION,category:nullable(classification.categorie,100)||"Documents",domaine:nullable(classification.domaine,200),formation:nullable(classification.formation,200),specialite:nullable(classification.specialite,200),annee:nullable(classification.annee,100),semestre:nullable(classification.semestre,100),filiere:nullable(classification.filiere,200),theme_color:themeColor||"#C85C0D",editorial_memory_gate:editorialMemoryGate},
-      p_metadata:{origin:"gpt_editorial_ingest",producer:"ChatGPT",schema_version:SCHEMA_VERSION,content_sha256:contentHash,human_review_required:true,manual_publication_only:true,source:"chatgpt_editor",counts,course_quality:counts.course_quality||null,physics_chemistry_quality:counts.physics_chemistry_quality||null,aurore_profile:{kind:profile.kind,version:profile.version,lock:true,source:"document_type"},memory_session_id:memorySessionId,memory_schema:"aurora-editorial-memory-3",memory_gate_requested:true,memory_bundle_sha256:memorySession.bundle_sha256||null,editorial_memory_gate:editorialMemoryGate},
+      p_instructions:{...editorialInstructions,origin:"gpt_editorial_ingest",producer:"ChatGPT",human_review_required:true,manual_publication_only:true,lualatex_requested:false,schema_version:SCHEMA_VERSION,category:nullable(classification.categorie,100)||"Documents",domaine:nullable(classification.domaine,200),formation:nullable(classification.formation,200),specialite:nullable(classification.specialite,200),annee:nullable(classification.annee,100),semestre:nullable(classification.semestre,100),filiere:nullable(classification.filiere,200),theme_color:themeColor||"#C85C0D",editorial_memory_gate:editorialMemoryGate,scientific_preflight:scientificPreflight},
+      p_metadata:{origin:"gpt_editorial_ingest",producer:"ChatGPT",schema_version:SCHEMA_VERSION,content_sha256:contentHash,human_review_required:true,manual_publication_only:true,source:"chatgpt_editor",counts,course_quality:counts.course_quality||null,physics_chemistry_quality:counts.physics_chemistry_quality||null,scientific_preflight:scientificPreflight,aurore_profile:{kind:profile.kind,version:profile.version,lock:true,source:"document_type"},memory_session_id:memorySessionId,memory_schema:"aurora-editorial-memory-3",memory_gate_requested:true,memory_bundle_sha256:memorySession.bundle_sha256||null,editorial_memory_gate:editorialMemoryGate},
       p_domaine:nullable(classification.domaine,200),p_formation:nullable(classification.formation,200),p_specialite:nullable(classification.specialite,200),p_annee:nullable(classification.annee,100),p_semestre:nullable(classification.semestre,100),p_filiere:nullable(classification.filiere,200),p_matiere:subject,p_theme_color:themeColor||"#C85C0D",p_job_id:jobId
     });
     if(error){
