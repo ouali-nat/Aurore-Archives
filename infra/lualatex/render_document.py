@@ -1902,7 +1902,7 @@ def _auto_math_normalize_fragment(fragment):
         "₁": "_1", "₂": "_2", "₃": "_3", "₄": "_4", "₅": "_5",
         "₆": "_6", "₇": "_7", "₈": "_8", "₉": "_9",
         "π": r"\pi", "Δ": r"\Delta", "Ω": r"\Omega", "√": r"\sqrt ",
-        "−": "-", "≤": r"\leq", "≥": r"\geq", "≠": r"\neq",
+        "−": "-", "≤": r"\leq ", "≥": r"\geq ", "≠": r"\neq ",
         "≈": r"\approx", "∈": r"\in", "∉": r"\notin",
         "×": r"\times", "∞": r"\infty", "±": r"\pm",
         "α": r"\alpha", "β": r"\beta", "γ": r"\gamma",
