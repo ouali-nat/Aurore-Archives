@@ -207,3 +207,7 @@ before insert or update of content_json, metadata
 on public.aurora_generated_documents
 for each row
 execute function private.aurora_normalize_connector_content();
+
+
+revoke execute on function private.aurora_normalize_connector_content()
+from public, anon, authenticated;
