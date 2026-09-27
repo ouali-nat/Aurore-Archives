@@ -596,7 +596,7 @@ jobs:
               raw_document = {
                   "source_format": "latex",
                   "source_content": document.get("source_content"),
-                  "_raw_latex_source_path": str(entrypoint_path),
+                  "_raw_latex_source_path": str(entrypoint_path.resolve()),
                   "_aurore_document": {
                       "id": int(document["id"]),
                       "created_at": document.get("created_at"),
