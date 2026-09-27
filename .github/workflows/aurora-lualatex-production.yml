@@ -856,7 +856,7 @@ jobs:
           fi
           if [ "$NEED_UPDATE" = "1" ]; then
             sudo apt-get update
-            sudo apt-get install -y texlive-luatex texlive-xetex texlive-lang-french texlive-latex-extra texlive-fonts-extra texlive-pictures texlive-pstricks librsvg2-bin
+            sudo apt-get install -y texlive-luatex texlive-xetex texlive-lang-french texlive-latex-extra texlive-fonts-extra texlive-pictures texlive-pstricks texlive-science librsvg2-bin
           fi
           lualatex --version
           rsvg-convert --version
