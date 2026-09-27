@@ -1085,18 +1085,18 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
 
           source = Path("production/document.tex")
           text = source.read_text(encoding="utf-8")
-          if not re.search(r"\\\\documentclass\\b", text):
+          if "\\documentclass" not in text:
               native = Path("production/native-entrypoint.tex")
               native.write_text(text, encoding="utf-8")
-              wrapper = r"""\\documentclass{sesamanuel}
-\\begin{document}
-\\input{native-entrypoint.tex}
-\\end{document}
-"""
+              wrapper = (
+                  r"\documentclass{sesamanuel}" + "\n"
+                  + r"\begin{document}" + "\n"
+                  + r"\input{native-entrypoint.tex}" + "\n"
+                  + r"\end{document}" + "\n"
+              )
               source.write_text(wrapper, encoding="utf-8")
               print("Native LaTeX fragment wrapped with sesamanuel document class.")
           else:
