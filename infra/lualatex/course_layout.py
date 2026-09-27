@@ -18,7 +18,6 @@ def render_course_document(data, theme_palette):
         normalize_math,
         render_graphs,
         render_aurore_graphics,
-        render_table,
         tex_text,
     )
 
@@ -174,7 +173,25 @@ def render_course_document(data, theme_palette):
         if stripped.startswith("|") or " | " in stripped:
             rows = [line for line in stripped.splitlines() if "|" in line]
             if len(rows) >= 2:
-                return render_table(rows)
+                cells = [
+                    [cell.strip() for cell in row.strip().strip("|").split("|")]
+                    for row in rows
+                ]
+                width = max((len(row) for row in cells), default=0)
+                if width >= 2:
+                    cells = [row + [""] * (width - len(row)) for row in cells]
+                    table_lines = [
+                        r"\begin{center}",
+                        r"\small",
+                        r"\begin{tabularx}{0.98\linewidth}{" + " ".join(["X"] * width) + r"}",
+                        r"\hline",
+                    ]
+                    for idx, row in enumerate(cells):
+                        table_lines.append(" & ".join(inline(cell, auto_math=True) for cell in row) + r"\\")
+                        if idx == 0:
+                            table_lines.append(r"\hline")
+                    table_lines.extend([r"\hline", r"\end{tabularx}", r"\end{center}"])
+                    return "\n".join(table_lines)
 
         if __import__("re").match(r"^[-*•]\s+", stripped):
             return r"\begin{itemize}" + "\n\item " + inline(__import__("re").sub(r"^[-*•]\s+", "", stripped), auto_math=True) + "\n\end{itemize}"
@@ -445,7 +462,7 @@ def render_course_document(data, theme_palette):
                 lines.append(begin)
                 if heading:
                     # The star/non-star environment accepts an optional title.
-                    lines[-1] = begin[:-1] + "[" + tex_text(heading) + "]"
+                    lines[-1] = begin[:-1] + "[" + tex_text(heading) + "]}"
                 lines.append(r"\label{aurore-ex-" + str(exercise_no) + "}")
                 body = render_body_text(statement, auto_math=True)
                 lines.append(body)
