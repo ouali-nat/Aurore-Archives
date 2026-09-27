@@ -1083,7 +1083,7 @@ jobs:
         if: success() && hashFiles('infra/lualatex/production/document-id') != ''
         working-directory: infra/lualatex
         run: |
-          echo "===== Native LaTeX header ====="
+          echo "===== Native LaTeX header (document 476 compatibility check) ====="
           sed -n '1,40p' production/document.tex
           echo "===== Document class declarations ====="
           grep -nE '\\documentclass|\\usepackage|\\chapter' production/document.tex | head -40 || true
