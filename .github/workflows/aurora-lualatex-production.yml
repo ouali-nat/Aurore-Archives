@@ -1002,12 +1002,11 @@ jobs:
               raise SystemExit("Renderer smoke check failed: GeoGebra graph was not emitted")
 
           Path("production/smoke/document.tex").write_text(tex, encoding="utf-8")
-          PY
-          lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error \
-            -output-directory=production/smoke production/smoke/document.tex
-          test -s production/smoke/document.pdf
-          test "$(head -c 5 production/smoke/document.pdf)" = "%PDF-"
-          raw_source = r"\\documentclass{article}\n\\begin{document}\nSource native \textbf{Aurore}.\n\\end{document}\n"
+          raw_source = r"""\\documentclass{article}
+\\begin{document}
+Source native \\textbf{Aurore}.
+\\end{document}
+"""
           Path("production/smoke/native-source.tex").write_text(raw_source, encoding="utf-8")
           Path("production/smoke/native-source.json").write_text(
               __import__("json").dumps({
@@ -1024,6 +1023,12 @@ jobs:
           if Path("production/smoke/native-output.tex").read_text(encoding="utf-8") != raw_source:
               raise SystemExit("Native LaTeX preservation smoke test failed")
           print("Native LaTeX preservation smoke test passed")
+          PY
+          lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error \
+            -output-directory=production/smoke production/smoke/document.tex
+          test -s production/smoke/document.pdf
+          test "$(head -c 5 production/smoke/document.pdf)" = "%PDF-"
+
 
       - name: Mark renderer ready
         if: hashFiles('infra/lualatex/production/document-id') != ''
