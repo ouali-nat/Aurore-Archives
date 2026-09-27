@@ -2328,25 +2328,23 @@ def _display_math_body(segment):
     return value
 
 
+_PLAIN_MATH_ATOM = (
+    r"(?:"
+    r"[A-Za-z𝑥𝑦𝑧𝑡𝑛𝑓𝑔𝑎𝑏𝑐𝑒𝑘𝑙𝑚𝑝𝑞𝑟𝑠𝑢𝑣𝑤𝑅](?:[⁰¹²³⁻⁺₀₁₂₃₄₅₆₇₈₉]+)?(?![A-Za-z])"
+    r"|[0-9]+(?:[.,][0-9]+)?"
+    r"|\\(?:to|leq|geq|neq|in|notin|subset|subseteq|supset|supseteq|cdot|times|pm)\b"
+    r"|[()\[\]{},.+*/=≤≥≠→∈^_'’×⋅−-]"
+    r"|\s+"
+    r")"
+)
+
 _PLAIN_MATH_RELATION_RE = re.compile(
     r"(?<![A-Za-zÀ-ÿ0-9_])"
-    r"(?:"
-    r"(?:[A-Za-z𝑥𝑦𝑧𝑡𝑛𝑓𝑔𝑎𝑏𝑐𝑒𝑘𝑙𝑚𝑝𝑞𝑟𝑠𝑢𝑣𝑤𝑅]"
-       r"(?:[⁰¹²³⁻⁺₀₁₂₃₄₅₆₇₈₉]+)?(?![A-Za-z])"
-    r"|[0-9]+(?:[.,][0-9]+)?"
-    r"|\\(?:to|leq|geq|neq|in|notin|subset|subseteq|supset|supseteq|cdot|times|pm)\b"
-    r"|[()\[\]{},.+*/=≤≥≠→∈^_'’×⋅−-]"
-    r"|\s+"
-    r"){1,120}"
-    r"(?:=|→|≤|≥|≠|∈)"
-    r"(?:"
-    r"(?:[A-Za-z𝑥𝑦𝑧𝑡𝑛𝑓𝑔𝑎𝑏𝑐𝑒𝑘𝑙𝑚𝑝𝑞𝑟𝑠𝑢𝑣𝑤𝑅]"
-       r"(?:[⁰¹²³⁻⁺₀₁₂₃₄₅₆₇₈₉]+)?(?![A-Za-z])"
-    r"|[0-9]+(?:[.,][0-9]+)?"
-    r"|\\(?:to|leq|geq|neq|in|notin|subset|subseteq|supset|supseteq|cdot|times|pm)\b"
-    r"|[()\[\]{},.+*/=≤≥≠→∈^_'’×⋅−-]"
-    r"|\s+"
-    r"){1,90}"
+    r"(?P<expr>"
+    + _PLAIN_MATH_ATOM + r"{1,120}?"
+    + r"(?:=|→|≤|≥|≠|∈)"
+    + _PLAIN_MATH_ATOM + r"{1,90}?"
+    + r")"
     r"(?=\s|[,.!?;:]|$)"
 )
 
