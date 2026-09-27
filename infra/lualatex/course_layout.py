@@ -3,6 +3,7 @@
 The course profile deliberately uses the real sesamanuel class rather than
 recreating its visual language with the legacy Aurore tcolorbox layout.
 Aurore's per-document palette is injected into the sesamanuel color families.
+# Production smoke trigger: structured course refactor test.
 """
 
 
