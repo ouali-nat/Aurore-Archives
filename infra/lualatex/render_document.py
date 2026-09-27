@@ -1653,7 +1653,7 @@ def normalize_math(s):
     # undefined control sequence. Separate control words from following
     # letters globally; this is safe for the canonical math commands below.
     s = re.sub(
-        r"\\\\(?:leq|geq|neq|approx|iff|Longleftrightarrow|Longrightarrow|Rightarrow)(?=[A-Za-z])",
+        r"\\(?:leq|geq|neq|approx|iff|Longleftrightarrow|Longrightarrow|Rightarrow)(?=[A-Za-z])",
         lambda m: m.group(0) + " ",
         s,
     )
