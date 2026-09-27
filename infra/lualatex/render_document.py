@@ -2361,6 +2361,18 @@ def _looks_like_plain_math_fragment(fragment):
     words = re.findall(r"(?<![\\A-Za-zÀ-ÿ])[A-Za-zÀ-ÿ]{2,}(?![A-Za-zÀ-ÿ])", value)
     return not words
 
+def _math_fragment_is_blockworthy(fragment):
+    value = str(fragment or "").strip()
+    if not value:
+        return False
+    if re.search(r"(?:=|→|≤|≥|≠|∈)", value):
+        return True
+    if re.search(r"\\(?:lim|frac|sqrt|sum|int|prod|log|ln|exp|sin|cos|tan|mathbb|overline|vec|to|leq|geq|neq|in)\b", value):
+        return True
+    if "/" in value and re.search(r"\d|[𝑥𝑦𝑧𝑡𝑛𝑓𝑔]", value):
+        return True
+    return False
+
 def _math_render_command(body, label="Formule ou relation"):
     normalized = normalize_math(str(body or "").strip())
     if not normalized:
@@ -2411,9 +2423,7 @@ def _render_content_item(raw, auto_math=False):
         for segment in segments:
             if _CONTENT_DISPLAY_MATH_RE.fullmatch(segment.strip()):
                 lines.append(
-                    r"\AuroreMathBlock{Formule ou relation}{" +
-                    normalize_math(_display_math_body(segment)) +
-                    r"}"
+                    _math_render_command(_display_math_body(segment))
                 )
                 continue
             for paragraph in re.split(r"\n{2,}", segment):
@@ -2927,7 +2937,7 @@ def display_formula(s, label="Formule utile"):
         if inline_match:
             math = normalize_math(next(group for group in inline_match.groups() if group is not None).strip())
             return "\n".join([
-                r"\AuroreMathBlock{" + tex_text(label) + r"}{" + math + r"}",
+                _math_render_command(math, tex_text(label)),
                 "",
             ])
         return "\n".join([
