@@ -1140,3 +1140,5 @@ jobs:
 # FORCED WAKE: document 362 — final JSON-newline repair verification — 2026-09-25.
 
 # Course quality contract wake: 2026-09-25.
+
+# retry queued probability course after TeX control-word normalization fix
