@@ -2327,8 +2327,57 @@ def _display_math_body(segment):
         return value[2:-2].strip()
     return value
 
+
+_MATH_RELATION_RE = re.compile(
+    r"(?<![\w])"
+    r"(?:"
+    r"(?:\\(?:lim|frac|sqrt|sum|int|prod|log|ln|exp|sin|cos|tan|mathbb|overline|vec)\b"
+       r"[^.!?;]{0,110}?(?:=|\\to|→|\\leq|\\geq|≤|≥|≠)"
+       r"[^.!?;]{0,90})"
+    r"|"
+    r"(?:[A-Za-z𝑥𝑦𝑧𝑡𝑛𝑓𝑔𝑎𝑏𝑐𝑒𝑘𝑙𝑚𝑝𝑞𝑟𝑠𝑢𝑣𝑤𝑅]"
+       r"[A-Za-z0-9𝑥𝑦𝑧𝑡𝑛𝑓𝑔𝑎𝑏𝑐𝑒𝑘𝑙𝑚𝑝𝑞𝑟𝑠𝑢𝑣𝑤𝑅₀₁₂₃₄₅₆₇₈₉²³⁰¹⁻−+*/().,\s]{2,75}"
+       r"(?:=|→|≤|≥|≠)"
+       r"[A-Za-z0-9𝑥𝑦𝑧𝑡𝑛𝑓𝑔𝑎𝑏𝑐𝑒𝑘𝑙𝑚𝑝𝑞𝑟𝑠𝑢𝑣𝑤𝑅₀₁₂₃₄₅₆₇₈₉²³⁰¹⁻−+*/().,\s]{1,65})"
+    r")"
+    r"(?=\s|[,.!?;:]|$)"
+)
+
+def _math_fragment_is_blockworthy(fragment):
+    value = str(fragment or "").strip()
+    if not value:
+        return False
+    if re.search(r"(?:=|\\to|→|\\leq|\\geq|≤|≥|≠)", value):
+        return True
+    if re.search(r"\\(?:frac|lim|sqrt|sum|int|prod|mathbb|overline)\b", value):
+        return True
+    if "/" in value and re.search(r"\d|[𝑥𝑦𝑧𝑡𝑛𝑓𝑔]", value):
+        return True
+    return False
+
+def _split_embedded_math(text):
+    """Split prose around substantial inline mathematical relations."""
+    source = _repair_accidental_inline_double_dollar(str(text or ""))
+    pieces = []
+    cursor = 0
+    for match in _MATH_RELATION_RE.finditer(source):
+        start, end = match.span()
+        fragment = match.group(0).strip()
+        if not _math_fragment_is_blockworthy(fragment):
+            continue
+        if start > cursor:
+            prose = source[cursor:start].strip()
+            if prose:
+                pieces.append(("prose", prose))
+        pieces.append(("math", fragment))
+        cursor = end
+    tail = source[cursor:].strip()
+    if tail:
+        pieces.append(("prose", tail))
+    return pieces
+
 def _render_content_item(raw, auto_math=False):
-    """Render course content with dedicated blocks for standalone/display mathematics."""
+    """Render prose with compact dedicated blocks for substantial mathematics."""
     text = _repair_accidental_inline_double_dollar(clean_text(raw).strip())
     if not text:
         return []
@@ -2355,10 +2404,45 @@ def _render_content_item(raw, auto_math=False):
                 paragraph = paragraph.strip()
                 if not paragraph:
                     continue
-                rendered = inline(paragraph, auto_math=auto_math)
+                inline_parts = re.split(
+                    r"(\$[\s\S]*?\$|\\\([\s\S]*?\\\))",
+                    paragraph,
+                )
+                for part in inline_parts:
+                    if not part:
+                        continue
+                    if re.fullmatch(r"\$[\s\S]*?\$|\\\([\s\S]*?\\\)", part):
+                        body = part[1:-1].strip() if part.startswith("$") else part[2:-2].strip()
+                        if _math_fragment_is_blockworthy(body):
+                            lines.append(
+                                r"\AuroreMathBlock{Formule ou relation}{" +
+                                normalize_math(body) + r"}"
+                            )
+                        else:
+                            rendered = inline(part, auto_math=auto_math)
+                            if rendered.strip():
+                                lines.append(rendered)
+                    else:
+                        rendered = inline(part, auto_math=auto_math)
+                        if rendered.strip():
+                            lines.append(rendered)
+                lines.append(r"\par\medskip")
+        return lines
+
+    embedded = _split_embedded_math(text)
+    if any(kind == "math" for kind, _ in embedded):
+        lines = []
+        for kind, value in embedded:
+            if kind == "math":
+                lines.append(
+                    r"\AuroreMathBlock{Formule ou relation}{" +
+                    normalize_math(value) + r"}"
+                )
+            else:
+                rendered = inline(value, auto_math=auto_math)
                 if rendered.strip():
                     lines.append(rendered)
-                    lines.append(r"\par\medskip")
+                    lines.append(r"\par\smallskip")
         return lines
 
     rendered = inline(text, auto_math=auto_math)
@@ -3375,8 +3459,8 @@ def render(data):
         r"  \end{tcolorbox}%",
         r"}",
         r"\newcommand{\AuroreMathBlock}[2]{%",
-        r"  \begin{tcolorbox}[enhanced,breakable,arc=14pt,outer arc=14pt,boxrule=.55pt,colframe=auroreprimary!60!white,colback=white!98!aurorepale,leftrule=2.2pt,left=12pt,right=12pt,top=9pt,bottom=9pt,before skip=10pt,after skip=12pt,halign=center,drop shadow]%",
-        r"    \AurorePill{#1}\par\smallskip",
+        r"  \begin{tcolorbox}[enhanced,breakable,arc=8pt,outer arc=8pt,boxrule=.45pt,colframe=auroreprimary!58!white,colback=white!99!aurorepale,leftrule=1.6pt,left=7pt,right=7pt,top=3.5pt,bottom=4.5pt,before skip=5pt,after skip=6pt,halign=center,pad at break*=1mm]%",
+        r"    {\sffamily\scriptsize\bfseries\color{auroredeep}#1}\par\vspace{1pt}",
         r"    \begin{equation*}\displaystyle #2\end{equation*}%",
         r"  \end{tcolorbox}%",
         r"}",
