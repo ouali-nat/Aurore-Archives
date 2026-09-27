@@ -109,7 +109,11 @@ jobs:
               "exp''(x)=exp(x)>0",
               "e^(2x)=(e^x)^2",
           ])
-          if formula_block.count(r"\AuroreMathBlock{Formule utile}") != 3:
+          formula_box_count = (
+              formula_block.count(r"\AuroreMathCompact{Formule utile}") +
+              formula_block.count(r"\AuroreMathBlock{Formule utile}")
+          )
+          if formula_box_count != 3:
               raise SystemExit(f"Formula-list rendering regression: {formula_block!r}")
           if r"\AuroreFormulaBlock{" in formula_block:
               raise SystemExit(f"Formula-list compatibility wrapper leaked: {formula_block!r}")
