@@ -541,59 +541,145 @@ jobs:
           python3 - <<'PY'
           import json
           from pathlib import Path
-          src = json.loads(Path("infra/lualatex/production/document-response.json").read_text())
-          document = src.get("document")
-          if not document or "content_json" not in document:
-              raise SystemExit("Source endpoint did not return document.content_json")
-          payload = json.loads(Path("infra/lualatex/production/document-response.json").read_text())
-          content = document["content_json"] if isinstance(document["content_json"], dict) else {}
-          existing_identity = content.get("_aurore_document") if isinstance(content.get("_aurore_document"), dict) else {}
-          content["_aurore_document"] = {
-              **existing_identity,
-              "id": int(document["id"]),
-              "created_at": document.get("created_at"),
-              "version": int(document.get("version") or 1),
-              "title": document.get("title"),
-          }
-          # Preserve classification/visual metadata alongside content_json.
-          # The renderer receives content_json as its document.json, so these
-          # fields must not be lost when the source is fetched from Supabase.
-          # Category is a hard contract: courses and exercise sheets must keep
-          # their editorial path through generation and regeneration.
-          for key in (
-              "subject", "matiere", "level", "class_name", "document_type",
-              "theme_color", "themeColor", "domaine", "formation",
-              "specialite", "annee", "semestre", "filiere"
-          ):
-              if document.get(key) is not None and key not in content:
-                  content[key] = document.get(key)
-          if isinstance(document.get("metadata"), dict):
-              for key in ("visual_plan", "visuals", "aurore_design"):
-                  if key in document["metadata"] and key not in content:
-                      content[key] = document["metadata"][key]
-          graph_assets = payload.get("graph_assets") or []
-          if graph_assets:
-              from urllib.request import urlopen
-              assets_dir = Path("infra/lualatex/production/assets")
-              assets_dir.mkdir(parents=True, exist_ok=True)
-              for asset in graph_assets:
-                  si = int(asset["section_index"])
-                  gi = int(asset["graph_index"])
-                  url = str(asset["url"])
-                  ext = Path(str(asset.get("path") or "")).suffix or ".png"
-                  local = assets_dir / f"graph-{si+1}-{gi+1}{ext}"
-                  with urlopen(url, timeout=30) as response:
-                      local.write_bytes(response.read())
-                  content["sections"][si]["graphs"][gi]["graph_local_path"] = str(local.relative_to(Path("infra/lualatex/production")))
-                  print(f"Fetched GeoGebra asset: {local}")
-          Path("infra/lualatex/production/document.json").write_text(
-              json.dumps(content, ensure_ascii=False, indent=2)
-          )
-          print(f"Fetched {document['id']}: {document['title']} (GeoGebra assets: {len(graph_assets)})")
+          from urllib.parse import quote
+          from urllib.request import urlopen
+
+          root = Path("infra/lualatex/production")
+          payload = json.loads((root / "document-response.json").read_text(encoding="utf-8"))
+          document = payload.get("document")
+          if not document:
+              raise SystemExit("Source endpoint did not return a document")
+
+          source_format = str(document.get("source_format") or "structured").strip().lower()
+          metadata = document.get("metadata") if isinstance(document.get("metadata"), dict) else {}
+
+          if source_format == "latex":
+              manifest = metadata.get("source_library")
+              if not isinstance(manifest, dict):
+                  raise SystemExit("Native LaTeX document is missing metadata.source_library")
+              bucket = str(manifest.get("bucket") or "source-library").strip()
+              entrypoint = str(manifest.get("entrypoint") or "").strip()
+              files = manifest.get("files")
+              if not entrypoint or not isinstance(files, list) or entrypoint not in [str(x) for x in files]:
+                  raise SystemExit("Native LaTeX source manifest must declare an entrypoint and include it in files")
+
+              base_url = f"https://tdeotqfsbvouresfhkab.supabase.co/storage/v1/object/public/{quote(bucket, safe='')}"
+              downloaded = []
+              for item in files:
+                  rel = str(item or "").strip()
+                  if not rel:
+                      continue
+                  rel_path = Path(rel)
+                  if rel_path.is_absolute() or ".." in rel_path.parts:
+                      raise SystemExit(f"Unsafe native source path: {rel}")
+                  destination = root / rel_path
+                  destination.parent.mkdir(parents=True, exist_ok=True)
+                  url = base_url + "/" + quote(rel, safe="/")
+                  with urlopen(url, timeout=45) as response:
+                      destination.write_bytes(response.read())
+                  if destination.stat().st_size == 0:
+                      raise SystemExit(f"Native source download is empty: {rel}")
+                  downloaded.append(rel)
+
+              entrypoint_path = root / Path(entrypoint)
+              if not entrypoint_path.is_file():
+                  raise SystemExit(f"Native LaTeX entrypoint was not downloaded: {entrypoint}")
+              raw_meta = dict(metadata)
+              raw_meta["native_source_downloaded_files"] = downloaded
+              raw_document = {
+                  "source_format": "latex",
+                  "source_content": document.get("source_content"),
+                  "_raw_latex_source_path": str(entrypoint_path),
+                  "_aurore_document": {
+                      "id": int(document["id"]),
+                      "created_at": document.get("created_at"),
+                      "version": int(document.get("version") or 1),
+                      "title": document.get("title"),
+                  },
+                  "title": document.get("title"),
+                  "subject": document.get("subject"),
+                  "level": document.get("level"),
+                  "class_name": document.get("class_name"),
+                  "document_type": document.get("document_type"),
+                  "metadata": raw_meta,
+              }
+              (root / "document.json").write_text(
+                  json.dumps(raw_document, ensure_ascii=False, indent=2),
+                  encoding="utf-8",
+              )
+              (root / "document.visual-qa.json").write_text(
+                  json.dumps({
+                      "mode": "native_latex",
+                      "status": "pass",
+                      "planned": 0,
+                      "selected": 0,
+                      "retrieved": 0,
+                      "embedded": 0,
+                      "failed": 0,
+                      "source_files": len(downloaded),
+                  }, ensure_ascii=False, indent=2),
+                  encoding="utf-8",
+              )
+              (root / "native-latex").write_text("true")
+              print(
+                  f"Native LaTeX source prepared: {document['id']} / {document['title']} "
+                  f"(entrypoint={entrypoint}, files={len(downloaded)})"
+              )
+          else:
+              content = document.get("content_json") if isinstance(document.get("content_json"), dict) else {}
+              if not content:
+                  raise SystemExit("Structured source endpoint did not return document.content_json")
+
+              existing_identity = content.get("_aurore_document") if isinstance(content.get("_aurore_document"), dict) else {}
+              content["_aurore_document"] = {
+                  **existing_identity,
+                  "id": int(document["id"]),
+                  "created_at": document.get("created_at"),
+                  "version": int(document.get("version") or 1),
+                  "title": document.get("title"),
+              }
+              for key in (
+                  "subject", "matiere", "level", "class_name", "document_type",
+                  "theme_color", "themeColor", "domaine", "formation",
+                  "specialite", "annee", "semestre", "filiere"
+              ):
+                  if document.get(key) is not None and key not in content:
+                      content[key] = document.get(key)
+              if isinstance(document.get("metadata"), dict):
+                  for key in ("visual_plan", "visuals", "aurore_design"):
+                      if key in document["metadata"] and key not in content:
+                          content[key] = document["metadata"][key]
+
+              graph_assets = payload.get("graph_assets") or []
+              if graph_assets:
+                  assets_dir = root / "assets"
+                  assets_dir.mkdir(parents=True, exist_ok=True)
+                  for asset in graph_assets:
+                      si = int(asset["section_index"])
+                      gi = int(asset["graph_index"])
+                      url = str(asset["url"])
+                      ext = Path(str(asset.get("path") or "")).suffix or ".png"
+                      local = assets_dir / f"graph-{si+1}-{gi+1}{ext}"
+                      with urlopen(url, timeout=30) as response:
+                          local.write_bytes(response.read())
+                      content["sections"][si]["graphs"][gi]["graph_local_path"] = str(
+                          local.relative_to(root)
+                      )
+                      print(f"Fetched GeoGebra asset: {local}")
+
+              (root / "document.json").write_text(
+                  json.dumps(content, ensure_ascii=False, indent=2),
+                  encoding="utf-8",
+              )
+              (root / "structured-document").write_text("true")
+              print(
+                  f"Fetched {document['id']}: {document['title']} "
+                  f"(GeoGebra assets: {len(graph_assets)})"
+              )
           PY
 
       - name: Detect missing GeoGebra assets
-        if: hashFiles('infra/lualatex/production/document-id') != ''
+        if: hashFiles('infra/lualatex/production/document-id') != '' && hashFiles('infra/lualatex/production/structured-document') != ''
         working-directory: infra/lualatex
         run: |
           python3 - <<'PY'
@@ -682,7 +768,7 @@ jobs:
           PY
 
       - name: Render missing GeoGebra assets server-side
-        if: hashFiles('infra/lualatex/production/document-id') != '' && hashFiles('infra/lualatex/production/geogebra-required') != ''
+        if: hashFiles('infra/lualatex/production/document-id') != '' && hashFiles('infra/lualatex/production/structured-document') != '' && hashFiles('infra/lualatex/production/geogebra-required') != ''
         run: |
           npm init -y >/dev/null 2>&1
           npm install --no-save playwright@1.63.0
@@ -691,7 +777,7 @@ jobs:
           DOCUMENT_ID="$DOCUMENT_ID" node infra/geogebra/render_missing_graphs.mjs
 
       - name: Verify GeoGebra assets before LaTeX
-        if: hashFiles('infra/lualatex/production/document-id') != ''
+        if: hashFiles('infra/lualatex/production/document-id') != '' && hashFiles('infra/lualatex/production/structured-document') != ''
         working-directory: infra/lualatex
         run: |
           python3 - <<'PY'
@@ -916,11 +1002,33 @@ jobs:
               raise SystemExit("Renderer smoke check failed: GeoGebra graph was not emitted")
 
           Path("production/smoke/document.tex").write_text(tex, encoding="utf-8")
+          raw_source = r"""\\documentclass{article}
+\\begin{document}
+Source native \\textbf{Aurore}.
+\\end{document}
+"""
+          Path("production/smoke/native-source.tex").write_text(raw_source, encoding="utf-8")
+          Path("production/smoke/native-source.json").write_text(
+              __import__("json").dumps({
+                  "source_format": "latex",
+                  "_raw_latex_source_path": str(Path("production/smoke/native-source.tex")),
+              }),
+              encoding="utf-8",
+          )
+          import subprocess
+          subprocess.run(
+              [sys.executable, "render_document.py", "production/smoke/native-source.json", "-o", "production/smoke/native-output.tex"],
+              check=True,
+          )
+          if Path("production/smoke/native-output.tex").read_text(encoding="utf-8") != raw_source:
+              raise SystemExit("Native LaTeX preservation smoke test failed")
+          print("Native LaTeX preservation smoke test passed")
           PY
           lualatex -no-shell-escape -interaction=nonstopmode -halt-on-error \
             -output-directory=production/smoke production/smoke/document.tex
           test -s production/smoke/document.pdf
           test "$(head -c 5 production/smoke/document.pdf)" = "%PDF-"
+
 
       - name: Mark renderer ready
         if: hashFiles('infra/lualatex/production/document-id') != ''
@@ -976,7 +1084,7 @@ jobs:
           echo "Visual QA persisted in Supabase."
 
       - name: Verify GeoGebra inclusion in LaTeX source
-        if: hashFiles('infra/lualatex/production/document-id') != ''
+        if: hashFiles('infra/lualatex/production/document-id') != '' && hashFiles('infra/lualatex/production/structured-document') != ''
         working-directory: infra/lualatex
         run: |
           python3 - <<'PY'

@@ -3868,6 +3868,23 @@ def main():
     data = json.loads(src.read_text(encoding="utf-8"))
     out.parent.mkdir(parents=True, exist_ok=True)
 
+    # Native-source mode: preserve the original LaTeX layout verbatim and let
+    # the existing LuaLaTeX environment validate/compile it. The workflow
+    # downloads the source and its declared assets before calling this renderer.
+    if str(data.get("source_format") or "").strip().lower() == "latex":
+        raw_source = str(data.get("_raw_latex_source_path") or "").strip()
+        if not raw_source:
+            raise SystemExit("Native LaTeX source path is missing")
+        raw_path = Path(raw_source)
+        if not raw_path.is_file():
+            raise SystemExit(f"Native LaTeX source file not found: {raw_path}")
+        raw_tex = raw_path.read_text(encoding="utf-8")
+        if "\\documentclass" not in raw_tex:
+            raise SystemExit("Native LaTeX source must contain a \\documentclass")
+        out.write_text(raw_tex, encoding="utf-8")
+        print(f"Native LaTeX source preserved: {raw_path} -> {out}")
+        return
+
     if not _has_usable_content_json(data):
         raise SystemExit("Structured content_json is missing or unusable")
 
