@@ -1079,6 +1079,18 @@ jobs:
               print("Source type: native LaTeX fragment; compilation wrapper will be prepared next")
           PY
 
+      - name: Inspect native LaTeX header
+        if: success() && hashFiles('infra/lualatex/production/document-id') != ''
+        working-directory: infra/lualatex
+        run: |
+          echo "===== Native LaTeX header ====="
+          sed -n '1,40p' production/document.tex
+          echo "===== Document class declarations ====="
+          grep -nE '\\documentclass|\\usepackage|\\chapter' production/document.tex | head -40 || true
+          echo "===== First class-related files ====="
+          find production -maxdepth 1 -type f \( -name '*.cls' -o -name '*.sty' \) -printf '%f\n' | sort | head -40
+          echo "===== End native header ====="
+
       - name: Prepare native LaTeX compilation wrapper
         if: success()
         working-directory: infra/lualatex
