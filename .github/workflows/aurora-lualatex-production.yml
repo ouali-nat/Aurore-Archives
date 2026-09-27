@@ -747,7 +747,16 @@ jobs:
               "sections": [
                   {
                       "title": "Section test",
-                      "content": ["Contenu de validation."],
+                      "content": [
+                          "Une définition présente la notion fondamentale et son vocabulaire.",
+                          "Une propriété utile permet de relier directement les grandeurs étudiées.",
+                          "La méthode consiste à identifier les données puis à choisir la relation adaptée.",
+                          "Un exemple numérique montre comment appliquer la relation dans une situation concrète.",
+                          "Une remarque signale une condition de validité importante à ne pas oublier.",
+                          "Une conclusion rappelle le résultat et son interprétation physique.",
+                          "$f'(x)=e^x$",
+                          "La mise en forme doit garder les expressions mathématiques distinctes du texte.",
+                      ],
                       "formula": [
                           "f'(x)=exp(x)",
                           "exp''(x)=exp(x)>0",
@@ -765,6 +774,8 @@ jobs:
           tex = render(data)
           required = [
               r"\AuroreTitleBlock",
+              r"\AuroreMathBlock",
+              r"\begin{multicols}{2}",
               r"width=1.74cm,height=1.74cm",
               r"width=1.42cm,height=1.42cm",
               r"\raisebox{0.62cm}[2.30cm][0pt]{\qrcode",
