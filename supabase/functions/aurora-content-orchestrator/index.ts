@@ -7,107 +7,42 @@ const URL=Deno.env.get("SUPABASE_URL")||"";
 const ANON=Deno.env.get("SUPABASE_ANON_KEY")||"";
 const SERVICE_ROLE=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")||"";
 const PROTOCOL="aurore-content-orchestrator-v1";
-const MODEL="deepseek-flash";
+const EDITOR_ENGINE="ChatGPT";
 
 async function auth(req){
   const h=req.headers.get("Authorization")||"";
   if(!h.startsWith("Bearer "))throw new Error("Session administrateur absente.");
-  if(!URL||!ANON)throw new Error("Configuration Supabase interne absente.");
+  if(!URL||!ANON||!SERVICE_ROLE)throw new Error("Configuration Supabase interne absente.");
   const r=await fetch(URL+"/auth/v1/user",{headers:{Authorization:h,apikey:ANON}});
   if(!r.ok)throw new Error("Session Supabase invalide ou expirée.");
   const user=await r.json();
-  if(!SERVICE_ROLE)throw new Error("Configuration administrateur interne absente.");
   const pr=await fetch(URL+"/rest/v1/Profils?id=eq."+encodeURIComponent(user.id)+"&select=role",{headers:{apikey:SERVICE_ROLE,Authorization:"Bearer "+SERVICE_ROLE}});
-  const rows=pr.ok?await pr.json().catch(()=>[]):[];
+  if(!pr.ok)throw new Error("Vérification du rôle administrateur impossible.");
+  const rows=await pr.json().catch(()=>[]);
   if(!rows[0]||String(rows[0].role||"").toLowerCase()!=="admin")throw new Error("Accès administrateur requis.");
   return user;
 }
 
-function buildPrompt(action,b){
-  const task=b&&typeof b.task==="object"?b.task:{};
-  const context=b&&typeof b.context==="object"?b.context:{};
-  const example=action==="discover_chapters"
-    ?'{"chapters":[{"id":"chapitre-1","title":"Titre","description":"Description","order":1}]}'
-    :'{"title":"Titre","document_type":"cours","description":"Description","objectives":["Objectif"],"content_plan":["Partie 1"],"exercise_plan":{"count":8,"correction":true},"tools":{"latex":true,"geogebra":false}}';
-  let p="Tu es Aurore, une assistante générale utilisée sur plusieurs sites. Tu n'es pas une professeure de mathématiques par défaut.\n";
-  p+="La classe et la matière sont des données directrices : ne les remplace jamais par une autre discipline.\n";
-  p+="Tu es ici un éditeur pédagogique et organisateur de production. Tu prépares une ressource avant sa rédaction complète et avant son PDF.\n";
-  p+="Les réponses sont des PROPOSITIONS soumises à validation humaine. Ne génère pas de PDF, ne lance aucun outil graphique, ne révèle jamais ta chaîne de pensée privée.\n";
-  p+="Retourne UNIQUEMENT un objet JSON valide. N'invente pas de caractère officiel à un programme scolaire sans source fournie.\n";
-  p+="PROTOCOLE: "+PROTOCOL+"\nACTION: "+action+"\nTÂCHE:\n"+JSON.stringify(task)+"\nCONTEXTE:\n"+JSON.stringify(context)+"\nJSON ATTENDU:\n"+example+"\n";
-  if(action==="discover_chapters")p+="Propose 4 à 16 chapitres plausibles et distincts adaptés à la classe et à la matière. Indique qu'il s'agit de propositions à valider.";
-  if(action==="build_editorial_proposal")p+="Transforme la classe, la matière et le chapitre choisi en brief éditorial précis. Ne rédige pas le cours complet. Donne titre, type, description, objectifs, plan, exercices et outils réellement utiles.";
-  if(action==="revise_editorial_proposal")p+="Révise la proposition courante selon la demande de l'administrateur et retourne la proposition complète révisée.";
-  return p;
+function buildBrief(action,task,context){
+  const chapter=context.chapter&&typeof context.chapter==="object"?context.chapter:{},workflow=context.workflow&&typeof context.workflow==="object"?context.workflow:{};
+  if(action==="discover_chapters")return ["Aurore — éditeur ChatGPT","Tâche : "+clean(task.id,80),"Classe : "+clean(task.class_name,200),"Matière : "+clean(task.subject,200),"","Propose 4 à 16 chapitres plausibles et distincts adaptés à la classe et à la matière.","Ne génère aucun PDF et ne lance aucun moteur de rendu.","Retourne uniquement le JSON {chapters:[{id,title,description,order}]}."].join("\n");
+  if(action==="build_editorial_proposal")return ["Aurore — proposition éditoriale ChatGPT","Tâche : "+clean(task.id,80),"Classe : "+clean(task.class_name,200),"Matière : "+clean(task.subject,200),"Chapitre : "+clean(chapter.title,220),"","Prépare uniquement la proposition éditoriale.","Retourne uniquement le JSON avec title, document_type, description, objectives, content_plan, exercise_plan et tools.","Ne génère aucun PDF et ne lance aucun moteur de rendu."].join("\n");
+  return ["Aurore — révision éditoriale ChatGPT","Tâche : "+clean(task.id,80),"Classe : "+clean(task.class_name,200),"Matière : "+clean(task.subject,200),"Chapitre : "+clean((workflow.selected_chapter||{}).title,220),"Demande : "+clean(workflow.revision_request,1200),"","Révise la proposition courante et retourne uniquement la proposition complète au même format JSON.","Ne génère aucun PDF et ne lance aucun moteur de rendu."].join("\n");
 }
 
-async function callAI(prompt){
-  const key=clean(Deno.env.get("DEEPSEEK_API_KEY"),10000);
-  if(!key)throw new Error("DEEPSEEK_API_KEY absente des secrets Supabase.");
-  const r=await fetch("https://api.deepseek.com/chat/completions",{
-    method:"POST",
-    headers:{"Content-Type":"application/json",Authorization:"Bearer "+key},
-    body:JSON.stringify({
-      model:MODEL,
-      messages:[{role:"system",content:prompt},{role:"user",content:"Produis maintenant le JSON demandé, sans commentaire hors JSON."}],
-      thinking:{type:"disabled"},reasoning_effort:"none",temperature:0.2,max_tokens:3000,
-      response_format:{type:"json_object"},stream:false
-    })
-  });
-  const raw=await r.text();
-  if(!r.ok)throw new Error("DeepSeek HTTP "+r.status+": "+raw.slice(0,900));
-  let data;try{data=JSON.parse(raw)}catch(_){throw new Error("Réponse DeepSeek illisible.");}
-  const text=String(data&&data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content||"").trim();
-  if(!text)throw new Error("DeepSeek a retourné un JSON vide.");
-  let result;try{result=JSON.parse(text)}catch(_){throw new Error("La sortie JSON de l'éditeur est invalide.");}
-  return {result,model:String(data.model||MODEL),usage:data.usage||{},finish_reason:data.choices&&data.choices[0]&&data.choices[0].finish_reason||null};
-}
-
-function validate(action,r){
-  if(!r||typeof r!=="object"||Array.isArray(r))throw new Error("Résultat éditorial invalide.");
-  if(action==="discover_chapters"){
-    if(!Array.isArray(r.chapters)||r.chapters.length<1||r.chapters.length>16)throw new Error("La liste des chapitres est invalide.");
-    r.chapters=r.chapters.slice(0,16).map(function(x,i){
-      let id=clean(x&&x.id,100).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")||"chapitre-"+(i+1);
-      return {id:id,title:clean(x&&x.title,220)||"Chapitre "+(i+1),description:clean(x&&x.description,500),order:Number.isFinite(Number(x&&x.order))?Number(x.order):i+1};
-    });
-    return;
-  }
-  ["title","description"].forEach(function(k){if(!clean(r[k],700))throw new Error("Champ éditorial manquant : "+k+".")});
-  if(!Array.isArray(r.objectives)||!r.objectives.length)throw new Error("Les objectifs éditoriaux sont obligatoires.");
-  if(!Array.isArray(r.content_plan)||!r.content_plan.length)throw new Error("Le plan de contenu est obligatoire.");
-  r.objectives=r.objectives.slice(0,12).map(x=>clean(x,400)).filter(Boolean);
-  r.content_plan=r.content_plan.slice(0,20).map(x=>clean(x,400)).filter(Boolean);
-  const ep=r.exercise_plan&&typeof r.exercise_plan==="object"?r.exercise_plan:{};
-  r.exercise_plan={count:Math.max(0,Math.min(30,Number(ep.count)||0)),correction:ep.correction!==false};
-  const t=r.tools&&typeof r.tools==="object"?r.tools:{};
-  r.tools={latex:t.latex===true,geogebra:t.geogebra===true};
-}
-
-Deno.serve(async function(req){
+Deno.serve(async(req)=>{
   if(req.method==="OPTIONS")return new Response("ok",{status:204,headers:CORS});
   if(req.method!=="POST")return reply({ok:false,error:"Méthode POST requise."},405);
   try{
     await auth(req);
-    const b=await req.json().catch(()=>({}));
-    const action=clean(b.action,80);
-    if(["discover_chapters","build_editorial_proposal","revise_editorial_proposal"].indexOf(action)<0)return reply({ok:false,error:"Action inconnue."},400);
-    const task=b.task&&typeof b.task==="object"?b.task:{};
-    if(!clean(task.class_name,200)||!clean(task.subject,200))return reply({ok:false,error:"class_name et subject sont obligatoires."},400);
-    if(action!=="discover_chapters"&&!(task.chapter&&typeof task.chapter==="object"))return reply({ok:false,error:"Le chapitre choisi est obligatoire."},400);
-    const started=Date.now();
-    const out=await callAI(buildPrompt(action,b));
-    validate(action,out.result);
-    return reply({
-      ok:true,protocol:PROTOCOL,task_id:b.task_id||null,action:action,status:"completed",result:out.result,
-      presentation:action==="discover_chapters"
-        ?{component:"chapter_selector",selection:"single",title:"Chapitres proposés à valider"}
-        :{component:"editorial_proposal",actions:["edit","request_revision","reject","validate"],title:"Proposition éditoriale à valider"},
-      provenance:{provider:"deepseek",model:out.model,usage:out.usage,finish_reason:out.finish_reason,generated_at:new Date().toISOString(),elapsed_ms:Date.now()-started}
-    });
-  }catch(e){
-    const msg=clean(e instanceof Error?e.message:e,1600);
-    const m=msg.match(/HTTP (\d{3})/);const code=m?Number(m[1]):500;
-    return reply({ok:false,protocol:PROTOCOL,error:msg,status:"failed"},code>=400&&code<500?code:500);
+    const body=await req.json().catch(()=>({}));
+    const action=clean(body?.action,80);
+    const task=body?.task&&typeof body.task==="object"?body.task:{};
+    const context=body?.context&&typeof body.context==="object"?body.context:{};
+    if(!["discover_chapters","build_editorial_proposal","revise_editorial_proposal"].includes(action))return reply({ok:false,protocol:PROTOCOL,error:"Action inconnue."},400);
+    if(!clean(task.class_name,200)||!clean(task.subject,200))return reply({ok:false,protocol:PROTOCOL,error:"class_name et subject sont obligatoires."},400);
+    return reply({ok:true,protocol:PROTOCOL,task_id:body?.task_id||task.id||null,action,status:"awaiting_external_editor",editor:{provider:EDITOR_ENGINE,mode:"external_conversation",pdf_generation:false},result:{brief:buildBrief(action,task,context),requires_chatgpt_response:true},presentation:action==="discover_chapters"?{component:"chapter_import",selection:"single",title:"Importer les chapitres proposés par ChatGPT"}:{component:"editorial_proposal_import",actions:["edit","request_revision","reject","validate"],title:"Importer la proposition éditoriale ChatGPT"}});
+  }catch(error){
+    return reply({ok:false,protocol:PROTOCOL,status:"failed",error:clean(error instanceof Error?error.message:error,1600)},500);
   }
 });

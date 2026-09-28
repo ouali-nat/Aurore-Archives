@@ -3,6 +3,7 @@
 if(typeof window==='undefined'||window.__auroreContentOrchestratorAdmin)return;
 window.__auroreContentOrchestratorAdmin=true;
 const PROTOCOL='aurore-content-orchestrator-v1';
+const EDITOR_ENGINE='ChatGPT';
 const esc=v=>{const d=document.createElement('div');d.textContent=String(v==null?'':v);return d.innerHTML};
 const panel=()=>document.querySelector('.admin-tab-panel[data-panel="aurora-request"]');
 
@@ -31,13 +32,6 @@ async function rest(path,options={}){
   return data;
 }
 async function rpc(name,body){return rest('/rest/v1/rpc/'+name,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})})}
-async function callAurore(action,task,context){
-  const token=await getToken();
-  const r=await fetch(SUPABASE_URL+'/functions/v1/aurora-content-orchestrator',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token,apikey:SUPABASE_ANON_KEY},body:JSON.stringify({protocol:PROTOCOL,task_id:task.id,action,task,context:context||{}})});
-  const raw=await r.text();let data=null;try{data=raw?JSON.parse(raw):null}catch(_){data={error:raw}}
-  if(!r.ok||!data?.ok)throw new Error(data?.error||('Aurore HTTP '+r.status));
-  return data;
-}
 async function getJob(id){
   const rows=await rest('/rest/v1/aurora_content_jobs?id=eq.'+encodeURIComponent(Number(id))+'&select=id,status,title,subject,level,class_name,document_type,metadata,created_at,updated_at');
   return Array.isArray(rows)?rows[0]||null:null;
@@ -58,17 +52,20 @@ async function patchWorkflow(id,patch){
 async function createTask(cls,sub){
   const result=await rpc('aurora_create_content_job',{
     p_title:'Préparation — '+cls+' — '+sub,p_subject:sub,p_level:cls,p_class_name:cls,p_document_type:'cours',
-    p_prompt:'Orchestration éditoriale Aurore : découvrir les chapitres puis préparer une proposition à valider humainement. Aucun PDF à cette étape.',
-    p_instructions:{
-      source:'admin_orchestrator',origin:'aurore_content_orchestrator',queue:'manual',category:'Documents',
-      rights_confirmed:true,manual_publication_only:true,lualatex_requested:false,
-      editorial:{role:'orchestrator',engine:'DeepSeek',schema_version:PROTOCOL,status:'draft'},
+    p_prompt:'Préparation éditoriale Aurore : l’éditeur est ChatGPT dans une conversation dédiée. Aucun moteur IA du site et aucun PDF ne sont sollicités à cette étape.',
+    p_instructions:{source:'admin_orchestrator',origin:'aurore_content_orchestrator',queue:'manual',category:'Documents',rights_confirmed:true,manual_publication_only:true,lualatex_requested:false,pdf_launch_mode:'manual',auto_pdf_launch:false,
+      editorial:{role:'editor',engine:EDITOR_ENGINE,schema_version:'aurora-editorial-1',status:'awaiting_editor'},
       classification:{level:cls,class_name:cls,subject:sub,category:'Documents',resource_type:'cours'},
-      workflow:{protocol:PROTOCOL,stage:'initiale',proposal_version:0,user_validated:false,manual_pdf_only:true}
+      workflow:{protocol:PROTOCOL,stage:'initiale',proposal_version:0,user_validated:false,manual_pdf_only:true,editorial_engine:EDITOR_ENGINE}
     }
   });
   const id=Number(result);
   if(!Number.isSafeInteger(id)||id<1)throw new Error('Identifiant de demande invalide.');
+  const row=await getJob(id);
+  if(row){
+    const metadata={...(row.metadata||{}),manual_publication_only:true,pdf_launch_mode:'manual',auto_pdf_launch:false,editorial_engine:EDITOR_ENGINE,workflow:{...((row.metadata||{}).workflow||{}),protocol:PROTOCOL,stage:'initiale',editorial_engine:EDITOR_ENGINE}};
+    await rest('/rest/v1/aurora_content_jobs?id=eq.'+encodeURIComponent(id),{method:'PATCH',headers:{'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify({status:'draft',metadata,updated_at:new Date().toISOString()})});
+  }
   return getJob(id);
 }
 function injectStyle(){
@@ -78,28 +75,71 @@ function injectStyle(){
   document.head.appendChild(s);
 }
 function proposalHTML(p,w){
-  const objectives=Array.isArray(p.objectives)?p.objectives:[],plan=Array.isArray(p.content_plan)?p.content_plan:[],editing=w.editing===true,validated=w.user_validated===true;
-  if(editing)return '<div class="aurore-proposal-edit"><label class="aurore-flow-field"><span>Titre</span><input id="auroreProposalTitle" value="'+esc(p.title)+'"></label><label class="aurore-flow-field"><span>Description</span><textarea id="auroreProposalDescription">'+esc(p.description)+'</textarea></label><label class="aurore-flow-field"><span>Objectifs (un par ligne)</span><textarea id="auroreProposalObjectives">'+esc(objectives.join('\n'))+'</textarea></label><label class="aurore-flow-field"><span>Plan (un par ligne)</span><textarea id="auroreProposalPlan">'+esc(plan.join('\n'))+'</textarea></label><label class="aurore-flow-field"><span>Nombre d’exercices</span><input id="auroreProposalExercises" type="number" min="0" max="30" value="'+esc(p.exercise_plan?.count||0)+'"></label><div class="aurore-flow-actions"><button type="button" class="admin-btn primary" id="auroreProposalSave">Enregistrer</button><button type="button" class="admin-btn ghost" id="auroreProposalCancelEdit">Annuler</button></div></div>';
-  return '<div class="aurore-proposal-line"><strong>Titre</strong>'+esc(p.title)+'</div><div class="aurore-proposal-line"><strong>Description</strong>'+esc(p.description)+'</div><div class="aurore-proposal-line"><strong>Objectifs</strong>'+objectives.map(x=>'<div>• '+esc(x)+'</div>').join('')+'</div><div class="aurore-proposal-line"><strong>Plan</strong>'+plan.map(x=>'<div>• '+esc(x)+'</div>').join('')+'</div><div class="aurore-proposal-line"><strong>Exercices</strong>'+esc(p.exercise_plan?.count||0)+' · '+(p.exercise_plan?.correction!==false?'corrigés prévus':'sans corrigé')+'</div><div class="aurore-flow-actions">'+(validated?'<button type="button" class="admin-btn primary" id="aurorePrepareProduction">Préparer la production</button><button type="button" class="admin-btn ghost" id="auroreProposalUnvalidate">Revenir en révision</button>':'<button type="button" class="admin-btn ghost" id="auroreProposalEdit">Modifier</button><button type="button" class="admin-btn ghost" id="auroreProposalRevision">Demander une révision</button><button type="button" class="admin-btn primary" id="auroreProposalValidate">Valider la proposition</button>')+'</div><div class="aurore-flow-status">'+(validated?'Proposition validée par l’administrateur.':'Proposition en attente de validation humaine.')+'</div>';
+  const objectives=Array.isArray(p.objectives)?p.objectives:[],plan=Array.isArray(p.content_plan)?p.content_plan:[],editing=w.editing===true,validated=w.user_validated===true,rejected=w.stage==='rejected';
+  if(editing)return '<div class="aurore-proposal-edit"><label class="aurore-flow-field"><span>Titre</span><input id="auroreProposalTitle" value="'+esc(p.title)+'"></label><label class="aurore-flow-field"><span>Description</span><textarea id="auroreProposalDescription">'+esc(p.description)+'</textarea></label><label class="aurore-flow-field"><span>Objectifs (un par ligne)</span><textarea id="auroreProposalObjectives">'+esc(objectives.join('\\n'))+'</textarea></label><label class="aurore-flow-field"><span>Plan (un par ligne)</span><textarea id="auroreProposalPlan">'+esc(plan.join('\\n'))+'</textarea></label><label class="aurore-flow-field"><span>Nombre d’exercices</span><input id="auroreProposalExercises" type="number" min="0" max="30" value="'+esc(p.exercise_plan?.count||0)+'"></label><div class="aurore-flow-actions"><button type="button" class="admin-btn primary" id="auroreProposalSave">Enregistrer</button><button type="button" class="admin-btn ghost" id="auroreProposalCancelEdit">Annuler</button></div></div>';
+  return '<div class="aurore-proposal-line"><strong>Titre</strong>'+esc(p.title)+'</div><div class="aurore-proposal-line"><strong>Description</strong>'+esc(p.description)+'</div><div class="aurore-proposal-line"><strong>Objectifs</strong>'+objectives.map(x=>'<div>• '+esc(x)+'</div>').join('')+'</div><div class="aurore-proposal-line"><strong>Plan</strong>'+plan.map(x=>'<div>• '+esc(x)+'</div>').join('')+'</div><div class="aurore-proposal-line"><strong>Exercices</strong>'+esc(p.exercise_plan?.count||0)+' · '+(p.exercise_plan?.correction!==false?'corrigés prévus':'sans corrigé')+'</div><div class="aurore-proposal-line"><strong>Circuit</strong>Éditeur : ChatGPT · PDF : pipeline Aurore manuel</div><div class="aurore-flow-actions">'+(validated?'<button type="button" class="admin-btn primary" id="aurorePrepareProduction">Préparer la production</button><button type="button" class="admin-btn ghost" id="auroreProposalUnvalidate">Revenir en révision</button>':rejected?'<button type="button" class="admin-btn ghost" id="auroreProposalEdit">Réouvrir</button>':'<button type="button" class="admin-btn ghost" id="auroreProposalEdit">Modifier</button><button type="button" class="admin-btn ghost" id="auroreProposalRevision">Préparer une révision ChatGPT</button><button type="button" class="admin-btn ghost" id="auroreProposalReject">Rejeter</button><button type="button" class="admin-btn primary" id="auroreProposalValidate">Valider la proposition</button>')+'</div><div class="aurore-flow-status">'+(validated?'Proposition validée par l’administrateur.':rejected?'Proposition rejetée par l’administrateur.':'Proposition en attente de validation humaine.')+'</div>';
 }
 async function refresh(state,id){
   state.tasks=await listJobs();
   state.task=await getJob(id);
   render(document.getElementById('auroreContentOrchestrator'),state);
 }
+function buildChatGPTBrief(state,kind,note){
+  const t=state.task,w=t?.metadata?.workflow||{},ch=w.selected_chapter||{};
+  if(kind==='chapters')return ['Aurore — éditeur ChatGPT','','Tâche : '+t.id,'Classe : '+(t.class_name||''),'Matière : '+(t.subject||''),'Niveau : '+(t.level||''),'','Propose 4 à 16 chapitres plausibles et distincts adaptés à cette classe et cette matière.','Ne génère aucun PDF et ne lance aucun moteur de rendu.','Retourne uniquement : {"chapters":[{"id":"...","title":"...","description":"...","order":1}]}'].join('\\n');
+  if(kind==='proposal')return ['Aurore — proposition éditoriale ChatGPT','','Tâche : '+t.id,'Classe : '+(t.class_name||''),'Matière : '+(t.subject||''),'Chapitre : '+(ch.title||''),'','Prépare uniquement la proposition éditoriale, pas le cours complet.','Retourne uniquement un JSON avec title, document_type, description, objectives, content_plan, exercise_plan et tools.','Ne génère aucun PDF et ne lance aucun moteur de rendu.'].join('\\n');
+  return ['Aurore — révision éditoriale ChatGPT','','Tâche : '+t.id,'Classe : '+(t.class_name||''),'Matière : '+(t.subject||''),'Chapitre : '+(ch.title||''),'Demande : '+(note||w.revision_request||''),'','Révise la proposition courante et retourne uniquement la proposition complète au même format JSON.','Ne génère aucun PDF et ne lance aucun moteur de rendu.','PROPOSITION COURANTE :',JSON.stringify(w.proposal||{},null,2)].join('\\n');
+}
+async function copyChatGPTBrief(state,kind,note){
+  if(!navigator.clipboard?.writeText)throw new Error('Copie automatique indisponible sur ce navigateur.');
+  await navigator.clipboard.writeText(buildChatGPTBrief(state,kind,note));
+  statusMsg('Brief ChatGPT copié. Ouvre la conversation ChatGPT puis colle-le.');
+}
+function manualImportDialog(kind){
+  return new Promise(resolve=>{
+    const overlay=document.createElement('div');overlay.style.cssText='position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.48);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
+    const box=document.createElement('div');box.style.cssText='width:min(820px,100%);max-height:90vh;overflow:auto;background:var(--fond,#fff);color:inherit;border:1px solid var(--bordure,rgba(0,0,0,.12));border-radius:18px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.24);';
+    const title=kind==='chapters'?'Importer les chapitres de ChatGPT':'Importer la proposition de ChatGPT';
+    const help=kind==='chapters'?'Colle le JSON : {"chapters":[{"id":"fonctions","title":"Fonctions","description":"...","order":1}]}':'Colle le JSON : {"title":"...","description":"...","objectives":["..."],"content_plan":["..."],"exercise_plan":{"count":8,"correction":true}}';
+    box.innerHTML='<div style="font-size:.62rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;opacity:.6">ChatGPT → Aurore</div><h3 style="margin:5px 0 8px">'+esc(title)+'</h3><p style="font-size:.72rem;line-height:1.5;opacity:.72">'+esc(help)+'</p><textarea id="auroreChatGPTImportText" style="width:100%;min-height:260px;box-sizing:border-box;border:1px solid var(--bordure,rgba(0,0,0,.14));border-radius:12px;padding:10px;background:var(--card-bg,#fff);color:inherit;font:inherit;font-size:.76rem"></textarea><div class="aurore-flow-actions"><button type="button" class="admin-btn primary" id="auroreChatGPTImportSave">Importer</button><button type="button" class="admin-btn ghost" id="auroreChatGPTImportCancel">Annuler</button></div><div id="auroreChatGPTImportError" class="aurore-flow-status" hidden></div>';
+    overlay.appendChild(box);document.body.appendChild(overlay);
+    const close=v=>{overlay.remove();resolve(v)};
+    box.querySelector('#auroreChatGPTImportCancel').onclick=()=>close(null);
+    box.querySelector('#auroreChatGPTImportSave').onclick=()=>{const raw=box.querySelector('#auroreChatGPTImportText').value.trim();if(!raw)return;try{close(JSON.parse(raw))}catch(_){const er=box.querySelector('#auroreChatGPTImportError');er.hidden=false;er.textContent='JSON invalide. Vérifie le bloc renvoyé par ChatGPT.'}};
+  });
+}
+function normalizeChapters(raw){
+  const arr=Array.isArray(raw)?raw:raw?.chapters;if(!Array.isArray(arr)||!arr.length||arr.length>16)throw new Error('Les chapitres doivent contenir de 1 à 16 éléments.');
+  const seen=new Set();
+  return arr.map((x,i)=>{const title=String(x?.title||'').trim();if(!title)throw new Error('Chapitre '+(i+1)+' : titre obligatoire.');let id=String(x?.id||title).trim().toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,100)||('chapitre-'+(i+1));if(seen.has(id))id+='-'+(i+1);seen.add(id);return {id,title:title.slice(0,220),description:String(x?.description||'').trim().slice(0,500),order:Number.isFinite(Number(x?.order))?Number(x.order):i+1}});
+}
+function normalizeProposal(raw){
+  if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new Error('La proposition doit être un objet JSON.');
+  const title=String(raw.title||'').trim(),description=String(raw.description||'').trim(),objectives=Array.isArray(raw.objectives)?raw.objectives.map(x=>String(x||'').trim()).filter(Boolean).slice(0,12):[],content_plan=Array.isArray(raw.content_plan)?raw.content_plan.map(x=>String(x||'').trim()).filter(Boolean).slice(0,20):[];
+  if(!title||!description||!objectives.length||!content_plan.length)throw new Error('La proposition doit contenir title, description, objectives et content_plan.');
+  const ep=raw.exercise_plan&&typeof raw.exercise_plan==='object'?raw.exercise_plan:{},tools=raw.tools&&typeof raw.tools==='object'?raw.tools:{};
+  return {title:title.slice(0,300),document_type:String(raw.document_type||'cours').trim().slice(0,80)||'cours',description:description.slice(0,1400),objectives,content_plan,exercise_plan:{count:Math.max(0,Math.min(30,Number(ep.count)||0)),correction:ep.correction!==false},tools:{latex:tools.latex===true,geogebra:tools.geogebra===true}};
+}
 async function discover(state){
-  statusMsg('Aurore prépare les chapitres…');
+  statusMsg('Travail éditorial ChatGPT…');
   try{
-    const d=await callAurore('discover_chapters',{id:state.task.id,class_name:state.task.class_name,subject:state.task.subject},{workflow:state.task.metadata?.workflow||{}});
-    await patchWorkflow(state.task.id,{stage:'chapitres_ready',chapters:d.result.chapters,chapters_provenance:d.provenance,selected_chapter:null,proposal:null,user_validated:false,editing:false});
+    await copyChatGPTBrief(state,'chapters');
+    const raw=await manualImportDialog('chapters');if(!raw)return;
+    const chapters=normalizeChapters(raw);
+    await patchWorkflow(state.task.id,{stage:'chapitres_ready',chapters,chapters_source:EDITOR_ENGINE,selected_chapter:null,proposal:null,user_validated:false,editing:false,rejection_reason:null});
     await refresh(state,state.task.id);
-  }catch(e){alert('Découverte des chapitres impossible : '+(e.message||e))}
+  }catch(e){alert('Import des chapitres impossible : '+(e.message||e))}
 }
 async function buildProposal(state,ch){
-  statusMsg('Aurore prépare la proposition éditoriale…');
+  statusMsg('Travail éditorial ChatGPT…');
   try{
-    const d=await callAurore('build_editorial_proposal',{id:state.task.id,class_name:state.task.class_name,subject:state.task.subject,chapter:ch},{workflow:state.task.metadata?.workflow||{}});
-    await patchWorkflow(state.task.id,{stage:'proposal_review',selected_chapter:ch,proposal:d.result,proposal_version:1,proposal_versions:[{version:1,proposal:d.result,source:'ai',provenance:d.provenance}],user_validated:false,editing:false});
+    await patchWorkflow(state.task.id,{stage:'chapitre_selectionne',selected_chapter:ch,proposal:null,user_validated:false,editing:false,rejection_reason:null});
+    await refresh(state,state.task.id);
+    await copyChatGPTBrief(state,'proposal');
+    const raw=await manualImportDialog('proposal');if(!raw)return;
+    const proposal=normalizeProposal(raw);
+    const t=await getJob(state.task.id),w=t.metadata?.workflow||{},v=Number(w.proposal_version||0)+1;
+    await patchWorkflow(state.task.id,{stage:'proposal_review',proposal,proposal_version:v,proposal_versions:(Array.isArray(w.proposal_versions)?w.proposal_versions:[]).concat([{version:v,proposal,source:EDITOR_ENGINE,imported_at:new Date().toISOString()}]),user_validated:false,editing:false,rejection_reason:null});
     await refresh(state,state.task.id);
   }catch(e){alert('Proposition éditoriale impossible : '+(e.message||e))}
 }
@@ -114,7 +154,7 @@ async function saveProposal(state){
 function render(root,state){
   const t=state.task,w=t?.metadata?.workflow||{},chs=Array.isArray(w.chapters)?w.chapters:[],sel=w.selected_chapter,p=w.proposal||null;
   const raw=Array.isArray(window.MATIERES)?window.MATIERES:[],subs=[...new Set(raw.map(x=>String(typeof x==='string'?x:x?.nom||'').trim()).filter(Boolean))].slice(0,100);
-  let h='<div><div class="aurore-flow-kicker">Aurore · orchestrateur éditorial</div><h3 style="margin:4px 0 6px">Préparer une ressource sans tout renseigner</h3><p style="margin:0;max-width:820px;font-size:.72rem;line-height:1.5;opacity:.72">Classe + matière d’abord. Aurore propose ensuite les chapitres, puis un brief éditorial. Rien n’est publié automatiquement et le PDF reste manuel.</p></div><div class="aurore-flow-grid">';
+  let h='<div><div class="aurore-flow-kicker">Aurore · orchestrateur éditorial</div><h3 style="margin:4px 0 6px">Préparer une ressource sans tout renseigner</h3><p style="margin:0;max-width:820px;font-size:.72rem;line-height:1.5;opacity:.72">Classe + matière d’abord. ChatGPT prépare les chapitres, la proposition et le contenu dans notre conversation. L’administration importe, contrôle et valide ; le PDF reste un lancement manuel séparé.</p></div><div class="aurore-flow-grid">';
   h+='<section class="aurore-flow-card"><div class="aurore-flow-kicker">01 · À organiser</div><h4>Classe + matière</h4><p>Deux informations suffisent pour commencer.</p><label class="aurore-flow-field"><span>Classe</span><input id="auroreFlowClass" value="'+esc(t?.class_name||'')+'" placeholder="Ex. Terminale C"></label><label class="aurore-flow-field"><span>Matière</span><input id="auroreFlowSubject" list="auroreFlowSubjects" value="'+esc(t?.subject||'')+'" placeholder="Ex. Français, Physique-Chimie, Mathématiques…"><datalist id="auroreFlowSubjects">'+subs.map(x=>'<option value="'+esc(x)+'"></option>').join('')+'</datalist></label><div class="aurore-flow-actions"><button type="button" class="admin-btn primary" id="auroreFlowStart">'+(t?'Actualiser les chapitres':'Créer et découvrir les chapitres')+'</button>'+(t?'<button type="button" class="admin-btn ghost" id="auroreFlowNew">Nouvelle demande</button>':'')+'</div>';
   if(state.tasks.length)h+='<div class="aurore-flow-list">'+state.tasks.map(x=>'<div class="aurore-flow-task"><div><strong>'+esc(x.class_name||'Demande')+'</strong><small>'+esc(x.subject||'')+' · '+esc(x.metadata?.workflow?.stage||x.status||'')+'</small></div><button type="button" class="admin-btn ghost" data-load="'+esc(x.id)+'">Ouvrir</button></div>').join('')+'</div>';
   h+='<div id="auroreFlowStatus" class="aurore-flow-status">Étape actuelle : '+esc(w.stage||'initiale')+'</div></section>';
@@ -144,26 +184,27 @@ function bind(root,state){
   root.querySelector('#auroreProposalCancelEdit')?.addEventListener('click',async()=>{await patchWorkflow(state.task.id,{editing:false});await refresh(state,state.task.id)});
   root.querySelector('#auroreProposalSave')?.addEventListener('click',()=>saveProposal(state));
   root.querySelector('#auroreProposalRevision')?.addEventListener('click',async()=>{
-    const note=prompt('Demande de révision à transmettre à Aurore :','');if(note===null||!note.trim())return;
-    const w=state.task.metadata.workflow;statusMsg('Aurore révise la proposition…');
+    const note=prompt('Demande de révision à transmettre à ChatGPT :','');if(note===null||!note.trim())return;
     try{
-      const d=await callAurore('revise_editorial_proposal',{id:state.task.id,class_name:state.task.class_name,subject:state.task.subject,chapter:w.selected_chapter},{workflow:{...w,proposal:w.proposal,revision_request:note}});
-      const v=Number(w.proposal_version||0)+1;
-      await patchWorkflow(state.task.id,{stage:'proposal_review',proposal:d.result,proposal_version:v,user_validated:false,editing:false,proposal_versions:(Array.isArray(w.proposal_versions)?w.proposal_versions:[]).concat([{version:v,proposal:d.result,source:'revision',request:note,provenance:d.provenance}])});
+      await patchWorkflow(state.task.id,{revision_request:note.trim(),revision_requested_at:new Date().toISOString(),editing:false,user_validated:false,stage:'proposal_review'});
+      await refresh(state,state.task.id);
+      await copyChatGPTBrief(state,'revision',note.trim());
+      const raw=await manualImportDialog('proposal');if(!raw)return;
+      const proposal=normalizeProposal(raw);
+      const t=await getJob(state.task.id),w=t.metadata?.workflow||{},v=Number(w.proposal_version||0)+1;
+      await patchWorkflow(state.task.id,{stage:'proposal_review',proposal,proposal_version:v,proposal_versions:(Array.isArray(w.proposal_versions)?w.proposal_versions:[]).concat([{version:v,proposal,source:'revision_chatgpt',request:note.trim(),imported_at:new Date().toISOString()}]),user_validated:false,editing:false});
       await refresh(state,state.task.id);
     }catch(e){alert('Révision impossible : '+(e.message||e))}
-  });
-  root.querySelector('#auroreProposalValidate')?.addEventListener('click',async()=>{await patchWorkflow(state.task.id,{stage:'validated',user_validated:true,validated_at:new Date().toISOString(),editing:false});await refresh(state,state.task.id)});
+  });  root.querySelector('#auroreProposalValidate')?.addEventListener('click',async()=>{await patchWorkflow(state.task.id,{stage:'validated',user_validated:true,validated_at:new Date().toISOString(),editing:false});await refresh(state,state.task.id)});
   root.querySelector('#auroreProposalUnvalidate')?.addEventListener('click',async()=>{await patchWorkflow(state.task.id,{stage:'proposal_review',user_validated:false});await refresh(state,state.task.id)});
   root.querySelector('#aurorePrepareProduction')?.addEventListener('click',async()=>{
     try{
-      const t=await getJob(state.task.id);if(t?.metadata?.workflow?.user_validated!==true)throw new Error('La proposition doit être validée.');
-      const q=await rpc('aurora_queue_content_job',{p_job_id:Number(t.id)});if(!q||Number(q.id)!==Number(t.id))throw new Error('La demande n’a pas pu être mise en file.');
-      await patchWorkflow(t.id,{stage:'production_ready',queued_at:new Date().toISOString(),manual_pdf_only:true});
-      await refresh(state,t.id);
-    }catch(e){alert('Mise en production impossible : '+(e.message||e))}
-  });
-}
+      const t=await getJob(state.task.id),w=t?.metadata?.workflow||{};
+      if(w.user_validated!==true)throw new Error('La proposition doit être validée.');
+      await patchWorkflow(state.task.id,{stage:'production_ready',prepared_for_production_at:new Date().toISOString(),manual_pdf_only:true,manual_pdf_launch_required:true,auto_pdf_launch:false,lualatex_requested:false,lualatex_status:'not_requested'});
+      await refresh(state,state.task.id);
+    }catch(e){alert('Préparation de la production impossible : '+(e.message||e))}
+  });}
 function init(){
   const p=panel();if(!p)return false;
   injectStyle();
