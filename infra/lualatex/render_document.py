@@ -3381,7 +3381,11 @@ def render(data):
     _geogebra_visual_plan_qa(data)
     _exercise_geogebra_plan_qa(data)
     _documentary_visual_plan_qa(data)
-    if document_kind == "cours":
+    metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+    course_refactor_test = bool(
+        data.get("refactor_test") or metadata.get("refactor_test")
+    )
+    if document_kind == "cours" and course_refactor_test:
         from course_layout import render_course_document
         return render_course_document(data, theme_palette)
     lines = [
@@ -3997,7 +4001,15 @@ def main():
     data["_render_assets_dir"] = str(out.parent / "assets")
     tex = render(data)
     requested_profile = _edition_profile(data)
-    if requested_profile["kind"] == "cours" and str(data.get("source_format") or "").strip().lower() != "latex":
+    metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+    course_refactor_test = bool(
+        data.get("refactor_test") or metadata.get("refactor_test")
+    )
+    if (
+        requested_profile["kind"] == "cours"
+        and course_refactor_test
+        and str(data.get("source_format") or "").strip().lower() != "latex"
+    ):
         (out.parent / "structured-tex-engine").write_text("xelatex\n", encoding="utf-8")
     else:
         (out.parent / "structured-tex-engine").unlink(missing_ok=True)
