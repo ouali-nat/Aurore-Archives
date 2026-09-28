@@ -3636,7 +3636,7 @@ def render(data):
         r"  \par\needspace{4\baselineskip}{\sffamily\large\bfseries\color{auroredeep}#1}\par\vspace{0.18cm}\textcolor{aurorebase!55!white}{\rule{\linewidth}{0.55pt}}\vspace{0.35cm}%",
         r"}",
         r"\newcommand{\AuroreExerciseSeriesBlock}[2]{%",
-        r"  \begin{tcolorbox}[enhanced,breakable,arc=8pt,outer arc=8pt,boxrule=.45pt,colframe=aurorebase!42!white,colback=white,left=8pt,right=8pt,top=6pt,bottom=7pt,before skip=6pt,after skip=9pt,borderline west={1.7pt}{0pt}{aurorebase},pad at break*=1.5mm]%",
+        r"  \begin{tcolorbox}[enhanced,breakable,arc=8pt,outer arc=8pt,boxrule=.45pt,colframe=aurorebase!42!white,colback=white,left=8pt,right=8pt,top=6pt,bottom=7pt,before skip=6pt,after skip=9pt,pad at break*=1.5mm]%",
         r"    {\sffamily\bfseries\color{auroredeep}Exercice #1}\par\smallskip #2%",
         r"  \end{tcolorbox}%",
         r"}",
@@ -3820,6 +3820,7 @@ def render(data):
     for _idx, sec in enumerate(data.get("sections", [])):
         if is_exercise_document:
             exercises = sec.get("exercises", []) or []
+            lines.append(r"\AuroreCourseSectionStart")
             if not isinstance(exercises, list):
                 exercises = []
             section_title = clean_text(sec.get("title") or "").strip()
@@ -3878,6 +3879,7 @@ def render(data):
                             correction_graphs if isinstance(correction_graphs, list) else [],
                         )
                     )
+            lines.append(r"\AuroreCourseSectionEnd")
             continue
 
         lines.append(r"\Needspace{6\baselineskip}")
