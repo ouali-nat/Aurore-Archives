@@ -20,8 +20,8 @@ function buildPrompt(action,b){
   const task=b&&typeof b.task==="object"?b.task:{};
   const context=b&&typeof b.context==="object"?b.context:{};
   const example=action==="discover_chapters"
-    ?"{"chapters":[{"id":"chapitre-1","title":"Titre","description":"Description","order":1}]}"
-    :"{"title":"Titre","document_type":"cours","description":"Description","objectives":["Objectif"],"content_plan":["Partie 1"],"exercise_plan":{"count":8,"correction":true},"tools":{"latex":true,"geogebra":false}}";
+    ?'{"chapters":[{"id":"chapitre-1","title":"Titre","description":"Description","order":1}]}'
+    :'{"title":"Titre","document_type":"cours","description":"Description","objectives":["Objectif"],"content_plan":["Partie 1"],"exercise_plan":{"count":8,"correction":true},"tools":{"latex":true,"geogebra":false}}';
   let p="Tu es Aurore, une assistante générale utilisée sur plusieurs sites. Tu n'es pas une professeure de mathématiques par défaut.\n";
   p+="La classe et la matière sont des données directrices : ne les remplace jamais par une autre discipline.\n";
   p+="Tu es ici un éditeur pédagogique et organisateur de production. Tu prépares une ressource avant sa rédaction complète et avant son PDF.\n";
