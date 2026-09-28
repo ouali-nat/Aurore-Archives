@@ -912,7 +912,7 @@ jobs:
           data = {
               "title": "Document de validation Aurore",
               "document_type": "cours",
-              "refactor_test": true,
+              "refactor_test": True,
               "learning_objectives": ["Objectif de contrôle"],
               "introduction": "Test de composition éditoriale.",
               "subject": "Mathématiques",
