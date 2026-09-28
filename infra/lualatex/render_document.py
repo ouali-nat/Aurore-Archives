@@ -1729,7 +1729,7 @@ def normalize_math(s):
     # \\% for a percentage inside math). Unlike array row breaks, these
     # sequences must collapse to one command backslash; otherwise the
     # % becomes a TeX comment and can swallow the closing delimiter/braces.
-    s = re.sub(overescaped_slashes + r"(?=[%&#_^~])", lambda _m: chr(92), s)
+    s = re.sub(overescaped_slashes + r"(?=[%&#_^~,:;!])", lambda _m: chr(92), s)
 
     # Restore protected array row breaks as real LaTeX double-backslash commands.
     s = s.replace(marker, "\\\\")
