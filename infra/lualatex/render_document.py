@@ -3597,7 +3597,7 @@ def render(data):
         r"}",
         r"\newcommand{\AuroreMathCompact}[2]{%",
         r"  \par\smallskip\noindent\hfill%",
-        r"  \tcbox[on line,enhanced,boxrule=.45pt,colframe=auroreprimary!58!white,colback=white!99!aurorepale,arc=7pt,left=7pt,right=7pt,top=3pt,bottom=3pt]%",
+        r"  \tcbox[on line,enhanced,boxrule=.45pt,colframe=aurorebase!58!white,colback=white!99!aurorepale,arc=7pt,left=7pt,right=7pt,top=3pt,bottom=3pt]%",
         r"    {{\sffamily\scriptsize\bfseries\color{auroredeep}#1}\enspace$\displaystyle #2$}%",
         r"  \hfill\par\smallskip%",
         r"}",
