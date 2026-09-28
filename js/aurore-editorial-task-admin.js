@@ -15,9 +15,9 @@ async function token(){
   let s=(await client.auth.getSession())?.data?.session||null;
   if(!s?.access_token)throw new Error('Session administrateur expirée.');
   if(s.expires_at&&Date.now()>=s.expires_at*1000-60000){
-    const refreshed=await client.auth.refreshSession();
-    if(refreshed.error||!refreshed.data?.session)throw(refreshed.error||new Error('Impossible de rafraîchir la session.'));
-    s=refreshed.data.session;
+    const r=await client.auth.refreshSession();
+    if(r.error||!r.data?.session)throw(r.error||new Error('Impossible de rafraîchir la session.'));
+    s=r.data.session;
   }
   return s.access_token;
 }
@@ -36,13 +36,11 @@ async function getJob(id){
 }
 async function listJobs(){
   const rows=await rest('/rest/v1/aurora_content_jobs?select=id,status,title,subject,level,class_name,document_type,metadata,created_at,updated_at&order=updated_at.desc&limit=500');
-  return (Array.isArray(rows)?rows:[]).filter(x=>{
-    const w=x?.metadata?.workflow||{};
-    return w.protocol===PROTOCOL || w.protocol==='aurore-chatgpt-editor-v1';
-  });
+  return (Array.isArray(rows)?rows:[]).filter(t=>['aurore-chatgpt-editor-v2','aurore-chatgpt-editor-v1'].includes(t?.metadata?.workflow?.protocol));
 }
 function workflowMetadata(existing,patch){
-  const m=existing&&typeof existing==='object'?existing:{},w=m.workflow&&typeof m.workflow==='object'?m.workflow:{};
+  const m=existing&&typeof existing==='object'?existing:{};
+  const w=m.workflow&&typeof m.workflow==='object'?m.workflow:{};
   return {...m,manual_publication_only:true,pdf_launch_mode:'manual',manual_pdf_launch_required:true,auto_pdf_launch:false,
     editorial_engine:EDITOR,workflow:{...w,...patch,protocol:PROTOCOL,editorial_engine:EDITOR,updated_at:new Date().toISOString()}};
 }
@@ -56,84 +54,283 @@ async function updateJob(id,patch,status){
 async function createTask(className,subject){
   const id=Number(await rpc('aurora_create_content_job',{
     p_title:'À organiser — '+className+' — '+subject,p_subject:subject,p_level:className,p_class_name:className,
-    p_document_type:'cours',p_prompt:'Tâche éditoriale minimale. ChatGPT est l’éditeur canonique : il récupère la tâche, propose les chapitres, construit la proposition puis rédige le contenu final.',
+    p_document_type:'cours',p_prompt:'Tâche éditoriale minimale. ChatGPT est l’éditeur canonique : récupération, chapitres, plan de production puis rédaction finale.',
     p_instructions:{source:'admin_editorial_task',origin:'gpt_editorial_queue',queue:'manual',category:'Documents',rights_confirmed:true,
       theme_color:'#6D28D9',editorial:{role:'editor',engine:EDITOR,schema_version:'aurora-editorial-2',status:'waiting_chatgpt'},
       workflow:{protocol:PROTOCOL,stage:'initiale',proposal_version:0,user_validated:false,chatgpt_claimed:false,
         manual_pdf_only:true,manual_pdf_launch_required:true,auto_pdf_launch:false,editorial_engine:EDITOR}}
   }));
   if(!Number.isSafeInteger(id)||id<1)throw new Error('Identifiant de tâche invalide.');
-  return updateJob(id,{stage:'initiale',chatgpt_claimed:false,chatgpt_claimed_at:null,chapters:null,selected_chapter:null,proposal:null,proposal_version:0,user_validated:false,rejected:false,revision_requested:false},'draft');
+  return updateJob(id,{stage:'initiale',chatgpt_claimed:false,chatgpt_claimed_at:null,chapters:null,selected_chapter:null,proposal:null,proposal_version:0,user_validated:false,rejected:false,revision_requested:false,admin_validation:null},'draft');
 }
-function card(t,mode){
-  const w=t.metadata?.workflow||{}, claimed=w.chatgpt_claimed===true;
-  const stage=w.stage||'initiale';
-  const label=claimed?'Pris en charge par ChatGPT':'En attente de récupération';
-  return '<article class="editor-task-card">'+
-    '<div class="editor-task-top"><span class="editor-task-id">#'+esc(t.id)+'</span><span class="editor-task-status '+(claimed?'claimed':'waiting')+'">'+label+'</span></div>'+
-    '<h4>'+esc(t.class_name||t.level||'Classe non définie')+'</h4><div class="editor-task-subject">'+esc(t.subject||'Matière non définie')+'</div>'+
-    '<div class="editor-task-meta"><span>'+esc(t.document_type||'cours')+'</span><span>'+esc(stage)+'</span></div>'+
-    '<div class="editor-task-actions">'+(mode==='new'?'<button class="admin-btn ghost" data-editor-open="'+esc(t.id)+'">Détails</button>':'<button class="admin-btn ghost" data-editor-open="'+esc(t.id)+'">Ouvrir</button>')+'</div>'+
-  '</article>';
+const textValue=v=>{
+  if(v==null)return '';
+  if(Array.isArray(v))return v.map(x=>typeof x==='object'?(x.title||x.name||JSON.stringify(x)):x).join('\n');
+  if(typeof v==='object')return Object.entries(v).map(([k,x])=>k+': '+(typeof x==='object'?JSON.stringify(x):x)).join('\n');
+  return String(v);
+};
+const proposalFor=(t)=>{
+  const w=t.metadata?.workflow||{},p=w.proposal&&typeof w.proposal==='object'?w.proposal:{};
+  return {
+    title:p.title||p.titre||t.title||'',
+    chapter:p.chapter||p.chapitre||w.selected_chapter?.title||textValue(w.selected_chapter)||'',
+    objectives:textValue(p.objectives||p.objectifs),
+    prerequisites:textValue(p.prerequisites||p.prerequis),
+    architecture:textValue(p.architecture||p.structure||p.plan),
+    content:textValue(p.content||p.contenu||p.sections),
+    methods:textValue(p.methods||p.methodes),
+    examples:textValue(p.examples||p.exemples),
+    exercises:textValue(p.exercises||p.exercices),
+    corrections:textValue(p.corrections||p.corriges||p.corrections),
+    volume:textValue(p.volume||p.pedagogical_volume),
+    duration:textValue(p.duration||p.duree),
+    resources:textValue(p.resources||p.ressources),
+    mathGeoGebra:textValue(p.mathGeoGebra||p.math_geogebra||p.geogebra||p.math),
+    pdfFormat:p.pdfFormat||p.pdf_format||'A4',
+    pdfOrientation:p.pdfOrientation||p.pdf_orientation||'Portrait',
+    pdfPagination:p.pdfPagination||p.pdf_pagination||'Pagination continue',
+    pdfThemeColor:p.pdfThemeColor||p.theme_color||t.metadata?.theme_color||'#6D28D9',
+    pdfLayout:textValue(p.pdfLayout||p.pdf_layout||p.layout),
+    pdfFonts:textValue(p.pdfFonts||p.pdf_fonts||p.fonts),
+    pdfHeaders:textValue(p.pdfHeaders||p.pdf_headers||p.headers),
+    pdfResources:textValue(p.pdfResources||p.pdf_resources),
+    quality:textValue(p.quality||p.qa||p.controle_qualite),
+    notes:textValue(p.notes||p.editorial_notes)
+  };
+};
+const stageInfo={
+  initiale:{label:'En attente de récupération',tone:'waiting'},
+  chapitres_proposes:{label:'Chapitres proposés',tone:'chapters'},
+  chapitre_selectionne:{label:'Chapitre sélectionné',tone:'chapters'},
+  proposition_editoriale:{label:'Construction en cours',tone:'plan'},
+  proposal_review:{label:'Plan à valider',tone:'plan'},
+  revision_requested:{label:'Révision demandée',tone:'warning'},
+  admin_validation:{label:'Validation administrative',tone:'admin'},
+  edition_ready:{label:'Prêt pour l’édition',tone:'ready'}
+};
+function classify(t){
+  const w=t.metadata?.workflow||{},s=w.stage||'initiale';
+  if(!w.chatgpt_claimed&&['initiale','chapitres_demandes'].includes(s))return'A';
+  if(w.chatgpt_claimed&&['chapitres_proposes','chapitre_selectionne'].includes(s))return'B';
+  if(['proposition_editoriale','proposal_review','revision_requested'].includes(s))return'C';
+  if(['admin_validation','edition_ready'].includes(s))return'D';
+  return null;
+}
+function taskCard(t,section){
+  const w=t.metadata?.workflow||{},s=stageInfo[w.stage]||{label:w.stage||t.status,tone:'waiting'};
+  const ch=Array.isArray(w.chapters)?w.chapters:[];
+  const pv=w.proposal&&typeof w.proposal==='object'?w.proposal:null;
+  const desc=section==='B'
+    ? (ch.length?ch.slice(0,3).map(x=>x.title||x.name||textValue(x)).join(' · ')+(ch.length>3?'…':''):'Chapitres à proposer dans la conversation')
+    : section==='C'
+      ? (pv?.title||w.selected_chapter?.title||w.selected_chapter||'Plan de production à construire / valider')
+      : section==='D'
+        ? ((w.admin_validation?.status==='validated')?'Validation administrative complète.':'Validation administrative à effectuer.')
+        : 'Classe + matière : première étape du parcours éditorial';
+  return '<article class="editor-pro-card"><div class="editor-pro-top"><span class="editor-pro-id">#'+esc(t.id)+'</span><span class="editor-pro-pill '+esc(s.tone)+'">'+esc(s.label)+'</span></div><h4>'+esc(t.class_name||t.level||'Classe')+'</h4><strong class="editor-pro-subject">'+esc(t.subject||'Matière')+'</strong><p>'+esc(desc)+'</p><div class="editor-pro-bottom"><span>'+esc(t.document_type||'cours')+'</span><button type="button" class="admin-btn ghost" data-editor-open="'+esc(t.id)+'">Ouvrir</button></div></article>';
+}
+function paginate(items,page){
+  return items.slice(page*PAGE_SIZE,(page+1)*PAGE_SIZE);
 }
 function pager(total,page,key){
   const pages=Math.max(1,Math.ceil(total/PAGE_SIZE));if(pages<=1)return '';
-  let s='<div class="editor-pager">';
-  for(let i=0;i<pages;i++)s+='<button type="button" class="admin-btn '+(i===page?'primary':'ghost')+'" data-editor-page="'+key+':'+i+'">'+(i+1)+'</button>';
-  return s+'</div>';
+  return '<div class="editor-block-pager">'+Array.from({length:pages},(_,i)=>'<button type="button" class="admin-btn '+(i===page?'primary':'ghost')+'" data-editor-page="'+key+':'+i+'">Bloc '+(i+1)+'</button>').join('')+'</div>';
+}
+function chaptersMarkup(t){
+  const w=t.metadata?.workflow||{},c=Array.isArray(w.chapters)?w.chapters:[];
+  if(!c.length)return'<div class="editor-empty">Aucun chapitre enregistré pour le moment. La proposition de chapitres sera faite dans notre conversation ChatGPT.</div>';
+  return'<div class="editor-chapters-grid">'+c.map((x,i)=>'<div class="editor-chapter"><span>Chapitre '+(i+1)+'</span><strong>'+esc(x.title||x.name||'Sans titre')+'</strong><small>'+esc(x.description||x.objective||x.resume||'')+'</small></div>').join('')+'</div>';
+}
+function field(label,key,value,wide){
+  return '<label class="editor-field '+(wide?'wide':'')+'"><span>'+label+'</span><textarea data-plan-field="'+key+'" rows="'+(wide?4:2)+'">'+esc(value)+'</textarea></label>';
+}
+function planForm(t){
+  const p=proposalFor(t);
+  return '<div class="editor-plan-form">'+
+    '<div class="editor-plan-grid">'+
+    field('Titre du cours','title',p.title,true)+field('Chapitre','chapter',p.chapter)+field('Objectifs pédagogiques','objectives',p.objectives,true)+field('Prérequis','prerequisites',p.prerequisites,true)+
+    field('Architecture / plan détaillé','architecture',p.architecture,true)+field('Contenu à couvrir','content',p.content,true)+field('Méthodes pédagogiques','methods',p.methods,true)+field('Exemples / applications','examples',p.examples,true)+
+    field('Exercices','exercises',p.exercises,true)+field('Corrigés','corrections',p.corrections,true)+field('Volume pédagogique','volume',p.volume)+field('Durée indicative','duration',p.duration)+field('Ressources / illustrations','resources',p.resources,true)+field('Mathématiques / GeoGebra','mathGeoGebra',p.mathGeoGebra,true)+
+    '</div><div class="editor-plan-divider">Paramètres du PDF</div><div class="editor-plan-grid editor-pdf-grid">'+
+    field('Format','pdfFormat',p.pdfFormat)+field('Orientation','pdfOrientation',p.pdfOrientation)+field('Pagination','pdfPagination',p.pdfPagination)+field('Couleur thème','pdfThemeColor',p.pdfThemeColor)+field('Mise en page','pdfLayout',p.pdfLayout,true)+field('Polices / typographie','pdfFonts',p.pdfFonts,true)+field('En-têtes / pieds de page','pdfHeaders',p.pdfHeaders,true)+field('Ressources PDF / QR / annexes','pdfResources',p.pdfResources,true)+field('Contrôle qualité attendu','quality',p.quality,true)+field('Notes éditoriales','notes',p.notes,true)+
+    '</div><div class="editor-plan-actions"><button type="button" class="admin-btn ghost" data-plan-save="'+esc(t.id)+'">Enregistrer les modifications</button><button type="button" class="admin-btn ghost danger" data-plan-reject="'+esc(t.id)+'">Rejeter</button><button type="button" class="admin-btn primary" data-plan-validate="'+esc(t.id)+'">Valider le plan</button></div></div>';
+}
+function validationMarkup(t){
+  const w=t.metadata?.workflow||{},v=w.admin_validation&&typeof w.admin_validation==='object'?w.admin_validation:{};
+  const checks=[
+    ['programme','Conformité classe / matière'],['pedagogy','Cohérence pédagogique'],['coverage','Couverture du chapitre'],['resources','Ressources et visuels'],['technical_pdf','Paramètres PDF et contraintes techniques'],['quality','Exigences de contrôle qualité']
+  ];
+  return '<div class="editor-validation-wrap"><div class="editor-validation-head"><div><span class="editor-step">Contrôle administratif</span><h5>'+esc(t.title||'Document')+'</h5><p>Cette étape ne lance ni l’édition, ni le PDF. Elle autorise seulement la récupération du document par ChatGPT pour la rédaction finale.</p></div><span class="editor-pro-pill '+(v.status==='validated'?'ready':'admin')+'">'+(v.status==='validated'?'Validé':'À valider')+'</span></div><div class="editor-validation-grid">'+checks.map(([k,l])=>'<label class="editor-check"><input type="checkbox" data-admin-check="'+k+'" '+(v[k]===true?'checked':'')+'><span>'+l+'</span></label>').join('')+'</div><label class="editor-field wide"><span>Notes / réserves de l’administration</span><textarea data-admin-notes rows="4">'+esc(v.notes||'')+'</textarea></label><div class="editor-plan-actions"><button type="button" class="admin-btn ghost danger" data-admin-reject="'+esc(t.id)+'">Rejeter / demander une révision</button><button type="button" class="admin-btn primary" data-admin-validate="'+esc(t.id)+'">Valider pour l’édition</button></div></div>';
+}
+function detail(t,section){
+  const w=t.metadata?.workflow||{},d='<div class="editor-detail-head"><div><span class="editor-step">Section '+section+' · tâche #'+esc(t.id)+'</span><h4>'+esc(t.class_name||t.level||'')+' · '+esc(t.subject||'')+'</h4><p>État : <strong>'+esc((stageInfo[w.stage]||{}).label||w.stage||t.status)+'</strong></p></div><button type="button" class="admin-btn ghost" data-editor-close>Fermer</button></div>';
+  const meta='<div class="editor-detail-meta"><div><span>Identité</span><strong>'+esc(t.title||'')+'</strong></div><div><span>Type</span><strong>'+esc(t.document_type||'cours')+'</strong></div><div><span>PDF</span><strong>Manuel uniquement</strong></div><div><span>Version de proposition</span><strong>'+esc(w.proposal_version||0)+'</strong></div></div>';
+  if(section==='B')return d+meta+'<h5 class="editor-detail-title">Chapitres disponibles</h5>'+chaptersMarkup(t);
+  if(section==='C')return d+meta+'<h5 class="editor-detail-title">Plan complet de production</h5>'+planForm(t);
+  if(section==='D')return d+meta+'<h5 class="editor-detail-title">Validation administrative finale avant édition</h5>'+validationMarkup(t);
+  return d+meta+'<div class="editor-a-start"><strong>Cette tâche attend notre récupération dans la conversation ChatGPT.</strong><span>Classe et matière sont enregistrées. Aucun moteur IA du site n’est utilisé.</span></div>';
 }
 function render(root,state){
-  const tasks=state.tasks||[],newTasks=tasks.filter(t=>{const w=t.metadata?.workflow||{};return !w.chatgpt_claimed&&['initiale','chapitres_demandes'].includes(w.stage||'initiale')}),
-    activeTasks=tasks.filter(t=>t.metadata?.workflow?.chatgpt_claimed===true);
-  const np=state.pages.new||0,ap=state.pages.active||0;
-  const ns=newTasks.slice(np*PAGE_SIZE,(np+1)*PAGE_SIZE),as=activeTasks.slice(ap*PAGE_SIZE,(ap+1)*PAGE_SIZE);
+  const all=state.tasks, groups={A:[],B:[],C:[],D:[]};
+  all.forEach(t=>{const g=classify(t);if(g)groups[g].push(t)});
+  const active=state.section||'A',items=groups[active],page=state.pages[active]||0,visible=paginate(items,page);
   root.innerHTML=
-  '<div class="editor-workspace-head"><div><span class="editor-kicker">File éditoriale</span><h3>Demandes de cours</h3><p>Crée les tâches ici ; leur traitement éditorial se poursuit dans notre conversation.</p></div><button type="button" class="admin-btn ghost" id="editorRefresh">↻ Actualiser</button></div>'+
-  '<section class="editor-create-card"><div><span class="editor-step">01 · Créer une tâche</span><h4>Nouvelle demande éditoriale</h4><p>Entre seulement la <strong>classe</strong> et la <strong>matière</strong>. Les chapitres et la construction du cours seront traités ensuite dans la conversation ChatGPT.</p></div>'+
-  '<div class="editor-create-fields"><label>Classe<input id="editorClass" placeholder="Ex. Terminale C"></label><label>Matière<input id="editorSubject" list="editorSubjects" placeholder="Ex. Mathématiques"><datalist id="editorSubjects">'+([...new Set((Array.isArray(window.MATIERES)?window.MATIERES:[]).map(x=>String(typeof x==='string'?x:x?.nom||'').trim()).filter(Boolean))].slice(0,100).map(x=>'<option value="'+esc(x)+'"></option>').join(''))+'</datalist></label><button type="button" class="admin-btn primary" id="editorCreate">Créer la tâche</button></div></section>'+
-  '<section class="editor-section"><div class="editor-section-head"><div><span class="editor-step">02 · File d’attente</span><h4>Tâches à récupérer par ChatGPT</h4><p>Les tâches restent ici tant qu’elles n’ont pas été récupérées dans notre conversation.</p></div><span class="editor-count">'+newTasks.length+'</span></div>'+
-  '<div class="editor-task-grid">'+(ns.length?ns.map(t=>card(t,'new')).join(''):'<div class="editor-empty">Aucune tâche en attente. Crée une première demande avec classe + matière.</div>')+'</div>'+pager(newTasks.length,np,'new')+'</section>'+
-  '<section class="editor-section"><div class="editor-section-head"><div><span class="editor-step">03 · Suivi ChatGPT</span><h4>Tâches prises en charge</h4><p>Lorsqu’une tâche est récupérée ici, elle quitte la file d’attente et apparaît dans le bloc éditorial de notre conversation.</p></div><span class="editor-count">'+activeTasks.length+'</span></div>'+
-  '<div class="editor-task-grid">'+(as.length?as.map(t=>card(t,'active')).join(''):'<div class="editor-empty">Aucune tâche n’est encore prise en charge.</div>')+'</div>'+pager(activeTasks.length,ap,'active')+'</section>'+
-  '<section id="editorDetail" class="editor-detail" hidden></section>';
+  '<div class="editor-hub">'+
+    '<div class="editor-hub-head"><div><span class="editor-kicker">Parcours éditorial</span><h3>Gestion des documents</h3><p>Un seul parcours, de la demande jusqu’à l’édition finale. Aucun PDF n’est lancé automatiquement.</p></div><button type="button" class="admin-btn ghost" id="editorRefresh">↻ Actualiser</button></div>'+
+    '<nav class="editor-main-nav" aria-label="Étapes du parcours éditorial">'+
+      ['A','B','C','D'].map(k=>'<button type="button" class="editor-main-nav-item '+(active===k?'active':'')+'" data-editor-section="'+k+'"><span>'+k+'</span><strong>'+({A:'Tâches',B:'Chapitres',C:'Production',D:'Validation admin'}[k])+'</strong><em>'+groups[k].length+'</em></button>').join('')+
+      '<button type="button" class="editor-main-nav-link" data-editor-documents>Documents en attente <span>→</span></button>'+
+    '</nav>'+
+    '<section class="editor-page">'+
+      '<div class="editor-page-title"><div><span class="editor-step">Section '+active+'</span><h4>'+({A:'Tâches à créer',B:'Chapitres disponibles',C:'Plan complet de production',D:'Validation administrative avant édition'}[active])+'</h4><p>'+({A:'Crée ici les demandes avec uniquement la classe et la matière.',B:'Chaque tâche récupérée présente les chapitres disponibles pour le document.',C:'Le plan est entièrement détaillé, modifiable, validable ou rejetable avant toute rédaction finale.',D:'Toutes les validations administratives sont visibles ici avant que le document soit prêt à être récupéré pour l’édition.'}[active])+'</p></div><span class="editor-page-count">'+items.length+' document'+(items.length>1?'s':'')+'</span></div>'+
+      (active==='A'?'<div class="editor-create-card"><div><span class="editor-step">Créer</span><h5>Nouvelle demande</h5><p>Entre seulement la classe et la matière. Les chapitres et le plan sont traités après récupération dans la conversation.</p></div><div class="editor-create-fields"><label>Classe<input id="editorClass" placeholder="Ex. Terminale C"></label><label>Matière<input id="editorSubject" placeholder="Ex. Mathématiques" list="editorSubjects"><datalist id="editorSubjects">'+([...new Set((Array.isArray(window.MATIERES)?window.MATIERES:[]).map(x=>String(typeof x==='string'?x:x?.nom||'').trim()).filter(Boolean))].slice(0,100).map(x=>'<option value="'+esc(x)+'"></option>').join(''))+'</datalist></label><button type="button" class="admin-btn primary" id="editorCreate">Créer la tâche</button></div></div>':'')+
+      '<div class="editor-block-label"><span>Bloc '+(page+1)+'</span><small>'+((page*PAGE_SIZE)+1)+'–'+Math.min((page+1)*PAGE_SIZE,items.length)+' sur '+items.length+'</small></div>'+
+      '<div class="editor-card-grid">'+(visible.length?visible.map(t=>taskCard(t,active)).join(''):'<div class="editor-empty">Aucun document dans cette étape pour le moment.</div>')+'</div>'+
+      pager(items.length,page,active)+
+      '<section class="editor-detail" id="editorDetail" hidden></section>'+
+    '</section>'+
+  '</div>';
   bind(root,state);
 }
 function bind(root,state){
-  root.querySelector('#editorRefresh')?.addEventListener('click',()=>chargerEspaceEditorialChatGPT());
+  root.querySelector('#editorRefresh')?.addEventListener('click',chargerEspaceEditorialChatGPT);
+  root.querySelectorAll('[data-editor-section]').forEach(b=>b.addEventListener('click',()=>{state.section=b.dataset.editorSection;state.pages[state.section]=0;render(root,state)}));
+  root.querySelector('[data-editor-documents]')?.addEventListener('click',()=>{
+    const b=[...document.querySelectorAll('.admin-tab')].find(x=>x.dataset.tab==='attente');
+    if(b)b.click();
+  });
+  root.querySelectorAll('[data-editor-page]').forEach(b=>b.addEventListener('click',()=>{const [k,p]=b.dataset.editorPage.split(':');state.section=k;state.pages[k]=Number(p);render(root,state)}));
   root.querySelector('#editorCreate')?.addEventListener('click',async()=>{
     const cls=(root.querySelector('#editorClass')?.value||'').trim(),sub=(root.querySelector('#editorSubject')?.value||'').trim();
     if(!cls||!sub){alert('Renseigne la classe et la matière.');return}
     const b=root.querySelector('#editorCreate');b.disabled=true;
-    try{await createTask(cls,sub);root.querySelector('#editorClass').value='';root.querySelector('#editorSubject').value='';await chargerEspaceEditorialChatGPT()}
-    catch(e){alert('Impossible de créer la tâche : '+(e.message||e))}finally{b.disabled=false}
+    try{await createTask(cls,sub);await chargerEspaceEditorialChatGPT()}catch(e){alert('Impossible de créer la tâche : '+(e.message||e))}finally{b.disabled=false}
   });
-  root.querySelectorAll('[data-editor-page]').forEach(b=>b.addEventListener('click',()=>{const [k,p]=b.dataset.editorPage.split(':');state.pages[k]=Number(p);render(root,state)}));
   root.querySelectorAll('[data-editor-open]').forEach(b=>b.addEventListener('click',async()=>{
-    try{
-      const t=await getJob(Number(b.dataset.editorOpen));if(!t)throw new Error('Tâche introuvable.');
-      const d=root.querySelector('#editorDetail');d.hidden=false;
-      const w=t.metadata?.workflow||{},chapters=Array.isArray(w.chapters)?w.chapters:[];
-      d.innerHTML='<div class="editor-detail-head"><div><span class="editor-step">Tâche #'+esc(t.id)+'</span><h4>'+esc(t.class_name||'')+' · '+esc(t.subject||'')+'</h4><p>État : <strong>'+esc(w.stage||t.status)+'</strong></p></div><button class="admin-btn ghost" id="editorClose">Fermer</button></div>'+
-        '<div class="editor-detail-grid"><div><span>Classe</span><strong>'+esc(t.class_name||'')+'</strong></div><div><span>Matière</span><strong>'+esc(t.subject||'')+'</strong></div><div><span>Type</span><strong>'+esc(t.document_type||'cours')+'</strong></div><div><span>PDF</span><strong>Production manuelle uniquement</strong></div></div>'+
-        (chapters.length?'<div class="editor-detail-chapters"><h5>Chapitres enregistrés</h5>'+chapters.map(x=>'<div><strong>'+esc(x.title)+'</strong><small>'+esc(x.description||'')+'</small></div>').join('')+'</div>':'<div class="editor-empty">Les chapitres seront ajoutés par ChatGPT après récupération de la tâche.</div>');
-      d.querySelector('#editorClose').addEventListener('click',()=>{d.hidden=true});
-    }catch(e){alert(e.message||e)}
+    const t=await getJob(Number(b.dataset.editorOpen));if(!t)return;
+    const d=root.querySelector('#editorDetail');d.hidden=false;d.innerHTML=detail(t,state.section);bindDetail(d,t,state);
+    d.scrollIntoView({behavior:'smooth',block:'nearest'});
   }));
 }
+function bindDetail(d,t,state){
+  d.querySelector('[data-editor-close]')?.addEventListener('click',()=>{d.hidden=true});
+  d.querySelector('[data-plan-save]')?.addEventListener('click',async()=>{
+    const p=proposalFor(t);
+    d.querySelectorAll('[data-plan-field]').forEach(el=>p[el.dataset.planField]=el.value.trim());
+    try{await updateJob(t.id,{proposal:p,proposal_version:Number(t.metadata?.workflow?.proposal_version||0)+1,stage:'proposal_review',rejected:false,revision_requested:false});alert('Plan enregistré.');await chargerEspaceEditorialChatGPT()}catch(e){alert(e.message||e)}
+  });
+  d.querySelector('[data-plan-reject]')?.addEventListener('click',async()=>{
+    try{await updateJob(t.id,{stage:'revision_requested',rejected:true,revision_requested:true});await chargerEspaceEditorialChatGPT()}catch(e){alert(e.message||e)}
+  });
+  d.querySelector('[data-plan-validate]')?.addEventListener('click',async()=>{
+    try{await updateJob(t.id,{stage:'admin_validation',user_validated:true,rejected:false,revision_requested:false,admin_validation:{status:'pending',updated_at:new Date().toISOString()}});await chargerEspaceEditorialChatGPT()}catch(e){alert(e.message||e)}
+  });
+  d.querySelector('[data-admin-validate]')?.addEventListener('click',async()=>{
+    const checks={};d.querySelectorAll('[data-admin-check]').forEach(x=>checks[x.dataset.adminCheck]=x.checked);
+    const notes=d.querySelector('[data-admin-notes]')?.value.trim()||'';
+    const all=Object.values(checks).every(Boolean);
+    if(!all){alert('Toutes les validations administratives doivent être cochées avant de rendre le document prêt pour l’édition.');return}
+    try{await updateJob(t.id,{stage:'edition_ready',admin_validation:{...checks,notes,status:'validated',validated_at:new Date().toISOString()}});await chargerEspaceEditorialTaskAdmin?.()}catch(e){alert(e.message||e)}
+  });
+  d.querySelector('[data-admin-reject]')?.addEventListener('click',async()=>{
+    const notes=d.querySelector('[data-admin-notes]')?.value.trim()||'';
+    try{await updateJob(t.id,{stage:'revision_requested',admin_validation:{status:'rejected',notes,updated_at:new Date().toISOString()},revision_requested:true,rejected:false});await chargerEspaceEditorialChatGPT()}catch(e){alert(e.message||e)}
+  });
+}
 function injectStyle(){
- if(document.getElementById('aurore-editorial-v2-styles'))return;
- const s=document.createElement('style');s.id='aurore-editorial-v2-styles';s.textContent=
- '#auroreEditorialTaskAdmin{display:grid;gap:16px;color:var(--editor-text,currentColor);--editor-surface:var(--card-bg,#fff);--editor-border:color-mix(in srgb,currentColor 12%,transparent);--editor-accent:#6D28D9;--editor-text:currentColor}.editor-workspace-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.editor-kicker,.editor-step{font-size:.62rem;font-weight:900;letter-spacing:.09em;text-transform:uppercase;opacity:.55}.editor-workspace-head h3{margin:5px 0 7px;font-size:1.2rem}.editor-workspace-head p,.editor-create-card p,.editor-section-head p{margin:0;font-size:.7rem;line-height:1.5;opacity:.7}.editor-create-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(360px,1.1fr);gap:18px;align-items:end;padding:20px;border-radius:20px;border:1px solid rgba(109,40,217,.16);background:linear-gradient(135deg,color-mix(in srgb,var(--editor-accent,#6D28D9) 10%,var(--editor-surface,#fff)),var(--editor-surface,#fff))}.editor-create-card h4,.editor-section h4{margin:5px 0 7px;font-size:1rem}.editor-create-fields{display:grid;grid-template-columns:1fr 1fr auto;gap:9px;align-items:end}.editor-create-fields label{display:grid;gap:5px;font-size:.65rem;font-weight:800}.editor-create-fields input{min-width:0;padding:11px 12px;border:1px solid rgba(0,0,0,.12);border-radius:12px;background:var(--card-bg,#fff);color:inherit;font:inherit;font-size:.75rem}.editor-section{padding:18px;border:1px solid var(--bordure,rgba(0,0,0,.1));border-radius:20px;background:var(--fond,#fff)}.editor-section-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.editor-count{min-width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-weight:900;font-size:.7rem;background:color-mix(in srgb,var(--editor-accent,#6D28D9) 10%,transparent)}.editor-task-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:14px}.editor-task-card{min-height:150px;padding:13px;border:1px solid var(--editor-border,rgba(127,127,127,.18));border-radius:16px;background:var(--editor-surface,#fff);display:flex;flex-direction:column;box-shadow:0 3px 15px rgba(0,0,0,.04)}.editor-task-top{display:flex;justify-content:space-between;gap:6px;align-items:center}.editor-task-id{font-size:.58rem;font-weight:900;opacity:.5}.editor-task-status{font-size:.52rem;font-weight:900;border-radius:999px;padding:4px 6px}.editor-task-status.waiting{background:rgba(109,40,217,.09)}.editor-task-status.claimed{background:color-mix(in srgb,#16a34a 11%,transparent)}.editor-task-card h4{margin:13px 0 3px;font-size:.78rem}.editor-task-subject{font-size:.7rem;font-weight:800;opacity:.76}.editor-task-meta{display:flex;gap:6px;margin-top:auto;padding-top:12px}.editor-task-meta span{font-size:.53rem;padding:4px 6px;border-radius:7px;background:color-mix(in srgb,currentColor 6%,transparent)}.editor-task-actions{display:flex;justify-content:flex-end;margin-top:9px}.editor-pager{display:flex;justify-content:center;gap:6px;margin-top:14px}.editor-pager .admin-btn{min-width:32px}.editor-empty{grid-column:1/-1;padding:22px;text-align:center;border:1px dashed var(--editor-border,rgba(127,127,127,.22));border-radius:14px;font-size:.68rem;opacity:.65}.editor-detail{padding:18px;border:1px solid rgba(109,40,217,.18);border-radius:18px;background:color-mix(in srgb,var(--editor-accent,#6D28D9) 4%,var(--editor-surface,#fff))}.editor-detail-head{display:flex;justify-content:space-between;gap:12px}.editor-detail-head h4{margin:5px 0;font-size:.95rem}.editor-detail-head p{font-size:.68rem}.editor-detail-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}.editor-detail-grid>div{padding:10px;border-radius:11px;background:color-mix(in srgb,currentColor 4%,transparent)}.editor-detail-grid span,.editor-detail-chapters h5{display:block;font-size:.56rem;text-transform:uppercase;font-weight:900;opacity:.5}.editor-detail-grid strong{display:block;margin-top:3px;font-size:.67rem}.editor-detail-chapters{margin-top:13px}.editor-detail-chapters>div{padding:9px;border-top:1px solid var(--editor-border,rgba(127,127,127,.14))}.editor-detail-chapters strong,.editor-detail-chapters small{display:block}.editor-detail-chapters strong{font-size:.68rem}.editor-detail-chapters small{font-size:.61rem;opacity:.65;margin-top:3px}@media(max-width:1100px){.editor-task-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.editor-create-card{grid-template-columns:1fr}.editor-create-fields{grid-template-columns:1fr 1fr auto}}@media(max-width:700px){.editor-task-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.editor-create-fields{grid-template-columns:1fr}.editor-detail-grid{grid-template-columns:1fr 1fr}}@media(max-width:480px){.editor-task-grid{grid-template-columns:1fr}.editor-workspace-head{display:block}.editor-workspace-head>.admin-btn{margin-top:10px}}[data-theme="dark"] #auroreEditorialTaskAdmin{--editor-surface:#17171b;--editor-border:rgba(255,255,255,.13)}[data-theme="dark"] #auroreEditorialTaskAdmin .editor-create-fields input{background:var(--editor-surface);border-color:var(--editor-border)}[data-theme="dark"] #auroreEditorialTaskAdmin .editor-task-meta span,[data-theme="dark"] #auroreEditorialTaskAdmin .editor-detail-grid>div{background:rgba(255,255,255,.06)}[data-theme="light"] #auroreEditorialTaskAdmin{--editor-surface:#fff;--editor-border:rgba(0,0,0,.12)}';
- document.head.appendChild(s);
+  if(document.getElementById('aurore-editorial-v2-styles'))return;
+  const s=document.createElement('style');s.id='aurore-editorial-v2-styles';s.textContent=String.raw\`
+#auroreEditorialTaskAdmin{--editor-surface:var(--card-bg,#fff);--editor-surface-soft:color-mix(in srgb,currentColor 3%,transparent);--editor-border:color-mix(in srgb,currentColor 12%,transparent);--editor-text:currentColor;--editor-accent:#6D28D9;color:var(--editor-text);display:grid;gap:16px}
+#auroreEditorialTaskAdmin .editor-hub{display:grid;gap:14px}
+#auroreEditorialTaskAdmin .editor-hub-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;padding:4px 2px}
+#auroreEditorialTaskAdmin .editor-kicker,#auroreEditorialTaskAdmin .editor-step{font-size:.62rem;font-weight:900;letter-spacing:.09em;text-transform:uppercase;opacity:.55}
+#auroreEditorialTaskAdmin .editor-hub-head h3{margin:5px 0 6px;font-size:1.25rem}
+#auroreEditorialTaskAdmin .editor-hub-head p,#auroreEditorialTaskAdmin .editor-page-title p,#auroreEditorialTaskAdmin .editor-create-card p,#auroreEditorialTaskAdmin .editor-validation-head p{margin:0;font-size:.72rem;line-height:1.5;opacity:.68}
+#auroreEditorialTaskAdmin .editor-main-nav{display:flex;gap:5px;align-items:stretch;overflow:auto;padding:5px;border:1px solid var(--editor-border);border-radius:16px;background:var(--editor-surface-soft)}
+#auroreEditorialTaskAdmin .editor-main-nav-item,#auroreEditorialTaskAdmin .editor-main-nav-link{border:0;border-radius:12px;background:transparent;color:inherit;font:inherit;cursor:pointer}
+#auroreEditorialTaskAdmin .editor-main-nav-item{min-width:132px;padding:10px 12px;display:grid;grid-template-columns:auto 1fr auto;gap:7px;align-items:center;text-align:left}
+#auroreEditorialTaskAdmin .editor-main-nav-item span{font-size:.72rem;font-weight:950;opacity:.45}
+#auroreEditorialTaskAdmin .editor-main-nav-item strong{font-size:.68rem;white-space:nowrap}
+#auroreEditorialTaskAdmin .editor-main-nav-item em{font-style:normal;font-size:.58rem;font-weight:900;opacity:.6}
+#auroreEditorialTaskAdmin .editor-main-nav-item:hover,#auroreEditorialTaskAdmin .editor-main-nav-item.active{background:color-mix(in srgb,var(--editor-accent) 10%,var(--editor-surface));box-shadow:0 5px 18px rgba(0,0,0,.05)}
+#auroreEditorialTaskAdmin .editor-main-nav-item.active span{color:var(--editor-accent);opacity:1}
+#auroreEditorialTaskAdmin .editor-main-nav-link{margin-left:auto;padding:10px 13px;font-size:.65rem;font-weight:900;white-space:nowrap;border-left:1px solid var(--editor-border);padding-left:16px}
+#auroreEditorialTaskAdmin .editor-main-nav-link span{font-size:1rem}
+#auroreEditorialTaskAdmin .editor-page{display:grid;gap:13px;padding:18px;border:1px solid var(--editor-border);border-radius:22px;background:var(--editor-surface)}
+#auroreEditorialTaskAdmin .editor-page-title{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+#auroreEditorialTaskAdmin .editor-page-title h4{margin:5px 0 5px;font-size:1rem}
+#auroreEditorialTaskAdmin .editor-page-count{font-size:.62rem;font-weight:900;opacity:.55;white-space:nowrap}
+#auroreEditorialTaskAdmin .editor-create-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(410px,1.1fr);gap:18px;align-items:end;padding:18px;border-radius:18px;border:1px solid color-mix(in srgb,var(--editor-accent) 18%,var(--editor-border));background:linear-gradient(135deg,color-mix(in srgb,var(--editor-accent) 10%,var(--editor-surface)),var(--editor-surface))}
+#auroreEditorialTaskAdmin .editor-create-card h5{margin:5px 0 6px;font-size:.95rem}
+#auroreEditorialTaskAdmin .editor-create-fields{display:grid;grid-template-columns:1fr 1fr auto;gap:9px;align-items:end}
+#auroreEditorialTaskAdmin .editor-create-fields label,#auroreEditorialTaskAdmin .editor-field{display:grid;gap:5px;font-size:.62rem;font-weight:850}
+#auroreEditorialTaskAdmin input,#auroreEditorialTaskAdmin textarea{font:inherit;color:inherit;background:var(--editor-surface);border:1px solid var(--editor-border);border-radius:11px;padding:10px 11px}
+#auroreEditorialTaskAdmin textarea{resize:vertical;min-width:0;line-height:1.45;font-size:.68rem}
+#auroreEditorialTaskAdmin .editor-block-label{display:flex;justify-content:space-between;align-items:center;font-size:.63rem}
+#auroreEditorialTaskAdmin .editor-block-label span{font-weight:950}
+#auroreEditorialTaskAdmin .editor-block-label small{opacity:.55}
+#auroreEditorialTaskAdmin .editor-card-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+#auroreEditorialTaskAdmin .editor-pro-card{display:flex;flex-direction:column;gap:6px;min-height:170px;padding:13px;border:1px solid var(--editor-border);border-radius:16px;background:var(--editor-surface);box-shadow:0 5px 18px rgba(0,0,0,.035)}
+#auroreEditorialTaskAdmin .editor-pro-top,.editor-pro-bottom{display:flex;align-items:center;justify-content:space-between;gap:7px}
+#auroreEditorialTaskAdmin .editor-pro-id{font-size:.57rem;font-weight:950;opacity:.48}
+#auroreEditorialTaskAdmin .editor-pro-pill{display:inline-flex;align-items:center;max-width:100%;padding:4px 7px;border-radius:999px;font-size:.5rem;font-weight:950;background:color-mix(in srgb,currentColor 7%,transparent)}
+#auroreEditorialTaskAdmin .editor-pro-pill.waiting{background:color-mix(in srgb,#6D28D9 11%,transparent)}
+#auroreEditorialTaskAdmin .editor-pro-pill.chapters{background:color-mix(in srgb,#2563EB 11%,transparent)}
+#auroreEditorialTaskAdmin .editor-pro-pill.plan{background:color-mix(in srgb,#C2410C 11%,transparent)}
+#auroreEditorialTaskAdmin .editor-pro-pill.warning{background:color-mix(in srgb,#B45309 13%,transparent)}
+#auroreEditorialTaskAdmin .editor-pro-pill.admin{background:color-mix(in srgb,#7C3AED 12%,transparent)}
+#auroreEditorialTaskAdmin .editor-pro-pill.ready{background:color-mix(in srgb,#16A34A 12%,transparent)}
+#auroreEditorialTaskAdmin .editor-pro-card h4{margin:7px 0 0;font-size:.78rem}
+#auroreEditorialTaskAdmin .editor-pro-subject{font-size:.67rem;opacity:.72}
+#auroreEditorialTaskAdmin .editor-pro-card p{margin:5px 0 2px;font-size:.62rem;line-height:1.45;opacity:.66}
+#auroreEditorialTaskAdmin .editor-pro-bottom{margin-top:auto;padding-top:8px}
+#auroreEditorialTaskAdmin .editor-pro-bottom span{font-size:.53rem;padding:4px 6px;border-radius:7px;background:color-mix(in srgb,currentColor 6%,transparent)}
+#auroreEditorialTaskAdmin .editor-block-pager{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;padding-top:5px}
+#auroreEditorialTaskAdmin .editor-block-pager .admin-btn{font-size:.6rem}
+#auroreEditorialTaskAdmin .editor-empty{grid-column:1/-1;padding:24px;text-align:center;border:1px dashed var(--editor-border);border-radius:15px;font-size:.68rem;opacity:.62}
+#auroreEditorialTaskAdmin .editor-detail{padding:18px;border:1px solid color-mix(in srgb,var(--editor-accent) 20%,var(--editor-border));border-radius:18px;background:color-mix(in srgb,var(--editor-accent) 3%,var(--editor-surface))}
+#auroreEditorialTaskAdmin .editor-detail-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+#auroreEditorialTaskAdmin .editor-detail-head h4{margin:5px 0 4px;font-size:.95rem}
+#auroreEditorialTaskAdmin .editor-detail-meta{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px;margin-top:12px}
+#auroreEditorialTaskAdmin .editor-detail-meta>div{padding:10px;border-radius:11px;background:color-mix(in srgb,currentColor 4%,transparent)}
+#auroreEditorialTaskAdmin .editor-detail-meta span{display:block;font-size:.54rem;text-transform:uppercase;font-weight:900;opacity:.48}
+#auroreEditorialTaskAdmin .editor-detail-meta strong{display:block;margin-top:4px;font-size:.64rem}
+#auroreEditorialTaskAdmin .editor-detail-title{margin:16px 0 8px;font-size:.73rem}
+#auroreEditorialTaskAdmin .editor-chapters-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+#auroreEditorialTaskAdmin .editor-chapter{padding:11px;border:1px solid var(--editor-border);border-radius:12px;background:var(--editor-surface)}
+#auroreEditorialTaskAdmin .editor-chapter span{display:block;font-size:.5rem;font-weight:900;text-transform:uppercase;opacity:.45}
+#auroreEditorialTaskAdmin .editor-chapter strong{display:block;margin-top:4px;font-size:.67rem}
+#auroreEditorialTaskAdmin .editor-chapter small{display:block;margin-top:4px;font-size:.59rem;line-height:1.4;opacity:.62}
+#auroreEditorialTaskAdmin .editor-plan-form{display:grid;gap:12px}
+#auroreEditorialTaskAdmin .editor-plan-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+#auroreEditorialTaskAdmin .editor-plan-grid .wide{grid-column:1/-1}
+#auroreEditorialTaskAdmin .editor-plan-divider{padding:8px 0;border-top:1px solid var(--editor-border);font-size:.58rem;text-transform:uppercase;font-weight:950;letter-spacing:.08em;opacity:.55}
+#auroreEditorialTaskAdmin .editor-plan-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+#auroreEditorialTaskAdmin .editor-validation-wrap{display:grid;gap:12px}
+#auroreEditorialTaskAdmin .editor-validation-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+#auroreEditorialTaskAdmin .editor-validation-head h5{margin:5px 0;font-size:.84rem}
+#auroreEditorialTaskAdmin .editor-validation-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+#auroreEditorialTaskAdmin .editor-check{display:flex;gap:8px;align-items:center;padding:11px;border:1px solid var(--editor-border);border-radius:12px;background:var(--editor-surface);font-size:.64rem;font-weight:800}
+#auroreEditorialTaskAdmin .editor-check input{width:17px;height:17px;padding:0;accent-color:var(--editor-accent)}
+#auroreEditorialTaskAdmin .editor-a-start{display:grid;gap:5px;padding:16px;border:1px dashed var(--editor-border);border-radius:14px}
+#auroreEditorialTaskAdmin .editor-a-start strong{font-size:.72rem}
+#auroreEditorialTaskAdmin .editor-a-start span{font-size:.62rem;opacity:.62}
+#auroreEditorialTaskAdmin .danger{border-color:color-mix(in srgb,#DC2626 25%,var(--editor-border))!important}
+@media(max-width:1050px){#auroreEditorialTaskAdmin .editor-card-grid{grid-template-columns:repeat(3,minmax(0,1fr))}#auroreEditorialTaskAdmin .editor-create-card{grid-template-columns:1fr}}
+@media(max-width:720px){#auroreEditorialTaskAdmin .editor-main-nav{overflow-x:auto}#auroreEditorialTaskAdmin .editor-main-nav-item{min-width:120px}#auroreEditorialTaskAdmin .editor-main-nav-link{margin-left:0}#auroreEditorialTaskAdmin .editor-page-title,#auroreEditorialTaskAdmin .editor-validation-head{display:block}#auroreEditorialTaskAdmin .editor-page-count{display:block;margin-top:8px}#auroreEditorialTaskAdmin .editor-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#auroreEditorialTaskAdmin .editor-detail-meta,#auroreEditorialTaskAdmin .editor-validation-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){#auroreEditorialTaskAdmin .editor-hub-head{display:block}#auroreEditorialTaskAdmin .editor-main-nav{display:grid;grid-template-columns:1fr 1fr}#auroreEditorialTaskAdmin .editor-main-nav-link{grid-column:1/-1;text-align:left;border-left:0;border-top:1px solid var(--editor-border);padding-top:11px}#auroreEditorialTaskAdmin .editor-card-grid{grid-template-columns:1fr}#auroreEditorialTaskAdmin .editor-plan-grid,#auroreEditorialTaskAdmin .editor-detail-meta,#auroreEditorialTaskAdmin .editor-chapters-grid,#auroreEditorialTaskAdmin .editor-validation-grid{grid-template-columns:1fr}#auroreEditorialTaskAdmin .editor-plan-actions{justify-content:stretch}#auroreEditorialTaskAdmin .editor-plan-actions .admin-btn{flex:1}}
+[data-theme="dark"] #auroreEditorialTaskAdmin{--editor-surface:#17171b;--editor-border:rgba(255,255,255,.13)}
+[data-theme="light"] #auroreEditorialTaskAdmin{--editor-surface:#fff;--editor-border:rgba(0,0,0,.12)}
+\`;
+  document.head.appendChild(s);
 }
 async function chargerEspaceEditorialChatGPT(){
- const p=panel();if(!p)return false;injectStyle();
- let root=document.getElementById('auroreEditorialTaskAdmin');
- if(!root){root=document.createElement('div');root.id='auroreEditorialTaskAdmin';const host=document.getElementById('auroraRequestFormHost');(host||p).appendChild(root)}
- root.innerHTML='<div class="editor-empty">Chargement de l’espace éditorial…</div>';
- try{const tasks=await listJobs();const state={tasks,pages:{new:0,active:0}};render(root,state);const count=document.getElementById('tabCountAuroraRequest');if(count)count.textContent=String(tasks.length);return true}
- catch(e){root.innerHTML='<div class="editor-empty">Impossible de charger l’espace éditorial : '+esc(e.message||e)+'</div>';return false}
+  const p=panel();if(!p)return false;injectStyle();
+  let root=document.getElementById('auroreEditorialTaskAdmin');
+  if(!root){root=document.createElement('div');root.id='auroreEditorialTaskAdmin';(document.getElementById('auroraRequestFormHost')||p).appendChild(root)}
+  root.innerHTML='<div class="editor-empty">Chargement du parcours éditorial…</div>';
+  try{const tasks=await listJobs();const state={tasks,section:'A',pages:{A:0,B:0,C:0,D:0}};render(root,state);const count=document.getElementById('tabCountAuroraRequest');if(count)count.textContent=String(tasks.length);return true}catch(e){root.innerHTML='<div class="editor-empty">Impossible de charger le parcours éditorial : '+esc(e.message||e)+'</div>';return false}
 }
 window.chargerEspaceEditorialChatGPT=chargerEspaceEditorialChatGPT;
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{const p=panel();if(!p)return;injectStyle();const host=document.getElementById('auroraRequestFormHost');if(host&&!document.getElementById('auroreEditorialTaskAdmin')){const root=document.createElement('div');root.id='auroreEditorialTaskAdmin';root.innerHTML='<div class="editor-empty">Ouvre cet espace pour charger les tâches.</div>';host.appendChild(root)}},{once:true});
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{const p=panel();if(p){injectStyle();const host=document.getElementById('auroraRequestFormHost');if(host&&!document.getElementById('auroreEditorialTaskAdmin')){const root=document.createElement('div');root.id='auroreEditorialTaskAdmin';host.appendChild(root)}}},{once:true});else injectStyle();
 })();
