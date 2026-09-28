@@ -170,10 +170,48 @@ function pager(total,page,key){
   const pages=Math.max(1,Math.ceil(total/PAGE_SIZE));if(pages<=1)return '';
   return '<div class="editor-block-pager">'+Array.from({length:pages},(_,i)=>'<button type="button" class="admin-btn '+(i===page?'primary':'ghost')+'" data-editor-page="'+key+':'+i+'">Bloc '+(i+1)+'</button>').join('')+'</div>';
 }
+const CHAPTER_PROPOSALS={
+  "219|mathématiques|terminale c":[
+    {title:"Suites numériques",description:"Récurrence, convergence, suites usuelles, suites définies par récurrence et théorèmes de comparaison.",source:"Curriculum MENAPLN — Mathématiques, Terminales C/E (2022)."},
+    {title:"Nombres complexes",description:"Formes algébrique, trigonométrique et exponentielle, conjugué, module, argument, Moivre/Euler, équations et interprétation géométrique.",source:"Curriculum MENAPLN + Faso e-education."},
+    {title:"Arithmétique dans ℤ",description:"Divisibilité, PGCD/PPCM, Bézout, Gauss, congruences et problèmes arithmétiques.",source:"Curriculum MENAPLN — Mathématiques, Terminales C/E (2022)."},
+    {title:"Fonctions numériques : limites, continuité et étude",description:"Limites, continuité, dérivation, variations, extrema, asymptotes et étude complète de fonctions.",source:"Curriculum MENAPLN + Faso e-education."},
+    {title:"Fonctions logarithme, exponentielle et puissance",description:"Définitions, propriétés, équations/inéquations, dérivées, primitives, croissance comparée et applications.",source:"Faso e-education — Mathématiques Terminale."},
+    {title:"Équations différentielles linéaires",description:"Équations du premier et du second ordre sans second membre, conditions initiales et applications de modélisation.",source:"Curriculum MENAPLN + Faso e-education."},
+    {title:"Calcul intégral",description:"Primitives, intégrale d’une fonction continue, propriétés, valeurs moyennes, aires et applications.",source:"Curriculum MENAPLN + Faso e-education."},
+    {title:"Transformations du plan et similitudes",description:"Transformations, similitudes directes et configurations géométriques du plan.",source:"Curriculum MENAPLN + Faso e-education — similitudes directes."},
+    {title:"Probabilités et variables aléatoires",description:"Vocabulaire des probabilités, calculs de probabilités, conditionnement/indépendance et variables aléatoires.",source:"Curriculum MENAPLN + Faso e-education."},
+    {title:"Courbes planes",description:"Courbes paramétrées du plan et étude de leurs propriétés dans le cadre du programme.",source:"Curriculum MENAPLN — Mathématiques Terminales C/E."},
+    {title:"Calcul vectoriel et géométrie",description:"Calcul vectoriel et configurations géométriques, avec résolution de problèmes du plan et de l’espace.",source:"Curriculum MENAPLN — Mathématiques Terminales C/E."},
+    {title:"Statistiques",description:"Organisation, traitement et interprétation des données statistiques au niveau Terminale C.",source:"Curriculum MENAPLN — Mathématiques Terminales C/E."},
+    {title:"Matrices et applications",description:"Matrices, opérations et applications comme outil de résolution et de modélisation.",source:"Curriculum MENAPLN — Mathématiques Terminales C/E."}
+  ],
+  "220|français|terminale c":[
+    {title:"Le commentaire composé",description:"Analyse du sujet, problématique, axes, procédés, plan et rédaction d’un commentaire composé.",source:"Curriculum MENAPLN — Français séries C/D (2022) + Faso e-education."},
+    {title:"Le récit : narration et analyse romanesque",description:"Histoire/narration, narrateur, héros, focalisation, sommaire, ellipse, schémas narratif et actanciel.",source:"Curriculum MENAPLN — Français séries C/D (2022)."},
+    {title:"Littérature française du XXe siècle",description:"Étude des grands courants explicitement retenus : surréalisme, absurde et existentialisme.",source:"Curriculum MENAPLN — Français séries C/D (2022)."},
+    {title:"Littérature africaine des indépendances à nos jours",description:"Évolution, œuvres et problématiques de la littérature africaine contemporaine, notamment la désillusion/désenchantement.",source:"Curriculum MENAPLN — Français séries C/D (2022)."},
+    {title:"L’œuvre romanesque et la fiche de lecture",description:"Lecture intégrale, analyse structurée d’une œuvre romanesque et production d’une fiche de lecture.",source:"Curriculum MENAPLN — Français séries C/D (2022)."},
+    {title:"La dissertation littéraire",description:"Analyse du sujet, problématique, recherche des idées, types de plans, raisonnements, argumentation et rédaction.",source:"Curriculum MENAPLN + Faso e-education."},
+    {title:"Le résumé de texte et la discussion",description:"Résumé d’un texte de 600 à 800 mots, reformulation, articulation logique et rédaction d’une discussion.",source:"Curriculum MENAPLN — Français séries C/D (2022)."},
+    {title:"La poésie : lecture méthodique et versification",description:"Lecture méthodique, versification, procédés poétiques, tons et interprétation d’une œuvre poétique.",source:"Curriculum MENAPLN + Faso e-education."},
+    {title:"Le théâtre : dramaturgie et lecture d’œuvre",description:"Acte, scène, dialogue, réplique, tirade, monologue, didascalie, dramaturgie et étude d’une œuvre théâtrale.",source:"Curriculum MENAPLN — Français séries C/D (2022)."},
+    {title:"Histoire littéraire : symbolisme et Parnasse",description:"Repères historiques et esthétiques, caractéristiques, auteurs et exploitation dans l’analyse littéraire.",source:"Curriculum MENAPLN — Français séries C/D (2022)."},
+    {title:"Le nouveau roman et les évolutions du récit",description:"Repères sur le nouveau roman et mise en relation avec les transformations de l’écriture narrative.",source:"Curriculum MENAPLN — Français séries C/D (2022)."},
+    {title:"Préparation intégrée aux épreuves du baccalauréat",description:"Mobilisation des compétences de résumé, dissertation, commentaire composé, lecture d’œuvre et expression.",source:"Curriculum MENAPLN — compétences terminales C/D."}
+  ]
+};
+function chapterProposalsFor(t){
+  const key=String(t.id)+"|"+String(t.subject||"").toLowerCase()+"|"+String(t.class_name||t.level||"").toLowerCase();
+  return CHAPTER_PROPOSALS[key]||[];
+}
 function chaptersMarkup(t){
-  const w=t.metadata?.workflow||{},c=Array.isArray(w.chapters)?w.chapters:[];
-  if(!c.length)return'<div class="editor-empty">Aucun chapitre enregistré pour le moment. La proposition de chapitres sera faite dans notre conversation ChatGPT.</div>';
-  return'<div class="editor-chapters-grid">'+c.map((x,i)=>'<div class="editor-chapter"><span>Chapitre '+(i+1)+'</span><strong>'+esc(x.title||x.name||'Sans titre')+'</strong><small>'+esc(x.description||x.objective||x.resume||'')+'</small></div>').join('')+'</div>';
+  const w=t.metadata?.workflow||{},saved=Array.isArray(w.chapters)?w.chapters:[],proposals=chapterProposalsFor(t);
+  if(!proposals.length)return'<div class="editor-empty">Aucune proposition structurée disponible pour cette combinaison. La tâche doit être revue avant sélection.</div>';
+  const selected=new Set(saved.map(x=>String(x.title||x.name||x)));
+  return '<div class="editor-chapter-source"><span>Propositions issues du programme étudié</span><small>Les chapitres sont proposés par ChatGPT après recoupement des sources pédagogiques. Tu sélectionnes ensuite ceux qui entreront dans le document.</small></div>'+
+    '<div class="editor-chapters-choice">'+proposals.map((x,i)=>'<label class="editor-chapter-choice"><input type="checkbox" data-chapter-choice="'+i+'" '+(selected.has(x.title)?'checked':'')+'><span><strong>'+esc(x.title)+'</strong><small>'+esc(x.description)+'</small><em>'+esc(x.source)+'</em></span></label>').join('')+'</div>'+
+    '<div class="editor-plan-actions"><button type="button" class="admin-btn primary" data-chapters-save="'+esc(t.id)+'">Enregistrer la sélection et passer à l’étape suivante</button></div>';
 }
 function field(label,key,value,wide){
   return '<label class="editor-field '+(wide?'wide':'')+'"><span>'+label+'</span><textarea data-plan-field="'+key+'" rows="'+(wide?4:2)+'">'+esc(value)+'</textarea></label>';
@@ -252,6 +290,12 @@ function bind(root,state){
 }
 function bindDetail(d,t,state){
   d.querySelector('[data-editor-close]')?.addEventListener('click',()=>{d.hidden=true});
+  d.querySelector('[data-chapters-save]')?.addEventListener('click',async()=>{
+    const proposals=chapterProposalsFor(t),selected=[];
+    d.querySelectorAll('[data-chapter-choice]').forEach(el=>{if(el.checked&&proposals[Number(el.dataset.chapterChoice)])selected.push(proposals[Number(el.dataset.chapterChoice)])});
+    if(!selected.length){alert('Sélectionne au moins un chapitre avant d’enregistrer.');return}
+    try{await updateJob(t.id,{chapters:selected,selected_chapter:null,stage:'chapitre_selectionne',rejected:false,revision_requested:false});await chargerEspaceEditorialChatGPT()}catch(e){alert(e.message||e)}
+  });
   d.querySelector('[data-plan-save]')?.addEventListener('click',async()=>{
     const p=proposalFor(t);
     d.querySelectorAll('[data-plan-field]').forEach(el=>p[el.dataset.planField]=el.value.trim());
@@ -334,6 +378,17 @@ function injectStyle(){
 #auroreEditorialTaskAdmin .editor-detail-meta span{display:block;font-size:.54rem;text-transform:uppercase;font-weight:900;opacity:.48}
 #auroreEditorialTaskAdmin .editor-detail-meta strong{display:block;margin-top:4px;font-size:.64rem}
 #auroreEditorialTaskAdmin .editor-detail-title{margin:16px 0 8px;font-size:.73rem}
+#auroreEditorialTaskAdmin .editor-chapter-source{display:grid;gap:4px;margin-bottom:10px;padding:11px 12px;border-radius:12px;background:color-mix(in srgb,var(--editor-accent) 7%,transparent);border:1px solid color-mix(in srgb,var(--editor-accent) 15%,var(--editor-border))}
+#auroreEditorialTaskAdmin .editor-chapter-source span{font-size:.61rem;font-weight:950}
+#auroreEditorialTaskAdmin .editor-chapter-source small{font-size:.58rem;line-height:1.45;opacity:.68}
+#auroreEditorialTaskAdmin .editor-chapters-choice{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+#auroreEditorialTaskAdmin .editor-chapter-choice{display:grid;grid-template-columns:auto 1fr;gap:9px;align-items:start;padding:12px;border:1px solid var(--editor-border);border-radius:13px;background:var(--editor-surface);cursor:pointer}
+#auroreEditorialTaskAdmin .editor-chapter-choice:hover{border-color:color-mix(in srgb,var(--editor-accent) 35%,var(--editor-border))}
+#auroreEditorialTaskAdmin .editor-chapter-choice input{margin-top:3px;width:17px;height:17px;padding:0;accent-color:var(--editor-accent)}
+#auroreEditorialTaskAdmin .editor-chapter-choice span{display:grid;gap:4px}
+#auroreEditorialTaskAdmin .editor-chapter-choice strong{font-size:.67rem}
+#auroreEditorialTaskAdmin .editor-chapter-choice small{font-size:.58rem;line-height:1.45;opacity:.65}
+#auroreEditorialTaskAdmin .editor-chapter-choice em{font-size:.51rem;line-height:1.35;opacity:.45;font-style:normal}
 #auroreEditorialTaskAdmin .editor-chapters-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 #auroreEditorialTaskAdmin .editor-chapter{padding:11px;border:1px solid var(--editor-border);border-radius:12px;background:var(--editor-surface)}
 #auroreEditorialTaskAdmin .editor-chapter span{display:block;font-size:.5rem;font-weight:900;text-transform:uppercase;opacity:.45}
