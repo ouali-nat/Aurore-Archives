@@ -92,10 +92,48 @@ def test_course_math_uses_adaptive_boxes_instead_of_inline_boxes():
     )
     rendered = "\n".join(short + long)
     assert r"\AuroreMathCompact{" in rendered
-    assert r"\AuroreMathBlock{" in rendered
+    assert r"\AuroreMathBlock{" not in "\n".join(short)
     assert r"\AuroreInlineMath{" not in rendered
     assert "La relation courte est" in rendered
     assert "La décroissance s'écrit" in rendered
+
+
+def test_course_inline_math_preserves_paragraph_order_and_spacing():
+    source = (
+        "Avant $E=mc^2$ puis la relation "
+        "(x²−1)/(x−1)=x+1 arrive ensuite."
+    )
+    rendered = "\n".join(
+        _render_content_item(source, auto_math=True, box_all_math=True)
+    )
+
+    assert r"\AuroreParagraphBlock{" in rendered
+    first = rendered.index("Avant ")
+    first_math = rendered.index(r"\AuroreMathCompact{}{E=mc^2}")
+    second_text = rendered.index("puis la relation")
+    normalized_plain = normalize_math("(x²−1)/(x−1)=x+1")
+    second_math = rendered.index(r"\AuroreMathCompact{}{" + normalized_plain + r"}")
+    tail = rendered.index(" arrive ensuite.")
+    assert first < first_math < second_text < second_math < tail
+    assert r"\AuroreInlineMath{" not in rendered
+
+    long_inline = _render_content_item(
+        r"Avant $\lim_{x\to+\infty}\frac{3x^2-1}{x^2+4}=3$ après.",
+        auto_math=True,
+        box_all_math=True,
+    )
+    long_inline_rendered = "\n".join(long_inline)
+    assert r"\AuroreParagraphBlock{" in long_inline_rendered
+    assert r"\AuroreMathCompact{" in long_inline_rendered
+    assert r"\AuroreMathBlock{" not in long_inline_rendered
+
+    source_text = Path(render_document.__file__).read_text(encoding="utf-8")
+    compact_macro = source_text.split(
+        r"\newcommand{\AuroreMathCompact}[2]{%", 1
+    )[1].split(r"\newcommand{\AuroreMathBlock}[2]{%", 1)[0]
+    assert r"\hfill" not in compact_macro
+    assert r"\par" not in compact_macro
+    assert r"\tcbox[on line" in compact_macro
 
 
 def test_course_profile_remains_separate():
