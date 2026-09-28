@@ -579,7 +579,10 @@ const renderGraphInBrowser = async (graph) => {
       // GeoGebra only needs the solution points and the coordinate axes.
     } else {
       if (instrument === "function2d" && Array.isArray(graph?.render_function_commands)) {
-        commands.push(...graph.render_function_commands.map((command) => expr(command)));
+        // Les commandes multi-fonctions sont déjà des constructions GeoGebra
+        // complètes (f(x)=..., g(x)=...). Ne pas les repasser dans expr(),
+        // qui retire volontairement le préfixe f(x)= des expressions simples.
+        commands.push(...graph.render_function_commands);
       } else {
         let raw = String(
           instrument === "function2d"
