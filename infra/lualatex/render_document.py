@@ -2379,6 +2379,9 @@ def _math_render_command(body, label="Relation"):
     normalized = normalize_math(str(body or "").strip())
     if not normalized:
         return ""
+    normalized_label = clean_text(label).strip().lower()
+    if normalized_label in {"formule", "formule utile", "relation", "relation utile"}:
+        label = "Relation"
     # Short relations use a natural-width box; long relations remain breakable.
     compact_measure = len(re.sub(r"\\(?:text|operatorname|mathrm|mathbb)\b", "", normalized))
     if "\n" not in normalized and compact_measure <= 58:
@@ -2904,12 +2907,15 @@ def labeled_block(s, auto_math=False):
     )
     if not m:
         return []
+    raw_label = clean_text(m.group(1)).strip()
+    label_key = raw_label.lower()
+    display_label = "Relation" if label_key in {"formule", "formule utile", "relation", "relation utile"} else raw_label
     return [
-        r"\AuroreLabeledBlock{" + tex_text(m.group(1)) + r"}{" + inline(m.group(2), auto_math=auto_math) + r"}",
+        r"\AuroreLabeledBlock{" + tex_text(display_label) + r"}{" + inline(m.group(2), auto_math=auto_math) + r"}",
         "",
     ]
 
-def display_formula(s, label="Formule utile"):
+def display_formula(s, label="Relation"):
     if not s:
         return ""
     # Content Factory stores formulae either as a single string or as a list
@@ -3502,7 +3508,7 @@ def render(data):
         r"  \end{tcolorbox}%",
         r"}",
         r"\newcommand{\AuroreFormulaBlock}[1]{%",
-        r"  \AuroreMathBlock{Formule utile}{#1}%",
+        r"  \AuroreMathBlock{Relation}{#1}%",
         r"}",
         r"\newcommand{\AuroreCalculationBlock}[1]{%",
         r"  \AuroreMathBlock{Étape de calcul}{#1}%",
