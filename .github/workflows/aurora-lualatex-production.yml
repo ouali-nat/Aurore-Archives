@@ -147,8 +147,7 @@ jobs:
           explicit_fraction_case = (
               r"Pour 9,20 g, on calcule \(n=\frac{9,20}{46,0}=0,200\,mol\)."
           )
-          rendered_fraction = "
-".join(
+          rendered_fraction = "\n".join(
               render_document._render_content_item(explicit_fraction_case)
           )
           if r"\frac{9,20}{46,0}" not in rendered_fraction:
