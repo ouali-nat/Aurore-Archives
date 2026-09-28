@@ -1840,6 +1840,28 @@
     }
 
     const meta = data.user_metadata || {};
+
+    // Réparation protégée du rôle du compte propriétaire.
+    // La fonction Supabase existante impose elle-même auth.uid() = propriétaire ;
+    // aucun autre compte ne peut donc utiliser ce chemin.
+    if (data.id === PROPRIETAIRE_ADMIN_ID) {
+      try {
+        const rr = await fetch(`${SUPABASE_URL}/rest/v1/rpc/promouvoir_utilisateur_admin`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': 'Bearer ' + access_token,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify({ utilisateur_id: data.id })
+        });
+        if (!rr.ok) console.warn('[Profil propriétaire] restauration admin refusée : HTTP ' + rr.status);
+      } catch (e) {
+        console.warn('[Profil propriétaire] restauration admin indisponible :', e);
+      }
+    }
+
     let profil = {};
 
     // Le profil est utile pour enrichir l'espace, mais ne doit jamais empêcher
@@ -4159,7 +4181,7 @@
 <link href="./css/aurora-attachments.css" rel="stylesheet" media="print" onload="this.media='all'"/>
 <link href="./css/aurora-content-factory.css?v=20260920-3" rel="stylesheet" media="print" onload="this.media='all'"/>
 
-<script defer src="js/aurora-content-factory-admin.js?20260928-pdfmanual1"></script>
+<script defer src="js/aurora-content-factory-admin.js?20260928-pdfmanual2"></script>
 <script defer src="js/aurore-admin-separation.js"></script>
 <script defer src="js/aurore-hero-morph.js"></script>
 <script defer src="js/aurore-zoom-control.js"></script>
