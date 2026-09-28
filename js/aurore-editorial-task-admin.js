@@ -139,7 +139,7 @@ const proposalFor=(t)=>{
 const stageInfo={
   initiale:{label:'En attente de récupération',tone:'waiting'},
   chapitres_proposes:{label:'Chapitres proposés',tone:'chapters'},
-  chapitre_selectionne:{label:'Chapitre sélectionné',tone:'chapters'},
+  chapitre_selectionne:{label:'Chapitres sélectionnés',tone:'chapters'},
   proposition_editoriale:{label:'Construction en cours',tone:'plan'},
   proposal_review:{label:'Plan à valider',tone:'plan'},
   revision_requested:{label:'Révision demandée',tone:'warning'},
@@ -161,7 +161,11 @@ function taskCard(t,section){
   const desc=section==='B'
     ? (ch.length?ch.slice(0,3).map(x=>x.title||x.name||textValue(x)).join(' · ')+(ch.length>3?'…':''):'Chapitres à proposer dans la conversation')
     : section==='C'
-      ? (pv?.title||w.selected_chapter?.title||w.selected_chapter||'Plan de production à construire / valider')
+      ? (pv?.title||(
+          Array.isArray(w.selected_chapters)&&w.selected_chapters.length
+            ? 'Chapitres validés : '+w.selected_chapters.map(x=>x?.title||x?.name||textValue(x)).join(' · ')
+            : w.selected_chapter?.title||w.selected_chapter||''
+        )||'Plan de production à construire / valider')
       : section==='D'
         ? ((w.admin_validation?.status==='validated')?'Validation administrative complète.':'Validation administrative à effectuer.')
         : 'Classe + matière : première étape du parcours éditorial';
