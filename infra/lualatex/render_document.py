@@ -6,6 +6,7 @@ import re
 import unicodedata
 from pathlib import Path
 from aurore_svg import render_graphics
+# Course layout decoration: relation boxes and connected section spine.
 
 AURORE_SITE_URL = "https://aurore-section-archivescom.vercel.app/"
 DEFAULT_THEME_COLOR = "6D28D9"
