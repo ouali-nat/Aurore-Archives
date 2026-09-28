@@ -1,6 +1,7 @@
 -- Source de vérité pour la couleur administrative du document.
 -- Une couleur choisie explicitement dans le sas Content Factory ne doit pas
 -- être écrasée par une couleur portée par un payload d’ingestion éditoriale.
+
 CREATE OR REPLACE FUNCTION public.aurora_ingest_editorial_document(p_ingest_id text, p_created_by uuid, p_title text, p_subject text DEFAULT NULL::text, p_level text DEFAULT NULL::text, p_class_name text DEFAULT NULL::text, p_document_type text DEFAULT 'cours'::text, p_prompt text DEFAULT NULL::text, p_content_json jsonb DEFAULT '{}'::jsonb, p_instructions jsonb DEFAULT '{}'::jsonb, p_metadata jsonb DEFAULT '{}'::jsonb, p_domaine text DEFAULT NULL::text, p_formation text DEFAULT NULL::text, p_specialite text DEFAULT NULL::text, p_annee text DEFAULT NULL::text, p_semestre text DEFAULT NULL::text, p_filiere text DEFAULT NULL::text, p_matiere text DEFAULT NULL::text, p_theme_color text DEFAULT '#C85C0D'::text, p_job_id bigint DEFAULT NULL::bigint)
  RETURNS jsonb
  LANGUAGE plpgsql
