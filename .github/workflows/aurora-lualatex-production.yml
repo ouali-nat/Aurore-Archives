@@ -773,15 +773,15 @@ jobs:
               }
               for key in (
                   "subject", "matiere", "level", "class_name", "document_type",
-                  "theme_color", "themeColor", "domaine", "formation",
-                  "specialite", "annee", "semestre", "filiere"
+                  "domaine", "formation", "specialite", "annee", "semestre", "filiere"
               ):
                   if document.get(key) is not None and key not in content:
                       content[key] = document.get(key)
-              if isinstance(document.get("metadata"), dict):
-                  for key in ("visual_plan", "visuals", "aurore_design"):
-                      if key in document["metadata"] and key not in content:
-                          content[key] = document["metadata"][key]
+
+              # The administrative document record is the source of truth for
+              # theme selection. Centralize this merge in the renderer so the
+              # exact same rule can be unit-tested independently.
+              content = render_document.apply_authoritative_document_theme(content, document)
 
               graph_assets = payload.get("graph_assets") or []
               if graph_assets:

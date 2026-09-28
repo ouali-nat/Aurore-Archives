@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import render_document
 from render_document import (
     _document_kind,
     _edition_profile,
@@ -189,3 +190,27 @@ def test_math_command_corruption_is_repaired():
 def test_math_json_control_escape_repair():
     assert normalize_math("\f" + "rac{1}{2}") == r"\frac{1}{2}"
     assert normalize_math("\t" + "ext{x}") == r"\text{x}"
+
+
+def test_authoritative_document_theme_overrides_stale_embedded_design():
+    content = {
+        "theme_color": "#881337",
+        "aurore_design": {
+            "theme_key": "violet",
+            "theme_strong": "#6D28D9",
+            "theme_primary": "#6D28D9",
+            "theme_color": "#6D28D9",
+        },
+    }
+    document = {
+        "theme_color": "#0369A1",
+        "metadata": {"aurore_design": {"theme_color": "#0369A1"}},
+    }
+    merged = render_document.apply_authoritative_document_theme(content, document)
+    assert merged["theme_color"] == "#0369A1"
+    assert merged["themeColor"] == "#0369A1"
+    assert merged["aurore_design"]["theme_color"] == "#0369A1"
+    assert "theme_key" not in merged["aurore_design"]
+    assert "theme_strong" not in merged["aurore_design"]
+    assert render_document.resolve_theme_color(merged) == "#0369A1"
+

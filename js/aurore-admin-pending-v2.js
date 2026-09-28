@@ -18,7 +18,7 @@ async function adminFetch(url,options={}){
 function normalise(j){
  const m=metadataOf(j),d=m.aurore_design&&typeof m.aurore_design==='object'?m.aurore_design:{};
  const pRaw=Number(m.generation_progress??m.lualatex_progress??m.pdf_progress);
- return {id:Number(j.id),title:clean(j.title,'Document Aurore sans titre'),level:clean(j.level,'Niveau non précisé'),className:clean(j.class_name,'—'),subject:clean(j.subject,'Matière non précisée'),type:clean(j.document_type,'Document'),created:j.created_at,updated:j.updated_at,status:statusOf(j),generatedDocumentId:j.generated_document_id,theme:themeColor(d.theme_color||m.theme_color),metadata:m,error:clean(j.error_message),progress:Number.isFinite(pRaw)?Math.max(0,Math.min(100,pRaw)):null,stage:clean(m.generation_stage||m.lualatex_stage||m.generation_status||m.lualatex_status),search:[j.title,j.level,j.class_name,j.subject,j.document_type,j.id].filter(Boolean).join(' ').toLocaleLowerCase('fr')};
+ return {id:Number(j.id),title:clean(j.title,'Document Aurore sans titre'),level:clean(j.level,'Niveau non précisé'),className:clean(j.class_name,'—'),subject:clean(j.subject,'Matière non précisée'),type:clean(j.document_type,'Document'),created:j.created_at,updated:j.updated_at,status:statusOf(j),generatedDocumentId:j.generated_document_id,theme:themeColor((m.theme_color_source==='admin'&&m.admin_theme_color)||d.theme_color||m.theme_color),metadata:m,error:clean(j.error_message),progress:Number.isFinite(pRaw)?Math.max(0,Math.min(100,pRaw)):null,stage:clean(m.generation_stage||m.lualatex_stage||m.generation_status||m.lualatex_status),search:[j.title,j.level,j.class_name,j.subject,j.document_type,j.id].filter(Boolean).join(' ').toLocaleLowerCase('fr')};
 }
 function applyFilters(){
  const q=STATE.query.trim().toLocaleLowerCase('fr');
@@ -46,7 +46,7 @@ async function chooseTheme(j){
  const color=await chooser(j.theme,'generation');
  if(!color)return false;
  const m=metadataOf(j),d=m.aurore_design&&typeof m.aurore_design==='object'?m.aurore_design:{},c=themeColor(color);
- const metadata={...m,theme_color:c,aurore_design:{...d,theme_color:c,version:1}};
+ const metadata={...m,theme_color:c,admin_theme_color:c,theme_color_source:'admin',theme_color_selected_at:new Date().toISOString(),aurore_design:{...d,theme_color:c,version:1}};
  const r=await adminFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?id=eq.'+encodeURIComponent(j.id),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({metadata,updated_at:new Date().toISOString()})});
  const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));return true;
 }
