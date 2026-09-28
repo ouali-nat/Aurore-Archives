@@ -138,16 +138,29 @@ jobs:
           )
           if r"\AuroreParagraphBlock{" not in paragraph_rendered:
               raise SystemExit(f"Course paragraph box regression: {paragraph_rendered!r}")
-          if r"\AuroreInlineMath{" not in paragraph_rendered:
-              raise SystemExit(f"Inline math box regression: {paragraph_rendered!r}")
+          math_box_count = (
+              paragraph_rendered.count(r"\AuroreMathCompact{") +
+              paragraph_rendered.count(r"\AuroreMathBlock{")
+          )
+          if math_box_count == 0:
+              raise SystemExit(f"Adaptive math box regression: {paragraph_rendered!r}")
+          if r"\AuroreInlineMath{" in paragraph_rendered:
+              raise SystemExit(f"Legacy inline math box leaked: {paragraph_rendered!r}")
           if r"\AuroreMathCompact{Relation}" in paragraph_rendered or r"\AuroreMathBlock{Relation}" in paragraph_rendered:
               raise SystemExit(f"Course paragraph Relation label leaked: {paragraph_rendered!r}")
-          math_pos = paragraph_rendered.find(r"\AuroreInlineMath{")
+          math_positions = [
+              pos for pos in (
+                  paragraph_rendered.find(r"\AuroreMathCompact{"),
+                  paragraph_rendered.find(r"\AuroreMathBlock{"),
+              )
+              if pos >= 0
+          ]
+          math_pos = min(math_positions)
           if not (
               paragraph_rendered.find("La réaction générale est") < math_pos <
               paragraph_rendered.find("La double flèche décrit")
           ):
-              raise SystemExit(f"Inline math position regression: {paragraph_rendered!r}")
+              raise SystemExit(f"Adaptive math position regression: {paragraph_rendered!r}")
 
           intro_rendered = render_document.render_paragraph_blocks(
               "Premier paragraphe.\n\nDeuxième paragraphe."
