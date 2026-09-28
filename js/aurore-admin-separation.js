@@ -15,7 +15,7 @@ function init(){
  grid.appendChild(card);
  const panel=document.createElement('div');
  panel.className='admin-tab-panel';panel.dataset.panel='aurora-request';panel.id='admin-tab-aurora-request';
- panel.innerHTML='<div class="aurora-request-head"><span class="admin-overview-kicker">Aurore · édition</span><h3>Espace éditorial ChatGPT</h3><p>Le site gère les demandes et les validations. ChatGPT récupère les tâches directement via le connecteur Supabase et effectue le travail éditorial dans la conversation dédiée.</p></div><div id="auroraRequestFormHost"></div>';
+ panel.innerHTML='<div class="aurora-request-head"><div><span class="admin-overview-kicker">Aurore · édition</span><h3>Espace éditorial ChatGPT</h3></div><nav class="aurora-editorial-nav" aria-label="Navigation éditoriale"><button type="button" class="aurora-editorial-nav-item active" data-editorial-nav="workspace">Espace éditorial</button><button type="button" class="aurora-editorial-nav-item" data-editorial-nav="documents">Documents à prendre en charge</button></nav></div><div id="auroraRequestFormHost"></div>';
  cf.parentNode.insertBefore(panel,cf);
  function show(target){
    const detail=document.getElementById('adminDetail');
@@ -24,9 +24,19 @@ function init(){
    document.querySelectorAll('.admin-tab').forEach(b=>b.classList.toggle('active',b===card));
  }
  card.addEventListener('click',()=>show(panel));
+ const editorialNav=(target)=>{
+   const buttons=panel.querySelectorAll('[data-editorial-nav]');
+   buttons.forEach(b=>b.classList.toggle('active',b.dataset.editorialNav===target));
+   if(target!=='documents')return;
+   const documentTab=[...document.querySelectorAll('.admin-tab')].find(b=>/documents?\s+(en\s+attente|à\s+prendre\s+en\s+charge)/i.test((b.textContent||'').trim()));
+   if(documentTab){documentTab.click();return;}
+   const pendingPanel=document.querySelector('.admin-tab-panel[data-panel="attente"],.admin-tab-panel[data-panel="documents"]');
+   if(pendingPanel)show(pendingPanel);
+ };
+ panel.querySelectorAll('[data-editorial-nav]').forEach(b=>b.addEventListener('click',()=>editorialNav(b.dataset.editorialNav)));
  const cfCard=document.querySelector('.admin-tab[data-tab="content-factory"]');
  if(cfCard)cfCard.addEventListener('click',()=>show(cf));
- const style=document.createElement('style');style.id='aurora-admin-separation-v2';style.textContent='.aurora-request-head{margin-bottom:16px;padding:20px;border:1px solid color-mix(in srgb,currentColor 10%,transparent);border-radius:18px;background:color-mix(in srgb,currentColor 3%,transparent)}.aurora-request-head h3{margin:4px 0 6px}.aurora-request-head p{margin:0;max-width:820px;font-size:.76rem;line-height:1.5;opacity:.7}';
+ const style=document.createElement('style');style.id='aurora-admin-separation-v3';style.textContent='.aurora-request-head{margin-bottom:16px;padding:18px 20px;border:1px solid color-mix(in srgb,currentColor 10%,transparent);border-radius:18px;background:var(--admin-panel-bg,color-mix(in srgb,currentColor 3%,transparent));display:flex;align-items:center;justify-content:space-between;gap:18px}.aurora-request-head h3{margin:4px 0 0}.aurora-editorial-nav{display:flex;gap:5px;align-items:center;padding:4px;border:1px solid color-mix(in srgb,currentColor 10%,transparent);border-radius:12px;background:color-mix(in srgb,currentColor 4%,transparent);overflow:auto}.aurora-editorial-nav-item{border:0;border-radius:9px;padding:8px 11px;background:transparent;color:inherit;font:inherit;font-size:.66rem;font-weight:800;white-space:nowrap;cursor:pointer;opacity:.68}.aurora-editorial-nav-item:hover,.aurora-editorial-nav-item.active{background:var(--admin-card-bg,color-mix(in srgb,currentColor 8%,transparent));opacity:1}@media(max-width:720px){.aurora-request-head{display:block}.aurora-editorial-nav{margin-top:12px;width:100%}.aurora-editorial-nav-item{flex:1}}';
  document.head.appendChild(style);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
