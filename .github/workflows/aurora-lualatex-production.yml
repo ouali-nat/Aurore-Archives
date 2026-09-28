@@ -9,6 +9,8 @@ on:
       - "infra/lualatex/render_document.py"
       - "infra/lualatex/aurore_svg.py"
       - "infra/geogebra/render_missing_graphs.mjs"
+      - "infra/geogebra/function2d_commands.mjs"
+      - "infra/geogebra/tests/function2d_commands.test.mjs"
   workflow_dispatch:
     inputs:
       manual_wake:

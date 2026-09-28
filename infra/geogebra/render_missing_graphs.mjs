@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import http from "node:http";
 import { chromium } from "playwright";
+import { buildFunction2DArrayCommands } from "./function2d_commands.mjs";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const RENDER_TOKEN = process.env.AURORA_LUALATEX_RENDER_TOKEN;
@@ -333,14 +334,26 @@ console.log(`GeoGebra host page ready: ${localOrigin}`);
 const renderGraphInBrowser = async (graph) => {
   const preparedGraph = structuredClone(graph);
   if (instrumentOf(preparedGraph) === "function2d") {
-    const rawExpression = String(preparedGraph?.expression || "").trim();
-    const renderExpression = canonicalFunction2DExpression(rawExpression);
-    if (renderExpression !== rawExpression) {
-      console.log(
-        `GeoGebra function2d variable canonicalisation: ${rawExpression} -> ${renderExpression}`,
+    if (Array.isArray(preparedGraph?.expression)) {
+      const preparedFunctions = buildFunction2DArrayCommands(
+        preparedGraph.expression,
+        preparedGraph.companion_expressions,
       );
+      preparedGraph.render_function_commands = preparedFunctions.commands;
+      preparedGraph.render_function_names = preparedFunctions.functionNames;
+      console.log(
+        `GeoGebra function2d multi-expression preparation: ${preparedFunctions.commands.join(" | ")}`,
+      );
+    } else {
+      const rawExpression = String(preparedGraph?.expression || "").trim();
+      const renderExpression = canonicalFunction2DExpression(rawExpression);
+      if (renderExpression !== rawExpression) {
+        console.log(
+          `GeoGebra function2d variable canonicalisation: ${rawExpression} -> ${renderExpression}`,
+        );
+      }
+      preparedGraph.render_expression = renderExpression;
     }
-    preparedGraph.render_expression = renderExpression;
   }
   return await page.evaluate(async (graph) => {
     function finite(v, fallback) {
@@ -565,28 +578,32 @@ const renderGraphInBrowser = async (graph) => {
       // points. Do not inject the symbolic z^6=64 relation as f(x)=...;
       // GeoGebra only needs the solution points and the coordinate axes.
     } else {
-      let raw = String(
-        instrument === "function2d"
-          ? graph?.render_expression ?? graph?.expression
-          : graph?.expression ?? "",
-      ).trim();
-      // Dernier garde-fou dans le contexte GeoGebra : les expressions
-      // function2d éditoriales peuvent encore arriver avec le paramètre t.
-      // GeoGebra graphing attend ici une fonction de x.
-      if (instrument === "function2d" && !/\bx\b/i.test(raw) && /\bt\b/i.test(raw)) {
-        raw = raw.replace(/\bt\b/g, "x");
-      }
-      const e = expr(raw);
-      if (e) {
-        // Conics from Content Factory are often implicit equations
-        // (for example x^2+y^2=4). GeoGebra must receive the relation
-        // itself, not an invalid f(x)=<implicit-equation> wrapper.
-        const isImplicitEquation =
-          instrument !== "function2d" &&
-          e.indexOf("=") > 0 &&
-          e.indexOf("=") === e.lastIndexOf("=") &&
-          /[xy]/i.test(e);
-        commands.push(isImplicitEquation ? e : "f(x)=" + e);
+      if (instrument === "function2d" && Array.isArray(graph?.render_function_commands)) {
+        commands.push(...graph.render_function_commands.map((command) => expr(command)));
+      } else {
+        let raw = String(
+          instrument === "function2d"
+            ? graph?.render_expression ?? graph?.expression
+            : graph?.expression ?? "",
+        ).trim();
+        // Dernier garde-fou dans le contexte GeoGebra : les expressions
+        // function2d éditoriales peuvent encore arriver avec le paramètre t.
+        // GeoGebra graphing attend ici une fonction de x.
+        if (instrument === "function2d" && !/\bx\b/i.test(raw) && /\bt\b/i.test(raw)) {
+          raw = raw.replace(/\bt\b/g, "x");
+        }
+        const e = expr(raw);
+        if (e) {
+          // Conics from Content Factory are often implicit equations
+          // (for example x^2+y^2=4). GeoGebra must receive the relation
+          // itself, not an invalid f(x)=<implicit-equation> wrapper.
+          const isImplicitEquation =
+            instrument !== "function2d" &&
+            e.indexOf("=") > 0 &&
+            e.indexOf("=") === e.lastIndexOf("=") &&
+            /[xy]/i.test(e);
+          commands.push(isImplicitEquation ? e : "f(x)=" + e);
+        }
       }
     }
 
@@ -732,27 +749,58 @@ const renderGraphInBrowser = async (graph) => {
 
                   if (successfulPrimary.size >= primaryIndexes.length) {
                     if (instrument === "function2d") {
-                      const exists = typeof a.exists === "function" && Boolean(a.exists("f"));
-                      const defined = typeof a.isDefined === "function" && Boolean(a.isDefined("f"));
-                      const visible = typeof a.getVisible === "function" && Boolean(a.getVisible("f",1));
-                      const objectType = typeof a.getObjectType === "function" ? String(a.getObjectType("f") || "") : "";
-                      console.log(
-                        "GeoGebra function QA: exists=" + exists +
-                        " defined=" + defined +
-                        " visible=" + visible +
-                        " type=" + (objectType || "unknown"),
-                      );
-                      if (!exists || !defined || !visible) {
-                        clearTimeout(timer);
-                        finish(
-                          reject,
-                          new Error(
-                            "GeoGebra function2d QA failed: object f is missing or not visible " +
-                            "(exists=" + exists + ", defined=" + defined + ", visible=" + visible +
-                            ", type=" + (objectType || "unknown") + ").",
-                          ),
+                      if (Array.isArray(graph?.render_function_names)) {
+                        const checks = graph.render_function_names.map((name) => ({
+                          name,
+                          exists: typeof a.exists === "function" && Boolean(a.exists(name)),
+                          defined: typeof a.isDefined === "function" && Boolean(a.isDefined(name)),
+                          visible: typeof a.getVisible === "function" && Boolean(a.getVisible(name,1)),
+                          objectType: typeof a.getObjectType === "function" ? String(a.getObjectType(name) || "") : "",
+                        }));
+                        console.log(
+                          "GeoGebra function2d multi-function QA: " +
+                          checks.map((check) =>
+                            check.name + " exists=" + check.exists +
+                            " defined=" + check.defined +
+                            " visible=" + check.visible +
+                            " type=" + (check.objectType || "unknown")
+                          ).join(" | "),
                         );
-                        return;
+                        const failed = checks.filter((check) => !check.exists || !check.defined || !check.visible);
+                        if (failed.length) {
+                          clearTimeout(timer);
+                          finish(
+                            reject,
+                            new Error(
+                              "GeoGebra function2d QA failed: object(s) missing or not visible: " +
+                              failed.map((check) => check.name).join(", ") + ".",
+                            ),
+                          );
+                          return;
+                        }
+                      } else {
+                        const exists = typeof a.exists === "function" && Boolean(a.exists("f"));
+                        const defined = typeof a.isDefined === "function" && Boolean(a.isDefined("f"));
+                        const visible = typeof a.getVisible === "function" && Boolean(a.getVisible("f",1));
+                        const objectType = typeof a.getObjectType === "function" ? String(a.getObjectType("f") || "") : "";
+                        console.log(
+                          "GeoGebra function QA: exists=" + exists +
+                          " defined=" + defined +
+                          " visible=" + visible +
+                          " type=" + (objectType || "unknown"),
+                        );
+                        if (!exists || !defined || !visible) {
+                          clearTimeout(timer);
+                          finish(
+                            reject,
+                            new Error(
+                              "GeoGebra function2d QA failed: object f is missing or not visible " +
+                              "(exists=" + exists + ", defined=" + defined + ", visible=" + visible +
+                              ", type=" + (objectType || "unknown") + ").",
+                            ),
+                          );
+                          return;
+                        }
                       }
                     }
                     try { a.setRepaintingActive?.(true); } catch {}
