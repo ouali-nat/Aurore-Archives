@@ -209,9 +209,10 @@ function chaptersMarkup(t){
   const w=t.metadata?.workflow||{},saved=Array.isArray(w.chapters)?w.chapters:[],proposals=chapterProposalsFor(t);
   if(!proposals.length)return'<div class="editor-empty">Aucune proposition structurée disponible pour cette combinaison. La tâche doit être revue avant sélection.</div>';
   const selected=new Set(saved.map(x=>String(x.title||x.name||x)));
-  return '<div class="editor-chapter-source"><span>Propositions issues du programme étudié</span><small>Les chapitres sont proposés par ChatGPT après recoupement des sources pédagogiques. Tu sélectionnes ensuite ceux qui entreront dans le document.</small></div>'+
-    '<div class="editor-chapters-choice">'+proposals.map((x,i)=>'<label class="editor-chapter-choice"><input type="checkbox" data-chapter-choice="'+i+'" '+(selected.has(x.title)?'checked':'')+'><span><strong>'+esc(x.title)+'</strong><small>'+esc(x.description)+'</small><em>'+esc(x.source)+'</em></span></label>').join('')+'</div>'+
-    '<div class="editor-plan-actions"><button type="button" class="admin-btn primary" data-chapters-save="'+esc(t.id)+'">Enregistrer la sélection et passer à l’étape suivante</button></div>';
+  return '<div class="editor-chapter-source"><span>Propositions issues du programme étudié</span><small>Les chapitres sont préparés par ChatGPT après recoupement des sources pédagogiques. Tu peux ouvrir la liste, choisir les chapitres utiles au document, puis enregistrer.</small></div>'+
+    '<button type="button" class="admin-btn ghost editor-chapters-toggle" data-chapters-toggle>Choisir les chapitres <span>＋</span></button>'+
+    '<div class="editor-chapters-selection" hidden><div class="editor-chapters-choice">'+proposals.map((x,i)=>'<label class="editor-chapter-choice"><input type="checkbox" data-chapter-choice="'+i+'" '+(selected.has(x.title)?'checked':'')+'><span><strong>'+esc(x.title)+'</strong><small>'+esc(x.description)+'</small><em>'+esc(x.source)+'</em></span></label>').join('')+'</div>'+
+    '<div class="editor-plan-actions"><button type="button" class="admin-btn primary" data-chapters-save="'+esc(t.id)+'">Enregistrer la sélection et passer à l’étape suivante</button></div></div>';
 }
 function field(label,key,value,wide){
   return '<label class="editor-field '+(wide?'wide':'')+'"><span>'+label+'</span><textarea data-plan-field="'+key+'" rows="'+(wide?4:2)+'">'+esc(value)+'</textarea></label>';
@@ -290,6 +291,10 @@ function bind(root,state){
 }
 function bindDetail(d,t,state){
   d.querySelector('[data-editor-close]')?.addEventListener('click',()=>{d.hidden=true});
+  d.querySelector('[data-chapters-toggle]')?.addEventListener('click',()=>{
+    const box=d.querySelector('.editor-chapters-selection'),btn=d.querySelector('[data-chapters-toggle]');
+    if(!box||!btn)return; box.hidden=!box.hidden; btn.innerHTML=box.hidden?'Choisir les chapitres <span>＋</span>':'Masquer les chapitres <span>−</span>';
+  });
   d.querySelector('[data-chapters-save]')?.addEventListener('click',async()=>{
     const proposals=chapterProposalsFor(t),selected=[];
     d.querySelectorAll('[data-chapter-choice]').forEach(el=>{if(el.checked&&proposals[Number(el.dataset.chapterChoice)])selected.push(proposals[Number(el.dataset.chapterChoice)])});
@@ -378,6 +383,8 @@ function injectStyle(){
 #auroreEditorialTaskAdmin .editor-detail-meta span{display:block;font-size:.54rem;text-transform:uppercase;font-weight:900;opacity:.48}
 #auroreEditorialTaskAdmin .editor-detail-meta strong{display:block;margin-top:4px;font-size:.64rem}
 #auroreEditorialTaskAdmin .editor-detail-title{margin:16px 0 8px;font-size:.73rem}
+#auroreEditorialTaskAdmin .editor-chapters-selection{display:grid;gap:10px;margin-top:10px}
+#auroreEditorialTaskAdmin .editor-chapters-toggle{justify-self:start;font-weight:900}
 #auroreEditorialTaskAdmin .editor-chapter-source{display:grid;gap:4px;margin-bottom:10px;padding:11px 12px;border-radius:12px;background:color-mix(in srgb,var(--editor-accent) 7%,transparent);border:1px solid color-mix(in srgb,var(--editor-accent) 15%,var(--editor-border))}
 #auroreEditorialTaskAdmin .editor-chapter-source span{font-size:.61rem;font-weight:950}
 #auroreEditorialTaskAdmin .editor-chapter-source small{font-size:.58rem;line-height:1.45;opacity:.68}
