@@ -137,8 +137,11 @@
   }
 
   // Présentation commune Aurore : les documents de l'espace personnel
-  // reprennent exactement la structure visuelle des documents publics.
-  // Cette normalisation ne modifie aucun gestionnaire d'événement existant.
+  // reprennent exactement la carte PDF de la bibliothèque publique :
+  //   1. la couverture (première page du PDF) avec le bouton « 3 points » ;
+  //   2. la fiche titre / déposant / taille (+ statut du dépôt) ;
+  //   3. TOUTES les actions regroupées dans le menu du bouton « 3 points ».
+  // Aucun bloc de boutons ne reste affiché sous la carte.
   function appliquerPresentationDocumentAurore(row, doc){
     if(!row) return row;
     const ancienCover=row.querySelector('.personal-doc-cover');
@@ -161,40 +164,79 @@
     if(title) title.classList.add('titre');
     if(meta) meta.classList.add('meta');
 
-    actions.classList.add('doc-actions');
-    actions.querySelectorAll('.personal-action').forEach(btn=>{
-      btn.classList.add('dl');
-      if(!btn.matches('[data-read],[data-lire],[data-lire-tard],[data-lire-download]')){
-        btn.classList.add('doc-action-soft');
-      }
-    });
-
     const info=document.createElement('div');
     info.className='info';
     info.append(cover,main);
     if(status) main.appendChild(status);
-    row.replaceChildren(info,actions);
+
+    // Le menu commun (bibliothèque) n'est disponible que si le script des
+    // documents publics est chargé. Sinon on conserve l'ancien bloc d'actions
+    // pour ne jamais perdre l'accès aux documents.
+    const menuDisponible=
+      typeof boutonPlusCarteDocumentMarkup==='function' &&
+      typeof panneauActionsCarteDocumentMarkup==='function' &&
+      typeof brancherActionsCarteDocument==='function';
+
+    // Boutons propres à une liste, sans équivalent dans le menu commun
+    // (ex. suppression d'une ligne de l'historique de téléchargements) :
+    // ils sont déplacés dans le menu au lieu d'être supprimés.
+    const boutonsSpecifiques=menuDisponible
+      ? [...actions.querySelectorAll('[data-delete-download]')]
+      : [];
+
+    if(menuDisponible){
+      row.replaceChildren(info);
+    }else{
+      actions.classList.add('doc-actions');
+      actions.querySelectorAll('.personal-action').forEach(btn=>{
+        btn.classList.add('dl');
+        if(!btn.matches('[data-read],[data-lire],[data-lire-tard],[data-lire-download]')){
+          btn.classList.add('doc-action-soft');
+        }
+      });
+      row.replaceChildren(info,actions);
+    }
     row.classList.remove('personal-doc','personal-book');
     row.classList.add('doc-row','aurore-personal-document-row');
     row.__auroreDocumentCouverture=doc||null;
+    row._auroreDocument=doc||null;
 
     // Même interaction que les cartes publiques : le bouton 3 points reste
     // posé sur la couverture et ouvre l'ensemble des actions existantes.
-    try {
-      if (typeof boutonPlusCarteDocumentMarkup === 'function') {
+    if(menuDisponible){
+      try {
         row.insertAdjacentHTML(
           'beforeend',
           boutonPlusCarteDocumentMarkup() +
-          (typeof panneauActionsCarteDocumentMarkup === 'function'
-            ? panneauActionsCarteDocumentMarkup(doc?.Telechargement_autorise !== false)
-            : '')
+          panneauActionsCarteDocumentMarkup(doc?.Telechargement_autorise !== false)
         );
-        if (typeof brancherActionsCarteDocument === 'function') {
-          brancherActionsCarteDocument(row, doc);
+        const panneau=row.querySelector(':scope > .doc-actions');
+
+        // Sans fichier associé, ni lecture ni téléchargement n'ont de sens.
+        if(panneau && !doc?.Fichier_url){
+          panneau.querySelectorAll('[data-lire],[data-telecharger-maintenant]').forEach(b=>b.remove());
         }
+
+        brancherActionsCarteDocument(row, doc);
+
+        if(panneau){
+          boutonsSpecifiques.forEach(btn=>{
+            btn.className='dl';
+            btn.removeAttribute('title');
+            btn.setAttribute('role','menuitem');
+            btn.innerHTML='<span class="share-icon">🗑</span><span>Supprimer de l’historique</span>';
+            btn.style.setProperty('color','var(--rouge)','important');
+            panneau.appendChild(btn);
+          });
+        }
+
+        // Libellés « ♥ Favori » / « ✓ Plus tard » à jour dès l'affichage.
+        try{
+          if(typeof window.actualiserEtatActionsDocument==='function') window.actualiserEtatActionsDocument(row,doc);
+        }catch(_){}
+      } catch (e) {
+        console.warn('[Espace personnel] menu document:', e);
       }
-    } catch (e) {
-      console.warn('[Espace personnel] menu document:', e);
     }
     return row;
   }
@@ -308,7 +350,10 @@
         row.querySelector('[data-telecharger-favori]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(doc));
         row.querySelector('[data-remove]')?.addEventListener('click',()=>{basculerFavoriDocument(doc,row.querySelector('[data-remove]'));actualiserCompteursPersonnels();setTimeout(rendreFavorisPersonnels,0);});
         row.querySelector('[data-case-fav]')?.addEventListener('click',()=>window.ouvrirChoixCaseDocument?.(doc));
+        // Depuis le menu 3 points : retirer un favori le fait disparaître de la liste.
+        row.querySelector('[data-favori]')?.addEventListener('click',()=>{actualiserCompteursPersonnels();setTimeout(rendreFavorisPersonnels,0);});
         list.appendChild(row);
+        if (doc.Fichier_url && typeof appliquerCouvertureSiLivre === 'function') appliquerCouvertureSiLivre(row,doc);
       });
     }catch(e){
       console.error('[Favoris] chargement impossible',e);
@@ -345,4 +390,3 @@
   // Chargement discret lorsque le profil est ouvert par le flux de connexion.
   const _afficherEcranOriginal=window.afficherEcran;
   if(typeof _afficherEcranOriginal==='function'){}
-
