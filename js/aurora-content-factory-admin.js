@@ -2,8 +2,8 @@
 
 (function(){
 'use strict';
-if(typeof window==='undefined'||typeof window.adminInventoryFetch==='function')return;
-window.adminInventoryFetch=async function(url,options={},retry=true){
+if(typeof window==='undefined')return;
+if(typeof window.adminInventoryFetch!=='function')window.adminInventoryFetch=async function(url,options={},retry=true){
   const token=(typeof session!=='undefined'&&session&&session.access_token)||'';
   const headers={...(options.headers||{}),apikey:SUPABASE_ANON_KEY};
   if(token)headers.Authorization='Bearer '+token;
