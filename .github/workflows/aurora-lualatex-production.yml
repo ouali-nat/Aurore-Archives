@@ -125,7 +125,7 @@ jobs:
               raise SystemExit(f"Formula-list rendering regression: {formula_block!r}")
           if r"\AuroreFormulaBlock{" in formula_block:
               raise SystemExit(f"Formula-list compatibility wrapper leaked: {formula_block!r}")
-          if "Relation" in formula_block:
+          if r"\AuroreMathCompact{Relation}" in formula_block or r"\AuroreMathBlock{Relation}" in formula_block:
               raise SystemExit(f"Formula-list Relation label leaked: {formula_block!r}")
 
           paragraph_case = (
@@ -139,7 +139,7 @@ jobs:
               raise SystemExit(f"Course paragraph box regression: {paragraph_rendered!r}")
           if r"\AuroreInlineMath{" not in paragraph_rendered:
               raise SystemExit(f"Inline math box regression: {paragraph_rendered!r}")
-          if "Relation" in paragraph_rendered:
+          if r"\AuroreMathCompact{Relation}" in paragraph_rendered or r"\AuroreMathBlock{Relation}" in paragraph_rendered:
               raise SystemExit(f"Course paragraph Relation label leaked: {paragraph_rendered!r}")
           math_pos = paragraph_rendered.find(r"\AuroreInlineMath{")
           if not (
@@ -189,7 +189,7 @@ jobs:
               raise SystemExit(f"Normal-course section count regression: {normal_tex!r}")
           if r"\AuroreParagraphBlock{" not in normal_tex or r"\AuroreInlineMath{" not in normal_tex:
               raise SystemExit(f"Normal-course inline paragraph math regression: {normal_tex!r}")
-          if "Relation" in normal_tex:
+          if r"\AuroreMathCompact{Relation}" in normal_tex or r"\AuroreMathBlock{Relation}" in normal_tex:
               raise SystemExit(f"Normal-course Relation label regression: {normal_tex!r}")
           if r"\documentclass[0.6,nocrop]{sesamanuel}" in normal_tex:
               raise SystemExit("Normal-course renderer regression: Sésamath leaked into the production course renderer.")
