@@ -130,6 +130,35 @@ jobs:
           chemistry_parts = render_document._split_embedded_math(chemistry_math)
           if not any(kind == "math" and "=" in value for kind, value in chemistry_parts):
               raise SystemExit(f"Chemistry relation extraction regression: {chemistry_parts!r}")
+
+          normal_course = {
+              "title": "Cours normal — test de décoration",
+              "document_type": "cours",
+              "subject": "Chimie",
+              "sections": [
+                  {
+                      "title": "3. Polarité",
+                      "content": [
+                          "Pour 𝐶₂𝐻₆𝑂, 𝑀 = 2 × 12,0 + 6 × 1,0 + 16,0 = 46,0 g mol⁻¹."
+                      ]
+                  },
+                  {
+                      "title": "4. Combustion",
+                      "content": [
+                          "Pour l'éthanol, 𝐶₂𝐻₆𝑂 + 3𝐎₂ → 2𝐂𝐎₂ + 3𝐇₂𝐎."
+                      ]
+                  }
+              ]
+          }
+          normal_tex = render_document.render(normal_course)
+          if r"\AuroreCourseSectionStart" not in normal_tex or r"\AuroreCourseSectionEnd" not in normal_tex:
+              raise SystemExit("Normal-course decoration regression: section spine markers missing.")
+          if normal_tex.count(r"\AuroreCourseSectionEnd") != 2:
+              raise SystemExit(f"Normal-course section count regression: {normal_tex!r}")
+          if not (r"\AuroreMathCompact{Relation}" in normal_tex or r"\AuroreMathBlock{Relation}" in normal_tex):
+              raise SystemExit(f"Normal-course relation box regression: {normal_tex!r}")
+          if r"\documentclass[0.6,nocrop]{sesamanuel}" in normal_tex:
+              raise SystemExit("Normal-course renderer regression: Sésamath leaked into the production course renderer.")
           if "['" in formula_block or "']" in formula_block:
               raise SystemExit(f"Formula-list stringification regression: {formula_block!r}")
 
