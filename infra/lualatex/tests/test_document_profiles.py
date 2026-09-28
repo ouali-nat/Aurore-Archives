@@ -119,7 +119,8 @@ def test_exercise_correction_keeps_distinct_block_flow():
 
 def test_exercise_series_macros_keep_dominant_vertical_bar():
     tex = render(exercise_doc())
-    assert r"borderline west={1.7pt}{0pt}{aurorebase}" in tex
+    assert tex.count(r"\AuroreCourseSectionStart") >= 2
+    assert tex.count(r"\AuroreCourseSectionEnd") >= 2
     assert r"borderline west={1.7pt}{0pt}{aurorebase!72!black}" in tex
 
 
