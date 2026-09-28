@@ -44,6 +44,40 @@ function workflowMetadata(existing,patch){
   return {...m,manual_publication_only:true,pdf_launch_mode:'manual',manual_pdf_launch_required:true,auto_pdf_launch:false,
     editorial_engine:EDITOR,workflow:{...w,...patch,protocol:PROTOCOL,editorial_engine:EDITOR,updated_at:new Date().toISOString()}};
 }
+function siteEditorialCatalog(){
+  const out=[];
+  const seen=new Set();
+  const add=(classe,matieres,context='')=>{
+    if(!classe||!Array.isArray(matieres)||!matieres.length)return;
+    const subjects=matieres.map(x=>typeof x==='string'?x:(x&&x.nom)||'').map(x=>String(x).trim()).filter(Boolean);
+    if(!subjects.length)return;
+    const key=classe+'|'+subjects.join('|');
+    if(seen.has(key))return; seen.add(key);
+    out.push({classe,subjects,context});
+  };
+  const walk=(node,context='')=>{
+    if(!node||typeof node!=='object')return;
+    if(Array.isArray(node))return node.forEach(x=>walk(x,context));
+    const ctx=node.nom||context;
+    if(node.classes) node.classes.forEach(x=>add(x.nom,x.matieres,ctx));
+    if(node.troncCommuns) node.troncCommuns.forEach(x=>add(x.nom,x.matieres,ctx));
+    if(node.sousNiveaux) node.sousNiveaux.forEach(x=>walk(x,ctx));
+    if(node.series) node.series.forEach(x=>walk(x,ctx));
+    if(node.enfants) node.enfants.forEach(x=>walk(x,ctx));
+    if(node.matieres&&node.nom&&!node.classes&&!node.troncCommuns) add(node.nom,node.matieres,ctx);
+  };
+  if(typeof NIVEAUX!=='undefined') walk(NIVEAUX);
+  return out;
+}
+function catalogOptions(){
+  const catalog=siteEditorialCatalog();
+  const byClass=new Map();
+  catalog.forEach(x=>{
+    const prev=byClass.get(x.classe)||new Set();
+    x.subjects.forEach(s=>prev.add(s)); byClass.set(x.classe,prev);
+  });
+  return [...byClass.entries()].map(([classe,set])=>({classe,subjects:[...set].sort((a,b)=>a.localeCompare(b,'fr'))})).sort((a,b)=>a.classe.localeCompare(b.classe,'fr'));
+}
 async function updateJob(id,patch,status){
   const row=await getJob(id);if(!row)throw new Error('Tâche introuvable.');
   const metadata=workflowMetadata(row.metadata,patch);
@@ -51,11 +85,11 @@ async function updateJob(id,patch,status){
   await rest('/rest/v1/aurora_content_jobs?id=eq.'+encodeURIComponent(Number(id)),{method:'PATCH',headers:{'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify(body)});
   return getJob(id);
 }
-async function createTask(className,subject){
+async function createTask(className,subject,documentType){
   const id=Number(await rpc('aurora_create_content_job',{
-    p_title:'À organiser — '+className+' — '+subject,p_subject:subject,p_level:className,p_class_name:className,
-    p_document_type:'cours',p_prompt:'Tâche éditoriale minimale. ChatGPT est l’éditeur canonique : récupération, chapitres, plan de production puis rédaction finale.',
-    p_instructions:{source:'admin_editorial_task',origin:'gpt_editorial_queue',queue:'manual',category:'Documents',rights_confirmed:true,
+    p_title:'À organiser — '+className+' — '+subject+' — '+documentType,p_subject:subject,p_level:className,p_class_name:className,
+    p_document_type:documentType,p_prompt:'Tâche éditoriale minimale. ChatGPT est l’éditeur canonique : récupération, chapitres, plan de production puis rédaction finale.',
+    p_instructions:{source:'admin_editorial_task',origin:'gpt_editorial_queue',queue:'manual',category:'Documents',document_type:documentType,rights_confirmed:true,
       theme_color:'#6D28D9',editorial:{role:'editor',engine:EDITOR,schema_version:'aurora-editorial-2',status:'waiting_chatgpt'},
       workflow:{protocol:PROTOCOL,stage:'initiale',proposal_version:0,user_validated:false,chatgpt_claimed:false,
         manual_pdf_only:true,manual_pdf_launch_required:true,auto_pdf_launch:false,editorial_engine:EDITOR}}
@@ -183,7 +217,7 @@ function render(root,state){
     '</nav>'+
     '<section class="editor-page">'+
       '<div class="editor-page-title"><div><span class="editor-step">Section '+active+'</span><h4>'+({A:'Tâches à créer',B:'Chapitres disponibles',C:'Plan complet de production',D:'Validation administrative avant édition'}[active])+'</h4><p>'+({A:'Crée ici les demandes avec uniquement la classe et la matière.',B:'Chaque tâche récupérée présente les chapitres disponibles pour le document.',C:'Le plan est entièrement détaillé, modifiable, validable ou rejetable avant toute rédaction finale.',D:'Toutes les validations administratives sont visibles ici avant que le document soit prêt à être récupéré pour l’édition.'}[active])+'</p></div><span class="editor-page-count">'+items.length+' document'+(items.length>1?'s':'')+'</span></div>'+
-      (active==='A'?'<div class="editor-create-card"><div><span class="editor-step">Créer</span><h5>Nouvelle demande</h5><p>Entre seulement la classe et la matière. Les chapitres et le plan sont traités après récupération dans la conversation.</p></div><div class="editor-create-fields"><label>Classe<input id="editorClass" placeholder="Ex. Terminale C"></label><label>Matière<input id="editorSubject" placeholder="Ex. Mathématiques" list="editorSubjects"><datalist id="editorSubjects">'+([...new Set((Array.isArray(window.MATIERES)?window.MATIERES:[]).map(x=>String(typeof x==='string'?x:x?.nom||'').trim()).filter(Boolean))].slice(0,100).map(x=>'<option value="'+esc(x)+'"></option>').join(''))+'</datalist></label><button type="button" class="admin-btn primary" id="editorCreate">Créer la tâche</button></div></div>':'')+
+      (active==='A'?'<div class="editor-create-card"><div><span class="editor-step">Créer</span><h5>Nouvelle demande</h5><p>Les choix viennent directement du catalogue pédagogique réellement déclaré par Aurore. Aucun texte libre n’est accepté pour éviter les classes ou matières inventées.</p></div><div class="editor-create-fields"><label>Type<select id="editorType"><option value="cours">Cours</option><option value="exercices">Exercices</option><option value="qcm">QCM</option><option value="fiches">Fiches</option></select></label><label>Classe<select id="editorClass"><option value="">Choisir une classe…</option>'+catalogOptions().map(x=>'<option value="'+esc(x.classe)+'">'+esc(x.classe)+'</option>').join('')+'</select></label><label>Matière<select id="editorSubject" disabled><option value="">Choisir d’abord une classe…</option></select></label><button type="button" class="admin-btn primary" id="editorCreate">Créer la tâche</button></div></div>':'')+
       '<div class="editor-block-label"><span>Bloc '+(page+1)+'</span><small>'+((page*PAGE_SIZE)+1)+'–'+Math.min((page+1)*PAGE_SIZE,items.length)+' sur '+items.length+'</small></div>'+
       '<div class="editor-card-grid">'+(visible.length?visible.map(t=>taskCard(t,active)).join(''):'<div class="editor-empty">Aucun document dans cette étape pour le moment.</div>')+'</div>'+
       pager(items.length,page,active)+
@@ -201,11 +235,15 @@ function bind(root,state){
   });
   root.querySelectorAll('[data-editor-page]').forEach(b=>b.addEventListener('click',()=>{const [k,p]=b.dataset.editorPage.split(':');state.section=k;state.pages[k]=Number(p);render(root,state)}));
   root.querySelector('#editorCreate')?.addEventListener('click',async()=>{
-    const cls=(root.querySelector('#editorClass')?.value||'').trim(),sub=(root.querySelector('#editorSubject')?.value||'').trim();
-    if(!cls||!sub){alert('Renseigne la classe et la matière.');return}
+    const cls=(root.querySelector('#editorClass')?.value||'').trim(),sub=(root.querySelector('#editorSubject')?.value||'').trim(),typ=(root.querySelector('#editorType')?.value||'').trim();
+    if(!cls||!sub||!['cours','exercices','qcm','fiches'].includes(typ)){alert('Choisis un type, une classe et une matière dans les listes proposées.');return}
     const b=root.querySelector('#editorCreate');b.disabled=true;
-    try{await createTask(cls,sub);await chargerEspaceEditorialChatGPT()}catch(e){alert('Impossible de créer la tâche : '+(e.message||e))}finally{b.disabled=false}
+    try{await createTask(cls,sub,typ);await chargerEspaceEditorialChatGPT()}catch(e){alert('Impossible de créer la tâche : '+(e.message||e))}finally{b.disabled=false}
+  });root.querySelector('#editorClass')?.addEventListener('change',()=>{
+    const sel=root.querySelector('#editorClass'),sub=root.querySelector('#editorSubject'); if(!sel||!sub)return;
+    const entry=catalogOptions().find(x=>x.classe===sel.value); sub.innerHTML='<option value="">Choisir une matière…</option>'+(entry?entry.subjects.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join(''):''); sub.disabled=!entry;
   });
+  
   root.querySelectorAll('[data-editor-open]').forEach(b=>b.addEventListener('click',async()=>{
     const t=await getJob(Number(b.dataset.editorOpen));if(!t)return;
     const d=root.querySelector('#editorDetail');d.hidden=false;d.innerHTML=detail(t,state.section);bindDetail(d,t,state);
@@ -262,7 +300,7 @@ function injectStyle(){
 #auroreEditorialTaskAdmin .editor-page-count{font-size:.62rem;font-weight:900;opacity:.55;white-space:nowrap}
 #auroreEditorialTaskAdmin .editor-create-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(410px,1.1fr);gap:18px;align-items:end;padding:18px;border-radius:18px;border:1px solid color-mix(in srgb,var(--editor-accent) 18%,var(--editor-border));background:linear-gradient(135deg,color-mix(in srgb,var(--editor-accent) 10%,var(--editor-surface)),var(--editor-surface))}
 #auroreEditorialTaskAdmin .editor-create-card h5{margin:5px 0 6px;font-size:.95rem}
-#auroreEditorialTaskAdmin .editor-create-fields{display:grid;grid-template-columns:1fr 1fr auto;gap:9px;align-items:end}
+#auroreEditorialTaskAdmin .editor-create-fields{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:9px;align-items:end}
 #auroreEditorialTaskAdmin .editor-create-fields label,#auroreEditorialTaskAdmin .editor-field{display:grid;gap:5px;font-size:.62rem;font-weight:850}
 #auroreEditorialTaskAdmin input,#auroreEditorialTaskAdmin textarea{font:inherit;color:inherit;background:var(--editor-surface);border:1px solid var(--editor-border);border-radius:11px;padding:10px 11px}
 #auroreEditorialTaskAdmin textarea{resize:vertical;min-width:0;line-height:1.45;font-size:.68rem}
@@ -316,7 +354,7 @@ function injectStyle(){
 #auroreEditorialTaskAdmin .editor-a-start strong{font-size:.72rem}
 #auroreEditorialTaskAdmin .editor-a-start span{font-size:.62rem;opacity:.62}
 #auroreEditorialTaskAdmin .danger{border-color:color-mix(in srgb,#DC2626 25%,var(--editor-border))!important}
-@media(max-width:1050px){#auroreEditorialTaskAdmin .editor-card-grid{grid-template-columns:repeat(3,minmax(0,1fr))}#auroreEditorialTaskAdmin .editor-create-card{grid-template-columns:1fr}}
+@media(max-width:1050px){#auroreEditorialTaskAdmin .editor-create-fields{grid-template-columns:1fr 1fr}.editor-create-fields .admin-btn{grid-column:1/-1}#auroreEditorialTaskAdmin .editor-card-grid{grid-template-columns:repeat(3,minmax(0,1fr))}#auroreEditorialTaskAdmin .editor-create-card{grid-template-columns:1fr}}
 @media(max-width:720px){#auroreEditorialTaskAdmin .editor-main-nav{overflow-x:auto}#auroreEditorialTaskAdmin .editor-main-nav-item{min-width:120px}#auroreEditorialTaskAdmin .editor-main-nav-link{margin-left:0}#auroreEditorialTaskAdmin .editor-page-title,#auroreEditorialTaskAdmin .editor-validation-head{display:block}#auroreEditorialTaskAdmin .editor-page-count{display:block;margin-top:8px}#auroreEditorialTaskAdmin .editor-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#auroreEditorialTaskAdmin .editor-detail-meta,#auroreEditorialTaskAdmin .editor-validation-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:520px){#auroreEditorialTaskAdmin .editor-hub-head{display:block}#auroreEditorialTaskAdmin .editor-main-nav{display:grid;grid-template-columns:1fr 1fr}#auroreEditorialTaskAdmin .editor-main-nav-link{grid-column:1/-1;text-align:left;border-left:0;border-top:1px solid var(--editor-border);padding-top:11px}#auroreEditorialTaskAdmin .editor-card-grid{grid-template-columns:1fr}#auroreEditorialTaskAdmin .editor-plan-grid,#auroreEditorialTaskAdmin .editor-detail-meta,#auroreEditorialTaskAdmin .editor-chapters-grid,#auroreEditorialTaskAdmin .editor-validation-grid{grid-template-columns:1fr}#auroreEditorialTaskAdmin .editor-plan-actions{justify-content:stretch}#auroreEditorialTaskAdmin .editor-plan-actions .admin-btn{flex:1}}
 [data-theme="dark"] #auroreEditorialTaskAdmin{--editor-surface:#17171b;--editor-border:rgba(255,255,255,.13)}
