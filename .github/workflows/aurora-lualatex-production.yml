@@ -60,7 +60,12 @@ jobs:
         run: python3 -m py_compile render_document.py aurore_svg.py
 
       - name: Validate GeoGebra renderer JavaScript syntax
-        run: node --check infra/geogebra/render_missing_graphs.mjs
+        run: |
+          node --check infra/geogebra/function2d_commands.mjs
+          node --check infra/geogebra/render_missing_graphs.mjs
+
+      - name: Smoke-test GeoGebra function2d expression arrays
+        run: node --test infra/geogebra/tests/function2d_commands.test.mjs
 
       - name: Smoke-test math normalization
         working-directory: infra/lualatex
