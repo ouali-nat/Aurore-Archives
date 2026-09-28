@@ -159,6 +159,26 @@ jobs:
           if not any(kind == "math" and "=" in value for kind, value in chemistry_parts):
               raise SystemExit(f"Chemistry relation extraction regression: {chemistry_parts!r}")
 
+          display_escaped_case = (
+              r"Le pH est calculé par \\\\[ [H_3O^+]=10^{-5{,}60}=2{,}51\\times10^{-6}\\,\\mathrm{M}. \\\\] "
+              r"Cette étape est ensuite interprétée."
+          )
+          display_escaped_rendered = "\n".join(
+              render_document._render_content_item(
+                  display_escaped_case,
+                  auto_math=True,
+                  box_all_math=True,
+              )
+          )
+          if r"\AuroreMathBlock{}" not in display_escaped_rendered:
+              raise SystemExit(
+                  f"Escaped display-math routing regression: {display_escaped_rendered!r}"
+              )
+          if r"\AuroreMathCompact" in display_escaped_rendered:
+              raise SystemExit(
+                  f"Escaped display-math misrouted to compact inline box: {display_escaped_rendered!r}"
+              )
+
           normal_course = {
               "title": "Cours normal — test de décoration",
               "document_type": "cours",
