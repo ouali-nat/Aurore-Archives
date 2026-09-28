@@ -59,13 +59,6 @@ def render_course_document(data, theme_palette):
 
     sections = data.get("sections") if isinstance(data.get("sections"), list) else []
 
-    def direct_math(raw):
-        value = normalize_math(str(raw or "").strip())
-        if not value:
-            return ""
-        return r"\[\displaystyle " + value + r"\]"
-
-
     import re
 
     def course_relation(raw, label="Relation"):
@@ -79,7 +72,7 @@ def render_course_document(data, theme_palette):
         )
         value = re.sub(r"\\{1,2}begin\{equation\*\}", "", value)
         value = re.sub(r"\\{1,2}end\{equation\*\}", "", value).strip()
-        if value.startswith("$") and value.endswith("$"):
+        if value.startswith("$$") and value.endswith("$$"):
             value = value[2:-2].strip()
         elif value.startswith("$") and value.endswith("$"):
             value = value[1:-1].strip()
@@ -153,7 +146,7 @@ def render_course_document(data, theme_palette):
         match = __import__("re").match(
             r"^(DÉFINITION|DEFINITION|PROPRIÉTÉ|PROPRIETE|THÉORÈME|THEOREME|"
             r"REMARQUE|REMARQUES|NOTATION|VOCABULAIRE|PREUVE|EXEMPLE|"
-            r"MÉTHODE|METHODE)\s*(?::|-)?\s*(.*)$",
+            r"MÉTHODE|METHODE|FORMULE|FORMULE UTILE|RELATION|RELATION UTILE)\s*(?::|-)?\s*(.*)$",
             text,
             flags=__import__("re").IGNORECASE | __import__("re").DOTALL,
         )
@@ -388,12 +381,10 @@ def render_course_document(data, theme_palette):
         r"  \noindent\hspace*{0.05\linewidth}\textcolor{AuroreBase!62!white}{\rule{0.91\linewidth}{0.75pt}}\par\vspace{0.24cm}%",
         r"}",
         r"\newcommand{\AuroreCourseRelation}[2]{%",
-        r"  \begin{center}%",
         r"    \begin{tcolorbox}[enhanced,breakable,width=0.94\linewidth,colback=white!99!AurorePrimary,colframe=AuroreBase!56!white,leftrule=1.7pt,arc=9pt,outer arc=9pt,boxrule=.45pt,left=10pt,right=10pt,top=5pt,bottom=6pt,halign=center,before skip=6pt,after skip=7pt,pad at break*=1mm]%",
         r"      {\sffamily\scriptsize\bfseries\color{AuroreBase!88!black}#1}\par\vspace{2pt}%",
         r"      \begin{equation*}\displaystyle #2\end{equation*}%",
         r"    \end{tcolorbox}%",
-        r"  \end{center}%",
         r"}",
         r"\colorlet{SubsectionNumColor}{AuroreBase}",
         r"\colorlet{SubsectionTitleColor}{AuroreBase}",
