@@ -935,7 +935,7 @@ jobs:
               source=str(g.get("geogebra_image_source") or "").lower()
               version=int(g.get("geogebra_renderer_version") or 0)
               if not path or source!="geogebra": return False
-              return version >= 3
+              return version >= 4
           def all_graphs(data):
               for section in data.get("sections") or []:
                   for graph in section.get("graphs") or []:
@@ -986,7 +986,7 @@ jobs:
               source=str(g.get("geogebra_image_source") or "").lower()
               version=int(g.get("geogebra_renderer_version") or 0)
               if not path or source!="geogebra": return False
-              return version >= 3
+              return version >= 4
           def all_graphs(data):
               for section in data.get("sections") or []:
                   for graph in section.get("graphs") or []:
