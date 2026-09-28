@@ -118,8 +118,8 @@ jobs:
               "e^(2x)=(e^x)^2",
           ])
           formula_box_count = (
-              formula_block.count(r"\AuroreMathCompact{Formule utile}") +
-              formula_block.count(r"\AuroreMathBlock{Formule utile}")
+              formula_block.count(r"\AuroreMathCompact{Relation}") +
+              formula_block.count(r"\AuroreMathBlock{Relation}")
           )
           if formula_box_count != 3:
               raise SystemExit(f"Formula-list rendering regression: {formula_block!r}")
