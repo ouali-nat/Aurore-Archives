@@ -3651,7 +3651,7 @@ def render(data):
         r"  \end{tcolorbox}%",
         r"}",
         r"\newcommand{\AuroreFormulaBlock}[1]{%",
-        r"  \AuroreMathBlock{Relation}{#1}%",
+        r"  \AuroreMathBlock{}{#1}%",
         r"}",
         r"\newcommand{\AuroreCalculationBlock}[1]{%",
         r"  \AuroreMathBlock{Étape de calcul}{#1}%",
