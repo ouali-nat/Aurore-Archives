@@ -5,7 +5,7 @@ import { chromium } from "playwright";
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const RENDER_TOKEN = process.env.AURORA_LUALATEX_RENDER_TOKEN;
 const DOCUMENT_ID = Number(process.env.DOCUMENT_ID);
-const GEO_GEBRA_RENDERER_VERSION = 3;
+const GEO_GEBRA_RENDERER_VERSION = 4;
 
 if (!SUPABASE_URL || !RENDER_TOKEN || !Number.isSafeInteger(DOCUMENT_ID)) {
   throw new Error("SUPABASE_URL, AURORA_LUALATEX_RENDER_TOKEN et DOCUMENT_ID sont requis.");
@@ -103,6 +103,22 @@ function instrumentOf(g) {
   if (points.some(pointHasXYZ) || poi.some((p) => p && Number.isFinite(Number(p?.z)))) return "geometry3d";
   if (points.some(pointHasXY) || (Array.isArray(g?.asymptotes) && g.asymptotes.length)) return "function2d";
   return null;
+}
+
+function canonicalFunction2DExpression(raw) {
+  let e = String(raw ?? "")
+    .trim()
+    .replace(/^\s*(?:f\s*\(\s*[A-Za-z]\s*\)|y)\s*=\s*/i, "")
+    .replace(/×/g, "*")
+    .replace(/÷/g, "/")
+    .replace(/−/g, "-")
+    .replace(/√\s*\(/g, "sqrt(")
+    .replace(/\bln\s*\(/gi, "ln(")
+    .replace(/\blog\s*\(/gi, "log(");
+  if (!e) return "";
+  if (/\bx\b/i.test(e)) return e;
+  if (/\bt\b/i.test(e)) return e.replace(/\bt\b/g, "x");
+  return e;
 }
 
 function validGraph(g) {
@@ -315,6 +331,17 @@ await page.waitForTimeout(2000);
 console.log(`GeoGebra host page ready: ${localOrigin}`);
 
 const renderGraphInBrowser = async (graph) => {
+  const preparedGraph = structuredClone(graph);
+  if (instrumentOf(preparedGraph) === "function2d") {
+    const rawExpression = String(preparedGraph?.expression || "").trim();
+    const renderExpression = canonicalFunction2DExpression(rawExpression);
+    if (renderExpression !== rawExpression) {
+      console.log(
+        `GeoGebra function2d variable canonicalisation: ${rawExpression} -> ${renderExpression}`,
+      );
+    }
+    preparedGraph.render_expression = renderExpression;
+  }
   return await page.evaluate(async (graph) => {
     function finite(v, fallback) {
       const n = Number(v);
@@ -538,13 +565,18 @@ const renderGraphInBrowser = async (graph) => {
       // points. Do not inject the symbolic z^6=64 relation as f(x)=...;
       // GeoGebra only needs the solution points and the coordinate axes.
     } else {
-      const raw = String(graph?.expression || "").trim();
+      const raw = String(
+        instrument === "function2d"
+          ? graph?.render_expression ?? graph?.expression
+          : graph?.expression ?? "",
+      ).trim();
       const e = expr(raw);
       if (e) {
         // Conics from Content Factory are often implicit equations
         // (for example x^2+y^2=4). GeoGebra must receive the relation
         // itself, not an invalid f(x)=<implicit-equation> wrapper.
         const isImplicitEquation =
+          instrument !== "function2d" &&
           e.indexOf("=") > 0 &&
           e.indexOf("=") === e.lastIndexOf("=") &&
           /[xy]/i.test(e);
@@ -642,14 +674,42 @@ const renderGraphInBrowser = async (graph) => {
               // soit réellement prêt. Attendre brièvement avant les premières
               // commandes évite les applets initialisées mais non constructibles.
               setTimeout(() => {
-                for (const command of commands) {
-                  try { a.evalCommand(command); } catch (e) { console.warn("GeoGebra command failed:", command, e); }
-                }
-                let attempts=0;
-                const ready=()=>{
+                const primaryIndexes = commands
+                  .map((command, index) => (primary.includes(command) ? index : -1))
+                  .filter((index) => index >= 0);
+                const successfulPrimary = new Set();
+                let attempts = 0;
+
+                const evaluatePrimaryCommands = () => {
+                  for (const index of primaryIndexes) {
+                    if (successfulPrimary.has(index)) continue;
+                    const command = commands[index];
+                    try {
+                      const ok = typeof a.evalCommand === "function" && Boolean(a.evalCommand(command));
+                      if (ok) {
+                        successfulPrimary.add(index);
+                      } else {
+                        console.warn(`GeoGebra command rejected [${index + 1}]: ${command}`);
+                      }
+                    } catch (e) {
+                      console.warn(
+                        `GeoGebra command exception [${index + 1}]: ${command}`,
+                        e,
+                      );
+                    }
+                  }
+                };
+
+                const ready = () => {
                   attempts++;
-                  const count=typeof a.getObjectNumber==="function" ? Number(a.getObjectNumber()) : 0;
-                  if (count >= primary.length) {
+                  evaluatePrimaryCommands();
+                  const objectCount =
+                    typeof a.getObjectNumber === "function" ? Number(a.getObjectNumber()) : 0;
+                  console.log(
+                    `GeoGebra construction QA: primary=${successfulPrimary.size}/${primaryIndexes.length}, objects=${objectCount}`,
+                  );
+
+                  if (successfulPrimary.size >= primaryIndexes.length) {
                     try { a.setRepaintingActive?.(true); } catch {}
                     try { a.recalculateEnvironments?.(); } catch {}
                     try { a.refreshViews?.(); } catch {}
@@ -668,8 +728,22 @@ const renderGraphInBrowser = async (graph) => {
                     },1800);
                     return;
                   }
-                  if (attempts < 120) setTimeout(ready,250);
-                  else { clearTimeout(timer); finish(reject,new Error("GeoGebra n'a pas créé les objets attendus.")); }
+
+                  if (attempts < 8) {
+                    setTimeout(ready,500);
+                    return;
+                  }
+
+                  const rejected = primaryIndexes
+                    .filter((index) => !successfulPrimary.has(index))
+                    .map((index) => commands[index]);
+                  clearTimeout(timer);
+                  finish(
+                    reject,
+                    new Error(
+                      `GeoGebra n'a pas créé les objets attendus. Commandes refusées: ${rejected.join(" | ")}`,
+                    ),
+                  );
                 };
                 ready();
               }, 1500);

@@ -25,6 +25,16 @@ Le chemin normal est :
 
 L’absence de PDF n’est pas une erreur d’ingestion. Un contenu éditorial correctement reçu peut être en `review` avec `pdf_path` et `pdf_url` nuls. Le sas « Documents en attente » doit le considérer comme prêt pour une production PDF manuelle.
 
+### Barrière de production PDF
+
+La propriété `pdf_launch_mode = manual` n’est pas seulement descriptive : elle constitue un contrat d’architecture. Le chemin autorisé est `administration → aurora-lualatex-request → GitHub Actions`. Le document ne doit jamais être réclamé par un scheduler, un `push` GitHub, une ingestion ou un trigger de base de données.
+
+Le worker `aurora-lualatex-next` ne doit accepter que les lignes dont les métadonnées portent simultanément `lualatex_requested = true`, `lualatex_status = queued` et `lualatex_launch_source = admin_request`. Le chemin `aurora-lualatex-request` pose explicitement ce dernier marqueur. Après un échec, ces marqueurs ne doivent pas être réinstallés automatiquement.
+
+L’ancien chemin `aurora-lualatex-auto-wake` est retiré du circuit de production et sa version active en Supabase est volontairement inerte : elle renvoie `MANUAL_PDF_ONLY` au lieu de réveiller GitHub. Cette protection doit rester en place même si un ancien Cron ou un ancien appel externe subsiste.
+
+Le workflow réutilisable `.github/workflows/aurora-lualatex-production.yml` ne comporte plus de scheduler. Son étape de revendication est explicitement conditionnée à `workflow_dispatch` ou `workflow_call`, ce qui empêche un simple commit de code de lancer une production. Les tests de syntaxe peuvent continuer à s’exécuter sur un changement du renderer sans réclamer de document.
+
 Un échec de rendu PDF ne doit pas entraîner une boucle automatique de régénération. La nouvelle tentative doit être déclenchée depuis l’administration.
 
 ## Métadonnées de traçabilité
@@ -52,6 +62,9 @@ Avant une ingestion, vérifier :
 5. en cas de doublon, respecter `ingest_id` plutôt que recréer un document ;
 6. après une production PDF, vérifier le résultat du renderer avant toute nouvelle tentative ;
 7. ne jamais contourner les RLS ou les contrôles de rôle pour rendre un document « visible ».
+
+8. avant toute correction GeoGebra, vérifier l’instrument, la variable indépendante, la commande réellement envoyée au moteur et le résultat de `evalCommand` ;
+9. consulter la mémoire éditoriale active `pdf_production_protocol`, `pdf_manual_launch_gate`, `geogebra_renderability_contract` et `known_production_failures` avant de toucher au pipeline.
 
 ## Diagnostic d’une absence dans le sas
 
