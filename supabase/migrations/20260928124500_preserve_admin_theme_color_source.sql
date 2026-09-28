@@ -150,7 +150,8 @@ begin
     v_job_theme_color := nullif(trim(coalesce(v_job.metadata->>'theme_color', '')), '');
     v_job_theme_source := lower(trim(coalesce(v_job.metadata->>'theme_color_source', '')));
     if v_job_theme_source = 'admin'
-       and v_job_theme_color ~ '^#[0-9A-Fa-f]{6}
+       and length(v_job_theme_color) = 7
+       and v_job_theme_color ~ '^#[0-9A-Fa-f]{6}' then
       select * into v_existing
         from public.aurora_generated_documents
        where id = v_job.generated_document_id;
