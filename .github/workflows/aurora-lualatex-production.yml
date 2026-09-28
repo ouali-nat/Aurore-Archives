@@ -153,7 +153,7 @@ jobs:
           normal_tex = render_document.render(normal_course)
           if r"\AuroreCourseSectionStart" not in normal_tex or r"\AuroreCourseSectionEnd" not in normal_tex:
               raise SystemExit("Normal-course decoration regression: section spine markers missing.")
-          if normal_tex.count(r"\AuroreCourseSectionEnd") != 2:
+          if normal_tex.count(r"\AuroreCourseSectionEnd") - normal_tex.count(r"\newcommand{\AuroreCourseSectionEnd}") != 2:
               raise SystemExit(f"Normal-course section count regression: {normal_tex!r}")
           if not (r"\AuroreMathCompact{Relation}" in normal_tex or r"\AuroreMathBlock{Relation}" in normal_tex):
               raise SystemExit(f"Normal-course relation box regression: {normal_tex!r}")
