@@ -436,25 +436,36 @@ function bindDetail(d,t,state){
       alert(e.message||e)
     }
   });
-  d.querySelector('[data-plan-save]')?.addEventListener('click',async()=>{
+  const collectPlan=()=>{
     const p=proposalFor(t);
     d.querySelectorAll('[data-plan-field]').forEach(el=>p[el.dataset.planField]=el.value.trim());
-    const selected=Array.isArray(t.metadata?.workflow?.selected_chapters)
-      ? t.metadata.workflow.selected_chapters
-      : (Array.isArray(t.metadata?.workflow?.chapters)?t.metadata.workflow.chapters:[]);
-    if(!selected.length){alert('Le plan ne peut pas être validé : aucun chapitre validé en section B.');return}
+    return p;
+  };
+  const selectedChapters=()=>{
+    const w=t.metadata?.workflow||{};
+    return Array.isArray(w.selected_chapters)?w.selected_chapters:(Array.isArray(w.chapters)?w.chapters:[]);
+  };
+  const persistPlan=async(statusStage='proposal_review',status='ready_for_admin_validation')=>{
+    const selected=selectedChapters();
+    if(!selected.length)throw new Error('Le plan ne peut pas être enregistré : aucun chapitre validé en section B.');
+    const p=collectPlan();
+    return updateJob(t.id,{
+      proposal:p,
+      proposal_version:Number(t.metadata?.workflow?.proposal_version||0)+1,
+      proposal_status:status,
+      stage:statusStage,
+      rejected:false,
+      revision_requested:false
+    });
+  };
+  d.querySelector('[data-plan-save]')?.addEventListener('click',async()=>{
+    const button=d.querySelector('[data-plan-save]');if(button)button.disabled=true;
     try{
-      await updateJob(t.id,{
-        proposal:p,
-        proposal_version:Number(t.metadata?.workflow?.proposal_version||0)+1,
-        proposal_status:'ready_for_admin_validation',
-        stage:'proposal_review',
-        rejected:false,
-        revision_requested:false
-      });
+      const updated=await persistPlan();
+      if(!updated?.metadata?.workflow?.proposal)throw new Error('Le plan n’a pas pu être confirmé après enregistrement.');
       alert('Plan enregistré et prêt pour validation.');
       await chargerEspaceEditorialChatGPT()
-    }catch(e){alert(e.message||e)}
+    }catch(e){alert(e.message||e)}finally{if(button)button.disabled=false}
   });
   d.querySelector('[data-plan-reject]')?.addEventListener('click',async()=>{
     try{await updateJob(t.id,{stage:'revision_requested',rejected:true,revision_requested:true});await chargerEspaceEditorialChatGPT()}catch(e){alert(e.message||e)}
