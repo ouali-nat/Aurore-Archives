@@ -60,7 +60,18 @@ async function launch(j){
      await window.auroraContentFactoryPdfActions.render(Number(j.generatedDocumentId),j.theme);
      return;
    }
-   throw new Error('Le module de production PDF n’est pas disponible.');
+   // Repli de sécurité : le lancement reste strictement manuel et passe par
+   // l'Edge Function canonique, qui inscrit admin_request et réveille GitHub.
+   const fallback=await adminFetch(SUPABASE_URL+'/functions/v1/aurora-lualatex-request',{
+     method:'POST',
+     headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({generated_document_id:Number(j.generatedDocumentId)})
+   });
+   const fallbackText=await fallback.text();
+   let fallbackData={};
+   try{fallbackData=fallbackText?JSON.parse(fallbackText):{}}catch(_){fallbackData={error:fallbackText}};
+   if(!fallback.ok||!fallbackData?.ok)throw new Error(fallbackData?.error||('Demande PDF impossible (HTTP '+fallback.status+').'));
+   await chargerDocumentsEnAttenteAdminV2();
  }
  if(s!=='draft')return;
  if(typeof window.auroreAdminConfirmContentJob==='function'){await window.auroreAdminConfirmContentJob(j.id);return;}
