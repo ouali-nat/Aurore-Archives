@@ -2566,7 +2566,7 @@ def _render_content_item(raw, auto_math=False, box_all_math=False):
                     # Explicit display equations must never use the compact inline box.
                     # Keeping this path block-level prevents braces/commands in long
                     # display formulas from being parsed as AuroreMathCompact arguments.
-                    lines.append(r"\\AuroreMathBlock{}{" + display_body + r"}")
+                    lines.append(r"\AuroreMathBlock{}{" + display_body + r"}")
                 lines.append("")
                 continue
             for paragraph in re.split(r"\n{2,}", segment):
