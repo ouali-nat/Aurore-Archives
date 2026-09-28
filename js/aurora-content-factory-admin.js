@@ -1151,7 +1151,7 @@ async function renderPdf(id,themeColor=null){
     const requestText=await request.text();
     let requestData={};
     try{requestData=requestText?JSON.parse(requestText):{}}catch(_){requestData={error:requestText}};
-    if(!request.ok||!requestData?.ok)throw new Error(requestData?.error||('File d'attente LuaLaTeX HTTP '+request.status));
+    if(!request.ok||!requestData?.ok)throw new Error(requestData?.error||('File d’attente LuaLaTeX HTTP '+request.status));
 
     // GeoGebra navigateur est désormais strictement optionnel : GitHub Actions
     // a déjà reçu la demande manuelle et peut reprendre les graphiques manquants.
