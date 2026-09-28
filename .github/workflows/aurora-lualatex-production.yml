@@ -125,6 +125,11 @@ jobs:
               raise SystemExit(f"Formula-list rendering regression: {formula_block!r}")
           if r"\AuroreFormulaBlock{" in formula_block:
               raise SystemExit(f"Formula-list compatibility wrapper leaked: {formula_block!r}")
+
+          chemistry_math = "Pour 𝐶₂𝐻₆𝑂, 𝑀 = 2 × 12,0 + 6 × 1,0 + 16,0 = 46,0 g mol⁻¹."
+          chemistry_parts = render_document._split_embedded_math(chemistry_math)
+          if not any(kind == "math" and "=" in value for kind, value in chemistry_parts):
+              raise SystemExit(f"Chemistry relation extraction regression: {chemistry_parts!r}")
           if "['" in formula_block or "']" in formula_block:
               raise SystemExit(f"Formula-list stringification regression: {formula_block!r}")
 
