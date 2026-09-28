@@ -2431,7 +2431,7 @@ def _split_embedded_math(text):
 
     return pieces
 
-def _render_content_item(raw, auto_math=False):
+def _render_content_item(raw, auto_math=False, box_all_math=False):
     """Render prose with compact dedicated blocks for substantial mathematics."""
     text = _repair_accidental_inline_double_dollar(clean_text(raw).strip())
     if not text:
@@ -2440,9 +2440,53 @@ def _render_content_item(raw, auto_math=False):
     standalone = _standalone_inline_math(text)
     if standalone:
         return [
-            _math_render_command(standalone),
+            _math_render_command(standalone, "Relation"),
             "",
         ]
+
+    # In a course, every explicitly delimited mathematical fragment becomes a centered Relation box.
+    if box_all_math:
+        explicit_math = re.compile(
+            r"(?:\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|\$[\s\S]*?\$)"
+        )
+        if explicit_math.search(text):
+            lines = []
+            cursor = 0
+            for match in explicit_math.finditer(text):
+                prose = text[cursor:match.start()].strip()
+                if prose:
+                    for kind, value in _split_embedded_math(prose):
+                        if kind == "math":
+                            lines.append(_math_render_command(value, "Relation"))
+                        else:
+                            rendered = inline(value, auto_math=auto_math)
+                            if rendered.strip():
+                                lines.append(rendered)
+                                lines.append(r"\par\smallskip")
+                token = match.group(0)
+                if token.startswith("$$") and token.endswith("$$"):
+                    body = token[2:-2].strip()
+                elif token.startswith(r"\[") and token.endswith(r"\]"):
+                    body = token[2:-2].strip()
+                elif token.startswith(r"\(") and token.endswith(r"\)"):
+                    body = token[2:-2].strip()
+                else:
+                    body = token[1:-1].strip()
+                if body:
+                    lines.append(_math_render_command(body, "Relation"))
+                    lines.append("")
+                cursor = match.end()
+            tail = text[cursor:].strip()
+            if tail:
+                for kind, value in _split_embedded_math(tail):
+                    if kind == "math":
+                        lines.append(_math_render_command(value, "Relation"))
+                    else:
+                        rendered = inline(value, auto_math=auto_math)
+                        if rendered.strip():
+                            lines.append(rendered)
+                            lines.append(r"\par\smallskip")
+            return lines
 
     if _CONTENT_DISPLAY_MATH_RE.search(text):
         lines = []
@@ -2513,7 +2557,7 @@ def _two_column_candidate(value):
         return False
     return True
 
-def render_content(items, auto_math=False, allow_two_columns=False):
+def render_content(items, auto_math=False, allow_two_columns=False, box_all_math=False):
     # Be defensive about Content Factory payloads. Some production payloads
     # can arrive as a JSON-encoded string instead of a native list.
     if isinstance(items, str):
@@ -2591,7 +2635,7 @@ def render_content(items, auto_math=False, allow_two_columns=False):
             i += 1
             continue
 
-        lines.extend(_render_content_item(raw, auto_math=auto_math))
+        lines.extend(_render_content_item(raw, auto_math=auto_math, box_all_math=box_all_math))
         i += 1
 
     return lines
