@@ -565,11 +565,17 @@ const renderGraphInBrowser = async (graph) => {
       // points. Do not inject the symbolic z^6=64 relation as f(x)=...;
       // GeoGebra only needs the solution points and the coordinate axes.
     } else {
-      const raw = String(
+      let raw = String(
         instrument === "function2d"
           ? graph?.render_expression ?? graph?.expression
           : graph?.expression ?? "",
       ).trim();
+      // Dernier garde-fou dans le contexte GeoGebra : les expressions
+      // function2d éditoriales peuvent encore arriver avec le paramètre t.
+      // GeoGebra graphing attend ici une fonction de x.
+      if (instrument === "function2d" && !/\bx\b/i.test(raw) && /\bt\b/i.test(raw)) {
+        raw = raw.replace(/\bt\b/g, "x");
+      }
       const e = expr(raw);
       if (e) {
         // Conics from Content Factory are often implicit equations
