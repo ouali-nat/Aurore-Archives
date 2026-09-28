@@ -1086,57 +1086,63 @@ async function renderPdf(id,themeColor=null){
     const rowForTheme=rows.find(x=>Number(x.id)===Number(id));
     await persistGeneratedDocumentTheme(id,themeColor||documentThemeColor(rowForTheme?.metadata),accessToken);
     const productionAttempt=await startProductionAttempt(id,accessToken);
-    if(b)b.textContent='Préparation de la nouvelle identité Aurore…';
+    if(b)b.textContent='Mise en file LuaLaTeX…';
 
-    // GeoGebra est optionnel : un document sans graphique va directement
-    // vers la file LuaLaTeX sans initialiser ni exécuter GeoGebra.
-    const graphSource=await fetch(
-      SUPABASE_URL+'/rest/v1/aurora_generated_documents?id=eq.'+encodeURIComponent(Number(id))+'&select=id,content_json',
-      {cache:'no-store',headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+accessToken}}
-    );
-    const graphSourceText=await graphSource.text();
-    if(!graphSource.ok)throw new Error('Lecture du contenu graphique impossible (HTTP '+graphSource.status+').');
-    let graphSourceRows=[];
-    try{graphSourceRows=graphSourceText?JSON.parse(graphSourceText):[]}catch(_){graphSourceRows=[]}
-    const documentContent=Array.isArray(graphSourceRows)&&graphSourceRows[0]?.content_json&&typeof graphSourceRows[0].content_json==='object'
-      ?graphSourceRows[0].content_json:{};
-    const documentGraphs=[];
-    for(const section of Array.isArray(documentContent.sections)?documentContent.sections:[])
-      if(Array.isArray(section?.graphs))documentGraphs.push(...section.graphs);
-    const renderableGraphs=documentGraphs.filter(g=>!!auroraGeoGebraInstrument(g));
-    const declaredGraphCount=renderableGraphs.length;
-    let graphCount=0;
-    if(declaredGraphCount>0){
-      if(b)b.textContent='Préparation de '+declaredGraphCount+' graphique'+(declaredGraphCount>1?'s':'')+'…';
-      try{
-        graphCount=await auroraConstruireEtImporterGraphiquesGeoGebra(id,b,accessToken);
-      }catch(geoError){
-        // GeoGebra navigateur = optimisation facultative.
-        // Le renderer GitHub Actions reprend tous les graphiques manquants.
-        console.warn('[Content Factory] GeoGebra navigateur non terminé; relais au renderer GitHub.',geoError);
-        graphCount=0;
-        if(b)b.textContent='GeoGebra navigateur non disponible — relais au renderer GitHub…';
-      }
-    }else if(b){
-      b.textContent='Aucun graphique à préparer — mise en file LuaLaTeX…';
-    }
-    if(b)b.textContent=graphCount
-      ?'Mise en file LuaLaTeX avec '+graphCount+' graphique'+(graphCount>1?'s':'')+' GeoGebra…'
-      :'Mise en file LuaLaTeX…';
-
+    // La demande manuelle doit être enregistrée et réveiller GitHub immédiatement.
+    // Toute préparation GeoGebra côté navigateur reste facultative et ne doit jamais
+    // pouvoir empêcher le passage du document dans le renderer serveur.
     await setGeneratedProductionState(id,'queued',accessToken,{production_attempt_started_at:new Date().toISOString(),production_attempt_id:productionAttempt?.id||null,production_attempt_no:productionAttempt?.attempt_no||null});
     await updateProductionAttemptFromDocument(id,'queued',accessToken,{production_started_at:new Date().toISOString()});
     setProgress(12,'Document envoyé au moteur LuaLaTeX…');
 
-    const request=await adminInventoryFetch(`${SUPABASE_URL}/functions/v1/aurora-lualatex-request`,{
+    const request=await adminInventoryFetch(SUPABASE_URL+'/functions/v1/aurora-lualatex-request',{
       method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':`Bearer ${accessToken}`},
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},
       body:JSON.stringify({generated_document_id:Number(id)})
     });
     const requestText=await request.text();
     let requestData={};
     try{requestData=requestText?JSON.parse(requestText):{}}catch(_){requestData={error:requestText}};
-    if(!request.ok||!requestData?.ok)throw new Error(requestData?.error||(`File d'attente LuaLaTeX HTTP ${request.status}`));
+    if(!request.ok||!requestData?.ok)throw new Error(requestData?.error||('File d'attente LuaLaTeX HTTP '+request.status));
+
+    // GeoGebra navigateur est désormais strictement optionnel : GitHub Actions
+    // a déjà reçu la demande manuelle et peut reprendre les graphiques manquants.
+    let graphCount=0;
+    try{
+      const graphSource=await fetch(
+        SUPABASE_URL+'/rest/v1/aurora_generated_documents?id=eq.'+encodeURIComponent(Number(id))+'&select=id,content_json',
+        {cache:'no-store',headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+accessToken}}
+      );
+      const graphSourceText=await graphSource.text();
+      if(!graphSource.ok)throw new Error('Lecture du contenu graphique impossible (HTTP '+graphSource.status+').');
+      let graphSourceRows=[];
+      try{graphSourceRows=graphSourceText?JSON.parse(graphSourceText):[]}catch(_){graphSourceRows=[]}
+      const documentContent=Array.isArray(graphSourceRows)&&graphSourceRows[0]?.content_json&&typeof graphSourceRows[0].content_json==='object'
+        ?graphSourceRows[0].content_json:{};
+      const documentGraphs=[];
+      for(const section of Array.isArray(documentContent.sections)?documentContent.sections:[])
+        if(Array.isArray(section?.graphs))documentGraphs.push(...section.graphs);
+      const renderableGraphs=documentGraphs.filter(g=>!!auroraGeoGebraInstrument(g));
+      const declaredGraphCount=renderableGraphs.length;
+      if(declaredGraphCount>0){
+        if(b)b.textContent='Préparation de '+declaredGraphCount+' graphique'+(declaredGraphCount>1?'s':'')+'…';
+        try{
+          graphCount=await auroraConstruireEtImporterGraphiquesGeoGebra(id,b,accessToken);
+        }catch(geoError){
+          console.warn('[Content Factory] GeoGebra navigateur non terminé; relais au renderer GitHub.',geoError);
+          graphCount=0;
+        }
+      }
+    }catch(geoError){
+      console.warn('[Content Factory] Préparation GeoGebra navigateur ignorée; le renderer GitHub reprend la main.',geoError);
+      graphCount=0;
+    }
+    if(b)b.textContent=graphCount
+      ?'Mise en file LuaLaTeX avec '+graphCount+' graphique'+(graphCount>1?'s':'')+' GeoGebra…'
+      :'LuaLaTeX en préparation…';
+
+    // Ne pas modifier ici l'état lualatex_status : aurora-lualatex-request
+    // vient de l'enregistrer en admin_request pour que le claim GitHub soit autorisé.
 
     setProgress(18,'En attente du rendu LuaLaTeX…');
     if(b)b.textContent='LuaLaTeX en préparation…';
