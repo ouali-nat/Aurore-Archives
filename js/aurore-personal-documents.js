@@ -390,3 +390,25 @@
   // Chargement discret lorsque le profil est ouvert par le flux de connexion.
   const _afficherEcranOriginal=window.afficherEcran;
   if(typeof _afficherEcranOriginal==='function'){}
+
+  // ---------- Refonte visuelle de l'écran « Mon profil » ----------
+  // Repères structurels uniquement (classes + un titre de section) : la mise
+  // en page est entièrement dans css/aurore-personal-library.css. Aucun
+  // identifiant ni gestionnaire d'évènements n'est modifié.
+  (function organiserEcranProfil(){
+    try{
+      const meta=document.querySelector('#screen-profil .profile-meta');
+      if(!meta) return;
+      if(!meta.querySelector('.pf-heading')){
+        const h=document.createElement('div');
+        h.className='pf-heading';
+        h.innerHTML='<span>Paramètres</span><strong>Compte et personnalisation</strong>';
+        meta.insertBefore(h,meta.firstElementChild);
+      }
+      meta.querySelectorAll('.profile-meta-item').forEach(el=>{
+        const label=(el.querySelector('.label')?.textContent||'').trim().toLowerCase();
+        if(label.startsWith('statut')) el.classList.add('pf-status');
+        else if(label.startsWith('connect')) el.classList.add('pf-provider');
+      });
+    }catch(e){console.warn('[Profil] organisation visuelle:',e);}
+  })();
