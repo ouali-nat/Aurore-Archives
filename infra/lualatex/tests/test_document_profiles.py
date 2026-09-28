@@ -1,9 +1,9 @@
 import sys
 import unittest
-import render_document
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import render_document
 from render_document import (
     _document_kind,
     _edition_profile,
