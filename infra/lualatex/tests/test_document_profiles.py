@@ -10,6 +10,7 @@ from render_document import (
     _has_usable_content_json,
     normalize_math,
     inline,
+    render_exercise_text,
     render,
 )
 
@@ -94,6 +95,32 @@ def test_exercise_render_uses_exercise_cover_and_ignores_section_content():
     assert r"\AuroreExerciseCover" in tex
     assert r"\AuroreExerciseSeriesBlock{1}" in tex
     assert "Contenu parasite de cours" not in tex
+
+
+def test_exercise_math_stays_in_blocks_and_position():
+    question = (
+        "Calculer $x^2+1$ puis établir \\\\[f(x)=x^2-1\\\\] avant de conclure."
+    )
+    rendered = "\n".join(render_exercise_text(question, mode="question"))
+    assert r"\AuroreParagraphBlock{" in rendered
+    assert r"\AuroreInlineMath{" in rendered
+    assert r"\AuroreMathBlock{}{" in rendered
+    assert "Expression mathématique" not in rendered
+    assert "Relation" not in rendered
+
+
+def test_exercise_correction_keeps_distinct_block_flow():
+    correction = "Donc $x=2$. Ainsi, le résultat est vérifié."
+    rendered = "\n".join(render_exercise_text(correction, mode="correction"))
+    assert r"\AuroreParagraphBlock{" in rendered
+    assert r"\AuroreInlineMath{" in rendered
+    assert r"\Longrightarrow" in rendered
+
+
+def test_exercise_series_macros_keep_dominant_vertical_bar():
+    tex = render(exercise_doc())
+    assert r"borderline west={1.7pt}{0pt}{aurorebase}" in tex
+    assert r"borderline west={1.7pt}{0pt}{aurorebase!72!black}" in tex
 
 
 def test_locked_profile_cannot_switch_kind():
