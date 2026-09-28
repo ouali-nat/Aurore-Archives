@@ -599,10 +599,8 @@ const renderGraphInBrowser = async (graph) => {
     }
 
     if (instrument === "function2d" || instrument === "complex_plane" || instrument === "parametric2d" || instrument === "geometry2d") {
-      const xmin=finite(graph?.x_min,-10), xmax=finite(graph?.x_max,10), ymin=finite(graph?.y_min,-10), ymax=finite(graph?.y_max,10);
-      if (xmax>xmin && ymax>ymin) {
-        commands.push("SetCoordSystem("+[xmin,xmax,ymin,ymax].join(",")+")");
-      }
+      // The 2D viewport is configured with a.setCoordSystem() in appletOnLoad.
+      // Do not enqueue a non-construction viewport command here.
       if ((instrument === "function2d" || instrument === "complex_plane") && Array.isArray(graph?.points)) {
         let pointIndex = 0;
         for (const raw of graph.points) {
@@ -661,6 +659,23 @@ const renderGraphInBrowser = async (graph) => {
                 try { a.setGridVisible(showGrid); } catch {}
                 try { a.setAxisSteps(1,1,1,0); } catch {}
                 try { a.setAxisLabels(1,String(graph?.x_label || "x"),String(graph?.y_label || "y")); } catch {}
+
+                // Configure the 2D viewport through the Apps API itself.
+                // The old code queued SetCoordSystem(...) below, but that
+                // command was not part of the primary construction queue.
+                // Consequently GeoGebra kept its default viewport and
+                // production functions could be completely outside it.
+                const xmin = finite(graph?.x_min,-10);
+                const xmax = finite(graph?.x_max,10);
+                const ymin = finite(graph?.y_min,-10);
+                const ymax = finite(graph?.y_max,10);
+                if (xmax > xmin && ymax > ymin && typeof a.setCoordSystem === "function") {
+                  try {
+                    a.setCoordSystem(xmin,xmax,ymin,ymax);
+                  } catch (e) {
+                    console.warn("GeoGebra 2D coordinate-system setup failed.", e);
+                  }
+                }
               }
 
               const primary = instrument === "complex_plane"
@@ -716,6 +731,30 @@ const renderGraphInBrowser = async (graph) => {
                   );
 
                   if (successfulPrimary.size >= primaryIndexes.length) {
+                    if (instrument === "function2d") {
+                      const exists = typeof a.exists === "function" && Boolean(a.exists("f"));
+                      const defined = typeof a.isDefined === "function" && Boolean(a.isDefined("f"));
+                      const visible = typeof a.getVisible === "function" && Boolean(a.getVisible("f",1));
+                      const objectType = typeof a.getObjectType === "function" ? String(a.getObjectType("f") || "") : "";
+                      console.log(
+                        "GeoGebra function QA: exists=" + exists +
+                        " defined=" + defined +
+                        " visible=" + visible +
+                        " type=" + (objectType || "unknown"),
+                      );
+                      if (!exists || !defined || !visible) {
+                        clearTimeout(timer);
+                        finish(
+                          reject,
+                          new Error(
+                            "GeoGebra function2d QA failed: object f is missing or not visible " +
+                            "(exists=" + exists + ", defined=" + defined + ", visible=" + visible +
+                            ", type=" + (objectType || "unknown") + ").",
+                          ),
+                        );
+                        return;
+                      }
+                    }
                     try { a.setRepaintingActive?.(true); } catch {}
                     try { a.recalculateEnvironments?.(); } catch {}
                     try { a.refreshViews?.(); } catch {}
