@@ -2538,6 +2538,11 @@ def render_paragraph_blocks(text, auto_math=False):
 def _render_content_item(raw, auto_math=False, box_all_math=False):
     """Render prose with course paragraph boxes and in-place inline math."""
     text = _repair_accidental_inline_double_dollar(clean_text(raw).strip())
+    # Content Factory may leave JSON-style doubled backslashes before \[ \]
+    # and \( \). Canonicalize delimiters before deciding whether an item is
+    # display math; otherwise a display equation can be misrouted through the
+    # inline-math path and produce an unterminated AuroreMathCompact argument.
+    text = _repair_overescaped_math_delimiters(text)
     if not text:
         return []
 
