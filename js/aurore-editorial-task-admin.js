@@ -140,26 +140,36 @@ const textValue=v=>{
   return String(v);
 };
 const proposalFor=(t)=>{
-  const w=t.metadata?.workflow||{},p=w.proposal&&typeof w.proposal==='object'?w.proposal:{};
+  const w=t.metadata?.workflow||{},p=w.proposal&&typeof w.proposal==='object'?{...w.proposal}:{};
+  const selected=Array.isArray(w.selected_chapters)?w.selected_chapters:[];
   return {
+    ...p,
     title:p.title||p.titre||t.title||'',
-    chapter:p.chapter||p.chapitre||(
-      Array.isArray(w.selected_chapters)&&w.selected_chapters.length
-        ? w.selected_chapters.map(x=>x?.title||x?.name||textValue(x)).join('\n')
-        : w.selected_chapter?.title||textValue(w.selected_chapter)||''
-    ),
+    chapter:p.chapter||p.chapitre||(selected.length?selected.map(x=>x?.title||x?.name||textValue(x)).join('\\n'):w.selected_chapter?.title||textValue(w.selected_chapter)||''),
+    researchMethod:textValue(p.researchMethod||p.research_method||w.chapter_research?.methodology),
+    curricularBasis:textValue(p.curricularBasis||p.curricular_basis||p.programme||w.chapter_research?.basis),
+    researchFindings:textValue(p.researchFindings||p.research_findings||p.recherche||w.chapter_research?.findings),
+    sources:textValue(p.sources||p.source_urls||w.chapter_research?.source_urls),
     objectives:textValue(p.objectives||p.objectifs),
+    competencies:textValue(p.competencies||p.competences),
     prerequisites:textValue(p.prerequisites||p.prerequis),
+    progression:textValue(p.progression||p.sequence||p.progression_pedagogique),
     architecture:textValue(p.architecture||p.structure||p.plan),
+    productionStrategy:textValue(p.productionStrategy||p.production_strategy||p.strategie_production||p.strategy),
     content:textValue(p.content||p.contenu||p.sections),
     methods:textValue(p.methods||p.methodes),
+    activities:textValue(p.activities||p.activites),
     examples:textValue(p.examples||p.exemples),
+    situations:textValue(p.situations||p.problems||p.problemes),
     exercises:textValue(p.exercises||p.exercices),
-    corrections:textValue(p.corrections||p.corriges||p.corrections),
+    corrections:textValue(p.corrections||p.corriges),
+    differentiation:textValue(p.differentiation||p.differenciation),
+    evaluation:textValue(p.evaluation||p.assessment||p.evaluations),
     volume:textValue(p.volume||p.pedagogical_volume),
     duration:textValue(p.duration||p.duree),
     resources:textValue(p.resources||p.ressources),
     mathGeoGebra:textValue(p.mathGeoGebra||p.math_geogebra||p.geogebra||p.math),
+    technicalNeeds:textValue(p.technicalNeeds||p.technical_needs||p.besoins_techniques),
     pdfFormat:p.pdfFormat||p.pdf_format||'A4',
     pdfOrientation:p.pdfOrientation||p.pdf_orientation||'Portrait',
     pdfPagination:p.pdfPagination||p.pdf_pagination||'Pagination continue',
@@ -169,7 +179,8 @@ const proposalFor=(t)=>{
     pdfHeaders:textValue(p.pdfHeaders||p.pdf_headers||p.headers),
     pdfResources:textValue(p.pdfResources||p.pdf_resources),
     quality:textValue(p.quality||p.qa||p.controle_qualite),
-    notes:textValue(p.notes||p.editorial_notes)
+    notes:textValue(p.notes||p.editorial_notes),
+    revisionNotes:textValue(p.revisionNotes||p.revision_notes||w.revision_note)
   };
 };
 const stageInfo={
@@ -195,17 +206,18 @@ function taskCard(t,section){
   const ch=Array.isArray(w.chapters)?w.chapters:[];
   const pv=w.proposal&&typeof w.proposal==='object'?w.proposal:null;
   const desc=section==='B'
-    ? (ch.length?ch.slice(0,3).map(x=>x.title||x.name||textValue(x)).join(' · ')+(ch.length>3?'…':''):'Chapitres à proposer dans la conversation')
+    ? (ch.length?ch.slice(0,3).map(x=>x.title||x.name||textValue(x)).join(' · ')+(ch.length>3?'…':''):'Recherche / chapitres à proposer')
     : section==='C'
-      ? (pv?.title||(
+      ? (pv?.productionStrategy||pv?.title||(
           Array.isArray(w.selected_chapters)&&w.selected_chapters.length
-            ? 'Chapitres validés : '+w.selected_chapters.map(x=>x?.title||x?.name||textValue(x)).join(' · ')
+            ? 'Chapitres retenus : '+w.selected_chapters.map(x=>x?.title||x?.name||textValue(x)).join(' · ')
             : w.selected_chapter?.title||w.selected_chapter||''
-        )||'Plan de production à construire / valider')
+        )||'Carte de production à construire')
       : section==='D'
-        ? ((w.admin_validation?.status==='validated')?'Validation administrative complète.':'Validation administrative à effectuer.')
+        ? (w.stage==='edition_ready'?'Plan validé · prêt pour la production':'Contrôle hérité à terminer')
         : 'Classe + matière : première étape du parcours éditorial';
-  return '<article class="editor-pro-card"><div class="editor-pro-top"><span class="editor-pro-id">#'+esc(t.id)+'</span><span class="editor-pro-pill '+esc(s.tone)+'">'+esc(s.label)+'</span></div><h4>'+esc(t.class_name||t.level||'Classe')+'</h4><strong class="editor-pro-subject">'+esc(t.subject||'Matière')+'</strong><p>'+esc(desc)+'</p><div class="editor-pro-bottom"><span>'+esc(t.document_type||'cours')+'</span><button type="button" class="admin-btn ghost" data-editor-open="'+esc(t.id)+'">Ouvrir</button></div></article>';
+
+    return '<article class="editor-pro-card"><div class="editor-pro-top"><span class="editor-pro-id">#'+esc(t.id)+'</span><span class="editor-pro-pill '+esc(s.tone)+'">'+esc(s.label)+'</span></div><h4>'+esc(t.class_name||t.level||'Classe')+'</h4><strong class="editor-pro-subject">'+esc(t.subject||'Matière')+'</strong><p>'+esc(desc)+'</p><div class="editor-pro-bottom"><span>'+esc(t.document_type||'cours')+'</span><button type="button" class="admin-btn ghost" data-editor-open="'+esc(t.id)+'">Ouvrir</button></div></article>';
 }
 function paginate(items,page){
   return items.slice(page*PAGE_SIZE,(page+1)*PAGE_SIZE);
@@ -271,36 +283,44 @@ function field(label,key,value,wide){
   return '<label class="editor-field '+(wide?'wide':'')+'"><span>'+label+'</span><textarea data-plan-field="'+key+'" rows="'+(wide?4:2)+'">'+esc(value)+'</textarea></label>';
 }
 function planForm(t){
-  const p=proposalFor(t);
+  const p=proposalFor(t),research=t.metadata?.workflow?.chapter_research&&typeof t.metadata.workflow.chapter_research==='object'?t.metadata.workflow.chapter_research:{};
   const selected=Array.isArray(t.metadata?.workflow?.selected_chapters)
     ? t.metadata.workflow.selected_chapters
     : (Array.isArray(t.metadata?.workflow?.chapters)?t.metadata.workflow.chapters:[]);
   const selectedMarkup=selected.length
-    ? '<div class="editor-c-plan-context"><span>Base de travail issue de la section B</span><strong>'+esc(selected.map(x=>x?.title||x?.name||textValue(x)).join(' · '))+'</strong><small>Ce sont les chapitres validés par l’administration. Le plan ci-dessous doit expliquer clairement ce que ChatGPT compte produire à partir de cette sélection.</small></div>'
-    : '<div class="editor-c-plan-context warning"><span>Base de travail manquante</span><strong>Aucun chapitre sélectionné</strong><small>La tâche ne doit pas être validée en C tant qu’un chapitre n’a pas été sélectionné en B.</small></div>';
+    ? '<div class="editor-c-plan-context"><span>Base de travail issue de la section B</span><strong>'+esc(selected.map(x=>x?.title||x?.name||textValue(x)).join(' · '))+'</strong><small>La sélection B est conservée telle quelle. Le plan C explique comment cette matière sera transformée en document final, sans lancer de rédaction ni de PDF.</small></div>'
+    : '<div class="editor-c-plan-context warning"><span>Base de travail manquante</span><strong>Aucun chapitre sélectionné</strong><small>La carte peut être préparée, mais elle ne doit pas être validée en C tant qu’un chapitre n’est pas sélectionné en B.</small></div>';
+  const researchStatus=research.status||p.researchFindings||p.sources?'Recherche documentaire présente':'Recherche documentaire à renseigner';
+  const sourceCount=Array.isArray(research.source_urls)?research.source_urls.length:(p.sources?String(p.sources).split('\\n').filter(Boolean).length:0);
   return '<div class="editor-plan-form">'+selectedMarkup+
-    '<div class="editor-c-intent"><span>Intention éditoriale</span><strong>Construire un document complet, cohérent et directement exploitable par l’éditeur ChatGPT.</strong><p>Le plan décrit le déroulement prévu : objectifs, progression, notions à traiter, activités, exemples, exercices, corrections, ressources et contraintes de production. Chaque élément reste modifiable avant validation.</p></div>'+
-    '<div class="editor-plan-grid">'+
-    field('Titre du cours','title',p.title,true)+field('Chapitre','chapter',p.chapter)+field('Objectifs pédagogiques','objectives',p.objectives,true)+field('Prérequis','prerequisites',p.prerequisites,true)+
-    field('Architecture / plan détaillé','architecture',p.architecture,true)+field('Contenu à couvrir','content',p.content,true)+field('Méthodes pédagogiques','methods',p.methods,true)+field('Exemples / applications','examples',p.examples,true)+
-    field('Exercices','exercises',p.exercises,true)+field('Corrigés','corrections',p.corrections,true)+field('Volume pédagogique','volume',p.volume)+field('Durée indicative','duration',p.duration)+field('Ressources / illustrations','resources',p.resources,true)+field('Mathématiques / GeoGebra','mathGeoGebra',p.mathGeoGebra,true)+
-    '</div><div class="editor-plan-divider">Paramètres du PDF</div><div class="editor-plan-grid editor-pdf-grid">'+
-    field('Format','pdfFormat',p.pdfFormat)+field('Orientation','pdfOrientation',p.pdfOrientation)+field('Pagination','pdfPagination',p.pdfPagination)+field('Couleur thème','pdfThemeColor',p.pdfThemeColor)+field('Mise en page','pdfLayout',p.pdfLayout,true)+field('Polices / typographie','pdfFonts',p.pdfFonts,true)+field('En-têtes / pieds de page','pdfHeaders',p.pdfHeaders,true)+field('Ressources PDF / QR / annexes','pdfResources',p.pdfResources,true)+field('Contrôle qualité attendu','quality',p.quality,true)+field('Notes éditoriales','notes',p.notes,true)+
-    '</div><div class="editor-plan-actions"><button type="button" class="admin-btn ghost" data-plan-save="'+esc(t.id)+'">Enregistrer les modifications</button><button type="button" class="admin-btn ghost danger" data-plan-reject="'+esc(t.id)+'">Rejeter</button><button type="button" class="admin-btn primary" data-plan-validate="'+esc(t.id)+'">Valider le plan</button></div></div>';
+    '<div class="editor-c-research"><div><span class="editor-section-kicker">Dossier de recherche</span><strong>'+esc(researchStatus)+'</strong><small>'+sourceCount+' source'+(sourceCount>1?'s':'')+' enregistrée'+(sourceCount>1?'s':'')+'. Les sources, constats et bases curriculaires sont éditables avant validation.</small></div></div>'+
+    '<div class="editor-plan-grid editor-research-grid">'+
+    field('Méthode de recherche','researchMethod',p.researchMethod,true)+field('Base curriculaire / programme','curricularBasis',p.curricularBasis,true)+field('Constats utiles à la production','researchFindings',p.researchFindings,true)+field('Sources / URLs (une par ligne)','sources',p.sources,true)+
+    '</div><div class="editor-plan-divider">Stratégie pédagogique et contenu</div><div class="editor-plan-grid">'+
+    field('Titre du document','title',p.title,true)+field('Chapitres / unité traitée','chapter',p.chapter,true)+field('Objectifs pédagogiques','objectives',p.objectives,true)+field('Compétences visées','competencies',p.competencies,true)+field('Prérequis','prerequisites',p.prerequisites,true)+field('Progression pédagogique','progression',p.progression,true)+
+    field('Architecture / plan détaillé','architecture',p.architecture,true)+field('Stratégie de production','productionStrategy',p.productionStrategy,true)+field('Contenu à couvrir','content',p.content,true)+field('Méthodes pédagogiques','methods',p.methods,true)+field('Activités d’apprentissage','activities',p.activities,true)+field('Exemples / applications','examples',p.examples,true)+
+    field('Situations / problèmes','situations',p.situations,true)+field('Exercices','exercises',p.exercises,true)+field('Corrigés / solutions','corrections',p.corrections,true)+field('Différenciation / adaptations','differentiation',p.differentiation,true)+field('Évaluation prévue','evaluation',p.evaluation,true)+
+    field('Volume pédagogique','volume',p.volume)+field('Durée indicative','duration',p.duration)+field('Ressources / illustrations','resources',p.resources,true)+field('Mathématiques / GeoGebra','mathGeoGebra',p.mathGeoGebra,true)+field('Besoins techniques','technicalNeeds',p.technicalNeeds,true)+
+    '</div><div class="editor-plan-divider">Paramètres du PDF et contrôle qualité</div><div class="editor-plan-grid editor-pdf-grid">'+
+    field('Format','pdfFormat',p.pdfFormat)+field('Orientation','pdfOrientation',p.pdfOrientation)+field('Pagination','pdfPagination',p.pdfPagination)+field('Couleur thème','pdfThemeColor',p.pdfThemeColor)+field('Mise en page','pdfLayout',p.pdfLayout,true)+field('Polices / typographie','pdfFonts',p.pdfFonts,true)+field('En-têtes / pieds de page','pdfHeaders',p.pdfHeaders,true)+field('Ressources PDF / QR / annexes','pdfResources',p.pdfResources,true)+field('Contrôle qualité attendu','quality',p.quality,true)+field('Notes éditoriales','notes',p.notes,true)+field('Demandes de révision','revisionNotes',p.revisionNotes,true)+
+    '</div><div class="editor-plan-actions"><button type="button" class="admin-btn ghost" data-plan-save="'+esc(t.id)+'">Enregistrer les modifications</button><button type="button" class="admin-btn ghost danger" data-plan-reject="'+esc(t.id)+'">Rejeter / demander une révision</button><button type="button" class="admin-btn primary" data-plan-validate="'+esc(t.id)+'">Valider le plan et passer à la production</button></div></div>';
 }
-function validationMarkup(t){
-  const w=t.metadata?.workflow||{},v=w.admin_validation&&typeof w.admin_validation==='object'?w.admin_validation:{};
-  const checks=[
-    ['programme','Conformité classe / matière'],['pedagogy','Cohérence pédagogique'],['coverage','Couverture du chapitre'],['resources','Ressources et visuels'],['technical_pdf','Paramètres PDF et contraintes techniques'],['quality','Exigences de contrôle qualité']
-  ];
-  return '<div class="editor-validation-wrap"><div class="editor-validation-head"><div><span class="editor-step">Contrôle administratif</span><h5>'+esc(t.title||'Document')+'</h5><p>Cette étape ne lance ni l’édition, ni le PDF. Elle autorise seulement la récupération du document par ChatGPT pour la rédaction finale.</p></div><span class="editor-pro-pill '+(v.status==='validated'?'ready':'admin')+'">'+(v.status==='validated'?'Validé':'À valider')+'</span></div><div class="editor-validation-grid">'+checks.map(([k,l])=>'<label class="editor-check"><input type="checkbox" data-admin-check="'+k+'" '+(v[k]===true?'checked':'')+'><span>'+l+'</span></label>').join('')+'</div><label class="editor-field wide"><span>Notes / réserves de l’administration</span><textarea data-admin-notes rows="4">'+esc(v.notes||'')+'</textarea></label><div class="editor-plan-actions"><button type="button" class="admin-btn ghost danger" data-admin-reject="'+esc(t.id)+'">Rejeter / demander une révision</button><button type="button" class="admin-btn primary" data-admin-validate="'+esc(t.id)+'">Valider pour l’édition</button></div></div>';
+function productionReadyMarkup(t){
+  const w=t.metadata?.workflow||{},v=w.admin_validation&&typeof w.admin_validation==='object'?w.admin_validation:{},p=proposalFor(t);
+  const legacy=w.stage==='admin_validation';
+  return '<div class="editor-validation-wrap"><div class="editor-validation-head"><div><span class="editor-step">'+(legacy?'Contrôle hérité':'Après validation C')+'</span><h5>'+esc(t.title||'Document')+'</h5><p>'+(legacy?'Ce document provient de l’ancien sas de validation. Les contrôles restent disponibles pour ne rien casser.':'Le plan C a été validé. La rédaction finale peut maintenant être engagée, mais le PDF reste exclusivement manuel.')+'</p></div><span class="editor-pro-pill '+(legacy?'admin':'ready')+'">'+(legacy?'Contrôle à terminer':'Prêt pour la production')+'</span></div>'+
+    '<div class="editor-c-ready-grid"><div><span>Chapitres</span><strong>'+esc(p.chapter||'—')+'</strong></div><div><span>Objectifs</span><strong>'+esc(p.objectives||'—')+'</strong></div><div><span>Stratégie de production</span><strong>'+esc(p.productionStrategy||'—')+'</strong></div><div><span>PDF</span><strong>Manuel uniquement</strong></div></div>'+
+    (legacy?'<div class="editor-validation-grid">'+[['programme','Conformité classe / matière'],['pedagogy','Cohérence pédagogique'],['coverage','Couverture du chapitre'],['resources','Ressources et visuels'],['technical_pdf','Paramètres PDF et contraintes techniques'],['quality','Exigences de contrôle qualité']].map(([k,l])=>'<label class="editor-check"><input type="checkbox" data-admin-check="'+k+'" '+(v[k]===true?'checked':'')+'><span>'+l+'</span></label>').join('')+'</div><label class="editor-field wide"><span>Notes / réserves de l’administration</span><textarea data-admin-notes rows="4">'+esc(v.notes||'')+'</textarea></label><div class="editor-plan-actions"><button type="button" class="admin-btn ghost danger" data-admin-reject="'+esc(t.id)+'">Rejeter / demander une révision</button><button type="button" class="admin-btn primary" data-admin-validate="'+esc(t.id)+'">Valider pour l’édition</button></div>'
+    :'<div class="editor-a-start"><strong>Prochaine action : rédaction finale du contenu.</strong><span>Aucune action ici ne lance la génération PDF. La production du PDF reste un lancement manuel depuis l’espace prévu à cet effet.</span></div>')+
+    '</div>';
 }
 function detail(t,section){
   const w=t.metadata?.workflow||{},d='<div class="editor-detail-head"><div><span class="editor-step">Section '+section+' · tâche #'+esc(t.id)+'</span><h4>'+esc(t.class_name||t.level||'')+' · '+esc(t.subject||'')+'</h4><p>État : <strong>'+esc((stageInfo[w.stage]||{}).label||w.stage||t.status)+'</strong></p></div><button type="button" class="admin-btn ghost" data-editor-close>Fermer</button></div>';
-  const meta='<div class="editor-detail-meta"><div><span>Identité</span><strong>'+esc(t.title||'')+'</strong></div><div><span>Type</span><strong>'+esc(t.document_type||'cours')+'</strong></div><div><span>PDF</span><strong>Manuel uniquement</strong></div><div><span>Version de proposition</span><strong>'+esc(w.proposal_version||0)+'</strong></div></div>';
+  const sourceUrls=Array.isArray(w.chapter_research?.source_urls)?w.chapter_research.source_urls:[];
+  const meta='<div class="editor-detail-meta"><div><span>Identité</span><strong>'+esc(t.title||'')+'</strong></div><div><span>Type</span><strong>'+esc(t.document_type||'cours')+'</strong></div><div><span>Recherche</span><strong>'+esc(sourceUrls.length||((w.proposal?.sources?String(w.proposal.sources).split('\\n').filter(Boolean).length:0)))+' source(s)</strong></div><div><span>Version du plan</span><strong>'+esc(w.proposal_version||0)+'</strong></div></div>';
   if(section==='B')return d+meta+'<h5 class="editor-detail-title">Chapitres disponibles</h5>'+chaptersMarkup(t);
   if(section==='C')return d+meta+'<h5 class="editor-detail-title">Plan complet de production</h5>'+planForm(t);
-  if(section==='D')return d+meta+'<h5 class="editor-detail-title">Validation administrative finale avant édition</h5>'+validationMarkup(t);
+  if(section==='D')return d+meta+'<h5 class="editor-detail-title">Production autorisée / suivi de rédaction</h5>'+productionReadyMarkup(t);
   return d+meta+'<div class="editor-a-start"><strong>Cette tâche attend notre récupération dans la conversation ChatGPT.</strong><span>Classe et matière sont enregistrées. Aucun moteur IA du site n’est utilisé.</span></div>';
 }
 function render(root,state){
@@ -315,7 +335,7 @@ function render(root,state){
       '<button type="button" class="editor-main-nav-link" data-editor-documents>Documents en attente <span>→</span></button>'+
     '</nav>'+
     '<section class="editor-page">'+
-      '<div class="editor-page-title"><div><span class="editor-step">Section '+active+'</span><h4>'+({A:'Tâches à créer',B:'Chapitres disponibles',C:'Plan complet de production',D:'Validation administrative avant édition'}[active])+'</h4><p>'+({A:'Crée ici les demandes avec uniquement la classe et la matière.',B:'Chaque tâche récupérée présente les chapitres disponibles pour le document.',C:'Le plan est entièrement détaillé, modifiable, validable ou rejetable avant toute rédaction finale.',D:'Toutes les validations administratives sont visibles ici avant que le document soit prêt à être récupéré pour l’édition.'}[active])+'</p></div><span class="editor-page-count">'+items.length+' document'+(items.length>1?'s':'')+'</span></div>'+
+      '<div class="editor-page-title"><div><span class="editor-step">Section '+active+'</span><h4>'+({A:'Tâches à créer',B:'Chapitres disponibles',C:'Plan complet de production',D:'Production autorisée / suivi de rédaction'}[active])+'</h4><p>'+({A:'Crée ici les demandes avec uniquement la classe et la matière.',B:'Chaque tâche récupérée présente les chapitres disponibles pour le document.',C:'Le plan est entièrement détaillé, modifiable, validable ou rejetable avant toute rédaction finale.',D:'Les documents dont le plan C est validé arrivent ici pour la rédaction finale. Aucun PDF n’est lancé automatiquement.'}[active])+'</p></div><span class="editor-page-count">'+items.length+' document'+(items.length>1?'s':'')+'</span></div>'+
       (active==='A'?'<div class="editor-create-card"><div><span class="editor-step">Créer</span><h5>Nouvelle demande</h5><p>Le classement reprend exactement le cheminement du formulaire de dépôt : niveau → parcours/emplacement → classe → matière. Les choix restent ouverts pendant le défilement et aucune valeur libre n’est acceptée.</p></div><div class="editor-create-fields"><label>Type<select id="editorType"><option value="cours">Cours</option><option value="exercices">Exercices</option><option value="qcm">QCM</option><option value="fiches">Fiches</option></select></label><div class="editor-classification"><button type="button" class="editor-classification-trigger" id="editorClassificationTrigger" aria-expanded="false"><span id="editorClassificationSummary">Choisir le niveau et l’emplacement…</span><span aria-hidden="true">⌄</span></button><div class="editor-classification-panel" id="editorClassificationPanel" hidden><div class="editor-classification-section"><span class="editor-classification-label">1 · Niveau</span><div class="editor-option-scroll" id="editorRootOptions"></div></div><div class="editor-classification-section" id="editorRouteSection" hidden><span class="editor-classification-label">2 · Parcours / emplacement</span><div class="editor-option-scroll" id="editorRouteOptions"></div></div><div class="editor-classification-section" id="editorSubjectSection" hidden><span class="editor-classification-label">3 · Matière</span><div class="editor-option-scroll" id="editorSubjectOptions"></div></div></div></div><button type="button" class="admin-btn primary" id="editorCreate">Créer la tâche</button></div></div>':'')+
       '<div class="editor-block-label"><span>Bloc '+(page+1)+'</span><small>'+((page*PAGE_SIZE)+1)+'–'+Math.min((page+1)*PAGE_SIZE,items.length)+' sur '+items.length+'</small></div>'+
       '<div class="editor-card-grid">'+(visible.length?visible.map(t=>taskCard(t,active)).join(''):'<div class="editor-empty">Aucun document dans cette étape pour le moment.</div>')+'</div>'+
@@ -455,7 +475,11 @@ function bindDetail(d,t,state){
       proposal_status:status,
       stage:statusStage,
       rejected:false,
-      revision_requested:false
+      revision_requested:false,
+      user_validated:statusStage==='edition_ready',
+      revision_note:statusStage==='edition_ready'?'':(p.revisionNotes||t.metadata?.workflow?.revision_note||''),
+      manual_pdf_launch_required:true,
+      auto_pdf_launch:false
     });
   };
   d.querySelector('[data-plan-save]')?.addEventListener('click',async()=>{
@@ -468,13 +492,20 @@ function bindDetail(d,t,state){
     }catch(e){alert(e.message||e)}finally{if(button)button.disabled=false}
   });
   d.querySelector('[data-plan-reject]')?.addEventListener('click',async()=>{
-    try{await updateJob(t.id,{stage:'revision_requested',rejected:true,revision_requested:true});await chargerEspaceEditorialChatGPT()}catch(e){alert(e.message||e)}
+    const reason=d.querySelector('[data-plan-field="revisionNotes"]')?.value.trim()||'';
+    if(!reason&&!confirm('Aucune demande de révision n’est renseignée. Rejeter quand même cette carte ?'))return;
+    try{
+      await updateJob(t.id,{stage:'revision_requested',proposal_status:'revision_requested',rejected:true,revision_requested:true,revision_note:reason,user_validated:false});
+      await chargerEspaceEditorialChatGPT()
+    }catch(e){alert(e.message||e)}
   });
   d.querySelector('[data-plan-validate]')?.addEventListener('click',async()=>{
     const button=d.querySelector('[data-plan-validate]');if(button)button.disabled=true;
     try{
-      const updated=await persistPlan('admin_validation','validated_for_admin');
-      if(updated?.metadata?.workflow?.stage!=='admin_validation')throw new Error('La validation du plan n’a pas pu être confirmée.');
+      const updated=await persistPlan('edition_ready','validated_for_editing');
+      const wf=updated?.metadata?.workflow||{};
+      if(wf.stage!=='edition_ready'||wf.proposal_status!=='validated_for_editing')throw new Error('La validation du plan n’a pas pu être confirmée.');
+      await updateJob(t.id,{user_validated:true,editor_ready:true,chatgpt_editable:true,auto_pdf_launch:false,manual_pdf_launch_required:true,proposal_status:'validated_for_editing',stage:'edition_ready'});
       await chargerEspaceEditorialChatGPT()
     }catch(e){alert(e.message||e)}finally{if(button)button.disabled=false}
   });
@@ -601,6 +632,18 @@ function injectStyle(){
 #auroreEditorialTaskAdmin .editor-c-plan-context small{font-size:.58rem;line-height:1.45;opacity:.65}
 #auroreEditorialTaskAdmin .editor-c-intent{display:grid;gap:5px;padding:13px;border-radius:13px;background:color-mix(in srgb,var(--editor-accent) 5%,var(--editor-surface));border:1px solid color-mix(in srgb,var(--editor-accent) 13%,var(--editor-border))}
 #auroreEditorialTaskAdmin .editor-c-intent strong{font-size:.7rem}
+#auroreEditorialTaskAdmin .editor-c-research{display:flex;justify-content:space-between;gap:12px;padding:14px 16px;border:1px solid color-mix(in srgb,#2563EB 18%,var(--editor-border));border-radius:15px;background:color-mix(in srgb,#2563EB 5%,var(--editor-surface))}
+#auroreEditorialTaskAdmin .editor-c-research>div{display:grid;gap:5px}
+#auroreEditorialTaskAdmin .editor-section-kicker{font-size:.54rem;text-transform:uppercase;font-weight:950;letter-spacing:.07em;opacity:.55}
+#auroreEditorialTaskAdmin .editor-c-research strong{font-size:.76rem}
+#auroreEditorialTaskAdmin .editor-c-research small{font-size:.58rem;line-height:1.45;opacity:.65}
+#auroreEditorialTaskAdmin .editor-c-ready-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+#auroreEditorialTaskAdmin .editor-c-ready-grid>div{display:grid;gap:5px;padding:11px;border-radius:12px;background:color-mix(in srgb,currentColor 4%,transparent)}
+#auroreEditorialTaskAdmin .editor-c-ready-grid span{font-size:.52rem;text-transform:uppercase;font-weight:900;opacity:.48}
+#auroreEditorialTaskAdmin .editor-c-ready-grid strong{font-size:.62rem;line-height:1.4}
+#auroreEditorialTaskAdmin .editor-research-grid{margin-top:-3px}
+@media(max-width:720px){#auroreEditorialTaskAdmin .editor-c-ready-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){#auroreEditorialTaskAdmin .editor-c-ready-grid{grid-template-columns:1fr}}
 #auroreEditorialTaskAdmin .editor-c-intent p{margin:0;font-size:.59rem;line-height:1.5;opacity:.66}
 #auroreEditorialTaskAdmin .editor-plan-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
 #auroreEditorialTaskAdmin .editor-plan-grid .wide{grid-column:1/-1}
