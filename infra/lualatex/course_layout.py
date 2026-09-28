@@ -14,10 +14,11 @@ def render_course_document(data, theme_palette):
         _declared_exercise_count,
         _is_renderable_geogebra_graph,
         clean_text,
-        display_formula,
         inline,
         normalize_math,
         render_graphs,
+        _math_fragment_is_blockworthy,
+        _split_embedded_math,
         render_aurore_graphics,
         tex_text,
     )
@@ -64,6 +65,87 @@ def render_course_document(data, theme_palette):
             return ""
         return r"\[\displaystyle " + value + r"\]"
 
+
+    import re
+
+    def course_relation(raw, label="Relation"):
+        value = normalize_math(str(raw or "").strip())
+        if not value:
+            return ""
+        value = re.sub(
+            r"\\{1,2}begin\{equation\*\}([\s\S]*?)\\{1,2}end\{equation\*\}",
+            lambda m: m.group(1).strip(),
+            value,
+        )
+        value = re.sub(r"\\{1,2}begin\{equation\*\}", "", value)
+        value = re.sub(r"\\{1,2}end\{equation\*\}", "", value).strip()
+        if value.startswith("$") and value.endswith("$"):
+            value = value[2:-2].strip()
+        elif value.startswith("$") and value.endswith("$"):
+            value = value[1:-1].strip()
+        elif value.startswith(r"\\[") and value.endswith(r"\\]"):
+            value = value[2:-2].strip()
+        elif value.startswith(r"\[") and value.endswith(r"\]"):
+            value = value[2:-2].strip()
+        if not value:
+            return ""
+        return r"\AuroreCourseRelation{" + tex_text(label) + r"}{" + value + r"}"
+
+    def direct_math(raw):
+        return course_relation(raw, "Relation")
+
+    def render_prose_with_math(raw, auto_math=True):
+        """Keep prose in semantic paragraphs while isolating substantial mathematics."""
+        text = clean_text(raw).replace("\r\n", "\n").replace("\r", "\n").strip()
+        if not text:
+            return ""
+        paragraphs = [part.strip() for part in re.split(r"\n{2,}", text) if part.strip()]
+        rendered = []
+
+        for paragraph in paragraphs:
+            parts = [x for x in re.split(
+                r"(\$[\s\S]*?\$|\\\([\s\S]*?\\\))",
+                paragraph
+            ) if x]
+            prose = []
+
+            def flush_prose():
+                if prose:
+                    value = "".join(prose).strip()
+                    prose.clear()
+                    if value:
+                        embedded = _split_embedded_math(value)
+                        if any(kind == "math" for kind, _ in embedded):
+                            for kind, piece in embedded:
+                                if kind == "math":
+                                    rendered.append(course_relation(piece, "Relation"))
+                                elif piece.strip():
+                                    rendered.append(inline(piece, auto_math=auto_math))
+                        else:
+                            rendered.append(inline(value, auto_math=auto_math))
+
+            for part in parts:
+                stripped = part.strip()
+                if not stripped:
+                    continue
+                if re.fullmatch(r"\$[\s\S]*?\$|\\\([\s\S]*?\\\)", part):
+                    body = stripped[1:-1].strip() if stripped.startswith("$") else stripped[2:-2].strip()
+                    # Single variables remain inline; actual formulae, powers,
+                    # limits, equalities and manipulations receive their own box.
+                    if _math_fragment_is_blockworthy(body) or len(body) > 2:
+                        flush_prose()
+                        rendered.append(course_relation(body, "Relation"))
+                    else:
+                        prose.append(part)
+                else:
+                    prose.append(part)
+
+            flush_prose()
+            if rendered:
+                rendered.append(r"\par\medskip")
+
+        return "\n".join(x for x in rendered if x and x.strip()).rstrip()
+
     def split_labeled(raw):
         text = clean_text(raw).replace("\r\n", "\n").replace("\r", "\n").strip()
         if not text:
@@ -94,6 +176,10 @@ def render_course_document(data, theme_palette):
             "exemple": "exemple",
             "methode": "methode",
             "méthode": "methode",
+            "formule": "relation",
+            "formule utile": "relation",
+            "relation": "relation",
+            "relation utile": "relation",
         }
         return aliases.get(label, label), body
 
@@ -134,6 +220,8 @@ def render_course_document(data, theme_palette):
                 return "\\begin{" + env + "}" + opt + "\n" + render_body_text(text) + "\n\\end{" + env + "}"
             if label in {"remarque", "notation", "vocabulaire", "preuve"}:
                 return "\\begin{" + label + "}\n" + render_body_text(text) + "\n\\end{" + label + "}"
+            if label in {"formula", "formule", "relation", "equation", "équation"}:
+                return course_relation(text, "Relation")
             if label in {"exemple", "methode"}:
                 opt = "[" + tex_text(custom_title) + "]" if custom_title else ""
                 env = "methode*1" if label == "methode" else "exemple*1"
@@ -159,6 +247,9 @@ def render_course_document(data, theme_palette):
 
         if kind == "exemple":
             return "\\begin{exemple*1}\n" + render_body_text(body) + "\n\\end{exemple*1}"
+
+        if kind == "relation":
+            return course_relation(body, "Relation")
 
         if kind == "methode":
             # Native sesamanuel's *1 method keeps the complete method together
@@ -227,6 +318,9 @@ def render_course_document(data, theme_palette):
         r"\usepackage{amsmath,amssymb,mathtools}",
         r"\usepackage{tabularx}",
         r"\usepackage{longtable}",
+        r"\usepackage{xcolor}",
+        r"\usepackage{tikz}",
+        r"\usepackage[most]{tcolorbox}",
         r"\usepackage{multicol}",
         r"\definecolor{AuroreBase}{HTML}{" + base + r"}",
         r"\definecolor{AurorePrimary}{HTML}{" + primary + r"}",
@@ -278,6 +372,29 @@ def render_course_document(data, theme_palette):
         r"\colorlet{SectionFrame3Color}{AuroreSecondary}",
         r"\colorlet{SectionNumColor}{white}",
         r"\colorlet{SectionTitleColor}{AuroreBase}",
+        r"% Aurore course spine: continuous dominant-color guide for the course pages.",
+        r"\newif\ifAuroreCourseSpine",
+        r"\AuroreCourseSpinefalse",
+        r"\newcommand{\AuroreCourseSpineOn}{\global\AuroreCourseSpinetrue}",
+        r"\newcommand{\AuroreCourseSpineOff}{\global\AuroreCourseSpinefalse}",
+        r"\AddToHook{shipout/foreground}{%",
+        r"  \ifAuroreCourseSpine",
+        r"    \begin{tikzpicture}[remember picture,overlay]",
+        r"      \draw[AuroreBase!86!white,line width=1.05pt] ([xshift=0.78cm,yshift=-1.10cm]current page.north west) -- ([xshift=0.78cm,yshift=1.05cm]current page.south west);",
+        r"    \end{tikzpicture}%",
+        r"  \fi",
+        r"}",
+        r"\newcommand{\AuroreCourseSectionRule}{%",
+        r"  \noindent\hspace*{0.05\linewidth}\textcolor{AuroreBase!62!white}{\rule{0.91\linewidth}{0.75pt}}\par\vspace{0.24cm}%",
+        r"}",
+        r"\newcommand{\AuroreCourseRelation}[2]{%",
+        r"  \begin{center}%",
+        r"    \begin{tcolorbox}[enhanced,breakable,width=0.94\linewidth,colback=white!99!AurorePrimary,colframe=AuroreBase!56!white,leftrule=1.7pt,arc=9pt,outer arc=9pt,boxrule=.45pt,left=10pt,right=10pt,top=5pt,bottom=6pt,halign=center,before skip=6pt,after skip=7pt,pad at break*=1mm]%",
+        r"      {\sffamily\scriptsize\bfseries\color{AuroreBase!88!black}#1}\par\vspace{2pt}%",
+        r"      \begin{equation*}\displaystyle #2\end{equation*}%",
+        r"    \end{tcolorbox}%",
+        r"  \end{center}%",
+        r"}",
         r"\colorlet{SubsectionNumColor}{AuroreBase}",
         r"\colorlet{SubsectionTitleColor}{AuroreBase}",
         # Definition/proof/example/method colors.
@@ -361,9 +478,10 @@ def render_course_document(data, theme_palette):
         lines.append(r"\end{multicols}")
         lines.append(r"\end{autoeval}")
 
-    # Course part: the class itself provides the characteristic banner and
-    # two-column editorial flow used in the reference chapter.
+    # Course part: preserve the native Sésamath flow while adding the
+    # Aurore vertical spine and a light horizontal connector per section.
     lines.append(r"\cours")
+    lines.append(r"\AuroreCourseSpineOn")
 
     for section in sections:
         if not isinstance(section, dict):
@@ -372,6 +490,7 @@ def render_course_document(data, theme_palette):
         if not section_title:
             continue
         lines.append(r"\section{" + tex_text(section_title) + "}")
+        lines.append(r"\AuroreCourseSectionRule")
 
         objective = clean_text(section.get("objective") or "").strip()
         if objective:
@@ -432,6 +551,7 @@ def render_course_document(data, theme_palette):
 
     corrections_present = False
     if course_exercises:
+        lines.append(r"\AuroreCourseSpineOff")
         lines.append(r"\exercicesbase")
         lines.append(r"\begin{colonne*exercice}")
 
