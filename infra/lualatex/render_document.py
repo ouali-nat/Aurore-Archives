@@ -2923,7 +2923,7 @@ def labeled_block(s, auto_math=False):
     """Render a small editorial callout when prose starts with a known label."""
     t = clean_text(s).strip()
     m = re.match(
-        r"^(Définition|Propriété(?: à connaître)?|Théorème|Lemme|Méthode|Exemple(?: guidé)?|Remarque|Important|À retenir|Conseil|Astuce|Attention|Erreur(?: fréquente)?|Observation|Formule utile|Relation utile|Proposition|Vocabulaire utile|Point essentiel|À découvrir|Piste de réflexion)\s*[:\-]\s*(.+)$",
+        r"^(Définition|Propriété(?: à connaître)?|Théorème|Lemme|Méthode|Exemple(?: guidé)?|Remarque|Important|À retenir|Conseil|Astuce|Attention|Erreur(?: fréquente)?|Observation|Formule utile|Formule ou relation|Relation utile|Proposition|Vocabulaire utile|Point essentiel|À découvrir|Piste de réflexion)\s*[:\-]\s*(.+)$",
         t,
         flags=re.IGNORECASE | re.DOTALL,
     )
@@ -2931,9 +2931,14 @@ def labeled_block(s, auto_math=False):
         return []
     raw_label = clean_text(m.group(1)).strip()
     label_key = raw_label.lower()
-    display_label = "Relation" if label_key in {"formule", "formule utile", "relation", "relation utile"} else raw_label
+    relation_labels = {"formule", "formule utile", "formule ou relation", "relation", "relation utile"}
+    if label_key in relation_labels:
+        return [
+            _math_render_command(m.group(2), "Relation"),
+            "",
+        ]
     return [
-        r"\AuroreLabeledBlock{" + tex_text(display_label) + r"}{" + inline(m.group(2), auto_math=auto_math) + r"}",
+        r"\AuroreLabeledBlock{" + tex_text(raw_label) + "}{" + inline(m.group(2), auto_math=auto_math) + r"}",
         "",
     ]
 
