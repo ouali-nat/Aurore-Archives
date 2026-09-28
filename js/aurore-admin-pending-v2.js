@@ -46,7 +46,7 @@ async function chooseTheme(j){
  const color=await chooser(j.theme,'generation');
  if(!color)return false;
  const m=metadataOf(j),d=m.aurore_design&&typeof m.aurore_design==='object'?m.aurore_design:{},c=themeColor(color);
- const metadata={...m,theme_color:c,aurore_design:{...d,theme_color:c,version:1}};
+ const metadata={...m,theme_color:c,theme_color_source:'admin',theme_color_selected_at:new Date().toISOString(),aurore_design:{...d,theme_color:c,version:1}};
  const r=await adminFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?id=eq.'+encodeURIComponent(j.id),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({metadata,updated_at:new Date().toISOString()})});
  const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));return true;
 }
