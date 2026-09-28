@@ -2491,6 +2491,59 @@ def _render_plain_with_inline_math(segment, auto_math=False):
     return "".join(parts)
 
 
+def _render_course_math_blocks(text, auto_math=False):
+    """Render course prose and detected LaTeX formulae as adaptive math boxes."""
+    source = _repair_accidental_inline_double_dollar(clean_text(text).strip())
+    source = _repair_overescaped_math_delimiters(source)
+    if not source:
+        return []
+
+    explicit_math = re.compile(
+        r"(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|\$[\s\S]*?\$)"
+    )
+    blocks = []
+
+    def append_prose(segment):
+        value = str(segment or "").strip()
+        if not value:
+            return
+
+        embedded = _split_embedded_math(value) if auto_math else [("prose", value)]
+        for kind, piece in embedded:
+            piece = str(piece or "").strip()
+            if not piece:
+                continue
+            if kind == "math":
+                blocks.append(_math_render_command(piece, "Relation"))
+            else:
+                rendered = inline(piece, auto_math=auto_math)
+                if rendered.strip():
+                    blocks.append(r"\AuroreParagraphBlock{" + rendered + r"}")
+
+    cursor = 0
+    for match in explicit_math.finditer(source):
+        append_prose(source[cursor:match.start()])
+        token = match.group(0)
+
+        if token.startswith("$$"):
+            body = token[2:-2].strip()
+            if body:
+                blocks.append(r"\AuroreMathBlock{}{" + normalize_math(body) + r"}")
+        elif token.startswith(r"\["):
+            body = token[2:-2].strip()
+            if body:
+                blocks.append(r"\AuroreMathBlock{}{" + normalize_math(body) + r"}")
+        else:
+            body = token[1:-1].strip() if token.startswith("$") else token[2:-2].strip()
+            if body:
+                blocks.append(_math_render_command(body, "Relation"))
+
+        cursor = match.end()
+
+    append_prose(source[cursor:])
+    return blocks
+
+
 def _render_course_paragraph(text, auto_math=False):
     """Render one course paragraph without moving inline formulas."""
     source = _repair_accidental_inline_double_dollar(clean_text(text).strip())
@@ -2518,8 +2571,8 @@ def _render_course_paragraph(text, auto_math=False):
     return "".join(part for part in parts if part)
 
 
-def render_paragraph_blocks(text, auto_math=False):
-    """Render explicit source paragraphs as separate rounded gray blocks."""
+def render_paragraph_blocks(text, auto_math=False, box_math=False):
+    """Render source paragraphs, optionally isolating course math adaptively."""
     source = clean_text(text).replace("\r\n", "\n").replace("\r", "\n").strip()
     if not source:
         return []
@@ -2528,6 +2581,11 @@ def render_paragraph_blocks(text, auto_math=False):
         for part in re.split(r"\n\s*\n+", source)
         if part.strip()
     ]
+    if box_math:
+        blocks = []
+        for paragraph in paragraphs:
+            blocks.extend(_render_course_math_blocks(paragraph, auto_math=auto_math))
+        return blocks
     return [
         r"\AuroreParagraphBlock{" + _render_course_paragraph(paragraph, auto_math=auto_math) + r"}"
         for paragraph in paragraphs
@@ -2550,9 +2608,9 @@ def _render_content_item(raw, auto_math=False, box_all_math=False):
         return [_math_render_command(standalone, "Relation"), ""]
 
     if box_all_math and not _CONTENT_DISPLAY_MATH_RE.search(text):
-        rendered = _render_course_paragraph(text, auto_math=auto_math)
-        if rendered.strip():
-            return [r"\AuroreParagraphBlock{" + rendered + r"}", ""]
+        blocks = _render_course_math_blocks(text, auto_math=auto_math)
+        if blocks:
+            return blocks + [""]
         return []
 
     if _CONTENT_DISPLAY_MATH_RE.search(text):
@@ -2572,17 +2630,14 @@ def _render_content_item(raw, auto_math=False, box_all_math=False):
                 paragraph = paragraph.strip()
                 if not paragraph:
                     continue
-                rendered = (
-                    _render_course_paragraph(paragraph, auto_math=auto_math)
-                    if box_all_math
-                    else inline(paragraph, auto_math=auto_math)
-                )
-                if rendered.strip():
-                    if box_all_math:
-                        lines.append(r"\AuroreParagraphBlock{" + rendered + r"}")
-                    else:
-                        lines.append(rendered)
+                if box_all_math:
+                    lines.extend(_render_course_math_blocks(paragraph, auto_math=auto_math))
                     lines.append(r"\par\medskip")
+                else:
+                    rendered = inline(paragraph, auto_math=auto_math)
+                    if rendered.strip():
+                        lines.append(rendered)
+                        lines.append(r"\par\medskip")
         return lines
 
     embedded = _split_embedded_math(text)
@@ -3757,7 +3812,7 @@ def render(data):
             r"\addcontentsline{toc}{section}{Énoncés}",
         ])
     elif document_kind == "cours":
-        lines.extend(render_paragraph_blocks(data.get("introduction", ""), auto_math=(profile == "scientifique")))
+        lines.extend(render_paragraph_blocks(data.get("introduction", ""), auto_math=(profile == "scientifique"), box_math=(document_kind == "cours")))
 
 
     learning_objectives = [

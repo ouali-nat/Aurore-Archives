@@ -11,6 +11,7 @@ from render_document import (
     normalize_math,
     inline,
     render_exercise_text,
+    _render_content_item,
     render,
 )
 
@@ -75,6 +76,25 @@ def test_exercise_profile_accepts_paired_structured_correction():
     assert _has_usable_content_json(good)
     assert _exercise_profile_qa_issues(good) == []
     assert _edition_profile(good)["kind"] == "exercices"
+
+
+def test_course_math_uses_adaptive_boxes_instead_of_inline_boxes():
+    short = _render_content_item(
+        "La relation courte est $E=mc^2$ dans ce modèle.",
+        auto_math=True,
+        box_all_math=True,
+    )
+    long = _render_content_item(
+        r"La décroissance s'écrit $\lim_{t\to+\infty}\frac{N_0e^{-\lambda t}}{1+t}=\frac{N_0}{1+t}$.",
+        auto_math=True,
+        box_all_math=True,
+    )
+    rendered = "\n".join(short + long)
+    assert r"\AuroreMathCompact{" in rendered
+    assert r"\AuroreMathBlock{" in rendered
+    assert r"\AuroreInlineMath{" not in rendered
+    assert "La relation courte est" in rendered
+    assert "La décroissance s'écrit" in rendered
 
 
 def test_course_profile_remains_separate():

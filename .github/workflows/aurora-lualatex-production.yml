@@ -188,7 +188,7 @@ jobs:
                   {
                       "title": "3. Polarité",
                       "content": [
-                          "Pour 𝐶₂𝐻₆𝑂, 𝑀 = 2 × 12,0 + 6 × 1,0 + 16,0 = 46,0 g mol⁻¹."
+                          "La relation courte est $E=mc^2$ dans ce modèle. Pour 𝐶₂𝐻₆𝑂, 𝑀 = 2 × 12,0 + 6 × 1,0 + 16,0 = 46,0 g mol⁻¹."
                       ]
                   },
                   {
@@ -208,8 +208,12 @@ jobs:
               raise SystemExit("Normal-course layout regression: gray Sommaire/mentions panel styling missing.")
           if normal_tex.count(r"\AuroreCourseSectionEnd") - normal_tex.count(r"\newcommand{\AuroreCourseSectionEnd}") != 2:
               raise SystemExit(f"Normal-course section count regression: {normal_tex!r}")
-          if r"\AuroreParagraphBlock{" not in normal_tex or r"\AuroreInlineMath{" not in normal_tex:
-              raise SystemExit(f"Normal-course inline paragraph math regression: {normal_tex!r}")
+          if r"\AuroreParagraphBlock{" not in normal_tex:
+              raise SystemExit(f"Normal-course prose paragraph box regression: {normal_tex!r}")
+          if r"\AuroreInlineMath{" in normal_tex:
+              raise SystemExit(f"Normal-course adaptive math regression: inline math box leaked: {normal_tex!r}")
+          if r"\AuroreMathCompact{" not in normal_tex and r"\AuroreMathBlock{" not in normal_tex:
+              raise SystemExit(f"Normal-course adaptive math regression: no math box emitted: {normal_tex!r}")
           if r"\AuroreMathCompact{Relation}" in normal_tex or r"\AuroreMathBlock{Relation}" in normal_tex:
               raise SystemExit(f"Normal-course Relation label regression: {normal_tex!r}")
           if r"\documentclass[0.6,nocrop]{sesamanuel}" in normal_tex:
