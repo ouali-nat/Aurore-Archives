@@ -179,11 +179,59 @@ async function cfFetch(url,options={},retry=true){
   return r;
 }
 async function rpc(name,body){const r=await adminInventoryFetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));try{return t?JSON.parse(t):null}catch(_){return t}}
-// Point d'entrée unique pour le sas Content Factory : un brouillon est seulement
-// mis en file après validation administrative. Aucun rendu PDF n'est déclenché ici.
+async function persistContentJobTheme(id,themeColor,accessToken){
+  const color=normalizeThemeColor(themeColor);
+  const q=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?id=eq.'+encodeURIComponent(Number(id))+'&select=id,status,metadata',{
+    cache:'no-store',
+    headers:{'Authorization':'Bearer '+accessToken}
+  });
+  const qt=await q.text();
+  if(!q.ok)throw new Error('Lecture de la demande impossible (HTTP '+q.status+').');
+  let rows=[];try{rows=qt?JSON.parse(qt):[]}catch(_){rows=[]}
+  const row=Array.isArray(rows)?rows[0]:null;
+  if(!row)throw new Error('Demande introuvable.');
+  if(row.status!=='draft')throw new Error('Cette demande a déjà quitté le brouillon.');
+  const current=row.metadata&&typeof row.metadata==='object'?row.metadata:{};
+  const currentDesign=current.aurore_design&&typeof current.aurore_design==='object'?current.aurore_design:{};
+  const metadata={
+    ...current,
+    theme_color:color,
+    aurore_design:{...currentDesign,theme_color:color,version:1},
+    manual_publication_only:true
+  };
+  const u=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?id=eq.'+encodeURIComponent(Number(id)),{
+    method:'PATCH',
+    cache:'no-store',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},
+    body:JSON.stringify({metadata,updated_at:new Date().toISOString()})
+  });
+  const ut=await u.text();
+  if(!u.ok)throw new Error('Enregistrement de la couleur impossible (HTTP '+u.status+'). '+ut);
+  return color;
+}
+// Point d'entrée unique pour le sas Content Factory : le brouillon reste inchangé
+// tant que l'administrateur n'a pas choisi sa couleur. Aucun rendu PDF n'est
+// déclenché ici : seule la mise en file éditoriale est effectuée après confirmation.
 window.auroreAdminConfirmContentJob=async function(jobId){
   const id=Number(jobId);
   if(!Number.isSafeInteger(id)||id<1)throw new Error('Identifiant de job invalide.');
+  const token=await cfFreshToken();
+  const read=await adminInventoryFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?id=eq.'+encodeURIComponent(id)+'&select=id,status,metadata',{
+    cache:'no-store',
+    headers:{'Authorization':'Bearer '+token}
+  });
+  const rt=await read.text();
+  if(!read.ok)throw new Error('Lecture de la demande impossible (HTTP '+read.status+').');
+  let jobs=[];try{jobs=rt?JSON.parse(rt):[]}catch(_){jobs=[]}
+  const current=Array.isArray(jobs)?jobs[0]:null;
+  if(!current)throw new Error('Demande introuvable.');
+  if(current.status!=='draft')throw new Error('Cette demande n’est plus en brouillon.');
+  const metadata=current.metadata&&typeof current.metadata==='object'?current.metadata:{};
+  const design=metadata.aurore_design&&typeof metadata.aurore_design==='object'?metadata.aurore_design:{};
+  const defaultColor=normalizeThemeColor(design.theme_color||metadata.theme_color||'#C85C0D');
+  const color=await chooseRegenerationTheme(defaultColor,'generation');
+  if(!color)return null;
+  await persistContentJobTheme(id,color,token);
   const job=await rpc('aurora_queue_content_job',{p_job_id:id});
   if(!job||Number(job.id)!==id)throw new Error('Le job n’a pas pu être mis en file.');
   return job;
