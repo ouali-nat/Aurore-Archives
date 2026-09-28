@@ -3048,6 +3048,39 @@ def render_graphs(graphs, allow=True, exercise_mode=False):
     return lines
 
 
+def apply_authoritative_document_theme(content, document):
+    """Overlay the current administrative document theme onto structured content."""
+    out = dict(content) if isinstance(content, dict) else {}
+    doc_metadata = document.get("metadata") if isinstance(document, dict) and isinstance(document.get("metadata"), dict) else {}
+    current_theme = document.get("theme_color") if isinstance(document, dict) else None
+    if not isinstance(current_theme, str) and isinstance(document, dict):
+        current_theme = document.get("themeColor")
+    if isinstance(current_theme, str):
+        current_theme = current_theme.strip()
+    if current_theme and re.fullmatch(r"#[0-9A-Fa-f]{6}", current_theme):
+        current_theme = current_theme.upper()
+        out["theme_color"] = current_theme
+        out["themeColor"] = current_theme
+
+        existing_design = out.get("aurore_design")
+        merged_design = dict(existing_design) if isinstance(existing_design, dict) else {}
+        document_design = doc_metadata.get("aurore_design")
+        if isinstance(document_design, dict):
+            merged_design.update(document_design)
+
+        # A raw administrator-selected color supersedes stale derived palette
+        # fields that may have been embedded in the original content.
+        for stale_key in ("theme_key", "theme_strong", "theme_primary", "theme_secondary"):
+            merged_design.pop(stale_key, None)
+        merged_design["theme_color"] = current_theme
+        out["aurore_design"] = merged_design
+    else:
+        for key in ("visual_plan", "visuals", "aurore_design"):
+            if key in doc_metadata and key not in out:
+                out[key] = doc_metadata[key]
+    return out
+
+
 def resolve_theme_palette(data):
     """Resolve the exact Aurore site palette for the document."""
     design_candidates = [data.get("_aurore_design"), data.get("aurore_design")]
