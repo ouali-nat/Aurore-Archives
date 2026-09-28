@@ -246,11 +246,22 @@ const CHAPTER_PROPOSALS={
   ]
 };
 function chapterProposalsFor(t){
+  const w=t.metadata?.workflow||{};
+  const stored=Array.isArray(w.chapter_options)&&w.chapter_options.length
+    ? w.chapter_options
+    : (Array.isArray(w.chapters)&&w.chapters.length&&!Object.prototype.hasOwnProperty.call(w,'chapter_options')
+      ? w.chapters
+      : []);
+  if(stored.length)return stored.map(x=>typeof x==='string'?{title:x,description:'',source:'Proposition enregistrée dans la tâche.'}:x).filter(x=>x&&String(x.title||x.name||'').trim());
   const key=String(t.id)+"|"+String(t.subject||"").toLowerCase()+"|"+String(t.class_name||t.level||"").toLowerCase();
   return CHAPTER_PROPOSALS[key]||[];
 }
 function chaptersMarkup(t){
-  const w=t.metadata?.workflow||{},saved=Array.isArray(w.chapters)?w.chapters:[],proposals=chapterProposalsFor(t);
+  const w=t.metadata?.workflow||{};
+  const saved=Array.isArray(w.selected_chapters)
+    ? w.selected_chapters
+    : (Array.isArray(w.chapter_options)?[]:(Array.isArray(w.chapters)?w.chapters:[]));
+  const proposals=chapterProposalsFor(t);
   if(!proposals.length)return'<div class="editor-empty">Aucune proposition structurée disponible pour cette combinaison. La tâche doit être revue avant sélection.</div>';
   const selected=new Set(saved.map(x=>String(x.title||x.name||x)));
   return '<div class="editor-chapter-source"><span>Propositions issues du programme étudié</span><small>Les chapitres sont préparés par ChatGPT après recoupement des sources pédagogiques. Tu peux ouvrir la liste, choisir les chapitres utiles au document, puis enregistrer.</small></div>'+
@@ -404,10 +415,14 @@ function bindDetail(d,t,state){
   });
   d.querySelector('[data-chapters-save]')?.addEventListener('click',async()=>{
     const proposals=chapterProposalsFor(t),selected=[];
-    d.querySelectorAll('[data-chapter-choice]').forEach(el=>{if(el.checked&&proposals[Number(el.dataset.chapterChoice)])selected.push(proposals[Number(el.dataset.chapterChoice)])});
+    d.querySelectorAll('[data-chapter-choice]').forEach(el=>{
+      if(el.checked&&proposals[Number(el.dataset.chapterChoice)])selected.push(proposals[Number(el.dataset.chapterChoice)])
+    });
     if(!selected.length){alert('Sélectionne au moins un chapitre avant d’enregistrer.');return}
+    const button=d.querySelector('[data-chapters-save]');
+    if(button)button.disabled=true;
     try{
-      await updateJob(t.id,{
+      const updated=await updateJob(t.id,{
         chapters:selected,
         selected_chapters:selected,
         selected_chapter:selected[0]||null,
@@ -416,8 +431,12 @@ function bindDetail(d,t,state){
         rejected:false,
         revision_requested:false
       });
+      if(!updated?.metadata?.workflow?.selected_chapters?.length)throw new Error('La sélection n’a pas pu être confirmée dans la tâche.');
       await chargerEspaceEditorialChatGPT()
-    }catch(e){alert(e.message||e)}
+    }catch(e){
+      if(button)button.disabled=false;
+      alert(e.message||e)
+    }
   });
   d.querySelector('[data-plan-save]')?.addEventListener('click',async()=>{
     const p=proposalFor(t);
