@@ -143,6 +143,23 @@ jobs:
               raise SystemExit(f"Embedded-math block regression: {rendered_joined!r}")
           if "différent de 1" not in rendered_joined:
               raise SystemExit(f"Embedded-math prose-loss regression: {rendered_joined!r}")
+
+          explicit_fraction_case = (
+              r"Pour 9,20 g, on calcule \(n=\frac{9,20}{46,0}=0,200\,mol\)."
+          )
+          rendered_fraction = "
+".join(
+              render_document._render_content_item(explicit_fraction_case)
+          )
+          if r"\frac{9,20}{46,0}" not in rendered_fraction:
+              raise SystemExit(
+                  f"Explicit-LaTeX fraction regression: {rendered_fraction!r}"
+              )
+          if r"\AuroreMathCompact{Relation}{9,20}" in rendered_fraction:
+              raise SystemExit(
+                  f"Explicit-LaTeX fragment was incorrectly split into a relation: {rendered_fraction!r}"
+              )
+
           false_positive_case = (
               "Si f(x) tend vers L, la droite y=L est une asymptote horizontale."
           )
