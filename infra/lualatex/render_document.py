@@ -2554,6 +2554,10 @@ def _two_column_candidate(value):
     if labeled_block(text):
         return False
     if _CONTENT_DISPLAY_MATH_RE.search(text) or _standalone_inline_math(text):
+    if re.search(r"\$[\s\S]*?\$|\\\([\s\S]*?\\\)", text):
+        return False
+    if any(kind == "math" for kind, _ in _split_embedded_math(text)):
+        return False
         return False
     return True
 
@@ -3529,8 +3533,15 @@ def render(data):
         r"  \fancyhead[R]{\textcolor{aurorebase!75!black}{\small\sffamily Section Archives}}%",
         r"  \fancyfoot[C]{\textcolor{gray}{\small Aurore — Section Archives \textbullet\; \thepage}}%",
         r"}",
-        r"\titleformat{\section}{\Large\sffamily\bfseries\color{auroredeep}}{\thesection}{0.65em}{}[\vspace{0.25ex}\textcolor{aurorebase!78!white}{\titlerule[0.7pt]}]",
+        r"\titleformat{\section}{\Large\sffamily\bfseries\color{aurorebase}}{\thesection}{0.65em}{}[\vspace{0.25ex}\textcolor{aurorebase!78!white}{\titlerule[0.7pt]}]",
         r"\titleformat{\subsection}{\large\sffamily\bfseries\color{auroredeep}}{\thesubsection}{0.6em}{}[\vspace{0.18ex}\textcolor{aurorebase!38!white}{\titlerule[0.45pt]}]",
+        r"% Course sections: dominant Aurore color forms the left visual spine through each section.",
+        r"\newcommand{\AuroreCourseSectionStart}{%",
+        r"  \begin{tcolorbox}[enhanced,breakable,blanker,left=9pt,right=0pt,top=0pt,bottom=6pt,leftrule=1.7pt,colframe=aurorebase,before skip=0pt,after skip=0pt,pad at break*=1mm]%",
+        r"}",
+        r"\newcommand{\AuroreCourseSectionEnd}{%",
+        r"  \end{tcolorbox}%",
+        r"}",
         r"\titlespacing*{\section}{0pt}{3.0ex plus .6ex minus .2ex}{1.55ex}",
         r"\titlespacing*{\subsection}{0pt}{2.1ex plus .4ex minus .2ex}{0.95ex}",
         r"\tcbset{auroreblock/.style={enhanced,breakable,arc=13pt,outer arc=13pt,boxrule=.45pt,colframe=aurorebase!40!white,left=10pt,right=10pt,top=8pt,bottom=8pt,before skip=8pt,after skip=10pt,fonttitle=\sffamily\bfseries,pad at break*=2mm}}",
@@ -3798,6 +3809,7 @@ def render(data):
             continue
 
         lines.append(r"\Needspace{6\baselineskip}")
+        lines.append(r"\AuroreCourseSectionStart")
         lines.append(r"\section{" + tex_text(sec.get("title", "")) + r"}")
         if sec.get("objective"): lines.append(r"\AuroreLabeledBlock{À découvrir}{" + inline(sec["objective"]) + r"}")
         if sec.get("formula"): lines.append(display_formula(sec["formula"]))
@@ -3813,6 +3825,7 @@ def render(data):
                 content_items,
                 auto_math=(profile == "scientifique"),
                 allow_two_columns=scientific_two_column_layout,
+                box_all_math=(_document_kind(data) == "cours"),
             )
         )
         lines.extend(render_graphs(sec.get("graphs", []), allow=True))
@@ -3822,6 +3835,7 @@ def render(data):
             lines.extend(render_aurore_graphics(section_graphics, graphics_root, {"primary":"#"+theme_primary,"secondary":"#"+theme_secondary,"strong":"#"+theme}))
         section_visuals = [v for v in (data.get("_wikimedia_visuals", []) or []) if int(v.get("section_index", -1)) == _idx]
         if section_visuals: lines.extend(render_visuals(section_visuals))
+        lines.append(r"\AuroreCourseSectionEnd")
         for ex in sec.get("exercises", []):
             exercise_number += 1
             lines.append(r"\Needspace{5\baselineskip}")
