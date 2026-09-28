@@ -157,6 +157,7 @@
       if (cible === 'utilisateurs') appelerChargeurAdmin('chargerUtilisateursAdmin');
       if (cible === 'doublons') appelerChargeurAdmin('chargerDoublonsAdmin');
       if (cible === 'content-factory') appelerChargeurAdmin('chargerAuroraContentFactoryAdmin');
+      if (cible === 'aurora-request') appelerChargeurAdmin('chargerEspaceEditorialChatGPT');
     });
   });
 
