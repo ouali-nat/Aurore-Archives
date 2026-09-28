@@ -3602,7 +3602,7 @@ def render(data):
         r"  \hfill\par\smallskip%",
         r"}",
         r"\newcommand{\AuroreMathBlock}[2]{%",
-        r"  \begin{tcolorbox}[enhanced,breakable,arc=8pt,outer arc=8pt,boxrule=.45pt,colframe=auroreprimary!58!white,colback=white!99!aurorepale,leftrule=1.6pt,left=7pt,right=7pt,top=3.5pt,bottom=4.5pt,before skip=5pt,after skip=6pt,halign=center,pad at break*=1mm]%",
+        r"  \begin{tcolorbox}[enhanced,breakable,arc=8pt,outer arc=8pt,boxrule=.45pt,colframe=aurorebase!58!white,colback=white!99!aurorepale,leftrule=1.6pt,left=7pt,right=7pt,top=3.5pt,bottom=4.5pt,before skip=5pt,after skip=6pt,halign=center,pad at break*=1mm]%",
         r"    {\sffamily\scriptsize\bfseries\color{auroredeep}#1}\par\vspace{1pt}",
         r"    \begin{equation*}\displaystyle #2\end{equation*}%",
         r"  \end{tcolorbox}%",
