@@ -64,7 +64,6 @@ jobs:
         working-directory: infra/lualatex
         run: |
           python3 - <<'PY'
-          import re
           import render_document
           from render_document import normalize_math, _math_visual_plan_qa, _geogebra_visual_plan_qa, _exercise_geogebra_plan_qa, _documentary_visual_plan_qa
 
@@ -780,34 +779,9 @@ jobs:
                       content[key] = document.get(key)
 
               # The administrative document record is the source of truth for
-              # theme selection. Do not allow a stale theme embedded inside
-              # content_json / aurore_design to override the current document.
-              current_theme = document.get("theme_color")
-              if not isinstance(current_theme, str):
-                  current_theme = document.get("themeColor")
-              if isinstance(current_theme, str):
-                  current_theme = current_theme.strip()
-              if current_theme and re.fullmatch(r"#[0-9A-Fa-f]{6}", current_theme):
-                  content["theme_color"] = current_theme.upper()
-                  content["themeColor"] = current_theme.upper()
-
-                  existing_design = content.get("aurore_design")
-                  merged_design = dict(existing_design) if isinstance(existing_design, dict) else {}
-                  document_metadata = document.get("metadata") if isinstance(document.get("metadata"), dict) else {}
-                  document_design = document_metadata.get("aurore_design")
-                  if isinstance(document_design, dict):
-                      merged_design.update(document_design)
-
-                  # Remove stale derived palette fields. The resolver will derive
-                  # the palette from the current authoritative #RRGGBB value.
-                  for stale_key in ("theme_key", "theme_strong", "theme_primary", "theme_secondary"):
-                      merged_design.pop(stale_key, None)
-                  merged_design["theme_color"] = current_theme.upper()
-                  content["aurore_design"] = merged_design
-              elif isinstance(document.get("metadata"), dict):
-                  for key in ("visual_plan", "visuals"):
-                      if key in document["metadata"] and key not in content:
-                          content[key] = document["metadata"][key]
+              # theme selection. Centralize this merge in the renderer so the
+              # exact same rule can be unit-tested independently.
+              content = render_document.apply_authoritative_document_theme(content, document)
 
               graph_assets = payload.get("graph_assets") or []
               if graph_assets:
