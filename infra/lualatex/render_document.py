@@ -2561,7 +2561,12 @@ def _render_content_item(raw, auto_math=False, box_all_math=False):
         segments = [segment for segment in _CONTENT_DISPLAY_MATH_RE.split(text) if segment]
         for segment in segments:
             if _CONTENT_DISPLAY_MATH_RE.fullmatch(segment.strip()):
-                lines.append(_math_render_command(_display_math_body(segment)))
+                display_body = normalize_math(_display_math_body(segment))
+                if display_body:
+                    # Explicit display equations must never use the compact inline box.
+                    # Keeping this path block-level prevents braces/commands in long
+                    # display formulas from being parsed as AuroreMathCompact arguments.
+                    lines.append(r"\\AuroreMathBlock{}{" + display_body + r"}")
                 lines.append("")
                 continue
             for paragraph in re.split(r"\n{2,}", segment):
