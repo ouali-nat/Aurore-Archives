@@ -229,6 +229,47 @@ jobs:
               raise SystemExit(f"Normal-course adaptive math regression: no math box emitted: {normal_tex!r}")
           if r"\AuroreMathCompact{Relation}" in normal_tex or r"\AuroreMathBlock{Relation}" in normal_tex:
               raise SystemExit(f"Normal-course Relation label regression: {normal_tex!r}")
+
+          inline_position_case = (
+              "Avant $E=mc^2$ puis la relation "
+              "(x²−1)/(x−1)=x+1 arrive ensuite."
+          )
+          inline_position_rendered = "\n".join(
+              render_document._render_content_item(
+                  inline_position_case,
+                  auto_math=True,
+                  box_all_math=True,
+              )
+          )
+          compact_math_positions = [
+              pos for pos in (
+                  inline_position_rendered.find(
+                      r"\AuroreMathCompact{}{" + render_document.normalize_math("E=mc^2") + r"}"
+                  ),
+                  inline_position_rendered.find(
+                      r"\AuroreMathCompact{}{" + render_document.normalize_math("(x²−1)/(x−1)=x+1") + r"}"
+                  ),
+              )
+              if pos >= 0
+          ]
+          if len(compact_math_positions) != 2:
+              raise SystemExit(
+                  f"Normal-course inline math boxing regression: {inline_position_rendered!r}"
+              )
+          if not (
+              inline_position_rendered.find("Avant ")
+              < compact_math_positions[0]
+              < inline_position_rendered.find("puis la relation")
+              < compact_math_positions[1]
+              < inline_position_rendered.find(" arrive ensuite.")
+          ):
+              raise SystemExit(
+                  f"Normal-course inline math position regression: {inline_position_rendered!r}"
+              )
+          if r"\AuroreInlineMath{" in inline_position_rendered:
+              raise SystemExit(
+                  f"Normal-course legacy inline math leaked: {inline_position_rendered!r}"
+              )
           if r"\documentclass[0.6,nocrop]{sesamanuel}" in normal_tex:
               raise SystemExit("Normal-course renderer regression: Sésamath leaked into the production course renderer.")
           if "['" in formula_block or "']" in formula_block:
