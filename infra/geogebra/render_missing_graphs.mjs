@@ -862,7 +862,7 @@ const renderGraphInBrowser = async (graph) => {
       try { host.remove(); } catch {}
       throw e;
     }
-  }, graph);
+  }, preparedGraph);
 };
 
 for (const item of pending) {

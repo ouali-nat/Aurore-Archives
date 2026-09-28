@@ -72,3 +72,21 @@ test("un tableau invalide est rejeté explicitement au lieu d'être converti en 
     /ne peut pas être vide/,
   );
 });
+
+test("le renderer transmet le graphe préparé à page.evaluate", () => {
+  const fs = require("node:fs");
+  const source = fs.readFileSync(
+    new URL("../render_missing_graphs.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    source,
+    /return await page\.evaluate\(async \(graph\) => \{[\s\S]*?\n\s*\}, preparedGraph\);/,
+    "Le graphe préparé doit être transmis à page.evaluate.",
+  );
+  assert.doesNotMatch(
+    source,
+    /return await page\.evaluate\(async \(graph\) => \{[\s\S]*?\n\s*\}, graph\);/,
+    "Le renderer ne doit pas retransmettre le graphe original après préparation.",
+  );
+});
