@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { buildFunction2DArrayCommands } from "../function2d_commands.mjs";
@@ -74,7 +75,6 @@ test("un tableau invalide est rejeté explicitement au lieu d'être converti en 
 });
 
 test("le renderer transmet le graphe préparé à page.evaluate", () => {
-  const fs = require("node:fs");
   const source = fs.readFileSync(
     new URL("../render_missing_graphs.mjs", import.meta.url),
     "utf8",
