@@ -2388,13 +2388,12 @@ def _math_render_command(body, label="Relation"):
     if not normalized:
         return ""
     normalized_label = clean_text(label).strip().lower()
-    if normalized_label in {"formule", "formule utile", "relation", "relation utile"}:
-        label = "Relation"
+    display_label = "" if normalized_label in {"formule", "formule utile", "relation", "relation utile"} else clean_text(label).strip()
     # Short relations use a natural-width box; long relations remain breakable.
-    compact_measure = len(re.sub(r"\\(?:text|operatorname|mathrm|mathbb)\b", "", normalized))
+    compact_measure = len(re.sub(r"\\(?:text|operator|mathrm|mathbb)\b", "", normalized))
     if "\n" not in normalized and compact_measure <= 58:
-        return r"\AuroreMathCompact{" + label + r"}{" + normalized + r"}"
-    return r"\AuroreMathBlock{" + label + r"}{" + normalized + r"}"
+        return r"\AuroreMathCompact{" + display_label + r"}{" + normalized + r"}"
+    return r"\AuroreMathBlock{" + display_label + r"}{" + normalized + r"}"
 
 def _split_embedded_math(text):
     """Split prose around plain-text relations without entering explicit LaTeX math."""
@@ -2445,98 +2444,136 @@ def _split_embedded_math(text):
 
     return pieces
 
+def _render_inline_math_fragment(body):
+    normalized = normalize_math(str(body or "").strip())
+    if not normalized:
+        return ""
+    return r"\AuroreInlineMath{" + normalized + r"}"
+
+
+def _render_plain_with_inline_math(segment, auto_math=False):
+    """Render prose while keeping detected plain-text math exactly in place."""
+    source = str(segment or "")
+    if not source:
+        return ""
+
+    candidates = []
+    for match in _PLAIN_MATH_RELATION_RE.finditer(source):
+        fragment = match.group(0).strip()
+        if fragment and _looks_like_plain_math_fragment(fragment):
+            candidates.append((match.start(), match.end(), fragment))
+
+    for match in _PLAIN_MATH_FORMULA_RE.finditer(source):
+        fragment = match.group(0).strip()
+        if fragment:
+            candidates.append((match.start(), match.end(), fragment))
+
+    candidates.sort(key=lambda item: (item[0], -(item[1] - item[0])))
+    chosen = []
+    last_end = -1
+    for start_pos, end_pos, fragment in candidates:
+        if start_pos < last_end or not fragment:
+            continue
+        chosen.append((start_pos, end_pos, fragment))
+        last_end = end_pos
+
+    if not chosen:
+        return inline(source, auto_math=auto_math)
+
+    parts = []
+    cursor = 0
+    for start_pos, end_pos, fragment in chosen:
+        if start_pos > cursor:
+            parts.append(inline(source[cursor:start_pos], auto_math=auto_math))
+        parts.append(_render_inline_math_fragment(fragment))
+        cursor = end_pos
+    if cursor < len(source):
+        parts.append(inline(source[cursor:], auto_math=auto_math))
+    return "".join(parts)
+
+
+def _render_course_paragraph(text, auto_math=False):
+    """Render one course paragraph without moving inline formulas."""
+    source = _repair_accidental_inline_double_dollar(clean_text(text).strip())
+    source = _repair_overescaped_math_delimiters(source)
+    if not source:
+        return ""
+
+    explicit_inline = re.compile(r"(\$[\s\S]*?\$|\\\([\s\S]*?\\\))")
+    parts = []
+    cursor = 0
+    for match in explicit_inline.finditer(source):
+        if match.start() > cursor:
+            parts.append(
+                _render_plain_with_inline_math(
+                    source[cursor:match.start()],
+                    auto_math=auto_math,
+                )
+            )
+        token = match.group(0)
+        body = token[1:-1].strip() if token.startswith("$") else token[2:-2].strip()
+        parts.append(_render_inline_math_fragment(body))
+        cursor = match.end()
+    if cursor < len(source):
+        parts.append(_render_plain_with_inline_math(source[cursor:], auto_math=auto_math))
+    return "".join(part for part in parts if part)
+
+
+def render_paragraph_blocks(text, auto_math=False):
+    """Render explicit source paragraphs as separate rounded gray blocks."""
+    source = clean_text(text).replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not source:
+        return []
+    paragraphs = [
+        part.strip()
+        for part in re.split(r"\n\s*\n+", source)
+        if part.strip()
+    ]
+    return [
+        r"\AuroreParagraphBlock{" + _render_course_paragraph(paragraph, auto_math=auto_math) + r"}"
+        for paragraph in paragraphs
+    ]
+
+
 def _render_content_item(raw, auto_math=False, box_all_math=False):
-    """Render prose with compact dedicated blocks for substantial mathematics."""
+    """Render prose with course paragraph boxes and in-place inline math."""
     text = _repair_accidental_inline_double_dollar(clean_text(raw).strip())
     if not text:
         return []
 
     standalone = _standalone_inline_math(text)
     if standalone:
-        return [
-            _math_render_command(standalone, "Relation"),
-            "",
-        ]
+        return [_math_render_command(standalone, "Relation"), ""]
 
-    # In a course, every explicitly delimited mathematical fragment becomes a centered Relation box.
-    if box_all_math:
-        explicit_math = re.compile(
-            r"(?:\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|\$[\s\S]*?\$)"
-        )
-        if explicit_math.search(text):
-            lines = []
-            cursor = 0
-            for match in explicit_math.finditer(text):
-                prose = text[cursor:match.start()].strip()
-                if prose:
-                    for kind, value in _split_embedded_math(prose):
-                        if kind == "math":
-                            lines.append(_math_render_command(value, "Relation"))
-                        else:
-                            rendered = inline(value, auto_math=auto_math)
-                            if rendered.strip():
-                                lines.append(rendered)
-                                lines.append(r"\par\smallskip")
-                token = match.group(0)
-                if token.startswith("$$") and token.endswith("$$"):
-                    body = token[2:-2].strip()
-                elif token.startswith(r"\[") and token.endswith(r"\]"):
-                    body = token[2:-2].strip()
-                elif token.startswith(r"\(") and token.endswith(r"\)"):
-                    body = token[2:-2].strip()
-                else:
-                    body = token[1:-1].strip()
-                if body:
-                    lines.append(_math_render_command(body, "Relation"))
-                    lines.append("")
-                cursor = match.end()
-            tail = text[cursor:].strip()
-            if tail:
-                for kind, value in _split_embedded_math(tail):
-                    if kind == "math":
-                        lines.append(_math_render_command(value, "Relation"))
-                    else:
-                        rendered = inline(value, auto_math=auto_math)
-                        if rendered.strip():
-                            lines.append(rendered)
-                            lines.append(r"\par\smallskip")
-            return lines
+    if box_all_math and not _CONTENT_DISPLAY_MATH_RE.search(text):
+        rendered = _render_course_paragraph(text, auto_math=auto_math)
+        if rendered.strip():
+            return [r"\AuroreParagraphBlock{" + rendered + r"}", ""]
+        return []
 
     if _CONTENT_DISPLAY_MATH_RE.search(text):
         lines = []
         segments = [segment for segment in _CONTENT_DISPLAY_MATH_RE.split(text) if segment]
         for segment in segments:
             if _CONTENT_DISPLAY_MATH_RE.fullmatch(segment.strip()):
-                lines.append(
-                    _math_render_command(_display_math_body(segment))
-                )
+                lines.append(_math_render_command(_display_math_body(segment)))
+                lines.append("")
                 continue
             for paragraph in re.split(r"\n{2,}", segment):
                 paragraph = paragraph.strip()
                 if not paragraph:
                     continue
-                inline_parts = re.split(
-                    r"(\$[\s\S]*?\$|\\\([\s\S]*?\\\))",
-                    paragraph,
+                rendered = (
+                    _render_course_paragraph(paragraph, auto_math=auto_math)
+                    if box_all_math
+                    else inline(paragraph, auto_math=auto_math)
                 )
-                for part in inline_parts:
-                    if not part:
-                        continue
-                    if re.fullmatch(r"\$[\s\S]*?\$|\\\([\s\S]*?\\\)", part):
-                        body = part[1:-1].strip() if part.startswith("$") else part[2:-2].strip()
-                        if _math_fragment_is_blockworthy(body):
-                            lines.append(
-                                _math_render_command(body)
-                            )
-                        else:
-                            rendered = inline(part, auto_math=auto_math)
-                            if rendered.strip():
-                                lines.append(rendered)
+                if rendered.strip():
+                    if box_all_math:
+                        lines.append(r"\AuroreParagraphBlock{" + rendered + r"}")
                     else:
-                        rendered = inline(part, auto_math=auto_math)
-                        if rendered.strip():
-                            lines.append(rendered)
-                lines.append(r"\par\medskip")
+                        lines.append(rendered)
+                    lines.append(r"\par\medskip")
         return lines
 
     embedded = _split_embedded_math(text)
@@ -2544,9 +2581,7 @@ def _render_content_item(raw, auto_math=False, box_all_math=False):
         lines = []
         for kind, value in embedded:
             if kind == "math":
-                lines.append(
-                    _math_render_command(value)
-                )
+                lines.append(_math_render_command(value))
             else:
                 rendered = inline(value, auto_math=auto_math)
                 if rendered.strip():
@@ -2598,7 +2633,7 @@ def render_content(items, auto_math=False, allow_two_columns=False, box_all_math
             i += 1
             continue
 
-        if allow_two_columns and _two_column_candidate(raw):
+        if allow_two_columns and not box_all_math and _two_column_candidate(raw):
             group = []
             j = i
             while j < len(items) and len(group) < 8 and _two_column_candidate(items[j]):
@@ -3551,7 +3586,7 @@ def render(data):
         r"\titleformat{\subsection}{\large\sffamily\bfseries\color{aurorebase}}{\thesubsection}{0.6em}{}[\vspace{0.18ex}\textcolor{aurorebase!38!white}{\titlerule[0.45pt]}]",
         r"% Course sections: dominant Aurore color forms the left visual spine through each section.",
         r"\newcommand{\AuroreCourseSectionStart}{%",
-        r"  \begin{tcolorbox}[enhanced,breakable,blanker,left=9pt,right=0pt,top=0pt,bottom=6pt,leftrule=1.7pt,colframe=aurorebase,before skip=0pt,after skip=0pt,pad at break*=1mm]%",
+        r"  \begin{tcolorbox}[enhanced,breakable,blanker,left=11pt,right=0pt,top=0pt,bottom=7pt,borderline west={1.7pt}{0pt}{aurorebase},before skip=0pt,after skip=0pt,pad at break*=1mm]%",
         r"}",
         r"\newcommand{\AuroreCourseSectionEnd}{%",
         r"  \end{tcolorbox}%",
@@ -3559,6 +3594,12 @@ def render(data):
         r"\titlespacing*{\section}{0pt}{3.0ex plus .6ex minus .2ex}{1.55ex}",
         r"\titlespacing*{\subsection}{0pt}{2.1ex plus .4ex minus .2ex}{0.95ex}",
         r"\tcbset{auroreblock/.style={enhanced,breakable,arc=13pt,outer arc=13pt,boxrule=.45pt,colframe=aurorebase!40!white,left=10pt,right=10pt,top=8pt,bottom=8pt,before skip=8pt,after skip=10pt,fonttitle=\sffamily\bfseries,pad at break*=2mm}}",
+        r"\newcommand{\AuroreParagraphBlock}[1]{%",
+        r"  \begin{tcolorbox}[enhanced,breakable,colback=gray!10!white,colframe=gray!42!white,arc=11pt,outer arc=11pt,boxrule=.45pt,left=10pt,right=10pt,top=7pt,bottom=7pt,before skip=5pt,after skip=7pt,pad at break*=1.5mm]%",
+        r"    #1%",
+        r"  \end{tcolorbox}%",
+        r"}",
+        r"\newcommand{\AuroreInlineMath}[1]{\tcbox[on line,enhanced,boxrule=.4pt,colframe=gray!48!white,colback=gray!6!white,arc=6pt,left=4.5pt,right=4.5pt,top=2pt,bottom=2pt]{$\displaystyle #1$}}",
         r"\setlength{\columnsep}{8mm}",
         r"\newcommand{\AurorePill}[1]{\tcbox[on line,boxrule=0pt,colback=auroreprimary!10!white,colframe=auroreprimary!18!white,arc=8pt,left=7pt,right=7pt,top=3pt,bottom=3pt]{\sffamily\bfseries\small\textcolor{auroredeep}{#1}}}",
         r"\newcommand{\AuroreLabeledBlock}[2]{%",
@@ -3598,12 +3639,14 @@ def render(data):
         r"\newcommand{\AuroreMathCompact}[2]{%",
         r"  \par\smallskip\noindent\hfill%",
         r"  \tcbox[on line,enhanced,boxrule=.45pt,colframe=aurorebase!58!white,colback=white!99!aurorepale,arc=7pt,left=7pt,right=7pt,top=3pt,bottom=3pt]%",
-        r"    {{\sffamily\scriptsize\bfseries\color{auroredeep}#1}\enspace$\displaystyle #2$}%",
+        r"    {$\displaystyle #2$}%",
         r"  \hfill\par\smallskip%",
         r"}",
         r"\newcommand{\AuroreMathBlock}[2]{%",
         r"  \begin{tcolorbox}[enhanced,breakable,arc=8pt,outer arc=8pt,boxrule=.45pt,colframe=aurorebase!58!white,colback=white!99!aurorepale,leftrule=1.6pt,left=7pt,right=7pt,top=3.5pt,bottom=4.5pt,before skip=5pt,after skip=6pt,halign=center,pad at break*=1mm]%",
-        r"    {\sffamily\scriptsize\bfseries\color{auroredeep}#1}\par\vspace{1pt}",
+        r"    \if\relax\detokenize{#1}\relax\else",
+        r"      {\sffamily\scriptsize\bfseries\color{auroredeep}#1}\par\vspace{1pt}%",
+        r"    \fi",
         r"    \begin{equation*}\displaystyle #2\end{equation*}%",
         r"  \end{tcolorbox}%",
         r"}",
@@ -3678,17 +3721,16 @@ def render(data):
         r"\clearpage",
         r"\renewcommand{\contentsname}{Sommaire}",
         r"\setcounter{tocdepth}{2}",
-        r"\begin{tcolorbox}[enhanced,colback=white!92!aurorepale,colframe=aurorebase!38!white,arc=13pt,boxrule=.5pt,left=12pt,right=12pt,top=10pt,bottom=10pt]",
+        r"\begin{tcolorbox}[enhanced,colback=gray!12!white,colframe=gray!45!white,arc=16pt,outer arc=16pt,boxrule=.55pt,left=12pt,right=12pt,top=10pt,bottom=10pt]",
         r"  \AurorePill{Sommaire}\par\medskip",
         r"  \tableofcontents",
         r"\end{tcolorbox}",
         r"\clearpage",
         r"\section*{Introduction}",
         r"\addcontentsline{toc}{section}{Introduction}",
-        inline(data.get("introduction", "")),
     ]
     if is_exercise_document:
-        lines = lines[:-3]
+        lines = lines[:-2]
         exercise_instructions = ""
         if isinstance(data.get("instructions"), dict):
             exercise_instructions = clean_text(data["instructions"].get("exercise_sheet_intro") or "")
@@ -3705,6 +3747,9 @@ def render(data):
             r"\section*{Énoncés}",
             r"\addcontentsline{toc}{section}{Énoncés}",
         ])
+    elif document_kind == "cours":
+        lines.extend(render_paragraph_blocks(data.get("introduction", ""), auto_math=(profile == "scientifique")))
+
 
     learning_objectives = [
         str(item).strip()
@@ -3923,7 +3968,7 @@ def render(data):
         r"\thispagestyle{plain}",
         r"\begin{center}",
         r"\vspace*{0.055\textheight}",
-        r"\begin{tcolorbox}[enhanced,colback=white!98!aurorepale,colframe=aurorebase!30!white,arc=16pt,boxrule=.6pt,left=16pt,right=16pt,top=15pt,bottom=16pt,width=.92\linewidth]",
+        r"\begin{tcolorbox}[enhanced,colback=gray!12!white,colframe=gray!45!white,arc=16pt,outer arc=16pt,boxrule=.6pt,left=16pt,right=16pt,top=15pt,bottom=16pt,width=.92\linewidth]",
         r"  \AurorePill{Mentions · crédits · vérification}\par\smallskip",
         r"  {\sffamily\Large\bfseries\color{auroredeep}Édition Aurore}\par\smallskip",
         r"  {\sffamily\small\color{aurorebase!78!black}" + tex_text(title) + r"\par\medskip}",
