@@ -230,7 +230,7 @@ function bindDetail(d,t,state){
     const notes=d.querySelector('[data-admin-notes]')?.value.trim()||'';
     const all=Object.values(checks).every(Boolean);
     if(!all){alert('Toutes les validations administratives doivent être cochées avant de rendre le document prêt pour l’édition.');return}
-    try{await updateJob(t.id,{stage:'edition_ready',admin_validation:{...checks,notes,status:'validated',validated_at:new Date().toISOString()}});await chargerEspaceEditorialTaskAdmin?.()}catch(e){alert(e.message||e)}
+    try{await updateJob(t.id,{stage:'edition_ready',admin_validation:{...checks,notes,status:'validated',validated_at:new Date().toISOString()}});await chargerEspaceEditorialChatGPT()}catch(e){alert(e.message||e)}
   });
   d.querySelector('[data-admin-reject]')?.addEventListener('click',async()=>{
     const notes=d.querySelector('[data-admin-notes]')?.value.trim()||'';
@@ -239,7 +239,7 @@ function bindDetail(d,t,state){
 }
 function injectStyle(){
   if(document.getElementById('aurore-editorial-v2-styles'))return;
-  const s=document.createElement('style');s.id='aurore-editorial-v2-styles';s.textContent=String.raw\`
+  const s=document.createElement('style');s.id='aurore-editorial-v2-styles';s.textContent=`
 #auroreEditorialTaskAdmin{--editor-surface:var(--card-bg,#fff);--editor-surface-soft:color-mix(in srgb,currentColor 3%,transparent);--editor-border:color-mix(in srgb,currentColor 12%,transparent);--editor-text:currentColor;--editor-accent:#6D28D9;color:var(--editor-text);display:grid;gap:16px}
 #auroreEditorialTaskAdmin .editor-hub{display:grid;gap:14px}
 #auroreEditorialTaskAdmin .editor-hub-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;padding:4px 2px}
@@ -321,7 +321,7 @@ function injectStyle(){
 @media(max-width:520px){#auroreEditorialTaskAdmin .editor-hub-head{display:block}#auroreEditorialTaskAdmin .editor-main-nav{display:grid;grid-template-columns:1fr 1fr}#auroreEditorialTaskAdmin .editor-main-nav-link{grid-column:1/-1;text-align:left;border-left:0;border-top:1px solid var(--editor-border);padding-top:11px}#auroreEditorialTaskAdmin .editor-card-grid{grid-template-columns:1fr}#auroreEditorialTaskAdmin .editor-plan-grid,#auroreEditorialTaskAdmin .editor-detail-meta,#auroreEditorialTaskAdmin .editor-chapters-grid,#auroreEditorialTaskAdmin .editor-validation-grid{grid-template-columns:1fr}#auroreEditorialTaskAdmin .editor-plan-actions{justify-content:stretch}#auroreEditorialTaskAdmin .editor-plan-actions .admin-btn{flex:1}}
 [data-theme="dark"] #auroreEditorialTaskAdmin{--editor-surface:#17171b;--editor-border:rgba(255,255,255,.13)}
 [data-theme="light"] #auroreEditorialTaskAdmin{--editor-surface:#fff;--editor-border:rgba(0,0,0,.12)}
-\`;
+`;
   document.head.appendChild(s);
 }
 async function chargerEspaceEditorialChatGPT(){
