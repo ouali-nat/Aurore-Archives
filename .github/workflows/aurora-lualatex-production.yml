@@ -9,8 +9,6 @@ on:
       - "infra/lualatex/render_document.py"
       - "infra/lualatex/aurore_svg.py"
       - "infra/geogebra/render_missing_graphs.mjs"
-  schedule:
-    - cron: "*/5 * * * *"
   workflow_dispatch:
     inputs:
       manual_wake:
@@ -34,6 +32,9 @@ permissions:
 # Math operator token-boundary hardening: preserve spaces after normalized comparison commands.
 # Production-only trigger: validate the Terminale C matrix document.
 # Math escaping contract: collapse repeated JSON backslashes before LaTeX delimiters/commands before compilation.
+# MANUAL PDF CONTRACT: this reusable production workflow has no scheduler. The
+# claim step below may execute only from an explicit workflow_dispatch or
+# workflow_call initiated by the administrative PDF request path.
 concurrency:
   group: aurora-lualatex-production
   cancel-in-progress: false
@@ -610,6 +611,9 @@ jobs:
           PY
 
       - name: Claim next generated document
+        # Never let a code push or any future trigger claim a PDF by accident.
+        # workflow_call is used only by the manually dispatched production dispatcher.
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
         run: |
           mkdir -p infra/lualatex/production
           curl --fail --silent --show-error --retry 4 --retry-delay 2 \
