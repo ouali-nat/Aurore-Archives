@@ -6,12 +6,6 @@
    aurore-pdf-grids.css (.doc-row). Ce fichier ne redéfinit plus aucune
    carte : il règle seulement la grille de l'espace personnel pour qu'elle
    soit identique à celle de la bibliothèque (.doc-list).
-
-   Les anciennes règles « #personalSpace .aurore-personal-document-row … »
-   ont été retirées : leur spécificité (sélecteur par identifiant)
-   écrasait le design de la bibliothèque et affichait en permanence, sous
-   chaque carte, un bloc de boutons (le menu complet destiné au bouton
-   « 3 points »), d'où l'aspect désorganisé du bas des cartes.
    ======================================================================== */
 
 /* Grille : identique à .doc-list */
@@ -38,10 +32,6 @@
   #personalSpace .personal-list{gap:10px 9px!important;}
 }
 
-/* Sécurité : le conteneur de carte reste invisible (les deux blocs —
-   couverture et fiche — portent seuls le cadre) et le menu d'actions
-   n'apparaît QUE lorsque le bouton « 3 points » l'a ouvert, exactement
-   comme dans la bibliothèque. */
 html body #personalSpace .personal-list > .doc-row.aurore-personal-document-row{
   display:block!important;
   height:auto!important;
@@ -60,7 +50,6 @@ html body #personalSpace .personal-list > .doc-row.aurore-personal-document-row.
   display:flex!important;
 }
 
-
 /* Documents récemment publiés : même composant visuel que la bibliothèque. */
 #screen-recents #recentsContent .doc-list{
   display:grid!important;
@@ -69,20 +58,325 @@ html body #personalSpace .personal-list > .doc-row.aurore-personal-document-row.
   margin-top:22px!important;
   align-items:stretch!important;
 }
-#screen-recents #recentsContent .doc-row{
-  margin:0!important;
-}
-#screen-recents #recentsContent .doc-row .icon-wrap.a-couverture img.doc-cover-img{
-  opacity:1!important;
-}
+#screen-recents #recentsContent .doc-row{margin:0!important;}
+#screen-recents #recentsContent .doc-row .icon-wrap.a-couverture img.doc-cover-img{opacity:1!important;}
 @media(max-width:720px){
-  #screen-recents #recentsContent .doc-list{
-    grid-template-columns:repeat(2,minmax(0,1fr))!important;
-    gap:11px!important;
-  }
+  #screen-recents #recentsContent .doc-list{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:11px!important;}
 }
 @media(max-width:390px){
-  #screen-recents #recentsContent .doc-list{
-    grid-template-columns:1fr 1fr!important;
-  }
+  #screen-recents #recentsContent .doc-list{grid-template-columns:1fr 1fr!important;}
+}
+
+/* ========================================================================
+   ESPACE PERSONNEL — REFONTE COMPLÈTE DE L'ÉCRAN « MON PROFIL »
+   Ordre de lecture :  identité → profil (rôle + infos) → activité
+   (cases, onglets, documents) → paramètres (compte, code, couleur).
+   Purement visuel : aucun identifiant, aucun gestionnaire modifié.
+   ======================================================================== */
+html body #screen-profil{
+  --pf-accent:var(--theme-primary,var(--violet,#7c3aed));
+  --pf-line:color-mix(in srgb,var(--pf-accent) 16%,var(--bordure,#ddd5e8));
+  --pf-soft:color-mix(in srgb,var(--pf-accent) 7%,var(--papier,#fff));
+  --pf-tint:color-mix(in srgb,var(--pf-accent) 13%,var(--papier,#fff));
+  --pf-muted:var(--gris,#6f687e);
+  --pf-text:var(--encre,#211b31);
+  --pf-card:var(--papier,#fff);
+}
+html body #screen-profil.active{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr);
+  gap:14px;
+  align-content:start;
+  width:100%;
+  max-width:960px;
+  margin:0 auto;
+}
+@media(min-width:680px){
+  html body #screen-profil.active{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;}
+}
+html body #screen-profil.active > *{min-width:0;margin-top:0!important;margin-bottom:0!important;}
+
+/* Le conteneur .profile-meta disparaît : ses cartes rejoignent la grille. */
+html body #screen-profil .profile-meta{display:contents!important;}
+
+/* Ordre et largeurs */
+html body #screen-profil .section-title{order:0;grid-column:1/-1;font-size:1.5rem;margin:2px 0 0!important;}
+html body #screen-profil .profile-completion-banner{order:1;grid-column:1/-1;}
+html body #screen-profil .profile-card{order:2;grid-column:1/-1;}
+html body #screen-profil .profile-profile-launcher{order:3;grid-column:1/-1;}
+html body #screen-profil #profilRoleDetails{order:4;grid-column:1/-1;}
+html body #screen-profil #personalSpace{order:5;grid-column:1/-1;}
+html body #screen-profil .pf-heading{order:6;grid-column:1/-1;}
+html body #screen-profil .profile-meta-item.pf-provider{order:7;}
+html body #screen-profil .profile-meta-item.pf-status{order:8;}
+html body #screen-profil #profilCodeAccessCard{order:9;}
+html body #screen-profil .profile-theme-card{order:10;}
+html body #screen-profil .back-btn{order:11;grid-column:1/-1;justify-self:start;margin:4px 0 0!important;}
+html body #screen-profil .profile-form-modal{order:20;}
+
+/* ---------- 1. Carte identité ---------- */
+html body #screen-profil .profile-card{
+  position:relative;
+  display:flex!important;
+  align-items:center;
+  gap:16px;
+  padding:20px!important;
+  border:1px solid var(--pf-line)!important;
+  border-radius:24px!important;
+  background:linear-gradient(135deg,color-mix(in srgb,var(--pf-accent) 17%,var(--pf-card)),var(--pf-card) 72%)!important;
+  box-shadow:0 10px 30px rgba(35,25,55,.08)!important;
+  overflow:hidden;
+}
+html body #screen-profil .profile-avatar-wrap{
+  position:relative;
+  flex:0 0 76px;
+  width:76px;
+  height:76px;
+  margin:0!important;
+  padding:3px;
+  border-radius:50%;
+  background:linear-gradient(135deg,var(--pf-accent),color-mix(in srgb,var(--pf-accent) 35%,#fff));
+  box-shadow:0 8px 20px color-mix(in srgb,var(--pf-accent) 30%,transparent);
+}
+html body #screen-profil .profile-avatar,
+html body #screen-profil .profile-avatar-fallback{
+  width:100%!important;
+  height:100%!important;
+  box-sizing:border-box;
+  border-radius:50%!important;
+  object-fit:cover;
+  border:3px solid var(--pf-card)!important;
+}
+html body #screen-profil .profile-info{min-width:0;flex:1;display:flex;flex-direction:column;align-items:flex-start;gap:4px;}
+html body #screen-profil .profile-info h3{margin:0!important;font-size:1.3rem;line-height:1.2;letter-spacing:-.02em;color:var(--pf-text);overflow-wrap:anywhere;}
+html body #screen-profil .profile-email{margin:0!important;max-width:100%;font-size:.8rem;color:var(--pf-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+html body #screen-profil .role-badge{
+  display:inline-flex;
+  align-items:center;
+  margin-top:6px;
+  padding:5px 11px;
+  border-radius:999px;
+  background:color-mix(in srgb,var(--pf-accent) 15%,var(--pf-card));
+  border:1px solid color-mix(in srgb,var(--pf-accent) 30%,transparent);
+  color:var(--pf-accent);
+  font-size:.68rem;
+  font-weight:850;
+  letter-spacing:.02em;
+}
+
+/* ---------- 2. Profil : choix du rôle ---------- */
+html body #screen-profil .profile-profile-launcher{
+  padding:18px!important;
+  border:1px solid var(--pf-line)!important;
+  border-radius:22px!important;
+  background:var(--pf-card)!important;
+  box-shadow:0 6px 20px rgba(35,25,55,.05)!important;
+}
+html body #screen-profil .profile-launcher-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px;}
+html body #screen-profil .profile-launcher-head .profile-form-kicker{display:block;margin-bottom:4px;font-size:.62rem;font-weight:850;letter-spacing:.14em;text-transform:uppercase;color:var(--pf-accent);}
+html body #screen-profil .profile-launcher-head strong{display:block;font-size:1.02rem;color:var(--pf-text);letter-spacing:-.01em;}
+html body #screen-profil .profile-launcher-head small{display:block;margin-top:4px;font-size:.72rem;line-height:1.45;color:var(--pf-muted);}
+html body #screen-profil .profile-launcher-badge{flex:none;padding:5px 10px;border-radius:999px;background:var(--pf-tint);color:var(--pf-accent);font-size:.62rem;font-weight:850;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;}
+html body #screen-profil .profile-launcher-roles{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))!important;gap:10px!important;}
+html body #screen-profil .profile-launcher-role{
+  display:flex!important;
+  align-items:center;
+  gap:10px;
+  min-width:0;
+  padding:11px 12px!important;
+  border:1px solid var(--pf-line)!important;
+  border-radius:15px!important;
+  background:var(--pf-soft)!important;
+  color:var(--pf-text)!important;
+  font:inherit;
+  text-align:left;
+  cursor:pointer;
+  transition:border-color .15s ease,background .15s ease,transform .15s ease;
+}
+html body #screen-profil .profile-launcher-role:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--pf-accent) 55%,var(--pf-line))!important;}
+html body #screen-profil .profile-launcher-role .role-icon{flex:0 0 34px;width:34px;height:34px;display:grid;place-items:center;border-radius:11px;background:var(--pf-tint);color:var(--pf-accent);font-size:.8rem;font-weight:900;}
+html body #screen-profil .profile-launcher-role b{display:block;font-size:.82rem;line-height:1.15;}
+html body #screen-profil .profile-launcher-role small{display:block;margin-top:2px;font-size:.66rem;color:var(--pf-muted);}
+html body #screen-profil .profile-launcher-role i{margin-left:auto;font-style:normal;color:var(--pf-accent);opacity:.55;}
+html body #screen-profil .profile-launcher-role[aria-pressed="true"],
+html body #screen-profil .profile-launcher-role.is-active,
+html body #screen-profil .profile-launcher-role.active{
+  border-color:var(--pf-accent)!important;
+  background:var(--pf-tint)!important;
+  box-shadow:0 0 0 1px var(--pf-accent) inset;
+}
+html body #screen-profil .profile-launcher-role[aria-pressed="true"] .role-icon{background:var(--pf-accent);color:#fff;}
+html body #screen-profil .profile-launcher-current:empty{display:none!important;}
+html body #screen-profil .profile-launcher-current{margin-top:12px;font-size:.74rem;color:var(--pf-muted);}
+
+/* ---------- 3. Informations enregistrées ---------- */
+html body #screen-profil #profilRoleDetails{
+  display:grid!important;
+  grid-template-columns:repeat(auto-fill,minmax(150px,1fr))!important;
+  gap:10px!important;
+  padding:16px;
+  border:1px solid var(--pf-line);
+  border-radius:22px;
+  background:var(--pf-card);
+  box-shadow:0 6px 20px rgba(35,25,55,.05);
+}
+html body #screen-profil #profilRoleDetails:empty{display:none!important;}
+html body #screen-profil #profilRoleDetails > div:not(.profile-role-details-card){
+  grid-column:1/-1;
+  margin:0 0 2px!important;
+  font-size:.95rem!important;
+  font-weight:800;
+  color:var(--pf-text);
+}
+html body #screen-profil .profile-role-details-card{
+  min-width:0;
+  padding:11px 13px;
+  border:1px solid var(--pf-line);
+  border-radius:14px;
+  background:var(--pf-soft);
+}
+html body #screen-profil .profile-role-details-card .kicker{font-size:.6rem;font-weight:850;letter-spacing:.08em;text-transform:uppercase;color:var(--pf-muted);margin-bottom:4px;}
+html body #screen-profil .profile-role-details-card strong{display:block;font-size:.86rem;line-height:1.3;color:var(--pf-text);overflow-wrap:anywhere;}
+html body #screen-profil .profile-role-details-card.empty{background:transparent;border-style:dashed;}
+html body #screen-profil .profile-role-details-card.empty strong{font-weight:500;color:var(--pf-muted);}
+
+/* ---------- 4. Activité ---------- */
+html body #screen-profil #personalSpace{
+  display:flex!important;
+  flex-direction:column;
+  gap:14px;
+  max-width:none!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+html body #screen-profil #personalSpace .activity-hero{
+  display:flex!important;
+  flex-direction:row!important;
+  align-items:center!important;
+  justify-content:space-between;
+  gap:14px;
+  padding:18px!important;
+  border:1px solid var(--pf-line)!important;
+  border-radius:22px!important;
+  background:linear-gradient(135deg,color-mix(in srgb,var(--pf-accent) 14%,var(--pf-card)),var(--pf-card) 75%)!important;
+  box-shadow:0 6px 20px rgba(35,25,55,.05)!important;
+}
+html body #screen-profil #personalSpace .activity-hero h3{margin:3px 0 5px!important;font-size:1.2rem!important;letter-spacing:-.02em;}
+html body #screen-profil #personalSpace .activity-hero p{font-size:.76rem;line-height:1.5;}
+html body #screen-profil #personalSpace .activity-refresh{width:auto!important;flex:none;padding:9px 14px!important;font-size:.74rem;}
+
+/* Mes cases */
+html body #screen-profil #personalSpace .personal-folders{
+  padding:16px!important;
+  border:1px solid var(--pf-line)!important;
+  border-radius:22px!important;
+  background:var(--pf-card)!important;
+  box-shadow:0 6px 20px rgba(35,25,55,.05)!important;
+}
+html body #screen-profil #personalSpace .personal-folders-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px;}
+html body #screen-profil #personalSpace .personal-folders-kicker{font-size:.62rem;font-weight:850;letter-spacing:.14em;text-transform:uppercase;color:var(--pf-accent);}
+html body #screen-profil #personalSpace .personal-folders-title{margin-top:2px;font-size:1.05rem;font-weight:800;color:var(--pf-text);}
+html body #screen-profil #personalSpace .personal-folders-subtitle{margin:5px 0 0!important;font-size:.72rem;line-height:1.5;color:var(--pf-muted);}
+html body #screen-profil #personalSpace .personal-folder-grid{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(145px,1fr))!important;gap:12px!important;}
+html body #screen-profil #personalSpace .personal-folder{border-radius:16px!important;border:1px solid var(--pf-line)!important;background:var(--pf-soft)!important;}
+html body #screen-profil #personalSpace .personal-folder-create{border-radius:16px!important;border:1.5px dashed color-mix(in srgb,var(--pf-accent) 45%,var(--bordure,#ddd))!important;background:transparent!important;}
+@media(max-width:480px){
+  html body #screen-profil #personalSpace .personal-folders-head{flex-direction:column;}
+  html body #screen-profil #personalSpace .personal-folder-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;}
+}
+
+/* Onglets */
+html body #screen-profil #personalSpace .activity-stats{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:6px!important;
+  margin:0!important;
+  padding:6px;
+  border:1px solid var(--pf-line);
+  border-radius:20px;
+  background:var(--pf-card);
+}
+html body #screen-profil #personalSpace .activity-stat{
+  display:flex!important;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:2px;
+  min-width:0;
+  padding:10px 4px!important;
+  border:0!important;
+  border-radius:15px!important;
+  background:transparent!important;
+  text-align:center;
+  box-shadow:none!important;
+}
+html body #screen-profil #personalSpace .activity-stat span{display:block;min-width:0;}
+html body #screen-profil #personalSpace .activity-stat b{font-size:1.2rem;line-height:1.1;color:var(--pf-text);}
+html body #screen-profil #personalSpace .activity-stat small{margin-top:3px;font-size:.6rem;line-height:1.2;white-space:normal;color:var(--pf-muted);}
+html body #screen-profil #personalSpace .activity-stat.is-active{background:var(--pf-tint)!important;box-shadow:0 0 0 1.5px var(--pf-accent) inset!important;}
+html body #screen-profil #personalSpace .activity-stat.is-active b{color:var(--pf-accent);}
+@media(min-width:680px){
+  html body #screen-profil #personalSpace .activity-stat{flex-direction:row;gap:10px;padding:12px!important;}
+  html body #screen-profil #personalSpace .activity-stat span{text-align:left;}
+  html body #screen-profil #personalSpace .activity-stat small{font-size:.7rem;white-space:nowrap;}
+}
+
+/* Contenu des onglets */
+html body #screen-profil #personalSpace .activity-content{
+  min-height:0!important;
+  padding:16px!important;
+  border:1px solid var(--pf-line)!important;
+  border-radius:22px!important;
+  background:var(--pf-card)!important;
+  box-shadow:0 6px 20px rgba(35,25,55,.05);
+}
+html body #screen-profil #personalSpace .activity-panel-title{align-items:flex-start;margin-bottom:4px;}
+html body #screen-profil #personalSpace .activity-panel-title span{font-size:.62rem;}
+html body #screen-profil #personalSpace .activity-panel-title h4{margin:3px 0 0;font-size:1.1rem;letter-spacing:-.01em;}
+html body #screen-profil #personalSpace .activity-panel-title strong{background:var(--pf-tint);border-color:transparent;color:var(--pf-accent);}
+html body #screen-profil #personalSpace .personal-panel > p{margin:2px 0 0;font-size:.74rem;line-height:1.5;color:var(--pf-muted);}
+html body #screen-profil #personalSpace .activity-subsection{margin-top:22px;padding-top:16px;border-top:1px solid var(--pf-line);}
+html body #screen-profil #personalSpace .activity-subsection:first-of-type{border-top:0;padding-top:0;}
+html body #screen-profil #personalSpace .activity-subtitle{margin-bottom:4px;font-size:.86rem;}
+html body #screen-profil #personalSpace .activity-subtitle span{background:var(--pf-tint);border-color:transparent;color:var(--pf-accent);}
+html body #screen-profil #personalSpace .personal-history-toolbar{display:flex;justify-content:flex-end;margin-top:6px;}
+html body #screen-profil #personalSpace .personal-history-clear{padding:7px 12px;border:1px solid color-mix(in srgb,var(--rouge,#e0776b) 40%,transparent);border-radius:999px;background:transparent;color:var(--rouge,#e0776b);font-size:.68rem;font-weight:800;cursor:pointer;}
+html body #screen-profil #personalSpace .personal-empty{padding:26px 14px;border:1.5px dashed var(--pf-line);border-radius:16px;background:var(--pf-soft);color:var(--pf-muted);font-size:.78rem;line-height:1.5;}
+
+/* ---------- 5. Paramètres ---------- */
+html body #screen-profil .pf-heading{margin-top:8px!important;padding:0 2px;}
+html body #screen-profil .pf-heading span{display:block;font-size:.62rem;font-weight:850;letter-spacing:.14em;text-transform:uppercase;color:var(--pf-accent);}
+html body #screen-profil .pf-heading strong{display:block;margin-top:2px;font-size:1.05rem;color:var(--pf-text);}
+html body #screen-profil .profile-meta-item:not(.profile-profile-launcher),
+html body #screen-profil .profile-theme-card{
+  padding:15px 16px!important;
+  border:1px solid var(--pf-line)!important;
+  border-radius:18px!important;
+  background:var(--pf-card)!important;
+  box-shadow:0 4px 14px rgba(35,25,55,.04)!important;
+}
+html body #screen-profil .profile-meta-item .label{font-size:.6rem;font-weight:850;letter-spacing:.09em;text-transform:uppercase;color:var(--pf-muted);margin-bottom:5px;}
+html body #screen-profil .profile-meta-item .value{font-size:.92rem;font-weight:800;color:var(--pf-text);}
+html body #screen-profil .profile-meta-item.pf-status .value::before{content:"";display:inline-block;width:8px;height:8px;margin-right:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.2);vertical-align:1px;}
+html body #screen-profil #profilCodeAccessCard .personal-action{width:100%;padding:10px 12px;border-radius:12px;font-size:.74rem;}
+html body #screen-profil .profile-theme-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+html body #screen-profil .profile-theme-kicker{display:block;margin-bottom:3px;font-size:.6rem;font-weight:850;letter-spacing:.09em;text-transform:uppercase;color:var(--pf-muted);}
+html body #screen-profil .profile-theme-head strong{display:block;font-size:.92rem;color:var(--pf-text);}
+html body #screen-profil .profile-theme-head small{display:block;margin-top:4px;font-size:.68rem;line-height:1.45;color:var(--pf-muted);}
+html body #screen-profil .profile-theme-current{flex:none;padding:5px 10px;border-radius:999px;background:var(--pf-tint);color:var(--pf-accent);font-size:.66rem;font-weight:850;}
+html body #screen-profil .profile-theme-compact-actions{margin-top:12px;}
+html body #screen-profil .profile-theme-compact-actions .admin-btn{width:100%;justify-content:center;padding:10px 12px;border-radius:12px;font-size:.74rem;}
+
+/* Mobile */
+@media(max-width:480px){
+  html body #screen-profil .profile-card{padding:16px!important;gap:13px;}
+  html body #screen-profil .profile-avatar-wrap{flex-basis:64px;width:64px;height:64px;}
+  html body #screen-profil .profile-info h3{font-size:1.15rem;}
+  html body #screen-profil .profile-launcher-roles{grid-template-columns:repeat(2,minmax(0,1fr))!important;}
+  html body #screen-profil .profile-launcher-role i{display:none;}
+  html body #screen-profil #profilRoleDetails{grid-template-columns:repeat(2,minmax(0,1fr))!important;}
+  html body #screen-profil #personalSpace .activity-hero{padding:15px!important;}
 }
