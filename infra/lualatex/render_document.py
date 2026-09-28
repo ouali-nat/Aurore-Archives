@@ -2390,24 +2390,45 @@ def _math_render_command(body, label="Relation"):
     return r"\AuroreMathBlock{" + label + r"}{" + normalized + r"}"
 
 def _split_embedded_math(text):
-    """Split prose around substantial plain-text mathematical relations."""
+    """Split prose around plain-text relations without entering explicit LaTeX math."""
     source = _repair_accidental_inline_double_dollar(str(text or ""))
+    source = _repair_overescaped_math_delimiters(source)
     pieces = []
+    explicit_math = re.compile(
+        r"(?:\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|\$[\s\S]*?\$)"
+    )
+
+    def split_plain_segment(segment):
+        result = []
+        cursor = 0
+        for match in _PLAIN_MATH_RELATION_RE.finditer(segment):
+            start, end = match.span()
+            fragment = match.group(0).strip()
+            if not _looks_like_plain_math_fragment(fragment):
+                continue
+            if start > cursor:
+                prose = segment[cursor:start].strip()
+                if prose:
+                    result.append(("prose", prose))
+            result.append(("math", fragment))
+            cursor = end
+        tail = segment[cursor:].strip()
+        if tail:
+            result.append(("prose", tail))
+        return result
+
     cursor = 0
-    for match in _PLAIN_MATH_RELATION_RE.finditer(source):
-        start, end = match.span()
-        fragment = match.group(0).strip()
-        if not _looks_like_plain_math_fragment(fragment):
-            continue
-        if start > cursor:
-            prose = source[cursor:start].strip()
-            if prose:
-                pieces.append(("prose", prose))
-        pieces.append(("math", fragment))
-        cursor = end
-    tail = source[cursor:].strip()
-    if tail:
-        pieces.append(("prose", tail))
+    for match in explicit_math.finditer(source):
+        if match.start() > cursor:
+            pieces.extend(split_plain_segment(source[cursor:match.start()]))
+        # Preserve the complete explicit LaTeX block for inline(), rather than
+        # letting the plain-text relation detector extract a fragment from it.
+        pieces.append(("prose", match.group(0)))
+        cursor = match.end()
+
+    if cursor < len(source):
+        pieces.extend(split_plain_segment(source[cursor:]))
+
     return pieces
 
 def _render_content_item(raw, auto_math=False):
