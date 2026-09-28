@@ -196,6 +196,7 @@ async function persistContentJobTheme(id,themeColor,accessToken){
   const metadata={
     ...current,
     theme_color:color,
+    admin_theme_color:color,
     theme_color_source:'admin',
     theme_color_selected_at:new Date().toISOString(),
     aurore_design:{...currentDesign,theme_color:color,version:1},
