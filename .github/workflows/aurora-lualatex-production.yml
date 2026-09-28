@@ -118,13 +118,41 @@ jobs:
               "e^(2x)=(e^x)^2",
           ])
           formula_box_count = (
-              formula_block.count(r"\AuroreMathCompact{Relation}") +
-              formula_block.count(r"\AuroreMathBlock{Relation}")
+              formula_block.count(r"\AuroreMathCompact{}") +
+              formula_block.count(r"\AuroreMathBlock{}")
           )
           if formula_box_count != 3:
               raise SystemExit(f"Formula-list rendering regression: {formula_block!r}")
           if r"\AuroreFormulaBlock{" in formula_block:
               raise SystemExit(f"Formula-list compatibility wrapper leaked: {formula_block!r}")
+          if "Relation" in formula_block:
+              raise SystemExit(f"Formula-list Relation label leaked: {formula_block!r}")
+
+          paragraph_case = (
+              "La réaction générale est 𝐶₂𝐻₅𝑂𝐻 + 𝐶𝐻₃𝐶𝑂𝑂𝐻 ⇌ 𝐶𝐻₃𝐶𝑂𝑂𝐶₂𝐻₅ + 𝐻₂𝑂. "
+              "La double flèche décrit un équilibre."
+          )
+          paragraph_rendered = "\n".join(
+              render_document._render_content_item(paragraph_case, auto_math=True, box_all_math=True)
+          )
+          if r"\AuroreParagraphBlock{" not in paragraph_rendered:
+              raise SystemExit(f"Course paragraph box regression: {paragraph_rendered!r}")
+          if r"\AuroreInlineMath{" not in paragraph_rendered:
+              raise SystemExit(f"Inline math box regression: {paragraph_rendered!r}")
+          if "Relation" in paragraph_rendered:
+              raise SystemExit(f"Course paragraph Relation label leaked: {paragraph_rendered!r}")
+          math_pos = paragraph_rendered.find(r"\AuroreInlineMath{")
+          if not (
+              paragraph_rendered.find("La réaction générale est") < math_pos <
+              paragraph_rendered.find("La double flèche décrit")
+          ):
+              raise SystemExit(f"Inline math position regression: {paragraph_rendered!r}")
+
+          intro_rendered = render_document.render_paragraph_blocks(
+              "Premier paragraphe.\n\nDeuxième paragraphe."
+          )
+          if len(intro_rendered) != 2:
+              raise SystemExit(f"Introduction paragraph split regression: {intro_rendered!r}")
 
           chemistry_math = "Pour 𝐶₂𝐻₆𝑂, 𝑀 = 2 × 12,0 + 6 × 1,0 + 16,0 = 46,0 g mol⁻¹."
           chemistry_parts = render_document._split_embedded_math(chemistry_math)
@@ -153,10 +181,16 @@ jobs:
           normal_tex = render_document.render(normal_course)
           if r"\AuroreCourseSectionStart" not in normal_tex or r"\AuroreCourseSectionEnd" not in normal_tex:
               raise SystemExit("Normal-course decoration regression: section spine markers missing.")
+          if r"borderline west={1.7pt}{0pt}{aurorebase}" not in normal_tex:
+              raise SystemExit("Normal-course decoration regression: dominant-color section spine rule missing.")
+          if r"colback=gray!12!white,colframe=gray!45!white,arc=16pt" not in normal_tex:
+              raise SystemExit("Normal-course layout regression: gray Sommaire/mentions panel styling missing.")
           if normal_tex.count(r"\AuroreCourseSectionEnd") - normal_tex.count(r"\newcommand{\AuroreCourseSectionEnd}") != 2:
               raise SystemExit(f"Normal-course section count regression: {normal_tex!r}")
-          if not (r"\AuroreMathCompact{Relation}" in normal_tex or r"\AuroreMathBlock{Relation}" in normal_tex):
-              raise SystemExit(f"Normal-course relation box regression: {normal_tex!r}")
+          if r"\AuroreParagraphBlock{" not in normal_tex or r"\AuroreInlineMath{" not in normal_tex:
+              raise SystemExit(f"Normal-course inline paragraph math regression: {normal_tex!r}")
+          if "Relation" in normal_tex:
+              raise SystemExit(f"Normal-course Relation label regression: {normal_tex!r}")
           if r"\documentclass[0.6,nocrop]{sesamanuel}" in normal_tex:
               raise SystemExit("Normal-course renderer regression: Sésamath leaked into the production course renderer.")
           if "['" in formula_block or "']" in formula_block:
