@@ -2554,10 +2554,10 @@ def _two_column_candidate(value):
     if labeled_block(text):
         return False
     if _CONTENT_DISPLAY_MATH_RE.search(text) or _standalone_inline_math(text):
+        return False
     if re.search(r"\$[\s\S]*?\$|\\\([\s\S]*?\\\)", text):
         return False
     if any(kind == "math" for kind, _ in _split_embedded_math(text)):
-        return False
         return False
     return True
 
