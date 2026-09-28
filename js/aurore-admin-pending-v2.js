@@ -37,7 +37,7 @@ function populate(id,values,label){
 function progress(j){
  if(j.progress!=null)return '<div class="admin-pending-v2-progress"><div class="admin-pending-v2-progress-head"><strong>Progression réelle</strong><span>'+j.progress+'%</span></div><div class="admin-pending-v2-progress-track"><i style="width:'+j.progress+'%"></i></div><small>'+esc(j.stage||'Production Aurore')+'</small></div>';
  const s=statusOf(j);
- const label=s==='processing'?'Génération en cours':'En attente de prise en charge';
+ const label=s==='processing'?'Génération en cours':s==='review'?'Contenu éditorial prêt — lancement manuel':'En attente de prise en charge';
  return '<div class="admin-pending-v2-progress is-indeterminate"><div class="admin-pending-v2-progress-head"><strong>Progression de production</strong><span>'+esc(label)+'</span></div><div class="admin-pending-v2-progress-track"><i></i></div><small>Le moteur publiera le pourcentage réel dès qu’une progression chiffrée est disponible.</small></div>';
 }
 async function chooseTheme(j){
@@ -109,7 +109,7 @@ function actions(j){
  const s=statusOf(j),active=['queued','processing'].includes(s);
  let h='<div class="admin-pending-v2-actions">';
  h+='<button type="button" class="admin-btn ghost" data-action="theme" data-id="'+j.id+'" '+(active?'disabled title="Couleur verrouillée pendant la production."':'')+'>Changer la couleur</button>';
- if(s==='draft'||(j.generatedDocumentId&&['review','cancelled'].includes(s)))h+='<button type="button" class="admin-btn primary" data-action="launch" data-id="'+j.id+'">'+(j.generatedDocumentId?'Relancer la production':'Lancer la production')+'</button>';
+ if(s==='draft'||(j.generatedDocumentId&&['review','cancelled'].includes(s)))h+='<button type="button" class="admin-btn primary" data-action="launch" data-id="'+j.id+'">'+(j.generatedDocumentId?'Lancer le PDF':'Lancer la production')+'</button>';
  else if(s==='queued')h+='<button type="button" class="admin-btn ghost" disabled>En file d’attente</button>';
  else h+='<button type="button" class="admin-btn primary" disabled>Production en cours…</button>';
  if(active)h+='<button type="button" class="admin-btn danger admin-pending-v2-cancel" data-action="cancel" data-id="'+j.id+'">Annuler la génération</button>';
@@ -124,7 +124,7 @@ function render(){
  setText('adminPendingV2Visible',STATE.filtered.length);
  if(!STATE.filtered.length){list.innerHTML='<div class="admin-pending-v2-empty"><strong>Aucun document Aurore dans le sas.</strong><span>Le sas ne contient que les demandes Content Factory encore sans document PDF associé.</span></div>';return}
  list.innerHTML=STATE.filtered.map(j=>{
-   const s=statusOf(j),label=s==='processing'?'Génération en cours':s==='queued'?'En file d’attente':'Brouillon';
+   const s=statusOf(j),label=s==='processing'?'Génération en cours':s==='queued'?'En file d’attente':s==='review'?'Contenu éditorial prêt — PDF à lancer':'Brouillon';
    return '<article class="admin-pending-v2-card" data-pending-job-id="'+j.id+'" style="--pending-theme:'+esc(j.theme)+'"><div class="admin-pending-v2-card-accent"></div><div class="admin-pending-v2-card-main">'+
    '<div class="admin-pending-v2-card-head"><div><span class="admin-pending-v2-source">Aurore — Content Factory</span><h3 class="admin-pending-v2-title">'+esc(j.title)+'</h3></div><span class="admin-pending-v2-id">Job #'+j.id+'</span></div>'+
    progress(j)+
@@ -144,7 +144,7 @@ function syncPendingDynamic(){
   if(!card)return;
   const nextProgress=progress(j),currentProgress=card.querySelector('.admin-pending-v2-progress');
   if(currentProgress)currentProgress.outerHTML=nextProgress;
-  const label=statusOf(j)==='processing'?'Génération en cours':statusOf(j)==='queued'?'En file d’attente':'Brouillon';
+  const label=statusOf(j)==='processing'?'Génération en cours':statusOf(j)==='queued'?'En file d’attente':statusOf(j)==='review'?'Contenu éditorial prêt — PDF à lancer':'Brouillon';
   const state=card.querySelector('[data-pending-state]'),status=card.querySelector('[data-pending-status]');
   if(state)state.textContent=label;
   if(status)status.textContent=label;
@@ -218,9 +218,28 @@ async function chargerDocumentsEnAttenteAdminV2(){
 }
 async function compterDocumentsEnAttente(){
  try{
-  const r=await adminFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?select=id&status=in.(draft,queued,processing)&generated_document_id=is.null&limit=1000');
-  const a=r.ok?await r.json():[],n=Array.isArray(a)?a.length:0;setText('tabCountAttente',n);return n;
- }catch(_){return 0}
+  const r=await adminFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?select=id,generated_document_id&status=in.(draft,queued,processing,review)&limit=1000',{cache:'no-store'});
+  if(!r.ok){setText('tabCountAttente',0);return 0}
+  const rows=await r.json().catch(()=>[]);
+  const jobs=Array.isArray(rows)?rows:[];
+  const docIds=[...new Set(jobs.map(j=>Number(j.generated_document_id||0)).filter(Number.isSafeInteger).filter(Boolean))];
+  const docMap=new Map();
+  if(docIds.length){
+   const dr=await adminFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?id=in.('+docIds.join(',')+')&select=id,pdf_url,pdf_path',{cache:'no-store'});
+   if(dr.ok){
+    const docs=await dr.json().catch(()=>[]);
+    for(const d of (Array.isArray(docs)?docs:[]))docMap.set(Number(d.id),d);
+   }
+  }
+  const n=jobs.filter(j=>{
+   const gid=Number(j.generated_document_id||0);
+   if(!gid)return true;
+   const d=docMap.get(gid);
+   return !!d && !d.pdf_url && !d.pdf_path;
+  }).length;
+  setText('tabCountAttente',n);
+  return n;
+ }catch(_){setText('tabCountAttente',0);return 0}
 }
 function close(){if(history.state?.aurasterNavigation&&history.state.ecranAuraster==='screen-admin-pending'){history.back();return}if(typeof afficherEcran==='function')afficherEcran('screen-admin')}
 function bind(){
