@@ -249,9 +249,7 @@ function chapterProposalsFor(t){
   const w=t.metadata?.workflow||{};
   const stored=Array.isArray(w.chapter_options)&&w.chapter_options.length
     ? w.chapter_options
-    : (Array.isArray(w.chapters)&&w.chapters.length&&!Object.prototype.hasOwnProperty.call(w,'chapter_options')
-      ? w.chapters
-      : []);
+    : (Array.isArray(w.chapters)&&w.chapters.length ? w.chapters : []);
   if(stored.length)return stored.map(x=>typeof x==='string'?{title:x,description:'',source:'Proposition enregistrée dans la tâche.'}:x).filter(x=>x&&String(x.title||x.name||'').trim());
   const key=String(t.id)+"|"+String(t.subject||"").toLowerCase()+"|"+String(t.class_name||t.level||"").toLowerCase();
   return CHAPTER_PROPOSALS[key]||[];
