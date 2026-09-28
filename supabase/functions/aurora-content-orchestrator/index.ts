@@ -5,6 +5,7 @@ const reply=(body,status=200)=>new Response(JSON.stringify(body),{status,headers
 const clean=(v,max=8000)=>String(v==null?"":v).trim().slice(0,max);
 const URL=Deno.env.get("SUPABASE_URL")||"";
 const ANON=Deno.env.get("SUPABASE_ANON_KEY")||"";
+const SERVICE_ROLE=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")||"";
 const PROTOCOL="aurore-content-orchestrator-v1";
 const MODEL="deepseek-flash";
 
@@ -14,6 +15,12 @@ async function auth(req){
   if(!URL||!ANON)throw new Error("Configuration Supabase interne absente.");
   const r=await fetch(URL+"/auth/v1/user",{headers:{Authorization:h,apikey:ANON}});
   if(!r.ok)throw new Error("Session Supabase invalide ou expirée.");
+  const user=await r.json();
+  if(!SERVICE_ROLE)throw new Error("Configuration administrateur interne absente.");
+  const pr=await fetch(URL+"/rest/v1/Profils?id=eq."+encodeURIComponent(user.id)+"&select=role",{headers:{apikey:SERVICE_ROLE,Authorization:"Bearer "+SERVICE_ROLE}});
+  const rows=pr.ok?await pr.json().catch(()=>[]):[];
+  if(!rows[0]||String(rows[0].role||"").toLowerCase()!=="admin")throw new Error("Accès administrateur requis.");
+  return user;
 }
 
 function buildPrompt(action,b){
