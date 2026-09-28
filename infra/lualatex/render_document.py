@@ -2331,13 +2331,20 @@ def _display_math_body(segment):
 
 _PLAIN_MATH_ATOM = (
     r"(?:"
-    r"[A-Za-z𝑥𝑦𝑧𝑡𝑛𝑓𝑔𝑎𝑏𝑐𝑒𝑘𝑙𝑚𝑝𝑞𝑟𝑠𝑢𝑣𝑤𝑅](?:[⁰¹²³⁻⁺₀₁₂₃₄₅₆₇₈₉]+)?(?![A-Za-z])"
+    r"[A-Za-z\U0001D400-\U0001D7FF](?:[⁰¹²³⁻⁺₀₁₂₃₄₅₆₇₈₉]+)?(?![A-Za-z])"
     r"|(?:lim|ln|log|exp|sin|cos|tan|max|min|sup|inf)(?![A-Za-z])"
     r"|[0-9]+(?:[.,][0-9]+)?"
     r"|\\(?:lim|ln|log|exp|sin|cos|tan|to|leq|geq|neq|in|notin|subset|subseteq|supset|supseteq|cdot|times|pm|mathbb|setminus)\b"
     r"|[()\[\]{},.+*/=≤≥≠→∈∞ℝℕℤℚℝαβγδπφω^_'’×⋅−-]"
     r"|\s+"
     r")"
+)
+
+
+_PLAIN_MATH_FORMULA_RE = re.compile(
+    r"(?<![A-Za-zÀ-ÿ0-9_])"
+    r"(?P<expr>(?:[A-Z\U0001D400-\U0001D7FF][a-z\U0001D400-\U0001D7FF]?[0-9₀₁₂₃₄₅₆₇₈₉]{0,3}){2,})"
+    r"(?=\s|[,.!?;:]|$)"
 )
 
 _PLAIN_MATH_RELATION_RE = re.compile(
@@ -2356,7 +2363,7 @@ def _looks_like_plain_math_fragment(fragment):
         return False
     if not re.search(r"(?:=|→|≤|≥|≠|∈)", value):
         return False
-    if not re.search(r"[0-9𝑥𝑦𝑧𝑡𝑛𝑓𝑔𝑎𝑏𝑐𝑒𝑘𝑙𝑚𝑝𝑞𝑟𝑠𝑢𝑣𝑤𝑅]", value):
+    if not re.search(r"[0-9\U0001D400-\U0001D7FF𝑥𝑦𝑧𝑡𝑛𝑓𝑔𝑎𝑏𝑐𝑒𝑘𝑙𝑚𝑝𝑟𝑠𝑢𝑣𝑤𝑅]", value):
         return False
     # Plain prose words are forbidden; one-letter mathematical variables are
     # allowed. This keeps phrases such as "tend vers" out of math boxes.
@@ -2401,10 +2408,17 @@ def _split_embedded_math(text):
     def split_plain_segment(segment):
         result = []
         cursor = 0
+        candidates = []
         for match in _PLAIN_MATH_RELATION_RE.finditer(segment):
-            start, end = match.span()
-            fragment = match.group(0).strip()
-            if not _looks_like_plain_math_fragment(fragment):
+            candidates.append((match.start(), match.end(), match.group(0)))
+        for match in _PLAIN_MATH_FORMULA_RE.finditer(segment):
+            candidates.append((match.start(), match.end(), match.group(0)))
+        candidates.sort(key=lambda item: (item[0], -(item[1] - item[0])))
+        for start, end, raw_fragment in candidates:
+            if start < cursor:
+                continue
+            fragment = raw_fragment.strip()
+            if _PLAIN_MATH_RELATION_RE.fullmatch(raw_fragment) and not _looks_like_plain_math_fragment(fragment):
                 continue
             if start > cursor:
                 prose = segment[cursor:start].strip()
@@ -3534,7 +3548,7 @@ def render(data):
         r"  \fancyfoot[C]{\textcolor{gray}{\small Aurore — Section Archives \textbullet\; \thepage}}%",
         r"}",
         r"\titleformat{\section}{\Large\sffamily\bfseries\color{aurorebase}}{\thesection}{0.65em}{}[\vspace{0.25ex}\textcolor{aurorebase!78!white}{\titlerule[0.7pt]}]",
-        r"\titleformat{\subsection}{\large\sffamily\bfseries\color{auroredeep}}{\thesubsection}{0.6em}{}[\vspace{0.18ex}\textcolor{aurorebase!38!white}{\titlerule[0.45pt]}]",
+        r"\titleformat{\subsection}{\large\sffamily\bfseries\color{aurorebase}}{\thesubsection}{0.6em}{}[\vspace{0.18ex}\textcolor{aurorebase!38!white}{\titlerule[0.45pt]}]",
         r"% Course sections: dominant Aurore color forms the left visual spine through each section.",
         r"\newcommand{\AuroreCourseSectionStart}{%",
         r"  \begin{tcolorbox}[enhanced,breakable,blanker,left=9pt,right=0pt,top=0pt,bottom=6pt,leftrule=1.7pt,colframe=aurorebase,before skip=0pt,after skip=0pt,pad at break*=1mm]%",
