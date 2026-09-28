@@ -2267,12 +2267,13 @@ def render_exercise_text(value, mode="question"):
         # Repair ambiguous inline/display dollar boundaries before splitting
         # $...$ blocks; otherwise the splitter itself can consume prose as math.
         part = _repair_accidental_inline_double_dollar(part)
+        part = _repair_overescaped_math_delimiters(part)
         m = re.match(r"^(\d+[.)])\s+(.+)$", part, flags=re.DOTALL)
         prefix = ""
         body = m.group(2) if m else part
         if m:
             prefix = (
-                r"\par\medskip\noindent{\sffamily\bfseries\color{auroredeep}" + tex_text(m.group(1)) +
+                r"{\sffamily\bfseries\color{auroredeep}" + tex_text(m.group(1)) +
                 r"}\enspace "
             )
 
@@ -2285,11 +2286,11 @@ def render_exercise_text(value, mode="question"):
                     math = math[2:-2].strip()
                 else:
                     math = math[2:-2].strip()
-                math_label = "Étape de calcul" if mode == "correction" else "Expression mathématique"
+                math_label = "Étape de calcul" if mode == "correction" else ""
                 lines.append(_math_render_command(math, math_label))
                 continue
 
-            rendered = inline(segment, auto_math=True)
+            rendered = _render_course_paragraph(segment, auto_math=True)
             if not rendered.strip():
                 continue
             if mode == "correction":
@@ -2299,10 +2300,8 @@ def render_exercise_text(value, mode="question"):
                     rendered,
                     flags=re.IGNORECASE,
                 )
-            if first_text and prefix:
-                lines.append(prefix + rendered)
-            else:
-                lines.append(rendered)
+            paragraph_body = (prefix + rendered) if (first_text and prefix) else rendered
+            lines.append(r"\AuroreParagraphBlock{" + paragraph_body + r"}")
             first_text = False
             lines.append(r"\par\smallskip")
     return lines
@@ -3637,12 +3636,12 @@ def render(data):
         r"  \par\needspace{4\baselineskip}{\sffamily\large\bfseries\color{auroredeep}#1}\par\vspace{0.18cm}\textcolor{aurorebase!55!white}{\rule{\linewidth}{0.55pt}}\vspace{0.35cm}%",
         r"}",
         r"\newcommand{\AuroreExerciseSeriesBlock}[2]{%",
-        r"  \begin{tcolorbox}[enhanced,breakable,arc=6pt,boxrule=.45pt,colframe=aurorebase!55!white,colback=white,left=7pt,right=7pt,top=5pt,bottom=6pt,before skip=5pt,after skip=7pt,pad at break*=1mm]%",
+        r"  \begin{tcolorbox}[enhanced,breakable,arc=8pt,outer arc=8pt,boxrule=.45pt,colframe=aurorebase!42!white,colback=white,left=8pt,right=8pt,top=6pt,bottom=7pt,before skip=6pt,after skip=9pt,borderline west={1.7pt}{0pt}{aurorebase},pad at break*=1.5mm]%",
         r"    {\sffamily\bfseries\color{auroredeep}Exercice #1}\par\smallskip #2%",
         r"  \end{tcolorbox}%",
         r"}",
         r"\newcommand{\AuroreExerciseSeriesCorrection}[2]{%",
-        r"  \begin{tcolorbox}[enhanced,breakable,arc=6pt,boxrule=.35pt,colframe=aurorebase!28!white,colback=aurorepale,left=7pt,right=7pt,top=5pt,bottom=6pt,before skip=5pt,after skip=7pt,pad at break*=1mm]%",
+        r"  \begin{tcolorbox}[enhanced,breakable,arc=8pt,outer arc=8pt,boxrule=.35pt,colframe=aurorebase!30!white,colback=aurorepale,left=8pt,right=8pt,top=6pt,bottom=7pt,before skip=6pt,after skip=9pt,borderline west={1.7pt}{0pt}{aurorebase!72!black},pad at break*=1.5mm]%",
         r"    {\sffamily\bfseries\color{auroredeep}Corrigé — Exercice #1}\par\smallskip #2%",
         r"  \end{tcolorbox}%",
         r"}",
@@ -3864,7 +3863,11 @@ def render(data):
                         body.extend(render_aurore_graphics(section_graphics, graphics_root, {"primary":"#"+theme_primary,"secondary":"#"+theme_secondary,"strong":"#"+theme}))
                     if section_visuals: body.extend(render_visuals(section_visuals))
                 if ex.get("hint"):
-                    body.append(r"\AuroreLabeledBlock{Indication}{" + inline(ex["hint"], auto_math=True) + r"}")
+                    body.append(
+                        r"\AuroreLabeledBlock{Indication}{"
+                        + _render_course_paragraph(clean_text(ex["hint"]).strip(), auto_math=True)
+                        + r"}"
+                    )
                 if ex.get("formula"): body.append(display_formula(ex["formula"]))
                 lines.append(r"\AuroreExerciseSeriesBlock{" + str(exercise_number) + r"}{" + "\n".join(body) + r"}")
                 if inline_correction:
