@@ -196,6 +196,12 @@ async function chargerDocumentsEnAttenteAdminV2(){
     for(const d of (Array.isArray(docs)?docs:[]))docMap.set(Number(d.id),d);
   }
   const nextJobs=(Array.isArray(raw)?raw:[]).filter(j=>{
+    const m=metadataOf(j);
+    const workflow=m.workflow&&typeof m.workflow==='object'?m.workflow:null;
+    const workflowStage=String(workflow?.stage||'').trim().toLowerCase();
+    // Les tâches encore dans le circuit éditorial B/C ne doivent jamais entrer dans le sas D.
+    // Les anciens documents sans workflow.stage restent compatibles avec l'ancien circuit.
+    if(workflowStage && workflowStage!=='edition_ready' && workflowStage!=='production_ready' && workflowStage!=='pdf_ready')return false;
     const gid=Number(j.generated_document_id||0);
     if(!gid)return true;
     const d=docMap.get(gid);
