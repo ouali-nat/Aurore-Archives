@@ -17,9 +17,9 @@ function init(){
    document.querySelectorAll('.admin-tab-panel').forEach(p=>p.style.display=p===target?'block':'none');
    document.querySelectorAll('.admin-tab').forEach(b=>b.classList.toggle('active',b===card));
  }
- card.addEventListener('click',function(){show(panel)});
+ card.addEventListener('click',function(){\n   const detail=document.getElementById('adminDetail');\n   if(detail) detail.style.display='block';\n   show(panel);\n });
  const cfCard=document.querySelector('.admin-tab[data-tab="content-factory"]');
- if(cfCard)cfCard.addEventListener('click',function(){show(cf)});
+ if(cfCard)cfCard.addEventListener('click',function(){\n   const detail=document.getElementById('adminDetail');\n   if(detail) detail.style.display='block';\n   show(cf);\n });
  const style=document.createElement('style');style.id='aurora-admin-separation-v1';style.textContent='.aurora-request-head{margin-bottom:16px;padding:20px;border:1px solid color-mix(in srgb,currentColor 10%,transparent);border-radius:18px;background:color-mix(in srgb,currentColor 3%,transparent)}.aurora-request-head h3{margin:4px 0 6px}.aurora-request-head p{margin:0;max-width:760px;font-size:.76rem;line-height:1.5;opacity:.7}.aurora-request-head .admin-overview-kicker{font-size:.62rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;opacity:.55}#admin-tab-aurora-request .cf-create-box{margin-top:0}';
  document.head.appendChild(style);
 }
