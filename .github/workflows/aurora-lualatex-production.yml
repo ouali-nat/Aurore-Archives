@@ -627,6 +627,21 @@ jobs:
               raise SystemExit(f"Math documentary exclusion smoke test failed: {math_wikimedia_qa!r}")
           PY
 
+      - name: Validate production renderer import from repository root
+        run: |
+          python3 - <<'PY'
+          import sys
+          from pathlib import Path
+
+          renderer_dir = Path("infra/lualatex").resolve()
+          sys.path.insert(0, str(renderer_dir))
+          import render_document
+
+          if not callable(render_document.apply_authoritative_document_theme):
+              raise SystemExit("Production renderer import regression: authoritative theme merge is unavailable.")
+          print("Production renderer root import: OK")
+          PY
+
       - name: Claim next generated document
         # Never let a code push or any future trigger claim a PDF by accident.
         # workflow_call is used only by the manually dispatched production dispatcher.
@@ -673,9 +688,15 @@ jobs:
             -o infra/lualatex/production/document-response.json
           python3 - <<'PY'
           import json
+          import sys
           from pathlib import Path
           from urllib.parse import quote
           from urllib.request import urlopen
+
+          # This step runs from the repository root. Make the renderer package
+          # directory importable before calling its authoritative theme merge.
+          sys.path.insert(0, str(Path("infra/lualatex").resolve()))
+          import render_document
 
           root = Path("infra/lualatex/production")
           payload = json.loads((root / "document-response.json").read_text(encoding="utf-8"))
