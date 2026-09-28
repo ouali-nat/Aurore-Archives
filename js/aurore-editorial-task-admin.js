@@ -471,17 +471,12 @@ function bindDetail(d,t,state){
     try{await updateJob(t.id,{stage:'revision_requested',rejected:true,revision_requested:true});await chargerEspaceEditorialChatGPT()}catch(e){alert(e.message||e)}
   });
   d.querySelector('[data-plan-validate]')?.addEventListener('click',async()=>{
+    const button=d.querySelector('[data-plan-validate]');if(button)button.disabled=true;
     try{
-      await updateJob(t.id,{
-        stage:'admin_validation',
-        user_validated:true,
-        proposal_status:'validated_for_admin',
-        rejected:false,
-        revision_requested:false,
-        admin_validation:{status:'pending',updated_at:new Date().toISOString()}
-      });
+      const updated=await persistPlan('admin_validation','validated_for_admin');
+      if(updated?.metadata?.workflow?.stage!=='admin_validation')throw new Error('La validation du plan n’a pas pu être confirmée.');
       await chargerEspaceEditorialChatGPT()
-    }catch(e){alert(e.message||e)}
+    }catch(e){alert(e.message||e)}finally{if(button)button.disabled=false}
   });
   d.querySelector('[data-admin-validate]')?.addEventListener('click',async()=>{
     const checks={};d.querySelectorAll('[data-admin-check]').forEach(x=>checks[x.dataset.adminCheck]=x.checked);
