@@ -217,13 +217,52 @@ const stageInfo={
   admin_validation:{label:'Validation administrative',tone:'admin'},
   edition_ready:{label:'Prêt pour l’édition',tone:'ready'}
 };
+function aResearchFor(t){
+  const w=t.metadata?.workflow||{},r=w.chapter_research;
+  return r&&typeof r==='object'?r:{};
+}
+function aResearchReady(t){
+  const w=t.metadata?.workflow||{},r=aResearchFor(t);
+  const options=Array.isArray(w.chapter_options)?w.chapter_options:[];
+  const findings=String(r.findings||'').trim();
+  const methodology=String(r.methodology||r.method||'').trim();
+  const sources=Array.isArray(r.source_urls)?r.source_urls.filter(Boolean):[];
+  return String(r.status||'').toLowerCase()==='researched'
+    && findings.length>=40
+    && methodology.length>=10
+    && sources.length>=1
+    && options.length>=1
+    && options.every(x=>String(x?.title||x?.name||x||'').trim());
+}
 function classify(t){
   const w=t.metadata?.workflow||{},s=w.stage||'initiale';
+  if(['chapitres_proposes','chapitre_selectionne'].includes(s)&&aResearchReady(t))return'B';
   if(!w.chatgpt_claimed&&['initiale','chapitres_demandes'].includes(s))return'A';
-  if(w.chatgpt_claimed&&['chapitres_proposes','chapitre_selectionne'].includes(s))return'B';
   if(['proposition_editoriale','proposal_review','revision_requested'].includes(s))return'C';
   if(['admin_validation','edition_ready'].includes(s))return'D';
   return null;
+}
+async function promoteAtoB(id){
+  const fresh=await getJob(id);
+  if(!fresh)throw new Error('Tâche A introuvable.');
+  const w=fresh.metadata?.workflow||{};
+  if(!['initiale','chapitres_demandes'].includes(w.stage||'initiale'))throw new Error('Cette tâche n’est plus dans A.');
+  if(!aResearchReady(fresh))throw new Error('Migration A→B bloquée : la recherche persistée, ses sources et les propositions de chapitres doivent être complètes et vérifiables.');
+  const promoted=await updateJob(fresh.id,{
+    stage:'chapitres_proposes',
+    chatgpt_claimed:true,
+    chatgpt_claimed_at:new Date().toISOString(),
+    proposal_status:'chapters_ready',
+    research_verified_at:new Date().toISOString(),
+    research_verification:'persisted_and_checked',
+    execution_contract_acknowledged:true,
+    manual_pdf_launch_required:true,
+    auto_pdf_launch:false
+  },'draft');
+  if(!promoted?.metadata?.workflow||promoted.metadata.workflow.stage!=='chapitres_proposes'||!aResearchReady(promoted)){
+    throw new Error('La migration A→B n’a pas pu être confirmée après relecture de Supabase.');
+  }
+  return promoted;
 }
 function taskCard(t,section){
   const w=t.metadata?.workflow||{},s=stageInfo[w.stage]||{label:w.stage||t.status,tone:'waiting'};
@@ -291,14 +330,16 @@ function chapterProposalsFor(t){
   return CHAPTER_PROPOSALS[key]||[];
 }
 function chaptersMarkup(t){
-  const w=t.metadata?.workflow||{};
+  const w=t.metadata?.workflow||{},r=aResearchFor(t);
   const saved=Array.isArray(w.selected_chapters)
     ? w.selected_chapters
     : (Array.isArray(w.chapter_options)?[]:(Array.isArray(w.chapters)?w.chapters:[]));
   const proposals=chapterProposalsFor(t);
-  if(!proposals.length)return'<div class="editor-empty">Aucune proposition structurée disponible pour cette combinaison. La tâche doit être revue avant sélection.</div>';
+  if(!aResearchReady(t))return'<div class="editor-c-plan-context warning"><span>Recherche non vérifiée</span><strong>La carte B ne peut pas proposer de sélection.</strong><small>La recherche, les sources et les propositions doivent être persistées dans Supabase avant l’entrée en B.</small></div>';
+  if(!proposals.length)return'<div class="editor-empty">Aucune proposition structurée disponible après recherche. La tâche doit rester hors de B.</div>';
   const selected=new Set(saved.map(x=>String(x.title||x.name||x)));
-  return '<div class="editor-chapter-source"><span>Propositions issues du programme étudié</span><small>Les chapitres sont préparés par ChatGPT après recoupement des sources pédagogiques. Tu peux ouvrir la liste, choisir les chapitres utiles au document, puis enregistrer.</small></div>'+
+  const sources=Array.isArray(r.source_urls)?r.source_urls:[];
+  return '<div class="editor-chapter-source"><span>Dossier de recherche ayant autorisé A → B</span><small><strong>Méthode :</strong> '+esc(r.methodology||r.method||'—')+' · <strong>Base :</strong> '+esc(r.basis||'—')+' · <strong>Constats :</strong> '+esc(r.findings||'—')+'</small><small><strong>Sources :</strong> '+esc(sources.join(' · '))+'</small></div>'+
     '<button type="button" class="admin-btn ghost editor-chapters-toggle" data-chapters-toggle>Choisir les chapitres <span>＋</span></button>'+
     '<div class="editor-chapters-selection" hidden><div class="editor-chapters-choice">'+proposals.map((x,i)=>'<label class="editor-chapter-choice"><input type="checkbox" data-chapter-choice="'+i+'" '+(selected.has(x.title)?'checked':'')+'><span><strong>'+esc(x.title)+'</strong><small>'+esc(x.description)+'</small><em>'+esc(x.source)+'</em></span></label>').join('')+'</div>'+
     '<div class="editor-plan-actions"><button type="button" class="admin-btn primary" data-chapters-save="'+esc(t.id)+'">Enregistrer la sélection et passer à l’étape suivante</button></div></div>';
@@ -370,7 +411,8 @@ function detail(t,section){
   if(section==='B')return d+meta+'<h5 class="editor-detail-title">Chapitres disponibles</h5>'+chaptersMarkup(t);
   if(section==='C')return d+meta+'<h5 class="editor-detail-title">Plan complet de production</h5>'+planForm(t);
   if(section==='D')return d+meta+'<h5 class="editor-detail-title">Production autorisée / suivi de rédaction</h5>'+productionReadyMarkup(t);
-  return d+meta+'<div class="editor-a-start"><strong>Cette tâche attend notre récupération dans la conversation ChatGPT.</strong><span>Classe et matière sont enregistrées. Aucun moteur IA du site n’est utilisé.</span></div>';
+  const researchReady=aResearchReady(t),r=aResearchFor(t),options=Array.isArray(w.chapter_options)?w.chapter_options:[];
+  return d+meta+'<div class="editor-a-start"><strong>'+esc(researchReady?'Recherche et propositions persistées : la tâche peut passer en B.':'Cette tâche attend notre récupération et sa recherche documentaire.')+'</strong><span>'+esc(researchReady?'La migration sera effectuée seulement après une nouvelle lecture de Supabase et une vérification des sources et chapitres.':'Aucune migration vers B ne doit être faite tant que la recherche, ses sources et les propositions de chapitres ne sont pas écrites dans la tâche.')+'</span>'+(researchReady?'<div class="editor-plan-actions"><button type="button" class="admin-btn primary" data-a-promote="'+esc(t.id)+'">Transférer en B après vérification</button></div>':'')+'</div>'';
 }
 function render(root,state){
   const all=state.tasks, groups={A:[],B:[],C:[],D:[]};
@@ -476,6 +518,17 @@ function bind(root,state){
 }
 function bindDetail(d,t,state){
   d.querySelector('[data-editor-close]')?.addEventListener('click',()=>{d.hidden=true});
+  d.querySelector('[data-a-promote]')?.addEventListener('click',async()=>{
+    const button=d.querySelector('[data-a-promote]');if(button)button.disabled=true;
+    try{
+      await promoteAtoB(Number(t.id));
+      alert('Recherche vérifiée et tâche transférée en B.');
+      await chargerEspaceEditorialChatGPT();
+    }catch(e){
+      alert(e.message||e);
+      if(button)button.disabled=false;
+    }
+  });
   d.querySelector('[data-chapters-toggle]')?.addEventListener('click',()=>{
     const box=d.querySelector('.editor-chapters-selection'),btn=d.querySelector('[data-chapters-toggle]');
     if(!box||!btn)return; box.hidden=!box.hidden; btn.innerHTML=box.hidden?'Choisir les chapitres <span>＋</span>':'Masquer les chapitres <span>−</span>';
