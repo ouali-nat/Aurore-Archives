@@ -1924,7 +1924,7 @@ def _auto_math_normalize_fragment(fragment):
     # Après conversion d'une lettre grecque, αf(x)+βg(x) pouvait devenir \alphaf / \betag.
     # Séparer uniquement les commandes mathématiques connues lorsqu'une lettre les suit.
     value = re.sub(
-        r"\\(?:pi|Delta|Omega|alpha|beta|gamma|delta|theta|lambda|mu|infty|approx|pm|times|cdot|leq|geq|neq|iff|Longrightarrow|Rightarrow|Longleftarrow|Leftrightarrow|in|notin|subset|subseteq|supset|supseteq)(?=[A-Za-z])",
+        r"\\(?:Longleftrightarrow|Leftrightarrow|Longrightarrow|Rightarrow|Longleftarrow|subseteq|supseteq|infty|notin|subset|supset|approx|times|cdot|alpha|beta|gamma|delta|theta|lambda|Omega|Delta|in|pi|mu|neq|leq|geq|iff|pm)(?=[A-Za-z])",
         lambda m: m.group(0) + " ",
         value,
     )
