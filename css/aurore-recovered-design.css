@@ -487,35 +487,3 @@ html[data-theme="light"][data-color-theme] .home-secondary-choice:hover{
   .home-five-level,.home-five-level::before,.home-five-level::after,.home-secondary-choice{transition:none!important;}
   .home-five-level:hover,.home-secondary-choice:hover{transform:none;}
 }
-
-/* ===== Aurore — Formes de coins (CSS corner-shape) =====
-   Hiérarchie visuelle : les grandes portes restent souples (squircle),
-   les blocs ramifiés deviennent plus nets (bevel asymétrique).
-   Navigateurs non compatibles : l'arrondi actuel est conservé. */
-@supports (corner-shape: bevel){
-  /* Grandes portes : squircle */
-  .home-five-level{
-    border-radius:34px;
-    corner-shape:squircle;
-  }
-  .home-five-level::after{
-    border-radius:16px;
-    corner-shape:squircle;
-  }
-  .home-secondary-choices{
-    border-radius:30px;
-    corner-shape:squircle;
-  }
-
-  /* Blocs ramifiés : bevel sur deux coins opposés */
-  .home-secondary-choice{
-    border-radius:16px;
-    corner-shape:bevel round bevel round;
-  }
-
-  @media(max-width:640px){
-    .home-five-level{border-radius:28px;}
-    .home-secondary-choices{border-radius:26px;}
-    .home-secondary-choice{border-radius:14px;}
-  }
-}
