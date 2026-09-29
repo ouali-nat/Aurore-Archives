@@ -326,7 +326,7 @@ function bSelectionReady(t){
 }
 function classify(t){
   const w=t.metadata?.workflow||{},s=w.stage||'initiale';
-  if(['chapitres_proposes','chapitre_selectionne'].includes(s)&&aResearchReady(t))return'B';
+  if(['chapitres_proposes','chapitre_selectionne'].includes(s))return'B';
   if(!w.chatgpt_claimed&&['initiale','chapitres_demandes'].includes(s))return'A';
   if(['proposition_editoriale','revision_requested'].includes(s))return'C';
   if(['proposal_review','admin_validation','edition_ready'].includes(s))return'CX';
@@ -349,6 +349,7 @@ async function promoteAtoB(id){
     execution_contract:B_EXECUTION_CONTRACT,
     execution_contract_acknowledged:true,
     completion_guard:B_EXECUTION_CONTRACT_VERSION,
+    migration_log:{from_stage:'A',to_stage:'B',verified_at:new Date().toISOString(),verification:'persisted_context_research_sources_and_options'},
     manual_pdf_launch_required:true,
     auto_pdf_launch:false
   },'draft');
@@ -360,6 +361,7 @@ async function promoteAtoB(id){
 function taskCard(t,section){
   const w=t.metadata?.workflow||{},s=stageInfo[w.stage]||{label:w.stage||t.status,tone:'waiting'};
   const ch=Array.isArray(w.chapters)?w.chapters:[];
+  const bOptions=Array.isArray(w.chapter_options)?w.chapter_options:[];
   const pv=w.proposal&&typeof w.proposal==='object'?w.proposal:null;
   const desc=section==='B'
     ? (ch.length?ch.slice(0,3).map(x=>x.title||x.name||textValue(x)).join(' · ')+(ch.length>3?'…':''):'Recherche / chapitres à proposer')
@@ -433,7 +435,9 @@ function chaptersMarkup(t){
   if(!aResearchReady(t))return'<div class="editor-c-plan-context warning"><span>Recherche non vérifiée</span><strong>La carte B ne peut pas proposer de sélection.</strong><small>La recherche, les sources et les propositions doivent être persistées dans Supabase avant l’entrée en B.</small></div>';
   if(!proposals.length)return'<div class="editor-empty">Aucune proposition structurée disponible après recherche. La tâche doit rester hors de B.</div>';
   const selected=new Set(saved.map(x=>String(x.title||x.name||x)));
-  const sources=Array.isArray(r.source_urls)?r.source_urls:[];
+  const sources=[...(Array.isArray(r.source_urls)?r.source_urls:[]),...(Array.isArray(r.sources)?r.sources:[])]
+    .map(x=>typeof x==='string'?x:(x&&typeof x==='object'?(x.url||x.href||x.source_url||''):String(x||'')))
+    .map(x=>String(x||'').trim()).filter(Boolean);
   return '<div class="editor-chapter-source"><span>Dossier de recherche ayant autorisé A → B</span><small><strong>Méthode :</strong> '+esc(r.methodology||r.method||'—')+' · <strong>Base :</strong> '+esc(r.basis||'—')+' · <strong>Constats :</strong> '+esc(r.findings||'—')+'</small><small><strong>Sources :</strong> '+esc(sources.join(' · '))+'</small></div>'+
     '<button type="button" class="admin-btn ghost editor-chapters-toggle" data-chapters-toggle>Choisir les chapitres <span>＋</span></button>'+
     '<div class="editor-chapters-selection" hidden><div class="editor-chapters-choice">'+proposals.map((x,i)=>'<label class="editor-chapter-choice"><input type="checkbox" data-chapter-choice="'+i+'" '+(selected.has(x.title)?'checked':'')+'><span><strong>'+esc(x.title)+'</strong><small>'+esc(x.description)+'</small><em>'+esc(x.source)+'</em></span></label>').join('')+'</div>'+
@@ -902,7 +906,7 @@ function injectStyle(){
 #auroreEditorialTaskAdmin .editor-classification{position:relative;min-width:0}
 #auroreEditorialTaskAdmin .editor-classification-trigger{width:100%;min-height:41px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 11px;border:1px solid var(--editor-border);border-radius:11px;background:var(--editor-surface);color:inherit;font:inherit;font-size:.67rem;font-weight:800;cursor:pointer;text-align:left}
 #auroreEditorialTaskAdmin .editor-classification-trigger:hover{border-color:color-mix(in srgb,var(--editor-accent) 35%,var(--editor-border))}
-#auroreEditorialTaskAdmin .editor-classification-panel{position:absolute;z-index:1200;left:0;right:0;min-width:min(760px,calc(100vw - 32px));width:max(100%,min(760px,calc(100vw - 32px)));top:calc(100% + 7px);padding:16px;border:1px solid color-mix(in srgb,var(--editor-accent) 22%,var(--editor-border));border-radius:15px;background:var(--editor-surface);box-shadow:0 18px 45px rgba(0,0,0,.18)}
+#auroreEditorialTaskAdmin .editor-classification-panel{position:absolute;z-index:1200;left:0;right:auto;min-width:min(760px,calc(100vw - 24px));width:max(100%,min(760px,calc(100vw - 24px)));max-width:calc(100vw - 24px);box-sizing:border-box;overflow-x:hidden;top:calc(100% + 7px);padding:16px;border:1px solid color-mix(in srgb,var(--editor-accent) 22%,var(--editor-border));border-radius:15px;background:var(--editor-surface);box-shadow:0 18px 45px rgba(0,0,0,.18)}
 #auroreEditorialTaskAdmin .editor-classification-panel[hidden]{display:none}
 #auroreEditorialTaskAdmin .editor-classification-section{display:grid;gap:6px;margin-bottom:9px}
 #auroreEditorialTaskAdmin .editor-classification-section:last-child{margin-bottom:0}#auroreEditorialTaskAdmin .editor-picker-progress{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;padding:2px}
@@ -915,7 +919,7 @@ function injectStyle(){
 #auroreEditorialTaskAdmin .editor-classification-label{font-size:.58rem;font-weight:950;letter-spacing:.05em;text-transform:uppercase;opacity:.55}
 #auroreEditorialTaskAdmin .editor-option-scroll{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:8px;max-height:240px;overflow-y:auto;overflow-x:hidden;width:100%;max-width:none;padding:4px 2px 8px;scrollbar-width:thin;overscroll-behavior:contain}
 #auroreEditorialTaskAdmin .editor-option-scroll::-webkit-scrollbar{height:6px}
-#auroreEditorialTaskAdmin .editor-option{min-height:48px;border:1px solid var(--editor-border);border-radius:10px;background:color-mix(in srgb,currentColor 3%,var(--editor-surface));color:inherit;padding:8px 10px;font:inherit;font-size:.62rem;font-weight:800;cursor:pointer;text-align:left;white-space:nowrap}
+#auroreEditorialTaskAdmin .editor-option{min-height:48px;border:1px solid var(--editor-border);border-radius:10px;background:color-mix(in srgb,currentColor 3%,var(--editor-surface));color:inherit;padding:8px 10px;font:inherit;font-size:.62rem;font-weight:800;cursor:pointer;text-align:left;white-space:normal;overflow-wrap:anywhere}
 #auroreEditorialTaskAdmin .editor-option:hover,#auroreEditorialTaskAdmin .editor-option.selected{border-color:var(--editor-accent);background:color-mix(in srgb,var(--editor-accent) 10%,var(--editor-surface))}
 #auroreEditorialTaskAdmin .editor-option-empty{padding:9px;font-size:.61rem;opacity:.55}
 #auroreEditorialTaskAdmin .editor-create-fields label,#auroreEditorialTaskAdmin .editor-field{display:grid;gap:5px;font-size:.62rem;font-weight:850}
