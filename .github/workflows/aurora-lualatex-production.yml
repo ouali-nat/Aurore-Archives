@@ -126,6 +126,15 @@ jobs:
               raise SystemExit(f"Course production math regression: {rendered_course!r}")
           if r"\alpha f(x)" not in rendered_course or r"\beta g(x)" not in rendered_course:
               raise SystemExit(f"Course production Greek math missing: {rendered_course!r}")
+          command_prefix_cases = [
+              (r"\\inftyx", r"\\infty x"),
+              (r"\\subseteqx", r"\\subseteq x"),
+              (r"\\supseteqx", r"\\supseteq x"),
+          ]
+          for raw, expected in command_prefix_cases:
+              actual = _auto_math_normalize_fragment(raw)
+              if actual != expected:
+                  raise SystemExit(f"TeX command boundary regression: {actual!r}, expected {expected!r}")
           prime_cases = [
               ("f'(x)", r"f^{\prime}(x)"),
               ("f''(x)", r"f^{\prime\prime}(x)"),
