@@ -1907,6 +1907,14 @@ def _auto_math_parse_expression(s, start):
 
 def _auto_math_normalize_fragment(fragment):
     value = str(fragment or "")
+    # TeX lit tout le mot suivant une commande à antislash comme un seul contrôle.
+    # Après conversion d'une lettre grecque, αf(x)+βg(x) pouvait devenir \alphaf / \betag.
+    # Séparer uniquement les commandes mathématiques connues lorsqu'une lettre les suit.
+    value = re.sub(
+        r"\\(?:pi|Delta|Omega|alpha|beta|gamma|delta|theta|lambda|mu|infty|approx|pm|times|cdot|leq|geq|neq|iff|Longrightarrow|Rightarrow|Longleftarrow|Leftrightarrow|in|notin|subset|subseteq|supset|supseteq)(?=[A-Za-z])",
+        lambda m: m.group(0) + " ",
+        value,
+    )
     value = value.translate(str.maketrans({
         "²": "^2", "³": "^3", "⁴": "^4", "⁵": "^5", "⁶": "^6",
         "⁷": "^7", "⁸": "^8", "⁹": "^9", "⁰": "^0",
