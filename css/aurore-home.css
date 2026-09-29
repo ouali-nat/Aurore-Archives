@@ -325,3 +325,51 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     .service-client-actions{flex-direction:column;}
     .service-client-link{width:100%;}
   }
+
+
+/* ============================================================
+   EXPLOREZ PAR NIVEAU — forme dossier organique
+   Ciblage strict : uniquement les cinq grandes portes de l'accueil.
+   Aucun changement de contenu, de navigation ou d'administration.
+   ============================================================ */
+#screen-home .home-five-levels .home-five-level{
+  border-radius:34px 22px 30px 42px / 38px 28px 36px 30px;
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.035),rgba(255,255,255,.008)),
+    #12101A;
+  border-color:#30283F;
+  box-shadow:0 14px 38px rgba(0,0,0,.22);
+  overflow:hidden;
+  transform:none;
+}
+
+#screen-home .home-five-level:hover{
+  transform:translateY(-3px);
+  border-color:color-mix(in srgb,var(--accent,#8B5CF6) 58%,#30283F);
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.012)),
+    #15121D;
+  box-shadow:0 20px 46px rgba(0,0,0,.26);
+}
+
+#screen-home .home-five-level:active{
+  transform:translateY(-1px);
+}
+
+#screen-home .home-five-level .home-door-copy{
+  min-width:0;
+}
+
+#screen-home .home-five-level .home-door-kicker{
+  color:color-mix(in srgb,var(--accent,#C084FC) 68%,#A8A2B5);
+}
+
+#screen-home .home-five-level > .home-door-cover-stack{
+  border-radius:22px 14px 18px 28px;
+}
+
+@media(max-width:640px){
+  #screen-home .home-five-level{
+    border-radius:28px 18px 24px 34px / 32px 23px 30px 26px;
+  }
+}
