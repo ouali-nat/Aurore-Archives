@@ -904,7 +904,7 @@ function injectStyle(){
 #auroreEditorialTaskAdmin .editor-classification{position:relative;min-width:0}
 #auroreEditorialTaskAdmin .editor-classification-trigger{width:100%;min-height:41px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 11px;border:1px solid var(--editor-border);border-radius:11px;background:var(--editor-surface);color:inherit;font:inherit;font-size:.67rem;font-weight:800;cursor:pointer;text-align:left}
 #auroreEditorialTaskAdmin .editor-classification-trigger:hover{border-color:color-mix(in srgb,var(--editor-accent) 35%,var(--editor-border))}
-#auroreEditorialTaskAdmin .editor-classification-panel{position:absolute;z-index:1200;left:0;right:0;min-width:min(760px,calc(100vw - 32px));width:max(100%,min(760px,calc(100vw - 32px)));top:calc(100% + 7px);padding:16px;border:1px solid color-mix(in srgb,var(--editor-accent) 22%,var(--editor-border));border-radius:15px;background:var(--editor-surface);box-shadow:0 18px 45px rgba(0,0,0,.18)}
+#auroreEditorialTaskAdmin .editor-classification-panel{position:absolute;z-index:1200;left:0;right:auto;min-width:min(820px,calc(100vw - 24px));width:max(100%,min(820px,calc(100vw - 24px)));max-width:calc(100vw - 24px);box-sizing:border-box;overflow-x:hidden;padding:16px;border:1px solid color-mix(in srgb,var(--editor-accent) 22%,var(--editor-border));border-radius:15px;background:var(--editor-surface);box-shadow:0 18px 45px rgba(0,0,0,.18)}
 #auroreEditorialTaskAdmin .editor-classification-panel[hidden]{display:none}
 #auroreEditorialTaskAdmin .editor-classification-section{display:grid;gap:6px;margin-bottom:9px}
 #auroreEditorialTaskAdmin .editor-classification-section:last-child{margin-bottom:0}#auroreEditorialTaskAdmin .editor-picker-progress{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;padding:2px}
@@ -917,7 +917,7 @@ function injectStyle(){
 #auroreEditorialTaskAdmin .editor-classification-label{font-size:.58rem;font-weight:950;letter-spacing:.05em;text-transform:uppercase;opacity:.55}
 #auroreEditorialTaskAdmin .editor-option-scroll{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:8px;max-height:240px;overflow-y:auto;overflow-x:hidden;width:100%;max-width:none;padding:4px 2px 8px;scrollbar-width:thin;overscroll-behavior:contain}
 #auroreEditorialTaskAdmin .editor-option-scroll::-webkit-scrollbar{height:6px}
-#auroreEditorialTaskAdmin .editor-option{min-height:48px;border:1px solid var(--editor-border);border-radius:10px;background:color-mix(in srgb,currentColor 3%,var(--editor-surface));color:inherit;padding:8px 10px;font:inherit;font-size:.62rem;font-weight:800;cursor:pointer;text-align:left;white-space:nowrap}
+#auroreEditorialTaskAdmin .editor-option{min-height:48px;border:1px solid var(--editor-border);border-radius:10px;background:color-mix(in srgb,currentColor 3%,var(--editor-surface));color:inherit;padding:8px 10px;font:inherit;font-size:.62rem;font-weight:800;cursor:pointer;text-align:left;white-space:normal;overflow-wrap:anywhere}
 #auroreEditorialTaskAdmin .editor-option:hover,#auroreEditorialTaskAdmin .editor-option.selected{border-color:var(--editor-accent);background:color-mix(in srgb,var(--editor-accent) 10%,var(--editor-surface))}
 #auroreEditorialTaskAdmin .editor-option-empty{padding:9px;font-size:.61rem;opacity:.55}
 #auroreEditorialTaskAdmin .editor-create-fields label,#auroreEditorialTaskAdmin .editor-field{display:grid;gap:5px;font-size:.62rem;font-weight:850}
