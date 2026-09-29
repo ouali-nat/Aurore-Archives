@@ -373,3 +373,46 @@ header{background:rgba(8,7,13,.94)!important;border-bottom:1px solid rgba(192,13
     border-radius:28px 18px 24px 34px / 32px 23px 30px 26px;
   }
 }
+
+
+/* ============================================================
+   PARCOURS PUBLICS — même langage de cases/dossiers
+   Ciblage : uniquement les blocs de navigation des ramifications.
+   Les documents, actions et panneaux d'administration restent inchangés.
+   ============================================================ */
+#screen-level .sublevel-card,
+#screen-level .cat-card,
+#screen-matieres .matiere-card{
+  border-radius:34px 22px 30px 42px / 38px 28px 36px 30px;
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.035),rgba(255,255,255,.008)),
+    #12101A;
+  border-color:#30283F;
+  box-shadow:0 14px 38px rgba(0,0,0,.22);
+  overflow:hidden;
+}
+
+#screen-level .sublevel-card:hover,
+#screen-level .cat-card:hover,
+#screen-matieres .matiere-card:hover{
+  transform:translateY(-3px);
+  border-color:color-mix(in srgb,var(--accent,#8B5CF6) 58%,#30283F);
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.012)),
+    #15121D;
+  box-shadow:0 20px 46px rgba(0,0,0,.26);
+}
+
+#screen-level .sublevel-card:active,
+#screen-level .cat-card:active,
+#screen-matieres .matiere-card:active{
+  transform:translateY(-1px);
+}
+
+@media(max-width:640px){
+  #screen-level .sublevel-card,
+  #screen-level .cat-card,
+  #screen-matieres .matiere-card{
+    border-radius:28px 18px 24px 34px / 32px 23px 30px 26px;
+  }
+}
