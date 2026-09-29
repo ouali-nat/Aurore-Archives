@@ -2890,9 +2890,25 @@ def render_aurore_graphics(graphics, assets_dir, theme):
 
 def _math_visual_plan_qa(data):
     """Validate the graph plan and the concrete GeoGebra assets before LaTeX."""
-    subject = clean_text(data.get("subject") or "").lower()
+    metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+    memory_gate = metadata.get("memory_gate") if isinstance(metadata.get("memory_gate"), dict) else {}
+    discipline = " ".join(
+        clean_text(value).lower()
+        for value in (
+            data.get("subject"),
+            data.get("matiere"),
+            data.get("specialite"),
+            metadata.get("subject"),
+            metadata.get("matiere"),
+            metadata.get("specialite"),
+            memory_gate.get("subject"),
+            memory_gate.get("matiere"),
+            memory_gate.get("specialite"),
+        )
+        if clean_text(value).strip()
+    )
     edition = _edition_profile(data)
-    if edition.get("kind") != "cours" or not re.search(r"math", subject):
+    if edition.get("kind") != "cours" or not re.search(r"math", discipline):
         return {"enabled": False, "planned_graphs": 0}
 
     plan = data.get("visual_plan")
@@ -3511,13 +3527,26 @@ def _documentary_visual_plan_qa(data):
     if not isinstance(data, dict):
         return {"enabled": False, "legacy": True, "planned_visuals": 0}
 
-    subject = clean_text(data.get("subject") or "").lower()
-    # Canonical Aurore editorial payloads may expose the discipline under
-    # `matiere` or `specialite` after connector normalization.
-    # Keep documentary QA aligned with the mathematical QA contract.
+    metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+    memory_gate = metadata.get("memory_gate") if isinstance(metadata.get("memory_gate"), dict) else {}
+    # Connector-ingested documents may keep the canonical discipline in the
+    # editorial memory gate while content_json itself has no subject field.
+    # Use every canonical location so a Math visual_plan is never routed into
+    # the documentary contract merely because normalization omitted subject.
     discipline = " ".join(
-        clean_text(data.get(key) or "").lower()
-        for key in ("subject", "matiere", "specialite")
+        clean_text(value).lower()
+        for value in (
+            data.get("subject"),
+            data.get("matiere"),
+            data.get("specialite"),
+            metadata.get("subject"),
+            metadata.get("matiere"),
+            metadata.get("specialite"),
+            memory_gate.get("subject"),
+            memory_gate.get("matiere"),
+            memory_gate.get("specialite"),
+        )
+        if clean_text(value).strip()
     )
     profile = _edition_profile(data)
     is_math = "math" in discipline
