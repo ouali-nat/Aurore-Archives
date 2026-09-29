@@ -3941,7 +3941,32 @@ def render(data):
     exercise_number = 0
 
     corrections_by_number = {}
-    for c in data.get("corrections", []) or []:
+    raw_corrections = data.get("corrections")
+    correction_note = ""
+    if isinstance(raw_corrections, list):
+        structured_corrections = raw_corrections
+    elif isinstance(raw_corrections, str):
+        correction_note = raw_corrections.strip()
+        structured_corrections = []
+        if correction_note:
+            print(
+                "Renderer QA: top-level corrections is textual; "
+                "preserving it as a correction note instead of treating it as a list."
+            )
+    else:
+        structured_corrections = []
+        if raw_corrections not in (None, ""):
+            print(
+                "Renderer QA: unsupported top-level corrections type "
+                f"{type(raw_corrections).__name__}; ignoring it."
+            )
+    for c in structured_corrections:
+        if not isinstance(c, dict):
+            print(
+                "Renderer QA: ignoring non-object top-level correction "
+                f"({type(c).__name__})."
+            )
+            continue
         try:
             corrections_by_number[int(c.get("exercise_number", 0) or 0)] = c
         except (TypeError, ValueError):
@@ -4130,11 +4155,19 @@ def render(data):
                 )
 
     unmatched = [] if is_exercise_document else [
-        c for c in data.get("corrections", [])
-        if int(c.get("exercise_number", 0) or 0) not in used_correction_numbers
+        c for c in structured_corrections
+        if isinstance(c, dict)
+        and int(c.get("exercise_number", 0) or 0) not in used_correction_numbers
     ]
-    if unmatched:
+    if unmatched or correction_note:
         lines.append(r"\section*{Corrections complémentaires}")
+        if correction_note:
+            lines.append(r"\Needspace{5\baselineskip}")
+            lines.append(
+                r"\AuroreLabeledBlock{Repères de correction}{"
+                + inline(correction_note)
+                + r"}"
+            )
         for c in unmatched:
             lines.append(r"\Needspace{5\baselineskip}")
             lines.append(r"\AuroreCorrectionBlock{" + str(c.get("exercise_number", "")) + r"}{" + inline(c.get("solution", "")) + r"}")
