@@ -6,6 +6,29 @@ window.__auroreEditorialTaskAdmin=true;
 const PROTOCOL='aurore-chatgpt-editor-v2';
 const EDITOR='ChatGPT';
 const PAGE_SIZE=10;
+const C_PLAN_REQUIRED_FIELDS=['researchMethod','curricularBasis','researchFindings','sources','title','chapter','objectives','competencies','prerequisites','progression','architecture','productionStrategy','content','methods','activities','examples','situations','exercises','corrections','differentiation','evaluation','volume','duration','resources','mathGeoGebra','technicalNeeds','pdfFormat','pdfOrientation','pdfPagination','pdfThemeColor','pdfLayout','pdfFonts','pdfHeaders','pdfResources','quality','notes'];
+const C_EXECUTION_CONTRACT_VERSION='c-plan-guardrails-v1';
+const C_EXECUTION_CONTRACT={
+  version:C_EXECUTION_CONTRACT_VERSION,
+  rule:'NE_PAS_REVENIR_DANS_LA_DISCUSSION_AVANT_ECRITURE_ET_VERIFICATION',
+  sequence:[
+    'RECUPERER les tâches réellement présentes dans la section C depuis Supabase.',
+    'LIRE le contexte complet : classe, matière, type, chapitre sélectionné en B et métadonnées.',
+    'ASSIMILER le contexte avant toute rédaction : niveau, objectifs, contraintes curriculaires et besoins techniques.',
+    'RECHERCHER et recouper les bases pédagogiques pertinentes avant de construire le plan.',
+    'REMPLIR ET ENRICHIR workflow.proposal dans la carte C existante, sans créer une réponse parallèle dans la conversation.',
+    'RELIRE la proposition écrite et vérifier tous les champs obligatoires ainsi que la cohérence avec la tâche.',
+    'NE_DECLARER_TERMINE_QU_APRES_VERIFICATION_PERSISTANTE : ne déclarer la tâche traitée qu’après relecture du contenu persistant.',
+    'NE_JAMAIS_LANCER_LE_PDF_AUTOMATIQUEMENT : la validation C prépare uniquement l’étape suivante.'
+  ],
+  prohibitedBeforeCompletion:[
+    'répondre que la tâche est traitée sans avoir écrit workflow.proposal',
+    'demander à l’administrateur de remplir le plan à la place de ChatGPT',
+    'inventer une tâche ou un chapitre absent de Supabase',
+    'passer stage à edition_ready sans contrôle de complétude',
+    'lancer une génération PDF depuis C'
+  ]
+};
 const esc=v=>{const d=document.createElement('div');d.textContent=String(v==null?'':v);return d.innerHTML};
 const panel=()=>document.querySelector('.admin-tab-panel[data-panel="aurora-request"]');
 
@@ -128,10 +151,11 @@ async function createTask(className,subject,documentType,classification={}){
       theme_color:'#6D28D9',editorial:{role:'editor',engine:EDITOR,schema_version:'aurora-editorial-2',status:'waiting_chatgpt'},
       classification:{level,location,class_name:className,subject,document_type:documentType,path},
       workflow:{protocol:PROTOCOL,stage:'initiale',proposal_version:0,user_validated:false,chatgpt_claimed:false,
-        manual_pdf_only:true,manual_pdf_launch_required:true,auto_pdf_launch:false,editorial_engine:EDITOR}}
+        manual_pdf_only:true,manual_pdf_launch_required:true,auto_pdf_launch:false,editorial_engine:EDITOR,
+        execution_contract:C_EXECUTION_CONTRACT,execution_contract_acknowledged:false,completion_guard:C_EXECUTION_CONTRACT_VERSION}}
   }));
   if(!Number.isSafeInteger(id)||id<1)throw new Error('Identifiant de tâche invalide.');
-  return updateJob(id,{stage:'initiale',chatgpt_claimed:false,chatgpt_claimed_at:null,chapters:null,selected_chapter:null,proposal:null,proposal_version:0,user_validated:false,rejected:false,revision_requested:false,admin_validation:null},'draft');
+  return updateJob(id,{stage:'initiale',chatgpt_claimed:false,chatgpt_claimed_at:null,chapters:null,selected_chapter:null,proposal:null,proposal_version:0,user_validated:false,rejected:false,revision_requested:false,admin_validation:null,execution_contract:C_EXECUTION_CONTRACT,execution_contract_acknowledged:false,completion_guard:C_EXECUTION_CONTRACT_VERSION},'draft');
 }
 const textValue=v=>{
   if(v==null)return '';
@@ -282,6 +306,31 @@ function chaptersMarkup(t){
 function field(label,key,value,wide){
   return '<label class="editor-field '+(wide?'wide':'')+'"><span>'+label+'</span><textarea data-plan-field="'+key+'" rows="'+(wide?4:2)+'">'+esc(value)+'</textarea></label>';
 }
+function selectedChaptersFor(t){
+  const w=t.metadata?.workflow||{};
+  return Array.isArray(w.selected_chapters)?w.selected_chapters:(Array.isArray(w.chapters)?w.chapters:[]);
+}
+function cPlanCompleteness(t,p){
+  const missing=C_PLAN_REQUIRED_FIELDS.filter(k=>!String(p?.[k]??'').trim());
+  const selected=selectedChaptersFor(t);
+  const chapterNames=selected.map(x=>String(x?.title||x?.name||x||'').trim()).filter(Boolean);
+  if(!chapterNames.length)missing.unshift('selected_chapters');
+  if(p?.chapter&&chapterNames.length){
+    const normalized=String(p.chapter).toLocaleLowerCase('fr');
+    const matches=chapterNames.some(x=>normalized.includes(x.toLocaleLowerCase('fr'))||x.toLocaleLowerCase('fr').includes(normalized));
+    if(!matches)missing.unshift('chapter_alignment');
+  }
+  const researchSourceCount=String(p?.sources||'').split(/\n|\r?\n/).map(x=>x.trim()).filter(Boolean).length;
+  if(researchSourceCount<1)missing.unshift('research_source');
+  if(String(p?.quality||'').trim().length<40)missing.unshift('quality_detail');
+  return {ok:missing.length===0,missing:[...new Set(missing)],selectedCount:chapterNames.length,sourceCount:researchSourceCount};
+}
+function cGuardMarkup(t,p){
+  const check=cPlanCompleteness(t,p);
+  const label=check.ok?'Contrôle de complétude : prêt à être relu par l’administrateur.':'Contrôle de complétude : la carte ne peut pas être déclarée prête.';
+  const detail=check.ok?'La proposition contient les éléments de recherche, de production et de PDF requis. La validation administrative reste distincte.':'Éléments encore manquants : '+check.missing.map(x=>x==='selected_chapters'?'chapitres B':x==='chapter_alignment'?'alignement chapitre B/C':x==='research_source'?'au moins une source':x==='quality_detail'?'contrôle qualité détaillé':x).join(', ')+'.';
+  return '<div class="editor-c-plan-context '+(check.ok?'':'warning')+'"><span>Garde-fou '+C_EXECUTION_CONTRACT_VERSION+'</span><strong>'+esc(label)+'</strong><small>'+esc(detail)+' Aucun retour conversationnel ne doit être considéré comme terminé avant écriture et vérification de cette carte.</small></div>';
+}
 function planForm(t){
   const p=proposalFor(t),research=t.metadata?.workflow?.chapter_research&&typeof t.metadata.workflow.chapter_research==='object'?t.metadata.workflow.chapter_research:{};
   const selected=Array.isArray(t.metadata?.workflow?.selected_chapters)
@@ -292,7 +341,7 @@ function planForm(t){
     : '<div class="editor-c-plan-context warning"><span>Base de travail manquante</span><strong>Aucun chapitre sélectionné</strong><small>La carte peut être préparée, mais elle ne doit pas être validée en C tant qu’un chapitre n’est pas sélectionné en B.</small></div>';
   const researchStatus=research.status||p.researchFindings||p.sources?'Recherche documentaire présente':'Recherche documentaire à renseigner';
   const sourceCount=Array.isArray(research.source_urls)?research.source_urls.length:(p.sources?String(p.sources).split('\\n').filter(Boolean).length:0);
-  return '<div class="editor-plan-form">'+selectedMarkup+
+  return '<div class="editor-plan-form">'+selectedMarkup+cGuardMarkup(t,p)+
     '<div class="editor-c-research"><div><span class="editor-section-kicker">Dossier de recherche</span><strong>'+esc(researchStatus)+'</strong><small>'+sourceCount+' source'+(sourceCount>1?'s':'')+' enregistrée'+(sourceCount>1?'s':'')+'. Les sources, constats et bases curriculaires sont éditables avant validation.</small></div></div>'+
     '<div class="editor-plan-grid editor-research-grid">'+
     field('Méthode de recherche','researchMethod',p.researchMethod,true)+field('Base curriculaire / programme','curricularBasis',p.curricularBasis,true)+field('Constats utiles à la production','researchFindings',p.researchFindings,true)+field('Sources / URLs (une par ligne)','sources',p.sources,true)+
@@ -469,6 +518,8 @@ function bindDetail(d,t,state){
     const selected=selectedChapters();
     if(!selected.length)throw new Error('Le plan ne peut pas être enregistré : aucun chapitre validé en section B.');
     const p=collectPlan();
+    const guard=cPlanCompleteness(t,p);
+    if(!guard.ok)throw new Error('Garde-fou C : plan incomplet. Champs/contrôles manquants : '+guard.missing.join(', '));
     return updateJob(t.id,{
       proposal:p,
       proposal_version:Number(t.metadata?.workflow?.proposal_version||0)+1,
