@@ -60,14 +60,14 @@ const D_EXECUTION_CONTRACT={
     'RELIRE la production éditoriale persistée avant de la déclarer terminée.',
     'INGESTER la production via public.aurora_connector_ingest_editorial_document(jsonb).',
     'VERIFIER le generated_document_id et le statut review après ingestion.',
-    'POUR les documents de mathématiques, physique ou chimie, exécuter le préflight canonique public.aurora_scientific_preflight et bloquer l’ingestion si moins de 400 éléments scientifiques effectivement convertis en LaTeX sont détectés ; signaler précisément le nombre converti et le manque à l’éditeur.',
+    'POUR les documents de mathématiques, physique ou chimie, exécuter le préflight canonique public.aurora_scientific_preflight et bloquer l’ingestion selon le préflight scientifique canonique gradué : Primaire 400, Collège 500, Lycée et Supérieur 1200 éléments LaTeX, avec 2 constructions GeoGebra et 3 sites sources distincts ; signaler précisément les métriques et les manques à l’éditeur.',
     'LAISSER le PDF manuel : aucune génération PDF automatique depuis D.'
   ],
   prohibitedBeforeCompletion:[
     'passer directement CX vers documents_en_attente sans production éditoriale persistée',
     'déclarer D terminé sans generated_document_id confirmé',
     'lancer automatiquement LuaLaTeX ou une autre génération PDF',
-    'insérer un document scientifique dans Documents en attente sans avoir obtenu un préflight scientifique valide avec au moins 400 éléments convertis en LaTeX'
+    'insérer un document scientifique dans Documents en attente sans avoir obtenu un préflight scientifique valide selon le niveau, avec les constructions GeoGebra et les sources distinctes requises'
   ]
 };
 const C_EXECUTION_CONTRACT={
@@ -299,7 +299,9 @@ function aResearchReady(t){
   const options=Array.isArray(w.chapter_options)?w.chapter_options:[];
   const findings=String(r.findings||'').trim();
   const methodology=String(r.methodology||r.method||'').trim();
-  const sources=Array.isArray(r.source_urls)?r.source_urls.filter(Boolean):[];
+  const sources=[...(Array.isArray(r.source_urls)?r.source_urls:[]),...(Array.isArray(r.sources)?r.sources:[])]
+    .map(x=>typeof x==='string'?x:(x&&typeof x==='object'?(x.url||x.href||x.source_url||''):String(x||'')))
+    .map(x=>String(x||'').trim()).filter(Boolean);
   return aContextReady(t)
     &&String(r.status||'').toLowerCase()==='researched'
     &&findings.length>=40
@@ -425,7 +427,9 @@ function chaptersMarkup(t){
   if(!aResearchReady(t))return'<div class="editor-c-plan-context warning"><span>Recherche non vérifiée</span><strong>La carte B ne peut pas proposer de sélection.</strong><small>La recherche, les sources et les propositions doivent être persistées dans Supabase avant l’entrée en B.</small></div>';
   if(!proposals.length)return'<div class="editor-empty">Aucune proposition structurée disponible après recherche. La tâche doit rester hors de B.</div>';
   const selected=new Set(saved.map(x=>String(x.title||x.name||x)));
-  const sources=Array.isArray(r.source_urls)?r.source_urls:[];
+  const sources=[...(Array.isArray(r.source_urls)?r.source_urls:[]),...(Array.isArray(r.sources)?r.sources:[])]
+    .map(x=>typeof x==='string'?x:(x&&typeof x==='object'?(x.url||x.href||x.source_url||''):String(x||'')))
+    .map(x=>String(x||'').trim()).filter(Boolean);
   return '<div class="editor-chapter-source"><span>Dossier de recherche ayant autorisé A → B</span><small><strong>Méthode :</strong> '+esc(r.methodology||r.method||'—')+' · <strong>Base :</strong> '+esc(r.basis||'—')+' · <strong>Constats :</strong> '+esc(r.findings||'—')+'</small><small><strong>Sources :</strong> '+esc(sources.join(' · '))+'</small></div>'+
     '<button type="button" class="admin-btn ghost editor-chapters-toggle" data-chapters-toggle>Choisir les chapitres <span>＋</span></button>'+
     '<div class="editor-chapters-selection" hidden><div class="editor-chapters-choice">'+proposals.map((x,i)=>'<label class="editor-chapter-choice"><input type="checkbox" data-chapter-choice="'+i+'" '+(selected.has(x.title)?'checked':'')+'><span><strong>'+esc(x.title)+'</strong><small>'+esc(x.description)+'</small><em>'+esc(x.source)+'</em></span></label>').join('')+'</div>'+
