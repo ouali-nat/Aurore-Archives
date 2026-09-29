@@ -6,6 +6,47 @@ window.__auroreEditorialTaskAdmin=true;
 const PROTOCOL='aurore-chatgpt-editor-v2';
 const EDITOR='ChatGPT';
 const PAGE_SIZE=10;
+const A_EXECUTION_CONTRACT_VERSION='a-recovery-guardrails-v1';
+const A_EXECUTION_CONTRACT={
+  version:A_EXECUTION_CONTRACT_VERSION,
+  rule:'NE_PAS_PASSER_EN_B_AVANT_ASSIMILATION_ECRITE_ET_VERIFICATION',
+  sequence:[
+    'RECUPERER la tâche réelle depuis Supabase, jamais une tâche inventée ou un exemple.',
+    'LIRE le contexte complet : titre, matière, niveau, classe, type de document, classification et métadonnées utiles.',
+    'ASSIMILER ce contexte et l’écrire dans workflow.context_assimilation avant toute poursuite.',
+    'RECHERCHER et recouper les ressources pertinentes pour cette tâche précise.',
+    'ECRIRE workflow.chapter_research avec méthode, base, constats et sources.',
+    'ECRIRE workflow.chapter_options à partir de cette recherche, sans utiliser une proposition statique comme preuve de recherche.',
+    'RELIRE la tâche persistée depuis Supabase et vérifier contexte + recherche + sources + propositions.',
+    'SEULEMENT APRÈS cette vérification autoriser le stage chapitres_proposes.'
+  ],
+  prohibitedBeforeCompletion:[
+    'dire que la tâche A est traitée sans assimilation et écriture persistées',
+    'passer en B avec une recherche absente ou générique non reliée à la tâche',
+    'passer en B sans sources persistées',
+    'passer en B sans propositions de chapitres persistées',
+    'utiliser la conversation comme substitut à workflow.context_assimilation'
+  ]
+};
+const B_EXECUTION_CONTRACT_VERSION='b-selection-guardrails-v1';
+const B_EXECUTION_CONTRACT={
+  version:B_EXECUTION_CONTRACT_VERSION,
+  rule:'NE_PAS_PASSER_EN_C_AVANT_LECTURE_ASSIMILATION_ET_SELECTION_PERSISTEES',
+  sequence:[
+    'RELIRE depuis Supabase le contexte A, la recherche et les propositions.',
+    'ASSIMILER le dossier de recherche avant toute sélection.',
+    'CHOISIR explicitement un ou plusieurs chapitres à partir des propositions persistées.',
+    'ECRIRE la sélection dans workflow.selected_chapters, workflow.chapters et workflow.selected_chapter.',
+    'RELIRE la sélection persistée et vérifier qu’elle appartient aux propositions de B.',
+    'SEULEMENT APRÈS cette vérification autoriser le stage proposition_editoriale.'
+  ],
+  prohibitedBeforeCompletion:[
+    'construire C à partir d’un chapitre absent des propositions B',
+    'déclarer la sélection enregistrée sans relecture Supabase',
+    'passer en C sans acknowledgement du contexte et de la recherche B',
+    'remplacer les données persistées par une réponse conversationnelle'
+  ]
+};
 const C_PLAN_REQUIRED_FIELDS=['researchMethod','curricularBasis','researchFindings','sources','title','chapter','objectives','competencies','prerequisites','progression','architecture','productionStrategy','content','methods','activities','examples','situations','exercises','corrections','differentiation','evaluation','volume','duration','resources','mathGeoGebra','technicalNeeds','pdfFormat','pdfOrientation','pdfPagination','pdfThemeColor','pdfLayout','pdfFonts','pdfHeaders','pdfResources','quality','notes'];
 const C_EXECUTION_CONTRACT_VERSION='c-plan-guardrails-v1';
 const C_EXECUTION_CONTRACT={
@@ -152,10 +193,12 @@ async function createTask(className,subject,documentType,classification={}){
       classification:{level,location,class_name:className,subject,document_type:documentType,path},
       workflow:{protocol:PROTOCOL,stage:'initiale',proposal_version:0,user_validated:false,chatgpt_claimed:false,
         manual_pdf_only:true,manual_pdf_launch_required:true,auto_pdf_launch:false,editorial_engine:EDITOR,
-        execution_contract:C_EXECUTION_CONTRACT,execution_contract_acknowledged:false,completion_guard:C_EXECUTION_CONTRACT_VERSION}}
+        execution_contract:A_EXECUTION_CONTRACT,execution_contract_acknowledged:false,completion_guard:A_EXECUTION_CONTRACT_VERSION,
+        a_context_required:true,b_context_required:true}}
   }));
   if(!Number.isSafeInteger(id)||id<1)throw new Error('Identifiant de tâche invalide.');
-  return updateJob(id,{stage:'initiale',chatgpt_claimed:false,chatgpt_claimed_at:null,chapters:null,selected_chapter:null,proposal:null,proposal_version:0,user_validated:false,rejected:false,revision_requested:false,admin_validation:null,execution_contract:C_EXECUTION_CONTRACT,execution_contract_acknowledged:false,completion_guard:C_EXECUTION_CONTRACT_VERSION},'draft');
+  return updateJob(id,{stage:'initiale',chatgpt_claimed:false,chatgpt_claimed_at:null,chapters:null,selected_chapter:null,proposal:null,proposal_version:0,user_validated:false,rejected:false,revision_requested:false,admin_validation:null,execution_contract:A_EXECUTION_CONTRACT,execution_contract_acknowledged:false,completion_guard:A_EXECUTION_CONTRACT_VERSION,
+    a_context_required:true,b_context_required:true},'draft');
 }
 const textValue=v=>{
   if(v==null)return '';
@@ -221,18 +264,36 @@ function aResearchFor(t){
   const w=t.metadata?.workflow||{},r=w.chapter_research;
   return r&&typeof r==='object'?r:{};
 }
+function aContextReady(t){
+  const w=t.metadata?.workflow||{},a=w.context_assimilation;
+  if(!a||typeof a!=='object')return false;
+  const required=[t.title,t.subject,t.level,t.class_name,t.document_type];
+  const snapshot=String(a.snapshot||'').trim();
+  const summary=String(a.summary||'').trim();
+  return a.acknowledged===true&&snapshot.length>=80&&summary.length>=60
+    &&required.every(x=>String(x||'').trim()&&snapshot.includes(String(x).trim()));
+}
 function aResearchReady(t){
   const w=t.metadata?.workflow||{},r=aResearchFor(t);
   const options=Array.isArray(w.chapter_options)?w.chapter_options:[];
   const findings=String(r.findings||'').trim();
   const methodology=String(r.methodology||r.method||'').trim();
   const sources=Array.isArray(r.source_urls)?r.source_urls.filter(Boolean):[];
-  return String(r.status||'').toLowerCase()==='researched'
-    && findings.length>=40
-    && methodology.length>=10
-    && sources.length>=1
-    && options.length>=1
-    && options.every(x=>String(x?.title||x?.name||x||'').trim());
+  return aContextReady(t)
+    &&String(r.status||'').toLowerCase()==='researched'
+    &&findings.length>=40
+    &&methodology.length>=10
+    &&sources.length>=1
+    &&options.length>=1
+    &&options.every(x=>String(x?.title||x?.name||x||'').trim());
+}
+function bSelectionReady(t){
+  const w=t.metadata?.workflow||{},selected=Array.isArray(w.selected_chapters)?w.selected_chapters:[];
+  const options=Array.isArray(w.chapter_options)?w.chapter_options:[];
+  const allowed=new Set(options.map(x=>String(x?.title||x?.name||x)));
+  return w.b_context_assimilation?.acknowledged===true
+    &&selected.length>0
+    &&selected.every(x=>allowed.has(String(x?.title||x?.name||x)));
 }
 function classify(t){
   const w=t.metadata?.workflow||{},s=w.stage||'initiale';
@@ -255,7 +316,9 @@ async function promoteAtoB(id){
     proposal_status:'chapters_ready',
     research_verified_at:new Date().toISOString(),
     research_verification:'persisted_and_checked',
+    execution_contract:A_EXECUTION_CONTRACT,
     execution_contract_acknowledged:true,
+    completion_guard:A_EXECUTION_CONTRACT_VERSION,
     manual_pdf_launch_required:true,
     auto_pdf_launch:false
   },'draft');
@@ -542,16 +605,33 @@ function bindDetail(d,t,state){
     const button=d.querySelector('[data-chapters-save]');
     if(button)button.disabled=true;
     try{
+      const fresh=await getJob(t.id);
+      if(!fresh||!aResearchReady(fresh))throw new Error('Garde-fou B : le contexte et la recherche A ne sont pas suffisamment persistés et vérifiés.');
+      const fw=fresh.metadata?.workflow||{};
+      const available=new Set((Array.isArray(fw.chapter_options)?fw.chapter_options:[]).map(x=>String(x?.title||x?.name||x)));
+      if(!selected.every(x=>available.has(String(x?.title||x?.name||x))))throw new Error('Garde-fou B : une sélection ne provient pas des propositions persistées.');
       const updated=await updateJob(t.id,{
         chapters:selected,
         selected_chapters:selected,
         selected_chapter:selected[0]||null,
+        b_context_assimilation:{
+          acknowledged:true,
+          acknowledged_at:new Date().toISOString(),
+          source_stage:fw.stage,
+          summary:'Contexte A, recherche, sources et propositions relus avant sélection.',
+          selected_from_persisted_options:selected.map(x=>x.title||x.name||String(x))
+        },
+        execution_contract:B_EXECUTION_CONTRACT,
+        execution_contract_acknowledged:true,
+        completion_guard:B_EXECUTION_CONTRACT_VERSION,
         stage:'proposition_editoriale',
         proposal_status:'awaiting_chatgpt_plan',
         rejected:false,
         revision_requested:false
       });
-      if(!updated?.metadata?.workflow?.selected_chapters?.length)throw new Error('La sélection n’a pas pu être confirmée dans la tâche.');
+      const uw=updated?.metadata?.workflow||{};
+      if(!bSelectionReady(updated))throw new Error('Garde-fou B : la sélection n’a pas pu être confirmée après relecture de Supabase.');
+      if(uw.stage!=='proposition_editoriale')throw new Error('Garde-fou B : la transition vers C n’a pas été confirmée.');
       await chargerEspaceEditorialChatGPT()
     }catch(e){
       if(button)button.disabled=false;
