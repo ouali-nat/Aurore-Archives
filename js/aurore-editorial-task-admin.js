@@ -322,7 +322,7 @@ function classify(t){
   if(!w.chatgpt_claimed&&['initiale','chapitres_demandes'].includes(s))return'A';
   if(['proposition_editoriale','revision_requested'].includes(s))return'C';
   if(['proposal_review','admin_validation','edition_ready'].includes(s))return'CX';
-  if(['redaction','production_en_cours','production_terminee','pdf_ready'].includes(s))return'D';
+  if(['redaction','production_en_cours'].includes(s))return'D';
   return null;
 }
 async function promoteAtoB(id){
