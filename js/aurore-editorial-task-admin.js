@@ -60,12 +60,14 @@ const D_EXECUTION_CONTRACT={
     'RELIRE la production éditoriale persistée avant de la déclarer terminée.',
     'INGESTER la production via public.aurora_connector_ingest_editorial_document(jsonb).',
     'VERIFIER le generated_document_id et le statut review après ingestion.',
+    'POUR les documents de mathématiques, physique ou chimie, bloquer l’ingestion si moins de 400 éléments convertibles/convertis en LaTeX sont détectés et signaler le manque à l’éditeur.',
     'LAISSER le PDF manuel : aucune génération PDF automatique depuis D.'
   ],
   prohibitedBeforeCompletion:[
     'passer directement CX vers documents_en_attente sans production éditoriale persistée',
     'déclarer D terminé sans generated_document_id confirmé',
-    'lancer automatiquement LuaLaTeX ou une autre génération PDF'
+    'lancer automatiquement LuaLaTeX ou une autre génération PDF',
+    'insérer un document scientifique dans Documents en attente sans avoir atteint le seuil LaTeX de 400 éléments'
   ]
 };
 const C_EXECUTION_CONTRACT={
@@ -742,26 +744,26 @@ function bindDetail(d,t,state){
   const LATEX_CONVERSION_GUARD_VERSION='d-scientific-latex-400-v1';
   const LATEX_CONVERSION_GUARD_MIN=400;
   function isScientificDocument(t){
-    const subject=String(t?.subject||'').toLocaleLowerCase('fr').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'');
+    const subject=String(t?.subject||'').toLocaleLowerCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
     return /(^|[^a-z])(maths|mathematiques|mathematique|physique|chimie)([^a-z]|$)/i.test(subject)
       || subject.includes('physique-chimie')
       || subject.includes('physique chimie');
   }
   function latexConversionGuard(t,e){
     if(!isScientificDocument(t))return {required:false,ok:true,count:null,minimum:LATEX_CONVERSION_GUARD_MIN,version:LATEX_CONVERSION_GUARD_VERSION};
-    const text=Object.entries(e||{}).filter(([k])=>k!=='title').map(([,v])=>String(v||'')).join('\\n');
+    const text=Object.entries(e||{}).filter(([k])=>k!=='title').map(([,v])=>String(v||'')).join('\n');
     const elements=[];
     const pushMatches=(re,label)=>{
       const matches=text.match(re)||[];
       matches.forEach(x=>elements.push({label,raw:x}));
     };
     // Éléments déjà explicitement balisés en LaTeX : ils sont considérés comme convertis.
-    pushMatches(/\\\\\[[\\s\\S]*?\\\\\]|\\\\\([\\s\\S]*?\\\\\)|\\$\\$[\\s\\S]*?\\$\\$|\\$[^$\\n]+\\$/g,'latex');
+    pushMatches(/\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|\$\$[\s\S]*?\$\$|\$[^$\n]+\$/g,'latex');
     // Éléments mathématiques encore écrits en notation courante et convertibles en LaTeX.
-    pushMatches(/(?:[A-Za-zÀ-ÿ](?:[_^][A-Za-z0-9]+)?|\\d+(?:[,.]\\d+)?)\\s*(?:=|≈|≠|≤|≥|<|>|→|↔|\\+|−|-|×|÷|\\/|\\^|√)\\s*(?:[A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9_.,^()]*)(?:\\s*(?:=|≈|≠|≤|≥|<|>|→|↔|\\+|−|-|×|÷|\\/|\\^|√)\\s*(?:[A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9_.,^()]*)+)*/g,'convertible_formula');
-    pushMatches(/\\b(?:sin|cos|tan|ln|log|exp|lim|sqrt|racine|intégrale|derivee|dérivée)\\s*(?:[_^{(][^\\n]{1,80})/gi,'convertible_function');
-    pushMatches(/\\b\\d+(?:[,.]\\d+)?\\s*(?:×|x|\\*|·)\\s*10(?:\\^|\\s*\\^\\s*)[-+]?\\d+/g,'scientific_notation');
-    pushMatches(/\\b\\d+(?:[,.]\\d+)?\\s*(?:mol|g|kg|m|cm|mm|L|mL|K|Pa|J|N|V|A|Ω|Hz|s)\\b/g,'scientific_quantity');
+    pushMatches(/(?:[A-Za-zÀ-ÿ](?:[_^][A-Za-z0-9]+)?|\d+(?:[,.]\d+)?)\s*(?:=|≈|≠|≤|≥|<|>|→|↔|\+|−|-|×|÷|\/|\^|√)\s*(?:[A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9_.,^()]*)(?:\s*(?:=|≈|≠|≤|≥|<|>|→|↔|\+|−|-|×|÷|\/|\^|√)\s*(?:[A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9_.,^()]*)+)*/g,'convertible_formula');
+    pushMatches(/\b(?:sin|cos|tan|ln|log|exp|lim|sqrt|racine|intégrale|derivee|dérivée)\s*(?:[_^{(][^\n]{1,80})/gi,'convertible_function');
+    pushMatches(/\b\d+(?:[,.]\d+)?\s*(?:×|x|\*|·)\s*10(?:\^|\s*\^\s*)[-+]?\d+/g,'scientific_notation');
+    pushMatches(/\b\d+(?:[,.]\d+)?\s*(?:mol|g|kg|m|cm|mm|L|mL|K|Pa|J|N|V|A|Ω|Hz|s)\b/g,'scientific_quantity');
     // Déduplique les mêmes segments détectés par plusieurs familles de motifs.
     const seen=new Set(),unique=[];
     elements.forEach(item=>{
@@ -780,7 +782,7 @@ function bindDetail(d,t,state){
     const e=collectEditorial();
     if(!e.title)throw new Error('Le titre final est obligatoire.');
     if(!e.content)throw new Error('Le contenu final est obligatoire.');
-    const updated=await updateJob(t.id,{editorial_content:{...e,updated_at:new Date().toISOString(),editor:EDITOR,source_plan_version:Number(t.metadata?.workflow?.proposal_version||0)},stage:'production_en_cours',production_status:'editorial_in_progress',execution_contract:D_EXECUTION_CONTRACT,execution_contract_acknowledged:true,completion_guard:D_EXECUTION_CONTRACT_VERSION,auto_pdf_launch:false,manual_pdf_launch_required:true});
+    const updated=await updateJob(t.id,{editorial_content:{...e,updated_at:new Date().toISOString(),editor:EDITOR,source_plan_version:Number(t.metadata?.workflow?.proposal_version||0)},stage:'production_en_cours',production_status:'editorial_in_progress',execution_contract:D_EXECUTION_CONTRACT,execution_contract_acknowledged:true,completion_guard:D_EXECUTION_CONTRACT_VERSION,auto_pdf_launch:false,manual_pdf_launch_required:true},'draft');
     if(updated?.metadata?.workflow?.stage!=='production_en_cours')throw new Error('L’édition D n’a pas pu être confirmée après relecture de Supabase.');
     return {updated,e};
   };
