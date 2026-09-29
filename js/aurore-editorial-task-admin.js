@@ -60,14 +60,14 @@ const D_EXECUTION_CONTRACT={
     'RELIRE la production éditoriale persistée avant de la déclarer terminée.',
     'INGESTER la production via public.aurora_connector_ingest_editorial_document(jsonb).',
     'VERIFIER le generated_document_id et le statut review après ingestion.',
-    'POUR les documents de mathématiques, physique ou chimie, appeler le garde-fou public.aurora_scientific_latex_density(jsonb) et bloquer l’ingestion si moins de 400 éléments mathématiques effectivement convertis en LaTeX sont détectés ; signaler précisément le nombre converti et le manque à l’éditeur.',
+    'POUR les documents de mathématiques, physique ou chimie, exécuter le préflight canonique public.aurora_scientific_preflight et bloquer l’ingestion si moins de 400 éléments scientifiques effectivement convertis en LaTeX sont détectés ; signaler précisément le nombre converti et le manque à l’éditeur.',
     'LAISSER le PDF manuel : aucune génération PDF automatique depuis D.'
   ],
   prohibitedBeforeCompletion:[
     'passer directement CX vers documents_en_attente sans production éditoriale persistée',
     'déclarer D terminé sans generated_document_id confirmé',
     'lancer automatiquement LuaLaTeX ou une autre génération PDF',
-    'insérer un document scientifique dans Documents en attente sans avoir obtenu un rapport scientific-latex-density-1 valide avec au moins 400 éléments convertis'
+    'insérer un document scientifique dans Documents en attente sans avoir obtenu un préflight scientifique valide avec au moins 400 éléments convertis en LaTeX'
   ]
 };
 const C_EXECUTION_CONTRACT={
@@ -741,10 +741,10 @@ function bindDetail(d,t,state){
     {title:'Évaluation',content:e.evaluation},
     {title:'Synthèse',content:e.synthesis}
   ].filter(x=>x.content||x.title==='Contenu du cours')});
-  const SCIENTIFIC_LATEX_DENSITY_VERSION='scientific-latex-density-1';
+  const SCIENTIFIC_LATEX_DENSITY_VERSION='scientific-preflight-1';
   const SCIENTIFIC_LATEX_DENSITY_MIN=400;
   function isScientificDocument(t){
-    const subject=String(t?.subject||'').toLocaleLowerCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const subject=String(t?.subject||'').toLocaleLowerCase('fr').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'');
     return /(^|[^a-z])(maths|mathematiques|mathematique|physique|chimie)([^a-z]|$)/i.test(subject)
       || subject.includes('physique-chimie')
       || subject.includes('physique chimie');
@@ -758,21 +758,36 @@ function bindDetail(d,t,state){
         contract_version:SCIENTIFIC_LATEX_DENSITY_VERSION,
         minimum_elements:SCIENTIFIC_LATEX_DENSITY_MIN,
         converted_elements:null,
-        message:'Garde-fou de densité LaTeX non requis pour cette matière.'
+        message:'Garde-fou scientifique LaTeX non requis pour cette matière.'
       };
     }
-    const report=await rpc('aurora_scientific_latex_density',{p_content_json:editorialPayload(e)});
-    const result=(report&&typeof report==='object')?report:{};
-    const count=Number(result.converted_elements||0);
+    const result=await rpc('aurora_scientific_preflight',{
+      p_subject:t.subject,
+      p_document_type:t.document_type||'cours',
+      p_content_json:editorialPayload(e)
+    });
+    const report=(result&&typeof result==='object')?result:{};
+    const metrics=report.metrics&&typeof report.metrics==='object'?report.metrics:{};
+    const count=Number(metrics.latex_conversion_elements||0);
+    const minimum=Number(metrics.minimum_latex_conversion_elements||SCIENTIFIC_LATEX_DENSITY_MIN);
+    const failures=Array.isArray(report.failures)?report.failures.filter(Boolean).map(String):[];
+    const densityFailure=failures.find(x=>/(?:MATH|SCI)-LATEX-400/.test(x));
+    const message=densityFailure||failures[0]||(
+      report.status==='pass'
+        ? 'Préflight scientifique validé.'
+        : 'Préflight scientifique bloqué : correction éditoriale requise avant insertion.'
+    );
     return {
-      ...result,
+      ...report,
       required:true,
-      ok:result.status==='pass' && count>=SCIENTIFIC_LATEX_DENSITY_MIN,
-      contract_version:result.contract_version||SCIENTIFIC_LATEX_DENSITY_VERSION,
-      minimum_elements:Number(result.minimum_elements||SCIENTIFIC_LATEX_DENSITY_MIN),
+      ok:report.status==='pass' && count>=minimum,
+      status:report.status||'blocked',
+      contract_version:report.contract_version||SCIENTIFIC_LATEX_DENSITY_VERSION,
+      minimum_elements:minimum,
       converted_elements:count,
-      missing_elements:Number(result.missing_elements||Math.max(0,SCIENTIFIC_LATEX_DENSITY_MIN-count)),
-      status:result.status||'blocked'
+      missing_elements:Math.max(0,minimum-count),
+      failures,
+      message
     };
   }
   const saveEditorial=async()=>{
@@ -795,7 +810,12 @@ function bindDetail(d,t,state){
       if(!fresh||!fw.editorial_content?.updated_at)throw new Error('Garde-fou D : la production éditoriale n’est pas persistée.');
       const latexGuard=await scientificLatexDensityGuard(fresh,e);
       await updateJob(t.id,{scientific_latex_density:{...latexGuard,checked_at:new Date().toISOString(),editor:EDITOR}});
-      if(latexGuard.required&&!latexGuard.ok)throw new Error(latexGuard.message||'Garde-fou LaTeX scientifique non satisfait.');
+      if(latexGuard.required&&!latexGuard.ok){
+        const detail=Array.isArray(latexGuard.failures)&&latexGuard.failures.length
+          ? latexGuard.failures.join(' ')
+          : (latexGuard.message||'Préflight scientifique non satisfait.');
+        throw new Error(detail);
+      }
       const ingestId='AUR-D-'+t.id+'-v'+Number(fw.proposal_version||1);
       const payload={ingest_id:ingestId,job_id:Number(t.id),title:e.title,subject:t.subject,level:t.level,class_name:t.class_name,document_type:t.document_type||'cours',content_json:editorialPayload(e),instructions:{category:'Documents',source:'Aurore — Section D',workflow_stage:'edition',manual_pdf_launch_required:true},metadata:{origin:'Aurore — Section D',source_job_id:t.id,chapter:proposalFor(fresh).chapter,workflow_stage:'edition',auto_pdf_launch:false,manual_pdf_launch_only:true},matiere:t.subject,theme_color:proposalFor(fresh).pdfThemeColor||'#6D28D9'};
       const ingested=await rpc('aurora_connector_ingest_editorial_document',{p_payload:payload});
