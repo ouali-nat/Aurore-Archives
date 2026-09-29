@@ -614,3 +614,38 @@ textarea:disabled{
     corner-shape:bevel;
   }
 }
+
+/* =========================================================
+   13. EXCEPTION DOSSIERS / CASES — couche terminale
+   ========================================================= */
+:is(
+  #screen-home .home-five-level,
+  #screen-level .sublevel-card,
+  #screen-level .cat-card,
+  #screen-matieres .matiere-card
+){
+  border-radius:34px 22px 30px 42px / 38px 28px 36px 30px!important;
+  corner-shape:round!important;
+}
+
+:is(
+  #screen-home .home-five-level:hover,
+  #screen-level .sublevel-card:hover,
+  #screen-level .cat-card:hover,
+  #screen-matieres .matiere-card:hover
+){
+  border-radius:34px 22px 30px 42px / 38px 28px 36px 30px!important;
+  corner-shape:round!important;
+}
+
+@media(max-width:640px){
+  :is(
+    #screen-home .home-five-level,
+    #screen-level .sublevel-card,
+    #screen-level .cat-card,
+    #screen-matieres .matiere-card
+  ){
+    border-radius:28px 18px 24px 34px / 32px 23px 30px 26px!important;
+    corner-shape:round!important;
+  }
+}
