@@ -49,6 +49,25 @@ const B_EXECUTION_CONTRACT={
 };
 const C_PLAN_REQUIRED_FIELDS=['researchMethod','curricularBasis','researchFindings','sources','title','chapter','objectives','competencies','prerequisites','progression','architecture','productionStrategy','content','methods','activities','examples','situations','exercises','corrections','differentiation','evaluation','volume','duration','resources','mathGeoGebra','technicalNeeds','pdfFormat','pdfOrientation','pdfPagination','pdfThemeColor','pdfLayout','pdfFonts','pdfHeaders','pdfResources','quality','notes'];
 const C_EXECUTION_CONTRACT_VERSION='c-plan-guardrails-v1';
+const D_EXECUTION_CONTRACT_VERSION='d-editorial-production-v1';
+const D_EXECUTION_CONTRACT={
+  version:D_EXECUTION_CONTRACT_VERSION,
+  rule:'CX_VALIDE_VERS_D_PUIS_PRODUCTION_EDITE_VERS_DOCUMENTS_EN_ATTENTE',
+  sequence:[
+    'RELIRE la fiche C validée depuis Supabase avant toute édition.',
+    'PASSER de CX à D avec stage redaction uniquement après validation persistée du plan.',
+    'EDITER le contenu final à partir de workflow.proposal et le persister dans workflow.editorial_content.',
+    'RELIRE la production éditoriale persistée avant de la déclarer terminée.',
+    'INGESTER la production via public.aurora_connector_ingest_editorial_document(jsonb).',
+    'VERIFIER le generated_document_id et le statut review après ingestion.',
+    'LAISSER le PDF manuel : aucune génération PDF automatique depuis D.'
+  ],
+  prohibitedBeforeCompletion:[
+    'passer directement CX vers documents_en_attente sans production éditoriale persistée',
+    'déclarer D terminé sans generated_document_id confirmé',
+    'lancer automatiquement LuaLaTeX ou une autre génération PDF'
+  ]
+};
 const C_EXECUTION_CONTRACT={
   version:C_EXECUTION_CONTRACT_VERSION,
   rule:'NE_PAS_REVENIR_DANS_LA_DISCUSSION_AVANT_ECRITURE_ET_VERIFICATION',
@@ -461,14 +480,18 @@ function planForm(t){
     field('Format','pdfFormat',p.pdfFormat)+field('Orientation','pdfOrientation',p.pdfOrientation)+field('Pagination','pdfPagination',p.pdfPagination)+field('Couleur thème','pdfThemeColor',p.pdfThemeColor)+field('Mise en page','pdfLayout',p.pdfLayout,true)+field('Polices / typographie','pdfFonts',p.pdfFonts,true)+field('En-têtes / pieds de page','pdfHeaders',p.pdfHeaders,true)+field('Ressources PDF / QR / annexes','pdfResources',p.pdfResources,true)+field('Contrôle qualité attendu','quality',p.quality,true)+field('Notes éditoriales','notes',p.notes,true)+field('Demandes de révision','revisionNotes',p.revisionNotes,true)+
     '</div><div class="editor-plan-actions"><button type="button" class="admin-btn ghost" data-plan-save="'+esc(t.id)+'">Enregistrer les modifications</button><button type="button" class="admin-btn ghost danger" data-plan-reject="'+esc(t.id)+'">Rejeter / demander une révision</button><button type="button" class="admin-btn primary" data-plan-validate="'+esc(t.id)+'">Valider le plan et passer à la production</button></div></div>';
 }
+function editorialContentFor(t){
+  const w=t.metadata?.workflow||{},p=proposalFor(t),saved=w.editorial_content&&typeof w.editorial_content==='object'?w.editorial_content:{};
+  return {title:saved.title||p.title||t.title||'',introduction:saved.introduction||'',content:saved.content||p.content||'',methods:saved.methods||p.methods||'',examples:saved.examples||p.examples||'',activities:saved.activities||p.activities||'',exercises:saved.exercises||p.exercises||'',corrections:saved.corrections||p.corrections||'',differentiation:saved.differentiation||p.differentiation||'',evaluation:saved.evaluation||p.evaluation||'',synthesis:saved.synthesis||'',notes:saved.notes||''};
+}
 function productionReadyMarkup(t){
-  const w=t.metadata?.workflow||{},v=w.admin_validation&&typeof w.admin_validation==='object'?w.admin_validation:{},p=proposalFor(t);
-  const legacy=w.stage==='admin_validation';
-  return '<div class="editor-validation-wrap"><div class="editor-validation-head"><div><span class="editor-step">'+(legacy?'Contrôle hérité':'Après validation C')+'</span><h5>'+esc(t.title||'Document')+'</h5><p>'+(legacy?'Ce document provient de l’ancien sas de validation. Les contrôles restent disponibles pour ne rien casser.':'Le plan C a été validé. La rédaction finale peut maintenant être engagée, mais le PDF reste exclusivement manuel.')+'</p></div><span class="editor-pro-pill '+(legacy?'admin':'ready')+'">'+(legacy?'Contrôle à terminer':'Prêt pour la production')+'</span></div>'+
-    '<div class="editor-c-ready-grid"><div><span>Chapitres</span><strong>'+esc(p.chapter||'—')+'</strong></div><div><span>Objectifs</span><strong>'+esc(p.objectives||'—')+'</strong></div><div><span>Stratégie de production</span><strong>'+esc(p.productionStrategy||'—')+'</strong></div><div><span>PDF</span><strong>Manuel uniquement</strong></div></div>'+
-    (legacy?'<div class="editor-validation-grid">'+[['programme','Conformité classe / matière'],['pedagogy','Cohérence pédagogique'],['coverage','Couverture du chapitre'],['resources','Ressources et visuels'],['technical_pdf','Paramètres PDF et contraintes techniques'],['quality','Exigences de contrôle qualité']].map(([k,l])=>'<label class="editor-check"><input type="checkbox" data-admin-check="'+k+'" '+(v[k]===true?'checked':'')+'><span>'+l+'</span></label>').join('')+'</div><label class="editor-field wide"><span>Notes / réserves de l’administration</span><textarea data-admin-notes rows="4">'+esc(v.notes||'')+'</textarea></label><div class="editor-plan-actions"><button type="button" class="admin-btn ghost danger" data-admin-reject="'+esc(t.id)+'">Rejeter / demander une révision</button><button type="button" class="admin-btn primary" data-admin-validate="'+esc(t.id)+'">Valider pour l’édition</button></div>'
-    :'<div class="editor-a-start"><strong>Prochaine action : rédaction finale du contenu.</strong><span>Aucune action ici ne lance la génération PDF. La production du PDF reste un lancement manuel depuis l’espace prévu à cet effet.</span></div>')+
-    '</div>';
+  const w=t.metadata?.workflow||{},p=proposalFor(t),e=editorialContentFor(t);
+  const hasSaved=Boolean(w.editorial_content?.updated_at);
+  return '<div class="editor-validation-wrap"><div class="editor-validation-head"><div><span class="editor-step">Section D · édition finale</span><h5>'+esc(t.title||'Document')+'</h5><p>La fiche C validée est la référence. L’édition finale doit être persistée avant l’envoi vers « Documents en attente ». Le PDF reste manuel.</p></div><span class="editor-pro-pill '+(hasSaved?'ready':'admin')+'">'+(hasSaved?'Édition enregistrée':'À éditer')+'</span></div>'+
+    '<div class="editor-c-ready-grid"><div><span>Chapitre</span><strong>'+esc(p.chapter||'—')+'</strong></div><div><span>Objectifs</span><strong>'+esc(p.objectives||'—')+'</strong></div><div><span>Architecture</span><strong>'+esc(p.architecture||'—')+'</strong></div><div><span>PDF</span><strong>Manuel uniquement</strong></div></div>'+
+    '<div class="editor-plan-grid">'+
+    field('Titre final','editorTitle',e.title,true)+field('Introduction / situation de départ','editorIntroduction',e.introduction,true)+field('Contenu du cours','editorContent',e.content,true)+field('Méthodes / démarches','editorMethods',e.methods,true)+field('Exemples / applications','editorExamples',e.examples,true)+field('Activités','editorActivities',e.activities,true)+field('Exercices','editorExercises',e.exercises,true)+field('Corrigés / solutions','editorCorrections',e.corrections,true)+field('Différenciation','editorDifferentiation',e.differentiation,true)+field('Évaluation','editorEvaluation',e.evaluation,true)+field('Synthèse / à retenir','editorSynthesis',e.synthesis,true)+field('Notes éditoriales','editorNotes',e.notes,true)+
+    '</div><div class="editor-plan-actions"><button type="button" class="admin-btn ghost" data-d-save="'+esc(t.id)+'">Enregistrer l’édition</button><button type="button" class="admin-btn primary" data-d-finish="'+esc(t.id)+'">Terminer l’édition → Documents en attente</button></div></div>';
 }
 function detail(t,section){
   const w=t.metadata?.workflow||{},d='<div class="editor-detail-head"><div><span class="editor-step">Section '+section+' · tâche #'+esc(t.id)+'</span><h4>'+esc(t.class_name||t.level||'')+' · '+esc(t.subject||'')+'</h4><p>État : <strong>'+esc((stageInfo[w.stage]||{}).label||w.stage||t.status)+'</strong></p></div><button type="button" class="admin-btn ghost" data-editor-close>Fermer</button></div>';
@@ -692,10 +715,60 @@ function bindDetail(d,t,state){
       const updated=await persistPlan('edition_ready','validated_for_editing');
       const wf=updated?.metadata?.workflow||{};
       if(wf.stage!=='edition_ready'||wf.proposal_status!=='validated_for_editing')throw new Error('La validation du plan n’a pas pu être confirmée.');
-      await updateJob(t.id,{user_validated:true,editor_ready:true,chatgpt_editable:true,auto_pdf_launch:false,manual_pdf_launch_required:true,proposal_status:'validated_for_editing',stage:'edition_ready'});
-      await chargerEspaceEditorialChatGPT()
+      const migrated=await updateJob(t.id,{user_validated:true,editor_ready:true,chatgpt_editable:true,auto_pdf_launch:false,manual_pdf_launch_required:true,proposal_status:'validated_for_editing',stage:'redaction',production_status:'ready_for_editing',production_started_at:null,execution_contract:D_EXECUTION_CONTRACT,execution_contract_acknowledged:true,completion_guard:D_EXECUTION_CONTRACT_VERSION},'draft');
+      if(migrated?.metadata?.workflow?.stage!=='redaction')throw new Error('La migration CX → D n’a pas pu être confirmée après relecture de Supabase.');
+      await chargerEspaceEditorialChatGPT();
     }catch(e){alert(e.message||e)}finally{if(button)button.disabled=false}
   });
+
+  const collectEditorial=()=>{
+    const e=editorialContentFor(t);
+    const map={editorTitle:'title',editorIntroduction:'introduction',editorContent:'content',editorMethods:'methods',editorExamples:'examples',editorActivities:'activities',editorExercises:'exercises',editorCorrections:'corrections',editorDifferentiation:'differentiation',editorEvaluation:'evaluation',editorSynthesis:'synthesis',editorNotes:'notes'};
+    d.querySelectorAll('[data-plan-field]').forEach(el=>{const key=map[el.dataset.planField];if(key)e[key]=el.value.trim()});
+    return e;
+  };
+  const editorialPayload=e=>({title:e.title,sections:[
+    {title:'Introduction et situation de départ',content:e.introduction},
+    {title:'Contenu du cours',content:e.content},
+    {title:'Méthodes et démarches',content:e.methods},
+    {title:'Exemples et applications',content:e.examples},
+    {title:'Activités',content:e.activities},
+    {title:'Exercices',content:e.exercises,exercises:String(e.exercises||'').split(/\\n+/).map(x=>x.trim()).filter(Boolean)},
+    {title:'Corrigés et solutions',content:e.corrections},
+    {title:'Différenciation',content:e.differentiation},
+    {title:'Évaluation',content:e.evaluation},
+    {title:'Synthèse',content:e.synthesis}
+  ].filter(x=>x.content||x.title==='Contenu du cours')});
+  const saveEditorial=async()=>{
+    const e=collectEditorial();
+    if(!e.title)throw new Error('Le titre final est obligatoire.');
+    if(!e.content)throw new Error('Le contenu final est obligatoire.');
+    const updated=await updateJob(t.id,{editorial_content:{...e,updated_at:new Date().toISOString(),editor:EDITOR,source_plan_version:Number(t.metadata?.workflow?.proposal_version||0)},stage:'production_en_cours',production_status:'editorial_in_progress',execution_contract:D_EXECUTION_CONTRACT,execution_contract_acknowledged:true,completion_guard:D_EXECUTION_CONTRACT_VERSION,auto_pdf_launch:false,manual_pdf_launch_required:true},'draft');
+    if(updated?.metadata?.workflow?.stage!=='production_en_cours')throw new Error('L’édition D n’a pas pu être confirmée après relecture de Supabase.');
+    return {updated,e};
+  };
+  d.querySelector('[data-d-save]')?.addEventListener('click',async()=>{
+    const button=d.querySelector('[data-d-save]');if(button)button.disabled=true;
+    try{await saveEditorial();alert('Édition enregistrée dans la tâche D.');await chargerEspaceEditorialChatGPT()}catch(e){alert(e.message||e)}finally{if(button)button.disabled=false}
+  });
+  d.querySelector('[data-d-finish]')?.addEventListener('click',async()=>{
+    const button=d.querySelector('[data-d-finish]');if(button)button.disabled=true;
+    try{
+      const {e}=await saveEditorial();
+      const fresh=await getJob(t.id),fw=fresh?.metadata?.workflow||{};
+      if(!fresh||!fw.editorial_content?.updated_at)throw new Error('Garde-fou D : la production éditoriale n’est pas persistée.');
+      const ingestId='AUR-D-'+t.id+'-v'+Number(fw.proposal_version||1);
+      const payload={ingest_id:ingestId,job_id:Number(t.id),title:e.title,subject:t.subject,level:t.level,class_name:t.class_name,document_type:t.document_type||'cours',content_json:editorialPayload(e),instructions:{category:'Documents',source:'Aurore — Section D',workflow_stage:'edition',manual_pdf_launch_required:true},metadata:{origin:'Aurore — Section D',source_job_id:t.id,chapter:proposalFor(fresh).chapter,workflow_stage:'edition',auto_pdf_launch:false,manual_pdf_launch_only:true},matiere:t.subject,theme_color:proposalFor(fresh).pdfThemeColor||'#6D28D9'};
+      const ingested=await rpc('aurora_connector_ingest_editorial_document',{p_payload:payload});
+      const docId=Number(ingested?.generated_document_id);
+      if(!Number.isSafeInteger(docId)||docId<1)throw new Error('Le pont éditorial n’a pas retourné de generated_document_id.');
+      const done=await updateJob(t.id,{stage:'production_terminee',production_status:'editorial_completed',production_completed_at:new Date().toISOString(),generated_document_id:docId,pending_admin_surface:'documents_en_attente',editorial_ingest_id:ingestId,auto_pdf_launch:false,manual_pdf_launch_required:true,execution_contract:D_EXECUTION_CONTRACT,completion_guard:D_EXECUTION_CONTRACT_VERSION},'review');
+      if(done?.metadata?.workflow?.generated_document_id!==docId||done?.metadata?.workflow?.stage!=='production_terminee')throw new Error('Garde-fou D : la production terminée n’a pas été confirmée.');
+      alert('Édition terminée : document envoyé vers « Documents en attente ». PDF non lancé.');
+      await chargerEspaceEditorialChatGPT();
+    }catch(e){alert(e.message||e)}finally{if(button)button.disabled=false}
+  });
+
   d.querySelector('[data-admin-validate]')?.addEventListener('click',async()=>{
     const checks={};d.querySelectorAll('[data-admin-check]').forEach(x=>checks[x.dataset.adminCheck]=x.checked);
     const notes=d.querySelector('[data-admin-notes]')?.value.trim()||'';
