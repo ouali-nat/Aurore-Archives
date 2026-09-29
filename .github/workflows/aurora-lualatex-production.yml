@@ -1158,10 +1158,6 @@ jobs:
 
           tex = render(data)
           required = [
-          if "\\alphaf" in tex or "\\betag" in tex:
-              raise SystemExit("Renderer smoke check failed: concatenated Greek/Latin TeX control word detected")
-          if r"\alpha f(x)" not in tex or r"\beta g(x)" not in tex:
-              raise SystemExit("Renderer smoke check failed: Greek-letter token boundary was not preserved")
               r"\documentclass[0.6,nocrop]{sesamanuel}",
               r"\NewThema{A}{a}{aurore}{Aurore}{AURORE}",
               r"\themaA",
@@ -1171,6 +1167,11 @@ jobs:
               r"\begin{definition}",
               r"\begin{propriete}",
           ]
+
+          if "\\alphaf" in tex or "\\betag" in tex:
+              raise SystemExit("Renderer smoke check failed: concatenated Greek/Latin TeX control word detected")
+          if r"\alpha f(x)" not in tex or r"\beta g(x)" not in tex:
+              raise SystemExit("Renderer smoke check failed: Greek-letter token boundary was not preserved")
           for marker in required:
               if marker not in tex:
                   raise SystemExit(f"Renderer smoke check failed: missing {marker}")
