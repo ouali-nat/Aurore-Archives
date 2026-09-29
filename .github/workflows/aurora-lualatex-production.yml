@@ -968,18 +968,62 @@ jobs:
               version=int(g.get("geogebra_renderer_version") or 0)
               if not path or source!="geogebra": return False
               return version >= 4
+          def _as_list(value):
+              return value if isinstance(value, list) else []
+
           def all_graphs(data):
-              for section in data.get("sections") or []:
-                  for graph in section.get("graphs") or []:
+              sections = _as_list(data.get("sections"))
+              for section_index, section in enumerate(sections, start=1):
+                  if not isinstance(section, dict):
+                      print(
+                          f"WARNING: ignoring non-object section #{section_index} "
+                          f"({type(section).__name__}) during GeoGebra preflight."
+                      )
+                      continue
+                  for graph in _as_list(section.get("graphs")):
                       yield graph
-                  for exercise in section.get("exercises") or []:
-                      for graph in exercise.get("statement_graphs") or []:
+                  for exercise_index, exercise in enumerate(
+                      _as_list(section.get("exercises")), start=1
+                  ):
+                      if not isinstance(exercise, dict):
+                          print(
+                              f"WARNING: ignoring non-object exercise "
+                              f"{section_index}.{exercise_index} during GeoGebra preflight."
+                          )
+                          continue
+                      for graph in _as_list(exercise.get("statement_graphs")):
                           yield graph
-                      for graph in exercise.get("correction_graphs") or []:
+                      for graph in _as_list(exercise.get("correction_graphs")):
                           yield graph
-              for correction in data.get("corrections") or []:
-                  for graph in correction.get("graphs") or []:
+
+              corrections = data.get("corrections")
+              if corrections is None:
+                  corrections = []
+              if not isinstance(corrections, list):
+                  print(
+                      "GeoGebra preflight: textual/non-list top-level corrections "
+                      "field has no graph assets; ignoring it."
+                  )
+                  return
+              for correction_index, correction in enumerate(corrections, start=1):
+                  if not isinstance(correction, dict):
+                      print(
+                          f"WARNING: ignoring non-object top-level correction "
+                          f"#{correction_index} during GeoGebra preflight."
+                      )
+                      continue
+                  for graph in _as_list(correction.get("graphs")):
                       yield graph
+
+          _shape_regression = {
+              "sections": [{"title": "ok", "graphs": []}],
+              "corrections": "Corrections textuelles sans graphique."
+          }
+          if list(all_graphs(_shape_regression)):
+              raise SystemExit(
+                  "GeoGebra traversal regression: textual corrections must not be "
+                  "treated as graph containers."
+              )
 
           missing=0
           total=0
@@ -1019,18 +1063,62 @@ jobs:
               version=int(g.get("geogebra_renderer_version") or 0)
               if not path or source!="geogebra": return False
               return version >= 4
+          def _as_list(value):
+              return value if isinstance(value, list) else []
+
           def all_graphs(data):
-              for section in data.get("sections") or []:
-                  for graph in section.get("graphs") or []:
+              sections = _as_list(data.get("sections"))
+              for section_index, section in enumerate(sections, start=1):
+                  if not isinstance(section, dict):
+                      print(
+                          f"WARNING: ignoring non-object section #{section_index} "
+                          f"({type(section).__name__}) during GeoGebra preflight."
+                      )
+                      continue
+                  for graph in _as_list(section.get("graphs")):
                       yield graph
-                  for exercise in section.get("exercises") or []:
-                      for graph in exercise.get("statement_graphs") or []:
+                  for exercise_index, exercise in enumerate(
+                      _as_list(section.get("exercises")), start=1
+                  ):
+                      if not isinstance(exercise, dict):
+                          print(
+                              f"WARNING: ignoring non-object exercise "
+                              f"{section_index}.{exercise_index} during GeoGebra preflight."
+                          )
+                          continue
+                      for graph in _as_list(exercise.get("statement_graphs")):
                           yield graph
-                      for graph in exercise.get("correction_graphs") or []:
+                      for graph in _as_list(exercise.get("correction_graphs")):
                           yield graph
-              for correction in data.get("corrections") or []:
-                  for graph in correction.get("graphs") or []:
+
+              corrections = data.get("corrections")
+              if corrections is None:
+                  corrections = []
+              if not isinstance(corrections, list):
+                  print(
+                      "GeoGebra preflight: textual/non-list top-level corrections "
+                      "field has no graph assets; ignoring it."
+                  )
+                  return
+              for correction_index, correction in enumerate(corrections, start=1):
+                  if not isinstance(correction, dict):
+                      print(
+                          f"WARNING: ignoring non-object top-level correction "
+                          f"#{correction_index} during GeoGebra preflight."
+                      )
+                      continue
+                  for graph in _as_list(correction.get("graphs")):
                       yield graph
+
+          _shape_regression = {
+              "sections": [{"title": "ok", "graphs": []}],
+              "corrections": "Corrections textuelles sans graphique."
+          }
+          if list(all_graphs(_shape_regression)):
+              raise SystemExit(
+                  "GeoGebra traversal regression: textual corrections must not be "
+                  "treated as graph containers."
+              )
 
           missing=[]
           total=0
