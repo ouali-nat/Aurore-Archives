@@ -135,13 +135,13 @@ function render(){
  setText('adminPendingV2Visible',STATE.filtered.length);
  if(!STATE.filtered.length){list.innerHTML='<div class="admin-pending-v2-empty"><strong>Aucun document Aurore dans le sas.</strong><span>Le sas ne contient que les demandes Content Factory encore sans document PDF associé.</span></div>';return}
  list.innerHTML=STATE.filtered.map(j=>{
-   const s=statusOf(j),label=s==='processing'?'Génération en cours':s==='queued'?'En file d’attente':s==='review'?(j.generatedDocumentId?'Édition D terminée — PDF à lancer':'Contenu éditorial prêt — PDF à lancer'):'Brouillon';
+   const s=statusOf(j),stalePdf=!!j.metadata?._pending_stale_pdf,label=s==='processing'?'Génération en cours':s==='queued'?'En file d’attente':s==='review'?(j.generatedDocumentId?(stalePdf?'Édition modifiée — ancien PDF à régénérer':'Édition D terminée — PDF à lancer'):'Contenu éditorial prêt — PDF à lancer'):'Brouillon';
    return '<article class="admin-pending-v2-card" data-pending-job-id="'+j.id+'" style="--pending-theme:'+esc(j.theme)+'"><div class="admin-pending-v2-card-accent"></div><div class="admin-pending-v2-card-main">'+
    '<div class="admin-pending-v2-card-head"><div><span class="admin-pending-v2-source">Aurore — Content Factory</span><h3 class="admin-pending-v2-title">'+esc(j.title)+'</h3></div><span class="admin-pending-v2-id">Job #'+j.id+'</span></div>'+
    progress(j)+
    '<div class="admin-pending-v2-grid"><div><b>Date</b><span>'+esc(fmt(j.created))+'</span></div><div><b>Classe</b><span>'+esc(j.className)+'</span></div><div><b>Niveau</b><span>'+esc(j.level)+'</span></div><div><b>Matière</b><span>'+esc(j.subject)+'</span></div><div><b>Type</b><span>'+esc(j.type)+'</span></div><div><b>État</b><span data-pending-state>'+esc(label)+'</span></div></div>'+
    '<div class="admin-pending-v2-classification">Matière : '+esc(j.subject)+' · Niveau : '+esc(j.level)+' · Classe : '+esc(j.className)+' · Origine : Aurore</div>'+
-   '<div class="admin-pending-v2-status"><strong data-pending-status>'+esc(label)+'</strong> · PDF pas encore associé</div>'+
+   '<div class="admin-pending-v2-status"><strong data-pending-status>'+esc(label)+'</strong> · '+(stalePdf?'ancien PDF conservé comme historique — régénération manuelle disponible':'PDF pas encore associé')+'</div>'+
    '<div class="admin-pending-v2-theme"><span style="background:'+esc(j.theme)+'"></span><div><b>Couleur du document</b><small>'+esc(j.theme)+' · modifiable avant lancement</small></div></div>'+
    (j.error?'<div class="admin-pending-v2-error">'+esc(j.error)+'</div>':'')+
    '<div class="admin-pending-v2-note">La régénération PDF, la validation et la publication interviennent dans l’espace « Documents générés » dès que le document PDF existe.</div>'+
@@ -188,13 +188,21 @@ async function chargerDocumentsEnAttenteAdminV2(){
   const r=await adminFetch(url,{cache:'no-store'});const t=await r.text();if(!r.ok)throw new Error(t||('HTTP '+r.status));
   const raw=t?JSON.parse(t):[];
   const docIds=[...new Set((Array.isArray(raw)?raw:[]).map(j=>Number(j.generated_document_id||0)).filter(Number.isSafeInteger).filter(Boolean))];
-  let docMap=new Map();
+  let docMap=new Map(),attemptMap=new Map();
   if(docIds.length){
-    const dr=await adminFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?id=in.('+docIds.join(',')+')&select=id,pdf_url,pdf_path,status,metadata',{cache:'no-store'});
+    const dr=await adminFetch(SUPABASE_URL+'/rest/v1/aurora_generated_documents?id=in.('+docIds.join(',')+')&select=id,pdf_url,pdf_path,status,metadata,updated_at',{cache:'no-store'});
     const dt=await dr.text();if(!dr.ok)throw new Error(dt||('HTTP '+dr.status));
     const docs=dt?JSON.parse(dt):[];
     for(const d of (Array.isArray(docs)?docs:[]))docMap.set(Number(d.id),d);
+    const ar=await adminFetch(SUPABASE_URL+'/rest/v1/aurora_generated_document_production_attempts?generated_document_id=in.('+docIds.join(',')+')&select=id,generated_document_id,status,created_at,started_at,finished_at,attempt_no&order=attempt_no.desc',{cache:'no-store'});
+    const at=await ar.text();if(!ar.ok)throw new Error(at||('HTTP '+ar.status));
+    const attempts=at?JSON.parse(at):[];
+    for(const a of (Array.isArray(attempts)?attempts:[])){
+      const gid=Number(a.generated_document_id);
+      if(!attemptMap.has(gid))attemptMap.set(gid,a);
+    }
   }
+  const stalePdfIds=new Set();
   const nextJobs=(Array.isArray(raw)?raw:[]).filter(j=>{
     const m=metadataOf(j);
     const workflow=m.workflow&&typeof m.workflow==='object'?m.workflow:null;
@@ -205,8 +213,20 @@ async function chargerDocumentsEnAttenteAdminV2(){
     const gid=Number(j.generated_document_id||0);
     if(!gid)return true;
     const d=docMap.get(gid);
-    return !!d && !d.pdf_url && !d.pdf_path;
-  }).map(normalise);
+    if(!d)return false;
+    if(!d.pdf_url && !d.pdf_path)return true;
+    const attempt=attemptMap.get(gid);
+    const editorialAt=stamp(j.updated_at||j.created_at);
+    const pdfAt=stamp(attempt?.finished_at||attempt?.created_at||d.updated_at);
+    const stale=editorialAt>pdfAt;
+    if(stale)stalePdfIds.add(gid);
+    return stale;
+  }).map(j=>{
+    const n=normalise(j);
+    const gid=Number(j.generated_document_id||0);
+    n.metadata={...n.metadata,_pending_stale_pdf:stalePdfIds.has(gid)};
+    return n;
+  });
   const nextFingerprint=JSON.stringify(nextJobs.map(j=>({
    id:j.id,title:j.title,level:j.level,className:j.className,subject:j.subject,type:j.type,
    created:j.created,status:j.status,generatedDocumentId:j.generatedDocumentId,
@@ -248,11 +268,23 @@ async function compterDocumentsEnAttente(){
     for(const d of (Array.isArray(docs)?docs:[]))docMap.set(Number(d.id),d);
    }
   }
+  const attemptMap=new Map();
+  if(docIds.length){
+   const ar=await adminFetch(SUPABASE_URL+'/rest/v1/aurora_generated_document_production_attempts?generated_document_id=in.('+docIds.join(',')+')&select=id,generated_document_id,status,created_at,finished_at,attempt_no&order=attempt_no.desc',{cache:'no-store'});
+   if(ar.ok){
+    const attempts=await ar.json().catch(()=>[]);
+    for(const a of (Array.isArray(attempts)?attempts:[])){
+     const gid=Number(a.generated_document_id);if(!attemptMap.has(gid))attemptMap.set(gid,a);
+    }
+   }
+  }
   const n=jobs.filter(j=>{
    const gid=Number(j.generated_document_id||0);
    if(!gid)return true;
-   const d=docMap.get(gid);
-   return !!d && !d.pdf_url && !d.pdf_path;
+   const d=docMap.get(gid);if(!d)return false;
+   if(!d.pdf_url&&!d.pdf_path)return true;
+   const attempt=attemptMap.get(gid);
+   return stamp(j.updated_at||j.created_at)>stamp(attempt?.finished_at||attempt?.created_at||d.updated_at);
   }).length;
   setText('tabCountAttente',n);
   return n;

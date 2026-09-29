@@ -60,14 +60,14 @@ const D_EXECUTION_CONTRACT={
     'RELIRE la production éditoriale persistée avant de la déclarer terminée.',
     'INGESTER la production via public.aurora_connector_ingest_editorial_document(jsonb).',
     'VERIFIER le generated_document_id et le statut review après ingestion.',
-    'POUR les documents de mathématiques, physique ou chimie, exécuter le préflight canonique public.aurora_scientific_preflight et bloquer l’ingestion si moins de 400 éléments scientifiques effectivement convertis en LaTeX sont détectés ; signaler précisément le nombre converti et le manque à l’éditeur.',
+    'POUR les documents de mathématiques, physique ou chimie, exécuter le préflight canonique public.aurora_scientific_preflight et bloquer l’ingestion selon le préflight scientifique canonique gradué : Primaire 400, Collège 500, Lycée et Supérieur 1200 éléments LaTeX, avec 2 constructions GeoGebra et 3 sites sources distincts ; signaler précisément les métriques et les manques à l’éditeur.',
     'LAISSER le PDF manuel : aucune génération PDF automatique depuis D.'
   ],
   prohibitedBeforeCompletion:[
     'passer directement CX vers documents_en_attente sans production éditoriale persistée',
     'déclarer D terminé sans generated_document_id confirmé',
     'lancer automatiquement LuaLaTeX ou une autre génération PDF',
-    'insérer un document scientifique dans Documents en attente sans avoir obtenu un préflight scientifique valide avec au moins 400 éléments convertis en LaTeX'
+    'insérer un document scientifique dans Documents en attente sans avoir obtenu un préflight scientifique valide selon le niveau, avec les constructions GeoGebra et les sources distinctes requises'
   ]
 };
 const C_EXECUTION_CONTRACT={
@@ -305,7 +305,9 @@ function aResearchReady(t){
   const options=Array.isArray(w.chapter_options)?w.chapter_options:[];
   const findings=String(r.findings||'').trim();
   const methodology=String(r.methodology||r.method||'').trim();
-  const sources=Array.isArray(r.source_urls)?r.source_urls.filter(Boolean):[];
+  const sources=[...(Array.isArray(r.source_urls)?r.source_urls:[]),...(Array.isArray(r.sources)?r.sources:[])]
+    .map(x=>typeof x==='string'?x:(x&&typeof x==='object'?(x.url||x.href||x.source_url||''):String(x||'')))
+    .map(x=>String(x||'').trim()).filter(Boolean);
   return aContextReady(t)
     &&String(r.status||'').toLowerCase()==='researched'
     &&findings.length>=40
