@@ -1,0 +1,616 @@
+/*
+ * Aurore — Shape System V1
+ * Direction artistique transversale : squircle / bevel / scoop.
+ * Cette couche est volontairement terminale : elle harmonise les écrans
+ * existants sans modifier leur structure DOM ni leur logique JavaScript.
+ */
+
+:root{
+  --aurore-shape-squircle-sm: 15px;
+  --aurore-shape-squircle: 22px;
+  --aurore-shape-squircle-lg: 30px;
+  --aurore-shape-scoop: 28px;
+  --aurore-shape-bevel: 12px;
+
+  --aurore-line-soft: color-mix(in srgb,var(--theme-primary,#8B5CF6) 18%,var(--bordure));
+  --aurore-line: color-mix(in srgb,var(--theme-primary,#8B5CF6) 30%,var(--bordure));
+  --aurore-surface: var(--papier,#11101C);
+  --aurore-surface-2: color-mix(in srgb,var(--aurore-surface) 88%,var(--theme-primary,#8B5CF6));
+  --aurore-surface-soft: color-mix(in srgb,var(--fond,#090812) 90%,var(--theme-primary,#8B5CF6));
+
+  --aurore-shadow-soft:
+    0 8px 26px color-mix(in srgb,var(--theme-shadow,rgba(0,0,0,.16)) 72%,transparent);
+  --aurore-shadow:
+    0 16px 42px color-mix(in srgb,var(--theme-shadow,rgba(0,0,0,.18)) 86%,transparent);
+  --aurore-shadow-hover:
+    0 22px 58px color-mix(in srgb,var(--theme-shadow,rgba(0,0,0,.22)) 92%,transparent);
+}
+
+/* =========================================================
+   1. Socle commun
+   ========================================================= */
+
+html{
+  --aurore-focus-ring:
+    0 0 0 3px color-mix(in srgb,var(--theme-primary,#8B5CF6) 23%,transparent);
+}
+
+body{
+  text-rendering:optimizeLegibility;
+  -webkit-font-smoothing:antialiased;
+}
+
+:is(
+  .card,.section,.panel,.profile-card,.recents-card,.admin-card,.admin-empty,
+  .form-card,.stat-card,.admin-category-card,.presentation-item,
+  .doc-empty,.doc-row,.matiere-card,.cat-card,.level-card,.sublevel-card,
+  .serie-pill,.home-shortcuts,.home-promise,.home-five-level,
+  .home-secondary-choice,.home-promo-card,.home-annonce,.home-recents-cta,
+  .service-client-card,.admin-space-card,.personal-space-compact-card,
+  .personal-panel,.aurora-panel,.aurora-panels,
+  .aurore-personal-hero,.pdf-recent-panel,.admin-promo-manager,
+  .admin-service-editor,.cf-admin-card,.cf-studio-box,
+  .aurore-pdf-production-center,.aurore-pdf-prod-card,
+  .admin-pending-v2-shell,.admin-pending-v2-card,
+  .pub-admin-item,.admin-user-card,.diag-log-box,
+  .aurore-ia-app,.aurore-ia-sidebar-note,.welcome-modal-card,
+  .signup-card,.access-card,.access-panel,.aurore-auth-wait-card,
+  .pdf-menu-panel,.wiki-shell,.profile-info-modal,
+  .personal-folder,.personal-folder-dialog-card,
+  #depotFormCard,#depotProgress
+){
+  --_surface:var(--aurore-surface);
+  border-color:var(--aurore-line-soft);
+  box-shadow:var(--aurore-shadow-soft);
+}
+
+/* Surfaces structurantes = squircle. */
+:is(
+  .card,.section,.panel,.profile-card,.recents-card,.admin-card,.admin-empty,
+  .form-card,.stat-card,.admin-category-card,.presentation-item,
+  .doc-empty,.doc-row,.matiere-card,.cat-card,.level-card,.sublevel-card,
+  .home-promise,.home-five-level,.home-secondary-choice,
+  .home-promo-card,.service-client-card,.admin-space-card,
+  .personal-space-compact-card,.personal-panel,.aurora-panel,
+  .aurore-personal-hero,.admin-promo-manager,.admin-service-editor,
+  .cf-admin-card,.cf-studio-box,.aurore-pdf-production-center,
+  .aurore-pdf-prod-card,.admin-pending-v2-shell,.admin-pending-v2-card,
+  .pub-admin-item,.admin-user-card,.diag-log-box,
+  .aurore-ia-app,.welcome-modal-card,.signup-card,.access-card,
+  .access-panel,.aurore-auth-wait-card,.profile-info-modal,
+  .personal-folder,.personal-folder-dialog-card,#depotFormCard
+){
+  border-radius:var(--aurore-shape-squircle)!important;
+  corner-shape:squircle;
+}
+
+/* Grandes surfaces / héros = squircle plus ample. */
+:is(
+  .hero,.home-video-section,.livres-banner,
+  .home-annonce,.home-recents-cta,.admin-shell,
+  .admin-pending-v2-top,.admin-pending-v2-summary
+){
+  border-radius:var(--aurore-shape-squircle-lg)!important;
+  corner-shape:squircle;
+}
+
+/* Petit format des éléments internes. */
+:is(
+  .presentation-item .icon-wrap,.cat-card .icon-wrap,.level-badge,
+  .matiere-card .mono,.stat-icon,.admin-category-icon,.admin-pending-stat,
+  .cf-admin-icon,.cf-studio-mark,.aurora-stat-icon,.role-icon,
+  .profile-avatar-fallback,.personal-folder-icon,.personal-list-icon,
+  .service-client-link-icon
+){
+  border-radius:var(--aurore-shape-squircle-sm)!important;
+  corner-shape:squircle;
+}
+
+/* Les vrais pills restent ronds : ne pas appliquer squircle à des capsules. */
+:is(
+  .search-box,.user-chip,.role-badge,.count-badge,.tab-count,
+  .admin-pending-v2-status,.aurore-pdf-prod-status,.cf-studio-status,
+  .site-pagination,.theme-color-swatch,.badge,.ad-slot-label,
+  .home-door-kicker,.pdf-viewer-status,.status-pill
+){
+  border-radius:999px!important;
+  corner-shape:round;
+}
+
+/* =========================================================
+   2. Accueil — hiérarchie visuelle
+   ========================================================= */
+
+/* Le hero accueille le contenu, avec une bordure plus éditoriale. */
+.hero{
+  border:1px solid color-mix(in srgb,var(--theme-secondary,#C084FC) 26%,var(--bordure))!important;
+  box-shadow:var(--aurore-shadow)!important;
+}
+
+.hero-rule{
+  height:4px!important;
+  border-radius:999px!important;
+}
+
+/* Portes de niveaux : pièces principales, donc squircle + relief. */
+.home-five-level,
+.level-card,
+.sublevel-card,
+.cat-card,
+.matiere-card{
+  position:relative;
+  isolation:isolate;
+  transition:
+    transform .2s cubic-bezier(.22,.7,.2,1),
+    box-shadow .2s cubic-bezier(.22,.7,.2,1),
+    border-color .2s ease,
+    background .2s ease;
+}
+
+.home-five-level:hover,
+.level-card:hover,
+.sublevel-card:hover,
+.cat-card:hover,
+.matiere-card:hover{
+  transform:translateY(-4px);
+  box-shadow:var(--aurore-shadow-hover)!important;
+}
+
+.level-card::after,
+.cat-card::after{
+  height:3px!important;
+  width:32%!important;
+  left:18px!important;
+  right:auto!important;
+  top:12px!important;
+  border-radius:999px!important;
+  background:linear-gradient(90deg,var(--theme-primary,#8B5CF6),var(--theme-secondary,#C084FC))!important;
+}
+
+/* Section mise en avant / éditorial : scoop. */
+.home-annonce,
+.home-recents-cta,
+.personal-space-compact-card,
+.admin-space-card,
+.home-video-section,
+.livres-banner{
+  border-radius:var(--aurore-shape-scoop)!important;
+  corner-shape:scoop;
+  overflow:hidden;
+  border:1px solid color-mix(in srgb,var(--theme-primary,#8B5CF6) 26%,var(--bordure))!important;
+  box-shadow:var(--aurore-shadow)!important;
+}
+
+.home-annonce::before,
+.home-recents-cta::before,
+.admin-space-card::before{
+  opacity:.9;
+  pointer-events:none;
+}
+
+.livres-banner{
+  box-shadow:var(--aurore-shadow)!important;
+}
+
+/* =========================================================
+   3. Bevel — actions secondaires, outils, tags techniques
+   ========================================================= */
+
+/* Les boutons principaux gardent une géométrie douce : squircle. */
+:is(
+  .deposer-btn,.form-submit,.btn-primary,.admin-btn.primary,
+  .admin-btn.valider,.admin-pending-v2-actions .admin-btn.primary,
+  .welcome-modal-ok,.access-google-btn
+){
+  border-radius:14px!important;
+  corner-shape:squircle;
+  box-shadow:0 10px 26px color-mix(in srgb,var(--theme-shadow,rgba(0,0,0,.18)) 86%,transparent)!important;
+}
+
+/* Secondaires / outils : sensation de précision et de coupe. */
+:is(
+  .admin-btn.ghost,.ghost,.back-btn,.admin-tab,
+  .admin-pending-v2-actions .admin-btn.ghost,
+  .admin-pending-v2-actions .admin-btn.danger,
+  .admin-refresh,.pending-refresh,.site-pagination button,
+  .personal-action,.shortcut-btn,.breadcrumb button,
+  .theme-switch-btn,.color-theme-btn,.pwa-install-btn,
+  .pdf-menu-item,.pdf-menu-zoom-btn,
+  .aurore-ia-new,.aurore-ia-back,.aurore-ia-tool,
+  .aurore-ia-suggestions button,.aurore-ia-copy-action,
+  .home-shortcuts button,.home-recents-arrow,
+  .admin-space-action,.personal-space-compact-card .aurora-personal-end-btn,
+  .personal-folder-menu,.personal-folder-create,
+  .depot-progress-cancel,.form-reset,.secondary-btn
+){
+  border-radius:var(--aurore-shape-bevel)!important;
+  corner-shape:bevel;
+  transition:
+    transform .16s ease,
+    box-shadow .16s ease,
+    border-color .16s ease,
+    background .16s ease,
+    color .16s ease;
+}
+
+:is(
+  .admin-btn.ghost,.ghost,.back-btn,.admin-tab,
+  .admin-pending-v2-actions .admin-btn.ghost,
+  .admin-refresh,.pending-refresh,.site-pagination button,
+  .personal-action,.shortcut-btn,.breadcrumb button,
+  .theme-switch-btn,.color-theme-btn,.pwa-install-btn,
+  .pdf-menu-item,.pdf-menu-zoom-btn,
+  .aurore-ia-new,.aurore-ia-back,.aurore-ia-tool,
+  .aurore-ia-suggestions button,.aurore-ia-copy-action
+):hover{
+  transform:translateY(-1px);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb,var(--theme-primary,#8B5CF6) 18%,transparent),
+    0 8px 18px color-mix(in srgb,var(--theme-shadow,rgba(0,0,0,.14)) 76%,transparent);
+}
+
+/* Tabs : bord biseauté sans devenir agressifs. */
+.admin-tab{
+  border-color:color-mix(in srgb,var(--theme-primary,#8B5CF6) 20%,var(--bordure))!important;
+}
+.admin-tab.active{
+  corner-shape:squircle;
+  border-radius:14px!important;
+}
+
+/* Tags / statuts techniques : forme contenue. */
+:is(
+  .tag,.badge,.theme-color-swatch,.tab-count,.count-badge,
+  .admin-pending-v2-theme,.admin-pending-v2-status,.status-pill
+){
+  border-radius:10px;
+  corner-shape:bevel;
+}
+
+/* =========================================================
+   4. Header / navigation — continuité du système
+   ========================================================= */
+
+header{
+  box-shadow:0 8px 24px color-mix(in srgb,var(--theme-shadow,rgba(0,0,0,.12)) 36%,transparent);
+}
+
+.brand-logo{
+  border-radius:13px!important;
+  corner-shape:squircle;
+  box-shadow:0 9px 24px color-mix(in srgb,var(--theme-shadow,rgba(0,0,0,.16)) 84%,transparent);
+}
+
+.search-box{
+  border-width:1px!important;
+  box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 7%,transparent);
+}
+
+.search-box:focus-within{
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb,#fff 9%,transparent),
+    var(--aurore-focus-ring)!important;
+}
+
+/* Breadcrumb = outil de navigation : bevel discret. */
+.breadcrumb button,
+.breadcrumb .current{
+  border-radius:9px;
+}
+.breadcrumb button{
+  padding:6px 9px!important;
+  corner-shape:bevel;
+}
+
+/* =========================================================
+   5. Administration — poste de pilotage
+   ========================================================= */
+
+.admin-shell,
+.admin-panel{
+  border:1px solid var(--aurore-line)!important;
+  box-shadow:var(--aurore-shadow)!important;
+}
+
+.stats-grid .stat-card,
+.admin-category-card,
+.admin-card,
+.admin-pending-v2-stat,
+.admin-pending-v2-card,
+.cf-admin-card,
+.aurore-pdf-prod-card{
+  border:1px solid color-mix(in srgb,var(--theme-primary,#8B5CF6) 19%,var(--bordure))!important;
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in srgb,var(--theme-primary,#8B5CF6) 4%,var(--aurore-surface)),
+      var(--aurore-surface) 60%
+    )!important;
+}
+
+.admin-category-card:hover,
+.admin-card:hover,
+.admin-pending-v2-card:hover,
+.cf-admin-card:hover,
+.aurore-pdf-prod-card:hover{
+  border-color:color-mix(in srgb,var(--theme-primary,#8B5CF6) 37%,var(--bordure))!important;
+}
+
+.admin-toolbar,
+.admin-data-toolbar,
+.site-data-toolbar,
+.recents-toolbar,
+.docs-toolbar{
+  border-radius:var(--aurore-shape-squircle-sm)!important;
+  corner-shape:squircle;
+}
+
+/* Barre de filtres : légère surface utilitaire. */
+:is(
+  .admin-toolbar,.admin-data-toolbar,.site-data-toolbar,
+  .recents-toolbar,.docs-toolbar
+){
+  background:color-mix(in srgb,var(--aurore-surface) 86%,var(--theme-primary,#8B5CF6))!important;
+  border:1px solid var(--aurore-line-soft);
+  box-shadow:var(--aurore-shadow-soft);
+}
+
+/* =========================================================
+   6. Formulaires / dépôt / Content Factory
+   ========================================================= */
+
+:is(
+  .form-card,.cf-studio-box,.cf-admin-card,#depotFormCard
+){
+  box-shadow:var(--aurore-shadow)!important;
+}
+
+:is(input,select,textarea){
+  border-radius:11px!important;
+  corner-shape:bevel;
+  border-color:color-mix(in srgb,var(--theme-primary,#8B5CF6) 17%,var(--bordure))!important;
+  transition:border-color .16s ease,box-shadow .16s ease,background .16s ease;
+}
+
+:is(input,select,textarea):focus{
+  border-color:var(--theme-primary,#8B5CF6)!important;
+  box-shadow:var(--aurore-focus-ring)!important;
+}
+
+.cf-create-theme-palette,
+.color-theme-flyout{
+  border-radius:var(--aurore-shape-squircle)!important;
+  corner-shape:squircle;
+  border-color:var(--aurore-line)!important;
+  box-shadow:var(--aurore-shadow-hover)!important;
+}
+
+.cf-create-theme-swatch{
+  corner-shape:bevel;
+}
+
+/* =========================================================
+   7. Espace personnel / profil
+   ========================================================= */
+
+.aurora-personal-hero{
+  background:
+    radial-gradient(
+      circle at 90% 0%,
+      color-mix(in srgb,var(--theme-secondary,#C084FC) 12%,transparent),
+      transparent 32%
+    ),
+    var(--aurore-surface)!important;
+}
+
+.aurora-stat.is-active{
+  corner-shape:squircle;
+  box-shadow:var(--aurore-shadow-soft)!important;
+}
+
+.personal-action.is-active{
+  corner-shape:bevel;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb,var(--theme-primary,#8B5CF6) 26%,transparent),
+    0 8px 18px color-mix(in srgb,var(--theme-shadow,rgba(0,0,0,.16)) 72%,transparent)!important;
+}
+
+.personal-folder-create{
+  corner-shape:scoop;
+  border-radius:22px!important;
+}
+
+/* =========================================================
+   8. Aurora / IA — plus premium, sans toucher aux messages
+   ========================================================= */
+
+.aurore-ia-app{
+  border-radius:var(--aurore-shape-squircle-lg)!important;
+  corner-shape:squircle;
+  border:1px solid color-mix(in srgb,var(--ia-accent,var(--theme-primary,#8B5CF6)) 25%,var(--ia-border,var(--bordure)))!important;
+  box-shadow:var(--aurore-shadow)!important;
+}
+
+:is(
+  .aurore-ia-tool,.aurore-ia-suggestions button,
+  .aurore-ia-copy-action,.aurore-ia-new,.aurore-ia-back
+){
+  corner-shape:bevel;
+}
+
+.aurore-ia-bubble{
+  border-radius:18px!important;
+  corner-shape:squircle;
+}
+
+.aurore-ia-message.user .aurore-ia-bubble{
+  border-radius:18px 18px 7px 18px!important;
+}
+
+.aurore-ia-message.assistant .aurore-ia-bubble{
+  border-radius:18px 18px 18px 7px!important;
+}
+
+/* =========================================================
+   9. PDF / GeoGebra / overlays — finition sans modifier le moteur
+   ========================================================= */
+
+:is(
+  #pdfViewerMenuPanel,.pdf-menu-panel,
+  #auroraGeoGebraDialog,#auroraGraphOverlay,
+  #wikiViewerOverlay .wiki-shell,
+  .profile-info-modal
+){
+  border-radius:var(--aurore-shape-squircle)!important;
+  corner-shape:squircle;
+}
+
+:is(
+  #pdfViewerMenuToggle,.pdf-menu-zoom-btn,
+  .aurora-geogebra-action,
+  #pdfViewerPrec,#pdfViewerSuiv
+){
+  border-radius:var(--aurore-shape-bevel)!important;
+  corner-shape:bevel;
+}
+
+:is(
+  #pdfViewerProgressSphere,
+  .progress-sphere
+){
+  border-radius:50%!important;
+  corner-shape:round;
+}
+
+/* =========================================================
+   10. Auth / messages / petits overlays
+   ========================================================= */
+
+.access-card,
+.signup-card,
+.aurore-auth-wait-card,
+.welcome-modal-card{
+  box-shadow:var(--aurore-shadow-hover)!important;
+}
+
+:is(
+  .access-btn,.access-secondary-btn,.modal-secondary-link,
+  .signup-close,.welcome-modal-ok,.access-tab
+){
+  border-radius:var(--aurore-shape-bevel)!important;
+  corner-shape:bevel;
+}
+
+.signup-close{
+  border-radius:10px!important;
+}
+
+:is(
+  .form-msg,.access-message,.admin-users-message,
+  .admin-service-message,.admin-pending-v2-error,
+  .error-message,.success-message,.message-success,.message-error
+){
+  border-radius:var(--aurore-shape-scoop)!important;
+  corner-shape:scoop;
+}
+
+/* =========================================================
+   11. Footer / contact — calme et éditorial
+   ========================================================= */
+
+footer{
+  border-top:1px solid var(--aurore-line-soft)!important;
+}
+
+.service-client-link{
+  border-radius:var(--aurore-shape-bevel)!important;
+  corner-shape:bevel;
+}
+
+.service-client-link:hover{
+  box-shadow:0 8px 20px color-mix(in srgb,var(--theme-shadow,rgba(0,0,0,.15)) 72%,transparent)!important;
+}
+
+/* =========================================================
+   12. Accessibilité / responsive / réduction mouvement
+   ========================================================= */
+
+:focus-visible{
+  outline:3px solid color-mix(in srgb,var(--theme-primary,#8B5CF6) 62%,transparent)!important;
+  outline-offset:3px;
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled{
+  box-shadow:none!important;
+}
+
+@media(max-width:760px){
+  .hero{
+    border-radius:24px!important;
+  }
+  :is(
+    .home-five-level,.level-card,.cat-card,.matiere-card,.doc-row,
+    .form-card,.admin-card,.admin-category-card,.personal-panel,
+    .admin-pending-v2-card,.aurore-pdf-prod-card,.cf-studio-box,
+    .aurore-ia-app
+  ){
+    border-radius:20px!important;
+  }
+  .home-annonce,
+  .home-recents-cta,
+  .personal-space-compact-card,
+  .admin-space-card,
+  .home-video-section,
+  .livres-banner{
+    border-radius:22px!important;
+  }
+}
+
+@media(max-width:520px){
+  .admin-data-toolbar,
+  .site-data-toolbar,
+  .recents-toolbar,
+  .docs-toolbar{
+    border-radius:16px!important;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  *,
+  *::before,
+  *::after{
+    scroll-behavior:auto!important;
+    transition-duration:.01ms!important;
+    animation-duration:.01ms!important;
+    animation-iteration-count:1!important;
+  }
+}
+
+/* L'amélioration avancée reste progressive : les navigateurs qui connaissent
+   corner-shape obtiennent les formes exactes; les autres gardent les rayons
+   classiques définis ci-dessus. */
+@supports(corner-shape:squircle){
+  .home-annonce,
+  .home-recents-cta,
+  .personal-space-compact-card,
+  .admin-space-card,
+  .home-video-section,
+  .livres-banner{
+    corner-shape:scoop;
+  }
+  :is(
+    .admin-btn.ghost,.ghost,.back-btn,.admin-tab,
+    .admin-pending-v2-actions .admin-btn.ghost,
+    .admin-refresh,.pending-refresh,.site-pagination button,
+    .personal-action,.shortcut-btn,.breadcrumb button,
+    .theme-switch-btn,.color-theme-btn,.pwa-install-btn,
+    .pdf-menu-item,.pdf-menu-zoom-btn,
+    .aurore-ia-new,.aurore-ia-back,.aurore-ia-tool,
+    .aurore-ia-suggestions button,.aurore-ia-copy-action
+  ){
+    corner-shape:bevel;
+  }
+}
