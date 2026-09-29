@@ -316,9 +316,9 @@ async function promoteAtoB(id){
     proposal_status:'chapters_ready',
     research_verified_at:new Date().toISOString(),
     research_verification:'persisted_and_checked',
-    execution_contract:A_EXECUTION_CONTRACT,
+    execution_contract:B_EXECUTION_CONTRACT,
     execution_contract_acknowledged:true,
-    completion_guard:A_EXECUTION_CONTRACT_VERSION,
+    completion_guard:B_EXECUTION_CONTRACT_VERSION,
     manual_pdf_launch_required:true,
     auto_pdf_launch:false
   },'draft');
