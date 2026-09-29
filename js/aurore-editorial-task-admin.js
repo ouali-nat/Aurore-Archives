@@ -299,8 +299,9 @@ function classify(t){
   const w=t.metadata?.workflow||{},s=w.stage||'initiale';
   if(['chapitres_proposes','chapitre_selectionne'].includes(s)&&aResearchReady(t))return'B';
   if(!w.chatgpt_claimed&&['initiale','chapitres_demandes'].includes(s))return'A';
-  if(['proposition_editoriale','proposal_review','revision_requested'].includes(s))return'C';
-  if(['admin_validation','edition_ready'].includes(s))return'D';
+  if(['proposition_editoriale','revision_requested'].includes(s))return'C';
+  if(['proposal_review','admin_validation','edition_ready'].includes(s))return'CX';
+  if(['redaction','production_en_cours','production_terminee','pdf_ready'].includes(s))return'D';
   return null;
 }
 async function promoteAtoB(id){
@@ -333,14 +334,16 @@ function taskCard(t,section){
   const pv=w.proposal&&typeof w.proposal==='object'?w.proposal:null;
   const desc=section==='B'
     ? (ch.length?ch.slice(0,3).map(x=>x.title||x.name||textValue(x)).join(' · ')+(ch.length>3?'…':''):'Recherche / chapitres à proposer')
-    : section==='C'
+    : section==='C'||section==='CX'
       ? (pv?.productionStrategy||pv?.title||(
           Array.isArray(w.selected_chapters)&&w.selected_chapters.length
             ? 'Chapitres retenus : '+w.selected_chapters.map(x=>x?.title||x?.name||textValue(x)).join(' · ')
             : w.selected_chapter?.title||w.selected_chapter||''
         )||'Carte de production à construire')
+      : section==='CX'
+        ? (pv?'Plan C traité · consultable et modifiable':'Plan C traité')
       : section==='D'
-        ? (w.stage==='edition_ready'?'Plan validé · prêt pour la production':'Contrôle hérité à terminer')
+        ? (w.stage==='edition_ready'?'Plan validé · prêt pour la production':'Production finale')
         : 'Classe + matière : première étape du parcours éditorial';
 
     return '<article class="editor-pro-card"><div class="editor-pro-top"><span class="editor-pro-id">#'+esc(t.id)+'</span><span class="editor-pro-pill '+esc(s.tone)+'">'+esc(s.label)+'</span></div><h4>'+esc(t.class_name||t.level||'Classe')+'</h4><strong class="editor-pro-subject">'+esc(t.subject||'Matière')+'</strong><p>'+esc(desc)+'</p><div class="editor-pro-bottom"><span>'+esc(t.document_type||'cours')+'</span><button type="button" class="admin-btn ghost" data-editor-open="'+esc(t.id)+'">Ouvrir</button></div></article>';
@@ -472,24 +475,24 @@ function detail(t,section){
   const sourceUrls=Array.isArray(w.chapter_research?.source_urls)?w.chapter_research.source_urls:[];
   const meta='<div class="editor-detail-meta"><div><span>Identité</span><strong>'+esc(t.title||'')+'</strong></div><div><span>Type</span><strong>'+esc(t.document_type||'cours')+'</strong></div><div><span>Recherche</span><strong>'+esc(sourceUrls.length||((w.proposal?.sources?String(w.proposal.sources).split('\\n').filter(Boolean).length:0)))+' source(s)</strong></div><div><span>Version du plan</span><strong>'+esc(w.proposal_version||0)+'</strong></div></div>';
   if(section==='B')return d+meta+'<h5 class="editor-detail-title">Chapitres disponibles</h5>'+chaptersMarkup(t);
-  if(section==='C')return d+meta+'<h5 class="editor-detail-title">Plan complet de production</h5>'+planForm(t);
+  if(section==='C'||section==='CX')return d+meta+'<h5 class="editor-detail-title">Plan complet de production</h5>'+planForm(t);
   if(section==='D')return d+meta+'<h5 class="editor-detail-title">Production autorisée / suivi de rédaction</h5>'+productionReadyMarkup(t);
   const researchReady=aResearchReady(t),r=aResearchFor(t),options=Array.isArray(w.chapter_options)?w.chapter_options:[];
   return d+meta+'<div class="editor-a-start"><strong>'+esc(researchReady?'Recherche et propositions persistées : la tâche peut passer en B.':'Cette tâche attend notre récupération et sa recherche documentaire.')+'</strong><span>'+esc(researchReady?'La migration sera effectuée seulement après une nouvelle lecture de Supabase et une vérification des sources et chapitres.':'Aucune migration vers B ne doit être faite tant que la recherche, ses sources et les propositions de chapitres ne sont pas écrites dans la tâche.')+'</span>'+(researchReady?'<div class="editor-plan-actions"><button type="button" class="admin-btn primary" data-a-promote="'+esc(t.id)+'">Transférer en B après vérification</button></div>':'')+'</div>'';
 }
 function render(root,state){
-  const all=state.tasks, groups={A:[],B:[],C:[],D:[]};
+  const all=state.tasks, groups={A:[],B:[],C:[],CX:[],D:[]};
   all.forEach(t=>{const g=classify(t);if(g)groups[g].push(t)});
   const active=state.section||'A',items=groups[active],page=state.pages[active]||0,visible=paginate(items,page);
   root.innerHTML=
   '<div class="editor-hub">'+
     '<div class="editor-hub-head"><div><span class="editor-kicker">Parcours éditorial</span><h3>Gestion des documents</h3><p>Un seul parcours, de la demande jusqu’à l’édition finale. Aucun PDF n’est lancé automatiquement.</p></div><button type="button" class="admin-btn ghost" id="editorRefresh">↻ Actualiser</button></div>'+
     '<nav class="editor-main-nav" aria-label="Étapes du parcours éditorial">'+
-      ['A','B','C','D'].map(k=>'<button type="button" class="editor-main-nav-item '+(active===k?'active':'')+'" data-editor-section="'+k+'"><span>'+k+'</span><strong>'+({A:'Tâches',B:'Chapitres',C:'Production',D:'Validation admin'}[k])+'</strong><em>'+groups[k].length+'</em></button>').join('')+
+      ['A','B','C','CX','D'].map(k=>'<button type="button" class="editor-main-nav-item '+(active===k?'active':'')+'" data-editor-section="'+k+'"><span>'+k+'</span><strong>'+({A:'Tâches',B:'Chapitres',C:'Production',CX:'Plans traités',D:'Édition finale'}[k])+'</strong><em>'+groups[k].length+'</em></button>').join('')+
       '<button type="button" class="editor-main-nav-link" data-editor-documents>Documents en attente <span>→</span></button>'+
     '</nav>'+
     '<section class="editor-page">'+
-      '<div class="editor-page-title"><div><span class="editor-step">Section '+active+'</span><h4>'+({A:'Tâches à créer',B:'Chapitres disponibles',C:'Plan complet de production',D:'Production autorisée / suivi de rédaction'}[active])+'</h4><p>'+({A:'Crée ici les demandes avec uniquement la classe et la matière.',B:'Chaque tâche récupérée présente les chapitres disponibles pour le document.',C:'Le plan est entièrement détaillé, modifiable, validable ou rejetable avant toute rédaction finale.',D:'Les documents dont le plan C est validé arrivent ici pour la rédaction finale. Aucun PDF n’est lancé automatiquement.'}[active])+'</p></div><span class="editor-page-count">'+items.length+' document'+(items.length>1?'s':'')+'</span></div>'+
+      '<div class="editor-page-title"><div><span class="editor-step">Section '+active+'</span><h4>'+({A:'Tâches à créer',B:'Chapitres disponibles',C:'Plan complet de production',CX:'Plans C déjà traités',D:'Édition finale / suivi de production'}[active])+'</h4><p>'+({A:'Crée ici les demandes avec une sélection claire et agrandie du niveau, du parcours, de la classe et de la matière.',B:'Chaque tâche récupérée présente les chapitres disponibles pour le document.',C:'Les tâches non encore traitées en C sont construites ici.',CX:'Cette zone conserve les documents dont le travail C est déjà traité et vérifié. Le plan reste consultable et modifiable avant la suite.',D:'Les documents passés après CX arrivent ici pour la rédaction finale. Aucun PDF n’est lancé automatiquement.'}[active])+'</p></div><span class="editor-page-count">'+items.length+' document'+(items.length>1?'s':'')+'</span></div>'+
       (active==='A'?'<div class="editor-create-card"><div><span class="editor-step">Créer</span><h5>Nouvelle demande</h5><p>Le classement reprend exactement le cheminement du formulaire de dépôt : niveau → parcours/emplacement → classe → matière. Les choix restent ouverts pendant le défilement et aucune valeur libre n’est acceptée.</p></div><div class="editor-create-fields"><label>Type<select id="editorType"><option value="cours">Cours</option><option value="exercices">Exercices</option><option value="qcm">QCM</option><option value="fiches">Fiches</option></select></label><div class="editor-classification"><button type="button" class="editor-classification-trigger" id="editorClassificationTrigger" aria-expanded="false"><span id="editorClassificationSummary">Choisir le niveau et l’emplacement…</span><span aria-hidden="true">⌄</span></button><div class="editor-classification-panel" id="editorClassificationPanel" hidden><div class="editor-classification-section"><span class="editor-classification-label">1 · Niveau</span><div class="editor-option-scroll" id="editorRootOptions"></div></div><div class="editor-classification-section" id="editorRouteSection" hidden><span class="editor-classification-label">2 · Parcours / emplacement</span><div class="editor-option-scroll" id="editorRouteOptions"></div></div><div class="editor-classification-section" id="editorSubjectSection" hidden><span class="editor-classification-label">3 · Matière</span><div class="editor-option-scroll" id="editorSubjectOptions"></div></div></div></div><button type="button" class="admin-btn primary" id="editorCreate">Créer la tâche</button></div></div>':'')+
       '<div class="editor-block-label"><span>Bloc '+(page+1)+'</span><small>'+((page*PAGE_SIZE)+1)+'–'+Math.min((page+1)*PAGE_SIZE,items.length)+' sur '+items.length+'</small></div>'+
       '<div class="editor-card-grid">'+(visible.length?visible.map(t=>taskCard(t,active)).join(''):'<div class="editor-empty">Aucun document dans cette étape pour le moment.</div>')+'</div>'+
@@ -737,20 +740,21 @@ function injectStyle(){
 #auroreEditorialTaskAdmin .editor-page-title{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
 #auroreEditorialTaskAdmin .editor-page-title h4{margin:5px 0 5px;font-size:1rem}
 #auroreEditorialTaskAdmin .editor-page-count{font-size:.62rem;font-weight:900;opacity:.55;white-space:nowrap}
-#auroreEditorialTaskAdmin .editor-create-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(410px,1.1fr);gap:18px;align-items:end;padding:18px;border-radius:18px;border:1px solid color-mix(in srgb,var(--editor-accent) 18%,var(--editor-border));background:linear-gradient(135deg,color-mix(in srgb,var(--editor-accent) 10%,var(--editor-surface)),var(--editor-surface))}
+@media(min-width:721px){#auroreEditorialTaskAdmin .editor-create-card{grid-template-columns:minmax(260px,.7fr) minmax(0,1.8fr);}}
+#auroreEditorialTaskAdmin .editor-create-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(410px,1.1fr);gap:18px;align-items:end;padding:22px;border-radius:18px;border:1px solid color-mix(in srgb,var(--editor-accent) 18%,var(--editor-border));background:linear-gradient(135deg,color-mix(in srgb,var(--editor-accent) 10%,var(--editor-surface)),var(--editor-surface))}
 #auroreEditorialTaskAdmin .editor-create-card h5{margin:5px 0 6px;font-size:.95rem}
-#auroreEditorialTaskAdmin .editor-create-fields{display:grid;grid-template-columns:1fr minmax(280px,1.8fr) auto;gap:9px;align-items:start}
+#auroreEditorialTaskAdmin .editor-create-fields{display:grid;grid-template-columns:minmax(150px,.55fr) minmax(360px,1.9fr) auto;gap:12px;align-items:start}
 #auroreEditorialTaskAdmin .editor-classification{position:relative;min-width:0}
 #auroreEditorialTaskAdmin .editor-classification-trigger{width:100%;min-height:41px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 11px;border:1px solid var(--editor-border);border-radius:11px;background:var(--editor-surface);color:inherit;font:inherit;font-size:.67rem;font-weight:800;cursor:pointer;text-align:left}
 #auroreEditorialTaskAdmin .editor-classification-trigger:hover{border-color:color-mix(in srgb,var(--editor-accent) 35%,var(--editor-border))}
-#auroreEditorialTaskAdmin .editor-classification-panel{position:absolute;z-index:1200;left:0;right:0;top:calc(100% + 7px);padding:11px;border:1px solid color-mix(in srgb,var(--editor-accent) 22%,var(--editor-border));border-radius:15px;background:var(--editor-surface);box-shadow:0 18px 45px rgba(0,0,0,.18)}
+#auroreEditorialTaskAdmin .editor-classification-panel{position:absolute;z-index:1200;left:0;right:0;top:calc(100% + 7px);padding:16px;border:1px solid color-mix(in srgb,var(--editor-accent) 22%,var(--editor-border));border-radius:15px;background:var(--editor-surface);box-shadow:0 18px 45px rgba(0,0,0,.18)}
 #auroreEditorialTaskAdmin .editor-classification-panel[hidden]{display:none}
 #auroreEditorialTaskAdmin .editor-classification-section{display:grid;gap:6px;margin-bottom:9px}
 #auroreEditorialTaskAdmin .editor-classification-section:last-child{margin-bottom:0}
 #auroreEditorialTaskAdmin .editor-classification-label{font-size:.58rem;font-weight:950;letter-spacing:.05em;text-transform:uppercase;opacity:.55}
-#auroreEditorialTaskAdmin .editor-option-scroll{display:flex;gap:6px;overflow-x:auto;overflow-y:hidden;max-width:100%;padding:2px 1px 7px;scrollbar-width:thin;overscroll-behavior-x:contain;touch-action:pan-x}
+#auroreEditorialTaskAdmin .editor-option-scroll{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;max-height:190px;overflow-y:auto;overflow-x:hidden;max-width:100%;padding:4px 2px 8px;scrollbar-width:thin;overscroll-behavior:contain}
 #auroreEditorialTaskAdmin .editor-option-scroll::-webkit-scrollbar{height:6px}
-#auroreEditorialTaskAdmin .editor-option{flex:0 0 auto;border:1px solid var(--editor-border);border-radius:10px;background:color-mix(in srgb,currentColor 3%,var(--editor-surface));color:inherit;padding:8px 10px;font:inherit;font-size:.62rem;font-weight:800;cursor:pointer;text-align:left;white-space:nowrap}
+#auroreEditorialTaskAdmin .editor-option{min-height:43px;border:1px solid var(--editor-border);border-radius:10px;background:color-mix(in srgb,currentColor 3%,var(--editor-surface));color:inherit;padding:8px 10px;font:inherit;font-size:.62rem;font-weight:800;cursor:pointer;text-align:left;white-space:nowrap}
 #auroreEditorialTaskAdmin .editor-option:hover,#auroreEditorialTaskAdmin .editor-option.selected{border-color:var(--editor-accent);background:color-mix(in srgb,var(--editor-accent) 10%,var(--editor-surface))}
 #auroreEditorialTaskAdmin .editor-option-empty{padding:9px;font-size:.61rem;opacity:.55}
 #auroreEditorialTaskAdmin .editor-create-fields label,#auroreEditorialTaskAdmin .editor-field{display:grid;gap:5px;font-size:.62rem;font-weight:850}
@@ -844,7 +848,7 @@ function injectStyle(){
 #auroreEditorialTaskAdmin .editor-a-start span{font-size:.62rem;opacity:.62}
 #auroreEditorialTaskAdmin .danger{border-color:color-mix(in srgb,#DC2626 25%,var(--editor-border))!important}
 @media(max-width:1050px){#auroreEditorialTaskAdmin .editor-create-fields{grid-template-columns:1fr 1fr}.editor-create-fields .admin-btn{grid-column:1/-1}#auroreEditorialTaskAdmin .editor-card-grid{grid-template-columns:repeat(3,minmax(0,1fr))}#auroreEditorialTaskAdmin .editor-create-card{grid-template-columns:1fr}}
-@media(max-width:720px){#auroreEditorialTaskAdmin .editor-classification-panel{position:relative;top:auto;left:auto;right:auto;margin-top:6px;box-shadow:none;max-height:62vh;overflow:hidden}.editor-option-scroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch}}
+@media(max-width:720px){#auroreEditorialTaskAdmin .editor-classification-panel{position:relative;top:auto;left:auto;right:auto;margin-top:8px;box-shadow:none;max-height:68vh;overflow:auto}.editor-option-scroll{grid-template-columns:repeat(2,minmax(0,1fr));max-height:none;overflow:visible}}
 
 @media(max-width:720px){#auroreEditorialTaskAdmin .editor-main-nav{overflow-x:auto}#auroreEditorialTaskAdmin .editor-main-nav-item{min-width:120px}#auroreEditorialTaskAdmin .editor-main-nav-link{margin-left:0}#auroreEditorialTaskAdmin .editor-page-title,#auroreEditorialTaskAdmin .editor-validation-head{display:block}#auroreEditorialTaskAdmin .editor-page-count{display:block;margin-top:8px}#auroreEditorialTaskAdmin .editor-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#auroreEditorialTaskAdmin .editor-detail-meta,#auroreEditorialTaskAdmin .editor-validation-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:520px){#auroreEditorialTaskAdmin .editor-hub-head{display:block}#auroreEditorialTaskAdmin .editor-main-nav{display:grid;grid-template-columns:1fr 1fr}#auroreEditorialTaskAdmin .editor-main-nav-link{grid-column:1/-1;text-align:left;border-left:0;border-top:1px solid var(--editor-border);padding-top:11px}#auroreEditorialTaskAdmin .editor-card-grid{grid-template-columns:1fr}#auroreEditorialTaskAdmin .editor-plan-grid,#auroreEditorialTaskAdmin .editor-detail-meta,#auroreEditorialTaskAdmin .editor-chapters-grid,#auroreEditorialTaskAdmin .editor-validation-grid{grid-template-columns:1fr}#auroreEditorialTaskAdmin .editor-plan-actions{justify-content:stretch}#auroreEditorialTaskAdmin .editor-plan-actions .admin-btn{flex:1}}
@@ -858,7 +862,7 @@ async function chargerEspaceEditorialChatGPT(){
   let root=document.getElementById('auroreEditorialTaskAdmin');
   if(!root){root=document.createElement('div');root.id='auroreEditorialTaskAdmin';(document.getElementById('auroraRequestFormHost')||p).appendChild(root)}
   root.innerHTML='<div class="editor-empty">Chargement du parcours éditorial…</div>';
-  try{const tasks=await listJobs();const state={tasks,section:'A',pages:{A:0,B:0,C:0,D:0}};render(root,state);const count=document.getElementById('tabCountAuroraRequest');if(count)count.textContent=String(tasks.length);return true}catch(e){root.innerHTML='<div class="editor-empty">Impossible de charger le parcours éditorial : '+esc(e.message||e)+'</div>';return false}
+  try{const tasks=await listJobs();const state={tasks,section:'A',pages:{A:0,B:0,C:0,CX:0,D:0}};render(root,state);const count=document.getElementById('tabCountAuroraRequest');if(count)count.textContent=String(tasks.length);return true}catch(e){root.innerHTML='<div class="editor-empty">Impossible de charger le parcours éditorial : '+esc(e.message||e)+'</div>';return false}
 }
 window.chargerEspaceEditorialChatGPT=chargerEspaceEditorialChatGPT;
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{const p=panel();if(p){injectStyle();const host=document.getElementById('auroraRequestFormHost');if(host&&!document.getElementById('auroreEditorialTaskAdmin')){const root=document.createElement('div');root.id='auroreEditorialTaskAdmin';host.appendChild(root)}}},{once:true});else injectStyle();
