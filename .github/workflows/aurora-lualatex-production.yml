@@ -1138,6 +1138,7 @@ jobs:
                           "Un exemple numérique montre comment appliquer la relation dans une situation concrète.",
                           "Une remarque signale une condition de validité importante à ne pas oublier.",
                           "Une conclusion rappelle le résultat et son interprétation physique.",
+                          "La linéarité s’écrit ∫_a^b(αf(x)+βg(x))dx=α∫_a^b f(x)dx+β∫_a^b g(x)dx.",
                           "$f'(x)=e^x$",
                           "La mise en forme doit garder les expressions mathématiques distinctes du texte.",
                       ],
@@ -1157,6 +1158,10 @@ jobs:
 
           tex = render(data)
           required = [
+          if "\\alphaf" in tex or "\\betag" in tex:
+              raise SystemExit("Renderer smoke check failed: concatenated Greek/Latin TeX control word detected")
+          if r"\alpha f(x)" not in tex or r"\beta g(x)" not in tex:
+              raise SystemExit("Renderer smoke check failed: Greek-letter token boundary was not preserved")
               r"\documentclass[0.6,nocrop]{sesamanuel}",
               r"\NewThema{A}{a}{aurore}{Aurore}{AURORE}",
               r"\themaA",
