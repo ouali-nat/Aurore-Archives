@@ -745,7 +745,7 @@ function bindDetail(d,t,state){
   const SCIENTIFIC_LATEX_DENSITY_MIN=400;
   function isScientificDocument(t){
     const subject=String(t?.subject||'').toLocaleLowerCase('fr').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'');
-    return /(^|[^a-z])(maths|mathematiques|mathematique|physique|chimie)([^a-z]|$)/i.test(subject)
+    return /(^|[^a-z])(maths|mathematiques|mathematique|physique|chimie|sciences physiques|pc)([^a-z]|$)/i.test(subject)
       || subject.includes('physique-chimie')
       || subject.includes('physique chimie');
   }
