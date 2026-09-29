@@ -869,8 +869,17 @@ jobs:
                   "subject", "matiere", "level", "class_name", "document_type",
                   "domaine", "formation", "specialite", "annee", "semestre", "filiere"
               ):
-                  if document.get(key) is not None and key not in content:
-                      content[key] = document.get(key)
+                  authoritative = document.get(key)
+                  existing = content.get(key) if key in content else None
+                  # The database row is authoritative. Do not let an explicit
+                  # null/blank connector field shadow the document's canonical
+                  # subject, level, class or document type.
+                  if authoritative is not None and (
+                      key not in content
+                      or existing is None
+                      or (isinstance(existing, str) and not existing.strip())
+                  ):
+                      content[key] = authoritative
 
               # The administrative document record is the source of truth for
               # theme selection. Centralize this merge in the renderer so the
