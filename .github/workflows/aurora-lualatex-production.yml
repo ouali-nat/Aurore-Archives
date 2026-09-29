@@ -72,7 +72,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import render_document
-          from render_document import normalize_math, inline, _auto_math_normalize_fragment, _math_visual_plan_qa, _geogebra_visual_plan_qa, _exercise_geogebra_plan_qa, _documentary_visual_plan_qa
+          from render_document import normalize_math, inline, render_content, _auto_math_normalize_fragment, _math_visual_plan_qa, _geogebra_visual_plan_qa, _exercise_geogebra_plan_qa, _documentary_visual_plan_qa
 
           # Guard against regression of the Wikimedia QA diagnostic scope bug fixed in render_document.py.
           import inspect
@@ -120,6 +120,12 @@ jobs:
           if "\\alphaf" in inline_greek or "\\betag" in inline_greek:
               raise SystemExit(f"Inline Greek command boundary regression: {inline_greek!r}")
 
+          exact_course_paragraph = "La linéarité s’écrit ∫_a^b(αf(x)+βg(x))dx=α∫_a^b f(x)dx+β∫_a^b g(x)dx."
+          rendered_course = "\n".join(render_content([exact_course_paragraph], auto_math=True, box_all_math=True))
+          if "\\alphaf" in rendered_course or "\\betag" in rendered_course:
+              raise SystemExit(f"Course production math regression: {rendered_course!r}")
+          if r"\alpha f(x)" not in rendered_course or r"\beta g(x)" not in rendered_course:
+              raise SystemExit(f"Course production Greek math missing: {rendered_course!r}")
           prime_cases = [
               ("f'(x)", r"f^{\prime}(x)"),
               ("f''(x)", r"f^{\prime\prime}(x)"),
