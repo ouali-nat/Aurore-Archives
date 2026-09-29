@@ -324,7 +324,7 @@ function bSelectionReady(t){
 }
 function classify(t){
   const w=t.metadata?.workflow||{},s=w.stage||'initiale';
-  if(['chapitres_proposes','chapitre_selectionne'].includes(s)&&aResearchReady(t))return'B';
+  if(['chapitres_proposes','chapitre_selectionne'].includes(s))return'B';
   if(!w.chatgpt_claimed&&['initiale','chapitres_demandes'].includes(s))return'A';
   if(['proposition_editoriale','revision_requested'].includes(s))return'C';
   if(['proposal_review','admin_validation','edition_ready'].includes(s))return'CX';
@@ -347,6 +347,7 @@ async function promoteAtoB(id){
     execution_contract:B_EXECUTION_CONTRACT,
     execution_contract_acknowledged:true,
     completion_guard:B_EXECUTION_CONTRACT_VERSION,
+    migration_log:{from_stage:'A',to_stage:'B',verified_at:new Date().toISOString(),verification:'persisted_context_research_sources_and_options'},
     manual_pdf_launch_required:true,
     auto_pdf_launch:false
   },'draft');
@@ -358,6 +359,7 @@ async function promoteAtoB(id){
 function taskCard(t,section){
   const w=t.metadata?.workflow||{},s=stageInfo[w.stage]||{label:w.stage||t.status,tone:'waiting'};
   const ch=Array.isArray(w.chapters)?w.chapters:[];
+  const bOptions=Array.isArray(w.chapter_options)?w.chapter_options:[];
   const pv=w.proposal&&typeof w.proposal==='object'?w.proposal:null;
   const desc=section==='B'
     ? (ch.length?ch.slice(0,3).map(x=>x.title||x.name||textValue(x)).join(' · ')+(ch.length>3?'…':''):'Recherche / chapitres à proposer')
@@ -431,7 +433,9 @@ function chaptersMarkup(t){
   if(!aResearchReady(t))return'<div class="editor-c-plan-context warning"><span>Recherche non vérifiée</span><strong>La carte B ne peut pas proposer de sélection.</strong><small>La recherche, les sources et les propositions doivent être persistées dans Supabase avant l’entrée en B.</small></div>';
   if(!proposals.length)return'<div class="editor-empty">Aucune proposition structurée disponible après recherche. La tâche doit rester hors de B.</div>';
   const selected=new Set(saved.map(x=>String(x.title||x.name||x)));
-  const sources=Array.isArray(r.source_urls)?r.source_urls:[];
+  const sources=[...(Array.isArray(r.source_urls)?r.source_urls:[]),...(Array.isArray(r.sources)?r.sources:[])]
+    .map(x=>typeof x==='string'?x:(x&&typeof x==='object'?(x.url||x.href||x.source_url||''):String(x||'')))
+    .map(x=>String(x||'').trim()).filter(Boolean);
   return '<div class="editor-chapter-source"><span>Dossier de recherche ayant autorisé A → B</span><small><strong>Méthode :</strong> '+esc(r.methodology||r.method||'—')+' · <strong>Base :</strong> '+esc(r.basis||'—')+' · <strong>Constats :</strong> '+esc(r.findings||'—')+'</small><small><strong>Sources :</strong> '+esc(sources.join(' · '))+'</small></div>'+
     '<button type="button" class="admin-btn ghost editor-chapters-toggle" data-chapters-toggle>Choisir les chapitres <span>＋</span></button>'+
     '<div class="editor-chapters-selection" hidden><div class="editor-chapters-choice">'+proposals.map((x,i)=>'<label class="editor-chapter-choice"><input type="checkbox" data-chapter-choice="'+i+'" '+(selected.has(x.title)?'checked':'')+'><span><strong>'+esc(x.title)+'</strong><small>'+esc(x.description)+'</small><em>'+esc(x.source)+'</em></span></label>').join('')+'</div>'+
