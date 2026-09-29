@@ -294,12 +294,17 @@ function aContextReady(t){
   return a.acknowledged===true&&snapshot.length>=80&&summary.length>=60
     &&required.every(x=>String(x||'').trim()&&snapshot.includes(String(x).trim()));
 }
+function researchSourcesFor(t){
+  const r=aResearchFor(t);
+  const raw=Array.isArray(r.source_urls)?r.source_urls:(Array.isArray(r.sources)?r.sources:[]);
+  return raw.map(x=>typeof x==='string'?x:String(x?.url||x?.title||'')).map(x=>String(x||'').trim()).filter(Boolean);
+}
 function aResearchReady(t){
   const w=t.metadata?.workflow||{},r=aResearchFor(t);
   const options=Array.isArray(w.chapter_options)?w.chapter_options:[];
   const findings=String(r.findings||'').trim();
   const methodology=String(r.methodology||r.method||'').trim();
-  const sources=Array.isArray(r.source_urls)?r.source_urls.filter(Boolean):(Array.isArray(r.sources)?r.sources.filter(Boolean):[]);
+  const sources=researchSourcesFor(t);
   return aContextReady(t)
     &&String(r.status||'').toLowerCase()==='researched'
     &&findings.length>=40
@@ -425,7 +430,7 @@ function chaptersMarkup(t){
   if(!aResearchReady(t))return'<div class="editor-c-plan-context warning"><span>Recherche non vérifiée</span><strong>La carte B ne peut pas proposer de sélection.</strong><small>La recherche, les sources et les propositions doivent être persistées dans Supabase avant l’entrée en B.</small></div>';
   if(!proposals.length)return'<div class="editor-empty">Aucune proposition structurée disponible après recherche. La tâche doit rester hors de B.</div>';
   const selected=new Set(saved.map(x=>String(x.title||x.name||x)));
-  const sources=Array.isArray(r.source_urls)?r.source_urls:[];
+  const sources=researchSourcesFor(t);
   return '<div class="editor-chapter-source"><span>Dossier de recherche ayant autorisé A → B</span><small><strong>Méthode :</strong> '+esc(r.methodology||r.method||'—')+' · <strong>Base :</strong> '+esc(r.basis||'—')+' · <strong>Constats :</strong> '+esc(r.findings||'—')+'</small><small><strong>Sources :</strong> '+esc(sources.join(' · '))+'</small></div>'+
     '<button type="button" class="admin-btn ghost editor-chapters-toggle" data-chapters-toggle>Choisir les chapitres <span>＋</span></button>'+
     '<div class="editor-chapters-selection" hidden><div class="editor-chapters-choice">'+proposals.map((x,i)=>'<label class="editor-chapter-choice"><input type="checkbox" data-chapter-choice="'+i+'" '+(selected.has(x.title)?'checked':'')+'><span><strong>'+esc(x.title)+'</strong><small>'+esc(x.description)+'</small><em>'+esc(x.source)+'</em></span></label>').join('')+'</div>'+
@@ -497,7 +502,7 @@ function productionReadyMarkup(t){
 }
 function detail(t,section){
   const w=t.metadata?.workflow||{},d='<div class="editor-detail-head"><div><span class="editor-step">Section '+section+' · tâche #'+esc(t.id)+'</span><h4>'+esc(t.class_name||t.level||'')+' · '+esc(t.subject||'')+'</h4><p>État : <strong>'+esc((stageInfo[w.stage]||{}).label||w.stage||t.status)+'</strong></p></div><button type="button" class="admin-btn ghost" data-editor-close>Fermer</button></div>';
-  const sourceUrls=Array.isArray(w.chapter_research?.source_urls)?w.chapter_research.source_urls:(Array.isArray(w.chapter_research?.sources)?w.chapter_research.sources:[]);
+  const sourceUrls=researchSourcesFor(t);
   const meta='<div class="editor-detail-meta"><div><span>Identité</span><strong>'+esc(t.title||'')+'</strong></div><div><span>Type</span><strong>'+esc(t.document_type||'cours')+'</strong></div><div><span>Recherche</span><strong>'+esc(sourceUrls.length||((w.proposal?.sources?String(w.proposal.sources).split('\\n').filter(Boolean).length:0)))+' source(s)</strong></div><div><span>Version du plan</span><strong>'+esc(w.proposal_version||0)+'</strong></div></div>';
   if(section==='B')return d+meta+'<h5 class="editor-detail-title">Chapitres disponibles</h5>'+chaptersMarkup(t);
   if(section==='C'||section==='CX')return d+meta+'<h5 class="editor-detail-title">Plan complet de production</h5>'+planForm(t);
@@ -884,9 +889,9 @@ function injectStyle(){
 #auroreEditorialTaskAdmin .editor-classification-section{display:grid;gap:6px;margin-bottom:9px}
 #auroreEditorialTaskAdmin .editor-classification-section:last-child{margin-bottom:0}
 #auroreEditorialTaskAdmin .editor-classification-label{font-size:.58rem;font-weight:950;letter-spacing:.05em;text-transform:uppercase;opacity:.55}
-#auroreEditorialTaskAdmin .editor-option-scroll{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;max-height:190px;overflow-y:auto;overflow-x:hidden;max-width:100%;padding:4px 2px 8px;scrollbar-width:thin;overscroll-behavior:contain}
+#auroreEditorialTaskAdmin .editor-option-scroll{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;max-height:260px;overflow-y:auto;overflow-x:hidden;max-width:100%;padding:4px 2px 8px;scrollbar-width:thin;overscroll-behavior:contain}
 #auroreEditorialTaskAdmin .editor-option-scroll::-webkit-scrollbar{height:6px}
-#auroreEditorialTaskAdmin .editor-option{min-height:43px;border:1px solid var(--editor-border);border-radius:10px;background:color-mix(in srgb,currentColor 3%,var(--editor-surface));color:inherit;padding:8px 10px;font:inherit;font-size:.62rem;font-weight:800;cursor:pointer;text-align:left;white-space:nowrap}
+#auroreEditorialTaskAdmin .editor-option{min-height:45px;border:1px solid var(--editor-border);border-radius:10px;background:color-mix(in srgb,currentColor 3%,var(--editor-surface));color:inherit;padding:8px 10px;font:inherit;font-size:.62rem;font-weight:800;cursor:pointer;text-align:left;white-space:normal;overflow-wrap:anywhere;line-height:1.3}
 #auroreEditorialTaskAdmin .editor-option:hover,#auroreEditorialTaskAdmin .editor-option.selected{border-color:var(--editor-accent);background:color-mix(in srgb,var(--editor-accent) 10%,var(--editor-surface))}
 #auroreEditorialTaskAdmin .editor-option-empty{padding:9px;font-size:.61rem;opacity:.55}
 #auroreEditorialTaskAdmin .editor-create-fields label,#auroreEditorialTaskAdmin .editor-field{display:grid;gap:5px;font-size:.62rem;font-weight:850}
@@ -980,7 +985,7 @@ function injectStyle(){
 #auroreEditorialTaskAdmin .editor-a-start span{font-size:.62rem;opacity:.62}
 #auroreEditorialTaskAdmin .danger{border-color:color-mix(in srgb,#DC2626 25%,var(--editor-border))!important}
 @media(max-width:1050px){#auroreEditorialTaskAdmin .editor-create-fields{grid-template-columns:1fr 1fr}.editor-create-fields .admin-btn{grid-column:1/-1}#auroreEditorialTaskAdmin .editor-card-grid{grid-template-columns:repeat(3,minmax(0,1fr))}#auroreEditorialTaskAdmin .editor-create-card{grid-template-columns:1fr}}
-@media(max-width:720px){#auroreEditorialTaskAdmin .editor-create-fields{grid-template-columns:1fr}.editor-create-fields .admin-btn{grid-column:auto}.editor-classification-panel{position:absolute;top:calc(100% + 7px);left:50%;right:auto;transform:translateX(-50%);width:min(680px,calc(100vw - 28px));max-width:calc(100vw - 28px);max-height:68vh;overflow:auto;box-sizing:border-box}.editor-option-scroll{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));max-height:260px;overflow-y:auto;overflow-x:hidden}.editor-option{white-space:normal;overflow-wrap:anywhere;min-height:45px}}
+@media(max-width:720px){#auroreEditorialTaskAdmin .editor-create-fields{grid-template-columns:1fr}.editor-create-fields .admin-btn{grid-column:auto}.editor-classification-panel{position:absolute;top:calc(100% + 7px);left:50%;right:auto;transform:translateX(-50%);width:min(680px,calc(100vw - 28px));max-width:calc(100vw - 28px);max-height:68vh;overflow:auto;box-sizing:border-box}.editor-option-scroll{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));max-height:260px;overflow-y:auto;overflow-x:hidden}}
 
 @media(max-width:720px){#auroreEditorialTaskAdmin .editor-main-nav{overflow-x:auto}#auroreEditorialTaskAdmin .editor-main-nav-item{min-width:120px}#auroreEditorialTaskAdmin .editor-main-nav-link{margin-left:0}#auroreEditorialTaskAdmin .editor-page-title,#auroreEditorialTaskAdmin .editor-validation-head{display:block}#auroreEditorialTaskAdmin .editor-page-count{display:block;margin-top:8px}#auroreEditorialTaskAdmin .editor-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#auroreEditorialTaskAdmin .editor-detail-meta,#auroreEditorialTaskAdmin .editor-validation-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:520px){#auroreEditorialTaskAdmin .editor-hub-head{display:block}#auroreEditorialTaskAdmin .editor-main-nav{display:grid;grid-template-columns:1fr 1fr}#auroreEditorialTaskAdmin .editor-main-nav-link{grid-column:1/-1;text-align:left;border-left:0;border-top:1px solid var(--editor-border);padding-top:11px}#auroreEditorialTaskAdmin .editor-card-grid{grid-template-columns:1fr}#auroreEditorialTaskAdmin .editor-plan-grid,#auroreEditorialTaskAdmin .editor-detail-meta,#auroreEditorialTaskAdmin .editor-chapters-grid,#auroreEditorialTaskAdmin .editor-validation-grid{grid-template-columns:1fr}#auroreEditorialTaskAdmin .editor-plan-actions{justify-content:stretch}#auroreEditorialTaskAdmin .editor-plan-actions .admin-btn{flex:1}}
