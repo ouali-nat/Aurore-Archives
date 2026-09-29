@@ -288,11 +288,17 @@ function aResearchFor(t){
 function aContextReady(t){
   const w=t.metadata?.workflow||{},a=w.context_assimilation;
   if(!a||typeof a!=='object')return false;
-  const required=[t.title,t.subject,t.level,t.class_name,t.document_type];
-  const snapshot=String(a.snapshot||'').trim();
-  const summary=String(a.summary||'').trim();
+  const required=[t.title,t.subject,t.level,t.class_name,t.document_type].map(x=>String(x||'').trim()).filter(Boolean);
+  if(required.length<5)return false;
+  const rawSnapshot=a.snapshot;
+  const snapshot=typeof rawSnapshot==='string'
+    ? rawSnapshot.trim()
+    : (rawSnapshot&&typeof rawSnapshot==='object'?JSON.stringify(rawSnapshot):'');
+  const summary=typeof a.summary==='string'
+    ? a.summary.trim()
+    : (a.summary&&typeof a.summary==='object'?JSON.stringify(a.summary):'');
   return a.acknowledged===true&&snapshot.length>=80&&summary.length>=60
-    &&required.every(x=>String(x||'').trim()&&snapshot.includes(String(x).trim()));
+    &&required.every(x=>snapshot.includes(x));
 }
 function aResearchReady(t){
   const w=t.metadata?.workflow||{},r=aResearchFor(t);
@@ -518,7 +524,7 @@ function render(root,state){
     '</nav>'+
     '<section class="editor-page">'+
       '<div class="editor-page-title"><div><span class="editor-step">Section '+active+'</span><h4>'+({A:'Tâches à créer',B:'Chapitres disponibles',C:'Plan complet de production',CX:'Plans C déjà traités',D:'Édition finale / suivi de production'}[active])+'</h4><p>'+({A:'Crée ici les demandes avec une sélection claire et agrandie du niveau, du parcours, de la classe et de la matière.',B:'Chaque tâche récupérée présente les chapitres disponibles pour le document.',C:'Les tâches non encore traitées en C sont construites ici.',CX:'Cette zone conserve les documents dont le travail C est déjà traité et vérifié. Le plan reste consultable et modifiable avant la suite.',D:'Les documents passés après CX arrivent ici pour la rédaction finale. Aucun PDF n’est lancé automatiquement.'}[active])+'</p></div><span class="editor-page-count">'+items.length+' document'+(items.length>1?'s':'')+'</span></div>'+
-      (active==='A'?'<div class="editor-create-card"><div><span class="editor-step">Créer</span><h5>Nouvelle demande</h5><p>Le classement reprend exactement le cheminement du formulaire de dépôt : niveau → parcours/emplacement → classe → matière. Les choix restent ouverts pendant le défilement et aucune valeur libre n’est acceptée.</p></div><div class="editor-create-fields"><label>Type<select id="editorType"><option value="cours">Cours</option><option value="exercices">Exercices</option><option value="qcm">QCM</option><option value="fiches">Fiches</option></select></label><div class="editor-classification"><button type="button" class="editor-classification-trigger" id="editorClassificationTrigger" aria-expanded="false"><span id="editorClassificationSummary">Choisir le niveau et l’emplacement…</span><span aria-hidden="true">⌄</span></button><div class="editor-classification-panel" id="editorClassificationPanel" hidden><div class="editor-classification-section"><span class="editor-classification-label">1 · Niveau</span><div class="editor-option-scroll" id="editorRootOptions"></div></div><div class="editor-classification-section" id="editorRouteSection" hidden><span class="editor-classification-label">2 · Parcours / emplacement</span><div class="editor-option-scroll" id="editorRouteOptions"></div></div><div class="editor-classification-section" id="editorSubjectSection" hidden><span class="editor-classification-label">3 · Matière</span><div class="editor-option-scroll" id="editorSubjectOptions"></div></div></div></div><button type="button" class="admin-btn primary" id="editorCreate">Créer la tâche</button></div></div>':'')+
+      (active==='A'?'<div class="editor-create-card"><div><span class="editor-step">Créer</span><h5>Nouvelle demande</h5><p>Choisis progressivement le type, le niveau, le parcours, la classe puis la matière. Une seule étape est ouverte à la fois pour éviter les choix qui se mélangent.</p></div><div class="editor-create-fields"><label>Type<select id="editorType"><option value="cours">Cours</option><option value="exercices">Exercices</option><option value="qcm">QCM</option><option value="fiches">Fiches</option></select></label><div class="editor-classification"><button type="button" class="editor-classification-trigger" id="editorClassificationTrigger" aria-expanded="false"><span id="editorClassificationSummary">1 · Choisir le niveau</span><span aria-hidden="true">⌄</span></button><div class="editor-classification-panel" id="editorClassificationPanel" hidden><div class="editor-picker-progress" id="editorPickerProgress"></div><div class="editor-classification-section" id="editorRootSection"><span class="editor-classification-label">1 · Niveau</span><div class="editor-option-scroll" id="editorRootOptions"></div></div><div class="editor-classification-section" id="editorRouteSection" hidden><span class="editor-classification-label" id="editorRouteLabel">2 · Parcours / emplacement</span><div class="editor-option-scroll" id="editorRouteOptions"></div></div><div class="editor-classification-section" id="editorSubjectSection" hidden><span class="editor-classification-label">Dernière étape · Matière</span><div class="editor-option-scroll" id="editorSubjectOptions"></div></div><div class="editor-picker-actions"><button type="button" class="admin-btn ghost" id="editorPickerBack" hidden>← Retour</button><button type="button" class="admin-btn primary" id="editorPickerNext" disabled>Continuer →</button></div></div></div><button type="button" class="admin-btn primary" id="editorCreate" disabled>Créer la tâche</button></div></div>':'')+
       '<div class="editor-block-label"><span>Bloc '+(page+1)+'</span><small>'+((page*PAGE_SIZE)+1)+'–'+Math.min((page+1)*PAGE_SIZE,items.length)+' sur '+items.length+'</small></div>'+
       '<div class="editor-card-grid">'+(visible.length?visible.map(t=>taskCard(t,active)).join(''):'<div class="editor-empty">Aucun document dans cette étape pour le moment.</div>')+'</div>'+
       pager(items.length,page,active)+
@@ -535,69 +541,84 @@ function bind(root,state){
     if(b)b.click();
   });
   root.querySelectorAll('[data-editor-page]').forEach(b=>b.addEventListener('click',()=>{const [k,p]=b.dataset.editorPage.split(':');state.section=k;state.pages[k]=Number(p);render(root,state)}));
-  const pickerState={root:null,route:null,subject:''};
+  const pickerState={root:null,route:null,subject:'',node:null,path:[]};
   const pickerPanel=root.querySelector('#editorClassificationPanel');
   const pickerTrigger=root.querySelector('#editorClassificationTrigger');
   const summary=root.querySelector('#editorClassificationSummary');
+  const progress=root.querySelector('#editorPickerProgress');
+  const rootSection=root.querySelector('#editorRootSection');
   const rootOptions=root.querySelector('#editorRootOptions');
   const routeSection=root.querySelector('#editorRouteSection');
+  const routeLabel=root.querySelector('#editorRouteLabel');
   const routeOptions=root.querySelector('#editorRouteOptions');
   const subjectSection=root.querySelector('#editorSubjectSection');
   const subjectOptions=root.querySelector('#editorSubjectOptions');
-  const renderSubjects=()=>{
-    if(!subjectOptions||!subjectSection)return;
-    const leaf=pickerState.route?.leaf;
-    const raw=Array.isArray(leaf?.matieres)?leaf.matieres:(Array.isArray(MATIERES)?MATIERES:[]);
-    const base=typeof matieresAvecAutres==='function'?matieresAvecAutres(raw):raw;
-    const names=[...new Set(base.map(x=>typeof x==='string'?x:(x?.nom||'')).map(v=>String(v||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));
-    subjectOptions.innerHTML=names.length?names.map(x=>'<button type="button" class="editor-option '+(pickerState.subject===x?'selected':'')+'" data-editor-subject="'+esc(x)+'">'+esc(x)+'</button>').join(''):'<div class="editor-option-empty">Aucune matière disponible pour ce parcours.</div>';
-    subjectSection.hidden=!pickerState.route||!names.length;
+  const back=root.querySelector('#editorPickerBack');
+  const next=root.querySelector('#editorPickerNext');
+  const create=root.querySelector('#editorCreate');
+  const childrenOf=node=>Array.isArray(editorChildren(node))?editorChildren(node):[];
+  const leafFor=()=>pickerState.node&&editorIsLeaf(pickerState.node)?pickerState.node:null;
+  const refreshCreate=()=>{const ready=Boolean(pickerState.root&&leafFor()&&pickerState.subject);if(create)create.disabled=!ready};
+  const updateProgress=()=>{
+    const labels=['Niveau',...pickerState.path.slice(1).map(n=>String(n?.nom||'').trim()).filter(Boolean),'Matière'];
+    if(progress)progress.innerHTML=labels.map((x,i)=>'<span class="'+(i<labels.length-1?'done':'current')+'">'+esc((i+1)+'. '+x)+'</span>').join('');
   };
   const updateSummary=()=>{
-    const path=pickerState.route?.path||[];
-    const labels=path.map(n=>String(n?.nom||'').trim()).filter(Boolean);
+    const labels=pickerState.path.map(n=>String(n?.nom||'').trim()).filter(Boolean);
     if(pickerState.subject)labels.push(pickerState.subject);
-    summary.textContent=labels.length?labels.join(' · '):'Choisir le niveau et l’emplacement…';
-    pickerTrigger?.setAttribute('aria-expanded',String(!pickerPanel.hidden));
+    summary.textContent=pickerState.subject?labels.join(' · '):(labels.length?labels.join(' · '):'1 · Choisir le niveau');
+    pickerTrigger?.setAttribute('aria-expanded',String(!pickerPanel.hidden));refreshCreate();updateProgress();
   };
-  const renderRoutes=()=>{
-    if(!routeOptions||!routeSection)return;
-    const routes=pickerState.root?editorLeafRoutes(pickerState.root):[];
-    routeOptions.innerHTML=routes.length?routes.map((x,i)=>'<button type="button" class="editor-option '+(pickerState.route===x?'selected':'')+'" data-editor-route="'+i+'">'+esc(x.label)+'</button>').join(''):'';
-    routeSection.hidden=!pickerState.root;
-    renderSubjects();
-  };
-  const renderRoots=()=>{
-    if(!rootOptions)return;
-    const roots=editorClassificationRoots();
-    rootOptions.innerHTML=roots.map(x=>'<button type="button" class="editor-option '+(pickerState.root?.id===x.id?'selected':'')+'" data-editor-root="'+esc(x.id)+'">'+esc(x.nom)+'</button>').join('');
-    renderRoutes();
-  };
-  renderRoots();
-  pickerTrigger?.addEventListener('click',e=>{
-    e.preventDefault();
-    if(pickerPanel)pickerPanel.hidden=!pickerPanel.hidden;
+  const renderCurrentStep=()=>{
+    const leaf=leafFor(),atRoot=!pickerState.node,hasChildren=!leaf&&pickerState.node;
+    if(rootSection)rootSection.hidden=!atRoot;
+    if(routeSection)routeSection.hidden=!hasChildren;
+    if(subjectSection)subjectSection.hidden=!leaf;
+    if(routeLabel)routeLabel.textContent='2 · Choisir le parcours / emplacement';
+    if(rootOptions){const roots=editorClassificationRoots();rootOptions.innerHTML=roots.map(x=>'<button type="button" class="editor-option '+(pickerState.root?.id===x.id?'selected':'')+'" data-editor-root="'+esc(x.id)+'">'+esc(x.nom)+'</button>').join('')}
+    if(routeOptions){const options=hasChildren?childrenOf(pickerState.node):[];routeOptions.innerHTML=options.length?options.map((x,i)=>'<button type="button" class="editor-option '+(pickerState.node?.id===x.id?'selected':'')+'" data-editor-child="'+i+'">'+esc(x.nom||'Choisir')+'</button>').join(''):''}
+    if(subjectOptions){
+      const leafNode=leafFor(),raw=Array.isArray(leafNode?.matieres)?leafNode.matieres:(Array.isArray(MATIERES)?MATIERES:[]);
+      const base=typeof matieresAvecAutres==='function'?matieresAvecAutres(raw):raw;
+      const names=[...new Set(base.map(x=>typeof x==='string'?x:(x?.nom||'')).map(v=>String(v||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));
+      subjectOptions.innerHTML=names.length?names.map(x=>'<button type="button" class="editor-option '+(pickerState.subject===x?'selected':'')+'" data-editor-subject="'+esc(x)+'">'+esc(x)+'</button>').join(''):'<div class="editor-option-empty">Aucune matière disponible pour cette classe.</div>';
+    }
+    if(back)back.hidden=pickerState.path.length===0;
+    if(next){const leafReady=Boolean(leafFor());next.hidden=leafReady;next.disabled=atRoot?!pickerState.root:!leafReady;next.textContent='Continuer →'}
     updateSummary();
-  });
+  };
+  renderCurrentStep();
+  pickerTrigger?.addEventListener('click',e=>{e.preventDefault();if(pickerPanel)pickerPanel.hidden=!pickerPanel.hidden;updateSummary()});
   rootOptions?.addEventListener('click',e=>{
     const b=e.target?.closest?.('[data-editor-root]');if(!b)return;
-    const n=editorClassificationRoots().find(x=>x.id===b.dataset.editorRoot);if(!n)return;
-    pickerState.root=n;pickerState.route=null;pickerState.subject='';renderRoots();updateSummary();
+    const n=editorClassificationRoots().find(x=>String(x.id)===String(b.dataset.editorRoot));if(!n)return;
+    pickerState.root=n;pickerState.node=n;pickerState.route=null;pickerState.subject='';pickerState.path=[n];renderCurrentStep();
   });
   routeOptions?.addEventListener('click',e=>{
-    const b=e.target?.closest?.('[data-editor-route]');if(!b)return;
-    const routes=pickerState.root?editorLeafRoutes(pickerState.root):[],choice=routes[Number(b.dataset.editorRoute)];if(!choice)return;
-    pickerState.route=choice;pickerState.subject='';renderRoutes();updateSummary();
+    const b=e.target?.closest?.('[data-editor-child]');if(!b)return;
+    const options=childrenOf(pickerState.node),choice=options[Number(b.dataset.editorChild)];if(!choice)return;
+    pickerState.node=choice;pickerState.path=[...pickerState.path,choice];pickerState.subject='';renderCurrentStep();
   });
   subjectOptions?.addEventListener('click',e=>{
     const b=e.target?.closest?.('[data-editor-subject]');if(!b)return;
-    pickerState.subject=String(b.dataset.editorSubject||'');renderSubjects();updateSummary();
+    pickerState.subject=String(b.dataset.editorSubject||'');renderCurrentStep();if(pickerState.subject&&pickerPanel)pickerPanel.hidden=true;
+  });
+  back?.addEventListener('click',()=>{
+    if(pickerState.path.length<=1){pickerState.node=null;pickerState.root=null;pickerState.path=[];pickerState.subject=''}
+    else{pickerState.path.pop();pickerState.node=pickerState.path[pickerState.path.length-1]||null;pickerState.subject=''}
+    renderCurrentStep();
+  });
+  next?.addEventListener('click',()=>{
+    if(!pickerState.root)return;
+    if(leafFor()){renderCurrentStep();return}
+    const options=childrenOf(pickerState.node);
+    if(options.length===1){pickerState.node=options[0];pickerState.path=[...pickerState.path,options[0]];renderCurrentStep()}
   });
   root.querySelector('#editorCreate')?.addEventListener('click',async()=>{
-    const typ=(root.querySelector('#editorType')?.value||'').trim(),cls=String(pickerState.route?.leaf?.nom||'').trim(),sub=pickerState.subject.trim();
-    if(!cls||!sub||!pickerState.root||!pickerState.route||!['cours','exercices','qcm','fiches'].includes(typ)){alert('Choisis un type, un niveau, un parcours/emplacement et une matière dans le sélecteur.');return}
+    const typ=(root.querySelector('#editorType')?.value||'').trim(),cls=String(leafFor()?.nom||'').trim(),sub=pickerState.subject.trim();
+    if(!cls||!sub||!pickerState.root||!leafFor()||!['cours','exercices','qcm','fiches'].includes(typ)){alert('Choisis progressivement le type, le niveau, le parcours, la classe et la matière.');return}
     const b=root.querySelector('#editorCreate');b.disabled=true;
-    const path=(pickerState.route.path||[]).map(n=>String(n?.nom||'').trim()).filter(Boolean);
+    const path=pickerState.path.map(n=>String(n?.nom||'').trim()).filter(Boolean);
     try{await createTask(cls,sub,typ,{level:pickerState.root.nom,location:path.join(' · '),path});await chargerEspaceEditorialChatGPT()}catch(e){alert('Impossible de créer la tâche : '+(e.message||e))}finally{b.disabled=false}
   });
   
@@ -882,7 +903,13 @@ function injectStyle(){
 #auroreEditorialTaskAdmin .editor-classification-panel{position:absolute;z-index:1200;left:0;right:0;top:calc(100% + 7px);padding:16px;border:1px solid color-mix(in srgb,var(--editor-accent) 22%,var(--editor-border));border-radius:15px;background:var(--editor-surface);box-shadow:0 18px 45px rgba(0,0,0,.18)}
 #auroreEditorialTaskAdmin .editor-classification-panel[hidden]{display:none}
 #auroreEditorialTaskAdmin .editor-classification-section{display:grid;gap:6px;margin-bottom:9px}
-#auroreEditorialTaskAdmin .editor-classification-section:last-child{margin-bottom:0}
+#auroreEditorialTaskAdmin .editor-classification-section:last-child{margin-bottom:0}#auroreEditorialTaskAdmin .editor-picker-progress{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;padding:2px}
+#auroreEditorialTaskAdmin .editor-picker-progress span{padding:5px 8px;border-radius:999px;border:1px solid var(--editor-border);font-size:.52rem;font-weight:900;opacity:.48}
+#auroreEditorialTaskAdmin .editor-picker-progress span.done{opacity:.8}
+#auroreEditorialTaskAdmin .editor-picker-progress span.current{border-color:color-mix(in srgb,var(--editor-accent) 35%,var(--editor-border));background:color-mix(in srgb,var(--editor-accent) 9%,var(--editor-surface));opacity:1}
+#auroreEditorialTaskAdmin .editor-picker-actions{display:flex;justify-content:space-between;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--editor-border)}
+#auroreEditorialTaskAdmin .editor-picker-actions .admin-btn{font-size:.6rem}
+
 #auroreEditorialTaskAdmin .editor-classification-label{font-size:.58rem;font-weight:950;letter-spacing:.05em;text-transform:uppercase;opacity:.55}
 #auroreEditorialTaskAdmin .editor-option-scroll{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;max-height:190px;overflow-y:auto;overflow-x:hidden;max-width:100%;padding:4px 2px 8px;scrollbar-width:thin;overscroll-behavior:contain}
 #auroreEditorialTaskAdmin .editor-option-scroll::-webkit-scrollbar{height:6px}
