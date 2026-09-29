@@ -299,7 +299,7 @@ function aResearchReady(t){
   const options=Array.isArray(w.chapter_options)?w.chapter_options:[];
   const findings=String(r.findings||'').trim();
   const methodology=String(r.methodology||r.method||'').trim();
-  const sources=Array.isArray(r.source_urls)?r.source_urls.filter(Boolean):[];
+  const sources=Array.isArray(r.source_urls)?r.source_urls.filter(Boolean):(Array.isArray(r.sources)?r.sources.filter(Boolean):[]);
   return aContextReady(t)
     &&String(r.status||'').toLowerCase()==='researched'
     &&findings.length>=40
@@ -322,7 +322,7 @@ function classify(t){
   if(!w.chatgpt_claimed&&['initiale','chapitres_demandes'].includes(s))return'A';
   if(['proposition_editoriale','revision_requested'].includes(s))return'C';
   if(['proposal_review','admin_validation','edition_ready'].includes(s))return'CX';
-  if(['redaction','production_en_cours','production_terminee','pdf_ready'].includes(s))return'D';
+  if(['redaction','production_en_cours'].includes(s))return'D';
   return null;
 }
 async function promoteAtoB(id){
@@ -497,7 +497,7 @@ function productionReadyMarkup(t){
 }
 function detail(t,section){
   const w=t.metadata?.workflow||{},d='<div class="editor-detail-head"><div><span class="editor-step">Section '+section+' · tâche #'+esc(t.id)+'</span><h4>'+esc(t.class_name||t.level||'')+' · '+esc(t.subject||'')+'</h4><p>État : <strong>'+esc((stageInfo[w.stage]||{}).label||w.stage||t.status)+'</strong></p></div><button type="button" class="admin-btn ghost" data-editor-close>Fermer</button></div>';
-  const sourceUrls=Array.isArray(w.chapter_research?.source_urls)?w.chapter_research.source_urls:[];
+  const sourceUrls=Array.isArray(w.chapter_research?.source_urls)?w.chapter_research.source_urls:(Array.isArray(w.chapter_research?.sources)?w.chapter_research.sources:[]);
   const meta='<div class="editor-detail-meta"><div><span>Identité</span><strong>'+esc(t.title||'')+'</strong></div><div><span>Type</span><strong>'+esc(t.document_type||'cours')+'</strong></div><div><span>Recherche</span><strong>'+esc(sourceUrls.length||((w.proposal?.sources?String(w.proposal.sources).split('\\n').filter(Boolean).length:0)))+' source(s)</strong></div><div><span>Version du plan</span><strong>'+esc(w.proposal_version||0)+'</strong></div></div>';
   if(section==='B')return d+meta+'<h5 class="editor-detail-title">Chapitres disponibles</h5>'+chaptersMarkup(t);
   if(section==='C'||section==='CX')return d+meta+'<h5 class="editor-detail-title">Plan complet de production</h5>'+planForm(t);
@@ -872,14 +872,14 @@ function injectStyle(){
 #auroreEditorialTaskAdmin .editor-page-title{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
 #auroreEditorialTaskAdmin .editor-page-title h4{margin:5px 0 5px;font-size:1rem}
 #auroreEditorialTaskAdmin .editor-page-count{font-size:.62rem;font-weight:900;opacity:.55;white-space:nowrap}
-@media(min-width:721px){#auroreEditorialTaskAdmin .editor-create-card{grid-template-columns:minmax(260px,.7fr) minmax(0,1.8fr);}}
+@media(min-width:721px){#auroreEditorialTaskAdmin .editor-create-card{grid-template-columns:minmax(220px,.55fr) minmax(0,2.45fr);}}
 #auroreEditorialTaskAdmin .editor-create-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(410px,1.1fr);gap:18px;align-items:end;padding:22px;border-radius:18px;border:1px solid color-mix(in srgb,var(--editor-accent) 18%,var(--editor-border));background:linear-gradient(135deg,color-mix(in srgb,var(--editor-accent) 10%,var(--editor-surface)),var(--editor-surface))}
 #auroreEditorialTaskAdmin .editor-create-card h5{margin:5px 0 6px;font-size:.95rem}
 #auroreEditorialTaskAdmin .editor-create-fields{display:grid;grid-template-columns:minmax(150px,.55fr) minmax(360px,1.9fr) auto;gap:12px;align-items:start}
 #auroreEditorialTaskAdmin .editor-classification{position:relative;min-width:0}
 #auroreEditorialTaskAdmin .editor-classification-trigger{width:100%;min-height:41px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 11px;border:1px solid var(--editor-border);border-radius:11px;background:var(--editor-surface);color:inherit;font:inherit;font-size:.67rem;font-weight:800;cursor:pointer;text-align:left}
 #auroreEditorialTaskAdmin .editor-classification-trigger:hover{border-color:color-mix(in srgb,var(--editor-accent) 35%,var(--editor-border))}
-#auroreEditorialTaskAdmin .editor-classification-panel{position:absolute;z-index:1200;left:0;right:0;top:calc(100% + 7px);padding:16px;border:1px solid color-mix(in srgb,var(--editor-accent) 22%,var(--editor-border));border-radius:15px;background:var(--editor-surface);box-shadow:0 18px 45px rgba(0,0,0,.18)}
+#auroreEditorialTaskAdmin .editor-classification-panel{position:absolute;z-index:1200;left:50%;right:auto;transform:translateX(-50%);width:min(720px,calc(100vw - 32px));max-width:calc(100vw - 32px);box-sizing:border-box;top:calc(100% + 7px);padding:16px;border:1px solid color-mix(in srgb,var(--editor-accent) 22%,var(--editor-border));border-radius:15px;background:var(--editor-surface);box-shadow:0 18px 45px rgba(0,0,0,.18)}
 #auroreEditorialTaskAdmin .editor-classification-panel[hidden]{display:none}
 #auroreEditorialTaskAdmin .editor-classification-section{display:grid;gap:6px;margin-bottom:9px}
 #auroreEditorialTaskAdmin .editor-classification-section:last-child{margin-bottom:0}
@@ -980,7 +980,7 @@ function injectStyle(){
 #auroreEditorialTaskAdmin .editor-a-start span{font-size:.62rem;opacity:.62}
 #auroreEditorialTaskAdmin .danger{border-color:color-mix(in srgb,#DC2626 25%,var(--editor-border))!important}
 @media(max-width:1050px){#auroreEditorialTaskAdmin .editor-create-fields{grid-template-columns:1fr 1fr}.editor-create-fields .admin-btn{grid-column:1/-1}#auroreEditorialTaskAdmin .editor-card-grid{grid-template-columns:repeat(3,minmax(0,1fr))}#auroreEditorialTaskAdmin .editor-create-card{grid-template-columns:1fr}}
-@media(max-width:720px){#auroreEditorialTaskAdmin .editor-classification-panel{position:relative;top:auto;left:auto;right:auto;margin-top:8px;box-shadow:none;max-height:68vh;overflow:auto}.editor-option-scroll{grid-template-columns:repeat(2,minmax(0,1fr));max-height:none;overflow:visible}}
+@media(max-width:720px){#auroreEditorialTaskAdmin .editor-create-fields{grid-template-columns:1fr}.editor-create-fields .admin-btn{grid-column:auto}.editor-classification-panel{position:absolute;top:calc(100% + 7px);left:50%;right:auto;transform:translateX(-50%);width:min(680px,calc(100vw - 28px));max-width:calc(100vw - 28px);max-height:68vh;overflow:auto;box-sizing:border-box}.editor-option-scroll{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));max-height:260px;overflow-y:auto;overflow-x:hidden}.editor-option{white-space:normal;overflow-wrap:anywhere;min-height:45px}}
 
 @media(max-width:720px){#auroreEditorialTaskAdmin .editor-main-nav{overflow-x:auto}#auroreEditorialTaskAdmin .editor-main-nav-item{min-width:120px}#auroreEditorialTaskAdmin .editor-main-nav-link{margin-left:0}#auroreEditorialTaskAdmin .editor-page-title,#auroreEditorialTaskAdmin .editor-validation-head{display:block}#auroreEditorialTaskAdmin .editor-page-count{display:block;margin-top:8px}#auroreEditorialTaskAdmin .editor-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#auroreEditorialTaskAdmin .editor-detail-meta,#auroreEditorialTaskAdmin .editor-validation-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:520px){#auroreEditorialTaskAdmin .editor-hub-head{display:block}#auroreEditorialTaskAdmin .editor-main-nav{display:grid;grid-template-columns:1fr 1fr}#auroreEditorialTaskAdmin .editor-main-nav-link{grid-column:1/-1;text-align:left;border-left:0;border-top:1px solid var(--editor-border);padding-top:11px}#auroreEditorialTaskAdmin .editor-card-grid{grid-template-columns:1fr}#auroreEditorialTaskAdmin .editor-plan-grid,#auroreEditorialTaskAdmin .editor-detail-meta,#auroreEditorialTaskAdmin .editor-chapters-grid,#auroreEditorialTaskAdmin .editor-validation-grid{grid-template-columns:1fr}#auroreEditorialTaskAdmin .editor-plan-actions{justify-content:stretch}#auroreEditorialTaskAdmin .editor-plan-actions .admin-btn{flex:1}}
