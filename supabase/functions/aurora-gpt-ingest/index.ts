@@ -696,7 +696,9 @@ Deno.serve(async req=>{
         ? (incomingInstructions.exercise_sheet_intro||"Énoncés indépendants, consignes précises, calculs justifiés et corrigés exclusivement liés aux questions posées.")
         : undefined
     };
-    const {data:scientificPreflight,error:scientificPreflightError}=await db.rpc("aurora_scientific_preflight",{p_subject:subject,p_document_type:documentType,p_content_json:content});
+    let research={};
+    if(jobId!==null){const {data:jobResearch}=await db.from("aurora_content_jobs").select("metadata").eq("id",jobId).maybeSingle();research=jobResearch?.metadata?.workflow?.chapter_research||{};}
+    const {data:scientificPreflight,error:scientificPreflightError}=await db.rpc("aurora_scientific_preflight",{p_subject:subject,p_document_type:documentType,p_content_json:content,p_level:level,p_class_name:className,p_research:research});
     if(scientificPreflightError) throw scientificPreflightError;
     if(!scientificPreflight || scientificPreflight.status!=="pass"){
       return reply({
