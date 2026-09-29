@@ -289,8 +289,8 @@ function aContextReady(t){
   const w=t.metadata?.workflow||{},a=w.context_assimilation;
   if(!a||typeof a!=='object')return false;
   const required=[t.title,t.subject,t.level,t.class_name,t.document_type];
-  const snapshot=String(a.snapshot||'').trim();
-  const summary=String(a.summary||'').trim();
+  const snapshot=typeof a.snapshot==='string'?a.snapshot.trim():(a.snapshot&&typeof a.snapshot==='object'?JSON.stringify(a.snapshot):'');
+  const summary=typeof a.summary==='string'?a.summary.trim():(a.summary&&typeof a.summary==='object'?JSON.stringify(a.summary):'');
   return a.acknowledged===true&&snapshot.length>=80&&summary.length>=60
     &&required.every(x=>String(x||'').trim()&&snapshot.includes(String(x).trim()));
 }
@@ -322,7 +322,7 @@ function classify(t){
   if(!w.chatgpt_claimed&&['initiale','chapitres_demandes'].includes(s))return'A';
   if(['proposition_editoriale','revision_requested'].includes(s))return'C';
   if(['proposal_review','admin_validation','edition_ready'].includes(s))return'CX';
-  if(['redaction','production_en_cours','production_terminee','pdf_ready'].includes(s))return'D';
+  if(['redaction','production_en_cours'].includes(s))return'D';
   return null;
 }
 async function promoteAtoB(id){
@@ -459,7 +459,7 @@ function cGuardMarkup(t,p){
   const detail=check.ok?'La proposition contient les éléments de recherche, de production et de PDF requis. La validation administrative reste distincte.':'Éléments encore manquants : '+check.missing.map(x=>x==='selected_chapters'?'chapitres B':x==='chapter_alignment'?'alignement chapitre B/C':x==='research_source'?'au moins une source':x==='quality_detail'?'contrôle qualité détaillé':x).join(', ')+'.';
   return '<div class="editor-c-plan-context '+(check.ok?'':'warning')+'"><span>Garde-fou '+C_EXECUTION_CONTRACT_VERSION+'</span><strong>'+esc(label)+'</strong><small>'+esc(detail)+' Aucun retour conversationnel ne doit être considéré comme terminé avant écriture et vérification de cette carte.</small></div>';
 }
-function planForm(t){
+function planForm(t,section){
   const p=proposalFor(t),research=t.metadata?.workflow?.chapter_research&&typeof t.metadata.workflow.chapter_research==='object'?t.metadata.workflow.chapter_research:{};
   const selected=Array.isArray(t.metadata?.workflow?.selected_chapters)
     ? t.metadata.workflow.selected_chapters
@@ -480,7 +480,13 @@ function planForm(t){
     field('Volume pédagogique','volume',p.volume)+field('Durée indicative','duration',p.duration)+field('Ressources / illustrations','resources',p.resources,true)+field('Mathématiques / GeoGebra','mathGeoGebra',p.mathGeoGebra,true)+field('Besoins techniques','technicalNeeds',p.technicalNeeds,true)+
     '</div><div class="editor-plan-divider">Paramètres du PDF et contrôle qualité</div><div class="editor-plan-grid editor-pdf-grid">'+
     field('Format','pdfFormat',p.pdfFormat)+field('Orientation','pdfOrientation',p.pdfOrientation)+field('Pagination','pdfPagination',p.pdfPagination)+field('Couleur thème','pdfThemeColor',p.pdfThemeColor)+field('Mise en page','pdfLayout',p.pdfLayout,true)+field('Polices / typographie','pdfFonts',p.pdfFonts,true)+field('En-têtes / pieds de page','pdfHeaders',p.pdfHeaders,true)+field('Ressources PDF / QR / annexes','pdfResources',p.pdfResources,true)+field('Contrôle qualité attendu','quality',p.quality,true)+field('Notes éditoriales','notes',p.notes,true)+field('Demandes de révision','revisionNotes',p.revisionNotes,true)+
-    '</div><div class="editor-plan-actions"><button type="button" class="admin-btn ghost" data-plan-save="'+esc(t.id)+'">Enregistrer les modifications</button><button type="button" class="admin-btn ghost danger" data-plan-reject="'+esc(t.id)+'">Rejeter / demander une révision</button><button type="button" class="admin-btn primary" data-plan-validate="'+esc(t.id)+'">Valider le plan et passer à la production</button></div></div>';
+    '</div><div class="editor-plan-actions"><button type="button" class="admin-btn ghost" data-plan-save="'+esc(t.id)+'">Enregistrer les modifications</button><button type="button" class="admin-btn ghost danger" data-plan-reject="'+esc(t.id)+'">Rejeter / demander une révision</button>'+
+    (section==='CX'
+      ? '<div class="editor-cx-validation"><div class="editor-cx-validation-head"><span>Validation CX</span><strong>Le plan est contrôlé avant son passage en D.</strong><small>Les vérifications doivent être confirmées dans cette étape. Aucun PDF n’est lancé.</small></div><div class="editor-validation-grid">'+
+        ['coherence','completeness','curriculum','technical'].map((k,i)=>'<label class="editor-check"><input type="checkbox" data-admin-check="'+k+'"><span>'+['Cohérence avec la sélection B','Complétude du plan C','Conformité pédagogique / programme','Paramètres techniques et PDF vérifiés'][i]+'</span></label>').join('')+
+        '</div><label class="editor-field wide"><span>Note de validation CX</span><textarea data-admin-notes rows="2" placeholder="Observations éventuelles avant passage en D…"></textarea></label><div class="editor-plan-actions"><button type="button" class="admin-btn primary" data-plan-validate="'+esc(t.id)+'">Valider en CX → passer en D</button></div></div>'
+      : '<button type="button" class="admin-btn primary" data-plan-validate="'+esc(t.id)+'">Enregistrer le plan → passer en CX</button>')+
+    '</div></div>';
 }
 function editorialContentFor(t){
   const w=t.metadata?.workflow||{},p=proposalFor(t),saved=w.editorial_content&&typeof w.editorial_content==='object'?w.editorial_content:{};
@@ -500,7 +506,7 @@ function detail(t,section){
   const sourceUrls=Array.isArray(w.chapter_research?.source_urls)?w.chapter_research.source_urls:[];
   const meta='<div class="editor-detail-meta"><div><span>Identité</span><strong>'+esc(t.title||'')+'</strong></div><div><span>Type</span><strong>'+esc(t.document_type||'cours')+'</strong></div><div><span>Recherche</span><strong>'+esc(sourceUrls.length||((w.proposal?.sources?String(w.proposal.sources).split('\\n').filter(Boolean).length:0)))+' source(s)</strong></div><div><span>Version du plan</span><strong>'+esc(w.proposal_version||0)+'</strong></div></div>';
   if(section==='B')return d+meta+'<h5 class="editor-detail-title">Chapitres disponibles</h5>'+chaptersMarkup(t);
-  if(section==='C'||section==='CX')return d+meta+'<h5 class="editor-detail-title">Plan complet de production</h5>'+planForm(t);
+  if(section==='C'||section==='CX')return d+meta+'<h5 class="editor-detail-title">Plan complet de production</h5>'+planForm(t,section);
   if(section==='D')return d+meta+'<h5 class="editor-detail-title">Production autorisée / suivi de rédaction</h5>'+productionReadyMarkup(t);
   const researchReady=aResearchReady(t),r=aResearchFor(t),options=Array.isArray(w.chapter_options)?w.chapter_options:[];
   return d+meta+'<div class="editor-a-start"><strong>'+esc(researchReady?'Recherche et propositions persistées : la tâche peut passer en B.':'Cette tâche attend notre récupération et sa recherche documentaire.')+'</strong><span>'+esc(researchReady?'La migration sera effectuée seulement après une nouvelle lecture de Supabase et une vérification des sources et chapitres.':'Aucune migration vers B ne doit être faite tant que la recherche, ses sources et les propositions de chapitres ne sont pas écrites dans la tâche.')+'</span>'+(researchReady?'<div class="editor-plan-actions"><button type="button" class="admin-btn primary" data-a-promote="'+esc(t.id)+'">Transférer en B après vérification</button></div>':'')+'</div>';
@@ -518,7 +524,7 @@ function render(root,state){
     '</nav>'+
     '<section class="editor-page">'+
       '<div class="editor-page-title"><div><span class="editor-step">Section '+active+'</span><h4>'+({A:'Tâches à créer',B:'Chapitres disponibles',C:'Plan complet de production',CX:'Plans C déjà traités',D:'Édition finale / suivi de production'}[active])+'</h4><p>'+({A:'Crée ici les demandes avec une sélection claire et agrandie du niveau, du parcours, de la classe et de la matière.',B:'Chaque tâche récupérée présente les chapitres disponibles pour le document.',C:'Les tâches non encore traitées en C sont construites ici.',CX:'Cette zone conserve les documents dont le travail C est déjà traité et vérifié. Le plan reste consultable et modifiable avant la suite.',D:'Les documents passés après CX arrivent ici pour la rédaction finale. Aucun PDF n’est lancé automatiquement.'}[active])+'</p></div><span class="editor-page-count">'+items.length+' document'+(items.length>1?'s':'')+'</span></div>'+
-      (active==='A'?'<div class="editor-create-card"><div><span class="editor-step">Créer</span><h5>Nouvelle demande</h5><p>Le classement reprend exactement le cheminement du formulaire de dépôt : niveau → parcours/emplacement → classe → matière. Les choix restent ouverts pendant le défilement et aucune valeur libre n’est acceptée.</p></div><div class="editor-create-fields"><label>Type<select id="editorType"><option value="cours">Cours</option><option value="exercices">Exercices</option><option value="qcm">QCM</option><option value="fiches">Fiches</option></select></label><div class="editor-classification"><button type="button" class="editor-classification-trigger" id="editorClassificationTrigger" aria-expanded="false"><span id="editorClassificationSummary">Choisir le niveau et l’emplacement…</span><span aria-hidden="true">⌄</span></button><div class="editor-classification-panel" id="editorClassificationPanel" hidden><div class="editor-classification-section"><span class="editor-classification-label">1 · Niveau</span><div class="editor-option-scroll" id="editorRootOptions"></div></div><div class="editor-classification-section" id="editorRouteSection" hidden><span class="editor-classification-label">2 · Parcours / emplacement</span><div class="editor-option-scroll" id="editorRouteOptions"></div></div><div class="editor-classification-section" id="editorSubjectSection" hidden><span class="editor-classification-label">3 · Matière</span><div class="editor-option-scroll" id="editorSubjectOptions"></div></div></div></div><button type="button" class="admin-btn primary" id="editorCreate">Créer la tâche</button></div></div>':'')+
+      (active==='A'?'<div class="editor-create-card"><div><span class="editor-step">Créer</span><h5>Nouvelle demande</h5><p>Le classement reprend exactement le cheminement du formulaire de dépôt : niveau → parcours/emplacement → classe → matière. Les choix restent ouverts pendant le défilement et aucune valeur libre n’est acceptée.</p></div><div class="editor-create-fields"><label>Type<select id="editorType"><option value="cours">Cours</option><option value="exercices">Exercices</option><option value="qcm">QCM</option><option value="fiches">Fiches</option></select></label><div class="editor-classification"><button type="button" class="editor-classification-trigger" id="editorClassificationTrigger" aria-expanded="false"><span id="editorClassificationSummary">Choisir le niveau et l’emplacement…</span><span aria-hidden="true">⌄</span></button><div class="editor-classification-panel" id="editorClassificationPanel" hidden><div class="editor-picker-progress" data-picker-progress></div><div class="editor-picker-stage-note">Un seul choix à la fois. Utilise « Retour » pour corriger une étape sans perdre les choix suivants.</div><div class="editor-classification-section"><span class="editor-classification-label">1 · Niveau</span><div class="editor-option-scroll" id="editorRootOptions"></div></div><div class="editor-classification-section" id="editorRouteSection" hidden><span class="editor-classification-label">2 · Parcours / emplacement</span><div class="editor-option-scroll" id="editorRouteOptions"></div></div><div class="editor-classification-section" id="editorSubjectSection" hidden><span class="editor-classification-label">3 · Matière</span><div class="editor-option-scroll" id="editorSubjectOptions"></div></div><div class="editor-picker-actions"><button type="button" class="admin-btn ghost" data-picker-back>← Retour</button><button type="button" class="admin-btn ghost" data-picker-next>Continuer →</button></div></div></div><button type="button" class="admin-btn primary" id="editorCreate" disabled>Créer la tâche</button></div></div>':'')+
       '<div class="editor-block-label"><span>Bloc '+(page+1)+'</span><small>'+((page*PAGE_SIZE)+1)+'–'+Math.min((page+1)*PAGE_SIZE,items.length)+' sur '+items.length+'</small></div>'+
       '<div class="editor-card-grid">'+(visible.length?visible.map(t=>taskCard(t,active)).join(''):'<div class="editor-empty">Aucun document dans cette étape pour le moment.</div>')+'</div>'+
       pager(items.length,page,active)+
@@ -535,7 +541,7 @@ function bind(root,state){
     if(b)b.click();
   });
   root.querySelectorAll('[data-editor-page]').forEach(b=>b.addEventListener('click',()=>{const [k,p]=b.dataset.editorPage.split(':');state.section=k;state.pages[k]=Number(p);render(root,state)}));
-  const pickerState={root:null,route:null,subject:''};
+  const pickerState={root:null,route:null,subject:'',step:1};
   const pickerPanel=root.querySelector('#editorClassificationPanel');
   const pickerTrigger=root.querySelector('#editorClassificationTrigger');
   const summary=root.querySelector('#editorClassificationSummary');
@@ -553,11 +559,23 @@ function bind(root,state){
     subjectOptions.innerHTML=names.length?names.map(x=>'<button type="button" class="editor-option '+(pickerState.subject===x?'selected':'')+'" data-editor-subject="'+esc(x)+'">'+esc(x)+'</button>').join(''):'<div class="editor-option-empty">Aucune matière disponible pour ce parcours.</div>';
     subjectSection.hidden=!pickerState.route||!names.length;
   };
+  const renderPickerProgress=()=>{
+    const progress=root.querySelector('[data-picker-progress]');
+    if(progress)progress.innerHTML=[['1','Niveau'],['2','Parcours'],['3','Matière']].map(([n,label])=>'<span class="'+(Number(n)===pickerState.step?'active':(Number(n)<pickerState.step?'done':''))+'">'+n+' · '+label+'</span>').join('');
+    [rootOptions,routeSection,subjectSection].forEach((el,i)=>{if(el)el.hidden=(i+1)!==pickerState.step});
+    const back=root.querySelector('[data-picker-back]'),next=root.querySelector('[data-picker-next]');
+    if(back)back.disabled=pickerState.step<=1;
+    if(next)next.disabled=(pickerState.step===1&&!pickerState.root)||(pickerState.step===2&&!pickerState.route);
+    if(next)next.textContent=pickerState.step<3?'Continuer →':'Terminer le choix';
+    const create=root.querySelector('#editorCreate');
+    if(create)create.disabled=!(pickerState.root&&pickerState.route&&pickerState.subject);
+  };
   const updateSummary=()=>{
     const path=pickerState.route?.path||[];
     const labels=path.map(n=>String(n?.nom||'').trim()).filter(Boolean);
     if(pickerState.subject)labels.push(pickerState.subject);
-    summary.textContent=labels.length?labels.join(' · '):'Choisir le niveau et l’emplacement…';
+    summary.textContent=labels.length?labels.join(' · '):'Choisir progressivement le niveau, le parcours puis la matière…';
+    renderPickerProgress();
     pickerTrigger?.setAttribute('aria-expanded',String(!pickerPanel.hidden));
   };
   const renderRoutes=()=>{
@@ -582,17 +600,19 @@ function bind(root,state){
   rootOptions?.addEventListener('click',e=>{
     const b=e.target?.closest?.('[data-editor-root]');if(!b)return;
     const n=editorClassificationRoots().find(x=>x.id===b.dataset.editorRoot);if(!n)return;
-    pickerState.root=n;pickerState.route=null;pickerState.subject='';renderRoots();updateSummary();
+    pickerState.root=n;pickerState.route=null;pickerState.subject='';pickerState.step=2;renderRoots();updateSummary();
   });
   routeOptions?.addEventListener('click',e=>{
     const b=e.target?.closest?.('[data-editor-route]');if(!b)return;
     const routes=pickerState.root?editorLeafRoutes(pickerState.root):[],choice=routes[Number(b.dataset.editorRoute)];if(!choice)return;
-    pickerState.route=choice;pickerState.subject='';renderRoutes();updateSummary();
+    pickerState.route=choice;pickerState.subject='';pickerState.step=3;renderRoutes();updateSummary();
   });
   subjectOptions?.addEventListener('click',e=>{
     const b=e.target?.closest?.('[data-editor-subject]');if(!b)return;
     pickerState.subject=String(b.dataset.editorSubject||'');renderSubjects();updateSummary();
   });
+  root.querySelector('[data-picker-back]')?.addEventListener('click',e=>{e.preventDefault();pickerState.step=Math.max(1,pickerState.step-1);renderPickerProgress();});
+  root.querySelector('[data-picker-next]')?.addEventListener('click',e=>{e.preventDefault();if(pickerState.step===1&&pickerState.root)pickerState.step=2;else if(pickerState.step===2&&pickerState.route)pickerState.step=3;else if(pickerState.step===3&&pickerState.subject)pickerPanel.hidden=true;renderPickerProgress();updateSummary();});
   root.querySelector('#editorCreate')?.addEventListener('click',async()=>{
     const typ=(root.querySelector('#editorType')?.value||'').trim(),cls=String(pickerState.route?.leaf?.nom||'').trim(),sub=pickerState.subject.trim();
     if(!cls||!sub||!pickerState.root||!pickerState.route||!['cours','exercices','qcm','fiches'].includes(typ)){alert('Choisis un type, un niveau, un parcours/emplacement et une matière dans le sélecteur.');return}
@@ -714,11 +734,19 @@ function bindDetail(d,t,state){
   d.querySelector('[data-plan-validate]')?.addEventListener('click',async()=>{
     const button=d.querySelector('[data-plan-validate]');if(button)button.disabled=true;
     try{
-      const updated=await persistPlan('edition_ready','validated_for_editing');
-      const wf=updated?.metadata?.workflow||{};
-      if(wf.stage!=='edition_ready'||wf.proposal_status!=='validated_for_editing')throw new Error('La validation du plan n’a pas pu être confirmée.');
-      const migrated=await updateJob(t.id,{user_validated:true,editor_ready:true,chatgpt_editable:true,auto_pdf_launch:false,manual_pdf_launch_required:true,proposal_status:'validated_for_editing',stage:'redaction',production_status:'ready_for_editing',production_started_at:null,execution_contract:D_EXECUTION_CONTRACT,execution_contract_acknowledged:true,completion_guard:D_EXECUTION_CONTRACT_VERSION},'draft');
-      if(migrated?.metadata?.workflow?.stage!=='redaction')throw new Error('La migration CX → D n’a pas pu être confirmée après relecture de Supabase.');
+      if(state.section==='CX'){
+        const checks={};d.querySelectorAll('[data-admin-check]').forEach(x=>checks[x.dataset.adminCheck]=x.checked);
+        if(!Object.values(checks).every(Boolean))throw new Error('Validation CX bloquée : toutes les vérifications doivent être confirmées.');
+        const notes=d.querySelector('[data-admin-notes]')?.value.trim()||'';
+        const fresh=await getJob(t.id),stage=fresh?.metadata?.workflow?.stage;
+        if(!fresh||!['proposal_review','admin_validation','edition_ready'].includes(stage))throw new Error('Validation CX bloquée : la tâche n’est plus dans l’étape de validation.');
+        const migrated=await updateJob(t.id,{stage:'redaction',editor_ready:true,chatgpt_editable:true,user_validated:true,proposal_status:'validated_for_editing',production_status:'ready_for_editing',production_started_at:null,admin_validation:{...checks,notes,status:'validated',validated_at:new Date().toISOString()},auto_pdf_launch:false,manual_pdf_launch_required:true,execution_contract:D_EXECUTION_CONTRACT,execution_contract_acknowledged:true,completion_guard:D_EXECUTION_CONTRACT_VERSION},'draft');
+        if(migrated?.metadata?.workflow?.stage!=='redaction')throw new Error('La migration CX → D n’a pas pu être confirmée après relecture de Supabase.');
+      }else{
+        const updated=await persistPlan('proposal_review','ready_for_admin_validation');
+        const wf=updated?.metadata?.workflow||{};
+        if(wf.stage!=='proposal_review'||wf.proposal_status!=='ready_for_admin_validation')throw new Error('Le passage C → CX n’a pas pu être confirmé après relecture de Supabase.');
+      }
       await chargerEspaceEditorialChatGPT();
     }catch(e){alert(e.message||e)}finally{if(button)button.disabled=false}
   });
@@ -875,7 +903,16 @@ function injectStyle(){
 @media(min-width:721px){#auroreEditorialTaskAdmin .editor-create-card{grid-template-columns:minmax(260px,.7fr) minmax(0,1.8fr);}}
 #auroreEditorialTaskAdmin .editor-create-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(410px,1.1fr);gap:18px;align-items:end;padding:22px;border-radius:18px;border:1px solid color-mix(in srgb,var(--editor-accent) 18%,var(--editor-border));background:linear-gradient(135deg,color-mix(in srgb,var(--editor-accent) 10%,var(--editor-surface)),var(--editor-surface))}
 #auroreEditorialTaskAdmin .editor-create-card h5{margin:5px 0 6px;font-size:.95rem}
-#auroreEditorialTaskAdmin .editor-create-fields{display:grid;grid-template-columns:minmax(150px,.55fr) minmax(360px,1.9fr) auto;gap:12px;align-items:start}
+#auroreEditorialTaskAdmin .editor-create-fields{display:grid;grid-template-columns:minmax(150px,.45fr) minmax(520px,3fr) auto;gap:12px;align-items:start}
+#auroreEditorialTaskAdmin .editor-picker-progress{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+#auroreEditorialTaskAdmin .editor-picker-progress span{padding:5px 8px;border-radius:999px;border:1px solid var(--editor-border);font-size:.55rem;font-weight:900;opacity:.5}
+#auroreEditorialTaskAdmin .editor-picker-progress span.active{opacity:1;border-color:var(--editor-accent);background:color-mix(in srgb,var(--editor-accent) 10%,var(--editor-surface))}
+#auroreEditorialTaskAdmin .editor-picker-progress span.done{opacity:.8}
+#auroreEditorialTaskAdmin .editor-picker-stage-note{font-size:.58rem;line-height:1.4;opacity:.58;margin-bottom:8px}
+#auroreEditorialTaskAdmin .editor-picker-actions{display:flex;justify-content:space-between;gap:8px;margin-top:8px}
+#auroreEditorialTaskAdmin .editor-classification-panel{width:min(760px,calc(100vw - 48px));max-width:calc(100vw - 48px);right:auto;left:50%;transform:translateX(-50%);padding:18px}
+#auroreEditorialTaskAdmin .editor-option{min-height:46px;white-space:normal;line-height:1.25}
+#auroreEditorialTaskAdmin .editor-option-scroll{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));max-height:310px}
 #auroreEditorialTaskAdmin .editor-classification{position:relative;min-width:0}
 #auroreEditorialTaskAdmin .editor-classification-trigger{width:100%;min-height:41px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 11px;border:1px solid var(--editor-border);border-radius:11px;background:var(--editor-surface);color:inherit;font:inherit;font-size:.67rem;font-weight:800;cursor:pointer;text-align:left}
 #auroreEditorialTaskAdmin .editor-classification-trigger:hover{border-color:color-mix(in srgb,var(--editor-accent) 35%,var(--editor-border))}
@@ -970,6 +1007,11 @@ function injectStyle(){
 #auroreEditorialTaskAdmin .editor-plan-divider{padding:8px 0;border-top:1px solid var(--editor-border);font-size:.58rem;text-transform:uppercase;font-weight:950;letter-spacing:.08em;opacity:.55}
 #auroreEditorialTaskAdmin .editor-plan-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
 #auroreEditorialTaskAdmin .editor-validation-wrap{display:grid;gap:12px}
+#auroreEditorialTaskAdmin .editor-cx-validation{display:grid;gap:10px;padding:14px;border:1px solid color-mix(in srgb,var(--editor-accent) 20%,var(--editor-border));border-radius:15px;background:color-mix(in srgb,var(--editor-accent) 4%,var(--editor-surface))}
+#auroreEditorialTaskAdmin .editor-cx-validation-head{display:grid;gap:4px}
+#auroreEditorialTaskAdmin .editor-cx-validation-head span{font-size:.54rem;text-transform:uppercase;font-weight:950;letter-spacing:.07em;opacity:.55}
+#auroreEditorialTaskAdmin .editor-cx-validation-head strong{font-size:.72rem}
+#auroreEditorialTaskAdmin .editor-cx-validation-head small{font-size:.58rem;line-height:1.45;opacity:.62}
 #auroreEditorialTaskAdmin .editor-validation-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
 #auroreEditorialTaskAdmin .editor-validation-head h5{margin:5px 0;font-size:.84rem}
 #auroreEditorialTaskAdmin .editor-validation-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
@@ -979,8 +1021,8 @@ function injectStyle(){
 #auroreEditorialTaskAdmin .editor-a-start strong{font-size:.72rem}
 #auroreEditorialTaskAdmin .editor-a-start span{font-size:.62rem;opacity:.62}
 #auroreEditorialTaskAdmin .danger{border-color:color-mix(in srgb,#DC2626 25%,var(--editor-border))!important}
-@media(max-width:1050px){#auroreEditorialTaskAdmin .editor-create-fields{grid-template-columns:1fr 1fr}.editor-create-fields .admin-btn{grid-column:1/-1}#auroreEditorialTaskAdmin .editor-card-grid{grid-template-columns:repeat(3,minmax(0,1fr))}#auroreEditorialTaskAdmin .editor-create-card{grid-template-columns:1fr}}
-@media(max-width:720px){#auroreEditorialTaskAdmin .editor-classification-panel{position:relative;top:auto;left:auto;right:auto;margin-top:8px;box-shadow:none;max-height:68vh;overflow:auto}.editor-option-scroll{grid-template-columns:repeat(2,minmax(0,1fr));max-height:none;overflow:visible}}
+@media(max-width:1050px){#auroreEditorialTaskAdmin .editor-create-fields{grid-template-columns:minmax(150px,.5fr) minmax(0,2fr)}.editor-create-fields .admin-btn{grid-column:1/-1}#auroreEditorialTaskAdmin .editor-card-grid{grid-template-columns:repeat(3,minmax(0,1fr))}#auroreEditorialTaskAdmin .editor-create-card{grid-template-columns:1fr}}
+@media(max-width:720px){#auroreEditorialTaskAdmin .editor-classification-panel{position:relative;top:auto;left:auto;right:auto;width:auto;max-width:none;transform:none;margin-top:8px;box-shadow:none;max-height:68vh;overflow:auto}.editor-option-scroll{grid-template-columns:repeat(2,minmax(0,1fr));max-height:none;overflow:visible}}
 
 @media(max-width:720px){#auroreEditorialTaskAdmin .editor-main-nav{overflow-x:auto}#auroreEditorialTaskAdmin .editor-main-nav-item{min-width:120px}#auroreEditorialTaskAdmin .editor-main-nav-link{margin-left:0}#auroreEditorialTaskAdmin .editor-page-title,#auroreEditorialTaskAdmin .editor-validation-head{display:block}#auroreEditorialTaskAdmin .editor-page-count{display:block;margin-top:8px}#auroreEditorialTaskAdmin .editor-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#auroreEditorialTaskAdmin .editor-detail-meta,#auroreEditorialTaskAdmin .editor-validation-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:520px){#auroreEditorialTaskAdmin .editor-hub-head{display:block}#auroreEditorialTaskAdmin .editor-main-nav{display:grid;grid-template-columns:1fr 1fr}#auroreEditorialTaskAdmin .editor-main-nav-link{grid-column:1/-1;text-align:left;border-left:0;border-top:1px solid var(--editor-border);padding-top:11px}#auroreEditorialTaskAdmin .editor-card-grid{grid-template-columns:1fr}#auroreEditorialTaskAdmin .editor-plan-grid,#auroreEditorialTaskAdmin .editor-detail-meta,#auroreEditorialTaskAdmin .editor-chapters-grid,#auroreEditorialTaskAdmin .editor-validation-grid{grid-template-columns:1fr}#auroreEditorialTaskAdmin .editor-plan-actions{justify-content:stretch}#auroreEditorialTaskAdmin .editor-plan-actions .admin-btn{flex:1}}
