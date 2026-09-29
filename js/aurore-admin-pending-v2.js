@@ -135,7 +135,7 @@ function render(){
  setText('adminPendingV2Visible',STATE.filtered.length);
  if(!STATE.filtered.length){list.innerHTML='<div class="admin-pending-v2-empty"><strong>Aucun document Aurore dans le sas.</strong><span>Le sas ne contient que les demandes Content Factory encore sans document PDF associé.</span></div>';return}
  list.innerHTML=STATE.filtered.map(j=>{
-   const s=statusOf(j),label=s==='processing'?'Génération en cours':s==='queued'?'En file d’attente':s==='review'?'Contenu éditorial prêt — PDF à lancer':'Brouillon';
+   const s=statusOf(j),label=s==='processing'?'Génération en cours':s==='queued'?'En file d’attente':s==='review'?(j.generatedDocumentId?'Édition D terminée — PDF à lancer':'Contenu éditorial prêt — PDF à lancer'):'Brouillon';
    return '<article class="admin-pending-v2-card" data-pending-job-id="'+j.id+'" style="--pending-theme:'+esc(j.theme)+'"><div class="admin-pending-v2-card-accent"></div><div class="admin-pending-v2-card-main">'+
    '<div class="admin-pending-v2-card-head"><div><span class="admin-pending-v2-source">Aurore — Content Factory</span><h3 class="admin-pending-v2-title">'+esc(j.title)+'</h3></div><span class="admin-pending-v2-id">Job #'+j.id+'</span></div>'+
    progress(j)+
@@ -201,7 +201,7 @@ async function chargerDocumentsEnAttenteAdminV2(){
     const workflowStage=String(workflow?.stage||'').trim().toLowerCase();
     // Les tâches encore dans le circuit éditorial B/C ne doivent jamais entrer dans le sas D.
     // Les anciens documents sans workflow.stage restent compatibles avec l'ancien circuit.
-    if(workflowStage && workflowStage!=='edition_ready' && workflowStage!=='production_ready' && workflowStage!=='pdf_ready')return false;
+    if(workflowStage && workflowStage!=='edition_ready' && workflowStage!=='production_ready' && workflowStage!=='pdf_ready' && workflowStage!=='production_terminee')return false;
     const gid=Number(j.generated_document_id||0);
     if(!gid)return true;
     const d=docMap.get(gid);
@@ -218,7 +218,7 @@ async function chargerDocumentsEnAttenteAdminV2(){
   STATE.loaded=true;
   populate('adminPendingV2Level',STATE.jobs.map(j=>j.level),'Tous les niveaux');
   populate('adminPendingV2Subject',STATE.jobs.map(j=>j.subject),'Toutes les matières');
-  const note=document.getElementById('adminPendingV2Note');if(note)note.textContent='Sas Aurore uniquement : demandes brouillon, en file ou en production qui n’ont pas encore produit de document PDF. Les documents générés ont leur propre page.';
+  const note=document.getElementById('adminPendingV2Note');if(note)note.textContent='Sas Aurore uniquement : demandes et éditions D terminées qui attendent encore leur production PDF. Dès qu’un PDF existe, le document quitte ce sas.';
   if(initialLoad || changed) render();
  }catch(e){
   console.error('[ADMIN][AURORE PENDING] chargement',e);
