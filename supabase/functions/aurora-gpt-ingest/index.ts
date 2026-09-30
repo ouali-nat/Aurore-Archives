@@ -731,6 +731,35 @@ Deno.serve(async req=>{
     }
     const payload=await req.json();
     const content=payload?.content_json;
+
+    // Pré-validation éditoriale appelable par l'IA avant toute ingestion :
+    // l'IA peut soumettre son brouillon, recevoir les graph_id/expression/fonctions
+    // fautives, corriger le document, puis demander une nouvelle validation.
+    if(payload?.action==="validate_geogebra"){
+      if(!content||typeof content!=="object"||Array.isArray(content)){
+        return reply({ok:false,error:"content_json doit être un objet JSON."},400);
+      }
+      try{
+        const geogebraValidation=validateGeoGebraFunctionSemantics(content);
+        return reply({
+          ok:true,
+          validation_stage:"ai_editorial_preflight",
+          geogebra_validation:geogebraValidation,
+          message:"Toutes les références de fonctions GeoGebra vérifiées sont définies ou reconnues. L'édition peut continuer."
+        },200);
+      }catch(error){
+        if(error instanceof GeoGebraEditorialValidationError){
+          return reply({
+            ok:false,
+            validation_stage:"ai_editorial_preflight",
+            error:error.message,
+            geogebra_validation:error.report,
+            action:"Corrigez les expressions indiquées, définissez explicitement les fonctions manquantes, puis relancez validate_geogebra."
+          },422);
+        }
+        throw error;
+      }
+    }
     const memorySessionId=text(payload.memory_session_id,100);
     const memorySessionToken=text(payload.memory_session_token,200);
     if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(memorySessionId)||!memorySessionToken){
