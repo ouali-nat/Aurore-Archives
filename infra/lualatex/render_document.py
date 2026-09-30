@@ -2499,13 +2499,25 @@ def _render_plain_with_inline_math(segment, auto_math=False):
     return "".join(parts)
 
 
-def _render_course_inline_math(text, auto_math=False):
-    """Render one course paragraph while preserving every inline math position.
+def _box_course_inline_latex(rendered):
+    """Wrap every inline LaTeX fragment emitted inside a course paragraph."""
+    value = str(rendered or "")
+    if not value:
+        return value
 
-    Inline LaTeX is emitted directly into the paragraph as natural-width
-    AuroreMathCompact boxes. No segment is stripped and no horizontal fill is
-    inserted, so prose and math keep their original left-to-right order.
-    """
+    pattern = re.compile(r"\\\\\(([\\s\\S]*?)\\\\\)")
+
+    def replace(match):
+        body = normalize_math(match.group(1).strip())
+        if not body:
+            return match.group(0)
+        return r"\\AuroreMathCompact{}{" + body + r"}"
+
+    return pattern.sub(replace, value)
+
+
+def _render_course_inline_math(text, auto_math=False):
+    """Render one course paragraph while preserving every inline math position."""
     source = _repair_accidental_inline_double_dollar(str(text or ""))
     source = _repair_overescaped_math_delimiters(source)
     if not source:
@@ -2521,8 +2533,6 @@ def _render_course_inline_math(text, auto_math=False):
             raw_fragment = match.group(0)
             if not raw_fragment or not _looks_like_plain_math_fragment(raw_fragment.strip()):
                 continue
-            # The relation regex permits surrounding whitespace. Keep that
-            # whitespace in prose so the math box begins at the same position.
             leading = len(raw_fragment) - len(raw_fragment.lstrip())
             trailing = len(raw_fragment) - len(raw_fragment.rstrip())
             start_pos = match.start() + leading
@@ -2545,26 +2555,30 @@ def _render_course_inline_math(text, auto_math=False):
             last_end = end_pos
 
         if not chosen:
-            return inline(value, auto_math=auto_math)
+            return _box_course_inline_latex(inline(value, auto_math=auto_math))
 
         parts = []
         cursor = 0
         for start_pos, end_pos, fragment in chosen:
-            # Keep every character before the formula, including spaces.
             if start_pos > cursor:
-                parts.append(inline(value[cursor:start_pos], auto_math=auto_math))
+                parts.append(
+                    _box_course_inline_latex(
+                        inline(value[cursor:start_pos], auto_math=auto_math)
+                    )
+                )
             normalized = normalize_math(fragment.strip())
             if normalized:
-                # Inline course math must stay inline even when it is long:
-                # the source position is more important than converting it to
-                # a centered block. Explicit display math uses AuroreMathBlock.
-                parts.append(r"\AuroreMathCompact{}{" + normalized + r"}")
+                parts.append(r"\\AuroreMathCompact{}{" + normalized + r"}")
             cursor = end_pos
         if cursor < len(value):
-            parts.append(inline(value[cursor:], auto_math=auto_math))
+            parts.append(
+                _box_course_inline_latex(
+                    inline(value[cursor:], auto_math=auto_math)
+                )
+            )
         return "".join(parts)
 
-    explicit_inline = re.compile(r"(\$[\s\S]*?\$|\\\([\s\S]*?\\\))")
+    explicit_inline = re.compile(r"(\$[\\s\\S]*?\$|\\\\\([\\s\\S]*?\\\\\))")
     parts = []
     cursor = 0
     for match in explicit_inline.finditer(source):
@@ -2577,12 +2591,11 @@ def _render_course_inline_math(text, auto_math=False):
             body = token[2:-2].strip()
         normalized = normalize_math(body)
         if normalized:
-            parts.append(r"\AuroreMathCompact{}{" + normalized + r"}")
+            parts.append(r"\\AuroreMathCompact{}{" + normalized + r"}")
         cursor = match.end()
     if cursor < len(source):
         parts.append(render_plain_segment(source[cursor:]))
-    return "".join(parts)
-
+    return _box_course_inline_latex("".join(parts))
 
 def _render_course_math_blocks(text, auto_math=False):
     """Render course paragraphs with inline adaptive math boxes in place."""
