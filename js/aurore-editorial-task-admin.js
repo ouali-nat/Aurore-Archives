@@ -1053,7 +1053,7 @@ function bindDetail(d,t,state){
     {title:'Synthèse',content:e.synthesis}
   ].filter(x=>x.content||x.title==='Contenu du cours')});
   const SCIENTIFIC_PREFLIGHT_VERSION='scientific-preflight-3';
-  const SCIENTIFIC_REASONING_GATE_VERSION='scientific-reasoning-d-gate-1';
+  const SCIENTIFIC_REASONING_GATE_VERSION='scientific-reasoning-d-gate-2';
   function isScientificDocument(t){
     const subject=String(t?.subject||'').toLocaleLowerCase('fr').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'');
     return /(^|[^a-z])(maths|mathematiques|mathematique|physique|chimie|sciences[\\s-]*physiques|pc|biologie|biologic|svt|statistique|statistics|science|sciences|agronomie|agronom)([^a-z]|$)/i.test(subject)
