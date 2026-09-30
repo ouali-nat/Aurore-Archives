@@ -576,7 +576,7 @@ function render(root,state){
   '<output id="editorAThemeValue">#6D28D9</output><input id="editorAThemeColor" type="color" value="#6D28D9" aria-label="Couleur personnalisée">'+
   '<div class="cf-create-theme-palette" id="editorAThemePalette" hidden><div class="cf-create-theme-swatches" id="editorAThemeSwatches" aria-label="Palette Aurore des couleurs de PDF"></div></div></div></div></section>'+
   '<section class="cf-rebuild-card" aria-label="Validation"><label class="cf-rebuild-rights"><input id="editorACreateRights" type="checkbox"><span><strong>Autoriser la production</strong><span>Je confirme que cette demande peut être utilisée par Aurore pour préparer la ressource et la soumettre au contrôle avant publication.</span></span></label>'+
-  '<div class="cf-rebuild-actions"><button class="admin-btn primary" id="editorCreate" type="button">Créer la tâche</button><span class="cf-rebuild-msg" id="editorACreateMsg" aria-live="polite"></span></div></section>'+
+  '<div class="cf-rebuild-actions"><button class="admin-btn primary" id="editorCreate" type="submit">Créer la tâche</button><span class="cf-rebuild-msg" id="editorACreateMsg" aria-live="polite"></span></div></section>'+
   '<section class="cf-form-layout-admin editor-a-form-layout" id="editorAFormLayoutAdmin" aria-label="Réglage de la forme du formulaire Section A"><div><strong>Forme du formulaire — Section A</strong><small>Réglage réservé à l’administration. Tu peux élargir horizontalement le formulaire et la zone Matière.</small></div>'+
   '<label>Largeur du formulaire <output id="editorAFormWidthOutput">1320 px</output><input id="editorAFormWidthRange" type="range" min="600" max="1600" step="20" value="1320"></label>'+
   '<label>Largeur de la zone Matière <output id="editorASubjectWidthOutput">620 px</output><input id="editorASubjectWidthRange" type="range" min="220" max="700" step="10" value="620"></label>'+
@@ -743,7 +743,7 @@ function bind(root,state){
       }catch(e){if(msg)msg.textContent='Impossible d’enregistrer la forme : '+(e.message||e);}
       finally{if(btn)btn.disabled=false;}
     });
-    root.querySelector('#editorCreate')?.addEventListener('click',async()=>{
+    form?.addEventListener('submit',async e=>{e.preventDefault();
       const title=(root.querySelector('#editorACreateTitle')?.value||'').trim(),category=(categoryPicker?.value||'').trim(),resourceType=(resourcePicker?.value||'').trim(),reference=(root.querySelector('#editorACreateReference')?.value||'').trim(),prompt=(root.querySelector('#editorACreatePrompt')?.value||'').trim(),subject=(subjectPicker?.value||'').trim(),rights=!!root.querySelector('#editorACreateRights')?.checked,themeColor=normalizeAThemeColor(root.querySelector('#editorAThemeColor')?.value||'#6D28D9');
       const level=rootNodeName(levelPicker),className=String(aPath[aPath.length-1]?.nom||'').trim(),path=aPath.map(n=>String(n?.nom||'').trim()).filter(Boolean),location=path.join(' · ');
       if(!title||!category||!resourceType||!level||!className||!subject||!prompt||!rights){const msg=root.querySelector('#editorACreateMsg');if(msg){msg.dataset.state='error';msg.textContent='Complète le titre, la catégorie, le type, le classement, la consigne et l’autorisation de production.';}return}
