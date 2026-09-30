@@ -53,6 +53,33 @@ test("une fonction de domaine explicite reste intacte", () => {
   );
 });
 
+test("une fonction nommée mais non définie est bloquée", () => {
+  assert.throws(
+    () => buildFunction2DArrayCommands(["pH(x)"]),
+    /Fonction GeoGebra non définie.*pH/,
+  );
+});
+
+test("une fonction nommée est acceptée lorsqu'elle est explicitement définie", () => {
+  assert.deepEqual(
+    buildFunction2DArrayCommands(["pH(x)=7+0.1*x"]),
+    {
+      commands: ["pH(x)=7+0.1*x"],
+      functionNames: ["pH"],
+    },
+  );
+});
+
+test("une expression peut utiliser une fonction locale fournie par les companions", () => {
+  assert.deepEqual(
+    buildFunction2DArrayCommands(["2*pH(x)"], ["pH(x)=7+0.1*x"]),
+    {
+      commands: ["f(x)=2*pH(x)"],
+      functionNames: ["f"],
+    },
+  );
+});
+
 test("les noms utilisés par les companions sont réservés lors de la génération", () => {
   assert.deepEqual(
     buildFunction2DArrayCommands(["x", "x^2"], ["g(x)=sin(x)"]),
