@@ -25,6 +25,14 @@ Le chemin normal est :
 
 L’absence de PDF n’est pas une erreur d’ingestion. Un contenu éditorial correctement reçu peut être en `review` avec `pdf_path` et `pdf_url` nuls. Le sas « Documents en attente » doit le considérer comme prêt pour une production PDF manuelle.
 
+### Barrière éditoriale scientifique D → Documents en attente
+
+Le passage de l’édition D vers le sas « Documents en attente » est soumis à une barrière pédagogique scientifique indépendante de la complétude du plan C/CX. Avant toute insertion issue de l’éditeur ChatGPT, le contenu final est contrôlé pour les mathématiques, la physique, la chimie et les autres contenus scientifiques quantitatifs couverts par le profil scientifique. Une suite de formules, équations, résultats ou valeurs ne peut pas être considérée comme une explication : les grandeurs ou notions importantes doivent être définies, la loi ou relation utilisée doit être identifiée, les transformations significatives doivent être expliquées, les étapes doivent être reliées par un raisonnement explicite et le résultat doit être interprété.
+
+Le garde-fou analyse les sections instructionnelles du contenu réellement édité et bloque notamment toute section scientifique « formula-only » contenant plusieurs relations sans prose explicative suffisante. Il contrôle aussi la couverture du raisonnement sur l’ensemble du cours ; les sections d’exercices et de corrigés conservent une logique plus dense adaptée à leur nature. Le rapport du garde-fou est enregistré dans les métadonnées de la tâche. En cas d’échec, la tâche reste en D, aucune ligne aurora_generated_documents n’est créée et aucun document ne peut apparaître dans « Documents en attente ».
+
+Cette barrière est appliquée côté base avant insertion, et l’interface D effectue le même contrôle en amont pour fournir immédiatement les corrections nécessaires à l’éditeur. Un contournement du passage C → D ne permet donc pas de contourner la dernière barrière D → Documents en attente.
+
 ### Barrière de production PDF
 
 La propriété `pdf_launch_mode = manual` n’est pas seulement descriptive : elle constitue un contrat d’architecture. Le chemin autorisé est `administration → aurora-lualatex-request → GitHub Actions`. Le document ne doit jamais être réclamé par un scheduler, un `push` GitHub, une ingestion ou un trigger de base de données.
