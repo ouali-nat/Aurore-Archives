@@ -1657,7 +1657,7 @@ def _normalize_unicode_math_letters(value):
                 out.append(digits.get(token, char))
                 continue
             if token in greek:
-                out.append(r"\\" + greek[token])
+                out.append("\\" + greek[token])
                 continue
             if len(token) == 1 and token.isalpha():
                 out.append(token)
@@ -1874,7 +1874,7 @@ _AUTO_MATH_ATOM_RE = re.compile(
     r"\((?:[^()\n]|\([^()\n]*\))*\)|"
     r"\{(?:[^{}\n]|\{[^{}\n]*\})*\}|"
     r"\[(?:[^\[\]\n]|\[[^\[\]\n]*\])*\}|"
-    r"[²³⁴⁵⁶⁷⁸⁹⁰₀₁₂₃₄₅₆₇₈₉πΔΩ√−≤≥≠≈∈∉×±]"
+    r"[²³⁴⁵⁶⁷⁸⁹⁰₀₁₂₃₄₅₆₇₈₉πΔΩ√−≤≥≠≈∈∉×±∶→∘]"
     r")"
 )
 _AUTO_MATH_OP_RE = re.compile(r"(?:=|[+\-*/^_<>]|∈|∉|≤|≥|≠|≈|±)")
@@ -2403,7 +2403,7 @@ _PLAIN_MATH_RELATION_RE = re.compile(
     r"(?<![A-Za-zÀ-ÿ0-9_])"
     r"(?P<expr>"
     + _PLAIN_MATH_ATOM + r"{1,120}?"
-    + r"(?:=|→|≤|≥|≠|∈)"
+    + r"(?:=|→|≤|≥|≠|∈|∶|:)"
     + _PLAIN_MATH_ATOM + r"{1,90}?"
     + r")"
     r"(?=\s|[,.!?;:]|$)"
