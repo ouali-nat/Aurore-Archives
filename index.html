@@ -155,16 +155,7 @@
 <link rel="stylesheet" href="./css/aurora-content-factory-admin.css" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="./css/aurore-recovered-design.css" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="./css/aurore-zoom-control.css" media="print" onload="this.media='all'">
-<style id="cf-admin-form-layout-v3">
-#cfFormLayoutAdmin{display:grid;grid-template-columns:1.4fr minmax(220px,1fr) minmax(220px,1fr) auto;gap:12px;align-items:center;margin:0 14px 14px;padding:13px 15px;border:1px solid color-mix(in srgb,var(--theme-primary,#6d28d9) 18%,transparent);border-radius:14px;background:color-mix(in srgb,var(--surface,#fff) 94%,var(--theme-primary,#6d28d9))}
-#cfFormLayoutAdmin strong{display:block;font-size:.73rem}#cfFormLayoutAdmin small{display:block;margin-top:3px;font-size:.61rem;line-height:1.4;color:var(--gris,#687080)}
-#cfFormLayoutAdmin label{font-size:.62rem;font-weight:800}#cfFormLayoutAdmin output{float:right;font-weight:900}#cfFormLayoutAdmin input[type=range]{display:block;width:100%;margin-top:7px;accent-color:var(--theme-primary,#6d28d9)}
-#cfFormLayoutAdmin .cf-form-layout-msg{font-size:.61rem;min-width:120px}
-#cfAdminCreateForm{max-width:var(--cf-admin-form-width,1320px);margin-left:auto;margin-right:auto}
-#cfAdminCreateForm .cf-rebuild-grid-2{grid-template-columns:minmax(0,1fr) minmax(360px,var(--cf-admin-subject-width,620px))}
-@media(max-width:900px){#cfFormLayoutAdmin{grid-template-columns:1fr 1fr}.cf-form-layout-msg{grid-column:1/-1}}
-@media(max-width:560px){#cfFormLayoutAdmin{grid-template-columns:1fr}.cf-form-layout-msg{grid-column:auto}#cfAdminCreateForm .cf-rebuild-grid-2{grid-template-columns:1fr}}
-</style>
+
 <style id="cf-admin-create-form-v2">
 /* Formulaire Content Factory : ordre strict identique au dépôt public. */
 .cf-admin-create-form .cf-create-grid{grid-template-columns:1fr}
@@ -179,16 +170,16 @@
 .cf-admin-create-form .cf-theme-picker{display:flex;align-items:center;gap:9px;margin-top:7px}
 .cf-admin-create-form .cf-theme-color-button{width:36px;height:36px;padding:3px;border:1px solid color-mix(in srgb,var(--theme-primary,#6d28d9) 24%,transparent);border-radius:9px;background:color-mix(in srgb,var(--surface,#fff) 88%,var(--theme-primary,#6d28d9));cursor:pointer;display:grid;place-items:center;box-shadow:0 3px 10px rgba(0,0,0,.10);transition:transform .16s,box-shadow .16s}
 .cf-admin-create-form .cf-theme-color-button:hover{transform:translateY(-1px);box-shadow:0 6px 15px rgba(0,0,0,.14)}
-.cf-admin-create-form .cf-theme-color-square #cfThemeColorPreview{display:block;width:100%;height:100%;border-radius:7px;background:#C85C0D}
+.cf-admin-create-form .cf-theme-color-square #cfThemeColorPreview{display:block;width:100%;height:100%;border-radius:7px;background:var(--theme-primary,#6D28D9)}
 .cf-admin-create-form #cfCreateThemeColor{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
-.cf-admin-create-form .cf-create-theme-palette{position:absolute;z-index:10040;left:0;top:calc(100% + 8px);width:min(390px,calc(100vw - 28px));box-sizing:border-box;margin:0;padding:12px;border:1px solid color-mix(in srgb,#C85C0D 24%,transparent);border-radius:16px;background:var(--surface,#fff);box-shadow:0 18px 48px rgba(0,0,0,.18);backdrop-filter:blur(10px)}
+.cf-admin-create-form .cf-create-theme-palette{position:absolute;z-index:10040;left:0;top:calc(100% + 8px);width:min(390px,calc(100vw - 28px));box-sizing:border-box;margin:0;padding:12px;border:1px solid color-mix(in srgb,var(--theme-primary,#6D28D9) 24%,transparent);border-radius:16px;background:var(--surface,#fff);box-shadow:0 18px 48px rgba(0,0,0,.18);backdrop-filter:blur(10px)}
 .cf-admin-create-form .cf-create-theme-palette[hidden]{display:none!important}
 .cf-admin-create-form .cf-create-theme-swatches{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:6px}
 .cf-admin-create-form .cf-create-theme-swatch{width:100%;aspect-ratio:1;border:2px solid transparent;border-radius:7px;padding:2px;background:transparent;cursor:pointer}
 .cf-admin-create-form .cf-create-theme-swatch span{display:block;width:100%;height:100%;min-height:20px;border-radius:5px;background:var(--cf-swatch);box-shadow:inset 0 0 0 1px rgba(255,255,255,.24)}
 .cf-admin-create-form .cf-create-theme-swatch:hover{transform:translateY(-1px)}
-.cf-admin-create-form .cf-create-theme-swatch.is-selected{border-color:#C85C0D;box-shadow:0 0 0 2px rgba(200,92,13,.22)}
-@media(max-width:520px){.cf-admin-create-form .cf-create-theme-palette{width:min(340px,calc(100vw - 24px));max-height:280px;overflow:auto;padding:10px;border:1px solid color-mix(in srgb,#C85C0D 24%,transparent);border-radius:16px;background:var(--surface,#fff);box-shadow:0 18px 48px rgba(0,0,0,.18);z-index:10040}.cf-admin-create-form .cf-create-theme-swatches{grid-template-columns:repeat(7,minmax(0,1fr))}
+.cf-admin-create-form .cf-create-theme-swatch.is-selected{border-color:var(--theme-primary,#6D28D9);box-shadow:0 0 0 2px rgba(200,92,13,.22)}
+@media(max-width:520px){.cf-admin-create-form .cf-create-theme-palette{width:min(340px,calc(100vw - 24px));max-height:280px;overflow:auto;padding:10px;border:1px solid color-mix(in srgb,var(--theme-primary,#6D28D9) 24%,transparent);border-radius:16px;background:var(--surface,#fff);box-shadow:0 18px 48px rgba(0,0,0,.18);z-index:10040}.cf-admin-create-form .cf-create-theme-swatches{grid-template-columns:repeat(7,minmax(0,1fr))}
 .cf-admin-create-form #cfCreateThemeColorValue{display:none}
 .cf-admin-create-form .cf-create-theme-palette[hidden]{display:none}
 .cf-admin-create-form .cf-create-theme-swatches{display:grid;grid-template-columns:repeat(9,24px);gap:6px;max-height:220px;overflow:auto}
@@ -1154,66 +1145,7 @@
     <div class="cf-rebuild-badge">Contrôle humain obligatoire</div>
   </header>
 
-  <div class="cf-form-layout-admin" id="cfFormLayoutAdmin" aria-label="Réglage de la forme du formulaire Section A">
-    <div><strong>Forme du formulaire — Section A</strong><small>Réglage réservé à l’administration. Tu peux élargir le formulaire et la zone Matière sans modifier le code.</small></div>
-    <label>Largeur du formulaire <output id="cfFormWidthOutput">1320 px</output><input id="cfFormWidthRange" type="range" min="900" max="1800" step="20" value="1320"></label>
-    <label>Largeur de la zone Matière <output id="cfSubjectWidthOutput">620 px</output><input id="cfSubjectWidthRange" type="range" min="360" max="900" step="10" value="620"></label>
-    <button class="admin-btn ghost" id="cfFormLayoutSave" type="button">Enregistrer la forme</button>
-    <span class="cf-form-layout-msg" id="cfFormLayoutMsg" aria-live="polite"></span>
-  </div>
-
-  <form id="cfAdminCreateForm" class="cf-admin-create-form cf-rebuild-form" novalidate>
-    <section class="cf-rebuild-card" aria-label="Identification">
-      <div class="cf-rebuild-title"><span class="cf-rebuild-no">01</span><div><strong>La ressource</strong><small>Ce que tu veux faire produire</small></div></div>
-      <label class="cf-rebuild-field"><span>Titre</span><input id="cfCreateTitle" type="text" required placeholder="Ex. Fiche de révision — fonctions exponentielles"></label>
-      <div class="cf-rebuild-grid" style="margin-top:10px">
-        <label class="cf-rebuild-field"><span>Catégorie</span><select id="cfCreateCategory"><option value="">Choisir une catégorie…</option><option value="Devoirs">Devoirs</option><option value="Documents">Documents</option></select></label>
-        <label class="cf-rebuild-field"><span>Type de ressource</span><select id="cfCreateResourceType"><option value="">Choisir un type…</option></select></label>
-        <label class="cf-rebuild-field"><span>Source pédagogique <em>(optionnel)</em></span><input id="cfCreateReference" type="text" placeholder="Manuel, chapitre, programme…"></label>
-      </div>
-    </section>
-
-    <section class="cf-rebuild-card" aria-label="Classement scolaire">
-      <div class="cf-rebuild-title"><span class="cf-rebuild-no">02</span><div><strong>Le parcours scolaire</strong><small>Deux choix simples : niveau, puis parcours. La filière est enregistrée en interne quand le parcours l'impose.</small></div></div>
-      <div class="cf-rebuild-grid-2">
-        <label class="cf-rebuild-field"><span>Niveau</span><div id="cfCreateCascade"><select id="cfCreateLevelPicker"><option value="">Choisir un niveau…</option></select><select id="cfCreatePathPicker" disabled><option value="">Choisis d'abord un niveau…</option></select></div></label>
-        <label class="cf-rebuild-field"><span>Matière</span><select id="cfCreateSubject" disabled><option value="">Choisis d'abord un parcours…</option></select></label>
-      </div>
-      <div class="cf-route-note" id="cfCreateClassificationSummary">Aucun parcours sélectionné.</div>
-      <input id="cfCreateLevel" type="hidden"><input id="cfCreateClass" type="hidden"><input id="cfCreateFiliere" type="hidden">
-    </section>
-
-    <section class="cf-rebuild-card" aria-label="Consigne">
-      <div class="cf-rebuild-title"><span class="cf-rebuild-no">03</span><div><strong>Le contenu</strong><small>Donne à Aurora la consigne pédagogique à produire</small></div></div>
-      <label class="cf-rebuild-field"><span>Consigne de génération</span><textarea id="cfCreatePrompt" required>Crée une fiche de révision sur le sujet indiqué avec cours, exercices et corrigés.</textarea></label>
-    </section>
-
-    <section class="cf-rebuild-card" aria-label="Édition pédagogique">
-  <div class="cf-rebuild-title"><span class="cf-rebuild-no">04</span><div><strong>Éditeur pédagogique</strong><small>Le contenu est préparé par ChatGPT puis transmis au circuit Aurore pour le rendu PDF déterministe.</small></div></div>
-  <div class="cf-route-note" id="cfAiStrategyHint">Éditeur actif : ChatGPT · schéma éditorial aurora-editorial-1 · contrôle humain avant tout rendu et toute publication.</div>
-</section>
-
-<section class="cf-rebuild-card" aria-label="Présentation du PDF">
-      <div class="cf-rebuild-title"><span class="cf-rebuild-no">05</span><div><strong>L'identité du PDF</strong><small>La couleur sera mémorisée avec cette génération</small></div></div>
-      <label class="cf-rebuild-field"><span>Couleur dominante</span>
-        <div class="cf-rebuild-theme">
-          <button type="button" class="cf-theme-color-button cf-theme-color-square" id="cfThemePaletteToggle" aria-haspopup="true" aria-expanded="false" title="Choisir la couleur du PDF" aria-label="Choisir la couleur du PDF">
-            <span id="cfThemeColorPreview" aria-hidden="true"></span>
-          </button>
-          <output id="cfCreateThemeColorValue" hidden>#C85C0D</output>
-          <input id="cfCreateThemeColor" type="color" value="#C85C0D" aria-label="Couleur personnalisée" tabindex="-1">
-        </div>
-        <div class="cf-create-theme-palette" id="cfCreateThemePalette" hidden>
-          <div class="cf-create-theme-swatches" id="cfCreateThemeSwatches" aria-label="Palette Aurore des couleurs de PDF"></div>
-        </div>
-      </label>
-    </section>
-
-    <section class="cf-rebuild-card" aria-label="Validation">
-      <label class="cf-rebuild-rights"><input id="cfCreateRights" type="checkbox"><span><strong>Autoriser la production</strong><span>Je confirme que cette demande et les références fournies peuvent être utilisées par Aurore pour produire la ressource et la soumettre au contrôle avant publication.</span></span></label>
-      <div class="cf-rebuild-actions"><button class="admin-btn primary" id="cfCreateLaunch" type="button">Enregistrer la demande</button><span class="cf-rebuild-msg" id="cfCreateMsg" aria-live="polite"></span></div>
-    </section>
-  </form>
+  <div class="cf-create-moved-note" role="note"><strong>Création éditoriale centralisée dans Éditorial GPT · Section A.</strong><span>La création des tâches est désormais effectuée dans le parcours A, avec classement, consigne et identité du PDF réunis au même endroit.</span></div>
 
   <div class="cf-queue" hidden id="cfGenerationQueue"><strong>File Aurora</strong><span id="cfGenerationQueueText"></span></div>
   <div class="cf-progress" hidden id="cfProgress"><div class="cf-progress-top"><strong id="cfProgressTitle">Progression Aurora</strong><span id="cfProgressPercent">0%</span></div><div class="cf-progress-track"><div class="cf-progress-bar" id="cfProgressBar"></div></div><div class="cf-progress-stage" id="cfProgressStage">En attente…</div></div>
@@ -4296,18 +4228,7 @@
 <script defer src="js/aurore-hero-morph.js"></script>
 <script defer src="js/aurore-zoom-control.js"></script>
 <script defer src="js/aurore-custom-selects.js"></script>
-<script>
-(function(){
-  const KEY='content_factory_section_a_form';
-  const root=document.documentElement,w=document.getElementById('cfFormWidthRange'),sw=document.getElementById('cfSubjectWidthRange'),wo=document.getElementById('cfFormWidthOutput'),swo=document.getElementById('cfSubjectWidthOutput'),msg=document.getElementById('cfFormLayoutMsg'),save=document.getElementById('cfFormLayoutSave');
-  if(!w||!sw)return;
-  function apply(cfg){const width=Math.max(900,Math.min(1800,Number(cfg?.max_width_px)||1320)),subject=Math.max(360,Math.min(900,Number(cfg?.subject_width_px)||620));root.style.setProperty('--cf-admin-form-width',width+'px');root.style.setProperty('--cf-admin-subject-width',subject+'px');w.value=String(width);sw.value=String(subject);wo.textContent=width+' px';swo.textContent=subject+' px';}
-  async function load(){try{const r=await fetch(SUPABASE_URL+'/rest/v1/aurore_admin_interface_settings?select=setting_value&setting_key=eq.'+encodeURIComponent(KEY),{headers:{'apikey':SUPABASE_ANON_KEY}});const rows=await r.json().catch(()=>[]);apply(rows?.[0]?.setting_value||{});}catch(e){apply({});}}
-  w.addEventListener('input',()=>wo.textContent=w.value+' px');sw.addEventListener('input',()=>swo.textContent=sw.value+' px');
-  save?.addEventListener('click',async()=>{if(!session||session.role!=='admin'){if(msg)msg.textContent='Action réservée aux administrateurs.';return;}save.disabled=true;try{const body={setting_key:KEY,setting_value:{max_width_px:Number(w.value),subject_width_px:Number(sw.value)},updated_at:new Date().toISOString()};const r=await fetch(SUPABASE_URL+'/rest/v1/aurore_admin_interface_settings?on_conflict=setting_key',{method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(body)});if(!r.ok)throw new Error('HTTP '+r.status);apply(body.setting_value);if(msg)msg.textContent='Forme enregistrée.';}catch(e){if(msg)msg.textContent='Impossible d’enregistrer la forme.';}finally{save.disabled=false;}});
-  load();
-})();
-</script>
+
 <script defer src="js/aurore-document-verifier.js?v=20260921-1"></script>
 </body>
 </html>
