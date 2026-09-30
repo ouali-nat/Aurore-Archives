@@ -48,7 +48,7 @@ const B_EXECUTION_CONTRACT={
   ]
 };
 const C_PLAN_REQUIRED_FIELDS=['researchMethod','curricularBasis','researchFindings','sources','title','chapter','objectives','competencies','prerequisites','progression','architecture','productionStrategy','content','methods','activities','examples','situations','exercises','corrections','differentiation','evaluation','volume','duration','resources','mathGeoGebra','technicalNeeds','pdfFormat','pdfOrientation','pdfPagination','pdfThemeColor','pdfLayout','pdfFonts','pdfHeaders','pdfResources','quality','notes'];
-const C_EXECUTION_CONTRACT_VERSION='c-plan-guardrails-v1';
+const C_EXECUTION_CONTRACT_VERSION='c-plan-guardrails-v2';
 const D_EXECUTION_CONTRACT_VERSION='d-editorial-production-v1';
 const D_EXECUTION_CONTRACT={
   version:D_EXECUTION_CONTRACT_VERSION,
@@ -79,6 +79,8 @@ const C_EXECUTION_CONTRACT={
     'ASSIMILER le contexte avant toute rédaction : niveau, objectifs, contraintes curriculaires et besoins techniques.',
     'RECHERCHER et recouper les bases pédagogiques pertinentes avant de construire le plan.',
     'REMPLIR ET ENRICHIR workflow.proposal dans la carte C existante, sans créer une réponse parallèle dans la conversation.',
+    'SI un champ obligatoire est vide, SIGNALER le manque à l’IA éditrice et lui demander de le compléter à partir du contexte réel déjà persisté.',
+    'RECONTROLER le plan après complétion IA ; si un champ reste vide ou générique, BLOQUER toute écriture et toute migration C → CX.',
     'RELIRE la proposition écrite et vérifier tous les champs obligatoires ainsi que la cohérence avec la tâche.',
     'NE_DECLARER_TERMINE_QU_APRES_VERIFICATION_PERSISTANTE : ne déclarer la tâche traitée qu’après relecture du contenu persistant.',
     'NE_JAMAIS_LANCER_LE_PDF_AUTOMATIQUEMENT : la validation C prépare uniquement l’étape suivante.'
@@ -86,6 +88,8 @@ const C_EXECUTION_CONTRACT={
   prohibitedBeforeCompletion:[
     'répondre que la tâche est traitée sans avoir écrit workflow.proposal',
     'demander à l’administrateur de remplir le plan à la place de ChatGPT',
+    'insérer en base un plan C incomplet en espérant le compléter après coup',
+    'migrer C → CX si la complétion IA n’a pas ramené tous les champs obligatoires à un état valide',
     'inventer une tâche ou un chapitre absent de Supabase',
     'passer stage à edition_ready sans contrôle de complétude',
     'lancer une génération PDF depuis C'
@@ -505,26 +509,22 @@ const cAIPlaceholder=v=>{
   const n=cAIText(v).toLocaleLowerCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   return C_AI_PLACEHOLDERS.includes(n);
 };
-const cAIContext=(t,p)=>{
+const cAIContext=(t,p,missing)=>{
   const w=t.metadata?.workflow||{};
   const selected=selectedChaptersFor(t).map(x=>cAIText(x?.title||x?.name||x)).filter(Boolean);
-  const take=(v,n)=>cAIText(v).slice(0,n||420);
+  const take=(v,n)=>cAIText(v).slice(0,n||160);
+  const core=['title','chapter','objectives','competencies','progression','architecture','productionStrategy','content','methods','activities','examples','situations','exercises','corrections','evaluation','resources','technicalNeeds','pdfLayout','pdfFonts','pdfHeaders','pdfResources','quality','notes'];
+  const plan={};
+  core.forEach(k=>{if(!missing.includes(k)&&cAIText(p[k]))plan[k]=take(p[k],k==='content'||k==='progression'||k==='architecture'||k==='productionStrategy'||k==='quality'?220:150)});
   return {
     task:{id:t.id,title:t.title,subject:t.subject,level:t.level,class_name:t.class_name,document_type:t.document_type},
     selected_chapters:selected,
     research:{
-      method:take(p.researchMethod||w.chapter_research?.methodology||w.chapter_research?.method,500),
-      findings:take(p.researchFindings||w.chapter_research?.findings,700),
-      sources:take(p.sources||w.chapter_research?.sources||w.chapter_research?.source_urls,900)
+      method:take(p.researchMethod||w.chapter_research?.methodology||w.chapter_research?.method,360),
+      findings:take(p.researchFindings||w.chapter_research?.findings,500),
+      sources:take(p.sources||w.chapter_research?.sources||w.chapter_research?.source_urls,650)
     },
-    plan:{
-      title:take(p.title,300),chapter:take(p.chapter,500),objectives:take(p.objectives,450),competencies:take(p.competencies,450),
-      prerequisites:take(p.prerequisites,400),progression:take(p.progression,650),architecture:take(p.architecture,600),productionStrategy:take(p.productionStrategy,600),
-      content:take(p.content,700),methods:take(p.methods,450),activities:take(p.activities,450),examples:take(p.examples,450),situations:take(p.situations,450),
-      exercises:take(p.exercises,600),corrections:take(p.corrections,600),differentiation:take(p.differentiation,450),evaluation:take(p.evaluation,450),
-      volume:take(p.volume,180),duration:take(p.duration,250),resources:take(p.resources,500),mathGeoGebra:take(p.mathGeoGebra,450),technicalNeeds:take(p.technicalNeeds,450),
-      pdfLayout:take(p.pdfLayout,450),pdfFonts:take(p.pdfFonts,450),pdfHeaders:take(p.pdfHeaders,450),pdfResources:take(p.pdfResources,500),quality:take(p.quality,650),notes:take(p.notes,350)
-    }
+    plan
   };
 };
 const parseCAIResponse=raw=>{
@@ -537,7 +537,7 @@ const parseCAIResponse=raw=>{
   return fields;
 };
 async function cAIRequest(t,p,missing){
-  const ctx=cAIContext(t,p);
+  const ctx=cAIContext(t,p,missing);
   const wanted=missing.map(k=>k+' — '+(C_PLAN_FIELD_LABELS[k]||k)).join('\n');
   const prompt=[
     'Tu es l’IA éditrice d’Aurore pour la Section C.',
