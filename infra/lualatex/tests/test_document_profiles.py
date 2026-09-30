@@ -136,6 +136,29 @@ def test_course_inline_math_preserves_paragraph_order_and_spacing():
     assert r"\tcbox[on line" in compact_macro
 
 
+def test_course_course_paragraph_boxes_all_emitted_latex_math():
+    source = (
+        r"Avant \\frac{1}{2} puis $E=mc^2$ et après \\alpha f(x)."
+    )
+    rendered = "\n".join(
+        render_document._render_content_item(
+            source,
+            auto_math=True,
+            box_all_math=True,
+        )
+    )
+
+    assert r"\\AuroreParagraphBlock{" in rendered
+    assert r"\\AuroreMathCompact{}" in rendered
+    assert r"\\AuroreInlineMath{" not in rendered
+    assert r"\\(" not in rendered
+    assert r"\\)" not in rendered
+    assert rendered.find("Avant ") < rendered.find(r"\\AuroreMathCompact{}")
+    assert rendered.find(r"\\AuroreMathCompact{}") < rendered.find("puis")
+    assert rendered.find("puis") < rendered.rfind(r"\\AuroreMathCompact{}")
+    assert rendered.rfind(r"\\AuroreMathCompact{}") < rendered.find("et après")
+
+
 def test_course_profile_remains_separate():
     course = course_doc()
     assert _has_usable_content_json(course)
