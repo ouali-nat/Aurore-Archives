@@ -20,7 +20,7 @@ function assertKnownFunctionCalls(body, localNames = new Set()) {
   ]);
 
   const unknown = [];
-  for (const match of source.matchAll(/\\b([A-Za-z][A-Za-z0-9_]*)\\s*\\(/g)) {
+  for (const match of source.matchAll(/\b([A-Za-z][A-Za-z0-9_]*)\s*\(/g)) {
     const name = match[1];
     if (!allowed.has(name.toLowerCase()) && !unknown.includes(name)) {
       unknown.push(name);
