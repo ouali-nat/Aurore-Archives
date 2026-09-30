@@ -589,6 +589,71 @@ begin
 end;
 $function$;
 
+-- Barrière serveur finale : aucune production éditoriale scientifique issue de D
+-- ne peut entrer dans le sas Documents en attente sans raisonnement conforme.
+create or replace function public.aurora_enforce_scientific_reasoning_d_gate()
+returns trigger
+language plpgsql
+set search_path='public','pg_temp'
+as $function$
+declare
+  v_origin text := lower(coalesce(new.metadata->>'origin',''));
+  v_pending boolean := coalesce(new.metadata->>'pending_admin_surface','')='documents_en_attente';
+  v_report jsonb;
+begin
+  if not v_pending and v_origin <> 'gpt_editorial_ingest' then
+    return new;
+  end if;
+
+  if tg_op='UPDATE'
+     and new.content_json is not distinct from old.content_json
+     and new.subject is not distinct from old.subject
+     and new.matiere is not distinct from old.matiere
+     and new.document_type is not distinct from old.document_type
+     and new.level is not distinct from old.level
+     and new.class_name is not distinct from old.class_name then
+    return new;
+  end if;
+
+  v_report := public.aurora_scientific_reasoning_preflight(
+    coalesce(new.matiere,new.subject),
+    new.document_type,
+    new.level,
+    new.content_json
+  );
+
+  if v_report->>'status' <> 'pass' then
+    raise exception 'Garde-fou D scientifique Aurore bloqué : %',
+      coalesce(v_report->>'failures','[]');
+  end if;
+
+  new.metadata := coalesce(new.metadata,'{}'::jsonb)
+    || jsonb_build_object(
+      'scientific_reasoning_gate',
+      v_report || jsonb_build_object(
+        'checked_at',now(),
+        'boundary','D->documents_en_attente',
+        'hard_gate',true
+      )
+    );
+
+  return new;
+end;
+$function$;
+
+drop trigger if exists aurora_generated_documents_01_scientific_reasoning_d
+on public.aurora_generated_documents;
+
+create trigger aurora_generated_documents_01_scientific_reasoning_d
+before insert or update of content_json, subject, matiere, document_type, level, class_name, metadata
+on public.aurora_generated_documents
+for each row execute function public.aurora_enforce_scientific_reasoning_d_gate();
+
+revoke all on function public.aurora_scientific_reasoning_preflight(text,text,text,jsonb) from public, anon, authenticated;
+revoke all on function public.aurora_enforce_scientific_reasoning_d_gate() from public, anon, authenticated;
+grant execute on function public.aurora_scientific_reasoning_preflight(text,text,text,jsonb) to service_role;
+grant execute on function public.aurora_enforce_scientific_reasoning_d_gate() to service_role;
+
 -- La fonction canonique ci-dessus est déjà appelée par le trigger scientifique
 -- existant sur aurora_generated_documents. L'insertion D -> sas est donc
 -- impossible tant que le raisonnement scientifique n'est pas conforme.
