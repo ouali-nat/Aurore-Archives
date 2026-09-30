@@ -249,7 +249,95 @@
 @media(max-width:820px){.admin-home-presentation-grid{grid-template-columns:1fr}.cf-form-layout-admin{grid-template-columns:1fr 1fr}.cf-form-layout-admin>div{grid-column:1/-1}}
 @media(max-width:560px){.admin-detail>.admin-tab-panel{padding:12px 0 24px}.admin-service-editor,.admin-home-presentation-editor{padding:15px;border-radius:17px}.cf-form-layout-admin{grid-template-columns:1fr;margin:0 9px 10px}.cf-form-layout-admin .admin-btn{width:100%}}
 </style>
-</head>
+
+<!-- AURORE_AURORA_VIEWPORT_FIX_20260930 -->
+<style id="aurore-aurora-viewport-fix">
+/* Aurora reste indépendante du zoom global du site : son écran et son composeur
+   gardent une géométrie de viewport stable, notamment sur mobile. */
+html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
+  zoom:var(--aurore-ia-counter-zoom,1)!important;
+}
+#aurore-zoom-panel:not(.is-open){
+  display:none!important;
+}
+</style>
+<script>
+(function(){
+  'use strict';
+  var derniereActivation=null;
+  function screen(){return document.getElementById('screen-aurore-ia');}
+  function zoomGlobal(){
+    var raw=document.documentElement.style.zoom;
+    var z=parseFloat(raw);
+    return Number.isFinite(z)&&z>0?z:1;
+  }
+  function synchroniserAuroraViewport(){
+    var el=screen();
+    var active=!!(el&&(el.classList.contains('active')||el.classList.contains('is-mini')));
+    document.documentElement.classList.toggle('aurore-dans-ia',active);
+    document.documentElement.style.setProperty('--aurore-ia-counter-zoom',active?String(1/zoomGlobal()):'1');
+
+    /* Fermeture uniquement lors de l'entrée dans Aurora, jamais lors d'un
+       simple changement de zoom : le panneau reste ouvrable manuellement. */
+    if(active!==derniereActivation){
+      var panel=document.getElementById('aurore-zoom-panel');
+      var fab=document.getElementById('aurore-zoom-fab');
+      if(active&&panel){
+        panel.classList.remove('is-open');
+        panel.setAttribute('aria-hidden','true');
+      }else if(!active&&panel){
+        panel.setAttribute('aria-hidden','false');
+      }
+      if(fab)fab.setAttribute('aria-expanded','false');
+      derniereActivation=active;
+    }
+  }
+
+  /* Le clavier d'Android doit se comporter comme un vrai textarea :
+     Entrée = retour à la ligne. Ctrl/⌘+Entrée = envoi explicite. */
+  function protegerRetourLigne(){
+    var input=document.getElementById('auroreIAInput');
+    if(!input||input.dataset.viewportFixBound==='1')return;
+    input.dataset.viewportFixBound='1';
+    input.addEventListener('keydown',function(e){
+      if(e.key!=='Enter')return;
+      if(e.ctrlKey||e.metaKey){
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        var form=document.getElementById('auroreIAForm');
+        if(form)form.requestSubmit();
+        return;
+      }
+      /* Laisser le textarea gérer naturellement Entrée et Shift+Entrée. */
+      e.stopImmediatePropagation();
+    },true);
+  }
+
+  function observer(){
+    var el=screen();
+    if(!el)return;
+    protegerRetourLigne();
+    synchroniserAuroraViewport();
+    var mo=new MutationObserver(function(){
+      protegerRetourLigne();
+      synchroniserAuroraViewport();
+    });
+    mo.observe(el,{attributes:true,attributeFilter:['class']});
+    var htmlMo=new MutationObserver(function(){
+      synchroniserAuroraViewport();
+    });
+    htmlMo.observe(document.documentElement,{attributes:true,attributeFilter:['style','class']});
+    var timer=setInterval(function(){
+      protegerRetourLigne();
+      synchroniserAuroraViewport();
+    },250);
+    window.addEventListener('pagehide',function(){clearInterval(timer);mo.disconnect();htmlMo.disconnect();});
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',observer);
+  else observer();
+})();
+</script>
+\n</head>
 <body class="site-locked">
 <!-- ===== PORTAIL D'ACCÈS ===== -->
 <div class="access-lock" id="accessLock">
