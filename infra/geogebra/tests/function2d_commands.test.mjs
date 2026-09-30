@@ -121,4 +121,9 @@ test("le renderer transmet le graphe préparé à page.evaluate", () => {
     /buildFunction2DArrayCommands\(\[renderExpression\], companionExpressions\)/,
     "Les expressions function2d scalaires doivent passer par le même validateur que les tableaux.",
   );
+  assert.match(
+    source,
+    /validateGraphConstruction\(entry\.graph\)/,
+    "La validation sémantique doit intervenir avant le lancement de Chromium.",
+  );
 });
