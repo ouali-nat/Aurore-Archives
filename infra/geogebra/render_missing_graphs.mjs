@@ -346,13 +346,21 @@ const renderGraphInBrowser = async (graph) => {
       );
     } else {
       const rawExpression = String(preparedGraph?.expression || "").trim();
-      const renderExpression = canonicalFunction2DExpression(rawExpression);
-      if (renderExpression !== rawExpression) {
-        console.log(
-          `GeoGebra function2d variable canonicalisation: ${rawExpression} -> ${renderExpression}`,
-        );
+      if (!rawExpression) {
+        throw new Error("Expression function2d manquante.");
       }
-      preparedGraph.render_expression = renderExpression;
+      // Use the same command builder for scalar and array expressions. This is
+      // essential for named functions such as pH(x)=...: the browser must
+      // receive pH(x)=..., never the invalid wrapper f(x)=pH(x)=....
+      const preparedFunctions = buildFunction2DArrayCommands(
+        [rawExpression],
+        preparedGraph?.companion_expressions,
+      );
+      preparedGraph.render_function_commands = preparedFunctions.commands;
+      preparedGraph.render_function_names = preparedFunctions.functionNames;
+      console.log(
+        `GeoGebra function2d scalar preparation: ${preparedFunctions.commands.join(" | ")}`,
+      );
     }
   }
   return await page.evaluate(async (graph) => {
