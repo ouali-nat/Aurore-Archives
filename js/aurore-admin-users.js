@@ -192,20 +192,15 @@
     return !!session && session.id === PROPRIETAIRE_ADMIN_ID;
   }
 
-  function formaterDateInscriptionUtilisateur(profil) {
-    const valeur = profil && profil.created_at ? profil.created_at : null;
-    if (!valeur) return 'Date d’inscription non disponible';
-    const d = new Date(valeur);
-    if (Number.isNaN(d.getTime())) return 'Date d’inscription non disponible';
-    return d.toLocaleString('fr-FR', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).replace(' à ', ', ');
+  function formaterDateAdmin(valeur, fallback='Non disponible') {
+    if (!valeur) return fallback;
+    const d=new Date(valeur); if(Number.isNaN(d.getTime())) return fallback;
+    return d.toLocaleString('fr-FR',{dateStyle:'medium',timeStyle:'short'}).replace(' à ',', ');
   }
 
+  function formaterDateInscriptionUtilisateur(profil) {
+    return formaterDateAdmin(profil?.created_at,'Date d’inscription non disponible');
+  }
   function afficherMessageUtilisateurs(texte, type='') {
     const msg = document.getElementById('adminUsersMessage');
     if (!msg) return;
@@ -297,149 +292,35 @@
   }
 
   async function chargerUtilisateursAdmin() {
-    const list = document.getElementById('adminUsersList');
-    if (!list) return;
-    if (!session || session.role !== 'admin') {
-      list.innerHTML = '<div class="admin-user-empty">Cette action est réservée aux administrateurs.</div>';
-      return;
-    }
-    list.innerHTML = '<div class="admin-user-loading">Chargement des utilisateurs…</div>';
-    afficherMessageUtilisateurs('');
-    try {
-      // Ce projet n'initialise aucun client JavaScript Supabase (pas de createClient) :
-      // tous les appels Supabase existants utilisent l'API REST avec SUPABASE_URL,
-      // SUPABASE_ANON_KEY et headersAdmin(). On appelle donc la RPC via son endpoint
-      // REST, en réutilisant exactement le client/configuration déjà présents.
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/lister_profils_admin`, {
-        method: 'POST',
-        headers: { ...headersAdmin(), 'Content-Type': 'application/json' },
-        body: '{}'
-      });
-      const detail = await res.text().catch(() => '');
-      if (!res.ok) throw new Error(detail || ('HTTP ' + res.status));
-      let profils = [];
-      try { profils = detail ? JSON.parse(detail) : []; } catch (parseErr) {
-        throw new Error('Réponse invalide reçue pour la liste des utilisateurs.');
-      }
-      const listeProfils = Array.isArray(profils) ? profils : [];
-      majCompteurOnglet('tabCountUtilisateurs', listeProfils.length);
-      if (!listeProfils.length) {
-        list.innerHTML = '<div class="admin-user-empty">Aucun utilisateur inscrit pour le moment.</div>';
-        actualiserOutilsAdminApresChargement('utilisateurs', ADMIN_COLLECTION_CONFIG.utilisateurs, {roles:[]});
-        return;
-      }
-      const proprietaire = estProprietaireAdmin();
-      let statutsBannissement = new Map();
-      try {
-        const banRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/lister_statuts_bannissement_admin`, { method:'POST', headers:{...headersAdmin(),'Content-Type':'application/json'}, body:'{}' });
-        if(banRes.ok){ const bans=await banRes.json().catch(()=>[]); (Array.isArray(bans)?bans:[]).forEach(b=>statutsBannissement.set(String(b.id),b.banni===true)); }
-      } catch(e) { console.warn('[Gestion utilisateurs] statuts de bannissement',e); }
-      list.innerHTML = '';
-      // Le RPC propriétaire retourne les informations complètes de Profils.
-      // Cela évite de dépendre d'une policy RLS qui ne les rend visibles
-      // qu'après promotion d'un utilisateur.
-      let profilsScolaires = new Map();
-      try {
-        const detailRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/lister_profils_admin_details`, {
-          method: 'POST',
-          headers: { ...headersAdmin(), 'Content-Type': 'application/json' },
-          body: '{}'
-        });
-        if (detailRes.ok) {
-          const rows = await detailRes.json();
-          const lignesDetails = Array.isArray(rows) ? rows : [];
-          lignesDetails.forEach(r => { if (r && r.id) profilsScolaires.set(String(r.id), r); });
-          console.info('[Admin utilisateurs] Profils détaillés reçus :', lignesDetails.length,
-            'IDs associés :', [...profilsScolaires.keys()]);
-        } else {
-          console.warn('[Admin utilisateurs] RPC détaillée indisponible', detailRes.status);
-        }
-      } catch (e) { console.warn('[Admin utilisateurs] informations détaillées indisponibles', e); }
-
-      listeProfils.forEach(profil => {
-        const scolaire = { ...profil, ...(profilsScolaires.get(String(profil.id)) || {}) };
-        const card = document.createElement('article');
-        card.className = 'admin-user-card';
-        card.dataset.adminId = String(profil.id || '');
-        card.dataset.adminTitle = String(profil.nom || '');
-        card.dataset.adminEmail = String(profil.email || '');
-        card.dataset.adminRole = String(profil.role || '');
-        card.dataset.adminCreated = String(profil.created_at || '');
-        card.dataset.adminSearch = [
-          scolaire.nom, scolaire.prenom, scolaire.email, scolaire.role, scolaire.created_at,
-          scolaire.lycee, scolaire.niveau, scolaire.classe, scolaire.filiere,
-          scolaire.discipline, scolaire.fonction, scolaire.enfant_informations
-        ].filter(v => v != null && String(v).trim()).join(' ');
-        const nom = profil.nom || 'Nom non renseigné';
-        const email = profil.email || 'E-mail non renseigné';
-        const roleAdmin = String(scolaire.role || profil.role || '').toLowerCase() === 'admin';
-        const banni = statutsBannissement.get(String(profil.id)) === true;
-        card.classList.add('admin-user-card');
-        card.innerHTML = `
-          <div class="admin-user-main">
-            <div class="admin-user-name">${echapperHtmlPub(nom)}</div>
-            <div class="admin-user-email">${echapperHtmlPub(email)}</div>
-            <div class="admin-user-school">
-              ${scolaire.prenom ? `<span>Prénom : ${echapperHtmlPub(scolaire.prenom)}</span>` : ''}
-              ${scolaire.lycee ? `<span>Établissement : ${echapperHtmlPub(scolaire.lycee)}</span>` : ''}
-              ${scolaire.niveau ? `<span>Niveau : ${echapperHtmlPub(scolaire.niveau)}</span>` : ''}
-              ${scolaire.classe ? `<span>Classe : ${echapperHtmlPub(scolaire.classe)}</span>` : ''}
-              ${scolaire.filiere ? `<span>Filière : ${echapperHtmlPub(scolaire.filiere)}</span>` : ''}
-              ${scolaire.discipline ? `<span>Discipline : ${echapperHtmlPub(scolaire.discipline)}</span>` : ''}
-              ${scolaire.fonction ? `<span>Fonction : ${echapperHtmlPub(scolaire.fonction)}</span>` : ''}
-              ${scolaire.enfant_informations ? `<span>Enfant : ${echapperHtmlPub(scolaire.enfant_informations)}</span>` : ''}
-            </div>
-            <div class="admin-user-meta">
-              <span class="role-badge ${roleAdmin ? 'admin' : 'eleve'}">${roleAdmin ? 'Administrateur' : echapperHtmlPub(libelleRole(scolaire.role || profil.role || 'eleve'))}</span>
-              ${banni ? '<span class="admin-user-status-banned">● Compte banni</span>' : ''}
-              <span class="admin-user-date">${echapperHtmlPub(formaterDateInscriptionUtilisateur(profil))}</span>
-            </div>
-          </div>
-          <div class="admin-user-actions"></div>`;
-        const actions = card.querySelector('.admin-user-actions');
-        if (roleAdmin) {
-          if (profil.id === PROPRIETAIRE_ADMIN_ID) {
-            const statut = document.createElement('span');
-            statut.className = 'role-badge admin';
-            statut.textContent = 'Compte propriétaire';
-            actions.appendChild(statut);
-          } else if (proprietaire) {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'admin-btn primary';
-            btn.textContent = 'Rétrograder en utilisateur';
-            btn.addEventListener('click', () => retrograderUtilisateurAdmin(profil.id, btn));
-            actions.appendChild(btn);
-          } else {
-            const statut = document.createElement('span');
-            statut.className = 'role-badge admin';
-            statut.textContent = 'Déjà administrateur';
-            actions.appendChild(statut);
-          }
-        } else if (proprietaire) {
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'admin-btn primary';
-          btn.textContent = 'Promouvoir administrateur';
-          btn.addEventListener('click', () => promouvoirUtilisateurAdmin(profil.id, btn));
-          actions.appendChild(btn);
-        }
-        if (profil.id !== PROPRIETAIRE_ADMIN_ID) {
-          const banBtn = document.createElement('button');
-          banBtn.type='button';
-          banBtn.className='admin-btn ghost admin-user-ban' + (banni ? ' is-banned' : '');
-          banBtn.textContent = banni ? 'Autoriser l’accès' : 'Bannir l’utilisateur';
-          banBtn.addEventListener('click',()=>basculerBannissementUtilisateurAdmin(profil.id, !banni, banBtn));
-          actions.appendChild(banBtn);
-        }
+    const list=document.getElementById('adminUsersList'); if(!list)return;
+    if(!session||session.role!=='admin'){list.innerHTML='<div class="admin-user-empty">Cette action est réservée aux administrateurs.</div>';return;}
+    list.innerHTML='<div class="admin-user-loading">Chargement des utilisateurs…</div>'; afficherMessageUtilisateurs('');
+    try{
+      const res=await fetch(`${SUPABASE_URL}/rest/v1/rpc/lister_profils_admin_activite`,{method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json'},body:'{}'});
+      if(!res.ok)throw new Error(await res.text().catch(()=>('HTTP '+res.status)));
+      const rows=await res.json(); const profils=Array.isArray(rows)?rows:[];
+      majCompteurOnglet('tabCountUtilisateurs',profils.length);
+      if(!profils.length){list.innerHTML='<div class="admin-user-empty">Aucun utilisateur inscrit pour le moment.</div>';return;}
+      let bans=new Map();
+      try{const br=await fetch(`${SUPABASE_URL}/rest/v1/rpc/lister_statuts_bannissement_admin`,{method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json'},body:'{}'});if(br.ok){const b=await br.json().catch(()=>[]);(Array.isArray(b)?b:[]).forEach(x=>bans.set(String(x.id),x.banni===true));}}catch(_){ }
+      const proprietaire=estProprietaireAdmin(); list.innerHTML='';
+      profils.forEach(p=>{
+        const card=document.createElement('article'); card.className='admin-user-card';
+        card.dataset.adminId=String(p.id||'');card.dataset.adminTitle=String(p.nom||'');card.dataset.adminEmail=String(p.email||'');card.dataset.adminRole=String(p.role||'');card.dataset.adminCreated=String(p.created_at||'');
+        card.dataset.adminSearch=[p.id,p.prenom,p.nom,p.email,p.role,p.lycee,p.niveau,p.classe,p.filiere,p.discipline,p.fonction,p.enfant_informations,p.created_at,p.updated_at,p.derniere_connexion,p.derniere_deconnexion].filter(Boolean).join(' ');
+        const roleAdmin=String(p.role||'').toLowerCase()==='admin',banni=bans.get(String(p.id))===true;
+        card.innerHTML=`<div class="admin-user-main"><div class="admin-user-name">${echapperHtmlPub(p.nom||'Nom non renseigné')}</div><div class="admin-user-email">${echapperHtmlPub(p.email||'E-mail non renseigné')}</div>
+          <div class="admin-user-school">${p.prenom?`<span>Prénom : ${echapperHtmlPub(p.prenom)}</span>`:''}${p.lycee?`<span>Établissement : ${echapperHtmlPub(p.lycee)}</span>`:''}${p.niveau?`<span>Niveau : ${echapperHtmlPub(p.niveau)}</span>`:''}${p.classe?`<span>Classe : ${echapperHtmlPub(p.classe)}</span>`:''}${p.filiere?`<span>Filière : ${echapperHtmlPub(p.filiere)}</span>`:''}${p.discipline?`<span>Discipline : ${echapperHtmlPub(p.discipline)}</span>`:''}${p.fonction?`<span>Fonction : ${echapperHtmlPub(p.fonction)}</span>`:''}${p.enfant_informations?`<span>Enfant : ${echapperHtmlPub(p.enfant_informations)}</span>`:''}</div>
+          <div class="admin-user-activity"><span><strong>Inscription</strong> ${echapperHtmlPub(formaterDateAdmin(p.created_at))}</span><span><strong>Dernière correction</strong> ${echapperHtmlPub(formaterDateAdmin(p.updated_at))}</span><span><strong>Dernière connexion</strong> ${echapperHtmlPub(formaterDateAdmin(p.derniere_connexion))}</span><span><strong>Dernière déconnexion</strong> ${echapperHtmlPub(formaterDateAdmin(p.derniere_deconnexion))}</span><span><strong>Connexions enregistrées</strong> ${Number(p.nombre_connexions||0)}</span></div>
+          <div class="admin-user-meta"><span class="role-badge ${roleAdmin?'admin':'eleve'}">${roleAdmin?'Administrateur':echapperHtmlPub(libelleRole(p.role||'eleve'))}</span>${banni?'<span class="admin-user-status-banned">● Compte banni</span>':''}</div></div><div class="admin-user-actions"></div>`;
+        const actions=card.querySelector('.admin-user-actions');
+        if(roleAdmin){if(p.id===PROPRIETAIRE_ADMIN_ID){const x=document.createElement('span');x.className='role-badge admin';x.textContent='Compte propriétaire';actions.appendChild(x);}else if(proprietaire){const b=document.createElement('button');b.type='button';b.className='admin-btn primary';b.textContent='Rétrograder en utilisateur';b.addEventListener('click',()=>retrograderUtilisateurAdmin(p.id,b));actions.appendChild(b);}else{const x=document.createElement('span');x.className='role-badge admin';x.textContent='Déjà administrateur';actions.appendChild(x);}}
+        else if(proprietaire){const b=document.createElement('button');b.type='button';b.className='admin-btn primary';b.textContent='Promouvoir administrateur';b.addEventListener('click',()=>promouvoirUtilisateurAdmin(p.id,b));actions.appendChild(b);}
+        if(p.id!==PROPRIETAIRE_ADMIN_ID){const b=document.createElement('button');b.type='button';b.className='admin-btn ghost admin-user-ban'+(banni?' is-banned':'');b.textContent=banni?'Autoriser l’accès':'Bannir l’utilisateur';b.addEventListener('click',()=>basculerBannissementUtilisateurAdmin(p.id,!banni,b));actions.appendChild(b);}
         list.appendChild(card);
       });
-      actualiserOutilsAdminApresChargement('utilisateurs', ADMIN_COLLECTION_CONFIG.utilisateurs, {roles:listeProfils.map(p=>p.role)});
-    } catch (err) {
-      console.error('[Gestion utilisateurs] chargement', err);
-      majCompteurOnglet('tabCountUtilisateurs', 0);
-      list.innerHTML = `<div class="admin-user-empty">Impossible de charger la liste des utilisateurs pour le moment. Veuillez réessayer dans quelques instants.</div>`;
-    }
+      actualiserOutilsAdminApresChargement('utilisateurs',ADMIN_COLLECTION_CONFIG.utilisateurs,{roles:profils.map(p=>p.role)});
+    }catch(err){console.error('[Gestion utilisateurs] chargement',err);majCompteurOnglet('tabCountUtilisateurs',0);list.innerHTML='<div class="admin-user-empty">Impossible de charger la liste des utilisateurs pour le moment. Veuillez réessayer dans quelques instants.</div>';}
   }
 
   // Calcule et affiche les statistiques : connexions réussies, utilisateurs
@@ -528,79 +409,23 @@
   // Liste des visiteurs non connectés les plus récents (RPC dédié
   // lister_visites_anonymes_recentes, lecture seule, admin uniquement — voir
   // le SQL fourni séparément pour la table "Visites_anonymes" et ses RPC).
-  async function chargerVisiteursAnonymesAdmin() {
-    const list = document.getElementById('adminListVisiteurs');
-    if (!list) return;
-    list.innerHTML = '<p class="admin-empty">Chargement…</p>';
-    try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/lister_visites_anonymes_recentes`, {
-        method: 'POST',
-        headers: { ...headersAdmin(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ limite: 300 })
-      });
-      if (!res.ok) throw new Error("Statut HTTP " + res.status);
-      const data = await res.json();
-      if (!data || data.length === 0) {
-        list.innerHTML = '<p class="admin-empty">Aucun visiteur non connecté enregistré pour le moment.</p>';
-        return;
-      }
-      list.innerHTML = '';
-      data.forEach((v, i) => {
-        const card = document.createElement('div');
-        card.className = 'admin-card';
-        card.style.animationDelay = (i * 0.04) + 's';
-        const d = new Date(v.created_at);
-        const formatee = d.toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
-        const contexte = v.contexte === 'tentative_telechargement' ? 'A voulu télécharger' : 'Visite';
-        const doc = v.document_titre ? ` — « ${v.document_titre} »` : '';
-        card.innerHTML = `
-          <div class="admin-card-icon">${ICONS.user}</div>
-          <div class="admin-card-body">
-            <div class="titre">${contexte}${doc}</div>
-            <div class="meta">${formatee}</div>
-          </div>
-        `;
-        list.appendChild(card);
-      });
-    } catch (err) {
-      list.innerHTML = `<p class="admin-empty">Impossible de charger ces éléments pour le moment. Veuillez réessayer dans quelques instants.</p>`;
-      console.error('[Admin visiteurs] chargement', err);
-    }
+  async function chargerVisiteursAnonymesAdmin(){
+    const list=document.getElementById('adminListVisiteurs');if(!list)return;list.innerHTML='<p class="admin-empty">Chargement…</p>';
+    try{const res=await fetch(`${SUPABASE_URL}/rest/v1/rpc/lister_visites_anonymes_recentes`,{method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json'},body:JSON.stringify({limite:300})});if(!res.ok)throw new Error('HTTP '+res.status);const data=await res.json();
+      if(!data?.length){list.innerHTML='<p class="admin-empty">Aucun visiteur non connecté enregistré pour le moment.</p>';return;}list.innerHTML='';
+      data.forEach((v,i)=>{const card=document.createElement('div');card.className='admin-card';card.style.animationDelay=(i*.02)+'s';const contexte=v.contexte==='tentative_telechargement'?'A voulu télécharger':'Visite';const doc=v.document_titre?' — « '+echapperHtmlPub(v.document_titre)+' »':'';card.innerHTML=`<div class="admin-card-icon">${ICONS.user}</div><div class="admin-card-body"><div class="titre">${contexte}${doc}</div><div class="meta">Identifiant visiteur : ${echapperHtmlPub(v.visitor_id||'inconnu')}<br>Contexte : ${echapperHtmlPub(v.contexte||'visite')}<br>Document : ${echapperHtmlPub(v.document_titre||'Aucun')}<br>Navigateur : ${echapperHtmlPub(v.user_agent||'Non disponible')}<br>Connexion / entrée : ${echapperHtmlPub(formaterDateAdmin(v.created_at))}<br>Déconnexion / sortie : ${echapperHtmlPub(formaterDateAdmin(v.sortie,'Visite encore ouverte / non enregistrée'))}<br>ID visite : ${echapperHtmlPub(v.id)}</div></div>`;list.appendChild(card);});
+    }catch(err){list.innerHTML='<p class="admin-empty">Impossible de charger ces éléments pour le moment. Veuillez réessayer dans quelques instants.</p>';console.error('[Admin visiteurs] chargement',err);}
   }
 
   // Liste des 300 dernières connexions (table "Connexions" déjà utilisée par
   // enregistrerConnexion() et par chargerStatsAdmin() ci-dessus) — aucune
   // nouvelle table, aucune donnée modifiée, lecture seule.
-  async function chargerDernieresConnexions() {
-    const list = document.getElementById('adminListConnexions');
-    list.innerHTML = '<p class="admin-empty">Chargement…</p>';
-    try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/Connexions?select=nom,email,date&order=date.desc&limit=300`, { headers: headersAdmin() });
-      if (!res.ok) throw new Error("Statut HTTP " + res.status);
-      const data = await res.json();
-      if (!data || data.length === 0) {
-        list.innerHTML = '<p class="admin-empty">Aucune connexion enregistrée pour le moment.</p>';
-        return;
-      }
-      list.innerHTML = '';
-      data.forEach((c, i) => {
-        const card = document.createElement('div');
-        card.className = 'admin-card';
-        card.style.animationDelay = (i * 0.04) + 's';
-        const d = new Date(c.date);
-        const formatee = d.toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
-        card.innerHTML = `
-          <div class="admin-card-icon">${ICONS.user}</div>
-          <div class="admin-card-body">
-            <div class="titre">${c.nom || 'Nom inconnu'}</div>
-            <div class="meta">${c.email || 'e-mail inconnu'}<br>${formatee}</div>
-          </div>
-        `;
-        list.appendChild(card);
-      });
-    } catch (err) {
-      list.innerHTML = `<p class="admin-empty">Impossible de charger ces éléments pour le moment. Veuillez réessayer dans quelques instants.</p>`;
-    }
+  async function chargerDernieresConnexions(){
+    const list=document.getElementById('adminListConnexions'); if(!list)return; list.innerHTML='<p class="admin-empty">Chargement…</p>';
+    try{const res=await fetch(`${SUPABASE_URL}/rest/v1/Connexions?select=*&order=date.desc&limit=300`,{headers:headersAdmin()});if(!res.ok)throw new Error('HTTP '+res.status);const data=await res.json();
+      if(!data?.length){list.innerHTML='<p class="admin-empty">Aucune connexion enregistrée pour le moment.</p>';return;}list.innerHTML='';
+      data.forEach((c,i)=>{const card=document.createElement('div');card.className='admin-card';card.style.animationDelay=(i*.02)+'s';card.innerHTML=`<div class="admin-card-icon">${ICONS.user}</div><div class="admin-card-body"><div class="titre">${echapperHtmlPub(c.nom||'Nom inconnu')}</div><div class="meta">E-mail : ${echapperHtmlPub(c.email||'inconnu')}<br>ID utilisateur : ${echapperHtmlPub(c.user_id||'inconnu')}<br>Connexion : ${echapperHtmlPub(formaterDateAdmin(c.date))}<br>Déconnexion : ${echapperHtmlPub(formaterDateAdmin(c.sortie,'Encore connecté / non enregistrée'))}<br>ID session : ${echapperHtmlPub(c.id)}</div></div>`;list.appendChild(card);});
+    }catch(err){list.innerHTML='<p class="admin-empty">Impossible de charger ces éléments pour le moment. Veuillez réessayer dans quelques instants.</p>';}
   }
 
   // Choisit une icône représentative selon la catégorie du document (purement
