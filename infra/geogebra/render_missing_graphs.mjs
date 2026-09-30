@@ -165,6 +165,21 @@ function imageReady(g) {
   return Number(g?.geogebra_renderer_version || 0) >= GEO_GEBRA_RENDERER_VERSION && (!hasSolid || Number(g?.geogebra_renderer_version || 0) >= GEO_GEBRA_RENDERER_VERSION);
 }
 
+function validateGraphConstruction(g) {
+  if (instrumentOf(g) !== "function2d") return;
+
+  const companionExpressions = g?.companion_expressions;
+  if (Array.isArray(g?.expression)) {
+    buildFunction2DArrayCommands(g.expression, companionExpressions);
+    return;
+  }
+
+  const rawExpression = String(g?.expression || "").trim();
+  if (rawExpression) {
+    buildFunction2DArrayCommands([rawExpression], companionExpressions);
+  }
+}
+
 
 function validatePlannedGraphs() {
   const subject = String(content.subject || "").toLowerCase();
@@ -260,8 +275,14 @@ function graphEntries(content) {
   return out;
 }
 
-const pending = graphEntries(content)
-  .filter((entry) => validGraph(entry.graph) && !imageReady(entry.graph));
+const pending = [];
+for (const entry of graphEntries(content)) {
+  if (!validGraph(entry.graph) || imageReady(entry.graph)) continue;
+  // Validate function2d semantics before opening Chromium so an undefined
+  // symbol cannot reach GeoGebra as f(x)=unknownFunction(x).
+  validateGraphConstruction(entry.graph);
+  pending.push(entry);
+}
 
 console.log(`GeoGebra server-side: ${pending.length} graphique(s) à rendre pour le document #${DOCUMENT_ID}.`);
 
