@@ -87,9 +87,29 @@
 
   function afficherModeConnexionEmail(){ form.style.display='none'; loginForm.style.display='grid'; loginSwitch.style.display='none'; setTimeout(()=>document.getElementById('loginEmail')?.focus(),50); }
   function afficherModeInscription(){ form.style.display='grid'; loginForm.style.display='none'; loginSwitch.style.display='flex'; if(resendWrap) resendWrap.style.display=dernierEmailInscription?'grid':'none'; }
+  function getVisitorId(){
+    try{let id=localStorage.getItem('aurore_visitor_id');if(!id){id=(crypto?.randomUUID?crypto.randomUUID():('v-'+Date.now()+'-'+Math.random().toString(36).slice(2)));localStorage.setItem('aurore_visitor_id',id);}return id;}catch(e){return 'v-'+Date.now();}
+  }
+  let visiteAnonymeId=null;
+  async function demarrerSuiviVisiteur(){
+    try{
+      const visitorId=getVisitorId();
+      const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/enregistrer_visite_anonyme`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_contexte:'visite',p_document_titre:null,p_visitor_id:visitorId,p_user_agent:navigator.userAgent})});
+      if(r.ok){const data=await r.json().catch(()=>null);visiteAnonymeId=typeof data==='number'?data:(Array.isArray(data)?data[0]:data);try{sessionStorage.setItem('aurore_visite_anonyme_id',String(visiteAnonymeId||''));}catch(_){}}
+    }catch(e){console.warn('[Visiteurs] enregistrement de visite indisponible',e);}
+  }
+  function enregistrerSortieVisiteur(){
+    try{const visitorId=getVisitorId();if(!visitorId)return;fetch(`${SUPABASE_URL}/rest/v1/rpc/enregistrer_sortie_visite_anonyme_par_visitor`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_visitor_id:visitorId}),keepalive:true}).catch(()=>{});}catch(_){ }
+  }
+  window.auroreEnregistrerSortieVisiteur=enregistrerSortieVisiteur;
+  window.addEventListener('pagehide',enregistrerSortieVisiteur);
+  window.addEventListener('beforeunload',enregistrerSortieVisiteur);
+
+  function unlock(){ document.body.classList.remove('site-locked'); if(lock) lock.style.display='none'; }
+
   function unlock(){ document.body.classList.remove('site-locked'); if(lock) lock.style.display='none'; }
   window.auroreUnlockAccess=unlock;
-  visitor?.addEventListener('click',()=>{ try{localStorage.setItem('aurore_visitor_mode','1');}catch(e){} unlock(); });
+  visitor?.addEventListener('click',async()=>{ try{localStorage.setItem('aurore_visitor_mode','1');}catch(e){} await demarrerSuiviVisiteur(); unlock(); });
   google?.addEventListener('click',async()=>{
     if (google.classList.contains('is-loading')) return;
     // Le bloc est également affiché directement dans le portail d'accès.
@@ -107,6 +127,7 @@
     // augmente le risque que le navigateur suspende la page avant la redirection.
     if(typeof demarrerConnexionGoogle==='function') { try { await demarrerConnexionGoogle(); } catch (err) { console.error('[Google OAuth]', err); window.auroreAfficherErreurDebug?.('[Bouton Google — accès] ' + (err?.message || err)); } } else { window.auroreAfficherErreurDebug?.('[Bouton Google — accès] demarrerConnexionGoogle est introuvable (script non chargé ?)'); }
   });
+  try{if(localStorage.getItem('aurore_visitor_mode')==='1') demarrerSuiviVisiteur();}catch(e){}
   signupOpen?.addEventListener('click',()=>{modal.style.display='flex';modal.setAttribute('aria-hidden','false');afficherModeInscription();setTimeout(()=>document.getElementById('signupName')?.focus(),50);});
   showLoginBtn?.addEventListener('click',afficherModeConnexionEmail);
   backSignupBtn?.addEventListener('click',afficherModeInscription);
