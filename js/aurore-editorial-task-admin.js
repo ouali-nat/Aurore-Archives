@@ -946,7 +946,7 @@ function bindDetail(d,t,state){
 function injectStyle(){
   if(document.getElementById('aurore-editorial-v2-styles'))return;
   const s=document.createElement('style');s.id='aurore-editorial-v2-styles';s.textContent=`
-#auroreEditorialTaskAdmin .editor-a-create-form{max-width:var(--editor-a-form-width,1320px);width:100%;margin:0 auto;display:grid;gap:14px}
+#auroreEditorialTaskAdmin .editor-a-create-form{width:min(var(--editor-a-form-width,1320px),100%) !important;max-width:var(--editor-a-form-width,1320px) !important;margin-left:auto !important;margin-right:auto !important;box-sizing:border-box;display:grid;gap:14px}
 #auroreEditorialTaskAdmin .editor-a-create-form .cf-rebuild-grid-2{grid-template-columns:minmax(0,1fr) minmax(360px,var(--editor-a-subject-width,620px))}
 #auroreEditorialTaskAdmin .editor-a-create-form .editor-a-theme-picker{position:relative;z-index:30;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:7px;overflow:visible}
 #auroreEditorialTaskAdmin .editor-a-create-form .editor-a-theme-picker .cf-theme-color-button{flex:0 0 auto}
