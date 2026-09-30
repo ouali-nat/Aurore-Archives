@@ -976,6 +976,9 @@ function bindDetail(d,t,state){
       user_validated:false,
       revision_note:p.revisionNotes||fw.revision_note||'',
       c_completion_guard:completionAudit,
+      execution_contract:C_EXECUTION_CONTRACT,
+      execution_contract_acknowledged:true,
+      completion_guard:C_EXECUTION_CONTRACT_VERSION,
       ...(stage==='proposal_review'?{admin_validation:null}:{}),
       manual_pdf_launch_required:true,
       auto_pdf_launch:false
