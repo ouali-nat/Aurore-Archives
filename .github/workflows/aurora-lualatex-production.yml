@@ -55,6 +55,15 @@ jobs:
       - name: Validate renderer secret
         run: test -n "$AURORA_LUALATEX_RENDER_TOKEN"
 
+      - name: Cache APT packages for the TeX/renderer stack
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/aurore-apt/archives
+          key: ${{ runner.os }}-aurore-tex-apt-v1-${{ hashFiles('.github/workflows/aurora-lualatex-production.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-aurore-tex-apt-v1-
+
+
       - name: Validate renderer Python syntax
         working-directory: infra/lualatex
         run: python3 -m py_compile render_document.py aurore_svg.py
@@ -1172,8 +1181,10 @@ jobs:
             if ! command -v xelatex >/dev/null 2>&1; then NEED_UPDATE=1; fi
           fi
           if [ "$NEED_UPDATE" = "1" ]; then
+            mkdir -p "$HOME/.cache/aurore-apt/archives"
+            chmod 755 "$HOME/.cache/aurore-apt/archives"
             sudo apt-get update
-            sudo apt-get install -y texlive-luatex texlive-xetex texlive-lang-french texlive-latex-extra texlive-fonts-extra texlive-pictures texlive-pstricks texlive-science librsvg2-bin
+            sudo apt-get -o Dir::Cache::archives="$HOME/.cache/aurore-apt/archives" install -y texlive-luatex texlive-xetex texlive-lang-french texlive-latex-extra texlive-fonts-extra texlive-pictures texlive-pstricks texlive-science librsvg2-bin
           fi
           lualatex --version
           rsvg-convert --version
@@ -1189,8 +1200,10 @@ jobs:
           if ! kpsewhich qrcode.sty >/dev/null 2>&1; then NEED_UPDATE=1; fi
           if ! command -v rsvg-convert >/dev/null 2>&1; then NEED_UPDATE=1; fi
           if [ "$NEED_UPDATE" = "1" ]; then
+            mkdir -p "$HOME/.cache/aurore-apt/archives"
+            chmod 755 "$HOME/.cache/aurore-apt/archives"
             sudo apt-get update
-            sudo apt-get install -y texlive-luatex texlive-xetex texlive-lang-french texlive-latex-extra texlive-fonts-extra texlive-pictures texlive-pstricks texlive-science librsvg2-bin
+            sudo apt-get -o Dir::Cache::archives="$HOME/.cache/aurore-apt/archives" install -y texlive-luatex texlive-xetex texlive-lang-french texlive-latex-extra texlive-fonts-extra texlive-pictures texlive-pstricks texlive-science librsvg2-bin
           fi
           lualatex --version
           kpsewhich qrcode.sty
