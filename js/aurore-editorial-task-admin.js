@@ -904,10 +904,10 @@ function injectStyle(){
 #auroreEditorialTaskAdmin .editor-page-title{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
 #auroreEditorialTaskAdmin .editor-page-title h4{margin:5px 0 5px;font-size:1rem}
 #auroreEditorialTaskAdmin .editor-page-count{font-size:.62rem;font-weight:900;opacity:.55;white-space:nowrap}
-@media(min-width:721px){#auroreEditorialTaskAdmin .editor-create-card{grid-template-columns:minmax(260px,.7fr) minmax(0,1.8fr);}}
-#auroreEditorialTaskAdmin .editor-create-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(410px,1.1fr);gap:18px;align-items:end;padding:22px;border-radius:18px;border:1px solid color-mix(in srgb,var(--editor-accent) 18%,var(--editor-border));background:linear-gradient(135deg,color-mix(in srgb,var(--editor-accent) 10%,var(--editor-surface)),var(--editor-surface))}
+@media(min-width:721px){#auroreEditorialTaskAdmin .editor-create-card{grid-template-columns:minmax(260px,.45fr) minmax(560px,2.4fr);}}
+#auroreEditorialTaskAdmin .editor-create-card{display:grid;grid-template-columns:minmax(240px,.45fr) minmax(560px,2.4fr);gap:18px;align-items:end;padding:22px;border-radius:18px;border:1px solid color-mix(in srgb,var(--editor-accent) 18%,var(--editor-border));background:linear-gradient(135deg,color-mix(in srgb,var(--editor-accent) 10%,var(--editor-surface)),var(--editor-surface))}
 #auroreEditorialTaskAdmin .editor-create-card h5{margin:5px 0 6px;font-size:.95rem}
-#auroreEditorialTaskAdmin .editor-create-fields{display:grid;grid-template-columns:minmax(150px,.45fr) minmax(520px,3fr) auto;gap:12px;align-items:start}
+#auroreEditorialTaskAdmin .editor-create-fields{display:grid;grid-template-columns:minmax(145px,.35fr) minmax(560px,4fr) auto;gap:12px;align-items:start}
 #auroreEditorialTaskAdmin .editor-picker-progress{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
 #auroreEditorialTaskAdmin .editor-picker-progress span{padding:5px 8px;border-radius:999px;border:1px solid var(--editor-border);font-size:.55rem;font-weight:900;opacity:.5}
 #auroreEditorialTaskAdmin .editor-picker-progress span.active{opacity:1;border-color:var(--editor-accent);background:color-mix(in srgb,var(--editor-accent) 10%,var(--editor-surface))}
