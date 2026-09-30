@@ -3932,6 +3932,10 @@
     ]}
   ];
 
+  // Catalogue partagé avec les interfaces administratives externes.
+  // La Section A doit toujours utiliser exactement cette source de vérité.
+  window.AURORE_CATALOG_NIVEAUX = NIVEAUX;
+
   const CATEGORIES = [
     { id:'devoirs',   nom:'Devoirs',   icon:ICONS.checklist, accent:COULEURS.rouge,  desc:'Devoirs surveillés, exercices et corrigés, classés par niveau et matière.' },
     { id:'documents', nom:'Documents', icon:ICONS.document,  accent:COULEURS.marron, desc:'Cours, résumés et ressources générales du niveau.' },
