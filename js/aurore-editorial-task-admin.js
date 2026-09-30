@@ -613,13 +613,32 @@ function bind(root,state){
     resourcePicker.innerHTML='<option value="">Choisir un type…</option>'+values.map(v=>'<option value="'+esc(v)+'">'+esc(v)+'</option>').join('');
     resourcePicker.value=values.includes(current)?current:'';
   };
+  const renderAPathPicker=()=>{
+    const trigger=root.querySelector('#editorACreatePathPickerTrigger'),options=root.querySelector('#editorACreatePathPickerOptions');
+    if(!trigger||!options)return;
+    const enabled=!!aRoutes.length&&!!levelPicker?.value;
+    trigger.disabled=!enabled;
+    trigger.querySelector('span').textContent=routePicker?.value!==''&&aRoutes[Number(routePicker.value)]?aRoutes[Number(routePicker.value)].label:(enabled?'Choisir un parcours…':'Choisis d’abord un niveau…');
+    options.innerHTML=enabled?aRoutes.map((x,i)=>'<button type="button" class="editor-mobile-picker-option '+(String(i)===String(routePicker.value)?'selected':'')+'" data-editor-route-option="'+i+'">'+esc(x.label)+'</button>').join(''):'<div class="editor-option-empty">Aucun parcours disponible.</div>';
+  };
+  const renderASubjectPicker=(names)=>{
+    const trigger=root.querySelector('#editorACreateSubjectTrigger'),options=root.querySelector('#editorACreateSubjectOptions');
+    if(!trigger||!options)return;
+    const enabled=!!aPath.length&&!!names.length;
+    trigger.disabled=!enabled;
+    trigger.querySelector('span').textContent=subjectPicker?.value||(enabled?'Choisir une matière…':'Choisis d’abord un parcours…');
+    options.innerHTML=enabled?names.map(x=>'<button type="button" class="editor-mobile-picker-option '+(x===subjectPicker.value?'selected':'')+'" data-editor-subject-option="'+esc(x)+'">'+esc(x)+'</button>').join(''):'<div class="editor-option-empty">Aucune matière disponible.</div>';
+  };
   const syncASubjects=()=>{
     if(!subjectPicker)return;
     const leaf=aPath[aPath.length-1],raw=Array.isArray(leaf?.matieres)?leaf.matieres:(Array.isArray(MATIERES)?MATIERES:[]);
     const base=typeof matieresAvecAutres==='function'?matieresAvecAutres(raw):raw;
     const names=[...new Set(base.map(x=>typeof x==='string'?x:(x?.nom||'')).map(v=>String(v||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));
+    const current=subjectPicker.value;
     subjectPicker.innerHTML='<option value="">'+(names.length?'Choisir une matière…':'Aucune matière disponible…')+'</option>'+names.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('');
+    subjectPicker.value=names.includes(current)?current:'';
     subjectPicker.disabled=!aPath.length||!names.length;
+    renderASubjectPicker(names);
   };
   const syncAClassification=()=>{
     if(!levelPicker||!routePicker)return;
@@ -633,6 +652,7 @@ function bind(root,state){
     routePicker.disabled=!rootNode||!aRoutes.length;
     const choice=aRoutes[Number(routePicker.value)];
     aPath=choice?[...choice.path]:(rootNode?[rootNode]:[]);
+    renderAPathPicker();
     syncASubjects();
     if(classSummary){
       const labels=aPath.map(n=>String(n?.nom||'').trim()).filter(Boolean);
@@ -689,8 +709,12 @@ function bind(root,state){
     renderAResourceTypes();syncAClassification();syncTheme();loadALayout();
     categoryPicker?.addEventListener('change',renderAResourceTypes);
     levelPicker?.addEventListener('change',()=>{aPath=[];syncAClassification()});
-    routePicker?.addEventListener('change',()=>{const choice=aRoutes[Number(routePicker.value)];aPath=choice?[...choice.path]:aPath.slice(0,1);syncASubjects();if(classSummary){const labels=aPath.map(n=>String(n?.nom||'').trim()).filter(Boolean);classSummary.textContent=labels.length?labels.join(' · '):'Aucun parcours sélectionné.';}});
-    subjectPicker?.addEventListener('change',()=>{});
+    routePicker?.addEventListener('change',()=>{const choice=aRoutes[Number(routePicker.value)];aPath=choice?[...choice.path]:aPath.slice(0,1);renderAPathPicker();syncASubjects();if(classSummary){const labels=aPath.map(n=>String(n?.nom||'').trim()).filter(Boolean);classSummary.textContent=labels.length?labels.join(' · '):'Aucun parcours sélectionné.';}});
+    subjectPicker?.addEventListener('change',()=>{renderASubjectPicker([...subjectPicker.options].slice(1).map(o=>o.value).filter(Boolean))});
+    root.querySelector('#editorACreatePathPickerTrigger')?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();const m=root.querySelector('#editorACreatePathPickerMenu');if(m)m.hidden=!m.hidden;root.querySelector('#editorACreateSubjectMenu')?.setAttribute('hidden','true')});
+    root.querySelector('#editorACreatePathPickerOptions')?.addEventListener('click',e=>{const b=e.target?.closest?.('[data-editor-route-option]');if(!b)return;routePicker.value=b.dataset.editorRouteOption;routePicker.dispatchEvent(new Event('change',{bubbles:true}));root.querySelector('#editorACreatePathPickerMenu')?.setAttribute('hidden','true')});
+    root.querySelector('#editorACreateSubjectTrigger')?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();const m=root.querySelector('#editorACreateSubjectMenu');if(m)m.hidden=!m.hidden;root.querySelector('#editorACreatePathPickerMenu')?.setAttribute('hidden','true')});
+    root.querySelector('#editorACreateSubjectOptions')?.addEventListener('click',e=>{const b=e.target?.closest?.('[data-editor-subject-option]');if(!b)return;subjectPicker.value=b.dataset.editorSubjectOption;subjectPicker.dispatchEvent(new Event('change',{bubbles:true}));root.querySelector('#editorACreateSubjectMenu')?.setAttribute('hidden','true')});
     root.querySelector('#editorAThemeColor')?.addEventListener('input',syncTheme);
     root.querySelector('#editorAThemeToggle')?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();ensureThemePalette();const p=root.querySelector('#editorAThemePalette');if(!p)return;p.hidden=!p.hidden;root.querySelector('#editorAThemeToggle')?.setAttribute('aria-expanded',String(!p.hidden));syncTheme();});
     root.querySelector('#editorAThemeColor')?.addEventListener('change',()=>{syncTheme();const p=root.querySelector('#editorAThemePalette');if(p)p.hidden=true;root.querySelector('#editorAThemeToggle')?.setAttribute('aria-expanded','false');});
@@ -1102,7 +1126,16 @@ function injectStyle(){
 #auroreEditorialTaskAdmin .editor-option-empty{padding:9px;font-size:.61rem;opacity:.55}
 #auroreEditorialTaskAdmin .editor-create-fields label,#auroreEditorialTaskAdmin .editor-field{display:grid;gap:5px;font-size:.62rem;font-weight:850}
 #auroreEditorialTaskAdmin .editor-create-fields select{font:inherit;color:inherit;background:var(--editor-surface);border:1px solid var(--editor-border);border-radius:11px;padding:10px 11px;min-height:41px}
-#auroreEditorialTaskAdmin .editor-create-fields #editorCreate{min-height:41px}
+#auroreEditorialTaskAdmin .editor-create-fields #editorCreate{min-height:41px}\n#auroreEditorialTaskAdmin .editor-mobile-picker{position:relative;min-width:0}
+#auroreEditorialTaskAdmin .editor-mobile-picker-trigger{width:100%;min-height:41px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 11px;border:1px solid var(--editor-border);border-radius:11px;background:var(--editor-surface);color:inherit;font:inherit;font-size:.67rem;font-weight:800;cursor:pointer;text-align:left}
+#auroreEditorialTaskAdmin .editor-mobile-picker-trigger:disabled{opacity:.58;cursor:not-allowed}
+#auroreEditorialTaskAdmin .editor-mobile-picker-trigger b{font-size:.8rem;opacity:.55}
+#auroreEditorialTaskAdmin .editor-mobile-picker-menu{position:absolute;z-index:1300;left:0;right:0;top:calc(100% + 7px);padding:8px;border:1px solid color-mix(in srgb,var(--editor-accent) 22%,var(--editor-border));border-radius:13px;background:var(--editor-surface);box-shadow:0 18px 45px rgba(0,0,0,.18)}
+#auroreEditorialTaskAdmin .editor-mobile-picker-menu[hidden]{display:none}
+#auroreEditorialTaskAdmin .editor-mobile-picker-options{display:grid;gap:6px;max-height:280px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:2px}
+#auroreEditorialTaskAdmin .editor-mobile-picker-option{width:100%;min-height:43px;border:1px solid var(--editor-border);border-radius:10px;background:color-mix(in srgb,currentColor 3%,var(--editor-surface));color:inherit;padding:8px 10px;font:inherit;font-size:.62rem;font-weight:800;cursor:pointer;text-align:left;white-space:normal;line-height:1.3}
+#auroreEditorialTaskAdmin .editor-mobile-picker-option:hover,#auroreEditorialTaskAdmin .editor-mobile-picker-option.selected{border-color:var(--editor-accent);background:color-mix(in srgb,var(--editor-accent) 10%,var(--editor-surface))}
+#auroreEditorialTaskAdmin #editorACreatePathPicker[hidden],#auroreEditorialTaskAdmin #editorACreateSubject[hidden]{display:none!important}
 
 #auroreEditorialTaskAdmin .editor-create-fields label,#auroreEditorialTaskAdmin .editor-field{display:grid;gap:5px;font-size:.62rem;font-weight:850}
 #auroreEditorialTaskAdmin input,#auroreEditorialTaskAdmin textarea{font:inherit;color:inherit;background:var(--editor-surface);border:1px solid var(--editor-border);border-radius:11px;padding:10px 11px}
