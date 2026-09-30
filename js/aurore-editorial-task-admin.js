@@ -642,14 +642,14 @@ function bind(root,state){
      if(form){
        form.style.setProperty('--editor-a-form-width',width+'px');
        form.style.setProperty('--editor-a-subject-width',subject+'px');
-       form.style.setProperty('width',width+'px','important');
-       form.style.setProperty('max-width',width+'px','important');
-       form.style.setProperty('min-width','0','important');
-       form.style.setProperty('justify-self','center','important');
+       form.style.removeProperty('width');
+       form.style.removeProperty('max-width');
+       form.style.removeProperty('min-width');
+       form.style.removeProperty('justify-self');
        const grid=form.querySelector('.cf-rebuild-grid-2');
        if(grid){
-         grid.style.setProperty('grid-template-columns','minmax(0,1fr) minmax(0,'+subject+'px)','important');
-         grid.style.setProperty('min-width','0','important');
+         grid.style.removeProperty('grid-template-columns');
+         grid.style.removeProperty('min-width');
        }
      }
      if(w)w.value=String(width);
@@ -983,6 +983,23 @@ function injectStyle(){
   const s=document.createElement('style');s.id='aurore-editorial-v2-styles';s.textContent=`
 #auroreEditorialTaskAdmin .editor-a-create-form{width:min(var(--editor-a-form-width,1320px),100%) !important;max-width:var(--editor-a-form-width,1320px) !important;min-width:0 !important;justify-self:center !important;margin-left:auto !important;margin-right:auto !important;box-sizing:border-box;display:grid;gap:14px}
 #auroreEditorialTaskAdmin .editor-a-create-form .cf-rebuild-grid-2{grid-template-columns:minmax(0,1fr) minmax(0,var(--editor-a-subject-width,620px)) !important;min-width:0 !important}
+#auroreEditorialTaskAdmin,#auroreEditorialTaskAdmin .editor-hub,#auroreEditorialTaskAdmin .editor-page{min-width:0;max-width:100%;box-sizing:border-box}
+#auroreEditorialTaskAdmin .editor-a-create-form .cf-rebuild-grid,
+#auroreEditorialTaskAdmin .editor-a-create-form .cf-rebuild-grid-2,
+#auroreEditorialTaskAdmin .editor-a-create-form .cf-rebuild-card,
+#auroreEditorialTaskAdmin .editor-a-create-form .cf-rebuild-field{min-width:0}
+@media(max-width:720px){
+ #auroreEditorialTaskAdmin .editor-a-create-form{width:100% !important;max-width:100% !important;min-width:0 !important;margin-left:0 !important;margin-right:0 !important}
+ #auroreEditorialTaskAdmin .editor-a-create-form .cf-rebuild-grid,
+ #auroreEditorialTaskAdmin .editor-a-create-form .cf-rebuild-grid-2{grid-template-columns:1fr !important}
+ #auroreEditorialTaskAdmin .editor-a-create-form .cf-rebuild-card,
+ #auroreEditorialTaskAdmin .editor-a-create-form .cf-rebuild-field,
+ #auroreEditorialTaskAdmin .editor-a-create-form input,
+ #auroreEditorialTaskAdmin .editor-a-create-form select,
+ #auroreEditorialTaskAdmin .editor-a-create-form textarea{width:100%;max-width:100%;min-width:0;box-sizing:border-box}
+ #auroreEditorialTaskAdmin .editor-a-create-form .editor-a-form-layout{width:100%;max-width:100%;box-sizing:border-box;margin-left:0;margin-right:0}
+ #auroreEditorialTaskAdmin .editor-a-create-form .editor-a-form-layout input[type=range]{width:100%;min-width:0}
+}
 #auroreEditorialTaskAdmin .editor-a-create-form .editor-a-theme-picker{position:relative;z-index:30;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:7px;overflow:visible}
 #auroreEditorialTaskAdmin .editor-a-create-form .editor-a-theme-picker .cf-theme-color-button{flex:0 0 auto}
 #auroreEditorialTaskAdmin .editor-a-create-form #editorAThemeValue{font-size:.68rem;font-weight:850;color:var(--theme-primary,#6D28D9);margin-left:0}
