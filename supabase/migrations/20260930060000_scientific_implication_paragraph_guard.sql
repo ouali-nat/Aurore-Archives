@@ -105,11 +105,13 @@ begin
   +(length(raw)-length(replace(raw,'⇒','')))/length('⇒')
   +(length(raw)-length(replace(raw,'⟹','')))/length('⟹');
 
+ select count(*) into connector_implications from regexp_matches(raw,'(?i)\b(?:donc|ainsi|alors|on en déduit|il s''ensuit)\b','g');
+ implications:=implications+connector_implications;
  max_implications:=least(100,greatest(1,ceil(latex_count*0.08)::int));
 
  if implications<min_implications then
    failures:=array_append(failures,
-     'SCI-IMPLICATION-002 : au moins un signe d''implication LaTeX est requis pour relier le raisonnement scientifique.');
+     'SCI-IMPLICATION-002 : au moins un signe d''implication LaTeX ou un connecteur de raisonnement convertible est requis.');
  elsif implications>max_implications then
    failures:=array_append(failures,format(
      'SCI-IMPLICATION-001 : %s implications ; plafond %s pour %s éléments LaTeX.',
@@ -142,7 +144,7 @@ begin
      'minimum_latex_conversion_elements',minlatex,
      'geogebra_graphs',graph_count,'minimum_geogebra_graphs',2,
      'source_sites',source_sites,'minimum_source_sites',3,
-     'implication_count',implications,'minimum_implications',min_implications,
+     'implication_count',implications,'source_connector_count',connector_implications,'minimum_implications',min_implications,
      'maximum_implications',max_implications),
    'research_guard',jsonb_build_object('structured_trace',true,'distinct_sites_required',3),
    'implication_guard',jsonb_build_object(
