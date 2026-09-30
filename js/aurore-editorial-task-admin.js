@@ -576,8 +576,8 @@ function render(root,state){
   '<section class="cf-rebuild-card" aria-label="Validation"><label class="cf-rebuild-rights"><input id="editorACreateRights" type="checkbox"><span><strong>Autoriser la production</strong><span>Je confirme que cette demande peut être utilisée par Aurore pour préparer la ressource et la soumettre au contrôle avant publication.</span></span></label>'+
   '<div class="cf-rebuild-actions"><button class="admin-btn primary" id="editorCreate" type="button">Créer la tâche</button><span class="cf-rebuild-msg" id="editorACreateMsg" aria-live="polite"></span></div></section>'+
   '<section class="cf-form-layout-admin editor-a-form-layout" id="editorAFormLayoutAdmin" aria-label="Réglage de la forme du formulaire Section A"><div><strong>Forme du formulaire — Section A</strong><small>Réglage réservé à l’administration. Tu peux élargir horizontalement le formulaire et la zone Matière.</small></div>'+
-  '<label>Largeur du formulaire <output id="editorAFormWidthOutput">1320 px</output><input id="editorAFormWidthRange" type="range" min="900" max="1800" step="20" value="1320"></label>'+
-  '<label>Largeur de la zone Matière <output id="editorASubjectWidthOutput">620 px</output><input id="editorASubjectWidthRange" type="range" min="360" max="900" step="10" value="620"></label>'+
+  '<label>Largeur du formulaire <output id="editorAFormWidthOutput">1320 px</output><input id="editorAFormWidthRange" type="range" min="600" max="1600" step="20" value="1320"></label>'+
+  '<label>Largeur de la zone Matière <output id="editorASubjectWidthOutput">620 px</output><input id="editorASubjectWidthRange" type="range" min="220" max="700" step="10" value="620"></label>'+
   '<button class="admin-btn ghost" id="editorAFormLayoutSave" type="button">Enregistrer la forme</button><span class="cf-form-layout-msg editor-a-layout-msg" id="editorAFormLayoutMsg" aria-live="polite"></span></section>'+
   '</form>':'')+
       '<div class="editor-block-label"><span>Bloc '+(page+1)+'</span><small>'+((page*PAGE_SIZE)+1)+'–'+Math.min((page+1)*PAGE_SIZE,items.length)+' sur '+items.length+'</small></div>'+
@@ -639,7 +639,7 @@ function bind(root,state){
     try{
       const rows=await rest('/rest/v1/aurore_admin_interface_settings?select=setting_value&setting_key=eq.'+encodeURIComponent('content_factory_section_a_form'));
       const cfg=Array.isArray(rows)&&rows[0]?.setting_value?rows[0].setting_value:{};
-      const width=Math.max(900,Math.min(1800,Number(cfg.max_width_px)||1320)),subject=Math.max(360,Math.min(900,Number(cfg.subject_width_px)||620));
+      const width=Math.max(600,Math.min(1600,Number(cfg.max_width_px)||1320)),subject=Math.max(220,Math.min(700,Number(cfg.subject_width_px)||620));
       root.style.setProperty('--editor-a-form-width',width+'px');root.style.setProperty('--editor-a-subject-width',subject+'px');
       w.value=String(width);sw.value=String(subject);wo.textContent=width+' px';swo.textContent=subject+' px';
     }catch(_){}
@@ -671,8 +671,8 @@ function bind(root,state){
     root.querySelector('#editorASubjectWidthRange')?.addEventListener('input',e=>{root.querySelector('#editorASubjectWidthOutput').textContent=e.target.value+' px';root.style.setProperty('--editor-a-subject-width',e.target.value+'px')});
         root.querySelector('#editorAFormLayoutSave')?.addEventListener('click',async()=>{
       const btn=root.querySelector('#editorAFormLayoutSave'),msg=root.querySelector('#editorAFormLayoutMsg');
-      const width=Math.max(900,Math.min(1800,Number(root.querySelector('#editorAFormWidthRange')?.value)||1320));
-      const subject=Math.max(360,Math.min(900,Number(root.querySelector('#editorASubjectWidthRange')?.value)||620));
+      const width=Math.max(600,Math.min(1600,Number(root.querySelector('#editorAFormWidthRange')?.value)||1320));
+      const subject=Math.max(220,Math.min(700,Number(root.querySelector('#editorASubjectWidthRange')?.value)||620));
       if(btn)btn.disabled=true;if(msg)msg.textContent='Enregistrement…';
       try{
         const body={setting_key:'content_factory_section_a_form',setting_value:{max_width_px:width,subject_width_px:subject},updated_at:new Date().toISOString()};
@@ -956,7 +956,7 @@ function injectStyle(){
   if(document.getElementById('aurore-editorial-v2-styles'))return;
   const s=document.createElement('style');s.id='aurore-editorial-v2-styles';s.textContent=`
 #auroreEditorialTaskAdmin .editor-a-create-form{width:min(var(--editor-a-form-width,1320px),100%) !important;max-width:var(--editor-a-form-width,1320px) !important;margin-left:auto !important;margin-right:auto !important;box-sizing:border-box;display:grid;gap:14px}
-#auroreEditorialTaskAdmin .editor-a-create-form .cf-rebuild-grid-2{grid-template-columns:minmax(0,1fr) minmax(360px,var(--editor-a-subject-width,620px))}
+#auroreEditorialTaskAdmin .editor-a-create-form .cf-rebuild-grid-2{grid-template-columns:minmax(0,1fr) minmax(220px,var(--editor-a-subject-width,620px))}
 #auroreEditorialTaskAdmin .editor-a-create-form .editor-a-theme-picker{position:relative;z-index:30;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:7px;overflow:visible}
 #auroreEditorialTaskAdmin .editor-a-create-form .editor-a-theme-picker .cf-theme-color-button{flex:0 0 auto}
 #auroreEditorialTaskAdmin .editor-a-create-form #editorAThemeValue{font-size:.68rem;font-weight:850;color:var(--theme-primary,#6D28D9);margin-left:0}
