@@ -25,6 +25,12 @@ Le chemin normal est :
 
 L’absence de PDF n’est pas une erreur d’ingestion. Un contenu éditorial correctement reçu peut être en `review` avec `pdf_path` et `pdf_url` nuls. Le sas « Documents en attente » doit le considérer comme prêt pour une production PDF manuelle.
 
+### Barrière scientifique finale D → « Documents en attente »
+
+Le passage de l’édition finale D vers le sas « Documents en attente » possède une barrière scientifique indépendante du passage C → D. Elle est appliquée sur le contenu final réellement fourni au connecteur, avant insertion dans `aurora_generated_documents`. Pour les Mathématiques, la Physique, la Chimie, la Physique-Chimie, la SVT, la Biologie et les autres disciplines scientifiques couvertes, une simple accumulation de formules, lois, équations ou résultats ne suffit pas. Le contenu doit laisser des traces explicites de définition/identification, d’explication, de méthode, de raisonnement étape par étape, d’exemple/application et d’interprétation ; les suites de formules sans liaison explicative sont bloquantes.
+
+Le contrôle canonique est `public.aurora_scientific_preflight(...)`, enrichi par `public.aurora_scientific_reasoning_preflight(...)`. Le préflight renvoie les métriques et les motifs de blocage. Le trigger PostgreSQL `aurora_generated_documents_scientific_preflight` l’applique lors de l’insertion ; une production scientifique issue de D ne peut donc pas atteindre « Documents en attente » en contournant l’interface ou le contrôle C → D. En cas d’échec, l’insertion est refusée et l’édition reste à corriger dans D.
+
 ### Barrière de production PDF
 
 La propriété `pdf_launch_mode = manual` n’est pas seulement descriptive : elle constitue un contrat d’architecture. Le chemin autorisé est `administration → aurora-lualatex-request → GitHub Actions`. Le document ne doit jamais être réclamé par un scheduler, un `push` GitHub, une ingestion ou un trigger de base de données.
