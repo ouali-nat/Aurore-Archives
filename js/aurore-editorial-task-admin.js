@@ -953,6 +953,9 @@ function injectStyle(){
 #auroreEditorialTaskAdmin .editor-a-form-layout input[type=range]{display:block;width:100%;margin-top:9px;accent-color:var(--theme-primary,#6D28D9)}
 #auroreEditorialTaskAdmin .editor-a-layout-msg{grid-column:1/-1;font-size:.65rem;opacity:.75}
 #auroreEditorialTaskAdmin .editor-a-create-form .cf-rebuild-card{overflow:visible}
+#auroreEditorialTaskAdmin .editor-a-create-form .cf-rebuild-theme{position:relative;display:block;z-index:40}
+#auroreEditorialTaskAdmin .editor-a-create-form .cf-create-theme-palette{position:absolute;left:0;top:calc(100% + 8px);width:min(420px,calc(100vw - 28px));max-height:320px;overflow:auto;box-sizing:border-box;padding:12px;border:1px solid color-mix(in srgb,var(--theme-primary,#6D28D9) 24%,var(--editor-border));border-radius:16px;background:var(--editor-surface);color:inherit;box-shadow:0 18px 48px rgba(0,0,0,.18);backdrop-filter:blur(10px)}
+
 #auroreEditorialTaskAdmin .editor-a-create-form .cf-create-theme-palette{top:calc(100% + 8px);z-index:2000;border-color:color-mix(in srgb,var(--theme-primary,#6D28D9) 24%,var(--editor-border));background:var(--editor-surface);color:inherit}
 #auroreEditorialTaskAdmin .editor-a-create-form .cf-theme-color-square #editorAThemePreview{background:#6D28D9;border-radius:7px}
 #auroreEditorialTaskAdmin .editor-a-create-form .cf-create-theme-swatch.is-selected{border-color:var(--theme-primary,#6D28D9);box-shadow:0 0 0 2px color-mix(in srgb,var(--theme-primary,#6D28D9) 22%,transparent)}
