@@ -3549,7 +3549,17 @@ def _documentary_visual_plan_qa(data):
         if clean_text(value).strip()
     )
     profile = _edition_profile(data)
-    is_math = "math" in discipline
+    plan = data.get("visual_plan")
+    if not isinstance(plan, dict) and isinstance(metadata.get("visual_plan"), dict):
+        plan = metadata.get("visual_plan")
+    # A normalized connector snapshot may lose the subject fields while
+    # preserving the canonical math visual-plan contract. Treat that explicit
+    # schema as authoritative so math documents are never sent through the
+    # documentary visual contract.
+    is_math = "math" in discipline or (
+        isinstance(plan, dict)
+        and plan.get("schema_version") == "math-visual-plan-1"
+    )
     sections = data.get("sections")
     if not isinstance(sections, list):
         raise ValueError("Documentary visual plan QA failed: sections must be a list")
@@ -3563,11 +3573,7 @@ def _documentary_visual_plan_qa(data):
     if is_math:
         return {"enabled": False, "math": True, "planned_visuals": 0, "ignored_documentary_visuals": total_visuals}
 
-    metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
     origin = clean_text(metadata.get("origin") or "").strip().lower()
-    plan = data.get("visual_plan")
-    if not isinstance(plan, dict) and isinstance(metadata.get("visual_plan"), dict):
-        plan = metadata.get("visual_plan")
 
     if origin != "gpt_editorial_ingest" and not isinstance(plan, dict):
         return {"enabled": False, "legacy": True, "planned_visuals": 0}
