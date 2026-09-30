@@ -193,7 +193,7 @@ function editorLeafRoutes(root){
   });
 }
 function editorClassificationRoots(){
-  return Array.isArray(NIVEAUX)?NIVEAUX:[];
+  return typeof NIVEAUX!=='undefined'&&Array.isArray(NIVEAUX)?NIVEAUX:[];
 }
 function rootNodeName(picker){const n=editorClassificationRoots().find(x=>x.id===picker?.value);return String(n?.nom||'').trim();}
 async function updateJob(id,patch,status){
