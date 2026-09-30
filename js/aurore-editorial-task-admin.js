@@ -623,7 +623,11 @@ function bind(root,state){
   };
   const syncAClassification=()=>{
     if(!levelPicker||!routePicker)return;
-    const rootNode=editorClassificationRoots().find(n=>n.id===levelPicker.value)||null;
+    const roots=editorClassificationRoots();
+    const currentLevel=levelPicker.value;
+    levelPicker.innerHTML='<option value="">Choisir un niveau…</option>'+roots.map(n=>'<option value="'+esc(n.id)+'">'+esc(n.nom)+'</option>').join('');
+    if(roots.some(n=>String(n.id)===String(currentLevel)))levelPicker.value=currentLevel;
+    const rootNode=roots.find(n=>n.id===levelPicker.value)||null;
     aRoutes=rootNode?editorLeafRoutes(rootNode):[];
     routePicker.innerHTML='<option value="">'+(rootNode?'Choisir un parcours…':'Choisis d’abord un niveau…')+'</option>'+aRoutes.map((x,i)=>'<option value="'+i+'">'+esc(x.label)+'</option>').join('');
     routePicker.disabled=!rootNode||!aRoutes.length;
