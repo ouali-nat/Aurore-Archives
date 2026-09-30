@@ -863,6 +863,7 @@
   // propre de la page et les parcours scolaire/matières ne reçoivent aucun handler.
   try {
     rendrePresentation();
+    chargerPresentationAccueil();
     rendreAccueil();
     majFilAriane();
   } catch (err) {
