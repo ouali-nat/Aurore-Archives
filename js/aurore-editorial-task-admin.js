@@ -990,7 +990,6 @@ function injectStyle(){
 #auroreEditorialTaskAdmin .editor-a-create-form .cf-rebuild-field{min-width:0}
 @media(max-width:720px){
  #auroreEditorialTaskAdmin .editor-a-create-form{width:100% !important;max-width:100% !important;min-width:0 !important;margin-left:0 !important;margin-right:0 !important}
-@media(max-width:720px){
  #auroreEditorialTaskAdmin .editor-a-create-form .cf-rebuild-card,
  #auroreEditorialTaskAdmin .editor-a-create-form .cf-rebuild-title,
  #auroreEditorialTaskAdmin .editor-a-create-form .cf-rebuild-title>div,
@@ -1011,8 +1010,6 @@ function injectStyle(){
  #auroreEditorialTaskAdmin .editor-a-create-form .cf-create-theme-swatches{grid-template-columns:repeat(2,minmax(0,1fr));min-width:0}
  #auroreEditorialTaskAdmin .editor-a-create-form .cf-create-theme-swatch{min-width:0}
  #auroreEditorialTaskAdmin .editor-a-create-form .editor-a-theme-name{min-width:0}
-}
-
  #auroreEditorialTaskAdmin .editor-a-create-form .cf-rebuild-grid,
  #auroreEditorialTaskAdmin .editor-a-create-form .cf-rebuild-grid-2{grid-template-columns:1fr !important}
  #auroreEditorialTaskAdmin .editor-a-create-form .cf-rebuild-card,
