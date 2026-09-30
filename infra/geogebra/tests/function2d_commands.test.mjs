@@ -116,4 +116,9 @@ test("le renderer transmet le graphe préparé à page.evaluate", () => {
     /return await page\.evaluate\(async \(graph\) => \{[\s\S]*?\n\s*\}, graph\);/,
     "Le renderer ne doit pas retransmettre le graphe original après préparation.",
   );
+  assert.match(
+    source,
+    /buildFunction2DArrayCommands\(\[renderExpression\], companionExpressions\)/,
+    "Les expressions function2d scalaires doivent passer par le même validateur que les tableaux.",
+  );
 });
