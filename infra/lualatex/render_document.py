@@ -2247,27 +2247,32 @@ def render_table(rows):
 
 
 def _split_exercise_text(value, mode="question"):
-    """Split exercise statements/corrections into readable pedagogical steps."""
-    text = clean_text(value).replace("\r\n", "\n").replace("\r", "\n").strip()
+    """Split exercise text without fragmenting a mathematical reasoning chain."""
+    text = clean_text(value).replace(chr(13)+chr(10), chr(10)).replace(chr(13), chr(10)).strip()
     if not text:
         return []
-    # Expose numbered subquestions without discarding their original wording.
+    # Keep explicit paragraph boundaries and numbered subquestions. Reasoning
+    # connectors are converted to implication notation later, not to new blocks.
     text = re.sub(r"\s+(?=(?:\d+[.)]|[A-Za-z][.)])\s+)", "\n", text)
-    chunks = [part.strip() for part in re.split(r"\n+", text) if part.strip()]
-
-    if mode == "correction":
-        refined = []
-        for chunk in chunks:
-            parts = re.split(
-                r"(?<=[.!?])\s+(?=(?:Donc|Ainsi|Alors|Pour |Par |Avec |On |Si |Les |Le |La |Enfin|Il |Cela |Ce |Cette|On en déduit|Calcul|Vérif))",
-                chunk,
-                flags=re.IGNORECASE,
-            )
-            refined.extend(p.strip() for p in parts if p.strip())
-        chunks = refined
-    return chunks
+    return [part.strip() for part in re.split(r"\n+", text) if part.strip()]
 
 
+def _link_reasoning_implications(text):
+    """Keep a scientific reasoning chain in one paragraph with LaTeX arrows."""
+    value = str(text or "")
+    if not value:
+        return value
+    patterns = [
+        (r"(?i)\bOn en déduit\s*[:,]?\s*", r"\(\Longrightarrow\)\enspace "),
+        (r"(?i)\bIl s'ensuit\s*[:,]?\s*", r"\(\Longrightarrow\)\enspace "),
+        (r"(?i)\bIl s’ensuit\s*[:,]?\s*", r"\(\Longrightarrow\)\enspace "),
+        (r"(?i)\bDonc\s*[:,]?\s*", r"\(\Longrightarrow\)\enspace "),
+        (r"(?i)\bAinsi\s*[:,]?\s*", r"\(\Longrightarrow\)\enspace "),
+        (r"(?i)\bAlors\s*[:,]?\s*", r"\(\Longrightarrow\)\enspace "),
+    ]
+    for pattern, replacement in patterns:
+        value = re.sub(pattern, replacement, value)
+    return value
 def render_exercise_text(value, mode="question"):
     lines = []
     display_pattern = re.compile(r"(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\])")
@@ -2298,16 +2303,11 @@ def render_exercise_text(value, mode="question"):
                 lines.append(_math_render_command(math, math_label))
                 continue
 
+            if mode == "correction":
+                segment = _link_reasoning_implications(segment)
             rendered = _render_course_paragraph(segment, auto_math=True)
             if not rendered.strip():
                 continue
-            if mode == "correction":
-                rendered = re.sub(
-                    r"^(\s*)(?:Donc|Ainsi|Alors|On en déduit|Il s'ensuit|Il s’ensuit)\b[,:]?\s*",
-                    r"\\(\\Longrightarrow\\)\\enspace ",
-                    rendered,
-                    flags=re.IGNORECASE,
-                )
             paragraph_body = (prefix + rendered) if (first_text and prefix) else rendered
             lines.append(r"\AuroreParagraphBlock{" + paragraph_body + r"}")
             first_text = False
