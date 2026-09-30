@@ -16,3 +16,7 @@
   [data-theme="light"] .admin-search-control input::placeholder{color:#514B5D!important;}
   [data-theme="light"] .admin-pagination button{background:#fff!important;color:#111318!important;border-color:#C9BEDB!important;}
   [data-theme="light"] .admin-pagination button.active{background:#6D28D9!important;border-color:#4C1D95!important;color:#fff!important;}
+
+.admin-user-activity{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px;margin-top:10px;padding:9px 10px;border:1px solid var(--bordure);border-radius:11px;background:color-mix(in srgb,var(--fond) 82%,var(--violet) 4%);font-size:.67rem;line-height:1.4;color:var(--gris)}
+.admin-user-activity span{min-width:0}.admin-user-activity strong{color:var(--encre);font-weight:800;margin-right:3px}
+@media(max-width:700px){.admin-user-activity{grid-template-columns:1fr}}
