@@ -89,6 +89,69 @@
   document.getElementById('adminServiceSave')?.addEventListener('click',enregistrerServiceClientConfig);
   chargerServiceClientConfig();
 
+  // ---------- IDENTITÉ DE L'ACCUEIL (modifiable par l'administration) ----------
+  const HOME_PRESENTATION_SETTING = 'home_presentation';
+  const HOME_PRESENTATION_DEFAULT = {
+    title: 'Une bibliothèque pensée pour tous',
+    text: 'Aurore — Section Archives rassemble les ressources éducatives dans un espace clair, collaboratif et accessible. Chaque contribution est organisée et vérifiée afin de faciliter la recherche, le partage et l’accès au savoir. Ensemble, construisons une bibliothèque utile, vivante et ouverte à tous.'
+  };
+  function appliquerApercuPresentationAccueil(){
+    const title = document.getElementById('adminHomePresentationTitle')?.value.trim() || HOME_PRESENTATION_DEFAULT.title;
+    const text = document.getElementById('adminHomePresentationText')?.value.trim() || '';
+    const pt = document.getElementById('adminHomePresentationPreviewTitle');
+    const px = document.getElementById('adminHomePresentationPreviewText');
+    if(pt) pt.textContent = title;
+    if(px) px.textContent = text;
+  }
+  function appliquerPresentationAccueilLocale(title,text){
+    const data = window.PRESENTATION_ADMIN_CONFIG || {};
+    data.title = String(title || HOME_PRESENTATION_DEFAULT.title).trim() || HOME_PRESENTATION_DEFAULT.title;
+    data.text = String(text || HOME_PRESENTATION_DEFAULT.text).trim() || HOME_PRESENTATION_DEFAULT.text;
+    window.PRESENTATION_ADMIN_CONFIG = data;
+    window.dispatchEvent(new CustomEvent('aurore:presentation-accueil-updated',{detail:data}));
+  }
+  async function chargerPresentationAccueilAdmin(){
+    try{
+      const res = await fetch(SUPABASE_URL+'/rest/v1/aurore_admin_interface_settings?select=setting_value&setting_key=eq.'+encodeURIComponent(HOME_PRESENTATION_SETTING),{headers:{'apikey':SUPABASE_ANON_KEY},cache:'no-store'});
+      const rows = await res.json().catch(()=>[]);
+      const value = rows?.[0]?.setting_value || HOME_PRESENTATION_DEFAULT;
+      const title = String(value.title || HOME_PRESENTATION_DEFAULT.title);
+      const text = String(value.text || HOME_PRESENTATION_DEFAULT.text);
+      const ti=document.getElementById('adminHomePresentationTitle'), tx=document.getElementById('adminHomePresentationText');
+      if(ti && document.activeElement!==ti) ti.value=title;
+      if(tx && document.activeElement!==tx) tx.value=text;
+      appliquerApercuPresentationAccueil();
+      appliquerPresentationAccueilLocale(title,text);
+    }catch(e){
+      appliquerPresentationAccueilLocale(HOME_PRESENTATION_DEFAULT.title,HOME_PRESENTATION_DEFAULT.text);
+      appliquerApercuPresentationAccueil();
+      console.warn('[Accueil] identité administrable indisponible.',e);
+    }
+  }
+  async function enregistrerPresentationAccueilAdmin(){
+    const msg=document.getElementById('adminHomePresentationMsg'),btn=document.getElementById('adminHomePresentationSave');
+    const title=document.getElementById('adminHomePresentationTitle')?.value.trim() || '';
+    const text=document.getElementById('adminHomePresentationText')?.value.trim() || '';
+    if(!session || session.role!=='admin'){if(msg){msg.textContent='Action réservée aux administrateurs.';msg.className='admin-home-presentation-msg';}return;}
+    if(!title || !text){if(msg){msg.textContent='Le titre et le texte sont obligatoires.';msg.className='admin-home-presentation-msg';}return;}
+    if(btn){btn.disabled=true;btn.textContent='Enregistrement…';}
+    try{
+      const body={setting_key:HOME_PRESENTATION_SETTING,setting_value:{title,text},updated_at:new Date().toISOString()};
+      const res=await fetch(SUPABASE_URL+'/rest/v1/aurore_admin_interface_settings?on_conflict=setting_key',{
+        method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(body)
+      });
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      appliquerPresentationAccueilLocale(title,text); appliquerApercuPresentationAccueil();
+      if(msg){msg.textContent='Identité de l’accueil enregistrée et appliquée.';msg.className='admin-home-presentation-msg';}
+    }catch(e){
+      if(msg){msg.textContent='Impossible d’enregistrer l’identité de l’accueil.';msg.className='admin-home-presentation-msg';}
+    }finally{if(btn){btn.disabled=false;btn.textContent="Enregistrer l'identité de l'accueil";}}
+  }
+  document.getElementById('adminHomePresentationTitle')?.addEventListener('input',appliquerApercuPresentationAccueil);
+  document.getElementById('adminHomePresentationText')?.addEventListener('input',appliquerApercuPresentationAccueil);
+  document.getElementById('adminHomePresentationSave')?.addEventListener('click',enregistrerPresentationAccueilAdmin);
+  chargerPresentationAccueilAdmin();
+
   // ---------- ANNONCE ACCUEIL (module indépendant, table dédiée "annonce_accueil") ----------
   // Même motif que service_client ci-dessus : une seule ligne (id=1), lecture
   // publique avec la clé anon, écriture via headersAdmin(). Aucune régression si
