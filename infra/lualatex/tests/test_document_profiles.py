@@ -138,7 +138,7 @@ def test_course_inline_math_preserves_paragraph_order_and_spacing():
 
 def test_course_unicode_math_is_normalized_and_boxed():
     source = "Définition : 𝑓 ∶ 𝐴 → 𝐵. Puis 𝑓(𝑥₁) = 𝑓(𝑥₂), avec 𝑥₁ ≠ 𝑥₂. Enfin 𝑓(𝑥) = 𝑙𝑎𝑚𝑏𝑑𝑎 𝑥² − 4𝑥 + 3."
-    rendered = "\n".join(_render_course_math_blocks(source, auto_math=True))
+    rendered = "\n".join(render_document._render_course_math_blocks(source, auto_math=True))
 
     assert r"\AuroreParagraphBlock{" in rendered
     assert r"\AuroreMathCompact{}" in rendered
