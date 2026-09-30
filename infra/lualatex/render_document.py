@@ -2505,13 +2505,17 @@ def _box_course_inline_latex(rendered):
     if not value:
         return value
 
-    pattern = re.compile(r"\\\\\(([\\s\\S]*?)\\\\\)")
+    open_token = r"\("
+    close_token = r"\)"
+    pattern = re.compile(
+        re.escape(open_token) + r"([\s\S]*?)" + re.escape(close_token)
+    )
 
     def replace(match):
         body = normalize_math(match.group(1).strip())
         if not body:
             return match.group(0)
-        return r"\\AuroreMathCompact{}{" + body + r"}"
+        return r"\AuroreMathCompact{}{" + body + r"}"
 
     return pattern.sub(replace, value)
 
