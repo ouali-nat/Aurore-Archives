@@ -634,6 +634,7 @@ function bind(root,state){
     }
   };
   const applyALayout=(rawWidth,rawSubject)=>{
+     const w=root.querySelector('#editorAFormWidthRange'),sw=root.querySelector('#editorASubjectWidthRange'),wo=root.querySelector('#editorAFormWidthOutput'),swo=root.querySelector('#editorASubjectWidthOutput');
      const width=Math.max(600,Math.min(1600,Number(rawWidth)||1320));
      const subject=Math.max(220,Math.min(700,Number(rawSubject)||620));
      root.style.setProperty('--editor-a-form-width',width+'px');
