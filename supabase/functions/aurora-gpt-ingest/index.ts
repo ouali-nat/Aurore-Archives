@@ -69,6 +69,86 @@ function graphPointHasDimensions(point:any,dimensions:number){
 function graphHasPointData(graph:any,dimensions:number){
   return Array.isArray(graph?.points)&&graph.points.some((point:any)=>graphPointHasDimensions(point,dimensions));
 }
+const GEO_GEBRA_FUNCTIONS=new Set([
+  "abs","acos","acosh","asin","asinh","atan","atanh","ceil","cos","cosh","cot","csc",
+  "exp","floor","if","integral","ln","log","max","min","n","round","sec","sign","sin",
+  "sinh","sqrt","tan","tanh","derivative","root","roots","solve","solutions","sequence",
+  "sum","product","mod","div","random","length","element","zip","keepif","remove",
+  "flatten","union","intersect","distance","angle","area","perimeter","midpoint",
+  "point","vector","line","segment","ray","polygon","circle","ellipse","curve",
+  "translate","rotate","reflect","dilate","intersect","extremum","turningpoint",
+  "lowerendpoint","upperendpoint","trunc","sgn"
+]);
+function extractNamedGeoGebraFunction(raw:any){
+  const m=String(raw??"").trim().match(/^([A-Za-z][A-Za-z0-9_]*)\s*\(\s*[A-Za-z]\s*\)\s*=\s*(.+)$/s);
+  return m?{name:m[1],body:m[2]}:null;
+}
+function normalizeGeoGebraExpression(raw:any){
+  return String(raw??"").trim()
+    .replace(/^\s*(?:f\s*\(\s*[A-Za-z]\s*\)|y)\s*=\s*/i,"")
+    .replace(/×/g,"*").replace(/÷/g,"/").replace(/−/g,"-")
+    .replace(/√\s*\(/g,"sqrt(");
+}
+class GeoGebraEditorialValidationError extends Error{
+  report:any;
+  constructor(report:any){
+    super("Validation GeoGebra éditoriale bloquée.");
+    this.name="GeoGebraEditorialValidationError";
+    this.report=report;
+  }
+}
+function validateGeoGebraFunctionSemantics(content:any){
+  const errors:any[]=[];
+  let checkedGraphs=0;
+  const checkGraph=(graph:any,location:string)=>{
+    const instrument=normalizeGraphInstrument(graph?.instrument||graph?.graph_type);
+    if(instrument!=="function2d") return;
+    checkedGraphs++;
+    const expressions:string[]=[];
+    if(Array.isArray(graph?.expression)) expressions.push(...graph.expression.map((x:any)=>String(x??"")));
+    else if(String(graph?.expression??"").trim()) expressions.push(String(graph.expression));
+    if(Array.isArray(graph?.companion_expressions)) expressions.push(...graph.companion_expressions.map((x:any)=>String(x??"")));
+    const localNames=new Set<string>();
+    for(const raw of expressions){
+      const named=extractNamedGeoGebraFunction(raw);
+      if(named) localNames.add(named.name.toLowerCase());
+    }
+    for(const raw of expressions){
+      const named=extractNamedGeoGebraFunction(raw);
+      const body=normalizeGeoGebraExpression(named?named.body:raw);
+      const unknown:string[]=[];
+      for(const match of body.matchAll(/\b([A-Za-z][A-Za-z0-9_]*)\s*\(/g)){
+        const name=match[1];
+        if(!GEO_GEBRA_FUNCTIONS.has(name.toLowerCase())&&!localNames.has(name.toLowerCase())&&!unknown.includes(name)) unknown.push(name);
+      }
+      if(unknown.length){
+        errors.push({
+          graph_id:String(graph?.id||""),
+          location,
+          expression:String(raw),
+          undefined_functions:unknown,
+          message:"Fonction(s) GeoGebra non définie(s) : "+unknown.join(", ")+". Définissez explicitement chaque fonction avant de l'utiliser."
+        });
+      }
+    }
+  };
+  for(let sectionIndex=0;sectionIndex<(Array.isArray(content?.sections)?content.sections:[]).length;sectionIndex++){
+    const section=content.sections[sectionIndex]||{};
+    for(const graph of Array.isArray(section.graphs)?section.graphs:[]) checkGraph(graph,"section "+(sectionIndex+1)+" « "+String(section.title||"sans titre")+" »");
+    for(let exerciseIndex=0;exerciseIndex<(Array.isArray(section.exercises)?section.exercises:[]).length;exerciseIndex++){
+      const ex=section.exercises[exerciseIndex]||{};
+      for(const graph of Array.isArray(ex.statement_graphs)?ex.statement_graphs:[]) checkGraph(graph,"section "+(sectionIndex+1)+", exercice "+(exerciseIndex+1)+", énoncé");
+      for(const graph of Array.isArray(ex.correction_graphs)?ex.correction_graphs:[]) checkGraph(graph,"section "+(sectionIndex+1)+", exercice "+(exerciseIndex+1)+", correction");
+    }
+  }
+  for(let correctionIndex=0;correctionIndex<(Array.isArray(content?.corrections)?content.corrections:[]).length;correctionIndex++){
+    const correction=content.corrections[correctionIndex]||{};
+    for(const graph of Array.isArray(correction.graphs)?correction.graphs:[]) checkGraph(graph,"correction "+(correctionIndex+1));
+  }
+  const report={status:errors.length?"fail":"pass",checked_graphs:checkedGraphs,errors};
+  if(errors.length) throw new GeoGebraEditorialValidationError(report);
+  return report;
+}
 function validateMathVisualPlan(content:any,subject:any,profile:any){
   if(profile.kind!=="cours"||!normalizeForGraphMatch(subject).includes("math")) return {enabled:false,graphable_sections:0,planned_graphs:0};
   const plan=(content.visual_plan&&typeof content.visual_plan==="object"?content.visual_plan:null)
@@ -574,6 +654,7 @@ function validateEditorialContent(content:any,profile:any,instructions:any,subje
       if(Array.isArray(correction?.graphs))graphs+=correction.graphs.length;
     }
   }
+  const geogebraFunctionSemantics=validateGeoGebraFunctionSemantics(content);
   if(visuals>8)throw new Error("Maximum 8 visuels documentaires par document.");
   if(graphs>24)throw new Error("Maximum 24 graphiques/constructions par document.");
   const graphPlan=validateMathVisualPlan(content, subjectForValidation, profile);
@@ -583,7 +664,7 @@ function validateEditorialContent(content:any,profile:any,instructions:any,subje
   if(profile.kind==="exercices"&&exercises<1)throw new Error("Un document d'exercices doit contenir au moins un exercice structuré.");
   if(profile.kind==="exercices"&&longSectionContents.length!==new Set(longSectionContents).size)throw new Error("Contenu de section dupliqué entre plusieurs exercices.");
   if(JSON.stringify(content).length>MAX_TEXT)throw new Error("content_json dépasse la taille maximale autorisée.");
-  return {sections:content.sections.length,visuals,graphs,exercises:content.sections.reduce((n:number,s:any)=>n+(Array.isArray(s.exercises)?s.exercises.length:0),0),corrections:Array.isArray(content.corrections)?content.corrections.length:0,graph_plan:graphPlan,geogebra_plan:geogebraPlan,exercise_geogebra_plan:exerciseGeogebraPlan,documentary_visual_plan:documentaryPlan,course_quality:courseQuality,physics_chemistry_quality:physicsChemistryQuality};
+  return {sections:content.sections.length,visuals,graphs,exercises:content.sections.reduce((n:number,s:any)=>n+(Array.isArray(s.exercises)?s.exercises.length:0),0),corrections:Array.isArray(content.corrections)?content.corrections.length:0,graph_plan:graphPlan,geogebra_plan:geogebraPlan,geogebra_function_semantics:geogebraFunctionSemantics,exercise_geogebra_plan:exerciseGeogebraPlan,documentary_visual_plan:documentaryPlan,course_quality:courseQuality,physics_chemistry_quality:physicsChemistryQuality};
 }
 async function validateEditorialMemoryAcknowledgement(ack:any,memorySession:any,memorySessionToken:string){
   if(!ack||typeof ack!=="object")throw new Error("Lecture obligatoire : editorial_memory_ack est absent.");
@@ -707,7 +788,15 @@ Deno.serve(async req=>{
         preflight:scientificPreflight||null
       },422);
     }
-    const counts=validateEditorialContent(content,profile,editorialInstructions,subject);
+    let counts;
+    try{
+      counts=validateEditorialContent(content,profile,editorialInstructions,subject);
+    }catch(error){
+      if(error instanceof GeoGebraEditorialValidationError){
+        return reply({ok:false,error:error.message,geogebra_validation:error.report,action:"Corrigez les fonctions GeoGebra indiquées puis soumettez à nouveau le contenu."},422);
+      }
+      throw error;
+    }
     const prompt=nullable(payload.prompt,4000);
     const classification=payload.classification&&typeof payload.classification==="object"?payload.classification:{};
     const contentHash=await sha256(JSON.stringify(content));
