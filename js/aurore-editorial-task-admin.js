@@ -1009,6 +1009,8 @@ function bindDetail(d,t,state){
     const button=d.querySelector('[data-plan-validate]');if(button)button.disabled=true;
     try{
       if(state.section==='CX'){
+        const refreshed=await persistPlan({targetStage:'proposal_review',targetStatus:'plan_editing'});
+        if(refreshed?.metadata?.workflow?.stage!=='proposal_review')throw new Error('Garde-fou C : le plan complet n’a pas pu être confirmé avant la validation CX.');
         const checks={};d.querySelectorAll('[data-admin-check]').forEach(x=>checks[x.dataset.adminCheck]=x.checked);
         if(!Object.values(checks).every(Boolean))throw new Error('Validation CX bloquée : toutes les vérifications doivent être confirmées.');
         const notes=d.querySelector('[data-admin-notes]')?.value.trim()||'';
@@ -1017,7 +1019,7 @@ function bindDetail(d,t,state){
         const migrated=await updateJob(t.id,{stage:'redaction',editor_ready:true,chatgpt_editable:true,user_validated:true,proposal_status:'validated_for_editing',production_status:'ready_for_editing',production_started_at:null,admin_validation:{...checks,notes,status:'validated',validated_at:new Date().toISOString()},auto_pdf_launch:false,manual_pdf_launch_required:true,execution_contract:D_EXECUTION_CONTRACT,execution_contract_acknowledged:true,completion_guard:D_EXECUTION_CONTRACT_VERSION},'draft');
         if(migrated?.metadata?.workflow?.stage!=='redaction')throw new Error('La migration CX → D n’a pas pu être confirmée après relecture de Supabase.');
       }else{
-        const updated=await persistPlan({targetStage:'proposal_review',targetStatus:'ready_for_admin_validation',enforceCompleteness:true});
+        const updated=await persistPlan({targetStage:'proposal_review',targetStatus:'ready_for_admin_validation'});
         const wf=updated?.metadata?.workflow||{};
         if(wf.stage!=='proposal_review'||wf.proposal_status!=='ready_for_admin_validation')throw new Error('Le passage C → CX n’a pas pu être confirmé après relecture de Supabase.');
       }
