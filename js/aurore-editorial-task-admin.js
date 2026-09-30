@@ -195,6 +195,7 @@ function editorLeafRoutes(root){
 function editorClassificationRoots(){
   return Array.isArray(NIVEAUX)?NIVEAUX:[];
 }
+function rootNodeName(picker){const n=editorClassificationRoots().find(x=>x.id===picker?.value);return String(n?.nom||'').trim();}
 async function updateJob(id,patch,status){
   const row=await getJob(id);if(!row)throw new Error('Tâche introuvable.');
   const metadata=workflowMetadata(row.metadata,patch);
@@ -202,24 +203,50 @@ async function updateJob(id,patch,status){
   await rest('/rest/v1/aurora_content_jobs?id=eq.'+encodeURIComponent(Number(id)),{method:'PATCH',headers:{'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify(body)});
   return getJob(id);
 }
-async function createTask(className,subject,documentType,classification={}){
-  const level=String(classification.level||className||'').trim();
-  const path=Array.isArray(classification.path)?classification.path.map(x=>String(x||'').trim()).filter(Boolean):[];
-  const location=String(classification.location||path.join(' · ')||className||'').trim();
+const A_RESOURCE_TYPES={
+  Documents:['Cours','Fiche de cours','Fiche de révision','Résumé','Corrigé','Document pédagogique'],
+  Devoirs:['Devoir','Exercice','Série d’exercices','Corrigé de devoir']
+};
+const A_THEME_PALETTE=[
+  ['Violet','#6D28D9'],['Rouge','#C93648'],['Vert','#198754'],['Bleu','#1D4ED8'],['Jaune','#B77900'],['Orange','#C85C0D'],
+  ['Cyan','#0E7490'],['Rose','#BE185D'],['Indigo','#4338CA'],['Turquoise','#0F766E'],['Émeraude','#047857'],['Citron vert','#4D7C0F'],
+  ['Sarcelle','#115E59'],['Magenta','#A21CAF'],['Fuchsia','#86198F'],['Corail','#C2412D'],['Bordeaux','#881337'],['Pourpre','#6B21A8'],
+  ['Prune','#581C87'],['Or','#9A6700'],['Ambre','#B45309'],['Menthe','#047857'],['Azur','#0369A1'],['Lavande','#6D28D9'],
+  ['Safran','#A16207'],['Nuit','#1E3A8A'],['Marine','#0B3440'],['Océan','#075985'],['Ciel','#0369A1'],['Ardoise','#334155'],
+  ['Graphite','#27272A'],['Forêt','#166534'],['Sapin','#065F46'],['Pomme','#3F6212'],['Pistache','#4D7C0F'],['Pêche','#C2410C'],
+  ['Abricot','#92400E'],['Terracotta','#9A3412'],['Framboise','#9F1239'],['Mauve','#6D28D9'],['Pervenche','#3730A3'],['Glacier','#155E75'],
+  ['Sable','#854D0E'],['Cacao','#451A03'],['Lagune','#0F5257']
+];
+function normalizeAThemeColor(v){return /^#[0-9a-f]{6}$/i.test(String(v||''))?String(v).toUpperCase():'#6D28D9';}
+function aProfile(resourceType){
+  const raw=String(resourceType||'').trim().toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[-_]+/g,' ');
+  if(raw.includes('exercice')||raw.includes('devoir')||raw.includes('corrige')) return {kind:'exercices',version:'exercise-sheet-v2',lock:true,document_type:resourceType||'Exercice',paired_corrections:true};
+  if(raw.includes('cours')||raw.includes('revision')||raw.includes('resume')||raw.includes('document pedagogique')) return {kind:'cours',version:'course-v2',lock:true,document_type:resourceType||'Cours'};
+  return {kind:'document',version:'document-v1',lock:true,document_type:resourceType||'Document'};
+}
+async function createTask(form){
+  const className=String(form.className||'').trim(),subject=String(form.subject||'').trim(),documentType=String(form.documentType||'').trim();
+  const level=String(form.level||className||'').trim();
+  const path=Array.isArray(form.path)?form.path.map(x=>String(x||'').trim()).filter(Boolean):[];
+  const location=String(form.location||path.join(' · ')||className||'').trim();
+  const title=String(form.title||'').trim(),category=String(form.category||'').trim(),prompt=String(form.prompt||'').trim(),reference=String(form.reference||'').trim();
+  const themeColor=normalizeAThemeColor(form.themeColor||'#6D28D9');
   const id=Number(await rpc('aurora_create_content_job',{
-    p_title:'À organiser — '+className+' — '+subject+' — '+documentType,p_subject:subject,p_level:level,p_class_name:className,
-    p_document_type:documentType,p_prompt:'Tâche éditoriale minimale. ChatGPT est l’éditeur canonique : récupération, chapitres, plan de production puis rédaction finale.',
-    p_instructions:{source:'admin_editorial_task',origin:'gpt_editorial_queue',queue:'manual',category:'Documents',document_type:documentType,rights_confirmed:true,
-      theme_color:'#6D28D9',editorial:{role:'editor',engine:EDITOR,schema_version:'aurora-editorial-2',status:'waiting_chatgpt'},
-      classification:{level,location,class_name:className,subject,document_type:documentType,path},
-      workflow:{protocol:PROTOCOL,stage:'initiale',proposal_version:0,user_validated:false,chatgpt_claimed:false,
-        manual_pdf_only:true,manual_pdf_launch_required:true,auto_pdf_launch:false,editorial_engine:EDITOR,
-        execution_contract:A_EXECUTION_CONTRACT,execution_contract_acknowledged:false,completion_guard:A_EXECUTION_CONTRACT_VERSION,
-        a_context_required:true,b_context_required:true}}
+    p_title:title,p_subject:subject,p_level:level,p_class_name:className,p_document_type:documentType,
+    p_prompt:prompt||'Tâche éditoriale. ChatGPT est l’éditeur canonique : récupération, recherche, chapitres, plan de production puis rédaction finale.',
+    p_instructions:{
+      source:'admin_editorial_task',origin:'gpt_editorial_queue',queue:'manual',category,document_type:documentType,rights_confirmed:true,
+      reference:reference||null,theme_color:themeColor,editorial:{role:'editor',engine:EDITOR,schema_version:'aurora-editorial-2',status:'waiting_chatgpt'},
+      profile:aProfile(documentType),classification:{level,location,class_name:className,subject,document_type:documentType,path,category},
+      workflow:{protocol:PROTOCOL,stage:'initiale',proposal_version:0,user_validated:false,chatgpt_claimed:false,manual_pdf_only:true,manual_pdf_launch_required:true,auto_pdf_launch:false,editorial_engine:EDITOR,
+        execution_contract:A_EXECUTION_CONTRACT,execution_contract_acknowledged:false,completion_guard:A_EXECUTION_CONTRACT_VERSION,a_context_required:true,b_context_required:true}
+    }
   }));
   if(!Number.isSafeInteger(id)||id<1)throw new Error('Identifiant de tâche invalide.');
-  return updateJob(id,{stage:'initiale',chatgpt_claimed:false,chatgpt_claimed_at:null,chapters:null,selected_chapter:null,proposal:null,proposal_version:0,user_validated:false,rejected:false,revision_requested:false,admin_validation:null,execution_contract:A_EXECUTION_CONTRACT,execution_contract_acknowledged:false,completion_guard:A_EXECUTION_CONTRACT_VERSION,
-    a_context_required:true,b_context_required:true},'draft');
+  return updateJob(id,{title,category,reference,theme_color:themeColor,resource_type:documentType,prompt,stage:'initiale',
+    chatgpt_claimed:false,chatgpt_claimed_at:null,chapters:null,selected_chapter:null,proposal:null,proposal_version:0,user_validated:false,rejected:false,revision_requested:false,admin_validation:null,
+    classification:{level,location,class_name:className,subject,document_type:documentType,path,category},
+    execution_contract:A_EXECUTION_CONTRACT,execution_contract_acknowledged:false,completion_guard:A_EXECUTION_CONTRACT_VERSION,a_context_required:true,b_context_required:true},'draft');
 }
 const textValue=v=>{
   if(v==null)return '';
@@ -528,7 +555,31 @@ function render(root,state){
     '</nav>'+
     '<section class="editor-page">'+
       '<div class="editor-page-title"><div><span class="editor-step">Section '+active+'</span><h4>'+({A:'Tâches à créer',B:'Chapitres disponibles',C:'Plan complet de production',CX:'Plans C déjà traités',D:'Édition finale / suivi de production'}[active])+'</h4><p>'+({A:'Crée ici les demandes avec une sélection claire et agrandie du niveau, du parcours, de la classe et de la matière.',B:'Chaque tâche récupérée présente les chapitres disponibles pour le document.',C:'Les tâches non encore traitées en C sont construites ici.',CX:'Cette zone conserve les documents dont le travail C est déjà traité et vérifié. Le plan reste consultable et modifiable avant la suite.',D:'Les documents passés après CX arrivent ici pour la rédaction finale. Aucun PDF n’est lancé automatiquement.'}[active])+'</p></div><span class="editor-page-count">'+items.length+' document'+(items.length>1?'s':'')+'</span></div>'+
-      (active==='A'?'<div class="editor-create-card"><div><span class="editor-step">Créer</span><h5>Nouvelle demande</h5><p>Le classement reprend exactement le cheminement du formulaire de dépôt : niveau → parcours/emplacement → classe → matière. Les choix restent ouverts pendant le défilement et aucune valeur libre n’est acceptée.</p></div><div class="editor-create-fields"><label>Type<select id="editorType"><option value="cours">Cours</option><option value="exercices">Exercices</option><option value="qcm">QCM</option><option value="fiches">Fiches</option></select></label><div class="editor-classification"><button type="button" class="editor-classification-trigger" id="editorClassificationTrigger" aria-expanded="false"><span id="editorClassificationSummary">Choisir le niveau et l’emplacement…</span><span aria-hidden="true">⌄</span></button><div class="editor-classification-panel" id="editorClassificationPanel" hidden><div class="editor-picker-progress" data-picker-progress></div><div class="editor-picker-stage-note">Un seul choix à la fois. Utilise « Retour » pour corriger une étape sans perdre les choix suivants.</div><div class="editor-classification-section"><span class="editor-classification-label">1 · Niveau</span><div class="editor-option-scroll" id="editorRootOptions"></div></div><div class="editor-classification-section" id="editorRouteSection" hidden><span class="editor-classification-label">2 · Parcours / emplacement</span><div class="editor-option-scroll" id="editorRouteOptions"></div></div><div class="editor-classification-section" id="editorSubjectSection" hidden><span class="editor-classification-label">3 · Matière</span><div class="editor-option-scroll" id="editorSubjectOptions"></div></div><div class="editor-picker-actions"><button type="button" class="admin-btn ghost" data-picker-back>← Retour</button><button type="button" class="admin-btn ghost" data-picker-next>Continuer →</button></div></div></div><button type="button" class="admin-btn primary" id="editorCreate" disabled>Créer la tâche</button></div></div>':'')+
+      (active==='A'?'<form id="editorACreateForm" class="cf-admin-create-form cf-rebuild-form editor-a-create-form" novalidate>'+
+  '<section class="cf-rebuild-card" aria-label="Identification"><div class="cf-rebuild-title"><span class="cf-rebuild-no">01</span><div><strong>La ressource</strong><small>Ce que tu veux faire produire</small></div></div>'+
+  '<label class="cf-rebuild-field"><span>Titre</span><input id="editorACreateTitle" type="text" required placeholder="Ex. Fiche de révision — fonctions exponentielles"></label>'+
+  '<div class="cf-rebuild-grid" style="margin-top:10px"><label class="cf-rebuild-field"><span>Catégorie</span><select id="editorACreateCategory"><option value="">Choisir une catégorie…</option><option value="Devoirs">Devoirs</option><option value="Documents">Documents</option></select></label>'+
+  '<label class="cf-rebuild-field"><span>Type de ressource</span><select id="editorACreateResourceType"><option value="">Choisir un type…</option></select></label>'+
+  '<label class="cf-rebuild-field"><span>Source pédagogique <em>(optionnel)</em></span><input id="editorACreateReference" type="text" placeholder="Manuel, chapitre, programme…"></label></div></section>'+
+  '<section class="cf-rebuild-card" aria-label="Classement scolaire"><div class="cf-rebuild-title"><span class="cf-rebuild-no">02</span><div><strong>Le parcours scolaire</strong><small>Choisis le niveau, le parcours/emplacement puis la matière. Les valeurs sont issues du catalogue Aurore.</small></div></div>'+
+  '<div class="cf-rebuild-grid-2"><label class="cf-rebuild-field"><span>Niveau</span><div id="editorACreateCascade"><select id="editorACreateLevelPicker"><option value="">Choisir un niveau…</option></select><select id="editorACreatePathPicker" disabled><option value="">Choisis d’abord un niveau…</option></select></div></label>'+
+  '<label class="cf-rebuild-field"><span>Matière</span><select id="editorACreateSubject" disabled><option value="">Choisis d’abord un parcours…</option></select></label></div>'+
+  '<div class="cf-route-note" id="editorACreateClassificationSummary">Aucun parcours sélectionné.</div></section>'+
+  '<section class="cf-rebuild-card" aria-label="Consigne"><div class="cf-rebuild-title"><span class="cf-rebuild-no">03</span><div><strong>Le contenu</strong><small>Donne à ChatGPT la consigne éditoriale de départ</small></div></div>'+
+  '<label class="cf-rebuild-field"><span>Consigne de génération</span><textarea id="editorACreatePrompt" required>Crée une fiche de révision sur le sujet indiqué avec cours, exercices et corrigés.</textarea></label></section>'+
+  '<section class="cf-rebuild-card" aria-label="Édition pédagogique"><div class="cf-rebuild-title"><span class="cf-rebuild-no">04</span><div><strong>Éditeur pédagogique</strong><small>Le contenu est préparé par ChatGPT avant de poursuivre dans le parcours Aurore.</small></div></div>'+
+  '<div class="cf-route-note">Éditeur actif : ChatGPT · schéma éditorial aurora-editorial-2 · contrôle humain obligatoire avant tout rendu ou publication.</div></section>'+
+  '<section class="cf-rebuild-card" aria-label="Identité du PDF"><div class="cf-rebuild-title"><span class="cf-rebuild-no">05</span><div><strong>L’identité du PDF</strong><small>Choisis la couleur mémorisée avec cette tâche et pour la suite du rendu.</small></div></div>'+
+  '<label class="cf-rebuild-field"><span>Couleur dominante</span><div class="cf-rebuild-theme"><button type="button" class="cf-theme-color-button cf-theme-color-square" id="editorAThemeToggle" aria-haspopup="true" aria-expanded="false" title="Choisir la couleur du PDF" aria-label="Choisir la couleur du PDF"><span id="editorAThemePreview" aria-hidden="true"></span></button>'+
+  '<output id="editorAThemeValue">#6D28D9</output><input id="editorAThemeColor" type="color" value="#6D28D9" aria-label="Couleur personnalisée" tabindex="-1"></div>'+
+  '<div class="cf-create-theme-palette" id="editorAThemePalette" hidden><div class="cf-create-theme-swatches" id="editorAThemeSwatches" aria-label="Palette Aurore des couleurs de PDF"></div></div></label></section>'+
+  '<section class="cf-rebuild-card" aria-label="Validation"><label class="cf-rebuild-rights"><input id="editorACreateRights" type="checkbox"><span><strong>Autoriser la production</strong><span>Je confirme que cette demande peut être utilisée par Aurore pour préparer la ressource et la soumettre au contrôle avant publication.</span></span></label>'+
+  '<div class="cf-rebuild-actions"><button class="admin-btn primary" id="editorCreate" type="button">Créer la tâche</button><span class="cf-rebuild-msg" id="editorACreateMsg" aria-live="polite"></span></div></section>'+
+  '<section class="cf-form-layout-admin editor-a-form-layout" id="editorAFormLayoutAdmin" aria-label="Réglage de la forme du formulaire Section A"><div><strong>Forme du formulaire — Section A</strong><small>Réglage réservé à l’administration. Tu peux élargir horizontalement le formulaire et la zone Matière.</small></div>'+
+  '<label>Largeur du formulaire <output id="editorAFormWidthOutput">1320 px</output><input id="editorAFormWidthRange" type="range" min="900" max="1800" step="20" value="1320"></label>'+
+  '<label>Largeur de la zone Matière <output id="editorASubjectWidthOutput">620 px</output><input id="editorASubjectWidthRange" type="range" min="360" max="900" step="10" value="620"></label>'+
+  '<button class="admin-btn ghost" id="editorAFormLayoutSave" type="button">Enregistrer la forme</button><span class="cf-form-layout-msg editor-a-layout-msg" id="editorAFormLayoutMsg" aria-live="polite"></span></section>'+
+  '</form>':'')+
       '<div class="editor-block-label"><span>Bloc '+(page+1)+'</span><small>'+((page*PAGE_SIZE)+1)+'–'+Math.min((page+1)*PAGE_SIZE,items.length)+' sur '+items.length+'</small></div>'+
       '<div class="editor-card-grid">'+(visible.length?visible.map(t=>taskCard(t,active)).join(''):'<div class="editor-empty">Aucun document dans cette étape pour le moment.</div>')+'</div>'+
       pager(items.length,page,active)+
@@ -545,85 +596,93 @@ function bind(root,state){
     if(b)b.click();
   });
   root.querySelectorAll('[data-editor-page]').forEach(b=>b.addEventListener('click',()=>{const [k,p]=b.dataset.editorPage.split(':');state.section=k;state.pages[k]=Number(p);render(root,state)}));
-  const pickerState={root:null,route:null,subject:'',step:1};
-  const pickerPanel=root.querySelector('#editorClassificationPanel');
-  const pickerTrigger=root.querySelector('#editorClassificationTrigger');
-  const summary=root.querySelector('#editorClassificationSummary');
-  const rootOptions=root.querySelector('#editorRootOptions');
-  const routeSection=root.querySelector('#editorRouteSection');
-  const routeOptions=root.querySelector('#editorRouteOptions');
-  const subjectSection=root.querySelector('#editorSubjectSection');
-  const subjectOptions=root.querySelector('#editorSubjectOptions');
-  const renderSubjects=()=>{
-    if(!subjectOptions||!subjectSection)return;
-    const leaf=pickerState.route?.leaf;
-    const raw=Array.isArray(leaf?.matieres)?leaf.matieres:(Array.isArray(MATIERES)?MATIERES:[]);
+  const form=root.querySelector('#editorACreateForm');
+  const levelPicker=root.querySelector('#editorACreateLevelPicker');
+  const routePicker=root.querySelector('#editorACreatePathPicker');
+  const subjectPicker=root.querySelector('#editorACreateSubject');
+  const categoryPicker=root.querySelector('#editorACreateCategory');
+  const resourcePicker=root.querySelector('#editorACreateResourceType');
+  const classSummary=root.querySelector('#editorACreateClassificationSummary');
+  let aPath=[],aRoutes=[];
+  const renderAResourceTypes=()=>{
+    if(!resourcePicker)return;
+    const values=A_RESOURCE_TYPES[categoryPicker?.value||'Documents']||A_RESOURCE_TYPES.Documents;
+    const current=resourcePicker.value;
+    resourcePicker.innerHTML='<option value="">Choisir un type…</option>'+values.map(v=>'<option value="'+esc(v)+'">'+esc(v)+'</option>').join('');
+    resourcePicker.value=values.includes(current)?current:'';
+  };
+  const syncASubjects=()=>{
+    if(!subjectPicker)return;
+    const leaf=aPath[aPath.length-1],raw=Array.isArray(leaf?.matieres)?leaf.matieres:(Array.isArray(MATIERES)?MATIERES:[]);
     const base=typeof matieresAvecAutres==='function'?matieresAvecAutres(raw):raw;
     const names=[...new Set(base.map(x=>typeof x==='string'?x:(x?.nom||'')).map(v=>String(v||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));
-    subjectOptions.innerHTML=names.length?names.map(x=>'<button type="button" class="editor-option '+(pickerState.subject===x?'selected':'')+'" data-editor-subject="'+esc(x)+'">'+esc(x)+'</button>').join(''):'<div class="editor-option-empty">Aucune matière disponible pour ce parcours.</div>';
-    subjectSection.hidden=!pickerState.route||!names.length;
+    subjectPicker.innerHTML='<option value="">'+(names.length?'Choisir une matière…':'Aucune matière disponible…')+'</option>'+names.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('');
+    subjectPicker.disabled=!aPath.length||!names.length;
   };
-  const renderPickerProgress=()=>{
-    const progress=root.querySelector('[data-picker-progress]');
-    if(progress)progress.innerHTML=[['1','Niveau'],['2','Parcours'],['3','Matière']].map(([n,label])=>'<span class="'+(Number(n)===pickerState.step?'active':(Number(n)<pickerState.step?'done':''))+'">'+n+' · '+label+'</span>').join('');
-    [rootOptions,routeSection,subjectSection].forEach((el,i)=>{if(el)el.hidden=(i+1)!==pickerState.step});
-    const back=root.querySelector('[data-picker-back]'),next=root.querySelector('[data-picker-next]');
-    if(back)back.disabled=pickerState.step<=1;
-    if(next)next.disabled=(pickerState.step===1&&!pickerState.root)||(pickerState.step===2&&!pickerState.route);
-    if(next)next.textContent=pickerState.step<3?'Continuer →':'Terminer le choix';
-    const create=root.querySelector('#editorCreate');
-    if(create)create.disabled=!(pickerState.root&&pickerState.route&&pickerState.subject);
+  const syncAClassification=()=>{
+    if(!levelPicker||!routePicker)return;
+    const rootNode=editorClassificationRoots().find(n=>n.id===levelPicker.value)||null;
+    aRoutes=rootNode?editorLeafRoutes(rootNode):[];
+    routePicker.innerHTML='<option value="">'+(rootNode?'Choisir un parcours…':'Choisis d’abord un niveau…')+'</option>'+aRoutes.map((x,i)=>'<option value="'+i+'">'+esc(x.label)+'</option>').join('');
+    routePicker.disabled=!rootNode||!aRoutes.length;
+    const choice=aRoutes[Number(routePicker.value)];
+    aPath=choice?[...choice.path]:(rootNode?[rootNode]:[]);
+    syncASubjects();
+    if(classSummary){
+      const labels=aPath.map(n=>String(n?.nom||'').trim()).filter(Boolean);
+      classSummary.textContent=labels.length?labels.join(' · '):'Aucun parcours sélectionné.';
+    }
   };
-  const updateSummary=()=>{
-    const path=pickerState.route?.path||[];
-    const labels=path.map(n=>String(n?.nom||'').trim()).filter(Boolean);
-    if(pickerState.subject)labels.push(pickerState.subject);
-    summary.textContent=labels.length?labels.join(' · '):'Choisir progressivement le niveau, le parcours puis la matière…';
-    renderPickerProgress();
-    pickerTrigger?.setAttribute('aria-expanded',String(!pickerPanel.hidden));
+  const loadALayout=async()=>{
+    const w=root.querySelector('#editorAFormWidthRange'),sw=root.querySelector('#editorASubjectWidthRange'),wo=root.querySelector('#editorAFormWidthOutput'),swo=root.querySelector('#editorASubjectWidthOutput');
+    if(!w||!sw)return;
+    try{
+      const rows=await rest('/rest/v1/aurore_admin_interface_settings?select=setting_value&setting_key=eq.'+encodeURIComponent('content_factory_section_a_form'));
+      const cfg=Array.isArray(rows)&&rows[0]?.setting_value?rows[0].setting_value:{};
+      const width=Math.max(900,Math.min(1800,Number(cfg.max_width_px)||1320)),subject=Math.max(360,Math.min(900,Number(cfg.subject_width_px)||620));
+      root.style.setProperty('--editor-a-form-width',width+'px');root.style.setProperty('--editor-a-subject-width',subject+'px');
+      w.value=String(width);sw.value=String(subject);wo.textContent=width+' px';swo.textContent=subject+' px';
+    }catch(_){}
   };
-  const renderRoutes=()=>{
-    if(!routeOptions||!routeSection)return;
-    const routes=pickerState.root?editorLeafRoutes(pickerState.root):[];
-    routeOptions.innerHTML=routes.length?routes.map((x,i)=>'<button type="button" class="editor-option '+(pickerState.route===x?'selected':'')+'" data-editor-route="'+i+'">'+esc(x.label)+'</button>').join(''):'';
-    routeSection.hidden=!pickerState.root;
-    renderSubjects();
+  const syncTheme=()=>{
+    const input=root.querySelector('#editorAThemeColor'),value=root.querySelector('#editorAThemeValue'),preview=root.querySelector('#editorAThemePreview'),swatches=root.querySelector('#editorAThemeSwatches');
+    const color=normalizeAThemeColor(input?.value||'#6D28D9');
+    if(input)input.value=color;if(value)value.textContent=color;if(preview)preview.style.backgroundColor=color;
+    swatches?.querySelectorAll('[data-editor-a-theme]').forEach(b=>b.classList.toggle('is-selected',normalizeAThemeColor(b.dataset.editorATheme)===color));
+    return color;
   };
-  const renderRoots=()=>{
-    if(!rootOptions)return;
-    const roots=editorClassificationRoots();
-    rootOptions.innerHTML=roots.map(x=>'<button type="button" class="editor-option '+(pickerState.root?.id===x.id?'selected':'')+'" data-editor-root="'+esc(x.id)+'">'+esc(x.nom)+'</button>').join('');
-    renderRoutes();
+  const ensureThemePalette=()=>{
+    const swatches=root.querySelector('#editorAThemeSwatches');if(!swatches)return;
+    if(!swatches.children.length)swatches.innerHTML=A_THEME_PALETTE.map(([name,color])=>'<button type="button" class="cf-create-theme-swatch" data-editor-a-theme="'+color+'" title="'+esc(name)+'" aria-label="Choisir '+esc(name)+'" style="--cf-swatch:'+color+'"><span></span></button>').join('');
   };
-  renderRoots();
-  pickerTrigger?.addEventListener('click',e=>{
-    e.preventDefault();
-    if(pickerPanel)pickerPanel.hidden=!pickerPanel.hidden;
-    updateSummary();
-  });
-  rootOptions?.addEventListener('click',e=>{
-    const b=e.target?.closest?.('[data-editor-root]');if(!b)return;
-    const n=editorClassificationRoots().find(x=>x.id===b.dataset.editorRoot);if(!n)return;
-    pickerState.root=n;pickerState.route=null;pickerState.subject='';pickerState.step=2;renderRoots();updateSummary();
-  });
-  routeOptions?.addEventListener('click',e=>{
-    const b=e.target?.closest?.('[data-editor-route]');if(!b)return;
-    const routes=pickerState.root?editorLeafRoutes(pickerState.root):[],choice=routes[Number(b.dataset.editorRoute)];if(!choice)return;
-    pickerState.route=choice;pickerState.subject='';pickerState.step=3;renderRoutes();updateSummary();
-  });
-  subjectOptions?.addEventListener('click',e=>{
-    const b=e.target?.closest?.('[data-editor-subject]');if(!b)return;
-    pickerState.subject=String(b.dataset.editorSubject||'');renderSubjects();updateSummary();
-  });
-  root.querySelector('[data-picker-back]')?.addEventListener('click',e=>{e.preventDefault();pickerState.step=Math.max(1,pickerState.step-1);renderPickerProgress();});
-  root.querySelector('[data-picker-next]')?.addEventListener('click',e=>{e.preventDefault();if(pickerState.step===1&&pickerState.root)pickerState.step=2;else if(pickerState.step===2&&pickerState.route)pickerState.step=3;else if(pickerState.step===3&&pickerState.subject)pickerPanel.hidden=true;renderPickerProgress();updateSummary();});
-  root.querySelector('#editorCreate')?.addEventListener('click',async()=>{
-    const typ=(root.querySelector('#editorType')?.value||'').trim(),cls=String(pickerState.route?.leaf?.nom||'').trim(),sub=pickerState.subject.trim();
-    if(!cls||!sub||!pickerState.root||!pickerState.route||!['cours','exercices','qcm','fiches'].includes(typ)){alert('Choisis un type, un niveau, un parcours/emplacement et une matière dans le sélecteur.');return}
-    const b=root.querySelector('#editorCreate');b.disabled=true;
-    const path=(pickerState.route.path||[]).map(n=>String(n?.nom||'').trim()).filter(Boolean);
-    try{await createTask(cls,sub,typ,{level:pickerState.root.nom,location:path.join(' · '),path});await chargerEspaceEditorialChatGPT()}catch(e){alert('Impossible de créer la tâche : '+(e.message||e))}finally{b.disabled=false}
-  });
+  if(form){
+    renderAResourceTypes();syncAClassification();syncTheme();loadALayout();
+    categoryPicker?.addEventListener('change',renderAResourceTypes);
+    levelPicker?.addEventListener('change',()=>{aPath=[];syncAClassification()});
+    routePicker?.addEventListener('change',()=>{const choice=aRoutes[Number(routePicker.value)];aPath=choice?[...choice.path]:aPath.slice(0,1);syncASubjects();if(classSummary){const labels=aPath.map(n=>String(n?.nom||'').trim()).filter(Boolean);classSummary.textContent=labels.length?labels.join(' · '):'Aucun parcours sélectionné.';}});
+    subjectPicker?.addEventListener('change',()=>{});
+    root.querySelector('#editorAThemeColor')?.addEventListener('input',syncTheme);
+    root.querySelector('#editorAThemeToggle')?.addEventListener('click',e=>{e.preventDefault();ensureThemePalette();const p=root.querySelector('#editorAThemePalette');if(!p)return;p.hidden=!p.hidden;root.querySelector('#editorAThemeToggle')?.setAttribute('aria-expanded',String(!p.hidden));syncTheme();});
+    root.querySelector('#editorAThemeSwatches')?.addEventListener('click',e=>{const b=e.target?.closest?.('[data-editor-a-theme]');if(!b)return;e.preventDefault();const input=root.querySelector('#editorAThemeColor');if(input)input.value=normalizeAThemeColor(b.dataset.editorATheme);syncTheme();const p=root.querySelector('#editorAThemePalette');if(p)p.hidden=true;root.querySelector('#editorAThemeToggle')?.setAttribute('aria-expanded','false');});
+    root.querySelector('#editorAFormWidthRange')?.addEventListener('input',e=>{root.querySelector('#editorAFormWidthOutput').textContent=e.target.value+' px';root.style.setProperty('--editor-a-form-width',e.target.value+'px')});
+    root.querySelector('#editorASubjectWidthRange')?.addEventListener('input',e=>{root.querySelector('#editorASubjectWidthOutput').textContent=e.target.value+' px';root.style.setProperty('--editor-a-subject-width',e.target.value+'px')});
+    root.querySelector('#editorAFormLayoutSave')?.addEventListener('click',async()=>{
+      const btn=root.querySelector('#editorAFormLayoutSave'),msg=root.querySelector('#editorAFormLayoutMsg');if(btn)btn.disabled=true;
+      try{
+        const body={setting_key:'content_factory_section_a_form',setting_value:{max_width_px:Number(root.querySelector('#editorAFormWidthRange').value),subject_width_px:Number(root.querySelector('#editorASubjectWidthRange').value)},updated_at:new Date().toISOString()};
+        await rest('/rest/v1/aurore_admin_interface_settings?on_conflict=setting_key',{method:'POST',headers:{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(body)});
+        root.style.setProperty('--editor-a-form-width',body.setting_value.max_width_px+'px');root.style.setProperty('--editor-a-subject-width',body.setting_value.subject_width_px+'px');if(msg)msg.textContent='Forme enregistrée.';
+      }catch(e){if(msg)msg.textContent='Impossible d’enregistrer la forme : '+(e.message||e);}
+      finally{if(btn)btn.disabled=false;}
+    });
+    root.querySelector('#editorCreate')?.addEventListener('click',async()=>{
+      const title=(root.querySelector('#editorACreateTitle')?.value||'').trim(),category=(categoryPicker?.value||'').trim(),resourceType=(resourcePicker?.value||'').trim(),reference=(root.querySelector('#editorACreateReference')?.value||'').trim(),prompt=(root.querySelector('#editorACreatePrompt')?.value||'').trim(),subject=(subjectPicker?.value||'').trim(),rights=!!root.querySelector('#editorACreateRights')?.checked,themeColor=normalizeAThemeColor(root.querySelector('#editorAThemeColor')?.value||'#6D28D9');
+      const level=rootNodeName(levelPicker),className=String(aPath[aPath.length-1]?.nom||'').trim(),path=aPath.map(n=>String(n?.nom||'').trim()).filter(Boolean),location=path.join(' · ');
+      if(!title||!category||!resourceType||!level||!className||!subject||!prompt||!rights){const msg=root.querySelector('#editorACreateMsg');if(msg){msg.dataset.state='error';msg.textContent='Complète le titre, la catégorie, le type, le classement, la consigne et l’autorisation de production.';}return}
+      const b=root.querySelector('#editorCreate'),msg=root.querySelector('#editorACreateMsg');if(b)b.disabled=true;
+      try{await createTask({title,category,documentType:resourceType,reference,prompt,themeColor,subject,level,className,path,location});if(msg){msg.dataset.state='ok';msg.textContent='✓ Tâche enregistrée dans la Section A.'}await chargerEspaceEditorialChatGPT()}catch(e){if(msg){msg.dataset.state='error';msg.textContent='Impossible de créer la tâche : '+(e.message||e)}}finally{if(b)b.disabled=false}
+    });
+  }
   
   root.querySelectorAll('[data-editor-open]').forEach(b=>b.addEventListener('click',async()=>{
     const t=await getJob(Number(b.dataset.editorOpen));if(!t)return;
@@ -884,6 +943,20 @@ function bindDetail(d,t,state){
 function injectStyle(){
   if(document.getElementById('aurore-editorial-v2-styles'))return;
   const s=document.createElement('style');s.id='aurore-editorial-v2-styles';s.textContent=`
+#auroreEditorialTaskAdmin .editor-a-create-form{max-width:var(--editor-a-form-width,1320px);width:100%;margin:0 auto;display:grid;gap:14px}
+#auroreEditorialTaskAdmin .editor-a-create-form .cf-rebuild-grid-2{grid-template-columns:minmax(0,1fr) minmax(360px,var(--editor-a-subject-width,620px))}
+#auroreEditorialTaskAdmin .editor-a-form-layout{display:grid;grid-template-columns:minmax(190px,1.2fr) minmax(170px,1fr) minmax(170px,1fr) auto;align-items:end;gap:12px;margin:0;padding:15px 16px;border:1px solid color-mix(in srgb,var(--theme-primary,#6D28D9) 22%,var(--editor-border));border-radius:17px;background:color-mix(in srgb,var(--theme-primary,#6D28D9) 6%,var(--editor-surface))}
+#auroreEditorialTaskAdmin .editor-a-form-layout strong{display:block;font-size:.75rem}
+#auroreEditorialTaskAdmin .editor-a-form-layout small{display:block;margin-top:3px;font-size:.62rem;line-height:1.45;opacity:.68}
+#auroreEditorialTaskAdmin .editor-a-form-layout label{font-size:.62rem;font-weight:850}
+#auroreEditorialTaskAdmin .editor-a-form-layout output{float:right;font-size:.64rem;color:var(--theme-primary,#6D28D9)}
+#auroreEditorialTaskAdmin .editor-a-form-layout input[type=range]{display:block;width:100%;margin-top:9px;accent-color:var(--theme-primary,#6D28D9)}
+#auroreEditorialTaskAdmin .editor-a-layout-msg{grid-column:1/-1;font-size:.65rem;opacity:.75}
+#auroreEditorialTaskAdmin .editor-a-create-form .cf-rebuild-card{overflow:visible}
+#auroreEditorialTaskAdmin .editor-a-create-form .cf-create-theme-palette{top:calc(100% + 8px);z-index:2000;border-color:color-mix(in srgb,var(--theme-primary,#6D28D9) 24%,var(--editor-border));background:var(--editor-surface);color:inherit}
+#auroreEditorialTaskAdmin .editor-a-create-form .cf-theme-color-square #editorAThemePreview{background:#6D28D9;border-radius:7px}
+#auroreEditorialTaskAdmin .editor-a-create-form .cf-create-theme-swatch.is-selected{border-color:var(--theme-primary,#6D28D9);box-shadow:0 0 0 2px color-mix(in srgb,var(--theme-primary,#6D28D9) 22%,transparent)}
+#auroreEditorialTaskAdmin .editor-a-create-form #editorAThemeValue{font-size:.68rem;font-weight:850;color:var(--theme-primary,#6D28D9);margin-left:3px}
 #auroreEditorialTaskAdmin{--editor-surface:var(--card-bg,#fff);--editor-surface-soft:color-mix(in srgb,currentColor 3%,transparent);--editor-border:color-mix(in srgb,currentColor 12%,transparent);--editor-text:currentColor;--editor-accent:#6D28D9;color:var(--editor-text);display:grid;gap:16px}
 #auroreEditorialTaskAdmin .editor-hub{display:grid;gap:14px}
 #auroreEditorialTaskAdmin .editor-hub-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;padding:4px 2px}
