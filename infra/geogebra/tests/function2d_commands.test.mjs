@@ -53,6 +53,33 @@ test("une fonction de domaine explicite reste intacte", () => {
   );
 });
 
+test("une fonction nommée mais non définie est bloquée", () => {
+  assert.throws(
+    () => buildFunction2DArrayCommands(["pH(x)"]),
+    /Fonction GeoGebra non définie.*pH/,
+  );
+});
+
+test("une fonction nommée est acceptée lorsqu'elle est explicitement définie", () => {
+  assert.deepEqual(
+    buildFunction2DArrayCommands(["pH(x)=7+0.1*x"]),
+    {
+      commands: ["pH(x)=7+0.1*x"],
+      functionNames: ["pH"],
+    },
+  );
+});
+
+test("une expression peut utiliser une fonction locale fournie par les companions", () => {
+  assert.deepEqual(
+    buildFunction2DArrayCommands(["2*pH(x)"], ["pH(x)=7+0.1*x"]),
+    {
+      commands: ["f(x)=2*pH(x)"],
+      functionNames: ["f"],
+    },
+  );
+});
+
 test("les noms utilisés par les companions sont réservés lors de la génération", () => {
   assert.deepEqual(
     buildFunction2DArrayCommands(["x", "x^2"], ["g(x)=sin(x)"]),
@@ -88,5 +115,15 @@ test("le renderer transmet le graphe préparé à page.evaluate", () => {
     source,
     /return await page\.evaluate\(async \(graph\) => \{[\s\S]*?\n\s*\}, graph\);/,
     "Le renderer ne doit pas retransmettre le graphe original après préparation.",
+  );
+  assert.match(
+    source,
+    /buildFunction2DArrayCommands\(\[renderExpression\], companionExpressions\)/,
+    "Les expressions function2d scalaires doivent passer par le même validateur que les tableaux.",
+  );
+  assert.match(
+    source,
+    /validateGraphConstruction\(entry\.graph\)/,
+    "La validation sémantique doit intervenir avant le lancement de Chromium.",
   );
 });

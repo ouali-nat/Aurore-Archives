@@ -165,6 +165,21 @@ function imageReady(g) {
   return Number(g?.geogebra_renderer_version || 0) >= GEO_GEBRA_RENDERER_VERSION && (!hasSolid || Number(g?.geogebra_renderer_version || 0) >= GEO_GEBRA_RENDERER_VERSION);
 }
 
+function validateGraphConstruction(g) {
+  if (instrumentOf(g) !== "function2d") return;
+
+  const companionExpressions = g?.companion_expressions;
+  if (Array.isArray(g?.expression)) {
+    buildFunction2DArrayCommands(g.expression, companionExpressions);
+    return;
+  }
+
+  const rawExpression = String(g?.expression || "").trim();
+  if (rawExpression) {
+    buildFunction2DArrayCommands([rawExpression], companionExpressions);
+  }
+}
+
 
 function validatePlannedGraphs() {
   const subject = String(content.subject || "").toLowerCase();
@@ -260,8 +275,14 @@ function graphEntries(content) {
   return out;
 }
 
-const pending = graphEntries(content)
-  .filter((entry) => validGraph(entry.graph) && !imageReady(entry.graph));
+const pending = [];
+for (const entry of graphEntries(content)) {
+  if (!validGraph(entry.graph) || imageReady(entry.graph)) continue;
+  // Validate function2d semantics before opening Chromium so an undefined
+  // symbol cannot reach GeoGebra as f(x)=unknownFunction(x).
+  validateGraphConstruction(entry.graph);
+  pending.push(entry);
+}
 
 console.log(`GeoGebra server-side: ${pending.length} graphique(s) à rendre pour le document #${DOCUMENT_ID}.`);
 
@@ -334,10 +355,11 @@ console.log(`GeoGebra host page ready: ${localOrigin}`);
 const renderGraphInBrowser = async (graph) => {
   const preparedGraph = structuredClone(graph);
   if (instrumentOf(preparedGraph) === "function2d") {
+    const companionExpressions = preparedGraph?.companion_expressions;
     if (Array.isArray(preparedGraph?.expression)) {
       const preparedFunctions = buildFunction2DArrayCommands(
         preparedGraph.expression,
-        preparedGraph.companion_expressions,
+        companionExpressions,
       );
       preparedGraph.render_function_commands = preparedFunctions.commands;
       preparedGraph.render_function_names = preparedFunctions.functionNames;
@@ -346,13 +368,20 @@ const renderGraphInBrowser = async (graph) => {
       );
     } else {
       const rawExpression = String(preparedGraph?.expression || "").trim();
-      const renderExpression = canonicalFunction2DExpression(rawExpression);
-      if (renderExpression !== rawExpression) {
-        console.log(
-          `GeoGebra function2d variable canonicalisation: ${rawExpression} -> ${renderExpression}`,
+      if (rawExpression) {
+        const renderExpression = canonicalFunction2DExpression(rawExpression);
+        if (renderExpression !== rawExpression) {
+          console.log(
+            `GeoGebra function2d variable canonicalisation: ${rawExpression} -> ${renderExpression}`,
+          );
+        }
+        const preparedFunctions = buildFunction2DArrayCommands(
+          [renderExpression],
+          companionExpressions,
         );
+        preparedGraph.render_function_commands = preparedFunctions.commands;
+        preparedGraph.render_function_names = preparedFunctions.functionNames;
       }
-      preparedGraph.render_expression = renderExpression;
     }
   }
   return await page.evaluate(async (graph) => {
