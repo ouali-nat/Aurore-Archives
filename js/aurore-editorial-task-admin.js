@@ -193,6 +193,8 @@ function editorLeafRoutes(root){
   });
 }
 function editorClassificationRoots(){
+  const catalog=window.AURORE_CATALOG_NIVEAUX;
+  if(Array.isArray(catalog))return catalog;
   return typeof NIVEAUX!=='undefined'&&Array.isArray(NIVEAUX)?NIVEAUX:[];
 }
 function rootNodeName(picker){const n=editorClassificationRoots().find(x=>x.id===picker?.value);return String(n?.nom||'').trim();}
