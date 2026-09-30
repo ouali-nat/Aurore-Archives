@@ -106,11 +106,10 @@
   window.addEventListener('beforeunload',enregistrerSortieVisiteur);
 
   function unlock(){ document.body.classList.remove('site-locked'); if(lock) lock.style.display='none'; }
-
-  function unlock(){ document.body.classList.remove('site-locked'); if(lock) lock.style.display='none'; }
   window.auroreUnlockAccess=unlock;
   visitor?.addEventListener('click',async()=>{ try{localStorage.setItem('aurore_visitor_mode','1');}catch(e){} await demarrerSuiviVisiteur(); unlock(); });
   google?.addEventListener('click',async()=>{
+    enregistrerSortieVisiteur(); try{localStorage.removeItem('aurore_visitor_mode');}catch(e){}
     if (google.classList.contains('is-loading')) return;
     // Le bloc est également affiché directement dans le portail d'accès.
     // Cela garantit que l'utilisateur le voit avant la redirection vers Google,
@@ -167,6 +166,7 @@
   });
 
   loginForm?.addEventListener('submit',async e=>{
+    enregistrerSortieVisiteur(); try{localStorage.removeItem('aurore_visitor_mode');}catch(e){}
     e.preventDefault(); loginMsg.style.display='none';
     const email=document.getElementById('loginEmail').value.trim(), password=document.getElementById('loginPassword').value, btn=document.getElementById('loginSubmit');
     btn.disabled=true; btn.textContent='Connexion en cours…';
