@@ -669,12 +669,21 @@ function bind(root,state){
     root.querySelector('#editorAThemeSwatches')?.addEventListener('click',e=>{const b=e.target?.closest?.('[data-editor-a-theme]');if(!b)return;e.preventDefault();const input=root.querySelector('#editorAThemeColor');if(input)input.value=normalizeAThemeColor(b.dataset.editorATheme);syncTheme();const p=root.querySelector('#editorAThemePalette');if(p)p.hidden=true;root.querySelector('#editorAThemeToggle')?.setAttribute('aria-expanded','false');});
     root.querySelector('#editorAFormWidthRange')?.addEventListener('input',e=>{root.querySelector('#editorAFormWidthOutput').textContent=e.target.value+' px';root.style.setProperty('--editor-a-form-width',e.target.value+'px')});
     root.querySelector('#editorASubjectWidthRange')?.addEventListener('input',e=>{root.querySelector('#editorASubjectWidthOutput').textContent=e.target.value+' px';root.style.setProperty('--editor-a-subject-width',e.target.value+'px')});
-    root.querySelector('#editorAFormLayoutSave')?.addEventListener('click',async()=>{
-      const btn=root.querySelector('#editorAFormLayoutSave'),msg=root.querySelector('#editorAFormLayoutMsg');if(btn)btn.disabled=true;
+        root.querySelector('#editorAFormLayoutSave')?.addEventListener('click',async()=>{
+      const btn=root.querySelector('#editorAFormLayoutSave'),msg=root.querySelector('#editorAFormLayoutMsg');
+      const width=Math.max(900,Math.min(1800,Number(root.querySelector('#editorAFormWidthRange')?.value)||1320));
+      const subject=Math.max(360,Math.min(900,Number(root.querySelector('#editorASubjectWidthRange')?.value)||620));
+      if(btn)btn.disabled=true;if(msg)msg.textContent='Enregistrement…';
       try{
-        const body={setting_key:'content_factory_section_a_form',setting_value:{max_width_px:Number(root.querySelector('#editorAFormWidthRange').value),subject_width_px:Number(root.querySelector('#editorASubjectWidthRange').value)},updated_at:new Date().toISOString()};
-        await rest('/rest/v1/aurore_admin_interface_settings?on_conflict=setting_key',{method:'POST',headers:{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(body)});
-        root.style.setProperty('--editor-a-form-width',body.setting_value.max_width_px+'px');root.style.setProperty('--editor-a-subject-width',body.setting_value.subject_width_px+'px');if(msg)msg.textContent='Forme enregistrée.';
+        const body={setting_key:'content_factory_section_a_form',setting_value:{max_width_px:width,subject_width_px:subject},updated_at:new Date().toISOString()};
+        await rest('/rest/v1/aurore_admin_interface_settings?setting_key=eq.'+encodeURIComponent('content_factory_section_a_form'),{method:'PATCH',headers:{'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify(body)});
+        const rows=await rest('/rest/v1/aurore_admin_interface_settings?select=setting_value&setting_key=eq.'+encodeURIComponent('content_factory_section_a_form'));
+        const saved=Array.isArray(rows)&&rows[0]?.setting_value?rows[0].setting_value:null;
+        if(Number(saved?.max_width_px)!==width||Number(saved?.subject_width_px)!==subject)throw new Error('La valeur enregistrée n’a pas pu être vérifiée.');
+        root.style.setProperty('--editor-a-form-width',width+'px');root.style.setProperty('--editor-a-subject-width',subject+'px');
+        const wo=root.querySelector('#editorAFormWidthOutput'),swo=root.querySelector('#editorASubjectWidthOutput');
+        if(wo)wo.textContent=width+' px';if(swo)swo.textContent=subject+' px';
+        if(msg)msg.textContent='Forme enregistrée et vérifiée.';
       }catch(e){if(msg)msg.textContent='Impossible d’enregistrer la forme : '+(e.message||e);}
       finally{if(btn)btn.disabled=false;}
     });
