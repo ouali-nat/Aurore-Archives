@@ -90,3 +90,14 @@ test("le renderer transmet le graphe préparé à page.evaluate", () => {
     "Le renderer ne doit pas retransmettre le graphe original après préparation.",
   );
 });
+
+
+test("une définition scalaire nommée pH(x)=... reste une construction valide", () => {
+  assert.deepEqual(
+    buildFunction2DArrayCommands(["pH(x)=2+12/(1+e^(-0.5*(x-10)))"]),
+    {
+      commands: ["pH(x)=2+12/(1+e^(-0.5*(x-10)))"],
+      functionNames: ["pH"],
+    },
+  );
+});
