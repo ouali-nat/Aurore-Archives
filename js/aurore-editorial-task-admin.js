@@ -486,11 +486,120 @@ function cPlanCompleteness(t,p){
   if(String(p?.quality||'').trim().length<40)missing.unshift('quality_detail');
   return {ok:missing.length===0,missing:[...new Set(missing)],selectedCount:chapterNames.length,sourceCount:researchSourceCount};
 }
+const C_PLAN_FIELD_LABELS={
+  researchMethod:'Méthode de recherche',curricularBasis:'Base curriculaire / programme',researchFindings:'Constats utiles à la production',sources:'Sources / URLs',
+  title:'Titre du document',chapter:'Chapitres / unité traitée',objectives:'Objectifs pédagogiques',competencies:'Compétences visées',prerequisites:'Prérequis',
+  progression:'Progression pédagogique',architecture:'Architecture / plan détaillé',productionStrategy:'Stratégie de production',content:'Contenu à couvrir',
+  methods:'Méthodes pédagogiques',activities:'Activités d’apprentissage',examples:'Exemples / applications',situations:'Situations / problèmes',
+  exercises:'Exercices',corrections:'Corrigés / solutions',differentiation:'Différenciation / adaptations',evaluation:'Évaluation prévue',
+  volume:'Volume pédagogique',duration:'Durée indicative',resources:'Ressources / illustrations',mathGeoGebra:'Mathématiques / GeoGebra',
+  technicalNeeds:'Besoins techniques',pdfFormat:'Format PDF',pdfOrientation:'Orientation PDF',pdfPagination:'Pagination PDF',pdfThemeColor:'Couleur thème PDF',
+  pdfLayout:'Mise en page PDF',pdfFonts:'Polices / typographie PDF',pdfHeaders:'En-têtes / pieds de page PDF',pdfResources:'Ressources PDF / QR / annexes',
+  quality:'Contrôle qualité attendu',notes:'Notes éditoriales'
+};
+const C_AI_COMPLETION_VERSION='c-ai-completion-guard-v1';
+const C_AI_ENDPOINT='/functions/v1/aurora-gemini-next';
+const C_AI_PLACEHOLDERS=['à compléter','a completer','à préciser','a preciser','à renseigner','a renseigner','n/a','na','non défini','non defini','non renseigné','non renseigne','à déterminer','a determiner'];
+const cAIText=v=>String(v??'').trim();
+const cAIPlaceholder=v=>{
+  const n=cAIText(v).toLocaleLowerCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  return C_AI_PLACEHOLDERS.includes(n);
+};
+const cAIContext=(t,p)=>{
+  const w=t.metadata?.workflow||{};
+  const selected=selectedChaptersFor(t).map(x=>cAIText(x?.title||x?.name||x)).filter(Boolean);
+  const take=(v,n)=>cAIText(v).slice(0,n||420);
+  return {
+    task:{id:t.id,title:t.title,subject:t.subject,level:t.level,class_name:t.class_name,document_type:t.document_type},
+    selected_chapters:selected,
+    research:{
+      method:take(p.researchMethod||w.chapter_research?.methodology||w.chapter_research?.method,500),
+      findings:take(p.researchFindings||w.chapter_research?.findings,700),
+      sources:take(p.sources||w.chapter_research?.sources||w.chapter_research?.source_urls,900)
+    },
+    plan:{
+      title:take(p.title,300),chapter:take(p.chapter,500),objectives:take(p.objectives,450),competencies:take(p.competencies,450),
+      prerequisites:take(p.prerequisites,400),progression:take(p.progression,650),architecture:take(p.architecture,600),productionStrategy:take(p.productionStrategy,600),
+      content:take(p.content,700),methods:take(p.methods,450),activities:take(p.activities,450),examples:take(p.examples,450),situations:take(p.situations,450),
+      exercises:take(p.exercises,600),corrections:take(p.corrections,600),differentiation:take(p.differentiation,450),evaluation:take(p.evaluation,450),
+      volume:take(p.volume,180),duration:take(p.duration,250),resources:take(p.resources,500),mathGeoGebra:take(p.mathGeoGebra,450),technicalNeeds:take(p.technicalNeeds,450),
+      pdfLayout:take(p.pdfLayout,450),pdfFonts:take(p.pdfFonts,450),pdfHeaders:take(p.pdfHeaders,450),pdfResources:take(p.pdfResources,500),quality:take(p.quality,650),notes:take(p.notes,350)
+    }
+  };
+};
+const parseCAIResponse=raw=>{
+  const s=String(raw||'').trim();
+  const first=s.indexOf('{'),last=s.lastIndexOf('}');
+  if(first<0||last<=first)throw new Error('L’IA éditrice n’a pas fourni un JSON exploitable.');
+  const parsed=JSON.parse(s.slice(first,last+1));
+  const fields=parsed&&typeof parsed.fields==='object'&&parsed.fields?parsed.fields:parsed;
+  if(!fields||typeof fields!=='object'||Array.isArray(fields))throw new Error('Réponse de complétion IA invalide.');
+  return fields;
+};
+async function cAIRequest(t,p,missing){
+  const ctx=cAIContext(t,p);
+  const wanted=missing.map(k=>k+' — '+(C_PLAN_FIELD_LABELS[k]||k)).join('\n');
+  const prompt=[
+    'Tu es l’IA éditrice d’Aurore pour la Section C.',
+    'Tous les champs obligatoires du plan C doivent être remplis avant toute insertion en base et avant toute migration C vers CX.',
+    'Complète UNIQUEMENT les champs actuellement manquants listés ci-dessous.',
+    'Ne modifie aucun champ déjà rempli.',
+    'Utilise exclusivement le contexte réel fourni. N’invente ni chapitre, ni classe, ni source, ni information curriculaire.',
+    'Chaque valeur doit être directement exploitable dans un document pédagogique réel.',
+    'N’utilise jamais une formule vide ou générique comme « à compléter », « à préciser », « N/A » ou équivalent.',
+    'Pour notes, écris une vraie note éditoriale contextualisée. Pour pdfFonts, pdfHeaders et pdfResources, donne des choix techniques concrets.',
+    'Pour sources, conserve uniquement les sources réellement fournies dans le contexte ; ne fabrique aucune URL.',
+    'Réponds uniquement avec un objet JSON valide de la forme {"fields":{"clé":"valeur"}}.',
+    '',
+    'CHAMPS MANQUANTS :',
+    wanted,
+    '',
+    'CONTEXTE RÉEL :',
+    JSON.stringify(ctx)
+  ].join('\n');
+  const tokenValue=await token();
+  const r=await fetch(SUPABASE_URL+C_AI_ENDPOINT,{
+    method:'POST',
+    headers:{apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+tokenValue,'Content-Type':'application/json'},
+    body:JSON.stringify({message:prompt,conversationContext:[]})
+  });
+  const raw=await r.text();
+  let data=null;try{data=raw?JSON.parse(raw):null}catch(_){}
+  if(!r.ok)throw new Error(data?.error||raw||('IA éditrice HTTP '+r.status));
+  if(!data?.text)throw new Error('L’IA éditrice n’a renvoyé aucun complément.');
+  return parseCAIResponse(data.text);
+}
+async function completeCPlanWithAI(t,p,missing,setStatus){
+  const requested=[...new Set(missing)].filter(k=>C_PLAN_REQUIRED_FIELDS.includes(k));
+  let current={...p};
+  const completed=[],unresolved=[];
+  if(!requested.length)return {plan:current,audit:{version:C_AI_COMPLETION_VERSION,status:'already_complete',missing_before:[],completed_fields:[],unresolved_fields:[],completed_at:new Date().toISOString()}};
+  for(let i=0;i<requested.length;i+=6){
+    const batch=requested.slice(i,i+6);
+    if(typeof setStatus==='function')setStatus('L’IA éditrice complète : '+batch.map(k=>C_PLAN_FIELD_LABELS[k]||k).join(', ')+'…');
+    let fields=null;
+    for(let attempt=0;attempt<2&&!fields;attempt++){
+      try{fields=await cAIRequest(t,current,batch)}catch(_){}
+    }
+    if(!fields){unresolved.push(...batch);continue}
+    batch.forEach(k=>{
+      const value=cAIText(fields[k]);
+      if(value&&!cAIPlaceholder(value)){current[k]=value;completed.push(k)}else unresolved.push(k);
+    });
+  }
+  const finalGuard=cPlanCompleteness(t,current);
+  return {plan:current,audit:{
+    version:C_AI_COMPLETION_VERSION,status:finalGuard.ok?'completed':'blocked',
+    missing_before:requested,completed_fields:[...new Set(completed)],
+    unresolved_fields:[...new Set([...unresolved,...finalGuard.missing])],
+    completed_at:new Date().toISOString()
+  }};
+}
 function cGuardMarkup(t,p){
   const check=cPlanCompleteness(t,p);
-  const label=check.ok?'Contrôle de complétude : prêt à être relu par l’administrateur.':'Contrôle de complétude : la carte ne peut pas être déclarée prête.';
-  const detail=check.ok?'La proposition contient les éléments de recherche, de production et de PDF requis. La validation administrative reste distincte.':'Éléments encore manquants : '+check.missing.map(x=>x==='selected_chapters'?'chapitres B':x==='chapter_alignment'?'alignement chapitre B/C':x==='research_source'?'au moins une source':x==='quality_detail'?'contrôle qualité détaillé':x).join(', ')+'.';
-  return '<div class="editor-c-plan-context '+(check.ok?'':'warning')+'"><span>Garde-fou '+C_EXECUTION_CONTRACT_VERSION+'</span><strong>'+esc(label)+'</strong><small>'+esc(detail)+' Aucun retour conversationnel ne doit être considéré comme terminé avant écriture et vérification de cette carte.</small></div>';
+  const label=check.ok?'Contrôle de complétude : prêt à être relu par l’administrateur.':'Contrôle de complétude : champs manquants à compléter par l’IA éditrice.';
+  const detail=check.ok?'Tous les champs obligatoires sont présents. La validation administrative reste distincte.':'Éléments manquants : '+check.missing.map(x=>x==='selected_chapters'?'chapitres B':x==='chapter_alignment'?'alignement chapitre B/C':x==='research_source'?'au moins une source':x==='quality_detail'?'contrôle qualité détaillé':(C_PLAN_FIELD_LABELS[x]||x)).join(', ')+'.';
+  return '<div class="editor-c-plan-context '+(check.ok?'':'warning')+'"><span>Garde-fou '+C_EXECUTION_CONTRACT_VERSION+'</span><strong>'+esc(label)+'</strong><small>'+esc(detail)+'</small><small data-c-ai-status>Lors de l’enregistrement et de la migration, l’IA éditrice complète les champs manquants. Si un champ reste incomplet, aucune écriture du plan et aucune migration C → CX ne sont autorisées.</small></div>';
 }
 function planForm(t,section){
   const p=proposalFor(t),research=t.metadata?.workflow?.chapter_research&&typeof t.metadata.workflow.chapter_research==='object'?t.metadata.workflow.chapter_research:{};
