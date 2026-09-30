@@ -1856,7 +1856,7 @@ def normalize_math(s):
 
 _AUTO_MATH_START_RE = re.compile(
     r"(?<![A-Za-z0-9_])(?:"
-    r"conjugué|conjuguée|Var|Im|Re|arg|mod|AB|AC|BC|ABC|P|C|"
+    r"[\U0001D400-\U0001D7FF]|conjugué|conjuguée|Var|Im|Re|arg|mod|AB|AC|BC|ABC|P|C|"
     r"E_[A-Za-z0-9]+|f(?:['’′]{1,2})?(?:\([A-Za-z0-9_,]+\))?|"
     r"z(?:['’′]|_[A-Za-z0-9]+|[0-9]+)?|[abcmnpqxykTEX])"
 )
@@ -1877,7 +1877,7 @@ _AUTO_MATH_ATOM_RE = re.compile(
     r"[²³⁴⁵⁶⁷⁸⁹⁰₀₁₂₃₄₅₆₇₈₉πΔΩ√−≤≥≠≈∈∉×±∶→∘]"
     r")"
 )
-_AUTO_MATH_OP_RE = re.compile(r"(?:=|[+\-*/^_<>]|∈|∉|≤|≥|≠|≈|±)")
+_AUTO_MATH_OP_RE = re.compile(r"(?:=|[+\-*/^_<>]|∈|∉|≤|≥|≠|≈|±|∶|:)")
 _AUTO_MATH_ABS_PREFIX_RE = re.compile(
     r"(?<!\w)\|[^|\n]{1,100}\|\s*(?:=|≠|≤|≥|<|>)\s*"
 )
@@ -2413,7 +2413,7 @@ def _looks_like_plain_math_fragment(fragment):
     value = str(fragment or "").strip()
     if not value:
         return False
-    if not re.search(r"(?:=|→|≤|≥|≠|∈)", value):
+    if not re.search(r"(?:=|→|≤|≥|≠|∈|∶|:)", value):
         return False
     if not re.search(r"[0-9\U0001D400-\U0001D7FF𝑥𝑦𝑧𝑡𝑛𝑓𝑔𝑎𝑏𝑐𝑒𝑘𝑙𝑚𝑝𝑟𝑠𝑢𝑣𝑤𝑅]", value):
         return False
