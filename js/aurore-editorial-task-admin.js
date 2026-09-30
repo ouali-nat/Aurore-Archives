@@ -592,7 +592,12 @@ function render(root,state){
 }
 function bind(root,state){
   root.querySelector('#editorRefresh')?.addEventListener('click',chargerEspaceEditorialChatGPT);
-  root.querySelectorAll('[data-editor-section]').forEach(b=>b.addEventListener('click',()=>{state.section=b.dataset.editorSection;state.pages[state.section]=0;render(root,state)}));
+  root.querySelectorAll('[data-editor-section]').forEach(b=>b.addEventListener('click',()=>{
+    state.section=b.dataset.editorSection;
+    state.pages[state.section]=0;
+    window.__auroreEditorialActiveSection=state.section;
+    render(root,state);
+  }));
   root.querySelector('[data-editor-documents]')?.addEventListener('click',()=>{
     const b=[...document.querySelectorAll('.admin-tab')].find(x=>x.dataset.tab==='attente');
     if(b)b.click();
@@ -826,21 +831,27 @@ function bindDetail(d,t,state){
     const w=t.metadata?.workflow||{};
     return Array.isArray(w.selected_chapters)?w.selected_chapters:(Array.isArray(w.chapters)?w.chapters:[]);
   };
-  const persistPlan=async(statusStage='proposal_review',status='ready_for_admin_validation')=>{
-    const selected=selectedChapters();
+  const persistPlan=async({targetStage,targetStatus,enforceCompleteness=false}={})=>{
+    const fresh=await getJob(t.id);
+    if(!fresh)throw new Error('Tâche introuvable.');
+    const fw=fresh.metadata?.workflow||{};
+    const selected=Array.isArray(fw.selected_chapters)?fw.selected_chapters:(Array.isArray(fw.chapters)?fw.chapters:[]);
     if(!selected.length)throw new Error('Le plan ne peut pas être enregistré : aucun chapitre validé en section B.');
     const p=collectPlan();
-    const guard=cPlanCompleteness(t,p);
-    if(!guard.ok)throw new Error('Garde-fou C : plan incomplet. Champs/contrôles manquants : '+guard.missing.join(', '));
+    const guard=cPlanCompleteness(fresh,p);
+    if(enforceCompleteness&&!guard.ok)throw new Error('Garde-fou C : plan incomplet. Champs/contrôles manquants : '+guard.missing.join(', '));
+    const stage=targetStage||fw.stage||'proposition_editoriale';
+    const status=targetStatus||fw.proposal_status||'plan_editing';
     return updateJob(t.id,{
       proposal:p,
-      proposal_version:Number(t.metadata?.workflow?.proposal_version||0)+1,
+      proposal_version:Number(fw.proposal_version||0)+1,
       proposal_status:status,
-      stage:statusStage,
+      stage,
       rejected:false,
       revision_requested:false,
-      user_validated:statusStage==='edition_ready',
-      revision_note:statusStage==='edition_ready'?'':(p.revisionNotes||t.metadata?.workflow?.revision_note||''),
+      user_validated:false,
+      revision_note:p.revisionNotes||fw.revision_note||'',
+      ...(stage==='proposal_review'?{admin_validation:null}:{ }),
       manual_pdf_launch_required:true,
       auto_pdf_launch:false
     });
@@ -848,10 +859,12 @@ function bindDetail(d,t,state){
   d.querySelector('[data-plan-save]')?.addEventListener('click',async()=>{
     const button=d.querySelector('[data-plan-save]');if(button)button.disabled=true;
     try{
-      const updated=await persistPlan();
+      const fresh=await getJob(t.id);
+      const currentStage=fresh?.metadata?.workflow?.stage||state.section==='CX'?'proposal_review':'proposition_editoriale';
+      const updated=await persistPlan({targetStage:currentStage,targetStatus:'plan_editing',enforceCompleteness:false});
       if(!updated?.metadata?.workflow?.proposal)throw new Error('Le plan n’a pas pu être confirmé après enregistrement.');
-      alert('Plan enregistré et prêt pour validation.');
-      await chargerEspaceEditorialChatGPT()
+      alert('Modifications enregistrées. La migration reste bloquée tant que le garde-fou C n’est pas complet.');
+      await chargerEspaceEditorialChatGPT(state.section)
     }catch(e){alert(e.message||e)}finally{if(button)button.disabled=false}
   });
   d.querySelector('[data-plan-reject]')?.addEventListener('click',async()=>{
@@ -859,12 +872,16 @@ function bindDetail(d,t,state){
     if(!reason&&!confirm('Aucune demande de révision n’est renseignée. Rejeter quand même cette carte ?'))return;
     try{
       await updateJob(t.id,{stage:'revision_requested',proposal_status:'revision_requested',rejected:true,revision_requested:true,revision_note:reason,user_validated:false});
-      await chargerEspaceEditorialChatGPT()
+      await chargerEspaceEditorialChatGPT(state.section)
     }catch(e){alert(e.message||e)}
   });
   d.querySelector('[data-plan-validate]')?.addEventListener('click',async()=>{
     const button=d.querySelector('[data-plan-validate]');if(button)button.disabled=true;
     try{
+      const freshForValidation=await getJob(t.id);
+      const validationPlan=collectPlan();
+      const validationGuard=cPlanCompleteness(freshForValidation||t,validationPlan);
+      if(!validationGuard.ok)throw new Error('Garde-fou C : plan incomplet. Champs/contrôles manquants : '+validationGuard.missing.join(', '));
       if(state.section==='CX'){
         const checks={};d.querySelectorAll('[data-admin-check]').forEach(x=>checks[x.dataset.adminCheck]=x.checked);
         if(!Object.values(checks).every(Boolean))throw new Error('Validation CX bloquée : toutes les vérifications doivent être confirmées.');
@@ -874,11 +891,11 @@ function bindDetail(d,t,state){
         const migrated=await updateJob(t.id,{stage:'redaction',editor_ready:true,chatgpt_editable:true,user_validated:true,proposal_status:'validated_for_editing',production_status:'ready_for_editing',production_started_at:null,admin_validation:{...checks,notes,status:'validated',validated_at:new Date().toISOString()},auto_pdf_launch:false,manual_pdf_launch_required:true,execution_contract:D_EXECUTION_CONTRACT,execution_contract_acknowledged:true,completion_guard:D_EXECUTION_CONTRACT_VERSION},'draft');
         if(migrated?.metadata?.workflow?.stage!=='redaction')throw new Error('La migration CX → D n’a pas pu être confirmée après relecture de Supabase.');
       }else{
-        const updated=await persistPlan('proposal_review','ready_for_admin_validation');
+        const updated=await persistPlan({targetStage:'proposal_review',targetStatus:'ready_for_admin_validation',enforceCompleteness:true});
         const wf=updated?.metadata?.workflow||{};
         if(wf.stage!=='proposal_review'||wf.proposal_status!=='ready_for_admin_validation')throw new Error('Le passage C → CX n’a pas pu être confirmé après relecture de Supabase.');
       }
-      await chargerEspaceEditorialChatGPT();
+      await chargerEspaceEditorialChatGPT(state.section);
     }catch(e){alert(e.message||e)}finally{if(button)button.disabled=false}
   });
 
@@ -983,7 +1000,7 @@ function bindDetail(d,t,state){
       const done=await updateJob(t.id,{stage:'production_terminee',production_status:'editorial_completed',production_completed_at:new Date().toISOString(),generated_document_id:docId,pending_admin_surface:'documents_en_attente',editorial_ingest_id:ingestId,auto_pdf_launch:false,manual_pdf_launch_required:true,execution_contract:D_EXECUTION_CONTRACT,completion_guard:D_EXECUTION_CONTRACT_VERSION},'review');
       if(done?.metadata?.workflow?.generated_document_id!==docId||done?.metadata?.workflow?.stage!=='production_terminee')throw new Error('Garde-fou D : la production terminée n’a pas été confirmée.');
       alert('Édition terminée : document envoyé vers « Documents en attente ». PDF non lancé.');
-      await chargerEspaceEditorialChatGPT();
+      await chargerEspaceEditorialChatGPT(state.section);
     }catch(e){alert(e.message||e)}finally{if(button)button.disabled=false}
   });
 
@@ -1000,7 +1017,7 @@ function bindDetail(d,t,state){
         proposal_status:'validated_for_editing',
         admin_validation:{...checks,notes,status:'validated',validated_at:new Date().toISOString()}
       });
-      await chargerEspaceEditorialChatGPT()
+      await chargerEspaceEditorialChatGPT(state.section)
     }catch(e){alert(e.message||e)}
   });
   d.querySelector('[data-admin-reject]')?.addEventListener('click',async()=>{
@@ -1239,12 +1256,21 @@ function injectStyle(){
 `;
   document.head.appendChild(s);
 }
-async function chargerEspaceEditorialChatGPT(){
+async function chargerEspaceEditorialChatGPT(preferredSection){
   const p=panel();if(!p)return false;injectStyle();
   let root=document.getElementById('auroreEditorialTaskAdmin');
   if(!root){root=document.createElement('div');root.id='auroreEditorialTaskAdmin';(document.getElementById('auroraRequestFormHost')||p).appendChild(root)}
   root.innerHTML='<div class="editor-empty">Chargement du parcours éditorial…</div>';
-  try{const tasks=await listJobs();const state={tasks,section:'A',pages:{A:0,B:0,C:0,CX:0,D:0}};render(root,state);const count=document.getElementById('tabCountAuroraRequest');if(count)count.textContent=String(tasks.length);return true}catch(e){root.innerHTML='<div class="editor-empty">Impossible de charger le parcours éditorial : '+esc(e.message||e)+'</div>';return false}
+  try{
+    const tasks=await listJobs();
+    const allowed=['A','B','C','CX','D'];
+    const active=allowed.includes(preferredSection)?preferredSection:(allowed.includes(window.__auroreEditorialActiveSection)?window.__auroreEditorialActiveSection:'A');
+    window.__auroreEditorialActiveSection=active;
+    const state={tasks,section:active,pages:{A:0,B:0,C:0,CX:0,D:0}};
+    render(root,state);
+    const count=document.getElementById('tabCountAuroraRequest');if(count)count.textContent=String(tasks.length);
+    return true;
+  }catch(e){root.innerHTML='<div class="editor-empty">Impossible de charger le parcours éditorial : '+esc(e.message||e)+'</div>';return false}
 }
 window.chargerEspaceEditorialChatGPT=chargerEspaceEditorialChatGPT;
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{const p=panel();if(p){injectStyle();const host=document.getElementById('auroraRequestFormHost');if(host&&!document.getElementById('auroreEditorialTaskAdmin')){const root=document.createElement('div');root.id='auroreEditorialTaskAdmin';host.appendChild(root)}}},{once:true});else injectStyle();
