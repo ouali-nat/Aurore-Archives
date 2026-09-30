@@ -940,18 +940,33 @@ function bindDetail(d,t,state){
     const w=t.metadata?.workflow||{};
     return Array.isArray(w.selected_chapters)?w.selected_chapters:(Array.isArray(w.chapters)?w.chapters:[]);
   };
-  const persistPlan=async({targetStage,targetStatus,enforceCompleteness=false}={})=>{
+  const persistPlan=async({targetStage,targetStatus}={})=>{
     const fresh=await getJob(t.id);
     if(!fresh)throw new Error('Tâche introuvable.');
     const fw=fresh.metadata?.workflow||{};
     const selected=Array.isArray(fw.selected_chapters)?fw.selected_chapters:(Array.isArray(fw.chapters)?fw.chapters:[]);
     if(!selected.length)throw new Error('Le plan ne peut pas être enregistré : aucun chapitre validé en section B.');
-    const p=collectPlan();
-    const guard=cPlanCompleteness(fresh,p);
-    if(enforceCompleteness&&!guard.ok)throw new Error('Garde-fou C : plan incomplet. Champs/contrôles manquants : '+guard.missing.join(', '));
+    let p=collectPlan();
+    let guard=cPlanCompleteness(fresh,p);
+    const setGuardStatus=message=>{
+      const el=d.querySelector('[data-c-ai-status]');
+      if(el)el.textContent=message;
+    };
+    let completionAudit={version:C_AI_COMPLETION_VERSION,status:'already_complete',missing_before:[],completed_fields:[],unresolved_fields:[],completed_at:new Date().toISOString()};
+    if(!guard.ok){
+      const completed=await completeCPlanWithAI(fresh,p,guard.missing,setGuardStatus);
+      p=completed.plan;
+      completionAudit=completed.audit;
+      guard=cPlanCompleteness(fresh,p);
+      if(!guard.ok){
+        setGuardStatus('Écriture et migration bloquées : '+guard.missing.map(x=>C_PLAN_FIELD_LABELS[x]||x).join(', ')+' restent incomplets après intervention de l’IA éditrice.');
+        throw new Error('Garde-fou C : l’IA éditrice n’a pas réussi à compléter tous les champs obligatoires. Champs/contrôles manquants : '+guard.missing.map(x=>C_PLAN_FIELD_LABELS[x]||x).join(', '));
+      }
+    }
+    setGuardStatus('Garde-fou C validé : tous les champs obligatoires sont complets. Écriture autorisée.');
     const stage=targetStage||fw.stage||'proposition_editoriale';
     const status=targetStatus||fw.proposal_status||'plan_editing';
-    return updateJob(t.id,{
+    const updated=await updateJob(t.id,{
       proposal:p,
       proposal_version:Number(fw.proposal_version||0)+1,
       proposal_status:status,
@@ -960,19 +975,25 @@ function bindDetail(d,t,state){
       revision_requested:false,
       user_validated:false,
       revision_note:p.revisionNotes||fw.revision_note||'',
-      ...(stage==='proposal_review'?{admin_validation:null}:{ }),
+      c_completion_guard:completionAudit,
+      ...(stage==='proposal_review'?{admin_validation:null}:{}),
       manual_pdf_launch_required:true,
       auto_pdf_launch:false
     });
+    const verified=await getJob(t.id);
+    const verifiedPlan=verified?.metadata?.workflow?.proposal;
+    const verifiedGuard=verified?cPlanCompleteness(verified,proposalFor(verified)):null;
+    if(!verified||!verifiedPlan||!verifiedGuard?.ok)throw new Error('Garde-fou C : le plan complet n’a pas pu être confirmé après écriture dans Supabase.');
+    return verified;
   };
   d.querySelector('[data-plan-save]')?.addEventListener('click',async()=>{
     const button=d.querySelector('[data-plan-save]');if(button)button.disabled=true;
     try{
       const fresh=await getJob(t.id);
       const currentStage=fresh?.metadata?.workflow?.stage||(state.section==='CX'?'proposal_review':'proposition_editoriale');
-      const updated=await persistPlan({targetStage:currentStage,targetStatus:'plan_editing',enforceCompleteness:false});
+      const updated=await persistPlan({targetStage:currentStage,targetStatus:'plan_editing'});
       if(!updated?.metadata?.workflow?.proposal)throw new Error('Le plan n’a pas pu être confirmé après enregistrement.');
-      alert('Modifications enregistrées. La migration reste bloquée tant que le garde-fou C n’est pas complet.');
+      alert('Plan complet enregistré. Le garde-fou C est validé.');
       await chargerEspaceEditorialChatGPT(state.section)
     }catch(e){alert(e.message||e)}finally{if(button)button.disabled=false}
   });
@@ -987,10 +1008,6 @@ function bindDetail(d,t,state){
   d.querySelector('[data-plan-validate]')?.addEventListener('click',async()=>{
     const button=d.querySelector('[data-plan-validate]');if(button)button.disabled=true;
     try{
-      const freshForValidation=await getJob(t.id);
-      const validationPlan=collectPlan();
-      const validationGuard=cPlanCompleteness(freshForValidation||t,validationPlan);
-      if(!validationGuard.ok)throw new Error('Garde-fou C : plan incomplet. Champs/contrôles manquants : '+validationGuard.missing.join(', '));
       if(state.section==='CX'){
         const checks={};d.querySelectorAll('[data-admin-check]').forEach(x=>checks[x.dataset.adminCheck]=x.checked);
         if(!Object.values(checks).every(Boolean))throw new Error('Validation CX bloquée : toutes les vérifications doivent être confirmées.');
