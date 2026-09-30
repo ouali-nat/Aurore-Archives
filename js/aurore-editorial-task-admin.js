@@ -753,7 +753,7 @@ function bind(root,state){
       const level=rootNodeName(levelPicker),className=String(aPath[aPath.length-1]?.nom||'').trim(),path=aPath.map(n=>String(n?.nom||'').trim()).filter(Boolean),location=path.join(' · ');
       if(!title||!category||!resourceType||!level||!className||!subject||!prompt||!rights){const msg=root.querySelector('#editorACreateMsg');if(msg){msg.dataset.state='error';msg.textContent='Complète le titre, la catégorie, le type, le classement, la consigne et l’autorisation de production.';}return}
       const b=root.querySelector('#editorCreate'),msg=root.querySelector('#editorACreateMsg');if(b)b.disabled=true;
-      try{await createTask({title,category,documentType:resourceType,reference,prompt,themeColor,subject,level,className,path,location});if(msg){msg.dataset.state='ok';msg.textContent='✓ Tâche enregistrée dans la Section A.'}await chargerEspaceEditorialChatGPT()}catch(e){if(msg){msg.dataset.state='error';msg.textContent='Impossible de créer la tâche : '+(e.message||e)}}finally{if(b)b.disabled=false}
+      try{await createTask({title,category,documentType:resourceType,reference,prompt,themeColor,subject,level,className,path,location});if(msg){msg.dataset.state='ok';msg.textContent='✓ Tâche enregistrée dans la Section A.'}await chargerEspaceEditorialChatGPT(state.section)}catch(e){if(msg){msg.dataset.state='error';msg.textContent='Impossible de créer la tâche : '+(e.message||e)}}finally{if(b)b.disabled=false}
     });
   }
   
@@ -770,7 +770,7 @@ function bindDetail(d,t,state){
     try{
       await promoteAtoB(Number(t.id));
       alert('Recherche vérifiée et tâche transférée en B.');
-      await chargerEspaceEditorialChatGPT();
+      await chargerEspaceEditorialChatGPT(state.section);
     }catch(e){
       alert(e.message||e);
       if(button)button.disabled=false;
@@ -816,7 +816,7 @@ function bindDetail(d,t,state){
       const uw=updated?.metadata?.workflow||{};
       if(!bSelectionReady(updated))throw new Error('Garde-fou B : la sélection n’a pas pu être confirmée après relecture de Supabase.');
       if(uw.stage!=='proposition_editoriale')throw new Error('Garde-fou B : la transition vers C n’a pas été confirmée.');
-      await chargerEspaceEditorialChatGPT()
+      await chargerEspaceEditorialChatGPT(state.section)
     }catch(e){
       if(button)button.disabled=false;
       alert(e.message||e)
@@ -860,7 +860,7 @@ function bindDetail(d,t,state){
     const button=d.querySelector('[data-plan-save]');if(button)button.disabled=true;
     try{
       const fresh=await getJob(t.id);
-      const currentStage=fresh?.metadata?.workflow?.stage||state.section==='CX'?'proposal_review':'proposition_editoriale';
+      const currentStage=fresh?.metadata?.workflow?.stage||(state.section==='CX'?'proposal_review':'proposition_editoriale');
       const updated=await persistPlan({targetStage:currentStage,targetStatus:'plan_editing',enforceCompleteness:false});
       if(!updated?.metadata?.workflow?.proposal)throw new Error('Le plan n’a pas pu être confirmé après enregistrement.');
       alert('Modifications enregistrées. La migration reste bloquée tant que le garde-fou C n’est pas complet.');
@@ -976,7 +976,7 @@ function bindDetail(d,t,state){
   };
   d.querySelector('[data-d-save]')?.addEventListener('click',async()=>{
     const button=d.querySelector('[data-d-save]');if(button)button.disabled=true;
-    try{await saveEditorial();alert('Édition enregistrée dans la tâche D.');await chargerEspaceEditorialChatGPT()}catch(e){alert(e.message||e)}finally{if(button)button.disabled=false}
+    try{await saveEditorial();alert('Édition enregistrée dans la tâche D.');await chargerEspaceEditorialChatGPT(state.section)}catch(e){alert(e.message||e)}finally{if(button)button.disabled=false}
   });
   d.querySelector('[data-d-finish]')?.addEventListener('click',async()=>{
     const button=d.querySelector('[data-d-finish]');if(button)button.disabled=true;
@@ -1022,7 +1022,7 @@ function bindDetail(d,t,state){
   });
   d.querySelector('[data-admin-reject]')?.addEventListener('click',async()=>{
     const notes=d.querySelector('[data-admin-notes]')?.value.trim()||'';
-    try{await updateJob(t.id,{stage:'revision_requested',admin_validation:{status:'rejected',notes,updated_at:new Date().toISOString()},revision_requested:true,rejected:false});await chargerEspaceEditorialChatGPT()}catch(e){alert(e.message||e)}
+    try{await updateJob(t.id,{stage:'revision_requested',admin_validation:{status:'rejected',notes,updated_at:new Date().toISOString()},revision_requested:true,rejected:false});await chargerEspaceEditorialChatGPT(state.section)}catch(e){alert(e.message||e)}
   });
 }
 function injectStyle(){
