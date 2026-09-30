@@ -385,17 +385,35 @@
     });
   }
 
-  // ---------- PRÉSENTATION ----------
-  function rendrePresentation() {
+  // ---------- PRÉSENTATION ADMINISTRABLE ----------
+  const PRESENTATION_ADMIN_DEFAULT = {
+    title: PRESENTATION_UNIFIEE?.titre || 'Une bibliothèque pensée pour tous',
+    text: PRESENTATION_UNIFIEE?.texte || 'Aurore — Section Archives rassemble les ressources éducatives dans un espace clair, collaboratif et accessible.'
+  };
+  function echapperPresentationTexte(value){
+    const div=document.createElement('div');div.textContent=String(value||'');return div.innerHTML;
+  }
+  function rendrePresentation(config){
     const grid = document.getElementById('presentationGrid');
     if (!grid) return;
-    grid.innerHTML = `
-      <div class="presentation-item">
-        <h4>${PRESENTATION_UNIFIEE.titre}</h4>
-        <p>${PRESENTATION_UNIFIEE.texte}</p>
-      </div>
-    `;
+    const data = config || window.PRESENTATION_ADMIN_CONFIG || PRESENTATION_ADMIN_DEFAULT;
+    const title = String(data.title || data.titre || PRESENTATION_ADMIN_DEFAULT.title).trim() || PRESENTATION_ADMIN_DEFAULT.title;
+    const text = String(data.text || data.texte || PRESENTATION_ADMIN_DEFAULT.text).trim() || PRESENTATION_ADMIN_DEFAULT.text;
+    grid.innerHTML = '<div class="presentation-item"><h4>'+echapperPresentationTexte(title)+'</h4><p>'+echapperPresentationTexte(text)+'</p></div>';
   }
+  async function chargerPresentationAccueil(){
+    try{
+      const res=await fetch(SUPABASE_URL+'/rest/v1/aurore_admin_interface_settings?select=setting_value&setting_key=eq.home_presentation',{headers:HEADERS,cache:'no-store'});
+      if(!res.ok)throw new Error('HTTP '+res.status);
+      const rows=await res.json();
+      const value=rows?.[0]?.setting_value;
+      if(value&&typeof value==='object'){
+        window.PRESENTATION_ADMIN_CONFIG={title:String(value.title||PRESENTATION_ADMIN_DEFAULT.title),text:String(value.text||PRESENTATION_ADMIN_DEFAULT.text)};
+        rendrePresentation(window.PRESENTATION_ADMIN_CONFIG);
+      }
+    }catch(e){console.warn('[Aurore] identité d’accueil distante indisponible, contenu par défaut conservé.',e);}
+  }
+  window.addEventListener('aurore:presentation-accueil-updated',e=>rendrePresentation(e.detail));
 
   // ---------- APERÇUS DE COUVERTURE DES GRANDES PORTES ----------
   // Chaque grande porte de l'accueil reçoit un petit aperçu composé de vraies
