@@ -225,6 +225,16 @@ def test_math_command_corruption_is_repaired():
     assert normalize_math(r"widetilde f(a)=quad x") == r"\widetilde f(a)=\quad x"
     assert normalize_math(r"u(x)\\toell") == r"u(x)\\to\\ell"
 
+def test_math_repairs_invalid_uppercase_geometry_macros():
+    source = r"AB^2=AC^2-2\\AC \\BC \\cos(A)+BC^2"
+    rendered = normalize_math(source)
+    assert r"\\AC" not in rendered
+    assert r"\\BC" not in rendered
+    assert r"AC^2" in rendered
+    assert r"BC^2" in rendered
+    assert r"\\cos" in rendered
+
+
 def test_math_json_control_escape_repair():
     assert normalize_math("\f" + "rac{1}{2}") == r"\frac{1}{2}"
     assert normalize_math("\t" + "ext{x}") == r"\text{x}"
