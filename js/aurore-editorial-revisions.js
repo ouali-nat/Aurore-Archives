@@ -33,6 +33,10 @@ async function requestRevision(id){
   if(!r?.ok)throw new Error('La demande de révision n’a pas été confirmée par Supabase.');
   return true;
 }
+async function requestRevisionForGeneratedDocument(documentId){
+  return requestRevision(Number(documentId));
+}
+window.auroreRequestEditorialRevisionForDocument=requestRevisionForGeneratedDocument;
 async function beginRevision(id){
   const r=await api('/rest/v1/rpc/aurora_begin_editorial_revision',{
     method:'POST',headers:{'Content-Type':'application/json'},
