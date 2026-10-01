@@ -1,7 +1,10 @@
 import fs from "node:fs/promises";
 import http from "node:http";
 import { chromium } from "playwright";
-import { buildFunction2DArrayCommands } from "./function2d_commands.mjs";
+import {
+  buildFunction2DArrayCommands,
+  buildFunction2DParameterCommands,
+} from "./function2d_commands.mjs";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const RENDER_TOKEN = process.env.AURORA_LUALATEX_RENDER_TOKEN;
@@ -339,10 +342,17 @@ const renderGraphInBrowser = async (graph) => {
         preparedGraph.expression,
         preparedGraph.companion_expressions,
       );
+      preparedGraph.render_function_parameter_commands = buildFunction2DParameterCommands(
+        preparedGraph.expression,
+        preparedGraph.companion_expressions,
+      );
       preparedGraph.render_function_commands = preparedFunctions.commands;
       preparedGraph.render_function_names = preparedFunctions.functionNames;
       console.log(
-        `GeoGebra function2d multi-expression preparation: ${preparedFunctions.commands.join(" | ")}`,
+        `GeoGebra function2d multi-expression preparation: ${[
+          ...preparedGraph.render_function_parameter_commands,
+          ...preparedFunctions.commands,
+        ].join(" | ")}`,
       );
     } else {
       const rawExpression = String(preparedGraph?.expression || "").trim();
@@ -356,10 +366,17 @@ const renderGraphInBrowser = async (graph) => {
         [rawExpression],
         preparedGraph?.companion_expressions,
       );
+      preparedGraph.render_function_parameter_commands = buildFunction2DParameterCommands(
+        [rawExpression],
+        preparedGraph?.companion_expressions,
+      );
       preparedGraph.render_function_commands = preparedFunctions.commands;
       preparedGraph.render_function_names = preparedFunctions.functionNames;
       console.log(
-        `GeoGebra function2d scalar preparation: ${preparedFunctions.commands.join(" | ")}`,
+        `GeoGebra function2d scalar preparation: ${[
+          ...preparedGraph.render_function_parameter_commands,
+          ...preparedFunctions.commands,
+        ].join(" | ")}`,
       );
     }
   }
@@ -590,6 +607,9 @@ const renderGraphInBrowser = async (graph) => {
         // Les commandes multi-fonctions sont déjà des constructions GeoGebra
         // complètes (f(x)=..., g(x)=...). Ne pas les repasser dans expr(),
         // qui retire volontairement le préfixe f(x)= des expressions simples.
+        if (Array.isArray(graph.render_function_parameter_commands)) {
+          commands.push(...graph.render_function_parameter_commands);
+        }
         commands.push(...graph.render_function_commands);
       } else {
         let raw = String(
