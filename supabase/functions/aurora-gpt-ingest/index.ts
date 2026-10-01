@@ -543,6 +543,7 @@ function validateEditorialContent(content:any,profile:any,instructions:any,subje
   if(!Array.isArray(content.sections)||content.sections.length<1||content.sections.length>30)throw new Error("content_json.sections doit contenir de 1 à 30 sections.");
   const courseQuality=validateCourseQuality(content,subjectForValidation,profile,instructions);
   const physicsChemistryQuality=validatePhysicsChemistryCourseQuality(content,subjectForValidation,profile);
+  const editorialDistinctness=validateEditorialSectionDistinctness(content,profile);
   let visuals=0,graphs=0,exercises=0;
   const longSectionContents:string[]=[];
   for(const s of content.sections){
@@ -600,7 +601,7 @@ function validateEditorialContent(content:any,profile:any,instructions:any,subje
   if(profile.kind==="exercices"&&exercises<1)throw new Error("Un document d'exercices doit contenir au moins un exercice structuré.");
   if(profile.kind==="exercices"&&longSectionContents.length!==new Set(longSectionContents).size)throw new Error("Contenu de section dupliqué entre plusieurs exercices.");
   if(JSON.stringify(content).length>MAX_TEXT)throw new Error("content_json dépasse la taille maximale autorisée.");
-  return {sections:content.sections.length,visuals,graphs,exercises:content.sections.reduce((n:number,s:any)=>n+(Array.isArray(s.exercises)?s.exercises.length:0),0),corrections:Array.isArray(content.corrections)?content.corrections.length:0,graph_plan:graphPlan,geogebra_plan:geogebraPlan,exercise_geogebra_plan:exerciseGeogebraPlan,documentary_visual_plan:documentaryPlan,course_quality:courseQuality,physics_chemistry_quality:physicsChemistryQuality};
+  return {sections:content.sections.length,visuals,graphs,exercises:content.sections.reduce((n:number,s:any)=>n+(Array.isArray(s.exercises)?s.exercises.length:0),0),corrections:Array.isArray(content.corrections)?content.corrections.length:0,graph_plan:graphPlan,geogebra_plan:geogebraPlan,exercise_geogebra_plan:exerciseGeogebraPlan,documentary_visual_plan:documentaryPlan,course_quality:courseQuality,physics_chemistry_quality:physicsChemistryQuality,editorial_distinctness:editorialDistinctness};
 }
 async function validateEditorialMemoryAcknowledgement(ack:any,memorySession:any,memorySessionToken:string){
   if(!ack||typeof ack!=="object")throw new Error("Lecture obligatoire : editorial_memory_ack est absent.");
