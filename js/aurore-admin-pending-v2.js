@@ -283,9 +283,11 @@ async function compterDocumentsEnAttente(){
   const n=jobs.filter(j=>{
    const m=metadataOf(j);
    const workflow=m.workflow&&typeof m.workflow==='object'?m.workflow:null;
+   const revisionRequested=workflow?.revision_requested===true;
    const workflowStage=String(workflow?.stage||'').trim().toLowerCase();
    const productionStatus=String(workflow?.production_status||'').trim().toLowerCase();
    const isSectionDReady=Boolean(j.generated_document_id)&&statusOf(j)==='review'&&productionStatus==='ready_for_editing';
+   if(revisionRequested)return false;
    if(workflowStage && workflowStage!=='edition_ready' && workflowStage!=='production_ready' && workflowStage!=='pdf_ready' && workflowStage!=='production_terminee' && !isSectionDReady)return false;
    const gid=Number(j.generated_document_id||0);
    if(!gid)return true;
