@@ -33,6 +33,14 @@ async function requestRevision(id){
   if(!r?.ok)throw new Error('La demande de révision n’a pas été confirmée par Supabase.');
   return true;
 }
+async function requestRevisionForJob(jobId){
+  const rows=await api('/rest/v1/aurora_content_jobs?id=eq.'+encodeURIComponent(Number(jobId))+'&select=id,generated_document_id,status,metadata');
+  const job=Array.isArray(rows)?rows[0]:null;
+  const docId=Number(job?.generated_document_id||0);
+  if(!docId)throw new Error('Aucun document généré n’est associé au job #'+jobId+'.');
+  return requestRevision(docId);
+}
+window.auroreRequestEditorialRevisionForJob=requestRevisionForJob;
 async function beginRevision(id){
   const r=await api('/rest/v1/rpc/aurora_begin_editorial_revision',{
     method:'POST',headers:{'Content-Type':'application/json'},
@@ -110,8 +118,25 @@ function addRevisionButtons(){
     const id=extractId(card);if(!id||card.querySelector('.aurore-revision-request-btn'))return;
     const actions=card.querySelector('.admin-actions')||card.querySelector('.admin-card-body');
     if(!actions)return;
-    const btn=document.createElement('button');btn.type='button';btn.className='admin-btn ghost aurore-revision-request-btn';btn.textContent='Demander une révision';btn.dataset.revisionRequestId=String(id);
+    const btn=document.createElement('button');btn.type='button';btn.className='admin-btn ghost aurore-revision-request-btn';btn.textContent='Envoyer en E — réviser';btn.dataset.revisionRequestId=String(id);
     actions.appendChild(btn);
+  });
+  document.querySelectorAll('[data-revision-job]').forEach(btn=>{
+    if(btn.dataset.revisionBound==='1')return;
+    btn.dataset.revisionBound='1';
+    btn.addEventListener('click',async()=>{
+      const jobId=Number(btn.dataset.revisionJob);if(!jobId)return;
+      btn.disabled=true;const original=btn.textContent;btn.textContent='Envoi en E…';
+      try{
+        if(typeof window.auroreRequestEditorialRevisionForJob!=='function')throw new Error('Le circuit Section E n’est pas chargé.');
+        const ok=await window.auroreRequestEditorialRevisionForJob(jobId);
+        if(!ok){btn.disabled=false;btn.textContent=original;return;}
+        alert('Job #'+jobId+' envoyé en Section E. Il quitte maintenant le sas PDF et pourra être repris explicitement en D après révision.');
+        await refreshAll();
+        if(typeof window.chargerEspaceEditorialChatGPT==='function'&&window.__auroreEditorialActiveSection)await window.chargerEspaceEditorialChatGPT(window.__auroreEditorialActiveSection);
+        if(typeof window.chargerDocumentsEnAttenteAdminV2==='function')await window.chargerDocumentsEnAttenteAdminV2();
+      }catch(e){alert(e.message||e);btn.disabled=false;btn.textContent=original}
+    });
   });
 }
 async function bindRevisionButtons(){
