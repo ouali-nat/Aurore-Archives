@@ -520,12 +520,30 @@ function validateCourseQuality(content:any,subject:any,profile:any,instructions:
   };
 }
 
+function normalizeEditorialSimilarityText(v:unknown){return String(v??"").normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/\\\\([^)]*\\\\)|\$[^$]*\$/g," ").replace(/https?:\/\/\S+/g," ").replace(/[^a-z0-9\s]/gi," ").replace(/\s+/g," ").trim();}
+const EDITORIAL_SIMILARITY_STOPWORDS=new Set(["a","au","aux","avec","ce","ces","cette","dans","de","des","du","elle","en","et","il","ils","la","le","les","leur","leurs","mais","ne","nos","notre","nous","on","ou","par","pas","pour","que","qui","se","ses","son","sur","un","une","vos","votre","vous","est","sont","etre","ete","comme","plus","ainsi","donc","entre","afin","tout","tous","toute","toutes"]);
+function editorialTokens(v:unknown){return normalizeEditorialSimilarityText(v).split(/\s+/).filter((w)=>w.length>=3&&!EDITORIAL_SIMILARITY_STOPWORDS.has(w));}
+function editorialShingles(v:unknown,size=5){const tokens=editorialTokens(v);const out=new Set<string>();for(let i=0;i<=tokens.length-size;i++)out.add(tokens.slice(i,i+size).join(" "));return out;}
+function editorialJaccard(a:Set<string>,b:Set<string>){if(!a.size||!b.size)return 0;let intersection=0;for(const x of a)if(b.has(x))intersection++;return intersection/(a.size+b.size-intersection);}
+function validateEditorialSectionDistinctness(content:any,profile:any){
+  if(profile.kind!=="cours"||!Array.isArray(content?.sections)||content.sections.length<2)return {enabled:false,duplicates:[],section_threshold:0.72,exercise_threshold:0.80};
+  const duplicates:any[]=[];
+  const sections=content.sections.map((section:any,index:number)=>{const body=Array.isArray(section?.content)?section.content.join(" "):String(section?.content||"");return {index:index+1,title:String(section?.title||"").trim(),words:editorialTokens(body),shingles:editorialShingles(body)};});
+  for(let i=0;i<sections.length;i++)for(let j=i+1;j<sections.length;j++){const a=sections[i],b=sections[j];if(Math.min(a.words.length,b.words.length)<40)continue;const similarity=editorialJaccard(a.shingles,b.shingles);if(similarity>=0.72)duplicates.push({kind:"section_content",section_a:a.index,section_b:b.index,title_a:a.title,title_b:b.title,similarity:Number(similarity.toFixed(3)),threshold:0.72});}
+  const exercises:any[]=[];
+  for(let i=0;i<content.sections.length;i++){const exs=Array.isArray(content.sections[i]?.exercises)?content.sections[i].exercises:[];for(let k=0;k<exs.length;k++){const statement=exs[k]?.question||exs[k]?.statement||exs[k]?.enonce||exs[k]?.content||"";const words=editorialTokens(statement);if(words.length<18)continue;exercises.push({section:i+1,number:k+1,words,shingles:editorialShingles(statement,4)});}}
+  for(let i=0;i<exercises.length;i++)for(let j=i+1;j<exercises.length;j++){const a=exercises[i],b=exercises[j];const similarity=editorialJaccard(a.shingles,b.shingles);if(similarity>=0.80)duplicates.push({kind:"exercise_statement",section_a:a.section,exercise_a:a.number,section_b:b.section,exercise_b:b.number,similarity:Number(similarity.toFixed(3)),threshold:0.80});}
+  if(duplicates.length)throw new Error("Garde-fou éditorial : contenus substantiellement répétitifs détectés entre sections/exercices. L’IA éditrice doit réécrire les éléments signalés avant l’ingestion. Détails: "+JSON.stringify(duplicates.slice(0,8)));
+  return {enabled:true,duplicates:[],section_threshold:0.72,exercise_threshold:0.80};
+}
+
 function validateEditorialContent(content:any,profile:any,instructions:any,subjectForValidation:any=null){
   if(!content||typeof content!=="object"||Array.isArray(content))throw new Error("content_json doit être un objet JSON.");
   if(typeof content.title!=="string"||!content.title.trim())throw new Error("content_json.title est obligatoire.");
   if(!Array.isArray(content.sections)||content.sections.length<1||content.sections.length>30)throw new Error("content_json.sections doit contenir de 1 à 30 sections.");
   const courseQuality=validateCourseQuality(content,subjectForValidation,profile,instructions);
   const physicsChemistryQuality=validatePhysicsChemistryCourseQuality(content,subjectForValidation,profile);
+  const editorialDistinctness=validateEditorialSectionDistinctness(content,profile);
   let visuals=0,graphs=0,exercises=0;
   const longSectionContents:string[]=[];
   for(const s of content.sections){
@@ -583,7 +601,7 @@ function validateEditorialContent(content:any,profile:any,instructions:any,subje
   if(profile.kind==="exercices"&&exercises<1)throw new Error("Un document d'exercices doit contenir au moins un exercice structuré.");
   if(profile.kind==="exercices"&&longSectionContents.length!==new Set(longSectionContents).size)throw new Error("Contenu de section dupliqué entre plusieurs exercices.");
   if(JSON.stringify(content).length>MAX_TEXT)throw new Error("content_json dépasse la taille maximale autorisée.");
-  return {sections:content.sections.length,visuals,graphs,exercises:content.sections.reduce((n:number,s:any)=>n+(Array.isArray(s.exercises)?s.exercises.length:0),0),corrections:Array.isArray(content.corrections)?content.corrections.length:0,graph_plan:graphPlan,geogebra_plan:geogebraPlan,exercise_geogebra_plan:exerciseGeogebraPlan,documentary_visual_plan:documentaryPlan,course_quality:courseQuality,physics_chemistry_quality:physicsChemistryQuality};
+  return {sections:content.sections.length,visuals,graphs,exercises:content.sections.reduce((n:number,s:any)=>n+(Array.isArray(s.exercises)?s.exercises.length:0),0),corrections:Array.isArray(content.corrections)?content.corrections.length:0,graph_plan:graphPlan,geogebra_plan:geogebraPlan,exercise_geogebra_plan:exerciseGeogebraPlan,documentary_visual_plan:documentaryPlan,course_quality:courseQuality,physics_chemistry_quality:physicsChemistryQuality,editorial_distinctness:editorialDistinctness};
 }
 async function validateEditorialMemoryAcknowledgement(ack:any,memorySession:any,memorySessionToken:string){
   if(!ack||typeof ack!=="object")throw new Error("Lecture obligatoire : editorial_memory_ack est absent.");
