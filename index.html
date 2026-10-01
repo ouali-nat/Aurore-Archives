@@ -1843,7 +1843,7 @@ html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
   ══════════════════════════════════════════════════════════════════════════
 -->
 <link rel="preload" as="script" crossorigin href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"><script async id="aurore-supabase-sdk" src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js" onload="window.__AURORE_SUPABASE_SDK_LOADED=true" onerror="window.__AURORE_SUPABASE_SDK_FAILED=true"></script>
-<script defer src="js/aurore-auth-bootstrap.js"></script>
+<script defer src="js/aurore-auth-bootstrap.js?v=20261001-authready2"></script>
 <script>
 
   // ---------- CONFIGURATION SUPABASE ----------
@@ -2431,10 +2431,50 @@ html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
   });
 
   document.getElementById('gSignInBtn').innerHTML =
-    '<button type="button" id="btnGoogleConnexion" style="display:flex; align-items:center; gap:8px; background:#fff; border:1px solid var(--bordure); border-radius:100px; padding:8px 16px; font-size:0.82rem; font-weight:600; color:#1F1B2E;">' +
+    '<button type="button" id="btnGoogleConnexion" disabled aria-busy="true" title="Préparation de la connexion sécurisée…" style="display:flex; align-items:center; gap:8px; background:#fff; border:1px solid var(--bordure); border-radius:100px; padding:8px 16px; font-size:0.82rem; font-weight:600; color:#1F1B2E; opacity:.58; cursor:wait;">' +
     '<svg width="16" height="16" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.6 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l6-6C34.5 5.5 29.5 3.5 24 3.5 12.7 3.5 3.5 12.7 3.5 24S12.7 44.5 24 44.5 44.5 35.3 44.5 24c0-1.2-.1-2.4-.3-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l6-6C34.5 6.5 29.5 4.5 24 4.5c-8 0-14.8 4.6-18 11.2l0.3-1z"/><path fill="#4CAF50" d="M24 44.5c5.4 0 10.3-1.9 14-5.4l-6.5-5.5c-2 1.4-4.6 2.4-7.5 2.4-5.3 0-9.7-3.4-11.3-8.1l-6.6 5.1C9.2 39.8 16 44.5 24 44.5z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.6l6.5 5.5C41.5 36 44.5 30.5 44.5 24c0-1.2-.1-2.4-.3-3.5z"/></svg>' +
     'Se connecter avec Google</button>';
-  document.getElementById('btnGoogleConnexion').addEventListener('click', async (e) => {
+
+  const btnGoogleConnexion = document.getElementById('btnGoogleConnexion');
+  function activerBoutonGooglePret(){
+    if(!btnGoogleConnexion) return;
+    btnGoogleConnexion.disabled=false;
+    btnGoogleConnexion.removeAttribute('aria-busy');
+    btnGoogleConnexion.removeAttribute('title');
+    btnGoogleConnexion.style.opacity='1';
+    btnGoogleConnexion.style.pointerEvents='auto';
+    btnGoogleConnexion.style.cursor='pointer';
+  }
+  function verrouillerBoutonGooglePreparation(){
+    if(!btnGoogleConnexion) return;
+    btnGoogleConnexion.disabled=true;
+    btnGoogleConnexion.setAttribute('aria-busy','true');
+    btnGoogleConnexion.title='Préparation de la connexion sécurisée…';
+    btnGoogleConnexion.style.opacity='.58';
+    btnGoogleConnexion.style.pointerEvents='none';
+    btnGoogleConnexion.style.cursor='wait';
+  }
+
+  // Le client OAuth est préparé en amont par aurore-auth-bootstrap.js.
+  // Aucun clic ne doit entrer dans signInWithOAuth() avant l'événement ready.
+  window.addEventListener('aurore-auth-google-ready', activerBoutonGooglePret);
+  window.addEventListener('aurore-auth-google-failed', () => {
+    // On autorise explicitement une nouvelle tentative : le bootstrap
+    // réinitialise ses promesses après un échec réseau.
+    activerBoutonGooglePret();
+    const msg=document.getElementById('accessMessage');
+    if(msg){
+      msg.textContent='La connexion Google est temporairement indisponible. Appuyez à nouveau pour réessayer.';
+      msg.className='access-message err';
+      msg.style.display='block';
+    }
+  });
+  if(window.auroreAuthGoogleEstPret?.()) activerBoutonGooglePret();
+
+  btnGoogleConnexion?.addEventListener('click', async (e) => {
+    const btn=e.currentTarget;
+    verrouillerBoutonGooglePreparation();
+
     // Afficher immédiatement le bloc avant de quitter Aurore pour Google.
     if (typeof window.auroreAfficherVeuillezPatienter === 'function') {
       window.auroreAfficherVeuillezPatienter('Connexion sécurisée avec Google…');
@@ -2445,10 +2485,22 @@ html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
       accessMsg.className='access-message ok';
       accessMsg.style.display='block';
     }
-    const btn=e.currentTarget;
-    if(btn){ btn.disabled=true; btn.setAttribute('aria-busy','true'); btn.style.opacity='.72'; btn.style.pointerEvents='none'; }
-    // Pas de délai artificiel : le navigateur peut partir immédiatement vers Google.
-    try { await demarrerConnexionGoogle(); } catch (err) { console.error('[Google OAuth]', err); }
+
+    // Le client a normalement déjà été préparé. La fonction conserve l'attente
+    // partagée comme garde supplémentaire contre toute course inhabituelle.
+    try {
+      await demarrerConnexionGoogle();
+    } catch (err) {
+      console.error('[Google OAuth]', err);
+    } finally {
+      // Après un échec sans redirection, le bouton doit permettre une nouvelle
+      // tentative. Après une redirection vers Google, cette page va disparaître.
+      if(window.auroreAuthGoogleEstPret?.()) {
+        activerBoutonGooglePret();
+      } else {
+        activerBoutonGooglePret();
+      }
+    }
   });
 
   document.getElementById('btnDeconnexion').addEventListener('click', async () => {

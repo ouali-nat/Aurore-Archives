@@ -1,25 +1,29 @@
-  // Client Supabase dédié à OAuth Google. Le reste du site conserve ses appels REST.
-  // flowType implicit permet au navigateur de récupérer directement le retour OAuth
-  // dans le fragment, sans exiger un serveur/callback PKCE supplémentaire.
+// Client Supabase dédié à OAuth Google. Le reste du site conserve ses appels REST.
+  // flowType pkce + échange manuel du code OAuth dans index.html.
   function creerClientAuthGoogle() {
     return window.supabase.createClient(
       "https://tdeotqfsbvouresfhkab.supabase.co",
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZW90cWZzYnZvdXJlc2Zoa2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjM4NzMsImV4cCI6MjEwMDUzOTg3M30.l_a1lI_QRy7BTq1fGjiA9n7LCdu7BwR2TTI5pkA70SU",
-      // detectSessionInUrl: false — volontaire. Le code gère lui-même l'échange
-      // du ?code=... via exchangeCodeForSession() plus bas dans ce fichier.
-      // Laisser le SDK sur true créait une course : le SDK consommait le
-      // code_verifier PKCE automatiquement à la création du client, avant que
-      // l'appel manuel n'arrive — d'où l'erreur "code verifier not found in
-      // storage" (Google OAuth), intermittente selon la vitesse d'exécution
-      // de la page (extensions, trackers, navigation normale vs privée).
       { auth: { flowType: 'pkce', autoRefreshToken: true, persistSession: true, detectSessionInUrl: false, storage: window.localStorage } }
     );
   }
-  let AURORE_SUPABASE_AUTH = window.supabase ? creerClientAuthGoogle() : null;
 
-  // Le SDK Supabase est chargé en async pour que le navigateur puisse afficher
-  // Aurore et traiter rapidement le retour Google. On attend brièvement son
-  // chargement principal ; si le CDN reste bloqué, on bascule vers unpkg.
+  // État global explicite : une page visuellement chargée n'implique pas que
+  // le moteur OAuth est prêt. Tous les appels partagent une seule préparation.
+  window.__AURORE_AUTH_GOOGLE_STATE = 'loading';
+  window.__AURORE_AUTH_GOOGLE_ERROR = null;
+  window.__AURORE_AUTH_GOOGLE_READY = false;
+
+  let AURORE_SUPABASE_AUTH = window.supabase?.createClient ? creerClientAuthGoogle() : null;
+  let __auroreSupabaseFallbackPromise = null;
+  let __auroreSupabaseAuthPromise = null;
+
+  function emettreEtatAuthGoogle(type, detail = {}) {
+    try {
+      window.dispatchEvent(new CustomEvent(type, { detail }));
+    } catch (_) {}
+  }
+
   function chargerScriptSupabase(url, delaiMs = 5000) {
     return new Promise((resolve, reject) => {
       const s = document.createElement('script');
@@ -47,43 +51,74 @@
   }
 
   async function attendreSdkSupabasePrincipal(delaiMs = 4000) {
-    if (window.supabase) return true;
-    const debut = Date.now();
     if (window.supabase?.createClient) return true;
-    while (!window.supabase && Date.now() - debut < delaiMs) {
+    const debut = Date.now();
+    while (!window.supabase?.createClient && Date.now() - debut < delaiMs) {
       if (window.__AURORE_SUPABASE_SDK_FAILED) break;
       await new Promise(r => setTimeout(r, 80));
     }
-    return !!window.supabase;
+    return !!window.supabase?.createClient;
   }
 
-  let __auroreSupabaseFallbackPromise = null;
-  async function assurerClientAuthGoogle() {
-    if (AURORE_SUPABASE_AUTH) return AURORE_SUPABASE_AUTH;
+  function assurerClientAuthGoogle() {
+    if (AURORE_SUPABASE_AUTH) return Promise.resolve(AURORE_SUPABASE_AUTH);
 
-    await attendreSdkSupabasePrincipal();
+    // Aucun appel concurrent ne doit relancer une seconde préparation PKCE.
+    if (__auroreSupabaseAuthPromise) return __auroreSupabaseAuthPromise;
 
-    if (!window.supabase?.createClient) {
-      if (!__auroreSupabaseFallbackPromise) {
-        __auroreSupabaseFallbackPromise = chargerScriptSupabase('https://unpkg.com/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js');
+    __auroreSupabaseAuthPromise = (async () => {
+      await attendreSdkSupabasePrincipal();
+
+      if (!window.supabase?.createClient) {
+        if (!__auroreSupabaseFallbackPromise) {
+          __auroreSupabaseFallbackPromise = chargerScriptSupabase(
+            'https://unpkg.com/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js'
+          );
+        }
+        try {
+          await __auroreSupabaseFallbackPromise;
+        } catch (e) {
+          console.error('[Google OAuth] CDN principal et secours indisponibles :', e);
+        }
       }
-      try {
-        await __auroreSupabaseFallbackPromise;
-      } catch (e) {
-        console.error('[Google OAuth] CDN principal et secours indisponibles :', e);
-      }
-    }
 
-    if (window.supabase?.createClient && !AURORE_SUPABASE_AUTH) {
-      AURORE_SUPABASE_AUTH = creerClientAuthGoogle();
-    }
-    return AURORE_SUPABASE_AUTH;
+      if (window.supabase?.createClient && !AURORE_SUPABASE_AUTH) {
+        AURORE_SUPABASE_AUTH = creerClientAuthGoogle();
+      }
+
+      if (!AURORE_SUPABASE_AUTH) {
+        throw new Error('Le moteur de connexion Google n’est pas disponible.');
+      }
+
+      return AURORE_SUPABASE_AUTH;
+    })().catch(error => {
+      // Après un échec, une nouvelle tentative doit pouvoir repartir proprement.
+      __auroreSupabaseAuthPromise = null;
+      __auroreSupabaseFallbackPromise = null;
+      throw error;
+    });
+
+    return __auroreSupabaseAuthPromise;
   }
 
-  // Préchauffage OAuth Google : le premier clic ne doit pas attendre le CDN.
-  // Le SDK est chargé avant ce bootstrap (defer), donc le cas nominal construit
-  // immédiatement le client PKCE. En cas de CDN indisponible, le secours démarre
-  // pendant le chargement de la page au lieu d'attendre le clic utilisateur.
-  assurerClientAuthGoogle().catch((e) => {
-    console.warn('[Google OAuth] Préparation anticipée indisponible :', e);
-  });
+  // Préparation anticipée : le bouton reste verrouillé jusqu'à ce que ce
+  // client soit réellement disponible. En cas d'échec réseau, le bouton
+  // redevient utilisable pour déclencher une nouvelle tentative.
+  window.__AURORE_AUTH_GOOGLE_READY_PROMISE = assurerClientAuthGoogle()
+    .then(client => {
+      window.__AURORE_AUTH_GOOGLE_STATE = 'ready';
+      window.__AURORE_AUTH_GOOGLE_READY = true;
+      window.__AURORE_AUTH_GOOGLE_ERROR = null;
+      emettreEtatAuthGoogle('aurore-auth-google-ready', { client });
+      return client;
+    })
+    .catch(error => {
+      window.__AURORE_AUTH_GOOGLE_STATE = 'failed';
+      window.__AURORE_AUTH_GOOGLE_READY = false;
+      window.__AURORE_AUTH_GOOGLE_ERROR = error;
+      emettreEtatAuthGoogle('aurore-auth-google-failed', { error });
+      console.warn('[Google OAuth] Préparation anticipée indisponible :', error);
+      return null;
+    });
+
+  window.auroreAuthGoogleEstPret = () => window.__AURORE_AUTH_GOOGLE_READY === true;
