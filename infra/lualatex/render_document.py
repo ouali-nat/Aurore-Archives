@@ -2836,9 +2836,16 @@ def render_content(items, auto_math=False, allow_two_columns=False, box_all_math
             while i < len(items) and _is_numbered(str(items[i] or "").strip()):
                 group.append(_strip_list_marker(items[i]))
                 i += 1
-            lines.append(r"\begin{enumerate}")
-            lines.extend(r"\item " + inline(x, auto_math=auto_math) for x in group)
-            lines.append(r"\end{enumerate}")
+            lines.append(r"\\begin{enumerate}")
+            for x in group:
+                if box_all_math:
+                    rendered = _render_course_math_blocks(x, auto_math=auto_math)
+                    if rendered:
+                        lines.append(r"\\item " + rendered[0])
+                        lines.extend(rendered[1:])
+                else:
+                    lines.append(r"\\item " + inline(x, auto_math=auto_math))
+            lines.append(r"\\end{enumerate}")
             continue
 
         if _is_bullet(raw):
@@ -2847,12 +2854,19 @@ def render_content(items, auto_math=False, allow_two_columns=False, box_all_math
                 group.append(_strip_list_marker(items[i]))
                 i += 1
             if len(group) >= 4:
-                lines.append(r"\begin{multicols}{2}")
-            lines.append(r"\begin{itemize}")
-            lines.extend(r"\item " + inline(x, auto_math=auto_math) for x in group)
-            lines.append(r"\end{itemize}")
+                lines.append(r"\\begin{multicols}{2}")
+            lines.append(r"\\begin{itemize}")
+            for x in group:
+                if box_all_math:
+                    rendered = _render_course_math_blocks(x, auto_math=auto_math)
+                    if rendered:
+                        lines.append(r"\\item " + rendered[0])
+                        lines.extend(rendered[1:])
+                else:
+                    lines.append(r"\\item " + inline(x, auto_math=auto_math))
+            lines.append(r"\\end{itemize}")
             if len(group) >= 4:
-                lines.append(r"\end{multicols}")
+                lines.append(r"\\end{multicols}")
             continue
 
         block = labeled_block(raw, auto_math=auto_math)
