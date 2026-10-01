@@ -4,15 +4,22 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const XAI_KEY = Deno.env.get("XAI_API_KEY") || Deno.env.get("GROK_API_KEY") || Deno.env.get("AURORA_GROK_API_KEY") || "";
+const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY") || Deno.env.get("AURORA_GEMINI_API_KEY") || "";
+const DEEPSEEK_KEY = Deno.env.get("DEEPSEEK_API_KEY") || Deno.env.get("AURORA_DEEPSEEK_API_KEY") || "";
+const LLAMA_KEY = Deno.env.get("LLAMA_API_KEY") || Deno.env.get("AURORA_LLAMA_API_KEY") || Deno.env.get("GROQ_API_KEY") || Deno.env.get("AURORA_GROQ_API_KEY") || "";
 const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY") || Deno.env.get("CLAUDE_API_KEY") || Deno.env.get("AURORA_CLAUDE_API_KEY") || "";
 const GROK_MODEL = Deno.env.get("AURORA_GROK_MODEL") || "grok-4.7";
 const CLAUDE_MODEL = Deno.env.get("AURORA_CLAUDE_MODEL") || "claude-sonnet-5-5";
+const GEMINI_MODEL = Deno.env.get("AURORA_GEMINI_MODEL") || "gemini-2.5-pro";
+const DEEPSEEK_MODEL = Deno.env.get("AURORA_DEEPSEEK_MODEL") || "deepseek-chat";
+const LLAMA_MODEL = Deno.env.get("AURORA_LLAMA_MODEL") || "llama-4-maverick-17b-128e-instruct";
+const LLAMA_API_URL = Deno.env.get("AURORA_LLAMA_API_URL") || "https://api.groq.com/openai/v1/chat/completions";
 const db = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { autoRefreshToken: false, persistSession: false } });
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Content-Type": "application/json; charset=utf-8"
 };
 
@@ -207,7 +214,7 @@ function taskContext(t:any, memories:any[]){
     memory:memories,
     exact_rules:{
       no_invented_sources:true,
-      course_standard_minimum_words:3000,
+      course_standard_minimum_words:1500,
       introduction_minimum_characters:450,
       max_sections:30,
       scientific_lycee_latex_minimum:1200,
@@ -228,7 +235,7 @@ function buildPrompt(ctx:any, repairFeedback:string){
     "Rédige un document pédagogique réel, directement exploitable, pas un plan et pas un résumé.",
     "Réponds uniquement avec le JSON demandé, sans Markdown, sans commentaire hors JSON.",
     "Le titre du JSON doit correspondre exactement au titre de la tâche.",
-    "Le cours standard doit dépasser 3000 mots utiles en comptant uniquement introduction + sections[].content.",
+    "Le cours standard doit contenir au moins 1500 mots utiles en comptant uniquement introduction + sections[].content, sans plafond de volume.",
     "Produis entre 12 et 24 sections pédagogiques distinctes. Aucune section ne doit être un remplissage générique.",
     "Chaque section non Introduction/Synthèse/Évaluation finale contient au moins deux sous-sections réellement développées.",
     "Chaque sous-section doit avoir un titre, au moins quatre éléments content, puis des champs disciplinaires réels : definition, properties, operations, reasoning, examples, applications.",
@@ -299,6 +306,87 @@ async function callGrok(prompt:string){
     if(!content) throw new Error("Grok n’a renvoyé aucun contenu.");
     return {content:JSON.parse(cleanJsonText(content)),usage:data?.usage||null,model:GROK_MODEL};
   } finally { clearTimeout(timeout); }
+}
+
+function providerModel(provider:string){
+  if(provider==="grok") return GROK_MODEL;
+  if(provider==="claude") return CLAUDE_MODEL;
+  if(provider==="gemini") return GEMINI_MODEL;
+  if(provider==="deepseek") return DEEPSEEK_MODEL;
+  if(provider==="llama") return LLAMA_MODEL;
+  return provider;
+}
+
+function availableProviders(){
+  const out:string[]=[];
+  if(XAI_KEY) out.push("grok");
+  if(ANTHROPIC_KEY) out.push("claude");
+  if(GEMINI_KEY) out.push("gemini");
+  if(DEEPSEEK_KEY) out.push("deepseek");
+  if(LLAMA_KEY) out.push("llama");
+  return out;
+}
+
+async function callOpenAICompatible(key:string,url:string,model:string,label:string,prompt:string){
+  if(!key) throw new Error("Clé "+label+" non configurée dans les secrets de la fonction.");
+  const body={
+    model,
+    messages:[
+      {role:"system",content:"Tu produis des documents pédagogiques structurés pour Aurore. Retourne uniquement le JSON final, sans Markdown, et respecte strictement le schéma, les garde-fous et les sources fournies."},
+      {role:"user",content:prompt}
+    ],
+    temperature:0.25,
+    max_tokens:50000,
+    response_format:{type:"json_object"}
+  };
+  const ctrl=new AbortController();
+  const timeout=setTimeout(()=>ctrl.abort(),110000);
+  try{
+    const r=await fetch(url,{method:"POST",headers:{"Authorization":"Bearer "+key,"Content-Type":"application/json"},body:JSON.stringify(body),signal:ctrl.signal});
+    const txt=await r.text();
+    let data:any=null; try{data=JSON.parse(txt);}catch{}
+    if(!r.ok) throw new Error(data?.error?.message || txt.slice(0,900) || (label+" HTTP "+r.status));
+    const content=data?.choices?.[0]?.message?.content;
+    if(!content) throw new Error(label+" n’a renvoyé aucun contenu.");
+    return {content:JSON.parse(cleanJsonText(content)),usage:data?.usage||null,model};
+  } finally { clearTimeout(timeout); }
+}
+
+async function callGemini(prompt:string){
+  if(!GEMINI_KEY) throw new Error("Clé Gemini non configurée dans les secrets de la fonction.");
+  const body={
+    systemInstruction:{parts:[{text:"Tu produis des documents pédagogiques structurés pour Aurore. Retourne uniquement le JSON final, sans Markdown, et respecte strictement le schéma, les garde-fous et les sources fournies."}]},
+    contents:[{role:"user",parts:[{text:prompt}]}],
+    generationConfig:{temperature:0.25,responseMimeType:"application/json"}
+  };
+  const ctrl=new AbortController();
+  const timeout=setTimeout(()=>ctrl.abort(),110000);
+  try{
+    const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(GEMINI_MODEL)+":generateContent?key="+encodeURIComponent(GEMINI_KEY),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal:ctrl.signal});
+    const txt=await r.text();
+    let data:any=null; try{data=JSON.parse(txt);}catch{}
+    if(!r.ok) throw new Error(data?.error?.message || txt.slice(0,900) || ("Gemini HTTP "+r.status));
+    const content=data?.candidates?.[0]?.content?.parts?.map((x:any)=>x?.text||"").join("")||"";
+    if(!content) throw new Error("Gemini n’a renvoyé aucun contenu.");
+    return {content:JSON.parse(cleanJsonText(content)),usage:data?.usageMetadata||null,model:GEMINI_MODEL};
+  } finally { clearTimeout(timeout); }
+}
+
+async function callDeepSeek(prompt:string){
+  return callOpenAICompatible(DEEPSEEK_KEY,"https://api.deepseek.com/chat/completions",DEEPSEEK_MODEL,"DeepSeek",prompt);
+}
+
+async function callLlama(prompt:string){
+  return callOpenAICompatible(LLAMA_KEY,LLAMA_API_URL,LLAMA_MODEL,"Llama",prompt);
+}
+
+async function callProvider(provider:string,prompt:string){
+  if(provider==="grok") return callGrok(prompt);
+  if(provider==="claude") return callClaude(prompt);
+  if(provider==="gemini") return callGemini(prompt);
+  if(provider==="deepseek") return callDeepSeek(prompt);
+  if(provider==="llama") return callLlama(prompt);
+  throw new Error("Moteur IA non pris en charge : "+provider);
 }
 
 async function callClaude(prompt:string){
@@ -474,8 +562,8 @@ async function actionGenerate(jobId:number,provider:string,runId:string){
   if(ai.status!=="processing"||ai.step!=="generate")return;
   const memories=await loadMemoriesForTask(t);
   const ctx=buildTaskContextForWorker(t,memories);
-  await patchState(jobId,runId,{progress:18,stage:"prompt",step:"generate",label:"Lecture du dossier C et préparation du moteur "+provider,model:provider==="grok"?GROK_MODEL:CLAUDE_MODEL});
-  const result=provider==="grok"?await callGrok(buildPrompt(ctx,"")):await callClaude(buildPrompt(ctx,""));
+  await patchState(jobId,runId,{progress:18,stage:"prompt",step:"generate",label:"Lecture du dossier C et préparation du moteur "+provider,model:providerModel(provider)});
+  const result=await callProvider(provider,buildPrompt(ctx,""));
   await patchState(jobId,runId,{progress:54,stage:"persist_editorial_content",step:"generate_persist",label:"Persistance du contenu produit",usage:result.usage,model:result.model,attempt:1});
   const persisted=await callRpc("aurora_persist_d_ai_editorial_content",{p_job_id:jobId,p_run_id:runId,p_content_json:result.content});
   if(persisted?.ok!==true)throw new Error(persisted?.error||"La persistance du contenu éditorial a échoué.");
@@ -516,7 +604,7 @@ async function actionRepair(jobId:number,provider:string,runId:string){
   const ctx=buildTaskContextForWorker(t,memories);
   const feedback=safeText(ai.last_validation_error||"Le contrôle Aurore demande une correction ciblée.",14000);
   await patchState(jobId,runId,{progress:56,stage:"repair",step:"repair",label:"Correction ciblée par "+provider,attempt:2});
-  const result=provider==="grok"?await callGrok(buildPrompt(ctx,feedback)):await callClaude(buildPrompt(ctx,feedback));
+  const result=await callProvider(provider,buildPrompt(ctx,feedback));
   await patchState(jobId,runId,{progress:62,stage:"persist_editorial_content",step:"repair_persist",label:"Persistance de la version corrigée",usage:result.usage,model:result.model,attempt:2});
   const persisted=await callRpc("aurora_persist_d_ai_editorial_content",{p_job_id:jobId,p_run_id:runId,p_content_json:result.content});
   if(persisted?.ok!==true)throw new Error(persisted?.error||"La persistance de la correction éditoriale a échoué.");
@@ -533,7 +621,7 @@ function buildIngestPayload(t:any,w:any,content:any,provider:string,runId:string
       document_type:t.document_type,prompt:t.prompt||null,content_json:content,instructions:t.instructions||{},
       metadata:{
         origin:"gpt_editorial_ingest",connector_mode:true,ai_provider:provider,
-        ai_model:provider==="grok"?GROK_MODEL:CLAUDE_MODEL,ai_run_id:runId,ai_word_count:wordCount,
+        ai_model:providerModel(provider),ai_run_id:runId,ai_word_count:wordCount,
         workflow_source:"section_D_multimodel",manual_pdf_launch_required:true,auto_pdf_launch:false,
         pending_admin_surface:"documents_en_attente"
       },
@@ -592,14 +680,16 @@ function isInternalRequest(req:Request){
 
 Deno.serve(async (req)=>{
   if(req.method==="OPTIONS") return new Response("ok",{headers:CORS});
-  if(req.method!=="POST") return response({error:"Méthode non autorisée."},405);
+  if(req.method!=="POST" && req.method!=="GET") return response({error:"Méthode non autorisée."},405);
   try{
     await authenticateAdmin(req);
+    if(req.method==="GET") return response({ok:true,providers:availableProviders().map(provider=>({id:provider,model:providerModel(provider)}))});
     const body=await req.json();
     const jobId=Number(body?.job_id);
     const provider=String(body?.provider||"").trim().toLowerCase();
     if(!Number.isInteger(jobId)||jobId<=0) return response({error:"job_id invalide."},400);
-    if(!["grok","claude"].includes(provider)) return response({error:"Choisis Grok ou Claude."},400);
+    if(!["grok","claude","gemini","deepseek","llama"].includes(provider)) return response({error:"Moteur IA non pris en charge."},400);
+    if(!availableProviders().includes(provider)) return response({error:"Le moteur "+provider+" n’est pas configuré dans les secrets disponibles de la fonction."},400);
     const runId="d-ai-"+jobId+"-"+provider+"-"+crypto.randomUUID();
     const started=await callRpc("aurora_begin_editorial_ai_treatment",{p_job_id:jobId,p_provider:provider,p_run_id:runId});
     if(started?.ok!==true) return response({

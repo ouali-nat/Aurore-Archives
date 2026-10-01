@@ -394,7 +394,20 @@ async function promoteAtoB(id){
   return promoted;
 }
 const D_AI_ENDPOINT='/functions/v1/aurora-editorial-ai';
-const D_AI_PROVIDERS=[['grok','Grok'],['claude','Claude']];
+const D_AI_PROVIDER_LABELS={grok:'Grok',claude:'Claude',gemini:'Gemini',deepseek:'DeepSeek',llama:'Llama'};
+let D_AI_PROVIDERS=[['grok','Grok']];
+function dAiSetProviders(list){
+  const ids=Array.isArray(list)?list.map(x=>String(x?.id||x).toLowerCase()).filter(x=>D_AI_PROVIDER_LABELS[x]):[];
+  D_AI_PROVIDERS=(ids.length?ids:['grok']).map(id=>[id,D_AI_PROVIDER_LABELS[id]]);
+}
+async function loadDAiProviders(){
+  try{
+    const tokenValue=await token();
+    const r=await fetch(SUPABASE_URL+D_AI_ENDPOINT,{method:'GET',headers:{apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+tokenValue},cache:'no-store'});
+    const raw=await r.text(); let data=null; try{data=raw?JSON.parse(raw):null}catch(_){}
+    if(r.ok&&Array.isArray(data?.providers)) dAiSetProviders(data.providers);
+  }catch(_){}
+}
 
 function dAiTreatment(t){
   const a=t?.metadata?.workflow?.ai_treatment;
@@ -410,12 +423,12 @@ function dAiCanStart(t){
 }
 function dAiProviderFor(t){
   const a=dAiTreatment(t),saved=String(a?.provider||'').toLowerCase();
-  if(saved==='grok'||saved==='claude')return saved;
+  if(D_AI_PROVIDERS.some(([id])=>id===saved))return saved;
   try{
     const p=String(localStorage.getItem('aurore_d_ai_provider')||'').toLowerCase();
-    if(p==='grok'||p==='claude')return p;
+    if(D_AI_PROVIDERS.some(([id])=>id===p))return p;
   }catch(_){}
-  return 'grok';
+  return D_AI_PROVIDERS[0]?.[0]||'grok';
 }
 function dAiIsStale(t){
   const a=dAiTreatment(t);
@@ -455,7 +468,7 @@ function dAiCardMarkup(t){
 async function startDaiTreatment(jobId,provider){
   const id=Number(jobId),p=String(provider||'').toLowerCase();
   if(!Number.isInteger(id)||id<=0)throw new Error('Tâche D invalide.');
-  if(!['grok','claude'].includes(p))throw new Error('Moteur IA invalide.');
+  if(!D_AI_PROVIDERS.some(([id])=>id===p))throw new Error('Moteur IA invalide ou non configuré.');
   const tokenValue=await token();
   const r=await fetch(SUPABASE_URL+D_AI_ENDPOINT,{
     method:'POST',
@@ -1047,7 +1060,7 @@ function bind(root,state){
     }catch(e){alert(e.message||e);b.disabled=false;b.textContent='Reprendre en D'}
   }));
   root.querySelectorAll('[data-ai-provider-job]').forEach(sel=>sel.addEventListener('change',e=>{
-    try{const value=String(e.target.value||'').toLowerCase();if(['grok','claude'].includes(value))localStorage.setItem('aurore_d_ai_provider',value)}catch(_){}
+    try{const value=String(e.target.value||'').toLowerCase();if(D_AI_PROVIDERS.some(([id])=>id===value))localStorage.setItem('aurore_d_ai_provider',value)}catch(_){}
   }));
   root.querySelectorAll('[data-ai-start]').forEach(b=>b.addEventListener('click',async()=>{
     const id=Number(b.dataset.aiStart),sel=root.querySelector('[data-ai-provider-job="'+id+'"]'),provider=String(sel?.value||dAiProviderFor((state.tasks||[]).find(x=>Number(x.id)===id))||'grok').toLowerCase();
@@ -1610,6 +1623,7 @@ async function chargerEspaceEditorialChatGPT(preferredSection){
   root.innerHTML='<div class="editor-empty">Chargement du parcours éditorial…</div>';
   try{
     const [tasks,revisions]=await Promise.all([listJobs(),listRevisionDocuments()]);
+    await loadDAiProviders();
     const allowed=['A','B','C','CX','D','E'];
     const saved=readEditorialPosition();
     const active=allowed.includes(preferredSection)?preferredSection:(allowed.includes(window.__auroreEditorialActiveSection)?window.__auroreEditorialActiveSection:saved.section);
