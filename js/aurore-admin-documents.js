@@ -136,6 +136,7 @@
         const showValidate = statut === 'review' && hasPdf && !activeProduction;
         const showReject = ['review','approved'].includes(statut) && !activeProduction;
         const showPublish = ['approved','review'].includes(statut) && hasPdf && !activeProduction;
+        const showRevision = ['review','approved'].includes(statut) && hasPdf && !activeProduction;
 
         card.className = 'admin-card pending-card aurora-generated-card';
         card.dataset.adminId = 'aurora-' + String(doc.id ?? '');
@@ -176,6 +177,9 @@
               ${showPublish
                 ? '<button type="button" class="admin-btn primary js-publish-aurora-pdf">Publier</button>'
                 : ''}
+              ${showRevision
+                ? '<button type="button" class="admin-btn ghost js-revision-generated-document" data-revision-generated-document-id="'+String(doc.id ?? '')+'">Envoyer en E — réviser</button>'
+                : ''}
               ${!activeProduction && !showRender && !showValidate && !showReject && !showPublish
                 ? '<span class="admin-btn ghost" style="cursor:default;opacity:.85;">Contrôle humain requis</span>'
                 : ''}
@@ -183,6 +187,29 @@
           </div>
         `;
 
+        const revisionButton = card.querySelector('.js-revision-generated-document');
+        if (revisionButton) revisionButton.addEventListener('click', async () => {
+          const id = Number(revisionButton.dataset.revisionGeneratedDocumentId);
+          if (!id) return;
+          if (typeof window.auroreRequestEditorialRevisionForDocument !== 'function') {
+            alert('Le circuit Section E n’est pas chargé.');
+            return;
+          }
+          revisionButton.disabled = true;
+          const original = revisionButton.textContent;
+          revisionButton.textContent = 'Envoi en E…';
+          try {
+            const ok = await window.auroreRequestEditorialRevisionForDocument(id);
+            if (!ok) { revisionButton.disabled = false; revisionButton.textContent = original; return; }
+            alert('Document envoyé en Section E. Il quitte le circuit de contrôle PDF et pourra être repris explicitement en D après révision.');
+            if (typeof window.auroreRefreshRevisionSection === 'function') await window.auroreRefreshRevisionSection();
+            await chargerDepotsEnAttente();
+          } catch (e) {
+            alert(e?.message || e);
+            revisionButton.disabled = false;
+            revisionButton.textContent = original;
+          }
+        });
         const ouvrirAuroraPdf = card.querySelector('.js-open-aurora-pdf');
         if (ouvrirAuroraPdf) ouvrirAuroraPdf.addEventListener('click', () => {
           if (!pdfUrl) return;
