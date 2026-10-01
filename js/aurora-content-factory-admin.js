@@ -146,8 +146,30 @@ async function persistGeneratedDocumentTheme(id,themeColor,accessToken){
 }
 
 async function cfFreshToken(){
-  const client=await assurerClientAuthGoogle();
-  if(!client)throw new Error('Client Supabase indisponible.');
+  // La session administrateur d'Aurore est déjà maintenue par l'authentification
+  // principale (session.access_token). La production PDF ne doit pas être bloquée
+  // par la disponibilité du SDK Supabase navigateur.
+  const cachedToken=session?.access_token||'';
+  const cachedExpires=Number(session?.expires_at||0);
+  if(cachedToken && (!cachedExpires || Date.now()<cachedExpires-60000)) return cachedToken;
+
+  // Le mécanisme d'authentification principal sait rafraîchir la session avec
+  // le refresh_token via l'API Supabase, sans dépendre de supabase-js.
+  if(typeof rafraichirSession==='function' && session?.refresh_token){
+    try{
+      const ok=await rafraichirSession();
+      if(ok && session?.access_token) return session.access_token;
+    }catch(e){
+      console.warn('[Content Factory] Rafraîchissement de la session principale impossible:',e);
+    }
+  }
+
+  // Fallback uniquement pour les cas où la session principale est réellement
+  // absente/incomplète.
+  const client=typeof assurerClientAuthGoogle==='function'
+    ? await assurerClientAuthGoogle()
+    : null;
+  if(!client)throw new Error('Session administrateur indisponible. Reconnecte-toi puis réessaie.');
   let current=(await client.auth.getSession())?.data?.session||null;
   if(!current?.access_token)throw new Error('Session administrateur expirée. Reconnecte-toi puis réessaie.');
   const exp=current.expires_at?current.expires_at*1000:0;
@@ -1120,19 +1142,10 @@ async function renderPdf(id,themeColor=null){
   const b=document.querySelector(`[data-cf-render="${id}"]`);
   if(b){b.disabled=true;b.textContent=b.dataset.hasPdf==='1'?'Régénération LuaLaTeX…':'Génération LuaLaTeX…';ensureLiveCancelButton(id,b)}
   try{
-    const authClient=await assurerClientAuthGoogle();
-    if(!authClient)throw new Error('Client Supabase indisponible.');
-    const {data:authData,error:authError}=await authClient.auth.getSession();
-    if(authError)throw authError;
-    const activeSession=authData?.session;
-    const accessToken=activeSession?.access_token;
-    if(!accessToken)throw new Error('Session administrateur expirée. Reconnecte-toi puis réessaie.');
-    if(session){
-      session.access_token=accessToken;
-      if(activeSession.refresh_token)session.refresh_token=activeSession.refresh_token;
-      if(activeSession.expires_at)session.expires_at=activeSession.expires_at*1000;
-      sauvegarderSession();
-    }
+    // Utilise d'abord le jeton déjà maintenu par l'authentification Aurore.
+    // Le SDK Supabase navigateur ne doit jamais être un prérequis pour lancer
+    // la production LuaLaTeX.
+    const accessToken=await cfFreshToken();
 
     const rowForTheme=rows.find(x=>Number(x.id)===Number(id));
     await persistGeneratedDocumentTheme(id,themeColor||documentThemeColor(rowForTheme?.metadata),accessToken);
