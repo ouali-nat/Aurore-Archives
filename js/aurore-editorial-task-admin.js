@@ -368,7 +368,7 @@ function classify(t){
   if(!w.chatgpt_claimed&&['initiale','chapitres_demandes'].includes(s))return'A';
   if(['proposition_editoriale','revision_requested'].includes(s))return'C';
   if(['proposal_review','admin_validation','edition_ready'].includes(s))return'CX';
-  if(s==='redaction')return'D';
+  if(s==='redaction'||(s==='production_en_cours'&&!['gpt','claude','grok'].includes(String(w.ai_treatment?.provider||'').toLowerCase())))return'D';
   return null;
 }
 async function promoteAtoB(id){
