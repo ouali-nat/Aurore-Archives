@@ -28,11 +28,11 @@ if(typeof window.adminInventoryFetch!=='function')window.adminInventoryFetch=asy
 };
 })();
 
-(function(){'use strict';const panel=document.querySelector('.admin-tab-panel[data-panel="content-factory"]');const list=document.getElementById('adminContentFactoryList'),count=document.getElementById('tabCountContentFactory');let rows=[];let generationQueue=[];let generationRunning=false;window.__aurorePdfActionBusy=window.__aurorePdfActionBusy instanceof Set?window.__aurorePdfActionBusy:new Set();let cfCreatePath=[];let cfClassificationInitialized=false;const esc=v=>{const d=document.createElement('div');d.textContent=String(v==null?'':v);return d.innerHTML};const sl=s=>({review:'À contrôler',approved:'Validé',published:'Publié',rejected:'Rejeté',failed:'Échec',generated:'Généré',processing:'Traitement',queued:'En file',draft:'Brouillon'}[s]||s||'Inconnu');const adminOk=()=>!!(session&&session.role==='admin');const normalizeThemeColor=v=>/^#[0-9a-f]{6}$/i.test(String(v||''))?String(v).toUpperCase():'#C85C0D';
+(function(){'use strict';const panel=document.querySelector('.admin-tab-panel[data-panel="content-factory"]');const list=document.getElementById('adminContentFactoryList'),count=document.getElementById('tabCountContentFactory');let rows=[];let generationQueue=[];let generationRunning=false;window.__aurorePdfActionBusy=window.__aurorePdfActionBusy instanceof Set?window.__aurorePdfActionBusy:new Set();let cfCreatePath=[];let cfClassificationInitialized=false;const esc=v=>{const d=document.createElement('div');d.textContent=String(v==null?'':v);return d.innerHTML};const sl=s=>({review:'À contrôler',approved:'Validé',published:'Publié',rejected:'Rejeté',failed:'Échec',generated:'Généré',processing:'Traitement',queued:'En file',draft:'Brouillon'}[s]||s||'Inconnu');const adminOk=()=>!!(session&&session.role==='admin');const normalizeThemeColor=v=>/^#[0-9a-f]{6}$/i.test(String(v||''))?String(v).toUpperCase():'#1D4ED8';
 const documentThemeColor=metadata=>{
   const m=metadata&&typeof metadata==='object'?metadata:{};
   const d=m.aurore_design&&typeof m.aurore_design==='object'?m.aurore_design:{};
-  return normalizeThemeColor(d.theme_color||d.themeColor||m.theme_color||m.themeColor||'#C85C0D');
+  return normalizeThemeColor(d.theme_color||d.themeColor||m.theme_color||m.themeColor||'#1D4ED8');
 };
 async function chooseRegenerationTheme(defaultColor,mode='regeneration'){
   return new Promise(resolve=>{
@@ -231,7 +231,7 @@ window.auroreAdminConfirmContentJob=async function(jobId){
   if(current.status!=='draft')throw new Error('Cette demande n’est plus en brouillon.');
   const metadata=current.metadata&&typeof current.metadata==='object'?current.metadata:{};
   const design=metadata.aurore_design&&typeof metadata.aurore_design==='object'?metadata.aurore_design:{};
-  const defaultColor=normalizeThemeColor(design.theme_color||metadata.theme_color||'#C85C0D');
+  const defaultColor=normalizeThemeColor(design.theme_color||metadata.theme_color||'#1D4ED8');
   const color=await chooseRegenerationTheme(defaultColor,'generation');
   if(!color)return null;
   await persistContentJobTheme(id,color,token);
@@ -481,7 +481,7 @@ function bindClassification(){
     const value=document.getElementById('cfCreateThemeColorValue');
     const preview=document.getElementById('cfThemeColorPreview');
     const swatches=document.getElementById('cfCreateThemeSwatches');
-    const color=normalizeThemeColor(input?.value||'#C85C0D');
+    const color=normalizeThemeColor(input?.value||'#1D4ED8');
     if(input)input.value=color;
     if(value)value.textContent=color;
     if(preview)preview.style.backgroundColor=color;
@@ -1263,7 +1263,7 @@ async function renderPdf(id,themeColor=null){
 
 const cfAdminCardStyles=document.createElement('style');
 cfAdminCardStyles.id='cf-admin-card-enhancements';
-cfAdminCardStyles.textContent=`.cf-admin-card-large{position:relative;padding:20px!important;border-radius:24px!important;border:1px solid #B8B8B8!important;border-top:1px solid #B8B8B8!important;background:#D4D4D4!important;box-shadow:0 12px 30px rgba(0,0,0,.10)!important;overflow:hidden}.cf-admin-icon-large{width:58px!important;height:58px!important;border-radius:16px!important;font-size:0!important;background:#EFEFEF!important;color:var(--cf-document-theme,#C85C0D)!important;border:1px solid #AFAFAF!important;box-shadow:0 4px 12px rgba(0,0,0,.10)!important;overflow:hidden}.cf-admin-icon-large img{display:block;width:100%;height:100%;object-fit:cover;border-radius:15px}.cf-admin-kicker{font-size:.65rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--cf-document-theme,#C85C0D)!important;opacity:1;margin-bottom:4px}.cf-admin-title{color:var(--cf-document-theme,#C85C0D)!important;font-weight:850}.cf-admin-meta-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:10px}.cf-admin-meta-grid span{padding:8px 10px;border:1px solid #AFAFAF;border-radius:12px;background:#E3E3E3;color:var(--cf-document-theme,#C85C0D)!important}.cf-admin-meta-grid strong{display:block;font-size:.61rem;color:var(--cf-document-theme,#C85C0D)!important;opacity:1;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}.cf-admin-section-label{margin-top:14px;font-size:.65rem;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:var(--cf-document-theme,#C85C0D)!important;opacity:1}.cf-admin-classification{margin-top:5px;padding:11px 12px;border-radius:13px;background:#E3E3E3;border:1px solid #AFAFAF;line-height:1.55;font-size:.72rem;color:var(--cf-document-theme,#C85C0D)!important}.cf-admin-theme-row{display:flex;align-items:center;gap:9px;margin-top:12px;padding:10px;border:1px solid #AFAFAF;border-radius:13px;background:#E3E3E3;color:var(--cf-document-theme,#C85C0D)!important}.cf-admin-theme-row span:nth-child(2){flex:1;color:var(--cf-document-theme,#C85C0D)!important}.cf-admin-theme-row small{display:block;color:var(--cf-document-theme,#C85C0D)!important;opacity:.78;font-size:.62rem;margin-top:2px}.cf-admin-theme-dot{width:24px;height:24px;border-radius:8px;flex:0 0 24px;box-shadow:0 0 0 1px #9E9E9E}.cf-admin-generation-state{margin-top:10px;padding:10px 12px;border-radius:12px;background:#E3E3E3;border:1px solid #AFAFAF;color:var(--cf-document-theme,#C85C0D)!important;font-size:.7rem}.cf-admin-note{margin-top:10px;padding:10px 12px;border-radius:12px;background:#E3E3E3;border:1px solid #AFAFAF;color:var(--cf-document-theme,#C85C0D)!important;font-size:.7rem}.cf-admin-error{border-radius:12px!important;border:1px solid #B7B7B7!important;background:#E3E3E3!important;color:var(--cf-document-theme,#C85C0D)!important}.cf-admin-actions-stable{min-height:42px;align-items:center}.cf-admin-actions-stable .admin-btn{transition:none;border-radius:12px!important}.cf-pdf-cancel-static{min-width:155px}.cf-pdf-cancel-static:disabled{opacity:.8;cursor:wait}.@media(max-width:620px){.cf-admin-card-large{padding:15px!important}.cf-admin-meta-grid{grid-template-columns:1fr}.cf-admin-theme-row{align-items:flex-start;flex-wrap:wrap}.cf-admin-theme-row .admin-btn{width:100%}.cf-admin-actions-stable{display:grid!important;grid-template-columns:1fr}.cf-admin-actions-stable .admin-btn,.cf-admin-actions-stable a{width:100%;justify-content:center}}`;
+cfAdminCardStyles.textContent=`.cf-admin-card-large{position:relative;padding:20px!important;border-radius:24px!important;border:1px solid #B8B8B8!important;border-top:1px solid #B8B8B8!important;background:#D4D4D4!important;box-shadow:0 12px 30px rgba(0,0,0,.10)!important;overflow:hidden}.cf-admin-icon-large{width:58px!important;height:58px!important;border-radius:16px!important;font-size:0!important;background:#EFEFEF!important;color:var(--cf-document-theme,#1D4ED8)!important;border:1px solid #AFAFAF!important;box-shadow:0 4px 12px rgba(0,0,0,.10)!important;overflow:hidden}.cf-admin-icon-large img{display:block;width:100%;height:100%;object-fit:cover;border-radius:15px}.cf-admin-kicker{font-size:.65rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--cf-document-theme,#1D4ED8)!important;opacity:1;margin-bottom:4px}.cf-admin-title{color:var(--cf-document-theme,#1D4ED8)!important;font-weight:850}.cf-admin-meta-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:10px}.cf-admin-meta-grid span{padding:8px 10px;border:1px solid #AFAFAF;border-radius:12px;background:#E3E3E3;color:var(--cf-document-theme,#1D4ED8)!important}.cf-admin-meta-grid strong{display:block;font-size:.61rem;color:var(--cf-document-theme,#1D4ED8)!important;opacity:1;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}.cf-admin-section-label{margin-top:14px;font-size:.65rem;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:var(--cf-document-theme,#1D4ED8)!important;opacity:1}.cf-admin-classification{margin-top:5px;padding:11px 12px;border-radius:13px;background:#E3E3E3;border:1px solid #AFAFAF;line-height:1.55;font-size:.72rem;color:var(--cf-document-theme,#1D4ED8)!important}.cf-admin-theme-row{display:flex;align-items:center;gap:9px;margin-top:12px;padding:10px;border:1px solid #AFAFAF;border-radius:13px;background:#E3E3E3;color:var(--cf-document-theme,#1D4ED8)!important}.cf-admin-theme-row span:nth-child(2){flex:1;color:var(--cf-document-theme,#1D4ED8)!important}.cf-admin-theme-row small{display:block;color:var(--cf-document-theme,#1D4ED8)!important;opacity:.78;font-size:.62rem;margin-top:2px}.cf-admin-theme-dot{width:24px;height:24px;border-radius:8px;flex:0 0 24px;box-shadow:0 0 0 1px #9E9E9E}.cf-admin-generation-state{margin-top:10px;padding:10px 12px;border-radius:12px;background:#E3E3E3;border:1px solid #AFAFAF;color:var(--cf-document-theme,#1D4ED8)!important;font-size:.7rem}.cf-admin-note{margin-top:10px;padding:10px 12px;border-radius:12px;background:#E3E3E3;border:1px solid #AFAFAF;color:var(--cf-document-theme,#1D4ED8)!important;font-size:.7rem}.cf-admin-error{border-radius:12px!important;border:1px solid #B7B7B7!important;background:#E3E3E3!important;color:var(--cf-document-theme,#1D4ED8)!important}.cf-admin-actions-stable{min-height:42px;align-items:center}.cf-admin-actions-stable .admin-btn{transition:none;border-radius:12px!important}.cf-pdf-cancel-static{min-width:155px}.cf-pdf-cancel-static:disabled{opacity:.8;cursor:wait}.@media(max-width:620px){.cf-admin-card-large{padding:15px!important}.cf-admin-meta-grid{grid-template-columns:1fr}.cf-admin-theme-row{align-items:flex-start;flex-wrap:wrap}.cf-admin-theme-row .admin-btn{width:100%}.cf-admin-actions-stable{display:grid!important;grid-template-columns:1fr}.cf-admin-actions-stable .admin-btn,.cf-admin-actions-stable a{width:100%;justify-content:center}}`;
 document.head.appendChild(cfAdminCardStyles);
 async function cancelPdfGeneration(id){
   window.__aurorePdfCancelRequested=window.__aurorePdfCancelRequested||new Set();
@@ -1335,7 +1335,7 @@ function apply(){
   list.innerHTML=a.map(x=>{
     if(x.contentJob){
       const m=x.metadata&&typeof x.metadata==='object'?x.metadata:{};
-      const theme=normalizeThemeColor(m.theme_color||m.aurore_design?.theme_color||x.theme_color||'#C85C0D');
+      const theme=normalizeThemeColor(m.theme_color||m.aurore_design?.theme_color||x.theme_color||'#1D4ED8');
       const classification=[x.matiere||x.subject,x.class_name,x.level,x.filiere].filter(Boolean).join(' · ');
       const status=String(x.job_status||x.status||'').toLowerCase();
       const stage=status==='queued'
@@ -1381,7 +1381,7 @@ function apply(){
     const canReject=['review','approved'].includes(x.status)&&!active;
     const canPublish=['approved','review'].includes(x.status)&&pdf&&!active;
     const canRevision=['review','approved'].includes(x.status)&&pdf&&!active&&!cancelRequested;
-    const theme=documentThemeColor(m)||x.theme_color||'#C85C0D';
+    const theme=documentThemeColor(m)||x.theme_color||'#1D4ED8';
     const classification=[x.domaine,x.formation,x.specialite,x.annee,x.semestre,x.filiere,x.matiere||x.subject,x.class_name,x.level].filter(Boolean).join(' · ');
     const stage=m.lualatex_stage||m.lualatex_status||'';
     const origin=m.origin||m.source||m.producer||'';
@@ -1497,7 +1497,7 @@ async function charger(){
             annee:job.annee||'',
             semestre:job.semestre||'',
             filiere:job.filiere||'',
-            theme_color:jm.theme_color||jm.aurore_design?.theme_color||'#C85C0D',
+            theme_color:jm.theme_color||jm.aurore_design?.theme_color||'#1D4ED8',
             source_format:'editorial-request',
             pdf_path:null,
             pdf_url:null,
@@ -1538,7 +1538,7 @@ document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurre
           const cancelled=await cancelPdfGeneration(id);
           if(!cancelled)return;
         }
-        let color=detail.themeColor||'#C85C0D';
+        let color=detail.themeColor||'#1D4ED8';
         if(detail.hasPdf){if(!confirm('Ce document possède déjà un PDF. Le nouveau rendu remplacera le PDF actuel. Continuer ?'))return;}
         color=await chooseRegenerationTheme(color);if(!color)return;
         await renderPdf(id,color);
@@ -1600,7 +1600,7 @@ document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurre
       });
       return;
     }
-    if(button.hasAttribute('data-cf-theme')){e.preventDefault();e.stopImmediatePropagation();void changeDocumentTheme(Number(button.dataset.cfTheme),button.dataset.themeColor||'#C85C0D');return;}
+    if(button.hasAttribute('data-cf-theme')){e.preventDefault();e.stopImmediatePropagation();void changeDocumentTheme(Number(button.dataset.cfTheme),button.dataset.themeColor||'#1D4ED8');return;}
     const action=button.hasAttribute('data-cf-render')?'render':button.hasAttribute('data-cf-validate')?'validate':button.hasAttribute('data-cf-reject')?'reject':'publish';
     const id=Number(button.dataset?.['cf'+action.charAt(0).toUpperCase()+action.slice(1)]||0);
     if(!id)return;
@@ -1619,7 +1619,7 @@ document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurre
       action,
       id,
       hasPdf:button.dataset.hasPdf==='1',
-      themeColor:button.dataset.themeColor||'#C85C0D',
+      themeColor:button.dataset.themeColor||'#1D4ED8',
       productionActive:button.dataset.productionActive==='1'
     }).finally(()=>{
       window.__aurorePdfActionBusy.delete(busyKey);

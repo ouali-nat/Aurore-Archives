@@ -3,17 +3,37 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const XAI_KEY = Deno.env.get("XAI_API_KEY") || Deno.env.get("GROK_API_KEY") || Deno.env.get("AURORA_GROK_API_KEY") || "";
+const XAI_KEY =
+  Deno.env.get("XAI_API_KEY") ||
+  Deno.env.get("AURORA_XAI_API_KEY") ||
+  Deno.env.get("GROK_API_KEY") ||
+  Deno.env.get("GROK_KEY") ||
+  Deno.env.get("GROK_TOKEN") ||
+  Deno.env.get("AURORA_GROK_API_KEY") ||
+  Deno.env.get("XAI_KEY") ||
+  Deno.env.get("XAI_TOKEN") ||
+  "";
 const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY") || Deno.env.get("AURORA_GEMINI_API_KEY") || "";
 const DEEPSEEK_KEY = Deno.env.get("DEEPSEEK_API_KEY") || Deno.env.get("AURORA_DEEPSEEK_API_KEY") || "";
-const LLAMA_KEY = Deno.env.get("LLAMA_API_KEY") || Deno.env.get("AURORA_LLAMA_API_KEY") || Deno.env.get("GROQ_API_KEY") || Deno.env.get("AURORA_GROQ_API_KEY") || "";
+const LLAMA_KEY = Deno.env.get("LLAMA_API_KEY") || Deno.env.get("AURORA_LLAMA_API_KEY") || "";
+const GROQ_KEY = Deno.env.get("GROQ_API_KEY") || Deno.env.get("AURORA_GROQ_API_KEY") || "";
+const CLOUDFLARE_ACCOUNT_ID = Deno.env.get("CLOUDFLARE_ACCOUNT_ID") || Deno.env.get("CF_ACCOUNT_ID") || "";
+const CLOUDFLARE_AUTH_TOKEN = Deno.env.get("CLOUDFLARE_AUTH_TOKEN") || Deno.env.get("CLOUDFLARE_API_TOKEN") || Deno.env.get("CF_API_TOKEN") || "";
 const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY") || Deno.env.get("CLAUDE_API_KEY") || Deno.env.get("AURORA_CLAUDE_API_KEY") || "";
+const CLOUDFLARE_LLAMA_ENABLED = Boolean(CLOUDFLARE_ACCOUNT_ID && CLOUDFLARE_AUTH_TOKEN);
 const GROK_MODEL = Deno.env.get("AURORA_GROK_MODEL") || "grok-4.7";
 const CLAUDE_MODEL = Deno.env.get("AURORA_CLAUDE_MODEL") || "claude-sonnet-5-5";
-const GEMINI_MODEL = Deno.env.get("AURORA_GEMINI_MODEL") || "gemini-2.5-pro";
+const rawGeminiModel = String(Deno.env.get("AURORA_GEMINI_MODEL") || "").trim().replace(/^models\//i, "");
+const GEMINI_MODEL = /^(gemini-2\.5-pro|gemini-3-pro-preview)$/i.test(rawGeminiModel)
+  ? "gemini-3.1-pro-preview"
+  : (rawGeminiModel || "gemini-3.1-pro-preview");
 const DEEPSEEK_MODEL = Deno.env.get("AURORA_DEEPSEEK_MODEL") || "deepseek-chat";
-const LLAMA_MODEL = Deno.env.get("AURORA_LLAMA_MODEL") || "llama-4-maverick-17b-128e-instruct";
-const LLAMA_API_URL = Deno.env.get("AURORA_LLAMA_API_URL") || "https://api.groq.com/openai/v1/chat/completions";
+const rawLlamaModel = String(Deno.env.get("AURORA_LLAMA_MODEL") || "").trim();
+const retiredLlamaModel = /^(meta-llama\/)?llama-4-maverick-17b-128e-instruct$/i.test(rawLlamaModel);
+const LLAMA_MODEL = Deno.env.get("AURORA_CLOUDFLARE_LLAMA_MODEL") || "@cf/meta/llama-4-scout-17b-16e-instruct";
+const GROQ_MODEL = Deno.env.get("AURORA_GROQ_MODEL") || "llama-3.1-8b-instant";
+const LLAMA_API_URL = `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/v1/chat/completions`;
+const GROQ_API_URL = Deno.env.get("AURORA_GROQ_API_URL") || "https://api.groq.com/openai/v1/chat/completions";
 const db = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { autoRefreshToken: false, persistSession: false } });
 
 const CORS = {
@@ -206,7 +226,7 @@ function taskContext(t:any, memories:any[]){
   return {
     task:{
       id:t.id,title:t.title,subject:t.subject,level:t.level,class_name:t.class_name,
-      document_type:t.document_type,theme_color:t.theme_color || w.pdfThemeColor || "#6D28D9"
+      document_type:t.document_type,theme_color:t.metadata?.theme_color || t.metadata?.aurore_design?.theme_color || w.pdfThemeColor || "#1D4ED8"
     },
     selected_chapters:w.selected_chapters || w.chapters || [],
     proposal,
@@ -308,12 +328,20 @@ async function callGrok(prompt:string){
   } finally { clearTimeout(timeout); }
 }
 
+function canonicalProvider(provider:string){
+  const raw=String(provider||"").trim().toLowerCase();
+  const aliases:any={grok:"grok",grook:"grok",xai:"grok",claude:"claude",anthropic:"claude",gemini:"gemini",google:"gemini",deepseek:"deepseek",llama:"llama",groq:"groq"};
+  return aliases[raw] || raw;
+}
+
 function providerModel(provider:string){
+  provider=canonicalProvider(provider);
   if(provider==="grok") return GROK_MODEL;
   if(provider==="claude") return CLAUDE_MODEL;
   if(provider==="gemini") return GEMINI_MODEL;
   if(provider==="deepseek") return DEEPSEEK_MODEL;
   if(provider==="llama") return LLAMA_MODEL;
+  if(provider==="groq") return GROQ_MODEL;
   return provider;
 }
 
@@ -323,7 +351,8 @@ function availableProviders(){
   if(ANTHROPIC_KEY) out.push("claude");
   if(GEMINI_KEY) out.push("gemini");
   if(DEEPSEEK_KEY) out.push("deepseek");
-  if(LLAMA_KEY) out.push("llama");
+  if(CLOUDFLARE_LLAMA_ENABLED) out.push("llama");
+  if(GROQ_KEY) out.push("groq");
   return out;
 }
 
@@ -377,15 +406,21 @@ async function callDeepSeek(prompt:string){
 }
 
 async function callLlama(prompt:string){
-  return callOpenAICompatible(LLAMA_KEY,LLAMA_API_URL,LLAMA_MODEL,"Llama",prompt);
+  if(!CLOUDFLARE_LLAMA_ENABLED) throw new Error("Llama est configuré pour Cloudflare Workers AI, mais les secrets Cloudflare ne sont pas configurés.");
+  return callOpenAICompatible(CLOUDFLARE_AUTH_TOKEN,LLAMA_API_URL,LLAMA_MODEL,"Llama / Cloudflare Workers AI",prompt);
+}
+async function callGroq(prompt:string){
+  return callOpenAICompatible(GROQ_KEY,GROQ_API_URL,GROQ_MODEL,"Groq",prompt);
 }
 
 async function callProvider(provider:string,prompt:string){
+  provider=canonicalProvider(provider);
   if(provider==="grok") return callGrok(prompt);
   if(provider==="claude") return callClaude(prompt);
   if(provider==="gemini") return callGemini(prompt);
   if(provider==="deepseek") return callDeepSeek(prompt);
   if(provider==="llama") return callLlama(prompt);
+  if(provider==="groq") return callGroq(prompt);
   throw new Error("Moteur IA non pris en charge : "+provider);
 }
 
@@ -459,7 +494,7 @@ function feedbackFromReports(reports:any[]){
 async function validateContent(content:any,t:any){
   validateShape(content,t);
   const words=await callRpc("aurora_count_editorial_words",{p_content:content,p_document_type:t.document_type});
-  if(isCourse(t.document_type) && Number(words||0)<3000) throw new Error("COURSE_VOLUME: "+words+" mots utiles, minimum 3000.");
+  if(isCourse(t.document_type) && Number(words||0)<1500) throw new Error("COURSE_VOLUME: "+words+" mots utiles, minimum 1500.");
   const reports:any[]=[];
   if(isScientific(t.subject)){
     const preflight=await callRpc("aurora_scientific_preflight",{
@@ -505,7 +540,7 @@ function deriveEditorialPreview(content:any){
 
 async function loadJobForRun(jobId:number,runId:string){
   const {data:rows,error}=await db.from("aurora_content_jobs")
-    .select("id,title,subject,level,class_name,document_type,generated_document_id,theme_color,prompt,instructions,domaine,formation,specialite,annee,semestre,filiere,metadata")
+    .select("id,title,subject,level,class_name,document_type,generated_document_id,prompt,instructions,domaine,formation,specialite,annee,semestre,filiere,metadata")
     .eq("id",jobId).limit(1);
   if(error)throw new Error(error.message);
   const t=rows?.[0];
@@ -625,7 +660,7 @@ function buildIngestPayload(t:any,w:any,content:any,provider:string,runId:string
         workflow_source:"section_D_multimodel",manual_pdf_launch_required:true,auto_pdf_launch:false,
         pending_admin_surface:"documents_en_attente"
       },
-      matiere:t.subject,theme_color:t.theme_color||w.proposal?.pdfThemeColor||"#6D28D9",
+      matiere:t.subject,theme_color:t.metadata?.theme_color||t.metadata?.aurore_design?.theme_color||w.proposal?.pdfThemeColor||"#1D4ED8",
       domaine:t.domaine||null,formation:t.formation||null,specialite:t.specialite||null,
       annee:t.annee||null,semestre:t.semestre||null,filiere:t.filiere||null
     }
@@ -682,13 +717,38 @@ Deno.serve(async (req)=>{
   if(req.method==="OPTIONS") return new Response("ok",{headers:CORS});
   if(req.method!=="POST" && req.method!=="GET") return response({error:"Méthode non autorisée."},405);
   try{
+    if(req.method==="GET"){
+      await authenticateAdmin(req);
+      return response({ok:true,providers:availableProviders().map(provider=>({id:provider,model:providerModel(provider)}))});
+    }
+
+    if(isInternalRequest(req)){
+      const body=await req.json();
+      const jobId=Number(body?.job_id);
+      const runId=String(body?.run_id||"").trim();
+      const action=String(body?.action||"").trim().toLowerCase();
+      if(!Number.isInteger(jobId)||jobId<=0) return response({error:"job_id invalide."},400);
+      if(!runId) return response({error:"run_id invalide."},400);
+      if(!["generate","validate","repair","ingest"].includes(action)) return response({error:"Étape de traitement inconnue."},400);
+      const provider=canonicalProvider(String(body?.provider||""));
+      if(!provider || !["grok","claude","gemini","deepseek","llama","groq"].includes(provider)){
+        const {data:job,error:jobError}=await db.from("aurora_content_jobs").select("metadata").eq("id",jobId).maybeSingle();
+        if(jobError) return response({error:jobError.message},500);
+        const active=job?.metadata?.workflow?.ai_treatment?.provider;
+        if(!["grok","claude","gemini","deepseek","llama","groq"].includes(String(active||""))) return response({error:"Moteur IA non pris en charge."},400);
+        EdgeRuntime.waitUntil(runInternalAction(jobId,String(active),runId,action));
+      } else {
+        EdgeRuntime.waitUntil(runInternalAction(jobId,provider,runId,action));
+      }
+      return response({ok:true,status:"accepted",internal:true,job_id:jobId,run_id:runId,action},202);
+    }
+
     await authenticateAdmin(req);
-    if(req.method==="GET") return response({ok:true,providers:availableProviders().map(provider=>({id:provider,model:providerModel(provider)}))});
     const body=await req.json();
     const jobId=Number(body?.job_id);
-    const provider=String(body?.provider||"").trim().toLowerCase();
+    const provider=canonicalProvider(body?.provider);
     if(!Number.isInteger(jobId)||jobId<=0) return response({error:"job_id invalide."},400);
-    if(!["grok","claude","gemini","deepseek","llama"].includes(provider)) return response({error:"Moteur IA non pris en charge."},400);
+    if(!["grok","claude","gemini","deepseek","llama","groq"].includes(provider)) return response({error:"Moteur IA non pris en charge."},400);
     if(!availableProviders().includes(provider)) return response({error:"Le moteur "+provider+" n’est pas configuré dans les secrets disponibles de la fonction."},400);
     const runId="d-ai-"+jobId+"-"+provider+"-"+crypto.randomUUID();
     const started=await callRpc("aurora_begin_editorial_ai_treatment",{p_job_id:jobId,p_provider:provider,p_run_id:runId});
@@ -697,7 +757,7 @@ Deno.serve(async (req)=>{
       run_id:started?.run_id||null,provider:started?.provider||provider,progress:started?.progress||0
     },started?.status==="already_processing"?409:400);
 
-    EdgeRuntime.waitUntil(processJob(jobId,provider,runId));
+    EdgeRuntime.waitUntil(runInternalAction(jobId,provider,runId,"generate"));
     return response({ok:true,status:"processing",job_id:jobId,provider,run_id:runId,progress:3},202);
   }catch(err){
     return response({error:safeText(err?.message||err,3000)},403);

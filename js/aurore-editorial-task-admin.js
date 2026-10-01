@@ -394,8 +394,8 @@ async function promoteAtoB(id){
   return promoted;
 }
 const D_AI_ENDPOINT='/functions/v1/aurora-editorial-ai';
-const D_AI_PROVIDER_LABELS={grok:'Grok',claude:'Claude',gemini:'Gemini',deepseek:'DeepSeek',llama:'Llama'};
-let D_AI_PROVIDERS=[['grok','Grok']];
+const D_AI_PROVIDER_LABELS={grok:'Grok',claude:'Claude',gemini:'Gemini',deepseek:'DeepSeek',llama:'Llama',groq:'Groq'};
+let D_AI_PROVIDERS=[['grok','Grok'],['groq','Groq']];
 function dAiSetProviders(list){
   const ids=Array.isArray(list)?list.map(x=>String(x?.id||x).toLowerCase()).filter(x=>D_AI_PROVIDER_LABELS[x]):[];
   D_AI_PROVIDERS=(ids.length?ids:['grok']).map(id=>[id,D_AI_PROVIDER_LABELS[id]]);
@@ -1435,7 +1435,7 @@ function injectStyle(){
 #auroreEditorialTaskAdmin .editor-a-create-form .cf-theme-color-square #editorAThemePreview{background:#6D28D9;border-radius:7px}
 #auroreEditorialTaskAdmin .editor-a-create-form .cf-create-theme-swatch.is-selected{border-color:var(--theme-primary,#6D28D9);box-shadow:0 0 0 2px color-mix(in srgb,var(--theme-primary,#6D28D9) 22%,transparent)}
 #auroreEditorialTaskAdmin .editor-a-create-form #editorAThemeValue{font-size:.68rem;font-weight:850;color:var(--theme-primary,#6D28D9);margin-left:3px}
-#auroreEditorialTaskAdmin{--editor-surface:var(--card-bg,#fff);--editor-surface-soft:color-mix(in srgb,currentColor 3%,transparent);--editor-border:color-mix(in srgb,currentColor 12%,transparent);--editor-text:currentColor;--editor-accent:#6D28D9;color:var(--editor-text);display:grid;gap:16px}
+#auroreEditorialTaskAdmin{--editor-surface:var(--card-bg,#fff);--editor-surface-soft:color-mix(in srgb,currentColor 3%,transparent);--editor-border:color-mix(in srgb,currentColor 12%,transparent);--editor-text:currentColor;--editor-accent:#1D4ED8;color:var(--editor-text);display:grid;gap:16px}
 #auroreEditorialTaskAdmin .editor-hub{display:grid;gap:14px}
 #auroreEditorialTaskAdmin .editor-hub-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;padding:4px 2px}
 #auroreEditorialTaskAdmin .editor-kicker,#auroreEditorialTaskAdmin .editor-step{font-size:.62rem;font-weight:900;letter-spacing:.09em;text-transform:uppercase;opacity:.55}
