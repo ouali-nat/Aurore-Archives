@@ -174,13 +174,13 @@ begin
       -- Generic construction fields must not be empty for the instruments that require them.
       if v_instrument='parametric2d' then
         if nullif(trim(v_graph->>'expression'),'') is null
-           or trim(v_graph->>'expression') !~* '^Curve\\s*\\(' then
+           or trim(v_graph->>'expression') !~* '^Curve[[:space:]]*\\( then
           v_failures := array_append(v_failures, format(
             'GRAPH-005 [%s] : construction parametric2d invalide : Curve(x,y,t,a,b) attendue.', v_graph_id));
         end if;
       elsif v_instrument='parametric3d' then
         if nullif(trim(v_graph->>'expression'),'') is null
-           or trim(v_graph->>'expression') !~* '^Curve\\s*\\(' then
+           or trim(v_graph->>'expression') !~* '^Curve[[:space:]]*\\( then
           v_failures := array_append(v_failures, format(
             'GRAPH-006 [%s] : construction parametric3d invalide : Curve(x,y,z,t,a,b) attendue.', v_graph_id));
         end if;
