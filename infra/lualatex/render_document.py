@@ -2869,7 +2869,7 @@ def render_content(items, auto_math=False, allow_two_columns=False, box_all_math
                 lines.append(r"\\end{multicols}")
             continue
 
-        block = labeled_block(raw, auto_math=auto_math)
+        block = labeled_block(raw, auto_math=auto_math, course_box=box_all_math)
         if block:
             lines.extend(block)
             i += 1
@@ -3252,7 +3252,7 @@ def resolve_theme_color(data):
     return resolve_theme_palette(data)["strong"]
 
 
-def labeled_block(s, auto_math=False):
+def labeled_block(s, auto_math=False, course_box=False):
     """Render a small editorial callout when prose starts with a known label."""
     t = clean_text(s).strip()
     m = re.match(
@@ -3271,7 +3271,7 @@ def labeled_block(s, auto_math=False):
             "",
         ]
     return [
-        r"\AuroreLabeledBlock{" + tex_text(raw_label) + "}{" + inline(m.group(2), auto_math=auto_math) + r"}",
+        r"\AuroreLabeledBlock{" + tex_text(raw_label) + "}{" + (_render_course_paragraph(m.group(2), auto_math=auto_math) if course_box else inline(m.group(2), auto_math=auto_math)) + r"}",
         "",
     ]
 
@@ -3858,7 +3858,7 @@ def render(data):
         r"\setlength{\columnsep}{8mm}",
         r"\newcommand{\AurorePill}[1]{\tcbox[on line,boxrule=0pt,colback=auroreprimary!10!white,colframe=auroreprimary!18!white,arc=8pt,left=7pt,right=7pt,top=3pt,bottom=3pt]{\sffamily\bfseries\small\textcolor{auroredeep}{#1}}}",
         r"\newcommand{\AuroreLabeledBlock}[2]{%",
-        r"  \begin{tcolorbox}[auroreblock,colback=aurorelight!72!white]%",
+        r"  \begin{tcolorbox}[enhanced,breakable,boxrule=.45pt,colback=gray!10!white,colframe=gray!42!white,arc=11pt,left=10pt,right=10pt,top=7pt,bottom=7pt,before skip=5pt,after skip=7pt,pad at break*=1.5mm]%",
         r"    \AurorePill{#1}\par\smallskip #2",
         r"  \end{tcolorbox}%",
         r"}",
