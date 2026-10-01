@@ -246,8 +246,9 @@
     const input = document.getElementById('homeSearchInput');
     if (input) {
       input.addEventListener('input', () => {
-        // La saisie ne lance jamais une recherche.
-        // Elle ne fait que mettre à jour la valeur du champ.
+        if (typeof window.programmerRechercheWiki === 'function') {
+          window.programmerRechercheWiki(input.value);
+        }
       });
       input.addEventListener('keydown', (e) => {
         if (e.key !== 'Enter') return;
@@ -255,6 +256,10 @@
         e.stopPropagation();
         const query = input.value.trim();
         if (!query) return;
+        if (typeof window.auroreRechercherWikipedia === 'function') {
+          window.auroreRechercherWikipedia(query);
+          return;
+        }
         lancerRecherche(query);
       });
     }

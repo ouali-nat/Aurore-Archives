@@ -566,3 +566,87 @@ html[data-theme="dark"] .doc-row .doc-more-btn:hover{
   margin-top:5px!important;
   margin-bottom:2px!important;
 }
+
+
+/* ---------- Compactage final du panneau PDF ----------
+   Les commandes restent toutes accessibles, mais le panneau ne doit plus
+   occuper une largeur disproportionnée à l'écran. */
+#pdfViewerOverlay .pdf-reader-menu-panel{
+  width:min(286px,calc(100vw - 24px))!important;
+  max-height:min(72vh,560px)!important;
+  gap:6px!important;
+  padding:8px!important;
+  border-radius:15px!important;
+}
+#pdfViewerOverlay .pdf-reader-menu-panel > .pdf-menu-section,
+#pdfViewerOverlay .pdf-reader-menu-panel > .pdf-menu-item,
+#pdfViewerOverlay .pdf-reader-menu-panel > .pdf-recent-access{
+  border-radius:11px!important;
+}
+#pdfViewerOverlay .pdf-reader-menu-panel > .pdf-menu-section{
+  padding:8px!important;
+  gap:6px!important;
+}
+#pdfViewerOverlay .pdf-menu-section-title{
+  font-size:.58rem!important;
+}
+#pdfViewerOverlay .pdf-menu-zoom-row{
+  padding:3px!important;
+  border-radius:9px!important;
+}
+#pdfViewerOverlay .pdf-menu-zoom-btn{
+  width:32px!important;
+  height:32px!important;
+  min-width:32px!important;
+  flex-basis:32px!important;
+  border-radius:8px!important;
+  font-size:1rem!important;
+}
+#pdfViewerOverlay #pdfViewerZoomLevel{
+  font-size:.78rem!important;
+}
+#pdfViewerOverlay .pdf-reader-menu-panel > .pdf-menu-item{
+  min-height:40px!important;
+  padding:8px 9px!important;
+  gap:9px!important;
+  font-size:.74rem!important;
+}
+#pdfViewerOverlay .pdf-reader-menu-panel .pdf-menu-item svg{
+  flex-basis:16px!important;
+  width:16px!important;
+  height:16px!important;
+}
+#pdfViewerOverlay .pdf-reader-menu-panel > .pdf-recent-access{
+  padding:3px!important;
+}
+#pdfViewerOverlay .pdf-reader-menu-panel > .pdf-recent-access .pdf-recent-toggle{
+  min-height:38px!important;
+  padding:8px 9px!important;
+  font-size:.74rem!important;
+}
+#pdfViewerOverlay .pdf-recent-panel.open{
+  max-height:190px!important;
+  padding:6px!important;
+}
+#pdfViewerOverlay .pdf-recent-panel-title{
+  font-size:.56rem!important;
+  margin-bottom:5px!important;
+}
+#pdfViewerOverlay .pdf-recent-item{
+  padding:7px 8px!important;
+  font-size:.69rem!important;
+  border-radius:8px!important;
+}
+#pdfViewerOverlay #pdfViewerTelecharger{
+  margin-top:4px!important;
+}
+#pdfViewerOverlay #pdfViewerSignaler{
+  margin-top:0!important;
+}
+@media(max-width:700px){
+  #pdfViewerOverlay .pdf-reader-menu-panel{
+    width:min(276px,calc(100vw - 16px))!important;
+    max-height:70vh!important;
+    padding:7px!important;
+  }
+}
