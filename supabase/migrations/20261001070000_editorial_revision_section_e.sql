@@ -15,6 +15,7 @@ declare
   v_job public.aurora_content_jobs;
   v_meta jsonb;
   v_workflow jsonb;
+  v_revision_no integer;
   v_now timestamptz := now();
   v_reason text := nullif(btrim(coalesce(p_reason,'')),'');
 begin
@@ -95,6 +96,7 @@ begin
           'revision_reason',v_reason,
           'revision_source_generated_document_id',v_doc.id,
           'revision_source_version',coalesce(v_doc.version,1),
+    'revision_no',v_revision_no,
           'revision_status','requested',
           'revision_previous_stage',coalesce(v_workflow->>'stage','production_terminee'),
           'updated_at',v_now
@@ -204,6 +206,8 @@ begin
      and coalesce((v_doc.metadata->'revision'->>'requested')::boolean,false) is not true then
     raise exception 'Ce document ne possède pas de demande de révision active';
   end if;
+
+  v_revision_no := coalesce((v_workflow->>'revision_no')::integer,0) + 1;
 
   v_workflow := v_workflow || jsonb_build_object(
     'stage','redaction',
