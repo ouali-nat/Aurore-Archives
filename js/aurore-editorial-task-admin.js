@@ -520,10 +520,7 @@ function taskCard(t,section){
         )||'Carte de production à construire')
       : section==='D'
         ? (w.stage==='production_terminee'?'Production terminée · document en attente':'Production finale')
-        : section==='E'
-          ? 'Document à réviser'
-          : 'Classe + matière : première étape du parcours éditorial';
-  const ai=section==='D'?dAiTreatment(t):null;
+        : 'Classe + matière : première étape du parcours éditorial';
   const actions=section==='D'
     ? '<div class="editor-ai-inline">'+dAiCardMarkup(t)+'</div>'
     : '';
