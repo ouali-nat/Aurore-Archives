@@ -131,9 +131,9 @@ async function listRevisionDocuments(){
   const rows=await rpc('aurora_list_editorial_revision_documents',{});
   return Array.isArray(rows)?rows:[];
 }
-async function beginEditorialRevision(id){
-  const result=await rpc('aurora_begin_editorial_revision',{p_generated_document_id:Number(id)});
-  if(!result?.ok)throw new Error('La reprise en D n’a pas été confirmée par Supabase.');
+async function createNewDProductionFromRevision(id){
+  const result=await rpc('aurora_create_new_d_production_from_revision',{p_generated_document_id:Number(id)});
+  if(!result?.ok||!Number(result?.new_job_id))throw new Error(result?.error||'La nouvelle production D n’a pas été créée par Supabase.');
   return result;
 }
 function workflowMetadata(existing,patch){
@@ -415,7 +415,7 @@ function taskCard(t,section){
 }
 function revisionTaskCard(r){
   const when=r.revision_requested_at?new Date(r.revision_requested_at).toLocaleString('fr-FR'):'—';
-  return '<article class="editor-pro-card"><div class="editor-pro-top"><span class="editor-pro-id">PDF #'+esc(r.generated_document_id)+'</span><span class="editor-pro-pill warning">Révision demandée</span></div><h4>'+esc(r.class_name||r.level||'Classe')+'</h4><strong class="editor-pro-subject">'+esc(r.subject||'Matière')+'</strong><p>'+esc(r.title||'Document')+'<br><small>Demandée le '+esc(when)+(r.revision_reason?' · '+esc(r.revision_reason):'')+'</small></p><div class="editor-pro-bottom"><span>'+esc(r.document_type||'cours')+'</span><button type="button" class="admin-btn primary" data-revision-begin="'+esc(r.generated_document_id)+'">Reprendre en D</button></div></article>';
+  return '<article class="editor-pro-card"><div class="editor-pro-top"><span class="editor-pro-id">PDF #'+esc(r.generated_document_id)+'</span><span class="editor-pro-pill warning">Révision demandée</span></div><h4>'+esc(r.class_name||r.level||'Classe')+'</h4><strong class="editor-pro-subject">'+esc(r.subject||'Matière')+'</strong><p>'+esc(r.title||'Document')+'<br><small>Demandée le '+esc(when)+(r.revision_reason?' · '+esc(r.revision_reason):'')+'</small></p><div class="editor-pro-bottom"><span>'+esc(r.document_type||'cours')+'</span><button type="button" class="admin-btn primary" data-revision-begin="'+esc(r.generated_document_id)+'">Créer la nouvelle D</button></div></article>';
 }
 function paginate(items,page){
   return items.slice(page*PAGE_SIZE,(page+1)*PAGE_SIZE);
@@ -881,10 +881,10 @@ function bind(root,state){
   
   root.querySelectorAll('[data-revision-begin]').forEach(b=>b.addEventListener('click',async()=>{
     const id=Number(b.dataset.revisionBegin);if(!id)return;
-    b.disabled=true;b.textContent='Reprise…';
+    b.disabled=true;b.textContent='Création de la D…';
     try{
-      await beginEditorialRevision(id);
-      alert('Document repris en Section D. Aucun PDF n’a été lancé.');
+      const result=await createNewDProductionFromRevision(id);
+      alert('Nouvelle production D créée (#'+result.new_job_id+'). Le contenu sera réécrit avant son passage dans Documents en attente. Aucun PDF n’a été lancé.');
       await chargerEspaceEditorialChatGPT('D');
     }catch(e){alert(e.message||e);b.disabled=false;b.textContent='Reprendre en D'}
   }));
