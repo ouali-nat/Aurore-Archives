@@ -215,6 +215,11 @@ def test_overescaped_math_delimiters_are_repaired():
         r"Début \\(x+1\\), puis \\[a=\\frac{1}{2}\\], fin \\(y+1\\)."
     )
 
+def test_unicode_chemistry_equilibrium_arrows_are_normalized():
+    assert normalize_math(r"HA+H_2O⇌A^-+H_3O^+") == r"HA+H_2O\rightleftharpoons A^-+H_3O^+"
+    assert normalize_math(r"A⇄B") == r"A\rightleftarrows B"
+
+
 def test_math_command_corruption_is_repaired():
     assert normalize_math(r"\fracrac3{(x-1)^2}") == r"\frac3{(x-1)^2}"
     assert normalize_math(r"lim_{x\to1}sqrt{x^2+1}") == r"\lim_{x\to1}\sqrt{x^2+1}"
