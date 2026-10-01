@@ -210,9 +210,13 @@ async function chargerDocumentsEnAttenteAdminV2(){
   const nextJobs=(Array.isArray(raw)?raw:[]).filter(j=>{
     const m=metadataOf(j);
     const workflow=m.workflow&&typeof m.workflow==='object'?m.workflow:null;
+    const revisionRequested=workflow?.revision_requested===true;
     const workflowStage=String(workflow?.stage||'').trim().toLowerCase();
     const productionStatus=String(workflow?.production_status||'').trim().toLowerCase();
     const isSectionDReady=Boolean(j.generated_document_id)&&statusOf(j)==='review'&&productionStatus==='ready_for_editing';
+    // Un document placé en Section E ne reste plus dans le sas PDF :
+    // E devient son emplacement éditorial jusqu'à la reprise explicite en D.
+    if(revisionRequested) return false;
     // Les tâches encore dans le circuit éditorial B/C ne doivent jamais entrer dans le sas D.
     // Une production D effectivement ingérée peut conserver workflow.stage=redaction :
     // le contrat d'ingestion la place alors en review avec production_status=ready_for_editing.
