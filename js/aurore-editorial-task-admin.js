@@ -838,7 +838,19 @@ function readEditorialPosition(){
 function render(root,state){
   persistEditorialPosition(state);
   const all=state.tasks, groups={A:[],B:[],C:[],CX:[],D:[]};
-  all.forEach(t=>{const g=classify(t);if(g)groups[g].push(t)});
+  all.forEach(t=>{
+    const g=classify(t);
+    if(!g)return;
+    // Une ancienne source E déjà transmise à une nouvelle production D
+    // reste uniquement dans l'historique et ne doit jamais réapparaître en D.
+    const w=t.metadata?.workflow||{};
+    const archivedRevision=w.revision_status==='handed_off'
+      || w.stage==='revision_archive'
+      || w.pending_admin_surface==='revision_history'
+      || w.production_status==='historical_revision_source';
+    if(g==='D'&&archivedRevision)return;
+    groups[g].push(t);
+  });
   const active=state.section||'A',items=active==='E'?(state.revisions||[]):groups[active],page=state.pages[active]||0,visible=paginate(items,page);
   root.innerHTML=
   '<div class="editor-hub">'+
