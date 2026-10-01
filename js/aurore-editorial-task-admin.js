@@ -124,7 +124,7 @@ async function getJob(id){
   return Array.isArray(rows)?rows[0]||null:null;
 }
 async function listJobs(){
-  const rows=await rest('/rest/v1/aurora_content_jobs?select=id,status,title,subject,level,class_name,document_type,metadata,created_at,updated_at&order=updated_at.desc&limit=500');
+  const rows=await rest('/rest/v1/aurora_content_jobs?select=id,status,title,subject,level,class_name,document_type,generated_document_id,metadata,created_at,updated_at&order=updated_at.desc&limit=500');
   return (Array.isArray(rows)?rows:[]).filter(t=>['aurore-chatgpt-editor-v2','aurore-chatgpt-editor-v1'].includes(t?.metadata?.workflow?.protocol));
 }
 async function listRevisionDocuments(){
@@ -411,7 +411,7 @@ function taskCard(t,section){
         ? (w.stage==='edition_ready'?'Plan validé · prêt pour la production':'Production finale')
         : 'Classe + matière : première étape du parcours éditorial';
 
-    return '<article class="editor-pro-card"><div class="editor-pro-top"><span class="editor-pro-id">#'+esc(t.id)+'</span><span class="editor-pro-pill '+esc(s.tone)+'">'+esc(s.label)+'</span></div><h4>'+esc(t.class_name||t.level||'Classe')+'</h4><strong class="editor-pro-subject">'+esc(t.subject||'Matière')+'</strong><p>'+esc(desc)+'</p><div class="editor-pro-bottom"><span>'+esc(t.document_type||'cours')+'</span><button type="button" class="admin-btn ghost" data-editor-open="'+esc(t.id)+'">Ouvrir</button></div></article>';
+    return '<article class="editor-pro-card"><div class="editor-pro-top"><span class="editor-pro-id">#'+esc(t.id)+'</span><span class="editor-pro-pill '+esc(s.tone)+'">'+esc(s.label)+'</span></div><h4>'+esc(t.class_name||t.level||'Classe')+'</h4><strong class="editor-pro-subject">'+esc(t.subject||'Matière')+'</strong><p>'+esc(desc)+'</p><div class="editor-pro-bottom"><span>'+esc(t.document_type||'cours')+'</span><button type="button" class="admin-btn ghost" data-editor-open="'+esc(t.id)+'">Ouvrir</button>'+(section==='D'&&t.generated_document_id&&w.stage==='production_terminee'?'<button type="button" class="admin-btn ghost" data-revision-job="'+esc(t.id)+'">Envoyer en E — réviser</button>':'')+'</div></article>';
 }
 function revisionTaskCard(r){
   const when=r.revision_requested_at?new Date(r.revision_requested_at).toLocaleString('fr-FR'):'—';

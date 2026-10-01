@@ -123,6 +123,7 @@ function actions(j){
  if(s==='draft'||(j.generatedDocumentId&&['review','cancelled'].includes(s)))h+='<button type="button" class="admin-btn primary" data-action="launch" data-id="'+j.id+'">'+(j.generatedDocumentId?'Lancer le PDF':'Lancer la production')+'</button>';
  else if(s==='queued')h+='<button type="button" class="admin-btn ghost" disabled>En file d’attente</button>';
  else h+='<button type="button" class="admin-btn primary" disabled>Production en cours…</button>';
+ if(s==='review'&&j.generatedDocumentId)h+='<button type="button" class="admin-btn ghost" data-action="revision" data-id="'+j.id+'">Envoyer en E — réviser</button>';
  if(active)h+='<button type="button" class="admin-btn danger admin-pending-v2-cancel" data-action="cancel" data-id="'+j.id+'">Annuler la génération</button>';
  h+='<button type="button" class="admin-btn danger" data-action="delete" data-id="'+j.id+'" '+(active?'disabled title="Annulation requise avant suppression."':'')+'>Supprimer</button>';
  return h+'</div>';
@@ -172,6 +173,11 @@ async function runAction(b){
  try{
   if(b.dataset.action==='theme'){if(await chooseTheme(j))await chargerDocumentsEnAttenteAdminV2()}
   else if(b.dataset.action==='launch'){await launch(j);await chargerDocumentsEnAttenteAdminV2()}
+  else if(b.dataset.action==='revision'){
+    if(typeof window.auroreRequestEditorialRevisionForJob!=='function')throw new Error('Le circuit Section E n’est pas chargé.');
+    const ok=await window.auroreRequestEditorialRevisionForJob(j.id);
+    if(ok)await Promise.all([chargerDocumentsEnAttenteAdminV2(),typeof window.auroreRefreshRevisionSection==='function'?window.auroreRefreshRevisionSection():Promise.resolve()]);
+  }
   else if(b.dataset.action==='cancel'){await cancelJob(j)}
   else if(b.dataset.action==='delete'){await deleteJob(j)}
  }catch(e){console.error('[ADMIN][AURORE PENDING]',e);alert('Action impossible pour le job #'+j.id+'. '+(e?.message||e));b.disabled=false;b.textContent=original}
