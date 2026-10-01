@@ -666,7 +666,39 @@ function detail(t,section){
   const researchReady=aResearchReady(t),r=aResearchFor(t),options=Array.isArray(w.chapter_options)?w.chapter_options:[];
   return d+meta+'<div class="editor-a-start"><strong>'+esc(researchReady?'Recherche et propositions persistées : la tâche peut passer en B.':'Cette tâche attend notre récupération et sa recherche documentaire.')+'</strong><span>'+esc(researchReady?'La migration sera effectuée seulement après une nouvelle lecture de Supabase et une vérification des sources et chapitres.':'Aucune migration vers B ne doit être faite tant que la recherche, ses sources et les propositions de chapitres ne sont pas écrites dans la tâche.')+'</span>'+(researchReady?'<div class="editor-plan-actions"><button type="button" class="admin-btn primary" data-a-promote="'+esc(t.id)+'">Transférer en B après vérification</button></div>':'')+'</div>';
 }
+function persistEditorialPosition(state){
+  try{
+    const payload={
+      section:['A','B','C','CX','D','E'].includes(state?.section)?state.section:'A',
+      pages:{
+        A:Math.max(0,Number(state?.pages?.A)||0),
+        B:Math.max(0,Number(state?.pages?.B)||0),
+        C:Math.max(0,Number(state?.pages?.C)||0),
+        CX:Math.max(0,Number(state?.pages?.CX)||0),
+        D:Math.max(0,Number(state?.pages?.D)||0),
+        E:Math.max(0,Number(state?.pages?.E)||0)
+      }
+    };
+    window.__auroreEditorialActiveSection=payload.section;
+    window.__auroreEditorialActivePages=payload.pages;
+    sessionStorage.setItem('aurore_editorial_position_v1',JSON.stringify(payload));
+  }catch(_){}
+}
+function readEditorialPosition(){
+  try{
+    const raw=sessionStorage.getItem('aurore_editorial_position_v1');
+    const p=raw?JSON.parse(raw):null;
+    if(!p)return {section:'A',pages:{A:0,B:0,C:0,CX:0,D:0,E:0}};
+    const section=['A','B','C','CX','D','E'].includes(p.section)?p.section:'A';
+    const pages={A:0,B:0,C:0,CX:0,D:0,E:0};
+    Object.keys(pages).forEach(k=>pages[k]=Math.max(0,Number(p.pages?.[k])||0));
+    return {section,pages};
+  }catch(_){
+    return {section:'A',pages:{A:0,B:0,C:0,CX:0,D:0,E:0}};
+  }
+}
 function render(root,state){
+  persistEditorialPosition(state);
   const all=state.tasks, groups={A:[],B:[],C:[],CX:[],D:[]};
   all.forEach(t=>{const g=classify(t);if(g)groups[g].push(t)});
   const active=state.section||'A',items=active==='E'?(state.revisions||[]):groups[active],page=state.pages[active]||0,visible=paginate(items,page);
@@ -717,14 +749,14 @@ function bind(root,state){
   root.querySelectorAll('[data-editor-section]').forEach(b=>b.addEventListener('click',()=>{
     state.section=b.dataset.editorSection;
     state.pages[state.section]=0;
-    window.__auroreEditorialActiveSection=state.section;
+    persistEditorialPosition(state);
     render(root,state);
   }));
   root.querySelector('[data-editor-documents]')?.addEventListener('click',()=>{
     const b=[...document.querySelectorAll('.admin-tab')].find(x=>x.dataset.tab==='attente');
     if(b)b.click();
   });
-  root.querySelectorAll('[data-editor-page]').forEach(b=>b.addEventListener('click',()=>{const [k,p]=b.dataset.editorPage.split(':');state.section=k;state.pages[k]=Number(p);render(root,state)}));
+  root.querySelectorAll('[data-editor-page]').forEach(b=>b.addEventListener('click',()=>{const [k,p]=b.dataset.editorPage.split(':');state.section=k;state.pages[k]=Number(p);persistEditorialPosition(state);render(root,state)}));
   const form=root.querySelector('#editorACreateForm');
   const levelPicker=root.querySelector('#editorACreateLevelPicker');
   const routePicker=root.querySelector('#editorACreatePathPicker');
@@ -1418,9 +1450,12 @@ async function chargerEspaceEditorialChatGPT(preferredSection){
   try{
     const [tasks,revisions]=await Promise.all([listJobs(),listRevisionDocuments()]);
     const allowed=['A','B','C','CX','D','E'];
-    const active=allowed.includes(preferredSection)?preferredSection:(allowed.includes(window.__auroreEditorialActiveSection)?window.__auroreEditorialActiveSection:'A');
+    const saved=readEditorialPosition();
+    const active=allowed.includes(preferredSection)?preferredSection:(allowed.includes(window.__auroreEditorialActiveSection)?window.__auroreEditorialActiveSection:saved.section);
+    const pages={...saved.pages,...(window.__auroreEditorialActivePages||{})};
     window.__auroreEditorialActiveSection=active;
-    const state={tasks,revisions,section:active,pages:{A:0,B:0,C:0,CX:0,D:0,E:0}};
+    window.__auroreEditorialActivePages=pages;
+    const state={tasks,revisions,section:active,pages};
     render(root,state);
     const count=document.getElementById('tabCountAuroraRequest');if(count)count.textContent=String(tasks.length);
     return true;
