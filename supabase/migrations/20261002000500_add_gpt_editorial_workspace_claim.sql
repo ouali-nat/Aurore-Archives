@@ -3,7 +3,7 @@ create or replace function public.aurora_claim_gpt_editorial_task(p_job_id bigin
 returns jsonb
 language plpgsql
 security definer
-set search_path = public, private
+set search_path = ''
 as $$
 declare
   j public.aurora_content_jobs%rowtype;
