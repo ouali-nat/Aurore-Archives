@@ -2253,6 +2253,20 @@ def render_table(rows):
     return "\n".join(out)
 
 
+def _split_exercise_text(value, mode="question"):
+    """Split exercise text into explicit and reasoning paragraphs."""
+    text = clean_text(value).replace(chr(13)+chr(10), chr(10)).replace(chr(13), chr(10)).strip()
+    if not text:
+        return []
+    # Preserve numbered subquestions as separate blocks, then split natural
+    # reasoning connectors into prose paragraphs.
+    text = re.sub(r"\s+(?=(?:\d+[.)]|[A-Za-z][.)])\s+)", "\n", text)
+    paragraphs = []
+    for part in re.split(r"\n+", text):
+        paragraphs.extend(_split_reasoning_paragraphs(part))
+    return [part.strip() for part in paragraphs if part.strip()]
+
+
 def _split_reasoning_paragraphs(text):
     """Build mathematical reasoning as prose paragraphs, not implication-arrow chains.
 
