@@ -817,5 +817,11 @@ Deno.serve(async req=>{
     const out=Array.isArray(result)?result[0]:result;
     if(!out?.ok)throw new Error("Le contrat d’ingestion éditoriale a refusé le document.");
     return reply({ok:true,duplicate:out.duplicate===true,generated_document_id:out.generated_document_id,job_id:out.job_id,status:out.status,version:out.version,schema_version:SCHEMA_VERSION,content_sha256:contentHash,message:out.duplicate?"Document éditorial déjà intégré : aucune duplication créée.":"Document éditorial reçu. Il est en contrôle administratif; le rendu PDF reste séparé."},out.duplicate?200:201);
-  }catch(error){console.error("aurora-gpt-ingest:",error);return reply({ok:false,error:error instanceof Error?error.message:String(error)},500);}
+  }catch(error){
+    console.error("aurora-gpt-ingest:",error);
+    if(error&&typeof error==="object"&&(error as any).code==="EDITORIAL_SECTION_DISTINCTNESS"){
+      return reply({ok:false,error:(error as any).message,code:"EDITORIAL_SECTION_DISTINCTNESS",editorial_repair:(error as any).editorial_repair||null},422);
+    }
+    return reply({ok:false,error:error instanceof Error?error.message:String(error)},500);
+  }
 });
