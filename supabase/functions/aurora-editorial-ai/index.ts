@@ -397,6 +397,7 @@ async function validateContent(content:any,t:any){
       p_metadata:{course_quality:{format_profile:"standard_course"}}
     });
     reports.push(quality);
+    if(quality?.passed!==true) throw new Error("COURSE_QUALITY: "+JSON.stringify(quality));
   }
   return {reports,words:Number(words||0)};
 }
