@@ -2254,32 +2254,58 @@ def render_table(rows):
 
 
 def _split_exercise_text(value, mode="question"):
-    """Split exercise text without fragmenting a mathematical reasoning chain."""
+    """Split exercise text into explicit and reasoning paragraphs."""
     text = clean_text(value).replace(chr(13)+chr(10), chr(10)).replace(chr(13), chr(10)).strip()
     if not text:
         return []
-    # Keep explicit paragraph boundaries and numbered subquestions. Reasoning
-    # connectors are converted to implication notation later, not to new blocks.
+    # Preserve numbered subquestions as separate blocks, then split natural
+    # reasoning connectors into prose paragraphs.
     text = re.sub(r"\s+(?=(?:\d+[.)]|[A-Za-z][.)])\s+)", "\n", text)
-    return [part.strip() for part in re.split(r"\n+", text) if part.strip()]
+    paragraphs = []
+    for part in re.split(r"\n+", text):
+        paragraphs.extend(_split_reasoning_paragraphs(part))
+    return [part.strip() for part in paragraphs if part.strip()]
 
 
-def _link_reasoning_implications(text):
-    """Keep a scientific reasoning chain in one paragraph with LaTeX arrows."""
-    value = str(text or "")
+def _split_reasoning_paragraphs(text):
+    """Build mathematical reasoning as prose paragraphs, not implication-arrow chains.
+
+    Connectors such as 'Donc', 'Ainsi' and 'On en déduit' introduce a new
+    reasoning step. They remain visible as natural language at the beginning
+    of the next paragraph; no implication symbol is injected into the PDF.
+    """
+    value = str(text or "").strip()
     if not value:
-        return value
-    patterns = [
-        (r"(?i)\bOn en déduit\s*[:,]?\s*", r"\(\Longrightarrow\)\enspace "),
-        (r"(?i)\bIl s'ensuit\s*[:,]?\s*", r"\(\Longrightarrow\)\enspace "),
-        (r"(?i)\bIl s’ensuit\s*[:,]?\s*", r"\(\Longrightarrow\)\enspace "),
-        (r"(?i)\bDonc\s*[:,]?\s*", r"\(\Longrightarrow\)\enspace "),
-        (r"(?i)\bAinsi\s*[:,]?\s*", r"\(\Longrightarrow\)\enspace "),
-        (r"(?i)\bAlors\s*[:,]?\s*", r"\(\Longrightarrow\)\enspace "),
-    ]
-    for pattern, replacement in patterns:
-        value = re.sub(pattern, replacement, value)
-    return value
+        return []
+
+    # Only split connectors when they introduce a real new reasoning step.
+    # A look-ahead avoids breaking ordinary occurrences embedded in a word or
+    # in a short expression.
+    connector = re.compile(
+        r"(?<![\wÀ-ÿ])"
+        r"(On\s+en\s+déduit|Il\s+s['’]ensuit|Donc|Ainsi|Alors)"
+        r"\s*[:,]?\s*",
+        flags=re.IGNORECASE,
+    )
+    matches = list(connector.finditer(value))
+    if not matches:
+        return [value]
+
+    paragraphs = []
+    start = 0
+    for match in matches:
+        # Keep the first connector attached to the preceding text if it is
+        # the first token; otherwise start a new paragraph at the connector.
+        if match.start() > start:
+            before = value[start:match.start()].strip()
+            if before:
+                paragraphs.append(before)
+        start = match.start()
+    tail = value[start:].strip()
+    if tail:
+        paragraphs.append(tail)
+
+    return paragraphs or [value]
 def render_exercise_text(value, mode="question"):
     lines = []
     display_pattern = re.compile(r"(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\])")
@@ -2310,8 +2336,9 @@ def render_exercise_text(value, mode="question"):
                 lines.append(_math_render_command(math, math_label))
                 continue
 
-            if mode == "correction":
-                segment = _link_reasoning_implications(segment)
+            # Mathematical corrections are deliberately rendered as prose
+            # paragraphs. Reasoning connectors are split by
+            # _split_reasoning_paragraphs(); no implication arrow is injected.
             rendered = _render_course_paragraph(segment, auto_math=True)
             if not rendered.strip():
                 continue
