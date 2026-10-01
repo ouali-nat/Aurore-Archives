@@ -97,8 +97,9 @@ function renderBox(kind,rows){
     const id=Number(b.dataset.revisionId);if(!id)return;
     b.disabled=true;b.textContent='Création de la nouvelle production…';
     try{
-      await beginRevision(id);
-      const newJobId=Number((await beginRevision(id)).new_job_id||0);
+      const result=await beginRevision(id);
+      const newJobId=Number(result?.new_job_id||0);
+      alert('Nouvelle production D créée'+(newJobId?' — job #'+newJobId:'')+'. L’ancien document E reste conservé dans l’historique. Aucun PDF n’a été lancé.');
       await refreshAll();
     }catch(e){alert(e.message||e);b.disabled=false;b.textContent='Récupérer et traiter en nouvelle production →'}
   }));
