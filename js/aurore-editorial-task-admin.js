@@ -127,6 +127,15 @@ async function listJobs(){
   const rows=await rest('/rest/v1/aurora_content_jobs?select=id,status,title,subject,level,class_name,document_type,metadata,created_at,updated_at&order=updated_at.desc&limit=500');
   return (Array.isArray(rows)?rows:[]).filter(t=>['aurore-chatgpt-editor-v2','aurore-chatgpt-editor-v1'].includes(t?.metadata?.workflow?.protocol));
 }
+async function listRevisionDocuments(){
+  const rows=await rpc('aurora_list_editorial_revision_documents',{});
+  return Array.isArray(rows)?rows:[];
+}
+async function beginEditorialRevision(id){
+  const result=await rpc('aurora_begin_editorial_revision',{p_generated_document_id:Number(id)});
+  if(!result?.ok)throw new Error('La reprise en D n’a pas été confirmée par Supabase.');
+  return result;
+}
 function workflowMetadata(existing,patch){
   const m=existing&&typeof existing==='object'?existing:{};
   const w=m.workflow&&typeof m.workflow==='object'?m.workflow:{};
@@ -404,6 +413,10 @@ function taskCard(t,section){
 
     return '<article class="editor-pro-card"><div class="editor-pro-top"><span class="editor-pro-id">#'+esc(t.id)+'</span><span class="editor-pro-pill '+esc(s.tone)+'">'+esc(s.label)+'</span></div><h4>'+esc(t.class_name||t.level||'Classe')+'</h4><strong class="editor-pro-subject">'+esc(t.subject||'Matière')+'</strong><p>'+esc(desc)+'</p><div class="editor-pro-bottom"><span>'+esc(t.document_type||'cours')+'</span><button type="button" class="admin-btn ghost" data-editor-open="'+esc(t.id)+'">Ouvrir</button></div></article>';
 }
+function revisionTaskCard(r){
+  const when=r.revision_requested_at?new Date(r.revision_requested_at).toLocaleString('fr-FR'):'—';
+  return '<article class="editor-pro-card"><div class="editor-pro-top"><span class="editor-pro-id">PDF #'+esc(r.generated_document_id)+'</span><span class="editor-pro-pill warning">Révision demandée</span></div><h4>'+esc(r.class_name||r.level||'Classe')+'</h4><strong class="editor-pro-subject">'+esc(r.subject||'Matière')+'</strong><p>'+esc(r.title||'Document')+'<br><small>Demandée le '+esc(when)+(r.revision_reason?' · '+esc(r.revision_reason):'')+'</small></p><div class="editor-pro-bottom"><span>'+esc(r.document_type||'cours')+'</span><button type="button" class="admin-btn primary" data-revision-begin="'+esc(r.generated_document_id)+'">Reprendre en D</button></div></article>';
+}
 function paginate(items,page){
   return items.slice(page*PAGE_SIZE,(page+1)*PAGE_SIZE);
 }
@@ -656,16 +669,16 @@ function detail(t,section){
 function render(root,state){
   const all=state.tasks, groups={A:[],B:[],C:[],CX:[],D:[]};
   all.forEach(t=>{const g=classify(t);if(g)groups[g].push(t)});
-  const active=state.section||'A',items=groups[active],page=state.pages[active]||0,visible=paginate(items,page);
+  const active=state.section||'A',items=active==='E'?(state.revisions||[]):groups[active],page=state.pages[active]||0,visible=paginate(items,page);
   root.innerHTML=
   '<div class="editor-hub">'+
     '<div class="editor-hub-head"><div><span class="editor-kicker">Parcours éditorial</span><h3>Gestion des documents</h3><p>Un seul parcours, de la demande jusqu’à l’édition finale. Aucun PDF n’est lancé automatiquement.</p></div><button type="button" class="admin-btn ghost" id="editorRefresh">↻ Actualiser</button></div>'+
     '<nav class="editor-main-nav" aria-label="Étapes du parcours éditorial">'+
-      ['A','B','C','CX','D'].map(k=>'<button type="button" class="editor-main-nav-item '+(active===k?'active':'')+'" data-editor-section="'+k+'"><span>'+k+'</span><strong>'+({A:'Tâches',B:'Chapitres',C:'Production',CX:'Plans traités',D:'Édition finale'}[k])+'</strong><em>'+groups[k].length+'</em></button>').join('')+
+      ['A','B','C','CX','D','E'].map(k=>'<button type="button" class="editor-main-nav-item '+(active===k?'active':'')+'" data-editor-section="'+k+'"><span>'+k+'</span><strong>'+({A:'Tâches',B:'Chapitres',C:'Production',CX:'Plans traités',D:'Édition finale',E:'À réviser'}[k])+'</strong><em>'+((k==='E'?(state.revisions||[]):groups[k]).length)+'</em></button>').join('')+
       '<button type="button" class="editor-main-nav-link" data-editor-documents>Documents en attente <span>→</span></button>'+
     '</nav>'+
     '<section class="editor-page">'+
-      '<div class="editor-page-title"><div><span class="editor-step">Section '+active+'</span><h4>'+({A:'Tâches à créer',B:'Chapitres disponibles',C:'Plan complet de production',CX:'Plans C déjà traités',D:'Édition finale / suivi de production'}[active])+'</h4><p>'+({A:'Crée ici les demandes avec une sélection claire et agrandie du niveau, du parcours, de la classe et de la matière.',B:'Chaque tâche récupérée présente les chapitres disponibles pour le document.',C:'Les tâches non encore traitées en C sont construites ici.',CX:'Cette zone conserve les documents dont le travail C est déjà traité et vérifié. Le plan reste consultable et modifiable avant la suite.',D:'Les documents passés après CX arrivent ici pour la rédaction finale. Aucun PDF n’est lancé automatiquement.'}[active])+'</p></div><span class="editor-page-count">'+items.length+' document'+(items.length>1?'s':'')+'</span></div>'+
+      '<div class="editor-page-title"><div><span class="editor-step">Section '+active+'</span><h4>'+({A:'Tâches à créer',B:'Chapitres disponibles',C:'Plan complet de production',CX:'Plans C déjà traités',D:'Édition finale / suivi de production',E:'Documents à réviser'}[active])+'</h4><p>'+({A:'Crée ici les demandes avec une sélection claire et agrandie du niveau, du parcours, de la classe et de la matière.',B:'Chaque tâche récupérée présente les chapitres disponibles pour le document.',C:'Les tâches non encore traitées en C sont construites ici.',CX:'Cette zone conserve les documents dont le travail C est déjà traité et vérifié. Le plan reste consultable et modifiable avant la suite.',D:'Les documents passés après CX arrivent ici pour la rédaction finale. Aucun PDF n’est lancé automatiquement.',E:'Les documents demandés en révision sont conservés ici avec leur historique. « Reprendre en D » les remet explicitement dans la rédaction finale.'}[active])+'</p></div><span class="editor-page-count">'+items.length+' document'+(items.length>1?'s':'')+'</span></div>'+
       (active==='A'?'<form id="editorACreateForm" class="cf-admin-create-form cf-rebuild-form editor-a-create-form" novalidate>'+
   '<section class="cf-rebuild-card" aria-label="Identification"><div class="cf-rebuild-title"><span class="cf-rebuild-no">01</span><div><strong>La ressource</strong><small>Ce que tu veux faire produire</small></div></div>'+
   '<label class="cf-rebuild-field"><span>Titre</span><input id="editorACreateTitle" type="text" required placeholder="Ex. Fiche de révision — fonctions exponentielles"></label>'+
@@ -692,7 +705,7 @@ function render(root,state){
   '<button class="admin-btn ghost" id="editorAFormLayoutSave" type="button">Enregistrer la forme</button><span class="cf-form-layout-msg editor-a-layout-msg" id="editorAFormLayoutMsg" aria-live="polite"></span></section>'+
   '</form>':'')+
       '<div class="editor-block-label"><span>Bloc '+(page+1)+'</span><small>'+((page*PAGE_SIZE)+1)+'–'+Math.min((page+1)*PAGE_SIZE,items.length)+' sur '+items.length+'</small></div>'+
-      '<div class="editor-card-grid">'+(visible.length?visible.map(t=>taskCard(t,active)).join(''):'<div class="editor-empty">Aucun document dans cette étape pour le moment.</div>')+'</div>'+
+      '<div class="editor-card-grid">'+(visible.length?visible.map(t=>active==='E'?revisionTaskCard(t):taskCard(t,active)).join(''):'<div class="editor-empty">Aucun document dans cette étape pour le moment.</div>')+'</div>'+
       pager(items.length,page,active)+
       '<section class="editor-detail" id="editorDetail" hidden></section>'+
     '</section>'+
@@ -866,6 +879,15 @@ function bind(root,state){
     });
   }
   
+  root.querySelectorAll('[data-revision-begin]').forEach(b=>b.addEventListener('click',async()=>{
+    const id=Number(b.dataset.revisionBegin);if(!id)return;
+    b.disabled=true;b.textContent='Reprise…';
+    try{
+      await beginEditorialRevision(id);
+      alert('Document repris en Section D. Aucun PDF n’a été lancé.');
+      await chargerEspaceEditorialChatGPT('D');
+    }catch(e){alert(e.message||e);b.disabled=false;b.textContent='Reprendre en D'}
+  }));
   root.querySelectorAll('[data-editor-open]').forEach(b=>b.addEventListener('click',async()=>{
     const t=await getJob(Number(b.dataset.editorOpen));if(!t)return;
     const d=root.querySelector('#editorDetail');d.hidden=false;d.innerHTML=detail(t,state.section);bindDetail(d,t,state);
@@ -1393,11 +1415,11 @@ async function chargerEspaceEditorialChatGPT(preferredSection){
   if(!root){root=document.createElement('div');root.id='auroreEditorialTaskAdmin';(document.getElementById('auroraRequestFormHost')||p).appendChild(root)}
   root.innerHTML='<div class="editor-empty">Chargement du parcours éditorial…</div>';
   try{
-    const tasks=await listJobs();
-    const allowed=['A','B','C','CX','D'];
+    const [tasks,revisions]=await Promise.all([listJobs(),listRevisionDocuments()]);
+    const allowed=['A','B','C','CX','D','E'];
     const active=allowed.includes(preferredSection)?preferredSection:(allowed.includes(window.__auroreEditorialActiveSection)?window.__auroreEditorialActiveSection:'A');
     window.__auroreEditorialActiveSection=active;
-    const state={tasks,section:active,pages:{A:0,B:0,C:0,CX:0,D:0}};
+    const state={tasks,revisions,section:active,pages:{A:0,B:0,C:0,CX:0,D:0,E:0}};
     render(root,state);
     const count=document.getElementById('tabCountAuroraRequest');if(count)count.textContent=String(tasks.length);
     return true;
