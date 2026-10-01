@@ -5,6 +5,8 @@ window.__auroreEditorialTaskAdmin=true;
 
 const PROTOCOL='aurore-chatgpt-editor-v2';
 const EDITOR='ChatGPT';
+const AI_WORKSPACE_SECTIONS=['CLAUDE','GPT','GROK'];
+const AI_WORKSPACE_LABELS={CLAUDE:'Claude',GPT:'GPT',GROK:'Grok'};
 const PAGE_SIZE=10;
 const A_EXECUTION_CONTRACT_VERSION='a-recovery-guardrails-v1';
 const A_EXECUTION_CONTRACT={
@@ -366,7 +368,7 @@ function classify(t){
   if(!w.chatgpt_claimed&&['initiale','chapitres_demandes'].includes(s))return'A';
   if(['proposition_editoriale','revision_requested'].includes(s))return'C';
   if(['proposal_review','admin_validation','edition_ready'].includes(s))return'CX';
-  if(['redaction','production_en_cours'].includes(s))return'D';
+  if(s==='redaction')return'D';
   return null;
 }
 async function promoteAtoB(id){
@@ -394,18 +396,18 @@ async function promoteAtoB(id){
   return promoted;
 }
 const D_AI_ENDPOINT='/functions/v1/aurora-editorial-ai';
-const D_AI_PROVIDER_LABELS={grok:'Grok',claude:'Claude',gemini:'Gemini',deepseek:'DeepSeek',llama:'Llama',groq:'Groq'};
-let D_AI_PROVIDERS=[['grok','Grok'],['groq','Groq']];
+const D_AI_PROVIDER_LABELS={gpt:'GPT',claude:'Claude',grok:'Grok'};
+let D_AI_PROVIDERS=[['gpt','GPT'],['claude','Claude'],['grok','Grok']];
 function dAiSetProviders(list){
   const ids=Array.isArray(list)?list.map(x=>String(x?.id||x).toLowerCase()).filter(x=>D_AI_PROVIDER_LABELS[x]):[];
-  D_AI_PROVIDERS=(ids.length?ids:['grok']).map(id=>[id,D_AI_PROVIDER_LABELS[id]]);
+  D_AI_PROVIDERS=(ids.length?ids:['gpt','claude','grok']).map(id=>[id,D_AI_PROVIDER_LABELS[id]]);
 }
 async function loadDAiProviders(){
   try{
     const tokenValue=await token();
     const r=await fetch(SUPABASE_URL+D_AI_ENDPOINT,{method:'GET',headers:{apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+tokenValue},cache:'no-store'});
     const raw=await r.text(); let data=null; try{data=raw?JSON.parse(raw):null}catch(_){}
-    if(r.ok&&Array.isArray(data?.providers)) dAiSetProviders(data.providers);
+    if(r.ok&&Array.isArray(data?.providers)) dAiSetProviders([['gpt','GPT'],...data.providers.filter(x=>['claude','grok'].includes(String(x?.id||'').toLowerCase()))]);
   }catch(_){}
 }
 
@@ -465,10 +467,18 @@ function dAiCardMarkup(t){
     '</div>':'')+
   '</div>';
 }
+async function claimGptTask(jobId){
+  const id=Number(jobId);if(!Number.isInteger(id)||id<=0)throw new Error('Tâche GPT invalide.');
+  const runId='d-gpt-'+id+'-'+crypto.randomUUID();
+  const data=await rpc('aurora_claim_gpt_editorial_task',{p_job_id:id,p_run_id:runId});
+  if(data?.ok!==true)throw new Error(data?.error||'La tâche n’a pas pu être récupérée par GPT.');
+  return data;
+}
 async function startDaiTreatment(jobId,provider){
   const id=Number(jobId),p=String(provider||'').toLowerCase();
   if(!Number.isInteger(id)||id<=0)throw new Error('Tâche D invalide.');
   if(!D_AI_PROVIDERS.some(([id])=>id===p))throw new Error('Moteur IA invalide ou non configuré.');
+  if(p==='gpt') return claimGptTask(id);
   const tokenValue=await token();
   const r=await fetch(SUPABASE_URL+D_AI_ENDPOINT,{
     method:'POST',
@@ -485,7 +495,7 @@ function stopDAiPolling(){
 }
 function startDAiPolling(root,state){
   stopDAiPolling();
-  if(state?.section!=='D')return;
+  if(!['D',...AI_WORKSPACE_SECTIONS].includes(state?.section))return;
   const tick=async()=>{
     try{
       const fresh=await listJobs();
@@ -518,7 +528,7 @@ function startDAiPolling(root,state){
       if(changed){
         const activeIds=new Set([...root.querySelectorAll('[data-ai-start]')].map(x=>Number(x.dataset.aiStart)));
         const leaving=[...activeIds].some(id=>byId.get(id)?.generated_document_id||byId.get(id)?.metadata?.workflow?.stage==='production_terminee');
-        if(leaving){await chargerEspaceEditorialChatGPT('D');return;}
+        if(leaving){await chargerEspaceEditorialChatGPT(state.section);return;}
         render(root,state);
       }
       if(!stillRunning)stopDAiPolling();
@@ -528,6 +538,10 @@ function startDAiPolling(root,state){
   window.__auroreDAiTimer=setInterval(tick,2500);
 }
 
+function aiWorkspaceCard(t,section){
+  const a=dAiTreatment(t),label=AI_WORKSPACE_LABELS[section]||section,processing=a?.status==='processing',failed=a?.status==='failed',pct=Math.max(0,Math.min(100,Number(a?.progress)||0));
+  return '<article class="editor-pro-card ai-workspace-card"><div class="editor-pro-top"><span class="editor-pro-id">#'+esc(t.id)+'</span><span class="editor-pro-pill '+(failed?'warning':'ready')+'">'+esc(label)+'</span></div><h4>'+esc(t.class_name||t.level||'Classe')+'</h4><strong class="editor-pro-subject">'+esc(t.subject||'Matière')+'</strong><p>'+esc(t.title||'Document')+'<br><small>'+(processing?'Traitement en cours':'Traitement à reprendre')+'</small></p><div class="editor-ai-progress"><div class="editor-ai-progress-head"><span>'+esc(a?.label||'Espace '+label)+'</span><strong>'+pct+'%</strong></div><div class="editor-ai-progress-track"><span style="width:'+pct+'%"></span></div></div><div class="editor-pro-bottom"><span>'+esc(t.document_type||'cours')+'</span><button type="button" class="admin-btn primary" data-editor-open="'+esc(t.id)+'">Ouvrir</button>'+(failed?'<button type="button" class="admin-btn ghost" data-ai-retry="'+esc(t.id)+'">Reprendre</button>':'')+'</div></article>';
+}
 function taskCard(t,section){
   const w=t.metadata?.workflow||{},s=stageInfo[w.stage]||{label:w.stage||t.status,tone:'waiting'};
   const ch=Array.isArray(w.chapters)?w.chapters:[];
@@ -800,23 +814,15 @@ function detail(t,section){
   const meta='<div class="editor-detail-meta"><div><span>Identité</span><strong>'+esc(t.title||'')+'</strong></div><div><span>Type</span><strong>'+esc(t.document_type||'cours')+'</strong></div><div><span>Recherche</span><strong>'+esc(sourceUrls.length||((w.proposal?.sources?String(w.proposal.sources).split('\\n').filter(Boolean).length:0)))+' source(s)</strong></div><div><span>Version du plan</span><strong>'+esc(w.proposal_version||0)+'</strong></div></div>';
   if(section==='B')return d+meta+'<h5 class="editor-detail-title">Chapitres disponibles</h5>'+chaptersMarkup(t);
   if(section==='C'||section==='CX')return d+meta+'<h5 class="editor-detail-title">Plan complet de production</h5>'+planForm(t,section);
-  if(section==='D')return d+meta+'<h5 class="editor-detail-title">Production autorisée / suivi de rédaction</h5>'+productionReadyMarkup(t);
+  if(section==='D'||AI_WORKSPACE_SECTIONS.includes(section))return d+meta+'<h5 class="editor-detail-title">'+(section==='D'?'Production autorisée / suivi de rédaction':'Travail éditorial dans l’espace '+AI_WORKSPACE_LABELS[section])+'</h5>'+productionReadyMarkup(t);
   const researchReady=aResearchReady(t),r=aResearchFor(t),options=Array.isArray(w.chapter_options)?w.chapter_options:[];
   return d+meta+'<div class="editor-a-start"><strong>'+esc(researchReady?'Recherche et propositions persistées : la tâche peut passer en B.':'Cette tâche attend notre récupération et sa recherche documentaire.')+'</strong><span>'+esc(researchReady?'La migration sera effectuée seulement après une nouvelle lecture de Supabase et une vérification des sources et chapitres.':'Aucune migration vers B ne doit être faite tant que la recherche, ses sources et les propositions de chapitres ne sont pas écrites dans la tâche.')+'</span>'+(researchReady?'<div class="editor-plan-actions"><button type="button" class="admin-btn primary" data-a-promote="'+esc(t.id)+'">Transférer en B après vérification</button></div>':'')+'</div>';
 }
 function persistEditorialPosition(state){
   try{
-    const payload={
-      section:['A','B','C','CX','D','E'].includes(state?.section)?state.section:'A',
-      pages:{
-        A:Math.max(0,Number(state?.pages?.A)||0),
-        B:Math.max(0,Number(state?.pages?.B)||0),
-        C:Math.max(0,Number(state?.pages?.C)||0),
-        CX:Math.max(0,Number(state?.pages?.CX)||0),
-        D:Math.max(0,Number(state?.pages?.D)||0),
-        E:Math.max(0,Number(state?.pages?.E)||0)
-      }
-    };
+    const allowed=['A','B','C','CX','D','E',...AI_WORKSPACE_SECTIONS];
+    const payload={section:allowed.includes(state?.section)?state.section:'A',pages:{A:0,B:0,C:0,CX:0,D:0,E:0,CLAUDE:0,GPT:0,GROK:0}};
+    Object.keys(payload.pages).forEach(k=>payload.pages[k]=Math.max(0,Number(state?.pages?.[k])||0));
     window.__auroreEditorialActiveSection=payload.section;
     window.__auroreEditorialActivePages=payload.pages;
     sessionStorage.setItem('aurore_editorial_position_v1',JSON.stringify(payload));
@@ -826,18 +832,17 @@ function readEditorialPosition(){
   try{
     const raw=sessionStorage.getItem('aurore_editorial_position_v1');
     const p=raw?JSON.parse(raw):null;
-    if(!p)return {section:'A',pages:{A:0,B:0,C:0,CX:0,D:0,E:0}};
-    const section=['A','B','C','CX','D','E'].includes(p.section)?p.section:'A';
-    const pages={A:0,B:0,C:0,CX:0,D:0,E:0};
+    if(!p)return {section:'A',pages:{A:0,B:0,C:0,CX:0,D:0,E:0,CLAUDE:0,GPT:0,GROK:0}};
+    const allowed=['A','B','C','CX','D','E',...AI_WORKSPACE_SECTIONS];
+    const section=allowed.includes(p.section)?p.section:'A';
+    const pages={A:0,B:0,C:0,CX:0,D:0,E:0,CLAUDE:0,GPT:0,GROK:0};
     Object.keys(pages).forEach(k=>pages[k]=Math.max(0,Number(p.pages?.[k])||0));
     return {section,pages};
-  }catch(_){
-    return {section:'A',pages:{A:0,B:0,C:0,CX:0,D:0,E:0}};
-  }
+  }catch(_){return {section:'A',pages:{A:0,B:0,C:0,CX:0,D:0,E:0,CLAUDE:0,GPT:0,GROK:0}};}
 }
 function render(root,state){
   persistEditorialPosition(state);
-  const all=state.tasks, groups={A:[],B:[],C:[],CX:[],D:[]};
+  const all=state.tasks, groups={A:[],B:[],C:[],CX:[],D:[],CLAUDE:[],GPT:[],GROK:[]};
   all.forEach(t=>{
     const g=classify(t);
     if(!g)return;
@@ -849,18 +854,23 @@ function render(root,state){
       || w.pending_admin_surface==='revision_history'
       || w.production_status==='historical_revision_source';
     if(g==='D'&&archivedRevision)return;
+    const ai=dAiTreatment(t),engine=String(ai?.provider||'').toUpperCase();
+    if(['CLAUDE','GPT','GROK'].includes(engine)){
+      if(ai?.status==='processing'||ai?.status==='failed') groups[engine].push(t);
+      return;
+    }
     groups[g].push(t);
   });
-  const active=state.section||'A',items=active==='E'?(state.revisions||[]):groups[active],page=state.pages[active]||0,visible=paginate(items,page);
+  const active=state.section||'A',items=active==='E'?(state.revisions||[]):(groups[active]||[]),page=state.pages[active]||0,visible=paginate(items,page);
   root.innerHTML=
   '<div class="editor-hub">'+
     '<div class="editor-hub-head"><div><span class="editor-kicker">Parcours éditorial</span><h3>Gestion des documents</h3><p>Un seul parcours, de la demande jusqu’à l’édition finale. Aucun PDF n’est lancé automatiquement.</p></div><button type="button" class="admin-btn ghost" id="editorRefresh">↻ Actualiser</button></div>'+
     '<nav class="editor-main-nav" aria-label="Étapes du parcours éditorial">'+
-      ['A','B','C','CX','D','E'].map(k=>'<button type="button" class="editor-main-nav-item '+(active===k?'active':'')+'" data-editor-section="'+k+'"><span>'+k+'</span><strong>'+({A:'Tâches',B:'Chapitres',C:'Production',CX:'Plans traités',D:'Édition finale',E:'À réviser'}[k])+'</strong><em>'+((k==='E'?(state.revisions||[]):groups[k]).length)+'</em></button>').join('')+
+      ['A','B','C','CX','D','E',...AI_WORKSPACE_SECTIONS].map(k=>'<button type="button" class="editor-main-nav-item '+(active===k?'active':'')+'" data-editor-section="'+k+'"><span>'+k+'</span><strong>'+({A:'Tâches',B:'Chapitres',C:'Production',CX:'Plans traités',D:'Édition finale',E:'À réviser',CLAUDE:'Claude',GPT:'GPT',GROK:'Grok'}[k])+'</strong><em>'+((k==='E'?(state.revisions||[]):groups[k]).length)+'</em></button>').join('')+
       '<button type="button" class="editor-main-nav-link" data-editor-documents>Documents en attente <span>→</span></button>'+
     '</nav>'+
     '<section class="editor-page">'+
-      '<div class="editor-page-title"><div><span class="editor-step">Section '+active+'</span><h4>'+({A:'Tâches à créer',B:'Chapitres disponibles',C:'Plan complet de production',CX:'Plans C déjà traités',D:'Édition finale / suivi de production',E:'Documents à réviser'}[active])+'</h4><p>'+({A:'Crée ici les demandes avec une sélection claire et agrandie du niveau, du parcours, de la classe et de la matière.',B:'Chaque tâche récupérée présente les chapitres disponibles pour le document.',C:'Les tâches non encore traitées en C sont construites ici.',CX:'Cette zone conserve les documents dont le travail C est déjà traité et vérifié. Le plan reste consultable et modifiable avant la suite.',D:'Les documents passés après CX arrivent ici pour la rédaction finale. Aucun PDF n’est lancé automatiquement.',E:'Les documents demandés en révision sont conservés ici avec leur historique. « Reprendre en D » les remet explicitement dans la rédaction finale.'}[active])+'</p></div><span class="editor-page-count">'+items.length+' document'+(items.length>1?'s':'')+'</span></div>'+
+      '<div class="editor-page-title"><div><span class="editor-step">Section '+active+'</span><h4>'+({A:'Tâches à créer',B:'Chapitres disponibles',C:'Plan complet de production',CX:'Plans C déjà traités',D:'Édition finale / suivi de production',E:'Documents à réviser',CLAUDE:'Espace Claude',GPT:'Espace GPT',GROK:'Espace Grok'}[active])+'</h4><p>'+({A:'Crée ici les demandes avec une sélection claire et agrandie du niveau, du parcours, de la classe et de la matière.',B:'Chaque tâche récupérée présente les chapitres disponibles pour le document.',C:'Les tâches non encore traitées en C sont construites ici.',CX:'Cette zone conserve les documents dont le travail C est déjà traité et vérifié. Le plan reste consultable et modifiable avant la suite.',D:'Les documents passés après CX arrivent ici pour la rédaction finale. Aucun PDF n’est lancé automatiquement.',E:'Les documents demandés en révision sont conservés ici avec leur historique. « Reprendre en D » les remet explicitement dans la rédaction finale.'}[active])+'</p></div><span class="editor-page-count">'+items.length+' document'+(items.length>1?'s':'')+'</span></div>'+
       (active==='A'?'<form id="editorACreateForm" class="cf-admin-create-form cf-rebuild-form editor-a-create-form" novalidate>'+
   '<section class="cf-rebuild-card" aria-label="Identification"><div class="cf-rebuild-title"><span class="cf-rebuild-no">01</span><div><strong>La ressource</strong><small>Ce que tu veux faire produire</small></div></div>'+
   '<label class="cf-rebuild-field"><span>Titre</span><input id="editorACreateTitle" type="text" required placeholder="Ex. Fiche de révision — fonctions exponentielles"></label>'+
@@ -887,7 +897,7 @@ function render(root,state){
   '<button class="admin-btn ghost" id="editorAFormLayoutSave" type="button">Enregistrer la forme</button><span class="cf-form-layout-msg editor-a-layout-msg" id="editorAFormLayoutMsg" aria-live="polite"></span></section>'+
   '</form>':'')+
       '<div class="editor-block-label"><span>Bloc '+(page+1)+'</span><small>'+((page*PAGE_SIZE)+1)+'–'+Math.min((page+1)*PAGE_SIZE,items.length)+' sur '+items.length+'</small></div>'+
-      '<div class="editor-card-grid">'+(visible.length?visible.map(t=>active==='E'?revisionTaskCard(t):taskCard(t,active)).join(''):'<div class="editor-empty">Aucun document dans cette étape pour le moment.</div>')+'</div>'+
+      '<div class="editor-card-grid">'+(visible.length?visible.map(t=>active==='E'?revisionTaskCard(t):AI_WORKSPACE_SECTIONS.includes(active)?aiWorkspaceCard(t,active):taskCard(t,active)).join(''):'<div class="editor-empty">Aucun document dans cette étape pour le moment.</div>')+'</div>'+
       pager(items.length,page,active)+
       '<section class="editor-detail" id="editorDetail" hidden></section>'+
     '</section>'+
@@ -1071,6 +1081,11 @@ function bind(root,state){
       await chargerEspaceEditorialChatGPT('D');
     }catch(e){alert(e.message||e);b.disabled=false;b.textContent='Reprendre en D'}
   }));
+  root.querySelectorAll('[data-ai-retry]').forEach(b=>b.addEventListener('click',async()=>{
+    const id=Number(b.dataset.aiRetry),t=(state.tasks||[]).find(x=>Number(x.id)===id),provider=String(t?.metadata?.workflow?.ai_treatment?.provider||'').toLowerCase();
+    if(!provider)return;b.disabled=true;b.textContent='Reprise…';
+    try{await startDaiTreatment(id,provider);await chargerEspaceEditorialChatGPT(provider.toUpperCase())}catch(e){b.disabled=false;b.textContent='Reprendre';alert(e.message||e)}
+  }));
   root.querySelectorAll('[data-ai-provider-job]').forEach(sel=>sel.addEventListener('change',e=>{
     try{const value=String(e.target.value||'').toLowerCase();if(D_AI_PROVIDERS.some(([id])=>id===value))localStorage.setItem('aurore_d_ai_provider',value)}catch(_){}
   }));
@@ -1080,7 +1095,7 @@ function bind(root,state){
     b.disabled=true;b.textContent='Démarrage…';
     try{
       await startDaiTreatment(id,provider);
-      await chargerEspaceEditorialChatGPT('D');
+      await chargerEspaceEditorialChatGPT(provider.toUpperCase());
     }catch(e){
       b.disabled=false;b.textContent='Traiter';
       alert(e.message||e);
@@ -1636,7 +1651,7 @@ async function chargerEspaceEditorialChatGPT(preferredSection){
   try{
     const [tasks,revisions]=await Promise.all([listJobs(),listRevisionDocuments()]);
     await loadDAiProviders();
-    const allowed=['A','B','C','CX','D','E'];
+    const allowed=['A','B','C','CX','D','E',...AI_WORKSPACE_SECTIONS];
     const saved=readEditorialPosition();
     const active=allowed.includes(preferredSection)?preferredSection:(allowed.includes(window.__auroreEditorialActiveSection)?window.__auroreEditorialActiveSection:saved.section);
     const pages={...saved.pages,...(window.__auroreEditorialActivePages||{})};
