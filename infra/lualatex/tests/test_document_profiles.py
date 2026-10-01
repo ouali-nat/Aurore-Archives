@@ -136,6 +136,20 @@ def test_course_inline_math_preserves_paragraph_order_and_spacing():
     assert r"\tcbox[on line" in compact_macro
 
 
+def test_course_unicode_math_is_normalized_and_boxed():
+    source = "Définition : 𝑓 ∶ 𝐴 → 𝐵. Puis 𝑓(𝑥₁) = 𝑓(𝑥₂), avec 𝑥₁ ≠ 𝑥₂. Enfin 𝑓(𝑥) = 𝑙𝑎𝑚𝑏𝑑𝑎 𝑥² − 4𝑥 + 3."
+    rendered = "\n".join(render_document._render_course_math_blocks(source, auto_math=True))
+
+    assert r"\AuroreParagraphBlock{" in rendered
+    assert r"\AuroreMathCompact{}" in rendered
+    assert "𝑓" not in rendered
+    assert "𝐴" not in rendered
+    assert "𝑥" not in rendered
+    assert "𝑙𝑎𝑚𝑏𝑑𝑎" not in rendered
+    assert r"\lambda" in rendered
+    assert r"\AuroreInlineMath{" not in rendered
+
+
 def test_course_profile_remains_separate():
     course = course_doc()
     assert _has_usable_content_json(course)

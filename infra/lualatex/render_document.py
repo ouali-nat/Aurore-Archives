@@ -1623,6 +1623,48 @@ def _repair_common_math_command_corruption(s):
     s = re.sub(r"(?<!\\)setminus(?=\s*(?:\{|[A-Za-z]))", lambda _m: r"\setminus", s)
     return s
 
+def _normalize_unicode_math_letters(value):
+    """Convert Mathematical Alphanumeric Unicode symbols to canonical TeX-friendly letters."""
+    text = str(value or "")
+    greek = {
+        "ALPHA":"alpha","BETA":"beta","GAMMA":"gamma","DELTA":"delta",
+        "EPSILON":"epsilon","ZETA":"zeta","ETA":"eta","THETA":"theta",
+        "IOTA":"iota","KAPPA":"kappa","LAMBDA":"lambda","MU":"mu",
+        "NU":"nu","XI":"xi","OMICRON":"omicron","PI":"pi","RHO":"rho",
+        "SIGMA":"sigma","TAU":"tau","UPSILON":"upsilon","PHI":"phi",
+        "CHI":"chi","PSI":"psi","OMEGA":"omega",
+    }
+    out = []
+    for char in text:
+        code = ord(char)
+        if 0x1D400 <= code <= 0x1D7FF:
+            name = unicodedata.name(char, "")
+            token = name.replace("MATHEMATICAL ", "")
+            for size in ("BOLD ", "ITALIC ", "BOLD ITALIC ", "SANS-SERIF ", "SANS-SERIF BOLD ",
+                         "SANS-SERIF ITALIC ", "SANS-SERIF BOLD ITALIC ", "MONOSPACE ",
+                         "DOUBLE-STRUCK ", "FRAKTUR ", "BOLD FRAKTUR "):
+                token = token.replace(size, "")
+            token = token.strip()
+            if token.startswith("CAPITAL "):
+                token = token[len("CAPITAL "):]
+            elif token.startswith("SMALL "):
+                token = token[len("SMALL "):]
+            if token.startswith("DIGIT "):
+                digits = {
+                    "ZERO":"0","ONE":"1","TWO":"2","THREE":"3","FOUR":"4",
+                    "FIVE":"5","SIX":"6","SEVEN":"7","EIGHT":"8","NINE":"9",
+                }
+                out.append(digits.get(token, char))
+                continue
+            if token in greek:
+                out.append("\\" + greek[token])
+                continue
+            if len(token) == 1 and token.isalpha():
+                out.append(token)
+                continue
+        out.append(char)
+    return "".join(out)
+
 def normalize_math(s):
     """
     Normalize JSON-escaped LaTeX commands inside math.
@@ -1633,6 +1675,7 @@ def normalize_math(s):
     including row breaks immediately before \\hline or \\cline.
     """
     s = str(s or "")
+    s = _normalize_unicode_math_letters(s)
     # Repair JSON control escapes before clean_text() removes them.
     s = s.replace("\f" + "rac", r"\frac")
     s = s.replace("\t" + "ext", r"\text")
@@ -1655,6 +1698,8 @@ def normalize_math(s):
     s = s.replace("⇄", r"\rightleftarrows ")
 
     s = _repair_common_math_command_corruption(s)
+    s = re.sub(r"\b(?:lambda|Lambda)\b", r"\\lambda", s)
+    s = re.sub(r"\bDelta\b", r"\\Delta", s)
 
     # A Unicode inequality may be normalized to a TeX control word inside
     # prose, e.g. `X≤k` -> `X\\leqk`. TeX then reads `\\leqk` as one
@@ -1818,7 +1863,7 @@ def normalize_math(s):
 
 _AUTO_MATH_START_RE = re.compile(
     r"(?<![A-Za-z0-9_])(?:"
-    r"conjugué|conjuguée|Var|Im|Re|arg|mod|AB|AC|BC|ABC|P|C|"
+    r"[\U0001D400-\U0001D7FF]|conjugué|conjuguée|Var|Im|Re|arg|mod|AB|AC|BC|ABC|P|C|"
     r"E_[A-Za-z0-9]+|f(?:['’′]{1,2})?(?:\([A-Za-z0-9_,]+\))?|"
     r"z(?:['’′]|_[A-Za-z0-9]+|[0-9]+)?|[abcmnpqxykTEX])"
 )
@@ -1836,10 +1881,10 @@ _AUTO_MATH_ATOM_RE = re.compile(
     r"\((?:[^()\n]|\([^()\n]*\))*\)|"
     r"\{(?:[^{}\n]|\{[^{}\n]*\})*\}|"
     r"\[(?:[^\[\]\n]|\[[^\[\]\n]*\])*\}|"
-    r"[²³⁴⁵⁶⁷⁸⁹⁰₀₁₂₃₄₅₆₇₈₉πΔΩ√−≤≥≠≈∈∉×±]"
+    r"[²³⁴⁵⁶⁷⁸⁹⁰₀₁₂₃₄₅₆₇₈₉πΔΩ√−≤≥≠≈∈∉×±∶→∘]"
     r")"
 )
-_AUTO_MATH_OP_RE = re.compile(r"(?:=|[+\-*/^_<>]|∈|∉|≤|≥|≠|≈|±)")
+_AUTO_MATH_OP_RE = re.compile(r"(?:=|[+\-*/^_<>]|∈|∉|≤|≥|≠|≈|±|∶|:)")
 _AUTO_MATH_ABS_PREFIX_RE = re.compile(
     r"(?<!\w)\|[^|\n]{1,100}\|\s*(?:=|≠|≤|≥|<|>)\s*"
 )
@@ -1921,7 +1966,7 @@ def _auto_math_normalize_fragment(fragment):
         "₆": "_6", "₇": "_7", "₈": "_8", "₉": "_9",
         "π": r"\pi", "Δ": r"\Delta", "Ω": r"\Omega", "√": r"\sqrt ",
         "−": "-", "≤": r"\leq ", "≥": r"\geq ", "≠": r"\neq ",
-        "≈": r"\approx", "∈": r"\in", "∉": r"\notin",
+        "≈": r"\approx", "∈": r"\in", "∉": r"\notin", "∶": ":",
         "×": r"\times", "∞": r"\infty", "±": r"\pm",
         "α": r"\alpha", "β": r"\beta", "γ": r"\gamma",
         "θ": r"\theta", "λ": r"\lambda", "μ": r"\mu",
@@ -2392,7 +2437,7 @@ _PLAIN_MATH_RELATION_RE = re.compile(
     r"(?<![A-Za-zÀ-ÿ0-9_])"
     r"(?P<expr>"
     + _PLAIN_MATH_ATOM + r"{1,120}?"
-    + r"(?:=|→|≤|≥|≠|∈)"
+    + r"(?:=|→|≤|≥|≠|∈|∶|:)"
     + _PLAIN_MATH_ATOM + r"{1,90}?"
     + r")"
     r"(?=\s|[,.!?;:]|$)"
@@ -2402,7 +2447,7 @@ def _looks_like_plain_math_fragment(fragment):
     value = str(fragment or "").strip()
     if not value:
         return False
-    if not re.search(r"(?:=|→|≤|≥|≠|∈)", value):
+    if not re.search(r"(?:=|→|≤|≥|≠|∈|∶|:)", value):
         return False
     if not re.search(r"[0-9\U0001D400-\U0001D7FF𝑥𝑦𝑧𝑡𝑛𝑓𝑔𝑎𝑏𝑐𝑒𝑘𝑙𝑚𝑝𝑟𝑠𝑢𝑣𝑤𝑅]", value):
         return False
