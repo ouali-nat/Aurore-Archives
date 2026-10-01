@@ -393,6 +393,119 @@ async function promoteAtoB(id){
   }
   return promoted;
 }
+const D_AI_ENDPOINT='/functions/v1/aurora-editorial-ai';
+const D_AI_PROVIDERS=[['grok','Grok'],['claude','Claude']];
+
+function dAiTreatment(t){
+  const a=t?.metadata?.workflow?.ai_treatment;
+  return a&&typeof a==='object'?a:null;
+}
+function dAiCanStart(t){
+  const w=t?.metadata?.workflow||{},a=dAiTreatment(t);
+  if(!t||t.generated_document_id)return false;
+  if(!['redaction','production_en_cours'].includes(w.stage||''))return false;
+  if(['handed_off','in_progress','new_production'].includes(String(w.revision_status||'')))return false;
+  if(a?.status==='processing')return false;
+  return w.admin_validation?.status==='validated' && w.proposal_status==='validated_for_editing';
+}
+function dAiProviderFor(t){
+  const a=dAiTreatment(t),saved=String(a?.provider||'').toLowerCase();
+  if(saved==='grok'||saved==='claude')return saved;
+  try{
+    const p=String(localStorage.getItem('aurore_d_ai_provider')||'').toLowerCase();
+    if(p==='grok'||p==='claude')return p;
+  }catch(_){}
+  return 'grok';
+}
+function dAiCardMarkup(t){
+  const w=t?.metadata?.workflow||{},a=dAiTreatment(t),provider=dAiProviderFor(t);
+  const processing=a?.status==='processing';
+  const failed=a?.status==='failed';
+  const legacyBlocked=!!t.generated_document_id||['handed_off','in_progress','new_production'].includes(String(w.revision_status||''));
+  if(legacyBlocked&&!processing){
+    return '<div class="editor-ai-treatment editor-ai-legacy"><div class="editor-ai-line"><span>Production existante</span><strong>Reprise protégée via l’historique / révision</strong></div></div>';
+  }
+  const pct=Math.max(0,Math.min(100,Number(a?.progress)||0));
+  const label=String(a?.label||a?.stage||'').trim();
+  const error=String(a?.error||'').trim();
+  return '<div class="editor-ai-treatment '+(processing?'is-processing':failed?'is-failed':'')+'">'+
+    '<div class="editor-ai-head"><span>Production IA</span><strong>'+(processing?'Traitement en cours':failed?'Traitement bloqué':'Choisir le moteur')+'</strong></div>'+
+    '<div class="editor-ai-controls">'+
+      '<select class="editor-ai-provider" data-ai-provider-job="'+esc(t.id)+'" aria-label="Moteur IA pour la tâche '+esc(t.id)+'" '+(processing?'disabled':'')+'>'+
+        D_AI_PROVIDERS.map(([value,label])=>'<option value="'+value+'" '+(provider===value?'selected':'')+'>'+label+'</option>').join('')+
+      '</select>'+
+      '<button type="button" class="admin-btn '+(processing?'ghost':'primary')+'" data-ai-start="'+esc(t.id)+'" '+(processing?'disabled':'')+'>'+(processing?'Traitement…':failed?'Relancer':'Traiter')+'</button>'+
+    '</div>'+
+    ((processing||failed)?'<div class="editor-ai-progress" role="status" aria-live="polite">'+
+      '<div class="editor-ai-progress-head"><span>'+esc(label||'Traitement IA')+'</span><strong data-ai-percent-job="'+esc(t.id)+'">'+pct+'%</strong></div>'+
+      '<div class="editor-ai-progress-track" aria-hidden="true"><span data-ai-progress-job="'+esc(t.id)+'" style="width:'+pct+'%"></span></div>'+
+      (error?'<small class="editor-ai-error">'+esc(error)+'</small>':'')+
+    '</div>':'')+
+  '</div>';
+}
+async function startDaiTreatment(jobId,provider){
+  const id=Number(jobId),p=String(provider||'').toLowerCase();
+  if(!Number.isInteger(id)||id<=0)throw new Error('Tâche D invalide.');
+  if(!['grok','claude'].includes(p))throw new Error('Moteur IA invalide.');
+  const tokenValue=await token();
+  const r=await fetch(SUPABASE_URL+D_AI_ENDPOINT,{
+    method:'POST',
+    headers:{apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+tokenValue,'Content-Type':'application/json'},
+    body:JSON.stringify({job_id:id,provider:p})
+  });
+  const raw=await r.text();let data=null;try{data=raw?JSON.parse(raw):null}catch(_){}
+  if(!r.ok||data?.ok===false)throw new Error(data?.error||raw||('Le traitement IA n’a pas démarré (HTTP '+r.status+').'));
+  try{localStorage.setItem('aurore_d_ai_provider',p)}catch(_){}
+  return data;
+}
+function stopDAiPolling(){
+  try{if(window.__auroreDAiTimer){clearInterval(window.__auroreDAiTimer);window.__auroreDAiTimer=null}}catch(_){}
+}
+function startDAiPolling(root,state){
+  stopDAiPolling();
+  if(state?.section!=='D')return;
+  const tick=async()=>{
+    try{
+      const fresh=await listJobs();
+      const byId=new Map(fresh.map(t=>[Number(t.id),t]));
+      let changed=false,stillRunning=false;
+      for(const current of (state.tasks||[])){
+        if(!current?.id)continue;
+        const next=byId.get(Number(current.id));
+        if(next) {
+          const old=JSON.stringify(current?.metadata?.workflow?.ai_treatment||null);
+          const now=JSON.stringify(next?.metadata?.workflow?.ai_treatment||null);
+          if(old!==now)changed=true;
+          current.metadata=next.metadata;
+          current.generated_document_id=next.generated_document_id;
+          current.status=next.status;
+          current.updated_at=next.updated_at;
+          const ai=next.metadata?.workflow?.ai_treatment;
+          if(ai?.status==='processing')stillRunning=true;
+        }
+      }
+      root.querySelectorAll('[data-ai-progress-job]').forEach(bar=>{
+        const id=Number(bar.dataset.aiProgressJob),t=byId.get(id),ai=dAiTreatment(t),pct=Math.max(0,Math.min(100,Number(ai?.progress)||0));
+        bar.style.width=pct+'%';
+        const out=root.querySelector('[data-ai-percent-job="'+id+'"]');if(out)out.textContent=pct+'%';
+      });
+      root.querySelectorAll('[data-ai-start]').forEach(btn=>{
+        const id=Number(btn.dataset.aiStart),t=byId.get(id),ai=dAiTreatment(t);
+        if(ai?.status==='processing'){btn.disabled=true;btn.textContent='Traitement…'}
+      });
+      if(changed){
+        const activeIds=new Set([...root.querySelectorAll('[data-ai-start]')].map(x=>Number(x.dataset.aiStart)));
+        const leaving=[...activeIds].some(id=>byId.get(id)?.generated_document_id||byId.get(id)?.metadata?.workflow?.stage==='production_terminee');
+        if(leaving){await chargerEspaceEditorialChatGPT('D');return;}
+        render(root,state);
+      }
+      if(!stillRunning)stopDAiPolling();
+    }catch(_){}
+  };
+  tick();
+  window.__auroreDAiTimer=setInterval(tick,2500);
+}
+
 function taskCard(t,section){
   const w=t.metadata?.workflow||{},s=stageInfo[w.stage]||{label:w.stage||t.status,tone:'waiting'};
   const ch=Array.isArray(w.chapters)?w.chapters:[];
@@ -405,13 +518,19 @@ function taskCard(t,section){
             ? 'Chapitres retenus : '+w.selected_chapters.map(x=>x?.title||x?.name||textValue(x)).join(' · ')
             : w.selected_chapter?.title||w.selected_chapter||''
         )||'Carte de production à construire')
-      : section==='CX'
-        ? (pv?'Plan C traité · consultable et modifiable':'Plan C traité')
       : section==='D'
-        ? (w.stage==='edition_ready'?'Plan validé · prêt pour la production':'Production finale')
-        : 'Classe + matière : première étape du parcours éditorial';
-
-    return '<article class="editor-pro-card"><div class="editor-pro-top"><span class="editor-pro-id">#'+esc(t.id)+'</span><span class="editor-pro-pill '+esc(s.tone)+'">'+esc(s.label)+'</span></div><h4>'+esc(t.class_name||t.level||'Classe')+'</h4><strong class="editor-pro-subject">'+esc(t.subject||'Matière')+'</strong><p>'+esc(desc)+'</p><div class="editor-pro-bottom"><span>'+esc(t.document_type||'cours')+'</span><button type="button" class="admin-btn ghost" data-editor-open="'+esc(t.id)+'">Ouvrir</button>'+(section==='D'&&t.generated_document_id&&w.stage==='production_terminee'?'<button type="button" class="admin-btn ghost" data-revision-job="'+esc(t.id)+'">Envoyer en E — réviser</button>':'')+'</div></article>';
+        ? (w.stage==='production_terminee'?'Production terminée · document en attente':'Production finale')
+        : section==='E'
+          ? 'Document à réviser'
+          : 'Classe + matière : première étape du parcours éditorial';
+  const ai=section==='D'?dAiTreatment(t):null;
+  const actions=section==='D'
+    ? '<div class="editor-ai-inline">'+dAiCardMarkup(t)+'</div>'
+    : '';
+  const revisionButton=section==='D'&&t.generated_document_id&&w.stage==='production_terminee'
+    ? '<button type="button" class="admin-btn ghost" data-revision-job="'+esc(t.id)+'">Envoyer en E — réviser</button>'
+    : '';
+  return '<article class="editor-pro-card"><div class="editor-pro-top"><span class="editor-pro-id">#'+esc(t.id)+'</span><span class="editor-pro-pill '+esc(s.tone)+'">'+esc(s.label)+'</span></div><h4>'+esc(t.class_name||t.level||'Classe')+'</h4><strong class="editor-pro-subject">'+esc(t.subject||'Matière')+'</strong><p>'+esc(desc)+'</p>'+actions+'<div class="editor-pro-bottom"><span>'+esc(t.document_type||'cours')+'</span><button type="button" class="admin-btn ghost" data-editor-open="'+esc(t.id)+'">Ouvrir</button>'+revisionButton+'</div></article>';
 }
 function revisionTaskCard(r){
   const when=r.revision_requested_at?new Date(r.revision_requested_at).toLocaleString('fr-FR'):'—';
@@ -743,6 +862,7 @@ function render(root,state){
     '</section>'+
   '</div>';
   bind(root,state);
+  startDAiPolling(root,state);
 }
 function bind(root,state){
   root.querySelector('#editorRefresh')?.addEventListener('click',chargerEspaceEditorialChatGPT);
@@ -919,6 +1039,21 @@ function bind(root,state){
       alert('Nouvelle production D créée (#'+result.new_job_id+'). Le contenu sera réécrit avant son passage dans Documents en attente. Aucun PDF n’a été lancé.');
       await chargerEspaceEditorialChatGPT('D');
     }catch(e){alert(e.message||e);b.disabled=false;b.textContent='Reprendre en D'}
+  }));
+  root.querySelectorAll('[data-ai-provider-job]').forEach(sel=>sel.addEventListener('change',e=>{
+    try{const value=String(e.target.value||'').toLowerCase();if(['grok','claude'].includes(value))localStorage.setItem('aurore_d_ai_provider',value)}catch(_){}
+  }));
+  root.querySelectorAll('[data-ai-start]').forEach(b=>b.addEventListener('click',async()=>{
+    const id=Number(b.dataset.aiStart),sel=root.querySelector('[data-ai-provider-job="'+id+'"]'),provider=String(sel?.value||dAiProviderFor((state.tasks||[]).find(x=>Number(x.id)===id))||'grok').toLowerCase();
+    if(b.disabled)return;
+    b.disabled=true;b.textContent='Démarrage…';
+    try{
+      await startDaiTreatment(id,provider);
+      await chargerEspaceEditorialChatGPT('D');
+    }catch(e){
+      b.disabled=false;b.textContent='Traiter';
+      alert(e.message||e);
+    }
   }));
   root.querySelectorAll('[data-editor-open]').forEach(b=>b.addEventListener('click',async()=>{
     const t=await getJob(Number(b.dataset.editorOpen));if(!t)return;
@@ -1362,6 +1497,25 @@ function injectStyle(){
 #auroreEditorialTaskAdmin .editor-pro-card p{margin:5px 0 2px;font-size:.62rem;line-height:1.45;opacity:.66}
 #auroreEditorialTaskAdmin .editor-pro-bottom{margin-top:auto;padding-top:8px}
 #auroreEditorialTaskAdmin .editor-pro-bottom span{font-size:.53rem;padding:4px 6px;border-radius:7px;background:color-mix(in srgb,currentColor 6%,transparent)}
+#auroreEditorialTaskAdmin .editor-ai-inline{margin-top:7px}
+#auroreEditorialTaskAdmin .editor-ai-treatment{display:grid;gap:7px;padding:9px;border:1px solid color-mix(in srgb,var(--editor-accent) 16%,var(--editor-border));border-radius:12px;background:color-mix(in srgb,var(--editor-accent) 4%,var(--editor-surface))}
+#auroreEditorialTaskAdmin .editor-ai-treatment.is-processing{border-color:color-mix(in srgb,#2563EB 30%,var(--editor-border))}
+#auroreEditorialTaskAdmin .editor-ai-treatment.is-failed{border-color:color-mix(in srgb,#DC2626 30%,var(--editor-border));background:color-mix(in srgb,#DC2626 4%,var(--editor-surface))}
+#auroreEditorialTaskAdmin .editor-ai-treatment.editor-ai-legacy{opacity:.75}
+#auroreEditorialTaskAdmin .editor-ai-head,.editor-ai-progress-head{display:flex;align-items:center;justify-content:space-between;gap:7px}
+#auroreEditorialTaskAdmin .editor-ai-head span{font-size:.49rem;text-transform:uppercase;font-weight:950;letter-spacing:.06em;opacity:.52}
+#auroreEditorialTaskAdmin .editor-ai-head strong{font-size:.57rem}
+#auroreEditorialTaskAdmin .editor-ai-controls{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px}
+#auroreEditorialTaskAdmin .editor-ai-provider{min-width:0;font:inherit;font-size:.58rem;font-weight:850;color:inherit;background:var(--editor-surface);border:1px solid var(--editor-border);border-radius:8px;padding:6px 7px}
+#auroreEditorialTaskAdmin .editor-ai-controls .admin-btn{font-size:.57rem;padding:7px 9px}
+#auroreEditorialTaskAdmin .editor-ai-progress{display:grid;gap:4px}
+#auroreEditorialTaskAdmin .editor-ai-progress-head span{font-size:.54rem;line-height:1.35;opacity:.68}
+#auroreEditorialTaskAdmin .editor-ai-progress-head strong{font-size:.55rem}
+#auroreEditorialTaskAdmin .editor-ai-progress-track{height:7px;overflow:hidden;border-radius:999px;background:color-mix(in srgb,currentColor 9%,transparent)}
+#auroreEditorialTaskAdmin .editor-ai-progress-track>span{display:block;height:100%;border-radius:inherit;background:var(--editor-accent);transition:width .25s ease}
+#auroreEditorialTaskAdmin .editor-ai-error{font-size:.5rem;line-height:1.4;color:#B91C1C}
+@media(max-width:520px){#auroreEditorialTaskAdmin .editor-ai-controls{grid-template-columns:1fr}.editor-ai-controls .admin-btn{width:100%}}
+
 #auroreEditorialTaskAdmin .editor-block-pager{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;padding-top:5px}
 #auroreEditorialTaskAdmin .editor-block-pager .admin-btn{font-size:.6rem}
 #auroreEditorialTaskAdmin .editor-empty{grid-column:1/-1;padding:24px;text-align:center;border:1px dashed var(--editor-border);border-radius:15px;font-size:.68rem;opacity:.62}
