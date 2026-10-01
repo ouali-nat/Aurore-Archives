@@ -15,7 +15,6 @@ declare
   v_job public.aurora_content_jobs;
   v_meta jsonb;
   v_workflow jsonb;
-  v_revision_no integer;
   v_now timestamptz := now();
   v_reason text := nullif(btrim(coalesce(p_reason,'')),'');
 begin
@@ -66,7 +65,7 @@ begin
 
   v_meta := coalesce(v_doc.metadata,'{}'::jsonb) ||
     jsonb_build_object(
-      'revision', jsonb_build_object(
+      'revision', coalesce(v_doc.metadata->'revision','{}'::jsonb) || jsonb_build_object(
         'requested', true,
         'requested_at', v_now,
         'requested_by', 'admin',
@@ -74,6 +73,17 @@ begin
         'source_generated_document_id', v_doc.id,
         'source_job_id', v_job.id,
         'source_version', coalesce(v_doc.version,1)
+      ),
+      'revision_history', coalesce(v_doc.metadata->'revision_history','[]'::jsonb) || jsonb_build_array(
+        jsonb_build_object(
+          'event','requested',
+          'requested_at',v_now,
+          'requested_by','admin',
+          'reason',v_reason,
+          'source_generated_document_id',v_doc.id,
+          'source_job_id',v_job.id,
+          'source_version',coalesce(v_doc.version,1)
+        )
       ),
       'revision_requested', true,
       'revision_requested_at', v_now,
@@ -96,7 +106,6 @@ begin
           'revision_reason',v_reason,
           'revision_source_generated_document_id',v_doc.id,
           'revision_source_version',coalesce(v_doc.version,1),
-    'revision_no',v_revision_no,
           'revision_status','requested',
           'revision_previous_stage',coalesce(v_workflow->>'stage','production_terminee'),
           'updated_at',v_now
