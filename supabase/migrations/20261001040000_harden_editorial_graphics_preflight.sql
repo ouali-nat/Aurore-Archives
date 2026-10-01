@@ -172,16 +172,22 @@ begin
       end if;
 
       -- Generic construction fields must not be empty for the instruments that require them.
-      if v_instrument in ('parametric2d','parametric3d') then
-        if nullif(trim(v_graph->>'x_expression'),'') is null
-           or nullif(trim(v_graph->>'y_expression'),'') is null then
+      if v_instrument='parametric2d' then
+        if nullif(trim(v_graph->>'expression'),'') is null
+           or trim(v_graph->>'expression') !~* '^Curve\\s*\\(' then
           v_failures := array_append(v_failures, format(
-            'GRAPH-005 [%s] : construction paramétrique incomplète.', v_graph_id));
+            'GRAPH-005 [%s] : construction parametric2d invalide : Curve(x,y,t,a,b) attendue.', v_graph_id));
+        end if;
+      elsif v_instrument='parametric3d' then
+        if nullif(trim(v_graph->>'expression'),'') is null
+           or trim(v_graph->>'expression') !~* '^Curve\\s*\\(' then
+          v_failures := array_append(v_failures, format(
+            'GRAPH-006 [%s] : construction parametric3d invalide : Curve(x,y,z,t,a,b) attendue.', v_graph_id));
         end if;
       elsif v_instrument='surface3d' then
         if nullif(trim(v_graph->>'expression'),'') is null then
           v_failures := array_append(v_failures, format(
-            'GRAPH-006 [%s] : expression surface3d manquante.', v_graph_id));
+            'GRAPH-007 [%s] : expression surface3d manquante.', v_graph_id));
         end if;
       end if;
     end loop;
@@ -206,7 +212,7 @@ begin
             if v_instrument in ('function','graph','courbe') then v_instrument := 'function2d'; end if;
             if v_instrument='function2d' and nullif(trim(v_graph->>'expression'),'') is null then
               v_failures := array_append(v_failures, format(
-                'GRAPH-007 [%s] : expression function2d manquante.', v_graph_id));
+                'GRAPH-009 [%s] : expression function2d manquante.', v_graph_id));
             end if;
           end loop;
         end loop;
