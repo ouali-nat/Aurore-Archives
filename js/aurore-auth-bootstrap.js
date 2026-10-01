@@ -46,9 +46,10 @@
     });
   }
 
-  async function attendreSdkSupabasePrincipal(delaiMs = 2200) {
+  async function attendreSdkSupabasePrincipal(delaiMs = 4000) {
     if (window.supabase) return true;
     const debut = Date.now();
+    if (window.supabase?.createClient) return true;
     while (!window.supabase && Date.now() - debut < delaiMs) {
       if (window.__AURORE_SUPABASE_SDK_FAILED) break;
       await new Promise(r => setTimeout(r, 80));
@@ -62,9 +63,9 @@
 
     await attendreSdkSupabasePrincipal();
 
-    if (!window.supabase) {
+    if (!window.supabase?.createClient) {
       if (!__auroreSupabaseFallbackPromise) {
-        __auroreSupabaseFallbackPromise = chargerScriptSupabase('https://unpkg.com/@supabase/supabase-js@2');
+        __auroreSupabaseFallbackPromise = chargerScriptSupabase('https://unpkg.com/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js');
       }
       try {
         await __auroreSupabaseFallbackPromise;
@@ -73,7 +74,7 @@
       }
     }
 
-    if (window.supabase && !AURORE_SUPABASE_AUTH) {
+    if (window.supabase?.createClient && !AURORE_SUPABASE_AUTH) {
       AURORE_SUPABASE_AUTH = creerClientAuthGoogle();
     }
     return AURORE_SUPABASE_AUTH;
