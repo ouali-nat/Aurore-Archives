@@ -421,6 +421,7 @@
     const canValidate=x.status==='review'&&!!x.pdf_url&&!d.proc&&!d.wait&&!d.m.lualatex_cancel_requested;
     const canReject=['review','approved'].includes(x.status)&&!d.proc&&!d.wait&&!d.m.lualatex_cancel_requested;
     const canPublish=['approved','review'].includes(x.status)&&!!x.pdf_url&&!d.proc&&!d.wait&&!d.m.lualatex_cancel_requested;
+    const canRevision=['review','approved'].includes(x.status)&&!!x.pdf_url&&!d.proc&&!d.wait&&!d.m.lualatex_cancel_requested&&!cancelBusy;
     const cells=[
       ['Date',qDate(x.created_at)],['Classe',x.class_name||'—'],['Niveau',x.level||'—'],['Matière',x.matiere||x.subject||'—'],
       ['Type',x.document_type||'—'],['Version',x.version||'—'],['Origine',m.origin||m.source||m.producer||'Aurore'],['Statut',d.statusLabel]
@@ -432,6 +433,7 @@
     if(canValidate)actions.push('<button type="button" class="admin-btn valider" data-cf-validate="'+qEsc(x.id)+'" '+(busy('validate')?'disabled aria-busy="true"':'')+'>'+ (busy('validate')?'Validation…':'Valider') +'</button>');
     if(canReject)actions.push('<button type="button" class="admin-btn refuser" data-cf-reject="'+qEsc(x.id)+'" '+(busy('reject')?'disabled aria-busy="true"':'')+'>Rejeter</button>');
     if(canPublish)actions.push('<button type="button" class="admin-btn primary" data-cf-publish="'+qEsc(x.id)+'" '+(busy('publish')?'disabled aria-busy="true"':'')+'>'+ (busy('publish')?'Publication…':'Publier') +'</button>');
+    if(canRevision)actions.push('<button type="button" class="admin-btn ghost" data-cf-revision="'+qEsc(x.id)+'">Envoyer en E — réviser</button>');
     if(x.published_document_id)actions.push('<button type="button" class="admin-btn ghost" disabled>Publié #'+qEsc(x.published_document_id)+'</button>');
     const cls=d.proc?'is-processing ':d.wait?'is-queued ':d.done?'is-completed ':d.fail?'is-failed ':'';
     return '<article class="aurore-pdf-prod-card '+cls+'" style="--prod-theme:'+qEsc(theme)+'" data-production-id="'+qEsc(x.id)+'">'+
