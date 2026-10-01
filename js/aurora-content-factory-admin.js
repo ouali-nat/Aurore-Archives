@@ -1380,6 +1380,7 @@ function apply(){
     const canValidate=x.status==='review'&&pdf&&!active;
     const canReject=['review','approved'].includes(x.status)&&!active;
     const canPublish=['approved','review'].includes(x.status)&&pdf&&!active;
+    const canRevision=['review','approved'].includes(x.status)&&pdf&&!active&&!cancelRequested;
     const theme=documentThemeColor(m)||x.theme_color||'#C85C0D';
     const classification=[x.domaine,x.formation,x.specialite,x.annee,x.semestre,x.filiere,x.matiere||x.subject,x.class_name,x.level].filter(Boolean).join(' · ');
     const stage=m.lualatex_stage||m.lualatex_status||'';
@@ -1417,6 +1418,7 @@ function apply(){
           ${canValidate?'<button type="button" class="admin-btn valider" data-cf-validate="'+esc(x.id)+'">Valider le PDF</button>':''}
           ${canReject?'<button type="button" class="admin-btn refuser" data-cf-reject="'+esc(x.id)+'">Rejeter</button>':''}
           ${canPublish?'<button type="button" class="admin-btn primary" data-cf-publish="'+esc(x.id)+'">Publier</button>':''}
+          ${canRevision?'<button type="button" class="admin-btn ghost" data-cf-revision="'+esc(x.id)+'">Envoyer en E — réviser</button>':''}
           ${x.published_document_id?'<button type="button" class="admin-btn ghost" disabled>Déjà publié #'+esc(x.published_document_id)+'</button>':''}
         </div>
       </div>
@@ -1561,6 +1563,27 @@ document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurre
     }
     const confirm=e.target?.closest?.('[data-cf-confirm-job]');
     if(confirm){e.preventDefault();e.stopImmediatePropagation();confirm.disabled=true;confirm.textContent='Confirmation…';void (window.auroreAdminConfirmContentJob?window.auroreAdminConfirmContentJob(Number(confirm.dataset.cfConfirmJob)):Promise.reject(new Error('Le contrôleur de confirmation n’est pas chargé.'))).catch(error=>{alert('La génération n’a pas pu être confirmée : '+(error?.message||error));confirm.disabled=false;confirm.textContent='Choisir la couleur et générer le document';});return;}
+    const revision=e.target?.closest?.('[data-cf-revision]');
+    if(revision){
+      e.preventDefault();e.stopImmediatePropagation();
+      const id=Number(revision.dataset.cfRevision||0);
+      if(!id)return;
+      if(typeof window.auroreRequestEditorialRevisionForDocument!=='function'){alert('Le circuit Section E n’est pas chargé.');return;}
+      const busyKey='revision:'+String(id);
+      if(window.__aurorePdfActionBusy.has(busyKey))return;
+      window.__aurorePdfActionBusy.add(busyKey);
+      const previousText=revision.textContent;
+      revision.disabled=true;revision.setAttribute('aria-busy','true');revision.textContent='Envoi en E…';
+      void window.auroreRequestEditorialRevisionForDocument(id).then(ok=>{
+        if(ok){return Promise.all([charger(),typeof window.auroreRefreshRevisionSection==='function'?window.auroreRefreshRevisionSection():Promise.resolve()]);}
+      }).catch(error=>{
+        alert('Envoi en Section E impossible. '+(error?.message||error));
+      }).finally(()=>{
+        window.__aurorePdfActionBusy.delete(busyKey);
+        if(revision.isConnected){revision.disabled=false;revision.removeAttribute('aria-busy');revision.textContent=previousText;}
+      });
+      return;
+    }
     const button=e.target?.closest?.('[data-cf-render],[data-cf-validate],[data-cf-reject],[data-cf-publish],[data-cf-cancel],[data-cf-theme]');
     if(!button)return;
     if(button.hasAttribute('data-cf-cancel')){
