@@ -415,140 +415,179 @@ function deriveEditorialPreview(content:any){
   };
 }
 
-async function processJob(jobId:number,provider:string,runId:string){
+async function loadJobForRun(jobId:number,runId:string){
+  const {data:rows,error}=await db.from("aurora_content_jobs")
+    .select("id,title,subject,level,class_name,document_type,generated_document_id,theme_color,prompt,instructions,domaine,formation,specialite,annee,semestre,filiere,metadata")
+    .eq("id",jobId).limit(1);
+  if(error)throw new Error(error.message);
+  const t=rows?.[0];
+  if(!t)throw new Error("Tâche introuvable.");
+  const ai=t.metadata?.workflow?.ai_treatment;
+  if(String(ai?.run_id||"")!==String(runId||""))throw new Error("Ce traitement n’est plus le traitement actif.");
+  return t;
+}
+
+async function scheduleStep(jobId:number,runId:string,action:string){
+  const ctrl=new AbortController();
+  const timeout=setTimeout(()=>ctrl.abort(),9000);
   try{
-    const {data:rows,error}=await db.from("aurora_content_jobs")
-      .select("id,title,subject,level,class_name,document_type,status,generated_document_id,theme_color,metadata")
-      .eq("id",jobId).limit(1);
-    if(error) throw new Error(error.message);
-    const t=rows?.[0];
-    if(!t) throw new Error("Tâche introuvable.");
-    if(t.generated_document_id) throw new Error("Le document est déjà ingéré ; aucun nouveau traitement n’est autorisé.");
-    if(!["redaction","production_en_cours"].includes(t.metadata?.workflow?.stage||"")) throw new Error("La tâche n’est plus dans la Section D.");
-    const w=t.metadata?.workflow||{};
-    if(w.admin_validation?.status!=="validated" || w.proposal_status!=="validated_for_editing") throw new Error("Validation CX absente ou incomplète.");
+    const r=await fetch(SUPABASE_URL+"/functions/v1/aurora-editorial-ai",{
+      method:"POST",
+      headers:{"Authorization":"Bearer "+SERVICE_ROLE,"Content-Type":"application/json"},
+      body:JSON.stringify({internal:true,job_id:jobId,run_id:runId,action}),
+      signal:ctrl.signal
+    });
+    const txt=await r.text();
+    if(!r.ok)throw new Error(txt||("Étape "+action+" HTTP "+r.status));
+    return txt;
+  }finally{clearTimeout(timeout);}
+}
 
-    await patchState(jobId,runId,{progress:8,stage:"context",label:"Lecture du dossier C et des règles éditoriales"});
-    const [generalRes,structureRes,mathRes]=await Promise.all([
-      db.from("aurora_editorial_memory").select("rule_key,version,title,mandatory,content").eq("active",true).order("priority",{ascending:false}),
-      db.from("aurora_editorial_structure_memory").select("rule_key,version,title,mandatory,content").eq("active",true).order("priority",{ascending:false}),
-      db.from("aurora_math_editorial_memory").select("rule_key,version,title,mandatory,content").eq("active",true).order("priority",{ascending:false})
-    ]);
-    if(generalRes.error) throw new Error(generalRes.error.message);
-    if(structureRes.error) throw new Error(structureRes.error.message);
-    if(mathRes.error) throw new Error(mathRes.error.message);
-    const memories=[
-      ...compactMemory(generalRes.data||[],12000),
-      ...compactMemory(structureRes.data||[],8000),
-      ...(isMath(t.subject)?compactMemory(mathRes.data||[],12000):[])
-    ];
-    const ctx={...taskContext(t,memories),task:{...taskContext(t,memories).task,metadata:t.metadata}};
-    await patchState(jobId,runId,{progress:18,stage:"prompt",label:"Construction de la consigne de production",model:provider==="grok"?GROK_MODEL:CLAUDE_MODEL});
+async function failTreatment(jobId:number,runId:string,message:string,progress=68){
+  try{
+    await patchState(jobId,runId,{status:"failed",progress,stage:"error",step:"error",label:"Traitement bloqué",error:safeText(message,16000),finished_at:new Date().toISOString()},undefined,"editorial_error");
+  }catch(_){}
+}
 
-    let finalContent:any=null, finalUsage:any=null, finalReports:any[]=[], finalWords=0;
-    let lastFeedback="";
-    for(let attempt=1;attempt<=2;attempt++){
-      await patchState(jobId,runId,{progress:28+(attempt-1)*22,stage:attempt===1?"generation":"repair",label:attempt===1?"Rédaction du document":"Correction ciblée après contrôles",attempt});
-      const prompt=buildPrompt(ctx,lastFeedback);
-      const result=provider==="grok"?await callGrok(prompt):await callClaude(prompt);
-      finalUsage=result.usage; finalContent=result.content;
-      await patchState(jobId,runId,{progress:58+(attempt-1)*10,stage:"validation",label:"Contrôles Aurore du contenu généré",usage:result.usage,model:result.model});
-      try{
-        const checked=await validateContent(finalContent,t);
-        finalReports=checked.reports; finalWords=checked.words; lastFeedback="";
-        break;
-      }catch(err){
-        lastFeedback=safeText(err?.message||err,12000);
-        if(attempt>=2) throw err;
-        await patchState(jobId,runId,{progress:68,stage:"repair_required",label:"Premier contrôle non validé : correction ciblée demandée",last_validation_error:lastFeedback});
-      }
+async function loadMemoriesForTask(t:any){
+  const [generalRes,structureRes,mathRes]=await Promise.all([
+    db.from("aurora_editorial_memory").select("rule_key,version,title,mandatory,content").eq("active",true).order("priority",{ascending:false}),
+    db.from("aurora_editorial_structure_memory").select("rule_key,version,title,mandatory,content").eq("active",true).order("priority",{ascending:false}),
+    db.from("aurora_math_editorial_memory").select("rule_key,version,title,mandatory,content").eq("active",true).order("priority",{ascending:false})
+  ]);
+  if(generalRes.error)throw new Error(generalRes.error.message);
+  if(structureRes.error)throw new Error(structureRes.error.message);
+  if(mathRes.error)throw new Error(mathRes.error.message);
+  return [
+    ...compactMemory(generalRes.data||[],12000),
+    ...compactMemory(structureRes.data||[],8000),
+    ...(isMath(t.subject)?compactMemory(mathRes.data||[],12000):[])
+  ];
+}
+
+function buildTaskContextForWorker(t:any,memories:any[]){
+  return {...taskContext(t,memories),task:{...taskContext(t,memories).task,metadata:t.metadata}};
+}
+
+async function actionGenerate(jobId:number,provider:string,runId:string){
+  const t=await loadJobForRun(jobId,runId),w=t.metadata?.workflow||{},ai=w.ai_treatment||{};
+  if(ai.status!=="processing"||ai.step!=="generate")return;
+  const memories=await loadMemoriesForTask(t);
+  const ctx=buildTaskContextForWorker(t,memories);
+  await patchState(jobId,runId,{progress:18,stage:"prompt",step:"generate",label:"Lecture du dossier C et préparation du moteur "+provider,model:provider==="grok"?GROK_MODEL:CLAUDE_MODEL});
+  const result=provider==="grok"?await callGrok(buildPrompt(ctx,"")):await callClaude(buildPrompt(ctx,""));
+  await patchState(jobId,runId,{progress:54,stage:"persist_editorial_content",step:"generate_persist",label:"Persistance du contenu produit",usage:result.usage,model:result.model,attempt:1});
+  const persisted=await callRpc("aurora_persist_d_ai_editorial_content",{p_job_id:jobId,p_run_id:runId,p_content_json:result.content});
+  if(persisted?.ok!==true)throw new Error(persisted?.error||"La persistance du contenu éditorial a échoué.");
+  await patchState(jobId,runId,{progress:60,stage:"validation",step:"validate",label:"Contrôles Aurore du contenu généré",attempt:1,usage:result.usage,model:result.model});
+  EdgeRuntime.waitUntil(scheduleStep(jobId,runId,"validate"));
+}
+
+async function actionValidate(jobId:number,provider:string,runId:string){
+  const t=await loadJobForRun(jobId,runId),w=t.metadata?.workflow||{},ai=w.ai_treatment||{};
+  if(ai.status!=="processing"||!["validate","validate2"].includes(String(ai.step||"")))return;
+  const content=w.editorial_content;
+  if(!content)throw new Error("Contenu éditorial persistant absent.");
+  try{
+    const checked=await validateContent(content,t);
+    await patchState(jobId,runId,{
+      progress:84,stage:"ready_for_ingest",step:"ingest",label:"Tous les contrôles Aurore sont validés",
+      word_count:checked.words,
+      checks:checked.reports.map((x:any)=>({status:x?.status,passed:x?.passed,contract_version:x?.contract_version||x?.schema_version,metrics:x?.metrics||null})),
+      last_validation_error:null
+    });
+    EdgeRuntime.waitUntil(scheduleStep(jobId,runId,"ingest"));
+  }catch(err){
+    const feedback=safeText(err?.message||err,14000);
+    const attempt=Number(ai.attempt)||1;
+    if(attempt>=2){
+      await failTreatment(jobId,runId,feedback,72);
+      return;
     }
+    await patchState(jobId,runId,{progress:52,stage:"repair_required",step:"repair",label:"Contrôle non validé : correction ciblée demandée",attempt:1,last_validation_error:feedback});
+    EdgeRuntime.waitUntil(scheduleStep(jobId,runId,"repair"));
+  }
+}
 
-    await patchState(jobId,runId,{progress:82,stage:"persist_editorial_content",label:"Persistance du contenu éditorial complet avant ingestion",
-      word_count:finalWords,checks:finalReports.map((x:any)=>({status:x?.status,contract_version:x?.contract_version||x?.schema_version,metrics:x?.metrics||null}))
-    });
-    const persisted=await callRpc("aurora_persist_d_ai_editorial_content",{
-      p_job_id:jobId,p_run_id:runId,p_content_json:finalContent
-    });
-    if(persisted?.ok!==true) throw new Error(persisted?.error||"La persistance éditoriale D a échoué.");
+async function actionRepair(jobId:number,provider:string,runId:string){
+  const t=await loadJobForRun(jobId,runId),w=t.metadata?.workflow||{},ai=w.ai_treatment||{};
+  if(ai.status!=="processing"||ai.step!=="repair")return;
+  const memories=await loadMemoriesForTask(t);
+  const ctx=buildTaskContextForWorker(t,memories);
+  const feedback=safeText(ai.last_validation_error||"Le contrôle Aurore demande une correction ciblée.",14000);
+  await patchState(jobId,runId,{progress:56,stage:"repair",step:"repair",label:"Correction ciblée par "+provider,attempt:2});
+  const result=provider==="grok"?await callGrok(buildPrompt(ctx,feedback)):await callClaude(buildPrompt(ctx,feedback));
+  await patchState(jobId,runId,{progress:62,stage:"persist_editorial_content",step:"repair_persist",label:"Persistance de la version corrigée",usage:result.usage,model:result.model,attempt:2});
+  const persisted=await callRpc("aurora_persist_d_ai_editorial_content",{p_job_id:jobId,p_run_id:runId,p_content_json:result.content});
+  if(persisted?.ok!==true)throw new Error(persisted?.error||"La persistance de la correction éditoriale a échoué.");
+  await patchState(jobId,runId,{progress:67,stage:"validation",step:"validate2",label:"Second passage des contrôles Aurore",attempt:2,usage:result.usage,model:result.model});
+  EdgeRuntime.waitUntil(scheduleStep(jobId,runId,"validate"));
+}
 
-    const preview=deriveEditorialPreview(finalContent);
-    await patchState(jobId,runId,{progress:86,stage:"ready_for_ingest",label:"Contenu validé ; préparation de l’ingestion",
-      content_preview:{title:preview.title,introduction_length:preview.introduction.length,section_count:Array.isArray(finalContent.sections)?finalContent.sections.length:0,word_count:finalWords},
-      editorial_preview:preview
-    });
-
-    const ingestId=("AUR-D-AI-"+jobId+"-"+provider+"-"+Date.now().toString(36)).slice(0,120);
-    const payload={
-      ingest_id:ingestId,
-      job_id:String(jobId),
-      title:t.title,
-      subject:t.subject,
-      level:t.level,
-      class_name:t.class_name,
-      document_type:t.document_type,
-      prompt:t.prompt||null,
-      content_json:finalContent,
-      instructions:t.instructions||{},
+function buildIngestPayload(t:any,w:any,content:any,provider:string,runId:string,wordCount:number){
+  const ingestId=("AUR-D-AI-"+t.id+"-"+provider+"-"+Date.now().toString(36)).slice(0,120);
+  return {
+    ingestId,
+    payload:{
+      ingest_id:ingestId,job_id:String(t.id),title:t.title,subject:t.subject,level:t.level,class_name:t.class_name,
+      document_type:t.document_type,prompt:t.prompt||null,content_json:content,instructions:t.instructions||{},
       metadata:{
-        origin:"gpt_editorial_ingest",
-        connector_mode:true,
-        ai_provider:provider,
-        ai_model:provider==="grok"?GROK_MODEL:CLAUDE_MODEL,
-        ai_run_id:runId,
-        ai_word_count:finalWords,
-        ai_usage:finalUsage,
-        workflow_source:"section_D_multimodel",
-        manual_pdf_launch_required:true,
-        auto_pdf_launch:false,
+        origin:"gpt_editorial_ingest",connector_mode:true,ai_provider:provider,
+        ai_model:provider==="grok"?GROK_MODEL:CLAUDE_MODEL,ai_run_id:runId,ai_word_count:wordCount,
+        workflow_source:"section_D_multimodel",manual_pdf_launch_required:true,auto_pdf_launch:false,
         pending_admin_surface:"documents_en_attente"
       },
-      matiere:t.subject,
-      theme_color:t.theme_color || w.proposal?.pdfThemeColor || "#6D28D9",
+      matiere:t.subject,theme_color:t.theme_color||w.proposal?.pdfThemeColor||"#6D28D9",
       domaine:t.domaine||null,formation:t.formation||null,specialite:t.specialite||null,
       annee:t.annee||null,semestre:t.semestre||null,filiere:t.filiere||null
-    };
-
-    await patchState(jobId,runId,{progress:90,stage:"ingest",label:"Ingestion officielle du document"});
-    const ingested=await callRpc("aurora_connector_ingest_editorial_document",{p_payload:payload});
-    const documentId=Number(ingested?.generated_document_id||ingested?.document_id||ingested?.id);
-    if(!Number.isFinite(documentId)||documentId<=0) throw new Error("L’ingestion officielle n’a pas retourné de generated_document_id.");
-
-    const {data:doc,error:docError}=await db.from("aurora_generated_documents")
-      .select("id,status,pdf_path,pdf_url,version,job_id,content_json,metadata")
-      .eq("id",documentId).limit(1).maybeSingle();
-    if(docError) throw new Error(docError.message);
-    if(!doc || String(doc.status||"").toLowerCase()!=="review" || doc.pdf_path || doc.pdf_url) {
-      throw new Error("Le document ingéré n’est pas dans l’état review sans PDF attendu.");
     }
+  };
+}
 
-    const finalized=await callRpc("aurora_finalize_editorial_ai_treatment",{
-      p_job_id:jobId,p_run_id:runId,p_generated_document_id:documentId,p_ingest_id:ingestId
-    });
-    if(finalized?.ok!==true) throw new Error(finalized?.error||"Finalisation D impossible.");
+async function actionIngest(jobId:number,provider:string,runId:string){
+  const t=await loadJobForRun(jobId,runId),w=t.metadata?.workflow||{},ai=w.ai_treatment||{};
+  if(ai.status!=="processing"||ai.step!=="ingest")return;
+  const content=w.editorial_content;
+  if(!content)throw new Error("Contenu éditorial final absent avant ingestion.");
+  const wordCount=Number(ai.word_count)||Number((await callRpc("aurora_count_editorial_words",{p_content:content,p_document_type:t.document_type}))||0);
+  await patchState(jobId,runId,{progress:90,stage:"ingest",step:"ingest",label:"Ingestion officielle du document",word_count:wordCount});
+  const {ingestId,payload}=buildIngestPayload(t,w,content,provider,runId,wordCount);
+  const ingested=await callRpc("aurora_connector_ingest_editorial_document",{p_payload:payload});
+  const documentId=Number(ingested?.generated_document_id||ingested?.document_id||ingested?.id);
+  if(!Number.isFinite(documentId)||documentId<=0)throw new Error("L’ingestion officielle n’a pas retourné de generated_document_id.");
+  const {data:doc,error:docError}=await db.from("aurora_generated_documents")
+    .select("id,status,pdf_path,pdf_url").eq("id",documentId).limit(1).maybeSingle();
+  if(docError)throw new Error(docError.message);
+  if(!doc||String(doc.status||"").toLowerCase()!=="review"||doc.pdf_path||doc.pdf_url)throw new Error("Le document ingéré n’est pas dans l’état review sans PDF attendu.");
+  const finalized=await callRpc("aurora_finalize_editorial_ai_treatment",{p_job_id:jobId,p_run_id:runId,p_generated_document_id:documentId,p_ingest_id:ingestId});
+  if(finalized?.ok!==true)throw new Error(finalized?.error||"Finalisation D impossible.");
+}
 
-    await patchState(jobId,runId,{
-      progress:100,stage:"documents_en_attente",label:"Document transféré vers Documents en attente",
-      generated_document_id:documentId,ingest_id:ingestId,status:"completed",finished_at:new Date().toISOString()
-    });
+async function runInternalAction(jobId:number,provider:string,runId:string,action:string){
+  try{
+    if(!["generate","validate","repair","ingest"].includes(action))throw new Error("Étape de traitement inconnue.");
+    if(action==="generate")await actionGenerate(jobId,provider,runId);
+    else if(action==="validate")await actionValidate(jobId,provider,runId);
+    else if(action==="repair")await actionRepair(jobId,provider,runId);
+    else await actionIngest(jobId,provider,runId);
   }catch(err){
-    const message=safeText(err?.message||err,16000);
-    try{
-      await patchState(jobId,runId,{status:"failed",progress:100,stage:"error",label:"Traitement bloqué",error:message,finished_at:new Date().toISOString()}, undefined,"editorial_error");
-    }catch(_){}
+    await failTreatment(jobId,runId,err?.message||err);
   }
 }
 
 async function authenticateAdmin(req:Request){
   const auth=req.headers.get("Authorization")||"";
   const token=auth.replace(/^Bearer\s+/i,"").trim();
-  if(!token) throw new Error("Session administrateur absente.");
+  if(!token)throw new Error("Session administrateur absente.");
   const {data:{user},error}=await db.auth.getUser(token);
-  if(error||!user) throw new Error("Session administrateur invalide.");
+  if(error||!user)throw new Error("Session administrateur invalide.");
   const {data:profile,error:profileError}=await db.from("Profils").select("role,banni").eq("id",user.id).maybeSingle();
-  if(profileError) throw new Error(profileError.message);
-  if(profile?.banni===true || profile?.role!=="admin") throw new Error("Accès administrateur requis.");
+  if(profileError)throw new Error(profileError.message);
+  if(profile?.banni===true||profile?.role!=="admin")throw new Error("Accès administrateur requis.");
   return user;
+}
+function isInternalRequest(req:Request){
+  return Boolean(SERVICE_ROLE)&&req.headers.get("Authorization")==="Bearer "+SERVICE_ROLE;
 }
 
 Deno.serve(async (req)=>{
