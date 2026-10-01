@@ -4154,7 +4154,19 @@ def render(data):
         lines.append(r"\Needspace{6\baselineskip}")
         lines.append(r"\AuroreCourseSectionStart")
         lines.append(r"\section{" + tex_text(sec.get("title", "")) + r"}")
-        if sec.get("objective"): lines.append(r"\AuroreLabeledBlock{À découvrir}{" + inline(sec["objective"]) + r"}")
+        if sec.get("objective"):
+            objective = clean_text(sec["objective"]).strip()
+            if objective:
+                objective_body = _render_course_math_blocks(
+                    objective,
+                    auto_math=(profile == "scientifique"),
+                )
+                if objective_body:
+                    lines.append(
+                        r"\AuroreLabeledBlock{À découvrir}{"
+                        + "\n".join(objective_body)
+                        + r"}"
+                    )
         if sec.get("formula"): lines.append(display_formula(sec["formula"]))
         content_items = sec.get("content", [])
         if isinstance(content_items, list) and sec.get("exercises"):
@@ -4184,18 +4196,37 @@ def render(data):
             lines.append(r"\Needspace{5\baselineskip}")
             question = ex.get("question") or ex.get("statement") or ex.get("enonce") or ex.get("content") or ""
             inline_correction = ex.get("solution") or ex.get("correction") or ""
-            lines.append((r"\AuroreActivityBlock{" if profile == "biologie" else r"\AuroreExerciseBlock{") + str(exercise_number) + r"}{" + inline(question) + r"}")
-            if ex.get("hint"): lines.append(r"\AuroreLabeledBlock{Indication}{" + inline(ex["hint"]) + r"}")
+            exercise_tag = r"\AuroreActivityBlock{" if profile == "biologie" else r"\AuroreExerciseBlock{"
+            if _document_kind(data) == "cours":
+                question_body = render_exercise_text(question, mode="question")
+                lines.append(exercise_tag + str(exercise_number) + r"}{" + "\n".join(question_body) + r"}")
+            else:
+                lines.append(exercise_tag + str(exercise_number) + r"}{" + inline(question) + r"}")
+            if ex.get("hint"):
+                hint = clean_text(ex["hint"]).strip()
+                if _document_kind(data) == "cours":
+                    hint_body = _render_course_math_blocks(hint, auto_math=True)
+                    lines.append(r"\AuroreLabeledBlock{Indication}{" + "\n".join(hint_body) + r"}")
+                else:
+                    lines.append(r"\AuroreLabeledBlock{Indication}{" + inline(hint) + r"}")
             if ex.get("formula"): lines.append(display_formula(ex["formula"]))
             correction = corrections_by_number.get(exercise_number)
             if correction is not None:
                 solution = correction.get("solution") or correction.get("correction") or correction.get("details") or ""
                 lines.append(r"\Needspace{5\baselineskip}")
-                lines.append(r"\AuroreCorrectionBlock{" + str(correction.get("exercise_number", exercise_number)) + r"}{" + inline(solution) + r"}")
+                if _document_kind(data) == "cours":
+                    correction_body = render_exercise_text(solution, mode="correction")
+                    lines.append(r"\AuroreCorrectionBlock{" + str(correction.get("exercise_number", exercise_number)) + r"}{" + "\n".join(correction_body) + r"}")
+                else:
+                    lines.append(r"\AuroreCorrectionBlock{" + str(correction.get("exercise_number", exercise_number)) + r"}{" + inline(solution) + r"}")
                 used_correction_numbers.add(exercise_number)
             elif inline_correction:
                 lines.append(r"\Needspace{5\baselineskip}")
-                lines.append(r"\AuroreCorrectionBlock{" + str(exercise_number) + r"}{" + inline(inline_correction) + r"}")
+                if _document_kind(data) == "cours":
+                    correction_body = render_exercise_text(inline_correction, mode="correction")
+                    lines.append(r"\AuroreCorrectionBlock{" + str(exercise_number) + r"}{" + "\n".join(correction_body) + r"}")
+                else:
+                    lines.append(r"\AuroreCorrectionBlock{" + str(exercise_number) + r"}{" + inline(inline_correction) + r"}")
 
     if is_exercise_document:
         if corrections_by_number or inline_exercise_corrections:
