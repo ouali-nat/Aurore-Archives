@@ -1145,7 +1145,8 @@ function bindDetail(d,t,state){
           : (latexGuard.message||'Préflight scientifique non satisfait.');
         throw new Error(detail);
       }
-      const revisionNo=Number(fw.revision_no||0);\n      const ingestId='AUR-D-'+t.id+'-v'+Number(fw.proposal_version||1)+(revisionNo>0?'-R'+revisionNo:'');
+      const revisionNo=Number(fw.revision_no||0);
+      const ingestId='AUR-D-'+t.id+'-v'+Number(fw.proposal_version||1)+(revisionNo>0?'-R'+revisionNo:'');
       const payload={ingest_id:ingestId,job_id:Number(t.id),title:e.title,subject:t.subject,level:t.level,class_name:t.class_name,document_type:t.document_type||'cours',content_json:editorialPayload(e),instructions:{category:'Documents',source:'Aurore — Section D',workflow_stage:'edition',manual_pdf_launch_required:true},metadata:{origin:'Aurore — Section D',source_job_id:t.id,chapter:proposalFor(fresh).chapter,workflow_stage:'edition',auto_pdf_launch:false,manual_pdf_launch_only:true},matiere:t.subject,theme_color:proposalFor(fresh).pdfThemeColor||'#6D28D9'};
       const ingested=await rpc('aurora_connector_ingest_editorial_document',{p_payload:payload});
       const docId=Number(ingested?.generated_document_id);
