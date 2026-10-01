@@ -417,9 +417,16 @@ function dAiProviderFor(t){
   }catch(_){}
   return 'grok';
 }
+function dAiIsStale(t){
+  const a=dAiTreatment(t);
+  if(a?.status!=='processing')return false;
+  const at=Date.parse(String(a?.updated_at||a?.started_at||'')); 
+  return Number.isFinite(at) && Date.now()-at>12*60*1000;
+}
 function dAiCardMarkup(t){
   const w=t?.metadata?.workflow||{},a=dAiTreatment(t),provider=dAiProviderFor(t);
   const processing=a?.status==='processing';
+  const stale=dAiIsStale(t);
   const failed=a?.status==='failed';
   const legacyBlocked=!!t.generated_document_id||['handed_off','in_progress','new_production'].includes(String(w.revision_status||''));
   if(legacyBlocked&&!processing){
@@ -428,13 +435,15 @@ function dAiCardMarkup(t){
   const pct=Math.max(0,Math.min(100,Number(a?.progress)||0));
   const label=String(a?.label||a?.stage||'').trim();
   const error=String(a?.error||'').trim();
-  return '<div class="editor-ai-treatment '+(processing?'is-processing':failed?'is-failed':'')+'">'+
-    '<div class="editor-ai-head"><span>Production IA</span><strong>'+(processing?'Traitement en cours':failed?'Traitement bloqué':'Choisir le moteur')+'</strong></div>'+
+  const activeProcessing=processing&&!stale;
+  const actionable=failed||stale||(!processing&&dAiCanStart(t));
+  return '<div class="editor-ai-treatment '+(activeProcessing?'is-processing':failed?'is-failed':stale?'is-stale':'')+'">'+
+    '<div class="editor-ai-head"><span>Production IA</span><strong>'+(activeProcessing?'Traitement en cours':stale?'Traitement bloqué — reprise possible':failed?'Traitement bloqué':'Choisir le moteur')+'</strong></div>'+
     '<div class="editor-ai-controls">'+
-      '<select class="editor-ai-provider" data-ai-provider-job="'+esc(t.id)+'" aria-label="Moteur IA pour la tâche '+esc(t.id)+'" '+(processing?'disabled':'')+'>'+
+      '<select class="editor-ai-provider" data-ai-provider-job="'+esc(t.id)+'" aria-label="Moteur IA pour la tâche '+esc(t.id)+'" '+(activeProcessing?'disabled':'')+'>'+
         D_AI_PROVIDERS.map(([value,label])=>'<option value="'+value+'" '+(provider===value?'selected':'')+'>'+label+'</option>').join('')+
       '</select>'+
-      '<button type="button" class="admin-btn '+(processing?'ghost':'primary')+'" data-ai-start="'+esc(t.id)+'" '+(processing?'disabled':'')+'>'+(processing?'Traitement…':failed?'Relancer':'Traiter')+'</button>'+
+      '<button type="button" class="admin-btn '+(activeProcessing?'ghost':'primary')+'" data-ai-start="'+esc(t.id)+'" '+(!actionable||activeProcessing?'disabled':'')+'>'+(activeProcessing?'Traitement…':stale?'Reprendre':failed?'Relancer':'Traiter')+'</button>'+
     '</div>'+
     ((processing||failed)?'<div class="editor-ai-progress" role="status" aria-live="polite">'+
       '<div class="editor-ai-progress-head"><span>'+esc(label||'Traitement IA')+'</span><strong data-ai-percent-job="'+esc(t.id)+'">'+pct+'%</strong></div>'+
@@ -1498,6 +1507,7 @@ function injectStyle(){
 #auroreEditorialTaskAdmin .editor-ai-treatment{display:grid;gap:7px;padding:9px;border:1px solid color-mix(in srgb,var(--editor-accent) 16%,var(--editor-border));border-radius:12px;background:color-mix(in srgb,var(--editor-accent) 4%,var(--editor-surface))}
 #auroreEditorialTaskAdmin .editor-ai-treatment.is-processing{border-color:color-mix(in srgb,#2563EB 30%,var(--editor-border))}
 #auroreEditorialTaskAdmin .editor-ai-treatment.is-failed{border-color:color-mix(in srgb,#DC2626 30%,var(--editor-border));background:color-mix(in srgb,#DC2626 4%,var(--editor-surface))}
+#auroreEditorialTaskAdmin .editor-ai-treatment.is-stale{border-color:color-mix(in srgb,#B45309 30%,var(--editor-border));background:color-mix(in srgb,#B45309 5%,var(--editor-surface))}
 #auroreEditorialTaskAdmin .editor-ai-treatment.editor-ai-legacy{opacity:.75}
 #auroreEditorialTaskAdmin .editor-ai-head,.editor-ai-progress-head{display:flex;align-items:center;justify-content:space-between;gap:7px}
 #auroreEditorialTaskAdmin .editor-ai-head span{font-size:.49rem;text-transform:uppercase;font-weight:950;letter-spacing:.06em;opacity:.52}
