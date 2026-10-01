@@ -46,11 +46,11 @@ async function requestRevisionForGeneratedDocument(documentId){
 }
 window.auroreRequestEditorialRevisionForDocument=requestRevisionForGeneratedDocument;
 async function beginRevision(id){
-  const r=await api('/rest/v1/rpc/aurora_begin_editorial_revision',{
+  const r=await api('/rest/v1/rpc/aurora_create_new_d_production_from_revision',{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({p_generated_document_id:Number(id)})
   });
-  if(!r?.ok)throw new Error('La reprise en D n’a pas été confirmée par Supabase.');
+  if(!r?.ok)throw new Error('La création de la nouvelle production D n’a pas été confirmée par Supabase.');
   return r;
 }
 function ensureStyle(){
@@ -86,21 +86,22 @@ function ensureBox(kind){
 }
 function renderBox(kind,rows){
   const box=ensureBox(kind);if(!box)return;
-  box.innerHTML='<div class="aurore-revision-e-head"><div><span class="aurore-revision-e-kicker">Section E</span><h3>Documents à réviser</h3><p>Les documents envoyés ici quittent le circuit PDF en attente et peuvent être repris explicitement en D. Aucun PDF n’est lancé depuis E.</p></div><span class="aurore-revision-e-badge">'+rows.length+' à réviser</span></div><div class="aurore-revision-e-list">'+
+  box.innerHTML='<div class="aurore-revision-e-head"><div><span class="aurore-revision-e-kicker">Section E</span><h3>Documents à réviser</h3><p>Les documents envoyés ici quittent le circuit PDF en attente et sont conservés comme historique et peuvent être récupérés dans une nouvelle production D. Aucun PDF n’est lancé depuis E.</p></div><span class="aurore-revision-e-badge">'+rows.length+' à réviser</span></div><div class="aurore-revision-e-list">'+
     (rows.length?rows.map(r=>{
       const when=r.revision_requested_at?new Date(r.revision_requested_at).toLocaleString('fr-FR'):'Date non disponible';
       const reason=r.revision_reason?'<div class="aurore-revision-e-reason"><strong>Motif :</strong> '+esc(r.revision_reason)+'</div>':'';
-      return '<article class="aurore-revision-e-card" data-revision-id="'+esc(r.generated_document_id)+'"><strong>'+esc(r.title||('Document #'+r.generated_document_id))+'</strong><div class="aurore-revision-e-meta">#'+esc(r.generated_document_id)+' · Tâche #'+esc(r.job_id||'—')+' · '+esc(r.class_name||r.level||'—')+' · '+esc(r.subject||'—')+' · demandé le '+esc(when)+'</div>'+reason+'<div class="aurore-revision-e-actions"><button type="button" class="admin-btn primary js-revision-begin" data-revision-id="'+esc(r.generated_document_id)+'">Reprendre en D →</button>'+(r.pdf_url?'<button type="button" class="admin-btn ghost js-revision-open" data-revision-pdf="'+esc(r.pdf_url)+'">Ouvrir l’ancien PDF</button>':'')+'</div></article>';
+      return '<article class="aurore-revision-e-card" data-revision-id="'+esc(r.generated_document_id)+'"><strong>'+esc(r.title||('Document #'+r.generated_document_id))+'</strong><div class="aurore-revision-e-meta">#'+esc(r.generated_document_id)+' · Tâche #'+esc(r.job_id||'—')+' · '+esc(r.class_name||r.level||'—')+' · '+esc(r.subject||'—')+' · demandé le '+esc(when)+'</div>'+reason+'<div class="aurore-revision-e-actions"><button type="button" class="admin-btn primary js-revision-begin" data-revision-id="'+esc(r.generated_document_id)+'">Récupérer et traiter en nouvelle production →</button>'+(r.pdf_url?'<button type="button" class="admin-btn ghost js-revision-open" data-revision-pdf="'+esc(r.pdf_url)+'">Ouvrir l’ancien PDF</button>':'')+'</div></article>';
     }).join(''):'<div class="aurore-revision-e-empty">Aucun document en révision. Les demandes apparaîtront ici dès qu’un administrateur utilise « Demander une révision ».</div>')+
     '</div>';
   box.querySelectorAll('.js-revision-begin').forEach(b=>b.addEventListener('click',async()=>{
     const id=Number(b.dataset.revisionId);if(!id)return;
-    b.disabled=true;b.textContent='Reprise en D…';
+    b.disabled=true;b.textContent='Création de la nouvelle production…';
     try{
-      await beginRevision(id);
-      alert('Document repris en Section D. Il est maintenant disponible pour une nouvelle édition éditoriale. Aucun PDF n’a été lancé.');
+      const result=await beginRevision(id);
+      const newJobId=Number(result?.new_job_id||0);
+      alert('Nouvelle production D créée'+(newJobId?' — job #'+newJobId:'')+'. L’ancien document E reste conservé dans l’historique. Aucun PDF n’a été lancé.');
       await refreshAll();
-    }catch(e){alert(e.message||e);b.disabled=false;b.textContent='Reprendre en D →'}
+    }catch(e){alert(e.message||e);b.disabled=false;b.textContent='Récupérer et traiter en nouvelle production →'}
   }));
   box.querySelectorAll('.js-revision-open').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.revisionPdf)window.open(b.dataset.revisionPdf,'_blank','noopener,noreferrer')}));
 }
