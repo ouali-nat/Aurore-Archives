@@ -463,9 +463,13 @@ async function processJob(jobId:number,provider:string,runId:string){
       }
     }
 
-    await patchState(jobId,runId,{progress:82,stage:"persist_preview",label:"Enregistrement de l’état final avant ingestion",
+    await patchState(jobId,runId,{progress:82,stage:"persist_editorial_content",label:"Persistance du contenu éditorial complet avant ingestion",
       word_count:finalWords,checks:finalReports.map((x:any)=>({status:x?.status,contract_version:x?.contract_version||x?.schema_version,metrics:x?.metrics||null}))
     });
+    const persisted=await callRpc("aurora_persist_d_ai_editorial_content",{
+      p_job_id:jobId,p_run_id:runId,p_content_json:finalContent
+    });
+    if(persisted?.ok!==true) throw new Error(persisted?.error||"La persistance éditoriale D a échoué.");
 
     const preview=deriveEditorialPreview(finalContent);
     await patchState(jobId,runId,{progress:86,stage:"ready_for_ingest",label:"Contenu validé ; préparation de l’ingestion",
