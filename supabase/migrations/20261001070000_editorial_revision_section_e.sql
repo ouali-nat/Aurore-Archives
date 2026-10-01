@@ -181,6 +181,7 @@ declare
   v_meta jsonb;
   v_job_meta jsonb;
   v_workflow jsonb;
+  v_revision_no integer;
   v_now timestamptz := now();
 begin
   if not private.is_aurora_admin() then
@@ -216,6 +217,7 @@ begin
     'revision_started_at',v_now,
     'revision_source_generated_document_id',v_doc.id,
     'revision_source_version',coalesce(v_doc.version,1),
+    'revision_no',v_revision_no,
     'production_status','revision_in_progress',
     'manual_pdf_launch_required',true,
     'auto_pdf_launch',false,
@@ -253,6 +255,7 @@ begin
     'ok',true,
     'generated_document_id',v_doc.id,
     'job_id',v_job.id,
+    'revision_no',v_revision_no,
     'stage','redaction'
   );
 end;
