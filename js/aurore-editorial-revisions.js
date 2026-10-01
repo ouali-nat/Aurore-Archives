@@ -170,7 +170,7 @@ async function refreshAll(){
 function observe(){
   ensureStyle();
   const mo=new MutationObserver(()=>{addRevisionButtons();bindRevisionButtons()});
-  ['aurorePdfProdList','adminPendingV2List','adminList'].forEach(id=>{const el=document.getElementById(id);if(el)mo.observe(el,{childList:true,subtree:true})});
+  ['aurorePdfProdList','adminPendingV2List','adminList','auroreEditorialTaskAdmin'].forEach(id=>{const el=document.getElementById(id);if(el)mo.observe(el,{childList:true,subtree:true})});
   refreshAll();
   setInterval(()=>{if(document.visibilityState!=='hidden')refreshAll()},15000);
 }
