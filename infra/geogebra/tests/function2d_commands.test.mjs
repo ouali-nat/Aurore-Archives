@@ -1,7 +1,10 @@
 import fs from "node:fs";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildFunction2DArrayCommands } from "../function2d_commands.mjs";
+import {
+  buildFunction2DArrayCommands,
+  buildFunction2DParameterCommands,
+} from "../function2d_commands.mjs";
 
 test("deux expressions brutes deviennent deux fonctions GeoGebra distinctes", () => {
   assert.deepEqual(
@@ -99,5 +102,46 @@ test("une définition scalaire nommée pH(x)=... reste une construction valide",
       commands: ["pH(x)=2+12/(1+e^(-0.5*(x-10)))"],
       functionNames: ["pH"],
     },
+  );
+});
+
+
+test("un paramètre scalaire libre C est matérialisé avant la fonction", () => {
+  assert.deepEqual(
+    buildFunction2DParameterCommands(["C*exp(-x)"]),
+    ["C=1"],
+  );
+});
+
+test("une fonction nommée non définie est rejetée au lieu d'être inventée", () => {
+  assert.throws(
+    () => buildFunction2DParameterCommands(["F(x)"]),
+    /fonction\(s\) non définie\(s\).*F/,
+  );
+});
+
+test("un identifiant scalaire descriptif non déclaré est rejeté", () => {
+  assert.throws(
+    () => buildFunction2DParameterCommands(["densite"]),
+    /identifiant\(s\) scalaire\(s\) non défini\(s\).*densite/,
+  );
+});
+
+test("une fonction compagnon déclarée peut être référencée", () => {
+  assert.deepEqual(
+    buildFunction2DParameterCommands(["F(x)"], ["F(x)=x^2"]),
+    [],
+  );
+});
+
+test("le renderer place les paramètres avant les commandes function2d", () => {
+  const source = fs.readFileSync(
+    new URL("../render_missing_graphs.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    source,
+    /render_function_parameter_commands[\s\S]*commands\.push\(\.\.\.graph\.render_function_commands\)/,
+    "Les paramètres doivent être ajoutés avant les constructions de fonctions.",
   );
 });
