@@ -1647,6 +1647,13 @@ def normalize_math(s):
     # JSON decodes \\right as CR + "ight"; restore the lost backslash before clean_text().
     s = s.replace("\r" + "ight", r"\right")
     s = clean_text(s)
+
+    # Chemistry content can contain Unicode equilibrium arrows. LuaLaTeX
+    # does not accept the raw glyph reliably in math mode, so normalize it
+    # to canonical LaTeX relations while preserving the chemical meaning.
+    s = s.replace("⇌", r"\rightleftharpoons")
+    s = s.replace("⇄", r"\rightleftarrows")
+
     s = _repair_common_math_command_corruption(s)
 
     # A Unicode inequality may be normalized to a TeX control word inside
