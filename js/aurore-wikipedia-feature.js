@@ -163,6 +163,8 @@
     }
     wikiDebounceTimer = setTimeout(()=> auroreRechercherWikipedia(v), 320);
   }
+  window.programmerRechercheWiki = programmerRechercheWiki;
+  window.auroreRechercherWikipedia = auroreRechercherWikipedia;
 
   // La recherche d'accueil est gérée exclusivement par site-config.js.
   // Aucun écouteur Wikipédia n'est attaché pendant la frappe.
@@ -171,6 +173,16 @@
   if(headerSearchInput){
     headerSearchInput.addEventListener('input', e => programmerRechercheWiki(e.target.value));
     headerSearchInput.addEventListener('keydown', e => {
+      if(e.key === 'Enter'){
+        clearTimeout(wikiDebounceTimer);
+        auroreRechercherWikipedia(e.target.value);
+      }
+    });
+  }
+  const homeSearchInput = document.getElementById('homeSearchInput');
+  if(homeSearchInput){
+    homeSearchInput.addEventListener('input', e => programmerRechercheWiki(e.target.value));
+    homeSearchInput.addEventListener('keydown', e => {
       if(e.key === 'Enter'){
         clearTimeout(wikiDebounceTimer);
         auroreRechercherWikipedia(e.target.value);
