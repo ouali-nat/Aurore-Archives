@@ -2398,6 +2398,18 @@ _PLAIN_MATH_RELATION_RE = re.compile(
     r"(?=\s|[,.!?;:]|$)"
 )
 
+_BARE_LATEX_RELATION_RE = re.compile(
+    r"(?<![A-Za-zÀ-ÿ0-9_])"
+    r"(?P<expr>"
+    r"[A-Za-z](?:[_^]\\{[^{}\\n]+\\}|[_^][A-Za-z0-9]+)?"
+    r"\\s*(?:=|→|≤|≥|≠|∈)\\s*"
+    r"(?:\\\\[A-Za-z]+|[A-Za-z0-9])"
+    r"(?:\\s*(?:\\\\[A-Za-z]+|[0-9]+(?:[.,][0-9]+)?|[A-Za-z](?![A-Za-z])|[_^]\\{[^{}\\n]+\\}|[_^][A-Za-z0-9]+|[{}()\\[\\],+*/\\-])){0,40}"
+    r")"
+    r"(?=\\s|[,.!?;:]|$)"
+)
+
+
 def _looks_like_plain_math_fragment(fragment):
     value = str(fragment or "").strip()
     if not value:
@@ -2499,6 +2511,15 @@ def _render_plain_with_inline_math(segment, auto_math=False):
         return ""
 
     candidates = []
+    for match in _BARE_LATEX_RELATION_RE.finditer(source):
+        fragment = match.group(0).strip()
+        if (
+            fragment
+            and ("_" in fragment or "^" in fragment or "\\" in fragment)
+            and _looks_like_plain_math_fragment(fragment)
+        ):
+            candidates.append((match.start(), match.end(), fragment))
+
     for match in _PLAIN_MATH_RELATION_RE.finditer(source):
         fragment = match.group(0).strip()
         if fragment and _looks_like_plain_math_fragment(fragment):
@@ -2551,9 +2572,13 @@ def _render_course_inline_math(text, auto_math=False):
             return ""
 
         candidates = []
-        for match in _PLAIN_MATH_RELATION_RE.finditer(value):
+        for match in _BARE_LATEX_RELATION_RE.finditer(value):
             raw_fragment = match.group(0)
-            if not raw_fragment or not _looks_like_plain_math_fragment(raw_fragment.strip()):
+            if (
+                not raw_fragment
+                or not ("_" in raw_fragment or "^" in raw_fragment or "\\" in raw_fragment)
+                or not _looks_like_plain_math_fragment(raw_fragment.strip())
+            ):
                 continue
             # The relation regex permits surrounding whitespace. Keep that
             # whitespace in prose so the math box begins at the same position.
