@@ -2377,6 +2377,7 @@ _PLAIN_MATH_ATOM = (
     r"|[0-9]+(?:[.,][0-9]+)?"
     r"|\\(?:lim|ln|log|exp|sin|cos|tan|to|leq|geq|neq|in|notin|subset|subseteq|supset|supseteq|cdot|times|pm|mathbb|setminus)\b"
     r"|[()\[\]{},.+*/=≤≥≠→∈∞ℝℕℤℚℝαβγδπφω^_'’×⋅−-]"
+    r"|[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻]"
     r"|\s+"
     r")"
 )
