@@ -240,7 +240,7 @@ function taskContext(t:any, memories:any[]){
     exact_rules:{
       no_invented_sources:true,
       course_standard_minimum_words:1500,
-      course_exercise_profile:"1 integrated substantial exercise required; second optional when pedagogically justified; complete correction required; hints optional",
+      course_exercise_profile:"at least 1 integrated substantial exercise; no artificial upper limit; each supplied exercise must be substantial and have a complete correction; hints optional",
       introduction_minimum_characters:450,
       max_sections:30,
       scientific_lycee_latex_minimum:1200,
@@ -269,8 +269,8 @@ function buildPrompt(ctx:any, repairFeedback:string){
     "Utilise les délimiteurs LaTeX canoniques Aurore \\(...\\) et \\[...\\].",
     "Chaque formule doit être pédagogiquement utile et accompagnée de texte explicatif ; ne fabrique pas de formules décoratives.",
     "Évite les formulations répétitives et les modèles interdits comme « étude spécifique de ce sous-thème » ou « Résoudre un problème nouveau portant sur... ».",
-    "Pour un cours, privilégie un exercice d'application intégré et substantiel plutôt qu'une succession de mini-exercices.",
-    "Un cours doit contenir 1 exercice intégré substantiel ; un 2e n'est ajouté que s'il apporte une compétence ou une situation réellement distincte et utile.",
+    "Pour un cours, privilégie des exercices d'application intégrés et substantiels plutôt qu'une succession de mini-exercices.",
+    "Un cours doit contenir au moins un exercice intégré substantiel. Le nombre d'exercices n'est pas plafonné artificiellement : chaque exercice supplémentaire doit cependant apporter une compétence, un raisonnement ou une situation réellement utile.",
     "Chaque exercice intégré de cours doit disposer d'une correction complète, rattachée au même exercice, reprenant ses données, notations et questions.",
     "L'indication est facultative : ne crée jamais une indication uniquement pour remplir une structure. Lorsqu'elle est utile, elle peut être fournie globalement ou paragraphe par paragraphe.",
     "Une indication ne remplace jamais la correction et ne doit pas devenir une micro-solution.",
@@ -493,8 +493,8 @@ function validateShape(content:any, t:any){
     content.sections.forEach((s:any)=>{
       if(Array.isArray(s.exercises)) courseExercises.push(...s.exercises);
     });
-    if(courseExercises.length<1 || courseExercises.length>2) {
-      throw new Error("COURSE_EXERCISE_PROFILE: un exercice intégré substantiel est requis ; un second est facultatif.");
+    if(courseExercises.length<1) {
+      throw new Error("COURSE_EXERCISE_PROFILE: au moins un exercice intégré substantiel est requis.");
     }
     const ids=new Set<string>();
     for(const ex of courseExercises){
