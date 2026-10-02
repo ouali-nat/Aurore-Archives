@@ -48,8 +48,12 @@ async function load(){
   render();
 }
 function render(){const grid=document.getElementById('personalFolderGrid');if(!grid)return;const roots=folders.filter(x=>!x.parent_id);document.getElementById('personalFolderCount').textContent=String(roots.length);grid.innerHTML='';roots.forEach(f=>{const c=document.createElement('article');c.className='personal-folder';c.draggable=true;c.dataset.folderId=f.id;const n=folderAssignments.filter(a=>a.case_id===f.id).length+privateDocs.filter(x=>x.case_id===f.id).length;c.innerHTML=`<div class="personal-folder-top"><div class="personal-folder-icon">▱</div><button type="button" class="personal-folder-menu" aria-label="Options">⋯</button></div><div class="personal-folder-name" title="${esc(f.name)}">${esc(f.name)}</div><div class="personal-folder-count">${n} document${n>1?'s':''}</div><div class="personal-folder-hint">Glisser pour déplacer</div>`;c.addEventListener('click',e=>{if(!e.target.closest('.personal-folder-menu'))openFolder(f)});c.querySelector('.personal-folder-menu').addEventListener('click',e=>{e.stopPropagation();folderMenu(f)});c.addEventListener('dragstart',()=>{draggedFolderId=f.id;c.classList.add('dragging')});c.addEventListener('dragend',()=>{draggedFolderId=null;c.classList.remove('dragging');grid.querySelectorAll('.drag-over').forEach(x=>x.classList.remove('drag-over'))});c.addEventListener('dragover',e=>{e.preventDefault();if(draggedFolderId!==f.id)c.classList.add('drag-over')});c.addEventListener('dragleave',()=>c.classList.remove('drag-over'));c.addEventListener('drop',e=>{e.preventDefault();c.classList.remove('drag-over');if(draggedFolderId&&draggedFolderId!==f.id)reorder(draggedFolderId,f.id)});grid.appendChild(c)});if(roots.length<MAX_FOLDERS){const b=document.createElement('button');b.type='button';b.className='personal-folder-create';b.innerHTML=`<span class="personal-folder-create-icon">＋</span><strong>Créer une case</strong><span>Encore ${MAX_FOLDERS-roots.length} emplacement${MAX_FOLDERS-roots.length>1?'s':''}</span>`;b.onclick=()=>dialog('create');grid.appendChild(b)}}
-async function createFolder(name,quiet=false){
-  if(folders.length>=MAX_FOLDERS){if(!quiet)alert('Vous avez atteint la limite de 10 cases.');return}
+async function createFolder(name,quiet=false,parentId=null){
+  const normalizedParent=parentId?String(parentId):null;
+  const siblings=folders.filter(f=>(f.parent_id||null)===normalizedParent).sort((a,b)=>a.position-b.position);
+  // La limite de 10 concerne les cases racines. Les sous-dossiers peuvent
+  // être créés dans chaque case sans consommer les emplacements racine.
+  if(!normalizedParent && siblings.length>=MAX_FOLDERS){if(!quiet)alert('Vous avez atteint la limite de 10 cases.');return}
   const clean=String(name||'').trim().replace(/\s+/g,' ').slice(0,60);
   if(!clean)return;
   if(siblings.some(f=>f.name.toLocaleLowerCase('fr')===clean.toLocaleLowerCase('fr'))){if(!quiet)alert('Une case porte déjà ce nom.');return}
