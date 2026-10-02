@@ -113,11 +113,16 @@ function baseSchema(){
   };
   const exercise = {
     type:"object", additionalProperties:false,
-    required:["id","statement","hint"],
+    required:["id","statement"],
     properties:{
       id:{type:"string",minLength:2},
       statement:{type:"string",minLength:40},
-      hint:{type:"string",minLength:10}
+      hint:{
+        anyOf:[
+          {type:"string",minLength:10},
+          {type:"array",maxItems:12,items:{type:"string",minLength:10}}
+        ]
+      }
     }
   };
   const correction = {
@@ -235,6 +240,7 @@ function taskContext(t:any, memories:any[]){
     exact_rules:{
       no_invented_sources:true,
       course_standard_minimum_words:1500,
+      course_exercise_profile:"1 integrated substantial exercise required; second optional when pedagogically justified; complete correction required; hints optional",
       introduction_minimum_characters:450,
       max_sections:30,
       scientific_lycee_latex_minimum:1200,
@@ -263,6 +269,12 @@ function buildPrompt(ctx:any, repairFeedback:string){
     "Utilise les délimiteurs LaTeX canoniques Aurore \\(...\\) et \\[...\\].",
     "Chaque formule doit être pédagogiquement utile et accompagnée de texte explicatif ; ne fabrique pas de formules décoratives.",
     "Évite les formulations répétitives et les modèles interdits comme « étude spécifique de ce sous-thème » ou « Résoudre un problème nouveau portant sur... ».",
+    "Pour un cours, privilégie un exercice d'application intégré et substantiel plutôt qu'une succession de mini-exercices.",
+    "Un cours doit contenir 1 exercice intégré substantiel ; un 2e n'est ajouté que s'il apporte une compétence ou une situation réellement distincte et utile.",
+    "Chaque exercice intégré de cours doit disposer d'une correction complète, rattachée au même exercice, reprenant ses données, notations et questions.",
+    "L'indication est facultative : ne crée jamais une indication uniquement pour remplir une structure. Lorsqu'elle est utile, elle peut être fournie globalement ou paragraphe par paragraphe.",
+    "Une indication ne remplace jamais la correction et ne doit pas devenir une micro-solution.",
+    "Pour un exercice de cours, vise un énoncé réellement développé, avec plusieurs étapes ou questions liées, puis une correction détaillée montrant le raisonnement et les calculs pertinents.",
     "Les exercices doivent avoir des énoncés concrets et les corrections doivent reprendre les données de leurs exercices, sans correction générique.",
     "Le document doit conserver la sélection de chapitres et le plan C comme base, sans inventer un autre programme."
   ];
@@ -475,6 +487,33 @@ function validateShape(content:any, t:any){
     if(!Array.isArray(content.visual_plan?.decisions)||content.visual_plan.decisions.length!==content.sections.length) throw new Error("Une décision documentaire est requise pour chaque section.");
     const visualCount=content.sections.reduce((n:number,s:any)=>n+(Array.isArray(s.visuals)?s.visuals.length:0),0);
     if(visualCount<1 || visualCount>8) throw new Error("Un cours documentaire doit contenir 1 à 8 visuels Wikimedia.");
+  }
+  if(isCourse(t.document_type)){
+    const courseExercises:any[]=[];
+    content.sections.forEach((s:any)=>{
+      if(Array.isArray(s.exercises)) courseExercises.push(...s.exercises);
+    });
+    if(courseExercises.length<1 || courseExercises.length>2) {
+      throw new Error("COURSE_EXERCISE_PROFILE: un exercice intégré substantiel est requis ; un second est facultatif.");
+    }
+    const ids=new Set<string>();
+    for(const ex of courseExercises){
+      if(!ex || typeof ex!=="object" || typeof ex.id!=="string" || typeof ex.statement!=="string") {
+        throw new Error("COURSE_EXERCISE_PROFILE: exercice de cours invalide.");
+      }
+      if(ids.has(ex.id)) throw new Error("COURSE_EXERCISE_PROFILE: identifiant d'exercice dupliqué.");
+      ids.add(ex.id);
+      if(ex.statement.trim().length<700) throw new Error("COURSE_EXERCISE_PROFILE: l'énoncé doit être substantiel.");
+      const correction=content.sections
+        .flatMap((s:any)=>Array.isArray(s.corrections)?s.corrections:[])
+        .find((c:any)=>c && c.exercise_id===ex.id);
+      if(!correction || typeof correction.content!=="string" || correction.content.trim().length<900) {
+        throw new Error("COURSE_EXERCISE_PROFILE: chaque exercice intégré doit avoir une correction complète.");
+      }
+      if(ex.hint!==undefined && typeof ex.hint!=="string" && !Array.isArray(ex.hint)) {
+        throw new Error("COURSE_EXERCISE_PROFILE: hint doit être facultatif, texte ou liste de paragraphes.");
+      }
+    }
   }
   if(isScientific(t.subject)){
     const g=content.sections.reduce((n:number,s:any)=>n+(Array.isArray(s.graphs)?s.graphs.length:0),0);

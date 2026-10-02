@@ -3754,6 +3754,25 @@ def render(data):
             raise ValueError(
                 "Exercise profile QA failed: " + " | ".join(exercise_qa[:8])
             )
+    else:
+        # Course exercises stay substantial: one integrated exercise is expected,
+        # with an optional second only when supplied by the editorial source.
+        # This renderer guard only prevents obvious mini-exercise drift.
+        course_exercises = []
+        for _sec in data.get("sections", []) if isinstance(data.get("sections"), list) else []:
+            if isinstance(_sec, dict) and isinstance(_sec.get("exercises"), list):
+                course_exercises.extend(_sec.get("exercises") or [])
+        if course_exercises:
+            if len(course_exercises) > 2:
+                raise ValueError(
+                    "Course exercise profile QA failed: more than two course exercises were supplied."
+                )
+            for _ex in course_exercises:
+                if not isinstance(_ex, dict):
+                    raise ValueError("Course exercise profile QA failed: invalid exercise.")
+                _statement = clean_text(_ex.get("statement") or _ex.get("question") or _ex.get("enonce") or "")
+                if len(_statement) < 700:
+                    raise ValueError("Course exercise profile QA failed: exercise statement is too short.")
     has_geogebra = _has_geogebra(data)
     _math_visual_plan_qa(data)
     _geogebra_visual_plan_qa(data)
@@ -4203,12 +4222,22 @@ def render(data):
             else:
                 lines.append(exercise_tag + str(exercise_number) + r"}{" + inline(question) + r"}")
             if ex.get("hint"):
-                hint = clean_text(ex["hint"]).strip()
-                if _document_kind(data) == "cours":
-                    hint_body = _render_course_math_blocks(hint, auto_math=True)
-                    lines.append(r"\AuroreLabeledBlock{Indication}{" + "\n".join(hint_body) + r"}")
+                raw_hint = ex.get("hint")
+                if isinstance(raw_hint, list):
+                    hint_items = [clean_text(item).strip() for item in raw_hint if clean_text(item).strip()]
                 else:
-                    lines.append(r"\AuroreLabeledBlock{Indication}{" + inline(hint) + r"}")
+                    hint_items = [clean_text(raw_hint).strip()]
+                if _document_kind(data) == "cours":
+                    for hint_index, hint in enumerate(hint_items, start=1):
+                        if not hint:
+                            continue
+                        hint_body = _render_course_math_blocks(hint, auto_math=True)
+                        label = "Indication" if len(hint_items) == 1 else f"Indication — paragraphe {hint_index}"
+                        lines.append(r"\AuroreLabeledBlock{" + tex_text(label) + r"}{" + "\n".join(hint_body) + r"}")
+                else:
+                    for hint in hint_items:
+                        if hint:
+                            lines.append(r"\AuroreLabeledBlock{Indication}{" + inline(hint) + r"}")
             if ex.get("formula"): lines.append(display_formula(ex["formula"]))
             correction = corrections_by_number.get(exercise_number)
             if correction is not None:
