@@ -107,8 +107,8 @@ footer{background:#07060B;color:#9189A5;}
 }
 .auraster-home-search .home-search-icon{
   display:flex;align-items:center;justify-content:center;
-  width:54px;height:44px;margin-right:2px;position:relative;
-  color:#C4B5FD;flex:0 0 54px;
+  width:66px;height:44px;margin-right:2px;position:relative;
+  color:#C4B5FD;flex:0 0 66px;
 }
 .auraster-home-search .home-search-icon::after{
   content:"";position:absolute;right:0;top:7px;bottom:7px;width:1px;
@@ -131,12 +131,13 @@ footer{background:#07060B;color:#9189A5;}
 
 .auraster-home-search input{
   width:100%;border:0;outline:0;background:transparent;color:#fff;
+  padding-left:10px;
   font:inherit;font-size:1rem;line-height:1.4;
 }
 .auraster-home-search input::placeholder{color:#8F879D;}
 @media(max-width:560px){
   .auraster-home-search{min-height:54px;padding-right:5px;}
-  .auraster-home-search .home-search-icon{width:45px;flex-basis:45px;}
+  .auraster-home-search .home-search-icon{width:56px;flex-basis:56px;}
   .auraster-home-search .home-search-submit{padding:0 11px;font-size:.76rem;}
 }
 .home-shortcuts{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
