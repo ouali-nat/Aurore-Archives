@@ -84,7 +84,10 @@
   }
   .user-chip button:not(.user-chip-info){background:none; border:none; color:var(--gris); font-size:1rem; line-height:1; padding:0 4px;}
   .user-chip button:not(.user-chip-info):hover{color:var(--rouge);}
-  .user-chip .user-chip-logout{cursor:pointer; white-space:nowrap; font-size:.72rem; font-weight:700; padding:6px 8px; border-radius:8px; color:var(--gris); transition:background .16s,color .16s,opacity .16s;}\n  .user-chip .user-chip-logout:hover{background:var(--bordure); color:var(--rouge);}\n  .user-chip .user-chip-logout:disabled{opacity:.55; cursor:wait;}\n
+  .user-chip .user-chip-logout{cursor:pointer; white-space:nowrap; font-size:.72rem; font-weight:700; padding:6px 8px; border-radius:8px; color:var(--gris); transition:background .16s,color .16s,opacity .16s;}
+  .user-chip .user-chip-logout:hover{background:var(--bordure); color:var(--rouge);}
+  .user-chip .user-chip-logout:disabled{opacity:.55; cursor:wait;}
+
   /* ---------- PROFIL UTILISATEUR ---------- */
   .profile-card{
     display:flex; align-items:center; gap:22px; background:var(--papier); border:1px solid var(--bordure);
