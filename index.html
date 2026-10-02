@@ -494,7 +494,7 @@ html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
 <span id="userIconHost"></span>
 <span id="userNom"></span>
 </button>
-<button id="btnDeconnexion" title="Se déconnecter">×</button>
+<button aria-label="Se déconnecter" id="btnDeconnexion" title="Se déconnecter" type="button">Déconnexion</button>
 </div>
 </div>
 <button aria-label="Installer Aurore" class="pwa-install-btn" id="pwaInstallBtn" type="button"><span aria-hidden="true">⇩</span> Installer</button>
@@ -2545,11 +2545,35 @@ html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
   });
 
   document.getElementById('btnDeconnexion').addEventListener('click', async () => {
-    await enregistrerSortieConnexion();
-    session = null;
-    sauvegarderSession();
-    window.dispatchEvent(new CustomEvent('aurore:user-disconnected'));
-    afficherUtilisateurConnecte();
+    const bouton = document.getElementById('btnDeconnexion');
+    if (bouton?.disabled) return;
+    if (bouton) { bouton.disabled = true; bouton.setAttribute('aria-busy', 'true'); }
+
+    try {
+      // Le compte Google est réellement déconnecté de Supabase Auth avant
+      // d'effacer l'état local historique utilisé par Aurore.
+      if (typeof window.auroreDeconnecterGoogle === 'function') {
+        const { error } = await window.auroreDeconnecterGoogle();
+        if (error) throw error;
+      }
+
+      await enregistrerSortieConnexion();
+      session = null;
+      sauvegarderSession();
+      window.dispatchEvent(new CustomEvent('aurore:user-disconnected'));
+      afficherUtilisateurConnecte();
+      try { afficherEcran('screen-home'); } catch (_) {}
+    } catch (error) {
+      console.error('[Aurore] Déconnexion impossible :', error);
+      const msg = document.getElementById('accessMessage');
+      if (msg) {
+        msg.textContent = 'La déconnexion n’a pas pu être terminée. Vérifiez votre connexion puis réessayez.';
+        msg.className = 'access-message err';
+        msg.style.display = 'block';
+      }
+    } finally {
+      if (bouton) { bouton.disabled = false; bouton.removeAttribute('aria-busy'); }
+    }
   });
 
 
