@@ -131,7 +131,7 @@ footer{background:#07060B;color:#9189A5;}
 
 .auraster-home-search input{
   width:100%;border:0;outline:0;background:transparent;color:#fff;
-  padding-left:10px;
+  padding-left:28px;
   font:inherit;font-size:1rem;line-height:1.4;
 }
 .auraster-home-search input::placeholder{color:#8F879D;}
