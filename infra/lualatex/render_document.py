@@ -3755,24 +3755,23 @@ def render(data):
                 "Exercise profile QA failed: " + " | ".join(exercise_qa[:8])
             )
     else:
-        # Course exercises stay substantial: one integrated exercise is expected,
-        # with an optional second only when supplied by the editorial source.
-        # This renderer guard only prevents obvious mini-exercise drift.
+        # Course exercises are intentionally open-ended at ingestion time:
+        # the renderer accepts every structurally valid exercise instead of
+        # imposing an arbitrary course-wide count. Editorial generation may
+        # prefer one substantial integrated exercise, but valid additional
+        # exercises must never be rejected merely because there are several.
         course_exercises = []
         for _sec in data.get("sections", []) if isinstance(data.get("sections"), list) else []:
             if isinstance(_sec, dict) and isinstance(_sec.get("exercises"), list):
                 course_exercises.extend(_sec.get("exercises") or [])
-        if course_exercises:
-            if len(course_exercises) > 2:
-                raise ValueError(
-                    "Course exercise profile QA failed: more than two course exercises were supplied."
-                )
-            for _ex in course_exercises:
-                if not isinstance(_ex, dict):
-                    raise ValueError("Course exercise profile QA failed: invalid exercise.")
-                _statement = clean_text(_ex.get("statement") or _ex.get("question") or _ex.get("enonce") or "")
-                if len(_statement) < 700:
-                    raise ValueError("Course exercise profile QA failed: exercise statement is too short.")
+        for _ex in course_exercises:
+            if not isinstance(_ex, dict):
+                raise ValueError("Course exercise profile QA failed: invalid exercise.")
+            _statement = clean_text(_ex.get("statement") or _ex.get("question") or _ex.get("enonce") or _ex.get("content") or "")
+            if not _statement:
+                raise ValueError("Course exercise profile QA failed: exercise statement is empty.")
+            if len(_statement) < 700:
+                raise ValueError("Course exercise profile QA failed: exercise statement is too short.")
     has_geogebra = _has_geogebra(data)
     _math_visual_plan_qa(data)
     _geogebra_visual_plan_qa(data)
