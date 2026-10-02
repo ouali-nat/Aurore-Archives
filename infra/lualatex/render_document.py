@@ -2576,6 +2576,26 @@ def _render_plain_with_inline_math(segment, auto_math=False):
     return "".join(parts)
 
 
+def _box_course_inline_latex(rendered):
+    """Wrap every inline LaTeX fragment emitted inside a course paragraph."""
+    value = str(rendered or "")
+    if not value:
+        return value
+    open_token = r"\("
+    close_token = r"\)"
+    pattern = re.compile(
+        re.escape(open_token) + r"([\s\S]*?)" + re.escape(close_token)
+    )
+
+    def replace(match):
+        body = normalize_math(match.group(1).strip())
+        if not body:
+            return match.group(0)
+        return r"\AuroreMathCompact{}{" + body + r"}"
+
+    return pattern.sub(replace, value)
+
+
 def _render_course_inline_math(text, auto_math=False):
     """Render one course paragraph while preserving every inline math position.
 
@@ -2631,14 +2651,18 @@ def _render_course_inline_math(text, auto_math=False):
             last_end = end_pos
 
         if not chosen:
-            return inline(value, auto_math=auto_math)
+            return _box_course_inline_latex(inline(value, auto_math=auto_math))
 
         parts = []
         cursor = 0
         for start_pos, end_pos, fragment in chosen:
             # Keep every character before the formula, including spaces.
             if start_pos > cursor:
-                parts.append(inline(value[cursor:start_pos], auto_math=auto_math))
+                parts.append(
+                    _box_course_inline_latex(
+                        inline(value[cursor:start_pos], auto_math=auto_math)
+                    )
+                )
             normalized = normalize_math(fragment.strip())
             if normalized:
                 # Inline course math must stay inline even when it is long:
@@ -2647,7 +2671,11 @@ def _render_course_inline_math(text, auto_math=False):
                 parts.append(r"\AuroreMathCompact{}{" + normalized + r"}")
             cursor = end_pos
         if cursor < len(value):
-            parts.append(inline(value[cursor:], auto_math=auto_math))
+            parts.append(
+                _box_course_inline_latex(
+                    inline(value[cursor:], auto_math=auto_math)
+                )
+            )
         return "".join(parts)
 
     explicit_inline = re.compile(r"(\$[\s\S]*?\$|\\\([\s\S]*?\\\))")
