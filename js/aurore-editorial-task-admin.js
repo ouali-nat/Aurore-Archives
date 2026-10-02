@@ -51,25 +51,29 @@ const B_EXECUTION_CONTRACT={
 };
 const C_PLAN_REQUIRED_FIELDS=['researchMethod','curricularBasis','researchFindings','sources','title','chapter','objectives','competencies','prerequisites','progression','architecture','productionStrategy','content','methods','activities','examples','situations','exercises','corrections','differentiation','evaluation','volume','duration','resources','mathGeoGebra','technicalNeeds','pdfFormat','pdfOrientation','pdfPagination','pdfThemeColor','pdfLayout','pdfFonts','pdfHeaders','pdfResources','quality','notes'];
 const C_EXECUTION_CONTRACT_VERSION='c-plan-guardrails-v2';
-const D_EXECUTION_CONTRACT_VERSION='d-editorial-production-v1';
+const D_EXECUTION_CONTRACT_VERSION='d-editorial-production-v2';
 const D_EXECUTION_CONTRACT={
   version:D_EXECUTION_CONTRACT_VERSION,
-  rule:'CX_VALIDE_VERS_D_PUIS_PRODUCTION_EDITE_VERS_DOCUMENTS_EN_ATTENTE',
+  rule:'CX_VALIDE_VERS_D_PUIS_PRODUCTION_EDITE_ET_CONTROLEE_VERS_DOCUMENTS_EN_ATTENTE',
   sequence:[
     'RELIRE la fiche C validée depuis Supabase avant toute édition.',
     'PASSER de CX à D avec stage redaction uniquement après validation persistée du plan.',
     'EDITER le contenu final à partir de workflow.proposal et le persister dans workflow.editorial_content.',
     'RELIRE la production éditoriale persistée avant de la déclarer terminée.',
-    'INGESTER la production via public.aurora_connector_ingest_editorial_document(jsonb).',
+    'AVANT toute ingestion, exécuter le préflight scientifique canonique gradué et le garde-fou pédagogique de raisonnement D sur le contenu réellement édité.',
+    'REFUSER toute insertion si un cours scientifique contient une séquence de formules sans explication, définition, justification, raisonnement ou interprétation suffisants.',
+    'INGESTER la production uniquement après succès des contrôles D via public.aurora_connector_ingest_editorial_document(jsonb).',
     'VERIFIER le generated_document_id et le statut review après ingestion.',
-    'POUR les documents de mathématiques, physique ou chimie, exécuter le préflight canonique public.aurora_scientific_preflight et bloquer l’ingestion selon le préflight scientifique canonique gradué : Primaire 400, Collège 500, Lycée et Supérieur 1200 éléments LaTeX, avec 2 constructions GeoGebra et 3 sites sources distincts ; signaler précisément les métriques et les manques à l’éditeur.',
     'LAISSER le PDF manuel : aucune génération PDF automatique depuis D.'
   ],
   prohibitedBeforeCompletion:[
     'passer directement CX vers documents_en_attente sans production éditoriale persistée',
     'déclarer D terminé sans generated_document_id confirmé',
     'lancer automatiquement LuaLaTeX ou une autre génération PDF',
-    'insérer un document scientifique dans Documents en attente sans avoir obtenu un préflight scientifique valide selon le niveau, avec les constructions GeoGebra et les sources distinctes requises'
+    'insérer un document scientifique dans Documents en attente sans préflight scientifique canonique valide',
+    'insérer un document scientifique dans Documents en attente sans garde-fou pédagogique D validé',
+    'considérer une suite de formules ou de résultats comme une explication scientifique',
+    'contourner le contrôle D en revenant à la conversation sans corriger la production persistée'
   ]
 };
 const C_EXECUTION_CONTRACT={
@@ -1283,54 +1287,71 @@ function bindDetail(d,t,state){
     {title:'Évaluation',content:e.evaluation},
     {title:'Synthèse',content:e.synthesis}
   ].filter(x=>x.content||x.title==='Contenu du cours')});
-  const SCIENTIFIC_LATEX_DENSITY_VERSION='scientific-preflight-1';
-  const SCIENTIFIC_LATEX_DENSITY_MIN=400;
+  const SCIENTIFIC_PREFLIGHT_VERSION='scientific-preflight-3';
+  const SCIENTIFIC_REASONING_GATE_VERSION='scientific-reasoning-d-gate-2';
   function isScientificDocument(t){
     const subject=String(t?.subject||'').toLocaleLowerCase('fr').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'');
-    return /(^|[^a-z])(maths|mathematiques|mathematique|physique|chimie|sciences physiques|pc)([^a-z]|$)/i.test(subject)
+    return /(^|[^a-z])(maths|mathematiques|mathematique|physique|chimie|sciences[\\s-]*physiques|pc|biologie|biologic|svt|statistique|statistics|science|sciences|agronomie|agronom)([^a-z]|$)/i.test(subject)
       || subject.includes('physique-chimie')
       || subject.includes('physique chimie');
   }
   async function scientificLatexDensityGuard(t,e){
     if(!isScientificDocument(t)){
-      return {
-        required:false,
-        ok:true,
-        status:'not_required',
-        contract_version:SCIENTIFIC_LATEX_DENSITY_VERSION,
-        minimum_elements:SCIENTIFIC_LATEX_DENSITY_MIN,
-        converted_elements:null,
-        message:'Garde-fou scientifique LaTeX non requis pour cette matière.'
-      };
+      return {required:false,ok:true,status:'not_required',contract_version:SCIENTIFIC_PREFLIGHT_VERSION,message:'Préflight scientifique non requis pour cette matière.'};
     }
+    const payload=editorialPayload(e);
+    const research=t?.metadata?.workflow?.chapter_research||{};
     const result=await rpc('aurora_scientific_preflight',{
       p_subject:t.subject,
       p_document_type:t.document_type||'cours',
-      p_content_json:editorialPayload(e)
+      p_content_json:payload,
+      p_level:t.level||t.class_name||'',
+      p_class_name:t.class_name||t.level||'',
+      p_research:research
     });
     const report=(result&&typeof result==='object')?result:{};
     const metrics=report.metrics&&typeof report.metrics==='object'?report.metrics:{};
-    const count=Number(metrics.latex_conversion_elements||0);
-    const minimum=Number(metrics.minimum_latex_conversion_elements||SCIENTIFIC_LATEX_DENSITY_MIN);
     const failures=Array.isArray(report.failures)?report.failures.filter(Boolean).map(String):[];
-    const densityFailure=failures.find(x=>/(?:MATH|SCI)-LATEX-400/.test(x));
-    const message=densityFailure||failures[0]||(
-      report.status==='pass'
-        ? 'Préflight scientifique validé.'
-        : 'Préflight scientifique bloqué : correction éditoriale requise avant insertion.'
-    );
     return {
       ...report,
       required:true,
-      ok:report.status==='pass' && count>=minimum,
+      ok:report.status==='pass',
       status:report.status||'blocked',
-      contract_version:report.contract_version||SCIENTIFIC_LATEX_DENSITY_VERSION,
-      minimum_elements:minimum,
-      converted_elements:count,
-      missing_elements:Math.max(0,minimum-count),
+      contract_version:report.contract_version||SCIENTIFIC_PREFLIGHT_VERSION,
       failures,
-      message
+      message:failures[0]||report.message||(report.status==='pass'?'Préflight scientifique validé.':'Préflight scientifique bloqué.')
     };
+  }
+  async function scientificReasoningQualityGuard(t,e){
+    if(!isScientificDocument(t)){
+      return {required:false,ok:true,status:'not_required',contract_version:SCIENTIFIC_REASONING_GATE_VERSION,message:'Garde-fou de raisonnement scientifique non requis pour cette matière.'};
+    }
+    const result=await rpc('aurora_validate_scientific_reasoning_quality',{
+      p_subject:t.subject||'',
+      p_document_type:t.document_type||'cours',
+      p_level:t.level||t.class_name||'',
+      p_class_name:t.class_name||t.level||'',
+      p_content_json:editorialPayload(e)
+    });
+    const report=(result&&typeof result==='object')?result:{};
+    const failures=Array.isArray(report.failures)?report.failures.filter(Boolean).map(String):[];
+    return {
+      ...report,
+      required:true,
+      ok:report.status==='pass',
+      status:report.status||'blocked',
+      contract_version:report.contract_version||SCIENTIFIC_REASONING_GATE_VERSION,
+      failures,
+      message:failures.length?failures.join(' '):(report.status==='pass'?'Garde-fou de raisonnement scientifique validé.':'Garde-fou de raisonnement scientifique bloqué.')
+    };
+  }
+  function formatScientificGateFailure(label,guard){
+    const failures=Array.isArray(guard?.failures)?guard.failures.filter(Boolean).map(String):[];
+    const metrics=guard?.metrics&&typeof guard.metrics==='object'?guard.metrics:null;
+    const metricText=metrics
+      ? ' | métriques: '+Object.entries(metrics).map(([k,v])=>k+'='+String(v)).join(', ')
+      : '';
+    return label+' : '+(failures.length?failures.join(' '):(guard?.message||'contrôle bloqué.'))+metricText;
   }
   const saveEditorial=async()=>{
     const e=collectEditorial();
@@ -1351,12 +1372,18 @@ function bindDetail(d,t,state){
       const fresh=await getJob(t.id),fw=fresh?.metadata?.workflow||{};
       if(!fresh||!fw.editorial_content?.updated_at)throw new Error('Garde-fou D : la production éditoriale n’est pas persistée.');
       const latexGuard=await scientificLatexDensityGuard(fresh,e);
-      await updateJob(t.id,{scientific_latex_density:{...latexGuard,checked_at:new Date().toISOString(),editor:EDITOR}});
+      const reasoningGuard=await scientificReasoningQualityGuard(fresh,e);
+      const checkedAt=new Date().toISOString();
+      await updateJob(t.id,{
+        scientific_preflight:{...latexGuard,checked_at:checkedAt,editor:EDITOR},
+        scientific_reasoning_gate:{...reasoningGuard,checked_at:checkedAt,boundary:'D->documents_en_attente',editor:EDITOR},
+        completion_guard:D_EXECUTION_CONTRACT_VERSION
+      });
       if(latexGuard.required&&!latexGuard.ok){
-        const detail=Array.isArray(latexGuard.failures)&&latexGuard.failures.length
-          ? latexGuard.failures.join(' ')
-          : (latexGuard.message||'Préflight scientifique non satisfait.');
-        throw new Error(detail);
+        throw new Error(formatScientificGateFailure('Préflight scientifique D bloqué',latexGuard));
+      }
+      if(reasoningGuard.required&&!reasoningGuard.ok){
+        throw new Error(formatScientificGateFailure('Garde-fou pédagogique D bloqué',reasoningGuard));
       }
       const revisionNo=Number(fw.revision_no||0);
       const ingestId='AUR-D-'+t.id+'-v'+Number(fw.proposal_version||1)+(revisionNo>0?'-R'+revisionNo:'');
