@@ -12,7 +12,7 @@
   const state={
     nodes:[],subjects:[],links:[],
     selectedNodeId:null,search:'',subjectSearch:'',
-    expanded:new Set(),treeScale:1,panX:0,panY:0,loading:false,loaded:false
+    expanded:new Set(),treeScale:1,loading:false,loaded:false
   };
 
   const esc=v=>{
@@ -229,6 +229,70 @@
     return keep;
   }
 
+  const NODE_TYPE_OPTIONS=[
+    ['pathway','Parcours'],['level','Niveau'],['group','Groupe'],['series','Série'],
+    ['class','Classe'],['domain','Domaine'],['formation','Formation'],['year','Année'],
+    ['semester','Semestre'],['branch','Branche'],['other','Élément']
+  ];
+  function comboMarkup(id,value,options,searchPlaceholder){
+    const selected=options.find(o=>String(o[0])===String(value||''));
+    const label=selected?.[1]||'Sélectionner…';
+    const searchable=!!searchPlaceholder;
+    return '<div class="parcours-combobox" id="'+id+'" data-value="'+esc(value||'')+'">'
+      +'<button type="button" class="parcours-combo-button" aria-haspopup="listbox" aria-expanded="false"><span data-combo-label>'+esc(label)+'</span><span aria-hidden="true">⌄</span></button>'
+      +'<div class="parcours-combo-menu" hidden>'
+      +(searchable?'<input type="search" class="parcours-combo-search" placeholder="'+esc(searchPlaceholder)+'" autocomplete="off">':'')
+      +'<div class="parcours-combo-options" role="listbox"></div></div></div>';
+  }
+  function setupCombo(root,id,options){
+    const box=root.querySelector('#'+id);if(!box)return ()=>'';
+    const button=box.querySelector('.parcours-combo-button');
+    const menu=box.querySelector('.parcours-combo-menu');
+    const optionsWrap=box.querySelector('.parcours-combo-options');
+    const search=box.querySelector('.parcours-combo-search');
+    const renderOptions=query=>{
+      const q=String(query||'').trim().toLocaleLowerCase('fr-FR');
+      optionsWrap.innerHTML='';
+      options.filter(o=>!q||String(o[1]).toLocaleLowerCase('fr-FR').includes(q)).forEach(([value,label])=>{
+        const item=document.createElement('button');
+        item.type='button';item.className='parcours-combo-option';
+        item.dataset.value=String(value);item.setAttribute('role','option');
+        item.setAttribute('aria-selected',String(value)===String(box.dataset.value||''));
+        item.textContent=label;
+        item.addEventListener('click',e=>{
+          e.preventDefault();e.stopPropagation();
+          box.dataset.value=String(value);
+          const labelEl=box.querySelector('[data-combo-label]');
+          if(labelEl)labelEl.textContent=label;
+          box.classList.remove('is-open');menu.hidden=true;button.setAttribute('aria-expanded','false');
+        });
+        optionsWrap.appendChild(item);
+      });
+      if(!optionsWrap.children.length){
+        const empty=document.createElement('div');
+        empty.className='parcours-combo-empty';empty.textContent='Aucun choix correspondant.';
+        optionsWrap.appendChild(empty);
+      }
+    };
+    button.addEventListener('click',e=>{
+      e.preventDefault();e.stopPropagation();
+      document.querySelectorAll('.parcours-combobox.is-open').forEach(x=>{
+        if(x!==box){
+          x.classList.remove('is-open');
+          const m=x.querySelector('.parcours-combo-menu');if(m)m.hidden=true;
+        }
+      });
+      const open=!box.classList.contains('is-open');
+      box.classList.toggle('is-open',open);menu.hidden=!open;button.setAttribute('aria-expanded',String(open));
+      if(open){
+        renderOptions(search?.value||'');
+        if(search){search.focus();search.select();}
+      }
+    });
+    search?.addEventListener('input',()=>renderOptions(search.value));
+    return ()=>box.dataset.value||'';
+  }
+
   function showInlineActions(card,node){
     document.querySelectorAll('.parcours-node-actions').forEach(x=>x.remove());
     const box=document.createElement('div');
@@ -326,15 +390,35 @@
   }
 
   async function setSubjectLink(nodeId,subjectId,checked){
+    const inspector=document.getElementById('parcoursInspector');
+    const previousScrollTop=inspector?.scrollTop||0;
     try{
+      const existingIndex=state.links.findIndex(l=>l.node_id===nodeId&&l.subject_id===subjectId);
       if(checked){
-        const order=state.links.filter(l=>l.node_id===nodeId).length;
-        await api('/rest/v1/'+LINK_TABLE,{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({node_id:nodeId,subject_id:subjectId,sort_order:order})},true);
+        if(existingIndex<0){
+          const order=state.links.filter(l=>l.node_id===nodeId).length;
+          await api('/rest/v1/'+LINK_TABLE,{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({node_id:nodeId,subject_id:subjectId,sort_order:order})},true);
+          state.links.push({node_id:nodeId,subject_id:subjectId,sort_order:order});
+        }
       }else{
-        await api('/rest/v1/'+LINK_TABLE+'?node_id=eq.'+encodeURIComponent(nodeId)+'&subject_id=eq.'+encodeURIComponent(subjectId),{method:'DELETE'},true);
+        if(existingIndex>=0){
+          await api('/rest/v1/'+LINK_TABLE+'?node_id=eq.'+encodeURIComponent(nodeId)+'&subject_id=eq.'+encodeURIComponent(subjectId),{method:'DELETE'},true);
+          state.links.splice(existingIndex,1);
+        }
       }
-      await loadData();state.selectedNodeId=nodeId;renderInspector();status('Matières mises à jour.','ok');
-    }catch(err){status('Association impossible : '+(err?.message||err),'error');renderInspector();}
+      const card=document.querySelector('.parcours-node-card[data-node-id="'+nodeId+'"]');
+      const parts=card?.querySelector('.parcours-node-meta')?.querySelectorAll('span');
+      const count=subjectsOf(nodeId,true).length;
+      if(parts?.length)parts[parts.length-1].textContent=count+' matière'+(count>1?'s':'');
+      status('Matières mises à jour.','ok');
+    }catch(err){
+      status('Association impossible : '+(err?.message||err),'error');
+      renderInspector();
+      requestAnimationFrame(()=>{
+        const current=document.getElementById('parcoursInspector');
+        if(current)current.scrollTop=previousScrollTop;
+      });
+    }
   }
 
   function bucketFor(parent,type){
@@ -364,16 +448,37 @@
     const editing=!!node,invalidParents=editing?descendantsOf(node.id):new Set();
     const parentId=editing?(node.parent_id||''):(parent?.id||'');
     const typeValue=node?.node_type||((parent?.node_type==='group')?'series':(parent?.node_type==='series'?'class':'branch'));
-    const parents=state.nodes.slice().sort((a,b)=>(Number(a.sort_order)-Number(b.sort_order))||a.name.localeCompare(b.name,'fr')).filter(x=>x.active&&!invalidParents.has(x.id));
-    box.innerHTML='<div class="parcours-modal-kicker">Gestion de parcours</div><h3>'+(editing?'Modifier un élément':'Ajouter un élément')+'</h3><p>La désactivation masque l’élément sans effacer les documents déjà classés.</p><div class="parcours-form"><label><span>Nom</span><input id="parcoursNodeName" maxlength="180" value="'+esc(node?.name||'')+'" autofocus></label><label><span>Type</span><select id="parcoursNodeType"><option value="pathway">Parcours</option><option value="level">Niveau</option><option value="group">Groupe</option><option value="series">Série</option><option value="class">Classe</option><option value="domain">Domaine</option><option value="formation">Formation</option><option value="year">Année</option><option value="semester">Semestre</option><option value="branch">Branche</option><option value="other">Élément</option></select></label><label><span>Parent</span><select id="parcoursNodeParent"><option value="">Racine</option>'+parents.map(x=>'<option value="'+x.id+'">'+esc(typeLabel(x.node_type))+' · '+esc(x.name)+'</option>').join('')+'</select></label><label><span>Description</span><textarea id="parcoursNodeDesc" maxlength="500">'+esc(compatOf(node).desc||'')+'</textarea></label><label><span>Ordre</span><input id="parcoursNodeOrder" type="number" min="0" max="9999" value="'+Number(node?.sort_order||0)+'"></label></div><div class="parcours-modal-actions"><button type="button" class="admin-btn ghost" id="parcoursModalCancel">Annuler</button><button type="button" class="admin-btn primary" id="parcoursModalSave">Enregistrer</button></div><div id="parcoursModalError" class="parcours-status error" hidden></div>';
+    const parents=state.nodes.slice()
+      .sort((a,b)=>(Number(a.sort_order)-Number(b.sort_order))||a.name.localeCompare(b.name,'fr'))
+      .filter(x=>x.active&&!invalidParents.has(x.id))
+      .map(x=>[x.id,typeLabel(x.node_type)+' · '+x.name]);
+    const parentOptions=[['','Racine'],...parents];
+    box.innerHTML='<div class="parcours-modal-kicker">Gestion de parcours</div>'
+      +'<h3>'+(editing?'Modifier un élément':'Ajouter un élément')+'</h3>'
+      +'<p>La désactivation masque l’élément sans effacer les documents déjà classés.</p>'
+      +'<div class="parcours-form">'
+      +'<label><span>Nom</span><input id="parcoursNodeName" maxlength="180" value="'+esc(node?.name||'')+'" autofocus></label>'
+      +'<label><span>Type</span>'+comboMarkup('parcoursNodeType',typeValue,NODE_TYPE_OPTIONS)+'</label>'
+      +'<label><span>Parent</span>'+comboMarkup('parcoursNodeParent',parentId,parentOptions,'Rechercher une branche, une classe ou une formation…')+'</label>'
+      +'<label><span>Description</span><textarea id="parcoursNodeDesc" maxlength="500">'+esc(compatOf(node).desc||'')+'</textarea></label>'
+      +'<label><span>Ordre</span><input id="parcoursNodeOrder" type="number" min="0" max="9999" value="'+Number(node?.sort_order||0)+'"></label>'
+      +'</div>'
+      +'<div class="parcours-modal-actions"><button type="button" class="admin-btn ghost" id="parcoursModalCancel">Annuler</button><button type="button" class="admin-btn primary" id="parcoursModalSave">Enregistrer</button></div>'
+      +'<div id="parcoursModalError" class="parcours-status error" hidden></div>';
     overlay.appendChild(box);document.body.appendChild(overlay);
-    box.querySelector('#parcoursNodeType').value=typeValue;
-    box.querySelector('#parcoursNodeParent').value=parentId;
+    const getType=setupCombo(box,'parcoursNodeType',NODE_TYPE_OPTIONS);
+    const getParent=setupCombo(box,'parcoursNodeParent',parentOptions);
     box.querySelector('#parcoursModalCancel').onclick=()=>overlay.remove();
     box.querySelector('#parcoursModalSave').onclick=async()=>{
-      const name=box.querySelector('#parcoursNodeName').value.trim(),type=box.querySelector('#parcoursNodeType').value,parentValue=box.querySelector('#parcoursNodeParent').value||null,desc=box.querySelector('#parcoursNodeDesc').value.trim(),order=Math.max(0,Math.min(9999,Number(box.querySelector('#parcoursNodeOrder').value)||0)),er=box.querySelector('#parcoursModalError');
+      const name=box.querySelector('#parcoursNodeName').value.trim(),
+        type=getType(),
+        parentValue=getParent()||null,
+        desc=box.querySelector('#parcoursNodeDesc').value.trim(),
+        order=Math.max(0,Math.min(9999,Number(box.querySelector('#parcoursNodeOrder').value)||0)),
+        er=box.querySelector('#parcoursModalError');
       er.hidden=true;
       if(!name){er.hidden=false;er.textContent='Le nom est obligatoire.';return;}
+      if(!type){er.hidden=false;er.textContent='Le type est obligatoire.';return;}
       if(node?.id&&parentValue===node.id){er.hidden=false;er.textContent='Un élément ne peut pas être son propre parent.';return;}
       try{
         const parentRow=parentValue?nodeById(parentValue):null,bucket=bucketFor(parentRow,type);
@@ -477,6 +582,20 @@
     try{window.dispatchEvent(new CustomEvent('aurore:catalog-updated',{detail:{nodes:activeNodes.length,subjects:activeSubjects.length}}));}catch(_){}
   }
 
+  async function apiAll(path,admin,pageSize=1000){
+    const out=[];let offset=0;
+    while(true){
+      const sep=path.includes('?')?'&':'?';
+      const chunk=await api(path+sep+'limit='+pageSize+'&offset='+offset,{},admin);
+      if(!Array.isArray(chunk))throw new Error('Réponse paginée invalide pour '+path);
+      out.push(...chunk);
+      if(chunk.length<pageSize)break;
+      offset+=chunk.length;
+      if(offset>100000)throw new Error('Pagination du référentiel trop importante.');
+    }
+    return out;
+  }
+
   async function loadData(){
     if(state.loading)return;
     state.loading=true;
@@ -486,11 +605,15 @@
       let subjectsPath='/rest/v1/'+SUBJECT_TABLE+'?select=*&order=sort_order.asc,name.asc';
       const linksPath='/rest/v1/'+LINK_TABLE+'?select=*';
       if(!admin){nodesPath+='&active=eq.true';subjectsPath+='&active=eq.true';}
-      let nodes=await api(nodesPath,{},admin),subjects=await api(subjectsPath,{},admin),links=await api(linksPath,{},admin);
+      let [nodes,subjects,links]=await Promise.all([
+        apiAll(nodesPath,admin),apiAll(subjectsPath,admin),apiAll(linksPath,admin)
+      ]);
       if(admin&&Array.isArray(nodes)&&!nodes.length){
         status('Première initialisation : import de la structure actuelle du site…','info');
         await seedLegacy();
-        nodes=await api(nodesPath,{},true);subjects=await api(subjectsPath,{},true);links=await api(linksPath,{},true);
+        [nodes,subjects,links]=await Promise.all([
+          apiAll(nodesPath,true),apiAll(subjectsPath,true),apiAll(linksPath,true)
+        ]);
       }
       state.nodes=Array.isArray(nodes)?nodes:[];state.subjects=Array.isArray(subjects)?subjects:[];state.links=Array.isArray(links)?links:[];state.loaded=true;
       state.nodes.filter(n=>!n.parent_id&&n.active).forEach(n=>state.expanded.add(n.id));
@@ -515,35 +638,54 @@
   }
   function applyTransform(){
     const stage=document.getElementById('parcoursTreeStage');if(!stage)return;
-    stage.style.transform='translate3d('+state.panX+'px,'+state.panY+'px,0) scale('+state.treeScale+')';
+    stage.style.transform='scale('+state.treeScale+')';
     const value=document.getElementById('parcoursZoomValue');if(value)value.textContent=Math.round(state.treeScale*100)+'%';
   }
   function zoom(delta,cx,cy){
+    const vp=document.getElementById('parcoursTreeViewport');if(!vp)return;
     const old=state.treeScale,next=Math.max(.55,Math.min(1.65,old+delta));if(next===old)return;
-    const ratio=next/old;state.panX=(Number(cx)||0)-(Number(cx||0)-state.panX)*ratio;state.panY=(Number(cy)||0)-(Number(cy||0)-state.panY)*ratio;state.treeScale=next;applyTransform();
+    const rect=vp.getBoundingClientRect();
+    const x=Number.isFinite(Number(cx))?Number(cx):rect.width/2;
+    const y=Number.isFinite(Number(cy))?Number(cy):rect.height/2;
+    const ratio=next/old,left=vp.scrollLeft,top=vp.scrollTop;
+    state.treeScale=next;applyTransform();
+    requestAnimationFrame(()=>{
+      vp.scrollLeft=Math.max(0,(left+x)*ratio-x);
+      vp.scrollTop=Math.max(0,(top+y)*ratio-y);
+    });
   }
   function initPanZoom(){
     const vp=document.getElementById('parcoursTreeViewport');if(!vp||vp.dataset.ready==='1')return;vp.dataset.ready='1';
-    const pointers=new Map();let sx=0,sy=0,p0x=0,p0y=0,d0=0,sc0=1;
+    const pointers=new Map();let lastX=0,lastY=0,d0=0,sc0=1;
     vp.addEventListener('pointerdown',e=>{
-      if(e.target.closest('.parcours-node-card'))return;
       pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
-      if(pointers.size===1){sx=e.clientX;sy=e.clientY;p0x=state.panX;p0y=state.panY;}
-      if(pointers.size===2){const a=[...pointers.values()];d0=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)||1;sc0=state.treeScale;}
-      try{vp.setPointerCapture(e.pointerId);}catch(_){}
+      if(pointers.size===1){lastX=e.clientX;lastY=e.clientY;}
+      if(pointers.size===2){
+        const a=[...pointers.values()];
+        d0=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)||1;sc0=state.treeScale;
+      }
     });
     vp.addEventListener('pointermove',e=>{
       if(!pointers.has(e.pointerId))return;
       pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
-      if(pointers.size===1){state.panX=p0x+(e.clientX-sx);state.panY=p0y+(e.clientY-sy);applyTransform();}
-      else{const a=[...pointers.values()],d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)||d0;state.treeScale=Math.max(.55,Math.min(1.65,sc0*(d/d0)));applyTransform();}
+      if(pointers.size===1){
+        const dx=e.clientX-lastX,dy=e.clientY-lastY;
+        if(dx||dy){vp.scrollLeft-=dx;vp.scrollTop-=dy;}
+        lastX=e.clientX;lastY=e.clientY;
+      }else{
+        const a=[...pointers.values()],d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)||d0;
+        const next=Math.max(.55,Math.min(1.65,sc0*(d/d0)));
+        if(next!==state.treeScale){state.treeScale=next;applyTransform();}
+      }
     });
-    const end=e=>{pointers.delete(e.pointerId);if(!pointers.size){try{vp.releasePointerCapture(e.pointerId);}catch(_){}}};
+    const end=e=>{pointers.delete(e.pointerId);};
     vp.addEventListener('pointerup',end);vp.addEventListener('pointercancel',end);
     vp.addEventListener('wheel',e=>{e.preventDefault();const r=vp.getBoundingClientRect();zoom(e.deltaY>0?-0.08:0.08,e.clientX-r.left,e.clientY-r.top);},{passive:false});
     document.getElementById('parcoursZoomOut')?.addEventListener('click',()=>zoom(-0.1));
     document.getElementById('parcoursZoomIn')?.addEventListener('click',()=>zoom(0.1));
-    document.getElementById('parcoursZoomReset')?.addEventListener('click',()=>{state.treeScale=1;state.panX=0;state.panY=0;applyTransform();});
+    document.getElementById('parcoursZoomReset')?.addEventListener('click',()=>{
+      state.treeScale=1;applyTransform();vp.scrollLeft=0;vp.scrollTop=0;
+    });
   }
   function initUI(){
     const panel=document.getElementById('auroreParcoursAdmin');if(!panel||panel.dataset.ready==='1')return;panel.dataset.ready='1';
