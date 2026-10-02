@@ -2383,6 +2383,15 @@ _PLAIN_MATH_ATOM = (
 )
 
 
+_PLAIN_MATH_PAREN_RELATION_RE = re.compile(
+    r"(?<![A-Za-zÀ-ÿ0-9_])"
+    r"\\([^()\\n]{1,80}\\)\\s*/\\s*\\([^()\\n]{1,80}\\)"
+    r"\\s*(?:=|≤|≥|≠|→)\\s*"
+    r"(?:[^\\s.,!?;:]{1,40})"
+    r"(?=\\s|[,.!?;:]|$)"
+)
+
+
 _PLAIN_MATH_FORMULA_RE = re.compile(
     r"(?<![A-Za-zÀ-ÿ0-9_])"
     r"(?P<expr>(?:[A-Z\U0001D400-\U0001D7FF][a-z\U0001D400-\U0001D7FF]?[0-9₀₁₂₃₄₅₆₇₈₉]{0,3}){2,})"
@@ -2512,6 +2521,11 @@ def _render_plain_with_inline_math(segment, auto_math=False):
         return ""
 
     candidates = []
+    for match in _PLAIN_MATH_PAREN_RELATION_RE.finditer(source):
+        fragment = match.group(0).strip()
+        if fragment:
+            candidates.append((match.start(), match.end(), fragment))
+
     for match in _BARE_LATEX_RELATION_RE.finditer(source):
         fragment = match.group(0).strip()
         if (
@@ -2573,6 +2587,11 @@ def _render_course_inline_math(text, auto_math=False):
             return ""
 
         candidates = []
+        for match in _PLAIN_MATH_PAREN_RELATION_RE.finditer(value):
+            fragment = match.group(0).strip()
+            if fragment:
+                candidates.append((match.start(), match.end(), fragment))
+
         for match in _BARE_LATEX_RELATION_RE.finditer(value):
             raw_fragment = match.group(0)
             if (
