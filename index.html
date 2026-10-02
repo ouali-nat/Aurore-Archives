@@ -514,10 +514,11 @@ html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
 <p class="eyebrow">Aurore — Section Archives</p>
 <h1>Le savoir, <span class="accentword">tout simplement.</span></h1>
 <p class="sub">Bienvenue dans la section Archives d'Aurore.</p>
-<div class="auraster-home-search" role="search">
-<span id="homeSearchIcon"></span>
-<input autocomplete="off" id="homeSearchInput" placeholder="Rechercher une matière, un niveau, un document…" type="search"/>
-</div>
+<form class="auraster-home-search" id="homeSearchForm" role="search">
+<span id="homeSearchIcon" class="home-search-icon" aria-hidden="true"></span>
+<input autocomplete="off" id="homeSearchInput" placeholder="Rechercher une matière, un niveau ou un document…" type="search"/>
+<button class="home-search-submit" id="homeSearchSubmit" type="submit">Rechercher</button>
+</form>
 </div>
 </div>
 <!-- Bloc d'annonce administrable — masqué par défaut, n'apparaît que si un
@@ -2787,6 +2788,27 @@ html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
     monitor: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>',
   };
   document.getElementById('searchIconHost').insertAdjacentHTML('afterbegin', ICONS.search);
+  // Recherche d'accueil : aucune requête pendant la saisie.
+  // Le moteur existant est relancé uniquement sur validation explicite.
+  (function initialiserRechercheManuelleAccueil(){
+    const input=document.getElementById('homeSearchInput');
+    const form=document.getElementById('homeSearchForm');
+    if(!input||!form||input.dataset.manualSearchReady==='1')return;
+    input.dataset.manualSearchReady='1';
+    let autoriser=false;
+    input.addEventListener('input',e=>{
+      if(!autoriser){e.stopImmediatePropagation();}
+      autoriser=false;
+    },true);
+    const lancer=()=>{
+      const value=input.value.trim();
+      if(!value)return;
+      autoriser=true;
+      input.dispatchEvent(new Event('input',{bubbles:true}));
+    };
+    form.addEventListener('submit',e=>{e.preventDefault();lancer();});
+  })();
+
   document.getElementById('uploadIconHost').innerHTML = ICONS.upload;
   document.getElementById('userIconHost').innerHTML = ICONS.user;
   document.getElementById('statIconConnexions').innerHTML = ICONS.login;
