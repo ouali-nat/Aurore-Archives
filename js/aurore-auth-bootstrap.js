@@ -122,3 +122,11 @@
     });
 
   window.auroreAuthGoogleEstPret = () => window.__AURORE_AUTH_GOOGLE_READY === true;
+
+  // Déconnexion explicite de la session Supabase Auth utilisée par Google OAuth.
+  // Scope local : on ferme uniquement la session de cet appareil/navigateur.
+  window.auroreDeconnecterGoogle = async () => {
+    const client = await assurerClientAuthGoogle();
+    if (!client?.auth?.signOut) throw new Error('Le moteur de déconnexion Google n’est pas disponible.');
+    return client.auth.signOut({ scope: 'local' });
+  };
