@@ -2424,6 +2424,13 @@ def _looks_like_plain_math_fragment(fragment):
     value = str(fragment or "").strip()
     if not value:
         return False
+    # In French prose, the article/preposition "a" is frequently followed by
+    # a mathematical variable (e.g. "a T_{1/2} = 8,0 j"). The broad relation
+    # detector can otherwise absorb the prose "a" into the math box and leave
+    # an unbalanced LaTeX argument inside an exercise block. A standalone
+    # leading "a" followed by another token is prose, not a relation.
+    if re.match(r"^a\s+[A-Za-z\\]", value):
+        return False
     if not re.search(r"(?:=|→|≤|≥|≠|∈)", value):
         return False
     if not re.search(r"[0-9\U0001D400-\U0001D7FF𝑥𝑦𝑧𝑡𝑛𝑓𝑔𝑎𝑏𝑐𝑒𝑘𝑙𝑚𝑝𝑟𝑠𝑢𝑣𝑤𝑅]", value):
