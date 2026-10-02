@@ -72,7 +72,7 @@
       if (!window.supabase?.createClient) {
         if (!__auroreSupabaseFallbackPromise) {
           __auroreSupabaseFallbackPromise = chargerScriptSupabase(
-            'https://unpkg.com/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js'
+            'https://unpkg.com/@supabase/supabase-js@2.117.2/dist/umd/supabase.js'
           );
         }
         try {
