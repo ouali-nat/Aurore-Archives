@@ -890,6 +890,12 @@ html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
 <span class="admin-category-desc">Documents générés par Aurora</span>
 <span class="tab-count" id="tabCountContentFactory">0</span>
 </button>
+<button class="admin-tab admin-category-card" data-accent="bleu" data-tab="parcours" role="tab" type="button">
+<span aria-hidden="true" class="admin-category-icon"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-width="2" viewbox="0 0 24 24" width="20"><path d="M4 6h16"></path><path d="M4 12h10"></path><path d="M4 18h7"></path><circle cx="18" cy="12" r="2"></circle><circle cx="15" cy="18" r="2"></circle></svg></span>
+<span class="admin-category-title">Gestion de parcours</span>
+<span class="admin-category-desc">Parcours, classes et matières</span>
+<span class="tab-count" id="tabCountParcours">0</span>
+</button>
 <button class="admin-tab admin-category-card" data-accent="violet" data-tab="aurora-request" role="tab" type="button">
 <span aria-hidden="true" class="admin-category-icon">✦</span>
 <span class="admin-category-title">Espace éditorial ChatGPT</span>
@@ -1242,6 +1248,40 @@ html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
 </section>
 <div hidden id="adminToolbarContentFactory" aria-hidden="true"></div>
 <div hidden id="adminContentFactoryList" aria-hidden="true"></div>
+<div class="admin-tab-panel" data-panel="parcours">
+<div class="aurore-parcours-shell" id="auroreParcoursAdmin">
+<header class="aurore-parcours-head">
+<div><span class="aurore-parcours-kicker">Référentiel pédagogique Aurore</span><h3>Gestion de parcours</h3><p>Administre ici la structure réelle du site : parcours, niveaux, séries, classes, formations et matières. La structure peut rester ramifiée à profondeur variable.</p></div>
+<div class="aurore-parcours-actions"><button class="admin-btn ghost" id="parcoursRefresh" type="button">↻ Actualiser</button><button class="admin-btn primary" id="parcoursAddRoot" type="button">＋ Ajouter un parcours</button></div>
+</header>
+<div class="parcours-stats">
+<div class="parcours-stat"><strong id="parcoursStatBranches">0</strong><span>Branches / formations</span></div>
+<div class="parcours-stat"><strong id="parcoursStatClasses">0</strong><span>Classes</span></div>
+<div class="parcours-stat"><strong id="parcoursStatSubjects">0</strong><span>Matières actives</span></div>
+<div class="parcours-stat"><strong id="parcoursStatNodes">0</strong><span>Éléments actifs</span></div>
+<div class="parcours-stat"><strong id="parcoursStatInactive">0</strong><span>Éléments désactivés</span></div>
+</div>
+<div class="parcours-toolbar">
+<label class="parcours-search"><input id="parcoursSearch" type="search" placeholder="Rechercher un parcours, une classe ou une matière…"></label>
+<button class="admin-btn ghost" id="parcoursImportLegacy" type="button">Importer la structure actuelle</button>
+</div>
+<div class="parcours-body">
+<section class="parcours-tree-panel" aria-label="Arbre des parcours">
+<div class="parcours-tree-head"><div><span class="parcours-kicker">Vue arborescente</span><h4>Parcours et ramifications</h4></div><span class="parcours-tree-help">Appui long = actions · pincement = zoom · glisser = déplacer</span></div>
+<div class="parcours-tree-viewport" id="parcoursTreeViewport">
+<div class="parcours-tree-stage" id="parcoursTreeStage"><div class="parcours-tree-root" id="parcoursTreeRoot"></div></div>
+<div class="parcours-zoom"><button id="parcoursZoomOut" type="button" aria-label="Réduire le zoom">−</button><span class="parcours-zoom-value" id="parcoursZoomValue">100%</span><button id="parcoursZoomIn" type="button" aria-label="Augmenter le zoom">＋</button><button id="parcoursZoomReset" type="button" aria-label="Réinitialiser la vue">↺</button></div>
+</div>
+</section>
+<aside class="parcours-inspector" id="parcoursInspector" aria-label="Détails du parcours"></aside>
+</div>
+<section class="parcours-subjects-panel" aria-label="Référentiel des matières">
+<div class="parcours-subjects-head"><div><span class="parcours-kicker">Référentiel des matières</span><h4>Toutes les matières disponibles</h4></div><div class="parcours-subjects-search"><input id="parcoursSubjectSearch" type="search" placeholder="Rechercher une matière…"></div><button class="admin-btn primary" id="parcoursAddSubject" type="button">＋ Ajouter une matière</button></div>
+<div class="parcours-subjects-body" id="parcoursSubjectList"></div>
+</section>
+<div class="parcours-status info" id="parcoursStatus" hidden></div>
+</div>
+</div>
 </div>
 <div class="admin-tab-panel" data-panel="aurora-request">
 <div id="auroraRequestFormHost"></div>
@@ -4375,5 +4415,7 @@ html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
 <script defer src="js/aurore-custom-selects.js"></script>
 
 <script defer src="js/aurore-document-verifier.js?v=20260921-1"></script>
+<link rel="stylesheet" href="./css/aurore-admin-parcours.css?v=20261002-parcours1">
+<script defer src="js/aurore-admin-parcours.js?v=20261002-parcours1"></script>
 </body>
 </html>
