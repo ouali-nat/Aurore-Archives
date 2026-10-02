@@ -99,11 +99,11 @@ def test_course_math_uses_adaptive_boxes_instead_of_inline_boxes():
 
 
 def test_bare_latex_relation_with_subscript_is_kept_together():
-    source = r"On a t, T_{1/2} = \\ln 2 / \\lambda. On vérifie ensuite."
+    source = r"On a t, T_{1/2} = \ln 2 / \lambda. On vérifie ensuite."
     rendered = _render_content_item(source, auto_math=True, box_all_math=True)
     text = "\n".join(rendered)
-    assert r"\\AuroreMathCompact{}{T_{1/2} = \\ln 2 / \\lambda}" in text
-    assert r"\\AuroreMathCompact{}{t}" not in text
+    assert r"\AuroreMathCompact{}{T_{1/2} = \ln 2 / \lambda}" in text
+    assert r"\AuroreMathCompact{}{t}" not in text
     assert "On vérifie ensuite." in text
 
 
