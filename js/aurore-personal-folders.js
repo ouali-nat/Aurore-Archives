@@ -233,8 +233,22 @@ async function openFolder(f){
   const children=folderChildren(f.id),crumb=folderBreadcrumb(f);
   p.innerHTML=`<div class="personal-section-detail-head"><div><span class="personal-section-kicker">Section personnelle</span><div class="personal-folder-breadcrumb">${crumb.map((x,i)=>`<button type="button" data-breadcrumb="${esc(x.id)}">${esc(x.name)}</button>${i<crumb.length-1?'<span>›</span>':''}`).join('')}</div><h3>▱ ${esc(f.name)}</h3><p>${total} document${total!==1?'s':''} · ${children.length} sous-dossier${children.length!==1?'s':''}</p></div><div class="personal-section-detail-actions"><button type="button" data-section-subfolder class="personal-section-upload">＋ Sous-dossier</button><button type="button" data-section-upload class="personal-section-upload">＋ Ajouter un document</button><button type="button" data-section-share class="personal-section-share">↗ Partager</button><button type="button" data-section-close class="personal-section-close">← Retour</button></div></div><div id="pfuPanel" class="personal-upload-panel" hidden></div><div id="personalSubfolderGrid" class="personal-subfolder-grid"></div><div class="personal-section-detail-toolbar"><span>Vos documents</span><small>La même présentation que la bibliothèque Aurore</small></div><div id="pfdList" class="doc-list personal-section-doc-list"></div>`;
   p.querySelector('[data-section-share]')?.addEventListener('click',()=>window.aurorePartagerSection?.(f));
-  p.querySelector('[data-section-subfolder]')?.addEventListener('click',()=>dialog('create',null,f));
-  p.querySelectorAll('[data-breadcrumb]').forEach(b=>b.addEventListener('click',()=>{const target=folders.find(x=>x.id===b.dataset.breadcrumb);if(target)openFolder(target)}));
+  // Délégation sur le conteneur : le bouton reste actif même après un
+  // rerendu du contenu de la section personnelle.
+  p.addEventListener('click',e=>{
+    const subfolderButton=e.target.closest('[data-section-subfolder]');
+    if(subfolderButton){
+      e.preventDefault();
+      e.stopPropagation();
+      dialog('create',null,f);
+      return;
+    }
+    const breadcrumb=e.target.closest('[data-breadcrumb]');
+    if(breadcrumb){
+      const target=folders.find(x=>String(x.id)===String(breadcrumb.dataset.breadcrumb));
+      if(target)openFolder(target);
+    }
+  });
   p.querySelector('[data-section-close]')?.addEventListener('click',closeFolder);
   p.querySelector('[data-section-upload]')?.addEventListener('click',()=>toggleUploadPanel(p,f));
   if(!dejaOuvert) afficherEcran('screen-personal-case'); else window.scrollTo({top:0,behavior:'smooth'});
