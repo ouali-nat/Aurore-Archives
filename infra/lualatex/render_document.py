@@ -2649,6 +2649,7 @@ def _render_course_inline_math(text, auto_math=False):
             if start_pos > cursor:
                 parts.append(inline(value[cursor:start_pos], auto_math=auto_math))
             normalized = normalize_math(fragment.strip())
+            normalized = _strip_nested_inline_math_delimiters(normalized).strip()
             if normalized:
                 # Inline course math must stay inline even when it is long:
                 # the source position is more important than converting it to
@@ -2671,6 +2672,7 @@ def _render_course_inline_math(text, auto_math=False):
         else:
             body = token[2:-2].strip()
         normalized = normalize_math(body)
+        normalized = _strip_nested_inline_math_delimiters(normalized).strip()
         if normalized:
             parts.append(r"\AuroreMathCompact{}{" + normalized + r"}")
         cursor = match.end()
