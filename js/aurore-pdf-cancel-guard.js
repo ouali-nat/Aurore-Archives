@@ -35,3 +35,18 @@
     boot();
   }
 })();
+
+/* Aurore — chargement précoce du module « navigation fluide » (cache des données,
+   animation de chargement, restauration du Retour). Ce fichier est le premier script
+   de la page : le module s'exécute donc avant tous les autres appels réseau.
+   Désactivation de secours : ?fluid=off */
+(function () {
+  try {
+    if (document.readyState === 'loading') {
+      document.write(
+        '<link rel="stylesheet" href="css/aurore-fluid-navigation.css?v=20261003-fluid1">' +
+        '<script src="js/aurore-fluid-navigation.js?v=20261003-fluid1"><\/script>'
+      );
+    }
+  } catch (e) {}
+})();

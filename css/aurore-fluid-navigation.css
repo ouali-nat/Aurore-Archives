@@ -1,0 +1,32 @@
+/* Aurore — Navigation fluide (transitions, barre de chargement, squelettes) */
+
+/* Apparition douce de l'écran (opacité seule : aucun effet sur les éléments fixes). */
+body .screen.active{animation:aurore-screen-in .16s ease-out both}
+@keyframes aurore-screen-in{from{opacity:0}to{opacity:1}}
+/* Retour téléphone : affichage immédiat, sans animation. */
+body.aurore-nav-back .screen.active{animation:none}
+
+/* Retour tactile instantané sur les cartes de navigation. */
+.matiere-card,.sublevel-card,.cat-card,.level-card,.home-five-level,.doc-row{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.matiere-card:active,.sublevel-card:active,.cat-card:active,.level-card:active,.home-five-level:active{transform:scale(.985);transition:transform .08s ease}
+
+/* Barre de chargement (visible seulement si l'attente dépasse ~0,15 s). */
+#aurore-fluid-bar{position:fixed;top:0;left:0;right:0;height:3px;z-index:2147483000;pointer-events:none;opacity:0;transition:opacity .2s ease;overflow:hidden}
+#aurore-fluid-bar.on{opacity:1}
+#aurore-fluid-bar i{position:absolute;top:0;bottom:0;left:-40%;width:40%;border-radius:3px;background:linear-gradient(90deg,transparent,var(--theme-primary,#6d28d9),var(--theme-strong,var(--theme-primary,#6d28d9)),transparent);animation:aurore-bar-run 1s ease-in-out infinite}
+@keyframes aurore-bar-run{0%{left:-40%}100%{left:100%}}
+
+/* Squelettes de chargement des listes de documents (même grille que les cartes). */
+.aurore-skel-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;align-items:start}
+.aurore-skel-card{border:1px solid color-mix(in srgb,var(--theme-primary,#6d28d9) 12%,var(--bordure,#ddd));border-radius:16px;background:var(--papier,#fff);overflow:hidden;padding-bottom:12px}
+.aurore-skel-cover,.aurore-skel-line{background:linear-gradient(100deg,color-mix(in srgb,var(--theme-primary,#6d28d9) 7%,var(--fond,#f7f5fb)) 30%,color-mix(in srgb,var(--theme-primary,#6d28d9) 16%,var(--fond,#f7f5fb)) 50%,color-mix(in srgb,var(--theme-primary,#6d28d9) 7%,var(--fond,#f7f5fb)) 70%);background-size:300% 100%;animation:aurore-shimmer 1.2s linear infinite}
+.aurore-skel-cover{aspect-ratio:1/1;border-radius:16px 16px 8px 8px}
+.aurore-skel-line{height:10px;margin:10px 11px 0;border-radius:6px}
+.aurore-skel-line.short{width:55%}
+@keyframes aurore-shimmer{0%{background-position:100% 0}100%{background-position:0 0}}
+@media(max-width:420px){.aurore-skel-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}}
+
+@media(prefers-reduced-motion:reduce){
+  body .screen.active{animation:none}
+  #aurore-fluid-bar i,.aurore-skel-cover,.aurore-skel-line{animation:none}
+}
