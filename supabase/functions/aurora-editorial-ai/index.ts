@@ -71,6 +71,10 @@ function safeText(v:any, max=18000){
   return esc(v).trim().slice(0,max);
 }
 
+function normalizeEditorialTitle(v:any){
+  return String(v ?? "").trim().replace(/[‐‑‒–—―−-]+/g," ").replace(/\s{2,}/g," ").trim();
+}
+
 function compactMemory(rows:any[], maxChars=22000){
   return rows.map(r => ({
     rule_key:r.rule_key, version:r.version, title:r.title, mandatory:r.mandatory === true, content:r.content
@@ -240,7 +244,7 @@ function taskContext(t:any, memories:any[]){
     exact_rules:{
       no_invented_sources:true,
       course_standard_minimum_words:1500,
-      course_exercise_profile:"exactly 2 or 3 substantial exercises, grouped only in the final exercise section; no exercises embedded in teaching sections; each exercise must have a complete correction; hints optional",
+      course_exercise_profile:"1 to 3 exercises maximum; exercises and corrections only at the end of the course; one block per exercise and one block per correction; each exercise statement >=100 words; each correction >=200 words; exactly one correction per exercise; any exercise/correction in a non-final section is an editorial error; hints/indications are not rendered",
       introduction_minimum_characters:450,
       max_sections:30,
       scientific_lycee_latex_minimum:1200,
@@ -256,28 +260,40 @@ function taskContext(t:any, memories:any[]){
 }
 
 function buildPrompt(ctx:any, repairFeedback:string){
-  const t=ctx.task, scientific=isScientific(t.subject), math=isMath(t.subject), pc=isPhysicsChem(t.subject);
-  const requirements=[
+  const t=ctx.task, w=t.metadata?.workflow||{}, scientific=isScientific(t.subject), math=isMath(t.subject), pc=isPhysicsChem(t.subject);
+  const requirements=[ ...(w.revision_status==="new_production" || w.full_reedition===true ? [
+    "RÉÉDITION COMPLÈTE D : cette tâche provient d’une révision E et doit être recomposée intégralement. Ne conserve, ne recopie et ne patch aucune section du document source ; reconstruis toutes les sections, l’introduction, la synthèse, les exercices, les corrigés, les raisonnements, les graphiques et les visuels à partir du dossier éditorial D, du plan validé, de la recherche et des consignes de révision.",
+    "Le document source de révision sert uniquement de référence historique et de contexte : il ne constitue jamais un contenu à réutiliser tel quel. La sortie D doit être un nouveau document complet et autonome.",
+    "Toutes les sections du nouveau document doivent être effectivement rééditées, y compris les sections non mentionnées explicitement dans le motif de révision ; une révision ne doit jamais produire une simple modification locale.",
+  ] : []),
     "Rédige un document pédagogique réel, directement exploitable, pas un plan et pas un résumé.",
     "Réponds uniquement avec le JSON demandé, sans Markdown, sans commentaire hors JSON.",
-    "Le titre du JSON est un titre éditorial dont tu es responsable. Tu dois choisir toi-même un titre clair, précis et naturel à partir du sujet, du niveau, de la classe, de la matière et du contenu réellement rédigé. Il doit nommer le cours et non l’état technique de la tâche. Ne recopie jamais le titre technique de la tâche lorsqu’il est générique comme « Document en préparation ». Ne commence pas par « Document pédagogique », « Document en préparation » ou une formule technique équivalente.",
-    "RÈGLE ABSOLUE DE TITRE : aucun tiret, trait d’union, tiret demi cadratin, tiret cadratin ou signe moins ne doit apparaître dans le titre. Utilise à la place des mots, des virgules ou des deux points lorsque cela améliore la formulation. Relis le titre avant de retourner le JSON.",
+    "Le titre du JSON doit être généré par l’éditeur à partir du sujet, du niveau, de la classe, de la matière, du type de ressource et du contenu réellement produit. Le titre technique temporaire de la tâche ne doit jamais être repris comme titre final.",
+    "Le titre final ne doit contenir aucun tiret ni trait d’union, y compris -, ‐, ‑, ‒, –, —, ― ou −. Remplace ces séparateurs par des espaces ou une formulation naturelle.",
     "Le cours standard doit contenir au moins 1500 mots utiles en comptant uniquement introduction + sections[].content, sans plafond de volume.",
     "Produis entre 12 et 24 sections pédagogiques distinctes. Aucune section ne doit être un remplissage générique.",
+    "Les exercices sont exclusivement placés à la toute fin du cours, dans la dernière section de la structure JSON ; jamais au milieu du cours.",
+    "Produis entre 1 et 3 exercices maximum. Chaque exercice doit avoir au moins 100 mots.",
+    "Produis exactement un corrigé par exercice, dans la même zone finale ; chaque corrigé doit avoir au moins 200 mots.",
+    "N’utilise pas les champs hint/indication pour remplacer un exercice ou un corrigé.",
+    "Les exercices sont exclusivement placés à la toute fin du cours, dans la dernière section de la structure JSON ; jamais au milieu du cours.",
+    "Produis entre 1 et 3 exercices maximum. Chaque exercice doit avoir au moins 100 mots.",
+    "Produis exactement un corrigé par exercice, dans la même zone finale ; chaque corrigé doit avoir au moins 200 mots.",
+    "N’utilise pas les champs hint/indication pour remplacer un exercice ou un corrigé.",
+    "Les exercices sont exclusivement placés à la toute fin du cours, dans la dernière section de la structure JSON ; jamais au milieu du cours.",
+    "Produis entre 1 et 3 exercices maximum. Chaque exercice doit avoir au moins 100 mots.",
+    "Produis exactement un corrigé par exercice, dans la même zone finale ; chaque corrigé doit avoir au moins 200 mots.",
+    "N’utilise pas les champs hint/indication pour remplacer un exercice ou un corrigé.",
     "Chaque section non Introduction/Synthèse/Évaluation finale contient au moins deux sous-sections réellement développées.",
     "Chaque sous-section doit avoir un titre, au moins quatre éléments content, puis des champs disciplinaires réels : definition, properties, operations, reasoning, examples, applications.",
     "Introduis chaque notion avant de l’utiliser et recalcule réellement les résultats numériques, unités, relations et transformations.",
     "Utilise les délimiteurs LaTeX canoniques Aurore \\(...\\) et \\[...\\].",
     "Chaque formule doit être pédagogiquement utile et accompagnée de texte explicatif ; ne fabrique pas de formules décoratives.",
     "Évite les formulations répétitives et les modèles interdits comme « étude spécifique de ce sous-thème » ou « Résoudre un problème nouveau portant sur... ».",
-    "Pour un cours, privilégie des exercices d'application intégrés et substantiels plutôt qu'une succession de mini-exercices.",
-    "Un cours doit contenir exactement 2 ou 3 exercices substantiels, pas davantage. Les exercices ne doivent apparaître que dans la dernière section consacrée aux exercices. Les sections d’enseignement précédentes ne doivent contenir aucun exercice ni correction d’exercice.",
-    "Le bloc final des exercices doit regrouper les 2 ou 3 énoncés, puis leurs corrections doivent rester séparées mais rattachées exactement aux mêmes identifiants.",
-    "Si le sujet peut être traité avec 2 exercices solides, choisis 2. Utilise 3 seulement si un troisième apporte une compétence réellement distincte. Ne crée jamais un quatrième exercice pour augmenter le volume.",
-    "Chaque exercice intégré de cours doit disposer d'une correction complète, rattachée au même exercice, reprenant ses données, notations et questions.",
-    "L'indication est facultative : ne crée jamais une indication uniquement pour remplir une structure. Lorsqu'elle est utile, elle peut être fournie globalement ou paragraphe par paragraphe.",
-    "Une indication ne remplace jamais la correction et ne doit pas devenir une micro-solution.",
-    "Pour un exercice de cours, vise un énoncé réellement développé, avec plusieurs étapes ou questions liées, puis une correction détaillée montrant le raisonnement et les calculs pertinents.",
+    "Pour un cours, les exercices ne doivent apparaître dans aucune section imprimée : le renderer les regroupe à la fin dans un unique bloc « Exercices », suivi d'un unique bloc « Corrigés ».",
+    "Le cours doit contenir au moins un exercice ; chaque énoncé d'exercice doit contenir au moins 100 mots.",
+    "Chaque exercice doit avoir exactement une correction correspondante ; chaque correction doit contenir au moins 200 mots et montrer le raisonnement, les étapes et les calculs pertinents.",
+    "Les indications/hints sont facultatives dans le JSON mais ne sont jamais rendues dans le PDF et ne peuvent jamais remplacer l'exercice ou sa correction.",
     "Les exercices doivent avoir des énoncés concrets et les corrections doivent reprendre les données de leurs exercices, sans correction générique.",
     "Le document doit conserver la sélection de chapitres et le plan C comme base, sans inventer un autre programme."
   ];
@@ -469,7 +485,12 @@ async function callClaude(prompt:string){
 
 function validateShape(content:any, t:any){
   if(!content || typeof content!=="object") throw new Error("content_json invalide.");
-  if(String(content.title||"").trim()!==String(t.title||"").trim()) throw new Error("Le titre généré ne correspond pas à la tâche.");
+  const editorialTitle=String(content.title||"").trim();
+  const technicalTitle=String(t.title||"").trim();
+  if(editorialTitle.length<12 || editorialTitle.length>180) throw new Error("TITLE_GUARD: le titre éditorial doit comporter entre 12 et 180 caractères.");
+  if(/[‐‑‒–—―−-]/.test(editorialTitle)) throw new Error("TITLE_GUARD: les tirets et traits d’union sont interdits dans le titre éditorial.");
+  if(/^(document(?: pédagogique)?(?: en préparation)?|document en préparation)$/i.test(editorialTitle)) throw new Error("TITLE_GUARD: le titre doit être choisi par l’IA éditrice et décrire réellement le cours.");
+  if(editorialTitle===technicalTitle && /document|préparation|cours de mathématiques|cours de physique/i.test(technicalTitle)) throw new Error("TITLE_GUARD: le titre technique générique ne peut pas devenir le titre éditorial.");
   if(!Array.isArray(content.sections) || content.sections.length<12 || content.sections.length>30) throw new Error("Le cours doit comporter entre 12 et 30 sections.");
   if(String(content.introduction||"").trim().length<450) throw new Error("Introduction trop courte.");
   if(String(content.synthesis||"").trim().length<120) throw new Error("Synthèse disciplinaire trop courte.");
@@ -492,37 +513,26 @@ function validateShape(content:any, t:any){
     if(visualCount<1 || visualCount>8) throw new Error("Un cours documentaire doit contenir 1 à 8 visuels Wikimedia.");
   }
   if(isCourse(t.document_type)){
-    const exerciseSections=content.sections
-      .map((s:any,i:number)=>({section:s,index:i}))
-      .filter((x:any)=>Array.isArray(x.section.exercises) && x.section.exercises.length>0);
-    const courseExercises:any[]=exerciseSections.flatMap((x:any)=>x.section.exercises);
-    if(exerciseSections.length!==1) {
-      throw new Error("COURSE_EXERCISE_PROFILE: les exercices d’un cours doivent être regroupés dans une seule section finale.");
-    }
-    const finalSectionIndex=content.sections.length-1;
-    if(exerciseSections[0]?.index!==finalSectionIndex) {
-      throw new Error("COURSE_EXERCISE_PROFILE: la section contenant les exercices doit être la dernière section du cours.");
-    }
-    if(courseExercises.length<2 || courseExercises.length>3) {
-      throw new Error("COURSE_EXERCISE_PROFILE: un cours doit contenir exactement 2 ou 3 exercices substantiels.");
-    }
+    const courseExercises:any[]=[]; const courseCorrections:any[]=[];
+    const wordCount=(value:any)=>String(value??"").trim().split(/\s+/u).filter(Boolean).length;
+    const sections=Array.isArray(content.sections)?content.sections:[];
+    sections.forEach((s:any,index:number)=>{
+      if(Array.isArray(s.exercises)){ if(index!==sections.length-1) throw new Error("COURSE_EXERCISE_LAYOUT: exercice détecté au milieu du cours ; signalement éditeur."); courseExercises.push(...s.exercises); }
+      if(Array.isArray(s.corrections)){ if(index!==sections.length-1) throw new Error("COURSE_EXERCISE_LAYOUT: corrigé détecté au milieu du cours ; signalement éditeur."); courseCorrections.push(...s.corrections); }
+    });
+    if(courseExercises.length<1) throw new Error("COURSE_EXERCISE_LAYOUT: nombre minimum d’exercices non respecté ; au moins 1 exercice est requis ; signalement éditeur.");
+    if(courseExercises.length>3) throw new Error("COURSE_EXERCISE_LAYOUT: maximum de 3 exercices dépassé ; signalement éditeur.");
+    if(courseCorrections.length!==courseExercises.length) throw new Error("COURSE_EXERCISE_LAYOUT: chaque exercice doit avoir exactement un corrigé correspondant ; signalement éditeur.");
     const ids=new Set<string>();
     for(const ex of courseExercises){
-      if(!ex || typeof ex!=="object" || typeof ex.id!=="string" || typeof ex.statement!=="string") {
-        throw new Error("COURSE_EXERCISE_PROFILE: exercice de cours invalide.");
-      }
-      if(ids.has(ex.id)) throw new Error("COURSE_EXERCISE_PROFILE: identifiant d'exercice dupliqué.");
-      ids.add(ex.id);
-      if(ex.statement.trim().length<700) throw new Error("COURSE_EXERCISE_PROFILE: l'énoncé doit être substantiel.");
-      const correction=content.sections
-        .flatMap((s:any)=>Array.isArray(s.corrections)?s.corrections:[])
-        .find((c:any)=>c && c.exercise_id===ex.id);
-      if(!correction || typeof correction.content!=="string" || correction.content.trim().length<900) {
-        throw new Error("COURSE_EXERCISE_PROFILE: chaque exercice intégré doit avoir une correction complète.");
-      }
-      if(ex.hint!==undefined && typeof ex.hint!=="string" && !Array.isArray(ex.hint)) {
-        throw new Error("COURSE_EXERCISE_PROFILE: hint doit être facultatif, texte ou liste de paragraphes.");
-      }
+      if(!ex || typeof ex!=="object" || typeof ex.id!=="string" || typeof ex.statement!=="string") throw new Error("COURSE_EXERCISE_LAYOUT: exercice invalide ; signalement éditeur.");
+      if(ids.has(ex.id)) throw new Error("COURSE_EXERCISE_LAYOUT: identifiant d’exercice dupliqué ; signalement éditeur."); ids.add(ex.id);
+      if(wordCount(ex.statement)<100) throw new Error("COURSE_EXERCISE_LAYOUT: exercice inférieur à 100 mots ; signalement éditeur.");
+    }
+    for(const correction of courseCorrections){
+      if(!correction || typeof correction!=="object" || typeof correction.exercise_id!=="string" || typeof correction.content!=="string") throw new Error("COURSE_EXERCISE_LAYOUT: corrigé invalide ; signalement éditeur.");
+      if(!ids.has(correction.exercise_id)) throw new Error("COURSE_EXERCISE_LAYOUT: corrigé sans exercice correspondant ; signalement éditeur.");
+      if(wordCount(correction.content)<200) throw new Error("COURSE_EXERCISE_LAYOUT: corrigé inférieur à 200 mots ; signalement éditeur.");
     }
   }
   if(isScientific(t.subject)){
@@ -648,6 +658,7 @@ async function actionGenerate(jobId:number,provider:string,runId:string){
   const ctx=buildTaskContextForWorker(t,memories);
   await patchState(jobId,runId,{progress:18,stage:"prompt",step:"generate",label:"Lecture du dossier C et préparation du moteur "+provider,model:providerModel(provider)});
   const result=await callProvider(provider,buildPrompt(ctx,""));
+  if(result?.content && typeof result.content==="object") result.content.title=normalizeEditorialTitle(result.content.title);
   await patchState(jobId,runId,{progress:54,stage:"persist_editorial_content",step:"generate_persist",label:"Persistance du contenu produit",usage:result.usage,model:result.model,attempt:1});
   const persisted=await callRpc("aurora_persist_d_ai_editorial_content",{p_job_id:jobId,p_run_id:runId,p_content_json:result.content});
   if(persisted?.ok!==true)throw new Error(persisted?.error||"La persistance du contenu éditorial a échoué.");
@@ -689,6 +700,7 @@ async function actionRepair(jobId:number,provider:string,runId:string){
   const feedback=safeText(ai.last_validation_error||"Le contrôle Aurore demande une correction ciblée.",14000);
   await patchState(jobId,runId,{progress:56,stage:"repair",step:"repair",label:"Correction ciblée par "+provider,attempt:2});
   const result=await callProvider(provider,buildPrompt(ctx,feedback));
+  if(result?.content && typeof result.content==="object") result.content.title=normalizeEditorialTitle(result.content.title);
   await patchState(jobId,runId,{progress:62,stage:"persist_editorial_content",step:"repair_persist",label:"Persistance de la version corrigée",usage:result.usage,model:result.model,attempt:2});
   const persisted=await callRpc("aurora_persist_d_ai_editorial_content",{p_job_id:jobId,p_run_id:runId,p_content_json:result.content});
   if(persisted?.ok!==true)throw new Error(persisted?.error||"La persistance de la correction éditoriale a échoué.");
@@ -701,7 +713,7 @@ function buildIngestPayload(t:any,w:any,content:any,provider:string,runId:string
   return {
     ingestId,
     payload:{
-      ingest_id:ingestId,job_id:String(t.id),title:content.title,subject:t.subject,level:t.level,class_name:t.class_name,
+      ingest_id:ingestId,job_id:String(t.id),title:normalizeEditorialTitle(content?.title||t.title),subject:t.subject,level:t.level,class_name:t.class_name,
       document_type:t.document_type,prompt:t.prompt||null,content_json:content,instructions:t.instructions||{},
       metadata:{
         origin:"gpt_editorial_ingest",connector_mode:true,ai_provider:provider,
