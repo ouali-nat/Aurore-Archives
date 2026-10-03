@@ -23,3 +23,5 @@ jobs:
     secrets: inherit
 
 # Manual PDF queue wake hardening: tolerate transient browser fetch failures and repair queued admin requests — 2026-10-03
+
+# Manual PDF queue wake after renderer guard scoping — 2026-10-03
