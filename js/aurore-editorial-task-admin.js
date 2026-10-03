@@ -221,10 +221,7 @@ async function updateJob(id,patch,status){
   await rest('/rest/v1/aurora_content_jobs?id=eq.'+encodeURIComponent(Number(id)),{method:'PATCH',headers:{'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify(body)});
   return getJob(id);
 }
-const A_RESOURCE_TYPES={
-  Documents:['Cours','Fiche de cours','Fiche de révision','Résumé','Corrigé','Document pédagogique'],
-  Devoirs:['Devoir','Exercice','Série d’exercices','Corrigé de devoir']
-};
+const A_RESOURCE_TYPES=['QCM','Cours','Fiche de révision','Série d’exercices'];
 const A_THEME_PALETTE=[
   ['Violet','#6D28D9'],['Rouge','#C93648'],['Vert','#198754'],['Bleu','#1D4ED8'],['Jaune','#B77900'],['Orange','#C85C0D'],
   ['Cyan','#0E7490'],['Rose','#BE185D'],['Indigo','#4338CA'],['Turquoise','#0F766E'],['Émeraude','#047857'],['Citron vert','#4D7C0F'],
@@ -238,8 +235,10 @@ const A_THEME_PALETTE=[
 function normalizeAThemeColor(v){return /^#[0-9a-f]{6}$/i.test(String(v||''))?String(v).toUpperCase():'#6D28D9';}
 function aProfile(resourceType){
   const raw=String(resourceType||'').trim().toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[-_]+/g,' ');
-  if(raw.includes('exercice')||raw.includes('devoir')||raw.includes('corrige')) return {kind:'exercices',version:'exercise-sheet-v2',lock:true,document_type:resourceType||'Exercice',paired_corrections:true};
-  if(raw.includes('cours')||raw.includes('revision')||raw.includes('resume')||raw.includes('document pedagogique')) return {kind:'cours',version:'course-v2',lock:true,document_type:resourceType||'Cours'};
+  if(raw==='serie d exercices'||raw==='serie exercices') return {kind:'exercices',version:'exercise-sheet-v2',lock:true,document_type:'Série d’exercices',paired_corrections:true};
+  if(raw==='cours') return {kind:'cours',version:'course-v2',lock:true,document_type:'Cours'};
+  if(raw==='fiche de revision') return {kind:'cours',version:'course-v2',lock:true,document_type:'Fiche de révision'};
+  if(raw==='qcm') return {kind:'document',version:'document-v1',lock:true,document_type:'QCM',subtype:'qcm'};
   return {kind:'document',version:'document-v1',lock:true,document_type:resourceType||'Document'};
 }
 async function createTask(form){
@@ -880,8 +879,7 @@ function render(root,state){
       (active==='A'?'<form id="editorACreateForm" class="cf-admin-create-form cf-rebuild-form editor-a-create-form" novalidate>'+
   '<section class="cf-rebuild-card" aria-label="Identification"><div class="cf-rebuild-title"><span class="cf-rebuild-no">01</span><div><strong>La ressource</strong><small>Ce que tu veux faire produire</small></div></div>'+
   '<div class="cf-route-note">Le titre est généré par l’éditeur pédagogique à partir du sujet, du niveau, de la classe et du contenu réellement produit. Aucun titre n’est demandé ici.</div>'+
-  '<div class="cf-rebuild-grid" style="margin-top:10px"><label class="cf-rebuild-field"><span>Catégorie</span><select id="editorACreateCategory"><option value="">Choisir une catégorie…</option><option value="Devoirs">Devoirs</option><option value="Documents">Documents</option></select></label>'+
-  '<label class="cf-rebuild-field"><span>Type de ressource</span><select id="editorACreateResourceType"><option value="">Choisir un type…</option></select></label>'+
+  '<div class="cf-rebuild-grid" style="margin-top:10px"><label class="cf-rebuild-field"><span>Type de ressource</span><select id="editorACreateResourceType"><option value="">Choisir un type…</option></select></label>'+
   '<label class="cf-rebuild-field"><span>Source pédagogique <em>(optionnel)</em></span><input id="editorACreateReference" type="text" placeholder="Manuel, chapitre, programme…"></label></div></section>'+
   '<section class="cf-rebuild-card" aria-label="Classement scolaire"><div class="cf-rebuild-title"><span class="cf-rebuild-no">02</span><div><strong>Le parcours scolaire</strong><small>Choisis le niveau, le parcours/emplacement puis la matière. Les valeurs sont issues du catalogue Aurore.</small></div></div>'+
   '<div class="cf-rebuild-grid-2"><label class="cf-rebuild-field"><span>Niveau</span><div id="editorACreateCascade"><select id="editorACreateLevelPicker"><option value="">Choisir un niveau…</option></select><div class="editor-mobile-picker" id="editorACreatePathPickerWrap"><select id="editorACreatePathPicker" disabled><option value="">Choisis d’abord un niveau…</option></select><button type="button" class="editor-mobile-picker-trigger" id="editorACreatePathPickerTrigger" disabled aria-haspopup="listbox" aria-expanded="false"><span>Choisis d’abord un niveau…</span><b>⌄</b></button><div class="editor-mobile-picker-menu" id="editorACreatePathPickerMenu" hidden><div class="editor-mobile-picker-options" id="editorACreatePathPickerOptions"></div></div></div></div></label>'+
@@ -928,13 +926,12 @@ function bind(root,state){
   const levelPicker=root.querySelector('#editorACreateLevelPicker');
   const routePicker=root.querySelector('#editorACreatePathPicker');
   const subjectPicker=root.querySelector('#editorACreateSubject');
-  const categoryPicker=root.querySelector('#editorACreateCategory');
   const resourcePicker=root.querySelector('#editorACreateResourceType');
   const classSummary=root.querySelector('#editorACreateClassificationSummary');
   let aPath=[],aRoutes=[];
   const renderAResourceTypes=()=>{
     if(!resourcePicker)return;
-    const values=A_RESOURCE_TYPES[categoryPicker?.value||'Documents']||A_RESOURCE_TYPES.Documents;
+    const values=A_RESOURCE_TYPES;
     const current=resourcePicker.value;
     resourcePicker.innerHTML='<option value="">Choisir un type…</option>'+values.map(v=>'<option value="'+esc(v)+'">'+esc(v)+'</option>').join('');
     resourcePicker.value=values.includes(current)?current:'';
@@ -1033,7 +1030,6 @@ function bind(root,state){
   };
   if(form){
     renderAResourceTypes();syncAClassification();syncTheme();loadALayout();
-    categoryPicker?.addEventListener('change',renderAResourceTypes);
     levelPicker?.addEventListener('change',()=>{aPath=[];syncAClassification()});
     routePicker?.addEventListener('change',()=>{const choice=aRoutes[Number(routePicker.value)];aPath=choice?[...choice.path]:aPath.slice(0,1);renderAPathPicker();syncASubjects();if(classSummary){const labels=aPath.map(n=>String(n?.nom||'').trim()).filter(Boolean);classSummary.textContent=labels.length?labels.join(' · '):'Aucun parcours sélectionné.';}});
     subjectPicker?.addEventListener('change',()=>{renderASubjectPicker([...subjectPicker.options].slice(1).map(o=>o.value).filter(Boolean))});
@@ -1070,9 +1066,9 @@ function bind(root,state){
       finally{if(btn)btn.disabled=false;}
     });
     form?.addEventListener('submit',async e=>{e.preventDefault();
-      const category=(categoryPicker?.value||'').trim(),resourceType=(resourcePicker?.value||'').trim(),reference=(root.querySelector('#editorACreateReference')?.value||'').trim(),prompt=(root.querySelector('#editorACreatePrompt')?.value||'').trim(),subject=(subjectPicker?.value||'').trim(),rights=!!root.querySelector('#editorACreateRights')?.checked,themeColor=normalizeAThemeColor(root.querySelector('#editorAThemeColor')?.value||'#6D28D9');
+      const category='Documents',resourceType=(resourcePicker?.value||'').trim(),reference=(root.querySelector('#editorACreateReference')?.value||'').trim(),prompt=(root.querySelector('#editorACreatePrompt')?.value||'').trim(),subject=(subjectPicker?.value||'').trim(),rights=!!root.querySelector('#editorACreateRights')?.checked,themeColor=normalizeAThemeColor(root.querySelector('#editorAThemeColor')?.value||'#6D28D9');
       const level=rootNodeName(levelPicker),className=String(aPath[aPath.length-1]?.nom||'').trim(),path=aPath.map(n=>String(n?.nom||'').trim()).filter(Boolean),location=path.join(' · ');
-      if(!category||!resourceType||!level||!className||!subject||!prompt||!rights){const msg=root.querySelector('#editorACreateMsg');if(msg){msg.dataset.state='error';msg.textContent='Complète la catégorie, le type, le classement, la consigne et l’autorisation de production.';}return}
+      if(!resourceType||!level||!className||!subject||!prompt||!rights){const msg=root.querySelector('#editorACreateMsg');if(msg){msg.dataset.state='error';msg.textContent='Complète le type, le classement, la consigne et l’autorisation de production.';}return}
       const b=root.querySelector('#editorCreate'),msg=root.querySelector('#editorACreateMsg');if(b)b.disabled=true;
       try{await createTask({category,documentType:resourceType,reference,prompt,themeColor,subject,level,className,path,location});if(msg){msg.dataset.state='ok';msg.textContent='✓ Tâche enregistrée dans la Section A.'}await chargerEspaceEditorialChatGPT(state.section)}catch(e){if(msg){msg.dataset.state='error';msg.textContent='Impossible de créer la tâche : '+(e.message||e)}}finally{if(b)b.disabled=false}
     });
@@ -1289,6 +1285,14 @@ function bindDetail(d,t,state){
     {title:'Évaluation',content:e.evaluation},
     {title:'Synthèse',content:e.synthesis}
   ].filter(x=>x.content||x.title==='Contenu du cours')});
+  function dDocumentProfile(t){
+    const raw=String(t?.document_type||'').trim().toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[-_]+/g,' ').replace(/\s+/g,' ').trim();
+    if(raw==='qcm')return {kind:'document',version:'document-v1',lock:true,document_type:'QCM',subtype:'qcm'};
+    if(raw==='cours')return {kind:'cours',version:'course-v2',lock:true,document_type:'Cours'};
+    if(raw==='fiche de revision')return {kind:'cours',version:'course-v2',lock:true,document_type:'Fiche de révision'};
+    if(raw==='serie d exercices'||raw==='serie exercices')return {kind:'exercices',version:'exercise-sheet-v2',lock:true,document_type:'Série d’exercices'};
+    return aProfile(t?.document_type||'Document');
+  }
   const SCIENTIFIC_LATEX_DENSITY_VERSION='scientific-preflight-1';
   const SCIENTIFIC_LATEX_DENSITY_MIN=400;
   function isScientificDocument(t){
@@ -1367,7 +1371,8 @@ function bindDetail(d,t,state){
       }
       const revisionNo=Number(fw.revision_no||0);
       const ingestId='AUR-D-'+t.id+'-v'+Number(fw.proposal_version||1)+(revisionNo>0?'-R'+revisionNo:'');
-      const payload={ingest_id:ingestId,job_id:Number(t.id),title:e.title,subject:t.subject,level:t.level,class_name:t.class_name,document_type:t.document_type||'cours',content_json:editorialPayload(e),instructions:{category:'Documents',source:'Aurore — Section D',workflow_stage:'edition',manual_pdf_launch_required:true},metadata:{origin:'Aurore — Section D',source_job_id:t.id,chapter:proposalFor(fresh).chapter,workflow_stage:'edition',auto_pdf_launch:false,manual_pdf_launch_only:true},matiere:t.subject,theme_color:proposalFor(fresh).pdfThemeColor||'#6D28D9'};
+      const dProfile=dDocumentProfile(t);
+      const payload={ingest_id:ingestId,job_id:Number(t.id),title:e.title,subject:t.subject,level:t.level,class_name:t.class_name,document_type:t.document_type||'Cours',content_json:editorialPayload(e),instructions:{category:'Documents',source:'Aurore — Section D',workflow_stage:'edition',manual_pdf_launch_required:true,profile:dProfile},metadata:{origin:'Aurore — Section D',source_job_id:t.id,chapter:proposalFor(fresh).chapter,workflow_stage:'edition',auto_pdf_launch:false,manual_pdf_launch_only:true,aurore_profile:dProfile},matiere:t.subject,theme_color:proposalFor(fresh).pdfThemeColor||'#6D28D9'};
       const ingested=await rpc('aurora_connector_ingest_editorial_document',{p_payload:payload});
       const docId=Number(ingested?.generated_document_id);
       if(!Number.isSafeInteger(docId)||docId<1)throw new Error('Le pont éditorial n’a pas retourné de generated_document_id.');
