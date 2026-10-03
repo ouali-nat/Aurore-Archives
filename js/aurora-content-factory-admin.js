@@ -1228,7 +1228,12 @@ async function renderPdf(id,themeColor=null){
     const foregroundDeadline=Date.now()+2*60*1000;
     let lastProgress=18;
     let completed=null;
+    let transientNetworkFailures=0;
     const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+    const isTransientNetworkError=error=>{
+      const message=String(error?.message||error||'');
+      return /failed to fetch|networkerror|network error|load failed|network request failed|fetch failed/i.test(message);
+    };
     while(Date.now()<foregroundDeadline){
       if(document.visibilityState==='hidden'){
         setProgress(lastProgress,`Rendu en arrière-plan · progression serveur ${lastProgress.toFixed(2)}%`);
@@ -1238,21 +1243,32 @@ async function renderPdf(id,themeColor=null){
         });
         continue;
       }
-      const q=await adminInventoryFetch(`${SUPABASE_URL}/rest/v1/aurora_generated_documents?id=eq.${encodeURIComponent(Number(id))}&select=id,pdf_url,pdf_path,metadata,status,updated_at`,{cache:'no-store',headers:{'Authorization':`Bearer ${accessToken}`}});
-      const qt=await q.text();
-      if(!q.ok)throw new Error(`Lecture de l'état LuaLaTeX impossible (HTTP ${q.status}). Le rendu serveur continue en arrière-plan.`);
-      let rows=[];
-      try{rows=qt?JSON.parse(qt):[]}catch(_){throw new Error('Réponse Supabase invalide pendant le suivi du rendu.');}
-      const row=Array.isArray(rows)?rows[0]:null;
-      if(!row)throw new Error('Document introuvable pendant le suivi du rendu.');
-      const m=row.metadata&&typeof row.metadata==='object'?row.metadata:{};
-      if(row.pdf_url&&m.lualatex_status==='completed'){completed=row;break}
-      if(m.lualatex_status==='failed')throw new Error('Le rendu LuaLaTeX a échoué. Consulte les journaux GitHub Actions.');
-      const meta=row.metadata&&typeof row.metadata==='object'?row.metadata:{};
-      const realProgress=Number.isFinite(Number(meta.lualatex_progress))?Math.max(0,Math.min(100,Number(meta.lualatex_progress))):18;
-      const realStage=String(meta.lualatex_stage||'Rendu LuaLaTeX en cours');
-      lastProgress=realProgress;
-      setProgress(realProgress,`${realStage} · ${realProgress.toFixed(2)}%`);
+
+      try{
+        const q=await adminInventoryFetch(`${SUPABASE_URL}/rest/v1/aurora_generated_documents?id=eq.${encodeURIComponent(Number(id))}&select=id,pdf_url,pdf_path,metadata,status,updated_at`,{cache:'no-store',headers:{'Authorization':`Bearer ${accessToken}`}});
+        const qt=await q.text();
+        if(!q.ok)throw new Error(`Lecture de l'état LuaLaTeX impossible (HTTP ${q.status}). Le rendu serveur continue en arrière-plan.`);
+        let rows=[];
+        try{rows=qt?JSON.parse(qt):[]}catch(_){throw new Error('Réponse Supabase invalide pendant le suivi du rendu.');}
+        const row=Array.isArray(rows)?rows[0]:null;
+        if(!row)throw new Error('Document introuvable pendant le suivi du rendu.');
+        const m=row.metadata&&typeof row.metadata==='object'?row.metadata:{};
+        if(row.pdf_url&&m.lualatex_status==='completed'){completed=row;break}
+        if(m.lualatex_status==='failed')throw new Error('Le rendu LuaLaTeX a échoué. Consulte les journaux GitHub Actions.');
+        const realProgress=Number.isFinite(Number(m.lualatex_progress))?Math.max(0,Math.min(100,Number(m.lualatex_progress))):18;
+        const realStage=String(m.lualatex_stage||'Rendu LuaLaTeX en cours');
+        lastProgress=realProgress;
+        transientNetworkFailures=0;
+        setProgress(realProgress,`${realStage} · ${realProgress.toFixed(2)}%`);
+      }catch(pollError){
+        if(!isTransientNetworkError(pollError))throw pollError;
+        transientNetworkFailures++;
+        const retryDelay=Math.min(15000,2000*Math.min(transientNetworkFailures,5));
+        setProgress(lastProgress,`Suivi réseau temporairement indisponible · reprise automatique (${transientNetworkFailures})`);
+        console.warn('[Content Factory] Suivi PDF temporairement indisponible; la production serveur continue:',pollError);
+        await wait(retryDelay);
+        continue;
+      }
       await wait(5000);
     }
     if(!completed){
