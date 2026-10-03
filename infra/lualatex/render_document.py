@@ -3777,6 +3777,24 @@ def _documentary_visual_plan_qa(data):
         ),
     }
 
+def _repair_nested_inline_math_delimiters(tex):
+    """Remove inline math delimiters accidentally nested inside display math.
+
+    An inline fragment such as \\( ... \\) is valid in prose but invalid
+    when it has already been placed inside equation*. Strip only the nested
+    delimiters and preserve the mathematical body unchanged.
+    """
+    source = str(tex or "")
+    pattern = re.compile(r"\\begin\\{equation\\*\\}([\\s\\S]*?)\\end\\{equation\\*\\}")
+
+    def repair(match):
+        body = match.group(1)
+        body = body.replace(r"\\(", "").replace(r"\\)", "")
+        return r"\\begin{equation*}" + body + r"\\end{equation*}"
+
+    return pattern.sub(repair, source)
+
+
 def render(data):
     if not _has_usable_content_json(data):
         raise ValueError("LuaLaTeX source rejected: structured content_json is required")
@@ -4659,6 +4677,7 @@ def main():
     )
     data["_render_assets_dir"] = str(out.parent / "assets")
     tex = render(data)
+    tex = _repair_nested_inline_math_delimiters(tex)
     requested_profile = _edition_profile(data)
     metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
     course_refactor_test = bool(
