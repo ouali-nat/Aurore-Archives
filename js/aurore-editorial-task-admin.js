@@ -98,6 +98,7 @@ const C_EXECUTION_CONTRACT={
   ]
 };
 const esc=v=>{const d=document.createElement('div');d.textContent=String(v==null?'':v);return d.innerHTML};
+const normalizeEditorialTitle=v=>String(v??'').trim().replace(/[‐‑‒–—―−-]+/g,' ').replace(/\s{2,}/g,' ').trim();
 const panel=()=>document.querySelector('.admin-tab-panel[data-panel="aurora-request"]');
 
 async function token(){
@@ -797,7 +798,7 @@ function planForm(t,section){
 }
 function editorialContentFor(t){
   const w=t.metadata?.workflow||{},p=proposalFor(t),saved=w.editorial_content&&typeof w.editorial_content==='object'?w.editorial_content:{};
-  return {title:saved.title||p.title||t.title||'',introduction:saved.introduction||'',content:saved.content||p.content||'',methods:saved.methods||p.methods||'',examples:saved.examples||p.examples||'',activities:saved.activities||p.activities||'',exercises:saved.exercises||p.exercises||'',corrections:saved.corrections||p.corrections||'',differentiation:saved.differentiation||p.differentiation||'',evaluation:saved.evaluation||p.evaluation||'',synthesis:saved.synthesis||'',notes:saved.notes||''};
+  return {title:normalizeEditorialTitle(saved.title||p.title||t.title||''),introduction:saved.introduction||'',content:saved.content||p.content||'',methods:saved.methods||p.methods||'',examples:saved.examples||p.examples||'',activities:saved.activities||p.activities||'',exercises:saved.exercises||p.exercises||'',corrections:saved.corrections||p.corrections||'',differentiation:saved.differentiation||p.differentiation||'',evaluation:saved.evaluation||p.evaluation||'',synthesis:saved.synthesis||'',notes:saved.notes||''};
 }
 function productionReadyMarkup(t){
   const w=t.metadata?.workflow||{},p=proposalFor(t),e=editorialContentFor(t);
@@ -873,7 +874,7 @@ function render(root,state){
       '<div class="editor-page-title"><div><span class="editor-step">Section '+active+'</span><h4>'+({A:'Tâches à créer',B:'Chapitres disponibles',C:'Plan complet de production',CX:'Plans C déjà traités',D:'Édition finale / suivi de production',E:'Documents à réviser',CLAUDE:'Espace Claude',GPT:'Espace GPT',GROK:'Espace Grok'}[active])+'</h4><p>'+({A:'Crée ici les demandes avec une sélection claire et agrandie du niveau, du parcours, de la classe et de la matière.',B:'Chaque tâche récupérée présente les chapitres disponibles pour le document.',C:'Les tâches non encore traitées en C sont construites ici.',CX:'Cette zone conserve les documents dont le travail C est déjà traité et vérifié. Le plan reste consultable et modifiable avant la suite.',D:'Les documents passés après CX arrivent ici pour la rédaction finale. Aucun PDF n’est lancé automatiquement.',E:'Les documents demandés en révision sont conservés ici avec leur historique. « Reprendre en D » les remet explicitement dans la rédaction finale.'}[active])+'</p></div><span class="editor-page-count">'+items.length+' document'+(items.length>1?'s':'')+'</span></div>'+
       (active==='A'?'<form id="editorACreateForm" class="cf-admin-create-form cf-rebuild-form editor-a-create-form" novalidate>'+
   '<section class="cf-rebuild-card" aria-label="Identification"><div class="cf-rebuild-title"><span class="cf-rebuild-no">01</span><div><strong>La ressource</strong><small>Ce que tu veux faire produire</small></div></div>'+
-  '<label class="cf-rebuild-field"><span>Titre</span><input id="editorACreateTitle" type="text" required placeholder="Ex. Fiche de révision — fonctions exponentielles"></label>'+
+  '<div class="cf-route-note">Le titre est généré par l’éditeur pédagogique à partir du sujet, du niveau, de la classe et du contenu réellement produit. Aucun titre n’est demandé ici.</div>'+
   '<div class="cf-rebuild-grid" style="margin-top:10px"><label class="cf-rebuild-field"><span>Catégorie</span><select id="editorACreateCategory"><option value="">Choisir une catégorie…</option><option value="Devoirs">Devoirs</option><option value="Documents">Documents</option></select></label>'+
   '<label class="cf-rebuild-field"><span>Type de ressource</span><select id="editorACreateResourceType"><option value="">Choisir un type…</option></select></label>'+
   '<label class="cf-rebuild-field"><span>Source pédagogique <em>(optionnel)</em></span><input id="editorACreateReference" type="text" placeholder="Manuel, chapitre, programme…"></label></div></section>'+
@@ -1334,6 +1335,7 @@ function bindDetail(d,t,state){
   }
   const saveEditorial=async()=>{
     const e=collectEditorial();
+    e.title=normalizeEditorialTitle(e.title);
     if(!e.title)throw new Error('Le titre final est obligatoire.');
     if(!e.content)throw new Error('Le contenu final est obligatoire.');
     const updated=await updateJob(t.id,{editorial_content:{...e,updated_at:new Date().toISOString(),editor:EDITOR,source_plan_version:Number(t.metadata?.workflow?.proposal_version||0)},stage:'production_en_cours',production_status:'editorial_in_progress',execution_contract:D_EXECUTION_CONTRACT,execution_contract_acknowledged:true,completion_guard:D_EXECUTION_CONTRACT_VERSION,auto_pdf_launch:false,manual_pdf_launch_required:true},'draft');
