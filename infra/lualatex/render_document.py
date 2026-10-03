@@ -3807,21 +3807,113 @@ def render(data):
                 "Exercise profile QA failed: " + " | ".join(exercise_qa[:8])
             )
     else:
-        # Course exercises are intentionally open-ended at ingestion time:
-        # the renderer accepts every structurally valid exercise instead of
-        # imposing an arbitrary course-wide count. Editorial generation may
-        # prefer one substantial integrated exercise, but valid additional
-        # exercises must never be rejected merely because there are several.
+        # Canonical course exercise contract:
+        # 2 to 3 exercises, only in the final course section, each with a
+        # 100-word minimum statement and exactly one correction. The PDF
+        # renderer mirrors the editorial contract so an invalid document
+        # cannot bypass the upstream gate.
         course_exercises = []
-        for _sec in data.get("sections", []) if isinstance(data.get("sections"), list) else []:
-            if isinstance(_sec, dict) and isinstance(_sec.get("exercises"), list):
-                course_exercises.extend(_sec.get("exercises") or [])
+        course_corrections_by_exercise_id = {}
+        course_sections = data.get("sections", []) if isinstance(data.get("sections"), list) else []
+        final_section_index = len(course_sections) - 1
+
+        for _section_index, _sec in enumerate(course_sections):
+            if not isinstance(_sec, dict):
+                continue
+            _section_exercises = _sec.get("exercises") if isinstance(_sec.get("exercises"), list) else []
+            _section_corrections = _sec.get("corrections") if isinstance(_sec.get("corrections"), list) else []
+            if _section_exercises and _section_index != final_section_index:
+                raise ValueError(
+                    "COURSE_EXERCISE_LAYOUT: exercise(s) found before the final course section."
+                )
+            if _section_corrections and _section_index != final_section_index:
+                raise ValueError(
+                    "COURSE_EXERCISE_LAYOUT: correction(s) found before the final course section."
+                )
+            course_exercises.extend(_section_exercises)
+            for _correction in _section_corrections:
+                if not isinstance(_correction, dict):
+                    raise ValueError("COURSE_EXERCISE_LAYOUT: invalid correction object.")
+                _exercise_id = clean_text(_correction.get("exercise_id") or "").strip()
+                if not _exercise_id:
+                    raise ValueError(
+                        "COURSE_EXERCISE_LAYOUT: each course correction must reference exercise_id."
+                    )
+                if _exercise_id in course_corrections_by_exercise_id:
+                    raise ValueError(
+                        "COURSE_EXERCISE_LAYOUT: duplicate correction for the same exercise."
+                    )
+                course_corrections_by_exercise_id[_exercise_id] = _correction
+
+        if len(course_exercises) < 2 or len(course_exercises) > 3:
+            raise ValueError(
+                "COURSE_EXERCISE_LAYOUT: a standard course must contain 2 to 3 exercises."
+            )
+
+        course_exercise_ids = set()
+        course_word_count = lambda value: len(
+            [token for token in clean_text(value).split() if token]
+        )
+
         for _ex in course_exercises:
             if not isinstance(_ex, dict):
-                raise ValueError("Course exercise profile QA failed: invalid exercise.")
-            _statement = clean_text(_ex.get("statement") or _ex.get("question") or _ex.get("enonce") or _ex.get("content") or "")
+                raise ValueError("COURSE_EXERCISE_LAYOUT: invalid exercise object.")
+            _exercise_id = clean_text(_ex.get("id") or "").strip()
+            if not _exercise_id:
+                raise ValueError(
+                    "COURSE_EXERCISE_LAYOUT: each course exercise must have an id."
+                )
+            if _exercise_id in course_exercise_ids:
+                raise ValueError(
+                    "COURSE_EXERCISE_LAYOUT: duplicate exercise id."
+                )
+            course_exercise_ids.add(_exercise_id)
+
+            _statement = clean_text(
+                _ex.get("statement")
+                or _ex.get("question")
+                or _ex.get("enonce")
+                or _ex.get("content")
+                or ""
+            )
             if not _statement:
-                raise ValueError("Course exercise profile QA failed: exercise statement is empty.")
+                raise ValueError("COURSE_EXERCISE_LAYOUT: exercise statement is empty.")
+            if course_word_count(_statement) < 100:
+                raise ValueError(
+                    "COURSE_EXERCISE_LAYOUT: each exercise statement must contain at least 100 words."
+                )
+
+            _inline_correction = clean_text(
+                _ex.get("solution")
+                or _ex.get("correction")
+                or _ex.get("details")
+                or ""
+            ).strip()
+            _structured_correction = course_corrections_by_exercise_id.get(_exercise_id)
+            if _inline_correction and _structured_correction:
+                raise ValueError(
+                    "COURSE_EXERCISE_LAYOUT: exercise has both inline and structured corrections."
+                )
+            if not _inline_correction and not _structured_correction:
+                raise ValueError(
+                    "COURSE_EXERCISE_LAYOUT: every exercise must have exactly one correction."
+                )
+            _correction_text = _inline_correction or clean_text(
+                _structured_correction.get("content")
+                or _structured_correction.get("solution")
+                or _structured_correction.get("correction")
+                or _structured_correction.get("details")
+                or ""
+            ).strip()
+            if course_word_count(_correction_text) < 200:
+                raise ValueError(
+                    "COURSE_EXERCISE_LAYOUT: each correction must contain at least 200 words."
+                )
+
+        if set(course_corrections_by_exercise_id) - course_exercise_ids:
+            raise ValueError(
+                "COURSE_EXERCISE_LAYOUT: correction references an unknown exercise."
+            )
     has_geogebra = _has_geogebra(data)
     _math_visual_plan_qa(data)
     _geogebra_visual_plan_qa(data)
@@ -4122,6 +4214,17 @@ def render(data):
             corrections_by_number[int(c.get("exercise_number", 0) or 0)] = c
         except (TypeError, ValueError):
             continue
+    course_corrections_by_exercise_id = {}
+    if not is_exercise_document:
+        for _sec in data.get("sections", []) if isinstance(data.get("sections"), list) else []:
+            if not isinstance(_sec, dict):
+                continue
+            for _correction in _sec.get("corrections") or []:
+                if not isinstance(_correction, dict):
+                    continue
+                _exercise_id = clean_text(_correction.get("exercise_id") or "").strip()
+                if _exercise_id:
+                    course_corrections_by_exercise_id[_exercise_id] = _correction
     used_correction_numbers = set()
 
     inline_exercise_corrections = []
@@ -4289,8 +4392,12 @@ def render(data):
                             lines.append(r"\AuroreLabeledBlock{Indication}{" + inline(hint) + r"}")
             if ex.get("formula"): lines.append(display_formula(ex["formula"]))
             correction = corrections_by_number.get(exercise_number)
+            if correction is None and _document_kind(data) == "cours":
+                _exercise_id = clean_text(ex.get("id") or "").strip()
+                if _exercise_id:
+                    correction = course_corrections_by_exercise_id.get(_exercise_id)
             if correction is not None:
-                solution = correction.get("solution") or correction.get("correction") or correction.get("details") or ""
+                solution = correction.get("solution") or correction.get("correction") or correction.get("content") or correction.get("details") or ""
                 lines.append(r"\Needspace{5\baselineskip}")
                 if _document_kind(data) == "cours":
                     correction_body = render_exercise_text(solution, mode="correction")
