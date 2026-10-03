@@ -172,7 +172,7 @@ function baseSchema(){
       subsections:{type:"array",minItems:2,maxItems:4,items:subsection},
       graphs:{type:"array",maxItems:4,items:graph},
       visuals:{type:"array",maxItems:3,items:visual},
-      exercises:{type:"array",maxItems:6,items:exercise},
+      exercises:{type:"array",maxItems:3,items:exercise},
       corrections:{type:"array",maxItems:6,items:correction}
     }
   };
@@ -244,7 +244,7 @@ function taskContext(t:any, memories:any[]){
     exact_rules:{
       no_invented_sources:true,
       course_standard_minimum_words:1500,
-      course_exercise_profile:"1 to 3 exercises maximum; exercises and corrections only at the end of the course; one block per exercise and one block per correction; each exercise statement >=100 words; each correction >=200 words; exactly one correction per exercise; any exercise/correction in a non-final section is an editorial error; hints/indications are not rendered",
+      course_exercise_profile:"2 to 3 exercises maximum; exercises and corrections only at the end of the course; one separate block per exercise and one separate block per correction; each exercise statement >=100 words; each correction >=200 words; exactly one correction per exercise; the correction block for an exercise must appear immediately below that exercise block; any exercise/correction in a non-final section is an editorial error; hints/indications are not rendered",
       introduction_minimum_characters:450,
       max_sections:30,
       scientific_lycee_latex_minimum:1200,
@@ -273,15 +273,15 @@ function buildPrompt(ctx:any, repairFeedback:string){
     "Le cours standard doit contenir au moins 1500 mots utiles en comptant uniquement introduction + sections[].content, sans plafond de volume.",
     "Produis entre 12 et 24 sections pédagogiques distinctes. Aucune section ne doit être un remplissage générique.",
     "Les exercices sont exclusivement placés à la toute fin du cours, dans la dernière section de la structure JSON ; jamais au milieu du cours.",
-    "Produis entre 1 et 3 exercices maximum. Chaque exercice doit avoir au moins 100 mots.",
+    "Produis entre 2 et 3 exercices maximum. Chaque exercice doit avoir au moins 100 mots.",
     "Produis exactement un corrigé par exercice, dans la même zone finale ; chaque corrigé doit avoir au moins 200 mots.",
     "N’utilise pas les champs hint/indication pour remplacer un exercice ou un corrigé.",
     "Les exercices sont exclusivement placés à la toute fin du cours, dans la dernière section de la structure JSON ; jamais au milieu du cours.",
-    "Produis entre 1 et 3 exercices maximum. Chaque exercice doit avoir au moins 100 mots.",
+    "Produis entre 2 et 3 exercices maximum. Chaque exercice doit avoir au moins 100 mots.",
     "Produis exactement un corrigé par exercice, dans la même zone finale ; chaque corrigé doit avoir au moins 200 mots.",
     "N’utilise pas les champs hint/indication pour remplacer un exercice ou un corrigé.",
     "Les exercices sont exclusivement placés à la toute fin du cours, dans la dernière section de la structure JSON ; jamais au milieu du cours.",
-    "Produis entre 1 et 3 exercices maximum. Chaque exercice doit avoir au moins 100 mots.",
+    "Produis entre 2 et 3 exercices maximum. Chaque exercice doit avoir au moins 100 mots.",
     "Produis exactement un corrigé par exercice, dans la même zone finale ; chaque corrigé doit avoir au moins 200 mots.",
     "N’utilise pas les champs hint/indication pour remplacer un exercice ou un corrigé.",
     "Chaque section non Introduction/Synthèse/Évaluation finale contient au moins deux sous-sections réellement développées.",
@@ -291,7 +291,7 @@ function buildPrompt(ctx:any, repairFeedback:string){
     "Chaque formule doit être pédagogiquement utile et accompagnée de texte explicatif ; ne fabrique pas de formules décoratives.",
     "Évite les formulations répétitives et les modèles interdits comme « étude spécifique de ce sous-thème » ou « Résoudre un problème nouveau portant sur... ».",
     "Pour un cours, les exercices ne doivent apparaître dans aucune section imprimée : le renderer les regroupe à la fin dans un unique bloc « Exercices », suivi d'un unique bloc « Corrigés ».",
-    "Le cours doit contenir au moins un exercice ; chaque énoncé d'exercice doit contenir au moins 100 mots.",
+    "Le cours doit contenir au moins deux exercices ; chaque énoncé d'exercice doit contenir au moins 100 mots.",
     "Chaque exercice doit avoir exactement une correction correspondante ; chaque correction doit contenir au moins 200 mots et montrer le raisonnement, les étapes et les calculs pertinents.",
     "Les indications/hints sont facultatives dans le JSON mais ne sont jamais rendues dans le PDF et ne peuvent jamais remplacer l'exercice ou sa correction.",
     "Les exercices doivent avoir des énoncés concrets et les corrections doivent reprendre les données de leurs exercices, sans correction générique.",
@@ -520,7 +520,7 @@ function validateShape(content:any, t:any){
       if(Array.isArray(s.exercises)){ if(index!==sections.length-1) throw new Error("COURSE_EXERCISE_LAYOUT: exercice détecté au milieu du cours ; signalement éditeur."); courseExercises.push(...s.exercises); }
       if(Array.isArray(s.corrections)){ if(index!==sections.length-1) throw new Error("COURSE_EXERCISE_LAYOUT: corrigé détecté au milieu du cours ; signalement éditeur."); courseCorrections.push(...s.corrections); }
     });
-    if(courseExercises.length<1) throw new Error("COURSE_EXERCISE_LAYOUT: nombre minimum d’exercices non respecté ; au moins 1 exercice est requis ; signalement éditeur.");
+    if(courseExercises.length<2) throw new Error("COURSE_EXERCISE_LAYOUT: nombre minimum d’exercices non respecté ; au moins 2 exercices sont requis ; signalement éditeur.");
     if(courseExercises.length>3) throw new Error("COURSE_EXERCISE_LAYOUT: maximum de 3 exercices dépassé ; signalement éditeur.");
     if(courseCorrections.length!==courseExercises.length) throw new Error("COURSE_EXERCISE_LAYOUT: chaque exercice doit avoir exactement un corrigé correspondant ; signalement éditeur.");
     const ids=new Set<string>();
