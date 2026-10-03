@@ -330,6 +330,12 @@ function aResearchFor(t){
   const w=t.metadata?.workflow||{},r=w.chapter_research;
   return r&&typeof r==='object'?r:{};
 }
+function chapterOptionsForWorkflow(w){
+  const raw=w&&w.chapter_options;
+  if(Array.isArray(raw))return raw;
+  if(raw&&typeof raw==='object'&&Array.isArray(raw.options))return raw.options;
+  return [];
+}
 function aContextReady(t){
   const w=t.metadata?.workflow||{},a=w.context_assimilation;
   if(!a||typeof a!=='object')return false;
@@ -341,7 +347,7 @@ function aContextReady(t){
 }
 function aResearchReady(t){
   const w=t.metadata?.workflow||{},r=aResearchFor(t);
-  const options=Array.isArray(w.chapter_options)?w.chapter_options:[];
+  const options=chapterOptionsForWorkflow(w);
   const findings=String(r.findings||r.constats||'').trim();
   const methodology=String(r.methodology||r.method||'').trim();
   const sources=[...(Array.isArray(r.source_urls)?r.source_urls:[]),...(Array.isArray(r.sources)?r.sources:[])]
@@ -610,9 +616,8 @@ const CHAPTER_PROPOSALS={
 };
 function chapterProposalsFor(t){
   const w=t.metadata?.workflow||{};
-  const stored=Array.isArray(w.chapter_options)&&w.chapter_options.length
-    ? w.chapter_options
-    : (Array.isArray(w.chapters)&&w.chapters.length ? w.chapters : []);
+  const stored=chapterOptionsForWorkflow(w);
+  if(!stored.length&&Array.isArray(w.chapters)&&w.chapters.length)stored.push(...w.chapters);
   if(stored.length)return stored.map(x=>typeof x==='string'?{title:x,description:'',source:'Proposition enregistrée dans la tâche.'}:x).filter(x=>x&&String(x.title||x.name||'').trim());
   const key=String(t.id)+"|"+String(t.subject||"").toLowerCase()+"|"+String(t.class_name||t.level||"").toLowerCase();
   return CHAPTER_PROPOSALS[key]||[];
@@ -621,7 +626,7 @@ function chaptersMarkup(t){
   const w=t.metadata?.workflow||{},r=aResearchFor(t);
   const saved=Array.isArray(w.selected_chapters)
     ? w.selected_chapters
-    : (Array.isArray(w.chapter_options)?[]:(Array.isArray(w.chapters)?w.chapters:[]));
+    : (chapterOptionsForWorkflow(w).length?[]:(Array.isArray(w.chapters)?w.chapters:[]));
   const proposals=chapterProposalsFor(t);
   if(!aResearchReady(t))return'<div class="editor-c-plan-context warning"><span>Recherche non vérifiée</span><strong>La carte B ne peut pas proposer de sélection.</strong><small>La recherche, les sources et les propositions doivent être persistées dans Supabase avant l’entrée en B.</small></div>';
   if(!proposals.length)return'<div class="editor-empty">Aucune proposition structurée disponible après recherche. La tâche doit rester hors de B.</div>';
@@ -1137,7 +1142,7 @@ function bindDetail(d,t,state){
       const fresh=await getJob(t.id);
       if(!fresh||!aResearchReady(fresh))throw new Error('Garde-fou B : le contexte et la recherche A ne sont pas suffisamment persistés et vérifiés.');
       const fw=fresh.metadata?.workflow||{};
-      const available=new Set((Array.isArray(fw.chapter_options)?fw.chapter_options:[]).map(x=>String(x?.title||x?.name||x)));
+      const available=new Set(chapterOptionsForWorkflow(fw).map(x=>String(x?.title||x?.name||x)));
       if(!selected.every(x=>available.has(String(x?.title||x?.name||x))))throw new Error('Garde-fou B : une sélection ne provient pas des propositions persistées.');
       const updated=await updateJob(t.id,{
         chapters:selected,
