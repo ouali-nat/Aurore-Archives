@@ -114,3 +114,9 @@
     } catch(e) { console.error('[Réclamations] mise à jour du statut échouée', e); }
   }
 
+  // Bloc « Dépôts externes » de l'administration (module séparé).
+  (function () {
+    var s = document.createElement('script');
+    s.src = 'js/aurore-admin-depots-externes.js?v=20261003-1';
+    document.head.appendChild(s);
+  })();
