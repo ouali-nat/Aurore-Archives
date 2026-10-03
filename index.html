@@ -2117,9 +2117,24 @@ html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
     } catch(e) { console.warn('[Connexions] sortie non enregistrée',e); }
   }
 
+  // La session Aurore doit survivre à la fermeture/réouverture du site.
+  // Elle reste locale à cet appareil/navigateur et est supprimée uniquement
+  // lors d'une déconnexion volontaire ou lorsque le refresh token n'est plus valide.
   function sauvegarderSession() {
-    if (session) sessionStorage.setItem('lsnb_session', JSON.stringify(session));
-    else sessionStorage.removeItem('lsnb_session');
+    try {
+      if (session) {
+        localStorage.setItem('lsnb_session', JSON.stringify(session));
+      } else {
+        localStorage.removeItem('lsnb_session');
+        sessionStorage.removeItem('lsnb_session');
+      }
+    } catch (e) {
+      // Repli de compatibilité si le stockage persistant est momentanément indisponible.
+      try {
+        if (session) sessionStorage.setItem('lsnb_session', JSON.stringify(session));
+        else sessionStorage.removeItem('lsnb_session');
+      } catch (_) {}
+    }
   }
 
   async function rafraichirSession() {
@@ -2549,10 +2564,27 @@ html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
     if (bouton?.disabled) return;
     if (bouton) { bouton.disabled = true; bouton.setAttribute('aria-busy', 'true'); }
 
+    const authWait = document.getElementById('auroreAuthWait');
+    const authWaitStrong = authWait?.querySelector('.aurore-auth-wait-card strong');
+    const authWaitText = document.getElementById('auroreAuthWaitText');
+    const ancienStrong = authWaitStrong?.textContent || 'Veuillez patienter';
+    const ancienText = authWaitText?.textContent || 'Aurore prépare votre espace…';
+
     try {
-      // Le compte Google est réellement déconnecté de Supabase Auth avant
-      // d'effacer l'état local historique utilisé par Aurore.
-      if (typeof window.auroreDeconnecterGoogle === 'function') {
+      // Animation volontaire et courte : elle démarre avant toute opération réseau.
+      if (typeof window.auroreAfficherVeuillezPatienter === 'function') {
+        window.auroreAfficherVeuillezPatienter('Fermeture sécurisée de votre espace…');
+      }
+      authWait?.classList.add('logout-transition');
+      if (authWaitStrong) authWaitStrong.textContent = 'À bientôt';
+      if (authWaitText) authWaitText.textContent = 'Votre session Aurore va être fermée sur cet appareil…';
+      await new Promise(resolve => setTimeout(resolve, 520));
+
+      // Pour Google, Supabase Auth ferme uniquement la session locale.
+      // Pour une connexion e-mail historique, l'application n'a pas de session
+      // SDK à révoquer : l'effacement local suffit et évite une fausse erreur.
+      if (String(session?.provider || '').toLowerCase() === 'google' &&
+          typeof window.auroreDeconnecterGoogle === 'function') {
         const { error } = await window.auroreDeconnecterGoogle();
         if (error) throw error;
       }
@@ -2572,6 +2604,10 @@ html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
         msg.style.display = 'block';
       }
     } finally {
+      if (authWaitStrong) authWaitStrong.textContent = ancienStrong;
+      if (authWaitText) authWaitText.textContent = ancienText;
+      authWait?.classList.remove('logout-transition');
+      if (typeof window.auroreCacherVeuillezPatienter === 'function') window.auroreCacherVeuillezPatienter();
       if (bouton) { bouton.disabled = false; bouton.removeAttribute('aria-busy'); }
     }
   });
@@ -2765,15 +2801,45 @@ html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
       // Nettoie l'URL pour ne pas laisser le jeton visible dans la barre d'adresse
       window.history.replaceState({}, document.title, window.location.pathname);
     } else {
-      // 2. Sinon, reprendre une session déjà enregistrée dans cet onglet
-      const saved = sessionStorage.getItem('lsnb_session');
-      if (saved) {
-        session = JSON.parse(saved);
-        if (Date.now() > session.expires_at) {
-          const ok = await rafraichirSession();
-          if (!ok) session = null;
+      // 2. Sinon, reprendre silencieusement une session déjà connue sur cet appareil.
+      // Migration unique de l'ancien sessionStorage vers localStorage pour les
+      // utilisateurs déjà connectés avant cette évolution.
+      let saved = null;
+      try {
+        saved = localStorage.getItem('lsnb_session');
+        if (!saved) {
+          const legacy = sessionStorage.getItem('lsnb_session');
+          if (legacy) {
+            localStorage.setItem('lsnb_session', legacy);
+            sessionStorage.removeItem('lsnb_session');
+            saved = legacy;
+          }
         }
-        if(session && session.banni===true){ session=null; sessionStorage.removeItem('lsnb_session'); }
+      } catch (e) {
+        try { saved = sessionStorage.getItem('lsnb_session'); } catch (_) { saved = null; }
+      }
+
+      if (saved) {
+        try {
+          session = JSON.parse(saved);
+        } catch (e) {
+          session = null;
+          try { localStorage.removeItem('lsnb_session'); } catch (_) {}
+          try { sessionStorage.removeItem('lsnb_session'); } catch (_) {}
+        }
+        if (session && Date.now() > Number(session.expires_at || 0)) {
+          const ok = await rafraichirSession();
+          if (!ok) {
+            session = null;
+            try { localStorage.removeItem('lsnb_session'); } catch (_) {}
+            try { sessionStorage.removeItem('lsnb_session'); } catch (_) {}
+          }
+        }
+        if(session && session.banni===true){
+          session=null;
+          try { localStorage.removeItem('lsnb_session'); } catch (_) {}
+          try { sessionStorage.removeItem('lsnb_session'); } catch (_) {}
+        }
       }
     }
     afficherUtilisateurConnecte();
@@ -4314,7 +4380,7 @@ html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
 <script defer src="js/aurore-floating-ai.js"></script>
 <script defer src="./js/aurore-color-theme-logic.js"></script>
 <link href="./css/aurora-floating-home.css" rel="stylesheet" media="print" onload="this.media='all'"/>
-<link rel="stylesheet" href="./css/aurore-theme-auth-pdf.css" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="./css/aurore-theme-auth-pdf.css?v=20261003-sessionflow1" media="print" onload="this.media='all'">
 
 
 <link rel="stylesheet" href="./css/aurore-pdf-grids.css?v=20260923-unifiedcards2" media="print" onload="this.media='all'">

@@ -451,3 +451,32 @@ html[data-theme="light"] .doc-row .icon-wrap.a-couverture{
   background:#EEE9F5 !important;
   border:1px solid #DDD5E9;
 }
+
+
+/* ================================================================
+   AURORE — TRANSITION DE DÉCONNEXION
+   Animation courte, déclenchée uniquement lors d'une déconnexion
+   volontaire. Elle réutilise le portail d'attente existant.
+   ================================================================ */
+.aurore-auth-wait.logout-transition .aurore-auth-wait-card{
+  animation:auroreLogoutCard .52s cubic-bezier(.22,.8,.25,1) both;
+}
+.aurore-auth-wait.logout-transition .aurore-auth-wait-icon{
+  animation:auroreLogoutIcon .52s cubic-bezier(.22,.8,.25,1) both;
+}
+.aurore-auth-wait.logout-transition .aurore-auth-wait-icon svg{
+  animation:auroreLogoutSpin .72s linear infinite;
+}
+@keyframes auroreLogoutCard{
+  0%{opacity:.35;transform:translateY(10px) scale(.96)}
+  45%{opacity:1;transform:translateY(0) scale(1.015)}
+  100%{opacity:1;transform:translateY(0) scale(1)}
+}
+@keyframes auroreLogoutIcon{
+  0%{transform:scale(.82) rotate(-35deg);opacity:.45}
+  55%{transform:scale(1.08) rotate(8deg);opacity:1}
+  100%{transform:scale(1) rotate(0);opacity:1}
+}
+@keyframes auroreLogoutSpin{
+  to{transform:rotate(360deg)}
+}
