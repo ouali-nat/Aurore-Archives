@@ -261,7 +261,7 @@ async function createTask(form){
     }
   }));
   if(!Number.isSafeInteger(id)||id<1)throw new Error('Identifiant de tâche invalide.');
-  return updateJob(id,{title,category,reference,theme_color:themeColor,resource_type:documentType,prompt,stage:'initiale',
+  return updateJob(id,{category,reference,theme_color:themeColor,resource_type:documentType,prompt,stage:'initiale',
     chatgpt_claimed:false,chatgpt_claimed_at:null,chapters:null,selected_chapter:null,proposal:null,proposal_version:0,user_validated:false,rejected:false,revision_requested:false,admin_validation:null,
     classification:{level,location,class_name:className,subject,document_type:documentType,path,category},
     execution_contract:A_EXECUTION_CONTRACT,execution_contract_acknowledged:false,completion_guard:A_EXECUTION_CONTRACT_VERSION,a_context_required:true,b_context_required:true},'draft');
