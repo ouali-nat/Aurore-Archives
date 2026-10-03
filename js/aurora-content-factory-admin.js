@@ -1159,15 +1159,26 @@ async function renderPdf(id,themeColor=null){
     await updateProductionAttemptFromDocument(id,'queued',accessToken,{production_started_at:new Date().toISOString()});
     setProgress(12,'Document envoyé au moteur LuaLaTeX…');
 
-    const request=await adminInventoryFetch(SUPABASE_URL+'/functions/v1/aurora-pdf-production-request',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},
-      body:JSON.stringify({generated_document_id:Number(id)})
-    });
-    const requestText=await request.text();
-    let requestData={};
-    try{requestData=requestText?JSON.parse(requestText):{}}catch(_){requestData={error:requestText}};
-    if(!request.ok||!requestData?.ok)throw new Error(requestData?.error||('File d’attente LuaLaTeX HTTP '+request.status));
+    let requestData=null;
+    let wakeTransportError=null;
+    try{
+      const request=await adminInventoryFetch(SUPABASE_URL+'/functions/v1/aurora-pdf-production-request',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},
+        body:JSON.stringify({generated_document_id:Number(id)})
+      });
+      const requestText=await request.text();
+      try{requestData=requestText?JSON.parse(requestText):{}}catch(_){requestData={error:requestText}};
+      if(!request.ok||!requestData?.ok)throw new Error(requestData?.error||('File d’attente LuaLaTeX HTTP '+request.status));
+    }catch(e){
+      // La demande est déjà persistée en queued avant cet appel. Si le navigateur
+      // ne peut pas joindre le réveil Edge/GitHub, le workflow planifié reprendra
+      // automatiquement la file ; ne transforme donc pas une production valide
+      // en faux échec « Failed to fetch ».
+      wakeTransportError=e;
+      console.warn('[Content Factory] Réveil GitHub différé :',e);
+      requestData={ok:true,queued:true,wake:{attempted:false,ok:false,deferred:true}};
+    }
 
     // GeoGebra navigateur est désormais strictement optionnel : GitHub Actions
     // a déjà reçu la demande manuelle et peut reprendre les graphiques manquants.
