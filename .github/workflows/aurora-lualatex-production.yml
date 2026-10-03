@@ -176,6 +176,14 @@ jobs:
           if r"\AuroreMathCompact{Relation}" in formula_block or r"\AuroreMathBlock{Relation}" in formula_block:
               raise SystemExit(f"Formula-list Relation label leaked: {formula_block!r}")
 
+          nested_math_box = render_document._math_render_command(
+              r"\(\exp(\ln(x))=x\) \(\exp(x)>0=1/\exp(x)>0\)"
+          )
+          if r"\(" in nested_math_box or r"\)" in nested_math_box:
+              raise SystemExit(
+                  f"Nested math delimiter regression: {nested_math_box!r}"
+              )
+
           paragraph_case = (
               "La réaction générale est 𝐶₂𝐻₅𝑂𝐻 + 𝐶𝐻₃𝐶𝑂𝑂𝐻 ⇌ 𝐶𝐻₃𝐶𝑂𝑂𝐶₂𝐻₅ + 𝐻₂𝑂. "
               "La double flèche décrit un équilibre."
