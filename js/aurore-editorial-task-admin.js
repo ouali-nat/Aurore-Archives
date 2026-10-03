@@ -363,7 +363,7 @@ function aResearchReady(t){
 }
 function bSelectionReady(t){
   const w=t.metadata?.workflow||{},selected=Array.isArray(w.selected_chapters)?w.selected_chapters:[];
-  const options=Array.isArray(w.chapter_options)?w.chapter_options:[];
+  const options=chapterOptionsForWorkflow(w);
   const allowed=new Set(options.map(x=>String(x?.title||x?.name||x)));
   return w.b_context_assimilation?.acknowledged===true
     &&selected.length>0
@@ -821,7 +821,7 @@ function detail(t,section){
   if(section==='B')return d+meta+'<h5 class="editor-detail-title">Chapitres disponibles</h5>'+chaptersMarkup(t);
   if(section==='C'||section==='CX')return d+meta+'<h5 class="editor-detail-title">Plan complet de production</h5>'+planForm(t,section);
   if(section==='D'||AI_WORKSPACE_SECTIONS.includes(section))return d+meta+'<h5 class="editor-detail-title">'+(section==='D'?'Production autorisée / suivi de rédaction':'Travail éditorial dans l’espace '+AI_WORKSPACE_LABELS[section])+'</h5>'+productionReadyMarkup(t);
-  const researchReady=aResearchReady(t),r=aResearchFor(t),options=Array.isArray(w.chapter_options)?w.chapter_options:[];
+  const researchReady=aResearchReady(t),r=aResearchFor(t),options=chapterOptionsForWorkflow(w);
   return d+meta+'<div class="editor-a-start"><strong>'+esc(researchReady?'Recherche et propositions persistées : la tâche peut passer en B.':'Cette tâche attend notre récupération et sa recherche documentaire.')+'</strong><span>'+esc(researchReady?'La migration sera effectuée seulement après une nouvelle lecture de Supabase et une vérification des sources et chapitres.':'Aucune migration vers B ne doit être faite tant que la recherche, ses sources et les propositions de chapitres ne sont pas écrites dans la tâche.')+'</span>'+(researchReady?'<div class="editor-plan-actions"><button type="button" class="admin-btn primary" data-a-promote="'+esc(t.id)+'">Transférer en B après vérification</button></div>':'')+'</div>';
 }
 function persistEditorialPosition(state){
