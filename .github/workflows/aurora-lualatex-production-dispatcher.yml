@@ -20,6 +20,8 @@ permissions:
 jobs:
   render:
     uses: ./.github/workflows/aurora-lualatex-production.yml
+    with:
+      manual_wake: true
     secrets: inherit
 
 # Manual PDF queue wake hardening: tolerate transient browser fetch failures and repair queued admin requests — 2026-10-03
