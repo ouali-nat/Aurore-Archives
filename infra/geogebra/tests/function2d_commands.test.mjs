@@ -56,6 +56,16 @@ test("une fonction de domaine explicite reste intacte", () => {
   );
 });
 
+test("une commande conditionnelle écrite en minuscules est normalisée pour GeoGebra", () => {
+  assert.deepEqual(
+    buildFunction2DArrayCommands(["if(x>0,1/x,0)"]),
+    {
+      commands: ["f(x)=If(x>0,1/x,0)"],
+      functionNames: ["f"],
+    },
+  );
+});
+
 test("les noms utilisés par les companions sont réservés lors de la génération", () => {
   assert.deepEqual(
     buildFunction2DArrayCommands(["x", "x^2"], ["g(x)=sin(x)"]),
