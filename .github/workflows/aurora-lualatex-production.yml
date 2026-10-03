@@ -20,6 +20,12 @@ on:
         type: string
 
   workflow_call:
+    inputs:
+      manual_wake:
+        description: "Autorise le claim d'une production PDF"
+        required: false
+        default: false
+        type: boolean
 permissions:
   contents: read
 
@@ -727,7 +733,7 @@ jobs:
       - name: Claim next generated document
         # Never let a code push or any future trigger claim a PDF by accident.
         # workflow_call is used only by the manually dispatched production dispatcher.
-        if: github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
+        if: inputs.manual_wake == true
         run: |
           mkdir -p infra/lualatex/production
           curl --fail --silent --show-error --retry 4 --retry-delay 2 \
