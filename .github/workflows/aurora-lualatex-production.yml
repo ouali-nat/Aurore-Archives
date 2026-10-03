@@ -184,6 +184,14 @@ jobs:
                   f"Nested math delimiter regression: {nested_math_box!r}"
               )
 
+          nested_course_math = render_document._render_course_inline_math(
+              r"\(\exp(\ln(x))=x\) \(\exp(x)>0=1/\exp(x)>0\)"
+          )
+          if r"\(" in nested_course_math or r"\)" in nested_course_math:
+              raise SystemExit(
+                  f"Nested course math delimiter regression: {nested_course_math!r}"
+              )
+
           paragraph_case = (
               "La réaction générale est 𝐶₂𝐻₅𝑂𝐻 + 𝐶𝐻₃𝐶𝑂𝑂𝐻 ⇌ 𝐶𝐻₃𝐶𝑂𝑂𝐶₂𝐻₅ + 𝐻₂𝑂. "
               "La double flèche décrit un équilibre."
