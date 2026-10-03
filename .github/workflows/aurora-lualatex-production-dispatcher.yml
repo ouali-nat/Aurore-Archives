@@ -1,6 +1,9 @@
 name: Aurora LuaLaTeX production dispatcher
 
 on:
+  push:
+    paths:
+      - ".github/workflows/aurora-lualatex-production-dispatcher.yml"
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
