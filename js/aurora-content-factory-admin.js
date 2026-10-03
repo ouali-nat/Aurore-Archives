@@ -1159,7 +1159,7 @@ async function renderPdf(id,themeColor=null){
     await updateProductionAttemptFromDocument(id,'queued',accessToken,{production_started_at:new Date().toISOString()});
     setProgress(12,'Document envoyé au moteur LuaLaTeX…');
 
-    const request=await adminInventoryFetch(SUPABASE_URL+'/functions/v1/aurora-lualatex-request',{
+    const request=await adminInventoryFetch(SUPABASE_URL+'/functions/v1/aurora-pdf-production-request',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},
       body:JSON.stringify({generated_document_id:Number(id)})
