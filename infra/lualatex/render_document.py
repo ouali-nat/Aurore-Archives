@@ -2458,7 +2458,7 @@ def _strip_nested_inline_math_delimiters(body):
     value = str(body or "")
     # Math boxes already provide their own TeX math environment. A content
     # fragment such as \\(x\\) must therefore keep only the mathematical body.
-    for delimiter in (r"\\(", r"\\)", r"\\[", r"\\]", r"\\\\(", r"\\\\)"):
+    for delimiter in (r"\(", r"\)", r"\[", r"\]"):
         value = value.replace(delimiter, "")
     return value
 def _math_render_command(body, label="Relation"):
