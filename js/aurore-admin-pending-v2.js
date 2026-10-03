@@ -289,11 +289,12 @@ async function compterDocumentsEnAttente(){
    const revisionRequested=workflow?.revision_requested===true;
    const workflowStage=String(workflow?.stage||'').trim().toLowerCase();
    const productionStatus=String(workflow?.production_status||'').trim().toLowerCase();
-   const isSectionDReady=Boolean(j.generated_document_id)&&statusOf(j)==='review'&&productionStatus==='ready_for_editing';
    if(revisionRequested)return false;
-   if(workflowStage && workflowStage!=='edition_ready' && workflowStage!=='production_ready' && workflowStage!=='pdf_ready' && workflowStage!=='production_terminee' && !isSectionDReady)return false;
+   if(workflowStage!=='production_terminee')return false;
+   if(statusOf(j)!=='review')return false;
+   if(productionStatus!=='queued' && productionStatus!=='editorial_completed')return false;
    const gid=Number(j.generated_document_id||0);
-   if(!gid)return true;
+   if(!gid)return false;
    const d=docMap.get(gid);
    return !!d && !d.pdf_url && !d.pdf_path;
   }).length;
