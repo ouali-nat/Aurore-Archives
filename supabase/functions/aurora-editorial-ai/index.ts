@@ -188,7 +188,7 @@ function baseSchema(){
     required:["schema_version","title","introduction","course_profile","sources","visual_plan","geogebra_plan","synthesis","sections"],
     properties:{
       schema_version:{type:"string",const:"aurora-editorial-1"},
-      title:{type:"string",minLength:3},
+      title:{type:"string",minLength:12,maxLength:180,pattern:"^[^‐‑‒–—―−-]+$"},
       introduction:{type:"string",minLength:450},
       course_profile:{
         type:"object",additionalProperties:false,
@@ -240,7 +240,7 @@ function taskContext(t:any, memories:any[]){
     exact_rules:{
       no_invented_sources:true,
       course_standard_minimum_words:1500,
-      course_exercise_profile:"at least 1 integrated substantial exercise; no artificial upper limit; each supplied exercise must be substantial and have a complete correction; hints optional",
+      course_exercise_profile:"exactly 2 or 3 substantial exercises, grouped only in the final exercise section; no exercises embedded in teaching sections; each exercise must have a complete correction; hints optional",
       introduction_minimum_characters:450,
       max_sections:30,
       scientific_lycee_latex_minimum:1200,
@@ -260,7 +260,8 @@ function buildPrompt(ctx:any, repairFeedback:string){
   const requirements=[
     "Rédige un document pédagogique réel, directement exploitable, pas un plan et pas un résumé.",
     "Réponds uniquement avec le JSON demandé, sans Markdown, sans commentaire hors JSON.",
-    "Le titre du JSON doit correspondre exactement au titre de la tâche.",
+    "Le titre du JSON est un titre éditorial dont tu es responsable. Tu dois choisir toi-même un titre clair, précis et naturel à partir du sujet, du niveau, de la classe, de la matière et du contenu réellement rédigé. Il doit nommer le cours et non l’état technique de la tâche. Ne recopie jamais le titre technique de la tâche lorsqu’il est générique comme « Document en préparation ». Ne commence pas par « Document pédagogique », « Document en préparation » ou une formule technique équivalente.",
+    "RÈGLE ABSOLUE DE TITRE : aucun tiret, trait d’union, tiret demi cadratin, tiret cadratin ou signe moins ne doit apparaître dans le titre. Utilise à la place des mots, des virgules ou des deux points lorsque cela améliore la formulation. Relis le titre avant de retourner le JSON.",
     "Le cours standard doit contenir au moins 1500 mots utiles en comptant uniquement introduction + sections[].content, sans plafond de volume.",
     "Produis entre 12 et 24 sections pédagogiques distinctes. Aucune section ne doit être un remplissage générique.",
     "Chaque section non Introduction/Synthèse/Évaluation finale contient au moins deux sous-sections réellement développées.",
@@ -270,7 +271,9 @@ function buildPrompt(ctx:any, repairFeedback:string){
     "Chaque formule doit être pédagogiquement utile et accompagnée de texte explicatif ; ne fabrique pas de formules décoratives.",
     "Évite les formulations répétitives et les modèles interdits comme « étude spécifique de ce sous-thème » ou « Résoudre un problème nouveau portant sur... ».",
     "Pour un cours, privilégie des exercices d'application intégrés et substantiels plutôt qu'une succession de mini-exercices.",
-    "Un cours doit contenir au moins un exercice intégré substantiel. Le nombre d'exercices n'est pas plafonné artificiellement : chaque exercice supplémentaire doit cependant apporter une compétence, un raisonnement ou une situation réellement utile.",
+    "Un cours doit contenir exactement 2 ou 3 exercices substantiels, pas davantage. Les exercices ne doivent apparaître que dans la dernière section consacrée aux exercices. Les sections d’enseignement précédentes ne doivent contenir aucun exercice ni correction d’exercice.",
+    "Le bloc final des exercices doit regrouper les 2 ou 3 énoncés, puis leurs corrections doivent rester séparées mais rattachées exactement aux mêmes identifiants.",
+    "Si le sujet peut être traité avec 2 exercices solides, choisis 2. Utilise 3 seulement si un troisième apporte une compétence réellement distincte. Ne crée jamais un quatrième exercice pour augmenter le volume.",
     "Chaque exercice intégré de cours doit disposer d'une correction complète, rattachée au même exercice, reprenant ses données, notations et questions.",
     "L'indication est facultative : ne crée jamais une indication uniquement pour remplir une structure. Lorsqu'elle est utile, elle peut être fournie globalement ou paragraphe par paragraphe.",
     "Une indication ne remplace jamais la correction et ne doit pas devenir une micro-solution.",
@@ -489,12 +492,19 @@ function validateShape(content:any, t:any){
     if(visualCount<1 || visualCount>8) throw new Error("Un cours documentaire doit contenir 1 à 8 visuels Wikimedia.");
   }
   if(isCourse(t.document_type)){
-    const courseExercises:any[]=[];
-    content.sections.forEach((s:any)=>{
-      if(Array.isArray(s.exercises)) courseExercises.push(...s.exercises);
-    });
-    if(courseExercises.length<1) {
-      throw new Error("COURSE_EXERCISE_PROFILE: au moins un exercice intégré substantiel est requis.");
+    const exerciseSections=content.sections
+      .map((s:any,i:number)=>({section:s,index:i}))
+      .filter((x:any)=>Array.isArray(x.section.exercises) && x.section.exercises.length>0);
+    const courseExercises:any[]=exerciseSections.flatMap((x:any)=>x.section.exercises);
+    if(exerciseSections.length!==1) {
+      throw new Error("COURSE_EXERCISE_PROFILE: les exercices d’un cours doivent être regroupés dans une seule section finale.");
+    }
+    const finalSectionIndex=content.sections.length-1;
+    if(exerciseSections[0]?.index!==finalSectionIndex) {
+      throw new Error("COURSE_EXERCISE_PROFILE: la section contenant les exercices doit être la dernière section du cours.");
+    }
+    if(courseExercises.length<2 || courseExercises.length>3) {
+      throw new Error("COURSE_EXERCISE_PROFILE: un cours doit contenir exactement 2 ou 3 exercices substantiels.");
     }
     const ids=new Set<string>();
     for(const ex of courseExercises){
@@ -691,7 +701,7 @@ function buildIngestPayload(t:any,w:any,content:any,provider:string,runId:string
   return {
     ingestId,
     payload:{
-      ingest_id:ingestId,job_id:String(t.id),title:t.title,subject:t.subject,level:t.level,class_name:t.class_name,
+      ingest_id:ingestId,job_id:String(t.id),title:content.title,subject:t.subject,level:t.level,class_name:t.class_name,
       document_type:t.document_type,prompt:t.prompt||null,content_json:content,instructions:t.instructions||{},
       metadata:{
         origin:"gpt_editorial_ingest",connector_mode:true,ai_provider:provider,
