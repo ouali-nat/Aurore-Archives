@@ -219,17 +219,14 @@ async function chargerDocumentsEnAttenteAdminV2(){
     const revisionRequested=workflow?.revision_requested===true;
     const workflowStage=String(workflow?.stage||'').trim().toLowerCase();
     const productionStatus=String(workflow?.production_status||'').trim().toLowerCase();
-    const isSectionDReady=Boolean(j.generated_document_id)&&statusOf(j)==='review'&&productionStatus==='ready_for_editing';
-    // Un document placé en Section E ne reste plus dans le sas PDF :
-    // E devient son emplacement éditorial jusqu'à la reprise explicite en D.
+    // Le sas PDF ne contient que des productions D réellement terminées.
+    // Les brouillons, tâches CX/C et traitements IA restent dans Content Factory / Section D.
     if(revisionRequested) return false;
-    // Les tâches encore dans le circuit éditorial B/C ne doivent jamais entrer dans le sas D.
-    // Une production D effectivement ingérée peut conserver workflow.stage=redaction :
-    // le contrat d'ingestion la place alors en review avec production_status=ready_for_editing.
-    // Cette combinaison est donc une preuve persistée que D est arrivé dans le sas.
-    if(workflowStage && workflowStage!=='edition_ready' && workflowStage!=='production_ready' && workflowStage!=='pdf_ready' && workflowStage!=='production_terminee' && !isSectionDReady)return false;
+    if(workflowStage!=='production_terminee') return false;
+    if(statusOf(j)!=='review') return false;
+    if(productionStatus!=='queued' && productionStatus!=='editorial_completed') return false;
     const gid=Number(j.generated_document_id||0);
-    if(!gid)return true;
+    if(!gid) return false;
     const d=docMap.get(gid);
     if(!d)return false;
     if(!d.pdf_url && !d.pdf_path)return true;
