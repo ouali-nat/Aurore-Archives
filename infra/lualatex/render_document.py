@@ -2453,8 +2453,21 @@ def _math_fragment_is_blockworthy(fragment):
         return True
     return False
 
+def _strip_nested_inline_math_delimiters(body):
+    """Remove math delimiters duplicated inside an Aurore math box."""
+    value = str(body or "")
+    # Math boxes already provide their own TeX math environment. A content
+    # fragment such as \\(x\\) must therefore keep only the mathematical body.
+    value = re.sub(r"\\{1,2}\\(", "", value)
+    value = re.sub(r"\\{1,2}\\)", "", value)
+    value = re.sub(r"\\{1,2}\\[", "", value)
+    value = re.sub(r"\\{1,2}\\]", "", value)
+    return value
+
+
 def _math_render_command(body, label="Relation"):
     normalized = normalize_math(str(body or "").strip())
+    normalized = _strip_nested_inline_math_delimiters(normalized).strip()
     if not normalized:
         return ""
     normalized_label = clean_text(label).strip().lower()
