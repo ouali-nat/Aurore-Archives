@@ -12,7 +12,8 @@ function cleanExpression(raw) {
     .replace(/−/g, "-")
     .replace(/√\s*\(/g, "sqrt(")
     .replace(/\bln\s*\(/gi, "ln(")
-    .replace(/\blog\s*\(/gi, "log(");
+    .replace(/\blog\s*\(/gi, "log(")
+    .replace(/\bif\s*\(/gi, "If(");
   if (/\bx\b/i.test(s)) return s;
   if (/\bt\b/i.test(s)) return s.replace(/\bt\b/g, "x");
   return s;
