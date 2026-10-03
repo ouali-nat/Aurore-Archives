@@ -246,7 +246,7 @@ async function createTask(form){
   const level=String(form.level||className||'').trim();
   const path=Array.isArray(form.path)?form.path.map(x=>String(x||'').trim()).filter(Boolean):[];
   const location=String(form.location||path.join(' · ')||className||'').trim();
-  const category=String(form.category||'').trim(),prompt=String(form.prompt||'').trim(),reference=String(form.reference||'').trim();
+  const category='Documents',prompt=String(form.prompt||'').trim(),reference=String(form.reference||'').trim();
   const themeColor=normalizeAThemeColor(form.themeColor||'#6D28D9');
   const id=Number(await rpc('aurora_create_content_job',{
     p_title:'Document en préparation',p_subject:subject,p_level:level,p_class_name:className,p_document_type:documentType,
@@ -1273,7 +1273,83 @@ function bindDetail(d,t,state){
     d.querySelectorAll('[data-plan-field]').forEach(el=>{const key=map[el.dataset.planField];if(key)e[key]=el.value.trim()});
     return e;
   };
-  const editorialPayload=e=>({title:e.title,sections:[
+  function parseExerciseEditorialValue(raw,field){
+    if(Array.isArray(raw))return raw;
+    const text=String(raw||'').trim();
+    if(!text)return [];
+    try{
+      const parsed=JSON.parse(text);
+      if(Array.isArray(parsed))return parsed;
+      if(parsed&&Array.isArray(parsed.exercises))return parsed.exercises;
+    }catch(_){}
+    const matches=[...text.matchAll(/(?:^|\n)\s*(?:exercice|exercise)\s*(\d+)\s*[:.\-–—]?\s*/gi)];
+    if(matches.length){
+      return matches.map((m,i)=>{
+        const end=i+1<matches.length?matches[i+1].index:text.length;
+        const body=text.slice(m.index+m[0].length,end).trim();
+        return field==='corrections'
+          ? {exercise_number:Number(m[1]),correction:body}
+          : {exercise_number:Number(m[1]),title:'Exercice '+m[1],statement:body};
+      });
+    }
+    const chunks=text.split(/\n\s*\n+/).map(x=>x.trim()).filter(Boolean);
+    return chunks.map((body,i)=>field==='corrections'
+      ? {exercise_number:i+1,correction:body}
+      : {exercise_number:i+1,title:'Exercice '+(i+1),statement:body});
+  }
+  function exerciseEditorialPayload(e,t){
+    const exercises=parseExerciseEditorialValue(e.exercises,'exercises');
+    const corrections=parseExerciseEditorialValue(e.corrections,'corrections');
+    const byNumber=new Map();
+    corrections.forEach((c,i)=>{
+      const n=Number(c?.exercise_number||c?.number||i+1);
+      byNumber.set(n,String(c?.correction||c?.solution||c?.details||c?.content||'').trim());
+    });
+    const normalized=exercises.map((x,i)=>{
+      const n=Number(x?.exercise_number||x?.number||i+1);
+      return {
+        exercise_number:n,
+        title:String(x?.title||('Exercice '+n)).trim(),
+        statement:String(x?.statement||x?.question||x?.enonce||x?.content||'').trim(),
+        correction:String(x?.correction||x?.solution||x?.details||byNumber.get(n)||'').trim(),
+        difficulte:x?.difficulte||x?.difficulty||null,
+        competences:Array.isArray(x?.competences)?x.competences:[],
+        statement_graphs:Array.isArray(x?.statement_graphs)?x.statement_graphs:[],
+        correction_graphs:Array.isArray(x?.correction_graphs)?x.correction_graphs:[],
+        metadata:x?.metadata&&typeof x.metadata==='object'?x.metadata:{}
+      };
+    });
+    const subject=String(t?.subject||'');
+    const supported=/(math|mathematiques|mathématiques|physique|chimie|sciences physiques|(^|\s)pc(\s|$))/i.test(subject);
+    const decisions=normalized.map((x,i)=>({
+      exercise_number:i+1,
+      statement:x.statement_graphs.length
+        ? {decision:'build',graph_ids:x.statement_graphs.map(g=>String(g?.id||'')).filter(Boolean)}
+        : {decision:'not_needed',rationale:supported?'Aucune construction GeoGebra explicite n’est présente dans l’énoncé final.':'Aucune construction GeoGebra n’est requise pour cet énoncé.'},
+      correction:x.correction_graphs.length
+        ? {decision:'build',graph_ids:x.correction_graphs.map(g=>String(g?.id||'')).filter(Boolean)}
+        : {decision:'not_needed',rationale:supported?'Aucune construction GeoGebra explicite n’est présente dans le corrigé final.':'Aucune construction GeoGebra n’est requise pour ce corrigé.'}
+    }));
+    const plan={schema_version:'exercise-geogebra-plan-1',decisions};
+    return {
+      title:e.title,
+      subject,
+      sections:normalized.map(x=>({
+        title:x.title,
+        content:[x.statement],
+        exercises:[x],
+        corrections:[{exercise_number:x.exercise_number,exercise_id:'exercise-'+x.exercise_number,content:x.correction,graphs:x.correction_graphs}],
+        graphs:[]
+      })),
+      corrections:normalized.map(x=>({exercise_number:x.exercise_number,exercise_id:'exercise-'+x.exercise_number,content:x.correction,graphs:x.correction_graphs})),
+      exercise_geogebra_plan:plan,
+      metadata:{exercise_geogebra_plan:plan}
+    };
+  }
+  const editorialPayload=(e,t=null)=>{
+    const rawType=String(t?.document_type||'').trim().toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[-_]+/g,' ').replace(/\s+/g,' ').trim();
+    if(rawType==='serie d exercices'||rawType==='serie exercices')return exerciseEditorialPayload(e,t);
+    return {title:e.title,sections:[
     {title:'Introduction et situation de départ',content:e.introduction},
     {title:'Contenu du cours',content:e.content},
     {title:'Méthodes et démarches',content:e.methods},
@@ -1284,7 +1360,8 @@ function bindDetail(d,t,state){
     {title:'Différenciation',content:e.differentiation},
     {title:'Évaluation',content:e.evaluation},
     {title:'Synthèse',content:e.synthesis}
-  ].filter(x=>x.content||x.title==='Contenu du cours')});
+  ].filter(x=>x.content||x.title==='Contenu du cours')};
+  };
   function dDocumentProfile(t){
     const raw=String(t?.document_type||'').trim().toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[-_]+/g,' ').replace(/\s+/g,' ').trim();
     if(raw==='qcm')return {kind:'document',version:'document-v1',lock:true,document_type:'QCM',subtype:'qcm'};
@@ -1316,7 +1393,7 @@ function bindDetail(d,t,state){
     const result=await rpc('aurora_scientific_preflight',{
       p_subject:t.subject,
       p_document_type:t.document_type||'cours',
-      p_content_json:editorialPayload(e)
+      p_content_json:editorialPayload(e,t)
     });
     const report=(result&&typeof result==='object')?result:{};
     const metrics=report.metrics&&typeof report.metrics==='object'?report.metrics:{};
@@ -1373,7 +1450,16 @@ function bindDetail(d,t,state){
       const ingestId='AUR-D-'+t.id+'-v'+Number(fw.proposal_version||1)+(revisionNo>0?'-R'+revisionNo:'');
       const dProfile=dDocumentProfile(t);
       const payload={ingest_id:ingestId,job_id:Number(t.id),title:e.title,subject:t.subject,level:t.level,class_name:t.class_name,document_type:t.document_type||'Cours',content_json:editorialPayload(e),instructions:{category:'Documents',source:'Aurore — Section D',workflow_stage:'edition',manual_pdf_launch_required:true,profile:dProfile},metadata:{origin:'Aurore — Section D',source_job_id:t.id,chapter:proposalFor(fresh).chapter,workflow_stage:'edition',auto_pdf_launch:false,manual_pdf_launch_only:true,aurore_profile:dProfile},matiere:t.subject,theme_color:proposalFor(fresh).pdfThemeColor||'#6D28D9'};
-      const ingested=await rpc('aurora_connector_ingest_editorial_document',{p_payload:payload});
+      const isExerciseProfile=dProfile?.kind==='exercices'&&dProfile?.version==='exercise-sheet-v2';
+      const ingested=isExerciseProfile
+        ? await rpc('aurora_ingest_exercise_series_editorial',{p_payload:{
+            ingest_id:ingestId,content_job_id:Number(t.id),title:e.title,subject:t.subject,level:t.level,class_name:t.class_name,
+            matiere:t.subject,prompt:e.content||'',filiere:t.metadata?.filiere||'',
+            profile:dProfile,presentation:{type:'exercise_series',sequence:['title','toc','exercise','correction'],compact_text:true,formula_priority:true,detailed_corrections:true},
+            content_json:editorialPayload(e,t),
+            metadata:{origin:'gpt_editorial_ingest',source_job_id:t.id,workflow_stage:'edition',auto_pdf_launch:false,manual_pdf_launch_only:true,aurore_profile:dProfile}
+          }})
+        : await rpc('aurora_connector_ingest_editorial_document',{p_payload:payload});
       const docId=Number(ingested?.generated_document_id);
       if(!Number.isSafeInteger(docId)||docId<1)throw new Error('Le pont éditorial n’a pas retourné de generated_document_id.');
       const done=await updateJob(t.id,{stage:'production_terminee',production_status:'editorial_completed',production_completed_at:new Date().toISOString(),generated_document_id:docId,pending_admin_surface:'documents_en_attente',editorial_ingest_id:ingestId,auto_pdf_launch:false,manual_pdf_launch_required:true,execution_contract:D_EXECUTION_CONTRACT,completion_guard:D_EXECUTION_CONTRACT_VERSION},'review');
