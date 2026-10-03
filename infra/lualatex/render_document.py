@@ -3806,8 +3806,16 @@ def render(data):
             raise ValueError(
                 "Exercise profile QA failed: " + " | ".join(exercise_qa[:8])
             )
-    else:
-        # Canonical course exercise contract:
+    elif str(
+        (
+            data.get("metadata")
+            if isinstance(data.get("metadata"), dict)
+            else {}
+        ).get("origin") or ""
+    ).strip().lower() == "gpt_editorial_ingest":
+        # Canonical course exercise contract applies to new editorial ingest
+        # only. Legacy/manual courses keep their historical open exercise count.
+
         # 2 to 3 exercises, only in the final course section, each with a
         # 100-word minimum statement and exactly one correction. The PDF
         # renderer mirrors the editorial contract so an invalid document
