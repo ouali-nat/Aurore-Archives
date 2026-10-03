@@ -62,7 +62,7 @@ async function launch(j){
    }
    // Repli de sécurité : le lancement reste strictement manuel et passe par
    // l'Edge Function canonique, qui inscrit admin_request et réveille GitHub.
-   const fallback=await adminFetch(SUPABASE_URL+'/functions/v1/aurora-lualatex-request',{
+   const fallback=await adminFetch(SUPABASE_URL+'/functions/v1/aurora-pdf-production-request',{
      method:'POST',
      headers:{'Content-Type':'application/json'},
      body:JSON.stringify({generated_document_id:Number(j.generatedDocumentId)})
