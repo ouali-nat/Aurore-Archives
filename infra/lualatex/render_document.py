@@ -1621,6 +1621,10 @@ def _repair_common_math_command_corruption(s):
     s = re.sub(r"(?<!\\)\b(?:qquad|quad)\b", lambda m: "\\" + m.group(0), s)
     s = re.sub(r"(?<!\\)\bwidetilde(?=\s*(?:\{|[A-Za-z]))", lambda _m: r"\widetilde", s)
     s = re.sub(r"(?<!\\)setminus(?=\s*(?:\{|[A-Za-z]))", lambda _m: r"\setminus", s)
+    # Geometry segment identifiers are not LaTeX commands. Upstream content can
+    # occasionally emit \\AB, \\AC or \\BC; LuaLaTeX would treat those as undefined
+    # control sequences. Repair only this explicit uppercase geometry vocabulary.
+    s = re.sub(r"\\(?:AB|AC|BC|ABC)(?![A-Za-z])", lambda m: m.group(0)[1:], s)
     return s
 
 def normalize_math(s):
