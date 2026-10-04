@@ -3880,8 +3880,8 @@ def _repair_course_inline_math_delimiters(tex):
     # followed by /denominator, keep the complete fraction inside the same box.
     trailing_fraction = (
         r"\\\(([\\s\\S]*?)\\\)"
-        r"(\\s*/\\s*(?:\\\\[A-Za-z]+|\\d+(?:[.,]\\d+)?|"
-        r"\\([^()\\n]{1,80}\\)))?"
+        r"(\s*/\s*(?:\\[A-Za-z]+|\d+(?:[.,]\d+)?|"
+        r"\([^()\n]{1,80}\)))?"
     )
     return re.sub(trailing_fraction, repair, source)
 
