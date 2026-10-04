@@ -2399,7 +2399,7 @@ _PLAIN_MATH_FORMULA_RE = re.compile(
 )
 
 _PLAIN_MATH_RELATION_RE = re.compile(
-    r"(?<![A-Za-zÀ-ÿ0-9_\\/()\\[\\]{])"
+    r"(?<![A-Za-zÀ-ÿ0-9_])"
     r"(?P<expr>"
     + _PLAIN_MATH_ATOM + r"{1,120}?"
     + r"(?:=|→|≤|≥|≠|∈)"
@@ -2557,6 +2557,11 @@ def _render_plain_with_inline_math(segment, auto_math=False):
             candidates.append((match.start(), match.end(), fragment))
 
     for match in _PLAIN_MATH_RELATION_RE.finditer(source):
+        # Do not start a plain-math box in the middle of a parenthesized or
+        # slash-delimited expression (e.g. the "3)=1/2" tail of cos(π/3)=1/2).
+        # Keep the generic extractor unchanged; this guard is only for prose.
+        if match.start() > 0 and source[match.start() - 1] in r"\/()[]{}":
+            continue
         fragment = match.group(0).strip()
         if fragment and _looks_like_plain_math_fragment(fragment):
             candidates.append((match.start(), match.end(), fragment))
