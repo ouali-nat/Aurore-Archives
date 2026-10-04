@@ -6,7 +6,11 @@ if(typeof window==='undefined')return;
 if(typeof window.adminInventoryFetch!=='function')window.adminInventoryFetch=async function(url,options={},retry=true,networkAttempt=0){
   const token=(typeof session!=='undefined'&&session&&session.access_token)||'';
   const headers={...(options.headers||{}),apikey:SUPABASE_ANON_KEY};
-  if(token)headers.Authorization='Bearer '+token;
+  // Respect an explicit Authorization header supplied by a caller that has
+  // already obtained a fresh Supabase token. The editorial admin loader does
+  // this deliberately so a stale/empty global `session` cannot downgrade a
+  // valid authenticated request to anon and receive a misleading RLS `[]`.
+  if(!headers.Authorization && token)headers.Authorization='Bearer '+token;
   let response;
   try{
     response=await fetch(url,{...options,headers,cache:'no-store'});
