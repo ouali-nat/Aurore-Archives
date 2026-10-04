@@ -1,77 +1,134 @@
 /*
- * Aurore — Glass System V1
- * Couche visuelle terminale : ne modifie ni le DOM, ni le JavaScript,
- * ni la navigation. Elle remplace progressivement les surfaces opaques
- * par un verre hiérarchisé, compatible avec les thèmes clair/sombre.
+ * Aurore — Glass System V2
+ * Couche visuelle terminale.
+ * Objectif : vrai effet verre flottant + fond chromatique persistant.
+ * Ne modifie ni le DOM, ni le JavaScript, ni la navigation.
  *
- * Contrat de personnalisation du fond :
+ * Contrat du fond :
  *   --aurore-background-color
  *   --aurore-background-image
  *   --aurore-background-overlay
- * Une future interface de choix de fond peut modifier ces variables
- * sans toucher à cette couche.
  */
 
 :root{
-  /* Le fond dérive automatiquement de la couleur choisie dans Aurore.
-     Les valeurs de secours restent valides avant l'initialisation du thème. */
-  --aurore-background-color:#090812;
+  --aurore-background-color:#0A0812;
   --aurore-background-image:
-    radial-gradient(circle at 7% 0%,color-mix(in srgb,var(--theme-secondary,#C084FC) 19%,transparent),transparent 31%),
-    radial-gradient(circle at 94% 13%,color-mix(in srgb,var(--theme-primary,#8B5CF6) 15%,transparent),transparent 30%),
-    radial-gradient(circle at 50% 105%,color-mix(in srgb,var(--theme-strong,#6D28D9) 12%,transparent),transparent 40%),
-    linear-gradient(150deg,color-mix(in srgb,var(--aurore-background-color) 92%,var(--theme-strong,#6D28D9) 8%),var(--aurore-background-color) 52%,color-mix(in srgb,var(--aurore-background-color) 94%,var(--theme-primary,#8B5CF6) 6%));
+    radial-gradient(820px 620px at 4% -4%,color-mix(in srgb,var(--theme-secondary,#C084FC) 32%,transparent),transparent 70%),
+    radial-gradient(760px 560px at 96% 6%,color-mix(in srgb,var(--theme-primary,#8B5CF6) 27%,transparent),transparent 69%),
+    radial-gradient(900px 680px at 58% 108%,color-mix(in srgb,var(--theme-strong,#6D28D9) 21%,transparent),transparent 68%),
+    radial-gradient(520px 430px at 48% 38%,color-mix(in srgb,var(--theme-secondary,#C084FC) 9%,transparent),transparent 72%),
+    linear-gradient(145deg,#08070D 0%,#0D0A16 46%,#0A0812 100%);
   --aurore-background-overlay:transparent;
 
-  --aurore-glass-main:rgba(22,19,36,.70);
-  --aurore-glass-card:rgba(27,24,43,.56);
-  --aurore-glass-soft:rgba(255,255,255,.055);
-  --aurore-glass-control:rgba(255,255,255,.075);
-  --aurore-glass-modal:rgba(18,16,31,.84);
-  --aurore-glass-border:rgba(255,255,255,.13);
-  --aurore-glass-border-strong:rgba(255,255,255,.20);
-  --aurore-glass-shadow:0 18px 52px rgba(0,0,0,.25);
-  --aurore-glass-shadow-soft:0 10px 30px rgba(0,0,0,.18);
-  --aurore-glass-blur:18px;
-  --aurore-glass-saturate:1.15;
-  --aurore-glass-ink:#F7F3FC;
+  --aurore-glass-main:
+    linear-gradient(135deg,
+      color-mix(in srgb,#1D1830 72%,var(--theme-primary,#8B5CF6) 8%),
+      color-mix(in srgb,#110E1B 58%,transparent 42%));
+  --aurore-glass-card:
+    linear-gradient(135deg,
+      color-mix(in srgb,#211B35 58%,var(--theme-primary,#8B5CF6) 8%),
+      color-mix(in srgb,#0F0C18 46%,transparent 54%));
+  --aurore-glass-soft:
+    linear-gradient(135deg,
+      color-mix(in srgb,#FFFFFF 8%,var(--theme-primary,#8B5CF6) 9%,transparent),
+      color-mix(in srgb,#FFFFFF 4%,transparent));
+  --aurore-glass-control:
+    linear-gradient(135deg,
+      color-mix(in srgb,#FFFFFF 10%,var(--theme-primary,#8B5CF6) 7%,transparent),
+      color-mix(in srgb,#FFFFFF 5%,transparent));
+  --aurore-glass-modal:
+    linear-gradient(135deg,
+      color-mix(in srgb,#20192F 82%,var(--theme-primary,#8B5CF6) 7%),
+      color-mix(in srgb,#0F0C17 76%,transparent));
+  --aurore-glass-border:color-mix(in srgb,var(--theme-secondary,#C084FC) 24%,rgba(255,255,255,.15));
+  --aurore-glass-border-strong:color-mix(in srgb,var(--theme-primary,#8B5CF6) 34%,rgba(255,255,255,.20));
+  --aurore-glass-shadow:
+    0 24px 70px color-mix(in srgb,var(--theme-primary,#8B5CF6) 10%,rgba(0,0,0,.32)),
+    0 8px 24px rgba(0,0,0,.16);
+  --aurore-glass-shadow-soft:
+    0 18px 48px color-mix(in srgb,var(--theme-primary,#8B5CF6) 8%,rgba(0,0,0,.24)),
+    0 4px 16px rgba(0,0,0,.10);
+  --aurore-glass-inset:inset 0 1px 0 rgba(255,255,255,.14),inset 0 -1px 0 rgba(0,0,0,.08);
+  --aurore-glass-blur:26px;
+  --aurore-glass-saturate:1.34;
+  --aurore-glass-ink:#F8F5FC;
   --aurore-glass-muted:#C9C1D4;
-  --aurore-glass-field:rgba(255,255,255,.075);
+  --aurore-glass-field:
+    linear-gradient(135deg,
+      color-mix(in srgb,#FFFFFF 10%,var(--theme-primary,#8B5CF6) 5%,transparent),
+      color-mix(in srgb,#FFFFFF 5%,transparent));
 }
 
 html[data-theme="light"]{
-  --aurore-background-color:color-mix(in srgb,#F3F1F8 91%,var(--theme-primary,#8B5CF6) 9%);
+  --aurore-background-color:#F4F2F9;
   --aurore-background-image:
-    radial-gradient(circle at 7% 0%,color-mix(in srgb,var(--theme-secondary,#C084FC) 16%,transparent),transparent 30%),
-    radial-gradient(circle at 94% 13%,color-mix(in srgb,var(--theme-primary,#8B5CF6) 12%,transparent),transparent 29%),
-    radial-gradient(circle at 52% 104%,color-mix(in srgb,var(--theme-strong,#6D28D9) 9%,transparent),transparent 42%),
-    linear-gradient(150deg,color-mix(in srgb,#F3F1F8 90%,var(--theme-primary,#8B5CF6) 10%),#F3F1F8 54%,color-mix(in srgb,#F3F1F8 95%,var(--theme-secondary,#C084FC) 5%));
-  --aurore-background-overlay:rgba(255,255,255,.10);
-
-  --aurore-glass-main:rgba(255,255,255,.64);
-  --aurore-glass-card:rgba(255,255,255,.53);
-  --aurore-glass-soft:rgba(255,255,255,.36);
-  --aurore-glass-control:rgba(255,255,255,.55);
-  --aurore-glass-modal:rgba(255,255,255,.84);
-  --aurore-glass-border:rgba(76,29,149,.16);
-  --aurore-glass-border-strong:rgba(76,29,149,.26);
-  --aurore-glass-shadow:0 18px 48px rgba(55,36,82,.15);
-  --aurore-glass-shadow-soft:0 10px 28px rgba(55,36,82,.10);
+    radial-gradient(900px 680px at 2% -6%,color-mix(in srgb,var(--theme-secondary,#C084FC) 25%,transparent),transparent 70%),
+    radial-gradient(820px 620px at 98% 3%,color-mix(in srgb,var(--theme-primary,#8B5CF6) 19%,transparent),transparent 69%),
+    radial-gradient(920px 720px at 55% 106%,color-mix(in srgb,var(--theme-strong,#6D28D9) 13%,transparent),transparent 68%),
+    radial-gradient(520px 420px at 44% 42%,color-mix(in srgb,var(--theme-secondary,#C084FC) 7%,transparent),transparent 72%),
+    linear-gradient(145deg,#FAF9FC 0%,#F4F2F9 52%,#F1EEF7 100%);
+  --aurore-glass-main:
+    linear-gradient(135deg,
+      color-mix(in srgb,#FFFFFF 76%,var(--theme-primary,#8B5CF6) 8%),
+      color-mix(in srgb,#FFFFFF 52%,transparent 48%));
+  --aurore-glass-card:
+    linear-gradient(135deg,
+      color-mix(in srgb,#FFFFFF 66%,var(--theme-primary,#8B5CF6) 7%),
+      color-mix(in srgb,#FFFFFF 44%,transparent 56%));
+  --aurore-glass-soft:
+    linear-gradient(135deg,
+      color-mix(in srgb,#FFFFFF 58%,var(--theme-primary,#8B5CF6) 6%),
+      color-mix(in srgb,#FFFFFF 35%,transparent 65%));
+  --aurore-glass-control:
+    linear-gradient(135deg,
+      color-mix(in srgb,#FFFFFF 74%,var(--theme-primary,#8B5CF6) 5%),
+      color-mix(in srgb,#FFFFFF 50%,transparent 50%));
+  --aurore-glass-modal:
+    linear-gradient(135deg,
+      color-mix(in srgb,#FFFFFF 88%,var(--theme-primary,#8B5CF6) 4%),
+      color-mix(in srgb,#FFFFFF 76%,transparent 24%));
+  --aurore-glass-border:color-mix(in srgb,var(--theme-primary,#8B5CF6) 24%,rgba(76,29,149,.14));
+  --aurore-glass-border-strong:color-mix(in srgb,var(--theme-primary,#8B5CF6) 36%,rgba(76,29,149,.18));
+  --aurore-glass-shadow:
+    0 24px 66px color-mix(in srgb,var(--theme-primary,#8B5CF6) 12%,rgba(55,36,82,.14)),
+    0 8px 20px rgba(55,36,82,.07);
+  --aurore-glass-shadow-soft:
+    0 16px 42px color-mix(in srgb,var(--theme-primary,#8B5CF6) 9%,rgba(55,36,82,.10)),
+    0 4px 14px rgba(55,36,82,.05);
+  --aurore-glass-inset:inset 0 1px 0 rgba(255,255,255,.92),inset 0 -1px 0 rgba(76,29,149,.05);
+  --aurore-glass-blur:26px;
+  --aurore-glass-saturate:1.26;
   --aurore-glass-ink:#17131F;
-  --aurore-glass-muted:#514B5D;
-  --aurore-glass-field:rgba(255,255,255,.62);
+  --aurore-glass-muted:#554D60;
+  --aurore-glass-field:
+    linear-gradient(135deg,
+      color-mix(in srgb,#FFFFFF 78%,var(--theme-primary,#8B5CF6) 4%),
+      color-mix(in srgb,#FFFFFF 60%,transparent 40%));
 }
 
-/* ==========================================================
-   1. Fond global
-   ========================================================== */
+/* Le choix de couleur pilote explicitement le socle, sans JS supplémentaire. */
+html[data-color-theme]{
+  --aurore-background-color:color-mix(
+    in srgb,
+    var(--fond,#090812) 89%,
+    var(--theme-strong,var(--theme-primary,#8B5CF6)) 11%
+  );
+}
+html[data-theme="light"][data-color-theme]{
+  --aurore-background-color:color-mix(
+    in srgb,
+    #F4F2F9 91%,
+    var(--theme-primary,#8B5CF6) 9%
+  );
+}
 
-html,
-body{
+/* Fond persistant : html porte également le socle pour éviter tout flash blanc/sombre
+   quand un écran change de visibilité. */
+html,body{
+  min-height:100%;
   background-color:var(--aurore-background-color)!important;
 }
-
-body{
+html{
   background-image:
     linear-gradient(0deg,var(--aurore-background-overlay),var(--aurore-background-overlay)),
     var(--aurore-background-image)!important;
@@ -79,538 +136,355 @@ body{
   background-size:cover!important;
   background-position:center!important;
   background-repeat:no-repeat!important;
-  min-height:100vh;
+}
+body{
+  background:transparent!important;
   color:var(--aurore-glass-ink);
+  text-rendering:optimizeLegibility;
+  -webkit-font-smoothing:antialiased;
 }
-
+main.wrap,
+.screen,
+.screen.active,
+.wrap{
+  background:transparent!important;
+}
 @media(max-width:700px){
-  body{background-attachment:scroll!important;}
+  html{background-attachment:scroll!important;}
+  body{background:transparent!important;}
 }
 
-/* Le fond devient un véritable socle chromatique : il ne reprend jamais une
-   couleur fixe. Il suit les 25 palettes déjà gérées par Aurore. */
-html[data-color-theme]{
-  --aurore-background-color:color-mix(
-    in srgb,
-    var(--fond,#090812) 92%,
-    var(--theme-strong,var(--theme-primary,#8B5CF6)) 8%
-  );
+/* Les écrans ne doivent jamais peindre un rectangle opaque au-dessus du fond. */
+:is(
+  #screen-home,#screen-livres,#screen-level,#screen-serie,#screen-matieres,
+  #screen-recents,#screen-shared-section,#screen-personal-case,#screen-docs,
+  #screen-deposer,#screen-admin,#screen-admin-pending,#screen-profil,#screen-aurore-ia
+){
+  background:transparent!important;
 }
-
-html[data-theme="light"][data-color-theme]{
-  --aurore-background-color:color-mix(
-    in srgb,
-    var(--fond,#F3F1F8) 94%,
-    var(--theme-primary,#8B5CF6) 6%
-  );
-}
-
-/* On évite les changements brusques lorsqu'une palette est commutée. */
 
 /* ==========================================================
-   2. Socle verre — grandes surfaces
+   1. Verre principal — hiérarchie réellement perceptible
    ========================================================== */
 
 :is(
-  .hero,
-  .home-video-section,
-  .home-annonce,
-  .home-recents-cta,
-  .livres-banner,
-  .home-promise,
-  .home-five-level,
-  .home-secondary-choice,
-  .home-promo-card,
-  .service-client-card,
-  .admin-space-card,
-  .personal-space-compact-card,
-  .personal-panel,
-  .aurora-panel,
-  .aurora-panels,
-  .aurore-personal-hero,
-  .card,
-  .section,
-  .panel,
-  .profile-card,
-  .recents-card,
-  .admin-card,
-  .admin-empty,
-  .form-card,
-  .stat-card,
-  .admin-category-card,
-  .presentation-item,
-  .doc-empty,
-  .doc-row,
-  .matiere-card,
-  .cat-card,
-  .level-card,
-  .sublevel-card,
-  .serie-pill,
-  .home-shortcuts,
-  .aurore-ia-app,
-  .welcome-modal-card,
-  .signup-card,
-  .access-card,
-  .access-panel,
-  .aurore-auth-wait-card,
-  .profile-info-modal,
-  .personal-folder,
-  .personal-folder-dialog-card,
-  #depotFormCard,
-  #depotProgress
+  .hero,.home-video-section,.home-annonce,.home-recents-cta,.livres-banner,
+  .home-promise,.home-five-level,.home-secondary-choice,.home-promo-card,
+  .service-client-card,.admin-space-card,.personal-space-compact-card,
+  .personal-panel,.aurora-panel,.aurora-panels,.aurore-personal-hero,
+  .card,.section,.panel,.profile-card,.recents-card,.admin-card,.admin-empty,
+  .form-card,.stat-card,.admin-category-card,.presentation-item,
+  .doc-empty,.doc-row,.matiere-card,.cat-card,.level-card,.sublevel-card,
+  .serie-pill,.home-shortcuts,.home-secondary-choices,.aurore-ia-app,
+  .welcome-modal-card,.signup-card,.access-card,.access-panel,
+  .aurore-auth-wait-card,.profile-info-modal,.personal-folder,
+  .personal-folder-dialog-card,.admin-shell,.admin-panel,
+  .admin-promo-manager,.admin-service-editor,.admin-pending-overview,
+  .admin-pending-v2-shell,.admin-pending-v2-card,.cf-rebuild,
+  .aurore-pdf-production-center,.admin-home-presentation-editor,
+  .admin-home-presentation-preview,.cf-studio-box,.admin-user-card,
+  .pub-admin-item,.site-data-toolbar,.profile-theme-card,#depotFormCard,#depotProgress
 ){
   background:var(--aurore-glass-card)!important;
   border:1px solid var(--aurore-glass-border)!important;
-  box-shadow:var(--aurore-glass-shadow-soft)!important;
+  box-shadow:var(--aurore-glass-shadow-soft),var(--aurore-glass-inset)!important;
   color:var(--aurore-glass-ink)!important;
   backdrop-filter:blur(var(--aurore-glass-blur)) saturate(var(--aurore-glass-saturate));
   -webkit-backdrop-filter:blur(var(--aurore-glass-blur)) saturate(var(--aurore-glass-saturate));
+  background-clip:padding-box;
 }
 
-/* Les grandes pièces portent davantage de matière. */
-:is(
-  .hero,
-  .home-video-section,
-  .home-annonce,
-  .home-recents-cta,
-  .livres-banner,
-  .admin-shell,
-  .admin-panel,
-  .aurore-ia-app
-){
-  background:var(--aurore-glass-main)!important;
-  border-color:var(--aurore-glass-border-strong)!important;
-  box-shadow:var(--aurore-glass-shadow)!important;
-}
-
-/* Le contenu reste au-dessus des effets décoratifs existants. */
+/* Grandes surfaces = matière plus dense, mais toujours translucide. */
 :is(
   .hero,.home-video-section,.home-annonce,.home-recents-cta,.livres-banner,
-  .home-five-level,.level-card,.sublevel-card,.cat-card,.matiere-card,
-  .aurore-ia-app,.access-card,.signup-card,.welcome-modal-card
+  .admin-shell,.admin-panel,.aurore-ia-app,.aurore-personal-hero
 ){
-  isolation:isolate;
+  background:var(--aurore-glass-main)!important;
+  border-color:var(--aurore-glass-border-strong)!important;
+  box-shadow:var(--aurore-glass-shadow),var(--aurore-glass-inset)!important;
+}
+
+/* Zones internes transparentes : le relief vient du verre, pas de rectangles opaques. */
+:is(
+  .home-promise-grid,.home-five-levels,.home-secondary-grid,.home-shortcuts,
+  .activity-content,.admin-category-grid,.admin-detail,.cf-studio-form
+){
+  background:transparent!important;
+}
+
+/* Légère différence d'altitude : boutons/cartes internes plus détachés. */
+:is(
+  .home-five-level,.level-card,.cat-card,.matiere-card,.sublevel-card,
+  .presentation-item,.personal-action,.personal-folder,.admin-user-card,
+  .admin-pending-stat,.aurora-stat,.site-search-control
+){
+  box-shadow:0 12px 34px color-mix(in srgb,var(--theme-primary,#8B5CF6) 8%,rgba(0,0,0,.16)),
+             inset 0 1px 0 color-mix(in srgb,#fff 42%,transparent)!important;
+}
+
+/* Le hover doit révéler la profondeur, pas seulement changer la couleur. */
+:is(
+  .home-promise,.home-five-level,.home-secondary-choice,.home-promo-card,
+  .home-recents-cta,.livres-banner,.level-card,.cat-card,.matiere-card,
+  .sublevel-card,.presentation-item,.personal-action,.personal-folder,
+  .admin-card,.admin-user-card,.admin-pending-v2-card,.site-search-control
+):hover{
+  border-color:color-mix(in srgb,var(--theme-primary,#8B5CF6) 48%,var(--aurore-glass-border-strong))!important;
+  box-shadow:
+    0 22px 58px color-mix(in srgb,var(--theme-primary,#8B5CF6) 12%,rgba(0,0,0,.18)),
+    inset 0 1px 0 rgba(255,255,255,.22)!important;
 }
 
 /* ==========================================================
-   3. Header / navigation
+   2. Header / navigation
    ========================================================== */
 
-header{
+header,.header,.topbar{
   background:var(--aurore-glass-main)!important;
-  border-bottom:1px solid var(--aurore-glass-border)!important;
-  box-shadow:0 12px 34px rgba(0,0,0,.14)!important;
-  backdrop-filter:blur(20px) saturate(1.18);
-  -webkit-backdrop-filter:blur(20px) saturate(1.18);
+  border-bottom:1px solid var(--aurore-glass-border-strong)!important;
+  box-shadow:0 14px 40px color-mix(in srgb,var(--theme-primary,#8B5CF6) 7%,rgba(0,0,0,.18)),inset 0 1px 0 rgba(255,255,255,.12)!important;
+  backdrop-filter:blur(24px) saturate(1.3);
+  -webkit-backdrop-filter:blur(24px) saturate(1.3);
 }
-
 .search-box{
   background:var(--aurore-glass-control)!important;
-  border:1px solid var(--aurore-glass-border)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),var(--aurore-glass-shadow-soft)!important;
+  border:1px solid var(--aurore-glass-border-strong)!important;
+  box-shadow:var(--aurore-glass-shadow-soft),inset 0 1px 0 rgba(255,255,255,.20)!important;
+  backdrop-filter:blur(18px) saturate(1.22);
+  -webkit-backdrop-filter:blur(18px) saturate(1.22);
 }
-
-.search-box input{
-  background:transparent!important;
-  color:var(--aurore-glass-ink)!important;
-}
-
-.search-box input::placeholder{
-  color:var(--aurore-glass-muted)!important;
-}
-
-:is(.theme-switch,.color-theme-picker,.auth-zone){
-  background:transparent!important;
-}
-
+.search-box input{background:transparent!important;color:var(--aurore-glass-ink)!important;}
+.search-box input::placeholder{color:var(--aurore-glass-muted)!important;}
+:is(.theme-switch,.color-theme-picker,.auth-zone){background:transparent!important;}
 :is(
-  .theme-switch-btn,
-  .color-theme-btn,
-  .pwa-install-btn,
-  .deposer-btn,
-  .user-chip,
-  .aurore-ia-header-btn
+  .theme-switch-btn,.color-theme-btn,.pwa-install-btn,.deposer-btn,
+  .user-chip,.aurore-ia-header-btn
 ){
   background:var(--aurore-glass-control)!important;
   border:1px solid var(--aurore-glass-border)!important;
   color:var(--aurore-glass-ink)!important;
-  box-shadow:var(--aurore-glass-shadow-soft)!important;
+  box-shadow:0 10px 26px color-mix(in srgb,var(--theme-primary,#8B5CF6) 7%,rgba(0,0,0,.16)),inset 0 1px 0 rgba(255,255,255,.18)!important;
+  backdrop-filter:blur(14px) saturate(1.15);
+  -webkit-backdrop-filter:blur(14px) saturate(1.15);
 }
-
-:is(
-  .theme-switch-btn,
-  .color-theme-btn,
-  .pwa-install-btn,
-  .aurore-ia-header-btn
-):hover{
-  background:var(--aurore-glass-soft)!important;
+:is(.theme-switch-btn,.color-theme-btn,.pwa-install-btn,.aurore-ia-header-btn):hover{
   border-color:var(--aurore-glass-border-strong)!important;
 }
 
 /* ==========================================================
-   4. Accueil
+   3. Accueil
    ========================================================== */
 
 .hero{
-  background:
-    radial-gradient(circle at 92% 0%,color-mix(in srgb,var(--theme-secondary,#C084FC) 16%,transparent),transparent 34%),
-    var(--aurore-glass-main)!important;
+  position:relative;
+  overflow:hidden;
 }
-
+.hero::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  border-radius:inherit;
+  background:
+    radial-gradient(circle at 92% 0%,color-mix(in srgb,var(--theme-secondary,#C084FC) 18%,transparent),transparent 31%),
+    linear-gradient(115deg,transparent 0%,color-mix(in srgb,#fff 7%,transparent) 48%,transparent 70%);
+  opacity:.95;
+}
+.hero>*{position:relative;z-index:1;}
 .auraster-home-search{
   background:var(--aurore-glass-control)!important;
   border:1px solid var(--aurore-glass-border-strong)!important;
-  box-shadow:var(--aurore-glass-shadow-soft)!important;
-  backdrop-filter:blur(14px) saturate(1.1);
-  -webkit-backdrop-filter:blur(14px) saturate(1.1);
+  box-shadow:0 18px 40px color-mix(in srgb,var(--theme-primary,#8B5CF6) 9%,rgba(0,0,0,.13)),inset 0 1px 0 rgba(255,255,255,.32)!important;
+  backdrop-filter:blur(18px) saturate(1.18);
+  -webkit-backdrop-filter:blur(18px) saturate(1.18);
 }
-
-.auraster-home-search input{
-  background:transparent!important;
-  color:var(--aurore-glass-ink)!important;
-}
-
-.auraster-home-search input::placeholder{
-  color:var(--aurore-glass-muted)!important;
-}
-
-:is(.home-shortcuts,.home-promise-grid,.home-five-levels,.home-secondary-grid){
-  background:transparent!important;
-}
-
-:is(
-  .home-promise,
-  .home-five-level,
-  .home-secondary-choice,
-  .home-promo-card,
-  .home-recents-cta,
-  .livres-banner
-):hover{
-  border-color:color-mix(in srgb,var(--theme-primary,#8B5CF6) 34%,var(--aurore-glass-border-strong))!important;
-  box-shadow:var(--aurore-glass-shadow)!important;
-}
-
-:is(.presentation-item,.home-promo-card,.home-annonce,.home-recents-cta){
-  background:var(--aurore-glass-card)!important;
-}
-
-.presentation-item .icon-wrap,
-.home-promise .icon-wrap,
-.matiere-card .mono{
-  backdrop-filter:blur(8px);
-  -webkit-backdrop-filter:blur(8px);
+.auraster-home-search input{background:transparent!important;color:var(--aurore-glass-ink)!important;}
+.auraster-home-search input::placeholder{color:var(--aurore-glass-muted)!important;}
+:is(.home-shortcuts button,.home-secondary-choice,.personal-action,.admin-btn.ghost,.shortcut-btn,.back-btn){
+  background:var(--aurore-glass-control)!important;
 }
 
 /* ==========================================================
-   5. Administration / espace personnel
+   4. Administration / espace personnel
    ========================================================== */
 
 :is(
-  .admin-shell,
-  .admin-panel,
-  .admin-service-editor,
-  .admin-promo-manager,
-  .admin-users-toolbar,
-  .admin-data-toolbar,
-  .admin-pending-overview,
-  .cf-rebuild,
-  .aurore-pdf-production-center,
-  .admin-home-presentation-editor,
-  .admin-home-presentation-preview,
-  .cf-studio-box
-){
-  background:var(--aurore-glass-card)!important;
-  border-color:var(--aurore-glass-border)!important;
-  box-shadow:var(--aurore-glass-shadow-soft)!important;
-}
-
-:is(
-  .admin-toolbar,
-  .admin-data-toolbar,
-  .site-data-toolbar,
-  .recents-toolbar,
-  .docs-toolbar,
-  .cf-form-layout-admin
+  .admin-toolbar,.admin-data-toolbar,.site-data-toolbar,.recents-toolbar,
+  .docs-toolbar,.cf-form-layout-admin,.parcours-toolbar
 ){
   background:var(--aurore-glass-control)!important;
   border-color:var(--aurore-glass-border)!important;
-  box-shadow:var(--aurore-glass-shadow-soft)!important;
-  backdrop-filter:blur(12px) saturate(1.1);
-  -webkit-backdrop-filter:blur(12px) saturate(1.1);
+  box-shadow:var(--aurore-glass-shadow-soft),inset 0 1px 0 rgba(255,255,255,.16)!important;
+  backdrop-filter:blur(16px) saturate(1.14);
+  -webkit-backdrop-filter:blur(16px) saturate(1.14);
 }
-
 :is(
-  .admin-card,
-  .admin-category-card,
-  .admin-pending-v2-card,
-  .cf-admin-card,
-  .aurore-pdf-prod-card,
-  .admin-user-card,
-  .pub-admin-item
+  .admin-card,.admin-category-card,.admin-pending-v2-card,.cf-admin-card,
+  .aurore-pdf-prod-card,.admin-user-card,.pub-admin-item,.admin-pending-stat
 ){
   background:var(--aurore-glass-card)!important;
 }
-
-.aurora-personal-hero{
-  background:
-    radial-gradient(circle at 92% 0%,color-mix(in srgb,var(--theme-secondary,#C084FC) 17%,transparent),transparent 34%),
-    var(--aurore-glass-main)!important;
-}
-
 :is(
-  .aurora-stat,
-  .aurora-refresh,
-  .personal-action,
-  .personal-folder,
-  .personal-list-item
+  .aurora-stat,.aurora-refresh,.personal-action,.personal-folder,
+  .personal-list-item,.aurora-list .personal-doc,.aurora-list .personal-book
 ){
   background:var(--aurore-glass-soft)!important;
   border-color:var(--aurore-glass-border)!important;
   color:var(--aurore-glass-ink)!important;
-  box-shadow:var(--aurore-glass-shadow-soft)!important;
 }
-
-:is(.aurora-list .personal-doc,.aurora-list .personal-book){
+:is(
+  .personal-tab,.books-personal-tab,.admin-tab,.admin-refresh,.pending-refresh,
+  .breadcrumb button,.admin-space-action,.secondary-btn,.form-reset,
+  .access-secondary-btn,.modal-secondary-link,.access-tab
+){
+  background:var(--aurore-glass-control)!important;
+  border-color:var(--aurore-glass-border)!important;
+  color:var(--aurore-glass-ink)!important;
+}
+:is(.parcours-node-card,.parcours-modal,.parcours-combo-button,.parcours-combo-menu,.parcours-combo-search){
   background:var(--aurore-glass-card)!important;
   border-color:var(--aurore-glass-border)!important;
+  box-shadow:var(--aurore-glass-shadow-soft)!important;
+  backdrop-filter:blur(18px) saturate(1.12);
+  -webkit-backdrop-filter:blur(18px) saturate(1.12);
 }
-
-:is(.aurora-stat,.personal-action,.personal-folder):hover{
-  border-color:color-mix(in srgb,var(--theme-primary,#8B5CF6) 34%,var(--aurore-glass-border-strong))!important;
+:is(.profile-theme-option,.site-search-control,.site-data-toolbar select,.site-pagination button){
+  background:var(--aurore-glass-control)!important;
+  border-color:var(--aurore-glass-border)!important;
+  color:var(--aurore-glass-ink)!important;
 }
 
 /* ==========================================================
-   6. Aurora IA
+   5. Aurora IA
    ========================================================== */
 
 .aurore-ia-topbar{
   background:var(--aurore-glass-main)!important;
   border-bottom-color:var(--aurore-glass-border)!important;
-  backdrop-filter:blur(18px) saturate(1.15);
-  -webkit-backdrop-filter:blur(18px) saturate(1.15);
+  backdrop-filter:blur(22px) saturate(1.22);
+  -webkit-backdrop-filter:blur(22px) saturate(1.22);
 }
-
 :is(
-  .aurore-ia-history-panel,
-  .aurore-ia-sidebar-note,
-  .aurore-ia-plus-menu,
+  .aurore-ia-history-panel,.aurore-ia-sidebar-note,.aurore-ia-plus-menu,
   .aurore-ia-history-overlay
 ){
   background:var(--aurore-glass-modal)!important;
-  border-color:var(--aurore-glass-border)!important;
-  backdrop-filter:blur(18px) saturate(1.12);
-  -webkit-backdrop-filter:blur(18px) saturate(1.12);
+  border-color:var(--aurore-glass-border-strong)!important;
+  box-shadow:0 24px 70px color-mix(in srgb,var(--theme-primary,#8B5CF6) 12%,rgba(0,0,0,.26))!important;
+  backdrop-filter:blur(22px) saturate(1.22);
+  -webkit-backdrop-filter:blur(22px) saturate(1.22);
 }
-
-:is(
-  .aurore-ia-message.assistant .aurore-ia-bubble,
-  .aurore-ia-message.user .aurore-ia-bubble
-){
-  box-shadow:var(--aurore-glass-shadow-soft)!important;
-}
-
 .aurore-ia-input-shell{
   background:var(--aurore-glass-control)!important;
   border-color:var(--aurore-glass-border-strong)!important;
-  box-shadow:var(--aurore-glass-shadow-soft)!important;
-  backdrop-filter:blur(16px) saturate(1.12);
-  -webkit-backdrop-filter:blur(16px) saturate(1.12);
+  box-shadow:var(--aurore-glass-shadow-soft),inset 0 1px 0 rgba(255,255,255,.18)!important;
+  backdrop-filter:blur(18px) saturate(1.16);
+  -webkit-backdrop-filter:blur(18px) saturate(1.16);
 }
-
-.aurore-ia-input-shell textarea{
-  background:transparent!important;
-  color:var(--aurore-glass-ink)!important;
-}
-
-.aurore-ia-input-shell textarea::placeholder{
-  color:var(--aurore-glass-muted)!important;
-}
+.aurore-ia-input-shell textarea{background:transparent!important;color:var(--aurore-glass-ink)!important;}
+.aurore-ia-input-shell textarea::placeholder{color:var(--aurore-glass-muted)!important;}
 
 /* ==========================================================
-   7. Contrôles, formulaires, menus
+   6. Formulaires / menus
    ========================================================== */
 
-:is(
-  input:not([type="file"]),
-  select,
-  textarea
-){
+:is(input:not([type="file"]),select,textarea){
   background:var(--aurore-glass-field)!important;
   color:var(--aurore-glass-ink)!important;
   border-color:var(--aurore-glass-border)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.06)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.14)!important;
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
 }
-
-:is(input:not([type="file"]),select,textarea)::placeholder{
-  color:var(--aurore-glass-muted)!important;
-}
-
+:is(input:not([type="file"]),select,textarea)::placeholder{color:var(--aurore-glass-muted)!important;}
 :is(input:not([type="file"]),select,textarea):focus{
   background:var(--aurore-glass-control)!important;
   border-color:var(--theme-primary,#8B5CF6)!important;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--theme-primary,#8B5CF6) 18%,transparent),inset 0 1px 0 rgba(255,255,255,.20)!important;
 }
-
 :is(
-  .cf-create-theme-palette,
-  .color-theme-flyout,
-  .personal-folder-dialog-card,
-  .profile-info-modal,
-  .access-code-card,
-  .aurore-home-menu,
-  .aurore-floating-ai-menu
+  .cf-create-theme-palette,.color-theme-flyout,.personal-folder-dialog-card,
+  .profile-info-modal,.access-code-card,.aurore-home-menu,.aurore-floating-ai-menu
 ){
   background:var(--aurore-glass-modal)!important;
   border-color:var(--aurore-glass-border-strong)!important;
   box-shadow:var(--aurore-glass-shadow)!important;
-  backdrop-filter:blur(20px) saturate(1.15);
-  -webkit-backdrop-filter:blur(20px) saturate(1.15);
+  backdrop-filter:blur(24px) saturate(1.2);
+  -webkit-backdrop-filter:blur(24px) saturate(1.2);
 }
-
-:is(
-  .admin-btn.ghost,
-  .ghost,
-  .back-btn,
-  .admin-tab,
-  .admin-refresh,
-  .pending-refresh,
-  .personal-action,
-  .shortcut-btn,
-  .breadcrumb button,
-  .admin-space-action,
-  .secondary-btn,
-  .form-reset
-){
-  background:var(--aurore-glass-control)!important;
-  border-color:var(--aurore-glass-border)!important;
-  color:var(--aurore-glass-ink)!important;
-}
-
-:is(
-  .access-secondary-btn,
-  .modal-secondary-link,
-  .access-tab
-){
-  background:var(--aurore-glass-control)!important;
-  border-color:var(--aurore-glass-border)!important;
-  color:var(--aurore-glass-ink)!important;
-}
-
-/* Les actions principales restent plus denses que le reste du verre. */
-:is(
-  .deposer-btn,
-  .form-submit,
-  .btn-primary,
-  .admin-btn.primary,
-  .admin-btn.valider,
-  .access-google-btn,
-  .access-btn
-){
-  box-shadow:0 12px 28px color-mix(in srgb,var(--theme-primary,#8B5CF6) 23%,rgba(0,0,0,.18))!important;
+:is(.deposer-btn,.form-submit,.btn-primary,.admin-btn.primary,.admin-btn.valider,.access-google-btn,.access-btn){
+  box-shadow:
+    0 14px 34px color-mix(in srgb,var(--theme-primary,#8B5CF6) 22%,rgba(0,0,0,.18)),
+    inset 0 1px 0 rgba(255,255,255,.18)!important;
 }
 
 /* ==========================================================
-   8. Auth / overlays non-PDF
+   7. Auth / overlays hors lecteur PDF
    ========================================================== */
 
-.access-lock{
-  background:rgba(6,5,12,.24)!important;
+.access-lock,.signup-modal{
+  backdrop-filter:blur(14px)!important;
+  -webkit-backdrop-filter:blur(14px)!important;
+}
+.access-lock{background:color-mix(in srgb,var(--aurore-background-color) 42%,transparent)!important;}
+.signup-modal{background:color-mix(in srgb,var(--aurore-background-color) 46%,transparent)!important;}
+.access-card{background:var(--aurore-glass-modal)!important;border-color:var(--aurore-glass-border-strong)!important;box-shadow:0 30px 90px color-mix(in srgb,var(--theme-primary,#8B5CF6) 10%,rgba(0,0,0,.28))!important;}
+.access-panel{background:var(--aurore-glass-card)!important;}
+:is(.signup-card,.welcome-modal-card,.aurore-auth-wait-card){
+  background:var(--aurore-glass-modal)!important;
+  border-color:var(--aurore-glass-border-strong)!important;
+  box-shadow:0 30px 90px color-mix(in srgb,var(--theme-primary,#8B5CF6) 12%,rgba(0,0,0,.28))!important;
+}
+
+/* ==========================================================
+   8. Footer : dernière plaque de verre, pas un bloc opaque
+   ========================================================== */
+
+footer{
+  background:var(--aurore-glass-main)!important;
+  color:var(--aurore-glass-muted)!important;
+  border-top:1px solid var(--aurore-glass-border)!important;
+  box-shadow:0 -12px 34px color-mix(in srgb,var(--theme-primary,#8B5CF6) 6%,rgba(0,0,0,.10))!important;
+  backdrop-filter:blur(20px) saturate(1.18);
+  -webkit-backdrop-filter:blur(20px) saturate(1.18);
+}
+
+/* ==========================================================
+   9. États / contrastes
+   ========================================================== */
+
+:is(.success,.message-success,.success-message,.error,.message-error,.error-message,.info,.announcement){
+  background:color-mix(in srgb,var(--aurore-glass-card) 88%,currentColor 12%)!important;
+  border-color:color-mix(in srgb,currentColor 26%,var(--aurore-glass-border))!important;
   backdrop-filter:blur(12px);
   -webkit-backdrop-filter:blur(12px);
 }
-
-.access-card{
-  background:var(--aurore-glass-modal)!important;
-  border-color:var(--aurore-glass-border-strong)!important;
-  box-shadow:0 28px 80px rgba(0,0,0,.28)!important;
-}
-
-.access-panel{
-  background:var(--aurore-glass-card)!important;
-}
-
-.signup-modal{
-  background:rgba(4,3,9,.30)!important;
-  backdrop-filter:blur(10px);
-  -webkit-backdrop-filter:blur(10px);
-}
-
-.signup-card,
-.welcome-modal-card,
-.aurore-auth-wait-card{
-  background:var(--aurore-glass-modal)!important;
-}
-
-html[data-theme="light"] .access-lock,
-html[data-theme="light"] .signup-modal{
-  background:rgba(245,242,249,.26)!important;
+:is(.muted,.subtitle,.description,.meta,.helper-text,.home-video-desc,.aurora-panel-intro){
+  color:var(--aurore-glass-muted);
 }
 
 /* ==========================================================
-   9. États : réussite, erreur, information
+   10. Lecteur PDF — exception stricte
    ========================================================== */
 
-:is(
-  .success,
-  .message-success,
-  .success-message,
-  .error,
-  .message-error,
-  .error-message,
-  .info,
-  .announcement
-){
-  background:color-mix(in srgb,var(--aurore-glass-card) 76%,currentColor 24%)!important;
-  backdrop-filter:blur(10px);
-  -webkit-backdrop-filter:blur(10px);
-}
-
-/* ==========================================================
-   10. Effet d'échelle — ne pas tout rendre identique
-   ========================================================== */
-
-:is(
-  .card,.section,.panel,.profile-card,.recents-card,.admin-card,
-  .form-card,.stat-card,.presentation-item,.doc-row,.matiere-card,
-  .cat-card,.level-card,.sublevel-card,.home-promise,.home-five-level,
-  .home-secondary-choice,.personal-panel,.aurora-panel,.aurora-panels,
-  .admin-category-card,.admin-pending-v2-card,.cf-admin-card,.admin-user-card
-){
-  --_glass-radius-strength:1;
-}
-
-:is(.hero,.home-video-section,.home-annonce,.home-recents-cta,.livres-banner){
-  --_glass-radius-strength:1.18;
-}
-
-/* ==========================================================
-   11. Protection lecture / PDF — exception volontaire
-   ========================================================== */
-
-#pdfViewerOverlay,
-#pdfViewerOverlay *,
-.pdf-reader-overlay,
-.pdf-reader-overlay *,
-#pdfViewer,
-#pdfViewer *{
-  /* Le lecteur PDF garde son système de surfaces et ses contrastes. */
+#pdfViewerOverlay,#pdfViewerOverlay *,.pdf-reader-overlay,.pdf-reader-overlay *,
+#pdfViewer,#pdfViewer *{
   backdrop-filter:none!important;
   -webkit-backdrop-filter:none!important;
 }
-
-/* Les panneaux PDF secondaires restent dans le design existant. */
+:is(#pdfViewerOverlay,.pdf-reader-overlay,#pdfViewer){
+  background:initial;
+}
 :is(
-  .pdf-menu-panel,
-  #pdfViewerMenuPanel,
-  .pdf-recent-panel,
-  #pdfViewerToolbar,
-  #pdfViewerHeader
+  .pdf-menu-panel,#pdfViewerMenuPanel,.pdf-recent-panel,
+  #pdfViewerToolbar,#pdfViewerHeader
 ){
   backdrop-filter:none!important;
   -webkit-backdrop-filter:none!important;
 }
 
 /* ==========================================================
-   12. Fallback navigateurs sans backdrop-filter
+   11. Compatibilité navigateur
    ========================================================== */
 
 @supports not ((backdrop-filter:blur(1px))){
@@ -620,71 +494,46 @@ html[data-theme="light"] .signup-modal{
     .service-client-card,.admin-space-card,.personal-space-compact-card,
     .personal-panel,.aurora-panel,.aurora-panels,.aurore-personal-hero,
     .card,.section,.panel,.profile-card,.recents-card,.admin-card,
-    .form-card,.stat-card,.admin-category-card,.presentation-item,
-    .doc-empty,.doc-row,.matiere-card,.cat-card,.level-card,.sublevel-card,
-    .home-shortcuts,.aurore-ia-app,.welcome-modal-card,.signup-card,
+    .form-card,.stat-card,.admin-category-card,.presentation-item,.doc-empty,
+    .doc-row,.matiere-card,.cat-card,.level-card,.sublevel-card,.home-shortcuts,
+    .home-secondary-choices,.aurore-ia-app,.welcome-modal-card,.signup-card,
     .access-card,.access-panel,.aurore-auth-wait-card,.personal-folder,
-    #depotFormCard,#depotProgress
+    .personal-folder-dialog-card,#depotFormCard,#depotProgress
   ){
     background:var(--aurore-glass-main)!important;
-  }
-
-  :is(
-    .home-five-level,.level-card,.sublevel-card,.cat-card,.matiere-card,
-    .card,.section,.panel,.personal-panel,.aurora-panel,.admin-card
-  ){
-    background:var(--aurore-glass-card)!important;
   }
 }
 
 /* ==========================================================
-   13. Réduction mouvement / petits écrans
+   12. Petits écrans / réduction de mouvement
    ========================================================== */
 
 @media(max-width:760px){
   :is(
-    .card,.section,.panel,.profile-card,.recents-card,.admin-card,
-    .form-card,.stat-card,.doc-row,.matiere-card,.cat-card,.level-card,
-    .sublevel-card,.home-five-level,.home-secondary-choice,.personal-panel,
-    .aurore-ia-app,.access-panel
+    .card,.section,.panel,.profile-card,.recents-card,.admin-card,.form-card,
+    .stat-card,.doc-row,.matiere-card,.cat-card,.level-card,.sublevel-card,
+    .home-five-level,.home-secondary-choice,.personal-panel,.aurore-ia-app,
+    .access-panel
   ){
-    backdrop-filter:blur(14px) saturate(1.08);
-    -webkit-backdrop-filter:blur(14px) saturate(1.08);
+    backdrop-filter:blur(18px) saturate(1.16);
+    -webkit-backdrop-filter:blur(18px) saturate(1.16);
   }
 }
-
 @media(prefers-reduced-motion:reduce){
-  :is(
-    .card,.section,.panel,.hero,.home-five-level,.level-card,.sublevel-card,
-    .cat-card,.matiere-card,.home-recents-cta,.personal-panel,
-    .aurore-ia-app
-  ){
+  :is(.card,.section,.panel,.hero,.home-five-level,.level-card,.sublevel-card,.cat-card,.matiere-card,.home-recents-cta,.personal-panel,.aurore-ia-app){
     transition:none!important;
   }
 }
 
 /* ==========================================================
-   14. Stabilité texte — le fond peut varier, l'encre reste stable
+   13. Flash-proof : aucune couleur plein écran héritée
    ========================================================== */
 
-html:not([data-theme="light"]) :is(
-  .card,.section,.panel,.profile-card,.recents-card,.admin-card,
-  .form-card,.stat-card,.presentation-item,.doc-row,.matiere-card,
-  .cat-card,.level-card,.sublevel-card,.home-promise,.home-five-level,
-  .home-secondary-choice,.personal-panel,.aurora-panel,.aurora-panels,
-  .admin-category-card,.admin-pending-v2-card,.cf-admin-card,.admin-user-card,
-  .aurore-ia-app,.access-panel
-) :is(h1,h2,h3,h4,h5,h6,strong,b,.title,.section-title,.card-title,.label){
-  color:var(--aurore-glass-ink);
-}
-
-html[data-theme="light"] :is(
-  .card,.section,.panel,.profile-card,.recents-card,.admin-card,
-  .form-card,.stat-card,.presentation-item,.doc-row,.matiere-card,
-  .cat-card,.level-card,.sublevel-card,.home-promise,.home-five-level,
-  .home-secondary-choice,.personal-panel,.aurora-panel,.aurora-panels,
-  .admin-category-card,.admin-pending-v2-card,.cf-admin-card,.admin-user-card,
-  .aurore-ia-app,.access-panel
-) :is(p,span,small,.muted,.subtitle,.description,.meta,.helper-text){
-  color:var(--aurore-glass-muted);
+html[data-color-theme] body,
+html[data-theme="light"] body,
+html[data-theme="dark"] body,
+html[data-color-theme] main.wrap,
+html[data-color-theme] .screen{
+  background-color:transparent!important;
+  background-image:none!important;
 }
