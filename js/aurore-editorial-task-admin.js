@@ -102,6 +102,24 @@ const normalizeEditorialTitle=v=>String(v??'').trim().replace(/[‐‑‒–—�
 const panel=()=>document.querySelector('.admin-tab-panel[data-panel="aurora-request"]');
 
 async function token(){
+  // Le site Aurore possède déjà une session Supabase canonique dans
+  // `session`. Elle couvre notamment les connexions e-mail historiques,
+  // alors que le client SDK est principalement préparé pour Google/OAuth.
+  // Le parcours éditorial doit donc utiliser d'abord le jeton réellement
+  // attaché à la session active de l'application.
+  if(typeof session!=='undefined'&&session?.access_token){
+    if(session.expires_at&&Date.now()>=Number(session.expires_at)-60000){
+      if(typeof rafraichirSession==='function'){
+        const ok=await rafraichirSession();
+        if(!ok)throw new Error('Session administrateur expirée.');
+      }else{
+        throw new Error('Session administrateur expirée.');
+      }
+    }
+    if(session?.access_token)return session.access_token;
+  }
+  // Repli OAuth/Google : le client SDK peut disposer d'une session même si
+  // la session Aurore globale n'est pas encore initialisée.
   if(typeof assurerClientAuthGoogle!=='function')throw new Error('Client Supabase indisponible.');
   const client=await assurerClientAuthGoogle();
   let s=(await client.auth.getSession())?.data?.session||null;
