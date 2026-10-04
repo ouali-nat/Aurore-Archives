@@ -390,7 +390,7 @@ function bSelectionReady(t){
 }
 function classify(t){
   const w=t.metadata?.workflow||{},s=w.stage||'initiale';
-  if(['chapitres_proposes','chapitre_selectionne'].includes(s)&&aResearchReady(t))return'B';
+  if(['chapitres_proposes','chapitre_selectionne'].includes(s))return'B';
   if(!w.chatgpt_claimed&&['initiale','chapitres_demandes'].includes(s))return'A';
   if(['proposition_editoriale','revision_requested'].includes(s))return'C';
   if(['proposal_review','admin_validation','edition_ready'].includes(s))return'CX';
