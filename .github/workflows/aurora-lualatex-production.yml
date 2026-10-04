@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/workflows/aurora-lualatex-production.yml"
       - "infra/lualatex/render_document.py"
+      - "infra/lualatex/course_layout.py"
       - "infra/lualatex/aurore_svg.py"
       - "infra/geogebra/render_missing_graphs.mjs"
       - "infra/geogebra/function2d_commands.mjs"
@@ -1422,6 +1423,35 @@ jobs:
           if r"\\AuroreInlineMath{" in repaired_inline:
               raise SystemExit(
                   f"Legacy inline math was reintroduced by post-render repair: {repaired_inline!r}"
+              )
+
+          import course_layout
+          course_layout_source = inspect.getsource(course_layout.render_course_document)
+          if r"\\newcommand{\\AuroreMathCompact}[2]" not in course_layout_source:
+              raise SystemExit(
+                  "Course-layout math compatibility regression: AuroreMathCompact is not defined."
+              )
+          refactor_course = {
+              "title": "Smoke cours Sésamath",
+              "document_type": "cours",
+              "subject": "Mathématiques",
+              "refactor_test": True,
+              "document_id": 999999,
+              "sections": [{
+                  "title": "Fractions",
+                  "content": [r"La forme est \\(\\pi\\)/3."],
+              }],
+          }
+          refactor_tex = render_document.render(refactor_course)
+          refactor_tex = render_document._repair_nested_inline_math_delimiters(refactor_tex)
+          refactor_tex = render_document._repair_course_inline_math_delimiters(refactor_tex)
+          if r"\\AuroreMathCompact{}{\\pi/3}" not in refactor_tex:
+              raise SystemExit(
+                  f"Sésamath refactor fraction regression: {refactor_tex!r}"
+              )
+          if r"\\AuroreInlineMath{" in refactor_tex:
+              raise SystemExit(
+                  f"Sésamath refactor leaked legacy inline macro: {refactor_tex!r}"
               )
 
           Path("production/smoke/document.tex").write_text(tex, encoding="utf-8")
