@@ -1,8 +1,8 @@
-@import url("aurore-glass.css");
 /* =====================================================
    MODE SOMBRE — même architecture visuelle que le mode clair,
    avec profondeur sombre et contraste doux. Fonctionnellement
    indépendant : aucune règle du mode clair n'est modifiée.
+   (Le design GLASS « léger » est en bas de ce fichier.)
    ===================================================== */
 [data-theme="dark"]{
   --dark-page:#090812;
@@ -186,4 +186,135 @@
 [data-theme="dark"] #pdfViewerOverlay,
 [data-theme="dark"] #pdfViewerOverlay *{
   /* volontairement inchangé */
+}
+
+
+/* =====================================================================
+   DESIGN GLASS — version LÉGÈRE (fluidité d'abord)
+   Choix de performance :
+   - AUCUN backdrop-filter sur les cartes, listes, champs, boutons : le fond est
+     un dégradé doux, donc le flou y serait invisible mais coûteux à chaque scroll.
+     Le flou réel reste uniquement sur : en-tête, porte d'entrée, modales.
+   - Pas de grain SVG ni de mix-blend-mode (repeints à chaque défilement).
+   - Fond fixe promu sur sa propre couche GPU.
+   - Pas de @import (il bloquait l'affichage) : tout est dans ce fichier.
+   Pour une photo de fond : html{--g-photo:url("/img/fond.jpg")}
+   ===================================================================== */
+html[data-theme="light"]{
+  --g-base:#EFEBF7;--g-bg:rgba(255,255,255,.64);--g-bg-strong:rgba(255,255,255,.82);
+  --g-line:rgba(255,255,255,.65);
+  --g-line-input:color-mix(in srgb,var(--theme-primary,#8B5CF6) 40%,rgba(255,255,255,.7));
+  --g-accent:color-mix(in srgb,var(--theme-primary,#8B5CF6) 13%,rgba(255,255,255,.45));
+  --g-sheen:linear-gradient(135deg,rgba(255,255,255,.5),rgba(255,255,255,.1) 55%,rgba(255,255,255,.25));
+  --g-edge-hi:rgba(255,255,255,.95);
+  --g-edge-lo:color-mix(in srgb,var(--theme-primary,#8B5CF6) 20%,rgba(255,255,255,.2));
+  --g-btn-bg:linear-gradient(135deg,color-mix(in srgb,var(--theme-primary,#8B5CF6) 32%,rgba(255,255,255,.62)),color-mix(in srgb,var(--theme-secondary,#C084FC) 30%,rgba(255,255,255,.42)));
+  --g-btn-line:color-mix(in srgb,var(--theme-primary,#8B5CF6) 55%,rgba(255,255,255,.6));
+  --g-blob1:40%;--g-blob2:34%;--g-blob3:26%;--g-veil:rgba(255,255,255,0);
+}
+html[data-theme="dark"]{
+  --g-base:#060910;--g-bg:rgba(255,255,255,.085);--g-bg-strong:rgba(255,255,255,.13);
+  --g-line:rgba(255,255,255,.16);--g-line-input:rgba(255,255,255,.26);
+  --g-accent:color-mix(in srgb,var(--theme-primary,#8B5CF6) 22%,rgba(255,255,255,.04));
+  --g-sheen:linear-gradient(135deg,rgba(255,255,255,.13),rgba(255,255,255,.03) 55%,rgba(255,255,255,.06));
+  --g-edge-hi:rgba(255,255,255,.4);--g-edge-lo:rgba(255,255,255,.05);
+  --g-btn-bg:linear-gradient(135deg,color-mix(in srgb,var(--theme-primary,#8B5CF6) 62%,transparent),color-mix(in srgb,var(--theme-strong,#6D28D9) 46%,transparent));
+  --g-btn-line:rgba(255,255,255,.34);
+  --g-blob1:38%;--g-blob2:28%;--g-blob3:24%;--g-veil:rgba(0,0,0,.30);
+}
+
+/* Fond : une seule couche fixe, compositée par le GPU */
+html[data-theme]{background:var(--g-base)!important;}
+html[data-theme] body{background:transparent!important;}
+html[data-theme]::before{
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  transform:translateZ(0);will-change:transform;contain:strict;
+  background-color:var(--g-base);
+  background-image:
+    linear-gradient(var(--g-veil),var(--g-veil)),
+    var(--g-photo,linear-gradient(transparent,transparent)),
+    radial-gradient(48vmax 48vmax at 6% 4%,color-mix(in srgb,var(--theme-primary,#8B5CF6) var(--g-blob1),transparent),transparent 70%),
+    radial-gradient(42vmax 42vmax at 94% 30%,color-mix(in srgb,var(--theme-secondary,#C084FC) var(--g-blob2),transparent),transparent 70%),
+    radial-gradient(52vmax 52vmax at 38% 108%,color-mix(in srgb,var(--theme-strong,#6D28D9) var(--g-blob3),transparent),transparent 70%);
+  background-size:cover;background-position:center;background-repeat:no-repeat;
+}
+html[data-theme] body .access-lock:not(#pdfViewerOverlay *){background:transparent!important;}
+
+/* Blocs : verre translucide + bordure lumineuse (haut-gauche clair, bas-droite sombre) */
+html[data-theme] body :is(
+  .card,.section,.panel,.profile-card,.recents-card,.home-annonce,.ad-slot-card,.home-video-section,
+  .aurora-panels,.aurora-personal-hero,.welcome-modal-card,.hero,.level-card,.cat-card,.livres-banner,
+  .service-client-card,.home-shortcuts,.home-five-level,.aurora-stat,.profile-theme-card,.profile-profile-launcher,
+  .access-card,.signup-card,.profile-form-modal-card,.aurore-auth-wait-card,
+  .admin-card,.admin-panel,.admin-promo-manager,.admin-pending-v2-card,.admin-pending-v2-stat,.admin-pending-v2-toolbar
+):not(#pdfViewerOverlay *){
+  background:var(--g-sheen),var(--g-bg)!important;
+  border:1px solid var(--g-line)!important;
+  box-shadow:inset 1.5px 1.5px 0 var(--g-edge-hi),inset -1px -1px 0 var(--g-edge-lo)!important;
+}
+
+/* Le SEUL flou réel : en-tête, porte d'entrée, connexion/inscription, fenêtres */
+html[data-theme] body :is(.access-card,.signup-card,.profile-form-modal-card,.aurore-auth-wait-card):not(#pdfViewerOverlay *){
+  -webkit-backdrop-filter:blur(18px) saturate(150%);backdrop-filter:blur(18px) saturate(150%);
+}
+html[data-theme] body :is(header,.header,.topbar):not(#pdfViewerOverlay *){
+  background:var(--g-bg-strong)!important;border-color:var(--g-line)!important;
+  box-shadow:inset 0 1px 0 var(--g-edge-hi)!important;
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+}
+html[data-theme] body footer:not(#pdfViewerOverlay *){background:var(--g-bg)!important;border-color:var(--g-line)!important;}
+
+/* Éléments répétés / imbriqués */
+html[data-theme] body :is(
+  .access-panel,.access-panel-main,.access-panel-alt,.resend-box,.signup-footnote,.account-login-switch,
+  .profile-launcher-role,.profile-theme-option,.profile-launcher-current,
+  .sublevel-card,.matiere-card,.structure-pill,.home-choice,.shortcut-btn,.breadcrumb-btn,
+  .aurora-list .personal-doc,.aurora-list .personal-book,.aurora-refresh,
+  .admin-pending-v2-grid div,.admin-pending-v2-progress,.admin-pending-v2-note
+):not(#pdfViewerOverlay *){
+  background:var(--g-accent)!important;
+  border:1px solid var(--g-line)!important;
+  box-shadow:inset 1px 1px 0 var(--g-edge-hi)!important;
+}
+/* Longues listes : le navigateur ne dessine que ce qui est à l'écran */
+.aurora-list .personal-doc,.aurora-list .personal-book{content-visibility:auto;contain-intrinsic-size:auto 72px;}
+
+/* Boutons secondaires / principaux */
+html[data-theme] body :is(.access-google-btn,.access-secondary-btn,.access-visitor-btn,.modal-secondary-link,.admin-btn.ghost,.back-btn,.admin-tab:not(.active)):not(#pdfViewerOverlay *){
+  background:var(--g-sheen),var(--g-bg-strong)!important;
+  border:1px solid var(--g-line)!important;
+  box-shadow:inset 1px 1px 0 var(--g-edge-hi)!important;
+}
+html[data-theme] body .admin-tab.active:not(#pdfViewerOverlay *){background:var(--g-accent)!important;border-color:var(--theme-primary,#8B5CF6)!important;}
+html[data-theme] body :is(.go,.btn-primary,.btn-deposer,.deposer-btn,.access-btn,.form-submit,.admin-btn.primary,.admin-btn.valider,#profilLyceeSave,.level-card .go):not(#pdfViewerOverlay *){
+  background:var(--g-btn-bg)!important;
+  border:1px solid var(--g-btn-line)!important;
+  box-shadow:inset 1.5px 1.5px 0 var(--g-edge-hi)!important;
+}
+
+/* Champs de formulaire : fond plus marqué pour la lisibilité (sans flou) */
+html[data-theme] body :is(input,select,textarea,.signup-form input,.profile-fields-grid input,#profilRoleInput,.auraster-home-search,.admin-pending-v2-search):not(#pdfViewerOverlay *){
+  background:var(--g-bg-strong)!important;
+  border:1.5px solid var(--g-line-input)!important;
+  box-shadow:inset 1px 1px 0 var(--g-edge-hi)!important;
+}
+html[data-theme] body :is(input,select,textarea):focus:not(#pdfViewerOverlay *){
+  border-color:var(--theme-primary,#8B5CF6)!important;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--theme-primary,#8B5CF6) 24%,transparent)!important;
+}
+html[data-theme] body :is(.auraster-home-search,.admin-pending-v2-search) input:not(#pdfViewerOverlay *){
+  background:transparent!important;border:0!important;box-shadow:none!important;
+}
+
+/* Administration : l'écran « en attente » pilote ses couleurs par variables */
+html[data-theme] body #screen-admin-pending{
+  --ap-bg:transparent;--ap-surface:var(--g-bg);--ap-surface-2:var(--g-accent);
+  --ap-input:var(--g-bg-strong);--ap-border:var(--g-line);--ap-border-strong:var(--g-line-input);--ap-shadow:none;
+}
+
+/* Mouvement réduit : pas de transitions/animations superflues */
+@media (prefers-reduced-motion:reduce){html[data-theme] body *{transition:none!important;animation-duration:.01ms!important;}}
+@media (prefers-contrast:more){
+  html[data-theme="light"]{--g-bg:rgba(255,255,255,.92);--g-line:rgba(60,40,100,.45);}
+  html[data-theme="dark"]{--g-bg:rgba(23,20,42,.92);--g-line:rgba(255,255,255,.4);}
 }
