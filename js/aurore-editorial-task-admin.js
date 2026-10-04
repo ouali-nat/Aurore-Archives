@@ -325,12 +325,17 @@ const proposalFor=(t)=>{
     pdfPagination:p.pdfPagination||p.pdf_pagination||'Pagination continue',
     pdfThemeColor:p.pdfThemeColor||p.theme_color||t.metadata?.theme_color||'#6D28D9',
     pdfLayout:textValue(p.pdfLayout||p.pdf_layout||p.layout),
-    pdfTypography:textValue(p.pdfTypography||p.pdf_typography||p.pdfFonts||p.pdf_fonts||p.fonts),
-    pdfFonts:textValue(p.pdfFonts||p.pdf_fonts||p.pdfTypography||p.pdf_typography||p.fonts),
-    pdfHeaders:textValue(p.pdfHeaders||p.pdf_headers||p.headers),
-    pdfResources:textValue(p.pdfResources||p.pdf_resources),
+    pdfTypography:textValue(typeof p.pdfTypography==='object'?(p.pdfTypography.value||p.pdfTypography.text||p.pdfTypography.notes):p.pdfTypography||p.pdf_typography||p.pdfFonts||p.pdf_fonts||p.fonts),
+    pdfFonts:textValue(p.pdfFonts||p.pdf_fonts||(typeof p.pdfTypography==='object'?(p.pdfTypography.value||''):p.pdfTypography)||p.pdf_typography||p.fonts),
+    pdfHeaders:textValue(typeof p.pdfHeadersFooters==='object'?(p.pdfHeadersFooters.value||p.pdfHeadersFooters.text||p.pdfHeadersFooters.notes):p.pdfHeaders||p.pdf_headers||p.headers),
+    pdfResources:textValue(typeof p.pdfResourcesQrAnnexes==='object'?(p.pdfResourcesQrAnnexes.value||p.pdfResourcesQrAnnexes.text||p.pdfResourcesQrAnnexes.notes):p.pdfResources||p.pdf_resources),
     quality:textValue(p.quality||p.qa||p.controle_qualite),
-    notes:textValue(p.notes||p.editorial_notes),
+    qualityMathematicalAccuracy:textValue(p.qualityControlExpected?.mathematical_accuracy),
+    qualityDisciplinaryProgression:textValue(p.qualityControlExpected?.disciplinary_progression),
+    qualityExplicitReasoning:textValue(p.qualityControlExpected?.explicit_reasoning),
+    qualityNoRepetition:textValue(p.qualityControlExpected?.no_repetition),
+    qualityScientificGuardrails:textValue(p.qualityControlExpected?.scientific_guardrails),
+    notes:textValue(typeof p.editorialNotes==='object'?(p.editorialNotes.notes||p.editorialNotes.value||''):p.notes||p.editorial_notes),
     revisionNotes:textValue(p.revisionNotes||p.revision_notes||w.revision_note)
   };
 };
@@ -767,7 +772,10 @@ function planForm(t,section){
     field('Situations / problèmes','situations',p.situations,true)+field('Exercices','exercises',p.exercises,true)+field('Corrigés / solutions','corrections',p.corrections,true)+field('Différenciation / adaptations','differentiation',p.differentiation,true)+field('Évaluation prévue','evaluation',p.evaluation,true)+
     field('Volume pédagogique','volume',p.volume)+field('Durée indicative','duration',p.duration)+field('Ressources / illustrations','resources',p.resources,true)+field('Mathématiques / GeoGebra','mathGeoGebra',p.mathGeoGebra,true)+field('Besoins techniques','technicalNeeds',p.technicalNeeds,true)+
     '</div><div class="editor-plan-divider">Paramètres du PDF et contrôle qualité</div><div class="editor-plan-grid editor-pdf-grid">'+
-    field('Format','pdfFormat',p.pdfFormat)+field('Orientation','pdfOrientation',p.pdfOrientation)+field('Pagination','pdfPagination',p.pdfPagination)+field('Couleur thème','pdfThemeColor',p.pdfThemeColor)+field('Mise en page','pdfLayout',p.pdfLayout,true)+field('PDF typographie — obligatoire','pdfTypography',p.pdfTypography,true)+field('En-têtes / pieds de page','pdfHeaders',p.pdfHeaders,true)+field('Ressources PDF / QR / annexes','pdfResources',p.pdfResources,true)+field('Contrôle qualité attendu','quality',p.quality,true)+field('Notes éditoriales','notes',p.notes,true)+field('Demandes de révision','revisionNotes',p.revisionNotes,true)+
+    field('Format','pdfFormat',p.pdfFormat)+field('Orientation','pdfOrientation',p.pdfOrientation)+field('Pagination','pdfPagination',p.pdfPagination)+field('Couleur thème','pdfThemeColor',p.pdfThemeColor)+field('Mise en page','pdfLayout',p.pdfLayout,true)+field('PDF typographie — obligatoire','pdfTypography',p.pdfTypography,true)+field('En-têtes / pieds de page','pdfHeaders',p.pdfHeaders,true)+field('Ressources PDF / QR / annexes','pdfResources',p.pdfResources,true)+
+    '<div class="editor-plan-divider editor-quality-divider">Contrôle qualité attendu — critères éditables</div>'+
+    field('Exactitude mathématique','qualityMathematicalAccuracy',p.qualityMathematicalAccuracy,true)+field('Progression disciplinaire','qualityDisciplinaryProgression',p.qualityDisciplinaryProgression,true)+field('Raisonnement explicite','qualityExplicitReasoning',p.qualityExplicitReasoning,true)+field('Absence de répétition','qualityNoRepetition',p.qualityNoRepetition,true)+field('Garde-fous scientifiques','qualityScientificGuardrails',p.qualityScientificGuardrails,true)+
+    field('Synthèse du contrôle qualité','quality',p.quality,true)+field('Notes éditoriales','notes',p.notes,true)+field('Demandes de révision','revisionNotes',p.revisionNotes,true)+
     '</div><div class="editor-plan-actions"><button type="button" class="admin-btn ghost" data-plan-save="'+esc(t.id)+'">Enregistrer les modifications</button><button type="button" class="admin-btn ghost danger" data-plan-reject="'+esc(t.id)+'">Rejeter / demander une révision</button>'+
     (section==='CX'
       ? '<div class="editor-cx-validation"><div class="editor-cx-validation-head"><span>Validation CX</span><strong>Le plan est contrôlé avant son passage en D.</strong><small>Les vérifications doivent être confirmées dans cette étape. Aucun PDF n’est lancé.</small></div><div class="editor-validation-grid">'+
@@ -1162,13 +1170,22 @@ function bindDetail(d,t,state){
     const pdfResourcesValue=String(p.pdfResources||'').trim();
     const editorialNotesValue=String(p.notes||'').trim();
     const qualityValue=String(p.quality||'').trim();
+    const qualityExpected={
+      status:'complete',
+      mathematical_accuracy:String(p.qualityMathematicalAccuracy||qualityValue).trim(),
+      disciplinary_progression:String(p.qualityDisciplinaryProgression||qualityValue).trim(),
+      explicit_reasoning:String(p.qualityExplicitReasoning||qualityValue).trim(),
+      no_repetition:String(p.qualityNoRepetition||qualityValue).trim(),
+      scientific_guardrails:String(p.qualityScientificGuardrails||qualityValue).trim(),
+      updated_at:new Date().toISOString()
+    };
     const persistedProposal={...p,
       pdfTypography:{status:'complete',value:pdfPersistedValue,updated_at:new Date().toISOString()},
       pdfFonts:pdfPersistedValue,
       pdfHeadersFooters:{status:'complete',value:pdfHeadersValue,updated_at:new Date().toISOString()},
       pdfResourcesQrAnnexes:{status:'complete',value:pdfResourcesValue,updated_at:new Date().toISOString()},
       editorialNotes:{status:'complete',notes:editorialNotesValue,updated_at:new Date().toISOString()},
-      qualityControlExpected:{status:'complete',mathematical_accuracy:qualityValue,disciplinary_progression:qualityValue,explicit_reasoning:qualityValue,no_repetition:qualityValue,scientific_guardrails:qualityValue,updated_at:new Date().toISOString()}
+      qualityControlExpected:qualityExpected
     };
     const stage=targetStage||fw.stage||'proposition_editoriale';
     const status=targetStatus||fw.proposal_status||'plan_editing';
