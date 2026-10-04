@@ -2048,7 +2048,7 @@ def _render_bare_latex_fragments(text, auto_math=False):
         return token
 
     patterns = [
-        r"\\frac\{(?:[^{}]|\{[^{}]*\})*\}\{(?:[^{}]|\{[^{}]*\})*\}",
+        r"\\frac\{(?:[^{}]|\{[^{}]*\})*\}(?:\{(?:[^{}]|\{[^{}]*\})*\}|\\[A-Za-z]+|[A-Za-z0-9])",
         r"\\overline\{[^{}]*\}",
         r"\\(?:textbf|textit|textrm|textsf|texttt|emph|underline)\{[^{}]*\}",
         r"\\text\{[^{}]*\}",
