@@ -1,0 +1,418 @@
+/* =========================================================================
+   AURORE — SHAPE VARIETY V1 (formes variées + barre du haut en pilule)
+   Couche purement visuelle : aucun DOM, aucun JS, aucune donnée modifiés.
+   Chargée via @import depuis aurore-folder-navigation-final.css.
+
+   Spécificité : le préfixe :is(html,#aurore-formes) vaut un sélecteur d'ID
+   (le #aurore-formes n'existe pas, html correspond quand même). Il permet de
+   passer devant les règles de aurore-shape-system.css qui contiennent des ID
+   dans leurs :is(...), sans dépendre de l'ordre de chargement.
+
+   Catalogue de formes (inspiré des captures "CSS Border Radius") :
+     pilule      999px / 100%
+     cercle      50%
+     diagonale   m xl  (coins opposés égaux)
+     feuille     s xl
+     morsure     un seul grand coin
+   ========================================================================= */
+
+:root{
+  --fx-s:12px;
+  --fx-m:22px;
+  --fx-l:32px;
+  --fx-xl:46px;
+}
+@media(max-width:720px){
+  :root{
+    --fx-s:10px;
+    --fx-m:18px;
+    --fx-l:26px;
+    --fx-xl:34px;
+  }
+}
+
+/* =========================================================
+   1. BARRE DU HAUT — capsule flottante
+   (le header n'a pas d'onglets dans le DOM : on applique le langage
+   visuel "capsule" — pilule, logo rond, groupes en pilules, état actif
+   avec point — sans toucher au HTML)
+   ========================================================= */
+
+:is(html,#aurore-formes) body > header{
+  position:sticky!important;
+  top:10px!important;
+  width:min(1120px,calc(100% - 20px));
+  margin:10px auto 6px!important;
+  border:1px solid var(--aurore-line,var(--bordure))!important;
+  border-radius:999px!important;
+  corner-shape:round!important;
+  background:color-mix(in srgb,var(--papier,#11101C) 95%,transparent)!important;
+  box-shadow:0 14px 34px color-mix(in srgb,var(--theme-shadow,rgba(0,0,0,.2)) 80%,transparent)!important;
+}
+
+:is(html,#aurore-formes) body > header .header-inner{
+  height:68px;
+  max-width:none;
+  margin:0;
+  padding:0 12px 0 10px;
+  gap:12px;
+}
+
+/* Logo : disque d'accent, comme le bouton rond de la maquette. */
+:is(html,#aurore-formes) body > header .brand-logo{
+  width:46px;
+  height:46px;
+  border-radius:50%!important;
+  corner-shape:round!important;
+  box-shadow:
+    0 0 0 3px color-mix(in srgb,var(--theme-primary,#8B5CF6) 26%,transparent),
+    0 8px 20px color-mix(in srgb,var(--theme-shadow,rgba(0,0,0,.2)) 80%,transparent)!important;
+}
+
+/* Groupe de thèmes : capsule avec l'option active mise en avant + point. */
+:is(html,#aurore-formes) body > header .theme-switch{
+  display:inline-flex;
+  align-items:center;
+  gap:2px;
+  padding:4px;
+  border-radius:999px!important;
+  corner-shape:round!important;
+  background:color-mix(in srgb,var(--fond,#090812) 78%,transparent);
+  border:1px solid var(--aurore-line-soft,var(--bordure));
+}
+:is(html,#aurore-formes) body > header .theme-switch-btn{
+  position:relative;
+  width:34px;
+  height:34px;
+  padding:0;
+  border:0;
+  border-radius:999px!important;
+  corner-shape:round!important;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:transparent;
+}
+:is(html,#aurore-formes) body > header .theme-switch-btn[aria-pressed="true"]{
+  background:var(--theme-primary,#8B5CF6)!important;
+  color:#fff!important;
+  box-shadow:0 6px 14px color-mix(in srgb,var(--theme-primary,#8B5CF6) 40%,transparent)!important;
+}
+:is(html,#aurore-formes) body > header .theme-switch-btn[aria-pressed="true"]::after{
+  content:"";
+  position:absolute;
+  bottom:3px;
+  left:50%;
+  width:4px;
+  height:4px;
+  margin-left:-2px;
+  border-radius:50%;
+  background:#fff;
+}
+
+:is(html,#aurore-formes) body > header :is(
+  .aurore-ia-header-btn,.deposer-btn,.pwa-install-btn,.user-chip,
+  .user-chip-info,.user-chip .user-chip-logout
+){
+  border-radius:999px!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) body > header .color-theme-btn{
+  border-radius:50%!important;
+  corner-shape:round!important;
+}
+
+@media(max-width:640px){
+  :is(html,#aurore-formes) body > header{
+    top:6px!important;
+    width:calc(100% - 12px);
+    margin:6px auto 4px!important;
+    border-radius:32px!important;
+  }
+  :is(html,#aurore-formes) body > header .header-inner{
+    height:auto;
+    padding:10px 12px;
+  }
+}
+
+/* =========================================================
+   2. ACCUEIL ET BANNIÈRES — une forme différente par bloc
+   ========================================================= */
+
+:is(html,#aurore-formes) .hero{
+  border-radius:var(--fx-m) calc(var(--fx-xl)*1.4) var(--fx-m) calc(var(--fx-xl)*1.4)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .livres-banner{
+  border-radius:var(--fx-xl) var(--fx-s) var(--fx-xl) var(--fx-s)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .home-recents-cta{
+  border-radius:var(--fx-s) var(--fx-xl) var(--fx-s) var(--fx-xl)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .home-video-section{
+  border-radius:var(--fx-xl) var(--fx-xl) var(--fx-s) var(--fx-xl)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .home-promise{
+  border-radius:var(--fx-l) var(--fx-s) var(--fx-l) var(--fx-s)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .home-secondary-choice:nth-child(odd){
+  border-radius:var(--fx-xl) var(--fx-s) var(--fx-xl) var(--fx-s)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .home-secondary-choice:nth-child(even){
+  border-radius:var(--fx-s) var(--fx-xl) var(--fx-s) var(--fx-xl)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .home-promo-card:nth-child(odd){
+  border-radius:var(--fx-l) var(--fx-s) var(--fx-s) var(--fx-l)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .home-promo-card:nth-child(even){
+  border-radius:var(--fx-s) var(--fx-l) var(--fx-l) var(--fx-s)!important;
+  corner-shape:round!important;
+}
+
+/* Présentation en 3 blocs : trois formes, trois icônes. */
+:is(html,#aurore-formes) .presentation-item:nth-child(3n+1){
+  border-radius:var(--fx-l) var(--fx-s) var(--fx-l) var(--fx-s)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .presentation-item:nth-child(3n+2){
+  border-radius:var(--fx-s) var(--fx-l) var(--fx-s) var(--fx-l)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .presentation-item:nth-child(3n){
+  border-radius:var(--fx-l) var(--fx-l) var(--fx-s) var(--fx-l)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .presentation-item:nth-child(3n+1) .icon-wrap{border-radius:50%!important;corner-shape:round!important;}
+:is(html,#aurore-formes) .presentation-item:nth-child(3n+2) .icon-wrap{border-radius:4px 18px!important;corner-shape:round!important;}
+:is(html,#aurore-formes) .presentation-item:nth-child(3n) .icon-wrap{border-radius:16px 16px 4px 16px!important;corner-shape:round!important;}
+
+/* =========================================================
+   3. DOSSIERS / NIVEAUX / MATIÈRES — cycle de 4 formes
+   (.x.x = spécificité supplémentaire pour battre les états :hover)
+   ========================================================= */
+
+:is(html,#aurore-formes) :is(
+  #screen-home .home-five-level.home-five-level,
+  #screen-level .sublevel-card.sublevel-card,
+  #screen-level .cat-card.cat-card,
+  #screen-matieres .matiere-card.matiere-card,
+  #screen-livres .matiere-card.matiere-card
+):nth-child(4n+2){
+  border-radius:var(--fx-m) var(--fx-xl) var(--fx-m) var(--fx-xl)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) :is(
+  #screen-home .home-five-level.home-five-level,
+  #screen-level .sublevel-card.sublevel-card,
+  #screen-level .cat-card.cat-card,
+  #screen-matieres .matiere-card.matiere-card,
+  #screen-livres .matiere-card.matiere-card
+):nth-child(4n+3){
+  border-radius:var(--fx-xl) var(--fx-s) var(--fx-l) var(--fx-s)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) :is(
+  #screen-home .home-five-level.home-five-level,
+  #screen-level .sublevel-card.sublevel-card,
+  #screen-level .cat-card.cat-card,
+  #screen-matieres .matiere-card.matiere-card,
+  #screen-livres .matiere-card.matiere-card
+):nth-child(4n){
+  border-radius:var(--fx-s) var(--fx-l) var(--fx-s) var(--fx-xl)!important;
+  corner-shape:round!important;
+}
+
+/* Cartes de niveau (grille hors écrans ci-dessus). */
+:is(html,#aurore-formes) .level-grid .level-card:nth-child(3n+1){
+  border-radius:var(--fx-xl) var(--fx-s) var(--fx-xl) var(--fx-s)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .level-grid .level-card:nth-child(3n+2){
+  border-radius:var(--fx-s) var(--fx-xl) var(--fx-s) var(--fx-xl)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .level-grid .level-card:nth-child(3n){
+  border-radius:var(--fx-xl) var(--fx-xl) var(--fx-s) var(--fx-xl)!important;
+  corner-shape:round!important;
+}
+
+/* Badges et monogrammes : cercle / feuille en alternance. */
+:is(html,#aurore-formes) :is(.level-card,.matiere-card):nth-child(odd) :is(.level-badge,.mono){
+  border-radius:50%!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) :is(.level-card,.matiere-card):nth-child(even) :is(.level-badge,.mono){
+  border-radius:4px 18px!important;
+  corner-shape:round!important;
+}
+
+/* =========================================================
+   4. STATISTIQUES, ADMIN, ESPACE PERSONNEL, FORMULAIRES
+   ========================================================= */
+
+:is(html,#aurore-formes) .stats-grid .stat-card:nth-child(odd){
+  border-radius:var(--fx-m) var(--fx-l) var(--fx-m) var(--fx-l)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .stats-grid .stat-card:nth-child(even){
+  border-radius:var(--fx-l) var(--fx-m) var(--fx-l) var(--fx-m)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .stat-card:nth-child(odd) .stat-icon{border-radius:50%!important;corner-shape:round!important;}
+:is(html,#aurore-formes) .stat-card:nth-child(even) .stat-icon{border-radius:4px 16px!important;corner-shape:round!important;}
+
+:is(html,#aurore-formes) .admin-category-grid .admin-category-card:nth-child(4n+1){
+  border-radius:var(--fx-l) var(--fx-s) var(--fx-l) var(--fx-s)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .admin-category-grid .admin-category-card:nth-child(4n+2){
+  border-radius:var(--fx-s) var(--fx-l) var(--fx-s) var(--fx-l)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .admin-category-grid .admin-category-card:nth-child(4n+3){
+  border-radius:var(--fx-l) var(--fx-l) var(--fx-s) var(--fx-l)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .admin-category-grid .admin-category-card:nth-child(4n){
+  border-radius:var(--fx-l) var(--fx-s) var(--fx-l) var(--fx-l)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .admin-category-card:nth-child(odd) .admin-category-icon{border-radius:50%!important;corner-shape:round!important;}
+:is(html,#aurore-formes) .admin-category-card:nth-child(even) .admin-category-icon{border-radius:4px 16px!important;corner-shape:round!important;}
+
+:is(html,#aurore-formes) :is(.cf-admin-card,.aurore-pdf-prod-card,.admin-pending-v2-card):nth-child(odd){
+  border-radius:var(--fx-m) var(--fx-s) var(--fx-m) var(--fx-s)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) :is(.cf-admin-card,.aurore-pdf-prod-card,.admin-pending-v2-card):nth-child(even){
+  border-radius:var(--fx-s) var(--fx-m) var(--fx-s) var(--fx-m)!important;
+  corner-shape:round!important;
+}
+
+:is(html,#aurore-formes) .profile-card{
+  border-radius:var(--fx-s) var(--fx-xl) var(--fx-s) var(--fx-xl)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .aurora-personal-hero{
+  border-radius:var(--fx-xl) var(--fx-s) var(--fx-xl) var(--fx-s)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .personal-folder:nth-child(3n+1){
+  border-radius:var(--fx-l) var(--fx-s) var(--fx-l) var(--fx-s)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .personal-folder:nth-child(3n+2){
+  border-radius:var(--fx-s) var(--fx-l) var(--fx-s) var(--fx-l)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .personal-folder:nth-child(3n){
+  border-radius:var(--fx-l) var(--fx-l) var(--fx-s) var(--fx-l)!important;
+  corner-shape:round!important;
+}
+
+:is(html,#aurore-formes) .doc-empty{
+  border-radius:var(--fx-l) var(--fx-s) var(--fx-l) var(--fx-s)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .form-card{
+  border-radius:var(--fx-s) var(--fx-l) var(--fx-s) var(--fx-l)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .form-submit{
+  border-radius:999px!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .serie-pill{
+  border-radius:999px!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) :is(.site-data-toolbar,.admin-toolbar,.recents-toolbar,.docs-toolbar){
+  border-radius:var(--fx-l) var(--fx-s) var(--fx-l) var(--fx-s)!important;
+  corner-shape:round!important;
+}
+
+/* Publicités : une forme par sens de lecture. */
+:is(html,#aurore-formes) .ad-slot .ad-slot-card{
+  border-radius:var(--fx-xl) var(--fx-s) var(--fx-xl) var(--fx-s)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .ad-slot.ad-slot-alt .ad-slot-card{
+  border-radius:var(--fx-s) var(--fx-xl) var(--fx-s) var(--fx-xl)!important;
+  corner-shape:round!important;
+}
+
+/* =========================================================
+   5. COUVERTURES PDF — jamais deux voisines identiques
+   Le coin haut-droit reste petit (--fx-s) pour que le bouton ⋮ ne déborde
+   jamais de la forme. La couverture est rognée par la forme du cadre
+   (overflow hidden déjà en place) : la page PDF reste entière (contain).
+   ========================================================= */
+
+/* 4n+1 : diagonale */
+:is(html,#aurore-formes) .doc-row:not(.aurore-resource-list .doc-row):nth-child(4n+1) :is(.icon-wrap,.icon-wrap.a-couverture,.personal-doc-cover),
+:is(html,#aurore-formes) #adminList .admin-card:nth-child(4n+1) .admin-card-icon,
+:is(html,#aurore-formes) #adminListPublies .admin-card:nth-child(4n+1) .admin-card-icon{
+  border-radius:var(--fx-xl) var(--fx-s) var(--fx-xl) var(--fx-s)!important;
+  corner-shape:round!important;
+}
+/* 4n+2 : morsure bas-gauche */
+:is(html,#aurore-formes) .doc-row:not(.aurore-resource-list .doc-row):nth-child(4n+2) :is(.icon-wrap,.icon-wrap.a-couverture,.personal-doc-cover),
+:is(html,#aurore-formes) #adminList .admin-card:nth-child(4n+2) .admin-card-icon,
+:is(html,#aurore-formes) #adminListPublies .admin-card:nth-child(4n+2) .admin-card-icon{
+  border-radius:var(--fx-s) var(--fx-s) var(--fx-s) var(--fx-xl)!important;
+  corner-shape:round!important;
+}
+/* 4n+3 : côté gauche arrondi */
+:is(html,#aurore-formes) .doc-row:not(.aurore-resource-list .doc-row):nth-child(4n+3) :is(.icon-wrap,.icon-wrap.a-couverture,.personal-doc-cover),
+:is(html,#aurore-formes) #adminList .admin-card:nth-child(4n+3) .admin-card-icon,
+:is(html,#aurore-formes) #adminListPublies .admin-card:nth-child(4n+3) .admin-card-icon{
+  border-radius:var(--fx-l) var(--fx-s) var(--fx-s) var(--fx-l)!important;
+  corner-shape:round!important;
+}
+/* 4n : morsure bas-droite */
+:is(html,#aurore-formes) .doc-row:not(.aurore-resource-list .doc-row):nth-child(4n) :is(.icon-wrap,.icon-wrap.a-couverture,.personal-doc-cover),
+:is(html,#aurore-formes) #adminList .admin-card:nth-child(4n) .admin-card-icon,
+:is(html,#aurore-formes) #adminListPublies .admin-card:nth-child(4n) .admin-card-icon{
+  border-radius:var(--fx-s) var(--fx-s) var(--fx-xl) var(--fx-s)!important;
+  corner-shape:round!important;
+}
+
+/* L'image suit la forme de son cadre. */
+:is(html,#aurore-formes) .doc-row:not(.aurore-resource-list .doc-row) img.doc-cover-img,
+:is(html,#aurore-formes) #adminList .admin-card-icon img.doc-cover-img,
+:is(html,#aurore-formes) #adminListPublies .admin-card-icon img.doc-cover-img{
+  border-radius:inherit!important;
+}
+
+/* Fiche titre : forme complémentaire de sa couverture. */
+:is(html,#aurore-formes) .doc-row:not(.aurore-resource-list .doc-row):nth-child(4n+1) .doc-main-info,
+:is(html,#aurore-formes) #adminList .admin-card:nth-child(4n+1) .admin-card-body,
+:is(html,#aurore-formes) #adminListPublies .admin-card:nth-child(4n+1) .admin-card-body{
+  border-radius:var(--fx-s) var(--fx-m) var(--fx-s) var(--fx-m)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .doc-row:not(.aurore-resource-list .doc-row):nth-child(4n+2) .doc-main-info,
+:is(html,#aurore-formes) #adminList .admin-card:nth-child(4n+2) .admin-card-body,
+:is(html,#aurore-formes) #adminListPublies .admin-card:nth-child(4n+2) .admin-card-body{
+  border-radius:var(--fx-m) var(--fx-s) var(--fx-m) var(--fx-s)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .doc-row:not(.aurore-resource-list .doc-row):nth-child(4n+3) .doc-main-info,
+:is(html,#aurore-formes) #adminList .admin-card:nth-child(4n+3) .admin-card-body,
+:is(html,#aurore-formes) #adminListPublies .admin-card:nth-child(4n+3) .admin-card-body{
+  border-radius:var(--fx-s) var(--fx-s) var(--fx-m) var(--fx-s)!important;
+  corner-shape:round!important;
+}
+:is(html,#aurore-formes) .doc-row:not(.aurore-resource-list .doc-row):nth-child(4n) .doc-main-info,
+:is(html,#aurore-formes) #adminList .admin-card:nth-child(4n) .admin-card-body,
+:is(html,#aurore-formes) #adminListPublies .admin-card:nth-child(4n) .admin-card-body{
+  border-radius:var(--fx-m) var(--fx-s) var(--fx-s) var(--fx-s)!important;
+  corner-shape:round!important;
+}
