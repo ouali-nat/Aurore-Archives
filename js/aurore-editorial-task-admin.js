@@ -49,7 +49,7 @@ const B_EXECUTION_CONTRACT={
     'remplacer les données persistées par une réponse conversationnelle'
   ]
 };
-const C_PLAN_REQUIRED_FIELDS=['researchMethod','curricularBasis','researchFindings','sources','title','chapter','objectives','competencies','prerequisites','progression','architecture','productionStrategy','content','methods','activities','examples','situations','exercises','corrections','differentiation','evaluation','volume','duration','resources','mathGeoGebra','technicalNeeds','pdfFormat','pdfOrientation','pdfPagination','pdfThemeColor','pdfLayout','pdfTypography','pdfHeaders','pdfResources','quality','notes'];
+const C_PLAN_REQUIRED_FIELDS=['researchMethod','curricularBasis','researchFindings','sources','title','chapter','objectives','competencies','prerequisites','progression','architecture','productionStrategy','content','methods','activities','examples','situations','exercises','corrections','differentiation','evaluation','volume','duration','resources','mathGeoGebra','technicalNeeds','pdfFormat','pdfOrientation','pdfPagination','pdfThemeColor','pdfLayout','pdfTypography','pdfHeaders','pdfResources','qualityMathematicalAccuracy','qualityDisciplinaryProgression','qualityExplicitReasoning','qualityNoRepetition','qualityScientificGuardrails','quality','notes'];
 const C_EXECUTION_CONTRACT_VERSION='c-plan-guardrails-v2';
 const D_EXECUTION_CONTRACT_VERSION='d-editorial-production-v1';
 const D_EXECUTION_CONTRACT={
@@ -330,6 +330,7 @@ const proposalFor=(t)=>{
     pdfHeaders:textValue(typeof p.pdfHeadersFooters==='object'?(p.pdfHeadersFooters.value||p.pdfHeadersFooters.text||p.pdfHeadersFooters.notes):p.pdfHeaders||p.pdf_headers||p.headers),
     pdfResources:textValue(typeof p.pdfResourcesQrAnnexes==='object'?(p.pdfResourcesQrAnnexes.value||p.pdfResourcesQrAnnexes.text||p.pdfResourcesQrAnnexes.notes):p.pdfResources||p.pdf_resources),
     quality:textValue(p.quality||p.qa||p.controle_qualite),
+    qualityControlExpected:p.qualityControlExpected&&typeof p.qualityControlExpected==='object'?p.qualityControlExpected:{},
     qualityMathematicalAccuracy:textValue(p.qualityControlExpected?.mathematical_accuracy),
     qualityDisciplinaryProgression:textValue(p.qualityControlExpected?.disciplinary_progression),
     qualityExplicitReasoning:textValue(p.qualityControlExpected?.explicit_reasoning),
@@ -649,8 +650,8 @@ const C_PLAN_FIELD_LABELS={
   exercises:'Exercices',corrections:'Corrigés / solutions',differentiation:'Différenciation / adaptations',evaluation:'Évaluation prévue',
   volume:'Volume pédagogique',duration:'Durée indicative',resources:'Ressources / illustrations',mathGeoGebra:'Mathématiques / GeoGebra',
   technicalNeeds:'Besoins techniques',pdfFormat:'Format PDF',pdfOrientation:'Orientation PDF',pdfPagination:'Pagination PDF',pdfThemeColor:'Couleur thème PDF',
-  pdfLayout:'Mise en page PDF',pdfTypography:'PDF typographie',pdfHeaders:'En-têtes / pieds de page PDF',pdfResources:'Ressources PDF / QR / annexes',
-  quality:'Contrôle qualité attendu',notes:'Notes éditoriales'
+  pdfLayout:'Mise en page PDF',pdfTypography:'PDF typographie',pdfFonts:'Polices / typographie PDF',pdfHeaders:'En-têtes / pieds de page PDF',pdfResources:'Ressources PDF / QR / annexes',
+  quality:'Synthèse du contrôle qualité',qualityMathematicalAccuracy:'Exactitude mathématique',qualityDisciplinaryProgression:'Progression disciplinaire',qualityExplicitReasoning:'Raisonnement explicite',qualityNoRepetition:'Absence de répétition',qualityScientificGuardrails:'Garde-fous scientifiques',notes:'Notes éditoriales'
 };
 const C_AI_COMPLETION_VERSION='c-ai-completion-guard-v1';
 const C_AI_ENDPOINT='/functions/v1/aurora-gemini-next';
@@ -664,7 +665,7 @@ const cAIContext=(t,p,missing)=>{
   const w=t.metadata?.workflow||{};
   const selected=selectedChaptersFor(t).map(x=>cAIText(x?.title||x?.name||x)).filter(Boolean);
   const take=(v,n)=>cAIText(v).slice(0,n||160);
-  const core=['title','chapter','objectives','competencies','progression','architecture','productionStrategy','content','methods','activities','examples','situations','exercises','corrections','evaluation','resources','technicalNeeds','pdfLayout','pdfTypography','pdfHeaders','pdfResources','quality','notes'];
+  const core=['title','chapter','objectives','competencies','progression','architecture','productionStrategy','content','methods','activities','examples','situations','exercises','corrections','evaluation','resources','technicalNeeds','pdfLayout','pdfFonts','pdfHeaders','pdfResources','quality','notes'];
   const plan={};
   core.forEach(k=>{if(!missing.includes(k)&&cAIText(p[k]))plan[k]=take(p[k],k==='content'||k==='progression'||k==='architecture'||k==='productionStrategy'||k==='quality'?220:150)});
   return {
@@ -698,7 +699,7 @@ async function cAIRequest(t,p,missing){
     'Utilise exclusivement le contexte réel fourni. N’invente ni chapitre, ni classe, ni source, ni information curriculaire.',
     'Chaque valeur doit être directement exploitable dans un document pédagogique réel.',
     'N’utilise jamais une formule vide ou générique comme « à compléter », « à préciser », « N/A » ou équivalent.',
-    'Pour notes, écris une vraie note éditoriale contextualisée. Pour pdfTypography, pdfHeaders et pdfResources, donne des choix techniques concrets.',
+    'Pour notes, écris une vraie note éditoriale contextualisée. Pour pdfFonts, pdfHeaders et pdfResources, donne des choix techniques concrets.',
     'Pour sources, conserve uniquement les sources réellement fournies dans le contexte ; ne fabrique aucune URL.',
     'Réponds uniquement avec un objet JSON valide de la forme {"fields":{"clé":"valeur"}}.',
     '',
@@ -750,7 +751,7 @@ function cGuardMarkup(t,p){
   const check=cPlanCompleteness(t,p);
   const label=check.ok?'Contrôle de complétude : prêt à être relu par l’administrateur.':'Contrôle de complétude : champs manquants à compléter par l’IA éditrice.';
   const detail=check.ok?'Tous les champs obligatoires sont présents. La validation administrative reste distincte.':'Éléments manquants : '+check.missing.map(x=>x==='selected_chapters'?'chapitres B':x==='chapter_alignment'?'alignement chapitre B/C':x==='research_source'?'au moins une source':x==='quality_detail'?'contrôle qualité détaillé':(C_PLAN_FIELD_LABELS[x]||x)).join(', ')+'.';
-  return '<div class="editor-c-plan-context '+(check.ok?'':'warning')+'"><span>Garde-fou '+C_EXECUTION_CONTRACT_VERSION+'</span><strong>'+esc(label)+'</strong><small>'+esc(detail)+'</small><small data-c-ai-status>Lors de l’enregistrement et de la migration, l’IA éditrice complète les champs manquants. Si un champ reste incomplet, aucune écriture du plan et aucune migration C → CX ne sont autorisées.</small></div>';
+  return '<div class="editor-c-plan-context '+(check.ok?'':'warning')+'"><span>Garde-fou '+C_EXECUTION_CONTRACT_VERSION+'</span><strong>'+esc(label)+'</strong><small>'+esc(detail)+'</small><small data-c-ai-status>Les champs sont éditables manuellement. Enregistrer conserve le brouillon même incomplet ; seul le passage C → CX exige la complétude totale.</small><button type="button" class="admin-btn ghost" data-c-ai-fill>Compléter les champs manquants avec l’aide IA</button></div>';
 }
 function planForm(t,section){
   const p=proposalFor(t),research=t.metadata?.workflow?.chapter_research&&typeof t.metadata.workflow.chapter_research==='object'?t.metadata.workflow.chapter_research:{};
@@ -774,8 +775,7 @@ function planForm(t,section){
     '</div><div class="editor-plan-divider">Paramètres du PDF et contrôle qualité</div><div class="editor-plan-grid editor-pdf-grid">'+
     field('Format','pdfFormat',p.pdfFormat)+field('Orientation','pdfOrientation',p.pdfOrientation)+field('Pagination','pdfPagination',p.pdfPagination)+field('Couleur thème','pdfThemeColor',p.pdfThemeColor)+field('Mise en page','pdfLayout',p.pdfLayout,true)+field('PDF typographie — obligatoire','pdfTypography',p.pdfTypography,true)+field('En-têtes / pieds de page','pdfHeaders',p.pdfHeaders,true)+field('Ressources PDF / QR / annexes','pdfResources',p.pdfResources,true)+
     '<div class="editor-plan-divider editor-quality-divider">Contrôle qualité attendu — critères éditables</div>'+
-    field('Exactitude mathématique','qualityMathematicalAccuracy',p.qualityMathematicalAccuracy,true)+field('Progression disciplinaire','qualityDisciplinaryProgression',p.qualityDisciplinaryProgression,true)+field('Raisonnement explicite','qualityExplicitReasoning',p.qualityExplicitReasoning,true)+field('Absence de répétition','qualityNoRepetition',p.qualityNoRepetition,true)+field('Garde-fous scientifiques','qualityScientificGuardrails',p.qualityScientificGuardrails,true)+
-    field('Synthèse du contrôle qualité','quality',p.quality,true)+field('Notes éditoriales','notes',p.notes,true)+field('Demandes de révision','revisionNotes',p.revisionNotes,true)+
+    field('Exactitude mathématique','qualityMathematicalAccuracy',p.qualityMathematicalAccuracy,true)+field('Progression disciplinaire','qualityDisciplinaryProgression',p.qualityDisciplinaryProgression,true)+field('Raisonnement explicite','qualityExplicitReasoning',p.qualityExplicitReasoning,true)+field('Absence de répétition','qualityNoRepetition',p.qualityNoRepetition,true)+field('Garde-fous scientifiques','qualityScientificGuardrails',p.qualityScientificGuardrails,true)+field('Synthèse du contrôle qualité','quality',p.quality,true)+field('Notes éditoriales','notes',p.notes,true)+field('Demandes de révision','revisionNotes',p.revisionNotes,true)+
     '</div><div class="editor-plan-actions"><button type="button" class="admin-btn ghost" data-plan-save="'+esc(t.id)+'">Enregistrer les modifications</button><button type="button" class="admin-btn ghost danger" data-plan-reject="'+esc(t.id)+'">Rejeter / demander une révision</button>'+
     (section==='CX'
       ? '<div class="editor-cx-validation"><div class="editor-cx-validation-head"><span>Validation CX</span><strong>Le plan est contrôlé avant son passage en D.</strong><small>Les vérifications doivent être confirmées dans cette étape. Aucun PDF n’est lancé.</small></div><div class="editor-validation-grid">'+
@@ -1141,56 +1141,37 @@ function bindDetail(d,t,state){
     const w=t.metadata?.workflow||{};
     return Array.isArray(w.selected_chapters)?w.selected_chapters:(Array.isArray(w.chapters)?w.chapters:[]);
   };
-  const persistPlan=async({targetStage,targetStatus}={})=>{
+  const persistPlan=async({targetStage,targetStatus,requireComplete=false}={})=>{
     const fresh=await getJob(t.id);
     if(!fresh)throw new Error('Tâche introuvable.');
     const fw=fresh.metadata?.workflow||{};
     const selected=Array.isArray(fw.selected_chapters)?fw.selected_chapters:(Array.isArray(fw.chapters)?fw.chapters:[]);
     if(!selected.length)throw new Error('Le plan ne peut pas être enregistré : aucun chapitre validé en section B.');
     let p=collectPlan();
+    const now=new Date().toISOString();
+    const qualityFallback=String(p.quality||'').trim();
+    p.pdfTypography={status:'complete',value:String(p.pdfTypography||p.pdfFonts||'').trim(),updated_at:now};
+    p.pdfFonts=String(p.pdfTypography.value||'').trim();
+    p.pdfHeadersFooters={status:'complete',value:String(p.pdfHeaders||'').trim(),updated_at:now};
+    p.pdfResourcesQrAnnexes={status:'complete',value:String(p.pdfResources||'').trim(),updated_at:now};
+    p.editorialNotes={status:'complete',notes:String(p.notes||'').trim(),updated_at:now};
+    p.qualityControlExpected={status:'complete',mathematical_accuracy:String(p.qualityMathematicalAccuracy||qualityFallback).trim(),disciplinary_progression:String(p.qualityDisciplinaryProgression||qualityFallback).trim(),explicit_reasoning:String(p.qualityExplicitReasoning||qualityFallback).trim(),no_repetition:String(p.qualityNoRepetition||qualityFallback).trim(),scientific_guardrails:String(p.qualityScientificGuardrails||qualityFallback).trim(),updated_at:now};
     let guard=cPlanCompleteness(fresh,p);
     const setGuardStatus=message=>{
       const el=d.querySelector('[data-c-ai-status]');
       if(el)el.textContent=message;
     };
     let completionAudit={version:C_AI_COMPLETION_VERSION,status:'already_complete',missing_before:[],completed_fields:[],unresolved_fields:[],completed_at:new Date().toISOString()};
-    if(!guard.ok){
-      const completed=await completeCPlanWithAI(fresh,p,guard.missing,setGuardStatus);
-      p=completed.plan;
-      completionAudit=completed.audit;
-      guard=cPlanCompleteness(fresh,p);
-      if(!guard.ok){
-        setGuardStatus('Écriture et migration bloquées : '+guard.missing.map(x=>C_PLAN_FIELD_LABELS[x]||x).join(', ')+' restent incomplets après intervention de l’IA éditrice.');
-        throw new Error('Garde-fou C : l’IA éditrice n’a pas réussi à compléter tous les champs obligatoires. Champs/contrôles manquants : '+guard.missing.map(x=>C_PLAN_FIELD_LABELS[x]||x).join(', '));
-      }
+    if(!guard.ok&&requireComplete){
+      setGuardStatus('Validation C bloquée : '+guard.missing.map(x=>C_PLAN_FIELD_LABELS[x]||x).join(', ')+' restent à compléter.');
+      throw new Error('Garde-fou C : complétez tous les champs obligatoires avant le passage en CX. Manquants : '+guard.missing.map(x=>C_PLAN_FIELD_LABELS[x]||x).join(', '));
     }
-    setGuardStatus('Garde-fou C validé : tous les champs obligatoires sont complets. Écriture autorisée.');
-    const pdfPersistedValue=String(p.pdfTypography||p.pdfFonts||'').trim();
-    const pdfHeadersValue=String(p.pdfHeaders||'').trim();
-    const pdfResourcesValue=String(p.pdfResources||'').trim();
-    const editorialNotesValue=String(p.notes||'').trim();
-    const qualityValue=String(p.quality||'').trim();
-    const qualityExpected={
-      status:'complete',
-      mathematical_accuracy:String(p.qualityMathematicalAccuracy||qualityValue).trim(),
-      disciplinary_progression:String(p.qualityDisciplinaryProgression||qualityValue).trim(),
-      explicit_reasoning:String(p.qualityExplicitReasoning||qualityValue).trim(),
-      no_repetition:String(p.qualityNoRepetition||qualityValue).trim(),
-      scientific_guardrails:String(p.qualityScientificGuardrails||qualityValue).trim(),
-      updated_at:new Date().toISOString()
-    };
-    const persistedProposal={...p,
-      pdfTypography:{status:'complete',value:pdfPersistedValue,updated_at:new Date().toISOString()},
-      pdfFonts:pdfPersistedValue,
-      pdfHeadersFooters:{status:'complete',value:pdfHeadersValue,updated_at:new Date().toISOString()},
-      pdfResourcesQrAnnexes:{status:'complete',value:pdfResourcesValue,updated_at:new Date().toISOString()},
-      editorialNotes:{status:'complete',notes:editorialNotesValue,updated_at:new Date().toISOString()},
-      qualityControlExpected:qualityExpected
-    };
+    if(guard.ok)setGuardStatus('Garde-fou C validé : tous les champs obligatoires sont complets.');
+    else setGuardStatus('Brouillon enregistré : '+guard.missing.map(x=>C_PLAN_FIELD_LABELS[x]||x).join(', ')+' restent à compléter. Le passage C → CX reste bloqué.');
     const stage=targetStage||fw.stage||'proposition_editoriale';
     const status=targetStatus||fw.proposal_status||'plan_editing';
     const updated=await updateJob(t.id,{
-      proposal:persistedProposal,
+      proposal:p,
       proposal_version:Number(fw.proposal_version||0)+1,
       proposal_status:status,
       stage,
@@ -1198,7 +1179,7 @@ function bindDetail(d,t,state){
       revision_requested:false,
       user_validated:false,
       revision_note:p.revisionNotes||fw.revision_note||'',
-      c_completion_guard:completionAudit,
+      c_completion_guard:{...completionAudit,status:guard.ok?'complete':'draft_incomplete',missing:guard.missing,updated_at:new Date().toISOString()},
       execution_contract:C_EXECUTION_CONTRACT,
       execution_contract_acknowledged:true,
       completion_guard:C_EXECUTION_CONTRACT_VERSION,
@@ -1209,15 +1190,27 @@ function bindDetail(d,t,state){
     const verified=await getJob(t.id);
     const verifiedPlan=verified?.metadata?.workflow?.proposal;
     const verifiedGuard=verified?cPlanCompleteness(verified,proposalFor(verified)):null;
-    if(!verified||!verifiedPlan||!verifiedGuard?.ok)throw new Error('Garde-fou C : le plan complet n’a pas pu être confirmé après écriture dans Supabase.');
+    if(!verified||!verifiedPlan)throw new Error('Le plan C n’a pas pu être confirmé après écriture dans Supabase.');
+    if(requireComplete&&!verifiedGuard?.ok)throw new Error('Garde-fou C : le plan complet n’a pas pu être confirmé après écriture dans Supabase.');
     return verified;
   };
+  d.querySelector('[data-c-ai-fill]')?.addEventListener('click',async()=>{
+    const button=d.querySelector('[data-c-ai-fill]');if(button)button.disabled=true;
+    try{
+      const fresh=await getJob(t.id),current=collectPlan(),missing=cPlanCompleteness(fresh,current).missing.filter(x=>C_PLAN_REQUIRED_FIELDS.includes(x));
+      if(!missing.length){alert('Tous les champs obligatoires sont déjà complets.');return;}
+      const status=d.querySelector('[data-c-ai-status]');
+      const completed=await completeCPlanWithAI(fresh,current,missing,msg=>{if(status)status.textContent=msg});
+      Object.entries(completed.plan).forEach(([key,value])=>{const el=d.querySelector('[data-plan-field="'+key+'"]');if(el&&typeof value!=='object')el.value=String(value??'')});
+      if(status)status.textContent=completed.audit.status==='completed'?'Aide IA terminée. Relisez puis cliquez sur « Enregistrer les modifications ».':'Aide IA partielle : relisez les champs restants puis complétez-les manuellement.';
+    }catch(e){alert(e.message||e)}finally{if(button)button.disabled=false}
+  });
   d.querySelector('[data-plan-save]')?.addEventListener('click',async()=>{
     const button=d.querySelector('[data-plan-save]');if(button)button.disabled=true;
     try{
       const fresh=await getJob(t.id);
       const currentStage=fresh?.metadata?.workflow?.stage||(state.section==='CX'?'proposal_review':'proposition_editoriale');
-      const updated=await persistPlan({targetStage:currentStage,targetStatus:'plan_editing'});
+      const updated=await persistPlan({targetStage:currentStage,targetStatus:'plan_editing',requireComplete:false});
       if(!updated?.metadata?.workflow?.proposal)throw new Error('Le plan n’a pas pu être confirmé après enregistrement.');
       alert('Plan complet enregistré. Le garde-fou C est validé.');
       await chargerEspaceEditorialChatGPT(state.section)
@@ -1235,7 +1228,7 @@ function bindDetail(d,t,state){
     const button=d.querySelector('[data-plan-validate]');if(button)button.disabled=true;
     try{
       if(state.section==='CX'){
-        const refreshed=await persistPlan({targetStage:'proposal_review',targetStatus:'plan_editing'});
+        const refreshed=await persistPlan({targetStage:'proposal_review',targetStatus:'plan_editing',requireComplete:true});
         if(refreshed?.metadata?.workflow?.stage!=='proposal_review')throw new Error('Garde-fou C : le plan complet n’a pas pu être confirmé avant la validation CX.');
         const checks={};d.querySelectorAll('[data-admin-check]').forEach(x=>checks[x.dataset.adminCheck]=x.checked);
         if(!Object.values(checks).every(Boolean))throw new Error('Validation CX bloquée : toutes les vérifications doivent être confirmées.');
@@ -1245,7 +1238,7 @@ function bindDetail(d,t,state){
         const migrated=await updateJob(t.id,{stage:'redaction',editor_ready:true,chatgpt_editable:true,user_validated:true,proposal_status:'validated_for_editing',production_status:'ready_for_editing',production_started_at:null,admin_validation:{...checks,notes,status:'validated',validated_at:new Date().toISOString()},auto_pdf_launch:false,manual_pdf_launch_required:true,execution_contract:D_EXECUTION_CONTRACT,execution_contract_acknowledged:true,completion_guard:D_EXECUTION_CONTRACT_VERSION},'draft');
         if(migrated?.metadata?.workflow?.stage!=='redaction')throw new Error('La migration CX → D n’a pas pu être confirmée après relecture de Supabase.');
       }else{
-        const updated=await persistPlan({targetStage:'proposal_review',targetStatus:'ready_for_admin_validation'});
+        const updated=await persistPlan({targetStage:'proposal_review',targetStatus:'ready_for_admin_validation',requireComplete:true});
         const wf=updated?.metadata?.workflow||{};
         if(wf.stage!=='proposal_review'||wf.proposal_status!=='ready_for_admin_validation')throw new Error('Le passage C → CX n’a pas pu être confirmé après relecture de Supabase.');
       }
