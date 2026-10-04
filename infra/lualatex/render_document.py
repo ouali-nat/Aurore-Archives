@@ -3879,7 +3879,7 @@ def _repair_course_inline_math_delimiters(tex):
     # creating nested math environments. If a raw inline formula is immediately
     # followed by /denominator, keep the complete fraction inside the same box.
     trailing_fraction = (
-        r"\\\(([\\s\\S]*?)\\\)"
+        r"\\\(([\s\S]*?)\\\)"
         r"(\s*/\s*(?:\\[A-Za-z]+|\d+(?:[.,]\d+)?|"
         r"\([^()\n]{1,80}\)))?"
     )
