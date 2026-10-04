@@ -3684,9 +3684,31 @@ def _documentary_visual_plan_qa(data):
     # preserving the canonical math visual-plan contract. Treat that explicit
     # schema as authoritative so math documents are never sent through the
     # documentary visual contract.
-    is_math = "math" in discipline or (
-        isinstance(plan, dict)
-        and plan.get("schema_version") == "math-visual-plan-1"
+    # Math exercise documents may arrive from the connector with the
+    # editorial profile normalized away. The renderer must still classify them
+    # from authoritative document fields and the canonical math visual-plan
+    # schema, otherwise a valid math visual plan is incorrectly sent through
+    # the documentary/Wikimedia contract.
+    profile_kind = clean_text(
+        profile.get("kind") if isinstance(profile, dict) else ""
+    ).strip().lower()
+    document_type_hint = clean_text(
+        data.get("document_type")
+        or metadata.get("document_type")
+        or metadata.get("resource_type")
+        or ""
+    ).strip().lower()
+    visual_schema = clean_text(
+        plan.get("schema_version") if isinstance(plan, dict) else ""
+    ).strip().lower()
+    if not visual_schema and isinstance(plan, dict):
+        visual_schema = clean_text(plan.get("schema") or "").strip().lower()
+
+    is_math = (
+        "math" in discipline
+        or profile_kind == "exercices"
+        or document_type_hint in ("série d’exercices", "serie d'exercices", "exercices")
+        or visual_schema == "math-visual-plan-1"
     )
     sections = data.get("sections")
     if not isinstance(sections, list):
