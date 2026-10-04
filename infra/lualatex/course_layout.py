@@ -82,10 +82,6 @@ def render_course_document(data, theme_palette):
             value = value[2:-2].strip()
         if not value:
             return ""
-        r"\newcommand{\AuroreMathCompact}[2]{%",
-        r"  \tcbox[on line,enhanced,boxrule=.45pt,colframe=AuroreBase!58!white,colback=white!99!AurorePrimary,arc=7pt,left=7pt,right=7pt,top=3pt,bottom=3pt]%",
-        r"    {\ensuremath{\displaystyle #2}}%",
-        r"}",
         return r"\AuroreCourseRelation{" + tex_text(label) + r"}{" + value + r"}"
 
     def direct_math(raw):
@@ -319,6 +315,10 @@ def render_course_document(data, theme_palette):
         r"\usepackage{tikz}",
         r"\usepackage[most]{tcolorbox}",
         r"\usepackage{multicol}",
+        r"\newcommand{\AuroreMathCompact}[2]{%",
+        r"  \tcbox[on line,enhanced,boxrule=.45pt,colframe=AuroreBase!58!white,colback=white!99!AurorePrimary,arc=7pt,left=7pt,right=7pt,top=3pt,bottom=3pt]%",
+        r"    {\ensuremath{\displaystyle #2}}%",
+        r"}",
         r"\definecolor{AuroreBase}{HTML}{" + base + r"}",
         r"\definecolor{AurorePrimary}{HTML}{" + primary + r"}",
         r"\definecolor{AuroreSecondary}{HTML}{" + secondary + r"}",
