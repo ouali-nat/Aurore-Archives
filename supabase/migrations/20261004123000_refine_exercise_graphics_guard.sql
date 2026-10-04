@@ -1,7 +1,7 @@
 -- Exercise-series visual guard refinement
 -- Statement: AI may choose whether a graph is useful.
 -- Scientific correction: a GeoGebra graph is required unless the AI supplies
--- a sufficiently developed justification for its absence.
+-- a sufficiently developed and discipline-specific justification for its absence.
 create or replace function public.aurora_scientific_preflight(
   p_subject text, p_document_type text, p_content_json jsonb, p_level text, p_class_name text, p_research jsonb
 ) returns jsonb language plpgsql stable set search_path to 'public','pg_temp' as $function$
@@ -34,14 +34,9 @@ begin
   if latex_count<minlatex then failures:=array_append(failures,format('SCI-LATEX-LEVEL : %s éléments LaTeX ; minimum %s requis pour %s.',latex_count,minlatex,coalesce(p_level,'niveau non précisé'))); end if;
 
   select count(*) into graph_count from (
-    select g.value as graph
-    from jsonb_array_elements(coalesce(p_content_json->'sections','[]'::jsonb)) sec_row
-    cross join lateral jsonb_array_elements(coalesce(sec_row->'graphs','[]'::jsonb)) g
+    select g.value as graph from jsonb_array_elements(coalesce(p_content_json->'sections','[]'::jsonb)) sec_row cross join lateral jsonb_array_elements(coalesce(sec_row->'graphs','[]'::jsonb)) g
     union all
-    select g.value
-    from jsonb_array_elements(coalesce(p_content_json->'sections','[]'::jsonb)) sec_row
-    cross join lateral jsonb_array_elements(coalesce(sec_row->'exercises','[]'::jsonb)) ex_row
-    cross join lateral jsonb_array_elements(coalesce(ex_row->'statement_graphs','[]'::jsonb) || coalesce(ex_row->'correction_graphs','[]'::jsonb)) g
+    select g.value from jsonb_array_elements(coalesce(p_content_json->'sections','[]'::jsonb)) sec_row cross join lateral jsonb_array_elements(coalesce(sec_row->'exercises','[]'::jsonb)) ex_row cross join lateral jsonb_array_elements(coalesce(ex_row->'statement_graphs','[]'::jsonb) || coalesce(ex_row->'correction_graphs','[]'::jsonb)) g
   ) q
   where lower(coalesce(q.graph->>'type',''))='geogebra'
      or lower(coalesce(q.graph->>'instrument',q.graph->>'graph_type','')) in ('function2d','complex_plane','parametric2d','parametric3d','surface3d','geometry2d','geometry3d','geogebra');
@@ -61,11 +56,14 @@ begin
           from jsonb_array_elements(v_decisions)
           where (value->>'exercise_number') ~ '^[0-9]+$' and (value->>'exercise_number')::int = ex_num limit 1;
           rationale := trim(coalesce(rationale,''));
-          if char_length(rationale) >= 160 and rationale !~* '^(pas besoin|aucun graphique|graphique inutile|not needed|no graph)[.! ]*$' then
+          if char_length(rationale) >= 160
+             and rationale ~* '(calcul|alg[eè]bre|d[eé]monstr|raisonnement|g[eé]om[eé]tr|courbe|fonction|repr[eé]sentation|visuel|graphique|figure|construction|p[eé]dagog|[eé]quation|r[eé]solution|num[eé]rique|donn[eé]e|relation)'
+             and rationale !~* '^(pas besoin|aucun graphique|graphique inutile|not needed|no graph)[.! ]*$'
+          then
             correction_justified_without_graph := correction_justified_without_graph + 1;
           else
             correction_missing_graph := correction_missing_graph + 1;
-            failures := array_append(failures,format('SCI-CORRECTION-VISUAL-001 : correction de l''exercice %s sans graphique GeoGebra. Un graphique est requis dans la correction scientifique, sauf justification d''absence développée (au moins 160 caractères).',ex_num));
+            failures := array_append(failures,format('SCI-CORRECTION-VISUAL-001 : correction de l''exercice %s sans graphique GeoGebra. Un graphique est requis dans la correction scientifique, sauf justification disciplinaire développée (au moins 160 caractères et raison explicite).',ex_num));
           end if;
         end if;
       end loop;
@@ -87,6 +85,6 @@ begin
   select count(*) into source_sites from hosts where host<>'' and host<>'localhost';
   if source_sites<3 then failures:=array_append(failures,format('SCI-SOURCES-001 : %s site(s) source distinct(s) ; minimum 3 requis.',source_sites)); end if;
 
-  return jsonb_build_object('status',case when cardinality(failures)=0 then 'pass' else 'blocked' end,'contract_version','scientific-preflight-4','subject',p_subject,'level',p_level,'class_name',p_class_name,'exercise_visual_policy',case when is_exercise_document then 'statement_ai_choice_correction_required_with_justified_exception' else 'legacy_scientific_graph_minimum_2' end,'metrics',jsonb_build_object('latex_conversion_elements',latex_count,'minimum_latex_conversion_elements',minlatex,'geogebra_graphs',graph_count,'correction_geogebra_graphs',correction_graph_count,'exercise_count',exercise_count,'correction_justified_without_graph',correction_justified_without_graph,'correction_missing_graph',correction_missing_graph,'source_sites',source_sites,'implication_count',implications,'minimum_implications',min_implications,'maximum_implications',max_implications),'research_guard',jsonb_build_object('structured_trace',true,'distinct_sites_required',3),'implication_guard',jsonb_build_object('minimum_absolute',1,'maximum_absolute',100,'maximum_ratio',0.08,'paragraph_rule','inline_in_paragraph'),'exercise_graph_guard',case when is_exercise_document then jsonb_build_object('statement','ai_choice','correction','required_unless_justified','justification_min_characters',160) else '{}'::jsonb end,'failures',to_jsonb(failures));
+  return jsonb_build_object('status',case when cardinality(failures)=0 then 'pass' else 'blocked' end,'contract_version','scientific-preflight-4','subject',p_subject,'level',p_level,'class_name',p_class_name,'exercise_visual_policy',case when is_exercise_document then 'statement_ai_choice_correction_required_with_justified_exception' else 'legacy_scientific_graph_minimum_2' end,'metrics',jsonb_build_object('latex_conversion_elements',latex_count,'minimum_latex_conversion_elements',minlatex,'geogebra_graphs',graph_count,'correction_geogebra_graphs',correction_graph_count,'exercise_count',exercise_count,'correction_justified_without_graph',correction_justified_without_graph,'correction_missing_graph',correction_missing_graph,'source_sites',source_sites,'implication_count',implications,'minimum_implications',min_implications,'maximum_implications',max_implications),'research_guard',jsonb_build_object('structured_trace',true,'distinct_sites_required',3),'implication_guard',jsonb_build_object('minimum_absolute',1,'maximum_absolute',100,'maximum_ratio',0.08,'paragraph_rule','inline_in_paragraph'),'exercise_graph_guard',case when is_exercise_document then jsonb_build_object('statement','ai_choice','correction','required_unless_justified','justification_min_characters',160,'justification_requires_reason',true) else '{}'::jsonb end,'failures',to_jsonb(failures));
 end;
 $function$;
