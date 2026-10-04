@@ -2460,7 +2460,7 @@ def _strip_nested_inline_math_delimiters(body):
     # arrive after several JSON/string escaping layers, so remove every
     # backslash run immediately before a math delimiter while leaving normal
     # LaTeX commands such as \\sqrt, \\frac and \\left untouched.
-    value = re.sub(r"\\+(?=[()\\[\\]])", "", value)
+    value = re.sub(r"\\+(?=[()\[\]])", "", value)
     return value
 
 def _math_render_command(body, label="Relation"):
