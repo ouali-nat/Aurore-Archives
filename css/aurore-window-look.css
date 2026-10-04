@@ -1,0 +1,151 @@
+/* =========================================================================
+   AURORE — WINDOW LOOK V1
+   Apparence des blocs inspirée des captures (cartes sombres vitrées, liseré
+   d'accent, halo lumineux, barre de fenêtre à 3 points avec filet).
+   Purement visuel : aucun DOM, JS ou donnée modifié. Les formes (rayons)
+   restent gérées par aurore-shape-variety.css.
+   Couleurs : uniquement les variables de thème (--theme-primary/secondary),
+   donc valable pour les 25 couleurs du site et les thèmes clair/sombre.
+   Les conteneurs volontairement transparents (.doc-row, .admin-card) ne sont
+   PAS touchés : seules leurs fiches internes le sont.
+   ========================================================================= */
+
+/* ---------- 0. CORRECTIF BARRE DU HAUT (bouton « Déposer un d… » coupé) ---------- */
+:is(html,#aurore-formes) body > header{
+  overflow:visible!important;
+  border-radius:34px!important;
+}
+:is(html,#aurore-formes) body > header .header-inner{
+  height:auto!important;
+  min-height:68px;
+  flex-wrap:wrap!important;
+  row-gap:8px;
+  padding:8px 14px 8px 10px!important;
+}
+:is(html,#aurore-formes) body > header .search-box{
+  flex:1 1 200px!important;
+  min-width:160px;
+  max-width:340px;
+}
+:is(html,#aurore-formes) body > header :is(.deposer-btn,.pwa-install-btn,.aurore-ia-header-btn,.auth-zone,.user-chip){
+  flex:0 0 auto!important;
+}
+:is(html,#aurore-formes) body > header .brand{
+  min-width:0;
+  flex:0 1 auto;
+}
+@media(max-width:640px){
+  :is(html,#aurore-formes) body > header{border-radius:28px!important;}
+  :is(html,#aurore-formes) body > header .search-box{flex:1 1 100%!important;max-width:none;order:3;}
+}
+
+/* ---------- 1. AMBIANCE DE PAGE : halos d'accent très discrets ---------- */
+:is(html,#aurore-formes) body{
+  background-image:
+    radial-gradient(48rem 30rem at 90% -8%,color-mix(in srgb,var(--theme-primary,#8B5CF6) 13%,transparent),transparent 62%),
+    radial-gradient(40rem 28rem at -8% 24%,color-mix(in srgb,var(--theme-secondary,#C084FC) 9%,transparent),transparent 62%)!important;
+  background-repeat:no-repeat!important;
+}
+
+/* ---------- 2. SURFACE « CARTE VITRÉE » + HALO ---------- */
+:is(html,#aurore-formes) :is(
+  .profile-card,.recents-card,.admin-empty,.form-card,.stat-card,
+  .admin-category-card,.presentation-item,.doc-empty,.matiere-card,
+  .cat-card,.level-card,.sublevel-card,.home-five-level,
+  .home-secondary-choice,.home-promo-card,.home-promise,
+  .service-client-card,.admin-space-card,.personal-space-compact-card,
+  .personal-panel,.aurora-panel,.aurore-personal-hero,.pdf-recent-panel,
+  .admin-promo-manager,.admin-service-editor,.cf-admin-card,.cf-studio-box,
+  .aurore-pdf-prod-card,.admin-pending-v2-card,.admin-user-card,
+  .personal-folder,.welcome-modal-card,.signup-card,.access-card,
+  .ad-slot-card,.site-data-toolbar,.color-theme-flyout,
+  .doc-row .doc-main-info,.admin-card-body
+){
+  --w-surface:linear-gradient(
+    160deg,
+    color-mix(in srgb,var(--theme-primary,#8B5CF6) 11%,var(--papier,#11101C)) 0%,
+    var(--papier,#11101C) 62%
+  );
+  background-color:var(--papier,#11101C)!important;
+  background-image:var(--w-surface)!important;
+  background-repeat:no-repeat!important;
+  border-color:color-mix(in srgb,var(--theme-primary,#8B5CF6) 30%,var(--bordure,#29253A))!important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb,#fff 7%,transparent),
+    0 14px 34px -16px color-mix(in srgb,var(--theme-primary,#8B5CF6) 46%,transparent),
+    0 3px 10px color-mix(in srgb,var(--theme-shadow,rgba(0,0,0,.2)) 70%,transparent)!important;
+}
+
+/* Cartes cliquables : le halo s'intensifie. */
+:is(html,#aurore-formes) :is(
+  .matiere-card,.cat-card,.level-card,.sublevel-card,.home-five-level,
+  .home-secondary-choice,.home-promo-card,.admin-category-card,
+  .personal-folder,.ad-slot-card
+):hover,
+:is(html,#aurore-formes) .doc-row:hover .doc-main-info{
+  border-color:color-mix(in srgb,var(--theme-primary,#8B5CF6) 55%,var(--bordure,#29253A))!important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb,#fff 9%,transparent),
+    0 20px 44px -14px color-mix(in srgb,var(--theme-primary,#8B5CF6) 62%,transparent),
+    0 4px 14px color-mix(in srgb,var(--theme-shadow,rgba(0,0,0,.25)) 80%,transparent)!important;
+}
+
+/* ---------- 3. BARRE DE FENÊTRE : 3 points + filet ---------- */
+:is(html,#aurore-formes) :is(
+  .profile-card,.form-card,.presentation-item,.doc-empty,
+  .admin-promo-manager,.admin-service-editor,.cf-studio-box,
+  .personal-panel,.welcome-modal-card
+){
+  --w-strip:30px;
+  --w-r:4px;
+  --w-y:15px;
+  --w-x1:20px;
+  --w-x2:34px;
+  --w-x3:48px;
+}
+:is(html,#aurore-formes) :is(.doc-row .doc-main-info,.admin-card-body){
+  --w-strip:22px;
+  --w-r:3px;
+  --w-y:11px;
+  --w-x1:16px;
+  --w-x2:28px;
+  --w-x3:40px;
+}
+:is(html,#aurore-formes) :is(
+  .profile-card,.form-card,.presentation-item,.doc-empty,
+  .admin-promo-manager,.admin-service-editor,.cf-studio-box,
+  .personal-panel,.welcome-modal-card,
+  .doc-row .doc-main-info,.admin-card-body
+){
+  --w-d1:color-mix(in srgb,var(--theme-primary,#8B5CF6) 65%,#fff);
+  --w-d2:var(--theme-primary,#8B5CF6);
+  --w-d3:var(--theme-secondary,#C084FC);
+  --w-line:color-mix(in srgb,var(--theme-primary,#8B5CF6) 24%,transparent);
+  background-image:
+    radial-gradient(circle at var(--w-x1) var(--w-y),var(--w-d1) 0 var(--w-r),transparent calc(var(--w-r) + .6px)),
+    radial-gradient(circle at var(--w-x2) var(--w-y),var(--w-d2) 0 var(--w-r),transparent calc(var(--w-r) + .6px)),
+    radial-gradient(circle at var(--w-x3) var(--w-y),var(--w-d3) 0 var(--w-r),transparent calc(var(--w-r) + .6px)),
+    linear-gradient(to bottom,transparent calc(var(--w-strip) - 1px),var(--w-line) calc(var(--w-strip) - 1px),var(--w-line) var(--w-strip),transparent var(--w-strip)),
+    var(--w-surface)!important;
+  padding-top:calc(var(--w-strip) + 12px)!important;
+}
+:is(html,#aurore-formes) :is(.doc-row .doc-main-info,.admin-card-body){
+  padding-top:calc(var(--w-strip) + 8px)!important;
+}
+
+/* ---------- 4. THÈME CLAIR : halo plus doux ---------- */
+:is(html,#aurore-formes)[data-theme="light"] :is(
+  .profile-card,.recents-card,.admin-empty,.form-card,.stat-card,
+  .admin-category-card,.presentation-item,.doc-empty,.matiere-card,
+  .cat-card,.level-card,.sublevel-card,.home-five-level,
+  .home-secondary-choice,.home-promo-card,.home-promise,
+  .personal-panel,.aurore-personal-hero,.admin-promo-manager,
+  .cf-admin-card,.cf-studio-box,.aurore-pdf-prod-card,
+  .admin-pending-v2-card,.personal-folder,.ad-slot-card,
+  .site-data-toolbar,.doc-row .doc-main-info,.admin-card-body
+){
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.7),
+    0 12px 28px -16px color-mix(in srgb,var(--theme-primary,#8B5CF6) 38%,transparent),
+    0 2px 8px rgba(40,28,70,.08)!important;
+}
