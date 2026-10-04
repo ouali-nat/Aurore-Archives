@@ -3864,13 +3864,26 @@ def _repair_course_inline_math_delimiters(tex):
 
     def repair(match):
         body = _strip_nested_inline_math_delimiters(match.group(1)).strip()
+        trailing_denominator = match.group(2) or ""
+        if trailing_denominator:
+            # Some editorial payloads write a fraction as an inline block
+            # followed by an unbraced denominator, e.g. \\(\\pi\\)/3.
+            # Once the inline block is wrapped, leaving /3 outside the box
+            # produces invalid LaTeX inside a surrounding Aurore block.
+            body += re.sub(r"\\s+", "", trailing_denominator)
         return r"\AuroreInlineMath{" + body + r"}" if body else ""
 
     # Protect already-generated AuroreMathCompact/AuroreMathBlock arguments
     # first. Only raw delimiters remaining in prose/tcolorbox text are promoted
     # to AuroreInlineMath, so the existing visual framing is preserved without
-    # creating nested math environments.
-    return re.sub(r"\\\(([\s\S]*?)\\\)", repair, source)
+    # creating nested math environments. If a raw inline formula is immediately
+    # followed by /denominator, keep the complete fraction inside the same box.
+    trailing_fraction = (
+        r"\\\((?:[\\s\\S]*?)\\\)"
+        r"(\\s*/\\s*(?:\\\\[A-Za-z]+|\\d+(?:[.,]\\d+)?|"
+        r"\\([^()\\n]{1,80}\\)))?"
+    )
+    return re.sub(trailing_fraction, repair, source)
 
 
 def render(data):
@@ -4641,6 +4654,16 @@ def main():
         raise SystemExit("inline() math guardrail failed: array row break before hline")
     if "__AURORA_ARRAY_ROWBREAK__" in _probe_out:
         raise SystemExit("inline() math guardrail failed: protected array row break leaked")
+    # Regression guard: a raw \\(\\pi\\)/3 must remain one framed
+    # expression instead of becoming \\AuroreInlineMath{\\pi}/3.
+    _probe_course_fraction = _repair_course_inline_math_delimiters(
+        r"\\AuroreParagraphBlock{La forme est \\(\\pi\\)/3.}"
+    )
+    if r"\AuroreInlineMath{\pi}/3" in _probe_course_fraction:
+        raise SystemExit("course inline fraction guardrail failed: denominator escaped math box")
+    if r"\AuroreInlineMath{\pi/3}" not in _probe_course_fraction:
+        raise SystemExit("course inline fraction guardrail failed: fraction was not preserved")
+
 
     _probe_percent = inline(r"$25\\%$")
     if r"25\%" not in _probe_percent or r"25\\%" in _probe_percent:
