@@ -224,6 +224,44 @@ function toggleUploadPanel(p,f){
 }
 function folderChildren(parentId){return folders.filter(x=>(x.parent_id||null)===String(parentId)).sort((a,b)=>a.position-b.position)}
 function folderBreadcrumb(f){const chain=[];let cur=f;const seen=new Set();while(cur&&!seen.has(cur.id)){chain.unshift(cur);seen.add(cur.id);cur=folders.find(x=>x.id===cur.parent_id)}return chain}
+
+// Carte PDF d'une section : exactement la même carte que la bibliothèque et
+// l'espace personnel (couverture → clic = ouvre le PDF ; bouton « 3 points »
+// posé sur la couverture → ouvre le bloc de gestion ; fiche titre dessous).
+// Les actions propres aux sections (retirer / supprimer) sont ajoutées au menu.
+function carteDocumentCase(doc,opt){
+  opt=opt||{};
+  const r=document.createElement('article');
+  r.className='doc-row aurore-personal-document-row';
+  if(Number.isInteger(opt.index))r.dataset.documentIndex=String(opt.index);
+  r._auroreDocument=doc;
+  r.__auroreDocumentCouverture=doc;
+  const titre=typeof obtenirTitreDocument==='function'?obtenirTitreDocument(doc):String(doc?.Titre||'Document');
+  r.dataset.documentTitle=titre;
+  r.innerHTML=`<div class="info"><div class="icon-wrap">${ICONS.file}</div><div class="doc-main-info"><div class="titre" title="${echapperHtmlPub(titre)}">${echapperHtmlPub(titre)}</div><div class="meta">${echapperHtmlPub(opt.meta||'')}</div>${tailleBadgeMarkup(doc.Fichier_url)}</div></div>`+boutonPlusCarteDocumentMarkup()+panneauActionsCarteDocumentMarkup(opt.telechargeable!==false);
+  const panneau=r.querySelector(':scope > .doc-actions');
+  if(panneau){
+    // Sans fichier associé, ni lecture ni téléchargement n'ont de sens.
+    if(!doc.Fichier_url)panneau.querySelectorAll('[data-lire],[data-telecharger-maintenant]').forEach(b=>b.remove());
+    // Un document déposé directement dans la section n'existe pas dans la
+    // bibliothèque : favoris, partage et signalement ne s'appliquent pas.
+    if(opt.prive)panneau.querySelectorAll('[data-favori],[data-plus-tard],[data-case],[data-share-document],[data-share-whatsapp],[data-copy-document-link],[data-signaler]').forEach(b=>b.remove());
+  }
+  brancherActionsCarteDocument(r,doc);
+  if(!opt.prive){try{if(typeof window.actualiserEtatActionsDocument==='function')window.actualiserEtatActionsDocument(r,doc)}catch(_){}}
+  const ajouterAction=(attr,icone,libelle,fn,danger)=>{
+    if(!panneau||typeof fn!=='function')return;
+    const b=document.createElement('button');
+    b.type='button';b.className='dl';b.setAttribute(attr,'1');b.setAttribute('role','menuitem');
+    b.innerHTML=`<span class="share-icon">${icone}</span><span>${libelle}</span>`;
+    if(danger)b.style.setProperty('color','var(--rouge)','important');
+    b.addEventListener('click',()=>fn());
+    panneau.appendChild(b);
+  };
+  ajouterAction('data-section-remove','⌫','Retirer de cette section',opt.retirer);
+  ajouterAction('data-priv-delete','🗑','Supprimer définitivement',opt.supprimer,true);
+  return r;
+}
 async function openFolder(f){
   const p=document.getElementById('personalCaseContent');if(!p)return;
   const a=folderAssignments.filter(x=>x.case_id===f.id);
@@ -275,27 +313,27 @@ async function openFolder(f){
     if(a.length){try{docs=await recupererDocsDesCases(a.map(x=>x.document_id));}catch(e){list.innerHTML='<div class="doc-empty"><h3>Impossible de charger cette section</h3><p>Veuillez réessayer dans quelques instants.</p></div>';return}}
     list.innerHTML='';
     docs.forEach((d,i)=>{
-      const r=document.createElement('article');r.className='doc-row aurore-personal-document-row';r.dataset.documentIndex=String(i);r._auroreDocument=d;
-      const ok=d.Fichier_url && d.Telechargement_autorise!==false;
+      const lectureSeule=d.Telechargement_autorise===false;
       const contexte=[d.Niveau&&`Niveau : ${d.Niveau}`,d.Classe&&`Classe : ${d.Classe}`,d.Filiere&&`Filière : ${d.Filiere}`,d['Matière']&&`Matière : ${d['Matière']||d.Genre}`].filter(Boolean).join(' · ');
-      const titre=obtenirTitreDocument(d);
-      r.innerHTML=`<div class="info"><div class="icon-wrap">${ICONS.file}</div><div class="doc-main-info"><div class="titre" title="${echapperHtmlPub(titre)}">${echapperHtmlPub(titre)}</div><div class="meta">${echapperHtmlPub(contexte||'Document de votre section')}${ok?'':' · Lecture seule'}</div>${tailleBadgeMarkup(d.Fichier_url)}</div></div><div class="doc-actions"><button type="button" class="dl" data-section-read>${ok?'Lire':'Voir'}</button>${ok?'<button type="button" class="dl" data-section-download>Télécharger maintenant</button>':''}<button type="button" class="dl doc-action-soft" data-section-fav>♡ Favori</button><button type="button" class="dl doc-action-soft doc-action-folder" data-section-case>▣ Case</button><button type="button" class="dl doc-action-soft" data-section-remove>Retirer</button><div class="doc-share-wrap"><button type="button" class="doc-more-btn" data-document-more="1" aria-label="Options de partage" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="12" cy="19" r="1.8"></circle></svg></button></div></div>`;
-      r.querySelector('[data-section-read]')?.addEventListener('click',()=>ouvrirLecteurPDF(d));
-      r.querySelector('[data-section-download]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(d));
-      r.querySelector('[data-section-fav]')?.addEventListener('click',()=>basculerFavoriDocument(d,r.querySelector('[data-section-fav]')));
-      r.querySelector('[data-section-case]')?.addEventListener('click',()=>window.ouvrirChoixCaseDocument?.(d));
-      r.querySelector('[data-section-remove]')?.addEventListener('click',()=>removeAssignment(d));
+      const r=carteDocumentCase(d,{
+        index:i,
+        meta:(contexte||'Document de votre section')+(lectureSeule?' · Lecture seule':''),
+        telechargeable:!lectureSeule,
+        retirer:()=>removeAssignment(d)
+      });
       list.appendChild(r);
       if(d.Fichier_url&&typeof appliquerCouvertureSiLivre==='function')appliquerCouvertureSiLivre(r,d);
     });
     pDocs.forEach(doc=>{
-      const r=document.createElement('article');r.className='doc-row aurore-personal-document-row';
       const fauxDoc={id:'prive-'+doc.id,Titre:doc.titre,Fichier_url:doc.fichier_url,Telechargement_autorise:true};
-      r.innerHTML=`<div class="info"><div class="icon-wrap">${ICONS.file}</div><div class="doc-main-info"><div class="titre" title="${esc(doc.titre)}">${esc(doc.titre)}</div><div class="meta">Votre document déposé directement${tailleBadgeMarkup(doc.fichier_url)?' · ':''}</div>${tailleBadgeMarkup(doc.fichier_url)}</div></div><div class="doc-actions"><button type="button" class="dl" data-priv-read>Lire</button><button type="button" class="dl" data-priv-download>Télécharger</button><button type="button" class="dl doc-action-soft" data-priv-delete>Supprimer</button></div>`;
-      r.querySelector('[data-priv-read]')?.addEventListener('click',()=>ouvrirLecteurPDF(fauxDoc));
-      r.querySelector('[data-priv-download]')?.addEventListener('click',()=>telechargerDocumentAvecProgression(fauxDoc));
-      r.querySelector('[data-priv-delete]')?.addEventListener('click',()=>supprimerDocumentPrive(doc));
+      const r=carteDocumentCase(fauxDoc,{
+        meta:'Votre document déposé directement',
+        telechargeable:true,
+        prive:true,
+        supprimer:()=>supprimerDocumentPrive(doc)
+      });
       list.appendChild(r);
+      if(fauxDoc.Fichier_url&&typeof appliquerCouvertureSiLivre==='function')appliquerCouvertureSiLivre(r,fauxDoc);
     });
   }
 }
