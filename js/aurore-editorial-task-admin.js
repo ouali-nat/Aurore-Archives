@@ -347,7 +347,9 @@ function aContextReady(t){
 function aResearchReady(t){
   const w=t.metadata?.workflow||{},r=aResearchFor(t);
   const options=chapterOptionsForWorkflow(w);
-  const findings=String(r.findings||r.constats||'').trim();
+  const findings=Array.isArray(r.researchFindings)
+    ? r.researchFindings.map(x=>String(x||'').trim()).filter(Boolean).join('\n')
+    : String(r.findings||r.constats||'').trim();
   const methodology=String(r.methodology||r.method||'').trim();
   const sources=[...(Array.isArray(r.source_urls)?r.source_urls:[]),...(Array.isArray(r.sources)?r.sources:[])]
     .map(x=>typeof x==='string'?x:(x&&typeof x==='object'?(x.url||x.href||x.source_url||''):String(x||'')))
