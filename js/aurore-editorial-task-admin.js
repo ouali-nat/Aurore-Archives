@@ -429,7 +429,7 @@ function dAiCanStart(t){
   if(!t||t.generated_document_id)return false;
   if(!['redaction','production_en_cours'].includes(w.stage||''))return false;
   if(['handed_off','in_progress','new_production'].includes(String(w.revision_status||'')))return false;
-  if(a?.status==='processing')return false;
+  if(['processing','completed'].includes(String(a?.status||'').toLowerCase()))return false;
   return w.admin_validation?.status==='validated' && w.proposal_status==='validated_for_editing';
 }
 function dAiProviderFor(t){
@@ -956,11 +956,12 @@ function render(root,state){
 }
 function bind(root,state){
   root.querySelector('#editorRefresh')?.addEventListener('click',chargerEspaceEditorialChatGPT);
-  root.querySelectorAll('[data-editor-section]').forEach(b=>b.addEventListener('click',()=>{
+  root.querySelectorAll('[data-editor-section]').forEach(b=>b.addEventListener('click',async()=>{
     state.section=b.dataset.editorSection;
     state.pages[state.section]=0;
     persistEditorialPosition(state);
     render(root,state);
+    if(state.section==='D') await autoStartDaiTasks(state).catch(()=>{});
   }));
   root.querySelector('[data-editor-documents]')?.addEventListener('click',()=>{
     const b=[...document.querySelectorAll('.admin-tab')].find(x=>x.dataset.tab==='attente');
