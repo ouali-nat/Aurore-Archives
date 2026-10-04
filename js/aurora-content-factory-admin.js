@@ -1173,7 +1173,10 @@ async function renderPdf(id,themeColor=null){
     // Toute préparation GeoGebra côté navigateur reste facultative et ne doit jamais
     // pouvoir empêcher le passage du document dans le renderer serveur.
     await setGeneratedProductionState(id,'queued',accessToken,{production_attempt_started_at:new Date().toISOString(),production_attempt_id:productionAttempt?.id||null,production_attempt_no:productionAttempt?.attempt_no||null});
-    await updateProductionAttemptFromDocument(id,'queued',accessToken,{production_started_at:new Date().toISOString()});
+    // L'historique de la tentative est déjà créé par aurora_start_pdf_production_attempt().
+    // Ne pas refaire ici une lecture REST de aurora_generated_documents : cette lecture
+    // secondaire pouvait transformer une indisponibilité réseau du navigateur en faux échec
+    // alors que la demande PDF était déjà correctement mise en file côté serveur.
     setProgress(12,'Document envoyé au moteur LuaLaTeX…');
 
     let requestData=null;
