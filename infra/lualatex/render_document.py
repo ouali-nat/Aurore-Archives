@@ -3881,7 +3881,12 @@ def _repair_course_inline_math_delimiters(tex):
             # Once the inline block is wrapped, leaving /3 outside the box
             # produces invalid LaTeX inside a surrounding Aurore block.
             body += re.sub(r"\s+", "", trailing_denominator)
-        return r"\AuroreInlineMath{" + body + r"}" if body else ""
+        # Reuse the current compact math box for every repaired inline formula.
+        # This path runs after the main renderer and previously reintroduced the
+        # legacy AuroreInlineMath macro, which caused production failures for
+        # fragments such as \( \pi \)/3. Keep the visual box while using the
+        # canonical two-argument math macro.
+        return r"\AuroreMathCompact{}{" + body + r"}" if body else ""
 
     # Protect already-generated AuroreMathCompact/AuroreMathBlock arguments
     # first. Only raw delimiters remaining in prose/tcolorbox text are promoted
