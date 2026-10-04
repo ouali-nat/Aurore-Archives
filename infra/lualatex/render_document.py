@@ -2662,17 +2662,24 @@ def _render_course_inline_math(text, auto_math=False):
             parts.append(inline(value[cursor:], auto_math=auto_math))
         return "".join(parts)
 
-    explicit_inline = re.compile(r"(\$[\s\S]*?\$|\\\([\s\S]*?\\\))")
+    explicit_inline = re.compile(
+        r"(\$[\s\S]*?\$|\\\([\s\S]*?\\\))"
+        r"(\s*/\s*(?:\\[A-Za-z]+|\d+(?:[.,]\d+)?|"
+        r"\([^()\n]{1,80}\)))?"
+    )
     parts = []
     cursor = 0
     for match in explicit_inline.finditer(source):
         if match.start() > cursor:
             parts.append(render_plain_segment(source[cursor:match.start()]))
-        token = match.group(0)
+        token = match.group(1)
+        trailing_denominator = match.group(2) or ""
         if token.startswith("$"):
             body = token[1:-1].strip()
         else:
             body = token[2:-2].strip()
+        if trailing_denominator:
+            body += re.sub(r"\s+", "", trailing_denominator)
         normalized = normalize_math(body)
         normalized = _strip_nested_inline_math_delimiters(normalized).strip()
         if normalized:
@@ -4654,20 +4661,21 @@ def main():
         raise SystemExit("inline() math guardrail failed: array row break before hline")
     if "__AURORA_ARRAY_ROWBREAK__" in _probe_out:
         raise SystemExit("inline() math guardrail failed: protected array row break leaked")
-    # Regression guard: a raw \\(\\pi\\)/3 must remain one framed
-    # expression instead of becoming \\AuroreInlineMath{\\pi}/3.
+    # Regression guard: the course-inline conversion itself must keep an
+    # unbraced fraction denominator inside the same visual math box.
     _probe_course_fractions = [
-        r"\AuroreParagraphBlock{La forme est \(\pi\)/3.}",
-        r"\AuroreParagraphBlock{La forme est \(\pi\) / 3.}",
-        r"\AuroreParagraphBlock{La forme est \(\pi\)/\alpha.}",
-        r"\AuroreParagraphBlock{La forme est \(\pi\)/(3).}",
+        (r"La forme est \(\pi\)/3.", r"\AuroreMathCompact{}{\pi/3}"),
+        (r"La forme est \(\pi\) / 3.", r"\AuroreMathCompact{}{\pi/3}"),
+        (r"La forme est \(\pi\)/\alpha.", r"\AuroreMathCompact{}{\pi/\alpha}"),
+        (r"La forme est \(\pi\)/(3).", r"\AuroreMathCompact{}{\pi/(3)}"),
     ]
-    for _probe_course_fraction in _probe_course_fractions:
-        _probe_course_fraction = _repair_course_inline_math_delimiters(_probe_course_fraction)
-        if r"\AuroreInlineMath{\pi}/" in _probe_course_fraction:
-            raise SystemExit("course inline fraction guardrail failed: denominator escaped math box")
-        if r"\AuroreInlineMath{\pi/3}" not in _probe_course_fraction and            r"\AuroreInlineMath{\pi/\alpha}" not in _probe_course_fraction and            r"\AuroreInlineMath{\pi/(3)}" not in _probe_course_fraction:
-            raise SystemExit("course inline fraction guardrail failed: fraction was not preserved")
+    for _probe_course_fraction, _expected_course_fraction in _probe_course_fractions:
+        _probe_course_fraction_out = _render_course_inline_math(_probe_course_fraction)
+        if _expected_course_fraction not in _probe_course_fraction_out:
+            raise SystemExit(
+                "course inline fraction guardrail failed: "
+                f"expected {_expected_course_fraction!r}, got {_probe_course_fraction_out!r}"
+            )
 
 
     _probe_percent = inline(r"$25\\%$")
