@@ -1170,18 +1170,22 @@ async function renderPdf(id,themeColor=null){
 
     const rowForTheme=rows.find(x=>Number(x.id)===Number(id));
     await persistGeneratedDocumentTheme(id,themeColor||documentThemeColor(rowForTheme?.metadata),accessToken);
-    const productionAttempt=await startProductionAttempt(id,accessToken);
+    // Cette RPC est le point d'entrée serveur de la production PDF.
+    // Elle crée (ou retrouve) la tentative et, désormais, écrit elle-même
+    // l'état canonique lualatex_status=queued + launch_source=admin_request.
+    // Aucun PATCH REST navigateur n'est nécessaire entre la création de la
+    // tentative et le réveil GitHub : une panne réseau du navigateur ne doit
+    // jamais transformer une file serveur valide en échec.
+    let productionAttempt=null;
+    let serverQueueStarted=false;
+    try{
+      productionAttempt=await startProductionAttempt(id,accessToken);
+      serverQueueStarted=true;
+    }catch(queueError){
+      throw queueError;
+    }
     if(b)b.textContent='Mise en file LuaLaTeX…';
-
-    // La demande manuelle doit être enregistrée et réveiller GitHub immédiatement.
-    // Toute préparation GeoGebra côté navigateur reste facultative et ne doit jamais
-    // pouvoir empêcher le passage du document dans le renderer serveur.
-    await setGeneratedProductionState(id,'queued',accessToken,{production_attempt_started_at:new Date().toISOString(),production_attempt_id:productionAttempt?.id||null,production_attempt_no:productionAttempt?.attempt_no||null});
-    // L'historique de la tentative est déjà créé par aurora_start_pdf_production_attempt().
-    // Ne pas refaire ici une lecture REST de aurora_generated_documents : cette lecture
-    // secondaire pouvait transformer une indisponibilité réseau du navigateur en faux échec
-    // alors que la demande PDF était déjà correctement mise en file côté serveur.
-    setProgress(12,'Document envoyé au moteur LuaLaTeX…');
+    setProgress(12,'Demande PDF enregistrée côté serveur…');
 
     let requestData=null;
     let wakeTransportError=null;
@@ -1316,9 +1320,18 @@ async function renderPdf(id,themeColor=null){
       setProgress(100,'Génération annulée par l’administration.');
       await charger();
     }else{
-      try{await setGeneratedProductionState(id,'failed',session?.access_token||null,{production_failed_at:new Date().toISOString(),production_last_error:String(e?.message||e)});await updateProductionAttemptFromDocument(id,'failed',session?.access_token||null,{error_message:String(e?.message||e)})}catch(stateError){console.warn('[Content Factory] état échec:',stateError)}
-      alert('Le PDF n’a pas pu être généré. '+(e.message||e));
-      await charger();
+      // Une fois la tentative serveur créée, l'état queued appartient au serveur.
+      // Une erreur réseau, un réveil GitHub indisponible ou une préparation GeoGebra
+      // navigateur incomplète ne doivent donc jamais écrire "failed" depuis le client.
+      if(serverQueueStarted){
+        console.warn('[Content Factory] Production PDF déjà enregistrée côté serveur; aucune bascule client vers failed:',e);
+        alert('La demande PDF a bien été enregistrée côté serveur. Le moteur de production peut poursuivre même si le navigateur a perdu la connexion.');
+        try{await charger();}catch(refreshError){console.warn('[Content Factory] Actualisation après mise en file impossible:',refreshError)}
+      }else{
+        try{await setGeneratedProductionState(id,'failed',session?.access_token||null,{production_failed_at:new Date().toISOString(),production_last_error:String(e?.message||e)});await updateProductionAttemptFromDocument(id,'failed',session?.access_token||null,{error_message:String(e?.message||e)})}catch(stateError){console.warn('[Content Factory] état échec:',stateError)}
+        alert('Le PDF n’a pas pu être demandé. '+(e.message||e));
+        await charger();
+      }
     }
   }finally{
     if(b){b.disabled=false;b.textContent=b.dataset.hasPdf==='1'?'Régénérer le PDF':'Générer le PDF'}
