@@ -4657,10 +4657,10 @@ def main():
     # Regression guard: a raw \\(\\pi\\)/3 must remain one framed
     # expression instead of becoming \\AuroreInlineMath{\\pi}/3.
     _probe_course_fractions = [
-        r"\\AuroreParagraphBlock{La forme est \\(\\pi\\)/3.}",
-        r"\\AuroreParagraphBlock{La forme est \\(\\pi\\) / 3.}",
-        r"\\AuroreParagraphBlock{La forme est \\(\\pi\\)/\\alpha.}",
-        r"\\AuroreParagraphBlock{La forme est \\(\\pi\\)/(3).}",
+        r"\AuroreParagraphBlock{La forme est \(\pi\)/3.}",
+        r"\AuroreParagraphBlock{La forme est \(\pi\) / 3.}",
+        r"\AuroreParagraphBlock{La forme est \(\pi\)/\alpha.}",
+        r"\AuroreParagraphBlock{La forme est \(\pi\)/(3).}",
     ]
     for _probe_course_fraction in _probe_course_fractions:
         _probe_course_fraction = _repair_course_inline_math_delimiters(_probe_course_fraction)
