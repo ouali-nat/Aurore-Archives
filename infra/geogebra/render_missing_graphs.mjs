@@ -456,7 +456,11 @@ const renderGraphInBrowser = async (graph) => {
           const b = ensurePoint2(o.to || ps[1], "B");
           if (!a || !b) continue;
           const command = type === "vector" ? "Vector" : type === "line" ? "Line" : type === "segment" ? "Segment" : "Ray";
-          cmds.push(name + "=" + command + "(" + a + "," + b + ")");
+          // GeoGebra can reject named Segment objects in this renderer even though
+          // the underlying construction is valid. Segments do not need a stable name
+          // for PDF export, so emit the native construction without an assignment.
+          if (type === "segment") cmds.push("Segment(" + a + "," + b + ")");
+          else cmds.push(name + "=" + command + "(" + a + "," + b + ")");
         } else if (type === "polygon") {
           const refs = ps.map((q) => ensurePoint2(q, "P")).filter(Boolean);
           if (refs.length >= 3) cmds.push(name + "=Polygon(" + refs.join(",") + ")");
