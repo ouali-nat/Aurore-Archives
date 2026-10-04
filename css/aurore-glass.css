@@ -13,11 +13,14 @@
  */
 
 :root{
+  /* Le fond dérive automatiquement de la couleur choisie dans Aurore.
+     Les valeurs de secours restent valides avant l'initialisation du thème. */
   --aurore-background-color:#090812;
   --aurore-background-image:
-    radial-gradient(circle at 8% 0%,rgba(139,92,246,.18),transparent 32%),
-    radial-gradient(circle at 94% 18%,rgba(192,132,252,.13),transparent 30%),
-    linear-gradient(145deg,#090812 0%,#121021 48%,#090812 100%);
+    radial-gradient(circle at 7% 0%,color-mix(in srgb,var(--theme-secondary,#C084FC) 19%,transparent),transparent 31%),
+    radial-gradient(circle at 94% 13%,color-mix(in srgb,var(--theme-primary,#8B5CF6) 15%,transparent),transparent 30%),
+    radial-gradient(circle at 50% 105%,color-mix(in srgb,var(--theme-strong,#6D28D9) 12%,transparent),transparent 40%),
+    linear-gradient(150deg,color-mix(in srgb,var(--aurore-background-color) 92%,var(--theme-strong,#6D28D9) 8%),var(--aurore-background-color) 52%,color-mix(in srgb,var(--aurore-background-color) 94%,var(--theme-primary,#8B5CF6) 6%));
   --aurore-background-overlay:transparent;
 
   --aurore-glass-main:rgba(22,19,36,.70);
@@ -37,12 +40,13 @@
 }
 
 html[data-theme="light"]{
-  --aurore-background-color:#F1EDF7;
+  --aurore-background-color:color-mix(in srgb,#F3F1F8 91%,var(--theme-primary,#8B5CF6) 9%);
   --aurore-background-image:
-    radial-gradient(circle at 8% 0%,rgba(139,92,246,.17),transparent 32%),
-    radial-gradient(circle at 94% 16%,rgba(59,130,246,.10),transparent 30%),
-    linear-gradient(145deg,#F4F0F8 0%,#EDEAF4 52%,#F6F3F8 100%);
-  --aurore-background-overlay:rgba(255,255,255,.08);
+    radial-gradient(circle at 7% 0%,color-mix(in srgb,var(--theme-secondary,#C084FC) 16%,transparent),transparent 30%),
+    radial-gradient(circle at 94% 13%,color-mix(in srgb,var(--theme-primary,#8B5CF6) 12%,transparent),transparent 29%),
+    radial-gradient(circle at 52% 104%,color-mix(in srgb,var(--theme-strong,#6D28D9) 9%,transparent),transparent 42%),
+    linear-gradient(150deg,color-mix(in srgb,#F3F1F8 90%,var(--theme-primary,#8B5CF6) 10%),#F3F1F8 54%,color-mix(in srgb,#F3F1F8 95%,var(--theme-secondary,#C084FC) 5%));
+  --aurore-background-overlay:rgba(255,255,255,.10);
 
   --aurore-glass-main:rgba(255,255,255,.64);
   --aurore-glass-card:rgba(255,255,255,.53);
@@ -74,11 +78,60 @@ body{
   background-attachment:fixed!important;
   background-size:cover!important;
   background-position:center!important;
+  background-repeat:no-repeat!important;
+  min-height:100vh;
   color:var(--aurore-glass-ink);
+}
+
+/* Fine couche de profondeur : elle colore légèrement l'espace entre les
+   surfaces vitrées, sans passer devant le contenu ni perturber la lecture. */
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:-1;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 50% 34%,color-mix(in srgb,var(--theme-primary,#8B5CF6) 5%,transparent),transparent 42%),
+    linear-gradient(180deg,transparent 0%,color-mix(in srgb,var(--aurore-background-color) 8%,transparent) 100%);
+  opacity:.92;
+}
+
+html[data-theme="light"] body::before{
+  background:
+    radial-gradient(circle at 50% 34%,color-mix(in srgb,var(--theme-primary,#8B5CF6) 4%,transparent),transparent 42%),
+    linear-gradient(180deg,transparent 0%,rgba(255,255,255,.16) 100%);
+  opacity:1;
 }
 
 @media(max-width:700px){
   body{background-attachment:scroll!important;}
+}
+
+/* Le fond devient un véritable socle chromatique : il ne reprend jamais une
+   couleur fixe. Il suit les 25 palettes déjà gérées par Aurore. */
+html[data-color-theme]{
+  --aurore-background-color:color-mix(
+    in srgb,
+    var(--fond,#090812) 92%,
+    var(--theme-strong,var(--theme-primary,#8B5CF6)) 8%
+  );
+}
+
+html[data-theme="light"][data-color-theme]{
+  --aurore-background-color:color-mix(
+    in srgb,
+    var(--fond,#F3F1F8) 94%,
+    var(--theme-primary,#8B5CF6) 6%
+  );
+}
+
+/* On évite les changements brusques lorsqu'une palette est commutée. */
+body{
+  transition:background-color .22s ease,background-image .22s ease;
+}
+@media(prefers-reduced-motion:reduce){
+  body{transition:none!important;}
 }
 
 /* ==========================================================
