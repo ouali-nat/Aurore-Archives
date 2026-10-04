@@ -2530,7 +2530,10 @@ def _render_inline_math_fragment(body):
     normalized = _strip_nested_inline_math_delimiters(normalized).strip()
     if not normalized:
         return ""
-    return r"\AuroreInlineMath{" + normalized + r"}"
+    # The legacy AuroreInlineMath macro is no longer part of the production
+    # preamble. Reuse the current compact math box so inline fragments remain
+    # valid LaTeX and keep the existing visual framing.
+    return r"\AuroreMathCompact{}{" + normalized + r"}"
 
 def _render_plain_with_inline_math(segment, auto_math=False):
     """Render prose while keeping detected plain-text math exactly in place."""
