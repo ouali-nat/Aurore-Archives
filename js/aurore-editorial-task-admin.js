@@ -49,7 +49,7 @@ const B_EXECUTION_CONTRACT={
     'remplacer les données persistées par une réponse conversationnelle'
   ]
 };
-const C_PLAN_REQUIRED_FIELDS=['researchMethod','curricularBasis','researchFindings','sources','title','chapter','objectives','competencies','prerequisites','progression','architecture','productionStrategy','content','methods','activities','examples','situations','exercises','corrections','differentiation','evaluation','volume','duration','resources','mathGeoGebra','technicalNeeds','pdfFormat','pdfOrientation','pdfPagination','pdfThemeColor','pdfLayout','pdfFonts','pdfHeaders','pdfResources','quality','notes'];
+const C_PLAN_REQUIRED_FIELDS=['researchMethod','curricularBasis','researchFindings','sources','title','chapter','objectives','competencies','prerequisites','progression','architecture','productionStrategy','content','methods','activities','examples','situations','exercises','corrections','differentiation','evaluation','volume','duration','resources','mathGeoGebra','technicalNeeds','pdfFormat','pdfOrientation','pdfPagination','pdfThemeColor','pdfLayout','pdfTypography','pdfHeaders','pdfResources','quality','notes'];
 const C_EXECUTION_CONTRACT_VERSION='c-plan-guardrails-v2';
 const D_EXECUTION_CONTRACT_VERSION='d-editorial-production-v1';
 const D_EXECUTION_CONTRACT={
@@ -325,7 +325,8 @@ const proposalFor=(t)=>{
     pdfPagination:p.pdfPagination||p.pdf_pagination||'Pagination continue',
     pdfThemeColor:p.pdfThemeColor||p.theme_color||t.metadata?.theme_color||'#6D28D9',
     pdfLayout:textValue(p.pdfLayout||p.pdf_layout||p.layout),
-    pdfFonts:textValue(p.pdfFonts||p.pdf_fonts||p.fonts),
+    pdfTypography:textValue(p.pdfTypography||p.pdf_typography||p.pdfFonts||p.pdf_fonts||p.fonts),
+    pdfFonts:textValue(p.pdfFonts||p.pdf_fonts||p.pdfTypography||p.pdf_typography||p.fonts),
     pdfHeaders:textValue(p.pdfHeaders||p.pdf_headers||p.headers),
     pdfResources:textValue(p.pdfResources||p.pdf_resources),
     quality:textValue(p.quality||p.qa||p.controle_qualite),
@@ -643,7 +644,7 @@ const C_PLAN_FIELD_LABELS={
   exercises:'Exercices',corrections:'Corrigés / solutions',differentiation:'Différenciation / adaptations',evaluation:'Évaluation prévue',
   volume:'Volume pédagogique',duration:'Durée indicative',resources:'Ressources / illustrations',mathGeoGebra:'Mathématiques / GeoGebra',
   technicalNeeds:'Besoins techniques',pdfFormat:'Format PDF',pdfOrientation:'Orientation PDF',pdfPagination:'Pagination PDF',pdfThemeColor:'Couleur thème PDF',
-  pdfLayout:'Mise en page PDF',pdfFonts:'Polices / typographie PDF',pdfHeaders:'En-têtes / pieds de page PDF',pdfResources:'Ressources PDF / QR / annexes',
+  pdfLayout:'Mise en page PDF',pdfTypography:'PDF typographie',pdfHeaders:'En-têtes / pieds de page PDF',pdfResources:'Ressources PDF / QR / annexes',
   quality:'Contrôle qualité attendu',notes:'Notes éditoriales'
 };
 const C_AI_COMPLETION_VERSION='c-ai-completion-guard-v1';
@@ -658,7 +659,7 @@ const cAIContext=(t,p,missing)=>{
   const w=t.metadata?.workflow||{};
   const selected=selectedChaptersFor(t).map(x=>cAIText(x?.title||x?.name||x)).filter(Boolean);
   const take=(v,n)=>cAIText(v).slice(0,n||160);
-  const core=['title','chapter','objectives','competencies','progression','architecture','productionStrategy','content','methods','activities','examples','situations','exercises','corrections','evaluation','resources','technicalNeeds','pdfLayout','pdfFonts','pdfHeaders','pdfResources','quality','notes'];
+  const core=['title','chapter','objectives','competencies','progression','architecture','productionStrategy','content','methods','activities','examples','situations','exercises','corrections','evaluation','resources','technicalNeeds','pdfLayout','pdfTypography','pdfHeaders','pdfResources','quality','notes'];
   const plan={};
   core.forEach(k=>{if(!missing.includes(k)&&cAIText(p[k]))plan[k]=take(p[k],k==='content'||k==='progression'||k==='architecture'||k==='productionStrategy'||k==='quality'?220:150)});
   return {
@@ -692,7 +693,7 @@ async function cAIRequest(t,p,missing){
     'Utilise exclusivement le contexte réel fourni. N’invente ni chapitre, ni classe, ni source, ni information curriculaire.',
     'Chaque valeur doit être directement exploitable dans un document pédagogique réel.',
     'N’utilise jamais une formule vide ou générique comme « à compléter », « à préciser », « N/A » ou équivalent.',
-    'Pour notes, écris une vraie note éditoriale contextualisée. Pour pdfFonts, pdfHeaders et pdfResources, donne des choix techniques concrets.',
+    'Pour notes, écris une vraie note éditoriale contextualisée. Pour pdfTypography, pdfHeaders et pdfResources, donne des choix techniques concrets.',
     'Pour sources, conserve uniquement les sources réellement fournies dans le contexte ; ne fabrique aucune URL.',
     'Réponds uniquement avec un objet JSON valide de la forme {"fields":{"clé":"valeur"}}.',
     '',
@@ -766,7 +767,7 @@ function planForm(t,section){
     field('Situations / problèmes','situations',p.situations,true)+field('Exercices','exercises',p.exercises,true)+field('Corrigés / solutions','corrections',p.corrections,true)+field('Différenciation / adaptations','differentiation',p.differentiation,true)+field('Évaluation prévue','evaluation',p.evaluation,true)+
     field('Volume pédagogique','volume',p.volume)+field('Durée indicative','duration',p.duration)+field('Ressources / illustrations','resources',p.resources,true)+field('Mathématiques / GeoGebra','mathGeoGebra',p.mathGeoGebra,true)+field('Besoins techniques','technicalNeeds',p.technicalNeeds,true)+
     '</div><div class="editor-plan-divider">Paramètres du PDF et contrôle qualité</div><div class="editor-plan-grid editor-pdf-grid">'+
-    field('Format','pdfFormat',p.pdfFormat)+field('Orientation','pdfOrientation',p.pdfOrientation)+field('Pagination','pdfPagination',p.pdfPagination)+field('Couleur thème','pdfThemeColor',p.pdfThemeColor)+field('Mise en page','pdfLayout',p.pdfLayout,true)+field('Polices / typographie','pdfFonts',p.pdfFonts,true)+field('En-têtes / pieds de page','pdfHeaders',p.pdfHeaders,true)+field('Ressources PDF / QR / annexes','pdfResources',p.pdfResources,true)+field('Contrôle qualité attendu','quality',p.quality,true)+field('Notes éditoriales','notes',p.notes,true)+field('Demandes de révision','revisionNotes',p.revisionNotes,true)+
+    field('Format','pdfFormat',p.pdfFormat)+field('Orientation','pdfOrientation',p.pdfOrientation)+field('Pagination','pdfPagination',p.pdfPagination)+field('Couleur thème','pdfThemeColor',p.pdfThemeColor)+field('Mise en page','pdfLayout',p.pdfLayout,true)+field('PDF typographie — obligatoire','pdfTypography',p.pdfTypography,true)+field('En-têtes / pieds de page','pdfHeaders',p.pdfHeaders,true)+field('Ressources PDF / QR / annexes','pdfResources',p.pdfResources,true)+field('Contrôle qualité attendu','quality',p.quality,true)+field('Notes éditoriales','notes',p.notes,true)+field('Demandes de révision','revisionNotes',p.revisionNotes,true)+
     '</div><div class="editor-plan-actions"><button type="button" class="admin-btn ghost" data-plan-save="'+esc(t.id)+'">Enregistrer les modifications</button><button type="button" class="admin-btn ghost danger" data-plan-reject="'+esc(t.id)+'">Rejeter / demander une révision</button>'+
     (section==='CX'
       ? '<div class="editor-cx-validation"><div class="editor-cx-validation-head"><span>Validation CX</span><strong>Le plan est contrôlé avant son passage en D.</strong><small>Les vérifications doivent être confirmées dans cette étape. Aucun PDF n’est lancé.</small></div><div class="editor-validation-grid">'+
@@ -1156,10 +1157,23 @@ function bindDetail(d,t,state){
       }
     }
     setGuardStatus('Garde-fou C validé : tous les champs obligatoires sont complets. Écriture autorisée.');
+    const pdfPersistedValue=String(p.pdfTypography||p.pdfFonts||'').trim();
+    const pdfHeadersValue=String(p.pdfHeaders||'').trim();
+    const pdfResourcesValue=String(p.pdfResources||'').trim();
+    const editorialNotesValue=String(p.notes||'').trim();
+    const qualityValue=String(p.quality||'').trim();
+    const persistedProposal={...p,
+      pdfTypography:{status:'complete',value:pdfPersistedValue,updated_at:new Date().toISOString()},
+      pdfFonts:pdfPersistedValue,
+      pdfHeadersFooters:{status:'complete',value:pdfHeadersValue,updated_at:new Date().toISOString()},
+      pdfResourcesQrAnnexes:{status:'complete',value:pdfResourcesValue,updated_at:new Date().toISOString()},
+      editorialNotes:{status:'complete',notes:editorialNotesValue,updated_at:new Date().toISOString()},
+      qualityControlExpected:{status:'complete',mathematical_accuracy:qualityValue,disciplinary_progression:qualityValue,explicit_reasoning:qualityValue,no_repetition:qualityValue,scientific_guardrails:qualityValue,updated_at:new Date().toISOString()}
+    };
     const stage=targetStage||fw.stage||'proposition_editoriale';
     const status=targetStatus||fw.proposal_status||'plan_editing';
     const updated=await updateJob(t.id,{
-      proposal:p,
+      proposal:persistedProposal,
       proposal_version:Number(fw.proposal_version||0)+1,
       proposal_status:status,
       stage,
