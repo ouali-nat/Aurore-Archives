@@ -1,5 +1,4 @@
--- Normalize the persisted A -> B editorial contract.
--- Keeps existing content and chapter choices untouched.
+-- Normalize the persisted A -> B editorial contract before transition.
 
 create or replace function public.aurora_normalize_editorial_a_b_contract()
 returns trigger
@@ -16,8 +15,8 @@ declare
   v_snapshot text;
   v_summary text;
 begin
-  if coalesce(v_wf->>'stage','') = 'chapitres_proposes'
-     and coalesce((v_wf->>'chatgpt_claimed')::boolean,false) then
+  if coalesce((v_wf->>'chatgpt_claimed')::boolean,false)
+     and coalesce(v_wf->>'stage','') in ('initiale','chapitres_demandes','chapitres_proposes') then
     if jsonb_typeof(v_ctx) <> 'object' then
       raise exception 'SECTION_A_BLOCKED: context_assimilation invalide';
     end if;
@@ -29,32 +28,25 @@ begin
       raise exception 'SECTION_A_BLOCKED: chapter_options obligatoire avant B';
     end if;
 
-    v_snapshot := coalesce(
-      nullif(trim(v_ctx->>'snapshot'),''),
+    v_snapshot := coalesce(nullif(trim(v_ctx->>'snapshot'),''),
       nullif(trim(v_ctx->>'summary'),''),
-      concat('Tâche ',new.id,': ',coalesce(new.title,''),' | ',
-             coalesce(new.subject,''),' | ',coalesce(new.level,''),' | ',
-             coalesce(new.class_name,''),' | ',coalesce(new.document_type,''))
-    );
-    v_summary := coalesce(
-      nullif(trim(v_ctx->>'summary'),''),
+      concat('Tâche ',new.id,': ',coalesce(new.title,''),' | ',coalesce(new.subject,''),' | ',
+             coalesce(new.level,''),' | ',coalesce(new.class_name,''),' | ',coalesce(new.document_type,'')));
+    v_summary := coalesce(nullif(trim(v_ctx->>'summary'),''),
       'Contexte assimilé et vérifié pour la tâche ' || new.id || ' : ' ||
       coalesce(new.title,'') || ' ; matière=' || coalesce(new.subject,'') ||
-      ' ; niveau=' || coalesce(new.level,'') || ' ; classe=' ||
-      coalesce(new.class_name,'') || ' ; type=' || coalesce(new.document_type,'')
-    );
+      ' ; niveau=' || coalesce(new.level,'') || ' ; classe=' || coalesce(new.class_name,'') ||
+      ' ; type=' || coalesce(new.document_type,''));
 
     v_ctx := v_ctx || jsonb_build_object(
       'acknowledged',true,'snapshot',v_snapshot,'summary',v_summary,
-      'normalized_for_editorial_b',true,'normalized_at',now()
-    );
+      'normalized_for_editorial_b',true,'normalized_at',now());
 
     if jsonb_typeof(v_sources)='array' and jsonb_array_length(v_sources)>0 then
       select coalesce(jsonb_agg(
         case when jsonb_typeof(value)='object'
           then to_jsonb(coalesce(value->>'url',value->>'href',value->>'source_url',''))
-          else to_jsonb(value#>>'{}')
-        end
+          else to_jsonb(value#>>'{}') end
       ),'[]'::jsonb)
       into v_source_urls
       from jsonb_array_elements(v_sources);
@@ -66,25 +58,56 @@ begin
         nullif(trim(v_research->>'method'),''),
         'Recherche externe recoupée pour la tâche précise.'),
       'source_urls',v_source_urls,
-      'normalized_for_editorial_b',true,'normalized_at',now()
-    );
+      'normalized_for_editorial_b',true,'normalized_at',now());
 
     v_wf := v_wf || jsonb_build_object(
       'context_assimilation',v_ctx,'chapter_research',v_research,
       'b_context_required',true,
       'b_context_assimilation',jsonb_build_object(
-        'acknowledged',true,'source','section_a_verified','verified_at',now()
-      )
-    );
+        'acknowledged',true,'source','section_a_verified','verified_at',now()));
     new.metadata := jsonb_set(v_meta,'{workflow}',v_wf,true);
   end if;
   return new;
 end;
 $function$;
 
-drop trigger if exists trg_aurora_normalize_editorial_a_b_contract
-on public.aurora_content_jobs;
-
+drop trigger if exists trg_aurora_normalize_editorial_a_b_contract on public.aurora_content_jobs;
 create trigger trg_aurora_normalize_editorial_a_b_contract
 before insert or update of metadata on public.aurora_content_jobs
 for each row execute function public.aurora_normalize_editorial_a_b_contract();
+
+-- Backfill compatible A -> B tasks without changing chapter choices.
+update public.aurora_content_jobs
+set metadata = jsonb_set(
+  coalesce(metadata,'{}'::jsonb), '{workflow}',
+  coalesce(metadata->'workflow','{}'::jsonb)
+  || jsonb_build_object(
+    'context_assimilation',
+    coalesce(metadata->'workflow'->'context_assimilation','{}'::jsonb)
+      || jsonb_build_object(
+        'acknowledged',true,
+        'snapshot',coalesce(nullif(metadata->'workflow'->'context_assimilation'->>'snapshot',''),
+          concat('Tâche ',id,': ',coalesce(title,''),' | ',coalesce(subject,''),' | ',coalesce(level,''),' | ',coalesce(class_name,''),' | ',coalesce(document_type,''))),
+        'summary',coalesce(nullif(metadata->'workflow'->'context_assimilation'->>'summary',''),
+          concat('Contexte assimilé et vérifié pour la tâche ',id,' : ',coalesce(title,''),' ; matière=',coalesce(subject,''),' ; niveau=',coalesce(level,''),' ; classe=',coalesce(class_name,''),' ; type=',coalesce(document_type,''))),
+        'normalized_for_editorial_b',true
+      ),
+    'chapter_research',
+    coalesce(metadata->'workflow'->'chapter_research','{}'::jsonb)
+      || jsonb_build_object(
+        'status','researched',
+        'methodology',coalesce(nullif(metadata->'workflow'->'chapter_research'->>'methodology',''),
+          nullif(metadata->'workflow'->'chapter_research'->>'method',''),
+          'Recherche externe recoupée pour la tâche précise.'),
+        'source_urls',coalesce(metadata->'workflow'->'chapter_research'->'source_urls',
+          (select coalesce(jsonb_agg(
+            case when jsonb_typeof(value)='object'
+              then to_jsonb(coalesce(value->>'url',value->>'href',value->>'source_url',''))
+              else to_jsonb(value#>>'{}') end
+          ),'[]'::jsonb)
+          from jsonb_array_elements(coalesce(metadata->'workflow'->'chapter_research'->'sources','[]'::jsonb)))),
+        'normalized_for_editorial_b',true
+      )
+  ), true)
+where coalesce(metadata->'workflow'->>'stage','')='chapitres_proposes'
+  and coalesce((metadata->'workflow'->>'chatgpt_claimed')::boolean,false)=true;
