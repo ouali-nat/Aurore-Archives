@@ -3870,7 +3870,7 @@ def _repair_course_inline_math_delimiters(tex):
             # followed by an unbraced denominator, e.g. \\(\\pi\\)/3.
             # Once the inline block is wrapped, leaving /3 outside the box
             # produces invalid LaTeX inside a surrounding Aurore block.
-            body += re.sub(r"\\s+", "", trailing_denominator)
+            body += re.sub(r"\s+", "", trailing_denominator)
         return r"\AuroreInlineMath{" + body + r"}" if body else ""
 
     # Protect already-generated AuroreMathCompact/AuroreMathBlock arguments
