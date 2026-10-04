@@ -246,23 +246,23 @@ async function createTask(form){
   const level=String(form.level||className||'').trim();
   const path=Array.isArray(form.path)?form.path.map(x=>String(x||'').trim()).filter(Boolean):[];
   const location=String(form.location||path.join(' · ')||className||'').trim();
-  const category='Documents',prompt=String(form.prompt||'').trim(),reference=String(form.reference||'').trim();
+  const prompt=String(form.prompt||'').trim(),reference=String(form.reference||'').trim();
   const themeColor=normalizeAThemeColor(form.themeColor||'#6D28D9');
   const id=Number(await rpc('aurora_create_content_job',{
     p_title:'Document en préparation',p_subject:subject,p_level:level,p_class_name:className,p_document_type:documentType,
     p_prompt:prompt||'Tâche éditoriale. ChatGPT est l’éditeur canonique : récupération, recherche, chapitres, plan de production puis rédaction finale.',
     p_instructions:{
-      source:'admin_editorial_task',origin:'gpt_editorial_queue',queue:'manual',category,document_type:documentType,rights_confirmed:true,
+      source:'admin_editorial_task',origin:'gpt_editorial_queue',queue:'manual',document_type:documentType,rights_confirmed:true,
       reference:reference||null,theme_color:themeColor,editorial:{role:'editor',engine:EDITOR,schema_version:'aurora-editorial-2',status:'waiting_chatgpt'},
-      profile:aProfile(documentType),classification:{level,location,class_name:className,subject,document_type:documentType,path,category},
+      profile:aProfile(documentType),classification:{level,location,class_name:className,subject,document_type:documentType,path},
       workflow:{protocol:PROTOCOL,stage:'initiale',proposal_version:0,user_validated:false,chatgpt_claimed:false,manual_pdf_only:true,manual_pdf_launch_required:true,auto_pdf_launch:false,editorial_engine:EDITOR,
         execution_contract:A_EXECUTION_CONTRACT,execution_contract_acknowledged:false,completion_guard:A_EXECUTION_CONTRACT_VERSION,a_context_required:true,b_context_required:true,title_generated_by_editor:true,title_policy:'no_hyphen_or_dash'}
     }
   }));
   if(!Number.isSafeInteger(id)||id<1)throw new Error('Identifiant de tâche invalide.');
-  return updateJob(id,{category,reference,theme_color:themeColor,resource_type:documentType,prompt,stage:'initiale',
+  return updateJob(id,{reference,theme_color:themeColor,resource_type:documentType,prompt,stage:'initiale',
     chatgpt_claimed:false,chatgpt_claimed_at:null,chapters:null,selected_chapter:null,proposal:null,proposal_version:0,user_validated:false,rejected:false,revision_requested:false,admin_validation:null,
-    classification:{level,location,class_name:className,subject,document_type:documentType,path,category},
+    classification:{level,location,class_name:className,subject,document_type:documentType,path},
     execution_contract:A_EXECUTION_CONTRACT,execution_contract_acknowledged:false,completion_guard:A_EXECUTION_CONTRACT_VERSION,a_context_required:true,b_context_required:true},'draft');
 }
 const textValue=v=>{
@@ -1066,11 +1066,11 @@ function bind(root,state){
       finally{if(btn)btn.disabled=false;}
     });
     form?.addEventListener('submit',async e=>{e.preventDefault();
-      const category='Documents',resourceType=(resourcePicker?.value||'').trim(),reference=(root.querySelector('#editorACreateReference')?.value||'').trim(),prompt=(root.querySelector('#editorACreatePrompt')?.value||'').trim(),subject=(subjectPicker?.value||'').trim(),rights=!!root.querySelector('#editorACreateRights')?.checked,themeColor=normalizeAThemeColor(root.querySelector('#editorAThemeColor')?.value||'#6D28D9');
+      const resourceType=(resourcePicker?.value||'').trim(),reference=(root.querySelector('#editorACreateReference')?.value||'').trim(),prompt=(root.querySelector('#editorACreatePrompt')?.value||'').trim(),subject=(subjectPicker?.value||'').trim(),rights=!!root.querySelector('#editorACreateRights')?.checked,themeColor=normalizeAThemeColor(root.querySelector('#editorAThemeColor')?.value||'#6D28D9');
       const level=rootNodeName(levelPicker),className=String(aPath[aPath.length-1]?.nom||'').trim(),path=aPath.map(n=>String(n?.nom||'').trim()).filter(Boolean),location=path.join(' · ');
       if(!resourceType||!level||!className||!subject||!prompt||!rights){const msg=root.querySelector('#editorACreateMsg');if(msg){msg.dataset.state='error';msg.textContent='Complète le type, le classement, la consigne et l’autorisation de production.';}return}
       const b=root.querySelector('#editorCreate'),msg=root.querySelector('#editorACreateMsg');if(b)b.disabled=true;
-      try{await createTask({category,documentType:resourceType,reference,prompt,themeColor,subject,level,className,path,location});if(msg){msg.dataset.state='ok';msg.textContent='✓ Tâche enregistrée dans la Section A.'}await chargerEspaceEditorialChatGPT(state.section)}catch(e){if(msg){msg.dataset.state='error';msg.textContent='Impossible de créer la tâche : '+(e.message||e)}}finally{if(b)b.disabled=false}
+      try{await createTask({documentType:resourceType,reference,prompt,themeColor,subject,level,className,path,location});if(msg){msg.dataset.state='ok';msg.textContent='✓ Tâche enregistrée dans la Section A.'}await chargerEspaceEditorialChatGPT(state.section)}catch(e){if(msg){msg.dataset.state='error';msg.textContent='Impossible de créer la tâche : '+(e.message||e)}}finally{if(b)b.disabled=false}
     });
   }
   
