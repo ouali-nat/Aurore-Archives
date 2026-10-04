@@ -1411,24 +1411,24 @@ jobs:
               raise SystemExit("Renderer smoke check failed: GeoGebra graph was not emitted")
 
           inline_macro_source = inspect.getsource(render_document.render)
-          if r"\\ensuremath{\\displaystyle #1}" not in inline_macro_source:
+          if r"\ensuremath{\displaystyle #1}" not in inline_macro_source:
               raise SystemExit("Legacy inline math macro guard regression: ensuremath-safe definition missing")
 
           repaired_inline = render_document._repair_course_inline_math_delimiters(
               r"La forme est \\(\\pi\\)/3."
           )
-          if r"\\AuroreMathCompact{}{\\pi/3}" not in repaired_inline:
+          if r"\AuroreMathCompact{}{\pi/3}" not in repaired_inline:
               raise SystemExit(
                   f"Course post-render fraction repair regression: {repaired_inline!r}"
               )
-          if r"\\AuroreInlineMath{" in repaired_inline:
+          if r"\AuroreInlineMath{" in repaired_inline:
               raise SystemExit(
                   f"Legacy inline math was reintroduced by post-render repair: {repaired_inline!r}"
               )
 
           import course_layout
           course_layout_source = inspect.getsource(course_layout.render_course_document)
-          if r"\\newcommand{\\AuroreMathCompact}[2]" not in course_layout_source:
+          if r"\newcommand{\AuroreMathCompact}[2]" not in course_layout_source:
               raise SystemExit(
                   "Course-layout math compatibility regression: AuroreMathCompact is not defined."
               )
@@ -1446,11 +1446,11 @@ jobs:
           refactor_tex = render_document.render(refactor_course)
           refactor_tex = render_document._repair_nested_inline_math_delimiters(refactor_tex)
           refactor_tex = render_document._repair_course_inline_math_delimiters(refactor_tex)
-          if r"\\AuroreMathCompact{}{\\pi/3}" not in refactor_tex:
+          if r"\AuroreMathCompact{}{\pi/3}" not in refactor_tex:
               raise SystemExit(
                   f"Sésamath refactor fraction regression: {refactor_tex!r}"
               )
-          if r"\\AuroreInlineMath{" in refactor_tex:
+          if r"\AuroreInlineMath{" in refactor_tex:
               raise SystemExit(
                   f"Sésamath refactor leaked legacy inline macro: {refactor_tex!r}"
               )
