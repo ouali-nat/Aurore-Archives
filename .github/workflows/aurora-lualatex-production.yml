@@ -1415,7 +1415,7 @@ jobs:
               raise SystemExit("Legacy inline math macro guard regression: ensuremath-safe definition missing")
 
           repaired_inline = render_document._repair_course_inline_math_delimiters(
-              r"La forme est \\(\\pi\\)/3."
+              r"La forme est \(\pi\)/3."
           )
           if r"\AuroreMathCompact{}{\pi/3}" not in repaired_inline:
               raise SystemExit(
