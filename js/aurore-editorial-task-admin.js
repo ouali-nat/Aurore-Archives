@@ -401,25 +401,7 @@ async function promoteAtoB(id){
   }
   return promoted;
 }
-const D_AI_ENDPOINT='/functions/v1/aurora-editorial-ai';
-const D_AI_PROVIDER_LABELS={gpt:'GPT',claude:'Claude',grok:'Grok'};
-let D_AI_PROVIDERS=[['gpt','GPT'],['claude','Claude'],['grok','Grok']];
-function dAiSetProviders(list){
-  const labels={grok:'Grok',claude:'Claude',gemini:'Gemini',deepseek:'DeepSeek',llama:'Llama',groq:'Groq'};
-  const ids=Array.isArray(list)
-    ? list.map(x=>String(x?.id||x).toLowerCase()).filter(x=>labels[x])
-    : [];
-  D_AI_PROVIDERS=(ids.length?ids:['gemini','claude','grok','deepseek','llama','groq']).map(id=>[id,labels[id]]);
-}
-async function loadDAiProviders(){
-  try{
-    const tokenValue=await token();
-    const r=await fetch(SUPABASE_URL+D_AI_ENDPOINT,{method:'GET',headers:{apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+tokenValue},cache:'no-store'});
-    const raw=await r.text(); let data=null; try{data=raw?JSON.parse(raw):null}catch(_){}
-    if(r.ok&&Array.isArray(data?.providers)) dAiSetProviders(data.providers);
-  }catch(_){}
-}
-
+const D_AI_MODE='conversation_gpt_only';
 function dAiTreatment(t){
   const a=t?.metadata?.workflow?.ai_treatment;
   return a&&typeof a==='object'?a:null;
@@ -454,12 +436,12 @@ function dAiCardMarkup(t){
   const label=String(a?.label||a?.stage||'').trim();
   const error=String(a?.error||'').trim();
   const title=processing
-    ? 'Édition IA automatique en cours'
+    ? 'Édition GPT conversationnelle en cours'
     : stale
-      ? 'Traitement IA à reprendre automatiquement'
+      ? 'Traitement GPT à reprendre dans la discussion'
       : failed
-        ? 'Traitement IA arrêté — contrôle requis'
-        : 'Prise en charge IA automatique';
+        ? 'Ancien traitement arrêté — historique conservé'
+        : 'En attente de prise en charge par GPT conversationnel';
   return '<div class="editor-ai-treatment '+(processing?'is-processing':failed?'is-failed':stale?'is-stale':'')+'">'+
     '<div class="editor-ai-head"><span>Éditeur D</span><strong>'+title+'</strong></div>'+
     '<div class="editor-ai-progress" role="status" aria-live="polite">'+
@@ -475,64 +457,6 @@ async function claimGptTask(jobId){
   const data=await rpc('aurora_claim_gpt_editorial_task',{p_job_id:id,p_run_id:runId});
   if(data?.ok!==true)throw new Error(data?.error||'La tâche n’a pas pu être récupérée par GPT.');
   return data;
-}
-async function startDaiTreatment(jobId,provider){
-  const id=Number(jobId),p=String(provider||'').toLowerCase();
-  if(!Number.isInteger(id)||id<=0)throw new Error('Tâche D invalide.');
-  if(p!=='gpt')throw new Error('Section D utilise exclusivement GPT/ChatGPT.');
-  const tokenValue=await token();
-  const r=await fetch(SUPABASE_URL+D_AI_ENDPOINT,{
-    method:'POST',
-    headers:{apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+tokenValue,'Content-Type':'application/json'},
-    body:JSON.stringify({job_id:id,provider:p})
-  });
-  const raw=await r.text();let data=null;try{data=raw?JSON.parse(raw):null}catch(_){}
-  if(!r.ok||data?.ok===false)throw new Error(data?.error||raw||('Le traitement IA n’a pas démarré (HTTP '+r.status+').'));
-  try{localStorage.setItem('aurore_d_ai_provider',p)}catch(_){}
-  return data;
-}
-const D_AI_AUTO_START_GUARD=new Set();
-async function autoStartDaiTasks(state){
-  if(state?.section!=='D')return;
-  const candidates=(state.tasks||[]).filter(t=>dAiCanStart(t)&&!D_AI_AUTO_START_GUARD.has(Number(t.id)));
-  if(!candidates.length)return;
-  for(const t of candidates){
-    const id=Number(t.id),provider='gpt';
-    D_AI_AUTO_START_GUARD.add(id);
-    try{
-      const result=await startDaiTreatment(id,provider);
-      const w=t.metadata?.workflow||{};
-      t.metadata={...(t.metadata||{}),workflow:{
-        ...w,
-        stage:'production_en_cours',
-        ai_treatment:{
-          ...(w.ai_treatment||{}),
-          run_id:result?.run_id||null,
-          provider:result?.provider||provider,
-          status:'processing',
-          progress:Number(result?.progress)||3,
-          stage:'preparation',
-          step:'generate',
-          label:'Préparation du dossier D',
-          updated_at:new Date().toISOString()
-        }
-      }};
-    }catch(e){
-      D_AI_AUTO_START_GUARD.delete(id);
-      t.metadata={...(t.metadata||{}),workflow:{
-        ...w,
-        ai_treatment:{
-          ...(w.ai_treatment||{}),
-          status:'failed',
-          provider,
-          error:String(e?.message||e),
-          updated_at:new Date().toISOString()
-        }
-      }};
-    }
-  }
-  const root=document.getElementById('auroreEditorialTaskAdmin');
-  if(root)render(root,state);
 }
 function stopDAiPolling(){
   try{if(window.__auroreDAiTimer){clearInterval(window.__auroreDAiTimer);window.__auroreDAiTimer=null}}catch(_){}
@@ -566,9 +490,6 @@ function startDAiPolling(root,state){
         const out=root.querySelector('[data-ai-percent-job="'+id+'"]');if(out)out.textContent=pct+'%';
       });
       if(changed){
-        const activeIds=new Set([...root.querySelectorAll('[data-ai-start]')].map(x=>Number(x.dataset.aiStart)));
-        const leaving=[...activeIds].some(id=>byId.get(id)?.generated_document_id||byId.get(id)?.metadata?.workflow?.stage==='production_terminee');
-        if(leaving){await chargerEspaceEditorialChatGPT(state.section);return;}
         render(root,state);
       }
       if(!stillRunning)stopDAiPolling();
@@ -580,7 +501,7 @@ function startDAiPolling(root,state){
 
 function aiWorkspaceCard(t,section){
   const a=dAiTreatment(t),label=AI_WORKSPACE_LABELS[section]||section,processing=a?.status==='processing',failed=a?.status==='failed',pct=Math.max(0,Math.min(100,Number(a?.progress)||0));
-  return '<article class="editor-pro-card ai-workspace-card"><div class="editor-pro-top"><span class="editor-pro-id">#'+esc(t.id)+'</span><span class="editor-pro-pill '+(failed?'warning':'ready')+'">'+esc(label)+'</span></div><h4>'+esc(t.class_name||t.level||'Classe')+'</h4><strong class="editor-pro-subject">'+esc(t.subject||'Matière')+'</strong><p>'+esc(t.title||'Document')+'<br><small>'+(processing?'Traitement en cours':'Traitement à reprendre')+'</small></p><div class="editor-ai-progress"><div class="editor-ai-progress-head"><span>'+esc(a?.label||'Espace '+label)+'</span><strong>'+pct+'%</strong></div><div class="editor-ai-progress-track"><span style="width:'+pct+'%"></span></div></div><div class="editor-pro-bottom"><span>'+esc(t.document_type||'cours')+'</span><button type="button" class="admin-btn primary" data-editor-open="'+esc(t.id)+'">Ouvrir</button>'+(failed?'<button type="button" class="admin-btn ghost" data-ai-retry="'+esc(t.id)+'">Reprendre</button>':'')+'</div></article>';
+  return '<article class="editor-pro-card ai-workspace-card"><div class="editor-pro-top"><span class="editor-pro-id">#'+esc(t.id)+'</span><span class="editor-pro-pill '+(failed?'warning':'ready')+'">'+esc(label)+'</span></div><h4>'+esc(t.class_name||t.level||'Classe')+'</h4><strong class="editor-pro-subject">'+esc(t.subject||'Matière')+'</strong><p>'+esc(t.title||'Document')+'<br><small>'+(processing?'Traitement en cours':'Traitement à reprendre')+'</small></p><div class="editor-ai-progress"><div class="editor-ai-progress-head"><span>'+esc(a?.label||'Espace '+label)+'</span><strong>'+pct+'%</strong></div><div class="editor-ai-progress-track"><span style="width:'+pct+'%"></span></div></div><div class="editor-pro-bottom"><span>'+esc(t.document_type||'cours')+'</span><button type="button" class="admin-btn primary" data-editor-open="'+esc(t.id)+'">Ouvrir</button>'+'</div></article>';
 }
 function taskCard(t,section){
   const w=t.metadata?.workflow||{},s=stageInfo[w.stage]||{label:w.stage||t.status,tone:'waiting'};
@@ -950,8 +871,7 @@ function bind(root,state){
     state.pages[state.section]=0;
     persistEditorialPosition(state);
     render(root,state);
-    if(state.section==='D') await autoStartDaiTasks(state).catch(()=>{});
-  }));
+      }));
   root.querySelector('[data-editor-documents]')?.addEventListener('click',()=>{
     const b=[...document.querySelectorAll('.admin-tab')].find(x=>x.dataset.tab==='attente');
     if(b)b.click();
@@ -1117,26 +1037,6 @@ function bind(root,state){
       alert('Nouvelle production D créée (#'+result.new_job_id+'). Le contenu sera réécrit avant son passage dans Documents en attente. Aucun PDF n’a été lancé.');
       await chargerEspaceEditorialChatGPT('D');
     }catch(e){alert(e.message||e);b.disabled=false;b.textContent='Reprendre en D'}
-  }));
-  root.querySelectorAll('[data-ai-retry]').forEach(b=>b.addEventListener('click',async()=>{
-    const id=Number(b.dataset.aiRetry),t=(state.tasks||[]).find(x=>Number(x.id)===id),provider=String(t?.metadata?.workflow?.ai_treatment?.provider||'').toLowerCase();
-    if(!provider)return;b.disabled=true;b.textContent='Reprise…';
-    try{await startDaiTreatment(id,provider);await chargerEspaceEditorialChatGPT(provider.toUpperCase())}catch(e){b.disabled=false;b.textContent='Reprendre';alert(e.message||e)}
-  }));
-  root.querySelectorAll('[data-ai-provider-job]').forEach(sel=>sel.addEventListener('change',e=>{
-    try{const value=String(e.target.value||'').toLowerCase();if(D_AI_PROVIDERS.some(([id])=>id===value))localStorage.setItem('aurore_d_ai_provider',value)}catch(_){}
-  }));
-  root.querySelectorAll('[data-ai-start]').forEach(b=>b.addEventListener('click',async()=>{
-    const id=Number(b.dataset.aiStart),sel=root.querySelector('[data-ai-provider-job="'+id+'"]'),provider=String(sel?.value||dAiProviderFor((state.tasks||[]).find(x=>Number(x.id)===id))||'grok').toLowerCase();
-    if(b.disabled)return;
-    b.disabled=true;b.textContent='Démarrage…';
-    try{
-      await startDaiTreatment(id,provider);
-      await chargerEspaceEditorialChatGPT(provider.toUpperCase());
-    }catch(e){
-      b.disabled=false;b.textContent='Traiter';
-      alert(e.message||e);
-    }
   }));
   root.querySelectorAll('[data-editor-open]').forEach(b=>b.addEventListener('click',async()=>{
     const t=await getJob(Number(b.dataset.editorOpen));if(!t)return;
@@ -1783,7 +1683,6 @@ async function chargerEspaceEditorialChatGPT(preferredSection){
   root.innerHTML='<div class="editor-empty">Chargement du parcours éditorial…</div>';
   try{
     const [tasks,revisions]=await Promise.all([listJobs(),listRevisionDocuments()]);
-    await loadDAiProviders();
     const allowed=['A','B','C','CX','D','E',...AI_WORKSPACE_SECTIONS];
     const saved=readEditorialPosition();
     const active=allowed.includes(preferredSection)?preferredSection:(allowed.includes(window.__auroreEditorialActiveSection)?window.__auroreEditorialActiveSection:saved.section);
@@ -1793,8 +1692,7 @@ async function chargerEspaceEditorialChatGPT(preferredSection){
     const state={tasks,revisions,section:active,pages};
     render(root,state);
     const count=document.getElementById('tabCountAuroraRequest');if(count)count.textContent=String(tasks.length);
-    if(active==='D') autoStartDaiTasks(state).catch(()=>{});
-    return true;
+        return true;
   }catch(e){root.innerHTML='<div class="editor-empty">Impossible de charger le parcours éditorial : '+esc(e.message||e)+'</div>';return false}
 }
 window.chargerEspaceEditorialChatGPT=chargerEspaceEditorialChatGPT;
