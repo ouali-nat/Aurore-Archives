@@ -1,3 +1,12 @@
+/* Chargeur de la barre latérale (js/aurore-sidebar.js) : évite de réécrire index.html. */
+(function(){try{
+  if(!document.getElementById('auroreSidebarJs')){
+    var s=document.createElement('script');
+    s.id='auroreSidebarJs';
+    s.src='js/aurore-sidebar.js?v=20261004-sidebar1';
+    document.head.appendChild(s);
+  }
+}catch(e){}})();
 
 (function(){
   const KEY='aurore_floating_home_position_v1';
