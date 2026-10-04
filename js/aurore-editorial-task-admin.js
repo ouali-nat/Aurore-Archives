@@ -565,10 +565,6 @@ function startDAiPolling(root,state){
         bar.style.width=pct+'%';
         const out=root.querySelector('[data-ai-percent-job="'+id+'"]');if(out)out.textContent=pct+'%';
       });
-      root.querySelectorAll('[data-ai-start]').forEach(btn=>{
-        const id=Number(btn.dataset.aiStart),t=byId.get(id),ai=dAiTreatment(t);
-        if(ai?.status==='processing'){btn.disabled=true;btn.textContent='Traitement…'}
-      });
       if(changed){
         const activeIds=new Set([...root.querySelectorAll('[data-ai-start]')].map(x=>Number(x.dataset.aiStart)));
         const leaving=[...activeIds].some(id=>byId.get(id)?.generated_document_id||byId.get(id)?.metadata?.workflow?.stage==='production_terminee');
