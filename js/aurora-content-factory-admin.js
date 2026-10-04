@@ -3,11 +3,22 @@
 (function(){
 'use strict';
 if(typeof window==='undefined')return;
-if(typeof window.adminInventoryFetch!=='function')window.adminInventoryFetch=async function(url,options={},retry=true){
+if(typeof window.adminInventoryFetch!=='function')window.adminInventoryFetch=async function(url,options={},retry=true,networkAttempt=0){
   const token=(typeof session!=='undefined'&&session&&session.access_token)||'';
   const headers={...(options.headers||{}),apikey:SUPABASE_ANON_KEY};
   if(token)headers.Authorization='Bearer '+token;
-  const response=await fetch(url,{...options,headers,cache:'no-store'});
+  let response;
+  try{
+    response=await fetch(url,{...options,headers,cache:'no-store'});
+  }catch(error){
+    const message=String(error?.message||error||'');
+    if(networkAttempt<2 && /failed to fetch|networkerror|network error|load failed|network request failed|fetch failed/i.test(message)){
+      await new Promise(resolve=>setTimeout(resolve,750*(networkAttempt+1)));
+      return adminInventoryFetch(url,options,retry,networkAttempt+1);
+    }
+    const endpoint=String(url||'').replace(/^https?:\/\/[^/]+/,'');
+    throw new Error('Connexion réseau Aurore indisponible pendant la requête '+endpoint+'. '+message);
+  }
   if((response.status===401||response.status===403)&&retry&&typeof assurerClientAuthGoogle==='function'){
     try{
       const client=await assurerClientAuthGoogle();
@@ -20,13 +31,19 @@ if(typeof window.adminInventoryFetch!=='function')window.adminInventoryFetch=asy
           if(typeof sauvegarderSession==='function')sauvegarderSession();
         }catch(_){}
         const retryHeaders={...(options.headers||{}),apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+fresh};
-        return fetch(url,{...options,headers:retryHeaders,cache:'no-store'});
+        try{
+          return await fetch(url,{...options,headers:retryHeaders,cache:'no-store'});
+        }catch(error){
+          const message=String(error?.message||error||'');
+          const endpoint=String(url||'').replace(/^https?:\/\/[^/]+/,'');
+          throw new Error('Connexion réseau Aurore indisponible après renouvellement de session pendant la requête '+endpoint+'. '+message);
+        }
       }
     }catch(_){}
   }
   return response;
 };
-})();
+})();;
 
 (function(){'use strict';const panel=document.querySelector('.admin-tab-panel[data-panel="content-factory"]');const list=document.getElementById('adminContentFactoryList'),count=document.getElementById('tabCountContentFactory');let rows=[];let generationQueue=[];let generationRunning=false;window.__aurorePdfActionBusy=window.__aurorePdfActionBusy instanceof Set?window.__aurorePdfActionBusy:new Set();let cfCreatePath=[];let cfClassificationInitialized=false;const esc=v=>{const d=document.createElement('div');d.textContent=String(v==null?'':v);return d.innerHTML};const sl=s=>({review:'À contrôler',approved:'Validé',published:'Publié',rejected:'Rejeté',failed:'Échec',generated:'Généré',processing:'Traitement',queued:'En file',draft:'Brouillon'}[s]||s||'Inconnu');const adminOk=()=>!!(session&&session.role==='admin');const normalizeThemeColor=v=>/^#[0-9a-f]{6}$/i.test(String(v||''))?String(v).toUpperCase():'#1D4ED8';
 const documentThemeColor=metadata=>{
