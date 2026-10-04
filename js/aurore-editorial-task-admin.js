@@ -448,7 +448,7 @@ function dAiIsStale(t){
   return Number.isFinite(at) && Date.now()-at>12*60*1000;
 }
 function dAiCardMarkup(t){
-  const w=t?.metadata?.workflow||{},a=dAiTreatment(t),provider=dAiProviderFor(t);
+  const w=t?.metadata?.workflow||{},a=dAiTreatment(t);
   const processing=a?.status==='processing';
   const stale=dAiIsStale(t);
   const failed=a?.status==='failed';
@@ -459,21 +459,20 @@ function dAiCardMarkup(t){
   const pct=Math.max(0,Math.min(100,Number(a?.progress)||0));
   const label=String(a?.label||a?.stage||'').trim();
   const error=String(a?.error||'').trim();
-  const activeProcessing=processing&&!stale;
-  const actionable=failed||stale||(!processing&&dAiCanStart(t));
-  return '<div class="editor-ai-treatment '+(activeProcessing?'is-processing':failed?'is-failed':stale?'is-stale':'')+'">'+
-    '<div class="editor-ai-head"><span>Production IA</span><strong>'+(activeProcessing?'Traitement en cours':stale?'Traitement bloqué — reprise possible':failed?'Traitement bloqué':'Choisir le moteur')+'</strong></div>'+
-    '<div class="editor-ai-controls">'+
-      '<select class="editor-ai-provider" data-ai-provider-job="'+esc(t.id)+'" aria-label="Moteur IA pour la tâche '+esc(t.id)+'" '+(activeProcessing?'disabled':'')+'>'+
-        D_AI_PROVIDERS.map(([value,label])=>'<option value="'+value+'" '+(provider===value?'selected':'')+'>'+label+'</option>').join('')+
-      '</select>'+
-      '<button type="button" class="admin-btn '+(activeProcessing?'ghost':'primary')+'" data-ai-start="'+esc(t.id)+'" '+(!actionable||activeProcessing?'disabled':'')+'>'+(activeProcessing?'Traitement…':stale?'Reprendre':failed?'Relancer':'Traiter')+'</button>'+
-    '</div>'+
-    ((processing||failed)?'<div class="editor-ai-progress" role="status" aria-live="polite">'+
-      '<div class="editor-ai-progress-head"><span>'+esc(label||'Traitement IA')+'</span><strong data-ai-percent-job="'+esc(t.id)+'">'+pct+'%</strong></div>'+
+  const title=processing
+    ? 'Édition IA automatique en cours'
+    : stale
+      ? 'Traitement IA à reprendre automatiquement'
+      : failed
+        ? 'Traitement IA arrêté — contrôle requis'
+        : 'Prise en charge IA automatique';
+  return '<div class="editor-ai-treatment '+(processing?'is-processing':failed?'is-failed':stale?'is-stale':'')+'">'+
+    '<div class="editor-ai-head"><span>Éditeur D</span><strong>'+title+'</strong></div>'+
+    '<div class="editor-ai-progress" role="status" aria-live="polite">'+
+      '<div class="editor-ai-progress-head"><span>'+esc(label||'Préparation du traitement éditorial')+'</span><strong data-ai-percent-job="'+esc(t.id)+'">'+pct+'%</strong></div>'+
       '<div class="editor-ai-progress-track" aria-hidden="true"><span data-ai-progress-job="'+esc(t.id)+'" style="width:'+pct+'%"></span></div>'+
       (error?'<small class="editor-ai-error">'+esc(error)+'</small>':'')+
-    '</div>':'')+
+    '</div>'+
   '</div>';
 }
 async function claimGptTask(jobId){
