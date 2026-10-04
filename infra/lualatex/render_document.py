@@ -3879,7 +3879,7 @@ def _repair_course_inline_math_delimiters(tex):
     # creating nested math environments. If a raw inline formula is immediately
     # followed by /denominator, keep the complete fraction inside the same box.
     trailing_fraction = (
-        r"\\\((?:[\\s\\S]*?)\\\)"
+        r"\\\(([\\s\\S]*?)\\\)"
         r"(\\s*/\\s*(?:\\\\[A-Za-z]+|\\d+(?:[.,]\\d+)?|"
         r"\\([^()\\n]{1,80}\\)))?"
     )
@@ -4656,13 +4656,18 @@ def main():
         raise SystemExit("inline() math guardrail failed: protected array row break leaked")
     # Regression guard: a raw \\(\\pi\\)/3 must remain one framed
     # expression instead of becoming \\AuroreInlineMath{\\pi}/3.
-    _probe_course_fraction = _repair_course_inline_math_delimiters(
-        r"\\AuroreParagraphBlock{La forme est \\(\\pi\\)/3.}"
-    )
-    if r"\AuroreInlineMath{\pi}/3" in _probe_course_fraction:
-        raise SystemExit("course inline fraction guardrail failed: denominator escaped math box")
-    if r"\AuroreInlineMath{\pi/3}" not in _probe_course_fraction:
-        raise SystemExit("course inline fraction guardrail failed: fraction was not preserved")
+    _probe_course_fractions = [
+        r"\\AuroreParagraphBlock{La forme est \\(\\pi\\)/3.}",
+        r"\\AuroreParagraphBlock{La forme est \\(\\pi\\) / 3.}",
+        r"\\AuroreParagraphBlock{La forme est \\(\\pi\\)/\\alpha.}",
+        r"\\AuroreParagraphBlock{La forme est \\(\\pi\\)/(3).}",
+    ]
+    for _probe_course_fraction in _probe_course_fractions:
+        _probe_course_fraction = _repair_course_inline_math_delimiters(_probe_course_fraction)
+        if r"\AuroreInlineMath{\pi}/" in _probe_course_fraction:
+            raise SystemExit("course inline fraction guardrail failed: denominator escaped math box")
+        if r"\AuroreInlineMath{\pi/3}" not in _probe_course_fraction and            r"\AuroreInlineMath{\pi/\alpha}" not in _probe_course_fraction and            r"\AuroreInlineMath{\pi/(3)}" not in _probe_course_fraction:
+            raise SystemExit("course inline fraction guardrail failed: fraction was not preserved")
 
 
     _probe_percent = inline(r"$25\\%$")
