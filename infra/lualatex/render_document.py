@@ -2454,13 +2454,15 @@ def _math_fragment_is_blockworthy(fragment):
     return False
 
 def _strip_nested_inline_math_delimiters(body):
-    """Remove math delimiters duplicated inside an Aurore math box."""
+    """Remove one or more escaped math delimiters from an Aurore math box."""
     value = str(body or "")
-    # Math boxes already provide their own TeX math environment. A content
-    # fragment such as \\(x\\) must therefore keep only the mathematical body.
-    for delimiter in (r"\(", r"\)", r"\[", r"\]"):
-        value = value.replace(delimiter, "")
+    # A math box already supplies its own math environment. Delimiters may
+    # arrive after several JSON/string escaping layers, so remove every
+    # backslash run immediately before a math delimiter while leaving normal
+    # LaTeX commands such as \\sqrt, \\frac and \\left untouched.
+    value = re.sub(r"\\+(?=[()\\[\\]])", "", value)
     return value
+
 def _math_render_command(body, label="Relation"):
     normalized = normalize_math(str(body or "").strip())
     normalized = _strip_nested_inline_math_delimiters(normalized).strip()
@@ -2525,10 +2527,10 @@ def _split_embedded_math(text):
 
 def _render_inline_math_fragment(body):
     normalized = normalize_math(str(body or "").strip())
+    normalized = _strip_nested_inline_math_delimiters(normalized).strip()
     if not normalized:
         return ""
     return r"\AuroreInlineMath{" + normalized + r"}"
-
 
 def _render_plain_with_inline_math(segment, auto_math=False):
     """Render prose while keeping detected plain-text math exactly in place."""
