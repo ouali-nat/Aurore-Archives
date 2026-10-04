@@ -13,7 +13,11 @@ function cleanExpression(raw) {
     .replace(/√\s*\(/g, "sqrt(")
     .replace(/\bln\s*\(/gi, "ln(")
     .replace(/\blog\s*\(/gi, "log(")
-    .replace(/\bif\s*\(/gi, "If(")\n    // Convert LaTeX-style exponential notation to GeoGebra-safe syntax.\n    .replace(/\be\s*\^\s*\{([^{}]+)\}/gi, (_, exponent) =>\n      "exp(" + String(exponent).replace(/(\d)\s*(?=[A-Za-z])/g, "$1*") + ")"\n    );
+    .replace(/\bif\s*\(/gi, "If(")
+    // Convert LaTeX-style exponential notation to GeoGebra-safe syntax.
+    .replace(/\be\s*\^\s*\{([^{}]+)\}/gi, (_, exponent) =>
+      "exp(" + String(exponent).replace(/(\d)\s*(?=[A-Za-z])/g, "$1*") + ")"
+    );
   if (/\bx\b/i.test(s)) return s;
   if (/\bt\b/i.test(s)) return s.replace(/\bt\b/g, "x");
   return s;
