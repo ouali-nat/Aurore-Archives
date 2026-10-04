@@ -31,3 +31,5 @@ jobs:
 # Manual PDF queue wake after GeoGebra segment renderer fix — 2026-10-04
 
 # Manual PDF queue wake after parametric circle correction — 2026-10-04
+
+# Manual PDF queue wake after boxed inline math delimiter hardening — 2026-10-04
