@@ -3343,7 +3343,7 @@ def labeled_block(s, auto_math=False, course_box=False):
             "",
         ]
     return [
-        r"\AuroreLabeledBlock{" + tex_text(raw_label) + "}{" + (_render_course_paragraph(m.group(2), auto_math=auto_math) if course_box else inline(m.group(2), auto_math=auto_math)) + r"}",
+        r"\AuroreLabeledBlock{" + tex_text(raw_label) + "}{" + (_render_course_inline_math(m.group(2), auto_math=auto_math) if course_box else inline(m.group(2), auto_math=auto_math)) + r"}",
         "",
     ]
 
