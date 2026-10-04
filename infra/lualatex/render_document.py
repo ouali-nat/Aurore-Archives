@@ -3898,7 +3898,42 @@ def _repair_course_inline_math_delimiters(tex):
         r"(\s*/\s*(?:\\[A-Za-z]+|\d+(?:[.,]\d+)?|"
         r"\([^()\n]{1,80}\)))?"
     )
-    return re.sub(trailing_fraction, repair, source)
+    # This post-render repair must not rewrite inline math that is already
+    # inside a LaTeX argument (for example an AuroreParagraphBlock/tcolorbox
+    # body). Those arguments already accept \(...\) math, whereas inserting
+    # a tcolorbox-based AuroreMathCompact there can break brace parsing.
+    matches = list(re.finditer(trailing_fraction, source))
+    if not matches:
+        return source
+
+    chunks = []
+    cursor = 0
+    brace_depth = 0
+    escaped = False
+    match_index = 0
+    while match_index < len(matches):
+        match = matches[match_index]
+        for char in source[cursor:match.start()]:
+            if escaped:
+                escaped = False
+                continue
+            if char == "\\":
+                escaped = True
+            elif char == "{":
+                brace_depth += 1
+            elif char == "}" and brace_depth:
+                brace_depth -= 1
+
+        chunks.append(source[cursor:match.start()])
+        if brace_depth > 0:
+            chunks.append(match.group(0))
+        else:
+            chunks.append(repair(match))
+        cursor = match.end()
+        match_index += 1
+
+    chunks.append(source[cursor:])
+    return "".join(chunks)
 
 
 def render(data):
