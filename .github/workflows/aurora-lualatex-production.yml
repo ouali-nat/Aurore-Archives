@@ -1269,6 +1269,7 @@ jobs:
           import sys
           sys.path.insert(0, ".")
           import render_document
+          import inspect
           from render_document import render
 
           data = {
