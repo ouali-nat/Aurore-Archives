@@ -3808,6 +3808,20 @@ def _repair_nested_inline_math_delimiters(tex):
     return pattern.sub(repair, source)
 
 
+def _repair_course_inline_math_delimiters(tex):
+    """Convert any raw inline-math delimiters left in course boxes to safe Aurore math boxes."""
+    source = str(tex or "")
+
+    def repair(match):
+        body = _strip_nested_inline_math_delimiters(match.group(1)).strip()
+        return r"\AuroreInlineMath{" + body + r"}" if body else ""
+
+    # This final course-only pass protects tcolorbox text bodies. It is applied
+    # after equation* cleanup, so it cannot introduce inline math inside a
+    # display-math environment.
+    return re.sub(r"\\\(([\s\S]*?)\\\)", repair, source)
+
+
 def render(data):
     if not _has_usable_content_json(data):
         raise ValueError("LuaLaTeX source rejected: structured content_json is required")
@@ -4691,6 +4705,8 @@ def main():
     data["_render_assets_dir"] = str(out.parent / "assets")
     tex = render(data)
     tex = _repair_nested_inline_math_delimiters(tex)
+    if document_kind == "cours":
+        tex = _repair_course_inline_math_delimiters(tex)
     requested_profile = _edition_profile(data)
     metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
     course_refactor_test = bool(
