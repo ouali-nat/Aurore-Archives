@@ -3809,17 +3809,68 @@ def _repair_nested_inline_math_delimiters(tex):
 
 
 def _repair_course_inline_math_delimiters(tex):
-    """Convert any raw inline-math delimiters left in course boxes to safe Aurore math boxes."""
+    """Repair raw inline math in course text without nesting math boxes."""
     source = str(tex or "")
+
+    def consume_braced(text, start):
+        if start >= len(text) or text[start] != "{":
+            return None
+        depth = 0
+        escaped = False
+        for index in range(start, len(text)):
+            char = text[index]
+            if escaped:
+                escaped = False
+                continue
+            if char == "\\":
+                escaped = True
+                continue
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    return index
+        return None
+
+    def protect_existing_math_boxes(text):
+        macro_re = re.compile(r"\\AuroreMath(?:Compact|Block)\{")
+        cursor = 0
+        chunks = []
+        while True:
+            match = macro_re.search(text, cursor)
+            if not match:
+                chunks.append(text[cursor:])
+                break
+            chunks.append(text[cursor:match.start()])
+            label_start = match.end() - 1
+            label_end = consume_braced(text, label_start)
+            if label_end is None:
+                chunks.append(text[match.start():])
+                break
+            body_start = label_end + 1
+            body_end = consume_braced(text, body_start)
+            if body_end is None:
+                chunks.append(text[match.start():])
+                break
+            prefix = text[match.start():body_start + 1]
+            body = text[body_start + 1:body_end]
+            body = _strip_nested_inline_math_delimiters(body)
+            chunks.append(prefix + body + "}")
+            cursor = body_end + 1
+        return "".join(chunks)
+
+    source = protect_existing_math_boxes(source)
 
     def repair(match):
         body = _strip_nested_inline_math_delimiters(match.group(1)).strip()
         return r"\AuroreInlineMath{" + body + r"}" if body else ""
 
-    # This final course-only pass protects tcolorbox text bodies. It is applied
-    # after equation* cleanup, so it cannot introduce inline math inside a
-    # display-math environment.
-    return re.sub(r"\\\(([\s\S]*?)\\\)", repair, source)
+    # Protect already-generated AuroreMathCompact/AuroreMathBlock arguments
+    # first. Only raw delimiters remaining in prose/tcolorbox text are promoted
+    # to AuroreInlineMath, so the existing visual framing is preserved without
+    # creating nested math environments.
+    return re.sub(r"\(([sS]*?)\)", repair, source)
 
 
 def render(data):
