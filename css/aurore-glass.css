@@ -189,8 +189,8 @@ main.wrap,
   border:1px solid var(--aurore-glass-border)!important;
   box-shadow:var(--aurore-glass-shadow-soft),var(--aurore-glass-inset)!important;
   color:var(--aurore-glass-ink)!important;
-  backdrop-filter:blur(var(--aurore-glass-blur)) saturate(var(--aurore-glass-saturate));
-  -webkit-backdrop-filter:blur(var(--aurore-glass-blur)) saturate(var(--aurore-glass-saturate));
+  backdrop-filter:blur(12px) saturate(1.12);
+  -webkit-backdrop-filter:blur(12px) saturate(1.12);
   background-clip:padding-box;
 }
 
@@ -220,6 +220,8 @@ main.wrap,
 ){
   box-shadow:0 12px 34px color-mix(in srgb,var(--theme-primary,#8B5CF6) 8%,rgba(0,0,0,.16)),
              inset 0 1px 0 color-mix(in srgb,#fff 42%,transparent)!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
 }
 
 /* Le hover doit révéler la profondeur, pas seulement changer la couleur. */
@@ -243,15 +245,15 @@ header,.header,.topbar{
   background:var(--aurore-glass-main)!important;
   border-bottom:1px solid var(--aurore-glass-border-strong)!important;
   box-shadow:0 14px 40px color-mix(in srgb,var(--theme-primary,#8B5CF6) 7%,rgba(0,0,0,.18)),inset 0 1px 0 rgba(255,255,255,.12)!important;
-  backdrop-filter:blur(24px) saturate(1.3);
-  -webkit-backdrop-filter:blur(24px) saturate(1.3);
+  backdrop-filter:blur(14px) saturate(1.16);
+  -webkit-backdrop-filter:blur(14px) saturate(1.16);
 }
 .search-box{
   background:var(--aurore-glass-control)!important;
   border:1px solid var(--aurore-glass-border-strong)!important;
   box-shadow:var(--aurore-glass-shadow-soft),inset 0 1px 0 rgba(255,255,255,.20)!important;
-  backdrop-filter:blur(18px) saturate(1.22);
-  -webkit-backdrop-filter:blur(18px) saturate(1.22);
+  backdrop-filter:blur(10px) saturate(1.08);
+  -webkit-backdrop-filter:blur(10px) saturate(1.08);
 }
 .search-box input{background:transparent!important;color:var(--aurore-glass-ink)!important;}
 .search-box input::placeholder{color:var(--aurore-glass-muted)!important;}
@@ -264,8 +266,8 @@ header,.header,.topbar{
   border:1px solid var(--aurore-glass-border)!important;
   color:var(--aurore-glass-ink)!important;
   box-shadow:0 10px 26px color-mix(in srgb,var(--theme-primary,#8B5CF6) 7%,rgba(0,0,0,.16)),inset 0 1px 0 rgba(255,255,255,.18)!important;
-  backdrop-filter:blur(14px) saturate(1.15);
-  -webkit-backdrop-filter:blur(14px) saturate(1.15);
+  backdrop-filter:blur(8px) saturate(1.06);
+  -webkit-backdrop-filter:blur(8px) saturate(1.06);
 }
 :is(.theme-switch-btn,.color-theme-btn,.pwa-install-btn,.aurore-ia-header-btn):hover{
   border-color:var(--aurore-glass-border-strong)!important;
@@ -361,8 +363,8 @@ header,.header,.topbar{
 .aurore-ia-topbar{
   background:var(--aurore-glass-main)!important;
   border-bottom-color:var(--aurore-glass-border)!important;
-  backdrop-filter:blur(22px) saturate(1.22);
-  -webkit-backdrop-filter:blur(22px) saturate(1.22);
+  backdrop-filter:blur(14px) saturate(1.12);
+  -webkit-backdrop-filter:blur(14px) saturate(1.12);
 }
 :is(
   .aurore-ia-history-panel,.aurore-ia-sidebar-note,.aurore-ia-plus-menu,
@@ -393,8 +395,8 @@ header,.header,.topbar{
   color:var(--aurore-glass-ink)!important;
   border-color:var(--aurore-glass-border)!important;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.14)!important;
-  backdrop-filter:blur(12px);
-  -webkit-backdrop-filter:blur(12px);
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
 }
 :is(input:not([type="file"]),select,textarea)::placeholder{color:var(--aurore-glass-muted)!important;}
 :is(input:not([type="file"]),select,textarea):focus{
@@ -409,8 +411,8 @@ header,.header,.topbar{
   background:var(--aurore-glass-modal)!important;
   border-color:var(--aurore-glass-border-strong)!important;
   box-shadow:var(--aurore-glass-shadow)!important;
-  backdrop-filter:blur(24px) saturate(1.2);
-  -webkit-backdrop-filter:blur(24px) saturate(1.2);
+  backdrop-filter:blur(14px) saturate(1.1);
+  -webkit-backdrop-filter:blur(14px) saturate(1.1);
 }
 :is(.deposer-btn,.form-submit,.btn-primary,.admin-btn.primary,.admin-btn.valider,.access-google-btn,.access-btn){
   box-shadow:
@@ -423,8 +425,8 @@ header,.header,.topbar{
    ========================================================== */
 
 .access-lock,.signup-modal{
-  backdrop-filter:blur(14px)!important;
-  -webkit-backdrop-filter:blur(14px)!important;
+  backdrop-filter:blur(8px)!important;
+  -webkit-backdrop-filter:blur(8px)!important;
 }
 .access-lock{background:color-mix(in srgb,var(--aurore-background-color) 42%,transparent)!important;}
 .signup-modal{background:color-mix(in srgb,var(--aurore-background-color) 46%,transparent)!important;}
@@ -445,8 +447,8 @@ footer{
   color:var(--aurore-glass-muted)!important;
   border-top:1px solid var(--aurore-glass-border)!important;
   box-shadow:0 -12px 34px color-mix(in srgb,var(--theme-primary,#8B5CF6) 6%,rgba(0,0,0,.10))!important;
-  backdrop-filter:blur(20px) saturate(1.18);
-  -webkit-backdrop-filter:blur(20px) saturate(1.18);
+  backdrop-filter:blur(12px) saturate(1.08);
+  -webkit-backdrop-filter:blur(12px) saturate(1.08);
 }
 
 /* ==========================================================
@@ -456,8 +458,8 @@ footer{
 :is(.success,.message-success,.success-message,.error,.message-error,.error-message,.info,.announcement){
   background:color-mix(in srgb,var(--aurore-glass-card) 88%,currentColor 12%)!important;
   border-color:color-mix(in srgb,currentColor 26%,var(--aurore-glass-border))!important;
-  backdrop-filter:blur(12px);
-  -webkit-backdrop-filter:blur(12px);
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
 }
 :is(.muted,.subtitle,.description,.meta,.helper-text,.home-video-desc,.aurora-panel-intro){
   color:var(--aurore-glass-muted);
@@ -515,8 +517,12 @@ footer{
     .home-five-level,.home-secondary-choice,.personal-panel,.aurore-ia-app,
     .access-panel
   ){
-    backdrop-filter:blur(18px) saturate(1.16);
-    -webkit-backdrop-filter:blur(18px) saturate(1.16);
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+  }
+  header,.header,.topbar,.hero,.admin-shell,.admin-panel,.aurore-ia-app{
+    backdrop-filter:blur(8px) saturate(1.06);
+    -webkit-backdrop-filter:blur(8px) saturate(1.06);
   }
 }
 @media(prefers-reduced-motion:reduce){
@@ -536,4 +542,12 @@ html[data-color-theme] main.wrap,
 html[data-color-theme] .screen{
   background-color:transparent!important;
   background-image:none!important;
+}
+
+@media(min-width:761px){
+  :is(.card,.section,.panel,.profile-card,.recents-card,.admin-card,.form-card,.stat-card,
+      .personal-panel,.aurore-personal-hero,.admin-shell,.admin-panel){
+    backdrop-filter:blur(10px) saturate(1.10);
+    -webkit-backdrop-filter:blur(10px) saturate(1.10);
+  }
 }
