@@ -87,6 +87,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import render_document
+          import inspect
           from render_document import normalize_math, inline, render_content, _auto_math_normalize_fragment, _math_visual_plan_qa, _geogebra_visual_plan_qa, _exercise_geogebra_plan_qa, _documentary_visual_plan_qa
 
           # Guard against regression of the Wikimedia QA diagnostic scope bug fixed in render_document.py.
@@ -1410,6 +1411,18 @@ jobs:
           inline_macro_source = inspect.getsource(render_document.render)
           if r"\\ensuremath{\\displaystyle #1}" not in inline_macro_source:
               raise SystemExit("Legacy inline math macro guard regression: ensuremath-safe definition missing")
+
+          repaired_inline = render_document._repair_course_inline_math_delimiters(
+              r"La forme est \\(\\pi\\)/3."
+          )
+          if r"\\AuroreMathCompact{}{\\pi/3}" not in repaired_inline:
+              raise SystemExit(
+                  f"Course post-render fraction repair regression: {repaired_inline!r}"
+              )
+          if r"\\AuroreInlineMath{" in repaired_inline:
+              raise SystemExit(
+                  f"Legacy inline math was reintroduced by post-render repair: {repaired_inline!r}"
+              )
 
           Path("production/smoke/document.tex").write_text(tex, encoding="utf-8")
           raw_source = r"""\\documentclass{article}
