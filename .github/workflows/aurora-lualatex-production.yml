@@ -370,11 +370,15 @@ jobs:
               )
 
           labeled_fraction_case = render_document.labeled_block(
-              r"Formule utile : la forme est \(\pi\)/3.",
+              r"Propriété : la forme est \(\pi\)/3.",
               auto_math=True,
               course_box=True,
           )
           labeled_fraction_rendered = "\n".join(labeled_fraction_case)
+          if r"\AuroreLabeledBlock{" not in labeled_fraction_rendered:
+              raise SystemExit(
+                  f"Labeled course block regression: {labeled_fraction_rendered!r}"
+              )
           if r"\AuroreMathCompact{}{\pi/3}" not in labeled_fraction_rendered:
               raise SystemExit(
                   f"Labeled course fraction regression: {labeled_fraction_rendered!r}"
