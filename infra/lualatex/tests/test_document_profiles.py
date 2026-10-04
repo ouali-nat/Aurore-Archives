@@ -145,6 +145,19 @@ def test_course_inline_math_preserves_paragraph_order_and_spacing():
     assert r"\tcbox[on line" in compact_macro
 
 
+def test_course_box_strips_inline_delimiters_from_latex_prose():
+    source = (
+        r"Le module vaut \\(|z|=\\sqrt{1+3}=2\\), "
+        r"donc un argument est \\(\\pi\\)/3."
+    )
+    rendered = "\n".join(
+        _render_content_item(source, auto_math=True, box_all_math=True)
+    )
+    assert r"\\(" not in rendered
+    assert r"\\)" not in rendered
+    assert r"\\AuroreMathCompact{" in rendered
+
+
 def test_course_profile_remains_separate():
     course = course_doc()
     assert _has_usable_content_json(course)
