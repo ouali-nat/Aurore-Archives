@@ -201,16 +201,18 @@
    Pour une photo de fond : html{--g-photo:url("/img/fond.jpg")}
    ===================================================================== */
 html[data-theme="light"]{
-  --g-base:#EFEBF7;--g-bg:rgba(255,255,255,.64);--g-bg-strong:rgba(255,255,255,.82);
-  --g-line:rgba(255,255,255,.65);
-  --g-line-input:color-mix(in srgb,var(--theme-primary,#8B5CF6) 40%,rgba(255,255,255,.7));
-  --g-accent:color-mix(in srgb,var(--theme-primary,#8B5CF6) 13%,rgba(255,255,255,.45));
-  --g-sheen:linear-gradient(135deg,rgba(255,255,255,.5),rgba(255,255,255,.1) 55%,rgba(255,255,255,.25));
-  --g-edge-hi:rgba(255,255,255,.95);
-  --g-edge-lo:color-mix(in srgb,var(--theme-primary,#8B5CF6) 20%,rgba(255,255,255,.2));
-  --g-btn-bg:linear-gradient(135deg,color-mix(in srgb,var(--theme-primary,#8B5CF6) 32%,rgba(255,255,255,.62)),color-mix(in srgb,var(--theme-secondary,#C084FC) 30%,rgba(255,255,255,.42)));
-  --g-btn-line:color-mix(in srgb,var(--theme-primary,#8B5CF6) 55%,rgba(255,255,255,.6));
-  --g-blob1:40%;--g-blob2:34%;--g-blob3:26%;--g-veil:rgba(255,255,255,0);
+  /* Mode clair RENFORCÉ : fond liliac teinté + halos saturés, verre plus transparent
+     (les couleurs transparaissent), reflet fort, bord haut-gauche blanc pur. */
+  --g-base:#E2D9F2;--g-bg:rgba(255,255,255,.36);--g-bg-strong:rgba(255,255,255,.64);
+  --g-line:rgba(255,255,255,.92);
+  --g-line-input:color-mix(in srgb,var(--theme-primary,#8B5CF6) 45%,rgba(255,255,255,.7));
+  --g-accent:color-mix(in srgb,var(--theme-primary,#8B5CF6) 15%,rgba(255,255,255,.34));
+  --g-sheen:linear-gradient(135deg,rgba(255,255,255,.78),rgba(255,255,255,.16) 48%,rgba(255,255,255,.42));
+  --g-edge-hi:#fff;
+  --g-edge-lo:color-mix(in srgb,var(--theme-primary,#8B5CF6) 40%,rgba(255,255,255,.2));
+  --g-btn-bg:linear-gradient(135deg,color-mix(in srgb,var(--theme-primary,#8B5CF6) 36%,rgba(255,255,255,.58)),color-mix(in srgb,var(--theme-secondary,#C084FC) 34%,rgba(255,255,255,.38)));
+  --g-btn-line:color-mix(in srgb,var(--theme-primary,#8B5CF6) 60%,rgba(255,255,255,.6));
+  --g-blob1:64%;--g-blob2:54%;--g-blob3:44%;--g-veil:rgba(255,255,255,0);
 }
 html[data-theme="dark"]{
   --g-base:#060910;--g-bg:rgba(255,255,255,.085);--g-bg-strong:rgba(255,255,255,.13);
@@ -310,6 +312,42 @@ html[data-theme] body :is(.auraster-home-search,.admin-pending-v2-search) input:
 html[data-theme] body #screen-admin-pending{
   --ap-bg:transparent;--ap-surface:var(--g-bg);--ap-surface-2:var(--g-accent);
   --ap-input:var(--g-bg-strong);--ap-border:var(--g-line);--ap-border-strong:var(--g-line-input);--ap-shadow:none;
+}
+
+/* ---------------------------------------------------------------------
+   MODE CLAIR UNIQUEMENT — effet « flottant »
+   Ombre en deux couches teintée de la palette : une ombre courte (contact)
+   + une ombre longue décalée vers le bas (hauteur). Statique = peu coûteux.
+   --------------------------------------------------------------------- */
+html[data-theme="light"] body :is(
+  .card,.section,.panel,.profile-card,.recents-card,.home-annonce,.ad-slot-card,.home-video-section,
+  .aurora-panels,.aurora-personal-hero,.welcome-modal-card,.hero,.level-card,.cat-card,.livres-banner,
+  .service-client-card,.home-shortcuts,.home-five-level,.aurora-stat,.profile-theme-card,.profile-profile-launcher,
+  .access-card,.signup-card,.profile-form-modal-card,.aurore-auth-wait-card,
+  .admin-card,.admin-panel,.admin-promo-manager,.admin-pending-v2-card,.admin-pending-v2-stat,.admin-pending-v2-toolbar
+):not(#pdfViewerOverlay *){
+  box-shadow:
+    inset 2px 2px 0 var(--g-edge-hi),
+    inset -1px -1px 0 var(--g-edge-lo),
+    0 2px 5px color-mix(in srgb,var(--theme-strong,#6D28D9) 12%,transparent),
+    0 18px 34px -10px color-mix(in srgb,var(--theme-primary,#8B5CF6) 34%,transparent)!important;
+}
+html[data-theme="light"] body :is(header,.header,.topbar):not(#pdfViewerOverlay *){
+  box-shadow:inset 0 1px 0 #fff,0 10px 26px -12px color-mix(in srgb,var(--theme-primary,#8B5CF6) 40%,transparent)!important;
+}
+html[data-theme="light"] body :is(.go,.btn-primary,.btn-deposer,.deposer-btn,.access-btn,.form-submit,.admin-btn.primary,.admin-btn.valider,#profilLyceeSave,.level-card .go):not(#pdfViewerOverlay *){
+  box-shadow:inset 1.5px 1.5px 0 #fff,0 10px 22px -8px color-mix(in srgb,var(--theme-primary,#8B5CF6) 55%,transparent)!important;
+}
+html[data-theme="light"] body :is(
+  .access-google-btn,.access-secondary-btn,.access-visitor-btn,.modal-secondary-link,.admin-btn.ghost,.back-btn,
+  .sublevel-card,.matiere-card,.home-choice,.shortcut-btn
+):not(#pdfViewerOverlay *){
+  box-shadow:inset 1.5px 1.5px 0 #fff,0 6px 14px -6px color-mix(in srgb,var(--theme-primary,#8B5CF6) 35%,transparent)!important;
+}
+/* Soulèvement au survol/toucher : transform seulement (rapide, GPU) */
+@media (hover:hover){
+  html[data-theme="light"] body :is(.level-card,.cat-card,.matiere-card,.sublevel-card):not(#pdfViewerOverlay *){transition:transform .18s ease;}
+  html[data-theme="light"] body :is(.level-card,.cat-card,.matiere-card,.sublevel-card):hover:not(#pdfViewerOverlay *){transform:translateY(-4px);}
 }
 
 /* Mouvement réduit : pas de transitions/animations superflues */
