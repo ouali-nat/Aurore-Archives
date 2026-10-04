@@ -369,6 +369,21 @@ jobs:
                   f"Explicit-LaTeX fragment was incorrectly split into a relation: {rendered_fraction!r}"
               )
 
+          labeled_fraction_case = render_document.labeled_block(
+              r"Formule utile : la forme est \(\pi\)/3.",
+              auto_math=True,
+              course_box=True,
+          )
+          labeled_fraction_rendered = "\n".join(labeled_fraction_case)
+          if r"\AuroreMathCompact{}{\pi/3}" not in labeled_fraction_rendered:
+              raise SystemExit(
+                  f"Labeled course fraction regression: {labeled_fraction_rendered!r}"
+              )
+          if r"\AuroreInlineMath{" in labeled_fraction_rendered or r"\(\pi\)" in labeled_fraction_rendered:
+              raise SystemExit(
+                  f"Labeled course legacy inline math regression: {labeled_fraction_rendered!r}"
+              )
+
           false_positive_case = (
               "Si f(x) tend vers L, la droite y=L est une asymptote horizontale."
           )
