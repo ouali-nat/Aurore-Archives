@@ -765,7 +765,7 @@ const renderGraphInBrowser = async (graph) => {
                         // leaving its view-1 visibility flag unset. Explicitly
                         // enable the function in the 2D view before QA/export.
                         if (instrument === "function2d" && Array.isArray(graph?.render_function_names)) {
-                          const nameMatch = String(command).match(/^([A-Za-z][A-Za-z0-9_]*)\\s*\\(/);
+                          const nameMatch = String(command).match(/^([A-Za-z][A-Za-z0-9_]*)\s*\(/);
                           const functionName = nameMatch?.[1] || "";
                           if (functionName && typeof a.setVisible === "function") {
                             try { a.setVisible(functionName, true); } catch (e) {
