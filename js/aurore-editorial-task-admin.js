@@ -433,13 +433,7 @@ function dAiCanStart(t){
   return w.admin_validation?.status==='validated' && w.proposal_status==='validated_for_editing';
 }
 function dAiProviderFor(t){
-  const a=dAiTreatment(t),saved=String(a?.provider||'').toLowerCase();
-  if(D_AI_PROVIDERS.some(([id])=>id===saved))return saved;
-  try{
-    const p=String(localStorage.getItem('aurore_d_ai_provider')||'').toLowerCase();
-    if(D_AI_PROVIDERS.some(([id])=>id===p))return p;
-  }catch(_){}
-  return D_AI_PROVIDERS[0]?.[0]||'grok';
+  return 'gpt';
 }
 function dAiIsStale(t){
   const a=dAiTreatment(t);
@@ -485,8 +479,7 @@ async function claimGptTask(jobId){
 async function startDaiTreatment(jobId,provider){
   const id=Number(jobId),p=String(provider||'').toLowerCase();
   if(!Number.isInteger(id)||id<=0)throw new Error('Tâche D invalide.');
-  if(!D_AI_PROVIDERS.some(([id])=>id===p))throw new Error('Moteur IA invalide ou non configuré.');
-  if(p==='gpt')throw new Error('GPT manuel n’est pas un moteur automatique de Section D.');
+  if(p!=='gpt')throw new Error('Section D utilise exclusivement GPT/ChatGPT.');
   const tokenValue=await token();
   const r=await fetch(SUPABASE_URL+D_AI_ENDPOINT,{
     method:'POST',
@@ -504,7 +497,7 @@ async function autoStartDaiTasks(state){
   const candidates=(state.tasks||[]).filter(t=>dAiCanStart(t)&&!D_AI_AUTO_START_GUARD.has(Number(t.id)));
   if(!candidates.length)return;
   for(const t of candidates){
-    const id=Number(t.id),provider=dAiProviderFor(t);
+    const id=Number(t.id),provider='gpt';
     D_AI_AUTO_START_GUARD.add(id);
     try{
       const result=await startDaiTreatment(id,provider);
