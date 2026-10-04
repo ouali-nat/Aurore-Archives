@@ -3870,7 +3870,7 @@ def _repair_course_inline_math_delimiters(tex):
     # first. Only raw delimiters remaining in prose/tcolorbox text are promoted
     # to AuroreInlineMath, so the existing visual framing is preserved without
     # creating nested math environments.
-    return re.sub(r"\(([sS]*?)\)", repair, source)
+    return re.sub(r"\\\(([\s\S]*?)\\\)", repair, source)
 
 
 def render(data):
@@ -4756,7 +4756,7 @@ def main():
     data["_render_assets_dir"] = str(out.parent / "assets")
     tex = render(data)
     tex = _repair_nested_inline_math_delimiters(tex)
-    if document_kind == "cours":
+    if requested_profile["kind"] == "cours":
         tex = _repair_course_inline_math_delimiters(tex)
     requested_profile = _edition_profile(data)
     metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
