@@ -4141,7 +4141,7 @@ def render(data):
         r"    #1%",
         r"  \end{tcolorbox}%",
         r"}",
-        r"\newcommand{\AuroreInlineMath}[1]{\tcbox[on line,enhanced,boxrule=.4pt,colframe=gray!48!white,colback=gray!6!white,arc=6pt,left=4.5pt,right=4.5pt,top=2pt,bottom=2pt]{$\displaystyle #1$}}",
+        r"\newcommand{\AuroreInlineMath}[1]{\tcbox[on line,enhanced,boxrule=.4pt,colframe=gray!48!white,colback=gray!6!white,arc=6pt,left=4.5pt,right=4.5pt,top=2pt,bottom=2pt]{\ensuremath{\displaystyle #1}}}",
         r"\setlength{\columnsep}{8mm}",
         r"\newcommand{\AurorePill}[1]{\tcbox[on line,boxrule=0pt,colback=auroreprimary!10!white,colframe=auroreprimary!18!white,arc=8pt,left=7pt,right=7pt,top=3pt,bottom=3pt]{\sffamily\bfseries\small\textcolor{auroredeep}{#1}}}",
         r"\newcommand{\AuroreLabeledBlock}[2]{%",
