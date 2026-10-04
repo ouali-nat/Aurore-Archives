@@ -369,6 +369,12 @@ jobs:
                   f"Explicit-LaTeX fragment was incorrectly split into a relation: {rendered_fraction!r}"
               )
 
+          legacy_inline_fragment = render_document._render_inline_math_fragment(r"\pi/3")
+          if legacy_inline_fragment != r"\AuroreMathCompact{}{\pi/3}":
+              raise SystemExit(
+                  f"Legacy inline math macro regression: {legacy_inline_fragment!r}"
+              )
+
           labeled_fraction_case = render_document.labeled_block(
               r"Propriété : la forme est \(\pi\)/3.",
               auto_math=True,
