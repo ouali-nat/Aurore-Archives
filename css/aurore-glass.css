@@ -30,7 +30,7 @@
       color-mix(in srgb,#0F0C18 46%,transparent 54%));
   --aurore-glass-soft:
     linear-gradient(135deg,
-      color-mix(in srgb,#FFFFFF 8%,var(--theme-primary,#8B5CF6) 9%,transparent),
+      color-mix(in srgb,color-mix(in srgb,#FFFFFF 8%,var(--theme-primary,#8B5CF6) 9%),transparent 70%),
       color-mix(in srgb,#FFFFFF 4%,transparent));
   --aurore-glass-control:
     linear-gradient(135deg,
@@ -55,7 +55,7 @@
   --aurore-glass-muted:#C9C1D4;
   --aurore-glass-field:
     linear-gradient(135deg,
-      color-mix(in srgb,#FFFFFF 10%,var(--theme-primary,#8B5CF6) 5%,transparent),
+      color-mix(in srgb,color-mix(in srgb,#FFFFFF 10%,var(--theme-primary,#8B5CF6) 5%),transparent 68%),
       color-mix(in srgb,#FFFFFF 5%,transparent));
 }
 
