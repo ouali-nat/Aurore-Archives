@@ -1407,6 +1407,10 @@ jobs:
           if expected_graph not in graph_tex:
               raise SystemExit("Renderer smoke check failed: GeoGebra graph was not emitted")
 
+          inline_macro_source = inspect.getsource(render_document.render)
+          if r"\\ensuremath{\\displaystyle #1}" not in inline_macro_source:
+              raise SystemExit("Legacy inline math macro guard regression: ensuremath-safe definition missing")
+
           Path("production/smoke/document.tex").write_text(tex, encoding="utf-8")
           raw_source = r"""\\documentclass{article}
           \\begin{document}
