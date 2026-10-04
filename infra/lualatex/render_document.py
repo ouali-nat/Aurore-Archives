@@ -2399,7 +2399,7 @@ _PLAIN_MATH_FORMULA_RE = re.compile(
 )
 
 _PLAIN_MATH_RELATION_RE = re.compile(
-    r"(?<![A-Za-zÀ-ÿ0-9_])"
+    r"(?<![A-Za-zÀ-ÿ0-9_\\/()\\[\\]{])"
     r"(?P<expr>"
     + _PLAIN_MATH_ATOM + r"{1,120}?"
     + r"(?:=|→|≤|≥|≠|∈)"
