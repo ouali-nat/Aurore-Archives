@@ -64,3 +64,5 @@ jobs:
           exit "$failed"
 
 # Canonical Supabase JSONB hash alignment for renderer validation — 2026-10-05
+
+# Revalidate current D editorial content after content corrections — 2026-10-05
