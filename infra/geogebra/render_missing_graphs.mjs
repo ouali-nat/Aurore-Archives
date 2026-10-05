@@ -5,11 +5,12 @@ import {
   buildFunction2DArrayCommands,
   buildFunction2DParameterCommands,
 } from "./function2d_commands.mjs";
+import { GEO_GEBRA_RENDERER_CONTRACT_VERSION, GEOMETRY2D_SUPPORTED_TYPES, GEOMETRY3D_SUPPORTED_TYPES, normalizeInstrument } from "./renderer_contract.mjs";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const RENDER_TOKEN = process.env.AURORA_LUALATEX_RENDER_TOKEN;
 const DOCUMENT_ID = Number(process.env.DOCUMENT_ID);
-const GEO_GEBRA_RENDERER_VERSION = 4;
+const GEO_GEBRA_RENDERER_VERSION = GEO_GEBRA_RENDERER_CONTRACT_VERSION;
 
 if (!SUPABASE_URL || !RENDER_TOKEN || !Number.isSafeInteger(DOCUMENT_ID)) {
   throw new Error("SUPABASE_URL, AURORA_LUALATEX_RENDER_TOKEN et DOCUMENT_ID sont requis.");
@@ -83,7 +84,7 @@ function instrumentOf(g) {
     geometrie3d: "geometry3d",
     "3d": "geometry3d",
   };
-  const normalized = aliases[raw] || raw;
+  const normalized = normalizeInstrument(raw);
   const objects = Array.isArray(g?.objects) ? g.objects : [];
   const points = Array.isArray(g?.points) ? g.points : [];
   const poi = Array.isArray(g?.points_of_interest) ? g.points_of_interest : [];
@@ -142,16 +143,13 @@ function validGraph(g) {
   }
   if (instrument === "parametric2d") return Boolean(String(g?.x_expression || "").trim() && String(g?.y_expression || "").trim());
   if (instrument === "geometry2d") {
-    const validTypes = new Set(["point","vector","line","segment","ray","polygon"]);
+    const validTypes = GEOMETRY2D_SUPPORTED_TYPES;
     return objects.some((o) => validTypes.has(String(o?.type || "").toLowerCase()))
       || points.some(pointHasXY);
   }
   if (instrument === "parametric3d") return Boolean(String(g?.x_expression || "").trim() && String(g?.y_expression || "").trim() && String(g?.z_expression || "").trim());
   if (instrument === "surface3d") return Boolean(String(g?.expression || "").trim());
-  const validTypes = new Set([
-    "point","vector","line","plane","sphere","cylinder","cone","polygon","cube",
-    "prism","pyramid","tetrahedron",
-  ]);
+  const validTypes = GEOMETRY3D_SUPPORTED_TYPES;
   return objects.some((o) => validTypes.has(String(o?.type || "").toLowerCase()))
     || points.some(pointHasXYZ)
     || poi.some((p) => p && Number.isFinite(Number(p?.z)));
@@ -456,11 +454,10 @@ const renderGraphInBrowser = async (graph) => {
           const b = ensurePoint2(o.to || ps[1], "B");
           if (!a || !b) continue;
           const command = type === "vector" ? "Vector" : type === "line" ? "Line" : type === "segment" ? "Segment" : "Ray";
-          // GeoGebra can reject named Segment objects in this renderer even though
-          // the underlying construction is valid. Segments do not need a stable name
-          // for PDF export, so emit the native construction without an assignment.
-          if (type === "segment") cmds.push("Segment(" + a + "," + b + ")");
-          else cmds.push(name + "=" + command + "(" + a + "," + b + ")");
+          // Segment is outside the Aurore server-side renderer contract.
+          // Do not let a known runtime rejection reach PDF production.
+          if (type === "segment") throw new Error("GeoGebra renderer contract: geometry2d/segment non supporté.");
+          cmds.push(name + "=" + command + "(" + a + "," + b + ")");
         } else if (type === "polygon") {
           const refs = ps.map((q) => ensurePoint2(q, "P")).filter(Boolean);
           if (refs.length >= 3) cmds.push(name + "=Polygon(" + refs.join(",") + ")");
