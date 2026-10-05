@@ -34,4 +34,5 @@ jobs:
 
 # Manual PDF queue wake after current renderer synchronization — 2026-10-04
 
-# MANUAL PDF WAKE: recovery of job 293/document 704 after cancelled GeoGebra run — 2026-10-05T18:06:41.822Z
+
+# MANUAL PDF WAKE: production concurrency isolation for job 293 — 2026-10-05T18:07:56.050Z
