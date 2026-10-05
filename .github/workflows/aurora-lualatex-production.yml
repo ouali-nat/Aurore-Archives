@@ -45,7 +45,8 @@ permissions:
 # claim step below may execute only from an explicit workflow_dispatch or
 # workflow_call initiated by the administrative PDF request path.
 concurrency:
-  group: aurora-lualatex-production
+  # Validation-only runs must never block an explicitly authorized PDF production.
+  group: ${{ inputs.manual_wake == true && 'aurora-lualatex-production' || 'aurora-lualatex-validation' }}
   cancel-in-progress: false
 
 jobs:
