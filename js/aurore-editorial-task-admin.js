@@ -639,8 +639,17 @@ function cPlanCompleteness(t,p){
   const researchSourceCount=String(p?.sources||'').split(/\n|\r?\n/).map(x=>x.trim()).filter(Boolean).length;
   if(researchSourceCount<1)missing.unshift('research_source');
   if(String(p?.quality||'').trim().length<40)missing.unshift('quality_detail');
+  // proposalFor() normalise les objets structurés persistés en texte pour l'affichage.
+  // Le garde-fou accepte cette vue normalisée pendant le contrôle du brouillon;
+  // persistPlan() reconstruit ensuite les objets {status:"complete",value:...}.
   const structuredChecks=[['pdfTypography',p?.pdfTypography],['pdfHeadersFooters',p?.pdfHeadersFooters],['pdfResourcesQrAnnexes',p?.pdfResourcesQrAnnexes],['editorialNotes',p?.editorialNotes]];
-  structuredChecks.forEach(([k,v])=>{if(k==='editorialNotes'){if(!v||typeof v!=='object'||v.status!=='complete'||!String(v.notes||'').trim())missing.unshift(k);}else if(!v||typeof v!=='object'||v.status!=='complete'||!String(v.value||'').trim())missing.unshift(k);});
+  structuredChecks.forEach(([k,v])=>{
+    if(typeof v==='string'){
+      if(!v.trim())missing.unshift(k);
+    }else if(k==='editorialNotes'){
+      if(!v||typeof v!=='object'||v.status!=='complete'||!String(v.notes||'').trim())missing.unshift(k);
+    }else if(!v||typeof v!=='object'||v.status!=='complete'||!String(v.value||'').trim())missing.unshift(k);
+  });
   const qc=p?.qualityControlExpected;
   ['mathematical_accuracy','disciplinary_progression','explicit_reasoning','no_repetition','scientific_guardrails'].forEach(k=>{if(!qc||typeof qc!=='object'||qc.status!=='complete'||!String(qc[k]||'').trim())missing.unshift('qualityControlExpected');});
   return {ok:missing.length===0,missing:[...new Set(missing)],selectedCount:chapterNames.length,sourceCount:researchSourceCount};
