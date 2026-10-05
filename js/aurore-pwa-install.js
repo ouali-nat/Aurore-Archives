@@ -38,10 +38,13 @@
    1) Supprime le geste « tirer vers le bas pour recharger » du navigateur, SANS
       toucher au CSS de défilement : on n'intercepte que le geste « tirer vers le bas
       alors qu'on est déjà tout en haut ». Tout autre glissement reste natif.
-   2) Recharge automatiquement la page quand la connexion revient, uniquement si
-      l'utilisateur avait été hors ligne. Le rechargement est repoussé (jamais
-      perdu) tant que l'utilisateur saisit du texte ou lit un PDF en grand écran,
-      pour ne rien lui faire perdre. Maximum un rechargement automatique / 20 s. */
+   2) Quand la connexion revient après une période hors ligne, l'écran en cours est
+      mis à jour DISCRÈTEMENT, sur place : la page n'est JAMAIS rechargée, donc
+      l'utilisateur reste exactement où il est (même rubrique, même défilement, rien
+      n'est effacé ni remis à l'accueil). Seules les données qui étaient manquantes ou
+      périmées sont rafraîchies, et l'écran n'est redessiné que si les données ont
+      réellement changé. La mise à jour est repoussée (jamais perdue) tant que
+      l'utilisateur saisit du texte ou lit un PDF. Maximum une mise à jour / 20 s. */
 (function(){
   'use strict';
 
@@ -79,7 +82,7 @@
   document.addEventListener('touchend',function(){debutEnHaut=false;},{passive:true});
   document.addEventListener('touchcancel',function(){debutEnHaut=false;},{passive:true});
 
-  // 2) Rechargement automatique au retour du réseau.
+  // 2) Mise à jour discrète au retour du réseau.
   var CLE='aurore-reco-reload';
   var etaitHorsLigne=(navigator.onLine===false);
   var enAttente=false;
@@ -109,8 +112,179 @@
     return false;
   }
 
-  function rechargeRecent(){
+  function surcoucheOuverte(){
+    // Lecteur PDF, article Wikipédia, graphique agrandi, laboratoire GeoGebra : on n'y touche pas.
+    try{
+      var p=document.getElementById('pdfViewerOverlay');
+      if(p&&p.style.display==='block')return true;
+      var w=document.getElementById('wikiViewerOverlay');
+      if(w&&w.style.display==='block')return true;
+      var g=document.getElementById('auroraGraphOverlay');
+      if(g&&g.style.display==='flex')return true;
+      if(document.getElementById('auroraGeoGebraWorkspace'))return true;
+    }catch(e){}
+    return false;
+  }
+
+  function majRecente(){
     try{return Date.now()-(parseInt(sessionStorage.getItem(CLE),10)||0)<20000;}catch(e){return false;}
+  }
+
+  // ---- Rafraîchissement sur place ----
+  // Ces fonctions s'appuient sur l'état et les fonctions du site (aurore-navigation.js,
+  // aurore-documents.js), partagés entre les scripts classiques. Si l'une manque,
+  // on ne fait simplement rien : jamais de rechargement, jamais de retour à l'accueil.
+  function enc(v){return encodeURIComponent(v);}
+
+  function ecranActifId(){
+    var a=document.querySelector('.screen.active');
+    return a?a.id:'';
+  }
+
+  function niveauDb(){
+    return (etat.classe&&etat.classe.dbNiveaux&&etat.classe.dbNiveaux[0])||
+           (etat.feuilleArbre&&etat.feuilleArbre.dbNiveaux&&etat.feuilleArbre.dbNiveaux[0])||
+           (etat.sousNiveau&&etat.sousNiveau.dbNiveaux&&etat.sousNiveau.dbNiveaux[0])||'';
+  }
+
+  function lireJsonEnLigne(url){
+    // Une réponse venant de la copie hors ligne n'est pas une mise à jour : on l'ignore.
+    return fetch(url,{headers:HEADERS}).then(function(res){
+      if(!res.ok)throw new Error('HTTP '+res.status);
+      if(res.headers.get('X-Aurore-Hors-Ligne')==='1')throw new Error('hors-ligne');
+      return res.json();
+    });
+  }
+
+  function relancerCouvertures(){
+    // Les cartes restées sans couverture (échec hors ligne) la redemandent maintenant.
+    try{
+      if(typeof appliquerCouvertureSiLivre!=='function')return;
+      var rows=document.querySelectorAll('#docsContent .doc-row');
+      for(var i=0;i<rows.length;i++){
+        var row=rows[i];
+        var doc=row._auroreDocument;
+        if(!doc||!doc.Fichier_url)continue;
+        if(row.querySelector('.a-couverture'))continue;
+        appliquerCouvertureSiLivre(row,doc);
+      }
+    }catch(e){}
+  }
+
+  function defilementsInternes(){
+    var out=[];
+    var ws=document.querySelectorAll('#docsContent .aurore-resource-window,#docsContent .aurore-community-window');
+    for(var i=0;i<ws.length;i++)out.push(ws[i].scrollTop);
+    return out;
+  }
+  function restaurerDefilements(y,fen){
+    try{
+      window.scrollTo(0,y);
+      var ws=document.querySelectorAll('#docsContent .aurore-resource-window,#docsContent .aurore-community-window');
+      for(var i=0;i<ws.length&&i<fen.length;i++)ws[i].scrollTop=fen[i];
+    }catch(e){}
+  }
+
+  function rafraichirAccueil(){
+    var ov=document.getElementById('homeFiveLevels');
+    if(!ov||typeof chargerCouverturesPortesAccueil!=='function')return;
+    var cartes=ov.querySelectorAll('[data-home-door-id]');
+    var portes=[];
+    for(var i=0;i<cartes.length;i++)portes.push({id:cartes[i].getAttribute('data-home-door-id')});
+    if(!portes.length)return;
+    // Une requête échouée hors ligne restait mémorisée : on repart d'une promesse neuve.
+    try{COUVERTURES_PORTES_ACCUEIL_PROMESSE=null;}catch(e){}
+    chargerCouverturesPortesAccueil(portes,ov);
+    try{if(typeof chargerStatsNiveaux==='function')chargerStatsNiveaux();}catch(e){}
+    try{if(typeof chargerPresentationAccueil==='function')chargerPresentationAccueil();}catch(e){}
+  }
+
+  function rafraichirMatieres(){
+    if(typeof etat==='undefined'||!etat||!etat.categorie)return Promise.resolve();
+    var grid=document.getElementById('matiereGrid');
+    if(!grid||!grid.querySelector('.matiere-card'))return Promise.resolve();
+    if(typeof SUPABASE_URL==='undefined'||typeof HEADERS==='undefined')return Promise.resolve();
+    var categorie=etat.categorie.nom;
+    var niveau=niveauDb();
+    var query=(niveau?'Niveau=eq.'+enc(niveau):'Niveau=eq.__none__')+'&'+enc('Catégorie')+'=eq.'+enc(categorie)+'&Publie=eq.true';
+    if(etat.filiere)query+='&Filiere=eq.'+enc(etat.filiere);
+    if(etat.division)query+='&Classe=eq.'+enc(etat.division);
+    return lireJsonEnLigne(SUPABASE_URL+'/rest/v1/Document?select='+enc('Matière')+'&'+query).then(function(rows){
+      if(!etat.categorie||etat.categorie.nom!==categorie)return;
+      if(typeof filtreSerieSiDisponible==='function')rows=filtreSerieSiDisponible(rows);
+      var compte={};
+      rows.forEach(function(r){var m=r['Matière'];compte[m]=(compte[m]||0)+1;});
+      var cartes=grid.querySelectorAll('.matiere-card');
+      for(var i=0;i<cartes.length;i++){
+        var n=compte[cartes[i].dataset.matiere]||0;
+        var b=cartes[i].querySelector('.badge');
+        var txt=n+(n>1?' documents':' document');
+        if(b&&b.textContent!==txt)b.textContent=txt;
+      }
+    }).catch(function(){});
+  }
+
+  function rafraichirDocuments(){
+    // Vue d'ensemble d'une matière uniquement (Aurore + communauté). Les sous-vues
+    // « Voir plus » et les listes de livres restent telles quelles.
+    if(typeof etat==='undefined'||!etat||!etat.matiere||!etat.categorie)return Promise.resolve();
+    var content=document.getElementById('docsContent');
+    if(!content)return Promise.resolve();
+    var surVueEnsemble=!!content.querySelector('.aurore-origin-groups,.site-empty-filter')||(content.textContent||'').indexOf('Impossible de charger')!==-1;
+    if(!surVueEnsemble)return Promise.resolve();
+    if(typeof SUPABASE_URL==='undefined'||typeof HEADERS==='undefined'||typeof normaliserRechercheSite!=='function'||typeof afficherDocumentsPublicsAvecOutils!=='function')return Promise.resolve();
+
+    var matiere=etat.matiere;
+    var serieDb=etat.filiere?normaliserRechercheSite(etat.filiere).replace(/^serie\s+/,'').trim().toUpperCase():'';
+    var divisionDb=etat.division?String(etat.division).trim():'';
+    var niveau=niveauDb();
+    // Mêmes filtres que allerDocuments() : on retrouve exactement la même liste.
+    var base=[];
+    if(niveau)base.push('Niveau=eq.'+enc(niveau));
+    base.push(enc('Catégorie')+'=eq.'+enc(etat.categorie.nom));
+    base.push(enc('Matière')+'=eq.'+enc(matiere.nom));
+    base.push('Publie=eq.true');
+    if(serieDb)base.push('Filiere=eq.'+enc(serieDb));
+    var precis=base.slice();
+    if(divisionDb&&divisionDb.length>1)precis.push('Classe=eq.'+enc(divisionDb));
+    precis.push('order=id.desc');
+
+    function charger(filtres){
+      return lireJsonEnLigne(SUPABASE_URL+'/rest/v1/Document?select=*&'+filtres.join('&'));
+    }
+    return charger(precis).then(function(brutes){
+      if((!brutes||!brutes.length)&&divisionDb)return charger(base.concat(['order=id.desc']));
+      return brutes;
+    }).then(function(brutes){
+      // L'utilisateur a pu changer d'écran pendant le chargement : on ne touche à rien.
+      if(ecranActifId()!=='screen-docs'||!etat.matiere||etat.matiere.nom!==matiere.nom)return;
+      var c=document.getElementById('docsContent');
+      if(!c)return;
+      var nouvelles=Array.isArray(brutes)?brutes:[];
+      var memes=false;
+      try{memes=JSON.stringify(nouvelles)===JSON.stringify(documentsCourants);}catch(e){}
+      if(memes&&c.querySelector('.aurore-origin-groups')){relancerCouvertures();return;}
+      // Les données ont changé (ou la liste n'avait pas pu se charger) : on redessine
+      // la liste en conservant le défilement de la page et des fenêtres internes.
+      var y=window.scrollY||0;
+      var fen=defilementsInternes();
+      documentsCourants=nouvelles;
+      if(typeof actualiserTriPublicDocuments==='function')actualiserTriPublicDocuments(documentsCourants);
+      afficherDocumentsPublicsAvecOutils();
+      restaurerDefilements(y,fen);
+      requestAnimationFrame(function(){restaurerDefilements(y,fen);});
+    }).catch(function(){});
+  }
+
+  function rafraichirEnDouceur(){
+    try{
+      var id=ecranActifId();
+      if(id==='screen-home')rafraichirAccueil();
+      else if(id==='screen-matieres')rafraichirMatieres();
+      else if(id==='screen-docs')rafraichirDocuments();
+      // Tous les autres écrans (espace personnel, administration, Aurora, lecteur…)
+      // ne sont pas touchés : l'utilisateur y reste sans aucune interruption.
+    }catch(e){console.warn('[Aurore] mise à jour discrète impossible :',e);}
   }
 
   function tenter(){
@@ -120,11 +294,11 @@
     reseauReel().then(function(ok){
       verifEnCours=false;
       if(!ok||!enAttente)return;
-      if(saisieEnCours()||lecteurPdfOuvert()||rechargeRecent())return; // le minuteur réessaiera
+      if(saisieEnCours()||lecteurPdfOuvert()||surcoucheOuverte()||majRecente())return; // le minuteur réessaiera
       enAttente=false;
       etaitHorsLigne=false;
       try{sessionStorage.setItem(CLE,String(Date.now()));}catch(e){}
-      location.reload();
+      rafraichirEnDouceur();
     });
   }
 

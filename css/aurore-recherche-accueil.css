@@ -1,0 +1,46 @@
+/* =========================================================================
+   AURORE — RECHERCHE D'ACCUEIL : loupe et texte décalés ensemble
+
+   Cause du chevauchement : la règle « .hero.aurore-hero-morph .auraster-home-search »
+   (aurore-hero-morph.css) impose padding:15px 18px, ce qui annule la place réservée
+   à la loupe (le carré « ⌕ » est posé en position absolue à gauche). Le texte
+   démarrait vers 28 px alors que la loupe occupe de 6 à 35 px : ils se touchaient.
+
+   Ici : la loupe est décalée vers l'intérieur et centrée verticalement, et le texte
+   démarre après elle avec un vrai espace. Présentation uniquement : le champ, son
+   identifiant et le moteur de recherche ne sont pas touchés.
+   Trois sélecteurs d'ID (html/#aurore-formes + #screen-home + #homeSearchForm) pour
+   passer devant toutes les règles !important existantes, quel que soit l'ordre.
+   ========================================================================= */
+
+:is(html,#aurore-formes) #screen-home #homeSearchForm{
+  height:44px!important;
+  padding:0 8px 0 64px!important;
+  align-items:center!important;
+}
+:is(html,#aurore-formes) #screen-home #homeSearchForm::before{
+  left:14px!important;
+  top:50%!important;
+  width:32px!important;
+  height:32px!important;
+  transform:translateY(-50%)!important;
+}
+:is(html,#aurore-formes) #screen-home #homeSearchForm input[type="search"]{
+  padding:0 12px 0 6px!important;
+  text-overflow:ellipsis;
+}
+
+@media(max-width:760px){
+  :is(html,#aurore-formes) #screen-home #homeSearchForm{
+    height:42px!important;
+    padding:0 6px 0 56px!important;
+  }
+  :is(html,#aurore-formes) #screen-home #homeSearchForm::before{
+    left:12px!important;
+    width:29px!important;
+    height:29px!important;
+  }
+  :is(html,#aurore-formes) #screen-home #homeSearchForm input[type="search"]{
+    padding:0 8px 0 6px!important;
+  }
+}
