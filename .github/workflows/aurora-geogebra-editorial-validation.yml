@@ -1,0 +1,64 @@
+name: Aurore GeoGebra editorial validation
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "infra/geogebra/render_missing_graphs.mjs"
+      - "infra/geogebra/renderer_contract.mjs"
+      - "infra/geogebra/function2d_commands.mjs"
+      - ".github/workflows/aurora-geogebra-editorial-validation.yml"
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  validate-editorial-geogebra:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: https://tdeotqfsbvouresfhkab.supabase.co
+      AURORA_LUALATEX_RENDER_TOKEN: ${{ secrets.AURORA_LUALATEX_RENDER_TOKEN }}
+
+    steps:
+      - name: Checkout renderer
+        uses: actions/checkout@v4
+
+      - name: Validate renderer secrets
+        run: test -n "$AURORA_LUALATEX_RENDER_TOKEN"
+
+      - name: Validate GeoGebra renderer JavaScript syntax
+        run: |
+          node --check infra/geogebra/renderer_contract.mjs
+          node --check infra/geogebra/function2d_commands.mjs
+          node --check infra/geogebra/render_missing_graphs.mjs
+
+      - name: Install browser renderer
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.63.0
+          npx playwright install --with-deps chromium
+
+      - name: Discover eligible D editorial tasks
+        run: |
+          curl --fail --silent --show-error             -X POST             -H "Content-Type: application/json"             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN"             --data '{"action":"list-editorial-jobs"}'             "$SUPABASE_URL/functions/v1/aurora-geogebra"             -o editorial-jobs.json
+          jq -e '.ok == true' editorial-jobs.json >/dev/null
+          jq -r '.jobs[].id' editorial-jobs.json > editorial-job-ids.txt
+          echo "Tâches éditoriales GeoGebra candidates:"
+          cat editorial-job-ids.txt || true
+
+      - name: Validate every eligible editorial graph with the real renderer
+        run: |
+          set +e
+          failed=0
+          while IFS= read -r job_id; do
+            [ -n "$job_id" ] || continue
+            echo "===== Validation GeoGebra tâche #$job_id ====="
+            if ! SUPABASE_URL="$SUPABASE_URL"               AURORA_LUALATEX_RENDER_TOKEN="$AURORA_LUALATEX_RENDER_TOKEN"               GEOGEBRA_VALIDATE_ONLY=true               JOB_ID="$job_id"               node infra/geogebra/render_missing_graphs.mjs; then
+              failed=1
+            fi
+          done < editorial-job-ids.txt
+          exit "$failed"
