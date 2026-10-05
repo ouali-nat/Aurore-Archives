@@ -1,11 +1,37 @@
-
 (function(){
   const COLOR_THEME_KEY='auraster-color-theme';
   const VALID_COLOR_THEMES=['violet','rouge','vert','bleu','jaune','orange','cyan','rose','indigo','turquoise','emeraude','lime','sarcelle','magenta','fuchsia','corail','bordeaux','pourpre','prune','or','ambre','menthe','azur','lavande','safran'];
 
+  // Couleur réellement appliquée au site (= --theme-primary) pour chaque choix.
+  // Les pastilles de la palette sont des aplats de cette couleur : ce qu'on voit
+  // est exactement ce qui sera appliqué (plus de dégradés qui « mêlent » deux teintes).
+  const PALETTE={
+    violet:'#8B5CF6',rouge:'#DC2626',vert:'#2FA66A',bleu:'#3B82F6',jaune:'#D5A51B',orange:'#E8791A',
+    cyan:'#0891B2',rose:'#DB2777',indigo:'#6366F1',turquoise:'#14B8A6',emeraude:'#10B981',lime:'#84CC16',
+    sarcelle:'#0D9488',magenta:'#D946EF',fuchsia:'#C026D3',corail:'#F06A57',bordeaux:'#9F1239',
+    pourpre:'#9333EA',prune:'#7E22CE',or:'#B8860B',ambre:'#F59E0B',menthe:'#34D399',azur:'#0EA5E9',
+    lavande:'#A78BFA',safran:'#EAB308'
+  };
+
+  function fermerFlyoutCouleur(){
+    const flyout=document.getElementById('colorThemeFlyout');
+    const bouton=document.getElementById('colorThemeBtn');
+    if(flyout){ flyout.classList.remove('open'); flyout.setAttribute('aria-hidden','true'); }
+    if(bouton) bouton.setAttribute('aria-expanded','false');
+  }
+
   function appliquerCouleurSite(choix){
     if(!VALID_COLOR_THEMES.includes(choix)) choix='violet';
-    document.documentElement.setAttribute('data-color-theme',choix);
+    const root=document.documentElement;
+    // Palette fermée d'abord (moins de pixels à repeindre), puis transitions
+    // coupées le temps du changement : sinon des centaines d'éléments animent
+    // leur fond/ombre en même temps, ce qui rend l'application lente.
+    fermerFlyoutCouleur();
+    root.classList.add('color-switching');
+    root.setAttribute('data-color-theme',choix);
+    const fin=()=>root.classList.remove('color-switching');
+    requestAnimationFrame(()=>requestAnimationFrame(fin));
+    setTimeout(fin,1000);
     try{localStorage.setItem(COLOR_THEME_KEY,choix);}catch(e){}
     document.querySelectorAll('.profile-theme-option, .theme-color-swatch').forEach(btn=>{
       btn.setAttribute('aria-pressed',btn.dataset.colorChoice===choix?'true':'false');
@@ -20,19 +46,13 @@
       const couleurs={
         violet:'#6D28D9',rouge:'#B91C1C',vert:'#15803D',
         bleu:'#1D4ED8',jaune:'#B77900',orange:'#C85C0D',cyan:'#0E7490',rose:'#BE185D',
-        indigo:'#4338CA',turquoise:'#0F766E',emeraude:'#047857',lime:'#65A30D',sarcelle:'#0F766E',magenta:'#C026D3',fuchsia:'#A21CAF',corail:'#E85D4A',bordeaux:'#8B1E3F',pourpre:'#7E22CE',prune:'#6B21A8',or:'#B7791F',ambre:'#D97706',menthe:'#059669',azur:'#0369A1',lavande:'#7C3AED',safran:'#CA8A04'
+        indigo:'#4338CA',turquoise:'#0F766E',emeraude:'#047857',lime:'#65A30D',sarcelle:'#0F766E',magenta:'#C026D3',fuchsia:'#A21CAF',corail:'#E85D4A',bordeaux:'#8B1E3F',pourpre:'#7E22CE',prune:'#6B21A8',or:'#8A6508',ambre:'#D97706',menthe:'#059669',azur:'#0369A1',lavande:'#7C3AED',safran:'#CA8A04'
       };
       meta.setAttribute('content',couleurs[choix]||couleurs.violet);
     }
   }
 
   // ---- Panneau glissant "Couleur du site", ancré près du sélecteur de thème ----
-  function fermerFlyoutCouleur(){
-    const flyout=document.getElementById('colorThemeFlyout');
-    const bouton=document.getElementById('colorThemeBtn');
-    if(flyout){ flyout.classList.remove('open'); flyout.setAttribute('aria-hidden','true'); }
-    if(bouton) bouton.setAttribute('aria-expanded','false');
-  }
   function ouvrirFlyoutCouleur(){
     const flyout=document.getElementById('colorThemeFlyout');
     const bouton=document.getElementById('colorThemeBtn');
@@ -76,7 +96,6 @@
         border:1px solid var(--theme-border,var(--bordure))!important;
         background:color-mix(in srgb,var(--papier) 96%,var(--theme-primary,#8B5CF6) 4%)!important;
         box-shadow:0 18px 46px rgba(0,0,0,.28),0 0 0 1px color-mix(in srgb,var(--theme-primary,#8B5CF6) 7%,transparent)!important;
-        backdrop-filter:blur(16px);
       }
       .color-theme-flyout-head{
         display:flex!important;
@@ -125,8 +144,48 @@
     document.head.appendChild(style);
   }
 
+  // Correctifs de cohérence : pastilles unies, couleurs jumelles distinguées,
+  // éléments du hero / liens / cartes qui restaient violets en mode clair,
+  // et coupure des transitions pendant le changement de couleur.
+  function injectThemeFixes(){
+    if(document.getElementById('aurore-color-theme-fixes')) return;
+    const style=document.createElement('style');
+    style.id='aurore-color-theme-fixes';
+    // Spécificité : deux :not(#…) donnent le poids d'un ID, nécessaire pour passer
+    // devant les règles génériques du mode clair (aurore-theme-foundation.css).
+    const L='html[data-color-theme][data-theme="light"]:not(#aurTf1):not(#aurTf2)';
+    let css='';
+    // 1) Pastilles : aplat de la couleur réellement appliquée.
+    Object.keys(PALETTE).forEach(k=>{
+      css+='.theme-color-swatch[data-color-choice="'+k+'"],.profile-theme-option[data-color-choice="'+k+'"] .profile-theme-swatch{background:'+PALETTE[k]+'!important;}\n';
+    });
+    // 2) Couleurs qui se confondaient (mêmes teintes) : violet/lavande, émeraude/menthe, jaune/or.
+    css+='html[data-color-theme="lavande"]{--theme-primary:#A78BFA;--theme-secondary:#DDD6FE;--theme-strong:#7C3AED;}\n';
+    css+='html[data-color-theme="menthe"]{--theme-primary:#34D399;--theme-secondary:#A7F3D0;--theme-strong:#059669;}\n';
+    css+='html[data-color-theme="or"]{--theme-primary:#B8860B;--theme-secondary:#E6C35C;--theme-strong:#8A6508;}\n';
+    // 3) Hero : mots d'accent et filet suivent la couleur choisie en mode clair.
+    css+='html[data-color-theme][data-theme="light"] #screen-home .hero.aurore-hero-morph h1 .accentword{color:var(--theme-strong)!important;-webkit-text-fill-color:var(--theme-strong)!important;background:none!important;}\n';
+    css+='html[data-color-theme][data-theme="light"] .hero .accentword{color:var(--theme-strong)!important;-webkit-text-fill-color:var(--theme-strong)!important;}\n';
+    css+='html[data-color-theme][data-theme="light"] .hero .hero-rule{background:linear-gradient(90deg,var(--theme-strong),var(--theme-secondary))!important;}\n';
+    // 4) Mode clair : liens, fil d\'Ariane, cartes, boutons et blocs qui gardaient le violet fixe.
+    css+=L+' a,'+L+' .link,'+L+' .breadcrumb button,'+L+' .breadcrumb-btn{color:var(--theme-strong)!important;}\n';
+    css+=L+' .sublevel-card,'+L+' .structure-pill,'+L+' .home-choice,'+L+' .shortcut-btn,'+L+' .breadcrumb-btn,'+L+' .admin-tab.active{border-color:var(--theme-primary)!important;}\n';
+    css+=L+' .structure-pill,'+L+' .home-choice,'+L+' .shortcut-btn,'+L+' .breadcrumb-btn,'+L+' .admin-tab.active{background:var(--theme-soft)!important;}\n';
+    css+=L+' .go,'+L+' .btn-primary,'+L+' .btn-deposer,'+L+' .admin-btn.primary,'+L+' .access-btn{border-color:var(--theme-strong)!important;}\n';
+    css+=L+' .btn-primary,'+L+' .btn-deposer,'+L+' .access-btn{background:var(--theme-primary)!important;}\n';
+    css+=L+' .upload-progress{background:var(--theme-soft)!important;border-color:var(--theme-primary)!important;}\n';
+    css+=L+' .service-client-card{background:linear-gradient(135deg,color-mix(in srgb,var(--theme-primary) 7%,#fff),#fff)!important;border-color:var(--theme-border)!important;}\n';
+    css+=L+' .service-client-link{border-color:var(--theme-border)!important;}\n';
+    css+=L+' .service-client-kicker,'+L+' .service-client-link span{color:var(--theme-strong)!important;}\n';
+    // 5) Rapidité : aucune transition pendant le changement de couleur.
+    css+='html.color-switching *,html.color-switching *::before,html.color-switching *::after{transition:none!important;}\n';
+    style.textContent=css;
+    document.head.appendChild(style);
+  }
+
   function init(){
     injectColorPickerDesign();
+    injectThemeFixes();
     const boutons=document.querySelectorAll('.profile-theme-option, .theme-color-swatch');
     boutons.forEach(btn=>btn.addEventListener('click',()=>appliquerCouleurSite(btn.dataset.colorChoice)));
     initFlyoutCouleur();
