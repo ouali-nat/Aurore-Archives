@@ -34,6 +34,10 @@ html[data-color-theme]{
   --violet:var(--theme-primary);
   --bleu:var(--theme-primary);
   --marron:var(--theme-primary);
+  /* Les palettes étendues exposent réellement leurs nuances au rendu. */
+  --theme-tertiary:var(--theme-extra-1,var(--theme-secondary));
+  --theme-warm:var(--theme-extra-2,var(--theme-primary));
+  --theme-deep:var(--theme-extra-3,var(--theme-strong));
 }
 html[data-theme="light"][data-color-theme]{
   --theme-soft:color-mix(in srgb,var(--theme-primary) 10%,#fff);
@@ -48,10 +52,13 @@ html[data-color-theme] body{
   background:
     radial-gradient(circle at 8% 0%,color-mix(in srgb,var(--theme-primary) 12%,transparent),transparent 30%),
     radial-gradient(circle at 94% 12%,color-mix(in srgb,var(--theme-secondary) 9%,transparent),transparent 28%),
+    radial-gradient(circle at 18% 88%,color-mix(in srgb,var(--theme-tertiary) 7%,transparent),transparent 24%),
+    radial-gradient(circle at 88% 78%,color-mix(in srgb,var(--theme-warm) 7%,transparent),transparent 24%),
+    radial-gradient(circle at 52% 4%,color-mix(in srgb,var(--theme-deep) 4%,transparent),transparent 20%),
     var(--fond);
 }
 html[data-color-theme] header{border-bottom-color:var(--theme-border)!important;}
-html[data-color-theme] .brand-logo{background:linear-gradient(135deg,var(--theme-primary),var(--theme-secondary))!important;}
+html[data-color-theme] .brand-logo{background:linear-gradient(135deg,var(--theme-primary) 0%,var(--theme-secondary) 48%,var(--theme-warm) 76%,var(--theme-deep) 100%)!important;}
 html[data-color-theme] .deposer-btn{background:linear-gradient(135deg,var(--theme-strong),var(--theme-primary))!important;box-shadow:0 10px 30px var(--theme-shadow)!important;}
 html[data-color-theme] .search-box:focus-within{border-color:var(--theme-primary)!important;box-shadow:0 0 0 4px color-mix(in srgb,var(--theme-primary) 14%,transparent);}
 html[data-color-theme] .user-chip-info:hover{background:var(--theme-softer)!important;}
@@ -71,9 +78,9 @@ html[data-theme="light"][data-color-theme] .hero{
     linear-gradient(135deg,#fff,color-mix(in srgb,var(--theme-primary) 9%,#fff) 54%,color-mix(in srgb,var(--theme-primary) 5%,#fff))!important;
   border-color:var(--theme-border)!important;
 }
-html[data-color-theme] .hero-rule{background:linear-gradient(90deg,var(--theme-primary),var(--theme-secondary))!important;}
-html[data-color-theme] .hero-glow.g1{background:var(--theme-secondary)!important;}
-html[data-color-theme] .hero-glow.g2{background:var(--theme-primary)!important;}
+html[data-color-theme] .hero-rule{background:linear-gradient(90deg,var(--theme-primary),var(--theme-secondary) 45%,var(--theme-tertiary) 68%,var(--theme-warm) 84%,var(--theme-deep))!important;}
+html[data-color-theme] .hero-glow.g1{background:var(--theme-warm)!important;}
+html[data-color-theme] .hero-glow.g2{background:var(--theme-tertiary)!important;}
 html[data-color-theme] .hero h1 .accentword{background:linear-gradient(90deg,var(--theme-secondary),var(--theme-primary));-webkit-background-clip:text;background-clip:text;color:transparent;}
 html[data-theme="light"][data-color-theme] .hero .accentword{color:var(--theme-strong)!important;background:none!important;}
 html[data-color-theme] .hero .eyebrow{color:var(--theme-secondary)!important;}
@@ -82,7 +89,7 @@ html[data-color-theme] .hero .eyebrow{color:var(--theme-secondary)!important;}
 html[data-color-theme] .presentation-item .icon-wrap{background:var(--theme-primary)!important;}
 html[data-color-theme] .level-card::before{background:linear-gradient(160deg,var(--theme-primary),transparent 62%)!important;}
 html[data-color-theme] .level-card::after{background:var(--theme-primary)!important;}
-html[data-color-theme] .level-badge{background:var(--theme-primary)!important;box-shadow:0 8px 18px -4px var(--theme-primary)!important;}
+html[data-color-theme] .level-badge{background:linear-gradient(135deg,var(--theme-primary),var(--theme-warm))!important;box-shadow:0 8px 18px -4px var(--theme-warm)!important;}
 html[data-color-theme] .level-card .go{background:linear-gradient(135deg,var(--theme-strong),var(--theme-primary))!important;}
 html[data-color-theme] .livres-banner{background:linear-gradient(135deg,var(--theme-strong),var(--theme-primary))!important;border-color:color-mix(in srgb,var(--theme-secondary) 30%,transparent)!important;}
 html[data-color-theme] .cat-card::before{background:linear-gradient(160deg,var(--theme-primary),transparent 55%)!important;}
