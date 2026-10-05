@@ -1,7 +1,7 @@
 
 (function(){
   const COLOR_THEME_KEY='auraster-color-theme';
-  const VALID_COLOR_THEMES=['violet','rouge','vert','bleu','jaune','orange','cyan','rose','indigo','turquoise','emeraude','lime','sarcelle','magenta','fuchsia','corail','bordeaux','pourpre','prune','or','ambre','menthe','azur','lavande','safran'];
+  const VALID_COLOR_THEMES=["violet","rouge","vert","bleu","orange","rose","indigo","emeraude","lime","corail","bordeaux","azur","petrole-cuivre","nuit-peche","prune-rouge","terre-orange","rose-sable","sarcelle-creme"];
 
   function appliquerCouleurSite(choix){
     if(!VALID_COLOR_THEMES.includes(choix)) choix='violet';
@@ -10,18 +10,14 @@
     document.querySelectorAll('.profile-theme-option, .theme-color-swatch').forEach(btn=>{
       btn.setAttribute('aria-pressed',btn.dataset.colorChoice===choix?'true':'false');
     });
-    const noms={violet:'Violet',rouge:'Rouge',vert:'Vert',bleu:'Bleu',jaune:'Jaune',orange:'Orange',cyan:'Cyan',rose:'Rose',indigo:'Indigo',turquoise:'Turquoise',emeraude:'Émeraude',lime:'Citron vert',sarcelle:'Sarcelle',magenta:'Magenta',fuchsia:'Fuchsia',corail:'Corail',bordeaux:'Bordeaux',pourpre:'Pourpre',prune:'Prune',or:'Or',ambre:'Ambre',menthe:'Menthe',azur:'Azur',lavande:'Lavande',safran:'Safran'};
+    const noms={"violet":"Violet","rouge":"Rouge","vert":"Vert","bleu":"Bleu","orange":"Orange","rose":"Rose","indigo":"Indigo","emeraude":"Émeraude","lime":"Citron vert","corail":"Corail","bordeaux":"Bordeaux","azur":"Azur","petrole-cuivre":"Pétrole & cuivre","nuit-peche":"Nuit & pêche","prune-rouge":"Prune & rouge","terre-orange":"Terre & orange","rose-sable":"Rose poudré","sarcelle-creme":"Sarcelle & crème"};
     const label=document.getElementById('profileThemeCurrent');
     if(label) label.textContent=noms[choix]||'Violet';
     const flyoutLabel=document.getElementById('colorThemeFlyoutCurrent');
     if(flyoutLabel) flyoutLabel.textContent=noms[choix]||'Violet';
     const meta=document.querySelector('meta[name="theme-color"]');
     if(meta){
-      const couleurs={
-        violet:'#6D28D9',rouge:'#B91C1C',vert:'#15803D',
-        bleu:'#1D4ED8',jaune:'#B77900',orange:'#C85C0D',cyan:'#0E7490',rose:'#BE185D',
-        indigo:'#4338CA',turquoise:'#0F766E',emeraude:'#047857',lime:'#65A30D',sarcelle:'#0F766E',magenta:'#C026D3',fuchsia:'#A21CAF',corail:'#E85D4A',bordeaux:'#8B1E3F',pourpre:'#7E22CE',prune:'#6B21A8',or:'#B7791F',ambre:'#D97706',menthe:'#059669',azur:'#0369A1',lavande:'#7C3AED',safran:'#CA8A04'
-      };
+      const couleurs={"violet":"#6D28D9","rouge":"#B91C1C","vert":"#15803D","bleu":"#1D4ED8","orange":"#C85C0D","rose":"#BE185D","indigo":"#4338CA","emeraude":"#047857","lime":"#65A30D","corail":"#E85D4A","bordeaux":"#8B1E3F","azur":"#0369A1","petrole-cuivre":"#104C64","nuit-peche":"#242F49","prune-rouge":"#341A2C","terre-orange":"#E57A2D","rose-sable":"#EFC1B5","sarcelle-creme":"#0D6B70"};
       meta.setAttribute('content',couleurs[choix]||couleurs.violet);
     }
   }
