@@ -1181,7 +1181,7 @@ function bindDetail(d,t,state){
     const stage=targetStage||fw.stage||'proposition_editoriale';
     const status=targetStatus||fw.proposal_status||'plan_editing';
     const updated=await updateJob(t.id,{
-      proposal:persistedProposal,
+      proposal:p,
       proposal_version:Number(fw.proposal_version||0)+1,
       proposal_status:status,
       stage,
