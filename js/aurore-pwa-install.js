@@ -176,3 +176,135 @@
     if(installer()||essais>80)clearInterval(t);
   },250);
 })();
+
+/* Aurore — listes de documents disponibles hors ligne
+   Chaque lecture Supabase (GET /rest/v1/…) réussie est copiée dans IndexedDB
+   (aurore-offline-db). Si le réseau est absent au moment de la même requête, la
+   dernière copie est rendue à la place de l'erreur : les listes déjà consultées en
+   ligne s'affichent donc hors ligne, avec leurs couvertures (vignettes locales).
+   Sécurité : la copie est rangée par identité (rôle + identifiant du jeton). Un
+   compte ne relit jamais la copie d'un autre compte ; un jeton illisible n'est
+   jamais copié. Les écritures (POST/PATCH/DELETE), les requêtes « Prefer » et
+   « Range » ne sont pas touchées. En ligne, rien ne change. */
+(function(){
+  'use strict';
+  if(window.__auroreRestHorsLigne||typeof window.fetch!=='function'||!('indexedDB' in window))return;
+  window.__auroreRestHorsLigne=true;
+
+  var RE=/^https:\/\/[a-z0-9]+\.supabase\.co\/rest\/v1\//i;
+  var DB='aurore-offline-db',STORE='rest';
+  var MAX_ENTREE=1500*1024,MAX_ENTREES=250;
+  var ORIG=window.fetch.bind(window);
+
+  function entete(h,nom){
+    if(!h)return '';
+    try{
+      if(typeof Headers!=='undefined'&&h instanceof Headers)return h.get(nom)||'';
+      if(Array.isArray(h)){
+        for(var i=0;i<h.length;i++){if(String(h[i][0]).toLowerCase()===nom)return h[i][1]||'';}
+        return '';
+      }
+      for(var k in h){if(String(k).toLowerCase()===nom)return h[k]||'';}
+    }catch(e){}
+    return '';
+  }
+  function identite(h){
+    try{
+      var auth=entete(h,'authorization');
+      if(!auth){var ak=entete(h,'apikey');if(ak)auth='Bearer '+ak;}
+      var m=/^Bearer\s+(.+)$/i.exec(auth||'');
+      if(!m)return null;
+      var p=m[1].split('.')[1];
+      if(!p)return null;
+      p=p.replace(/-/g,'+').replace(/_/g,'/');
+      while(p.length%4)p+='=';
+      var j=JSON.parse(atob(p));
+      if(!j||!j.role)return null;
+      return j.role+':'+(j.sub||'');
+    }catch(e){return null;}
+  }
+
+  var dbPromesse=null;
+  function ouvrir(){
+    if(dbPromesse)return dbPromesse;
+    dbPromesse=new Promise(function(resolve){
+      try{
+        var r=indexedDB.open(DB,1);
+        r.onupgradeneeded=function(){
+          var d=r.result;
+          if(!d.objectStoreNames.contains(STORE))d.createObjectStore(STORE,{keyPath:'k'});
+        };
+        r.onsuccess=function(){resolve(r.result);};
+        r.onerror=function(){resolve(null);};
+        r.onblocked=function(){resolve(null);};
+      }catch(e){resolve(null);}
+    });
+    return dbPromesse;
+  }
+  function lire(k){
+    return ouvrir().then(function(db){
+      if(!db)return null;
+      return new Promise(function(resolve){
+        try{
+          var q=db.transaction(STORE,'readonly').objectStore(STORE).get(k);
+          q.onsuccess=function(){resolve(q.result||null);};
+          q.onerror=function(){resolve(null);};
+        }catch(e){resolve(null);}
+      });
+    });
+  }
+  function elaguer(db){
+    try{
+      var tx=db.transaction(STORE,'readwrite');
+      var s=tx.objectStore(STORE);
+      var liste=[];
+      var c=s.openCursor();
+      c.onsuccess=function(ev){
+        var cur=ev.target.result;
+        if(cur){liste.push({k:cur.key,t:cur.value&&cur.value.t||0});cur.continue();return;}
+        if(liste.length<=MAX_ENTREES)return;
+        liste.sort(function(a,b){return a.t-b.t;});
+        liste.slice(0,liste.length-MAX_ENTREES).forEach(function(x){try{s.delete(x.k);}catch(e){}});
+      };
+    }catch(e){}
+  }
+  function ecrire(entree){
+    ouvrir().then(function(db){
+      if(!db)return;
+      try{db.transaction(STORE,'readwrite').objectStore(STORE).put(entree);}catch(e){}
+      if(Math.random()<0.05)elaguer(db);
+    });
+  }
+
+  window.fetch=function(input,init){
+    var args=arguments;
+    try{
+      var url=typeof input==='string'?input:(typeof URL!=='undefined'&&input instanceof URL?String(input):'');
+      var methode=String((init&&init.method)||'GET').toUpperCase();
+      if(!url||!RE.test(url)||methode!=='GET'||!init||!init.headers)return ORIG.apply(null,args);
+      if(entete(init.headers,'prefer')||entete(init.headers,'range'))return ORIG.apply(null,args);
+      var id=identite(init.headers);
+      if(!id)return ORIG.apply(null,args);
+      var cle=id+'|'+url;
+      return ORIG.apply(null,args).then(function(res){
+        try{
+          if(res&&res.ok&&/json/i.test(res.headers.get('content-type')||'')){
+            var ct=res.headers.get('content-type');
+            res.clone().text().then(function(txt){
+              if(txt&&txt.length<=MAX_ENTREE)ecrire({k:cle,t:Date.now(),ct:ct,body:txt});
+            }).catch(function(){});
+          }
+        }catch(e){}
+        return res;
+      },function(err){
+        if(err&&err.name==='AbortError')throw err;
+        return lire(cle).then(function(e){
+          if(!e||typeof e.body!=='string')throw err;
+          return new Response(e.body,{status:200,headers:{'Content-Type':e.ct||'application/json','X-Aurore-Hors-Ligne':'1'}});
+        });
+      });
+    }catch(e){
+      return ORIG.apply(null,args);
+    }
+  };
+})();
