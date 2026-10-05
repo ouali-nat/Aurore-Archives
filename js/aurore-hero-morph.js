@@ -49,3 +49,17 @@ apply();index=0;cycles=0;schedule();
 document.addEventListener('visibilitychange',schedule);
 if(reduce.addEventListener)reduce.addEventListener('change',schedule)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init()})();
+
+/* --- Chargeur de la barre latérale (CSS + JS) : garantit que le menu et sa poignée existent --- */
+(function(){try{
+  var v='20261005-sb1';
+  ['css/aurore-sidebar.css','css/aurore-sidebar-extra.css'].forEach(function(h){
+    if(document.querySelector('link[href*="'+h+'"]'))return;
+    var l=document.createElement('link');l.rel='stylesheet';l.href='./'+h+'?v='+v;document.head.appendChild(l);
+  });
+  function addJs(){
+    if(window.__auroreSidebarReady||document.querySelector('script[src*="aurore-sidebar.js"]'))return;
+    var s=document.createElement('script');s.src='js/aurore-sidebar.js?v='+v;document.body.appendChild(s);
+  }
+  if(document.body)addJs();else document.addEventListener('DOMContentLoaded',addJs,{once:true});
+}catch(e){}})();
