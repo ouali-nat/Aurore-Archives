@@ -4007,7 +4007,56 @@ def render(data):
         # renderer mirrors the editorial contract so an invalid document
         # cannot bypass the upstream gate.
         course_exercises = []
-        course_corrections_by_exercise_id = {}
+        # Exercise-series editorial contract: corrections live in
+    # sections[].corrections[] and are linked to exercises by exercise_id.
+    # The legacy renderer only read top-level corrections, which silently
+    # dropped the corrections from native exercise-series JSON. Keep the
+    # persisted structure unchanged and normalize the section-level entries
+    # into the renderer's existing corrections_by_number lookup.
+    if is_exercise_document:
+        exercise_number_by_id = {}
+        _scan_number = 0
+        for _sec in data.get("sections", []) if isinstance(data.get("sections"), list) else []:
+            if not isinstance(_sec, dict):
+                continue
+            for _ex in _sec.get("exercises", []) if isinstance(_sec.get("exercises"), list) else []:
+                if not isinstance(_ex, dict):
+                    continue
+                _scan_number += 1
+                _exercise_id = clean_text(_ex.get("id") or "").strip()
+                if _exercise_id:
+                    exercise_number_by_id[_exercise_id] = _scan_number
+                try:
+                    _declared_number = int(_ex.get("exercise_number", 0) or 0)
+                except (TypeError, ValueError):
+                    _declared_number = 0
+                if _declared_number > 0 and _exercise_id:
+                    exercise_number_by_id.setdefault(_exercise_id, _declared_number)
+
+        for _sec in data.get("sections", []) if isinstance(data.get("sections"), list) else []:
+            if not isinstance(_sec, dict):
+                continue
+            for _correction in _sec.get("corrections", []) if isinstance(_sec.get("corrections"), list) else []:
+                if not isinstance(_correction, dict):
+                    continue
+                try:
+                    _number = int(_correction.get("exercise_number", 0) or 0)
+                except (TypeError, ValueError):
+                    _number = 0
+                if _number <= 0:
+                    _exercise_id = clean_text(_correction.get("exercise_id") or "").strip()
+                    _number = exercise_number_by_id.get(_exercise_id, 0)
+                if _number <= 0:
+                    print(
+                        "Renderer QA: section-level correction has no resolvable "
+                        f"exercise_id/exercise_number: {_correction.get('exercise_id')!r}"
+                    )
+                    continue
+                # A deliberate top-level correction remains authoritative if
+                # one exists; otherwise the section-level contract is used.
+                corrections_by_number.setdefault(_number, _correction)
+
+    course_corrections_by_exercise_id = {}
         course_sections = data.get("sections", []) if isinstance(data.get("sections"), list) else []
         final_section_index = len(course_sections) - 1
 
