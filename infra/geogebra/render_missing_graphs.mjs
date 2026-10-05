@@ -1040,4 +1040,25 @@ for (const item of pending) {
   console.log(`  → PNG enregistré: ${uploadData.path} (${uploadData.bytes} bytes)`);
 }
 
+// Persist the exact structured document consumed by the following
+// "Verify GeoGebra assets before LaTeX" step. The initial source fetch created
+// production/document.json before this step; the server-rendered asset paths
+// must be written back to that same canonical production file.
+const productionDocumentPath = "infra/lualatex/production/document.json";
+await fs.writeFile(
+  productionDocumentPath,
+  JSON.stringify(content, null, 2),
+  "utf-8",
+);
+console.log(
+  `GeoGebra production document updated: ${productionDocumentPath} (${pending.length} asset(s) attached).`,
+);
+
 console.log(`GeoGebra server-side OK: ${pending.length} graphique(s) prêt(s) pour LuaLaTeX (renderer v${GEO_GEBRA_RENDERER_VERSION}).`);
+
+// The local HTTP host and Chromium keep the Node event loop alive even after
+// all screenshots/uploads have completed. Close both explicitly so the GitHub
+// Actions step can terminate and the next LuaLaTeX verification step can run.
+await browser.close();
+await new Promise((resolve) => server.close(resolve));
+console.log("GeoGebra server-side cleanup OK: Chromium et serveur HTTP fermés.");
