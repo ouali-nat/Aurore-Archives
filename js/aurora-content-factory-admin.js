@@ -1162,6 +1162,9 @@ function ensureLiveCancelButton(id,renderButton){
 async function renderPdf(id,themeColor=null){
   const b=document.querySelector(`[data-cf-render="${id}"]`);
   if(b){b.disabled=true;b.textContent=b.dataset.hasPdf==='1'?'Régénération LuaLaTeX…':'Génération LuaLaTeX…';ensureLiveCancelButton(id,b)}
+  // Doit rester dans la portée de tout le try/catch : le catch doit pouvoir
+  // distinguer une tentative serveur déjà créée d'une erreur survenue avant.
+  let serverQueueStarted=false;
   try{
     // Utilise d'abord le jeton déjà maintenu par l'authentification Aurore.
     // Le SDK Supabase navigateur ne doit jamais être un prérequis pour lancer
@@ -1177,7 +1180,6 @@ async function renderPdf(id,themeColor=null){
     // tentative et le réveil GitHub : une panne réseau du navigateur ne doit
     // jamais transformer une file serveur valide en échec.
     let productionAttempt=null;
-    let serverQueueStarted=false;
     try{
       productionAttempt=await startProductionAttempt(id,accessToken);
       serverQueueStarted=true;
