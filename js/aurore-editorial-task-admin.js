@@ -1108,9 +1108,6 @@ function bindDetail(d,t,state){
       const fw=fresh.metadata?.workflow||{};
       const available=new Set(chapterOptionsForWorkflow(fw).map(x=>String(x?.title||x?.name||x)));
       if(!selected.every(x=>available.has(String(x?.title||x?.name||x))))throw new Error('Garde-fou B : une sélection ne provient pas des propositions persistées.');
-      const qualityValue=String(p.quality||'').trim();
-    const qualityExpected={status:'complete',mathematical_accuracy:String(p.qualityMathematicalAccuracy||qualityValue).trim(),disciplinary_progression:String(p.qualityDisciplinaryProgression||qualityValue).trim(),explicit_reasoning:String(p.qualityExplicitReasoning||qualityValue).trim(),no_repetition:String(p.qualityNoRepetition||qualityValue).trim(),scientific_guardrails:String(p.qualityScientificGuardrails||qualityValue).trim(),updated_at:new Date().toISOString()};
-    const persistedProposal={...p,pdfTypography:{status:'complete',value:String(p.pdfTypography||p.pdfFonts||'').trim(),updated_at:new Date().toISOString()},pdfFonts:String(p.pdfTypography||p.pdfFonts||'').trim(),pdfHeadersFooters:{status:'complete',value:String(p.pdfHeaders||'').trim(),updated_at:new Date().toISOString()},pdfResourcesQrAnnexes:{status:'complete',value:String(p.pdfResources||'').trim(),updated_at:new Date().toISOString()},editorialNotes:{status:'complete',notes:String(p.notes||'').trim(),updated_at:new Date().toISOString()},qualityControlExpected:qualityExpected};
     const updated=await updateJob(t.id,{
         chapters:selected,
         selected_chapters:selected,
