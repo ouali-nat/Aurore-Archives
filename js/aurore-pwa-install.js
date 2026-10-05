@@ -35,7 +35,9 @@
   }})();
 
 /* Aurore — retour du réseau
-   1) Supprime le geste « tirer vers le bas pour recharger » du navigateur.
+   1) Supprime le geste « tirer vers le bas pour recharger » du navigateur, SANS
+      toucher au CSS de défilement : on n'intercepte que le geste « tirer vers le bas
+      alors qu'on est déjà tout en haut ». Tout autre glissement reste natif.
    2) Recharge automatiquement la page quand la connexion revient, uniquement si
       l'utilisateur avait été hors ligne. Le rechargement est repoussé (jamais
       perdu) tant que l'utilisateur saisit du texte ou lit un PDF en grand écran,
@@ -44,12 +46,38 @@
   'use strict';
 
   // 1) Plus de « tirer pour recharger ».
-  try{
-    var st=document.createElement('style');
-    st.id='aurore-sans-tirer-pour-recharger';
-    st.textContent='html,body{overscroll-behavior-y:none!important;}';
-    (document.head||document.documentElement).appendChild(st);
-  }catch(e){}
+  function positionHaut(){
+    var se=document.scrollingElement||document.documentElement;
+    return ((window.pageYOffset||0)<=1)&&((se&&se.scrollTop||0)<=1);
+  }
+  function ancetreDefilableVersLeHaut(el){
+    // Un conteneur interne déjà défilé vers le bas doit pouvoir remonter normalement.
+    var n=el;
+    while(n&&n!==document.body&&n!==document.documentElement&&n.nodeType===1){
+      try{
+        var cs=getComputedStyle(n);
+        var oy=cs.overflowY;
+        if((oy==='auto'||oy==='scroll')&&n.scrollHeight>n.clientHeight&&n.scrollTop>0)return true;
+      }catch(e){}
+      n=n.parentElement;
+    }
+    return false;
+  }
+  var debutEnHaut=false,derniereY=0;
+  document.addEventListener('touchstart',function(e){
+    if(!e.touches||e.touches.length!==1){debutEnHaut=false;return;}
+    derniereY=e.touches[0].clientY;
+    debutEnHaut=positionHaut()&&!ancetreDefilableVersLeHaut(e.target);
+  },{passive:true});
+  document.addEventListener('touchmove',function(e){
+    if(!debutEnHaut||!e.touches||e.touches.length!==1)return;
+    var y=e.touches[0].clientY;
+    var versLeBas=y>derniereY;
+    derniereY=y;
+    if(versLeBas&&positionHaut()&&e.cancelable)e.preventDefault();
+  },{passive:false});
+  document.addEventListener('touchend',function(){debutEnHaut=false;},{passive:true});
+  document.addEventListener('touchcancel',function(){debutEnHaut=false;},{passive:true});
 
   // 2) Rechargement automatique au retour du réseau.
   var CLE='aurore-reco-reload';
