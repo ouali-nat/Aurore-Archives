@@ -354,6 +354,18 @@ function aResearchFor(t){
   const w=t.metadata?.workflow||{},r=w.chapter_research;
   return r&&typeof r==='object'?r:{};
 }
+function researchFindingsFor(r){
+  if(!r||typeof r!=='object')return '';
+  const out=[];
+  const push=value=>{
+    if(Array.isArray(value)){value.forEach(push);return}
+    if(value&&typeof value==='object'){push(value.finding||value.constat||value.summary||value.text||'');return}
+    const s=String(value??'').trim();
+    if(s)out.push(s);
+  };
+  [r.findings,r.constats,r.researchFindings,r.results].forEach(push);
+  return [...new Set(out)].join('\n');
+}
 function chapterOptionsForWorkflow(w){
   const raw=w&&w.chapter_options;
   if(Array.isArray(raw))return raw;
@@ -372,15 +384,16 @@ function aContextReady(t){
 function aResearchReady(t){
   const w=t.metadata?.workflow||{},r=aResearchFor(t);
   const options=chapterOptionsForWorkflow(w);
-  const findings=Array.isArray(r.researchFindings)
-    ? r.researchFindings.map(x=>String(x||'').trim()).filter(Boolean).join('\n')
-    : String(r.findings||r.constats||'').trim();
+  const findings=researchFindingsFor(r);
   const methodology=String(r.methodology||r.method||'').trim();
   const sources=[...(Array.isArray(r.source_urls)?r.source_urls:[]),...(Array.isArray(r.sources)?r.sources:[])]
     .map(x=>typeof x==='string'?x:(x&&typeof x==='object'?(x.url||x.href||x.source_url||''):String(x||'')))
     .map(x=>String(x||'').trim()).filter(Boolean);
   return aContextReady(t)
     &&String(r.status||'').toLowerCase()==='researched'
+    &&r.normalized_for_editorial_b===true
+    &&String(w.research_verification?.status||'').toLowerCase()==='verified'
+    &&String(w.research_verification?.version||'')==='a-b-research-contract-v2'
     &&findings.length>=40
     &&methodology.length>=10
     &&sources.length>=1
@@ -598,16 +611,12 @@ const CHAPTER_PROPOSALS={
 function chapterProposalsFor(t){
   const w=t.metadata?.workflow||{};
   const stored=chapterOptionsForWorkflow(w);
-  if(!stored.length&&Array.isArray(w.chapters)&&w.chapters.length)stored.push(...w.chapters);
-  if(stored.length)return stored.map(x=>typeof x==='string'?{title:x,description:'',source:'Proposition enregistrée dans la tâche.'}:x).filter(x=>x&&String(x.title||x.name||'').trim());
-  const key=String(t.id)+"|"+String(t.subject||"").toLowerCase()+"|"+String(t.class_name||t.level||"").toLowerCase();
-  return CHAPTER_PROPOSALS[key]||[];
+  return stored.map(x=>typeof x==='string'?{title:x,description:'',source:'Proposition enregistrée dans la tâche.'}:x)
+    .filter(x=>x&&String(x.title||x.name||'').trim());
 }
 function chaptersMarkup(t){
   const w=t.metadata?.workflow||{},r=aResearchFor(t);
-  const saved=Array.isArray(w.selected_chapters)
-    ? w.selected_chapters
-    : (chapterOptionsForWorkflow(w).length?[]:(Array.isArray(w.chapters)?w.chapters:[]));
+  const saved=Array.isArray(w.selected_chapters)?w.selected_chapters:[];
   const proposals=chapterProposalsFor(t);
   if(!aResearchReady(t))return'<div class="editor-c-plan-context warning"><span>Recherche non vérifiée</span><strong>La carte B ne peut pas proposer de sélection.</strong><small>La recherche, les sources et les propositions doivent être persistées dans Supabase avant l’entrée en B.</small></div>';
   if(!proposals.length)return'<div class="editor-empty">Aucune proposition structurée disponible après recherche. La tâche doit rester hors de B.</div>';
@@ -615,7 +624,7 @@ function chaptersMarkup(t){
   const sources=[...(Array.isArray(r.source_urls)?r.source_urls:[]),...(Array.isArray(r.sources)?r.sources:[])]
     .map(x=>typeof x==='string'?x:(x&&typeof x==='object'?(x.url||x.href||x.source_url||''):String(x||'')))
     .map(x=>String(x||'').trim()).filter(Boolean);
-  return '<div class="editor-chapter-source"><span>Dossier de recherche ayant autorisé A → B</span><small><strong>Méthode :</strong> '+esc(r.methodology||r.method||'—')+' · <strong>Base :</strong> '+esc(r.basis||'—')+' · <strong>Constats :</strong> '+esc(r.findings||'—')+'</small><small><strong>Sources :</strong> '+esc(sources.join(' · '))+'</small></div>'+
+  return '<div class="editor-chapter-source"><span>Dossier de recherche ayant autorisé A → B</span><small><strong>Méthode :</strong> '+esc(r.methodology||r.method||'—')+' · <strong>Base :</strong> '+esc(r.basis||'—')+' · <strong>Constats :</strong> '+esc(researchFindingsFor(r)||'—')+'</small><small><strong>Sources :</strong> '+esc(sources.join(' · '))+'</small></div>'+
     '<button type="button" class="admin-btn ghost editor-chapters-toggle" data-chapters-toggle>Choisir les chapitres <span>＋</span></button>'+
     '<div class="editor-chapters-selection" hidden><div class="editor-chapters-choice">'+proposals.map((x,i)=>'<label class="editor-chapter-choice"><input type="checkbox" data-chapter-choice="'+i+'" '+(selected.has(x.title)?'checked':'')+'><span><strong>'+esc(x.title)+'</strong><small>'+esc(x.description)+'</small><em>'+esc(x.source)+'</em></span></label>').join('')+'</div>'+
     '<div class="editor-plan-actions"><button type="button" class="admin-btn primary" data-chapters-save="'+esc(t.id)+'">Enregistrer la sélection et passer à l’étape suivante</button></div></div>';
