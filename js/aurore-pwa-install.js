@@ -1,4 +1,3 @@
-
 (function(){
   'use strict';
   var deferredPrompt=null;
@@ -34,3 +33,84 @@
       }).catch(function(err){console.warn('[Aurore PWA] Service worker indisponible :',err);});
     });
   }})();
+
+/* Aurore — retour du réseau
+   1) Supprime le geste « tirer vers le bas pour recharger » du navigateur.
+   2) Recharge automatiquement la page quand la connexion revient, uniquement si
+      l'utilisateur avait été hors ligne. Le rechargement est repoussé (jamais
+      perdu) tant que l'utilisateur saisit du texte ou lit un PDF en grand écran,
+      pour ne rien lui faire perdre. Maximum un rechargement automatique / 20 s. */
+(function(){
+  'use strict';
+
+  // 1) Plus de « tirer pour recharger ».
+  try{
+    var st=document.createElement('style');
+    st.id='aurore-sans-tirer-pour-recharger';
+    st.textContent='html,body{overscroll-behavior-y:none!important;}';
+    (document.head||document.documentElement).appendChild(st);
+  }catch(e){}
+
+  // 2) Rechargement automatique au retour du réseau.
+  var CLE='aurore-reco-reload';
+  var etaitHorsLigne=(navigator.onLine===false);
+  var enAttente=false;
+  var verifEnCours=false;
+
+  function reseauReel(){
+    // HEAD sur l'accueil : jamais intercepté par le service worker, donc pas de faux « en ligne » venant du cache.
+    return fetch('/',{method:'HEAD',cache:'no-store'})
+      .then(function(r){return !!(r&&r.ok);})
+      .catch(function(){return false;});
+  }
+
+  function saisieEnCours(){
+    var a=document.activeElement;
+    if(!a)return false;
+    var t=(a.tagName||'').toLowerCase();
+    return t==='input'||t==='textarea'||t==='select'||a.isContentEditable===true;
+  }
+
+  function lecteurPdfOuvert(){
+    // Un grand canvas visible (page de PDF en lecture) : on n'interrompt pas la lecture.
+    var cs=document.getElementsByTagName('canvas');
+    for(var i=0;i<cs.length;i++){
+      var r=cs[i].getBoundingClientRect();
+      if(r.width>window.innerWidth*0.8&&r.height>window.innerHeight*0.5&&r.bottom>0&&r.top<window.innerHeight)return true;
+    }
+    return false;
+  }
+
+  function rechargeRecent(){
+    try{return Date.now()-(parseInt(sessionStorage.getItem(CLE),10)||0)<20000;}catch(e){return false;}
+  }
+
+  function tenter(){
+    if(!enAttente||verifEnCours)return;
+    if(document.visibilityState!=='visible')return;
+    verifEnCours=true;
+    reseauReel().then(function(ok){
+      verifEnCours=false;
+      if(!ok||!enAttente)return;
+      if(saisieEnCours()||lecteurPdfOuvert()||rechargeRecent())return; // le minuteur réessaiera
+      enAttente=false;
+      etaitHorsLigne=false;
+      try{sessionStorage.setItem(CLE,String(Date.now()));}catch(e){}
+      location.reload();
+    });
+  }
+
+  window.addEventListener('offline',function(){etaitHorsLigne=true;});
+  window.addEventListener('online',function(){
+    if(!etaitHorsLigne)return;
+    enAttente=true;
+    setTimeout(tenter,1200); // laisse la connexion se stabiliser
+  });
+  document.addEventListener('visibilitychange',function(){
+    if(document.visibilityState!=='visible')return;
+    if(navigator.onLine===false){etaitHorsLigne=true;return;}
+    if(etaitHorsLigne)enAttente=true;
+    tenter();
+  });
+  setInterval(function(){if(enAttente)tenter();},5000);
+})();
