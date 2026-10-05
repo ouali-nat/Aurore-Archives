@@ -118,23 +118,31 @@
 
 /* ---------- Mobile / tablette : tiroir ---------- */
 @media(max-width:900px){
-  .asb{transform:translateX(calc(-100% - 20px));width:min(280px,82vw);z-index:90;}
+  .asb{transform:translateX(calc(-100% - 20px));width:min(280px,82vw);z-index:2147483001;}
   .asb.is-open{transform:none;}
   .asb-scrim{
-    position:fixed;inset:0;z-index:89;background:rgba(0,0,0,.45);
+    position:fixed;inset:0;z-index:2147483000;background:rgba(0,0,0,.45);
     opacity:0;pointer-events:none;transition:opacity .25s ease;
   }
   .asb-scrim.is-on{opacity:1;pointer-events:auto;}
+  /* Poignée d'ouverture : toujours visible, au-dessus de tout, à gauche */
   .asb-toggle{
-    position:fixed;left:0;top:42%;z-index:70;
-    width:26px;height:58px;padding:0;border:1px solid color-mix(in srgb,var(--theme-primary,#8B5CF6) 45%,transparent);border-left:0;
+    position:fixed;left:0;top:42%;z-index:2147482999;
+    width:30px;height:64px;padding:0;border:1px solid color-mix(in srgb,var(--theme-primary,#8B5CF6) 55%,transparent);border-left:0;
     border-radius:0 18px 18px 0;color:inherit;cursor:pointer;
     display:flex;align-items:center;justify-content:center;
-    background:color-mix(in srgb,var(--theme-primary,#8B5CF6) 24%,var(--papier,#11101C));
+    background:color-mix(in srgb,var(--theme-primary,#8B5CF6) 34%,var(--papier,#11101C));
     box-shadow:0 8px 20px -8px color-mix(in srgb,var(--theme-primary,#8B5CF6) 60%,transparent);
   }
+  .asb:not(.is-open) ~ .asb-toggle{
+    display:flex!important;
+    visibility:visible!important;
+    opacity:1!important;
+    pointer-events:auto!important;
+    transform:none!important;
+  }
   .asb-toggle svg{width:16px;height:16px;}
-  .asb.is-open ~ .asb-toggle{display:none;}
+  .asb.is-open ~ .asb-toggle{display:none!important;}
 }
 
 @media(prefers-reduced-motion:reduce){
