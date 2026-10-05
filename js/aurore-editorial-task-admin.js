@@ -49,7 +49,7 @@ const B_EXECUTION_CONTRACT={
     'remplacer les données persistées par une réponse conversationnelle'
   ]
 };
-const C_PLAN_REQUIRED_FIELDS=['researchMethod','curricularBasis','researchFindings','sources','title','chapter','objectives','competencies','prerequisites','progression','architecture','productionStrategy','content','methods','activities','examples','situations','exercises','corrections','differentiation','evaluation','volume','duration','resources','mathGeoGebra','technicalNeeds','pdfFormat','pdfOrientation','pdfPagination','pdfThemeColor','pdfLayout','pdfTypography','pdfHeaders','pdfResources','qualityMathematicalAccuracy','qualityDisciplinaryProgression','qualityExplicitReasoning','qualityNoRepetition','qualityScientificGuardrails','quality','notes'];
+const C_PLAN_REQUIRED_FIELDS=['researchMethod','curricularBasis','researchFindings','sources','title','chapter','objectives','competencies','prerequisites','progression','architecture','productionStrategy','content','methods','activities','examples','situations','exercises','corrections','differentiation','evaluation','volume','duration','resources','mathGeoGebra','technicalNeeds','pdfFormat','pdfOrientation','pdfPagination','pdfThemeColor','pdfLayout','pdfTypography','pdfFonts','pdfHeaders','pdfResources','qualityMathematicalAccuracy','qualityDisciplinaryProgression','qualityExplicitReasoning','qualityNoRepetition','qualityScientificGuardrails','quality','notes'];
 const C_EXECUTION_CONTRACT_VERSION='c-plan-guardrails-v2';
 const D_EXECUTION_CONTRACT_VERSION='d-editorial-production-v1';
 const D_EXECUTION_CONTRACT={
@@ -330,7 +330,7 @@ const proposalFor=(t)=>{
     pdfHeaders:textValue(typeof p.pdfHeadersFooters==='object'?(p.pdfHeadersFooters.value||p.pdfHeadersFooters.text||p.pdfHeadersFooters.notes):p.pdfHeaders||p.pdf_headers||p.headers),
     pdfResources:textValue(typeof p.pdfResourcesQrAnnexes==='object'?(p.pdfResourcesQrAnnexes.value||p.pdfResourcesQrAnnexes.text||p.pdfResourcesQrAnnexes.notes):p.pdfResources||p.pdf_resources),
     quality:textValue(p.quality||p.qa||p.controle_qualite),
-    qualityControlExpected:p.qualityControlExpected&&typeof p.qualityControlExpected==='object'?p.qualityControlExpected:{},
+qualityControlExpected:p.qualityControlExpected&&typeof p.qualityControlExpected==='object'?p.qualityControlExpected:{},
     qualityMathematicalAccuracy:textValue(p.qualityControlExpected?.mathematical_accuracy),
     qualityDisciplinaryProgression:textValue(p.qualityControlExpected?.disciplinary_progression),
     qualityExplicitReasoning:textValue(p.qualityControlExpected?.explicit_reasoning),
@@ -640,14 +640,19 @@ function cPlanCompleteness(t,p){
   const researchSourceCount=String(p?.sources||'').split(/\n|\r?\n/).map(x=>x.trim()).filter(Boolean).length;
   if(researchSourceCount<1)missing.unshift('research_source');
   if(String(p?.quality||'').trim().length<40)missing.unshift('quality_detail');
+// proposalFor() normalise les objets structurés persistés en texte pour l'affichage.
+// Le garde-fou accepte cette vue normalisée pendant le contrôle du brouillon;
+// persistPlan() reconstruit ensuite les objets {status:"complete",value:...}.
   const structuredChecks=[['pdfTypography',p?.pdfTypography],['pdfHeadersFooters',p?.pdfHeadersFooters],['pdfResourcesQrAnnexes',p?.pdfResourcesQrAnnexes],['editorialNotes',p?.editorialNotes]];
   structuredChecks.forEach(([k,v])=>{
-    if(k==='editorialNotes'){
+    if(typeof v==='string'){
+      if(!v.trim())missing.unshift(k);
+    }else if(k==='editorialNotes'){
       if(!v||typeof v!=='object'||v.status!=='complete'||!String(v.notes||'').trim())missing.unshift(k);
     }else if(!v||typeof v!=='object'||v.status!=='complete'||!String(v.value||'').trim())missing.unshift(k);
   });
   const qc=p?.qualityControlExpected;
-  ['mathematical_accuracy','disciplinary_progression','explicit_reasoning','no_repetition','scientific_guardrails'].forEach(k=>{
+['mathematical_accuracy','disciplinary_progression','explicit_reasoning','no_repetition','scientific_guardrails'].forEach(k=>{
     if(!qc||typeof qc!=='object'||qc.status!=='complete'||!String(qc[k]||'').trim())missing.unshift('qualityControlExpected');
   });
   return {ok:missing.length===0,missing:[...new Set(missing)],selectedCount:chapterNames.length,sourceCount:researchSourceCount};
@@ -1114,7 +1119,7 @@ function bindDetail(d,t,state){
       const fw=fresh.metadata?.workflow||{};
       const available=new Set(chapterOptionsForWorkflow(fw).map(x=>String(x?.title||x?.name||x)));
       if(!selected.every(x=>available.has(String(x?.title||x?.name||x))))throw new Error('Garde-fou B : une sélection ne provient pas des propositions persistées.');
-      const updated=await updateJob(t.id,{
+    const updated=await updateJob(t.id,{
         chapters:selected,
         selected_chapters:selected,
         selected_chapter:selected[0]||null,
@@ -1180,8 +1185,22 @@ function bindDetail(d,t,state){
     else setGuardStatus('Brouillon enregistré : '+guard.missing.map(x=>C_PLAN_FIELD_LABELS[x]||x).join(', ')+' restent à compléter. Le passage C → CX reste bloqué.');
     const stage=targetStage||fw.stage||'proposition_editoriale';
     const status=targetStatus||fw.proposal_status||'plan_editing';
+    // La vue C normalise les champs structurés en texte. Avant persistance,
+    // reconstruire explicitement leur contrat structuré pour que CX exige bien
+    // status="complete" dans workflow.proposal.
+    const persistedProposal={
+      ...p,
+      pdfTypography:{status:'complete',value:String(p.pdfTypography||'').trim()},
+      pdfHeadersFooters:{status:'complete',value:String(p.pdfHeaders||'').trim()},
+      pdfResourcesQrAnnexes:{status:'complete',value:String(p.pdfResources||'').trim()},
+      editorialNotes:{status:'complete',notes:String(p.notes||'').trim()}
+    };
+    const persistedGuard=cPlanCompleteness(fresh,persistedProposal);
+    if(!persistedGuard.ok){
+      throw new Error('Garde-fou C : les champs structurés du plan ne sont pas complets avant persistance : '+persistedGuard.missing.map(x=>C_PLAN_FIELD_LABELS[x]||x).join(', '));
+    }
     const updated=await updateJob(t.id,{
-      proposal:p,
+      proposal:persistedProposal,
       proposal_version:Number(fw.proposal_version||0)+1,
       proposal_status:status,
       stage,

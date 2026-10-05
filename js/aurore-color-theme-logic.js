@@ -1,37 +1,45 @@
 (function(){
   const COLOR_THEME_KEY='auraster-color-theme';
-  const VALID_COLOR_THEMES=['violet','rouge','vert','bleu','jaune','orange','cyan','rose','indigo','turquoise','emeraude','lime','sarcelle','magenta','fuchsia','corail','bordeaux','pourpre','prune','or','ambre','menthe','azur','lavande','safran'];
+  const VALID_COLOR_THEMES=["violet","rouge","vert","bleu","orange","rose","indigo","emeraude","lime","corail","bordeaux","azur","petrole-cuivre","nuit-peche","prune-rouge","terre-orange","rose-sable","sarcelle-creme"];
 
-  function appliquerCouleurSite(choix){
-    if(!VALID_COLOR_THEMES.includes(choix)) choix='violet';
-    document.documentElement.setAttribute('data-color-theme',choix);
-    try{localStorage.setItem(COLOR_THEME_KEY,choix);}catch(e){}
-    document.querySelectorAll('.profile-theme-option, .theme-color-swatch').forEach(btn=>{
-      btn.setAttribute('aria-pressed',btn.dataset.colorChoice===choix?'true':'false');
-    });
-    const noms={violet:'Violet',rouge:'Rouge',vert:'Vert',bleu:'Bleu',jaune:'Jaune',orange:'Orange',cyan:'Cyan',rose:'Rose',indigo:'Indigo',turquoise:'Turquoise',emeraude:'Émeraude',lime:'Citron vert',sarcelle:'Sarcelle',magenta:'Magenta',fuchsia:'Fuchsia',corail:'Corail',bordeaux:'Bordeaux',pourpre:'Pourpre',prune:'Prune',or:'Or',ambre:'Ambre',menthe:'Menthe',azur:'Azur',lavande:'Lavande',safran:'Safran'};
-    const label=document.getElementById('profileThemeCurrent');
-    if(label) label.textContent=noms[choix]||'Violet';
-    const flyoutLabel=document.getElementById('colorThemeFlyoutCurrent');
-    if(flyoutLabel) flyoutLabel.textContent=noms[choix]||'Violet';
-    const meta=document.querySelector('meta[name="theme-color"]');
-    if(meta){
-      const couleurs={
-        violet:'#6D28D9',rouge:'#B91C1C',vert:'#15803D',
-        bleu:'#1D4ED8',jaune:'#B77900',orange:'#C85C0D',cyan:'#0E7490',rose:'#BE185D',
-        indigo:'#4338CA',turquoise:'#0F766E',emeraude:'#047857',lime:'#65A30D',sarcelle:'#0F766E',magenta:'#C026D3',fuchsia:'#A21CAF',corail:'#E85D4A',bordeaux:'#8B1E3F',pourpre:'#7E22CE',prune:'#6B21A8',or:'#B7791F',ambre:'#D97706',menthe:'#059669',azur:'#0369A1',lavande:'#7C3AED',safran:'#CA8A04'
-      };
-      meta.setAttribute('content',couleurs[choix]||couleurs.violet);
-    }
-  }
+  // Noms courts : une seule couleur dominante par choix (celle de la pastille).
+  const NOMS={"violet":"Violet","rouge":"Rouge","vert":"Vert","bleu":"Bleu","orange":"Orange","rose":"Rose","indigo":"Indigo","emeraude":"Émeraude","lime":"Citron vert","corail":"Corail","bordeaux":"Bordeaux","azur":"Azur","petrole-cuivre":"Pétrole","nuit-peche":"Nuit","prune-rouge":"Prune","terre-orange":"Orange terre","rose-sable":"Rose poudré","sarcelle-creme":"Sarcelle"};
 
-  // ---- Panneau glissant "Couleur du site", ancré près du sélecteur de thème ----
   function fermerFlyoutCouleur(){
     const flyout=document.getElementById('colorThemeFlyout');
     const bouton=document.getElementById('colorThemeBtn');
     if(flyout){ flyout.classList.remove('open'); flyout.setAttribute('aria-hidden','true'); }
     if(bouton) bouton.setAttribute('aria-expanded','false');
   }
+
+  function appliquerCouleurSite(choix){
+    if(!VALID_COLOR_THEMES.includes(choix)) choix='violet';
+    const root=document.documentElement;
+    // Panneau fermé d'abord, puis transitions coupées le temps du changement :
+    // sinon des centaines d'éléments animent fond/ombre/clip-path en même temps
+    // et l'application de la couleur paraît lente.
+    fermerFlyoutCouleur();
+    root.classList.add('color-switching');
+    root.setAttribute('data-color-theme',choix);
+    const fin=()=>root.classList.remove('color-switching');
+    requestAnimationFrame(()=>requestAnimationFrame(fin));
+    setTimeout(fin,800);
+    try{localStorage.setItem(COLOR_THEME_KEY,choix);}catch(e){}
+    document.querySelectorAll('.profile-theme-option, .theme-color-swatch').forEach(btn=>{
+      btn.setAttribute('aria-pressed',btn.dataset.colorChoice===choix?'true':'false');
+    });
+    const label=document.getElementById('profileThemeCurrent');
+    if(label) label.textContent=NOMS[choix]||'Violet';
+    const flyoutLabel=document.getElementById('colorThemeFlyoutCurrent');
+    if(flyoutLabel) flyoutLabel.textContent=NOMS[choix]||'Violet';
+    const meta=document.querySelector('meta[name="theme-color"]');
+    if(meta){
+      const couleurs={"violet":"#6D28D9","rouge":"#B91C1C","vert":"#15803D","bleu":"#1D4ED8","orange":"#C85C0D","rose":"#BE185D","indigo":"#4338CA","emeraude":"#047857","lime":"#65A30D","corail":"#E85D4A","bordeaux":"#8B1E3F","azur":"#0369A1","petrole-cuivre":"#104C64","nuit-peche":"#242F49","prune-rouge":"#341A2C","terre-orange":"#E57A2D","rose-sable":"#EFC1B5","sarcelle-creme":"#0D6B70"};
+      meta.setAttribute('content',couleurs[choix]||couleurs.violet);
+    }
+  }
+
+  // ---- Panneau glissant "Couleur du site", ancré près du sélecteur de thème ----
   function ouvrirFlyoutCouleur(){
     const flyout=document.getElementById('colorThemeFlyout');
     const bouton=document.getElementById('colorThemeBtn');
@@ -75,7 +83,6 @@
         border:1px solid var(--theme-border,var(--bordure))!important;
         background:color-mix(in srgb,var(--papier) 96%,var(--theme-primary,#8B5CF6) 4%)!important;
         box-shadow:0 18px 46px rgba(0,0,0,.28),0 0 0 1px color-mix(in srgb,var(--theme-primary,#8B5CF6) 7%,transparent)!important;
-        backdrop-filter:blur(16px);
       }
       .color-theme-flyout-head{
         display:flex!important;
@@ -124,8 +131,52 @@
     document.head.appendChild(style);
   }
 
+  // Correctifs de cohérence (palette lisible, mots du hero, rapidité).
+  function injectThemeFixes(){
+    if(document.getElementById('aurore-color-theme-fixes')) return;
+    const style=document.createElement('style');
+    style.id='aurore-color-theme-fixes';
+    // 1) Les 6 palettes mixtes avaient des pastilles à 6 teintes en dégradé :
+    //    on n'affiche plus qu'UNE couleur (la dominante réellement appliquée au site).
+    //    L'anneau gris garde visibles les teintes très sombres ou très claires.
+    const MIXTES={'petrole-cuivre':'#104C64','nuit-peche':'#242F49','prune-rouge':'#341A2C','terre-orange':'#E57A2D','rose-sable':'#EFC1B5','sarcelle-creme':'#0D6B70'};
+    let css='';
+    Object.keys(MIXTES).forEach(k=>{
+      css+='.theme-color-swatch[data-color-choice="'+k+'"],.profile-theme-option[data-color-choice="'+k+'"] .profile-theme-swatch{background:'+MIXTES[k]+'!important;}\n';
+      css+='.theme-color-swatch[data-color-choice="'+k+'"]:not([aria-pressed="true"]){box-shadow:0 0 0 1px rgba(150,150,160,.6),0 3px 8px rgba(0,0,0,.18)!important;}\n';
+    });
+    // 2) Mots du hero : le mot d'accent et l'étiquette suivent la couleur choisie
+    //    (avant : violet fixe en mode clair, crème pour les palettes à fond clair).
+    css+='html[data-color-theme]{--hero-word-light:var(--theme-strong);--hero-word-dark:color-mix(in srgb,var(--theme-secondary) 86%,#fff);}\n';
+    const MOTS={ // [mode clair, mode sombre]
+      'petrole-cuivre':['#104C64','#D59D80'],
+      'nuit-peche':['#3B4F7E','#FFA586'],
+      'prune-rouge':['#7A2F63','#E4586A'],
+      'terre-orange':['#C5600F','#F0954F'],
+      'rose-sable':['#B5705C','#EFC1B5'],
+      'sarcelle-creme':['#0D6B70','#3FB8BE']
+    };
+    Object.keys(MOTS).forEach(k=>{
+      css+='html[data-color-theme="'+k+'"]{--hero-word-light:'+MOTS[k][0]+';--hero-word-dark:'+MOTS[k][1]+';}\n';
+    });
+    const H='#screen-home .hero.aurore-hero-morph';
+    css+='html[data-color-theme][data-theme="light"] '+H+' h1 .accentword,html[data-color-theme][data-theme="light"] .hero .accentword{color:var(--hero-word-light)!important;-webkit-text-fill-color:var(--hero-word-light)!important;background:none!important;}\n';
+    css+='html[data-color-theme][data-theme="dark"] '+H+' h1 .accentword,html[data-color-theme][data-theme="dark"] .hero .accentword{color:var(--hero-word-dark)!important;-webkit-text-fill-color:var(--hero-word-dark)!important;background:none!important;}\n';
+    css+='html[data-color-theme][data-theme="light"] '+H+' .eyebrow{color:var(--hero-word-light)!important;}\n';
+    css+='html[data-color-theme][data-theme="dark"] '+H+' .eyebrow{color:var(--hero-word-dark)!important;}\n';
+    // 3) Rapidité : aucune transition pendant le changement de couleur.
+    css+='html.color-switching *,html.color-switching *::before,html.color-switching *::after{transition:none!important;}\n';
+    style.textContent=css;
+    document.head.appendChild(style);
+  }
+
   function init(){
     injectColorPickerDesign();
+    injectThemeFixes();
+    // Les titres au survol reprennent les noms courts.
+    document.querySelectorAll('.theme-color-swatch').forEach(btn=>{
+      const n=NOMS[btn.dataset.colorChoice]; if(n) btn.setAttribute('title',n);
+    });
     const boutons=document.querySelectorAll('.profile-theme-option, .theme-color-swatch');
     boutons.forEach(btn=>btn.addEventListener('click',()=>appliquerCouleurSite(btn.dataset.colorChoice)));
     initFlyoutCouleur();
