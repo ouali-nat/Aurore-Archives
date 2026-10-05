@@ -1,0 +1,163 @@
+name: Validate and apply PDF editorial patch
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout head branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Patch and validate
+        shell: python
+        run: |
+          from pathlib import Path
+          import subprocess
+
+          renderer=Path("infra/lualatex/render_document.py")
+          queue=Path("supabase/functions/aurora-lualatex-next/index.ts")
+          if not renderer.exists() or not queue.exists():
+              raise SystemExit("Required production sources are missing; aborting.")
+
+          r=renderer.read_text(encoding="utf-8")
+          q=queue.read_text(encoding="utf-8")
+
+          old='''    r"\\section*{Objectifs d'apprentissage}",
+    r"\\addcontentsline{toc}{section}{Objectifs d'apprentissage}",
+    r"\\begin{itemize}",
+]
+for item in data.get("learning_objectives", []):
+    lines.append(r"\\item " + inline(item))
+lines.append(r"\\end{itemize}")
+'''
+          new='''    learning_objectives = [
+        str(item).strip()
+        for item in data.get("learning_objectives", []) or []
+        if str(item).strip()
+    ]
+    if learning_objectives:
+        lines.extend([
+            r"\\section*{Objectifs d'apprentissage}",
+            r"\\addcontentsline{toc}{section}{Objectifs d'apprentissage}",
+            r"\\begin{itemize}",
+        ])
+        for item in learning_objectives:
+            lines.append(r"\\item " + inline(item))
+        lines.append(r"\\end{itemize}")
+'''
+          if old not in r: raise SystemExit("Learning-objectives target changed; aborting.")
+          r=r.replace(old,new,1)
+
+          if r.count("Ce que tu vas apprendre")!=1: raise SystemExit("Expected one objective label.")
+          r=r.replace("Ce que tu vas apprendre","À découvrir",1)
+
+          if r.count("moteur de composition : LuaLaTeX · ")!=1: raise SystemExit("Expected one engine mention.")
+          r=r.replace("moteur de composition : LuaLaTeX · ","",1)
+
+          qr_old="Scanne le QR code pour vérifier dynamiquement l'état public de cette édition."
+          if r.count(qr_old)!=1: raise SystemExit("Expected QR instruction not found.")
+          r=r.replace(qr_old,"Veuillez scanner le QR code pour vérifier cette édition.",1)
+
+          qr_detail='    r"    {\\sffamily\\scriptsize\\color{gray}La destination publique et l\'intégrité du PDF sont contrôlées au moment du scan.\\par\\medskip}",\n'
+          if r.count(qr_detail)!=1: raise SystemExit("Expected QR detail not found.")
+          r=r.replace(qr_detail,"",1)
+
+          resolver='        r"      Le QR ne pointe ni vers l\'administration ni vers un stockage interne. Il retrouvera automatiquement la publication publique lorsque celle-ci existe.",\n'
+          if r.count(resolver)!=1: raise SystemExit("Expected resolver explanation not found.")
+          r=r.replace(resolver,"",1)
+
+          rights_old='''        r"    \\begin{tcolorbox}[colback=aurorepale,colframe=aurorebase!18!white,arc=10pt,boxrule=.35pt,left=9pt,right=9pt,top=6pt,bottom=6pt]",
+        r"      {\\sffamily\\scriptsize\\bfseries\\color{auroredeep}DROITS \\& RÉUTILISATION}\\par\\smallskip",
+        r"      {\\sffamily\\scriptsize\\color{auroredeep}Cette édition constitue une création éditoriale d'Aurore. Les connaissances générales et formules restent réutilisables sous réserve des droits applicables aux éléments tiers.\\par}",
+        r"      {\\sffamily\\scriptsize\\color{gray}Les ressources tierces conservent leurs propres licences et conditions d'utilisation.\\par}",
+        r"    \\end{tcolorbox}",
+'''
+          rights_new='''        r"    \\begin{tcolorbox}[colback=aurorepale,colframe=aurorebase!22!white,arc=11pt,boxrule=.45pt,left=10pt,right=10pt,top=8pt,bottom=8pt]",
+        r"      {\\sffamily\\small\\bfseries\\color{auroredeep}DROITS \\& RÉUTILISATION}\\par\\medskip",
+        r"      {\\sffamily\\footnotesize\\color{auroredeep}Cette édition constitue une création éditoriale d'Aurore. Les connaissances générales et formules restent réutilisables sous réserve des droits applicables aux éléments tiers.\\par}",
+        r"      {\\sffamily\\footnotesize\\color{gray}Les ressources tierces conservent leurs propres licences et conditions d'utilisation.\\par}",
+        r"    \\end{tcolorbox}",
+'''
+          if rights_old not in r: raise SystemExit("Rights block target changed; aborting.")
+          r=r.replace(rights_old,rights_new,1)
+
+          guard='''def _has_usable_content_json(data):
+    if not isinstance(data, dict):
+        return False
+    if not str(data.get("title") or "").strip():
+        return False
+    if not str(data.get("introduction") or "").strip():
+        return False
+    sections = data.get("sections")
+    if not isinstance(sections, list) or not sections:
+        return False
+    return any(
+        isinstance(section, dict)
+        and isinstance(section.get("content"), list)
+        and any(str(item or "").strip() for item in section.get("content", []))
+        for section in sections
+    )
+
+
+'''
+          if "def _has_usable_content_json(data):" not in r:
+              if r.count("def render(data):\n")!=1: raise SystemExit("Renderer render() anchor changed; aborting.")
+              r=r.replace("def render(data):\n",guard+"def render(data):\n",1)
+          render_start="def render(data):\n"
+          head=r[r.index(render_start):r.index(render_start)+260]
+          if "structured content_json is required" not in head:
+              r=r.replace(render_start,'def render(data):\n    if not _has_usable_content_json(data):\n        raise ValueError("LuaLaTeX source rejected: structured content_json is required")\n',1)
+
+          select_old='select("id,title,status,pdf_path,pdf_url,version,metadata,updated_at,created_at")'
+          select_new='select("id,title,status,pdf_path,pdf_url,version,metadata,content_json,updated_at,created_at")'
+          if select_old in q: q=q.replace(select_old,select_new,1)
+          elif select_new not in q: raise SystemExit("Queue select target changed; aborting.")
+
+          qhelper='''const hasUsableContentJson=(value:unknown)=>{
+  const d=value&&typeof value==="object"?value as Record<string,unknown>:{};
+  const sections=Array.isArray(d.sections)?d.sections:[];
+  return String(d.title??"").trim().length>0 &&
+    String(d.introduction??"").trim().length>0 &&
+    sections.length>0 &&
+    sections.some((s:any)=>Array.isArray(s?.content)&&s.content.some((x:any)=>String(x??"").trim().length>0));
+};
+'''
+          if "const hasUsableContentJson=" not in q:
+              anchor='const out=(x:unknown,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{...C,"Content-Type":"application/json"}});\n'
+              if q.count(anchor)!=1: raise SystemExit("Queue helper anchor changed; aborting.")
+              q=q.replace(anchor,anchor+qhelper,1)
+
+          old_pred='''const doc=(candidates||[]).find((row:any)=>{const m=row?.metadata&&typeof row.metadata==="object"?row.metadata:{};return m.lualatex_requested===true||m.lualatex_status==="queued"});'''
+          new_pred='''const doc=(candidates||[]).find((row:any)=>{const m=row?.metadata&&typeof row.metadata==="object"?row.metadata:{};return (m.lualatex_requested===true||m.lualatex_status==="queued")&&hasUsableContentJson(row?.content_json)});'''
+          if old_pred in q: q=q.replace(old_pred,new_pred,1)
+          elif new_pred not in q: raise SystemExit("Queue predicate target changed; aborting.")
+
+          renderer.write_text(r,encoding="utf-8")
+          queue.write_text(q,encoding="utf-8")
+          subprocess.run(["python3","-m","py_compile",str(renderer)],check=True)
+          subprocess.run(["git","diff","--check"],check=True)
+
+          changed=subprocess.check_output(["git","diff","--name-only"],text=True).splitlines()
+          expected={"infra/lualatex/render_document.py","supabase/functions/aurora-lualatex-next/index.ts",".github/workflows/_apply_pdf_editorial_safe_patch.yml",".github/workflows/_apply_pdf_editorial_pr_patch.yml"}
+          if not set(changed).issubset(expected):
+              raise SystemExit(f"Unexpected changes: {changed}")
+          print("Surgical renderer/queue patch validated.")
+          print("\n".join(changed))
+
+      - name: Remove one-shot workflows and commit
+        run: |
+          rm -f .github/workflows/_apply_pdf_editorial_safe_patch.yml .github/workflows/_apply_pdf_editorial_pr_patch.yml
+          git config user.name "Aurore Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add infra/lualatex/render_document.py supabase/functions/aurora-lualatex-next/index.ts .github/workflows/_apply_pdf_editorial_safe_patch.yml .github/workflows/_apply_pdf_editorial_pr_patch.yml
+          git commit -m "fix: harden PDF source and modernize editorial colophon"
+          git push origin HEAD:${{ github.head_ref }}
