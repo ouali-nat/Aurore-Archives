@@ -114,3 +114,37 @@
   });
   setInterval(function(){if(enAttente)tenter();},5000);
 })();
+
+/* Aurore — couvertures disponibles hors ligne
+   Le site garde la 1re page de chaque PDF dans IndexedDB (aurore-couvertures-db),
+   mais lit cette base de façon asynchrone sans l'attendre : si la liste s'affiche
+   avant la fin de la lecture, le site croit que la vignette n'existe pas et tente
+   de la refaire depuis le PDF. En ligne cela passe inaperçu ; hors ligne cela échoue
+   et la carte reste sans couverture.
+   Correctif : on retarde le traitement de la file des couvertures jusqu'à ce que
+   la base soit chargée en mémoire. Aucune autre logique du site n'est modifiée. */
+(function(){
+  'use strict';
+  function installer(){
+    try{
+      if(window.__auroreCouvHorsLigne)return true;
+      if(typeof traiterFileCouvertures!=='function'||typeof CACHE_COUVERTURES_PRET==='undefined'||!CACHE_COUVERTURES_PRET||typeof CACHE_COUVERTURES_PRET.then!=='function')return false;
+      window.__auroreCouvHorsLigne=true;
+      var originale=traiterFileCouvertures;
+      var charge=false;
+      CACHE_COUVERTURES_PRET.then(function(){charge=true;},function(){charge=true;});
+      window.traiterFileCouvertures=function(){
+        if(charge)return originale();
+        var relancer=function(){charge=true;originale();};
+        CACHE_COUVERTURES_PRET.then(relancer,relancer);
+      };
+      return true;
+    }catch(e){return false;}
+  }
+  if(installer())return;
+  var essais=0;
+  var t=setInterval(function(){
+    essais++;
+    if(installer()||essais>80)clearInterval(t);
+  },250);
+})();
