@@ -62,3 +62,5 @@ jobs:
             fi
           done < editorial-job-ids.txt
           exit "$failed"
+
+# Canonical Supabase JSONB hash alignment for renderer validation — 2026-10-05
