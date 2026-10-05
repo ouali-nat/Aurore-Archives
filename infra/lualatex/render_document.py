@@ -3259,7 +3259,7 @@ def render_graphs(graphs, allow=True, exercise_mode=False):
         lines.extend([
             r"\begin{tcolorbox}[enhanced,breakable,colback=white,colframe=aurorebase,arc=7pt,boxrule=.45pt,left=8pt,right=8pt,top=8pt,bottom=8pt]",
             r"\centering",
-            r"\includegraphics[width=" + ("0.88" if exercise_mode else "0.92") + r"\linewidth,height=" + ("7.2cm" if exercise_mode else "10.5cm") + r",keepaspectratio]{" + safe_path + r"}",
+            r"\includegraphics[width=" + ("0.88" if exercise_mode else "0.92") + r"\linewidth,keepaspectratio]{" + safe_path + r"}",
             r"\par\smallskip{\sffamily\small\color{gray} " + title + r"}",
             r"\end{tcolorbox}",
             "",
