@@ -65,7 +65,14 @@
     { v: 'systeme', label: 'Auto', icon: 'monitor' }
   ];
 
-  function $(id) { return document.getElementById(id); }
+  var nav, scrim, toggle;
+
+  /* Cherche d'abord dans la page, puis dans la barre (utile avant son insertion dans le DOM). */
+  function $(id) {
+    var e = document.getElementById(id);
+    if (e) return e;
+    return nav ? nav.querySelector('#' + id) : null;
+  }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
   /* ---------- actions déléguées ---------- */
@@ -105,8 +112,6 @@
   function savePrefs(p) { try { localStorage.setItem(PKEY, JSON.stringify(p)); } catch (_) {} }
 
   /* ---------- construction ---------- */
-  var nav, scrim, toggle;
-
   function buildItem(it) {
     var b = document.createElement('button');
     b.type = 'button';
@@ -149,14 +154,6 @@
       '<div class="asb-sep"></div>' +
       '<div class="asb-user" id="asbUser" hidden><span class="asb-avatar" id="asbAvatar"></span><span class="asb-user-text"><strong id="asbName"></strong><small>Compte Aurore</small></span></div>';
 
-    var gMain = nav.querySelector('[data-group="main"]');
-    var gMore = nav.querySelector('[data-group="more"]');
-    MENU.forEach(function (it) { gMain.appendChild(buildItem(it)); });
-    MORE.forEach(function (it) { gMore.appendChild(buildItem(it)); });
-
-    buildLook();
-    buildFloat();
-
     scrim = document.createElement('div');
     scrim.className = 'asb-scrim';
     scrim.addEventListener('click', function () { setOpen(false); });
@@ -168,9 +165,19 @@
     toggle.innerHTML = svg('chevron', 16);
     toggle.addEventListener('click', function () { setOpen(!nav.classList.contains('is-open')); });
 
+    /* On insère d'abord la barre, la poignée et le fond : même si un détail du
+       contenu échouait ensuite, la poignée d'ouverture existe toujours. */
     document.body.appendChild(scrim);
     document.body.appendChild(nav);
     document.body.appendChild(toggle);
+
+    var gMain = nav.querySelector('[data-group="main"]');
+    var gMore = nav.querySelector('[data-group="more"]');
+    MENU.forEach(function (it) { gMain.appendChild(buildItem(it)); });
+    MORE.forEach(function (it) { gMore.appendChild(buildItem(it)); });
+
+    try { buildLook(); } catch (e) { if (window.console) console.warn('[sidebar] apparence', e); }
+    try { buildFloat(); } catch (e) { if (window.console) console.warn('[sidebar] flottants', e); }
 
     nav.querySelector('.asb-collapse').addEventListener('click', function () {
       if (window.matchMedia('(max-width:900px)').matches) { setOpen(false); return; }
@@ -451,20 +458,20 @@
     build();
     try { if (localStorage.getItem(KEY) === '1') setCollapsed(true); } catch (_) {}
     document.documentElement.classList.add('has-asb');
-    renderTree();
-    refresh();
+    try { renderTree(); } catch (e) {}
+    try { refresh(); } catch (e) {}
 
     ['aurore:user-connected', 'aurore:user-disconnected'].forEach(function (e) {
-      window.addEventListener(e, function () { setTimeout(refresh, 60); });
+      window.addEventListener(e, function () { setTimeout(function () { try { refresh(); } catch (_) {} }, 60); });
     });
-    observe($('userChip'), { attributes: true, attributeFilter: ['style', 'class'] }, refresh);
-    observe($('breadcrumb'), { childList: true, subtree: true, characterData: true }, renderTree);
-    observe($('personalFolderGrid'), { childList: true, subtree: true }, renderSections);
+    observe($('userChip'), { attributes: true, attributeFilter: ['style', 'class'] }, function () { try { refresh(); } catch (_) {} });
+    observe($('breadcrumb'), { childList: true, subtree: true, characterData: true }, function () { try { renderTree(); } catch (_) {} });
+    observe($('personalFolderGrid'), { childList: true, subtree: true }, function () { try { renderSections(); } catch (_) {} });
     observe($('colorThemeFlyoutScroll'), { attributes: true, subtree: true, attributeFilter: ['aria-pressed'] }, syncLook);
     observe($('themeSwitch'), { attributes: true, subtree: true, attributeFilter: ['aria-pressed'] }, syncLook);
 
     var n = 0;
-    (function poll() { refresh(); renderTree(); if (n++ < 30) setTimeout(poll, 500); })();
+    (function poll() { try { refresh(); renderTree(); } catch (_) {} if (n++ < 30) setTimeout(poll, 500); })();
     document.addEventListener('click', function () { setTimeout(syncActive, 150); }, true);
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setOpen(false); });
   }
