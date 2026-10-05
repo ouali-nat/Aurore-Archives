@@ -1794,6 +1794,20 @@ jobs:
           print(f"LuaLaTeX failure recorded: document={data['document_id']} action={data['action']} failure_count={data['failure_count']} automatic_retry={data.get('automatic_retry')}")
           PY
 
+      - name: Record cancelled renderer job
+        if: always() && cancelled() && hashFiles('infra/lualatex/production/document-id') != ''
+        run: |
+          DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          curl --fail --silent --show-error             -X POST             -H "Content-Type: application/json"             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN"             --data "{\"document_id\":$DOCUMENT_ID,\"cancelled\":true,\"error\":\"GitHub Actions run $GITHUB_RUN_ID cancelled\"}"             "$SUPABASE_URL/functions/v1/aurora-lualatex-fail"             -o infra/lualatex/production/cancel-response.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("infra/lualatex/production/cancel-response.json").read_text())
+          if not data.get("ok"):
+              raise SystemExit(f"Cancellation cleanup failed: {data}")
+          print(f"LuaLaTeX cancellation recorded: document={data['document_id']} action={data['action']} automatic_retry={data.get('automatic_retry')}")
+          PY
+
       - name: Create downloadable ZIP package
         if: success() && hashFiles('infra/lualatex/production/document-id') != '' && hashFiles('infra/lualatex/production/document.pdf') != ''
         working-directory: infra/lualatex/production
