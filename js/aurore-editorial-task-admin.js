@@ -640,6 +640,16 @@ function cPlanCompleteness(t,p){
   const researchSourceCount=String(p?.sources||'').split(/\n|\r?\n/).map(x=>x.trim()).filter(Boolean).length;
   if(researchSourceCount<1)missing.unshift('research_source');
   if(String(p?.quality||'').trim().length<40)missing.unshift('quality_detail');
+  const structuredChecks=[['pdfTypography',p?.pdfTypography],['pdfHeadersFooters',p?.pdfHeadersFooters],['pdfResourcesQrAnnexes',p?.pdfResourcesQrAnnexes],['editorialNotes',p?.editorialNotes]];
+  structuredChecks.forEach(([k,v])=>{
+    if(k==='editorialNotes'){
+      if(!v||typeof v!=='object'||v.status!=='complete'||!String(v.notes||'').trim())missing.unshift(k);
+    }else if(!v||typeof v!=='object'||v.status!=='complete'||!String(v.value||'').trim())missing.unshift(k);
+  });
+  const qc=p?.qualityControlExpected;
+  ['mathematical_accuracy','disciplinary_progression','explicit_reasoning','no_repetition','scientific_guardrails'].forEach(k=>{
+    if(!qc||typeof qc!=='object'||qc.status!=='complete'||!String(qc[k]||'').trim())missing.unshift('qualityControlExpected');
+  });
   return {ok:missing.length===0,missing:[...new Set(missing)],selectedCount:chapterNames.length,sourceCount:researchSourceCount};
 }
 const C_PLAN_FIELD_LABELS={
@@ -665,7 +675,7 @@ const cAIContext=(t,p,missing)=>{
   const w=t.metadata?.workflow||{};
   const selected=selectedChaptersFor(t).map(x=>cAIText(x?.title||x?.name||x)).filter(Boolean);
   const take=(v,n)=>cAIText(v).slice(0,n||160);
-  const core=['title','chapter','objectives','competencies','progression','architecture','productionStrategy','content','methods','activities','examples','situations','exercises','corrections','evaluation','resources','technicalNeeds','pdfLayout','pdfFonts','pdfHeaders','pdfResources','quality','notes'];
+  const core=['title','chapter','objectives','competencies','progression','architecture','productionStrategy','content','methods','activities','examples','situations','exercises','corrections','evaluation','resources','technicalNeeds','pdfLayout','pdfTypography','pdfFonts','pdfHeaders','pdfResources','quality','notes'];
   const plan={};
   core.forEach(k=>{if(!missing.includes(k)&&cAIText(p[k]))plan[k]=take(p[k],k==='content'||k==='progression'||k==='architecture'||k==='productionStrategy'||k==='quality'?220:150)});
   return {
