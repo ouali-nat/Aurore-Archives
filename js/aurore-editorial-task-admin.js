@@ -1180,8 +1180,22 @@ function bindDetail(d,t,state){
     setGuardStatus('Garde-fou C validé : tous les champs obligatoires sont complets. Écriture autorisée.');
     const stage=targetStage||fw.stage||'proposition_editoriale';
     const status=targetStatus||fw.proposal_status||'plan_editing';
+    // La vue C normalise les champs structurés en texte. Avant persistance,
+    // reconstruire explicitement leur contrat structuré pour que CX exige bien
+    // status="complete" dans workflow.proposal.
+    const persistedProposal={
+      ...p,
+      pdfTypography:{status:'complete',value:String(p.pdfTypography||'').trim()},
+      pdfHeadersFooters:{status:'complete',value:String(p.pdfHeaders||'').trim()},
+      pdfResourcesQrAnnexes:{status:'complete',value:String(p.pdfResources||'').trim()},
+      editorialNotes:{status:'complete',notes:String(p.notes||'').trim()}
+    };
+    const persistedGuard=cPlanCompleteness(fresh,persistedProposal);
+    if(!persistedGuard.ok){
+      throw new Error('Garde-fou C : les champs structurés du plan ne sont pas complets avant persistance : '+persistedGuard.missing.map(x=>C_PLAN_FIELD_LABELS[x]||x).join(', '));
+    }
     const updated=await updateJob(t.id,{
-      proposal:p,
+      proposal:persistedProposal,
       proposal_version:Number(fw.proposal_version||0)+1,
       proposal_status:status,
       stage,
