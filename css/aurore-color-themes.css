@@ -8,27 +8,20 @@ html[data-color-theme="violet"]{--theme-primary:#8B5CF6;--theme-secondary:#C084F
 html[data-color-theme="rouge"]{--theme-primary:#E05260;--theme-secondary:#FF8A96;--theme-strong:#C93648;}
 html[data-color-theme="vert"]{--theme-primary:#2FA66A;--theme-secondary:#75D89C;--theme-strong:#198754;}
 html[data-color-theme="bleu"]{--theme-primary:#3B82F6;--theme-secondary:#7DB3FF;--theme-strong:#1D4ED8;}
-html[data-color-theme="jaune"]{--theme-primary:#D5A51B;--theme-secondary:#F5D36B;--theme-strong:#B77900;}
 html[data-color-theme="orange"]{--theme-primary:#E8791A;--theme-secondary:#FFB36B;--theme-strong:#C85C0D;}
-html[data-color-theme="cyan"]{--theme-primary:#0891B2;--theme-secondary:#67E8F9;--theme-strong:#0E7490;}
 html[data-color-theme="rose"]{--theme-primary:#DB2777;--theme-secondary:#F9A8D4;--theme-strong:#BE185D;}
 html[data-color-theme="indigo"]{--theme-primary:#6366F1;--theme-secondary:#A5B4FC;--theme-strong:#4338CA;}
-html[data-color-theme="turquoise"]{--theme-primary:#14B8A6;--theme-secondary:#67E8F9;--theme-strong:#0F766E;}
 html[data-color-theme="emeraude"]{--theme-primary:#10B981;--theme-secondary:#6EE7B7;--theme-strong:#047857;}
 html[data-color-theme="lime"]{--theme-primary:#84CC16;--theme-secondary:#BEF264;--theme-strong:#4D7C0F;}
-html[data-color-theme="sarcelle"]{--theme-primary:#0D9488;--theme-secondary:#5EEAD4;--theme-strong:#115E59;}
-html[data-color-theme="magenta"]{--theme-primary:#D946EF;--theme-secondary:#F0ABFC;--theme-strong:#A21CAF;}
-html[data-color-theme="fuchsia"]{--theme-primary:#C026D3;--theme-secondary:#F0ABFC;--theme-strong:#86198F;}
 html[data-color-theme="corail"]{--theme-primary:#F06A57;--theme-secondary:#FFB4A8;--theme-strong:#C2412D;}
 html[data-color-theme="bordeaux"]{--theme-primary:#9F1239;--theme-secondary:#FB7185;--theme-strong:#881337;}
-html[data-color-theme="pourpre"]{--theme-primary:#9333EA;--theme-secondary:#D8B4FE;--theme-strong:#6B21A8;}
-html[data-color-theme="prune"]{--theme-primary:#7E22CE;--theme-secondary:#C084FC;--theme-strong:#581C87;}
-html[data-color-theme="or"]{--theme-primary:#D4A017;--theme-secondary:#F6D365;--theme-strong:#9A6700;}
-html[data-color-theme="ambre"]{--theme-primary:#F59E0B;--theme-secondary:#FCD34D;--theme-strong:#B45309;}
-html[data-color-theme="menthe"]{--theme-primary:#10B981;--theme-secondary:#A7F3D0;--theme-strong:#047857;}
 html[data-color-theme="azur"]{--theme-primary:#0EA5E9;--theme-secondary:#7DD3FC;--theme-strong:#0369A1;}
-html[data-color-theme="lavande"]{--theme-primary:#8B5CF6;--theme-secondary:#DDD6FE;--theme-strong:#6D28D9;}
-html[data-color-theme="safran"]{--theme-primary:#EAB308;--theme-secondary:#FDE68A;--theme-strong:#A16207;}
+html[data-color-theme="petrole-cuivre"]{--theme-primary:#104C64;--theme-secondary:#D59D80;--theme-strong:#0D1D25;--theme-extra-1:#C6C6D0;--theme-extra-2:#C0754D;--theme-extra-3:#B6410F;}
+html[data-color-theme="nuit-peche"]{--theme-primary:#242F49;--theme-secondary:#FFA586;--theme-strong:#161E2F;--theme-extra-1:#384358;--theme-extra-2:#B51A2B;--theme-extra-3:#341A2C;}
+html[data-color-theme="prune-rouge"]{--theme-primary:#341A2C;--theme-secondary:#B51A2B;--theme-strong:#161E2F;--theme-extra-1:#242F49;--theme-extra-2:#384358;--theme-extra-3:#FFA586;}
+html[data-color-theme="terre-orange"]{--theme-primary:#E57A2D;--theme-secondary:#FDF3E7;--theme-strong:#3B2621;--theme-extra-1:#EFC1B5;--theme-extra-2:#B0B4C4;--theme-extra-3:#0D6B70;}
+html[data-color-theme="rose-sable"]{--theme-primary:#EFC1B5;--theme-secondary:#FDF3E7;--theme-strong:#3B2621;--theme-extra-1:#B0B4C4;--theme-extra-2:#E57A2D;--theme-extra-3:#0D6B70;}
+html[data-color-theme="sarcelle-creme"]{--theme-primary:#0D6B70;--theme-secondary:#FDF3E7;--theme-strong:#0D1D25;--theme-extra-1:#B0B4C4;--theme-extra-2:#EFC1B5;--theme-extra-3:#E57A2D;}
 
 html[data-color-theme]{
   --theme-soft:color-mix(in srgb,var(--theme-primary) 12%,transparent);
@@ -145,27 +138,20 @@ html[data-color-theme] .site-data-toolbar{border-color:var(--theme-border)!impor
 .profile-theme-option[data-color-choice="rouge"] .profile-theme-swatch{background:linear-gradient(135deg,#C93648,#FF8A96);}.theme-color-swatch[data-color-choice="rouge"]{background:linear-gradient(135deg,#C93648,#FF8A96);}
 .profile-theme-option[data-color-choice="vert"] .profile-theme-swatch{background:linear-gradient(135deg,#198754,#75D89C);}.theme-color-swatch[data-color-choice="vert"]{background:linear-gradient(135deg,#198754,#75D89C);}
 .profile-theme-option[data-color-choice="bleu"] .profile-theme-swatch{background:linear-gradient(135deg,#1D4ED8,#7DB3FF);}.theme-color-swatch[data-color-choice="bleu"]{background:linear-gradient(135deg,#1D4ED8,#7DB3FF);}
-.profile-theme-option[data-color-choice="jaune"] .profile-theme-swatch{background:linear-gradient(135deg,#B77900,#F5D36B);}.theme-color-swatch[data-color-choice="jaune"]{background:linear-gradient(135deg,#B77900,#F5D36B);}
 .profile-theme-option[data-color-choice="orange"] .profile-theme-swatch{background:linear-gradient(135deg,#C85C0D,#FFB36B);}.theme-color-swatch[data-color-choice="orange"]{background:linear-gradient(135deg,#C85C0D,#FFB36B);}
-.profile-theme-option[data-color-choice="cyan"] .profile-theme-swatch{background:linear-gradient(135deg,#0E7490,#67E8F9);}.theme-color-swatch[data-color-choice="cyan"]{background:linear-gradient(135deg,#0E7490,#67E8F9);}
 .profile-theme-option[data-color-choice="rose"] .profile-theme-swatch{background:linear-gradient(135deg,#BE185D,#F9A8D4);}.theme-color-swatch[data-color-choice="rose"]{background:linear-gradient(135deg,#BE185D,#F9A8D4);}
 .profile-theme-option[data-color-choice="indigo"] .profile-theme-swatch{background:linear-gradient(135deg,#4338CA,#A5B4FC);}.theme-color-swatch[data-color-choice="indigo"]{background:linear-gradient(135deg,#4338CA,#A5B4FC);}
-.profile-theme-option[data-color-choice="turquoise"] .profile-theme-swatch{background:linear-gradient(135deg,#0F766E,#67E8F9);}.theme-color-swatch[data-color-choice="turquoise"]{background:linear-gradient(135deg,#0F766E,#67E8F9);}
 .profile-theme-option[data-color-choice="emeraude"] .profile-theme-swatch{background:linear-gradient(135deg,#047857,#6EE7B7);}.theme-color-swatch[data-color-choice="emeraude"]{background:linear-gradient(135deg,#047857,#6EE7B7);}
 .profile-theme-option[data-color-choice="lime"] .profile-theme-swatch{background:linear-gradient(135deg,#4D7C0F,#BEF264);}.theme-color-swatch[data-color-choice="lime"]{background:linear-gradient(135deg,#4D7C0F,#BEF264);}
-.profile-theme-option[data-color-choice="sarcelle"] .profile-theme-swatch{background:linear-gradient(135deg,#115E59,#5EEAD4);}.theme-color-swatch[data-color-choice="sarcelle"]{background:linear-gradient(135deg,#115E59,#5EEAD4);}
-.profile-theme-option[data-color-choice="magenta"] .profile-theme-swatch{background:linear-gradient(135deg,#A21CAF,#F0ABFC);}.theme-color-swatch[data-color-choice="magenta"]{background:linear-gradient(135deg,#A21CAF,#F0ABFC);}
-.profile-theme-option[data-color-choice="fuchsia"] .profile-theme-swatch{background:linear-gradient(135deg,#86198F,#F0ABFC);}.theme-color-swatch[data-color-choice="fuchsia"]{background:linear-gradient(135deg,#86198F,#F0ABFC);}
 .profile-theme-option[data-color-choice="corail"] .profile-theme-swatch{background:linear-gradient(135deg,#C2412D,#FFB4A8);}.theme-color-swatch[data-color-choice="corail"]{background:linear-gradient(135deg,#C2412D,#FFB4A8);}
 .profile-theme-option[data-color-choice="bordeaux"] .profile-theme-swatch{background:linear-gradient(135deg,#881337,#FB7185);}.theme-color-swatch[data-color-choice="bordeaux"]{background:linear-gradient(135deg,#881337,#FB7185);}
-.profile-theme-option[data-color-choice="pourpre"] .profile-theme-swatch{background:linear-gradient(135deg,#6B21A8,#D8B4FE);}.theme-color-swatch[data-color-choice="pourpre"]{background:linear-gradient(135deg,#6B21A8,#D8B4FE);}
-.profile-theme-option[data-color-choice="prune"] .profile-theme-swatch{background:linear-gradient(135deg,#581C87,#C084FC);}.theme-color-swatch[data-color-choice="prune"]{background:linear-gradient(135deg,#581C87,#C084FC);}
-.profile-theme-option[data-color-choice="or"] .profile-theme-swatch{background:linear-gradient(135deg,#9A6700,#F6D365);}.theme-color-swatch[data-color-choice="or"]{background:linear-gradient(135deg,#9A6700,#F6D365);}
-.profile-theme-option[data-color-choice="ambre"] .profile-theme-swatch{background:linear-gradient(135deg,#B45309,#FCD34D);}.theme-color-swatch[data-color-choice="ambre"]{background:linear-gradient(135deg,#B45309,#FCD34D);}
-.profile-theme-option[data-color-choice="menthe"] .profile-theme-swatch{background:linear-gradient(135deg,#047857,#A7F3D0);}.theme-color-swatch[data-color-choice="menthe"]{background:linear-gradient(135deg,#047857,#A7F3D0);}
 .profile-theme-option[data-color-choice="azur"] .profile-theme-swatch{background:linear-gradient(135deg,#0369A1,#7DD3FC);}.theme-color-swatch[data-color-choice="azur"]{background:linear-gradient(135deg,#0369A1,#7DD3FC);}
-.profile-theme-option[data-color-choice="lavande"] .profile-theme-swatch{background:linear-gradient(135deg,#6D28D9,#DDD6FE);}.theme-color-swatch[data-color-choice="lavande"]{background:linear-gradient(135deg,#6D28D9,#DDD6FE);}
-.profile-theme-option[data-color-choice="safran"] .profile-theme-swatch{background:linear-gradient(135deg,#A16207,#FDE68A);}.theme-color-swatch[data-color-choice="safran"]{background:linear-gradient(135deg,#A16207,#FDE68A);}
+.profile-theme-option[data-color-choice="petrole-cuivre"] .profile-theme-swatch{background:linear-gradient(135deg,#0D1D25,#D59D80,#C6C6D0,#C0754D,#B6410F,#104C64);}.theme-color-swatch[data-color-choice="petrole-cuivre"]{background:linear-gradient(135deg,#0D1D25,#D59D80,#C6C6D0,#C0754D,#B6410F,#104C64);}
+.profile-theme-option[data-color-choice="nuit-peche"] .profile-theme-swatch{background:linear-gradient(135deg,#161E2F,#FFA586,#384358,#B51A2B,#341A2C,#242F49);}.theme-color-swatch[data-color-choice="nuit-peche"]{background:linear-gradient(135deg,#161E2F,#FFA586,#384358,#B51A2B,#341A2C,#242F49);}
+.profile-theme-option[data-color-choice="prune-rouge"] .profile-theme-swatch{background:linear-gradient(135deg,#161E2F,#B51A2B,#242F49,#384358,#FFA586,#341A2C);}.theme-color-swatch[data-color-choice="prune-rouge"]{background:linear-gradient(135deg,#161E2F,#B51A2B,#242F49,#384358,#FFA586,#341A2C);}
+.profile-theme-option[data-color-choice="terre-orange"] .profile-theme-swatch{background:linear-gradient(135deg,#3B2621,#FDF3E7,#EFC1B5,#B0B4C4,#0D6B70,#E57A2D);}.theme-color-swatch[data-color-choice="terre-orange"]{background:linear-gradient(135deg,#3B2621,#FDF3E7,#EFC1B5,#B0B4C4,#0D6B70,#E57A2D);}
+.profile-theme-option[data-color-choice="rose-sable"] .profile-theme-swatch{background:linear-gradient(135deg,#3B2621,#FDF3E7,#B0B4C4,#E57A2D,#0D6B70,#EFC1B5);}.theme-color-swatch[data-color-choice="rose-sable"]{background:linear-gradient(135deg,#3B2621,#FDF3E7,#B0B4C4,#E57A2D,#0D6B70,#EFC1B5);}
+.profile-theme-option[data-color-choice="sarcelle-creme"] .profile-theme-swatch{background:linear-gradient(135deg,#0D1D25,#FDF3E7,#B0B4C4,#EFC1B5,#E57A2D,#0D6B70);}.theme-color-swatch[data-color-choice="sarcelle-creme"]{background:linear-gradient(135deg,#0D1D25,#FDF3E7,#B0B4C4,#EFC1B5,#E57A2D,#0D6B70);}
 .profile-theme-option b{font-size:.68rem;line-height:1.1;}
 .profile-theme-compact-actions{position:relative; padding:14px 20px 18px;}
 .profile-theme-compact-actions .admin-btn{width:auto;}
