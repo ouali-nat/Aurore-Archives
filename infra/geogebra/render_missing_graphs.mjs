@@ -9,27 +9,63 @@ import { GEO_GEBRA_RENDERER_CONTRACT_VERSION, GEOMETRY2D_SUPPORTED_TYPES, GEOMET
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const RENDER_TOKEN = process.env.AURORA_LUALATEX_RENDER_TOKEN;
+const VALIDATE_ONLY = String(process.env.GEOGEBRA_VALIDATE_ONLY || "").toLowerCase() === "true";
 const DOCUMENT_ID = Number(process.env.DOCUMENT_ID);
+const JOB_ID = Number(process.env.JOB_ID);
 const GEO_GEBRA_RENDERER_VERSION = GEO_GEBRA_RENDERER_CONTRACT_VERSION;
 
-if (!SUPABASE_URL || !RENDER_TOKEN || !Number.isSafeInteger(DOCUMENT_ID)) {
-  throw new Error("SUPABASE_URL, AURORA_LUALATEX_RENDER_TOKEN et DOCUMENT_ID sont requis.");
+if (!SUPABASE_URL || !RENDER_TOKEN || (!VALIDATE_ONLY && !Number.isSafeInteger(DOCUMENT_ID)) || (VALIDATE_ONLY && !Number.isSafeInteger(JOB_ID))) {
+  throw new Error(
+    VALIDATE_ONLY
+      ? "SUPABASE_URL, AURORA_LUALATEX_RENDER_TOKEN et JOB_ID sont requis en mode validate-only."
+      : "SUPABASE_URL, AURORA_LUALATEX_RENDER_TOKEN et DOCUMENT_ID sont requis.",
+  );
 }
 
-const sourceUrl = `${SUPABASE_URL}/functions/v1/aurora-lualatex-source?document_id=${DOCUMENT_ID}`;
-const sourceResponse = await fetch(sourceUrl, {
-  headers: { "x-aurore-render-token": RENDER_TOKEN },
-});
-if (!sourceResponse.ok) {
-  throw new Error(`Source document HTTP ${sourceResponse.status}: ${await sourceResponse.text()}`);
+let sourcePayload;
+let document;
+if (VALIDATE_ONLY) {
+  const sourceResponse = await fetch(`${SUPABASE_URL}/functions/v1/aurora-geogebra`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-aurore-render-token": RENDER_TOKEN,
+    },
+    body: JSON.stringify({ action: "get-editorial", job_id: JOB_ID }),
+  });
+  if (!sourceResponse.ok) {
+    throw new Error(`Editorial job HTTP ${sourceResponse.status}: ${await sourceResponse.text()}`);
+  }
+  const editorialPayload = await sourceResponse.json();
+  if (!editorialPayload?.ok || !editorialPayload?.editorial_content || typeof editorialPayload.editorial_content !== "object") {
+    throw new Error(`Le contenu éditorial D est introuvable pour la tâche #${JOB_ID}.`);
+  }
+  document = {
+    ...(editorialPayload.job || {}),
+    content_json: editorialPayload.editorial_content,
+    id: Number(editorialPayload.job?.id || JOB_ID),
+    title: editorialPayload.job?.title || "",
+  };
+} else {
+  const sourceUrl = `${SUPABASE_URL}/functions/v1/aurora-lualatex-source?document_id=${DOCUMENT_ID}`;
+  const sourceResponse = await fetch(sourceUrl, {
+    headers: { "x-aurore-render-token": RENDER_TOKEN },
+  });
+  if (!sourceResponse.ok) {
+    throw new Error(`Source document HTTP ${sourceResponse.status}: ${await sourceResponse.text()}`);
+  }
+  sourcePayload = await sourceResponse.json();
+  document = sourcePayload?.document;
 }
-const sourcePayload = await sourceResponse.json();
-const document = sourcePayload?.document;
 if (!document?.content_json || typeof document.content_json !== "object") {
   throw new Error("Le document source ne contient pas content_json.");
 }
 
 const content = structuredClone(document.content_json);
+if (VALIDATE_ONLY) {
+  content.subject = document.subject || "";
+  content.document_type = document.document_type || "";
+}
 content._aurore_document = {
   ...(content._aurore_document && typeof content._aurore_document === "object"
     ? content._aurore_document
@@ -262,7 +298,7 @@ function graphEntries(content) {
 }
 
 const pending = graphEntries(content)
-  .filter((entry) => validGraph(entry.graph) && !imageReady(entry.graph));
+  .filter((entry) => validGraph(entry.graph) && (VALIDATE_ONLY || !imageReady(entry.graph)));
 
 console.log(`GeoGebra server-side: ${pending.length} graphique(s) à rendre pour le document #${DOCUMENT_ID}.`);
 
@@ -906,6 +942,75 @@ const renderGraphInBrowser = async (graph) => {
   }, preparedGraph);
 };
 
+if (VALIDATE_ONLY) {
+  let validatedGraphCount = 0;
+  const failures = [];
+  for (const item of pending) {
+    console.log(
+      `GeoGebra validation ${item.graphIndex + 1}: ${item.graph?.title || "Graphique"} (${pending.indexOf(item) + 1}/${pending.length})`,
+    );
+    try {
+      await renderGraphInBrowser(item.graph);
+      validatedGraphCount++;
+      console.log("  → renderer acceptance: OK");
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      failures.push({
+        graph_index: item.graphIndex,
+        title: String(item.graph?.title || "Graphique"),
+        instrument: String(item.graph?.instrument || item.graph?.graph_type || ""),
+        error: message,
+      });
+      console.error(`  → renderer acceptance: BLOCKED — ${message}`);
+    }
+  }
+
+  await browser.close();
+  await new Promise((resolve) => server.close(resolve));
+
+  const report = {
+    renderer_contract_version: GEO_GEBRA_RENDERER_VERSION,
+    job_id: JOB_ID,
+    graph_count: pending.length,
+    validated_graph_count: validatedGraphCount,
+    status: failures.length === 0 ? "pass" : "fail",
+    failures,
+  };
+
+  const validationResponse = await fetch(`${SUPABASE_URL}/functions/v1/aurora-geogebra`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-aurore-render-token": RENDER_TOKEN,
+    },
+    body: JSON.stringify({
+      action: "register-validation",
+      job_id: JOB_ID,
+      status: report.status,
+      graph_count: report.graph_count,
+      validated_graph_count: report.validated_graph_count,
+      report,
+    }),
+  });
+  const validationData = await validationResponse.json().catch(() => ({}));
+  if (!validationResponse.ok || !validationData?.ok) {
+    throw new Error(
+      `Enregistrement validation GeoGebra échoué pour la tâche #${JOB_ID}: ${JSON.stringify(validationData)}`,
+    );
+  }
+
+  console.log(
+    `GeoGebra editorial validation #${JOB_ID}: ${report.validated_graph_count}/${report.graph_count} graphique(s) acceptés par le renderer v${GEO_GEBRA_RENDERER_VERSION}; status=${report.status}.`,
+  );
+
+  if (failures.length) {
+    throw new Error(
+      `Validation GeoGebra bloquée pour la tâche #${JOB_ID}: ${failures.map((f) => `graph ${f.graph_index + 1} — ${f.title}: ${f.error}`).join(" | ")}`,
+    );
+  }
+  process.exit(0);
+}
+
 for (const item of pending) {
   console.log(`GeoGebra ${item.graphIndex + 1}: ${item.graph?.title || "Graphique"} (${pending.indexOf(item) + 1}/${pending.length})`);
   const pngBase64 = await renderGraphInBrowser(item.graph);
@@ -928,9 +1033,6 @@ for (const item of pending) {
       `GeoGebra upload échoué pour ${item.graphIndex + 1}: ${JSON.stringify(uploadData)}`,
     );
   }
-  // item.graph is the exact graph object returned by graphEntries().
-  // graphIndex is global across the document, so it must not be used as a
-  // section-local array index when persisting the generated asset metadata.
   item.graph.geogebra_image_path = uploadData.path;
   item.graph.geogebra_image_source = "geogebra";
   item.graph.geogebra_renderer_version = GEO_GEBRA_RENDERER_VERSION;
@@ -938,19 +1040,4 @@ for (const item of pending) {
   console.log(`  → PNG enregistré: ${uploadData.path} (${uploadData.bytes} bytes)`);
 }
 
-await browser.close();
-await new Promise((resolve) => server.close(resolve));
-
-await fs.writeFile(
-  "infra/lualatex/production/document.json",
-  JSON.stringify(content, null, 2),
-  "utf8",
-);
-
-const remaining = graphEntries(content)
-  .filter((entry) => validGraph(entry.graph) && !imageReady(entry.graph))
-  .map((entry) => entry.graphIndex);
-if (remaining.length) {
-  throw new Error(`Préparation GeoGebra incomplète. Graphiques manquants: ${remaining.map((n)=>n+1).join(", ")}`);
-}
 console.log(`GeoGebra server-side OK: ${pending.length} graphique(s) prêt(s) pour LuaLaTeX (renderer v${GEO_GEBRA_RENDERER_VERSION}).`);
