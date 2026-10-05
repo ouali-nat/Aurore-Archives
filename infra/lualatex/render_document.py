@@ -4378,7 +4378,7 @@ def render(data):
     exercise_number = 0
 
     corrections_by_number = {}
-    raw_corrections = data.get("corrections")
+    raw_corrections = None if is_exercise_document else data.get("corrections")
     correction_note = ""
     if isinstance(raw_corrections, list):
         structured_corrections = raw_corrections
@@ -4529,8 +4529,13 @@ def render(data):
                     break
                 exercise_number += 1
                 question = ex.get("question") or ex.get("statement") or ex.get("enonce") or ex.get("content") or ""
-                inline_correction = ex.get("solution") or ex.get("correction") or ""
-                correction_graphs = ex.get("correction_graphs", [])
+                inline_correction = ""
+                correction_graphs = []
+                if is_exercise_document and (ex.get("solution") or ex.get("correction")):
+                    raise ValueError(
+                        "EXERCISE_CORRECTION_LAYOUT: corrections must be stored in "
+                        "sections[].corrections[] with exercise_id; inline exercise correction is forbidden."
+                    )
                 if isinstance(correction_graphs, list):
                     exercise_correction_graphs_by_number[exercise_number] = correction_graphs
                 else:
@@ -4554,14 +4559,8 @@ def render(data):
                     )
                 if ex.get("formula"): body.append(display_formula(ex["formula"]))
                 lines.append(r"\AuroreExerciseSeriesBlock{" + str(exercise_number) + r"}{" + "\n".join(body) + r"}")
-                if inline_correction:
-                    inline_exercise_corrections.append(
-                        (
-                            exercise_number,
-                            inline_correction,
-                            correction_graphs if isinstance(correction_graphs, list) else [],
-                        )
-                    )
+                # Exercise-series corrections are rendered only from
+                # sections[].corrections[]. Inline exercise corrections are forbidden.
             lines.append(r"\AuroreCourseSectionEnd")
             continue
 
@@ -4657,7 +4656,7 @@ def render(data):
                     lines.append(r"\AuroreCorrectionBlock{" + str(exercise_number) + r"}{" + inline(inline_correction) + r"}")
 
     if is_exercise_document:
-        if corrections_by_number or inline_exercise_corrections:
+        if corrections_by_number:
             lines.append(r"\clearpage")
             lines.append(r"\section*{Corrigés}")
             lines.append(r"\addcontentsline{toc}{section}{Corrigés}")
@@ -4681,20 +4680,6 @@ def render(data):
                     r"\AuroreExerciseSeriesCorrection{" + str(number) + r"}{" + correction_body + r"}"
                 )
                 used_correction_numbers.add(number)
-        for number, solution, correction_graphs in inline_exercise_corrections:
-            if solution and number not in corrections_by_number:
-                correction_body_lines = []
-                if isinstance(correction_graphs, list):
-                    correction_body_lines.extend(
-                        render_graphs(correction_graphs, allow=True, exercise_mode=True)
-                    )
-                correction_body_lines.extend(
-                    render_exercise_text(solution, mode="correction")
-                )
-                correction_body = "\n".join(correction_body_lines)
-                lines.append(
-                    r"\AuroreExerciseSeriesCorrection{" + str(number) + r"}{" + correction_body + r"}"
-                )
 
     unmatched = [] if is_exercise_document else [
         c for c in structured_corrections
@@ -4965,3 +4950,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
