@@ -664,7 +664,7 @@ function cPlanCompleteness(t,p){
   const researchSourceCount=String(p?.sources||'').split(/\n|\r?\n/).map(x=>x.trim()).filter(Boolean).length;
   if(researchSourceCount<1)missing.unshift('research_source');
   if(String(p?.quality||'').trim().length<40)missing.unshift('quality_detail');
-  const structuredChecks=[['pdfTypography',p?.pdfTypography],['pdfHeadersFooters',p?.pdfHeadersFooters],['pdfResourcesQrAnnexes',p?.pdfResourcesQrAnnexes],['editorialNotes',p?.editorialNotes]];
+  const structuredChecks=[['pdfTypography',p?.pdfTypography],['pdfTypographyControl',p?.pdfTypographyControl],['pdfHeadersFooters',p?.pdfHeadersFooters],['pdfResourcesQrAnnexes',p?.pdfResourcesQrAnnexes],['editorialNotes',p?.editorialNotes]];
   structuredChecks.forEach(([k,v])=>{
     if(typeof v==='string'){
       if(!v.trim())missing.unshift(k);
@@ -686,7 +686,7 @@ const C_PLAN_FIELD_LABELS={
   exercises:'Exercices',corrections:'Corrigés / solutions',differentiation:'Différenciation / adaptations',evaluation:'Évaluation prévue',
   volume:'Volume pédagogique',duration:'Durée indicative',resources:'Ressources / illustrations',mathGeoGebra:'Mathématiques / GeoGebra',
   technicalNeeds:'Besoins techniques',pdfFormat:'Format PDF',pdfOrientation:'Orientation PDF',pdfPagination:'Pagination PDF',pdfThemeColor:'Couleur thème PDF',
-  pdfLayout:'Mise en page PDF',pdfTypography:'PDF typographie',pdfFonts:'Polices / typographie PDF',pdfHeaders:'En-têtes / pieds de page PDF',pdfResources:'Ressources PDF / QR / annexes',
+  pdfLayout:'Mise en page PDF',pdfTypography:'PDF typographie',pdfFonts:'Polices / typographie PDF',pdfHeaders:'En-têtes / pieds de page PDF',pdfResources:'Ressources PDF / QR / annexes',pdfTypographyControl:'Contrôle de typographie PDF',
   chapter_alignment:'Alignement exact avec la sélection B → plan C',
   quality:'Synthèse du contrôle qualité',qualityMathematicalAccuracy:'Exactitude mathématique',qualityDisciplinaryProgression:'Progression disciplinaire',qualityExplicitReasoning:'Raisonnement explicite',qualityNoRepetition:'Absence de répétition',qualityScientificGuardrails:'Garde-fous scientifiques',notes:'Notes éditoriales'
 };
@@ -1189,6 +1189,7 @@ function bindDetail(d,t,state){
     const now=new Date().toISOString();
     const qualityFallback=String(p.quality||'').trim();
     p.pdfTypography={status:'complete',value:String(p.pdfTypography||p.pdfFonts||'').trim(),updated_at:now};
+    p.pdfTypographyControl={status:'complete',value:String(p.pdfTypography.value||'').trim(),details:String(p.pdfTypography.value||'').trim(),updated_at:now};
     p.pdfFonts=String(p.pdfTypography.value||'').trim();
     p.pdfHeadersFooters={status:'complete',value:String(p.pdfHeaders||'').trim(),details:String(p.pdfHeaders||'').trim(),updated_at:now};
     p.pdfResourcesQrAnnexes={status:'complete',value:String(p.pdfResources||'').trim(),details:String(p.pdfResources||'').trim(),updated_at:now};
@@ -1214,6 +1215,7 @@ function bindDetail(d,t,state){
     const persistedProposal={
       ...p,
       pdfTypography:{status:'complete',value:String(p.pdfTypography||'').trim()},
+      pdfTypographyControl:{status:'complete',value:String(p.pdfTypography.value||'').trim(),details:String(p.pdfTypography.value||'').trim()},
       pdfHeadersFooters:{status:'complete',value:String(p.pdfHeaders||'').trim(),details:String(p.pdfHeaders||'').trim()},
       pdfResourcesQrAnnexes:{status:'complete',value:String(p.pdfResources||'').trim(),details:String(p.pdfResources||'').trim()},
       editorialNotes:{status:'complete',notes:String(p.notes||'').trim()}
@@ -1235,6 +1237,7 @@ function bindDetail(d,t,state){
       execution_contract:C_EXECUTION_CONTRACT,
       execution_contract_acknowledged:true,
       completion_guard:C_EXECUTION_CONTRACT_VERSION,
+      plan_version:C_EXECUTION_CONTRACT_VERSION,
       ...(stage==='proposal_review'?{admin_validation:null}:{}),
       manual_pdf_launch_required:true,
       auto_pdf_launch:false
