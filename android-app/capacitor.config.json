@@ -3,9 +3,10 @@
   "appName": "Aurore",
   "webDir": "www",
   "server": {
-    "url": "https://aurore-section-archives.com",
+    "url": "https://aurore-section-archivescom.vercel.app",
     "cleartext": false,
     "allowNavigation": [
+      "aurore-section-archivescom.vercel.app",
       "aurore-section-archives.com",
       "*.supabase.co",
       "lsnb-upload.oualikevin9.workers.dev",
