@@ -337,7 +337,28 @@ html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
   else observer();
 })();
 </script>
-\n</head>
+\n<style id="aurore-persistent-access-early-state">
+html.aurore-known-access body.site-locked{overflow:auto;}
+html.aurore-known-access body.site-locked > #accessLock{display:none!important;}
+</style><style id="aurore-persistent-access-early">
+/* Reprise silencieuse : si un accès connu existe, ne jamais afficher la porte
+   pendant le premier paint. Le verrou reste disponible pour une déconnexion
+   explicite ou une session réellement invalide. */
+body:not(.site-locked) #accessLock{display:none!important;}
+</style>
+<script id="aurore-persistent-access-early-script">
+(function(){
+  try{
+    const logout=localStorage.getItem('aurore_explicit_logout')==='1';
+    const known=!!localStorage.getItem('lsnb_session')||localStorage.getItem('aurore_visitor_mode')==='1';
+    if(known&&!logout){
+      document.documentElement.classList.add('aurore-known-access');
+      document.documentElement.dataset.auroreKnownAccess='1';
+    }
+  }catch(_){}
+})();
+</script>
+</head>
 <body class="site-locked">
 <!-- ===== PORTAIL D'ACCÈS ===== -->
 <div class="access-lock" id="accessLock">
