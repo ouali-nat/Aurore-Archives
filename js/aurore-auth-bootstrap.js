@@ -1,11 +1,76 @@
 // Client Supabase dédié à OAuth Google. Le reste du site conserve ses appels REST.
   // flowType pkce + échange manuel du code OAuth dans index.html.
+
+  // ---------- Application Android (Capacitor) ----------
+  // Google refuse la connexion dans une WebView. Dans l'appli, on ouvre donc
+  // Google dans le navigateur du téléphone (onglet Chrome), puis Supabase
+  // renvoie vers le lien profond ci-dessous qui rouvre l'appli avec ?code=...
+  // Le site web classique (navigateur) n'est pas concerné : rien ne change.
+  const AURORE_SCHEME_APP = 'app.vercel.aurore_section_archivescom.twa://auth';
+
+  function auroreEstAppliNative() {
+    try {
+      return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    } catch (_) { return false; }
+  }
+
+  function auroreAdapterClientNatif(client) {
+    if (!auroreEstAppliNative() || !client || !client.auth || client.auth.__auroreNatif) return client;
+    const originale = client.auth.signInWithOAuth.bind(client.auth);
+    client.auth.signInWithOAuth = async (credentials) => {
+      const Browser = window.Capacitor?.Plugins?.Browser;
+      if (!Browser) return originale(credentials);
+      const options = Object.assign({}, credentials && credentials.options, {
+        redirectTo: AURORE_SCHEME_APP,
+        skipBrowserRedirect: true
+      });
+      const res = await originale(Object.assign({}, credentials, { options }));
+      if (res && res.error) return res;
+      const url = res && res.data && res.data.url;
+      if (!url) return { data: res && res.data, error: new Error('Adresse de connexion Google introuvable.') };
+      window.__auroreRetourGoogleRecu = false;
+      await Browser.open({ url });
+      return res;
+    };
+    client.auth.__auroreNatif = true;
+    return client;
+  }
+
+  // Retour depuis Google : on recharge le site avec ?code=... (même origine,
+  // donc le code_verifier PKCE enregistré au départ est retrouvé), et le
+  // traitement existant de index.html finalise la connexion.
+  (function brancherRetourGoogleNatif() {
+    if (!auroreEstAppliNative()) return;
+    const plugins = window.Capacitor.Plugins || {};
+    const App = plugins.App;
+    const Browser = plugins.Browser;
+    if (App && App.addListener) {
+      App.addListener('appUrlOpen', (event) => {
+        const lien = (event && event.url) || '';
+        if (lien.indexOf(AURORE_SCHEME_APP) !== 0) return;
+        window.__auroreRetourGoogleRecu = true;
+        try { Browser && Browser.close && Browser.close(); } catch (_) {}
+        const requete = (lien.split('?')[1] || '').split('#')[0];
+        if (!requete) { window.location.reload(); return; }
+        window.location.href = window.location.origin + '/?' + requete;
+      });
+    }
+    // Onglet fermé sans terminer la connexion : on réarme la page.
+    if (Browser && Browser.addListener) {
+      Browser.addListener('browserFinished', () => {
+        setTimeout(() => {
+          if (!window.__auroreRetourGoogleRecu) window.location.reload();
+        }, 1500);
+      });
+    }
+  })();
+
   function creerClientAuthGoogle() {
-    return window.supabase.createClient(
+    return auroreAdapterClientNatif(window.supabase.createClient(
       "https://tdeotqfsbvouresfhkab.supabase.co",
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZW90cWZzYnZvdXJlc2Zoa2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjM4NzMsImV4cCI6MjEwMDUzOTg3M30.l_a1lI_QRy7BTq1fGjiA9n7LCdu7BwR2TTI5pkA70SU",
       { auth: { flowType: 'pkce', autoRefreshToken: true, persistSession: true, detectSessionInUrl: false, storage: window.localStorage } }
-    );
+    ));
   }
 
   // État global explicite : une page visuellement chargée n'implique pas que
