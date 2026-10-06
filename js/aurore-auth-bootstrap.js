@@ -54,10 +54,42 @@
         // (#access_token=...) : le natif utilise un flux client sans verifier PKCE.
         try {
           const cible = new URL(lien);
-          const query = cible.search || '';
-          const hash = cible.hash || '';
-          if (!query && !hash) { window.location.reload(); return; }
-          window.location.replace(window.location.origin + window.location.pathname + query + hash);
+          const hashParams = new URLSearchParams((cible.hash || '').replace(/^#/, ''));
+          const accessToken = hashParams.get('access_token');
+          const refreshToken = hashParams.get('refresh_token');
+
+          // Ne jamais renvoyer l'application native vers l'origine Web.
+          // Le flux implicite retourne directement les tokens dans le fragment :
+          // on les installe dans le client Supabase déjà présent dans l'APK.
+          if (accessToken && refreshToken && window.AURORE_SUPABASE_AUTH?.auth) {
+            const resultat = await window.AURORE_SUPABASE_AUTH.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken
+            });
+            if (resultat && resultat.error) {
+              console.error('[Aurore OAuth Android] setSession:', resultat.error);
+              window.dispatchEvent(new CustomEvent('aurore-google-auth-error', { detail: resultat.error }));
+            } else {
+              window.dispatchEvent(new CustomEvent('aurore-google-auth-success'));
+            }
+            return;
+          }
+
+          // Secours : si Supabase renvoie exceptionnellement un code OAuth,
+          // on l'échange dans l'APK sans navigation vers le site Web.
+          const code = cible.searchParams.get('code');
+          if (code && window.AURORE_SUPABASE_AUTH?.auth?.exchangeCodeForSession) {
+            const resultat = await window.AURORE_SUPABASE_AUTH.auth.exchangeCodeForSession(code);
+            if (resultat && resultat.error) {
+              console.error('[Aurore OAuth Android] exchangeCodeForSession:', resultat.error);
+              window.dispatchEvent(new CustomEvent('aurore-google-auth-error', { detail: resultat.error }));
+            } else {
+              window.dispatchEvent(new CustomEvent('aurore-google-auth-success'));
+            }
+            return;
+          }
+
+          window.location.reload();
         } catch (_) {
           window.location.reload();
         }
@@ -94,6 +126,7 @@
   window.__AURORE_AUTH_GOOGLE_READY = false;
 
   let AURORE_SUPABASE_AUTH = window.supabase?.createClient ? creerClientAuthGoogle() : null;
+  window.AURORE_SUPABASE_AUTH = AURORE_SUPABASE_AUTH;
   let __auroreSupabaseFallbackPromise = null;
   let __auroreSupabaseAuthPromise = null;
 
