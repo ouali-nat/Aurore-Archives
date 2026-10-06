@@ -522,7 +522,7 @@ function validateCourseQuality(content:any,subject:any,profile:any,instructions:
 
 function normalizeCourseInlineMath(content:any, profile:any){
   if(profile?.kind!=="cours" || !Array.isArray(content?.sections)) return content;
-  const displayPattern=/\\\\\[([\\s\\S]*?)\\\\\]/g;
+  const displayPattern=/\\\[([\s\S]*?)\\\]/g;
   for(const section of content.sections){
     if(!Array.isArray(section?.content)) continue;
     section.content=section.content.map((raw:any)=>{
@@ -530,7 +530,7 @@ function normalizeCourseInlineMath(content:any, profile:any){
       const value=raw.trim();
       if(!value) return raw;
       // A standalone display formula remains display math.
-      const onlyDisplay=value.match(/^\\\\\[([\\s\\S]*?)\\\\\]$/);
+      const onlyDisplay=value.match(/^\\\[([\s\S]*?)\\\]$/);
       if(onlyDisplay) return raw;
       // Display delimiters embedded in prose are a malformed inline representation:
       // normalize them to inline $...$ without touching genuine standalone blocks.
