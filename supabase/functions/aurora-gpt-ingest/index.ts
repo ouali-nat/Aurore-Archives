@@ -520,6 +520,29 @@ function validateCourseQuality(content:any,subject:any,profile:any,instructions:
   };
 }
 
+function normalizeCourseInlineMath(content:any, profile:any){
+  if(profile?.kind!=="cours" || !Array.isArray(content?.sections)) return content;
+  const displayPattern=/\\\\\[([\\s\\S]*?)\\\\\]/g;
+  for(const section of content.sections){
+    if(!Array.isArray(section?.content)) continue;
+    section.content=section.content.map((raw:any)=>{
+      if(typeof raw!=="string") return raw;
+      const value=raw.trim();
+      if(!value) return raw;
+      // A standalone display formula remains display math.
+      const onlyDisplay=value.match(/^\\\\\[([\\s\\S]*?)\\\\\]$/);
+      if(onlyDisplay) return raw;
+      // Display delimiters embedded in prose are a malformed inline representation:
+      // normalize them to inline $...$ without touching genuine standalone blocks.
+      return raw.replace(displayPattern, (_match:string, body:string)=>{
+        const normalized=body.trim();
+        return normalized ? "$"+normalized+"$" : "";
+      });
+    });
+  }
+  return content;
+}
+
 function normalizeEditorialSimilarityText(v:unknown){return String(v??"").normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/\\\\([^)]*\\\\)|\$[^$]*\$/g," ").replace(/https?:\/\/\S+/g," ").replace(/[^a-z0-9\s]/gi," ").replace(/\s+/g," ").trim();}
 const EDITORIAL_SIMILARITY_STOPWORDS=new Set(["a","au","aux","avec","ce","ces","cette","dans","de","des","du","elle","en","et","il","ils","la","le","les","leur","leurs","mais","ne","nos","notre","nous","on","ou","par","pas","pour","que","qui","se","ses","son","sur","un","une","vos","votre","vous","est","sont","etre","ete","comme","plus","ainsi","donc","entre","afin","tout","tous","toute","toutes"]);
 function editorialTokens(v:unknown){return normalizeEditorialSimilarityText(v).split(/\s+/).filter((w)=>w.length>=3&&!EDITORIAL_SIMILARITY_STOPWORDS.has(w));}
