@@ -90,3 +90,5 @@ jobs:
 # Revalidate 297 and 298 after final GeoGebra command compatibility fix — 2026-10-06
 
 # Revalidate 298 after structured point coordinate alignment — 2026-10-06
+
+# Revalidate 298 after minimal point-only GeoGebra graphs — 2026-10-06
