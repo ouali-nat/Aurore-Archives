@@ -7,6 +7,7 @@ on:
     branches: [main]
     paths:
       - 'android-app/**'
+      - 'js/aurore-auth-bootstrap.js'
       - '.github/workflows/android-apk.yml'
   workflow_dispatch:
 
