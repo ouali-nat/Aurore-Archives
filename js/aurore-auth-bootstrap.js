@@ -82,7 +82,7 @@
     const flowType = auroreEstAppliNative() ? 'implicit' : 'pkce';
     return auroreAdapterClientNatif(window.supabase.createClient(
       "https://tdeotqfsbvouresfhkab.supabase.co",
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZW90cWZzYnZvdXJlc2Zoa2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjM4NzMsImV4cCI6MjEwMDUzOTg3M30.l_a1lI_Qry7BTq1fGjiA9n7LCdu7BwR2TTI5pkA70SU",
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZW90cWZzYnZvdXJlc2Zoa2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjM4NzMsImV4cCI6MjEwMDUzOTg3M30.l_a1lI_QRy7BTq1fGjiA9n7LCdu7BwR2TTI5pkA70SU",
       { auth: { flowType, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false, storage: window.localStorage } }
     ));
   }
