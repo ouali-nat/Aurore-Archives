@@ -44,89 +44,121 @@
     const plugins = window.Capacitor.Plugins || {};
     const App = plugins.App;
     const Browser = plugins.Browser;
-    if (App && App.addListener) {
-      App.addListener('appUrlOpen', async (event) => {
-        const lien = (event && event.url) || '';
-        if (lien.indexOf(AURORE_SCHEME_APP) !== 0) return;
-        window.__auroreRetourGoogleRecu = true;
-        try { Browser && Browser.close && Browser.close(); } catch (_) {}
-        // Préserve à la fois la query (?code=...) et le fragment
-        // (#access_token=...) : le natif utilise un flux client sans verifier PKCE.
-        try {
-          const cible = new URL(lien);
-          const hashParams = new URLSearchParams((cible.hash || '').replace(/^#/, ''));
-          const accessToken = hashParams.get('access_token') || cible.searchParams.get('access_token');
-          const refreshToken = hashParams.get('refresh_token') || cible.searchParams.get('refresh_token');
+    let retourNatifEnCours = false;
 
-          // Ne jamais renvoyer l'application native vers l'origine Web.
-          // Le flux implicite retourne directement les tokens dans le fragment :
-          // on les installe dans le client Supabase déjà présent dans l'APK.
-          if (accessToken && refreshToken && window.AURORE_SUPABASE_AUTH?.auth) {
-            const resultat = await window.AURORE_SUPABASE_AUTH.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken
+    async function traiterRetourGoogleNatif(lien) {
+      lien = String(lien || '');
+      if (!lien || lien.indexOf(AURORE_SCHEME_APP) !== 0) return false;
+      if (retourNatifEnCours) return true;
+      retourNatifEnCours = true;
+      window.__auroreRetourGoogleRecu = true;
+
+      try { Browser && Browser.close && Browser.close(); } catch (_) {}
+
+      try {
+        const cible = new URL(lien);
+        const hashParams = new URLSearchParams((cible.hash || '').replace(/^#/, ''));
+        const accessToken = hashParams.get('access_token') || cible.searchParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token') || cible.searchParams.get('refresh_token');
+
+        // Retour implicite : les jetons reviennent directement dans le lien profond.
+        if (accessToken && refreshToken && window.AURORE_SUPABASE_AUTH?.auth) {
+          const resultat = await window.AURORE_SUPABASE_AUTH.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          });
+
+          if (resultat && resultat.error) {
+            console.error('[Aurore OAuth Android] setSession:', resultat.error);
+            window.dispatchEvent(new CustomEvent('aurore-google-auth-error', { detail: resultat.error }));
+            return false;
+          }
+
+          const sessionNative = resultat?.data?.session;
+          if (sessionNative?.access_token) {
+            if (typeof window.auroreFinaliserConnexionGoogleNative === 'function') {
+              return await window.auroreFinaliserConnexionGoogleNative(sessionNative);
+            }
+
+            // Secours pour une version ancienne du document encore en cache :
+            // on réutilise le traitement implicite déjà présent dans index.html.
+            const fragment = new URLSearchParams({
+              access_token: sessionNative.access_token,
+              refresh_token: sessionNative.refresh_token || refreshToken,
+              expires_in: String(Math.max(
+                60,
+                (sessionNative.expires_at || Math.floor(Date.now() / 1000) + 3600) -
+                Math.floor(Date.now() / 1000)
+              ))
             });
-            if (resultat && resultat.error) {
-              console.error('[Aurore OAuth Android] setSession:', resultat.error);
-              window.dispatchEvent(new CustomEvent('aurore-google-auth-error', { detail: resultat.error }));
-            } else {
-              const sessionNative = resultat?.data?.session;
-              if (sessionNative?.access_token) {
-                if (typeof window.auroreFinaliserConnexionGoogleNative === 'function') {
-                  await window.auroreFinaliserConnexionGoogleNative(sessionNative);
-                  return;
-                }
-                // Secours uniquement si le document n'a pas encore exposé le
-                // finaliseur applicatif : on garde le retour par fragment.
-                const fragment = new URLSearchParams({
-                  access_token: sessionNative.access_token,
-                  refresh_token: sessionNative.refresh_token || refreshToken,
-                  expires_in: String(Math.max(60, (sessionNative.expires_at || Math.floor(Date.now() / 1000) + 3600) - Math.floor(Date.now() / 1000)))
-                });
-                window.location.hash = fragment.toString();
-                window.location.reload();
-                return;
-              }
-              window.dispatchEvent(new CustomEvent('aurore-google-auth-success'));
-            }
-            return;
+            window.location.hash = fragment.toString();
+            window.location.reload();
+            return true;
           }
 
-          // Secours : si Supabase renvoie exceptionnellement un code OAuth,
-          // on l'échange dans l'APK sans navigation vers le site Web.
-          const code = cible.searchParams.get('code');
-          if (code && window.AURORE_SUPABASE_AUTH?.auth?.exchangeCodeForSession) {
-            const resultat = await window.AURORE_SUPABASE_AUTH.auth.exchangeCodeForSession(code);
-            if (resultat && resultat.error) {
-              console.error('[Aurore OAuth Android] exchangeCodeForSession:', resultat.error);
-              window.dispatchEvent(new CustomEvent('aurore-google-auth-error', { detail: resultat.error }));
-            } else {
-              const sessionNative = resultat?.data?.session;
-              if (sessionNative?.access_token) {
-                if (typeof window.auroreFinaliserConnexionGoogleNative === 'function') {
-                  await window.auroreFinaliserConnexionGoogleNative(sessionNative);
-                  return;
-                }
-                const fragment = new URLSearchParams({
-                  access_token: sessionNative.access_token,
-                  refresh_token: sessionNative.refresh_token || '',
-                  expires_in: String(Math.max(60, (sessionNative.expires_at || Math.floor(Date.now() / 1000) + 3600) - Math.floor(Date.now() / 1000)))
-                });
-                window.location.hash = fragment.toString();
-                window.location.reload();
-                return;
-              }
-              window.dispatchEvent(new CustomEvent('aurore-google-auth-success'));
-            }
-            return;
-          }
-
-          window.location.reload();
-        } catch (_) {
-          window.location.reload();
+          return false;
         }
+
+        // Secours : Supabase peut exceptionnellement renvoyer un code OAuth.
+        const code = cible.searchParams.get('code');
+        if (code && window.AURORE_SUPABASE_AUTH?.auth?.exchangeCodeForSession) {
+          const resultat = await window.AURORE_SUPABASE_AUTH.auth.exchangeCodeForSession(code);
+
+          if (resultat && resultat.error) {
+            console.error('[Aurore OAuth Android] exchangeCodeForSession:', resultat.error);
+            window.dispatchEvent(new CustomEvent('aurore-google-auth-error', { detail: resultat.error }));
+            return false;
+          }
+
+          const sessionNative = resultat?.data?.session;
+          if (sessionNative?.access_token) {
+            if (typeof window.auroreFinaliserConnexionGoogleNative === 'function') {
+              return await window.auroreFinaliserConnexionGoogleNative(sessionNative);
+            }
+
+            const fragment = new URLSearchParams({
+              access_token: sessionNative.access_token,
+              refresh_token: sessionNative.refresh_token || '',
+              expires_in: String(Math.max(
+                60,
+                (sessionNative.expires_at || Math.floor(Date.now() / 1000) + 3600) -
+                Math.floor(Date.now() / 1000)
+              ))
+            });
+            window.location.hash = fragment.toString();
+            window.location.reload();
+            return true;
+          }
+
+          return false;
+        }
+
+        window.location.reload();
+        return true;
+      } catch (e) {
+        console.error('[Aurore OAuth Android] traitement du lien profond impossible :', e);
+        window.dispatchEvent(new CustomEvent('aurore-google-auth-error', { detail: e }));
+        return false;
+      }
+    }
+
+    if (App && App.addListener) {
+      App.addListener('appUrlOpen', (event) => {
+        traiterRetourGoogleNatif(event && event.url);
       });
     }
+
+    // Cas où Android a démarré l’App directement avec le lien profond
+    // pendant que l’application était complètement fermée.
+    if (App && typeof App.getLaunchUrl === 'function') {
+      App.getLaunchUrl()
+        .then((resultat) => {
+          const lien = resultat && resultat.url;
+          if (lien && !window.__auroreRetourGoogleRecu) traiterRetourGoogleNatif(lien);
+        })
+        .catch((e) => console.warn('[Aurore OAuth Android] getLaunchUrl:', e));
+    }
+
     // Onglet fermé sans terminer la connexion : on réarme la page.
     if (Browser && Browser.addListener) {
       Browser.addListener('browserFinished', () => {
