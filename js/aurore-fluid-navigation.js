@@ -1,6 +1,9 @@
 /* Aurore — Navigation fluide
    1) Cache « stale-while-revalidate » des lectures publiques Supabase : les pages
       déjà vues (et le bouton Retour) s'affichent instantanément.
+      v1.1 : le cache fonctionne aussi pour les élèves CONNECTÉS, uniquement pour les
+      listes publiques de documents (table Document, Publie=eq.true), avec une clé
+      propre à chaque utilisateur (aucun mélange possible entre deux comptes).
    2) Animation de chargement (barre en haut + squelettes) si l'attente dure.
    3) Retour téléphone : restauration exacte de la position (page, listes internes,
       recherche et tri), même si le contenu arrive après.
@@ -14,7 +17,7 @@
     if (sessionStorage.getItem('aurore_fluid_off') === '1') return;
   } catch (e) {}
   if (window.__auroreFluid || typeof window.fetch !== 'function') return;
-  window.__auroreFluid = { version: '1.0' };
+  window.__auroreFluid = { version: '1.1' };
 
   var SUPA = 'https://tdeotqfsbvouresfhkab.supabase.co';
   var REST = SUPA + '/rest/v1/';
@@ -23,6 +26,7 @@
   var MAX_ENTRY = 600 * 1024;
   var MAX_TOTAL = 2200 * 1024;
   var STORE_KEY = 'aurore_fluid_cache_v1';
+  var USER_TAG = '#u:';              // suffixe de clé pour les utilisateurs connectés
   var ORIG = window.fetch.bind(window);
   var mem = new Map();
   var inflight = new Map();
@@ -30,6 +34,11 @@
 
   function byId(id) { return document.getElementById(id); }
   function noop() {}
+  // La clé de cache peut porter un suffixe « #u:<id> » : la vraie URL réseau est sans suffixe.
+  function urlFromKey(key) {
+    var i = key.indexOf(USER_TAG);
+    return i < 0 ? key : key.slice(0, i);
+  }
 
   /* ---------- Persistance (sessionStorage, au mieux) ---------- */
   try {
@@ -65,20 +74,23 @@
   window.addEventListener('aurore:invalidate-cache', invalidate);
 
   /* ---------- Règles de mise en cache ---------- */
-  var anonMemo = {};
-  function tokenIsAnon(auth) {
-    if (anonMemo[auth] !== undefined) return anonMemo[auth];
-    var ok = false;
+  var tokenMemo = {};
+  // Lit le rôle (« anon » / « authenticated ») et l'identifiant utilisateur du jeton.
+  function tokenInfo(auth) {
+    if (tokenMemo[auth] !== undefined) return tokenMemo[auth];
+    var info = null;
     try {
       var m = /^Bearer\s+(.+)$/i.exec(auth || '');
       if (m) {
         var p = m[1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
         var json = JSON.parse(atob(p));
-        ok = !!json && json.role === 'anon';
+        if (json && (json.role === 'anon' || json.role === 'authenticated')) {
+          info = { role: json.role, sub: json.sub ? String(json.sub) : '' };
+        }
       }
     } catch (e) {}
-    anonMemo[auth] = ok;
-    return ok;
+    tokenMemo[auth] = info;
+    return info;
   }
   function headerValue(h, name) {
     if (!h || typeof h !== 'object' || Array.isArray(h)) return undefined;
@@ -99,8 +111,15 @@
     if (init.cache === 'no-store' || init.cache === 'reload' || init.cache === 'no-cache') return null;
     var h = init.headers;
     if (!h || headerValue(h, 'prefer') || headerValue(h, 'range')) return null;
-    if (!tokenIsAnon(headerValue(h, 'authorization'))) return null;
-    return url;
+    var info = tokenInfo(headerValue(h, 'authorization'));
+    if (!info) return null;
+    if (info.role === 'anon') return url;
+    // Utilisateur connecté : seulement les listes publiques de documents, et une entrée par utilisateur.
+    if (info.role === 'authenticated' && info.sub &&
+        url.indexOf(REST + 'Document?') === 0 && url.indexOf('Publie=eq.true') >= 0) {
+      return url + USER_TAG + info.sub;
+    }
+    return null;
   }
 
   /* ---------- Indicateur de chargement ---------- */
@@ -139,7 +158,7 @@
     return new Response(e.body, { status: 200, headers: { 'Content-Type': e.ct || 'application/json' } });
   }
   function doFetch(key, init) {
-    return ORIG(key, init).then(function (res) {
+    return ORIG(urlFromKey(key), init).then(function (res) {
       if (!res.ok) return { res: res };
       var ct = res.headers.get('content-type') || '';
       if (ct.indexOf('json') < 0) return { res: res };
@@ -153,8 +172,8 @@
   function network(key, init, silent) {
     var pend = inflight.get(key);
     if (pend) {
-      return pend.then(function (r) { return r.e ? mk(r.e) : ORIG(key, init); },
-                       function () { return ORIG(key, init); });
+      return pend.then(function (r) { return r.e ? mk(r.e) : ORIG(urlFromKey(key), init); },
+                       function () { return ORIG(urlFromKey(key), init); });
     }
     var p = doFetch(key, init);
     if (!silent) track(p);
@@ -248,9 +267,13 @@
   function prefetch(url) {
     try {
       if (!url || typeof HEADERS === 'undefined') return;
-      var e = mem.get(url);
+      var init = { headers: HEADERS };
+      // Même clé que la vraie requête (y compris le suffixe utilisateur) : sinon le préchargement ne sert à rien.
+      var key = cacheKeyFor(url, init);
+      if (!key) return;
+      var e = mem.get(key);
       if (e && Date.now() - e.t < FRESH_MS) return;
-      cachedFetch(url, { headers: HEADERS }, true).catch(noop);
+      cachedFetch(key, init, true).catch(noop);
     } catch (err) {}
   }
   function urlForCard(card) {
