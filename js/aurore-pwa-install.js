@@ -27,12 +27,92 @@
     window.addEventListener('load',function(){
       navigator.serviceWorker.getRegistration('./').then(function(existing){
         if(existing) return existing;
-        return navigator.serviceWorker.register('./sw.js?v=20260922-1',{scope:'./',updateViaCache:'none'});
+        return navigator.serviceWorker.register('./sw.js?v=20261006-1',{scope:'./',updateViaCache:'none'});
       }).then(function(reg){
         if(reg) console.log('[Aurore PWA] Service worker actif.',reg.scope);
       }).catch(function(err){console.warn('[Aurore PWA] Service worker indisponible :',err);});
     });
   }})();
+
+/* Aurore — stockage durable + enregistrement hors ligne garanti
+   1) Demande au navigateur de ne JAMAIS vider les données du site (caches, PDF,
+      couvertures, listes hors ligne). Sans cette demande, Chrome Android peut tout
+      effacer (service worker compris) quand le téléphone manque de place ou quand
+      le site reste longtemps inutilisé : c'est la cause principale du « ça ne marche
+      plus si j'attends trop ». La demande est refaite à chaque ouverture tant qu'elle
+      n'est pas accordée (Chrome l'accorde surtout aux sites installés en application).
+   2) Après chaque chargement en ligne, signale au service worker tous les fichiers
+      que la page vient d'utiliser (scripts, styles, images, polices) pour qu'ils soient
+      enregistrés même s'ils ont été chargés avant que le service worker ne prenne la main.
+   3) window.auroreStockage() : diagnostic (console) — stockage durable accordé ou non,
+      espace utilisé, contenu de chaque cache. */
+(function(){
+  'use strict';
+  var accorde=false;
+
+  function demanderPersistance(){
+    try{
+      if(!navigator.storage||!navigator.storage.persist)return Promise.resolve(false);
+      var p=navigator.storage.persisted?navigator.storage.persisted():Promise.resolve(false);
+      return p.then(function(deja){
+        if(deja)return true;
+        return navigator.storage.persist();
+      }).then(function(ok){
+        accorde=!!ok;
+        window.__auroreStockagePersistant=accorde;
+        try{localStorage.setItem('aurore-stockage-persistant',accorde?'1':'0');}catch(e){}
+        return accorde;
+      }).catch(function(){return false;});
+    }catch(e){return Promise.resolve(false);}
+  }
+
+  function rechauffer(){
+    try{
+      if(!('serviceWorker' in navigator)||navigator.onLine===false)return;
+      navigator.serviceWorker.ready.then(function(reg){
+        var sw=reg&&(reg.active||reg.waiting||reg.installing);
+        if(!sw)return;
+        var urls=[];
+        try{
+          performance.getEntriesByType('resource').forEach(function(e){if(e&&e.name)urls.push(e.name);});
+        }catch(e){}
+        try{urls.push(location.origin+location.pathname);}catch(e){}
+        if(!urls.length)return;
+        sw.postMessage({type:'AURORE_WARM',urls:urls});
+      }).catch(function(){});
+    }catch(e){}
+  }
+
+  window.addEventListener('load',function(){
+    setTimeout(demanderPersistance,1500);
+    setTimeout(rechauffer,4000);
+    // Un second passage plus tard rattrape les fichiers chargés à la demande (modules, polices, IA…).
+    setTimeout(rechauffer,20000);
+  });
+  window.addEventListener('appinstalled',function(){setTimeout(demanderPersistance,800);});
+  document.addEventListener('visibilitychange',function(){
+    if(document.visibilityState==='visible'&&!accorde)demanderPersistance();
+  });
+  window.addEventListener('online',function(){setTimeout(rechauffer,3000);});
+
+  window.auroreStockage=function(){
+    var rapport={persistant:null,utilise:null,quota:null,caches:{}};
+    var etapes=[];
+    try{
+      if(navigator.storage&&navigator.storage.persisted)etapes.push(navigator.storage.persisted().then(function(v){rapport.persistant=v;}));
+      if(navigator.storage&&navigator.storage.estimate)etapes.push(navigator.storage.estimate().then(function(e){
+        rapport.utilise=Math.round((e.usage||0)/1048576)+' Mo';
+        rapport.quota=Math.round((e.quota||0)/1048576)+' Mo';
+      }));
+      if(window.caches)etapes.push(caches.keys().then(function(ks){
+        return Promise.all(ks.map(function(k){
+          return caches.open(k).then(function(c){return c.keys();}).then(function(r){rapport.caches[k]=r.length+' élément(s)';});
+        }));
+      }));
+    }catch(e){}
+    return Promise.all(etapes).then(function(){console.log('[Aurore] Stockage',rapport);return rapport;});
+  };
+})();
 
 /* Aurore — retour du réseau
    1) Supprime le geste « tirer vers le bas pour recharger » du navigateur, SANS
@@ -358,8 +438,10 @@
    ligne s'affichent donc hors ligne, avec leurs couvertures (vignettes locales).
    Sécurité : la copie est rangée par identité (rôle + identifiant du jeton). Un
    compte ne relit jamais la copie d'un autre compte ; un jeton illisible n'est
-   jamais copié. Les écritures (POST/PATCH/DELETE), les requêtes « Prefer » et
-   « Range » ne sont pas touchées. En ligne, rien ne change. */
+   jamais copié. Repéchage : si aucune copie n'existe pour l'identité courante (ex. session
+   expirée hors ligne), on relit la copie PUBLIQUE (visiteur anonyme) — elle ne contient
+   que ce qu'un visiteur non connecté pouvait déjà voir. Les écritures (POST/PATCH/DELETE),
+   les requêtes « Prefer » et « Range » ne sont pas touchées. En ligne, rien ne change. */
 (function(){
   'use strict';
   if(window.__auroreRestHorsLigne||typeof window.fetch!=='function'||!('indexedDB' in window))return;
@@ -367,7 +449,7 @@
 
   var RE=/^https:\/\/[a-z0-9]+\.supabase\.co\/rest\/v1\//i;
   var DB='aurore-offline-db',STORE='rest';
-  var MAX_ENTREE=1500*1024,MAX_ENTREES=250;
+  var MAX_ENTREE=1500*1024,MAX_ENTREES=600;
   var ORIG=window.fetch.bind(window);
 
   function entete(h,nom){
@@ -473,6 +555,11 @@
       },function(err){
         if(err&&err.name==='AbortError')throw err;
         return lire(cle).then(function(e){
+          if(e&&typeof e.body==='string')return e;
+          // Repéchage public : jamais la copie d'un autre compte, seulement celle d'un visiteur anonyme.
+          if(id!=='anon:')return lire('anon:|'+url);
+          return null;
+        }).then(function(e){
           if(!e||typeof e.body!=='string')throw err;
           return new Response(e.body,{status:200,headers:{'Content-Type':e.ct||'application/json','X-Aurore-Hors-Ligne':'1'}});
         });
