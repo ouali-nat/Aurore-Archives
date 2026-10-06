@@ -61,7 +61,7 @@ jobs:
           i = s.index('</activity>')
           open(p, 'w', encoding='utf-8').write(s[:i] + f + s[i:])
           PY
-          grep -n "aurore_section_archivescom" android/app/src/main/AndroidManifest.xml
+          grep -n "app.vercel.aurore-section-archivescom.twa" android/app/src/main/AndroidManifest.xml
 
       - name: Icone et ecran de demarrage aux couleurs d'Aurore
         working-directory: android-app
