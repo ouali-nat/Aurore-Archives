@@ -332,7 +332,7 @@ self.addEventListener('fetch', (event) => {
   if (request.mode === 'navigate') {
     const key = new Request(url.origin + url.pathname);
     event.respondWith(
-      networkFirst(request, PAGE_CACHE, key, 4000).catch(async () => {
+      networkFirst(request, PAGE_CACHE, key, 1500).catch(async () => {
         const cache = await caches.open(PAGE_CACHE);
         return (await cache.match(url.origin + '/', { ignoreVary: true })) || Response.error();
       })
