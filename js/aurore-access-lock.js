@@ -130,8 +130,40 @@
   window.addEventListener('beforeunload',enregistrerSortieVisiteur);
 
   function unlock(){ document.body.classList.remove('site-locked'); if(lock) lock.style.display='none'; }
+  function lockAccess(){ document.body.classList.add('site-locked'); if(lock) lock.style.display=''; }
   window.auroreUnlockAccess=unlock;
-  visitor?.addEventListener('click',async()=>{ try{localStorage.setItem('aurore_visitor_mode','1');}catch(e){} await demarrerSuiviVisiteur(); unlock(); });
+  window.auroreLockAccess=lockAccess;
+
+  // La porte d'entrée n'est réaffichée que pour un nouvel appareil/visiteur
+  // ou après une déconnexion explicitement confirmée.
+  function restaurerAccesConnu(){
+    try{
+      const deconnexionExplicite=localStorage.getItem('aurore_explicit_logout')==='1';
+      const sessionConnue=!!localStorage.getItem('lsnb_session');
+      const visiteurConnu=localStorage.getItem('aurore_visitor_mode')==='1';
+      if(deconnexionExplicite)return;
+      if(sessionConnue||visiteurConnu){
+        if(visiteurConnu)demarrerSuiviVisiteur();
+        unlock();
+      }
+    }catch(e){
+      console.warn('[Aurore] restauration de l’accès local indisponible',e);
+    }
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',restaurerAccesConnu,{once:true});
+  }else{
+    restaurerAccesConnu();
+  }
+  visitor?.addEventListener('click',async()=>{
+    try{
+      localStorage.setItem('aurore_visitor_mode','1');
+      localStorage.removeItem('aurore_explicit_logout');
+    }catch(e){}
+    await demarrerSuiviVisiteur();
+    unlock();
+  });
   google?.addEventListener('click',async()=>{
     enregistrerSortieVisiteur(); try{localStorage.removeItem('aurore_visitor_mode');}catch(e){}
     if (google.classList.contains('is-loading')) return;
