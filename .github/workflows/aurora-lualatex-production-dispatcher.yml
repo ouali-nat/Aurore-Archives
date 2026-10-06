@@ -40,3 +40,5 @@ jobs:
 # Wake production queue after admin PDF requests 713 and 715 — 2026-10-06
 
 # Wake next queued PDF after document 713 — 2026-10-06
+
+# Retry PDF queue after renderer smoke-test expectation fix — 2026-10-06
