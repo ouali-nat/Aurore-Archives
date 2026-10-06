@@ -2281,6 +2281,8 @@ body:not(.site-locked) #accessLock{display:none!important;}
     const fermer=document.getElementById('auroreNetworkStatusClose');
     if(!toast||!titre||!texte)return;
     let minuterieDisparition=null;
+    let dernierEtatReseau=(navigator.onLine===false?'offline':'online');
+    let surveillanceReseau=null;
 
     function afficher(etat,titreTexte,message,autoHide=false){
       clearTimeout(minuterieDisparition);
@@ -2303,17 +2305,18 @@ body:not(.site-locked) #accessLock{display:none!important;}
     };
     fermer?.addEventListener('click',masquer);
 
-    window.addEventListener('offline',()=>{
-      document.documentElement.classList.add('aurore-offline');
-      afficher('offline','Connexion interrompue','Aurore continue avec les données déjà disponibles sur cet appareil. Les actions en ligne reprendront dès le retour du réseau.',false);
-      window.dispatchEvent(new CustomEvent('aurore:network-offline'));
-    },{passive:true});
-
-    window.addEventListener('online',async()=>{
+    async function traiterChangementReseau(etat,source='navigator'){
+      if(etat===dernierEtatReseau)return;
+      dernierEtatReseau=etat;
+      if(etat==='offline'){
+        document.documentElement.classList.add('aurore-offline');
+        afficher('offline','Connexion interrompue','Aurore continue avec les données déjà disponibles sur cet appareil. Les actions en ligne reprendront dès le retour du réseau.',false);
+        window.dispatchEvent(new CustomEvent('aurore:network-offline',{detail:{source}}));
+        return;
+      }
       document.documentElement.classList.remove('aurore-offline');
       afficher('online','Connexion rétablie','Le réseau est de nouveau disponible. Aurore peut reprendre la synchronisation de votre espace.',true);
-      window.dispatchEvent(new CustomEvent('aurore:network-online'));
-
+      window.dispatchEvent(new CustomEvent('aurore:network-online',{detail:{source}}));
       if(session?.refresh_token && Date.now()>=Number(session.expires_at||0)-120000){
         try{
           const resultat=await rafraichirSession();
@@ -2327,21 +2330,27 @@ body:not(.site-locked) #accessLock{display:none!important;}
           }
         }catch(_){}
       }
-    },{passive:true});
+    }
+
+    window.addEventListener('online',()=>{traiterChangementReseau('online','event');},{passive:true});
+    window.addEventListener('offline',()=>{traiterChangementReseau('offline','event');},{passive:true});
+
+    // Certains WebViews/PWA ne relaient pas toujours les événements online/offline.
+    // Cette surveillance locale ne génère aucune requête réseau.
+    surveillanceReseau=setInterval(()=>{
+      traiterChangementReseau(navigator.onLine===false?'offline':'online','poll');
+    },1500);
+    window.addEventListener('pagehide',()=>{if(surveillanceReseau)clearInterval(surveillanceReseau);},{once:true});
 
     window.addEventListener('visibilitychange',()=>{
       if(document.visibilityState!=='visible')return;
-      if(navigator.onLine===false){
-        document.documentElement.classList.add('aurore-offline');
-        afficher('offline','Connexion interrompue','Aurore continue avec les données déjà disponibles sur cet appareil. Les actions en ligne reprendront dès le retour du réseau.',false);
-      }
+      traiterChangementReseau(navigator.onLine===false?'offline':'online','visibility');
     });
 
     if(navigator.onLine===false){
-      document.documentElement.classList.add('aurore-offline');
-      afficher('offline','Connexion interrompue','Aurore démarre en mode hors ligne. Les données déjà disponibles restent accessibles.',false);
+      dernierEtatReseau='online';
+      traiterChangementReseau('offline','initial');
     }
-  })();
 
   // Affiche à l'utilisateur connecté les notifications personnelles non lues
   // le concernant (ex. "Votre document a été validé et publié"), voir la table
