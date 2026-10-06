@@ -7,6 +7,7 @@
  *    à l'intérieur de la porte d'accès, de la fenêtre d'inscription, de l'attente et des publicités.
  *    Aucun autre écran n'est touché.
  * 2) Publicités : l'image épouse exactement le bloc (ratio réel, sans bandes ni recadrage).
+ * 3) Porte d'accès : le bloc flotte (ombre profonde + halo du thème + lévitation très douce).
  */
 
 [data-theme="dark"] :is(.access-lock,.signup-modal,.aurore-auth-wait,.ad-slot[id^="ad-"]){
@@ -53,4 +54,40 @@ html body .ad-slot[id^="ad-"]:not(:empty) img:not(#_x):not(#_y){
 }
 [data-theme="dark"] .ad-slot[id^="ad-"]:not(:empty) :is(p,[class*="desc"]){
   color:var(--gris)!important;
+}
+
+/* =====================================================================
+   PORTE D'ACCÈS — BLOC FLOTTANT
+   Ombre portée en deux couches (proche + lointaine), halo teinté par la couleur du thème,
+   liseré lumineux en haut, et lévitation de quelques pixels. Surfaces toujours pleines.
+   ===================================================================== */
+html body .access-lock .access-card:not(#_x):not(#_y){
+  border-radius:26px!important;
+  border-color:color-mix(in srgb,var(--theme-primary,#8B5CF6) 26%,var(--bordure,#E4E1D8))!important;
+  box-shadow:
+    0 2px 6px rgba(20,16,32,.08),
+    0 22px 48px -10px color-mix(in srgb,var(--theme-primary,#8B5CF6) 22%,rgba(20,16,32,.22)),
+    0 52px 96px -30px rgba(20,16,32,.34),
+    inset 0 1px 0 rgba(255,255,255,.55)!important;
+  transform:translateY(-4px);
+  animation:auroreAccessFloat 7s ease-in-out infinite;
+  will-change:transform;
+}
+[data-theme="dark"] html body .access-lock .access-card:not(#_x):not(#_y),
+[data-theme="dark"] .access-lock .access-card:not(#_x):not(#_y){
+  box-shadow:
+    0 2px 8px rgba(0,0,0,.40),
+    0 26px 56px -12px color-mix(in srgb,var(--theme-primary,#8B5CF6) 30%,rgba(0,0,0,.55)),
+    0 60px 110px -30px rgba(0,0,0,.65),
+    inset 0 1px 0 rgba(255,255,255,.08)!important;
+}
+@keyframes auroreAccessFloat{
+  0%,100%{transform:translateY(-4px)}
+  50%{transform:translateY(-11px)}
+}
+@media(prefers-reduced-motion:reduce){
+  html body .access-lock .access-card:not(#_x):not(#_y){animation:none;transform:translateY(-4px)}
+}
+@media(max-width:520px){
+  html body .access-lock .access-card:not(#_x):not(#_y){border-radius:22px!important;margin:6px 0 10px}
 }
