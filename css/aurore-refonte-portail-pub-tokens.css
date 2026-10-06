@@ -1,0 +1,56 @@
+/*
+ * Aurore — Refonte « porte d'accès » + « blocs publicitaires » : jetons de couleur et ajustements.
+ * Chargé juste avant aurore-refonte-portail-pub.css (via aurore-folder-navigation-final.css).
+ *
+ * 1) Mode sombre : les surfaces de la refonte lisent --papier / --fond / --bordure / --encre / --gris.
+ *    On leur donne ici les valeurs de la palette sombre du site (aurore-theme-dark.css), UNIQUEMENT
+ *    à l'intérieur de la porte d'accès, de la fenêtre d'inscription, de l'attente et des publicités.
+ *    Aucun autre écran n'est touché.
+ * 2) Publicités : l'image épouse exactement le bloc (ratio réel, sans bandes ni recadrage).
+ */
+
+[data-theme="dark"] :is(.access-lock,.signup-modal,.aurore-auth-wait,.ad-slot[id^="ad-"]){
+  --fond:#090812;
+  --papier:#11101C;
+  --bordure:#302B45;
+  --encre:#F7F5FF;
+  --gris:#B8B2C9;
+}
+
+/* Mode sombre : texte de la porte d'accès et des pubs toujours lisible (le thème sombre global
+   force certains gris sur p/span/small, on garde ici la hiérarchie titre / description). */
+[data-theme="dark"] html body .access-lock .access-heading h1:not(#_x),
+[data-theme="dark"] .access-lock .access-brand,
+[data-theme="dark"] .access-lock .access-google-btn strong,
+[data-theme="dark"] .access-lock .access-secondary-btn,
+[data-theme="dark"] .access-lock .access-visitor-btn,
+[data-theme="dark"] .signup-card h2{
+  color:var(--encre)!important;
+}
+[data-theme="dark"] .access-lock .access-heading p,
+[data-theme="dark"] .access-lock .access-tagline,
+[data-theme="dark"] .access-lock .access-note,
+[data-theme="dark"] .access-lock .access-footer,
+[data-theme="dark"] .access-lock .access-google-btn small,
+[data-theme="dark"] .access-lock .access-secondary-btn small,
+[data-theme="dark"] .access-lock .access-visitor-btn small{
+  color:var(--gris)!important;
+}
+
+/* Publicités : l'image dicte la hauteur du bloc (aucune bande, aucun recadrage). */
+html body .ad-slot[id^="ad-"]:not(:empty) img:not(#_x):not(#_y){
+  width:100%!important;
+  height:auto!important;
+  max-height:none!important;
+  object-fit:cover!important;
+  aspect-ratio:auto!important;
+  background:transparent!important;
+}
+
+/* Mode sombre : titre et description des publicités. */
+[data-theme="dark"] .ad-slot[id^="ad-"]:not(:empty) :is(h2,h3,h4,strong,[class*="title"],[class*="titre"],[class*="heading"]){
+  color:var(--encre)!important;
+}
+[data-theme="dark"] .ad-slot[id^="ad-"]:not(:empty) :is(p,[class*="desc"]){
+  color:var(--gris)!important;
+}
