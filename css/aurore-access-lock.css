@@ -205,7 +205,7 @@
   @keyframes auroreLogoutDialogIn{from{opacity:0;transform:translateY(7px) scale(.985)}to{opacity:1;transform:none}}
 
   .aurore-network-status{
-    position:fixed;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));
+    position:fixed;left:16px;right:16px;top:calc(16px + env(safe-area-inset-top));bottom:auto;
     z-index:10070;width:min(560px,calc(100vw - 32px));margin:0 auto;
     display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:11px;
     padding:12px 13px;border:1px solid var(--theme-border,var(--bordure));border-radius:16px;
