@@ -36,3 +36,5 @@ jobs:
 
 
 # MANUAL PDF WAKE: production concurrency isolation for job 293 — 2026-10-05T18:07:56.050Z
+
+# Wake production queue after admin PDF requests 713 and 715 — 2026-10-06
