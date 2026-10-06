@@ -4593,7 +4593,9 @@ def render(data):
                 content_items,
                 auto_math=(profile == "scientifique"),
                 allow_two_columns=scientific_two_column_layout,
-                box_all_math=(_document_kind(data) == "cours"),
+                # Keep course prose and inline relations in their natural paragraph flow.
+                # Explicit display math remains rendered as a block.
+                box_all_math=False,
             )
         )
         lines.extend(render_graphs(sec.get("graphs", []), allow=True))
