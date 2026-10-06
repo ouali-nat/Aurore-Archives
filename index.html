@@ -428,7 +428,31 @@ html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
 <span id="auroreAuthWaitText">Aurore prépare votre espace…</span>
 </div>
 </div>
-<script src="js/aurore-access-lock.js?v=20261006-native-gate1"></script>
+<div aria-hidden="true" class="aurore-logout-modal" id="logoutConfirmModal" style="display:none;">
+  <div class="aurore-logout-backdrop" data-logout-close></div>
+  <section aria-labelledby="logoutConfirmTitle" aria-modal="true" class="aurore-logout-card" role="dialog">
+    <div aria-hidden="true" class="aurore-logout-icon">
+      <svg fill="none" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/></svg>
+    </div>
+    <div class="aurore-logout-kicker">À bientôt</div>
+    <h2 id="logoutConfirmTitle">Quitter votre espace Aurore&nbsp;?</h2>
+    <p class="aurore-logout-copy">Merci d’avoir passé un moment avec Aurore. Votre session sera fermée sur cet appareil, mais vos préférences et vos données personnelles restent associées à votre compte.</p>
+    <p class="aurore-logout-goodbye">Vous pourrez revenir quand vous le souhaitez. Aurore vous attendra.</p>
+    <div class="aurore-logout-actions">
+      <button class="aurore-logout-cancel" id="logoutConfirmCancel" type="button">Rester sur Aurore</button>
+      <button class="aurore-logout-confirm" id="logoutConfirmButton" type="button"><span>Me déconnecter</span><span aria-hidden="true">↗</span></button>
+    </div>
+  </section>
+</div>
+<div aria-atomic="true" aria-live="polite" class="aurore-network-status" data-state="online" hidden id="auroreNetworkStatus" role="status">
+  <span aria-hidden="true" class="aurore-network-status-icon">
+    <svg class="aurore-network-icon-offline" fill="none" viewBox="0 0 24 24"><path d="M3 8.5A13.7 13.7 0 0 1 12 5a13.7 13.7 0 0 1 9 3.5"/><path d="M5.5 12A9.7 9.7 0 0 1 12 9.5a9.7 9.7 0 0 1 6.5 2.5"/><path d="M8.5 15.5A5.6 5.6 0 0 1 12 14a5.6 5.6 0 0 1 3.5 1.5"/><path d="M12 19h.01"/><path d="M4 4l16 16"/></svg>
+    <svg class="aurore-network-icon-online" fill="none" viewBox="0 0 24 24"><path d="M3 8.5A13.7 13.7 0 0 1 12 5a13.7 13.7 0 0 1 9 3.5"/><path d="M5.5 12A9.7 9.7 0 0 1 12 9.5a9.7 9.7 0 0 1 6.5 2.5"/><path d="M8.5 15.5A5.6 5.6 0 0 1 12 14a5.6 5.6 0 0 1 3.5 1.5"/><path d="M12 19h.01"/></svg>
+  </span>
+  <span class="aurore-network-status-copy"><strong id="auroreNetworkStatusTitle">Connexion interrompue</strong><span id="auroreNetworkStatusText"></span></span>
+  <button aria-label="Fermer" class="aurore-network-status-close" id="auroreNetworkStatusClose" type="button">×</button>
+</div>
+<script src="js/aurore-access-lock.js?v=20261006-auth-session2"></script>
 <header>
 <div class="wrap header-inner">
 <div class="brand">
@@ -500,7 +524,7 @@ html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
 <span id="userIconHost"></span>
 <span id="userNom"></span>
 </button>
-<button aria-label="Se déconnecter" class="user-chip-logout" id="btnDeconnexion" title="Se déconnecter" type="button">Déconnexion</button>
+<button aria-label="Se déconnecter" class="user-chip-logout" id="btnDeconnexion" title="Se déconnecter" type="button"><span aria-hidden="true" class="user-chip-logout-icon">↪</span><span class="user-chip-logout-label">Déconnexion</span></button>
 </div>
 </div>
 <button aria-label="Installer Aurore" class="pwa-install-btn" id="pwaInstallBtn" type="button"><span aria-hidden="true">⇩</span> Installer</button>
@@ -2130,12 +2154,14 @@ html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
     try {
       if (session) {
         localStorage.setItem('lsnb_session', JSON.stringify(session));
+        // Une session fraîchement authentifiée annule explicitement l'état
+        // « déconnecté » : la porte d'entrée doit ensuite rester ouverte.
+        localStorage.removeItem('aurore_explicit_logout');
       } else {
         localStorage.removeItem('lsnb_session');
         sessionStorage.removeItem('lsnb_session');
       }
     } catch (e) {
-      // Repli de compatibilité si le stockage persistant est momentanément indisponible.
       try {
         if (session) sessionStorage.setItem('lsnb_session', JSON.stringify(session));
         else sessionStorage.removeItem('lsnb_session');
@@ -2144,27 +2170,148 @@ html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
   }
 
   async function rafraichirSession() {
-    if (!session || !session.refresh_token) return false;
-    try {
-      const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
-        method: 'POST',
-        headers: { "apikey": SUPABASE_ANON_KEY, "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh_token: session.refresh_token })
-      });
-      if (!res.ok) return false;
-      const data = await res.json();
-      const infos = await recupererUtilisateur(data.access_token);
-      const role = infos ? await assurerProfilEtObtenirRole(data.access_token, infos) : (session.role || 'eleve');
-      session = {
-        access_token: data.access_token, refresh_token: data.refresh_token,
-        expires_at: Date.now() + (data.expires_in * 1000),
-        id: infos ? infos.id : session.id, email: infos ? infos.email : session.email,
-        nom: infos ? infos.nom : session.nom, avatar: infos ? infos.avatar : session.avatar, prenom: infos ? infos.prenom : (session.prenom || ''), lycee: infos ? infos.lycee : (session.lycee || ''), niveau: infos ? infos.niveau : (session.niveau || ''), classe: infos ? infos.classe : (session.classe || ''), filiere: infos ? infos.filiere : (session.filiere || ''), discipline: infos ? infos.discipline : (session.discipline || ''), fonction: infos ? infos.fonction : (session.fonction || ''), enfant_informations: infos ? infos.enfant_informations : (session.enfant_informations || ''), situation_role: infos?.situation_role || session.situation_role || session.user_metadata?.situation_role || '', user_metadata: session.user_metadata || {}, banni: infos ? infos.banni === true : (session.banni === true), provider: infos ? infos.provider : (session.provider || 'E-mail'), role
-      };
-      sauvegarderSession();
-      return true;
-    } catch (e) { return false; }
+    if (!session || !session.refresh_token) return {ok:false, transient:true, invalid:false};
+    if (navigator.onLine === false) return {ok:false, transient:true, invalid:false, offline:true};
+    if (window.__auroreSessionRefreshPromise) return window.__auroreSessionRefreshPromise;
+
+    const promesse=(async()=>{
+      const refreshTokenAvant=session.refresh_token;
+      try{
+        const controleur=typeof AbortController==='function'?new AbortController():null;
+        const minuteur=controleur?setTimeout(()=>controleur.abort(),8000):null;
+        let res;
+        try{
+          res=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{
+            method:'POST',
+            headers:{"apikey":SUPABASE_ANON_KEY,"Content-Type":"application/json"},
+            body:JSON.stringify({refresh_token:refreshTokenAvant}),
+            signal:controleur?.signal
+          });
+        }finally{
+          if(minuteur)clearTimeout(minuteur);
+        }
+
+        if(!res.ok){
+          const invalide=[400,401,403].includes(res.status);
+          return {ok:false,transient:!invalide,invalid:invalide,status:res.status};
+        }
+
+        const data=await res.json();
+        if(!data?.access_token)return {ok:false,transient:true,invalid:false};
+
+        const sessionAvant={...session};
+        session={
+          ...sessionAvant,
+          access_token:data.access_token,
+          refresh_token:data.refresh_token||sessionAvant.refresh_token,
+          expires_at:Date.now()+Math.max(60,Number(data.expires_in||3600))*1000
+        };
+
+        try{
+          const infos=await recupererUtilisateur(data.access_token);
+          const role=infos?await assurerProfilEtObtenirRole(data.access_token,infos):(sessionAvant.role||'eleve');
+          session={
+            access_token:data.access_token,
+            refresh_token:data.refresh_token||sessionAvant.refresh_token,
+            expires_at:Date.now()+Math.max(60,Number(data.expires_in||3600))*1000,
+            id:infos?infos.id:sessionAvant.id,email:infos?infos.email:sessionAvant.email,
+            nom:infos?infos.nom:sessionAvant.nom,avatar:infos?infos.avatar:sessionAvant.avatar,
+            prenom:infos?infos.prenom:(sessionAvant.prenom||''),lycee:infos?infos.lycee:(sessionAvant.lycee||''),
+            niveau:infos?infos.niveau:(sessionAvant.niveau||''),classe:infos?infos.classe:(sessionAvant.classe||''),
+            filiere:infos?infos.filiere:(sessionAvant.filiere||''),discipline:infos?infos.discipline:(sessionAvant.discipline||''),
+            fonction:infos?infos.fonction:(sessionAvant.fonction||''),enfant_informations:infos?infos.enfant_informations:(sessionAvant.enfant_informations||''),
+            situation_role:infos?.situation_role||sessionAvant.situation_role||sessionAvant.user_metadata?.situation_role||'',
+            user_metadata:sessionAvant.user_metadata||{},banni:infos?infos.banni===true:(sessionAvant.banni===true),
+            provider:infos?infos.provider:(sessionAvant.provider||'E-mail'),role
+          };
+        }catch(profilError){
+          console.warn('[Aurore Auth] Jeton renouvelé, profil temporairement indisponible.',profilError);
+        }
+
+        sauvegarderSession();
+        afficherUtilisateurConnecte?.();
+        return {ok:true,transient:false,invalid:false};
+      }catch(e){
+        return {ok:false,transient:true,invalid:false,error:e};
+      }
+    })();
+
+    window.__auroreSessionRefreshPromise=promesse;
+    try{return await promesse;}
+    finally{window.__auroreSessionRefreshPromise=null;}
   }
+
+
+  // Réseau : état explicite et non bloquant. Aucun rechargement automatique :
+  // la navigation et le contenu déjà disponibles continuent de fonctionner hors ligne.
+  (function initialiserNotificationsReseau(){
+    const toast=document.getElementById('auroreNetworkStatus');
+    const titre=document.getElementById('auroreNetworkStatusTitle');
+    const texte=document.getElementById('auroreNetworkStatusText');
+    const fermer=document.getElementById('auroreNetworkStatusClose');
+    if(!toast||!titre||!texte)return;
+    let minuterieDisparition=null;
+
+    function afficher(etat,titreTexte,message,autoHide=false){
+      clearTimeout(minuterieDisparition);
+      toast.dataset.state=etat;
+      toast.classList.toggle('is-offline',etat==='offline');
+      toast.classList.toggle('is-online',etat==='online');
+      titre.textContent=titreTexte;
+      texte.textContent=message;
+      toast.hidden=false;
+      if(autoHide)minuterieDisparition=setTimeout(()=>{toast.hidden=true;},4200);
+    }
+    function masquer(){clearTimeout(minuterieDisparition);toast.hidden=true;}
+
+    window.auroreAfficherNotificationReseau=(etat,message)=>{
+      if(etat==='offline'){
+        afficher('offline','Connexion interrompue',message||'Aurore continue avec les données déjà disponibles sur cet appareil.',false);
+      }else{
+        afficher('online','Connexion rétablie',message||'Le réseau est de nouveau disponible. Aurore peut reprendre son fonctionnement en ligne.',true);
+      }
+    };
+    fermer?.addEventListener('click',masquer);
+
+    window.addEventListener('offline',()=>{
+      document.documentElement.classList.add('aurore-offline');
+      afficher('offline','Connexion interrompue','Aurore continue avec les données déjà disponibles sur cet appareil. Les actions en ligne reprendront dès le retour du réseau.',false);
+      window.dispatchEvent(new CustomEvent('aurore:network-offline'));
+    },{passive:true});
+
+    window.addEventListener('online',async()=>{
+      document.documentElement.classList.remove('aurore-offline');
+      afficher('online','Connexion rétablie','Le réseau est de nouveau disponible. Aurore peut reprendre la synchronisation de votre espace.',true);
+      window.dispatchEvent(new CustomEvent('aurore:network-online'));
+
+      if(session?.refresh_token && Date.now()>=Number(session.expires_at||0)-120000){
+        try{
+          const resultat=await rafraichirSession();
+          if(resultat?.invalid){
+            session=null;
+            try{localStorage.removeItem('lsnb_session');}catch(_){}
+            try{sessionStorage.removeItem('lsnb_session');}catch(_){}
+            window.auroreLockAccess?.();
+            afficherUtilisateurConnecte?.();
+            window.auroreAfficherNotificationReseau?.('online','Votre session Aurore a expiré. Reconnectez-vous pour continuer.');
+          }
+        }catch(_){}
+      }
+    },{passive:true});
+
+    window.addEventListener('visibilitychange',()=>{
+      if(document.visibilityState!=='visible')return;
+      if(navigator.onLine===false){
+        document.documentElement.classList.add('aurore-offline');
+        afficher('offline','Connexion interrompue','Aurore continue avec les données déjà disponibles sur cet appareil. Les actions en ligne reprendront dès le retour du réseau.',false);
+      }
+    });
+
+    if(navigator.onLine===false){
+      document.documentElement.classList.add('aurore-offline');
+      afficher('offline','Connexion interrompue','Aurore démarre en mode hors ligne. Les données déjà disponibles restent accessibles.',false);
+    }
+  })();
 
   // Affiche à l'utilisateur connecté les notifications personnelles non lues
   // le concernant (ex. "Votre document a été validé et publié"), voir la table
@@ -2565,59 +2712,95 @@ html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
     }
   });
 
-  document.getElementById('btnDeconnexion').addEventListener('click', async () => {
-    const bouton = document.getElementById('btnDeconnexion');
-    if (bouton?.disabled) return;
-    if (bouton) { bouton.disabled = true; bouton.setAttribute('aria-busy', 'true'); }
+  const logoutConfirmModal=document.getElementById('logoutConfirmModal');
+  const logoutConfirmButton=document.getElementById('logoutConfirmButton');
+  const logoutConfirmCancel=document.getElementById('logoutConfirmCancel');
+  let logoutFocusBeforeOpen=null;
 
-    const authWait = document.getElementById('auroreAuthWait');
-    const authWaitStrong = authWait?.querySelector('.aurore-auth-wait-card strong');
-    const authWaitText = document.getElementById('auroreAuthWaitText');
-    const ancienStrong = authWaitStrong?.textContent || 'Veuillez patienter';
-    const ancienText = authWaitText?.textContent || 'Aurore prépare votre espace…';
+  function fermerConfirmationDeconnexion(){
+    if(!logoutConfirmModal)return;
+    logoutConfirmModal.style.display='none';
+    logoutConfirmModal.setAttribute('aria-hidden','true');
+    document.body.classList.remove('logout-modal-open');
+    logoutFocusBeforeOpen?.focus?.();
+    logoutFocusBeforeOpen=null;
+  }
 
-    try {
-      // Animation volontaire et courte : elle démarre avant toute opération réseau.
-      if (typeof window.auroreAfficherVeuillezPatienter === 'function') {
+  function ouvrirConfirmationDeconnexion(){
+    const bouton=document.getElementById('btnDeconnexion');
+    if(!session||bouton?.disabled||!logoutConfirmModal)return;
+    logoutFocusBeforeOpen=document.activeElement;
+    logoutConfirmModal.style.display='flex';
+    logoutConfirmModal.setAttribute('aria-hidden','false');
+    document.body.classList.add('logout-modal-open');
+    setTimeout(()=>logoutConfirmCancel?.focus(),30);
+  }
+
+  async function executerDeconnexion(){
+    const bouton=document.getElementById('btnDeconnexion');
+    if(!session||bouton?.disabled)return;
+    if(logoutConfirmButton){logoutConfirmButton.disabled=true;logoutConfirmButton.setAttribute('aria-busy','true');}
+    if(logoutConfirmCancel)logoutConfirmCancel.disabled=true;
+    fermerConfirmationDeconnexion();
+    if(bouton){bouton.disabled=true;bouton.setAttribute('aria-busy','true');}
+
+    const authWait=document.getElementById('auroreAuthWait');
+    const authWaitStrong=authWait?.querySelector('.aurore-auth-wait-card strong');
+    const authWaitText=document.getElementById('auroreAuthWaitText');
+    const ancienStrong=authWaitStrong?.textContent||'Veuillez patienter';
+    const ancienText=authWaitText?.textContent||'Aurore prépare votre espace…';
+
+    try{
+      if(typeof window.auroreAfficherVeuillezPatienter==='function'){
         window.auroreAfficherVeuillezPatienter('Fermeture sécurisée de votre espace…');
       }
       authWait?.classList.add('logout-transition');
-      if (authWaitStrong) authWaitStrong.textContent = 'À bientôt';
-      if (authWaitText) authWaitText.textContent = 'Votre session Aurore va être fermée sur cet appareil…';
-      await new Promise(resolve => setTimeout(resolve, 520));
+      if(authWaitStrong)authWaitStrong.textContent='À bientôt';
+      if(authWaitText)authWaitText.textContent='Merci d’avoir utilisé Aurore. Votre session est en train d’être fermée sur cet appareil…';
+      await new Promise(resolve=>setTimeout(resolve,520));
 
-      // Pour Google, Supabase Auth ferme uniquement la session locale.
-      // Pour une connexion e-mail historique, l'application n'a pas de session
-      // SDK à révoquer : l'effacement local suffit et évite une fausse erreur.
-      if (String(session?.provider || '').toLowerCase() === 'google' &&
-          typeof window.auroreDeconnecterGoogle === 'function') {
-        const { error } = await window.auroreDeconnecterGoogle();
-        if (error) throw error;
+      if(String(session?.provider||'').toLowerCase()==='google'&&typeof window.auroreDeconnecterGoogle==='function'){
+        const {error}=await window.auroreDeconnecterGoogle();
+        if(error)throw error;
       }
 
       await enregistrerSortieConnexion();
-      session = null;
+      session=null;
       sauvegarderSession();
+      try{localStorage.setItem('aurore_explicit_logout','1');}catch(_){}
+      try{localStorage.removeItem('aurore_visitor_mode');}catch(_){}
       window.dispatchEvent(new CustomEvent('aurore:user-disconnected'));
       afficherUtilisateurConnecte();
-      try { afficherEcran('screen-home'); } catch (_) {}
-    } catch (error) {
-      console.error('[Aurore] Déconnexion impossible :', error);
-      const msg = document.getElementById('accessMessage');
-      if (msg) {
-        msg.textContent = 'La déconnexion n’a pas pu être terminée. Vérifiez votre connexion puis réessayez.';
-        msg.className = 'access-message err';
-        msg.style.display = 'block';
+      window.auroreLockAccess?.();
+      try{afficherEcran('screen-home');}catch(_){}
+    }catch(error){
+      console.error('[Aurore] Déconnexion impossible :',error);
+      const msg=document.getElementById('accessMessage');
+      if(msg){
+        msg.textContent='La déconnexion n’a pas pu être terminée. Vérifiez votre connexion puis réessayez.';
+        msg.className='access-message err';
+        msg.style.display='block';
       }
-    } finally {
-      if (authWaitStrong) authWaitStrong.textContent = ancienStrong;
-      if (authWaitText) authWaitText.textContent = ancienText;
+    }finally{
+      if(authWaitStrong)authWaitStrong.textContent=ancienStrong;
+      if(authWaitText)authWaitText.textContent=ancienText;
       authWait?.classList.remove('logout-transition');
-      if (typeof window.auroreCacherVeuillezPatienter === 'function') window.auroreCacherVeuillezPatienter();
-      if (bouton) { bouton.disabled = false; bouton.removeAttribute('aria-busy'); }
+      if(typeof window.auroreCacherVeuillezPatienter==='function')window.auroreCacherVeuillezPatienter();
+      if(logoutConfirmButton){logoutConfirmButton.disabled=false;logoutConfirmButton.removeAttribute('aria-busy');}
+      if(logoutConfirmCancel)logoutConfirmCancel.disabled=false;
+      if(bouton){bouton.disabled=false;bouton.removeAttribute('aria-busy');}
     }
-  });
+  }
 
+  document.getElementById('btnDeconnexion')?.addEventListener('click',ouvrirConfirmationDeconnexion);
+  logoutConfirmCancel?.addEventListener('click',fermerConfirmationDeconnexion);
+  logoutConfirmButton?.addEventListener('click',executerDeconnexion);
+  logoutConfirmModal?.addEventListener('click',event=>{
+    if(event.target===logoutConfirmModal||event.target.closest?.('[data-logout-close]'))fermerConfirmationDeconnexion();
+  });
+  document.addEventListener('keydown',event=>{
+    if(event.key==='Escape'&&logoutConfirmModal?.style.display!=='none')fermerConfirmationDeconnexion();
+  });
 
   function auroreAfficherInvitationEspacePersonnel(){
     const box=document.getElementById('aurorePersonalDiscovery');
@@ -2762,9 +2945,16 @@ html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
     // sur le même code à usage unique, double restauration de session, etc.).
     if (window.__auroreAuthInitDone) return;
     window.__auroreAuthInitDone = true;
-    // Le portail reste couvert pendant la vérification initiale de session.
-    // Cela évite d'afficher une page immobile sans explication pendant les chargements.
-    if (typeof window.auroreAfficherVeuillezPatienter === 'function') {
+    // Une session persistante ou le mode visiteur sont des accès déjà connus :
+    // ne pas réafficher la porte comme si l'utilisateur était nouveau.
+    let auroreAccesDejaConnu=false;
+    try{
+      const deconnexionExplicite=localStorage.getItem('aurore_explicit_logout')==='1';
+      const sessionPersistante=!!localStorage.getItem('lsnb_session');
+      const visiteurPersistant=localStorage.getItem('aurore_visitor_mode')==='1';
+      auroreAccesDejaConnu=!deconnexionExplicite&&(sessionPersistante||visiteurPersistant);
+    }catch(_){}
+    if(!auroreAccesDejaConnu&&typeof window.auroreAfficherVeuillezPatienter==='function'){
       window.auroreAfficherVeuillezPatienter('Aurore prépare votre accès…');
       await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     }
@@ -2903,43 +3093,63 @@ html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
       window.history.replaceState({}, document.title, window.location.pathname);
     } else {
       // 2. Sinon, reprendre silencieusement une session déjà connue sur cet appareil.
-      // Migration unique de l'ancien sessionStorage vers localStorage pour les
-      // utilisateurs déjà connectés avant cette évolution.
-      let saved = null;
-      try {
-        saved = localStorage.getItem('lsnb_session');
-        if (!saved) {
-          const legacy = sessionStorage.getItem('lsnb_session');
-          if (legacy) {
-            localStorage.setItem('lsnb_session', legacy);
+      // Une déconnexion volontaire reste la seule raison locale de fermer durablement la porte.
+      let saved=null;
+      let deconnexionExplicite=false;
+      try{
+        deconnexionExplicite=localStorage.getItem('aurore_explicit_logout')==='1';
+        saved=localStorage.getItem('lsnb_session');
+        if(!saved&&!deconnexionExplicite){
+          const legacy=sessionStorage.getItem('lsnb_session');
+          if(legacy){
+            localStorage.setItem('lsnb_session',legacy);
             sessionStorage.removeItem('lsnb_session');
-            saved = legacy;
+            saved=legacy;
           }
         }
-      } catch (e) {
-        try { saved = sessionStorage.getItem('lsnb_session'); } catch (_) { saved = null; }
+      }catch(e){
+        try{saved=sessionStorage.getItem('lsnb_session');}catch(_){saved=null;}
       }
 
-      if (saved) {
-        try {
-          session = JSON.parse(saved);
-        } catch (e) {
-          session = null;
-          try { localStorage.removeItem('lsnb_session'); } catch (_) {}
-          try { sessionStorage.removeItem('lsnb_session'); } catch (_) {}
+      if(deconnexionExplicite){
+        session=null;
+        window.auroreLockAccess?.();
+      }else if(saved){
+        try{
+          session=JSON.parse(saved);
+        }catch(e){
+          session=null;
+          try{localStorage.removeItem('lsnb_session');}catch(_){}
+          try{sessionStorage.removeItem('lsnb_session');}catch(_){}
         }
-        if (session && Date.now() > Number(session.expires_at || 0)) {
-          const ok = await rafraichirSession();
-          if (!ok) {
-            session = null;
-            try { localStorage.removeItem('lsnb_session'); } catch (_) {}
-            try { sessionStorage.removeItem('lsnb_session'); } catch (_) {}
+
+        if(session){
+          // Déverrouillage immédiat : une reprise connue ne doit pas dépendre d'un aller-retour réseau.
+          afficherUtilisateurConnecte();
+          window.auroreUnlockAccess?.();
+        }
+
+        if(session&&Date.now()>Number(session.expires_at||0)){
+          const resultat=await rafraichirSession();
+          if(!resultat?.ok&&resultat?.invalid){
+            session=null;
+            try{localStorage.removeItem('lsnb_session');}catch(_){}
+            try{sessionStorage.removeItem('lsnb_session');}catch(_){}
+            window.auroreLockAccess?.();
+            const accessMsg=document.getElementById('accessMessage');
+            if(accessMsg){
+              accessMsg.textContent='Votre session a expiré. Reconnectez-vous pour continuer.';
+              accessMsg.className='access-message err';
+              accessMsg.style.display='block';
+            }
           }
         }
-        if(session && session.banni===true){
+
+        if(session&&session.banni===true){
           session=null;
-          try { localStorage.removeItem('lsnb_session'); } catch (_) {}
-          try { sessionStorage.removeItem('lsnb_session'); } catch (_) {}
+          try{localStorage.removeItem('lsnb_session');}catch(_){}
+          try{sessionStorage.removeItem('lsnb_session');}catch(_){}
+          window.auroreLockAccess?.();
         }
       }
     }

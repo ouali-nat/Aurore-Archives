@@ -3,7 +3,7 @@
      est chargé ICI, en tête, avant le premier affichage. Avant, il n'arrivait qu'en fin de page :
      la porte apparaissait d'abord avec l'ancien style puis changeait d'aspect (deux versions successives).
      Le lien de fin de page reste en place pour garder l'ordre de priorité des autres feuilles. */
-  body.site-locked > *:not(#accessLock):not(#signupModal):not(#auroreAuthWait):not(#auroreDebugErr):not(#auroreBuildBadge):not(#screen-shared-section):not(#aurore-zoom-fab):not(#aurore-zoom-panel){display:none!important;}
+  body.site-locked > *:not(#accessLock):not(#signupModal):not(#auroreAuthWait):not(#logoutConfirmModal):not(#auroreNetworkStatus):not(#auroreDebugErr):not(#auroreBuildBadge):not(#screen-shared-section):not(#aurore-zoom-fab):not(#aurore-zoom-panel){display:none!important;}
   /* Une URL ?sectionShare=... est publique : elle ne doit jamais être recouverte par le portail d'inscription. */
   html.aurore-shared-route #accessLock,
   html.aurore-shared-route #signupModal{display:none!important;}
@@ -100,3 +100,148 @@
   @media(prefers-reduced-motion:reduce){.aurore-auth-wait-icon svg{animation:none}}
   .access-message{border-radius:13px !important}
   @media(max-width:520px){.access-lock{padding:14px}.access-card-body{padding:24px 20px 20px}.access-tabs{margin-left:-20px;margin-right:-20px;padding-left:20px;padding-right:20px}.access-logo{width:52px;height:52px;flex-basis:52px;border-radius:14px}.signup-card{padding:23px 19px}}
+
+
+  /* === Session Aurore : déconnexion et état réseau === */
+  body.logout-modal-open{overflow:hidden;}
+  .user-chip .user-chip-logout{
+    display:inline-flex!important;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    min-height:34px;
+    padding:7px 11px!important;
+    border:1px solid var(--theme-border,var(--bordure))!important;
+    border-radius:12px!important;
+    background:var(--theme-softer,var(--fond))!important;
+    color:var(--encre)!important;
+    font-size:.7rem!important;
+    font-weight:800!important;
+    letter-spacing:.01em;
+    box-shadow:0 4px 12px var(--theme-shadow,rgba(0,0,0,.10));
+    transition:transform .16s ease,background .16s ease,border-color .16s ease,box-shadow .16s ease,color .16s ease;
+  }
+  .user-chip .user-chip-logout-icon{
+    width:18px;height:18px;border-radius:6px;display:grid;place-items:center;
+    background:var(--theme-soft,var(--bordure));color:var(--theme-primary,var(--violet));
+    font-size:.9rem;font-weight:900;line-height:1;
+  }
+  .user-chip .user-chip-logout-label{line-height:1;white-space:nowrap;}
+  .user-chip .user-chip-logout:hover:not(:disabled){
+    transform:translateY(-1px);
+    background:var(--theme-soft,var(--bordure))!important;
+    border-color:var(--theme-primary,var(--bordure))!important;
+    color:var(--theme-primary,var(--encre))!important;
+    box-shadow:0 8px 18px var(--theme-shadow,rgba(0,0,0,.12));
+  }
+  .user-chip .user-chip-logout:focus-visible{
+    outline:2px solid var(--theme-primary,var(--violet));
+    outline-offset:2px;
+  }
+  .user-chip .user-chip-logout:disabled{opacity:.58;cursor:wait;transform:none;}
+
+  .aurore-logout-modal{
+    position:fixed;inset:0;z-index:10080;display:flex;align-items:center;justify-content:center;
+    padding:18px;overflow:auto;
+  }
+  .aurore-logout-backdrop{
+    position:absolute;inset:0;
+    background:color-mix(in srgb,var(--fond) 78%,transparent);
+    backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  }
+  .aurore-logout-card{
+    position:relative;width:min(470px,calc(100vw - 28px));padding:28px 26px 24px;
+    border:1px solid var(--theme-border,var(--bordure));border-radius:24px;
+    background:var(--papier);color:var(--encre);
+    box-shadow:0 30px 90px rgba(0,0,0,.28);
+    transform-origin:center;
+    animation:auroreLogoutDialogIn .20s ease-out;
+  }
+  .aurore-logout-icon{
+    width:54px;height:54px;margin-bottom:16px;border-radius:17px;display:grid;place-items:center;
+    background:var(--theme-soft,rgba(139,92,246,.12));color:var(--theme-primary,var(--violet));
+    border:1px solid var(--theme-border,var(--bordure));
+  }
+  .aurore-logout-icon svg{width:25px;height:25px;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+  .aurore-logout-kicker{
+    color:var(--theme-primary,var(--violet));font-size:.62rem;font-weight:900;
+    letter-spacing:.12em;text-transform:uppercase;
+  }
+  .aurore-logout-card h2{
+    margin:5px 0 9px;font-size:1.48rem;line-height:1.2;color:var(--encre);
+  }
+  .aurore-logout-copy,.aurore-logout-goodbye{
+    color:var(--gris);font-size:.78rem;line-height:1.55;
+  }
+  .aurore-logout-goodbye{margin-top:8px;color:var(--encre);font-weight:650;}
+  .aurore-logout-actions{
+    display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-top:20px;
+  }
+  .aurore-logout-cancel,.aurore-logout-confirm{
+    min-height:44px;padding:10px 13px;border-radius:12px;font:inherit;font-size:.76rem;font-weight:800;
+    cursor:pointer;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease,background .16s ease,opacity .16s ease;
+  }
+  .aurore-logout-cancel{
+    border:1px solid var(--bordure);background:var(--fond);color:var(--encre);
+  }
+  .aurore-logout-confirm{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    border:1px solid transparent;
+    background:linear-gradient(135deg,var(--theme-strong,var(--theme-primary)),var(--theme-primary));
+    color:var(--theme-on-accent,#fff);
+    box-shadow:0 10px 24px var(--theme-shadow,rgba(124,58,237,.18));
+  }
+  .aurore-logout-cancel:hover:not(:disabled),.aurore-logout-confirm:hover:not(:disabled){
+    transform:translateY(-1px);
+  }
+  .aurore-logout-cancel:hover:not(:disabled){
+    border-color:var(--theme-border,var(--bordure));background:var(--theme-soft,var(--fond));
+  }
+  .aurore-logout-confirm:hover:not(:disabled){box-shadow:0 14px 30px var(--theme-shadow,rgba(124,58,237,.24));}
+  .aurore-logout-cancel:focus-visible,.aurore-logout-confirm:focus-visible{
+    outline:2px solid var(--theme-primary,var(--violet));outline-offset:2px;
+  }
+  .aurore-logout-cancel:disabled,.aurore-logout-confirm:disabled{opacity:.62;cursor:wait;transform:none;}
+  @keyframes auroreLogoutDialogIn{from{opacity:0;transform:translateY(7px) scale(.985)}to{opacity:1;transform:none}}
+
+  .aurore-network-status{
+    position:fixed;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));
+    z-index:10070;width:min(560px,calc(100vw - 32px));margin:0 auto;
+    display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:11px;
+    padding:12px 13px;border:1px solid var(--theme-border,var(--bordure));border-radius:16px;
+    background:color-mix(in srgb,var(--papier) 94%,var(--theme-primary));
+    color:var(--encre);box-shadow:0 16px 38px rgba(0,0,0,.22);
+    backdrop-filter:blur(13px);-webkit-backdrop-filter:blur(13px);
+    animation:auroreNetworkIn .18s ease-out;
+  }
+  .aurore-network-status[hidden]{display:none!important;}
+  .aurore-network-status-icon{
+    width:36px;height:36px;border-radius:11px;display:grid;place-items:center;
+    background:var(--theme-soft,var(--fond));color:var(--theme-primary,var(--violet));
+    border:1px solid var(--theme-border,var(--bordure));
+  }
+  .aurore-network-status-icon svg{width:18px;height:18px;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+  .aurore-network-icon-online{display:none;}
+  .aurore-network-status.is-online .aurore-network-icon-offline{display:none;}
+  .aurore-network-status.is-online .aurore-network-icon-online{display:block;}
+  .aurore-network-status-copy{min-width:0;display:flex;flex-direction:column;gap:2px;}
+  .aurore-network-status-copy strong{font-size:.75rem;line-height:1.25;color:var(--encre);}
+  .aurore-network-status-copy span{font-size:.66rem;line-height:1.4;color:var(--gris);}
+  .aurore-network-status-close{
+    width:30px;height:30px;border:1px solid transparent;border-radius:9px;background:transparent;
+    color:var(--gris);font-size:1.1rem;line-height:1;cursor:pointer;
+  }
+  .aurore-network-status-close:hover{background:var(--theme-soft,var(--fond));color:var(--encre);border-color:var(--theme-border,var(--bordure));}
+  .aurore-network-status-close:focus-visible{outline:2px solid var(--theme-primary,var(--violet));outline-offset:2px;}
+  @keyframes auroreNetworkIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  @media(max-width:600px){
+    .user-chip .user-chip-logout{min-height:32px;padding:6px 9px!important;border-radius:11px!important;}
+    .user-chip .user-chip-logout-label{display:none;}
+    .aurore-logout-card{padding:24px 20px 20px;border-radius:21px;}
+    .aurore-logout-actions{grid-template-columns:1fr;}
+    .aurore-logout-confirm{order:-1;}
+  }
+  @media(prefers-reduced-motion:reduce){
+    .aurore-logout-card,.aurore-network-status{animation:none;}
+    .user-chip .user-chip-logout,.aurore-logout-cancel,.aurore-logout-confirm{transition:none;}
+  }
