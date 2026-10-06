@@ -1,11 +1,14 @@
-/* Service Worker — Aurore Section Archives (v7)
+/* Service Worker — Aurore Section Archives (v8)
    Objectif : ouvertures rapides + lecture hors ligne de ce que l'élève a déjà ouvert,
    même après plusieurs jours / semaines sans ouvrir l'application.
    Les données Supabase, l'authentification et les appels d'API ne sont PAS
    interceptés (traitement natif du navigateur).
-     • Pages et fichiers du site (js/css/images/json) : réseau d'abord ; si le réseau
-       met plus de 3-4 s (ou est coupé), la dernière copie enregistrée s'affiche.
-       Hors ligne, toute page retombe sur l'accueil enregistré.
+     • Pages du site : réseau d'abord ; si le réseau met plus de 1,5 s (ou est coupé),
+       la dernière copie enregistrée s'affiche. Hors ligne, toute page retombe sur l'accueil enregistré.
+     • Fichiers du site (js/css/images/json) : « stale-while-revalidate » (v8). La copie
+       enregistrée s'affiche IMMÉDIATEMENT, et le fichier est mis à jour en arrière-plan
+       pour la visite suivante. Avant la v8, chaque fichier était revalidé sur le réseau
+       à chaque ouverture (jusqu'à 3 s d'attente par fichier), ce qui ralentissait les pages.
      • TOUS les caches sont désormais NON versionnés : une mise à jour du site ne vide
        plus rien. Les anciens caches versionnés (v6 et avant) sont migrés, pas supprimés.
      • Les fichiers du site réellement chargés par la page sont signalés au service worker
@@ -20,7 +23,7 @@
      • Stockage durable (navigator.storage.persist) demandé ici ET par la page.
 */
 
-const SW_VERSION = 'v7';
+const SW_VERSION = 'v8';
 // Caches non versionnés : ils survivent à TOUTES les mises à jour du service worker.
 const PAGE_CACHE = 'aurore-shell';
 const STATIC_CACHE = 'aurore-static';
@@ -214,6 +217,25 @@ async function networkFirst(request, cacheName, cacheKey, timeoutMs) {
   }
 }
 
+// ---- Fichiers du site (js/css/images) : copie locale IMMÉDIATE + mise à jour en arrière-plan ----
+// S'il n'y a pas encore de copie (première visite), on passe par le réseau et on enregistre le résultat.
+async function staleWhileRevalidate(event, request, cacheName) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(request, { ignoreVary: true });
+  const miseAJour = fetch(request, { cache: 'no-cache' }).then((res) => {
+    if (res && res.ok && res.type === 'basic') {
+      return cache.put(request, res.clone()).then(() => res, () => res);
+    }
+    return res;
+  });
+  if (cached) {
+    // Mise à jour silencieuse : sert la copie maintenant, rafraîchit pour la prochaine ouverture.
+    event.waitUntil(miseAJour.catch(() => {}));
+    return cached;
+  }
+  return miseAJour;
+}
+
 // ---- Bibliothèques / polices (CDN) : copie locale d'abord ----
 async function libFirst(request) {
   const cache = await caches.open(LIB_CACHE);
@@ -360,7 +382,7 @@ self.addEventListener('fetch', (event) => {
 
   if (sameOrigin) {
     if (LOCAL_STATIC.test(url.pathname) && !/\/(?:api|auth)\//.test(url.pathname)) {
-      event.respondWith(networkFirst(request, STATIC_CACHE, request, 3000));
+      event.respondWith(staleWhileRevalidate(event, request, STATIC_CACHE));
     }
     return;
   }
