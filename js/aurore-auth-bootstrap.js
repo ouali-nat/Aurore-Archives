@@ -6,7 +6,7 @@
   // Google dans le navigateur du téléphone (onglet Chrome), puis Supabase
   // renvoie vers le lien profond ci-dessous qui rouvre l'appli avec ?code=...
   // Le site web classique (navigateur) n'est pas concerné : rien ne change.
-  const AURORE_SCHEME_APP = 'app.vercel.aurore_section_archivescom.twa://auth';
+  const AURORE_SCHEME_APP = 'app.vercel.aurore-section-archivescom.twa://auth';
 
   function auroreEstAppliNative() {
     try {
