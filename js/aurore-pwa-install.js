@@ -114,6 +114,141 @@
   };
 })();
 
+/* Aurore — message « mode hors ligne »
+   Affiche une carte discrète en haut de l'écran quand l'appareil n'a plus de connexion,
+   aux couleurs du site (variables --fond, --encre, --bordure, --gris : clair et sombre).
+   Au retour du réseau, un court message « Connexion rétablie » confirme puis disparaît.
+   Le retour est vérifié par une vraie requête (HEAD sur l'accueil, jamais interceptée par le
+   service worker), pas seulement par navigator.onLine. Aucun blocage : la carte ne capte
+   pas les appuis en dehors d'elle-même et peut être fermée. */
+(function(){
+  'use strict';
+  if(window.__auroreBanniereHorsLigne)return;
+  window.__auroreBanniereHorsLigne=true;
+
+  var etat='';          // '' | 'off' | 'on'
+  var ferme=false;      // l'utilisateur a fermé la carte pendant cette période hors ligne
+  var racine=null,titre=null,sous=null,ico=null;
+  var minuterie=null,sonde=null;
+
+  var ICONE_OFF='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8.8a15 15 0 0 1 4.2-2.6"/><path d="M10.7 5.1A15 15 0 0 1 22 8.8"/><path d="M5 12.9a10 10 0 0 1 5.2-2.7"/><path d="M14.2 10.4a10 10 0 0 1 4.8 2.5"/><path d="M8.5 16.4a5 5 0 0 1 7 0"/><path d="M12 20h.01"/><path d="m2 2 20 20"/></svg>';
+  var ICONE_OK='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+
+  function injecterStyle(){
+    if(document.getElementById('aurore-hl-style'))return;
+    var s=document.createElement('style');
+    s.id='aurore-hl-style';
+    s.textContent=
+      '#auroreHorsLigne{position:fixed;left:0;right:0;top:0;z-index:9990;display:flex;justify-content:center;'+
+        'padding:calc(env(safe-area-inset-top,0px) + 10px) 12px 0;pointer-events:none;'+
+        'transform:translateY(-140%);opacity:0;visibility:hidden;'+
+        'transition:transform .35s cubic-bezier(.2,.8,.2,1),opacity .25s ease,visibility 0s linear .35s;}'+
+      '#auroreHorsLigne.visible{transform:none;opacity:1;visibility:visible;transition-delay:0s;}'+
+      '#auroreHorsLigne .aurore-hl-carte{pointer-events:auto;display:flex;align-items:center;gap:12px;width:100%;max-width:440px;'+
+        'box-sizing:border-box;padding:10px 8px 10px 12px;border-radius:16px;font-family:inherit;'+
+        'background:var(--fond,#ffffff);color:var(--encre,#14121f);border:1px solid var(--bordure,rgba(128,128,128,.3));'+
+        'box-shadow:0 12px 32px rgba(0,0,0,.28);}'+
+      '#auroreHorsLigne .aurore-hl-ico{flex:none;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;'+
+        'background:rgba(245,158,11,.16);color:#f59e0b;}'+
+      '#auroreHorsLigne.ok .aurore-hl-ico{background:rgba(34,197,94,.16);color:#22c55e;}'+
+      '#auroreHorsLigne .aurore-hl-txt{flex:1;min-width:0;line-height:1.3;}'+
+      '#auroreHorsLigne .aurore-hl-titre{font-weight:700;font-size:.9rem;}'+
+      '#auroreHorsLigne .aurore-hl-sous{font-size:.78rem;color:var(--gris,#7a7a8c);margin-top:2px;}'+
+      '#auroreHorsLigne .aurore-hl-x{flex:none;border:0;background:transparent;color:var(--gris,#7a7a8c);font-size:1.3rem;'+
+        'line-height:1;padding:8px 10px;cursor:pointer;border-radius:10px;}'+
+      '#auroreHorsLigne.ok .aurore-hl-x{display:none;}'+
+      '@media (prefers-reduced-motion:reduce){#auroreHorsLigne{transition:none;}}';
+    (document.head||document.documentElement).appendChild(s);
+  }
+
+  function creer(){
+    if(racine&&racine.isConnected)return;
+    injecterStyle();
+    racine=document.createElement('div');
+    racine.id='auroreHorsLigne';
+    racine.setAttribute('role','status');
+    racine.setAttribute('aria-live','polite');
+    racine.innerHTML='<div class="aurore-hl-carte"><span class="aurore-hl-ico"></span><div class="aurore-hl-txt"><div class="aurore-hl-titre"></div><div class="aurore-hl-sous"></div></div><button type="button" class="aurore-hl-x" aria-label="Fermer le message">×</button></div>';
+    ico=racine.querySelector('.aurore-hl-ico');
+    titre=racine.querySelector('.aurore-hl-titre');
+    sous=racine.querySelector('.aurore-hl-sous');
+    racine.querySelector('.aurore-hl-x').addEventListener('click',function(){ferme=true;cacher();});
+    (document.body||document.documentElement).appendChild(racine);
+  }
+
+  function montrer(type){
+    creer();
+    if(minuterie){clearTimeout(minuterie);minuterie=null;}
+    if(type==='off'){
+      racine.classList.remove('ok');
+      ico.innerHTML=ICONE_OFF;
+      titre.textContent='Vous êtes en mode hors ligne';
+      sous.textContent='Les pages et documents déjà consultés restent accessibles.';
+    }else{
+      racine.classList.add('ok');
+      ico.innerHTML=ICONE_OK;
+      titre.textContent='Connexion rétablie';
+      sous.textContent='Les contenus se mettent à jour.';
+    }
+    // Deux images : laisse le navigateur appliquer l'état de départ avant l'animation.
+    requestAnimationFrame(function(){requestAnimationFrame(function(){racine.classList.add('visible');});});
+  }
+
+  function cacher(){
+    if(racine)racine.classList.remove('visible');
+  }
+
+  function sonder(){
+    var ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
+    var t=ctrl?setTimeout(function(){try{ctrl.abort();}catch(e){}},6000):null;
+    return fetch('/',{method:'HEAD',cache:'no-store',signal:ctrl?ctrl.signal:undefined})
+      .then(function(r){if(t)clearTimeout(t);return !!(r&&r.ok);})
+      .catch(function(){if(t)clearTimeout(t);return false;});
+  }
+
+  function arreterSonde(){if(sonde){clearInterval(sonde);sonde=null;}}
+  function demarrerSonde(){
+    arreterSonde();
+    sonde=setInterval(function(){
+      if(etat!=='off')return;
+      sonder().then(function(ok){if(ok)enLigne();});
+    },15000);
+  }
+
+  function horsLigne(){
+    if(etat==='off')return;
+    etat='off';
+    ferme=false;
+    montrer('off');
+    demarrerSonde();
+  }
+
+  function enLigne(){
+    if(etat!=='off')return;
+    etat='on';
+    arreterSonde();
+    if(ferme){ferme=false;cacher();return;}
+    montrer('ok');
+    minuterie=setTimeout(cacher,3200);
+  }
+
+  window.addEventListener('offline',function(){horsLigne();});
+  window.addEventListener('online',function(){
+    if(etat!=='off')return;
+    // Laisse la connexion se stabiliser, puis vérifie qu'elle est réelle.
+    setTimeout(function(){sonder().then(function(ok){if(ok)enLigne();});},1200);
+  });
+  document.addEventListener('visibilitychange',function(){
+    if(document.visibilityState!=='visible')return;
+    if(navigator.onLine===false)horsLigne();
+    else if(etat==='off')sonder().then(function(ok){if(ok)enLigne();});
+  });
+
+  function initialiser(){if(navigator.onLine===false)horsLigne();}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initialiser);
+  else initialiser();
+})();
+
 /* Aurore — retour du réseau
    1) Supprime le geste « tirer vers le bas pour recharger » du navigateur, SANS
       toucher au CSS de défilement : on n'intercepte que le geste « tirer vers le bas
