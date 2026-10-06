@@ -43,6 +43,25 @@ jobs:
           npm install --no-audit --no-fund
           npx cap add android
 
+      - name: Retour de connexion Google (lien profond)
+        working-directory: android-app
+        run: |
+          python3 - android/app/src/main/AndroidManifest.xml <<'PY'
+          import sys
+          p = sys.argv[1]
+          s = open(p, encoding='utf-8').read()
+          f = '''<intent-filter>
+              <action android:name="android.intent.action.VIEW" />
+              <category android:name="android.intent.category.DEFAULT" />
+              <category android:name="android.intent.category.BROWSABLE" />
+              <data android:scheme="app.vercel.aurore_section_archivescom.twa" android:host="auth" />
+          </intent-filter>
+          '''
+          i = s.index('</activity>')
+          open(p, 'w', encoding='utf-8').write(s[:i] + f + s[i:])
+          PY
+          grep -n "aurore_section_archivescom" android/app/src/main/AndroidManifest.xml
+
       - name: Icone et ecran de demarrage aux couleurs d'Aurore
         working-directory: android-app
         run: |
