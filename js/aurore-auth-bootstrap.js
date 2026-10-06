@@ -45,7 +45,7 @@
     const App = plugins.App;
     const Browser = plugins.Browser;
     if (App && App.addListener) {
-      App.addListener('appUrlOpen', (event) => {
+      App.addListener('appUrlOpen', async (event) => {
         const lien = (event && event.url) || '';
         if (lien.indexOf(AURORE_SCHEME_APP) !== 0) return;
         window.__auroreRetourGoogleRecu = true;
