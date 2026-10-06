@@ -36,9 +36,9 @@
     return client;
   }
 
-  // Retour depuis Google : on recharge le site avec ?code=... (même origine,
-  // donc le code_verifier PKCE enregistré au départ est retrouvé), et le
-  // traitement existant de index.html finalise la connexion.
+  // Retour depuis Google : on recharge le site avec les paramètres reçus
+  // dans le lien profond. Sur Android natif, le flux client peut revenir avec
+  // #access_token=... ; sur le web, le flux PKCE continue avec ?code=....
   (function brancherRetourGoogleNatif() {
     if (!auroreEstAppliNative()) return;
     const plugins = window.Capacitor.Plugins || {};
@@ -50,9 +50,17 @@
         if (lien.indexOf(AURORE_SCHEME_APP) !== 0) return;
         window.__auroreRetourGoogleRecu = true;
         try { Browser && Browser.close && Browser.close(); } catch (_) {}
-        const requete = (lien.split('?')[1] || '').split('#')[0];
-        if (!requete) { window.location.reload(); return; }
-        window.location.href = window.location.origin + '/?' + requete;
+        // Préserve à la fois la query (?code=...) et le fragment
+        // (#access_token=...) : le natif utilise un flux client sans verifier PKCE.
+        try {
+          const cible = new URL(lien);
+          const query = cible.search || '';
+          const hash = cible.hash || '';
+          if (!query && !hash) { window.location.reload(); return; }
+          window.location.replace(window.location.origin + window.location.pathname + query + hash);
+        } catch (_) {
+          window.location.reload();
+        }
       });
     }
     // Onglet fermé sans terminer la connexion : on réarme la page.
@@ -66,10 +74,16 @@
   })();
 
   function creerClientAuthGoogle() {
+    // Web : PKCE reste inchangé.
+    // Android natif : le retour revient par lien profond après un navigateur externe.
+    // Dans ce contexte, on utilise le flux implicite côté client afin de ne pas
+    // dépendre d'un code_verifier stocké dans le WebView avant de quitter l'appli.
+    // Cette différence est strictement limitée à l'application native.
+    const flowType = auroreEstAppliNative() ? 'implicit' : 'pkce';
     return auroreAdapterClientNatif(window.supabase.createClient(
       "https://tdeotqfsbvouresfhkab.supabase.co",
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZW90cWZzYnZvdXJlc2Zoa2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjM4NzMsImV4cCI6MjEwMDUzOTg3M30.l_a1lI_QRy7BTq1fGjiA9n7LCdu7BwR2TTI5pkA70SU",
-      { auth: { flowType: 'pkce', autoRefreshToken: true, persistSession: true, detectSessionInUrl: false, storage: window.localStorage } }
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZW90cWZzYnZvdXJlc2Zoa2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjM4NzMsImV4cCI6MjEwMDUzOTg3M30.l_a1lI_Qry7BTq1fGjiA9n7LCdu7BwR2TTI5pkA70SU",
+      { auth: { flowType, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false, storage: window.localStorage } }
     ));
   }
 
