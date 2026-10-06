@@ -55,7 +55,7 @@ jobs:
               <action android:name="android.intent.action.VIEW" />
               <category android:name="android.intent.category.DEFAULT" />
               <category android:name="android.intent.category.BROWSABLE" />
-              <data android:scheme="app.vercel.aurore_section_archivescom.twa" android:host="auth" />
+              <data android:scheme="app.vercel.aurore-section-archivescom.twa" android:host="auth" />
           </intent-filter>
           '''
           i = s.index('</activity>')
