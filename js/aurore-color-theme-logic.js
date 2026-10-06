@@ -1,9 +1,27 @@
 (function(){
   const COLOR_THEME_KEY='auraster-color-theme';
-  const VALID_COLOR_THEMES=["violet","rouge","vert","bleu","orange","rose","indigo","emeraude","lime","corail","bordeaux","azur","petrole-cuivre","nuit-peche","prune-rouge","terre-orange","rose-sable","sarcelle-creme"];
+
+  // Palette finale : 13 couleurs d'origine conservées (différence nette entre elles)
+  // + 5 nuances nouvelles, toutes à plus de ~28 de distance perceptuelle (ΔE Lab) des autres.
+  const VALID_COLOR_THEMES=["violet","rouge","vert","bleu","orange","rose","lime","bordeaux","azur","jaune","olive","chocolat","sauge","magenta","petrole-cuivre","prune-rouge","rose-sable","sarcelle-creme"];
+
+  // Couleurs retirées car trop proches d'une autre (ΔE < 18) → équivalent conservé.
+  // Un ancien choix enregistré est converti automatiquement.
+  const RETIREES={"indigo":"violet","emeraude":"vert","corail":"rouge","terre-orange":"orange","nuit-peche":"petrole-cuivre"};
+
+  // Nouvelles nuances : [primaire, secondaire, forte]
+  const NOUVELLES={
+    jaune:['#D9A406','#FCD34D','#8A6100'],
+    olive:['#6B7A2A','#A7B85F','#4A5520'],
+    chocolat:['#8A4A1C','#D49A6A','#5C300F'],
+    sauge:['#6E9A7E','#B5D3BF','#4A7A5C'],
+    magenta:['#D946EF','#F0ABFC','#A21CAF']
+  };
 
   // Noms courts : une seule couleur dominante par choix (celle de la pastille).
-  const NOMS={"violet":"Violet","rouge":"Rouge","vert":"Vert","bleu":"Bleu","orange":"Orange","rose":"Rose","indigo":"Indigo","emeraude":"Émeraude","lime":"Citron vert","corail":"Corail","bordeaux":"Bordeaux","azur":"Azur","petrole-cuivre":"Pétrole","nuit-peche":"Nuit","prune-rouge":"Prune","terre-orange":"Orange terre","rose-sable":"Rose poudré","sarcelle-creme":"Sarcelle"};
+  const NOMS={"violet":"Violet","rouge":"Rouge","vert":"Vert","bleu":"Bleu","orange":"Orange","rose":"Rose","lime":"Citron vert","bordeaux":"Bordeaux","azur":"Azur","jaune":"Jaune","olive":"Olive","chocolat":"Chocolat","sauge":"Sauge","magenta":"Magenta","petrole-cuivre":"Pétrole","prune-rouge":"Prune","rose-sable":"Rose poudré","sarcelle-creme":"Sarcelle"};
+
+  const META={"violet":"#6D28D9","rouge":"#B91C1C","vert":"#15803D","bleu":"#1D4ED8","orange":"#C85C0D","rose":"#BE185D","lime":"#65A30D","bordeaux":"#8B1E3F","azur":"#0369A1","jaune":"#A87B05","olive":"#4A5520","chocolat":"#5C300F","sauge":"#4A7A5C","magenta":"#A21CAF","petrole-cuivre":"#104C64","prune-rouge":"#341A2C","rose-sable":"#EFC1B5","sarcelle-creme":"#0D6B70"};
 
   function fermerFlyoutCouleur(){
     const flyout=document.getElementById('colorThemeFlyout');
@@ -13,6 +31,7 @@
   }
 
   function appliquerCouleurSite(choix){
+    if(RETIREES[choix]) choix=RETIREES[choix];
     if(!VALID_COLOR_THEMES.includes(choix)) choix='violet';
     const root=document.documentElement;
     // Panneau fermé d'abord, puis transitions coupées le temps du changement :
@@ -33,10 +52,7 @@
     const flyoutLabel=document.getElementById('colorThemeFlyoutCurrent');
     if(flyoutLabel) flyoutLabel.textContent=NOMS[choix]||'Violet';
     const meta=document.querySelector('meta[name="theme-color"]');
-    if(meta){
-      const couleurs={"violet":"#6D28D9","rouge":"#B91C1C","vert":"#15803D","bleu":"#1D4ED8","orange":"#C85C0D","rose":"#BE185D","indigo":"#4338CA","emeraude":"#047857","lime":"#65A30D","corail":"#E85D4A","bordeaux":"#8B1E3F","azur":"#0369A1","petrole-cuivre":"#104C64","nuit-peche":"#242F49","prune-rouge":"#341A2C","terre-orange":"#E57A2D","rose-sable":"#EFC1B5","sarcelle-creme":"#0D6B70"};
-      meta.setAttribute('content',couleurs[choix]||couleurs.violet);
-    }
+    if(meta) meta.setAttribute('content',META[choix]||META.violet);
   }
 
   // ---- Panneau glissant "Couleur du site", ancré près du sélecteur de thème ----
@@ -66,6 +82,31 @@
     });
     document.addEventListener('keydown',(e)=>{
       if(e.key==='Escape') fermerFlyoutCouleur();
+    });
+  }
+
+  // Met la liste des pastilles en accord avec la palette finale :
+  // retire les couleurs trop proches, ajoute les nouvelles nuances.
+  function synchroniserPastilles(){
+    Object.keys(RETIREES).forEach(k=>{
+      document.querySelectorAll('[data-color-choice="'+k+'"]').forEach(b=>b.remove());
+    });
+    const zone=document.getElementById('colorThemeFlyoutScroll');
+    if(!zone) return;
+    const avant=zone.querySelector('[data-color-choice="petrole-cuivre"]');
+    Object.keys(NOUVELLES).forEach(k=>{
+      if(zone.querySelector('[data-color-choice="'+k+'"]')) return;
+      const b=document.createElement('button');
+      b.type='button';
+      b.className='theme-color-swatch';
+      b.setAttribute('aria-pressed','false');
+      b.setAttribute('data-color-choice',k);
+      b.setAttribute('title',NOMS[k]);
+      zone.insertBefore(b,avant||null);
+    });
+    // Titres au survol = noms courts.
+    zone.querySelectorAll('.theme-color-swatch').forEach(btn=>{
+      const n=NOMS[btn.dataset.colorChoice]; if(n) btn.setAttribute('title',n);
     });
   }
 
@@ -131,28 +172,39 @@
     document.head.appendChild(style);
   }
 
-  // Correctifs de cohérence (palette lisible, mots du hero, rapidité).
+  // Correctifs de cohérence (palette lisible, mots du hero, rapidité, nouvelles nuances).
   function injectThemeFixes(){
     if(document.getElementById('aurore-color-theme-fixes')) return;
     const style=document.createElement('style');
     style.id='aurore-color-theme-fixes';
-    // 1) Les 6 palettes mixtes avaient des pastilles à 6 teintes en dégradé :
-    //    on n'affiche plus qu'UNE couleur (la dominante réellement appliquée au site).
-    //    L'anneau gris garde visibles les teintes très sombres ou très claires.
-    const MIXTES={'petrole-cuivre':'#104C64','nuit-peche':'#242F49','prune-rouge':'#341A2C','terre-orange':'#E57A2D','rose-sable':'#EFC1B5','sarcelle-creme':'#0D6B70'};
     let css='';
+
+    // 1) Nouvelles nuances : variables de thème + pastille dégradée comme les autres couleurs simples.
+    Object.keys(NOUVELLES).forEach(k=>{
+      const c=NOUVELLES[k];
+      css+='html[data-color-theme="'+k+'"]{--theme-primary:'+c[0]+';--theme-secondary:'+c[1]+';--theme-strong:'+c[2]+';}\n';
+      css+='.theme-color-swatch[data-color-choice="'+k+'"]{background:linear-gradient(135deg,'+c[2]+','+c[1]+')!important;}\n';
+    });
+
+    // 2) Palettes mixtes restantes : pastille à UNE couleur (la dominante réellement appliquée).
+    //    L'anneau gris garde visibles les teintes très sombres ou très claires.
+    const MIXTES={'petrole-cuivre':'#104C64','prune-rouge':'#341A2C','rose-sable':'#EFC1B5','sarcelle-creme':'#0D6B70'};
     Object.keys(MIXTES).forEach(k=>{
       css+='.theme-color-swatch[data-color-choice="'+k+'"],.profile-theme-option[data-color-choice="'+k+'"] .profile-theme-swatch{background:'+MIXTES[k]+'!important;}\n';
       css+='.theme-color-swatch[data-color-choice="'+k+'"]:not([aria-pressed="true"]){box-shadow:0 0 0 1px rgba(150,150,160,.6),0 3px 8px rgba(0,0,0,.18)!important;}\n';
     });
-    // 2) Mots du hero : le mot d'accent et l'étiquette suivent la couleur choisie
+
+    // 3) Lisibilité en mode sombre : Pétrole et Prune étaient presque invisibles sur fond
+    //    sombre (liens, bordures, accents). Teintes éclaircies en mode sombre uniquement.
+    css+='html[data-color-theme="petrole-cuivre"][data-theme="dark"]{--theme-primary:#3A9BC1;--theme-strong:#1B6E92;}\n';
+    css+='html[data-color-theme="prune-rouge"][data-theme="dark"]{--theme-primary:#B5456F;--theme-secondary:#E4586A;--theme-strong:#8E2F57;}\n';
+
+    // 4) Mots du hero : le mot d'accent et l'étiquette suivent la couleur choisie
     //    (avant : violet fixe en mode clair, crème pour les palettes à fond clair).
     css+='html[data-color-theme]{--hero-word-light:var(--theme-strong);--hero-word-dark:color-mix(in srgb,var(--theme-secondary) 86%,#fff);}\n';
     const MOTS={ // [mode clair, mode sombre]
       'petrole-cuivre':['#104C64','#D59D80'],
-      'nuit-peche':['#3B4F7E','#FFA586'],
       'prune-rouge':['#7A2F63','#E4586A'],
-      'terre-orange':['#C5600F','#F0954F'],
       'rose-sable':['#B5705C','#EFC1B5'],
       'sarcelle-creme':['#0D6B70','#3FB8BE']
     };
@@ -164,7 +216,8 @@
     css+='html[data-color-theme][data-theme="dark"] '+H+' h1 .accentword,html[data-color-theme][data-theme="dark"] .hero .accentword{color:var(--hero-word-dark)!important;-webkit-text-fill-color:var(--hero-word-dark)!important;background:none!important;}\n';
     css+='html[data-color-theme][data-theme="light"] '+H+' .eyebrow{color:var(--hero-word-light)!important;}\n';
     css+='html[data-color-theme][data-theme="dark"] '+H+' .eyebrow{color:var(--hero-word-dark)!important;}\n';
-    // 3) Rapidité : aucune transition pendant le changement de couleur.
+
+    // 5) Rapidité : aucune transition pendant le changement de couleur.
     css+='html.color-switching *,html.color-switching *::before,html.color-switching *::after{transition:none!important;}\n';
     style.textContent=css;
     document.head.appendChild(style);
@@ -173,10 +226,7 @@
   function init(){
     injectColorPickerDesign();
     injectThemeFixes();
-    // Les titres au survol reprennent les noms courts.
-    document.querySelectorAll('.theme-color-swatch').forEach(btn=>{
-      const n=NOMS[btn.dataset.colorChoice]; if(n) btn.setAttribute('title',n);
-    });
+    synchroniserPastilles();
     const boutons=document.querySelectorAll('.profile-theme-option, .theme-color-swatch');
     boutons.forEach(btn=>btn.addEventListener('click',()=>appliquerCouleurSite(btn.dataset.colorChoice)));
     initFlyoutCouleur();
