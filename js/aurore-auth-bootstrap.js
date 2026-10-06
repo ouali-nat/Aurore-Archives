@@ -1,11 +1,11 @@
-// Client Supabase dÃ©diÃ© Ã  OAuth Google. Le reste du site conserve ses appels REST.
-  // flowType pkce + Ã©change manuel du code OAuth dans index.html.
+// Client Supabase dédié à OAuth Google. Le reste du site conserve ses appels REST.
+  // flowType pkce + échange manuel du code OAuth dans index.html.
 
   // ---------- Application Android (Capacitor) ----------
   // Google refuse la connexion dans une WebView. Dans l'appli, on ouvre donc
-  // Google dans le navigateur du tÃ©lÃ©phone (onglet Chrome), puis Supabase
+  // Google dans le navigateur du téléphone (onglet Chrome), puis Supabase
   // renvoie vers le lien profond ci-dessous qui rouvre l'appli avec ?code=...
-  // Le site web classique (navigateur) n'est pas concernÃ© : rien ne change.
+  // Le site web classique (navigateur) n'est pas concerné : rien ne change.
   const AURORE_SCHEME_APP = 'app.vercel.aurore-section-archivescom.twa://auth';
 
   function auroreEstAppliNative() {
@@ -36,7 +36,7 @@
     return client;
   }
 
-  // Retour depuis Google : on recharge le site avec les paramÃ¨tres reÃ§us
+  // Retour depuis Google : on recharge le site avec les paramètres reçus
   // dans le lien profond. Sur Android natif, le flux client peut revenir avec
   // #access_token=... ; sur le web, le flux PKCE continue avec ?code=....
   (function brancherRetourGoogleNatif() {
@@ -50,7 +50,7 @@
         if (lien.indexOf(AURORE_SCHEME_APP) !== 0) return;
         window.__auroreRetourGoogleRecu = true;
         try { Browser && Browser.close && Browser.close(); } catch (_) {}
-        // PrÃ©serve Ã  la fois la query (?code=...) et le fragment
+        // Préserve à la fois la query (?code=...) et le fragment
         // (#access_token=...) : le natif utilise un flux client sans verifier PKCE.
         try {
           const cible = new URL(lien);
@@ -60,7 +60,7 @@
 
           // Ne jamais renvoyer l'application native vers l'origine Web.
           // Le flux implicite retourne directement les tokens dans le fragment :
-          // on les installe dans le client Supabase dÃ©jÃ  prÃ©sent dans l'APK.
+          // on les installe dans le client Supabase déjà présent dans l'APK.
           if (accessToken && refreshToken && window.AURORE_SUPABASE_AUTH?.auth) {
             const resultat = await window.AURORE_SUPABASE_AUTH.auth.setSession({
               access_token: accessToken,
@@ -70,13 +70,26 @@
               console.error('[Aurore OAuth Android] setSession:', resultat.error);
               window.dispatchEvent(new CustomEvent('aurore-google-auth-error', { detail: resultat.error }));
             } else {
+              // La session Supabase est créée, mais Aurore doit aussi reconstruire
+              // sa session applicative pour quitter la porte d'entrée.
+              const sessionNative = resultat?.data?.session;
+              if (sessionNative?.access_token) {
+                const fragment = new URLSearchParams({
+                  access_token: sessionNative.access_token,
+                  refresh_token: sessionNative.refresh_token || refreshToken,
+                  expires_in: String(Math.max(60, (sessionNative.expires_at || Math.floor(Date.now() / 1000) + 3600) - Math.floor(Date.now() / 1000)))
+                });
+                window.location.hash = fragment.toString();
+                window.location.reload();
+                return;
+              }
               window.dispatchEvent(new CustomEvent('aurore-google-auth-success'));
             }
             return;
           }
 
           // Secours : si Supabase renvoie exceptionnellement un code OAuth,
-          // on l'Ã©change dans l'APK sans navigation vers le site Web.
+          // on l'échange dans l'APK sans navigation vers le site Web.
           const code = cible.searchParams.get('code');
           if (code && window.AURORE_SUPABASE_AUTH?.auth?.exchangeCodeForSession) {
             const resultat = await window.AURORE_SUPABASE_AUTH.auth.exchangeCodeForSession(code);
@@ -84,6 +97,19 @@
               console.error('[Aurore OAuth Android] exchangeCodeForSession:', resultat.error);
               window.dispatchEvent(new CustomEvent('aurore-google-auth-error', { detail: resultat.error }));
             } else {
+              // Même finalisation que le retour implicite : reconstruire
+              // l'état applicatif complet avant de revenir à l'accueil.
+              const sessionNative = resultat?.data?.session;
+              if (sessionNative?.access_token) {
+                const fragment = new URLSearchParams({
+                  access_token: sessionNative.access_token,
+                  refresh_token: sessionNative.refresh_token || '',
+                  expires_in: String(Math.max(60, (sessionNative.expires_at || Math.floor(Date.now() / 1000) + 3600) - Math.floor(Date.now() / 1000)))
+                });
+                window.location.hash = fragment.toString();
+                window.location.reload();
+                return;
+              }
               window.dispatchEvent(new CustomEvent('aurore-google-auth-success'));
             }
             return;
@@ -95,7 +121,7 @@
         }
       });
     }
-    // Onglet fermÃ© sans terminer la connexion : on rÃ©arme la page.
+    // Onglet fermé sans terminer la connexion : on réarme la page.
     if (Browser && Browser.addListener) {
       Browser.addListener('browserFinished', () => {
         setTimeout(() => {
@@ -106,11 +132,11 @@
   })();
 
   function creerClientAuthGoogle() {
-    // Web : PKCE reste inchangÃ©.
-    // Android natif : le retour revient par lien profond aprÃ¨s un navigateur externe.
-    // Dans ce contexte, on utilise le flux implicite cÃ´tÃ© client afin de ne pas
-    // dÃ©pendre d'un code_verifier stockÃ© dans le WebView avant de quitter l'appli.
-    // Cette diffÃ©rence est strictement limitÃ©e Ã  l'application native.
+    // Web : PKCE reste inchangé.
+    // Android natif : le retour revient par lien profond après un navigateur externe.
+    // Dans ce contexte, on utilise le flux implicite côté client afin de ne pas
+    // dépendre d'un code_verifier stocké dans le WebView avant de quitter l'appli.
+    // Cette différence est strictement limitée à l'application native.
     const flowType = auroreEstAppliNative() ? 'implicit' : 'pkce';
     return auroreAdapterClientNatif(window.supabase.createClient(
       "https://tdeotqfsbvouresfhkab.supabase.co",
@@ -119,8 +145,8 @@
     ));
   }
 
-  // Ã‰tat global explicite : une page visuellement chargÃ©e n'implique pas que
-  // le moteur OAuth est prÃªt. Tous les appels partagent une seule prÃ©paration.
+  // État global explicite : une page visuellement chargée n'implique pas que
+  // le moteur OAuth est prêt. Tous les appels partagent une seule préparation.
   window.__AURORE_AUTH_GOOGLE_STATE = 'loading';
   window.__AURORE_AUTH_GOOGLE_ERROR = null;
   window.__AURORE_AUTH_GOOGLE_READY = false;
@@ -143,7 +169,7 @@
       const minuteur = setTimeout(() => {
         if (fini) return;
         fini = true;
-        reject(new Error('DÃ©lai dÃ©passÃ© (' + delaiMs + 'ms) : ' + url));
+        reject(new Error('Délai dépassé (' + delaiMs + 'ms) : ' + url));
       }, delaiMs);
       s.src = url;
       s.onload = () => {
@@ -156,7 +182,7 @@
         if (fini) return;
         fini = true;
         clearTimeout(minuteur);
-        reject(new Error('Ã‰chec de chargement : ' + url));
+        reject(new Error('Échec de chargement : ' + url));
       };
       document.head.appendChild(s);
     });
@@ -175,7 +201,7 @@
   function assurerClientAuthGoogle() {
     if (AURORE_SUPABASE_AUTH) return Promise.resolve(AURORE_SUPABASE_AUTH);
 
-    // Aucun appel concurrent ne doit relancer une seconde prÃ©paration PKCE.
+    // Aucun appel concurrent ne doit relancer une seconde préparation PKCE.
     if (__auroreSupabaseAuthPromise) return __auroreSupabaseAuthPromise;
 
     __auroreSupabaseAuthPromise = (async () => {
@@ -199,12 +225,12 @@
       }
 
       if (!AURORE_SUPABASE_AUTH) {
-        throw new Error('Le moteur de connexion Google nâ€™est pas disponible.');
+        throw new Error('Le moteur de connexion Google nest pas disponible.');
       }
 
       return AURORE_SUPABASE_AUTH;
     })().catch(error => {
-      // AprÃ¨s un Ã©chec, une nouvelle tentative doit pouvoir repartir proprement.
+      // Après un échec, une nouvelle tentative doit pouvoir repartir proprement.
       __auroreSupabaseAuthPromise = null;
       __auroreSupabaseFallbackPromise = null;
       throw error;
@@ -213,9 +239,9 @@
     return __auroreSupabaseAuthPromise;
   }
 
-  // PrÃ©paration anticipÃ©e : le bouton reste verrouillÃ© jusqu'Ã  ce que ce
-  // client soit rÃ©ellement disponible. En cas d'Ã©chec rÃ©seau, le bouton
-  // redevient utilisable pour dÃ©clencher une nouvelle tentative.
+  // Préparation anticipée : le bouton reste verrouillé jusqu'à ce que ce
+  // client soit réellement disponible. En cas d'échec réseau, le bouton
+  // redevient utilisable pour déclencher une nouvelle tentative.
   window.__AURORE_AUTH_GOOGLE_READY_PROMISE = assurerClientAuthGoogle()
     .then(client => {
       window.__AURORE_AUTH_GOOGLE_STATE = 'ready';
@@ -229,16 +255,16 @@
       window.__AURORE_AUTH_GOOGLE_READY = false;
       window.__AURORE_AUTH_GOOGLE_ERROR = error;
       emettreEtatAuthGoogle('aurore-auth-google-failed', { error });
-      console.warn('[Google OAuth] PrÃ©paration anticipÃ©e indisponible :', error);
+      console.warn('[Google OAuth] Préparation anticipée indisponible :', error);
       return null;
     });
 
   window.auroreAuthGoogleEstPret = () => window.__AURORE_AUTH_GOOGLE_READY === true;
 
-  // DÃ©connexion explicite de la session Supabase Auth utilisÃ©e par Google OAuth.
+  // Déconnexion explicite de la session Supabase Auth utilisée par Google OAuth.
   // Scope local : on ferme uniquement la session de cet appareil/navigateur.
   window.auroreDeconnecterGoogle = async () => {
     const client = await assurerClientAuthGoogle();
-    if (!client?.auth?.signOut) throw new Error('Le moteur de dÃ©connexion Google nâ€™est pas disponible.');
+    if (!client?.auth?.signOut) throw new Error('Le moteur de déconnexion Google nest pas disponible.');
     return client.auth.signOut({ scope: 'local' });
   };
