@@ -1,0 +1,20 @@
+{
+  "appId": "app.vercel.aurore_section_archivescom.twa",
+  "appName": "Aurore",
+  "webDir": "www",
+  "server": {
+    "url": "https://aurore-section-archives.com",
+    "cleartext": false,
+    "allowNavigation": [
+      "aurore-section-archives.com",
+      "*.supabase.co",
+      "lsnb-upload.oualikevin9.workers.dev",
+      "pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev",
+      "cdnjs.cloudflare.com"
+    ]
+  },
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#090812"
+  }
+}
