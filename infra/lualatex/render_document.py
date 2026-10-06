@@ -2797,9 +2797,11 @@ def _render_content_item(raw, auto_math=False, box_all_math=False):
         return [_math_render_command(standalone, "Relation"), ""]
 
     if box_all_math and not _CONTENT_DISPLAY_MATH_RE.search(text):
-        blocks = _render_course_math_blocks(text, auto_math=auto_math)
-        if blocks:
-            return blocks + [""]
+        # Course prose stays inside its paragraph frame, while inline math
+        # remains compact and in its original left-to-right position.
+        rendered = _render_course_inline_math(text, auto_math=auto_math)
+        if rendered.strip():
+            return [r"\AuroreParagraphBlock{" + rendered + r"}", ""]
         return []
 
     if _CONTENT_DISPLAY_MATH_RE.search(text):
@@ -4593,9 +4595,9 @@ def render(data):
                 content_items,
                 auto_math=(profile == "scientifique"),
                 allow_two_columns=scientific_two_column_layout,
-                # Keep course prose and inline relations in their natural paragraph flow.
-                # Explicit display math remains rendered as a block.
-                box_all_math=False,
+                # Keep the course paragraph frame while rendering inline
+                # relations as compact in-flow math; explicit display math stays block-level.
+                box_all_math=(_document_kind(data) == "cours"),
             )
         )
         lines.extend(render_graphs(sec.get("graphs", []), allow=True))
