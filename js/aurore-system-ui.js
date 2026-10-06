@@ -14,6 +14,18 @@
     const fallback=document.querySelector('meta[name="theme-color"]')?.getAttribute('content')||'#090812';
     return {sombre,forte:forte||primaire||fallback,primaire:primaire||forte||fallback,fond:fond||fallback};
   }
+  // Application Android (Capacitor) : la barre d'état native suit la couleur du thème.
+  // Sans effet dans le navigateur ou si le plugin StatusBar n'est pas installé.
+  function barreEtatNative(c){
+    try{
+      const cap=window.Capacitor;
+      if(!cap||!cap.isNativePlatform||!cap.isNativePlatform())return;
+      const sb=(cap.Plugins&&cap.Plugins.StatusBar)||null;
+      if(!sb)return;
+      if(sb.setBackgroundColor&&/^#[0-9a-f]{6}$/i.test(c.forte))sb.setBackgroundColor({color:c.forte});
+      if(sb.setStyle)sb.setStyle({style:'DARK'});
+    }catch(_){}
+  }
   function synchroniser(){
     try{
       const c=couleurTheme();
@@ -24,6 +36,7 @@
       const apple=meta('apple-mobile-web-app-status-bar-style');
       if(apple)apple.setAttribute('content',c.sombre?'black-translucent':'default');
       document.documentElement.style.setProperty('color-scheme',c.sombre?'dark':'light');
+      barreEtatNative(c);
     }catch(_){}
   }
   const observer=new MutationObserver((mutations)=>{

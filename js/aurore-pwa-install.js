@@ -123,7 +123,7 @@
    pas les appuis en dehors d'elle-même et peut être fermée. */
 (function(){
   'use strict';
-  if(window.__auroreBanniereHorsLigne)return;
+  return; /* doublon désactivé : la bannière réseau unique est dans index.html */
   window.__auroreBanniereHorsLigne=true;
 
   var etat='';          // '' | 'off' | 'on'
