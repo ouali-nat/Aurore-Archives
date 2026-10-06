@@ -1,0 +1,74 @@
+/* Aurore — notification réseau + intégration des barres système mobile.
+   Ciblé : un seul composant réseau existant (#auroreNetworkStatus).
+   Aucun second toast n'est créé. */
+.aurore-network-status{
+  position:fixed!important;
+  top:max(10px,calc(10px + env(safe-area-inset-top,0px)))!important;
+  left:50%!important;
+  right:auto!important;
+  bottom:auto!important;
+  transform:translateX(-50%)!important;
+  z-index:2147483000!important;
+  width:min(620px,calc(100vw - 24px))!important;
+  box-sizing:border-box!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:10px!important;
+  padding:11px 12px!important;
+  border:1px solid var(--theme-border,color-mix(in srgb,#8b5cf6 30%,#777))!important;
+  border-radius:15px!important;
+  background:color-mix(in srgb,var(--papier,#fff) 96%,var(--theme-primary,#6d28d9) 4%)!important;
+  color:var(--encre,#211d28)!important;
+  box-shadow:0 12px 34px rgba(0,0,0,.18)!important;
+  backdrop-filter:blur(16px)!important;
+  -webkit-backdrop-filter:blur(16px)!important;
+  font:inherit!important;
+}
+.aurore-network-status[hidden]{display:none!important}
+.aurore-network-status-icon{
+  width:30px!important;height:30px!important;min-width:30px!important;
+  display:grid!important;place-items:center!important;
+  border-radius:10px!important;
+  background:var(--theme-soft,color-mix(in srgb,#6d28d9 12%,transparent))!important;
+  color:var(--theme-primary,#6d28d9)!important;
+}
+.aurore-network-status-icon svg{width:18px!important;height:18px!important;stroke:currentColor!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+.aurore-network-status-icon svg path{fill:none!important}
+.aurore-network-icon-online{display:none!important}
+.aurore-network-status.is-online .aurore-network-icon-offline{display:none!important}
+.aurore-network-status.is-online .aurore-network-icon-online{display:block!important}
+.aurore-network-status-copy{min-width:0!important;display:flex!important;flex:1!important;flex-direction:column!important;gap:2px!important}
+.aurore-network-status-copy strong{font-size:.78rem!important;line-height:1.15!important;font-weight:800!important;color:var(--theme-primary,#6d28d9)!important}
+.aurore-network-status-copy span{font-size:.69rem!important;line-height:1.4!important;color:var(--gris,#687080)!important}
+.aurore-network-status-close{
+  width:30px!important;height:30px!important;min-width:30px!important;
+  border:0!important;border-radius:9px!important;background:transparent!important;
+  color:var(--gris,#687080)!important;font:inherit!important;font-size:1.2rem!important;
+  line-height:1!important;cursor:pointer!important;
+}
+.aurore-network-status-close:hover{background:var(--theme-soft,color-mix(in srgb,#6d28d9 10%,transparent))!important;color:var(--theme-primary,#6d28d9)!important}
+html[data-theme="dark"] .aurore-network-status{
+  background:color-mix(in srgb,var(--dark-surface,#11101c) 96%,var(--theme-primary,#8b5cf6) 4%)!important;
+  color:var(--dark-ink,#f7f5ff)!important;
+  box-shadow:0 14px 38px rgba(0,0,0,.42)!important;
+}
+html[data-theme="dark"] .aurore-network-status-copy span{color:var(--dark-muted,#b8b2c9)!important}
+
+@media(max-width:640px){
+  .aurore-network-status{
+    width:calc(100vw - 18px)!important;
+    padding:10px!important;
+    border-radius:14px!important;
+  }
+  .aurore-network-status-copy span{font-size:.67rem!important}
+}
+
+/* En application installée, les zones protégées du téléphone restent
+   utilisables sans que le contenu touche les barres système. */
+@media(display-mode:standalone),(display-mode:fullscreen){
+  html,body{min-height:100%;background-color:var(--fond,#090812)}
+  body{
+    padding-top:max(0px,env(safe-area-inset-top,0px));
+    padding-bottom:max(0px,env(safe-area-inset-bottom,0px));
+  }
+}
