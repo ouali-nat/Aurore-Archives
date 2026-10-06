@@ -49,11 +49,17 @@ jobs:
           sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick
           RES=android/app/src/main/res
           IM=$(command -v magick || command -v convert)
+          ICON="$GITHUB_WORKSPACE/icon-512-1.png"
+          if [ -f "$GITHUB_WORKSPACE/android-app/icon.png" ]; then
+            ICON="$GITHUB_WORKSPACE/android-app/icon.png"
+          fi
+          test -f "$ICON" || { echo "Icône Aurore introuvable : $ICON"; exit 1; }
+          echo "Icône source : $ICON"
           rm -rf "$RES/mipmap-anydpi-v26"
           for entry in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
             name="${entry%%:*}"; size="${entry##*:}"
             mkdir -p "$RES/mipmap-$name"
-            "$IM" icon.png -resize "${size}x${size}" "$RES/mipmap-$name/ic_launcher.png"
+            "$IM" "$ICON" -resize "${size}x${size}" "$RES/mipmap-$name/ic_launcher.png"
             cp "$RES/mipmap-$name/ic_launcher.png" "$RES/mipmap-$name/ic_launcher_round.png"
             rm -f "$RES/mipmap-$name/ic_launcher_foreground.png"
           done
