@@ -2005,7 +2005,7 @@ html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
     // Réparation protégée du rôle du compte propriétaire.
     // La fonction Supabase existante impose elle-même auth.uid() = propriétaire ;
     // aucun autre compte ne peut donc utiliser ce chemin.
-    if (data.id === PROPRIETAIRE_ADMIN_ID) {
+    if (typeof PROPRIETAIRE_ADMIN_ID !== 'undefined' && data.id === PROPRIETAIRE_ADMIN_ID) {
       try {
         const rr = await fetch(`${SUPABASE_URL}/rest/v1/rpc/promouvoir_utilisateur_admin`, {
           method: 'POST',
@@ -2662,6 +2662,16 @@ html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
   // OAuth web : profil, session locale, déverrouillage et ouverture de l'accueil.
   window.auroreFinaliserConnexionGoogleNative = async function(authSession) {
     try {
+      // Attendre que tous les scripts différés d'Aurore aient terminé avant
+      // de poursuivre le retour Google natif. Le lien profond Android peut
+      // réveiller la WebView pendant son démarrage.
+      if (document.readyState === 'loading') {
+        await new Promise(resolve => {
+          document.addEventListener('DOMContentLoaded', resolve, { once: true });
+        });
+      }
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
       const auth = authSession || {};
       const access_token = auth.access_token || '';
       const refresh_token = auth.refresh_token || '';
