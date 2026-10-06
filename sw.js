@@ -1,32 +1,37 @@
-/* Service Worker — Aurore Section Archives (v6)
-   Objectif : ouvertures rapides + lecture hors ligne de ce que l'élève a déjà ouvert.
+/* Service Worker — Aurore Section Archives (v7)
+   Objectif : ouvertures rapides + lecture hors ligne de ce que l'élève a déjà ouvert,
+   même après plusieurs jours / semaines sans ouvrir l'application.
    Les données Supabase, l'authentification et les appels d'API ne sont PAS
    interceptés (traitement natif du navigateur).
      • Pages et fichiers du site (js/css/images/json) : réseau d'abord ; si le réseau
        met plus de 3-4 s (ou est coupé), la dernière copie enregistrée s'affiche.
        Hors ligne, toute page retombe sur l'accueil enregistré.
+     • TOUS les caches sont désormais NON versionnés : une mise à jour du site ne vide
+       plus rien. Les anciens caches versionnés (v6 et avant) sont migrés, pas supprimés.
+     • Les fichiers du site réellement chargés par la page sont signalés au service worker
+       (message AURORE_WARM) et enregistrés même à la toute première visite.
      • Bibliothèques (pdf.js, CDN, polices) : copie locale d'abord. pdf.js est préchargé à
        l'installation : sans lui, aucun PDF ne peut s'afficher hors ligne.
      • Couvertures d'images (Google Books, R2, Supabase Storage…) : copie locale d'abord,
-       toutes conservées. (Les vignettes « 1re page du PDF » sont déjà gardées par le site
-       dans IndexedDB.)
+       toutes conservées.
      • PDF : enregistrés UNIQUEMENT quand l'élève les ouvre dans le lecteur (le lecteur
-       demande le fichier complet avec l'en-tête Accept: application/pdf). La fabrication des
-       vignettes (lectures partielles de PDF.js) ne télécharge et n'enregistre jamais un PDF
-       complet. Aucune limite fixe : on ne retire les plus anciens que si l'appareil manque
-       réellement d'espace.
+       demande le fichier complet avec l'en-tête Accept: application/pdf). Aucune limite
+       fixe : on ne retire les plus anciens que si l'appareil manque réellement d'espace.
+     • Stockage durable (navigator.storage.persist) demandé ici ET par la page.
 */
 
-const SW_VERSION = 'v6';
-const PAGE_CACHE = `aurore-shell-${SW_VERSION}`;
-const STATIC_CACHE = `aurore-static-${SW_VERSION}`;
-// Caches non versionnés : ils survivent aux mises à jour du service worker.
+const SW_VERSION = 'v7';
+// Caches non versionnés : ils survivent à TOUTES les mises à jour du service worker.
+const PAGE_CACHE = 'aurore-shell';
+const STATIC_CACHE = 'aurore-static';
 const LIB_CACHE = 'aurore-libs';
 const COVER_CACHE = 'aurore-covers';
 const PDF_CACHE = 'aurore-pdf-ouverts';
 const KEEP_CACHES = [PAGE_CACHE, STATIC_CACHE, LIB_CACHE, COVER_CACHE, PDF_CACHE];
+// Anciens caches versionnés (aurore-shell-v6, aurore-static-v6…) : leur contenu est repris puis ils sont retirés.
+const OLD_VERSIONED = /^aurore-(shell|static)-v\d+$/;
 
-const MARGE_STOCKAGE = 30 * 1024 * 1024;
+const MARGE_STOCKAGE = 8 * 1024 * 1024;
 
 const CDN_HOSTS = ['cdn.jsdelivr.net', 'cdnjs.cloudflare.com', 'unpkg.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 const PDF_HOSTS = ['lsnb-upload.oualikevin9.workers.dev', 'pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev'];
@@ -53,9 +58,40 @@ async function precacheShell() {
       const res = await fetch(path, { cache: 'reload' });
       if (res && res.ok && res.type === 'basic') {
         const href = new URL(path, self.location.origin).href;
-        await (path === '/' ? pages : statics).put(href, res);
+        if (path === '/') {
+          // On lit l'accueil pour retrouver les scripts / feuilles de style locaux et les enregistrer aussi.
+          let html = '';
+          try { html = await res.clone().text(); } catch (_) {}
+          await pages.put(href, res);
+          await precacheAssetsFromHtml(html, statics);
+        } else {
+          await statics.put(href, res);
+        }
       }
     } catch (_) { /* l'installation ne doit jamais échouer à cause du pré-chargement */ }
+  }));
+}
+
+// Repère dans le HTML de l'accueil les fichiers locaux (js/css/images) et les enregistre.
+async function precacheAssetsFromHtml(html, statics) {
+  if (!html) return;
+  const trouves = new Set();
+  const re = /(?:src|href)\s*=\s*["']([^"'#]+)["']/gi;
+  let m;
+  while ((m = re.exec(html)) && trouves.size < 150) {
+    try {
+      const u = new URL(m[1], self.location.origin);
+      if (u.origin !== self.location.origin) continue;
+      if (!LOCAL_STATIC.test(u.pathname)) continue;
+      trouves.add(u.href);
+    } catch (_) {}
+  }
+  await Promise.all([...trouves].map(async (href) => {
+    try {
+      if (await statics.match(href, { ignoreVary: true })) return;
+      const res = await fetch(href, { cache: 'reload' });
+      if (res && res.ok && res.type === 'basic') await statics.put(href, res);
+    } catch (_) {}
   }));
 }
 
@@ -70,21 +106,83 @@ async function precacheLibs() {
   }));
 }
 
+// Reprend le contenu des anciens caches versionnés dans les caches durables, sans écraser l'existant.
+async function migrerAnciensCaches(keys) {
+  for (const key of keys) {
+    if (!OLD_VERSIONED.test(key)) continue;
+    try {
+      const cible = await caches.open(key.indexOf('aurore-shell') === 0 ? PAGE_CACHE : STATIC_CACHE);
+      const ancien = await caches.open(key);
+      const requetes = await ancien.keys();
+      for (const req of requetes) {
+        try {
+          if (await cible.match(req, { ignoreVary: true })) continue;
+          const rep = await ancien.match(req, { ignoreVary: true });
+          if (rep) await cible.put(req, rep);
+        } catch (_) {}
+      }
+    } catch (_) {}
+  }
+}
+
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(
-        keys
-          .filter((key) => key.startsWith('aurore-') && !KEEP_CACHES.includes(key))
-          .map((key) => caches.delete(key))
-      ))
+      .then(async (keys) => {
+        await migrerAnciensCaches(keys);
+        await Promise.all(
+          keys
+            .filter((key) => key.startsWith('aurore-') && !KEEP_CACHES.includes(key))
+            .map((key) => caches.delete(key))
+        );
+      })
       .then(() => {
-        // Demande un stockage durable : le navigateur ne vide pas les PDF enregistrés quand il manque de place.
+        // Demande un stockage durable : le navigateur ne vide pas les caches quand il manque de place.
         try { if (self.navigator && self.navigator.storage && self.navigator.storage.persist) self.navigator.storage.persist(); } catch (_) {}
         return self.clients.claim();
       })
   );
 });
+
+// ---- La page signale les fichiers qu'elle vient de charger : on les enregistre s'ils manquent ----
+self.addEventListener('message', (event) => {
+  const data = event.data || {};
+  if (data.type !== 'AURORE_WARM' || !Array.isArray(data.urls)) return;
+  event.waitUntil(rechauffer(data.urls));
+});
+
+async function rechauffer(urls) {
+  const statics = await caches.open(STATIC_CACHE);
+  const pages = await caches.open(PAGE_CACHE);
+  const libs = await caches.open(LIB_CACHE);
+  const vus = new Set();
+  for (const brut of urls.slice(0, 250)) {
+    let url;
+    try { url = new URL(brut, self.location.origin); } catch (_) { continue; }
+    if (vus.has(url.href)) continue;
+    vus.add(url.href);
+    try {
+      if (url.origin === self.location.origin) {
+        if (/\/(?:api|auth)\//.test(url.pathname)) continue;
+        if (LOCAL_STATIC.test(url.pathname)) {
+          if (await statics.match(url.href, { ignoreVary: true })) continue;
+          const res = await fetch(url.href, { cache: 'reload' });
+          if (res && res.ok && res.type === 'basic') await statics.put(url.href, res);
+        } else if (!/\.[a-z0-9]{2,5}$/i.test(url.pathname)) {
+          // Page du site (sans extension) : clé identique à celle des navigations.
+          const cle = url.origin + url.pathname;
+          if (await pages.match(cle, { ignoreVary: true })) continue;
+          const res = await fetch(cle, { cache: 'reload' });
+          if (res && res.ok && res.type === 'basic') await pages.put(cle, res);
+        }
+      } else if (CDN_HOSTS.includes(url.hostname)) {
+        if (await libs.match(url.href, { ignoreVary: true })) continue;
+        const res = await fetch(url.href, { mode: 'cors' });
+        if (res && res.ok) await libs.put(url.href, res);
+      }
+    } catch (_) { /* hors ligne ou ressource indisponible : on passe */ }
+  }
+}
 
 async function networkFirst(request, cacheName, cacheKey, timeoutMs) {
   const cache = await caches.open(cacheName);
@@ -147,7 +245,7 @@ function pdfKey(url) {
   return url.origin + url.pathname + url.search;
 }
 
-// Sert une lecture partielle (Range) depuis la copie enregistrée, sans recopier tout le fichier en mémoire.
+// Sert une lecture partielle (Range) depuis la copie enregistrée.
 async function sliceRange(response, header) {
   const m = /bytes=(\d*)-(\d*)/.exec(header || '');
   if (!m || (m[1] === '' && m[2] === '')) return response;
@@ -177,7 +275,7 @@ async function sliceRange(response, header) {
   });
 }
 
-// Libère de la place seulement si l'appareil en manque vraiment (retire les plus anciens PDF).
+// Libère de la place seulement si l'appareil en manque VRAIMENT (retire les plus anciens PDF, un par un).
 async function garantirPlace(octets) {
   try {
     if (!octets || !self.navigator || !self.navigator.storage || !self.navigator.storage.estimate) return;
