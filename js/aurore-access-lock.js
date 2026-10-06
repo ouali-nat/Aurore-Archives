@@ -1,4 +1,28 @@
 (function(){
+  // Capture très précoce du lien profond Android. Ce fichier est chargé avant
+  // le moteur OAuth : le retour Google ne doit donc jamais être perdu pendant
+  // le démarrage de l'App.
+  const AURORE_NATIVE_OAUTH_PREFIX='app.vercel.aurore-section-archivescom.twa://auth';
+  if(window.Capacitor){
+    try{
+      window.__auroreNativeOAuthUrls=Array.isArray(window.__auroreNativeOAuthUrls)
+        ? window.__auroreNativeOAuthUrls : [];
+      const memoriserUrl=(url)=>{
+        url=String(url||'');
+        if(!url.startsWith(AURORE_NATIVE_OAUTH_PREFIX)) return;
+        if(window.__auroreNativeOAuthUrls.includes(url)) return;
+        window.__auroreNativeOAuthUrls.push(url);
+      };
+      const plugins=window.Capacitor.Plugins||{};
+      const App=plugins.App || (typeof window.Capacitor.registerPlugin==='function'
+        ? window.Capacitor.registerPlugin('App') : null);
+      App?.addListener?.('appUrlOpen',event=>memoriserUrl(event?.url));
+      App?.getLaunchUrl?.().then(resultat=>memoriserUrl(resultat?.url)).catch(()=>{});
+    }catch(e){
+      console.warn('[Aurore Capacitor] capture précoce du lien OAuth indisponible :',e);
+    }
+  }
+
   const lock=document.getElementById('accessLock');
   const google=document.getElementById('accessGoogleBtn');
   const visitor=document.getElementById('accessVisitorBtn');
