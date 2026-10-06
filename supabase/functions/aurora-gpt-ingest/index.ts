@@ -707,6 +707,7 @@ Deno.serve(async req=>{
     const className=nullable(payload.class_name||payload.classification?.classe);
     const documentType=nullable(payload.document_type,120)||"cours";
     const profile=resolveProfile(documentType);
+    normalizeCourseInlineMath(content,profile);
     const memorySubject=String(subject||"").trim().toLowerCase().replace(/\s+/g," ");
     const memoryRequiresMath=memorySubject.includes("math");
     const memoryTokenHash=await sha256(memorySessionToken);
