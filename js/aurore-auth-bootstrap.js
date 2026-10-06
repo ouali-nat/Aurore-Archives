@@ -8,6 +8,24 @@
   // Le site web classique (navigateur) n'est pas concerné : rien ne change.
   const AURORE_SCHEME_APP = 'app.vercel.aurore-section-archivescom.twa://auth';
 
+  // Capacitor v6 peut exposer les plugins via le registre historique
+  // (Capacitor.Plugins) ou via registerPlugin(). Utiliser les deux chemins
+  // évite de perdre le retour OAuth selon la manière dont l'App est emballée.
+  function aurorePluginNatif(nom) {
+    try {
+      const cap = window.Capacitor;
+      if (!cap) return null;
+      const legacy = cap.Plugins && cap.Plugins[nom];
+      if (legacy) return legacy;
+      if (typeof cap.registerPlugin === 'function') {
+        return cap.registerPlugin(nom);
+      }
+    } catch (e) {
+      console.warn('[Aurore Capacitor] Plugin ' + nom + ' indisponible :', e);
+    }
+    return null;
+  }
+
   function auroreEstAppliNative() {
     try {
       return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
@@ -18,7 +36,7 @@
     if (!auroreEstAppliNative() || !client || !client.auth || client.auth.__auroreNatif) return client;
     const originale = client.auth.signInWithOAuth.bind(client.auth);
     client.auth.signInWithOAuth = async (credentials) => {
-      const Browser = window.Capacitor?.Plugins?.Browser;
+      const Browser = aurorePluginNatif('Browser');
       if (!Browser) return originale(credentials);
       const options = Object.assign({}, credentials && credentials.options, {
         redirectTo: AURORE_SCHEME_APP,
@@ -41,9 +59,8 @@
   // #access_token=... ; sur le web, le flux PKCE continue avec ?code=....
   (function brancherRetourGoogleNatif() {
     if (!auroreEstAppliNative()) return;
-    const plugins = window.Capacitor.Plugins || {};
-    const App = plugins.App;
-    const Browser = plugins.Browser;
+    const App = aurorePluginNatif('App');
+    const Browser = aurorePluginNatif('Browser');
     let retourNatifEnCours = false;
 
     async function traiterRetourGoogleNatif(lien) {
