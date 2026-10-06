@@ -111,7 +111,14 @@ def render_course_document(data, theme_palette):
                         if any(kind == "math" for kind, _ in embedded):
                             for kind, piece in embedded:
                                 if kind == "math":
-                                    rendered.append(course_relation(piece, "Relation"))
+                                    # Plain mathematical relations found inside prose
+                                    # stay in the natural paragraph flow. Only explicit
+                                    # display math is allowed to become a full relation block.
+                                    normalized = normalize_math(piece.strip())
+                                    if normalized:
+                                        rendered.append(
+                                            r"\\AuroreMathCompact{}{" + normalized + r"}"
+                                        )
                                 elif piece.strip():
                                     rendered.append(inline(piece, auto_math=auto_math))
                         else:
@@ -123,13 +130,16 @@ def render_course_document(data, theme_palette):
                     continue
                 if re.fullmatch(r"\$[\s\S]*?\$|\\\([\s\S]*?\\\)", part):
                     body = stripped[1:-1].strip() if stripped.startswith("$") else stripped[2:-2].strip()
-                    # Single variables remain inline; actual formulae, powers,
-                    # limits, equalities and manipulations receive their own box.
-                    if _math_fragment_is_blockworthy(body) or len(body) > 2:
-                        flush_prose()
-                        rendered.append(course_relation(body, "Relation"))
-                    else:
-                        prose.append(part)
+                    # Inline LaTeX remains inline even when it is a complete
+                    # equality or a longer calculation. This is the critical
+                    # distinction from explicit $...$ / \\[...\\] display math:
+                    # prose and inline formulas must keep their left-to-right flow.
+                    flush_prose()
+                    normalized = normalize_math(body)
+                    if normalized:
+                        rendered.append(
+                            r"\\AuroreMathCompact{}{" + normalized + r"}"
+                        )
                 else:
                     prose.append(part)
 
