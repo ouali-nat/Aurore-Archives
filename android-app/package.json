@@ -2,9 +2,11 @@
   "name": "aurore-android",
   "version": "1.0.0",
   "private": true,
-  "description": "Application Android Aurore (Capacitor) : WebView qui charge aurore-section-archives.com",
+  "description": "Application Android Aurore (Capacitor) : WebView qui charge le site Aurore",
   "dependencies": {
     "@capacitor/android": "^6.2.0",
+    "@capacitor/app": "^6.0.0",
+    "@capacitor/browser": "^6.0.0",
     "@capacitor/core": "^6.2.0"
   },
   "devDependencies": {
