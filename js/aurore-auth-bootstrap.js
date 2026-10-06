@@ -73,14 +73,16 @@
       try { Browser && Browser.close && Browser.close(); } catch (_) {}
 
       try {
+        // Attendre explicitement le client OAuth avant de consommer le deep-link.
+        const clientAuth = await assurerClientAuthGoogle();
         const cible = new URL(lien);
         const hashParams = new URLSearchParams((cible.hash || '').replace(/^#/, ''));
         const accessToken = hashParams.get('access_token') || cible.searchParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token') || cible.searchParams.get('refresh_token');
 
         // Retour implicite : les jetons reviennent directement dans le lien profond.
-        if (accessToken && refreshToken && window.AURORE_SUPABASE_AUTH?.auth) {
-          const resultat = await window.AURORE_SUPABASE_AUTH.auth.setSession({
+        if (accessToken && refreshToken && clientAuth?.auth) {
+          const resultat = await clientAuth.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken
           });
@@ -118,8 +120,8 @@
 
         // Secours : Supabase peut exceptionnellement renvoyer un code OAuth.
         const code = cible.searchParams.get('code');
-        if (code && window.AURORE_SUPABASE_AUTH?.auth?.exchangeCodeForSession) {
-          const resultat = await window.AURORE_SUPABASE_AUTH.auth.exchangeCodeForSession(code);
+        if (code && clientAuth?.auth?.exchangeCodeForSession) {
+          const resultat = await clientAuth.auth.exchangeCodeForSession(code);
 
           if (resultat && resultat.error) {
             console.error('[Aurore OAuth Android] exchangeCodeForSession:', resultat.error);
@@ -183,6 +185,16 @@
           if (!window.__auroreRetourGoogleRecu) window.location.reload();
         }, 1500);
       });
+    }
+
+    // Rejoue tout deep-link reçu avant le chargement du moteur OAuth.
+    try {
+      const pending=Array.isArray(window.__auroreNativeOAuthUrls)
+        ? window.__auroreNativeOAuthUrls.splice(0)
+        : [];
+      pending.forEach(lien => setTimeout(() => traiterRetourGoogleNatif(lien), 0));
+    } catch(e) {
+      console.warn('[Aurore OAuth Android] file du lien profond indisponible :',e);
     }
   })();
 
