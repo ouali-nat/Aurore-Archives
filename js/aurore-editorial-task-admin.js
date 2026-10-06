@@ -49,7 +49,7 @@ const B_EXECUTION_CONTRACT={
     'remplacer les données persistées par une réponse conversationnelle'
   ]
 };
-const C_PLAN_REQUIRED_FIELDS=['researchMethod','curricularBasis','researchFindings','sources','title','chapter','objectives','competencies','prerequisites','progression','architecture','productionStrategy','content','methods','activities','examples','situations','exercises','corrections','differentiation','evaluation','volume','duration','resources','mathGeoGebra','technicalNeeds','pdfFormat','pdfOrientation','pdfPagination','pdfThemeColor','pdfLayout','pdfTypography','pdfFonts','pdfHeaders','pdfResources','qualityMathematicalAccuracy','qualityDisciplinaryProgression','qualityExplicitReasoning','qualityNoRepetition','qualityScientificGuardrails','quality','notes'];
+const C_PLAN_REQUIRED_FIELDS=['researchMethod','curricularBasis','researchFindings','sources','title','chapter','chapter_alignment','objectives','competencies','prerequisites','progression','architecture','productionStrategy','content','methods','activities','examples','situations','exercises','corrections','differentiation','evaluation','volume','duration','resources','mathGeoGebra','technicalNeeds','pdfFormat','pdfOrientation','pdfPagination','pdfThemeColor','pdfLayout','pdfTypography','pdfFonts','pdfHeaders','pdfResources','qualityMathematicalAccuracy','qualityDisciplinaryProgression','qualityExplicitReasoning','qualityNoRepetition','qualityScientificGuardrails','quality','notes'];
 const C_EXECUTION_CONTRACT_VERSION='c-plan-guardrails-v2';
 const D_EXECUTION_CONTRACT_VERSION='d-editorial-production-v1';
 const D_EXECUTION_CONTRACT={
@@ -289,6 +289,15 @@ const textValue=v=>{
   if(typeof v==='object')return Object.entries(v).map(([k,x])=>k+': '+(typeof x==='object'?JSON.stringify(x):x)).join('\n');
   return String(v);
 };
+const structuredTextValue=v=>{
+  if(v==null)return '';
+  if(typeof v==='object'&&!Array.isArray(v)){
+    const candidate=v.value??v.details??v.text??v.notes??'';
+    return textValue(candidate);
+  }
+  return textValue(v);
+};
+const normalizeCContractText=v=>String(v??'').trim().toLocaleLowerCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const proposalFor=(t)=>{
   const w=t.metadata?.workflow||{},p=w.proposal&&typeof w.proposal==='object'?{...w.proposal}:{};
   const selected=Array.isArray(w.selected_chapters)?w.selected_chapters:[];
@@ -296,6 +305,7 @@ const proposalFor=(t)=>{
     ...p,
     title:p.title||p.titre||t.title||'',
     chapter:p.chapter||p.chapitre||(selected.length?selected.map(x=>x?.title||x?.name||textValue(x)).join('\\n'):w.selected_chapter?.title||textValue(w.selected_chapter)||''),
+    chapter_alignment:textValue(p.chapter_alignment||p.chapterAlignment||p.alignement_chapitre||''),
     researchMethod:textValue(p.researchMethod||p.research_method||w.chapter_research?.methodology),
     curricularBasis:textValue(p.curricularBasis||p.curricular_basis||p.programme||w.chapter_research?.basis),
     researchFindings:textValue(p.researchFindings||p.research_findings||p.recherche||w.chapter_research?.findings),
@@ -325,10 +335,10 @@ const proposalFor=(t)=>{
     pdfPagination:p.pdfPagination||p.pdf_pagination||'Pagination continue',
     pdfThemeColor:p.pdfThemeColor||p.theme_color||t.metadata?.theme_color||'#6D28D9',
     pdfLayout:textValue(p.pdfLayout||p.pdf_layout||p.layout),
-    pdfTypography:textValue(typeof p.pdfTypography==='object'?(p.pdfTypography.value||p.pdfTypography.text||p.pdfTypography.notes):p.pdfTypography||p.pdf_typography||p.pdfFonts||p.pdf_fonts||p.fonts),
-    pdfFonts:textValue(p.pdfFonts||p.pdf_fonts||(typeof p.pdfTypography==='object'?(p.pdfTypography.value||''):p.pdfTypography)||p.pdf_typography||p.fonts),
-    pdfHeaders:textValue(typeof p.pdfHeadersFooters==='object'?(p.pdfHeadersFooters.value||p.pdfHeadersFooters.text||p.pdfHeadersFooters.notes):p.pdfHeaders||p.pdf_headers||p.headers),
-    pdfResources:textValue(typeof p.pdfResourcesQrAnnexes==='object'?(p.pdfResourcesQrAnnexes.value||p.pdfResourcesQrAnnexes.text||p.pdfResourcesQrAnnexes.notes):p.pdfResources||p.pdf_resources),
+    pdfTypography:structuredTextValue(p.pdfTypography)||textValue(p.pdf_typography||p.pdfFonts||p.pdf_fonts||p.fonts),
+    pdfFonts:structuredTextValue(p.pdfFonts)||structuredTextValue(p.pdfTypography)||textValue(p.pdf_typography||p.fonts),
+    pdfHeaders:structuredTextValue(p.pdfHeadersFooters)||textValue(p.pdfHeaders||p.pdf_headers||p.headers),
+    pdfResources:structuredTextValue(p.pdfResourcesQrAnnexes)||textValue(p.pdfResources||p.pdf_resources),
     quality:textValue(p.quality||p.qa||p.controle_qualite),
 qualityControlExpected:p.qualityControlExpected&&typeof p.qualityControlExpected==='object'?p.qualityControlExpected:{},
     qualityMathematicalAccuracy:textValue(p.qualityControlExpected?.mathematical_accuracy),
@@ -336,7 +346,7 @@ qualityControlExpected:p.qualityControlExpected&&typeof p.qualityControlExpected
     qualityExplicitReasoning:textValue(p.qualityControlExpected?.explicit_reasoning),
     qualityNoRepetition:textValue(p.qualityControlExpected?.no_repetition),
     qualityScientificGuardrails:textValue(p.qualityControlExpected?.scientific_guardrails),
-    notes:textValue(typeof p.editorialNotes==='object'?(p.editorialNotes.notes||p.editorialNotes.value||''):p.notes||p.editorial_notes),
+    notes:textValue(typeof p.editorialNotes==='object'?(p.editorialNotes.notes||p.editorialNotes.value||p.editorialNotes.details||p.editorialNotes.text||''):p.notes||p.editorial_notes),
     revisionNotes:textValue(p.revisionNotes||p.revision_notes||w.revision_note)
   };
 };
@@ -641,27 +651,29 @@ function cPlanCompleteness(t,p){
   const selected=selectedChaptersFor(t);
   const chapterNames=selected.map(x=>String(x?.title||x?.name||x||'').trim()).filter(Boolean);
   if(!chapterNames.length)missing.unshift('selected_chapters');
-  if(p?.chapter&&chapterNames.length){
-    const normalized=String(p.chapter).toLocaleLowerCase('fr');
-    const matches=chapterNames.some(x=>normalized.includes(x.toLocaleLowerCase('fr'))||x.toLocaleLowerCase('fr').includes(normalized));
+  const alignment=String(p?.chapter_alignment??'').trim();
+  if(!alignment&&chapterNames.length)missing.unshift('chapter_alignment');
+  if(alignment&&chapterNames.length){
+    const normalizedAlignment=normalizeCContractText(alignment);
+    const matches=chapterNames.every(x=>{
+      const n=normalizeCContractText(x);
+      return Boolean(n)&&normalizedAlignment.includes(n);
+    });
     if(!matches)missing.unshift('chapter_alignment');
   }
   const researchSourceCount=String(p?.sources||'').split(/\n|\r?\n/).map(x=>x.trim()).filter(Boolean).length;
   if(researchSourceCount<1)missing.unshift('research_source');
   if(String(p?.quality||'').trim().length<40)missing.unshift('quality_detail');
-// proposalFor() normalise les objets structurés persistés en texte pour l'affichage.
-// Le garde-fou accepte cette vue normalisée pendant le contrôle du brouillon;
-// persistPlan() reconstruit ensuite les objets {status:"complete",value:...}.
   const structuredChecks=[['pdfTypography',p?.pdfTypography],['pdfHeadersFooters',p?.pdfHeadersFooters],['pdfResourcesQrAnnexes',p?.pdfResourcesQrAnnexes],['editorialNotes',p?.editorialNotes]];
   structuredChecks.forEach(([k,v])=>{
     if(typeof v==='string'){
       if(!v.trim())missing.unshift(k);
-    }else if(k==='editorialNotes'){
-      if(!v||typeof v!=='object'||v.status!=='complete'||!String(v.notes||'').trim())missing.unshift(k);
-    }else if(!v||typeof v!=='object'||v.status!=='complete'||!String(v.value||'').trim())missing.unshift(k);
+      return;
+    }
+    if(!v||typeof v!=='object'||v.status!=='complete'||!structuredTextValue(v).trim())missing.unshift(k);
   });
   const qc=p?.qualityControlExpected;
-['mathematical_accuracy','disciplinary_progression','explicit_reasoning','no_repetition','scientific_guardrails'].forEach(k=>{
+  ['mathematical_accuracy','disciplinary_progression','explicit_reasoning','no_repetition','scientific_guardrails'].forEach(k=>{
     if(!qc||typeof qc!=='object'||qc.status!=='complete'||!String(qc[k]||'').trim())missing.unshift('qualityControlExpected');
   });
   return {ok:missing.length===0,missing:[...new Set(missing)],selectedCount:chapterNames.length,sourceCount:researchSourceCount};
@@ -675,9 +687,10 @@ const C_PLAN_FIELD_LABELS={
   volume:'Volume pédagogique',duration:'Durée indicative',resources:'Ressources / illustrations',mathGeoGebra:'Mathématiques / GeoGebra',
   technicalNeeds:'Besoins techniques',pdfFormat:'Format PDF',pdfOrientation:'Orientation PDF',pdfPagination:'Pagination PDF',pdfThemeColor:'Couleur thème PDF',
   pdfLayout:'Mise en page PDF',pdfTypography:'PDF typographie',pdfFonts:'Polices / typographie PDF',pdfHeaders:'En-têtes / pieds de page PDF',pdfResources:'Ressources PDF / QR / annexes',
+  chapter_alignment:'Alignement exact avec la sélection B → plan C',
   quality:'Synthèse du contrôle qualité',qualityMathematicalAccuracy:'Exactitude mathématique',qualityDisciplinaryProgression:'Progression disciplinaire',qualityExplicitReasoning:'Raisonnement explicite',qualityNoRepetition:'Absence de répétition',qualityScientificGuardrails:'Garde-fous scientifiques',notes:'Notes éditoriales'
 };
-const C_AI_COMPLETION_VERSION='c-ai-completion-guard-v1';
+const C_AI_COMPLETION_VERSION='c-ai-completion-guard-v2';
 const C_AI_ENDPOINT='/functions/v1/aurora-gemini-next';
 const C_AI_PLACEHOLDERS=['à compléter','a completer','à préciser','a preciser','à renseigner','a renseigner','n/a','na','non défini','non defini','non renseigné','non renseigne','à déterminer','a determiner'];
 const cAIText=v=>String(v??'').trim();
@@ -689,7 +702,7 @@ const cAIContext=(t,p,missing)=>{
   const w=t.metadata?.workflow||{};
   const selected=selectedChaptersFor(t).map(x=>cAIText(x?.title||x?.name||x)).filter(Boolean);
   const take=(v,n)=>cAIText(v).slice(0,n||160);
-  const core=['title','chapter','objectives','competencies','progression','architecture','productionStrategy','content','methods','activities','examples','situations','exercises','corrections','evaluation','resources','technicalNeeds','pdfLayout','pdfTypography','pdfFonts','pdfHeaders','pdfResources','quality','notes'];
+  const core=['title','chapter','chapter_alignment','objectives','competencies','progression','architecture','productionStrategy','content','methods','activities','examples','situations','exercises','corrections','evaluation','resources','technicalNeeds','pdfLayout','pdfTypography','pdfFonts','pdfHeaders','pdfResources','quality','notes'];
   const plan={};
   core.forEach(k=>{if(!missing.includes(k)&&cAIText(p[k]))plan[k]=take(p[k],k==='content'||k==='progression'||k==='architecture'||k==='productionStrategy'||k==='quality'?220:150)});
   return {
@@ -723,6 +736,7 @@ async function cAIRequest(t,p,missing){
     'Utilise exclusivement le contexte réel fourni. N’invente ni chapitre, ni classe, ni source, ni information curriculaire.',
     'Chaque valeur doit être directement exploitable dans un document pédagogique réel.',
     'N’utilise jamais une formule vide ou générique comme « à compléter », « à préciser », « N/A » ou équivalent.',
+    'chapter_alignment doit reprendre explicitement chaque titre de chapitre réellement sélectionné en B et expliquer son raccordement au plan C ; n’introduis aucun chapitre nouveau.',
     'Pour notes, écris une vraie note éditoriale contextualisée. Pour pdfFonts, pdfHeaders et pdfResources, donne des choix techniques concrets.',
     'Pour sources, conserve uniquement les sources réellement fournies dans le contexte ; ne fabrique aucune URL.',
     'Réponds uniquement avec un objet JSON valide de la forme {"fields":{"clé":"valeur"}}.',
@@ -792,7 +806,7 @@ function planForm(t,section){
     '<div class="editor-plan-grid editor-research-grid">'+
     field('Méthode de recherche','researchMethod',p.researchMethod,true)+field('Base curriculaire / programme','curricularBasis',p.curricularBasis,true)+field('Constats utiles à la production','researchFindings',p.researchFindings,true)+field('Sources / URLs (une par ligne)','sources',p.sources,true)+
     '</div><div class="editor-plan-divider">Stratégie pédagogique et contenu</div><div class="editor-plan-grid">'+
-    field('Titre du document','title',p.title,true)+field('Chapitres / unité traitée','chapter',p.chapter,true)+field('Objectifs pédagogiques','objectives',p.objectives,true)+field('Compétences visées','competencies',p.competencies,true)+field('Prérequis','prerequisites',p.prerequisites,true)+field('Progression pédagogique','progression',p.progression,true)+
+    field('Titre du document','title',p.title,true)+field('Chapitres / unité traitée','chapter',p.chapter,true)+field('Alignement exact avec la sélection B → plan C','chapter_alignment',p.chapter_alignment,true)+field('Objectifs pédagogiques','objectives',p.objectives,true)+field('Compétences visées','competencies',p.competencies,true)+field('Prérequis','prerequisites',p.prerequisites,true)+field('Progression pédagogique','progression',p.progression,true)+
     field('Architecture / plan détaillé','architecture',p.architecture,true)+field('Stratégie de production','productionStrategy',p.productionStrategy,true)+field('Contenu à couvrir','content',p.content,true)+field('Méthodes pédagogiques','methods',p.methods,true)+field('Activités d’apprentissage','activities',p.activities,true)+field('Exemples / applications','examples',p.examples,true)+
     field('Situations / problèmes','situations',p.situations,true)+field('Exercices','exercises',p.exercises,true)+field('Corrigés / solutions','corrections',p.corrections,true)+field('Différenciation / adaptations','differentiation',p.differentiation,true)+field('Évaluation prévue','evaluation',p.evaluation,true)+
     field('Volume pédagogique','volume',p.volume)+field('Durée indicative','duration',p.duration)+field('Ressources / illustrations','resources',p.resources,true)+field('Mathématiques / GeoGebra','mathGeoGebra',p.mathGeoGebra,true)+field('Besoins techniques','technicalNeeds',p.technicalNeeds,true)+
@@ -1176,8 +1190,8 @@ function bindDetail(d,t,state){
     const qualityFallback=String(p.quality||'').trim();
     p.pdfTypography={status:'complete',value:String(p.pdfTypography||p.pdfFonts||'').trim(),updated_at:now};
     p.pdfFonts=String(p.pdfTypography.value||'').trim();
-    p.pdfHeadersFooters={status:'complete',value:String(p.pdfHeaders||'').trim(),updated_at:now};
-    p.pdfResourcesQrAnnexes={status:'complete',value:String(p.pdfResources||'').trim(),updated_at:now};
+    p.pdfHeadersFooters={status:'complete',value:String(p.pdfHeaders||'').trim(),details:String(p.pdfHeaders||'').trim(),updated_at:now};
+    p.pdfResourcesQrAnnexes={status:'complete',value:String(p.pdfResources||'').trim(),details:String(p.pdfResources||'').trim(),updated_at:now};
     p.editorialNotes={status:'complete',notes:String(p.notes||'').trim(),updated_at:now};
     p.qualityControlExpected={status:'complete',mathematical_accuracy:String(p.qualityMathematicalAccuracy||qualityFallback).trim(),disciplinary_progression:String(p.qualityDisciplinaryProgression||qualityFallback).trim(),explicit_reasoning:String(p.qualityExplicitReasoning||qualityFallback).trim(),no_repetition:String(p.qualityNoRepetition||qualityFallback).trim(),scientific_guardrails:String(p.qualityScientificGuardrails||qualityFallback).trim(),updated_at:now};
     let guard=cPlanCompleteness(fresh,p);
@@ -1200,8 +1214,8 @@ function bindDetail(d,t,state){
     const persistedProposal={
       ...p,
       pdfTypography:{status:'complete',value:String(p.pdfTypography||'').trim()},
-      pdfHeadersFooters:{status:'complete',value:String(p.pdfHeaders||'').trim()},
-      pdfResourcesQrAnnexes:{status:'complete',value:String(p.pdfResources||'').trim()},
+      pdfHeadersFooters:{status:'complete',value:String(p.pdfHeaders||'').trim(),details:String(p.pdfHeaders||'').trim()},
+      pdfResourcesQrAnnexes:{status:'complete',value:String(p.pdfResources||'').trim(),details:String(p.pdfResources||'').trim()},
       editorialNotes:{status:'complete',notes:String(p.notes||'').trim()}
     };
     const persistedGuard=cPlanCompleteness(fresh,persistedProposal);
