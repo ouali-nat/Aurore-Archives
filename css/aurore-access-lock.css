@@ -3,7 +3,7 @@
      est chargé ICI, en tête, avant le premier affichage. Avant, il n'arrivait qu'en fin de page :
      la porte apparaissait d'abord avec l'ancien style puis changeait d'aspect (deux versions successives).
      Le lien de fin de page reste en place pour garder l'ordre de priorité des autres feuilles. */
-  body.site-locked > *:not(#accessLock):not(#signupModal):not(#auroreAuthWait):not(#auroreDebugErr):not(#auroreBuildBadge):not(#screen-shared-section):not(#aurore-zoom-fab):not(#aurore-zoom-panel){display:none!important;}
+  body.site-locked > *:not(#accessLock):not(#signupModal):not(#auroreAuthWait):not(#logoutConfirmModal):not(#auroreNetworkStatus):not(#auroreDebugErr):not(#auroreBuildBadge):not(#screen-shared-section):not(#aurore-zoom-fab):not(#aurore-zoom-panel){display:none!important;}
   /* Une URL ?sectionShare=... est publique : elle ne doit jamais être recouverte par le portail d'inscription. */
   html.aurore-shared-route #accessLock,
   html.aurore-shared-route #signupModal{display:none!important;}
