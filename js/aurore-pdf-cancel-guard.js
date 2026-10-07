@@ -50,3 +50,20 @@
     }
   } catch (e) {}
 })();
+
+/* Aurore — chargement PRÉCOCE de la détection réelle du réseau (site + application).
+   Les scripts « defer » du site attendent le moteur Supabase (CDN) avant de s'exécuter :
+   si ce CDN est lent, tout ce qui est chargé plus bas démarre en retard. Ce fichier est
+   le premier script de la page : la détection du réseau (notification « Connexion
+   interrompue / rétablie ») démarre donc immédiatement, sans attendre.
+   Chargement asynchrone : aucun blocage de l'affichage. Voir js/aurore-reseau-fiable.js. */
+(function () {
+  try {
+    if (window.__auroreReseauFiableCharge) return;
+    window.__auroreReseauFiableCharge = true;
+    var s = document.createElement('script');
+    s.src = 'js/aurore-reseau-fiable.js?v=20261007-1';
+    s.async = true;
+    (document.head || document.documentElement).appendChild(s);
+  } catch (e) {}
+})();
