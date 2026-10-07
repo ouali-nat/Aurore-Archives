@@ -25,7 +25,7 @@ jobs:
         uses: TeX-Live/setup-texlive-action@v4
         with:
           packages: |
-            scheme-medium
+            scheme-small
             collection-luatex
             collection-langfrench
             collection-latexextra
