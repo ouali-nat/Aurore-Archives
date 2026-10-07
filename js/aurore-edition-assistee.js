@@ -267,6 +267,64 @@
     }catch(_){return null}
   }
 
+  function loadPdfJsForAssistedPreview(){
+    if(typeof pdfjsLib!=='undefined'){
+      try{pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'}catch(_){}
+      return Promise.resolve(pdfjsLib);
+    }
+    if(window.__AURORE_PDFJS_ASSISTED_PROMISE)return window.__AURORE_PDFJS_ASSISTED_PROMISE;
+    window.__AURORE_PDFJS_ASSISTED_PROMISE=new Promise((resolve,reject)=>{
+      const script=document.createElement('script');
+      script.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      script.async=true;
+      script.onload=()=>{
+        try{pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'}catch(_){}
+        resolve(pdfjsLib);
+      };
+      script.onerror=()=>{
+        window.__AURORE_PDFJS_ASSISTED_PROMISE=null;
+        reject(new Error('PDF.js indisponible.'));
+      };
+      document.head.appendChild(script);
+    });
+    return window.__AURORE_PDFJS_ASSISTED_PROMISE;
+  }
+
+  async function renderAssistedPdfPreview(url,canvasId,loadingId){
+    const canvas=document.getElementById(canvasId),loading=document.getElementById(loadingId);
+    if(!canvas)return;
+    try{
+      const pdfjs=await loadPdfJsForAssistedPreview();
+      if(!canvas.isConnected)return;
+      if(loading)loading.textContent='Chargement de la page…';
+      const response=await fetch(url,{cache:'no-store'});
+      if(!response.ok)throw new Error('HTTP '+response.status);
+      const buffer=await response.arrayBuffer();
+      if(!buffer.byteLength)throw new Error('PDF vide.');
+      const pdf=await pdfjs.getDocument({data:new Uint8Array(buffer),stopAtErrors:false}).promise;
+      const page=await pdf.getPage(1);
+      if(!canvas.isConnected)return;
+      const host=canvas.parentElement;
+      const targetWidth=Math.max(320,Math.min(760,(host?.clientWidth||760)-24));
+      const base=page.getViewport({scale:1});
+      const viewport=page.getViewport({scale:targetWidth/base.width});
+      const ratio=Math.min(window.devicePixelRatio||1,2);
+      canvas.width=Math.ceil(viewport.width*ratio);
+      canvas.height=Math.ceil(viewport.height*ratio);
+      canvas.style.width=Math.round(viewport.width)+'px';
+      canvas.style.height=Math.round(viewport.height)+'px';
+      const ctx=canvas.getContext('2d',{alpha:false});
+      if(!ctx)throw new Error('Canvas indisponible.');
+      await page.render({canvasContext:ctx,viewport,transform:ratio!==1?[ratio,0,0,ratio,0,0]:null}).promise;
+      if(loading)loading.textContent='Page prête.';
+    }catch(e){
+      if(canvas.isConnected){
+        const host=canvas.parentElement;
+        if(host)host.innerHTML='<div class="ae-preview-render-error"><strong>Prévisualisation indisponible</strong><span>Le PDF a bien été généré. Ouvre-le ou télécharge-le pour le consulter.</span></div>';
+      }
+    }
+  }
+
   async function previewBlock(id){
     const b=activeBlocks().find(x=>x.id===id);if(!b)return;
     if(isSystemBlock(b)){
@@ -286,9 +344,11 @@
       return;
     }
     if(gen.page_url){
-      const page=pageNumberFor(b),url=String(gen.page_url);
-      const body='<div class="ae-page-preview"><div class="ae-page-preview-meta"><strong>Page '+page+' · '+esc(labelFor(b))+'</strong><span>PDF de la page concernée uniquement</span></div><iframe class="ae-page-preview-frame" src="'+esc(url)+'#page=1&view=FitH" title="Prévisualisation de la page '+page+'"></iframe><div class="ae-page-preview-actions"><a class="admin-btn primary" href="'+esc(url)+'" download="aurore-page-'+page+'.pdf">Télécharger</a><a class="admin-btn ghost" href="'+esc(url)+'" target="_blank" rel="noopener">Ouvrir</a></div></div>';
-      openBlockModal('Prévisualisation de la page générée',body);return;
+      const page=pageNumberFor(b),url=String(gen.page_url),canvasId='aePdfCanvas_'+String(id).replace(/[^a-zA-Z0-9_-]/g,'_'),loadingId=canvasId+'_loading';
+      const body='<div class="ae-page-preview"><div class="ae-page-preview-meta"><strong>Page '+page+' · '+esc(labelFor(b))+'</strong><span>Rendu PDF.js · page 1 du fragment</span></div><div class="ae-page-preview-canvas-wrap"><div id="'+loadingId+'" class="ae-preview-loading">Préparation de la visualisation…</div><canvas id="'+canvasId+'" class="ae-page-preview-canvas" aria-label="Prévisualisation de la page '+page+'"></canvas></div><div class="ae-page-preview-actions"><a class="admin-btn primary" href="'+esc(url)+'" download="aurore-page-'+page+'.pdf">Télécharger</a><a class="admin-btn ghost" href="'+esc(url)+'" target="_blank" rel="noopener">Ouvrir</a></div></div>';
+      openBlockModal('Prévisualisation de la page générée',body);
+      await renderAssistedPdfPreview(url,canvasId,loadingId);
+      return;
     }
     const t=mainText(b);
     let body='<div class="ae-block-preview"><strong>'+esc(labelFor(b))+'</strong><div class="ae-preview-text">'+esc(t||'Bloc vide')+'</div></div>';
@@ -416,16 +476,15 @@
     const b=activeBlocks().find(x=>x.id===id);if(!b)return;
     if(isSystemBlock(b)){setStatus('Les pages de début et de fin sont automatiques : seule une page de contenu centrale peut être générée ici.');return;}
     const v=validateBlock(b);if(!v.ok){renderWorkspace();setStatus('Bloc invalide : corrige les éléments signalés.');return;}
-    if(b.type==='graphique'&&!b.content?.json?.geogebra_image_path&&!b.content?.json?.graph_local_path){
-      await persistCourse(true);setStatus('JSON graphique validé. Le rendu visuel sera produit par le moteur GeoGebra/LuaLaTeX lorsque son asset sera disponible.');return;
+    if(b.type==='graphique'&&!b.content?.json?.geogebra_image_path&&!b.content?.json?.graph_local_path&&!b.content?.json?.geogebra_image_url&&!b.content?.json?.image_url&&!b.content?.json?.preview_url){
+      await persistCourse(true);setStatus('JSON graphique valide, mais aucun asset visuel n’est encore disponible.');return;
     }
-    b.generation={...(b.generation||{}),status:'generating',page_number:pageNumberFor(b),progress:8,progress_label:'Génération instantanée de la page…',error:null,updated_at:new Date().toISOString()};
-    renderWorkspace();updateGenerationProgress(b.id,34,'Rendu PDF instantané…');setStatus('Rendu instantané de la page…');
-    const progressTimer=startGenerationProgress(b.id);
+    b.generation={...(b.generation||{}),status:'generating',page_number:pageNumberFor(b),progress:10,progress_label:'Préparation de la page…',error:null,updated_at:new Date().toISOString()};
+    renderWorkspace();updateGenerationProgress(b.id,10,'Préparation de la page…');setStatus('Préparation du rendu de la page…');
     try{
       const token=(typeof session!=='undefined'&&session?.access_token)||await freshToken();
       if(!token)throw new Error('Session administrateur absente.');
-      updateGenerationProgress(b.id,20,'Création de la page indépendante…');
+      updateGenerationProgress(b.id,20,'Envoi au renderer de page…');
       const r=await fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-page-v2',{
         method:'POST',
         headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':SUPABASE_ANON_KEY},
@@ -438,24 +497,24 @@
         })
       });
       const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}};
-      if(!r.ok||!d.ok)throw new Error(d.error||('Mise en file HTTP '+r.status));
-      updateGenerationProgress(b.id,62,'PDF en cours de construction…');
+      if(!r.ok||!d.ok)throw new Error(d.error||('Rendu HTTP '+r.status));
+      updateGenerationProgress(b.id,82,'PDF reçu du renderer…');
       b.generation={
         ...(b.generation||{}),
         status:'generating',
         page_number:d.page_number||pageNumberFor(b),
         generated_document_id:d.generated_document_id||null,
         job_id:d.job_id||null,
-        progress:62,
-        progress_label:'PDF en cours de construction…',
+        progress:82,
+        progress_label:'PDF reçu du renderer…',
         error:null,
         updated_at:new Date().toISOString()
       };
-      await persistCourse(true);
       const pagePath=d.page_path||null;
       const pageUrl=d.page_url||null;
-      if(!pageUrl)throw new Error('Le moteur rapide a terminé sans fournir le PDF de la page.');
-      updateGenerationProgress(b.id,92,'PDF enregistré et prêt à être visualisé…');
+      if(!pageUrl)throw new Error('Le renderer a terminé sans fournir le PDF de la page.');
+      await persistCourse(true);
+      updateGenerationProgress(b.id,94,'PDF enregistré, vérification de la page…');
       b.generation={
         status:'ready',
         page_number:d.page_number||pageNumberFor(b),
@@ -465,16 +524,15 @@
         page_url:pageUrl,
         updated_at:new Date().toISOString(),
         progress:100,
-        progress_label:'Page prête - visualisation disponible',
+        progress_label:'Page prête — visualisation disponible',
         bytes:d.bytes||null,
-        qa:{engine:d.engine||'pdf-lib-fast-page-v1',status:'completed'},
+        qa:{engine:d.engine||'pdf-lib-course-page-v2',status:'completed',formulas:d.qa?.formulas||null},
         error:null
       };
       await persistCourse(true);
       renderWorkspace();
-      setStatus('Page '+(b.generation.page_number||pageNumberFor(b))+' générée instantanément.');
+      setStatus('Page '+(b.generation.page_number||pageNumberFor(b))+' générée et enregistrée.');
     }catch(e){
-      clearInterval(progressTimer);
       const msg=String(e?.message||e);
       if(/ASSISTED_PAGE_TOO_LONG|dépasse une seule page|depasse une seule page|exceeds one page|single page/i.test(msg) && Number(b.generation?.autoSplitDepth||0)<4){
         const pieces=splitLongBlock(b);
