@@ -272,7 +272,7 @@ async function prepareRuns(runs:Run[],auth:string,pdf:any,fonts:any,qa:any,cache
     }
     const img=await formulaImage(auth,pdf,run.value,qa,cache);
     if(img){
-      const targetH=run.kind==="display"?30:12.2;
+      const targetH=run.kind==="display"?34:13.2;
       const scale=Math.min(1,targetH/(img.height||targetH));
       prepared.push({kind:run.kind,value:run.value,image:img,width:img.width*scale,height:img.height*scale});
     }else{
@@ -310,16 +310,16 @@ function layoutInline(prepared:Run[],font:any,size:number,max:number){
   return lines.filter(x=>x.length);
 }
 
-function inlineLineAdvance(line:any[],size=11.5,lineHeight=16.2){
+function inlineLineAdvance(line:any[],size=11.5,lineHeight=17.6){
   const maxMathBoxH=Math.max(0,...line.filter(t=>t.kind==="math").map(t=>t.height||0));
   // Keep the common line rhythm of the normal 11 pt editorial text.
   return Math.max(lineHeight,maxMathBoxH);
 }
 
-function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,borderColor:any,textColor:any,size=11.5,lineHeight=16.2){
+function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,borderColor:any,textColor:any,size=11.5,lineHeight=17.6){
   // Match the normal AuroreMathCompact box and center text/math on one shared line.
   let y=topY;
-  const boxPadX=7,boxPadY=3;
+  const boxPadX=7,boxPadY=4.2;
   const frame=rgbHex(mixWhite(borderColor,0.42));
   const fill=rgbHex(mixWhite(mixWhite(borderColor,0.96),0.99));
   for(const line of lines){
@@ -335,7 +335,7 @@ function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,bord
       }else{
         const iw=Math.max(1,(token.width||14)-14);
         const ih=Math.max(1,(token.height||10)-6);
-        const bh=ih+boxPadY*2;
+        const bh=Math.max(20,ih+boxPadY*2);
         const by=lineCenter-bh/2;
         const outerW=iw+boxPadX*2;
         rounded(page,cx-boxPadX,by,outerW,bh,7,fill,frame,0.45);
@@ -413,26 +413,28 @@ function displayMathMetrics(run:Run,width:number){
   const scale=Math.min(1,maxW/naturalW,maxH/naturalH);
   const iw=Math.max(24,naturalW*scale);
   const ih=Math.max(10,naturalH*scale);
-  const h=Math.max(38,ih+10);
+  const h=Math.max(44,ih+16);
   return {iw,ih,h};
 }
 
 function drawDisplayMath(page:any,run:Run,x:number,y:number,width:number,color:string){
-  // Production AuroreMathBlock geometry:
-  // light Aurore-pale fill, thin Aurore frame, 8pt corners and a left rule.
+  // Floating Aurore formula card: rounded rectangle/square, light gray fill,
+  // adaptive width and height driven by the actual rendered formula.
   const m=displayMathMetrics(run,width);
-  const x0=x, y0=y-m.h;
-  const frame=rgbHex(mixWhite(color,0.42)); // aurorebase!58!white
-  const fill=rgbHex(mixWhite(mixWhite(color,0.96),0.99)); // white!99!aurorepale
-  rounded(page,x0,y0,width,m.h,8,fill,frame,0.45);
-  page.drawLine({start:{x:x0,y:y0+6},end:{x:x0,y:y-6},thickness:1.6,color:frame});
+  const padX=18, minW=96, maxW=width;
+  const cardW=Math.min(maxW,Math.max(minW,m.iw+padX*2));
+  const cardH=m.h;
+  const x0=x+(width-cardW)/2, y0=y-cardH;
+  const frame=rgbHex("#B7B8BC");
+  const fill=rgbHex("#ECECED");
+  rounded(page,x0,y0,cardW,cardH,10,fill,frame,0.55);
   page.drawImage(run.image,{
-    x:x0+(width-m.iw)/2,
-    y:y0+(m.h-m.ih)/2,
+    x:x0+(cardW-m.iw)/2,
+    y:y0+(cardH-m.ih)/2,
     width:m.iw,
     height:m.ih
   });
-  return y0-6;
+  return y0-BLOCK_GAP;
 }
 Deno.serve(async req=>{
   if(req.method==="OPTIONS")return new Response("ok",{headers:H});
@@ -503,27 +505,31 @@ Deno.serve(async req=>{
     }
 
     const TEXT_SIZE=11.5;
-    const LINE_HEIGHT=16.2;
+    const LINE_HEIGHT=17.6;
     const BOX_RADIUS=11;
+    const BOX_PAD_TOP=10;
+    const BOX_PAD_BOTTOM=10;
+    const BLOCK_GAP=10;
     const BOX_X=X-10;
     const BOX_W=W+20;
 
     const drawInlineBox=(lines:any[])=>{
       if(!lines.length)return false;
-      const boxH=18+lines.reduce(
+      const contentH=lines.reduce(
         (sum:any,line:any)=>sum+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),
         0
       );
+      const boxH=Math.max(34,BOX_PAD_TOP+contentH+BOX_PAD_BOTTOM);
       if(y-boxH<bottom)throw new Error("ASSISTED_PAGE_TOO_LONG: bloc de texte hors page.");
       rounded(
         page,BOX_X,y-boxH,BOX_W,boxH,BOX_RADIUS,
         rgbHex("#E6E6E6"),rgbHex("#A3A3A3"),0.45
       );
       drawInlineLines(
-        page,lines,X,y-9,fonts.regular,
+        page,lines,X,y-BOX_PAD_TOP,fonts.regular,
         color,rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT
       );
-      y-=boxH+7;
+      y-=boxH+BLOCK_GAP;
       return true;
     };
 
@@ -546,7 +552,7 @@ Deno.serve(async req=>{
             const m=displayMathMetrics(run,W);
             if(y-m.h<bottom)throw new Error("ASSISTED_PAGE_TOO_LONG: formule hors page.");
             drawDisplayMath(page,run,X,y,W,color);
-            y-=m.h+6;
+            y-=m.h+BLOCK_GAP;
           }else{
             inlineChunk.push(run);
           }
