@@ -30,15 +30,47 @@
   const client=()=>window.__auroreAssistedSb||(window.__auroreAssistedSb=window.supabase?.createClient?.(SUPABASE_URL,SUPABASE_ANON_KEY));
   function rowCourse(row){const p=row?.pages;return p?.course&&typeof p.course==='object'?p.course:(p&&typeof p==='object'&&Array.isArray(p.blocks)?p:null);}
   const START_ROLE='document-start',END_ROLE='document-end';
-  function systemBlock(role,title){const start=role===START_ROLE;return {id:start?'system-start':'system-end',role,type:role,locked:true,content:{title:String(title||'Nouveau document')},generation:{status:'system',page_number:start?1:null,page_path:null,page_url:null,updated_at:null,error:null},created_at:new Date().toISOString()};}
+  function systemBlock(role,title){
+    const start=role===START_ROLE;
+    const end=role===END_ROLE;
+    const courseTitle=String(title||'Nouveau document');
+    return {
+      id:start?'system-start':'system-end',
+      role,type:role,locked:true,
+      content:start
+        ? {title:courseTitle,subtitle:'Bibliothèque numérique d’Aurore',author:'',institution:'',show_date:true}
+        : {title:'Fin du document',subtitle:'Merci d’avoir consulté ce cours.',contact:'',show_qr:false},
+      generation:{status:'system',page_number:start?1:null,page_path:null,page_url:null,updated_at:null,error:null},
+      created_at:new Date().toISOString()
+    };
+  }
+  function ensureDocumentPages(course){
+    if(!course||typeof course!=='object')return course;
+    course.document_pages=course.document_pages&&typeof course.document_pages==='object'?course.document_pages:{};
+    course.document_pages.cover=course.document_pages.cover&&typeof course.document_pages.cover==='object'
+      ?course.document_pages.cover:{enabled:true,title:String(course.title||'Nouveau document'),subtitle:'Bibliothèque numérique d’Aurore',author:'',institution:'',show_date:true};
+    course.document_pages.toc=course.document_pages.toc&&typeof course.document_pages.toc==='object'
+      ?course.document_pages.toc:{enabled:true,title:'Sommaire',subtitle:'Organisation du document',entries:[]};
+    course.document_pages.end=course.document_pages.end&&typeof course.document_pages.end==='object'
+      ?course.document_pages.end:{enabled:true,title:'Fin du document',subtitle:'Merci d’avoir consulté ce cours.',contact:'',show_qr:false};
+    return course;
+  }
+  function syncSystemPages(course){
+    ensureDocumentPages(course);
+    const start=course.blocks?.find(b=>b?.role===START_ROLE);
+    const end=course.blocks?.find(b=>b?.role===END_ROLE);
+    if(start)start.content=clone(course.document_pages.cover);
+    if(end)end.content=clone(course.document_pages.end);
+    return course;
+  }
   function ensureCourseStructure(course){
     if(!course||typeof course!=='object')return course;
-    course.theme_color=normalizeThemeColor(course.theme_color);
+    course.theme_color=normalizeThemeColor(course.theme_color);\n    ensureDocumentPages(course);
     const blocks=Array.isArray(course.blocks)?course.blocks:[];
     const start=blocks.find(b=>b?.role===START_ROLE)||systemBlock(START_ROLE,course.title);
     const end=blocks.find(b=>b?.role===END_ROLE)||systemBlock(END_ROLE,course.title);
     const middle=blocks.filter(b=>b?.role!==START_ROLE&&b?.role!==END_ROLE);
-    course.blocks=[start,...middle,end];
+    course.blocks=[start,...middle,end];\n    syncSystemPages(course);
     return course;
   }
   function isSystemBlock(b){return b?.role===START_ROLE||b?.role===END_ROLE||b?.locked===true&&(/^system-(start|end)$/.test(String(b?.id||'')));}
@@ -47,7 +79,7 @@
   function newCourse(title){
     const id=(globalThis.crypto&&crypto.randomUUID)?crypto.randomUUID():uid('course');
     return {id,title:String(title||'Nouveau cours').trim()||'Nouveau cours',status:'editing',
-      metadata:{schema:'aurore-assisted-course-v4',editor:'edition_assistee',origin:'assisted_editor'},
+      metadata:{schema:'aurore-assisted-course-v5',editor:'edition_assistee',origin:'assisted_editor'},\n      document_pages:{\n        cover:{enabled:true,title:String(title||'Nouveau cours'),subtitle:'Bibliothèque numérique d’Aurore',author:'',institution:'',show_date:true},\n        toc:{enabled:true,title:'Sommaire',subtitle:'Organisation du document',entries:[]},\n        end:{enabled:true,title:'Fin du document',subtitle:'Merci d’avoir consulté ce cours.',contact:'',show_qr:false}\n      },
       theme_color:DEFAULT_THEME_COLOR,
       blocks:[systemBlock(START_ROLE,title),systemBlock(END_ROLE,title)],generation:{pages:[],updated_at:null}};
   }
@@ -206,18 +238,42 @@
     return state.course.validation;
   }
 
+  function rebuildTocEntries(){
+    ensureDocumentPages(state.course);
+    const previous=Array.isArray(state.course.document_pages.toc.entries)?state.course.document_pages.toc.entries:[];
+    const byId=new Map(previous.map(x=>[String(x?.id||''),x]));
+    state.course.document_pages.toc.entries=contentBlocks().map((b,i)=>{
+      const old=byId.get(String(b.id))||{};
+      return {id:b.id,title:String(old.title||b.content?.title||labelFor(b)),type:b.type,enabled:old.enabled!==false,page:i+2};
+    });
+  }
+  function systemPayload(b){
+    const start=b.role===START_ROLE;
+    ensureDocumentPages(state.course);
+    return clone(start?state.course.document_pages.cover:state.course.document_pages.end);
+  }
+  function tocPayload(){
+    ensureDocumentPages(state.course);rebuildTocEntries();
+    return clone(state.course.document_pages.toc);
+  }
+
   function labelFor(b){return b.type==='paragraph'?'Paragraphe':b.type==='point'?'Point de cours':b.type==='exercise'?'Exercice':b.type==='graphique'?'Graphique JSON':'Image Wikimedia'}
   function mainText(b){return b.type==='exercise'?b.content?.statement||'':b.type==='graphique'?JSON.stringify(b.content?.json||{},null,2):b.content?.text||b.content?.caption||b.content?.title||''}
 
   function systemBlockCard(b,i){
     const start=b.role===START_ROLE;
+    const cfg=start?(state.course.document_pages?.cover||b.content||{}):(state.course.document_pages?.end||b.content||{});
     const page=start?1:activeBlocks().length;
-    const title=start?'Bloc de début · première page':'Bloc de fin · dernière page';
-    const text=start?'Page d’ouverture automatique du document. Elle sera intégrée lors de la construction/fusion du document complet.':'Dernière page automatique du document. Elle sera intégrée lors de la construction/fusion du document complet.';
+    const title=start?'Première page · couverture':'Dernière page · clôture';
+    const subtitle=start?'Page d’ouverture personnalisable':'Page de fin personnalisable';
+    const editor=start
+      ? '<div class="ae-system-fields"><label>Titre<input data-edit-system-title="'+esc(b.id)+'" value="'+esc(cfg.title||state.course.title||'')+'" maxlength="180"></label><label>Sous-titre<input data-edit-system-subtitle="'+esc(b.id)+'" value="'+esc(cfg.subtitle||'')+'" maxlength="220"></label><label>Auteur<input data-edit-system-author="'+esc(b.id)+'" value="'+esc(cfg.author||'')+'" maxlength="140"></label><label>Institution<input data-edit-system-institution="'+esc(b.id)+'" value="'+esc(cfg.institution||'')+'" maxlength="180"></label></div>'
+      : '<div class="ae-system-fields"><label>Titre<input data-edit-system-title="'+esc(b.id)+'" value="'+esc(cfg.title||'')+'" maxlength="180"></label><label>Message<input data-edit-system-subtitle="'+esc(b.id)+'" value="'+esc(cfg.subtitle||'')+'" maxlength="220"></label><label>Contact / référence<input data-edit-system-contact="'+esc(b.id)+'" value="'+esc(cfg.contact||'')+'" maxlength="180"></label></div>';
     return '<article class="ae-block ae-system-block" data-block="'+esc(b.id)+'">'+
-      '<header class="ae-block-head"><div><span class="ae-block-number">'+String(page).padStart(2,'0')+'</span><strong>'+esc(title)+'</strong><small>Page système · verrouillée</small></div><span class="ae-block-state ok">Automatique</span></header>'+
-      '<div class="ae-system-content"><strong>'+esc(state.course?.title||'Document')+'</strong><span>'+esc(text)+'</span></div>'+
-      '<div class="ae-block-result"><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Prévisualiser</button><span>Cette page n’est pas envoyée au moteur de génération des pages centrales.</span></div>'+
+      '<header class="ae-block-head"><div><span class="ae-block-number">'+String(page).padStart(2,'0')+'</span><strong>'+esc(title)+'</strong><small>'+esc(subtitle)+' · système</small></div><span class="ae-block-state ok">Prévisualisable</span></header>'+
+      '<div class="ae-system-content">'+editor+'</div>'+
+      '<div class="ae-block-toolbar"><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Prévisualiser</button><button class="admin-btn ghost" data-json-system="'+esc(b.id)+'">JSON</button></div>'+
+      '<div class="ae-block-result"><span>Cette page reste séparée des blocs de contenu et sera intégrée lors de la fusion finale.</span></div>'+
       '</article>';
   }
 
@@ -246,7 +302,7 @@
     ensureCourseStructure(state.course);
     r.innerHTML='<div class="ae-shell ae-workspace"><header class="ae-head"><div><button class="admin-btn ghost" id="aeBack">← Mes cours</button><span class="ae-kicker">Atelier de production séquentielle</span><h3><input id="aeCourseTitle" value="'+esc(state.course.title)+'"></h3><p>Le bloc de début et le bloc de fin sont automatiques. Tous les blocs que tu ajoutes sont placés entre les deux et chaque bloc central génère uniquement sa propre page.</p></div><span class="ae-status" id="assistedStatus">'+(state.course.validation?.ok?'Structure valide':'À compléter')+'</span></header>'+
       '<div class="ae-top-options"><div class="ae-top-options-title"><span class="ae-kicker">Options du document</span><strong>Couleur d’accent</strong><small>Elle sera utilisée pour les bordures, repères et éléments mathématiques de la page.</small></div><label class="ae-color-field"><span class="ae-color-swatch" style="background:'+normalizeThemeColor(state.course.theme_color)+'"></span><select id="aeThemeColor" aria-label="Couleur d’accent du document">'+themeColorOptions()+'</select></label></div>'+
-      '<div class="ae-workbar"><button class="admin-btn primary" id="aeAddP">＋ Paragraphe</button><button class="admin-btn ghost" id="aeAddPoint">＋ Point de cours</button><button class="admin-btn ghost" id="aeAddEx">＋ Exercice</button><button class="admin-btn ghost" id="aeAddGraph">＋ Graphique JSON</button><button class="admin-btn ghost" id="aeAddWiki">＋ Image Wikimedia</button><button class="admin-btn ghost" id="aeSave">Enregistrer le cours</button></div>'+
+      '<div class="ae-workbar"><button class="admin-btn primary" id="aeAddP">＋ Paragraphe</button><button class="admin-btn ghost" id="aeAddPoint">＋ Point de cours</button><button class="admin-btn ghost" id="aeAddEx">＋ Exercice</button><button class="admin-btn ghost" id="aeAddGraph">＋ Graphique JSON</button><button class="admin-btn ghost" id="aeAddWiki">＋ Image Wikimedia</button><button class="admin-btn ghost" id="aeTocJson">Sommaire JSON</button><button class="admin-btn ghost" id="aeSave">Enregistrer le cours</button></div>'+
       '<div class="ae-sequence-meta"><span>'+contentBlocks().length+' bloc(s) de contenu · 1 début · 1 fin</span><span>Ordre de génération : début → contenu → fin</span></div>'+
       '<section class="ae-block-stack">'+(activeBlocks().length?activeBlocks().map(blockCard).join(''):'<div class="ae-empty"><strong>Le cours est vide.</strong><span>Ajoute un paragraphe pour commencer. Le bloc suivant sera automatiquement placé dessous.</span></div>')+'</section>'+
       '<footer class="ae-work-footer">Les pages sont produites bloc par bloc. La fusion du document complet reste séparée du travail d’édition.</footer></div><div class="ae-modal-host" id="aeModalHost"></div>';
@@ -269,7 +325,7 @@
     document.getElementById('aeAddEx').onclick=()=>addBlock('exercise');
     document.getElementById('aeAddGraph').onclick=()=>addBlock('graphique');
     document.getElementById('aeAddWiki').onclick=wiki;
-    document.getElementById('aeSave').onclick=()=>persistCourse(false,true);
+    document.getElementById('aeTocJson').onclick=()=>jsonTocDialog();\n    document.getElementById('aeSave').onclick=()=>persistCourse(false,true);
     root().querySelectorAll('[data-edit-point-title]').forEach(el=>el.oninput=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editPointTitle);if(b){b.content.title=el.value;validateCourse();}});
     root().querySelectorAll('[data-edit-point-rank]').forEach(el=>el.oninput=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editPointRank);if(b){b.content.rank=Math.max(1,parseInt(el.value||'1',10));validateCourse();}});
     root().querySelectorAll('[data-edit-point-color]').forEach(el=>el.onchange=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editPointColor);if(b){b.content.color=normalizePointColor(el.value);renderWorkspace();}});
@@ -281,6 +337,26 @@
     root().querySelectorAll('[data-edit-text]').forEach(el=>el.oninput=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editText);if(b){if(b.type==='exercise')b.content.statement=el.value;else b.content.text=el.value;validateCourse();}});
     root().querySelectorAll('[data-edit-json]').forEach(el=>el.onchange=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editJson);if(!b)return;try{b.content=normalizeContent('graphique',JSON.parse(el.value));validateBlock(b);renderWorkspace();}catch(_){setStatus('JSON graphique invalide.')}});
 
+    root().querySelectorAll('[data-edit-system-title]').forEach(el=>el.oninput=()=>{
+      const b=activeBlocks().find(x=>x.id===el.dataset.editSystemTitle);if(!b)return;
+      const cfg=b.role===START_ROLE?state.course.document_pages.cover:state.course.document_pages.end;
+      cfg.title=el.value;syncSystemPages(state.course);
+    });
+    root().querySelectorAll('[data-edit-system-subtitle]').forEach(el=>el.oninput=()=>{
+      const b=activeBlocks().find(x=>x.id===el.dataset.editSystemSubtitle);if(!b)return;
+      const cfg=b.role===START_ROLE?state.course.document_pages.cover:state.course.document_pages.end;
+      cfg.subtitle=el.value;syncSystemPages(state.course);
+    });
+    root().querySelectorAll('[data-edit-system-author]').forEach(el=>el.oninput=()=>{
+      state.course.document_pages.cover.author=el.value;syncSystemPages(state.course);
+    });
+    root().querySelectorAll('[data-edit-system-institution]').forEach(el=>el.oninput=()=>{
+      state.course.document_pages.cover.institution=el.value;syncSystemPages(state.course);
+    });
+    root().querySelectorAll('[data-edit-system-contact]').forEach(el=>el.oninput=()=>{
+      state.course.document_pages.end.contact=el.value;syncSystemPages(state.course);
+    });
+    root().querySelectorAll('[data-json-system]').forEach(x=>x.onclick=()=>jsonSystemDialog(x.dataset.jsonSystem));
     root().querySelectorAll('[data-preview-block]').forEach(x=>x.onclick=()=>previewBlock(x.dataset.previewBlock));
     root().querySelectorAll('[data-json-block]').forEach(x=>x.onclick=()=>jsonDialog(x.dataset.jsonBlock));
     root().querySelectorAll('[data-copy-block]').forEach(x=>x.onclick=()=>copyBlock(x.dataset.copyBlock));
@@ -420,8 +496,12 @@
     const b=activeBlocks().find(x=>x.id===id);if(!b)return;
     if(isSystemBlock(b)){
       const start=b.role===START_ROLE;
-      const body='<div class="ae-block-preview ae-system-preview"><span class="ae-preview-badge">'+(start?'Bloc de début':'Bloc de fin')+'</span><strong>'+esc(state.course?.title||'Document')+'</strong><div class="ae-preview-text">'+esc(start?'Première page automatique du document.':'Dernière page automatique du document.')+'</div><small>Cette page est conservée comme page système et n’est pas générée comme une page de contenu indépendante.</small></div>';
-      openBlockModal(start?'Prévisualisation de la page de début':'Prévisualisation de la page de fin',body);return;
+      ensureDocumentPages(state.course);syncSystemPages(state.course);
+      const cfg=start?state.course.document_pages.cover:state.course.document_pages.end;
+      const body=start
+        ? '<div class="ae-special-page-preview ae-cover-preview"><span class="ae-preview-badge">Page 1 · Couverture</span><div class="ae-special-page-accent"></div><h2>'+esc(cfg.title||state.course.title)+'</h2><h3>'+esc(cfg.subtitle||'')+'</h3>'+(cfg.author?'<p>'+esc(cfg.author)+'</p>':'')+(cfg.institution?'<p>'+esc(cfg.institution)+'</p>':'')+(cfg.show_date?'<small>'+esc(new Intl.DateTimeFormat('fr-FR',{dateStyle:'long'}).format(new Date()))+'</small>':'')+'</div>'
+        : '<div class="ae-special-page-preview ae-end-preview"><span class="ae-preview-badge">Dernière page</span><div class="ae-special-page-accent"></div><h2>'+esc(cfg.title||'Fin du document')+'</h2><h3>'+esc(cfg.subtitle||'')+'</h3>'+(cfg.contact?'<p>'+esc(cfg.contact)+'</p>':'')+'</div>';
+      openBlockModal(start?'Prévisualisation de la couverture':'Prévisualisation de la dernière page',body);return;
     }
     const gen=b.generation||{};
     if(b.type==='graphique'&&!gen.page_url){
@@ -445,6 +525,35 @@
     let body='<div class="ae-block-preview"><strong>'+esc(labelFor(b))+'</strong><div class="ae-preview-text">'+esc(t||'Bloc vide')+'</div></div>';
     if(b.type==='wikimedia-image'&&b.content?.imageUrl)body='<div class="ae-block-preview"><strong>Image Wikimedia sélectionnée</strong><img class="ae-preview-image" src="'+esc(b.content.imageUrl)+'" alt="'+esc(b.content.title||'Image Wikimedia')+'"><small>'+esc(b.content.license||'')+'</small></div>';
     openBlockModal('Prévisualisation du bloc',body);
+  }
+
+  function jsonTocDialog(){
+    const payload=tocPayload();
+    openBlockModal('Squelette JSON du sommaire','<textarea id="aeDialogJson" class="ae-dialog-json">'+esc(JSON.stringify(payload,null,2))+'</textarea><div class="ae-dialog-actions"><button class="admin-btn primary" id="aeApplyJson">Appliquer le sommaire</button></div>');
+    document.getElementById('aeApplyJson').onclick=()=>{
+      try{
+        const v=JSON.parse(document.getElementById('aeDialogJson').value);
+        if(!v||typeof v!=='object'||!Array.isArray(v.entries))throw new Error('entries requis');
+        state.course.document_pages.toc={...state.course.document_pages.toc,...v,entries:v.entries};
+        renderWorkspace();setStatus('Sommaire JSON appliqué.');
+      }catch(_){setStatus('JSON du sommaire invalide.')}
+    };
+  }
+
+  function systemBlockCardPlaceholder(){}
+
+  function jsonSystemDialog(id){
+    const b=activeBlocks().find(x=>x.id===id);if(!b)return;
+    const payload=systemPayload(b);
+    openBlockModal('JSON de la page système','<textarea id="aeDialogJson" class="ae-dialog-json">'+esc(JSON.stringify(payload,null,2))+'</textarea><div class="ae-dialog-actions"><button class="admin-btn primary" id="aeApplyJson">Appliquer le JSON</button></div>');
+    document.getElementById('aeApplyJson').onclick=()=>{
+      try{
+        const v=JSON.parse(document.getElementById('aeDialogJson').value);
+        if(b.role===START_ROLE)state.course.document_pages.cover={...state.course.document_pages.cover,...v};
+        else state.course.document_pages.end={...state.course.document_pages.end,...v};
+        syncSystemPages(state.course);renderWorkspace();setStatus('JSON de la page appliqué.');
+      }catch(_){setStatus('JSON invalide.')}
+    };
   }
 
   function jsonDialog(id){
