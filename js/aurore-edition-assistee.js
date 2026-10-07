@@ -9,12 +9,25 @@
   const root=()=>document.getElementById('assistedRoot');
   const client=()=>window.__auroreAssistedSb||(window.__auroreAssistedSb=window.supabase?.createClient?.(SUPABASE_URL,SUPABASE_ANON_KEY));
   function rowCourse(row){const p=row?.pages;return p?.course&&typeof p.course==='object'?p.course:(p&&typeof p==='object'&&Array.isArray(p.blocks)?p:null);}
+  const START_ROLE='document-start',END_ROLE='document-end';
+  function systemBlock(role,title){const start=role===START_ROLE;return {id:start?'system-start':'system-end',role,type:role,locked:true,content:{title:String(title||'Nouveau document')},generation:{status:'system',page_number:start?1:null,page_path:null,page_url:null,updated_at:null,error:null},created_at:new Date().toISOString()};}
+  function ensureCourseStructure(course){
+    if(!course||typeof course!=='object')return course;
+    const blocks=Array.isArray(course.blocks)?course.blocks:[];
+    const start=blocks.find(b=>b?.role===START_ROLE)||systemBlock(START_ROLE,course.title);
+    const end=blocks.find(b=>b?.role===END_ROLE)||systemBlock(END_ROLE,course.title);
+    const middle=blocks.filter(b=>b?.role!==START_ROLE&&b?.role!==END_ROLE);
+    course.blocks=[start,...middle,end];
+    return course;
+  }
+  function isSystemBlock(b){return b?.role===START_ROLE||b?.role===END_ROLE||b?.locked===true&&(/^system-(start|end)$/.test(String(b?.id||'')));}
+  function contentBlocks(course=state.course){return (Array.isArray(course?.blocks)?course.blocks:[]).filter(b=>!isSystemBlock(b));}
 
   function newCourse(title){
     const id=(globalThis.crypto&&crypto.randomUUID)?crypto.randomUUID():uid('course');
     return {id,title:String(title||'Nouveau cours').trim()||'Nouveau cours',status:'editing',
-      metadata:{schema:'aurore-assisted-course-v3',editor:'edition_assistee',origin:'assisted_editor'},
-      blocks:[],generation:{pages:[],updated_at:null}};
+      metadata:{schema:'aurore-assisted-course-v4',editor:'edition_assistee',origin:'assisted_editor'},
+      blocks:[systemBlock(START_ROLE,title),systemBlock(END_ROLE,title)],generation:{pages:[],updated_at:null}};
   }
   function block(type){
     const b={id:uid('block'),type,content:{},generation:{status:'not_generated',page_number:null,page_path:null,page_url:null,updated_at:null,error:null},created_at:new Date().toISOString()};
@@ -26,7 +39,7 @@
     return b;
   }
   function activeBlocks(){return Array.isArray(state.course?.blocks)?state.course.blocks:[]}
-  function pageNumberFor(b){const i=activeBlocks().findIndex(x=>x.id===b.id);return i<0?null:i+1}
+  function pageNumberFor(b){const blocks=activeBlocks();if(b?.role===START_ROLE)return 1;if(b?.role===END_ROLE)return blocks.length;const i=blocks.findIndex(x=>x.id===b.id);return i<0?null:i+1}
   function setStatus(t){const e=document.getElementById('assistedStatus');if(e)e.textContent=t}
 
   async function loadCourses(){
@@ -37,11 +50,11 @@
     if(user?.id) q=q.eq('created_by',user.id);
     const {data,error}=await q;
     if(error)throw error;
-    state.courses=(Array.isArray(data)?data:[]).map(row=>({...row,status:row.editor_version||'editing',course_json:rowCourse(row)||newCourse(row.title)}));
+    state.courses=(Array.isArray(data)?data:[]).map(row=>{const cj=ensureCourseStructure(rowCourse(row)||newCourse(row.title));return {...row,status:row.editor_version||'editing',course_json:cj};});
     return state.courses;
   }
 
-  function countPages(c){return Array.isArray(c?.course_json?.blocks)?c.course_json.blocks.filter(b=>b?.generation?.page_url).length:0}
+  function countPages(c){return contentBlocks(c?.course_json).filter(b=>b?.generation?.page_url).length}
   function formatDate(v){try{return new Intl.DateTimeFormat('fr-FR',{dateStyle:'medium',timeStyle:'short'}).format(new Date(v))}catch(_){return''}}
 
   function renderList(){
@@ -51,7 +64,7 @@
       '<div class="ae-list-actions"><button class="admin-btn primary" id="aeCreate">＋ Créer un cours</button><button class="admin-btn ghost" id="aeRefresh">↻ Actualiser</button></div>'+
       '<div class="ae-course-grid">'+
       (state.courses.length?state.courses.map(c=>{
-        const cj=c.course_json||{},count=Array.isArray(cj.blocks)?cj.blocks.length:0,generated=countPages(c);
+        const cj=ensureCourseStructure(c.course_json||newCourse(c.title)),count=contentBlocks(cj).length,generated=countPages(c);
         return '<article class="ae-course-card"><div class="ae-course-card-top"><span class="ae-course-status">'+esc(c.status||'editing')+'</span><span>'+generated+' page(s)</span></div><h4>'+esc(c.title)+'</h4><p>'+count+' bloc(s) · dernière modification '+esc(formatDate(c.updated_at||c.created_at))+'</p><div class="ae-course-actions"><button class="admin-btn primary" data-open-course="'+esc(c.id)+'">Ouvrir</button><button class="admin-btn ghost" data-rename-course="'+esc(c.id)+'">Renommer</button></div></article>'
       }).join(''):'<div class="ae-empty"><strong>Aucun cours en édition.</strong><span>Crée ton premier cours pour ouvrir l’atelier.</span></div>')+
       '</div></div>';
@@ -71,7 +84,7 @@
     document.getElementById('aeClose').onclick=()=>document.getElementById('aeModal')?.remove();
     document.getElementById('aeCreateConfirm').onclick=async()=>{
       const title=document.getElementById('aeNewCourseTitle').value.trim();
-      const c=newCourse(title);state.course=c;state.mode='workspace';state.selected=null;
+      const c=newCourse(title);ensureCourseStructure(c);state.course=c;state.mode='workspace';state.selected=null;
       await persistCourse(true);renderWorkspace();
     };
     document.getElementById('aeNewCourseTitle').focus();
@@ -79,7 +92,7 @@
 
   async function renameCourse(id){
     const row=state.courses.find(x=>x.id===id);if(!row)return;
-    state.course=row.course_json;
+    state.course=ensureCourseStructure(row.course_json);
     const r=root();r?.insertAdjacentHTML('beforeend',dialogHtml('Renommer','<label class="ae-dialog-field">Nom du cours<input id="aeRenameTitle" value="'+esc(row.title)+'" maxlength="180"></label>','<button class="admin-btn primary" id="aeRenameConfirm">Enregistrer</button>'));
     document.getElementById('aeClose').onclick=()=>document.getElementById('aeModal')?.remove();
     document.getElementById('aeRenameConfirm').onclick=async()=>{
@@ -91,8 +104,9 @@
 
   async function openCourse(id){
     const row=state.courses.find(x=>x.id===id);if(!row)return;
-    state.course=row.course_json||newCourse(row.title);
+    state.course=ensureCourseStructure(row.course_json||newCourse(row.title));
     state.course.title=String(state.course.title||row.title||'Nouveau cours');
+    ensureCourseStructure(state.course);
     state.mode='workspace';state.selected=null;renderWorkspace();
   }
 
@@ -154,7 +168,20 @@
   function labelFor(b){return b.type==='paragraph'?'Paragraphe':b.type==='point'?'Point de cours':b.type==='exercise'?'Exercice':b.type==='graphique'?'Graphique JSON':'Image Wikimedia'}
   function mainText(b){return b.type==='exercise'?b.content?.statement||'':b.type==='graphique'?JSON.stringify(b.content?.json||{},null,2):b.content?.text||b.content?.caption||b.content?.title||''}
 
+  function systemBlockCard(b,i){
+    const start=b.role===START_ROLE;
+    const page=start?1:activeBlocks().length;
+    const title=start?'Bloc de début · première page':'Bloc de fin · dernière page';
+    const text=start?'Page d’ouverture automatique du document. Elle sera intégrée lors de la construction/fusion du document complet.':'Dernière page automatique du document. Elle sera intégrée lors de la construction/fusion du document complet.';
+    return '<article class="ae-block ae-system-block" data-block="'+esc(b.id)+'">'+
+      '<header class="ae-block-head"><div><span class="ae-block-number">'+String(page).padStart(2,'0')+'</span><strong>'+esc(title)+'</strong><small>Page système · verrouillée</small></div><span class="ae-block-state ok">Automatique</span></header>'+
+      '<div class="ae-system-content"><strong>'+esc(b.content?.title||state.course?.title||'Document')+'</strong><span>'+esc(text)+'</span></div>'+
+      '<div class="ae-block-result"><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Prévisualiser</button><span>Cette page n’est pas envoyée au moteur de génération des pages centrales.</span></div>'+
+      '</article>';
+  }
+
   function blockCard(b,i){
+    if(isSystemBlock(b))return systemBlockCard(b,i);
     const v=validateBlock(b), gen=b.generation||{},page=pageNumberFor(b);
     let editor='';
     if(b.type==='graphique')editor='<textarea class="ae-inline-json" data-edit-json="'+esc(b.id)+'" aria-label="JSON du graphique">'+esc(JSON.stringify(b.content?.json||{},null,2))+'</textarea>';
@@ -165,7 +192,7 @@
       '<header class="ae-block-head"><div><span class="ae-block-number">'+String(i+1).padStart(2,'0')+'</span><strong>'+esc(labelFor(b))+'</strong><small>'+esc(b.validation?.ok?'Bloc valide':'À valider')+'</small></div><span class="ae-block-state '+(v.ok?'ok':'bad')+'">'+(v.ok?'Valide':'À corriger')+'</span></header>'+
       '<div class="ae-block-editor">'+editor+'</div>'+
       '<div class="ae-block-toolbar"><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Prévisualiser</button><button class="admin-btn ghost" data-json-block="'+esc(b.id)+'">JSON</button><button class="admin-btn ghost" data-copy-block="'+esc(b.id)+'">Copier</button><button class="admin-btn ghost" data-duplicate-block="'+esc(b.id)+'">Dupliquer</button><button class="admin-btn danger" data-delete-block="'+esc(b.id)+'">Supprimer</button><button class="admin-btn primary" data-validate-block="'+esc(b.id)+'">Valider & générer la page</button></div>'+
-      '<div class="ae-block-result">'+(gen.status==='ready'&&gen.page_url?'<span class="ae-generated-ok">✓ Page '+page+' générée</span><a class="admin-btn ghost" href="'+esc(gen.page_url)+'" target="_blank" rel="noopener">Ouvrir la page</a>':gen.status==='generating'?'<div class="ae-generation-progress" role="status" aria-live="polite"><div class="ae-generation-progress-top"><span data-progress-label>'+esc(gen.progress_label||'Génération de la page…')+'</span><strong data-progress-pct>'+Math.round(Number(gen.progress||8))+'%</strong></div><div class="ae-progress-track"><span data-progress-bar style="width:'+Math.max(8,Math.min(100,Number(gen.progress||8)))+'%"></span></div><small>Progression indicative · la page est en cours de génération.</small></div>':gen.status==='error'?'<span class="ae-generated-error">Erreur : '+esc(gen.error||'génération impossible')+'</span>':b.type==='graphique'&&v.ok?'<span>JSON validé · la construction graphique reste destinée au moteur GeoGebra/LuaLaTeX.</span>':'<span>Aucune page générée pour ce bloc.</span>')+'</div>'+
+      '<div class="ae-block-result">'+(gen.status==='ready'&&gen.page_url?'<span class="ae-generated-ok">✓ Page '+page+' générée seule</span><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Visualiser</button><a class="admin-btn ghost" href="'+esc(gen.page_url)+'" download="aurore-page-'+page+'.pdf">Télécharger</a>':gen.status==='generating'?'<div class="ae-generation-progress" role="status" aria-live="polite"><div class="ae-generation-progress-top"><span data-progress-label>'+esc(gen.progress_label||'Génération de la page…')+'</span><strong data-progress-pct>'+Math.round(Number(gen.progress||8))+'%</strong></div><div class="ae-progress-track"><span data-progress-bar style="width:'+Math.max(8,Math.min(100,Number(gen.progress||8)))+'%"></span></div><small>Progression indicative · la page est en cours de génération.</small></div>':gen.status==='error'?'<span class="ae-generated-error">Erreur : '+esc(gen.error||'génération impossible')+'</span>':b.type==='graphique'&&v.ok?'<span>JSON validé · la construction graphique reste destinée au moteur GeoGebra/LuaLaTeX.</span>':'<span>Aucune page générée pour ce bloc.</span>')+'</div>'+
       (v.errors.length?'<div class="ae-block-errors">'+v.errors.map(x=>'• '+esc(x)).join('<br>')+'</div>':'')+
       '</article>';
   }
@@ -173,9 +200,10 @@
   function renderWorkspace(){
     const r=root();if(!r||!state.course)return;
     validateCourse();
-    r.innerHTML='<div class="ae-shell ae-workspace"><header class="ae-head"><div><button class="admin-btn ghost" id="aeBack">← Mes cours</button><span class="ae-kicker">Atelier de production séquentielle</span><h3><input id="aeCourseTitle" value="'+esc(state.course.title)+'"></h3><p>Chaque nouveau bloc se place automatiquement sous le précédent. Aucun bloc « niveau », « titre » ou autre méta-bloc n’est créé dans le cours.</p></div><span class="ae-status" id="assistedStatus">'+(state.course.validation?.ok?'Structure valide':'À compléter')+'</span></header>'+
+    ensureCourseStructure(state.course);
+    r.innerHTML='<div class="ae-shell ae-workspace"><header class="ae-head"><div><button class="admin-btn ghost" id="aeBack">← Mes cours</button><span class="ae-kicker">Atelier de production séquentielle</span><h3><input id="aeCourseTitle" value="'+esc(state.course.title)+'"></h3><p>Le bloc de début et le bloc de fin sont automatiques. Tous les blocs que tu ajoutes sont placés entre les deux et chaque bloc central génère uniquement sa propre page.</p></div><span class="ae-status" id="assistedStatus">'+(state.course.validation?.ok?'Structure valide':'À compléter')+'</span></header>'+
       '<div class="ae-workbar"><button class="admin-btn primary" id="aeAddP">＋ Paragraphe</button><button class="admin-btn ghost" id="aeAddPoint">＋ Point de cours</button><button class="admin-btn ghost" id="aeAddEx">＋ Exercice</button><button class="admin-btn ghost" id="aeAddGraph">＋ Graphique JSON</button><button class="admin-btn ghost" id="aeAddWiki">＋ Image Wikimedia</button><button class="admin-btn ghost" id="aeSave">Enregistrer le cours</button></div>'+
-      '<div class="ae-sequence-meta"><span>'+activeBlocks().length+' bloc(s)</span><span>Ordre de génération : de haut en bas</span></div>'+
+      '<div class="ae-sequence-meta"><span>'+contentBlocks().length+' bloc(s) de contenu · 1 début · 1 fin</span><span>Ordre de génération : début → contenu → fin</span></div>'+
       '<section class="ae-block-stack">'+(activeBlocks().length?activeBlocks().map(blockCard).join(''):'<div class="ae-empty"><strong>Le cours est vide.</strong><span>Ajoute un paragraphe pour commencer. Le bloc suivant sera automatiquement placé dessous.</span></div>')+'</section>'+
       '<footer class="ae-work-footer">Les pages sont produites bloc par bloc. La fusion du document complet reste séparée du travail d’édition.</footer></div><div class="ae-modal-host" id="aeModalHost"></div>';
     bindWorkspace();
@@ -202,16 +230,21 @@
   }
 
   function addBlock(type){
-    const b=block(type);state.course.blocks.push(b);state.selected=b.id;validateCourse();renderWorkspace();setStatus('Bloc ajouté en dessous du précédent.');
+    ensureCourseStructure(state.course);
+    const b=block(type),blocks=activeBlocks(),endIndex=blocks.findIndex(x=>x.role===END_ROLE);
+    if(endIndex<0)blocks.push(systemBlock(END_ROLE,state.course.title));
+    const idx=Math.max(0,blocks.findIndex(x=>x.role===END_ROLE));
+    blocks.splice(idx,0,b);state.selected=b.id;validateCourse();renderWorkspace();setStatus('Bloc ajouté au milieu du document, avant la page de fin.');
   }
   function duplicateBlock(id){
-    const b=activeBlocks().find(x=>x.id===id);if(!b)return;
+    const b=activeBlocks().find(x=>x.id===id);if(!b||isSystemBlock(b)){if(isSystemBlock(b))setStatus('Les pages de début et de fin sont automatiques et verrouillées.');return;}
     const copy=clone(b);copy.id=uid('block');copy.generation={status:'not_generated',page_number:null,page_path:null,page_url:null,updated_at:null,error:null};
     if(copy.type==='graphique')copy.content.json.id=uid('graph');
     const i=activeBlocks().findIndex(x=>x.id===id);state.course.blocks.splice(i+1,0,copy);state.selected=copy.id;renderWorkspace();
   }
   function deleteBlock(id){
-    state.course.blocks=activeBlocks().filter(x=>x.id!==id);if(state.selected===id)state.selected=null;renderWorkspace();setStatus('Bloc supprimé.');
+    const b=activeBlocks().find(x=>x.id===id);if(isSystemBlock(b)){setStatus('Les pages de début et de fin sont automatiques et verrouillées.');return;}
+    state.course.blocks=activeBlocks().filter(x=>x.id!==id);if(state.selected===id)state.selected=null;ensureCourseStructure(state.course);renderWorkspace();setStatus('Bloc supprimé.');
   }
 
   function openBlockModal(title,body){
@@ -222,7 +255,17 @@
 
   function previewBlock(id){
     const b=activeBlocks().find(x=>x.id===id);if(!b)return;
-    const t=mainText(b);
+    if(isSystemBlock(b)){
+      const start=b.role===START_ROLE;
+      const body='<div class="ae-block-preview ae-system-preview"><span class="ae-preview-badge">'+(start?'Bloc de début':'Bloc de fin')+'</span><strong>'+esc(state.course?.title||'Document')+'</strong><div class="ae-preview-text">'+esc(start?'Première page automatique du document.':'Dernière page automatique du document.')+'</div><small>Cette page est conservée comme page système et n’est pas générée comme une page de contenu indépendante.</small></div>';
+      openBlockModal(start?'Prévisualisation de la page de début':'Prévisualisation de la page de fin',body);return;
+    }
+    const t=mainText(b),gen=b.generation||{};
+    if(gen.page_url){
+      const page=pageNumberFor(b),url=String(gen.page_url);
+      const body='<div class="ae-page-preview"><div class="ae-page-preview-meta"><strong>Page '+page+' · '+esc(labelFor(b))+'</strong><span>PDF de la page concernée uniquement</span></div><iframe class="ae-page-preview-frame" src="'+esc(url)+'#page=1&view=FitH" title="Prévisualisation de la page '+page+'"></iframe><div class="ae-page-preview-actions"><a class="admin-btn primary" href="'+esc(url)+'" download="aurore-page-'+page+'.pdf">Télécharger</a><a class="admin-btn ghost" href="'+esc(url)+'" target="_blank" rel="noopener">Ouvrir</a></div></div>';
+      openBlockModal('Prévisualisation de la page générée',body);return;
+    }
     let body='<div class="ae-block-preview"><strong>'+esc(labelFor(b))+'</strong><div class="ae-preview-text">'+esc(t||'Bloc vide')+'</div></div>';
     if(b.type==='wikimedia-image'&&b.content?.imageUrl)body='<div class="ae-block-preview"><strong>Image Wikimedia sélectionnée</strong><img class="ae-preview-image" src="'+esc(b.content.imageUrl)+'" alt="'+esc(b.content.title||'Image Wikimedia')+'"><small>'+esc(b.content.license||'')+'</small></div>';
     openBlockModal('Prévisualisation du bloc',body);
@@ -242,6 +285,7 @@
   }
 
   async function persistCourse(silent){
+    ensureCourseStructure(state.course);
     const c=client();if(!c){localStorage.setItem('aurore_assisted_course',JSON.stringify(state.course));if(!silent)setStatus('Brouillon local enregistré.');return;}
     try{
       state.course.updated_at=new Date().toISOString();
@@ -343,7 +387,9 @@
   }
 
   async function generateBlock(id){
+    ensureCourseStructure(state.course);
     const b=activeBlocks().find(x=>x.id===id);if(!b)return;
+    if(isSystemBlock(b)){setStatus('Les pages de début et de fin sont automatiques : seule une page de contenu centrale peut être générée ici.');return;}
     const v=validateBlock(b);if(!v.ok){renderWorkspace();setStatus('Bloc invalide : corrige les éléments signalés.');return;}
     if(b.type==='graphique'&&!b.content?.json?.geogebra_image_path&&!b.content?.json?.graph_local_path){
       await persistCourse(true);setStatus('JSON graphique validé. Le rendu visuel sera produit par le moteur GeoGebra/LuaLaTeX lorsque son asset sera disponible.');return;
