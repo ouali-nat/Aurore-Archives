@@ -581,18 +581,23 @@
     if(isSystemBlock(b)){
       const startPage=b.role===START_ROLE;
       const previewPage=startPage?1:0;
+      const canvasId='aeCanonicalPreview_'+String(id).replace(/[^a-zA-Z0-9_-]/g,'_'),loadingId=canvasId+'_loading';
+      const title=startPage?'Prévisualisation exacte de la couverture':'Prévisualisation exacte de la dernière page';
+      const pageNumber=previewPage===0?'dernière':String(previewPage);
+      const body='<div class="ae-page-preview"><div class="ae-page-preview-meta"><strong>'+esc(startPage?'Première page · Couverture':'Dernière page · Clôture')+'</strong><span id="'+canvasId+'_meta">PDF réel · renderer canonique Aurore · page '+pageNumber+'</span></div><div class="ae-page-preview-canvas-wrap"><div id="'+loadingId+'" class="ae-preview-loading">Construction de l’aperçu canonique…</div><canvas id="'+canvasId+'" class="ae-page-preview-canvas" aria-label="Prévisualisation exacte de la '+(startPage?'première':'dernière')+' page"></canvas></div><div class="ae-page-preview-actions"><button class="admin-btn primary" id="aeCloseCanonicalPreview">Fermer</button></div></div>';
+      openBlockModal(title,body);
+      document.getElementById('aeCloseCanonicalPreview')?.addEventListener('click',()=>document.getElementById('aeModalHost').innerHTML='');
+      setStatus('Construction de l’aperçu canonique…');
       try{
-        setStatus('Construction de l’aperçu canonique…');
         const preview=await getCanonicalPreviewPdf();
-        const pageNumber=previewPage===0?'dernière':String(previewPage);
-        const canvasId='aeCanonicalPreview_'+String(id).replace(/[^a-zA-Z0-9_-]/g,'_'),loadingId=canvasId+'_loading';
-        const body='<div class="ae-page-preview"><div class="ae-page-preview-meta"><strong>'+esc(startPage?'Première page · Couverture':'Dernière page · Clôture')+'</strong><span>PDF réel · renderer canonique Aurore · page '+pageNumber+'</span></div><div class="ae-page-preview-canvas-wrap"><div id="'+loadingId+'" class="ae-preview-loading">Chargement du rendu LuaLaTeX…</div><canvas id="'+canvasId+'" class="ae-page-preview-canvas" aria-label="Prévisualisation exacte de la '+(startPage?'première':'dernière')+' page"></canvas></div><div class="ae-page-preview-actions"><button class="admin-btn primary" id="aeCloseCanonicalPreview">Fermer</button><a class="admin-btn ghost" href="'+esc(preview.pdf_url)+'" target="_blank" rel="noopener">Ouvrir le PDF</a></div></div>';
-        openBlockModal(startPage?'Prévisualisation exacte de la couverture':'Prévisualisation exacte de la dernière page',body);
-        document.getElementById('aeCloseCanonicalPreview')?.addEventListener('click',()=>document.getElementById('aeModalHost').innerHTML='');
+        if(!document.getElementById(canvasId))return;
+        const actions=document.querySelector('#aeModalHost .ae-page-preview-actions');
+        if(actions)actions.insertAdjacentHTML('beforeend','<a class="admin-btn ghost" href="'+esc(preview.pdf_url)+'" target="_blank" rel="noopener">Ouvrir le PDF</a>');
         await renderAssistedPdfPreview(preview.pdf_url,canvasId,loadingId,previewPage);
         setStatus('Prévisualisation canonique prête.');
       }catch(e){
-        openBlockModal('Aperçu canonique indisponible','<div class="ae-block-preview"><strong>Le renderer officiel n’a pas encore fourni le PDF.</strong><div class="ae-preview-text">'+esc(String(e?.message||e))+'</div></div>');
+        const host=document.getElementById('aeModalHost');
+        if(host)host.querySelector('.ae-page-preview-canvas-wrap').innerHTML='<div class="ae-preview-render-error"><strong>Aperçu canonique indisponible</strong><span>'+esc(String(e?.message||e))+'</span></div>';
         setStatus('Aperçu canonique indisponible.');
       }
       return;
@@ -623,17 +628,21 @@
 
   async function previewToc(){
     ensureDocumentPages(state.course);rebuildTocEntries();
+    const canvasId='aeCanonicalTocPreview',loadingId=canvasId+'_loading';
+    const body='<div class="ae-page-preview"><div class="ae-page-preview-meta"><strong>Page 2 · Sommaire</strong><span>PDF réel · renderer canonique Aurore · page 2</span></div><div class="ae-page-preview-canvas-wrap"><div id="'+loadingId+'" class="ae-preview-loading">Construction de l’aperçu canonique…</div><canvas id="'+canvasId+'" class="ae-page-preview-canvas" aria-label="Prévisualisation exacte du sommaire"></canvas></div><div class="ae-page-preview-actions"><button class="admin-btn primary" id="aeCloseCanonicalTocPreview">Fermer</button></div></div>';
+    openBlockModal('Prévisualisation exacte du sommaire',body);
+    document.getElementById('aeCloseCanonicalTocPreview')?.addEventListener('click',()=>document.getElementById('aeModalHost').innerHTML='');
+    setStatus('Construction de l’aperçu canonique du sommaire…');
     try{
-      setStatus('Construction de l’aperçu canonique du sommaire…');
       const preview=await getCanonicalPreviewPdf();
-      const canvasId='aeCanonicalTocPreview',loadingId=canvasId+'_loading';
-      const body='<div class="ae-page-preview"><div class="ae-page-preview-meta"><strong>Page 2 · Sommaire</strong><span>PDF réel · renderer canonique Aurore · page 2</span></div><div class="ae-page-preview-canvas-wrap"><div id="'+loadingId+'" class="ae-preview-loading">Chargement du rendu LuaLaTeX…</div><canvas id="'+canvasId+'" class="ae-page-preview-canvas" aria-label="Prévisualisation exacte du sommaire"></canvas></div><div class="ae-page-preview-actions"><button class="admin-btn primary" id="aeCloseCanonicalTocPreview">Fermer</button><a class="admin-btn ghost" href="'+esc(preview.pdf_url)+'" target="_blank" rel="noopener">Ouvrir le PDF</a></div></div>';
-      openBlockModal('Prévisualisation exacte du sommaire',body);
-      document.getElementById('aeCloseCanonicalTocPreview')?.addEventListener('click',()=>document.getElementById('aeModalHost').innerHTML='');
+      if(!document.getElementById(canvasId))return;
+      const actions=document.querySelector('#aeModalHost .ae-page-preview-actions');
+      if(actions)actions.insertAdjacentHTML('beforeend','<a class="admin-btn ghost" href="'+esc(preview.pdf_url)+'" target="_blank" rel="noopener">Ouvrir le PDF</a>');
       await renderAssistedPdfPreview(preview.pdf_url,canvasId,loadingId,2);
       setStatus('Sommaire canonique prêt.');
     }catch(e){
-      openBlockModal('Aperçu canonique indisponible','<div class="ae-block-preview"><strong>Le renderer officiel n’a pas encore fourni le PDF.</strong><div class="ae-preview-text">'+esc(String(e?.message||e))+'</div></div>');
+      const host=document.getElementById('aeModalHost');
+      if(host)host.querySelector('.ae-page-preview-canvas-wrap').innerHTML='<div class="ae-preview-render-error"><strong>Aperçu canonique indisponible</strong><span>'+esc(String(e?.message||e))+'</span></div>';
       setStatus('Aperçu canonique indisponible.');
     }
   }
