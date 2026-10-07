@@ -340,22 +340,38 @@ function layoutInline(prepared:Run[],font:any,size:number,max:number){
   return lines.filter(x=>x.length);
 }
 function inlineLineAdvance(line:any[],size=TEXT_SIZE,lineHeight=LINE_HEIGHT){
-  const maxMathBoxH=Math.max(0,...line.filter(t=>t.kind==="math").map(t=>t.height||0));
-  return Math.max(lineHeight,maxMathBoxH+MATH_BOX_PAD_Y*2);
+  const maxMathBoxH=Math.max(
+    0,
+    ...line.filter(t=>t.kind==="math").map(t=>Math.max(
+      20,
+      (t.height||10)+MATH_BOX_PAD_Y*2
+    ))
+  );
+  return Math.max(lineHeight,maxMathBoxH);
 }
-function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,borderColor:any,textColor:any,size=TEXT_SIZE,lineHeight=LINE_HEIGHT){
+
+function drawInlineLines(page:any,lines:any[],x:number,topY:number,width:number,font:any,borderColor:any,textColor:any,size=TEXT_SIZE,lineHeight=LINE_HEIGHT){
   let y=topY;
   const boxPadX=MATH_BOX_PAD_X,boxPadY=MATH_BOX_PAD_Y;
   const frame=rgbHex("#C4C5C8"),fill=rgbHex("#EEEEEF");
+
   for(const line of lines){
     const advance=inlineLineAdvance(line,size,lineHeight);
+    const lineWidth=line.reduce(
+      (sum:number,token:any)=>sum+(token.space||0)+(token.width||0),0
+    );
+    const startX=x+Math.max(0,(width-lineWidth)/2);
     const lineCenter=y-advance/2;
-    const baseline=lineCenter-(advance-size)*0.50;
-    let cx=x;
+    let cx=startX;
+
     for(const token of line){
       cx+=token.space||0;
       if(token.kind==="text"){
-        page.drawText(escapePdfText(token.value),{x:cx,y:baseline,font,size,color:textColor});
+        const textHeight=Math.max(8,font.heightAtSize(size));
+        const baseline=lineCenter-textHeight/2+size*0.22;
+        page.drawText(escapePdfText(token.value),{
+          x:cx,y:baseline,font,size,color:textColor
+        });
         cx+=token.width;
       }else{
         const iw=Math.max(1,(token.width||14)-14);
@@ -364,7 +380,9 @@ function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,bord
         const by=lineCenter-bh/2;
         const outerW=iw+boxPadX*2;
         rounded(page,cx-boxPadX,by,outerW,bh,7,fill,frame,0.45);
-        page.drawImage(token.image,{x:cx,y:by+boxPadY,width:iw,height:ih});
+        page.drawImage(token.image,{
+          x:cx,y:by+boxPadY,width:iw,height:ih
+        });
         cx+=outerW;
       }
     }
@@ -489,7 +507,7 @@ Deno.serve(async req=>{
         const items:any[]=[];let inlineChunk:Run[]=[];
         const flushInline=()=>{
           if(!inlineChunk.length)return;
-          const lines=layoutInline(inlineChunk,fonts.regular,TEXT_SIZE,W-18);
+          const lines=layoutInline(inlineChunk,fonts.regular,TEXT_SIZE,BOX_W-24);
           if(lines.length)items.push({kind:"inline",lines});
           inlineChunk=[];
         };
@@ -513,7 +531,7 @@ Deno.serve(async req=>{
         let childY=y-BOX_PAD_TOP;
         for(const item of items){
           if(item.kind==="inline"){
-            drawInlineLines(page,item.lines,X+9,childY,fonts.regular,color,rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT);
+            drawInlineLines(page,item.lines,BOX_X+12,childY,BOX_W-24,fonts.regular,color,rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT);
             childY-=item.lines.reduce((n:any,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0)+innerGap;
           }else{
             drawDisplayMath(page,item.run,X,childY,W-18,color);
