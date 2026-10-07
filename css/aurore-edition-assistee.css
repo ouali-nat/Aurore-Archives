@@ -63,3 +63,11 @@
 [data-theme="dark"] .ae-top-options{border-color:var(--dark-border-soft,#27223a);background:var(--dark-surface-3,#1c1930)}
 [data-theme="dark"] .ae-color-field select{border-color:var(--dark-border,#302b45);background:var(--dark-surface-2,#17142a)}
 @media(max-width:560px){.ae-top-options{align-items:stretch;flex-direction:column}.ae-color-field select{width:100%}}
+
+
+/* Prévisualisation PDF — couche de texte sélectionnable */
+.ae-page-preview-canvas-wrap{position:relative;align-items:start;justify-items:center;overflow:auto}
+.ae-pdf-text-layer{position:absolute;top:10px;left:50%;transform:translateX(-50%);pointer-events:auto;color:transparent;user-select:text;-webkit-user-select:text;cursor:text;overflow:hidden}
+.ae-pdf-text-layer span{position:absolute;white-space:pre;transform-origin:0 0;color:transparent!important;line-height:1;user-select:text;-webkit-user-select:text}
+.ae-pdf-text-layer span::selection{background:rgba(109,40,217,.24);color:transparent}
+[data-theme="dark"] .ae-pdf-text-layer span::selection{background:rgba(255,255,255,.22)}
