@@ -38,6 +38,14 @@ function buildContent(courseTitle:string,pageNumber:number,block:any){
     document_type:"page_assistee",
     source_format:"structured",
     sections:[section],
+    images:type==="wikimedia-image" ? [{
+      url:String(content.imageUrl||""),
+      caption:String(content.caption||""),
+      title:String(content.title||""),
+      author:String(content.author||""),
+      license:String(content.license||""),
+      source_url:String(content.sourceUrl||"")
+    }] : [],
     assisted_block:{id:String(block?.id||""),type,content}
   };
 }

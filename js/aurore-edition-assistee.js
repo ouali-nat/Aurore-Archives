@@ -420,7 +420,7 @@
       await persistCourse(true);setStatus('JSON graphique validé. Le rendu visuel sera produit par le moteur GeoGebra/LuaLaTeX lorsque son asset sera disponible.');return;
     }
     b.generation={...(b.generation||{}),status:'generating',page_number:pageNumberFor(b),progress:8,progress_label:'Génération instantanée de la page…',error:null,updated_at:new Date().toISOString()};
-    renderWorkspace();setStatus('Mise en file de la page…');
+    renderWorkspace();setStatus('Génération instantanée de la page…');
     const progressTimer=startGenerationProgress(b.id);
     try{
       const token=(typeof session!=='undefined'&&session?.access_token)||await freshToken();
@@ -446,7 +446,7 @@
         generated_document_id:d.generated_document_id||null,
         job_id:d.job_id||null,
         progress:28,
-        progress_label:'Page en file LuaLaTeX…',
+        progress_label:'Génération du PDF de la page…',
         error:null,
         updated_at:new Date().toISOString()
       };
