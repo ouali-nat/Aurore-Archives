@@ -103,7 +103,7 @@
     return THEME_COLORS.map(x=>'<option value="'+x.value+'"'+(normalizePointColor(selected)===x.value?' selected':'')+'>'+esc(x.label)+'</option>').join('');
   }
   function activeBlocks(){return Array.isArray(state.course?.blocks)?state.course.blocks:[]}
-  function pageNumberFor(b){const blocks=activeBlocks();if(b?.role===START_ROLE)return 1;if(b?.role===END_ROLE)return blocks.length;const i=blocks.findIndex(x=>x.id===b.id);return i<0?null:i+1}
+  function pageNumberFor(b){const blocks=activeBlocks();if(b?.role===START_ROLE)return 1;if(b?.role===END_ROLE)return blocks.length+1;const i=blocks.findIndex(x=>x.id===b.id);return i<0?null:i+2}
   function setStatus(t){const e=document.getElementById('assistedStatus');if(e)e.textContent=t}
 
   async function loadCourses(){
@@ -244,7 +244,7 @@
     const byId=new Map(previous.map(x=>[String(x?.id||''),x]));
     state.course.document_pages.toc.entries=contentBlocks().map((b,i)=>{
       const old=byId.get(String(b.id))||{};
-      return {id:b.id,title:String(old.title||b.content?.title||labelFor(b)),type:b.type,enabled:old.enabled!==false,page:i+2};
+      return {id:b.id,title:String(old.title||b.content?.title||labelFor(b)),type:b.type,enabled:old.enabled!==false,page:i+3};
     });
   }
   function systemPayload(b){
@@ -263,7 +263,7 @@
   function systemBlockCard(b,i){
     const start=b.role===START_ROLE;
     const cfg=start?(state.course.document_pages?.cover||b.content||{}):(state.course.document_pages?.end||b.content||{});
-    const page=start?1:activeBlocks().length;
+    const page=start?1:activeBlocks().length+1;
     const title=start?'Première page · couverture':'Dernière page · clôture';
     const subtitle=start?'Page d’ouverture personnalisable':'Page de fin personnalisable';
     const editor=start
