@@ -280,7 +280,7 @@ async function prepareRuns(runs:Run[],auth:string,pdf:any,fonts:any,qa:any,cache
     }
     const img=await formulaImage(auth,pdf,run.value,qa,cache);
     if(img){
-      const targetH=run.kind==="display"?42:15.5;
+      const targetH=run.kind==="display"?27:12.5;
       const scale=Math.min(1,targetH/(img.height||targetH));
       prepared.push({kind:run.kind,value:run.value,image:img,width:img.width*scale,height:img.height*scale});
     }else{
@@ -323,21 +323,20 @@ function inlineLineAdvance(line:any[],size=10.7,lineHeight=15.4){
   return Math.max(lineHeight,size+4,maxMathH+5);
 }
 
-function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,borderColor:any,textColor:any,size=10.7,lineHeight=15.3){
-  // Mirror the production AuroreMathCompact tcolorbox:
-  // on-line, light gray fill, thin gray frame, 6pt radius and compact padding.
-  // No dark shell and no nested panel: the formula image itself is the payload.
+function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,borderColor:any,textColor:any,size=10.2,lineHeight=14.3){
+  // Production AuroreMathCompact proportions:
+  // compact on-line gray box, thin frame, no nested/dark shell.
   let y=topY;
   const boxPadX=4.5,boxPadY=2;
-  const frame=rgbHex("#BDBDBD");       // gray!48!white
-  const fill=rgbHex("#F7F7F7");        // gray!6!white
+  const frame=rgbHex("#BDBDBD"); // gray!48!white
+  const fill=rgbHex("#F7F7F7");  // gray!6!white
   for(const line of lines){
     let cx=x;
     const maxH=Math.max(size,...line.filter(t=>t.kind==="math").map(t=>t.height||size));
     for(const token of line){
       cx+=token.space||0;
       if(token.kind==="text"){
-        page.drawText(escapePdfText(token.value),{x:cx,y:y-size+3,font,size,color:textColor});
+        page.drawText(escapePdfText(token.value),{x:cx,y:y-size+2.5,font,size,color:textColor});
         cx+=token.width;
       }else{
         const iw=Math.max(1,(token.width||10)-8);
@@ -354,7 +353,6 @@ function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,bord
   }
   return y;
 }
-
 function drawParagraph(page:any,prepared:Run[],x:number,topY:number,width:number,font:any,color:string,qa:any){
   const size=10.7, lineHeight=15.4, inner=width-22;
   const inlineRuns=prepared.filter(r=>r.kind!=="display");
@@ -412,27 +410,25 @@ function sectionLabel(page:any,label:string,x:number,y:number,fonts:any,color:st
 }
 
 function displayMathMetrics(run:Run,width:number){
-  // Mirror AuroreMathBlock's breakable framed area while sizing the raster
-  // formula from its real dimensions so tall/complex LaTeX reserves enough space.
-  const naturalW=Math.max(1,run.width||width-48);
-  const naturalH=Math.max(1,run.height||42);
-  const maxW=Math.max(80,width-14);
-  const maxH=120;
+  // Production AuroreMathBlock proportions with adaptive formula size.
+  const naturalW=Math.max(1,run.width||width-28);
+  const naturalH=Math.max(1,run.height||24);
+  const maxW=Math.max(100,width-14);
+  const maxH=30;
   const scale=Math.min(1,maxW/naturalW,maxH/naturalH);
   const iw=Math.max(24,naturalW*scale);
   const ih=Math.max(10,naturalH*scale);
-  const h=Math.max(54,ih+8);
+  const h=Math.max(36,ih+10);
   return {iw,ih,h};
 }
 
 function drawDisplayMath(page:any,run:Run,x:number,y:number,width:number,color:string){
-  // Production-equivalent AuroreMathBlock:
-  // light Aurore-pale fill, Aurore frame, rounded 8pt corners and a left rule.
-  // The old dark floating shell / inner white panel is deliberately removed.
+  // Production AuroreMathBlock geometry:
+  // light Aurore-pale fill, thin Aurore frame, 8pt corners and a left rule.
   const m=displayMathMetrics(run,width);
   const x0=x, y0=y-m.h;
-  const frame=rgbHex(mixWhite(color,0.58));   // aurorebase!58!white
-  const fill=rgbHex("#FEFEFE");               // white!99!aurorepale ≈ white
+  const frame=rgbHex(mixWhite(color,0.58)); // aurorebase!58!white
+  const fill=rgbHex("#FEFEFE");             // white!99!aurorepale
   rounded(page,x0,y0,width,m.h,8,fill,frame,0.45);
   page.drawLine({start:{x:x0,y:y0+6},end:{x:x0,y:y-6},thickness:1.6,color:frame});
   page.drawImage(run.image,{
@@ -443,7 +439,6 @@ function drawDisplayMath(page:any,run:Run,x:number,y:number,width:number,color:s
   });
   return y0-6;
 }
-
 Deno.serve(async req=>{
   if(req.method==="OPTIONS")return new Response("ok",{headers:H});
   if(req.method!=="POST")return out({ok:false,error:"Méthode non autorisée"},405);
@@ -482,7 +477,7 @@ Deno.serve(async req=>{
       images_total:0,images_ok:0,images_failed:0
     };
     const cache=new Map<string,any>();
-    const X=48,W=499,bottom=54,top=780;
+    const X=72,W=449,bottom=67,top=770;
     let y=top;
 
     const sections=Array.isArray(input.sections)?input.sections.filter((s:any)=>s&&typeof s==="object"):[];
@@ -512,54 +507,58 @@ Deno.serve(async req=>{
       if(normalized)contentItems.push(normalized);
     }
 
+    const TEXT_SIZE=10.2;
+    const LINE_HEIGHT=14.3;
+    const BOX_RADIUS=11;
+    const BOX_X=X-10;
+    const BOX_W=W+20;
+
+    const drawInlineBox=(lines:any[])=>{
+      if(!lines.length)return false;
+      const boxH=14+lines.reduce(
+        (sum:any,line:any)=>sum+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),
+        0
+      );
+      if(y-boxH<bottom)throw new Error("ASSISTED_PAGE_TOO_LONG: bloc de texte hors page.");
+      rounded(
+        page,BOX_X,y-boxH,BOX_W,boxH,BOX_RADIUS,
+        rgbHex("#F0F0F3"),rgbHex("#A6A6AA"),0.45
+      );
+      drawInlineLines(
+        page,lines,X,y-7,fonts.regular,
+        rgbHex("#BDBDBD"),rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT
+      );
+      y-=boxH+7;
+      return true;
+    };
+
     const drawParagraphBlock=async(text:string)=>{
       const paragraphs=proseText(text);
       for(const para of paragraphs){
         const rawRuns=mergePlainAndExplicit(para);
         const prepared=await prepareRuns(rawRuns,auth,pdf,fonts,qa,cache);
-        const chunks:any[]=[];
         let inlineChunk:Run[]=[];
-        const flush=()=>{
+        const flushInline=()=>{
           if(!inlineChunk.length)return;
-          chunks.push({kind:"inline",lines:layoutInline(inlineChunk,fonts.regular,10.7,W-22)});
+          const lines=layoutInline(inlineChunk,fonts.regular,TEXT_SIZE,W);
+          drawInlineBox(lines);
           inlineChunk=[];
         };
+
         for(const run of prepared){
           if(run.kind==="display"){
-            flush();
-            chunks.push({kind:"display",run});
+            flushInline();
+            const m=displayMathMetrics(run,W);
+            if(y-m.h<bottom)throw new Error("ASSISTED_PAGE_TOO_LONG: formule hors page.");
+            drawDisplayMath(page,run,X,y,W,color);
+            y-=m.h+6;
           }else{
             inlineChunk.push(run);
           }
         }
-        flush();
-
-        const lineHeight=15.4;
-        let boxH=18;
-        for(const chunk of chunks){
-          if(chunk.kind==="inline"){
-            boxH+=chunk.lines.reduce((sum:any,line:any)=>sum+inlineLineAdvance(line,10.7,lineHeight),0);
-          }else{
-            boxH+=displayMathMetrics(chunk.run,W).h+9;
-          }
-        }
-        boxH+=9;
-        if(y-boxH<bottom)throw new Error("ASSISTED_PAGE_TOO_LONG: le bloc dépasse une seule page.");
-
-        rounded(page,X-11,y-boxH,W+22,boxH,10,rgbHex("#F0F0F3"),rgbHex(mixWhite(color,0.63)),0.55);
-        page.drawLine({start:{x:X-11,y:y-boxH+9},end:{x:X-11,y:y-9},thickness:1.55,color:rgbHex(mixWhite(color,0.47))});
-        let yy=y-11;
-        for(const chunk of chunks){
-          if(chunk.kind==="inline"){
-            yy=drawInlineLines(page,chunk.lines,X,yy,fonts.regular,rgbHex("#BDBDBD"),rgbHex("#202126"),10.7,lineHeight);
-          }else{
-            yy=drawDisplayMath(page,chunk.run,X,yy-2,W,color);
-          }
-        }
-        y=y-boxH-8;
+        flushInline();
       }
     };
-
     for(const raw of contentItems){
       await drawParagraphBlock(raw);
     }
