@@ -277,6 +277,16 @@
       '</article>';
   }
 
+  function tocSystemCard(){
+    ensureDocumentPages(state.course);rebuildTocEntries();
+    const cfg=state.course.document_pages.toc;
+    return '<article class="ae-block ae-system-block ae-toc-system"><header class="ae-block-head"><div><span class="ae-block-number">02</span><strong>Sommaire</strong><small>Page système · personnalisable · prévisualisable</small></div><span class="ae-block-state ok">Prévisualisable</span></header>'+
+      '<div class="ae-system-content"><div class="ae-system-fields"><label>Titre du sommaire<input id="aeTocTitle" value="'+esc(cfg.title||'Sommaire')+'" maxlength="140"></label><label>Sous-titre<input id="aeTocSubtitle" value="'+esc(cfg.subtitle||'')+'" maxlength="180"></label></div>'+
+      '<div class="ae-toc-outline">'+cfg.entries.map((e,i)=>'<span><b>'+String(i+1).padStart(2,'0')+'</b>'+esc(e.title||('Entrée '+(i+1)))+'</span>').join('')+'</div></div>'+
+      '<div class="ae-block-toolbar"><button class="admin-btn ghost" id="aePreviewToc">Prévisualiser</button><button class="admin-btn ghost" id="aeTocJsonInline">JSON</button></div>'+
+      '<div class="ae-block-result"><span>Le sommaire est construit à partir des blocs, mais ses entrées restent éditables par JSON.</span></div></article>';
+  }
+
   function blockCard(b,i){
     if(isSystemBlock(b))return systemBlockCard(b,i);
     const v=validateBlock(b), gen=b.generation||{},page=pageNumberFor(b);
@@ -304,7 +314,7 @@
       '<div class="ae-top-options"><div class="ae-top-options-title"><span class="ae-kicker">Options du document</span><strong>Couleur d’accent</strong><small>Elle sera utilisée pour les bordures, repères et éléments mathématiques de la page.</small></div><label class="ae-color-field"><span class="ae-color-swatch" style="background:'+normalizeThemeColor(state.course.theme_color)+'"></span><select id="aeThemeColor" aria-label="Couleur d’accent du document">'+themeColorOptions()+'</select></label></div>'+
       '<div class="ae-workbar"><button class="admin-btn primary" id="aeAddP">＋ Paragraphe</button><button class="admin-btn ghost" id="aeAddPoint">＋ Point de cours</button><button class="admin-btn ghost" id="aeAddEx">＋ Exercice</button><button class="admin-btn ghost" id="aeAddGraph">＋ Graphique JSON</button><button class="admin-btn ghost" id="aeAddWiki">＋ Image Wikimedia</button><button class="admin-btn ghost" id="aeTocJson">Sommaire JSON</button><button class="admin-btn ghost" id="aeSave">Enregistrer le cours</button></div>'+
       '<div class="ae-sequence-meta"><span>'+contentBlocks().length+' bloc(s) de contenu · 1 début · 1 fin</span><span>Ordre de génération : début → contenu → fin</span></div>'+
-      '<section class="ae-block-stack">'+(activeBlocks().length?activeBlocks().map(blockCard).join(''):'<div class="ae-empty"><strong>Le cours est vide.</strong><span>Ajoute un paragraphe pour commencer. Le bloc suivant sera automatiquement placé dessous.</span></div>')+'</section>'+
+      '<section class="ae-block-stack">'+tocSystemCard()+(activeBlocks().length?activeBlocks().map(blockCard).join(''):'<div class="ae-empty"><strong>Le cours est vide.</strong><span>Ajoute un paragraphe pour commencer. Le bloc suivant sera automatiquement placé dessous.</span></div>')+'</section>'+
       '<footer class="ae-work-footer">Les pages sont produites bloc par bloc. La fusion du document complet reste séparée du travail d’édition.</footer></div><div class="ae-modal-host" id="aeModalHost"></div>';
     bindWorkspace();
   }
@@ -325,7 +335,10 @@
     document.getElementById('aeAddEx').onclick=()=>addBlock('exercise');
     document.getElementById('aeAddGraph').onclick=()=>addBlock('graphique');
     document.getElementById('aeAddWiki').onclick=wiki;
-    document.getElementById('aeTocJson').onclick=()=>jsonTocDialog();\n    document.getElementById('aeSave').onclick=()=>persistCourse(false,true);
+    document.getElementById('aeTocJson').onclick=()=>jsonTocDialog();\n    document.getElementById('aeTocTitle').oninput=e=>{state.course.document_pages.toc.title=e.target.value;};
+    document.getElementById('aeTocSubtitle').oninput=e=>{state.course.document_pages.toc.subtitle=e.target.value;};
+    document.getElementById('aePreviewToc').onclick=()=>previewToc();
+    document.getElementById('aeTocJsonInline').onclick=()=>jsonTocDialog();\n    document.getElementById('aeSave').onclick=()=>persistCourse(false,true);
     root().querySelectorAll('[data-edit-point-title]').forEach(el=>el.oninput=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editPointTitle);if(b){b.content.title=el.value;validateCourse();}});
     root().querySelectorAll('[data-edit-point-rank]').forEach(el=>el.oninput=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editPointRank);if(b){b.content.rank=Math.max(1,parseInt(el.value||'1',10));validateCourse();}});
     root().querySelectorAll('[data-edit-point-color]').forEach(el=>el.onchange=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editPointColor);if(b){b.content.color=normalizePointColor(el.value);renderWorkspace();}});
@@ -525,6 +538,14 @@
     let body='<div class="ae-block-preview"><strong>'+esc(labelFor(b))+'</strong><div class="ae-preview-text">'+esc(t||'Bloc vide')+'</div></div>';
     if(b.type==='wikimedia-image'&&b.content?.imageUrl)body='<div class="ae-block-preview"><strong>Image Wikimedia sélectionnée</strong><img class="ae-preview-image" src="'+esc(b.content.imageUrl)+'" alt="'+esc(b.content.title||'Image Wikimedia')+'"><small>'+esc(b.content.license||'')+'</small></div>';
     openBlockModal('Prévisualisation du bloc',body);
+  }
+
+  function previewToc(){
+    ensureDocumentPages(state.course);rebuildTocEntries();
+    const cfg=state.course.document_pages.toc;
+    const entries=cfg.entries.filter(e=>e.enabled!==false);
+    const body='<div class="ae-special-page-preview ae-toc-preview"><span class="ae-preview-badge">Page 2 · Sommaire</span><div class="ae-special-page-accent"></div><h2>'+esc(cfg.title||'Sommaire')+'</h2><h3>'+esc(cfg.subtitle||'')+'</h3><div class="ae-toc-preview-list">'+entries.map((e,i)=>'<div><span>'+esc(e.title||('Entrée '+(i+1)))+'</span><b>'+esc(String(e.page||i+3))+'</b></div>').join('')+'</div></div>';
+    openBlockModal('Prévisualisation du sommaire',body);
   }
 
   function jsonTocDialog(){
