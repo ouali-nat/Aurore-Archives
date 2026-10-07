@@ -65,7 +65,7 @@ Deno.serve(async(req)=>{
   const pageNumber=Number(body?.page_number||0),block=body?.block||{};
   if(!courseId||!blockId||!Number.isInteger(pageNumber)||pageNumber<1||!block||typeof block!=="object")return out({ok:false,error:"course_id, block_id, page_number et block sont requis"},400);
 
-  const course=await admin.from("aurora_assisted_courses").select("id,created_by,title,course_json").eq("id",courseId).eq("created_by",userId).maybeSingle();
+  const course=await admin.from("aurora_assisted_courses").select("id,created_by,title,pages").eq("id",courseId).eq("created_by",userId).maybeSingle();
   if(course.error)return out({ok:false,error:course.error.message},500);
   if(!course.data)return out({ok:false,error:"Cours d’édition introuvable ou accès refusé"},404);
 
