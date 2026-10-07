@@ -269,16 +269,50 @@
 
   function splitLongBlock(b){
     if(!['paragraph','point','exercise'].includes(b.type))return [];
-    const text=b.type==='exercise'?String(b.content?.statement||''):String(b.content?.text||'');
-    if(text.trim().length<240)return [];
-    const target=520;
-    const chunks=[];let rest=text.trim();
-    while(rest.length>target){
-      let cut=rest.lastIndexOf(' ',target);const sentence=rest.lastIndexOf('. ',target);if(sentence>700)cut=sentence+1;if(cut<700)cut=target;
-      chunks.push(rest.slice(0,cut).trim());rest=rest.slice(cut).trim();
+    const raw=b.type==='exercise'?String(b.content?.statement||''):String(b.content?.text||'');
+    const text=raw.replace(/\\s+/g,' ').trim();
+    if(!text)return [];
+    const target=360;
+    const maxChunk=430;
+    const chunks=[];
+    let rest=text;
+    const sentenceRx=/([.!?]+(?:["’'»)]*)?)(\\s+|$)/g;
+    while(rest.length>maxChunk){
+      let cut=-1;
+      sentenceRx.lastIndex=0;
+      let m;
+      while((m=sentenceRx.exec(rest))){
+        const end=m.index+m[1].length;
+        if(end<=target)cut=end;
+        else break;
+      }
+      if(cut<120){
+        const words=rest.slice(0,target+1).split(' ');
+        words.pop();
+        cut=words.join(' ').length;
+      }
+      if(cut<120)cut=Math.min(target,rest.length);
+      chunks.push(rest.slice(0,cut).trim());
+      rest=rest.slice(cut).trim();
     }
-    if(rest)chunks.push(rest);if(chunks.length<2)return [];
-    return chunks.map((part,i)=>{const n=block(b.type);n.content=b.type==='exercise'?{statement:part,hint:i===0?b.content?.hint:''}:{text:part};n.generation={status:'not_generated',page_number:null,page_path:null,page_url:null,error:null,autoSplitDepth:Number(b.generation?.autoSplitDepth||0)+1};return n;});
+    if(rest)chunks.push(rest);
+    if(chunks.length<2)return [];
+    const depth=Number(b.generation?.autoSplitDepth||0)+1;
+    return chunks.map((part,i)=>{
+      const n=block(b.type);
+      n.content=b.type==='exercise'
+        ?{statement:part,hint:i===0?b.content?.hint:''}
+        :{text:part};
+      n.generation={
+        status:'not_generated',
+        page_number:null,
+        page_path:null,
+        page_url:null,
+        error:null,
+        autoSplitDepth:depth
+      };
+      return n;
+    });
   }
 
   async function generateBlock(id){
@@ -302,7 +336,7 @@
     }catch(e){
       clearInterval(progressTimer);
       const msg=String(e?.message||e);
-      if(/dépasse une seule page|depasse une seule page|exceeds one page|single page/i.test(msg) && Number(b.generation?.autoSplitDepth||0)<3){
+      if(/dépasse une seule page|depasse une seule page|exceeds one page|single page/i.test(msg) && Number(b.generation?.autoSplitDepth||0)<4){
         const pieces=splitLongBlock(b);
         if(pieces.length>1){
           const blocks=activeBlocks(),at=blocks.findIndex(x=>x.id===b.id);if(at>=0){pieces.forEach((p,i)=>{p.created_at=new Date().toISOString();blocks.splice(at+i,0,p)});blocks.splice(at+pieces.length,1);state.selected=pieces[0].id;await persistCourse(true);renderWorkspace();setStatus('Bloc trop long : '+pieces.length+' blocs successifs ont été créés. Génération en cours…');for(const p of pieces)await generateBlock(p.id);return;}
