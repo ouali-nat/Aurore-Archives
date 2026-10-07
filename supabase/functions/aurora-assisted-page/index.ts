@@ -109,7 +109,7 @@ Deno.serve(async(req)=>{
   const generatedDocumentId=Number(insertedDoc.data.id);
   const queued=await fetch(URL_+"/functions/v1/aurora-lualatex-request",{
     method:"POST",
-    headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json","apikey":ANON},
+    headers:{"Authorization":"Bearer "+SERVICE,"Content-Type":"application/json","apikey":ANON,"X-Aurore-User-Authorization":auth},
     body:JSON.stringify({generated_document_id:generatedDocumentId})
   });
   let q:any={};
