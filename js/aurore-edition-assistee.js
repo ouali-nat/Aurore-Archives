@@ -2,6 +2,22 @@
 (function(){
   'use strict';
   const state={mode:'list',course:null,courses:[],selected:null,loading:false};
+  const THEME_COLORS=[
+    {value:'#6D28D9',label:'Violet Aurore'},
+    {value:'#2563EB',label:'Bleu'},
+    {value:'#15803D',label:'Vert'},
+    {value:'#C2410C',label:'Orange'},
+    {value:'#A16207',label:'Ocre'},
+    {value:'#0E7490',label:'Turquoise'},
+    {value:'#BE123C',label:'Rose framboise'},
+    {value:'#7C3AED',label:'Violet clair'}
+  ];
+  const DEFAULT_THEME_COLOR='#6D28D9';
+  function normalizeThemeColor(v){
+    const x=String(v??'').trim().toUpperCase();
+    return /^#[0-9A-F]{6}$/.test(x)&&THEME_COLORS.some(c=>c.value===x)?x:DEFAULT_THEME_COLOR;
+  }
+  function themeColorOptions(){return THEME_COLORS.map(c=>'<option value="'+c.value+'"'+(normalizeThemeColor(state.course?.theme_color)===c.value?' selected':'')+'>'+esc(c.label)+'</option>').join('')}
 
   const esc=v=>String(v??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
   const clone=v=>JSON.parse(JSON.stringify(v));
@@ -13,6 +29,7 @@
   function systemBlock(role,title){const start=role===START_ROLE;return {id:start?'system-start':'system-end',role,type:role,locked:true,content:{title:String(title||'Nouveau document')},generation:{status:'system',page_number:start?1:null,page_path:null,page_url:null,updated_at:null,error:null},created_at:new Date().toISOString()};}
   function ensureCourseStructure(course){
     if(!course||typeof course!=='object')return course;
+    course.theme_color=normalizeThemeColor(course.theme_color);
     const blocks=Array.isArray(course.blocks)?course.blocks:[];
     const start=blocks.find(b=>b?.role===START_ROLE)||systemBlock(START_ROLE,course.title);
     const end=blocks.find(b=>b?.role===END_ROLE)||systemBlock(END_ROLE,course.title);
@@ -27,6 +44,7 @@
     const id=(globalThis.crypto&&crypto.randomUUID)?crypto.randomUUID():uid('course');
     return {id,title:String(title||'Nouveau cours').trim()||'Nouveau cours',status:'editing',
       metadata:{schema:'aurore-assisted-course-v4',editor:'edition_assistee',origin:'assisted_editor'},
+      theme_color:DEFAULT_THEME_COLOR,
       blocks:[systemBlock(START_ROLE,title),systemBlock(END_ROLE,title)],generation:{pages:[],updated_at:null}};
   }
   function block(type){
@@ -202,6 +220,7 @@
     validateCourse();
     ensureCourseStructure(state.course);
     r.innerHTML='<div class="ae-shell ae-workspace"><header class="ae-head"><div><button class="admin-btn ghost" id="aeBack">← Mes cours</button><span class="ae-kicker">Atelier de production séquentielle</span><h3><input id="aeCourseTitle" value="'+esc(state.course.title)+'"></h3><p>Le bloc de début et le bloc de fin sont automatiques. Tous les blocs que tu ajoutes sont placés entre les deux et chaque bloc central génère uniquement sa propre page.</p></div><span class="ae-status" id="assistedStatus">'+(state.course.validation?.ok?'Structure valide':'À compléter')+'</span></header>'+
+      '<div class="ae-top-options"><div class="ae-top-options-title"><span class="ae-kicker">Options du document</span><strong>Couleur d’accent</strong><small>Elle sera utilisée pour les bordures, repères et éléments mathématiques de la page.</small></div><label class="ae-color-field"><span class="ae-color-swatch" style="background:'+normalizeThemeColor(state.course.theme_color)+'"></span><select id="aeThemeColor" aria-label="Couleur d’accent du document">'+themeColorOptions()+'</select></label></div>'+
       '<div class="ae-workbar"><button class="admin-btn primary" id="aeAddP">＋ Paragraphe</button><button class="admin-btn ghost" id="aeAddPoint">＋ Point de cours</button><button class="admin-btn ghost" id="aeAddEx">＋ Exercice</button><button class="admin-btn ghost" id="aeAddGraph">＋ Graphique JSON</button><button class="admin-btn ghost" id="aeAddWiki">＋ Image Wikimedia</button><button class="admin-btn ghost" id="aeSave">Enregistrer le cours</button></div>'+
       '<div class="ae-sequence-meta"><span>'+contentBlocks().length+' bloc(s) de contenu · 1 début · 1 fin</span><span>Ordre de génération : début → contenu → fin</span></div>'+
       '<section class="ae-block-stack">'+(activeBlocks().length?activeBlocks().map(blockCard).join(''):'<div class="ae-empty"><strong>Le cours est vide.</strong><span>Ajoute un paragraphe pour commencer. Le bloc suivant sera automatiquement placé dessous.</span></div>')+'</section>'+
@@ -212,6 +231,14 @@
   function bindWorkspace(){
     document.getElementById('aeBack').onclick=()=>{state.mode='list';state.course=null;loadCourses().then(renderList)};
     document.getElementById('aeCourseTitle').onchange=e=>{state.course.title=e.target.value.trim()||'Nouveau cours';};
+    const themeSelect=document.getElementById('aeThemeColor');
+    if(themeSelect)themeSelect.onchange=async e=>{
+      state.course.theme_color=normalizeThemeColor(e.target.value);
+      const swatch=themeSelect.closest('.ae-color-field')?.querySelector('.ae-color-swatch');
+      if(swatch)swatch.style.background=state.course.theme_color;
+      await persistCourse(true);
+      setStatus('Couleur du document enregistrée.');
+    };
     document.getElementById('aeAddP').onclick=()=>addBlock('paragraph');
     document.getElementById('aeAddPoint').onclick=()=>addBlock('point');
     document.getElementById('aeAddEx').onclick=()=>addBlock('exercise');
@@ -493,7 +520,8 @@
           course_title:state.course.title,
           block_id:b.id,
           page_number:pageNumberFor(b),
-          block:b
+          block:b,
+          theme_color:normalizeThemeColor(state.course.theme_color)
         })
       });
       const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}};
