@@ -318,6 +318,11 @@ function layoutInline(prepared:Run[],font:any,size:number,max:number){
   return lines.filter(x=>x.length);
 }
 
+function inlineLineAdvance(line:any[],size=10.7,lineHeight=15.4){
+  const maxMathH=Math.max(0,...line.filter(t=>t.kind==="math").map(t=>t.height||0));
+  return Math.max(lineHeight,size+4,maxMathH+5);
+}
+
 function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,borderColor:any,textColor:any,size=10.7,lineHeight=15.3){
   let y=topY;
   const boxPadX=4,boxPadY=3;
@@ -332,12 +337,15 @@ function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,bord
       }else{
         const iw=Math.max(1,(token.width||10)-8), ih=Math.max(1,(token.height||10)-6);
         const by=y-maxH+3, bh=ih+boxPadY*2;
-        rounded(page,cx-boxPadX,by,iw+boxPadX*2,bh,5,rgbHex("#FCFCFF"),borderColor,0.35);
+        const outerW=iw+boxPadX*2;
+        rounded(page,cx-boxPadX+1.6,by-1.8,outerW,bh,5,rgbHex("#16171B"),rgbHex("#16171B"),0);
+        rounded(page,cx-boxPadX,by,outerW,bh,5,rgbHex("#27292F"),borderColor,0.45);
+        rounded(page,cx-1.5,by+1.7,Math.max(4,iw+3),Math.max(4,ih-0.5),3,rgbHex("#F7F7F9"),rgbHex("#F7F7F9"),0);
         page.drawImage(token.image,{x:cx,y:by+boxPadY,width:iw,height:ih});
         cx+=iw+boxPadX*2;
       }
     }
-    y-=lineHeight;
+    y-=Math.max(lineHeight,inlineLineAdvance(line,size,lineHeight));
   }
   return y;
 }
@@ -398,13 +406,31 @@ function sectionLabel(page:any,label:string,x:number,y:number,fonts:any,color:st
   page.drawText(txt,{x:x+9,y:y-9,font:fonts.bold,size:8.5,color:rgbHex(mixWhite(color,0.15))});
 }
 
+function displayMathMetrics(run:Run,width:number){
+  const naturalW=Math.max(1,run.width||width-48);
+  const naturalH=Math.max(1,run.height||42);
+  const maxW=Math.max(80,width-48);
+  const maxH=118;
+  const scale=Math.min(1,maxW/naturalW,maxH/naturalH);
+  const iw=Math.max(24,naturalW*scale);
+  const ih=Math.max(10,naturalH*scale);
+  const h=Math.max(54,ih+24);
+  return {iw,ih,h};
+}
+
 function drawDisplayMath(page:any,run:Run,x:number,y:number,width:number,color:string){
-  const h=Math.min(92,(run.height||42)+18);
-  rounded(page,x,y-h,width,h,9,rgbHex("#FBFAFF"),rgbHex(mixWhite(color,0.60)),0.45);
-  page.drawLine({start:{x:x,y:y-h+1.5},end:{x:x,y:y-1.5},thickness:1.5,color:rgbHex(color)});
-  const iw=Math.min(width-36,run.width||width-36), ih=(run.height||42)*(iw/(run.width||iw));
-  page.drawImage(run.image,{x:x+(width-iw)/2,y:y-h+(h-ih)/2,width:iw,height:ih});
-  return y-h-7;
+  const m=displayMathMetrics(run,width);
+  const x0=x, y0=y-m.h;
+  rounded(page,x0+2,y0-2,width,m.h,10,rgbHex("#16171B"),rgbHex("#16171B"),0);
+  rounded(page,x0,y0,width,m.h,10,rgbHex("#27292F"),rgbHex("#52555F"),0.6);
+  page.drawLine({start:{x:x0,y:y0+7},end:{x:x0,y:y-7},thickness:1.8,color:rgbHex(mixWhite(color,0.30))});
+  const panelW=m.iw+18;
+  const panelH=m.ih+12;
+  const panelX=x0+(width-panelW)/2;
+  const panelY=y0+(m.h-panelH)/2;
+  rounded(page,panelX,panelY,panelW,panelH,7,rgbHex("#F7F7F9"),rgbHex("#F7F7F9"),0);
+  page.drawImage(run.image,{x:x0+(width-m.iw)/2,y:y0+(m.h-m.ih)/2,width:m.iw,height:m.ih});
+  return y0-9;
 }
 
 Deno.serve(async req=>{
@@ -501,9 +527,9 @@ Deno.serve(async req=>{
         let boxH=18;
         for(const chunk of chunks){
           if(chunk.kind==="inline"){
-            boxH+=Math.max(1,chunk.lines.length)*lineHeight;
+            boxH+=chunk.lines.reduce((sum:any,line:any)=>sum+inlineLineAdvance(line,10.7,lineHeight),0);
           }else{
-            boxH+=Math.min(92,(chunk.run.height||42)+18)+7;
+            boxH+=displayMathMetrics(chunk.run,W).h+9;
           }
         }
         boxH+=9;
