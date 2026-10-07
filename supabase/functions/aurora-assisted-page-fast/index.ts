@@ -588,7 +588,7 @@ Deno.serve(async req=>{
         const w=h===ih?iw:h*(img.width/img.height);
         const boxH=h+44;
         if(y-boxH<bottom)throw new Error("ASSISTED_PAGE_TOO_LONG: illustration hors page.");
-        rounded(page,X-11,y-boxH,W+22,boxH,10,rgbHex(mixWhite(color,0.988)),rgbHex(mixWhite(color,0.70)),0.45);
+        rounded(page,BOX_X,y-boxH,BOX_W,boxH,11,rgbHex(mixWhite(color,0.988)),rgbHex(mixWhite(color,0.70)),0.45);
         page.drawImage(img,{x:X+(W-w)/2,y:y-16-h,width:w,height:h});
         const caption=clean(image.caption||image.title||"");
         if(caption){
@@ -625,7 +625,6 @@ Deno.serve(async req=>{
         const boxH=260;
         if(y-boxH<bottom)throw new Error("ASSISTED_PAGE_TOO_LONG: graphique hors page.");
         rounded(page,X-11,y-boxH,W+22,boxH,10,rgbHex(mixWhite(color,0.988)),rgbHex(mixWhite(color,0.70)),0.45);
-        page.drawLine({start:{x:X-11,y:y-boxH+9},end:{x:X-11,y:y-9},thickness:1.45,color:rgbHex(mixWhite(color,0.52))});
         const iw=Math.min(450,img.width),ih=Math.min(222,iw*(img.height/img.width));
         const gy=y-15-ih;
         page.drawImage(img,{x:X+(W-iw)/2,y:gy,width:iw,height:ih});
