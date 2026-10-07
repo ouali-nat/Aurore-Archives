@@ -35,7 +35,7 @@ function buildContent(courseTitle:string,pageNumber:number,block:any){
   else throw new Error("Type de bloc non pris en charge : "+type);
   return {
     title:courseTitle,
-    document_type:"cours",
+    document_type:"page_assistee",
     source_format:"structured",
     sections:[section],
     assisted_block:{id:String(block?.id||""),type,content}
@@ -81,7 +81,7 @@ Deno.serve(async(req)=>{
   const now=new Date().toISOString();
   const insertedJob=await admin.from("aurora_content_jobs").insert({
     created_by:userId,status:"queued",title:course.data.title||"Cours",subject:null,level:null,class_name:null,
-    document_type:"cours",source_format:"structured",prompt:"Édition assistée — rendu d’une page indépendante.",
+    document_type:"page_assistee",source_format:"structured",prompt:"Édition assistée — rendu d’une page indépendante.",
     instructions:{assisted_page:true,classification:{category:"Édition assistée",resource_type:"cours"}},
     source_document_ids:[],metadata:{origin:"edition_assistee",assisted_page:{course_id:courseId,block_id:blockId,page_number:pageNumber,block_type:type}},
     created_at:now,updated_at:now
@@ -100,7 +100,7 @@ Deno.serve(async(req)=>{
   };
   const insertedDoc=await admin.from("aurora_generated_documents").insert({
     job_id:jobId,created_by:userId,title:(course.data.title||"Cours")+" — Page "+String(pageNumber),
-    subject:null,level:null,class_name:null,document_type:"cours",source_format:"structured",source_content:null,
+    subject:null,level:null,class_name:null,document_type:"page_assistee",source_format:"structured",source_content:null,
     content_json:contentJson,version:1,status:"generated",validation_notes:"Édition assistée — page indépendante.",
     metadata,theme_color:null,matiere:null
   }).select("id,status,metadata").single();
