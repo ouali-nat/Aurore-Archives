@@ -168,30 +168,9 @@ async function loadLogo(pdf:any){
 }
 
 async function loadFonts(pdf:any){
-  // The normal Aurore editorial route uses Latin Modern Roman/Sans.
-  // Keep a standard-font fallback so a remote font outage never blocks rendering.
-  const urls={
-    regular:"https://raw.githubusercontent.com/PreTeXtBook/pretext/master/fonts/lmroman10-regular.otf",
-    bold:"https://raw.githubusercontent.com/PreTeXtBook/pretext/master/fonts/lmroman10-bold.otf",
-    sans:"https://raw.githubusercontent.com/PreTeXtBook/pretext/master/fonts/lmsans10-regular.otf",
-    sansBold:"https://raw.githubusercontent.com/PreTeXtBook/pretext/master/fonts/lmsans10-bold.otf"
-  };
-  try{
-    const [rr,rb,sr,sb]=await Promise.all([
-      fetch(urls.regular),fetch(urls.bold),fetch(urls.sans),fetch(urls.sansBold)
-    ]);
-    if(rr.ok&&rb.ok&&sr.ok&&sb.ok){
-      const [rba,bba,sra,sba]=await Promise.all([
-        rr.arrayBuffer(),rb.arrayBuffer(),sr.arrayBuffer(),sb.arrayBuffer()
-      ]);
-      return {
-        regular:await pdf.embedFont(new Uint8Array(rba),{subset:true}),
-        bold:await pdf.embedFont(new Uint8Array(bba),{subset:true}),
-        sans:await pdf.embedFont(new Uint8Array(sra),{subset:true}),
-        sansBold:await pdf.embedFont(new Uint8Array(sba),{subset:true})
-      };
-    }
-  }catch(_){}
+  // Keep font loading local and deterministic in the page renderer.
+  // The math renderer supplies the formula glyphs; body metrics stay at the
+  // normal Aurore editorial 11 pt rhythm.
   return {
     regular:await pdf.embedFont(StandardFonts.TimesRoman),
     bold:await pdf.embedFont(StandardFonts.TimesRomanBold),
@@ -199,7 +178,6 @@ async function loadFonts(pdf:any){
     sansBold:await pdf.embedFont(StandardFonts.HelveticaBold)
   };
 }
-
 async function formulaImage(auth:string,pdf:any,source:string,qa:any,cache:Map<string,any>){
   const key=latexInput(stripInlineDelimiters(source)).trim();
   if(!key)return null;
