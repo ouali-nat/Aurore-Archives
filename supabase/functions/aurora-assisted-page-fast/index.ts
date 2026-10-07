@@ -168,7 +168,30 @@ async function loadLogo(pdf:any){
 }
 
 async function loadFonts(pdf:any){
-  // The normal Aurore route uses a serif body face and sans-serif editorial labels.
+  // The normal Aurore editorial route uses Latin Modern Roman/Sans.
+  // Keep a standard-font fallback so a remote font outage never blocks rendering.
+  const urls={
+    regular:"https://raw.githubusercontent.com/PreTeXtBook/pretext/master/fonts/lmroman10-regular.otf",
+    bold:"https://raw.githubusercontent.com/PreTeXtBook/pretext/master/fonts/lmroman10-bold.otf",
+    sans:"https://raw.githubusercontent.com/PreTeXtBook/pretext/master/fonts/lmsans10-regular.otf",
+    sansBold:"https://raw.githubusercontent.com/PreTeXtBook/pretext/master/fonts/lmsans10-bold.otf"
+  };
+  try{
+    const [rr,rb,sr,sb]=await Promise.all([
+      fetch(urls.regular),fetch(urls.bold),fetch(urls.sans),fetch(urls.sansBold)
+    ]);
+    if(rr.ok&&rb.ok&&sr.ok&&sb.ok){
+      const [rba,bba,sra,sba]=await Promise.all([
+        rr.arrayBuffer(),rb.arrayBuffer(),sr.arrayBuffer(),sb.arrayBuffer()
+      ]);
+      return {
+        regular:await pdf.embedFont(new Uint8Array(rba),{subset:true}),
+        bold:await pdf.embedFont(new Uint8Array(bba),{subset:true}),
+        sans:await pdf.embedFont(new Uint8Array(sra),{subset:true}),
+        sansBold:await pdf.embedFont(new Uint8Array(sba),{subset:true})
+      };
+    }
+  }catch(_){}
   return {
     regular:await pdf.embedFont(StandardFonts.TimesRoman),
     bold:await pdf.embedFont(StandardFonts.TimesRomanBold),
@@ -271,7 +294,7 @@ async function prepareRuns(runs:Run[],auth:string,pdf:any,fonts:any,qa:any,cache
     }
     const img=await formulaImage(auth,pdf,run.value,qa,cache);
     if(img){
-      const targetH=run.kind==="display"?27:12.5;
+      const targetH=run.kind==="display"?22:9.8;
       const scale=Math.min(1,targetH/(img.height||targetH));
       prepared.push({kind:run.kind,value:run.value,image:img,width:img.width*scale,height:img.height*scale});
     }else{
@@ -309,37 +332,40 @@ function layoutInline(prepared:Run[],font:any,size:number,max:number){
   return lines.filter(x=>x.length);
 }
 
-function inlineLineAdvance(line:any[],size=10.95,lineHeight=13.6){
-  const maxMathH=Math.max(0,...line.filter(t=>t.kind==="math").map(t=>t.height||0));
-  return Math.max(lineHeight,size+4,maxMathH+5);
+function inlineLineAdvance(line:any[],size=11,lineHeight=13.6){
+  const maxMathBoxH=Math.max(0,...line.filter(t=>t.kind==="math").map(t=>t.height||0));
+  // Keep the common line rhythm of the normal 11 pt editorial text.
+  return Math.max(lineHeight,maxMathBoxH);
 }
 
-function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,borderColor:any,textColor:any,size=10.95,lineHeight=13.6){
-  // Match the normal AuroreMathCompact geometry.
+function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,borderColor:any,textColor:any,size=11,lineHeight=13.6){
+  // Match the normal AuroreMathCompact box and center text/math on one shared line.
   let y=topY;
   const boxPadX=7,boxPadY=3;
-  const frame=rgbHex(mixWhite(borderColor,0.42)); // aurorebase!58!white
-  const fill=rgbHex(mixWhite(mixWhite(borderColor,0.96),0.99)); // white!99!aurorepale
+  const frame=rgbHex(mixWhite(borderColor,0.42));
+  const fill=rgbHex(mixWhite(mixWhite(borderColor,0.96),0.99));
   for(const line of lines){
+    const advance=inlineLineAdvance(line,size,lineHeight);
+    const lineCenter=y-advance/2;
+    const baseline=lineCenter-(advance-size)*0.50;
     let cx=x;
-    const maxH=Math.max(size,...line.filter(t=>t.kind==="math").map(t=>t.height||size));
     for(const token of line){
       cx+=token.space||0;
       if(token.kind==="text"){
-        page.drawText(escapePdfText(token.value),{x:cx,y:y-size+2.5,font,size,color:textColor});
+        page.drawText(escapePdfText(token.value),{x:cx,y:baseline,font,size,color:textColor});
         cx+=token.width;
       }else{
         const iw=Math.max(1,(token.width||14)-14);
         const ih=Math.max(1,(token.height||10)-6);
         const bh=ih+boxPadY*2;
-        const by=y-maxH+1;
+        const by=lineCenter-bh/2;
         const outerW=iw+boxPadX*2;
         rounded(page,cx-boxPadX,by,outerW,bh,7,fill,frame,0.45);
         page.drawImage(token.image,{x:cx,y:by+boxPadY,width:iw,height:ih});
         cx+=outerW;
       }
     }
-    y-=Math.max(lineHeight,inlineLineAdvance(line,size,lineHeight));
+    y-=advance;
   }
   return y;
 }
@@ -409,7 +435,7 @@ function displayMathMetrics(run:Run,width:number){
   const scale=Math.min(1,maxW/naturalW,maxH/naturalH);
   const iw=Math.max(24,naturalW*scale);
   const ih=Math.max(10,naturalH*scale);
-  const h=Math.max(26,ih+8);
+  const h=Math.max(30,ih+8);
   return {iw,ih,h};
 }
 
@@ -498,7 +524,7 @@ Deno.serve(async req=>{
       if(normalized)contentItems.push(normalized);
     }
 
-    const TEXT_SIZE=10.95;
+    const TEXT_SIZE=11;
      const LINE_HEIGHT=13.6;
     const BOX_RADIUS=11;
     const BOX_X=X-10;
