@@ -20,13 +20,42 @@ const out=(x:unknown,status=200)=>new Response(JSON.stringify(x),{status,headers
 
 const clean=(v:any)=>String(v??"").normalize("NFC").replace(/[\u0000-\u001F]/g," ").replace(/\s+/g," ").trim();
 
+function extractStructuredText(v:any):string{
+  if(v===null||v===undefined)return "";
+  if(typeof v!=="string")return String(v);
+  const raw=v.trim();
+  if(!raw)return "";
+  if((raw.startsWith("{")&&raw.endsWith("}"))||(raw.startsWith("[")&&raw.endsWith("]"))){
+    try{
+      const parsed=JSON.parse(raw);
+      const candidate=(node:any):string=>{
+        if(node===null||node===undefined)return "";
+        if(typeof node==="string")return node;
+        if(Array.isArray(node))return node.map(candidate).filter(Boolean).join("\n\n");
+        if(typeof node!=="object")return String(node);
+        if(typeof node.text==="string")return node.text;
+        if(typeof node.body==="string")return node.body;
+        if(typeof node.statement==="string")return node.statement;
+        if(typeof node.question==="string")return node.question;
+        if(typeof node.content==="string")return node.content;
+        if(node.content&&typeof node.content==="object")return candidate(node.content);
+        return "";
+      };
+      const extracted=candidate(parsed).trim();
+      if(extracted)return extracted;
+    }catch(_){}
+  }
+  return v;
+}
 function proseText(v:any){
-  const s=String(v??"").replace(/\r\n/g,"\n").replace(/\r/g,"\n").trim();
+  const s=extractStructuredText(v).replace(/\r\n/g,"\n").replace(/\r/g,"\n").trim();
   return s.split(/\n{2,}/).map(x=>x.replace(/\s+/g," ").trim()).filter(Boolean);
 }
 
 function latexInput(v:any){
-  return normalizeUnicodeMathText(String(v??"")).normalize("NFC").replace(/[≠≤≥∞≈∈∉×÷±πℝℕℤℚ→⇔⇒⊂⊄∀∃∧∨∅]/g,(c)=>{
+  let source=normalizeUnicodeMathText(String(v??"")).normalize("NFC");
+  source=source.replace(/\\{2,}(?=[A-Za-z{}])/g,"\\");
+  return source.replace(/[≠≤≥∞≈∈∉×÷±πℝℕℤℚ→⇔⇒⊂⊄∀∃∧∨∅]/g,(c)=>{
     const m:any={
       "≠":"\\neq ","≤":"\\leq ","≥":"\\geq ","∞":"\\infty ","≈":"\\approx ",
       "∈":"\\in ","∉":"\\notin ","×":"\\times ","÷":"\\div ","±":"\\pm ",
@@ -324,24 +353,25 @@ function drawParagraph(page:any,prepared:Run[],x:number,topY:number,width:number
 
 function drawSoftDecor(page:any,color:string){
   const W=595,H=842;
-  // Soft Aurore paper tint.
   page.drawRectangle({x:0,y:0,width:W,height:H,color:rgbHex(mixWhite(color,0.985))});
 
-  // Large, low-contrast bubbles inspired by the Aurore visual language.
-  page.drawCircle({x:602,y:828,size:62,color:rgbHex(mixWhite(color,0.91))});
-  page.drawCircle({x:-4,y:775,size:42,color:rgbHex(mixWhite(color,0.945))});
-  page.drawCircle({x:548,y:103,size:31,color:rgbHex(mixWhite(color,0.94))});
-  page.drawCircle({x:9,y:61,size:48,color:rgbHex(mixWhite(color,0.955))});
-  page.drawCircle({x:76,y:748,size:18,color:rgbHex(mixWhite(color,0.965))});
-  page.drawCircle({x:516,y:741,size:16,color:rgbHex(mixWhite(color,0.955))});
+  // Aurore production-style edge bubbles: large, pale and always behind content.
+  page.drawCircle({x:606,y:832,size:72,color:rgbHex(mixWhite(color,0.89))});
+  page.drawCircle({x:-10,y:770,size:48,color:rgbHex(mixWhite(color,0.935))});
+  page.drawCircle({x:598,y:565,size:26,color:rgbHex(mixWhite(color,0.95))});
+  page.drawCircle({x:-8,y:425,size:34,color:rgbHex(mixWhite(color,0.95))});
+  page.drawCircle({x:604,y:122,size:38,color:rgbHex(mixWhite(color,0.94))});
+  page.drawCircle({x:88,y:-2,size:58,color:rgbHex(mixWhite(color,0.945))});
+  page.drawCircle({x:540,y:2,size:50,color:rgbHex(mixWhite(color,0.925))});
+  page.drawCircle({x:20,y:55,size:16,color:rgbHex(mixWhite(color,0.965))});
 
-  // A slender vertical Aurore spine in the margin.
-  page.drawLine({
-    start:{x:28,y:72},end:{x:28,y:778},
-    thickness:1.8,color:rgbHex(mixWhite(color,0.62))
-  });
-  page.drawCircle({x:28,y:778,size:4.2,color:rgbHex(mixWhite(color,0.58))});
-  page.drawCircle({x:28,y:72,size:4.2,color:rgbHex(mixWhite(color,0.72))});
+  // Continuous page-level spine. It stays in the margin with a real gap
+  // before the content frames, unlike the previous block-attached bar.
+  const spine=rgbHex(mixWhite(color,0.60));
+  const spineSoft=rgbHex(mixWhite(color,0.72));
+  page.drawLine({start:{x:28,y:70},end:{x:28,y:777},thickness:1.45,color:spine});
+  page.drawCircle({x:28,y:777,size:4.3,color:spine});
+  page.drawCircle({x:28,y:70,size:4.3,color:spineSoft});
 }
 function headerFooter(page:any,pageNo:number,fonts:any,logo:any,color:string){
   const W=595,H=842;
@@ -425,19 +455,23 @@ Deno.serve(async req=>{
       for(const section of sections){
         const texts=Array.isArray(section.content)?section.content:[section.content];
         for(const item of texts){
-          if(item!=null&&String(item).trim())contentItems.push(String(item));
+          const normalized=extractStructuredText(item).trim();
+          if(normalized)contentItems.push(normalized);
         }
         if(Array.isArray(section.exercises))exerciseItems.push(...section.exercises);
         if(Array.isArray(section.graphs))graphItems.push(...section.graphs);
         if(Array.isArray(section.images))imageItems.push(...section.images);
       }
     }
-    if(Array.isArray(input.content))input.content.forEach((x:any)=>{if(String(x??"").trim())contentItems.push(String(x))});
+    if(Array.isArray(input.content))input.content.forEach((x:any)=>{const normalized=extractStructuredText(x).trim();if(normalized)contentItems.push(normalized)});
     if(Array.isArray(input.exercises))exerciseItems.push(...input.exercises);
     if(Array.isArray(input.graphs))graphItems.push(...input.graphs);
     if(Array.isArray(input.images))imageItems.push(...input.images);
 
-    if(input.assisted_block?.content?.text&&!contentItems.length)contentItems.push(String(input.assisted_block.content.text));
+    if(input.assisted_block?.content?.text&&!contentItems.length){
+      const normalized=extractStructuredText(input.assisted_block.content.text).trim();
+      if(normalized)contentItems.push(normalized);
+    }
 
     const drawParagraphBlock=async(text:string)=>{
       const paragraphs=proseText(text);
