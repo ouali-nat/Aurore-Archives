@@ -820,9 +820,10 @@ jobs:
             -o infra/lualatex/production/document-response.json
           python3 - <<'PY'
           import json
+          import re
           import sys
           from pathlib import Path
-          from urllib.parse import quote
+          from urllib.parse import quote, urlparse
           from urllib.request import urlopen
 
           # This step runs from the repository root. Make the renderer package
