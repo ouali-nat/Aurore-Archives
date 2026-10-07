@@ -90,8 +90,12 @@ function parseRuns(raw:string):Run[]{
   return runs;
 }
 
+function normalizeHexColor(value:any){
+  const h=String(value??"").trim().toUpperCase();
+  return /^#[0-9A-F]{6}$/.test(h)?h:null;
+}
 function rgbHex(hex:string){
-  const h=hex.replace("#","");
+  const h=(normalizeHexColor(hex)||"#6D28D9").replace("#","");
   return rgb(parseInt(h.slice(0,2),16)/255,parseInt(h.slice(2,4),16)/255,parseInt(h.slice(4,6),16)/255);
 }
 function mixWhite(hex:string,amount:number){
@@ -387,7 +391,7 @@ Deno.serve(async req=>{
     const fonts=await loadFonts(pdf);
     const logo=await loadLogo(pdf);
     const page=pdf.addPage([595,842]);
-    const color=subjectColor(input.subject||input.matiere||docRes.data.metadata?.matiere||"");
+    const color=normalizeHexColor(input.theme_color)||subjectColor(input.subject||input.matiere||docRes.data.metadata?.matiere||"");
     drawSoftDecor(page,color);
     headerFooter(page,pn,fonts,logo,color);
 
@@ -461,7 +465,7 @@ Deno.serve(async req=>{
         let yy=y-11;
         for(const chunk of chunks){
           if(chunk.kind==="inline"){
-            yy=drawInlineLines(page,chunk.lines,X,yy,fonts.regular,rgbHex("#202126"),10.7,lineHeight);
+            yy=drawInlineLines(page,chunk.lines,X,yy,fonts.regular,rgbHex("#E2E2E7"),rgbHex("#202126"),10.7,lineHeight);
           }else{
             yy=drawDisplayMath(page,chunk.run,X,yy-2,W,color);
           }
