@@ -28,13 +28,41 @@ function normalizeHexColor(value:any){
   return /^#[0-9A-F]{6}$/.test(h)?h:null;
 }
 
+function extractStructuredText(value:any):string{
+  if(value===null||value===undefined)return "";
+  if(typeof value!=="string")return String(value);
+  const raw=value.trim();
+  if(!raw)return "";
+  if((raw.startsWith("{")&&raw.endsWith("}"))||(raw.startsWith("[")&&raw.endsWith("]"))){
+    try{
+      const parsed=JSON.parse(raw);
+      const walk=(node:any):string=>{
+        if(node===null||node===undefined)return "";
+        if(typeof node==="string")return node;
+        if(Array.isArray(node))return node.map(walk).filter(Boolean).join("\n\n");
+        if(typeof node!=="object")return String(node);
+        if(typeof node.text==="string")return node.text;
+        if(typeof node.body==="string")return node.body;
+        if(typeof node.statement==="string")return node.statement;
+        if(typeof node.question==="string")return node.question;
+        if(typeof node.content==="string")return node.content;
+        if(node.content&&typeof node.content==="object")return walk(node.content);
+        return "";
+      };
+      const extracted=walk(parsed).trim();
+      if(extracted)return extracted;
+    }catch(_){}
+  }
+  return value;
+}
+
 function buildContent(courseTitle:string,pageNumber:number,block:any,themeColor:string|null){
   const type=clean(block?.type||"paragraph").toLowerCase();
   const content=block?.content&&typeof block.content==="object"?block.content:{};
   const section:any={title:"Bloc "+String(pageNumber),content:[],exercises:[],graphs:[]};
-  if(type==="paragraph") section.content=[String(content.text||"")];
-  else if(type==="point") section.content=[String(content.text||"")];
-  else if(type==="exercise") section.exercises=[{id:String(block?.id||""),statement:String(content.statement||""),hint:String(content.hint||"")}];
+  if(type==="paragraph") section.content=[extractStructuredText(content.text||"")];
+  else if(type==="point") section.content=[extractStructuredText(content.text||"")];
+  else if(type==="exercise") section.exercises=[{id:String(block?.id||""),statement:extractStructuredText(content.statement||""),hint:extractStructuredText(content.hint||"")}];
   else if(type==="graphique") section.graphs=[content.json&&typeof content.json==="object"?content.json:{}];
   else if(type==="wikimedia-image") section.content=["Illustration Wikimedia"];
   else throw new Error("Type de bloc non pris en charge : "+type);
@@ -81,9 +109,9 @@ Deno.serve(async(req)=>{
 
   const type=clean(block.type||"paragraph").toLowerCase();
   const content=block.content&&typeof block.content==="object"?block.content:{};
-  if(type==="paragraph"&&!clean(content.text))return out({ok:false,error:"Le paragraphe est vide."},400);
-  if(type==="point"&&!clean(content.text))return out({ok:false,error:"Le contenu du point est vide."},400);
-  if(type==="exercise"&&!clean(content.statement))return out({ok:false,error:"L’énoncé est vide."},400);
+  if(type==="paragraph"&&!clean(extractStructuredText(content.text)))return out({ok:false,error:"Le paragraphe est vide."},400);
+  if(type==="point"&&!clean(extractStructuredText(content.text)))return out({ok:false,error:"Le contenu du point est vide."},400);
+  if(type==="exercise"&&!clean(extractStructuredText(content.statement)))return out({ok:false,error:"L’énoncé est vide."},400);
   if(type==="graphique"){
     const g=content.json;
     if(!g||typeof g!=="object"||Array.isArray(g))return out({ok:false,error:"Le JSON du graphique doit être un objet."},400);
