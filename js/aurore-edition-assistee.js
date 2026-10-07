@@ -51,6 +51,10 @@
       ?course.document_pages.cover:{enabled:true,title:String(course.title||'Nouveau document'),subtitle:'Bibliothèque numérique d’Aurore',author:'',institution:'',show_date:true};
     course.document_pages.toc=course.document_pages.toc&&typeof course.document_pages.toc==='object'
       ?course.document_pages.toc:{enabled:true,title:'Sommaire',subtitle:'Organisation du document',entries:[]};
+    course.document_pages.toc.enabled=true;
+    course.document_pages.toc.title=String(course.document_pages.toc.title||'Sommaire');
+    course.document_pages.toc.subtitle=String(course.document_pages.toc.subtitle||'Organisation du document');
+    course.document_pages.toc.entries=Array.isArray(course.document_pages.toc.entries)?course.document_pages.toc.entries:[];
     course.document_pages.end=course.document_pages.end&&typeof course.document_pages.end==='object'
       ?course.document_pages.end:{enabled:true,title:'Fin du document',subtitle:'Merci d’avoir consulté ce cours.',contact:'',show_qr:false};
     return course;
@@ -514,18 +518,94 @@
     }
   }
 
+  function svgTextEscape(v){
+    return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function svgWrapText(v,max=46){
+    const words=String(v??'').trim().split(/\s+/).filter(Boolean);
+    if(!words.length)return [];
+    const out=[];let line='';
+    for(const word of words){
+      const next=line?line+' '+word:word;
+      if(next.length>max&&line){out.push(line);line=word;}else line=next;
+    }
+    if(line)out.push(line);
+    return out;
+  }
+  function specialThemeColor(){
+    return normalizeThemeColor(state.course?.theme_color||DEFAULT_THEME_COLOR);
+  }
+  function svgLines(lines,x,y,size,weight,color,dy){
+    return lines.map((line,i)=>'<text x="'+x+'" y="'+(y+i*dy)+'" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="'+size+'" font-weight="'+weight+'" fill="'+color+'">'+svgTextEscape(line)+'</text>').join('');
+  }
+  function buildSpecialPagePreviewSvg(kind,cfg,page){
+    const isCover=kind==='cover';
+    const accent=specialThemeColor();
+    const titleLines=svgWrapText(cfg?.title||(isCover?state.course?.title:'Fin du document'),36).slice(0,3);
+    const subtitleLines=svgWrapText(cfg?.subtitle||'',52).slice(0,4);
+    const author=String(cfg?.author||'').trim();
+    const institution=String(cfg?.institution||'').trim();
+    const contact=String(cfg?.contact||'').trim();
+    const date=cfg?.show_date?new Intl.DateTimeFormat('fr-FR',{dateStyle:'long'}).format(new Date()):'';
+    let y=isCover?322:335;
+    let out='<svg xmlns="http://www.w3.org/2000/svg" width="595" height="842" viewBox="0 0 595 842" role="img"><rect width="595" height="842" rx="12" fill="#ffffff"/><rect x="26" y="26" width="543" height="790" rx="18" fill="#fbfbfd" stroke="#dfe1e7"/><circle cx="92" cy="92" r="44" fill="'+accent+'" opacity=".08"/><circle cx="510" cy="748" r="58" fill="'+accent+'" opacity=".06"/><rect x="259" y="'+(isCover?175:205)+'" width="77" height="6" rx="3" fill="'+accent+'"/>';
+    if(isCover){
+      out+=svgLines(titleLines,297,y,30,800,'#25262b',38);
+      y+=titleLines.length*38+20;
+      out+=svgLines(subtitleLines,297,y,15,500,'#686a73',24);
+      y+=subtitleLines.length*24+24;
+      if(author)out+=svgLines(svgWrapText(author,44).slice(0,2),297,y,13,650,'#44464e',22),y+=44;
+      if(institution)out+=svgLines(svgWrapText(institution,44).slice(0,2),297,y,12,500,'#666974',21),y+=42;
+      if(date)out+=svgLines([date],297,730,11,500,'#888b94',18);
+    }else{
+      out+=svgLines(titleLines.length?titleLines:['Fin du document'],297,y,30,800,'#25262b',38);
+      y+=Math.max(1,titleLines.length)*38+20;
+      out+=svgLines(subtitleLines,297,y,15,500,'#686a73',24);
+      y+=subtitleLines.length*24+28;
+      if(contact)out+=svgLines(svgWrapText(contact,44).slice(0,3),297,y,12,550,'#44464e',22);
+      out+=svgLines(['Page '+page],297,730,11,500,'#888b94',18);
+    }
+    out+='<text x="297.5" y="785" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="700" fill="'+accent+'">Aurore · Section Archives</text></svg>';
+    return out;
+  }
+  function buildTocPreviewSvg(cfg){
+    const accent=specialThemeColor();
+    const entries=(Array.isArray(cfg?.entries)?cfg.entries:[]).filter(e=>e?.enabled!==false).slice(0,20);
+    const titleLines=svgWrapText(cfg?.title||'Sommaire',30).slice(0,2);
+    const subtitleLines=svgWrapText(cfg?.subtitle||'',50).slice(0,2);
+    let y=145;
+    let out='<svg xmlns="http://www.w3.org/2000/svg" width="595" height="842" viewBox="0 0 595 842" role="img"><rect width="595" height="842" rx="12" fill="#ffffff"/><rect x="26" y="26" width="543" height="790" rx="18" fill="#fbfbfd" stroke="#dfe1e7"/><circle cx="88" cy="95" r="38" fill="'+accent+'" opacity=".07"/><rect x="259" y="110" width="77" height="6" rx="3" fill="'+accent+'"/>';
+    out+=svgLines(titleLines,297,y,27,800,'#25262b',34);y+=Math.max(1,titleLines.length)*34+18;
+    out+=svgLines(subtitleLines,297,y,13,500,'#686a73',20);y+=Math.max(1,subtitleLines.length)*20+28;
+    entries.forEach((e,i)=>{
+      const num=String(i+1).padStart(2,'0'),label=svgWrapText(e?.title||('Entrée '+(i+1)),48).slice(0,2),page=String(e?.page||i+3);
+      out+='<text x="85" y="'+y+'" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="800" fill="'+accent+'">'+num+'</text>';
+      out+=svgLines(label,300,y,12,600,'#3f4148',17);
+      out+='<text x="510" y="'+y+'" text-anchor="end" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="700" fill="#70727a">'+svgTextEscape(page)+'</text>';
+      out+='<line x1="85" x2="510" y1="'+(y+8+Math.max(0,label.length-1)*17)+'" y2="'+(y+8+Math.max(0,label.length-1)*17)+'" stroke="#c7c8cc" stroke-dasharray="2 4"/>';
+      y+=34;
+      if(y>760)return;
+    });
+    if(!entries.length)out+=svgLines(['Aucun bloc de contenu pour le moment.'],297,360,13,500,'#777985',20);
+    out+='<text x="297.5" y="785" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="700" fill="'+accent+'">Aurore · Section Archives · page 2</text></svg>';
+    return out;
+  }
+
   async function previewBlock(id){
     const b=activeBlocks().find(x=>x.id===id);if(!b)return;
     if(isSystemBlock(b)){
       const start=b.role===START_ROLE;
       ensureDocumentPages(state.course);syncSystemPages(state.course);
       const cfg=start?state.course.document_pages.cover:state.course.document_pages.end;
-      const body=start
-        ? '<div class="ae-special-page-preview ae-cover-preview"><span class="ae-preview-badge">Page 1 · Couverture</span><div class="ae-special-page-accent"></div><h2>'+esc(cfg.title||state.course.title)+'</h2><h3>'+esc(cfg.subtitle||'')+'</h3>'+(cfg.author?'<p>'+esc(cfg.author)+'</p>':'')+(cfg.institution?'<p>'+esc(cfg.institution)+'</p>':'')+(cfg.show_date?'<small>'+esc(new Intl.DateTimeFormat('fr-FR',{dateStyle:'long'}).format(new Date()))+'</small>':'')+'</div>'
-        : '<div class="ae-special-page-preview ae-end-preview"><span class="ae-preview-badge">Dernière page</span><div class="ae-special-page-accent"></div><h2>'+esc(cfg.title||'Fin du document')+'</h2><h3>'+esc(cfg.subtitle||'')+'</h3>'+(cfg.contact?'<p>'+esc(cfg.contact)+'</p>':'')+'</div>';
-      openBlockModal(start?'Prévisualisation de la couverture':'Prévisualisation de la dernière page',body);return;
+      const page=start?1:activeBlocks().length+1;
+      const svg=buildSpecialPagePreviewSvg(start?'cover':'end',cfg,page);
+      const image='data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg);
+      const body='<div class="ae-page-preview ae-system-image-preview"><div class="ae-page-preview-meta"><strong>Page '+page+' · '+esc(start?'Couverture':'Clôture')+'</strong><span>Prévisualisation visuelle · image de page</span></div><div class="ae-image-page-preview-wrap"><img class="ae-image-page-preview" src="'+image+'" alt="Prévisualisation visuelle de la '+(start?'première':'dernière')+' page"></div><div class="ae-page-preview-actions"><button class="admin-btn primary" id="aeClosePreviewAction">Fermer</button></div></div>';
+      openBlockModal(start?'Prévisualisation de la couverture':'Prévisualisation de la dernière page',body);
+      document.getElementById('aeClosePreviewAction')?.addEventListener('click',()=>document.getElementById('aeModalHost').innerHTML='');
+      return;
     }
-    const gen=b.generation||{};
+    const gen=b.generation||{};    const gen=b.generation||{};
     if(b.type==='graphique'&&!gen.page_url){
       const url=await graphPreviewUrl(b);
       if(url){
@@ -552,9 +632,11 @@
   function previewToc(){
     ensureDocumentPages(state.course);rebuildTocEntries();
     const cfg=state.course.document_pages.toc;
-    const entries=cfg.entries.filter(e=>e.enabled!==false);
-    const body='<div class="ae-special-page-preview ae-toc-preview"><span class="ae-preview-badge">Page 2 · Sommaire</span><div class="ae-special-page-accent"></div><h2>'+esc(cfg.title||'Sommaire')+'</h2><h3>'+esc(cfg.subtitle||'')+'</h3><div class="ae-toc-preview-list">'+entries.map((e,i)=>'<div><span>'+esc(e.title||('Entrée '+(i+1)))+'</span><b>'+esc(String(e.page||i+3))+'</b></div>').join('')+'</div></div>';
+    const svg=buildTocPreviewSvg(cfg);
+    const image='data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg);
+    const body='<div class="ae-page-preview ae-system-image-preview"><div class="ae-page-preview-meta"><strong>Page 2 · Sommaire</strong><span>Prévisualisation visuelle · image de page</span></div><div class="ae-image-page-preview-wrap"><img class="ae-image-page-preview" src="'+image+'" alt="Prévisualisation visuelle du sommaire"></div><div class="ae-page-preview-actions"><button class="admin-btn primary" id="aeCloseTocPreview">Fermer</button></div></div>';
     openBlockModal('Prévisualisation du sommaire',body);
+    document.getElementById('aeCloseTocPreview')?.addEventListener('click',()=>document.getElementById('aeModalHost').innerHTML='');
   }
 
   function jsonTocDialog(){
@@ -605,7 +687,7 @@
     try{
       state.course.updated_at=new Date().toISOString();
       const {data:{user}={}}=await c.auth.getUser();if(!user)throw new Error('Session administrateur absente.');
-      const payload={id:state.course.id,created_by:user.id,title:state.course.title,editor_version:'edition-assistee-v4',pages:{schema:'aurore-assisted-course-v4',course:state.course}};
+      const payload={id:state.course.id,created_by:user.id,title:state.course.title,editor_version:'edition-assistee-v5',pages:{schema:'aurore-assisted-course-v5',course:state.course}};
       const {error}=await c.from('aurora_assisted_courses').upsert(payload,{onConflict:'id'});if(error)throw error;
       if(!silent)setStatus('Cours enregistré.');
       if(refreshList)await loadCourses();
@@ -629,15 +711,11 @@
   function splitLongBlock(b){
     if(!['paragraph','point','exercise'].includes(b.type))return [];
     const raw=b.type==='exercise'?String(b.content?.statement||''):String(b.content?.text||'');
-    const source=raw.replace(/\r
-/g,'
-').replace(/\r/g,'
-').trim();
+    const source=raw.replace(/\r\n/g,'\n').replace(/\r/g,'\n').trim();
     if(!source)return [];
 
-    // The old 360-character cut created very short artificial pages.
-    // Prefer semantic paragraph/sentence boundaries and let each generated
-    // block use most of an A4 page before creating the next page.
+    // Découpage sémantique de secours uniquement lorsque le renderer refuse
+    // un bloc trop long : on privilégie paragraphes, phrases puis espaces.
     const target=3000;
     const maxChunk=3600;
     const sentenceRx=/([.!?]+(?:["’'»)]*)?)(\s+|$)/g;
@@ -669,17 +747,13 @@
       return out;
     }
 
-    const units=source.split(/
-\s*
-+/).map(x=>x.trim()).filter(Boolean);
+    const units=source.split(/\n\s*\n+/).map(x=>x.trim()).filter(Boolean);
     const chunks=[];
     let current='';
     for(const unit of units){
       for(const piece of splitUnit(unit)){
         if(!current){current=piece;continue;}
-        const candidate=current+'
-
-'+piece;
+        const candidate=current+'\n\n'+piece;
         if(candidate.length<=maxChunk){
           current=candidate;
         }else{
@@ -710,6 +784,7 @@
       return n;
     });
   }
+
   async function waitForAssistedDocument(b,documentId){
     const c=client();if(!c)throw new Error('Session Supabase indisponible.');
     const started=Date.now(),timeout=4*60*1000;
