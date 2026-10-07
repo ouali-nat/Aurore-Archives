@@ -270,8 +270,8 @@
   function splitLongBlock(b){
     if(!['paragraph','point','exercise'].includes(b.type))return [];
     const text=b.type==='exercise'?String(b.content?.statement||''):String(b.content?.text||'');
-    if(text.length<1000)return [];
-    const target=1500;
+    if(text.trim().length<240)return [];
+    const target=520;
     const chunks=[];let rest=text.trim();
     while(rest.length>target){
       let cut=rest.lastIndexOf(' ',target);const sentence=rest.lastIndexOf('. ',target);if(sentence>700)cut=sentence+1;if(cut<700)cut=target;
