@@ -492,10 +492,16 @@ Deno.serve(async req=>{
     const qa:any={formulas_total:0,formulas_ok:0,formulas_failed:0,graphs_total:0,graphs_ok:0,graphs_failed:0,images_total:0,images_ok:0,images_failed:0};
     const cache=new Map<string,any>();const X=72,W=449,bottom=67,top=770;let y=top;
     const sections=Array.isArray(input.sections)?input.sections.filter((s:any)=>s&&typeof s==="object"):[];
-    const contentItems:string[]=[];const exerciseItems:any[]=[];const graphItems:any[]=[];const imageItems:any[]=[];
+    const contentItems:any[]=[];const exerciseItems:any[]=[];const graphItems:any[]=[];const imageItems:any[]=[];
     if(sections.length)for(const section of sections){
       const texts=Array.isArray(section.content)?section.content:[section.content];
-      for(const item of texts){const normalized=extractStructuredText(item).trim();if(normalized)contentItems.push(normalized);}
+      if(section.point&&typeof section.point==="object"){
+        const p=section.point;
+        const title=clean(p.title||"Point de cours"),rank=Math.max(1,Number(p.rank)||1),body=extractStructuredText(p.text||"").trim();
+        if(title||body)contentItems.push({__aurore_point:true,title,rank,color:normalizeHexColor(p.color)||color,text:body});
+      }else{
+        for(const item of texts){const normalized=extractStructuredText(item).trim();if(normalized)contentItems.push(normalized);}
+      }
       if(Array.isArray(section.exercises))exerciseItems.push(...section.exercises);
       if(Array.isArray(section.graphs))graphItems.push(...section.graphs);
       if(Array.isArray(section.images))imageItems.push(...section.images);
@@ -509,8 +515,21 @@ Deno.serve(async req=>{
     function grayBlock(page:any,x:number,y:number,w:number,h:number){
       rounded(page,x,y,w,h,BOX_RADIUS,rgbHex("#E6E6E7"),rgbHex("#B6B7BA"),0.5);
     }
-    const drawContentBlock=async(text:string)=>{
-      const paragraphs=proseText(text);
+    const drawContentBlock=async(text:any)=>{
+      if(text&&typeof text==="object"&&text.__aurore_point){
+        const title=String(text.title||"Point de cours"),body=String(text.text||"");
+        const accent=normalizeHexColor(text.color)||color;
+        const rank=Math.max(1,Number(text.rank)||1);
+        const label=(rank+". "+title).trim();
+        const labelH=24;
+        if(y-labelH<bottom)throw new Error("ASSISTED_PAGE_TOO_LONG: point hors page.");
+        page.drawText(label,{x:X,y:y-15,font:fonts.bold,size:11,color:rgbHex(accent)});
+        page.drawRectangle({x:X,y:y-22,width:W,height:2.2,color:rgbHex(accent)});
+        y-=31;
+        if(body)await drawContentBlock(body);
+        return;
+      }
+      const paragraphs=proseText(String(text||""));
       const preparedItems=await Promise.all(paragraphs.map(async para=>{
         const prepared=await prepareRuns(mergePlainAndExplicit(para),auth,pdf,fonts,qa,cache);
         const items:any[]=[];let inlineChunk:Run[]=[];
@@ -553,12 +572,17 @@ Deno.serve(async req=>{
     };
     for(const raw of contentItems)await drawContentBlock(raw);
     for(const ex of exerciseItems){
-      const statement=clean(ex?.statement||ex?.question||ex?.enonce||ex?.content||""),hint=clean(ex?.hint||"");
+      const title=clean(ex?.title||"Exercice"),statement=clean(ex?.statement||ex?.question||ex?.enonce||ex?.content||""),hint=clean(ex?.hint||""),correctionTitle=clean(ex?.correction_title||"Corrigé"),correction=clean(ex?.correction||"");
       if(!statement)continue;
       if(y-28<bottom)throw new Error("ASSISTED_PAGE_TOO_LONG: exercice hors page.");
-      sectionLabel(page,"Exercice",X,y,fonts,color);y-=25;
+      sectionLabel(page,title,X,y,fonts,color);y-=25;
       await drawContentBlock(statement);
       if(hint)await drawContentBlock("Indication : "+hint);
+      if(correction){
+        if(y-28<bottom)throw new Error("ASSISTED_PAGE_TOO_LONG: correction hors page.");
+        sectionLabel(page,correctionTitle,X,y,fonts,color);y-=25;
+        await drawContentBlock(correction);
+      }
     }
 
     for(const image of imageItems){
