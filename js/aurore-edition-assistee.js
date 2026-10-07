@@ -420,7 +420,7 @@
       await persistCourse(true);setStatus('JSON graphique validé. Le rendu visuel sera produit par le moteur GeoGebra/LuaLaTeX lorsque son asset sera disponible.');return;
     }
     b.generation={...(b.generation||{}),status:'generating',page_number:pageNumberFor(b),progress:8,progress_label:'Génération instantanée de la page…',error:null,updated_at:new Date().toISOString()};
-    renderWorkspace();setStatus('Génération instantanée de la page…');
+    renderWorkspace();updateGenerationProgress(b.id,34,'Rendu PDF instantané…');setStatus('Rendu instantané de la page…');
     const progressTimer=startGenerationProgress(b.id);
     try{
       const token=(typeof session!=='undefined'&&session?.access_token)||await freshToken();
@@ -439,33 +439,35 @@
       });
       const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}};
       if(!r.ok||!d.ok)throw new Error(d.error||('Mise en file HTTP '+r.status));
+      updateGenerationProgress(b.id,62,'PDF en cours de construction…');
       b.generation={
         ...(b.generation||{}),
         status:'generating',
         page_number:d.page_number||pageNumberFor(b),
         generated_document_id:d.generated_document_id||null,
         job_id:d.job_id||null,
-        progress:28,
-        progress_label:'Génération du PDF de la page…',
+        progress:62,
+        progress_label:'PDF en cours de construction…',
         error:null,
         updated_at:new Date().toISOString()
       };
       await persistCourse(true);
-      renderWorkspace();
-      updateGenerationProgress(b.id,28,'Page en file LuaLaTeX…');
-      const result=await waitForAssistedDocument(b,Number(d.generated_document_id),progressTimer);
+      const pagePath=d.page_path||null;
+      const pageUrl=d.page_url||null;
+      if(!pageUrl)throw new Error('Le moteur rapide a terminé sans fournir le PDF de la page.');
+      updateGenerationProgress(b.id,92,'PDF enregistré et prêt à être visualisé…');
       b.generation={
         status:'ready',
         page_number:d.page_number||pageNumberFor(b),
         generated_document_id:Number(d.generated_document_id),
         job_id:d.job_id||null,
-        page_path:result.page_path,
-        page_url:result.page_url,
+        page_path:pagePath,
+        page_url:pageUrl,
         updated_at:new Date().toISOString(),
         progress:100,
-        progress_label:'Page générée',
-        bytes:result.bytes,
-        qa:{engine:result.metadata?.fast_page_pdf_engine||'pdf-lib-fast-page-v1',status:'completed'},
+        progress_label:'Page prête - visualisation disponible',
+        bytes:d.bytes||null,
+        qa:{engine:d.engine||'pdf-lib-fast-page-v1',status:'completed'},
         error:null
       };
       await persistCourse(true);

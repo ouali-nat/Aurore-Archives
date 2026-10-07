@@ -125,13 +125,40 @@ Deno.serve(async req=>{
     await drawTextBlock(clean(input.title||doc.title||"Page pédagogique"),20,bold);
     y-=8;
 
-    const content=Array.isArray(input.content)?input.content.map(String):[String(input.content||"")];
-    for(const item of content){
+    const sections=Array.isArray(input.sections)?input.sections.filter((s)=>s&&typeof s==="object"):[];
+    const contentItems=[];
+    const imageItems=[];
+    const graphItems=[];
+    const exerciseItems=[];
+    if(sections.length){
+      for(const section of sections){
+        const sectionTitle=clean(section.title);
+        if(sectionTitle && sectionTitle!==clean(input.title||doc.title||"Page pédagogique")){
+          ensure(26);page.drawText(sectionTitle,{x:X,y:y-13,font:bold,size:13,color:rgb(0.12,0.43,0.28)});y-=22;
+        }
+        if(Array.isArray(section.content))for(const item of section.content)contentItems.push(String(item||""));
+        if(Array.isArray(section.exercises))for(const ex of section.exercises)exerciseItems.push(ex);
+        if(Array.isArray(section.graphs))for(const g of section.graphs)graphItems.push(g);
+        if(Array.isArray(section.images))for(const image of section.images)imageItems.push(image);
+      }
+    }else{
+      if(Array.isArray(input.content))for(const item of input.content)contentItems.push(String(item||""));
+      if(Array.isArray(input.exercises))for(const ex of input.exercises)exerciseItems.push(ex);
+      if(Array.isArray(input.graphs))for(const g of input.graphs)graphItems.push(g);
+      if(Array.isArray(input.images))for(const image of input.images)imageItems.push(image);
+    }
+    for(const item of contentItems){
       const raw=item.trim(); if(!raw)continue;
       await drawTextBlock(raw,10.5,reg); y-=4;
     }
+    for(const ex of exerciseItems){
+      const statement=clean(ex?.statement||ex?.question||ex?.enonce||ex?.content||"");
+      if(statement){ensure(42);page.drawText("Exercice",{x:X,y:y-13,font:bold,size:12,color:rgb(0.12,0.43,0.28)});y-=22;await drawTextBlock(statement,10.5,reg);y-=4;}
+      const hint=clean(ex?.hint||"");
+      if(hint){await drawTextBlock("Indication : "+hint,9.5,reg);y-=4;}
+    }
 
-    for(const image of Array.isArray(input.images)?input.images:[]){
+    for(const image of imageItems){
       const url=String(image?.url||"").trim(); if(!url)continue;
       qa.images_total++;
       try{
@@ -146,7 +173,7 @@ Deno.serve(async req=>{
       }catch(_){qa.images_failed++;}
     }
 
-    for(const g of Array.isArray(input.graphs)?input.graphs:[]){
+    for(const g of graphItems){
       qa.graphs_total++;
       try{
         const path=String(g?.geogebra_image_path||"").trim();
