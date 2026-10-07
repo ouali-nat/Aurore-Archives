@@ -2,6 +2,10 @@
 (function(){
   'use strict';
   const state={mode:'list',course:null,courses:[],selected:null,loading:false};
+  const PREVIEW_CACHE_MAX=6;
+  const previewPdfCache=new Map();
+  function cachedPreviewBuffer(url){const hit=previewPdfCache.get(url);if(!hit)return null;previewPdfCache.delete(url);previewPdfCache.set(url,hit);return hit;}
+  function rememberPreviewBuffer(url,buffer){previewPdfCache.delete(url);previewPdfCache.set(url,buffer);while(previewPdfCache.size>PREVIEW_CACHE_MAX)previewPdfCache.delete(previewPdfCache.keys().next().value);}
   const THEME_COLORS=[
     {value:'#6D28D9',label:'Violet Aurore'},
     {value:'#2563EB',label:'Bleu'},
@@ -49,7 +53,7 @@
   }
   function block(type){
     const b={id:uid('block'),type,content:{},generation:{status:'not_generated',page_number:null,page_path:null,page_url:null,updated_at:null,error:null},created_at:new Date().toISOString()};
-    if(type==='paragraph')b.content={text:'Nouveau paragraphe.'};
+    if(type==='paragraph')b.content={text:''};
     if(type==='point')b.content={text:'Nouvel élément de cours.'};
     if(type==='exercise')b.content={statement:'Nouvel exercice.',hint:''};
     if(type==='graphique')b.content={json:{id:uid('graph'),instrument:'function2d',expression:'x^2'}};
@@ -103,7 +107,8 @@
     document.getElementById('aeCreateConfirm').onclick=async()=>{
       const title=document.getElementById('aeNewCourseTitle').value.trim();
       const c=newCourse(title);ensureCourseStructure(c);state.course=c;state.mode='workspace';state.selected=null;
-      await persistCourse(true);renderWorkspace();
+      renderWorkspace();
+      void persistCourse(true,false);
     };
     document.getElementById('aeNewCourseTitle').focus();
   }
@@ -209,9 +214,10 @@
     return '<article class="ae-block '+(state.selected===b.id?'is-selected':'')+'" data-block="'+esc(b.id)+'">'+
       '<header class="ae-block-head"><div><span class="ae-block-number">'+String(i+1).padStart(2,'0')+'</span><strong>'+esc(labelFor(b))+'</strong><small>'+esc(b.validation?.ok?'Bloc valide':'À valider')+'</small></div><span class="ae-block-state '+(v.ok?'ok':'bad')+'">'+(v.ok?'Valide':'À corriger')+'</span></header>'+
       '<div class="ae-block-editor">'+editor+'</div>'+
-      '<div class="ae-block-toolbar"><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Prévisualiser</button><button class="admin-btn ghost" data-json-block="'+esc(b.id)+'">JSON</button><button class="admin-btn ghost" data-copy-block="'+esc(b.id)+'">Copier</button><button class="admin-btn ghost" data-duplicate-block="'+esc(b.id)+'">Dupliquer</button><button class="admin-btn danger" data-delete-block="'+esc(b.id)+'">Supprimer</button><button class="admin-btn primary" data-validate-block="'+esc(b.id)+'">Valider & générer la page</button></div>'+
+      '<div class="ae-block-toolbar"><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Prévisualiser</button><button class="admin-btn ghost" data-json-block="'+esc(b.id)+'">JSON</button><button class="admin-btn ghost" data-copy-block="'+esc(b.id)+'">Copier</button><button class="admin-btn ghost" data-duplicate-block="'+esc(b.id)+'">Dupliquer</button>'+(b.type==='paragraph'?'<button class="admin-btn ghost" data-clear-paragraph="'+esc(b.id)+'">Vider</button>':'')+'<button class="admin-btn danger" data-delete-block="'+esc(b.id)+'">Supprimer</button><button class="admin-btn primary" data-validate-block="'+esc(b.id)+'">Valider & générer la page</button></div>'+
       '<div class="ae-block-result">'+(gen.status==='ready'&&gen.page_url?'<span class="ae-generated-ok">✓ Page '+page+' générée seule</span><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Visualiser</button><a class="admin-btn ghost" href="'+esc(gen.page_url)+'" download="aurore-page-'+page+'.pdf">Télécharger</a>':gen.status==='generating'?'<div class="ae-generation-progress" role="status" aria-live="polite"><div class="ae-generation-progress-top"><span data-progress-label>'+esc(gen.progress_label||'Génération de la page…')+'</span><strong data-progress-pct>'+Math.round(Number(gen.progress||8))+'%</strong></div><div class="ae-progress-track"><span data-progress-bar style="width:'+Math.max(8,Math.min(100,Number(gen.progress||8)))+'%"></span></div><small>Progression indicative · la page est en cours de génération.</small></div>':gen.status==='error'?'<span class="ae-generated-error">Erreur : '+esc(gen.error||'génération impossible')+'</span>':b.type==='graphique'&&v.ok?'<span>JSON validé · la construction graphique reste destinée au moteur GeoGebra/LuaLaTeX.</span>':'<span>Aucune page générée pour ce bloc.</span>')+'</div>'+
       (v.errors.length?'<div class="ae-block-errors">'+v.errors.map(x=>'• '+esc(x)).join('<br>')+'</div>':'')+
+      (b.type==='paragraph'?'<div class="ae-inline-add-row"><button type="button" class="ae-inline-add" data-add-paragraph-after="'+esc(b.id)+'">＋ Insérer un paragraphe ici</button></div>':'')+
       '</article>';
   }
 
@@ -244,7 +250,7 @@
     document.getElementById('aeAddEx').onclick=()=>addBlock('exercise');
     document.getElementById('aeAddGraph').onclick=()=>addBlock('graphique');
     document.getElementById('aeAddWiki').onclick=wiki;
-    document.getElementById('aeSave').onclick=()=>persistCourse(false);
+    document.getElementById('aeSave').onclick=()=>persistCourse(false,true);
     root().querySelectorAll('[data-edit-text]').forEach(el=>el.oninput=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editText);if(b){if(b.type==='exercise')b.content.statement=el.value;else b.content.text=el.value;validateCourse();}});
     root().querySelectorAll('[data-edit-json]').forEach(el=>el.onchange=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editJson);if(!b)return;try{b.content=normalizeContent('graphique',JSON.parse(el.value));validateBlock(b);renderWorkspace();}catch(_){setStatus('JSON graphique invalide.')}});
 
@@ -253,6 +259,8 @@
     root().querySelectorAll('[data-copy-block]').forEach(x=>x.onclick=()=>copyBlock(x.dataset.copyBlock));
     root().querySelectorAll('[data-duplicate-block]').forEach(x=>x.onclick=()=>duplicateBlock(x.dataset.duplicateBlock));
     root().querySelectorAll('[data-delete-block]').forEach(x=>x.onclick=()=>deleteBlock(x.dataset.deleteBlock));
+    root().querySelectorAll('[data-clear-paragraph]').forEach(x=>x.onclick=()=>clearParagraph(x.dataset.clearParagraph));
+    root().querySelectorAll('[data-add-paragraph-after]').forEach(x=>x.onclick=()=>addParagraphAfter(x.dataset.addParagraphAfter));
     root().querySelectorAll('[data-validate-block]').forEach(x=>x.onclick=()=>generateBlock(x.dataset.validateBlock));
   }
 
@@ -262,6 +270,22 @@
     if(endIndex<0)blocks.push(systemBlock(END_ROLE,state.course.title));
     const idx=Math.max(0,blocks.findIndex(x=>x.role===END_ROLE));
     blocks.splice(idx,0,b);state.selected=b.id;validateCourse();renderWorkspace();setStatus('Bloc ajouté au milieu du document, avant la page de fin.');
+  }
+  function addParagraphAfter(id){
+    ensureCourseStructure(state.course);
+    const blocks=activeBlocks(),idx=blocks.findIndex(x=>x.id===id),source=idx>=0?blocks[idx]:null;
+    if(!source||source.type!=='paragraph'||isSystemBlock(source))return;
+    const b=block('paragraph');b.content={text:''};blocks.splice(idx+1,0,b);
+    state.selected=b.id;validateCourse();renderWorkspace();setStatus('Paragraphe inséré à cet emplacement.');
+    requestAnimationFrame(()=>root()?.querySelector('[data-edit-text="'+CSS.escape(b.id)+'"]')?.focus());
+  }
+  function clearParagraph(id){
+    const b=activeBlocks().find(x=>x.id===id);
+    if(!b||b.type!=='paragraph'||isSystemBlock(b))return;
+    b.content={text:''};
+    b.generation={status:'not_generated',page_number:null,page_path:null,page_url:null,updated_at:null,error:null};
+    state.selected=b.id;validateCourse();renderWorkspace();setStatus('Paragraphe vidé.');
+    requestAnimationFrame(()=>root()?.querySelector('[data-edit-text="'+CSS.escape(b.id)+'"]')?.focus());
   }
   function duplicateBlock(id){
     const b=activeBlocks().find(x=>x.id===id);if(!b||isSystemBlock(b)){if(isSystemBlock(b))setStatus('Les pages de début et de fin sont automatiques et verrouillées.');return;}
@@ -318,57 +342,45 @@
   }
 
   async function renderAssistedPdfPreview(url,canvasId,loadingId){
-    const canvas=document.getElementById(canvasId),loading=document.getElementById(loadingId);
-    if(!canvas)return;
+    const canvas=document.getElementById(canvasId),loading=document.getElementById(loadingId);if(!canvas)return;
     try{
-      const pdfjs=await loadPdfJsForAssistedPreview();
-      if(!canvas.isConnected)return;
+      const pdfjs=await loadPdfJsForAssistedPreview();if(!canvas.isConnected)return;
       if(loading)loading.textContent='Chargement de la page…';
-      const response=await fetch(url,{cache:'no-store'});
-      if(!response.ok)throw new Error('HTTP '+response.status);
-      const buffer=await response.arrayBuffer();
-      if(!buffer.byteLength)throw new Error('PDF vide.');
-      const pdf=await pdfjs.getDocument({data:new Uint8Array(buffer),stopAtErrors:false}).promise;
-      const page=await pdf.getPage(1);
-      if(!canvas.isConnected)return;
-      const wrap=canvas.parentElement;
-      const targetWidth=Math.max(320,Math.min(760,(wrap?.clientWidth||760)-24));
-      const base=page.getViewport({scale:1});
-      const viewport=page.getViewport({scale:targetWidth/base.width});
-      const ratio=Math.min(window.devicePixelRatio||1,2);
-      canvas.width=Math.ceil(viewport.width*ratio);
-      canvas.height=Math.ceil(viewport.height*ratio);
-      canvas.style.width=Math.round(viewport.width)+'px';
-      canvas.style.height=Math.round(viewport.height)+'px';
-      const ctx=canvas.getContext('2d',{alpha:false});
-      if(!ctx)throw new Error('Canvas indisponible.');
+      let buffer=cachedPreviewBuffer(url);
+      if(!buffer){
+        const response=await fetch(url,{cache:'force-cache'});
+        if(!response.ok)throw new Error('HTTP '+response.status);
+        buffer=await response.arrayBuffer();if(!buffer.byteLength)throw new Error('PDF vide.');
+        rememberPreviewBuffer(url,buffer);
+      }
+      const pdf=await pdfjs.getDocument({data:new Uint8Array(buffer.slice(0)),stopAtErrors:false}).promise;
+      const page=await pdf.getPage(1);if(!canvas.isConnected)return;
+      const wrap=canvas.parentElement,targetWidth=Math.max(320,Math.min(760,(wrap?.clientWidth||760)-24)),base=page.getViewport({scale:1}),viewport=page.getViewport({scale:targetWidth/base.width});
+      const ratio=Math.min(window.devicePixelRatio||1,1.75);
+      canvas.width=Math.ceil(viewport.width*ratio);canvas.height=Math.ceil(viewport.height*ratio);canvas.style.width=Math.round(viewport.width)+'px';canvas.style.height=Math.round(viewport.height)+'px';
+      const ctx=canvas.getContext('2d',{alpha:false});if(!ctx)throw new Error('Canvas indisponible.');
       await page.render({canvasContext:ctx,viewport,transform:ratio!==1?[ratio,0,0,ratio,0,0]:null}).promise;
-      const textLayer=document.createElement('div');
-      textLayer.className='ae-pdf-text-layer';
-      textLayer.setAttribute('aria-label','Texte sélectionnable de la page');
-      textLayer.style.width=Math.round(viewport.width)+'px';
-      textLayer.style.height=Math.round(viewport.height)+'px';
-      wrap?.appendChild(textLayer);
-      try{
-        const tc=await page.getTextContent();
-        if(typeof pdfjs.renderTextLayer==='function'){
-          const task=pdfjs.renderTextLayer({textContent:tc,container:textLayer,viewport});
-          if(task?.promise)await task.promise;
-        }else{
-          for(const item of tc.items||[]){
-            const span=document.createElement('span');
-            span.textContent=item.str||'';
-            const tx=item.transform||[1,0,0,1,0,0];
-            const p=viewport.convertToViewportPoint(tx[4],tx[5]);
-            const fs=Math.max(6,Math.abs(tx[3]||10));
-            span.style.left=p[0]+'px';
-            span.style.top=(p[1]-fs)+'px';
-            span.style.fontSize=fs+'px';
-            textLayer.appendChild(span);
-          }
-        }
-      }catch(_){textLayer.remove();}
       if(loading)loading.remove();
+      const schedule=window.requestIdleCallback?cb=>window.requestIdleCallback(cb,{timeout:900}):cb=>setTimeout(cb,0);
+      schedule(async()=>{
+        if(!canvas.isConnected||!wrap)return;
+        const textLayer=document.createElement('div');
+        textLayer.className='ae-pdf-text-layer';textLayer.setAttribute('aria-label','Texte sélectionnable de la page');
+        textLayer.style.width=Math.round(viewport.width)+'px';textLayer.style.height=Math.round(viewport.height)+'px';wrap.appendChild(textLayer);
+        try{
+          const tc=await page.getTextContent();if(!canvas.isConnected){textLayer.remove();return;}
+          if(typeof pdfjs.renderTextLayer==='function'){
+            const task=pdfjs.renderTextLayer({textContent:tc,container:textLayer,viewport});if(task?.promise)await task.promise;
+          }else{
+            for(const item of tc.items||[]){
+              if(!canvas.isConnected)break;
+              const span=document.createElement('span');span.textContent=item.str||'';
+              const tx=item.transform||[1,0,0,1,0,0],p=viewport.convertToViewportPoint(tx[4],tx[5]),fs=Math.max(6,Math.abs(tx[3]||10));
+              span.style.left=p[0]+'px';span.style.top=(p[1]-fs)+'px';span.style.fontSize=fs+'px';textLayer.appendChild(span);
+            }
+          }
+        }catch(_){textLayer.remove();}
+      });
     }catch(e){
       if(canvas.isConnected){
         const host=canvas.parentElement;
@@ -421,7 +433,7 @@
     try{await navigator.clipboard.writeText(txt);setStatus('JSON copié.')}catch(_){setStatus('Copie indisponible.')}
   }
 
-  async function persistCourse(silent){
+  async function persistCourse(silent,refreshList=false){
     ensureCourseStructure(state.course);
     const c=client();if(!c){localStorage.setItem('aurore_assisted_course',JSON.stringify(state.course));if(!silent)setStatus('Brouillon local enregistré.');return;}
     try{
@@ -430,7 +442,7 @@
       const payload={id:state.course.id,created_by:user.id,title:state.course.title,editor_version:'edition-assistee-v4',pages:{schema:'aurore-assisted-course-v4',course:state.course}};
       const {error}=await c.from('aurora_assisted_courses').upsert(payload,{onConflict:'id'});if(error)throw error;
       if(!silent)setStatus('Cours enregistré.');
-      await loadCourses();
+      if(refreshList)await loadCourses();
     }catch(e){localStorage.setItem('aurore_assisted_course',JSON.stringify(state.course));if(!silent)setStatus('Supabase indisponible · brouillon local conservé.');}
   }
 
@@ -579,25 +591,24 @@
       const documentId=Number(d.generated_document_id||0);
       if(!documentId)throw new Error('Le renderer n’a pas fourni l’identifiant du document.');
       b.generation={...(b.generation||{}),generated_document_id:documentId,job_id:d.job_id||null,progress:5,progress_label:'Rendu de page mis en file',status:'generating',updated_at:new Date().toISOString()};
-      await persistCourse(true);
-      renderWorkspace();
-      const result=await waitForAssistedDocument(b,documentId);
+      await persistCourse(true,false);
+      if(!d.page_url)throw new Error('Le renderer a terminé sans fournir l’URL de la page.');
       b.generation={
         ...(b.generation||{}),
         status:'ready',
         page_number:d.page_number||pageNumberFor(b),
         generated_document_id:documentId,
         job_id:d.job_id||null,
-        page_path:result.page_path,
-        page_url:result.page_url,
+        page_path:d.page_path||null,
+        page_url:d.page_url,
         updated_at:new Date().toISOString(),
         progress:100,
         progress_label:'Page prête — visualisation disponible',
-        bytes:result.bytes||null,
-        qa:{engine:result.metadata?.fast_page_pdf_engine||'pdf-lib-course-page-v2',status:'completed'},
+        bytes:d.bytes||null,
+        qa:{engine:d.engine||'pdf-lib-course-page-v2',status:'completed',details:d.qa||null},
         error:null
       };
-      await persistCourse(true);
+      await persistCourse(true,false);
       renderWorkspace();
       setStatus('Page '+(b.generation.page_number||pageNumberFor(b))+' générée et enregistrée.');
     }catch(e){
@@ -655,7 +666,11 @@
     const r=root();if(!r)return;
     const card=document.querySelector('.admin-tab[data-tab="edition-assistee"]'),panel=document.querySelector('.admin-tab-panel[data-panel="edition-assistee"]');
     if(card&&panel)card.addEventListener('click',async()=>{const detail=document.getElementById('adminDetail');if(detail)detail.style.display='block';document.querySelectorAll('.admin-tab-panel').forEach(p=>p.style.display=p===panel?'block':'none');document.querySelectorAll('.admin-tab').forEach(b=>b.classList.toggle('active',b===card));state.mode='list';state.course=null;renderList();try{setStatus('Chargement des cours…');await loadCourses();renderList();setStatus('Liste prête.')}catch(e){setStatus('Impossible de charger la liste des cours.')}});
-    try{await loadCourses();renderList()}catch(_){renderList()}
+    renderList();
+    requestAnimationFrame(async()=>{
+      try{setStatus('Chargement des cours…');await loadCourses();renderList();setStatus('Liste prête.')}
+      catch(_){setStatus('Impossible de charger la liste des cours.')}
+    });
   }
   window.AuroreAssistedEditor={init,render:()=>state.mode==='workspace'?renderWorkspace():renderList,getState:()=>state.course,toContentJson:()=>state.course};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
