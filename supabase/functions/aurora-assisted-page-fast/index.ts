@@ -199,8 +199,11 @@ async function formulaImage(auth:string,pdf:any,source:string,qa:any,cache:Map<s
       signal:AbortSignal.timeout(12000)
     });
     const z:any=await r.json().catch(()=>null);
-    if(!r.ok||!z?.ok||!z.png_base64){qa.formulas_failed++;return null;}
-    const bin=atob(z.png_base64),bytes=new Uint8Array(bin.length);
+    const pngBase64=typeof z?.png_base64==="string"
+      ? z.png_base64
+      : (typeof z?.results?.[0]?.png_base64==="string" ? z.results[0].png_base64 : null);
+    if(!r.ok||!z?.ok||!pngBase64){qa.formulas_failed++;return null;}
+    const bin=atob(pngBase64),bytes=new Uint8Array(bin.length);
     for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
     const image=await pdf.embedPng(bytes);
     cache.set(key,image);
@@ -506,7 +509,7 @@ Deno.serve(async req=>{
         boxH+=9;
         if(y-boxH<bottom)throw new Error("ASSISTED_PAGE_TOO_LONG: le bloc dépasse une seule page.");
 
-        rounded(page,X-11,y-boxH,W+22,boxH,10,rgbHex(mixWhite(color,0.985)),rgbHex(mixWhite(color,0.63)),0.55);
+        rounded(page,X-11,y-boxH,W+22,boxH,10,rgbHex("#F0F0F3"),rgbHex(mixWhite(color,0.63)),0.55);
         page.drawLine({start:{x:X-11,y:y-boxH+9},end:{x:X-11,y:y-9},thickness:1.55,color:rgbHex(mixWhite(color,0.47))});
         let yy=y-11;
         for(const chunk of chunks){
