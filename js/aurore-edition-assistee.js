@@ -56,7 +56,7 @@
     const base = {
       id: uid('block'),
       type,
-      layout: { page: state.page, x: printable.left + 10, y: printable.top + 20, width: 500, height: type === 'graphique' ? 170 : 86, zIndex: 1, locked: false },
+      layout: { page: state.page, x: printable.left + 10, y: printable.top + 62, width: 500, height: type === 'graphique' ? 170 : 86, zIndex: 1, locked: false },
       validation: { ok: false, errors: [], warnings: [] },
       content: {}
     };
