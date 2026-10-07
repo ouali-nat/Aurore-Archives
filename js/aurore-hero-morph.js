@@ -2,10 +2,14 @@
 function p(x,y){return Math.max(2,Math.min(98,x)).toFixed(2)+'% '+Math.max(2,Math.min(98,y)).toFixed(2)+'%'}
 function poly(sides,round,rotation){const r=47,rad=rotation*Math.PI/180,v=[];for(let i=0;i<sides;i++){const a=rad+2*Math.PI*i/sides;v.push({x:50+r*Math.cos(a),y:50+r*Math.sin(a)})}const n=Math.max(1,Math.round(24/sides));const pts=[];for(let i=0;i<sides;i++){const a=v[(i+sides-1)%sides],c=v[i],b=v[(i+1)%sides],q={x:c.x+(a.x-c.x)*round,y:c.y+(a.y-c.y)*round},z={x:c.x+(b.x-c.x)*round,y:c.y+(b.y-c.y)*round};for(let j=0;j<n;j++){const t=j/n,m=1-t;pts.push(p(m*m*q.x+2*m*t*c.x+t*t*z.x,m*m*q.y+2*m*t*c.y+t*t*z.y))}}while(pts.length<24)pts.push(pts[pts.length-1]);return pts.slice(0,24).join(',')}
 function bubbles(lobes,baseR,amp,width,rotation){const pts=[];for(let i=0;i<24;i++){const theta=rotation+i*(360/24),rad=theta*Math.PI/180;let bump=0;for(let L=0;L<lobes;L++){const lobeAngle=rotation+L*(360/lobes);let diff=((theta-lobeAngle+540)%360)-180;bump+=Math.exp(-(diff*diff)/(2*width*width))}const r=baseR+amp*bump;pts.push(p(50+r*Math.cos(rad),50+r*Math.sin(rad)))}return pts.join(',')}
+/* Suite de déformations, en boucle sans fin.
+   L'étape « ecrire » (goutte d'eau qui écrit « Aurore ») fait partie de la suite :
+   le bloc passe en cercle, la goutte écrit le mot, puis les déformations reprennent. */
 const shapes=[
   {name:'circle',gen:function(){return poly(24,0,-90)}},
   {name:'triangle',gen:function(){return poly(3,.24,-90)}},
   {name:'square',gen:function(){return poly(4,.22,-45)}},
+  {name:'circle',ecrire:true,gen:function(){return poly(24,0,-90)}},
   {name:'cube',gen:function(){return poly(4,.12,-45)}},
   {name:'hexagon',gen:function(){return poly(6,.18,-90)}},
   {name:'octagon',gen:function(){return poly(8,.15,-90)}},
@@ -18,7 +22,7 @@ const shapes=[
   {name:'bubbles7',gen:function(){return bubbles(7,34,10,15,0)}}
 ];
 let index=0,timer=0,cycles=0;const reduce=window.matchMedia('(prefers-reduced-motion: reduce)');
-function apply(){const s=shapes[index];hero.dataset.shape=s.name;hero.style.setProperty('--hero-clip','polygon('+s.gen()+')');index=(index+1)%shapes.length}
+function apply(){const s=shapes[index];hero.dataset.shape=s.name;hero.style.setProperty('--hero-clip','polygon('+s.gen()+')');index=(index+1)%shapes.length;return s}
 
 /* --- Séparation du bandeau en 3 blocs distincts, qui animent puis fusionnent --- */
 /* Rythme morphing : 1 s de transition + 0,3 s de respiration entre deux formes. */
@@ -44,21 +48,28 @@ function splitAndMerge(){
   splitTimerB=setTimeout(function(){hero.classList.remove('is-floating');hero.classList.remove('is-split')},1000+2200);
 }
 
-/* --- Fin de cycle : une goutte d'eau écrit « Aurore » lettre après lettre en rebondissant --- */
-/* Après la dernière forme, le bloc revient en cercle, puis une goutte tombe, éclabousse et
-   « écrit » chaque lettre (révélation de gauche à droite + petit rebond), rebondit vers la
-   lettre suivante, et ainsi de suite. Le mot reste affiché ~1,5 s puis s'efface en fondu,
-   et le cycle de formes reprend. Aucun effet si « réduire les animations » est activé. */
+/* --- Étape « écriture » : une goutte d'eau écrit « Aurore » lettre après lettre en rebondissant --- */
+/* La goutte tombe, éclabousse et « écrit » chaque lettre (révélation de gauche à droite +
+   petit rebond), rebondit vers la lettre suivante, et ainsi de suite. Le mot reste affiché
+   ~1,9 s puis s'efface en fondu. Les couleurs suivent le thème choisi par l'utilisateur
+   (clair / sombre et couleur de thème) via les variables du héros. Aucun effet si
+   « réduire les animations » est activé. */
 const MOT='Aurore';
 function injecterStyleEcriture(){
   if(document.getElementById('aurore-hero-write-style'))return;
   const s=document.createElement('style');s.id='aurore-hero-write-style';
+  const acc='var(--hero-theme-accent,var(--theme-primary,#7C3AED))';
   s.textContent=
     '.hero-aurore-write{position:absolute;left:0;right:0;top:0;bottom:0;z-index:6;display:flex;align-items:center;justify-content:center;pointer-events:none}'+
     '.hw-cell{position:relative;display:inline-block;padding:0 .015em}'+
-    '.hw-letter{display:inline-block;font-family:"Snell Roundhand","Segoe Script","Brush Script MT","Lucida Handwriting","Apple Chancery","URW Chancery L",cursive;font-style:italic;font-weight:700;font-size:clamp(3.2rem,19vw,7.5rem);line-height:1.1;color:var(--hero-write-color,#fff);text-shadow:0 4px 18px rgba(0,0,0,.28),0 0 22px rgba(255,255,255,.35);clip-path:inset(-30% 100% -30% -10%);transform-origin:50% 100%;will-change:transform,clip-path}'+
-    '.hw-drop{position:absolute;left:0;top:0;width:16px;height:22px;margin:-11px 0 0 -8px;border-radius:50% 50% 50% 50%/62% 62% 38% 38%;background:radial-gradient(circle at 35% 30%,#fff 0,#fff 10%,#c4ecff 30%,#58b8ff 72%,#1f84d8 100%);box-shadow:0 0 12px rgba(120,200,255,.75);opacity:0;will-change:transform}'+
-    '.hw-ripple{position:absolute;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;border:2px solid rgba(196,236,255,.95);opacity:0}'+
+    '.hw-letter{display:inline-block;font-family:"Snell Roundhand","Segoe Script","Brush Script MT","Lucida Handwriting","Apple Chancery","URW Chancery L",cursive;font-style:italic;font-weight:700;font-size:clamp(3.2rem,19vw,7.5rem);line-height:1.1;'+
+      'color:color-mix(in srgb,'+acc+' 92%,#000);text-shadow:0 1px 0 rgba(255,255,255,.55),0 6px 20px color-mix(in srgb,'+acc+' 38%,transparent);'+
+      'clip-path:inset(-30% 100% -30% -10%);transform-origin:50% 100%;will-change:transform,clip-path}'+
+    '[data-theme="dark"] .hw-letter{color:color-mix(in srgb,'+acc+' 76%,#fff);text-shadow:0 0 22px color-mix(in srgb,'+acc+' 55%,transparent),0 4px 16px rgba(0,0,0,.4)}'+
+    '.hw-drop{position:absolute;left:0;top:0;width:16px;height:22px;margin:-11px 0 0 -8px;border-radius:50% 50% 50% 50%/62% 62% 38% 38%;'+
+      'background:radial-gradient(circle at 35% 30%,#fff 0,#fff 10%,color-mix(in srgb,'+acc+' 32%,#fff) 32%,'+acc+' 74%,color-mix(in srgb,'+acc+' 65%,#000) 100%);'+
+      'box-shadow:0 0 12px color-mix(in srgb,'+acc+' 65%,transparent);opacity:0;will-change:transform}'+
+    '.hw-ripple{position:absolute;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;border:2px solid color-mix(in srgb,'+acc+' 70%,#fff);opacity:0}'+
     '.aurore-hero-morph .hero-inner{transition:opacity .45s ease}'+
     '.aurore-hero-morph.is-writing .hero-inner{opacity:.08}'+
     '@media (prefers-reduced-motion:reduce){.hero-aurore-write{display:none}}';
@@ -151,20 +162,19 @@ function ecrireAurore(){
 
 let writing=false;
 function quandLibre(cb){if(hero.classList.contains('is-split')||hero.classList.contains('is-floating'))setTimeout(function(){quandLibre(cb)},250);else cb()}
+/* Étape d'écriture dans la suite : le bloc est déjà en cercle ; on laisse 1 s à la forme
+   pour se poser, on écrit, puis la suite des déformations reprend. */
 function lancerEcriture(){
   writing=true;
   clearTimeout(timer);
   timer=setTimeout(function(){
-    apply(); /* retour au cercle : forme la plus large pour écrire */
-    setTimeout(function(){
-      quandLibre(function(){
-        ecrireAurore().then(function(){writing=false;schedule()});
-      });
-    },1000);
-  },1300);
+    quandLibre(function(){
+      ecrireAurore().then(function(){writing=false;schedule()});
+    });
+  },1000);
 }
 
-function schedule(){clearTimeout(timer);if(reduce.matches||document.hidden||writing)return;timer=setTimeout(function(){apply();cycles++;if(cycles%shapes.length===0){lancerEcriture();return}if(cycles%4===0)splitAndMerge();schedule()},1300)}
+function schedule(){clearTimeout(timer);if(reduce.matches||document.hidden||writing)return;timer=setTimeout(function(){const s=apply();cycles++;if(s.ecrire&&!reduce.matches){lancerEcriture();return}if(cycles%4===0)splitAndMerge();schedule()},1300)}
 apply();index=0;cycles=0;schedule();
 document.addEventListener('visibilitychange',schedule);
 if(reduce.addEventListener)reduce.addEventListener('change',schedule)}
