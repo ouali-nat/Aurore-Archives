@@ -267,6 +267,20 @@
     return setInterval(()=>{if(value<90){value=Math.min(90,value+(value<60?2:1));if(phase<phases.length&&value>=phases[phase][1])phase++;const label=phases[Math.min(phase,phases.length-1)]?.[0]||'Génération…';updateGenerationProgress(id,value,label);}},500);
   }
 
+  function splitLongBlock(b){
+    if(!['paragraph','point','exercise'].includes(b.type))return [];
+    const text=b.type==='exercise'?String(b.content?.statement||''):String(b.content?.text||'');
+    if(text.length<1000)return [];
+    const target=1500;
+    const chunks=[];let rest=text.trim();
+    while(rest.length>target){
+      let cut=rest.lastIndexOf(' ',target);const sentence=rest.lastIndexOf('. ',target);if(sentence>700)cut=sentence+1;if(cut<700)cut=target;
+      chunks.push(rest.slice(0,cut).trim());rest=rest.slice(cut).trim();
+    }
+    if(rest)chunks.push(rest);if(chunks.length<2)return [];
+    return chunks.map((part,i)=>{const n=block(b.type);n.content=b.type==='exercise'?{statement:part,hint:i===0?b.content?.hint:''}:{text:part};n.generation={status:'not_generated',page_number:null,page_path:null,page_url:null,error:null,autoSplitDepth:Number(b.generation?.autoSplitDepth||0)+1};return n;});
+  }
+
   async function generateBlock(id){
     const b=activeBlocks().find(x=>x.id===id);if(!b)return;
     const v=validateBlock(b);if(!v.ok){renderWorkspace();setStatus('Bloc invalide : corrige les éléments signalés.');return;}
@@ -287,8 +301,15 @@
       await persistCourse(true);renderWorkspace();setStatus('Page '+d.page_number+' générée.');
     }catch(e){
       clearInterval(progressTimer);
-      b.generation={...(b.generation||{}),status:'error',page_number:pageNumberFor(b),updated_at:new Date().toISOString(),progress:0,progress_label:'Échec',error:String(e?.message||e)};
-      renderWorkspace();setStatus('Échec de génération : '+String(e?.message||e));
+      const msg=String(e?.message||e);
+      if(/dépasse une seule page|depasse une seule page|exceeds one page|single page/i.test(msg) && Number(b.generation?.autoSplitDepth||0)<3){
+        const pieces=splitLongBlock(b);
+        if(pieces.length>1){
+          const blocks=activeBlocks(),at=blocks.findIndex(x=>x.id===b.id);if(at>=0){pieces.forEach((p,i)=>{p.created_at=new Date().toISOString();blocks.splice(at+i,0,p)});blocks.splice(at+pieces.length,1);state.selected=pieces[0].id;await persistCourse(true);renderWorkspace();setStatus('Bloc trop long : '+pieces.length+' blocs successifs ont été créés. Génération en cours…');for(const p of pieces)await generateBlock(p.id);return;}
+        }
+      }
+      b.generation={...(b.generation||{}),status:'error',page_number:pageNumberFor(b),updated_at:new Date().toISOString(),progress:0,progress_label:'Échec',error:msg};
+      renderWorkspace();setStatus('Échec de génération : '+msg);
     }
   }
 
