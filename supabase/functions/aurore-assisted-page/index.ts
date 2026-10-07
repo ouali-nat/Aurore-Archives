@@ -106,9 +106,10 @@ Deno.serve(async(req)=>{
     const drawMathLine=async(math:string)=>{
       const bytes=await mathPng(math,auth);const im=await pdf.embedPng(bytes);
       let w=Math.min(455,im.width/7),h=w*im.height/im.width;
-      if(h>75){h=75;w=h*im.width/im.height;}
-      if(y-h-18<BOTTOM){throw new Error("Le bloc dépasse une seule page. Réduis le contenu du bloc.");}
-      page.drawImage(im,{x:X+(W-w)/2,y:y-h+2,width:w,height:h});y-=h+13;
+      const maxMathHeight=34;
+      if(h>maxMathHeight){h=maxMathHeight;w=h*im.width/im.height;}
+      if(y-h-10<BOTTOM){throw new Error("Le bloc dépasse une seule page. Réduis le contenu du bloc.");}
+      page.drawImage(im,{x:X+(W-w)/2,y:y-h+2,width:w,height:h});y-=h+7;
     };
 
     const drawTextWithMath=async(raw:string)=>{
