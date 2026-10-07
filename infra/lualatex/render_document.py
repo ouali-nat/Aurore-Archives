@@ -3606,6 +3606,9 @@ def _declared_exercise_count(data):
 def _has_usable_content_json(data):
     if not isinstance(data, dict):
         return False
+    metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+    if isinstance(metadata.get("assisted_page"), dict):
+        return bool(str(data.get("title") or "").strip())
     if not str(data.get("title") or "").strip():
         return False
     sections = data.get("sections")
@@ -4111,11 +4114,13 @@ def render(data):
                 "COURSE_EXERCISE_LAYOUT: correction references an unknown exercise."
             )
     has_geogebra = _has_geogebra(data)
-    _math_visual_plan_qa(data)
-    _geogebra_visual_plan_qa(data)
-    _exercise_geogebra_plan_qa(data)
-    _documentary_visual_plan_qa(data)
     metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+    assisted_page = metadata.get("assisted_page") if isinstance(metadata.get("assisted_page"), dict) else None
+    if not assisted_page:
+        _math_visual_plan_qa(data)
+        _geogebra_visual_plan_qa(data)
+        _exercise_geogebra_plan_qa(data)
+        _documentary_visual_plan_qa(data)
     course_refactor_test = bool(
         data.get("refactor_test") or metadata.get("refactor_test")
     )
@@ -4338,6 +4343,53 @@ def render(data):
         r"\section*{Introduction}",
         r"\addcontentsline{toc}{section}{Introduction}",
     ]
+    if assisted_page:
+        doc_start = lines.index(r"\begin{document}")
+        lines = lines[:doc_start + 1]
+        page_number = max(1, int(assisted_page.get("page_number") or 1))
+        block_type = clean_text(assisted_page.get("block_type") or "paragraph").strip().lower()
+        assisted_block = data.get("assisted_block") if isinstance(data.get("assisted_block"), dict) else {}
+        assisted_content = assisted_block.get("content") if isinstance(assisted_block.get("content"), dict) else {}
+        lines.extend([
+            r"\thispagestyle{plain}",
+            r"\setcounter{page}{" + str(page_number) + r"}",
+            r"\fontsize{11.3}{16.1}\selectfont",
+            r"\vspace*{0.18cm}",
+            r"\noindent",
+            r"\AurorePill{" + tex_text(title) + r"}\par\medskip",
+        ])
+        if block_type == "paragraph":
+            body_text = clean_text(assisted_content.get("text") or "").strip()
+            lines.extend(_render_course_math_blocks(body_text, auto_math=True))
+        elif block_type == "point":
+            body_text = clean_text(assisted_content.get("text") or "").strip()
+            rendered = _render_course_math_blocks(body_text, auto_math=True)
+            if rendered:
+                lines.append(r"\AuroreLabeledBlock{Point de cours}{" + "
+".join(rendered) + r"}")
+        elif block_type == "exercise":
+            statement = clean_text(assisted_content.get("statement") or "").strip()
+            body = render_exercise_text(statement, mode="question")
+            if assisted_content.get("hint"):
+                hint = clean_text(assisted_content.get("hint")).strip()
+                if hint:
+                    body.append(
+                        r"\AuroreLabeledBlock{Indication}{"
+                        + _render_course_paragraph(hint, auto_math=True)
+                        + r"}"
+                    )
+            lines.append(r"\AuroreExerciseBlock{1}{" + "
+".join(body) + r"}")
+        elif block_type == "graphique":
+            graphs = data.get("sections", [{}])[0].get("graphs", []) if isinstance(data.get("sections"), list) and data.get("sections") else []
+            lines.extend(render_graphs(graphs, allow=True))
+        elif block_type == "wikimedia-image":
+            lines.extend(render_visuals(data.get("_wikimedia_visuals", []) or []))
+        else:
+            raise ValueError(f"ASSISTED_PAGE_UNKNOWN_BLOCK_TYPE: {block_type}")
+        lines.append(r"\end{document}")
+        return "\n".join(lines)
+
     if is_exercise_document:
         lines = lines[:-2]
         exercise_instructions = ""
@@ -4854,7 +4906,12 @@ def main():
         or is_math_subject
     )
 
-    if external_images_disabled:
+    metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+    assisted_page = metadata.get("assisted_page") if isinstance(metadata.get("assisted_page"), dict) else None
+    if assisted_page:
+        existing_assisted_visuals = data.get("_wikimedia_visuals")
+        data["_wikimedia_visuals"] = existing_assisted_visuals if isinstance(existing_assisted_visuals, list) else []
+    elif external_images_disabled:
         data["_wikimedia_visuals"] = []
         disable_reason = (
             "math_documentary_visuals_disabled"
@@ -4876,7 +4933,7 @@ def main():
             "editorial_cap": 0,
         }
         print("Wikimedia visuals disabled for exercise-series production.")
-    else:
+    elif not assisted_page:
         data["_wikimedia_visuals"] = _fetch_wikimedia_visuals(
             data, out.parent / "assets", profile
         )
