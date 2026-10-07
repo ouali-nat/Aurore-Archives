@@ -44,3 +44,5 @@ jobs:
 # Retry PDF queue after renderer smoke-test expectation fix — 2026-10-06
 
 # Manual wake: direct user LuaLaTeX queue document 736 — 2026-10-07
+
+# Assisted-page queue wake verification — 2026-10-07T14:14:26.690Z
