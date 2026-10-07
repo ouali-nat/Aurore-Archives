@@ -231,7 +231,9 @@ Deno.serve(async(req)=>{
 
   if(previewMode){
     const pages=course.data.pages&&typeof course.data.pages==="object"?course.data.pages:{};
-    const sourceCourse=pages.course&&typeof pages.course==="object"?pages.course:{title:course.data.title||"Cours",blocks:[]};
+    const persistedCourse=pages.course&&typeof pages.course==="object"?pages.course:{title:course.data.title||"Cours",blocks:[]};
+    const snapshot=body?.course_snapshot&&typeof body.course_snapshot==="object"?body.course_snapshot:null;
+    const sourceCourse=snapshot||persistedCourse;
     const themeColor=normalizeHexColor(body?.theme_color)||normalizeHexColor(sourceCourse?.theme_color);
     const contentJson=buildCanonicalPreviewContent(sourceCourse,themeColor);
     const now=new Date().toISOString();
