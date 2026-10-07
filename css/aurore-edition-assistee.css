@@ -32,3 +32,5 @@
 [data-theme="dark"] .ae-preview-image{background:var(--dark-page,#090812)}
 @media(max-width:800px){.ae-course-grid{grid-template-columns:1fr}.ae-head{flex-direction:column}.ae-status{white-space:normal}.ae-wiki-results{grid-template-columns:1fr 1fr}}
 @media(max-width:560px){.ae-wiki-results{grid-template-columns:1fr}.ae-workbar .admin-btn{width:100%}.ae-block-toolbar .admin-btn{flex:1}.ae-dialog{padding:12px}.ae-dialog-json{min-height:260px}}
+
+.ae-generation-progress{width:100%;display:grid;gap:6px;padding:4px 0}.ae-generation-progress-top{display:flex;justify-content:space-between;gap:10px;font-size:.61rem;font-weight:800}.ae-generation-progress-top strong{font-variant-numeric:tabular-nums}.ae-progress-track{height:7px;border-radius:999px;overflow:hidden;background:color-mix(in srgb,currentColor 10%,transparent)}.ae-progress-track span{display:block;height:100%;width:8%;border-radius:inherit;background:var(--violet,#6d28d9);transition:width .35s ease}.ae-generation-progress small{font-size:.55rem;opacity:.58}
