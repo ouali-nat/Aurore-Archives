@@ -315,34 +315,112 @@
     });
   }
 
+  async function waitForAssistedDocument(b,documentId,progressTimer){
+    const c=client();if(!c)throw new Error('Session Supabase indisponible.');
+    const started=Date.now(),timeout=4*60*1000;
+    while(Date.now()-started<timeout){
+      const {data,rowError}=await c.from('aurora_generated_documents')
+        .select('id,status,pdf_path,pdf_url,metadata')
+        .eq('id',documentId)
+        .maybeSingle();
+      if(rowError)throw rowError;
+      const row=data||{};
+      const md=row.metadata&&typeof row.metadata==='object'?row.metadata:{};
+      const status=String(md.lualatex_status||'').toLowerCase();
+      const pct=Math.max(8,Math.min(96,Number(md.lualatex_progress||35)));
+      updateGenerationProgress(b.id,pct,md.lualatex_stage||'Génération LuaLaTeX…');
+      if(status==='completed'&&String(row.pdf_url||'').trim()){
+        clearInterval(progressTimer);
+        return {page_path:row.pdf_path,page_url:row.pdf_url,bytes:row.pdf_diagnostic?.bytes||null,metadata:md};
+      }
+      if(status==='failed'||status==='cancelled'){
+        clearInterval(progressTimer);
+        throw new Error(String(md.lualatex_last_error||'La génération LuaLaTeX a échoué.'));
+      }
+      await new Promise(resolve=>setTimeout(resolve,1800));
+    }
+    throw new Error('La génération LuaLaTeX n’a pas terminé dans le délai prévu.');
+  }
+
   async function generateBlock(id){
     const b=activeBlocks().find(x=>x.id===id);if(!b)return;
     const v=validateBlock(b);if(!v.ok){renderWorkspace();setStatus('Bloc invalide : corrige les éléments signalés.');return;}
     if(b.type==='graphique'&&!b.content?.json?.geogebra_image_path&&!b.content?.json?.graph_local_path){
-      await persistCourse(true);setStatus('JSON graphique validé. Le rendu visuel sera produit par le moteur GeoGebra/LuaLaTeX.');return;
+      await persistCourse(true);setStatus('JSON graphique validé. Le rendu visuel sera produit par le moteur GeoGebra/LuaLaTeX lorsque son asset sera disponible.');return;
     }
-    b.generation={...(b.generation||{}),status:'generating',page_number:pageNumberFor(b),progress:8,progress_label:'Préparation…',error:null,updated_at:new Date().toISOString()};
-    renderWorkspace();setStatus('Génération de la page…');
+    b.generation={...(b.generation||{}),status:'generating',page_number:pageNumberFor(b),progress:8,progress_label:'Mise en file LuaLaTeX…',error:null,updated_at:new Date().toISOString()};
+    renderWorkspace();setStatus('Mise en file de la page…');
     const progressTimer=startGenerationProgress(b.id);
     try{
       const token=(typeof session!=='undefined'&&session?.access_token)||await freshToken();
-      const c=client();if(!token)throw new Error('Session administrateur absente.');
-      b.generation.progress=35;b.generation.progress_label='Génération du PDF…';updateGenerationProgress(b.id,35,'Génération du PDF…');
-      const r=await fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-page',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':SUPABASE_ANON_KEY},body:JSON.stringify({course_id:state.course.id,course_title:state.course.title,block_id:b.id,page_number:pageNumberFor(b),block:b})});
+      if(!token)throw new Error('Session administrateur absente.');
+      updateGenerationProgress(b.id,20,'Création de la page indépendante…');
+      const r=await fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-page',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':SUPABASE_ANON_KEY},
+        body:JSON.stringify({
+          course_id:state.course.id,
+          course_title:state.course.title,
+          block_id:b.id,
+          page_number:pageNumberFor(b),
+          block:b
+        })
+      });
       const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}};
-      if(!r.ok||!d.ok)throw new Error(d.error||('Génération HTTP '+r.status));
-      clearInterval(progressTimer);updateGenerationProgress(b.id,96,'Enregistrement de la page…');b.generation={status:'ready',page_number:d.page_number,page_path:d.page_path,page_url:d.page_url,updated_at:new Date().toISOString(),progress:100,progress_label:'Page générée',bytes:d.bytes,qa:d.qa||null,error:null};
-      await persistCourse(true);renderWorkspace();setStatus('Page '+d.page_number+' générée.');
+      if(!r.ok||!d.ok)throw new Error(d.error||('Mise en file HTTP '+r.status));
+      b.generation={
+        ...(b.generation||{}),
+        status:'generating',
+        page_number:d.page_number||pageNumberFor(b),
+        generated_document_id:d.generated_document_id||null,
+        job_id:d.job_id||null,
+        progress:28,
+        progress_label:'Page en file LuaLaTeX…',
+        error:null,
+        updated_at:new Date().toISOString()
+      };
+      await persistCourse(true);
+      renderWorkspace();
+      updateGenerationProgress(b.id,28,'Page en file LuaLaTeX…');
+      const result=await waitForAssistedDocument(b,Number(d.generated_document_id),progressTimer);
+      b.generation={
+        status:'ready',
+        page_number:d.page_number||pageNumberFor(b),
+        generated_document_id:Number(d.generated_document_id),
+        job_id:d.job_id||null,
+        page_path:result.page_path,
+        page_url:result.page_url,
+        updated_at:new Date().toISOString(),
+        progress:100,
+        progress_label:'Page générée',
+        bytes:result.bytes,
+        qa:{engine:'github-actions-lualatex-v1',status:'completed'},
+        error:null
+      };
+      await persistCourse(true);
+      renderWorkspace();
+      setStatus('Page '+(b.generation.page_number||pageNumberFor(b))+' générée avec le renderer de production.');
     }catch(e){
       clearInterval(progressTimer);
       const msg=String(e?.message||e);
-      if(/dépasse une seule page|depasse une seule page|exceeds one page|single page/i.test(msg) && Number(b.generation?.autoSplitDepth||0)<4){
+      if(/ASSISTED_PAGE_TOO_LONG|dépasse une seule page|depasse une seule page|exceeds one page|single page/i.test(msg) && Number(b.generation?.autoSplitDepth||0)<4){
         const pieces=splitLongBlock(b);
         if(pieces.length>1){
-          const blocks=activeBlocks(),at=blocks.findIndex(x=>x.id===b.id);if(at>=0){pieces.forEach((p,i)=>{p.created_at=new Date().toISOString();blocks.splice(at+i,0,p)});blocks.splice(at+pieces.length,1);state.selected=pieces[0].id;await persistCourse(true);renderWorkspace();setStatus('Bloc trop long : '+pieces.length+' blocs successifs ont été créés. Génération en cours…');for(const p of pieces)await generateBlock(p.id);return;}
+          const blocks=activeBlocks(),at=blocks.findIndex(x=>x.id===b.id);
+          if(at>=0){
+            pieces.forEach((p,i)=>{p.created_at=new Date().toISOString();blocks.splice(at+i,0,p)});
+            blocks.splice(at+pieces.length,1);
+            state.selected=pieces[0].id;
+            await persistCourse(true);
+            renderWorkspace();
+            setStatus('Bloc trop long : '+pieces.length+' blocs successifs ont été créés. Génération en cours…');
+            for(const p of pieces)await generateBlock(p.id);
+            return;
+          }
         }
       }
       b.generation={...(b.generation||{}),status:'error',page_number:pageNumberFor(b),updated_at:new Date().toISOString(),progress:0,progress_label:'Échec',error:msg};
+      await persistCourse(true);
       renderWorkspace();setStatus('Échec de génération : '+msg);
     }
   }
