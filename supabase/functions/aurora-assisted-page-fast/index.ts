@@ -40,14 +40,14 @@ function latexInput(v:any){
 function normalizeUnicodeMathText(v:any){
   const src=String(v??"");
   const saved:string[]=[];
-  const protectedText=src.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻]/g,(c)=>{
-    const token="AURORASUP"+saved.length+"TOKEN";
+  const protectedText=src.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻ℝℕℤℚ]/g,(c)=>{
+    const token="AURORAUNI"+saved.length+"TOKEN";
     saved.push(c);
     return token;
   });
   const normalized=protectedText.normalize("NFKD").normalize("NFC");
   let outText=normalized;
-  saved.forEach((c,i)=>{outText=outText.replace("AURORASUP"+i+"TOKEN",c)});
+  saved.forEach((c,i)=>{outText=outText.replace("AURORAUNI"+i+"TOKEN",c)});
   return outText;
 }
 
@@ -416,18 +416,43 @@ Deno.serve(async req=>{
       for(const para of paragraphs){
         const rawRuns=mergePlainAndExplicit(para);
         const prepared=await prepareRuns(rawRuns,auth,pdf,fonts,qa,cache);
-        const inlinePrepared=prepared.filter((r:any)=>r.kind!=="display");
-        const displayPrepared=prepared.filter((r:any)=>r.kind==="display");
-        const lines=layoutInline(inlinePrepared,fonts.regular,10.7,W-22);
-        const displayHeight=displayPrepared.reduce((n:number,r:any)=>n+Math.min(92,(r.height||42)+18)+7,0);
+        const chunks:any[]=[];
+        let inlineChunk:Run[]=[];
+        const flush=()=>{
+          if(!inlineChunk.length)return;
+          chunks.push({kind:"inline",lines:layoutInline(inlineChunk,fonts.regular,10.7,W-22)});
+          inlineChunk=[];
+        };
+        for(const run of prepared){
+          if(run.kind==="display"){
+            flush();
+            chunks.push({kind:"display",run});
+          }else{
+            inlineChunk.push(run);
+          }
+        }
+        flush();
+
         const lineHeight=15.4;
-        const boxH=14+Math.max(1,lines.length)*lineHeight+displayHeight+10;
+        let boxH=18;
+        for(const chunk of chunks){
+          if(chunk.kind==="inline"){
+            boxH+=Math.max(1,chunk.lines.length)*lineHeight;
+          }else{
+            boxH+=Math.min(92,(chunk.run.height||42)+18)+7;
+          }
+        }
+        boxH+=9;
         if(y-boxH<bottom)throw new Error("ASSISTED_PAGE_TOO_LONG: le bloc dépasse une seule page.");
+
         rounded(page,X-11,y-boxH,W+22,boxH,10,rgbHex("#F8F8FA"),rgbHex("#E3E3E8"),0.5);
-        const startY=y-10-lineHeight/2;
-        let yy=drawInlineLines(page,lines,X,startY,fonts.regular,rgbHex(mixWhite(color,0.14)),rgbHex("#202126"),10.7,lineHeight);
-        for(const d of displayPrepared){
-          yy=drawDisplayMath(page,d,X,yy-2,W,color);
+        let yy=y-11;
+        for(const chunk of chunks){
+          if(chunk.kind==="inline"){
+            yy=drawInlineLines(page,chunk.lines,X,yy,fonts.regular,rgbHex("#202126"),10.7,lineHeight);
+          }else{
+            yy=drawDisplayMath(page,chunk.run,X,yy-2,W,color);
+          }
         }
         y=y-boxH-8;
       }
