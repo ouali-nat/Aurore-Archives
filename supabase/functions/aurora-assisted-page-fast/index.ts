@@ -344,7 +344,7 @@ function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,bord
   return y;
 }
 function drawParagraph(page:any,prepared:Run[],x:number,topY:number,width:number,font:any,color:string,qa:any){
-  const size=10.2, lineHeight=14.3, inner=width;
+  const size=10.95, lineHeight=13.6, inner=width;
   const inlineRuns=prepared.filter(r=>r.kind!=="display");
   const displayRuns=prepared.filter(r=>r.kind==="display");
   const lines=layoutInline(inlineRuns,font,size,inner);
@@ -517,7 +517,7 @@ Deno.serve(async req=>{
       );
       drawInlineLines(
         page,lines,X,y-7,fonts.regular,
-        rgbHex("#BDBDBD"),rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT
+        color,rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT
       );
       y-=boxH+7;
       return true;
