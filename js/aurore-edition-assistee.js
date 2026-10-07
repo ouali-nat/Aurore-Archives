@@ -8,10 +8,10 @@
   const uid=p=>(p||'id')+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
   const root=()=>document.getElementById('assistedRoot');
   const client=()=>window.__auroreAssistedSb||(window.__auroreAssistedSb=window.supabase?.createClient?.(SUPABASE_URL,SUPABASE_ANON_KEY));
-  const courseJson=()=>state.course?.course_json||state.course;
+  function rowCourse(row){const p=row?.pages;return p?.course&&typeof p.course==='object'?p.course:(p&&typeof p==='object'&&Array.isArray(p.blocks)?p:null);}
 
   function newCourse(title){
-    const id=uid('course');
+    const id=(globalThis.crypto&&crypto.randomUUID)?crypto.randomUUID():uid('course');
     return {id,title:String(title||'Nouveau cours').trim()||'Nouveau cours',status:'editing',
       metadata:{schema:'aurore-assisted-course-v3',editor:'edition_assistee',origin:'assisted_editor'},
       blocks:[],generation:{pages:[],updated_at:null}};
@@ -33,11 +33,11 @@
     const c=client();
     if(!c){state.courses=[];return[]}
     const {data:{user}={}}=await c.auth.getUser();
-    let q=c.from('aurora_assisted_courses').select('id,title,status,course_json,created_at,updated_at').order('updated_at',{ascending:false}).limit(50);
+    let q=c.from('aurora_assisted_courses').select('id,title,editor_version,pages,created_at,updated_at').order('updated_at',{ascending:false}).limit(50);
     if(user?.id) q=q.eq('created_by',user.id);
     const {data,error}=await q;
     if(error)throw error;
-    state.courses=Array.isArray(data)?data:[];
+    state.courses=(Array.isArray(data)?data:[]).map(row=>({...row,status:row.editor_version||'editing',course_json:rowCourse(row)||newCourse(row.title)}));
     return state.courses;
   }
 
@@ -165,7 +165,7 @@
       '<header class="ae-block-head"><div><span class="ae-block-number">'+String(i+1).padStart(2,'0')+'</span><strong>'+esc(labelFor(b))+'</strong><small>'+esc(b.validation?.ok?'Bloc valide':'À valider')+'</small></div><span class="ae-block-state '+(v.ok?'ok':'bad')+'">'+(v.ok?'Valide':'À corriger')+'</span></header>'+
       '<div class="ae-block-editor">'+editor+'</div>'+
       '<div class="ae-block-toolbar"><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Prévisualiser</button><button class="admin-btn ghost" data-json-block="'+esc(b.id)+'">JSON</button><button class="admin-btn ghost" data-copy-block="'+esc(b.id)+'">Copier</button><button class="admin-btn ghost" data-duplicate-block="'+esc(b.id)+'">Dupliquer</button><button class="admin-btn danger" data-delete-block="'+esc(b.id)+'">Supprimer</button><button class="admin-btn primary" data-validate-block="'+esc(b.id)+'">Valider & générer la page</button></div>'+
-      '<div class="ae-block-result">'+(gen.status==='ready'&&gen.page_url?'<span class="ae-generated-ok">✓ Page '+page+' générée</span><a class="admin-btn ghost" href="'+esc(gen.page_url)+'" target="_blank" rel="noopener">Ouvrir la page</a>':gen.status==='generating'?'<span class="ae-generated-wait">Génération de la page…</span>':gen.status==='error'?'<span class="ae-generated-error">Erreur : '+esc(gen.error||'génération impossible')+'</span>':b.type==='graphique'&&v.ok?'<span>JSON validé · la construction graphique reste destinée au moteur GeoGebra/LuaLaTeX.</span>':'<span>Aucune page générée pour ce bloc.</span>')+'</div>'+
+      '<div class="ae-block-result">'+(gen.status==='ready'&&gen.page_url?'<span class="ae-generated-ok">✓ Page '+page+' générée</span><a class="admin-btn ghost" href="'+esc(gen.page_url)+'" target="_blank" rel="noopener">Ouvrir la page</a>':gen.status==='generating'?'<div class="ae-generation-progress" role="status" aria-live="polite"><div class="ae-generation-progress-top"><span data-progress-label>'+esc(gen.progress_label||'Génération de la page…')+'</span><strong data-progress-pct>'+Math.round(Number(gen.progress||8))+'%</strong></div><div class="ae-progress-track"><span data-progress-bar style="width:'+Math.max(8,Math.min(100,Number(gen.progress||8)))+'%"></span></div><small>Progression indicative · la page est en cours de génération.</small></div>':gen.status==='error'?'<span class="ae-generated-error">Erreur : '+esc(gen.error||'génération impossible')+'</span>':b.type==='graphique'&&v.ok?'<span>JSON validé · la construction graphique reste destinée au moteur GeoGebra/LuaLaTeX.</span>':'<span>Aucune page générée pour ce bloc.</span>')+'</div>'+
       (v.errors.length?'<div class="ae-block-errors">'+v.errors.map(x=>'• '+esc(x)).join('<br>')+'</div>':'')+
       '</article>';
   }
@@ -246,11 +246,25 @@
     try{
       state.course.updated_at=new Date().toISOString();
       const {data:{user}={}}=await c.auth.getUser();if(!user)throw new Error('Session administrateur absente.');
-      const payload={id:state.course.id,created_by:user.id,title:state.course.title,status:state.course.status==='validated'?'validated':'editing',course_json:state.course};
+      const payload={id:state.course.id,created_by:user.id,title:state.course.title,editor_version:'edition-assistee-v3',pages:{schema:'aurore-assisted-course-v3',course:state.course}};
       const {error}=await c.from('aurora_assisted_courses').upsert(payload,{onConflict:'id'});if(error)throw error;
       if(!silent)setStatus('Cours enregistré.');
       await loadCourses();
     }catch(e){localStorage.setItem('aurore_assisted_course',JSON.stringify(state.course));if(!silent)setStatus('Supabase indisponible · brouillon local conservé.');}
+  }
+
+  function updateGenerationProgress(id,value,label){
+    const card=root()?.querySelector('[data-block="'+CSS.escape(id)+'"]');
+    const bar=card?.querySelector('[data-progress-bar]'),pct=card?.querySelector('[data-progress-pct]'),lab=card?.querySelector('[data-progress-label]');
+    if(bar)bar.style.width=Math.max(0,Math.min(100,value))+'%';
+    if(pct)pct.textContent=Math.round(value)+'%';
+    if(lab)lab.textContent=label||'Génération…';
+  }
+  function startGenerationProgress(id){
+    let value=8;
+    const phases=[['Préparation…',18],['Validation du bloc…',28],['Génération du PDF…',62],['Finalisation…',82],['Vérification…',90]];
+    let phase=0;
+    return setInterval(()=>{if(value<90){value=Math.min(90,value+(value<60?2:1));if(phase<phases.length&&value>=phases[phase][1])phase++;const label=phases[Math.min(phase,phases.length-1)]?.[0]||'Génération…';updateGenerationProgress(id,value,label);}},500);
   }
 
   async function generateBlock(id){
@@ -259,18 +273,21 @@
     if(b.type==='graphique'&&!b.content?.json?.geogebra_image_path&&!b.content?.json?.graph_local_path){
       await persistCourse(true);setStatus('JSON graphique validé. Le rendu visuel sera produit par le moteur GeoGebra/LuaLaTeX.');return;
     }
-    b.generation={...(b.generation||{}),status:'generating',page_number:pageNumberFor(b),error:null,updated_at:new Date().toISOString()};
+    b.generation={...(b.generation||{}),status:'generating',page_number:pageNumberFor(b),progress:8,progress_label:'Préparation…',error:null,updated_at:new Date().toISOString()};
     renderWorkspace();setStatus('Génération de la page…');
+    const progressTimer=startGenerationProgress(b.id);
     try{
       const token=(typeof session!=='undefined'&&session?.access_token)||await freshToken();
       const c=client();if(!token)throw new Error('Session administrateur absente.');
+      b.generation.progress=35;b.generation.progress_label='Génération du PDF…';updateGenerationProgress(b.id,35,'Génération du PDF…');
       const r=await fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-page',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':SUPABASE_ANON_KEY},body:JSON.stringify({course_id:state.course.id,course_title:state.course.title,block_id:b.id,page_number:pageNumberFor(b),block:b})});
       const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}};
       if(!r.ok||!d.ok)throw new Error(d.error||('Génération HTTP '+r.status));
-      b.generation={status:'ready',page_number:d.page_number,page_path:d.page_path,page_url:d.page_url,updated_at:new Date().toISOString(),bytes:d.bytes,qa:d.qa||null,error:null};
+      clearInterval(progressTimer);updateGenerationProgress(b.id,96,'Enregistrement de la page…');b.generation={status:'ready',page_number:d.page_number,page_path:d.page_path,page_url:d.page_url,updated_at:new Date().toISOString(),progress:100,progress_label:'Page générée',bytes:d.bytes,qa:d.qa||null,error:null};
       await persistCourse(true);renderWorkspace();setStatus('Page '+d.page_number+' générée.');
     }catch(e){
-      b.generation={...(b.generation||{}),status:'error',page_number:pageNumberFor(b),updated_at:new Date().toISOString(),error:String(e?.message||e)};
+      clearInterval(progressTimer);
+      b.generation={...(b.generation||{}),status:'error',page_number:pageNumberFor(b),updated_at:new Date().toISOString(),progress:0,progress_label:'Échec',error:String(e?.message||e)};
       renderWorkspace();setStatus('Échec de génération : '+String(e?.message||e));
     }
   }
