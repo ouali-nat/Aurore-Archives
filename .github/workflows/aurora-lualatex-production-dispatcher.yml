@@ -46,3 +46,5 @@ jobs:
 # Manual wake: direct user LuaLaTeX queue document 736 — 2026-10-07
 
 # Assisted-page queue wake verification — 2026-10-07T14:14:26.690Z
+
+# Queue wake marker: assisted pages after renderer syntax repair
