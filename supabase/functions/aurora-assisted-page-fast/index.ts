@@ -318,7 +318,7 @@ function layoutInline(prepared:Run[],font:any,size:number,max:number){
   return lines.filter(x=>x.length);
 }
 
-function inlineLineAdvance(line:any[],size=10.7,lineHeight=15.4){
+function inlineLineAdvance(line:any[],size=10.2,lineHeight=14.3){
   const maxMathH=Math.max(0,...line.filter(t=>t.kind==="math").map(t=>t.height||0));
   return Math.max(lineHeight,size+4,maxMathH+5);
 }
@@ -354,7 +354,7 @@ function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,bord
   return y;
 }
 function drawParagraph(page:any,prepared:Run[],x:number,topY:number,width:number,font:any,color:string,qa:any){
-  const size=10.7, lineHeight=15.4, inner=width-22;
+  const size=10.2, lineHeight=14.3, inner=width;
   const inlineRuns=prepared.filter(r=>r.kind!=="display");
   const displayRuns=prepared.filter(r=>r.kind==="display");
   const lines=layoutInline(inlineRuns,font,size,inner);
