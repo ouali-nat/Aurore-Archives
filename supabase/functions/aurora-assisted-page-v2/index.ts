@@ -60,8 +60,8 @@ function buildContent(courseTitle:string,pageNumber:number,block:any,themeColor:
   const content=block?.content&&typeof block.content==="object"?block.content:{};
   const section:any={title:"Bloc "+String(pageNumber),content:[],exercises:[],graphs:[]};
   if(type==="paragraph") section.content=[extractStructuredText(content.text||"")];
-  else if(type==="point") section.content=[extractStructuredText(content.text||"")];
-  else if(type==="exercise") section.exercises=[{id:String(block?.id||""),statement:extractStructuredText(content.statement||""),hint:extractStructuredText(content.hint||"")}];
+  else if(type==="point") section.point={title:String(content.title||"Point de cours"),text:extractStructuredText(content.text||""),color:String(content.color||""),rank:Number(content.rank)||1};
+  else if(type==="exercise") section.exercises=[{id:String(block?.id||""),title:String(content.title||"Exercice"),statement:extractStructuredText(content.statement||""),hint:extractStructuredText(content.hint||""),correction_title:String(content.correction_title||"Corrigé"),correction:extractStructuredText(content.correction||"")}];
   else if(type==="graphique") section.graphs=[content.json&&typeof content.json==="object"?content.json:{}];
   else if(type==="wikimedia-image") section.content=["Illustration Wikimedia"];
   else throw new Error("Type de bloc non pris en charge : "+type);
