@@ -962,6 +962,44 @@ jobs:
                       )
                       print(f"Fetched GeoGebra asset: {local}")
 
+              assisted_meta = metadata.get("assisted_page") if isinstance(metadata.get("assisted_page"), dict) else None
+              if assisted_meta:
+                  assisted_block = content.get("assisted_block") if isinstance(content.get("assisted_block"), dict) else {}
+                  assisted_block_content = assisted_block.get("content") if isinstance(assisted_block.get("content"), dict) else {}
+                  if str(assisted_meta.get("block_type") or "").strip().lower() == "wikimedia-image":
+                      image_url = str(assisted_block_content.get("imageUrl") or "").strip()
+                      source_url = str(assisted_block_content.get("sourceUrl") or "").strip()
+                      license_name = str(assisted_block_content.get("license") or "").strip()
+                      if not image_url.startswith("https://upload.wikimedia.org/"):
+                          raise SystemExit("ASSISTED_PAGE_WIKIMEDIA_INVALID_URL")
+                      if not source_url.startswith("https://commons.wikimedia.org/"):
+                          raise SystemExit("ASSISTED_PAGE_WIKIMEDIA_INVALID_SOURCE")
+                      if not license_name or re.search(r"fair use|non-commercial|noncommercial|no derivatives", license_name, re.I):
+                          raise SystemExit("ASSISTED_PAGE_WIKIMEDIA_INVALID_LICENSE")
+                      parsed = urlparse(image_url)
+                      suffix = Path(parsed.path).suffix.lower()
+                      if suffix not in {".png", ".jpg", ".jpeg"}:
+                          raise SystemExit(f"ASSISTED_PAGE_WIKIMEDIA_UNSUPPORTED_FORMAT: {suffix or 'unknown'}")
+                      assets_dir = root / "assets"
+                      assets_dir.mkdir(parents=True, exist_ok=True)
+                      local = assets_dir / ("assisted-wikimedia" + (".jpg" if suffix == ".jpeg" else suffix))
+                      with urlopen(image_url, timeout=45) as response:
+                          local.write_bytes(response.read())
+                      if not local.is_file() or local.stat().st_size == 0:
+                          raise SystemExit("ASSISTED_PAGE_WIKIMEDIA_EMPTY_ASSET")
+                      content["_wikimedia_visuals"] = [{
+                          "section_index": 0,
+                          "path": str(local.relative_to(root)),
+                          "title": assisted_block_content.get("title") or "Illustration",
+                          "caption": assisted_block_content.get("caption") or "",
+                          "author": assisted_block_content.get("author") or "",
+                          "license": license_name,
+                          "source_url": source_url,
+                      }]
+                      print(f"Fetched assisted Wikimedia asset: {local}")
+                  else:
+                      content["_wikimedia_visuals"] = []
+
               (root / "document.json").write_text(
                   json.dumps(content, ensure_ascii=False, indent=2),
                   encoding="utf-8",
@@ -1742,6 +1780,33 @@ jobs:
             --data "{\"document_id\":$DOCUMENT_ID,\"progress\":86,\"stage\":\"PDF compilé — vérification terminée\"}" \
             "$SUPABASE_URL/functions/v1/aurora-lualatex-progress" >/dev/null
 
+      - name: Enforce single-page contract for assisted pages
+        if: hashFiles('infra/lualatex/production/document-id') != '' && hashFiles('infra/lualatex/production/structured-document') != ''
+        working-directory: infra/lualatex
+        run: |
+          python3 - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+          data = json.loads(Path("production/document.json").read_text(encoding="utf-8"))
+          metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+          assisted = metadata.get("assisted_page") if isinstance(metadata.get("assisted_page"), dict) else None
+          if not assisted:
+              print("Not an assisted page; single-page contract skipped.")
+              raise SystemExit(0)
+          raw = Path("production/document.pdf").read_bytes()
+          page_count = len(re.findall(rb"/Type\\s*/Page\\b", raw))
+          print(f"Assisted page count: {page_count}")
+          if page_count != 1:
+              reason = (
+                  "ASSISTED_PAGE_TOO_LONG: "
+                  f"le bloc produit {page_count} pages au lieu d’une seule. "
+                  "Utilise plusieurs blocs successifs."
+              )
+              Path("production/failure-reason.txt").write_text(reason, encoding="utf-8")
+              raise SystemExit(reason)
+          PY
+
       - name: Upload PDF and commit database URL
         if: hashFiles('infra/lualatex/production/document-id') != ''
         run: |
@@ -1779,11 +1844,16 @@ jobs:
         if: failure() && hashFiles('infra/lualatex/production/document-id') != ''
         run: |
           DOCUMENT_ID="$(cat infra/lualatex/production/document-id)"
+          FAILURE_MESSAGE="GitHub Actions run $GITHUB_RUN_ID failed"
+          if [ -s infra/lualatex/production/failure-reason.txt ]; then
+            FAILURE_MESSAGE="$(cat infra/lualatex/production/failure-reason.txt)"
+          fi
+          FAILURE_JSON="$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1], ensure_ascii=False))' "$FAILURE_MESSAGE")"
           curl --fail --silent --show-error \
             -X POST \
             -H "Content-Type: application/json" \
             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
-            --data "{\"document_id\":$DOCUMENT_ID,\"error\":\"GitHub Actions run $GITHUB_RUN_ID failed\"}" \
+            --data "{\"document_id\":$DOCUMENT_ID,\"error\":$FAILURE_JSON}" \
             "$SUPABASE_URL/functions/v1/aurora-lualatex-fail" \
             -o infra/lualatex/production/failure-response.json
           python3 - <<'PY'
