@@ -4356,6 +4356,14 @@ def render(data):
         r"  \tcbox[on line,enhanced,boxrule=.45pt,colframe=aurorebase!58!white,colback=white!99!aurorepale,arc=7pt,left=7pt,right=7pt,top=3pt,bottom=3pt]%",
         r"    {$\displaystyle #2$}%",
         r"}",
+        r"\newcommand{\AuroreAssistedMathBlock}[2]{%",
+        r"  \begin{tcolorbox}[enhanced,breakable,width=.90\linewidth,colback=gray!8!white,colframe=gray!42!white,arc=9pt,outer arc=9pt,boxrule=.45pt,left=9pt,right=9pt,top=5pt,bottom=6pt,before skip=5pt,after skip=7pt,halign=center,pad at break*=1.5mm]%",
+        r"    \if\relax\detokenize{#1}\relax\else",
+        r"      {\sffamily\scriptsize\bfseries\color{gray!55!black}#1}\par\vspace{1pt}%",
+        r"    \fi",
+        r"    \begin{equation*}\displaystyle #2\end{equation*}%",
+        r"  \end{tcolorbox}%",
+        r"}",
         r"\newcommand{\AuroreMathBlock}[2]{%",
         r"  \begin{tcolorbox}[enhanced,breakable,arc=8pt,outer arc=8pt,boxrule=.45pt,colframe=aurorebase!58!white,colback=white!99!aurorepale,leftrule=1.6pt,left=7pt,right=7pt,top=3.5pt,bottom=4.5pt,before skip=5pt,after skip=6pt,halign=center,pad at break*=1mm]%",
         r"    \if\relax\detokenize{#1}\relax\else",
@@ -4460,12 +4468,24 @@ def render(data):
         ])
         if block_type == "paragraph":
             body_text = clean_text(assisted_content.get("text") or "").strip()
-            lines.extend(_render_course_math_blocks(body_text, auto_math=True))
+            rendered = _render_course_math_blocks(body_text, auto_math=True)
+            lines.extend(
+                item.replace(r"\AuroreMathBlock", r"\AuroreAssistedMathBlock")
+                if r"\AuroreMathBlock" in item
+                else item
+                for item in rendered
+            )
         elif block_type == "point":
             body_text = clean_text(assisted_content.get("text") or "").strip()
             rendered = _render_course_math_blocks(body_text, auto_math=True)
             if rendered:
-                lines.append(r"\AuroreLabeledBlock{Point de cours}{" + "\n".join(rendered) + r"}")
+                lines.append(r"\AurorePill{Point de cours}\par\smallskip")
+                lines.extend(
+                    item.replace(r"\AuroreMathBlock", r"\AuroreAssistedMathBlock")
+                    if r"\AuroreMathBlock" in item
+                    else item
+                    for item in rendered
+                )
         elif block_type == "exercise":
             statement = clean_text(assisted_content.get("statement") or "").strip()
             body = render_exercise_text(statement, mode="question")
