@@ -486,7 +486,8 @@ Deno.serve(async req=>{
   try{
     const pdf=await PDFDocument.create();pdf.registerFontkit(fontkit);
     const [fonts,logo]=await Promise.all([loadFonts(pdf),loadLogo(pdf)]);
-    const page=pdf.addPage([595,842]);
+    let page=pdf.addPage([595,842]);
+    let flowPageNo=pn;
     const color=normalizeHexColor(input.theme_color)||subjectColor(input.subject||input.matiere||docRes.data.metadata?.matiere||"");
     drawSoftDecor(page,color);headerFooter(page,pn,fonts,logo,color);
     const qa:any={formulas_total:0,formulas_ok:0,formulas_failed:0,graphs_total:0,graphs_ok:0,graphs_failed:0,images_total:0,images_ok:0,images_failed:0};
@@ -515,14 +516,23 @@ Deno.serve(async req=>{
     function grayBlock(page:any,x:number,y:number,w:number,h:number){
       rounded(page,x,y,w,h,BOX_RADIUS,rgbHex("#E6E6E7"),rgbHex("#B6B7BA"),0.5);
     }
+    const newFlowPage=()=>{
+      page=pdf.addPage([595,842]);
+      flowPageNo++;
+      drawSoftDecor(page,color);
+      headerFooter(page,flowPageNo,fonts,logo,color);
+      y=top;
+    };
+    const ensureSpace=(height:number)=>{
+      if(y-height<bottom)newFlowPage();
+    };
     const drawContentBlock=async(text:any)=>{
       if(text&&typeof text==="object"&&text.__aurore_point){
         const title=String(text.title||"Point de cours"),body=String(text.text||"");
         const accent=normalizeHexColor(text.color)||color;
         const rank=Math.max(1,Number(text.rank)||1);
         const label=(rank+". "+title).trim();
-        const labelH=24;
-        if(y-labelH<bottom)throw new Error("ASSISTED_PAGE_TOO_LONG: point hors page.");
+        ensureSpace(31);
         page.drawText(label,{x:X,y:y-15,font:fonts.bold,size:11,color:rgbHex(accent)});
         page.drawRectangle({x:X,y:y-22,width:W,height:2.2,color:rgbHex(accent)});
         y-=31;
@@ -548,38 +558,72 @@ Deno.serve(async req=>{
       }));
       const innerGap=11;
       for(const items of preparedItems){
-        const contentH=items.reduce((sum:any,item:any,index:number)=>{
-          const h=item.kind==="inline"
-            ? item.lines.reduce((n:any,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0)
-            : item.metrics.cardH;
-          return sum+h+(index>0?innerGap:0);
-        },0);
-        const boxH=Math.max(36,BOX_PAD_TOP+contentH+BOX_PAD_BOTTOM);
-        if(y-boxH<bottom)throw new Error("ASSISTED_PAGE_TOO_LONG: bloc de texte hors page.");
-        grayBlock(page,BOX_X,y-boxH,BOX_W,boxH);
-        let childY=y-BOX_PAD_TOP;
-        for(const item of items){
-          if(item.kind==="inline"){
-            drawInlineLines(page,item.lines,BOX_X+12,childY,BOX_W-24,fonts.regular,color,rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT);
-            childY-=item.lines.reduce((n:any,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0)+innerGap;
-          }else{
-            drawDisplayMath(page,item.run,X,childY,W-18,color);
-            childY-=item.metrics.cardH+innerGap;
+        let cursor=0;
+        while(cursor<items.length){
+          const remainingPage=Math.max(0,y-bottom);
+          const availableContent=Math.max(0,remainingPage-BOX_PAD_TOP-BOX_PAD_BOTTOM);
+          const fragment:any[]=[];
+          let used=0;
+          const addItem=(item:any)=>{
+            const h=item.kind==="inline"
+              ? item.lines.reduce((n:number,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0)
+              : item.metrics.cardH;
+            const gap=fragment.length?innerGap:0;
+            if(used+gap+h>availableContent)return false;
+            fragment.push(item);used+=gap+h;return true;
+          };
+          const first=items[cursor];
+          if(first?.kind==="inline"&&first.lines.length){
+            const availableLines=Math.max(0,availableContent-innerGap*(fragment.length?1:0));
+            const fit:number[]=[];let lineUsed=0;
+            for(let li=0;li<first.lines.length;li++){
+              const lh=inlineLineAdvance(first.lines[li],TEXT_SIZE,LINE_HEIGHT);
+              const gap=fit.length?0:0;
+              if(lineUsed+gap+lh<=availableContent){fit.push(li);lineUsed+=lh;}else break;
+            }
+            if(fit.length<first.lines.length){
+              if(fit.length>0){
+                fragment.push({kind:"inline",lines:first.lines.slice(0,fit.length)});
+                used=lineUsed;
+                items[cursor]={...first,lines:first.lines.slice(fit.length)};
+              }
+            }else if(addItem(first)){
+              cursor++;
+            }
+          }else if(first&&addItem(first)){
+            cursor++;
           }
+          if(fragment.length===0){
+            newFlowPage();
+            continue;
+          }
+          const boxH=Math.max(36,BOX_PAD_TOP+used+BOX_PAD_BOTTOM);
+          grayBlock(page,BOX_X,y-boxH,BOX_W,boxH);
+          let childY=y-BOX_PAD_TOP;
+          for(const item of fragment){
+            if(item.kind==="inline"){
+              drawInlineLines(page,item.lines,BOX_X+12,childY,BOX_W-24,fonts.regular,color,rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT);
+              childY-=item.lines.reduce((n:any,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0)+innerGap;
+            }else{
+              drawDisplayMath(page,item.run,X,childY,W-18,color);
+              childY-=item.metrics.cardH+innerGap;
+            }
+          }
+          y-=boxH+BLOCK_GAP;
+          if(cursor<items.length&&y-bottom<LINE_HEIGHT+BOX_PAD_TOP+BOX_PAD_BOTTOM){newFlowPage();}
         }
-        y-=boxH+BLOCK_GAP;
       }
     };
     for(const raw of contentItems)await drawContentBlock(raw);
     for(const ex of exerciseItems){
       const title=clean(ex?.title||"Exercice"),statement=clean(ex?.statement||ex?.question||ex?.enonce||ex?.content||""),hint=clean(ex?.hint||""),correctionTitle=clean(ex?.correction_title||"Corrigé"),correction=clean(ex?.correction||"");
       if(!statement)continue;
-      if(y-28<bottom)throw new Error("ASSISTED_PAGE_TOO_LONG: exercice hors page.");
+      ensureSpace(53);
       sectionLabel(page,title,X,y,fonts,color);y-=25;
       await drawContentBlock(statement);
       if(hint)await drawContentBlock("Indication : "+hint);
       if(correction){
-        if(y-28<bottom)throw new Error("ASSISTED_PAGE_TOO_LONG: correction hors page.");
+        ensureSpace(53);
         sectionLabel(page,correctionTitle,X,y,fonts,color);y-=25;
         await drawContentBlock(correction);
       }
@@ -662,7 +706,7 @@ Deno.serve(async req=>{
       lualatex_progress:100,
       lualatex_stage:"Page PDF générée instantanément",
       production_status:"page_pdf_ready",
-      pdf_page_count:1
+      pdf_page_count:flowPageNo-pn+1
     };
     const saved=await admin.from("aurora_generated_documents").update({
       pdf_path:path,pdf_url:pageUrl,metadata:patch,updated_at:new Date().toISOString()
@@ -671,7 +715,7 @@ Deno.serve(async req=>{
     return out({
       ok:true,mode:"instant-page",engine:"pdf-lib-course-page-v2",
       generated_document_id:id,page_number:pn,page_path:path,page_url:pageUrl,
-      bytes:bytes.length,page_count:1,qa
+      bytes:bytes.length,page_count:flowPageNo-pn+1,qa
     });
   }catch(e){
     return out({ok:false,generated_document_id:id,page_number:pn,error:e instanceof Error?e.message:String(e)},409);
