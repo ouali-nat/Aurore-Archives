@@ -65,12 +65,14 @@
   }
   function ensureCourseStructure(course){
     if(!course||typeof course!=='object')return course;
-    course.theme_color=normalizeThemeColor(course.theme_color);\n    ensureDocumentPages(course);
+    course.theme_color=normalizeThemeColor(course.theme_color);
+    ensureDocumentPages(course);
     const blocks=Array.isArray(course.blocks)?course.blocks:[];
     const start=blocks.find(b=>b?.role===START_ROLE)||systemBlock(START_ROLE,course.title);
     const end=blocks.find(b=>b?.role===END_ROLE)||systemBlock(END_ROLE,course.title);
     const middle=blocks.filter(b=>b?.role!==START_ROLE&&b?.role!==END_ROLE);
-    course.blocks=[start,...middle,end];\n    syncSystemPages(course);
+    course.blocks=[start,...middle,end];
+    syncSystemPages(course);
     return course;
   }
   function isSystemBlock(b){return b?.role===START_ROLE||b?.role===END_ROLE||b?.locked===true&&(/^system-(start|end)$/.test(String(b?.id||'')));}
@@ -79,7 +81,12 @@
   function newCourse(title){
     const id=(globalThis.crypto&&crypto.randomUUID)?crypto.randomUUID():uid('course');
     return {id,title:String(title||'Nouveau cours').trim()||'Nouveau cours',status:'editing',
-      metadata:{schema:'aurore-assisted-course-v5',editor:'edition_assistee',origin:'assisted_editor'},\n      document_pages:{\n        cover:{enabled:true,title:String(title||'Nouveau cours'),subtitle:'Bibliothèque numérique d’Aurore',author:'',institution:'',show_date:true},\n        toc:{enabled:true,title:'Sommaire',subtitle:'Organisation du document',entries:[]},\n        end:{enabled:true,title:'Fin du document',subtitle:'Merci d’avoir consulté ce cours.',contact:'',show_qr:false}\n      },
+      metadata:{schema:'aurore-assisted-course-v5',editor:'edition_assistee',origin:'assisted_editor'},
+      document_pages:{
+        cover:{enabled:true,title:String(title||'Nouveau cours'),subtitle:'Bibliothèque numérique d’Aurore',author:'',institution:'',show_date:true},
+        toc:{enabled:true,title:'Sommaire',subtitle:'Organisation du document',entries:[]},
+        end:{enabled:true,title:'Fin du document',subtitle:'Merci d’avoir consulté ce cours.',contact:'',show_qr:false}
+      },
       theme_color:DEFAULT_THEME_COLOR,
       blocks:[systemBlock(START_ROLE,title),systemBlock(END_ROLE,title)],generation:{pages:[],updated_at:null}};
   }
@@ -335,10 +342,12 @@
     document.getElementById('aeAddEx').onclick=()=>addBlock('exercise');
     document.getElementById('aeAddGraph').onclick=()=>addBlock('graphique');
     document.getElementById('aeAddWiki').onclick=wiki;
-    document.getElementById('aeTocJson').onclick=()=>jsonTocDialog();\n    document.getElementById('aeTocTitle').oninput=e=>{state.course.document_pages.toc.title=e.target.value;};
+    document.getElementById('aeTocJson').onclick=()=>jsonTocDialog();
+    document.getElementById('aeTocTitle').oninput=e=>{state.course.document_pages.toc.title=e.target.value;};
     document.getElementById('aeTocSubtitle').oninput=e=>{state.course.document_pages.toc.subtitle=e.target.value;};
     document.getElementById('aePreviewToc').onclick=()=>previewToc();
-    document.getElementById('aeTocJsonInline').onclick=()=>jsonTocDialog();\n    document.getElementById('aeSave').onclick=()=>persistCourse(false,true);
+    document.getElementById('aeTocJsonInline').onclick=()=>jsonTocDialog();
+    document.getElementById('aeSave').onclick=()=>persistCourse(false,true);
     root().querySelectorAll('[data-edit-point-title]').forEach(el=>el.oninput=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editPointTitle);if(b){b.content.title=el.value;validateCourse();}});
     root().querySelectorAll('[data-edit-point-rank]').forEach(el=>el.oninput=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editPointRank);if(b){b.content.rank=Math.max(1,parseInt(el.value||'1',10));validateCourse();}});
     root().querySelectorAll('[data-edit-point-color]').forEach(el=>el.onchange=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editPointColor);if(b){b.content.color=normalizePointColor(el.value);renderWorkspace();}});
@@ -620,7 +629,10 @@
   function splitLongBlock(b){
     if(!['paragraph','point','exercise'].includes(b.type))return [];
     const raw=b.type==='exercise'?String(b.content?.statement||''):String(b.content?.text||'');
-    const source=raw.replace(/\r\n/g,'\n').replace(/\r/g,'\n').trim();
+    const source=raw.replace(/\r
+/g,'
+').replace(/\r/g,'
+').trim();
     if(!source)return [];
 
     // The old 360-character cut created very short artificial pages.
@@ -657,13 +669,17 @@
       return out;
     }
 
-    const units=source.split(/\n\s*\n+/).map(x=>x.trim()).filter(Boolean);
+    const units=source.split(/
+\s*
++/).map(x=>x.trim()).filter(Boolean);
     const chunks=[];
     let current='';
     for(const unit of units){
       for(const piece of splitUnit(unit)){
         if(!current){current=piece;continue;}
-        const candidate=current+'\n\n'+piece;
+        const candidate=current+'
+
+'+piece;
         if(candidate.length<=maxChunk){
           current=candidate;
         }else{
