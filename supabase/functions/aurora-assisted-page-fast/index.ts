@@ -272,7 +272,7 @@ async function prepareRuns(runs:Run[],auth:string,pdf:any,fonts:any,qa:any,cache
     }
     const img=await formulaImage(auth,pdf,run.value,qa,cache);
     if(img){
-      const targetH=run.kind==="display"?22:9.8;
+      const targetH=run.kind==="display"?30:12.2;
       const scale=Math.min(1,targetH/(img.height||targetH));
       prepared.push({kind:run.kind,value:run.value,image:img,width:img.width*scale,height:img.height*scale});
     }else{
@@ -310,13 +310,13 @@ function layoutInline(prepared:Run[],font:any,size:number,max:number){
   return lines.filter(x=>x.length);
 }
 
-function inlineLineAdvance(line:any[],size=11,lineHeight=13.6){
+function inlineLineAdvance(line:any[],size=11.5,lineHeight=16.2){
   const maxMathBoxH=Math.max(0,...line.filter(t=>t.kind==="math").map(t=>t.height||0));
   // Keep the common line rhythm of the normal 11 pt editorial text.
   return Math.max(lineHeight,maxMathBoxH);
 }
 
-function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,borderColor:any,textColor:any,size=11,lineHeight=13.6){
+function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,borderColor:any,textColor:any,size=11.5,lineHeight=16.2){
   // Match the normal AuroreMathCompact box and center text/math on one shared line.
   let y=topY;
   const boxPadX=7,boxPadY=3;
@@ -348,7 +348,7 @@ function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,bord
   return y;
 }
 function drawParagraph(page:any,prepared:Run[],x:number,topY:number,width:number,font:any,color:string,qa:any){
-  const size=10.95, lineHeight=13.6, inner=width;
+  const size=11.5, lineHeight=16.2, inner=width;
   const inlineRuns=prepared.filter(r=>r.kind!=="display");
   const displayRuns=prepared.filter(r=>r.kind==="display");
   const lines=layoutInline(inlineRuns,font,size,inner);
@@ -413,7 +413,7 @@ function displayMathMetrics(run:Run,width:number){
   const scale=Math.min(1,maxW/naturalW,maxH/naturalH);
   const iw=Math.max(24,naturalW*scale);
   const ih=Math.max(10,naturalH*scale);
-  const h=Math.max(30,ih+8);
+  const h=Math.max(38,ih+10);
   return {iw,ih,h};
 }
 
@@ -502,15 +502,15 @@ Deno.serve(async req=>{
       if(normalized)contentItems.push(normalized);
     }
 
-    const TEXT_SIZE=11;
-     const LINE_HEIGHT=13.6;
+    const TEXT_SIZE=11.5;
+    const LINE_HEIGHT=16.2;
     const BOX_RADIUS=11;
     const BOX_X=X-10;
     const BOX_W=W+20;
 
     const drawInlineBox=(lines:any[])=>{
       if(!lines.length)return false;
-      const boxH=14+lines.reduce(
+      const boxH=18+lines.reduce(
         (sum:any,line:any)=>sum+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),
         0
       );
@@ -520,7 +520,7 @@ Deno.serve(async req=>{
         rgbHex("#E6E6E6"),rgbHex("#A3A3A3"),0.45
       );
       drawInlineLines(
-        page,lines,X,y-7,fonts.regular,
+        page,lines,X,y-9,fonts.regular,
         color,rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT
       );
       y-=boxH+7;
