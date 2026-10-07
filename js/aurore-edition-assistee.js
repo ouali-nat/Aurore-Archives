@@ -290,7 +290,7 @@
     try{
       state.course.updated_at=new Date().toISOString();
       const {data:{user}={}}=await c.auth.getUser();if(!user)throw new Error('Session administrateur absente.');
-      const payload={id:state.course.id,created_by:user.id,title:state.course.title,editor_version:'edition-assistee-v3',pages:{schema:'aurore-assisted-course-v3',course:state.course}};
+      const payload={id:state.course.id,created_by:user.id,title:state.course.title,editor_version:'edition-assistee-v4',pages:{schema:'aurore-assisted-course-v4',course:state.course}};
       const {error}=await c.from('aurora_assisted_courses').upsert(payload,{onConflict:'id'});if(error)throw error;
       if(!silent)setStatus('Cours enregistré.');
       await loadCourses();
