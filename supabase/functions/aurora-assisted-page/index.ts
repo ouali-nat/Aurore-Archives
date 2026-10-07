@@ -80,7 +80,7 @@ Deno.serve(async(req)=>{
 
   const now=new Date().toISOString();
   const insertedJob=await admin.from("aurora_content_jobs").insert({
-    created_by:userId,status:"completed",title:course.data.title||"Cours",subject:null,level:null,class_name:null,
+    created_by:userId,status:"queued",title:course.data.title||"Cours",subject:null,level:null,class_name:null,
     document_type:"cours",source_format:"structured",prompt:"Édition assistée — rendu d’une page indépendante.",
     instructions:{assisted_page:true,classification:{category:"Édition assistée",resource_type:"cours"}},
     source_document_ids:[],metadata:{origin:"edition_assistee",assisted_page:{course_id:courseId,block_id:blockId,page_number:pageNumber,block_type:type}},
