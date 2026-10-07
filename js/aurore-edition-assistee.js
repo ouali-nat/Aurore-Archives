@@ -147,9 +147,9 @@
     if (!Number.isFinite(Number(l.x)) || !Number.isFinite(Number(l.y))) errors.push('Position invalide.');
     if (!Number.isFinite(Number(l.width)) || Number(l.width) < 55) errors.push('Largeur minimale non respectée.');
     if (!Number.isFinite(Number(l.height)) || Number(l.height) < 30) errors.push('Hauteur minimale non respectée.');
-    if (Number(l.x) < printable.left || Number(l.y) < printable.top) warnings.push('Le bloc dépasse la zone imprimable en haut/à gauche.');
-    if (Number(l.x) + Number(l.width) > W - printable.right) warnings.push('Le bloc dépasse la zone imprimable à droite.');
-    if (Number(l.y) + Number(l.height) > H - printable.bottom) warnings.push('Le bloc dépasse la zone imprimable en bas.');
+    if (Number(l.x) < printable.left || Number(l.y) < printable.top) errors.push('Le bloc dépasse la zone imprimable en haut/à gauche.');
+    if (Number(l.x) + Number(l.width) > W - printable.right) errors.push('Le bloc dépasse la zone imprimable à droite.');
+    if (Number(l.y) + Number(l.height) > H - printable.bottom) errors.push('Le bloc dépasse la zone imprimable en bas.');
 
     if (b.type === 'paragraph' && !String(b.content?.text || '').trim()) errors.push('Paragraphe vide.');
     if (b.type === 'point' && !String(b.content?.text || '').trim()) errors.push('Point de cours vide.');
