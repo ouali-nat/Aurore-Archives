@@ -23,7 +23,12 @@ function validWikimedia(content:any){
   return true;
 }
 
-function buildContent(courseTitle:string,pageNumber:number,block:any){
+function normalizeHexColor(value:any){
+  const h=String(value??"").trim().toUpperCase();
+  return /^#[0-9A-F]{6}$/.test(h)?h:null;
+}
+
+function buildContent(courseTitle:string,pageNumber:number,block:any,themeColor:string|null){
   const type=clean(block?.type||"paragraph").toLowerCase();
   const content=block?.content&&typeof block.content==="object"?block.content:{};
   const section:any={title:"Bloc "+String(pageNumber),content:[],exercises:[],graphs:[]};
@@ -35,6 +40,7 @@ function buildContent(courseTitle:string,pageNumber:number,block:any){
   else throw new Error("Type de bloc non pris en charge : "+type);
   return {
     title:courseTitle,
+    theme_color:themeColor,
     document_type:"page_assistee",
     source_format:"structured",
     sections:[section],
@@ -98,13 +104,14 @@ Deno.serve(async(req)=>{
 
   const jobId=Number(insertedJob.data.id);
   let contentJson:any;
-  try{contentJson=buildContent(String(course.data.title||body.course_title||"Cours"),pageNumber,block);}
+  const themeColor=normalizeHexColor(body?.theme_color);
+  try{contentJson=buildContent(String(course.data.title||body.course_title||"Cours"),pageNumber,block,themeColor);}
   catch(e){return out({ok:false,error:e instanceof Error?e.message:String(e)},400);}
 
   const metadata={
     origin:"edition_assistee",
     pipeline:"Édition assistée -> LuaLaTeX production",
-    assisted_page:{course_id:courseId,block_id:blockId,page_number:pageNumber,block_type:type}
+    assisted_page:{course_id:courseId,block_id:blockId,page_number:pageNumber,block_type:type,theme_color:themeColor}
   };
   const insertedDoc=await admin.from("aurora_generated_documents").insert({
     job_id:jobId,created_by:userId,title:(course.data.title||"Cours")+" — Page "+String(pageNumber),
