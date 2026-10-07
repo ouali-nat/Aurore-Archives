@@ -52,8 +52,8 @@
     course.document_pages.toc=course.document_pages.toc&&typeof course.document_pages.toc==='object'
       ?course.document_pages.toc:{enabled:true,title:'Sommaire',subtitle:'Organisation du document',entries:[]};
     course.document_pages.toc.enabled=true;
-    course.document_pages.toc.title=String(course.document_pages.toc.title||'Sommaire');
-    course.document_pages.toc.subtitle=String(course.document_pages.toc.subtitle||'Organisation du document');
+    course.document_pages.toc.title='Sommaire';
+    course.document_pages.toc.subtitle='Table des matières';
     course.document_pages.toc.entries=Array.isArray(course.document_pages.toc.entries)?course.document_pages.toc.entries:[];
     course.document_pages.end=course.document_pages.end&&typeof course.document_pages.end==='object'
       ?course.document_pages.end:{enabled:true,title:'Fin du document',subtitle:'Merci d’avoir consulté ce cours.',contact:'',show_qr:false};
@@ -272,30 +272,29 @@
   function mainText(b){return b.type==='exercise'?b.content?.statement||'':b.type==='graphique'?JSON.stringify(b.content?.json||{},null,2):b.content?.text||b.content?.caption||b.content?.title||''}
 
   function systemBlockCard(b,i){
-    const start=b.role===START_ROLE;
-    const cfg=start?(state.course.document_pages?.cover||b.content||{}):(state.course.document_pages?.end||b.content||{});
-    const page=start?1:activeBlocks().length+1;
-    const title=start?'Première page · couverture':'Dernière page · clôture';
-    const subtitle=start?'Page d’ouverture personnalisable':'Page de fin personnalisable';
-    const editor=start
-      ? '<div class="ae-system-fields"><label>Titre<input data-edit-system-title="'+esc(b.id)+'" value="'+esc(cfg.title||state.course.title||'')+'" maxlength="180"></label><label>Sous-titre<input data-edit-system-subtitle="'+esc(b.id)+'" value="'+esc(cfg.subtitle||'')+'" maxlength="220"></label><label>Auteur<input data-edit-system-author="'+esc(b.id)+'" value="'+esc(cfg.author||'')+'" maxlength="140"></label><label>Institution<input data-edit-system-institution="'+esc(b.id)+'" value="'+esc(cfg.institution||'')+'" maxlength="180"></label></div>'
-      : '<div class="ae-system-fields"><label>Titre<input data-edit-system-title="'+esc(b.id)+'" value="'+esc(cfg.title||'')+'" maxlength="180"></label><label>Message<input data-edit-system-subtitle="'+esc(b.id)+'" value="'+esc(cfg.subtitle||'')+'" maxlength="220"></label><label>Contact / référence<input data-edit-system-contact="'+esc(b.id)+'" value="'+esc(cfg.contact||'')+'" maxlength="180"></label></div>';
+    const startPage=b.role===START_ROLE;
+    const page=startPage?1:pageNumberFor(b);
+    const title=startPage?'Première page · couverture':'Dernière page · mentions, crédits et vérification';
+    const subtitle=startPage?'Présentation canonique du document Aurore':'Dernière page canonique de la production Aurore';
+    const summary=startPage
+      ? '<strong>Document pédagogique</strong><span>'+esc(state.course.title||'Nouveau cours')+'</span><span>Logo Aurore · identité visuelle officielle · format A4</span>'
+      : '<strong>Mentions · crédits · vérification</strong><span>Identité de l’édition · QR de vérification · droits & réutilisation</span><span>Page générée par le même renderer que le document final.</span>';
     return '<article class="ae-block ae-system-block" data-block="'+esc(b.id)+'">'+
       '<header class="ae-block-head"><div><span class="ae-block-number">'+String(page).padStart(2,'0')+'</span><strong>'+esc(title)+'</strong><small>'+esc(subtitle)+' · système</small></div><span class="ae-block-state ok">Prévisualisable</span></header>'+
-      '<div class="ae-system-content">'+editor+'</div>'+
+      '<div class="ae-system-content">'+summary+'</div>'+
       '<div class="ae-block-toolbar"><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Prévisualiser</button><button class="admin-btn ghost" data-json-system="'+esc(b.id)+'">JSON</button></div>'+
-      '<div class="ae-block-result"><span>Cette page reste séparée des blocs de contenu et sera intégrée lors de la fusion finale.</span></div>'+
+      '<div class="ae-block-result"><span>Aperçu = page réellement produite par le renderer canonique LuaLaTeX.</span></div>'+
       '</article>';
   }
 
   function tocSystemCard(){
     ensureDocumentPages(state.course);rebuildTocEntries();
     const cfg=state.course.document_pages.toc;
-    return '<article class="ae-block ae-system-block ae-toc-system"><header class="ae-block-head"><div><span class="ae-block-number">02</span><strong>Sommaire</strong><small>Page système · personnalisable · prévisualisable</small></div><span class="ae-block-state ok">Prévisualisable</span></header>'+
-      '<div class="ae-system-content"><div class="ae-system-fields"><label>Titre du sommaire<input id="aeTocTitle" value="'+esc(cfg.title||'Sommaire')+'" maxlength="140"></label><label>Sous-titre<input id="aeTocSubtitle" value="'+esc(cfg.subtitle||'')+'" maxlength="180"></label></div>'+
-      '<div class="ae-toc-outline">'+cfg.entries.map((e,i)=>'<span><b>'+String(b?.role===START_ROLE?1:b?.role===END_ROLE?pageNumberFor(b):pageNumberFor(b)).padStart(2,'0')+'</b>'+esc(e.title||('Entrée '+(i+1)))+'</span>').join('')+'</div></div>'+
+    return '<article class="ae-block ae-system-block ae-toc-system"><header class="ae-block-head"><div><span class="ae-block-number">02</span><strong>Sommaire</strong><small>Page système · canonique · prévisualisable</small></div><span class="ae-block-state ok">Prévisualisable</span></header>'+
+      '<div class="ae-system-content"><strong>Sommaire</strong><span>Table des matières générée automatiquement par le renderer canonique à partir des sections du document.</span>'+
+      '<div class="ae-toc-outline">'+cfg.entries.map((e,i)=>'<span><b>'+String(i+1).padStart(2,'0')+'</b>'+esc(e.title||('Entrée '+(i+1)))+'</span>').join('')+'</div></div>'+
       '<div class="ae-block-toolbar"><button class="admin-btn ghost" id="aePreviewToc">Prévisualiser</button><button class="admin-btn ghost" id="aeTocJsonInline">JSON</button></div>'+
-      '<div class="ae-block-result"><span>Le sommaire est construit à partir des blocs, mais ses entrées restent éditables par JSON.</span></div></article>';
+      '<div class="ae-block-result"><span>Le titre canonique est « Sommaire ». Les numéros de page affichés dans le PDF sont calculés par LuaLaTeX.</span></div></article>';
   }
 
   function blockCard(b,i){
@@ -308,7 +307,7 @@
     else if(b.type==='wikimedia-image')editor=b.content?.imageUrl?'<div class="ae-selected-image"><img src="'+esc(b.content.imageUrl)+'" alt="'+esc(b.content.title||'Image Wikimedia')+'"><div><strong>'+esc(b.content.title||'Image Wikimedia')+'</strong><small>'+esc(b.content.license||'Licence à vérifier')+'</small></div></div>':'<div class="ae-image-pick-empty">Ajoutez une image Wikimedia avec le bouton dédié.</div>';
     else editor='<textarea data-edit-text="'+esc(b.id)+'" aria-label="Contenu du bloc">'+esc(b.content?.text||'')+'</textarea>';
     return '<article class="ae-block '+(state.selected===b.id?'is-selected':'')+'" data-block="'+esc(b.id)+'">'+
-      '<header class="ae-block-head"><div><span class="ae-block-number">'+String(i+1).padStart(2,'0')+'</span><strong>'+esc(labelFor(b))+'</strong><small>'+esc(b.validation?.ok?'Bloc valide':'À valider')+'</small></div><span class="ae-block-state '+(v.ok?'ok':'bad')+'">'+(v.ok?'Valide':'À corriger')+'</span></header>'+
+      '<header class="ae-block-head"><div><span class="ae-block-number">'+String(page).padStart(2,'0')+'</span><strong>'+esc(labelFor(b))+'</strong><small>'+esc(b.validation?.ok?'Bloc valide':'À valider')+'</small></div><span class="ae-block-state '+(v.ok?'ok':'bad')+'">'+(v.ok?'Valide':'À corriger')+'</span></header>'+
       '<div class="ae-block-editor">'+editor+'</div>'+
       '<div class="ae-block-toolbar"><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Prévisualiser</button><button class="admin-btn ghost" data-json-block="'+esc(b.id)+'">JSON</button><button class="admin-btn ghost" data-copy-block="'+esc(b.id)+'">Copier</button><button class="admin-btn ghost" data-duplicate-block="'+esc(b.id)+'">Dupliquer</button>'+(b.type==='paragraph'?'<button class="admin-btn ghost" data-clear-paragraph="'+esc(b.id)+'">Vider</button>':'')+'<button class="admin-btn danger" data-delete-block="'+esc(b.id)+'">Supprimer</button><button class="admin-btn primary" data-validate-block="'+esc(b.id)+'">Valider & générer la page</button></div>'+
       '<div class="ae-block-result">'+(gen.status==='ready'&&gen.page_url?'<span class="ae-generated-ok">✓ Page '+page+' générée seule</span><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Visualiser</button><a class="admin-btn ghost" href="'+esc(gen.page_url)+'" download="aurore-page-'+page+'.pdf">Télécharger</a>':gen.status==='generating'?'<div class="ae-generation-progress" role="status" aria-live="polite"><div class="ae-generation-progress-top"><span data-progress-label>'+esc(gen.progress_label||'Génération de la page…')+'</span><strong data-progress-pct>'+Math.round(Number(gen.progress||8))+'%</strong></div><div class="ae-progress-track"><span data-progress-bar style="width:'+Math.max(8,Math.min(100,Number(gen.progress||8)))+'%"></span></div><small>Progression indicative · la page est en cours de génération.</small></div>':gen.status==='error'?'<span class="ae-generated-error">Erreur : '+esc(gen.error||'génération impossible')+'</span>':b.type==='graphique'&&v.ok?'<span>JSON validé · la construction graphique reste destinée au moteur GeoGebra/LuaLaTeX.</span>':'<span>Aucune page générée pour ce bloc.</span>')+'</div>'+
@@ -363,25 +362,6 @@
     root().querySelectorAll('[data-edit-text]').forEach(el=>el.oninput=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editText);if(b){if(b.type==='exercise')b.content.statement=el.value;else b.content.text=el.value;validateCourse();}});
     root().querySelectorAll('[data-edit-json]').forEach(el=>el.onchange=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editJson);if(!b)return;try{b.content=normalizeContent('graphique',JSON.parse(el.value));validateBlock(b);renderWorkspace();}catch(_){setStatus('JSON graphique invalide.')}});
 
-    root().querySelectorAll('[data-edit-system-title]').forEach(el=>el.oninput=()=>{
-      const b=activeBlocks().find(x=>x.id===el.dataset.editSystemTitle);if(!b)return;
-      const cfg=b.role===START_ROLE?state.course.document_pages.cover:state.course.document_pages.end;
-      cfg.title=el.value;syncSystemPages(state.course);
-    });
-    root().querySelectorAll('[data-edit-system-subtitle]').forEach(el=>el.oninput=()=>{
-      const b=activeBlocks().find(x=>x.id===el.dataset.editSystemSubtitle);if(!b)return;
-      const cfg=b.role===START_ROLE?state.course.document_pages.cover:state.course.document_pages.end;
-      cfg.subtitle=el.value;syncSystemPages(state.course);
-    });
-    root().querySelectorAll('[data-edit-system-author]').forEach(el=>el.oninput=()=>{
-      state.course.document_pages.cover.author=el.value;syncSystemPages(state.course);
-    });
-    root().querySelectorAll('[data-edit-system-institution]').forEach(el=>el.oninput=()=>{
-      state.course.document_pages.cover.institution=el.value;syncSystemPages(state.course);
-    });
-    root().querySelectorAll('[data-edit-system-contact]').forEach(el=>el.oninput=()=>{
-      state.course.document_pages.end.contact=el.value;syncSystemPages(state.course);
-    });
     root().querySelectorAll('[data-json-system]').forEach(x=>x.onclick=()=>jsonSystemDialog(x.dataset.jsonSystem));
     root().querySelectorAll('[data-preview-block]').forEach(x=>x.onclick=()=>previewBlock(x.dataset.previewBlock));
     root().querySelectorAll('[data-json-block]').forEach(x=>x.onclick=()=>jsonDialog(x.dataset.jsonBlock));
