@@ -83,6 +83,105 @@ function buildContent(courseTitle:string,pageNumber:number,block:any,themeColor:
   };
 }
 
+
+function buildCanonicalPreviewContent(course:any,themeColor:string|null){
+  const title=String(course?.title||"Cours").trim()||"Cours";
+  const rawBlocks=Array.isArray(course?.blocks)?course.blocks:[];
+  const blocks=rawBlocks.filter((b:any)=>String(b?.role||"").toLowerCase()!=="document-start"&&String(b?.role||"").toLowerCase()!=="document-end");
+  const sections:any[]=[];
+  const corrections:any[]=[];
+  const images:any[]=[];
+  const validBlocks=blocks.filter((b:any)=>b&&typeof b==="object"&&String(b.type||"").trim());
+  let exerciseNumber=0;
+
+  for(let i=0;i<validBlocks.length;i++){
+    const b=validBlocks[i],type=clean(b.type).toLowerCase(),content=b.content&&typeof b.content==="object"?b.content:{};
+    if(type==="paragraph"){
+      const text=extractStructuredText(content.text||"");
+      if(!clean(text))continue;
+      sections.push({title:"Bloc "+String(i+1),content:[text],exercises:[],graphs:[]});
+    }else if(type==="point"){
+      const text=extractStructuredText(content.text||"");
+      if(!clean(text))continue;
+      sections.push({
+        title:clean(content.title)||"Point de cours",
+        objective:"",
+        content:[text],
+        exercises:[],
+        graphs:[]
+      });
+    }else if(type==="exercise"){
+      const statement=extractStructuredText(content.statement||"");
+      if(!clean(statement))continue;
+      exerciseNumber+=1;
+      const id=clean(b.id)||"exercise-"+String(exerciseNumber);
+      sections.push({
+        title:clean(content.title)||("Exercice "+String(exerciseNumber)),
+        content:[],
+        exercises:[{
+          id,
+          question:statement,
+          statement,
+          hint:extractStructuredText(content.hint||"")
+        }],
+        graphs:[]
+      });
+      const correction=extractStructuredText(content.correction||"");
+      if(clean(correction)){
+        corrections.push({
+          exercise_number:exerciseNumber,
+          exercise_id:id,
+          solution:correction,
+          correction_title:clean(content.correction_title)||("Corrigé "+String(exerciseNumber))
+        });
+      }
+    }else if(type==="graphique"){
+      const graph=content.json&&typeof content.json==="object"&&!Array.isArray(content.json)?content.json:null;
+      if(!graph)continue;
+      sections.push({
+        title:clean(graph.title)||("Graphique "+String(i+1)),
+        content:[],
+        exercises:[],
+        graphs:[graph]
+      });
+    }else if(type==="wikimedia-image"){
+      const imageUrl=String(content.imageUrl||"").trim();
+      if(!imageUrl)continue;
+      sections.push({
+        title:clean(content.title)||("Illustration "+String(i+1)),
+        content:["Illustration documentaire."],
+        exercises:[],
+        graphs:[]
+      });
+      if(imageUrl.startsWith("https://upload.wikimedia.org/")){
+        images.push({
+          url:imageUrl,
+          caption:String(content.caption||""),
+          title:String(content.title||""),
+          author:String(content.author||""),
+          license:String(content.license||""),
+          source_url:String(content.sourceUrl||"")
+        });
+      }
+    }
+  }
+
+  return {
+    title,
+    theme_color:themeColor,
+    document_type:"cours",
+    source_format:"structured",
+    sections,
+    corrections,
+    images,
+    metadata:{
+      origin:"edition_assistee",
+      assisted_document_preview:true,
+      preview_contract:"canonical-production-first-toc-last"
+    }
+  };
+}
+
 Deno.serve(async(req)=>{
   if(req.method==="OPTIONS")return new Response("ok",{headers:C});
   if(req.method!=="POST")return out({ok:false,error:"Méthode non autorisée"},405);
@@ -95,16 +194,109 @@ Deno.serve(async(req)=>{
 
   let body:any;
   try{body=await req.json()}catch{return out({ok:false,error:"JSON invalide"},400);}
-  const courseId=clean(body?.course_id),blockId=clean(body?.block_id);
-  const pageNumber=Number(body?.page_number||0);
-  const block=body?.block&&typeof body.block==="object"?body.block:null;
-  if(!courseId||!blockId||!Number.isInteger(pageNumber)||pageNumber<1||!block){
-    return out({ok:false,error:"course_id, block_id, page_number et block sont requis"},400);
+  const courseId=clean(body?.course_id);
+  const previewMode=String(body?.mode||"").trim()==="canonical-document-preview";
+  const statusMode=String(body?.mode||"").trim()==="canonical-document-preview-status";
+
+  if(!courseId){
+    return out({ok:false,error:"course_id est requis"},400);
   }
 
   const course=await admin.from("aurora_assisted_courses").select("id,created_by,title,pages").eq("id",courseId).eq("created_by",userId).maybeSingle();
   if(course.error)return out({ok:false,error:course.error.message},500);
   if(!course.data)return out({ok:false,error:"Cours d’édition introuvable ou accès refusé"},404);
+
+  if(statusMode){
+    const previewId=Number(body?.generated_document_id||0);
+    if(!Number.isSafeInteger(previewId)||previewId<1)return out({ok:false,error:"generated_document_id invalide"},400);
+    const row=await admin.from("aurora_generated_documents").select("id,title,status,pdf_path,pdf_url,metadata,version,updated_at").eq("id",previewId).eq("created_by",userId).maybeSingle();
+    if(row.error)return out({ok:false,error:row.error.message},500);
+    if(!row.data)return out({ok:false,error:"Aperçu canonique introuvable ou accès refusé"},404);
+    const md=row.data.metadata&&typeof row.data.metadata==="object"?row.data.metadata:{};
+    return out({
+      ok:true,
+      generated_document_id:row.data.id,
+      title:row.data.title,
+      status:row.data.status,
+      pdf_path:row.data.pdf_path||null,
+      pdf_url:row.data.pdf_url||null,
+      lualatex_status:md.lualatex_status||null,
+      lualatex_progress:Number(md.lualatex_progress||0),
+      lualatex_stage:md.lualatex_stage||null,
+      production_status:md.production_status||null,
+      error:md.lualatex_last_error||null,
+      updated_at:row.data.updated_at||null
+    });
+  }
+
+  if(previewMode){
+    const pages=course.data.pages&&typeof course.data.pages==="object"?course.data.pages:{};
+    const sourceCourse=pages.course&&typeof pages.course==="object"?pages.course:{title:course.data.title||"Cours",blocks:[]};
+    const themeColor=normalizeHexColor(body?.theme_color)||normalizeHexColor(sourceCourse?.theme_color);
+    const contentJson=buildCanonicalPreviewContent(sourceCourse,themeColor);
+    const now=new Date().toISOString();
+
+    const insertedJob=await admin.from("aurora_content_jobs").insert({
+      created_by:userId,status:"queued",title:sourceCourse.title||course.data.title||"Cours",
+      subject:sourceCourse.subject||null,level:sourceCourse.level||null,class_name:sourceCourse.class_name||null,
+      document_type:"cours",source_format:"structured",
+      prompt:"Aperçu canonique de l’édition assistée — couverture, sommaire, contenu et page de clôture.",
+      instructions:{canonical_preview:true,manual_pdf_launch_required:true},
+      source_document_ids:[],metadata:{origin:"edition_assistee",assisted_document_preview:true},
+      created_at:now,updated_at:now
+    }).select("id").single();
+    if(insertedJob.error)return out({ok:false,error:"Création du job d’aperçu impossible : "+insertedJob.error.message},500);
+
+    const jobId=Number(insertedJob.data.id);
+    const insertedDoc=await admin.from("aurora_generated_documents").insert({
+      job_id:jobId,created_by:userId,title:sourceCourse.title||course.data.title||"Cours",
+      subject:sourceCourse.subject||null,level:sourceCourse.level||null,class_name:sourceCourse.class_name||null,
+      document_type:"cours",source_format:"structured",source_content:null,
+      content_json:contentJson,version:1,status:"review",
+      validation_notes:"Aperçu canonique de l’éditeur assisté — jamais publiable tel quel.",
+      metadata:{
+        origin:"edition_assistee",
+        assisted_document_preview:true,
+        pipeline:"Édition assistée -> renderer canonique LuaLaTeX",
+        preview_contract:"canonical-production-first-toc-last"
+      },
+      theme_color:themeColor,matiere:sourceCourse.subject||null
+    }).select("id,status,metadata").single();
+    if(insertedDoc.error)return out({ok:false,error:"Création du document d’aperçu impossible : "+insertedDoc.error.message},500);
+
+    const generatedDocumentId=Number(insertedDoc.data.id);
+    const request=await fetch(URL_+"/functions/v1/aurora-pdf-production-request",{
+      method:"POST",
+      headers:{"Authorization":auth,"Content-Type":"application/json","apikey":ANON},
+      body:JSON.stringify({generated_document_id:generatedDocumentId})
+    });
+    let q:any={};
+    try{q=await request.json()}catch{q={error:"Réponse de la file LuaLaTeX invalide"}}
+    if(!request.ok||!q.ok){
+      return out({
+        ok:false,
+        error:q?.error||("Demande de production HTTP "+request.status),
+        generated_document_id:generatedDocumentId,
+        queued:false
+      },500);
+    }
+    return out({
+      ok:true,
+      mode:"canonical-document-preview",
+      generated_document_id:generatedDocumentId,
+      queued:Boolean(q.queued),
+      queue_position:q.queue_position??null,
+      queue_total:q.queue_total??null,
+      wake:q.wake||null
+    });
+  }
+
+  const blockId=clean(body?.block_id);
+  const pageNumber=Number(body?.page_number||0);
+  const block=body?.block&&typeof body.block==="object"?body.block:null;
+  if(!blockId||!Number.isInteger(pageNumber)||pageNumber<1||!block){
+    return out({ok:false,error:"course_id, block_id, page_number et block sont requis"},400);
+  }
 
   const type=clean(block.type||"paragraph").toLowerCase();
   const content=block.content&&typeof block.content==="object"?block.content:{};
