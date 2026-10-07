@@ -324,8 +324,13 @@ function inlineLineAdvance(line:any[],size=10.7,lineHeight=15.4){
 }
 
 function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,borderColor:any,textColor:any,size=10.7,lineHeight=15.3){
+  // Mirror the production AuroreMathCompact tcolorbox:
+  // on-line, light gray fill, thin gray frame, 6pt radius and compact padding.
+  // No dark shell and no nested panel: the formula image itself is the payload.
   let y=topY;
-  const boxPadX=4,boxPadY=3;
+  const boxPadX=4.5,boxPadY=2;
+  const frame=rgbHex("#BDBDBD");       // gray!48!white
+  const fill=rgbHex("#F7F7F7");        // gray!6!white
   for(const line of lines){
     let cx=x;
     const maxH=Math.max(size,...line.filter(t=>t.kind==="math").map(t=>t.height||size));
@@ -335,14 +340,14 @@ function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,bord
         page.drawText(escapePdfText(token.value),{x:cx,y:y-size+3,font,size,color:textColor});
         cx+=token.width;
       }else{
-        const iw=Math.max(1,(token.width||10)-8), ih=Math.max(1,(token.height||10)-6);
-        const by=y-maxH+3, bh=ih+boxPadY*2;
+        const iw=Math.max(1,(token.width||10)-8);
+        const ih=Math.max(1,(token.height||10)-6);
+        const bh=ih+boxPadY*2;
+        const by=y-maxH+1;
         const outerW=iw+boxPadX*2;
-        rounded(page,cx-boxPadX+1.6,by-1.8,outerW,bh,5,rgbHex("#16171B"),rgbHex("#16171B"),0);
-        rounded(page,cx-boxPadX,by,outerW,bh,5,rgbHex("#27292F"),borderColor,0.45);
-        rounded(page,cx-1.5,by+1.7,Math.max(4,iw+3),Math.max(4,ih-0.5),3,rgbHex("#F7F7F9"),rgbHex("#F7F7F9"),0);
+        rounded(page,cx-boxPadX,by,outerW,bh,6,fill,frame,0.4);
         page.drawImage(token.image,{x:cx,y:by+boxPadY,width:iw,height:ih});
-        cx+=iw+boxPadX*2;
+        cx+=outerW;
       }
     }
     y-=Math.max(lineHeight,inlineLineAdvance(line,size,lineHeight));
@@ -407,30 +412,36 @@ function sectionLabel(page:any,label:string,x:number,y:number,fonts:any,color:st
 }
 
 function displayMathMetrics(run:Run,width:number){
+  // Mirror AuroreMathBlock's breakable framed area while sizing the raster
+  // formula from its real dimensions so tall/complex LaTeX reserves enough space.
   const naturalW=Math.max(1,run.width||width-48);
   const naturalH=Math.max(1,run.height||42);
-  const maxW=Math.max(80,width-48);
-  const maxH=118;
+  const maxW=Math.max(80,width-14);
+  const maxH=120;
   const scale=Math.min(1,maxW/naturalW,maxH/naturalH);
   const iw=Math.max(24,naturalW*scale);
   const ih=Math.max(10,naturalH*scale);
-  const h=Math.max(54,ih+24);
+  const h=Math.max(54,ih+8);
   return {iw,ih,h};
 }
 
 function drawDisplayMath(page:any,run:Run,x:number,y:number,width:number,color:string){
+  // Production-equivalent AuroreMathBlock:
+  // light Aurore-pale fill, Aurore frame, rounded 8pt corners and a left rule.
+  // The old dark floating shell / inner white panel is deliberately removed.
   const m=displayMathMetrics(run,width);
   const x0=x, y0=y-m.h;
-  rounded(page,x0+2,y0-2,width,m.h,10,rgbHex("#16171B"),rgbHex("#16171B"),0);
-  rounded(page,x0,y0,width,m.h,10,rgbHex("#27292F"),rgbHex("#52555F"),0.6);
-  page.drawLine({start:{x:x0,y:y0+7},end:{x:x0,y:y-7},thickness:1.8,color:rgbHex(mixWhite(color,0.30))});
-  const panelW=m.iw+18;
-  const panelH=m.ih+12;
-  const panelX=x0+(width-panelW)/2;
-  const panelY=y0+(m.h-panelH)/2;
-  rounded(page,panelX,panelY,panelW,panelH,7,rgbHex("#F7F7F9"),rgbHex("#F7F7F9"),0);
-  page.drawImage(run.image,{x:x0+(width-m.iw)/2,y:y0+(m.h-m.ih)/2,width:m.iw,height:m.ih});
-  return y0-9;
+  const frame=rgbHex(mixWhite(color,0.58));   // aurorebase!58!white
+  const fill=rgbHex("#FEFEFE");               // white!99!aurorepale ≈ white
+  rounded(page,x0,y0,width,m.h,8,fill,frame,0.45);
+  page.drawLine({start:{x:x0,y:y0+6},end:{x:x0,y:y-6},thickness:1.6,color:frame});
+  page.drawImage(run.image,{
+    x:x0+(width-m.iw)/2,
+    y:y0+(m.h-m.ih)/2,
+    width:m.iw,
+    height:m.ih
+  });
+  return y0-6;
 }
 
 Deno.serve(async req=>{
@@ -540,7 +551,7 @@ Deno.serve(async req=>{
         let yy=y-11;
         for(const chunk of chunks){
           if(chunk.kind==="inline"){
-            yy=drawInlineLines(page,chunk.lines,X,yy,fonts.regular,rgbHex(mixWhite(color,0.60)),rgbHex("#202126"),10.7,lineHeight);
+            yy=drawInlineLines(page,chunk.lines,X,yy,fonts.regular,rgbHex("#BDBDBD"),rgbHex("#202126"),10.7,lineHeight);
           }else{
             yy=drawDisplayMath(page,chunk.run,X,yy-2,W,color);
           }
