@@ -168,22 +168,13 @@ async function loadLogo(pdf:any){
 }
 
 async function loadFonts(pdf:any){
-  const result:any={regular:null,bold:null};
-  try{
-    const [r,b]=await Promise.all([
-      fetch("https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf"),
-      fetch("https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSans/NotoSans-Bold.ttf")
-    ]);
-    if(r.ok&&b.ok){
-      const [rb,bb]=await Promise.all([r.arrayBuffer(),b.arrayBuffer()]);
-      result.regular=await pdf.embedFont(new Uint8Array(rb),{subset:true});
-      result.bold=await pdf.embedFont(new Uint8Array(bb),{subset:true});
-      return result;
-    }
-  }catch(_){}
-  result.regular=await pdf.embedFont(StandardFonts.Helvetica);
-  result.bold=await pdf.embedFont(StandardFonts.HelveticaBold);
-  return result;
+  // The normal Aurore route uses a serif body face and sans-serif editorial labels.
+  return {
+    regular:await pdf.embedFont(StandardFonts.TimesRoman),
+    bold:await pdf.embedFont(StandardFonts.TimesRomanBold),
+    sans:await pdf.embedFont(StandardFonts.Helvetica),
+    sansBold:await pdf.embedFont(StandardFonts.HelveticaBold)
+  };
 }
 
 async function formulaImage(auth:string,pdf:any,source:string,qa:any,cache:Map<string,any>){
@@ -305,7 +296,7 @@ function layoutInline(prepared:Run[],font:any,size:number,max:number){
     width+=(lines[lines.length-1].length>1?space:0)+w;
   };
   const addMath=(r:Run)=>{
-    const w=(r.width||0)+8;
+    const w=(r.width||0)+14;
     const space=lines[lines.length-1].length?4:0;
     if(width+space+w>max&&lines[lines.length-1].length){
       lines.push([]);width=0;
@@ -318,18 +309,17 @@ function layoutInline(prepared:Run[],font:any,size:number,max:number){
   return lines.filter(x=>x.length);
 }
 
-function inlineLineAdvance(line:any[],size=10.2,lineHeight=14.3){
+function inlineLineAdvance(line:any[],size=10.95,lineHeight=13.6){
   const maxMathH=Math.max(0,...line.filter(t=>t.kind==="math").map(t=>t.height||0));
   return Math.max(lineHeight,size+4,maxMathH+5);
 }
 
-function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,borderColor:any,textColor:any,size=10.2,lineHeight=14.3){
-  // Production AuroreMathCompact proportions:
-  // compact on-line gray box, thin frame, no nested/dark shell.
+function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,borderColor:any,textColor:any,size=10.95,lineHeight=13.6){
+  // Match the normal AuroreMathCompact geometry.
   let y=topY;
-  const boxPadX=4.5,boxPadY=2;
-  const frame=rgbHex("#BDBDBD"); // gray!48!white
-  const fill=rgbHex("#F7F7F7");  // gray!6!white
+  const boxPadX=7,boxPadY=3;
+  const frame=rgbHex(mixWhite(borderColor,0.42)); // aurorebase!58!white
+  const fill=rgbHex(mixWhite(mixWhite(borderColor,0.96),0.99)); // white!99!aurorepale
   for(const line of lines){
     let cx=x;
     const maxH=Math.max(size,...line.filter(t=>t.kind==="math").map(t=>t.height||size));
@@ -339,12 +329,12 @@ function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,bord
         page.drawText(escapePdfText(token.value),{x:cx,y:y-size+2.5,font,size,color:textColor});
         cx+=token.width;
       }else{
-        const iw=Math.max(1,(token.width||10)-8);
+        const iw=Math.max(1,(token.width||14)-14);
         const ih=Math.max(1,(token.height||10)-6);
         const bh=ih+boxPadY*2;
         const by=y-maxH+1;
         const outerW=iw+boxPadX*2;
-        rounded(page,cx-boxPadX,by,outerW,bh,6,fill,frame,0.4);
+        rounded(page,cx-boxPadX,by,outerW,bh,7,fill,frame,0.45);
         page.drawImage(token.image,{x:cx,y:by+boxPadY,width:iw,height:ih});
         cx+=outerW;
       }
@@ -360,13 +350,14 @@ function drawParagraph(page:any,prepared:Run[],x:number,topY:number,width:number
   const lines=layoutInline(inlineRuns,font,size,inner);
   const displayHeight=displayRuns.length?displayRuns.reduce((n,r)=>n+(r.height||42)+20,0):0;
   const lineCount=Math.max(1,lines.length);
-  const boxH=14+lineCount*lineHeight+displayHeight+10;
+  const boxH=14+lineCount*lineHeight+displayHeight;
   return {lines,displayRuns,boxH};
 }
 
 function drawSoftDecor(page:any,color:string){
   const W=595,H=842;
-  page.drawRectangle({x:0,y:0,width:W,height:H,color:rgbHex(mixWhite(color,0.985))});
+  // Same very pale page tone as the normal editorial route (aurorepale).
+  page.drawRectangle({x:0,y:0,width:W,height:H,color:rgbHex(mixWhite(color,0.96))});
 
   // Aurore production-style edge bubbles: large, pale and always behind content.
   page.drawCircle({x:606,y:832,size:72,color:rgbHex(mixWhite(color,0.89))});
@@ -389,24 +380,24 @@ function drawSoftDecor(page:any,color:string){
 function headerFooter(page:any,pageNo:number,fonts:any,logo:any,color:string){
   const W=595,H=842;
   if(logo){
-    const scale=Math.min(29/(logo.width||29),29/(logo.height||29));
+    const scale=Math.min(17/(logo.width||17),17/(logo.height||17));
     page.drawImage(logo,{x:39,y:805,width:logo.width*scale,height:logo.height*scale});
   }else{
-    page.drawCircle({x:53,y:819,size:12,color:rgbHex(mixWhite(color,0.70))});
+    page.drawCircle({x:47,y:811,size:8.5,color:rgbHex(mixWhite(color,0.70))});
   }
-  page.drawText("Aurore — Section Archives",{x:W-182,y:811,font:fonts.bold,size:8.4,color:rgbHex(mixWhite(color,0.18))});
+  page.drawText("Aurore — Section Archives",{x:W-182,y:807,font:fonts.sans,size:9.5,color:rgbHex(mixWhite(color,0.18))});
   page.drawLine({start:{x:39,y:795},end:{x:W-39,y:795},thickness:0.55,color:rgbHex(mixWhite(color,0.72))});
   page.drawLine({start:{x:39,y:43},end:{x:W-39,y:43},thickness:0.55,color:rgbHex(mixWhite(color,0.82))});
-  page.drawText("Aurore — Section Archives",{x:39,y:27,font:fonts.regular,size:7.6,color:rgbHex("#777985")});
-  page.drawText("Page "+pageNo,{x:W-78,y:27,font:fonts.regular,size:7.6,color:rgbHex("#777985")});
-}
+  page.drawText("Aurore — Section Archives",{x:39,y:27,font:fonts.sans,size:9.5,color:rgbHex("#777985")});
+  page.drawText("Page "+pageNo,{x:W-78,y:27,font:fonts.sans,size:9.5,color:rgbHex("#777985")});
+  }
 
 function sectionLabel(page:any,label:string,x:number,y:number,fonts:any,color:string){
   const txt=clean(label);
   if(!txt)return;
-  const w=Math.min(180,fonts.bold.widthOfTextAtSize(txt,8.5)+18);
-  rounded(page,x,y-13,w,18,7,rgbHex(mixWhite(color,0.90)),rgbHex(mixWhite(color,0.66)),0.4);
-  page.drawText(txt,{x:x+9,y:y-9,font:fonts.bold,size:8.5,color:rgbHex(mixWhite(color,0.15))});
+  const w=Math.min(180,fonts.sansBold.widthOfTextAtSize(txt,8.5)+18);
+  rounded(page,x,y-13,w,18,7,rgbHex(mixWhite(color,0.90)),rgbHex(mixWhite(color,0.82)),0.4);
+  page.drawText(txt,{x:x+9,y:y-9,font:fonts.sansBold,size:8.5,color:rgbHex(mixWhite(color,0.18))});
 }
 
 function displayMathMetrics(run:Run,width:number){
@@ -418,7 +409,7 @@ function displayMathMetrics(run:Run,width:number){
   const scale=Math.min(1,maxW/naturalW,maxH/naturalH);
   const iw=Math.max(24,naturalW*scale);
   const ih=Math.max(10,naturalH*scale);
-  const h=Math.max(36,ih+10);
+  const h=Math.max(26,ih+8);
   return {iw,ih,h};
 }
 
@@ -427,8 +418,8 @@ function drawDisplayMath(page:any,run:Run,x:number,y:number,width:number,color:s
   // light Aurore-pale fill, thin Aurore frame, 8pt corners and a left rule.
   const m=displayMathMetrics(run,width);
   const x0=x, y0=y-m.h;
-  const frame=rgbHex(mixWhite(color,0.58)); // aurorebase!58!white
-  const fill=rgbHex("#FEFEFE");             // white!99!aurorepale
+  const frame=rgbHex(mixWhite(color,0.42)); // aurorebase!58!white
+  const fill=rgbHex(mixWhite(mixWhite(color,0.96),0.99)); // white!99!aurorepale
   rounded(page,x0,y0,width,m.h,8,fill,frame,0.45);
   page.drawLine({start:{x:x0,y:y0+6},end:{x:x0,y:y-6},thickness:1.6,color:frame});
   page.drawImage(run.image,{
@@ -507,8 +498,8 @@ Deno.serve(async req=>{
       if(normalized)contentItems.push(normalized);
     }
 
-    const TEXT_SIZE=10.2;
-    const LINE_HEIGHT=14.3;
+    const TEXT_SIZE=10.95;
+     const LINE_HEIGHT=13.6;
     const BOX_RADIUS=11;
     const BOX_X=X-10;
     const BOX_W=W+20;
@@ -522,7 +513,7 @@ Deno.serve(async req=>{
       if(y-boxH<bottom)throw new Error("ASSISTED_PAGE_TOO_LONG: bloc de texte hors page.");
       rounded(
         page,BOX_X,y-boxH,BOX_W,boxH,BOX_RADIUS,
-        rgbHex("#F0F0F3"),rgbHex("#A6A6AA"),0.45
+        rgbHex("#E6E6E6"),rgbHex("#A3A3A3"),0.45
       );
       drawInlineLines(
         page,lines,X,y-7,fonts.regular,
