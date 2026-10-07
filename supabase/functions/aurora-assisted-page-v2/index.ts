@@ -150,24 +150,43 @@ Deno.serve(async(req)=>{
 
   const generatedDocumentId=Number(insertedDoc.data.id);
 
-  const fast=await fetch(URL_+"/functions/v1/aurora-assisted-page-fast",{
+  // The assisted editor must use the exact same production circuit as normal
+  // Aurore documents: queue the generated document for the GitHub LuaLaTeX
+  // renderer instead of bypassing it with the legacy fast pdf-lib renderer.
+  const queued=await fetch(URL_+"/functions/v1/aurora-lualatex-request",{
     method:"POST",
-    headers:{"Authorization":auth,"Content-Type":"application/json","apikey":ANON},
-    body:JSON.stringify({generated_document_id:generatedDocumentId,page_number:pageNumber,assisted_page:true,content:contentJson})
+    headers:{
+      "Authorization":auth,
+      "Content-Type":"application/json",
+      "apikey":ANON,
+      "x-aurore-internal-key":SERVICE,
+      "x-aurore-user-id":userId
+    },
+    body:JSON.stringify({generated_document_id:generatedDocumentId})
   });
-  let fastResult:any={};
-  try{fastResult=await fast.json()}catch{fastResult={error:"Réponse du moteur de page rapide invalide"}}
-  if(!fast.ok||!fastResult.ok){
+  let q:any={};
+  try{q=await queued.json()}catch{q={error:"Réponse de mise en file LuaLaTeX invalide"}}
+  if(!queued.ok||!q.ok){
     await admin.from("aurora_generated_documents").update({
-      metadata:{...metadata,lualatex_status:"failed",lualatex_last_error:String(fastResult?.error||"Rendu instantané impossible")},
+      metadata:{...metadata,lualatex_status:"failed",lualatex_last_error:String(q?.error||"Mise en file LuaLaTeX impossible")},
       updated_at:new Date().toISOString()
     }).eq("id",generatedDocumentId);
-    return out({ok:false,error:fastResult?.error||("Rendu instantané HTTP "+fast.status),generated_document_id:generatedDocumentId},500);
+    return out({
+      ok:false,
+      error:q?.error||("Mise en file HTTP "+queued.status),
+      generated_document_id:generatedDocumentId
+    },500);
   }
 
   return out({
-    ok:true,mode:"instant-page",engine:fastResult.engine||"pdf-lib-fast-page-v1",
-    generated_document_id:generatedDocumentId,job_id:jobId,page_number:pageNumber,status:"completed",
-    page_path:fastResult.page_path||null,page_url:fastResult.page_url||null,bytes:fastResult.bytes||null
+    ok:true,
+    mode:"lualatex-production",
+    engine:"github-actions-lualatex-v1",
+    generated_document_id:generatedDocumentId,
+    job_id:jobId,
+    page_number:pageNumber,
+    status:"queued",
+    queue_position:q.queue_position??null,
+    queue_total:q.queue_total??null
   });
 });
