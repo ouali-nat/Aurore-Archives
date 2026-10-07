@@ -323,14 +323,26 @@ function drawParagraph(page:any,prepared:Run[],x:number,topY:number,width:number
 }
 
 function drawSoftDecor(page:any,color:string){
-  const pale1=rgbHex(mixWhite(color,0.90));
-  const pale2=rgbHex(mixWhite(color,0.94));
-  page.drawCircle({x:571,y:814,size:10,color:pale1});
-  page.drawCircle({x:557,y:799,size:5,color:pale2});
-  page.drawCircle({x:30,y:28,size:13,color:pale1});
-  page.drawCircle({x:48,y:41,size:5,color:pale2});
-}
+  const W=595,H=842;
+  // Soft Aurore paper tint.
+  page.drawRectangle({x:0,y:0,width:W,height:H,color:rgbHex(mixWhite(color,0.985))});
 
+  // Large, low-contrast bubbles inspired by the Aurore visual language.
+  page.drawCircle({x:602,y:828,size:62,color:rgbHex(mixWhite(color,0.91))});
+  page.drawCircle({x:-4,y:775,size:42,color:rgbHex(mixWhite(color,0.945))});
+  page.drawCircle({x:548,y:103,size:31,color:rgbHex(mixWhite(color,0.94))});
+  page.drawCircle({x:9,y:61,size:48,color:rgbHex(mixWhite(color,0.955))});
+  page.drawCircle({x:76,y:748,size:18,color:rgbHex(mixWhite(color,0.965))});
+  page.drawCircle({x:516,y:741,size:16,color:rgbHex(mixWhite(color,0.955))});
+
+  // A slender vertical Aurore spine in the margin.
+  page.drawLine({
+    start:{x:28,y:72},end:{x:28,y:778},
+    thickness:1.8,color:rgbHex(mixWhite(color,0.62))
+  });
+  page.drawCircle({x:28,y:778,size:4.2,color:rgbHex(mixWhite(color,0.58))});
+  page.drawCircle({x:28,y:72,size:4.2,color:rgbHex(mixWhite(color,0.72))});
+}
 function headerFooter(page:any,pageNo:number,fonts:any,logo:any,color:string){
   const W=595,H=842;
   if(logo){
@@ -340,8 +352,8 @@ function headerFooter(page:any,pageNo:number,fonts:any,logo:any,color:string){
     page.drawCircle({x:53,y:819,size:12,color:rgbHex(mixWhite(color,0.70))});
   }
   page.drawText("Aurore — Section Archives",{x:W-182,y:811,font:fonts.bold,size:8.4,color:rgbHex(mixWhite(color,0.18))});
-  page.drawLine({start:{x:39,y:795},end:{x:W-39,y:795},thickness:0.55,color:rgbHex("#D7D7DE")});
-  page.drawLine({start:{x:39,y:43},end:{x:W-39,y:43},thickness:0.55,color:rgbHex("#E4E4E8")});
+  page.drawLine({start:{x:39,y:795},end:{x:W-39,y:795},thickness:0.55,color:rgbHex(mixWhite(color,0.72))});
+  page.drawLine({start:{x:39,y:43},end:{x:W-39,y:43},thickness:0.55,color:rgbHex(mixWhite(color,0.82))});
   page.drawText("Aurore — Section Archives",{x:39,y:27,font:fonts.regular,size:7.6,color:rgbHex("#777985")});
   page.drawText("Page "+pageNo,{x:W-78,y:27,font:fonts.regular,size:7.6,color:rgbHex("#777985")});
 }
@@ -461,11 +473,12 @@ Deno.serve(async req=>{
         boxH+=9;
         if(y-boxH<bottom)throw new Error("ASSISTED_PAGE_TOO_LONG: le bloc dépasse une seule page.");
 
-        rounded(page,X-11,y-boxH,W+22,boxH,10,rgbHex("#F8F8FA"),rgbHex("#E3E3E8"),0.5);
+        rounded(page,X-11,y-boxH,W+22,boxH,10,rgbHex(mixWhite(color,0.985)),rgbHex(mixWhite(color,0.63)),0.55);
+        page.drawLine({start:{x:X-11,y:y-boxH+9},end:{x:X-11,y:y-9},thickness:1.55,color:rgbHex(mixWhite(color,0.47))});
         let yy=y-11;
         for(const chunk of chunks){
           if(chunk.kind==="inline"){
-            yy=drawInlineLines(page,chunk.lines,X,yy,fonts.regular,rgbHex("#E2E2E7"),rgbHex("#202126"),10.7,lineHeight);
+            yy=drawInlineLines(page,chunk.lines,X,yy,fonts.regular,rgbHex(mixWhite(color,0.60)),rgbHex("#202126"),10.7,lineHeight);
           }else{
             yy=drawDisplayMath(page,chunk.run,X,yy-2,W,color);
           }
@@ -503,7 +516,7 @@ Deno.serve(async req=>{
         const w=h===ih?iw:h*(img.width/img.height);
         const boxH=h+44;
         if(y-boxH<bottom)throw new Error("ASSISTED_PAGE_TOO_LONG: illustration hors page.");
-        rounded(page,X-11,y-boxH,W+22,boxH,10,rgbHex("#FFFFFF"),rgbHex("#E5E5EA"),0.45);
+        rounded(page,X-11,y-boxH,W+22,boxH,10,rgbHex(mixWhite(color,0.988)),rgbHex(mixWhite(color,0.70)),0.45);
         page.drawImage(img,{x:X+(W-w)/2,y:y-16-h,width:w,height:h});
         const caption=clean(image.caption||image.title||"");
         if(caption){
@@ -539,7 +552,8 @@ Deno.serve(async req=>{
         if(!img)throw new Error("Asset graphique indisponible");
         const boxH=260;
         if(y-boxH<bottom)throw new Error("ASSISTED_PAGE_TOO_LONG: graphique hors page.");
-        rounded(page,X-11,y-boxH,W+22,boxH,10,rgbHex("#FFFFFF"),rgbHex(mixWhite(color,0.72)),0.45);
+        rounded(page,X-11,y-boxH,W+22,boxH,10,rgbHex(mixWhite(color,0.988)),rgbHex(mixWhite(color,0.70)),0.45);
+        page.drawLine({start:{x:X-11,y:y-boxH+9},end:{x:X-11,y:y-9},thickness:1.45,color:rgbHex(mixWhite(color,0.52))});
         const iw=Math.min(450,img.width),ih=Math.min(222,iw*(img.height/img.width));
         const gy=y-15-ih;
         page.drawImage(img,{x:X+(W-iw)/2,y:gy,width:iw,height:ih});
