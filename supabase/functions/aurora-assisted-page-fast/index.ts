@@ -20,6 +20,7 @@ const MATH_DISPLAY_BASE_H=24;
 const MATH_EX_PX=7.54;
 const MATH_RASTER_SCALE=3;
 const MATH_BOX_PAD_X=7;
+const MATH_INLINE_GAP=12;
 const MATH_BOX_PAD_Y=3.5;
 const FONT_URLS={
   regular:"https://raw.githubusercontent.com/go-fonts/latin-modern/main/lmroman10regular/lmroman10-regular.otf",
@@ -28,6 +29,7 @@ const FONT_URLS={
   sansBold:"https://raw.githubusercontent.com/go-fonts/latin-modern/main/lmsans10bold/lmsans10-bold.otf"
 };
 const FONT_BYTES_CACHE=new Map<string,Promise<Uint8Array>>();
+let LOGO_BYTES_PROMISE:Promise<Uint8Array>|null=null;
 
 const H = {
   "Access-Control-Allow-Origin":"*",
@@ -184,10 +186,16 @@ async function embedRaster(pdf:any,bytes:Uint8Array,label:string){
   throw new Error("Image "+label+" : format non pris en charge.");
 }
 
+async function fetchLogoBytes(){
+  if(LOGO_BYTES_PROMISE)return LOGO_BYTES_PROMISE;
+  LOGO_BYTES_PROMISE=fetch(LOGO_URL).then(async r=>{
+    if(!r.ok)throw new Error("Logo Aurore indisponible (HTTP "+r.status+").");
+    return new Uint8Array(await r.arrayBuffer());
+  });
+  return LOGO_BYTES_PROMISE;
+}
 async function loadLogo(pdf:any){
-  const r=await fetch(LOGO_URL);
-  if(!r.ok)throw new Error("Logo Aurore indisponible (HTTP "+r.status+").");
-  return await embedRaster(pdf,new Uint8Array(await r.arrayBuffer()),"logo Aurore");
+  return await embedRaster(pdf,await fetchLogoBytes(),"logo Aurore");
 }
 
 async function fetchFontBytes(key:string,url:string){
@@ -217,32 +225,38 @@ async function loadFonts(pdf:any){
 async function formulaImage(auth:string,pdf:any,source:string,qa:any,cache:Map<string,any>){
   const key=latexInput(stripInlineDelimiters(source)).trim();
   if(!key)return null;
-  if(cache.has(key))return cache.get(key);
-  qa.formulas_total++;
-  try{
-    const r=await fetch(MATH_URL,{
-      method:"POST",
-      headers:{Authorization:auth,"Content-Type":"application/json"},
-      body:JSON.stringify({formula:key,px_per_ex:MATH_EX_PX}),
-      signal:AbortSignal.timeout(12000)
-    });
-    const z:any=await r.json().catch(()=>null);
-    const result=z?.results?.[0]||z;
-    const pngBase64=typeof result?.png_base64==="string"?result.png_base64:null;
-    if(!r.ok||!z?.ok||!pngBase64){qa.formulas_failed++;return null;}
-    const bin=atob(pngBase64),bytes=new Uint8Array(bin.length);
-    for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
-    const image:any=await pdf.embedPng(bytes);
-    image.__aurore_natural_pt_width=Number(result?.natural_pt_width)||0;
-    image.__aurore_natural_pt_height=Number(result?.natural_pt_height)||0;
-    image.__aurore_raster_scale=Number(result?.raster_scale)||1;
-    cache.set(key,image);
-    qa.formulas_ok++;
-    return image;
-  }catch(_){
-    qa.formulas_failed++;
-    return null;
+  const cached=cache.get(key);
+  if(cached){
+    try{return await cached}catch(_){cache.delete(key);return null}
   }
+  const task=(async()=>{
+    qa.formulas_total++;
+    try{
+      const r=await fetch(MATH_URL,{
+        method:"POST",
+        headers:{Authorization:auth,"Content-Type":"application/json"},
+        body:JSON.stringify({formula:key,px_per_ex:MATH_EX_PX}),
+        signal:AbortSignal.timeout(12000)
+      });
+      const z:any=await r.json().catch(()=>null);
+      const result=z?.results?.[0]||z;
+      const pngBase64=typeof result?.png_base64==="string"?result.png_base64:null;
+      if(!r.ok||!z?.ok||!pngBase64){qa.formulas_failed++;return null;}
+      const bin=atob(pngBase64),bytes=new Uint8Array(bin.length);
+      for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+      const image:any=await pdf.embedPng(bytes);
+      image.__aurore_natural_pt_width=Number(result?.natural_pt_width)||0;
+      image.__aurore_natural_pt_height=Number(result?.natural_pt_height)||0;
+      image.__aurore_raster_scale=Number(result?.raster_scale)||1;
+      qa.formulas_ok++;
+      return image;
+    }catch(_){
+      qa.formulas_failed++;
+      return null;
+    }
+  })();
+  cache.set(key,task);
+  return await task;
 }
 
 function isLikelyPlainMath(fragment:string){
@@ -300,23 +314,17 @@ function splitTextTokens(value:string){
   return words.map((word)=>({kind:"text",value:word}));
 }
 async function prepareRuns(runs:Run[],auth:string,pdf:any,fonts:any,qa:any,cache:Map<string,any>){
-  const prepared:Run[]=[];
-  for(const run of runs){
-    if(run.kind==="text"){
-      prepared.push(...splitTextTokens(run.value));
-      continue;
-    }
+  return await Promise.all(runs.map(async run=>{
+    if(run.kind==="text")return {kind:"text",value:run.value} as Run;
     const img:any=await formulaImage(auth,pdf,run.value,qa,cache);
     if(img){
       const naturalW=Number(img.__aurore_natural_pt_width)||Math.max(8,img.width*0.75);
       const naturalH=Number(img.__aurore_natural_pt_height)||Math.max(8,img.height*0.75);
-      prepared.push({kind:run.kind,value:run.value,image:img,width:naturalW,height:naturalH});
-    }else{
-      const fallback=normalizeUnicodeMathText(run.value).replace(/[\\]/g,"").replace(/[{}]/g,"");
-      prepared.push({kind:"text",value:fallback});
+      return {kind:run.kind,value:run.value,image:img,width:naturalW,height:naturalH} as Run;
     }
-  }
-  return prepared;
+    const fallback=normalizeUnicodeMathText(run.value).replace(/[\\]/g,"").replace(/[{}]/g,"");
+    return {kind:"text",value:fallback} as Run;
+  }));
 }
 function layoutInline(prepared:Run[],font:any,size:number,max:number){
   const lines:any[][]=[[]];let width=0;
@@ -330,9 +338,9 @@ function layoutInline(prepared:Run[],font:any,size:number,max:number){
   };
   const addMath=(r:Run)=>{
     const intrinsicW=Math.max(8,r.width||24),intrinsicH=Math.max(8,r.height||16),w=intrinsicW+14;
-    const space=lines[lines.length-1].length?7:0;
+    const space=lines[lines.length-1].length?MATH_INLINE_GAP:0;
     if(width+space+w>max&&lines[lines.length-1].length){lines.push([]);width=0;}
-    const sp=lines[lines.length-1].length?7:0;
+    const sp=lines[lines.length-1].length?MATH_INLINE_GAP:0;
     lines[lines.length-1].push({kind:"math",image:r.image,width:w,height:intrinsicH+6,space:sp});
     width+=sp+w;
   };
@@ -477,7 +485,7 @@ Deno.serve(async req=>{
   if(!input||typeof input!=="object")return out({ok:false,error:"content structuré requis"},400);
   try{
     const pdf=await PDFDocument.create();pdf.registerFontkit(fontkit);
-    const fonts=await loadFonts(pdf),logo=await loadLogo(pdf);
+    const [fonts,logo]=await Promise.all([loadFonts(pdf),loadLogo(pdf)]);
     const page=pdf.addPage([595,842]);
     const color=normalizeHexColor(input.theme_color)||subjectColor(input.subject||input.matiere||docRes.data.metadata?.matiere||"");
     drawSoftDecor(page,color);headerFooter(page,pn,fonts,logo,color);
@@ -502,7 +510,8 @@ Deno.serve(async req=>{
       rounded(page,x,y,w,h,BOX_RADIUS,rgbHex("#E6E6E7"),rgbHex("#B6B7BA"),0.5);
     }
     const drawContentBlock=async(text:string)=>{
-      for(const para of proseText(text)){
+      const paragraphs=proseText(text);
+      const preparedItems=await Promise.all(paragraphs.map(async para=>{
         const prepared=await prepareRuns(mergePlainAndExplicit(para),auth,pdf,fonts,qa,cache);
         const items:any[]=[];let inlineChunk:Run[]=[];
         const flushInline=()=>{
@@ -512,13 +521,14 @@ Deno.serve(async req=>{
           inlineChunk=[];
         };
         for(const run of prepared){
-          if(run.kind==="display"){
-            flushInline();
-            items.push({kind:"display",run,metrics:displayMathMetrics(run,W-18)});
-          }else inlineChunk.push(run);
+          if(run.kind==="display"){flushInline();items.push({kind:"display",run,metrics:displayMathMetrics(run,W-18)});}
+          else inlineChunk.push(run);
         }
         flushInline();
-        const innerGap=11;
+        return items;
+      }));
+      const innerGap=11;
+      for(const items of preparedItems){
         const contentH=items.reduce((sum:any,item:any,index:number)=>{
           const h=item.kind==="inline"
             ? item.lines.reduce((n:any,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0)
