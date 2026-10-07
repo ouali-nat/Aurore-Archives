@@ -175,7 +175,7 @@
     const text=start?'Page d’ouverture automatique du document. Elle sera intégrée lors de la construction/fusion du document complet.':'Dernière page automatique du document. Elle sera intégrée lors de la construction/fusion du document complet.';
     return '<article class="ae-block ae-system-block" data-block="'+esc(b.id)+'">'+
       '<header class="ae-block-head"><div><span class="ae-block-number">'+String(page).padStart(2,'0')+'</span><strong>'+esc(title)+'</strong><small>Page système · verrouillée</small></div><span class="ae-block-state ok">Automatique</span></header>'+
-      '<div class="ae-system-content"><strong>'+esc(b.content?.title||state.course?.title||'Document')+'</strong><span>'+esc(text)+'</span></div>'+
+      '<div class="ae-system-content"><strong>'+esc(state.course?.title||'Document')+'</strong><span>'+esc(text)+'</span></div>'+
       '<div class="ae-block-result"><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Prévisualiser</button><span>Cette page n’est pas envoyée au moteur de génération des pages centrales.</span></div>'+
       '</article>';
   }
