@@ -330,9 +330,9 @@ function layoutInline(prepared:Run[],font:any,size:number,max:number){
   };
   const addMath=(r:Run)=>{
     const intrinsicW=Math.max(8,r.width||24),intrinsicH=Math.max(8,r.height||16),w=intrinsicW+14;
-    const space=lines[lines.length-1].length?4:0;
+    const space=lines[lines.length-1].length?7:0;
     if(width+space+w>max&&lines[lines.length-1].length){lines.push([]);width=0;}
-    const sp=lines[lines.length-1].length?4:0;
+    const sp=lines[lines.length-1].length?7:0;
     lines[lines.length-1].push({kind:"math",image:r.image,width:w,height:intrinsicH+6,space:sp});
     width+=sp+w;
   };
@@ -518,7 +518,7 @@ Deno.serve(async req=>{
           }else inlineChunk.push(run);
         }
         flushInline();
-        const innerGap=7;
+        const innerGap=11;
         const contentH=items.reduce((sum:any,item:any,index:number)=>{
           const h=item.kind==="inline"
             ? item.lines.reduce((n:any,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0)
