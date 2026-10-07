@@ -4365,8 +4365,7 @@ def render(data):
             body_text = clean_text(assisted_content.get("text") or "").strip()
             rendered = _render_course_math_blocks(body_text, auto_math=True)
             if rendered:
-                lines.append(r"\AuroreLabeledBlock{Point de cours}{" + "
-".join(rendered) + r"}")
+                lines.append(r"\AuroreLabeledBlock{Point de cours}{" + "\n".join(rendered) + r"}")
         elif block_type == "exercise":
             statement = clean_text(assisted_content.get("statement") or "").strip()
             body = render_exercise_text(statement, mode="question")
@@ -4378,8 +4377,7 @@ def render(data):
                         + _render_course_paragraph(hint, auto_math=True)
                         + r"}"
                     )
-            lines.append(r"\AuroreExerciseBlock{1}{" + "
-".join(body) + r"}")
+            lines.append(r"\AuroreExerciseBlock{1}{" + "\n".join(body) + r"}")
         elif block_type == "graphique":
             graphs = data.get("sections", [{}])[0].get("graphs", []) if isinstance(data.get("sections"), list) and data.get("sections") else []
             lines.extend(render_graphs(graphs, allow=True))
