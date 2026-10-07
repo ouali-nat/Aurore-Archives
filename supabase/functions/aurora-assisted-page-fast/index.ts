@@ -26,12 +26,13 @@ function proseText(v:any){
 }
 
 function latexInput(v:any){
-  return String(v??"").normalize("NFC").replace(/[≠≤≥∞≈∈∉×÷±πℝℕℤℚ→⇔⇒⊂⊄]/g,(c)=>{
+  return normalizeUnicodeMathText(String(v??"")).normalize("NFC").replace(/[≠≤≥∞≈∈∉×÷±πℝℕℤℚ→⇔⇒⊂⊄∀∃∧∨∅]/g,(c)=>{
     const m:any={
       "≠":"\\neq ","≤":"\\leq ","≥":"\\geq ","∞":"\\infty ","≈":"\\approx ",
       "∈":"\\in ","∉":"\\notin ","×":"\\times ","÷":"\\div ","±":"\\pm ",
       "π":"\\pi ","ℝ":"\\mathbb{R}","ℕ":"\\mathbb{N}","ℤ":"\\mathbb{Z}","ℚ":"\\mathbb{Q}",
-      "→":"\\to ","⇔":"\\Longleftrightarrow ","⇒":"\\Rightarrow ","⊂":"\\subset ","⊄":"\\nsubset "
+      "→":"\\to ","⇔":"\\Longleftrightarrow ","⇒":"\\Rightarrow ","⊂":"\\subset ","⊄":"\\nsubset ",
+      "∀":"\\forall ","∃":"\\exists ","∧":"\\land ","∨":"\\lor ","∅":"\\varnothing "
     };
     return m[c]||c;
   });
@@ -215,6 +216,17 @@ function mergePlainAndExplicit(raw:string){
     }else out.push(part);
   }
   return out;
+}
+
+function wrap(s:string,font:any,size:number,max:number){
+  const words=clean(s).split(" ").filter(Boolean),lines:string[]=[];
+  let line="";
+  for(const word of words){
+    const next=line?line+" "+word:word;
+    if(font.widthOfTextAtSize(next,size)<=max||!line){line=next}else{lines.push(line);line=word}
+  }
+  if(line)lines.push(line);
+  return lines;
 }
 
 function tokenTextWidth(font:any,size:number,text:string){return font.widthOfTextAtSize(escapePdfText(text),size)}
