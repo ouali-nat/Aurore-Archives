@@ -953,6 +953,11 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <span class="admin-category-desc">Documents générés par Aurora</span>
 <span class="tab-count" id="tabCountContentFactory">0</span>
 </button>
+<button class="admin-tab admin-category-card" data-accent="violet" data-tab="edition-assistee" role="tab" type="button">
+<span aria-hidden="true" class="admin-category-icon">✦</span>
+<span class="admin-category-title">Édition assistée</span>
+<span class="admin-category-desc">Construire un cours par blocs</span>
+</button>
 <button class="admin-tab admin-category-card" data-accent="bleu" data-tab="parcours" role="tab" type="button">
 <span aria-hidden="true" class="admin-category-icon"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-width="2" viewbox="0 0 24 24" width="20"><path d="M4 6h16"></path><path d="M4 12h10"></path><path d="M4 18h7"></path><circle cx="18" cy="12" r="2"></circle><circle cx="15" cy="18" r="2"></circle></svg></span>
 <span class="admin-category-title">Gestion de parcours</span>
@@ -1311,6 +1316,10 @@ body:not(.site-locked) #accessLock{display:none!important;}
 </section>
 <div hidden id="adminToolbarContentFactory" aria-hidden="true"></div>
 <div hidden id="adminContentFactoryList" aria-hidden="true"></div>
+<div class="admin-tab-panel" data-panel="edition-assistee">
+<p class="admin-panel-desc">Atelier de production séquentielle : sélection d’un cours, ajout de blocs dans l’ordre, validation et génération de pages une par une.</p>
+<div id="assistedRoot"></div>
+</div>
 <div class="admin-tab-panel" data-panel="parcours">
 <div class="aurore-parcours-shell" id="auroreParcoursAdmin">
 <header class="aurore-parcours-head">
@@ -4883,5 +4892,8 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <script defer src="js/aurore-document-verifier.js?v=20260921-1"></script>
 <link rel="stylesheet" href="./css/aurore-admin-parcours.css?v=20261002-parcours2">\n<link rel="stylesheet" href="./css/aurore-glass.css?v=20261004-glass2">
 <script defer src="js/aurore-admin-parcours.js?v=20261002-parcours2"></script>
+<link rel="stylesheet" href="./css/aurore-edition-assistee.css?v=20261007-assistee3">
+<script defer src="js/aurore-edition-assistee.js?v=20261007-assistee3"></script>
+
 </body>
 </html>
