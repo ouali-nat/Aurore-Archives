@@ -4069,7 +4069,9 @@ def _repair_course_inline_math_delimiters(tex):
 
 
 def render(data):
-    if not _has_usable_content_json(data):
+    preview_metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+    assisted_document_preview = bool(preview_metadata.get("assisted_document_preview"))
+    if not _has_usable_content_json(data) and not assisted_document_preview:
         raise ValueError("LuaLaTeX source rejected: structured content_json is required")
     title = data.get("title", "")
     theme_palette = resolve_theme_palette(data)
@@ -4216,7 +4218,8 @@ def render(data):
     has_geogebra = _has_geogebra(data)
     metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
     assisted_page = metadata.get("assisted_page") if isinstance(metadata.get("assisted_page"), dict) else None
-    if not assisted_page:
+    assisted_document_preview = bool(metadata.get("assisted_document_preview"))
+    if not assisted_page and not assisted_document_preview:
         _math_visual_plan_qa(data)
         _geogebra_visual_plan_qa(data)
         _exercise_geogebra_plan_qa(data)
