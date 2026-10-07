@@ -331,8 +331,8 @@
       const pdf=await pdfjs.getDocument({data:new Uint8Array(buffer),stopAtErrors:false}).promise;
       const page=await pdf.getPage(1);
       if(!canvas.isConnected)return;
-      const host=canvas.parentElement;
-      const targetWidth=Math.max(320,Math.min(760,(host?.clientWidth||760)-24));
+      const wrap=canvas.parentElement;
+      const targetWidth=Math.max(320,Math.min(760,(wrap?.clientWidth||760)-24));
       const base=page.getViewport({scale:1});
       const viewport=page.getViewport({scale:targetWidth/base.width});
       const ratio=Math.min(window.devicePixelRatio||1,2);
@@ -343,7 +343,32 @@
       const ctx=canvas.getContext('2d',{alpha:false});
       if(!ctx)throw new Error('Canvas indisponible.');
       await page.render({canvasContext:ctx,viewport,transform:ratio!==1?[ratio,0,0,ratio,0,0]:null}).promise;
-      if(loading)loading.textContent='Page prête.';
+      const textLayer=document.createElement('div');
+      textLayer.className='ae-pdf-text-layer';
+      textLayer.setAttribute('aria-label','Texte sélectionnable de la page');
+      textLayer.style.width=Math.round(viewport.width)+'px';
+      textLayer.style.height=Math.round(viewport.height)+'px';
+      wrap?.appendChild(textLayer);
+      try{
+        const tc=await page.getTextContent();
+        if(typeof pdfjs.renderTextLayer==='function'){
+          const task=pdfjs.renderTextLayer({textContent:tc,container:textLayer,viewport});
+          if(task?.promise)await task.promise;
+        }else{
+          for(const item of tc.items||[]){
+            const span=document.createElement('span');
+            span.textContent=item.str||'';
+            const tx=item.transform||[1,0,0,1,0,0];
+            const p=viewport.convertToViewportPoint(tx[4],tx[5]);
+            const fs=Math.max(6,Math.abs(tx[3]||10));
+            span.style.left=p[0]+'px';
+            span.style.top=(p[1]-fs)+'px';
+            span.style.fontSize=fs+'px';
+            textLayer.appendChild(span);
+          }
+        }
+      }catch(_){textLayer.remove();}
+      if(loading)loading.remove();
     }catch(e){
       if(canvas.isConnected){
         const host=canvas.parentElement;
@@ -471,7 +496,7 @@
     });
   }
 
-  async function waitForAssistedDocument(b,documentId,progressTimer){
+  async function waitForAssistedDocument(b,documentId){
     const c=client();if(!c)throw new Error('Session Supabase indisponible.');
     const started=Date.now(),timeout=4*60*1000;
     while(Date.now()-started<timeout){
@@ -483,15 +508,13 @@
       const row=data||{};
       const md=row.metadata&&typeof row.metadata==='object'?row.metadata:{};
       const status=String(md.lualatex_status||'').toLowerCase();
-      const pct=Math.max(8,Math.min(96,Number(md.lualatex_progress||35)));
+      const pct=Math.max(0,Math.min(99,Number(md.lualatex_progress??0)));
       updateGenerationProgress(b.id,pct,md.lualatex_stage||'Génération du PDF…');
-      if(status==='completed'&&String(row.pdf_url||'').trim()){
-        clearInterval(progressTimer);
+      if((status==='completed'||String(md.production_status||'')==='page_pdf_ready')&&String(row.pdf_url||'').trim()){
         return {page_path:row.pdf_path,page_url:row.pdf_url,bytes:row.pdf_diagnostic?.bytes||null,metadata:md};
       }
       if(status==='failed'||status==='cancelled'){
-        clearInterval(progressTimer);
-        throw new Error(String(md.lualatex_last_error||'La génération LuaLaTeX a échoué.'));
+        throw new Error(String(md.lualatex_last_error||'La génération du PDF a échoué.'));
       }
       await new Promise(resolve=>setTimeout(resolve,1800));
     }
@@ -526,35 +549,25 @@
       });
       const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}};
       if(!r.ok||!d.ok)throw new Error(d.error||('Rendu HTTP '+r.status));
-      updateGenerationProgress(b.id,82,'PDF reçu du renderer…');
+      const documentId=Number(d.generated_document_id||0);
+      if(!documentId)throw new Error('Le renderer n’a pas fourni l’identifiant du document.');
+      b.generation={...(b.generation||{}),generated_document_id:documentId,job_id:d.job_id||null,progress:5,progress_label:'Rendu de page mis en file',status:'generating',updated_at:new Date().toISOString()};
+      await persistCourse(true);
+      renderWorkspace();
+      const result=await waitForAssistedDocument(b,documentId);
       b.generation={
         ...(b.generation||{}),
-        status:'generating',
-        page_number:d.page_number||pageNumberFor(b),
-        generated_document_id:d.generated_document_id||null,
-        job_id:d.job_id||null,
-        progress:82,
-        progress_label:'PDF reçu du renderer…',
-        error:null,
-        updated_at:new Date().toISOString()
-      };
-      const pagePath=d.page_path||null;
-      const pageUrl=d.page_url||null;
-      if(!pageUrl)throw new Error('Le renderer a terminé sans fournir le PDF de la page.');
-      await persistCourse(true);
-      updateGenerationProgress(b.id,94,'PDF enregistré, vérification de la page…');
-      b.generation={
         status:'ready',
         page_number:d.page_number||pageNumberFor(b),
-        generated_document_id:Number(d.generated_document_id),
+        generated_document_id:documentId,
         job_id:d.job_id||null,
-        page_path:pagePath,
-        page_url:pageUrl,
+        page_path:result.page_path,
+        page_url:result.page_url,
         updated_at:new Date().toISOString(),
         progress:100,
         progress_label:'Page prête — visualisation disponible',
-        bytes:d.bytes||null,
-        qa:{engine:d.engine||'pdf-lib-course-page-v2',status:'completed',formulas:d.qa?.formulas||null},
+        bytes:result.bytes||null,
+        qa:{engine:result.metadata?.fast_page_pdf_engine||'pdf-lib-course-page-v2',status:'completed'},
         error:null
       };
       await persistCourse(true);
