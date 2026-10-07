@@ -319,11 +319,11 @@
     const c=client();if(!c)throw new Error('Session Supabase indisponible.');
     const started=Date.now(),timeout=4*60*1000;
     while(Date.now()-started<timeout){
-      const {data,rowError}=await c.from('aurora_generated_documents')
-        .select('id,status,pdf_path,pdf_url,metadata')
+      const {data,error}=await c.from('aurora_generated_documents')
+        .select('id,status,pdf_path,pdf_url,metadata,pdf_diagnostic')
         .eq('id',documentId)
         .maybeSingle();
-      if(rowError)throw rowError;
+      if(error)throw error;
       const row=data||{};
       const md=row.metadata&&typeof row.metadata==='object'?row.metadata:{};
       const status=String(md.lualatex_status||'').toLowerCase();
