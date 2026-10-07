@@ -1,4 +1,4 @@
-/* Service Worker — Aurore Section Archives (v8)
+/* Service Worker — Aurore Section Archives (v9)
    Objectif : ouvertures rapides + lecture hors ligne de ce que l'élève a déjà ouvert,
    même après plusieurs jours / semaines sans ouvrir l'application.
    Les données Supabase, l'authentification et les appels d'API ne sont PAS
@@ -13,8 +13,11 @@
        plus rien. Les anciens caches versionnés (v6 et avant) sont migrés, pas supprimés.
      • Les fichiers du site réellement chargés par la page sont signalés au service worker
        (message AURORE_WARM) et enregistrés même à la toute première visite.
-     • Bibliothèques (pdf.js, CDN, polices) : copie locale d'abord. pdf.js est préchargé à
-       l'installation : sans lui, aucun PDF ne peut s'afficher hors ligne.
+     • Bibliothèques (pdf.js, Supabase, KaTeX, CDN, polices) : copie locale d'abord.
+       v9 : le moteur Supabase (indispensable au démarrage du site) et KaTeX sont
+       préchargés à l'installation. Si le CDN principal (jsdelivr) ne répond pas en 4 s,
+       le moteur Supabase est récupéré en parallèle sur le CDN de secours (unpkg) :
+       le démarrage de tout le site ne dépend plus d'un seul CDN lent.
      • Couvertures d'images (Google Books, R2, Supabase Storage…) : copie locale d'abord,
        toutes conservées.
      • PDF : enregistrés UNIQUEMENT quand l'élève les ouvre dans le lecteur (le lecteur
@@ -23,7 +26,7 @@
      • Stockage durable (navigator.storage.persist) demandé ici ET par la page.
 */
 
-const SW_VERSION = 'v8';
+const SW_VERSION = 'v9';
 // Caches non versionnés : ils survivent à TOUTES les mises à jour du service worker.
 const PAGE_CACHE = 'aurore-shell';
 const STATIC_CACHE = 'aurore-static';
@@ -43,10 +46,25 @@ const LOCAL_STATIC = /\.(?:js|css|png|jpe?g|webp|svg|ico|woff2?|json)$/i;
 const IMAGE_EXT = /\.(?:png|jpe?g|webp|gif|avif)$/i;
 const PDF_EXT = /\.pdf$/i;
 const PRECACHE = ['/', '/manifest.json', '/icon-192-1.png', '/icon-512-1.png', '/icon-maskable-512.png'];
+const SUPABASE_SDK = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js';
 const PRECACHE_LIBS = [
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
+  SUPABASE_SDK,
+  'https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js'
 ];
+// CDN de secours : si le CDN principal est lent, la même bibliothèque est demandée ailleurs en parallèle.
+const LIB_SECOURS = [
+  {
+    test: /^https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@[\d.]+\/dist\/umd\/supabase\.min\.js$/,
+    secours: (u) => u.replace('https://cdn.jsdelivr.net/npm/', 'https://unpkg.com/').replace('supabase.min.js', 'supabase.js')
+  },
+  {
+    test: /^https:\/\/cdn\.jsdelivr\.net\/npm\/katex@[\d.]+\/dist\/katex\.min\.js$/,
+    secours: (u) => u.replace('https://cdn.jsdelivr.net/npm/', 'https://unpkg.com/')
+  }
+];
+const DELAI_SECOURS_MS = 4000;
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -142,8 +160,10 @@ self.addEventListener('activate', (event) => {
       .then(() => {
         // Demande un stockage durable : le navigateur ne vide pas les caches quand il manque de place.
         try { if (self.navigator && self.navigator.storage && self.navigator.storage.persist) self.navigator.storage.persist(); } catch (_) {}
-        return self.clients.claim();
+        // Complète le préchargement des bibliothèques (moteur Supabase, KaTeX) s'il manquait.
+        return precacheLibs().catch(() => {});
       })
+      .then(() => self.clients.claim())
   );
 });
 
@@ -242,6 +262,27 @@ async function libFirst(request) {
   const cached = await cache.match(request.url, { ignoreVary: true });
   // Une copie « opaque » ne peut pas servir une requête CORS.
   if (cached && !(request.mode === 'cors' && cached.type === 'opaque')) return cached;
+
+  const regle = LIB_SECOURS.find((r) => r.test.test(request.url));
+  if (regle) {
+    // Bibliothèque vitale au démarrage : CDN principal, et CDN de secours lancé si le premier tarde.
+    const valide = (r) => {
+      if (!r || !(r.ok || r.type === 'opaque')) throw new Error('bibliothèque indisponible');
+      return r;
+    };
+    const principal = fetch(request).then(valide);
+    const secours = new Promise((resolve) => setTimeout(resolve, DELAI_SECOURS_MS))
+      .then(() => fetch(regle.secours(request.url), { mode: 'cors' }))
+      .then(valide);
+    try {
+      const response = await Promise.any([principal, secours]);
+      cache.put(request.url, response.clone()).catch(() => {});
+      return response;
+    } catch (_) {
+      return Response.error();
+    }
+  }
+
   const response = await fetch(request);
   if (response && (response.ok || response.type === 'opaque')) {
     cache.put(request.url, response.clone()).catch(() => {});
