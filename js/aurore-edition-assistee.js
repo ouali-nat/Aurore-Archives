@@ -32,7 +32,10 @@
   async function loadCourses(){
     const c=client();
     if(!c){state.courses=[];return[]}
-    const {data,error}=await c.from('aurora_assisted_courses').select('id,title,status,course_json,created_at,updated_at').order('updated_at',{ascending:false}).limit(50);
+    const {data:{user}={}}=await c.auth.getUser();
+    let q=c.from('aurora_assisted_courses').select('id,title,status,course_json,created_at,updated_at').order('updated_at',{ascending:false}).limit(50);
+    if(user?.id) q=q.eq('created_by',user.id);
+    const {data,error}=await q;
     if(error)throw error;
     state.courses=Array.isArray(data)?data:[];
     return state.courses;
@@ -91,6 +94,24 @@
     state.course=row.course_json||newCourse(row.title);
     state.course.title=String(state.course.title||row.title||'Nouveau cours');
     state.mode='workspace';state.selected=null;renderWorkspace();
+  }
+
+  function normalizeContent(type,v){
+    const x=v&&typeof v==='object'&&!Array.isArray(v)?clone(v):{};
+    if(type==='graphique') return {json:x};
+    if(type==='paragraph'||type==='point') return {text:String(x.text??x.content??x.body??'')};
+    if(type==='exercise') return {statement:String(x.statement??x.question??x.enonce??x.content??''),hint:String(x.hint??'')};
+    if(type==='wikimedia-image') return {
+      imageUrl:String(x.imageUrl??x.url??''),
+      thumbUrl:String(x.thumbUrl??x.thumburl??x.imageUrl??x.url??''),
+      title:String(x.title??x.name??''),
+      caption:String(x.caption??''),
+      sourceUrl:String(x.sourceUrl??x.source_url??''),
+      author:String(x.author??''),
+      license:String(x.license??x.licence??''),
+      query:String(x.query??'')
+    };
+    return x;
   }
 
   function blockPayload(b){
@@ -170,7 +191,7 @@
     document.getElementById('aeAddWiki').onclick=wiki;
     document.getElementById('aeSave').onclick=()=>persistCourse(false);
     root().querySelectorAll('[data-edit-text]').forEach(el=>el.oninput=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editText);if(b){if(b.type==='exercise')b.content.statement=el.value;else b.content.text=el.value;validateCourse();}});
-    root().querySelectorAll('[data-edit-json]').forEach(el=>el.onchange=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editJson);if(!b)return;try{b.content.json=JSON.parse(el.value);validateBlock(b);renderWorkspace();}catch(_){setStatus('JSON graphique invalide.')}});
+    root().querySelectorAll('[data-edit-json]').forEach(el=>el.onchange=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editJson);if(!b)return;try{b.content=normalizeContent('graphique',JSON.parse(el.value));validateBlock(b);renderWorkspace();}catch(_){setStatus('JSON graphique invalide.')}});
 
     root().querySelectorAll('[data-preview-block]').forEach(x=>x.onclick=()=>previewBlock(x.dataset.previewBlock));
     root().querySelectorAll('[data-json-block]').forEach(x=>x.onclick=()=>jsonDialog(x.dataset.jsonBlock));
@@ -211,7 +232,7 @@
     const b=activeBlocks().find(x=>x.id===id);if(!b)return;
     const payload=blockPayload(b);
     openBlockModal('JSON du bloc','<textarea id="aeDialogJson" class="ae-dialog-json">'+esc(JSON.stringify(payload,null,2))+'</textarea><div class="ae-dialog-actions"><button class="admin-btn primary" id="aeApplyJson">Appliquer le JSON</button></div>');
-    document.getElementById('aeApplyJson').onclick=()=>{try{const v=JSON.parse(document.getElementById('aeDialogJson').value);b.content=b.type==='graphique'?{json:v}:v;validateCourse();document.getElementById('aeModalHost').innerHTML='';renderWorkspace();setStatus('JSON appliqué au bloc.')}catch(_){setStatus('JSON invalide.')}};
+    document.getElementById('aeApplyJson').onclick=()=>{try{const v=JSON.parse(document.getElementById('aeDialogJson').value);b.content=normalizeContent(b.type,v);validateCourse();document.getElementById('aeModalHost').innerHTML='';renderWorkspace();setStatus('JSON appliqué au bloc.')}catch(_){setStatus('JSON invalide.')}};
   }
 
   async function copyBlock(id){
