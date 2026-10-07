@@ -272,7 +272,7 @@ async function prepareRuns(runs:Run[],auth:string,pdf:any,fonts:any,qa:any,cache
     }
     const img=await formulaImage(auth,pdf,run.value,qa,cache);
     if(img){
-      const targetH=run.kind==="display"?34:13.2;
+      const targetH=run.kind==="display"?48:16;
       const scale=Math.min(1,targetH/(img.height||targetH));
       prepared.push({kind:run.kind,value:run.value,image:img,width:img.width*scale,height:img.height*scale});
     }else{
@@ -310,13 +310,13 @@ function layoutInline(prepared:Run[],font:any,size:number,max:number){
   return lines.filter(x=>x.length);
 }
 
-function inlineLineAdvance(line:any[],size=11.5,lineHeight=17.6){
+function inlineLineAdvance(line:any[],size=11.5,lineHeight=18.4){
   const maxMathBoxH=Math.max(0,...line.filter(t=>t.kind==="math").map(t=>t.height||0));
   // Keep the common line rhythm of the normal 11 pt editorial text.
   return Math.max(lineHeight,maxMathBoxH);
 }
 
-function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,borderColor:any,textColor:any,size=11.5,lineHeight=17.6){
+function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,borderColor:any,textColor:any,size=11.5,lineHeight=18.4){
   // Match the normal AuroreMathCompact box and center text/math on one shared line.
   let y=topY;
   const boxPadX=7,boxPadY=4.2;
@@ -348,7 +348,7 @@ function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,bord
   return y;
 }
 function drawParagraph(page:any,prepared:Run[],x:number,topY:number,width:number,font:any,color:string,qa:any){
-  const size=11.5, lineHeight=16.2, inner=width;
+  const size=11.5, lineHeight=18.0, inner=width;
   const inlineRuns=prepared.filter(r=>r.kind!=="display");
   const displayRuns=prepared.filter(r=>r.kind==="display");
   const lines=layoutInline(inlineRuns,font,size,inner);
@@ -409,11 +409,11 @@ function displayMathMetrics(run:Run,width:number){
   const naturalW=Math.max(1,run.width||width-28);
   const naturalH=Math.max(1,run.height||24);
   const maxW=Math.max(100,width-14);
-  const maxH=30;
+  const maxH=48;
   const scale=Math.min(1,maxW/naturalW,maxH/naturalH);
   const iw=Math.max(24,naturalW*scale);
   const ih=Math.max(10,naturalH*scale);
-  const h=Math.max(44,ih+16);
+  const h=Math.max(58,ih+20);
   return {iw,ih,h};
 }
 
@@ -505,11 +505,11 @@ Deno.serve(async req=>{
     }
 
     const TEXT_SIZE=11.5;
-    const LINE_HEIGHT=17.6;
+    const LINE_HEIGHT=18.4;
     const BOX_RADIUS=11;
-    const BOX_PAD_TOP=10;
-    const BOX_PAD_BOTTOM=10;
-    const BLOCK_GAP=10;
+    const BOX_PAD_TOP=12;
+    const BOX_PAD_BOTTOM=12;
+    const BLOCK_GAP=12;
     const BOX_X=X-10;
     const BOX_W=W+20;
 
