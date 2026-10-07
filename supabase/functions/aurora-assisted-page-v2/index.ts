@@ -189,14 +189,4 @@ Deno.serve(async(req)=>{
     mode:"instant-page",
     engine:"pdf-lib-course-page-v2"
   });
-    ok:true,
-    mode:"lualatex-production",
-    engine:"github-actions-lualatex-v1",
-    generated_document_id:generatedDocumentId,
-    job_id:jobId,
-    page_number:pageNumber,
-    status:"queued",
-    queue_position:q.queue_position??null,
-    queue_total:q.queue_total??null
-  });
 });
