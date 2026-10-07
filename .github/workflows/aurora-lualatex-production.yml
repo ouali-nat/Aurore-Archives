@@ -792,6 +792,24 @@ jobs:
           if r"\AuroreTitleBlock{" in assisted_tex or "Sommaire" in assisted_tex:
               raise SystemExit("Assisted-page smoke regression: production cover/TOC leaked into one-page mode.")
           print("Assisted-page production-layout smoke: OK")
+          canonical_preview_smoke = {
+              "title": "Aperçu canonique Aurore",
+              "document_type": "cours",
+              "source_format": "structured",
+              "metadata": {
+                  "origin": "edition_assistee",
+                  "assisted_document_preview": True,
+              },
+              "sections": [],
+          }
+          canonical_preview_tex = render_document.render(canonical_preview_smoke)
+          if r"\AuroreTitleBlock{" not in canonical_preview_tex:
+              raise SystemExit("Canonical preview regression: production cover is missing.")
+          if r"\AurorePill{Sommaire}" not in canonical_preview_tex:
+              raise SystemExit("Canonical preview regression: Sommaire is missing.")
+          if "Mentions · crédits · vérification" not in canonical_preview_tex:
+              raise SystemExit("Canonical preview regression: final verification page is missing.")
+          print("Canonical special-page preview smoke: OK")
           PY
 
       - name: Validate production renderer import from repository root
