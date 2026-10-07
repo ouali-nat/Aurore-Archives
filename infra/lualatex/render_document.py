@@ -1271,6 +1271,106 @@ def _fetch_wikimedia_visuals(data, assets_dir, profile):
                     or raw_required is True
                     or str(raw_required).strip().lower() in ("1", "true", "yes", "oui")
                 )
+                # Édition assistée : une image Wikimedia choisie manuellement reste
+                # prioritaire et ne doit pas être remplacée par une nouvelle recherche.
+                selected_image_url = clean_text(raw.get("selected_image_url") or "").strip()
+                if selected_image_url:
+                    if not selected_image_url.startswith("https://upload.wikimedia.org/"):
+                        statuses.append({
+                            "section_index": section_index,
+                            "section_title": clean_text(section.get("title") or ""),
+                            "query": clean_text(raw.get("query") or ""),
+                            "priority": priority or "required",
+                            "status": "failed",
+                            "reason": "selected_image_url_not_allowed",
+                            "external_temporary": False,
+                        })
+                        print(
+                            f"Wikimedia selected image rejected: section={section_index + 1} "
+                            "host not allowed."
+                        )
+                        continue
+                    selected_license = clean_text(raw.get("license") or "").strip()
+                    if not selected_license or not _wikimedia_license_ok(selected_license):
+                        statuses.append({
+                            "section_index": section_index,
+                            "section_title": clean_text(section.get("title") or ""),
+                            "query": clean_text(raw.get("query") or ""),
+                            "priority": priority or "required",
+                            "status": "failed",
+                            "reason": "selected_image_license_missing_or_not_allowed",
+                            "external_temporary": False,
+                        })
+                        print(
+                            f"Wikimedia selected image rejected: section={section_index + 1} "
+                            "license missing or not allowed."
+                        )
+                        continue
+                    selected_source_url = clean_text(raw.get("source_url") or "").strip()
+                    selected_title = clean_text(raw.get("title") or "").strip()
+                    selected_author = clean_text(raw.get("author") or "").strip()
+                    try:
+                        req = urllib.request.Request(
+                            selected_image_url,
+                            headers={"User-Agent": "Aurore-Section-Archives/1.0"},
+                        )
+                        with _open_url_with_retry(req, timeout=30) as resp:
+                            blob = resp.read()
+                        if not (10000 <= len(blob) <= 2500000):
+                            raise RuntimeError("selected Wikimedia image size outside production bounds")
+                        ext = ".png" if selected_image_url.lower().split("?")[0].endswith(".png") else ".jpg"
+                        local = assets_dir / f"wikimedia-{len(visuals)+1}{ext}"
+                        local.write_bytes(blob)
+                        visuals.append({
+                            "visual_id": clean_text(raw.get("id") or ""),
+                            "section_index": section_index,
+                            "section_title": clean_text(section.get("title") or ""),
+                            "path": str(local.relative_to(assets_dir.parent)).replace("\\", "/"),
+                            "title": selected_title or "Image Wikimedia sélectionnée",
+                            "caption": clean_text(raw.get("caption") or selected_title)[:280],
+                            "author": selected_author[:180] or "Auteur renseigné dans l'édition",
+                            "license": selected_license[:120],
+                            "source_url": selected_source_url or selected_image_url,
+                        })
+                        seen_urls.add(selected_image_url)
+                        accepted_for_section += 1
+                        statuses.append({
+                            "section_index": section_index,
+                            "section_title": clean_text(section.get("title") or ""),
+                            "query": clean_text(raw.get("query") or ""),
+                            "resolved_query": "manual-selection",
+                            "priority": priority or "required",
+                            "status": "fetched",
+                            "source_title": selected_title or "Image Wikimedia sélectionnée",
+                            "candidate_count": 1,
+                        })
+                        print(
+                            f"Wikimedia manual selection {len(visuals)}: "
+                            f"section={section_index + 1} title={selected_title!r}"
+                        )
+                        continue
+                    except Exception as exc:
+                        failure_class = _classify_wikimedia_external_failure(exc)
+                        statuses.append({
+                            "section_index": section_index,
+                            "section_title": clean_text(section.get("title") or ""),
+                            "query": clean_text(raw.get("query") or ""),
+                            "priority": priority or "required",
+                            "status": "failed",
+                            "reason": "selected_image_download_failed",
+                            "external_temporary": bool(
+                                failure_class in {
+                                    "rate_limited", "timeout", "network_error"
+                                } or str(failure_class or "").startswith("temporary_http_")
+                            ),
+                            "failure_classes": [failure_class] if failure_class else [],
+                        })
+                        print(
+                            f"WARNING: selected Wikimedia image download failed: "
+                            f"section={section_index + 1} error={exc}"
+                        )
+                        continue
+
                 query_candidates = candidates_for_directive(raw, section)
                 if not query_candidates:
                     statuses.append({
