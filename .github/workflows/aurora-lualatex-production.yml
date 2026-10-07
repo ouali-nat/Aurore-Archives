@@ -757,6 +757,41 @@ jobs:
           math_wikimedia_qa = _documentary_visual_plan_qa(math_with_wikimedia)
           if math_wikimedia_qa.get("enabled") or math_wikimedia_qa.get("ignored_documentary_visuals") != 1:
               raise SystemExit(f"Math documentary exclusion smoke test failed: {math_wikimedia_qa!r}")
+          assisted_smoke = {
+              "title": "Test Édition assistée",
+              "document_type": "cours",
+              "source_format": "structured",
+              "metadata": {
+                  "origin": "edition_assistee",
+                  "assisted_page": {
+                      "course_id": "smoke-course",
+                      "block_id": "smoke-block",
+                      "page_number": 1,
+                      "block_type": "paragraph",
+                  },
+              },
+              "assisted_block": {
+                  "id": "smoke-block",
+                  "type": "paragraph",
+                  "content": {
+                      "text": "Une fonction vérifie $f(x)=x^2+1$ et reste définie sur \\(0,+\\infty)."
+                  },
+              },
+              "sections": [{
+                  "title": "Bloc 1",
+                  "content": ["Une fonction vérifie $f(x)=x^2+1$."],
+              }],
+          }
+          assisted_tex = render_document.render(assisted_smoke)
+          if assisted_tex.count(r"\begin{document}") != 1 or assisted_tex.count(r"\end{document}") != 1:
+              raise SystemExit("Assisted-page smoke regression: invalid document boundaries.")
+          if r"\AuroreParagraphBlock{" not in assisted_tex:
+              raise SystemExit("Assisted-page smoke regression: AuroreParagraphBlock missing.")
+          if r"\AuroreMathCompact{" not in assisted_tex:
+              raise SystemExit("Assisted-page smoke regression: AuroreMathCompact missing.")
+          if r"\AuroreTitleBlock{" in assisted_tex or "Sommaire" in assisted_tex:
+              raise SystemExit("Assisted-page smoke regression: production cover/TOC leaked into one-page mode.")
+          print("Assisted-page production-layout smoke: OK")
           PY
 
       - name: Validate production renderer import from repository root
