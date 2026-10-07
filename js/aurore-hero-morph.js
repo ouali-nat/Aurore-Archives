@@ -44,7 +44,127 @@ function splitAndMerge(){
   splitTimerB=setTimeout(function(){hero.classList.remove('is-floating');hero.classList.remove('is-split')},1000+2200);
 }
 
-function schedule(){clearTimeout(timer);if(reduce.matches||document.hidden)return;timer=setTimeout(function(){apply();cycles++;if(cycles%4===0)splitAndMerge();schedule()},1300)}
+/* --- Fin de cycle : une goutte d'eau écrit « Aurore » lettre après lettre en rebondissant --- */
+/* Après la dernière forme, le bloc revient en cercle, puis une goutte tombe, éclabousse et
+   « écrit » chaque lettre (révélation de gauche à droite + petit rebond), rebondit vers la
+   lettre suivante, et ainsi de suite. Le mot reste affiché ~1,5 s puis s'efface en fondu,
+   et le cycle de formes reprend. Aucun effet si « réduire les animations » est activé. */
+const MOT='Aurore';
+function injecterStyleEcriture(){
+  if(document.getElementById('aurore-hero-write-style'))return;
+  const s=document.createElement('style');s.id='aurore-hero-write-style';
+  s.textContent=
+    '.hero-aurore-write{position:absolute;left:0;right:0;top:0;bottom:0;z-index:6;display:flex;align-items:center;justify-content:center;pointer-events:none}'+
+    '.hw-cell{position:relative;display:inline-block;padding:0 .015em}'+
+    '.hw-letter{display:inline-block;font-family:"Snell Roundhand","Segoe Script","Brush Script MT","Lucida Handwriting","Apple Chancery","URW Chancery L",cursive;font-style:italic;font-weight:700;font-size:clamp(3.2rem,19vw,7.5rem);line-height:1.1;color:var(--hero-write-color,#fff);text-shadow:0 4px 18px rgba(0,0,0,.28),0 0 22px rgba(255,255,255,.35);clip-path:inset(-30% 100% -30% -10%);transform-origin:50% 100%;will-change:transform,clip-path}'+
+    '.hw-drop{position:absolute;left:0;top:0;width:16px;height:22px;margin:-11px 0 0 -8px;border-radius:50% 50% 50% 50%/62% 62% 38% 38%;background:radial-gradient(circle at 35% 30%,#fff 0,#fff 10%,#c4ecff 30%,#58b8ff 72%,#1f84d8 100%);box-shadow:0 0 12px rgba(120,200,255,.75);opacity:0;will-change:transform}'+
+    '.hw-ripple{position:absolute;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;border:2px solid rgba(196,236,255,.95);opacity:0}'+
+    '.aurore-hero-morph .hero-inner{transition:opacity .45s ease}'+
+    '.aurore-hero-morph.is-writing .hero-inner{opacity:.08}'+
+    '@media (prefers-reduced-motion:reduce){.hero-aurore-write{display:none}}';
+  (document.head||document.documentElement).appendChild(s);
+}
+function ecrireAurore(){
+  return new Promise(function(done){
+    if(reduce.matches||document.hidden){done();return}
+    injecterStyleEcriture();
+    const ov=document.createElement('div');ov.className='hero-aurore-write';ov.setAttribute('aria-hidden','true');
+    const cells=[],letters=[];
+    MOT.split('').forEach(function(ch){
+      const c=document.createElement('span');c.className='hw-cell';
+      const l=document.createElement('span');l.className='hw-letter';l.textContent=ch;
+      c.appendChild(l);ov.appendChild(c);cells.push(c);letters.push(l);
+    });
+    const drop=document.createElement('div');drop.className='hw-drop';ov.appendChild(drop);
+    hero.appendChild(ov);hero.classList.add('is-writing');
+    let fini=false;
+    function terminer(){
+      if(fini)return;fini=true;
+      hero.classList.remove('is-writing');
+      try{ov.remove()}catch(e){}
+      done();
+    }
+    const securite=setTimeout(terminer,12000);
+    function A(el,kf,opt){
+      try{const a=el.animate(kf,Object.assign({fill:'forwards'},opt));return a.finished.catch(function(){})}
+      catch(e){return Promise.resolve()}
+    }
+    function tr(x,y,sx,sy){return 'translate('+x.toFixed(1)+'px,'+y.toFixed(1)+'px) scale('+sx+','+sy+')'}
+    function pause(ms){return new Promise(function(r){setTimeout(r,ms)})}
+    function ripple(x,y){
+      const r=document.createElement('div');r.className='hw-ripple';r.style.left=x+'px';r.style.top=y+'px';ov.appendChild(r);
+      A(r,[{transform:'scale(1,.35)',opacity:.95},{transform:'scale(9,3)',opacity:0}],{duration:650,easing:'ease-out'}).then(function(){try{r.remove()}catch(e){}});
+    }
+    function ecrireLettre(i){
+      const l=letters[i];
+      A(l,[{clipPath:'inset(-30% 100% -30% -10%)',transform:'translateY(-6px) scale(1,1)'},{clipPath:'inset(-30% -30% -30% -10%)',transform:'translateY(0) scale(1,1)'}],{duration:340,easing:'cubic-bezier(.3,.7,.3,1)'})
+        .then(function(){return rebond(i)});
+    }
+    function rebond(i){
+      return A(letters[i],[
+        {transform:'translateY(0) scale(1,1)'},
+        {transform:'translateY(-16px) scale(.94,1.08)',offset:.3},
+        {transform:'translateY(0) scale(1.08,.9)',offset:.55},
+        {transform:'translateY(-5px) scale(.98,1.03)',offset:.78},
+        {transform:'translateY(0) scale(1,1)'}
+      ],{duration:620,easing:'ease-out'});
+    }
+    (async function(){
+      try{
+        await pause(60);
+        /* Positions en unités de mise en page (insensibles au zoom du site). */
+        const H=ov.offsetHeight||240;
+        const T=cells.map(function(c){return {x:c.offsetLeft+c.offsetWidth*0.42,y:c.offsetTop+c.offsetHeight*0.82}});
+        const y0=Math.max(-30,T[0].y-H*0.6);
+        /* Chute de la première goutte. */
+        await A(drop,[
+          {transform:tr(T[0].x,y0,.6,.6),opacity:0},
+          {transform:tr(T[0].x,y0+24,.8,1.3),opacity:1,offset:.15},
+          {transform:tr(T[0].x,T[0].y,.85,1.5),opacity:1}
+        ],{duration:520,easing:'cubic-bezier(.5,0,.9,.6)'});
+        for(let i=0;i<cells.length;i++){
+          const a=T[i];
+          ripple(a.x,a.y);
+          ecrireLettre(i);
+          if(i<cells.length-1){
+            const b=T[i+1],apex=Math.min(a.y,b.y)-H*0.3;
+            await A(drop,[
+              {transform:tr(a.x,a.y,1.7,.45),easing:'cubic-bezier(.2,.7,.4,1)'},
+              {transform:tr((a.x+b.x)/2,apex,.85,1.25),offset:.5,easing:'cubic-bezier(.6,0,.9,.5)'},
+              {transform:tr(b.x,b.y,.9,1.4)}
+            ],{duration:430});
+          }else{
+            /* Dernière lettre : la goutte s'écrase et se dissout dans l'écriture. */
+            await A(drop,[{transform:tr(a.x,a.y,1.7,.45),opacity:1},{transform:tr(a.x,a.y+4,2.4,.1),opacity:0}],{duration:320,easing:'ease-out'});
+          }
+        }
+        /* Petite vague finale sur tout le mot. */
+        letters.forEach(function(_,i){setTimeout(function(){rebond(i)},i*70)});
+        await pause(1900);
+        await A(ov,[{opacity:1},{opacity:0}],{duration:600,easing:'ease-in'});
+      }catch(e){}
+      clearTimeout(securite);
+      terminer();
+    })();
+  });
+}
+
+let writing=false;
+function quandLibre(cb){if(hero.classList.contains('is-split')||hero.classList.contains('is-floating'))setTimeout(function(){quandLibre(cb)},250);else cb()}
+function lancerEcriture(){
+  writing=true;
+  clearTimeout(timer);
+  timer=setTimeout(function(){
+    apply(); /* retour au cercle : forme la plus large pour écrire */
+    setTimeout(function(){
+      quandLibre(function(){
+        ecrireAurore().then(function(){writing=false;schedule()});
+      });
+    },1000);
+  },1300);
+}
+
+function schedule(){clearTimeout(timer);if(reduce.matches||document.hidden||writing)return;timer=setTimeout(function(){apply();cycles++;if(cycles%shapes.length===0){lancerEcriture();return}if(cycles%4===0)splitAndMerge();schedule()},1300)}
 apply();index=0;cycles=0;schedule();
 document.addEventListener('visibilitychange',schedule);
 if(reduce.addEventListener)reduce.addEventListener('change',schedule)}
