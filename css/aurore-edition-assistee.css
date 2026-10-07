@@ -77,3 +77,14 @@
 
 .ae-block-head>div{min-width:0}.ae-block-head strong,.ae-block-head small{overflow-wrap:anywhere;word-break:break-word}.ae-block-result{min-width:0}.ae-block-result>*{max-width:100%;overflow-wrap:anywhere;word-break:break-word}
 @media(max-width:680px){.ae-editor-grid{grid-template-columns:1fr}.ae-point-style-preview{grid-template-columns:auto 1fr}.ae-correction-editor{padding:9px}}
+
+/* Aurore — pages système et prévisualisation éditoriale */
+.ae-system-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:100%}
+.ae-system-fields label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:700;min-width:0}
+.ae-system-fields input{width:100%;box-sizing:border-box}
+.ae-special-page-preview{min-height:620px;aspect-ratio:595/842;background:#fff;border:1px solid #d7d8dc;border-radius:14px;padding:52px 46px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;box-shadow:0 12px 34px rgba(0,0,0,.10)}
+.ae-special-page-preview .ae-special-page-accent{width:72px;height:5px;border-radius:5px;background:var(--ae-accent,#6D28D9);margin:0 auto 34px}
+.ae-special-page-preview h2{font-size:29px;line-height:1.16;margin:0 0 14px;color:#25262b}
+.ae-special-page-preview h3{font-size:15px;line-height:1.5;font-weight:500;margin:0 0 25px;color:#686a73}
+.ae-special-page-preview p{margin:5px 0;color:#44464e}.ae-special-page-preview small{margin-top:20px;color:#888}
+@media(max-width:700px){.ae-system-fields{grid-template-columns:1fr}.ae-special-page-preview{min-height:540px;padding:35px 25px}.ae-special-page-preview h2{font-size:23px}}
