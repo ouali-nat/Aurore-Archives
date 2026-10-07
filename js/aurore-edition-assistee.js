@@ -54,11 +54,21 @@
   function block(type){
     const b={id:uid('block'),type,content:{},generation:{status:'not_generated',page_number:null,page_path:null,page_url:null,updated_at:null,error:null},created_at:new Date().toISOString()};
     if(type==='paragraph')b.content={text:''};
-    if(type==='point')b.content={text:'Nouvel élément de cours.'};
-    if(type==='exercise')b.content={statement:'Nouvel exercice.',hint:''};
+    if(type==='point'){const n=nextPointNumber();b.content={title:'Point de cours '+n,text:'',color:DEFAULT_THEME_COLOR,rank:n};}
+    if(type==='exercise'){const n=nextExerciseNumber();b.content={title:'Exercice '+n,statement:'',hint:'',correction_title:'Corrigé '+n,correction:''};}
     if(type==='graphique')b.content={json:{id:uid('graph'),instrument:'function2d',expression:'x^2'}};
     if(type==='wikimedia-image')b.content={imageUrl:'',thumbUrl:'',title:'',caption:'',sourceUrl:'',author:'',license:'',query:''};
     return b;
+  }
+  function nextExerciseNumber(){
+    return activeBlocks().filter(b=>b?.type==='exercise').length+1;
+  }
+  function nextPointNumber(){
+    return activeBlocks().filter(b=>b?.type==='point').length+1;
+  }
+  function normalizePointColor(v){return /^#[0-9A-F]{6}$/i.test(String(v||''))?String(v).toUpperCase():DEFAULT_THEME_COLOR}
+  function pointColorOptions(selected){
+    return THEME_COLORS.map(x=>'<option value="'+x.value+'"'+(normalizePointColor(selected)===x.value?' selected':'')+'>'+esc(x.label)+'</option>').join('');
   }
   function activeBlocks(){return Array.isArray(state.course?.blocks)?state.course.blocks:[]}
   function pageNumberFor(b){const blocks=activeBlocks();if(b?.role===START_ROLE)return 1;if(b?.role===END_ROLE)return blocks.length;const i=blocks.findIndex(x=>x.id===b.id);return i<0?null:i+1}
@@ -136,8 +146,9 @@
   function normalizeContent(type,v){
     const x=v&&typeof v==='object'&&!Array.isArray(v)?clone(v):{};
     if(type==='graphique') return {json:x};
-    if(type==='paragraph'||type==='point') return {text:String(x.text??x.content??x.body??'')};
-    if(type==='exercise') return {statement:String(x.statement??x.question??x.enonce??x.content??''),hint:String(x.hint??'')};
+    if(type==='paragraph') return {text:String(x.text??x.content??x.body??'')};
+    if(type==='point') return {title:String(x.title??x.name??'Point de cours'),text:String(x.text??x.content??x.body??''),color:normalizePointColor(x.color),rank:Number.isFinite(Number(x.rank))?Number(x.rank):1};
+    if(type==='exercise') return {title:String(x.title??x.name??'Exercice 1'),statement:String(x.statement??x.question??x.enonce??x.content??''),hint:String(x.hint??''),correction_title:String(x.correction_title??x.correctionTitle??'Corrigé 1'),correction:String(x.correction??'')};
     if(type==='wikimedia-image') return {
       imageUrl:String(x.imageUrl??x.url??''),
       thumbUrl:String(x.thumbUrl??x.thumburl??x.imageUrl??x.url??''),
@@ -159,8 +170,15 @@
   function validateBlock(b){
     const errors=[];
     if(b.type==='paragraph'&&!String(b.content?.text||'').trim())errors.push('Le paragraphe est vide.');
-    if(b.type==='point'&&!String(b.content?.text||'').trim())errors.push('Le contenu du point est vide.');
-    if(b.type==='exercise'&&!String(b.content?.statement||'').trim())errors.push('L’énoncé est vide.');
+    if(b.type==='point'){
+      if(!String(b.content?.title||'').trim())errors.push('Le nom du point de cours est obligatoire.');
+      if(!String(b.content?.text||'').trim())errors.push('Le contenu du point est vide.');
+      if(!Number.isFinite(Number(b.content?.rank))||Number(b.content.rank)<1)errors.push('Le rang du point doit être un entier positif.');
+    }
+    if(b.type==='exercise'){
+      if(!String(b.content?.title||'').trim())errors.push('Le titre de l’exercice est obligatoire.');
+      if(!String(b.content?.statement||'').trim())errors.push('L’énoncé est vide.');
+    }
     if(b.type==='wikimedia-image'){
       if(!String(b.content?.imageUrl||'').startsWith('https://upload.wikimedia.org/'))errors.push('Aucune image Wikimedia valide n’est sélectionnée.');
       if(!String(b.content?.license||'').trim())errors.push('Licence Wikimedia absente.');
@@ -208,7 +226,8 @@
     const v=validateBlock(b), gen=b.generation||{},page=pageNumberFor(b);
     let editor='';
     if(b.type==='graphique')editor='<textarea class="ae-inline-json" data-edit-json="'+esc(b.id)+'" aria-label="JSON du graphique">'+esc(JSON.stringify(b.content?.json||{},null,2))+'</textarea>';
-    else if(b.type==='exercise')editor='<textarea data-edit-text="'+esc(b.id)+'" aria-label="Énoncé de l’exercice">'+esc(b.content?.statement||'')+'</textarea>';
+    else if(b.type==='point')editor='<div class="ae-structured-editor ae-point-editor"><div class="ae-editor-grid"><label>Nom du point<input data-edit-point-title="'+esc(b.id)+'" value="'+esc(b.content?.title||'')+'" maxlength="140"></label><label>Rang<input type="number" min="1" step="1" data-edit-point-rank="'+esc(b.id)+'" value="'+esc(b.content?.rank||1)+'"></label><label>Couleur<select data-edit-point-color="'+esc(b.id)+'">'+pointColorOptions(b.content?.color)+'</select></label></div><label>Contenu<textarea data-edit-text="'+esc(b.id)+'" aria-label="Contenu du point de cours">'+esc(b.content?.text||'')+'</textarea></label><div class="ae-point-style-preview"><span style="--point-color:'+esc(normalizePointColor(b.content?.color))+'"></span><strong>'+esc(b.content?.title||'Point de cours')+'</strong><i></i></div></div>';
+    else if(b.type==='exercise')editor='<div class="ae-structured-editor ae-exercise-editor"><label>Titre de l’exercice<input data-edit-exercise-title="'+esc(b.id)+'" value="'+esc(b.content?.title||'')+'" maxlength="140"></label><label>Énoncé<textarea data-edit-exercise-statement="'+esc(b.id)+'" aria-label="Énoncé de l’exercice">'+esc(b.content?.statement||'')+'</textarea></label><label>Indication<textarea class="ae-small-textarea" data-edit-exercise-hint="'+esc(b.id)+'" aria-label="Indication de l’exercice">'+esc(b.content?.hint||'')+'</textarea></label><div class="ae-correction-editor"><strong>Correction conditionnée à cet exercice</strong><label>Titre du corrigé<input data-edit-correction-title="'+esc(b.id)+'" value="'+esc(b.content?.correction_title||'')+'" maxlength="140"></label><textarea data-edit-correction="'+esc(b.id)+'" aria-label="Correction">'+esc(b.content?.correction||'')+'</textarea></div></div>';
     else if(b.type==='wikimedia-image')editor=b.content?.imageUrl?'<div class="ae-selected-image"><img src="'+esc(b.content.imageUrl)+'" alt="'+esc(b.content.title||'Image Wikimedia')+'"><div><strong>'+esc(b.content.title||'Image Wikimedia')+'</strong><small>'+esc(b.content.license||'Licence à vérifier')+'</small></div></div>':'<div class="ae-image-pick-empty">Ajoutez une image Wikimedia avec le bouton dédié.</div>';
     else editor='<textarea data-edit-text="'+esc(b.id)+'" aria-label="Contenu du bloc">'+esc(b.content?.text||'')+'</textarea>';
     return '<article class="ae-block '+(state.selected===b.id?'is-selected':'')+'" data-block="'+esc(b.id)+'">'+
@@ -251,6 +270,14 @@
     document.getElementById('aeAddGraph').onclick=()=>addBlock('graphique');
     document.getElementById('aeAddWiki').onclick=wiki;
     document.getElementById('aeSave').onclick=()=>persistCourse(false,true);
+    root().querySelectorAll('[data-edit-point-title]').forEach(el=>el.oninput=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editPointTitle);if(b){b.content.title=el.value;validateCourse();}});
+    root().querySelectorAll('[data-edit-point-rank]').forEach(el=>el.oninput=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editPointRank);if(b){b.content.rank=Math.max(1,parseInt(el.value||'1',10));validateCourse();}});
+    root().querySelectorAll('[data-edit-point-color]').forEach(el=>el.onchange=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editPointColor);if(b){b.content.color=normalizePointColor(el.value);renderWorkspace();}});
+    root().querySelectorAll('[data-edit-exercise-title]').forEach(el=>el.oninput=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editExerciseTitle);if(b)b.content.title=el.value;});
+    root().querySelectorAll('[data-edit-exercise-statement]').forEach(el=>el.oninput=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editExerciseStatement);if(b){b.content.statement=el.value;validateCourse();}});
+    root().querySelectorAll('[data-edit-exercise-hint]').forEach(el=>el.oninput=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editExerciseHint);if(b)b.content.hint=el.value;});
+    root().querySelectorAll('[data-edit-correction-title]').forEach(el=>el.oninput=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editCorrectionTitle);if(b)b.content.correction_title=el.value;});
+    root().querySelectorAll('[data-edit-correction]').forEach(el=>el.oninput=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editCorrection);if(b)b.content.correction=el.value;});
     root().querySelectorAll('[data-edit-text]').forEach(el=>el.oninput=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editText);if(b){if(b.type==='exercise')b.content.statement=el.value;else b.content.text=el.value;validateCourse();}});
     root().querySelectorAll('[data-edit-json]').forEach(el=>el.onchange=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editJson);if(!b)return;try{b.content=normalizeContent('graphique',JSON.parse(el.value));validateBlock(b);renderWorkspace();}catch(_){setStatus('JSON graphique invalide.')}});
 
@@ -522,8 +549,10 @@
     return chunks.map((part,i)=>{
       const n=block(b.type);
       n.content=b.type==='exercise'
-        ?{statement:part,hint:i===0?b.content?.hint:''}
-        :{text:part};
+        ?{title:String(b.content?.title||'Exercice '+(i+1)),statement:part,hint:i===0?b.content?.hint:'',correction_title:i===0?String(b.content?.correction_title||'Corrigé '+(i+1)):'',correction:i===0?String(b.content?.correction||''):''}
+        :b.type==='point'
+          ?{title:String(b.content?.title||'Point de cours '+(i+1)),text:part,color:normalizePointColor(b.content?.color),rank:Number(b.content?.rank)||i+1}
+          :{text:part};
       n.generation={
         status:'not_generated',
         page_number:null,
