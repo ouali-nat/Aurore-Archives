@@ -605,7 +605,7 @@
       document.getElementById('aeClosePreviewAction')?.addEventListener('click',()=>document.getElementById('aeModalHost').innerHTML='');
       return;
     }
-    const gen=b.generation||{};    const gen=b.generation||{};
+    const gen=b.generation||{};
     if(b.type==='graphique'&&!gen.page_url){
       const url=await graphPreviewUrl(b);
       if(url){
