@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { PDFDocument, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
+import { PDFDocument, rgb } from "npm:pdf-lib@1.17.1";
 import fontkit from "npm:@pdf-lib/fontkit@1.1.1";
 
 const URL = Deno.env.get("SUPABASE_URL")!;
@@ -9,6 +9,25 @@ const admin = createClient(URL, SERVICE, { auth: { autoRefreshToken:false, persi
 
 const LOGO_URL = "https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster";
 const MATH_URL = URL + "/functions/v1/aurora-content-math-renderer";
+
+const TEXT_SIZE=11.3;
+const LINE_HEIGHT=16.1;
+const BLOCK_GAP=12;
+const BOX_RADIUS=11;
+const BOX_PAD_TOP=11;
+const BOX_PAD_BOTTOM=11;
+const MATH_DISPLAY_BASE_H=24;
+const MATH_EX_PX=7.54;
+const MATH_RASTER_SCALE=3;
+const MATH_BOX_PAD_X=7;
+const MATH_BOX_PAD_Y=3.5;
+const FONT_URLS={
+  regular:"https://raw.githubusercontent.com/go-fonts/latin-modern/main/lmroman10regular/lmroman10-regular.otf",
+  bold:"https://raw.githubusercontent.com/go-fonts/latin-modern/main/lmroman10bold/lmroman10-bold.otf",
+  sans:"https://raw.githubusercontent.com/go-fonts/latin-modern/main/lmsans10regular/lmsans10-regular.otf",
+  sansBold:"https://raw.githubusercontent.com/go-fonts/latin-modern/main/lmsans10bold/lmsans10-bold.otf"
+};
+const FONT_BYTES_CACHE=new Map<string,Promise<Uint8Array>>();
 
 const H = {
   "Access-Control-Allow-Origin":"*",
@@ -54,11 +73,15 @@ function proseText(v:any){
 function latexInput(v:any){
   let source=normalizeUnicodeMathText(String(v??"")).normalize("NFC");
   source=source.replace(/\\{2,}(?=[A-Za-z{}])/g,"\\");
+  source=source
+    .replace(/\\(?:mathbf|boldsymbol|bm|pmb)\s*/g,"")
+    .replace(/\\(?:bfseries|boldmath|bf)\b/g,"")
+    .replace(/\\textbf\s*\{([^{}]*)\}/g,"\\text{$1}");
   return source.replace(/[≠≤≥∞≈∈∉×÷±πℝℕℤℚ→⇔⇒⊂⊄∀∃∧∨∅]/g,(c)=>{
     const m:any={
       "≠":"\\neq ","≤":"\\leq ","≥":"\\geq ","∞":"\\infty ","≈":"\\approx ",
-      "∈":"\\in ","∉":"\\notin ","×":"\\times ","÷":"\\div ","±":"\\pm ",
-      "π":"\\pi ","ℝ":"\\mathbb{R}","ℕ":"\\mathbb{N}","ℤ":"\\mathbb{Z}","ℚ":"\\mathbb{Q}",
+      "∈":"\\in ","∉":"\\notin ","×":"\\times ","÷":"\\div ","±":"\\pm ","π":"\\pi ",
+      "ℝ":"\\mathbb{R}","ℕ":"\\mathbb{N}","ℤ":"\\mathbb{Z}","ℚ":"\\mathbb{Q}",
       "→":"\\to ","⇔":"\\Longleftrightarrow ","⇒":"\\Rightarrow ","⊂":"\\subset ","⊄":"\\nsubset ",
       "∀":"\\forall ","∃":"\\exists ","∧":"\\land ","∨":"\\lor ","∅":"\\varnothing "
     };
@@ -167,15 +190,28 @@ async function loadLogo(pdf:any){
   return await embedRaster(pdf,new Uint8Array(await r.arrayBuffer()),"logo Aurore");
 }
 
+async function fetchFontBytes(key:string,url:string){
+  let task=FONT_BYTES_CACHE.get(key);
+  if(task)return task;
+  task=fetch(url).then(async r=>{
+    if(!r.ok)throw new Error("Police "+key+" indisponible (HTTP "+r.status+")");
+    return new Uint8Array(await r.arrayBuffer());
+  });
+  FONT_BYTES_CACHE.set(key,task);
+  return task;
+}
 async function loadFonts(pdf:any){
-  // Keep font loading local and deterministic in the page renderer.
-  // The math renderer supplies the formula glyphs; body metrics stay at the
-  // normal Aurore editorial 11 pt rhythm.
+  const [regular,bold,sans,sansBold]=await Promise.all([
+    fetchFontBytes("regular",FONT_URLS.regular),
+    fetchFontBytes("bold",FONT_URLS.bold),
+    fetchFontBytes("sans",FONT_URLS.sans),
+    fetchFontBytes("sansBold",FONT_URLS.sansBold)
+  ]);
   return {
-    regular:await pdf.embedFont(StandardFonts.TimesRoman),
-    bold:await pdf.embedFont(StandardFonts.TimesRomanBold),
-    sans:await pdf.embedFont(StandardFonts.Helvetica),
-    sansBold:await pdf.embedFont(StandardFonts.HelveticaBold)
+    regular:await pdf.embedFont(regular,{subset:false}),
+    bold:await pdf.embedFont(bold,{subset:false}),
+    sans:await pdf.embedFont(sans,{subset:false}),
+    sansBold:await pdf.embedFont(sansBold,{subset:false})
   };
 }
 async function formulaImage(auth:string,pdf:any,source:string,qa:any,cache:Map<string,any>){
@@ -187,17 +223,19 @@ async function formulaImage(auth:string,pdf:any,source:string,qa:any,cache:Map<s
     const r=await fetch(MATH_URL,{
       method:"POST",
       headers:{Authorization:auth,"Content-Type":"application/json"},
-      body:JSON.stringify({formula:key}),
+      body:JSON.stringify({formula:key,px_per_ex:MATH_EX_PX}),
       signal:AbortSignal.timeout(12000)
     });
     const z:any=await r.json().catch(()=>null);
-    const pngBase64=typeof z?.png_base64==="string"
-      ? z.png_base64
-      : (typeof z?.results?.[0]?.png_base64==="string" ? z.results[0].png_base64 : null);
+    const result=z?.results?.[0]||z;
+    const pngBase64=typeof result?.png_base64==="string"?result.png_base64:null;
     if(!r.ok||!z?.ok||!pngBase64){qa.formulas_failed++;return null;}
     const bin=atob(pngBase64),bytes=new Uint8Array(bin.length);
     for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
-    const image=await pdf.embedPng(bytes);
+    const image:any=await pdf.embedPng(bytes);
+    image.__aurore_natural_pt_width=Number(result?.natural_pt_width)||0;
+    image.__aurore_natural_pt_height=Number(result?.natural_pt_height)||0;
+    image.__aurore_raster_scale=Number(result?.raster_scale)||1;
     cache.set(key,image);
     qa.formulas_ok++;
     return image;
@@ -257,12 +295,10 @@ function wrap(s:string,font:any,size:number,max:number){
 }
 
 function tokenTextWidth(font:any,size:number,text:string){return font.widthOfTextAtSize(escapePdfText(text),size)}
-
 function splitTextTokens(value:string){
   const words=String(value||"").replace(/\s+/g," ").trim().split(" ").filter(Boolean);
   return words.map((word)=>({kind:"text",value:word}));
 }
-
 async function prepareRuns(runs:Run[],auth:string,pdf:any,fonts:any,qa:any,cache:Map<string,any>){
   const prepared:Run[]=[];
   for(const run of runs){
@@ -270,11 +306,11 @@ async function prepareRuns(runs:Run[],auth:string,pdf:any,fonts:any,qa:any,cache
       prepared.push(...splitTextTokens(run.value));
       continue;
     }
-    const img=await formulaImage(auth,pdf,run.value,qa,cache);
+    const img:any=await formulaImage(auth,pdf,run.value,qa,cache);
     if(img){
-      const targetH=run.kind==="display"?48:16;
-      const scale=Math.min(1,targetH/(img.height||targetH));
-      prepared.push({kind:run.kind,value:run.value,image:img,width:img.width*scale,height:img.height*scale});
+      const naturalW=Number(img.__aurore_natural_pt_width)||Math.max(8,img.width*0.75);
+      const naturalH=Number(img.__aurore_natural_pt_height)||Math.max(8,img.height*0.75);
+      prepared.push({kind:run.kind,value:run.value,image:img,width:naturalW,height:naturalH});
     }else{
       const fallback=normalizeUnicodeMathText(run.value).replace(/[\\]/g,"").replace(/[{}]/g,"");
       prepared.push({kind:"text",value:fallback});
@@ -282,46 +318,35 @@ async function prepareRuns(runs:Run[],auth:string,pdf:any,fonts:any,qa:any,cache
   }
   return prepared;
 }
-
 function layoutInline(prepared:Run[],font:any,size:number,max:number){
-  const lines:any[][]=[[]];
-  let width=0;
+  const lines:any[][]=[[]];let width=0;
   const addText=(v:string)=>{
     const w=tokenTextWidth(font,size,v);
     const space=lines[lines.length-1].length?tokenTextWidth(font,size," "):0;
-    if(width+space+w>max&&lines[lines.length-1].length){
-      lines.push([]);width=0;
-    }
+    if(width+space+w>max&&lines[lines.length-1].length){lines.push([]);width=0;}
     const sp=lines[lines.length-1].length?tokenTextWidth(font,size," "):0;
     lines[lines.length-1].push({kind:"text",value:v,width:w,space:sp});
     width+=(lines[lines.length-1].length>1?space:0)+w;
   };
   const addMath=(r:Run)=>{
-    const w=(r.width||0)+14;
+    const intrinsicW=Math.max(8,r.width||24),intrinsicH=Math.max(8,r.height||16),w=intrinsicW+14;
     const space=lines[lines.length-1].length?4:0;
-    if(width+space+w>max&&lines[lines.length-1].length){
-      lines.push([]);width=0;
-    }
+    if(width+space+w>max&&lines[lines.length-1].length){lines.push([]);width=0;}
     const sp=lines[lines.length-1].length?4:0;
-    lines[lines.length-1].push({kind:"math",image:r.image,width:w,height:(r.height||0)+6,space:sp});
+    lines[lines.length-1].push({kind:"math",image:r.image,width:w,height:intrinsicH+6,space:sp});
     width+=sp+w;
   };
-  for(const r of prepared){if(r.kind==="text")addText(r.value);else if(r.kind==="math")addMath(r)}
+  for(const r of prepared){if(r.kind==="text")addText(r.value);else if(r.kind==="math")addMath(r);}
   return lines.filter(x=>x.length);
 }
-
-function inlineLineAdvance(line:any[],size=11.5,lineHeight=18.4){
+function inlineLineAdvance(line:any[],size=TEXT_SIZE,lineHeight=LINE_HEIGHT){
   const maxMathBoxH=Math.max(0,...line.filter(t=>t.kind==="math").map(t=>t.height||0));
-  // Keep the common line rhythm of the normal 11 pt editorial text.
-  return Math.max(lineHeight,maxMathBoxH);
+  return Math.max(lineHeight,maxMathBoxH+MATH_BOX_PAD_Y*2);
 }
-
-function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,borderColor:any,textColor:any,size=11.5,lineHeight=18.4){
-  // Match the normal AuroreMathCompact box and center text/math on one shared line.
+function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,borderColor:any,textColor:any,size=TEXT_SIZE,lineHeight=LINE_HEIGHT){
   let y=topY;
-  const boxPadX=7,boxPadY=4.2;
-  const frame=rgbHex(mixWhite(borderColor,0.42));
-  const fill=rgbHex(mixWhite(mixWhite(borderColor,0.96),0.99));
+  const boxPadX=MATH_BOX_PAD_X,boxPadY=MATH_BOX_PAD_Y;
+  const frame=rgbHex("#C4C5C8"),fill=rgbHex("#EEEEEF");
   for(const line of lines){
     const advance=inlineLineAdvance(line,size,lineHeight);
     const lineCenter=y-advance/2;
@@ -346,16 +371,6 @@ function drawInlineLines(page:any,lines:any[],x:number,topY:number,font:any,bord
     y-=advance;
   }
   return y;
-}
-function drawParagraph(page:any,prepared:Run[],x:number,topY:number,width:number,font:any,color:string,qa:any){
-  const size=11.5, lineHeight=18.0, inner=width;
-  const inlineRuns=prepared.filter(r=>r.kind!=="display");
-  const displayRuns=prepared.filter(r=>r.kind==="display");
-  const lines=layoutInline(inlineRuns,font,size,inner);
-  const displayHeight=displayRuns.length?displayRuns.reduce((n,r)=>n+(r.height||42)+20,0):0;
-  const lineCount=Math.max(1,lines.length);
-  const boxH=14+lineCount*lineHeight+displayHeight;
-  return {lines,displayRuns,boxH};
 }
 
 function drawSoftDecor(page:any,color:string){
@@ -405,175 +420,117 @@ function sectionLabel(page:any,label:string,x:number,y:number,fonts:any,color:st
 }
 
 function displayMathMetrics(run:Run,width:number){
-  // Production AuroreMathBlock proportions with adaptive formula size.
-  const naturalW=Math.max(1,run.width||width-28);
-  const naturalH=Math.max(1,run.height||24);
-  const maxW=Math.max(100,width-14);
-  const maxH=48;
-  const scale=Math.min(1,maxW/naturalW,maxH/naturalH);
-  const iw=Math.max(24,naturalW*scale);
-  const ih=Math.max(10,naturalH*scale);
-  const h=Math.max(58,ih+20);
-  return {iw,ih,h};
+  const sourceW=Math.max(8,run.width||180);
+  const sourceH=Math.max(8,run.height||MATH_DISPLAY_BASE_H);
+  const maxW=Math.max(80,width-28);
+  const scale=Math.min(1,maxW/sourceW);
+  const iw=sourceW*scale,ih=sourceH*scale;
+  const padX=12,padY=7;
+  return {iw,ih,cardH:ih+padY*2,padX,padY};
+}
+function drawDisplayMath(page:any,run:Run,x:number,topY:number,width:number,color:string){
+  const m=displayMathMetrics(run,width);
+  const cardW=Math.min(width,Math.max(40,m.iw+m.padX*2)),cardH=m.cardH;
+  const x0=x+(width-cardW)/2,y0=topY-cardH;
+  rounded(page,x0,y0,cardW,cardH,9,rgbHex("#ECEDEE"),rgbHex("#C1C2C6"),0.5);
+  page.drawImage(run.image,{x:x0+(cardW-m.iw)/2,y:y0+(cardH-m.ih)/2,width:m.iw,height:m.ih});
+  return {cardW,cardH};
 }
 
-function drawDisplayMath(page:any,run:Run,x:number,y:number,width:number,color:string){
-  // Floating Aurore formula card: rounded rectangle/square, light gray fill,
-  // adaptive width and height driven by the actual rendered formula.
-  const m=displayMathMetrics(run,width);
-  const padX=18, minW=96, maxW=width;
-  const cardW=Math.min(maxW,Math.max(minW,m.iw+padX*2));
-  const cardH=m.h;
-  const x0=x+(width-cardW)/2, y0=y-cardH;
-  const frame=rgbHex("#B7B8BC");
-  const fill=rgbHex("#ECECED");
-  rounded(page,x0,y0,cardW,cardH,10,fill,frame,0.55);
-  page.drawImage(run.image,{
-    x:x0+(cardW-m.iw)/2,
-    y:y0+(cardH-m.ih)/2,
-    width:m.iw,
-    height:m.ih
-  });
-  return y0-BLOCK_GAP;
-}
 Deno.serve(async req=>{
   if(req.method==="OPTIONS")return new Response("ok",{headers:H});
   if(req.method!=="POST")return out({ok:false,error:"Méthode non autorisée"},405);
   const auth=req.headers.get("Authorization")||"";
   if(!auth.startsWith("Bearer "))return out({ok:false,error:"Authentification requise"},401);
-  const uc=createClient(URL,ANON,{global:{headers:{Authorization:auth}},auth:{autoRefreshToken:false,persistSession:false}});
-  const me=await uc.auth.getUser();
-  if(me.error||!me.data.user)return out({ok:false,error:"Session invalide"},401);
-
-  let body:any;
-  try{body=await req.json()}catch{return out({ok:false,error:"JSON invalide"},400);}
+  const bearer=auth.slice(7).trim();
+  const internalUserId=req.headers.get("x-aurore-user-id")?.trim()||"";
+  const me=await admin.auth.getUser(bearer);
+  if(me.error||!me.data.user)return out({ok:false,error:"Session utilisateur invalide"},401);
+  const userId=me.data.user.id;
+  if(internalUserId&&internalUserId!==userId)return out({ok:false,error:"Identité utilisateur incohérente"},403);
+  let body:any;try{body=await req.json()}catch{return out({ok:false,error:"JSON invalide"},400);}
   const id=Number(body?.generated_document_id),pn=Number(body?.page_number);
   if(!Number.isInteger(id)||id<1||!Number.isInteger(pn)||pn<1)return out({ok:false,error:"generated_document_id et page_number requis"},400);
-
   const docRes=await admin.from("aurora_generated_documents").select("id,created_by,title,metadata").eq("id",id).maybeSingle();
   if(docRes.error)return out({ok:false,error:docRes.error.message},500);
   if(!docRes.data)return out({ok:false,error:"Document introuvable"},404);
-  if(docRes.data.created_by&&docRes.data.created_by!==me.data.user.id)return out({ok:false,error:"Accès refusé"},403);
-
+  if(docRes.data.created_by&&docRes.data.created_by!==userId)return out({ok:false,error:"Accès refusé"},403);
   const input=body?.content;
   if(!input||typeof input!=="object")return out({ok:false,error:"content structuré requis"},400);
-
   try{
-    const pdf=await PDFDocument.create();
-    pdf.registerFontkit(fontkit);
-    const fonts=await loadFonts(pdf);
-    const logo=await loadLogo(pdf);
+    const pdf=await PDFDocument.create();pdf.registerFontkit(fontkit);
+    const fonts=await loadFonts(pdf),logo=await loadLogo(pdf);
     const page=pdf.addPage([595,842]);
     const color=normalizeHexColor(input.theme_color)||subjectColor(input.subject||input.matiere||docRes.data.metadata?.matiere||"");
-    drawSoftDecor(page,color);
-    headerFooter(page,pn,fonts,logo,color);
-
-    const qa:any={
-      formulas_total:0,formulas_ok:0,formulas_failed:0,
-      graphs_total:0,graphs_ok:0,graphs_failed:0,
-      images_total:0,images_ok:0,images_failed:0
-    };
-    const cache=new Map<string,any>();
-    const X=72,W=449,bottom=67,top=770;
-    let y=top;
-
+    drawSoftDecor(page,color);headerFooter(page,pn,fonts,logo,color);
+    const qa:any={formulas_total:0,formulas_ok:0,formulas_failed:0,graphs_total:0,graphs_ok:0,graphs_failed:0,images_total:0,images_ok:0,images_failed:0};
+    const cache=new Map<string,any>();const X=72,W=449,bottom=67,top=770;let y=top;
     const sections=Array.isArray(input.sections)?input.sections.filter((s:any)=>s&&typeof s==="object"):[];
-    const contentItems:string[]=[];
-    const exerciseItems:any[]=[];
-    const graphItems:any[]=[];
-    const imageItems:any[]=[];
-    if(sections.length){
-      for(const section of sections){
-        const texts=Array.isArray(section.content)?section.content:[section.content];
-        for(const item of texts){
-          const normalized=extractStructuredText(item).trim();
-          if(normalized)contentItems.push(normalized);
-        }
-        if(Array.isArray(section.exercises))exerciseItems.push(...section.exercises);
-        if(Array.isArray(section.graphs))graphItems.push(...section.graphs);
-        if(Array.isArray(section.images))imageItems.push(...section.images);
-      }
+    const contentItems:string[]=[];const exerciseItems:any[]=[];const graphItems:any[]=[];const imageItems:any[]=[];
+    if(sections.length)for(const section of sections){
+      const texts=Array.isArray(section.content)?section.content:[section.content];
+      for(const item of texts){const normalized=extractStructuredText(item).trim();if(normalized)contentItems.push(normalized);}
+      if(Array.isArray(section.exercises))exerciseItems.push(...section.exercises);
+      if(Array.isArray(section.graphs))graphItems.push(...section.graphs);
+      if(Array.isArray(section.images))imageItems.push(...section.images);
     }
     if(Array.isArray(input.content))input.content.forEach((x:any)=>{const normalized=extractStructuredText(x).trim();if(normalized)contentItems.push(normalized)});
     if(Array.isArray(input.exercises))exerciseItems.push(...input.exercises);
     if(Array.isArray(input.graphs))graphItems.push(...input.graphs);
     if(Array.isArray(input.images))imageItems.push(...input.images);
-
-    if(input.assisted_block?.content?.text&&!contentItems.length){
-      const normalized=extractStructuredText(input.assisted_block.content.text).trim();
-      if(normalized)contentItems.push(normalized);
+    if(input.assisted_block?.content?.text&&!contentItems.length){const normalized=extractStructuredText(input.assisted_block.content.text).trim();if(normalized)contentItems.push(normalized);}
+    const BOX_X=X-10,BOX_W=W+20;
+    function grayBlock(page:any,x:number,y:number,w:number,h:number){
+      rounded(page,x,y,w,h,BOX_RADIUS,rgbHex("#E6E6E7"),rgbHex("#B6B7BA"),0.5);
     }
-
-    const TEXT_SIZE=11.5;
-    const LINE_HEIGHT=18.4;
-    const BOX_RADIUS=11;
-    const BOX_PAD_TOP=12;
-    const BOX_PAD_BOTTOM=12;
-    const BLOCK_GAP=12;
-    const BOX_X=X-10;
-    const BOX_W=W+20;
-
-    const drawInlineBox=(lines:any[])=>{
-      if(!lines.length)return false;
-      const contentH=lines.reduce(
-        (sum:any,line:any)=>sum+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),
-        0
-      );
-      const boxH=Math.max(34,BOX_PAD_TOP+contentH+BOX_PAD_BOTTOM);
-      if(y-boxH<bottom)throw new Error("ASSISTED_PAGE_TOO_LONG: bloc de texte hors page.");
-      rounded(
-        page,BOX_X,y-boxH,BOX_W,boxH,BOX_RADIUS,
-        rgbHex("#E6E6E6"),rgbHex("#A3A3A3"),0.45
-      );
-      drawInlineLines(
-        page,lines,X,y-BOX_PAD_TOP,fonts.regular,
-        color,rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT
-      );
-      y-=boxH+BLOCK_GAP;
-      return true;
-    };
-
-    const drawParagraphBlock=async(text:string)=>{
-      const paragraphs=proseText(text);
-      for(const para of paragraphs){
-        const rawRuns=mergePlainAndExplicit(para);
-        const prepared=await prepareRuns(rawRuns,auth,pdf,fonts,qa,cache);
-        let inlineChunk:Run[]=[];
+    const drawContentBlock=async(text:string)=>{
+      for(const para of proseText(text)){
+        const prepared=await prepareRuns(mergePlainAndExplicit(para),auth,pdf,fonts,qa,cache);
+        const items:any[]=[];let inlineChunk:Run[]=[];
         const flushInline=()=>{
           if(!inlineChunk.length)return;
-          const lines=layoutInline(inlineChunk,fonts.regular,TEXT_SIZE,W);
-          drawInlineBox(lines);
+          const lines=layoutInline(inlineChunk,fonts.regular,TEXT_SIZE,W-18);
+          if(lines.length)items.push({kind:"inline",lines});
           inlineChunk=[];
         };
-
         for(const run of prepared){
           if(run.kind==="display"){
             flushInline();
-            const m=displayMathMetrics(run,W);
-            if(y-m.h<bottom)throw new Error("ASSISTED_PAGE_TOO_LONG: formule hors page.");
-            drawDisplayMath(page,run,X,y,W,color);
-            y-=m.h+BLOCK_GAP;
-          }else{
-            inlineChunk.push(run);
-          }
+            items.push({kind:"display",run,metrics:displayMathMetrics(run,W-18)});
+          }else inlineChunk.push(run);
         }
         flushInline();
+        const innerGap=7;
+        const contentH=items.reduce((sum:any,item:any,index:number)=>{
+          const h=item.kind==="inline"
+            ? item.lines.reduce((n:any,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0)
+            : item.metrics.cardH;
+          return sum+h+(index>0?innerGap:0);
+        },0);
+        const boxH=Math.max(36,BOX_PAD_TOP+contentH+BOX_PAD_BOTTOM);
+        if(y-boxH<bottom)throw new Error("ASSISTED_PAGE_TOO_LONG: bloc de texte hors page.");
+        grayBlock(page,BOX_X,y-boxH,BOX_W,boxH);
+        let childY=y-BOX_PAD_TOP;
+        for(const item of items){
+          if(item.kind==="inline"){
+            drawInlineLines(page,item.lines,X+9,childY,fonts.regular,color,rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT);
+            childY-=item.lines.reduce((n:any,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0)+innerGap;
+          }else{
+            drawDisplayMath(page,item.run,X,childY,W-18,color);
+            childY-=item.metrics.cardH+innerGap;
+          }
+        }
+        y-=boxH+BLOCK_GAP;
       }
     };
-    for(const raw of contentItems){
-      await drawParagraphBlock(raw);
-    }
-
+    for(const raw of contentItems)await drawContentBlock(raw);
     for(const ex of exerciseItems){
-      const statement=clean(ex?.statement||ex?.question||ex?.enonce||ex?.content||"");
-      const hint=clean(ex?.hint||"");
+      const statement=clean(ex?.statement||ex?.question||ex?.enonce||ex?.content||""),hint=clean(ex?.hint||"");
       if(!statement)continue;
       if(y-28<bottom)throw new Error("ASSISTED_PAGE_TOO_LONG: exercice hors page.");
-      sectionLabel(page,"Exercice",X,y,fonts,color); y-=25;
-      await drawParagraphBlock(statement);
-      if(hint){
-        await drawParagraphBlock("Indication : "+hint);
-      }
+      sectionLabel(page,"Exercice",X,y,fonts,color);y-=25;
+      await drawContentBlock(statement);
+      if(hint)await drawContentBlock("Indication : "+hint);
     }
 
     for(const image of imageItems){
@@ -637,7 +594,7 @@ Deno.serve(async req=>{
     }
 
     const bytes=new Uint8Array(await pdf.save({useObjectStreams:false}));
-    const path="aurora-content-pages/"+me.data.user.id+"/"+id+"/page-"+String(pn).padStart(4,"0")+".pdf";
+    const path="aurora-content-pages/"+userId+"/"+id+"/page-"+String(pn).padStart(4,"0")+".pdf";
     const up=await admin.storage.from("Pdfs").upload(path,bytes,{contentType:"application/pdf",upsert:true});
     if(up.error)return out({ok:false,generated_document_id:id,page_number:pn,error:up.error.message},500);
     const signed=await admin.storage.from("Pdfs").createSignedUrl(path,60*60*24*7);
@@ -657,7 +614,7 @@ Deno.serve(async req=>{
     };
     const saved=await admin.from("aurora_generated_documents").update({
       pdf_path:path,pdf_url:pageUrl,metadata:patch,updated_at:new Date().toISOString()
-    }).eq("id",id).eq("created_by",me.data.user.id);
+    }).eq("id",id).eq("created_by",userId);
     if(saved.error)return out({ok:false,error:saved.error.message},500);
     return out({
       ok:true,mode:"instant-page",engine:"pdf-lib-course-page-v2",
