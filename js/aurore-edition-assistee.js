@@ -451,33 +451,61 @@
   function splitLongBlock(b){
     if(!['paragraph','point','exercise'].includes(b.type))return [];
     const raw=b.type==='exercise'?String(b.content?.statement||''):String(b.content?.text||'');
-    const text=raw.replace(/\\s+/g,' ').trim();
-    if(!text)return [];
-    const target=360;
-    const maxChunk=430;
-    const chunks=[];
-    let rest=text;
-    const sentenceRx=/([.!?]+(?:["’'»)]*)?)(\\s+|$)/g;
-    while(rest.length>maxChunk){
-      let cut=-1;
-      sentenceRx.lastIndex=0;
-      let m;
-      while((m=sentenceRx.exec(rest))){
-        const end=m.index+m[1].length;
-        if(end<=target)cut=end;
-        else break;
+    const source=raw.replace(/\r\n/g,'\n').replace(/\r/g,'\n').trim();
+    if(!source)return [];
+
+    // The old 360-character cut created very short artificial pages.
+    // Prefer semantic paragraph/sentence boundaries and let each generated
+    // block use most of an A4 page before creating the next page.
+    const target=3000;
+    const maxChunk=3600;
+    const sentenceRx=/([.!?]+(?:["’'»)]*)?)(\s+|$)/g;
+
+    function splitUnit(unit){
+      const text=unit.trim();
+      if(text.length<=maxChunk)return [text];
+      const out=[];
+      let rest=text;
+      while(rest.length>maxChunk){
+        let cut=-1;
+        sentenceRx.lastIndex=0;
+        let m;
+        while((m=sentenceRx.exec(rest))){
+          const end=m.index+m[1].length;
+          if(end<=target)cut=end;
+          else break;
+        }
+        if(cut<160){
+          const window=rest.slice(0,target+1);
+          const ws=window.lastIndexOf(' ');
+          cut=ws>=160?ws:Math.min(target,rest.length);
+        }
+        if(cut<=0||cut>=rest.length)break;
+        out.push(rest.slice(0,cut).trim());
+        rest=rest.slice(cut).trim();
       }
-      if(cut<120){
-        const words=rest.slice(0,target+1).split(' ');
-        words.pop();
-        cut=words.join(' ').length;
-      }
-      if(cut<120)cut=Math.min(target,rest.length);
-      chunks.push(rest.slice(0,cut).trim());
-      rest=rest.slice(cut).trim();
+      if(rest)out.push(rest);
+      return out;
     }
-    if(rest)chunks.push(rest);
+
+    const units=source.split(/\n\s*\n+/).map(x=>x.trim()).filter(Boolean);
+    const chunks=[];
+    let current='';
+    for(const unit of units){
+      for(const piece of splitUnit(unit)){
+        if(!current){current=piece;continue;}
+        const candidate=current+'\n\n'+piece;
+        if(candidate.length<=maxChunk){
+          current=candidate;
+        }else{
+          chunks.push(current.trim());
+          current=piece;
+        }
+      }
+    }
+    if(current)chunks.push(current.trim());
     if(chunks.length<2)return [];
+
     const depth=Number(b.generation?.autoSplitDepth||0)+1;
     return chunks.map((part,i)=>{
       const n=block(b.type);
@@ -495,7 +523,6 @@
       return n;
     });
   }
-
   async function waitForAssistedDocument(b,documentId){
     const c=client();if(!c)throw new Error('Session Supabase indisponible.');
     const started=Date.now(),timeout=4*60*1000;
