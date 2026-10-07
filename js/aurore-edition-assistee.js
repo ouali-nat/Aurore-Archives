@@ -253,19 +253,44 @@
     document.getElementById('aeModalClose').onclick=()=>host.innerHTML='';
   }
 
-  function previewBlock(id){
+  async function graphPreviewUrl(b){
+    const g=b.content?.json||{};
+    const direct=String(g.geogebra_image_url||g.image_url||g.preview_url||'').trim();
+    if(direct)return direct;
+    const path=String(g.geogebra_image_path||g.graph_local_path||'').trim();
+    if(!path)return null;
+    if(/^https:\/\//i.test(path))return path;
+    const c=client();if(!c)return null;
+    try{
+      const r=await c.storage.from('Pdfs').createSignedUrl(path,600);
+      return r.data?.signedUrl||null;
+    }catch(_){return null}
+  }
+
+  async function previewBlock(id){
     const b=activeBlocks().find(x=>x.id===id);if(!b)return;
     if(isSystemBlock(b)){
       const start=b.role===START_ROLE;
       const body='<div class="ae-block-preview ae-system-preview"><span class="ae-preview-badge">'+(start?'Bloc de début':'Bloc de fin')+'</span><strong>'+esc(state.course?.title||'Document')+'</strong><div class="ae-preview-text">'+esc(start?'Première page automatique du document.':'Dernière page automatique du document.')+'</div><small>Cette page est conservée comme page système et n’est pas générée comme une page de contenu indépendante.</small></div>';
       openBlockModal(start?'Prévisualisation de la page de début':'Prévisualisation de la page de fin',body);return;
     }
-    const t=mainText(b),gen=b.generation||{};
+    const gen=b.generation||{};
+    if(b.type==='graphique'&&!gen.page_url){
+      const url=await graphPreviewUrl(b);
+      if(url){
+        const body='<div class="ae-page-preview"><div class="ae-page-preview-meta"><strong>'+esc(b.content?.json?.title||'Graphique')+'</strong><span>Prévisualisation visuelle · asset GeoGebra</span></div><img class="ae-preview-image" src="'+esc(url)+'" alt="Prévisualisation du graphique"><div class="ae-page-preview-actions"><a class="admin-btn primary" href="'+esc(url)+'" target="_blank" rel="noopener">Ouvrir</a></div></div>';
+        openBlockModal('Prévisualisation du graphique',body);
+      }else{
+        openBlockModal('Prévisualisation du graphique','<div class="ae-block-preview"><span class="ae-preview-badge">Graphique validé</span><strong>Prévisualisation visuelle indisponible pour le moment.</strong><div class="ae-preview-text">L’asset GeoGebra n’est pas encore disponible. Le JSON reste accessible uniquement avec le bouton « JSON » du bloc.</div></div>');
+      }
+      return;
+    }
     if(gen.page_url){
       const page=pageNumberFor(b),url=String(gen.page_url);
       const body='<div class="ae-page-preview"><div class="ae-page-preview-meta"><strong>Page '+page+' · '+esc(labelFor(b))+'</strong><span>PDF de la page concernée uniquement</span></div><iframe class="ae-page-preview-frame" src="'+esc(url)+'#page=1&view=FitH" title="Prévisualisation de la page '+page+'"></iframe><div class="ae-page-preview-actions"><a class="admin-btn primary" href="'+esc(url)+'" download="aurore-page-'+page+'.pdf">Télécharger</a><a class="admin-btn ghost" href="'+esc(url)+'" target="_blank" rel="noopener">Ouvrir</a></div></div>';
       openBlockModal('Prévisualisation de la page générée',body);return;
     }
+    const t=mainText(b);
     let body='<div class="ae-block-preview"><strong>'+esc(labelFor(b))+'</strong><div class="ae-preview-text">'+esc(t||'Bloc vide')+'</div></div>';
     if(b.type==='wikimedia-image'&&b.content?.imageUrl)body='<div class="ae-block-preview"><strong>Image Wikimedia sélectionnée</strong><img class="ae-preview-image" src="'+esc(b.content.imageUrl)+'" alt="'+esc(b.content.title||'Image Wikimedia')+'"><small>'+esc(b.content.license||'')+'</small></div>';
     openBlockModal('Prévisualisation du bloc',body);
@@ -372,7 +397,7 @@
       const md=row.metadata&&typeof row.metadata==='object'?row.metadata:{};
       const status=String(md.lualatex_status||'').toLowerCase();
       const pct=Math.max(8,Math.min(96,Number(md.lualatex_progress||35)));
-      updateGenerationProgress(b.id,pct,md.lualatex_stage||'Génération LuaLaTeX…');
+      updateGenerationProgress(b.id,pct,md.lualatex_stage||'Génération du PDF…');
       if(status==='completed'&&String(row.pdf_url||'').trim()){
         clearInterval(progressTimer);
         return {page_path:row.pdf_path,page_url:row.pdf_url,bytes:row.pdf_diagnostic?.bytes||null,metadata:md};
@@ -383,7 +408,7 @@
       }
       await new Promise(resolve=>setTimeout(resolve,1800));
     }
-    throw new Error('La génération LuaLaTeX n’a pas terminé dans le délai prévu.');
+    throw new Error('La génération du PDF n’a pas terminé dans le délai prévu.');
   }
 
   async function generateBlock(id){
@@ -394,14 +419,14 @@
     if(b.type==='graphique'&&!b.content?.json?.geogebra_image_path&&!b.content?.json?.graph_local_path){
       await persistCourse(true);setStatus('JSON graphique validé. Le rendu visuel sera produit par le moteur GeoGebra/LuaLaTeX lorsque son asset sera disponible.');return;
     }
-    b.generation={...(b.generation||{}),status:'generating',page_number:pageNumberFor(b),progress:8,progress_label:'Mise en file LuaLaTeX…',error:null,updated_at:new Date().toISOString()};
+    b.generation={...(b.generation||{}),status:'generating',page_number:pageNumberFor(b),progress:8,progress_label:'Génération instantanée de la page…',error:null,updated_at:new Date().toISOString()};
     renderWorkspace();setStatus('Mise en file de la page…');
     const progressTimer=startGenerationProgress(b.id);
     try{
       const token=(typeof session!=='undefined'&&session?.access_token)||await freshToken();
       if(!token)throw new Error('Session administrateur absente.');
       updateGenerationProgress(b.id,20,'Création de la page indépendante…');
-      const r=await fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-page',{
+      const r=await fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-page-v2',{
         method:'POST',
         headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':SUPABASE_ANON_KEY},
         body:JSON.stringify({
@@ -440,12 +465,12 @@
         progress:100,
         progress_label:'Page générée',
         bytes:result.bytes,
-        qa:{engine:'github-actions-lualatex-v1',status:'completed'},
+        qa:{engine:result.metadata?.fast_page_pdf_engine||'pdf-lib-fast-page-v1',status:'completed'},
         error:null
       };
       await persistCourse(true);
       renderWorkspace();
-      setStatus('Page '+(b.generation.page_number||pageNumberFor(b))+' générée avec le renderer de production.');
+      setStatus('Page '+(b.generation.page_number||pageNumberFor(b))+' générée instantanément.');
     }catch(e){
       clearInterval(progressTimer);
       const msg=String(e?.message||e);
