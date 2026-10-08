@@ -937,7 +937,10 @@
     }
 
     const currentPage=pageNumberFor(current),currentUrl=String(current?.generation?.page_url||'').trim();
-    if(currentUrl){
+    const currentOwner=String(current?.generation?.flow_page_owner_id||'').trim();
+    const currentKey=currentOwner||currentUrl||String(current?.id||'');
+    if(currentUrl&&!previewSeen.has(currentKey)){
+      previewSeen.add(currentKey);
       allSteps.push({kind:'pdf',label:'Page '+currentPage+' · '+labelFor(current)+' · bloc actuel',url:currentUrl,number:currentPage,status:'ready',source:current,current:true});
     }else if(current.type==='graphique'){
       const graphUrl=await graphPreviewUrl(current);
