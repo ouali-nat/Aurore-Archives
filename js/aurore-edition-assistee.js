@@ -583,7 +583,7 @@
 
   function openBlockModal(title,body){
     const host=document.getElementById('aeModalHost');if(!host)return;
-    host.innerHTML='<div class="ae-modal"><div class="ae-dialog"><header><div><span class="ae-kicker">'+esc(title)+'</span></div><button class="admin-btn ghost" id="aeModalClose">Fermer</button></header>'+body+'</div></div>';
+    host.innerHTML='<div class="ae-modal"><div class="ae-dialog"><header><div><span class="ae-kicker">'+esc(title)+'</span></div><button class="admin-btn ghost" id="aeModalClose">Fermer</button></header><div class="ae-dialog-body">'+body+'</div></div></div>';
     document.getElementById('aeModalClose').onclick=()=>host.innerHTML='';
   }
 
