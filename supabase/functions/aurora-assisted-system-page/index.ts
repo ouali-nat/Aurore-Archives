@@ -110,8 +110,8 @@ function toc(p:any,f:any,c:string,entries:any[]){
 async function ending(p:any,pdf:any,f:any,l:any,c:string,title:string,id:number,d:any){
   const X=76,W=443,bottom=92,H=660;
   rounded(p,X,bottom,W,H,16,rgbh("#ECEDEE"),rgbh("#BFC0C3"),.55);
-  rounded(p,92,690,250,29,8,rgbh(mix(c,.90)),rgbh(mix(c,.82)),.4);
-  p.drawText("Mentions · crédits · vérification",{x:105,y:699,font:f.sansBold,size:10.3,color:rgbh(mix(c,.18))});
+  rounded(p,92,691,226,27,8,rgbh("#E2E3E5"),rgbh(mix(c,.78)),.4);
+  p.drawText("Mentions · crédits · vérification",{x:103,y:699,font:f.sansBold,size:9.8,color:rgbh(mix(c,.18))});
   p.drawText("Édition Aurore",{x:94,y:655,font:f.sansBold,size:20,color:rgbh("#404149")});
   p.drawText(clean(title).slice(0,100),{x:94,y:627,font:f.sans,size:11.2,color:rgbh(mix(c,.22))});
   p.drawLine({start:{x:94,y:608},end:{x:173,y:608},thickness:1.15,color:rgbh(c)});
@@ -136,7 +136,7 @@ async function ending(p:any,pdf:any,f:any,l:any,c:string,title:string,id:number,
   const rights="Cette édition constitue une création éditoriale d’Aurore. Les connaissances générales et formules restent réutilisables sous réserve des droits applicables aux éléments tiers.";
   let ry=242;
   for(const line of wrap(rights,f.regular,9.1,360).slice(0,3)){p.drawText(line,{x:108,y:ry,font:f.regular,size:9.1,color:rgbh("#4F5057")});ry-=13.5}
-  p.drawText("Les ressources tierces conservent leurs propres licences et conditions d'utilisation.",{x:108,y:200,font:f.sans,size:7.9,color:rgbh("#777985")});
+  p.drawText("Les ressources tierces conservent leurs propres licences et conditions d'utilisation.",{x:108,y:194,font:f.sans,size:7.9,color:rgbh("#777985")});
   p.drawText("Assistance éditoriale : Aurore · Couleur dominante : "+c.slice(1),{x:94,y:166,font:f.sans,size:8,color:rgbh("#777985")});
 }
 async function update(id:number,requestedKind:string,patch:any){const q=await admin.from("aurora_generated_documents").select("metadata").eq("id",id).maybeSingle();const m=q.data?.metadata&&typeof q.data.metadata==="object"?q.data.metadata:{};await admin.from("aurora_generated_documents").update({metadata:{...m,...patch},updated_at:new Date().toISOString()}).eq("id",id)}
