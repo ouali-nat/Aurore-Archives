@@ -16,6 +16,12 @@ const BLOCK_GAP=12;
 const BOX_RADIUS=11;
 const BOX_PAD_TOP=11;
 const BOX_PAD_BOTTOM=11;
+// Schéma éditorial demandé : rail nettement à gauche, point séparé de quelques mm, texte courant décalé.
+const POINT_TITLE_SIZE=15.8;
+const POINT_SPINE_X=30;
+const POINT_BOX_X=52;
+const POINT_MAX_W=430;
+const POINT_SIDE_GAP=8;
 const MATH_DISPLAY_BASE_H=24;
 const MATH_EX_PX=7.54;
 const MATH_RASTER_SCALE=3;
@@ -544,8 +550,12 @@ Deno.serve(async req=>{
     if(Array.isArray(input.images))imageItems.push(...input.images);
     if(input.assisted_block?.content?.text&&!contentItems.length){const normalized=extractStructuredText(input.assisted_block.content.text).trim();if(normalized)contentItems.push(normalized);}
     const BOX_X=X-10,BOX_W=W+20;
-    function grayBlock(page:any,x:number,y:number,w:number,h:number){
-      rounded(page,x,y,w,h,BOX_RADIUS,rgbHex("#E6E6E7"),rgbHex("#B6B7BA"),0.5);
+    const PARA_X=X+22,PARA_W=W-22;
+    const POINT_X=POINT_BOX_X,POINT_W=POINT_MAX_W;
+    function floatingBlock(page:any,x:number,y:number,w:number,h:number){
+      // Ombre discrète décalée : le paragraphe flotte sans filament ni bordure colorée.
+      rounded(page,x+3,y-3,w,h,BOX_RADIUS+1,rgbHex("#D8D9DC"));
+      rounded(page,x,y,w,h,BOX_RADIUS,rgbHex("#E9EAEC"));
     }
     const newFlowPage=()=>{
       page=pdf.addPage([595,842]);
@@ -569,7 +579,7 @@ Deno.serve(async req=>{
           let inlineChunk:Run[]=[];
           const flush=()=>{
             if(!inlineChunk.length)return;
-            const lines=layoutInline(inlineChunk,fonts.regular,TEXT_SIZE,BOX_W-36);
+            const lines=layoutInline(inlineChunk,fonts.regular,TEXT_SIZE,POINT_W-28);
             if(lines.length)pointItems.push({kind:"inline",lines});
             inlineChunk=[];
           };
@@ -583,7 +593,7 @@ Deno.serve(async req=>{
         let cursor=0;
         while(cursor<pointItems.length){
           const remainingPage=Math.max(0,y-bottom);
-          const titleH=23,separatorGap=6;
+          const titleH=30,separatorGap=5;
           const availableContent=Math.max(0,remainingPage-BOX_PAD_TOP-titleH-separatorGap-BOX_PAD_BOTTOM-6);
           const fragment:any[]=[];let used=0;const gap=7;
           const addPointItem=(item:any)=>{
@@ -605,25 +615,38 @@ Deno.serve(async req=>{
             }else if(addPointItem(first)){cursor++;}
           }else if(first&&addPointItem(first)){cursor++;}
           if(fragment.length===0){newFlowPage();continue;}
-          const boxH=Math.max(54,BOX_PAD_TOP+titleH+separatorGap+used+BOX_PAD_BOTTOM);
+          const contentMaxW=fragment.reduce((maxW:number,item:any)=>{
+            if(item.kind!=="inline")return maxW;
+            return Math.max(maxW,...item.lines.map((line:any[])=>line.reduce((sum:number,t:any)=>sum+(t.space||0)+(t.width||0),0)));
+          },0);
+          const titleH=30;
+          const titleTextW=fonts.sansBold.widthOfTextAtSize(label,POINT_TITLE_SIZE)+26;
+          const boxW=Math.min(POINT_MAX_W,Math.max(260,titleTextW,contentMaxW+26));
+          const boxH=Math.max(61,BOX_PAD_TOP+titleH+separatorGap+used+BOX_PAD_BOTTOM);
           const boxY=y-boxH;
-          const titleX=BOX_X+13;
-          const titleW=Math.min(330,fonts.sansBold.widthOfTextAtSize(label,12.6)+24);
-          const titleY=y-18;
+          const boxX=POINT_X;
+          const titleX=boxX+13;
+          const titleW=Math.min(boxW-26,titleTextW);
+          const titleY=y-titleH/2-1;
+          const ruleY=y-titleH-3;
           const titleFill=rgbHex("#D7D7DB");
           const bodyFill=rgbHex("#E6E6E7");
-          rounded(page,BOX_X,boxY,BOX_W,boxH,10,bodyFill,rgbHex(accent),0.65);
+          // Bloc du point : à gauche, gris clair, arrondi, hauteur adaptée au contenu.
+          rounded(page,boxX,boxY,boxW,boxH,10,bodyFill,rgbHex(accent),0.65);
           rounded(page,titleX,y-titleH,titleW,titleH,8,titleFill,rgbHex(accent),0.7);
-          page.drawText(escapePdfText(label),{x:titleX+12,y:y-19,font:fonts.sansBold,size:12.6,color:rgbHex(accent)});
-          page.drawLine({start:{x:titleX,y:y-29},end:{x:BOX_X+BOX_W-13,y:y-29},thickness:1.35,color:rgbHex(accent)});
-          pointAnchors.push({page,y:titleY,x:titleX,color:accent});
-          let childY=y-39;
+          page.drawText(escapePdfText(label),{x:titleX+12,y:y-22,font:fonts.sansBold,size:POINT_TITLE_SIZE,color:rgbHex(accent)});
+          // Horizontale : elle souligne le point et continue jusqu'au bord droit sans toucher le bloc.
+          page.drawLine({start:{x:POINT_SPINE_X+5,y:ruleY},end:{x:boxX-POINT_SIDE_GAP,y:ruleY},thickness:1.45,color:rgbHex(accent)});
+          const ruleRightStart=Math.min(552,boxX+boxW+POINT_SIDE_GAP);
+          if(ruleRightStart<552)page.drawLine({start:{x:ruleRightStart,y:ruleY},end:{x:552,y:ruleY},thickness:1.45,color:rgbHex(accent)});
+          pointAnchors.push({page,topY:y-4,bottomY:boxY+4,ruleY,boxX,boxW,color:accent});
+          let childY=y-titleH-11;
           for(const item of fragment){
             if(item.kind==="inline"){
-              drawInlineLines(page,item.lines,titleX,childY,BOX_W-26,fonts.regular,accent,rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT);
+              drawInlineLines(page,item.lines,titleX,childY,POINT_W-26,fonts.regular,accent,rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT);
               childY-=item.lines.reduce((n:any,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0)+gap;
             }else{
-              drawDisplayMath(page,item.run,X,childY,W-24,color);
+              drawDisplayMath(page,item.run,POINT_X,childY,POINT_W-24,color);
               childY-=item.metrics.cardH+gap;
             }
           }
@@ -638,7 +661,7 @@ Deno.serve(async req=>{
         const items:any[]=[];let inlineChunk:Run[]=[];
         const flushInline=()=>{
           if(!inlineChunk.length)return;
-          const lines=layoutInline(inlineChunk,fonts.regular,TEXT_SIZE,BOX_W-24);
+          const lines=layoutInline(inlineChunk,fonts.regular,TEXT_SIZE,PARA_W-24);
           if(lines.length)items.push({kind:"inline",lines});
           inlineChunk=[];
         };
@@ -691,14 +714,14 @@ Deno.serve(async req=>{
             continue;
           }
           const boxH=Math.max(36,BOX_PAD_TOP+used+BOX_PAD_BOTTOM);
-          grayBlock(page,BOX_X,y-boxH,BOX_W,boxH);
+          floatingBlock(page,PARA_X,y-boxH,PARA_W,boxH);
           let childY=y-BOX_PAD_TOP;
           for(const item of fragment){
             if(item.kind==="inline"){
-              drawInlineLines(page,item.lines,BOX_X+12,childY,BOX_W-24,fonts.regular,color,rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT);
+              drawInlineLines(page,item.lines,PARA_X+12,childY,PARA_W-24,fonts.regular,color,rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT);
               childY-=item.lines.reduce((n:any,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0)+innerGap;
             }else{
-              drawDisplayMath(page,item.run,X,childY,W-18,color);
+              drawDisplayMath(page,item.run,PARA_X,childY,PARA_W-18,color);
               childY-=item.metrics.cardH+innerGap;
             }
           }
@@ -760,12 +783,30 @@ Deno.serve(async req=>{
     }
     for(const [p,list] of anchorsByPage){
       for(let i=0;i<list.length;i++){
-        const a=list[i];
-        p.drawLine({start:{x:24,y:a.y},end:{x:a.x,y:a.y},thickness:1.9,color:rgbHex(a.color)});
-        p.drawCircle({x:24,y:a.y,size:2.9,color:rgbHex(a.color)});
-        if(i<list.length-1){
-          const b=list[i+1];
-          p.drawLine({start:{x:24,y:a.y},end:{x:24,y:b.y},thickness:3.1,color:rgbHex(a.color)});
+        const a=list[i],prev=list[i-1],next=list[i+1];
+        // Verticale haute : elle s’arrête quelques mm avant le bloc, avec un cercle aux deux extrémités.
+        const upperTop=prev?prev.bottomY-6:Math.min(top-6,a.topY+28);
+        const upperBottom=a.topY-6;
+        if(upperTop>upperBottom){
+          p.drawLine({start:{x:POINT_SPINE_X,y:upperTop},end:{x:POINT_SPINE_X,y:upperBottom},thickness:3.8,color:rgbHex(a.color)});
+          p.drawCircle({x:POINT_SPINE_X,y:upperTop,size:3.0,color:rgbHex(prev?.color||a.color)});
+          p.drawCircle({x:POINT_SPINE_X,y:upperBottom,size:3.0,color:rgbHex(a.color)});
+        }
+        // Verticale basse : elle repart sous le bloc et rejoint le suivant sans le toucher.
+        const lowerTop=a.bottomY-6;
+        const lowerBottom=next?next.topY+6:Math.max(bottom+6,a.bottomY-44);
+        if(lowerTop>lowerBottom){
+          p.drawLine({start:{x:POINT_SPINE_X,y:lowerTop},end:{x:POINT_SPINE_X,y:lowerBottom},thickness:3.8,color:rgbHex(a.color)});
+          p.drawCircle({x:POINT_SPINE_X,y:lowerTop,size:3.0,color:rgbHex(a.color)});
+          p.drawCircle({x:POINT_SPINE_X,y:lowerBottom,size:3.0,color:rgbHex(next?.color||a.color)});
+        }
+        // Horizontale : elle souligne le point, part du rail et divise visuellement la page.
+        const leftEnd=a.boxX-POINT_SIDE_GAP;
+        p.drawLine({start:{x:POINT_SPINE_X+5,y:a.ruleY},end:{x:leftEnd,y:a.ruleY},thickness:1.7,color:rgbHex(a.color)});
+        p.drawCircle({x:POINT_SPINE_X+5,y:a.ruleY,size:2.8,color:rgbHex(a.color)});
+        const rightStart=a.boxX+a.boxW+POINT_SIDE_GAP;
+        if(rightStart<552){
+          p.drawLine({start:{x:rightStart,y:a.ruleY},end:{x:552,y:a.ruleY},thickness:1.35,color:rgbHex(a.color)});
         }
       }
     }
