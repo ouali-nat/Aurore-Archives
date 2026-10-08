@@ -328,18 +328,60 @@ async function prepareRuns(runs:Run[],auth:string,pdf:any,fonts:any,qa:any,cache
 }
 function layoutInline(prepared:Run[],font:any,size:number,max:number){
   const lines:any[][]=[[]];let width=0;
-  const addText=(v:string)=>{
-    const w=tokenTextWidth(font,size,v);
-    const space=lines[lines.length-1].length?tokenTextWidth(font,size," "):0;
-    if(width+space+w>max&&lines[lines.length-1].length){lines.push([]);width=0;}
-    const sp=lines[lines.length-1].length?tokenTextWidth(font,size," "):0;
-    lines[lines.length-1].push({kind:"text",value:v,width:w,space:sp});
-    width+=(lines[lines.length-1].length>1?space:0)+w;
+  const spaceWidth=tokenTextWidth(font,size," ");
+  const startLine=()=>{lines.push([]);width=0;};
+
+  const addWord=(word:string)=>{
+    const cleanWord=String(word||"");
+    if(!cleanWord)return;
+    const wordWidth=tokenTextWidth(font,size,cleanWord);
+    const space=lines[lines.length-1].length?spaceWidth:0;
+
+    // A word/token wider than the inner box must itself be split so that
+    // no prose, URL or math fallback can escape the rounded container.
+    if(wordWidth>max){
+      if(lines[lines.length-1].length)startLine();
+      let chunk="";
+      let chunkWidth=0;
+      for(const ch of Array.from(cleanWord)){
+        const cw=tokenTextWidth(font,size,ch);
+        if(chunk&&chunkWidth+cw>max){
+          lines[lines.length-1].push({
+            kind:"text",value:chunk,width:chunkWidth,space:lines[lines.length-1].length?spaceWidth:0
+          });
+          width+=chunkWidth+(lines[lines.length-1].length>1?spaceWidth:0);
+          startLine();
+          chunk=ch;chunkWidth=cw;
+        }else{
+          chunk+=ch;chunkWidth+=cw;
+        }
+      }
+      if(chunk){
+        lines[lines.length-1].push({
+          kind:"text",value:chunk,width:chunkWidth,space:lines[lines.length-1].length?spaceWidth:0
+        });
+        width+=chunkWidth+(lines[lines.length-1].length>1?spaceWidth:0);
+      }
+      return;
+    }
+
+    if(width+space+wordWidth>max&&lines[lines.length-1].length){
+      startLine();
+    }
+    const sp=lines[lines.length-1].length?spaceWidth:0;
+    lines[lines.length-1].push({kind:"text",value:cleanWord,width:wordWidth,space:sp});
+    width+=sp+wordWidth;
   };
+
+  const addText=(v:string)=>{
+    const words=String(v??"").replace(/\s+/g," ").trim().split(" ").filter(Boolean);
+    for(const word of words)addWord(word);
+  };
+
   const addMath=(r:Run)=>{
     const intrinsicW=Math.max(8,r.width||24),intrinsicH=Math.max(8,r.height||16),w=intrinsicW+14;
     const space=lines[lines.length-1].length?MATH_INLINE_GAP:0;
-    if(width+space+w>max&&lines[lines.length-1].length){lines.push([]);width=0;}
+    if(width+space+w>max&&lines[lines.length-1].length){startLine();}
     const sp=lines[lines.length-1].length?MATH_INLINE_GAP:0;
     lines[lines.length-1].push({kind:"math",image:r.image,width:w,height:intrinsicH+6,space:sp});
     width+=sp+w;
