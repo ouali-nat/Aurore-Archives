@@ -56,6 +56,7 @@
     course.document_pages.toc.subtitle='Table des matières';
     course.document_pages.toc.entries=Array.isArray(course.document_pages.toc.entries)?course.document_pages.toc.entries:[];
     course.document_pages.toc.mode=course.document_pages.toc.mode==='manual'?'manual':'auto';
+    ensureDefaultIntroduction(course);
     course.document_pages.end=course.document_pages.end&&typeof course.document_pages.end==='object'
       ?course.document_pages.end:{enabled:true,title:'Fin du document',subtitle:'Merci d’avoir consulté ce cours.',contact:'',show_qr:false};
     return course;
@@ -77,11 +78,89 @@
     const end=blocks.find(b=>b?.role===END_ROLE)||systemBlock(END_ROLE,course.title);
     const middle=blocks.filter(b=>b?.role!==START_ROLE&&b?.role!==END_ROLE);
     course.blocks=[start,...middle,end];
+    ensureDefaultIntroduction(course);
+    reorderPointBlocks(course);
     syncSystemPages(course);
     return course;
   }
   function isSystemBlock(b){return b?.role===START_ROLE||b?.role===END_ROLE||b?.locked===true&&(/^system-(start|end)$/.test(String(b?.id||'')));}
   function contentBlocks(course=state.course){return (Array.isArray(course?.blocks)?course.blocks:[]).filter(b=>!isSystemBlock(b));}
+
+  function defaultIntroductionBlock(){
+    return {
+      id:uid('block'),
+      type:'point',
+      default_introduction:true,
+      content:{title:'Introduction',text:'',color:DEFAULT_THEME_COLOR,rank:1},
+      generation:{status:'not_generated',page_number:null,page_path:null,page_url:null,updated_at:null,error:null},
+      created_at:new Date().toISOString()
+    };
+  }
+
+  function isDefaultIntroduction(b){
+    return b?.type==='point'&&b?.default_introduction===true;
+  }
+
+  function ensureDefaultIntroduction(course){
+    if(!course||typeof course!=='object')return false;
+    const blocks=Array.isArray(course.blocks)?course.blocks:[];
+    let intro=blocks.find(isDefaultIntroduction);
+    if(!intro){
+      intro=blocks.find(b=>b?.type==='point'&&String(b?.content?.title||'').trim().toLowerCase()==='introduction');
+      if(intro)intro.default_introduction=true;
+    }
+    let changed=false;
+    if(!intro){
+      intro=defaultIntroductionBlock();
+      const startIndex=blocks.findIndex(b=>b?.role===START_ROLE);
+      blocks.splice(startIndex>=0?startIndex+1:0,0,intro);
+      changed=true;
+    }
+    if(!intro.content||typeof intro.content!=='object')intro.content={};
+    if(String(intro.content.title||'').trim().toLowerCase()!=='introduction'&&!intro.content.title) {
+      intro.content.title='Introduction';
+      changed=true;
+    }
+    if(!Number.isFinite(Number(intro.content.rank))||Number(intro.content.rank)!==1){
+      intro.content.rank=1;
+      changed=true;
+    }
+    if(!String(intro.content.color||'').trim()){
+      intro.content.color=DEFAULT_THEME_COLOR;
+      changed=true;
+    }
+    const startIndex=blocks.findIndex(b=>b?.role===START_ROLE);
+    const introIndex=blocks.indexOf(intro);
+    const desiredIndex=startIndex>=0?startIndex+1:0;
+    if(introIndex!==desiredIndex){
+      blocks.splice(introIndex,1);
+      blocks.splice(desiredIndex,0,intro);
+      changed=true;
+    }
+    course.blocks=blocks;
+    return changed;
+  }
+
+  function reorderPointBlocks(course=state.course){
+    const blocks=contentBlocks(course);
+    const slots=[],points=[];
+    blocks.forEach((b,i)=>{
+      if(b?.type==='point'&&!isDefaultIntroduction(b)){
+        slots.push(i);
+        points.push({block:b,index:i,rank:Number.isFinite(Number(b?.content?.rank))?Number(b.content.rank):Number.MAX_SAFE_INTEGER});
+      }
+    });
+    if(points.length<2)return false;
+    const ordered=points.slice().sort((a,b)=>a.rank-b.rank||a.index-b.index);
+    let changed=false;
+    slots.forEach((slot,i)=>{
+      if(blocks[slot]!==ordered[i].block){
+        blocks[slot]=ordered[i].block;
+        changed=true;
+      }
+    });
+    return changed;
+  }
 
   function newCourse(title){
     const id=(globalThis.crypto&&crypto.randomUUID)?crypto.randomUUID():uid('course');
@@ -93,7 +172,7 @@
         end:{enabled:true,title:'Fin du document',subtitle:'Merci d’avoir consulté ce cours.',contact:'',show_qr:false}
       },
       theme_color:DEFAULT_THEME_COLOR,
-      blocks:[systemBlock(START_ROLE,title),systemBlock(END_ROLE,title)],
+      blocks:[systemBlock(START_ROLE,title),defaultIntroductionBlock(),systemBlock(END_ROLE,title)],
       generation:{pages:[],updated_at:null,system_preview:{fingerprint:'',pages:{cover:emptySystemPageState(),toc:emptySystemPageState(),end:emptySystemPageState()},status:'idle',progress:0,stage:'',error:null,updatedAt:null}}};
   }
   function block(type){
@@ -270,7 +349,8 @@
     const byId=new Map(previous.map(x=>[String(x?.id||''),x]));
     const all=contentBlocks();
     const managed=all.filter(b=>String(b?.toc_entry_id||'').trim());
-    const source=managed.length?managed:all;
+    const managedSet=new Set(managed);
+    const source=managed.length?all.filter(b=>isDefaultIntroduction(b)||managedSet.has(b)):all;
     state.course.document_pages.toc.entries=source.map((b,i)=>{
       const key=String(b?.toc_entry_id||b.id||'');
       const old=byId.get(key)||byId.get(String(b.id))||{};
@@ -408,7 +488,7 @@
     document.getElementById('aeTocJsonInline').onclick=()=>jsonTocDialog();
     document.getElementById('aeSave').onclick=()=>persistCourse(false,true);
     root().querySelectorAll('[data-edit-point-title]').forEach(el=>el.oninput=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editPointTitle);if(b){b.content.title=el.value;validateCourse();}});
-    root().querySelectorAll('[data-edit-point-rank]').forEach(el=>el.oninput=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editPointRank);if(b){b.content.rank=Math.max(1,parseInt(el.value||'1',10));validateCourse();}});
+    root().querySelectorAll('[data-edit-point-rank]').forEach(el=>el.onchange=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editPointRank);if(b){b.content.rank=Math.max(1,parseInt(el.value||'1',10));reorderPointBlocks(state.course);validateCourse();renderWorkspace();setStatus(isDefaultIntroduction(b)?'L’Introduction reste toujours au début du cours.':'Position du point mise à jour selon son rang.');}});
     root().querySelectorAll('[data-edit-point-color]').forEach(el=>el.onchange=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editPointColor);if(b){b.content.color=normalizePointColor(el.value);renderWorkspace();}});
     root().querySelectorAll('[data-edit-exercise-title]').forEach(el=>el.oninput=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editExerciseTitle);if(b)b.content.title=el.value;});
     root().querySelectorAll('[data-edit-exercise-statement]').forEach(el=>el.oninput=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editExerciseStatement);if(b){b.content.statement=el.value;validateCourse();}});
@@ -488,12 +568,15 @@
   function duplicateBlock(id){
     const b=activeBlocks().find(x=>x.id===id);if(!b||isSystemBlock(b)){if(isSystemBlock(b))setStatus('Les pages de début et de fin sont automatiques et verrouillées.');return;}
     const copy=clone(b);copy.id=uid('block');copy.generation={status:'not_generated',page_number:null,page_path:null,page_url:null,updated_at:null,error:null};
+    if(copy.default_introduction){delete copy.default_introduction;copy.content={...copy.content,title:'Point de cours',rank:Math.max(1,...contentBlocks().filter(x=>x.type==='point'&&!isDefaultIntroduction(x)).map(x=>Number(x.content?.rank)||1))+1};}
+    if(copy.toc_entry_id)copy.toc_entry_id=''; 
     if(copy.type==='graphique')copy.content.json.id=uid('graph');
-    const i=activeBlocks().findIndex(x=>x.id===id);state.course.blocks.splice(i+1,0,copy);state.selected=copy.id;renderWorkspace();
+    const i=activeBlocks().findIndex(x=>x.id===id);state.course.blocks.splice(i+1,0,copy);reorderPointBlocks(state.course);state.selected=copy.id;renderWorkspace();
   }
   function deleteBlock(id){
     const b=activeBlocks().find(x=>x.id===id);if(isSystemBlock(b)){setStatus('Les pages de début et de fin sont automatiques et verrouillées.');return;}
-    state.course.blocks=activeBlocks().filter(x=>x.id!==id);if(state.selected===id)state.selected=null;ensureCourseStructure(state.course);renderWorkspace();setStatus('Bloc supprimé.');
+    if(isDefaultIntroduction(b)){setStatus('L’Introduction est obligatoire et reste toujours au début du cours.');return;}
+    state.course.blocks=activeBlocks().filter(x=>x.id!==id);if(state.selected===id)state.selected=null;ensureCourseStructure(state.course);reorderPointBlocks(state.course);renderWorkspace();setStatus('Bloc supprimé.');
   }
 
   function openBlockModal(title,body){
@@ -836,7 +919,15 @@
 
   function syncBlocksFromToc(entries){
     ensureCourseStructure(state.course);
-    const normalized=Array.isArray(entries)?entries:[];
+    const incoming=Array.isArray(entries)?clone(entries):[];
+    const introIndex=incoming.findIndex(e=>String(e?.id||'').trim()==='toc-introduction'||String(e?.title||'').trim().toLowerCase()==='introduction');
+    let normalized;
+    if(introIndex>=0){
+      const introEntry={...(incoming.splice(introIndex,1)[0]||{}),id:'toc-introduction',title:'Introduction',type:'point',enabled:true};
+      normalized=[introEntry,...incoming];
+    }else{
+      normalized=[{id:'toc-introduction',title:'Introduction',type:'point',enabled:true},...incoming];
+    }
     const middle=contentBlocks();
     const existingBySource=new Map(
       middle
@@ -851,7 +942,9 @@
       if(managedIds.has(sourceId))sourceId='toc-'+(i+1)+'-'+uid('entry').slice(-6);
       const title=String(entry?.title||'').trim()||'Point de cours '+(i+1);
       const type=tocEntryBlockType(entry?.type);
-      let b=existingBySource.get(sourceId);
+      let b=sourceId==='toc-introduction'
+        ?middle.find(isDefaultIntroduction)
+        :existingBySource.get(sourceId);
       if(!b){
         b=block(type);
         b.toc_entry_id=sourceId;
@@ -860,11 +953,12 @@
       if(type==='point'){
         b.content={
           ...b.content,
-          title,
+          title:sourceId==='toc-introduction'?'Introduction':title,
           text:String(b.content?.text||''),
           color:normalizePointColor(b.content?.color),
-          rank:i+1
+          rank:sourceId==='toc-introduction'?1:i+1
         };
+        if(sourceId==='toc-introduction')b.default_introduction=true;
       }else if(type==='exercise'){
         b.content={
           ...b.content,
@@ -894,6 +988,7 @@
     const end=activeBlocks().find(b=>b?.role===END_ROLE)||systemBlock(END_ROLE,state.course.title);
     state.course.blocks=[start,...before,...synced,...after,end];
     ensureCourseStructure(state.course);
+    reorderPointBlocks(state.course);
     rebuildTocEntries();
   }
 
