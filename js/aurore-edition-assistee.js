@@ -203,7 +203,8 @@
     const parts=[],seen=new Set();
     const add=(url,label,key)=>{
       const u=String(url||'').trim();if(!u)return;
-      const k=String(key||u).trim();if(seen.has(k))return;
+      const k=String(u).trim();
+      if(!k||seen.has(k))return;
       seen.add(k);parts.push({url:u,label});
     };
     const pages=state.canonicalPreview?.pages||{};
@@ -860,6 +861,19 @@
     return window.__AURORE_PDFJS_ASSISTED_PROMISE;
   }
 
+  async function assistedPdfPageCount(url){
+    const pdfjs=await loadPdfJsForAssistedPreview();
+    let buffer=cachedPreviewBuffer(url);
+    if(!buffer){
+      const response=await fetch(url,{cache:'force-cache'});
+      if(!response.ok)throw new Error('HTTP '+response.status);
+      buffer=await response.arrayBuffer();if(!buffer.byteLength)throw new Error('PDF vide.');
+      rememberPreviewBuffer(url,buffer);
+    }
+    const pdf=await pdfjs.getDocument({data:new Uint8Array(buffer.slice(0)),stopAtErrors:false}).promise;
+    return Math.max(1,Number(pdf.numPages||1));
+  }
+
   async function renderAssistedPdfPreview(url,canvasId,loadingId,pageNumber=1){
     const canvas=document.getElementById(canvasId),loading=document.getElementById(loadingId);if(!canvas)return;
     try{
@@ -925,22 +939,23 @@
     if(cover&&coverState?.pdfUrl)allSteps.push({kind:'pdf',label:'Page 1 · Couverture',url:coverState.pdfUrl,number:1,status:'ready',source:cover});
     if(tocState?.pdfUrl)allSteps.push({kind:'pdf',label:'Page 2 · Sommaire',url:tocState.pdfUrl,number:2,status:'ready',source:toc});
 
-    const previewSeen=new Set();
+    const previewSeenOwners=new Set(),previewSeenUrls=new Set();
     for(const b of previous){
       const page=pageNumberFor(b),url=String(b?.generation?.page_url||'').trim();
       const owner=String(b?.generation?.flow_page_owner_id||'').trim();
-      const key=owner||url||String(b?.id||'');
-      if(previewSeen.has(key))continue;
-      previewSeen.add(key);
+      if(url&&previewSeenUrls.has(url))continue;
+      if(owner&&previewSeenOwners.has(owner))continue;
+      if(owner)previewSeenOwners.add(owner);
+      if(url)previewSeenUrls.add(url);
       if(url)allSteps.push({kind:'pdf',label:'Page '+page+' · '+labelFor(b),url,number:page,status:'ready',source:b});
       else allSteps.push({kind:'pending',label:'Page '+page+' · '+labelFor(b),number:page,status:'pending',source:b});
     }
 
     const currentPage=pageNumberFor(current),currentUrl=String(current?.generation?.page_url||'').trim();
     const currentOwner=String(current?.generation?.flow_page_owner_id||'').trim();
-    const currentKey=currentOwner||currentUrl||String(current?.id||'');
-    if(currentUrl&&!previewSeen.has(currentKey)){
-      previewSeen.add(currentKey);
+    if(currentUrl&&!(previewSeenUrls.has(currentUrl)|| (currentOwner&&previewSeenOwners.has(currentOwner)))){
+      if(currentOwner)previewSeenOwners.add(currentOwner);
+      previewSeenUrls.add(currentUrl);
       allSteps.push({kind:'pdf',label:'Page '+currentPage+' · '+labelFor(current)+' · bloc actuel',url:currentUrl,number:currentPage,status:'ready',source:current,current:true});
     }else if(current.type==='graphique'){
       const graphUrl=await graphPreviewUrl(current);
@@ -954,6 +969,35 @@
 
     const readyCount=allSteps.filter(x=>x.kind==='pdf').length;
     const totalCount=allSteps.length;
+    // Une même URL peut représenter un flux PDF multi-pages. La prévisualisation
+    // doit afficher chaque page physique une seule fois, au lieu de repeindre la page 1
+    // pour chaque bloc compagnon. Pour une prévisualisation progressive, on limite le
+    // flux au nombre de pages déjà atteintes par le bloc courant.
+    const expandedSteps=[];
+    const expandedPdfUrls=new Set();
+    for(const step of allSteps){
+      if(step.kind!=='pdf'||!step.url){
+        expandedSteps.push(step);
+        continue;
+      }
+      if(expandedPdfUrls.has(step.url))continue;
+      expandedPdfUrls.add(step.url);
+      const count=await assistedPdfPageCount(step.url);
+      const base=Number(step.number||1);
+      const isFlow=!!step.source?.generation?.flow_page_owner_id;
+      const limit=isFlow?Math.min(count,Math.max(1,currentPage-base+1)):Math.min(count,1);
+      for(let p=1;p<=limit;p++){
+        expandedSteps.push({
+          ...step,
+          number:base+p-1,
+          pdf_page_index:p,
+          label:isFlow?'Page '+String(base+p-1)+' · flux assisté':'Page '+String(base+p-1)+' · '+String(step.label||'PDF')
+        });
+      }
+    }
+    allSteps.length=0;
+    allSteps.push(...expandedSteps);
+
     const body='<div class="ae-progressive-preview">'+
       '<div class="ae-page-preview-meta"><strong>Progression du document jusqu’au bloc '+currentPage+'</strong><span>'+readyCount+' page(s) PDF déjà produite(s) · '+totalCount+' étape(s) affichée(s)</span></div>'+
       '<div class="ae-progressive-preview-note">La prévisualisation suit l’ordre réel du document : couverture → sommaire → blocs précédents → bloc actuel. Les blocs futurs restent volontairement hors de cette vue.</div>'+
@@ -986,7 +1030,7 @@
       if(step.kind!=='pdf')continue;
       const canvasId='aeProgressivePdf_'+String(id).replace(/[^a-zA-Z0-9_-]/g,'_')+'_'+i;
       const loadingId=canvasId+'_loading';
-      if(document.getElementById(canvasId))await renderAssistedPdfPreview(step.url,canvasId,loadingId,1);
+      if(document.getElementById(canvasId))await renderAssistedPdfPreview(step.url,canvasId,loadingId,Number(step.pdf_page_index||1));
     }
     setStatus('Prévisualisation progressive prête : pages antérieures + bloc actuel.');
   }
