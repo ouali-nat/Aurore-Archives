@@ -85,3 +85,25 @@
 .ae-toc-preview .ae-toc-preview-list div{display:flex;justify-content:space-between;gap:15px;padding:8px 0;border-bottom:1px dotted #c7c8cc;font-size:13px;color:#3f4148}
 .ae-toc-preview .ae-toc-preview-list b{font-size:12px;color:#70727a}
 
+
+
+.ae-progressive-preview{display:grid;gap:10px}
+.ae-progressive-preview-note{padding:9px 11px;border:1px solid color-mix(in srgb,var(--violet,#6d28d9) 18%,transparent);border-radius:10px;background:color-mix(in srgb,var(--violet,#6d28d9) 5%,transparent);font-size:.59rem;line-height:1.45;opacity:.8}
+.ae-progressive-preview-stack{display:grid;gap:12px;max-height:72vh;overflow:auto;padding:2px}
+.ae-progressive-page{display:grid;gap:7px;padding:10px;border:1px solid color-mix(in srgb,currentColor 10%,transparent);border-radius:12px;background:color-mix(in srgb,currentColor 2%,transparent)}
+.ae-progressive-page.is-current{border-color:color-mix(in srgb,var(--violet,#6d28d9) 40%,transparent);box-shadow:0 0 0 2px color-mix(in srgb,var(--violet,#6d28d9) 9%,transparent)}
+.ae-progressive-page>header{display:flex;justify-content:space-between;align-items:center;gap:9px;font-size:.6rem}
+.ae-progressive-page>header strong{font-size:.64rem;overflow-wrap:anywhere}
+.ae-progressive-page>header span{font-size:.54rem;opacity:.58;text-align:right}
+.ae-progressive-page .ae-page-preview-canvas-wrap{max-height:none;min-height:120px}
+.ae-progressive-page .ae-page-preview-canvas{max-width:100%;width:auto}
+.ae-progressive-page.is-pending{border-style:dashed}
+.ae-progressive-pending{padding:18px;text-align:center;font-size:.59rem;line-height:1.45;opacity:.65}
+.ae-progressive-draft{display:grid;place-items:center;padding:10px;min-height:120px;border:1px dashed color-mix(in srgb,currentColor 14%,transparent);border-radius:10px;background:color-mix(in srgb,currentColor 2%,transparent)}
+.ae-progressive-draft pre{width:100%;margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:11px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}
+.ae-progressive-draft .ae-preview-image{max-height:55vh}
+@media(max-width:560px){
+  .ae-progressive-preview-stack{max-height:68vh}
+  .ae-progressive-page>header{align-items:flex-start;flex-direction:column}
+  .ae-progressive-page>header span{text-align:left}
+}
