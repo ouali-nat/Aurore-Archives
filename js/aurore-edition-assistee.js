@@ -630,10 +630,15 @@
     const resolver=overlay.__auroreResolve;
     overlay.__auroreResolve=null;
     if(typeof resolver==='function')resolver(result);
+    requestAnimationFrame(()=>document.getElementById('aeBlockDownloadChoiceOverlay')?.remove());
   }
 
   function askBlockDownloadChoice(block){
-    const overlay=document.getElementById('aeBlockDownloadChoiceOverlay');
+    let overlay=document.getElementById('aeBlockDownloadChoiceOverlay');
+    if(!overlay){
+      initBlockDownloadChoice();
+      overlay=document.getElementById('aeBlockDownloadChoiceOverlay');
+    }
     if(!overlay)return Promise.resolve(null);
 
     const target=blockDownloadPartsThrough(block);
@@ -1771,7 +1776,6 @@
   }
 
   async function init(){
-    initBlockDownloadChoice();
     const r=root();if(!r)return;
     const card=document.querySelector('.admin-tab[data-tab="edition-assistee"]'),panel=document.querySelector('.admin-tab-panel[data-panel="edition-assistee"]');
     if(card&&panel)card.addEventListener('click',async()=>{const detail=document.getElementById('adminDetail');if(detail)detail.style.display='block';document.querySelectorAll('.admin-tab-panel').forEach(p=>p.style.display=p===panel?'block':'none');document.querySelectorAll('.admin-tab').forEach(b=>b.classList.toggle('active',b===card));state.mode='list';state.course=null;renderList();try{setStatus('Chargement des cours…');await loadCourses();renderList();setStatus('Liste prête.')}catch(e){setStatus('Impossible de charger la liste des cours.')}});
