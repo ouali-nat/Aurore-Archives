@@ -268,9 +268,19 @@
     if(state.course.document_pages.toc.mode==='manual')return;
     const previous=Array.isArray(state.course.document_pages.toc.entries)?state.course.document_pages.toc.entries:[];
     const byId=new Map(previous.map(x=>[String(x?.id||''),x]));
-    state.course.document_pages.toc.entries=contentBlocks().map((b,i)=>{
-      const old=byId.get(String(b.id))||{};
-      return {id:b.id,title:String(old.title||b.content?.title||labelFor(b)),type:b.type,enabled:old.enabled!==false,page:i+3};
+    const all=contentBlocks();
+    const managed=all.filter(b=>String(b?.toc_entry_id||'').trim());
+    const source=managed.length?managed:all;
+    state.course.document_pages.toc.entries=source.map((b,i)=>{
+      const key=String(b?.toc_entry_id||b.id||'');
+      const old=byId.get(key)||byId.get(String(b.id))||{};
+      return {
+        id:String(b?.toc_entry_id||old.id||b.id),
+        title:String(b.content?.title||old.title||labelFor(b)),
+        type:b.type,
+        enabled:old.enabled!==false,
+        page:pageNumberFor(b)
+      };
     });
   }
   function systemPayload(b){
@@ -308,10 +318,10 @@
     const cfg=state.course.document_pages.toc;
     return '<article class="ae-block ae-system-block ae-toc-system"><header class="ae-block-head"><div><span class="ae-block-number">02</span><strong>Sommaire</strong><small>Page système · indépendante · prévisualisable</small></div><span class="ae-block-state ok">Prévisualisable</span></header>'+
       '<div class="ae-system-content"><strong>Sommaire</strong><span>Table des matières éditable, rendue en fragment PDF indépendant.</span>'+
-      '<div class="ae-toc-outline">'+cfg.entries.map((e,i)=>'<span><b>'+String(i+1).padStart(2,'0')+'</b>'+esc(e.title||('Entrée '+(i+1)))+'</span>').join('')+'</div></div>'+
+      '<div class="ae-toc-outline">'+cfg.entries.map((e,i)=>'<span><b>'+String(i+1).padStart(2,'0')+'</b><span>'+esc(e.title||('Entrée '+(i+1)))+'</span><em>p. '+esc(e.page??'—')+'</em></span>').join('')+'</div></div>'+
       '<div class="ae-canonical-preview-progress" data-canonical-preview-role="toc">'+canonicalPreviewProgressMarkup('toc','Aperçu du sommaire')+'</div>'+
-      '<div class="ae-block-toolbar"><button class="admin-btn ghost" data-regenerate-page="toc">↻ Régénérer la page</button><button class="admin-btn ghost" id="aePreviewToc">Prévisualiser</button><button class="admin-btn ghost" id="aeClearToc">Effacer le contenu</button><button class="admin-btn ghost" id="aeTocJsonInline">Ajouter / valider JSON</button></div>'+
-      '<div class="ae-block-result"><span>Le titre est « Sommaire ». Le fragment est produit seul ; les numéros définitifs seront recalculés lors de la fusion finale.</span></div></article>';
+      '<div class="ae-block-toolbar"><button class="admin-btn ghost" data-regenerate-page="toc">↻ Régénérer la page</button><button class="admin-btn ghost" id="aePreviewToc">Prévisualiser</button><button class="admin-btn ghost" id="aeClearToc">Effacer le contenu</button><button class="admin-btn ghost" id="aeTocJsonInline">Ajouter / valider JSON</button><button class="admin-btn ghost" id="aeCopyTocJson">Copier JSON</button></div>'+
+      '<div class="ae-block-result"><span>Les pages sont recalculées à partir de la position réelle de chaque bloc ; aucune page saisie dans le JSON ne reste figée.</span></div></article>';
   }
 
   function blockCard(b,i){
@@ -326,7 +336,7 @@
     return '<article class="ae-block '+(state.selected===b.id?'is-selected':'')+'" data-block="'+esc(b.id)+'">'+
       '<header class="ae-block-head"><div><span class="ae-block-number">'+String(page).padStart(2,'0')+'</span><strong>'+esc(labelFor(b))+'</strong><small>'+esc(b.validation?.ok?'Bloc valide':'À valider')+'</small></div><span class="ae-block-state '+(v.ok?'ok':'bad')+'">'+(v.ok?'Valide':'À corriger')+'</span></header>'+
       '<div class="ae-block-editor">'+editor+'</div>'+
-      '<div class="ae-block-toolbar"><button class="admin-btn ghost" data-regenerate-page="'+esc(b.id)+'">↻ Régénérer la page</button><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Prévisualiser</button><button class="admin-btn ghost" data-json-block="'+esc(b.id)+'">JSON</button><button class="admin-btn ghost" data-copy-block="'+esc(b.id)+'">Copier</button><button class="admin-btn ghost" data-duplicate-block="'+esc(b.id)+'">Dupliquer</button>'+(b.type==='paragraph'?'<button class="admin-btn ghost" data-clear-paragraph="'+esc(b.id)+'">Vider</button>':'')+'<button class="admin-btn danger" data-delete-block="'+esc(b.id)+'">Supprimer</button><button class="admin-btn primary" data-validate-block="'+esc(b.id)+'">Valider & générer la page</button></div>'+
+      '<div class="ae-block-toolbar"><button class="admin-btn ghost" data-regenerate-page="'+esc(b.id)+'">↻ Régénérer la page</button><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Prévisualiser</button><button class="admin-btn ghost" data-json-block="'+esc(b.id)+'">JSON</button><button class="admin-btn ghost" data-copy-block="'+esc(b.id)+'">Copier JSON</button><button class="admin-btn ghost" data-duplicate-block="'+esc(b.id)+'">Dupliquer</button><button class="admin-btn ghost" data-clear-block="'+esc(b.id)+'">Vider</button><button class="admin-btn danger" data-delete-block="'+esc(b.id)+'">Supprimer</button><button class="admin-btn primary" data-validate-block="'+esc(b.id)+'">Valider & générer la page</button></div>'+
       '<div class="ae-block-result">'+(gen.status==='ready'&&gen.page_url?'<span class="ae-generated-ok">✓ Page '+page+' générée seule</span><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Visualiser</button><a class="admin-btn ghost" href="'+esc(gen.page_url)+'" download="aurore-page-'+page+'.pdf">Télécharger</a>':gen.status==='generating'?'<div class="ae-generation-progress" role="status" aria-live="polite"><div class="ae-generation-progress-top"><span data-progress-label>'+esc(gen.progress_label||'Génération de la page…')+'</span><strong data-progress-pct>'+Math.round(Number(gen.progress||8))+'%</strong></div><div class="ae-progress-track"><span data-progress-bar style="width:'+Math.max(8,Math.min(100,Number(gen.progress||8)))+'%"></span></div><small>Progression indicative · la page est en cours de génération.</small></div>':gen.status==='error'?'<span class="ae-generated-error">Erreur : '+esc(gen.error||'génération impossible')+'</span>':b.type==='graphique'&&v.ok?'<span>JSON validé · la construction graphique reste destinée au moteur GeoGebra/LuaLaTeX.</span>':'<span>Aucune page générée pour ce bloc.</span>')+'</div>'+
       (v.errors.length?'<div class="ae-block-errors">'+v.errors.map(x=>'• '+esc(x)).join('<br>')+'</div>':'')+
       (b.type==='paragraph'?'<div class="ae-inline-add-row"><button type="button" class="ae-inline-add" data-add-paragraph-after="'+esc(b.id)+'">＋ Insérer un paragraphe ici</button></div>':'')+
@@ -415,7 +425,8 @@
     root().querySelectorAll('[data-copy-block]').forEach(x=>x.onclick=()=>copyBlock(x.dataset.copyBlock));
     root().querySelectorAll('[data-duplicate-block]').forEach(x=>x.onclick=()=>duplicateBlock(x.dataset.duplicateBlock));
     root().querySelectorAll('[data-delete-block]').forEach(x=>x.onclick=()=>deleteBlock(x.dataset.deleteBlock));
-    root().querySelectorAll('[data-clear-paragraph]').forEach(x=>x.onclick=()=>clearParagraph(x.dataset.clearParagraph));
+    root().querySelectorAll('[data-clear-block]').forEach(x=>x.onclick=()=>clearBlock(x.dataset.clearBlock));
+    document.getElementById('aeCopyTocJson')?.addEventListener('click',copyTocJson);
     root().querySelectorAll('[data-add-paragraph-after]').forEach(x=>x.onclick=()=>addParagraphAfter(x.dataset.addParagraphAfter));
     root().querySelectorAll('[data-validate-block]').forEach(x=>x.onclick=()=>generateBlock(x.dataset.validateBlock));
   }
@@ -435,13 +446,44 @@
     state.selected=b.id;validateCourse();renderWorkspace();setStatus('Paragraphe inséré à cet emplacement.');
     requestAnimationFrame(()=>root()?.querySelector('[data-edit-text="'+CSS.escape(b.id)+'"]')?.focus());
   }
-  function clearParagraph(id){
-    const b=activeBlocks().find(x=>x.id===id);
-    if(!b||b.type!=='paragraph'||isSystemBlock(b))return;
-    b.content={text:''};
+  function resetBlockContent(b){
+    if(!b||isSystemBlock(b))return;
+    if(b.type==='paragraph')b.content={text:''};
+    else if(b.type==='point')b.content={
+      title:String(b.content?.title||'Point de cours'),
+      text:'',
+      color:normalizePointColor(b.content?.color),
+      rank:Number.isFinite(Number(b.content?.rank))?Math.max(1,Number(b.content.rank)):1
+    };
+    else if(b.type==='exercise')b.content={
+      title:String(b.content?.title||'Exercice 1'),
+      statement:'',
+      hint:'',
+      correction_title:String(b.content?.correction_title||'Corrigé 1'),
+      correction:''
+    };
+    else if(b.type==='graphique')b.content={json:{}};
+    else if(b.type==='wikimedia-image')b.content={imageUrl:'',thumbUrl:'',title:'',caption:'',sourceUrl:'',author:'',license:'',query:''};
+    else b.content={text:''};
     b.generation={status:'not_generated',page_number:null,page_path:null,page_url:null,updated_at:null,error:null};
-    state.selected=b.id;validateCourse();renderWorkspace();setStatus('Paragraphe vidé.');
-    requestAnimationFrame(()=>root()?.querySelector('[data-edit-text="'+CSS.escape(b.id)+'"]')?.focus());
+    return b;
+  }
+
+  function clearBlock(id){
+    const b=activeBlocks().find(x=>x.id===id);
+    if(!b||isSystemBlock(b))return;
+    resetBlockContent(b);
+    state.selected=b.id;
+    validateCourse();
+    void persistCourse(true,false);
+    renderWorkspace();
+    setStatus('Contenu du bloc vidé. Tu peux maintenant coller son JSON.');
+    requestAnimationFrame(()=>{
+      const selector=b.type==='graphique'
+        ?'[data-edit-json="'+CSS.escape(b.id)+'"]'
+        :'[data-edit-text="'+CSS.escape(b.id)+'"]';
+      root()?.querySelector(selector)?.focus();
+    });
   }
   function duplicateBlock(id){
     const b=activeBlocks().find(x=>x.id===id);if(!b||isSystemBlock(b)){if(isSystemBlock(b))setStatus('Les pages de début et de fin sont automatiques et verrouillées.');return;}
@@ -772,13 +814,94 @@
     state.course.generation={...(state.course.generation||{}),system_preview:{...state.canonicalPreview}};
     void persistCourse(true,false);
     renderWorkspace();
-    setStatus('Contenu du sommaire effacé. Tu peux maintenant ajouter un JSON puis prévisualiser plus tard.');
+    setStatus('Contenu du sommaire effacé. Les blocs existants sont conservés pour éviter toute perte de travail.');
+  }
+
+  function copyTocJson(){
+    const txt=JSON.stringify(tocPayload(),null,2);
+    navigator.clipboard?.writeText(txt).then(
+      ()=>setStatus('JSON du sommaire copié.'),
+      ()=>setStatus('Copie du sommaire indisponible.')
+    );
+  }
+
+  function tocEntryBlockType(type){
+    const t=String(type||'section').trim().toLowerCase();
+    if(['paragraph','paragraphe','texte','text'].includes(t))return 'paragraph';
+    if(['exercise','exercice','problem','probleme'].includes(t))return 'exercise';
+    if(['graphique','graph','graphique-json','json'].includes(t))return 'graphique';
+    if(['wikimedia-image','image','illustration','wikimedia'].includes(t))return 'wikimedia-image';
+    return 'point';
+  }
+
+  function syncBlocksFromToc(entries){
+    ensureCourseStructure(state.course);
+    const normalized=Array.isArray(entries)?entries:[];
+    const middle=contentBlocks();
+    const existingBySource=new Map(
+      middle
+        .filter(b=>String(b?.toc_entry_id||'').trim())
+        .map(b=>[String(b.toc_entry_id),b])
+    );
+    const managedIds=new Set();
+    const synced=[];
+    normalized.forEach((entry,i)=>{
+      let sourceId=String(entry?.id||('toc-'+(i+1))).trim();
+      if(!sourceId)sourceId='toc-'+(i+1);
+      if(managedIds.has(sourceId))sourceId='toc-'+(i+1)+'-'+uid('entry').slice(-6);
+      const title=String(entry?.title||'').trim()||'Point de cours '+(i+1);
+      const type=tocEntryBlockType(entry?.type);
+      let b=existingBySource.get(sourceId);
+      if(!b){
+        b=block(type);
+        b.toc_entry_id=sourceId;
+      }
+      b.type=type;
+      if(type==='point'){
+        b.content={
+          ...b.content,
+          title,
+          text:String(b.content?.text||''),
+          color:normalizePointColor(b.content?.color),
+          rank:i+1
+        };
+      }else if(type==='exercise'){
+        b.content={
+          ...b.content,
+          title,
+          statement:String(b.content?.statement||''),
+          hint:String(b.content?.hint||''),
+          correction_title:String(b.content?.correction_title||('Corrigé '+(i+1))),
+          correction:String(b.content?.correction||'')
+        };
+      }else if(type==='paragraph'){
+        b.content={text:String(b.content?.text||'')};
+      }else if(type==='graphique'){
+        b.content={json:b.content?.json&&typeof b.content.json==='object'?b.content.json:{}};
+      }else if(type==='wikimedia-image'){
+        b.content={...(b.content||{}),title:String(b.content?.title||title)};
+      }
+      managedIds.add(sourceId);
+      synced.push(b);
+    });
+    const firstManagedIndex=middle.reduce((min,b,i)=>{
+      return String(b?.toc_entry_id||'').trim()&&managedIds.has(String(b.toc_entry_id))?Math.min(min,i):min;
+    },Number.POSITIVE_INFINITY);
+    const anchor=Number.isFinite(firstManagedIndex)?firstManagedIndex:0;
+    const before=middle.slice(0,anchor).filter(b=>!managedIds.has(String(b?.toc_entry_id||'')));
+    const after=middle.slice(anchor).filter(b=>!managedIds.has(String(b?.toc_entry_id||'')));
+    const start=activeBlocks().find(b=>b?.role===START_ROLE)||systemBlock(START_ROLE,state.course.title);
+    const end=activeBlocks().find(b=>b?.role===END_ROLE)||systemBlock(END_ROLE,state.course.title);
+    state.course.blocks=[start,...before,...synced,...after,end];
+    ensureCourseStructure(state.course);
+    rebuildTocEntries();
   }
 
   function jsonTocDialog(){
     const payload=tocPayload();
-    openBlockModal('JSON du sommaire','<textarea id="aeDialogJson" class="ae-dialog-json" spellcheck="false">'+esc(JSON.stringify(payload,null,2))+'</textarea><div class="ae-dialog-actions"><button class="admin-btn ghost" id="aeClearTocInDialog">Effacer le contenu</button><button class="admin-btn primary" id="aeApplyJson">Valider et enregistrer</button></div>');
+    openBlockModal('JSON du sommaire','<textarea id="aeDialogJson" class="ae-dialog-json" spellcheck="false">'+esc(JSON.stringify(payload,null,2))+'</textarea><div class="ae-dialog-actions"><button class="admin-btn ghost" id="aeClearTocInDialog">Effacer le contenu</button><button class="admin-btn ghost" id="aeCopyTocInDialog">Copier JSON</button><button class="admin-btn primary" id="aeApplyJson">Valider et créer les blocs</button></div>');
     document.getElementById('aeClearTocInDialog').onclick=clearTocContent;
+    document.getElementById('aeCopyTocInDialog').onclick=()=>copyTocJson();
     document.getElementById('aeApplyJson').onclick=async()=>{
       try{
         const v=JSON.parse(document.getElementById('aeDialogJson').value);
@@ -787,12 +910,15 @@
           if(!e||typeof e!=='object'||Array.isArray(e))throw new Error('Chaque entrée doit être un objet JSON.');
           const title=String(e.title??'').trim();
           if(!title)throw new Error('Chaque entrée doit avoir un title.');
-          return {id:String(e.id||'manual-'+(i+1)),title,type:String(e.type||'section'),enabled:e.enabled!==false,page:Number.isFinite(Number(e.page))?Number(e.page):i+3};
+          return {id:String(e.id||'toc-'+(i+1)),title,type:String(e.type||'section'),enabled:e.enabled!==false};
         });
-        state.course.document_pages.toc={...state.course.document_pages.toc,...v,mode:'manual',entries};
+        syncBlocksFromToc(entries);
+        state.course.document_pages.toc={...state.course.document_pages.toc,...v,mode:'auto',entries:state.course.document_pages.toc.entries};
+        await persistCourse(true,false);
+        rebuildTocEntries();
         await persistCourse(true,false);
         renderWorkspace();
-        setStatus('Sommaire JSON validé et enregistré. La prévisualisation canonique reste disponible plus tard.');
+        setStatus(entries.length+' bloc(s) de cours préparé(s) à partir du sommaire. Colle maintenant le JSON de texte de chaque bloc.');
       }catch(e){
         setStatus('JSON du sommaire invalide : '+String(e?.message||e));
       }
