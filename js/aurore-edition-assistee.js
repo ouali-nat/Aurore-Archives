@@ -442,7 +442,7 @@
     return clone(state.course.document_pages.toc);
   }
 
-  function labelFor(b){return b.type==='paragraph'?'Paragraphe':b.type==='point'?'Point de cours':b.type==='exercise'?'Exercice':b.type==='graphique'?'Graphique JSON':'Image Wikimedia'}
+  function labelFor(b){return b.type==='paragraph'?'Paragraphe':b.type==='point'?'Point de cours':b.type==='exercise'?'Exercice':b.type==='graphique'?'Graphique GeoGebra':'Image Wikimedia'}
   function mainText(b){return b.type==='exercise'?b.content?.statement||'':b.type==='graphique'?JSON.stringify(b.content?.json||{},null,2):b.content?.text||b.content?.caption||b.content?.title||''}
 
   function systemBlockCard(b,i){
@@ -488,7 +488,7 @@
       '<div class="ae-block-toolbar"><button class="admin-btn ghost" data-regenerate-page="'+esc(b.id)+'">↻ Régénérer la page</button><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Prévisualiser</button><button class="admin-btn ghost" data-json-block="'+esc(b.id)+'">JSON</button><button class="admin-btn ghost" data-copy-block="'+esc(b.id)+'">Copier JSON</button><button class="admin-btn ghost" data-duplicate-block="'+esc(b.id)+'">Dupliquer</button><button class="admin-btn ghost" data-clear-block="'+esc(b.id)+'">Vider</button><button class="admin-btn danger" data-delete-block="'+esc(b.id)+'">Supprimer</button><button class="admin-btn primary" data-validate-block="'+esc(b.id)+'">Valider & générer la page</button></div>'+
       '<div class="ae-block-result">'+(gen.status==='ready'&&gen.page_url?'<span class="ae-generated-ok">✓ Page '+page+' générée seule</span><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Visualiser</button><a class="admin-btn ghost" href="'+esc(gen.page_url)+'" download="aurore-page-'+page+'.pdf">Télécharger</a>':gen.status==='generating'?'<div class="ae-generation-progress" role="status" aria-live="polite"><div class="ae-generation-progress-top"><span data-progress-label>'+esc(gen.progress_label||'Génération de la page…')+'</span><strong data-progress-pct>'+Math.round(Number(gen.progress||8))+'%</strong></div><div class="ae-progress-track"><span data-progress-bar style="width:'+Math.max(8,Math.min(100,Number(gen.progress||8)))+'%"></span></div><small>Progression indicative · la page est en cours de génération.</small></div>':gen.status==='error'?'<span class="ae-generated-error">Erreur : '+esc(gen.error||'génération impossible')+'</span>':b.type==='graphique'&&v.ok?'<span>JSON validé · la construction graphique reste destinée au moteur GeoGebra/LuaLaTeX.</span>':'<span>Aucune page générée pour ce bloc.</span>')+'</div>'+
       (v.errors.length?'<div class="ae-block-errors">'+v.errors.map(x=>'• '+esc(x)).join('<br>')+'</div>':'')+
-      '<div class="ae-inline-add-row"><label class="ae-inline-add-select"><span>Ajouter sous ce bloc</span><select data-insert-after="'+esc(b.id)+'"><option value="">Sélectionner…</option><option value="paragraph">Paragraphe</option><option value="point">Point de cours</option><option value="wikimedia-image">Image</option></select></label></div>'+
+      '<div class="ae-inline-add-row"><label class="ae-inline-add-select"><span>Ajouter sous ce bloc</span><select data-insert-after="'+esc(b.id)+'"><option value="">Sélectionner…</option><option value="paragraph">Paragraphe</option><option value="point">Point de cours</option><option value="exercise">Exercice</option><option value="graphique">Graphique GeoGebra</option><option value="wikimedia-image">Image</option></select></label></div>'+
       '</article>';
   }
 
@@ -498,7 +498,7 @@
     ensureCourseStructure(state.course);
     r.innerHTML='<div class="ae-shell ae-workspace"><header class="ae-head"><div><button class="admin-btn ghost" id="aeBack">← Mes cours</button><span class="ae-kicker">Atelier de production séquentielle</span><h3><input id="aeCourseTitle" value="'+esc(state.course.title)+'"></h3><p>Le bloc de début, le sommaire et le bloc de fin sont automatiques. Chaque bloc central génère uniquement son propre fragment PDF indépendant.</p></div><span class="ae-status" id="assistedStatus">'+(state.course.validation?.ok?'Structure valide':'À compléter')+'</span></header>'+
       '<div class="ae-top-options"><div class="ae-top-options-title"><span class="ae-kicker">Options du document</span><strong>Couleur d’accent</strong><small>Elle sera utilisée pour les bordures, repères et éléments mathématiques de la page.</small></div><label class="ae-color-field"><span class="ae-color-swatch" style="background:'+normalizeThemeColor(state.course.theme_color)+'"></span><select id="aeThemeColor" aria-label="Couleur d’accent du document">'+themeColorOptions()+'</select></label></div>'+
-      '<div class="ae-workbar"><button class="admin-btn primary" id="aeAddP">＋ Paragraphe</button><button class="admin-btn ghost" id="aeAddPoint">＋ Point de cours</button><button class="admin-btn ghost" id="aeAddEx">＋ Exercice</button><button class="admin-btn ghost" id="aeAddGraph">＋ Graphique JSON</button><button class="admin-btn ghost" id="aeAddWiki">＋ Image Wikimedia</button><button class="admin-btn ghost" id="aeTocJson">Sommaire JSON</button><button class="admin-btn ghost" id="aeSave">Enregistrer le cours</button><button class="admin-btn primary" id="aeDownloadPdfCurrent" disabled>Télécharger le PDF actuel</button></div>'+
+      '<div class="ae-workbar"><button class="admin-btn primary" id="aeAddP">＋ Paragraphe</button><button class="admin-btn ghost" id="aeAddPoint">＋ Point de cours</button><button class="admin-btn ghost" id="aeAddEx">＋ Exercice</button><button class="admin-btn ghost" id="aeAddGraph">＋ Graphique GeoGebra</button><button class="admin-btn ghost" id="aeAddWiki">＋ Image Wikimedia</button><button class="admin-btn ghost" id="aeTocJson">Sommaire JSON</button><button class="admin-btn ghost" id="aeSave">Enregistrer le cours</button><button class="admin-btn primary" id="aeDownloadPdfCurrent" disabled>Télécharger le PDF actuel</button></div>'+
       '<div class="ae-sequence-meta"><span>'+contentBlocks().length+' bloc(s) de contenu · 1 début · 1 fin</span><span id="aeSystemPreviewOverall">Pages système indépendantes : '+systemPreviewOverallFromPages(state.canonicalPreview?.pages||{}).ready+'/3 prêtes · '+systemPreviewOverallFromPages(state.canonicalPreview?.pages||{}).progress+'%</span></div>'+
       '<section class="ae-block-stack">'+(activeBlocks().find(b=>b?.role===START_ROLE)?blockCard(activeBlocks().find(b=>b?.role===START_ROLE),0):'')+tocSystemCard()+(contentBlocks().length?contentBlocks().map((b,i)=>blockCard(b,i+2)).join(''):'<div class="ae-empty"><strong>Le cours est vide.</strong><span>Ajoute un paragraphe pour commencer. La couverture et le sommaire resteront toujours présents.</span></div>')+(activeBlocks().find(b=>b?.role===END_ROLE)?blockCard(activeBlocks().find(b=>b?.role===END_ROLE),activeBlocks().length-1):'')+'</section>'+
       '<footer class="ae-work-footer">Les pages PDF déjà prêtes peuvent être téléchargées à tout moment. Le téléchargement peut rester partiel pendant la progression.</footer></div><div class="ae-modal-host" id="aeModalHost"></div>';
@@ -594,13 +594,13 @@
     ensureCourseStructure(state.course);
     const blocks=activeBlocks(),idx=blocks.findIndex(x=>x.id===id),source=idx>=0?blocks[idx]:null;
     if(!source||isSystemBlock(source))return;
-    if(!['paragraph','point','wikimedia-image'].includes(type))return;
+    if(!['paragraph','point','exercise','graphique','wikimedia-image'].includes(type))return;
     const b=block(type);
     blocks.splice(idx+1,0,b);
     state.selected=b.id;
     validateCourse();
     renderWorkspace();
-    setStatus(type==='wikimedia-image'?'Image insérée : sélectionne maintenant son illustration.':type==='point'?'Point de cours inséré sous le bloc sélectionné.':'Paragraphe inséré sous le bloc sélectionné.');
+    setStatus(type==='wikimedia-image'?'Image insérée : sélectionne maintenant son illustration.':type==='graphique'?'Graphique GeoGebra inséré : renseigne ou colle son JSON GeoGebra.':type==='exercise'?'Exercice inséré sous le bloc sélectionné.':type==='point'?'Point de cours inséré sous le bloc sélectionné.':'Paragraphe inséré sous le bloc sélectionné.');
     if(type==='wikimedia-image'){
       await new Promise(resolve=>requestAnimationFrame(resolve));
       wiki(b.id);
@@ -1414,22 +1414,20 @@
     const flowOwner=flowGroup[0]||b;
     if(flowGroup.length>1&&flowOwner.id!==b.id){
       const ownerGeneration=flowOwner.generation||{};
-      if(String(ownerGeneration.status||'').toLowerCase()==='ready'&&ownerGeneration.page_url){
-        b.generation={...(b.generation||{}),...ownerGeneration,flow_page_owner_id:flowOwner.id};
-        await persistCourse(true,false);
-        renderWorkspace();
-        setStatus('Ce bloc appartient déjà au flux généré par le point précédent.');
-        return;
-      }
       if(String(ownerGeneration.status||'').toLowerCase()==='generating'){
         state.selected=flowOwner.id;
         renderWorkspace();
         setStatus('Le flux de cette séquence est déjà en cours de génération.');
         return;
       }
+
+      // Un bloc compagnon doit pouvoir être régénéré après modification.
+      // L'ancien comportement réutilisait silencieusement le PDF du propriétaire
+      // dès qu'il était "ready", ce qui rendait impossible la validation/régénération
+      // réelle d'un bloc situé plus loin dans le même flux.
       state.selected=flowOwner.id;
       renderWorkspace();
-      setStatus('Ce bloc fait partie du même flux : génération lancée depuis son premier bloc.');
+      setStatus('Régénération du flux depuis son premier bloc avec les dernières modifications…');
       await generateBlock(flowOwner.id);
       return;
     }
