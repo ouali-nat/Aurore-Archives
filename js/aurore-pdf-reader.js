@@ -310,7 +310,11 @@
     const btnDl = document.getElementById('pdfViewerTelecharger');
     if (telechargementOk) {
       btnDl.style.display = 'inline-flex';
-      btnDl.onclick = () => { fermerMenuLecteurPDF(); telechargerDocumentAvecProgression(doc); };
+      btnDl.onclick = async () => {
+        fermerMenuLecteurPDF();
+        const mode = await demanderChoixTelechargementPDF(doc);
+        if(mode) await telechargerDocumentAvecProgression(doc,mode);
+      };
     } else {
       btnDl.style.display = 'none';
       btnDl.onclick = null;
@@ -391,49 +395,70 @@
       let derniereErreur = null;
       const sources = [urlWorker, urlPublique].filter((v,i,a)=>v && a.indexOf(v)===i);
 
-      // IMPORTANT : même mécanique que le dépôt. Le PDF est d’abord reçu
-      // par XHR et la progression est alimentée par les octets réellement
-      // reçus (loaded/total). Aucun chargement de première page séparé.
+      // Chargement réellement progressif : PDF.js reçoit l'URL et exploite
+      // HTTP Range/stream quand le serveur le permet. La première page n'attend
+      // donc plus que le PDF complet soit copié dans un ArrayBuffer côté JS.
       for (const source of sources) {
         try {
           sourceRapide = source;
-          diagLog('→ Chargement XHR du PDF avec progression dépôt : ' + source);
-          mettreAJourProgressionLecteurPDF(0,'Envoi du document…',{speedText:'Préparation…'});
-          const octets = await chargerPDFAvecProgressionDepotStyle(
-            source,
-            PDF_FETCH_CONTROLLER?.signal,
-            (loaded,total)=>{
-              if(jeton!==PDF_JETON_OUVERTURE)return;
-              const pct = total>0 ? Math.min(100,Math.max(0,(loaded/total)*100)) : 0;
-              mettreAJourProgressionLecteurPDF(pct,'Envoi du document…',{loaded,total});
-            },
-            (type,info)=>{
-              if(jeton!==PDF_JETON_OUVERTURE || type!=='progress' || !info?.total)return;
-              const debit=Number(info.speed)||0;
-              const speedText=debit>=1024*1024
-                ? (debit/(1024*1024)).toFixed(1)+' Mo/s'
-                : Math.max(1,Math.round(debit/1024))+' Ko/s';
-              const pct=Math.min(100,Math.max(0,(info.loaded/info.total)*100));
-              mettreAJourProgressionLecteurPDF(pct,'Envoi du document…',{speedText,loaded:info.loaded,total:info.total});
+          diagLog('→ Ouverture PDF.js directe (Range/stream) : ' + source);
+          mettreAJourProgressionLecteurPDF(0,'Ouverture du document…',{speedText:'Connexion au fichier…'});
+
+          let dernierLoaded = 0;
+          let dernierTemps = performance.now();
+          const loadingTask = pdfjsLib.getDocument({
+            url: source,
+            stopAtErrors: false,
+            disableStream: false,
+            disableAutoFetch: true,
+            rangeChunkSize: 64 * 1024,
+            withCredentials: false
+          });
+
+          loadingTask.onProgress = ({loaded=0,total=0}={}) => {
+            if(jeton!==PDF_JETON_OUVERTURE) return;
+            const now = performance.now();
+            const dt = Math.max(0.05,(now-dernierTemps)/1000);
+            const delta = Math.max(0,Number(loaded)-dernierLoaded);
+            const debit = delta/dt;
+            dernierLoaded = Number(loaded)||0;
+            dernierTemps = now;
+            const pct = Number(total)>0 ? Math.min(96,Math.max(1,(loaded/total)*100)) : 0;
+            const speedText = debit >= 1024*1024
+              ? (debit/(1024*1024)).toFixed(1)+' Mo/s'
+              : (debit >= 1024 ? Math.max(1,Math.round(debit/1024))+' Ko/s' : 'Chargement…');
+            mettreAJourProgressionLecteurPDF(
+              pct,
+              Number(total)>0 ? 'Chargement des données…' : 'Ouverture du document…',
+              {speedText,loaded,total}
+            );
+          };
+
+          if(PDF_FETCH_CONTROLLER?.signal){
+            const signal = PDF_FETCH_CONTROLLER.signal;
+            if(signal.aborted){
+              try { loadingTask.destroy(); } catch(e) {}
+              throw new DOMException('Chargement annulé','AbortError');
             }
-          );
+            signal.addEventListener('abort',()=>{ try { loadingTask.destroy(); } catch(e) {} },{once:true});
+          }
+
+          pdf = await loadingTask.promise;
           if(jeton!==PDF_JETON_OUVERTURE)return;
-          if(!octets || !octets.byteLength) throw new Error('Le PDF reçu est vide.');
-          mettreAJourProgressionLecteurPDF(100,'Document chargé',{speedText:'Document prêt.'});
-          pdf = await pdfjsLib.getDocument({data:new Uint8Array(octets),stopAtErrors:false}).promise;
           if(!pdf || !pdf.numPages) throw new Error('PDF sans page exploitable');
-          diagLog('→ PDF.js prêt : '+pdf.numPages+' page(s).');
+          mettreAJourProgressionLecteurPDF(72,'Document prêt pour la première page',{speedText:'Préparation de la page 1…'});
+          diagLog('→ PDF.js prêt : '+pdf.numPages+' page(s), source progressive.');
           break;
         } catch(e) {
           derniereErreur=e; pdf=null; sourceRapide=null;
-          diagLog('→ Source XHR indisponible : '+(e?.message||e));
+          diagLog('→ Source PDF.js indisponible : '+(e?.message||e));
         }
       }
 
       if(!pdf) {
-        // Si Range/stream n'est pas disponible, on utilise uniquement le lecteur
-        // natif en secours : aucun téléchargement complet n'est recopié en JS.
-        diagLog('→ Range/PDF.js indisponible : ouverture native directe du PDF.');
+        // Secours : la visionneuse native peut afficher directement le fichier
+        // sans recopier tout le document dans la mémoire JavaScript.
+        diagLog('→ PDF.js/Range indisponible : ouverture native directe du PDF.');
         if (afficherVisionneuseNativePDF(doc.Fichier_url)) return;
         throw derniereErreur || new Error('Impossible d’ouvrir le flux PDF.');
       }
@@ -703,93 +728,111 @@
 
   // Téléchargement interne Aurore : ne jamais naviguer vers le PDF/R2.
 // La lecture d'un PDF passe par ouvrirLecteurPDF(), la visionneuse intégrée.
-async function telechargerDocumentAvecProgression(doc) {
+async function telechargerDocumentAvecProgression(doc, mode='current') {
     if (!doc || !doc.Fichier_url || doc.Telechargement_autorise === false || TELECHARGEMENT_DOCUMENT_EN_COURS) return;
     if (!session) { exigerConnexionPourTelechargement(doc); return; }
 
     TELECHARGEMENT_DOCUMENT_EN_COURS = true;
     TELECHARGEMENT_ABORT_CONTROLLER = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const signal = TELECHARGEMENT_ABORT_CONTROLLER?.signal;
-    const nomTelechargement = nomFichierTelechargementDepuisDocument(doc);
-    afficherCarteTelechargement(doc,'preparation',null,0,null,'Préparation du fichier…');
+    const pageCourante = Math.max(1, Number(PDF_PAGE_ACTUELLE) || 1);
+    const finPages = mode === 'previous' ? pageCourante : pageCourante;
+    const nomBase = nomFichierTelechargementDepuisDocument(doc).replace(/\.pdf$/i,'');
+    const suffixe = mode === 'previous'
+      ? `_pages-1-a-${finPages}.pdf`
+      : `_page-${pageCourante}.pdf`;
+    const nomTelechargement = nomBase + suffixe;
+
+    afficherCarteTelechargement(doc,'preparation',null,0,null,
+      mode === 'previous'
+        ? `Préparation des pages 1 à ${finPages}…`
+        : `Préparation de la page ${pageCourante}…`
+    );
 
     try {
-      const source = String(doc.Fichier_url);
-      const cle = source.indexOf(R2_PUBLIC_URL + '/') === 0
-        ? source.slice(R2_PUBLIC_URL.length + 1)
-        : null;
+      let octets = null;
 
-      let res = null;
+      // Quand le document est déjà ouvert avec PDF.js, getData() réutilise les
+      // données chargées et complète uniquement les octets manquants au besoin.
+      if (PDF_EN_COURS && typeof PDF_EN_COURS.getData === 'function') {
+        afficherCarteTelechargement(doc,'progress',null,0,null,'Récupération des données PDF…');
+        octets = await PDF_EN_COURS.getData();
+      } else {
+        const source = String(doc.Fichier_url);
+        const cle = source.indexOf(R2_PUBLIC_URL + '/') === 0
+          ? source.slice(R2_PUBLIC_URL.length + 1)
+          : null;
+        let res = null;
 
-      // Tentative 1 : Worker v2, avec le mode téléchargement demandé.
-      if (cle) {
-        try {
-          const workerUrl = `${R2_WORKER_URL}/${cle}?download=1&filename=${encodeURIComponent(nomTelechargement)}`;
-          res = await fetch(workerUrl, signal ? {signal, cache:'no-store'} : {cache:'no-store'});
-        } catch (e) {
-          if (e?.name === 'AbortError') throw e;
-        }
-      }
-
-      // Secours : URL publique R2 déjà enregistrée dans Supabase.
-      if (!res || !res.ok) {
-        try {
-          res = await fetch(source, signal ? {signal, cache:'no-store'} : {cache:'no-store'});
-        } catch (e) {
-          if (e?.name === 'AbortError') throw e;
-        }
-      }
-
-      if (!res || !res.ok) {
-        throw new Error('Le fichier n’a pas pu être récupéré.');
-      }
-
-      const total = parseInt(res.headers.get('Content-Length') || '', 10);
-      let blob;
-
-      // Même mécanisme que l'ancienne version fonctionnelle : lecture du flux
-      // puis création d'un Blob local avant le déclenchement du téléchargement.
-      if (res.body) {
-        const lecteur = res.body.getReader();
-        const morceaux = [];
-        let recu = 0;
-
-        while (true) {
-          const {done, value} = await lecteur.read();
-          if (done) break;
-          if (!value) continue;
-          morceaux.push(value);
-          recu += value.byteLength;
-
-          if (Number.isFinite(total) && total > 0) {
-            afficherCarteTelechargement(
-              doc,
-              'progress',
-              Math.min(99, Math.round((recu / total) * 100)),
-              recu,
-              total
-            );
-          } else {
-            afficherCarteTelechargement(doc,'progress',null,recu,null,'Téléchargement du fichier…');
+        if (cle) {
+          try {
+            const workerUrl = `${R2_WORKER_URL}/${cle}?download=1&filename=${encodeURIComponent(nomFichierTelechargementDepuisDocument(doc))}`;
+            res = await fetch(workerUrl, signal ? {signal,cache:'no-store'} : {cache:'no-store'});
+          } catch (e) {
+            if (e?.name === 'AbortError') throw e;
           }
         }
+        if (!res || !res.ok) {
+          try {
+            res = await fetch(source, signal ? {signal,cache:'no-store'} : {cache:'no-store'});
+          } catch (e) {
+            if (e?.name === 'AbortError') throw e;
+          }
+        }
+        if (!res || !res.ok) throw new Error('Le fichier PDF n’a pas pu être récupéré.');
+        const total = parseInt(res.headers.get('Content-Length') || '', 10);
+        if (res.body) {
+          const lecteur = res.body.getReader();
+          const morceaux = [];
+          let recu = 0;
+          while(true){
+            const {done,value}=await lecteur.read();
+            if(done) break;
+            if(!value) continue;
+            morceaux.push(value);
+            recu += value.byteLength;
+            afficherCarteTelechargement(
+              doc,'progress',
+              Number.isFinite(total)&&total>0 ? Math.min(99,Math.round((recu/total)*100)) : null,
+              recu,Number.isFinite(total)&&total>0?total:null,'Récupération du fichier PDF…'
+            );
+          }
+          octets = new Uint8Array(await new Blob(morceaux).arrayBuffer());
+        } else {
+          octets = new Uint8Array(await res.arrayBuffer());
+        }
+      }
 
-        blob = new Blob(morceaux, {type:'application/pdf'});
+      if (signal?.aborted) throw new DOMException('Téléchargement annulé','AbortError');
+      if (!octets || !octets.byteLength) throw new Error('Le fichier PDF reçu est vide.');
+
+      // Construction d'un nouveau PDF contenant exactement les pages demandées.
+      // Le document original n'est jamais modifié : on copie ses pages dans un
+      // fichier neuf côté navigateur, puis seul ce fichier est transmis au
+      // téléchargement.
+      afficherCarteTelechargement(doc,'progress',92,octets.byteLength,octets.byteLength,'Création du fichier demandé…');
+      const PDFLib = await chargerPdfLibPourTelechargement();
+      const sourcePdf = await PDFLib.PDFDocument.load(octets);
+      const totalPages = sourcePdf.getPageCount();
+      const fin = Math.min(finPages,totalPages);
+      const indices = [];
+      if(mode === 'previous'){
+        for(let i=0;i<fin;i++) indices.push(i);
       } else {
-        afficherCarteTelechargement(doc,'progress',null,0,null,'Téléchargement du fichier…');
-        blob = await res.blob();
+        indices.push(Math.max(0,Math.min(totalPages-1,pageCourante-1)));
       }
 
-      if (signal?.aborted) {
-        throw new DOMException('Téléchargement annulé','AbortError');
-      }
+      const sortie = await PDFLib.PDFDocument.create();
+      try { if(sourcePdf.getTitle()) sortie.setTitle(sourcePdf.getTitle()); } catch(e) {}
+      try { if(sourcePdf.getAuthor()) sortie.setAuthor(sourcePdf.getAuthor()); } catch(e) {}
+      try { if(sourcePdf.getSubject()) sortie.setSubject(sourcePdf.getSubject()); } catch(e) {}
+      const pagesCopiees = await sortie.copyPages(sourcePdf,indices);
+      pagesCopiees.forEach(p=>sortie.addPage(p));
+      const resultat = await sortie.save({useObjectStreams:true});
+      const blob = new Blob([resultat],{type:'application/pdf'});
 
-      if (!blob || blob.size <= 0) {
-        throw new Error('Le fichier téléchargé est vide.');
-      }
+      if (!blob || blob.size <= 0) throw new Error('Le fichier créé est vide.');
 
-      // Déclenchement réel du téléchargement sur Android/WebView :
-      // on utilise le Blob téléchargé, pas une simple navigation vers l'URL PDF.
       const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = objectUrl;
@@ -800,31 +843,138 @@ async function telechargerDocumentAvecProgression(doc) {
       document.body.appendChild(a);
       a.click();
       a.remove();
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+      setTimeout(()=>URL.revokeObjectURL(objectUrl),60000);
 
       await enregistrerTelechargementPersonnel(doc);
 
       afficherCarteTelechargement(
-        doc,
-        'succes',
-        100,
-        blob.size,
-        blob.size,
-        'Téléchargement terminé. Le fichier a été transmis au téléchargement de votre téléphone.'
+        doc,'succes',100,blob.size,blob.size,
+        mode === 'previous'
+          ? `Pages 1 à ${fin} téléchargées.`
+          : `Page ${pageCourante} téléchargée.`
       );
     } catch (e) {
       if (e?.name === 'AbortError') {
         afficherCarteTelechargement(doc,'annule',null,null,null,'Le téléchargement a été annulé.');
       } else {
-        console.error('[Téléchargement document]', e);
-        afficherCarteTelechargement(doc,'erreur',null,null,null,'Le téléchargement n’a pas pu être effectué. Réessayez dans quelques instants.');
+        console.error('[Téléchargement pages PDF]',e);
+        afficherCarteTelechargement(doc,'erreur',null,null,null,
+          'Le téléchargement des pages demandées n’a pas pu être effectué. Réessayez dans quelques instants.'
+        );
       }
     } finally {
-      TELECHARGEMENT_DOCUMENT_EN_COURS = false;
-      TELECHARGEMENT_ABORT_CONTROLLER = null;
+      TELECHARGEMENT_DOCUMENT_EN_COURS=false;
+      TELECHARGEMENT_ABORT_CONTROLLER=null;
     }
   }
 
+  let PDFLIB_CHARGEMENT = null;
+  function chargerPdfLibPourTelechargement() {
+    if (window.PDFLib?.PDFDocument) return Promise.resolve(window.PDFLib);
+    if (PDFLIB_CHARGEMENT) return PDFLIB_CHARGEMENT;
+    PDFLIB_CHARGEMENT = new Promise((resolve,reject)=>{
+      const s=document.createElement('script');
+      s.src='https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
+      s.async=true;
+      s.onload=()=>{
+        if(window.PDFLib?.PDFDocument) resolve(window.PDFLib);
+        else { PDFLIB_CHARGEMENT=null; reject(new Error('pdf-lib indisponible.')); }
+      };
+      s.onerror=()=>{PDFLIB_CHARGEMENT=null;reject(new Error('pdf-lib indisponible (réseau bloqué ou instable).'));};
+      document.head.appendChild(s);
+    });
+    return PDFLIB_CHARGEMENT;
+  }
+
+  let PDF_DOWNLOAD_CHOICE_ACTIVE = false;
+  function fermerChoixTelechargementPDF(result=null) {
+    const overlay=document.getElementById('pdfDownloadChoiceOverlay');
+    if(!overlay) return;
+    overlay.classList.remove('open');
+    overlay.setAttribute('aria-hidden','true');
+    PDF_DOWNLOAD_CHOICE_ACTIVE=false;
+    const resolver=overlay.__auroreResolve;
+    overlay.__auroreResolve=null;
+    if(typeof resolver==='function') resolver(result);
+  }
+
+  function demanderChoixTelechargementPDF(doc) {
+    const overlay=document.getElementById('pdfDownloadChoiceOverlay');
+    if(!overlay || PDF_DOWNLOAD_CHOICE_ACTIVE) return Promise.resolve(null);
+    const current=Math.max(1,Number(PDF_PAGE_ACTUELLE)||1);
+    const previous=overlay.querySelector('[data-download-mode="previous"]');
+    const currentLabel=overlay.querySelector('[data-download-current-label]');
+    const previousLabel=overlay.querySelector('[data-download-previous-label]');
+    if(currentLabel) currentLabel.textContent=`Page ${current} uniquement`;
+    if(previousLabel) previousLabel.textContent=`Pages 1 à ${current}`;
+    if(previous) previous.disabled=current<=1;
+
+    const description=overlay.querySelector('[data-download-description]');
+    if(description){
+      description.textContent=current<=1
+        ? 'La page 1 est déjà la première page du document.'
+        : `Vous êtes sur la page ${current}. Choisissez ce que vous souhaitez enregistrer.`;
+    }
+
+    overlay.classList.add('open');
+    overlay.setAttribute('aria-hidden','false');
+    PDF_DOWNLOAD_CHOICE_ACTIVE=true;
+
+    return new Promise(resolve=>{
+      overlay.__auroreResolve=resolve;
+      requestAnimationFrame(()=>overlay.querySelector('[data-download-mode="current"]')?.focus());
+    });
+  }
+
+  function initialiserChoixTelechargementPDF() {
+    if(document.getElementById('pdfDownloadChoiceOverlay')) return;
+    const overlay=document.createElement('div');
+    overlay.id='pdfDownloadChoiceOverlay';
+    overlay.className='pdf-download-choice-overlay';
+    overlay.setAttribute('aria-hidden','true');
+    overlay.setAttribute('role','dialog');
+    overlay.setAttribute('aria-modal','true');
+    overlay.innerHTML=`
+      <div class="pdf-download-choice-card">
+        <div class="pdf-download-choice-head">
+          <div>
+            <div class="pdf-download-choice-eyebrow">Téléchargement</div>
+            <h3 class="pdf-download-choice-title">Que souhaitez-vous télécharger ?</h3>
+            <p class="pdf-download-choice-description" data-download-description></p>
+          </div>
+          <button type="button" class="pdf-download-choice-close" aria-label="Fermer">×</button>
+        </div>
+        <div class="pdf-download-choice-options">
+          <button type="button" class="pdf-download-choice-option" data-download-mode="current">
+            <span class="pdf-download-choice-icon" aria-hidden="true">1</span>
+            <span><strong data-download-current-label>Page actuelle uniquement</strong><small>Un PDF contenant seulement cette page.</small></span>
+          </button>
+          <button type="button" class="pdf-download-choice-option" data-download-mode="previous">
+            <span class="pdf-download-choice-icon" aria-hidden="true">1–N</span>
+            <span><strong data-download-previous-label>Pages 1 à N</strong><small>La première page jusqu’à la page actuelle.</small></span>
+          </button>
+        </div>
+        <button type="button" class="pdf-download-choice-cancel">Annuler</button>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click',(e)=>{
+      if(e.target===overlay) fermerChoixTelechargementPDF(null);
+    });
+    overlay.querySelector('.pdf-download-choice-close')?.addEventListener('click',()=>fermerChoixTelechargementPDF(null));
+    overlay.querySelector('.pdf-download-choice-cancel')?.addEventListener('click',()=>fermerChoixTelechargementPDF(null));
+    overlay.querySelectorAll('[data-download-mode]').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const mode=btn.getAttribute('data-download-mode')==='previous' ? 'previous' : 'current';
+        if(btn.disabled) return;
+        fermerChoixTelechargementPDF(mode);
+      });
+    });
+    overlay.addEventListener('keydown',(e)=>{
+      if(e.key==='Escape'){e.preventDefault();fermerChoixTelechargementPDF(null);}
+    });
+  }
+  document.addEventListener('DOMContentLoaded',initialiserChoixTelechargementPDF);
   const btnFermerCarteTelechargement=document.getElementById('downloadProgressClose');
   if(btnFermerCarteTelechargement) btnFermerCarteTelechargement.addEventListener('click',fermerCarteTelechargement);
   const btnAnnulerTelechargement=document.getElementById('downloadProgressCancel');
