@@ -142,23 +142,20 @@
   }
 
   function reorderPointBlocks(course=state.course){
-    const blocks=contentBlocks(course);
-    const slots=[],points=[];
-    blocks.forEach((b,i)=>{
-      if(b?.type==='point'&&!isDefaultIntroduction(b)){
-        slots.push(i);
-        points.push({block:b,index:i,rank:Number.isFinite(Number(b?.content?.rank))?Number(b.content.rank):Number.MAX_SAFE_INTEGER});
-      }
-    });
+    const blocks=Array.isArray(course?.blocks)?course.blocks:[];
+    const points=blocks
+      .map((b,index)=>({block:b,index,rank:Number.isFinite(Number(b?.content?.rank))&&Number(b.content.rank)>=1?Number(b.content.rank):Number.MAX_SAFE_INTEGER}))
+      .filter(x=>x.block?.type==='point'&&!isDefaultIntroduction(x.block));
     if(points.length<2)return false;
     const ordered=points.slice().sort((a,b)=>a.rank-b.rank||a.index-b.index);
     let changed=false;
-    slots.forEach((slot,i)=>{
-      if(blocks[slot]!==ordered[i].block){
-        blocks[slot]=ordered[i].block;
+    points.forEach((slot,i)=>{
+      if(blocks[slot.index]!==ordered[i].block){
+        blocks[slot.index]=ordered[i].block;
         changed=true;
       }
     });
+    course.blocks=blocks;
     return changed;
   }
 
@@ -188,7 +185,12 @@
     return activeBlocks().filter(b=>b?.type==='exercise').length+1;
   }
   function nextPointNumber(){
-    return activeBlocks().filter(b=>b?.type==='point').length+1;
+    const ranks=activeBlocks()
+      .filter(b=>b?.type==='point'&&!isDefaultIntroduction(b))
+      .map(b=>Number(b?.content?.rank))
+      .filter(Number.isFinite)
+      .map(v=>Math.max(1,Math.floor(v)));
+    return (ranks.length?Math.max(...ranks):0)+1;
   }
   function normalizePointColor(v){return /^#[0-9A-F]{6}$/i.test(String(v||''))?String(v).toUpperCase():DEFAULT_THEME_COLOR}
   function pointColorOptions(selected){
