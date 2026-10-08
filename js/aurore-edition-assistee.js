@@ -521,48 +521,67 @@
   async function requestIndependentSystemPage(kind,{force=false}={}){
     ensureDocumentPages(state.course);
     const fp=canonicalPreviewFingerprint(),current=state.canonicalPreview?.pages?.[kind]||emptySystemPageState();
+    const token=(typeof session!=='undefined'&&session?.access_token)||await freshToken();
+    const theme=normalizeThemeColor(state.course.theme_color);
+
+    async function renderIndependent(documentId){
+      setSystemPageState(kind,{documentId,status:'processing',progress:12,stage:'Rendu indépendant en cours',error:null},{persist:true});
+      const r=await fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-system-page',{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'Authorization':'Bearer '+token,
+          'apikey':SUPABASE_ANON_KEY
+        },
+        body:JSON.stringify({
+          mode:'render',
+          generated_document_id:Number(documentId),
+          theme_color:theme
+        })
+      });
+      const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}};
+      if(!r.ok||!d.ok)throw new Error(d.error||('Rendu page système HTTP '+r.status));
+      const pdfUrl=d.page_url||d.pdf_url||null;
+      setSystemPageState(kind,{status:'ready',progress:100,stage:'PDF de page prêt',pdfUrl,error:null},{persist:true});
+      return d;
+    }
+
     if(!force&&canonicalPreviewIsFresh()&&current.documentId){
       const existing=String(current.status||'').toLowerCase();
       if(existing==='ready'&&current.pdfUrl)return current;
       if(['queued','processing'].includes(existing)){
-        const started=Date.now();
-        while(Date.now()-started<90000){
-          const st=await independentSystemPageStatus(current.documentId);
-          setSystemPageState(kind,{status:String(st.status||'processing').toLowerCase(),progress:Number(st.progress||0),stage:String(st.stage||'Rendu indépendant'),pdfUrl:st.pdf_url||current.pdfUrl||null,error:st.error||null});
-          if(st.pdf_url||String(st.status||'').toLowerCase()==='completed'){setSystemPageState(kind,{status:'ready',progress:100,stage:'PDF de page prêt',pdfUrl:st.pdf_url||current.pdfUrl||null,error:null},{persist:true});return st;}
-          if(String(st.status||'').toLowerCase()==='failed')throw new Error(st.error||'Génération de page système échouée.');
-          await new Promise(resolve=>setTimeout(resolve,700));
-        }
-        throw new Error('Le rendu indépendant de la page n’a pas terminé dans le délai prévu.');
+        return await renderIndependent(current.documentId);
       }
     }
-    const token=(typeof session!=='undefined'&&session?.access_token)||await freshToken();
+
     const b=kind==='cover'?activeBlocks().find(x=>x?.role===START_ROLE):kind==='end'?activeBlocks().find(x=>x?.role===END_ROLE):null;
     const pageData=kind==='toc'?tocPayload():clone(kind==='cover'?state.course.document_pages.cover:state.course.document_pages.end);
     if(kind==='end')pageData.page_number=pageNumberFor(b);
     setSystemPageState(kind,{status:'processing',progress:5,stage:'Création du fragment indépendant',error:null},{persist:true});
-    const create=await fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-system-page',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':SUPABASE_ANON_KEY},body:JSON.stringify({mode:'create',course_id:state.course.id,page_kind:kind,title:state.course.title,theme_color:normalizeThemeColor(state.course.theme_color),page_data:pageData})});
-    const ct=await create.text();let cd={};try{cd=ct?JSON.parse(ct):{}}catch(_){cd={error:ct}};if(!create.ok||!cd.ok)throw new Error(cd.error||('Création page système HTTP '+create.status));
-    const documentId=Number(cd.generated_document_id||0);if(!documentId)throw new Error('Identifiant de page système absent.');
+
+    const create=await fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-system-page',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Authorization':'Bearer '+token,
+        'apikey':SUPABASE_ANON_KEY
+      },
+      body:JSON.stringify({
+        mode:'create',
+        course_id:state.course.id,
+        page_kind:kind,
+        title:state.course.title,
+        theme_color:theme,
+        page_data:pageData
+      })
+    });
+    const ct=await create.text();let cd={};try{cd=ct?JSON.parse(ct):{}}catch(_){cd={error:ct}};
+    if(!create.ok||!cd.ok)throw new Error(cd.error||('Création page système HTTP '+create.status));
+    const documentId=Number(cd.generated_document_id||0);
+    if(!documentId)throw new Error('Identifiant de page système absent.');
+
     setSystemPageState(kind,{documentId,status:'processing',progress:8,stage:'Fragment créé · rendu indépendant en cours'},{persist:true});
-    const renderPromise=(async()=>{
-      const r=await fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-system-page',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':SUPABASE_ANON_KEY},body:JSON.stringify({mode:'render',generated_document_id:documentId,theme_color:normalizeThemeColor(state.course.theme_color)})});
-      const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}};if(!r.ok||!d.ok)throw new Error(d.error||('Rendu page système HTTP '+r.status));return d;
-    })();
-    const started=Date.now();
-    while(Date.now()-started<90000){
-      try{
-        const st=await independentSystemPageStatus(documentId);
-        setSystemPageState(kind,{status:String(st.status||'processing').toLowerCase(),progress:Number(st.progress||0),stage:String(st.stage||'Rendu indépendant'),pdfUrl:st.pdf_url||null,error:st.error||null});
-        if(st.pdf_url||String(st.status||'').toLowerCase()==='completed'){setSystemPageState(kind,{status:'ready',progress:100,stage:'PDF de page prêt',pdfUrl:st.pdf_url||null,error:null},{persist:true});await renderPromise.catch(()=>{});return st;}
-        if(String(st.status||'').toLowerCase()==='failed'){await renderPromise.catch(()=>{});throw new Error(st.error||'Génération de page système échouée.');}
-      }catch(e){
-        if(Date.now()-started>5000){await renderPromise.catch(()=>{});throw e;}
-      }
-      await new Promise(resolve=>setTimeout(resolve,700));
-    }
-    await renderPromise;
-    throw new Error('Le rendu indépendant de la page n’a pas terminé dans le délai prévu.');
+    return await renderIndependent(documentId);
   }
   async function prepareSystemPreview({force=false}={}){
     ensureCourseStructure(state.course);
