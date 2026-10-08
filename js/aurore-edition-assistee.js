@@ -421,7 +421,7 @@
       '<div class="ae-block-toolbar"><button class="admin-btn ghost" data-regenerate-page="'+esc(b.id)+'">↻ Régénérer la page</button><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Prévisualiser</button><button class="admin-btn ghost" data-json-block="'+esc(b.id)+'">JSON</button><button class="admin-btn ghost" data-copy-block="'+esc(b.id)+'">Copier JSON</button><button class="admin-btn ghost" data-duplicate-block="'+esc(b.id)+'">Dupliquer</button><button class="admin-btn ghost" data-clear-block="'+esc(b.id)+'">Vider</button><button class="admin-btn danger" data-delete-block="'+esc(b.id)+'">Supprimer</button><button class="admin-btn primary" data-validate-block="'+esc(b.id)+'">Valider & générer la page</button></div>'+
       '<div class="ae-block-result">'+(gen.status==='ready'&&gen.page_url?'<span class="ae-generated-ok">✓ Page '+page+' générée seule</span><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Visualiser</button><a class="admin-btn ghost" href="'+esc(gen.page_url)+'" download="aurore-page-'+page+'.pdf">Télécharger</a>':gen.status==='generating'?'<div class="ae-generation-progress" role="status" aria-live="polite"><div class="ae-generation-progress-top"><span data-progress-label>'+esc(gen.progress_label||'Génération de la page…')+'</span><strong data-progress-pct>'+Math.round(Number(gen.progress||8))+'%</strong></div><div class="ae-progress-track"><span data-progress-bar style="width:'+Math.max(8,Math.min(100,Number(gen.progress||8)))+'%"></span></div><small>Progression indicative · la page est en cours de génération.</small></div>':gen.status==='error'?'<span class="ae-generated-error">Erreur : '+esc(gen.error||'génération impossible')+'</span>':b.type==='graphique'&&v.ok?'<span>JSON validé · la construction graphique reste destinée au moteur GeoGebra/LuaLaTeX.</span>':'<span>Aucune page générée pour ce bloc.</span>')+'</div>'+
       (v.errors.length?'<div class="ae-block-errors">'+v.errors.map(x=>'• '+esc(x)).join('<br>')+'</div>':'')+
-      (b.type==='paragraph'?'<div class="ae-inline-add-row"><button type="button" class="ae-inline-add" data-add-paragraph-after="'+esc(b.id)+'">＋ Insérer un paragraphe ici</button></div>':'')+
+      '<div class="ae-inline-add-row"><label class="ae-inline-add-select"><span>Ajouter sous ce bloc</span><select data-insert-after="'+esc(b.id)+'"><option value="">Sélectionner…</option><option value="paragraph">Paragraphe</option><option value="point">Point de cours</option><option value="wikimedia-image">Image</option></select></label></div>'+
       '</article>';
   }
 
@@ -509,7 +509,7 @@
     root().querySelectorAll('[data-delete-block]').forEach(x=>x.onclick=()=>deleteBlock(x.dataset.deleteBlock));
     root().querySelectorAll('[data-clear-block]').forEach(x=>x.onclick=()=>clearBlock(x.dataset.clearBlock));
     document.getElementById('aeCopyTocJson')?.addEventListener('click',copyTocJson);
-    root().querySelectorAll('[data-add-paragraph-after]').forEach(x=>x.onclick=()=>addParagraphAfter(x.dataset.addParagraphAfter));
+    root().querySelectorAll('[data-insert-after]').forEach(x=>x.onchange=async()=>{const type=x.value;x.value='';if(type)await insertBlockAfter(x.dataset.insertAfter,type);});
     root().querySelectorAll('[data-validate-block]').forEach(x=>x.onclick=()=>generateBlock(x.dataset.validateBlock));
   }
 
@@ -520,6 +520,25 @@
     const idx=Math.max(0,blocks.findIndex(x=>x.role===END_ROLE));
     blocks.splice(idx,0,b);state.selected=b.id;validateCourse();renderWorkspace();setStatus('Bloc ajouté au milieu du document, avant la page de fin.');
   }
+  async function insertBlockAfter(id,type){
+    ensureCourseStructure(state.course);
+    const blocks=activeBlocks(),idx=blocks.findIndex(x=>x.id===id),source=idx>=0?blocks[idx]:null;
+    if(!source||isSystemBlock(source))return;
+    if(!['paragraph','point','wikimedia-image'].includes(type))return;
+    const b=block(type);
+    blocks.splice(idx+1,0,b);
+    state.selected=b.id;
+    validateCourse();
+    renderWorkspace();
+    setStatus(type==='wikimedia-image'?'Image insérée : sélectionne maintenant son illustration.':type==='point'?'Point de cours inséré sous le bloc sélectionné.':'Paragraphe inséré sous le bloc sélectionné.');
+    if(type==='wikimedia-image'){
+      await new Promise(resolve=>requestAnimationFrame(resolve));
+      wiki(b.id);
+    }else{
+      requestAnimationFrame(()=>root()?.querySelector(type==='point'?'[data-edit-text="'+CSS.escape(b.id)+'"]':'[data-edit-text="'+CSS.escape(b.id)+'"]')?.focus());
+    }
+  }
+
   function addParagraphAfter(id){
     ensureCourseStructure(state.course);
     const blocks=activeBlocks(),idx=blocks.findIndex(x=>x.id===id),source=idx>=0?blocks[idx]:null;
@@ -1230,6 +1249,19 @@
     throw new Error('La génération du PDF n’a pas terminé dans le délai prévu.');
   }
 
+  function flowBlocksFor(id){
+    const blocks=activeBlocks(),idx=blocks.findIndex(x=>x.id===id),current=idx>=0?blocks[idx]:null;
+    if(!current||current.type!=='paragraph')return current?[current]:[];
+    const out=[current];
+    for(let i=idx+1;i<blocks.length;i++){
+      const next=blocks[i];
+      if(!next||isSystemBlock(next)||next.type!=='paragraph')break;
+      if(!String(next.content?.text||'').trim())break;
+      out.push(next);
+    }
+    return out;
+  }
+
   async function generateBlock(id){
     ensureCourseStructure(state.course);
     const b=activeBlocks().find(x=>x.id===id);if(!b)return;
@@ -1253,6 +1285,7 @@
           block_id:b.id,
           page_number:pageNumberFor(b),
           block:b,
+          flow_blocks:flowBlocksFor(b.id),
           theme_color:normalizeThemeColor(state.course.theme_color)
         })
       });
@@ -1312,7 +1345,7 @@
     throw new Error('Session administrateur expirée.');
   }
 
-  function wiki(){
+  function wiki(afterId=null){
     const host=document.getElementById('aeModalHost');if(!host)return;
     host.innerHTML='<div class="ae-modal"><div class="ae-dialog ae-wiki-dialog"><header><div><span class="ae-kicker">Wikimedia Commons</span><h4>Choisir une image</h4></div><button class="admin-btn ghost" id="aeWikiClose">Fermer</button></header><div class="ae-wiki-search"><input id="aeWikiQ" placeholder="Ex. cellule animale, volcan, Newton…"><button class="admin-btn primary" id="aeWikiGo">Rechercher</button></div><div id="aeWikiResults" class="ae-wiki-results"></div></div></div>';
     document.getElementById('aeWikiClose').onclick=()=>host.innerHTML='';
@@ -1328,7 +1361,7 @@
       const r=await fetch(u);if(!r.ok)throw new Error('HTTP '+r.status);const d=await r.json();const pages=Object.values(d?.query?.pages||{});
       const usable=pages.filter(p=>{const i=p?.imageinfo?.[0]||{},m=i.extmetadata||{},lic=String(m?.LicenseShortName?.value||m?.UsageTerms?.value||'').toLowerCase();return String(i.url||'').startsWith('https://upload.wikimedia.org/')&&!/fair use|non-commercial|no derivatives/.test(lic)&&['image/jpeg','image/png'].includes(String(i.mime||'').toLowerCase())});
       out.innerHTML=usable.map(p=>{const i=p.imageinfo?.[0]||{},m=i.extmetadata||{},title=String(p.title||'').replace(/^File:/,'');const d={imageUrl:i.url||'',thumbUrl:i.thumburl||i.url||'',title,caption:String(m?.ImageDescription?.value||title).replace(/<[^>]+>/g,''),sourceUrl:i.descriptionurl||('https://commons.wikimedia.org/wiki/'+encodeURIComponent(p.title)),author:String(m?.Artist?.value||'').replace(/<[^>]+>/g,''),license:String(m?.LicenseShortName?.value||m?.UsageTerms?.value||'').replace(/<[^>]+>/g,''),query:q};return '<article class="ae-wiki-card"><img src="'+esc(d.thumbUrl)+'" alt=""><div><strong>'+esc(d.title)+'</strong><small>'+esc(d.author||'Auteur non renseigné')+'</small><small>'+esc(d.license||'Licence à vérifier')+'</small></div><button class="admin-btn primary" data-wiki="'+esc(JSON.stringify(d))+'">Choisir</button></article>'}).join('')||'<div class="ae-empty">Aucune image exploitable trouvée.</div>';
-      out.querySelectorAll('[data-wiki]').forEach(btn=>btn.onclick=()=>{const d=JSON.parse(btn.dataset.wiki),b=block('wikimedia-image');b.content=d;state.course.blocks.push(b);state.selected=b.id;document.getElementById('aeModalHost').innerHTML='';renderWorkspace();setStatus('Image Wikimedia ajoutée en bas du cours.')});
+      out.querySelectorAll('[data-wiki]').forEach(btn=>btn.onclick=()=>{const d=JSON.parse(btn.dataset.wiki),b=block('wikimedia-image');b.content=d;const blocks=activeBlocks(),anchorIndex=afterId?blocks.findIndex(x=>x.id===afterId):-1;if(anchorIndex>=0)blocks.splice(anchorIndex+1,0,b);else blocks.push(b);state.selected=b.id;document.getElementById('aeModalHost').innerHTML='';renderWorkspace();setStatus('Image Wikimedia ajoutée en bas du cours.')});
     }catch(e){out.textContent='Recherche Wikimedia indisponible.'}
   }
 
