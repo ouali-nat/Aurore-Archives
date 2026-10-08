@@ -54,17 +54,72 @@ Deno.serve(async req=>{
     if(!courseId)return out({ok:false,error:"course_id requis"},400);
     const data=body?.page_data&&typeof body.page_data==="object"?body.page_data:{};
     const color=hex(body?.theme_color);
+    const now=new Date().toISOString();
+
+    // Le schéma de production exige qu’un generated_document soit rattaché
+    // à un aurora_content_jobs existant. Ce job reste un artefact d’édition
+    // assistée : il ne passe pas par le renderer LuaLaTeX.
+    const job=await admin.from("aurora_content_jobs").insert({
+      created_by:uid,
+      status:"queued",
+      title,
+      subject:clean(data.subject)||null,
+      level:clean(data.level)||null,
+      class_name:clean(data.class_name)||null,
+      document_type:"page_assistee",
+      source_format:"structured",
+      prompt:"Édition assistée — rendu d’une page système indépendante.",
+      instructions:{
+        assisted_system_page:true,
+        page_kind:kind,
+        course_id:courseId,
+        independent_renderer:true,
+        no_lualatex:true
+      },
+      source_document_ids:[],
+      metadata:{
+        origin:"edition_assistee",
+        assisted_system_page:{
+          course_id:courseId,
+          page_kind:kind
+        }
+      },
+      created_at:now,
+      updated_at:now
+    }).select("id").single();
+    if(job.error)return out({ok:false,error:"Création du job de page système impossible : "+job.error.message},500);
+
+    const jobId=Number(job.data.id);
     const ins=await admin.from("aurora_generated_documents").insert({
-      created_by:uid,title,document_type:"page_assistee",source_format:"structured",source_content:null,
+      job_id:jobId,
+      created_by:uid,
+      title,
+      document_type:"page_assistee",
+      source_format:"structured",
+      source_content:null,
       content_json:{title,system_page:{kind,page_data:data}},
       version:1,status:"generated",
       validation_notes:"Page système indépendante de l’édition assistée · aperçu uniquement.",
       metadata:{origin:"edition_assistee",assisted_system_page:true,system_page_kind:kind,preview_only:true,publishable:false,
-        fast_page_status:"queued",fast_page_progress:0,fast_page_stage:"Page système créée · rendu indépendant prêt à démarrer",fast_page_created_at:new Date().toISOString()},
+        fast_page_status:"queued",fast_page_progress:0,fast_page_stage:"Page système créée · rendu indépendant prêt à démarrer",fast_page_created_at:now},
       theme_color:color,matiere:clean(data.subject)||null
     }).select("id").single();
-    if(ins.error)return out({ok:false,error:"Création de la page système impossible : "+ins.error.message},500);
-    return out({ok:true,mode:"create",generated_document_id:Number(ins.data.id),page_kind:kind,progress:0});
+    if(ins.error){
+      await admin.from("aurora_content_jobs").update({
+        status:"rejected",
+        error_message:ins.error.message,
+        updated_at:new Date().toISOString()
+      }).eq("id",jobId).eq("created_by",uid);
+      return out({ok:false,error:"Création de la page système impossible : "+ins.error.message},500);
+    }
+    return out({
+      ok:true,
+      mode:"create",
+      generated_document_id:Number(ins.data.id),
+      job_id:jobId,
+      page_kind:kind,
+      progress:0
+    });
   }
 
   if(mode!=="render"){
