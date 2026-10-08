@@ -197,82 +197,8 @@
     return THEME_COLORS.map(x=>'<option value="'+x.value+'"'+(normalizePointColor(selected)===x.value?' selected':'')+'>'+esc(x.label)+'</option>').join('');
   }
   function activeBlocks(){return Array.isArray(state.course?.blocks)?state.course.blocks:[]}
-  function pageFlowGroups(course=state.course){
-    const blocks=contentBlocks(course),groups=[];
-    for(let i=0;i<blocks.length;i++){
-      const b=blocks[i];
-      if(b?.type==='paragraph'){
-        const group=[b];
-        while(i+1<blocks.length&&blocks[i+1]?.type==='paragraph'){group.push(blocks[++i]);}
-        groups.push(group);
-      }else groups.push([b]);
-    }
-    return groups;
-  }
-  function pageNumberFor(b){
-    if(b?.role===START_ROLE)return 1;
-    if(b?.role===END_ROLE)return 3+pageFlowGroups().length;
-    const groups=pageFlowGroups();
-    const gi=groups.findIndex(g=>g.some(x=>x?.id===b?.id));
-    return gi<0?null:gi+3;
-  }
+  function pageNumberFor(b){const blocks=activeBlocks();if(b?.role===START_ROLE)return 1;if(b?.role===END_ROLE)return blocks.length+1;const i=blocks.findIndex(x=>x.id===b.id);return i<0?null:i+2}
   function setStatus(t){const e=document.getElementById('assistedStatus');if(e)e.textContent=t}
-  function fullCoursePages(){
-    const pages=[],seen=new Set();
-    const add=(url,label,key)=>{
-      const u=String(url||'').trim();if(!u||seen.has(key||u))return;
-      seen.add(key||u);pages.push({url:u,label});
-    };
-    const sys=state.canonicalPreview?.pages||{};
-    add(sys.cover?.pdfUrl,'Couverture','system-cover');
-    add(sys.toc?.pdfUrl,'Sommaire','system-toc');
-    for(const b of contentBlocks()){
-      const g=b?.generation||{};
-      if(String(g.status||'').toLowerCase()!=='ready'||!g.page_url)continue;
-      const key=String(g.flow_page_owner_id||g.page_url).trim();
-      add(g.page_url,'Page '+String(g.page_number||pageNumberFor(b)),key);
-    }
-    add(sys.end?.pdfUrl,'Fin du document','system-end');
-    return pages;
-  }
-  function fullCourseDownloadState(){
-    const sys=state.canonicalPreview?.pages||{};
-    const systemsReady=['cover','toc','end'].every(k=>String(sys[k]?.status||'').toLowerCase()==='ready'&&String(sys[k]?.pdfUrl||'').trim());
-    const blocks=contentBlocks();
-    const contentReady=blocks.length>0&&blocks.every(b=>String(b?.generation?.status||'').toLowerCase()==='ready'&&String(b?.generation?.page_url||'').trim());
-    return {ready:systemsReady&&contentReady,pages:fullCoursePages()};
-  }
-  async function loadPdfLib(){
-    if(globalThis.PDFLib?.PDFDocument)return globalThis.PDFLib;
-    if(state.pdfLibPromise)return state.pdfLibPromise;
-    state.pdfLibPromise=new Promise((resolve,reject)=>{
-      const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';s.async=true;
-      s.onload=()=>globalThis.PDFLib?.PDFDocument?resolve(globalThis.PDFLib):reject(new Error('Bibliothèque PDF indisponible.'));
-      s.onerror=()=>reject(new Error('Chargement de la bibliothèque PDF impossible.'));
-      document.head.appendChild(s);
-    });
-    return state.pdfLibPromise;
-  }
-  async function downloadFullCourse(){
-    const stateInfo=fullCourseDownloadState();
-    if(!stateInfo.ready||stateInfo.pages.length===0){setStatus('Génère et prévisualise toutes les pages avant le téléchargement intégral.');return;}
-    try{
-      setStatus('Assemblage du PDF intégral…');
-      const {PDFDocument}=await loadPdfLib();
-      const merged=await PDFDocument.create();
-      for(let i=0;i<stateInfo.pages.length;i++){
-        const p=stateInfo.pages[i];setStatus('Assemblage : '+p.label+' ('+(i+1)+'/'+stateInfo.pages.length+')…');
-        const res=await fetch(p.url,{cache:'no-store'});if(!res.ok)throw new Error('Impossible de récupérer '+p.label+' (HTTP '+res.status+').');
-        const src=await PDFDocument.load(await res.arrayBuffer());
-        const copied=await merged.copyPages(src,src.getPageIndices());copied.forEach(page=>merged.addPage(page));
-      }
-      const bytes=await merged.save();
-      const blob=new Blob([bytes],{type:'application/pdf'}),url=URL.createObjectURL(blob),a=document.createElement('a');
-      a.href=url;a.download=(String(state.course.title||'aurore-cours').trim().replace(/[^\p{L}\p{N}_-]+/gu,'-')||'aurore-cours')+'.pdf';
-      document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
-      setStatus('PDF intégral prêt · '+stateInfo.pages.length+' page(s) assemblée(s).');
-    }catch(e){setStatus('Échec du téléchargement intégral : '+String(e?.message||e));}
-  }
 
   async function loadCourses(){
     const c=client();
