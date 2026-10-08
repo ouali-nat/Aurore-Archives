@@ -736,7 +736,7 @@
   function updateCanonicalPreviewUi(){
     const fresh=canonicalPreviewIsFresh(),pages=state.canonicalPreview?.pages||normalizedSystemPages({});
     refreshDownloadButton();
-    root()?.querySelectorAll('[data-canonical-preview]').forEach(el)=>{
+    root()?.querySelectorAll('[data-canonical-preview]').forEach(el=>{
       const kind=el.dataset.canonicalPreviewKind||'cover',p=fresh?(pages[kind]||emptySystemPageState()):emptySystemPageState();
       const status=String(p.status||'idle').toLowerCase(),pct=Math.max(0,Math.min(100,Number(p.progress||0)));
       const label=el.querySelector('[data-canonical-preview-stage]'),bar=el.querySelector('[data-canonical-preview-bar]'),pctEl=el.querySelector('[data-canonical-preview-pct]'),detail=el.querySelector('[data-canonical-preview-detail]');
