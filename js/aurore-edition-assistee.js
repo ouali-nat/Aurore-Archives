@@ -1249,17 +1249,13 @@
     throw new Error('La génération du PDF n’a pas terminé dans le délai prévu.');
   }
 
-  function flowBlocksFor(id){
-    const blocks=activeBlocks(),idx=blocks.findIndex(x=>x.id===id),current=idx>=0?blocks[idx]:null;
-    if(!current||current.type!=='paragraph')return current?[current]:[];
-    const out=[current];
-    for(let i=idx+1;i<blocks.length;i++){
-      const next=blocks[i];
-      if(!next||isSystemBlock(next)||next.type!=='paragraph')break;
-      if(!String(next.content?.text||'').trim())break;
-      out.push(next);
-    }
-    return out;
+  function flowRenderBlockFor(id){
+    const blocks=flowBlocksFor(id);
+    if(blocks.length<=1)return blocks[0]||null;
+    const first=clone(blocks[0]);
+    first.content={...first.content,text:blocks.map(b=>String(b.content?.text||'').trim()).filter(Boolean).join('\n\n')};
+    first.generation={...(first.generation||{}),flow_companion_ids:blocks.slice(1).map(b=>b.id)};
+    return first;
   }
 
   async function generateBlock(id){
@@ -1284,8 +1280,7 @@
           course_title:state.course.title,
           block_id:b.id,
           page_number:pageNumberFor(b),
-          block:b,
-          flow_blocks:flowBlocksFor(b.id),
+          block:flowRenderBlockFor(b.id),
           theme_color:normalizeThemeColor(state.course.theme_color)
         })
       });
