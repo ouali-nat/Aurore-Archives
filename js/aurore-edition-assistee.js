@@ -1249,6 +1249,19 @@
     throw new Error('La génération du PDF n’a pas terminé dans le délai prévu.');
   }
 
+  function flowBlocksFor(id){
+    const all=activeBlocks();
+    const index=all.findIndex(b=>b?.id===id);
+    if(index<0)return [];
+    const current=all[index];
+    if(current.type!=='paragraph')return [current];
+    let start=index;
+    while(start>0&&all[start-1]?.type==='paragraph'&&!isSystemBlock(all[start-1]))start--;
+    let end=index;
+    while(end<all.length-1&&all[end+1]?.type==='paragraph'&&!isSystemBlock(all[end+1]))end++;
+    return all.slice(start,end+1);
+  }
+
   function flowRenderBlockFor(id){
     const blocks=flowBlocksFor(id);
     if(blocks.length<=1)return blocks[0]||null;
