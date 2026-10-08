@@ -263,7 +263,7 @@ Deno.serve(async req=>{
     if(renderKind!=="cover")hf(p,pageNo,f,l,color);
     if(renderKind==="cover")cover(p,f,l,color,row.data.title,data);
     else if(renderKind==="toc")toc(p,f,color,Array.isArray(data.entries)?data.entries:[]);
-    else await ending(p,f,l,color,row.data.title,id,pdf,data);
+    else await ending(p,pdf,f,l,color,row.data.title,id,data);
     await update(id,renderKind,{fast_page_progress:72,fast_page_stage:"PDF indépendant construit"});
     const bin=new Uint8Array(await pdf.save({useObjectStreams:false}));
     const path="aurora-assisted-system-pages/"+uid+"/"+id+"/"+renderKind+".pdf";
