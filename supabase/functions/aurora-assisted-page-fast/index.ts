@@ -16,12 +16,10 @@ const BLOCK_GAP=12;
 const BOX_RADIUS=11;
 const BOX_PAD_TOP=11;
 const BOX_PAD_BOTTOM=11;
-// Schéma éditorial demandé : rail nettement à gauche, point séparé de quelques mm, texte courant décalé.
-const POINT_TITLE_SIZE=15.8;
-const POINT_SPINE_X=30;
-const POINT_BOX_X=52;
-const POINT_MAX_W=430;
-const POINT_SIDE_GAP=8;
+const POINT_SPINE_X=38;
+const POINT_BOX_X=54;
+const POINT_SIDE_GAP=9;
+const POINT_MAX_W=500;
 const MATH_DISPLAY_BASE_H=24;
 const MATH_EX_PX=7.54;
 const MATH_RASTER_SCALE=3;
@@ -553,9 +551,9 @@ Deno.serve(async req=>{
     const PARA_X=X+22,PARA_W=W-22;
     const POINT_X=POINT_BOX_X,POINT_W=POINT_MAX_W;
     function floatingBlock(page:any,x:number,y:number,w:number,h:number){
-      // Ombre discrète décalée : le paragraphe flotte sans filament ni bordure colorée.
-      rounded(page,x+3,y-3,w,h,BOX_RADIUS+1,rgbHex("#D8D9DC"));
-      rounded(page,x,y,w,h,BOX_RADIUS,rgbHex("#E9EAEC"));
+      // Bloc éditorial : fond gris neutre, contour gris discret et ombre légère.
+      rounded(page,x+2.5,y-2.5,w,h,BOX_RADIUS+1,rgbHex("#D9DADD"));
+      rounded(page,x,y,w,h,BOX_RADIUS,rgbHex("#E6E6E7"),rgbHex("#97989C"),0.45);
     }
     const newFlowPage=()=>{
       page=pdf.addPage([595,842]);
@@ -573,85 +571,114 @@ Deno.serve(async req=>{
         const accent=normalizeHexColor(text.color)||color;
         const rank=Math.max(1,Number(text.rank)||1);
         const label=(rank+". "+title).trim();
+        // Géométrie unique du bloc paragraphe : le calcul des lignes et le dessin
+        // utilisent exactement la même largeur pour empêcher tout débordement.
+        const titleX=30;
+        const bodyX=116;
+        const bodyW=410;
+        const bodyTextW=bodyW-24;
         const pointItems:any[]=[];
         for(const para of proseText(body)){
           const prepared=await prepareRuns(mergePlainAndExplicit(para),auth,pdf,fonts,qa,cache);
           let inlineChunk:Run[]=[];
           const flush=()=>{
             if(!inlineChunk.length)return;
-            const lines=layoutInline(inlineChunk,fonts.regular,TEXT_SIZE,POINT_W-28);
+            const lines=layoutInline(inlineChunk,fonts.regular,TEXT_SIZE,bodyTextW);
             if(lines.length)pointItems.push({kind:"inline",lines});
             inlineChunk=[];
           };
           for(const run of prepared){
-            if(run.kind==="display"){flush();pointItems.push({kind:"display",run,metrics:displayMathMetrics(run,W-24)});}
+            if(run.kind==="display"){flush();pointItems.push({kind:"display",run,metrics:displayMathMetrics(run,bodyTextW)});}
             else inlineChunk.push(run);
           }
           flush();
         }
         if(!pointItems.length)pointItems.push({kind:"inline",lines:[]});
         let cursor=0;
+        let continuation=false;
         while(cursor<pointItems.length){
-          const remainingPage=Math.max(0,y-bottom);
-          const titleH=30,separatorGap=5;
-          const availableContent=Math.max(0,remainingPage-BOX_PAD_TOP-titleH-separatorGap-BOX_PAD_BOTTOM-6);
-          const fragment:any[]=[];let used=0;const gap=7;
-          const addPointItem=(item:any)=>{
-            const h=item.kind==="inline"?item.lines.reduce((n:number,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0):item.metrics.cardH;
-            const itemH=item.kind==="inline"?item.lines.reduce((n:number,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0):item.metrics.cardH;
-            const g=fragment.length?gap:0;
-            if(used+g+itemH>availableContent)return false;
-            fragment.push(item);used+=g+itemH;return true;
-          };
-          const first=pointItems[cursor];
-          if(first?.kind==="inline"&&first.lines.length){
-            const fit:number[]=[];let lineUsed=0;
-            for(let li=0;li<first.lines.length;li++){
-              const lh=inlineLineAdvance(first.lines[li],TEXT_SIZE,LINE_HEIGHT);
-              if(lineUsed+lh<=availableContent){fit.push(li);lineUsed+=lh;}else break;
-            }
-            if(fit.length<first.lines.length){
-              if(fit.length>0){fragment.push({kind:"inline",lines:first.lines.slice(0,fit.length)});used=lineUsed;pointItems[cursor]={...first,lines:first.lines.slice(fit.length)};}
-            }else if(addPointItem(first)){cursor++;}
-          }else if(first&&addPointItem(first)){cursor++;}
-          if(fragment.length===0){newFlowPage();continue;}
-          const contentMaxW=fragment.reduce((maxW:number,item:any)=>{
-            if(item.kind!=="inline")return maxW;
-            return Math.max(maxW,...item.lines.map((line:any[])=>line.reduce((sum:number,t:any)=>sum+(t.space||0)+(t.width||0),0)));
-          },0);
-          const titleH=30;
-          const titleTextW=fonts.sansBold.widthOfTextAtSize(label,POINT_TITLE_SIZE)+26;
-          const boxW=Math.min(POINT_MAX_W,Math.max(260,titleTextW,contentMaxW+26));
-          const boxH=Math.max(61,BOX_PAD_TOP+titleH+separatorGap+used+BOX_PAD_BOTTOM);
-          const boxY=y-boxH;
-          const boxX=POINT_X;
-          const titleX=boxX+13;
-          const titleW=Math.min(boxW-26,titleTextW);
-          const titleY=y-titleH/2-1;
-          const ruleY=y-titleH-3;
-          const titleFill=rgbHex("#D7D7DB");
-          const bodyFill=rgbHex("#E6E6E7");
-          // Bloc du point : à gauche, gris clair, arrondi, hauteur adaptée au contenu.
-          rounded(page,boxX,boxY,boxW,boxH,10,bodyFill,rgbHex(accent),0.65);
-          rounded(page,titleX,y-titleH,titleW,titleH,8,titleFill,rgbHex(accent),0.7);
-          page.drawText(escapePdfText(label),{x:titleX+12,y:y-22,font:fonts.sansBold,size:POINT_TITLE_SIZE,color:rgbHex(accent)});
-          // Horizontale : elle souligne le point et continue jusqu'au bord droit sans toucher le bloc.
-          page.drawLine({start:{x:POINT_SPINE_X+5,y:ruleY},end:{x:boxX-POINT_SIDE_GAP,y:ruleY},thickness:1.45,color:rgbHex(accent)});
-          const ruleRightStart=Math.min(552,boxX+boxW+POINT_SIDE_GAP);
-          if(ruleRightStart<552)page.drawLine({start:{x:ruleRightStart,y:ruleY},end:{x:552,y:ruleY},thickness:1.45,color:rgbHex(accent)});
-          pointAnchors.push({page,topY:y-4,bottomY:boxY+4,ruleY,boxX,boxW,color:accent});
-          let childY=y-titleH-11;
-          for(const item of fragment){
-            if(item.kind==="inline"){
-              drawInlineLines(page,item.lines,titleX,childY,POINT_W-26,fonts.regular,accent,rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT);
-              childY-=item.lines.reduce((n:any,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0)+gap;
-            }else{
-              drawDisplayMath(page,item.run,POINT_X,childY,POINT_W-24,color);
-              childY-=item.metrics.cardH+gap;
-            }
-          }
-          y-=boxH+BLOCK_GAP;
-          if(cursor<pointItems.length&&y-bottom<LINE_HEIGHT+BOX_PAD_TOP+BOX_PAD_BOTTOM)newFlowPage();
+           const remainingPage=Math.max(0,y-bottom);
+           const titleFontSize=12.6,titleLineHeight=15.5,titlePadY=8;
+           const titleMaxW=Math.max(120,BOX_W-46);
+           const titleLines=wrap(label,fonts.sansBold,titleFontSize,titleMaxW-24);
+           const titleMeasuredW=Math.max(0,...titleLines.map((line:string)=>fonts.sansBold.widthOfTextAtSize(line,titleFontSize)));
+           const titleW=Math.min(BOX_W-22,Math.max(120,Math.ceil(titleMeasuredW)+24));
+           const titleH=continuation?0:Math.max(30,titlePadY*2+titleLines.length*titleLineHeight);
+           const separatorGap=continuation?0:7;
+           const availableContent=Math.max(0,remainingPage-titleH-separatorGap-BOX_PAD_TOP-BOX_PAD_BOTTOM-6);
+           const fragment:any[]=[];let used=0;const gap=7;
+           const addPointItem=(item:any)=>{
+             const itemH=item.kind==="inline"?item.lines.reduce((n:number,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0):item.metrics.cardH;
+             const g=fragment.length?gap:0;
+             if(used+g+itemH>availableContent)return false;
+             fragment.push(item);used+=g+itemH;return true;
+           };
+           const first=pointItems[cursor];
+           let splitThisPage=false;
+           if(first?.kind==="inline"&&first.lines.length){
+             const fit:number[]=[];let lineUsed=0;
+             for(let li=0;li<first.lines.length;li++){
+               const lh=inlineLineAdvance(first.lines[li],TEXT_SIZE,LINE_HEIGHT);
+               if(lineUsed+lh<=availableContent){fit.push(li);lineUsed+=lh;}else break;
+             }
+             if(fit.length<first.lines.length){
+               if(fit.length>0){
+                 fragment.push({kind:"inline",lines:first.lines.slice(0,fit.length)});
+                 used=lineUsed;
+                 pointItems[cursor]={...first,lines:first.lines.slice(fit.length)};
+                 splitThisPage=true;
+               }
+             }else if(addPointItem(first)){cursor++;}
+           }else if(first&&addPointItem(first)){cursor++;}
+           if(fragment.length===0){newFlowPage();continue;}
+
+           const bodyH=Math.max(36,BOX_PAD_TOP+used+BOX_PAD_BOTTOM);
+           const titleY=y-titleH;
+           const bodyDrop=6;
+           const bodyY=continuation
+             ? y-bodyH-bodyDrop
+             : y-titleH-separatorGap-bodyH-bodyDrop;
+           const editorialRule=rgbHex(mixWhite(accent,0.22));
+           const titleFill=rgbHex("#E6E6E7");
+
+           // Le titre n'existe qu'au début du point. Une suite coupée devient
+           // volontairement un bloc paragraphe autonome sur la page suivante.
+           if(!continuation){
+             rounded(page,titleX,y-titleH,titleW,titleH,8,titleFill,rgbHex("#BFC1C5"),0.45);
+             for(let i=0;i<titleLines.length;i++){
+               page.drawText(escapePdfText(titleLines[i]),{
+                 x:titleX+12,
+                 y:y-titlePadY-titleLineHeight*(i+1)+2.8,
+                 font:fonts.sansBold,size:titleFontSize,color:rgbHex(accent)
+               });
+             }
+           }
+
+           floatingBlock(page,bodyX,bodyY,bodyW,bodyH);
+           if(!continuation){
+             const ruleY=bodyY+bodyH+separatorGap/2;
+             page.drawLine({start:{x:titleX+2,y:ruleY},end:{x:titleX+titleW-2,y:ruleY},thickness:0.6,color:editorialRule});
+             pointAnchors.push({page,y:titleY,x:titleX,color:accent,topY:y-titleH,bottomY:bodyY,ruleY,boxX:bodyX,boxW:bodyW});
+           }
+           let childY=bodyY+bodyH-BOX_PAD_TOP;
+           for(const item of fragment){
+             if(item.kind==="inline"){
+               drawInlineLines(page,item.lines,bodyX+12,childY,bodyTextW,fonts.regular,accent,rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT);
+               childY-=item.lines.reduce((n:any,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0)+gap;
+             }else{
+               drawDisplayMath(page,item.run,bodyX,childY,bodyTextW,color);
+               childY-=item.metrics.cardH+gap;
+             }
+           }
+           y-=titleH+separatorGap+bodyH+BLOCK_GAP;
+
+           if(splitThisPage&&cursor<pointItems.length){
+             newFlowPage();
+             continuation=true;
+           }else if(cursor<pointItems.length&&y-bottom<LINE_HEIGHT+BOX_PAD_TOP+BOX_PAD_BOTTOM){
+             newFlowPage();
+             continuation=true;
+           }
         }
         return;
       }
@@ -661,7 +688,7 @@ Deno.serve(async req=>{
         const items:any[]=[];let inlineChunk:Run[]=[];
         const flushInline=()=>{
           if(!inlineChunk.length)return;
-          const lines=layoutInline(inlineChunk,fonts.regular,TEXT_SIZE,PARA_W-24);
+          const lines=layoutInline(inlineChunk,fonts.regular,TEXT_SIZE,BOX_W-24);
           if(lines.length)items.push({kind:"inline",lines});
           inlineChunk=[];
         };
@@ -714,14 +741,14 @@ Deno.serve(async req=>{
             continue;
           }
           const boxH=Math.max(36,BOX_PAD_TOP+used+BOX_PAD_BOTTOM);
-          floatingBlock(page,PARA_X,y-boxH,PARA_W,boxH);
+          floatingBlock(page,BOX_X,y-boxH,BOX_W,boxH);
           let childY=y-BOX_PAD_TOP;
           for(const item of fragment){
             if(item.kind==="inline"){
-              drawInlineLines(page,item.lines,PARA_X+12,childY,PARA_W-24,fonts.regular,color,rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT);
+              drawInlineLines(page,item.lines,BOX_X+12,childY,BOX_W-24,fonts.regular,color,rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT);
               childY-=item.lines.reduce((n:any,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0)+innerGap;
             }else{
-              drawDisplayMath(page,item.run,PARA_X,childY,PARA_W-18,color);
+              drawDisplayMath(page,item.run,X,childY,W-18,color);
               childY-=item.metrics.cardH+innerGap;
             }
           }
@@ -730,7 +757,22 @@ Deno.serve(async req=>{
         }
       }
     };
-    for(const raw of contentItems)await drawContentBlock(raw);
+    // L'Introduction constitue une séquence autonome : elle commence sur une page dédiée
+    // et le premier bloc suivant ne réutilise jamais l'espace restant de cette page.
+    for(let contentIndex=0;contentIndex<contentItems.length;contentIndex++){
+      const raw=contentItems[contentIndex];
+      const isIntroduction=!!(raw&&typeof raw==="object"&&raw.__aurore_point&&clean(raw.title).toLowerCase()==="introduction");
+      if(isIntroduction&&y!==top)newFlowPage();
+      await drawContentBlock(raw);
+      if(isIntroduction){
+        const hasFollowingMaterial=
+          contentItems.slice(contentIndex+1).length>0||
+          exerciseItems.length>0||
+          graphItems.length>0||
+          imageItems.length>0;
+        if(hasFollowingMaterial)newFlowPage();
+      }
+    }
     for(const ex of exerciseItems){
       const title=clean(ex?.title||"Exercice"),statement=clean(ex?.statement||ex?.question||ex?.enonce||ex?.content||""),hint=clean(ex?.hint||""),correctionTitle=clean(ex?.correction_title||"Corrigé"),correction=clean(ex?.correction||"");
       if(!statement)continue;
@@ -776,41 +818,40 @@ Deno.serve(async req=>{
       }catch(_){qa.images_failed++;}
     }
 
-    // Draw only the editorial point spine segments after layout, so the line follows the real title positions.
+    if(false){ // Barre latérale désactivée volontairement.
+    // Rail éditorial : le vertical reste plus présent que l'horizontale,
+    // avec la même atténuation que le rendu éditorial natif.
     const anchorsByPage=new Map<any,any[]>();
     for(const a of pointAnchors){
-      const list=anchorsByPage.get(a.page)||[];list.push(a);anchorsByPage.set(a.page,list);
+      const list=anchorsByPage.get(a.page)||[];
+      list.push(a);
+      anchorsByPage.set(a.page,list);
     }
     for(const [p,list] of anchorsByPage){
       for(let i=0;i<list.length;i++){
         const a=list[i],prev=list[i-1],next=list[i+1];
-        // Verticale haute : elle s’arrête quelques mm avant le bloc, avec un cercle aux deux extrémités.
-        const upperTop=prev?prev.bottomY-6:Math.min(top-6,a.topY+28);
+        const spineColor=rgbHex(mixWhite(a.color,0.28));
+        const prevSpineColor=rgbHex(mixWhite(prev?.color||a.color,0.28));
+        const nextSpineColor=rgbHex(mixWhite(next?.color||a.color,0.28));
+        const upperTop=prev?prev.bottomY-6:Math.min(top-30,a.topY+24);
         const upperBottom=a.topY-6;
         if(upperTop>upperBottom){
-          p.drawLine({start:{x:POINT_SPINE_X,y:upperTop},end:{x:POINT_SPINE_X,y:upperBottom},thickness:3.8,color:rgbHex(a.color)});
-          p.drawCircle({x:POINT_SPINE_X,y:upperTop,size:3.0,color:rgbHex(prev?.color||a.color)});
-          p.drawCircle({x:POINT_SPINE_X,y:upperBottom,size:3.0,color:rgbHex(a.color)});
+          p.drawLine({start:{x:POINT_SPINE_X,y:upperTop},end:{x:POINT_SPINE_X,y:upperBottom},thickness:1.7,color:spineColor});
+          p.drawCircle({x:POINT_SPINE_X,y:upperTop,size:3.1,color:prevSpineColor});
+          p.drawCircle({x:POINT_SPINE_X,y:upperBottom,size:3.1,color:spineColor});
         }
-        // Verticale basse : elle repart sous le bloc et rejoint le suivant sans le toucher.
         const lowerTop=a.bottomY-6;
-        const lowerBottom=next?next.topY+6:Math.max(bottom+6,a.bottomY-44);
+        const lowerBottom=next?next.topY+6:Math.max(bottom+30,a.bottomY-44);
         if(lowerTop>lowerBottom){
-          p.drawLine({start:{x:POINT_SPINE_X,y:lowerTop},end:{x:POINT_SPINE_X,y:lowerBottom},thickness:3.8,color:rgbHex(a.color)});
-          p.drawCircle({x:POINT_SPINE_X,y:lowerTop,size:3.0,color:rgbHex(a.color)});
-          p.drawCircle({x:POINT_SPINE_X,y:lowerBottom,size:3.0,color:rgbHex(next?.color||a.color)});
+          p.drawLine({start:{x:POINT_SPINE_X,y:lowerTop},end:{x:POINT_SPINE_X,y:lowerBottom},thickness:1.7,color:spineColor});
+          p.drawCircle({x:POINT_SPINE_X,y:lowerTop,size:3.1,color:spineColor});
+          p.drawCircle({x:POINT_SPINE_X,y:lowerBottom,size:3.1,color:nextSpineColor});
         }
-        // Horizontale : elle souligne le point, part du rail et divise visuellement la page.
-        const leftEnd=a.boxX-POINT_SIDE_GAP;
-        p.drawLine({start:{x:POINT_SPINE_X+5,y:a.ruleY},end:{x:leftEnd,y:a.ruleY},thickness:1.7,color:rgbHex(a.color)});
-        p.drawCircle({x:POINT_SPINE_X+5,y:a.ruleY,size:2.8,color:rgbHex(a.color)});
-        const rightStart=a.boxX+a.boxW+POINT_SIDE_GAP;
-        if(rightStart<552){
-          p.drawLine({start:{x:rightStart,y:a.ruleY},end:{x:552,y:a.ruleY},thickness:1.35,color:rgbHex(a.color)});
-        }
+        const ruleColor=rgbHex(mixWhite(a.color,0.22));
+        p.drawLine({start:{x:a.boxX+2,y:a.ruleY},end:{x:Math.min(552,a.boxX+a.boxW-2),y:a.ruleY},thickness:0.7,color:ruleColor});
       }
     }
-
+    }
     for(const g of graphItems){
       qa.graphs_total++;
       try{
