@@ -489,7 +489,7 @@
       '<header class="ae-block-head"><div><span class="ae-block-number">'+String(page).padStart(2,'0')+'</span><strong>'+esc(labelFor(b))+'</strong><small>'+esc(b.validation?.ok?'Bloc valide':'À valider')+'</small></div><span class="ae-block-state '+(v.ok?'ok':'bad')+'">'+(v.ok?'Valide':'À corriger')+'</span></header>'+
       '<div class="ae-block-editor">'+editor+'</div>'+
       '<div class="ae-block-toolbar"><button class="admin-btn ghost" data-regenerate-page="'+esc(b.id)+'">↻ Régénérer la page</button><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Prévisualiser</button><button class="admin-btn ghost" data-json-block="'+esc(b.id)+'">JSON</button><button class="admin-btn ghost" data-copy-block="'+esc(b.id)+'">Copier JSON</button><button class="admin-btn ghost" data-duplicate-block="'+esc(b.id)+'">Dupliquer</button><button class="admin-btn ghost" data-clear-block="'+esc(b.id)+'">Vider</button><button class="admin-btn danger" data-delete-block="'+esc(b.id)+'">Supprimer</button><button class="admin-btn primary" data-validate-block="'+esc(b.id)+'">Valider & générer la page</button></div>'+
-      '<div class="ae-block-result">'+(gen.status==='ready'&&gen.page_url?'<span class="ae-generated-ok">✓ Page '+page+' générée seule</span><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Visualiser</button><a class="admin-btn ghost" href="'+esc(gen.page_url)+'" download="aurore-page-'+page+'.pdf">Télécharger</a>':gen.status==='generating'?'<div class="ae-generation-progress" role="status" aria-live="polite"><div class="ae-generation-progress-top"><span data-progress-label>'+esc(gen.progress_label||'Génération de la page…')+'</span><strong data-progress-pct>'+Math.round(Number(gen.progress||8))+'%</strong></div><div class="ae-progress-track"><span data-progress-bar style="width:'+Math.max(8,Math.min(100,Number(gen.progress||8)))+'%"></span></div><small>Progression indicative · la page est en cours de génération.</small></div>':gen.status==='error'?'<span class="ae-generated-error">Erreur : '+esc(gen.error||'génération impossible')+'</span>':b.type==='graphique'&&v.ok?'<span>JSON validé · la construction graphique reste destinée au moteur GeoGebra/LuaLaTeX.</span>':'<span>Aucune page générée pour ce bloc.</span>')+'</div>'+
+      '<div class="ae-block-result">'+(gen.status==='ready'&&gen.page_url?'<span class="ae-generated-ok">✓ Page '+page+' générée seule</span><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Visualiser</button><button type="button" class="admin-btn ghost" data-download-block="'+esc(b.id)+'">Télécharger</button>':gen.status==='generating'?'<div class="ae-generation-progress" role="status" aria-live="polite"><div class="ae-generation-progress-top"><span data-progress-label>'+esc(gen.progress_label||'Génération de la page…')+'</span><strong data-progress-pct>'+Math.round(Number(gen.progress||8))+'%</strong></div><div class="ae-progress-track"><span data-progress-bar style="width:'+Math.max(8,Math.min(100,Number(gen.progress||8)))+'%"></span></div><small>Progression indicative · la page est en cours de génération.</small></div>':gen.status==='error'?'<span class="ae-generated-error">Erreur : '+esc(gen.error||'génération impossible')+'</span>':b.type==='graphique'&&v.ok?'<span>JSON validé · la construction graphique reste destinée au moteur GeoGebra/LuaLaTeX.</span>':'<span>Aucune page générée pour ce bloc.</span>')+'</div>'+
       (v.errors.length?'<div class="ae-block-errors">'+v.errors.map(x=>'• '+esc(x)).join('<br>')+'</div>':'')+
       '<div class="ae-inline-add-row"><label class="ae-inline-add-select"><span>Ajouter sous ce bloc</span><select data-insert-after="'+esc(b.id)+'"><option value="">Sélectionner…</option><option value="paragraph">Paragraphe</option><option value="point">Point de cours</option><option value="exercise">Exercice</option><option value="graphique">Graphique GeoGebra</option><option value="wikimedia-image">Image</option></select></label></div>'+
       '</article>';
@@ -534,6 +534,188 @@
     await generateBlock(ref);
   }
 
+  function blockDownloadPartsThrough(targetBlock){
+    const targetPage=pageNumberFor(targetBlock);
+    const parts=[],seen=new Set();
+    const pages=state.canonicalPreview?.pages||{};
+    const add=(url,label,pageNumber,key)=>{
+      const u=String(url||'').trim();
+      const n=Number(pageNumber);
+      const k=String(key||u);
+      if(!u||!Number.isFinite(n)||n<1||n>targetPage||seen.has(k))return;
+      seen.add(k);
+      parts.push({url:u,label,pageNumber:n});
+    };
+
+    if(String(pages.cover?.status||'').toLowerCase()==='ready')add(pages.cover.pdfUrl,'Couverture',1,'cover');
+    if(String(pages.toc?.status||'').toLowerCase()==='ready')add(pages.toc.pdfUrl,'Sommaire',2,'toc');
+
+    for(const b of contentBlocks()){
+      const g=b?.generation||{};
+      if(String(g.status||'').toLowerCase()!=='ready'||!g.page_url)continue;
+      const n=Number(g.page_number||pageNumberFor(b));
+      if(!Number.isFinite(n))continue;
+      add(g.page_url,'Page '+n,n,g.flow_page_owner_id||g.page_url);
+    }
+
+    const endBlock=activeBlocks().find(b=>b?.role===END_ROLE);
+    if(endBlock&&String(pages.end?.status||'').toLowerCase()==='ready'){
+      add(pages.end.pdfUrl,'Fin du document',pageNumberFor(endBlock),'end');
+    }
+
+    parts.sort((a,b)=>a.pageNumber-b.pageNumber);
+    return {targetPage,parts};
+  }
+
+  function blockDownloadRangeComplete(parts,targetPage){
+    const ready=new Set(parts.map(x=>x.pageNumber));
+    for(let n=1;n<=targetPage;n++)if(!ready.has(n))return false;
+    return true;
+  }
+
+  async function downloadBlockPdf(targetBlock,mode='current'){
+    const target=blockDownloadPartsThrough(targetBlock);
+    const current=target.parts.find(x=>x.pageNumber===target.targetPage);
+    if(!current)throw new Error('La page de ce bloc n’est pas encore prête.');
+
+    let parts=[current];
+    if(mode==='previous'){
+      if(!blockDownloadRangeComplete(target.parts,target.targetPage)){
+        throw new Error('Certaines pages précédentes ne sont pas encore prêtes.');
+      }
+      parts=target.parts.filter(x=>x.pageNumber<=target.targetPage);
+    }
+
+    setStatus(mode==='previous'
+      ? 'Assemblage des pages 1 à '+target.targetPage+'…'
+      : 'Préparation de la page '+target.targetPage+'…');
+
+    const {PDFDocument}=await loadPdfLib();
+    const merged=await PDFDocument.create();
+
+    for(let i=0;i<parts.length;i++){
+      const p=parts[i];
+      setStatus('Assemblage : '+p.label+' ('+(i+1)+'/'+parts.length+')…');
+      const response=await fetch(p.url,{cache:'no-store'});
+      if(!response.ok)throw new Error('Impossible de récupérer '+p.label+' (HTTP '+response.status+').');
+      const source=await PDFDocument.load(await response.arrayBuffer());
+      const copied=await merged.copyPages(source,source.getPageIndices());
+      copied.forEach(page=>merged.addPage(page));
+    }
+
+    const bytes=await merged.save({useObjectStreams:true});
+    const blob=new Blob([bytes],{type:'application/pdf'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    const safeTitle=String(state.course?.title||'aurore-cours').trim().replace(/[^\\p{L}\\p{N}_-]+/gu,'-')||'aurore-cours';
+    a.href=url;
+    a.download=mode==='previous'
+      ? safeTitle+'-pages-1-a-'+target.targetPage+'.pdf'
+      : safeTitle+'-page-'+target.targetPage+'.pdf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+
+    setStatus(mode==='previous'
+      ? 'Pages 1 à '+target.targetPage+' téléchargées.'
+      : 'Page '+target.targetPage+' téléchargée.');
+  }
+
+  function closeBlockDownloadChoice(result=null){
+    const overlay=document.getElementById('aeBlockDownloadChoiceOverlay');
+    if(!overlay)return;
+    overlay.classList.remove('open');
+    overlay.setAttribute('aria-hidden','true');
+    const resolver=overlay.__auroreResolve;
+    overlay.__auroreResolve=null;
+    if(typeof resolver==='function')resolver(result);
+  }
+
+  function askBlockDownloadChoice(block){
+    const overlay=document.getElementById('aeBlockDownloadChoiceOverlay');
+    if(!overlay)return Promise.resolve(null);
+
+    const target=blockDownloadPartsThrough(block);
+    const current=target.targetPage;
+    const previousReady=current>1&&blockDownloadRangeComplete(target.parts,current);
+    const currentReady=target.parts.some(x=>x.pageNumber===current);
+
+    const currentBtn=overlay.querySelector('[data-ae-download-mode="current"]');
+    const previousBtn=overlay.querySelector('[data-ae-download-mode="previous"]');
+    const currentLabel=overlay.querySelector('[data-ae-download-current-label]');
+    const previousLabel=overlay.querySelector('[data-ae-download-previous-label]');
+    const description=overlay.querySelector('[data-ae-download-description]');
+
+    if(currentLabel)currentLabel.textContent='Page '+current+' uniquement';
+    if(previousLabel)previousLabel.textContent='Pages 1 à '+current;
+    if(currentBtn)currentBtn.disabled=!currentReady;
+    if(previousBtn)previousBtn.disabled=!previousReady;
+    if(description){
+      description.textContent=current<=1
+        ? 'Ce bloc est sur la première page disponible.'
+        : previousReady
+          ? 'Choisis la page du bloc seule ou toutes les pages précédentes jusqu’à celle-ci.'
+          : 'La page du bloc est prête, mais certaines pages précédentes ne le sont pas encore.';
+    }
+
+    overlay.classList.add('open');
+    overlay.setAttribute('aria-hidden','false');
+
+    return new Promise(resolve=>{
+      overlay.__auroreResolve=resolve;
+      requestAnimationFrame(()=>currentBtn?.focus());
+    });
+  }
+
+  function initBlockDownloadChoice(){
+    if(document.getElementById('aeBlockDownloadChoiceOverlay'))return;
+
+    const overlay=document.createElement('div');
+    overlay.id='aeBlockDownloadChoiceOverlay';
+    overlay.className='ae-block-download-choice-overlay';
+    overlay.setAttribute('aria-hidden','true');
+    overlay.setAttribute('role','dialog');
+    overlay.setAttribute('aria-modal','true');
+    overlay.innerHTML=`
+      <div class="ae-block-download-choice-card">
+        <div class="ae-block-download-choice-head">
+          <div>
+            <div class="ae-block-download-choice-kicker">Téléchargement</div>
+            <h3>Que souhaitez-vous télécharger ?</h3>
+            <p data-ae-download-description></p>
+          </div>
+          <button type="button" class="ae-block-download-choice-close" aria-label="Fermer">×</button>
+        </div>
+        <div class="ae-block-download-choice-options">
+          <button type="button" class="ae-block-download-choice-option" data-ae-download-mode="current">
+            <span class="ae-block-download-choice-icon">1</span>
+            <span><strong data-ae-download-current-label>Page actuelle uniquement</strong><small>Uniquement la page de ce bloc.</small></span>
+          </button>
+          <button type="button" class="ae-block-download-choice-option" data-ae-download-mode="previous">
+            <span class="ae-block-download-choice-icon">1–N</span>
+            <span><strong data-ae-download-previous-label>Pages 1 à N</strong><small>Toutes les pages précédentes jusqu’à ce bloc.</small></span>
+          </button>
+        </div>
+        <button type="button" class="ae-block-download-choice-cancel">Annuler</button>
+      </div>`;
+
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click',e=>{if(e.target===overlay)closeBlockDownloadChoice(null);});
+    overlay.querySelector('.ae-block-download-choice-close')?.addEventListener('click',()=>closeBlockDownloadChoice(null));
+    overlay.querySelector('.ae-block-download-choice-cancel')?.addEventListener('click',()=>closeBlockDownloadChoice(null));
+    overlay.querySelectorAll('[data-ae-download-mode]').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        if(btn.disabled)return;
+        const mode=btn.getAttribute('data-ae-download-mode')==='previous'?'previous':'current';
+        closeBlockDownloadChoice(mode);
+      });
+    });
+    overlay.addEventListener('keydown',e=>{
+      if(e.key==='Escape'){e.preventDefault();closeBlockDownloadChoice(null);}
+    });
+  }
+
   function bindWorkspace(){
     document.getElementById('aeBack').onclick=()=>{state.mode='list';state.course=null;loadCourses().then(renderList)};
     document.getElementById('aeCourseTitle').onchange=e=>{state.course.title=e.target.value.trim()||'Nouveau cours';};
@@ -576,6 +758,16 @@
     root().querySelectorAll('[data-json-system]').forEach(x=>x.onclick=()=>jsonSystemDialog(x.dataset.jsonSystem));
     root().querySelectorAll('[data-regenerate-page]').forEach(x=>x.onclick=()=>regeneratePage(x.dataset.regeneratePage));
     root().querySelectorAll('[data-preview-block]').forEach(x=>x.onclick=()=>previewBlock(x.dataset.previewBlock));
+    root().querySelectorAll('[data-download-block]').forEach(x=>x.onclick=async()=>{
+      const b=activeBlocks().find(v=>String(v.id)===String(x.dataset.downloadBlock));
+      if(!b)return;
+      const mode=await askBlockDownloadChoice(b);
+      if(!mode)return;
+      x.disabled=true;
+      try{await downloadBlockPdf(b,mode);}
+      catch(e){setStatus('Échec du téléchargement : '+String(e?.message||e));}
+      finally{x.disabled=false;}
+    });
     root().querySelectorAll('[data-json-block]').forEach(x=>x.onclick=()=>jsonDialog(x.dataset.jsonBlock));
     root().querySelectorAll('[data-copy-block]').forEach(x=>x.onclick=()=>copyBlock(x.dataset.copyBlock));
     root().querySelectorAll('[data-duplicate-block]').forEach(x=>x.onclick=()=>duplicateBlock(x.dataset.duplicateBlock));
@@ -1579,6 +1771,7 @@
   }
 
   async function init(){
+    initBlockDownloadChoice();
     const r=root();if(!r)return;
     const card=document.querySelector('.admin-tab[data-tab="edition-assistee"]'),panel=document.querySelector('.admin-tab-panel[data-panel="edition-assistee"]');
     if(card&&panel)card.addEventListener('click',async()=>{const detail=document.getElementById('adminDetail');if(detail)detail.style.display='block';document.querySelectorAll('.admin-tab-panel').forEach(p=>p.style.display=p===panel?'block':'none');document.querySelectorAll('.admin-tab').forEach(b=>b.classList.toggle('active',b===card));state.mode='list';state.course=null;renderList();try{setStatus('Chargement des cours…');await loadCourses();renderList();setStatus('Liste prête.')}catch(e){setStatus('Impossible de charger la liste des cours.')}});
