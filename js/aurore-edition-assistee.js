@@ -551,21 +551,53 @@
     return d;
   }
 
+  async function wakeCanonicalPreviewQueue(documentId,token){
+    const r=await fetch(SUPABASE_URL+'/functions/v1/aurora-pdf-production-request',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':SUPABASE_ANON_KEY},
+      body:JSON.stringify({generated_document_id:Number(documentId)})
+    });
+    const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}};
+    if(!r.ok||!d.ok)throw new Error(d.error||('Réveil de la file LuaLaTeX HTTP '+r.status));
+    return d;
+  }
+
   async function requestCanonicalDocumentPreview(force=false){
     const fingerprint=canonicalPreviewFingerprint();
     if(!force&&state.canonicalPreview.fingerprint===fingerprint&&state.canonicalPreview.documentId){
       const known=await canonicalPreviewStatus(state.canonicalPreview.documentId);
       const st=String(known.lualatex_status||'').toLowerCase();
-      setCanonicalPreviewState({
-        fingerprint,
-        documentId:Number(state.canonicalPreview.documentId),
-        pdfUrl:known.pdf_url||state.canonicalPreview.pdfUrl||null,
-        status:known.pdf_url?'ready':(st||'queued'),
-        progress:known.pdf_url?100:Number(known.lualatex_progress||0),
-        stage:String(known.lualatex_stage||'En attente de la production PDF'),
-        error:known.error||null
-      });
-      if(known.pdf_url||['queued','processing'].includes(st))return known;
+      const existingId=Number(state.canonicalPreview.documentId);
+      if(known.pdf_url){
+        setCanonicalPreviewState({
+          fingerprint,
+          documentId:existingId,
+          pdfUrl:known.pdf_url,
+          status:'ready',
+          progress:100,
+          stage:'PDF canonique prêt',
+          error:null
+        });
+        return known;
+      }
+      if(['queued','processing'].includes(st)){
+        const token=(typeof session!=='undefined'&&session?.access_token)||await freshToken();
+        const wake=await wakeCanonicalPreviewQueue(existingId,token);
+        const wakePosition=Number(wake.queue_position||0);
+        const wakeTotal=Number(wake.queue_total||0);
+        setCanonicalPreviewState({
+          fingerprint,
+          documentId:existingId,
+          pdfUrl:known.pdf_url||state.canonicalPreview.pdfUrl||null,
+          status:String(wake.lualatex_status||st||'queued').toLowerCase(),
+          progress:Number(wake.lualatex_progress??known.lualatex_progress??0),
+          stage:wakePosition>0
+            ?'File LuaLaTeX · position '+wakePosition+(wakeTotal>0?'/'+wakeTotal:'')
+            :String(wake.lualatex_stage||known.lualatex_stage||'En attente de la production PDF'),
+          error:wake.error||known.error||null
+        });
+        return {...known,...wake};
+      }
     }
     const token=(typeof session!=='undefined'&&session?.access_token)||await freshToken();
     const snapshot=clone(state.course);
