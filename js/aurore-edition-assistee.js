@@ -1412,36 +1412,33 @@
     // ne recrée jamais le même PDF : on réutilise le propriétaire du flux.
     const flowGroup=flowBlocksFor(b.id);
     const flowOwner=flowGroup[0]||b;
-    if(flowGroup.length>1&&flowOwner.id!==b.id){
+    const isFlowCompanion=flowGroup.length>1&&flowOwner.id!==b.id;
+    if(isFlowCompanion){
       const ownerGeneration=flowOwner.generation||{};
       if(String(ownerGeneration.status||'').toLowerCase()==='generating'){
         state.selected=b.id;
         renderWorkspace();
-        setStatus('Le flux de cette séquence est déjà en cours de génération.');
+        setStatus('Le flux de cette séquence est déjà en cours de génération par son premier bloc.');
         return;
       }
 
-      // Un bloc compagnon doit pouvoir être validé/régénéré après modification.
-      // Le flux reste propriétaire du premier bloc, mais l'interface conserve
-      // le bloc réellement cliqué comme bloc sélectionné et visible en progression.
-      flowGroup.forEach(part=>{
-        part.generation={
-          ...(part.generation||{}),
-          status:'generating',
-          page_number:pageNumberFor(part),
-          progress:10,
-          progress_label:'Régénération du flux…',
-          error:null,
-          updated_at:new Date().toISOString(),
-          flow_page_owner_id:flowOwner.id
-        };
-      });
+      // Un bloc compagnon est régénérable indépendamment.
+      // Le PDF déjà porté par le premier bloc reste intact ; seul le bloc cliqué
+      // repasse par le renderer assisté en mode « bloc unique ».
+      b.generation={
+        ...(b.generation||{}),
+        status:'generating',
+        page_number:pageNumberFor(b),
+        progress:10,
+        progress_label:'Régénération du bloc…',
+        error:null,
+        updated_at:new Date().toISOString(),
+        flow_page_owner_id:flowOwner.id
+      };
       state.selected=b.id;
       renderWorkspace();
-      updateGenerationProgress(b.id,10,'Régénération du flux…');
-      setStatus('Régénération du flux depuis le premier bloc avec les dernières modifications…');
-      await generateBlock(flowOwner.id);
-      return;
+      updateGenerationProgress(b.id,10,'Régénération du bloc…');
+      setStatus('Régénération indépendante du bloc sélectionné…');
     }
 
     if(b.type==='graphique'&&!b.content?.json?.geogebra_image_path&&!b.content?.json?.graph_local_path&&!b.content?.json?.geogebra_image_url&&!b.content?.json?.image_url&&!b.content?.json?.preview_url){
@@ -1461,7 +1458,8 @@
           course_title:state.course.title,
           block_id:b.id,
           page_number:pageNumberFor(b),
-          block:flowRenderBlockFor(b.id),
+          single_block:isFlowCompanion,
+          block:isFlowCompanion?clone(b):flowRenderBlockFor(b.id),
           theme_color:normalizeThemeColor(state.course.theme_color)
         })
       });
@@ -1472,7 +1470,7 @@
       b.generation={...(b.generation||{}),generated_document_id:documentId,job_id:d.job_id||null,progress:5,progress_label:'Rendu de page mis en file',status:'generating',updated_at:new Date().toISOString()};
       await persistCourse(true,false);
       if(!d.page_url)throw new Error('Le renderer a terminé sans fournir l’URL de la page.');
-      const flowGroup=flowBlocksFor(b.id);
+      const resultFlowGroup=isFlowCompanion?[b]:flowBlocksFor(b.id);
       const sharedGeneration={
         status:'ready',
         page_number:d.page_number||pageNumberFor(b),
@@ -1487,8 +1485,8 @@
         qa:{engine:d.engine||'pdf-lib-course-page-v2',status:'completed',details:d.qa||null},
         error:null
       };
-      flowGroup.forEach(part=>{
-        part.generation={...(part.generation||{}),...sharedGeneration,flow_page_owner_id:b.id};
+      resultFlowGroup.forEach(part=>{
+        part.generation={...(part.generation||{}),...sharedGeneration,flow_page_owner_id:isFlowCompanion?flowOwner.id:b.id};
       });
       b.generation={
         ...(b.generation||{}),
@@ -1526,7 +1524,7 @@
           }
         }
       }
-      const errorFlow=flowBlocksFor(b.id);
+      const errorFlow=isFlowCompanion?[b]:flowBlocksFor(b.id);
       errorFlow.forEach(part=>{
         part.generation={
           ...(part.generation||{}),
