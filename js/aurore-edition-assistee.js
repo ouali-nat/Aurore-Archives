@@ -1324,11 +1324,25 @@
     const index=all.findIndex(b=>b?.id===id);
     if(index<0)return [];
     const current=all[index];
-    if(current.type!=='paragraph')return [current];
+    const flowType=String(current?.type||'').toLowerCase();
+    // Les paragraphes et points de cours consécutifs forment un même flux éditorial.
+    // Les exercices, graphiques et images restent des unités indépendantes.
+    if(!['paragraph','point'].includes(flowType))return [current];
+
     let start=index;
-    while(start>0&&all[start-1]?.type==='paragraph'&&!isSystemBlock(all[start-1]))start--;
+    while(
+      start>0 &&
+      String(all[start-1]?.type||'').toLowerCase()===flowType &&
+      !isSystemBlock(all[start-1])
+    )start--;
+
     let end=index;
-    while(end<all.length-1&&all[end+1]?.type==='paragraph'&&!isSystemBlock(all[end+1]))end++;
+    while(
+      end<all.length-1 &&
+      String(all[end+1]?.type||'').toLowerCase()===flowType &&
+      !isSystemBlock(all[end+1])
+    )end++;
+
     return all.slice(start,end+1);
   }
 
@@ -1336,8 +1350,11 @@
     const blocks=flowBlocksFor(id);
     if(blocks.length<=1)return blocks[0]||null;
     const first=clone(blocks[0]);
-    first.content={...first.content,text:blocks.map(b=>String(b.content?.text||'').trim()).filter(Boolean).join('\n\n')};
-    first.generation={...(first.generation||{}),flow_companion_ids:blocks.slice(1).map(b=>b.id)};
+    first.flow_blocks=blocks.map(b=>clone(b));
+    first.generation={
+      ...(first.generation||{}),
+      flow_companion_ids:blocks.slice(1).map(b=>b.id)
+    };
     return first;
   }
 
