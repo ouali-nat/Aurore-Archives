@@ -49,3 +49,17 @@
   else synchroniser();
   window.addEventListener('pageshow',synchroniser,{passive:true});
 })();
+
+/* Aurore — chargement de la détection réelle du réseau (site + application Android).
+   Ce fichier est déjà chargé par index.html : il sert de point d'entrée pour ne pas
+   modifier le gros fichier index.html. Voir js/aurore-reseau-fiable.js. */
+(function(){
+  try{
+    if(window.__auroreReseauFiableCharge)return;
+    window.__auroreReseauFiableCharge=true;
+    var s=document.createElement('script');
+    s.src='js/aurore-reseau-fiable.js?v=20261007-1';
+    s.async=true;
+    (document.head||document.documentElement).appendChild(s);
+  }catch(_){}
+})();

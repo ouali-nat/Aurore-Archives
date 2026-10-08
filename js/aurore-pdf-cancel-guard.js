@@ -50,3 +50,81 @@
     }
   } catch (e) {}
 })();
+
+/* Aurore — chargement PRÉCOCE de la détection réelle du réseau (site + application).
+   Les scripts « defer » du site attendent le moteur Supabase (CDN) avant de s'exécuter :
+   si ce CDN est lent, tout ce qui est chargé plus bas démarre en retard. Ce fichier est
+   le premier script de la page : la détection du réseau (notification « Connexion
+   interrompue / rétablie ») démarre donc immédiatement, sans attendre.
+   Chargement asynchrone : aucun blocage de l'affichage. Voir js/aurore-reseau-fiable.js. */
+(function () {
+  try {
+    if (window.__auroreReseauFiableCharge) return;
+    window.__auroreReseauFiableCharge = true;
+    var s = document.createElement('script');
+    s.src = 'js/aurore-reseau-fiable.js?v=20261007-1';
+    s.async = true;
+    (document.head || document.documentElement).appendChild(s);
+  } catch (e) {}
+})();
+
+/* Aurore — ouverture sans « flash » (application Android et site installé).
+   Problème : à l'ouverture, la page de départ (écran d'accueil par défaut, mise en forme
+   encore incomplète) était visible quelques millisecondes avant que le site n'affiche la
+   page voulue pour l'utilisateur.
+   Solution : pour un utilisateur déjà connu (session ou mode visiteur), dans l'application
+   ou le site installé uniquement, le contenu reste invisible (fond du thème) jusqu'à ce que
+   le site ait fini de se préparer, puis apparaît en fondu très court (0,18 s).
+   Sécurité : l'affichage est de toute façon rétabli après 1,2 s au maximum, et dès que
+   l'application revient au premier plan. Rien n'est bloqué, seule l'opacité change.
+   Désactivation de secours : ?boot=off */
+(function () {
+  try {
+    if (/[?&]boot=off\b/.test(location.search || '')) return;
+    var de = document.documentElement;
+    var natif = false;
+    try { natif = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()); } catch (e) {}
+    var installe = false;
+    try { installe = !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true; } catch (e) {}
+    if (!natif && !installe) return;
+
+    var deconnecte = localStorage.getItem('aurore_explicit_logout') === '1';
+    var connu = !!localStorage.getItem('lsnb_session') || localStorage.getItem('aurore_visitor_mode') === '1';
+    if (!connu || deconnecte) return;
+    if (/[?&](?:sectionShare|code|token_hash|error)=/.test(location.search || '') || /access_token=/.test(location.hash || '')) return;
+
+    var st = document.createElement('style');
+    st.id = 'aurore-boot-style';
+    st.textContent =
+      'html.aurore-boot body{opacity:0!important}' +
+      'html.aurore-boot.aurore-boot-fin body{opacity:1!important;transition:opacity .18s ease}';
+    (document.head || de).appendChild(st);
+    de.classList.add('aurore-boot');
+
+    var revele = false;
+    function reveler() {
+      if (revele) return;
+      revele = true;
+      de.classList.add('aurore-boot-fin');
+      setTimeout(function () {
+        de.classList.remove('aurore-boot', 'aurore-boot-fin');
+        try { st.remove(); } catch (e) {}
+      }, 400);
+    }
+    function apresPreparation() {
+      // Laisse le site choisir la bonne page, puis affiche (deux images pour être sûr du rendu).
+      setTimeout(function () {
+        requestAnimationFrame(function () { requestAnimationFrame(reveler); });
+      }, 60);
+    }
+
+    setTimeout(reveler, 1200);
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') reveler();
+    });
+    if (document.readyState === 'complete') apresPreparation();
+    else document.addEventListener('DOMContentLoaded', apresPreparation, { once: true });
+  } catch (e) {
+    try { document.documentElement.classList.remove('aurore-boot'); } catch (_) {}
+  }
+})();
