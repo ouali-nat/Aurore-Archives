@@ -12,7 +12,7 @@ const MATH_URL = URL + "/functions/v1/aurora-content-math-renderer";
 
 const TEXT_SIZE=11.3;
 const LINE_HEIGHT=16.1;
-const BLOCK_GAP=12;
+const BLOCK_GAP=16;
 const BOX_RADIUS=11;
 const BOX_PAD_TOP=11;
 const BOX_PAD_BOTTOM=11;
@@ -521,6 +521,7 @@ Deno.serve(async req=>{
     const pdf=await PDFDocument.create();pdf.registerFontkit(fontkit);
     const [fonts,logo]=await Promise.all([loadFonts(pdf),loadLogo(pdf)]);
     let page=pdf.addPage([595,842]);
+    const railPages:any[]=[page];
     let flowPageNo=pn;
     const color=normalizeHexColor(input.theme_color)||subjectColor(input.subject||input.matiere||docRes.data.metadata?.matiere||"");
     drawSoftDecor(page,color);headerFooter(page,pn,fonts,logo,color);
@@ -529,6 +530,7 @@ Deno.serve(async req=>{
     const sections=Array.isArray(input.sections)?input.sections.filter((s:any)=>s&&typeof s==="object"):[];
     const contentItems:any[]=[];const exerciseItems:any[]=[];const graphItems:any[]=[];const imageItems:any[]=[];
     const pointAnchors:any[]=[];
+    const titleAnchors:any[]=[];
     if(sections.length)for(const section of sections){
       const texts=Array.isArray(section.content)?section.content:[section.content];
       if(section.point&&typeof section.point==="object"){
@@ -557,6 +559,7 @@ Deno.serve(async req=>{
     }
     const newFlowPage=()=>{
       page=pdf.addPage([595,842]);
+      railPages.push(page);
       flowPageNo++;
       drawSoftDecor(page,color);
       headerFooter(page,flowPageNo,fonts,logo,color);
@@ -604,7 +607,7 @@ Deno.serve(async req=>{
            const titleMeasuredW=Math.max(0,...titleLines.map((line:string)=>fonts.sansBold.widthOfTextAtSize(line,titleFontSize)));
            const titleW=Math.min(BOX_W-22,Math.max(120,Math.ceil(titleMeasuredW)+24));
            const titleH=continuation?0:Math.max(30,titlePadY*2+titleLines.length*titleLineHeight);
-           const separatorGap=continuation?0:7;
+           const separatorGap=continuation?0:12;
            const availableContent=Math.max(0,remainingPage-titleH-separatorGap-BOX_PAD_TOP-BOX_PAD_BOTTOM-6);
            const fragment:any[]=[];let used=0;const gap=7;
            const addPointItem=(item:any)=>{
@@ -644,6 +647,7 @@ Deno.serve(async req=>{
            // Le titre n'existe qu'au début du point. Une suite coupée devient
            // volontairement un bloc paragraphe autonome sur la page suivante.
            if(!continuation){
+             titleAnchors.push({page,y:y-titleH/2,targetX:titleX,color:accent});
              rounded(page,titleX,y-titleH,titleW,titleH,8,titleFill,rgbHex("#BFC1C5"),0.45);
              for(let i=0;i<titleLines.length;i++){
                page.drawText(escapePdfText(titleLines[i]),{
@@ -777,12 +781,14 @@ Deno.serve(async req=>{
       const title=clean(ex?.title||"Exercice"),statement=clean(ex?.statement||ex?.question||ex?.enonce||ex?.content||""),hint=clean(ex?.hint||""),correctionTitle=clean(ex?.correction_title||"Corrigé"),correction=clean(ex?.correction||"");
       if(!statement)continue;
       ensureSpace(53);
-      sectionLabel(page,title,X,y,fonts,color);y-=25;
+      titleAnchors.push({page,y:y-4,targetX:X,color});
+      sectionLabel(page,title,X,y,fonts,color);y-=31;
       await drawContentBlock(statement);
       if(hint)await drawContentBlock("Indication : "+hint);
       if(correction){
         ensureSpace(53);
-        sectionLabel(page,correctionTitle,X,y,fonts,color);y-=25;
+        titleAnchors.push({page,y:y-4,targetX:X,color});
+        sectionLabel(page,correctionTitle,X,y,fonts,color);y-=31;
         await drawContentBlock(correction);
       }
     }
@@ -818,39 +824,36 @@ Deno.serve(async req=>{
       }catch(_){qa.images_failed++;}
     }
 
-    if(false){ // Barre latérale désactivée volontairement.
-    // Rail éditorial : le vertical reste plus présent que l'horizontale,
-    // avec la même atténuation que le rendu éditorial natif.
+    // Rail éditorial continu : une seule ligne verticale par page,
+    // avec de courts raccords horizontaux vers les titres rencontrés.
     const anchorsByPage=new Map<any,any[]>();
-    for(const a of pointAnchors){
+    for(const a of titleAnchors){
       const list=anchorsByPage.get(a.page)||[];
       list.push(a);
       anchorsByPage.set(a.page,list);
     }
-    for(const [p,list] of anchorsByPage){
-      for(let i=0;i<list.length;i++){
-        const a=list[i],prev=list[i-1],next=list[i+1];
-        const spineColor=rgbHex(mixWhite(a.color,0.28));
-        const prevSpineColor=rgbHex(mixWhite(prev?.color||a.color,0.28));
-        const nextSpineColor=rgbHex(mixWhite(next?.color||a.color,0.28));
-        const upperTop=prev?prev.bottomY-6:Math.min(top-30,a.topY+24);
-        const upperBottom=a.topY-6;
-        if(upperTop>upperBottom){
-          p.drawLine({start:{x:POINT_SPINE_X,y:upperTop},end:{x:POINT_SPINE_X,y:upperBottom},thickness:1.7,color:spineColor});
-          p.drawCircle({x:POINT_SPINE_X,y:upperTop,size:3.1,color:prevSpineColor});
-          p.drawCircle({x:POINT_SPINE_X,y:upperBottom,size:3.1,color:spineColor});
-        }
-        const lowerTop=a.bottomY-6;
-        const lowerBottom=next?next.topY+6:Math.max(bottom+30,a.bottomY-44);
-        if(lowerTop>lowerBottom){
-          p.drawLine({start:{x:POINT_SPINE_X,y:lowerTop},end:{x:POINT_SPINE_X,y:lowerBottom},thickness:1.7,color:spineColor});
-          p.drawCircle({x:POINT_SPINE_X,y:lowerTop,size:3.1,color:spineColor});
-          p.drawCircle({x:POINT_SPINE_X,y:lowerBottom,size:3.1,color:nextSpineColor});
-        }
-        const ruleColor=rgbHex(mixWhite(a.color,0.22));
-        p.drawLine({start:{x:a.boxX+2,y:a.ruleY},end:{x:Math.min(552,a.boxX+a.boxW-2),y:a.ruleY},thickness:0.7,color:ruleColor});
-      }
+    const railX=24;
+    const railTop=792;
+    const railBottom=42;
+    for(const p of railPages){
+      p.drawLine({
+        start:{x:railX,y:railTop},
+        end:{x:railX,y:railBottom},
+        thickness:1.35,
+        color:rgbHex(mixWhite(color,0.18))
+      });
     }
+    for(const [p,list] of anchorsByPage){
+      for(const a of list){
+        const tickColor=rgbHex(mixWhite(a.color||color,0.06));
+        const endX=Math.max(railX+10,Number(a.targetX||72)-5);
+        p.drawLine({
+          start:{x:railX,y:a.y},
+          end:{x:endX,y:a.y},
+          thickness:0.95,
+          color:tickColor
+        });
+      }
     }
     for(const g of graphItems){
       qa.graphs_total++;
