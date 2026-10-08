@@ -113,7 +113,7 @@ async function ending(p:any,pdf:any,f:any,l:any,c:string,title:string,id:number,
   rounded(p,92,690,250,29,8,rgbh(mix(c,.90)),rgbh(mix(c,.82)),.4);
   p.drawText("Mentions · crédits · vérification",{x:105,y:699,font:f.sansBold,size:10.3,color:rgbh(mix(c,.18))});
   p.drawText("Édition Aurore",{x:94,y:655,font:f.sansBold,size:20,color:rgbh("#404149")});
-  p.drawText(title.slice(0,100),{x:94,y:627,font:f.sans,size:11.2,color:rgbh(mix(c,.22))});
+  p.drawText(clean(title).slice(0,100),{x:94,y:627,font:f.sans,size:11.2,color:rgbh(mix(c,.22))});
   p.drawLine({start:{x:94,y:608},end:{x:173,y:608},thickness:1.15,color:rgbh(c)});
   rounded(p,94,500,407,94,11,rgbh(mix(c,.96)),rgbh(mix(c,.82)),.45);
   p.drawText("IDENTITÉ DE L'ÉDITION",{x:108,y:578,font:f.sansBold,size:8.6,color:rgbh(mix(c,.18))});
