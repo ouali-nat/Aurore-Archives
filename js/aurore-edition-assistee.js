@@ -318,7 +318,7 @@
     const cfg=state.course.document_pages.toc;
     return '<article class="ae-block ae-system-block ae-toc-system"><header class="ae-block-head"><div><span class="ae-block-number">02</span><strong>Sommaire</strong><small>Page système · indépendante · prévisualisable</small></div><span class="ae-block-state ok">Prévisualisable</span></header>'+
       '<div class="ae-system-content"><strong>Sommaire</strong><span>Table des matières éditable, rendue en fragment PDF indépendant.</span>'+
-      '<div class="ae-toc-outline">'+cfg.entries.map((e,i)=>'<span><b>'+String(i+1).padStart(2,'0')+'</b><span>'+esc(e.title||('Entrée '+(i+1)))+'</span><em>p. '+esc(e.page??'—')+'</em></span>').join('')+'</div></div>'+
+      '<div class="ae-toc-outline">'+cfg.entries.map((e,i)=>'<span><b>'+String(i+1).padStart(2,'0')+'</b>'+esc(e.title||('Entrée '+(i+1)))+'<em>p. '+esc(e.page??'—')+'</em></span>').join('')+'</div></div>'+
       '<div class="ae-canonical-preview-progress" data-canonical-preview-role="toc">'+canonicalPreviewProgressMarkup('toc','Aperçu du sommaire')+'</div>'+
       '<div class="ae-block-toolbar"><button class="admin-btn ghost" data-regenerate-page="toc">↻ Régénérer la page</button><button class="admin-btn ghost" id="aePreviewToc">Prévisualiser</button><button class="admin-btn ghost" id="aeClearToc">Effacer le contenu</button><button class="admin-btn ghost" id="aeTocJsonInline">Ajouter / valider JSON</button><button class="admin-btn ghost" id="aeCopyTocJson">Copier JSON</button></div>'+
       '<div class="ae-block-result"><span>Les pages sont recalculées à partir de la position réelle de chaque bloc ; aucune page saisie dans le JSON ne reste figée.</span></div></article>';
@@ -914,8 +914,6 @@
         });
         syncBlocksFromToc(entries);
         state.course.document_pages.toc={...state.course.document_pages.toc,...v,mode:'auto',entries:state.course.document_pages.toc.entries};
-        await persistCourse(true,false);
-        rebuildTocEntries();
         await persistCourse(true,false);
         renderWorkspace();
         setStatus(entries.length+' bloc(s) de cours préparé(s) à partir du sommaire. Colle maintenant le JSON de texte de chaque bloc.');
