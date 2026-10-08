@@ -379,11 +379,14 @@ function layoutInline(prepared:Run[],font:any,size:number,max:number){
   };
 
   const addMath=(r:Run)=>{
-    const intrinsicW=Math.max(8,r.width||24),intrinsicH=Math.max(8,r.height||16),w=intrinsicW+14;
+    const intrinsicW=Math.max(8,r.width||24),intrinsicH=Math.max(8,r.height||16);
+    const maxOuter=Math.max(24,max);
+    const scale=Math.min(1,maxOuter/(intrinsicW+14));
+    const iw=intrinsicW*scale,ih=intrinsicH*scale,w=iw+14,h=ih+6;
     const space=lines[lines.length-1].length?MATH_INLINE_GAP:0;
     if(width+space+w>max&&lines[lines.length-1].length){startLine();}
     const sp=lines[lines.length-1].length?MATH_INLINE_GAP:0;
-    lines[lines.length-1].push({kind:"math",image:r.image,width:w,height:intrinsicH+6,space:sp});
+    lines[lines.length-1].push({kind:"math",image:r.image,width:w,height:h,space:sp});
     width+=sp+w;
   };
   for(const r of prepared){if(r.kind==="text")addText(r.value);else if(r.kind==="math")addMath(r);}
