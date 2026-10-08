@@ -21,13 +21,153 @@ async function fbytes(k:string){const x=FONT_CACHE.get(k);if(x)return x;const p=
 async function fonts(pdf:any){const [r,b,s,sb]=await Promise.all([fbytes("regular"),fbytes("bold"),fbytes("sans"),fbytes("sansBold")]);return{regular:await pdf.embedFont(r,{subset:false}),bold:await pdf.embedFont(b,{subset:false}),sans:await pdf.embedFont(s,{subset:false}),sansBold:await pdf.embedFont(sb,{subset:false})}}
 async function logo(pdf:any){if(!LOGO_CACHE)LOGO_CACHE=bytes(LOGO_URL);const b=await LOGO_CACHE;if(b[0]===137&&b[1]===80)return pdf.embedPng(b);if(b[0]===255&&b[1]===216)return pdf.embedJpg(b);throw new Error("Logo Aurore invalide")}
 function rounded(p:any,x:number,y:number,w:number,h:number,r:number,fill:any,border?:any,bw=.5){p.drawSvgPath("M "+r+" 0 H "+(w-r)+" A "+r+" "+r+" 0 0 1 "+w+" "+r+" V "+(h-r)+" A "+r+" "+r+" 0 0 1 "+(w-r)+" "+h+" H "+r+" A "+r+" "+r+" 0 0 1 0 "+(h-r)+" V "+r+" A "+r+" "+r+" 0 0 1 "+r+" 0 Z",{x,y:y+h,color:fill,borderColor:border||fill,borderWidth:border?bw:0})}
-function decor(p:any,c:string){p.drawRectangle({x:0,y:0,width:595,height:842,color:rgbh(mix(c,.965))});p.drawCircle({x:606,y:832,size:72,color:rgbh(mix(c,.90))});p.drawCircle({x:-10,y:770,size:48,color:rgbh(mix(c,.94))});p.drawCircle({x:598,y:565,size:26,color:rgbh(mix(c,.955))});p.drawCircle({x:-8,y:425,size:34,color:rgbh(mix(c,.955))});p.drawCircle({x:604,y:122,size:38,color:rgbh(mix(c,.945))});p.drawLine({start:{x:28,y:70},end:{x:28,y:777},thickness:1.45,color:rgbh(mix(c,.60))});p.drawCircle({x:28,y:777,size:4.3,color:rgbh(mix(c,.60))});p.drawCircle({x:28,y:70,size:4.3,color:rgbh(mix(c,.72))})}
-function hf(p:any,n:number,f:any,l:any,c:string){const s=l?Math.min(17/(l.width||17),17/(l.height||17)):0;if(l)p.drawImage(l,{x:39,y:805,width:l.width*s,height:l.height*s});p.drawText("Aurore — Section Archives",{x:413,y:807,font:f.sans,size:9.5,color:rgbh(mix(c,.18))});p.drawLine({start:{x:39,y:795},end:{x:556,y:795},thickness:.55,color:rgbh(mix(c,.72))});p.drawLine({start:{x:39,y:43},end:{x:556,y:43},thickness:.55,color:rgbh(mix(c,.82))});p.drawText("Aurore — Section Archives",{x:39,y:27,font:f.sans,size:9.5,color:rgbh("#777985")});p.drawText("Page "+n,{x:517,y:27,font:f.sans,size:9.5,color:rgbh("#777985")})}
-function wrap(t:string,f:any,z:number,max:number){const ws=clean(t).split(" ").filter(Boolean),o:string[]=[];let line="";for(const w of ws){const q=line?line+" "+w:w;if(!line||f.widthOfTextAtSize(q,z)<=max)line=q;else{o.push(line);line=w}}if(line)o.push(line);return o}
-function cover(p:any,f:any,l:any,c:string,title:string,d:any){rounded(p,54,176,487,500,18,rgbh("#ECECED"),rgbh("#BFC0C3"),.7);p.drawText("AURORE · SECTION ARCHIVES",{x:77,y:625,font:f.sansBold,size:9.2,color:rgbh("#5C5D65")});p.drawText("Document pédagogique",{x:77,y:591,font:f.sansBold,size:16,color:rgbh(mix(c,.15))});rounded(p,77,505,372,68,15,rgbh(mix(c,.90)),rgbh(mix(c,.76)),.5);let y=551;for(const line of wrap(title,f.sansBold,23,340).slice(0,3)){p.drawText(line,{x:92,y,font:f.sansBold,size:23,color:rgbh(mix(c,.20))});y-=28}y=470;for(const line of wrap(clean(d.subtitle)||"Bibliothèque numérique d’Aurore",f.regular,11.5,360).slice(0,3)){p.drawText(line,{x:92,y,font:f.regular,size:11.5,color:rgbh("#4F5057")});y-=18}if(clean(d.author))p.drawText(clean(d.author),{x:92,y:387,font:f.sansBold,size:10.5,color:rgbh("#4F5057")});if(clean(d.institution))p.drawText(clean(d.institution),{x:92,y:368,font:f.regular,size:10.2,color:rgbh("#5B5C64")});if(d.show_date!==false)p.drawText(new Intl.DateTimeFormat("fr-FR",{dateStyle:"long"}).format(new Date()),{x:92,y:344,font:f.regular,size:9.7,color:rgbh("#777985")});p.drawText("Bibliothèque numérique d’Aurore",{x:77,y:220,font:f.regular,size:9.7,color:rgbh("#777985")});if(l){const s=Math.min(84/(l.width||84),84/(l.height||84));p.drawImage(l,{x:428,y:232,width:l.width*s,height:l.height*s})}}
-function toc(p:any,f:any,c:string,entries:any[]){rounded(p,60,112,475,650,16,rgbh("#ECEDEE"),rgbh("#BFC0C3"),.6);rounded(p,78,706,150,28,9,rgbh(mix(c,.90)),rgbh(mix(c,.82)),.4);p.drawText("Sommaire",{x:91,y:715,font:f.sansBold,size:11,color:rgbh(mix(c,.18))});p.drawText("Table des matières",{x:80,y:678,font:f.sansBold,size:16,color:rgbh("#404149")});const safe=Array.isArray(entries)?entries.filter(e=>e&&clean(e.title)):[];let y=642;if(!safe.length)p.drawText("Aucun bloc de contenu pour le moment.",{x:94,y:610,font:f.regular,size:11.2,color:rgbh("#777985")});safe.slice(0,24).forEach((e,i)=>{const lines=wrap(e.title,f.regular,11.2,350),h=lines.slice(0,2).length*17+12;if(y-h<150)return;lines.slice(0,2).forEach((line,j)=>p.drawText(line,{x:94,y:y-j*17,font:f.regular,size:11.2,color:rgbh("#33343B")}));p.drawLine({start:{x:430,y:y-3},end:{x:494,y:y-3},thickness:.6,color:rgbh("#BDBEC2")});p.drawText(String(Math.max(1,Number(e.page)||i+3)),{x:508,y:y-6,font:f.sansBold,size:10.5,color:rgbh(mix(c,.18))});y-=h});p.drawText("Les numéros de page seront recalculés lors de la fusion finale.",{x:80,y:134,font:f.regular,size:8.6,color:rgbh("#777985")})}
-async function ending(p:any,f:any,l:any,c:string,title:string,id:number){rounded(p,60,98,475,666,16,rgbh("#ECEDEE"),rgbh("#BFC0C3"),.6);rounded(p,80,714,250,29,9,rgbh(mix(c,.90)),rgbh(mix(c,.82)),.4);p.drawText("Mentions · crédits · vérification",{x:93,y:723,font:f.sansBold,size:10.4,color:rgbh(mix(c,.18))});p.drawText("Édition Aurore",{x:82,y:672,font:f.sansBold,size:21,color:rgbh("#404149")});p.drawText(title,{x:82,y:643,font:f.sans,size:11.5,color:rgbh(mix(c,.22))});p.drawLine({start:{x:82,y:624},end:{x:184,y:624},thickness:1.15,color:rgbh(c)});rounded(p,82,500,430,104,11,rgbh(mix(c,.96)),rgbh(mix(c,.82)),.5);p.drawText("IDENTITÉ DE L'ÉDITION",{x:96,y:580,font:f.sansBold,size:8.6,color:rgbh(mix(c,.18))});p.drawText("Identifiant : "+id,{x:96,y:557,font:f.sans,size:8.8,color:rgbh("#55565E")});p.drawText("Version : 1 · Page système assistée",{x:96,y:538,font:f.sans,size:8.8,color:rgbh("#55565E")});rounded(p,82,330,430,138,12,rgbh("#FFFFFF"),rgbh(mix(c,.68)),.6);p.drawText("VÉRIFICATION & PUBLICATION",{x:96,y:441,font:f.sansBold,size:8.6,color:rgbh(mix(c,.18))});p.drawText("Cette page est un aperçu de l'édition assistée.",{x:96,y:417,font:f.regular,size:10.2,color:rgbh("#4B4C54")});p.drawText("La fusion finale recalculera l'identité et le QR de publication.",{x:96,y:398,font:f.regular,size:9.5,color:rgbh("#66676F")});const u=await QRCode.toDataURL("https://aurore-section-archives.com/",{margin:0,width:220,errorCorrectionLevel:"M"}),b=u.split(",")[1],bin=atob(b),a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);const q=await p.doc.embedPng(a);p.drawImage(q,{x:421,y:347,width:68,height:68});rounded(p,82,208,430,92,11,rgbh(mix(c,.985)),rgbh(mix(c,.86)),.45);p.drawText("DROITS & RÉUTILISATION",{x:96,y:277,font:f.sansBold,size:8.5,color:rgbh(mix(c,.18))});let y=255;for(const line of wrap("Cette édition constitue une création éditoriale d'Aurore. Les éléments tiers conservent leurs propres licences et conditions d'utilisation.",f.regular,9.3,390).slice(0,3)){p.drawText(line,{x:96,y,font:f.regular,size:9.3,color:rgbh("#4F5057")});y-=14}if(l){const s=Math.min(46/(l.width||46),46/(l.height||46));p.drawImage(l,{x:466,y:154,width:l.width*s,height:l.height*s})}}
-async function update(id:number,kind:string,patch:any){const q=await admin.from("aurora_generated_documents").select("metadata").eq("id",id).maybeSingle();const m=q.data?.metadata&&typeof q.data.metadata==="object"?q.data.metadata:{};await admin.from("aurora_generated_documents").update({metadata:{...m,...patch},updated_at:new Date().toISOString()}).eq("id",id)}
+function decor(p:any,c:string){
+  // Même famille de fond que le renderer canonique : page pâle + bulles
+  // discrètes, sans décor structurel supplémentaire.
+  p.drawRectangle({x:0,y:0,width:595,height:842,color:rgbh(mix(c,.965))});
+  p.drawCircle({x:606,y:842,size:72,color:rgbh(mix(c,.90))});
+  p.drawCircle({x:-4,y:788,size:44,color:rgbh(mix(c,.95))});
+  p.drawCircle({x:598,y:610,size:30,color:rgbh(mix(c,.96))});
+  p.drawCircle({x:-8,y:424,size:40,color:rgbh(mix(c,.96))});
+  p.drawCircle({x:600,y:118,size:56,color:rgbh(mix(c,.94))});
+  p.drawCircle({x:18,y:0,size:34,color:rgbh(mix(c,.955))});
+}
+function hf(p:any,n:number,f:any,l:any,c:string){
+  if(l){
+    const s=Math.min(17/(l.width||17),17/(l.height||17));
+    p.drawImage(l,{x:62,y:808,width:l.width*s,height:l.height*s});
+  }
+  const head="Section Archives";
+  p.drawText(head,{x:533-f.sans.widthOfTextAtSize(head,9.5),y:808,font:f.sans,size:9.5,color:rgbh(mix(c,.18))});
+  p.drawLine({start:{x:62,y:796},end:{x:533,y:796},thickness:.55,color:rgbh(mix(c,.72))});
+  p.drawLine({start:{x:62,y:43},end:{x:533,y:43},thickness:.55,color:rgbh("#D0D0D4")});
+  const foot="Aurore — Section Archives  •  "+n;
+  p.drawText(foot,{x:297.5-f.sans.widthOfTextAtSize(foot,9.5)/2,y:27,font:f.sans,size:9.5,color:rgbh("#777985")});
+}
+function wrap(t:string,f:any,z:number,max:number){
+  const ws=clean(t).split(" ").filter(Boolean),o:string[]=[];let line="";
+  for(const w of ws){
+    const q=line?line+" "+w:w;
+    if(!line||f.widthOfTextAtSize(q,z)<=max)line=q;
+    else{o.push(line);line=w}
+  }
+  if(line)o.push(line);
+  return o;
+}
+function drawPill(p:any,text:string,x:number,y:number,f:any,c:string){
+  const size=10.5;
+  const width=Math.min(250,Math.max(105,f.sansBold.widthOfTextAtSize(text,size)+18));
+  rounded(p,x,y,width,28,8,rgbh(mix(c,.90)),rgbh(mix(c,.82)),.4);
+  p.drawText(text,{x:x+11,y:y+9,font:f.sansBold,size,color:rgbh(mix(c,.18))});
+}
+function cover(p:any,f:any,l:any,c:string,title:string,d:any){
+  // Traduction visuelle du AuroreTitleBlock canonique :
+  // grand cadre arrondi, panneau titre séparé et carré logo à droite.
+  rounded(p,62,660,471,138,18,rgbh("#ECEDEE"),rgbh("#BFC0C3"),.6);
+  p.drawText("AURORE · SECTION ARCHIVES",{x:78,y:780,font:f.sansBold,size:8.8,color:rgbh("#5C5D65")});
+
+  rounded(p,76,684,362,76,12,rgbh("#FFFFFF"),rgbh("#C7C8CC"),.5);
+  p.drawText("Document pédagogique",{x:89,y:741,font:f.sansBold,size:10,color:rgbh("#5C5D65")});
+
+  const titleLines=wrap(title||"Nouveau cours",f.sansBold,26,334).slice(0,2);
+  let titleY=712;
+  for(const line of titleLines){
+    p.drawText(line,{x:89,y:titleY,font:f.sansBold,size:26,color:rgbh(c)});
+    titleY-=30;
+  }
+
+  const info=[clean(d.subtitle),clean(d.author),clean(d.institution)].filter(Boolean).join(" · ")||"Bibliothèque numérique d’Aurore";
+  const infoLines=wrap(info,f.regular,10.2,334).slice(0,3);
+  let infoY=667;
+  for(const line of infoLines){
+    p.drawText(line,{x:89,y:infoY,font:f.regular,size:10.2,color:rgbh("#55565E")});
+    infoY-=15;
+  }
+
+  rounded(p,449,689,68,68,12,rgbh("#FAFAFB"),rgbh("#C7C8CC"),.5);
+  if(l){
+    const s=Math.min(50/(l.width||50),50/(l.height||50));
+    p.drawImage(l,{x:458,y:698,width:l.width*s,height:l.height*s});
+  }
+
+  p.drawText("Document pédagogique édité avec Aurora · identité visuelle Aurore",{
+    x:62,y:64,font:f.sans,size:9.3,color:rgbh("#777985")
+  });
+}
+function toc(p:any,f:any,c:string,entries:any[]){
+  rounded(p,62,108,471,655,16,rgbh("#ECEDEE"),rgbh("#BFC0C3"),.55);
+  drawPill(p,"Sommaire",78,716,f,c);
+  p.drawText("Table des matières",{x:78,y:684,font:f.sansBold,size:16,color:rgbh("#404149")});
+  p.drawLine({start:{x:78,y:668},end:{x:517,y:668},thickness:.7,color:rgbh(mix(c,.72))});
+
+  const safe=Array.isArray(entries)?entries.filter(e=>e&&clean(e.title)):[];
+  let y=640;
+  if(!safe.length){
+    p.drawText("Aucun bloc de contenu pour le moment.",{x:92,y:605,font:f.regular,size:11.2,color:rgbh("#777985")});
+  }
+
+  safe.slice(0,24).forEach((e,i)=>{
+    const lines=wrap(e.title,f.regular,11.2,325).slice(0,2);
+    const count=Math.max(1,lines.length),h=count*17+14;
+    if(y-h<154)return;
+    lines.forEach((line,j)=>p.drawText(line,{x:92,y:y-j*17,font:f.regular,size:11.2,color:rgbh("#33343B")}));
+    p.drawLine({start:{x:405,y:y-3},end:{x:493,y:y-3},thickness:.55,color:rgbh("#BDBEC2")});
+    p.drawText(String(Math.max(1,Number(e.page)||i+3)),{x:506,y:y-6,font:f.sansBold,size:10.5,color:rgbh(mix(c,.18))});
+    y-=h;
+  });
+
+  p.drawText("Les numéros de page seront recalculés lors de la fusion finale.",{
+    x:78,y:132,font:f.regular,size:8.6,color:rgbh("#777985")
+  });
+}
+async function ending(p:any,f:any,l:any,c:string,title:string,id:number,pdf:any,d:any){
+  rounded(p,62,98,471,655,16,rgbh("#ECEDEE"),rgbh("#BFC0C3"),.55);
+  drawPill(p,"Mentions · crédits · vérification",78,709,f,c);
+  p.drawText("Édition Aurore",{x:80,y:671,font:f.sansBold,size:21,color:rgbh("#404149")});
+  p.drawText(title||"Nouveau cours",{x:80,y:643,font:f.sans,size:11.5,color:rgbh(mix(c,.22))});
+  p.drawLine({start:{x:80,y:624},end:{x:184,y:624},thickness:1.15,color:rgbh(c)});
+
+  rounded(p,80,505,435,96,11,rgbh(mix(c,.96)),rgbh(mix(c,.82)),.45);
+  p.drawText("IDENTITÉ DE L'ÉDITION",{x:94,y:577,font:f.sansBold,size:8.6,color:rgbh(mix(c,.18))});
+  p.drawText("Identifiant : ASSIST-"+id,{x:94,y:554,font:f.sans,size:8.8,color:rgbh("#55565E")});
+
+  const info=[clean(d.subject),clean(d.level),clean(d.class_name)].filter(Boolean).join(" · ");
+  p.drawText("Version : 1 · Page système assistée"+(info?" · "+info:""),{
+    x:94,y:535,font:f.sans,size:8.8,color:rgbh("#55565E")
+  });
+
+  rounded(p,80,332,435,145,12,rgbh("#FFFFFF"),rgbh(mix(c,.68)),.6);
+  p.drawText("VÉRIFICATION & PUBLICATION",{x:94,y:442,font:f.sansBold,size:8.6,color:rgbh(mix(c,.18))});
+  p.drawText("Cette page est un aperçu de l’édition assistée.",{x:94,y:418,font:f.regular,size:10.2,color:rgbh("#4B4C54")});
+  p.drawText("La fusion finale recalculera l’identité et le QR de publication.",{x:94,y:399,font:f.regular,size:9.5,color:rgbh("#66676F")});
+
+  const u=await QRCode.toDataURL("https://aurore-section-archives.com/",{margin:0,width:220,errorCorrectionLevel:"M"});
+  const b=u.split(",")[1]||"",bin=atob(b),a=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);
+  const q=await pdf.embedPng(a);
+  rounded(p,432,365,62,62,8,rgbh("#FFFFFF"),rgbh("#D5D6DA"),.35);
+  p.drawImage(q,{x:440,y:373,width:46,height:46});
+
+  rounded(p,80,210,435,96,10,rgbh(mix(c,.985)),rgbh(mix(c,.86)),.4);
+  p.drawText("DROITS & RÉUTILISATION",{x:94,y:279,font:f.sansBold,size:8.5,color:rgbh(mix(c,.18))});
+  p.drawLine({start:{x:94,y:269},end:{x:168,y:269},thickness:.8,color:rgbh(mix(c,.25))});
+
+  let y=252;
+  for(const line of wrap(
+    "Cette édition constitue une création éditoriale d’Aurore. Les éléments tiers conservent leurs propres licences et conditions d’utilisation.",
+    f.regular,9.3,382
+  ).slice(0,3)){
+    p.drawText(line,{x:94,y,font:f.regular,size:9.3,color:rgbh("#4F5057")});
+    y-=14;
+  }
+
+  if(l){
+    const s=Math.min(42/(l.width||42),42/(l.height||42));
+    p.drawImage(l,{x:453,y:223,width:l.width*s,height:l.height*s});
+  }
+}
+
+async function update(id:number,requestedKind:string,patch:any){const q=await admin.from("aurora_generated_documents").select("metadata").eq("id",id).maybeSingle();const m=q.data?.metadata&&typeof q.data.metadata==="object"?q.data.metadata:{};await admin.from("aurora_generated_documents").update({metadata:{...m,...patch},updated_at:new Date().toISOString()}).eq("id",id)}
 Deno.serve(async req=>{
   if(req.method==="OPTIONS")return new Response("ok",{headers:H});
   if(req.method!=="POST")return out({ok:false,error:"Méthode non autorisée"},405);
@@ -47,11 +187,15 @@ Deno.serve(async req=>{
     return out({ok:true,generated_document_id:id,page_kind:m.system_page_kind||null,pdf_path:q.data.pdf_path||null,pdf_url:q.data.pdf_url||null,status:m.fast_page_status||"processing",progress:clamp(Number(m.fast_page_progress||0)),stage:m.fast_page_stage||"Préparation",error:m.fast_page_last_error||null,updated_at:q.data.updated_at||null});
   }
 
-  const courseId=clean(body?.course_id),kind=clean(body?.page_kind).toLowerCase(),title=clean(body?.title)||"Nouveau cours";
-  if(!["cover","toc","end"].includes(kind))return out({ok:false,error:"page_kind(cover|toc|end) requis"},400);
+  // page_kind est obligatoire à la création seulement.
+  // En mode render, le document créé reste la source de vérité.
+  const courseId=clean(body?.course_id);
+  const requestedKind=clean(body?.page_kind).toLowerCase();
+  const title=clean(body?.title)||"Nouveau cours";
 
   if(mode==="create"){
     if(!courseId)return out({ok:false,error:"course_id requis"},400);
+    if(!["cover","toc","end"].includes(requestedKind))return out({ok:false,error:"page_kind(cover|toc|end) requis pour mode=create"},400);
     const data=body?.page_data&&typeof body.page_data==="object"?body.page_data:{};
     const color=hex(body?.theme_color);
     const now=new Date().toISOString();
@@ -71,7 +215,7 @@ Deno.serve(async req=>{
       prompt:"Édition assistée — rendu d’une page système indépendante.",
       instructions:{
         assisted_system_page:true,
-        page_kind:kind,
+        page_kind:requestedKind,
         course_id:courseId,
         independent_renderer:true,
         no_lualatex:true
@@ -81,7 +225,7 @@ Deno.serve(async req=>{
         origin:"edition_assistee",
         assisted_system_page:{
           course_id:courseId,
-          page_kind:kind
+          page_kind:requestedKind
         }
       },
       created_at:now,
@@ -97,10 +241,10 @@ Deno.serve(async req=>{
       document_type:"page_assistee",
       source_format:"structured",
       source_content:null,
-      content_json:{title,system_page:{kind,page_data:data}},
+      content_json:{title,system_page:{requestedKind,page_data:data}},
       version:1,status:"generated",
       validation_notes:"Page système indépendante de l’édition assistée · aperçu uniquement.",
-      metadata:{origin:"edition_assistee",assisted_system_page:true,system_page_kind:kind,preview_only:true,publishable:false,
+      metadata:{origin:"edition_assistee",assisted_system_page:true,system_page_kind:requestedKind,preview_only:true,publishable:false,
         fast_page_status:"queued",fast_page_progress:0,fast_page_stage:"Page système créée · rendu indépendant prêt à démarrer",fast_page_created_at:now},
       theme_color:color,matiere:clean(data.subject)||null
     }).select("id").single();
@@ -117,7 +261,7 @@ Deno.serve(async req=>{
       mode:"create",
       generated_document_id:Number(ins.data.id),
       job_id:jobId,
-      page_kind:kind,
+      page_kind:requestedKind,
       progress:0
     });
   }
@@ -132,8 +276,9 @@ Deno.serve(async req=>{
   const metadata=row.data.metadata&&typeof row.data.metadata==="object"?row.data.metadata:{};
   if(metadata.assisted_system_page!==true)return out({ok:false,error:"Document non reconnu comme page système assistée"},409);
   const data=row.data.content_json?.system_page?.page_data&&typeof row.data.content_json.system_page.page_data==="object"?row.data.content_json.system_page.page_data:{};
-  const renderKind=clean(row.data.content_json?.system_page?.kind||metadata.system_page_kind).toLowerCase();
+  const renderKind=clean(row.data.content_json?.system_page?.kind||metadata.system_page_kind||requestedKind).toLowerCase();
   if(!["cover","toc","end"].includes(renderKind))return out({ok:false,error:"Type de page système invalide"},409);
+  if(requestedKind&&requestedKind!==renderKind)return out({ok:false,error:"page_kind incohérent avec le document : attendu "+renderKind+", reçu "+requestedKind},409);
 
   try{
     await update(id,renderKind,{fast_page_status:"processing",fast_page_progress:8,fast_page_stage:"Rendu indépendant démarré",fast_page_started_at:new Date().toISOString(),fast_page_last_error:null});
@@ -143,10 +288,10 @@ Deno.serve(async req=>{
     const p=pdf.addPage([595,842]);(p as any).doc=pdf;decor(p,hex(body?.theme_color||row.data.theme_color));
     const color=hex(body?.theme_color||row.data.theme_color);
     const pageNo=renderKind==="cover"?1:renderKind==="toc"?2:Math.max(3,Number(data.page_number)||3);
-    hf(p,pageNo,f,l,color);
+    if(renderKind!=="cover")hf(p,pageNo,f,l,color);
     if(renderKind==="cover")cover(p,f,l,color,row.data.title,data);
     else if(renderKind==="toc")toc(p,f,color,Array.isArray(data.entries)?data.entries:[]);
-    else await ending(p,f,l,color,row.data.title,id);
+    else await ending(p,f,l,color,row.data.title,id,pdf,data);
     await update(id,renderKind,{fast_page_progress:72,fast_page_stage:"PDF indépendant construit"});
     const bin=new Uint8Array(await pdf.save({useObjectStreams:false}));
     const path="aurora-assisted-system-pages/"+uid+"/"+id+"/"+renderKind+".pdf";
@@ -157,10 +302,10 @@ Deno.serve(async req=>{
     await admin.from("aurora_generated_documents").update({
       pdf_path:path,pdf_url:pdfUrl,updated_at:new Date().toISOString(),
       metadata:{...metadata,origin:"edition_assistee",assisted_system_page:true,system_page_kind:renderKind,preview_only:true,publishable:false,
-        fast_page_pdf:true,fast_page_pdf_engine:"pdf-lib-system-page-v2",fast_page_status:"completed",fast_page_progress:100,
+        fast_page_pdf:true,fast_page_pdf_engine:"pdf-lib-system-page-v3",fast_page_status:"completed",fast_page_progress:100,
         fast_page_stage:"Page PDF prête · indépendante du renderer LuaLaTeX",fast_page_updated_at:new Date().toISOString(),fast_page_last_error:null}
     }).eq("id",id).eq("created_by",uid);
-    return out({ok:true,mode:"render",generated_document_id:id,page_kind:renderKind,page_url:pdfUrl,page_path:path,bytes:bin.length,progress:100,engine:"pdf-lib-system-page-v2"});
+    return out({ok:true,mode:"render",generated_document_id:id,page_kind:renderKind,page_url:pdfUrl,page_path:path,bytes:bin.length,progress:100,engine:"pdf-lib-system-page-v3"});
   }catch(e){
     const msg=e instanceof Error?e.message:String(e);
     await update(id,renderKind,{fast_page_status:"failed",fast_page_progress:0,fast_page_stage:"Échec de génération",fast_page_last_error:msg});
