@@ -213,6 +213,9 @@
     for(const b of contentBlocks()){
       const g=b?.generation||{};
       if(String(g.status||'').toLowerCase()!=='ready'||!g.page_url)continue;
+      // Une régénération isolée sert à visualiser/valider le bloc modifié sans
+      // remplacer artificiellement le PDF de flux historique déjà complet.
+      if(g.independent_regeneration===true)continue;
       add(g.page_url,'Page '+String(g.page_number||pageNumberFor(b)),g.flow_page_owner_id||g.page_url);
     }
     if(String(pages.end?.status||'').toLowerCase()==='ready')add(pages.end.pdfUrl,'Fin du document','end');
@@ -1482,11 +1485,17 @@
         progress:100,
         progress_label:'Page prête — visualisation disponible',
         bytes:d.bytes||null,
+        independent_regeneration:isFlowCompanion,
         qa:{engine:d.engine||'pdf-lib-course-page-v2',status:'completed',details:d.qa||null},
         error:null
       };
       resultFlowGroup.forEach(part=>{
-        part.generation={...(part.generation||{}),...sharedGeneration,flow_page_owner_id:isFlowCompanion?flowOwner.id:b.id};
+        part.generation={
+          ...(part.generation||{}),
+          ...sharedGeneration,
+          flow_page_owner_id:isFlowCompanion?null:b.id,
+          independent_regeneration:isFlowCompanion
+        };
       });
       b.generation={
         ...(b.generation||{}),
