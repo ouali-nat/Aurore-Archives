@@ -29,24 +29,86 @@ function toc(p:any,f:any,c:string,entries:any[]){rounded(p,60,112,475,650,16,rgb
 async function ending(p:any,f:any,l:any,c:string,title:string,id:number){rounded(p,60,98,475,666,16,rgbh("#ECEDEE"),rgbh("#BFC0C3"),.6);rounded(p,80,714,250,29,9,rgbh(mix(c,.90)),rgbh(mix(c,.82)),.4);p.drawText("Mentions · crédits · vérification",{x:93,y:723,font:f.sansBold,size:10.4,color:rgbh(mix(c,.18))});p.drawText("Édition Aurore",{x:82,y:672,font:f.sansBold,size:21,color:rgbh("#404149")});p.drawText(title,{x:82,y:643,font:f.sans,size:11.5,color:rgbh(mix(c,.22))});p.drawLine({start:{x:82,y:624},end:{x:184,y:624},thickness:1.15,color:rgbh(c)});rounded(p,82,500,430,104,11,rgbh(mix(c,.96)),rgbh(mix(c,.82)),.5);p.drawText("IDENTITÉ DE L'ÉDITION",{x:96,y:580,font:f.sansBold,size:8.6,color:rgbh(mix(c,.18))});p.drawText("Identifiant : "+id,{x:96,y:557,font:f.sans,size:8.8,color:rgbh("#55565E")});p.drawText("Version : 1 · Page système assistée",{x:96,y:538,font:f.sans,size:8.8,color:rgbh("#55565E")});rounded(p,82,330,430,138,12,rgbh("#FFFFFF"),rgbh(mix(c,.68)),.6);p.drawText("VÉRIFICATION & PUBLICATION",{x:96,y:441,font:f.sansBold,size:8.6,color:rgbh(mix(c,.18))});p.drawText("Cette page est un aperçu de l'édition assistée.",{x:96,y:417,font:f.regular,size:10.2,color:rgbh("#4B4C54")});p.drawText("La fusion finale recalculera l'identité et le QR de publication.",{x:96,y:398,font:f.regular,size:9.5,color:rgbh("#66676F")});const u=await QRCode.toDataURL("https://aurore-section-archives.com/",{margin:0,width:220,errorCorrectionLevel:"M"}),b=u.split(",")[1],bin=atob(b),a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);const q=await p.doc.embedPng(a);p.drawImage(q,{x:421,y:347,width:68,height:68});rounded(p,82,208,430,92,11,rgbh(mix(c,.985)),rgbh(mix(c,.86)),.45);p.drawText("DROITS & RÉUTILISATION",{x:96,y:277,font:f.sansBold,size:8.5,color:rgbh(mix(c,.18))});let y=255;for(const line of wrap("Cette édition constitue une création éditoriale d'Aurore. Les éléments tiers conservent leurs propres licences et conditions d'utilisation.",f.regular,9.3,390).slice(0,3)){p.drawText(line,{x:96,y,font:f.regular,size:9.3,color:rgbh("#4F5057")});y-=14}if(l){const s=Math.min(46/(l.width||46),46/(l.height||46));p.drawImage(l,{x:466,y:154,width:l.width*s,height:l.height*s})}}
 async function update(id:number,kind:string,patch:any){const q=await admin.from("aurora_generated_documents").select("metadata").eq("id",id).maybeSingle();const m=q.data?.metadata&&typeof q.data.metadata==="object"?q.data.metadata:{};await admin.from("aurora_generated_documents").update({metadata:{...m,...patch},updated_at:new Date().toISOString()}).eq("id",id)}
 Deno.serve(async req=>{
-  if(req.method==="OPTIONS")return new Response("ok",{headers:H});if(req.method!=="POST")return out({ok:false,error:"Méthode non autorisée"},405);
-  const auth=req.headers.get("Authorization")||"";if(!auth.startsWith("Bearer "))return out({ok:false,error:"Authentification requise"},401);
-  const me=await admin.auth.getUser(auth.slice(7).trim());if(me.error||!me.data.user)return out({ok:false,error:"Session utilisateur invalide"},401);
-  const uid=me.data.user.id;let body:any;try{body=await req.json()}catch{return out({ok:false,error:"JSON invalide"},400)}
-  const courseId=clean(body?.course_id),kind=clean(body?.page_kind).toLowerCase(),title=clean(body?.title)||"Nouveau cours";if(!courseId||!["cover","toc","end"].includes(kind))return out({ok:false,error:"course_id et page_kind sont requis"},400);
-  const data=body?.page_data&&typeof body.page_data==="object"?body.page_data:{};const color=hex(body?.theme_color);
-  const ins=await admin.from("aurora_generated_documents").insert({created_by:uid,title,document_type:"page_assistee",source_format:"structured",source_content:null,content_json:{title,system_page:{kind,page_data:data}},version:1,status:"generated",validation_notes:"Page système indépendante de l'édition assistée · aperçu uniquement.",metadata:{origin:"edition_assistee",assisted_system_page:true,system_page_kind:kind,preview_only:true,publishable:false,fast_page_status:"processing",fast_page_progress:5,fast_page_stage:"Préparation de la page système",fast_page_started_at:new Date().toISOString()},theme_color:color,matiere:clean(data.subject)||null}).select("id").single();
-  if(ins.error)return out({ok:false,error:"Création de la page système impossible : "+ins.error.message},500);
-  const id=Number(ins.data.id);
+  if(req.method==="OPTIONS")return new Response("ok",{headers:H});
+  if(req.method!=="POST")return out({ok:false,error:"Méthode non autorisée"},405);
+  const auth=req.headers.get("Authorization")||"";
+  if(!auth.startsWith("Bearer "))return out({ok:false,error:"Authentification requise"},401);
+  const me=await admin.auth.getUser(auth.slice(7).trim());
+  if(me.error||!me.data.user)return out({ok:false,error:"Session utilisateur invalide"},401);
+  const uid=me.data.user.id;
+  let body:any;try{body=await req.json()}catch{return out({ok:false,error:"JSON invalide"},400)}
+  const mode=clean(body?.mode).toLowerCase(),id=Number(body?.generated_document_id||0);
+  if(mode==="status"){
+    if(!Number.isInteger(id)||id<1)return out({ok:false,error:"generated_document_id requis"},400);
+    const q=await admin.from("aurora_generated_documents").select("id,created_by,pdf_path,pdf_url,metadata,updated_at").eq("id",id).maybeSingle();
+    if(q.error)return out({ok:false,error:q.error.message},500);
+    if(!q.data||q.data.created_by!==uid)return out({ok:false,error:"Accès refusé"},403);
+    const m=q.data.metadata&&typeof q.data.metadata==="object"?q.data.metadata:{};
+    return out({ok:true,generated_document_id:id,page_kind:m.system_page_kind||null,pdf_path:q.data.pdf_path||null,pdf_url:q.data.pdf_url||null,status:m.fast_page_status||"processing",progress:clamp(Number(m.fast_page_progress||0)),stage:m.fast_page_stage||"Préparation",error:m.fast_page_last_error||null,updated_at:q.data.updated_at||null});
+  }
+
+  const courseId=clean(body?.course_id),kind=clean(body?.page_kind).toLowerCase(),title=clean(body?.title)||"Nouveau cours";
+  if(!["cover","toc","end"].includes(kind))return out({ok:false,error:"page_kind(cover|toc|end) requis"},400);
+
+  if(mode==="create"){
+    if(!courseId)return out({ok:false,error:"course_id requis"},400);
+    const data=body?.page_data&&typeof body.page_data==="object"?body.page_data:{};
+    const color=hex(body?.theme_color);
+    const ins=await admin.from("aurora_generated_documents").insert({
+      created_by:uid,title,document_type:"page_assistee",source_format:"structured",source_content:null,
+      content_json:{title,system_page:{kind,page_data:data}},
+      version:1,status:"generated",
+      validation_notes:"Page système indépendante de l’édition assistée · aperçu uniquement.",
+      metadata:{origin:"edition_assistee",assisted_system_page:true,system_page_kind:kind,preview_only:true,publishable:false,
+        fast_page_status:"queued",fast_page_progress:0,fast_page_stage:"Page système créée · rendu indépendant prêt à démarrer",fast_page_created_at:new Date().toISOString()},
+      theme_color:color,matiere:clean(data.subject)||null
+    }).select("id").single();
+    if(ins.error)return out({ok:false,error:"Création de la page système impossible : "+ins.error.message},500);
+    return out({ok:true,mode:"create",generated_document_id:Number(ins.data.id),page_kind:kind,progress:0});
+  }
+
+  if(mode!=="render"){
+    return out({ok:false,error:"mode create|render|status requis"},400);
+  }
+  if(!Number.isInteger(id)||id<1)return out({ok:false,error:"generated_document_id requis pour le rendu"},400);
+  const row=await admin.from("aurora_generated_documents").select("id,created_by,title,metadata,content_json").eq("id",id).maybeSingle();
+  if(row.error)return out({ok:false,error:row.error.message},500);
+  if(!row.data||row.data.created_by!==uid)return out({ok:false,error:"Accès refusé"},403);
+  const metadata=row.data.metadata&&typeof row.data.metadata==="object"?row.data.metadata:{};
+  if(metadata.assisted_system_page!==true)return out({ok:false,error:"Document non reconnu comme page système assistée"},409);
+  const data=row.data.content_json?.system_page?.page_data&&typeof row.data.content_json.system_page.page_data==="object"?row.data.content_json.system_page.page_data:{};
+  const renderKind=clean(row.data.content_json?.system_page?.kind||metadata.system_page_kind).toLowerCase();
+  if(!["cover","toc","end"].includes(renderKind))return out({ok:false,error:"Type de page système invalide"},409);
+
   try{
-    await update(id,kind,{fast_page_status:"processing",fast_page_progress:20,fast_page_stage:"Chargement des ressources Aurore"});
-    const pdf=await PDFDocument.create();pdf.registerFontkit(fontkit);const [f,l]=await Promise.all([fonts(pdf),logo(pdf)]);await update(id,kind,{fast_page_progress:45,fast_page_stage:"Mise en page indépendante"});
-    const p=pdf.addPage([595,842]);(p as any).doc=pdf;decor(p,color);const pageNo=kind==="cover"?1:kind==="toc"?2:Math.max(3,Number(data.page_number)||3);hf(p,pageNo,f,l,color);
-    if(kind==="cover")cover(p,f,l,color,title,data);else if(kind==="toc")toc(p,f,color,Array.isArray(data.entries)?data.entries:[]);else await ending(p,f,l,color,title,id);
-    await update(id,kind,{fast_page_progress:78,fast_page_stage:"PDF indépendant construit"});
-    const bin=new Uint8Array(await pdf.save({useObjectStreams:false})),path="aurora-assisted-system-pages/"+uid+"/"+id+"/"+kind+".pdf";const up=await admin.storage.from("Pdfs").upload(path,bin,{contentType:"application/pdf",upsert:true});if(up.error)throw new Error(up.error.message);
-    await update(id,kind,{fast_page_progress:92,fast_page_stage:"PDF téléversé"});const su=await admin.storage.from("Pdfs").createSignedUrl(path,604800);if(su.error)throw new Error(su.error.message);const pdfUrl=su.data?.signedUrl||null;
-    await admin.from("aurora_generated_documents").update({pdf_path:path,pdf_url:pdfUrl,updated_at:new Date().toISOString(),metadata:{origin:"edition_assistee",assisted_system_page:true,system_page_kind:kind,preview_only:true,publishable:false,fast_page_pdf:true,fast_page_pdf_engine:"pdf-lib-system-page-v1",fast_page_status:"completed",fast_page_progress:100,fast_page_stage:"Page PDF prête · indépendante du renderer LuaLaTeX",fast_page_updated_at:new Date().toISOString()}}).eq("id",id).eq("created_by",uid);
-    return out({ok:true,mode:"independent-system-page",engine:"pdf-lib-system-page-v1",generated_document_id:id,page_kind:kind,page_url:pdfUrl,page_path:path,bytes:bin.length,progress:100});
-  }catch(e){const msg=e instanceof Error?e.message:String(e);await update(id,kind,{fast_page_status:"failed",fast_page_progress:0,fast_page_stage:"Échec de génération",fast_page_last_error:msg});return out({ok:false,generated_document_id:id,page_kind:kind,error:msg},500)}
+    await update(id,renderKind,{fast_page_status:"processing",fast_page_progress:8,fast_page_stage:"Rendu indépendant démarré",fast_page_started_at:new Date().toISOString(),fast_page_last_error:null});
+    const pdf=await PDFDocument.create();pdf.registerFontkit(fontkit);
+    const [f,l]=await Promise.all([fonts(pdf),logo(pdf)]);
+    await update(id,renderKind,{fast_page_progress:35,fast_page_stage:"Ressources Aurore prêtes"});
+    const p=pdf.addPage([595,842]);(p as any).doc=pdf;decor(p,hex(body?.theme_color||row.data.theme_color));
+    const color=hex(body?.theme_color||row.data.theme_color);
+    const pageNo=renderKind==="cover"?1:renderKind==="toc"?2:Math.max(3,Number(data.page_number)||3);
+    hf(p,pageNo,f,l,color);
+    if(renderKind==="cover")cover(p,f,l,color,row.data.title,data);
+    else if(renderKind==="toc")toc(p,f,color,Array.isArray(data.entries)?data.entries:[]);
+    else await ending(p,f,l,color,row.data.title,id);
+    await update(id,renderKind,{fast_page_progress:72,fast_page_stage:"PDF indépendant construit"});
+    const bin=new Uint8Array(await pdf.save({useObjectStreams:false}));
+    const path="aurora-assisted-system-pages/"+uid+"/"+id+"/"+renderKind+".pdf";
+    const up=await admin.storage.from("Pdfs").upload(path,bin,{contentType:"application/pdf",upsert:true});if(up.error)throw new Error(up.error.message);
+    await update(id,renderKind,{fast_page_progress:90,fast_page_stage:"PDF téléversé"});
+    const su=await admin.storage.from("Pdfs").createSignedUrl(path,604800);if(su.error)throw new Error(su.error.message);
+    const pdfUrl=su.data?.signedUrl||null;
+    await admin.from("aurora_generated_documents").update({
+      pdf_path:path,pdf_url:pdfUrl,updated_at:new Date().toISOString(),
+      metadata:{...metadata,origin:"edition_assistee",assisted_system_page:true,system_page_kind:renderKind,preview_only:true,publishable:false,
+        fast_page_pdf:true,fast_page_pdf_engine:"pdf-lib-system-page-v2",fast_page_status:"completed",fast_page_progress:100,
+        fast_page_stage:"Page PDF prête · indépendante du renderer LuaLaTeX",fast_page_updated_at:new Date().toISOString(),fast_page_last_error:null}
+    }).eq("id",id).eq("created_by",uid);
+    return out({ok:true,mode:"render",generated_document_id:id,page_kind:renderKind,page_url:pdfUrl,page_path:path,bytes:bin.length,progress:100,engine:"pdf-lib-system-page-v2"});
+  }catch(e){
+    const msg=e instanceof Error?e.message:String(e);
+    await update(id,renderKind,{fast_page_status:"failed",fast_page_progress:0,fast_page_stage:"Échec de génération",fast_page_last_error:msg});
+    return out({ok:false,generated_document_id:id,page_kind:renderKind,error:msg},500);
+  }
 });
