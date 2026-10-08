@@ -650,3 +650,62 @@ html[data-theme="dark"] .doc-row .doc-more-btn:hover{
     padding:7px!important;
   }
 }
+
+
+/* Choix ciblé du téléchargement des pages du lecteur PDF */
+#pdfDownloadChoiceOverlay.pdf-download-choice-overlay{
+  position:fixed;inset:0;z-index:10020;display:flex;align-items:center;justify-content:center;
+  padding:18px;box-sizing:border-box;background:rgba(7,6,12,.68);backdrop-filter:blur(10px);
+  opacity:0;visibility:hidden;pointer-events:none;transition:opacity .16s ease,visibility .16s ease;
+}
+#pdfDownloadChoiceOverlay.pdf-download-choice-overlay.open{
+  opacity:1;visibility:visible;pointer-events:auto;
+}
+#pdfDownloadChoiceOverlay .pdf-download-choice-card{
+  width:min(520px,100%);box-sizing:border-box;padding:20px;border:1px solid var(--bordure,rgba(255,255,255,.12));
+  border-radius:20px;background:var(--papier,#17141f);color:var(--encre,#f5f2f8);
+  box-shadow:0 24px 80px rgba(0,0,0,.42);
+}
+#pdfDownloadChoiceOverlay .pdf-download-choice-head{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:14px;
+}
+#pdfDownloadChoiceOverlay .pdf-download-choice-eyebrow{
+  font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--violet,#8B5CF6);margin-bottom:5px;
+}
+#pdfDownloadChoiceOverlay .pdf-download-choice-title{margin:0;font-size:1.02rem;font-weight:850;color:inherit;}
+#pdfDownloadChoiceOverlay .pdf-download-choice-description{
+  margin:7px 0 0;color:color-mix(in srgb,var(--encre,#f5f2f8) 68%,transparent);font-size:.78rem;line-height:1.5;
+}
+#pdfDownloadChoiceOverlay .pdf-download-choice-close{
+  flex:0 0 auto;width:36px;height:36px;border:1px solid var(--bordure,rgba(255,255,255,.12));
+  border-radius:10px;background:var(--fond,#111019);color:inherit;font-size:1.25rem;cursor:pointer;
+}
+#pdfDownloadChoiceOverlay .pdf-download-choice-options{display:grid;gap:9px;margin-top:16px;}
+#pdfDownloadChoiceOverlay .pdf-download-choice-option{
+  width:100%;display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--bordure,rgba(255,255,255,.12));
+  border-radius:14px;background:var(--fond,#111019);color:inherit;text-align:left;cursor:pointer;
+}
+#pdfDownloadChoiceOverlay .pdf-download-choice-option:hover:not([disabled]){
+  border-color:var(--violet,#8B5CF6);background:color-mix(in srgb,var(--fond,#111019) 88%,var(--violet,#8B5CF6) 12%);
+}
+#pdfDownloadChoiceOverlay .pdf-download-choice-option[disabled]{opacity:.45;cursor:not-allowed;}
+#pdfDownloadChoiceOverlay .pdf-download-choice-icon{
+  flex:0 0 auto;min-width:34px;height:34px;padding:0 7px;display:inline-flex;align-items:center;justify-content:center;
+  border-radius:10px;background:color-mix(in srgb,var(--violet,#8B5CF6) 14%,var(--fond,#111019));
+  color:var(--violet,#8B5CF6);font-size:.68rem;font-weight:900;
+}
+#pdfDownloadChoiceOverlay .pdf-download-choice-option strong{display:block;font-size:.8rem;font-weight:800;}
+#pdfDownloadChoiceOverlay .pdf-download-choice-option small{display:block;margin-top:3px;color:color-mix(in srgb,var(--encre,#f5f2f8) 60%,transparent);font-size:.68rem;line-height:1.35;}
+#pdfDownloadChoiceOverlay .pdf-download-choice-cancel{
+  width:100%;min-height:40px;margin-top:10px;border:1px solid var(--bordure,rgba(255,255,255,.12));
+  border-radius:12px;background:transparent;color:inherit;cursor:pointer;font-size:.76rem;font-weight:750;
+}
+#pdfDownloadChoiceOverlay .pdf-download-choice-cancel:hover{background:var(--fond,#111019);}
+@media(max-width:600px){
+  #pdfDownloadChoiceOverlay{padding:12px;}
+  #pdfDownloadChoiceOverlay .pdf-download-choice-card{padding:16px;border-radius:17px;}
+}
+@media(prefers-reduced-motion:reduce){
+  #pdfDownloadChoiceOverlay.pdf-download-choice-overlay{transition:none;}
+}
