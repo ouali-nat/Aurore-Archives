@@ -1324,7 +1324,7 @@
     const index=all.findIndex(b=>b?.id===id);
     if(index<0)return [];
     const current=all[index];
-    const flowable=(b)=>['paragraph','point'].includes(String(b?.type||'').toLowerCase())&&!isSystemBlock(b);
+    const flowable=(b)=>['paragraph','point'].includes(String(b?.type||'').toLowerCase())&&!isSystemBlock(b)&&!isDefaultIntroduction(b);
     // Un même flux éditorial peut enchaîner points et paragraphes.
     // Les exercices, graphiques et images restent des unités indépendantes.
     if(!flowable(current))return [current];
