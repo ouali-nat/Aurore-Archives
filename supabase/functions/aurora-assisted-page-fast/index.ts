@@ -413,8 +413,7 @@ function drawInlineLines(page:any,lines:any[],x:number,topY:number,width:number,
     const lineWidth=line.reduce(
       (sum:number,token:any)=>sum+(token.space||0)+(token.width||0),0
     );
-    const startX=x+Math.max(0,(width-lineWidth)/2);
-    const lineCenter=y-advance/2;
+    // Prose lines follow a normal editorial left edge; only a line made solely of inline math stays centered.\n    const pureMath=line.length>0&&line.every((token:any)=>token.kind==="math");\n    const startX=pureMath?x+Math.max(0,(width-lineWidth)/2):x;\n    const lineCenter=y-advance/2;
     let cx=startX;
 
     for(const token of line){
