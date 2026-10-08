@@ -401,42 +401,25 @@ function drawInlineLines(page:any,lines:any[],x:number,topY:number,width:number,
 
 function drawSoftDecor(page:any,color:string){
   const W=595,H=842;
-  // Same very pale page tone as the normal editorial route (aurorepale).
-  page.drawRectangle({x:0,y:0,width:W,height:H,color:rgbHex(mixWhite(color,0.96))});
-
-  // Aurore production-style edge bubbles: large, pale and always behind content.
-  page.drawCircle({x:606,y:832,size:72,color:rgbHex(mixWhite(color,0.89))});
-  page.drawCircle({x:-10,y:770,size:48,color:rgbHex(mixWhite(color,0.935))});
-  page.drawCircle({x:598,y:565,size:26,color:rgbHex(mixWhite(color,0.95))});
-  page.drawCircle({x:-8,y:425,size:34,color:rgbHex(mixWhite(color,0.95))});
-  page.drawCircle({x:604,y:122,size:38,color:rgbHex(mixWhite(color,0.94))});
-  page.drawCircle({x:88,y:-2,size:58,color:rgbHex(mixWhite(color,0.945))});
-  page.drawCircle({x:540,y:2,size:50,color:rgbHex(mixWhite(color,0.925))});
-  page.drawCircle({x:20,y:55,size:16,color:rgbHex(mixWhite(color,0.965))});
-
-  // Continuous page-level spine. It stays in the margin with a real gap
-  // before the content frames, unlike the previous block-attached bar.
-  const spine=rgbHex(mixWhite(color,0.60));
-  const spineSoft=rgbHex(mixWhite(color,0.72));
-  page.drawLine({start:{x:28,y:70},end:{x:28,y:777},thickness:1.45,color:spine});
-  page.drawCircle({x:28,y:777,size:4.3,color:spine});
-  page.drawCircle({x:28,y:70,size:4.3,color:spineSoft});
+  page.drawRectangle({x:0,y:0,width:W,height:H,color:rgbHex(mixWhite(color,0.985))});
+  page.drawCircle({x:606,y:832,size:72,color:rgbHex(mixWhite(color,0.76))});
+  page.drawCircle({x:-10,y:770,size:44,color:rgbHex(mixWhite(color,0.86))});
+  page.drawCircle({x:598,y:565,size:28,color:rgbHex(mixWhite(color,0.90))});
+  page.drawCircle({x:-8,y:425,size:34,color:rgbHex(mixWhite(color,0.90))});
+  page.drawCircle({x:604,y:122,size:40,color:rgbHex(mixWhite(color,0.88))});
+  page.drawCircle({x:76,y:-18,size:58,color:rgbHex(mixWhite(color,0.86))});
+  page.drawCircle({x:545,y:-12,size:48,color:rgbHex(mixWhite(color,0.86))});
+  page.drawCircle({x:632,y:310,size:30,color:rgbHex(mixWhite(color,0.91))});
 }
 function headerFooter(page:any,pageNo:number,fonts:any,logo:any,color:string){
-  const W=595,H=842;
   if(logo){
     const scale=Math.min(17/(logo.width||17),17/(logo.height||17));
     page.drawImage(logo,{x:39,y:805,width:logo.width*scale,height:logo.height*scale});
-  }else{
-    page.drawCircle({x:47,y:811,size:8.5,color:rgbHex(mixWhite(color,0.70))});
   }
-  page.drawText("Aurore — Section Archives",{x:W-182,y:807,font:fonts.sans,size:9.5,color:rgbHex(mixWhite(color,0.18))});
-  page.drawLine({start:{x:39,y:795},end:{x:W-39,y:795},thickness:0.55,color:rgbHex(mixWhite(color,0.72))});
-  page.drawLine({start:{x:39,y:43},end:{x:W-39,y:43},thickness:0.55,color:rgbHex(mixWhite(color,0.82))});
-  page.drawText("Aurore — Section Archives",{x:39,y:27,font:fonts.sans,size:9.5,color:rgbHex("#777985")});
-  page.drawText("Page "+pageNo,{x:W-78,y:27,font:fonts.sans,size:9.5,color:rgbHex("#777985")});
-  }
-
+  page.drawText("Section Archives",{x:466,y:807,font:fonts.sans,size:9.6,color:rgbHex(mixWhite(color,0.25))});
+  page.drawLine({start:{x:39,y:795},end:{x:556,y:795},thickness:.55,color:rgbHex(mixWhite(color,0.72))});
+  page.drawText("Aurore — Section Archives • "+pageNo,{x:225,y:27,font:fonts.sans,size:9.5,color:rgbHex("#777985")});
+}
 function sectionLabel(page:any,label:string,x:number,y:number,fonts:any,color:string){
   const txt=clean(label);
   if(!txt)return;
