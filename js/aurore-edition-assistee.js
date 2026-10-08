@@ -925,8 +925,13 @@
     if(cover&&coverState?.pdfUrl)allSteps.push({kind:'pdf',label:'Page 1 · Couverture',url:coverState.pdfUrl,number:1,status:'ready',source:cover});
     if(tocState?.pdfUrl)allSteps.push({kind:'pdf',label:'Page 2 · Sommaire',url:tocState.pdfUrl,number:2,status:'ready',source:toc});
 
+    const previewSeen=new Set();
     for(const b of previous){
       const page=pageNumberFor(b),url=String(b?.generation?.page_url||'').trim();
+      const owner=String(b?.generation?.flow_page_owner_id||'').trim();
+      const key=owner||url||String(b?.id||'');
+      if(previewSeen.has(key))continue;
+      previewSeen.add(key);
       if(url)allSteps.push({kind:'pdf',label:'Page '+page+' · '+labelFor(b),url,number:page,status:'ready',source:b});
       else allSteps.push({kind:'pending',label:'Page '+page+' · '+labelFor(b),number:page,status:'pending',source:b});
     }
