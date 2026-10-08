@@ -1415,19 +1415,31 @@
     if(flowGroup.length>1&&flowOwner.id!==b.id){
       const ownerGeneration=flowOwner.generation||{};
       if(String(ownerGeneration.status||'').toLowerCase()==='generating'){
-        state.selected=flowOwner.id;
+        state.selected=b.id;
         renderWorkspace();
         setStatus('Le flux de cette séquence est déjà en cours de génération.');
         return;
       }
 
-      // Un bloc compagnon doit pouvoir être régénéré après modification.
-      // L'ancien comportement réutilisait silencieusement le PDF du propriétaire
-      // dès qu'il était "ready", ce qui rendait impossible la validation/régénération
-      // réelle d'un bloc situé plus loin dans le même flux.
-      state.selected=flowOwner.id;
+      // Un bloc compagnon doit pouvoir être validé/régénéré après modification.
+      // Le flux reste propriétaire du premier bloc, mais l'interface conserve
+      // le bloc réellement cliqué comme bloc sélectionné et visible en progression.
+      flowGroup.forEach(part=>{
+        part.generation={
+          ...(part.generation||{}),
+          status:'generating',
+          page_number:pageNumberFor(part),
+          progress:10,
+          progress_label:'Régénération du flux…',
+          error:null,
+          updated_at:new Date().toISOString(),
+          flow_page_owner_id:flowOwner.id
+        };
+      });
+      state.selected=b.id;
       renderWorkspace();
-      setStatus('Régénération du flux depuis son premier bloc avec les dernières modifications…');
+      updateGenerationProgress(b.id,10,'Régénération du flux…');
+      setStatus('Régénération du flux depuis le premier bloc avec les dernières modifications…');
       await generateBlock(flowOwner.id);
       return;
     }
@@ -1514,7 +1526,19 @@
           }
         }
       }
-      b.generation={...(b.generation||{}),status:'error',page_number:pageNumberFor(b),updated_at:new Date().toISOString(),progress:0,progress_label:'Échec',error:msg};
+      const errorFlow=flowBlocksFor(b.id);
+      errorFlow.forEach(part=>{
+        part.generation={
+          ...(part.generation||{}),
+          status:'error',
+          page_number:pageNumberFor(part),
+          updated_at:new Date().toISOString(),
+          progress:0,
+          progress_label:'Échec',
+          error:msg,
+          flow_page_owner_id:b.id
+        };
+      });
       await persistCourse(true);
       renderWorkspace();setStatus('Échec de génération : '+msg);
     }
