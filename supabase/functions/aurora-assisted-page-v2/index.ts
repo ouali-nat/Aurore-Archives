@@ -253,13 +253,15 @@ Deno.serve(async(req)=>{
     const insertedDoc=await admin.from("aurora_generated_documents").insert({
       job_id:jobId,created_by:userId,title:sourceCourse.title||course.data.title||"Cours",
       subject:sourceCourse.subject||null,level:sourceCourse.level||null,class_name:sourceCourse.class_name||null,
-      document_type:"cours",source_format:"structured",source_content:null,
+      document_type:"apercu_assiste",source_format:"structured",source_content:null,
       content_json:contentJson,version:1,status:"review",
       validation_notes:"Aperçu canonique de l’éditeur assisté — jamais publiable tel quel.",
       metadata:{
         origin:"edition_assistee",
         assisted_document_preview:true,
         pipeline:"Édition assistée -> renderer canonique LuaLaTeX",
+        preview_only:true,
+        publishable:false,
         preview_contract:"canonical-production-first-toc-last"
       },
       theme_color:themeColor,matiere:sourceCourse.subject||null
