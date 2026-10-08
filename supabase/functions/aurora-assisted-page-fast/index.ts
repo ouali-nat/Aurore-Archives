@@ -489,7 +489,7 @@ function drawDisplayMath(page:any,run:Run,x:number,topY:number,width:number,colo
   const cardW=Math.min(width,Math.max(40,m.iw+m.padX*2)),cardH=m.cardH;
   const x0=x+(width-cardW)/2,y0=topY-cardH;
   rounded(page,x0,y0,cardW,cardH,9,rgbHex("#ECEDEE"),rgbHex("#C1C2C6"),0.5);
-  page.drawImage(run.image,{x:x0+(cardW-m.iw)/2,y:y0+(cardH-m.ih)/2,width:m.iw,height:m.ih});
+  page.drawImage(run.image,{x:x0+(cardW-m.iw)/2,y:y0+(cardH-m.ih)/2,width:m.iw,height:m.ih,opacity:0.9});
   return {cardW,cardH};
 }
 
