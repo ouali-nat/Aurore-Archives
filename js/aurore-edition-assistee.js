@@ -1355,6 +1355,33 @@
     const b=activeBlocks().find(x=>x.id===id);if(!b)return;
     if(isSystemBlock(b)){setStatus('Les pages de début et de fin sont automatiques : seule une page de contenu centrale peut être générée ici.');return;}
     const v=validateBlock(b);if(!v.ok){renderWorkspace();setStatus('Bloc invalide : corrige les éléments signalés.');return;}
+
+    // Un seul bloc propriétaire génère un flux contigu. Cliquer un bloc compagnon
+    // ne recrée jamais le même PDF : on réutilise le propriétaire du flux.
+    const flowGroup=flowBlocksFor(b.id);
+    const flowOwner=flowGroup[0]||b;
+    if(flowGroup.length>1&&flowOwner.id!==b.id){
+      const ownerGeneration=flowOwner.generation||{};
+      if(String(ownerGeneration.status||'').toLowerCase()==='ready'&&ownerGeneration.page_url){
+        b.generation={...(b.generation||{}),...ownerGeneration,flow_page_owner_id:flowOwner.id};
+        await persistCourse(true,false);
+        renderWorkspace();
+        setStatus('Ce bloc appartient déjà au flux généré par le point précédent.');
+        return;
+      }
+      if(String(ownerGeneration.status||'').toLowerCase()==='generating'){
+        state.selected=flowOwner.id;
+        renderWorkspace();
+        setStatus('Le flux de cette séquence est déjà en cours de génération.');
+        return;
+      }
+      state.selected=flowOwner.id;
+      renderWorkspace();
+      setStatus('Ce bloc fait partie du même flux : génération lancée depuis son premier bloc.');
+      await generateBlock(flowOwner.id);
+      return;
+    }
+
     if(b.type==='graphique'&&!b.content?.json?.geogebra_image_path&&!b.content?.json?.graph_local_path&&!b.content?.json?.geogebra_image_url&&!b.content?.json?.image_url&&!b.content?.json?.preview_url){
       await persistCourse(true);setStatus('JSON graphique valide, mais aucun asset visuel n’est encore disponible.');return;
     }
