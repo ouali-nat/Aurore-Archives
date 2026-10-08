@@ -94,7 +94,7 @@
       },
       theme_color:DEFAULT_THEME_COLOR,
       blocks:[systemBlock(START_ROLE,title),systemBlock(END_ROLE,title)],
-      generation:{pages:[],updated_at:null,system_preview:{fingerprint:'',documentId:null,pdfUrl:null,status:'idle',progress:0,stage:'',error:null,updatedAt:null}}};
+      generation:{pages:[],updated_at:null,system_preview:{fingerprint:'',pages:{cover:emptySystemPageState(),toc:emptySystemPageState(),end:emptySystemPageState()},status:'idle',progress:0,stage:'',error:null,updatedAt:null}}};
   }
   function block(type){
     const b={id:uid('block'),type,content:{},generation:{status:'not_generated',page_number:null,page_path:null,page_url:null,updated_at:null,error:null},created_at:new Date().toISOString()};
@@ -299,19 +299,19 @@
       '<div class="ae-system-content">'+summary+'</div>'+
       '<div class="ae-canonical-preview-progress" data-canonical-preview-role="'+esc(b.role)+'">'+canonicalPreviewProgressMarkup(b.role,startPage?'Aperçu automatique de la couverture':'Aperçu automatique de la page finale')+'</div>'+
       '<div class="ae-block-toolbar"><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Prévisualiser</button><button class="admin-btn ghost" data-json-system="'+esc(b.id)+'">JSON</button></div>'+
-      '<div class="ae-block-result"><span>Aperçu = page réellement produite par le renderer canonique LuaLaTeX.</span></div>'+
+      '<div class="ae-block-result"><span>Aperçu = fragment PDF réellement produit indépendamment par le renderer rapide Aurore.</span></div>'+
       '</article>';
   }
 
   function tocSystemCard(){
     ensureDocumentPages(state.course);rebuildTocEntries();
     const cfg=state.course.document_pages.toc;
-    return '<article class="ae-block ae-system-block ae-toc-system"><header class="ae-block-head"><div><span class="ae-block-number">02</span><strong>Sommaire</strong><small>Page système · canonique · prévisualisable</small></div><span class="ae-block-state ok">Prévisualisable</span></header>'+
-      '<div class="ae-system-content"><strong>Sommaire</strong><span>Table des matières générée automatiquement par le renderer canonique à partir des sections du document.</span>'+
+    return '<article class="ae-block ae-system-block ae-toc-system"><header class="ae-block-head"><div><span class="ae-block-number">02</span><strong>Sommaire</strong><small>Page système · indépendante · prévisualisable</small></div><span class="ae-block-state ok">Prévisualisable</span></header>'+
+      '<div class="ae-system-content"><strong>Sommaire</strong><span>Table des matières éditable, rendue en fragment PDF indépendant.</span>'+
       '<div class="ae-toc-outline">'+cfg.entries.map((e,i)=>'<span><b>'+String(i+1).padStart(2,'0')+'</b>'+esc(e.title||('Entrée '+(i+1)))+'</span>').join('')+'</div></div>'+
       '<div class="ae-canonical-preview-progress" data-canonical-preview-role="toc">'+canonicalPreviewProgressMarkup('toc','Aperçu du sommaire')+'</div>'+
       '<div class="ae-block-toolbar"><button class="admin-btn ghost" id="aePreviewToc">Prévisualiser</button><button class="admin-btn ghost" id="aeClearToc">Effacer le contenu</button><button class="admin-btn ghost" id="aeTocJsonInline">Ajouter / valider JSON</button></div>'+
-      '<div class="ae-block-result"><span>Le titre canonique est « Sommaire ». Les numéros de page affichés dans le PDF sont calculés par LuaLaTeX.</span></div></article>';
+      '<div class="ae-block-result"><span>Le titre est « Sommaire ». Le fragment est produit seul ; les numéros définitifs seront recalculés lors de la fusion finale.</span></div></article>';
   }
 
   function blockCard(b,i){
@@ -337,10 +337,10 @@
     const r=root();if(!r||!state.course)return;
     validateCourse();
     ensureCourseStructure(state.course);
-    r.innerHTML='<div class="ae-shell ae-workspace"><header class="ae-head"><div><button class="admin-btn ghost" id="aeBack">← Mes cours</button><span class="ae-kicker">Atelier de production séquentielle</span><h3><input id="aeCourseTitle" value="'+esc(state.course.title)+'"></h3><p>Le bloc de début et le bloc de fin sont automatiques. Tous les blocs que tu ajoutes sont placés entre les deux et chaque bloc central génère uniquement sa propre page.</p></div><span class="ae-status" id="assistedStatus">'+(state.course.validation?.ok?'Structure valide':'À compléter')+'</span></header>'+
+    r.innerHTML='<div class="ae-shell ae-workspace"><header class="ae-head"><div><button class="admin-btn ghost" id="aeBack">← Mes cours</button><span class="ae-kicker">Atelier de production séquentielle</span><h3><input id="aeCourseTitle" value="'+esc(state.course.title)+'"></h3><p>Le bloc de début, le sommaire et le bloc de fin sont automatiques. Chaque bloc central génère uniquement son propre fragment PDF indépendant.</p></div><span class="ae-status" id="assistedStatus">'+(state.course.validation?.ok?'Structure valide':'À compléter')+'</span></header>'+
       '<div class="ae-top-options"><div class="ae-top-options-title"><span class="ae-kicker">Options du document</span><strong>Couleur d’accent</strong><small>Elle sera utilisée pour les bordures, repères et éléments mathématiques de la page.</small></div><label class="ae-color-field"><span class="ae-color-swatch" style="background:'+normalizeThemeColor(state.course.theme_color)+'"></span><select id="aeThemeColor" aria-label="Couleur d’accent du document">'+themeColorOptions()+'</select></label></div>'+
       '<div class="ae-workbar"><button class="admin-btn primary" id="aeAddP">＋ Paragraphe</button><button class="admin-btn ghost" id="aeAddPoint">＋ Point de cours</button><button class="admin-btn ghost" id="aeAddEx">＋ Exercice</button><button class="admin-btn ghost" id="aeAddGraph">＋ Graphique JSON</button><button class="admin-btn ghost" id="aeAddWiki">＋ Image Wikimedia</button><button class="admin-btn ghost" id="aeTocJson">Sommaire JSON</button><button class="admin-btn ghost" id="aeSave">Enregistrer le cours</button></div>'+
-      '<div class="ae-sequence-meta"><span>'+contentBlocks().length+' bloc(s) de contenu · 1 début · 1 fin</span><span>Ordre de génération : début → contenu → fin</span></div>'+
+      '<div class="ae-sequence-meta"><span>'+contentBlocks().length+' bloc(s) de contenu · 1 début · 1 fin</span><span id="aeSystemPreviewOverall">Pages système indépendantes : '+systemPreviewOverallFromPages(state.canonicalPreview?.pages||{}).ready+'/3 prêtes · '+systemPreviewOverallFromPages(state.canonicalPreview?.pages||{}).progress+'%</span></div>'+
       '<section class="ae-block-stack">'+(activeBlocks().find(b=>b?.role===START_ROLE)?blockCard(activeBlocks().find(b=>b?.role===START_ROLE),0):'')+tocSystemCard()+(contentBlocks().length?contentBlocks().map((b,i)=>blockCard(b,i+2)).join(''):'<div class="ae-empty"><strong>Le cours est vide.</strong><span>Ajoute un paragraphe pour commencer. La couverture et le sommaire resteront toujours présents.</span></div>')+(activeBlocks().find(b=>b?.role===END_ROLE)?blockCard(activeBlocks().find(b=>b?.role===END_ROLE),activeBlocks().length-1):'')+'</section>'+
       '<footer class="ae-work-footer">Les pages sont produites bloc par bloc. La fusion du document complet reste séparée du travail d’édition.</footer></div><div class="ae-modal-host" id="aeModalHost"></div>';
     bindWorkspace();
@@ -460,219 +460,119 @@
     return JSON.stringify(snapshot);
   }
 
+  function emptySystemPageState(){return {documentId:null,pdfUrl:null,status:'idle',progress:0,stage:'',error:null,updatedAt:null};}
+  function normalizedSystemPages(p){
+    const source=p&&typeof p.pages==='object'?p.pages:{};
+    return {cover:{...emptySystemPageState(),...(source.cover||{})},toc:{...emptySystemPageState(),...(source.toc||{})},end:{...emptySystemPageState(),...(source.end||{})}};
+  }
   function storedCanonicalPreview(){
     const p=state.course?.generation?.system_preview;
     return p&&typeof p==='object'?p:{};
   }
-
+  function systemPageKey(key){return key===START_ROLE?'cover':key===END_ROLE?'end':'toc';}
+  function systemPageLabel(key){return key==='cover'?'Aperçu de la couverture':key==='toc'?'Aperçu du sommaire':'Aperçu de la page finale';}
+  function canonicalPreviewIsFresh(){const fp=canonicalPreviewFingerprint();return Boolean(fp&&state.canonicalPreview?.fingerprint===fp);}
+  function systemPreviewOverallFromPages(pages){
+    const entries=Object.values(pages||{});
+    const progress=entries.length?Math.round(entries.reduce((a,p)=>a+Math.max(0,Math.min(100,Number(p?.progress||0))),0)/entries.length):0;
+    const ready=entries.filter(p=>String(p?.status||'').toLowerCase()==='ready'&&Number(p?.progress||0)>=100).length;
+    const error=entries.some(p=>String(p?.status||'').toLowerCase()==='error');
+    return {progress,ready,status:ready===3?'ready':error?'error':entries.some(p=>['processing','queued'].includes(String(p?.status||'').toLowerCase()))?'processing':'idle',stage:ready===3?'Trois pages système indépendantes prêtes.':ready+'/3 pages système prêtes.'};
+  }
   function syncCanonicalPreviewFromCourse(){
-    const p=storedCanonicalPreview();
-    state.canonicalPreview={
-      fingerprint:String(p.fingerprint||''),
-      documentId:Number(p.documentId||0)||null,
-      pdfUrl:String(p.pdfUrl||'')||null,
-      status:String(p.status||'idle'),
-      progress:Math.max(0,Math.min(100,Number(p.progress||0))),
-      stage:String(p.stage||''),
-      error:String(p.error||'')||null,
-      updatedAt:p.updatedAt||null
-    };
+    const p=storedCanonicalPreview(),pages=normalizedSystemPages(p),overall=systemPreviewOverallFromPages(pages);
+    state.canonicalPreview={fingerprint:String(p.fingerprint||''),pages,status:overall.status,progress:Number(p.progress??overall.progress),stage:String(p.stage||overall.stage||''),error:String(p.error||'')||null,updatedAt:p.updatedAt||null};
     updateCanonicalPreviewUi();
   }
-
-  function canonicalPreviewIsFresh(){
-    const fp=canonicalPreviewFingerprint();
-    const p=state.canonicalPreview;
-    return Boolean(fp&&p?.fingerprint===fp&&p?.documentId);
-  }
-
   function canonicalPreviewProgressMarkup(key,label){
-    const p=state.canonicalPreview||{},fresh=canonicalPreviewIsFresh();
-    const visible=fresh?p:{status:'idle',progress:0,stage:'Aperçu à générer pour cette version du document.',error:null};
-    const status=String(visible.status||'idle').toLowerCase();
-    const pct=Math.max(0,Math.min(100,Number(visible.progress||0)));
-    const stage=visible.error?String(visible.error):(String(visible.stage||'')||'Préparation…');
+    const kind=systemPageKey(key),p=state.canonicalPreview?.pages?.[kind]||emptySystemPageState(),fresh=canonicalPreviewIsFresh();
+    const visible=fresh?p:{...emptySystemPageState(),stage:'Cette version doit être régénérée.'};
+    const status=String(visible.status||'idle').toLowerCase(),pct=Math.max(0,Math.min(100,Number(visible.progress||0)));
     const ready=status==='ready'&&pct>=100;
-    return '<div class="ae-generation-progress ae-canonical-progress" data-canonical-preview="'+esc(key)+'" data-preview-status="'+esc(status)+'">'+
-      '<div class="ae-generation-progress-top"><span data-canonical-preview-stage>'+esc(label)+' · '+esc(stage)+'</span><strong data-canonical-preview-pct>'+Math.round(pct)+'%</strong></div>'+
-      '<div class="ae-progress-track"><span data-canonical-preview-bar style="width:'+Math.max(0,Math.min(100,pct))+'%"></span></div>'+
-      '<small data-canonical-preview-detail>'+esc(ready?'PDF canonique prêt · réutilisable sans nouvelle génération.':(status==='error'?'La dernière génération a échoué.':(status==='processing'?'LuaLaTeX produit actuellement les pages.':status==='queued'?'Demande enregistrée · en attente du moteur LuaLaTeX.':'La prochaine prévisualisation lancera la génération canonique.')))+'</small>'+
-      '</div>';
+    return '<div class="ae-generation-progress ae-canonical-progress" data-canonical-preview="'+esc(kind)+'" data-canonical-preview-kind="'+esc(kind)+'" data-preview-status="'+esc(status)+'"><div class="ae-generation-progress-top"><span data-canonical-preview-stage>'+esc(label)+' · '+esc(visible.stage||'Préparation…')+'</span><strong data-canonical-preview-pct>'+Math.round(pct)+'%</strong></div><div class="ae-progress-track"><span data-canonical-preview-bar style="width:'+pct+'%"></span></div><small data-canonical-preview-detail>'+esc(ready?'PDF de page prêt · fragment indépendant réutilisable.':status==='processing'?'Rendu indépendant en cours.':status==='queued'?'Page système créée · rendu prêt à démarrer.':status==='error'?'La génération de cette page a échoué.':'Prévisualisation indépendante à générer.')+'</small></div>';
   }
-
   function updateCanonicalPreviewUi(){
-    const current=canonicalPreviewIsFresh(),p=current?state.canonicalPreview:{status:'idle',progress:0,stage:'Aperçu à actualiser après modification du document.',error:null};
-    const status=String(p.status||'idle').toLowerCase(),pct=Math.max(0,Math.min(100,Number(p.progress||0)));
+    const fresh=canonicalPreviewIsFresh(),pages=state.canonicalPreview?.pages||normalizedSystemPages({});
     root()?.querySelectorAll('[data-canonical-preview]').forEach(el=>{
-      const label=el.querySelector('[data-canonical-preview-stage]');
-      const bar=el.querySelector('[data-canonical-preview-bar]');
-      const pctEl=el.querySelector('[data-canonical-preview-pct]');
-      const detail=el.querySelector('[data-canonical-preview-detail]');
-      if(bar)bar.style.width=pct+'%';
-      if(pctEl)pctEl.textContent=Math.round(pct)+'%';
-      const detailText=p.error||(
-        status==='ready'&&pct>=100?'PDF canonique prêt · réutilisable sans nouvelle génération.':
-        status==='processing'?'LuaLaTeX produit actuellement les pages.':
-        status==='queued'?'Demande enregistrée · en attente du moteur LuaLaTeX.':
-        status==='idle'?(current?'Prêt pour génération.':'Aperçu à actualiser après modification du document.'):
-        'Génération canonique en cours.'
-      );
-      if(detail)detail.textContent=detailText;
-      if(label){
-        const role=el.closest('[data-canonical-preview-role]')?.dataset.canonicalPreviewRole||'';
-        const base=role==='toc'?'Aperçu du sommaire':role===START_ROLE?'Aperçu automatique de la couverture':role===END_ROLE?'Aperçu automatique de la page finale':'Prévisualisation canonique';
-        label.textContent=base+' · '+String(p.stage||detailText);
-      }
+      const kind=el.dataset.canonicalPreviewKind||'cover',p=fresh?(pages[kind]||emptySystemPageState()):emptySystemPageState();
+      const status=String(p.status||'idle').toLowerCase(),pct=Math.max(0,Math.min(100,Number(p.progress||0)));
+      const label=el.querySelector('[data-canonical-preview-stage]'),bar=el.querySelector('[data-canonical-preview-bar]'),pctEl=el.querySelector('[data-canonical-preview-pct]'),detail=el.querySelector('[data-canonical-preview-detail]');
+      if(bar)bar.style.width=pct+'%';if(pctEl)pctEl.textContent=Math.round(pct)+'%';
+      if(label)label.textContent=systemPageLabel(kind)+' · '+String(p.stage||'Prévisualisation indépendante à générer.');
+      if(detail)detail.textContent=p.error||((status==='ready'&&pct>=100)?'PDF de page prêt · fragment indépendant réutilisable.':status==='processing'?'Rendu indépendant en cours.':status==='queued'?'Page système créée · rendu prêt à démarrer.':fresh?'Prévisualisation indépendante à lancer.':'Cette version du document doit être régénérée.');
       el.dataset.previewStatus=status;
     });
+    const overall=systemPreviewOverallFromPages(pages),head=document.getElementById('aeSystemPreviewOverall');
+    if(head)head.textContent='Pages système indépendantes : '+overall.ready+'/3 prêtes · '+overall.progress+'%';
   }
-
-  function setCanonicalPreviewState(patch,{persist=false}={}){
-    const next={...state.canonicalPreview,...patch};
-    if(next.progress!==undefined)next.progress=Math.max(0,Math.min(100,Number(next.progress||0)));
-    next.updatedAt=new Date().toISOString();
+  function setSystemPageState(kind,patch,{persist=false}={}){
+    const pages=normalizedSystemPages(state.canonicalPreview),nextPage={...pages[kind],...patch,updatedAt:new Date().toISOString()},nextPages={...pages,[kind]:nextPage},overall=systemPreviewOverallFromPages(nextPages);
+    const next={...state.canonicalPreview,pages:nextPages,status:overall.status,progress:overall.progress,stage:overall.stage,error:nextPage.error||state.canonicalPreview.error||null,updatedAt:new Date().toISOString()};
     state.canonicalPreview=next;
-    if(state.course){
-      state.course.generation={...(state.course.generation||{}),system_preview:{...next}};
-    }
+    if(state.course)state.course.generation={...(state.course.generation||{}),system_preview:{...next}};
     updateCanonicalPreviewUi();
     if(persist)void persistCourse(true,false);
   }
-
-  async function canonicalPreviewStatus(documentId){
+  async function independentSystemPageStatus(documentId){
     const token=(typeof session!=='undefined'&&session?.access_token)||await freshToken();
-    const r=await fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-page-v2',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':SUPABASE_ANON_KEY},
-      body:JSON.stringify({mode:'canonical-document-preview-status',course_id:state.course.id,generated_document_id:documentId})
-    });
-    const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}};
-    if(!r.ok||!d.ok)throw new Error(d.error||('Statut aperçu HTTP '+r.status));
-    return d;
+    const r=await fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-system-page',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':SUPABASE_ANON_KEY},body:JSON.stringify({mode:'status',generated_document_id:Number(documentId)})});
+    const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}};if(!r.ok||!d.ok)throw new Error(d.error||('Statut page système HTTP '+r.status));return d;
   }
-
-  async function wakeCanonicalPreviewQueue(documentId,token){
-    const r=await fetch(SUPABASE_URL+'/functions/v1/aurora-pdf-production-request',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':SUPABASE_ANON_KEY},
-      body:JSON.stringify({generated_document_id:Number(documentId)})
-    });
-    const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}};
-    if(!r.ok||!d.ok)throw new Error(d.error||('Réveil de la file LuaLaTeX HTTP '+r.status));
-    return d;
-  }
-
-  async function requestCanonicalDocumentPreview(force=false){
-    const fingerprint=canonicalPreviewFingerprint();
-    if(!force&&state.canonicalPreview.fingerprint===fingerprint&&state.canonicalPreview.documentId){
-      const known=await canonicalPreviewStatus(state.canonicalPreview.documentId);
-      const st=String(known.lualatex_status||'').toLowerCase();
-      const existingId=Number(state.canonicalPreview.documentId);
-      if(known.pdf_url){
-        setCanonicalPreviewState({
-          fingerprint,
-          documentId:existingId,
-          pdfUrl:known.pdf_url,
-          status:'ready',
-          progress:100,
-          stage:'PDF canonique prêt',
-          error:null
-        });
-        return known;
-      }
-      if(['queued','processing'].includes(st)){
-        const token=(typeof session!=='undefined'&&session?.access_token)||await freshToken();
-        const wake=await wakeCanonicalPreviewQueue(existingId,token);
-        const wakePosition=Number(wake.queue_position||0);
-        const wakeTotal=Number(wake.queue_total||0);
-        setCanonicalPreviewState({
-          fingerprint,
-          documentId:existingId,
-          pdfUrl:known.pdf_url||state.canonicalPreview.pdfUrl||null,
-          status:String(wake.lualatex_status||st||'queued').toLowerCase(),
-          progress:Number(wake.lualatex_progress??known.lualatex_progress??0),
-          stage:wakePosition>0
-            ?'File LuaLaTeX · position '+wakePosition+(wakeTotal>0?'/'+wakeTotal:'')
-            :String(wake.lualatex_stage||known.lualatex_stage||'En attente de la production PDF'),
-          error:wake.error||known.error||null
-        });
-        return {...known,...wake};
+  async function requestIndependentSystemPage(kind,{force=false}={}){
+    ensureDocumentPages(state.course);
+    const fp=canonicalPreviewFingerprint(),current=state.canonicalPreview?.pages?.[kind]||emptySystemPageState();
+    if(!force&&canonicalPreviewIsFresh()&&current.documentId){
+      const existing=String(current.status||'').toLowerCase();
+      if(existing==='ready'&&current.pdfUrl)return current;
+      if(['queued','processing'].includes(existing)){
+        const started=Date.now();
+        while(Date.now()-started<90000){
+          const st=await independentSystemPageStatus(current.documentId);
+          setSystemPageState(kind,{status:String(st.status||'processing').toLowerCase(),progress:Number(st.progress||0),stage:String(st.stage||'Rendu indépendant'),pdfUrl:st.pdf_url||current.pdfUrl||null,error:st.error||null});
+          if(st.pdf_url||String(st.status||'').toLowerCase()==='completed'){setSystemPageState(kind,{status:'ready',progress:100,stage:'PDF de page prêt',pdfUrl:st.pdf_url||current.pdfUrl||null,error:null},{persist:true});return st;}
+          if(String(st.status||'').toLowerCase()==='failed')throw new Error(st.error||'Génération de page système échouée.');
+          await new Promise(resolve=>setTimeout(resolve,700));
+        }
+        throw new Error('Le rendu indépendant de la page n’a pas terminé dans le délai prévu.');
       }
     }
     const token=(typeof session!=='undefined'&&session?.access_token)||await freshToken();
-    const snapshot=clone(state.course);
-    ensureCourseStructure(snapshot);syncSystemPages(snapshot);
-    const r=await fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-page-v2',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':SUPABASE_ANON_KEY},
-      body:JSON.stringify({
-        mode:'canonical-document-preview',
-        course_id:state.course.id,
-        theme_color:normalizeThemeColor(state.course.theme_color),
-        course_snapshot:snapshot
-      })
-    });
-    const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}};
-    if(!r.ok||!d.ok)throw new Error(d.error||('Aperçu canonique HTTP '+r.status));
-    setCanonicalPreviewState({
-      fingerprint,
-      documentId:Number(d.generated_document_id),
-      pdfUrl:null,
-      status:'queued',
-      progress:0,
-      stage:'En attente de la production PDF',
-      error:null
-    },{persist:true});
-    return d;
-  }
-
-  async function getCanonicalPreviewPdf({force=false}={}){
-    let d=await requestCanonicalDocumentPreview(force);
-    if(d.pdf_url){
-      setCanonicalPreviewState({status:'ready',progress:100,stage:'PDF canonique prêt',pdfUrl:d.pdf_url,error:null},{persist:true});
-      return d;
-    }
-    const started=Date.now(),timeout=5*60*1000;
-    while(Date.now()-started<timeout){
-      await new Promise(resolve=>setTimeout(resolve,1800));
-      d=await canonicalPreviewStatus(state.canonicalPreview.documentId);
-      const status=String(d.lualatex_status||'queued').toLowerCase();
-      const progress=status==='completed'&&d.pdf_url?100:Math.max(0,Math.min(99,Number(d.lualatex_progress||0)));
-      setCanonicalPreviewState({status:status==='completed'?'ready':status,progress,stage:String(d.lualatex_stage||'Production LuaLaTeX'),pdfUrl:d.pdf_url||state.canonicalPreview.pdfUrl||null,error:d.error||null});
-      if(d.pdf_url){
-        setCanonicalPreviewState({status:'ready',progress:100,stage:'PDF canonique prêt',pdfUrl:d.pdf_url,error:null},{persist:true});
-        return d;
+    const b=kind==='cover'?activeBlocks().find(x=>x?.role===START_ROLE):kind==='end'?activeBlocks().find(x=>x?.role===END_ROLE):null;
+    const pageData=kind==='toc'?tocPayload():clone(kind==='cover'?state.course.document_pages.cover:state.course.document_pages.end);
+    if(kind==='end')pageData.page_number=pageNumberFor(b);
+    setSystemPageState(kind,{status:'processing',progress:5,stage:'Création du fragment indépendant',error:null},{persist:true});
+    const create=await fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-system-page',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':SUPABASE_ANON_KEY},body:JSON.stringify({mode:'create',course_id:state.course.id,page_kind:kind,title:state.course.title,theme_color:normalizeThemeColor(state.course.theme_color),page_data:pageData})});
+    const ct=await create.text();let cd={};try{cd=ct?JSON.parse(ct):{}}catch(_){cd={error:ct}};if(!create.ok||!cd.ok)throw new Error(cd.error||('Création page système HTTP '+create.status));
+    const documentId=Number(cd.generated_document_id||0);if(!documentId)throw new Error('Identifiant de page système absent.');
+    setSystemPageState(kind,{documentId,status:'processing',progress:8,stage:'Fragment créé · rendu indépendant en cours'},{persist:true});
+    const renderPromise=(async()=>{
+      const r=await fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-system-page',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':SUPABASE_ANON_KEY},body:JSON.stringify({mode:'render',generated_document_id:documentId,theme_color:normalizeThemeColor(state.course.theme_color)})});
+      const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}};if(!r.ok||!d.ok)throw new Error(d.error||('Rendu page système HTTP '+r.status));return d;
+    })();
+    const started=Date.now();
+    while(Date.now()-started<90000){
+      try{
+        const st=await independentSystemPageStatus(documentId);
+        setSystemPageState(kind,{status:String(st.status||'processing').toLowerCase(),progress:Number(st.progress||0),stage:String(st.stage||'Rendu indépendant'),pdfUrl:st.pdf_url||null,error:st.error||null});
+        if(st.pdf_url||String(st.status||'').toLowerCase()==='completed'){setSystemPageState(kind,{status:'ready',progress:100,stage:'PDF de page prêt',pdfUrl:st.pdf_url||null,error:null},{persist:true});await renderPromise.catch(()=>{});return st;}
+        if(String(st.status||'').toLowerCase()==='failed'){await renderPromise.catch(()=>{});throw new Error(st.error||'Génération de page système échouée.');}
+      }catch(e){
+        if(Date.now()-started>5000){await renderPromise.catch(()=>{});throw e;}
       }
-      if(['failed','cancelled'].includes(status)){
-        const msg=d.error||'Le rendu canonique a échoué.';
-        setCanonicalPreviewState({status:'error',progress:0,stage:'Échec de génération',error:msg},{persist:true});
-        throw new Error(msg);
-      }
-      setStatus('Aperçu canonique LuaLaTeX : '+Math.round(progress)+'% — '+String(d.lualatex_stage||'préparation'));
+      await new Promise(resolve=>setTimeout(resolve,700));
     }
-    const msg='Le rendu canonique de l’aperçu n’a pas terminé dans le délai prévu.';
-    setCanonicalPreviewState({status:'error',progress:0,stage:'Délai dépassé',error:msg},{persist:true});
-    throw new Error(msg);
+    await renderPromise;
+    throw new Error('Le rendu indépendant de la page n’a pas terminé dans le délai prévu.');
   }
-
   async function prepareSystemPreview({force=false}={}){
     ensureCourseStructure(state.course);
-    const title=String(state.course?.title||'').trim();
-    if(!title){setStatus('Le titre du document est obligatoire.');return null;}
-    const fp=canonicalPreviewFingerprint(),p=storedCanonicalPreview();
-    if(!force&&p.fingerprint===fp&&p.documentId&&['queued','processing','ready'].includes(String(p.status||'').toLowerCase())){
-      syncCanonicalPreviewFromCourse();
-    }else{
-      setCanonicalPreviewState({fingerprint:fp,documentId:null,pdfUrl:null,status:'queued',progress:0,stage:'Initialisation de l’aperçu canonique',error:null},{persist:true});
-    }
-    try{
-      const d=await getCanonicalPreviewPdf({force});
-      setStatus('Pages système générées · couverture, sommaire et page finale disponibles.');
-      return d;
-    }catch(e){
-      setStatus('Échec de génération des pages système : '+String(e?.message||e));
-      return null;
-    }
+    const title=String(state.course?.title||'').trim();if(!title){setStatus('Le titre du document est obligatoire.');return null;}
+    const fp=canonicalPreviewFingerprint(),base={fingerprint:fp,pages:normalizedSystemPages({}),status:'processing',progress:0,stage:'Préparation de 3 pages indépendantes',error:null,updatedAt:new Date().toISOString()};
+    if(force||!canonicalPreviewIsFresh()){state.canonicalPreview=base;if(state.course)state.course.generation={...(state.course.generation||{}),system_preview:{...base}};updateCanonicalPreviewUi();await persistCourse(true,false);}
+    const kinds=['cover','toc','end'];
+    const results=await Promise.all(kinds.map(kind=>requestIndependentSystemPage(kind,{force})));
+    setStatus('Pages système générées indépendamment · couverture, sommaire et page finale disponibles.');
+    return {pages:results};
   }
 
   function loadPdfJsForAssistedPreview(){
@@ -752,26 +652,24 @@
     const b=activeBlocks().find(x=>x.id===id);if(!b)return;
 
     if(isSystemBlock(b)){
-      const startPage=b.role===START_ROLE;
-      const previewPage=startPage?1:0;
-      const canvasId='aeCanonicalPreview_'+String(id).replace(/[^a-zA-Z0-9_-]/g,'_'),loadingId=canvasId+'_loading';
-      const title=startPage?'Prévisualisation exacte de la couverture':'Prévisualisation exacte de la dernière page';
-      const pageNumber=previewPage===0?'dernière':String(previewPage);
-      const body='<div class="ae-page-preview"><div class="ae-page-preview-meta"><strong>'+esc(startPage?'Première page · Couverture':'Dernière page · Clôture')+'</strong><span id="'+canvasId+'_meta">PDF réel · renderer canonique Aurore · page '+pageNumber+'</span></div>'+canonicalPreviewProgressMarkup('modal-'+id,startPage?'Génération de la couverture':'Génération de la page finale')+'<div class="ae-page-preview-canvas-wrap"><div id="'+loadingId+'" class="ae-preview-loading">Construction de l’aperçu canonique…</div><canvas id="'+canvasId+'" class="ae-page-preview-canvas" aria-label="Prévisualisation exacte de la '+(startPage?'première':'dernière')+' page"></canvas></div><div class="ae-page-preview-actions"><button class="admin-btn primary" id="aeCloseCanonicalPreview">Fermer</button></div></div>';
+      const kind=systemPageKey(b.role),canvasId='aeSystemPreview_'+kind+'_'+String(b.id).replace(/[^a-zA-Z0-9_-]/g,'_'),loadingId=canvasId+'_loading';
+      const title=systemPageLabel(kind);
+      const body='<div class="ae-page-preview"><div class="ae-page-preview-meta"><strong>'+esc(title)+'</strong><span>PDF indépendant · renderer rapide Aurore · fragment d’une seule page</span></div>'+canonicalPreviewProgressMarkup(kind,title)+'<div class="ae-page-preview-canvas-wrap"><div id="'+loadingId+'" class="ae-preview-loading">Préparation de la page indépendante…</div><canvas id="'+canvasId+'" class="ae-page-preview-canvas" aria-label="'+esc(title)+'"></canvas></div><div class="ae-page-preview-actions"><button class="admin-btn primary" id="aeCloseCanonicalPreview">Fermer</button></div></div>';
       openBlockModal(title,body);
       document.getElementById('aeCloseCanonicalPreview')?.addEventListener('click',()=>document.getElementById('aeModalHost').innerHTML='');
-      setStatus('Construction de l’aperçu canonique…');
+      setStatus('Génération indépendante de la page système…');
       try{
-        const preview=await getCanonicalPreviewPdf();
+        const result=await requestIndependentSystemPage(kind,{force:false});
+        const url=result?.pdf_url||result?.pdfUrl||state.canonicalPreview?.pages?.[kind]?.pdfUrl;
+        if(!url)throw new Error('PDF de page indépendante indisponible.');
         if(!document.getElementById(canvasId))return;
         const actions=document.querySelector('#aeModalHost .ae-page-preview-actions');
-        if(actions)actions.insertAdjacentHTML('beforeend','<a class="admin-btn ghost" href="'+esc(preview.pdf_url)+'" target="_blank" rel="noopener">Ouvrir le PDF</a>');
-        await renderAssistedPdfPreview(preview.pdf_url,canvasId,loadingId,previewPage);
-        setStatus('Prévisualisation canonique prête.');
+        if(actions)actions.insertAdjacentHTML('beforeend','<a class="admin-btn ghost" href="'+esc(url)+'" target="_blank" rel="noopener">Ouvrir le PDF</a>');
+        await renderAssistedPdfPreview(url,canvasId,loadingId,1);
+        setStatus('Prévisualisation indépendante prête.');
       }catch(e){
-        const host=document.getElementById('aeModalHost');
-        if(host)host.querySelector('.ae-page-preview-canvas-wrap').innerHTML='<div class="ae-preview-render-error"><strong>Aperçu canonique indisponible</strong><span>'+esc(String(e?.message||e))+'</span></div>';
-        setStatus('Aperçu canonique indisponible.');
+        const host=document.getElementById('aeModalHost');if(host){const box=host.querySelector('.ae-page-preview-canvas-wrap');if(box)box.innerHTML='<div class="ae-preview-render-error"><strong>Aperçu indépendant indisponible</strong><span>'+esc(String(e?.message||e))+'</span></div>';}
+        setStatus('Aperçu indépendant indisponible.');
       }
       return;
     }
@@ -801,22 +699,23 @@
 
   async function previewToc(){
     ensureDocumentPages(state.course);rebuildTocEntries();
-    const canvasId='aeCanonicalTocPreview',loadingId=canvasId+'_loading';
-    const body='<div class="ae-page-preview"><div class="ae-page-preview-meta"><strong>Page 2 · Sommaire</strong><span>PDF réel · renderer canonique Aurore · page 2</span></div>'+canonicalPreviewProgressMarkup('modal-toc','Génération du sommaire')+'<div class="ae-page-preview-canvas-wrap"><div id="'+loadingId+'" class="ae-preview-loading">Construction de l’aperçu canonique…</div><canvas id="'+canvasId+'" class="ae-page-preview-canvas" aria-label="Prévisualisation exacte du sommaire"></canvas></div><div class="ae-page-preview-actions"><button class="admin-btn primary" id="aeCloseCanonicalTocPreview">Fermer</button></div></div>';
+    const canvasId='aeIndependentTocPreview',loadingId=canvasId+'_loading';
+    const body='<div class="ae-page-preview"><div class="ae-page-preview-meta"><strong>Page 2 · Sommaire</strong><span>PDF indépendant · renderer rapide Aurore · fragment d’une seule page</span></div>'+canonicalPreviewProgressMarkup('toc','Génération du sommaire')+'<div class="ae-page-preview-canvas-wrap"><div id="'+loadingId+'" class="ae-preview-loading">Préparation du sommaire indépendant…</div><canvas id="'+canvasId+'" class="ae-page-preview-canvas" aria-label="Prévisualisation exacte du sommaire"></canvas></div><div class="ae-page-preview-actions"><button class="admin-btn primary" id="aeCloseCanonicalTocPreview">Fermer</button></div></div>';
     openBlockModal('Prévisualisation exacte du sommaire',body);
     document.getElementById('aeCloseCanonicalTocPreview')?.addEventListener('click',()=>document.getElementById('aeModalHost').innerHTML='');
-    setStatus('Construction de l’aperçu canonique du sommaire…');
+    setStatus('Génération indépendante du sommaire…');
     try{
-      const preview=await getCanonicalPreviewPdf();
+      const result=await requestIndependentSystemPage('toc',{force:false});
+      const url=result?.pdf_url||result?.pdfUrl||state.canonicalPreview?.pages?.toc?.pdfUrl;
+      if(!url)throw new Error('PDF du sommaire indépendant indisponible.');
       if(!document.getElementById(canvasId))return;
       const actions=document.querySelector('#aeModalHost .ae-page-preview-actions');
-      if(actions)actions.insertAdjacentHTML('beforeend','<a class="admin-btn ghost" href="'+esc(preview.pdf_url)+'" target="_blank" rel="noopener">Ouvrir le PDF</a>');
-      await renderAssistedPdfPreview(preview.pdf_url,canvasId,loadingId,2);
-      setStatus('Sommaire canonique prêt.');
+      if(actions)actions.insertAdjacentHTML('beforeend','<a class="admin-btn ghost" href="'+esc(url)+'" target="_blank" rel="noopener">Ouvrir le PDF</a>');
+      await renderAssistedPdfPreview(url,canvasId,loadingId,1);
+      setStatus('Sommaire indépendant prêt.');
     }catch(e){
-      const host=document.getElementById('aeModalHost');
-      if(host)host.querySelector('.ae-page-preview-canvas-wrap').innerHTML='<div class="ae-preview-render-error"><strong>Aperçu canonique indisponible</strong><span>'+esc(String(e?.message||e))+'</span></div>';
-      setStatus('Aperçu canonique indisponible.');
+      const host=document.getElementById('aeModalHost');if(host){const box=host.querySelector('.ae-page-preview-canvas-wrap');if(box)box.innerHTML='<div class="ae-preview-render-error"><strong>Sommaire indisponible</strong><span>'+esc(String(e?.message||e))+'</span></div>';}
+      setStatus('Sommaire indépendant indisponible.');
     }
   }
 
