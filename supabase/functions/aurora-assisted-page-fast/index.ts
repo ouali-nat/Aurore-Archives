@@ -448,7 +448,7 @@ function drawInlineLines(page:any,lines:any[],x:number,topY:number,width:number,
 
 function drawSoftDecor(page:any,color:string){
   const W=595,H=842;
-  page.drawRectangle({x:0,y:0,width:W,height:H,color:rgbHex(mixWhite(color,0.985))});
+  page.drawRectangle({x:0,y:0,width:W,height:H,color:rgbHex(mixWhite(color,0.96))});
   page.drawCircle({x:606,y:832,size:72,color:rgbHex(mixWhite(color,0.76))});
   page.drawCircle({x:-10,y:770,size:44,color:rgbHex(mixWhite(color,0.86))});
   page.drawCircle({x:598,y:565,size:28,color:rgbHex(mixWhite(color,0.90))});
@@ -464,6 +464,11 @@ function headerFooter(page:any,pageNo:number,fonts:any,logo:any,color:string){
     page.drawImage(logo,{x:39,y:805,width:logo.width*scale,height:logo.height*scale});
   }
   page.drawText("Section Archives",{x:466,y:807,font:fonts.sans,size:9.6,color:rgbHex(mixWhite(color,0.25))});
+  // Editorial visual spine used by the main Aurore/GPT PDF circuit.
+  const spine=rgbHex(mixWhite(color,0.28));
+  page.drawLine({start:{x:24,y:790},end:{x:24,y:55},thickness:1.25,color:spine});
+  page.drawCircle({x:24,y:790,size:2.5,color:rgbHex(mixWhite(color,0.12))});
+  page.drawCircle({x:24,y:55,size:2.5,color:rgbHex(mixWhite(color,0.12))});
   page.drawLine({start:{x:39,y:795},end:{x:556,y:795},thickness:.55,color:rgbHex(mixWhite(color,0.72))});
   page.drawText("Aurore — Section Archives • "+pageNo,{x:225,y:27,font:fonts.sans,size:9.5,color:rgbHex("#777985")});
 }
@@ -562,11 +567,60 @@ Deno.serve(async req=>{
         const accent=normalizeHexColor(text.color)||color;
         const rank=Math.max(1,Number(text.rank)||1);
         const label=(rank+". "+title).trim();
-        ensureSpace(31);
-        page.drawText(label,{x:X,y:y-15,font:fonts.bold,size:11,color:rgbHex(accent)});
-        page.drawRectangle({x:X,y:y-22,width:W,height:2.2,color:rgbHex(accent)});
-        y-=31;
-        if(body)await drawContentBlock(body);
+        const pointItems:any[]=[];
+        for(const para of proseText(body)){
+          const prepared=await prepareRuns(mergePlainAndExplicit(para),auth,pdf,fonts,qa,cache);
+          let inlineChunk:Run[]=[];
+          const flush=()=>{
+            if(!inlineChunk.length)return;
+            const lines=layoutInline(inlineChunk,fonts.regular,TEXT_SIZE,BOX_W-36);
+            if(lines.length)pointItems.push({kind:"inline",lines});
+            inlineChunk=[];
+          };
+          for(const run of prepared){if(run.kind==="display"){flush();pointItems.push({kind:"display",run,metrics:displayMathMetrics(run,W-24)});}else inlineChunk.push(run);}
+          flush();
+        }
+        if(!pointItems.length)pointItems.push({kind:"inline",lines:[]});
+        let cursor=0;
+        while(cursor<pointItems.length){
+          const remainingPage=Math.max(0,y-bottom);
+          const availableContent=Math.max(0,remainingPage-44-BOX_PAD_TOP-BOX_PAD_BOTTOM);
+          const fragment:any[]=[];let used=0;const gap=7;
+          const addPointItem=(item:any)=>{
+            const h=item.kind==="inline"?item.lines.reduce((n:number,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0):item.metrics.cardH;
+            const g=fragment.length?gap:0;if(used+g+h>availableContent)return false;
+            fragment.push(item);used+=g+h;return true;
+          };
+          const first=pointItems[cursor];
+          if(first?.kind==="inline"&&first.lines.length){
+            const fit:number[]=[];let lineUsed=0;
+            for(let li=0;li<first.lines.length;li++){
+              const lh=inlineLineAdvance(first.lines[li],TEXT_SIZE,LINE_HEIGHT);
+              if(lineUsed+lh<=availableContent){fit.push(li);lineUsed+=lh;}else break;
+            }
+            if(fit.length<first.lines.length){
+              if(fit.length>0){fragment.push({kind:"inline",lines:first.lines.slice(0,fit.length)});used=lineUsed;pointItems[cursor]={...first,lines:first.lines.slice(fit.length)};}
+            }else if(addPointItem(first)){cursor++;}
+          }else if(first&&addPointItem(first)){cursor++;}
+          if(fragment.length===0){newFlowPage();continue;}
+          const boxH=Math.max(54,BOX_PAD_TOP+30+6+used+BOX_PAD_BOTTOM);
+          const darkFill=rgbHex("#24222C"),darkText=rgbHex("#F5F2FA");
+          rounded(page,BOX_X,y-boxH,BOX_W,boxH,10,darkFill,rgbHex(accent),0.65);
+          page.drawText(escapePdfText(label),{x:BOX_X+13,y:y-16,font:fonts.sansBold,size:9.4,color:rgbHex(accent)});
+          page.drawLine({start:{x:BOX_X+13,y:y-25},end:{x:BOX_X+BOX_W-13,y:y-25},thickness:1.35,color:rgbHex(accent)});
+          let childY=y-35;
+          for(const item of fragment){
+            if(item.kind==="inline"){
+              drawInlineLines(page,item.lines,BOX_X+13,childY,BOX_W-26,fonts.regular,accent,darkText,TEXT_SIZE,LINE_HEIGHT);
+              childY-=item.lines.reduce((n:any,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0)+gap;
+            }else{
+              drawDisplayMath(page,item.run,X,childY,W-24,color);
+              childY-=item.metrics.cardH+gap;
+            }
+          }
+          y-=boxH+BLOCK_GAP;
+          if(cursor<pointItems.length&&y-bottom<LINE_HEIGHT+BOX_PAD_TOP+BOX_PAD_BOTTOM)newFlowPage();
+        }
         return;
       }
       const paragraphs=proseText(String(text||""));
