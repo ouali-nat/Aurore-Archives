@@ -1,7 +1,7 @@
 /* Aurore — Édition assistée : atelier séquentiel, sans canevas de prévisualisation */
 (function(){
   'use strict';
-  const state={mode:'list',course:null,courses:[],selected:null,loading:false,canonicalPreview:{fingerprint:'',documentId:null,pdfUrl:null}};
+  const state={mode:'list',course:null,courses:[],selected:null,loading:false,pdfLibPromise:null,canonicalPreview:{fingerprint:'',documentId:null,pdfUrl:null}};
   const PREVIEW_CACHE_MAX=6;
   const previewPdfCache=new Map();
   function cachedPreviewBuffer(url){const hit=previewPdfCache.get(url);if(!hit)return null;previewPdfCache.delete(url);previewPdfCache.set(url,hit);return hit;}
@@ -199,6 +199,72 @@
   function activeBlocks(){return Array.isArray(state.course?.blocks)?state.course.blocks:[]}
   function pageNumberFor(b){const blocks=activeBlocks();if(b?.role===START_ROLE)return 1;if(b?.role===END_ROLE)return blocks.length+1;const i=blocks.findIndex(x=>x.id===b.id);return i<0?null:i+2}
   function setStatus(t){const e=document.getElementById('assistedStatus');if(e)e.textContent=t}
+  function downloadablePdfParts(){
+    const parts=[],seen=new Set();
+    const add=(url,label,key)=>{
+      const u=String(url||'').trim();if(!u)return;
+      const k=String(key||u).trim();if(seen.has(k))return;
+      seen.add(k);parts.push({url:u,label});
+    };
+    const pages=state.canonicalPreview?.pages||{};
+    if(String(pages.cover?.status||'').toLowerCase()==='ready')add(pages.cover.pdfUrl,'Couverture','cover');
+    if(String(pages.toc?.status||'').toLowerCase()==='ready')add(pages.toc.pdfUrl,'Sommaire','toc');
+    for(const b of contentBlocks()){
+      const g=b?.generation||{};
+      if(String(g.status||'').toLowerCase()!=='ready'||!g.page_url)continue;
+      add(g.page_url,'Page '+String(g.page_number||pageNumberFor(b)),g.flow_page_owner_id||g.page_url);
+    }
+    if(String(pages.end?.status||'').toLowerCase()==='ready')add(pages.end.pdfUrl,'Fin du document','end');
+    return parts;
+  }
+  function refreshDownloadButton(){
+    const btn=document.getElementById('aeDownloadPdfCurrent');if(!btn)return;
+    const parts=downloadablePdfParts();
+    btn.disabled=!parts.length;
+    btn.textContent=parts.length?'Télécharger le PDF actuel ('+parts.length+' p.)':'Télécharger le PDF actuel';
+    btn.title=parts.length?'Télécharger les pages déjà prêtes, dans leur ordre actuel.':'Aucune page PDF prête pour le moment.';
+  }
+  async function loadPdfLib(){
+    if(globalThis.PDFLib?.PDFDocument)return globalThis.PDFLib;
+    if(state.pdfLibPromise)return state.pdfLibPromise;
+    state.pdfLibPromise=new Promise((resolve,reject)=>{
+      const s=document.createElement('script');
+      s.src='https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
+      s.async=true;
+      s.onload=()=>globalThis.PDFLib?.PDFDocument?resolve(globalThis.PDFLib):reject(new Error('Bibliothèque PDF indisponible.'));
+      s.onerror=()=>reject(new Error('Chargement de la bibliothèque PDF impossible.'));
+      document.head.appendChild(s);
+    });
+    return state.pdfLibPromise;
+  }
+  async function downloadCurrentPdf(){
+    const parts=downloadablePdfParts();
+    if(!parts.length){setStatus('Aucune page PDF n’est encore prête.');refreshDownloadButton();return;}
+    try{
+      setStatus('Assemblage du PDF actuel…');
+      const {PDFDocument}=await loadPdfLib();
+      const merged=await PDFDocument.create();
+      for(let i=0;i<parts.length;i++){
+        const p=parts[i];
+        setStatus('Assemblage : '+p.label+' ('+(i+1)+'/'+parts.length+')…');
+        const response=await fetch(p.url,{cache:'no-store'});
+        if(!response.ok)throw new Error('Impossible de récupérer '+p.label+' (HTTP '+response.status+').');
+        const source=await PDFDocument.load(await response.arrayBuffer());
+        const copied=await merged.copyPages(source,source.getPageIndices());
+        copied.forEach(page=>merged.addPage(page));
+      }
+      const bytes=await merged.save();
+      const blob=new Blob([bytes],{type:'application/pdf'});
+      const url=URL.createObjectURL(blob),a=document.createElement('a');
+      const safeTitle=String(state.course?.title||'aurore-cours').trim().replace(/[^\p{L}\p{N}_-]+/gu,'-')||'aurore-cours';
+      a.href=url;a.download=safeTitle+'-etat-actuel.pdf';
+      document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),1500);
+      setStatus('PDF actuel téléchargé · '+parts.length+' élément(s) prêt(s).');
+    }catch(e){
+      setStatus('Échec du téléchargement : '+String(e?.message||e));
+    }
+  }
 
   async function loadCourses(){
     const c=client();
@@ -431,10 +497,10 @@
     ensureCourseStructure(state.course);
     r.innerHTML='<div class="ae-shell ae-workspace"><header class="ae-head"><div><button class="admin-btn ghost" id="aeBack">← Mes cours</button><span class="ae-kicker">Atelier de production séquentielle</span><h3><input id="aeCourseTitle" value="'+esc(state.course.title)+'"></h3><p>Le bloc de début, le sommaire et le bloc de fin sont automatiques. Chaque bloc central génère uniquement son propre fragment PDF indépendant.</p></div><span class="ae-status" id="assistedStatus">'+(state.course.validation?.ok?'Structure valide':'À compléter')+'</span></header>'+
       '<div class="ae-top-options"><div class="ae-top-options-title"><span class="ae-kicker">Options du document</span><strong>Couleur d’accent</strong><small>Elle sera utilisée pour les bordures, repères et éléments mathématiques de la page.</small></div><label class="ae-color-field"><span class="ae-color-swatch" style="background:'+normalizeThemeColor(state.course.theme_color)+'"></span><select id="aeThemeColor" aria-label="Couleur d’accent du document">'+themeColorOptions()+'</select></label></div>'+
-      '<div class="ae-workbar"><button class="admin-btn primary" id="aeAddP">＋ Paragraphe</button><button class="admin-btn ghost" id="aeAddPoint">＋ Point de cours</button><button class="admin-btn ghost" id="aeAddEx">＋ Exercice</button><button class="admin-btn ghost" id="aeAddGraph">＋ Graphique JSON</button><button class="admin-btn ghost" id="aeAddWiki">＋ Image Wikimedia</button><button class="admin-btn ghost" id="aeTocJson">Sommaire JSON</button><button class="admin-btn ghost" id="aeSave">Enregistrer le cours</button></div>'+
+      '<div class="ae-workbar"><button class="admin-btn primary" id="aeAddP">＋ Paragraphe</button><button class="admin-btn ghost" id="aeAddPoint">＋ Point de cours</button><button class="admin-btn ghost" id="aeAddEx">＋ Exercice</button><button class="admin-btn ghost" id="aeAddGraph">＋ Graphique JSON</button><button class="admin-btn ghost" id="aeAddWiki">＋ Image Wikimedia</button><button class="admin-btn ghost" id="aeTocJson">Sommaire JSON</button><button class="admin-btn ghost" id="aeSave">Enregistrer le cours</button><button class="admin-btn primary" id="aeDownloadPdfCurrent" disabled>Télécharger le PDF actuel</button></div>'+
       '<div class="ae-sequence-meta"><span>'+contentBlocks().length+' bloc(s) de contenu · 1 début · 1 fin</span><span id="aeSystemPreviewOverall">Pages système indépendantes : '+systemPreviewOverallFromPages(state.canonicalPreview?.pages||{}).ready+'/3 prêtes · '+systemPreviewOverallFromPages(state.canonicalPreview?.pages||{}).progress+'%</span></div>'+
       '<section class="ae-block-stack">'+(activeBlocks().find(b=>b?.role===START_ROLE)?blockCard(activeBlocks().find(b=>b?.role===START_ROLE),0):'')+tocSystemCard()+(contentBlocks().length?contentBlocks().map((b,i)=>blockCard(b,i+2)).join(''):'<div class="ae-empty"><strong>Le cours est vide.</strong><span>Ajoute un paragraphe pour commencer. La couverture et le sommaire resteront toujours présents.</span></div>')+(activeBlocks().find(b=>b?.role===END_ROLE)?blockCard(activeBlocks().find(b=>b?.role===END_ROLE),activeBlocks().length-1):'')+'</section>'+
-      '<footer class="ae-work-footer">Les pages sont produites bloc par bloc. La fusion du document complet reste séparée du travail d’édition.</footer></div><div class="ae-modal-host" id="aeModalHost"></div>';
+      '<footer class="ae-work-footer">Les pages PDF déjà prêtes peuvent être téléchargées à tout moment. Le téléchargement peut rester partiel pendant la progression.</footer></div><div class="ae-modal-host" id="aeModalHost"></div>';
     bindWorkspace();
   }
 
@@ -489,6 +555,9 @@
     document.getElementById('aeClearToc')?.addEventListener('click',clearTocContent);
     document.getElementById('aeTocJsonInline').onclick=()=>jsonTocDialog();
     document.getElementById('aeSave').onclick=()=>persistCourse(false,true);
+    const downloadBtn=document.getElementById('aeDownloadPdfCurrent');
+    if(downloadBtn)downloadBtn.onclick=()=>downloadCurrentPdf();
+    refreshDownloadButton();
     root().querySelectorAll('[data-edit-point-title]').forEach(el=>el.oninput=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editPointTitle);if(b){b.content.title=el.value;validateCourse();}});
     root().querySelectorAll('[data-edit-point-rank]').forEach(el=>el.onchange=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editPointRank);if(b){b.content.rank=Math.max(1,parseInt(el.value||'1',10));reorderPointBlocks(state.course);validateCourse();renderWorkspace();setStatus(isDefaultIntroduction(b)?'L’Introduction reste toujours au début du cours.':'Position du point mise à jour selon son rang.');}});
     root().querySelectorAll('[data-edit-point-color]').forEach(el=>el.onchange=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editPointColor);if(b){b.content.color=normalizePointColor(el.value);renderWorkspace();}});
@@ -666,7 +735,8 @@
   }
   function updateCanonicalPreviewUi(){
     const fresh=canonicalPreviewIsFresh(),pages=state.canonicalPreview?.pages||normalizedSystemPages({});
-    root()?.querySelectorAll('[data-canonical-preview]').forEach(el=>{
+    refreshDownloadButton();
+    root()?.querySelectorAll('[data-canonical-preview]').forEach(el)=>{
       const kind=el.dataset.canonicalPreviewKind||'cover',p=fresh?(pages[kind]||emptySystemPageState()):emptySystemPageState();
       const status=String(p.status||'idle').toLowerCase(),pct=Math.max(0,Math.min(100,Number(p.progress||0)));
       const label=el.querySelector('[data-canonical-preview-stage]'),bar=el.querySelector('[data-canonical-preview-bar]'),pctEl=el.querySelector('[data-canonical-preview-pct]'),detail=el.querySelector('[data-canonical-preview-detail]');
