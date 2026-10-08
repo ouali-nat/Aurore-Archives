@@ -202,7 +202,7 @@ Deno.serve(async req=>{
       document_type:"page_assistee",
       source_format:"structured",
       source_content:null,
-      content_json:{title,system_page:{requestedKind,page_data:data}},
+      content_json:{title,system_page:{kind:requestedKind,page_data:data}},
       version:1,status:"generated",
       validation_notes:"Page système indépendante de l’édition assistée · aperçu uniquement.",
       metadata:{origin:"edition_assistee",assisted_system_page:true,system_page_kind:requestedKind,preview_only:true,publishable:false,
