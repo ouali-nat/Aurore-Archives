@@ -55,34 +55,75 @@ function extractStructuredText(value:any):string{
   return value;
 }
 
-function buildContent(courseTitle:string,pageNumber:number,block:any,themeColor:string|null){
-  const type=clean(block?.type||"paragraph").toLowerCase();
-  const content=block?.content&&typeof block.content==="object"?block.content:{};
-  const section:any={title:"Bloc "+String(pageNumber),content:[],exercises:[],graphs:[]};
-  if(type==="paragraph") section.content=[extractStructuredText(content.text||"")];
-  else if(type==="point") section.point={title:String(content.title||"Point de cours"),text:extractStructuredText(content.text||""),color:String(content.color||""),rank:Number(content.rank)||1};
-  else if(type==="exercise") section.exercises=[{id:String(block?.id||""),title:String(content.title||"Exercice"),statement:extractStructuredText(content.statement||""),hint:extractStructuredText(content.hint||""),correction_title:String(content.correction_title||"Corrigé"),correction:extractStructuredText(content.correction||"")}];
-  else if(type==="graphique") section.graphs=[content.json&&typeof content.json==="object"?content.json:{}];
-  else if(type==="wikimedia-image") section.content=["Illustration Wikimedia"];
-  else throw new Error("Type de bloc non pris en charge : "+type);
+function buildContent(courseTitle:string,pageNumber:number,block:any,themeColor:string|null,flowBlocks:any[]=[]){
+  const sourceBlocks=Array.isArray(flowBlocks)&&flowBlocks.length?flowBlocks:[block];
+  const sections:any[]=[];
+  const images:any[]=[];
+  const validBlocks=sourceBlocks.filter((b:any)=>b&&typeof b==="object");
+  for(const current of validBlocks){
+    const type=clean(current?.type||"paragraph").toLowerCase();
+    const content=current?.content&&typeof current.content==="object"?current.content:{};
+    const section:any={
+      title:"Bloc "+String(pageNumber),
+      content:[],
+      exercises:[],
+      graphs:[],
+      block_id:String(current?.id||"")
+    };
+    if(type==="paragraph"){
+      section.content=[extractStructuredText(content.text||"")];
+    }else if(type==="point"){
+      section.point={
+        title:String(content.title||"Point de cours"),
+        text:extractStructuredText(content.text||""),
+        color:String(content.color||""),
+        rank:Number(content.rank)||1
+      };
+    }else if(type==="exercise"){
+      section.exercises=[{
+        id:String(current?.id||""),
+        title:String(content.title||"Exercice"),
+        statement:extractStructuredText(content.statement||""),
+        hint:extractStructuredText(content.hint||""),
+        correction_title:String(content.correction_title||"Corrigé"),
+        correction:extractStructuredText(content.correction||"")
+      }];
+    }else if(type==="graphique"){
+      section.graphs=[content.json&&typeof content.json==="object"?content.json:{}];
+    }else if(type==="wikimedia-image"){
+      section.content=["Illustration Wikimedia"];
+      const imageUrl=String(content.imageUrl||"");
+      if(imageUrl.startsWith("https://upload.wikimedia.org/")){
+        images.push({
+          url:imageUrl,
+          caption:String(content.caption||""),
+          title:String(content.title||""),
+          author:String(content.author||""),
+          license:String(content.license||""),
+          source_url:String(content.sourceUrl||""),
+          block_id:String(current?.id||"")
+        });
+      }
+    }else{
+      throw new Error("Type de bloc non pris en charge : "+type);
+    }
+    sections.push(section);
+  }
   return {
     title:courseTitle,
     theme_color:themeColor,
     document_type:"page_assistee",
     source_format:"structured",
-    sections:[section],
-    images:type==="wikimedia-image" ? [{
-      url:String(content.imageUrl||""),
-      caption:String(content.caption||""),
-      title:String(content.title||""),
-      author:String(content.author||""),
-      license:String(content.license||""),
-      source_url:String(content.sourceUrl||"")
-    }] : [],
-    assisted_block:{id:String(block?.id||""),type,content}
+    sections,
+    images,
+    assisted_block:{
+      id:String(block?.id||""),
+      type:clean(block?.type||"paragraph").toLowerCase(),
+      content:block?.content&&typeof block.content==="object"?block.content:{}
+    },
+    flow_blocks:validBlocks.map((b:any)=>({id:String(b?.id||""),type:clean(b?.type||"paragraph").toLowerCase()}))
   };
 }
-
 
 function buildCanonicalPreviewContent(course:any,themeColor:string|null){
   const title=String(course?.title||"Cours").trim()||"Cours";
@@ -328,7 +369,7 @@ Deno.serve(async(req)=>{
   const jobId=Number(insertedJob.data.id);
   let contentJson:any;
   const themeColor=normalizeHexColor(body?.theme_color);
-  try{contentJson=buildContent(String(course.data.title||body.course_title||"Cours"),pageNumber,block,themeColor);}
+  try{contentJson=buildContent(String(course.data.title||body.course_title||"Cours"),pageNumber,block,themeColor,Array.isArray(body?.flow_blocks)?body.flow_blocks:[]);}
   catch(e){return out({ok:false,error:e instanceof Error?e.message:String(e)},400);}
 
   const metadata={
