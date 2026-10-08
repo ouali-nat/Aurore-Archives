@@ -1304,9 +1304,27 @@
       b.generation={...(b.generation||{}),generated_document_id:documentId,job_id:d.job_id||null,progress:5,progress_label:'Rendu de page mis en file',status:'generating',updated_at:new Date().toISOString()};
       await persistCourse(true,false);
       if(!d.page_url)throw new Error('Le renderer a terminé sans fournir l’URL de la page.');
+      const flowGroup=flowBlocksFor(b.id);
+      const sharedGeneration={
+        status:'ready',
+        page_number:d.page_number||pageNumberFor(b),
+        generated_document_id:documentId,
+        job_id:d.job_id||null,
+        page_path:d.page_path||null,
+        page_url:d.page_url,
+        updated_at:new Date().toISOString(),
+        progress:100,
+        progress_label:'Page prête — visualisation disponible',
+        bytes:d.bytes||null,
+        qa:{engine:d.engine||'pdf-lib-course-page-v2',status:'completed',details:d.qa||null},
+        error:null
+      };
+      flowGroup.forEach(part=>{
+        part.generation={...(part.generation||{}),...sharedGeneration,flow_page_owner_id:b.id};
+      });
       b.generation={
         ...(b.generation||{}),
-        status:'ready',
+        ...sharedGeneration,
         page_number:d.page_number||pageNumberFor(b),
         generated_document_id:documentId,
         job_id:d.job_id||null,
