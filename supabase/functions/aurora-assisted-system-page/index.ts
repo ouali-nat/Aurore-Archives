@@ -22,151 +22,112 @@ async function fonts(pdf:any){const [r,b,s,sb]=await Promise.all([fbytes("regula
 async function logo(pdf:any){if(!LOGO_CACHE)LOGO_CACHE=bytes(LOGO_URL);const b=await LOGO_CACHE;if(b[0]===137&&b[1]===80)return pdf.embedPng(b);if(b[0]===255&&b[1]===216)return pdf.embedJpg(b);throw new Error("Logo Aurore invalide")}
 function rounded(p:any,x:number,y:number,w:number,h:number,r:number,fill:any,border?:any,bw=.5){p.drawSvgPath("M "+r+" 0 H "+(w-r)+" A "+r+" "+r+" 0 0 1 "+w+" "+r+" V "+(h-r)+" A "+r+" "+r+" 0 0 1 "+(w-r)+" "+h+" H "+r+" A "+r+" "+r+" 0 0 1 0 "+(h-r)+" V "+r+" A "+r+" "+r+" 0 0 1 "+r+" 0 Z",{x,y:y+h,color:fill,borderColor:border||fill,borderWidth:border?bw:0})}
 function decor(p:any,c:string){
-  // Même famille de fond que le renderer canonique : page pâle + bulles
-  // discrètes, sans décor structurel supplémentaire.
-  p.drawRectangle({x:0,y:0,width:595,height:842,color:rgbh(mix(c,.965))});
-  p.drawCircle({x:606,y:842,size:72,color:rgbh(mix(c,.90))});
-  p.drawCircle({x:-4,y:788,size:44,color:rgbh(mix(c,.95))});
-  p.drawCircle({x:598,y:610,size:30,color:rgbh(mix(c,.96))});
-  p.drawCircle({x:-8,y:424,size:40,color:rgbh(mix(c,.96))});
-  p.drawCircle({x:600,y:118,size:56,color:rgbh(mix(c,.94))});
-  p.drawCircle({x:18,y:0,size:34,color:rgbh(mix(c,.955))});
+  const bg=rgbh(mix(c,.985));
+  p.drawRectangle({x:0,y:0,width:595,height:842,color:bg});
+  const circles=[
+    {x:606,y:832,size:72,a:.76},{x:-10,y:770,size:44,a:.86},
+    {x:598,y:565,size:28,a:.90},{x:-8,y:425,size:34,a:.90},
+    {x:604,y:122,size:40,a:.88},{x:76,y:-18,size:58,a:.86},
+    {x:545,y:-12,size:48,a:.86},{x:632,y:310,size:30,a:.91}
+  ];
+  for(const q of circles)p.drawCircle({x:q.x,y:q.y,size:q.size,color:rgbh(mix(c,q.a))});
 }
 function hf(p:any,n:number,f:any,l:any,c:string){
   if(l){
     const s=Math.min(17/(l.width||17),17/(l.height||17));
-    p.drawImage(l,{x:62,y:808,width:l.width*s,height:l.height*s});
+    p.drawImage(l,{x:39,y:805,width:l.width*s,height:l.height*s});
   }
-  const head="Section Archives";
-  p.drawText(head,{x:533-f.sans.widthOfTextAtSize(head,9.5),y:808,font:f.sans,size:9.5,color:rgbh(mix(c,.18))});
-  p.drawLine({start:{x:62,y:796},end:{x:533,y:796},thickness:.55,color:rgbh(mix(c,.72))});
-  p.drawLine({start:{x:62,y:43},end:{x:533,y:43},thickness:.55,color:rgbh("#D0D0D4")});
-  const foot="Aurore — Section Archives  •  "+n;
-  p.drawText(foot,{x:297.5-f.sans.widthOfTextAtSize(foot,9.5)/2,y:27,font:f.sans,size:9.5,color:rgbh("#777985")});
-}
-function wrap(t:string,f:any,z:number,max:number){
-  const ws=clean(t).split(" ").filter(Boolean),o:string[]=[];let line="";
-  for(const w of ws){
-    const q=line?line+" "+w:w;
-    if(!line||f.widthOfTextAtSize(q,z)<=max)line=q;
-    else{o.push(line);line=w}
-  }
-  if(line)o.push(line);
-  return o;
-}
-function drawPill(p:any,text:string,x:number,y:number,f:any,c:string){
-  const size=10.5;
-  const width=Math.min(250,Math.max(105,f.sansBold.widthOfTextAtSize(text,size)+18));
-  rounded(p,x,y,width,28,8,rgbh(mix(c,.90)),rgbh(mix(c,.82)),.4);
-  p.drawText(text,{x:x+11,y:y+9,font:f.sansBold,size,color:rgbh(mix(c,.18))});
+  p.drawText("Section Archives",{x:466,y:807,font:f.sans,size:9.6,color:rgbh(mix(c,.25))});
+  p.drawLine({start:{x:39,y:795},end:{x:556,y:795},thickness:.55,color:rgbh(mix(c,.72))});
+  p.drawText("Aurore — Section Archives • "+n,{x:225,y:27,font:f.sans,size:9.5,color:rgbh("#777985")});
 }
 function cover(p:any,f:any,l:any,c:string,title:string,d:any){
-  // Traduction visuelle du AuroreTitleBlock canonique :
-  // grand cadre arrondi, panneau titre séparé et carré logo à droite.
-  rounded(p,62,660,471,138,18,rgbh("#ECEDEE"),rgbh("#BFC0C3"),.6);
-  p.drawText("AURORE · SECTION ARCHIVES",{x:78,y:780,font:f.sansBold,size:8.8,color:rgbh("#5C5D65")});
-
-  rounded(p,76,684,362,76,12,rgbh("#FFFFFF"),rgbh("#C7C8CC"),.5);
-  p.drawText("Document pédagogique",{x:89,y:741,font:f.sansBold,size:10,color:rgbh("#5C5D65")});
-
-  const titleLines=wrap(title||"Nouveau cours",f.sansBold,26,334).slice(0,2);
-  let titleY=712;
-  for(const line of titleLines){
-    p.drawText(line,{x:89,y:titleY,font:f.sansBold,size:26,color:rgbh(c)});
-    titleY-=30;
+  const outerX=60,outerY=520,outerW=475,outerH=246;
+  rounded(p,outerX,outerY,outerW,outerH,18,rgbh("#ECECED"),rgbh("#BFC0C3"),.6);
+  p.drawText("AURORE · SECTION ARCHIVES",{x:76,y:739,font:f.sansBold,size:8.8,color:rgbh("#5C5D65")});
+  const panelX=76,panelY=588,panelW=365,panelH=132;
+  rounded(p,panelX,panelY,panelW,panelH,12,rgbh("#FCFCFC"),rgbh("#BFC0C3"),.5);
+  p.drawText("Document pédagogique",{x:88,y:699,font:f.sansBold,size:10,color:rgbh("#5C5D65")});
+  let ty=670;
+  for(const line of wrap(title,f.sansBold,26,332).slice(0,3)){
+    p.drawText(line,{x:88,y:ty,font:f.sansBold,size:26,color:rgbh(c)});
+    ty-=31;
   }
-
-  const info=[clean(d.subtitle),clean(d.author),clean(d.institution)].filter(Boolean).join(" · ")||"Bibliothèque numérique d’Aurore";
-  const infoLines=wrap(info,f.regular,10.2,334).slice(0,3);
-  let infoY=667;
-  for(const line of infoLines){
-    p.drawText(line,{x:89,y:infoY,font:f.regular,size:10.2,color:rgbh("#55565E")});
-    infoY-=15;
+  const metaParts=[clean(d.subtitle),clean(d.subject)||clean(d.matiere),clean(d.level),clean(d.class_name)].filter(Boolean);
+  const meta=metaParts.join(" · ")||"Bibliothèque numérique d’Aurore";
+  let sy=617;
+  for(const line of wrap(meta,f.regular,10.8,335).slice(0,3)){
+    p.drawText(line,{x:88,y:sy,font:f.regular,size:10.8,color:rgbh("#56575F")});
+    sy-=16;
   }
-
-  rounded(p,449,689,68,68,12,rgbh("#FAFAFB"),rgbh("#C7C8CC"),.5);
+  const logoX=455,logoY=609,logoS=70;
+  rounded(p,logoX,logoY,logoS,logoS,12,rgbh("#FAFAFA"),rgbh("#BFC0C3"),.5);
   if(l){
-    const s=Math.min(50/(l.width||50),50/(l.height||50));
-    p.drawImage(l,{x:458,y:698,width:l.width*s,height:l.height*s});
+    const s=Math.min(59/(l.width||59),59/(l.height||59));
+    p.drawImage(l,{x:logoX+(logoS-l.width*s)/2,y:logoY+(logoS-l.height*s)/2,width:l.width*s,height:l.height*s});
   }
-
-  p.drawText("Document pédagogique édité avec Aurora · identité visuelle Aurore",{
-    x:62,y:64,font:f.sans,size:9.3,color:rgbh("#777985")
-  });
+  if(clean(d.author)||clean(d.institution)){
+    const extra=[clean(d.author),clean(d.institution)].filter(Boolean).join(" · ");
+    p.drawText(extra.slice(0,90),{x:76,y:552,font:f.sansBold,size:9.2,color:rgbh("#5C5D65")});
+  }
+  p.drawText("Bibliothèque numérique d’Aurore",{x:76,y:538,font:f.regular,size:9.2,color:rgbh("#777985")});
+  p.drawText("Document pédagogique édité avec Aurora · identité visuelle Aurore",{x:76,y:56,font:f.sans,size:9.4,color:rgbh("#777985")});
 }
 function toc(p:any,f:any,c:string,entries:any[]){
-  rounded(p,62,108,471,655,16,rgbh("#ECEDEE"),rgbh("#BFC0C3"),.55);
-  drawPill(p,"Sommaire",78,716,f,c);
-  p.drawText("Table des matières",{x:78,y:684,font:f.sansBold,size:16,color:rgbh("#404149")});
-  p.drawLine({start:{x:78,y:668},end:{x:517,y:668},thickness:.7,color:rgbh(mix(c,.72))});
-
+  const X=76,W=443,H=632,bottom=104;
+  rounded(p,X,bottom,W,H,16,rgbh("#ECEDEE"),rgbh("#BFC0C3"),.55);
+  rounded(p,92,688,150,28,8,rgbh(mix(c,.90)),rgbh(mix(c,.82)),.4);
+  p.drawText("Sommaire",{x:105,y:697,font:f.sansBold,size:11,color:rgbh(mix(c,.18))});
+  p.drawText("Table des matières",{x:94,y:657,font:f.sansBold,size:16,color:rgbh("#404149")});
   const safe=Array.isArray(entries)?entries.filter(e=>e&&clean(e.title)):[];
-  let y=640;
+  let y=624;
   if(!safe.length){
-    p.drawText("Aucun bloc de contenu pour le moment.",{x:92,y:605,font:f.regular,size:11.2,color:rgbh("#777985")});
+    p.drawText("Aucun bloc de contenu pour le moment.",{x:94,y:590,font:f.regular,size:11.2,color:rgbh("#777985")});
+  }else{
+    safe.slice(0,24).forEach((e:any,i:number)=>{
+      const lines=wrap(e.title,f.regular,11.2,328).slice(0,2);
+      const h=Math.max(30,lines.length*17+10);
+      if(y-h<bottom+42)return;
+      lines.forEach((line:string,j:number)=>p.drawText(line,{x:94,y:y-j*17,font:f.regular,size:11.2,color:rgbh("#33343B")}));
+      p.drawLine({start:{x:429,y:y-3},end:{x:485,y:y-3},thickness:.6,color:rgbh("#BDBEC2")});
+      p.drawText(String(Math.max(1,Number(e.page)||i+3)),{x:498,y:y-6,font:f.sansBold,size:10.5,color:rgbh(mix(c,.18))});
+      y-=h;
+    });
   }
-
-  safe.slice(0,24).forEach((e,i)=>{
-    const lines=wrap(e.title,f.regular,11.2,325).slice(0,2);
-    const count=Math.max(1,lines.length),h=count*17+14;
-    if(y-h<154)return;
-    lines.forEach((line,j)=>p.drawText(line,{x:92,y:y-j*17,font:f.regular,size:11.2,color:rgbh("#33343B")}));
-    p.drawLine({start:{x:405,y:y-3},end:{x:493,y:y-3},thickness:.55,color:rgbh("#BDBEC2")});
-    p.drawText(String(Math.max(1,Number(e.page)||i+3)),{x:506,y:y-6,font:f.sansBold,size:10.5,color:rgbh(mix(c,.18))});
-    y-=h;
-  });
-
-  p.drawText("Les numéros de page seront recalculés lors de la fusion finale.",{
-    x:78,y:132,font:f.regular,size:8.6,color:rgbh("#777985")
-  });
+  p.drawText("Les numéros de page seront recalculés lors de la fusion finale.",{x:94,y:126,font:f.regular,size:8.6,color:rgbh("#777985")});
 }
-async function ending(p:any,f:any,l:any,c:string,title:string,id:number,pdf:any,d:any){
-  rounded(p,62,98,471,655,16,rgbh("#ECEDEE"),rgbh("#BFC0C3"),.55);
-  drawPill(p,"Mentions · crédits · vérification",78,709,f,c);
-  p.drawText("Édition Aurore",{x:80,y:671,font:f.sansBold,size:21,color:rgbh("#404149")});
-  p.drawText(title||"Nouveau cours",{x:80,y:643,font:f.sans,size:11.5,color:rgbh(mix(c,.22))});
-  p.drawLine({start:{x:80,y:624},end:{x:184,y:624},thickness:1.15,color:rgbh(c)});
-
-  rounded(p,80,505,435,96,11,rgbh(mix(c,.96)),rgbh(mix(c,.82)),.45);
-  p.drawText("IDENTITÉ DE L'ÉDITION",{x:94,y:577,font:f.sansBold,size:8.6,color:rgbh(mix(c,.18))});
-  p.drawText("Identifiant : ASSIST-"+id,{x:94,y:554,font:f.sans,size:8.8,color:rgbh("#55565E")});
-
-  const info=[clean(d.subject),clean(d.level),clean(d.class_name)].filter(Boolean).join(" · ");
-  p.drawText("Version : 1 · Page système assistée"+(info?" · "+info:""),{
-    x:94,y:535,font:f.sans,size:8.8,color:rgbh("#55565E")
-  });
-
-  rounded(p,80,332,435,145,12,rgbh("#FFFFFF"),rgbh(mix(c,.68)),.6);
-  p.drawText("VÉRIFICATION & PUBLICATION",{x:94,y:442,font:f.sansBold,size:8.6,color:rgbh(mix(c,.18))});
-  p.drawText("Cette page est un aperçu de l’édition assistée.",{x:94,y:418,font:f.regular,size:10.2,color:rgbh("#4B4C54")});
-  p.drawText("La fusion finale recalculera l’identité et le QR de publication.",{x:94,y:399,font:f.regular,size:9.5,color:rgbh("#66676F")});
-
+async function ending(p:any,pdf:any,f:any,l:any,c:string,title:string,id:number,d:any){
+  const X=76,W=443,bottom=92,H=660;
+  rounded(p,X,bottom,W,H,16,rgbh("#ECEDEE"),rgbh("#BFC0C3"),.55);
+  rounded(p,92,690,250,29,8,rgbh(mix(c,.90)),rgbh(mix(c,.82)),.4);
+  p.drawText("Mentions · crédits · vérification",{x:105,y:699,font:f.sansBold,size:10.3,color:rgbh(mix(c,.18))});
+  p.drawText("Édition Aurore",{x:94,y:655,font:f.sansBold,size:20,color:rgbh("#404149")});
+  p.drawText(title.slice(0,100),{x:94,y:627,font:f.sans,size:11.2,color:rgbh(mix(c,.22))});
+  p.drawLine({start:{x:94,y:608},end:{x:173,y:608},thickness:1.15,color:rgbh(c)});
+  rounded(p,94,500,407,94,11,rgbh(mix(c,.96)),rgbh(mix(c,.82)),.45);
+  p.drawText("IDENTITÉ DE L'ÉDITION",{x:108,y:578,font:f.sansBold,size:8.6,color:rgbh(mix(c,.18))});
+  p.drawText("Identifiant : "+id,{x:108,y:556,font:f.sans,size:8.8,color:rgbh("#55565E")});
+  p.drawText("Version : 1 · Page système assistée",{x:108,y:538,font:f.sans,size:8.8,color:rgbh("#55565E")});
+  const info=[clean(d.subject)||clean(d.matiere),clean(d.level),clean(d.class_name)].filter(Boolean).join(" · ");
+  if(info)p.drawText(info.slice(0,80),{x:108,y:521,font:f.sans,size:8.8,color:rgbh("#55565E")});
+  rounded(p,94,328,407,146,12,rgbh("#FFFFFF"),rgbh(mix(c,.68)),.6);
+  p.drawText("VÉRIFICATION & PUBLICATION",{x:108,y:448,font:f.sansBold,size:8.6,color:rgbh(mix(c,.18))});
+  p.drawText("Veuillez scanner le QR code pour vérifier cette édition.",{x:108,y:424,font:f.regular,size:10.0,color:rgbh("#4B4C54")});
+  p.drawText("La fusion finale recalculera l’identité et le QR de publication.",{x:108,y:406,font:f.regular,size:9.2,color:rgbh("#66676F")});
   const u=await QRCode.toDataURL("https://aurore-section-archives.com/",{margin:0,width:220,errorCorrectionLevel:"M"});
-  const b=u.split(",")[1]||"",bin=atob(b),a=new Uint8Array(bin.length);
+  const b=u.split(",")[1],bin=atob(b),a=new Uint8Array(bin.length);
   for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);
   const q=await pdf.embedPng(a);
-  rounded(p,432,365,62,62,8,rgbh("#FFFFFF"),rgbh("#D5D6DA"),.35);
-  p.drawImage(q,{x:440,y:373,width:46,height:46});
-
-  rounded(p,80,210,435,96,10,rgbh(mix(c,.985)),rgbh(mix(c,.86)),.4);
-  p.drawText("DROITS & RÉUTILISATION",{x:94,y:279,font:f.sansBold,size:8.5,color:rgbh(mix(c,.18))});
-  p.drawLine({start:{x:94,y:269},end:{x:168,y:269},thickness:.8,color:rgbh(mix(c,.25))});
-
-  let y=252;
-  for(const line of wrap(
-    "Cette édition constitue une création éditoriale d’Aurore. Les éléments tiers conservent leurs propres licences et conditions d’utilisation.",
-    f.regular,9.3,382
-  ).slice(0,3)){
-    p.drawText(line,{x:94,y,font:f.regular,size:9.3,color:rgbh("#4F5057")});
-    y-=14;
-  }
-
-  if(l){
-    const s=Math.min(42/(l.width||42),42/(l.height||42));
-    p.drawImage(l,{x:453,y:223,width:l.width*s,height:l.height*s});
-  }
+  p.drawImage(q,{x:431,y:360,width:60,height:60});
+  rounded(p,94,205,407,99,10,rgbh(mix(c,.985)),rgbh(mix(c,.86)),.4);
+  p.drawText("DROITS & RÉUTILISATION",{x:108,y:274,font:f.sansBold,size:8.5,color:rgbh(mix(c,.18))});
+  p.drawLine({start:{x:108,y:260},end:{x:169,y:260},thickness:1,color:rgbh(c)});
+  const rights="Cette édition constitue une création éditoriale d’Aurore. Les connaissances générales et formules restent réutilisables sous réserve des droits applicables aux éléments tiers.";
+  let ry=242;
+  for(const line of wrap(rights,f.regular,9.1,360).slice(0,3)){p.drawText(line,{x:108,y:ry,font:f.regular,size:9.1,color:rgbh("#4F5057")});ry-=13.5}
+  p.drawText("Les ressources tierces conservent leurs propres licences et conditions d'utilisation.",{x:108,y:200,font:f.sans,size:7.9,color:rgbh("#777985")});
+  p.drawText("Assistance éditoriale : Aurore · Couleur dominante : "+c.slice(1),{x:94,y:166,font:f.sans,size:8,color:rgbh("#777985")});
 }
-
 async function update(id:number,requestedKind:string,patch:any){const q=await admin.from("aurora_generated_documents").select("metadata").eq("id",id).maybeSingle();const m=q.data?.metadata&&typeof q.data.metadata==="object"?q.data.metadata:{};await admin.from("aurora_generated_documents").update({metadata:{...m,...patch},updated_at:new Date().toISOString()}).eq("id",id)}
 Deno.serve(async req=>{
   if(req.method==="OPTIONS")return new Response("ok",{headers:H});
@@ -285,7 +246,7 @@ Deno.serve(async req=>{
     const pdf=await PDFDocument.create();pdf.registerFontkit(fontkit);
     const [f,l]=await Promise.all([fonts(pdf),logo(pdf)]);
     await update(id,renderKind,{fast_page_progress:35,fast_page_stage:"Ressources Aurore prêtes"});
-    const p=pdf.addPage([595,842]);(p as any).doc=pdf;decor(p,hex(body?.theme_color||row.data.theme_color));
+    const p=pdf.addPage([595,842]);decor(p,hex(body?.theme_color||row.data.theme_color));
     const color=hex(body?.theme_color||row.data.theme_color);
     const pageNo=renderKind==="cover"?1:renderKind==="toc"?2:Math.max(3,Number(data.page_number)||3);
     if(renderKind!=="cover")hf(p,pageNo,f,l,color);
