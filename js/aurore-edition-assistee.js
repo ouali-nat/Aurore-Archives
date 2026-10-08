@@ -1324,24 +1324,16 @@
     const index=all.findIndex(b=>b?.id===id);
     if(index<0)return [];
     const current=all[index];
-    const flowType=String(current?.type||'').toLowerCase();
-    // Les paragraphes et points de cours consécutifs forment un même flux éditorial.
+    const flowable=(b)=>['paragraph','point'].includes(String(b?.type||'').toLowerCase())&&!isSystemBlock(b);
+    // Un même flux éditorial peut enchaîner points et paragraphes.
     // Les exercices, graphiques et images restent des unités indépendantes.
-    if(!['paragraph','point'].includes(flowType))return [current];
+    if(!flowable(current))return [current];
 
     let start=index;
-    while(
-      start>0 &&
-      String(all[start-1]?.type||'').toLowerCase()===flowType &&
-      !isSystemBlock(all[start-1])
-    )start--;
+    while(start>0&&flowable(all[start-1]))start--;
 
     let end=index;
-    while(
-      end<all.length-1 &&
-      String(all[end+1]?.type||'').toLowerCase()===flowType &&
-      !isSystemBlock(all[end+1])
-    )end++;
+    while(end<all.length-1&&flowable(all[end+1]))end++;
 
     return all.slice(start,end+1);
   }
