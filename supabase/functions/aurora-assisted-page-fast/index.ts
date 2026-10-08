@@ -587,7 +587,7 @@ Deno.serve(async req=>{
           const availableContent=Math.max(0,remainingPage-BOX_PAD_TOP-titleH-separatorGap-BOX_PAD_BOTTOM-6);
           const fragment:any[]=[];let used=0;const gap=7;
           const addPointItem=(item:any)=>{
-            const h=item.kind==="inline"?item.lines.reduce((n:number,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT):0);
+            const h=item.kind==="inline"?item.lines.reduce((n:number,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0):item.metrics.cardH;
             const itemH=item.kind==="inline"?item.lines.reduce((n:number,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0):item.metrics.cardH;
             const g=fragment.length?gap:0;
             if(used+g+itemH>availableContent)return false;
