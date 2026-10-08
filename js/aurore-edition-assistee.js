@@ -821,6 +821,79 @@
     }
   }
 
+  async function progressivePreviewBlock(id){
+    ensureCourseStructure(state.course);
+    const current=activeBlocks().find(x=>x.id===id);if(!current||isSystemBlock(current))return;
+
+    const currentIndex=activeBlocks().findIndex(x=>x.id===id);
+    const previous=activeBlocks().slice(0,currentIndex).filter(b=>!isSystemBlock(b));
+    const allSteps=[];
+    const cover=activeBlocks().find(x=>x?.role===START_ROLE);
+    const toc=activeBlocks().find(x=>x?.role==='document-toc');
+    const coverState=state.canonicalPreview?.pages?.cover;
+    const tocState=state.canonicalPreview?.pages?.toc;
+
+    if(cover&&coverState?.pdfUrl)allSteps.push({kind:'pdf',label:'Page 1 · Couverture',url:coverState.pdfUrl,number:1,status:'ready',source:cover});
+    if(tocState?.pdfUrl)allSteps.push({kind:'pdf',label:'Page 2 · Sommaire',url:tocState.pdfUrl,number:2,status:'ready',source:toc});
+
+    for(const b of previous){
+      const page=pageNumberFor(b),url=String(b?.generation?.page_url||'').trim();
+      if(url)allSteps.push({kind:'pdf',label:'Page '+page+' · '+labelFor(b),url,number:page,status:'ready',source:b});
+      else allSteps.push({kind:'pending',label:'Page '+page+' · '+labelFor(b),number:page,status:'pending',source:b});
+    }
+
+    const currentPage=pageNumberFor(current),currentUrl=String(current?.generation?.page_url||'').trim();
+    if(currentUrl){
+      allSteps.push({kind:'pdf',label:'Page '+currentPage+' · '+labelFor(current)+' · bloc actuel',url:currentUrl,number:currentPage,status:'ready',source:current,current:true});
+    }else if(current.type==='graphique'){
+      const graphUrl=await graphPreviewUrl(current);
+      if(graphUrl)allSteps.push({kind:'image',label:'Page '+currentPage+' · Graphique · bloc actuel',url:graphUrl,number:currentPage,status:'current-image',source:current,current:true});
+      else allSteps.push({kind:'pending',label:'Page '+currentPage+' · '+labelFor(current)+' · bloc actuel',number:currentPage,status:'current-pending',source:current,current:true});
+    }else if(current.type==='wikimedia-image'&&current.content?.imageUrl){
+      allSteps.push({kind:'image',label:'Page '+currentPage+' · Image Wikimedia · bloc actuel',url:current.content.imageUrl,number:currentPage,status:'current-image',source:current,current:true});
+    }else{
+      allSteps.push({kind:'text',label:'Page '+currentPage+' · '+labelFor(current)+' · bloc actuel',number:currentPage,status:'current-draft',source:current,current:true});
+    }
+
+    const readyCount=allSteps.filter(x=>x.kind==='pdf').length;
+    const totalCount=allSteps.length;
+    const body='<div class="ae-progressive-preview">'+
+      '<div class="ae-page-preview-meta"><strong>Progression du document jusqu’au bloc '+currentPage+'</strong><span>'+readyCount+' page(s) PDF déjà produite(s) · '+totalCount+' étape(s) affichée(s)</span></div>'+
+      '<div class="ae-progressive-preview-note">La prévisualisation suit l’ordre réel du document : couverture → sommaire → blocs précédents → bloc actuel. Les blocs futurs restent volontairement hors de cette vue.</div>'+
+      '<div class="ae-progressive-preview-stack">'+
+        allSteps.map((step,i)=>{
+          const b=step.source,page=step.number;
+          if(step.kind==='pdf'){
+            const canvasId='aeProgressivePdf_'+String(id).replace(/[^a-zA-Z0-9_-]/g,'_')+'_'+i,loadingId=canvasId+'_loading';
+            return '<section class="ae-progressive-page '+(step.current?'is-current':'')+'" data-progressive-index="'+i+'">'+
+              '<header><strong>'+esc(step.label)+'</strong><span>'+esc(step.current?'Bloc actuellement sélectionné':'Bloc précédent / page déjà produite')+'</span></header>'+
+              '<div class="ae-page-preview-canvas-wrap"><div id="'+loadingId+'" class="ae-preview-loading">Chargement de la page PDF…</div><canvas id="'+canvasId+'" class="ae-page-preview-canvas" aria-label="'+esc(step.label)+'"></canvas></div>'+
+            '</section>';
+          }
+          if(step.kind==='image'){
+            return '<section class="ae-progressive-page is-current"><header><strong>'+esc(step.label)+'</strong><span>Prévisualisation visuelle du bloc actuel</span></header><div class="ae-progressive-draft"><img class="ae-preview-image" src="'+esc(step.url)+'" alt="'+esc(labelFor(b))+'"></div></section>';
+          }
+          if(step.kind==='text'){
+            return '<section class="ae-progressive-page is-current"><header><strong>'+esc(step.label)+'</strong><span>Bloc actuel · PDF pas encore généré</span></header><div class="ae-progressive-draft"><pre>'+esc(mainText(b)||'Bloc vide')+'</pre></div></section>';
+          }
+          return '<section class="ae-progressive-page '+(step.current?'is-current':'')+' is-pending"><header><strong>'+esc(step.label)+'</strong><span>'+esc(step.current?'Bloc actuel · en attente de génération':'Bloc précédent · PDF non encore généré')+'</span></header><div class="ae-progressive-pending">Cette page n’est pas encore disponible en PDF. La progression conserve néanmoins sa position réelle dans le document.</div></section>';
+        }).join('')+
+      '</div>'+
+      '<div class="ae-page-preview-actions"><button class="admin-btn primary" id="aeCloseProgressivePreview">Fermer</button></div>'+
+    '</div>';
+
+    openBlockModal('Prévisualisation progressive du document',body);
+    document.getElementById('aeCloseProgressivePreview')?.addEventListener('click',()=>document.getElementById('aeModalHost').innerHTML='');
+
+    for(const [i,step] of allSteps.entries()){
+      if(step.kind!=='pdf')continue;
+      const canvasId='aeProgressivePdf_'+String(id).replace(/[^a-zA-Z0-9_-]/g,'_')+'_'+i;
+      const loadingId=canvasId+'_loading';
+      if(document.getElementById(canvasId))await renderAssistedPdfPreview(step.url,canvasId,loadingId,1);
+    }
+    setStatus('Prévisualisation progressive prête : pages antérieures + bloc actuel.');
+  }
+
   async function previewBlock(id){
     const b=activeBlocks().find(x=>x.id===id);if(!b)return;
 
@@ -846,28 +919,7 @@
       }
       return;
     }
-    const gen=b.generation||{};
-    if(b.type==='graphique'&&!gen.page_url){
-      const url=await graphPreviewUrl(b);
-      if(url){
-        const body='<div class="ae-page-preview"><div class="ae-page-preview-meta"><strong>'+esc(b.content?.json?.title||'Graphique')+'</strong><span>Prévisualisation visuelle · asset GeoGebra</span></div><img class="ae-preview-image" src="'+esc(url)+'" alt="Prévisualisation du graphique"><div class="ae-page-preview-actions"><a class="admin-btn primary" href="'+esc(url)+'" target="_blank" rel="noopener">Ouvrir</a></div></div>';
-        openBlockModal('Prévisualisation du graphique',body);
-      }else{
-        openBlockModal('Prévisualisation du graphique','<div class="ae-block-preview"><span class="ae-preview-badge">Graphique validé</span><strong>Prévisualisation visuelle indisponible pour le moment.</strong><div class="ae-preview-text">L’asset GeoGebra n’est pas encore disponible. Le JSON reste accessible uniquement avec le bouton « JSON » du bloc.</div></div>');
-      }
-      return;
-    }
-    if(gen.page_url){
-      const page=pageNumberFor(b),url=String(gen.page_url),canvasId='aePdfCanvas_'+String(id).replace(/[^a-zA-Z0-9_-]/g,'_'),loadingId=canvasId+'_loading';
-      const body='<div class="ae-page-preview"><div class="ae-page-preview-meta"><strong>Page '+page+' · '+esc(labelFor(b))+'</strong><span>Rendu PDF.js · page 1 du fragment</span></div><div class="ae-page-preview-canvas-wrap"><div id="'+loadingId+'" class="ae-preview-loading">Préparation de la visualisation…</div><canvas id="'+canvasId+'" class="ae-page-preview-canvas" aria-label="Prévisualisation de la page '+page+'"></canvas></div><div class="ae-page-preview-actions"><a class="admin-btn primary" href="'+esc(url)+'" download="aurore-page-'+page+'.pdf">Télécharger</a><a class="admin-btn ghost" href="'+esc(url)+'" target="_blank" rel="noopener">Ouvrir</a></div></div>';
-      openBlockModal('Prévisualisation de la page générée',body);
-      await renderAssistedPdfPreview(url,canvasId,loadingId);
-      return;
-    }
-    const t=mainText(b);
-    let body='<div class="ae-block-preview"><strong>'+esc(labelFor(b))+'</strong><div class="ae-preview-text">'+esc(t||'Bloc vide')+'</div></div>';
-    if(b.type==='wikimedia-image'&&b.content?.imageUrl)body='<div class="ae-block-preview"><strong>Image Wikimedia sélectionnée</strong><img class="ae-preview-image" src="'+esc(b.content.imageUrl)+'" alt="'+esc(b.content.title||'Image Wikimedia')+'"><small>'+esc(b.content.license||'')+'</small></div>';
-    openBlockModal('Prévisualisation du bloc',body);
+    await progressivePreviewBlock(id);
   }
 
   async function previewToc(){
