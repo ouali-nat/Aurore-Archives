@@ -436,7 +436,7 @@ function drawInlineLines(page:any,lines:any[],x:number,topY:number,width:number,
         const outerW=iw+boxPadX*2;
         rounded(page,cx-boxPadX,by,outerW,bh,7,fill,frame,0.45);
         page.drawImage(token.image,{
-          x:cx,y:by+boxPadY,width:iw,height:ih
+          x:cx,y:by+boxPadY,width:iw,height:ih,opacity:0.9
         });
         cx+=outerW;
       }
