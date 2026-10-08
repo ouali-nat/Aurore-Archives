@@ -464,11 +464,6 @@ function headerFooter(page:any,pageNo:number,fonts:any,logo:any,color:string){
     page.drawImage(logo,{x:39,y:805,width:logo.width*scale,height:logo.height*scale});
   }
   page.drawText("Section Archives",{x:466,y:807,font:fonts.sans,size:9.6,color:rgbHex(mixWhite(color,0.25))});
-  // Editorial visual spine used by the main Aurore/GPT PDF circuit.
-  const spine=rgbHex(mixWhite(color,0.28));
-  page.drawLine({start:{x:24,y:790},end:{x:24,y:55},thickness:1.25,color:spine});
-  page.drawCircle({x:24,y:790,size:2.5,color:rgbHex(mixWhite(color,0.12))});
-  page.drawCircle({x:24,y:55,size:2.5,color:rgbHex(mixWhite(color,0.12))});
   page.drawLine({start:{x:39,y:795},end:{x:556,y:795},thickness:.55,color:rgbHex(mixWhite(color,0.72))});
   page.drawText("Aurore — Section Archives • "+pageNo,{x:225,y:27,font:fonts.sans,size:9.5,color:rgbHex("#777985")});
 }
@@ -529,6 +524,7 @@ Deno.serve(async req=>{
     const cache=new Map<string,any>();const X=72,W=449,bottom=67,top=770;let y=top;
     const sections=Array.isArray(input.sections)?input.sections.filter((s:any)=>s&&typeof s==="object"):[];
     const contentItems:any[]=[];const exerciseItems:any[]=[];const graphItems:any[]=[];const imageItems:any[]=[];
+    const pointAnchors:any[]=[];
     if(sections.length)for(const section of sections){
       const texts=Array.isArray(section.content)?section.content:[section.content];
       if(section.point&&typeof section.point==="object"){
@@ -577,19 +573,25 @@ Deno.serve(async req=>{
             if(lines.length)pointItems.push({kind:"inline",lines});
             inlineChunk=[];
           };
-          for(const run of prepared){if(run.kind==="display"){flush();pointItems.push({kind:"display",run,metrics:displayMathMetrics(run,W-24)});}else inlineChunk.push(run);}
+          for(const run of prepared){
+            if(run.kind==="display"){flush();pointItems.push({kind:"display",run,metrics:displayMathMetrics(run,W-24)});}
+            else inlineChunk.push(run);
+          }
           flush();
         }
         if(!pointItems.length)pointItems.push({kind:"inline",lines:[]});
         let cursor=0;
         while(cursor<pointItems.length){
           const remainingPage=Math.max(0,y-bottom);
-          const availableContent=Math.max(0,remainingPage-44-BOX_PAD_TOP-BOX_PAD_BOTTOM);
+          const titleH=23,separatorGap=6;
+          const availableContent=Math.max(0,remainingPage-BOX_PAD_TOP-titleH-separatorGap-BOX_PAD_BOTTOM-6);
           const fragment:any[]=[];let used=0;const gap=7;
           const addPointItem=(item:any)=>{
-            const h=item.kind==="inline"?item.lines.reduce((n:number,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0):item.metrics.cardH;
-            const g=fragment.length?gap:0;if(used+g+h>availableContent)return false;
-            fragment.push(item);used+=g+h;return true;
+            const h=item.kind==="inline"?item.lines.reduce((n:number,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT):0);
+            const itemH=item.kind==="inline"?item.lines.reduce((n:number,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0):item.metrics.cardH;
+            const g=fragment.length?gap:0;
+            if(used+g+itemH>availableContent)return false;
+            fragment.push(item);used+=g+itemH;return true;
           };
           const first=pointItems[cursor];
           if(first?.kind==="inline"&&first.lines.length){
@@ -603,15 +605,22 @@ Deno.serve(async req=>{
             }else if(addPointItem(first)){cursor++;}
           }else if(first&&addPointItem(first)){cursor++;}
           if(fragment.length===0){newFlowPage();continue;}
-          const boxH=Math.max(54,BOX_PAD_TOP+30+6+used+BOX_PAD_BOTTOM);
-          const darkFill=rgbHex("#24222C"),darkText=rgbHex("#F5F2FA");
-          rounded(page,BOX_X,y-boxH,BOX_W,boxH,10,darkFill,rgbHex(accent),0.65);
-          page.drawText(escapePdfText(label),{x:BOX_X+13,y:y-16,font:fonts.sansBold,size:9.4,color:rgbHex(accent)});
-          page.drawLine({start:{x:BOX_X+13,y:y-25},end:{x:BOX_X+BOX_W-13,y:y-25},thickness:1.35,color:rgbHex(accent)});
-          let childY=y-35;
+          const boxH=Math.max(54,BOX_PAD_TOP+titleH+separatorGap+used+BOX_PAD_BOTTOM);
+          const boxY=y-boxH;
+          const titleX=BOX_X+13;
+          const titleW=Math.min(330,fonts.sansBold.widthOfTextAtSize(label,12.6)+24);
+          const titleY=y-18;
+          const titleFill=rgbHex("#D7D7DB");
+          const bodyFill=rgbHex("#E6E6E7");
+          rounded(page,BOX_X,boxY,BOX_W,boxH,10,bodyFill,rgbHex(accent),0.65);
+          rounded(page,titleX,y-titleH,titleW,titleH,8,titleFill,rgbHex(accent),0.7);
+          page.drawText(escapePdfText(label),{x:titleX+12,y:y-19,font:fonts.sansBold,size:12.6,color:rgbHex(accent)});
+          page.drawLine({start:{x:titleX,y:y-29},end:{x:BOX_X+BOX_W-13,y:y-29},thickness:1.35,color:rgbHex(accent)});
+          pointAnchors.push({page,y:titleY,x:titleX,color:accent});
+          let childY=y-39;
           for(const item of fragment){
             if(item.kind==="inline"){
-              drawInlineLines(page,item.lines,BOX_X+13,childY,BOX_W-26,fonts.regular,accent,darkText,TEXT_SIZE,LINE_HEIGHT);
+              drawInlineLines(page,item.lines,titleX,childY,BOX_W-26,fonts.regular,accent,rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT);
               childY-=item.lines.reduce((n:any,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0)+gap;
             }else{
               drawDisplayMath(page,item.run,X,childY,W-24,color);
@@ -742,6 +751,23 @@ Deno.serve(async req=>{
         }
         y-=boxH+8;qa.images_ok++;
       }catch(_){qa.images_failed++;}
+    }
+
+    // Draw only the editorial point spine segments after layout, so the line follows the real title positions.
+    const anchorsByPage=new Map<any,any[]>();
+    for(const a of pointAnchors){
+      const list=anchorsByPage.get(a.page)||[];list.push(a);anchorsByPage.set(a.page,list);
+    }
+    for(const [p,list] of anchorsByPage){
+      for(let i=0;i<list.length;i++){
+        const a=list[i];
+        p.drawLine({start:{x:24,y:a.y},end:{x:a.x,y:a.y},thickness:1.9,color:rgbHex(a.color)});
+        p.drawCircle({x:24,y:a.y,size:2.9,color:rgbHex(a.color)});
+        if(i<list.length-1){
+          const b=list[i+1];
+          p.drawLine({start:{x:24,y:a.y},end:{x:24,y:b.y},thickness:3.1,color:rgbHex(a.color)});
+        }
+      }
     }
 
     for(const g of graphItems){
