@@ -346,8 +346,10 @@
     document.getElementById('aeAddGraph').onclick=()=>addBlock('graphique');
     document.getElementById('aeAddWiki').onclick=wiki;
     document.getElementById('aeTocJson').onclick=()=>jsonTocDialog();
-    document.getElementById('aeTocTitle').oninput=e=>{state.course.document_pages.toc.title=e.target.value;};
-    document.getElementById('aeTocSubtitle').oninput=e=>{state.course.document_pages.toc.subtitle=e.target.value;};
+    const tocTitleInput=document.getElementById('aeTocTitle');
+    if(tocTitleInput)tocTitleInput.oninput=e=>{state.course.document_pages.toc.title=e.target.value;};
+    const tocSubtitleInput=document.getElementById('aeTocSubtitle');
+    if(tocSubtitleInput)tocSubtitleInput.oninput=e=>{state.course.document_pages.toc.subtitle=e.target.value;};
     document.getElementById('aePreviewToc').onclick=()=>previewToc();
     document.getElementById('aeTocJsonInline').onclick=()=>jsonTocDialog();
     document.getElementById('aeSave').onclick=()=>persistCourse(false,true);
