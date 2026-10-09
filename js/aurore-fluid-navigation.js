@@ -181,20 +181,33 @@
     return network(key, init, silent);
   }
 
+  /* Le voile d'accueil suit la promesse complète exposée à l'application,
+     pas seulement l'arrivée des en-têtes HTTP : le cache et la lecture du corps
+     peuvent encore être en cours après la réponse réseau initiale. */
+  function trackBootRequest(promise) {
+    var start = window.__auroreBootFetchStart;
+    var end = window.__auroreBootFetchEnd;
+    if (typeof start !== 'function' || typeof end !== 'function') return promise;
+    try { start(); } catch (e) {}
+    var done = function () { try { end(); } catch (e) {} };
+    Promise.resolve(promise).then(done, done);
+    return promise;
+  }
+
   window.fetch = function (input, init) {
     try {
       var url = urlOf(input);
       if (url && url.indexOf(REST) === 0) {
         var key = cacheKeyFor(input, init);
-        if (key) return cachedFetch(key, init, false);
+        if (key) return trackBootRequest(cachedFetch(key, init, false));
         var p = ORIG.apply(null, arguments);
         track(p);
         var m = methodOf(init);
         if (m !== 'GET' && m !== 'HEAD' && m !== 'OPTIONS') p.then(invalidate, invalidate);
-        return p;
+        return trackBootRequest(p);
       }
     } catch (e) {}
-    return ORIG.apply(null, arguments);
+    return trackBootRequest(ORIG.apply(null, arguments));
   };
 
   /* ---------- Squelettes pendant l'attente ---------- */
