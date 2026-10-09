@@ -53,11 +53,12 @@
   }
 
   function calculerZoomInitialPDF() {
-    // Le lecteur démarre volontairement à 60 %. Le zoom global du site est
-    // neutralisé à 100 % pendant la lecture puis restauré à la fermeture.
-    return 0.60;
+    // Ajustement initial à la largeur utile du lecteur : l'échelle de base
+    // est déjà calculée depuis la largeur disponible dans la fenêtre PDF.
+    // Le défilement vertical permet ensuite de lire la page entière sans la rétrécir.
+    return 1;
   }
-  let PDF_MODE_LECTURE = 'horizontal'; // horizontal = pages côte à côte (mode par défaut) ; vertical = défilement continu
+  let PDF_MODE_LECTURE = 'vertical'; // vertical = défilement continu par défaut ; horizontal = pages côte à côte
   // Cache mémoire court : rouvrir un PDF déjà consulté évite un nouveau téléchargement.
   const PDF_CACHE_OCTETS = new Map();
   const PDF_CACHE_MAX = 4;
@@ -295,7 +296,7 @@
     PDF_PAGE_ACTUELLE = 1;
     PDF_ZOOM = calculerZoomInitialPDF();
     PDF_ROTATION = 0;
-    PDF_MODE_LECTURE = 'horizontal';
+    PDF_MODE_LECTURE = 'vertical';
     document.getElementById('pdfViewerZoomLevel').textContent = Math.round(PDF_ZOOM * 100) + '%';
     mettreAJourModeLecturePDF();
     fermerMenuLecteurPDF();
