@@ -231,15 +231,50 @@
   async function loadPdfLib(){
     if(globalThis.PDFLib?.PDFDocument)return globalThis.PDFLib;
     if(state.pdfLibPromise)return state.pdfLibPromise;
-    state.pdfLibPromise=new Promise((resolve,reject)=>{
-      const s=document.createElement('script');
-      s.src='https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
-      s.async=true;
-      s.onload=()=>globalThis.PDFLib?.PDFDocument?resolve(globalThis.PDFLib):reject(new Error('Bibliothèque PDF indisponible.'));
-      s.onerror=()=>reject(new Error('Chargement de la bibliothèque PDF impossible.'));
-      document.head.appendChild(s);
-    });
-    return state.pdfLibPromise;
+    state.pdfLibPromise=(async()=>{
+      const sources=[
+        'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js',
+        'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js'
+      ];
+      const failures=[];
+      for(const src of sources){
+        try{
+          await new Promise((resolve,reject)=>{
+            const script=document.createElement('script');
+            let settled=false;
+            const finish=(error)=>{
+              if(settled)return;
+              settled=true;
+              clearTimeout(timer);
+              script.onload=null;
+              script.onerror=null;
+              if(error){script.remove();reject(error);}
+              else if(globalThis.PDFLib?.PDFDocument)resolve();
+              else{script.remove();reject(new Error('Le script chargé ne fournit pas PDFLib.PDFDocument.'));}
+            };
+            const timer=setTimeout(()=>finish(new Error('Délai dépassé pendant le chargement de '+new URL(src).hostname+'.')),12000);
+            script.src=src;
+            script.async=true;
+            script.crossOrigin='anonymous';
+            script.onload=()=>finish();
+            script.onerror=()=>finish(new Error('Échec réseau pour '+new URL(src).hostname+'.'));
+            document.head.appendChild(script);
+          });
+          if(globalThis.PDFLib?.PDFDocument)return globalThis.PDFLib;
+        }catch(error){
+          failures.push(String(error?.message||error));
+        }
+      }
+      throw new Error('Impossible de charger la bibliothèque PDF. Vérifie la connexion, puis réessaie. '+failures.join(' | '));
+    })();
+    try{
+      return await state.pdfLibPromise;
+    }catch(error){
+      // Une tentative échouée ne doit pas condamner les clics suivants :
+      // le prochain téléchargement doit pouvoir retenter les CDN.
+      state.pdfLibPromise=null;
+      throw error;
+    }
   }
   async function downloadCurrentPdf(){
     const parts=downloadablePdfParts();
