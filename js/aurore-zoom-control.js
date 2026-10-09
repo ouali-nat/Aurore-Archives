@@ -223,3 +223,19 @@
     construireControleZoom();
   }
 })();
+
+/* Chargement du module « Lecteur PDF+ » (js/aurore-pdf-reader-plus.js) : correctifs de zoom,
+   d'ajustement automatique et de netteté du lecteur PDF + recherche, miniatures, plan, rotation.
+   Chargé après la page pour que le lecteur soit déjà défini ; le module attend lui-même le lecteur. */
+(function(){
+  function chargerLecteurPlus(){
+    if(document.getElementById('aurore-pdf-plus-js')) return;
+    var s=document.createElement('script');
+    s.id='aurore-pdf-plus-js';
+    s.src='/js/aurore-pdf-reader-plus.js?v=20261009-1';
+    s.async=true;
+    document.head.appendChild(s);
+  }
+  if(document.readyState==='complete') chargerLecteurPlus();
+  else window.addEventListener('load',chargerLecteurPlus,{once:true});
+})();
