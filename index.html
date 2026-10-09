@@ -69,9 +69,24 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
   'use strict';
   var root=document.documentElement;
   root.classList.add('aurore-boot-pending');
-  var started=Date.now(),lastActivity=now(),activeFetches=0,loadSeen=document.readyState==='complete',dismissed=false;
-  var overlay=null,pollHandle=null,slowHandle=null,hardHandle=null,buttonBound=false;
-  function now(){return window.performance&&performance.now?performance.now():Date.now();}
+  var lastActivity=now(),activeFetches=0,loadSeen=document.readyState==='complete',dismissed=false;
+  var overlay=null,pollHandle=null,slowHandle=null,hardHandle=null,buttonBound=false,domObserver=null;
+  function now(){return window.performance&&window.performance.now?window.performance.now():Date.now();}
+  window.__auroreBootFetchStart=function(){if(dismissed)return;activeFetches++;lastActivity=now();};
+  window.__auroreBootFetchEnd=function(){if(dismissed)return;activeFetches=Math.max(0,activeFetches-1);lastActivity=now();};
+  function watchInitialDOM(){
+    if(domObserver||!document.body||typeof MutationObserver==='undefined')return;
+    domObserver=new MutationObserver(function(records){
+      if(dismissed)return;
+      for(var i=0;i<records.length;i++){
+        var node=records[i].target;
+        if(node&&node.nodeType!==1)node=node.parentElement;
+        if(node&&node.closest&&node.closest('#auroreBootOverlay'))continue;
+        lastActivity=now();break;
+      }
+    });
+    domObserver.observe(document.body,{subtree:true,childList:true,characterData:true});
+  }
   function getOverlay(){return document.getElementById('auroreBootOverlay');}
   function bindOverlay(){
     overlay=getOverlay();
@@ -89,6 +104,7 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
     if(pollHandle)clearTimeout(pollHandle);
     if(slowHandle)clearTimeout(slowHandle);
     if(hardHandle)clearTimeout(hardHandle);
+    if(domObserver){domObserver.disconnect();domObserver=null;}
     overlay=getOverlay();
     if(overlay){
       overlay.classList.add('is-leaving');
@@ -103,6 +119,7 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
   function checkReady(){
     if(dismissed)return;
     bindOverlay();
+    watchInitialDOM();
     if(loadSeen&&document.readyState==='complete'&&activeFetches===0&&now()-lastActivity>=950&&document.querySelector('.screen.active')){
       dismiss('ready');return;
     }
@@ -115,8 +132,8 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
       try{promise=originalFetch.apply(window,arguments);}
       catch(error){lastActivity=now();throw error;}
       if(promise&&typeof promise.then==='function'){
-        activeFetches++;lastActivity=now();
-        var done=function(){activeFetches=Math.max(0,activeFetches-1);lastActivity=now();};
+        window.__auroreBootFetchStart();
+        var done=function(){window.__auroreBootFetchEnd();};
         promise.then(done,done);
       }
       return promise;
