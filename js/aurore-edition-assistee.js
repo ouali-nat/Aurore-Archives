@@ -1497,6 +1497,37 @@
     setStatus('Prévisualisation progressive prête : pages antérieures + bloc actuel.');
   }
 
+  async function previewGraphBlock(id){
+    const b=activeBlocks().find(x=>String(x.id)===String(id));
+    if(!b||b.type!=='graphique')return;
+    if(b.jsonEditorInvalid){setStatus('JSON graphique invalide. Corrige-le avant la prévisualisation.');return;}
+    const suffix=String(id).replace(/[^a-zA-Z0-9_-]/g,'_');
+    const imageId='aeGraphPreviewImage_'+suffix,loadingId='aeGraphPreviewLoading_'+suffix;
+    const body='<div class="ae-page-preview">'+
+      '<div class="ae-page-preview-meta"><strong>Graphique GeoGebra · aperçu avant génération</strong><span>Construction réelle depuis le JSON · aucune page PDF requise</span></div>'+
+      '<div class="ae-page-preview-canvas-wrap"><div id="'+loadingId+'" class="ae-preview-loading">Construction du graphique GeoGebra…</div><img id="'+imageId+'" alt="Prévisualisation du graphique GeoGebra" style="display:none;width:100%;max-width:100%;height:auto;max-height:70vh;object-fit:contain;margin:0 auto"></div>'+
+      '</div>';
+    openBlockModal('Prévisualisation du graphique',body);
+    setStatus('Construction de l’aperçu GeoGebra…');
+    try{
+      const exportPNG=window.auroraGeoGebraRenderer?.exportPNG;
+      if(typeof exportPNG!=='function')throw new Error('Le moteur GeoGebra n’est pas chargé. Recharge Aurore puis réessaie.');
+      const pngBase64=await exportPNG(clone(b.content?.json||{}));
+      const image=document.getElementById(imageId);
+      if(!image)return;
+      const raw=String(pngBase64||'').replace(/^data:image\\/png;base64,/i,'');
+      if(!raw)throw new Error('GeoGebra n’a retourné aucune image.');
+      image.src='data:image/png;base64,'+raw;
+      image.style.display='block';
+      document.getElementById(loadingId)?.remove();
+      setStatus('Prévisualisation GeoGebra prête.');
+    }catch(e){
+      const loading=document.getElementById(loadingId);
+      if(loading)loading.innerHTML='<strong>Prévisualisation indisponible</strong><span>'+esc(String(e?.message||e))+'</span>';
+      setStatus('Prévisualisation GeoGebra impossible : '+String(e?.message||e));
+    }
+  }
+
   async function previewBlock(id){
     const b=activeBlocks().find(x=>x.id===id);if(!b)return;
 
@@ -1520,6 +1551,10 @@
         const host=document.getElementById('aeModalHost');if(host){const box=host.querySelector('.ae-page-preview-canvas-wrap');if(box)box.innerHTML='<div class="ae-preview-render-error"><strong>Aperçu indépendant indisponible</strong><span>'+esc(String(e?.message||e))+'</span></div>';}
         setStatus('Aperçu indépendant indisponible.');
       }
+      return;
+    }
+    if(b.type==='graphique'&&!String(b.generation?.page_url||'').trim()){
+      await previewGraphBlock(id);
       return;
     }
     await progressivePreviewBlock(id);
