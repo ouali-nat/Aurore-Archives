@@ -1,19 +1,20 @@
-/* Aurore — Lecteur PDF « Plus » (v1, 2026-10-09)
+/* Aurore — Lecteur PDF « Plus » (v2, 2026-10-09)
    Chargé après aurore-pdf-reader.js (voir aurore-zoom-control.js). Ne remplace pas le lecteur :
    il corrige et complète ses fonctions internes.
 
-   CORRECTIONS
-   1) Zoom du site : tant que le lecteur est ouvert, le zoom <html> est neutralisé ET surveillé
-      (si un autre script le modifie, il est remis à 1 et la nouvelle valeur est restaurée à la
-      fermeture). Les boutons de zoom du site sont masqués pendant la lecture.
-   2) Ajustement automatique : la largeur des pages est recalculée à chaque redimensionnement,
-      rotation d'écran ou changement de zoom du site, sans perdre la position de lecture.
-   3) Netteté : chaque page est redessinée à la bonne résolution (écran physique) dès que le zoom
-      change, y compris les pages qui n'étaient pas visibles (avant : elles gardaient l'ancienne
-      échelle, donc floues/mal dimensionnées). Canvas aligné au pixel près, plafonné pour ne
-      jamais dépasser les limites mémoire des téléphones. Rotation /Rotate des PDF scannés respectée.
-   NOUVEAUTÉS : recherche dans le texte, sélection/copie du texte, miniatures, plan (table des
-   matières), liens cliquables, rotation, ajustement « page entière » / « largeur ».
+   v2 — CORRECTIFS
+   • Les feuilles de style du lecteur (pdf-reader.css, refonte, lecture horizontale) imposent des
+     tailles en !important (largeur 100 % des pages, canvas « width:auto »…). Toutes les tailles
+     posées par ce module sont donc écrites en !important inline : plus aucune page « zoomée ».
+   • Texte en double : la couche de texte invisible vit désormais dans un Shadow DOM, hors de
+     portée des CSS du site (le texte est toujours transparent, seul le surlignage est visible).
+   • Zoom du site : tant que le lecteur est ouvert, html{zoom:1!important} (impossible à écraser
+     par un script) ; la largeur disponible tient compte d'un éventuel zoom résiduel.
+   • Zoom > 100 % : le conteneur des pages s'élargit (on peut atteindre les deux bords) ; en lecture
+     horizontale, défilement vertical autorisé et « aimantation » désactivée quand on zoome.
+
+   FONCTIONS : recherche dans le texte, sélection/copie, miniatures, plan, liens cliquables,
+   rotation, ajustement « page entière » / « largeur », netteté (rendu à la résolution physique).
    Lecture seule (Telechargement_autorise === false) : texte non sélectionnable ni copiable. */
 (function () {
   'use strict';
@@ -29,9 +30,20 @@
   var refitTimer = null, rendTimer = null, lastDpr = 0, thumbQ = Promise.resolve(), thumbIO = null;
 
   /* ---------- utilitaires ---------- */
+  function imp(el, o) { for (var k in o) el.style.setProperty(k, o[k], 'important'); }
   function ouvert() { var o = $('pdfViewerOverlay'); return !!o && o.style.display !== 'none' && !!PDF_EN_COURS; }
   function lectureSeule() { return !!(DOC_EN_LECTURE && DOC_EN_LECTURE.Telechargement_autorise === false); }
-  function largeurBase() { var z = $('pdfViewerZone'); return Math.max(1, Math.min(980, (z ? z.clientWidth : window.innerWidth) - 20)); }
+  function largeurBase() {
+    var z = $('pdfViewerZone');
+    if (!z) return Math.max(1, Math.min(980, window.innerWidth - 20));
+    var cs = getComputedStyle(z), pad = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+    var w = z.clientWidth, r = z.getBoundingClientRect();
+    var k = z.offsetWidth > 0 ? r.width / z.offsetWidth : 1;
+    // Zoom résiduel (visuel ≠ mise en page) : on se cale sur la largeur réelle de l'écran.
+    if (k > 0.3 && k < 3 && Math.abs(k - 1) > 0.02) w = Math.min(w, window.innerWidth / k);
+    else w = Math.min(w, window.innerWidth);
+    return Math.max(1, Math.min(980, Math.floor(w - pad - 8)));
+  }
   function dprEff() { return Math.max(1, Math.min(window.devicePixelRatio || 1, 3)); }
   function rotTotale(page) { return (((page.rotate || 0) + PDF_ROTATION) % 360 + 360) % 360; }
   function ratioPage(n) {
@@ -55,14 +67,14 @@
   function relayout() {
     var pages = $('pdfViewerPages'); if (!pages || !PDF_EN_COURS) return;
     var L = largeurBase(); pdfLargeurBase = L;
-    var cssW = L * PDF_ZOOM;
+    var cssW = L * PDF_ZOOM, zone = $('pdfViewerZone');
+    if (zone) zone.classList.toggle('apx-zoomed', PDF_ZOOM > 1.02);
     pages.querySelectorAll('.pdf-reader-page').forEach(function (w) {
       var n = +w.dataset.page, cssH = cssW * ratioPage(n);
-      w.style.width = cssW + 'px'; w.style.maxWidth = 'none';
-      w.style.minHeight = Math.round(cssH + 32) + 'px';
+      imp(w, { 'width': cssW + 'px', 'max-width': 'none', 'min-width': '0', 'flex': '0 0 auto', 'min-height': Math.round(cssH + 32) + 'px' });
       if (w.__apxKey) {                       // page déjà dessinée : étirement immédiat de l'ancien bitmap
         var c = w.querySelector('canvas');
-        if (c) { c.style.width = cssW + 'px'; c.style.height = cssH + 'px'; }
+        if (c) imp(c, { 'width': cssW + 'px', 'height': cssH + 'px', 'max-width': 'none' });
         var ly = w.querySelector('.apx-layers');
         if (ly && ly.__w) ly.style.transform = 'scale(' + (cssW / ly.__w) + ')';
       }
@@ -116,14 +128,13 @@
       catch (e) { if (/cancel/i.test(String(e && (e.name || e.message)))) return; throw e; }
       if (PDF_EN_COURS !== pdf || jeton !== PDF_JETON_OUVERTURE || !w.isConnected) return;
       if (key !== cleRendu()) return;        // le zoom a changé pendant le rendu : un nouveau rendu est déjà demandé
-      nc.style.cssText = 'display:block;margin-left:auto;margin-right:auto;max-width:none;width:' + cssW + 'px;height:' + cssH + 'px';
+      nc.style.cssText = 'display:block!important;margin-left:auto!important;margin-right:auto!important;max-width:none!important;width:' + cssW + 'px!important;height:' + cssH + 'px!important';
       var old = w.querySelector('canvas');
       nc.setAttribute('aria-label', (old && old.getAttribute('aria-label')) || ('Page ' + n));
       if (old) old.replaceWith(nc); else w.insertBefore(nc, w.firstChild);
-      w.style.width = cssW + 'px'; w.style.maxWidth = 'none'; w.style.minHeight = Math.round(cssH + 32) + 'px';
+      imp(w, { 'width': cssW + 'px', 'max-width': 'none', 'min-width': '0', 'flex': '0 0 auto', 'min-height': Math.round(cssH + 32) + 'px' });
       w.__apxKey = key; w.__apxPx = nc.width * nc.height;
       w.classList.add('pdf-page-rendered');
-      if (getComputedStyle(w).position === 'static') w.style.position = 'relative';
       construireCouches(w, page, rot, cssW, cssH, cssW / vp1.width, n, key);
       ajusterMemoire();
     })().catch(function (e) {
@@ -144,14 +155,26 @@
       var w = ws[i]; if (total <= BUDGET_PX * 0.8) break;
       if (Math.abs(+w.dataset.page - cur) <= 1) continue;
       var c = w.querySelector('canvas');
-      if (c) { var cw = c.style.width, ch = c.style.height; c.width = 1; c.height = 1; c.style.width = cw; c.style.height = ch; }
+      if (c) {
+        var cw = c.style.getPropertyValue('width'), ch = c.style.getPropertyValue('height');
+        c.width = 1; c.height = 1; imp(c, { 'width': cw, 'height': ch });
+      }
       total -= w.__apxPx; w.__apxKey = null; w.__apxPx = 0;
       var ly = w.querySelector('.apx-layers'); if (ly) ly.remove();
       w.classList.remove('pdf-page-rendered');
     }
   }
 
-  /* ---------- couches texte (sélection, recherche) + liens ---------- */
+  /* ---------- couches texte (Shadow DOM : insensible aux CSS du site) + liens ---------- */
+  var TEXT_CSS =
+    ':host{display:block}' +
+    '.t{all:initial;display:block;position:absolute;left:0;top:0;width:100%;height:100%;overflow:hidden;line-height:1;text-align:initial;forced-color-adjust:none;text-size-adjust:none;-webkit-user-select:inherit;user-select:inherit}' +
+    'span,br{all:initial;position:absolute;white-space:pre;color:transparent;-webkit-text-fill-color:transparent;cursor:text;transform-origin:0 0;-webkit-user-select:text;user-select:text}' +
+    ':host(.apx-ro) span,:host(.apx-ro) br{-webkit-user-select:none;user-select:none;pointer-events:none}' +
+    'span::selection,span *::selection{background:rgba(37,99,235,.3);color:transparent}' +
+    'mark{all:initial;font:inherit;white-space:pre;color:transparent;-webkit-text-fill-color:transparent;background:rgba(255,214,0,.5);border-radius:2px}' +
+    'mark.apx-cur{background:rgba(255,120,0,.7);outline:2px solid rgba(255,120,0,.9)}';
+
   async function construireCouches(w, page, rot, cssW, cssH, scaleCss, n, key) {
     var old = w.querySelector('.apx-layers'); if (old) old.remove();
     var c = w.querySelector('canvas'); if (!c) return;
@@ -163,20 +186,22 @@
     function perime() { return PDF_EN_COURS !== pdf || jeton !== PDF_JETON_OUVERTURE || w.__apxKey !== key || !ly.isConnected; }
     var vpCss = page.getViewport({ scale: scaleCss, rotation: rot });
     try {
-      if (typeof pdfjsLib !== 'undefined' && typeof pdfjsLib.renderTextLayer === 'function') {
+      if (typeof pdfjsLib !== 'undefined' && typeof pdfjsLib.renderTextLayer === 'function' && Element.prototype.attachShadow) {
         var tc = await page.getTextContent();
         if (perime()) return;
-        var box = document.createElement('div'); box.className = 'apx-text';
-        box.style.setProperty('--scale-factor', String(scaleCss));
-        box.style.width = cssW + 'px'; box.style.height = cssH + 'px';
-        box.addEventListener('contextmenu', function (e) { if (!lectureSeule()) e.stopPropagation(); });
-        ly.appendChild(box);
-        var divs = [], strs = [], args = { container: box, viewport: vpCss, textDivs: divs, textContentItemsStr: strs }, task;
+        var host = document.createElement('div'); host.className = 'apx-text' + (lectureSeule() ? ' apx-ro' : '');
+        host.style.width = cssW + 'px'; host.style.height = cssH + 'px';
+        host.addEventListener('contextmenu', function (e) { if (!lectureSeule()) e.stopPropagation(); });
+        var sr = host.attachShadow({ mode: 'open' });
+        sr.innerHTML = '<style>' + TEXT_CSS + '</style><div class="t"></div>';
+        var cont = sr.querySelector('.t'); cont.style.setProperty('--scale-factor', String(scaleCss));
+        ly.appendChild(host);
+        var divs = [], strs = [], args = { container: cont, viewport: vpCss, textDivs: divs, textContentItemsStr: strs }, task;
         try { task = pdfjsLib.renderTextLayer(Object.assign({ textContentSource: tc }, args)); }
         catch (e1) { task = pdfjsLib.renderTextLayer(Object.assign({ textContent: tc }, args)); }
         await task.promise;
         if (perime()) return;
-        box.__divs = divs; box.__strs = strs;
+        host.__divs = divs; host.__strs = strs;
         if (S.qn) surlignerPage(n);
       }
     } catch (e) { if (!/cancel/i.test(String(e && (e.name || e.message)))) console.warn('[Lecteur PDF+] couche texte', e); }
@@ -243,7 +268,8 @@
   function zoomPage() {
     var zone = $('pdfViewerZone'); if (!zone || !PDF_EN_COURS) return;
     var n = PDF_PAGE_ACTUELLE || 1, h1 = largeurBase() * ratioPage(n);
-    var z = Math.max(PDF_ZOOM_MIN, Math.round(Math.min(1, (zone.clientHeight - 24) / h1) * 100) / 100);
+    var cs = getComputedStyle(zone), padV = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+    var z = Math.max(PDF_ZOOM_MIN, Math.round(Math.min(1, (zone.clientHeight - padV - 16) / h1) * 100) / 100);
     zoomPlus(z, true); setTimeout(function () { allerPageNumero(n); }, 60);
   }
   function pivoter() {
@@ -330,6 +356,10 @@
       if (w.querySelector('.apx-text')) surlignerPage(+w.dataset.page);
     });
   }
+  function marqueCourante(w) {
+    var host = w && w.querySelector('.apx-text');
+    return host && host.shadowRoot ? host.shadowRoot.querySelector('mark.apx-cur') : null;
+  }
   function majCompteur() {
     var el = $('apxCount'); if (!el) return;
     var tot = S.matches.length, n = S.pdf ? S.pdf.numPages : 0;
@@ -387,7 +417,7 @@
     var w = wrapperDe(m.n), box = null;
     for (var t = 0; t < 40; t++) { box = w && w.querySelector('.apx-text'); if (box && box.__divs) break; await new Promise(function (r) { setTimeout(r, 80); }); }
     surlignerTout();
-    var mk = w && w.querySelector('mark.apx-cur');
+    var mk = marqueCourante(w);
     if (mk) mk.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
   }
   function ouvrirRecherche() {
@@ -447,7 +477,7 @@
       var cssW = 110, dpr = Math.min(window.devicePixelRatio || 1, 2);
       var vp = page.getViewport({ scale: cssW * dpr / vp1.width });
       var c = btn.querySelector('canvas'); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
-      c.style.width = cssW + 'px'; c.style.height = (c.height / dpr) + 'px';
+      imp(c, { 'width': cssW + 'px', 'height': (c.height / dpr) + 'px', 'max-width': '100%' });
       await page.render({ canvasContext: c.getContext('2d', { alpha: false }), viewport: vp }).promise;
       btn.__done = true; btn.style.minHeight = '0';
     }).catch(function () {});
@@ -495,15 +525,20 @@
     if ($('apx-css')) return;
     var s = document.createElement('style'); s.id = 'apx-css';
     s.textContent =
+      /* zoom du site neutralisé tant que le lecteur est ouvert (ne peut pas être écrasé par un script) */
+      'html.aurore-lecteur-pdf-ouvert,html.aurore-lecteur-pdf-ouvert body{zoom:1!important}' +
       'html.aurore-lecteur-pdf-ouvert #aurore-zoom-fab,html.aurore-lecteur-pdf-ouvert #aurore-zoom-panel,html.aurore-lecteur-pdf-ouvert #aurore-zoom-hint{display:none!important}' +
-      '#pdfViewerPages .pdf-reader-page{position:relative}' +
+      /* lecture verticale : le conteneur s'élargit avec le zoom, les deux bords restent accessibles */
+      'html body #pdfViewerZone.pdf-lecture-vertical{align-items:flex-start!important}' +
+      'html body #pdfViewerZone.pdf-lecture-vertical #pdfViewerPages{width:max-content!important;min-width:100%!important;max-width:none!important}' +
+      /* lecture horizontale : défilement vertical autorisé, aimantation coupée quand on zoome */
+      'html body #pdfViewerZone.pdf-lecture-horizontal{overflow-y:auto!important;touch-action:pan-x pan-y!important}' +
+      'html body #pdfViewerZone.pdf-lecture-horizontal.apx-zoomed{scroll-snap-type:none!important}' +
+      'html body #pdfViewerZone.pdf-lecture-horizontal.apx-zoomed .pdf-reader-page{scroll-snap-align:none!important;scroll-snap-stop:normal!important}' +
+      '#pdfViewerPages .pdf-reader-page{position:relative!important}' +
       '.apx-layers{position:absolute;transform-origin:0 0;z-index:3;pointer-events:none}' +
-      '.apx-text{position:absolute;left:0;top:0;overflow:hidden;line-height:1;text-align:initial;pointer-events:auto;-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;forced-color-adjust:none;text-size-adjust:none}' +
-      '.apx-text span,.apx-text br{color:transparent;position:absolute;white-space:pre;cursor:text;transform-origin:0 0}' +
-      '.apx-text ::selection{background:rgba(37,99,235,.3)}' +
-      '.apx-text mark.apx-hl{background:rgba(255,214,0,.5);color:transparent;border-radius:2px;padding:0;margin:0}' +
-      '.apx-text mark.apx-cur{background:rgba(255,120,0,.7);outline:2px solid rgba(255,120,0,.9)}' +
-      '.apx-ro .apx-text{pointer-events:none;-webkit-user-select:none;user-select:none}' +
+      '.apx-text{position:absolute!important;left:0;top:0;overflow:hidden;pointer-events:auto;-webkit-user-select:text!important;user-select:text!important;-webkit-touch-callout:default}' +
+      '.apx-ro.apx-text,.apx-ro .apx-text{pointer-events:none!important;-webkit-user-select:none!important;user-select:none!important}' +
       '.apx-link{position:absolute;display:block;pointer-events:auto;cursor:pointer;border-radius:2px}.apx-link:hover{background:rgba(37,99,235,.12)}' +
       '.apx-menu{display:flex;flex-direction:column;border-top:1px solid var(--bordure,#e5e7eb);margin-top:6px;padding-top:6px}' +
       '.apx-mb{display:flex;align-items:center;gap:10px;width:100%;padding:11px 12px;background:none;border:0;color:var(--encre,#111827);font:inherit;font-size:.9rem;text-align:left;cursor:pointer;border-radius:10px}' +
@@ -608,7 +643,7 @@
     if (window.visualViewport) window.visualViewport.addEventListener('resize', planifierRefit);
     var zone = $('pdfViewerZone');
     if (zone && typeof ResizeObserver !== 'undefined') new ResizeObserver(planifierRefit).observe(zone);
-    // Si un autre script modifie le zoom du site pendant la lecture : on le remet à 1 et on retient la valeur à restaurer.
+    // Si un autre script modifie le zoom du site pendant la lecture : on retient la valeur à restaurer à la fermeture.
     new MutationObserver(function () {
       if (!ouvert()) return;
       var z = document.documentElement.style.zoom;
