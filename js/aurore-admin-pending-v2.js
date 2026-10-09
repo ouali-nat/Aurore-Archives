@@ -269,6 +269,7 @@ async function chargerDocumentsEnAttenteAdminV2(){
  }
 }
 async function compterDocumentsEnAttente(){
+ // Les tâches de production restent privées : aucun polling sans session admin.
  if(typeof session==='undefined'||!session||session.role!=='admin'){
   setText('tabCountAttente',0);return 0;
  }
