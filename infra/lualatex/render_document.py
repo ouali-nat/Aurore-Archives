@@ -4334,8 +4334,12 @@ def render(data):
         r"\titleformat{\section}{\Large\sffamily\bfseries\color{aurorebase}}{\thesection}{0.65em}{}[\vspace{0.25ex}\textcolor{aurorebase!78!white}{\titlerule[0.7pt]}]",
         r"\titleformat{\subsection}{\large\sffamily\bfseries\color{aurorebase}}{\thesubsection}{0.6em}{}[\vspace{0.18ex}\textcolor{aurorebase!38!white}{\titlerule[0.45pt]}]",
         r"% Course sections: dominant Aurore color forms the left visual spine through each section.",
-        r"\newcommand{\AuroreCourseSectionStart}{\par\smallskip}",
-        r"\newcommand{\AuroreCourseSectionEnd}{\par\smallskip}",
+        r"\newcommand{\AuroreCourseSectionStart}{%",
+        r"  \begin{tcolorbox}[enhanced,blanker,left=11pt,right=0pt,top=0pt,bottom=0pt,borderline west={1.7pt}{0pt}{aurorebase},before skip=0pt,after skip=0pt]%",
+        r"}",
+        r"\newcommand{\AuroreCourseSectionEnd}{%",
+        r"  \end{tcolorbox}%",
+        r"}",
         r"\titlespacing*{\section}{0pt}{2.4ex plus .4ex minus .2ex}{1.1ex}",
         r"\titlespacing*{\subsection}{0pt}{1.7ex plus .3ex minus .2ex}{0.7ex}",
         r"\tcbset{auroreblock/.style={enhanced,breakable,arc=13pt,outer arc=13pt,boxrule=.45pt,colframe=aurorebase!40!white,left=10pt,right=10pt,top=5pt,bottom=5pt,before skip=5pt,after skip=6pt,fonttitle=\sffamily\bfseries,pad at break*=1.5mm}}",
@@ -4715,8 +4719,7 @@ def render(data):
             "les exercices excédentaires seront ignorés."
         )
 
-    # Keep the source untouched for validation; collapse only consecutive,
-    # substantively identical section payloads before rendering.
+    # Keep source sections intact for QA; omit adjacent copies of the same substantive section at render time.
     render_sections = []
     previous_render_signature = None
     for _render_idx, _render_section in enumerate(data.get("sections", [])):
@@ -4747,9 +4750,73 @@ def render(data):
         previous_render_signature = _render_signature
 
     for _idx, sec in render_sections:
-        if is_exercise_document:        lines.append(r"\Needspace{6\baselineskip}")
+        if is_exercise_document:
+            exercises = sec.get("exercises", []) or []
+            lines.append(r"\par\smallskip")
+            if not isinstance(exercises, list):
+                exercises = []
+            section_title = clean_text(sec.get("title") or "").strip()
+            if section_title and len(exercises) > 1:
+                lines.append(r"\AuroreExerciseSeriesHeading{" + tex_text(section_title) + r"}")
+            # En profil exercices, section.content est volontairement ignoré :
+            # seuls les champs structurés de l'exercice peuvent entrer dans le PDF.
+            content_items = []
+            if sec.get("formula"): lines.append(display_formula(sec["formula"]))
+            section_graphics = sec.get("graphics", [])
+            section_visuals = [v for v in (data.get("_wikimedia_visuals", []) or []) if int(v.get("section_index", -1)) == _idx]
+            section_graphs = sec.get("graphs", []) or []
+            if not exercises:
+                lines.extend(render_graphs(section_graphs, allow=True, exercise_mode=True))
+                if section_graphics:
+                    graphics_root = Path(data.get("_render_assets_dir") or "assets") / "aurore" / f"section-{_idx + 1}"
+                    lines.extend(render_aurore_graphics(section_graphics, graphics_root, {"primary":"#"+theme_primary,"secondary":"#"+theme_secondary,"strong":"#"+theme}))
+                if section_visuals: lines.extend(render_visuals(section_visuals))
+            for ex_index, ex in enumerate(exercises):
+                if not isinstance(ex, dict):
+                    continue
+                if declared_exercise_count is not None and exercise_number >= declared_exercise_count:
+                    break
+                exercise_number += 1
+                question = ex.get("question") or ex.get("statement") or ex.get("enonce") or ex.get("content") or ""
+                inline_correction = ""
+                correction_graphs = []
+                if is_exercise_document and (ex.get("solution") or ex.get("correction")):
+                    raise ValueError(
+                        "EXERCISE_CORRECTION_LAYOUT: corrections must be stored in "
+                        "sections[].corrections[] with exercise_id; inline exercise correction is forbidden."
+                    )
+                if isinstance(correction_graphs, list):
+                    exercise_correction_graphs_by_number[exercise_number] = correction_graphs
+                else:
+                    correction_graphs = []
+                body = []
+                body.extend(render_exercise_text(question, mode="question"))
+                statement_graphs = ex.get("statement_graphs", [])
+                if isinstance(statement_graphs, list):
+                    body.extend(render_graphs(statement_graphs, allow=True, exercise_mode=True))
+                if ex_index == 0:
+                    body.extend(render_graphs(section_graphs, allow=True, exercise_mode=True))
+                    if section_graphics:
+                        graphics_root = Path(data.get("_render_assets_dir") or "assets") / "aurore" / f"section-{_idx + 1}"
+                        body.extend(render_aurore_graphics(section_graphics, graphics_root, {"primary":"#"+theme_primary,"secondary":"#"+theme_secondary,"strong":"#"+theme}))
+                    if section_visuals: body.extend(render_visuals(section_visuals))
+                if ex.get("hint"):
+                    body.append(
+                        r"\AuroreLabeledBlock{Indication}{"
+                        + _render_course_paragraph(clean_text(ex["hint"]).strip(), auto_math=True)
+                        + r"}"
+                    )
+                if ex.get("formula"): body.append(display_formula(ex["formula"]))
+                lines.append(r"\AuroreExerciseSeriesBlock{" + str(exercise_number) + r"}{" + "\n".join(body) + r"}")
+                # Exercise-series corrections are rendered only from
+                # sections[].corrections[]. Inline exercise corrections are forbidden.
+            lines.append(r"\par\smallskip")
+            continue
+
+        lines.append(r"\Needspace{6\baselineskip}")
         lines.append(r"\AuroreCourseSectionStart")
         lines.append(r"\section{" + tex_text(sec.get("title", "")) + r"}")
+        lines.append(r"\AuroreCourseSectionEnd")
         if sec.get("objective"):
             objective = clean_text(sec["objective"]).strip()
             if objective:
@@ -4790,7 +4857,6 @@ def render(data):
             lines.extend(render_aurore_graphics(section_graphics, graphics_root, {"primary":"#"+theme_primary,"secondary":"#"+theme_secondary,"strong":"#"+theme}))
         section_visuals = [v for v in (data.get("_wikimedia_visuals", []) or []) if int(v.get("section_index", -1)) == _idx]
         if section_visuals: lines.extend(render_visuals(section_visuals))
-        lines.append(r"\AuroreCourseSectionEnd")
         for ex in sec.get("exercises", []):
             exercise_number += 1
             lines.append(r"\Needspace{5\baselineskip}")
