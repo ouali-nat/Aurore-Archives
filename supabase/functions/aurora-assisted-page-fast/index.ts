@@ -245,7 +245,14 @@ async function formulaImage(auth:string,pdf:any,source:string,qa:any,cache:Map<s
       const z:any=await r.json().catch(()=>null);
       const result=z?.results?.[0]||z;
       const pngBase64=typeof result?.png_base64==="string"?result.png_base64:null;
-      if(!r.ok||!z?.ok||!pngBase64){qa.formulas_failed++;return null;}
+      if(!r.ok||!z?.ok||!pngBase64){
+        qa.formulas_failed++;
+        if(Array.isArray(qa.formula_errors)&&qa.formula_errors.length<8){
+          const reason=!r.ok?"math renderer HTTP "+r.status:!z?.ok?String(z?.error||"math renderer returned ok=false"):"PNG absent from math renderer response";
+          qa.formula_errors.push({formula:key.slice(0,100),reason});
+        }
+        return null;
+      }
       const bin=atob(pngBase64),bytes=new Uint8Array(bin.length);
       for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
       const image:any=await pdf.embedPng(bytes);
@@ -254,8 +261,11 @@ async function formulaImage(auth:string,pdf:any,source:string,qa:any,cache:Map<s
       image.__aurore_raster_scale=Number(result?.raster_scale)||1;
       qa.formulas_ok++;
       return image;
-    }catch(_){
+    }catch(error){
       qa.formulas_failed++;
+      if(Array.isArray(qa.formula_errors)&&qa.formula_errors.length<8){
+        qa.formula_errors.push({formula:key.slice(0,100),reason:String((error as any)?.message||error).slice(0,180)});
+      }
       return null;
     }
   })();
