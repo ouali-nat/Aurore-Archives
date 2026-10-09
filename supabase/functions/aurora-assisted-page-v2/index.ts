@@ -405,7 +405,12 @@ Deno.serve(async(req)=>{
     flowBlocks=flowBlocks.slice(segmentStart,segmentEnd+1);
   }
   if(!flowBlocks.length)return out({ok:false,error:"Le flux de blocs est vide."},400);
-  if(flowBlocks.some((b:any)=>!["paragraph","point"].includes(clean(b?.type||"").toLowerCase())))return out({ok:false,error:"Le flux assisté accepte uniquement des blocs paragraphe ou point."},400);
+  // Les pages d'exercice, de graphique et d'image sont des unités autonomes.
+  // Seul un vrai flux contenant plusieurs blocs doit être limité aux points/paragraphes.
+  const isSingleIndependentNonFlowBlock=flowBlocks.length===1
+    &&String(flowBlocks[0]?.id||"")===blockId
+    &&!["paragraph","point"].includes(type);
+  if(!isSingleIndependentNonFlowBlock&&flowBlocks.some((b:any)=>!["paragraph","point"].includes(clean(b?.type||"").toLowerCase())))return out({ok:false,error:"Le flux assisté accepte uniquement des blocs paragraphe ou point."},400);
   for(const fb of flowBlocks){
     const ft=clean(fb?.type||"").toLowerCase();
     const fc=fb?.content&&typeof fb.content==="object"?fb.content:{};
