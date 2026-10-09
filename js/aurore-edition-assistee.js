@@ -1160,6 +1160,8 @@
       if(b&&b.generation)delete b.generation;
       if(b&&b.validation)delete b.validation;
     }
+    // Force la régénération des anciennes pages système après le changement de rendu gris.
+    snapshot.__system_page_renderer_version=2;
     return JSON.stringify(snapshot);
   }
 
