@@ -44,8 +44,8 @@
   try {
     if (document.readyState === 'loading') {
       document.write(
-        '<link rel="stylesheet" href="css/aurore-fluid-navigation.css?v=20261003-fluid1">' +
-        '<script src="js/aurore-fluid-navigation.js?v=20261003-fluid1"><\/script>'
+        '<link rel="stylesheet" href="css/aurore-fluid-navigation.css?v=20261009-loaderfit1">' +
+        '<script src="js/aurore-fluid-navigation.js?v=20261009-loaderfit1"><\/script>'
       );
     }
   } catch (e) {}
