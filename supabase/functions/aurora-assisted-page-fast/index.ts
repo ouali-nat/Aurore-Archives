@@ -16,10 +16,10 @@ const BLOCK_GAP=16;
 const BOX_RADIUS=11;
 const BOX_PAD_TOP=11;
 const BOX_PAD_BOTTOM=11;
-const POINT_SPINE_X=38;
-const POINT_BOX_X=54;
-const POINT_SIDE_GAP=9;
-const POINT_MAX_W=500;
+const POINT_SPINE_X=12;
+const POINT_BOX_X=88;
+const POINT_SIDE_GAP=7;
+const POINT_MAX_W=438;
 const MATH_DISPLAY_BASE_H=24;
 const MATH_EX_PX=7.54;
 const MATH_RASTER_SCALE=3;
@@ -453,14 +453,16 @@ function drawInlineLines(page:any,lines:any[],x:number,topY:number,width:number,
 function drawSoftDecor(page:any,color:string){
   const W=595,H=842;
   page.drawRectangle({x:0,y:0,width:W,height:H,color:rgbHex(mixWhite(color,0.96))});
-  page.drawCircle({x:606,y:832,size:72,color:rgbHex(mixWhite(color,0.76))});
-  page.drawCircle({x:-10,y:770,size:44,color:rgbHex(mixWhite(color,0.86))});
-  page.drawCircle({x:598,y:565,size:28,color:rgbHex(mixWhite(color,0.90))});
-  page.drawCircle({x:-8,y:425,size:34,color:rgbHex(mixWhite(color,0.90))});
-  page.drawCircle({x:604,y:122,size:40,color:rgbHex(mixWhite(color,0.88))});
-  page.drawCircle({x:76,y:-18,size:58,color:rgbHex(mixWhite(color,0.86))});
-  page.drawCircle({x:545,y:-12,size:48,color:rgbHex(mixWhite(color,0.86))});
-  page.drawCircle({x:632,y:310,size:30,color:rgbHex(mixWhite(color,0.91))});
+  // Cercles décoratifs ancrés dans la page : aucun centre/rayon ne sort
+  // du canevas, afin que les bulles gardent une forme circulaire au montage.
+  page.drawCircle({x:570,y:800,size:18,color:rgbHex(mixWhite(color,0.76))});
+  page.drawCircle({x:48,y:768,size:15,color:rgbHex(mixWhite(color,0.86))});
+  page.drawCircle({x:568,y:560,size:18,color:rgbHex(mixWhite(color,0.90))});
+  page.drawCircle({x:48,y:420,size:15,color:rgbHex(mixWhite(color,0.90))});
+  page.drawCircle({x:568,y:150,size:18,color:rgbHex(mixWhite(color,0.88))});
+  page.drawCircle({x:82,y:45,size:20,color:rgbHex(mixWhite(color,0.86))});
+  page.drawCircle({x:568,y:45,size:17,color:rgbHex(mixWhite(color,0.86))});
+  page.drawCircle({x:568,y:310,size:15,color:rgbHex(mixWhite(color,0.91))});
 }
 function headerFooter(page:any,pageNo:number,fonts:any,logo:any,color:string){
   if(logo){
@@ -576,9 +578,9 @@ Deno.serve(async req=>{
         const label=(rank+". "+title).trim();
         // Géométrie unique du bloc paragraphe : le calcul des lignes et le dessin
         // utilisent exactement la même largeur pour empêcher tout débordement.
-        const titleX=30;
-        const bodyX=116;
-        const bodyW=410;
+        const titleX=28;
+        const bodyX=POINT_BOX_X;
+        const bodyW=POINT_MAX_W;
         const bodyTextW=bodyW-24;
         const pointItems:any[]=[];
         for(const para of proseText(body)){
@@ -661,7 +663,8 @@ Deno.serve(async req=>{
            floatingBlock(page,bodyX,bodyY,bodyW,bodyH);
            if(!continuation){
              const ruleY=bodyY+bodyH+separatorGap/2;
-             page.drawLine({start:{x:titleX+2,y:ruleY},end:{x:titleX+titleW-2,y:ruleY},thickness:0.6,color:editorialRule});
+             // Soulignement éditorial continu sur toute la largeur utile de la page.
+             page.drawLine({start:{x:26,y:ruleY},end:{x:572,y:ruleY},thickness:1.8,color:editorialRule});
              pointAnchors.push({page,y:titleY,x:titleX,color:accent,topY:y-titleH,bottomY:bodyY,ruleY,boxX:bodyX,boxW:bodyW});
            }
            let childY=bodyY+bodyH-BOX_PAD_TOP;
@@ -832,25 +835,25 @@ Deno.serve(async req=>{
       list.push(a);
       anchorsByPage.set(a.page,list);
     }
-    const railX=24;
+    const railX=POINT_SPINE_X;
     const railTop=792;
     const railBottom=42;
     for(const p of railPages){
       p.drawLine({
         start:{x:railX,y:railTop},
         end:{x:railX,y:railBottom},
-        thickness:1.35,
-        color:rgbHex(mixWhite(color,0.18))
+        thickness:2.6,
+        color:rgbHex(mixWhite(color,0.10))
       });
     }
     for(const [p,list] of anchorsByPage){
       for(const a of list){
         const tickColor=rgbHex(mixWhite(a.color||color,0.06));
-        const endX=Math.max(railX+10,Number(a.targetX||72)-5);
+        const endX=Math.max(railX+10,Number(a.targetX||72)-POINT_SIDE_GAP);
         p.drawLine({
           start:{x:railX,y:a.y},
           end:{x:endX,y:a.y},
-          thickness:0.95,
+          thickness:1.4,
           color:tickColor
         });
       }
