@@ -1638,9 +1638,10 @@ def render_visuals(visuals):
         p=str(v.get("path") or "").replace("\\\\","/").replace("#","\\#").replace("%","\\%")
         if not p: continue
         lines += [
-            r"\begin{tcolorbox}[enhanced,breakable,colback=white,colframe=aurorebase!38!white,arc=11pt,boxrule=.45pt,left=8pt,right=8pt,top=8pt,bottom=8pt]",
+            r"\Needspace{9.5cm}",
+            r"\begin{tcolorbox}[enhanced,colback=white,colframe=aurorebase!38!white,arc=11pt,boxrule=.45pt,left=8pt,right=8pt,top=5pt,bottom=5pt]",
             r"\centering",
-            r"\includegraphics[width=.88\linewidth,height=7.8cm,keepaspectratio]{"+p+r"}",
+            r"\includegraphics[width=.88\linewidth,height=6.5cm,keepaspectratio]{"+p+r"}",
             r"\par\smallskip{\sffamily\small\bfseries\color{auroredeep} "+tex_text(v.get("title") or "Illustration")+r"}",
             r"\par{\sffamily\scriptsize\color{gray} "+tex_text(v.get("caption") or "")+r"}",
             r"\end{tcolorbox}",""
@@ -3107,9 +3108,10 @@ def render_aurore_graphics(graphics, assets_dir, theme):
         else:
             # Schéma scientifique : conserve son espace pédagogique et sa légende.
             lines.extend([
-                r"\begin{tcolorbox}[enhanced,breakable,colback=white,colframe=aurorebase!32!white,arc=11pt,boxrule=.45pt,left=8pt,right=8pt,top=8pt,bottom=8pt]",
+                r"\Needspace{9.5cm}",
+                r"\begin{tcolorbox}[enhanced,colback=white,colframe=aurorebase!32!white,arc=11pt,boxrule=.45pt,left=8pt,right=8pt,top=5pt,bottom=5pt]",
                 r"\centering",
-                r"\includegraphics[width=.92\linewidth,keepaspectratio]{" + safe + r"}",
+                r"\includegraphics[width=.92\linewidth,height=6.6cm,keepaspectratio]{" + safe + r"}",
                 r"\par\smallskip{\sffamily\small\color{gray} " + tex_text(item.get("title") or item.get("kind") or "Graphisme Aurore") + r"}",
                 r"\end{tcolorbox}",
                 "",
@@ -3342,6 +3344,33 @@ def _geogebra_visual_plan_qa(data):
     return {"enabled": True, "schema_version": "geogebra-visual-plan-1", "planned_graphs": planned, "graph_count": graph_count}
 
 
+def _dedupe_adjacent_content_items(items, section_number):
+    """Drop only long, immediately repeated content blocks and record the repair."""
+    if not isinstance(items, list):
+        return items
+    result = []
+    previous_key = None
+    for item in items:
+        if isinstance(item, str):
+            key = re.sub(r"\s+", " ", item).strip()
+        elif isinstance(item, dict):
+            raw_text = item.get("text") or item.get("content") or item.get("body") or item.get("formula") or ""
+            key = re.sub(r"\s+", " ", str(raw_text)).strip()
+            if not key:
+                key = json.dumps(item, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        else:
+            key = json.dumps(item, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        if len(key) >= 160 and key == previous_key:
+            print(
+                "Renderer QA: removed an immediately repeated content block "
+                f"in section {section_number}."
+            )
+            continue
+        result.append(item)
+        previous_key = key
+    return result
+
+
 def render_graphs(graphs, allow=True, exercise_mode=False):
     if not allow:
         return []
@@ -3358,16 +3387,17 @@ def render_graphs(graphs, allow=True, exercise_mode=False):
             continue
         safe_path = local_path.replace("\\", "/").replace("#", "\\#").replace("%", "\\%")
         title = tex_text(graph.get("title") or "Graphique")
+        image_width = "0.88" if exercise_mode else "0.92"
         lines.extend([
-            r"\begin{tcolorbox}[enhanced,breakable,colback=white,colframe=aurorebase,arc=7pt,boxrule=.45pt,left=8pt,right=8pt,top=8pt,bottom=8pt]",
+            r"\Needspace{9.5cm}",
+            r"\begin{tcolorbox}[enhanced,colback=white,colframe=aurorebase,arc=7pt,boxrule=.45pt,left=8pt,right=8pt,top=5pt,bottom=5pt]",
             r"\centering",
-            r"\includegraphics[width=" + ("0.88" if exercise_mode else "0.92") + r"\linewidth,keepaspectratio]{" + safe_path + r"}",
+            r"\includegraphics[width=" + image_width + r"\linewidth,height=6.6cm,keepaspectratio]{" + safe_path + r"}",
             r"\par\smallskip{\sffamily\small\color{gray} " + title + r"}",
             r"\end{tcolorbox}",
             "",
         ])
     return lines
-
 
 def apply_authoritative_document_theme(content, document):
     """Overlay the current administrative document theme onto structured content."""
@@ -4304,17 +4334,13 @@ def render(data):
         r"\titleformat{\section}{\Large\sffamily\bfseries\color{aurorebase}}{\thesection}{0.65em}{}[\vspace{0.25ex}\textcolor{aurorebase!78!white}{\titlerule[0.7pt]}]",
         r"\titleformat{\subsection}{\large\sffamily\bfseries\color{aurorebase}}{\thesubsection}{0.6em}{}[\vspace{0.18ex}\textcolor{aurorebase!38!white}{\titlerule[0.45pt]}]",
         r"% Course sections: dominant Aurore color forms the left visual spine through each section.",
-        r"\newcommand{\AuroreCourseSectionStart}{%",
-        r"  \begin{tcolorbox}[enhanced,breakable,blanker,left=11pt,right=0pt,top=0pt,bottom=7pt,borderline west={1.7pt}{0pt}{aurorebase},before skip=0pt,after skip=0pt,pad at break*=1mm]%",
-        r"}",
-        r"\newcommand{\AuroreCourseSectionEnd}{%",
-        r"  \end{tcolorbox}%",
-        r"}",
-        r"\titlespacing*{\section}{0pt}{3.0ex plus .6ex minus .2ex}{1.55ex}",
-        r"\titlespacing*{\subsection}{0pt}{2.1ex plus .4ex minus .2ex}{0.95ex}",
-        r"\tcbset{auroreblock/.style={enhanced,breakable,arc=13pt,outer arc=13pt,boxrule=.45pt,colframe=aurorebase!40!white,left=10pt,right=10pt,top=8pt,bottom=8pt,before skip=8pt,after skip=10pt,fonttitle=\sffamily\bfseries,pad at break*=2mm}}",
+        r"\newcommand{\AuroreCourseSectionStart}{\par\smallskip}",
+        r"\newcommand{\AuroreCourseSectionEnd}{\par\smallskip}",
+        r"\titlespacing*{\section}{0pt}{2.4ex plus .4ex minus .2ex}{1.1ex}",
+        r"\titlespacing*{\subsection}{0pt}{1.7ex plus .3ex minus .2ex}{0.7ex}",
+        r"\tcbset{auroreblock/.style={enhanced,breakable,arc=13pt,outer arc=13pt,boxrule=.45pt,colframe=aurorebase!40!white,left=10pt,right=10pt,top=5pt,bottom=5pt,before skip=5pt,after skip=6pt,fonttitle=\sffamily\bfseries,pad at break*=1.5mm}}",
         r"\newcommand{\AuroreParagraphBlock}[1]{%",
-        r"  \begin{tcolorbox}[enhanced,breakable,colback=gray!10!white,colframe=gray!42!white,arc=11pt,outer arc=11pt,boxrule=.45pt,left=10pt,right=10pt,top=7pt,bottom=7pt,before skip=5pt,after skip=7pt,pad at break*=1.5mm]%",
+        r"  \begin{tcolorbox}[enhanced,breakable,colback=gray!10!white,colframe=gray!42!white,arc=11pt,outer arc=11pt,boxrule=.45pt,left=8pt,right=8pt,top=4pt,bottom=4pt,before skip=4pt,after skip=5pt,pad at break*=1mm]%",
         r"    #1%",
         r"  \end{tcolorbox}%",
         r"}",
@@ -4322,7 +4348,7 @@ def render(data):
         r"\setlength{\columnsep}{8mm}",
         r"\newcommand{\AurorePill}[1]{\tcbox[on line,boxrule=0pt,colback=auroreprimary!10!white,colframe=auroreprimary!18!white,arc=8pt,left=7pt,right=7pt,top=3pt,bottom=3pt]{\sffamily\bfseries\small\textcolor{auroredeep}{#1}}}",
         r"\newcommand{\AuroreLabeledBlock}[2]{%",
-        r"  \begin{tcolorbox}[enhanced,breakable,boxrule=.45pt,colback=gray!10!white,colframe=gray!42!white,arc=11pt,left=10pt,right=10pt,top=7pt,bottom=7pt,before skip=5pt,after skip=7pt,pad at break*=1.5mm]%",
+        r"  \begin{tcolorbox}[enhanced,breakable,boxrule=.45pt,colback=gray!10!white,colframe=gray!42!white,arc=11pt,left=8pt,right=8pt,top=4pt,bottom=4pt,before skip=4pt,after skip=5pt,pad at break*=1mm]%",
         r"    \AurorePill{#1}\par\smallskip #2",
         r"  \end{tcolorbox}%",
         r"}",
@@ -4689,71 +4715,39 @@ def render(data):
             "les exercices excédentaires seront ignorés."
         )
 
-    for _idx, sec in enumerate(data.get("sections", [])):
-        if is_exercise_document:
-            exercises = sec.get("exercises", []) or []
-            lines.append(r"\AuroreCourseSectionStart")
-            if not isinstance(exercises, list):
-                exercises = []
-            section_title = clean_text(sec.get("title") or "").strip()
-            if section_title and len(exercises) > 1:
-                lines.append(r"\AuroreExerciseSeriesHeading{" + tex_text(section_title) + r"}")
-            # En profil exercices, section.content est volontairement ignoré :
-            # seuls les champs structurés de l'exercice peuvent entrer dans le PDF.
-            content_items = []
-            if sec.get("formula"): lines.append(display_formula(sec["formula"]))
-            section_graphics = sec.get("graphics", [])
-            section_visuals = [v for v in (data.get("_wikimedia_visuals", []) or []) if int(v.get("section_index", -1)) == _idx]
-            section_graphs = sec.get("graphs", []) or []
-            if not exercises:
-                lines.extend(render_graphs(section_graphs, allow=True, exercise_mode=True))
-                if section_graphics:
-                    graphics_root = Path(data.get("_render_assets_dir") or "assets") / "aurore" / f"section-{_idx + 1}"
-                    lines.extend(render_aurore_graphics(section_graphics, graphics_root, {"primary":"#"+theme_primary,"secondary":"#"+theme_secondary,"strong":"#"+theme}))
-                if section_visuals: lines.extend(render_visuals(section_visuals))
-            for ex_index, ex in enumerate(exercises):
-                if not isinstance(ex, dict):
-                    continue
-                if declared_exercise_count is not None and exercise_number >= declared_exercise_count:
-                    break
-                exercise_number += 1
-                question = ex.get("question") or ex.get("statement") or ex.get("enonce") or ex.get("content") or ""
-                inline_correction = ""
-                correction_graphs = []
-                if is_exercise_document and (ex.get("solution") or ex.get("correction")):
-                    raise ValueError(
-                        "EXERCISE_CORRECTION_LAYOUT: corrections must be stored in "
-                        "sections[].corrections[] with exercise_id; inline exercise correction is forbidden."
-                    )
-                if isinstance(correction_graphs, list):
-                    exercise_correction_graphs_by_number[exercise_number] = correction_graphs
-                else:
-                    correction_graphs = []
-                body = []
-                body.extend(render_exercise_text(question, mode="question"))
-                statement_graphs = ex.get("statement_graphs", [])
-                if isinstance(statement_graphs, list):
-                    body.extend(render_graphs(statement_graphs, allow=True, exercise_mode=True))
-                if ex_index == 0:
-                    body.extend(render_graphs(section_graphs, allow=True, exercise_mode=True))
-                    if section_graphics:
-                        graphics_root = Path(data.get("_render_assets_dir") or "assets") / "aurore" / f"section-{_idx + 1}"
-                        body.extend(render_aurore_graphics(section_graphics, graphics_root, {"primary":"#"+theme_primary,"secondary":"#"+theme_secondary,"strong":"#"+theme}))
-                    if section_visuals: body.extend(render_visuals(section_visuals))
-                if ex.get("hint"):
-                    body.append(
-                        r"\AuroreLabeledBlock{Indication}{"
-                        + _render_course_paragraph(clean_text(ex["hint"]).strip(), auto_math=True)
-                        + r"}"
-                    )
-                if ex.get("formula"): body.append(display_formula(ex["formula"]))
-                lines.append(r"\AuroreExerciseSeriesBlock{" + str(exercise_number) + r"}{" + "\n".join(body) + r"}")
-                # Exercise-series corrections are rendered only from
-                # sections[].corrections[]. Inline exercise corrections are forbidden.
-            lines.append(r"\AuroreCourseSectionEnd")
+    # Keep the source untouched for validation; collapse only consecutive,
+    # substantively identical section payloads before rendering.
+    render_sections = []
+    previous_render_signature = None
+    for _render_idx, _render_section in enumerate(data.get("sections", [])):
+        if not isinstance(_render_section, dict):
+            render_sections.append((_render_idx, _render_section))
+            previous_render_signature = None
             continue
+        _signature_fields = (
+            "title", "objective", "formula", "content", "exercises",
+            "corrections", "graphs", "graphics", "visuals",
+        )
+        _signature_payload = {
+            _key: _render_section[_key]
+            for _key in _signature_fields
+            if _key in _render_section
+        }
+        _render_signature = json.dumps(
+            _signature_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        )
+        if len(_render_signature) >= 160 and _render_signature == previous_render_signature:
+            print(
+                "Renderer QA: skipped immediately repeated section "
+                + clean_text(_render_section.get("title") or "(sans titre)")
+                + f" at index {_render_idx + 1}."
+            )
+            continue
+        render_sections.append((_render_idx, _render_section))
+        previous_render_signature = _render_signature
 
-        lines.append(r"\Needspace{6\baselineskip}")
+    for _idx, sec in render_sections:
+        if is_exercise_document:        lines.append(r"\Needspace{6\baselineskip}")
         lines.append(r"\AuroreCourseSectionStart")
         lines.append(r"\section{" + tex_text(sec.get("title", "")) + r"}")
         if sec.get("objective"):
@@ -4771,6 +4765,8 @@ def render(data):
                     )
         if sec.get("formula"): lines.append(display_formula(sec["formula"]))
         content_items = sec.get("content", [])
+        if isinstance(content_items, list):
+            content_items = _dedupe_adjacent_content_items(content_items, _idx + 1)
         if isinstance(content_items, list) and sec.get("exercises"):
             content_items = [item for item in content_items if not re.match(r"^\s*Exercice\s+\d+\s*:", clean_text(item))]
         scientific_two_column_layout = (
