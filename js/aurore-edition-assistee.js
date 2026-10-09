@@ -1907,7 +1907,7 @@
     const index=all.findIndex(b=>b?.id===id);
     if(index<0)return [];
     const current=all[index];
-    const flowable=(b)=>['paragraph','point'].includes(String(b?.type||'').toLowerCase())&&!isSystemBlock(b)&&!isDefaultIntroduction(b);
+    const flowable=(b)=>['paragraph','point'].includes(String(b?.type||'').toLowerCase())&&!isSystemBlock(b)&&!isDefaultIntroduction(b)&&Boolean(String(b?.content?.text||'').trim());
     // Un même flux éditorial peut enchaîner points et paragraphes.
     // Les exercices, graphiques et images restent des unités indépendantes.
     if(!flowable(current))return [current];
@@ -2018,7 +2018,10 @@
       b.generation={...(b.generation||{}),generated_document_id:documentId,job_id:d.job_id||null,progress:5,progress_label:'Rendu de page mis en file',status:'generating',updated_at:new Date().toISOString()};
       await persistCourse(true,false);
       if(!d.page_url)throw new Error('Le renderer a terminé sans fournir l’URL de la page.');
-      const resultFlowGroup=isFlowCompanion?[b]:flowBlocksFor(b.id);
+      const reportedFlowIds=Array.isArray(d.flow_block_ids)?d.flow_block_ids.map(id=>String(id||'')).filter(Boolean):[];
+      const resultFlowIds=new Set(reportedFlowIds.length?reportedFlowIds:[b.id]);
+      const resultFlowGroup=activeBlocks().filter(part=>resultFlowIds.has(String(part?.id||'')));
+      if(!resultFlowGroup.length)resultFlowGroup.push(b);
       const sharedGeneration={
         status:'ready',
         page_number:d.page_number||pageNumberFor(b),
