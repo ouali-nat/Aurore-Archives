@@ -611,10 +611,15 @@ Deno.serve(async req=>{
       if(Array.isArray(section.graphs))graphItems.push(...section.graphs);
       if(Array.isArray(section.images))imageItems.push(...section.images);
     }
-    if(Array.isArray(input.content))input.content.forEach((x:any)=>{const normalized=extractStructuredText(x).trim();if(normalized)contentItems.push(normalized)});
-    if(Array.isArray(input.exercises))exerciseItems.push(...input.exercises);
-    if(Array.isArray(input.graphs))graphItems.push(...input.graphs);
-    if(Array.isArray(input.images))imageItems.push(...input.images);
+    // Le contrat courant envoie les mêmes contenus dans sections (structure éditoriale)
+    // et dans les tableaux racine (compatibilité historique). Ne jamais consommer les deux :
+    // cela réimprime les chapitres et exercices sur les pages suivantes.
+    if(!sections.length){
+      if(Array.isArray(input.content))input.content.forEach((x:any)=>{const normalized=extractStructuredText(x).trim();if(normalized)contentItems.push(normalized)});
+      if(Array.isArray(input.exercises))exerciseItems.push(...input.exercises);
+      if(Array.isArray(input.graphs))graphItems.push(...input.graphs);
+      if(Array.isArray(input.images))imageItems.push(...input.images);
+    }
     if(input.assisted_block?.content?.text&&!contentItems.length){const normalized=extractStructuredText(input.assisted_block.content.text).trim();if(normalized)contentItems.push(normalized);}
     const BOX_X=X-10,BOX_W=W+20;
     const PARA_X=X+22,PARA_W=W-22;
