@@ -4,7 +4,163 @@
 <!-- AURORE_DEPLOY_MARKER_20260923_ADMIN_PENDING_V2 -->
 <html lang="fr">
 <head>
-<script src="js/aurore-pdf-cancel-guard.js?v=20261009-loaderfit1"></script>
+<style id="aurore-boot-overlay-critical-css">
+html.aurore-boot-pending:not(.aurore-boot-overlay-ready)::before{
+  content:"";position:fixed;inset:0;z-index:2147483600;pointer-events:none;
+  background:rgba(8,7,18,.64);
+  -webkit-backdrop-filter:blur(15px) saturate(.72);backdrop-filter:blur(15px) saturate(.72)
+}
+html.aurore-boot-pending:not(.aurore-boot-overlay-ready)::after{
+  content:"";position:fixed;left:calc(50% - 22px);top:calc(50% - 22px);z-index:2147483601;
+  width:44px;height:44px;box-sizing:border-box;border:3px solid rgba(167,139,250,.24);
+  border-top-color:#c4b5fd;border-right-color:#8b5cf6;border-radius:50%;
+  animation:aurore-boot-spin .82s linear infinite;pointer-events:none
+}
+@keyframes aurore-boot-spin{to{transform:rotate(360deg)}}
+#auroreBootOverlay{display:none;position:fixed;inset:0;z-index:2147483647;box-sizing:border-box;
+  align-items:center;justify-content:center;overflow:hidden;padding:24px;
+  color:#f8f7ff;font-family:"Plus Jakarta Sans",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  text-align:center;isolation:isolate;opacity:1;visibility:visible;pointer-events:auto;
+  background:radial-gradient(circle at 20% 18%,rgba(124,58,237,.14),transparent 35%),
+             radial-gradient(circle at 82% 78%,rgba(56,189,248,.09),transparent 32%),rgba(8,7,18,.52);
+  -webkit-backdrop-filter:blur(18px) saturate(.82);backdrop-filter:blur(18px) saturate(.82);
+  transition:opacity .38s ease,visibility .38s ease
+}
+html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
+#auroreBootOverlay.is-leaving{opacity:0;visibility:hidden;pointer-events:none}
+.aurore-boot-orb{position:absolute;width:min(84vw,430px);aspect-ratio:1;border-radius:50%;pointer-events:none;
+  border:1px solid rgba(196,181,253,.12);box-shadow:inset 0 0 65px rgba(139,92,246,.05),0 0 80px rgba(139,92,246,.05);
+  animation:aurore-boot-orbreathe 4.8s ease-in-out infinite}
+.aurore-boot-orb::before,.aurore-boot-orb::after{content:"";position:absolute;border:1px solid rgba(196,181,253,.14);border-radius:50%}
+.aurore-boot-orb::before{inset:11%}.aurore-boot-orb::after{inset:23%;border-style:dashed;animation:aurore-boot-spin 24s linear infinite}
+.aurore-boot-card{position:relative;width:min(100%,410px);padding:clamp(26px,6vw,42px) 26px 27px;
+  border:1px solid rgba(221,214,254,.19);border-radius:28px;
+  background:linear-gradient(145deg,rgba(37,32,57,.78),rgba(17,15,30,.76));
+  box-shadow:0 28px 90px rgba(0,0,0,.38),inset 0 1px rgba(255,255,255,.06);
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.aurore-boot-mark-stage{position:relative;display:grid;place-items:center;width:96px;height:96px;margin:0 auto 21px}
+.aurore-boot-ring{position:absolute;inset:0;border:2px solid transparent;border-top-color:#c4b5fd;border-right-color:rgba(167,139,250,.6);
+  border-bottom-color:rgba(167,139,250,.18);border-radius:50%;animation:aurore-boot-spin 1.15s linear infinite}
+.aurore-boot-ring::after{content:"";position:absolute;width:7px;height:7px;right:10px;top:13px;border-radius:50%;
+  background:#e9d5ff;box-shadow:0 0 16px #a78bfa}
+.aurore-boot-mark{display:grid;place-items:center;width:66px;height:66px;border:1px solid rgba(221,214,254,.25);border-radius:21px;
+  background:linear-gradient(145deg,rgba(139,92,246,.28),rgba(30,27,45,.92));color:#fff;font-size:32px;font-weight:800;letter-spacing:-.08em;
+  box-shadow:0 8px 30px rgba(124,58,237,.23),inset 0 1px rgba(255,255,255,.13);animation:aurore-boot-mark-float 2.4s ease-in-out infinite}
+.aurore-boot-brand{margin:0 0 23px;color:#ddd6fe;font-size:.68rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase}
+.aurore-boot-brand span{display:block;margin-top:5px;color:rgba(237,233,254,.56);font-size:.55rem;font-weight:600;letter-spacing:.22em}
+.aurore-boot-title{margin:0;color:#fff;font-size:clamp(1.1rem,4vw,1.34rem);font-weight:750;letter-spacing:-.025em}
+.aurore-boot-message{min-height:42px;margin:10px 0 21px;color:rgba(245,243,255,.69);font-size:.79rem;line-height:1.6}
+.aurore-boot-progress-track{position:relative;height:4px;overflow:hidden;border-radius:99px;background:rgba(221,214,254,.12)}
+.aurore-boot-progress-track span{position:absolute;top:0;bottom:0;left:-38%;width:38%;border-radius:99px;
+  background:linear-gradient(90deg,transparent,#a78bfa,#e9d5ff,transparent);animation:aurore-boot-progress 1.5s ease-in-out infinite}
+.aurore-boot-status{display:block;margin-top:13px;color:rgba(221,214,254,.6);font-size:.66rem;letter-spacing:.025em}
+.aurore-boot-continue{display:inline-flex;align-items:center;justify-content:center;min-height:40px;margin-top:16px;padding:0 16px;
+  border:1px solid rgba(221,214,254,.24);border-radius:12px;background:rgba(167,139,250,.12);color:#f5f3ff;font:inherit;font-size:.75rem;font-weight:700;
+  cursor:pointer}
+.aurore-boot-continue[hidden]{display:none!important}
+@keyframes aurore-boot-progress{0%{left:-38%}100%{left:108%}}
+@keyframes aurore-boot-orbreathe{0%,100%{transform:scale(.96);opacity:.65}50%{transform:scale(1.04);opacity:1}}
+@keyframes aurore-boot-mark-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@media(max-width:420px){.aurore-boot-card{padding:27px 20px 23px;border-radius:23px}.aurore-boot-mark-stage{width:82px;height:82px}.aurore-boot-mark{width:58px;height:58px;border-radius:18px}}
+@media(prefers-reduced-motion:reduce){html.aurore-boot-pending:not(.aurore-boot-overlay-ready)::after,.aurore-boot-ring,.aurore-boot-ring::after,.aurore-boot-orb,.aurore-boot-orb::after,.aurore-boot-mark,.aurore-boot-progress-track span{animation:none!important}#auroreBootOverlay{transition:none}}
+</style>
+<script id="aurore-boot-overlay-early">
+(function(){
+  'use strict';
+  var root=document.documentElement;
+  root.classList.add('aurore-boot-pending');
+  var lastActivity=now(),activeFetches=0,loadSeen=document.readyState==='complete',dismissed=false;
+  var overlay=null,pollHandle=null,slowHandle=null,hardHandle=null,buttonBound=false,domObserver=null;
+  function now(){return window.performance&&window.performance.now?window.performance.now():Date.now();}
+  window.__auroreBootFetchStart=function(){if(dismissed)return;activeFetches++;lastActivity=now();};
+  window.__auroreBootFetchEnd=function(){if(dismissed)return;activeFetches=Math.max(0,activeFetches-1);lastActivity=now();};
+  function watchInitialDOM(){
+    if(domObserver||!document.body||typeof MutationObserver==='undefined')return;
+    domObserver=new MutationObserver(function(records){
+      if(dismissed)return;
+      for(var i=0;i<records.length;i++){
+        var node=records[i].target;
+        if(node&&node.nodeType!==1)node=node.parentElement;
+        if(node&&node.closest&&node.closest('#auroreBootOverlay'))continue;
+        lastActivity=now();break;
+      }
+    });
+    domObserver.observe(document.body,{subtree:true,childList:true,characterData:true});
+  }
+  function getOverlay(){return document.getElementById('auroreBootOverlay');}
+  function bindOverlay(){
+    overlay=getOverlay();
+    if(!overlay)return false;
+    if(!root.classList.contains('aurore-boot-overlay-ready'))root.classList.add('aurore-boot-overlay-ready');
+    if(!buttonBound){
+      var btn=document.getElementById('auroreBootContinue');
+      if(btn){buttonBound=true;btn.addEventListener('click',function(){dismiss('manual');});}
+    }
+    return true;
+  }
+  function dismiss(reason){
+    if(dismissed)return;
+    dismissed=true;
+    if(pollHandle)clearTimeout(pollHandle);
+    if(slowHandle)clearTimeout(slowHandle);
+    if(hardHandle)clearTimeout(hardHandle);
+    if(domObserver){domObserver.disconnect();domObserver=null;}
+    overlay=getOverlay();
+    if(overlay){
+      overlay.classList.add('is-leaving');
+      overlay.setAttribute('aria-hidden','true');
+    }
+    window.setTimeout(function(){
+      root.classList.remove('aurore-boot-pending','aurore-boot-overlay-ready');
+      if(overlay){overlay.hidden=true;overlay.style.display='none';}
+      window.dispatchEvent(new CustomEvent('aurore:boot-ready',{detail:{reason:reason||'ready'}}));
+    },420);
+  }
+  function checkReady(){
+    if(dismissed)return;
+    bindOverlay();
+    watchInitialDOM();
+    if(loadSeen&&document.readyState==='complete'&&activeFetches===0&&now()-lastActivity>=950&&document.querySelector('.screen.active')){
+      dismiss('ready');return;
+    }
+    pollHandle=window.setTimeout(checkReady,140);
+  }
+  if(typeof window.fetch==='function'){
+    var originalFetch=window.fetch;
+    window.fetch=function(){
+      var promise;
+      try{promise=originalFetch.apply(window,arguments);}
+      catch(error){lastActivity=now();throw error;}
+      if(promise&&typeof promise.then==='function'){
+        window.__auroreBootFetchStart();
+        var done=function(){window.__auroreBootFetchEnd();};
+        promise.then(done,done);
+      }
+      return promise;
+    };
+  }
+  window.addEventListener('load',function(){loadSeen=true;lastActivity=now();checkReady();},{once:true});
+  if(loadSeen)checkReady();
+  else pollHandle=window.setTimeout(checkReady,140);
+  slowHandle=window.setTimeout(function(){
+    if(dismissed)return;
+    overlay=getOverlay();
+    var status=document.getElementById('auroreBootStatus');
+    var message=document.getElementById('auroreBootMessage');
+    var btn=document.getElementById('auroreBootContinue');
+    if(status)status.textContent='La préparation prend plus de temps que prévu.';
+    if(message)message.textContent='La connexion semble lente. Aurore terminera de charger les éléments restants en arrière-plan.';
+    if(btn)btn.hidden=false;
+  },14000);
+  hardHandle=window.setTimeout(function(){dismiss('failsafe');},25000);
+  window.addEventListener('pagehide',function(){
+    if(pollHandle)clearTimeout(pollHandle);
+    if(slowHandle)clearTimeout(slowHandle);
+    if(hardHandle)clearTimeout(hardHandle);
+  },{once:true});
+})();
+</script>
+<script src="js/aurore-pdf-cancel-guard.js?v=20261009-bootveil1"></script>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
 <meta content="yzWmwzt0gZoJZKSVp8G7iVle-gUt-PgFSDeAi3K_Vvs" name="google-site-verification">
@@ -362,6 +518,19 @@ body:not(.site-locked) #accessLock{display:none!important;}
 </script>
 </head>
 <body class="site-locked">
+<div class="aurore-boot-overlay" id="auroreBootOverlay" role="status" aria-live="polite" aria-label="Chargement d’Aurore" aria-hidden="false">
+  <div class="aurore-boot-orb" aria-hidden="true"></div>
+  <div class="aurore-boot-card">
+    <div class="aurore-boot-mark-stage" aria-hidden="true"><span class="aurore-boot-ring"></span><span class="aurore-boot-mark">A</span></div>
+    <p class="aurore-boot-brand">AURORE<span>SECTION ARCHIVES</span></p>
+    <h1 class="aurore-boot-title">Préparation de votre espace</h1>
+    <p class="aurore-boot-message" id="auroreBootMessage">Nous préparons l’interface, vos préférences et les données nécessaires à votre visite.</p>
+    <div class="aurore-boot-progress-track" aria-hidden="true"><span></span></div>
+    <small class="aurore-boot-status" id="auroreBootStatus">Initialisation sécurisée…</small>
+    <button class="aurore-boot-continue" id="auroreBootContinue" type="button" hidden>Continuer malgré tout</button>
+  </div>
+</div>
+<script>document.documentElement.classList.add('aurore-boot-overlay-ready');</script>
 <script id="aurore-known-access-unlock-early">
 (function(){
   try{
