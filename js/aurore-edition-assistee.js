@@ -703,7 +703,7 @@
     if(currentLabel)currentLabel.textContent='Page '+current+' uniquement';
     if(previousLabel)previousLabel.textContent='Pages 1 à '+current;
     if(currentBtn)currentBtn.disabled=!currentReady;
-    if(previousBtn)previousBtn.disabled=!previousReady;
+    if(previousBtn)previousBtn.disabled=current<=1||!currentReady;
     if(description){
       description.textContent=current<=1
         ? 'Ce bloc est sur la première page disponible.'
