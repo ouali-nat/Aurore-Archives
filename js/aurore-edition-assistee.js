@@ -223,7 +223,8 @@
         const ownerGeneration=owner?.generation||{};
         const ownerReady=String(ownerGeneration.status||'').toLowerCase()==='ready'
           &&!!String(ownerGeneration.page_url||'').trim()
-          &&ownerGeneration.independent_regeneration!==true;
+          &&ownerGeneration.independent_regeneration!==true
+          &&generationCoversFlow(ownerGeneration,group);
         if(ownerReady){
           if(String(b.id)!==String(owner.id))continue;
           add(ownerGeneration.page_url,'Flux du cours à partir de la page '+String(pageNumberFor(owner)),owner.id);
@@ -231,8 +232,8 @@
         }
       }
 
-      // Un aperçu indépendant n'est pas une page de continuation valide.
-      if(g.independent_regeneration===true)continue;
+      // Une page indépendante reste utilisable tant qu'aucun flux propriétaire
+      // ne prouve qu'il contient exactement ce segment du document.
       add(g.page_url,'Page '+String(g.page_number||pageNumberFor(b)),g.flow_page_owner_id||g.page_url);
     }
     if(String(pages.end?.status||'').toLowerCase()==='ready')add(pages.end.pdfUrl,'Fin du document','end');
@@ -607,7 +608,8 @@
       &&targetSegment.length>1
       &&String(flowOwner.id)!==String(targetBlock.id)
       &&isReady(flowOwnerGeneration)
-      &&flowOwnerGeneration.independent_regeneration!==true;
+      &&flowOwnerGeneration.independent_regeneration!==true
+      &&generationCoversFlow(flowOwnerGeneration,targetSegment);
     let canonicalFlowPageCount=0;
     if(preferCanonicalFlow){
       try{canonicalFlowPageCount=await assistedPdfPageCount(flowOwnerGeneration.page_url)}catch(_){canonicalFlowPageCount=0}
@@ -654,7 +656,10 @@
       const ownerId=String(g.flow_page_owner_id||'').trim();
       const owner=ownerId?byId.get(ownerId):null;
       const ownerGeneration=owner?.generation||{};
-      const ownerReady=isReady(ownerGeneration)&&ownerGeneration.independent_regeneration!==true;
+      const ownerSegment=owner?flowSegmentFor(owner.id):[];
+      const ownerReady=isReady(ownerGeneration)
+        &&ownerGeneration.independent_regeneration!==true
+        &&generationCoversFlow(ownerGeneration,ownerSegment);
 
       if(String(b.id)===String(targetBlock.id)&&g.independent_regeneration===true){
         add(g.page_url,'Page '+n,n,1);
@@ -1371,7 +1376,8 @@
       &&String(targetFlowOwner.id)!==String(current.id)
       &&String(targetFlowOwnerGeneration.status||'').toLowerCase()==='ready'
       &&!!String(targetFlowOwnerGeneration.page_url||'').trim()
-      &&targetFlowOwnerGeneration.independent_regeneration!==true;
+      &&targetFlowOwnerGeneration.independent_regeneration!==true
+      &&generationCoversFlow(targetFlowOwnerGeneration,targetSegment);
     const cover=activeBlocks().find(x=>x?.role===START_ROLE);
     const toc=activeBlocks().find(x=>x?.role==='document-toc');
     const coverState=state.canonicalPreview?.pages?.cover;
@@ -1436,7 +1442,7 @@
       expandedPdfUrls.add(step.url);
       const count=await assistedPdfPageCount(step.url);
       const base=Number(step.number||1);
-      const isFlow=!!step.source?.generation?.flow_page_owner_id;
+      const isFlow=generationCoversFlow(step.source?.generation,flowSegmentFor(step.source?.id));
       const limit=isFlow?Math.min(count,Math.max(1,currentPage-base+1)):Math.min(count,1);
       for(let p=1;p<=limit;p++){
         expandedSteps.push({
@@ -1921,6 +1927,12 @@
     return all.slice(start,end+1);
   }
 
+  function generationCoversFlow(generation,segment){
+    const ids=Array.isArray(generation?.flow_block_ids)?generation.flow_block_ids.map(id=>String(id||'')):[];
+    if(!Array.isArray(segment)||segment.length<=1||ids.length!==segment.length)return false;
+    return segment.every((block,index)=>ids[index]===String(block?.id||''));
+  }
+
   function flowRenderBlockFor(id){
     const blocks=flowBlocksFor(id);
     if(blocks.length<=1)return blocks[0]||null;
@@ -2019,7 +2031,8 @@
       await persistCourse(true,false);
       if(!d.page_url)throw new Error('Le renderer a terminé sans fournir l’URL de la page.');
       const reportedFlowIds=Array.isArray(d.flow_block_ids)?d.flow_block_ids.map(id=>String(id||'')).filter(Boolean):[];
-      const resultFlowIds=new Set(reportedFlowIds.length?reportedFlowIds:[b.id]);
+      const persistedFlowIds=reportedFlowIds.length?reportedFlowIds:[b.id];
+      const resultFlowIds=new Set(persistedFlowIds);
       const resultFlowGroup=activeBlocks().filter(part=>resultFlowIds.has(String(part?.id||'')));
       if(!resultFlowGroup.length)resultFlowGroup.push(b);
       const sharedGeneration={
@@ -2033,6 +2046,7 @@
         progress:100,
         progress_label:'Page prête — visualisation disponible',
         bytes:d.bytes||null,
+        flow_block_ids:persistedFlowIds,
         independent_regeneration:isFlowCompanion,
         qa:{engine:d.engine||'pdf-lib-course-page-v2',status:'completed',details:d.qa||null},
         error:null
