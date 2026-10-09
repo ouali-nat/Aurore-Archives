@@ -556,7 +556,35 @@ html.aurore-admin-standalone:not(.aurore-admin-verified) #accessVisitorBtn {
 }
 </style>
 <script id="aurore-admin-standalone-mode">
-document.documentElement.classList.add('aurore-admin-standalone');
+(function(){
+  'use strict';
+  var root=document.documentElement;
+  root.classList.add('aurore-admin-standalone');
+
+  // Dans l'administration indépendante, libérer les voiles dès que le
+  // moteur d'authentification confirme une session. Le garde d'accès continue
+  // seul à décider si l'écran admin peut être affiché.
+  function libererVoilesApresConnexion(){
+    root.classList.remove('aurore-boot-pending','aurore-boot-overlay-ready');
+    var boot=document.getElementById('auroreBootOverlay');
+    if(boot){
+      boot.classList.remove('is-leaving');
+      boot.hidden=true;
+      boot.setAttribute('aria-hidden','true');
+      boot.style.display='none';
+    }
+    var attente=document.getElementById('auroreAuthWait');
+    if(attente){
+      attente.classList.remove('show','logout-transition');
+      attente.setAttribute('aria-hidden','true');
+    }
+  }
+
+  window.addEventListener('aurore:user-connected',function(){
+    // Laisse d'abord le garde admin traiter le même événement.
+    window.setTimeout(libererVoilesApresConnexion,180);
+  });
+})();
 </script>
 
 </head>
