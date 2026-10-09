@@ -624,13 +624,18 @@
 
     const {PDFDocument}=await loadPdfLib();
     const merged=await PDFDocument.create();
+    const sourceDocuments=new Map();
 
     for(let i=0;i<parts.length;i++){
       const p=parts[i];
       setStatus('Assemblage : '+p.label+' ('+(i+1)+'/'+parts.length+')…');
-      const response=await fetch(p.url,{cache:'no-store'});
-      if(!response.ok)throw new Error('Impossible de récupérer '+p.label+' (HTTP '+response.status+').');
-      const source=await PDFDocument.load(await response.arrayBuffer());
+      let source=sourceDocuments.get(p.url);
+      if(!source){
+        const response=await fetch(p.url,{cache:'no-store'});
+        if(!response.ok)throw new Error('Impossible de récupérer '+p.label+' (HTTP '+response.status+').');
+        source=await PDFDocument.load(await response.arrayBuffer());
+        sourceDocuments.set(p.url,source);
+      }
       const sourceCount=source.getPageCount();
       const sourceIndex=Number(p.sourcePage||1)-1;
       if(sourceIndex<0||sourceIndex>=sourceCount){
