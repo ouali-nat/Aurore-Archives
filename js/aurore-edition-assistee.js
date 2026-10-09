@@ -605,29 +605,56 @@
     return true;
   }
 
+  function showBlockDownloadFeedback(message,kind='info'){
+    let note=document.getElementById('aeBlockDownloadFeedback');
+    if(!note){
+      note=document.createElement('div');
+      note.id='aeBlockDownloadFeedback';
+      note.setAttribute('role','status');
+      note.setAttribute('aria-live','polite');
+      document.documentElement.appendChild(note);
+    }
+    const palette=kind==='error'
+      ?{bg:'#fff1f0',ink:'#8b1b13',border:'#d92d20'}
+      :kind==='warning'
+        ?{bg:'#fff8e6',ink:'#7a4b00',border:'#d99a16'}
+        :kind==='success'
+          ?{bg:'#eaf8ef',ink:'#14532d',border:'#168149'}
+          :{bg:'#f7f5ff',ink:'#292344',border:'#6d28d9'};
+    note.textContent=String(message||'');
+    note.style.cssText='position:fixed!important;left:50%!important;right:auto!important;top:auto!important;bottom:calc(14px + env(safe-area-inset-bottom,0px))!important;transform:translateX(-50%)!important;z-index:2147483647!important;display:block!important;visibility:visible!important;opacity:1!important;pointer-events:none!important;width:min(92vw,560px)!important;max-width:92vw!important;max-height:28vh!important;overflow:auto!important;box-sizing:border-box!important;padding:13px 15px!important;border:1px solid '+palette.border+'!important;border-left:5px solid '+palette.border+'!important;border-radius:14px!important;background:'+palette.bg+'!important;color:'+palette.ink+'!important;box-shadow:0 12px 36px rgba(0,0,0,.22)!important;font:600 14px/1.45 system-ui,sans-serif!important;white-space:normal!important;overflow-wrap:anywhere!important;';
+    if(note.__timer)clearTimeout(note.__timer);
+    note.__timer=setTimeout(()=>{if(note.isConnected)note.remove();},kind==='progress'?20000:12000);
+  }
+
   async function downloadBlockPdf(targetBlock,mode='current'){
     const target=blockDownloadPartsThrough(targetBlock);
-    const current=target.parts.find(x=>x.pageNumber===target.targetPage);
+    const current=target.parts.find(x=>Number(x.pageNumber)===Number(target.targetPage));
     if(!current)throw new Error('La page de ce bloc n’est pas encore prête.');
 
     let parts=[current];
     if(mode==='previous'){
-      parts=target.parts.filter(x=>x.pageNumber<=target.targetPage);
-      if(!parts.length)throw new Error('Aucune page générée n’est disponible pour l’assemblage.');
-      if(!parts.some(x=>x.pageNumber===target.targetPage))throw new Error('La page actuelle de ce bloc n’est pas prête.');
+      parts=target.parts.filter(x=>Number(x.pageNumber)<=Number(target.targetPage));
+      if(!parts.length)throw new Error('Aucune page PDF n’est disponible pour l’assemblage.');
+      if(!parts.some(x=>Number(x.pageNumber)===Number(target.targetPage)))throw new Error('La page actuelle de ce bloc n’est pas prête.');
     }
 
-    const expectedCount=target.targetPage;
+    const expectedCount=Number(target.targetPage);
     const availablePages=new Set(parts.map(p=>Number(p.pageNumber)));
     const missingPages=[];
+    const missingSourcePages=[];
     if(mode==='previous')for(let n=1;n<=expectedCount;n++)if(!availablePages.has(n))missingPages.push(n);
     setStatus(mode==='previous'
       ? 'Assemblage des pages disponibles jusqu’à '+target.targetPage+'…'
       : 'Préparation de la page '+target.targetPage+'…');
+    showBlockDownloadFeedback(mode==='previous'
+      ? 'Assemblage des pages jusqu’à la page '+target.targetPage+'…'
+      : 'Préparation de la page '+target.targetPage+'…','progress');
 
     const {PDFDocument}=await loadPdfLib();
     const merged=await PDFDocument.create();
     const sourceDocuments=new Map();
+    const copiedSourcePages=new Map();
 
     for(let i=0;i<parts.length;i++){
       const p=parts[i];
@@ -640,14 +667,30 @@
         sourceDocuments.set(p.url,source);
       }
       const sourceCount=source.getPageCount();
-      const sourceIndex=Number(p.sourcePage||1)-1;
+      let sourceIndex=Number(p.sourcePage||1)-1;
       if(sourceIndex<0||sourceIndex>=sourceCount){
-        throw new Error(p.label+' : la page demandée ('+(sourceIndex+1)+') est absente du PDF source ('+sourceCount+' page(s)).');
+        // Certains rendus de flux regroupent plusieurs blocs sur un seul feuillet.
+        // Dans ce cas, réutiliser le feuillet unique une seule fois au lieu d'annuler
+        // tout le téléchargement « Pages 1 à N ».
+        if(sourceCount===1){
+          sourceIndex=0;
+        }else if(mode==='previous'){
+          missingSourcePages.push(p.label+' (page source '+(sourceIndex+1)+' absente)');
+          if(!missingPages.includes(Number(p.pageNumber)))missingPages.push(Number(p.pageNumber));
+          continue;
+        }else{
+          throw new Error(p.label+' : la page demandée ('+(sourceIndex+1)+') est absente du PDF source ('+sourceCount+' page(s)).');
+        }
       }
+      let copiedIndices=copiedSourcePages.get(p.url);
+      if(!copiedIndices){copiedIndices=new Set();copiedSourcePages.set(p.url,copiedIndices);}
+      if(copiedIndices.has(sourceIndex))continue;
       const copied=await merged.copyPages(source,[sourceIndex]);
       copied.forEach(page=>merged.addPage(page));
+      copiedIndices.add(sourceIndex);
     }
 
+    if(!merged.getPageCount())throw new Error('Aucun feuillet exploitable n’a pu être assemblé. Vérifie que les PDF des pages précédentes sont générés.');
     const bytes=await merged.save({useObjectStreams:true});
     const blob=new Blob([bytes],{type:'application/pdf'});
     const url=URL.createObjectURL(blob);
@@ -660,13 +703,21 @@
     document.body.appendChild(a);
     a.click();
     a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),1500);
+    // Garder l’URL assez longtemps pour les navigateurs mobiles qui préparent
+    // le téléchargement du blob de façon différée.
+    setTimeout(()=>URL.revokeObjectURL(url),30000);
 
-    setStatus(mode==='previous'
-      ? (missingPages.length
-          ? 'PDF téléchargé : pages disponibles jusqu’à '+target.targetPage+'. Pages non générées/indisponibles : '+missingPages.join(', ')+'.'
-          : 'Pages 1 à '+target.targetPage+' téléchargées.')
-      : 'Page '+target.targetPage+' téléchargée.');
+    missingPages.sort((a,b)=>a-b);
+    const warnings=[];
+    if(missingPages.length)warnings.push('pages non générées/indisponibles : '+missingPages.join(', '));
+    if(missingSourcePages.length)warnings.push('fragments PDF incomplets : '+missingSourcePages.join(', '));
+    const message=mode==='previous'
+      ?(warnings.length
+        ?'PDF téléchargé jusqu’à la page '+target.targetPage+', mais incomplet — '+warnings.join(' ; ')+'.'
+        :'Pages 1 à '+target.targetPage+' téléchargées.')
+      :'Page '+target.targetPage+' téléchargée.';
+    setStatus(message);
+    showBlockDownloadFeedback(message,warnings.length?'warning':'success');
   }
 
   function closeBlockDownloadChoice(result=null){
@@ -751,7 +802,10 @@
         <button type="button" class="ae-block-download-choice-cancel">Annuler</button>
       </div>`;
 
-    document.body.appendChild(overlay);
+    // Sortir la fenêtre de la sous-arborescence du body : elle reste fixée au viewport
+    // même si le contenu de la page utilise un contexte de transformation/défilement.
+    overlay.style.cssText='position:fixed!important;inset:0!important;left:0!important;top:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;z-index:2147483000!important;display:flex!important;align-items:center!important;justify-content:center!important;transform:none!important;contain:none!important;';
+    document.documentElement.appendChild(overlay);
     overlay.addEventListener('click',e=>{if(e.target===overlay)closeBlockDownloadChoice(null);});
     overlay.querySelector('.ae-block-download-choice-close')?.addEventListener('click',()=>closeBlockDownloadChoice(null));
     overlay.querySelector('.ae-block-download-choice-cancel')?.addEventListener('click',()=>closeBlockDownloadChoice(null));

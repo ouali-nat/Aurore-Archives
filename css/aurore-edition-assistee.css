@@ -173,3 +173,6 @@ html[data-theme="light"] .ae-modal .ae-dialog{--ae-card:var(--card-bg,var(--surf
   .ae-modal{padding:10px}
   .ae-modal .ae-dialog{width:100%;height:calc(100dvh - 20px);max-height:calc(100dvh - 20px);padding:12px}
 }
+
+/* Fenêtre de téléchargement fixée au viewport, même hors du body */
+html > #aeBlockDownloadChoiceOverlay{position:fixed!important;inset:0!important;left:0!important;top:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;z-index:2147483000!important;}
