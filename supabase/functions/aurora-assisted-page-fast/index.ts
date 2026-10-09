@@ -693,9 +693,12 @@ Deno.serve(async req=>{
              }
              if(fit.length<first.lines.length){
                if(fit.length>0){
-                 fragment.push({kind:"inline",lines:first.lines.slice(0,fit.length)});
+                 const firstPart={...first,lines:first.lines.slice(0,fit.length)};
+                 const continuationPart={...first,lines:first.lines.slice(fit.length)};
+                 fragment.push(firstPart);
                  used=lineUsed;
-                 pointItems[cursor]={...first,lines:first.lines.slice(fit.length)};
+                 pointItems.splice(cursor,1,firstPart,continuationPart);
+                 cursor++;
                  splitThisPage=true;
                }
              }else if(addPointItem(first)){cursor++;}
@@ -802,9 +805,12 @@ Deno.serve(async req=>{
             }
             if(fit.length<first.lines.length){
               if(fit.length>0){
-                fragment.push({kind:"inline",lines:first.lines.slice(0,fit.length)});
+                const firstPart={...first,lines:first.lines.slice(0,fit.length)};
+                const continuationPart={...first,lines:first.lines.slice(fit.length)};
+                fragment.push(firstPart);
                 used=lineUsed;
-                items[cursor]={...first,lines:first.lines.slice(fit.length)};
+                items.splice(cursor,1,firstPart,continuationPart);
+                cursor++;
                 splitParagraphHere=true;
               }
             }else if(addItem(first)){
