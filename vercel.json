@@ -1,0 +1,15 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "admin.aurore-section-archives.com"
+        }
+      ],
+      "destination": "/admin-standalone.html"
+    }
+  ]
+}
