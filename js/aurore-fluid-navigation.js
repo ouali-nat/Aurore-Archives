@@ -8,29 +8,6 @@
 (function () {
   'use strict';
 
-  /* Chargement initial : animation temporaire, décorative et jamais bloquante.
-     Elle disparaît à l'événement load, ou après 3 s si une ressource reste bloquée. */
-  (function installerAnimationInitiale() {
-    try {
-      var racine = document.documentElement;
-      if (!racine) return;
-      var debut = Date.now();
-      var termine = false;
-      racine.classList.add('aurore-initial-loading');
-      function retirerAnimation() {
-        if (termine) return;
-        termine = true;
-        var attente = Math.max(0, 240 - (Date.now() - debut));
-        window.setTimeout(function () {
-          racine.classList.remove('aurore-initial-loading');
-        }, attente);
-      }
-      window.addEventListener('load', retirerAnimation, { once: true });
-      window.addEventListener('pageshow', retirerAnimation, { once: true });
-      window.setTimeout(retirerAnimation, 3000);
-      if (document.readyState === 'complete') retirerAnimation();
-    } catch (e) {}
-  })();
   try {
     var q = location.search || '';
     if (/[?&]fluid=off\b/.test(q)) sessionStorage.setItem('aurore_fluid_off', '1');
