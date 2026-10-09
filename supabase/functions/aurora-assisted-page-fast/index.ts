@@ -450,19 +450,84 @@ function drawInlineLines(page:any,lines:any[],x:number,topY:number,width:number,
   return y;
 }
 
+const AURORE_BUBBLE_PALETTES: Array<[string,string,string]> = [
+  ["8B5CF6","C084FC","6D28D9"],
+  ["E05260","FF8A96","C93648"],
+  ["2FA66A","75D89C","198754"],
+  ["3B82F6","7DB3FF","1D4ED8"],
+  ["D5A51B","F5D36B","B77900"],
+  ["E8791A","FFB36B","C85C0D"],
+  ["0891B2","67E8F9","0E7490"],
+  ["DB2777","F9A8D4","BE185D"],
+  ["6366F1","A5B4FC","4338CA"],
+  ["14B8A6","67E8F9","0F766E"],
+  ["10B981","6EE7B7","047857"],
+  ["84CC16","BEF264","4D7C0F"],
+  ["0D9488","5EEAD4","115E59"],
+  ["D946EF","F0ABFC","A21CAF"],
+  ["C026D3","F0ABFC","86198F"],
+  ["F06A57","FFB4A8","C2412D"],
+  ["9F1239","FB7185","881337"],
+  ["9333EA","D8B4FE","6B21A8"],
+  ["7E22CE","C084FC","581C87"],
+  ["D4A017","F6D365","9A6700"],
+  ["F59E0B","FCD34D","B45309"],
+  ["10B981","A7F3D0","047857"],
+  ["0EA5E9","7DD3FC","0369A1"],
+  ["8B5CF6","DDD6FE","6D28D9"],
+  ["EAB308","FDE68A","A16207"],
+  ["2563EB","93C5FD","1E3A8A"],
+  ["0F4C5C","67E8F9","0B3440"],
+  ["0284C7","38BDF8","075985"],
+  ["0EA5E9","BAE6FD","0369A1"],
+  ["64748B","CBD5E1","334155"],
+  ["52525B","D4D4D8","27272A"],
+  ["16A34A","86EFAC","166534"],
+  ["047857","A7F3D0","065F46"],
+  ["65A30D","BEF264","3F6212"],
+  ["84CC16","D9F99D","4D7C0F"],
+  ["F97316","FED7AA","C2410C"],
+  ["D97706","FCD34D","92400E"],
+  ["C2410C","FDBA74","9A3412"],
+  ["E11D48","FDA4AF","9F1239"],
+  ["8B5CF6","E9D5FF","6D28D9"],
+  ["6366F1","C7D2FE","3730A3"],
+  ["0891B2","CFFAFE","155E75"],
+  ["B7791F","FEF3C7","854D0E"],
+  ["92400E","D6B38C","451A03"],
+  ["0D9488","99F6E4","0F5257"]
+];
+function resolveBubblePalette(hex:string){
+  const raw=(normalizeHexColor(hex)||"#6D28D9").toUpperCase();
+  const match=AURORE_BUBBLE_PALETTES.find(([primary,secondary,strong])=>
+    [primary,secondary,strong].some(value=>("#"+value)===raw)
+  );
+  return match
+    ? {primary:"#"+match[0],secondary:"#"+match[1],strong:"#"+match[2]}
+    : {primary:raw,secondary:raw,strong:raw};
+}
 function drawSoftDecor(page:any,color:string){
   const W=595,H=842;
-  page.drawRectangle({x:0,y:0,width:W,height:H,color:rgbHex(mixWhite(color,0.96))});
-  // Cercles décoratifs ancrés dans la page : aucun centre/rayon ne sort
-  // du canevas, afin que les bulles gardent une forme circulaire au montage.
-  page.drawCircle({x:570,y:800,size:18,color:rgbHex(mixWhite(color,0.76))});
-  page.drawCircle({x:48,y:768,size:15,color:rgbHex(mixWhite(color,0.86))});
-  page.drawCircle({x:568,y:560,size:18,color:rgbHex(mixWhite(color,0.90))});
-  page.drawCircle({x:48,y:420,size:15,color:rgbHex(mixWhite(color,0.90))});
-  page.drawCircle({x:568,y:150,size:18,color:rgbHex(mixWhite(color,0.88))});
-  page.drawCircle({x:82,y:45,size:20,color:rgbHex(mixWhite(color,0.86))});
-  page.drawCircle({x:568,y:45,size:17,color:rgbHex(mixWhite(color,0.86))});
-  page.drawCircle({x:568,y:310,size:15,color:rgbHex(mixWhite(color,0.91))});
+  const CM=72/2.54;
+  const palette=resolveBubblePalette(color);
+
+  // Motif recopié du renderer éditorial LuaLaTeX (shipout/background).
+  // Les positions suivent les mêmes ancres de page et les mêmes rayons TikZ.
+  // Le bord PDF coupe les portions extérieures sans déformer la géométrie circulaire.
+  page.drawRectangle({x:0,y:0,width:W,height:H,color:rgbHex(mixWhite(palette.primary,0.96))});
+  const bubbles=[
+    {x:W-1.20*CM,y:H-1.00*CM,r:2.55*CM,fill:mixWhite(palette.secondary,0.76)},
+    {x:1.05*CM,y:H+0.85*CM,r:1.55*CM,fill:mixWhite(palette.primary,0.85)},
+    {x:W-0.45*CM,y:H-9.20*CM,r:1.05*CM,fill:mixWhite(color,0.89)},
+    {x:0.80*CM,y:H-13.40*CM,r:1.30*CM,fill:mixWhite(palette.secondary,0.83)},
+    {x:1.20*CM,y:1.10*CM,r:2.05*CM,fill:mixWhite(palette.primary,0.86)},
+    {x:W-1.00*CM,y:0.90*CM,r:1.60*CM,fill:mixWhite(palette.secondary,0.81)},
+    {x:W-2.15*CM,y:-4.20*CM,r:0.72*CM,fill:mixWhite(color,0.90)},
+    {x:1.95*CM,y:-5.50*CM,r:0.85*CM,fill:mixWhite(palette.primary,0.89)}
+  ];
+  for(const bubble of bubbles){
+    page.drawCircle({x:bubble.x,y:bubble.y,size:bubble.r,color:rgbHex(bubble.fill)});
+  }
 }
 function headerFooter(page:any,pageNo:number,fonts:any,logo:any,color:string){
   if(logo){
@@ -707,6 +772,9 @@ Deno.serve(async req=>{
         return items;
       }));
       const innerGap=11;
+      // Chaque entrée correspond à un paragraphe indépendant :
+      // s'il est terminé, le paragraphe suivant peut utiliser le bas de page.
+      // Si le paragraphe courant est coupé, sa suite reprend impérativement page suivante.
       for(const items of preparedItems){
         let cursor=0;
         while(cursor<items.length){
@@ -714,6 +782,7 @@ Deno.serve(async req=>{
           const availableContent=Math.max(0,remainingPage-BOX_PAD_TOP-BOX_PAD_BOTTOM);
           const fragment:any[]=[];
           let used=0;
+          let splitParagraphHere=false;
           const addItem=(item:any)=>{
             const h=item.kind==="inline"
               ? item.lines.reduce((n:number,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0)
@@ -736,6 +805,7 @@ Deno.serve(async req=>{
                 fragment.push({kind:"inline",lines:first.lines.slice(0,fit.length)});
                 used=lineUsed;
                 items[cursor]={...first,lines:first.lines.slice(fit.length)};
+                splitParagraphHere=true;
               }
             }else if(addItem(first)){
               cursor++;
@@ -760,7 +830,11 @@ Deno.serve(async req=>{
             }
           }
           y-=boxH+BLOCK_GAP;
-          if(cursor<items.length&&y-bottom<LINE_HEIGHT+BOX_PAD_TOP+BOX_PAD_BOTTOM){newFlowPage();}
+          if(cursor<items.length&&splitParagraphHere){
+            newFlowPage();
+          }else if(cursor<items.length&&y-bottom<LINE_HEIGHT+BOX_PAD_TOP+BOX_PAD_BOTTOM){
+            newFlowPage();
+          }
         }
       }
     };
