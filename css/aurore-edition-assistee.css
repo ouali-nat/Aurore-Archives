@@ -111,8 +111,8 @@
 \n
 /* Téléchargement par bloc — choix page seule / pages précédentes */
 .ae-block-download-choice-overlay{
-  position:fixed;inset:0;z-index:10060;display:flex;align-items:center;justify-content:center;
-  padding:14px;box-sizing:border-box;background:rgba(5,5,12,.62);backdrop-filter:blur(7px);
+  position:fixed!important;inset:0!important;width:100vw;height:100vh;height:100dvh;z-index:2147483000;display:flex;align-items:center;justify-content:center;
+  padding:14px;box-sizing:border-box;background:rgba(5,5,12,.62);backdrop-filter:blur(7px);margin:0;
   opacity:0;visibility:hidden;pointer-events:none;transition:opacity .16s ease,visibility .16s ease;
 }
 .ae-block-download-choice-overlay.open{

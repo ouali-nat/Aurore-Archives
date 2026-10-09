@@ -612,14 +612,17 @@
 
     let parts=[current];
     if(mode==='previous'){
-      if(!blockDownloadRangeComplete(target.parts,target.targetPage)){
-        throw new Error('Certaines pages entre la couverture et ce bloc ne sont pas encore prêtes.');
-      }
       parts=target.parts.filter(x=>x.pageNumber<=target.targetPage);
+      if(!parts.length)throw new Error('Aucune page générée n’est disponible pour l’assemblage.');
+      if(!parts.some(x=>x.pageNumber===target.targetPage))throw new Error('La page actuelle de ce bloc n’est pas prête.');
     }
 
+    const expectedCount=target.targetPage;
+    const availablePages=new Set(parts.map(p=>Number(p.pageNumber)));
+    const missingPages=[];
+    if(mode==='previous')for(let n=1;n<=expectedCount;n++)if(!availablePages.has(n))missingPages.push(n);
     setStatus(mode==='previous'
-      ? 'Assemblage des pages 1 à '+target.targetPage+'…'
+      ? 'Assemblage des pages disponibles jusqu’à '+target.targetPage+'…'
       : 'Préparation de la page '+target.targetPage+'…');
 
     const {PDFDocument}=await loadPdfLib();
@@ -660,7 +663,9 @@
     setTimeout(()=>URL.revokeObjectURL(url),1500);
 
     setStatus(mode==='previous'
-      ? 'Pages 1 à '+target.targetPage+' téléchargées.'
+      ? (missingPages.length
+          ? 'PDF téléchargé : pages disponibles jusqu’à '+target.targetPage+'. Pages non générées/indisponibles : '+missingPages.join(', ')+'.'
+          : 'Pages 1 à '+target.targetPage+' téléchargées.')
       : 'Page '+target.targetPage+' téléchargée.');
   }
 
@@ -670,15 +675,10 @@
     overlay.classList.remove('open');
     overlay.setAttribute('aria-hidden','true');
     const resolver=overlay.__auroreResolve;
-    const viewport=overlay.__auroreViewportState;
     overlay.__auroreResolve=null;
     overlay.__auroreViewportState=null;
-    if(viewport)document.body.style.overflow=viewport.bodyOverflow||'';
     if(typeof resolver==='function')resolver(result);
-    requestAnimationFrame(()=>{
-      overlay.remove();
-      if(viewport)window.scrollTo(0,viewport.scrollY||0);
-    });
+    requestAnimationFrame(()=>overlay.remove());
   }
 
   function askBlockDownloadChoice(block){
@@ -691,7 +691,7 @@
 
     const target=blockDownloadPartsThrough(block);
     const current=target.targetPage;
-    const previousReady=current>1&&blockDownloadRangeComplete(target.parts,current);
+    const previousReady=current>1&&target.parts.some(x=>x.pageNumber<current);
     const currentReady=target.parts.some(x=>x.pageNumber===current);
 
     const currentBtn=overlay.querySelector('[data-ae-download-mode="current"]');
@@ -708,22 +708,15 @@
       description.textContent=current<=1
         ? 'Ce bloc est sur la première page disponible.'
         : previousReady
-          ? 'Choisis la page du bloc seule ou toutes les pages précédentes jusqu’à celle-ci.'
-          : 'La page du bloc est prête, mais certaines pages précédentes ne le sont pas encore.';
+          ? 'Les pages PDF disponibles jusqu’à ce bloc seront réunies dans l’ordre.'
+          : 'Aucune page précédente n’est prête : génère les blocs précédents pour les inclure.';
     }
-
-    overlay.__auroreViewportState={scrollY:window.scrollY||0,bodyOverflow:document.body.style.overflow||''};
-    document.body.style.overflow='hidden';
+    // Garder la page à sa position : pas de verrouillage du body ni de focus automatique,
+    // qui peuvent provoquer un défilement brutal sur certains navigateurs mobiles.
+    overlay.__auroreViewportState={scrollY:window.scrollY||0};
     overlay.classList.add('open');
     overlay.setAttribute('aria-hidden','false');
-
-    return new Promise(resolve=>{
-      overlay.__auroreResolve=resolve;
-      requestAnimationFrame(()=>{
-        try{currentBtn?.focus({preventScroll:true});}catch(_){currentBtn?.focus();}
-        window.scrollTo(0,overlay.__auroreViewportState?.scrollY||0);
-      });
-    });
+    return new Promise(resolve=>{overlay.__auroreResolve=resolve;});
   }
 
   function initBlockDownloadChoice(){
