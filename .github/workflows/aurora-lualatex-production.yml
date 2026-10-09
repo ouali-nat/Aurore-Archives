@@ -1499,7 +1499,9 @@ jobs:
           if not _is_renderable_geogebra_graph(regression_object_point_graph):
               raise SystemExit("Renderer smoke check failed: object-form GeoGebra points were rejected")
           graph_tex = "\n".join(render_graphs([regression_graph]))
-          expected_graph = r"\includegraphics[width=0.92\linewidth,keepaspectratio]{assets/geogebra-test.png}"
+          expected_graph = r"\includegraphics[width=0.92\linewidth,height=6.6cm,keepaspectratio]{assets/geogebra-test.png}"
+          if r"\Needspace{9.5cm}" not in graph_tex:
+              raise SystemExit("Renderer smoke check failed: GeoGebra page-space reservation is missing")
           if expected_graph not in graph_tex:
               raise SystemExit("Renderer smoke check failed: GeoGebra graph was not emitted")
 
