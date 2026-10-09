@@ -551,3 +551,59 @@ html[data-color-theme] .screen{
     -webkit-backdrop-filter:blur(10px) saturate(1.10);
   }
 }
+
+
+/* Stabilité mobile — réduire les recalculs GPU pendant le défilement.
+   Les surfaces gardent leur couleur, leur bordure et leur relief, mais le flou
+   translucide n'est plus recalculé à chaque mouvement sur les petits écrans. */
+@media(max-width:760px){
+  :is(
+    header,.header,.topbar,.hero,.home-video-section,.home-annonce,.home-recents-cta,
+    .livres-banner,.home-promise,.home-five-level,.home-secondary-choice,.home-promo-card,
+    .service-client-card,.admin-space-card,.personal-space-compact-card,.personal-panel,
+    .aurora-panel,.aurora-panels,.aurore-personal-hero,.card,.section,.panel,
+    .profile-card,.recents-card,.admin-card,.admin-empty,.form-card,.stat-card,
+    .admin-category-card,.presentation-item,.doc-empty,.doc-row,.matiere-card,
+    .cat-card,.level-card,.sublevel-card,.serie-pill,.home-shortcuts,
+    .home-secondary-choices,.aurore-ia-app,.welcome-modal-card,.signup-card,
+    .access-card,.access-panel,.aurore-auth-wait-card,.profile-info-modal,
+    .personal-folder,.personal-folder-dialog-card,.admin-shell,.admin-panel,
+    .admin-promo-manager,.admin-service-editor,.admin-pending-overview,
+    .admin-pending-v2-shell,.admin-pending-v2-card,.cf-rebuild,
+    .aurore-pdf-production-center,.admin-home-presentation-editor,
+    .admin-home-presentation-preview,.cf-studio-box,.admin-user-card,
+    .pub-admin-item,.site-data-toolbar,.profile-theme-card,#depotFormCard,
+    #depotProgress,.search-box,.theme-switch-btn,.color-theme-btn,.pwa-install-btn,
+    .deposer-btn,.user-chip,.aurore-ia-header-btn,.auraster-home-search,
+    .admin-toolbar,.admin-data-toolbar,.recents-toolbar,.docs-toolbar,
+    .cf-form-layout-admin,.parcours-toolbar
+  ){
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+  }
+
+  .hero-glow{filter:none!important;opacity:.14!important}
+
+  /* Les blocs de navigation restent fixes pendant le scroll : pas de fondu,
+     de translation d'entrée ni de déplacement tactile involontaire. */
+  .screen.active,
+  #screen-home .level-card,
+  #screen-home .home-five-level,
+  #screen-home .presentation-item,
+  #screen-level .sublevel-card,
+  #screen-level .cat-card,
+  #screen-matieres .matiere-card,
+  #screen-livres .matiere-card,
+  #screen-docs .doc-row{
+    animation:none!important;
+  }
+}
+@media(max-width:760px) and (hover:none) and (pointer:coarse){
+  :is(
+    .presentation-item,.level-card,.cat-card,.matiere-card,.sublevel-card,
+    .home-five-level,.home-secondary-choice,.home-recents-cta,.service-client-card,
+    .doc-row,.home-annonce
+  ):hover{
+    transform:none!important;
+  }
+}
