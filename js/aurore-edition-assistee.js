@@ -820,7 +820,7 @@
     requestAnimationFrame(()=>overlay.remove());
   }
 
-  function askBlockDownloadChoice(block){
+  async function askBlockDownloadChoice(block){
     let overlay=document.getElementById('aeBlockDownloadChoiceOverlay');
     if(!overlay){
       initBlockDownloadChoice();
@@ -828,7 +828,7 @@
     }
     if(!overlay)return Promise.resolve(null);
 
-    const target=blockDownloadPartsThrough(block);
+    const target=await blockDownloadPartsThrough(block);
     const current=target.targetPage;
     const previousReady=current>1&&target.parts.some(x=>x.pageNumber<current);
     const currentReady=target.parts.some(x=>x.pageNumber===current);
