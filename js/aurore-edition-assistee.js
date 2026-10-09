@@ -1699,11 +1699,28 @@
     const depth=Number(b.generation?.autoSplitDepth||0)+1;
     return chunks.map((part,i)=>{
       const n=block(b.type);
-      n.content=b.type==='exercise'
-        ?{title:String(b.content?.title||'Exercice '+(i+1)),statement:part,hint:i===0?b.content?.hint:'',correction_title:i===0?String(b.content?.correction_title||'Corrigé '+(i+1)):'',correction:i===0?String(b.content?.correction||''):''}
-        :b.type==='point'
-          ?{title:String(b.content?.title||'Point de cours '+(i+1)),text:part,color:normalizePointColor(b.content?.color),rank:Number(b.content?.rank)||i+1}
-          :{text:part};
+      if(b.type==='exercise'){
+        const originalTitle=String(b.content?.title||'Exercice');
+        n.content={
+          title:i===0?originalTitle:originalTitle+' — suite',
+          statement:part,
+          hint:i===0?b.content?.hint:'',
+          correction_title:i===0?String(b.content?.correction_title||'Corrigé'):'',
+          correction:i===0?String(b.content?.correction||''):''
+        };
+      }else if(b.type==='point'&&i===0){
+        n.content={
+          title:String(b.content?.title||'Point de cours'),
+          text:part,
+          color:normalizePointColor(b.content?.color),
+          rank:Number(b.content?.rank)||1
+        };
+      }else{
+        // Une suite de point continue comme paragraphe : le titre original
+        // ne doit pas être redessiné sur chaque fragment.
+        if(b.type==='point')n.type='paragraph';
+        n.content={text:part};
+      }
       n.generation={
         status:'not_generated',
         page_number:null,
@@ -1895,7 +1912,9 @@
             await persistCourse(true);
             renderWorkspace();
             setStatus('Bloc trop long : '+pieces.length+' blocs successifs ont été créés. Génération en cours…');
-            for(const p of pieces)await generateBlock(p.id);
+            // Les fragments appartiennent au même flux : les rendre via son propriétaire,
+            // pas un à un, pour éviter de régénérer le même flux par chaque compagnon.
+            await generateBlock(pieces[0].id);
             return;
           }
         }
