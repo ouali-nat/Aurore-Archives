@@ -1060,6 +1060,10 @@ async function auroraConstruireEtImporterGraphiquesGeoGebra(id,button,accessToke
   return graphs.length;
 }
 
+// Bridge partagé avec l’éditeur assisté : réutilise le renderer GeoGebra validé.
+window.auroraGeoGebraRenderer=window.auroraGeoGebraRenderer||{};
+window.auroraGeoGebraRenderer.exportPNG=(graph)=>auroraGeoGebraExportOne(graph);
+
 async function obtenirJwtPourRenduPdf(){
   // Le renderer PDF exige un vrai JWT utilisateur (verify_jwt=true).
   // On récupère la session Supabase actuelle juste avant l'appel afin de ne

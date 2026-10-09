@@ -1921,15 +1921,31 @@
       setStatus('Régénération indépendante du bloc sélectionné…');
     }
 
-    if(b.type==='graphique'&&!b.content?.json?.geogebra_image_path&&!b.content?.json?.graph_local_path&&!b.content?.json?.geogebra_image_url&&!b.content?.json?.image_url&&!b.content?.json?.preview_url){
-      await persistCourse(true);setStatus('JSON graphique valide, mais aucun asset visuel n’est encore disponible.');return;
-    }
     b.generation={...(b.generation||{}),status:'generating',page_number:pageNumberFor(b),progress:10,progress_label:'Préparation de la page…',error:null,updated_at:new Date().toISOString()};
     renderWorkspace();updateGenerationProgress(b.id,10,'Préparation de la page…');setStatus('Préparation du rendu de la page…');
     try{
       const token=(typeof session!=='undefined'&&session?.access_token)||await freshToken();
       if(!token)throw new Error('Session administrateur absente.');
-      updateGenerationProgress(b.id,20,'Envoi au renderer de page…');
+      if(b.type==='graphique'&&!String(b.content?.json?.geogebra_image_path||b.content?.json?.graph_local_path||'').trim()){
+        updateGenerationProgress(b.id,20,'Construction du graphique GeoGebra…');
+        setStatus('Construction réelle du graphique GeoGebra…');
+        const exportPNG=window.auroraGeoGebraRenderer?.exportPNG;
+        if(typeof exportPNG!=='function')throw new Error('Le moteur GeoGebra n’est pas chargé. Recharge la page puis réessaie.');
+        const graph=clone(b.content.json);
+        const pngBase64=await exportPNG(graph);
+        if(!pngBase64)throw new Error('GeoGebra n’a retourné aucune image du graphique.');
+        updateGenerationProgress(b.id,38,'Enregistrement du graphique GeoGebra…');
+        const upload=await fetch(SUPABASE_URL+'/functions/v1/aurora-geogebra',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':SUPABASE_ANON_KEY},
+          body:JSON.stringify({action:'upload-assisted-graph',course_id:String(state.course.id),block_id:String(b.id),graph,png_base64:pngBase64})
+        });
+        const uploadText=await upload.text();let uploadData={};try{uploadData=uploadText?JSON.parse(uploadText):{}}catch(_){uploadData={error:uploadText}};
+        if(!upload.ok||!uploadData.ok||!String(uploadData.path||'').trim())throw new Error(uploadData.error||('Enregistrement du graphique GeoGebra HTTP '+upload.status));
+        b.content.json={...graph,geogebra_image_path:String(uploadData.path),geogebra_image_source:'geogebra',geogebra_renderer_version:Number(uploadData.renderer_version||5),geogebra_image_updated_at:new Date().toISOString()};
+        await persistCourse(true,false);
+      }
+      updateGenerationProgress(b.id,50,'Envoi au renderer de page…');
       const r=await fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-page-v2',{
         method:'POST',
         headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':SUPABASE_ANON_KEY},

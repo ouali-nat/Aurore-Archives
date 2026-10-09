@@ -5,7 +5,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const RENDER_TOKEN = Deno.env.get("AURORA_LUALATEX_RENDER_TOKEN") || "";
-const GEO_GEBRA_RENDERER_VERSION = 3;
+const GEO_GEBRA_RENDERER_VERSION = 5;
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
 const cors = {
@@ -114,9 +114,112 @@ Deno.serve(async req=>{
   }
 
   try{
-    const b=await req.json(), id=Number(b?.generated_document_id), action=String(b?.action||"upload");
+    const b=await req.json(), action=String(b?.action||"upload");
+    if(serverMode&&action!=="server-upload"&&action!=="prepare"&&action!=="register-validation"&&action!=="get-editorial"&&action!=="list-editorial-jobs") return json({error:"Action serveur GeoGebra non autorisée"},403);
+
+    if(action==="upload-assisted-graph"){
+      if(serverMode||!userId) return json({error:"Cette action exige une session utilisateur authentifiée"},403);
+      const courseId=String(b?.course_id||"").trim(), blockId=String(b?.block_id||"").trim();
+      const graph=b?.graph&&typeof b.graph==="object"&&!Array.isArray(b.graph)?b.graph:null;
+      if(!courseId||!blockId||!graph) return json({error:"course_id, block_id et graph sont obligatoires"},400);
+      const instrument=detectGraphInstrument(graph);
+      if(!instrument||!GRAPH_INSTRUMENTS.has(instrument)) return json({error:"Construction GeoGebra invalide ou instrument non pris en charge"},400);
+      const {data:course,error:courseError}=await admin.from("aurora_assisted_courses").select("id,created_by").eq("id",courseId).eq("created_by",userId).maybeSingle();
+      if(courseError) throw new Error("Vérification du cours impossible: "+courseError.message);
+      if(!course) return json({error:"Cours introuvable ou accès refusé"},404);
+      const bytes=decodeBase64(String(b?.png_base64||""));
+      if(bytes.length>12*1024*1024) return json({error:"PNG GeoGebra trop volumineux"},413);
+      if(bytes[0]!==137||bytes[1]!==80||bytes[2]!==78||bytes[3]!==71) return json({error:"Le fichier GeoGebra doit être un PNG"},400);
+      const safeBlockId=blockId.replace(/[^A-Za-z0-9_-]/g,"-").slice(0,100)||"graph";
+      const path="aurora-content/"+userId+"/assisted/"+courseId+"/blocks/"+safeBlockId+"/graph-"+Date.now()+".png";
+      const up=await admin.storage.from("Pdfs").upload(path,bytes,{contentType:"image/png",cacheControl:"31536000",upsert:false});
+      if(up.error) throw new Error("Storage GeoGebra: "+up.error.message);
+      return json({ok:true,path,bytes:bytes.length,renderer_version:GEO_GEBRA_RENDERER_VERSION});
+    }
+
+    if(action==="list-editorial-jobs"){
+      if(!serverMode) return json({error:"Action serveur GeoGebra réservée au renderer"},403);
+      const {data:rows,error:je}=await admin.from("aurora_content_jobs")
+        .select("id,title,subject,level,class_name,document_type,status,generated_document_id,metadata")
+        .eq("status","draft")
+        .is("generated_document_id",null)
+        .limit(100);
+      if(je) return json({error:"Lecture des tâches éditoriales: "+je.message},500);
+      const jobs=(rows||[]).filter((job:any)=>{
+        const wf=job?.metadata?.workflow;
+        return (wf?.stage==="redaction" || wf?.stage==="production_en_cours") && wf?.editorial_content && typeof wf.editorial_content==="object";
+      }).map((job:any)=>({
+        id:job.id,title:job.title,subject:job.subject,level:job.level,class_name:job.class_name,
+        document_type:job.document_type,status:job.status,generated_document_id:job.generated_document_id
+      }));
+      return json({ok:true,jobs,server_mode:true});
+    }
+
+    if(action==="get-editorial"){
+      if(!serverMode) return json({error:"Action serveur GeoGebra réservée au renderer"},403);
+      const jobId=Number(b?.job_id);
+      if(!Number.isSafeInteger(jobId)||jobId<1) return json({error:"job_id obligatoire"},400);
+      const {data:job,error:je}=await admin.from("aurora_content_jobs")
+        .select("id,title,subject,level,class_name,document_type,status,generated_document_id,metadata")
+        .eq("id",jobId).maybeSingle();
+      if(je||!job) return json({error:"Tâche Content Factory introuvable"},404);
+      const wf=job?.metadata?.workflow;
+      if(job.status!=="draft" || job.generated_document_id!==null || (wf?.stage!=="redaction" && wf?.stage!=="production_en_cours") || !wf?.editorial_content || typeof wf.editorial_content!=="object"){
+        return json({error:"Tâche éditoriale non éligible à la validation GeoGebra D",job_id:jobId},409);
+      }
+      return json({
+        ok:true,
+        job:{
+          id:job.id,title:job.title,subject:job.subject,level:job.level,class_name:job.class_name,
+          document_type:job.document_type,status:job.status,generated_document_id:job.generated_document_id
+        },
+        editorial_content:wf.editorial_content,
+        server_mode:true
+      });
+    }
+
+    if(action==="register-validation"){
+      const jobId=Number(b?.job_id), sha=String(b?.content_sha256||"").toLowerCase().trim();
+      const graphCount=Number(b?.graph_count), validatedGraphCount=Number(b?.validated_graph_count);
+      const status=String(b?.status||"").toLowerCase().trim();
+      if(!Number.isSafeInteger(jobId)||jobId<1) return json({error:"job_id obligatoire"},400);
+      if(status!=="pass" && status!=="fail") return json({error:"Le statut de validation doit être pass ou fail"},400);
+      if(!Number.isSafeInteger(graphCount)||graphCount<1) return json({error:"graph_count invalide"},400);
+      if(!Number.isSafeInteger(validatedGraphCount)||validatedGraphCount<0||validatedGraphCount>graphCount) return json({error:"validated_graph_count invalide"},400);
+      if(status==="pass" && validatedGraphCount!==graphCount) return json({error:"Une validation pass exige que tous les graphiques soient validés"},400);
+      const {data:job,error:je}=await admin.from("aurora_content_jobs").select("id,metadata").eq("id",jobId).maybeSingle();
+      if(je||!job) return json({error:"Tâche Content Factory introuvable"},404);
+      const editorial=job?.metadata?.workflow?.editorial_content;
+      if(!editorial || typeof editorial!=="object") return json({error:"Contenu éditorial introuvable dans la tâche"},409);
+      const {data:canonicalSha,error:shaError}=await admin.rpc("aurora_jsonb_sha256",{p_content:editorial});
+      if(shaError || !canonicalSha || !/^[0-9a-f]{64}$/.test(String(canonicalSha))) {
+        return json({error:"Impossible de calculer l’empreinte canonique Supabase du contenu éditorial",details:shaError?.message||"hash absent"},500);
+      }
+      const actual=String(canonicalSha).toLowerCase();
+      if(sha && actual!==sha) return json({error:"Empreinte du contenu éditorial différente",expected:actual,received:sha},409);
+      const report=b?.report&&typeof b.report==="object"?b.report:{};
+      const validatedAt=new Date().toISOString();
+      const {data:row,error:ie}=await admin.from("aurora_geogebra_renderer_validations").upsert({
+        job_id:jobId,content_sha256:actual,renderer_contract_version:GEO_GEBRA_RENDERER_VERSION,
+        status,graph_count:graphCount,validated_graph_count:validatedGraphCount,report,validated_at:validatedAt
+      },{onConflict:"job_id,content_sha256,renderer_contract_version"}).select("id,job_id,content_sha256,renderer_contract_version,status,graph_count,validated_graph_count,validated_at").single();
+      if(ie) return json({error:"Enregistrement de validation: "+ie.message},500);
+
+      const currentMetadata=job?.metadata && typeof job.metadata==="object" ? structuredClone(job.metadata) : {};
+      const workflow=currentMetadata?.workflow && typeof currentMetadata.workflow==="object" ? currentMetadata.workflow : {};
+      workflow.geogebra_renderer_validation={
+        status,renderer_contract_version:GEO_GEBRA_RENDERER_VERSION,content_sha256:actual,
+        graph_count:graphCount,validated_graph_count:validatedGraphCount,report,validated_at:validatedAt
+      };
+      currentMetadata.workflow=workflow;
+      const {error:me}=await admin.from("aurora_content_jobs").update({metadata:currentMetadata}).eq("id",jobId);
+      if(me) return json({error:"Persistance du diagnostic GeoGebra dans la tâche: "+me.message},500);
+
+      return json({ok:true,validation:row,content_sha256:actual,server_mode:true});
+    }
+
+    const id=Number(b?.generated_document_id);
     if(!Number.isSafeInteger(id)||id<1) return json({error:"generated_document_id obligatoire"},400);
-    if(serverMode&&action!=="server-upload"&&action!=="prepare") return json({error:"Action serveur GeoGebra non autorisée"},403);
 
     let query=admin.from("aurora_generated_documents").select("id,created_by,status,content_json,title,version,metadata").eq("id",id);
     if(userId && !isAdmin) query=query.eq("created_by",userId);
