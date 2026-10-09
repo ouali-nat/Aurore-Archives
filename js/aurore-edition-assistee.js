@@ -1,7 +1,7 @@
 /* Aurore — Édition assistée : atelier séquentiel, sans canevas de prévisualisation */
 (function(){
   'use strict';
-  const state={mode:'list',course:null,courses:[],selected:null,loading:false,pdfLibPromise:null,canonicalPreview:{fingerprint:'',documentId:null,pdfUrl:null}};
+  const state={mode:'list',course:null,courses:[],selected:null,loading:false,pdfLibPromise:null,modalViewport:null,canonicalPreview:{fingerprint:'',documentId:null,pdfUrl:null}};
   const PREVIEW_CACHE_MAX=6;
   const previewPdfCache=new Map();
   function cachedPreviewBuffer(url){const hit=previewPdfCache.get(url);if(!hit)return null;previewPdfCache.delete(url);previewPdfCache.set(url,hit);return hit;}
@@ -497,6 +497,8 @@
 
   function renderWorkspace(){
     const r=root();if(!r||!state.course)return;
+    const previousModalHost=document.getElementById('aeModalHost');
+    if(previousModalHost){closeAssistedModal();previousModalHost.remove();}
     validateCourse();
     ensureCourseStructure(state.course);
     r.innerHTML='<div class="ae-shell ae-workspace"><header class="ae-head"><div><button class="admin-btn ghost" id="aeBack">← Mes cours</button><span class="ae-kicker">Atelier de production séquentielle</span><h3><input id="aeCourseTitle" value="'+esc(state.course.title)+'"></h3><p>Le bloc de début, le sommaire et le bloc de fin sont automatiques. Chaque bloc central génère uniquement son propre fragment PDF indépendant.</p></div><span class="ae-status" id="assistedStatus">'+(state.course.validation?.ok?'Structure valide':'À compléter')+'</span></header>'+
@@ -505,6 +507,7 @@
       '<div class="ae-sequence-meta"><span>'+contentBlocks().length+' bloc(s) de contenu · 1 début · 1 fin</span><span id="aeSystemPreviewOverall">Pages système indépendantes : '+systemPreviewOverallFromPages(state.canonicalPreview?.pages||{}).ready+'/3 prêtes · '+systemPreviewOverallFromPages(state.canonicalPreview?.pages||{}).progress+'%</span></div>'+
       '<section class="ae-block-stack">'+(activeBlocks().find(b=>b?.role===START_ROLE)?blockCard(activeBlocks().find(b=>b?.role===START_ROLE),0):'')+tocSystemCard()+(contentBlocks().length?contentBlocks().map((b,i)=>blockCard(b,i+2)).join(''):'<div class="ae-empty"><strong>Le cours est vide.</strong><span>Ajoute un paragraphe pour commencer. La couverture et le sommaire resteront toujours présents.</span></div>')+(activeBlocks().find(b=>b?.role===END_ROLE)?blockCard(activeBlocks().find(b=>b?.role===END_ROLE),activeBlocks().length-1):'')+'</section>'+
       '<footer class="ae-work-footer">Les pages PDF déjà prêtes peuvent être téléchargées à tout moment. Le téléchargement peut rester partiel pendant la progression.</footer></div><div class="ae-modal-host" id="aeModalHost"></div>';
+    prepareAssistedModalHost();
     bindWorkspace();
   }
 
@@ -535,32 +538,61 @@
   }
 
   function blockDownloadPartsThrough(targetBlock){
-    const targetPage=pageNumberFor(targetBlock);
-    const parts=[],seen=new Set();
-    const pages=state.canonicalPreview?.pages||{};
-    const add=(url,label,pageNumber,key)=>{
-      const u=String(url||'').trim();
-      const n=Number(pageNumber);
-      const k=String(key||u);
-      if(!u||!Number.isFinite(n)||n<1||n>targetPage||seen.has(k))return;
-      seen.add(k);
-      parts.push({url:u,label,pageNumber:n});
+    const targetPage=Number(pageNumberFor(targetBlock));
+    const parts=[],seenPages=new Set();
+    const blocks=activeBlocks();
+    const byId=new Map(blocks.map(b=>[String(b.id),b]));
+    const isReady=g=>String(g?.status||'').toLowerCase()==='ready'&&!!String(g?.page_url||'').trim();
+
+    const add=(url,label,pageNumber,sourcePage=1)=>{
+      const u=String(url||'').trim(),n=Number(pageNumber),sourceIndex=Math.floor(Number(sourcePage)||1);
+      if(!u||!Number.isInteger(n)||n<1||n>targetPage||seenPages.has(n))return;
+      if(!Number.isInteger(sourceIndex)||sourceIndex<1)return;
+      seenPages.add(n);
+      parts.push({url:u,label,pageNumber:n,sourcePage:sourceIndex});
     };
 
-    if(String(pages.cover?.status||'').toLowerCase()==='ready')add(pages.cover.pdfUrl,'Couverture',1,'cover');
-    if(String(pages.toc?.status||'').toLowerCase()==='ready')add(pages.toc.pdfUrl,'Sommaire',2,'toc');
+    const pages=state.canonicalPreview?.pages||{};
+    if(String(pages.cover?.status||'').toLowerCase()==='ready')add(pages.cover.pdfUrl,'Couverture',1,1);
+    if(String(pages.toc?.status||'').toLowerCase()==='ready')add(pages.toc.pdfUrl,'Sommaire',2,1);
 
     for(const b of contentBlocks()){
+      const n=Number(pageNumberFor(b));
+      if(!Number.isInteger(n)||n>targetPage)continue;
       const g=b?.generation||{};
-      if(String(g.status||'').toLowerCase()!=='ready'||!g.page_url)continue;
-      const n=Number(g.page_number||pageNumberFor(b));
-      if(!Number.isFinite(n))continue;
-      add(g.page_url,'Page '+n,n,g.flow_page_owner_id||g.page_url);
+      if(!isReady(g))continue;
+
+      const ownerId=String(g.flow_page_owner_id||'').trim();
+      const owner=ownerId?byId.get(ownerId):null;
+      const ownerGeneration=owner?.generation||{};
+      const ownerReady=isReady(ownerGeneration)&&ownerGeneration.independent_regeneration!==true;
+
+      // Si le bloc cible a été régénéré seul, son PDF indépendant est le plus récent.
+      if(String(b.id)===String(targetBlock.id)&&g.independent_regeneration===true){
+        add(g.page_url,'Page '+n,n,1);
+        continue;
+      }
+
+      // Les blocs d'un même flux partagent un PDF multipage. Utiliser la page
+      // physique correspondante et non toutes les pages du PDF à chaque répétition.
+      if(ownerId&&ownerReady){
+        const ownerPage=Number(pageNumberFor(owner));
+        add(ownerGeneration.page_url,'Page '+n,n,Math.max(1,n-ownerPage+1));
+        continue;
+      }
+
+      // Repli pour un PDF de bloc indépendant ou des métadonnées de flux incomplètes.
+      if(g.independent_regeneration===true||!ownerId){
+        add(g.page_url,'Page '+n,n,1);
+      }else{
+        const ownerPage=owner?Number(pageNumberFor(owner)):n;
+        add(g.page_url,'Page '+n,n,Math.max(1,n-ownerPage+1));
+      }
     }
 
-    const endBlock=activeBlocks().find(b=>b?.role===END_ROLE);
-    if(endBlock&&String(pages.end?.status||'').toLowerCase()==='ready'){
-      add(pages.end.pdfUrl,'Fin du document',pageNumberFor(endBlock),'end');
+    const endBlock=blocks.find(b=>b?.role===END_ROLE);
+    if(endBlock&&Number(pageNumberFor(endBlock))<=targetPage&&String(pages.end?.status||'').toLowerCase()==='ready'){
+      add(pages.end.pdfUrl,'Fin du document',pageNumberFor(endBlock),1);
     }
 
     parts.sort((a,b)=>a.pageNumber-b.pageNumber);
@@ -568,8 +600,8 @@
   }
 
   function blockDownloadRangeComplete(parts,targetPage){
-    const ready=new Set(parts.map(x=>x.pageNumber));
-    for(let n=1;n<=targetPage;n++)if(!ready.has(n))return false;
+    const ready=new Set(parts.map(x=>Number(x.pageNumber)));
+    for(let n=1;n<=Number(targetPage);n++)if(!ready.has(n))return false;
     return true;
   }
 
@@ -581,7 +613,7 @@
     let parts=[current];
     if(mode==='previous'){
       if(!blockDownloadRangeComplete(target.parts,target.targetPage)){
-        throw new Error('Certaines pages précédentes ne sont pas encore prêtes.');
+        throw new Error('Certaines pages entre la couverture et ce bloc ne sont pas encore prêtes.');
       }
       parts=target.parts.filter(x=>x.pageNumber<=target.targetPage);
     }
@@ -599,7 +631,12 @@
       const response=await fetch(p.url,{cache:'no-store'});
       if(!response.ok)throw new Error('Impossible de récupérer '+p.label+' (HTTP '+response.status+').');
       const source=await PDFDocument.load(await response.arrayBuffer());
-      const copied=await merged.copyPages(source,source.getPageIndices());
+      const sourceCount=source.getPageCount();
+      const sourceIndex=Number(p.sourcePage||1)-1;
+      if(sourceIndex<0||sourceIndex>=sourceCount){
+        throw new Error(p.label+' : la page demandée ('+(sourceIndex+1)+') est absente du PDF source ('+sourceCount+' page(s)).');
+      }
+      const copied=await merged.copyPages(source,[sourceIndex]);
       copied.forEach(page=>merged.addPage(page));
     }
 
@@ -607,7 +644,7 @@
     const blob=new Blob([bytes],{type:'application/pdf'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
-    const safeTitle=String(state.course?.title||'aurore-cours').trim().replace(/[^\\p{L}\\p{N}_-]+/gu,'-')||'aurore-cours';
+    const safeTitle=String(state.course?.title||'aurore-cours').trim().replace(/[^\p{L}\p{N}_-]+/gu,'-')||'aurore-cours';
     a.href=url;
     a.download=mode==='previous'
       ? safeTitle+'-pages-1-a-'+target.targetPage+'.pdf'
@@ -628,9 +665,15 @@
     overlay.classList.remove('open');
     overlay.setAttribute('aria-hidden','true');
     const resolver=overlay.__auroreResolve;
+    const viewport=overlay.__auroreViewportState;
     overlay.__auroreResolve=null;
+    overlay.__auroreViewportState=null;
+    if(viewport)document.body.style.overflow=viewport.bodyOverflow||'';
     if(typeof resolver==='function')resolver(result);
-    requestAnimationFrame(()=>document.getElementById('aeBlockDownloadChoiceOverlay')?.remove());
+    requestAnimationFrame(()=>{
+      overlay.remove();
+      if(viewport)window.scrollTo(0,viewport.scrollY||0);
+    });
   }
 
   function askBlockDownloadChoice(block){
@@ -664,12 +707,17 @@
           : 'La page du bloc est prête, mais certaines pages précédentes ne le sont pas encore.';
     }
 
+    overlay.__auroreViewportState={scrollY:window.scrollY||0,bodyOverflow:document.body.style.overflow||''};
+    document.body.style.overflow='hidden';
     overlay.classList.add('open');
     overlay.setAttribute('aria-hidden','false');
 
     return new Promise(resolve=>{
       overlay.__auroreResolve=resolve;
-      requestAnimationFrame(()=>currentBtn?.focus());
+      requestAnimationFrame(()=>{
+        try{currentBtn?.focus({preventScroll:true});}catch(_){currentBtn?.focus();}
+        window.scrollTo(0,overlay.__auroreViewportState?.scrollY||0);
+      });
     });
   }
 
@@ -870,10 +918,36 @@
     state.course.blocks=activeBlocks().filter(x=>x.id!==id);if(state.selected===id)state.selected=null;ensureCourseStructure(state.course);reorderPointBlocks(state.course);renderWorkspace();setStatus('Bloc supprimé.');
   }
 
+  function prepareAssistedModalHost(){
+    const host=document.getElementById('aeModalHost');
+    if(host&&host.parentElement!==document.body)document.body.appendChild(host);
+    return host;
+  }
+
+  function activateAssistedModal(host){
+    if(state.modalViewport)closeAssistedModal();
+    state.modalViewport={scrollY:window.scrollY||0,bodyOverflow:document.body.style.overflow||''};
+    document.body.style.overflow='hidden';
+    const modal=host?.querySelector('.ae-modal');
+    modal?.addEventListener('click',e=>{if(e.target===modal)closeAssistedModal();});
+  }
+
+  function closeAssistedModal(){
+    const host=document.getElementById('aeModalHost');
+    if(host)host.innerHTML='';
+    const saved=state.modalViewport;
+    if(!saved)return;
+    state.modalViewport=null;
+    document.body.style.overflow=saved.bodyOverflow||'';
+    requestAnimationFrame(()=>window.scrollTo(0,saved.scrollY||0));
+  }
+
   function openBlockModal(title,body){
-    const host=document.getElementById('aeModalHost');if(!host)return;
+    const host=prepareAssistedModalHost();if(!host)return;
+    if(state.modalViewport)closeAssistedModal();
     host.innerHTML='<div class="ae-modal"><div class="ae-dialog"><header><div><span class="ae-kicker">'+esc(title)+'</span></div><button class="admin-btn ghost" id="aeModalClose">Fermer</button></header><div class="ae-dialog-body">'+body+'</div></div></div>';
-    document.getElementById('aeModalClose').onclick=()=>host.innerHTML='';
+    activateAssistedModal(host);
+    document.getElementById('aeModalClose').onclick=()=>closeAssistedModal();
   }
 
   async function graphPreviewUrl(b){
@@ -1224,7 +1298,16 @@
     '</div>';
 
     openBlockModal('Prévisualisation progressive du document',body);
-    document.getElementById('aeCloseProgressivePreview')?.addEventListener('click',()=>document.getElementById('aeModalHost').innerHTML='');
+    document.getElementById('aeCloseProgressivePreview')?.addEventListener('click',()=>closeAssistedModal());
+    const modalHost=document.getElementById('aeModalHost');
+    const previewBody=modalHost?.querySelector('.ae-dialog-body');
+    const currentSections=modalHost?.querySelectorAll('.ae-progressive-page.is-current');
+    const currentSection=currentSections?.[currentSections.length-1];
+    if(previewBody&&currentSection)requestAnimationFrame(()=>{
+      if(!previewBody.isConnected||!currentSection.isConnected)return;
+      const delta=currentSection.getBoundingClientRect().top-previewBody.getBoundingClientRect().top;
+      previewBody.scrollTop=Math.max(0,previewBody.scrollTop+delta-10);
+    });
 
     for(const [i,step] of allSteps.entries()){
       if(step.kind!=='pdf')continue;
@@ -1433,7 +1516,7 @@
     const b=activeBlocks().find(x=>x.id===id);if(!b)return;
     const payload=blockPayload(b);
     openBlockModal('JSON du bloc','<textarea id="aeDialogJson" class="ae-dialog-json">'+esc(JSON.stringify(payload,null,2))+'</textarea><div class="ae-dialog-actions"><button class="admin-btn primary" id="aeApplyJson">Appliquer le JSON</button></div>');
-    document.getElementById('aeApplyJson').onclick=()=>{try{const v=JSON.parse(document.getElementById('aeDialogJson').value);b.content=normalizeContent(b.type,v);validateCourse();document.getElementById('aeModalHost').innerHTML='';renderWorkspace();setStatus('JSON appliqué au bloc.')}catch(_){setStatus('JSON invalide.')}};
+    document.getElementById('aeApplyJson').onclick=()=>{try{const v=JSON.parse(document.getElementById('aeDialogJson').value);b.content=normalizeContent(b.type,v);validateCourse();closeAssistedModal();renderWorkspace();setStatus('JSON appliqué au bloc.')}catch(_){setStatus('JSON invalide.')}};
   }
 
   async function copyBlock(id){
@@ -1756,9 +1839,11 @@
   }
 
   function wiki(afterId=null){
-    const host=document.getElementById('aeModalHost');if(!host)return;
+    const host=prepareAssistedModalHost();if(!host)return;
+    if(state.modalViewport)closeAssistedModal();
     host.innerHTML='<div class="ae-modal"><div class="ae-dialog ae-wiki-dialog"><header><div><span class="ae-kicker">Wikimedia Commons</span><h4>Choisir une image</h4></div><button class="admin-btn ghost" id="aeWikiClose">Fermer</button></header><div class="ae-wiki-search"><input id="aeWikiQ" placeholder="Ex. cellule animale, volcan, Newton…"><button class="admin-btn primary" id="aeWikiGo">Rechercher</button></div><div id="aeWikiResults" class="ae-wiki-results"></div></div></div>';
-    document.getElementById('aeWikiClose').onclick=()=>host.innerHTML='';
+    activateAssistedModal(host);
+    document.getElementById('aeWikiClose').onclick=()=>closeAssistedModal();
     document.getElementById('aeWikiGo').onclick=searchWiki;
     document.getElementById('aeWikiQ').onkeydown=e=>{if(e.key==='Enter')searchWiki()};
   }
@@ -1771,7 +1856,7 @@
       const r=await fetch(u);if(!r.ok)throw new Error('HTTP '+r.status);const d=await r.json();const pages=Object.values(d?.query?.pages||{});
       const usable=pages.filter(p=>{const i=p?.imageinfo?.[0]||{},m=i.extmetadata||{},lic=String(m?.LicenseShortName?.value||m?.UsageTerms?.value||'').toLowerCase();return String(i.url||'').startsWith('https://upload.wikimedia.org/')&&!/fair use|non-commercial|no derivatives/.test(lic)&&['image/jpeg','image/png'].includes(String(i.mime||'').toLowerCase())});
       out.innerHTML=usable.map(p=>{const i=p.imageinfo?.[0]||{},m=i.extmetadata||{},title=String(p.title||'').replace(/^File:/,'');const d={imageUrl:i.url||'',thumbUrl:i.thumburl||i.url||'',title,caption:String(m?.ImageDescription?.value||title).replace(/<[^>]+>/g,''),sourceUrl:i.descriptionurl||('https://commons.wikimedia.org/wiki/'+encodeURIComponent(p.title)),author:String(m?.Artist?.value||'').replace(/<[^>]+>/g,''),license:String(m?.LicenseShortName?.value||m?.UsageTerms?.value||'').replace(/<[^>]+>/g,''),query:q};return '<article class="ae-wiki-card"><img src="'+esc(d.thumbUrl)+'" alt=""><div><strong>'+esc(d.title)+'</strong><small>'+esc(d.author||'Auteur non renseigné')+'</small><small>'+esc(d.license||'Licence à vérifier')+'</small></div><button class="admin-btn primary" data-wiki="'+esc(JSON.stringify(d))+'">Choisir</button></article>'}).join('')||'<div class="ae-empty">Aucune image exploitable trouvée.</div>';
-      out.querySelectorAll('[data-wiki]').forEach(btn=>btn.onclick=()=>{const d=JSON.parse(btn.dataset.wiki),b=block('wikimedia-image');b.content=d;const blocks=activeBlocks(),anchorIndex=afterId?blocks.findIndex(x=>x.id===afterId):-1;if(anchorIndex>=0)blocks.splice(anchorIndex+1,0,b);else blocks.push(b);state.selected=b.id;document.getElementById('aeModalHost').innerHTML='';renderWorkspace();setStatus('Image Wikimedia ajoutée en bas du cours.')});
+      out.querySelectorAll('[data-wiki]').forEach(btn=>btn.onclick=()=>{const d=JSON.parse(btn.dataset.wiki),b=block('wikimedia-image');b.content=d;const blocks=activeBlocks(),anchorIndex=afterId?blocks.findIndex(x=>x.id===afterId):-1;if(anchorIndex>=0)blocks.splice(anchorIndex+1,0,b);else blocks.push(b);state.selected=b.id;closeAssistedModal();renderWorkspace();setStatus('Image Wikimedia ajoutée en bas du cours.')});
     }catch(e){out.textContent='Recherche Wikimedia indisponible.'}
   }
 
