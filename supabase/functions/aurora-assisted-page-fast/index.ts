@@ -317,6 +317,27 @@ function splitTextTokens(value:string){
   const words=String(value||"").replace(/\s+/g," ").trim().split(" ").filter(Boolean);
   return words.map((word)=>({kind:"text",value:word}));
 }
+function readableLatexFallback(source:string){
+  let value=normalizeUnicodeMathText(source);
+  value=value
+    .replace(/\\(?:left|right)\\?/g,"")
+    .replace(/\\text\s*\{([^{}]*)\}/g,"$1")
+    .replace(/\\mathrm\s*\{([^{}]*)\}/g,"$1")
+    .replace(/\\mathbb\s*\{([A-Za-z])\}/g,"$1")
+    .replace(/\\mathcal\s*\{([A-Za-z])\}/g,"$1")
+    .replace(/\\frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g,"($1)/($2)");
+  const symbols:any={
+    Omega:"Ω",omega:"ω",varnothing:"∅",emptyset:"∅",infty:"∞",
+    bigcup:"⋃",bigcap:"⋂",cup:"∪",cap:"∩",subseteq:"⊆",subset:"⊂",
+    notin:"∉",in:"∈",leq:"≤",geq:"≥",neq:"≠",approx:"≈",
+    times:"×",cdot:"·",pm:"±",to:"→",Rightarrow:"⇒",Longleftrightarrow:"⇔",
+    forall:"∀",exists:"∃",alpha:"α",beta:"β",gamma:"γ",delta:"δ",
+    lambda:"λ",mu:"μ",pi:"π",sigma:"σ",varphi:"φ",phi:"φ"
+  };
+  value=value.replace(/\\([A-Za-z]+)\b/g,(whole,command)=>symbols[command]||command);
+  value=value.replace(/\\[,;:!]/g," ").replace(/[{}]/g,"");
+  return value.replace(/\s+/g," ").trim();
+}
 async function prepareRuns(runs:Run[],auth:string,pdf:any,fonts:any,qa:any,cache:Map<string,any>){
   return await Promise.all(runs.map(async run=>{
     if(run.kind==="text")return {kind:"text",value:run.value} as Run;
@@ -326,7 +347,9 @@ async function prepareRuns(runs:Run[],auth:string,pdf:any,fonts:any,qa:any,cache
       const naturalH=Number(img.__aurore_natural_pt_height)||Math.max(8,img.height*0.75);
       return {kind:run.kind,value:run.value,image:img,width:naturalW,height:naturalH} as Run;
     }
-    const fallback=normalizeUnicodeMathText(run.value).replace(/[\\]/g,"").replace(/[{}]/g,"");
+    // En cas d'échec du rendu image, conserver une notation mathématique lisible
+    // au lieu de supprimer toutes les commandes et opérateurs LaTeX.
+    const fallback=readableLatexFallback(run.value);
     return {kind:"text",value:fallback} as Run;
   }));
 }
