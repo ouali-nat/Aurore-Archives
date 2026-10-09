@@ -69,11 +69,11 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
   'use strict';
   var root=document.documentElement;
   root.classList.add('aurore-boot-pending');
-  var lastActivity=now(),activeFetches=0,loadSeen=document.readyState==='complete',dismissed=false;
+  var lastActivity=now(),domReady=document.readyState!=='loading',dismissed=false;
   var overlay=null,pollHandle=null,slowHandle=null,hardHandle=null,buttonBound=false,domObserver=null;
   function now(){return window.performance&&window.performance.now?window.performance.now():Date.now();}
-  window.__auroreBootFetchStart=function(){if(dismissed)return;activeFetches++;lastActivity=now();};
-  window.__auroreBootFetchEnd=function(){if(dismissed)return;activeFetches=Math.max(0,activeFetches-1);lastActivity=now();};
+  window.__auroreBootFetchStart=function(){if(dismissed)return;lastActivity=now();};
+  window.__auroreBootFetchEnd=function(){if(dismissed)return;lastActivity=now();};
   function watchInitialDOM(){
     if(domObserver||!document.body||typeof MutationObserver==='undefined')return;
     domObserver=new MutationObserver(function(records){
@@ -127,7 +127,7 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
     if(dismissed)return;
     bindOverlay();
     watchInitialDOM();
-    if(loadSeen&&document.readyState==='complete'&&activeFetches===0&&now()-lastActivity>=950&&document.querySelector('.screen.active')){
+    if(domReady&&document.readyState!=='loading'&&now()-lastActivity>=380&&document.querySelector('.screen.active')){
       dismiss('ready');return;
     }
     pollHandle=window.setTimeout(checkReady,140);
@@ -146,8 +146,9 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
       return promise;
     };
   }
-  window.addEventListener('load',function(){loadSeen=true;lastActivity=now();checkReady();},{once:true});
-  if(loadSeen)checkReady();
+  if(!domReady)window.addEventListener('DOMContentLoaded',function(){domReady=true;lastActivity=now();},{once:true});
+  window.addEventListener('load',function(){lastActivity=now();},{once:true});
+  if(domReady)checkReady();
   else pollHandle=window.setTimeout(checkReady,140);
   slowHandle=window.setTimeout(function(){
     if(dismissed)return;
@@ -158,8 +159,8 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
     if(status)status.textContent='La préparation prend plus de temps que prévu.';
     if(message)message.textContent='La connexion semble lente. Aurore terminera de charger les éléments restants en arrière-plan.';
     if(btn)btn.hidden=false;
-  },14000);
-  hardHandle=window.setTimeout(function(){dismiss('failsafe');},25000);
+  },5000);
+  hardHandle=window.setTimeout(function(){dismiss('failsafe');},12000);
   window.addEventListener('pagehide',function(){
     if(pollHandle)clearTimeout(pollHandle);
     if(slowHandle)clearTimeout(slowHandle);
