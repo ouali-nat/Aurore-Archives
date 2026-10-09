@@ -339,7 +339,13 @@ function readableLatexFallback(source:string){
   return value.replace(/\s+/g," ").trim();
 }
 async function prepareRuns(runs:Run[],auth:string,pdf:any,fonts:any,qa:any,cache:Map<string,any>){
-  return await Promise.all(runs.map(async run=>{
+  // PDFDocument.embedPng et la rasterisation LaTeX ne doivent pas être lancés
+  // simultanément pour des dizaines de formules d'un même bloc. Une concurrence
+  // bornée conserve le parallélisme utile tout en évitant les échecs intermittents
+  // d'intégration PNG observés sur les flux de plusieurs chapitres.
+  const prepared:Run[]=new Array(runs.length);
+  let nextIndex=0;
+  const prepareOne=async(run:Run):Promise<Run>=>{
     if(run.kind==="text")return {kind:"text",value:run.value} as Run;
     const img:any=await formulaImage(auth,pdf,run.value,qa,cache);
     if(img){
@@ -347,11 +353,20 @@ async function prepareRuns(runs:Run[],auth:string,pdf:any,fonts:any,qa:any,cache
       const naturalH=Number(img.__aurore_natural_pt_height)||Math.max(8,img.height*0.75);
       return {kind:run.kind,value:run.value,image:img,width:naturalW,height:naturalH} as Run;
     }
-    // En cas d'échec du rendu image, conserver une notation mathématique lisible
-    // au lieu de supprimer toutes les commandes et opérateurs LaTeX.
+    // En cas d'échec du rendu image, conserver une notation mathématique lisible.
     const fallback=readableLatexFallback(run.value);
     return {kind:"text",value:fallback} as Run;
-  }));
+  };
+  const worker=async()=>{
+    while(true){
+      const index=nextIndex++;
+      if(index>=runs.length)return;
+      prepared[index]=await prepareOne(runs[index]);
+    }
+  };
+  const workerCount=Math.min(3,runs.length);
+  await Promise.all(Array.from({length:workerCount},()=>worker()));
+  return prepared;
 }
 function layoutInline(prepared:Run[],font:any,size:number,max:number){
   const lines:any[][]=[[]];let width=0;
@@ -615,7 +630,7 @@ Deno.serve(async req=>{
     let flowPageNo=pn;
     const color=normalizeHexColor(input.theme_color)||subjectColor(input.subject||input.matiere||docRes.data.metadata?.matiere||"");
     drawSoftDecor(page,color);headerFooter(page,pn,fonts,logo,color);
-    const qa:any={formulas_total:0,formulas_ok:0,formulas_failed:0,graphs_total:0,graphs_ok:0,graphs_failed:0,images_total:0,images_ok:0,images_failed:0};
+    const qa:any={formulas_total:0,formulas_ok:0,formulas_failed:0,formula_errors:[],graphs_total:0,graphs_ok:0,graphs_failed:0,images_total:0,images_ok:0,images_failed:0};
     const cache=new Map<string,any>();const X=72,W=449,bottom=67,top=770;let y=top;
     const sections=Array.isArray(input.sections)?input.sections.filter((s:any)=>s&&typeof s==="object"):[];
     const contentItems:any[]=[];const exerciseItems:any[]=[];const graphItems:any[]=[];const imageItems:any[]=[];
