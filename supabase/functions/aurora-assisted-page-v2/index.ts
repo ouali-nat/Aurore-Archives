@@ -353,11 +353,14 @@ Deno.serve(async(req)=>{
   const type=clean(block.type||"paragraph").toLowerCase();
   const content=block.content&&typeof block.content==="object"?block.content:{};
 
-  // Filet de sécurité serveur : même si un ancien client/cache n'envoie pas
-  // flow_blocks, le renderer reconstruit le flux éditorial contigu depuis le cours.
-  // Introduction reste volontairement une unité isolée.
+  // Les graphes, exercices et images sont toujours des blocs autonomes :
+  // on ignore les éventuels flow_blocks résiduels envoyés par un client ancien.
+  // Seuls paragraphes et points entrent dans la reconstruction d'un flux.
+  const isStandaloneBlockType = !["paragraph","point"].includes(type);
   let flowBlocks:any[];
-  if(singleBlockMode){
+  if(isStandaloneBlockType){
+    flowBlocks=[block];
+  }else if(singleBlockMode){
     // Mode explicite « bloc unique » : ne jamais reconstruire le flux contigu
     // depuis aurora_assisted_courses. Le bloc envoyé par l’éditeur est la seule
     // unité rendue, même s’il appartient à un flux historique.
@@ -407,10 +410,7 @@ Deno.serve(async(req)=>{
   if(!flowBlocks.length)return out({ok:false,error:"Le flux de blocs est vide."},400);
   // Les pages d'exercice, de graphique et d'image sont des unités autonomes.
   // Seul un vrai flux contenant plusieurs blocs doit être limité aux points/paragraphes.
-  const isSingleIndependentNonFlowBlock=flowBlocks.length===1
-    &&String(flowBlocks[0]?.id||"")===blockId
-    &&!["paragraph","point"].includes(type);
-  if(!isSingleIndependentNonFlowBlock&&flowBlocks.some((b:any)=>!["paragraph","point"].includes(clean(b?.type||"").toLowerCase())))return out({ok:false,error:"Le flux assisté accepte uniquement des blocs paragraphe ou point."},400);
+  if(!isStandaloneBlockType&&flowBlocks.some((b:any)=>!["paragraph","point"].includes(clean(b?.type||"").toLowerCase())))return out({ok:false,error:"Le flux assisté accepte uniquement des blocs paragraphe ou point."},400);
   for(const fb of flowBlocks){
     const ft=clean(fb?.type||"").toLowerCase();
     const fc=fb?.content&&typeof fb.content==="object"?fb.content:{};

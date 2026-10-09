@@ -1515,7 +1515,7 @@
       const pngBase64=await exportPNG(clone(b.content?.json||{}));
       const image=document.getElementById(imageId);
       if(!image)return;
-      const raw=String(pngBase64||'').replace(/^data:image\\/png;base64,/i,'');
+      const raw=String(pngBase64||'').replace(/^data:image\/png;base64,/i,'');
       if(!raw)throw new Error('GeoGebra n’a retourné aucune image.');
       image.src='data:image/png;base64,'+raw;
       image.style.display='block';
