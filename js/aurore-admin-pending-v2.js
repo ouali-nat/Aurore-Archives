@@ -269,6 +269,9 @@ async function chargerDocumentsEnAttenteAdminV2(){
  }
 }
 async function compterDocumentsEnAttente(){
+ if(typeof session==='undefined'||!session||session.role!=='admin'){
+  setText('tabCountAttente',0);return 0;
+ }
  try{
   const r=await adminFetch(SUPABASE_URL+'/rest/v1/aurora_content_jobs?select=id,generated_document_id&status=in.(draft,queued,processing,review)&limit=1000',{cache:'no-store'});
   if(!r.ok){setText('tabCountAttente',0);return 0}
