@@ -83,6 +83,54 @@ function buildContent(courseTitle:string,pageNumber:number,block:any,themeColor:
   };
 }
 
+
+function buildFlowContent(courseTitle:string,pageNumber:number,blocks:any[],themeColor:string|null){
+  const title=String(courseTitle||"Cours").trim()||"Cours";
+  const sections:any[]=[];
+  const sourceBlocks=Array.isArray(blocks)?blocks.filter((b:any)=>b&&typeof b==="object"):[];
+  if(!sourceBlocks.length)throw new Error("Aucun bloc de flux à rendre.");
+  for(let i=0;i<sourceBlocks.length;i++){
+    const b=sourceBlocks[i];
+    const type=clean(b?.type||"paragraph").toLowerCase();
+    const content=b?.content&&typeof b.content==="object"?b.content:{};
+    if(type==="paragraph"){
+      const text=extractStructuredText(content.text||"");
+      if(clean(text))sections.push({title:"Bloc "+String(i+1),content:[text],exercises:[],graphs:[]});
+    }else if(type==="point"){
+      const text=extractStructuredText(content.text||"");
+      if(clean(text))sections.push({
+        title:clean(content.title)||"Point de cours",
+        objective:"",
+        point:{
+          title:String(content.title||"Point de cours"),
+          text,
+          color:String(content.color||themeColor||""),
+          rank:Number(content.rank)||i+1
+        },
+        content:[text],
+        exercises:[],
+        graphs:[]
+      });
+    }else{
+      throw new Error("Le flux assisté ne prend en charge que les blocs paragraphe et point.");
+    }
+  }
+  return {
+    title,
+    theme_color:themeColor,
+    document_type:"page_assistee",
+    source_format:"structured",
+    sections,
+    images:[],
+    assisted_block:{
+      id:String(sourceBlocks[0]?.id||""),
+      type:clean(sourceBlocks[0]?.type||""),
+      content:sourceBlocks[0]?.content&&typeof sourceBlocks[0].content==="object"?sourceBlocks[0].content:{},
+      flow_block_ids:sourceBlocks.map((b:any)=>String(b?.id||"")).filter(Boolean)
+    }
+  };
+}
+
 function buildCanonicalPreviewContent(course:any,themeColor:string|null){
   const title=String(course?.title||"Cours").trim()||"Cours";
   const rawBlocks=Array.isArray(course?.blocks)?course.blocks:[];
@@ -196,6 +244,7 @@ Deno.serve(async(req)=>{
   const courseId=clean(body?.course_id);
   const previewMode=String(body?.mode||"").trim()==="canonical-document-preview";
   const statusMode=String(body?.mode||"").trim()==="canonical-document-preview-status";
+  const singleBlockMode=body?.single_block===true;
 
   if(!courseId){
     return out({ok:false,error:"course_id est requis"},400);
@@ -303,8 +352,66 @@ Deno.serve(async(req)=>{
 
   const type=clean(block.type||"paragraph").toLowerCase();
   const content=block.content&&typeof block.content==="object"?block.content:{};
-  if(type==="paragraph"&&!clean(extractStructuredText(content.text)))return out({ok:false,error:"Le paragraphe est vide."},400);
-  if(type==="point"&&!clean(extractStructuredText(content.text)))return out({ok:false,error:"Le contenu du point est vide."},400);
+
+  // Filet de sécurité serveur : même si un ancien client/cache n'envoie pas
+  // flow_blocks, le renderer reconstruit le flux éditorial contigu depuis le cours.
+  // Introduction reste volontairement une unité isolée.
+  let flowBlocks:any[];
+  if(singleBlockMode){
+    // Mode explicite « bloc unique » : ne jamais reconstruire le flux contigu
+    // depuis aurora_assisted_courses. Le bloc envoyé par l’éditeur est la seule
+    // unité rendue, même s’il appartient à un flux historique.
+    flowBlocks=[block];
+  }else if(Array.isArray(block.flow_blocks)&&block.flow_blocks.length){
+    flowBlocks=block.flow_blocks.filter((b:any)=>b&&typeof b==="object");
+  }else if(["paragraph","point"].includes(type)&&block?.default_introduction!==true){
+    const pages=course.data.pages&&typeof course.data.pages==="object"?course.data.pages:{};
+    const persistedCourse=pages.course&&typeof pages.course==="object"?pages.course:{blocks:[]};
+    const allBlocks=Array.isArray(persistedCourse.blocks)?persistedCourse.blocks:[];
+    const flowable=(b:any)=>b&&typeof b==="object"
+      &&["paragraph","point"].includes(String(b?.type||"").toLowerCase())
+      &&String(b?.role||"").toLowerCase()!=="document-start"
+      &&String(b?.role||"").toLowerCase()!=="document-end"
+      &&b?.default_introduction!==true;
+    const idx=allBlocks.findIndex((b:any)=>String(b?.id||"")===blockId);
+    if(idx>=0&&flowable(allBlocks[idx])){
+      let start=idx,end=idx;
+      while(start>0&&flowable(allBlocks[start-1]))start--;
+      while(end<allBlocks.length-1&&flowable(allBlocks[end+1]))end++;
+      flowBlocks=allBlocks.slice(start,end+1);
+      if(!flowBlocks.some((b:any)=>String(b?.id||"")===blockId))flowBlocks=[block];
+    }else{
+      flowBlocks=[block];
+    }
+  }else{
+    flowBlocks=[block];
+  }
+  // Un bloc vide est un séparateur de flux, pas une raison de faire échouer
+  // la génération d'un paragraphe/point voisin qui possède du contenu.
+  // On conserve uniquement le segment non vide contenant le bloc demandé.
+  // Si le bloc demandé lui-même est vide, la validation ci-dessous le signalera.
+  const flowBlockHasText=(candidate:any)=>{
+    const candidateType=clean(candidate?.type||"").toLowerCase();
+    const candidateContent=candidate?.content&&typeof candidate.content==="object"?candidate.content:{};
+    return ["paragraph","point"].includes(candidateType)
+      &&Boolean(clean(extractStructuredText(candidateContent.text)));
+  };
+  const requestedFlowIndex=flowBlocks.findIndex((candidate:any)=>String(candidate?.id||"")===blockId);
+  if(requestedFlowIndex>=0){
+    let segmentStart=requestedFlowIndex;
+    let segmentEnd=requestedFlowIndex;
+    while(segmentStart>0&&flowBlockHasText(flowBlocks[segmentStart-1]))segmentStart--;
+    while(segmentEnd<flowBlocks.length-1&&flowBlockHasText(flowBlocks[segmentEnd+1]))segmentEnd++;
+    flowBlocks=flowBlocks.slice(segmentStart,segmentEnd+1);
+  }
+  if(!flowBlocks.length)return out({ok:false,error:"Le flux de blocs est vide."},400);
+  if(flowBlocks.some((b:any)=>!["paragraph","point"].includes(clean(b?.type||"").toLowerCase())))return out({ok:false,error:"Le flux assisté accepte uniquement des blocs paragraphe ou point."},400);
+  for(const fb of flowBlocks){
+    const ft=clean(fb?.type||"").toLowerCase();
+    const fc=fb?.content&&typeof fb.content==="object"?fb.content:{};
+    if(ft==="paragraph"&&!clean(extractStructuredText(fc.text)))return out({ok:false,error:"Un paragraphe du flux est vide."},400);
+    if(ft==="point"&&!clean(extractStructuredText(fc.text)))return out({ok:false,error:"Le contenu d’un point du flux est vide."},400);
+  }
   if(type==="exercise"&&!clean(extractStructuredText(content.statement)))return out({ok:false,error:"L’énoncé est vide."},400);
   if(type==="graphique"){
     const g=content.json;
@@ -327,18 +434,30 @@ Deno.serve(async(req)=>{
   const jobId=Number(insertedJob.data.id);
   let contentJson:any;
   const themeColor=normalizeHexColor(body?.theme_color);
-  try{contentJson=buildContent(String(course.data.title||body.course_title||"Cours"),pageNumber,block,themeColor);}
-  catch(e){return out({ok:false,error:e instanceof Error?e.message:String(e)},400);}
+  try{
+    contentJson=flowBlocks.length>1
+      ?buildFlowContent(String(course.data.title||body.course_title||"Cours"),pageNumber,flowBlocks,themeColor)
+      :buildContent(String(course.data.title||body.course_title||"Cours"),pageNumber,flowBlocks[0],themeColor);
+  }catch(e){return out({ok:false,error:e instanceof Error?e.message:String(e)},400);}
 
   const metadata={
     origin:"edition_assistee",
     pipeline:"Édition assistée -> fast page renderer",
-    assisted_page:{course_id:courseId,block_id:blockId,page_number:pageNumber,block_type:type,theme_color:themeColor}
+    assisted_page:{
+      course_id:courseId,
+      block_id:blockId,
+      page_number:pageNumber,
+      block_type:type,
+      flow_block_ids:flowBlocks.map((b:any)=>String(b?.id||"")).filter(Boolean),
+      theme_color:themeColor
+    }
   };
   const insertedDoc=await admin.from("aurora_generated_documents").insert({
-    job_id:jobId,created_by:userId,title:(course.data.title||"Cours")+" — Page "+String(pageNumber),
+    job_id:jobId,created_by:userId,title:(course.data.title||"Cours")+" — Page "+String(pageNumber)+(Array.isArray(block.flow_blocks)&&block.flow_blocks.length>1?" · flux":"") ,
     subject:null,level:null,class_name:null,document_type:"page_assistee",source_format:"structured",source_content:null,
-    content_json:contentJson,version:1,status:"generated",validation_notes:"Édition assistée — page indépendante.",
+    content_json:contentJson,version:1,status:"generated",validation_notes:flowBlocks.length>1
+      ?"Édition assistée — flux de blocs consécutifs (reconstruit côté serveur si nécessaire)."
+      :"Édition assistée — page indépendante.",
     metadata,theme_color:null,matiere:null
   }).select("id,status,metadata").single();
   if(insertedDoc.error)return out({ok:false,error:"Création du document de rendu impossible : "+insertedDoc.error.message},500);
