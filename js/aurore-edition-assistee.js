@@ -203,7 +203,7 @@
     const parts=[],seen=new Set();
     const add=(url,label,key)=>{
       const u=String(url||'').trim();if(!u)return;
-      const k=String(u).trim();
+      const k=String(key||u).trim();
       if(!k||seen.has(k))return;
       seen.add(k);parts.push({url:u,label});
     };
@@ -213,8 +213,25 @@
     for(const b of contentBlocks()){
       const g=b?.generation||{};
       if(String(g.status||'').toLowerCase()!=='ready'||!g.page_url)continue;
-      // Une régénération isolée sert à visualiser/valider le bloc modifié sans
-      // remplacer artificiellement le PDF de flux historique déjà complet.
+
+      // Le PDF du flux contigu est la source canonique du document final.
+      // Ignorer ses aperçus indépendants évite de recommencer un chapitre
+      // déjà présent dans le PDF de flux, même si le bloc a été régénéré seul.
+      const group=flowBlocksFor(b.id);
+      if(group.length>1){
+        const owner=group[0];
+        const ownerGeneration=owner?.generation||{};
+        const ownerReady=String(ownerGeneration.status||'').toLowerCase()==='ready'
+          &&!!String(ownerGeneration.page_url||'').trim()
+          &&ownerGeneration.independent_regeneration!==true;
+        if(ownerReady){
+          if(String(b.id)!==String(owner.id))continue;
+          add(ownerGeneration.page_url,'Flux du cours à partir de la page '+String(pageNumberFor(owner)),owner.id);
+          continue;
+        }
+      }
+
+      // Un aperçu indépendant n'est pas une page de continuation valide.
       if(g.independent_regeneration===true)continue;
       add(g.page_url,'Page '+String(g.page_number||pageNumberFor(b)),g.flow_page_owner_id||g.page_url);
     }
@@ -587,7 +604,6 @@
     const flowOwner=targetSegment[0]||targetBlock;
     const flowOwnerGeneration=flowOwner?.generation||{};
     let preferCanonicalFlow=mode==='previous'
-      &&targetBlock?.generation?.independent_regeneration===true
       &&targetSegment.length>1
       &&String(flowOwner.id)!==String(targetBlock.id)
       &&isReady(flowOwnerGeneration)
@@ -595,7 +611,12 @@
     let canonicalFlowPageCount=0;
     if(preferCanonicalFlow){
       try{canonicalFlowPageCount=await assistedPdfPageCount(flowOwnerGeneration.page_url)}catch(_){canonicalFlowPageCount=0}
-      if(!Number.isInteger(canonicalFlowPageCount)||canonicalFlowPageCount<1)preferCanonicalFlow=false;
+      // Si PDF.js est momentanément indisponible, ne pas revenir au PDF
+      // autonome du bloc cible : c'est la cause du chapitre qui recommence.
+      // Estimer les pages physiques nécessaires jusqu'à la page logique demandée.
+      if(!Number.isInteger(canonicalFlowPageCount)||canonicalFlowPageCount<1){
+        canonicalFlowPageCount=Math.max(1,requestedTargetPage-Number(pageNumberFor(flowOwner))+1);
+      }
     }
 
     const add=(url,label,pageNumber,sourcePage=1)=>{
