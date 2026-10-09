@@ -4,6 +4,18 @@
 <!-- AURORE_DEPLOY_MARKER_20260923_ADMIN_PENDING_V2 -->
 <html lang="fr">
 <head>
+<script id="aurore-admin-canonical-host">
+(function(){
+  var canonicalHost='aurore-archives-admin.vercel.app';
+  var currentHost=String(window.location.hostname||'').toLowerCase();
+  // Les URL de déploiement Vercel sont redirigées AVANT le lancement OAuth :
+  // le code PKCE restera ainsi stocké sur la même origine que le callback.
+  if(currentHost!==canonicalHost &&
+     /^aurore-archives-admin(?:-[a-z0-9-]+)?\.vercel\.app$/.test(currentHost)){
+    window.location.replace('https://'+canonicalHost+'/');
+  }
+})();
+</script>
 <style id="aurore-boot-overlay-critical-css">
 html.aurore-boot-pending:not(.aurore-boot-overlay-ready)::before{
   content:"";position:fixed;inset:0;z-index:2147483600;pointer-events:none;
@@ -2204,7 +2216,7 @@ document.documentElement.classList.add('aurore-admin-standalone');
     if (auroreConnexionGoogleEnCours) return;
     auroreConnexionGoogleEnCours = true;
     try {
-      const retour = window.location.origin + window.location.pathname;
+      const retour = 'https://aurore-archives-admin.vercel.app/';
       // Nettoyage ciblé d'un ancien verifier PKCE avant une nouvelle tentative.
       // La session et les autres données Aurore restent intactes.
       try { window.localStorage.removeItem('sb-tdeotqfsbvouresfhkab-auth-token-code-verifier'); } catch (_) {}
@@ -5108,8 +5120,23 @@ document.documentElement.classList.add('aurore-admin-standalone');
     catch (_) { return null; }
   }
   function denyNonAdmin() {
-    try { window.location.replace(homeUrl); }
-    catch (_) { window.location.href = homeUrl; }
+    // Ne pas renvoyer vers le site complet : garder l'utilisateur sur l'entrée
+    // indépendante et expliquer le refus sans jamais dévoiler l'interface admin.
+    root.classList.remove('aurore-admin-verified');
+    root.classList.remove('aurore-known-access');
+    try { delete root.dataset.auroreKnownAccess; } catch (_) {}
+    document.body.classList.add('site-locked');
+    var lock = document.getElementById('accessLock');
+    if (lock) {
+      lock.style.display = 'flex';
+      lock.style.visibility = 'visible';
+    }
+    var msg = document.getElementById('accessMessage');
+    if (msg) {
+      msg.textContent = 'Connexion réussie, mais ce compte ne possède pas le rôle administrateur reconnu par Aurore. Connectez-vous avec le compte Google autorisé à administrer la Section Archives.';
+      msg.className = 'access-message err';
+      msg.style.display = 'block';
+    }
   }
   function evaluateAccess() {
     if (root.classList.contains('aurore-admin-verified')) return;
