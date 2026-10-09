@@ -43,7 +43,7 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
   border-bottom-color:rgba(167,139,250,.18);border-radius:50%;animation:aurore-boot-spin 1.15s linear infinite}
 .aurore-boot-ring::after{content:"";position:absolute;width:7px;height:7px;right:10px;top:13px;border-radius:50%;
   background:#e9d5ff;box-shadow:0 0 16px #a78bfa}
-.aurore-boot-mark{display:grid;place-items:center;width:66px;height:66px;border:1px solid rgba(221,214,254,.25);border-radius:21px;
+.aurore-boot-site-logo{position:relative;z-index:1;display:block;width:66px;height:66px;object-fit:contain;border:1px solid rgba(221,214,254,.25);border-radius:21px;background:linear-gradient(145deg,rgba(139,92,246,.20),rgba(30,27,45,.88));padding:7px;box-sizing:border-box;box-shadow:0 8px 30px rgba(124,58,237,.23),inset 0 1px rgba(255,255,255,.13);animation:aurore-boot-mark-float 2.4s ease-in-out infinite}\n.aurore-boot-mark-fallback{position:absolute;z-index:2;place-items:center;width:66px;height:66px;border:1px solid rgba(221,214,254,.25);border-radius:21px;background:linear-gradient(145deg,rgba(139,92,246,.28),rgba(30,27,45,.92));color:#fff;font-size:32px;font-weight:800;letter-spacing:-.08em}\n.aurore-boot-mark-fallback:not([hidden]){display:grid}\n.aurore-boot-mark{display:grid;place-items:center;width:66px;height:66px;border:1px solid rgba(221,214,254,.25);border-radius:21px;
   background:linear-gradient(145deg,rgba(139,92,246,.28),rgba(30,27,45,.92));color:#fff;font-size:32px;font-weight:800;letter-spacing:-.08em;
   box-shadow:0 8px 30px rgba(124,58,237,.23),inset 0 1px rgba(255,255,255,.13);animation:aurore-boot-mark-float 2.4s ease-in-out infinite}
 .aurore-boot-brand{margin:0 0 23px;color:#ddd6fe;font-size:.68rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase}
@@ -61,7 +61,7 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
 @keyframes aurore-boot-progress{0%{left:-38%}100%{left:108%}}
 @keyframes aurore-boot-orbreathe{0%,100%{transform:scale(.96);opacity:.65}50%{transform:scale(1.04);opacity:1}}
 @keyframes aurore-boot-mark-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
-@media(max-width:420px){.aurore-boot-card{padding:27px 20px 23px;border-radius:23px}.aurore-boot-mark-stage{width:82px;height:82px}.aurore-boot-mark{width:58px;height:58px;border-radius:18px}}
+@media(max-width:420px){.aurore-boot-card{padding:27px 20px 23px;border-radius:23px}.aurore-boot-mark-stage{width:82px;height:82px}.aurore-boot-mark,.aurore-boot-site-logo,.aurore-boot-mark-fallback{width:58px;height:58px;border-radius:18px}}
 @media(prefers-reduced-motion:reduce){html.aurore-boot-pending:not(.aurore-boot-overlay-ready)::after,.aurore-boot-ring,.aurore-boot-ring::after,.aurore-boot-orb,.aurore-boot-orb::after,.aurore-boot-mark,.aurore-boot-progress-track span{animation:none!important}#auroreBootOverlay{transition:none}}
 </style>
 <script id="aurore-boot-overlay-early">
@@ -92,6 +92,13 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
     overlay=getOverlay();
     if(!overlay)return false;
     if(!root.classList.contains('aurore-boot-overlay-ready'))root.classList.add('aurore-boot-overlay-ready');
+    var logo=document.getElementById('auroreBootLogo');
+    var fallback=document.getElementById('auroreBootLogoFallback');
+    if(logo&&fallback&&!logo.__auroreFallbackBound){
+      logo.__auroreFallbackBound=true;
+      logo.addEventListener('error',function(){logo.hidden=true;fallback.hidden=false;});
+      if(logo.complete&&logo.naturalWidth===0){logo.hidden=true;fallback.hidden=false;}
+    }
     if(!buttonBound){
       var btn=document.getElementById('auroreBootContinue');
       if(btn){buttonBound=true;btn.addEventListener('click',function(){dismiss('manual');});}
@@ -521,7 +528,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <div class="aurore-boot-overlay" id="auroreBootOverlay" role="status" aria-live="polite" aria-label="Chargement d’Aurore" aria-hidden="false">
   <div class="aurore-boot-orb" aria-hidden="true"></div>
   <div class="aurore-boot-card">
-    <div class="aurore-boot-mark-stage" aria-hidden="true"><span class="aurore-boot-ring"></span><span class="aurore-boot-mark">A</span></div>
+    <div class="aurore-boot-mark-stage" aria-hidden="true"><span class="aurore-boot-ring"></span><img class="aurore-boot-site-logo" id="auroreBootLogo" src="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster" alt="" decoding="async" fetchpriority="high"/><span class="aurore-boot-mark-fallback" id="auroreBootLogoFallback" hidden>A</span></div>
     <p class="aurore-boot-brand">AURORE<span>SECTION ARCHIVES</span></p>
     <h1 class="aurore-boot-title">Préparation de votre espace</h1>
     <p class="aurore-boot-message" id="auroreBootMessage">Nous préparons l’interface, vos préférences et les données nécessaires à votre visite.</p>
