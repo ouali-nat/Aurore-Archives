@@ -1,3 +1,41 @@
+/* Animation du chargement initial : décorative uniquement, jamais bloquante. */
+html::before,
+html::after{
+  content:"";
+  position:fixed;
+  pointer-events:none;
+  opacity:0;
+  visibility:hidden;
+  transition:opacity .22s ease,visibility .22s ease;
+}
+html::before{
+  inset:0;
+  z-index:2147482998;
+  background:rgba(10,8,20,.14);
+}
+html::after{
+  left:50%;
+  top:50%;
+  width:44px;
+  height:44px;
+  box-sizing:border-box;
+  margin:-22px 0 0 -22px;
+  border:3px solid rgba(109,40,217,.20);
+  border-top-color:var(--theme-primary,#6d28d9);
+  border-right-color:var(--theme-strong,var(--theme-primary,#6d28d9));
+  border-radius:50%;
+  box-shadow:0 8px 28px rgba(0,0,0,.12);
+  z-index:2147482999;
+  animation:aurore-initial-loader-spin .8s linear infinite;
+}
+html.aurore-initial-loading::before,
+html.aurore-initial-loading::after{
+  opacity:1;
+  visibility:visible;
+}
+@keyframes aurore-initial-loader-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){html::after{animation:none}}
+
 /* Aurore — Navigation fluide (transitions, barre de chargement, squelettes) */
 
 /* Apparition douce de l'écran (opacité seule : aucun effet sur les éléments fixes). */
