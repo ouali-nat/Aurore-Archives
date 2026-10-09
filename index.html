@@ -62,6 +62,7 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
 @keyframes aurore-boot-orbreathe{0%,100%{transform:scale(.96);opacity:.65}50%{transform:scale(1.04);opacity:1}}
 @keyframes aurore-boot-mark-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
 @media(max-width:420px){.aurore-boot-card{padding:27px 20px 23px;border-radius:23px}.aurore-boot-mark-stage{width:82px;height:82px}.aurore-boot-mark,.aurore-boot-site-logo,.aurore-boot-mark-fallback{width:58px;height:58px;border-radius:18px}}
+@media(max-width:760px){#auroreBootOverlay{-webkit-backdrop-filter:blur(7px) saturate(.82);backdrop-filter:blur(7px) saturate(.82)}}
 @media(prefers-reduced-motion:reduce){html.aurore-boot-pending:not(.aurore-boot-overlay-ready)::after,.aurore-boot-ring,.aurore-boot-ring::after,.aurore-boot-orb,.aurore-boot-orb::after,.aurore-boot-mark,.aurore-boot-progress-track span{animation:none!important}#auroreBootOverlay{transition:none}}
 </style>
 <script id="aurore-boot-overlay-early">
