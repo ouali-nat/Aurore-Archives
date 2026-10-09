@@ -112,7 +112,7 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
     var originalFetch=window.fetch;
     window.fetch=function(){
       var promise;
-      try{promise=originalFetch.apply(this,arguments);}
+      try{promise=originalFetch.apply(window,arguments);}
       catch(error){lastActivity=now();throw error;}
       if(promise&&typeof promise.then==='function'){
         activeFetches++;lastActivity=now();
