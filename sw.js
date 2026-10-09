@@ -20,7 +20,7 @@
      • Stockage durable (navigator.storage.persist) demandé ici ET par la page.
 */
 
-const SW_VERSION = 'v7';
+const SW_VERSION = 'v8';
 // Caches non versionnés : ils survivent à TOUTES les mises à jour du service worker.
 const PAGE_CACHE = 'aurore-shell';
 const STATIC_CACHE = 'aurore-static';
@@ -332,7 +332,7 @@ self.addEventListener('fetch', (event) => {
   if (request.mode === 'navigate') {
     const key = new Request(url.origin + url.pathname);
     event.respondWith(
-      networkFirst(request, PAGE_CACHE, key, 1500).catch(async () => {
+      networkFirst(request, PAGE_CACHE, key, 250).catch(async () => {
         const cache = await caches.open(PAGE_CACHE);
         return (await cache.match(url.origin + '/', { ignoreVary: true })) || Response.error();
       })
@@ -360,7 +360,7 @@ self.addEventListener('fetch', (event) => {
 
   if (sameOrigin) {
     if (LOCAL_STATIC.test(url.pathname) && !/\/(?:api|auth)\//.test(url.pathname)) {
-      event.respondWith(networkFirst(request, STATIC_CACHE, request, 3000));
+      event.respondWith(networkFirst(request, STATIC_CACHE, request, 350));
     }
     return;
   }
