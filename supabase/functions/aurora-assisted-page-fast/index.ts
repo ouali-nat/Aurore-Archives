@@ -226,51 +226,9 @@ async function loadFonts(pdf:any){
     sansBold:await pdf.embedFont(sansBold,{subset:false})
   };
 }
-async function formulaImage(auth:string,pdf:any,source:string,qa:any,cache:Map<string,any>){
-  const key=latexInput(stripInlineDelimiters(source)).trim();
-  if(!key)return null;
-  const cached=cache.get(key);
-  if(cached){
-    try{return await cached}catch(_){cache.delete(key);return null}
-  }
-  const task=(async()=>{
-    qa.formulas_total++;
-    try{
-      const r=await fetch(MATH_URL,{
-        method:"POST",
-        headers:{Authorization:auth,"Content-Type":"application/json"},
-        body:JSON.stringify({formula:key,px_per_ex:MATH_EX_PX}),
-        signal:AbortSignal.timeout(12000)
-      });
-      const z:any=await r.json().catch(()=>null);
-      const result=z?.results?.[0]||z;
-      const pngBase64=typeof result?.png_base64==="string"?result.png_base64:null;
-      if(!r.ok||!z?.ok||!pngBase64){
-        qa.formulas_failed++;
-        if(Array.isArray(qa.formula_errors)&&qa.formula_errors.length<8){
-          const reason=!r.ok?"math renderer HTTP "+r.status:!z?.ok?String(z?.error||"math renderer returned ok=false"):"PNG absent from math renderer response";
-          qa.formula_errors.push({formula:key.slice(0,100),reason});
-        }
-        return null;
-      }
-      const bin=atob(pngBase64),bytes=new Uint8Array(bin.length);
-      for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
-      const image:any=await pdf.embedPng(bytes);
-      image.__aurore_natural_pt_width=Number(result?.natural_pt_width)||0;
-      image.__aurore_natural_pt_height=Number(result?.natural_pt_height)||0;
-      image.__aurore_raster_scale=Number(result?.raster_scale)||1;
-      qa.formulas_ok++;
-      return image;
-    }catch(error){
-      qa.formulas_failed++;
-      if(Array.isArray(qa.formula_errors)&&qa.formula_errors.length<8){
-        qa.formula_errors.push({formula:key.slice(0,100),reason:String((error as any)?.message||error).slice(0,180)});
-      }
-      return null;
-    }
-  })();
-  cache.set(key,task);
-  return await task;
+function noteFormulaFailure(qa:any,key:string,reason:string){
+  if(!Array.isArray(qa.formula_errors))qa.formula_errors=[];
+  if(qa.formula_errors.length<8)qa.formula_errors.push({formula:key.slice(0,100),reason:String(reason||"Échec inconnu").slice(0,180)});
 }
 
 function isLikelyPlainMath(fragment:string){
@@ -349,35 +307,94 @@ function readableLatexFallback(source:string){
   return value.replace(/\s+/g," ").trim();
 }
 async function prepareRuns(runs:Run[],auth:string,pdf:any,fonts:any,qa:any,cache:Map<string,any>){
-  // PDFDocument.embedPng et la rasterisation LaTeX ne doivent pas être lancés
-  // simultanément pour des dizaines de formules d'un même bloc. Une concurrence
-  // bornée conserve le parallélisme utile tout en évitant les échecs intermittents
-  // d'intégration PNG observés sur les flux de plusieurs chapitres.
-  const prepared:Run[]=new Array(runs.length);
-  let nextIndex=0;
-  const prepareOne=async(run:Run):Promise<Run>=>{
+  // Une requête par formule dépassait la limite de débit MathJax pour les
+  // chapitres denses. Le renderer accepte { formulas: string[] } : on groupe
+  // ici les formules uniques de ce paragraphe en une seule requête HTTP.
+  const keysByIndex=runs.map(run=>run.kind==="text"?"":latexInput(stripInlineDelimiters(run.value)).trim());
+  const uniqueKeys=Array.from(new Set(keysByIndex.filter(Boolean)));
+  const pendingKeys:string[]=[];
+  const resolvePending=new Map<string,(image:any)=>void>();
+
+  // Placer immédiatement les Promises en cache évite qu'une autre partie du
+  // même document envoie le même calcul pendant que le lot est en cours.
+  for(const key of uniqueKeys){
+    if(cache.has(key))continue;
+    let resolveImage:(image:any)=>void=()=>{};
+    const promise=new Promise(resolve=>{resolveImage=resolve});
+    cache.set(key,promise);
+    pendingKeys.push(key);
+    resolvePending.set(key,resolveImage);
+  }
+
+  const settleFailure=(key:string,reason:string)=>{
+    qa.formulas_failed++;
+    noteFormulaFailure(qa,key,reason);
+    resolvePending.get(key)?.(null);
+  };
+
+  if(pendingKeys.length){
+    qa.formulas_total+=pendingKeys.length;
+    try{
+      const response=await fetch(MATH_URL,{
+        method:"POST",
+        headers:{Authorization:auth,"Content-Type":"application/json"},
+        body:JSON.stringify({formulas:pendingKeys,px_per_ex:MATH_EX_PX}),
+        // Le lot est traité par un seul worker chaud, au lieu de multiplier
+        // les appels HTTP qui déclenchaient les limites de débit.
+        signal:AbortSignal.timeout(30000)
+      });
+      const payload:any=await response.json().catch(()=>null);
+      if(!response.ok||!payload?.ok||!Array.isArray(payload?.results)){
+        const reason=!response.ok
+          ?"math renderer HTTP "+response.status
+          :String(payload?.error||"Réponse du renderer mathématique invalide");
+        for(const key of pendingKeys)settleFailure(key,reason);
+      }else{
+        for(let i=0;i<pendingKeys.length;i++){
+          const key=pendingKeys[i];
+          const result=payload.results[i];
+          const pngBase64=typeof result?.png_base64==="string"?result.png_base64:null;
+          if(!pngBase64){
+            settleFailure(key,"PNG absent pour le résultat "+String(i+1)+"/"+String(pendingKeys.length));
+            continue;
+          }
+          try{
+            const binary=atob(pngBase64),bytes=new Uint8Array(binary.length);
+            for(let j=0;j<binary.length;j++)bytes[j]=binary.charCodeAt(j);
+            const image:any=await pdf.embedPng(bytes);
+            image.__aurore_natural_pt_width=Number(result?.natural_pt_width)||0;
+            image.__aurore_natural_pt_height=Number(result?.natural_pt_height)||0;
+            image.__aurore_raster_scale=Number(result?.raster_scale)||1;
+            qa.formulas_ok++;
+            resolvePending.get(key)?.(image);
+          }catch(error){
+            settleFailure(key,String((error as any)?.message||error));
+          }
+        }
+      }
+    }catch(error){
+      const reason=String((error as any)?.message||error);
+      for(const key of pendingKeys)settleFailure(key,reason);
+    }
+  }
+
+  const imagesByKey=new Map<string,any>();
+  await Promise.all(uniqueKeys.map(async key=>imagesByKey.set(key,await cache.get(key))));
+  return runs.map((run,index)=>{
     if(run.kind==="text")return {kind:"text",value:run.value} as Run;
-    const img:any=await formulaImage(auth,pdf,run.value,qa,cache);
-    if(img){
-      const naturalW=Number(img.__aurore_natural_pt_width)||Math.max(8,img.width*0.75);
-      const naturalH=Number(img.__aurore_natural_pt_height)||Math.max(8,img.height*0.75);
-      return {kind:run.kind,value:run.value,image:img,width:naturalW,height:naturalH} as Run;
+    const key=keysByIndex[index];
+    const image=key?imagesByKey.get(key):null;
+    if(image){
+      const naturalW=Number(image.__aurore_natural_pt_width)||Math.max(8,image.width*0.75);
+      const naturalH=Number(image.__aurore_natural_pt_height)||Math.max(8,image.height*0.75);
+      return {kind:run.kind,value:run.value,image,width:naturalW,height:naturalH} as Run;
     }
-    // En cas d'échec du rendu image, conserver une notation mathématique lisible.
-    const fallback=readableLatexFallback(run.value);
-    return {kind:"text",value:fallback} as Run;
-  };
-  const worker=async()=>{
-    while(true){
-      const index=nextIndex++;
-      if(index>=runs.length)return;
-      prepared[index]=await prepareOne(runs[index]);
-    }
-  };
-  const workerCount=Math.min(3,runs.length);
-  await Promise.all(Array.from({length:workerCount},()=>worker()));
-  return prepared;
+    // Si une formule ne peut pas être convertie en image, garder une notation
+    // de secours lisible au lieu de laisser un espace vide.
+    return {kind:"text",value:readableLatexFallback(run.value)} as Run;
+  });
 }
+
 function layoutInline(prepared:Run[],font:any,size:number,max:number){
   const lines:any[][]=[[]];let width=0;
   const spaceWidth=tokenTextWidth(font,size," ");
