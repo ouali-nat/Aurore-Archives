@@ -651,6 +651,24 @@
         continue;
       }
 
+      const g=b?.generation||{};
+      if(!isReady(g)){
+        const blockSegment=flowSegmentFor(b.id);
+        const blockFlowOwner=blockSegment[0]||b;
+        const blockFlowGeneration=blockFlowOwner?.generation||{};
+        if(isReady(blockFlowGeneration)&&generationContainsBlock(blockFlowGeneration,b.id)){
+          const ownerPage=Number(pageNumberFor(blockFlowOwner));
+          add(blockFlowGeneration.page_url,'Page '+n+' · flux assisté',n,Math.max(1,n-ownerPage+1));
+        }
+        continue;
+      }
+      // En mode « page actuelle », un bloc régénéré seul doit garder son PDF
+      // de travail. Le mode « pages précédentes » préfère le flux canonique.
+      if(String(b.id)===String(targetBlock.id)&&g.independent_regeneration===true){
+        add(g.page_url,'Page '+n,n,1);
+        continue;
+      }
+
       const blockSegment=flowSegmentFor(b.id);
       const blockFlowOwner=blockSegment[0]||b;
       const blockFlowGeneration=blockFlowOwner?.generation||{};
@@ -659,9 +677,6 @@
         add(blockFlowGeneration.page_url,'Page '+n+' · flux assisté',n,Math.max(1,n-ownerPage+1));
         continue;
       }
-
-      const g=b?.generation||{};
-      if(!isReady(g))continue;
 
       const ownerId=String(g.flow_page_owner_id||'').trim();
       const owner=ownerId?byId.get(ownerId):null;
