@@ -224,10 +224,11 @@
         const ownerReady=String(ownerGeneration.status||'').toLowerCase()==='ready'
           &&!!String(ownerGeneration.page_url||'').trim()
           &&ownerGeneration.independent_regeneration!==true
-          &&generationCoversFlow(ownerGeneration,group);
-        if(ownerReady){
-          if(String(b.id)!==String(owner.id))continue;
-          add(ownerGeneration.page_url,'Flux du cours à partir de la page '+String(pageNumberFor(owner)),owner.id);
+          &&generationHasFlow(ownerGeneration);
+        if(ownerReady&&generationContainsBlock(ownerGeneration,b.id)){
+          if(String(b.id)===String(owner.id)){
+            add(ownerGeneration.page_url,'Flux du cours à partir de la page '+String(pageNumberFor(owner)),owner.id);
+          }
           continue;
         }
       }
@@ -609,7 +610,7 @@
       &&String(flowOwner.id)!==String(targetBlock.id)
       &&isReady(flowOwnerGeneration)
       &&flowOwnerGeneration.independent_regeneration!==true
-      &&generationCoversFlow(flowOwnerGeneration,targetSegment);
+      &&generationCoversThrough(flowOwnerGeneration,targetSegment,targetBlock.id);
     let canonicalFlowPageCount=0;
     if(preferCanonicalFlow){
       try{canonicalFlowPageCount=await assistedPdfPageCount(flowOwnerGeneration.page_url)}catch(_){canonicalFlowPageCount=0}
@@ -650,16 +651,24 @@
         continue;
       }
 
+      const blockSegment=flowSegmentFor(b.id);
+      const blockFlowOwner=blockSegment[0]||b;
+      const blockFlowGeneration=blockFlowOwner?.generation||{};
+      if(isReady(blockFlowGeneration)&&generationContainsBlock(blockFlowGeneration,b.id)){
+        const ownerPage=Number(pageNumberFor(blockFlowOwner));
+        add(blockFlowGeneration.page_url,'Page '+n+' · flux assisté',n,Math.max(1,n-ownerPage+1));
+        continue;
+      }
+
       const g=b?.generation||{};
       if(!isReady(g))continue;
 
       const ownerId=String(g.flow_page_owner_id||'').trim();
       const owner=ownerId?byId.get(ownerId):null;
       const ownerGeneration=owner?.generation||{};
-      const ownerSegment=owner?flowSegmentFor(owner.id):[];
       const ownerReady=isReady(ownerGeneration)
         &&ownerGeneration.independent_regeneration!==true
-        &&generationCoversFlow(ownerGeneration,ownerSegment);
+        &&generationContainsBlock(ownerGeneration,b.id);
 
       if(String(b.id)===String(targetBlock.id)&&g.independent_regeneration===true){
         add(g.page_url,'Page '+n,n,1);
@@ -1377,7 +1386,7 @@
       &&String(targetFlowOwnerGeneration.status||'').toLowerCase()==='ready'
       &&!!String(targetFlowOwnerGeneration.page_url||'').trim()
       &&targetFlowOwnerGeneration.independent_regeneration!==true
-      &&generationCoversFlow(targetFlowOwnerGeneration,targetSegment);
+      &&generationCoversThrough(targetFlowOwnerGeneration,targetSegment,current.id);
     const cover=activeBlocks().find(x=>x?.role===START_ROLE);
     const toc=activeBlocks().find(x=>x?.role==='document-toc');
     const coverState=state.canonicalPreview?.pages?.cover;
@@ -1396,6 +1405,19 @@
           previewSeenOwners.add(owner);
           previewSeenUrls.add(url);
           allSteps.push({kind:'pdf',label:'Page '+page+' · flux assisté',url,number:page,status:'ready',source:targetFlowOwner,flow_contains_current:true});
+        }
+        continue;
+      }
+      const blockSegment=flowSegmentFor(b.id);
+      const blockFlowOwner=blockSegment[0]||b;
+      const blockFlowGeneration=blockFlowOwner?.generation||{};
+      if(generationContainsBlock(blockFlowGeneration,b.id)){
+        if(String(b.id)!==String(blockFlowOwner.id))continue;
+        const flowUrl=String(blockFlowGeneration.page_url||'').trim();
+        if(flowUrl&&!previewSeenUrls.has(flowUrl)){
+          previewSeenOwners.add(String(blockFlowOwner.id));
+          previewSeenUrls.add(flowUrl);
+          allSteps.push({kind:'pdf',label:'Page '+String(pageNumberFor(blockFlowOwner))+' · flux assisté',url:flowUrl,number:pageNumberFor(blockFlowOwner),status:'ready',source:blockFlowOwner});
         }
         continue;
       }
@@ -1442,7 +1464,7 @@
       expandedPdfUrls.add(step.url);
       const count=await assistedPdfPageCount(step.url);
       const base=Number(step.number||1);
-      const isFlow=generationCoversFlow(step.source?.generation,flowSegmentFor(step.source?.id));
+      const isFlow=generationHasFlow(step.source?.generation);
       const limit=isFlow?Math.min(count,Math.max(1,currentPage-base+1)):Math.min(count,1);
       for(let p=1;p<=limit;p++){
         expandedSteps.push({
@@ -1927,10 +1949,24 @@
     return all.slice(start,end+1);
   }
 
-  function generationCoversFlow(generation,segment){
-    const ids=Array.isArray(generation?.flow_block_ids)?generation.flow_block_ids.map(id=>String(id||'')):[];
-    if(!Array.isArray(segment)||segment.length<=1||ids.length!==segment.length)return false;
-    return segment.every((block,index)=>ids[index]===String(block?.id||''));
+  function generationFlowIds(generation){
+    return Array.isArray(generation?.flow_block_ids)
+      ?generation.flow_block_ids.map(id=>String(id||'')).filter(Boolean)
+      :[];
+  }
+  function generationHasFlow(generation){
+    const ids=generationFlowIds(generation);
+    return ids.length>1&&String(generation?.flow_page_owner_id||'')===ids[0];
+  }
+  function generationContainsBlock(generation,blockId){
+    return generationHasFlow(generation)&&generationFlowIds(generation).includes(String(blockId||''));
+  }
+  function generationCoversThrough(generation,segment,targetId){
+    const ids=generationFlowIds(generation);
+    if(!generationHasFlow(generation)||!Array.isArray(segment)||segment.length<=1)return false;
+    const targetIndex=segment.findIndex(block=>String(block?.id||'')===String(targetId||''));
+    if(targetIndex<0||ids.length<targetIndex+1)return false;
+    return segment.slice(0,targetIndex+1).every((block,index)=>ids[index]===String(block?.id||''));
   }
 
   function flowRenderBlockFor(id){
