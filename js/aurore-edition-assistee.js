@@ -1218,7 +1218,7 @@
   }
   async function independentSystemPageStatus(documentId){
     const token=(typeof session!=='undefined'&&session?.access_token)||await freshToken();
-    const r=await fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-system-page',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':SUPABASE_ANON_KEY},body:JSON.stringify({mode:'status',generated_document_id:Number(documentId)})});
+    const r=await fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-system-page-design',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':SUPABASE_ANON_KEY},body:JSON.stringify({mode:'status',generated_document_id:Number(documentId)})});
     const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}};if(!r.ok||!d.ok)throw new Error(d.error||('Statut page système HTTP '+r.status));return d;
   }
   async function requestIndependentSystemPage(kind,{force=false}={}){
@@ -1229,7 +1229,7 @@
 
     async function renderIndependent(documentId){
       setSystemPageState(kind,{documentId,status:'processing',progress:12,stage:'Rendu indépendant en cours',error:null},{persist:true});
-      const r=await fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-system-page',{
+      const r=await fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-system-page-design',{
         method:'POST',
         headers:{
           'Content-Type':'application/json',
@@ -1262,7 +1262,7 @@
     if(kind==='end')pageData.page_number=pageNumberFor(b);
     setSystemPageState(kind,{status:'processing',progress:5,stage:'Création du fragment indépendant',error:null},{persist:true});
 
-    const create=await fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-system-page',{
+    const create=await fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-system-page-design',{
       method:'POST',
       headers:{
         'Content-Type':'application/json',
