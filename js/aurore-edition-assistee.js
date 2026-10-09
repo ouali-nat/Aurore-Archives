@@ -572,16 +572,35 @@
     await generateBlock(ref);
   }
 
-  function blockDownloadPartsThrough(targetBlock){
-    const targetPage=Number(pageNumberFor(targetBlock));
+  async function blockDownloadPartsThrough(targetBlock,mode='current'){
+    const requestedTargetPage=Number(pageNumberFor(targetBlock));
     const parts=[],seenPages=new Set();
     const blocks=activeBlocks();
     const byId=new Map(blocks.map(b=>[String(b.id),b]));
     const isReady=g=>String(g?.status||'').toLowerCase()==='ready'&&!!String(g?.page_url||'').trim();
 
+    // Quand un bloc a été régénéré seul, le PDF de flux du segment peut déjà
+    // contenir ce même bloc. Pour un assemblage « pages précédentes », on doit
+    // garder le flux canonique et non juxtaposer son extrait puis son doublon isolé.
+    const targetSegment=flowSegmentFor(targetBlock.id);
+    const targetSegmentIds=new Set(targetSegment.map(b=>String(b?.id||'')));
+    const flowOwner=targetSegment[0]||targetBlock;
+    const flowOwnerGeneration=flowOwner?.generation||{};
+    let preferCanonicalFlow=mode==='previous'
+      &&targetBlock?.generation?.independent_regeneration===true
+      &&targetSegment.length>1
+      &&String(flowOwner.id)!==String(targetBlock.id)
+      &&isReady(flowOwnerGeneration)
+      &&flowOwnerGeneration.independent_regeneration!==true;
+    let canonicalFlowPageCount=0;
+    if(preferCanonicalFlow){
+      try{canonicalFlowPageCount=await assistedPdfPageCount(flowOwnerGeneration.page_url)}catch(_){canonicalFlowPageCount=0}
+      if(!Number.isInteger(canonicalFlowPageCount)||canonicalFlowPageCount<1)preferCanonicalFlow=false;
+    }
+
     const add=(url,label,pageNumber,sourcePage=1)=>{
       const u=String(url||'').trim(),n=Number(pageNumber),sourceIndex=Math.floor(Number(sourcePage)||1);
-      if(!u||!Number.isInteger(n)||n<1||n>targetPage||seenPages.has(n))return;
+      if(!u||!Number.isInteger(n)||n<1||n>requestedTargetPage||seenPages.has(n))return;
       if(!Number.isInteger(sourceIndex)||sourceIndex<1)return;
       seenPages.add(n);
       parts.push({url:u,label,pageNumber:n,sourcePage:sourceIndex});
@@ -593,7 +612,21 @@
 
     for(const b of contentBlocks()){
       const n=Number(pageNumberFor(b));
-      if(!Number.isInteger(n)||n>targetPage)continue;
+      if(!Number.isInteger(n)||n>requestedTargetPage)continue;
+
+      if(preferCanonicalFlow&&targetSegmentIds.has(String(b.id))){
+        // Insérer toutes les pages physiques du flux une seule fois au niveau
+        // de son propriétaire. Les PDF isolés des blocs compagnons sont ignorés.
+        if(String(b.id)!==String(flowOwner.id))continue;
+        const ownerPage=Number(pageNumberFor(flowOwner));
+        for(let sourcePage=1;sourcePage<=canonicalFlowPageCount;sourcePage++){
+          const actualPage=ownerPage+sourcePage-1;
+          if(actualPage>requestedTargetPage)break;
+          add(flowOwnerGeneration.page_url,'Page '+actualPage+' · flux assisté',actualPage,sourcePage);
+        }
+        continue;
+      }
+
       const g=b?.generation||{};
       if(!isReady(g))continue;
 
@@ -602,21 +635,17 @@
       const ownerGeneration=owner?.generation||{};
       const ownerReady=isReady(ownerGeneration)&&ownerGeneration.independent_regeneration!==true;
 
-      // Si le bloc cible a été régénéré seul, son PDF indépendant est le plus récent.
       if(String(b.id)===String(targetBlock.id)&&g.independent_regeneration===true){
         add(g.page_url,'Page '+n,n,1);
         continue;
       }
 
-      // Les blocs d'un même flux partagent un PDF multipage. Utiliser la page
-      // physique correspondante et non toutes les pages du PDF à chaque répétition.
       if(ownerId&&ownerReady){
         const ownerPage=Number(pageNumberFor(owner));
         add(ownerGeneration.page_url,'Page '+n,n,Math.max(1,n-ownerPage+1));
         continue;
       }
 
-      // Repli pour un PDF de bloc indépendant ou des métadonnées de flux incomplètes.
       if(g.independent_regeneration===true||!ownerId){
         add(g.page_url,'Page '+n,n,1);
       }else{
@@ -626,11 +655,14 @@
     }
 
     const endBlock=blocks.find(b=>b?.role===END_ROLE);
-    if(endBlock&&Number(pageNumberFor(endBlock))<=targetPage&&String(pages.end?.status||'').toLowerCase()==='ready'){
+    if(endBlock&&Number(pageNumberFor(endBlock))<=requestedTargetPage&&String(pages.end?.status||'').toLowerCase()==='ready'){
       add(pages.end.pdfUrl,'Fin du document',pageNumberFor(endBlock),1);
     }
 
     parts.sort((a,b)=>a.pageNumber-b.pageNumber);
+    const targetPage=preferCanonicalFlow&&parts.length
+      ?Math.max(...parts.map(x=>Number(x.pageNumber)||0))
+      :requestedTargetPage;
     return {targetPage,parts};
   }
 
@@ -663,7 +695,7 @@
   }
 
   async function downloadBlockPdf(targetBlock,mode='current'){
-    const target=blockDownloadPartsThrough(targetBlock);
+    const target=await blockDownloadPartsThrough(targetBlock,mode);
     const current=target.parts.find(x=>Number(x.pageNumber)===Number(target.targetPage));
     if(!current)throw new Error('La page de ce bloc n’est pas encore prête.');
 
@@ -1292,6 +1324,17 @@
     const currentIndex=activeBlocks().findIndex(x=>x.id===id);
     const previous=activeBlocks().slice(0,currentIndex).filter(b=>!isSystemBlock(b));
     const allSteps=[];
+    const currentGeneration=current.generation||{};
+    const targetSegment=flowSegmentFor(current.id);
+    const targetSegmentIds=new Set(targetSegment.map(b=>String(b?.id||'')));
+    const targetFlowOwner=targetSegment[0]||current;
+    const targetFlowOwnerGeneration=targetFlowOwner?.generation||{};
+    const preferTargetFlow=currentGeneration.independent_regeneration===true
+      &&targetSegment.length>1
+      &&String(targetFlowOwner.id)!==String(current.id)
+      &&String(targetFlowOwnerGeneration.status||'').toLowerCase()==='ready'
+      &&!!String(targetFlowOwnerGeneration.page_url||'').trim()
+      &&targetFlowOwnerGeneration.independent_regeneration!==true;
     const cover=activeBlocks().find(x=>x?.role===START_ROLE);
     const toc=activeBlocks().find(x=>x?.role==='document-toc');
     const coverState=state.canonicalPreview?.pages?.cover;
@@ -1302,6 +1345,17 @@
 
     const previewSeenOwners=new Set(),previewSeenUrls=new Set();
     for(const b of previous){
+      if(preferTargetFlow&&targetSegmentIds.has(String(b.id))){
+        if(String(b.id)!==String(targetFlowOwner.id))continue;
+        const page=pageNumberFor(targetFlowOwner),url=String(targetFlowOwnerGeneration.page_url||'').trim();
+        if(url&&!previewSeenUrls.has(url)){
+          const owner=String(targetFlowOwnerGeneration.flow_page_owner_id||targetFlowOwner.id);
+          previewSeenOwners.add(owner);
+          previewSeenUrls.add(url);
+          allSteps.push({kind:'pdf',label:'Page '+page+' · flux assisté',url,number:page,status:'ready',source:targetFlowOwner,flow_contains_current:true});
+        }
+        continue;
+      }
       const page=pageNumberFor(b),url=String(b?.generation?.page_url||'').trim();
       const owner=String(b?.generation?.flow_page_owner_id||'').trim();
       if(url&&previewSeenUrls.has(url))continue;
@@ -1314,17 +1368,17 @@
 
     const currentPage=pageNumberFor(current),currentUrl=String(current?.generation?.page_url||'').trim();
     const currentOwner=String(current?.generation?.flow_page_owner_id||'').trim();
-    if(currentUrl&&!(previewSeenUrls.has(currentUrl)|| (currentOwner&&previewSeenOwners.has(currentOwner)))){
+    if(!preferTargetFlow&&currentUrl&&!(previewSeenUrls.has(currentUrl)|| (currentOwner&&previewSeenOwners.has(currentOwner)))){
       if(currentOwner)previewSeenOwners.add(currentOwner);
       previewSeenUrls.add(currentUrl);
       allSteps.push({kind:'pdf',label:'Page '+currentPage+' · '+labelFor(current)+' · bloc actuel',url:currentUrl,number:currentPage,status:'ready',source:current,current:true});
-    }else if(current.type==='graphique'){
+    }else if(!preferTargetFlow&&current.type==='graphique'){
       const graphUrl=await graphPreviewUrl(current);
       if(graphUrl)allSteps.push({kind:'image',label:'Page '+currentPage+' · Graphique · bloc actuel',url:graphUrl,number:currentPage,status:'current-image',source:current,current:true});
       else allSteps.push({kind:'pending',label:'Page '+currentPage+' · '+labelFor(current)+' · bloc actuel',number:currentPage,status:'current-pending',source:current,current:true});
-    }else if(current.type==='wikimedia-image'&&current.content?.imageUrl){
+    }else if(!preferTargetFlow&&current.type==='wikimedia-image'&&current.content?.imageUrl){
       allSteps.push({kind:'image',label:'Page '+currentPage+' · Image Wikimedia · bloc actuel',url:current.content.imageUrl,number:currentPage,status:'current-image',source:current,current:true});
-    }else{
+    }else if(!preferTargetFlow){
       allSteps.push({kind:'text',label:'Page '+currentPage+' · '+labelFor(current)+' · bloc actuel',number:currentPage,status:'current-draft',source:current,current:true});
     }
 
@@ -1352,6 +1406,7 @@
           ...step,
           number:base+p-1,
           pdf_page_index:p,
+          current:step.flow_contains_current?p===limit:!!step.current,
           label:isFlow?'Page '+String(base+p-1)+' · flux assisté':'Page '+String(base+p-1)+' · '+String(step.label||'PDF')
         });
       }
@@ -1756,6 +1811,23 @@
       await new Promise(resolve=>setTimeout(resolve,1800));
     }
     throw new Error('La génération du PDF n’a pas terminé dans le délai prévu.');
+  }
+
+  function flowSegmentFor(id){
+    const all=activeBlocks();
+    const index=all.findIndex(b=>String(b?.id||'')===String(id||''));
+    if(index<0)return [];
+    const current=all[index];
+    const flowable=b=>{
+      if(!b||isSystemBlock(b)||isDefaultIntroduction(b))return false;
+      if(!['paragraph','point'].includes(String(b.type||'').toLowerCase()))return false;
+      return Boolean(String(b.content?.text||'').trim());
+    };
+    if(!flowable(current))return [current];
+    let start=index,end=index;
+    while(start>0&&flowable(all[start-1]))start--;
+    while(end<all.length-1&&flowable(all[end+1]))end++;
+    return all.slice(start,end+1);
   }
 
   function flowBlocksFor(id){
