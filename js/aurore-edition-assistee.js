@@ -203,7 +203,7 @@
     const parts=[],seen=new Set();
     const add=(url,label,key)=>{
       const u=String(url||'').trim();if(!u)return;
-      const k=String(key||u).trim();
+      const k=String(u).trim();
       if(!k||seen.has(k))return;
       seen.add(k);parts.push({url:u,label});
     };
