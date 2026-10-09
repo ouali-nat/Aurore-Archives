@@ -580,9 +580,23 @@ html.aurore-admin-standalone:not(.aurore-admin-verified) #accessVisitorBtn {
     }
   }
 
+  function libererVoilesApresConnexionAvecGarde(){
+    // Certains traitements différés peuvent réafficher un voile après le
+    // premier événement. Le retirer plusieurs fois, uniquement juste après
+    // une connexion, évite qu'un voile de chargement reste au-dessus de l'écran.
+    var essais=0;
+    function appliquer(){
+      libererVoilesApresConnexion();
+      essais++;
+      if(essais<10) window.setTimeout(appliquer,250);
+    }
+    appliquer();
+  }
+
   window.addEventListener('aurore:user-connected',function(){
-    // Laisse d'abord le garde admin traiter le même événement.
-    window.setTimeout(libererVoilesApresConnexion,180);
+    // Le garde d'accès traite aussi cet événement ; on retire ensuite les
+    // voiles durant une courte période pour neutraliser les courses asynchrones.
+    window.setTimeout(libererVoilesApresConnexionAvecGarde,180);
   });
 })();
 </script>
