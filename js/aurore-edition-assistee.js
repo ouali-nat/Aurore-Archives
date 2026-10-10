@@ -2224,6 +2224,36 @@
   let wikiLoading=false;
   let wikiResultEntries=[];
   let wikiSeenFiles=new Set();
+  let wikiSelectedEntries=new Map();
+
+  function wikiImageKey(d){
+    return String(d?.imageUrl||d?.sourceUrl||d?.title||'').trim();
+  }
+
+  function updateWikiSelectionUI(message){
+    const add=document.getElementById('aeWikiAddSelected');
+    const status=document.getElementById('aeWikiSelectionStatus');
+    const count=wikiSelectedEntries.size;
+    if(add){
+      add.disabled=count===0||wikiLoading;
+      add.textContent=count===1?'Ajouter l’image sélectionnée ('+count+')':'Ajouter les images sélectionnées ('+count+')';
+    }
+    const out=document.getElementById('aeWikiResults');
+    out?.querySelectorAll('[data-wiki-select-index]').forEach(card=>{
+      const d=wikiResultEntries[Number(card.dataset.wikiSelectIndex)];
+      const selected=Boolean(d&&wikiSelectedEntries.has(wikiImageKey(d)));
+      card.classList.toggle('is-selected',selected);
+      card.setAttribute('aria-pressed',selected?'true':'false');
+      const mark=card.querySelector('.ae-wiki-selected-mark');
+      if(mark)mark.textContent=selected?'✓':'';
+    });
+    if(status&&message)status.textContent=message;
+    else if(status){
+      status.textContent=count
+        ?count+' image(s) sélectionnée(s). Touchez une vignette pour modifier la sélection, puis confirmez en bas.'
+        :'Touchez une vignette pour la sélectionner, puis confirmez en bas.';
+    }
+  }
 
   function wiki(afterId=null){
     const host=prepareAssistedModalHost();if(!host)return;
@@ -2231,8 +2261,8 @@
     wikiInsertAfterId=afterId?String(afterId):null;
     const initialTarget=wikiInsertAfterId?activeBlocks().find(x=>String(x.id)===wikiInsertAfterId):null;
     wikiReplaceTargetNext=Boolean(initialTarget&&initialTarget.type==='wikimedia-image'&&!String(initialTarget.content?.imageUrl||'').trim());
-    wikiCurrentQuery='';wikiContinuation=null;wikiRequestSequence=0;wikiLoading=false;wikiResultEntries=[];wikiSeenFiles=new Set();
-    host.innerHTML='<div class="ae-modal"><div class="ae-dialog ae-wiki-dialog"><header><div><span class="ae-kicker">Wikimedia Commons</span><h4>Choisir une ou plusieurs images</h4></div><button class="admin-btn ghost" id="aeWikiClose">Fermer</button></header><div class="ae-wiki-search"><input id="aeWikiQ" placeholder="Ex. cellule animale, volcan, Newton…" autocomplete="off"><button class="admin-btn primary" id="aeWikiGo">Rechercher</button></div><div id="aeWikiSelectionStatus" class="ae-wiki-selection-status" aria-live="polite">Lance une recherche, puis ajoute une ou plusieurs images sans fermer cette fenêtre.</div><div id="aeWikiResults" class="ae-wiki-results" aria-live="polite"></div><div id="aeWikiPagination" class="ae-wiki-pagination" hidden><button type="button" class="admin-btn ghost" id="aeWikiLoadMore">Charger plus d’images</button></div></div></div>';
+    wikiCurrentQuery='';wikiContinuation=null;wikiRequestSequence=0;wikiLoading=false;wikiResultEntries=[];wikiSeenFiles=new Set();wikiSelectedEntries=new Map();
+    host.innerHTML='<div class="ae-modal"><div class="ae-dialog ae-wiki-dialog"><header><div><span class="ae-kicker">Wikimedia Commons</span><h4>Choisir des images</h4></div><button class="admin-btn ghost" id="aeWikiClose">Fermer</button></header><div class="ae-wiki-search"><input id="aeWikiQ" placeholder="Ex. cellule animale, volcan, Newton…" autocomplete="off"><button class="admin-btn primary" id="aeWikiGo">Rechercher</button></div><div id="aeWikiSelectionStatus" class="ae-wiki-selection-status" aria-live="polite">Touchez une vignette pour la sélectionner, puis confirmez en bas.</div><div id="aeWikiResults" class="ae-wiki-results" aria-live="polite"></div><div class="ae-wiki-footer"><div id="aeWikiPagination" class="ae-wiki-pagination" hidden><button type="button" class="admin-btn ghost" id="aeWikiLoadMore">Charger plus d’images</button></div><button type="button" class="admin-btn primary" id="aeWikiAddSelected" disabled>Ajouter les images sélectionnées (0)</button></div></div></div>';
     activateAssistedModal(host);
     document.getElementById('aeWikiClose').onclick=async()=>{
       closeAssistedModal();
@@ -2242,6 +2272,7 @@
     document.getElementById('aeWikiGo').onclick=()=>searchWiki(false);
     document.getElementById('aeWikiQ').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();searchWiki(false)}};
     document.getElementById('aeWikiLoadMore').onclick=()=>searchWiki(true);
+    document.getElementById('aeWikiAddSelected').onclick=addSelectedWikiImages;
     const modal=host.querySelector('.ae-modal');
     modal?.addEventListener('click',e=>{
       if(e.target===modal)void persistCourse(true,false).then(()=>renderWorkspace());
@@ -2268,28 +2299,43 @@
   function renderWikiResults(){
     const out=document.getElementById('aeWikiResults');
     if(!out)return;
-    out.innerHTML=wikiResultEntries.map((d,i)=>'<article class="ae-wiki-card"><img loading="lazy" src="'+esc(d.thumbUrl)+'" alt=""><div><strong>'+esc(d.title)+'</strong><small>'+esc(d.author||'Auteur non renseigné')+'</small><small>'+esc(d.license||'Licence à vérifier')+'</small></div><button type="button" class="admin-btn primary" data-wiki-index="'+i+'">Ajouter</button></article>').join('')||'<div class="ae-empty">Aucune image exploitable dans ce lot. Tu peux charger le lot suivant ou reformuler la recherche.</div>';
+    out.innerHTML=wikiResultEntries.map((d,i)=>{
+      const selected=wikiSelectedEntries.has(wikiImageKey(d));
+      const license=String(d.license||'Licence à vérifier');
+      return '<button type="button" class="ae-wiki-card'+(selected?' is-selected':'')+'" data-wiki-select-index="'+i+'" aria-pressed="'+(selected?'true':'false')+'" aria-label="Sélectionner l’image '+esc(d.title)+'"><span class="ae-wiki-image-wrap"><img loading="lazy" src="'+esc(d.thumbUrl)+'" alt=""><span class="ae-wiki-selected-mark">'+(selected?'✓':'')+'</span></span><strong>'+esc(d.title)+'</strong><small>'+esc(license)+'</small></button>';
+    }).join('')||'<div class="ae-empty">Aucune image exploitable dans ce lot. Tu peux charger le lot suivant ou reformuler la recherche.</div>';
 
-    // Délégation stable : le clic reste pris en charge même après les re-rendus
-    // de la liste, et l’utilisateur reçoit un retour visible dès le premier tap.
-    out.onclick=async event=>{
-      const btn=event.target?.closest?.('[data-wiki-index]');
-      if(!btn||!out.contains(btn))return;
+    // La vignette entière est le contrôle de sélection, sans petit bouton
+    // « Ajouter » difficile à toucher sur écran mobile.
+    out.onclick=event=>{
+      const card=event.target?.closest?.('[data-wiki-select-index]');
+      if(!card||!out.contains(card))return;
       event.preventDefault();
-      event.stopPropagation();
-      if(btn.disabled)return;
-      const d=wikiResultEntries[Number(btn.dataset.wikiIndex)];
+      const d=wikiResultEntries[Number(card.dataset.wikiSelectIndex)];
       if(!d)return;
+      const key=wikiImageKey(d);
+      if(wikiSelectedEntries.has(key))wikiSelectedEntries.delete(key);
+      else wikiSelectedEntries.set(key,d);
+      renderWikiResults();
+      updateWikiSelectionUI();
+    };
+    updateWikiSelectionUI();
+  }
 
-      const status=document.getElementById('aeWikiSelectionStatus');
-      const originalLabel=btn.textContent||'Ajouter';
-      btn.disabled=true;
-      btn.textContent='Ajout…';
-      if(status)status.textContent='Ajout de l’image au cours en cours…';
+  async function addSelectedWikiImages(){
+    const add=document.getElementById('aeWikiAddSelected');
+    const status=document.getElementById('aeWikiSelectionStatus');
+    const selected=Array.from(wikiSelectedEntries.values());
+    if(!selected.length||!add||add.disabled)return;
+    add.disabled=true;
+    add.textContent='Ajout des images…';
+    if(status)status.textContent='Ajout de '+selected.length+' image(s) au cours…';
 
-      try{
+    try{
+      const blocks=activeBlocks();
+      let lastBlock=null;
+      for(const d of selected){
         let selectedBlock=null;
-        const blocks=activeBlocks();
         if(wikiReplaceTargetNext&&wikiInsertAfterId){
           const target=blocks.find(x=>String(x.id)===wikiInsertAfterId);
           if(target&&target.type==='wikimedia-image'&&!String(target.content?.imageUrl||'').trim()){
@@ -2307,17 +2353,25 @@
         }
         wikiInsertAfterId=String(selectedBlock.id);
         state.selected=selectedBlock.id;
-        validateCourse();
-        await persistCourse(true,false);
-        if(status)status.textContent='Image ajoutée : '+d.title+'. Tu peux continuer à faire défiler les résultats ou en ajouter d’autres.';
-        btn.textContent='Ajoutée';
-        btn.setAttribute('aria-label','Image ajoutée : '+d.title);
-      }catch(error){
-        btn.disabled=false;
-        btn.textContent=originalLabel;
-        if(status)status.textContent='Échec de l’ajout : '+String(error?.message||error)+'. Réessaie.';
+        lastBlock=selectedBlock;
       }
-    };
+      validateCourse();
+      await persistCourse(true,false);
+      wikiSelectedEntries.clear();
+      renderWikiResults();
+      updateWikiSelectionUI(selected.length===1
+        ?'1 image ajoutée au cours. Tu peux continuer à sélectionner d’autres images.'
+        :selected.length+' images ajoutées au cours. Tu peux continuer à sélectionner d’autres images.');
+      if(lastBlock)state.selected=lastBlock.id;
+    }catch(error){
+      if(status)status.textContent='Échec de l’ajout : '+String(error?.message||error)+'. La sélection est conservée; réessaie.';
+    }finally{
+      const count=wikiSelectedEntries.size;
+      if(add){
+        add.disabled=count===0;
+        add.textContent=count===1?'Ajouter l’image sélectionnée ('+count+')':'Ajouter les images sélectionnées ('+count+')';
+      }
+    }
   }
 
   async function searchWiki(loadMore=false){
