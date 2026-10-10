@@ -1,0 +1,3 @@
+Optimization pipeline: CSS compression + performance config + Service Worker caching
+Commits: 614f297, 2770ccd, 822c324, 701d2e2, a5570d84
+Redeploy 10/10/2026 - 07:01 UTC
