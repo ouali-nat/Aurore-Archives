@@ -8,7 +8,7 @@ const URL=Deno.env.get("SUPABASE_URL")!, SERVICE=Deno.env.get("SUPABASE_SERVICE_
 const admin=createClient(URL,SERVICE,{auth:{autoRefreshToken:false,persistSession:false}});
 const LOGO_URL="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster";
 const FONT_URLS:any={regular:"https://raw.githubusercontent.com/go-fonts/latin-modern/main/lmroman10regular/lmroman10-regular.otf",bold:"https://raw.githubusercontent.com/go-fonts/latin-modern/main/lmroman10bold/lmroman10-bold.otf",sans:"https://raw.githubusercontent.com/go-fonts/latin-modern/main/lmsans10regular/lmsans10-regular.otf",sansBold:"https://raw.githubusercontent.com/go-fonts/latin-modern/main/lmsans10bold/lmsans10-bold.otf"};
-const H:any={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization,apikey,content-type","Access-Control-Allow-Methods":"POST,OPTIONS"};
+const H:any={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization,x-client-info,apikey,content-type,x-retry-count,traceparent,tracestate,baggage","Access-Control-Allow-Methods":"POST,OPTIONS"};
 const out=(x:any,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{...H,"Content-Type":"application/json"}});
 const clean=(v:any)=>String(v??"").normalize("NFC").replace(/[\u0000-\u001F]/g," ").replace(/\s+/g," ").trim();
 const clamp=(n:number)=>Math.max(0,Math.min(100,n));
@@ -18,7 +18,7 @@ const rgbh=(h:string)=>{const s=hex(h).slice(1);return rgb(parseInt(s.slice(0,2)
 const FONT_CACHE=new Map<string,Promise<Uint8Array>>();let LOGO_CACHE:Promise<Uint8Array>|null=null;
 async function bytes(url:string){const r=await fetch(url);if(!r.ok)throw new Error("Ressource indisponible : HTTP "+r.status);return new Uint8Array(await r.arrayBuffer())}
 async function fbytes(k:string){const x=FONT_CACHE.get(k);if(x)return x;const p=bytes(FONT_URLS[k]);FONT_CACHE.set(k,p);return p}
-async function fonts(pdf:any){const [r,b,s,sb]=await Promise.all([fbytes("regular"),fbytes("bold"),fbytes("sans"),fbytes("sansBold")]);return{regular:await pdf.embedFont(r,{subset:false}),bold:await pdf.embedFont(b,{subset:false}),sans:await pdf.embedFont(s,{subset:false}),sansBold:await pdf.embedFont(sb,{subset:false})}}
+async function fonts(pdf:any){const [r,b,s,sb]=await Promise.all([fbytes("regular"),fbytes("bold"),fbytes("sans"),fbytes("sansBold")]);return{regular:await pdf.embedFont(r,{subset:true}),bold:await pdf.embedFont(b,{subset:true}),sans:await pdf.embedFont(s,{subset:true}),sansBold:await pdf.embedFont(sb,{subset:true})}}
 async function logo(pdf:any){if(!LOGO_CACHE)LOGO_CACHE=bytes(LOGO_URL);const b=await LOGO_CACHE;if(b[0]===137&&b[1]===80)return pdf.embedPng(b);if(b[0]===255&&b[1]===216)return pdf.embedJpg(b);throw new Error("Logo Aurore invalide")}
 function wrap(s:string,font:any,size:number,max:number){
   const words=clean(s).split(" ").filter(Boolean),lines:string[]=[];
@@ -78,9 +78,10 @@ function hf(p:any,n:number,f:any,l:any,c:string){
   const foot="Aurore — Section Archives",fw=f.sans.widthOfTextAtSize(foot,8);
   p.drawText(foot,{x:cx-fw/2,y:14,font:f.sans,size:8,color:rgbh("#898B94")});
 }
-// ── Direction « nuit éditoriale » : cartes à fond sombre teinté du thème ──
+// ── Direction « gris éditorial compact » : cartes grises sobres, blocs resserrés ──
 const dk=(h:string,f:number)=>{const s=hex(h).slice(1);return "#"+[0,2,4].map(i=>Math.round(parseInt(s.slice(i,i+2),16)*f).toString(16).padStart(2,"0")).join("")};
-const INK="#F4F4FA",INK2="#D0D1DD",INK3="#A9ABBE";
+const GRAY="#E6E6E7",GRAY_IN="#EFEFF0",GRAY_ALT="#E1E1E3",GRAY_EDGE="#97989C",GRAY_SOFT="#C4C5C8";
+const INK="#202126",INK2="#4B4C54",INK3="#6F717B";
 function clipRounded(p:any,x:number,y:number,w:number,h:number,r:number,draw:()=>void){
   const k=r*0.5523;
   p.pushOperators(pushGraphicsState(),moveTo(x+r,y),lineTo(x+w-r,y),
@@ -91,139 +92,171 @@ function clipRounded(p:any,x:number,y:number,w:number,h:number,r:number,draw:()=
   draw();
   p.pushOperators(popGraphicsState());
 }
-// Carte sombre : fond teinté du thème, halos et anneaux concentriques coupés par les bords.
-function darkCard(p:any,x:number,y:number,w:number,h:number,r:number,c:string,scale=0.55){
-  const base=dk(c,.26);
-  rounded(p,x+3,y-4,w,h,r,rgbh(mix(c,.80)));
-  rounded(p,x,y,w,h,r,rgbh(base),rgbh(dk(c,.62)),.8);
+// Carte grise : même fond et même finition que les blocs de paragraphes,
+// avec halos et anneaux concentriques du thème coupés par les bords arrondis.
+function grayCard(p:any,x:number,y:number,w:number,h:number,r:number,c:string,scale=0.55){
+  rounded(p,x+3.2,y-3.2,w,h,r+1,rgbh("#E1E2E4"));
+  rounded(p,x+1.8,y-1.8,w,h,r+.5,rgbh("#D5D6D9"));
+  rounded(p,x,y,w,h,r,rgbh(GRAY),rgbh(GRAY_EDGE),.5);
   const R=Math.min(w,h)*scale;
   clipRounded(p,x,y,w,h,r,()=>{
-    [[1,.10],[.74,.12],[.50,.15]].forEach(([k,o])=>p.drawCircle({x:x+w,y:y+h,size:R*k,color:rgbh(mix(c,.05)),opacity:o}));
-    [1.22,.92].forEach((k,i)=>p.drawCircle({x:x+w,y:y+h,size:R*k,borderColor:rgbh("#FFFFFF"),borderWidth:.6,borderOpacity:.16-i*.04}));
-    p.drawCircle({x:x,y:y,size:R*.52,color:rgbh(mix(c,.05)),opacity:.10});
-    p.drawCircle({x:x,y:y,size:R*.78,borderColor:rgbh("#FFFFFF"),borderWidth:.6,borderOpacity:.12});
+    [[1,.07],[.74,.08],[.50,.09]].forEach(([k,o])=>p.drawCircle({x:x+w,y:y+h,size:R*k,color:rgbh(mix(c,.15)),opacity:o}));
+    [1.22,.92].forEach((k,i)=>p.drawCircle({x:x+w,y:y+h,size:R*k,borderColor:rgbh(c),borderWidth:.6,borderOpacity:.22-i*.05}));
+    p.drawCircle({x:x,y:y,size:R*.52,color:rgbh(mix(c,.15)),opacity:.07});
+    p.drawCircle({x:x,y:y,size:R*.78,borderColor:rgbh(c),borderWidth:.6,borderOpacity:.16});
   });
 }
-const lift=(c:string,a:number)=>mix(dk(c,.26),a);
-function chip(p:any,f:any,c:string,x:number,y:number,w:number,h:number,label:string,size:number){
-  rounded(p,x,y,w,h,8,rgbh(lift(c,.12)),rgbh(mix(c,.35)),.5);
-  p.drawCircle({x:x+14,y:y+h/2,size:3,color:rgbh(mix(c,.55))});
-  p.drawText(label,{x:x+25,y:y+h/2-3,font:f.sansBold,size,color:rgbh(INK)});
+// Pastille d'en-tête compacte, largeur calculée sur le texte.
+function chip(p:any,f:any,c:string,x:number,y:number,label:string,size=7.8,h=20){
+  const w=Math.ceil(f.sansBold.widthOfTextAtSize(label,size))+34;
+  rounded(p,x,y,w,h,7,rgbh("#F3F3F4"),rgbh("#BFC1C5"),.45);
+  p.drawCircle({x:x+12,y:y+h/2,size:2.6,color:rgbh(c)});
+  p.drawText(label,{x:x+22,y:y+h/2-2.7,font:f.sansBold,size,color:rgbh(dk(c,.8))});
+  return w;
+}
+// Petit bloc d'information : fond gris clair, titre d'accent, filet court.
+function infoBlock(p:any,f:any,c:string,x:number,top:number,w:number,h:number,title:string){
+  rounded(p,x,top-h,w,h,9,rgbh(GRAY_IN),rgbh(GRAY_SOFT),.45);
+  p.drawCircle({x:x+13,y:top-14,size:2.4,color:rgbh(c)});
+  p.drawText(title,{x:x+22,y:top-17,font:f.sansBold,size:7.8,color:rgbh(dk(c,.8))});
 }
 function cover(p:any,f:any,l:any,c:string,title:string,d:any){
-  darkCard(p,52,498,491,278,19,c);
-  p.drawRectangle({x:52,y:536,width:4,height:211,color:rgbh(mix(c,.40))});
-  chip(p,f,c,74,735,214,25,"AURORE · SECTION ARCHIVES",8.8);
-  const panelX=74,panelY=578,panelW=354,panelH=145;
-  rounded(p,panelX,panelY,panelW,panelH,13,rgbh(lift(c,.07)),rgbh(mix(c,.30)),.6);
-  p.drawText("DOCUMENT PÉDAGOGIQUE",{x:90,y:699,font:f.sansBold,size:8.7,color:rgbh(mix(c,.58))});
-  p.drawLine({start:{x:90,y:688},end:{x:149,y:688},thickness:1.6,color:rgbh(mix(c,.45))});
-  let ty=669;
-  for(const line of wrap(title,f.sansBold,21,320).slice(0,3)){
-    p.drawText(line,{x:90,y:ty,font:f.sansBold,size:21,color:rgbh(INK)});
-    ty-=25;
+  grayCard(p,52,524,491,252,18,c);
+  p.drawRectangle({x:52,y:556,width:3.5,height:188,color:rgbh(c)});
+  chip(p,f,c,74,745,"AURORE · SECTION ARCHIVES",7.8);
+  const panelX=74,panelY=602,panelW=356,panelH=128;
+  rounded(p,panelX,panelY,panelW,panelH,11,rgbh(GRAY_IN),rgbh(GRAY_SOFT),.5);
+  p.drawText("DOCUMENT PÉDAGOGIQUE",{x:90,y:712,font:f.sansBold,size:7.8,color:rgbh(dk(c,.8))});
+  p.drawLine({start:{x:90,y:703},end:{x:132,y:703},thickness:1.4,color:rgbh(c)});
+  let ty=684;
+  for(const line of wrap(title,f.sansBold,19,322).slice(0,3)){
+    p.drawText(line,{x:90,y:ty,font:f.sansBold,size:19,color:rgbh(c)});
+    ty-=23;
   }
-  const logoX=443,logoY=604,logoS=80;
-  p.drawCircle({x:logoX+logoS/2,y:logoY+logoS/2,size:52,borderColor:rgbh(mix(c,.45)),borderWidth:.7,borderOpacity:.45});
-  rounded(p,logoX,logoY,logoS,logoS,14,rgbh("#FFFFFF"),rgbh(mix(c,.45)),.65);
-  p.drawCircle({x:logoX+logoS/2,y:logoY+logoS/2,size:34,color:rgbh(mix(c,.96)),opacity:.7});
+  const logoS=64,logoX=452,logoY=634;
+  p.drawCircle({x:logoX+logoS/2,y:logoY+logoS/2,size:42,borderColor:rgbh(c),borderWidth:.6,borderOpacity:.28});
+  rounded(p,logoX,logoY,logoS,logoS,12,rgbh("#FFFFFF"),rgbh(GRAY_SOFT),.55);
   if(l){
-    const s=Math.min(63/(l.width||63),63/(l.height||63));
+    const s=Math.min(50/(l.width||50),50/(l.height||50));
     p.drawImage(l,{x:logoX+(logoS-l.width*s)/2,y:logoY+(logoS-l.height*s)/2,width:l.width*s,height:l.height*s});
   }
   const metaParts=[clean(d.subtitle),clean(d.subject)||clean(d.matiere),clean(d.level),clean(d.class_name)].filter(Boolean);
   const meta=metaParts.join(" · ")||"Bibliothèque numérique d’Aurore";
-  let sy=560;
-  for(const line of wrap(meta,f.regular,9.8,445).slice(0,2)){
-    p.drawText(line,{x:75,y:sy,font:f.regular,size:9.8,color:rgbh(INK2)});
-    sy-=14;
+  let sy=581;
+  for(const line of wrap(meta,f.regular,9.2,445).slice(0,2)){
+    p.drawText(line,{x:75,y:sy,font:f.regular,size:9.2,color:rgbh(INK2)});
+    sy-=13;
   }
   if(clean(d.author)||clean(d.institution)){
     const extra=[clean(d.author),clean(d.institution)].filter(Boolean).join(" · ");
-    p.drawText(wrap(extra,f.sansBold,8.3,445)[0]||"",{x:75,y:526,font:f.sansBold,size:8.3,color:rgbh(INK2)});
+    p.drawText(wrap(extra,f.sansBold,7.8,445)[0]||"",{x:75,y:553,font:f.sansBold,size:7.8,color:rgbh(INK2)});
   }
-  p.drawText("Bibliothèque numérique d’Aurore",{x:75,y:509,font:f.regular,size:8.8,color:rgbh(INK3)});
-  p.drawText("Une édition pédagogique mise en forme avec Aurore",{x:75,y:55,font:f.sans,size:8.6,color:rgbh("#898B94")});
+  p.drawText("Bibliothèque numérique d’Aurore",{x:75,y:539,font:f.regular,size:8.2,color:rgbh(INK3)});
+  p.drawText("Une édition pédagogique mise en forme avec Aurore",{x:75,y:55,font:f.sans,size:8.2,color:rgbh("#898B94")});
 }
-function toc(p:any,f:any,c:string,entries:any[],part=1,total=1){
-  const X=60,W=475,bottom=100,H=650;
-  darkCard(p,X,bottom,W,H,18,c,.34);
-  p.drawRectangle({x:X,y:bottom+28,width:3,height:H-56,color:rgbh(mix(c,.40))});
-  const chipTitle=String(part+1).padStart(2,"0")+" · "+(part>1?"SOMMAIRE · SUITE":"SOMMAIRE");
-  chip(p,f,c,80,704,part>1?210:142,26,chipTitle,9.2);
-  p.drawText(part>1?"Table des matières · suite":"Table des matières",{x:89,y:670,font:f.sansBold,size:20,color:rgbh(INK)});
-  p.drawLine({start:{x:90,y:654},end:{x:162,y:654},thickness:1.9,color:rgbh(mix(c,.45))});
-  p.drawText(part>1?"Suite de l’organisation du document":"Organisation du document",{x:90,y:638,font:f.regular,size:9.4,color:rgbh(INK3)});
-  const safe=Array.isArray(entries)?entries.filter(e=>e&&clean(e.title)&&e.enabled!==false):[];
-  let y=620;
-  if(!safe.length){
-    rounded(p,88,566,421,44,9,rgbh(lift(c,.08)),rgbh(mix(c,.30)),.4);
-    p.drawText("Aucun bloc de contenu pour le moment.",{x:102,y:583,font:f.regular,size:10.5,color:rgbh(INK2)});
+// ── Sommaire : pagination automatique, lignes resserrées ──
+const TOC_FIRST_Y=664,TOC_CONT_Y=688,TOC_FLOOR=128;
+function drawTocPage(p:any,f:any,c:string,items:any[],idx:number,total:number){
+  const isFirst=idx===0,isLast=idx===total-1,X=60,W=475,TOP=770;
+  const startY=isFirst?TOC_FIRST_Y:TOC_CONT_Y;
+  const used=items.reduce((n:number,r:any)=>n+r.h,0);
+  const endY=items.length?startY-used:startY-46;
+  const bottom=isLast?Math.max(100,endY-38):100;
+  grayCard(p,X,bottom,W,TOP-bottom,16,c,.34);
+  p.drawRectangle({x:X,y:bottom+22,width:3,height:TOP-bottom-44,color:rgbh(c)});
+  chip(p,f,c,80,740,isFirst?"02 · SOMMAIRE":"02 · SOMMAIRE · SUITE");
+  if(isFirst){
+    p.drawText("Table des matières",{x:89,y:714,font:f.sansBold,size:17,color:rgbh(INK)});
+    p.drawLine({start:{x:90,y:703},end:{x:132,y:703},thickness:1.6,color:rgbh(c)});
+    p.drawText("Organisation du document",{x:90,y:688,font:f.regular,size:8.6,color:rgbh(INK3)});
   }else{
-    safe.forEach((e:any,i:number)=>{
-      const lines=wrap(e.title,f.regular,10.2,278).slice(0,2);
-      const h=Math.max(29,lines.length*14+8);
-      const rowY=y-h+2,centerY=rowY+(h-4)/2;
-      rounded(p,87,rowY,423,h-4,7,rgbh(lift(c,i%2===0?.06:.10)),rgbh(lift(c,.18)),.35);
-      p.drawCircle({x:101,y:centerY,size:2.3,color:rgbh(mix(c,.55))});
-      lines.forEach((line:string,j:number)=>p.drawText(line,{x:111,y:y-12-j*14,font:f.regular,size:10.2,color:rgbh(INK)}));
-      p.drawLine({start:{x:397,y:centerY},end:{x:470,y:centerY},thickness:.45,color:rgbh(mix(c,.35))});
-      p.drawCircle({x:470,y:centerY,size:1.5,color:rgbh(mix(c,.50))});
-      const page=String(Math.max(1,Number(e.page)||((part-1)*10+i+total+2)));
-      p.drawCircle({x:493,y:centerY,size:9.4,color:rgbh(mix(c,.86)),borderColor:rgbh(mix(c,.55)),borderWidth:.45});
-      const pw=f.sansBold.widthOfTextAtSize(page,8.5);
-      p.drawText(page,{x:493-pw/2,y:centerY-2.8,font:f.sansBold,size:8.5,color:rgbh(dk(c,.40))});
-      y-=h;
-    });
+    p.drawText("Table des matières (suite)",{x:89,y:716,font:f.sansBold,size:13,color:rgbh(INK)});
+    p.drawLine({start:{x:90,y:706},end:{x:132,y:706},thickness:1.6,color:rgbh(c)});
   }
-  p.drawLine({start:{x:90,y:124},end:{x:505,y:124},thickness:.45,color:rgbh(mix(c,.35))});
-  p.drawCircle({x:90,y:124,size:1.8,color:rgbh(mix(c,.55))});
-  p.drawText(total>1?"Sommaire · page "+part+"/"+total+" — numéros recalculés lors de la fusion finale.":"Les numéros seront recalculés lors de la fusion finale.",{x:98,y:111,font:f.regular,size:8.2,color:rgbh(INK3)});
+  let y=startY;
+  if(!items.length){
+    rounded(p,88,y-38,421,36,8,rgbh(GRAY_IN),rgbh(GRAY_SOFT),.4);
+    p.drawText("Aucun bloc de contenu pour le moment.",{x:102,y:y-24,font:f.regular,size:9.6,color:rgbh(INK3)});
+  }
+  items.forEach((r:any,k:number)=>{
+    const boxH=r.h-3,boxY=y-r.h+1.5,cy=boxY+boxH/2;
+    rounded(p,87,boxY,423,boxH,6,rgbh(k%2===0?GRAY_IN:GRAY_ALT),rgbh(GRAY_SOFT),.3);
+    p.drawCircle({x:100,y:cy,size:2,color:rgbh(c)});
+    r.lines.forEach((line:string,j:number)=>p.drawText(line,{x:109,y:cy+((r.lines.length-1)/2-j)*12-3.4,font:f.regular,size:9.6,color:rgbh(INK)}));
+    p.drawLine({start:{x:404,y:cy},end:{x:472,y:cy},thickness:.4,color:rgbh(mix(c,.35))});
+    p.drawCircle({x:472,y:cy,size:1.3,color:rgbh(mix(c,.20))});
+    const page=String(Math.max(1,Number(r.e.page)||r.i+3));
+    p.drawCircle({x:493,y:cy,size:8.2,color:rgbh("#FFFFFF"),borderColor:rgbh(mix(c,.20)),borderWidth:.55});
+    const pw=f.sansBold.widthOfTextAtSize(page,7.8);
+    p.drawText(page,{x:493-pw/2,y:cy-2.6,font:f.sansBold,size:7.8,color:rgbh(dk(c,.8))});
+    y-=r.h;
+  });
+  p.drawLine({start:{x:90,y:bottom+22},end:{x:505,y:bottom+22},thickness:.4,color:rgbh(mix(c,.35))});
+  p.drawCircle({x:90,y:bottom+22,size:1.6,color:rgbh(c)});
+  const note=isLast?"Les numéros seront recalculés lors de la fusion finale.":"Suite du sommaire page suivante";
+  p.drawText(note,{x:98,y:bottom+10,font:f.regular,size:7.8,color:rgbh(INK3)});
+  const pg=(idx+1)+" / "+total;
+  if(total>1)p.drawText(pg,{x:505-f.sans.widthOfTextAtSize(pg,7.8),y:bottom+10,font:f.sans,size:7.8,color:rgbh(INK3)});
+}
+// Répartit toutes les entrées sur autant de pages que nécessaire (plus de limite à 24).
+function tocRender(pdf:any,p0:any,f:any,l:any,c:string,entries:any[],firstPageNo:number){
+  const safe=(Array.isArray(entries)?entries:[]).filter(e=>e&&clean(e.title)).slice(0,400);
+  const rows=safe.map((e:any,i:number)=>{const lines=wrap(e.title,f.regular,9.6,292).slice(0,2);return{e,i,lines,h:lines.length*12+10}});
+  const pages:any[][]=[[]];let y=TOC_FIRST_Y;
+  for(const r of rows){
+    if(y-r.h<TOC_FLOOR&&pages[pages.length-1].length){pages.push([]);y=TOC_CONT_Y}
+    pages[pages.length-1].push(r);y-=r.h;
+  }
+  drawTocPage(p0,f,c,pages[0],0,pages.length);
+  for(let k=1;k<pages.length;k++){
+    const np=pdf.addPage([595,842]);decor(np,c,"toc");hf(np,firstPageNo+k,f,l,c);
+    drawTocPage(np,f,c,pages[k],k,pages.length);
+  }
+  return pages.length;
 }
 async function ending(p:any,pdf:any,f:any,l:any,c:string,title:string,id:number,d:any){
-  const X=76,W=443,bottom=92,H=660;
-  darkCard(p,X,bottom,W,H,17,c,.36);
-  p.drawRectangle({x:X,y:bottom+22,width:3,height:H-44,color:rgbh(mix(c,.40))});
-  chip(p,f,c,92,691,235,29,"MENTIONS · CRÉDITS · VÉRIFICATION",8.9);
-  p.drawText("Édition Aurore",{x:94,y:654,font:f.sansBold,size:20,color:rgbh(INK)});
-  const titleLines=wrap(clean(title),f.sans,10.5,385).slice(0,2);
-  let titleY=628;
-  for(const line of titleLines){p.drawText(line,{x:94,y:titleY,font:f.sans,size:10.5,color:rgbh(mix(c,.62))});titleY-=14;}
-  p.drawLine({start:{x:94,y:596},end:{x:171,y:596},thickness:1.7,color:rgbh(mix(c,.45))});
-  p.drawCircle({x:171,y:596,size:2.1,color:rgbh(mix(c,.45))});
-
-  rounded(p,94,492,407,92,11,rgbh(lift(c,.07)),rgbh(mix(c,.30)),.5);
-  p.drawCircle({x:110,y:561,size:3,color:rgbh(mix(c,.55))});
-  p.drawText("IDENTITÉ DE L'ÉDITION",{x:120,y:558,font:f.sansBold,size:8.6,color:rgbh(mix(c,.58))});
-  p.drawText("Identifiant : "+id,{x:108,y:539,font:f.sans,size:8.6,color:rgbh(INK2)});
-  p.drawText("Version : 1 · Page système assistée",{x:108,y:522,font:f.sans,size:8.6,color:rgbh(INK2)});
+  const X=76,W=443,TOP=752;
+  const titleLines=wrap(clean(title),f.sans,9.4,385).slice(0,2);
+  // Hauteur de carte calculée sur le contenu : plus d'espace vide en bas.
+  const BOTTOM=(680-12*titleLines.length)-2-18-68-10-92-10-84-34;
+  grayCard(p,X,BOTTOM,W,TOP-BOTTOM,16,c,.40);
+  p.drawRectangle({x:X,y:BOTTOM+22,width:3,height:TOP-BOTTOM-44,color:rgbh(c)});
+  chip(p,f,c,94,724,"MENTIONS · CRÉDITS · VÉRIFICATION",7.8);
+  p.drawText("Édition Aurore",{x:94,y:696,font:f.sansBold,size:17,color:rgbh(INK)});
+  let ty=680;
+  for(const line of titleLines){p.drawText(line,{x:94,y:ty,font:f.sans,size:9.4,color:rgbh(dk(c,.8))});ty-=12;}
+  p.drawLine({start:{x:94,y:ty-2},end:{x:136,y:ty-2},thickness:1.5,color:rgbh(c)});
+  const BX=94,BW=407;
+  // Identité de l'édition
+  let top=ty-18;
+  infoBlock(p,f,c,BX,top,BW,68,"IDENTITÉ DE L'ÉDITION");
+  p.drawText("Identifiant : "+id,{x:BX+14,y:top-33,font:f.sans,size:8.2,color:rgbh(INK2)});
+  p.drawText("Version : 1 · Page système assistée",{x:BX+14,y:top-45,font:f.sans,size:8.2,color:rgbh(INK2)});
   const info=[clean(d.subject)||clean(d.matiere),clean(d.level),clean(d.class_name)].filter(Boolean).join(" · ");
-  if(info)p.drawText(wrap(info,f.sans,8.4,370)[0]||"",{x:108,y:505,font:f.sans,size:8.4,color:rgbh(INK2)});
-
-  rounded(p,94,319,407,153,12,rgbh(lift(c,.11)),rgbh(mix(c,.34)),.65);
-  p.drawCircle({x:110,y:446,size:3,color:rgbh(mix(c,.55))});
-  p.drawText("VÉRIFICATION & PUBLICATION",{x:120,y:443,font:f.sansBold,size:8.6,color:rgbh(mix(c,.58))});
-  const msg1=wrap("Veuillez scanner le QR code pour vérifier cette édition.",f.regular,9.4,278).slice(0,2);
-  let my=420;for(const line of msg1){p.drawText(line,{x:108,y:my,font:f.regular,size:9.4,color:rgbh(INK)});my-=13;}
-  const msg2=wrap("La fusion finale recalculera l’identité et le QR de publication.",f.regular,8.6,278).slice(0,2);
-  my=390;for(const line of msg2){p.drawText(line,{x:108,y:my,font:f.regular,size:8.6,color:rgbh(INK3)});my-=12;}
-  // Le QR reste sur une tuile claire : zone de silence indispensable à la lecture.
-  rounded(p,424,350,70,70,10,rgbh("#FFFFFF"),rgbh(mix(c,.50)),.6);
+  if(info)p.drawText(wrap(info,f.sans,8,370)[0]||"",{x:BX+14,y:top-57,font:f.sans,size:8,color:rgbh(INK2)});
+  // Vérification & publication
+  top=top-68-10;
+  infoBlock(p,f,c,BX,top,BW,92,"VÉRIFICATION & PUBLICATION");
+  let my=top-34;
+  for(const line of wrap("Veuillez scanner le QR code pour vérifier cette édition.",f.regular,8.8,290).slice(0,2)){p.drawText(line,{x:BX+14,y:my,font:f.regular,size:8.8,color:rgbh(INK)});my-=12;}
+  my-=4;
+  for(const line of wrap("La fusion finale recalculera l’identité et le QR de publication.",f.regular,8,290).slice(0,2)){p.drawText(line,{x:BX+14,y:my,font:f.regular,size:8,color:rgbh(INK3)});my-=11;}
+  // Le QR reste sur une tuile blanche : zone de silence nécessaire à sa lecture.
+  const tile=60,tx=BX+BW-14-tile,tY=top-30-tile;
+  rounded(p,tx,tY,tile,tile,8,rgbh("#FFFFFF"),rgbh(GRAY_SOFT),.5);
   const u=await QRCode.toDataURL("https://aurore-section-archives.com/",{margin:0,width:220,errorCorrectionLevel:"M"});
   const b=u.split(",")[1],bin=atob(b),a=new Uint8Array(bin.length);
   for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);
   const q=await pdf.embedPng(a);
-  p.drawImage(q,{x:430,y:356,width:58,height:58});
-
-  rounded(p,94,191,407,118,10,rgbh(lift(c,.05)),rgbh(mix(c,.28)),.45);
-  p.drawCircle({x:110,y:284,size:3,color:rgbh(mix(c,.55))});
-  p.drawText("DROITS & RÉUTILISATION",{x:120,y:281,font:f.sansBold,size:8.5,color:rgbh(mix(c,.58))});
-  p.drawLine({start:{x:108,y:267},end:{x:167,y:267},thickness:1,color:rgbh(mix(c,.45))});
+  p.drawImage(q,{x:tx+6,y:tY+6,width:tile-12,height:tile-12});
+  // Droits & réutilisation
+  top=top-92-10;
+  infoBlock(p,f,c,BX,top,BW,84,"DROITS & RÉUTILISATION");
   const rights="Cette édition constitue une création éditoriale d’Aurore. Les connaissances générales et formules restent réutilisables sous réserve des droits applicables aux éléments tiers.";
-  let ry=250;
-  for(const line of wrap(rights,f.regular,8.8,374).slice(0,3)){p.drawText(line,{x:108,y:ry,font:f.regular,size:8.8,color:rgbh(INK2)});ry-=12.5}
-  p.drawText("Les ressources tierces conservent leurs licences et conditions d'utilisation.",{x:108,y:210,font:f.sans,size:7.6,color:rgbh(INK3)});
-  p.drawText("Assistance éditoriale : Aurore · Couleur dominante : "+c.slice(1),{x:94,y:166,font:f.sans,size:8,color:rgbh(INK3)});
+  let ry=top-33;
+  for(const line of wrap(rights,f.regular,8.2,374).slice(0,3)){p.drawText(line,{x:BX+14,y:ry,font:f.regular,size:8.2,color:rgbh(INK2)});ry-=11;}
+  p.drawText("Les ressources tierces conservent leurs licences et conditions d'utilisation.",{x:BX+14,y:top-73,font:f.sans,size:7.2,color:rgbh(INK3)});
+  p.drawText("Assistance éditoriale : Aurore · Couleur dominante : "+c.slice(1),{x:94,y:BOTTOM+14,font:f.sans,size:7.6,color:rgbh(INK3)});
 }
 async function update(id:number,requestedKind:string,patch:any){const q=await admin.from("aurora_generated_documents").select("metadata").eq("id",id).maybeSingle();const m=q.data?.metadata&&typeof q.data.metadata==="object"?q.data.metadata:{};await admin.from("aurora_generated_documents").update({metadata:{...m,...patch},updated_at:new Date().toISOString()}).eq("id",id)}
 Deno.serve(async req=>{
@@ -328,7 +361,7 @@ Deno.serve(async req=>{
     return out({ok:false,error:"mode create|render|status requis"},400);
   }
   if(!Number.isInteger(id)||id<1)return out({ok:false,error:"generated_document_id requis pour le rendu"},400);
-  const row=await admin.from("aurora_generated_documents").select("id,created_by,title,metadata,content_json").eq("id",id).maybeSingle();
+  const row=await admin.from("aurora_generated_documents").select("id,created_by,title,metadata,content_json,theme_color").eq("id",id).maybeSingle();
   if(row.error)return out({ok:false,error:row.error.message},500);
   if(!row.data||row.data.created_by!==uid)return out({ok:false,error:"Accès refusé"},403);
   const metadata=row.data.metadata&&typeof row.data.metadata==="object"?row.data.metadata:{};
@@ -344,26 +377,15 @@ Deno.serve(async req=>{
     const [f,l]=await Promise.all([fonts(pdf),logo(pdf)]);
     await update(id,renderKind,{fast_page_progress:35,fast_page_stage:"Ressources Aurore prêtes"});
     const color=hex(body?.theme_color||row.data.theme_color);
+    const p=pdf.addPage([595,842]);decor(p,color,renderKind);
     const pageNo=renderKind==="cover"?1:renderKind==="toc"?2:Math.max(3,Number(data.page_number)||3);
-    if(renderKind==="toc"){
-      const entries=(Array.isArray(data.entries)?data.entries:[]).filter((e:any)=>e&&clean(e.title)&&e.enabled!==false);
-      const pageSize=10,chunks:any[][]=[];
-      for(let i=0;i<entries.length;i+=pageSize)chunks.push(entries.slice(i,i+pageSize));
-      if(!chunks.length)chunks.push([]);
-      for(let i=0;i<chunks.length;i++){
-        const page=pdf.addPage([595,842]);
-        decor(page,color,renderKind);
-        hf(page,pageNo+i,f,l,color);
-        toc(page,f,color,chunks[i],i+1,chunks.length);
-      }
-    }else{
-      const p=pdf.addPage([595,842]);decor(p,color,renderKind);
-      if(renderKind!=="cover")hf(p,pageNo,f,l,color);
-      if(renderKind==="cover")cover(p,f,l,color,row.data.title,data);
-      else await ending(p,pdf,f,l,color,row.data.title,id,data);
-    }
+    let tocCount=1;
+    if(renderKind!=="cover")hf(p,pageNo,f,l,color);
+    if(renderKind==="cover")cover(p,f,l,color,row.data.title,data);
+    else if(renderKind==="toc")tocCount=tocRender(pdf,p,f,l,color,Array.isArray(data.entries)?data.entries:[],pageNo);
+    else await ending(p,pdf,f,l,color,row.data.title,id,data);
     await update(id,renderKind,{fast_page_progress:72,fast_page_stage:"PDF indépendant construit"});
-    const bin=new Uint8Array(await pdf.save({useObjectStreams:false}));
+    const bin=new Uint8Array(await pdf.save({useObjectStreams:true}));
     const path="aurora-assisted-system-pages/"+uid+"/"+id+"/"+renderKind+".pdf";
     const up=await admin.storage.from("Pdfs").upload(path,bin,{contentType:"application/pdf",upsert:true});if(up.error)throw new Error(up.error.message);
     await update(id,renderKind,{fast_page_progress:90,fast_page_stage:"PDF téléversé"});
@@ -372,10 +394,10 @@ Deno.serve(async req=>{
     await admin.from("aurora_generated_documents").update({
       pdf_path:path,pdf_url:pdfUrl,updated_at:new Date().toISOString(),
       metadata:{...metadata,origin:"edition_assistee",assisted_system_page:true,system_page_kind:renderKind,preview_only:true,publishable:false,
-        fast_page_pdf:true,fast_page_pdf_engine:"pdf-lib-system-page-v3",fast_page_status:"completed",fast_page_progress:100,fast_page_page_count:pdf.getPageCount(),
+        fast_page_pdf:true,fast_page_pdf_engine:"pdf-lib-system-page-v4",pdf_page_count:tocCount,fast_page_status:"completed",fast_page_progress:100,
         fast_page_stage:"Page PDF prête · indépendante du renderer LuaLaTeX",fast_page_updated_at:new Date().toISOString(),fast_page_last_error:null}
     }).eq("id",id).eq("created_by",uid);
-    return out({ok:true,mode:"render",generated_document_id:id,page_kind:renderKind,page_url:pdfUrl,page_path:path,bytes:bin.length,page_count:pdf.getPageCount(),progress:100,engine:"pdf-lib-system-page-v3"});
+    return out({ok:true,mode:"render",generated_document_id:id,page_kind:renderKind,page_url:pdfUrl,page_path:path,bytes:bin.length,progress:100,page_count:tocCount,engine:"pdf-lib-system-page-v4"});
   }catch(e){
     const msg=e instanceof Error?e.message:String(e);
     await update(id,renderKind,{fast_page_status:"failed",fast_page_progress:0,fast_page_stage:"Échec de génération",fast_page_last_error:msg});
