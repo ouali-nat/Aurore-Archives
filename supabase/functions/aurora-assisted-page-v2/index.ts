@@ -63,7 +63,21 @@ function buildContent(courseTitle:string,pageNumber:number,block:any,themeColor:
   else if(type==="point") section.point={title:String(content.title||"Point de cours"),text:extractStructuredText(content.text||""),color:String(content.color||""),rank:Number(content.rank)||1};
   else if(type==="exercise") section.exercises=[{id:String(block?.id||""),title:String(content.title||"Exercice"),statement:extractStructuredText(content.statement||""),hint:extractStructuredText(content.hint||""),correction_title:String(content.correction_title||"Corrigé"),correction:extractStructuredText(content.correction||"")}];
   else if(type==="graphique") section.graphs=[content.json&&typeof content.json==="object"?content.json:{}];
-  else if(type==="wikimedia-image") section.content=["Illustration Wikimedia"];
+  else if(type==="wikimedia-image"){
+    const image={
+      url:String(content.imageUrl||""),
+      caption:String(content.caption||""),
+      title:String(content.title||""),
+      author:String(content.author||""),
+      license:String(content.license||""),
+      source_url:String(content.sourceUrl||"")
+    };
+    // Le renderer rapide collecte les images dans section.images quand sections existe.
+    // Le tableau images racine seul était ignoré et la section affichait uniquement le texte de remplacement.
+    section.title=clean(content.title)||"Illustration Wikimedia";
+    section.content=[];
+    section.images=[image];
+  }
   else throw new Error("Type de bloc non pris en charge : "+type);
   return {
     title:courseTitle,
@@ -162,6 +176,14 @@ function buildCanonicalPreviewContent(course:any,themeColor:string|null){
       if(!clean(statement))continue;
       exerciseNumber+=1;
       const id=clean(b.id)||"exercise-"+String(exerciseNumber);
+      const correction=extractStructuredText(content.correction||"");
+      const correctionTitle=clean(content.correction_title)||("Corrigé "+String(exerciseNumber));
+      const correctionBlock=clean(correction)?{
+        exercise_number:exerciseNumber,
+        exercise_id:id,
+        solution:correction,
+        correction_title:correctionTitle
+      }:null;
       sections.push({
         title:clean(content.title)||("Exercice "+String(exerciseNumber)),
         content:[],
@@ -169,19 +191,14 @@ function buildCanonicalPreviewContent(course:any,themeColor:string|null){
           id,
           question:statement,
           statement,
-          hint:extractStructuredText(content.hint||"")
+          hint:extractStructuredText(content.hint||""),
+          correction_title:correctionTitle,
+          correction
         }],
+        corrections:correctionBlock?[correctionBlock]:[],
         graphs:[]
       });
-      const correction=extractStructuredText(content.correction||"");
-      if(clean(correction)){
-        corrections.push({
-          exercise_number:exerciseNumber,
-          exercise_id:id,
-          solution:correction,
-          correction_title:clean(content.correction_title)||("Corrigé "+String(exerciseNumber))
-        });
-      }
+      if(correctionBlock)corrections.push(correctionBlock);
     }else if(type==="graphique"){
       const graph=content.json&&typeof content.json==="object"&&!Array.isArray(content.json)?content.json:null;
       if(!graph)continue;
@@ -193,23 +210,24 @@ function buildCanonicalPreviewContent(course:any,themeColor:string|null){
       });
     }else if(type==="wikimedia-image"){
       const imageUrl=String(content.imageUrl||"").trim();
-      if(!imageUrl)continue;
+      if(!imageUrl.startsWith("https://upload.wikimedia.org/"))continue;
+      const image={
+        url:imageUrl,
+        caption:String(content.caption||""),
+        title:String(content.title||""),
+        author:String(content.author||""),
+        license:String(content.license||""),
+        source_url:String(content.sourceUrl||"")
+      };
       sections.push({
         title:clean(content.title)||("Illustration "+String(i+1)),
-        content:["Illustration documentaire."],
+        content:[],
         exercises:[],
-        graphs:[]
+        graphs:[],
+        images:[image]
       });
-      if(imageUrl.startsWith("https://upload.wikimedia.org/")){
-        images.push({
-          url:imageUrl,
-          caption:String(content.caption||""),
-          title:String(content.title||""),
-          author:String(content.author||""),
-          license:String(content.license||""),
-          source_url:String(content.sourceUrl||"")
-        });
-      }
+      // Maintenu à la racine pour les consommateurs historiques sans sections.
+      images.push(image);
     }
   }
 
@@ -237,7 +255,7 @@ Deno.serve(async(req)=>{
   const token=auth.slice(7).trim();
   const me=await admin.auth.getUser(token);
   if(me.error||!me.data.user)return out({ok:false,error:"Session invalide"},401);
-  const userId=me.data.user.id;
+  const userId=me.data.user.id; const activeProfile=await admin.from("Profils").select("banni").eq("id",userId).maybeSingle(); if(activeProfile.error||!activeProfile.data||activeProfile.data.banni===true)return out({ok:false,error:"Compte suspendu ou profil non autorisé"},403);
 
   let body:any;
   try{body=await req.json()}catch{return out({ok:false,error:"JSON invalide"},400);}
@@ -422,7 +440,7 @@ Deno.serve(async(req)=>{
     const g=content.json;
     if(!g||typeof g!=="object"||Array.isArray(g))return out({ok:false,error:"Le JSON du graphique doit être un objet."},400);
     if(!clean(g.id)||!clean(g.instrument||g.graph_type))return out({ok:false,error:"Le graphique doit avoir un id unique et instrument/graph_type."},400);
-    if(!clean(g.geogebra_image_path||g.graph_local_path))return out({ok:false,error:"Graphique validé, mais l’asset GeoGebra n’est pas encore disponible. Le JSON reste conservé."},409);
+    if(!clean(g.geogebra_image_path||g.graph_local_path))return out({ok:false,error:"Graphique validé, mais l’asset GeoGebra n’est pas encore disponible. Le JSON reste conservé."},409); const graphPath=String(g.geogebra_image_path||g.graph_local_path||"").trim(); if(!graphPath.startsWith(`aurora-content/${userId}/`)||graphPath.includes(".."))return out({ok:false,error:"Chemin GeoGebra non autorisé"},403);
   }
   if(type==="wikimedia-image"&&!validWikimedia(content))return out({ok:false,error:"Image Wikimedia invalide ou licence non compatible."},400);
 
@@ -472,7 +490,7 @@ Deno.serve(async(req)=>{
   // Keep the assisted editor on the dedicated instant page renderer.
   // It is deliberately separate from the full-document LuaLaTeX production queue:
   // one assisted page must stay fast, adaptive and independently verifiable.
-  const rendered=await fetch(URL_+"/functions/v1/aurora-assisted-page-fast",{
+  const rendered=await fetch(URL_+"/functions/v1/aurora-assisted-page-fast-design",{
     method:"POST",
     headers:{
       "Authorization":auth,
@@ -505,6 +523,9 @@ Deno.serve(async(req)=>{
     generated_document_id:generatedDocumentId,
     job_id:jobId,
     page_number:pageNumber,
+    flow_block_ids:Array.isArray(contentJson?.assisted_block?.flow_block_ids)&&contentJson.assisted_block.flow_block_ids.length
+      ?contentJson.assisted_block.flow_block_ids
+      :[blockId],
     mode:"instant-page",
     engine:"pdf-lib-course-page-v2"
   });
