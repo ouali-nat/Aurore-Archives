@@ -25,10 +25,10 @@
   // l'ouverture, notamment sur les réseaux mobiles.
   if('serviceWorker' in navigator){
     window.addEventListener('load',function(){
-      navigator.serviceWorker.getRegistration('./').then(function(existing){
-        if(existing) return existing;
-        return navigator.serviceWorker.register('./sw.js?v=20261006-1',{scope:'./',updateViaCache:'none'});
-      }).then(function(reg){
+      // register() contrôle aussi les mises à jour de l'enregistrement existant
+      // sans désinscrire le service worker ni effacer les données hors ligne.
+      navigator.serviceWorker.register('./sw.js?v=20261010-ui-refresh-v9',{scope:'./',updateViaCache:'none'})
+      .then(function(reg){
         if(reg) console.log('[Aurore PWA] Service worker actif.',reg.scope);
       }).catch(function(err){console.warn('[Aurore PWA] Service worker indisponible :',err);});
     });

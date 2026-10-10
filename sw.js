@@ -1,26 +1,11 @@
-/* Service Worker — Aurore Section Archives (v7)
-   Objectif : ouvertures rapides + lecture hors ligne de ce que l'élève a déjà ouvert,
-   même après plusieurs jours / semaines sans ouvrir l'application.
-   Les données Supabase, l'authentification et les appels d'API ne sont PAS
-   interceptés (traitement natif du navigateur).
-     • Pages et fichiers du site (js/css/images/json) : réseau d'abord ; si le réseau
-       met plus de 3-4 s (ou est coupé), la dernière copie enregistrée s'affiche.
-       Hors ligne, toute page retombe sur l'accueil enregistré.
-     • TOUS les caches sont désormais NON versionnés : une mise à jour du site ne vide
-       plus rien. Les anciens caches versionnés (v6 et avant) sont migrés, pas supprimés.
-     • Les fichiers du site réellement chargés par la page sont signalés au service worker
-       (message AURORE_WARM) et enregistrés même à la toute première visite.
-     • Bibliothèques (pdf.js, CDN, polices) : copie locale d'abord. pdf.js est préchargé à
-       l'installation : sans lui, aucun PDF ne peut s'afficher hors ligne.
-     • Couvertures d'images (Google Books, R2, Supabase Storage…) : copie locale d'abord,
-       toutes conservées.
-     • PDF : enregistrés UNIQUEMENT quand l'élève les ouvre dans le lecteur (le lecteur
-       demande le fichier complet avec l'en-tête Accept: application/pdf). Aucune limite
-       fixe : on ne retire les plus anciens que si l'appareil manque réellement d'espace.
-     • Stockage durable (navigator.storage.persist) demandé ici ET par la page.
+/* Service Worker — Aurore Section Archives (v9)
+   Actualise les caches d'interface à la mise à jour pour éviter de réafficher un ancien habillage.
+   Les liens CSS locaux de la publication portent une clé de révision nouvelle.
+   Les anciennes pages profondes et les anciennes feuilles CSS sont invalidées à l'activation.
+   Les bibliothèques, couvertures et PDF déjà ouverts restent conservés.
 */
 
-const SW_VERSION = 'v8';
+const SW_VERSION = 'v9';
 // Caches non versionnés : ils survivent à TOUTES les mises à jour du service worker.
 const PAGE_CACHE = 'aurore-shell';
 const STATIC_CACHE = 'aurore-static';
@@ -125,22 +110,59 @@ async function migrerAnciensCaches(keys) {
   }
 }
 
+async function rafraichirCachesInterface() {
+  // Ne jamais conserver une ancienne page profonde après la publication.
+  // La page d'accueil a déjà été renouvelée par precacheShell() à l'installation.
+  try {
+    const pages = await caches.open(PAGE_CACHE);
+    const pageRequests = await pages.keys();
+    await Promise.all(pageRequests.map(async (request) => {
+      try {
+        const url = new URL(request.url);
+        if (url.origin === self.location.origin && url.pathname !== '/') {
+          await pages.delete(request);
+        }
+      } catch (_) {}
+    }));
+  } catch (_) {}
+
+  // Les nouvelles URL CSS possèdent un paramètre de publication distinct.
+  // Supprimer uniquement les anciennes entrées CSS, sans toucher aux images,
+  // aux polices, aux fichiers PDF ni aux couvertures hors ligne.
+  try {
+    const statics = await caches.open(STATIC_CACHE);
+    const requests = await statics.keys();
+    await Promise.all(requests.map(async (request) => {
+      try {
+        const url = new URL(request.url);
+        if (url.origin !== self.location.origin || !/\.css$/i.test(url.pathname)) return;
+        if (url.searchParams.get('aurore_release') !== '20261010-firstpaint1') {
+          await statics.delete(request);
+        }
+      } catch (_) {}
+    }));
+  } catch (_) {}
+}
+
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys()
-      .then(async (keys) => {
-        await migrerAnciensCaches(keys);
-        await Promise.all(
-          keys
-            .filter((key) => key.startsWith('aurore-') && !KEEP_CACHES.includes(key))
-            .map((key) => caches.delete(key))
-        );
-      })
-      .then(() => {
-        // Demande un stockage durable : le navigateur ne vide pas les caches quand il manque de place.
-        try { if (self.navigator && self.navigator.storage && self.navigator.storage.persist) self.navigator.storage.persist(); } catch (_) {}
-        return self.clients.claim();
-      })
+    (async () => {
+      const keys = await caches.keys();
+      await migrerAnciensCaches(keys);
+      await rafraichirCachesInterface();
+      const finalKeys = await caches.keys();
+      await Promise.all(
+        finalKeys
+          .filter((key) => key.startsWith('aurore-') && !KEEP_CACHES.includes(key))
+          .map((key) => caches.delete(key))
+      );
+      try {
+        if (self.navigator && self.navigator.storage && self.navigator.storage.persist) {
+          self.navigator.storage.persist();
+        }
+      } catch (_) {}
+      await self.clients.claim();
+    })()
   );
 });
 
