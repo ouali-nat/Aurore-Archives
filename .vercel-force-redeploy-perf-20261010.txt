@@ -1,0 +1,4 @@
+FORCE REDEPLOY - Optimisations performance: CSS compression, caching agressif, Service Worker, CLS prevention
+Commits: 614f297 + 2770ccd + 822c324 + 701d2e2 + a5570d84
+Status: Force-triggering deployment on Vercel
+Timestamp: 2026-10-10 07:05 UTC
