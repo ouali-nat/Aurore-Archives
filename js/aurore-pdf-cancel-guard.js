@@ -36,17 +36,31 @@
   }
 })();
 
-/* Aurore — chargement précoce du module « navigation fluide » (cache des données,
-   animation de chargement, restauration du Retour). Ce fichier est le premier script
-   de la page : le module s'exécute donc avant tous les autres appels réseau.
-   Désactivation de secours : ?fluid=off */
+/* Aurore — chargement non bloquant du module « navigation fluide ».
+   Le cœur du site doit rester visible même si ce module de confort est lent.
+   Le module conserve sa propre option de secours ?fluid=off. */
 (function () {
+  'use strict';
   try {
-    if (document.readyState === 'loading') {
-      document.write(
-        '<link rel="stylesheet" href="css/aurore-fluid-navigation.css?v=20261009-bootveil1">' +
-        '<script src="js/aurore-fluid-navigation.js?v=20261009-bootveil1"><\/script>'
-      );
+    if (document.getElementById('aurore-fluid-navigation-script')) return;
+
+    if (!document.getElementById('aurore-fluid-navigation-style')) {
+      var link = document.createElement('link');
+      link.id = 'aurore-fluid-navigation-style';
+      link.rel = 'stylesheet';
+      link.href = '/css/aurore-fluid-navigation.css?v=20261010-startup-nonblocking1';
+      document.head.appendChild(link);
     }
-  } catch (e) {}
+
+    var script = document.createElement('script');
+    script.id = 'aurore-fluid-navigation-script';
+    script.src = '/js/aurore-fluid-navigation.js?v=20261010-startup-nonblocking1';
+    script.async = true;
+    script.onerror = function () {
+      console.warn('[Aurore navigation] Module de navigation fluide indisponible ; la navigation standard reste active.');
+    };
+    document.head.appendChild(script);
+  } catch (e) {
+    console.warn('[Aurore navigation] Chargement non bloquant impossible :', e);
+  }
 })();

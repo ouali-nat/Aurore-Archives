@@ -100,7 +100,6 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
   'use strict';
   var root=document.documentElement;
   root.classList.add('aurore-boot-pending');
-  var domReady=document.readyState!=='loading';
   var dismissed=false;
   var overlay=null,pollHandle=null,slowHandle=null,hardHandle=null,buttonBound=false;
 
@@ -145,20 +144,23 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
   function checkReady(){
     if(dismissed)return;
     bindOverlay();
-    // Le portail s'ouvre dès que le DOM est prêt et qu'un écran existe.
-    // Les requêtes de fond ne doivent pas retenir l'interface derrière l'écran d'attente.
-    if(domReady&&document.readyState!=='loading'&&document.querySelector('.screen.active')){
-      dismiss('ready');
+    // Ne pas attendre DOMContentLoaded : il attend l'exécution de tous les
+    // scripts defer, y compris ceux ralentis par un CDN. Le document est prêt
+    // à présenter l'interface dès l'état interactive si l'écran initial existe.
+    if(document.readyState!=='loading'&&document.querySelector('.screen.active')){
+      dismiss('dom-interactive');
       return;
     }
     pollHandle=window.setTimeout(checkReady,100);
   }
 
-  if(!domReady){
-    window.addEventListener('DOMContentLoaded',function(){
-      domReady=true;
-      checkReady();
-    },{once:true});
+  function ouvrirAuDOMInteractif(){
+    if(document.readyState==='loading')return;
+    document.removeEventListener('readystatechange',ouvrirAuDOMInteractif);
+    checkReady();
+  }
+  if(document.readyState==='loading'){
+    document.addEventListener('readystatechange',ouvrirAuDOMInteractif);
   }
   checkReady();
 
@@ -180,7 +182,7 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
   },{once:true});
 })();
 </script>
-<script src="js/aurore-pdf-cancel-guard.js?v=20261009-bootveil1&aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurore-pdf-cancel-guard.js?v=20261010-startup-nonblocking1&aurore_fresh=20261010-temporary-no-cache1"></script>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
 <meta content="yzWmwzt0gZoJZKSVp8G7iVle-gUt-PgFSDeAi3K_Vvs" name="google-site-verification">
@@ -293,7 +295,27 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
   "description": "Bibliothèque numérique de documents scolaires et éducatifs."
 }
 </script>
-<script src="js/aurore-katex-loader.js?aurore_fresh=20261010-temporary-no-cache1"></script>
+<script id="aurore-early-theme-state">
+  // Appliqué le plus tôt possible pour éviter un flash du mauvais thème au
+  // chargement. Version minimale ; la logique complète (boutons, suivi du
+  // système en direct) est reprise plus bas une fois le DOM prêt.
+  (function(){
+    try {
+      var choix = localStorage.getItem('auraster-theme') || 'systeme';
+      var affiche = choix === 'systeme'
+        ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'clair' : 'sombre')
+        : choix;
+      // Le CSS du thème clair cible [data-theme="light"] (voir plus bas) : on
+      // traduit donc la valeur ici, au moment précis où l'attribut est posé.
+      document.documentElement.setAttribute('data-theme', affiche === 'clair' ? 'light' : 'dark');
+      document.documentElement.setAttribute('data-theme-choix', choix);
+      var couleurChoisie = localStorage.getItem('auraster-color-theme') || 'violet';
+      var couleursAutorisees = ['violet','rouge','vert','bleu','jaune','orange','cyan','rose','indigo','turquoise','emeraude','lime','sarcelle','magenta','fuchsia','corail','bordeaux','pourpre','prune','or','ambre','menthe','azur','lavande','safran'];
+      document.documentElement.setAttribute('data-color-theme', couleursAutorisees.indexOf(couleurChoisie) >= 0 ? couleurChoisie : 'violet');
+    } catch (e) {}
+  })();
+
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -2176,7 +2198,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
   sont volontaires : ne pas les retirer pour "simplifier".
   ══════════════════════════════════════════════════════════════════════════
 -->
-<link rel="preload" as="script" crossorigin href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"><script async id="aurore-supabase-sdk" src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js" onload="window.__AURORE_SUPABASE_SDK_LOADED=true" onerror="window.__AURORE_SUPABASE_SDK_FAILED=true"></script>
+<link rel="preload" as="script" crossorigin href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"><script async crossorigin id="aurore-supabase-sdk" src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js" onload="window.__AURORE_SUPABASE_SDK_LOADED=true" onerror="window.__AURORE_SUPABASE_SDK_FAILED=true"></script>
 <script defer src="js/aurore-auth-bootstrap.js?v=20261006-native-google-final4&aurore_fresh=20261010-temporary-no-cache1"></script>
 <script>
 
