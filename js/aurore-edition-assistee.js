@@ -2638,6 +2638,35 @@
     }
   }
 
+  // Filet de sécurité global : les boutons système restent actifs même si la carte
+  // est reconstruite par l'éditeur ou si un autre binding local échoue.
+  document.addEventListener('click',function(e){
+    const button=e.target?.closest?.('[data-regenerate-page]');
+    if(!button)return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    if(button.dataset.regenerating==='true')return;
+    const ref=button.dataset.regeneratePage;
+    if(!ref){setStatus('Action impossible : identifiant de page absent.');return;}
+    button.dataset.regenerating='true';
+    button.disabled=true;
+    const originalLabel=button.textContent;
+    button.textContent='Régénération…';
+    setStatus('Clic reçu · lancement de la régénération de '+(ref==='system-start'?'la couverture':ref==='system-end'?'la page finale':ref==='toc'?'du sommaire':'la page')+'…');
+    Promise.resolve().then(()=>regeneratePage(ref)).catch(err=>{
+      const message=String(err?.message||err||'Erreur inconnue');
+      setStatus('La régénération a échoué : '+message);
+      if(button.isConnected)button.textContent='Échec · Réessayer';
+    }).finally(()=>{
+      button.dataset.regenerating='false';
+      if(button.isConnected){
+        button.disabled=false;
+        if(button.textContent==='Régénération…')button.textContent=originalLabel;
+      }
+    });
+  },true);
+
   async function init(){
     const r=root();if(!r)return;
     const card=document.querySelector('.admin-tab[data-tab="edition-assistee"]'),panel=document.querySelector('.admin-tab-panel[data-panel="edition-assistee"]');
