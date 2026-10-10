@@ -19,7 +19,7 @@ const BOX_PAD_BOTTOM=11;
 const POINT_SPINE_X=12;
 const POINT_BOX_X=88;
 const POINT_SIDE_GAP=7;
-const POINT_MAX_W=438;
+const POINT_MAX_W=454;
 const MATH_DISPLAY_BASE_H=24;
 const MATH_EX_PX=7.54;
 const MATH_RASTER_SCALE=3;
@@ -220,10 +220,10 @@ async function loadFonts(pdf:any){
     fetchFontBytes("sansBold",FONT_URLS.sansBold)
   ]);
   return {
-    regular:await pdf.embedFont(regular,{subset:false}),
-    bold:await pdf.embedFont(bold,{subset:false}),
-    sans:await pdf.embedFont(sans,{subset:false}),
-    sansBold:await pdf.embedFont(sansBold,{subset:false})
+    regular:await pdf.embedFont(regular,{subset:true}),
+    bold:await pdf.embedFont(bold,{subset:true}),
+    sans:await pdf.embedFont(sans,{subset:true}),
+    sansBold:await pdf.embedFont(sansBold,{subset:true})
   };
 }
 function noteFormulaFailure(qa:any,key:string,reason:string){
@@ -571,37 +571,62 @@ function resolveBubblePalette(hex:string){
     ? {primary:"#"+match[0],secondary:"#"+match[1],strong:"#"+match[2]}
     : {primary:raw,secondary:raw,strong:raw};
 }
-function drawSoftDecor(page:any,color:string){
+function drawSoftDecor(page:any,color:string,pageNo=1){
   const W=595,H=842;
-  const CM=72/2.54;
   const palette=resolveBubblePalette(color);
-
-  // Motif recopié du renderer éditorial LuaLaTeX (shipout/background).
-  // Les positions suivent les mêmes ancres de page et les mêmes rayons TikZ.
-  // Le bord PDF coupe les portions extérieures sans déformer la géométrie circulaire.
-  page.drawRectangle({x:0,y:0,width:W,height:H,color:rgbHex(mixWhite(palette.primary,0.96))});
-  const bubbles=[
-    {x:W-1.20*CM,y:H-1.00*CM,r:2.55*CM,fill:mixWhite(palette.secondary,0.76)},
-    {x:1.05*CM,y:H+0.85*CM,r:1.55*CM,fill:mixWhite(palette.primary,0.85)},
-    {x:W-0.45*CM,y:H-9.20*CM,r:1.05*CM,fill:mixWhite(color,0.89)},
-    {x:0.80*CM,y:H-13.40*CM,r:1.30*CM,fill:mixWhite(palette.secondary,0.83)},
-    {x:1.20*CM,y:1.10*CM,r:2.05*CM,fill:mixWhite(palette.primary,0.86)},
-    {x:W-1.00*CM,y:0.90*CM,r:1.60*CM,fill:mixWhite(palette.secondary,0.81)},
-    {x:W-2.15*CM,y:-4.20*CM,r:0.72*CM,fill:mixWhite(color,0.90)},
-    {x:1.95*CM,y:-5.50*CM,r:0.85*CM,fill:mixWhite(palette.primary,0.89)}
-  ];
-  for(const bubble of bubbles){
-    page.drawCircle({x:bubble.x,y:bubble.y,size:bubble.r,color:rgbHex(bubble.fill)});
+  const p1=palette.primary,p2=palette.secondary,ps=palette.strong;
+  page.drawRectangle({x:0,y:0,width:W,height:H,color:rgbHex(mixWhite(p1,0.965))});
+  const odd=pageNo%2===1;
+  const halo=(cx:number,cy:number,radii:number[],col:string,base:number)=>{
+    radii.forEach((r,i)=>page.drawCircle({x:cx,y:cy,size:r,color:rgbHex(col),opacity:base+i*0.018}));
+  };
+  const ring=(cx:number,cy:number,r:number,col:string,w:number,op:number)=>{
+    page.drawCircle({x:cx,y:cy,size:r,borderColor:rgbHex(col),borderWidth:w,borderOpacity:op});
+  };
+  const big=odd?{cx:W-18,cy:H-26}:{cx:W-18,cy:70};
+  const small=odd?{cx:W-8,cy:96}:{cx:W-8,cy:H-110};
+  halo(big.cx,big.cy,[150,118,88,60],p2,0.07);
+  ring(big.cx,big.cy,172,p2,0.8,0.40);
+  ring(big.cx,big.cy,140,p1,0.5,0.30);
+  halo(small.cx,small.cy,[58,40,24],p1,0.07);
+  ring(small.cx,small.cy,74,p2,0.6,0.35);
+  page.drawCircle({x:44,y:H+4,size:36,color:rgbHex(p2),opacity:0.16});
+  ring(44,H+4,52,p1,0.6,0.35);
+  page.drawCircle({x:64,y:-2,size:32,color:rgbHex(p1),opacity:0.13});
+  ring(64,-2,46,p2,0.6,0.35);
+  const curveY=odd?H-330:H-250;
+  page.drawSvgPath("M 0 0 C -46 60, -52 150, -8 230",{x:W-2,y:curveY,borderColor:rgbHex(ps),borderWidth:0.7,borderOpacity:0.28});
+  page.drawSvgPath("M 0 0 C -30 50, -34 120, -4 190",{x:W-2,y:curveY-18,borderColor:rgbHex(p2),borderWidth:0.5,borderOpacity:0.30});
+  for(let i=0;i<7;i++){
+    const r=2.6-i*0.28;
+    page.drawCircle({x:W-14-i*0.4,y:(odd?H-420:H-340)-i*17,size:Math.max(0.9,r),color:rgbHex(ps),opacity:0.30-i*0.03});
   }
+  page.drawCircle({x:W-30,y:odd?H-296:H-216,size:5,color:rgbHex(p2),opacity:0.35});
+  page.drawCircle({x:30,y:odd?186:H-190,size:3.2,color:rgbHex(p2),opacity:0.28});
 }
 function headerFooter(page:any,pageNo:number,fonts:any,logo:any,color:string){
   if(logo){
     const scale=Math.min(17/(logo.width||17),17/(logo.height||17));
     page.drawImage(logo,{x:39,y:805,width:logo.width*scale,height:logo.height*scale});
   }
-  page.drawText("Section Archives",{x:466,y:807,font:fonts.sans,size:9.6,color:rgbHex(mixWhite(color,0.25))});
-  page.drawLine({start:{x:39,y:795},end:{x:556,y:795},thickness:.55,color:rgbHex(mixWhite(color,0.72))});
-  page.drawText("Aurore — Section Archives • "+pageNo,{x:225,y:27,font:fonts.sans,size:9.5,color:rgbHex("#777985")});
+  const accent=rgbHex(mixWhite(color,0.25));
+  const label="Section Archives";
+  const lw=fonts.sans.widthOfTextAtSize(label,9.6);
+  page.drawText(label,{x:556-lw,y:807,font:fonts.sans,size:9.6,color:accent});
+  page.drawCircle({x:556-lw-9,y:811.4,size:2.2,color:rgbHex(color)});
+  page.drawLine({start:{x:39,y:795},end:{x:556,y:795},thickness:0.6,color:rgbHex(mixWhite(color,0.72))});
+  page.drawLine({start:{x:39,y:795},end:{x:99,y:795},thickness:1.8,color:rgbHex(mixWhite(color,0.30))});
+  const cx=297.5,cy=34,num=String(pageNo);
+  page.drawLine({start:{x:150,y:cy},end:{x:cx-16,y:cy},thickness:0.6,color:rgbHex(mixWhite(color,0.65))});
+  page.drawLine({start:{x:cx+16,y:cy},end:{x:445,y:cy},thickness:0.6,color:rgbHex(mixWhite(color,0.65))});
+  page.drawCircle({x:150,y:cy,size:1.8,color:rgbHex(mixWhite(color,0.40))});
+  page.drawCircle({x:445,y:cy,size:1.8,color:rgbHex(mixWhite(color,0.40))});
+  page.drawCircle({x:cx,y:cy,size:11,color:rgbHex(mixWhite(color,0.90)),borderColor:rgbHex(mixWhite(color,0.30)),borderWidth:0.8});
+  const nw=fonts.sansBold.widthOfTextAtSize(num,9);
+  page.drawText(num,{x:cx-nw/2,y:cy-3.1,font:fonts.sansBold,size:9,color:rgbHex(color)});
+  const foot="Aurore — Section Archives";
+  const fw=fonts.sans.widthOfTextAtSize(foot,8);
+  page.drawText(foot,{x:cx-fw/2,y:14,font:fonts.sans,size:8,color:rgbHex("#8A8C97")});
 }
 function sectionLabel(page:any,label:string,x:number,y:number,fonts:any,color:string){
   const txt=clean(label);
@@ -638,7 +663,7 @@ Deno.serve(async req=>{
   const internalUserId=req.headers.get("x-aurore-user-id")?.trim()||"";
   const me=await admin.auth.getUser(bearer);
   if(me.error||!me.data.user)return out({ok:false,error:"Session utilisateur invalide"},401);
-  const userId=me.data.user.id;
+  const userId=me.data.user.id; const activeProfile=await admin.from("Profils").select("role,banni").eq("id",userId).maybeSingle(); if(activeProfile.error||!activeProfile.data||activeProfile.data.banni===true)return out({ok:false,error:"Compte suspendu ou profil non autorisé"},403); const isAdmin=/^(admin|administrateur)$/i.test(String(activeProfile.data.role||""));
   if(internalUserId&&internalUserId!==userId)return out({ok:false,error:"Identité utilisateur incohérente"},403);
   let body:any;try{body=await req.json()}catch{return out({ok:false,error:"JSON invalide"},400);}
   const id=Number(body?.generated_document_id),pn=Number(body?.page_number);
@@ -646,9 +671,9 @@ Deno.serve(async req=>{
   const docRes=await admin.from("aurora_generated_documents").select("id,created_by,title,metadata").eq("id",id).maybeSingle();
   if(docRes.error)return out({ok:false,error:docRes.error.message},500);
   if(!docRes.data)return out({ok:false,error:"Document introuvable"},404);
-  if(docRes.data.created_by&&docRes.data.created_by!==userId)return out({ok:false,error:"Accès refusé"},403);
+  if(docRes.data.created_by!==userId&&!isAdmin)return out({ok:false,error:"Accès refusé"},403); if(!docRes.data.created_by&&!isAdmin)return out({ok:false,error:"Accès refusé"},403); const assetOwnerId=String(docRes.data.created_by||userId);
   const input=body?.content;
-  if(!input||typeof input!=="object")return out({ok:false,error:"content structuré requis"},400);
+  if(!input||typeof input!=="object")return out({ok:false,error:"content structuré requis"},400); const hasForeignAssetPath=(v:any):boolean=>{if(Array.isArray(v))return v.some(hasForeignAssetPath);if(!v||typeof v!=="object")return false;for(const k of ["geogebra_image_path","graph_local_path"]){const path=(v as any)[k];if(typeof path==="string"&&path.trim()&&(!path.startsWith(`aurora-content/${assetOwnerId}/`)||path.includes("..")))return true;}return Object.values(v).some(hasForeignAssetPath);}; if(hasForeignAssetPath(input))return out({ok:false,error:"Chemin GeoGebra non autorisé"},403);
   try{
     const pdf=await PDFDocument.create();pdf.registerFontkit(fontkit);
     const [fonts,logo]=await Promise.all([loadFonts(pdf),loadLogo(pdf)]);
@@ -656,13 +681,15 @@ Deno.serve(async req=>{
     const railPages:any[]=[page];
     let flowPageNo=pn;
     const color=normalizeHexColor(input.theme_color)||subjectColor(input.subject||input.matiere||docRes.data.metadata?.matiere||"");
-    drawSoftDecor(page,color);headerFooter(page,pn,fonts,logo,color);
+    drawSoftDecor(page,color,pn);headerFooter(page,pn,fonts,logo,color);
     const qa:any={formulas_total:0,formulas_ok:0,formulas_failed:0,formula_errors:[],graphs_total:0,graphs_ok:0,graphs_failed:0,images_total:0,images_ok:0,images_failed:0};
     const cache=new Map<string,any>();const X=72,W=449,bottom=67,top=770;let y=top;
     const sections=Array.isArray(input.sections)?input.sections.filter((s:any)=>s&&typeof s==="object"):[];
     const contentItems:any[]=[];const exerciseItems:any[]=[];const graphItems:any[]=[];const imageItems:any[]=[];
     const pointAnchors:any[]=[];
     const titleAnchors:any[]=[];
+    // Keep adjacent paragraphs in the same chapter, but draw their chapter heading only once.
+    let lastRenderedPointLabel="";
     if(sections.length)for(const section of sections){
       const texts=Array.isArray(section.content)?section.content:[section.content];
       if(section.point&&typeof section.point==="object"){
@@ -686,19 +713,21 @@ Deno.serve(async req=>{
       if(Array.isArray(input.images))imageItems.push(...input.images);
     }
     if(input.assisted_block?.content?.text&&!contentItems.length){const normalized=extractStructuredText(input.assisted_block.content.text).trim();if(normalized)contentItems.push(normalized);}
-    const BOX_X=X-10,BOX_W=W+20;
-    const PARA_X=X+22,PARA_W=W-22;
+    const BOX_X=X-10,BOX_W=W+32;
+    const PARA_X=X+18,PARA_W=W-6;
     const POINT_X=POINT_BOX_X,POINT_W=POINT_MAX_W;
     function floatingBlock(page:any,x:number,y:number,w:number,h:number){
-      // Bloc éditorial : fond gris neutre, contour gris discret et ombre légère.
-      rounded(page,x+2.5,y-2.5,w,h,BOX_RADIUS+1,rgbHex("#D9DADD"));
-      rounded(page,x,y,w,h,BOX_RADIUS,rgbHex("#E6E6E7"),rgbHex("#97989C"),0.45);
+      rounded(page,x+3.2,y-3.2,w,h,BOX_RADIUS+1,rgbHex("#D8D9DC"));
+      rounded(page,x+1.8,y-1.8,w,h,BOX_RADIUS+0.5,rgbHex("#CECFD2"));
+      // Fond gris éditorial volontairement distinct du fond de page.
+      rounded(page,x,y,w,h,BOX_RADIUS,rgbHex("#E0E1E3"),rgbHex("#999A9F"),0.55);
     }
-    const newFlowPage=()=>{
+    
+const newFlowPage=()=>{
       page=pdf.addPage([595,842]);
       railPages.push(page);
       flowPageNo++;
-      drawSoftDecor(page,color);
+      drawSoftDecor(page,color,flowPageNo);
       headerFooter(page,flowPageNo,fonts,logo,color);
       y=top;
     };
@@ -711,6 +740,8 @@ Deno.serve(async req=>{
         const accent=normalizeHexColor(text.color)||color;
         const rank=Math.max(1,Number(text.rank)||1);
         const label=(rank+". "+title).trim();
+        const repeatedPointTitle=label===lastRenderedPointLabel;
+        lastRenderedPointLabel=label;
         // Géométrie unique du bloc paragraphe : le calcul des lignes et le dessin
         // utilisent exactement la même largeur pour empêcher tout débordement.
         const titleX=28;
@@ -736,6 +767,9 @@ Deno.serve(async req=>{
         if(!pointItems.length)pointItems.push({kind:"inline",lines:[]});
         let cursor=0;
         let continuation=false;
+        // A single point can contain several paragraphs: its heading is pending
+        // only until the first body fragment is actually drawn.
+        let pointTitlePending=!repeatedPointTitle;
         while(cursor<pointItems.length){
            const remainingPage=Math.max(0,y-bottom);
            const titleFontSize=12.6,titleLineHeight=15.5,titlePadY=8;
@@ -743,8 +777,9 @@ Deno.serve(async req=>{
            const titleLines=wrap(label,fonts.sansBold,titleFontSize,titleMaxW-24);
            const titleMeasuredW=Math.max(0,...titleLines.map((line:string)=>fonts.sansBold.widthOfTextAtSize(line,titleFontSize)));
            const titleW=Math.min(BOX_W-22,Math.max(120,Math.ceil(titleMeasuredW)+24));
-           const titleH=continuation?0:Math.max(30,titlePadY*2+titleLines.length*titleLineHeight);
-           const separatorGap=continuation?0:12;
+           const showPointTitle=!continuation&&pointTitlePending;
+           const titleH=showPointTitle?Math.max(30,titlePadY*2+titleLines.length*titleLineHeight):0;
+           const separatorGap=showPointTitle?12:0;
            const availableContent=Math.max(0,remainingPage-titleH-separatorGap-BOX_PAD_TOP-BOX_PAD_BOTTOM-6);
            const fragment:any[]=[];let used=0;const gap=7;
            const addPointItem=(item:any)=>{
@@ -774,6 +809,9 @@ Deno.serve(async req=>{
              }else if(addPointItem(first)){cursor++;}
            }else if(first&&addPointItem(first)){cursor++;}
            if(fragment.length===0){newFlowPage();continue;}
+           // Consume the heading only after a non-empty fragment fits this page.
+           // If a new page was needed before drawing any text, keep the heading pending.
+           pointTitlePending=false;
 
            const bodyH=Math.max(36,BOX_PAD_TOP+used+BOX_PAD_BOTTOM);
            const titleY=y-titleH;
@@ -782,13 +820,14 @@ Deno.serve(async req=>{
              ? y-bodyH-bodyDrop
              : y-titleH-separatorGap-bodyH-bodyDrop;
            const editorialRule=rgbHex(mixWhite(accent,0.22));
-           const titleFill=rgbHex("#E6E6E7");
+           const titleFill=rgbHex("#E0E1E3");
 
            // Le titre n'existe qu'au début du point. Une suite coupée devient
            // volontairement un bloc paragraphe autonome sur la page suivante.
-           if(!continuation){
+           if(showPointTitle){
              titleAnchors.push({page,y:y-titleH/2,targetX:titleX,color:accent});
              rounded(page,titleX,y-titleH,titleW,titleH,8,titleFill,rgbHex("#BFC1C5"),0.45);
+              page.drawCircle({x:titleX+6.4,y:y-titleH/2,size:2.4,color:rgbHex(accent)});
              for(let i=0;i<titleLines.length;i++){
                page.drawText(escapePdfText(titleLines[i]),{
                  x:titleX+12,
@@ -799,13 +838,16 @@ Deno.serve(async req=>{
            }
 
            floatingBlock(page,bodyX,bodyY,bodyW,bodyH);
-           if(!continuation){
+           if(showPointTitle){
              const ruleY=bodyY+bodyH+separatorGap/2;
-             // Soulignement éditorial continu sur toute la largeur utile de la page.
-             page.drawLine({start:{x:26,y:ruleY},end:{x:572,y:ruleY},thickness:1.8,color:editorialRule});
-             pointAnchors.push({page,y:titleY,x:titleX,color:accent,topY:y-titleH,bottomY:bodyY,ruleY,boxX:bodyX,boxW:bodyW});
-           }
-           let childY=bodyY+bodyH-BOX_PAD_TOP;
+              // Filet fin, soulignement coloré court et point terminal.
+              page.drawLine({start:{x:26,y:ruleY},end:{x:572,y:ruleY},thickness:0.7,color:editorialRule});
+              page.drawLine({start:{x:26,y:ruleY},end:{x:96,y:ruleY},thickness:2.4,color:rgbHex(mixWhite(accent,0.06))});
+              page.drawCircle({x:572,y:ruleY,size:2.4,color:rgbHex(mixWhite(accent,0.12))});
+              pointAnchors.push({page,y:titleY,x:titleX,color:accent,topY:y-titleH,bottomY:bodyY,ruleY,boxX:bodyX,boxW:bodyW});
+            }
+            
+let childY=bodyY+bodyH-BOX_PAD_TOP;
            for(const item of fragment){
              if(item.kind==="inline"){
                drawInlineLines(page,item.lines,bodyX+12,childY,bodyTextW,fonts.regular,accent,rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT);
@@ -939,6 +981,8 @@ Deno.serve(async req=>{
       await drawContentBlock(statement);
       if(hint)await drawContentBlock("Indication : "+hint);
       if(correction){
+        // Le corrigé est une page physique dédiée, séparée de l’énoncé.
+        newFlowPage();
         ensureSpace(53);
         titleAnchors.push({page,y:y-4,targetX:X,color});
         sectionLabel(page,correctionTitle,X,y,fonts,color);y-=31;
@@ -958,22 +1002,20 @@ Deno.serve(async req=>{
         const h=Math.min(250,ih);
         const w=h===ih?iw:h*(img.width/img.height);
         const boxH=h+44;
-        if(y-boxH<bottom)throw new Error("ASSISTED_PAGE_TOO_LONG: illustration hors page.");
-        rounded(page,BOX_X,y-boxH,BOX_W,boxH,11,rgbHex(mixWhite(color,0.988)),rgbHex(mixWhite(color,0.70)),0.45);
+        if(y-boxH<bottom)newFlowPage();
+        rounded(page,BOX_X,y-boxH,BOX_W,boxH,11,rgbHex("#E8E8EA"),rgbHex("#A7A8AD"),0.5);
         page.drawImage(img,{x:X+(W-w)/2,y:y-16-h,width:w,height:h});
         const caption=clean(image.caption||image.title||"");
         if(caption){
-          const lines=proseText(caption);
-          let cy=y-21-h;
-          for(const line of lines.slice(0,2)){
-            for(const wrd of splitTextTokens(line)){
-              if(cy<bottom)break;
-              page.drawText(wrd.value,{x:X+4,y:cy,font:fonts.regular,size:8,color:rgbHex("#707178")});
-              cy-=11;
-            }
+          const capLines=wrap(caption,fonts.regular,8,W-8).slice(0,2);
+          let cy=y-29-h;
+          for(const cl of capLines){
+            page.drawText(escapePdfText(cl),{x:X+4,y:cy,font:fonts.regular,size:8,color:rgbHex("#707178")});
+            cy-=11;
           }
         }
-        y-=boxH+8;qa.images_ok++;
+        
+y-=boxH+8;qa.images_ok++;
       }catch(_){qa.images_failed++;}
     }
 
@@ -992,9 +1034,13 @@ Deno.serve(async req=>{
       p.drawLine({
         start:{x:railX,y:railTop},
         end:{x:railX,y:railBottom},
-        thickness:2.6,
+        thickness:3.0,
         color:rgbHex(mixWhite(color,0.10))
       });
+      p.drawCircle({x:railX,y:railTop,size:4.6,color:rgbHex(mixWhite(color,0.06))});
+      p.drawCircle({x:railX,y:railTop,size:1.6,color:rgbHex("#FFFFFF")});
+      p.drawCircle({x:railX,y:railBottom,size:4.6,color:rgbHex(mixWhite(color,0.06))});
+      p.drawCircle({x:railX,y:railBottom,size:1.6,color:rgbHex("#FFFFFF")});
     }
     for(const [p,list] of anchorsByPage){
       for(const a of list){
@@ -1003,9 +1049,10 @@ Deno.serve(async req=>{
         p.drawLine({
           start:{x:railX,y:a.y},
           end:{x:endX,y:a.y},
-          thickness:1.4,
+          thickness:1.8,
           color:tickColor
         });
+        p.drawCircle({x:endX,y:a.y,size:3.1,color:tickColor});
       }
     }
     for(const g of graphItems){
@@ -1025,19 +1072,20 @@ Deno.serve(async req=>{
         }
         if(!img)throw new Error("Asset graphique indisponible");
         const boxH=260;
-        if(y-boxH<bottom)throw new Error("ASSISTED_PAGE_TOO_LONG: graphique hors page.");
-        rounded(page,X-11,y-boxH,W+22,boxH,10,rgbHex(mixWhite(color,0.988)),rgbHex(mixWhite(color,0.70)),0.45);
-        const iw=Math.min(450,img.width),ih=Math.min(222,iw*(img.height/img.width));
+        if(y-boxH<bottom)newFlowPage();
+        rounded(page,X-11,y-boxH,W+22,boxH,10,rgbHex("#E8E8EA"),rgbHex("#A7A8AD"),0.5);
+        const scale=Math.min(1,450/img.width,222/img.height);
+        const iw=img.width*scale,ih=img.height*scale;
         const gy=y-15-ih;
         page.drawImage(img,{x:X+(W-iw)/2,y:gy,width:iw,height:ih});
         if(clean(g?.title)){
-          page.drawText(clean(g.title).slice(0,100),{x:X+4,y:y-242,font:fonts.bold,size:8.5,color:rgbHex("#5B5D66")});
+          page.drawText(clean(g.title).slice(0,100),{x:X+4,y:gy-14,font:fonts.bold,size:8.5,color:rgbHex("#5B5D66")});
         }
         y-=boxH+8;qa.graphs_ok++;
       }catch(_){qa.graphs_failed++;}
     }
 
-    const bytes=new Uint8Array(await pdf.save({useObjectStreams:false}));
+    const bytes=new Uint8Array(await pdf.save({useObjectStreams:true}));
     const path="aurora-content-pages/"+userId+"/"+id+"/page-"+String(pn).padStart(4,"0")+".pdf";
     const up=await admin.storage.from("Pdfs").upload(path,bytes,{contentType:"application/pdf",upsert:true});
     if(up.error)return out({ok:false,generated_document_id:id,page_number:pn,error:up.error.message},500);
