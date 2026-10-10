@@ -548,18 +548,89 @@ const EDITORIAL_SIMILARITY_STOPWORDS=new Set(["a","au","aux","avec","ce","ces","
 function editorialTokens(v:unknown){return normalizeEditorialSimilarityText(v).split(/\s+/).filter((w)=>w.length>=3&&!EDITORIAL_SIMILARITY_STOPWORDS.has(w));}
 function editorialShingles(v:unknown,size=5){const tokens=editorialTokens(v);const out=new Set<string>();for(let i=0;i<=tokens.length-size;i++)out.add(tokens.slice(i,i+size).join(" "));return out;}
 function editorialJaccard(a:Set<string>,b:Set<string>){if(!a.size||!b.size)return 0;let intersection=0;for(const x of a)if(b.has(x))intersection++;return intersection/(a.size+b.size-intersection);}
-function validateEditorialSectionDistinctness(content:any,profile:any){
-  if(profile.kind!=="cours"||!Array.isArray(content?.sections)||content.sections.length<2)return {enabled:false,duplicates:[],section_threshold:0.72,exercise_threshold:0.80};
-  const duplicates:any[]=[];
-  const sections=content.sections.map((section:any,index:number)=>{const body=Array.isArray(section?.content)?section.content.join(" "):String(section?.content||"");return {index:index+1,title:String(section?.title||"").trim(),words:editorialTokens(body),shingles:editorialShingles(body)};});
-  for(let i=0;i<sections.length;i++)for(let j=i+1;j<sections.length;j++){const a=sections[i],b=sections[j];if(Math.min(a.words.length,b.words.length)<40)continue;const similarity=editorialJaccard(a.shingles,b.shingles);if(similarity>=0.72)duplicates.push({kind:"section_content",section_a:a.index,section_b:b.index,title_a:a.title,title_b:b.title,similarity:Number(similarity.toFixed(3)),threshold:0.72});}
-  const exercises:any[]=[];
-  for(let i=0;i<content.sections.length;i++){const exs=Array.isArray(content.sections[i]?.exercises)?content.sections[i].exercises:[];for(let k=0;k<exs.length;k++){const statement=exs[k]?.question||exs[k]?.statement||exs[k]?.enonce||exs[k]?.content||"";const words=editorialTokens(statement);if(words.length<18)continue;exercises.push({section:i+1,number:k+1,words,shingles:editorialShingles(statement,4)});}}
-  for(let i=0;i<exercises.length;i++)for(let j=i+1;j<exercises.length;j++){const a=exercises[i],b=exercises[j];const similarity=editorialJaccard(a.shingles,b.shingles);if(similarity>=0.80)duplicates.push({kind:"exercise_statement",section_a:a.section,exercise_a:a.number,section_b:b.section,exercise_b:b.number,similarity:Number(similarity.toFixed(3)),threshold:0.80});}
-  if(duplicates.length)throw new Error("Garde-fou éditorial : contenus substantiellement répétitifs détectés entre sections/exercices. L’IA éditrice doit réécrire les éléments signalés avant l’ingestion. Détails: "+JSON.stringify(duplicates.slice(0,8)));
-  return {enabled:true,duplicates:[],section_threshold:0.72,exercise_threshold:0.80};
+function editorialSectionMaterial(section:any){
+  const parts:string[]=[];
+  if(typeof section?.title==="string")parts.push(section.title);
+  if(Array.isArray(section?.content))parts.push(...section.content.map((x:any)=>String(x??"")));
+  else if(section?.content)parts.push(String(section.content));
+  if(Array.isArray(section?.exercises)){
+    for(const ex of section.exercises){
+      parts.push(String(ex?.question||ex?.statement||ex?.enonce||ex?.content||""));
+      parts.push(String(ex?.solution||ex?.correction||ex?.details||""));
+    }
+  }
+  return parts.filter(x=>x.trim()).join("\n");
 }
-
+function editorialFormulaFingerprint(v:unknown){
+  const raw=String(v??"");
+  const formulas=[
+    ...Array.from(raw.matchAll(/\\\(([^)]{3,500})\\\)/g)).map(m=>m[1]),
+    ...Array.from(raw.matchAll(/\\\[([\\s\\S]{3,500}?)\\\]/g)).map(m=>m[1]),
+    ...Array.from(raw.matchAll(/\\\\begin\\{(?:equation|align|align\*|displaymath)\\}([\\s\\S]{3,1200}?)\\\\end\\{(?:equation|align|align\*|displaymath)\\}/g)).map(m=>m[1]),
+    ...Array.from(raw.matchAll(/\$([^$]{3,500})\$/g)).map(m=>m[1]),
+    ...Array.from(raw.matchAll(/[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9_]*\s*(?:=|≤|≥|→|⇌|↔)\s*[^.;\n]{2,180}/g)).map(m=>m[0])
+  ];
+  return new Set(formulas.map(x=>normalizeEditorialSimilarityText(x)).filter(x=>x.length>=8));
+}
+function validateEditorialSectionDistinctness(content:any,profile:any){
+  const base={enabled:false,duplicates:[],section_threshold:0.68,exact_block_threshold:0.92,formula_overlap_threshold:0.70,exercise_threshold:0.80};
+  if(profile.kind!=="cours"||!Array.isArray(content?.sections)||content.sections.length<2)return base;
+  const duplicates:any[]=[];
+  const sections=content.sections.map((section:any,index:number)=>{
+    const material=editorialSectionMaterial(section);
+    const words=editorialTokens(material);
+    const shingles=editorialShingles(material);
+    const formulae=editorialFormulaFingerprint(material);
+    const blocks=(Array.isArray(section?.content)?section.content:[])
+      .map((x:any)=>String(x??"").trim()).filter((x:string)=>x.length>=140)
+      .map((x:string)=>normalizeEditorialSimilarityText(x));
+    return {index:index+1,title:String(section?.title||"").trim(),words,shingles,formulae,blocks};
+  });
+  for(let i=0;i<sections.length;i++)for(let j=i+1;j<sections.length;j++){
+    const a=sections[i],b=sections[j];
+    if(Math.min(a.words.length,b.words.length)>=40){
+      const similarity=editorialJaccard(a.shingles,b.shingles);
+      if(similarity>=0.68)duplicates.push({kind:"section_content",section_a:a.index,section_b:b.index,title_a:a.title,title_b:b.title,similarity:Number(similarity.toFixed(3)),threshold:0.68});
+    }
+    const bSet=new Set(b.blocks);
+    const repeatedBlocks=a.blocks.filter(x=>bSet.has(x));
+    if(repeatedBlocks.length>0)duplicates.push({kind:"repeated_block",section_a:a.index,section_b:b.index,title_a:a.title,title_b:b.title,count:repeatedBlocks.length,examples:repeatedBlocks.slice(0,2).map(x=>x.slice(0,180))});
+    if(a.formulae.size>=2&&b.formulae.size>=2){
+      const formulaSimilarity=editorialJaccard(a.formulae,b.formulae);
+      if(formulaSimilarity>=0.70)duplicates.push({kind:"formula_block",section_a:a.index,section_b:b.index,title_a:a.title,title_b:b.title,similarity:Number(formulaSimilarity.toFixed(3)),threshold:0.70,shared_formula_count:[...a.formulae].filter(x=>b.formulae.has(x)).length});
+    }
+  }
+  const exercises:any[]=[];
+  for(let i=0;i<content.sections.length;i++){
+    const exs=Array.isArray(content.sections[i]?.exercises)?content.sections[i].exercises:[];
+    for(let k=0;k<exs.length;k++){
+      const statement=exs[k]?.question||exs[k]?.statement||exs[k]?.enonce||exs[k]?.content||"";
+      const words=editorialTokens(statement);
+      if(words.length<18)continue;
+      exercises.push({section:i+1,number:k+1,words,shingles:editorialShingles(statement,4)});
+    }
+  }
+  for(let i=0;i<exercises.length;i++)for(let j=i+1;j<exercises.length;j++){
+    const a=exercises[i],b=exercises[j],similarity=editorialJaccard(a.shingles,b.shingles);
+    if(similarity>=0.80)duplicates.push({kind:"exercise_statement",section_a:a.section,exercise_a:a.number,section_b:b.section,exercise_b:b.number,similarity:Number(similarity.toFixed(3)),threshold:0.80});
+  }
+  if(duplicates.length){
+    const repair=duplicates.slice(0,12).map((d:any)=>({
+      kind:d.kind,
+      sections:[d.section_a,d.section_b],
+      titles:[d.title_a,d.title_b],
+      action:d.kind==="formula_block"?"Conserver uniquement les relations nécessaires à chaque chapitre et remplacer les blocs génériques par les relations réellement introduites, démontrées ou exploitées dans ce chapitre."
+        :d.kind==="repeated_block"?"Réécrire le bloc dans le vocabulaire et la progression propres au chapitre ; ne pas recopier une introduction ou synthèse d'un autre chapitre."
+        :d.kind==="exercise_statement"?"Créer un énoncé réellement différent, avec une situation, des données et un objectif propres au chapitre."
+        :"Réécrire les deux sections pour que chacune développe son propre sujet et supprimer tout remplissage transversal répété."
+    }));
+    const error:any=new Error("Garde-fou éditorial inter-sections bloqué : plusieurs sections réutilisent substantiellement le même contenu. L’IA éditrice doit corriger les sections signalées puis soumettre une nouvelle version. Détails: "+JSON.stringify(duplicates.slice(0,8)));
+    error.code="EDITORIAL_SECTION_DISTINCTNESS";
+    error.editorial_repair={required:true,protocol:"editorial-distinctness-v2",repair_contract:repair,revalidate_after_repair:true};
+    throw error;
+  }
+  return {...base,enabled:true,duplicates:[],protocol:"editorial-distinctness-v2"};
+}
 function validateEditorialContent(content:any,profile:any,instructions:any,subjectForValidation:any=null){
   if(!content||typeof content!=="object"||Array.isArray(content))throw new Error("content_json doit être un objet JSON.");
   if(typeof content.title!=="string"||!content.title.trim())throw new Error("content_json.title est obligatoire.");
@@ -770,5 +841,11 @@ Deno.serve(async req=>{
     const out=Array.isArray(result)?result[0]:result;
     if(!out?.ok)throw new Error("Le contrat d’ingestion éditoriale a refusé le document.");
     return reply({ok:true,duplicate:out.duplicate===true,generated_document_id:out.generated_document_id,job_id:out.job_id,status:out.status,version:out.version,schema_version:SCHEMA_VERSION,content_sha256:contentHash,message:out.duplicate?"Document éditorial déjà intégré : aucune duplication créée.":"Document éditorial reçu. Il est en contrôle administratif; le rendu PDF reste séparé."},out.duplicate?200:201);
-  }catch(error){console.error("aurora-gpt-ingest:",error);return reply({ok:false,error:error instanceof Error?error.message:String(error)},500);}
+  }catch(error){
+    console.error("aurora-gpt-ingest:",error);
+    if(error&&typeof error==="object"&&(error as any).code==="EDITORIAL_SECTION_DISTINCTNESS"){
+      return reply({ok:false,error:(error as any).message,code:"EDITORIAL_SECTION_DISTINCTNESS",editorial_repair:(error as any).editorial_repair||null},422);
+    }
+    return reply({ok:false,error:error instanceof Error?error.message:String(error)},500);
+  }
 });
