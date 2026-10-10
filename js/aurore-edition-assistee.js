@@ -2269,33 +2269,55 @@
     const out=document.getElementById('aeWikiResults');
     if(!out)return;
     out.innerHTML=wikiResultEntries.map((d,i)=>'<article class="ae-wiki-card"><img loading="lazy" src="'+esc(d.thumbUrl)+'" alt=""><div><strong>'+esc(d.title)+'</strong><small>'+esc(d.author||'Auteur non renseigné')+'</small><small>'+esc(d.license||'Licence à vérifier')+'</small></div><button type="button" class="admin-btn primary" data-wiki-index="'+i+'">Ajouter</button></article>').join('')||'<div class="ae-empty">Aucune image exploitable dans ce lot. Tu peux charger le lot suivant ou reformuler la recherche.</div>';
-    out.querySelectorAll('[data-wiki-index]').forEach(btn=>btn.onclick=async()=>{
+
+    // Délégation stable : le clic reste pris en charge même après les re-rendus
+    // de la liste, et l’utilisateur reçoit un retour visible dès le premier tap.
+    out.onclick=async event=>{
+      const btn=event.target?.closest?.('[data-wiki-index]');
+      if(!btn||!out.contains(btn))return;
+      event.preventDefault();
+      event.stopPropagation();
       if(btn.disabled)return;
       const d=wikiResultEntries[Number(btn.dataset.wikiIndex)];
       if(!d)return;
-      let selectedBlock=null;
-      const blocks=activeBlocks();
-      if(wikiReplaceTargetNext&&wikiInsertAfterId){
-        const target=blocks.find(x=>String(x.id)===wikiInsertAfterId);
-        if(target&&target.type==='wikimedia-image'&&!String(target.content?.imageUrl||'').trim()){
-          target.content=d;selectedBlock=target;
-        }
-      }
-      wikiReplaceTargetNext=false;
-      if(!selectedBlock){
-        selectedBlock=block('wikimedia-image');selectedBlock.content=d;
-        const anchorIndex=wikiInsertAfterId?blocks.findIndex(x=>String(x.id)===wikiInsertAfterId):-1;
-        if(anchorIndex>=0)blocks.splice(anchorIndex+1,0,selectedBlock);
-        else blocks.push(selectedBlock);
-      }
-      wikiInsertAfterId=String(selectedBlock.id);
-      state.selected=selectedBlock.id;
-      validateCourse();
-      await persistCourse(true,false);
+
       const status=document.getElementById('aeWikiSelectionStatus');
-      if(status)status.textContent='Image ajoutée : '+d.title+'. Tu peux saisir une nouvelle requête et lancer une autre recherche.';
-      btn.disabled=true;btn.textContent='Ajoutée';
-    });
+      const originalLabel=btn.textContent||'Ajouter';
+      btn.disabled=true;
+      btn.textContent='Ajout…';
+      if(status)status.textContent='Ajout de l’image au cours en cours…';
+
+      try{
+        let selectedBlock=null;
+        const blocks=activeBlocks();
+        if(wikiReplaceTargetNext&&wikiInsertAfterId){
+          const target=blocks.find(x=>String(x.id)===wikiInsertAfterId);
+          if(target&&target.type==='wikimedia-image'&&!String(target.content?.imageUrl||'').trim()){
+            target.content=d;
+            selectedBlock=target;
+          }
+        }
+        wikiReplaceTargetNext=false;
+        if(!selectedBlock){
+          selectedBlock=block('wikimedia-image');
+          selectedBlock.content=d;
+          const anchorIndex=wikiInsertAfterId?blocks.findIndex(x=>String(x.id)===wikiInsertAfterId):-1;
+          if(anchorIndex>=0)blocks.splice(anchorIndex+1,0,selectedBlock);
+          else blocks.push(selectedBlock);
+        }
+        wikiInsertAfterId=String(selectedBlock.id);
+        state.selected=selectedBlock.id;
+        validateCourse();
+        await persistCourse(true,false);
+        if(status)status.textContent='Image ajoutée : '+d.title+'. Tu peux continuer à faire défiler les résultats ou en ajouter d’autres.';
+        btn.textContent='Ajoutée';
+        btn.setAttribute('aria-label','Image ajoutée : '+d.title);
+      }catch(error){
+        btn.disabled=false;
+        btn.textContent=originalLabel;
+        if(status)status.textContent='Échec de l’ajout : '+String(error?.message||error)+'. Réessaie.';
+      }
+    };
   }
 
   async function searchWiki(loadMore=false){
