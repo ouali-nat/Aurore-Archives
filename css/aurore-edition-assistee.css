@@ -176,3 +176,38 @@ html[data-theme="light"] .ae-modal .ae-dialog{--ae-card:var(--card-bg,var(--surf
 
 /* Fenêtre de téléchargement fixée au viewport, même hors du body */
 html > #aeBlockDownloadChoiceOverlay{position:fixed!important;inset:0!important;left:0!important;top:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;z-index:2147483000!important;}
+
+
+/* Correction ciblée mobile Wikimedia : la liste occupe réellement la rangée scrollable du dialogue. */
+.ae-wiki-dialog{
+  height:min(92dvh,calc(100dvh - 24px));
+  min-height:0;
+  grid-template-rows:auto auto auto minmax(0,1fr) auto;
+}
+.ae-wiki-dialog>header{grid-row:1;min-height:0}
+.ae-wiki-dialog>.ae-wiki-search{grid-row:2;min-height:0}
+.ae-wiki-dialog>.ae-wiki-selection-status{grid-row:3;min-height:0}
+.ae-wiki-dialog>.ae-wiki-results{
+  grid-row:4;
+  align-self:stretch;
+  min-width:0;
+  min-height:0;
+  height:100%;
+  max-height:none;
+  box-sizing:border-box;
+  overflow-x:hidden;
+  overflow-y:scroll;
+  overscroll-behavior-y:contain;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-y;
+  position:relative;
+  pointer-events:auto;
+}
+.ae-wiki-dialog>.ae-wiki-pagination{grid-row:5;min-height:0}
+.ae-wiki-card button{
+  position:relative;
+  z-index:1;
+  min-height:40px;
+  touch-action:manipulation;
+  pointer-events:auto;
+}
