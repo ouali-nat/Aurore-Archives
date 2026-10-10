@@ -573,7 +573,13 @@
     if(b.type==='graphique')editor='<textarea class="ae-inline-json" data-edit-json="'+esc(b.id)+'" aria-label="JSON du graphique">'+esc(JSON.stringify(b.content?.json||{},null,2))+'</textarea>';
     else if(b.type==='point')editor='<div class="ae-structured-editor ae-point-editor"><div class="ae-editor-grid"><label>Nom du point<input data-edit-point-title="'+esc(b.id)+'" value="'+esc(b.content?.title||'')+'" maxlength="140"></label><label>Rang<input type="number" min="1" step="1" data-edit-point-rank="'+esc(b.id)+'" value="'+esc(b.content?.rank||1)+'"></label><label>Couleur<select data-edit-point-color="'+esc(b.id)+'">'+pointColorOptions(b.content?.color)+'</select></label></div><label>Contenu<textarea data-edit-text="'+esc(b.id)+'" aria-label="Contenu du point de cours">'+esc(b.content?.text||'')+'</textarea></label><div class="ae-point-style-preview"><span style="--point-color:'+esc(normalizePointColor(b.content?.color))+'"></span><strong>'+esc(b.content?.title||'Point de cours')+'</strong><i></i></div></div>';
     else if(b.type==='exercise')editor='<div class="ae-structured-editor ae-exercise-editor"><label>Titre de l’exercice<input data-edit-exercise-title="'+esc(b.id)+'" value="'+esc(b.content?.title||'')+'" maxlength="140"></label><label>Énoncé<textarea data-edit-exercise-statement="'+esc(b.id)+'" aria-label="Énoncé de l’exercice">'+esc(b.content?.statement||'')+'</textarea></label><label>Indication<textarea class="ae-small-textarea" data-edit-exercise-hint="'+esc(b.id)+'" aria-label="Indication de l’exercice">'+esc(b.content?.hint||'')+'</textarea></label><div class="ae-correction-editor"><strong>Correction conditionnée à cet exercice</strong><label>Titre du corrigé<input data-edit-correction-title="'+esc(b.id)+'" value="'+esc(b.content?.correction_title||'')+'" maxlength="140"></label><textarea data-edit-correction="'+esc(b.id)+'" aria-label="Correction">'+esc(b.content?.correction||'')+'</textarea></div></div>';
-    else if(b.type==='wikimedia-image')editor=b.content?.imageUrl?'<div class="ae-selected-image"><img src="'+esc(b.content.imageUrl)+'" alt="'+esc(b.content.title||'Image Wikimedia')+'"><div><strong>'+esc(b.content.title||'Image Wikimedia')+'</strong><small>'+esc(b.content.license||'Licence à vérifier')+'</small></div></div>':'<div class="ae-image-pick-empty">Ajoutez une image Wikimedia avec le bouton dédié.</div>';
+    else if(b.type==='wikimedia-image'){
+      const hasImage=String(b.content?.imageUrl||'').trim().startsWith('https://upload.wikimedia.org/');
+      editor='<div class="ae-wikimedia-editor">'+(hasImage
+        ?'<div class="ae-selected-image"><img src="'+esc(b.content.imageUrl)+'" alt="'+esc(b.content.title||'Image Wikimedia')+'"><div><strong>'+esc(b.content.title||'Image Wikimedia')+'</strong><small>'+esc(b.content.license||'Licence à vérifier')+'</small></div></div>'
+        :'<div class="ae-image-pick-empty">Aucune image sélectionnée. Lance une recherche pour choisir une illustration.</div>')+
+        '<button type="button" class="admin-btn ghost ae-wiki-open-picker" data-search-wikimedia="'+esc(b.id)+'">'+(hasImage?'↻ Rechercher / remplacer l’image':'＋ Choisir une image Wikimedia')+'</button></div>';
+    }
     else editor='<textarea data-edit-text="'+esc(b.id)+'" aria-label="Contenu du bloc">'+esc(b.content?.text||'')+'</textarea>';
     return '<article class="ae-block '+(state.selected===b.id?'is-selected':'')+'" data-block="'+esc(b.id)+'">'+
       '<header class="ae-block-head"><div><span class="ae-block-number">'+String(page).padStart(2,'0')+'</span><strong>'+esc(labelFor(b))+'</strong><small>'+esc(b.validation?.ok?'Bloc valide':'À valider')+'</small></div><span class="ae-block-state '+(v.ok?'ok':'bad')+'">'+(v.ok?'Valide':'À corriger')+'</span></header>'+
@@ -990,7 +996,7 @@
     document.getElementById('aeAddPoint').onclick=()=>addBlock('point');
     document.getElementById('aeAddEx').onclick=()=>addBlock('exercise');
     document.getElementById('aeAddGraph').onclick=()=>addBlock('graphique');
-    document.getElementById('aeAddWiki').onclick=wiki;
+    document.getElementById('aeAddWiki').onclick=()=>wiki();
     document.getElementById('aeTocJson').onclick=()=>jsonTocDialog();
     const tocTitleInput=document.getElementById('aeTocTitle');
     if(tocTitleInput)tocTitleInput.oninput=e=>{state.course.document_pages.toc.title=e.target.value;};
@@ -1050,6 +1056,7 @@
     root().querySelectorAll('[data-clear-block]').forEach(x=>x.onclick=()=>clearBlock(x.dataset.clearBlock));
     document.getElementById('aeCopyTocJson')?.addEventListener('click',copyTocJson);
     root().querySelectorAll('[data-insert-after]').forEach(x=>x.onchange=async()=>{const type=x.value;x.value='';if(type)await insertBlockAfter(x.dataset.insertAfter,type);});
+    root().querySelectorAll('[data-search-wikimedia]').forEach(x=>x.onclick=()=>wiki(x.dataset.searchWikimedia,true));
     root().querySelectorAll('[data-validate-block]').forEach(x=>x.onclick=()=>generateBlock(x.dataset.validateBlock));
   }
 
@@ -2225,12 +2232,12 @@
   let wikiResultEntries=[];
   let wikiSeenFiles=new Set();
 
-  function wiki(afterId=null){
+  function wiki(afterId=null,replaceExisting=false){
     const host=prepareAssistedModalHost();if(!host)return;
     if(state.modalViewport)closeAssistedModal();
     wikiInsertAfterId=afterId?String(afterId):null;
     const initialTarget=wikiInsertAfterId?activeBlocks().find(x=>String(x.id)===wikiInsertAfterId):null;
-    wikiReplaceTargetNext=Boolean(initialTarget&&initialTarget.type==='wikimedia-image'&&!String(initialTarget.content?.imageUrl||'').trim());
+    wikiReplaceTargetNext=Boolean(initialTarget&&initialTarget.type==='wikimedia-image'&&(replaceExisting||!String(initialTarget.content?.imageUrl||'').trim()));
     wikiCurrentQuery='';wikiContinuation=null;wikiRequestSequence=0;wikiLoading=false;wikiResultEntries=[];wikiSeenFiles=new Set();
     host.innerHTML='<div class="ae-modal"><div class="ae-dialog ae-wiki-dialog"><header><div><span class="ae-kicker">Wikimedia Commons</span><h4>Choisir une ou plusieurs images</h4></div><button class="admin-btn ghost" id="aeWikiClose">Fermer</button></header><div class="ae-wiki-search"><input id="aeWikiQ" placeholder="Ex. cellule animale, volcan, Newton…" autocomplete="off"><button class="admin-btn primary" id="aeWikiGo">Rechercher</button></div><div id="aeWikiSelectionStatus" class="ae-wiki-selection-status" aria-live="polite">Lance une recherche, puis ajoute une ou plusieurs images sans fermer cette fenêtre.</div><div id="aeWikiResults" class="ae-wiki-results" aria-live="polite"></div><div id="aeWikiPagination" class="ae-wiki-pagination" hidden><button type="button" class="admin-btn ghost" id="aeWikiLoadMore">Charger plus d’images</button></div></div></div>';
     activateAssistedModal(host);
@@ -2254,12 +2261,13 @@
     const license=String(m?.LicenseShortName?.value||m?.UsageTerms?.value||'').replace(/<[^>]+>/g,'').trim();
     const mime=String(i.mime||'').toLowerCase();
     const imageUrl=String(i.url||'');
-    if(!imageUrl.startsWith('https://upload.wikimedia.org/')||!['image/jpeg','image/png'].includes(mime)||/fair use|non-commercial|no derivatives/i.test(license))return null;
+    const sourceUrl=String(i.descriptionurl||('https://commons.wikimedia.org/wiki/'+encodeURIComponent(p.title||'')));
+    if(!imageUrl.startsWith('https://upload.wikimedia.org/')||!['image/jpeg','image/png'].includes(mime)||!license||!sourceUrl||/fair use|non-commercial|no derivatives/i.test(license))return null;
     const title=String(p.title||'').replace(/^File:/,'');
     return {
       imageUrl,thumbUrl:String(i.thumburl||imageUrl),title,
       caption:String(m?.ImageDescription?.value||title).replace(/<[^>]+>/g,'').trim(),
-      sourceUrl:String(i.descriptionurl||('https://commons.wikimedia.org/wiki/'+encodeURIComponent(p.title||''))),
+      sourceUrl,
       author:String(m?.Artist?.value||'').replace(/<[^>]+>/g,'').trim(),
       license,query:q
     };
@@ -2268,7 +2276,7 @@
   function renderWikiResults(){
     const out=document.getElementById('aeWikiResults');
     if(!out)return;
-    out.innerHTML=wikiResultEntries.map((d,i)=>'<article class="ae-wiki-card"><img loading="lazy" src="'+esc(d.thumbUrl)+'" alt=""><div><strong>'+esc(d.title)+'</strong><small>'+esc(d.author||'Auteur non renseigné')+'</small><small>'+esc(d.license||'Licence à vérifier')+'</small></div><button type="button" class="admin-btn primary" data-wiki-index="'+i+'">Ajouter</button></article>').join('')||'<div class="ae-empty">Aucune image exploitable dans ce lot. Tu peux charger le lot suivant ou reformuler la recherche.</div>';
+    out.innerHTML=wikiResultEntries.map((d,i)=>'<button type="button" class="ae-wiki-card" data-wiki-index="'+i+'" aria-label="Sélectionner '+esc(d.title)+'"><img loading="lazy" src="'+esc(d.thumbUrl)+'" alt=""><span class="ae-wiki-card-copy"><strong>'+esc(d.title)+'</strong><small>'+esc(d.author||'Auteur non renseigné')+'</small><small>'+esc(d.license||'Licence à vérifier')+'</small></span><span class="ae-wiki-card-action">Choisir cette image</span></button>').join('')||'<div class="ae-empty">Aucune image exploitable dans ce lot. Tu peux charger le lot suivant ou reformuler la recherche.</div>';
     out.querySelectorAll('[data-wiki-index]').forEach(btn=>btn.onclick=async()=>{
       if(btn.disabled)return;
       const d=wikiResultEntries[Number(btn.dataset.wikiIndex)];
@@ -2277,7 +2285,7 @@
       const blocks=activeBlocks();
       if(wikiReplaceTargetNext&&wikiInsertAfterId){
         const target=blocks.find(x=>String(x.id)===wikiInsertAfterId);
-        if(target&&target.type==='wikimedia-image'&&!String(target.content?.imageUrl||'').trim()){
+        if(target&&target.type==='wikimedia-image'){
           target.content=d;selectedBlock=target;
         }
       }
@@ -2291,10 +2299,14 @@
       wikiInsertAfterId=String(selectedBlock.id);
       state.selected=selectedBlock.id;
       validateCourse();
-      await persistCourse(true,false);
+      btn.disabled=true;
+      btn.classList.add('is-selected');
+      const action=btn.querySelector('.ae-wiki-card-action');
+      if(action)action.textContent='Sélectionnée ✓';
       const status=document.getElementById('aeWikiSelectionStatus');
-      if(status)status.textContent='Image ajoutée : '+d.title+'. Tu peux saisir une nouvelle requête et lancer une autre recherche.';
-      btn.disabled=true;btn.textContent='Ajoutée';
+      if(status)status.textContent='Image sélectionnée : '+d.title+'. Tu peux relancer une recherche ou charger davantage d’images.';
+      await persistCourse(true,false);
+      setStatus('Image Wikimedia sélectionnée et enregistrée.');
     });
   }
 
