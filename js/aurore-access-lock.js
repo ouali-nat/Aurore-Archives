@@ -1,4 +1,5 @@
 (function(){
+  const adminOnly=document.documentElement.classList.contains('aurore-admin-standalone');
   // Capture très précoce du lien profond Android. Ce fichier est chargé avant
   // le moteur OAuth : le retour Google ne doit donc jamais être perdu pendant
   // le démarrage de l'App.
@@ -25,7 +26,7 @@
 
   const lock=document.getElementById('accessLock');
   const google=document.getElementById('accessGoogleBtn');
-  const visitor=document.getElementById('accessVisitorBtn');
+  const visitor=adminOnly?null:document.getElementById('accessVisitorBtn');
   const signupOpen=document.getElementById('accessSignupBtn');
   const modal=document.getElementById('signupModal');
   const close=document.getElementById('signupClose');
@@ -140,7 +141,7 @@
     try{
       const deconnexionExplicite=localStorage.getItem('aurore_explicit_logout')==='1';
       const sessionConnue=!!localStorage.getItem('lsnb_session');
-      const visiteurConnu=localStorage.getItem('aurore_visitor_mode')==='1';
+      const visiteurConnu=!adminOnly && localStorage.getItem('aurore_visitor_mode')==='1';
       if(deconnexionExplicite)return;
       if(sessionConnue||visiteurConnu){
         if(visiteurConnu)demarrerSuiviVisiteur();
@@ -182,7 +183,7 @@
     // augmente le risque que le navigateur suspende la page avant la redirection.
     if(typeof demarrerConnexionGoogle==='function') { try { await demarrerConnexionGoogle(); } catch (err) { console.error('[Google OAuth]', err); window.auroreAfficherErreurDebug?.('[Bouton Google — accès] ' + (err?.message || err)); } } else { window.auroreAfficherErreurDebug?.('[Bouton Google — accès] demarrerConnexionGoogle est introuvable (script non chargé ?)'); }
   });
-  try{if(localStorage.getItem('aurore_visitor_mode')==='1') demarrerSuiviVisiteur();}catch(e){}
+  try{if(!adminOnly && localStorage.getItem('aurore_visitor_mode')==='1') demarrerSuiviVisiteur();}catch(e){}
   signupOpen?.addEventListener('click',()=>{modal.style.display='flex';modal.setAttribute('aria-hidden','false');afficherModeInscription();setTimeout(()=>document.getElementById('signupName')?.focus(),50);});
   showLoginBtn?.addEventListener('click',afficherModeConnexionEmail);
   backSignupBtn?.addEventListener('click',afficherModeInscription);
