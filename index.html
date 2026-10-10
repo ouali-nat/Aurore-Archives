@@ -612,6 +612,20 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <link rel="stylesheet" href="./css/aurore-admin-parcours.css?v=20261002-parcours2&aurore_release=20261010-temporary-no-cache1">
 <link rel="stylesheet" href="./css/aurore-glass.css?v=20261004-glass2&aurore_release=20261010-temporary-no-cache1">
 <link rel="stylesheet" href="./css/aurore-edition-assistee.css?v=20261010-toc-wikimedia-scroll1&aurore_release=20261010-temporary-no-cache1">
+
+<style id="aurore-temporary-startup-safety">
+  /* Secours minimal : si une feuille distante échoue, une seule vue reste visible. */
+  .screen{display:none}
+  .screen.active{display:block}
+  /* Désactivation temporaire de l'écran animé « Préparation de votre espace ». */
+  html.aurore-boot-pending:not(.aurore-boot-overlay-ready)::before,
+  html.aurore-boot-pending:not(.aurore-boot-overlay-ready)::after{
+    display:none!important;content:none!important
+  }
+  html.aurore-boot-pending #auroreBootOverlay,
+  #auroreBootOverlay{display:none!important}
+</style>
+
 </head>
 <body class="site-locked">
 <div class="aurore-boot-overlay" id="auroreBootOverlay" role="status" aria-live="polite" aria-label="Chargement d’Aurore" aria-hidden="false">
