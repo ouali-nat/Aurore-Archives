@@ -80,27 +80,10 @@ function optimizeHTML() {
     .replace(/\n\s+/g, '\n')
     .replace(/\s+\n/g, '\n');
   
-  // Ajoute les attributs d'optimisation
-  html = html.replace(
-    /<link[^>]*rel="stylesheet"[^>]*href="\/css\/([^"]*"[^>]*>/g,
-    (match, filename) => {
-      // Les CSS critiques sont chargées, les autres sont deferred
-      const criticalCSS = [
-        'aurora-base.css',
-        'aurore-theme-foundation.css',
-        'aurora-performance-critical.css'
-      ];
-      return criticalCSS.includes(filename.replace('"', '')) 
-        ? match 
-        : match.replace('>', ' rel="preload" as="style" onload="this.onload=null;this.rel=\'stylesheet\'">');
-    }
-  );
-  
-  // Ajoute async/defer aux scripts
-  html = html.replace(
-    /<script[^>]*src="\/js\/([^"]*"[^>]*>/g,
-    (match) => match.replace('>', ' defer>').replace(match, match.replace('src=', 'async src='))
-  );
+  // Ne pas réécrire les balises CSS/JS : modifier rel, async ou defer par regex
+  // peut casser l'ordre d'exécution des scripts et retarder les styles critiques.
+  // Vercel compresse les réponses automatiquement ; le pipeline ne doit pas
+  // annoncer Content-Encoding ni transformer les ressources servies.
   
   const optimizedSize = html.length;
   const reduction = (((originalSize - optimizedSize) / originalSize) * 100).toFixed(1);
@@ -152,9 +135,7 @@ function generateReport(cssStats, htmlStats) {
 ✅ Applied Optimizations:
    • CSS minification & gzip compression
    • HTML comment removal & minification
-   • Deferred stylesheet loading
-   • Async script loading
-   • Service Worker caching strategy
+   • Préservation de l’ordre original de chargement CSS/JS
    • Critical CSS inlining
    • Image optimization recommendations
 
