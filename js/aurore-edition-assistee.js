@@ -2240,39 +2240,47 @@
     throw new Error('La génération du PDF n’a pas terminé dans le délai prévu.');
   }
 
+  function isAssistedFlowableBlock(b){
+    if(!b||isSystemBlock(b)||isDefaultIntroduction(b)||isRepeatedDefaultIntroduction(b))return false;
+    const type=String(b.type||'').toLowerCase();
+    const content=b.content&&typeof b.content==='object'?b.content:{};
+    if(type==='paragraph'||type==='point')return Boolean(String(content.text||'').trim());
+    if(type==='graphique'){
+      const graph=content.json&&typeof content.json==='object'&&!Array.isArray(content.json)?content.json:{};
+      return Boolean(String(graph.id||'').trim()&&String(graph.instrument||graph.graph_type||'').trim()&&String(graph.geogebra_image_path||graph.graph_local_path||graph.expression||'').trim());
+    }
+    if(type==='wikimedia-image'){
+      return String(content.imageUrl||'').startsWith('https://upload.wikimedia.org/')
+        &&Boolean(String(content.license||'').trim())
+        &&String(content.sourceUrl||'').startsWith('https://commons.wikimedia.org/');
+    }
+    return false;
+  }
+
   function flowSegmentFor(id){
     const all=activeBlocks();
     const index=all.findIndex(b=>String(b?.id||'')===String(id||''));
     if(index<0)return [];
     const current=all[index];
-    const flowable=b=>{
-      if(!b||isSystemBlock(b)||isDefaultIntroduction(b)||isRepeatedDefaultIntroduction(b))return false;
-      if(!['paragraph','point'].includes(String(b.type||'').toLowerCase()))return false;
-      return Boolean(String(b.content?.text||'').trim());
-    };
-    if(!flowable(current))return [current];
+    if(!isAssistedFlowableBlock(current))return [current];
     let start=index,end=index;
-    while(start>0&&flowable(all[start-1]))start--;
-    while(end<all.length-1&&flowable(all[end+1]))end++;
+    while(start>0&&isAssistedFlowableBlock(all[start-1]))start--;
+    while(end<all.length-1&&isAssistedFlowableBlock(all[end+1]))end++;
     return all.slice(start,end+1);
   }
 
   function flowBlocksFor(id){
     const all=activeBlocks();
-    const index=all.findIndex(b=>b?.id===id);
+    const index=all.findIndex(b=>String(b?.id||'')===String(id||''));
     if(index<0)return [];
     const current=all[index];
-    const flowable=(b)=>['paragraph','point'].includes(String(b?.type||'').toLowerCase())&&!isSystemBlock(b)&&!isDefaultIntroduction(b)&&!isRepeatedDefaultIntroduction(b)&&Boolean(String(b?.content?.text||'').trim());
-    // Un même flux éditorial peut enchaîner points et paragraphes.
-    // Les exercices, graphiques et images restent des unités indépendantes.
-    if(!flowable(current))return [current];
-
+    // Paragraphs, points, images et graphiques forment un flux vertical ordonné.
+    // Les exercices et les blocs système continuent à le séparer.
+    if(!isAssistedFlowableBlock(current))return [current];
     let start=index;
-    while(start>0&&flowable(all[start-1]))start--;
-
+    while(start>0&&isAssistedFlowableBlock(all[start-1]))start--;
     let end=index;
-    while(end<all.length-1&&flowable(all[end+1]))end++;
-
+    while(end<all.length-1&&isAssistedFlowableBlock(all[end+1]))end++;
     return all.slice(start,end+1);
   }
 
@@ -2353,23 +2361,27 @@
     try{
       const token=(typeof session!=='undefined'&&session?.access_token)||await freshToken();
       if(!token)throw new Error('Session administrateur absente.');
-      if(b.type==='graphique'&&!String(b.content?.json?.geogebra_image_path||b.content?.json?.graph_local_path||'').trim()){
-        updateGenerationProgress(b.id,20,'Construction du graphique GeoGebra…');
-        setStatus('Construction réelle du graphique GeoGebra…');
+      const graphBlocksToPrepare=(isFlowCompanion?[b]:flowBlocksFor(b.id))
+        .filter(part=>String(part?.type||'').toLowerCase()==='graphique'
+          &&!String(part?.content?.json?.geogebra_image_path||part?.content?.json?.graph_local_path||'').trim());
+      for(const graphBlock of graphBlocksToPrepare){
+        const graph=clone(graphBlock.content?.json||{});
+        if(!graph||typeof graph!=='object'||Array.isArray(graph))throw new Error('Le JSON du graphique est invalide.');
+        updateGenerationProgress(graphBlock.id,20,'Construction du graphique GeoGebra…');
+        setStatus('Construction du graphique GeoGebra dans le flux…');
         const exportPNG=window.auroraGeoGebraRenderer?.exportPNG;
         if(typeof exportPNG!=='function')throw new Error('Le moteur GeoGebra n’est pas chargé. Recharge la page puis réessaie.');
-        const graph=clone(b.content.json);
         const pngBase64=await exportPNG(graph);
-        if(!pngBase64)throw new Error('GeoGebra n’a retourné aucune image du graphique.');
-        updateGenerationProgress(b.id,38,'Enregistrement du graphique GeoGebra…');
+        if(!pngBase64)throw new Error('GeoGebra n’a retourné aucune image pour le graphique '+String(graph.title||graphBlock.id)+'.');
+        updateGenerationProgress(graphBlock.id,38,'Enregistrement du graphique GeoGebra…');
         const upload=await fetch(SUPABASE_URL+'/functions/v1/aurora-geogebra',{
           method:'POST',
           headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':SUPABASE_ANON_KEY},
-          body:JSON.stringify({action:'upload-assisted-graph',course_id:String(state.course.id),block_id:String(b.id),graph,png_base64:pngBase64})
+          body:JSON.stringify({action:'upload-assisted-graph',course_id:String(state.course.id),block_id:String(graphBlock.id),graph,png_base64:pngBase64})
         });
         const uploadText=await upload.text();let uploadData={};try{uploadData=uploadText?JSON.parse(uploadText):{}}catch(_){uploadData={error:uploadText}};
-        if(!upload.ok||!uploadData.ok||!String(uploadData.path||'').trim())throw new Error(uploadData.error||('Enregistrement du graphique GeoGebra HTTP '+upload.status));
-        b.content.json={...graph,geogebra_image_path:String(uploadData.path),geogebra_image_source:'geogebra',geogebra_renderer_version:Number(uploadData.renderer_version||5),geogebra_image_updated_at:new Date().toISOString()};
+        if(!upload.ok||!uploadData.ok||!String(uploadData.path||'').trim())throw new Error(uploadData.error||('Enregistrement du graphique HTTP '+upload.status));
+        graphBlock.content.json={...graph,geogebra_image_path:String(uploadData.path),geogebra_image_source:'geogebra',geogebra_renderer_version:Number(uploadData.renderer_version||5),geogebra_image_updated_at:new Date().toISOString()};
         await persistCourse(true,false);
       }
       updateGenerationProgress(b.id,50,'Envoi au renderer de page…');
