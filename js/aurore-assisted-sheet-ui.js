@@ -32,7 +32,8 @@
     const t=await token();
     const r=await fetch(SUPABASE_URL+'/functions/v1/'+FN,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+t,'apikey':SUPABASE_ANON_KEY},body:JSON.stringify(body)});
     const raw=await r.text();let d={};try{d=raw?JSON.parse(raw):{}}catch(_){d={error:raw||'Réponse non JSON'};}
-    if(!r.ok||d.ok===false)throw new Error(d.error||('Erreur HTTP '+r.status)+(d.errors?.length?': '+d.errors.join(' · '):''));
+    if(!r.ok)throw new Error(d.error||('Erreur HTTP '+r.status));
+    if(d.ok===false)throw new Error(d.error||(d.errors?.length?d.errors.join(' · '):'La demande a été refusée.'));
     return d;
   }
   function mount(){
@@ -48,23 +49,102 @@
     '<label>Couleur du PDF<select id="aeSheetColor" style="display:block;width:100%;margin-top:6px;padding:10px;border-radius:8px"><option value="nb">Noir et blanc</option><option value="color">Couleur</option></select></label>'+
     '<label>Titre du document<input id="aeSheetTitle" maxlength="180" value="'+esc(course.title||'Fiche de révision')+'" style="display:block;width:100%;margin-top:6px;padding:10px;border-radius:8px;box-sizing:border-box"></label></div>'+
     '<label style="display:block;margin-top:12px">Contenu JSON <small>(modifiable ; le bouton « Charger un exemple » fournit une base valide)</small><textarea id="aeSheetJson" spellcheck="false" style="display:block;width:100%;min-height:300px;margin-top:6px;padding:12px;border-radius:8px;box-sizing:border-box;font:12px/1.5 monospace;white-space:pre;overflow:auto"></textarea></label>'+
-    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="admin-btn ghost" id="aeSheetExample" type="button">Charger un exemple</button><button class="admin-btn ghost" id="aeSheetValidate" type="button">1. Valider</button><button class="admin-btn primary" id="aeSheetCreate" type="button">2. Créer la page</button><button class="admin-btn primary" id="aeSheetRender" type="button" disabled>3. Générer le PDF</button><button class="admin-btn ghost" id="aeSheetStatus" type="button" disabled>Actualiser le statut</button><a id="aeSheetOpen" class="admin-btn ghost" target="_blank" rel="noopener noreferrer" style="display:none">Ouvrir le PDF</a></div>'+
+    '<div style="margin-top:14px"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:7px"><span id="aeSheetProgressLabel">En attente</span><strong id="aeSheetProgressPct">0%</strong></div><div id="aeSheetProgress" role="progressbar" aria-label="Progression de la génération du PDF" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" style="height:10px;width:100%;background:var(--border,#e5e7eb);border-radius:999px;overflow:hidden"><div id="aeSheetProgressFill" style="height:100%;width:0%;background:var(--accent,#6D28D9);border-radius:999px;transition:width .25s ease"></div></div></div>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="admin-btn ghost" id="aeSheetExample" type="button">Charger un exemple</button><button class="admin-btn primary" id="aeSheetGenerate" type="button">Générer le PDF</button><a id="aeSheetOpen" class="admin-btn ghost" target="_blank" rel="noopener noreferrer" style="display:none">Ouvrir le PDF</a></div>'+
     '<div id="aeSheetMessage" role="status" aria-live="polite" style="margin-top:12px;white-space:pre-wrap;overflow-wrap:anywhere"></div>';
     const workspace=root.querySelector('.ae-workspace');
     const toolbar=workspace.querySelector('.ae-workbar');
     if(toolbar&&toolbar.parentNode)toolbar.parentNode.insertBefore(panel,toolbar.nextSibling);else workspace.appendChild(panel);
     const $=id=>panel.querySelector('#'+id);
-    let documentId=null;
-    const setMessage=(msg,ok=false)=>{ $('aeSheetMessage').textContent=msg; $('aeSheetBadge').textContent=ok?'Terminé':'En cours / à vérifier'; };
+    let documentId=null,documentFingerprint='';
+    const setProgress=(value,label)=>{
+      const pct=Math.max(0,Math.min(100,Math.round(Number(value)||0)));
+      $('aeSheetProgressFill').style.width=pct+'%';
+      $('aeSheetProgress').setAttribute('aria-valuenow',String(pct));
+      $('aeSheetProgressPct').textContent=pct+'%';
+      $('aeSheetProgressLabel').textContent=label||'En cours…';
+    };
+    const setMessage=(msg,ok=false)=>{
+      $('aeSheetMessage').textContent=msg;
+      $('aeSheetBadge').textContent=ok?'Terminé':(busy?'En cours…':'À vérifier');
+    };
     const content=()=>{let v;try{v=JSON.parse($('aeSheetJson').value)}catch(e){throw new Error('JSON invalide : '+e.message)}v.mode=$('aeSheetColor').value;return v;};
-    const setExample=()=>{$('aeSheetJson').value=JSON.stringify($('aeSheetKind').value==='fiche'?ficheExample:sceneExample,null,2);$('aeSheetRender').disabled=true;$('aeSheetStatus').disabled=true;documentId=null;$('aeSheetOpen').style.display='none';setMessage('Exemple chargé. Adapte le contenu, puis valide-le.');};
+    const fingerprint=(v)=>JSON.stringify({course_id:String(currentCourse()?.id||''),kind:$('aeSheetKind').value,title:$('aeSheetTitle').value,theme_color:currentCourse()?.theme_color||'#6D28D9',content:v});
+    const setExample=()=>{
+      $('aeSheetJson').value=JSON.stringify($('aeSheetKind').value==='fiche'?ficheExample:sceneExample,null,2);
+      documentId=null;documentFingerprint='';$('aeSheetOpen').style.display='none';
+      $('aeSheetGenerate').textContent='Générer le PDF';
+      setProgress(0,'En attente');
+      setMessage('Exemple chargé. Adapte le contenu puis génère directement le PDF.');
+    };
     $('aeSheetKind').addEventListener('change',setExample);
-    $('aeSheetColor').addEventListener('change',()=>{try{const v=JSON.parse($('aeSheetJson').value);v.mode=$('aeSheetColor').value;$('aeSheetJson').value=JSON.stringify(v,null,2)}catch(_){}});
+    $('aeSheetColor').addEventListener('change',()=>{
+      try{const v=JSON.parse($('aeSheetJson').value);v.mode=$('aeSheetColor').value;$('aeSheetJson').value=JSON.stringify(v,null,2)}catch(_){}
+    });
     $('aeSheetExample').addEventListener('click',setExample);
-    $('aeSheetValidate').addEventListener('click',async()=>{if(busy)return;busy=true;try{const c=content();const d=await call({mode:'validate',page_kind:$('aeSheetKind').value,content:c});setMessage('Validation réussie.'+(d.warnings?.length?'\nAvertissements : '+d.warnings.join(' · '):''),true);}catch(e){setMessage(String(e.message||e));}finally{busy=false;}});
-    $('aeSheetCreate').addEventListener('click',async()=>{if(busy)return;busy=true;try{const c=content();const check=await call({mode:'validate',page_kind:$('aeSheetKind').value,content:c});if(!check.ok)throw new Error((check.errors||['Contenu invalide']).join('\n'));const d=await call({mode:'create',course_id:String(currentCourse()?.id||''),page_kind:$('aeSheetKind').value,title:$('aeSheetTitle').value,theme_color:(currentCourse()?.theme_color||'#6D28D9'),content:c});documentId=Number(d.generated_document_id);if(!documentId)throw new Error('Identifiant de page manquant.');$('aeSheetRender').disabled=false;$('aeSheetStatus').disabled=false;$('aeSheetOpen').style.display='none';setMessage('Page créée (#'+documentId+'). Prête pour le rendu PDF.',true);}catch(e){setMessage(String(e.message||e));}finally{busy=false;}});
-    $('aeSheetRender').addEventListener('click',async()=>{if(busy||!documentId)return;busy=true;$('aeSheetRender').disabled=true;try{const d=await call({mode:'render',generated_document_id:documentId,theme_color:currentCourse()?.theme_color||'#6D28D9'});const url=d.page_url||d.pdf_url;if(url){$('aeSheetOpen').href=url;$('aeSheetOpen').style.display='inline-flex';}setMessage('PDF généré. '+(d.page_count?'Pages : '+d.page_count+'. ':'')+(url?'Le lien de consultation est prêt.':'Aucun lien PDF retourné.'),Boolean(url));}catch(e){setMessage(String(e.message||e));}finally{busy=false;$('aeSheetRender').disabled=false;}});
-    $('aeSheetStatus').addEventListener('click',async()=>{if(busy||!documentId)return;busy=true;try{const d=await call({mode:'status',generated_document_id:documentId});const url=d.pdf_url;if(url){$('aeSheetOpen').href=url;$('aeSheetOpen').style.display='inline-flex';}setMessage('Statut : '+(d.status||'inconnu')+' · '+(d.stage||'')+' · progression '+(d.progress??0)+'%'+(d.error?'\nErreur : '+d.error:'')+(url?'\nPDF disponible.':''),d.status==='completed');}catch(e){setMessage(String(e.message||e));}finally{busy=false;}});
+    async function renderWithProgress(id,theme){
+      let stop=false;
+      const poll=async()=>{
+        while(!stop){
+          try{
+            const d=await call({mode:'status',generated_document_id:id});
+            const remote=Math.max(0,Math.min(100,Number(d.progress)||0));
+            if(d.status==='failed'&&d.error) setMessage('Le rendu rencontre une erreur : '+d.error);
+            else if(remote>0) setProgress(Math.max(22,Math.min(96,22+remote*.73)),d.stage||'Génération du PDF…');
+            if(d.pdf_url){
+              $('aeSheetOpen').href=d.pdf_url;
+              $('aeSheetOpen').style.display='inline-flex';
+            }
+          }catch(_){}
+          if(!stop)await new Promise(resolve=>setTimeout(resolve,900));
+        }
+      };
+      const pollPromise=poll();
+      try{
+        return await call({mode:'render',generated_document_id:id,theme_color:theme});
+      }finally{
+        stop=true;
+        await pollPromise;
+      }
+    }
+    $('aeSheetGenerate').addEventListener('click',async()=>{
+      if(busy)return;
+      busy=true;$('aeSheetGenerate').disabled=true;$('aeSheetExample').disabled=true;
+      $('aeSheetOpen').style.display='none';
+      let fp='';
+      try{
+        const c=content();fp=fingerprint(c);
+        setProgress(3,'Contrôle du contenu…');setMessage('Validation de la fiche ou du schéma…');
+        const check=await call({mode:'validate',page_kind:$('aeSheetKind').value,content:c});
+        if(!check.ok)throw new Error((check.errors||['Contenu invalide']).join('\n'));
+        setProgress(12,'Contenu validé');
+        let id=documentId;
+        if(!id||documentFingerprint!==fp){
+          setProgress(19,'Enregistrement de la page…');
+          const created=await call({mode:'create',course_id:String(currentCourse()?.id||''),page_kind:$('aeSheetKind').value,title:$('aeSheetTitle').value,theme_color:(currentCourse()?.theme_color||'#6D28D9'),content:c});
+          id=Number(created.generated_document_id||0);
+          if(!id)throw new Error('Identifiant de page manquant après la création.');
+          documentId=id;documentFingerprint=fp;
+        }
+        $('aeSheetGenerate').textContent='Génération du PDF…';
+        setProgress(23,'Préparation du moteur PDF…');
+        const d=await renderWithProgress(id,currentCourse()?.theme_color||'#6D28D9');
+        const url=d.page_url||d.pdf_url;
+        if(!url)throw new Error('Le moteur a terminé sans retourner de lien PDF.');
+        $('aeSheetOpen').href=url;$('aeSheetOpen').style.display='inline-flex';
+        setProgress(100,'PDF prêt');
+        $('aeSheetGenerate').textContent='Régénérer le PDF';
+        setMessage('PDF généré avec succès · '+(d.page_count||1)+' page(s).',true);
+      }catch(e){
+        const msg=String(e?.message||e);
+        setMessage(msg);
+        setProgress(Number($('aeSheetProgress').getAttribute('aria-valuenow')||0),'Génération interrompue');
+        $('aeSheetGenerate').textContent=documentId&&documentFingerprint===fp?'Reprendre le rendu':'Générer le PDF';
+      }finally{
+        busy=false;$('aeSheetGenerate').disabled=false;$('aeSheetExample').disabled=false;
+        if($('aeSheetBadge').textContent!=='Terminé')$('aeSheetBadge').textContent='À vérifier';
+      }
+    });
     setExample();
   }
   const observer=new MutationObserver(()=>{try{mount()}catch(e){console.error('[Aurore assisted sheet]',e)}});
