@@ -21,6 +21,15 @@ function validWikimedia(content:any){
   if(!lic || /fair use|non-commercial|noncommercial|no derivatives/i.test(lic)) return false;
   return true;
 }
+function safeWikimediaDisplayUrl(thumbnail:any,original:any){
+  const fallback=String(original||"").trim();
+  const candidate=String(thumbnail||"").trim();
+  try{
+    const u=new URL(candidate);
+    if(u.protocol==="https:"&&["upload.wikimedia.org","thumb.wikimedia.org"].includes(u.hostname))return u.toString();
+  }catch(_){}
+  return fallback;
+}
 
 function normalizeHexColor(value:any){
   const h=String(value??"").trim().toUpperCase();
@@ -65,7 +74,7 @@ function buildContent(courseTitle:string,pageNumber:number,block:any,themeColor:
   else if(type==="graphique") section.graphs=[content.json&&typeof content.json==="object"?content.json:{}];
   else if(type==="wikimedia-image"){
     const image={
-      url:String(content.imageUrl||""),
+      url:safeWikimediaDisplayUrl(content.thumbUrl,content.imageUrl),
       caption:String(content.caption||""),
       title:String(content.title||""),
       author:String(content.author||""),
@@ -86,7 +95,7 @@ function buildContent(courseTitle:string,pageNumber:number,block:any,themeColor:
     source_format:"structured",
     sections:[section],
     images:type==="wikimedia-image" ? [{
-      url:String(content.imageUrl||""),
+      url:safeWikimediaDisplayUrl(content.thumbUrl,content.imageUrl),
       caption:String(content.caption||""),
       title:String(content.title||""),
       author:String(content.author||""),
@@ -212,7 +221,7 @@ function buildCanonicalPreviewContent(course:any,themeColor:string|null){
       const imageUrl=String(content.imageUrl||"").trim();
       if(!imageUrl.startsWith("https://upload.wikimedia.org/"))continue;
       const image={
-        url:imageUrl,
+        url:safeWikimediaDisplayUrl(content.thumbUrl,imageUrl),
         caption:String(content.caption||""),
         title:String(content.title||""),
         author:String(content.author||""),
