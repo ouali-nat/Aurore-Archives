@@ -100,25 +100,12 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
   'use strict';
   var root=document.documentElement;
   root.classList.add('aurore-boot-pending');
-  var lastActivity=now(),domReady=document.readyState!=='loading',dismissed=false;
-  var overlay=null,pollHandle=null,slowHandle=null,hardHandle=null,buttonBound=false,domObserver=null;
-  function now(){return window.performance&&window.performance.now?window.performance.now():Date.now();}
-  window.__auroreBootFetchStart=function(){if(dismissed)return;lastActivity=now();};
-  window.__auroreBootFetchEnd=function(){if(dismissed)return;lastActivity=now();};
-  function watchInitialDOM(){
-    if(domObserver||!document.body||typeof MutationObserver==='undefined')return;
-    domObserver=new MutationObserver(function(records){
-      if(dismissed)return;
-      for(var i=0;i<records.length;i++){
-        var node=records[i].target;
-        if(node&&node.nodeType!==1)node=node.parentElement;
-        if(node&&node.closest&&node.closest('#auroreBootOverlay'))continue;
-        lastActivity=now();break;
-      }
-    });
-    domObserver.observe(document.body,{subtree:true,childList:true,characterData:true});
-  }
+  var domReady=document.readyState!=='loading';
+  var dismissed=false;
+  var overlay=null,pollHandle=null,slowHandle=null,hardHandle=null,buttonBound=false;
+
   function getOverlay(){return document.getElementById('auroreBootOverlay');}
+
   function bindOverlay(){
     overlay=getOverlay();
     if(!overlay)return false;
@@ -136,13 +123,13 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
     }
     return true;
   }
+
   function dismiss(reason){
     if(dismissed)return;
     dismissed=true;
     if(pollHandle)clearTimeout(pollHandle);
     if(slowHandle)clearTimeout(slowHandle);
     if(hardHandle)clearTimeout(hardHandle);
-    if(domObserver){domObserver.disconnect();domObserver=null;}
     overlay=getOverlay();
     if(overlay){
       overlay.classList.add('is-leaving');
@@ -154,36 +141,29 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
       window.dispatchEvent(new CustomEvent('aurore:boot-ready',{detail:{reason:reason||'ready'}}));
     },420);
   }
+
   function checkReady(){
     if(dismissed)return;
     bindOverlay();
-    watchInitialDOM();
-    if(domReady&&document.readyState!=='loading'&&now()-lastActivity>=380&&document.querySelector('.screen.active')){
-      dismiss('ready');return;
+    // Le portail s'ouvre dès que le DOM est prêt et qu'un écran existe.
+    // Les requêtes de fond ne doivent pas retenir l'interface derrière l'écran d'attente.
+    if(domReady&&document.readyState!=='loading'&&document.querySelector('.screen.active')){
+      dismiss('ready');
+      return;
     }
-    pollHandle=window.setTimeout(checkReady,140);
+    pollHandle=window.setTimeout(checkReady,100);
   }
-  if(typeof window.fetch==='function'){
-    var originalFetch=window.fetch;
-    window.fetch=function(){
-      var promise;
-      try{promise=originalFetch.apply(window,arguments);}
-      catch(error){lastActivity=now();throw error;}
-      if(promise&&typeof promise.then==='function'){
-        window.__auroreBootFetchStart();
-        var done=function(){window.__auroreBootFetchEnd();};
-        promise.then(done,done);
-      }
-      return promise;
-    };
+
+  if(!domReady){
+    window.addEventListener('DOMContentLoaded',function(){
+      domReady=true;
+      checkReady();
+    },{once:true});
   }
-  if(!domReady)window.addEventListener('DOMContentLoaded',function(){domReady=true;lastActivity=now();},{once:true});
-  window.addEventListener('load',function(){lastActivity=now();},{once:true});
-  if(domReady)checkReady();
-  else pollHandle=window.setTimeout(checkReady,140);
+  checkReady();
+
   slowHandle=window.setTimeout(function(){
     if(dismissed)return;
-    overlay=getOverlay();
     var status=document.getElementById('auroreBootStatus');
     var message=document.getElementById('auroreBootMessage');
     var btn=document.getElementById('auroreBootContinue');
@@ -192,6 +172,7 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
     if(btn)btn.hidden=false;
   },5000);
   hardHandle=window.setTimeout(function(){dismiss('failsafe');},12000);
+
   window.addEventListener('pagehide',function(){
     if(pollHandle)clearTimeout(pollHandle);
     if(slowHandle)clearTimeout(slowHandle);
@@ -617,7 +598,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
     <div class="aurore-boot-mark-stage" aria-hidden="true"><span class="aurore-boot-ring"></span><img class="aurore-boot-site-logo" id="auroreBootLogo" src="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster" alt="" decoding="async" fetchpriority="high"/><span class="aurore-boot-mark-fallback" id="auroreBootLogoFallback" hidden>A</span></div>
     <p class="aurore-boot-brand">AURORE<span>SECTION ARCHIVES</span></p>
     <h1 class="aurore-boot-title">Préparation de votre espace</h1>
-    <p class="aurore-boot-message" id="auroreBootMessage">Nous préparons l’interface, vos préférences et les données nécessaires à votre visite.</p>
+    <p class="aurore-boot-message" id="auroreBootMessage">Nous ouvrons l’interface. Votre session et les données se chargent ensuite.</p>
     <div class="aurore-boot-progress-track" aria-hidden="true"><span></span></div>
     <small class="aurore-boot-status" id="auroreBootStatus">Initialisation sécurisée…</small>
     <button class="aurore-boot-continue" id="auroreBootContinue" type="button" hidden>Continuer malgré tout</button>
@@ -2195,7 +2176,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
   sont volontaires : ne pas les retirer pour "simplifier".
   ══════════════════════════════════════════════════════════════════════════
 -->
-<link rel="preload" as="script" crossorigin href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"><script defer id="aurore-supabase-sdk" src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js" onload="window.__AURORE_SUPABASE_SDK_LOADED=true" onerror="window.__AURORE_SUPABASE_SDK_FAILED=true"></script>
+<link rel="preload" as="script" crossorigin href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"><script async id="aurore-supabase-sdk" src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js" onload="window.__AURORE_SUPABASE_SDK_LOADED=true" onerror="window.__AURORE_SUPABASE_SDK_FAILED=true"></script>
 <script defer src="js/aurore-auth-bootstrap.js?v=20261006-native-google-final4&aurore_fresh=20261010-temporary-no-cache1"></script>
 <script>
 
