@@ -1,0 +1,150 @@
+/* Performance & Layout Optimization */
+/* Réduit les reflows et améliore la stabilité visuelle */
+
+:root {
+  /* Optimize animation performance */
+  --animation-duration: 0.3s;
+  --animation-timing: cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: 150ms ease-out;
+  --transition-normal: 300ms ease-in-out;
+  
+  /* Font optimization */
+  --font-display: swap;
+}
+
+/* 1. CRITICAL RENDERING PATH */
+html, body {
+  margin: 0;
+  padding: 0;
+  /* Améliore FCP (First Contentful Paint) */
+  font-display: swap;
+}
+
+/* 2. LAYOUT STABILITY - Prévient CLS (Cumulative Layout Shift) */
+img {
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: auto;
+}
+
+/* Évite layout shifts sur les vidéos/iframes */
+iframe, video, embed {
+  max-width: 100%;
+}
+
+/* 3. CONTENEUR VIRTUALIZATION */
+.virtual-scroll-container {
+  overflow-y: auto;
+  contain: layout style paint;
+}
+
+.virtual-scroll-item {
+  will-change: transform;
+  contain: layout style paint;
+}
+
+/* 4. GPU ACCELERATION */
+.gpu-accelerated,
+.animated-element {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* 5. REPAINT & REFLOW REDUCTION */
+button, a, input {
+  /* Réduit les repaints au survol */
+  transition: background-color var(--transition-fast),
+              color var(--transition-fast);
+}
+
+/* Évite background-image repaints */
+.bg-optimized {
+  background-attachment: fixed;
+  background-size: cover;
+}
+
+/* 6. TEXT RENDERING OPTIMIZATION */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* 7. LAZY LOADING IMAGES */
+img[loading="lazy"] {
+  /* Placeholder background pendant le chargement */
+  background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,.2) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* 8. REDUCED MOTION FOR ACCESSIBILITY */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* 9. MOBILE PERFORMANCE */
+@media (max-width: 768px) {
+  /* Réduit les transitions sur mobile */
+  * {
+    transition-duration: 0.1s !important;
+  }
+  
+  /* Désactive les effets complexes */
+  .blur-effect,
+  .shadow-effect,
+  .gradient-animation {
+    filter: none !important;
+    box-shadow: none !important;
+    animation: none !important;
+  }
+}
+
+/* 10. NETWORK-AWARE PERFORMANCE */
+@media (prefers-reduced-data: reduce) {
+  img, video {
+    opacity: 0.8;
+  }
+  
+  .animated-background {
+    animation: none !important;
+    background-attachment: scroll !important;
+  }
+}
+
+/* 11. PAINT OPTIMIZATION */
+.no-paint {
+  contain: layout style;
+}
+
+.will-paint-optimized {
+  contain: strict;
+}
+
+/* 12. CSS CONTAINMENT */
+.section-container {
+  contain: layout style paint;
+  /* Empêche les styles d'affecter l'extérieur */
+}
+
+/* 13. SCROLL PERFORMANCE */
+.smooth-scroll {
+  scroll-behavior: smooth;
+}
+
+/* Optimise le scroll sur les mobile */
+@supports (scroll-behavior: smooth) {
+  .smooth-scroll {
+    scroll-behavior: smooth;
+  }
+}
