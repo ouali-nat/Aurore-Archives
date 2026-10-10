@@ -182,8 +182,29 @@ async function runAction(b){
   else if(b.dataset.action==='delete'){await deleteJob(j)}
  }catch(e){console.error('[ADMIN][AURORE PENDING]',e);alert('Action impossible pour le job #'+j.id+'. '+(e?.message||e));b.disabled=false;b.textContent=original}
 }
+async function ensurePendingAdminSession(){
+ if(typeof session==='undefined'||!session||session.role!=='admin')return false;
+ if(session.access_token)return true;
+ try{
+  if(typeof assurerClientAuthGoogle!=='function')return false;
+  const client=await assurerClientAuthGoogle();
+  const got=await client?.auth?.getSession();
+  const remote=got?.data?.session;
+  if(!remote?.access_token)return false;
+  session={...(session||{}),access_token:remote.access_token,refresh_token:remote.refresh_token||'',expires_at:remote.expires_at?remote.expires_at*1000:0};
+  if(typeof sauvegarderSession==='function')sauvegarderSession();
+  return true;
+ }catch(error){
+  console.warn('[ADMIN][AURORE PENDING] session non restaurée',error);
+  return false;
+ }
+}
 async function chargerDocumentsEnAttenteAdminV2(){
  const list=document.getElementById('adminPendingV2List');if(!list)return;
+ if(!await ensurePendingAdminSession()){
+  list.innerHTML='<div class="admin-pending-v2-error"><strong>Session administrateur à renouveler.</strong><br>Reconnecte-toi à Aurore pour charger les données privées du sas.</div>';
+  return;
+ }
  const initialLoad=!STATE.loaded;
  if(initialLoad){
   list.innerHTML='<div class="admin-pending-v2-empty"><strong>Chargement du sas Aurore…</strong><span>Lecture exclusive des demandes sans document PDF associé.</span></div>';
@@ -270,6 +291,9 @@ async function chargerDocumentsEnAttenteAdminV2(){
 }
 async function compterDocumentsEnAttente(){
  if(typeof session==='undefined'||!session||session.role!=='admin'){
+  setText('tabCountAttente',0);return 0;
+ }
+ if(!await ensurePendingAdminSession()){
   setText('tabCountAttente',0);return 0;
  }
  try{
