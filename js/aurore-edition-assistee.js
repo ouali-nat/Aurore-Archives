@@ -1,7 +1,7 @@
 /* Aurore — Édition assistée : atelier séquentiel, sans canevas de prévisualisation */
 (function(){
   'use strict';
-  const state={mode:'list',course:null,courses:[],selected:null,loading:false,pdfLibPromise:null,modalViewport:null,canonicalPreview:{fingerprint:'',documentId:null,pdfUrl:null}};
+  const state={mode:'list',course:null,courses:[],selected:null,loading:false,pdfBatchRunning:false,pdfLibPromise:null,modalViewport:null,canonicalPreview:{fingerprint:'',documentId:null,pdfUrl:null}};
   const PREVIEW_CACHE_MAX=6;
   const previewPdfCache=new Map();
   function cachedPreviewBuffer(url){const hit=previewPdfCache.get(url);if(!hit)return null;previewPdfCache.delete(url);previewPdfCache.set(url,hit);return hit;}
@@ -494,6 +494,56 @@
     }
   }
 
+  async function regenerateAllOptimizedPdfs(){
+    if(state.pdfBatchRunning||!state.course)return;
+    state.pdfBatchRunning=true;
+    renderWorkspace();
+    const failures=[];
+    try{
+      await persistCourse(true,false);
+      if(!canonicalPreviewIsFresh()){
+        try{await prepareSystemPreview({force:false});}
+        catch(e){failures.push('Pages système : '+String(e?.message||e));}
+      }
+      const targets=[],seen=new Set();
+      for(const b of contentBlocks()){
+        const id=String(b?.id||'');
+        if(!id||seen.has(id)||!hasRenderableContent(b))continue;
+        const group=flowBlocksFor(id);
+        const owner=group[0]||b;
+        if(group.length>1){
+          group.forEach(part=>seen.add(String(part?.id||'')));
+          if(String(owner.id)===id)targets.push(owner);
+        }else{
+          seen.add(id);
+          targets.push(b);
+        }
+      }
+      for(let i=0;i<targets.length;i++){
+        const targetId=String(targets[i]?.id||'');
+        const b=activeBlocks().find(x=>String(x?.id||'')===targetId);
+        if(!b||!hasRenderableContent(b))continue;
+        setStatus('Régénération optimisée '+(i+1)+'/'+targets.length+' : '+String(b.content?.title||labelFor(b))+'…');
+        await generateBlock(b.id);
+        const updated=activeBlocks().find(x=>String(x?.id||'')===targetId);
+        if(String(updated?.generation?.status||'').toLowerCase()!=='ready'||!String(updated?.generation?.page_url||'').trim()){
+          failures.push(String(b.content?.title||labelFor(b)));
+        }
+      }
+      if(failures.length){
+        setStatus('Optimisation partielle : éléments à vérifier — '+failures.slice(0,4).join(' · ')+(failures.length>4?' · et '+(failures.length-4)+' autre(s)':''));
+      }else{
+        setStatus('Tous les PDF de contenu ont été régénérés avec compression optimisée. Télécharge maintenant le document complet.');
+      }
+    }catch(e){
+      setStatus('Échec de la régénération optimisée : '+String(e?.message||e));
+    }finally{
+      state.pdfBatchRunning=false;
+      renderWorkspace();
+      refreshDownloadButton();
+    }
+  }
+
   async function loadCourses(){
     const c=client();
     if(!c){state.courses=[];return[]}
@@ -756,7 +806,7 @@
       '<div class="ae-workbar"><button class="admin-btn primary" id="aeAddP">＋ Paragraphe</button><button class="admin-btn ghost" id="aeAddPoint">＋ Point de cours</button><button class="admin-btn ghost" id="aeAddEx">＋ Exercice</button><button class="admin-btn ghost" id="aeAddGraph">＋ Graphique GeoGebra</button><button class="admin-btn ghost" id="aeAddWiki">＋ Image Wikimedia</button><button class="admin-btn ghost" id="aeTocJson">Sommaire JSON</button><button class="admin-btn ghost" id="aeSave">Enregistrer le cours</button><button class="admin-btn primary" id="aeDownloadPdfCurrent" disabled>Télécharger le PDF actuel</button></div>'+
       '<div class="ae-sequence-meta"><span>'+contentBlocks().length+' bloc(s) de contenu · 1 début · 1 fin</span><span id="aeSystemPreviewOverall">Pages système indépendantes : '+systemPreviewOverallFromPages(state.canonicalPreview?.pages||{}).ready+'/3 prêtes · '+systemPreviewOverallFromPages(state.canonicalPreview?.pages||{}).progress+'%</span></div>'+
       '<section class="ae-block-stack">'+(activeBlocks().find(b=>b?.role===START_ROLE)?blockCard(activeBlocks().find(b=>b?.role===START_ROLE),0):'')+tocSystemCard()+(contentBlocks().length?contentBlocks().map((b,i)=>blockCard(b,i+2)).join(''):'<div class="ae-empty"><strong>Le cours est vide.</strong><span>Ajoute un paragraphe pour commencer. La couverture et le sommaire resteront toujours présents.</span></div>')+(activeBlocks().find(b=>b?.role===END_ROLE)?blockCard(activeBlocks().find(b=>b?.role===END_ROLE),activeBlocks().length-1):'')+'</section>'+
-      '<div class="ae-workbar ae-complete-download"><div style="display:grid;gap:4px;flex:1;min-width:220px"><strong>Document final</strong><small id="aeCompleteDownloadNote" style="opacity:.68;line-height:1.4">Le téléchargement complet s’active lorsque toutes les pages sont prêtes.</small></div><button class="admin-btn primary" id="aeDownloadPdfComplete" disabled>Télécharger le document complet</button></div>'+
+      '<div class="ae-workbar ae-complete-download"><div style="display:grid;gap:4px;flex:1;min-width:220px"><strong>Document final</strong><small id="aeCompleteDownloadNote" style="opacity:.68;line-height:1.4">Le téléchargement complet s’active lorsque toutes les pages sont prêtes. Les anciens fragments gardent leur taille jusqu’à leur régénération.</small></div><button class="admin-btn ghost" id="aeOptimizeAllPdf"'+(state.pdfBatchRunning?' disabled':'')+'>Régénérer tous les PDF (optimisés)</button><button class="admin-btn primary" id="aeDownloadPdfComplete" disabled>Télécharger le document complet</button></div>'+
       '<footer class="ae-work-footer">Le bouton supérieur permet de récupérer les fragments déjà prêts. En fin d’éditeur, « Télécharger le document complet » assemble la couverture, le sommaire, tous les blocs et la page finale, uniquement quand toutes les parties sont vérifiées.</footer></div><div class="ae-modal-host" id="aeModalHost"></div>';
     prepareAssistedModalHost();
     bindWorkspace();
@@ -1165,6 +1215,8 @@
     if(downloadBtn)downloadBtn.onclick=()=>downloadCurrentPdf(false);
     const completeDownloadBtn=document.getElementById('aeDownloadPdfComplete');
     if(completeDownloadBtn)completeDownloadBtn.onclick=()=>downloadCurrentPdf(true);
+    const optimizeAllBtn=document.getElementById('aeOptimizeAllPdf');
+    if(optimizeAllBtn)optimizeAllBtn.onclick=()=>void regenerateAllOptimizedPdfs();
     refreshDownloadButton();
     root().querySelectorAll('[data-edit-point-title]').forEach(el=>el.oninput=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editPointTitle);if(b){b.content.title=el.value;validateCourse();}});
     root().querySelectorAll('[data-edit-point-rank]').forEach(el=>el.onchange=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editPointRank);if(b){b.content.rank=Math.max(1,parseInt(el.value||'1',10));reorderPointBlocks(state.course);validateCourse();renderWorkspace();setStatus(isDefaultIntroduction(b)?'L’Introduction reste toujours au début du cours.':'Position du point mise à jour selon son rang.');}});
@@ -1518,15 +1570,20 @@
   async function prepareSystemPreview({force=false}={}){
     ensureCourseStructure(state.course);
     const title=String(state.course?.title||'').trim();if(!title){setStatus('Le titre du document est obligatoire.');return null;}
+    const kinds=['cover','toc','end'];
+    if(!force&&kinds.every(kind=>canonicalPreviewIsFresh(kind))){
+      const pages=state.canonicalPreview?.pages||normalizedSystemPages({});
+      setStatus('Couverture, sommaire et page finale déjà prêts · PDF existants réutilisés.');
+      return {pages:kinds.map(kind=>pages[kind])};
+    }
     const fp=canonicalPreviewFingerprint();
     const base={...state.canonicalPreview,fingerprint:fp,pages:normalizedSystemPages(state.canonicalPreview),status:'processing',progress:0,stage:'Vérification des pages système indépendantes',error:null,updatedAt:new Date().toISOString()};
     state.canonicalPreview=base;
     if(state.course)state.course.generation={...(state.course.generation||{}),system_preview:{...base}};
     updateCanonicalPreviewUi();
     await persistCourse(true,false);
-    const kinds=['cover','toc','end'];
     const results=await Promise.all(kinds.map(kind=>requestIndependentSystemPage(kind,{force})));
-    setStatus('Pages système générées indépendamment · couverture, sommaire et page finale disponibles.');
+    setStatus('Vérification des pages système terminée · les pages valides ont été réutilisées.');
     return {pages:results};
   }
 
