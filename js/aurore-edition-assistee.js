@@ -197,7 +197,18 @@
     return THEME_COLORS.map(x=>'<option value="'+x.value+'"'+(normalizePointColor(selected)===x.value?' selected':'')+'>'+esc(x.label)+'</option>').join('');
   }
   function activeBlocks(){return Array.isArray(state.course?.blocks)?state.course.blocks:[]}
-  function pageNumberFor(b){const blocks=activeBlocks();if(b?.role===START_ROLE)return 1;if(b?.role===END_ROLE)return blocks.length+1;const i=blocks.findIndex(x=>x.id===b.id);return i<0?null:i+2}
+  function tocPageCount(entriesOverride){
+    const configured=Array.isArray(entriesOverride)?entriesOverride:(Array.isArray(state.course?.document_pages?.toc?.entries)?state.course.document_pages.toc.entries:[]);
+    const enabled=configured.filter(e=>e&&e.enabled!==false&&String(e.title||'').trim());
+    return Math.max(1,Math.ceil(enabled.length/10));
+  }
+  function pageNumberFor(b,tocPages=tocPageCount()){
+    const blocks=activeBlocks();
+    if(b?.role===START_ROLE)return 1;
+    if(b?.role===END_ROLE)return blocks.length+tocPages;
+    const i=blocks.findIndex(x=>x.id===b.id);
+    return i<0?null:i+tocPages+1;
+  }
   function setStatus(t){const e=document.getElementById('assistedStatus');if(e)e.textContent=t}
   function downloadablePdfParts(){
     const parts=[],seen=new Set();
@@ -347,13 +358,36 @@
       '<div class="ae-course-grid">'+
       (state.courses.length?state.courses.map(c=>{
         const cj=ensureCourseStructure(c.course_json||newCourse(c.title)),count=contentBlocks(cj).length,generated=countPages(c);
-        return '<article class="ae-course-card"><div class="ae-course-card-top"><span class="ae-course-status">'+esc(c.status||'editing')+'</span><span>'+generated+' page(s)</span></div><h4>'+esc(c.title)+'</h4><p>'+count+' bloc(s) · dernière modification '+esc(formatDate(c.updated_at||c.created_at))+'</p><div class="ae-course-actions"><button class="admin-btn primary" data-open-course="'+esc(c.id)+'">Ouvrir</button><button class="admin-btn ghost" data-rename-course="'+esc(c.id)+'">Renommer</button></div></article>'
+        return '<article class="ae-course-card"><div class="ae-course-card-top"><span class="ae-course-status">'+esc(c.status||'editing')+'</span><span>'+generated+' page(s)</span></div><h4>'+esc(c.title)+'</h4><p>'+count+' bloc(s) · dernière modification '+esc(formatDate(c.updated_at||c.created_at))+'</p><div class="ae-course-actions"><button class="admin-btn primary" data-open-course="'+esc(c.id)+'">Ouvrir</button><button class="admin-btn ghost" data-rename-course="'+esc(c.id)+'">Renommer</button><button class="admin-btn danger" data-delete-course="'+esc(c.id)+'">Supprimer</button></div></article>'
       }).join(''):'<div class="ae-empty"><strong>Aucun cours en édition.</strong><span>Crée ton premier cours pour ouvrir l’atelier.</span></div>')+
       '</div></div>';
     document.getElementById('aeCreate').onclick=()=>createCourseDialog();
     document.getElementById('aeRefresh').onclick=async()=>{try{setStatus('Actualisation…');await loadCourses();renderList();setStatus('Liste actualisée.')}catch(e){setStatus('Impossible d’actualiser.')}};
     r.querySelectorAll('[data-open-course]').forEach(b=>b.onclick=()=>openCourse(b.dataset.openCourse));
     r.querySelectorAll('[data-rename-course]').forEach(b=>b.onclick=()=>renameCourse(b.dataset.renameCourse));
+    r.querySelectorAll('[data-delete-course]').forEach(b=>b.onclick=()=>deleteCourse(b.dataset.deleteCourse));
+  }
+
+  async function deleteCourse(id){
+    const courseId=String(id||state.course?.id||'').trim();
+    if(!courseId){setStatus('Aucun cours sélectionné pour la suppression.');return;}
+    const row=state.courses.find(c=>String(c.id)===courseId);
+    const title=String(row?.title||(String(state.course?.id)===courseId?state.course?.title:'')||'ce cours');
+    if(typeof window.confirm==='function'&&!window.confirm('Supprimer définitivement le cours « '+title+' » de l’éditeur assisté ? Cette action supprime le brouillon, pas les documents/PDF déjà générés.'))return;
+    const c=client();
+    if(!c){setStatus('Suppression impossible : session Supabase indisponible.');return;}
+    try{
+      const {data:{user}={}}=await c.auth.getUser();
+      if(!user?.id)throw new Error('Session administrateur absente.');
+      const {data,error}=await c.from('aurora_assisted_courses').delete().eq('id',courseId).eq('created_by',user.id).select('id');
+      if(error)throw error;
+      if(!Array.isArray(data)||!data.some(x=>String(x.id)===courseId))throw new Error('Aucun brouillon supprimé : cours introuvable ou accès refusé.');
+      if(String(state.course?.id)===courseId){state.course=null;state.selected=null;state.mode='list';}
+      try{const draft=JSON.parse(localStorage.getItem('aurore_assisted_course')||'null');if(String(draft?.id||'')===courseId)localStorage.removeItem('aurore_assisted_course');}catch(_){}
+      await loadCourses();
+      renderList();
+      setStatus('Cours supprimé. Les documents/PDF déjà générés sont conservés.');
+    }catch(e){setStatus('Suppression impossible : '+String(e?.message||e));}
   }
 
   function dialogHtml(title,body,actions){
@@ -477,17 +511,18 @@
     const managed=all.filter(b=>String(b?.toc_entry_id||'').trim());
     const managedSet=new Set(managed);
     const source=managed.length?all.filter(b=>isDefaultIntroduction(b)||managedSet.has(b)):all;
-    state.course.document_pages.toc.entries=source.map((b,i)=>{
+    const pending=source.map(b=>{
       const key=String(b?.toc_entry_id||b.id||'');
       const old=byId.get(key)||byId.get(String(b.id))||{};
-      return {
+      return {block:b,entry:{
         id:String(b?.toc_entry_id||old.id||b.id),
         title:String(b.content?.title||old.title||labelFor(b)),
         type:b.type,
-        enabled:old.enabled!==false,
-        page:pageNumberFor(b)
-      };
+        enabled:old.enabled!==false
+      }};
     });
+    const plannedPages=tocPageCount(pending.map(x=>x.entry));
+    state.course.document_pages.toc.entries=pending.map(({block,entry})=>({...entry,page:pageNumberFor(block,plannedPages)}));
   }
   function systemPayload(b){
     const start=b.role===START_ROLE;
@@ -522,7 +557,8 @@
   function tocSystemCard(){
     ensureDocumentPages(state.course);rebuildTocEntries();
     const cfg=state.course.document_pages.toc;
-    return '<article class="ae-block ae-system-block ae-toc-system"><header class="ae-block-head"><div><span class="ae-block-number">02</span><strong>Sommaire</strong><small>Page système · indépendante · prévisualisable</small></div><span class="ae-block-state ok">Prévisualisable</span></header>'+
+    const tocPages=tocPageCount(cfg.entries),tocRange=tocPages>1?'02–'+String(tocPages+1).padStart(2,'0'):'02';
+    return '<article class="ae-block ae-system-block ae-toc-system"><header class="ae-block-head"><div><span class="ae-block-number">'+tocRange+'</span><strong>Sommaire</strong><small>Page système · '+(tocPages>1?tocPages+' pages PDF':'indépendante')+' · prévisualisable</small></div><span class="ae-block-state ok">Prévisualisable</span></header>'+
       '<div class="ae-system-content"><strong>Sommaire</strong><span>Table des matières éditable, rendue en fragment PDF indépendant.</span>'+
       '<div class="ae-toc-outline">'+cfg.entries.map((e,i)=>'<span><b>'+String(i+1).padStart(2,'0')+'</b>'+esc(e.title||('Entrée '+(i+1)))+'<em>p. '+esc(e.page??'—')+'</em></span>').join('')+'</div></div>'+
       '<div class="ae-canonical-preview-progress" data-canonical-preview-role="toc">'+canonicalPreviewProgressMarkup('toc','Aperçu du sommaire')+'</div>'+
@@ -555,7 +591,7 @@
     if(previousModalHost){closeAssistedModal();previousModalHost.remove();}
     validateCourse();
     ensureCourseStructure(state.course);
-    r.innerHTML='<div class="ae-shell ae-workspace"><header class="ae-head"><div><button class="admin-btn ghost" id="aeBack">← Mes cours</button><span class="ae-kicker">Atelier de production séquentielle</span><h3><input id="aeCourseTitle" value="'+esc(state.course.title)+'"></h3><p>Le bloc de début, le sommaire et le bloc de fin sont automatiques. Chaque bloc central génère uniquement son propre fragment PDF indépendant.</p></div><span class="ae-status" id="assistedStatus">'+(state.course.validation?.ok?'Structure valide':'À compléter')+'</span></header>'+
+    r.innerHTML='<div class="ae-shell ae-workspace"><header class="ae-head"><div><button class="admin-btn ghost" id="aeBack">← Mes cours</button><button class="admin-btn danger" id="aeDeleteCourseInside">Supprimer ce cours</button><span class="ae-kicker">Atelier de production séquentielle</span><h3><input id="aeCourseTitle" value="'+esc(state.course.title)+'"></h3><p>Le bloc de début, le sommaire et le bloc de fin sont automatiques. Chaque bloc central génère uniquement son propre fragment PDF indépendant.</p></div><span class="ae-status" id="assistedStatus">'+(state.course.validation?.ok?'Structure valide':'À compléter')+'</span></header>'+
       '<div class="ae-top-options"><div class="ae-top-options-title"><span class="ae-kicker">Options du document</span><strong>Couleur d’accent</strong><small>Elle sera utilisée pour les bordures, repères et éléments mathématiques de la page.</small></div><label class="ae-color-field"><span class="ae-color-swatch" style="background:'+normalizeThemeColor(state.course.theme_color)+'"></span><select id="aeThemeColor" aria-label="Couleur d’accent du document">'+themeColorOptions()+'</select></label></div>'+
       '<div class="ae-workbar"><button class="admin-btn primary" id="aeAddP">＋ Paragraphe</button><button class="admin-btn ghost" id="aeAddPoint">＋ Point de cours</button><button class="admin-btn ghost" id="aeAddEx">＋ Exercice</button><button class="admin-btn ghost" id="aeAddGraph">＋ Graphique GeoGebra</button><button class="admin-btn ghost" id="aeAddWiki">＋ Image Wikimedia</button><button class="admin-btn ghost" id="aeTocJson">Sommaire JSON</button><button class="admin-btn ghost" id="aeSave">Enregistrer le cours</button><button class="admin-btn primary" id="aeDownloadPdfCurrent" disabled>Télécharger le PDF actuel</button></div>'+
       '<div class="ae-sequence-meta"><span>'+contentBlocks().length+' bloc(s) de contenu · 1 début · 1 fin</span><span id="aeSystemPreviewOverall">Pages système indépendantes : '+systemPreviewOverallFromPages(state.canonicalPreview?.pages||{}).ready+'/3 prêtes · '+systemPreviewOverallFromPages(state.canonicalPreview?.pages||{}).progress+'%</span></div>'+
@@ -940,6 +976,7 @@
 
   function bindWorkspace(){
     document.getElementById('aeBack').onclick=()=>{state.mode='list';state.course=null;loadCourses().then(renderList)};
+    document.getElementById('aeDeleteCourseInside').onclick=()=>deleteCourse(state.course?.id);
     document.getElementById('aeCourseTitle').onchange=e=>{state.course.title=e.target.value.trim()||'Nouveau cours';};
     const themeSelect=document.getElementById('aeThemeColor');
     if(themeSelect)themeSelect.onchange=async e=>{
@@ -1875,8 +1912,8 @@
           title:i===0?originalTitle:originalTitle+' — suite',
           statement:part,
           hint:i===0?b.content?.hint:'',
-          correction_title:i===0?String(b.content?.correction_title||'Corrigé'):'',
-          correction:i===0?String(b.content?.correction||''):''
+          correction_title:i===chunks.length-1?String(b.content?.correction_title||'Corrigé'):'',
+          correction:i===chunks.length-1?String(b.content?.correction||''):''
         };
       }else if(b.type==='point'&&i===0){
         n.content={
@@ -2140,10 +2177,16 @@
             state.selected=pieces[0].id;
             await persistCourse(true);
             renderWorkspace();
-            setStatus('Bloc trop long : '+pieces.length+' blocs successifs ont été créés. Génération en cours…');
-            // Les fragments appartiennent au même flux : les rendre via son propriétaire,
-            // pas un à un, pour éviter de régénérer le même flux par chaque compagnon.
-            await generateBlock(pieces[0].id);
+            setStatus('Bloc trop long : '+pieces.length+' blocs successifs ont été créés. Génération de toutes les pages…');
+            for(let i=0;i<pieces.length;i++){
+              await generateBlock(pieces[i].id);
+              const generated=activeBlocks().find(x=>String(x.id)===String(pieces[i].id));
+              if(String(generated?.generation?.status||'').toLowerCase()!=='ready'){
+                setStatus('La suite reste à générer : fragment '+(i+1)+' sur '+pieces.length+' en échec.');
+                return;
+              }
+            }
+            setStatus(b.type==='exercise'?'Toutes les pages de l’exercice sont générées, avec la suite et le corrigé final.':'Toutes les pages du bloc découpé et ses continuations sont générées.');
             return;
           }
         }
@@ -2173,26 +2216,146 @@
     throw new Error('Session administrateur expirée.');
   }
 
+  let wikiInsertAfterId=null;
+  let wikiReplaceTargetNext=false;
+  let wikiCurrentQuery='';
+  let wikiContinuation=null;
+  let wikiRequestSequence=0;
+  let wikiLoading=false;
+  let wikiResultEntries=[];
+  let wikiSeenFiles=new Set();
+
   function wiki(afterId=null){
     const host=prepareAssistedModalHost();if(!host)return;
     if(state.modalViewport)closeAssistedModal();
-    host.innerHTML='<div class="ae-modal"><div class="ae-dialog ae-wiki-dialog"><header><div><span class="ae-kicker">Wikimedia Commons</span><h4>Choisir une image</h4></div><button class="admin-btn ghost" id="aeWikiClose">Fermer</button></header><div class="ae-wiki-search"><input id="aeWikiQ" placeholder="Ex. cellule animale, volcan, Newton…"><button class="admin-btn primary" id="aeWikiGo">Rechercher</button></div><div id="aeWikiResults" class="ae-wiki-results"></div></div></div>';
+    wikiInsertAfterId=afterId?String(afterId):null;
+    const initialTarget=wikiInsertAfterId?activeBlocks().find(x=>String(x.id)===wikiInsertAfterId):null;
+    wikiReplaceTargetNext=Boolean(initialTarget&&initialTarget.type==='wikimedia-image'&&!String(initialTarget.content?.imageUrl||'').trim());
+    wikiCurrentQuery='';wikiContinuation=null;wikiRequestSequence=0;wikiLoading=false;wikiResultEntries=[];wikiSeenFiles=new Set();
+    host.innerHTML='<div class="ae-modal"><div class="ae-dialog ae-wiki-dialog"><header><div><span class="ae-kicker">Wikimedia Commons</span><h4>Choisir une ou plusieurs images</h4></div><button class="admin-btn ghost" id="aeWikiClose">Fermer</button></header><div class="ae-wiki-search"><input id="aeWikiQ" placeholder="Ex. cellule animale, volcan, Newton…" autocomplete="off"><button class="admin-btn primary" id="aeWikiGo">Rechercher</button></div><div id="aeWikiSelectionStatus" class="ae-wiki-selection-status" aria-live="polite">Lance une recherche, puis ajoute une ou plusieurs images sans fermer cette fenêtre.</div><div id="aeWikiResults" class="ae-wiki-results" aria-live="polite"></div><div id="aeWikiPagination" class="ae-wiki-pagination" hidden><button type="button" class="admin-btn ghost" id="aeWikiLoadMore">Charger plus d’images</button></div></div></div>';
     activateAssistedModal(host);
-    document.getElementById('aeWikiClose').onclick=()=>closeAssistedModal();
-    document.getElementById('aeWikiGo').onclick=searchWiki;
-    document.getElementById('aeWikiQ').onkeydown=e=>{if(e.key==='Enter')searchWiki()};
+    document.getElementById('aeWikiClose').onclick=async()=>{
+      closeAssistedModal();
+      await persistCourse(true,false);
+      renderWorkspace();
+    };
+    document.getElementById('aeWikiGo').onclick=()=>searchWiki(false);
+    document.getElementById('aeWikiQ').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();searchWiki(false)}};
+    document.getElementById('aeWikiLoadMore').onclick=()=>searchWiki(true);
+    const modal=host.querySelector('.ae-modal');
+    modal?.addEventListener('click',e=>{
+      if(e.target===modal)void persistCourse(true,false).then(()=>renderWorkspace());
+    });
+    document.getElementById('aeWikiQ').focus({preventScroll:true});
   }
 
-  async function searchWiki(){
-    const q=document.getElementById('aeWikiQ')?.value.trim(),out=document.getElementById('aeWikiResults');if(!q||!out)return;
-    out.textContent='Recherche…';
+  function wikiImageFromPage(p,q){
+    const i=p?.imageinfo?.[0]||{},m=i.extmetadata||{};
+    const license=String(m?.LicenseShortName?.value||m?.UsageTerms?.value||'').replace(/<[^>]+>/g,'').trim();
+    const mime=String(i.mime||'').toLowerCase();
+    const imageUrl=String(i.url||'');
+    if(!imageUrl.startsWith('https://upload.wikimedia.org/')||!['image/jpeg','image/png'].includes(mime)||/fair use|non-commercial|no derivatives/i.test(license))return null;
+    const title=String(p.title||'').replace(/^File:/,'');
+    return {
+      imageUrl,thumbUrl:String(i.thumburl||imageUrl),title,
+      caption:String(m?.ImageDescription?.value||title).replace(/<[^>]+>/g,'').trim(),
+      sourceUrl:String(i.descriptionurl||('https://commons.wikimedia.org/wiki/'+encodeURIComponent(p.title||''))),
+      author:String(m?.Artist?.value||'').replace(/<[^>]+>/g,'').trim(),
+      license,query:q
+    };
+  }
+
+  function renderWikiResults(){
+    const out=document.getElementById('aeWikiResults');
+    if(!out)return;
+    out.innerHTML=wikiResultEntries.map((d,i)=>'<article class="ae-wiki-card"><img loading="lazy" src="'+esc(d.thumbUrl)+'" alt=""><div><strong>'+esc(d.title)+'</strong><small>'+esc(d.author||'Auteur non renseigné')+'</small><small>'+esc(d.license||'Licence à vérifier')+'</small></div><button type="button" class="admin-btn primary" data-wiki-index="'+i+'">Ajouter</button></article>').join('')||'<div class="ae-empty">Aucune image exploitable dans ce lot. Tu peux charger le lot suivant ou reformuler la recherche.</div>';
+    out.querySelectorAll('[data-wiki-index]').forEach(btn=>btn.onclick=async()=>{
+      if(btn.disabled)return;
+      const d=wikiResultEntries[Number(btn.dataset.wikiIndex)];
+      if(!d)return;
+      let selectedBlock=null;
+      const blocks=activeBlocks();
+      if(wikiReplaceTargetNext&&wikiInsertAfterId){
+        const target=blocks.find(x=>String(x.id)===wikiInsertAfterId);
+        if(target&&target.type==='wikimedia-image'&&!String(target.content?.imageUrl||'').trim()){
+          target.content=d;selectedBlock=target;
+        }
+      }
+      wikiReplaceTargetNext=false;
+      if(!selectedBlock){
+        selectedBlock=block('wikimedia-image');selectedBlock.content=d;
+        const anchorIndex=wikiInsertAfterId?blocks.findIndex(x=>String(x.id)===wikiInsertAfterId):-1;
+        if(anchorIndex>=0)blocks.splice(anchorIndex+1,0,selectedBlock);
+        else blocks.push(selectedBlock);
+      }
+      wikiInsertAfterId=String(selectedBlock.id);
+      state.selected=selectedBlock.id;
+      validateCourse();
+      await persistCourse(true,false);
+      const status=document.getElementById('aeWikiSelectionStatus');
+      if(status)status.textContent='Image ajoutée : '+d.title+'. Tu peux saisir une nouvelle requête et lancer une autre recherche.';
+      btn.disabled=true;btn.textContent='Ajoutée';
+    });
+  }
+
+  async function searchWiki(loadMore=false){
+    const input=document.getElementById('aeWikiQ'),out=document.getElementById('aeWikiResults');
+    const q=String(input?.value||'').trim();
+    if(!q||!out||wikiLoading)return;
+    const reset=!loadMore||q!==wikiCurrentQuery;
+    if(reset){
+      wikiCurrentQuery=q;wikiContinuation=null;wikiResultEntries=[];wikiSeenFiles=new Set();
+      out.scrollTop=0;
+    }
+    const requestId=++wikiRequestSequence;
+    wikiLoading=true;
+    const searchBtn=document.getElementById('aeWikiGo'),moreBtn=document.getElementById('aeWikiLoadMore'),status=document.getElementById('aeWikiSelectionStatus');
+    if(searchBtn)searchBtn.disabled=true;
+    if(moreBtn)moreBtn.disabled=true;
+    if(reset)out.innerHTML='<div class="ae-empty">Recherche Wikimedia en cours…</div>';
+    if(status)status.textContent=reset?'Recherche de nouvelles images…':'Chargement d’images supplémentaires…';
     try{
-      const u='https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch='+encodeURIComponent(q)+'&gsrnamespace=6&gsrlimit=12&prop=imageinfo&iiprop=url|size|mime|thumbmime|extmetadata&iiurlwidth=520&format=json&origin=*';
-      const r=await fetch(u);if(!r.ok)throw new Error('HTTP '+r.status);const d=await r.json();const pages=Object.values(d?.query?.pages||{});
-      const usable=pages.filter(p=>{const i=p?.imageinfo?.[0]||{},m=i.extmetadata||{},lic=String(m?.LicenseShortName?.value||m?.UsageTerms?.value||'').toLowerCase();return String(i.url||'').startsWith('https://upload.wikimedia.org/')&&!/fair use|non-commercial|no derivatives/.test(lic)&&['image/jpeg','image/png'].includes(String(i.mime||'').toLowerCase())});
-      out.innerHTML=usable.map(p=>{const i=p.imageinfo?.[0]||{},m=i.extmetadata||{},title=String(p.title||'').replace(/^File:/,'');const d={imageUrl:i.url||'',thumbUrl:i.thumburl||i.url||'',title,caption:String(m?.ImageDescription?.value||title).replace(/<[^>]+>/g,''),sourceUrl:i.descriptionurl||('https://commons.wikimedia.org/wiki/'+encodeURIComponent(p.title)),author:String(m?.Artist?.value||'').replace(/<[^>]+>/g,''),license:String(m?.LicenseShortName?.value||m?.UsageTerms?.value||'').replace(/<[^>]+>/g,''),query:q};return '<article class="ae-wiki-card"><img src="'+esc(d.thumbUrl)+'" alt=""><div><strong>'+esc(d.title)+'</strong><small>'+esc(d.author||'Auteur non renseigné')+'</small><small>'+esc(d.license||'Licence à vérifier')+'</small></div><button class="admin-btn primary" data-wiki="'+esc(JSON.stringify(d))+'">Choisir</button></article>'}).join('')||'<div class="ae-empty">Aucune image exploitable trouvée.</div>';
-      out.querySelectorAll('[data-wiki]').forEach(btn=>btn.onclick=()=>{const d=JSON.parse(btn.dataset.wiki),b=block('wikimedia-image');b.content=d;const blocks=activeBlocks(),anchorIndex=afterId?blocks.findIndex(x=>x.id===afterId):-1;if(anchorIndex>=0)blocks.splice(anchorIndex+1,0,b);else blocks.push(b);state.selected=b.id;closeAssistedModal();renderWorkspace();setStatus('Image Wikimedia ajoutée en bas du cours.')});
-    }catch(e){out.textContent='Recherche Wikimedia indisponible.'}
+      const params=new URLSearchParams({
+        action:'query',generator:'search',gsrsearch:q,gsrnamespace:'6',gsrlimit:'50',
+        prop:'imageinfo',iiprop:'url|size|mime|thumbmime|extmetadata',iiurlwidth:'520',format:'json'
+      });
+      if(!reset&&wikiContinuation&&typeof wikiContinuation==='object'){
+        Object.entries(wikiContinuation).forEach(([key,value])=>params.set(key,String(value)));
+      }
+      params.set('origin','*');
+      const response=await fetch('https://commons.wikimedia.org/w/api.php?'+params.toString(),{cache:'no-store'});
+      if(!response.ok)throw new Error('HTTP '+response.status);
+      const data=await response.json();
+      if(requestId!==wikiRequestSequence)return;
+      const pages=Object.values(data?.query?.pages||{});
+      for(const p of pages){
+        const image=wikiImageFromPage(p,q);
+        const key=String(p?.title||image?.imageUrl||'');
+        if(image&&key&&!wikiSeenFiles.has(key)){wikiSeenFiles.add(key);wikiResultEntries.push(image);}
+      }
+      wikiContinuation=data?.continue&&typeof data.continue==='object'&&Object.keys(data.continue).length?data.continue:null;
+      const previousScroll=reset?0:out.scrollTop;
+      renderWikiResults();
+      out.scrollTop=previousScroll;
+      const pagination=document.getElementById('aeWikiPagination');
+      if(pagination)pagination.hidden=!wikiContinuation;
+      if(status){
+        const count=wikiResultEntries.length;
+        status.textContent=count?count+' image(s) disponibles. Tu peux en ajouter plusieurs puis relancer une recherche.':'Aucun résultat compatible pour ce lot.';
+      }
+      if(!wikiResultEntries.length&&!wikiContinuation)out.innerHTML='<div class="ae-empty">Aucune image JPEG/PNG compatible trouvée. Essaie une requête plus précise.</div>';
+    }catch(e){
+      if(requestId===wikiRequestSequence){
+        out.innerHTML='<div class="ae-empty">Recherche Wikimedia indisponible. Réessaie ou modifie la requête.</div>';
+        if(status)status.textContent='Échec de la recherche : '+String(e?.message||e);
+      }
+    }finally{
+      if(requestId===wikiRequestSequence){
+        wikiLoading=false;
+        if(searchBtn)searchBtn.disabled=false;
+        if(moreBtn)moreBtn.disabled=!wikiContinuation;
+      }
+    }
   }
 
   async function init(){
