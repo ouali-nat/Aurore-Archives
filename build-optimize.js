@@ -82,7 +82,7 @@ function optimizeHTML() {
   
   // Ajoute les attributs d'optimisation
   html = html.replace(
-    /<link[^>]*rel="stylesheet"[^>]*href="\/css\/([^"]*)"[^>]*>/g,
+    /<link[^>]*rel="stylesheet"[^>]*href="\/css\/([^"]*"[^>]*>/g,
     (match, filename) => {
       // Les CSS critiques sont chargées, les autres sont deferred
       const criticalCSS = [
@@ -90,7 +90,7 @@ function optimizeHTML() {
         'aurore-theme-foundation.css',
         'aurora-performance-critical.css'
       ];
-      return criticalCSS.includes(filename) 
+      return criticalCSS.includes(filename.replace('"', '')) 
         ? match 
         : match.replace('>', ' rel="preload" as="style" onload="this.onload=null;this.rel=\'stylesheet\'">');
     }
@@ -98,7 +98,7 @@ function optimizeHTML() {
   
   // Ajoute async/defer aux scripts
   html = html.replace(
-    /<script[^>]*src="\/js\/([^"]*)"[^>]*>/g,
+    /<script[^>]*src="\/js\/([^"]*"[^>]*>/g,
     (match) => match.replace('>', ' defer>').replace(match, match.replace('src=', 'async src='))
   );
   
