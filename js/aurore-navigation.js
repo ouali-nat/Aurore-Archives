@@ -45,6 +45,8 @@
   }
 
   function afficherEcran(id, options={}) {
+    const adminOnly = document.documentElement.classList.contains('aurore-admin-standalone');
+    if (adminOnly) id = id === 'screen-admin-pending' ? 'screen-admin-pending' : 'screen-admin';
     // Une URL de section partagée est une route publique autonome : aucune autre
     // navigation interne (accueil, recherche, publicité, profil, etc.) ne doit
     // pouvoir remplacer son écran pendant son chargement.
@@ -55,7 +57,7 @@
     } catch (_) {}
     // Un nouvel utilisateur connecté doit terminer son profil essentiel avant
     // de naviguer dans la plateforme. Les administrateurs ne sont pas bloqués.
-    if (session && session.role !== 'admin' && !profilEstComplet(session) && id !== 'screen-profil') {
+    if (!adminOnly && session && session.role !== 'admin' && !profilEstComplet(session) && id !== 'screen-profil') {
       remplirProfil();
       id = 'screen-profil';
     }
@@ -92,6 +94,12 @@
   }
 
   async function restaurerVueHistorique(ecran) {
+    if (document.documentElement.classList.contains('aurore-admin-standalone')) {
+      const target = ecran === 'screen-admin-pending' ? 'screen-admin-pending' : 'screen-admin';
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(target)?.classList.add('active');
+      return;
+    }
     if (ecran === 'screen-home') {
       rendreAccueil();
       document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -317,7 +325,7 @@
     if(history.state && history.state.aurasterNavigation) {
       navigationCompteur = Math.max(0, Number(history.state.navigationId) || 0);
     } else {
-      const initial = creerSnapshotNavigation('screen-home',window.scrollY,0);
+      const initial = creerSnapshotNavigation(document.documentElement.classList.contains('aurore-admin-standalone') ? 'screen-admin' : 'screen-home',window.scrollY,0);
       history.replaceState(initial,'',location.href);
       navigationCompteur = 0;
     }
@@ -327,7 +335,7 @@
 
   // Les liens ?document=ID sont publics : aucune connexion n’est nécessaire.
 
-  ouvrirDocumentDepuisLienPartage();
+  if (!document.documentElement.classList.contains('aurore-admin-standalone')) ouvrirDocumentDepuisLienPartage();
 
   async function restaurerSnapshotNavigation(state) {
     if(!state || !state.aurasterNavigation) return false;
@@ -862,10 +870,12 @@
   // dynamiquement. Sans cet appel, #homeFiveLevels reste vide après un chargement
   // propre de la page et les parcours scolaire/matières ne reçoivent aucun handler.
   try {
-    rendrePresentation();
-    chargerPresentationAccueil();
-    rendreAccueil();
-    majFilAriane();
+    if (!document.documentElement.classList.contains('aurore-admin-standalone')) {
+      rendrePresentation();
+      chargerPresentationAccueil();
+      rendreAccueil();
+      majFilAriane();
+    }
   } catch (err) {
     console.error('[Aurore] initialisation de la navigation impossible:', err);
   }
