@@ -85,6 +85,10 @@
   ],
   "builds": [
     {
+      "src": "admin-standalone.html",
+      "use": "@vercel/static"
+    },
+    {
       "src": "index.html",
       "use": "@vercel/static"
     },
@@ -123,5 +127,11 @@
   ],
   "env": {
     "NODE_ENV": "production"
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/admin-standalone.html"
+    }
+  ]
 }
