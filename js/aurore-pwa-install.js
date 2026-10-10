@@ -20,19 +20,7 @@
   if(installBtn)installBtn.addEventListener('click',lancerInstallation);
   if(hintBtn)hintBtn.addEventListener('click',function(){lancerInstallation();});
   if(!estInstallee()) setTimeout(function(){if(deferredPrompt)afficher();},1200);
-  // En production, on conserve l'enregistrement existant. Le retirer puis le
-  // recréer à chaque visite ajoute des échanges réseau inutiles et peut ralentir
-  // l'ouverture, notamment sur les réseaux mobiles.
-  if('serviceWorker' in navigator){
-    window.addEventListener('load',function(){
-      // register() contrôle aussi les mises à jour de l'enregistrement existant
-      // sans désinscrire le service worker ni effacer les données hors ligne.
-      navigator.serviceWorker.register('./sw.js?v=20261010-ui-refresh-v10',{scope:'./',updateViaCache:'none'})
-      .then(function(reg){
-        if(reg) console.log('[Aurore PWA] Service worker actif.',reg.scope);
-      }).catch(function(err){console.warn('[Aurore PWA] Service worker indisponible :',err);});
-    });
-  }})();
+})();
 
 /* Aurore — stockage durable + enregistrement hors ligne garanti
    1) Demande au navigateur de ne JAMAIS vider les données du site (caches, PDF,
@@ -68,7 +56,7 @@
 
   function rechauffer(){
     try{
-      if(!('serviceWorker' in navigator)||navigator.onLine===false)return;
+      if(window.__AURORE_DISABLE_SITE_CACHE||!('serviceWorker' in navigator)||navigator.onLine===false)return;
       navigator.serviceWorker.ready.then(function(reg){
         var sw=reg&&(reg.active||reg.waiting||reg.installing);
         if(!sw)return;

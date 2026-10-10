@@ -4,6 +4,36 @@
 <!-- AURORE_DEPLOY_MARKER_20260923_ADMIN_PENDING_V2 -->
 <html lang="fr">
 <head>
+<script id="aurore-temporary-disable-site-cache">
+(function(){
+  'use strict';
+  window.__AURORE_DISABLE_SITE_CACHE = true;
+  try {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        return Promise.all(registrations.filter(function(registration) {
+          try { return new URL(registration.scope).origin === location.origin; }
+          catch (_) { return false; }
+        }).map(function(registration) { return registration.unregister(); }));
+      }).catch(function(error) { console.warn('[Aurore cache temporaire] Désinscription du service worker impossible :', error); });
+    }
+  } catch (error) {
+    console.warn('[Aurore cache temporaire] Service worker inaccessible :', error);
+  }
+  try {
+    if ('caches' in window) {
+      caches.keys().then(function(keys) {
+        return Promise.all(keys.filter(function(key) {
+          return /^aurore-(?:shell|static|libs)(?:-v[0-9]+)?$/.test(key);
+        }).map(function(key) { return caches.delete(key); }));
+      }).catch(function(error) { console.warn('[Aurore cache temporaire] Nettoyage des caches d’interface impossible :', error); });
+    }
+  } catch (error) {
+    console.warn('[Aurore cache temporaire] Cache Storage inaccessible :', error);
+  }
+})();
+</script>
+
 <style id="aurore-boot-overlay-critical-css">
 html.aurore-boot-pending:not(.aurore-boot-overlay-ready)::before{
   content:"";position:fixed;inset:0;z-index:2147483600;pointer-events:none;
@@ -169,7 +199,7 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
   },{once:true});
 })();
 </script>
-<script src="js/aurore-pdf-cancel-guard.js?v=20261009-bootveil1"></script>
+<script src="js/aurore-pdf-cancel-guard.js?v=20261009-bootveil1&aurore_fresh=20261010-temporary-no-cache1"></script>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
 <meta content="yzWmwzt0gZoJZKSVp8G7iVle-gUt-PgFSDeAi3K_Vvs" name="google-site-verification">
@@ -282,46 +312,46 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
   "description": "Bibliothèque numérique de documents scolaires et éducatifs."
 }
 </script>
-<script src="js/aurore-katex-loader.js"></script>
+<script src="js/aurore-katex-loader.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-<link rel="stylesheet" href="./css/aurora-base.css?aurore_release=20261010-firstpaint1">
-<link href="./css/aurore-home.css?aurore_release=20261010-firstpaint1" rel="stylesheet"/>
-<link href="./css/aurore-theme-foundation.css?aurore_release=20261010-firstpaint1" rel="stylesheet"/>
-<link href="./css/aurore-welcome.css?aurore_release=20261010-firstpaint1" rel="stylesheet"/>
-<link href="./css/pwa.css?aurore_release=20261010-firstpaint1" rel="stylesheet" media="print" onload="this.media='all'"/>
-<link href="./css/aurore-personal-space.css?aurore_release=20261010-firstpaint1" rel="stylesheet" media="print" onload="this.media='all'"/>
-<link href="./css/aurora-history.css?aurore_release=20261010-firstpaint1" rel="stylesheet" media="print" onload="this.media='all'"/>
-<link href="./css/aurora-download-progress.css?aurore_release=20261010-firstpaint1" rel="stylesheet" media="print" onload="this.media='all'"/>
+<link rel="stylesheet" href="./css/aurora-base.css?aurore_release=20261010-temporary-no-cache1">
+<link href="./css/aurore-home.css?aurore_release=20261010-temporary-no-cache1" rel="stylesheet"/>
+<link href="./css/aurore-theme-foundation.css?aurore_release=20261010-temporary-no-cache1" rel="stylesheet"/>
+<link href="./css/aurore-welcome.css?aurore_release=20261010-temporary-no-cache1" rel="stylesheet"/>
+<link href="./css/pwa.css?aurore_release=20261010-temporary-no-cache1" rel="stylesheet" media="print" onload="this.media='all'"/>
+<link href="./css/aurore-personal-space.css?aurore_release=20261010-temporary-no-cache1" rel="stylesheet" media="print" onload="this.media='all'"/>
+<link href="./css/aurora-history.css?aurore_release=20261010-temporary-no-cache1" rel="stylesheet" media="print" onload="this.media='all'"/>
+<link href="./css/aurora-download-progress.css?aurore_release=20261010-temporary-no-cache1" rel="stylesheet" media="print" onload="this.media='all'"/>
 
-<link href="./css/aurore-document-actions.css?aurore_release=20261010-firstpaint1" rel="stylesheet" media="print" onload="this.media='all'"/>
-<link rel="stylesheet" href="./css/aurore-floating-home.css?aurore_release=20261010-firstpaint1" media="print" onload="this.media='all'">
-<link rel="stylesheet" href="./css/aurore-ia-mini.css?aurore_release=20261010-firstpaint1" media="print" onload="this.media='all'">
-<link href="./css/aurore-personal-profile.css?aurore_release=20261010-firstpaint1" rel="stylesheet" media="print" onload="this.media='all'"/>
+<link href="./css/aurore-document-actions.css?aurore_release=20261010-temporary-no-cache1" rel="stylesheet" media="print" onload="this.media='all'"/>
+<link rel="stylesheet" href="./css/aurore-floating-home.css?aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="./css/aurore-ia-mini.css?aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
+<link href="./css/aurore-personal-profile.css?aurore_release=20261010-temporary-no-cache1" rel="stylesheet" media="print" onload="this.media='all'"/>
 
-<link href="./css/aurore-color-themes.css?aurore_release=20261010-firstpaint1" rel="stylesheet"/>
-<link href="./css/aurore-network-system-ui.css?aurore_release=20261010-firstpaint1" rel="stylesheet"/>
-<link rel="stylesheet" href="./css/aurore-theme-dark.css?aurore_release=20261010-firstpaint1">
-<link rel="stylesheet" href="./css/aurore-sharing-document.css?aurore_release=20261010-firstpaint1" media="print" onload="this.media='all'">
-<link href="./css/aurore-publicites.css?aurore_release=20261010-firstpaint1" rel="stylesheet" media="print" onload="this.media='all'"/>
-<link rel="stylesheet" href="./css/aurore-personal-library.css?aurore_release=20261010-firstpaint1" media="print" onload="this.media='all'">
-
-
+<link href="./css/aurore-color-themes.css?aurore_release=20261010-temporary-no-cache1" rel="stylesheet"/>
+<link href="./css/aurore-network-system-ui.css?aurore_release=20261010-temporary-no-cache1" rel="stylesheet"/>
+<link rel="stylesheet" href="./css/aurore-theme-dark.css?aurore_release=20261010-temporary-no-cache1">
+<link rel="stylesheet" href="./css/aurore-sharing-document.css?aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
+<link href="./css/aurore-publicites.css?aurore_release=20261010-temporary-no-cache1" rel="stylesheet" media="print" onload="this.media='all'"/>
+<link rel="stylesheet" href="./css/aurore-personal-library.css?aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
 
 
 
 
-<link href="./css/aurora-ui.css?aurore_release=20261010-firstpaint1" rel="stylesheet"/>
+
+
+<link href="./css/aurora-ui.css?aurore_release=20261010-temporary-no-cache1" rel="stylesheet"/>
 <script id="aurore-shared-route-early">
 (function(){try{if(new URLSearchParams(location.search).has('sectionShare'))document.documentElement.classList.add('aurore-shared-route');}catch(_){}})();
 </script>
-<link rel="stylesheet" href="./css/aurora-ia.css?aurore_release=20261010-firstpaint1" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="./css/aurora-ia.css?aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
 
-<link rel="stylesheet" href="./css/aurora-content-factory-create.css?aurore_release=20261010-firstpaint1" media="print" onload="this.media='all'">
-<link rel="stylesheet" href="./css/aurora-content-factory-admin.css?aurore_release=20261010-firstpaint1" media="print" onload="this.media='all'">
-<link rel="stylesheet" href="./css/aurore-recovered-design.css?aurore_release=20261010-firstpaint1" media="print" onload="this.media='all'">
-<link rel="stylesheet" href="./css/aurore-zoom-control.css?aurore_release=20261010-firstpaint1" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="./css/aurora-content-factory-create.css?aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="./css/aurora-content-factory-admin.css?aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="./css/aurore-recovered-design.css?aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="./css/aurore-zoom-control.css?aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
 
 <style id="cf-admin-create-form-v2">
 /* Formulaire Content Factory : ordre strict identique au dépôt public. */
@@ -372,9 +402,9 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
 @media(prefers-reduced-motion:no-preference){.cf-studio-box{animation:cfStudioIn .25s ease-out}.cf-studio-section{scroll-margin-top:20px}@keyframes cfStudioIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}}
 </style>
 <style id="cf-admin-production-unified">#adminToolbarContentFactory,#adminContentFactoryList{display:none!important}</style>
-<link rel="stylesheet" href="./css/aurore-access-lock.css?aurore_release=20261010-firstpaint1">
-<link rel="stylesheet" href="./css/aurore-shape-system.css?v=20260929-shape-v1&aurore_release=20261010-firstpaint1">
-<link rel="stylesheet" href="./css/aurore-folder-navigation-final.css?v=20260929-folder-v1&aurore_release=20261010-firstpaint1">
+<link rel="stylesheet" href="./css/aurore-access-lock.css?aurore_release=20261010-temporary-no-cache1">
+<link rel="stylesheet" href="./css/aurore-shape-system.css?v=20260929-shape-v1&aurore_release=20261010-temporary-no-cache1">
+<link rel="stylesheet" href="./css/aurore-folder-navigation-final.css?v=20260929-folder-v1&aurore_release=20261010-temporary-no-cache1">
 <style id="aurore-admin-modern-v1">
 /* Administration — modernisation progressive, sans modifier les fonctions métier. */
 .admin-detail{padding-top:10px}
@@ -549,36 +579,36 @@ body:not(.site-locked) #accessLock{display:none!important;}
 .cf-create-box.cf-rebuild{padding-bottom:14px}.cf-create-box.cf-rebuild .cf-rebuild-head{margin-bottom:0}.cf-create-box.cf-rebuild .cf-rebuild-head p{max-width:720px}.cf-create-box.cf-rebuild .cf-rebuild-badge{white-space:nowrap}
 .cf-ai-provider-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px}.cf-ai-provider{display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border:1px solid var(--bordure,rgba(0,0,0,.1));border-radius:14px;background:var(--fond,#fafafa);cursor:pointer}.cf-ai-provider input{margin-top:3px}.cf-ai-provider strong{display:block;font-size:.78rem}.cf-ai-provider small{display:block;margin-top:3px;font-size:.64rem;line-height:1.4;color:var(--gris,#687080)}@media(max-width:700px){.cf-ai-provider-grid{grid-template-columns:1fr}}
 </style>
-<link rel="stylesheet" href="./css/pdf-reader.css?v=20260923-reader3&aurore_release=20261010-firstpaint1" media="print" onload="this.media='all'">
-<link rel="stylesheet" href="./css/aurore-pdf-reader-refonte.css?aurore_release=20261010-firstpaint1" media="print" onload="this.media='all'">
-<link rel="stylesheet" href="./css/aurore-theme-light.css?aurore_release=20261010-firstpaint1" media="print" onload="this.media='all'">
-<link rel="stylesheet" href="./css/aurore-admin-data-tools.css?aurore_release=20261010-firstpaint1" media="print" onload="this.media='all'">
-<link href="./css/aurore-pdf-lab.css?aurore_release=20261010-firstpaint1" rel="stylesheet" media="print" onload="this.media='all'"/>
-<link rel="stylesheet" href="./css/aurore-wikipedia.css?aurore_release=20261010-firstpaint1" media="print" onload="this.media='all'">
-<link rel="stylesheet" href="./css/aurore-pdf-menu.css?v=20261008-pdfperf-download1&aurore_release=20261010-firstpaint1">
-<link rel="stylesheet" href="./css/aurore-visual-refonte.css?aurore_release=20261010-firstpaint1">
-<link rel="stylesheet" href="./css/aurore-pdf-horizontal-navigation.css?aurore_release=20261010-firstpaint1" media="print" onload="this.media='all'">
-<link rel="stylesheet" href="./css/aurore-personal-space-refonte.css?v=20260923-unifiedcards1&aurore_release=20261010-firstpaint1" media="print" onload="this.media='all'">
-<link href="./css/aurora-activity.css?aurore_release=20261010-firstpaint1" rel="stylesheet" media="print" onload="this.media='all'"/>
-<link rel="stylesheet" href="./css/aurore-personal-actions.css?aurore_release=20261010-firstpaint1" media="print" onload="this.media='all'">
-<link href="./css/aurora-floating-home.css?aurore_release=20261010-firstpaint1" rel="stylesheet" media="print" onload="this.media='all'"/>
-<link rel="stylesheet" href="./css/aurore-theme-auth-pdf.css?v=20261003-sessionflow1&aurore_release=20261010-firstpaint1" media="print" onload="this.media='all'">
-<link rel="stylesheet" href="./css/aurore-pdf-grids.css?v=20260923-unifiedcards2&aurore_release=20261010-firstpaint1" media="print" onload="this.media='all'">
-<link rel="stylesheet" href="./css/aurore-final-polish.css?aurore_release=20261010-firstpaint1">
-<link rel="stylesheet" href="./css/aurore-hero-morph.css?aurore_release=20261010-firstpaint1">
-<link rel="stylesheet" href="./css/aurore-section-sharing.css?aurore_release=20261010-firstpaint1" media="print" onload="this.media='all'">
-<link rel="stylesheet" href="./css/aurore-shared-route-guard.css?aurore_release=20261010-firstpaint1" media="print" onload="this.media='all'">
-<link rel="stylesheet" href="./css/aurore-shared-route.css?aurore_release=20261010-firstpaint1" media="print" onload="this.media='all'">
-<link rel="stylesheet" href="./css/aurore-admin-category.css?aurore_release=20261010-firstpaint1" media="print" onload="this.media='all'">
-<link rel="stylesheet" href="./css/aurore-admin-pending-v2.css?aurore_release=20261010-firstpaint1">
-<link rel="stylesheet" href="./css/aurore-compactage.css?aurore_release=20261010-firstpaint1" media="print" onload="this.media='all'">
-<link rel="stylesheet" href="./css/aurore-resource-overview.css?v=20260922-design1&aurore_release=20261010-firstpaint1">
-<link href="./css/aurora-diagnostics.css?aurore_release=20261010-firstpaint1" rel="stylesheet" media="print" onload="this.media='all'"/>
-<link href="./css/aurora-attachments.css?aurore_release=20261010-firstpaint1" rel="stylesheet" media="print" onload="this.media='all'"/>
-<link href="./css/aurora-content-factory.css?v=20260920-3&aurore_release=20261010-firstpaint1" rel="stylesheet" media="print" onload="this.media='all'"/>
-<link rel="stylesheet" href="./css/aurore-admin-parcours.css?v=20261002-parcours2&aurore_release=20261010-firstpaint1">
-<link rel="stylesheet" href="./css/aurore-glass.css?v=20261004-glass2&aurore_release=20261010-firstpaint1">
-<link rel="stylesheet" href="./css/aurore-edition-assistee.css?v=20261010-toc-wikimedia-scroll1&aurore_release=20261010-firstpaint1">
+<link rel="stylesheet" href="./css/pdf-reader.css?v=20260923-reader3&aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="./css/aurore-pdf-reader-refonte.css?aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="./css/aurore-theme-light.css?aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="./css/aurore-admin-data-tools.css?aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
+<link href="./css/aurore-pdf-lab.css?aurore_release=20261010-temporary-no-cache1" rel="stylesheet" media="print" onload="this.media='all'"/>
+<link rel="stylesheet" href="./css/aurore-wikipedia.css?aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="./css/aurore-pdf-menu.css?v=20261008-pdfperf-download1&aurore_release=20261010-temporary-no-cache1">
+<link rel="stylesheet" href="./css/aurore-visual-refonte.css?aurore_release=20261010-temporary-no-cache1">
+<link rel="stylesheet" href="./css/aurore-pdf-horizontal-navigation.css?aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="./css/aurore-personal-space-refonte.css?v=20260923-unifiedcards1&aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
+<link href="./css/aurora-activity.css?aurore_release=20261010-temporary-no-cache1" rel="stylesheet" media="print" onload="this.media='all'"/>
+<link rel="stylesheet" href="./css/aurore-personal-actions.css?aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
+<link href="./css/aurora-floating-home.css?aurore_release=20261010-temporary-no-cache1" rel="stylesheet" media="print" onload="this.media='all'"/>
+<link rel="stylesheet" href="./css/aurore-theme-auth-pdf.css?v=20261003-sessionflow1&aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="./css/aurore-pdf-grids.css?v=20260923-unifiedcards2&aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="./css/aurore-final-polish.css?aurore_release=20261010-temporary-no-cache1">
+<link rel="stylesheet" href="./css/aurore-hero-morph.css?aurore_release=20261010-temporary-no-cache1">
+<link rel="stylesheet" href="./css/aurore-section-sharing.css?aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="./css/aurore-shared-route-guard.css?aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="./css/aurore-shared-route.css?aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="./css/aurore-admin-category.css?aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="./css/aurore-admin-pending-v2.css?aurore_release=20261010-temporary-no-cache1">
+<link rel="stylesheet" href="./css/aurore-compactage.css?aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="./css/aurore-resource-overview.css?v=20260922-design1&aurore_release=20261010-temporary-no-cache1">
+<link href="./css/aurora-diagnostics.css?aurore_release=20261010-temporary-no-cache1" rel="stylesheet" media="print" onload="this.media='all'"/>
+<link href="./css/aurora-attachments.css?aurore_release=20261010-temporary-no-cache1" rel="stylesheet" media="print" onload="this.media='all'"/>
+<link href="./css/aurora-content-factory.css?v=20260920-3&aurore_release=20261010-temporary-no-cache1" rel="stylesheet" media="print" onload="this.media='all'"/>
+<link rel="stylesheet" href="./css/aurore-admin-parcours.css?v=20261002-parcours2&aurore_release=20261010-temporary-no-cache1">
+<link rel="stylesheet" href="./css/aurore-glass.css?v=20261004-glass2&aurore_release=20261010-temporary-no-cache1">
+<link rel="stylesheet" href="./css/aurore-edition-assistee.css?v=20261010-toc-wikimedia-scroll1&aurore_release=20261010-temporary-no-cache1">
 </head>
 <body class="site-locked">
 <div class="aurore-boot-overlay" id="auroreBootOverlay" role="status" aria-live="polite" aria-label="Chargement d’Aurore" aria-hidden="false">
@@ -716,7 +746,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
   <span class="aurore-network-status-copy"><strong id="auroreNetworkStatusTitle">Connexion interrompue</strong><span id="auroreNetworkStatusText"></span></span>
   <button aria-label="Fermer" class="aurore-network-status-close" id="auroreNetworkStatusClose" type="button">×</button>
 </div>
-<script src="js/aurore-access-lock.js?v=20261006-auth-session2"></script>
+<script src="js/aurore-access-lock.js?v=20261006-auth-session2&aurore_fresh=20261010-temporary-no-cache1"></script>
 <header>
 <div class="wrap header-inner">
 <div class="brand">
@@ -2166,7 +2196,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
   ══════════════════════════════════════════════════════════════════════════
 -->
 <link rel="preload" as="script" crossorigin href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"><script defer id="aurore-supabase-sdk" src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js" onload="window.__AURORE_SUPABASE_SDK_LOADED=true" onerror="window.__AURORE_SUPABASE_SDK_FAILED=true"></script>
-<script defer src="js/aurore-auth-bootstrap.js?v=20261006-native-google-final4"></script>
+<script defer src="js/aurore-auth-bootstrap.js?v=20261006-native-google-final4&aurore_fresh=20261010-temporary-no-cache1"></script>
 <script>
 
   // ---------- CONFIGURATION SUPABASE ----------
@@ -4830,20 +4860,20 @@ body:not(.site-locked) #accessLock{display:none!important;}
 
   
 </script>
-<script defer src="js/aurore-documents.js?v=20260926-covers-all-levels3"></script>
-<script defer src="js/aurore-upload-depot.js"></script>
-<script defer src="js/aurore-admin-users.js"></script>
-<script defer src="js/aurore-admin-documents.js?v=20261001-adminpending4"></script>
-<script defer src="js/aurora-content-factory-admin.js?20261009-geogebra-export-bridge1"></script>
-<script defer src="js/aurore-editorial-revisions.js?v=20261001-e3"></script>
-<script defer src="js/aurore-admin-duplicates.js"></script>
-<script defer src="js/aurore-admin-claims.js"></script>
-<script defer src="js/aurore-publicites.js"></script>
-<script defer src="js/aurore-pdf-reader.js?v=20261008-pdfperf-download1"></script>
-<script defer src="js/aurore-navigation.js?v=20260923-navigation4"></script>
-<script defer src="./js/aurore-theme-logic.js"></script>
-<script defer src="js/site-config.js"></script>
-<script defer src="js/aurore-personal-documents.js"></script>
+<script defer src="js/aurore-documents.js?v=20260926-covers-all-levels3&aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurore-upload-depot.js?aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurore-admin-users.js?aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurore-admin-documents.js?v=20261001-adminpending4&aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurora-content-factory-admin.js?20261009-geogebra-export-bridge1&aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurore-editorial-revisions.js?v=20261001-e3&aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurore-admin-duplicates.js?aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurore-admin-claims.js?aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurore-publicites.js?aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurore-pdf-reader.js?v=20261008-pdfperf-download1&aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurore-navigation.js?v=20260923-navigation4&aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="./js/aurore-theme-logic.js?aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/site-config.js?aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurore-personal-documents.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 <div aria-hidden="true" class="welcome-modal" hidden="" id="welcomeModal">
 <div class="welcome-modal-backdrop" data-welcome-close=""></div>
 <section aria-labelledby="welcomeModalTitle" aria-modal="true" class="welcome-modal-card" role="dialog">
@@ -4864,7 +4894,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 </div>
 </section>
 </div>
-<script defer src="./js/aurore-video-footer-position.js"></script>
+<script defer src="./js/aurore-video-footer-position.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 
 
 
@@ -4889,13 +4919,13 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <p class="access-code-note">Utilisez 4 à 8 chiffres. Ce code est un verrou d’accès à l’espace sur cet appareil, distinct du mot de passe de votre compte.</p>
 </section>
 </div>
-<script defer src="js/aurore-personal-actions.js"></script>
+<script defer src="js/aurore-personal-actions.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 <div aria-label="Installer Aurore" class="pwa-install-hint" id="pwaInstallHint" role="dialog">
 <strong>Installer Aurore sur cet appareil</strong>
 <span>Ajoutez Aurore à votre écran d’accueil pour l’ouvrir comme une application, sans l’interface habituelle du navigateur.</span>
 <button id="pwaInstallHintBtn" type="button">Installer Aurore</button>
 </div>
-<script defer src="./js/aurore-pwa-install.js?v=20261010-sw-refresh-v10"></script>
+<script defer src="./js/aurore-pwa-install.js?v=20261010-sw-refresh-v10&aurore_fresh=20261010-temporary-no-cache1"></script>
 <div aria-labelledby="aurore-history-confirm-title" aria-modal="true" id="aurore-history-confirm-modal" role="dialog">
 <div class="aurore-history-confirm-card">
 <div class="aurore-history-confirm-title" id="aurore-history-confirm-title">Effacer l’historique des téléchargements ?</div>
@@ -4906,10 +4936,10 @@ body:not(.site-locked) #accessLock{display:none!important;}
 </div>
 </div>
 </div>
-<script defer src="./js/aurore-history-confirm.js"></script>
-<script defer src="./js/aurore-download-navigation-guard.js"></script>
-<script defer src="./js/aurore-pdf-navigation-guard.js"></script>
-<script defer src="js/aurore-personal-folders.js"></script>
+<script defer src="./js/aurore-history-confirm.js?aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="./js/aurore-download-navigation-guard.js?aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="./js/aurore-pdf-navigation-guard.js?aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurore-personal-folders.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 <!-- Menu principal style ChatGPT : accès rapide à l'historique Aurora et à sa réduction. -->
 <button aria-expanded="false" aria-haspopup="menu" aria-label="Ouvrir le menu Aurora" class="aurore-home-menu-btn" id="auroreHomeMenuBtn" title="Menu Aurora" type="button">
   <span aria-hidden="true"><i></i><i></i><i></i></span>
@@ -4922,7 +4952,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
     <span><strong>Historique des discussions</strong><small>Retrouver vos conversations Aurora</small></span>
   </button>
 </div>
-<script defer src="js/aurore-home-menu.js"></script>
+<script defer src="js/aurore-home-menu.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 <!-- Accueil flottant et déplaçable : ne dépend d'aucune section particulière. -->
 <button aria-label="Retour à l'accueil" class="aurore-floating-home" id="auroreFloatingHome" title="Retour à l'accueil — faites glisser pour déplacer" type="button">
 <span aria-hidden="true" class="afh-icon">
@@ -4950,10 +4980,10 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <span id="auroreFAIResizeLabel">Réduire en fenêtre flottante</span>
 </button>
 </div>
-<script defer src="js/aurore-floating-home.js"></script>
-<script defer src="js/aurore-floating-ai.js"></script>
-<script defer src="./js/aurore-color-theme-logic.js"></script>
-<script defer src="./js/aurore-system-ui.js"></script>
+<script defer src="js/aurore-floating-home.js?aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurore-floating-ai.js?aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="./js/aurore-color-theme-logic.js?aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="./js/aurore-system-ui.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 
 
 
@@ -4963,7 +4993,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 
 
 
-<script defer src="js/aurore-personal-end-runtime.js"></script>
+<script defer src="js/aurore-personal-end-runtime.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 
 
 
@@ -4971,13 +5001,13 @@ body:not(.site-locked) #accessLock{display:none!important;}
 
 
 
-<script defer src="js/aurore-section-sharing-runtime.js"></script>
+<script defer src="js/aurore-section-sharing-runtime.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 <!-- ===== AURORE WIKIPÉDIA — recherche + page encyclopédique dédiée =====
      Module autonome : n'utilise que des fonctions déjà globales (afficherEcran,
      ICONS, echapperHtmlPub, creerSnapshotNavigation, navigationParPopState,
      history) et ses propres écouteurs "input" sur les champs de recherche
      existants, sans modifier la recherche interne aux documents Aurore. -->
-<script defer src="js/aurore-wikipedia-feature.js"></script>
+<script defer src="js/aurore-wikipedia-feature.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 <!-- =============================================================
      AURORE IA — ÉTAPE 2 : connexion sécurisée au modèle IA
      La clé API reste côté serveur dans Supabase Edge Functions. Le navigateur appelle uniquement la fonction sécurisée « aurore-ia ».
@@ -5078,33 +5108,33 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <div aria-hidden="true" class="aurore-ia-resize-handle" id="auroreIAResizeHandle" title="Redimensionner Aurora"></div>
 </div>
 </section>
-<script defer src="js/aurore-ia-core.js"></script>
-<script defer src="js/aurore-ia-input.js"></script>
+<script defer src="js/aurore-ia-core.js?aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurore-ia-input.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 <!-- ===== AURORA — CENTRE DE DIAGNOSTIC (admin uniquement) =====
      Ajout ciblé et réversible : ne modifie aucune fonction existante,
      ne change pas le comportement normal d'Aurora. Visible uniquement dans
      l'onglet "Diagnostic Aurora" du tableau de bord admin (lui-même déjà
      réservé aux comptes dont session.role === 'admin'). -->
 
-<script defer src="js/aurora-pdf-diagnostic.js"></script>
-<script defer src="js/aurore-pdf-lab.js?v=20261001-revision-e1"></script>
-<script defer src="js/aurora-diagnostic.js"></script>
-<script defer src="js/aurore-ia-plus-fix-1.js"></script>
-<script defer src="js/aurore-ia-plus-fix-2.js"></script>
+<script defer src="js/aurora-pdf-diagnostic.js?aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurore-pdf-lab.js?v=20261001-revision-e1&aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurora-diagnostic.js?aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurore-ia-plus-fix-1.js?aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurore-ia-plus-fix-2.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 
 
 
-<script defer src="js/aurore-admin-pending-v2.js?v=20261010-admin-auth-guard2"></script>
-<script defer src="js/aurore-editorial-task-admin.js?v=20261005-b-selection-cachefix1"></script>
-<script defer src="js/aurore-hero-morph.js"></script>
-<script defer src="js/aurore-zoom-control.js"></script>
-<script defer src="js/aurore-custom-selects.js"></script>
+<script defer src="js/aurore-admin-pending-v2.js?v=20261010-admin-auth-guard2&aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurore-editorial-task-admin.js?v=20261005-b-selection-cachefix1&aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurore-hero-morph.js?aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurore-zoom-control.js?aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurore-custom-selects.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 
-<script defer src="js/aurore-document-verifier.js?v=20260921-1"></script>
+<script defer src="js/aurore-document-verifier.js?v=20260921-1&aurore_fresh=20261010-temporary-no-cache1"></script>
 
-<script defer src="js/aurore-admin-parcours.js?v=20261002-parcours2"></script>
+<script defer src="js/aurore-admin-parcours.js?v=20261002-parcours2&aurore_fresh=20261010-temporary-no-cache1"></script>
 
-<script defer src="js/aurore-edition-assistee.js?v=20261010-course-delete-wiki-fix1"></script>
+<script defer src="js/aurore-edition-assistee.js?v=20261010-course-delete-wiki-fix1&aurore_fresh=20261010-temporary-no-cache1"></script>
 
 </body>
 </html>
