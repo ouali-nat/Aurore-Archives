@@ -678,6 +678,11 @@
     if(b.type==='exercise'){
       if(!String(b.content?.title||'').trim())errors.push('Le titre de l’exercice est obligatoire.');
       if(!String(b.content?.statement||'').trim())errors.push('L’énoncé est vide.');
+      // Dans l’éditeur assisté, le corrigé dépend de l’exercice et doit être
+      // présent avant de déclarer la génération complète.
+      if(String(b.content?.statement||'').trim()&&!String(b.content?.correction||'').trim()){
+        errors.push('Le corrigé de cet exercice est obligatoire : la page ne peut pas être déclarée complète sans lui.');
+      }
     }
     if(b.type==='wikimedia-image'){
       if(!String(b.content?.imageUrl||'').startsWith('https://upload.wikimedia.org/'))errors.push('Aucune image Wikimedia valide n’est sélectionnée.');
