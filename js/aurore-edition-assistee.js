@@ -1246,7 +1246,29 @@
     });
 
     root().querySelectorAll('[data-json-system]').forEach(x=>x.onclick=()=>jsonSystemDialog(x.dataset.jsonSystem));
-    root().querySelectorAll('[data-regenerate-page]').forEach(x=>x.onclick=()=>regeneratePage(x.dataset.regeneratePage));
+    root().querySelectorAll('[data-regenerate-page]').forEach(x=>{
+      x.type='button';
+      x.onclick=async e=>{
+        e.preventDefault();
+        e.stopPropagation();
+        if(x.dataset.regenerating==='true')return;
+        x.dataset.regenerating='true';
+        const originalLabel=x.textContent;
+        x.disabled=true;
+        x.textContent='Régénération…';
+        try{
+          await regeneratePage(x.dataset.regeneratePage);
+        }catch(err){
+          setStatus('La régénération a échoué : '+String(err?.message||err));
+        }finally{
+          x.dataset.regenerating='false';
+          if(x.isConnected){
+            x.disabled=false;
+            x.textContent=originalLabel;
+          }
+        }
+      };
+    });
     root().querySelectorAll('[data-preview-block]').forEach(x=>x.onclick=()=>previewBlock(x.dataset.previewBlock));
     root().querySelectorAll('[data-download-block]').forEach(x=>x.onclick=async()=>{
       const b=activeBlocks().find(v=>String(v.id)===String(x.dataset.downloadBlock));
