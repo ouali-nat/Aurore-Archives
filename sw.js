@@ -5,7 +5,7 @@
    Les bibliothèques, couvertures et PDF déjà ouverts restent conservés.
 */
 
-const SW_VERSION = 'v9';
+const SW_VERSION = 'v10';
 // Caches non versionnés : ils survivent à TOUTES les mises à jour du service worker.
 const PAGE_CACHE = 'aurore-shell';
 const STATIC_CACHE = 'aurore-static';
@@ -127,16 +127,22 @@ async function rafraichirCachesInterface() {
   } catch (_) {}
 
   // Les nouvelles URL CSS possèdent un paramètre de publication distinct.
-  // Supprimer uniquement les anciennes entrées CSS, sans toucher aux images,
-  // aux polices, aux fichiers PDF ni aux couvertures hors ligne.
+  // Les anciens scripts sont aussi invalidés : ils peuvent laisser les compteurs
+  // à zéro ou bloquer l'envoi si le navigateur garde une version JS périmée.
+  // Les images, polices, bibliothèques, PDF et couvertures restent préservés.
   try {
     const statics = await caches.open(STATIC_CACHE);
     const requests = await statics.keys();
     await Promise.all(requests.map(async (request) => {
       try {
         const url = new URL(request.url);
-        if (url.origin !== self.location.origin || !/\.css$/i.test(url.pathname)) return;
-        if (url.searchParams.get('aurore_release') !== '20261010-firstpaint1') {
+        if (url.origin !== self.location.origin) return;
+        if (/\.js$/i.test(url.pathname)) {
+          await statics.delete(request);
+          return;
+        }
+        if (/\.css$/i.test(url.pathname) &&
+            url.searchParams.get('aurore_release') !== '20261010-firstpaint1') {
           await statics.delete(request);
         }
       } catch (_) {}
