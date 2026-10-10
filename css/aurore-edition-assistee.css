@@ -211,3 +211,134 @@ html > #aeBlockDownloadChoiceOverlay{position:fixed!important;inset:0!important;
   touch-action:manipulation;
   pointer-events:auto;
 }
+
+
+/* Wikimedia Commons : petites vignettes sur trois colonnes, sélection au toucher. */
+.ae-wiki-dialog{
+  grid-template-rows:auto auto auto minmax(0,1fr) auto;
+}
+.ae-wiki-dialog>.ae-wiki-results{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  align-content:start;
+  align-items:start;
+  gap:7px;
+  min-width:0;
+  min-height:0;
+  overflow-x:hidden;
+  overflow-y:scroll;
+}
+.ae-wiki-card{
+  appearance:none;
+  -webkit-appearance:none;
+  display:flex!important;
+  flex-direction:column;
+  align-items:stretch;
+  gap:4px;
+  width:100%;
+  min-width:0;
+  margin:0;
+  padding:5px;
+  border:1px solid color-mix(in srgb,currentColor 13%,transparent);
+  border-radius:9px;
+  background:var(--ae-card,var(--card-bg,#fff));
+  color:inherit;
+  text-align:left;
+  font:inherit;
+  cursor:pointer;
+  overflow:hidden;
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+}
+.ae-wiki-card:focus-visible{
+  outline:2px solid var(--violet,#6d28d9);
+  outline-offset:2px;
+}
+.ae-wiki-card.is-selected{
+  border-color:var(--violet,#6d28d9);
+  background:color-mix(in srgb,var(--violet,#6d28d9) 9%,var(--ae-card,#fff));
+  box-shadow:inset 0 0 0 1px var(--violet,#6d28d9);
+}
+.ae-wiki-image-wrap{
+  display:block;
+  position:relative;
+  width:100%;
+  overflow:hidden;
+  border-radius:6px;
+  background:color-mix(in srgb,currentColor 6%,transparent);
+}
+.ae-wiki-card .ae-wiki-image-wrap img{
+  display:block;
+  width:100%;
+  height:clamp(58px,9vh,88px);
+  object-fit:cover;
+}
+.ae-wiki-selected-mark{
+  position:absolute;
+  top:4px;
+  right:4px;
+  display:grid;
+  place-items:center;
+  width:21px;
+  height:21px;
+  border:1px solid rgba(255,255,255,.85);
+  border-radius:50%;
+  background:var(--violet,#6d28d9);
+  color:#fff;
+  font-size:12px;
+  font-weight:900;
+  box-shadow:0 1px 5px rgba(0,0,0,.28);
+}
+.ae-wiki-selected-mark:empty{display:none}
+.ae-wiki-card strong{
+  display:-webkit-box;
+  min-height:2.35em;
+  max-height:2.35em;
+  overflow:hidden;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  font-size:clamp(9px,2.8vw,11px);
+  line-height:1.18;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+}
+.ae-wiki-card small{
+  display:block;
+  max-width:100%;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+  font-size:9px;
+  line-height:1.2;
+}
+.ae-wiki-footer{
+  display:grid;
+  gap:7px;
+  min-width:0;
+  padding-top:8px;
+}
+.ae-wiki-footer .ae-wiki-pagination{
+  padding:0;
+}
+.ae-wiki-footer .ae-wiki-pagination button,
+.ae-wiki-footer>#aeWikiAddSelected{
+  width:100%;
+  min-height:39px;
+  margin:0;
+  touch-action:manipulation;
+}
+.ae-wiki-footer>#aeWikiAddSelected:disabled{
+  opacity:.48;
+  cursor:not-allowed;
+}
+@media(max-width:560px){
+  .ae-wiki-dialog{padding:10px}
+  .ae-wiki-dialog>.ae-wiki-results{gap:5px;padding:2px 1px 6px}
+  .ae-wiki-card{padding:4px;border-radius:8px}
+  .ae-wiki-card .ae-wiki-image-wrap img{height:clamp(54px,8vh,76px)}
+  .ae-wiki-card small{font-size:8px}
+  .ae-wiki-footer{gap:6px}
+}
+[data-theme="dark"] .ae-wiki-card.is-selected{
+  background:color-mix(in srgb,var(--violet,#6d28d9) 20%,var(--dark-surface-2,#17142a));
+}
