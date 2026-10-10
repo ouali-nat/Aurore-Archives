@@ -2247,7 +2247,8 @@
     if(type==='paragraph'||type==='point')return Boolean(String(content.text||'').trim());
     if(type==='graphique'){
       const graph=content.json&&typeof content.json==='object'&&!Array.isArray(content.json)?content.json:{};
-      return Boolean(String(graph.id||'').trim()&&String(graph.instrument||graph.graph_type||'').trim()&&String(graph.geogebra_image_path||graph.graph_local_path||graph.expression||'').trim());
+      // Le PNG peut encore manquer : la génération du flux le prépare avant le rendu.
+      return Boolean(String(graph.id||'').trim()&&String(graph.instrument||graph.graph_type||'').trim());
     }
     if(type==='wikimedia-image'){
       return String(content.imageUrl||'').startsWith('https://upload.wikimedia.org/')
