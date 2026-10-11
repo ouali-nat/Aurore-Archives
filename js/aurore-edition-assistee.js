@@ -246,12 +246,59 @@
     const enabled=configured.filter(e=>e&&e.enabled!==false&&String(e.title||'').trim());
     return Math.max(1,Math.ceil(enabled.length/10));
   }
+  function generationIsReady(g){
+    return String(g?.status||"").toLowerCase()==="ready"&&!!String(g?.page_url||"").trim();
+  }
   function pageNumberFor(b,tocPages=tocPageCount()){
     const blocks=activeBlocks();
     if(b?.role===START_ROLE)return 1;
-    if(b?.role===END_ROLE)return blocks.length+tocPages;
-    const i=blocks.findIndex(x=>x.id===b.id);
-    return i<0?null:i+tocPages+1;
+    const firstContentPage=Math.max(3,Number(tocPages||1)+2);
+    const renderable=contentBlocks().filter(hasRenderableContent);
+    const covered=new Set();
+    let physicalPage=firstContentPage;
+    if(b?.role===END_ROLE){
+      for(const candidate of renderable){
+        if(covered.has(String(candidate.id)))continue;
+        const raw=renderableFlowBlocksFor(candidate.id);
+        const group=raw.length?raw:[candidate];
+        const owner=group[0]||candidate;
+        for(const item of group)covered.add(String(item.id));
+        const g=owner.generation||{};
+        physicalPage+=generationIsReady(g)&&Number(g.page_count)>0?Math.floor(Number(g.page_count)):group.length;
+      }
+      return physicalPage;
+    }
+    const targetId=String(b?.id||"");
+    if(!targetId)return null;
+    for(const candidate of renderable){
+      if(covered.has(String(candidate.id)))continue;
+      const raw=renderableFlowBlocksFor(candidate.id);
+      const group=raw.length?raw:[candidate];
+      const owner=group[0]||candidate;
+      const g=owner.generation||{};
+      const startStored=Number(g.page_number||physicalPage);
+      const targetIndex=group.findIndex(item=>String(item.id)===targetId);
+      for(const item of group)covered.add(String(item.id));
+      if(targetIndex>=0){
+        const map= g.flow_page_map&&typeof g.flow_page_map==="object" ? Number(g.flow_page_map[targetId]) : 0;
+        if(generationIsReady(g)&&Number.isFinite(map)&&map>=startStored)return physicalPage+(map-startStored);
+        return physicalPage+Math.max(0,targetIndex);
+      }
+      physicalPage+=generationIsReady(g)&&Number(g.page_count)>0?Math.floor(Number(g.page_count)):group.length;
+    }
+    const index=blocks.findIndex(item=>String(item?.id||"")===targetId);
+    return index<0?null:physicalPage;
+  }
+  function pageNumberForEnd(b,tocPages=tocPageCount()){
+    if(!b)return null;
+    if(b?.role===START_ROLE)return 1;
+    if(b?.role===END_ROLE)return pageNumberFor(b,tocPages);
+    const group=renderableFlowBlocksFor(b.id),owner=group[0]||b,g=owner.generation||{};
+    const start=Number(g.page_number||pageNumberFor(owner,tocPages));
+    const end=g.flow_page_end_map&&typeof g.flow_page_end_map==="object"?Number(g.flow_page_end_map[String(b.id)]):0;
+    if(generationIsReady(g)&&Number.isFinite(end)&&end>=start)return pageNumberFor(owner,tocPages)+(end-start);
+    if(generationIsReady(g)&&String(owner.id)===String(b.id)&&Number(g.page_count)>0)return pageNumberFor(owner,tocPages)+Math.floor(Number(g.page_count))-1;
+    return pageNumberFor(b,tocPages);
   }
   function isRepeatedDefaultIntroduction(b,course=state.course){
     if(!b||isDefaultIntroduction(b))return false;
@@ -1032,33 +1079,32 @@
   }
 
   async function blockDownloadPartsThrough(targetBlock,mode='current'){
-    const requestedTargetPage=Number(pageNumberFor(targetBlock));
+    const requestedTargetPage=Number(mode==="previous"?pageNumberForEnd(targetBlock):pageNumberFor(targetBlock));
     const parts=[],seenPages=new Set();
     const blocks=activeBlocks();
     const byId=new Map(blocks.map(b=>[String(b.id),b]));
     const isReady=g=>String(g?.status||'').toLowerCase()==='ready'&&!!String(g?.page_url||'').trim();
 
-    // Quand un bloc a été régénéré seul, le PDF de flux du segment peut déjà
-    // contenir ce même bloc. Pour un assemblage « pages précédentes », on doit
-    // garder le flux canonique et non juxtaposer son extrait puis son doublon isolé.
     const targetSegment=flowSegmentFor(targetBlock.id);
     const targetSegmentIds=new Set(targetSegment.map(b=>String(b?.id||'')));
     const flowOwner=targetSegment[0]||targetBlock;
     const flowOwnerGeneration=flowOwner?.generation||{};
     let preferCanonicalFlow=mode==='previous'
       &&targetSegment.length>1
-      &&String(flowOwner.id)!==String(targetBlock.id)
       &&isReady(flowOwnerGeneration)
       &&flowOwnerGeneration.independent_regeneration!==true
       &&generationCoversThrough(flowOwnerGeneration,targetSegment,targetBlock.id);
     let canonicalFlowPageCount=0;
     if(preferCanonicalFlow){
-      try{canonicalFlowPageCount=await assistedPdfPageCount(flowOwnerGeneration.page_url)}catch(_){canonicalFlowPageCount=0}
-      // Si PDF.js est momentanément indisponible, ne pas revenir au PDF
-      // autonome du bloc cible : c'est la cause du chapitre qui recommence.
-      // Estimer les pages physiques nécessaires jusqu'à la page logique demandée.
-      if(!Number.isInteger(canonicalFlowPageCount)||canonicalFlowPageCount<1){
-        canonicalFlowPageCount=Math.max(1,requestedTargetPage-Number(pageNumberFor(flowOwner))+1);
+      const mappedStart=Number(flowOwnerGeneration.flow_page_map?.[String(flowOwner.id)]||flowOwnerGeneration.page_number||pageNumberFor(flowOwner));
+      const mappedEnd=Number(flowOwnerGeneration.flow_page_end_map?.[String(targetBlock.id)]||flowOwnerGeneration.flow_page_map?.[String(targetBlock.id)]||0);
+      const mappedCount=mappedEnd>=mappedStart?mappedEnd-mappedStart+1:0;
+      if(mappedCount>0)canonicalFlowPageCount=mappedCount;
+      if(!canonicalFlowPageCount){
+        try{canonicalFlowPageCount=await assistedPdfPageCount(flowOwnerGeneration.page_url)}catch(_){canonicalFlowPageCount=0}
+        if(!Number.isInteger(canonicalFlowPageCount)||canonicalFlowPageCount<1){
+          canonicalFlowPageCount=Math.max(1,requestedTargetPage-Number(pageNumberFor(flowOwner))+1);
+        }
       }
     }
 
@@ -1079,8 +1125,6 @@
       if(!Number.isInteger(n)||n>requestedTargetPage)continue;
 
       if(preferCanonicalFlow&&targetSegmentIds.has(String(b.id))){
-        // Insérer toutes les pages physiques du flux une seule fois au niveau
-        // de son propriétaire. Les PDF isolés des blocs compagnons sont ignorés.
         if(String(b.id)!==String(flowOwner.id))continue;
         const ownerPage=Number(pageNumberFor(flowOwner));
         for(let sourcePage=1;sourcePage<=canonicalFlowPageCount;sourcePage++){
@@ -1102,13 +1146,10 @@
         }
         continue;
       }
-      // En mode « page actuelle », un bloc régénéré seul doit garder son PDF
-      // de travail. Le mode « pages précédentes » préfère le flux canonique.
       if(String(b.id)===String(targetBlock.id)&&g.independent_regeneration===true){
         add(g.page_url,'Page '+n,n,1);
         continue;
       }
-
       const blockSegment=flowSegmentFor(b.id);
       const blockFlowOwner=blockSegment[0]||b;
       const blockFlowGeneration=blockFlowOwner?.generation||{};
@@ -1117,30 +1158,15 @@
         add(blockFlowGeneration.page_url,'Page '+n+' · flux assisté',n,Math.max(1,n-ownerPage+1));
         continue;
       }
-
       const ownerId=String(g.flow_page_owner_id||'').trim();
       const owner=ownerId?byId.get(ownerId):null;
       const ownerGeneration=owner?.generation||{};
-      const ownerReady=isReady(ownerGeneration)
-        &&ownerGeneration.independent_regeneration!==true
-        &&generationContainsBlock(ownerGeneration,b.id);
-
-      if(String(b.id)===String(targetBlock.id)&&g.independent_regeneration===true){
-        add(g.page_url,'Page '+n,n,1);
-        continue;
-      }
-
+      const ownerReady=isReady(ownerGeneration)&&ownerGeneration.independent_regeneration!==true&&generationContainsBlock(ownerGeneration,b.id);
       if(ownerId&&ownerReady){
         const ownerPage=Number(pageNumberFor(owner));
-        add(ownerGeneration.page_url,'Page '+n,n,Math.max(1,n-ownerPage+1));
-        continue;
-      }
-
-      if(g.independent_regeneration===true||!ownerId){
-        add(g.page_url,'Page '+n,n,1);
+        add(ownerGeneration.page_url,'Page '+n+' · flux assisté',n,Math.max(1,n-ownerPage+1));
       }else{
-        const ownerPage=owner?Number(pageNumberFor(owner)):n;
-        add(g.page_url,'Page '+n,n,Math.max(1,n-ownerPage+1));
+        add(g.page_url,'Page '+n,n,1);
       }
     }
 
@@ -1148,11 +1174,8 @@
     if(endBlock&&Number(pageNumberFor(endBlock))<=requestedTargetPage&&String(pages.end?.status||'').toLowerCase()==='ready'){
       add(pages.end.pdfUrl,'Fin du document',pageNumberFor(endBlock),1);
     }
-
     parts.sort((a,b)=>a.pageNumber-b.pageNumber);
-    const targetPage=preferCanonicalFlow&&parts.length
-      ?Math.max(...parts.map(x=>Number(x.pageNumber)||0))
-      :requestedTargetPage;
+    const targetPage=preferCanonicalFlow&&parts.length?Math.max(...parts.map(x=>Number(x.pageNumber)||0)):requestedTargetPage;
     return {targetPage,parts};
   }
 
@@ -1289,7 +1312,7 @@
     requestAnimationFrame(()=>overlay.remove());
   }
 
-  async function askBlockDownloadChoice(block){
+  async function askBlockDownloadChoice(block,intent="download"){
     let overlay=document.getElementById('aeBlockDownloadChoiceOverlay');
     if(!overlay){
       initBlockDownloadChoice();
@@ -1297,9 +1320,10 @@
     }
     if(!overlay)return Promise.resolve(null);
 
-    const target=await blockDownloadPartsThrough(block);
-    const current=target.targetPage;
-    const previousReady=current>1&&target.parts.some(x=>x.pageNumber<current);
+    const current=Number(pageNumberFor(block));
+    const target=await blockDownloadPartsThrough(block,"previous");
+    const endPage=Number(target.targetPage||pageNumberForEnd(block));
+    const previousReady=endPage>1&&target.parts.some(x=>x.pageNumber<endPage);
     const currentReady=target.parts.some(x=>x.pageNumber===current);
 
     const currentBtn=overlay.querySelector('[data-ae-download-mode="current"]');
@@ -1309,18 +1333,32 @@
     const description=overlay.querySelector('[data-ae-download-description]');
 
     if(currentLabel)currentLabel.textContent='Page '+current+' uniquement';
-    if(previousLabel)previousLabel.textContent='Pages 1 à '+current;
+    if(previousLabel)previousLabel.textContent='Pages 1 à '+endPage;
     if(currentBtn)currentBtn.disabled=!currentReady;
     if(previousBtn)previousBtn.disabled=current<=1||!currentReady;
     if(description){
-      description.textContent=current<=1
-        ? 'Ce bloc est sur la première page disponible.'
-        : previousReady
-          ? 'Les pages PDF disponibles jusqu’à ce bloc seront réunies dans l’ordre.'
-          : 'Aucune page précédente n’est prête : génère les blocs précédents pour les inclure.';
+      description.textContent=intent==="preview"
+        ? (currentReady
+          ? (endPage>current
+            ? "Choisis d’ouvrir cette page seule dans le lecteur ou les pages précédentes jusqu’à la fin de ce bloc."
+            : "Ouvre cette page dans le lecteur PDF intégré.")
+          : "La page n’est pas encore prête en PDF. Génère d’abord ce bloc.")
+        : (current<=1
+          ? "Ce bloc est sur la première page disponible."
+          : previousReady
+            ? "Les pages PDF disponibles jusqu’à la fin de ce bloc seront réunies dans l’ordre."
+            : "Aucune page précédente n’est prête : génère les blocs précédents pour les inclure.");
     }
     // Garder la page à sa position : pas de verrouillage du body ni de focus automatique,
     // qui peuvent provoquer un défilement brutal sur certains navigateurs mobiles.
+    const kicker=overlay.querySelector("[data-ae-operation-kicker]");
+    const heading=overlay.querySelector("[data-ae-operation-title]");
+    if(kicker)kicker.textContent=intent==="preview"?"Prévisualisation":"Téléchargement";
+    if(heading)heading.textContent=intent==="preview"?"Que souhaitez-vous prévisualiser ?":"Que souhaitez-vous télécharger ?";
+    const currentSmall=currentBtn?.querySelector("small");
+    const previousSmall=previousBtn?.querySelector("small");
+    if(currentSmall)currentSmall.textContent=intent==="preview"?"Ouvrir uniquement cette page dans le lecteur intégré.":"Uniquement la page de ce bloc.";
+    if(previousSmall)previousSmall.textContent=intent==="preview"?"Ouvrir le PDF jusqu’à la fin de ce bloc dans le lecteur intégré.":"Toutes les pages précédentes jusqu’à ce bloc.";
     overlay.__auroreViewportState={scrollY:window.scrollY||0};
     overlay.classList.add('open');
     overlay.setAttribute('aria-hidden','false');
@@ -1340,8 +1378,8 @@
       <div class="ae-block-download-choice-card">
         <div class="ae-block-download-choice-head">
           <div>
-            <div class="ae-block-download-choice-kicker">Téléchargement</div>
-            <h3>Que souhaitez-vous télécharger ?</h3>
+            <div class="ae-block-download-choice-kicker" data-ae-operation-kicker>Téléchargement</div>
+            <h3 data-ae-operation-title>Que souhaitez-vous télécharger ?</h3>
             <p data-ae-download-description></p>
           </div>
           <button type="button" class="ae-block-download-choice-close" aria-label="Fermer">×</button>
@@ -1892,7 +1930,7 @@
     }
   }
 
-  async function progressivePreviewBlock(id){
+  async function progressivePreviewBlock(id,mode="previous"){
     ensureCourseStructure(state.course);
     const current=activeBlocks().find(x=>x.id===id);if(!current||isSystemBlock(current))return;
 
@@ -1941,7 +1979,7 @@
         if(flowUrl&&!previewSeenUrls.has(flowUrl)){
           previewSeenOwners.add(String(blockFlowOwner.id));
           previewSeenUrls.add(flowUrl);
-          allSteps.push({kind:'pdf',label:'Page '+String(pageNumberFor(blockFlowOwner))+' · flux assisté',url:flowUrl,number:pageNumberFor(blockFlowOwner),status:'ready',source:blockFlowOwner});
+          allSteps.push({kind:'pdf',label:'Page '+String(pageNumberFor(blockFlowOwner))+' · flux assisté',url:flowUrl,number:pageNumberFor(blockFlowOwner),status:'ready',source:blockFlowOwner,flow_contains_current:generationContainsBlock(blockFlowGeneration,current.id)});
         }
         continue;
       }
@@ -1955,7 +1993,7 @@
       else allSteps.push({kind:'pending',label:'Page '+page+' · '+labelFor(b),number:page,status:'pending',source:b});
     }
 
-    const currentPage=pageNumberFor(current),currentUrl=String(current?.generation?.page_url||'').trim();
+    const currentPage=Number(pageNumberFor(current)),targetThroughPage=Number(mode==="previous"?pageNumberForEnd(current):currentPage),currentUrl=String(current?.generation?.page_url||'').trim();
     const currentOwner=String(current?.generation?.flow_page_owner_id||'').trim();
     if(!preferTargetFlow&&currentUrl&&!(previewSeenUrls.has(currentUrl)|| (currentOwner&&previewSeenOwners.has(currentOwner)))){
       if(currentOwner)previewSeenOwners.add(currentOwner);
@@ -1989,7 +2027,7 @@
       const count=await assistedPdfPageCount(step.url);
       const base=Number(step.number||1);
       const isFlow=generationHasFlow(step.source?.generation);
-      const limit=isFlow?Math.min(count,Math.max(1,currentPage-base+1)):Math.min(count,1);
+      const limit=isFlow?Math.min(count,Math.max(1,targetThroughPage-base+1)):Math.min(count,1);
       for(let p=1;p<=limit;p++){
         expandedSteps.push({
           ...step,
@@ -2000,12 +2038,15 @@
         });
       }
     }
+    const selectedSteps=mode==="current"
+      ? expandedSteps.filter(step=>Number(step.number)===currentPage)
+      : expandedSteps;
     allSteps.length=0;
-    allSteps.push(...expandedSteps);
+    allSteps.push(...selectedSteps);
 
     const body='<div class="ae-progressive-preview">'+
-      '<div class="ae-page-preview-meta"><strong>Progression du document jusqu’au bloc '+currentPage+'</strong><span>'+readyCount+' page(s) PDF déjà produite(s) · '+totalCount+' étape(s) affichée(s)</span></div>'+
-      '<div class="ae-progressive-preview-note">La prévisualisation suit l’ordre réel du document : couverture → sommaire → blocs précédents → bloc actuel. Les blocs futurs restent volontairement hors de cette vue.</div>'+
+      '<div class="ae-page-preview-meta"><strong>'+(mode==="current"?"Page PDF "+currentPage:"Progression du document jusqu’à la page "+targetThroughPage)+'</strong><span>'+readyCount+' page(s) PDF déjà produite(s) · '+totalCount+' étape(s) source affichée(s)</span></div>'+
+      '<div class="ae-progressive-preview-note">'+(mode==="current"?"Seule la page physique associée au bloc sélectionné est ouverte dans le lecteur intégré.":"La prévisualisation suit l’ordre réel du document, de la couverture à la fin physique du bloc sélectionné. Les blocs suivants restent hors de cette vue.")+'</div>'+
       '<div class="ae-progressive-preview-stack">'+
         allSteps.map((step,i)=>{
           const b=step.source,page=step.number;
@@ -2028,7 +2069,7 @@
       '<div class="ae-page-preview-actions"><button class="admin-btn primary" id="aeCloseProgressivePreview">Fermer</button></div>'+
     '</div>';
 
-    openBlockModal('Prévisualisation progressive du document',body);
+    openBlockModal(mode==='current'?'Prévisualisation de la page '+currentPage:'Prévisualisation du document jusqu’à la page '+targetThroughPage,body);
     document.getElementById('aeCloseProgressivePreview')?.addEventListener('click',()=>closeAssistedModal());
     const modalHost=document.getElementById('aeModalHost');
     const previewBody=modalHost?.querySelector('.ae-dialog-body');
@@ -2046,7 +2087,7 @@
       const loadingId=canvasId+'_loading';
       if(document.getElementById(canvasId))await renderAssistedPdfPreview(step.url,canvasId,loadingId,Number(step.pdf_page_index||1));
     }
-    setStatus('Prévisualisation progressive prête : pages antérieures + bloc actuel.');
+    setStatus(mode==='current'?'Prévisualisation intégrée prête : page '+currentPage+'.':'Prévisualisation intégrée prête : pages jusqu’à '+targetThroughPage+'.');
   }
 
   async function previewGraphBlock(id){
@@ -2082,7 +2123,6 @@
 
   async function previewBlock(id){
     const b=activeBlocks().find(x=>x.id===id);if(!b)return;
-
     if(isSystemBlock(b)){
       const kind=systemPageKey(b.role),canvasId='aeSystemPreview_'+kind+'_'+String(b.id).replace(/[^a-zA-Z0-9_-]/g,'_'),loadingId=canvasId+'_loading';
       const title=systemPageLabel(kind);
@@ -2105,11 +2145,23 @@
       }
       return;
     }
-    if(b.type==='graphique'&&!String(b.generation?.page_url||'').trim()){
+
+    const segment=flowSegmentFor(id),owner=segment[0]||b,ownerGeneration=owner.generation||{};
+    const ownReady=String(b.generation?.status||'').toLowerCase()==='ready'&&!!String(b.generation?.page_url||'').trim();
+    const flowReady=String(ownerGeneration.status||'').toLowerCase()==='ready'
+      &&!!String(ownerGeneration.page_url||'').trim()
+      &&generationContainsBlock(ownerGeneration,b.id);
+    if(ownReady||flowReady){
+      const mode=await askBlockDownloadChoice(b,"preview");
+      if(!mode)return;
+      await progressivePreviewBlock(id,mode);
+      return;
+    }
+    if(b.type==='graphique'){
       await previewGraphBlock(id);
       return;
     }
-    await progressivePreviewBlock(id);
+    await progressivePreviewBlock(id,"previous");
   }
 
   async function previewToc(){
@@ -2481,12 +2533,15 @@
     if(!b||isSystemBlock(b)||isDefaultIntroduction(b)||isRepeatedDefaultIntroduction(b))return false;
     const type=String(b.type||'').toLowerCase();
     const content=b.content&&typeof b.content==='object'?b.content:{};
-    // Le renderer aurora-assisted-page-v2 ne prend en charge dans un flux
-    // partagé que les paragraphes et les points. Les graphiques GeoGebra,
-    // scènes SVG et images Wikimedia doivent être rendus comme blocs autonomes :
-    // les inclure dans flow_blocks provoque un rejet du renderer et invalide
-    // à tort toute la séquence de cours.
     if(type==='paragraph'||type==='point')return Boolean(String(content.text||'').trim());
+    if(type==='exercise')return Boolean(String(content.statement||'').trim());
+    if(type==='graphique'){
+      const g=content.json&&typeof content.json==='object'&&!Array.isArray(content.json)?content.json:{};
+      return Boolean(String(g.geogebra_image_path||g.graph_local_path||g.geogebra_image_url||g.image_url||g.preview_url||'').trim());
+    }
+    if(type==='wikimedia-image')return String(content.imageUrl||'').startsWith('https://upload.wikimedia.org/')
+      &&String(content.sourceUrl||'').startsWith('https://commons.wikimedia.org/')
+      &&Boolean(String(content.license||'').trim());
     return false;
   }
 
@@ -2507,8 +2562,7 @@
     const index=all.findIndex(b=>String(b?.id||'')===String(id||''));
     if(index<0)return [];
     const current=all[index];
-    // Seuls les paragraphes et points non vides forment un flux de texte.
-    // Images, schémas SVG et graphiques sont des blocs autonomes.
+    // Les paragraphes, exercices, graphiques et images validés suivent un même flux paginé.
     if(!isAssistedFlowableBlock(current))return [current];
     let start=index;
     while(start>0&&isAssistedFlowableBlock(all[start-1]))start--;
@@ -2553,6 +2607,16 @@
     return first;
   }
 
+  function assistedPageFunctionUrl(){
+    const host=String(window.location?.hostname||'').toLowerCase();
+    const fixedProductionHosts=new Set([
+      'aurore-section-archives.com',
+      'aurore-section-archives-j95aybwok-ouali1.vercel.app',
+      'aurore-section-archivescom.vercel.app'
+    ]);
+    const isPreview=host.endsWith('.vercel.app')&&!fixedProductionHosts.has(host)&&!/-git-main(?:-|$)/.test(host);
+    return SUPABASE_URL+'/functions/v1/'+(isPreview?'aurora-assisted-page-preview':'aurora-assisted-page-v2');
+  }
   async function generateBlock(id){
     ensureCourseStructure(state.course);
     const b=activeBlocks().find(x=>x.id===id);if(!b)return;
@@ -2683,7 +2747,7 @@
         await persistCourse(true,false);
       }
       updateGenerationProgress(b.id,50,'Envoi au renderer de page…');
-      const r=await fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-page-v2',{
+      const r=await fetch(assistedPageFunctionUrl(),{
         method:'POST',
         headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':SUPABASE_ANON_KEY},
         body:JSON.stringify({
@@ -2720,6 +2784,9 @@
         progress_label:'Page prête — visualisation disponible',
         bytes:d.bytes||null,
         flow_block_ids:persistedFlowIds,
+        page_count:Math.max(1,Number(d.page_count)||1),
+        flow_page_map:d.flow_page_map&&typeof d.flow_page_map==='object'?d.flow_page_map:null,
+        flow_page_end_map:d.flow_page_end_map&&typeof d.flow_page_end_map==='object'?d.flow_page_end_map:null,
         independent_regeneration:isFlowCompanion,
         qa:{engine:d.engine||'pdf-lib-course-page-v2',status:'completed',details:d.qa||null},
         error:null
@@ -2744,6 +2811,9 @@
         progress:100,
         progress_label:'Page prête — visualisation disponible',
         bytes:d.bytes||null,
+        page_count:Math.max(1,Number(d.page_count)||1),
+        flow_page_map:d.flow_page_map&&typeof d.flow_page_map==='object'?d.flow_page_map:null,
+        flow_page_end_map:d.flow_page_end_map&&typeof d.flow_page_end_map==='object'?d.flow_page_end_map:null,
         qa:{engine:d.engine||'pdf-lib-course-page-v2',status:'completed',details:d.qa||null},
         error:null
       };
