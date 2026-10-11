@@ -6,16 +6,22 @@
   const FN='aurora-assisted-sheet';
   const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const ficheExample={
-    title:'Les formules à connaître',subtitle:'Gaz parfait · premier principe · capacités calorifiques',mode:'nb',page_number:11,
-    essentials:[{title:'Gaz parfait',text:'Modèle valable à faible pression et haute température.'},{title:'Énergie conservée',text:'ΔU = W + Q : tout ce qui est reçu compte positif.'}],
-    formulas:[
-      {title:'Équation d’état',latex:'PV = nRT',legend:[{s:'P',m:'pression',u:'Pa'},{s:'V',m:'volume',u:'m^3'},{s:'n',m:'quantité de matière',u:'mol'},{s:'T',m:'température',u:'K'},{s:'R',m:'constante des gaz parfaits',v:'8{,}314',u:'J·mol⁻¹·K⁻¹'}],condition:'gaz parfait'},
-      {title:'Premier principe',latex:'\\Delta U = W + Q',legend:[{s:'\\Delta U',m:'variation d’énergie interne',u:'J'},{s:'W',m:'travail reçu',u:'J'},{s:'Q',m:'chaleur reçue',u:'J'}],condition:'système fermé',trap:'Reçu par le système : positif.'},
-      {title:'Énergie interne',latex:'\\Delta U = nC_v\\Delta T',legend:[{s:'C_v',m:'capacité à volume constant',u:'J.mol^-1.K^-1'},{s:'\\Delta T',m:'variation de température',u:'K'}],condition:'loi de Joule'}
+    title:'Fonctions et équations',
+    subtitle:'Relations essentielles · interprétation · méthode',
+    mode:'nb',
+    page_number:1,
+    essentials:[
+      {title:'Définition',text:'Commencer par identifier les objets et les hypothèses.'},
+      {title:'Méthode',text:'Justifier chaque étape et vérifier le résultat.'}
     ],
-    table:{title:'Transformations en un coup d’œil',columns:['Type','Constante','Travail','Bilan'],rows:[['Isochore','V = cste','W = 0','ΔU = Q'],['Isobare','P = cste','W = −PΔV','Q = ΔH'],['Isotherme','T = cste','ΔU = 0','Q = −W']]},
-    scene:{version:1,width:260,height:170,elements:[{t:'axes',origin:[30,22],size:[200,125],x:[0,5],y:[0,5],xlabel:'V',ylabel:'P'},{t:'plot',expr:'4/x',from:1.1,to:4.6,w:1.8,label:{text:'isotherme',at:3.3,dy:-13}},{t:'line',p1:[48,82],p2:[205,82],dash:'dashed',w:1.6}]},
-    selftest:['Signe de W lors d’une détente ?','Que vaut ΔU en isotherme ?','Cp − Cv = ?']
+    formulas:[
+      {title:'Fonction affine',latex:'f(x)=ax+b',legend:[{s:'a',m:'coefficient directeur'},{s:'b',m:'ordonnée à l’origine'}],condition:'x réel',trap:'Le signe de a détermine le sens de variation.'},
+      {title:'Discriminant',latex:'\\Delta=b^2-4ac',legend:[{s:'a',m:'coefficient de x²'},{s:'b',m:'coefficient de x'},{s:'c',m:'terme constant'}],condition:'ax²+bx+c=0',trap:'Distinguer Δ positif, nul ou négatif.'},
+      {title:'Dérivée',latex:'(x^n)\'=nx^{n-1}',legend:[{s:'n',m:'exposant réel adapté au domaine'}],condition:'Règle de puissance',trap:'Vérifier le domaine de définition.'}
+    ],
+    table:{title:'Signe du discriminant',columns:['Condition','Racines réelles','Conséquence'],rows:[['Δ > 0','Deux','Deux solutions distinctes'],['Δ = 0','Une double','Une solution double'],['Δ < 0','Aucune','Aucune solution réelle']]},
+    scene:{version:1,width:260,height:170,elements:[{t:'axes',origin:[30,22],size:[200,125],x:[-3,3],y:[-2,5],xlabel:'x',ylabel:'y'},{t:'plot',expr:'x^2-1',from:-2.2,to:2.2,w:1.8,label:{text:'y = x² − 1',at:1.6,dy:-12}}]},
+    selftest:['Quels sont les cas possibles pour le discriminant ?','Que représente le coefficient directeur ?','Comment contrôler le domaine de définition ?']
   };
   const sceneExample={title:'Schéma vectoriel — pression et volume',caption:'Représentation illustrative dans le plan (V, P)',mode:'nb',page_number:12,scene:{version:1,width:260,height:170,elements:[{t:'axes',origin:[30,22],size:[200,125],x:[0,5],y:[0,5],xlabel:'V',ylabel:'P'},{t:'plot',expr:'4/x',from:1.1,to:4.6,w:1.8,label:{text:'isotherme',at:3.3,dy:-13}},{t:'plot',expr:'2*(2/x)^1.4',from:1.25,to:3.4,dash:'dotted',w:1.6,tone:'soft',label:{text:'adiabatique',at:1.25,dx:-62,dy:-4}},{t:'line',p1:[48,82],p2:[205,82],dash:'dashed',w:1.6},{t:'text',at:[160,87],text:'isobare',size:7.5}]}};
   let busy=false;
