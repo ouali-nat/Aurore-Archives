@@ -2026,7 +2026,7 @@
       expandedPdfUrls.add(step.url);
       const count=await assistedPdfPageCount(step.url);
       const base=Number(step.number||1);
-      const isFlow=generationHasFlow(step.source?.generation);
+      const isFlow=generationHasFlow(step.source?.generation)||Number(step.source?.generation?.page_count||0)>1;
       const limit=isFlow?Math.min(count,Math.max(1,targetThroughPage-base+1)):Math.min(count,1);
       for(let p=1;p<=limit;p++){
         expandedSteps.push({
