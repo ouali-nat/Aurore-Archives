@@ -1,7 +1,7 @@
 /* Aurore — Édition assistée : atelier séquentiel, sans canevas de prévisualisation */
 (function(){
   'use strict';
-  const state={mode:'list',course:null,courses:[],selected:null,loading:false,pdfBatchRunning:false,pdfLibPromise:null,modalViewport:null,canonicalPreview:{fingerprint:'',documentId:null,pdfUrl:null}};
+  const state={mode:'list',course:null,courses:[],selected:null,loading:false,pdfBatchRunning:false,pdfBatchProgress:{percent:0,label:'En attente de génération',targetCount:0,activeTargetIndex:0,completedTargets:0},pdfLibPromise:null,modalViewport:null,canonicalPreview:{fingerprint:'',documentId:null,pdfUrl:null}};
   const PREVIEW_CACHE_MAX=6;
   const previewPdfCache=new Map();
   function cachedPreviewBuffer(url){const hit=previewPdfCache.get(url);if(!hit)return null;previewPdfCache.delete(url);previewPdfCache.set(url,hit);return hit;}
@@ -534,7 +534,9 @@
   async function generateAllPages(){
     if(state.pdfBatchRunning||!state.course)return;
     state.pdfBatchRunning=true;
+    state.pdfBatchProgress={percent:0,label:'Inventaire des pages à générer…',targetCount:0,activeTargetIndex:0,completedTargets:0};
     renderWorkspace();
+    renderPdfBatchProgress();
     const failures=[];
     const addFailure=message=>{
       const value=String(message||'').trim();
@@ -573,6 +575,8 @@
     try{
       await persistCourse(true,false);
       let targets=buildTargets();
+      state.pdfBatchProgress={...(state.pdfBatchProgress||{}),targetCount:targets.length,activeTargetIndex:0,completedTargets:0,percent:0};
+      setPdfBatchProgress(targets.length?'Inventaire terminé · '+targets.length+' bloc(s) de contenu à rendre.':'Aucun bloc de contenu · contrôle des pages système.',0);
       if(!targets.length)setStatus('Aucun bloc de contenu non vide : les pages système vont être régénérées.');
 
       for(let i=0;i<targets.length;i++){
@@ -581,7 +585,13 @@
         // Un bloc long peut être remplacé par plusieurs fragments durant sa génération.
         // Dans ce cas generateBlock s'occupe déjà des fragments ; on ne signale pas
         // faussement l'ancien identifiant comme une page manquante.
-        if(!block||!hasRenderableContent(block))continue;
+        if(!block||!hasRenderableContent(block)){
+          state.pdfBatchProgress.completedTargets=i+1;
+          setPdfBatchProgress('Bloc '+(i+1)+'/'+targets.length+' : contenu réorganisé pendant le rendu.',targets.length?Math.round(((i+1)/targets.length)*82):82);
+          continue;
+        }
+        state.pdfBatchProgress.activeTargetIndex=i;
+        setPdfBatchProgress('Précontrôle '+(i+1)+'/'+targets.length+' · '+titleFor(block),targets.length?Math.round((i/targets.length)*82):82);
 
         const currentGroupRaw=flowBlocksFor(block.id);
         const currentGroup=(currentGroupRaw.length?currentGroupRaw:[block]).filter(hasRenderableContent);
@@ -591,10 +601,14 @@
             titleFor(item.part)+': '+(item.validation.errors||['validation impossible']).join(' ')).join(' · ');
           markGroupError(currentGroup,message);
           addFailure(message);
+          state.pdfBatchProgress.completedTargets=i+1;
+          setPdfBatchProgress('Bloc '+(i+1)+'/'+targets.length+' en erreur · contenu à corriger.',targets.length?Math.round(((i+1)/targets.length)*82):82);
           setStatus('Précontrôle '+(i+1)+'/'+targets.length+' : contenu à corriger — '+message.slice(0,260));
           continue;
         }
 
+        state.pdfBatchProgress.activeTargetIndex=i;
+        setPdfBatchProgress('Rendu '+(i+1)+'/'+targets.length+' · '+titleFor(block),targets.length?Math.round((i/targets.length)*82):82);
         setStatus('Génération des pages de contenu '+(i+1)+'/'+targets.length+' : '+titleFor(block)+'…');
         await generateBlock(block.id);
 
@@ -611,6 +625,8 @@
             }
           }
         }
+        state.pdfBatchProgress.completedTargets=i+1;
+        setPdfBatchProgress('Bloc '+(i+1)+'/'+targets.length+(failures.length?' traité · contrôle des erreurs en cours.':' rendu et vérifié.'),targets.length?Math.round(((i+1)/targets.length)*82):82);
       }
 
       // Contrôle du contenu actuel après les générations et éventuels découpages automatiques.
@@ -623,6 +639,7 @@
 
       // Les pages système sont générées EN DERNIER : la génération d’un bloc long
       // peut insérer des fragments et modifier la pagination ainsi que le sommaire.
+      setPdfBatchProgress('Mise à jour du sommaire, de la couverture et de la page de fin…',86);
       setStatus('Mise à jour finale du sommaire et génération de la couverture et de la page de fin…');
       try{
         rebuildTocEntries();
@@ -632,6 +649,7 @@
         addFailure('Pages système : '+String(error?.message||error));
       }
 
+      setPdfBatchProgress('Vérification des PDF, des liens et de la pagination…',96);
       const systemPages=state.canonicalPreview?.pages||{};
       for(const kind of ['cover','toc','end']){
         const page=systemPages[kind]||{};
@@ -646,16 +664,20 @@
       const readiness=fullPdfReadiness();
       const pending=[...new Set([...failures,...readiness.missing])];
       if(readiness.complete&&failures.length===0){
+        setPdfBatchProgress('Terminé · toutes les pages et les liens PDF sont vérifiés.',100);
         setStatus('Génération complète réussie : texte, exercices/corrigés, images, graphiques GeoGebra, schémas vectoriels et fiches vérifiés. Le bouton « Télécharger le document complet » est activé.');
       }else{
+        setPdfBatchProgress('Terminé avec éléments manquants · consulte le résultat détaillé.',100);
         setStatus('Document complet non déclaré prêt : '+pending.slice(0,5).join(' · ')
           +(pending.length>5?' · et '+(pending.length-5)+' autre(s) élément(s) à vérifier':''));
       }
     }catch(error){
+      setPdfBatchProgress('Arrêt sur erreur · '+String(error?.message||error).slice(0,150),state.pdfBatchProgress?.percent||0);
       setStatus('Échec de la génération générale : '+String(error?.message||error));
     }finally{
       state.pdfBatchRunning=false;
       renderWorkspace();
+      renderPdfBatchProgress();
       refreshDownloadButton();
     }
   }
@@ -947,6 +969,7 @@
       '<div class="ae-sequence-meta"><span>'+contentBlocks().length+' bloc(s) de contenu · 1 début · 1 fin</span><span id="aeSystemPreviewOverall">Pages système indépendantes : '+systemPreviewOverallFromPages(state.canonicalPreview?.pages||{}).ready+'/3 prêtes · '+systemPreviewOverallFromPages(state.canonicalPreview?.pages||{}).progress+'%</span></div>'+
       '<section class="ae-block-stack">'+(activeBlocks().find(b=>b?.role===START_ROLE)?blockCard(activeBlocks().find(b=>b?.role===START_ROLE),0):'')+tocSystemCard()+(contentBlocks().length?contentBlocks().map((b,i)=>blockCard(b,i+2)).join(''):'<div class="ae-empty"><strong>Le cours est vide.</strong><span>Ajoute un paragraphe pour commencer. La couverture et le sommaire resteront toujours présents.</span></div>')+(activeBlocks().find(b=>b?.role===END_ROLE)?blockCard(activeBlocks().find(b=>b?.role===END_ROLE),activeBlocks().length-1):'')+'</section>'+
       '<div class="ae-workbar ae-complete-download"><div style="display:grid;gap:4px;flex:1;min-width:220px"><strong>Document final</strong><small id="aeCompleteDownloadNote" style="opacity:.68;line-height:1.4">Le téléchargement complet s’active lorsque toutes les pages sont prêtes. Les anciens fragments gardent leur taille jusqu’à leur régénération.</small></div><button class="admin-btn ghost" id="aeGenerateAllPages"'+(state.pdfBatchRunning?' disabled':'')+'>Générer / régénérer toutes les pages</button><button class="admin-btn primary" id="aeDownloadPdfComplete" disabled>Télécharger le document complet</button></div>'+
+      '<div id="aePdfBatchProgress" style="display:grid;gap:6px;margin:10px 0 14px;padding:12px 14px;border:1px solid #D1D5DB;border-radius:10px;background:rgba(148,163,184,.07)" aria-live="polite"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><strong id="aePdfBatchProgressLabel" style="font-size:13px;line-height:1.4">'+esc(state.pdfBatchProgress?.label||'En attente de génération')+'</strong><span id="aePdfBatchProgressPercent" style="font-variant-numeric:tabular-nums;font-weight:700">'+Math.max(0,Math.min(100,Math.round(Number(state.pdfBatchProgress?.percent)||0)))+'%</span></div><div id="aePdfBatchProgressTrack" role="progressbar" aria-label="Progression de la génération totale" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+Math.max(0,Math.min(100,Math.round(Number(state.pdfBatchProgress?.percent)||0)))+'" style="height:9px;border-radius:999px;overflow:hidden;background:#E5E7EB"><div id="aePdfBatchProgressBar" style="height:100%;width:'+Math.max(0,Math.min(100,Math.round(Number(state.pdfBatchProgress?.percent)||0)))+'%;border-radius:999px;background:#2563EB;transition:width .25s ease"></div></div><small id="aePdfBatchProgressDetail" style="opacity:.72;line-height:1.4">Les pages sont rendues une par une pour préserver les sauvegardes et éviter les conflits.</small></div>'+
       '<footer class="ae-work-footer">Le bouton supérieur permet de récupérer les fragments déjà prêts. En fin d’éditeur, « Télécharger le document complet » assemble la couverture, le sommaire, tous les blocs et la page finale, uniquement quand toutes les parties sont vérifiées.</footer></div><div class="ae-modal-host" id="aeModalHost"></div>';
     prepareAssistedModalHost();
     bindWorkspace();
@@ -1664,14 +1687,14 @@
     if(persist)void persistCourse(true,false);
   }
   async function independentSystemPageStatus(documentId){
-    const token=(typeof session!=='undefined'&&session?.access_token)||await freshToken();
+    const token=await freshToken();
     const r=await fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-system-page',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':SUPABASE_ANON_KEY},body:JSON.stringify({mode:'status',generated_document_id:Number(documentId)})});
     const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}};if(!r.ok||!d.ok)throw new Error(d.error||('Statut page système HTTP '+r.status));return d;
   }
   async function requestIndependentSystemPage(kind,{force=false}={}){
     ensureDocumentPages(state.course);
     const fp=systemPageFingerprint(kind),current=state.canonicalPreview?.pages?.[kind]||emptySystemPageState();
-    const token=(typeof session!=='undefined'&&session?.access_token)||await freshToken();
+    const token=await freshToken();
     const theme=normalizeThemeColor(state.course.theme_color);
 
     async function renderIndependent(documentId){
@@ -2251,12 +2274,42 @@
     }catch(e){localStorage.setItem('aurore_assisted_course',JSON.stringify(state.course));if(!silent)setStatus('Supabase indisponible · brouillon local conservé.');}
   }
 
+  function renderPdfBatchProgress(){
+    const p=state.pdfBatchProgress||{};
+    const percent=Math.max(0,Math.min(100,Math.round(Number(p.percent)||0)));
+    const label=document.getElementById('aePdfBatchProgressLabel');
+    const pct=document.getElementById('aePdfBatchProgressPercent');
+    const bar=document.getElementById('aePdfBatchProgressBar');
+    const track=document.getElementById('aePdfBatchProgressTrack');
+    const detail=document.getElementById('aePdfBatchProgressDetail');
+    if(label)label.textContent=String(p.label||'En attente de génération');
+    if(pct)pct.textContent=percent+'%';
+    if(bar)bar.style.width=percent+'%';
+    if(track)track.setAttribute('aria-valuenow',String(percent));
+    if(detail){
+      const count=Number(p.targetCount)||0;
+      detail.textContent=state.pdfBatchRunning
+        ?(count?'Rendu séquentiel · bloc '+Math.min(count,(Number(p.activeTargetIndex)||0)+1)+' sur '+count+' · les pages système seront contrôlées à la fin.':'Inventaire des blocs avant le lancement du rendu…')
+        :(percent>=100?'Cycle terminé. Vérifie le résultat et les éventuelles erreurs signalées au-dessus.':'Les pages sont rendues une par une pour préserver les sauvegardes et éviter les conflits.');
+    }
+  }
+  function setPdfBatchProgress(label,percent){
+    state.pdfBatchProgress={...(state.pdfBatchProgress||{}),label:String(label||'Génération…'),percent:Math.max(0,Math.min(100,Math.round(Number(percent)||0)))};
+    renderPdfBatchProgress();
+  }
   function updateGenerationProgress(id,value,label){
     const card=root()?.querySelector('[data-block="'+CSS.escape(id)+'"]');
     const bar=card?.querySelector('[data-progress-bar]'),pct=card?.querySelector('[data-progress-pct]'),lab=card?.querySelector('[data-progress-label]');
     if(bar)bar.style.width=Math.max(0,Math.min(100,value))+'%';
     if(pct)pct.textContent=Math.round(value)+'%';
     if(lab)lab.textContent=label||'Génération…';
+    if(state.pdfBatchRunning&&Number(state.pdfBatchProgress?.targetCount)>0){
+      const p=state.pdfBatchProgress,idx=Math.max(0,Math.min(p.targetCount-1,Number(p.activeTargetIndex)||0));
+      const fraction=Math.max(0,Math.min(100,Number(value)||0))/100;
+      p.percent=Math.max(0,Math.min(82,Math.round(((idx+fraction)/p.targetCount)*82)));
+      p.label='Bloc '+(idx+1)+'/'+p.targetCount+' · '+String(label||'Rendu en cours');
+      renderPdfBatchProgress();
+    }
   }
   function startGenerationProgress(id){
     let value=8;
@@ -2506,7 +2559,7 @@
     b.generation={...(b.generation||{}),status:'generating',page_number:pageNumberFor(b),progress:10,progress_label:'Préparation de la page…',error:null,updated_at:new Date().toISOString()};
     renderWorkspace();updateGenerationProgress(b.id,10,'Préparation de la page…');setStatus('Préparation du rendu de la page…');
     try{
-      const token=(typeof session!=='undefined'&&session?.access_token)||await freshToken();
+      const token=await freshToken();
       if(!token)throw new Error('Session administrateur absente.');
       if(b.type==='fiche-revision'){
         const fiche=clone(b.content?.json||{});
@@ -2515,9 +2568,15 @@
         const theme=normalizeThemeColor(state.course.theme_color);
         const fingerprint=JSON.stringify({content:fiche,theme_color:theme});
         const callSheet=async(payload)=>{
-          const response=await fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-sheet',{
-            method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':SUPABASE_ANON_KEY},body:JSON.stringify(payload)
+          let requestToken=token;
+          const send=()=>fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-sheet',{
+            method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+requestToken,'apikey':SUPABASE_ANON_KEY},body:JSON.stringify(payload)
           });
+          let response=await send();
+          if(response.status===401){
+            requestToken=await freshToken(true);
+            response=await send();
+          }
           const raw=await response.text();let data={};try{data=raw?JSON.parse(raw):{}}catch(_){data={error:raw}};
           if(!response.ok||data.ok===false)throw new Error(data.error||(data.errors||[]).join('\\n')||('Rendu de fiche HTTP '+response.status));
           return data;
@@ -2676,11 +2735,38 @@
     }
   }
 
-  async function freshToken(){
-    if(typeof rafraichirSession==='function'&&typeof session!=='undefined'&&session?.refresh_token){try{if(await rafraichirSession())return session.access_token}catch(_){}}
-    const c=client();if(!c)throw new Error('Session indisponible.');
-    const s=await c.auth.getSession();if(s.data?.session?.access_token)return s.data.session.access_token;
-    throw new Error('Session administrateur expirée.');
+  function hasFreshAccessToken(token,minLifetimeSeconds=45){
+    try{
+      const part=String(token||'').split('.')[1];if(!part)return false;
+      const payload=JSON.parse(atob(part.replace(/-/g,'+').replace(/_/g,'/').padEnd(Math.ceil(part.length/4)*4,'=')));
+      return Number(payload.exp)>Math.floor(Date.now()/1000)+minLifetimeSeconds;
+    }catch(_){return false;}
+  }
+  async function freshToken(forceRefresh=false){
+    const current=typeof session!=='undefined'?String(session?.access_token||''):'';
+    if(!forceRefresh&&hasFreshAccessToken(current,90))return current;
+    if(typeof rafraichirSession==='function'&&typeof session!=='undefined'&&session?.refresh_token){
+      try{
+        const refreshed=await rafraichirSession();
+        if(refreshed?.ok&&hasFreshAccessToken(session?.access_token,30))return session.access_token;
+        if(!forceRefresh&&refreshed?.transient&&hasFreshAccessToken(current,30))return current;
+      }catch(_){
+        if(!forceRefresh&&hasFreshAccessToken(current,30))return current;
+      }
+    }
+    const c=client();
+    if(c){
+      try{
+        const s=await c.auth.getSession(),cached=s.data?.session?.access_token;
+        if(!forceRefresh&&hasFreshAccessToken(cached,90))return cached;
+        const renewal=await c.auth.refreshSession();
+        const renewed=renewal.data?.session?.access_token;
+        if(!renewal.error&&hasFreshAccessToken(renewed,30))return renewed;
+      }catch(_){}
+    }
+    const fallback=typeof session!=='undefined'?String(session?.access_token||''):'';
+    if(hasFreshAccessToken(fallback,30))return fallback;
+    throw new Error('Session administrateur expirée ou jeton invalide. Reconnecte-toi puis relance la génération.');
   }
 
   let wikiInsertAfterId=null;
