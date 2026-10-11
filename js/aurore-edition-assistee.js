@@ -15,6 +15,7 @@
     {value:'#A16207',label:'Ocre'},
     {value:'#0E7490',label:'Turquoise'},
     {value:'#BE123C',label:'Rose framboise'},
+    {value:'#BE185D',label:'Rose profond'},
     {value:'#7C3AED',label:'Violet clair'},
     {value:'#4338CA',label:'Indigo'},
     {value:'#0284C7',label:'Bleu ciel'},
