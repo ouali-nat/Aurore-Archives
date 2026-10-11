@@ -392,11 +392,13 @@
           continue;
         }
 
-        const standalone=safeGroup.every(part=>{
-          const g=part?.generation||{};
-          return isReadyPdf(g)&&generationFlowIds(g).length<=1;
-        })&&new Set(safeGroup.map(part=>String(part?.generation?.page_url||'').trim())).size===safeGroup.length;
-        if(standalone){
+        // Les données peuvent encore contenir un flux historique produit avant que
+        // les médias soient séparés du texte. Si chaque bloc du segment possède
+        // un PDF confirmé, on conserve ces fragments même lorsque ses anciennes
+        // flow_block_ids ne correspondent plus aux groupes actuels. Les URL
+        // identiques sont dédupliquées par add(), sans assembler le même PDF deux fois.
+        const readyFragments=safeGroup.every(part=>isReadyPdf(part?.generation));
+        if(readyFragments){
           safeGroup.forEach(part=>{
             add(part.generation.page_url,'Page '+String(part.generation.page_number||pageNumberFor(part)));
             covered.add(String(part.id));
@@ -410,8 +412,9 @@
       }
 
       const g=b?.generation||{};
-      const claimedFlowIds=generationFlowIds(g);
-      if(isReadyPdf(g)&&claimedFlowIds.length<=1){
+      // Un bloc désormais autonome peut porter des métadonnées de flux anciennes.
+      // Le statut ready + une URL PDF restent la preuve de disponibilité du fragment.
+      if(isReadyPdf(g)){
         add(g.page_url,'Page '+String(g.page_number||pageNumberFor(b)));
       }else{
         missing.push('Page de contenu « '+String(b?.content?.title||labelFor(b))+' » à générer ou à régénérer');
@@ -2504,8 +2507,8 @@
     const index=all.findIndex(b=>String(b?.id||'')===String(id||''));
     if(index<0)return [];
     const current=all[index];
-    // Paragraphs, points, images et graphiques forment un flux vertical ordonné.
-    // Les exercices et les blocs système continuent à le séparer.
+    // Seuls les paragraphes et points non vides forment un flux de texte.
+    // Images, schémas SVG et graphiques sont des blocs autonomes.
     if(!isAssistedFlowableBlock(current))return [current];
     let start=index;
     while(start>0&&isAssistedFlowableBlock(all[start-1]))start--;
