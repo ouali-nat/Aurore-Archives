@@ -205,6 +205,8 @@
     if(type==='point'){const n=nextPointNumber();b.content={title:'Point de cours '+n,text:'',color:DEFAULT_THEME_COLOR,rank:n};}
     if(type==='exercise'){const n=nextExerciseNumber();b.content={title:'Exercice '+n,statement:'',hint:'',correction_title:'Corrigé '+n,correction:''};}
     if(type==='graphique')b.content={json:{id:uid('graph'),instrument:'function2d',expression:'x^2'}};
+    if(type==='vector-scene')b.content={json:{title:'Schéma vectoriel',caption:'Exemple modifiable : une fonction dans un repère.',mode:'nb',scene:{version:1,width:260,height:170,elements:[{t:'axes',origin:[30,22],size:[200,125],x:[-3,3],y:[-1,5],xlabel:'x',ylabel:'y'},{t:'plot',expr:'x^2',from:-2,to:2,w:1.7}]}}};
+    if(type==='fiche-revision')b.content={json:{title:'Fiche de révision',subtitle:'À personnaliser selon le chapitre',mode:'nb',page_number:1,essentials:[{title:'Notion clé',text:'Définition ou propriété à retenir.'}],formulas:[{title:'Relation fondamentale',latex:'f(x)=ax+b',legend:[{s:'a',m:'coefficient directeur'},{s:'b',m:'ordonnée à l’origine'}],condition:'Fonction affine',trap:'Vérifier les conditions d’application.'}],table:null,scene:null,selftest:['Quelle propriété faut-il retenir ?']}};
     if(type==='wikimedia-image')b.content={imageUrl:'',thumbUrl:'',title:'',caption:'',sourceUrl:'',author:'',license:'',query:''};
     return b;
   }
@@ -255,6 +257,8 @@
       return Boolean(String(g.geogebra_image_path||g.graph_local_path||g.expression||g.equation||g.instrument||'').trim());
     }
     if(type==='wikimedia-image')return String(c.imageUrl||'').startsWith('https://upload.wikimedia.org/');
+    if(type==='vector-scene')return Array.isArray(c.json?.scene?.elements)&&c.json.scene.elements.length>0;
+    if(type==='fiche-revision')return Array.isArray(c.json?.formulas)&&c.json.formulas.length>0;
     return Boolean(String(c.text||c.content||'').trim());
   }
   function setStatus(t){const e=document.getElementById('assistedStatus');if(e)e.textContent=t}
@@ -645,7 +649,7 @@
 
   function normalizeContent(type,v){
     const x=v&&typeof v==='object'&&!Array.isArray(v)?clone(v):{};
-    if(type==='graphique') return {json:x};
+    if(['graphique','vector-scene','fiche-revision'].includes(type)) return {json:x};
     if(type==='paragraph') return {text:String(x.text??x.content??x.body??'')};
     if(type==='point') return {title:String(x.title??x.name??'Point de cours'),text:String(x.text??x.content??x.body??''),color:normalizePointColor(x.color),rank:Number.isFinite(Number(x.rank))?Number(x.rank):1};
     if(type==='exercise') return {title:String(x.title??x.name??'Exercice 1'),statement:String(x.statement??x.question??x.enonce??x.content??''),hint:String(x.hint??''),correction_title:String(x.correction_title??x.correctionTitle??'Corrigé 1'),correction:String(x.correction??'')};
@@ -697,6 +701,26 @@
         if(!String(g.instrument||g.graph_type||'').trim())errors.push('instrument ou graph_type est obligatoire.');
       }
     }
+    if(b.type==='vector-scene'){
+      const sc=b.content?.json?.scene;
+      const kinds=['axes','plot','line','arrow','rect','circle','polygon','arc','text','dim'];
+      if(!b.content?.json||typeof b.content.json!=='object'||Array.isArray(b.content.json))errors.push('Le JSON du schéma doit être un objet.');
+      else if(!sc||typeof sc!=='object'||Array.isArray(sc))errors.push('Le schéma doit contenir scene, un objet vectoriel.');
+      else{
+        if(sc.version!==1)errors.push('scene.version doit valoir 1.');
+        if(!Number.isFinite(Number(sc.width))||sc.width<20||sc.width>2000||!Number.isFinite(Number(sc.height))||sc.height<20||sc.height>2000)errors.push('scene.width et scene.height doivent être comprises entre 20 et 2000.');
+        if(!Array.isArray(sc.elements)||!sc.elements.length||sc.elements.length>300)errors.push('scene.elements doit contenir de 1 à 300 éléments.');
+        else if(sc.elements.some(el=>!el||!kinds.includes(el.t)))errors.push('Un élément utilise un type inconnu. Types autorisés : '+kinds.join(', ')+'.');
+      }
+    }
+    if(b.type==='fiche-revision'){
+      const f=b.content?.json;
+      if(!f||typeof f!=='object'||Array.isArray(f))errors.push('Le JSON de la fiche doit être un objet.');
+      else{
+        if(!String(f.title||'').trim())errors.push('Le titre de la fiche est obligatoire.');
+        if(!Array.isArray(f.formulas)||!f.formulas.length||f.formulas.length>48)errors.push('La fiche doit comporter de 1 à 48 formules/relations.');
+      }
+    }
     b.validation={ok:!errors.length,errors,warnings:[]};
     return b.validation;
   }
@@ -743,8 +767,8 @@
     return clone(state.course.document_pages.toc);
   }
 
-  function labelFor(b){return b.type==='paragraph'?'Paragraphe':b.type==='point'?'Point de cours':b.type==='exercise'?'Exercice':b.type==='graphique'?'Graphique GeoGebra':'Image Wikimedia'}
-  function mainText(b){return b.type==='exercise'?b.content?.statement||'':b.type==='graphique'?JSON.stringify(b.content?.json||{},null,2):b.content?.text||b.content?.caption||b.content?.title||''}
+  function labelFor(b){return b.type==='paragraph'?'Paragraphe':b.type==='point'?'Point de cours':b.type==='exercise'?'Exercice':b.type==='graphique'?'Graphique GeoGebra':b.type==='vector-scene'?'Schéma vectoriel':b.type==='fiche-revision'?'Fiche de révision':'Image Wikimedia'}
+  function mainText(b){return b.type==='exercise'?b.content?.statement||'':['graphique','vector-scene','fiche-revision'].includes(b.type)?JSON.stringify(b.content?.json||{},null,2):b.content?.text||b.content?.caption||b.content?.title||''}
 
   function systemBlockCard(b,i){
     const startPage=b.role===START_ROLE;
@@ -779,7 +803,7 @@
     if(isSystemBlock(b))return systemBlockCard(b,i);
     const v=validateBlock(b), gen=b.generation||{},page=pageNumberFor(b);
     let editor='';
-    if(b.type==='graphique')editor='<textarea class="ae-inline-json" data-edit-json="'+esc(b.id)+'" aria-label="JSON du graphique">'+esc(JSON.stringify(b.content?.json||{},null,2))+'</textarea>';
+    if(['graphique','vector-scene','fiche-revision'].includes(b.type))editor='<label class="ae-json-editor-label">'+esc(labelFor(b))+' · JSON modifiable</label><textarea class="ae-inline-json" data-edit-json="'+esc(b.id)+'" aria-label="JSON de '+esc(labelFor(b))+'">'+esc(JSON.stringify(b.content?.json||{},null,2))+'</textarea>';
     else if(b.type==='point')editor='<div class="ae-structured-editor ae-point-editor"><div class="ae-editor-grid"><label>Nom du point<input data-edit-point-title="'+esc(b.id)+'" value="'+esc(b.content?.title||'')+'" maxlength="140"></label><label>Rang<input type="number" min="1" step="1" data-edit-point-rank="'+esc(b.id)+'" value="'+esc(b.content?.rank||1)+'"></label><label>Couleur<select data-edit-point-color="'+esc(b.id)+'">'+pointColorOptions(b.content?.color)+'</select></label></div><label>Contenu<textarea data-edit-text="'+esc(b.id)+'" aria-label="Contenu du point de cours">'+esc(b.content?.text||'')+'</textarea></label><div class="ae-point-style-preview"><span style="--point-color:'+esc(normalizePointColor(b.content?.color))+'"></span><strong>'+esc(b.content?.title||'Point de cours')+'</strong><i></i></div></div>';
     else if(b.type==='exercise')editor='<div class="ae-structured-editor ae-exercise-editor"><label>Titre de l’exercice<input data-edit-exercise-title="'+esc(b.id)+'" value="'+esc(b.content?.title||'')+'" maxlength="140"></label><label>Énoncé<textarea data-edit-exercise-statement="'+esc(b.id)+'" aria-label="Énoncé de l’exercice">'+esc(b.content?.statement||'')+'</textarea></label><label>Indication<textarea class="ae-small-textarea" data-edit-exercise-hint="'+esc(b.id)+'" aria-label="Indication de l’exercice">'+esc(b.content?.hint||'')+'</textarea></label><div class="ae-correction-editor"><strong>Correction conditionnée à cet exercice</strong><label>Titre du corrigé<input data-edit-correction-title="'+esc(b.id)+'" value="'+esc(b.content?.correction_title||'')+'" maxlength="140"></label><textarea data-edit-correction="'+esc(b.id)+'" aria-label="Correction">'+esc(b.content?.correction||'')+'</textarea></div></div>';
     else if(b.type==='wikimedia-image'){
@@ -796,7 +820,7 @@
       '<div class="ae-block-toolbar"><button class="admin-btn ghost" data-regenerate-page="'+esc(b.id)+'">↻ Régénérer la page</button><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Prévisualiser</button><button class="admin-btn ghost" data-json-block="'+esc(b.id)+'">JSON</button><button class="admin-btn ghost" data-copy-block="'+esc(b.id)+'">Copier JSON</button><button class="admin-btn ghost" data-duplicate-block="'+esc(b.id)+'">Dupliquer</button><button class="admin-btn ghost" data-clear-block="'+esc(b.id)+'">Vider</button><button class="admin-btn danger" data-delete-block="'+esc(b.id)+'">Supprimer</button><button type="button" class="admin-btn primary" data-validate-block="'+esc(b.id)+'">Valider & générer la page</button></div>'+
       '<div class="ae-block-result">'+(gen.status==='ready'&&gen.page_url?'<span class="ae-generated-ok">✓ Page '+page+' générée seule</span><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Visualiser</button><button type="button" class="admin-btn ghost" data-download-block="'+esc(b.id)+'">Télécharger</button>':gen.status==='generating'?'<div class="ae-generation-progress" role="status" aria-live="polite"><div class="ae-generation-progress-top"><span data-progress-label>'+esc(gen.progress_label||'Génération de la page…')+'</span><strong data-progress-pct>'+Math.round(Number(gen.progress||8))+'%</strong></div><div class="ae-progress-track"><span data-progress-bar style="width:'+Math.max(8,Math.min(100,Number(gen.progress||8)))+'%"></span></div><small>Progression indicative · la page est en cours de génération.</small></div>':gen.status==='error'?'<span class="ae-generated-error">Erreur : '+esc(gen.error||'génération impossible')+'</span>':b.type==='graphique'&&v.ok?'<span>JSON validé · la construction graphique reste destinée au moteur GeoGebra/LuaLaTeX.</span>':'<span>Aucune page générée pour ce bloc.</span>')+'</div>'+
       (v.errors.length?'<div class="ae-block-errors">'+v.errors.map(x=>'• '+esc(x)).join('<br>')+'</div>':'')+
-      '<div class="ae-inline-add-row"><label class="ae-inline-add-select"><span>Ajouter sous ce bloc</span><select data-insert-after="'+esc(b.id)+'"><option value="">Sélectionner…</option><option value="paragraph">Paragraphe</option><option value="point">Point de cours</option><option value="exercise">Exercice</option><option value="graphique">Graphique GeoGebra</option><option value="wikimedia-image">Image</option></select></label></div>'+
+      (b.type==='fiche-revision'?'':'<div class="ae-inline-add-row"><label class="ae-inline-add-select"><span>Ajouter sous ce bloc</span><select data-insert-after="'+esc(b.id)+'"><option value="">Sélectionner…</option><option value="paragraph">Paragraphe</option><option value="point">Point de cours</option><option value="exercise">Exercice</option><option value="graphique">Graphique GeoGebra</option><option value="vector-scene">Schéma vectoriel</option><option value="wikimedia-image">Image</option></select></label></div>')+
       '</article>';
   }
 
@@ -808,7 +832,7 @@
     ensureCourseStructure(state.course);
     r.innerHTML='<div class="ae-shell ae-workspace"><header class="ae-head"><div><button class="admin-btn ghost" id="aeBack">← Mes cours</button><button class="admin-btn danger" id="aeDeleteCourseInside">Supprimer ce cours</button><span class="ae-kicker">Atelier de production séquentielle</span><h3><input id="aeCourseTitle" value="'+esc(state.course.title)+'"></h3><p>Le bloc de début, le sommaire et le bloc de fin sont automatiques. Chaque bloc central génère uniquement son propre fragment PDF indépendant.</p></div><span class="ae-status" id="assistedStatus">'+(state.course.validation?.ok?'Structure valide':'À compléter')+'</span></header>'+
       '<div class="ae-top-options"><div class="ae-top-options-title"><span class="ae-kicker">Options du document</span><strong>Couleur d’accent</strong><small>Elle sera utilisée pour les bordures, repères et éléments mathématiques de la page.</small></div><label class="ae-color-field"><span class="ae-color-swatch" style="background:'+normalizeThemeColor(state.course.theme_color)+'"></span><select id="aeThemeColor" aria-label="Couleur d’accent du document">'+themeColorOptions()+'</select></label></div>'+
-      '<div class="ae-workbar"><button class="admin-btn primary" id="aeAddP">＋ Paragraphe</button><button class="admin-btn ghost" id="aeAddPoint">＋ Point de cours</button><button class="admin-btn ghost" id="aeAddEx">＋ Exercice</button><button class="admin-btn ghost" id="aeAddGraph">＋ Graphique GeoGebra</button><button class="admin-btn ghost" id="aeAddWiki">＋ Image Wikimedia</button><button class="admin-btn ghost" id="aeTocJson">Sommaire JSON</button><button class="admin-btn ghost" id="aeSave">Enregistrer le cours</button><button class="admin-btn primary" id="aeDownloadPdfCurrent" disabled>Télécharger le PDF actuel</button></div>'+
+      '<div class="ae-workbar"><button class="admin-btn primary" id="aeAddP">＋ Paragraphe</button><button class="admin-btn ghost" id="aeAddPoint">＋ Point de cours</button><button class="admin-btn ghost" id="aeAddEx">＋ Exercice</button><button class="admin-btn ghost" id="aeAddGraph">＋ Graphique GeoGebra</button><button class="admin-btn ghost" id="aeAddVector">＋ Schéma vectoriel</button><button class="admin-btn ghost" id="aeAddFiche">＋ Fiche de révision (fin)</button><button class="admin-btn ghost" id="aeAddWiki">＋ Image Wikimedia</button><button class="admin-btn ghost" id="aeTocJson">Sommaire JSON</button><button class="admin-btn ghost" id="aeSave">Enregistrer le cours</button><button class="admin-btn primary" id="aeDownloadPdfCurrent" disabled>Télécharger le PDF actuel</button></div>'+
       '<div class="ae-sequence-meta"><span>'+contentBlocks().length+' bloc(s) de contenu · 1 début · 1 fin</span><span id="aeSystemPreviewOverall">Pages système indépendantes : '+systemPreviewOverallFromPages(state.canonicalPreview?.pages||{}).ready+'/3 prêtes · '+systemPreviewOverallFromPages(state.canonicalPreview?.pages||{}).progress+'%</span></div>'+
       '<section class="ae-block-stack">'+(activeBlocks().find(b=>b?.role===START_ROLE)?blockCard(activeBlocks().find(b=>b?.role===START_ROLE),0):'')+tocSystemCard()+(contentBlocks().length?contentBlocks().map((b,i)=>blockCard(b,i+2)).join(''):'<div class="ae-empty"><strong>Le cours est vide.</strong><span>Ajoute un paragraphe pour commencer. La couverture et le sommaire resteront toujours présents.</span></div>')+(activeBlocks().find(b=>b?.role===END_ROLE)?blockCard(activeBlocks().find(b=>b?.role===END_ROLE),activeBlocks().length-1):'')+'</section>'+
       '<div class="ae-workbar ae-complete-download"><div style="display:grid;gap:4px;flex:1;min-width:220px"><strong>Document final</strong><small id="aeCompleteDownloadNote" style="opacity:.68;line-height:1.4">Le téléchargement complet s’active lorsque toutes les pages sont prêtes. Les anciens fragments gardent leur taille jusqu’à leur régénération.</small></div><button class="admin-btn ghost" id="aeOptimizeAllPdf"'+(state.pdfBatchRunning?' disabled':'')+'>Régénérer tous les PDF (optimisés)</button><button class="admin-btn primary" id="aeDownloadPdfComplete" disabled>Télécharger le document complet</button></div>'+
@@ -1206,6 +1230,8 @@
     document.getElementById('aeAddPoint').onclick=()=>addBlock('point');
     document.getElementById('aeAddEx').onclick=()=>addBlock('exercise');
     document.getElementById('aeAddGraph').onclick=()=>addBlock('graphique');
+    document.getElementById('aeAddVector').onclick=()=>addBlock('vector-scene');
+    document.getElementById('aeAddFiche').onclick=()=>addBlock('fiche-revision');
     document.getElementById('aeAddWiki').onclick=()=>wiki();
     document.getElementById('aeTocJson').onclick=()=>jsonTocDialog();
     const tocTitleInput=document.getElementById('aeTocTitle');
@@ -1235,7 +1261,7 @@
     root().querySelectorAll('[data-edit-json]').forEach(el=>el.onchange=()=>{
       const b=activeBlocks().find(x=>x.id===el.dataset.editJson);if(!b)return;
       try{
-        b.content=normalizeContent('graphique',JSON.parse(el.value));
+        b.content=normalizeContent(b.type,JSON.parse(el.value));
         b.jsonEditorInvalid=false;
         validateBlock(b);
         // Important: ne pas reconstruire toute la carte au blur du textarea.
@@ -1247,7 +1273,7 @@
         const badge=head?.querySelector('.ae-block-state');
         if(small)small.textContent=b.validation?.ok?'Bloc valide':'À valider';
         if(badge){badge.classList.toggle('ok',!!b.validation?.ok);badge.classList.toggle('bad',!b.validation?.ok);badge.textContent=b.validation?.ok?'Valide':'À corriger';}
-      }catch(_){b.jsonEditorInvalid=true;setStatus('JSON graphique invalide. Corrige-le avant de générer la page.');}
+      }catch(_){b.jsonEditorInvalid=true;setStatus('JSON invalide pour « '+labelFor(b)+' ». Corrige-le avant de générer la page.');}
     });
 
     root().querySelectorAll('[data-json-system]').forEach(x=>x.onclick=()=>jsonSystemDialog(x.dataset.jsonSystem));
@@ -1300,20 +1326,23 @@
     ensureCourseStructure(state.course);
     const b=block(type),blocks=activeBlocks(),endIndex=blocks.findIndex(x=>x.role===END_ROLE);
     if(endIndex<0)blocks.push(systemBlock(END_ROLE,state.course.title));
-    const idx=Math.max(0,blocks.findIndex(x=>x.role===END_ROLE));
-    blocks.splice(idx,0,b);state.selected=b.id;validateCourse();renderWorkspace();setStatus('Bloc ajouté au milieu du document, avant la page de fin.');
+    const firstFiche=blocks.findIndex(x=>x?.type==='fiche-revision');
+    const end=blocks.findIndex(x=>x?.role===END_ROLE);
+    const idx=type==='fiche-revision'?Math.max(0,end):(firstFiche>=0?firstFiche:Math.max(0,end));
+    blocks.splice(idx,0,b);state.selected=b.id;validateCourse();renderWorkspace();setStatus(type==='fiche-revision'?'Fiche ajoutée à la fin du contenu. Modifie son JSON puis génère-la.':type==='vector-scene'?'Schéma vectoriel ajouté à cet emplacement. Modifie son JSON puis génère la page.':'Bloc ajouté au milieu du document, avant les fiches de révision et la page de fin.');
   }
   async function insertBlockAfter(id,type){
     ensureCourseStructure(state.course);
     const blocks=activeBlocks(),idx=blocks.findIndex(x=>x.id===id),source=idx>=0?blocks[idx]:null;
     if(!source||isSystemBlock(source))return;
-    if(!['paragraph','point','exercise','graphique','wikimedia-image'].includes(type))return;
+    if(source.type==='fiche-revision'){setStatus('La fiche de révision reste à la fin du contenu. Ajoute les nouveaux blocs avant elle.');return;}
+    if(!['paragraph','point','exercise','graphique','vector-scene','wikimedia-image'].includes(type))return;
     const b=block(type);
     blocks.splice(idx+1,0,b);
     state.selected=b.id;
     validateCourse();
     renderWorkspace();
-    setStatus(type==='wikimedia-image'?'Image insérée : sélectionne maintenant son illustration.':type==='graphique'?'Graphique GeoGebra inséré : renseigne ou colle son JSON GeoGebra.':type==='exercise'?'Exercice inséré sous le bloc sélectionné.':type==='point'?'Point de cours inséré sous le bloc sélectionné.':'Paragraphe inséré sous le bloc sélectionné.');
+    setStatus(type==='wikimedia-image'?'Image insérée : sélectionne maintenant son illustration.':type==='graphique'?'Graphique GeoGebra inséré : renseigne ou colle son JSON GeoGebra.':type==='vector-scene'?'Schéma vectoriel inséré à cet emplacement : modifie son JSON.':type==='exercise'?'Exercice inséré sous le bloc sélectionné.':type==='point'?'Point de cours inséré sous le bloc sélectionné.':'Paragraphe inséré sous le bloc sélectionné.');
     if(type==='wikimedia-image'){
       await new Promise(resolve=>requestAnimationFrame(resolve));
       wiki(b.id);
@@ -1346,7 +1375,7 @@
       correction_title:String(b.content?.correction_title||'Corrigé 1'),
       correction:''
     };
-    else if(b.type==='graphique')b.content={json:{}};
+    else if(['graphique','vector-scene','fiche-revision'].includes(b.type))b.content={json:{}};
     else if(b.type==='wikimedia-image')b.content={imageUrl:'',thumbUrl:'',title:'',caption:'',sourceUrl:'',author:'',license:'',query:''};
     else b.content={text:''};
     b.generation={status:'not_generated',page_number:null,page_path:null,page_url:null,updated_at:null,error:null};
@@ -1363,7 +1392,7 @@
     renderWorkspace();
     setStatus('Contenu du bloc vidé. Tu peux maintenant coller son JSON.');
     requestAnimationFrame(()=>{
-      const selector=b.type==='graphique'
+      const selector=['graphique','vector-scene','fiche-revision'].includes(b.type)
         ?'[data-edit-json="'+CSS.escape(b.id)+'"]'
         :'[data-edit-text="'+CSS.escape(b.id)+'"]';
       root()?.querySelector(selector)?.focus();
@@ -2250,6 +2279,7 @@
     const type=String(b.type||'').toLowerCase();
     const content=b.content&&typeof b.content==='object'?b.content:{};
     if(type==='paragraph'||type==='point')return Boolean(String(content.text||'').trim());
+    if(type==='vector-scene')return Array.isArray(content.json?.scene?.elements)&&content.json.scene.elements.length>0;
     if(type==='graphique'){
       const graph=content.json&&typeof content.json==='object'&&!Array.isArray(content.json)?content.json:{};
       // Le PNG peut encore manquer : la génération du flux le prépare avant le rendu.
@@ -2326,7 +2356,7 @@
     ensureCourseStructure(state.course);
     const b=activeBlocks().find(x=>x.id===id);if(!b)return;
     if(isSystemBlock(b)){setStatus('Les pages de début et de fin sont automatiques : seule une page de contenu centrale peut être générée ici.');return;}
-    if(b.type==='graphique'&&b.jsonEditorInvalid){setStatus('JSON graphique invalide. Corrige-le avant de générer la page.');return;}
+    if(['graphique','vector-scene','fiche-revision'].includes(b.type)&&b.jsonEditorInvalid){setStatus('JSON invalide. Corrige-le avant de générer la page.');return;}
     const v=validateBlock(b);if(!v.ok){renderWorkspace();setStatus('Bloc invalide : corrige les éléments signalés.');return;}
 
     // Un seul bloc propriétaire génère un flux contigu. Cliquer un bloc compagnon
