@@ -72,6 +72,14 @@ function buildContent(courseTitle:string,pageNumber:number,block:any,themeColor:
   else if(type==="point") section.point={title:String(content.title||"Point de cours"),text:extractStructuredText(content.text||""),color:String(content.color||""),rank:Number(content.rank)||1};
   else if(type==="exercise") section.exercises=[{id:String(block?.id||""),title:String(content.title||"Exercice"),statement:extractStructuredText(content.statement||""),hint:extractStructuredText(content.hint||""),correction_title:String(content.correction_title||"Corrigé"),correction:extractStructuredText(content.correction||"")}];
   else if(type==="graphique") section.graphs=[content.json&&typeof content.json==="object"?content.json:{}];
+  else if(type==="vector-scene"){
+    const json=content.json&&typeof content.json==="object"&&!Array.isArray(content.json)?content.json:{};
+    const scene=json.scene&&typeof json.scene==="object"&&!Array.isArray(json.scene)?json.scene:null;
+    if(!scene||!Array.isArray(scene.elements)||!scene.elements.length)throw new Error("Le schéma vectoriel ne contient aucune scène exploitable.");
+    section.title=clean(json.title)||"Schéma vectoriel";
+    section.content=[];
+    section.vector_scenes=[{title:String(json.title||"Schéma vectoriel"),caption:String(json.caption||""),scene}];
+  }
   else if(type==="wikimedia-image"){
     const image={
       url:safeWikimediaDisplayUrl(content.thumbUrl,content.imageUrl),
@@ -450,7 +458,7 @@ Deno.serve(async(req)=>{
   if(!flowBlocks.length)return out({ok:false,error:"Le flux de blocs est vide."},400);
   // Les pages d'exercice, de graphique et d'image sont des unités autonomes.
   // Seul un vrai flux contenant plusieurs blocs doit être limité aux points/paragraphes.
-  const supportedFlowTypes=["paragraph","point","exercise","graphique","wikimedia-image"];
+  const supportedFlowTypes=["paragraph","point","exercise","graphique","wikimedia-image","vector-scene"];
   if(flowBlocks.some((b:any)=>!supportedFlowTypes.includes(clean(b?.type||"").toLowerCase())))return out({ok:false,error:"Type de bloc non pris en charge dans le flux assisté."},400);
   for(const fb of flowBlocks){
     const ft=clean(fb?.type||"").toLowerCase();
@@ -466,6 +474,12 @@ Deno.serve(async(req)=>{
       if(graphPath&&(!graphPath.startsWith("aurora-content/"+userId+"/")||graphPath.includes("..")))return out({ok:false,error:"Chemin GeoGebra non autorisé."},403);
     }
     if(ft==="wikimedia-image"&&!validWikimedia(fc))return out({ok:false,error:"Image Wikimedia du flux invalide ou licence non compatible."},400);
+    if(ft==="vector-scene"){
+      const json=fc.json&&typeof fc.json==="object"&&!Array.isArray(fc.json)?fc.json:{};
+      if(!json.scene||typeof json.scene!=="object"||!Array.isArray(json.scene.elements)||!json.scene.elements.length){
+        return out({ok:false,error:"Le schéma vectoriel doit contenir json.scene.elements."},400);
+      }
+    }
   }
   if(type==="exercise"&&!clean(extractStructuredText(content.statement)))return out({ok:false,error:"L’énoncé est vide."},400);
   if(type==="graphique"){
@@ -537,14 +551,18 @@ Deno.serve(async(req)=>{
   });
   let q:any={};
   try{q=await rendered.json()}catch{q={error:"Réponse du renderer assisté invalide"}}
-  if(!rendered.ok||!q.ok){
+  const sceneQaFailed=type==="vector-scene"&&Number(q?.qa?.scenes_failed||0)>0;
+  if(!rendered.ok||!q.ok||sceneQaFailed){
+    const renderError=sceneQaFailed
+      ?String((Array.isArray(q?.qa?.scene_errors)?q.qa.scene_errors:[]).join(" · ")||"Le renderer a créé un PDF mais n’a pas validé le schéma vectoriel.")
+      :String(q?.error||"Renderer assisté impossible");
     await admin.from("aurora_generated_documents").update({
-      metadata:{...metadata,fast_page_status:"failed",fast_page_last_error:String(q?.error||"Renderer assisté impossible")},
+      metadata:{...metadata,fast_page_status:"failed",fast_page_last_error:renderError},
       updated_at:new Date().toISOString()
     }).eq("id",generatedDocumentId);
     return out({
       ok:false,
-      error:q?.error||("Renderer assisté HTTP "+rendered.status),
+      error:renderError||("Renderer assisté HTTP "+rendered.status),
       generated_document_id:generatedDocumentId,
       page_number:pageNumber
     },500);
