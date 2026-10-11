@@ -261,6 +261,15 @@
     const introText=String(intro?.content?.text||'').trim();
     return Boolean(introText&&String(b?.content?.text||'').trim()===introText);
   }
+  function hasMeaningfulPayload(value){
+    if(value==null)return false;
+    if(typeof value==='string')return value.trim().length>0;
+    if(typeof value==='number')return Number.isFinite(value);
+    if(typeof value==='boolean')return value;
+    if(Array.isArray(value))return value.length>0;
+    if(typeof value==='object')return Object.values(value).some(hasMeaningfulPayload);
+    return false;
+  }
   function hasRenderableContent(b){
     if(!b||isSystemBlock(b)||isRepeatedDefaultIntroduction(b))return false;
     const c=b.content&&typeof b.content==='object'?b.content:{};
@@ -269,12 +278,21 @@
     if(type==='exercise')return Boolean(String(c.statement||c.question||'').trim()||String(c.correction||'').trim());
     if(type==='graphique'){
       const g=c.json&&typeof c.json==='object'&&!Array.isArray(c.json)?c.json:{};
-      return Boolean(String(g.geogebra_image_path||g.graph_local_path||g.expression||g.equation||g.instrument||'').trim());
+      return Object.keys(g).length>0;
     }
-    if(type==='wikimedia-image')return String(c.imageUrl||'').startsWith('https://upload.wikimedia.org/');
-    if(type==='vector-scene')return Array.isArray(c.json?.scene?.elements)&&c.json.scene.elements.length>0;
-    if(type==='fiche-revision')return Array.isArray(c.json?.formulas)&&c.json.formulas.length>0;
-    return Boolean(String(c.text||c.content||'').trim());
+    if(type==='wikimedia-image'){
+      return ['imageUrl','thumbUrl','title','caption','sourceUrl','author','license','query'].some(key=>hasMeaningfulPayload(c[key]));
+    }
+    if(type==='vector-scene'){
+      const scene=c.json&&typeof c.json==='object'&&!Array.isArray(c.json)?c.json:{};
+      return Object.keys(scene).length>0;
+    }
+    if(type==='fiche-revision'){
+      const fiche=c.json&&typeof c.json==='object'&&!Array.isArray(c.json)?c.json:{};
+      return Object.entries(fiche).some(([key,value])=>
+        !['title','subtitle','mode','page_number'].includes(key)&&hasMeaningfulPayload(value));
+    }
+    return hasMeaningfulPayload(c.text)||hasMeaningfulPayload(c.content)||hasMeaningfulPayload(c.json);
   }
   function setStatus(t){const e=document.getElementById('assistedStatus');if(e)e.textContent=t}
   function downloadablePdfParts(){
@@ -518,60 +536,129 @@
     state.pdfBatchRunning=true;
     renderWorkspace();
     const failures=[];
+    const addFailure=message=>{
+      const value=String(message||'').trim();
+      if(value&&!failures.includes(value))failures.push(value);
+    };
+    const titleFor=b=>String(b?.content?.title||b?.content?.json?.title||labelFor(b)||b?.type||'Bloc sans titre');
+    const markGroupError=(group,message)=>{
+      for(const part of group){
+        if(!part||!hasRenderableContent(part))continue;
+        part.generation={
+          ...(part.generation||{}),
+          status:'error',
+          progress:0,
+          progress_label:'Échec — contenu à corriger ou PDF absent',
+          error:String(message||'Le rendu de ce bloc n’a pas été confirmé.'),
+          updated_at:new Date().toISOString()
+        };
+      }
+    };
+    const buildTargets=()=>{
+      const targets=[],seen=new Set();
+      for(const block of contentBlocks()){
+        const id=String(block?.id||'');
+        if(!id||seen.has(id))continue;
+        if(!hasRenderableContent(block)){seen.add(id);continue;}
+        const rawGroup=flowBlocksFor(id);
+        const group=rawGroup.length?rawGroup:[block];
+        group.forEach(part=>seen.add(String(part?.id||'')));
+        const owner=group[0]||block;
+        if(String(owner?.id||'')===id){
+          targets.push({id,blockIds:group.filter(hasRenderableContent).map(part=>String(part.id))});
+        }
+      }
+      return targets;
+    };
     try{
       await persistCourse(true,false);
-      setStatus('Génération générale : couverture, sommaire et page finale…');
-      try{
-        await prepareSystemPreview({force:true});
-        const systemPages=state.canonicalPreview?.pages||{};
-        const missingSystem=['cover','toc','end'].filter(kind=>{
-          const p=systemPages[kind]||{};
-          return String(p.status||'').toLowerCase()!=='ready'||!String(p.pdfUrl||'').trim()||!canonicalPreviewIsFresh(kind);
-        });
-        if(missingSystem.length)failures.push('Pages système incomplètes : '+missingSystem.join(', '));
-      }catch(e){
-        failures.push('Pages système : '+String(e?.message||e));
-      }
-      const targets=[],seen=new Set();
-      for(const b of contentBlocks()){
-        const id=String(b?.id||'');
-        if(!id||seen.has(id)||!hasRenderableContent(b))continue;
-        const group=flowBlocksFor(id);
-        const owner=group[0]||b;
-        if(group.length>1){
-          group.forEach(part=>seen.add(String(part?.id||'')));
-          if(String(owner.id)===id)targets.push(owner);
-        }else{
-          seen.add(id);
-          targets.push(b);
-        }
-      }
-      if(!targets.length)setStatus('Aucun bloc de contenu à générer ; vérification des pages système effectuée.');
+      let targets=buildTargets();
+      if(!targets.length)setStatus('Aucun bloc de contenu non vide : les pages système vont être régénérées.');
+
       for(let i=0;i<targets.length;i++){
-        const targetId=String(targets[i]?.id||'');
-        const b=activeBlocks().find(x=>String(x?.id||'')===targetId);
-        if(!b||!hasRenderableContent(b))continue;
-        setStatus('Génération générale '+(i+1)+'/'+targets.length+' : '+String(b.content?.title||labelFor(b))+'…');
-        await generateBlock(b.id);
-        const updated=activeBlocks().find(x=>String(x?.id||'')===targetId);
-        if(String(updated?.generation?.status||'').toLowerCase()!=='ready'||!String(updated?.generation?.page_url||'').trim()){
-          failures.push(String(b.content?.title||labelFor(b)));
+        const target=targets[i];
+        const block=activeBlocks().find(item=>String(item?.id||'')===target.id);
+        // Un bloc long peut être remplacé par plusieurs fragments durant sa génération.
+        // Dans ce cas generateBlock s'occupe déjà des fragments ; on ne signale pas
+        // faussement l'ancien identifiant comme une page manquante.
+        if(!block||!hasRenderableContent(block))continue;
+
+        const currentGroupRaw=flowBlocksFor(block.id);
+        const currentGroup=(currentGroupRaw.length?currentGroupRaw:[block]).filter(hasRenderableContent);
+        const invalid=currentGroup.map(part=>({part,validation:validateBlock(part)})).filter(x=>!x.validation.ok);
+        if(invalid.length){
+          const message=invalid.map(item=>
+            titleFor(item.part)+': '+(item.validation.errors||['validation impossible']).join(' ')).join(' · ');
+          markGroupError(currentGroup,message);
+          addFailure(message);
+          setStatus('Précontrôle '+(i+1)+'/'+targets.length+' : contenu à corriger — '+message.slice(0,260));
+          continue;
+        }
+
+        setStatus('Génération des pages de contenu '+(i+1)+'/'+targets.length+' : '+titleFor(block)+'…');
+        await generateBlock(block.id);
+
+        const stillExists=activeBlocks().find(item=>String(item?.id||'')===target.id);
+        if(stillExists){
+          const checkRaw=flowBlocksFor(stillExists.id);
+          const checkGroup=(checkRaw.length?checkRaw:[stillExists]).filter(hasRenderableContent);
+          const notReady=checkGroup.filter(part=>
+            String(part?.generation?.status||'').toLowerCase()!=='ready'
+            ||!String(part?.generation?.page_url||'').trim());
+          if(notReady.length){
+            for(const part of notReady){
+              addFailure(titleFor(part)+' : '+String(part?.generation?.error||'PDF non confirmé après la génération.'));
+            }
+          }
         }
       }
-      if(failures.length){
-        setStatus('Génération générale terminée avec éléments à vérifier — '+failures.slice(0,4).join(' · ')+(failures.length>4?' · et '+(failures.length-4)+' autre(s)':''));
-      }else{
-        setStatus('Génération générale terminée : couverture, sommaire, contenu et page finale ont été générés. Télécharge le document complet.');
+
+      // Contrôle du contenu actuel après les générations et éventuels découpages automatiques.
+      const unresolvedContent=contentBlocks().filter(hasRenderableContent).filter(block=>
+        String(block?.generation?.status||'').toLowerCase()!=='ready'
+        ||!String(block?.generation?.page_url||'').trim());
+      for(const block of unresolvedContent){
+        addFailure(titleFor(block)+' : '+String(block?.generation?.error||'page non générée ou URL PDF absente.'));
       }
-    }catch(e){
-      setStatus('Échec de la génération générale : '+String(e?.message||e));
+
+      // Les pages système sont générées EN DERNIER : la génération d’un bloc long
+      // peut insérer des fragments et modifier la pagination ainsi que le sommaire.
+      setStatus('Mise à jour finale du sommaire et génération de la couverture et de la page de fin…');
+      try{
+        rebuildTocEntries();
+        await persistCourse(true,false);
+        await prepareSystemPreview({force:true});
+      }catch(error){
+        addFailure('Pages système : '+String(error?.message||error));
+      }
+
+      const systemPages=state.canonicalPreview?.pages||{};
+      for(const kind of ['cover','toc','end']){
+        const page=systemPages[kind]||{};
+        if(String(page.status||'').toLowerCase()!=='ready'
+          ||!String(page.pdfUrl||'').trim()
+          ||!canonicalPreviewIsFresh(kind)){
+          addFailure((kind==='cover'?'Couverture':kind==='toc'?'Sommaire':'Page de fin')
+            +' : PDF absent, non prêt ou pagination périmée.');
+        }
+      }
+      await persistCourse(true,false);
+      const readiness=fullPdfReadiness();
+      const pending=[...new Set([...failures,...readiness.missing])];
+      if(readiness.complete&&failures.length===0){
+        setStatus('Génération complète réussie : texte, exercices/corrigés, images, graphiques GeoGebra, schémas vectoriels et fiches vérifiés. Le bouton « Télécharger le document complet » est activé.');
+      }else{
+        setStatus('Document complet non déclaré prêt : '+pending.slice(0,5).join(' · ')
+          +(pending.length>5?' · et '+(pending.length-5)+' autre(s) élément(s) à vérifier':''));
+      }
+    }catch(error){
+      setStatus('Échec de la génération générale : '+String(error?.message||error));
     }finally{
       state.pdfBatchRunning=false;
       renderWorkspace();
       refreshDownloadButton();
     }
   }
-
   async function loadCourses(){
     const c=client();
     if(!c){state.courses=[];return[]}
@@ -708,7 +795,7 @@
       if(!String(b.content?.statement||'').trim())errors.push('L’énoncé est vide.');
       // Dans l’éditeur assisté, le corrigé dépend de l’exercice et doit être
       // présent avant de déclarer la génération complète.
-      if(String(b.content?.statement||'').trim()&&!String(b.content?.correction||'').trim()){
+      if(String(b.content?.statement||'').trim()&&!String(b.content?.correction||'').trim()&&b.generation?.split_exercise_continuation!==true){
         errors.push('Le corrigé de cet exercice est obligatoire : la page ne peut pas être déclarée complète sans lui.');
       }
     }
@@ -2266,7 +2353,8 @@
         page_path:null,
         page_url:null,
         error:null,
-        autoSplitDepth:depth
+        autoSplitDepth:depth,
+        split_exercise_continuation:b.type==='exercise'&&i<chunks.length-1
       };
       return n;
     });
