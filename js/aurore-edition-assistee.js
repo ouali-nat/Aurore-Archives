@@ -313,7 +313,7 @@
       // Le PDF du flux contigu est la source canonique du document final.
       // Ignorer ses aperçus indépendants évite de recommencer un chapitre
       // déjà présent dans le PDF de flux, même si le bloc a été régénéré seul.
-      const group=flowBlocksFor(b.id);
+      const group=renderableFlowBlocksFor(b.id);
       if(group.length>1){
         const owner=group[0];
         const ownerGeneration=owner?.generation||{};
@@ -370,7 +370,7 @@
     for(const b of contentBlocks()){
       if(covered.has(String(b.id)))continue;
       if(!hasRenderableContent(b)){covered.add(String(b.id));continue;}
-      const group=flowBlocksFor(b.id);
+      const group=renderableFlowBlocksFor(b.id);
       const safeGroup=group.length?group:[b];
       const ids=safeGroup.map(part=>String(part?.id||''));
       const owner=safeGroup[0];
@@ -561,23 +561,50 @@
       for(const block of contentBlocks()){
         const id=String(block?.id||'');
         if(!id||seen.has(id))continue;
-        if(!hasRenderableContent(block)){seen.add(id);continue;}
+        // Marquer toute la séquence avant de filtrer les blocs vides.
+        // Le rendu est détenu par le premier bloc réellement rendable, pas
+        // nécessairement par le premier élément structurel de la séquence.
         const rawGroup=flowBlocksFor(id);
-        const group=rawGroup.length?rawGroup:[block];
-        group.forEach(part=>seen.add(String(part?.id||'')));
-        const owner=group[0]||block;
-        if(String(owner?.id||'')===id){
-          targets.push({id,blockIds:group.filter(hasRenderableContent).map(part=>String(part.id))});
-        }
+        const allMembers=rawGroup.length?rawGroup:[block];
+        allMembers.forEach(part=>{
+          const memberId=String(part?.id||'');
+          if(memberId)seen.add(memberId);
+        });
+        const group=allMembers.filter(hasRenderableContent);
+        if(!group.length)continue;
+        const owner=group[0];
+        targets.push({id:String(owner.id),blockIds:group.map(part=>String(part.id))});
       }
       return targets;
     };
     try{
       await persistCourse(true,false);
       let targets=buildTargets();
-      state.pdfBatchProgress={...(state.pdfBatchProgress||{}),targetCount:targets.length,activeTargetIndex:0,completedTargets:0,percent:0};
-      setPdfBatchProgress(targets.length?'Inventaire terminé · '+targets.length+' bloc(s) de contenu à rendre.':'Aucun bloc de contenu · contrôle des pages système.',0);
-      if(!targets.length)setStatus('Aucun bloc de contenu non vide : les pages système vont être régénérées.');
+      let blockCursor=0;
+      targets=targets.map(target=>{
+        const item={...target,startIndex:blockCursor};
+        blockCursor+=target.blockIds.length;
+        return item;
+      });
+      const totalBlockCount=blockCursor;
+      const expectedIds=new Set(contentBlocks().filter(hasRenderableContent).map(block=>String(block.id)));
+      const scheduledIds=new Set(targets.flatMap(target=>target.blockIds));
+      const uncovered=[...expectedIds].filter(id=>!scheduledIds.has(id));
+      if(uncovered.length){
+        throw new Error('Inventaire incomplet : '+uncovered.length+' bloc(s) avec contenu ne sont rattachés à aucun rendu ('+uncovered.slice(0,6).join(', ')+'). Aucun résultat incomplet ne sera déclaré prêt.');
+      }
+      const rangeLabel=target=>{
+        const first=target.startIndex+1;
+        const last=Math.min(totalBlockCount,target.startIndex+target.blockIds.length);
+        return first===last?'bloc '+first+'/'+totalBlockCount:'blocs '+first+'–'+last+'/'+totalBlockCount;
+      };
+      const rangePercent=(target,completed=false)=>totalBlockCount
+        ?Math.round(((target.startIndex+(completed?target.blockIds.length:0))/totalBlockCount)*82):82;
+      state.pdfBatchProgress={...(state.pdfBatchProgress||{}),targetCount:totalBlockCount,targetSequenceCount:targets.length,activeTargetIndex:0,activeTargetSize:1,completedTargets:0,percent:0};
+      setPdfBatchProgress(totalBlockCount
+        ?'Inventaire terminé · '+totalBlockCount+' bloc(s) de contenu dans '+targets.length+' séquence(s) de rendu.'
+        :'Aucun bloc de contenu rendable · contrôle des pages système.',0);
+      if(!totalBlockCount)setStatus('Aucun bloc de contenu non vide : les pages système vont être régénérées.');
 
       for(let i=0;i<targets.length;i++){
         const target=targets[i];
@@ -586,36 +613,36 @@
         // Dans ce cas generateBlock s'occupe déjà des fragments ; on ne signale pas
         // faussement l'ancien identifiant comme une page manquante.
         if(!block||!hasRenderableContent(block)){
-          state.pdfBatchProgress.completedTargets=i+1;
-          setPdfBatchProgress('Bloc '+(i+1)+'/'+targets.length+' : contenu réorganisé pendant le rendu.',targets.length?Math.round(((i+1)/targets.length)*82):82);
+          state.pdfBatchProgress.completedTargets=target.startIndex+target.blockIds.length;
+          setPdfBatchProgress('Séquence '+rangeLabel(target)+' · contenu réorganisé pendant le rendu.',rangePercent(target,true));
           continue;
         }
-        state.pdfBatchProgress.activeTargetIndex=i;
-        setPdfBatchProgress('Précontrôle '+(i+1)+'/'+targets.length+' · '+titleFor(block),targets.length?Math.round((i/targets.length)*82):82);
+        state.pdfBatchProgress.activeTargetIndex=target.startIndex;
+        state.pdfBatchProgress.activeTargetSize=target.blockIds.length;
+        setPdfBatchProgress('Précontrôle '+rangeLabel(target)+' · '+titleFor(block),rangePercent(target));
 
-        const currentGroupRaw=flowBlocksFor(block.id);
-        const currentGroup=(currentGroupRaw.length?currentGroupRaw:[block]).filter(hasRenderableContent);
+        const currentGroup=renderableFlowBlocksFor(block.id);
         const invalid=currentGroup.map(part=>({part,validation:validateBlock(part)})).filter(x=>!x.validation.ok);
         if(invalid.length){
           const message=invalid.map(item=>
             titleFor(item.part)+': '+(item.validation.errors||['validation impossible']).join(' ')).join(' · ');
           markGroupError(currentGroup,message);
           addFailure(message);
-          state.pdfBatchProgress.completedTargets=i+1;
-          setPdfBatchProgress('Bloc '+(i+1)+'/'+targets.length+' en erreur · contenu à corriger.',targets.length?Math.round(((i+1)/targets.length)*82):82);
-          setStatus('Précontrôle '+(i+1)+'/'+targets.length+' : contenu à corriger — '+message.slice(0,260));
+          state.pdfBatchProgress.completedTargets=target.startIndex+target.blockIds.length;
+          setPdfBatchProgress('Séquence '+rangeLabel(target)+' en erreur · contenu à corriger.',rangePercent(target,true));
+          setStatus('Précontrôle '+rangeLabel(target)+' : contenu à corriger — '+message.slice(0,260));
           continue;
         }
 
-        state.pdfBatchProgress.activeTargetIndex=i;
-        setPdfBatchProgress('Rendu '+(i+1)+'/'+targets.length+' · '+titleFor(block),targets.length?Math.round((i/targets.length)*82):82);
-        setStatus('Génération des pages de contenu '+(i+1)+'/'+targets.length+' : '+titleFor(block)+'…');
+        state.pdfBatchProgress.activeTargetIndex=target.startIndex;
+        state.pdfBatchProgress.activeTargetSize=target.blockIds.length;
+        setPdfBatchProgress('Rendu '+rangeLabel(target)+' · '+titleFor(block),rangePercent(target));
+        setStatus('Génération des pages de contenu '+rangeLabel(target)+' : '+titleFor(block)+'…');
         await generateBlock(block.id);
 
         const stillExists=activeBlocks().find(item=>String(item?.id||'')===target.id);
         if(stillExists){
-          const checkRaw=flowBlocksFor(stillExists.id);
-          const checkGroup=(checkRaw.length?checkRaw:[stillExists]).filter(hasRenderableContent);
+          const checkGroup=renderableFlowBlocksFor(stillExists.id);
           const notReady=checkGroup.filter(part=>
             String(part?.generation?.status||'').toLowerCase()!=='ready'
             ||!String(part?.generation?.page_url||'').trim());
@@ -625,8 +652,8 @@
             }
           }
         }
-        state.pdfBatchProgress.completedTargets=i+1;
-        setPdfBatchProgress('Bloc '+(i+1)+'/'+targets.length+(failures.length?' traité · contrôle des erreurs en cours.':' rendu et vérifié.'),targets.length?Math.round(((i+1)/targets.length)*82):82);
+        state.pdfBatchProgress.completedTargets=target.startIndex+target.blockIds.length;
+        setPdfBatchProgress('Séquence '+rangeLabel(target)+(failures.length?' traitée · contrôle des erreurs en cours.':' rendue et vérifiée.'),rangePercent(target,true));
       }
 
       // Contrôle du contenu actuel après les générations et éventuels découpages automatiques.
@@ -2288,8 +2315,14 @@
     if(track)track.setAttribute('aria-valuenow',String(percent));
     if(detail){
       const count=Number(p.targetCount)||0;
+      const start=Math.max(0,Number(p.activeTargetIndex)||0);
+      const size=Math.max(1,Number(p.activeTargetSize)||1);
+      const end=Math.min(count,start+size);
       detail.textContent=state.pdfBatchRunning
-        ?(count?'Rendu séquentiel · bloc '+Math.min(count,(Number(p.activeTargetIndex)||0)+1)+' sur '+count+' · les pages système seront contrôlées à la fin.':'Inventaire des blocs avant le lancement du rendu…')
+        ?(count?(size>1
+          ?'Rendu séquentiel · blocs '+(start+1)+'–'+end+' sur '+count+' · ces blocs contigus sont envoyés ensemble au renderer.'
+          :'Rendu séquentiel · bloc '+(start+1)+' sur '+count+' · les pages système seront contrôlées à la fin.')
+          :'Inventaire des blocs avant le lancement du rendu…')
         :(percent>=100?'Cycle terminé. Vérifie le résultat et les éventuelles erreurs signalées au-dessus.':'Les pages sont rendues une par une pour préserver les sauvegardes et éviter les conflits.');
     }
   }
@@ -2304,10 +2337,13 @@
     if(pct)pct.textContent=Math.round(value)+'%';
     if(lab)lab.textContent=label||'Génération…';
     if(state.pdfBatchRunning&&Number(state.pdfBatchProgress?.targetCount)>0){
-      const p=state.pdfBatchProgress,idx=Math.max(0,Math.min(p.targetCount-1,Number(p.activeTargetIndex)||0));
+      const p=state.pdfBatchProgress,total=Math.max(1,Number(p.targetCount)||1);
+      const idx=Math.max(0,Math.min(total-1,Number(p.activeTargetIndex)||0));
+      const size=Math.max(1,Math.min(total-idx,Number(p.activeTargetSize)||1));
       const fraction=Math.max(0,Math.min(100,Number(value)||0))/100;
-      p.percent=Math.max(0,Math.min(82,Math.round(((idx+fraction)/p.targetCount)*82)));
-      p.label='Bloc '+(idx+1)+'/'+p.targetCount+' · '+String(label||'Rendu en cours');
+      p.percent=Math.max(0,Math.min(82,Math.round(((idx+fraction*size)/total)*82)));
+      const first=idx+1,last=Math.min(total,idx+size);
+      p.label=(size>1?'Séquence · blocs '+first+'–'+last+'/'+total:'Bloc '+first+'/'+total)+' · '+String(label||'Rendu en cours');
       renderPdfBatchProgress();
     }
   }
@@ -2484,6 +2520,10 @@
     return all.slice(start,end+1);
   }
 
+  function renderableFlowBlocksFor(id){
+    return flowBlocksFor(id).filter(hasRenderableContent);
+  }
+
   function generationFlowIds(generation){
     return Array.isArray(generation?.flow_block_ids)
       ?generation.flow_block_ids.map(id=>String(id||'')).filter(Boolean)
@@ -2505,7 +2545,7 @@
   }
 
   function flowRenderBlockFor(id){
-    const blocks=flowBlocksFor(id);
+    const blocks=renderableFlowBlocksFor(id);
     if(blocks.length<=1)return blocks[0]||null;
     const first=clone(blocks[0]);
     first.flow_blocks=blocks.map(b=>clone(b));
@@ -2525,7 +2565,7 @@
 
     // Un seul bloc propriétaire génère un flux contigu. Cliquer un bloc compagnon
     // ne recrée jamais le même PDF : on réutilise le propriétaire du flux.
-    const flowGroup=flowBlocksFor(b.id);
+    const flowGroup=renderableFlowBlocksFor(b.id);
     const flowOwner=flowGroup[0]||b;
     const isFlowCompanion=flowGroup.length>1&&flowOwner.id!==b.id;
     if(isFlowCompanion){
@@ -2600,7 +2640,7 @@
         setStatus('Fiche de révision générée et intégrée à la séquence du document.');
         return;
       }
-      const graphBlocksToPrepare=(isFlowCompanion?[b]:flowBlocksFor(b.id))
+      const graphBlocksToPrepare=(isFlowCompanion?[b]:flowGroup)
         .filter(part=>String(part?.type||'').toLowerCase()==='graphique'
           &&!String(part?.content?.json?.geogebra_image_path||part?.content?.json?.graph_local_path||'').trim());
       for(const graphBlock of graphBlocksToPrepare){
@@ -2717,7 +2757,7 @@
           }
         }
       }
-      const errorFlow=isFlowCompanion?[b]:flowBlocksFor(b.id);
+      const errorFlow=isFlowCompanion?[b]:renderableFlowBlocksFor(b.id);
       errorFlow.forEach(part=>{
         part.generation={
           ...(part.generation||{}),
