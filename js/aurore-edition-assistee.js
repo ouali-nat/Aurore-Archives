@@ -2567,8 +2567,25 @@
     // Après un HTTP 546, isoler le point/la section au prochain essai :
     // reconstruire tout le flux contigu répète le calcul coûteux et peut
     // faire échouer à nouveau une page pourtant rendable seule.
+    const priorGenerationError=String(b.generation?.error||'');
     const forceIsolatedRetry=['paragraph','point'].includes(String(b.type||'').toLowerCase())
-      &&/(?:HTTP\\s*546|CPU\\s+Time\\s+exceeded)/i.test(String(b.generation?.error||''));
+      &&/(?:HTTP\s*546|CPU\s+Time\s+exceeded)/i.test(priorGenerationError);
+    // Un HTTP 546 peut laisser au bloc des références PDF héritées d’un ancien flux partagé.
+    // On retire uniquement ces références échouées avant la nouvelle tentative ciblée.
+    if(/(?:HTTP\s*546|CPU\s+Time\s+exceeded)/i.test(priorGenerationError)){
+      b.generation={
+        ...(b.generation||{}),
+        generated_document_id:null,
+        job_id:null,
+        page_path:null,
+        page_url:null,
+        bytes:null,
+        flow_block_ids:[],
+        flow_page_owner_id:null,
+        independent_regeneration:false,
+        error:null
+      };
+    }
     const isFlowCompanion=(flowGroup.length>1&&flowOwner.id!==b.id)||forceIsolatedRetry;
     if(isFlowCompanion){
       const ownerGeneration=flowOwner.generation||{};
