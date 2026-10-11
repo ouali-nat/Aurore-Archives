@@ -667,7 +667,7 @@
   }
 
   function blockPayload(b){
-    if(b.type==='graphique')return b.content?.json||{};
+    if(['graphique','vector-scene','fiche-revision'].includes(b.type))return b.content?.json||{};
     return b.content||{};
   }
 
@@ -2397,6 +2397,39 @@
     try{
       const token=(typeof session!=='undefined'&&session?.access_token)||await freshToken();
       if(!token)throw new Error('Session administrateur absente.');
+      if(b.type==='fiche-revision'){
+        const fiche=clone(b.content?.json||{});
+        fiche.page_number=pageNumberFor(b);
+        fiche.mode=fiche.mode==='color'?'color':'nb';
+        const theme=normalizeThemeColor(state.course.theme_color);
+        const fingerprint=JSON.stringify({content:fiche,theme_color:theme});
+        const callSheet=async(payload)=>{
+          const response=await fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-sheet',{
+            method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':SUPABASE_ANON_KEY},body:JSON.stringify(payload)
+          });
+          const raw=await response.text();let data={};try{data=raw?JSON.parse(raw):{}}catch(_){data={error:raw}};
+          if(!response.ok||data.ok===false)throw new Error(data.error||(data.errors||[]).join('\\n')||('Rendu de fiche HTTP '+response.status));
+          return data;
+        };
+        updateGenerationProgress(b.id,22,'Validation du JSON de la fiche…');
+        const check=await callSheet({mode:'validate',page_kind:'fiche',content:fiche});
+        if(!check.ok)throw new Error((check.errors||['JSON de fiche invalide']).join('\\n'));
+        let docId=String(b.generation?.sheet_fingerprint||'')===fingerprint?Number(b.generation?.generated_document_id||0):0;
+        if(!docId){
+          updateGenerationProgress(b.id,34,'Enregistrement de la fiche…');
+          const created=await callSheet({mode:'create',course_id:String(state.course.id),page_kind:'fiche',title:String(fiche.title||'Fiche de révision'),theme_color:theme,content:fiche});
+          docId=Number(created.generated_document_id||0);
+          if(!docId)throw new Error('Identifiant de fiche manquant après son enregistrement.');
+        }
+        updateGenerationProgress(b.id,65,'Génération de la fiche PDF…');
+        const rendered=await callSheet({mode:'render',generated_document_id:docId,theme_color:theme});
+        if(!rendered.page_url)throw new Error('Le moteur de fiche n’a fourni aucun lien PDF.');
+        b.generation={...(b.generation||{}),status:'ready',page_number:pageNumberFor(b),generated_document_id:docId,job_id:null,page_path:rendered.page_path||null,page_url:rendered.page_url,updated_at:new Date().toISOString(),progress:100,progress_label:'Fiche prête — ajoutée à la fin du document',bytes:rendered.bytes||null,page_count:rendered.page_count||1,sheet_fingerprint:fingerprint,flow_block_ids:[],independent_regeneration:false,qa:{engine:rendered.engine||'pdf-lib-sheet-v1',status:'completed'},error:null};
+        await persistCourse(true,false);
+        renderWorkspace();
+        setStatus('Fiche de révision générée et placée à la fin du document.');
+        return;
+      }
       const graphBlocksToPrepare=(isFlowCompanion?[b]:flowBlocksFor(b.id))
         .filter(part=>String(part?.type||'').toLowerCase()==='graphique'
           &&!String(part?.content?.json?.geogebra_image_path||part?.content?.json?.graph_local_path||'').trim());
