@@ -2478,18 +2478,12 @@
     if(!b||isSystemBlock(b)||isDefaultIntroduction(b)||isRepeatedDefaultIntroduction(b))return false;
     const type=String(b.type||'').toLowerCase();
     const content=b.content&&typeof b.content==='object'?b.content:{};
+    // Le renderer aurora-assisted-page-v2 ne prend en charge dans un flux
+    // partagé que les paragraphes et les points. Les graphiques GeoGebra,
+    // scènes SVG et images Wikimedia doivent être rendus comme blocs autonomes :
+    // les inclure dans flow_blocks provoque un rejet du renderer et invalide
+    // à tort toute la séquence de cours.
     if(type==='paragraph'||type==='point')return Boolean(String(content.text||'').trim());
-    if(type==='vector-scene')return Array.isArray(content.json?.scene?.elements)&&content.json.scene.elements.length>0;
-    if(type==='graphique'){
-      const graph=content.json&&typeof content.json==='object'&&!Array.isArray(content.json)?content.json:{};
-      // Le PNG peut encore manquer : la génération du flux le prépare avant le rendu.
-      return Boolean(String(graph.id||'').trim()&&String(graph.instrument||graph.graph_type||'').trim());
-    }
-    if(type==='wikimedia-image'){
-      return String(content.imageUrl||'').startsWith('https://upload.wikimedia.org/')
-        &&Boolean(String(content.license||'').trim())
-        &&String(content.sourceUrl||'').startsWith('https://commons.wikimedia.org/');
-    }
     return false;
   }
 
