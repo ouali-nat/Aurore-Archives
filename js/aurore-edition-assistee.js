@@ -249,6 +249,19 @@
   function generationIsReady(g){
     return String(g?.status||"").toLowerCase()==="ready"&&!!String(g?.page_url||"").trim();
   }
+  function pageCountForGroup(group,owner){
+    const ready=group.filter(item=>generationIsReady(item?.generation));
+    if(ready.length===group.length&&ready.length){
+      const unique=new Map();
+      for(const item of ready){
+        const url=String(item?.generation?.page_url||'').trim();
+        if(url&&!unique.has(url))unique.set(url,Math.max(1,Math.floor(Number(item?.generation?.page_count)||1)));
+      }
+      if(unique.size)return [...unique.values()].reduce((sum,count)=>sum+count,0);
+    }
+    const g=owner?.generation||{};
+    return generationIsReady(g)&&Number(g.page_count)>0?Math.floor(Number(g.page_count)):Math.max(1,group.length);
+  }
   function pageNumberFor(b,tocPages=tocPageCount()){
     const blocks=activeBlocks();
     if(b?.role===START_ROLE)return 1;
@@ -264,7 +277,7 @@
         const owner=group[0]||candidate;
         for(const item of group)covered.add(String(item.id));
         const g=owner.generation||{};
-        physicalPage+=generationIsReady(g)&&Number(g.page_count)>0?Math.floor(Number(g.page_count)):group.length;
+        physicalPage+=pageCountForGroup(group,owner);
       }
       return physicalPage;
     }
@@ -282,9 +295,28 @@
       if(targetIndex>=0){
         const map= g.flow_page_map&&typeof g.flow_page_map==="object" ? Number(g.flow_page_map[targetId]) : 0;
         if(generationIsReady(g)&&Number.isFinite(map)&&map>=startStored)return physicalPage+(map-startStored);
+        const targetGeneration=group[targetIndex]?.generation||{};
+        const targetStored=Number(targetGeneration.page_number||0);
+        if(targetIndex>0&&targetGeneration.independent_regeneration===true
+          &&Number.isFinite(targetStored)&&targetStored>=startStored&&startStored>0){
+          return physicalPage+(targetStored-startStored);
+        }
+        if(targetIndex>0&&group.every(item=>generationIsReady(item?.generation))){
+          const precedingUrls=new Set();let offset=0;
+          for(const item of group.slice(0,targetIndex)){
+            const itemGeneration=item?.generation||{},url=String(itemGeneration.page_url||'').trim();
+            if(url&&!precedingUrls.has(url)){
+              precedingUrls.add(url);
+              offset+=Math.max(1,Math.floor(Number(itemGeneration.page_count)||1));
+            }
+          }
+          if(precedingUrls.size&&group.some((item,index)=>index>0&&String(item?.generation?.page_url||'')!==String(owner?.generation?.page_url||''))){
+            return physicalPage+offset;
+          }
+        }
         return physicalPage+Math.max(0,targetIndex);
       }
-      physicalPage+=generationIsReady(g)&&Number(g.page_count)>0?Math.floor(Number(g.page_count)):group.length;
+      physicalPage+=pageCountForGroup(group,owner);
     }
     const index=blocks.findIndex(item=>String(item?.id||"")===targetId);
     return index<0?null:physicalPage;
@@ -701,6 +733,22 @@
               addFailure(titleFor(part)+' : '+String(part?.generation?.error||'PDF non confirmé après la génération.'));
             }
           }
+          if(checkGroup.length>1){
+            const expectedIds=checkGroup.map(part=>String(part.id));
+            const ownerGeneration=stillExists.generation||{};
+            const actualIds=generationFlowIds(ownerGeneration);
+            const canonical=ownerGeneration.independent_regeneration!==true
+              &&String(ownerGeneration.flow_page_owner_id||'')===String(stillExists.id)
+              &&actualIds.length===expectedIds.length
+              &&expectedIds.every((expected,index)=>actualIds[index]===expected)
+              &&generationIsReady(ownerGeneration);
+            if(!canonical){
+              const detail='Couverture PDF incohérente : '+expectedIds.length+' bloc(s) attendus, '+actualIds.length+' confirmé(s).';
+              addFailure('Séquence « '+titleFor(stillExists)+' » : '+detail);
+              markGroupError(checkGroup,detail);
+              await persistCourse(true,false);
+            }
+          }
         }
         state.pdfBatchProgress.completedTargets=target.startIndex+target.blockIds.length;
         setPdfBatchProgress('Séquence '+rangeLabel(target)+(failures.length?' traitée · contrôle des erreurs en cours.':' rendue et vérifiée.'),rangePercent(target,true));
@@ -744,9 +792,9 @@
         setPdfBatchProgress('Terminé · toutes les pages et les liens PDF sont vérifiés.',100);
         setStatus('Génération complète réussie : texte, exercices/corrigés, images, graphiques GeoGebra, schémas vectoriels et fiches vérifiés. Le bouton « Télécharger le document complet » est activé.');
       }else{
-        setPdfBatchProgress('Terminé avec éléments manquants · consulte le résultat détaillé.',100);
-        setStatus('Document complet non déclaré prêt : '+pending.slice(0,5).join(' · ')
-          +(pending.length>5?' · et '+(pending.length-5)+' autre(s) élément(s) à vérifier':''));
+        setPdfBatchProgress('Traitement achevé · document incomplet ('+pending.length+' point(s) à corriger).',100);
+        setStatus('Document NON prêt — des pages ou liens ne sont pas confirmés : '+pending.slice(0,8).join(' · ')
+          +(pending.length>8?' · et '+(pending.length-8)+' autre(s) élément(s) à vérifier':''));
       }
     }catch(error){
       setPdfBatchProgress('Arrêt sur erreur · '+String(error?.message||error).slice(0,150),state.pdfBatchProgress?.percent||0);
@@ -945,21 +993,44 @@
     return state.course.validation;
   }
 
+  function tocTitleForBlock(block,index,oldEntry){
+    const content=block?.content&&typeof block.content==='object'?block.content:{};
+    const type=String(block?.type||'').toLowerCase();
+    const explicit=[block?.toc_title,content.toc_title,content.title,content.json?.title]
+      .map(value=>String(value||'').trim()).find(Boolean);
+    if(explicit)return explicit;
+    if(oldEntry&&String(oldEntry.type||'').toLowerCase()===type
+      &&String(oldEntry.title||'').trim()
+      &&String(oldEntry.title).trim()!==String(labelFor(block)))return String(oldEntry.title).trim();
+    if(type==='point')return 'Point de cours '+String(content.rank||index+1);
+    if(type==='exercise')return 'Exercice '+String(index+1);
+    if(type==='paragraph'){
+      const raw=extractStructuredText(content.text||'')
+        .replace(/^\s{0,3}#{1,6}\s*/gm,'')
+        .replace(/[\t ]+/g,' ')
+        .split(/\r?\n/)
+        .map(line=>line.replace(/[*_]/g,'').trim())
+        .find(Boolean)||'';
+      const sentence=raw.split(/[.!?]\s+/)[0].trim();
+      if(sentence)return sentence.length>78?sentence.slice(0,75).trimEnd()+'…':sentence;
+    }
+    return String(labelFor(block)||'Bloc '+String(index+1));
+  }
+
   function rebuildTocEntries(){
     ensureDocumentPages(state.course);
     if(state.course.document_pages.toc.mode==='manual')return;
     const previous=Array.isArray(state.course.document_pages.toc.entries)?state.course.document_pages.toc.entries:[];
     const byId=new Map(previous.map(x=>[String(x?.id||''),x]));
-    const all=contentBlocks().filter(hasRenderableContent);
-    const managed=all.filter(b=>String(b?.toc_entry_id||'').trim());
-    const managedSet=new Set(managed);
-    const source=managed.length?all.filter(b=>isDefaultIntroduction(b)||managedSet.has(b)):all;
-    const pending=source.map(b=>{
+    // En mode automatique, un ancien toc_entry_id ne doit jamais masquer d’autres
+    // points, exercices, paragraphes ou schémas présents dans le document.
+    const source=contentBlocks().filter(hasRenderableContent);
+    const pending=source.map((b,index)=>{
       const key=String(b?.toc_entry_id||b.id||'');
       const old=byId.get(key)||byId.get(String(b.id))||{};
       return {block:b,entry:{
-        id:String(b?.toc_entry_id||old.id||b.id),
-        title:String(b.content?.title||old.title||labelFor(b)),
+        id:String(b?.toc_entry_id||b.id||old.id||''),
+        title:tocTitleForBlock(b,index,old),
         type:b.type,
         enabled:old.enabled!==false
       }};
@@ -2542,6 +2613,10 @@
       const g=content.json&&typeof content.json==='object'&&!Array.isArray(content.json)?content.json:{};
       return Boolean(String(g.geogebra_image_path||g.graph_local_path||g.geogebra_image_url||g.image_url||g.preview_url||'').trim());
     }
+    if(type==='vector-scene'){
+      const json=content.json&&typeof content.json==='object'&&!Array.isArray(content.json)?content.json:{};
+      return Boolean(json.scene&&typeof json.scene==='object'&&Array.isArray(json.scene.elements)&&json.scene.elements.length>0);
+    }
     if(type==='wikimedia-image')return String(content.imageUrl||'').startsWith('https://upload.wikimedia.org/')
       &&String(content.sourceUrl||'').startsWith('https://commons.wikimedia.org/')
       &&Boolean(String(content.license||'').trim());
@@ -2772,6 +2847,12 @@
       if(!d.page_url)throw new Error('Le renderer a terminé sans fournir l’URL de la page.');
       const reportedFlowIds=Array.isArray(d.flow_block_ids)?d.flow_block_ids.map(id=>String(id||'')).filter(Boolean):[];
       const persistedFlowIds=reportedFlowIds.length?reportedFlowIds:[b.id];
+      const expectedFlowIds=(isFlowCompanion?[b]:flowGroup).map(part=>String(part?.id||'')).filter(Boolean);
+      if(!isFlowCompanion&&expectedFlowIds.length>1
+        &&(persistedFlowIds.length!==expectedFlowIds.length
+          ||!expectedFlowIds.every((expected,index)=>persistedFlowIds[index]===expected))){
+        throw new Error('Le PDF a été créé, mais le renderer n’a pas confirmé tous les blocs de la séquence dans le bon ordre. Regénère la séquence depuis son premier bloc.');
+      }
       const resultFlowIds=new Set(persistedFlowIds);
       const resultFlowGroup=activeBlocks().filter(part=>resultFlowIds.has(String(part?.id||'')));
       if(!resultFlowGroup.length)resultFlowGroup.push(b);
