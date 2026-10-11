@@ -476,7 +476,8 @@
         // un PDF confirmé, on conserve ces fragments même lorsque ses anciennes
         // flow_block_ids ne correspondent plus aux groupes actuels. Les URL
         // identiques sont dédupliquées par add(), sans assembler le même PDF deux fois.
-        const readyFragments=safeGroup.every(part=>isReadyPdf(part?.generation));
+        const readyFragments=safeGroup.every(part=>isReadyPdf(part?.generation))
+          &&new Set(safeGroup.map(part=>String(part?.generation?.page_url||'').trim())).size===safeGroup.length;
         if(readyFragments){
           safeGroup.forEach(part=>{
             add(part.generation.page_url,'Page '+String(part.generation.page_number||pageNumberFor(part)));
@@ -792,7 +793,7 @@
         setPdfBatchProgress('Terminé · toutes les pages et les liens PDF sont vérifiés.',100);
         setStatus('Génération complète réussie : texte, exercices/corrigés, images, graphiques GeoGebra, schémas vectoriels et fiches vérifiés. Le bouton « Télécharger le document complet » est activé.');
       }else{
-        setPdfBatchProgress('Traitement achevé · document incomplet ('+pending.length+' point(s) à corriger).',100);
+        setPdfBatchProgress('Vérification terminée · document incomplet ('+pending.length+' point(s) à corriger).',99);
         setStatus('Document NON prêt — des pages ou liens ne sont pas confirmés : '+pending.slice(0,8).join(' · ')
           +(pending.length>8?' · et '+(pending.length-8)+' autre(s) élément(s) à vérifier':''));
       }
@@ -2283,6 +2284,8 @@
     if(['paragraph','paragraphe','texte','text'].includes(t))return 'paragraph';
     if(['exercise','exercice','problem','probleme'].includes(t))return 'exercise';
     if(['graphique','graph','graphique-json','json'].includes(t))return 'graphique';
+    if(['vector-scene','schema-vectoriel','schéma-vectoriel'].includes(t))return 'vector-scene';
+    if(['fiche-revision','fiche de revision','fiche de révision'].includes(t))return 'fiche-revision';
     if(['wikimedia-image','image','illustration','wikimedia'].includes(t))return 'wikimedia-image';
     return 'point';
   }
@@ -2342,6 +2345,8 @@
         b.content={text:String(b.content?.text||'')};
       }else if(type==='graphique'){
         b.content={json:b.content?.json&&typeof b.content.json==='object'?b.content.json:{}};
+      }else if(type==='vector-scene'||type==='fiche-revision'){
+        b.content={json:b.content?.json&&typeof b.content.json==='object'&&!Array.isArray(b.content.json)?b.content.json:{}};
       }else if(type==='wikimedia-image'){
         b.content={...(b.content||{}),title:String(b.content?.title||title)};
       }
@@ -2452,7 +2457,7 @@
           ?'Rendu séquentiel · blocs '+(start+1)+'–'+end+' sur '+count+' · ces blocs contigus sont envoyés ensemble au renderer.'
           :'Rendu séquentiel · bloc '+(start+1)+' sur '+count+' · les pages système seront contrôlées à la fin.')
           :'Inventaire des blocs avant le lancement du rendu…')
-        :(percent>=100?'Cycle terminé. Vérifie le résultat et les éventuelles erreurs signalées au-dessus.':'Les pages sont rendues une par une pour préserver les sauvegardes et éviter les conflits.');
+        :(percent>=100?'Document complet vérifié : toutes les pages attendues disposent d’un PDF confirmé.':percent>=95?'Traitement exécuté, mais le document reste incomplet. Consulte les erreurs détaillées et relance les blocs signalés.':'Les pages sont rendues une par une pour préserver les sauvegardes et éviter les conflits.');
     }
   }
   function setPdfBatchProgress(label,percent){
@@ -2613,10 +2618,9 @@
       const g=content.json&&typeof content.json==='object'&&!Array.isArray(content.json)?content.json:{};
       return Boolean(String(g.geogebra_image_path||g.graph_local_path||g.geogebra_image_url||g.image_url||g.preview_url||'').trim());
     }
-    if(type==='vector-scene'){
-      const json=content.json&&typeof content.json==='object'&&!Array.isArray(content.json)?content.json:{};
-      return Boolean(json.scene&&typeof json.scene==='object'&&Array.isArray(json.scene.elements)&&json.scene.elements.length>0);
-    }
+    // Les schémas vectoriels sont rendus comme pages autonomes par le renderer
+    // assisté. Ne jamais les fusionner dans un flux texte : cela faisait annoncer
+    // une séquence incomplète alors que chaque schéma attendait son propre PDF.
     if(type==='wikimedia-image')return String(content.imageUrl||'').startsWith('https://upload.wikimedia.org/')
       &&String(content.sourceUrl||'').startsWith('https://commons.wikimedia.org/')
       &&Boolean(String(content.license||'').trim());
