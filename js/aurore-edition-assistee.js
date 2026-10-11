@@ -1165,8 +1165,11 @@
       if(ownerId&&ownerReady){
         const ownerPage=Number(pageNumberFor(owner));
         add(ownerGeneration.page_url,'Page '+n+' · flux assisté',n,Math.max(1,n-ownerPage+1));
-      }else{
+      }else if(g.independent_regeneration===true||!ownerId){
         add(g.page_url,'Page '+n,n,1);
+      }else{
+        const ownerPage=owner?Number(pageNumberFor(owner)):n;
+        add(g.page_url,'Page '+n,n,Math.max(1,n-ownerPage+1));
       }
     }
 
