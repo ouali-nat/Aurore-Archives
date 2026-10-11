@@ -820,7 +820,7 @@
       '<div class="ae-block-toolbar"><button class="admin-btn ghost" data-regenerate-page="'+esc(b.id)+'">↻ Régénérer la page</button><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Prévisualiser</button><button class="admin-btn ghost" data-json-block="'+esc(b.id)+'">JSON</button><button class="admin-btn ghost" data-copy-block="'+esc(b.id)+'">Copier JSON</button><button class="admin-btn ghost" data-duplicate-block="'+esc(b.id)+'">Dupliquer</button><button class="admin-btn ghost" data-clear-block="'+esc(b.id)+'">Vider</button><button class="admin-btn danger" data-delete-block="'+esc(b.id)+'">Supprimer</button><button type="button" class="admin-btn primary" data-validate-block="'+esc(b.id)+'">Valider & générer la page</button></div>'+
       '<div class="ae-block-result">'+(gen.status==='ready'&&gen.page_url?'<span class="ae-generated-ok">✓ Page '+page+' générée seule</span><button class="admin-btn ghost" data-preview-block="'+esc(b.id)+'">Visualiser</button><button type="button" class="admin-btn ghost" data-download-block="'+esc(b.id)+'">Télécharger</button>':gen.status==='generating'?'<div class="ae-generation-progress" role="status" aria-live="polite"><div class="ae-generation-progress-top"><span data-progress-label>'+esc(gen.progress_label||'Génération de la page…')+'</span><strong data-progress-pct>'+Math.round(Number(gen.progress||8))+'%</strong></div><div class="ae-progress-track"><span data-progress-bar style="width:'+Math.max(8,Math.min(100,Number(gen.progress||8)))+'%"></span></div><small>Progression indicative · la page est en cours de génération.</small></div>':gen.status==='error'?'<span class="ae-generated-error">Erreur : '+esc(gen.error||'génération impossible')+'</span>':b.type==='graphique'&&v.ok?'<span>JSON validé · la construction graphique reste destinée au moteur GeoGebra/LuaLaTeX.</span>':'<span>Aucune page générée pour ce bloc.</span>')+'</div>'+
       (v.errors.length?'<div class="ae-block-errors">'+v.errors.map(x=>'• '+esc(x)).join('<br>')+'</div>':'')+
-      (b.type==='fiche-revision'?'':'<div class="ae-inline-add-row"><label class="ae-inline-add-select"><span>Ajouter sous ce bloc</span><select data-insert-after="'+esc(b.id)+'"><option value="">Sélectionner…</option><option value="paragraph">Paragraphe</option><option value="point">Point de cours</option><option value="exercise">Exercice</option><option value="graphique">Graphique GeoGebra</option><option value="vector-scene">Schéma vectoriel</option><option value="wikimedia-image">Image</option></select></label></div>')+
+      '<div class="ae-inline-add-row"><label class="ae-inline-add-select"><span>Ajouter sous ce bloc</span><select data-insert-after="'+esc(b.id)+'"><option value="">Sélectionner…</option><option value="paragraph">Paragraphe</option><option value="point">Point de cours</option><option value="exercise">Exercice</option><option value="graphique">Graphique GeoGebra</option><option value="vector-scene">Schéma vectoriel</option><option value="fiche-revision">Fiche de révision</option><option value="wikimedia-image">Image</option></select></label></div>'+
       '</article>';
   }
 
@@ -830,9 +830,9 @@
     if(previousModalHost){closeAssistedModal();previousModalHost.remove();}
     validateCourse();
     ensureCourseStructure(state.course);
-    r.innerHTML='<div class="ae-shell ae-workspace"><header class="ae-head"><div><button class="admin-btn ghost" id="aeBack">← Mes cours</button><button class="admin-btn danger" id="aeDeleteCourseInside">Supprimer ce cours</button><span class="ae-kicker">Atelier de production séquentielle</span><h3><input id="aeCourseTitle" value="'+esc(state.course.title)+'"></h3><p>Le bloc de début, le sommaire et le bloc de fin sont automatiques. Chaque bloc central génère uniquement son propre fragment PDF indépendant.</p></div><span class="ae-status" id="assistedStatus">'+(state.course.validation?.ok?'Structure valide':'À compléter')+'</span></header>'+
+    r.innerHTML='<div class="ae-shell ae-workspace"><header class="ae-head"><div><button class="admin-btn ghost" id="aeBack">← Mes cours</button><button class="admin-btn danger" id="aeDeleteCourseInside">Supprimer ce cours</button><span class="ae-kicker">Atelier de production séquentielle</span><h3><input id="aeCourseTitle" value="'+esc(state.course.title)+'"></h3><p>Le bloc de début, le sommaire et le bloc de fin sont automatiques. L’ordre des blocs centraux détermine leur ordre dans le PDF final : une fiche est ajoutée à la fin par défaut, mais tu peux encore ajouter des blocs en dessous.</p></div><span class="ae-status" id="assistedStatus">'+(state.course.validation?.ok?'Structure valide':'À compléter')+'</span></header>'+
       '<div class="ae-top-options"><div class="ae-top-options-title"><span class="ae-kicker">Options du document</span><strong>Couleur d’accent</strong><small>Elle sera utilisée pour les bordures, repères et éléments mathématiques de la page.</small></div><label class="ae-color-field"><span class="ae-color-swatch" style="background:'+normalizeThemeColor(state.course.theme_color)+'"></span><select id="aeThemeColor" aria-label="Couleur d’accent du document">'+themeColorOptions()+'</select></label></div>'+
-      '<div class="ae-workbar"><button class="admin-btn primary" id="aeAddP">＋ Paragraphe</button><button class="admin-btn ghost" id="aeAddPoint">＋ Point de cours</button><button class="admin-btn ghost" id="aeAddEx">＋ Exercice</button><button class="admin-btn ghost" id="aeAddGraph">＋ Graphique GeoGebra</button><button class="admin-btn ghost" id="aeAddVector">＋ Schéma vectoriel</button><button class="admin-btn ghost" id="aeAddFiche">＋ Fiche de révision (fin)</button><button class="admin-btn ghost" id="aeAddWiki">＋ Image Wikimedia</button><button class="admin-btn ghost" id="aeTocJson">Sommaire JSON</button><button class="admin-btn ghost" id="aeSave">Enregistrer le cours</button><button class="admin-btn primary" id="aeDownloadPdfCurrent" disabled>Télécharger le PDF actuel</button></div>'+
+      '<div class="ae-workbar"><button class="admin-btn primary" id="aeAddP">＋ Paragraphe</button><button class="admin-btn ghost" id="aeAddPoint">＋ Point de cours</button><button class="admin-btn ghost" id="aeAddEx">＋ Exercice</button><button class="admin-btn ghost" id="aeAddGraph">＋ Graphique GeoGebra</button><button class="admin-btn ghost" id="aeAddVector">＋ Schéma vectoriel</button><button class="admin-btn ghost" id="aeAddFiche">＋ Fiche de révision</button><button class="admin-btn ghost" id="aeAddWiki">＋ Image Wikimedia</button><button class="admin-btn ghost" id="aeTocJson">Sommaire JSON</button><button class="admin-btn ghost" id="aeSave">Enregistrer le cours</button><button class="admin-btn primary" id="aeDownloadPdfCurrent" disabled>Télécharger le PDF actuel</button></div>'+
       '<div class="ae-sequence-meta"><span>'+contentBlocks().length+' bloc(s) de contenu · 1 début · 1 fin</span><span id="aeSystemPreviewOverall">Pages système indépendantes : '+systemPreviewOverallFromPages(state.canonicalPreview?.pages||{}).ready+'/3 prêtes · '+systemPreviewOverallFromPages(state.canonicalPreview?.pages||{}).progress+'%</span></div>'+
       '<section class="ae-block-stack">'+(activeBlocks().find(b=>b?.role===START_ROLE)?blockCard(activeBlocks().find(b=>b?.role===START_ROLE),0):'')+tocSystemCard()+(contentBlocks().length?contentBlocks().map((b,i)=>blockCard(b,i+2)).join(''):'<div class="ae-empty"><strong>Le cours est vide.</strong><span>Ajoute un paragraphe pour commencer. La couverture et le sommaire resteront toujours présents.</span></div>')+(activeBlocks().find(b=>b?.role===END_ROLE)?blockCard(activeBlocks().find(b=>b?.role===END_ROLE),activeBlocks().length-1):'')+'</section>'+
       '<div class="ae-workbar ae-complete-download"><div style="display:grid;gap:4px;flex:1;min-width:220px"><strong>Document final</strong><small id="aeCompleteDownloadNote" style="opacity:.68;line-height:1.4">Le téléchargement complet s’active lorsque toutes les pages sont prêtes. Les anciens fragments gardent leur taille jusqu’à leur régénération.</small></div><button class="admin-btn ghost" id="aeOptimizeAllPdf"'+(state.pdfBatchRunning?' disabled':'')+'>Régénérer tous les PDF (optimisés)</button><button class="admin-btn primary" id="aeDownloadPdfComplete" disabled>Télécharger le document complet</button></div>'+
@@ -1324,25 +1324,24 @@
 
   function addBlock(type){
     ensureCourseStructure(state.course);
-    const b=block(type),blocks=activeBlocks(),endIndex=blocks.findIndex(x=>x.role===END_ROLE);
-    if(endIndex<0)blocks.push(systemBlock(END_ROLE,state.course.title));
-    const firstFiche=blocks.findIndex(x=>x?.type==='fiche-revision');
-    const end=blocks.findIndex(x=>x?.role===END_ROLE);
-    const idx=type==='fiche-revision'?Math.max(0,end):(firstFiche>=0?firstFiche:Math.max(0,end));
-    blocks.splice(idx,0,b);state.selected=b.id;validateCourse();renderWorkspace();setStatus(type==='fiche-revision'?'Fiche ajoutée à la fin du contenu. Modifie son JSON puis génère-la.':type==='vector-scene'?'Schéma vectoriel ajouté à cet emplacement. Modifie son JSON puis génère la page.':'Bloc ajouté au milieu du document, avant les fiches de révision et la page de fin.');
+    const b=block(type),blocks=activeBlocks();
+    let endIndex=blocks.findIndex(x=>x?.role===END_ROLE);
+    if(endIndex<0){blocks.push(systemBlock(END_ROLE,state.course.title));endIndex=blocks.length-1;}
+    blocks.splice(endIndex,0,b);
+    state.selected=b.id;validateCourse();renderWorkspace();
+    setStatus(type==='fiche-revision'?'Fiche ajoutée à la fin du contenu. Modifie son JSON puis génère-la ; tu pourras ajouter des blocs en dessous.':type==='vector-scene'?'Schéma vectoriel ajouté à la fin du contenu. Modifie son JSON puis génère la page.':'Bloc ajouté à la fin du contenu, sous les blocs déjà présents.');
   }
   async function insertBlockAfter(id,type){
     ensureCourseStructure(state.course);
     const blocks=activeBlocks(),idx=blocks.findIndex(x=>x.id===id),source=idx>=0?blocks[idx]:null;
     if(!source||isSystemBlock(source))return;
-    if(source.type==='fiche-revision'){setStatus('La fiche de révision reste à la fin du contenu. Ajoute les nouveaux blocs avant elle.');return;}
-    if(!['paragraph','point','exercise','graphique','vector-scene','wikimedia-image'].includes(type))return;
+    if(!['paragraph','point','exercise','graphique','vector-scene','fiche-revision','wikimedia-image'].includes(type))return;
     const b=block(type);
     blocks.splice(idx+1,0,b);
     state.selected=b.id;
     validateCourse();
     renderWorkspace();
-    setStatus(type==='wikimedia-image'?'Image insérée : sélectionne maintenant son illustration.':type==='graphique'?'Graphique GeoGebra inséré : renseigne ou colle son JSON GeoGebra.':type==='vector-scene'?'Schéma vectoriel inséré à cet emplacement : modifie son JSON.':type==='exercise'?'Exercice inséré sous le bloc sélectionné.':type==='point'?'Point de cours inséré sous le bloc sélectionné.':'Paragraphe inséré sous le bloc sélectionné.');
+    setStatus(type==='wikimedia-image'?'Image insérée : sélectionne maintenant son illustration.':type==='graphique'?'Graphique GeoGebra inséré sous le bloc sélectionné : renseigne ou colle son JSON GeoGebra.':type==='vector-scene'?'Schéma vectoriel inséré sous le bloc sélectionné : modifie son JSON.':type==='fiche-revision'?'Fiche de révision insérée sous le bloc sélectionné. Tu peux continuer à ajouter des blocs dessous.':type==='exercise'?'Exercice inséré sous le bloc sélectionné.':type==='point'?'Point de cours inséré sous le bloc sélectionné.':'Paragraphe inséré sous le bloc sélectionné.');
     if(type==='wikimedia-image'){
       await new Promise(resolve=>requestAnimationFrame(resolve));
       wiki(b.id);
@@ -2424,10 +2423,10 @@
         updateGenerationProgress(b.id,65,'Génération de la fiche PDF…');
         const rendered=await callSheet({mode:'render',generated_document_id:docId,theme_color:theme});
         if(!rendered.page_url)throw new Error('Le moteur de fiche n’a fourni aucun lien PDF.');
-        b.generation={...(b.generation||{}),status:'ready',page_number:pageNumberFor(b),generated_document_id:docId,job_id:null,page_path:rendered.page_path||null,page_url:rendered.page_url,updated_at:new Date().toISOString(),progress:100,progress_label:'Fiche prête — ajoutée à la fin du document',bytes:rendered.bytes||null,page_count:rendered.page_count||1,sheet_fingerprint:fingerprint,flow_block_ids:[],independent_regeneration:false,qa:{engine:rendered.engine||'pdf-lib-sheet-v1',status:'completed'},error:null};
+        b.generation={...(b.generation||{}),status:'ready',page_number:pageNumberFor(b),generated_document_id:docId,job_id:null,page_path:rendered.page_path||null,page_url:rendered.page_url,updated_at:new Date().toISOString(),progress:100,progress_label:'Fiche prête — intégrée à la séquence du document',bytes:rendered.bytes||null,page_count:rendered.page_count||1,sheet_fingerprint:fingerprint,flow_block_ids:[],independent_regeneration:false,qa:{engine:rendered.engine||'pdf-lib-sheet-v1',status:'completed'},error:null};
         await persistCourse(true,false);
         renderWorkspace();
-        setStatus('Fiche de révision générée et placée à la fin du document.');
+        setStatus('Fiche de révision générée et intégrée à la séquence du document.');
         return;
       }
       const graphBlocksToPrepare=(isFlowCompanion?[b]:flowBlocksFor(b.id))
@@ -2758,6 +2757,45 @@
       catch(_){setStatus('Impossible de charger la liste des cours.')}
     });
   }
-  window.AuroreAssistedEditor={init,render:()=>state.mode==='workspace'?renderWorkspace():renderList,getState:()=>state.course,toContentJson:()=>state.course};
+  async function upsertAssistedContentBlock(type,json,existingId){
+    if(!state.course?.id)throw new Error('Ouvre un cours avant d’ajouter une fiche ou un schéma.');
+    if(!['fiche-revision','vector-scene'].includes(type))throw new Error('Type de bloc assisté non pris en charge.');
+    ensureCourseStructure(state.course);
+    const next=clone(json&&typeof json==='object'&&!Array.isArray(json)?json:{});
+    let b=existingId?activeBlocks().find(x=>String(x?.id||'')===String(existingId)):null;
+    if(b&&(isSystemBlock(b)||b.type!==type))b=null;
+    const isNew=!b;
+    let changed=isNew;
+    if(!b){
+      b=block(type);
+      b.content={json:next};
+      const endIndex=activeBlocks().findIndex(x=>x?.role===END_ROLE);
+      activeBlocks().splice(endIndex>=0?endIndex:activeBlocks().length,0,b);
+    }else{
+      changed=JSON.stringify(b.content?.json||{})!==JSON.stringify(next);
+      if(changed){
+        b.content={...(b.content||{}),json:next};
+        b.generation={status:'not_generated',page_number:null,page_path:null,page_url:null,updated_at:null,error:null};
+      }
+    }
+    const selectionChanged=state.selected!==b.id;
+    state.selected=b.id;
+    ensureCourseStructure(state.course);
+    validateCourse();
+    if(changed)await persistCourse(true,false);
+    if(changed||selectionChanged)renderWorkspace();
+    if(isNew)setStatus(type==='fiche-revision'?'Fiche ajoutée à la fin du contenu. La génération va démarrer.':'Schéma vectoriel ajouté à la fin du contenu. La génération va démarrer.');
+    return {block_id:String(b.id),type,changed};
+  }
+  async function generateAssistedContentBlock(id){
+    const blockId=String(id||'');
+    if(!blockId)throw new Error('Identifiant de bloc absent.');
+    if(!activeBlocks().some(x=>String(x?.id||'')===blockId))throw new Error('Le bloc à générer n’existe plus dans ce cours.');
+    await generateBlock(blockId);
+    const b=activeBlocks().find(x=>String(x?.id||'')===blockId);
+    const g=b?.generation||{};
+    return {block_id:blockId,type:b?.type||'',status:String(g.status||''),page_url:String(g.page_url||''),page_number:g.page_number||pageNumberFor(b),error:String(g.error||''),generated_document_id:g.generated_document_id||null};
+  }
+  window.AuroreAssistedEditor={init,render:()=>state.mode==='workspace'?renderWorkspace():renderList,getState:()=>state.course,toContentJson:()=>state.course,upsertAssistedContentBlock,generateAssistedContentBlock};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
