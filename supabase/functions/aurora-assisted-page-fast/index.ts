@@ -686,33 +686,34 @@ Deno.serve(async req=>{
     const cache=new Map<string,any>();const X=72,W=449,bottom=67,top=770;let y=top;
     const sections=Array.isArray(input.sections)?input.sections.filter((s:any)=>s&&typeof s==="object"):[];
     const contentItems:any[]=[];const exerciseItems:any[]=[];const graphItems:any[]=[];const imageItems:any[]=[];
-    const pointAnchors:any[]=[];
-    const titleAnchors:any[]=[];
-    // Keep adjacent paragraphs in the same chapter, but draw their chapter heading only once.
-    let lastRenderedPointLabel="";
+    const flowItems:any[]=[];
+    const appendContent=(value:any,blockId?:any)=>{contentItems.push(value);flowItems.push({kind:"content",value,blockId:String(blockId||"")});};
     if(sections.length)for(const section of sections){
       const texts=Array.isArray(section.content)?section.content:[section.content];
+      const blockId=String(section.assisted_block_id||section.block_id||section.assisted_block?.id||"");
       if(section.point&&typeof section.point==="object"){
         const p=section.point;
         const title=clean(p.title||"Point de cours"),rank=Math.max(1,Number(p.rank)||1),body=extractStructuredText(p.text||"").trim();
-        if(title||body)contentItems.push({__aurore_point:true,title,rank,color:normalizeHexColor(p.color)||color,text:body});
+        if(title||body)appendContent({__aurore_point:true,title,rank,color:normalizeHexColor(p.color)||color,text:body},blockId);
       }else{
-        for(const item of texts){const normalized=extractStructuredText(item).trim();if(normalized)contentItems.push(normalized);}
+        for(const item of texts){const normalized=extractStructuredText(item).trim();if(normalized)appendContent(normalized,blockId);}
       }
-      if(Array.isArray(section.exercises))exerciseItems.push(...section.exercises);
-      if(Array.isArray(section.graphs))graphItems.push(...section.graphs);
-      if(Array.isArray(section.images))imageItems.push(...section.images);
+      if(Array.isArray(section.exercises))for(const ex of section.exercises){exerciseItems.push(ex);flowItems.push({kind:"exercise",value:ex,blockId:String(blockId||ex?.exercise_id||ex?.id||"")});}
+      if(Array.isArray(section.graphs))for(const graph of section.graphs){graphItems.push(graph);flowItems.push({kind:"graph",value:graph,blockId});}
+      if(Array.isArray(section.images))for(const image of section.images){imageItems.push(image);flowItems.push({kind:"image",value:image,blockId});}
     }
-    // Le contrat courant envoie les mêmes contenus dans sections (structure éditoriale)
-    // et dans les tableaux racine (compatibilité historique). Ne jamais consommer les deux :
-    // cela réimprime les chapitres et exercices sur les pages suivantes.
+    // Le contrat canonique garde sections comme source ordonnée. Le repli racine
+    // reste compatible avec les anciens documents qui n'ont pas de sections.
     if(!sections.length){
-      if(Array.isArray(input.content))input.content.forEach((x:any)=>{const normalized=extractStructuredText(x).trim();if(normalized)contentItems.push(normalized)});
-      if(Array.isArray(input.exercises))exerciseItems.push(...input.exercises);
-      if(Array.isArray(input.graphs))graphItems.push(...input.graphs);
-      if(Array.isArray(input.images))imageItems.push(...input.images);
+      if(Array.isArray(input.content))input.content.forEach((x:any)=>{const normalized=extractStructuredText(x).trim();if(normalized)appendContent(normalized,input.assisted_block?.id);});
+      if(Array.isArray(input.exercises))for(const ex of input.exercises){exerciseItems.push(ex);flowItems.push({kind:"exercise",value:ex,blockId:String(ex?.exercise_id||ex?.id||input.assisted_block?.id||"")});}
+      if(Array.isArray(input.graphs))for(const graph of input.graphs){graphItems.push(graph);flowItems.push({kind:"graph",value:graph,blockId:String(input.assisted_block?.id||"")});}
+      if(Array.isArray(input.images))for(const image of input.images){imageItems.push(image);flowItems.push({kind:"image",value:image,blockId:String(input.assisted_block?.id||"")});}
     }
-    if(input.assisted_block?.content?.text&&!contentItems.length){const normalized=extractStructuredText(input.assisted_block.content.text).trim();if(normalized)contentItems.push(normalized);}
+    if(input.assisted_block?.content?.text&&!contentItems.length){
+      const normalized=extractStructuredText(input.assisted_block.content.text).trim();
+      if(normalized)appendContent(normalized,input.assisted_block?.id);
+    }
     const BOX_X=X-10,BOX_W=W+32;
     const PARA_X=X+18,PARA_W=W-6;
     const POINT_X=POINT_BOX_X,POINT_W=POINT_MAX_W;
@@ -734,7 +735,10 @@ const newFlowPage=()=>{
     const ensureSpace=(height:number)=>{
       if(y-height<bottom)newFlowPage();
     };
-    const drawContentBlock=async(text:any)=>{
+    const flowPageMap:Record<string,number>={};
+    const flowPageEndMap:Record<string,number>={};
+    const markFlowBlockPage=(blockId:any)=>{const key=String(blockId||"").trim();if(!key)return;if(!Object.prototype.hasOwnProperty.call(flowPageMap,key))flowPageMap[key]=flowPageNo;flowPageEndMap[key]=flowPageNo;};
+    const drawContentBlock=async(text:any,blockId?:any)=>{
       if(text&&typeof text==="object"&&text.__aurore_point){
         const title=String(text.title||"Point de cours"),body=String(text.text||"");
         const accent=normalizeHexColor(text.color)||color;
@@ -809,6 +813,7 @@ const newFlowPage=()=>{
              }else if(addPointItem(first)){cursor++;}
            }else if(first&&addPointItem(first)){cursor++;}
            if(fragment.length===0){newFlowPage();continue;}
+           markFlowBlockPage(blockId);
            // Consume the heading only after a non-empty fragment fits this page.
            // If a new page was needed before drawing any text, keep the heading pending.
            pointTitlePending=false;
@@ -935,6 +940,7 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
             newFlowPage();
             continue;
           }
+          markFlowBlockPage(blockId);
           const boxH=Math.max(36,BOX_PAD_TOP+used+BOX_PAD_BOTTOM);
           floatingBlock(page,BOX_X,y-boxH,BOX_W,boxH);
           let childY=y-BOX_PAD_TOP;
@@ -956,43 +962,32 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
         }
       }
     };
-    // L'Introduction constitue une séquence autonome : elle commence sur une page dédiée
-    // et le premier bloc suivant ne réutilise jamais l'espace restant de cette page.
-    for(let contentIndex=0;contentIndex<contentItems.length;contentIndex++){
-      const raw=contentItems[contentIndex];
-      const isIntroduction=!!(raw&&typeof raw==="object"&&raw.__aurore_point&&clean(raw.title).toLowerCase()==="introduction");
-      if(isIntroduction&&y!==top)newFlowPage();
-      await drawContentBlock(raw);
-      if(isIntroduction){
-        const hasFollowingMaterial=
-          contentItems.slice(contentIndex+1).length>0||
-          exerciseItems.length>0||
-          graphItems.length>0||
-          imageItems.length>0;
-        if(hasFollowingMaterial)newFlowPage();
-      }
-    }
-    for(const ex of exerciseItems){
-      const title=clean(ex?.title||"Exercice"),statement=clean(ex?.statement||ex?.question||ex?.enonce||ex?.content||""),hint=clean(ex?.hint||""),correctionTitle=clean(ex?.correction_title||"Corrigé"),correction=clean(ex?.correction||"");
-      if(!statement)continue;
+    const drawExercise=async(ex:any,blockId?:any)=>{
+      const title=clean(ex?.title||"Exercice");
+      const statement=clean(ex?.statement||ex?.question||ex?.enonce||ex?.content||"");
+      const hint=clean(ex?.hint||"");
+      const correctionTitle=clean(ex?.correction_title||"Corrigé");
+      const correction=clean(ex?.correction||"");
+      if(!statement)return;
       ensureSpace(53);
+      markFlowBlockPage(blockId);
       titleAnchors.push({page,y:y-4,targetX:X,color});
       sectionLabel(page,title,X,y,fonts,color);y-=31;
-      await drawContentBlock(statement);
-      if(hint)await drawContentBlock("Indication : "+hint);
+      await drawContentBlock(statement,blockId);
+      if(hint)await drawContentBlock("Indication : "+hint,blockId);
       if(correction){
-        // Le corrigé est une page physique dédiée, séparée de l’énoncé.
-        newFlowPage();
-        ensureSpace(53);
+        // Garder le corrigé sur la page de l'énoncé quand il reste assez d'espace.
+        // Sinon, ne déplacer que le corrigé : les blocs suivants continueront après lui.
+        ensureSpace(58);
+        markFlowBlockPage(blockId);
         titleAnchors.push({page,y:y-4,targetX:X,color});
         sectionLabel(page,correctionTitle,X,y,fonts,color);y-=31;
-        await drawContentBlock(correction);
+        await drawContentBlock(correction,blockId);
       }
-    }
-
-    for(const image of imageItems){
+    };
+    const drawImage=async(image:any,blockId?:any)=>{
       const url=String(image?.url||image?.imageUrl||"").trim();
-      if(!url)continue;
+      if(!url)return;
       qa.images_total++;
       try{
         const r=await fetch(url,{signal:AbortSignal.timeout(12000)});
@@ -1003,6 +998,7 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
         const w=h===ih?iw:h*(img.width/img.height);
         const boxH=h+44;
         if(y-boxH<bottom)newFlowPage();
+        markFlowBlockPage(blockId);
         rounded(page,BOX_X,y-boxH,BOX_W,boxH,11,rgbHex("#E8E8EA"),rgbHex("#A7A8AD"),0.5);
         page.drawImage(img,{x:X+(W-w)/2,y:y-16-h,width:w,height:h});
         const caption=clean(image.caption||image.title||"");
@@ -1014,9 +1010,56 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
             cy-=11;
           }
         }
-        
-y-=boxH+8;qa.images_ok++;
+        y-=boxH+8;qa.images_ok++;
       }catch(_){qa.images_failed++;}
+    };
+    const drawGraph=async(g:any,blockId?:any)=>{
+      qa.graphs_total++;
+      try{
+        const direct=String(g?.geogebra_image_url||g?.image_url||g?.preview_url||"").trim();
+        let img:any=null;
+        if(direct){
+          const r=await fetch(direct,{signal:AbortSignal.timeout(12000)});
+          if(r.ok)img=await embedRaster(pdf,new Uint8Array(await r.arrayBuffer()),"graphique");
+        }else{
+          const path=String(g?.geogebra_image_path||g?.graph_local_path||"").trim();
+          if(path){
+            const dl=await admin.storage.from("Pdfs").download(path);
+            if(!dl.error&&dl.data)img=await embedRaster(pdf,new Uint8Array(await dl.data.arrayBuffer()),"graphique");
+          }
+        }
+        if(!img)throw new Error("Asset graphique indisponible");
+        const boxH=260;
+        if(y-boxH<bottom)newFlowPage();
+        markFlowBlockPage(blockId);
+        rounded(page,X-11,y-boxH,W+22,boxH,10,rgbHex("#E8E8EA"),rgbHex("#A7A8AD"),0.5);
+        const scale=Math.min(1,450/img.width,222/img.height);
+        const iw=img.width*scale,ih=img.height*scale;
+        const gy=y-15-ih;
+        page.drawImage(img,{x:X+(W-iw)/2,y:gy,width:iw,height:ih});
+        if(clean(g?.title)){
+          page.drawText(clean(g.title).slice(0,100),{x:X+4,y:gy-14,font:fonts.bold,size:8.5,color:rgbHex("#5B5D66")});
+        }
+        y-=boxH+8;qa.graphs_ok++;
+      }catch(_){qa.graphs_failed++;}
+    };
+    // Le PDF est composé dans l'ordre éditorial des sections et conserve l'espace
+    // restant sur la page après un graphique, un exercice ou son corrigé.
+    for(let flowIndex=0;flowIndex<flowItems.length;flowIndex++){
+      const entry=flowItems[flowIndex],blockId=String(entry.blockId||"");
+      if(entry.kind==="content"){
+        const raw=entry.value;
+        const isIntroduction=!!(raw&&typeof raw==="object"&&raw.__aurore_point&&clean(raw.title).toLowerCase()==="introduction");
+        if(isIntroduction&&y!==top)newFlowPage();
+        await drawContentBlock(raw,blockId);
+        if(isIntroduction&&flowItems.slice(flowIndex+1).length>0)newFlowPage();
+      }else if(entry.kind==="exercise"){
+        await drawExercise(entry.value,blockId);
+      }else if(entry.kind==="image"){
+        await drawImage(entry.value,blockId);
+      }else if(entry.kind==="graph"){
+        await drawGraph(entry.value,blockId);
+      }
     }
 
     // Rail éditorial continu : une seule ligne verticale par page,
@@ -1055,36 +1098,6 @@ y-=boxH+8;qa.images_ok++;
         p.drawCircle({x:endX,y:a.y,size:3.1,color:tickColor});
       }
     }
-    for(const g of graphItems){
-      qa.graphs_total++;
-      try{
-        const direct=String(g?.geogebra_image_url||g?.image_url||g?.preview_url||"").trim();
-        let img:any=null;
-        if(direct){
-          const r=await fetch(direct,{signal:AbortSignal.timeout(12000)});
-          if(r.ok)img=await embedRaster(pdf,new Uint8Array(await r.arrayBuffer()),"graphique");
-        }else{
-          const path=String(g?.geogebra_image_path||g?.graph_local_path||"").trim();
-          if(path){
-            const dl=await admin.storage.from("Pdfs").download(path);
-            if(!dl.error&&dl.data)img=await embedRaster(pdf,new Uint8Array(await dl.data.arrayBuffer()),"graphique");
-          }
-        }
-        if(!img)throw new Error("Asset graphique indisponible");
-        const boxH=260;
-        if(y-boxH<bottom)newFlowPage();
-        rounded(page,X-11,y-boxH,W+22,boxH,10,rgbHex("#E8E8EA"),rgbHex("#A7A8AD"),0.5);
-        const scale=Math.min(1,450/img.width,222/img.height);
-        const iw=img.width*scale,ih=img.height*scale;
-        const gy=y-15-ih;
-        page.drawImage(img,{x:X+(W-iw)/2,y:gy,width:iw,height:ih});
-        if(clean(g?.title)){
-          page.drawText(clean(g.title).slice(0,100),{x:X+4,y:gy-14,font:fonts.bold,size:8.5,color:rgbHex("#5B5D66")});
-        }
-        y-=boxH+8;qa.graphs_ok++;
-      }catch(_){qa.graphs_failed++;}
-    }
-
     const bytes=new Uint8Array(await pdf.save({useObjectStreams:true}));
     const path="aurora-content-pages/"+userId+"/"+id+"/page-"+String(pn).padStart(4,"0")+".pdf";
     const up=await admin.storage.from("Pdfs").upload(path,bytes,{contentType:"application/pdf",upsert:true});
@@ -1111,7 +1124,7 @@ y-=boxH+8;qa.images_ok++;
     return out({
       ok:true,mode:"instant-page",engine:"pdf-lib-course-page-v2",
       generated_document_id:id,page_number:pn,page_path:path,page_url:pageUrl,
-      bytes:bytes.length,page_count:flowPageNo-pn+1,qa
+      bytes:bytes.length,page_count:flowPageNo-pn+1,flow_page_map:flowPageMap,flow_page_end_map:flowPageEndMap,qa
     });
   }catch(e){
     return out({ok:false,generated_document_id:id,page_number:pn,error:e instanceof Error?e.message:String(e)},409);
