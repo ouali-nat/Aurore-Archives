@@ -2564,7 +2564,12 @@
     // ne recrée jamais le même PDF : on réutilise le propriétaire du flux.
     const flowGroup=renderableFlowBlocksFor(b.id);
     const flowOwner=flowGroup[0]||b;
-    const isFlowCompanion=flowGroup.length>1&&flowOwner.id!==b.id;
+    // Après un HTTP 546, isoler le point/la section au prochain essai :
+    // reconstruire tout le flux contigu répète le calcul coûteux et peut
+    // faire échouer à nouveau une page pourtant rendable seule.
+    const forceIsolatedRetry=['paragraph','point'].includes(String(b.type||'').toLowerCase())
+      &&/(?:HTTP\\s*546|CPU\\s+Time\\s+exceeded)/i.test(String(b.generation?.error||''));
+    const isFlowCompanion=(flowGroup.length>1&&flowOwner.id!==b.id)||forceIsolatedRetry;
     if(isFlowCompanion){
       const ownerGeneration=flowOwner.generation||{};
       if(String(ownerGeneration.status||'').toLowerCase()==='generating'){
