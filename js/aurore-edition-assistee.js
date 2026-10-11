@@ -235,7 +235,7 @@
     return (ranks.length?Math.max(...ranks):0)+1;
   }
   function normalizePointColor(v){return /^#[0-9A-F]{6}$/i.test(String(v||''))?String(v).toUpperCase():DEFAULT_THEME_COLOR}
-  function defaultPointColor(rank){return POINT_SEQUENCE_COLORS[(Math.max(1,Math.floor(Number(rank)||1)-1))%POINT_SEQUENCE_COLORS.length]}
+  function defaultPointColor(rank){return POINT_SEQUENCE_COLORS[(Math.max(0,Math.floor(Number(rank)||1)-1))%POINT_SEQUENCE_COLORS.length]}
   function pointColorOptions(selected){
     return THEME_COLORS.map(x=>'<option value="'+x.value+'"'+(normalizePointColor(selected)===x.value?' selected':'')+'>'+esc(x.label)+'</option>').join('');
   }
