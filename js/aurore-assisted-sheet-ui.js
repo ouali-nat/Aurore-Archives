@@ -23,7 +23,7 @@
     scene:{version:1,width:260,height:170,elements:[{t:'axes',origin:[30,22],size:[200,125],x:[-3,3],y:[-2,5],xlabel:'x',ylabel:'y'},{t:'plot',expr:'x^2-1',from:-2.2,to:2.2,w:1.8,label:{text:'y = x² − 1',at:1.6,dy:-12}}]},
     selftest:['Quels sont les cas possibles pour le discriminant ?','Que représente le coefficient directeur ?','Comment contrôler le domaine de définition ?']
   };
-  const sceneExample={title:'Schéma vectoriel — pression et volume',caption:'Représentation illustrative dans le plan (V, P)',mode:'nb',page_number:12,scene:{version:1,width:260,height:170,elements:[{t:'axes',origin:[30,22],size:[200,125],x:[0,5],y:[0,5],xlabel:'V',ylabel:'P'},{t:'plot',expr:'4/x',from:1.1,to:4.6,w:1.8,label:{text:'isotherme',at:3.3,dy:-13}},{t:'plot',expr:'2*(2/x)^1.4',from:1.25,to:3.4,dash:'dotted',w:1.6,tone:'soft',label:{text:'adiabatique',at:1.25,dx:-62,dy:-4}},{t:'line',p1:[48,82],p2:[205,82],dash:'dashed',w:1.6},{t:'text',at:[160,87],text:'isobare',size:7.5}]}};
+  const sceneExample={title:'Schéma vectoriel — fonction carrée',caption:'Exemple modifiable de courbe dans un repère',mode:'nb',page_number:2,scene:{version:1,width:260,height:170,elements:[{t:'axes',origin:[30,22],size:[200,125],x:[-3,3],y:[-2,5],xlabel:'x',ylabel:'y'},{t:'plot',expr:'x^2-1',from:-2.2,to:2.2,w:1.8,label:{text:'y = x² − 1',at:1.6,dy:-12}}]}};
   let busy=false;
   function currentCourse(){try{return window.AuroreAssistedEditor?.getState?.()||null}catch(_){return null}}
   async function token(){
