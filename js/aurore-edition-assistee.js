@@ -9,13 +9,26 @@
   const THEME_COLORS=[
     {value:'#6D28D9',label:'Violet Aurore'},
     {value:'#2563EB',label:'Bleu'},
+    {value:'#DC2626',label:'Rouge'},
     {value:'#15803D',label:'Vert'},
     {value:'#C2410C',label:'Orange'},
     {value:'#A16207',label:'Ocre'},
     {value:'#0E7490',label:'Turquoise'},
     {value:'#BE123C',label:'Rose framboise'},
-    {value:'#7C3AED',label:'Violet clair'}
+    {value:'#7C3AED',label:'Violet clair'},
+    {value:'#4338CA',label:'Indigo'},
+    {value:'#0284C7',label:'Bleu ciel'},
+    {value:'#0891B2',label:'Cyan'},
+    {value:'#059669',label:'Émeraude'},
+    {value:'#C026D3',label:'Magenta'},
+    {value:'#DB2777',label:'Rose'},
+    {value:'#475569',label:'Ardoise'},
+    {value:'#52525B',label:'Gris graphite'},
+    {value:'#65A30D',label:'Vert citron'},
+    {value:'#92400E',label:'Marron'},
+    {value:'#9F1239',label:'Bordeaux'}
   ];
+  const POINT_SEQUENCE_COLORS=['#2563EB','#DC2626','#15803D','#C2410C','#7C3AED','#0E7490','#A16207','#BE185D'];
   const DEFAULT_THEME_COLOR='#6D28D9';
   function normalizeThemeColor(v){
     const x=String(v??'').trim().toUpperCase();
@@ -202,7 +215,7 @@
   function block(type){
     const b={id:uid('block'),type,content:{},generation:{status:'not_generated',page_number:null,page_path:null,page_url:null,updated_at:null,error:null},created_at:new Date().toISOString()};
     if(type==='paragraph')b.content={text:''};
-    if(type==='point'){const n=nextPointNumber();b.content={title:'Point de cours '+n,text:'',color:DEFAULT_THEME_COLOR,rank:n};}
+    if(type==='point'){const n=nextPointNumber();b.content={title:'Point de cours '+n,text:'',color:defaultPointColor(n),rank:n};}
     if(type==='exercise'){const n=nextExerciseNumber();b.content={title:'Exercice '+n,statement:'',hint:'',correction_title:'Corrigé '+n,correction:''};}
     if(type==='graphique')b.content={json:{id:uid('graph'),instrument:'function2d',expression:'x^2'}};
     if(type==='vector-scene')b.content={json:{title:'Schéma vectoriel',caption:'Exemple modifiable : une fonction dans un repère.',mode:'nb',scene:{version:1,width:260,height:170,elements:[{t:'axes',origin:[30,22],size:[200,125],x:[-3,3],y:[-1,5],xlabel:'x',ylabel:'y'},{t:'plot',expr:'x^2',from:-2,to:2,w:1.7}]}}};
@@ -222,6 +235,7 @@
     return (ranks.length?Math.max(...ranks):0)+1;
   }
   function normalizePointColor(v){return /^#[0-9A-F]{6}$/i.test(String(v||''))?String(v).toUpperCase():DEFAULT_THEME_COLOR}
+  function defaultPointColor(rank){return POINT_SEQUENCE_COLORS[(Math.max(1,Math.floor(Number(rank)||1)-1))%POINT_SEQUENCE_COLORS.length]}
   function pointColorOptions(selected){
     return THEME_COLORS.map(x=>'<option value="'+x.value+'"'+(normalizePointColor(selected)===x.value?' selected':'')+'>'+esc(x.label)+'</option>').join('');
   }
@@ -498,16 +512,24 @@
     }
   }
 
-  async function regenerateAllOptimizedPdfs(){
+  async function generateAllPages(){
     if(state.pdfBatchRunning||!state.course)return;
     state.pdfBatchRunning=true;
     renderWorkspace();
     const failures=[];
     try{
       await persistCourse(true,false);
-      if(!canonicalPreviewIsFresh()){
-        try{await prepareSystemPreview({force:false});}
-        catch(e){failures.push('Pages système : '+String(e?.message||e));}
+      setStatus('Génération générale : couverture, sommaire et page finale…');
+      try{
+        await prepareSystemPreview({force:true});
+        const systemPages=state.canonicalPreview?.pages||{};
+        const missingSystem=['cover','toc','end'].filter(kind=>{
+          const p=systemPages[kind]||{};
+          return String(p.status||'').toLowerCase()!=='ready'||!String(p.pdfUrl||'').trim()||!canonicalPreviewIsFresh(kind);
+        });
+        if(missingSystem.length)failures.push('Pages système incomplètes : '+missingSystem.join(', '));
+      }catch(e){
+        failures.push('Pages système : '+String(e?.message||e));
       }
       const targets=[],seen=new Set();
       for(const b of contentBlocks()){
@@ -523,11 +545,12 @@
           targets.push(b);
         }
       }
+      if(!targets.length)setStatus('Aucun bloc de contenu à générer ; vérification des pages système effectuée.');
       for(let i=0;i<targets.length;i++){
         const targetId=String(targets[i]?.id||'');
         const b=activeBlocks().find(x=>String(x?.id||'')===targetId);
         if(!b||!hasRenderableContent(b))continue;
-        setStatus('Régénération optimisée '+(i+1)+'/'+targets.length+' : '+String(b.content?.title||labelFor(b))+'…');
+        setStatus('Génération générale '+(i+1)+'/'+targets.length+' : '+String(b.content?.title||labelFor(b))+'…');
         await generateBlock(b.id);
         const updated=activeBlocks().find(x=>String(x?.id||'')===targetId);
         if(String(updated?.generation?.status||'').toLowerCase()!=='ready'||!String(updated?.generation?.page_url||'').trim()){
@@ -535,12 +558,12 @@
         }
       }
       if(failures.length){
-        setStatus('Optimisation partielle : éléments à vérifier — '+failures.slice(0,4).join(' · ')+(failures.length>4?' · et '+(failures.length-4)+' autre(s)':''));
+        setStatus('Génération générale terminée avec éléments à vérifier — '+failures.slice(0,4).join(' · ')+(failures.length>4?' · et '+(failures.length-4)+' autre(s)':''));
       }else{
-        setStatus('Tous les PDF de contenu ont été régénérés avec compression optimisée. Télécharge maintenant le document complet.');
+        setStatus('Génération générale terminée : couverture, sommaire, contenu et page finale ont été générés. Télécharge le document complet.');
       }
     }catch(e){
-      setStatus('Échec de la régénération optimisée : '+String(e?.message||e));
+      setStatus('Échec de la génération générale : '+String(e?.message||e));
     }finally{
       state.pdfBatchRunning=false;
       renderWorkspace();
@@ -835,7 +858,7 @@
       '<div class="ae-workbar"><button class="admin-btn primary" id="aeAddP">＋ Paragraphe</button><button class="admin-btn ghost" id="aeAddPoint">＋ Point de cours</button><button class="admin-btn ghost" id="aeAddEx">＋ Exercice</button><button class="admin-btn ghost" id="aeAddGraph">＋ Graphique GeoGebra</button><button class="admin-btn ghost" id="aeAddVector">＋ Schéma vectoriel</button><button class="admin-btn ghost" id="aeAddFiche">＋ Fiche de révision</button><button class="admin-btn ghost" id="aeAddWiki">＋ Image Wikimedia</button><button class="admin-btn ghost" id="aeTocJson">Sommaire JSON</button><button class="admin-btn ghost" id="aeSave">Enregistrer le cours</button><button class="admin-btn primary" id="aeDownloadPdfCurrent" disabled>Télécharger le PDF actuel</button></div>'+
       '<div class="ae-sequence-meta"><span>'+contentBlocks().length+' bloc(s) de contenu · 1 début · 1 fin</span><span id="aeSystemPreviewOverall">Pages système indépendantes : '+systemPreviewOverallFromPages(state.canonicalPreview?.pages||{}).ready+'/3 prêtes · '+systemPreviewOverallFromPages(state.canonicalPreview?.pages||{}).progress+'%</span></div>'+
       '<section class="ae-block-stack">'+(activeBlocks().find(b=>b?.role===START_ROLE)?blockCard(activeBlocks().find(b=>b?.role===START_ROLE),0):'')+tocSystemCard()+(contentBlocks().length?contentBlocks().map((b,i)=>blockCard(b,i+2)).join(''):'<div class="ae-empty"><strong>Le cours est vide.</strong><span>Ajoute un paragraphe pour commencer. La couverture et le sommaire resteront toujours présents.</span></div>')+(activeBlocks().find(b=>b?.role===END_ROLE)?blockCard(activeBlocks().find(b=>b?.role===END_ROLE),activeBlocks().length-1):'')+'</section>'+
-      '<div class="ae-workbar ae-complete-download"><div style="display:grid;gap:4px;flex:1;min-width:220px"><strong>Document final</strong><small id="aeCompleteDownloadNote" style="opacity:.68;line-height:1.4">Le téléchargement complet s’active lorsque toutes les pages sont prêtes. Les anciens fragments gardent leur taille jusqu’à leur régénération.</small></div><button class="admin-btn ghost" id="aeOptimizeAllPdf"'+(state.pdfBatchRunning?' disabled':'')+'>Régénérer tous les PDF (optimisés)</button><button class="admin-btn primary" id="aeDownloadPdfComplete" disabled>Télécharger le document complet</button></div>'+
+      '<div class="ae-workbar ae-complete-download"><div style="display:grid;gap:4px;flex:1;min-width:220px"><strong>Document final</strong><small id="aeCompleteDownloadNote" style="opacity:.68;line-height:1.4">Le téléchargement complet s’active lorsque toutes les pages sont prêtes. Les anciens fragments gardent leur taille jusqu’à leur régénération.</small></div><button class="admin-btn ghost" id="aeGenerateAllPages"'+(state.pdfBatchRunning?' disabled':'')+'>Générer / régénérer toutes les pages</button><button class="admin-btn primary" id="aeDownloadPdfComplete" disabled>Télécharger le document complet</button></div>'+
       '<footer class="ae-work-footer">Le bouton supérieur permet de récupérer les fragments déjà prêts. En fin d’éditeur, « Télécharger le document complet » assemble la couverture, le sommaire, tous les blocs et la page finale, uniquement quand toutes les parties sont vérifiées.</footer></div><div class="ae-modal-host" id="aeModalHost"></div>';
     prepareAssistedModalHost();
     bindWorkspace();
@@ -1246,8 +1269,8 @@
     if(downloadBtn)downloadBtn.onclick=()=>downloadCurrentPdf(false);
     const completeDownloadBtn=document.getElementById('aeDownloadPdfComplete');
     if(completeDownloadBtn)completeDownloadBtn.onclick=()=>downloadCurrentPdf(true);
-    const optimizeAllBtn=document.getElementById('aeOptimizeAllPdf');
-    if(optimizeAllBtn)optimizeAllBtn.onclick=()=>void regenerateAllOptimizedPdfs();
+    const generateAllBtn=document.getElementById('aeGenerateAllPages');
+    if(generateAllBtn)generateAllBtn.onclick=()=>void generateAllPages();
     refreshDownloadButton();
     root().querySelectorAll('[data-edit-point-title]').forEach(el=>el.oninput=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editPointTitle);if(b){b.content.title=el.value;validateCourse();}});
     root().querySelectorAll('[data-edit-point-rank]').forEach(el=>el.onchange=()=>{const b=activeBlocks().find(x=>x.id===el.dataset.editPointRank);if(b){b.content.rank=Math.max(1,parseInt(el.value||'1',10));reorderPointBlocks(state.course);validateCourse();renderWorkspace();setStatus(isDefaultIntroduction(b)?'L’Introduction reste toujours au début du cours.':'Position du point mise à jour selon son rang.');}});
