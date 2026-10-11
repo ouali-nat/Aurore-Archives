@@ -2612,18 +2612,11 @@
     if(!b||isSystemBlock(b)||isDefaultIntroduction(b)||isRepeatedDefaultIntroduction(b))return false;
     const type=String(b.type||'').toLowerCase();
     const content=b.content&&typeof b.content==='object'?b.content:{};
+    // Le contrat du renderer de flux accepte uniquement paragraphes et points.
+    // Exercices, graphiques GeoGebra, images, schémas vectoriels et fiches sont
+    // des pages autonomes : les regrouper ici faisait attendre des identifiants
+    // de blocs que le renderer ne peut pas confirmer dans une séquence textuelle.
     if(type==='paragraph'||type==='point')return Boolean(String(content.text||'').trim());
-    if(type==='exercise')return Boolean(String(content.statement||'').trim());
-    if(type==='graphique'){
-      const g=content.json&&typeof content.json==='object'&&!Array.isArray(content.json)?content.json:{};
-      return Boolean(String(g.geogebra_image_path||g.graph_local_path||g.geogebra_image_url||g.image_url||g.preview_url||'').trim());
-    }
-    // Les schémas vectoriels sont rendus comme pages autonomes par le renderer
-    // assisté. Ne jamais les fusionner dans un flux texte : cela faisait annoncer
-    // une séquence incomplète alors que chaque schéma attendait son propre PDF.
-    if(type==='wikimedia-image')return String(content.imageUrl||'').startsWith('https://upload.wikimedia.org/')
-      &&String(content.sourceUrl||'').startsWith('https://commons.wikimedia.org/')
-      &&Boolean(String(content.license||'').trim());
     return false;
   }
 
