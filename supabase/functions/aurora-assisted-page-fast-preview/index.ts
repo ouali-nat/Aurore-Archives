@@ -8,7 +8,7 @@ const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const admin = createClient(URL, SERVICE, { auth: { autoRefreshToken:false, persistSession:false } });
 
 const LOGO_URL = "https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster";
-const MATH_URL = URL + "/functions/v1/aurora-content-math-renderer-preview";
+const MATH_URL = URL + "/functions/v1/aurora-content-math-renderer";
 
 const TEXT_SIZE=11.3;
 const LINE_HEIGHT=16.1;
@@ -214,7 +214,7 @@ function optimizeWikimediaImageUrl(raw:string,maxWidth=1200):string{
       return url.toString();
     }
     const original=path.match(/^\/wikipedia\/(commons|[a-z]{2})\/(.+)\/([^/]+)$/i);
-    if(!original||!/\.(?:jpe?g|png|webp|gif)$/i.test(original[3]))return raw;
+    if(!original||!/\.(?:jpe?g|png)$/i.test(original[3]))return raw;
     url.pathname=`/wikipedia/${original[1]}/thumb/${original[2]}/${original[3]}/${maxWidth}px-${original[3]}`;
     return url.toString();
   }catch{return raw;}
@@ -384,7 +384,7 @@ async function prepareRuns(runs:Run[],auth:string,pdf:any,fonts:any,qa:any,cache
       const response=await fetch(MATH_URL,{
         method:"POST",
         headers:{Authorization:auth,"Content-Type":"application/json"},
-        body:JSON.stringify({formulas:pendingKeys,px_per_ex:MATH_EX_PX}),
+        body:JSON.stringify({formulas:pendingKeys,px_per_ex:MATH_EX_PX,raster_scale:2}),
         // Le lot est traité par un seul worker chaud, au lieu de multiplier
         // les appels HTTP qui déclenchaient les limites de débit.
         signal:AbortSignal.timeout(30000)
