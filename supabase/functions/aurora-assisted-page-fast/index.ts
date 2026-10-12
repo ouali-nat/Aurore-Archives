@@ -12,7 +12,7 @@ const MATH_URL = URL + "/functions/v1/aurora-content-math-renderer";
 
 const TEXT_SIZE=11.3;
 const LINE_HEIGHT=16.1;
-const BLOCK_GAP=16;
+const BLOCK_GAP=8;
 const BOX_RADIUS=11;
 const BOX_PAD_TOP=11;
 const BOX_PAD_BOTTOM=11;
@@ -23,14 +23,12 @@ const POINT_MAX_W=454;
 const MATH_DISPLAY_BASE_H=24;
 const MATH_EX_PX=7.54;
 const MATH_RASTER_SCALE=3;
-const MATH_BOX_PAD_X=7;
-const MATH_INLINE_GAP=12;
-const MATH_BOX_PAD_Y=3.5;
+const MATH_BOX_PAD_X=0;
+const MATH_INLINE_GAP=4;
+const MATH_BOX_PAD_Y=0;
 const FONT_URLS={
-  regular:"https://raw.githubusercontent.com/go-fonts/latin-modern/main/lmroman10regular/lmroman10-regular.otf",
-  bold:"https://raw.githubusercontent.com/go-fonts/latin-modern/main/lmroman10bold/lmroman10-bold.otf",
-  sans:"https://raw.githubusercontent.com/go-fonts/latin-modern/main/lmsans10regular/lmsans10-regular.otf",
-  sansBold:"https://raw.githubusercontent.com/go-fonts/latin-modern/main/lmsans10bold/lmsans10-bold.otf"
+  regular:"https://raw.githubusercontent.com/google/fonts/main/ofl/tinos/Tinos-Regular.ttf",
+  bold:"https://raw.githubusercontent.com/google/fonts/main/ofl/tinos/Tinos-Bold.ttf"
 };
 const FONT_BYTES_CACHE=new Map<string,Promise<Uint8Array>>();
 let LOGO_BYTES_PROMISE:Promise<Uint8Array>|null=null;
@@ -113,7 +111,7 @@ function stripInlineDelimiters(s:string){
   return String(s||"").replace(/^\s*\\\(|\s*\\\)$/g,"").replace(/^\s*\\\[|\s*\\\]$/g,"").trim();
 }
 
-type Run={kind:"text"|"math"|"display"; value:string; image?:any; width?:number; height?:number};
+type Run={kind:"text"|"math"|"display"; value:string; image?:any; pdfPage?:any; width?:number; height?:number};
 
 function parseRuns(raw:string):Run[]{
   const s=normalizeUnicodeMathText(raw);
@@ -213,18 +211,13 @@ async function fetchFontBytes(key:string,url:string){
   return task;
 }
 async function loadFonts(pdf:any){
-  const [regular,bold,sans,sansBold]=await Promise.all([
+  const [regular,bold]=await Promise.all([
     fetchFontBytes("regular",FONT_URLS.regular),
-    fetchFontBytes("bold",FONT_URLS.bold),
-    fetchFontBytes("sans",FONT_URLS.sans),
-    fetchFontBytes("sansBold",FONT_URLS.sansBold)
+    fetchFontBytes("bold",FONT_URLS.bold)
   ]);
-  return {
-    regular:await pdf.embedFont(regular,{subset:true}),
-    bold:await pdf.embedFont(bold,{subset:true}),
-    sans:await pdf.embedFont(sans,{subset:true}),
-    sansBold:await pdf.embedFont(sansBold,{subset:true})
-  };
+  const regularFont=await pdf.embedFont(regular,{subset:true});
+  const boldFont=await pdf.embedFont(bold,{subset:true});
+  return {regular:regularFont,bold:boldFont,sans:regularFont,sansBold:boldFont,__aurore_source_bytes:regular.length+bold.length};
 }
 function noteFormulaFailure(qa:any,key:string,reason:string){
   if(!Array.isArray(qa.formula_errors))qa.formula_errors=[];
@@ -306,95 +299,58 @@ function readableLatexFallback(source:string){
   value=value.replace(/\\[,;:!]/g," ").replace(/[{}]/g,"");
   return value.replace(/\s+/g," ").trim();
 }
-async function prepareRuns(runs:Run[],auth:string,pdf:any,fonts:any,qa:any,cache:Map<string,any>){
-  // Une requête par formule dépassait la limite de débit MathJax pour les
-  // chapitres denses. Le renderer accepte { formulas: string[] } : on groupe
-  // ici les formules uniques de ce paragraphe en une seule requête HTTP.
-  const keysByIndex=runs.map(run=>run.kind==="text"?"":latexInput(stripInlineDelimiters(run.value)).trim());
-  const uniqueKeys=Array.from(new Set(keysByIndex.filter(Boolean)));
-  const pendingKeys:string[]=[];
-  const resolvePending=new Map<string,(image:any)=>void>();
-
-  // Placer immédiatement les Promises en cache évite qu'une autre partie du
-  // même document envoie le même calcul pendant que le lot est en cours.
+async function prepareRuns(runs:Run[],auth:string,pdf:any,_fonts:any,qa:any,cache:Map<string,any>){
+  // MathJax -> PDF vectoriel : aucune formule n'est rasterisée en PNG.
+  const descriptorsByIndex=runs.map(run=>run.kind==="text"?null:{latex:latexInput(stripInlineDelimiters(run.value)).trim(),display:run.kind==="display"});
+  const keysByIndex=descriptorsByIndex.map(item=>item?JSON.stringify(item):"");
+  const uniqueKeys=Array.from(new Set(keysByIndex.filter(Boolean))),pendingKeys:string[]=[];
+  const resolvePending=new Map<string,(page:any)=>void>();
   for(const key of uniqueKeys){
     if(cache.has(key))continue;
-    let resolveImage:(image:any)=>void=()=>{};
-    const promise=new Promise(resolve=>{resolveImage=resolve});
-    cache.set(key,promise);
-    pendingKeys.push(key);
-    resolvePending.set(key,resolveImage);
+    let resolvePage:(page:any)=>void=()=>{};
+    cache.set(key,new Promise(resolve=>{resolvePage=resolve as any;}));
+    pendingKeys.push(key);resolvePending.set(key,resolvePage);
   }
-
-  const settleFailure=(key:string,reason:string)=>{
-    qa.formulas_failed++;
-    noteFormulaFailure(qa,key,reason);
-    resolvePending.get(key)?.(null);
-  };
-
+  const settleFailure=(key:string,reason:string)=>{qa.formulas_failed++;noteFormulaFailure(qa,key,reason);resolvePending.get(key)?.(null);};
   if(pendingKeys.length){
     qa.formulas_total+=pendingKeys.length;
     try{
       const response=await fetch(MATH_URL,{
-        method:"POST",
-        headers:{Authorization:auth,"Content-Type":"application/json"},
-        body:JSON.stringify({formulas:pendingKeys,px_per_ex:MATH_EX_PX}),
-        // Le lot est traité par un seul worker chaud, au lieu de multiplier
-        // les appels HTTP qui déclenchaient les limites de débit.
+        method:"POST",headers:{Authorization:auth,"Content-Type":"application/json"},
+        body:JSON.stringify({formulas:pendingKeys.map(key=>JSON.parse(key)),px_per_ex:MATH_EX_PX,format:"pdf-vector"}),
         signal:AbortSignal.timeout(30000)
       });
       const payload:any=await response.json().catch(()=>null);
       if(!response.ok||!payload?.ok||!Array.isArray(payload?.results)){
-        const reason=!response.ok
-          ?"math renderer HTTP "+response.status
-          :String(payload?.error||"Réponse du renderer mathématique invalide");
+        const reason=!response.ok?"math vector renderer HTTP "+response.status:String(payload?.error||"Réponse du moteur mathématique vectoriel invalide");
         for(const key of pendingKeys)settleFailure(key,reason);
       }else{
         for(let i=0;i<pendingKeys.length;i++){
-          const key=pendingKeys[i];
-          const result=payload.results[i];
-          const pngBase64=typeof result?.png_base64==="string"?result.png_base64:null;
-          if(!pngBase64){
-            settleFailure(key,"PNG absent pour le résultat "+String(i+1)+"/"+String(pendingKeys.length));
-            continue;
-          }
+          const key=pendingKeys[i],result=payload.results[i];
+          if(typeof result?.pdf_base64!=="string"){settleFailure(key,"PDF vectoriel absent pour la formule "+String(i+1));continue;}
           try{
-            const binary=atob(pngBase64),bytes=new Uint8Array(binary.length);
+            const binary=atob(result.pdf_base64),bytes=new Uint8Array(binary.length);
             for(let j=0;j<binary.length;j++)bytes[j]=binary.charCodeAt(j);
-            const image:any=await pdf.embedPng(bytes);
-            image.__aurore_natural_pt_width=Number(result?.natural_pt_width)||0;
-            image.__aurore_natural_pt_height=Number(result?.natural_pt_height)||0;
-            image.__aurore_raster_scale=Number(result?.raster_scale)||1;
+            if(qa.asset_bytes)qa.asset_bytes.formula_vector_pdf_source_bytes=(Number(qa.asset_bytes.formula_vector_pdf_source_bytes)||0)+bytes.length;
+            const embeddedPages=await pdf.embedPdf(bytes),embeddedPage=embeddedPages?.[0];
+            if(!embeddedPage)throw new Error("Le PDF de formule ne contient aucune page.");
             qa.formulas_ok++;
-            resolvePending.get(key)?.(image);
-          }catch(error){
-            settleFailure(key,String((error as any)?.message||error));
-          }
+            resolvePending.get(key)?.({pdfPage:embeddedPage,width:Number(result.natural_pt_width)||embeddedPage.width,height:Number(result.natural_pt_height)||embeddedPage.height});
+          }catch(error){settleFailure(key,String((error as any)?.message||error));}
         }
       }
-    }catch(error){
-      const reason=String((error as any)?.message||error);
-      for(const key of pendingKeys)settleFailure(key,reason);
-    }
+    }catch(error){const reason=String((error as any)?.message||error);for(const key of pendingKeys)settleFailure(key,reason);}
   }
-
-  const imagesByKey=new Map<string,any>();
-  await Promise.all(uniqueKeys.map(async key=>imagesByKey.set(key,await cache.get(key))));
+  const pagesByKey=new Map<string,any>();
+  await Promise.all(uniqueKeys.map(async key=>pagesByKey.set(key,await cache.get(key))));
   return runs.map((run,index)=>{
     if(run.kind==="text")return {kind:"text",value:run.value} as Run;
-    const key=keysByIndex[index];
-    const image=key?imagesByKey.get(key):null;
-    if(image){
-      const naturalW=Number(image.__aurore_natural_pt_width)||Math.max(8,image.width*0.75);
-      const naturalH=Number(image.__aurore_natural_pt_height)||Math.max(8,image.height*0.75);
-      return {kind:run.kind,value:run.value,image,width:naturalW,height:naturalH} as Run;
-    }
-    // Si une formule ne peut pas être convertie en image, garder une notation
-    // de secours lisible au lieu de laisser un espace vide.
-    return {kind:"text",value:readableLatexFallback(run.value)} as Run;
+    const raw=String(run.value||""),rendered=pagesByKey.get(keysByIndex[index]);
+    return rendered?.pdfPage
+      ?{kind:run.kind,value:raw,pdfPage:rendered.pdfPage,width:rendered.width,height:rendered.height} as Run
+      :{kind:"text",value:readableLatexFallback(raw)} as Run;
   });
 }
-
 function layoutInline(prepared:Run[],font:any,size:number,max:number){
   const lines:any[][]=[[]];let width=0;
   const spaceWidth=tokenTextWidth(font,size," ");
@@ -448,73 +404,47 @@ function layoutInline(prepared:Run[],font:any,size:number,max:number){
   };
 
   const addMath=(r:Run)=>{
-    const intrinsicW=Math.max(8,r.width||24),intrinsicH=Math.max(8,r.height||16);
-    const maxOuter=Math.max(24,max);
-    const scale=Math.min(1,maxOuter/(intrinsicW+14));
-    const iw=intrinsicW*scale,ih=intrinsicH*scale,w=iw+14,h=ih+6;
+    const naturalW=Math.max(8,Number(r.width)||Number(r.pdfPage?.width)||24);
+    const naturalH=Math.max(8,Number(r.height)||Number(r.pdfPage?.height)||18);
+    const scale=Math.min(1,Math.max(12,max)/naturalW),drawW=naturalW*scale,drawH=naturalH*scale;
     const space=lines[lines.length-1].length?MATH_INLINE_GAP:0;
-    if(width+space+w>max&&lines[lines.length-1].length){startLine();}
+    if(width+space+drawW>max&&lines[lines.length-1].length)startLine();
     const sp=lines[lines.length-1].length?MATH_INLINE_GAP:0;
-    lines[lines.length-1].push({kind:"math",image:r.image,width:w,height:h,space:sp});
-    width+=sp+w;
+    lines[lines.length-1].push({kind:"math",value:r.value,pdfPage:r.pdfPage,drawW,drawH,width:drawW,height:drawH,space:sp});
+    width+=sp+drawW;
   };
   for(const r of prepared){if(r.kind==="text")addText(r.value);else if(r.kind==="math")addMath(r);}
   return lines.filter(x=>x.length);
 }
 function inlineLineAdvance(line:any[],size=TEXT_SIZE,lineHeight=LINE_HEIGHT){
-  const maxMathBoxH=Math.max(
-    0,
-    ...line.filter(t=>t.kind==="math").map(t=>Math.max(
-      20,
-      (t.height||10)+MATH_BOX_PAD_Y*2
-    ))
-  );
-  return Math.max(lineHeight,maxMathBoxH);
+  const maxMathH=Math.max(0,...line.filter(t=>t.kind==="math").map(t=>Math.max(0,t.height||0)));
+  return Math.max(lineHeight,maxMathH);
 }
-
 function drawInlineLines(page:any,lines:any[],x:number,topY:number,width:number,font:any,borderColor:any,textColor:any,size=TEXT_SIZE,lineHeight=LINE_HEIGHT){
   let y=topY;
-  const boxPadX=MATH_BOX_PAD_X,boxPadY=MATH_BOX_PAD_Y;
-  const frame=rgbHex("#C4C5C8"),fill=rgbHex("#EEEEEF");
-
   for(const line of lines){
     const advance=inlineLineAdvance(line,size,lineHeight);
-    const lineWidth=line.reduce(
-      (sum:number,token:any)=>sum+(token.space||0)+(token.width||0),0
-    );
-    // Prose lines follow a normal editorial left edge; only a line made solely of inline math stays centered.
+    const lineWidth=line.reduce((sum:number,token:any)=>sum+(token.space||0)+(token.width||0),0);
     const pureMath=line.length>0&&line.every((token:any)=>token.kind==="math");
-    const startX=pureMath?x+Math.max(0,(width-lineWidth)/2):x;
-    const lineCenter=y-advance/2;
+    const startX=pureMath?x+Math.max(0,(width-lineWidth)/2):x,lineCenter=y-advance/2;
     let cx=startX;
-
     for(const token of line){
       cx+=token.space||0;
       if(token.kind==="text"){
-        const textHeight=Math.max(8,font.heightAtSize(size));
-        const baseline=lineCenter-textHeight/2+size*0.22;
-        page.drawText(escapePdfText(token.value),{
-          x:cx,y:baseline,font,size,color:textColor
-        });
+        const textHeight=Math.max(8,font.heightAtSize(size)),baseline=lineCenter-textHeight/2+size*0.22;
+        page.drawText(escapePdfText(token.value),{x:cx,y:baseline,font,size,color:textColor});
         cx+=token.width;
       }else{
-        const iw=Math.max(1,(token.width||14)-14);
-        const ih=Math.max(1,(token.height||10)-6);
-        const bh=Math.max(20,ih+boxPadY*2);
-        const by=lineCenter-bh/2;
-        const outerW=iw+boxPadX*2;
-        rounded(page,cx-boxPadX,by,outerW,bh,7,fill,frame,0.45);
-        page.drawImage(token.image,{
-          x:cx,y:by+boxPadY,width:iw,height:ih,opacity:0.9
-        });
-        cx+=outerW;
+        const drawW=Math.max(1,token.drawW||token.width||14),drawH=Math.max(1,token.drawH||token.height||10);
+        if(token.pdfPage)page.drawPage(token.pdfPage,{x:cx,y:lineCenter-drawH/2,width:drawW,height:drawH});
+        else if(token.value)page.drawText(escapePdfText(readableLatexFallback(token.value)),{x:cx,y:lineCenter-drawH/2+2,font,size:Math.min(size,9),color:textColor});
+        cx+=drawW;
       }
     }
     y-=advance;
   }
   return y;
 }
-
 const AURORE_BUBBLE_PALETTES: Array<[string,string,string]> = [
   ["8B5CF6","C084FC","6D28D9"],
   ["E05260","FF8A96","C93648"],
@@ -637,23 +567,23 @@ function sectionLabel(page:any,label:string,x:number,y:number,fonts:any,color:st
 }
 
 function displayMathMetrics(run:Run,width:number){
-  const sourceW=Math.max(8,run.width||180);
-  const sourceH=Math.max(8,run.height||MATH_DISPLAY_BASE_H);
-  const maxW=Math.max(80,width-28);
-  const scale=Math.min(1,maxW/sourceW);
-  const iw=sourceW*scale,ih=sourceH*scale;
-  const padX=12,padY=7;
-  return {iw,ih,cardH:ih+padY*2,padX,padY};
+  const naturalW=Math.max(8,Number(run.width)||Number(run.pdfPage?.width)||180);
+  const naturalH=Math.max(8,Number(run.height)||Number(run.pdfPage?.height)||24);
+  const scale=Math.min(1,Math.max(24,width)/naturalW),iw=naturalW*scale,ih=naturalH*scale;
+  return {iw,ih,cardH:ih,padX:0,padY:0};
 }
-function drawDisplayMath(page:any,run:Run,x:number,topY:number,width:number,color:string){
-  const m=displayMathMetrics(run,width);
-  const cardW=Math.min(width,Math.max(40,m.iw+m.padX*2)),cardH=m.cardH;
-  const x0=x+(width-cardW)/2,y0=topY-cardH;
-  rounded(page,x0,y0,cardW,cardH,9,rgbHex("#ECEDEE"),rgbHex("#C1C2C6"),0.5);
-  page.drawImage(run.image,{x:x0+(cardW-m.iw)/2,y:y0+(cardH-m.ih)/2,width:m.iw,height:m.ih,opacity:0.9});
-  return {cardW,cardH};
+function drawDisplayMath(page:any,run:Run,x:number,topY:number,width:number,color:string,font:any){
+  const m=displayMathMetrics(run,width),x0=x+(width-m.iw)/2,y0=topY-m.ih;
+  if(run.pdfPage)page.drawPage(run.pdfPage,{x:x0,y:y0,width:m.iw,height:m.ih});
+  else if(run.value)page.drawText(escapePdfText(readableLatexFallback(run.value)),{x:x0,y:y0+4,font,size:9,color:rgbHex("#292B31")});
+  return {cardW:m.iw,cardH:m.ih};
 }
-
+function plainSectionHeading(page:any,label:string,x:number,y:number,fonts:any,color:string){
+  const txt=clean(label);if(!txt)return 0;
+  const lines=wrap(txt,fonts.bold,11.5,Math.max(80,595-x-39)),safe=lines.length?lines:[txt];
+  safe.forEach((line:string,i:number)=>page.drawText(escapePdfText(line),{x,y:y-12-i*14,font:fonts.bold,size:11.5,color:rgbHex(color)}));
+  return Math.max(18,safe.length*14+4);
+}
 Deno.serve(async req=>{
   if(req.method==="OPTIONS")return new Response("ok",{headers:H});
   if(req.method!=="POST")return out({ok:false,error:"Méthode non autorisée"},405);
@@ -716,12 +646,7 @@ Deno.serve(async req=>{
     const BOX_X=X-10,BOX_W=W+32;
     const PARA_X=X+18,PARA_W=W-6;
     const POINT_X=POINT_BOX_X,POINT_W=POINT_MAX_W;
-    function floatingBlock(page:any,x:number,y:number,w:number,h:number){
-      rounded(page,x+3.2,y-3.2,w,h,BOX_RADIUS+1,rgbHex("#D8D9DC"));
-      rounded(page,x+1.8,y-1.8,w,h,BOX_RADIUS+0.5,rgbHex("#CECFD2"));
-      // Fond gris éditorial volontairement distinct du fond de page.
-      rounded(page,x,y,w,h,BOX_RADIUS,rgbHex("#E0E1E3"),rgbHex("#999A9F"),0.55);
-    }
+    
     
 const newFlowPage=()=>{
       page=pdf.addPage([595,842]);
@@ -744,10 +669,10 @@ const newFlowPage=()=>{
         lastRenderedPointLabel=label;
         // Géométrie unique du bloc paragraphe : le calcul des lignes et le dessin
         // utilisent exactement la même largeur pour empêcher tout débordement.
-        const titleX=28;
-        const bodyX=POINT_BOX_X;
-        const bodyW=POINT_MAX_W;
-        const bodyTextW=bodyW-24;
+        const titleX=X;
+        const bodyX=X;
+        const bodyW=W;
+        const bodyTextW=W;
         const pointItems:any[]=[];
         for(const para of proseText(body)){
           const prepared=await prepareRuns(mergePlainAndExplicit(para),auth,pdf,fonts,qa,cache);
@@ -772,16 +697,14 @@ const newFlowPage=()=>{
         let pointTitlePending=!repeatedPointTitle;
         while(cursor<pointItems.length){
            const remainingPage=Math.max(0,y-bottom);
-           const titleFontSize=12.6,titleLineHeight=15.5,titlePadY=8;
-           const titleMaxW=Math.max(120,BOX_W-46);
-           const titleLines=wrap(label,fonts.sansBold,titleFontSize,titleMaxW-24);
-           const titleMeasuredW=Math.max(0,...titleLines.map((line:string)=>fonts.sansBold.widthOfTextAtSize(line,titleFontSize)));
-           const titleW=Math.min(BOX_W-22,Math.max(120,Math.ceil(titleMeasuredW)+24));
-           const showPointTitle=!continuation&&pointTitlePending;
-           const titleH=showPointTitle?Math.max(30,titlePadY*2+titleLines.length*titleLineHeight):0;
-           const separatorGap=showPointTitle?12:0;
-           const availableContent=Math.max(0,remainingPage-titleH-separatorGap-BOX_PAD_TOP-BOX_PAD_BOTTOM-6);
-           const fragment:any[]=[];let used=0;const gap=7;
+           const titleFontSize=12.6,titleLineHeight=15.5,titlePadY=2;
+            const titleMaxW=Math.max(120,W);
+            const titleLines=wrap(label,fonts.bold,titleFontSize,titleMaxW);
+            const showPointTitle=!continuation&&pointTitlePending;
+            const titleH=showPointTitle?Math.max(titleLineHeight,titlePadY*2+titleLines.length*titleLineHeight):0;
+            const separatorGap=showPointTitle?8:0;
+            const availableContent=Math.max(0,remainingPage-titleH-separatorGap-6);
+            const fragment:any[]=[];let used=0;const gap=7;
            const addPointItem=(item:any)=>{
              const itemH=item.kind==="inline"?item.lines.reduce((n:number,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0):item.metrics.cardH;
              const g=fragment.length?gap:0;
@@ -813,31 +736,23 @@ const newFlowPage=()=>{
            // If a new page was needed before drawing any text, keep the heading pending.
            pointTitlePending=false;
 
-           const bodyH=Math.max(36,BOX_PAD_TOP+used+BOX_PAD_BOTTOM);
+           const bodyH=used;
            const titleY=y-titleH;
            const bodyDrop=6;
            const bodyY=continuation
              ? y-bodyH-bodyDrop
              : y-titleH-separatorGap-bodyH-bodyDrop;
            const editorialRule=rgbHex(mixWhite(accent,0.22));
-           const titleFill=rgbHex("#E0E1E3");
 
            // Le titre n'existe qu'au début du point. Une suite coupée devient
            // volontairement un bloc paragraphe autonome sur la page suivante.
            if(showPointTitle){
-             titleAnchors.push({page,y:y-titleH/2,targetX:titleX,color:accent});
-             rounded(page,titleX,y-titleH,titleW,titleH,8,titleFill,rgbHex("#BFC1C5"),0.45);
-              page.drawCircle({x:titleX+6.4,y:y-titleH/2,size:2.4,color:rgbHex(accent)});
-             for(let i=0;i<titleLines.length;i++){
-               page.drawText(escapePdfText(titleLines[i]),{
-                 x:titleX+12,
-                 y:y-titlePadY-titleLineHeight*(i+1)+2.8,
-                 font:fonts.sansBold,size:titleFontSize,color:rgbHex(accent)
-               });
-             }
-           }
-
-           floatingBlock(page,bodyX,bodyY,bodyW,bodyH);
+              titleAnchors.push({page,y:y-titleH/2,targetX:titleX,color:accent});
+              for(let i=0;i<titleLines.length;i++){
+                page.drawText(escapePdfText(titleLines[i]),{x:titleX,y:y-titlePadY-titleLineHeight*(i+1)+2.8,font:fonts.bold,size:titleFontSize,color:rgbHex(accent)});
+              }
+            }
+            
            if(showPointTitle){
              const ruleY=bodyY+bodyH+separatorGap/2;
               // Filet fin, soulignement coloré court et point terminal.
@@ -847,22 +762,24 @@ const newFlowPage=()=>{
               pointAnchors.push({page,y:titleY,x:titleX,color:accent,topY:y-titleH,bottomY:bodyY,ruleY,boxX:bodyX,boxW:bodyW});
             }
             
-let childY=bodyY+bodyH-BOX_PAD_TOP;
-           for(const item of fragment){
-             if(item.kind==="inline"){
-               drawInlineLines(page,item.lines,bodyX+12,childY,bodyTextW,fonts.regular,accent,rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT);
-               childY-=item.lines.reduce((n:any,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0)+gap;
-             }else{
-               drawDisplayMath(page,item.run,bodyX,childY,bodyTextW,color);
-               childY-=item.metrics.cardH+gap;
-             }
-           }
-           y-=titleH+separatorGap+bodyH+BLOCK_GAP;
+let childY=bodyY+bodyH;
+            for(let itemIndex=0;itemIndex<fragment.length;itemIndex++){
+              const item=fragment[itemIndex];
+              if(item.kind==="inline"){
+                drawInlineLines(page,item.lines,bodyX,childY,bodyTextW,fonts.regular,accent,rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT);
+                childY-=item.lines.reduce((n:any,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0);
+              }else{
+                drawDisplayMath(page,item.run,bodyX,childY,bodyTextW,color,fonts.regular);
+                childY-=item.metrics.cardH;
+              }
+              if(itemIndex<fragment.length-1)childY-=gap;
+            }
+            y-=titleH+separatorGap+bodyH+BLOCK_GAP;
 
            if(splitThisPage&&cursor<pointItems.length){
              newFlowPage();
              continuation=true;
-           }else if(cursor<pointItems.length&&y-bottom<LINE_HEIGHT+BOX_PAD_TOP+BOX_PAD_BOTTOM){
+           }else if(cursor<pointItems.length&&y-bottom<LINE_HEIGHT+6){
              newFlowPage();
              continuation=true;
            }
@@ -875,7 +792,7 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
         const items:any[]=[];let inlineChunk:Run[]=[];
         const flushInline=()=>{
           if(!inlineChunk.length)return;
-          const lines=layoutInline(inlineChunk,fonts.regular,TEXT_SIZE,BOX_W-24);
+          const lines=layoutInline(inlineChunk,fonts.regular,TEXT_SIZE,W);
           if(lines.length)items.push({kind:"inline",lines});
           inlineChunk=[];
         };
@@ -886,7 +803,7 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
         flushInline();
         return items;
       }));
-      const innerGap=11;
+      const innerGap=6;
       // Chaque entrée correspond à un paragraphe indépendant :
       // s'il est terminé, le paragraphe suivant peut utiliser le bas de page.
       // Si le paragraphe courant est coupé, sa suite reprend impérativement page suivante.
@@ -894,7 +811,7 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
         let cursor=0;
         while(cursor<items.length){
           const remainingPage=Math.max(0,y-bottom);
-          const availableContent=Math.max(0,remainingPage-BOX_PAD_TOP-BOX_PAD_BOTTOM);
+          const availableContent=Math.max(0,remainingPage);
           const fragment:any[]=[];
           let used=0;
           let splitParagraphHere=false;
@@ -935,22 +852,22 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
             newFlowPage();
             continue;
           }
-          const boxH=Math.max(36,BOX_PAD_TOP+used+BOX_PAD_BOTTOM);
-          floatingBlock(page,BOX_X,y-boxH,BOX_W,boxH);
-          let childY=y-BOX_PAD_TOP;
-          for(const item of fragment){
+          let childY=y;
+          for(let itemIndex=0;itemIndex<fragment.length;itemIndex++){
+            const item=fragment[itemIndex];
             if(item.kind==="inline"){
-              drawInlineLines(page,item.lines,BOX_X+12,childY,BOX_W-24,fonts.regular,color,rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT);
-              childY-=item.lines.reduce((n:any,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0)+innerGap;
+              drawInlineLines(page,item.lines,X,childY,W,fonts.regular,color,rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT);
+              childY-=item.lines.reduce((n:number,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0);
             }else{
-              drawDisplayMath(page,item.run,X,childY,W-18,color);
-              childY-=item.metrics.cardH+innerGap;
+              drawDisplayMath(page,item.run,X,childY,W,color,fonts.regular);
+              childY-=item.metrics.cardH;
             }
+            if(itemIndex<fragment.length-1)childY-=innerGap;
           }
-          y-=boxH+BLOCK_GAP;
+          y-=used+BLOCK_GAP;
           if(cursor<items.length&&splitParagraphHere){
             newFlowPage();
-          }else if(cursor<items.length&&y-bottom<LINE_HEIGHT+BOX_PAD_TOP+BOX_PAD_BOTTOM){
+          }else if(cursor<items.length&&y-bottom<LINE_HEIGHT+6){
             newFlowPage();
           }
         }
@@ -977,7 +894,7 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
       if(!statement)continue;
       ensureSpace(53);
       titleAnchors.push({page,y:y-4,targetX:X,color});
-      sectionLabel(page,title,X,y,fonts,color);y-=31;
+      y-=plainSectionHeading(page,title,X,y,fonts,color);
       await drawContentBlock(statement);
       if(hint)await drawContentBlock("Indication : "+hint);
       if(correction){
@@ -985,7 +902,7 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
         newFlowPage();
         ensureSpace(53);
         titleAnchors.push({page,y:y-4,targetX:X,color});
-        sectionLabel(page,correctionTitle,X,y,fonts,color);y-=31;
+        y-=plainSectionHeading(page,correctionTitle,X,y,fonts,color);
         await drawContentBlock(correction);
       }
     }
