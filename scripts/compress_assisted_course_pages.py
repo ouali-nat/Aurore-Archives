@@ -34,6 +34,7 @@ def parse_page_count(path: Path) -> int:
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        timeout=20,
     )
     match = re.search(r"(?m)^Pages:\s+(\d+)\s*$", result.stdout)
     if not match:
@@ -81,7 +82,7 @@ def main() -> int:
             continue
 
         try:
-            with urllib.request.urlopen(signed_url, timeout=180) as response:
+            with urllib.request.urlopen(signed_url, timeout=60) as response:
                 original = response.read()
         except Exception:
             failed_count += 1
@@ -127,7 +128,15 @@ def main() -> int:
                 f"-sOutputFile={candidate}",
                 str(source),
             ]
-            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            try:
+                result = subprocess.run(
+                    cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=45
+                )
+            except subprocess.TimeoutExpired:
+                failed_count += 1
+                optimized_total += len(original)
+                print(f"[{index}/{len(pages)}] {path} — Ghostscript dépasse 45 s, source conservée.")
+                continue
             if result.returncode != 0 or not candidate.is_file():
                 failed_count += 1
                 optimized_total += len(original)
@@ -181,6 +190,8 @@ def main() -> int:
                 optimized_total += len(original)
                 message = uploaded.get("error", "réponse serveur invalide")
                 print(f"[{index}/{len(pages)}] {path} — remplacement refusé (HTTP {upload_status}: {message}); source conservée.")
+                if upload_status == 403:
+                    raise SystemExit("Refus d'accès serveur : arrêt immédiat, aucun autre fragment ne sera envoyé.")
                 continue
 
             compressed_count += 1
