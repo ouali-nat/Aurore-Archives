@@ -204,7 +204,7 @@ function escapePdfText(v:any){return String(v??"").replace(/\u0000/g,"")}
 
 function optimizeWikimediaImageUrl(raw:string,maxWidth=1200):string{
   try{
-    const url=new URL(raw);
+    const url=new globalThis.URL(raw);
     if(url.hostname.toLowerCase()!=="upload.wikimedia.org")return raw;
     const path=url.pathname;
     const thumb=path.match(/^\/wikipedia\/(commons|[a-z]{2})\/thumb\/(.+)\/(\d+)px-([^/]+)$/i);
