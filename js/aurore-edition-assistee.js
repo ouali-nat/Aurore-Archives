@@ -2971,8 +2971,8 @@
           const completed=activeBlocks().find(x=>String(x.id)===retryId);
           if(String(completed?.generation?.status||'').toLowerCase()==='ready'&&String(completed?.generation?.page_url||'').trim()){
             successCount++;
-          }else{
-            failedLabels.push(String(completed?.content?.title||labelFor(completed)||('bloc '+(i+1))));
+          }else if(completed){
+            failedLabels.push(String(completed.content?.title||labelFor(completed)||('bloc '+(i+1))));
           }
         }
         await persistCourse(true,false);
