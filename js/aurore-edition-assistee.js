@@ -600,7 +600,7 @@
     let detail=fragments+' fragment(s) ont été compressés et vérifiés individuellement avant la fusion.';
     if(reduction>0)detail+=' Réduction cumulée des fragments : '+reduction+' % avant assemblage.';
     else detail+=' Les fragments sans gain ont été conservés dans leur version d’origine.';
-    if(errors.length)detail+=' La compression individuelle n’a pas abouti pour '+errors.length+' fragment(s) ; leurs fichiers sources restent utilisables.';
+    if(errors.length){detail+=' La compression individuelle n’a pas abouti pour '+errors.length+' fragment(s) ; leurs fichiers sources restent utilisables.';detail+=' Première erreur : '+String(errors[0]||'erreur non détaillée').slice(0,220)+'.';}
     return 'PDF complet fusionné et vérifié · '+pages+' page(s) · '+size+'. '+detail+' Aucune compression globale n’est lancée après la fusion.';
   }
   function finalPdfFingerprint(parts){
@@ -814,7 +814,8 @@
         if(force)await deleteOptimizedPdfPart(url);
         else{
           const cached=await readOptimizedPdfPart(url);
-          if(cached&&cached.attempted)return cached;
+          // Ne jamais rendre une erreur de compression définitive : une nouvelle fusion doit pouvoir réessayer après un échec transitoire du moteur WASM.
+          if(cached&&cached.attempted&&!cached.compressionError)return cached;
         }
         const originalBuffer=await fetchOriginalPdfPart({url,label}),original=asPdfBytes(originalBuffer);
         if(!hasPdfSignature(original))throw new Error('Le fragment source ne possède pas une signature PDF valide.');
