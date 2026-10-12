@@ -1863,7 +1863,7 @@ jobs:
               raise SystemExit(reason)
           PY
 
-      - name: Compress assisted page on the renderer (moderate quality)
+      - name: Compress assisted page on the renderer (high visual fidelity)
         if: hashFiles('infra/lualatex/production/document-id') != ''
         working-directory: infra/lualatex
         run: |
@@ -1886,16 +1886,18 @@ jobs:
           fi
 
           ORIGINAL="production/document.pdf"
-          CANDIDATE="production/document-ebook.pdf"
-          ORIGINAL_BYTES="$(wc -c < "$ORIGINAL" | tr -d ' ')"
-          echo "Compression serveur des pages assistées : profil ebook, qualité moyenne, images JPEG existantes préservées."
-          if ! gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/ebook \
+          CANDIDATE="production/document-visual.pdf"
+          echo "Optimisation haute fidélité : pas de réduction de résolution, échantillonnage chromatique 1:1, images JPEG/JPEG 2000 source préservées."
+          if ! gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 \
+            -dDownsampleColorImages=false -dDownsampleGrayImages=false -dDownsampleMonoImages=false \
+            -sColorConversionStrategy=LeaveColorUnchanged \
             -dPassThroughJPEGImages=true -dPassThroughJPXImages=true \
             -dDetectDuplicateImages=true -dCompressFonts=true -dSubsetFonts=true \
+            -c "<< /ColorImageDict << /QFactor 0.15 /Blend 1 /HSamples [1 1 1 1] /VSamples [1 1 1 1] >> /GrayImageDict << /QFactor 0.15 /Blend 1 /HSamples [1 1 1 1] /VSamples [1 1 1 1] >> >> setdistillerparams" \
             -dNOPAUSE -dQUIET -dBATCH \
-            -sOutputFile="$CANDIDATE" "$ORIGINAL"; then
+            -sOutputFile="$CANDIDATE" -f "$ORIGINAL"; then
             rm -f "$CANDIDATE"
-            echo "Compression indisponible : le PDF source sera uploadé sans modification."
+            echo "Optimisation indisponible : le PDF source sera uploadé sans modification."
             exit 0
           fi
 
@@ -1903,29 +1905,29 @@ jobs:
           import re
           from pathlib import Path
           original=Path("production/document.pdf")
-          candidate=Path("production/document-ebook.pdf")
+          candidate=Path("production/document-visual.pdf")
           def keep_source(message):
               candidate.unlink(missing_ok=True)
               print(message + " PDF source conservé.")
               raise SystemExit(0)
           if not candidate.is_file() or candidate.stat().st_size < 1000:
-              keep_source("Compression ignorée : sortie absente ou trop petite.")
+              keep_source("Optimisation ignorée : sortie absente ou trop petite.")
           raw=candidate.read_bytes()
           if not raw.startswith(b"%PDF-"):
-              keep_source("Compression ignorée : signature PDF invalide.")
+              keep_source("Optimisation ignorée : signature PDF invalide.")
           def pages(data):
               return len(re.findall(rb"/Type\\s*/Page\\b",data))
           source_pages=pages(original.read_bytes())
           output_pages=pages(raw)
           if source_pages and output_pages and source_pages!=output_pages:
-              keep_source(f"Compression ignorée : pagination modifiée ({source_pages} -> {output_pages}).")
+              keep_source(f"Optimisation ignorée : pagination modifiée ({source_pages} -> {output_pages}).")
           candidate_size=candidate.stat().st_size
           original_size=original.stat().st_size
           if candidate_size < original_size:
               candidate.replace(original)
-              print(f"PDF assisté optimisé côté serveur : {candidate_size} octets (source {original_size}), profil ebook, pages={output_pages or source_pages}.")
+              print(f"PDF assisté optimisé côté serveur : {candidate_size} octets (source {original_size}), profil visual_fidelity, pages={output_pages or source_pages}.")
           else:
-              keep_source(f"Compression sans gain ({candidate_size} >= {original_size}).")
+              keep_source(f"Optimisation sans gain ({candidate_size} >= {original_size}).")
           PY
       - name: Upload PDF and commit database URL
         if: hashFiles('infra/lualatex/production/document-id') != ''

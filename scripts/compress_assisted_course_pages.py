@@ -72,13 +72,18 @@ def main() -> int:
     print(f"Cours vérifié : {plan.get('title')} — {len(pages)} fragment(s) prêt(s).")
 
     for index, page in enumerate(pages, start=1):
-        if str(page.get("compression_status") or "") == "server_compressed":
+        quality = str(page.get("quality") or "")
+        status_value = str(page.get("compression_status") or "")
+        if status_value in {"server_compressed", "source_restored"} and quality in {"visual_fidelity", "visual_fidelity_restored"}:
             skipped_count += 1
-            print(f"[{index}/{len(pages)}] {page.get('path', '')} — déjà optimisé côté serveur, ignoré.")
+            print(f"[{index}/{len(pages)}] {page.get('path', '')} — profil haute fidélité déjà appliqué, ignoré.")
             continue
         path = str(page.get("path") or "")
         block_id = str(page.get("block_id") or "")
-        signed_url = str(page.get("url") or "")
+        backup_path = str(page.get("backup_path") or "")
+        backup_url = str(page.get("backup_url") or "")
+        use_backup = bool(backup_path and backup_url and quality not in {"visual_fidelity", "visual_fidelity_restored"})
+        signed_url = backup_url if use_backup else str(page.get("url") or "")
         expected_bytes = int(page.get("bytes") or 0)
         if not path or not block_id or not signed_url:
             failed_count += 1
@@ -120,16 +125,22 @@ def main() -> int:
                 "gs",
                 "-sDEVICE=pdfwrite",
                 "-dCompatibilityLevel=1.4",
-                "-dPDFSETTINGS=/ebook",
+                "-dDownsampleColorImages=false",
+                "-dDownsampleGrayImages=false",
+                "-dDownsampleMonoImages=false",
+                "-sColorConversionStrategy=LeaveColorUnchanged",
                 "-dPassThroughJPEGImages=true",
                 "-dPassThroughJPXImages=true",
                 "-dDetectDuplicateImages=true",
                 "-dCompressFonts=true",
                 "-dSubsetFonts=true",
+                "-c",
+                "<< /ColorImageDict << /QFactor 0.15 /Blend 1 /HSamples [1 1 1 1] /VSamples [1 1 1 1] >> /GrayImageDict << /QFactor 0.15 /Blend 1 /HSamples [1 1 1 1] /VSamples [1 1 1 1] >> >> setdistillerparams",
                 "-dNOPAUSE",
                 "-dQUIET",
                 "-dBATCH",
                 f"-sOutputFile={candidate}",
+                "-f",
                 str(source),
             ]
             try:
@@ -166,23 +177,35 @@ def main() -> int:
                 print(f"[{index}/{len(pages)}] {path} — pagination modifiée, source conservée.")
                 continue
 
+            restore_source = False
+            chosen = optimized
             if len(optimized) >= len(original) - 128:
-                skipped_count += 1
-                optimized_total += len(original)
-                print(f"[{index}/{len(pages)}] {path} — pas de gain utile, source conservée.")
-                continue
+                if use_backup:
+                    chosen = original
+                    restore_source = True
+                    print(f"[{index}/{len(pages)}] {path} — aucune réduction haute fidélité utile ; restauration de la source originale sauvegardée.")
+                else:
+                    skipped_count += 1
+                    optimized_total += len(original)
+                    print(f"[{index}/{len(pages)}] {path} — pas de gain utile et aucune sauvegarde antérieure ; source conservée.")
+                    continue
 
             upload_headers = {
                 "x-aurore-render-token": TOKEN,
                 "content-type": "application/pdf",
                 "x-aurore-course-id": COURSE_ID,
-                        "x-aurore-block-id": block_id,
+                "x-aurore-block-id": block_id,
                 "x-aurore-page-path": path,
                 "x-aurore-page-count": str(output_pages),
+                "x-aurore-quality-profile": "visual_fidelity",
             }
+            if use_backup:
+                upload_headers["x-aurore-source-backup-path"] = backup_path
+            if restore_source:
+                upload_headers["x-aurore-restore-source"] = "true"
             upload_status, upload_raw = post(
                 FUNCTION_URL + "?action=upload",
-                optimized,
+                chosen,
                 upload_headers,
             )
             try:
@@ -199,12 +222,13 @@ def main() -> int:
                 continue
 
             compressed_count += 1
-            optimized_total += len(optimized)
-            saving = (1 - len(optimized) / len(original)) * 100
+            optimized_total += len(chosen)
+            saving = (1 - len(chosen) / len(original)) * 100
+            action_label = "source originale restaurée" if restore_source else "profil haute fidélité appliqué"
             print(
                 f"[{index}/{len(pages)}] {path} — "
-                f"{len(original) / 1048576:.2f} → {len(optimized) / 1048576:.2f} Mio "
-                f"({saving:.1f} % économisés), sauvegarde d'origine créée."
+                f"{len(original) / 1048576:.2f} → {len(chosen) / 1048576:.2f} Mio "
+                f"({saving:.1f} % économisés), {action_label}; sauvegarde du précédent fichier créée."
             )
 
     saved = original_total - optimized_total

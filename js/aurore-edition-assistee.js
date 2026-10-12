@@ -3,7 +3,7 @@
   'use strict';
   const state={mode:'list',course:null,courses:[],selected:null,loading:false,pdfBatchRunning:false,pdfFinalizing:false,finalPdfArtifact:null,ghostscriptModulePromise:null,ghostscriptInstance:null,ghostscriptFailureUntil:0,ghostscriptFailureMessage:'',pdfBatchProgress:{percent:0,label:'En attente de génération',targetCount:0,activeTargetIndex:0,completedTargets:0},pdfLibPromise:null,modalViewport:null,canonicalPreview:{fingerprint:'',documentId:null,pdfUrl:null}};
   const PREVIEW_CACHE_MAX=6;
-  const PDF_PART_CACHE_DB='aurore-pdf-part-cache-v2';
+  const PDF_PART_CACHE_DB='aurore-pdf-part-cache-v3';
   const PDF_PART_CACHE_STORE='optimized-parts';
   let pdfPartCacheDbPromise=null;
   let pdfCompressionQueue=Promise.resolve();
@@ -723,11 +723,15 @@
     const logs=[];
     try{
       const result=await withPdfTimeout(Promise.resolve().then(()=>gs.exec([
-        '-dSAFER','-sDEVICE=pdfwrite','-dCompatibilityLevel=1.4','-dPDFSETTINGS=/ebook',
+        '-dSAFER','-sDEVICE=pdfwrite','-dCompatibilityLevel=1.4',
+        '-dDownsampleColorImages=false','-dDownsampleGrayImages=false','-dDownsampleMonoImages=false',
+        '-sColorConversionStrategy=LeaveColorUnchanged',
         '-dPassThroughJPEGImages=true','-dPassThroughJPXImages=true',
         '-dNOPAUSE','-dQUIET','-dBATCH','-dDetectDuplicateImages=true',
         '-dCompressFonts=true','-dSubsetFonts=true',
-        '-sOutputFile=/out/aurore-final.pdf','/input.pdf'
+        '-sOutputFile=/out/aurore-final.pdf',
+        '-c','<< /ColorImageDict << /QFactor 0.15 /Blend 1 /HSamples [1 1 1 1] /VSamples [1 1 1 1] >> /GrayImageDict << /QFactor 0.15 /Blend 1 /HSamples [1 1 1 1] /VSamples [1 1 1 1] >> >> setdistillerparams',
+        '-f','/input.pdf'
       ],{
         files:[{name:'/input.pdf',data:asPdfBytes(bytes)}],
         dirs:['/out'],
