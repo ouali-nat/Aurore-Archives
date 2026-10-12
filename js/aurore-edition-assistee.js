@@ -994,7 +994,7 @@
     return state.course.validation;
   }
 
-  function tocTitleForBlock(block,index,oldEntry){
+  function tocTitleForBlock(block,index,oldEntry,exerciseNumber){
     const content=block?.content&&typeof block.content==='object'?block.content:{};
     const type=String(block?.type||'').toLowerCase();
     const explicit=[block?.toc_title,content.toc_title,content.title,content.json?.title]
@@ -1004,7 +1004,7 @@
       &&String(oldEntry.title||'').trim()
       &&String(oldEntry.title).trim()!==String(labelFor(block)))return String(oldEntry.title).trim();
     if(type==='point')return 'Point de cours '+String(content.rank||index+1);
-    if(type==='exercise')return 'Exercice '+String(index+1);
+    if(type==='exercise')return 'Exercice '+String(exerciseNumber||1);
     if(type==='paragraph'){
       const raw=extractStructuredText(content.text||'')
         .replace(/^\s{0,3}#{1,6}\s*/gm,'')
@@ -1026,12 +1026,15 @@
     // En mode automatique, un ancien toc_entry_id ne doit jamais masquer d’autres
     // points, exercices, paragraphes ou schémas présents dans le document.
     const source=contentBlocks().filter(hasRenderableContent);
+    let exerciseNumber=0;
     const pending=source.map((b,index)=>{
       const key=String(b?.toc_entry_id||b.id||'');
       const old=byId.get(key)||byId.get(String(b.id))||{};
+      const isExercise=String(b?.type||'').toLowerCase()==='exercise';
+      if(isExercise)exerciseNumber++;
       return {block:b,entry:{
         id:String(b?.toc_entry_id||b.id||old.id||''),
-        title:tocTitleForBlock(b,index,old),
+        title:tocTitleForBlock(b,index,old,isExercise?exerciseNumber:0),
         type:b.type,
         enabled:old.enabled!==false
       }};
@@ -2612,11 +2615,22 @@
     if(!b||isSystemBlock(b)||isDefaultIntroduction(b)||isRepeatedDefaultIntroduction(b))return false;
     const type=String(b.type||'').toLowerCase();
     const content=b.content&&typeof b.content==='object'?b.content:{};
-    // Le contrat du renderer de flux accepte uniquement paragraphes et points.
-    // Exercices, graphiques GeoGebra, images, schémas vectoriels et fiches sont
-    // des pages autonomes : les regrouper ici faisait attendre des identifiants
-    // de blocs que le renderer ne peut pas confirmer dans une séquence textuelle.
+    // Tous ces éléments suivent le flux vertical : le renderer les place dans
+    // l'espace disponible et ne passe à la page suivante qu'en cas de manque réel.
     if(type==='paragraph'||type==='point')return Boolean(String(content.text||'').trim());
+    if(type==='exercise')return Boolean(String(content.statement||'').trim());
+    if(type==='graphique'){
+      const g=content.json&&typeof content.json==='object'&&!Array.isArray(content.json)?content.json:{};
+      return Boolean(String(g.geogebra_image_path||g.graph_local_path||g.geogebra_image_url||g.image_url||g.preview_url||'').trim());
+    }
+    if(type==='vector-scene'){
+      const j=content.json&&typeof content.json==='object'&&!Array.isArray(content.json)?content.json:{};
+      const scene=j.scene&&typeof j.scene==='object'&&!Array.isArray(j.scene)?j.scene:{};
+      return Array.isArray(scene.elements)&&scene.elements.length>0;
+    }
+    if(type==='wikimedia-image')return String(content.imageUrl||'').startsWith('https://upload.wikimedia.org/')
+      &&String(content.sourceUrl||'').startsWith('https://commons.wikimedia.org/')
+      &&Boolean(String(content.license||'').trim());
     return false;
   }
 
@@ -2689,8 +2703,8 @@
       'aurore-section-archives-j95aybwok-ouali1.vercel.app',
       'aurore-section-archivescom.vercel.app'
     ]);
-    const isPreview=host.endsWith('.vercel.app')&&!fixedProductionHosts.has(host)&&!/-git-main(?:-|$)/.test(host);
-    return SUPABASE_URL+'/functions/v1/'+(isPreview?'aurora-assisted-page-preview':'aurora-assisted-page-v2');
+    // Preview et production doivent valider exactement le même moteur et le même contrat.
+    return SUPABASE_URL+'/functions/v1/aurora-assisted-page-v3';
   }
   async function generateBlock(id){
     ensureCourseStructure(state.course);
