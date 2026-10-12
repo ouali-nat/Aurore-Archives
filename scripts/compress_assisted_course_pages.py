@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Safely compress the stored PDF fragments for the one explicitly scoped course."""
+# Reprocess the existing course from its verified source backups with the visual-fidelity profile.
 from __future__ import annotations
 
 import json
