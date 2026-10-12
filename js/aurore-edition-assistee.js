@@ -2706,7 +2706,7 @@
     // Preview et production doivent valider exactement le même moteur et le même contrat.
     return SUPABASE_URL+'/functions/v1/aurora-assisted-page-v3';
   }
-  async function generateBlock(id){
+  async function generateBlock(id,options={}){
     ensureCourseStructure(state.course);
     const b=activeBlocks().find(x=>x.id===id);if(!b)return;
     if(isSystemBlock(b)){setStatus('Les pages de début et de fin sont automatiques : seule une page de contenu centrale peut être générée ici.');return;}
@@ -2717,15 +2717,17 @@
     // ne recrée jamais le même PDF : on réutilise le propriétaire du flux.
     const flowGroup=renderableFlowBlocksFor(b.id);
     const flowOwner=flowGroup[0]||b;
+    const forceSingleBlock=options?.forceSingleBlock===true;
+    const skipCpuFallback=options?.skipCpuFallback===true;
     // Après un HTTP 546, isoler le point/la section au prochain essai :
     // reconstruire tout le flux contigu répète le calcul coûteux et peut
     // faire échouer à nouveau une page pourtant rendable seule.
     const priorGenerationError=String(b.generation?.error||'');
     const forceIsolatedRetry=['paragraph','point'].includes(String(b.type||'').toLowerCase())
-      &&/(?:HTTP\s*546|CPU\s+Time\s+exceeded)/i.test(priorGenerationError);
+      &&/(?:HTTP\s*546|CPU_TIME_LIMIT_EXCEEDED|CPU\s+Time\s+exceeded|CPU\s+time\s+limit)/i.test(priorGenerationError);
     // Un HTTP 546 peut laisser au bloc des références PDF héritées d’un ancien flux partagé.
     // On retire uniquement ces références échouées avant la nouvelle tentative ciblée.
-    if(/(?:HTTP\s*546|CPU\s+Time\s+exceeded)/i.test(priorGenerationError)){
+    if(/(?:HTTP\s*546|CPU_TIME_LIMIT_EXCEEDED|CPU\s+Time\s+exceeded|CPU\s+time\s+limit)/i.test(priorGenerationError)){
       b.generation={
         ...(b.generation||{}),
         generated_document_id:null,
@@ -2739,10 +2741,10 @@
         error:null
       };
     }
-    const isFlowCompanion=(flowGroup.length>1&&flowOwner.id!==b.id)||forceIsolatedRetry;
+    const isFlowCompanion=(flowGroup.length>1&&flowOwner.id!==b.id)||forceIsolatedRetry||forceSingleBlock;
     if(isFlowCompanion){
       const ownerGeneration=flowOwner.generation||{};
-      if(String(ownerGeneration.status||'').toLowerCase()==='generating'){
+      if(String(flowOwner.id)!==String(b.id)&&String(ownerGeneration.status||'').toLowerCase()==='generating'){
         state.selected=b.id;
         renderWorkspace();
         setStatus('Le flux de cette séquence est déjà en cours de génération par son premier bloc.');
@@ -2940,6 +2942,47 @@
             return;
           }
         }
+      }
+      const cpuLimitFailure=/(?:CPU_TIME_LIMIT_EXCEEDED|CPU\\s+Time\\s+exceeded|CPU\\s+time\\s+limit|HTTP\\s*546)/i.test(msg);
+      if(!skipCpuFallback&&!isFlowCompanion&&flowGroup.length>1&&cpuLimitFailure){
+        const retryIds=flowGroup.map(part=>String(part?.id||'')).filter(Boolean);
+        flowGroup.forEach(part=>{
+          part.generation={
+            ...(part.generation||{}),
+            status:'error',
+            page_number:pageNumberFor(part),
+            updated_at:new Date().toISOString(),
+            progress:0,
+            progress_label:'Reprise indépendante après limite CPU',
+            error:msg,
+            flow_page_owner_id:null
+          };
+        });
+        await persistCourse(true);
+        renderWorkspace();
+        const failedLabels=[];
+        let successCount=0;
+        for(let i=0;i<retryIds.length;i++){
+          const retryId=retryIds[i];
+          const part=activeBlocks().find(x=>String(x.id)===retryId);
+          if(!part)continue;
+          setStatus('Limite CPU détectée : rendu indépendant du bloc '+(i+1)+'/'+retryIds.length+'…');
+          await generateBlock(retryId,{forceSingleBlock:true,skipCpuFallback:true});
+          const completed=activeBlocks().find(x=>String(x.id)===retryId);
+          if(String(completed?.generation?.status||'').toLowerCase()==='ready'&&String(completed?.generation?.page_url||'').trim()){
+            successCount++;
+          }else{
+            failedLabels.push(String(completed?.content?.title||labelFor(completed)||('bloc '+(i+1))));
+          }
+        }
+        await persistCourse(true,false);
+        renderWorkspace();
+        if(failedLabels.length){
+          setStatus('Reprise bloc par bloc terminée : '+successCount+' bloc(s) confirmé(s). '+failedLabels.length+' bloc(s) restent en échec : '+failedLabels.slice(0,3).join(' · ')+'. La vérification finale reste obligatoire.');
+        }else{
+          setStatus('Séquence reprise en '+successCount+' rendu(s) indépendant(s) après la limite CPU. La vérification finale contrôle encore chaque bloc avant de déclarer le document complet.');
+        }
+        return;
       }
       const errorFlow=isFlowCompanion?[b]:renderableFlowBlocksFor(b.id);
       errorFlow.forEach(part=>{
