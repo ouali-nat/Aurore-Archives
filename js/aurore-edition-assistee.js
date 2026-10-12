@@ -962,7 +962,7 @@
       }
       await persistCourse(true,false);
       const readiness=fullPdfReadiness();
-      if(readiness.complete&&failures.length===0){
+      if(readiness.complete){
         state.finalPdfArtifact=null;
         state.pdfFinalizing=true;
         refreshDownloadButton();
@@ -977,16 +977,18 @@
       }
       const artifactReady=readiness.complete&&finalPdfArtifactMatches(readiness.parts);
       const pending=[...new Set([...failures,...readiness.missing,...(!artifactReady&&readiness.complete?['Fusion et compression du PDF final à terminer ou à relancer.']:[])])];
-      if(readiness.complete&&failures.length===0&&artifactReady){
+      if(readiness.complete&&artifactReady){
         const artifact=state.finalPdfArtifact;
         setPdfBatchProgress('Terminé · '+artifact.pageCount+' pages fusionnées · PDF final '+formatPdfSize(artifact.size)+'.',100);
         setStatus('Document complet prêt : '+artifact.pageCount+' pages fusionnées et vérifiées. '
           +(artifact.compressionPercent>0?'Compression forte appliquée : −'+artifact.compressionPercent+' % ('+formatPdfSize(artifact.originalSize)+' → '+formatPdfSize(artifact.size)+').':'Compression vérifiée : la version la plus compacte a été conservée.')
           +' Le bouton « Télécharger le PDF compressé » est activé.');
-      }else if(readiness.complete&&failures.length>0){
-        setPdfBatchProgress('Pages prêtes · fusion/compression à terminer ('+pending.length+' point(s)).',99);
-        setStatus('Les pages sont prêtes, mais le PDF final n’est pas encore validé : '+pending.slice(0,8).join(' · ')
-          +(pending.length>8?' · et '+(pending.length-8)+' autre(s) élément(s) à vérifier':'')+'. Utilise « Fusionner / compresser le PDF final » pour relancer uniquement cette étape.');
+      }else if(readiness.complete){
+        const finalizationErrors=failures.filter(item=>String(item).includes('Fusion et compression du PDF final'));
+        setPdfBatchProgress('Pages prêtes · fusion/compression à terminer ('+Math.max(1,finalizationErrors.length)+' point(s)).',99);
+        setStatus('Toutes les pages sont prêtes, mais le PDF final n’a pas encore passé la vérification : '
+          +(finalizationErrors.length?finalizationErrors.join(' · '):'la fusion/compression doit être relancée.')
+          +' Utilise « Fusionner / compresser le PDF final » pour relancer uniquement cette étape.');
       }else{
         setPdfBatchProgress('Vérification terminée · document incomplet ('+pending.length+' point(s) à corriger).',99);
         setStatus('Document NON prêt — des pages ou liens ne sont pas confirmés : '+pending.slice(0,8).join(' · ')
