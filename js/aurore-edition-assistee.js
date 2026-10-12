@@ -676,6 +676,29 @@
       try{gs.dispose?.();}catch(_){}
     }
   }
+  async function fetchFinalPdfPart(part,timeoutMs=60000){
+    const controller=typeof AbortController==='function'?new AbortController():null;
+    let timer=null;
+    try{
+      const request=fetch(part.url,{cache:'no-store',...(controller?{signal:controller.signal}:{})});
+      const timeout=new Promise((_,reject)=>{
+        timer=setTimeout(()=>{
+          try{controller?.abort();}catch(_){}
+          reject(new Error('Délai dépassé après '+Math.round(timeoutMs/1000)+' s lors du téléchargement de « '+part.label+' ». La page est conservée : relance uniquement la fusion du PDF final.'));
+        },timeoutMs);
+      });
+      const response=await Promise.race([request,timeout]);
+      if(!response.ok)throw new Error('Impossible de récupérer '+part.label+' (HTTP '+response.status+').');
+      const bytes=await Promise.race([response.arrayBuffer(),timeout]);
+      if(!bytes||bytes.byteLength<5)throw new Error(part.label+' a renvoyé un fichier vide ou trop court pour être un PDF.');
+      return bytes;
+    }catch(error){
+      if(error?.name==='AbortError')throw new Error('Téléchargement interrompu pour « '+part.label+' ». Réessaie la fusion ; les pages déjà générées restent intactes.');
+      throw error;
+    }finally{
+      if(timer)clearTimeout(timer);
+    }
+  }
   async function buildFinalPdfArtifact(parts){
     if(!Array.isArray(parts)||!parts.length)throw new Error('Aucune partie PDF n’est disponible pour la fusion finale.');
     setPdfBatchProgress('Fusion de la couverture, du sommaire, des pages de contenu et de la page finale…',97);
@@ -685,10 +708,14 @@
     let physicalPages=0;
     for(let i=0;i<parts.length;i++){
       const part=parts[i];
-      setStatus('Fusion du PDF final · '+part.label+' ('+(i+1)+'/'+parts.length+')…');
-      const response=await fetch(part.url,{cache:'no-store'});
-      if(!response.ok)throw new Error('Impossible de récupérer '+part.label+' (HTTP '+response.status+').');
-      const source=await PDFDocument.load(await response.arrayBuffer());
+      const stage='Fusion PDF · '+(i+1)+'/'+parts.length+' : '+part.label;
+      setPdfBatchProgress(stage,97);
+      setStatus(stage+'…');
+      await new Promise(resolve=>requestAnimationFrame(()=>resolve()));
+      const bytes=await fetchFinalPdfPart(part);
+      let source;
+      try{source=await PDFDocument.load(bytes);}
+      catch(error){throw new Error('Le PDF de « '+part.label+' » est illisible : '+String(error?.message||error).slice(0,180));}
       const sourceIndices=source.getPageIndices();
       if(!sourceIndices.length)throw new Error(part.label+' ne contient aucune page PDF exploitable.');
       const copied=await merged.copyPages(source,sourceIndices);
@@ -780,9 +807,7 @@
       for(let i=0;i<parts.length;i++){
         const p=parts[i];
         setStatus('Assemblage : '+p.label+' ('+(i+1)+'/'+parts.length+')…');
-        const response=await fetch(p.url,{cache:'no-store'});
-        if(!response.ok)throw new Error('Impossible de récupérer '+p.label+' (HTTP '+response.status+').');
-        const source=await PDFDocument.load(await response.arrayBuffer());
+        const source=await PDFDocument.load(await fetchFinalPdfPart(p));
         const sourceIndices=source.getPageIndices();
         if(!sourceIndices.length)throw new Error(p.label+' ne contient aucune page PDF.');
         const copied=await merged.copyPages(source,sourceIndices);
@@ -2679,7 +2704,7 @@
           ?'Rendu séquentiel · blocs '+(start+1)+'–'+end+' sur '+count+' · ces blocs contigus sont envoyés ensemble au renderer.'
           :'Rendu séquentiel · bloc '+(start+1)+' sur '+count+' · les pages système seront contrôlées à la fin.')
           :'Inventaire des blocs avant le lancement du rendu…')
-        :(percent>=100?'PDF final vérifié : toutes les pages attendues sont fusionnées et le nombre de pages est contrôlé.':percent>=95?(state.pdfBatchProgress?.label&&String(state.pdfBatchProgress.label).toLowerCase().includes('compression forte à réessayer')?'Le PDF complet est fusionné et vérifié, mais la compression forte a échoué. Le téléchargement reste disponible et la compression peut être relancée sans régénérer les pages.':state.pdfBatchProgress?.label&&String(state.pdfBatchProgress.label).toLowerCase().includes('pages prêtes')?'Toutes les pages de contenu sont prêtes ; seule la finalisation du PDF doit être terminée ou réessayée.':'Les pages sont à la phase de vérification finale ; consulte le message détaillé ci-dessus.'):'Les pages sont rendues une par une pour préserver les sauvegardes et éviter les conflits.');
+        :(percent>=100?'PDF final vérifié : toutes les pages attendues sont fusionnées et le nombre de pages est contrôlé.':percent>=95?(state.pdfBatchProgress?.label&&String(state.pdfBatchProgress.label).toLowerCase().includes('compression forte à réessayer')?'Le PDF complet est fusionné et vérifié, mais la compression forte a échoué. Le téléchargement reste disponible et la compression peut être relancée sans régénérer les pages.':state.pdfBatchProgress?.label&&String(state.pdfBatchProgress.label).toLowerCase().includes('pages prêtes')?'Toutes les pages de contenu sont prêtes ; seule la finalisation du PDF doit être terminée ou réessayée.':String(p.label||'Finalisation du PDF en cours…')+' Si cette étape échoue, le message détaillé indiquera la cause et permettra de réessayer sans régénérer les pages.'):'Les pages sont rendues une par une pour préserver les sauvegardes et éviter les conflits.');
     }
   }
   function setPdfBatchProgress(label,percent){
