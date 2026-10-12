@@ -1,7 +1,7 @@
 /* Aurore — Édition assistée : atelier séquentiel, sans canevas de prévisualisation */
 (function(){
   'use strict';
-  const state={mode:'list',course:null,courses:[],selected:null,loading:false,pdfBatchRunning:false,pdfFinalizing:false,finalPdfArtifact:null,ghostscriptModulePromise:null,pdfBatchProgress:{percent:0,label:'En attente de génération',targetCount:0,activeTargetIndex:0,completedTargets:0},pdfLibPromise:null,modalViewport:null,canonicalPreview:{fingerprint:'',documentId:null,pdfUrl:null}};
+  const state={mode:'list',course:null,courses:[],selected:null,loading:false,pdfBatchRunning:false,pdfFinalizing:false,finalPdfArtifact:null,ghostscriptModulePromise:null,ghostscriptInstance:null,ghostscriptFailureUntil:0,ghostscriptFailureMessage:'',pdfBatchProgress:{percent:0,label:'En attente de génération',targetCount:0,activeTargetIndex:0,completedTargets:0},pdfLibPromise:null,modalViewport:null,canonicalPreview:{fingerprint:'',documentId:null,pdfUrl:null}};
   const PREVIEW_CACHE_MAX=6;
   const PDF_PART_CACHE_DB='aurore-pdf-part-cache-v1';
   const PDF_PART_CACHE_STORE='optimized-parts';
@@ -634,6 +634,7 @@
   }
   async function loadGhostscriptModule(){
     if(state.ghostscriptModulePromise)return state.ghostscriptModulePromise;
+    if(Number(state.ghostscriptFailureUntil)>Date.now())throw new Error(state.ghostscriptFailureMessage||'Le moteur de compression est temporairement indisponible ; le PDF source sera conservé.');
     state.ghostscriptModulePromise=(async()=>{
       const sources=[
         'https://esm.sh/@wasm-zoo/ghostscript@0.7.2?bundle',
@@ -649,12 +650,42 @@
       }
       throw new Error('Le moteur de compression PDF n’a pas pu être chargé dans le délai prévu. Les fragments PDF sources seront conservés. '+failures.join(' | '));
     })();
-    try{return await state.ghostscriptModulePromise;}
-    catch(error){state.ghostscriptModulePromise=null;throw error;}
+    try{
+      const load=await state.ghostscriptModulePromise;
+      state.ghostscriptFailureUntil=0;state.ghostscriptFailureMessage='';
+      return load;
+    }catch(error){
+      state.ghostscriptModulePromise=null;
+      state.ghostscriptFailureUntil=Date.now()+30000;
+      state.ghostscriptFailureMessage=String(error?.message||error).slice(0,240);
+      throw error;
+    }
+  }
+  async function getGhostscriptInstance(){
+    if(state.ghostscriptInstance)return state.ghostscriptInstance;
+    if(Number(state.ghostscriptFailureUntil)>Date.now())throw new Error(state.ghostscriptFailureMessage||'Le moteur de compression est temporairement indisponible ; le PDF source sera conservé.');
+    const load=await loadGhostscriptModule();
+    try{
+      const instance=await withPdfTimeout(Promise.resolve().then(()=>load()),20000,'Initialisation du moteur de compression');
+      state.ghostscriptInstance=instance;
+      state.ghostscriptFailureUntil=0;state.ghostscriptFailureMessage='';
+      return instance;
+    }catch(error){
+      state.ghostscriptFailureUntil=Date.now()+30000;
+      state.ghostscriptFailureMessage=String(error?.message||error).slice(0,240);
+      throw error;
+    }
+  }
+  function resetGhostscriptInstance(instance,error){
+    if(state.ghostscriptInstance===instance){
+      try{instance?.dispose?.();}catch(_){}
+      state.ghostscriptInstance=null;
+    }
+    state.ghostscriptFailureUntil=Date.now()+30000;
+    state.ghostscriptFailureMessage=String(error?.message||error||'Erreur du moteur de compression').slice(0,240);
   }
   async function compressPdfWithGhostscript(bytes){
-    const load=await loadGhostscriptModule();
-    const gs=await withPdfTimeout(Promise.resolve().then(()=>load()),20000,'Initialisation du moteur de compression');
+    const gs=await getGhostscriptInstance();
     try{
       const result=await withPdfTimeout(Promise.resolve().then(()=>gs.exec([
         '-dSAFER','-sDEVICE=pdfwrite','-dCompatibilityLevel=1.4','-dPDFSETTINGS=/screen',
@@ -671,7 +702,10 @@
       const compressed=asPdfBytes(output.data);
       if(!hasPdfSignature(compressed))throw new Error('Le résultat du moteur de compression n’est pas un PDF valide.');
       return compressed;
-    }finally{try{gs.dispose?.();}catch(_){}}
+    }catch(error){
+      resetGhostscriptInstance(gs,error);
+      throw error;
+    }
   }
   function asPdfBytes(value){
     if(value instanceof Uint8Array)return value;
@@ -717,7 +751,7 @@
   }
   async function writeOptimizedPdfPart(record){
     if(!record?.url)return false;
-    const url=String(record.url),bytes=record.compressed&&record.bytes?asPdfBytes(record.bytes):null;
+    const url=String(record.url),bytes=record.bytes?asPdfBytes(record.bytes):null;
     const stored={...record,bytes:bytes?bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength):null};
     const db=await openPdfPartCache();
     if(db){
@@ -730,7 +764,7 @@
       });
       if(saved){pdfPartMemoryCache.delete(url);return true;}
     }
-    pdfPartMemoryCache.set(url,{...record,bytes:bytes?new Uint8Array(bytes):null});
+    pdfPartMemoryCache.set(url,{...record,bytes:record.compressed&&bytes?new Uint8Array(bytes):null});
     return false;
   }
   async function deleteOptimizedPdfPart(url){
@@ -798,7 +832,7 @@
             compressedBytes=candidate;
           }else note='La compression individuelle n’a pas permis de réduire la taille ; le PDF source est conservé.';
         }catch(error){compressionError=String(error?.message||error||'Erreur de compression individuelle inconnue').slice(0,240);}
-        const record={url,attempted:true,compressed:!!compressedBytes,bytes:compressedBytes?new Uint8Array(compressedBytes):null,
+        const record={url,attempted:true,compressed:!!compressedBytes,bytes:compressedBytes?new Uint8Array(compressedBytes):new Uint8Array(original),
           originalSize:original.byteLength,size:compressedBytes?compressedBytes.byteLength:original.byteLength,pageCount,compressionError,note,updatedAt:new Date().toISOString()};
         await writeOptimizedPdfPart(record);return record;
       }catch(error){
@@ -818,7 +852,7 @@
   }
   async function fetchFinalPdfPart(part,timeoutMs=60000){
     const cached=await readOptimizedPdfPart(part?.url);
-    if(cached?.compressed&&cached.bytes){const bytes=asPdfBytes(cached.bytes);if(hasPdfSignature(bytes))return bytes;}
+    if(cached?.attempted&&cached.bytes){const bytes=asPdfBytes(cached.bytes);if(hasPdfSignature(bytes))return bytes;}
     return await fetchOriginalPdfPart(part,timeoutMs);
   }
   async function preparePdfPartCompression(parts){
