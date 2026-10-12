@@ -1889,34 +1889,43 @@ jobs:
           CANDIDATE="production/document-ebook.pdf"
           ORIGINAL_BYTES="$(wc -c < "$ORIGINAL" | tr -d ' ')"
           echo "Compression serveur des pages assistées : profil ebook, qualité moyenne, images JPEG existantes préservées."
-          gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/ebook \
+          if ! gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/ebook \
             -dPassThroughJPEGImages=true -dPassThroughJPXImages=true \
             -dDetectDuplicateImages=true -dCompressFonts=true -dSubsetFonts=true \
             -dNOPAUSE -dQUIET -dBATCH \
-            -sOutputFile="$CANDIDATE" "$ORIGINAL"
+            -sOutputFile="$CANDIDATE" "$ORIGINAL"; then
+            rm -f "$CANDIDATE"
+            echo "Compression indisponible : le PDF source sera uploadé sans modification."
+            exit 0
+          fi
 
           python3 - <<'PY'
           import re
           from pathlib import Path
           original=Path("production/document.pdf")
           candidate=Path("production/document-ebook.pdf")
+          def keep_source(message):
+              candidate.unlink(missing_ok=True)
+              print(message + " PDF source conservé.")
+              raise SystemExit(0)
           if not candidate.is_file() or candidate.stat().st_size < 1000:
-              raise SystemExit("Compression Ghostscript : sortie absente ou trop petite.")
+              keep_source("Compression ignorée : sortie absente ou trop petite.")
           raw=candidate.read_bytes()
           if not raw.startswith(b"%PDF-"):
-              raise SystemExit("Compression Ghostscript : signature PDF invalide.")
+              keep_source("Compression ignorée : signature PDF invalide.")
           def pages(data):
-              return len(re.findall(rb"/Type\s*/Page\b",data))
+              return len(re.findall(rb"/Type\\s*/Page\\b",data))
           source_pages=pages(original.read_bytes())
           output_pages=pages(raw)
           if source_pages and output_pages and source_pages!=output_pages:
-              raise SystemExit(f"Compression Ghostscript : pagination modifiée ({source_pages} -> {output_pages}).")
-          if candidate.stat().st_size < original.stat().st_size:
+              keep_source(f"Compression ignorée : pagination modifiée ({source_pages} -> {output_pages}).")
+          candidate_size=candidate.stat().st_size
+          original_size=original.stat().st_size
+          if candidate_size < original_size:
               candidate.replace(original)
-              print(f"PDF assisté optimisé côté serveur : {original.stat().st_size} octets, profil ebook, pages={output_pages or source_pages}.")
+              print(f"PDF assisté optimisé côté serveur : {candidate_size} octets (source {original_size}), profil ebook, pages={output_pages or source_pages}.")
           else:
-              candidate.unlink(missing_ok=True)
-              print(f"Compression sans gain ({candidate.stat().st_size} >= {original.stat().st_size}) : PDF source conservé.")
+              keep_source(f"Compression sans gain ({candidate_size} >= {original_size}).")
           PY
       - name: Upload PDF and commit database URL
         if: hashFiles('infra/lualatex/production/document-id') != ''
