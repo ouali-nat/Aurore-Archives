@@ -736,7 +736,7 @@
     try{
       const artifact=await buildFinalPdfArtifact(readiness.parts);
       state.finalPdfArtifact=artifact;
-      setPdfBatchProgress(artifact.compressionError?'PDF complet vérifié · compression forte à réessayer.':'Terminé · '+artifact.pageCount+' pages fusionnées · PDF final '+formatPdfSize(artifact.size)+'.',100);
+      setPdfBatchProgress(artifact.compressionError?'PDF complet vérifié · compression forte à réessayer.':'Terminé · '+artifact.pageCount+' pages fusionnées · PDF final '+formatPdfSize(artifact.size)+'.',artifact.compressionError?99:100);
       setStatus(finalPdfArtifactDescription(artifact));
     }catch(error){
       state.finalPdfArtifact=null;
@@ -999,7 +999,7 @@
       const pending=[...new Set([...failures,...readiness.missing,...(!artifactReady&&readiness.complete?['Fusion et compression du PDF final à terminer ou à relancer.']:[])])];
       if(readiness.complete&&artifactReady){
         const artifact=state.finalPdfArtifact;
-        setPdfBatchProgress(artifact.compressionError?'PDF complet vérifié · compression forte à réessayer.':'Terminé · '+artifact.pageCount+' pages fusionnées · PDF final '+formatPdfSize(artifact.size)+'.',100);
+        setPdfBatchProgress(artifact.compressionError?'PDF complet vérifié · compression forte à réessayer.':'Terminé · '+artifact.pageCount+' pages fusionnées · PDF final '+formatPdfSize(artifact.size)+'.',artifact.compressionError?99:100);
         setStatus(finalPdfArtifactDescription(artifact)+' '+(artifact.compressionError?'Le bouton « Télécharger le PDF final » permet de récupérer le document déjà fusionné.':'Le bouton « Télécharger le PDF compressé » est activé.'));
       }else if(readiness.complete){
         const finalizationErrors=failures.filter(item=>String(item).includes('Fusion et compression du PDF final'));
@@ -2679,7 +2679,7 @@
           ?'Rendu séquentiel · blocs '+(start+1)+'–'+end+' sur '+count+' · ces blocs contigus sont envoyés ensemble au renderer.'
           :'Rendu séquentiel · bloc '+(start+1)+' sur '+count+' · les pages système seront contrôlées à la fin.')
           :'Inventaire des blocs avant le lancement du rendu…')
-        :(percent>=100?'PDF final vérifié : toutes les pages attendues sont fusionnées et le nombre de pages est contrôlé.':percent>=95?(state.pdfBatchProgress?.label&&String(state.pdfBatchProgress.label).toLowerCase().includes('pages prêtes')?'Toutes les pages de contenu sont prêtes ; seule la finalisation du PDF doit être terminée ou réessayée.':'Les pages sont à la phase de vérification finale ; consulte le message détaillé ci-dessus.'):'Les pages sont rendues une par une pour préserver les sauvegardes et éviter les conflits.');
+        :(percent>=100?'PDF final vérifié : toutes les pages attendues sont fusionnées et le nombre de pages est contrôlé.':percent>=95?(state.pdfBatchProgress?.label&&String(state.pdfBatchProgress.label).toLowerCase().includes('compression forte à réessayer')?'Le PDF complet est fusionné et vérifié, mais la compression forte a échoué. Le téléchargement reste disponible et la compression peut être relancée sans régénérer les pages.':state.pdfBatchProgress?.label&&String(state.pdfBatchProgress.label).toLowerCase().includes('pages prêtes')?'Toutes les pages de contenu sont prêtes ; seule la finalisation du PDF doit être terminée ou réessayée.':'Les pages sont à la phase de vérification finale ; consulte le message détaillé ci-dessus.'):'Les pages sont rendues une par une pour préserver les sauvegardes et éviter les conflits.');
     }
   }
   function setPdfBatchProgress(label,percent){
