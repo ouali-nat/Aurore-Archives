@@ -3,7 +3,7 @@
   'use strict';
   const state={mode:'list',course:null,courses:[],selected:null,loading:false,pdfBatchRunning:false,pdfFinalizing:false,finalPdfArtifact:null,ghostscriptModulePromise:null,ghostscriptInstance:null,ghostscriptFailureUntil:0,ghostscriptFailureMessage:'',pdfBatchProgress:{percent:0,label:'En attente de génération',targetCount:0,activeTargetIndex:0,completedTargets:0},pdfLibPromise:null,modalViewport:null,canonicalPreview:{fingerprint:'',documentId:null,pdfUrl:null}};
   const PREVIEW_CACHE_MAX=6;
-  const PDF_PART_CACHE_DB='aurore-pdf-part-cache-v1';
+  const PDF_PART_CACHE_DB='aurore-pdf-part-cache-v2';
   const PDF_PART_CACHE_STORE='optimized-parts';
   let pdfPartCacheDbPromise=null;
   let pdfCompressionQueue=Promise.resolve();
@@ -723,7 +723,8 @@
     const logs=[];
     try{
       const result=await withPdfTimeout(Promise.resolve().then(()=>gs.exec([
-        '-dSAFER','-sDEVICE=pdfwrite','-dCompatibilityLevel=1.4','-dPDFSETTINGS=/screen',
+        '-dSAFER','-sDEVICE=pdfwrite','-dCompatibilityLevel=1.4','-dPDFSETTINGS=/ebook',
+        '-dPassThroughJPEGImages=true','-dPassThroughJPXImages=true',
         '-dNOPAUSE','-dQUIET','-dBATCH','-dDetectDuplicateImages=true',
         '-dCompressFonts=true','-dSubsetFonts=true',
         '-sOutputFile=/out/aurore-final.pdf','/input.pdf'
@@ -2303,10 +2304,11 @@
       if(!r.ok||!d.ok)throw new Error(d.error||('Rendu page système HTTP '+r.status));
       const pdfUrl=d.page_url||d.pdf_url||null;
       if(!pdfUrl)throw new Error('Le renderer de page système n’a fourni aucune URL PDF.');
-      setSystemPageState(kind,{status:'processing',progress:72,stage:'Compression individuelle avant validation',pdfUrl,fingerprint:fp,error:null},{persist:true});
-      const optimization=await optimizePdfPart({url:pdfUrl,label:kind==='cover'?'Couverture':kind==='toc'?'Sommaire':'Page de fin'},{force:true});
-      setSystemPageState(kind,{status:'ready',progress:100,stage:optimization.compressed?'PDF compressé et vérifié':'PDF contrôlé · version source conservée',pdfUrl,pdfOptimization:pdfOptimizationMetadata(optimization),fingerprint:fp,error:null},{persist:true});
-      return {...d,pdf_optimization:pdfOptimizationMetadata(optimization)};
+      // Ne télécharge pas le PDF dans le téléphone juste pour le compresser à chaque génération.
+      // L'optimisation éventuelle est différée à l'assemblage final, où le fragment doit déjà être lu.
+      const deferredOptimization={status:'deferred_to_final_assembly',compressed:false,original_bytes:Number(d.bytes)||null,optimized_bytes:null,page_count:1,error:null};
+      setSystemPageState(kind,{status:'ready',progress:100,stage:'PDF prêt · optimisation différée à la fusion finale',pdfUrl,pdfOptimization:deferredOptimization,fingerprint:fp,error:null},{persist:true});
+      return {...d,pdf_optimization:deferredOptimization};
     }
 
     if(!force&&canonicalPreviewIsFresh(kind)&&current.documentId){
@@ -3256,10 +3258,10 @@
         updateGenerationProgress(b.id,65,'Génération de la fiche PDF…');
         const rendered=await callSheet({mode:'render',generated_document_id:docId,theme_color:theme});
         if(!rendered.page_url)throw new Error('Le moteur de fiche n’a fourni aucun lien PDF.');
-        updateGenerationProgress(b.id,84,'Compression individuelle et contrôle du PDF…');
-        setStatus('Compression de la fiche « '+String(fiche.title||b.content?.title||'Fiche de révision')+' » avant validation…');
-        const pdfOptimization=await optimizePdfPart({url:rendered.page_url,label:'Fiche '+String(fiche.title||b.content?.title||'de révision')},{force:true});
-        b.generation={...(b.generation||{}),status:'ready',page_number:pageNumberFor(b),generated_document_id:docId,job_id:null,page_path:rendered.page_path||null,page_url:rendered.page_url,updated_at:new Date().toISOString(),progress:100,progress_label:'Fiche prête — PDF contrôlé avant validation',bytes:rendered.bytes||null,page_count:rendered.page_count||1,sheet_fingerprint:fingerprint,flow_block_ids:[],independent_regeneration:false,pdf_optimization:pdfOptimizationMetadata(pdfOptimization),qa:{engine:rendered.engine||'pdf-lib-sheet-v1',status:'completed'},error:null};
+        updateGenerationProgress(b.id,94,'PDF prêt — aucune copie locale pour compression');
+        setStatus('Fiche rendue côté serveur ; son optimisation sera faite au moment de la fusion finale.');
+        const pdfOptimization={status:'deferred_to_final_assembly',compressed:false,original_bytes:Number(rendered.bytes)||null,optimized_bytes:null,page_count:Number(rendered.page_count)||1,error:null};
+        b.generation={...(b.generation||{}),status:'ready',page_number:pageNumberFor(b),generated_document_id:docId,job_id:null,page_path:rendered.page_path||null,page_url:rendered.page_url,updated_at:new Date().toISOString(),progress:100,progress_label:'Fiche prête — optimisation différée à la fusion finale',bytes:rendered.bytes||null,page_count:rendered.page_count||1,sheet_fingerprint:fingerprint,flow_block_ids:[],independent_regeneration:false,pdf_optimization:pdfOptimization,qa:{engine:rendered.engine||'pdf-lib-sheet-v1',status:'completed'},error:null};
         await persistCourse(true,false);
         renderWorkspace();
         setStatus('Fiche de révision générée et intégrée à la séquence du document.');
@@ -3317,9 +3319,9 @@
           ||!expectedFlowIds.every((expected,index)=>persistedFlowIds[index]===expected))){
         throw new Error('Le PDF a été créé, mais le renderer n’a pas confirmé tous les blocs de la séquence dans le bon ordre. Regénère la séquence depuis son premier bloc.');
       }
-      updateGenerationProgress(b.id,86,'Compression individuelle et contrôle du PDF…');
-      setStatus('Compression et vérification du fragment « '+String(b.content?.title||labelFor(b))+' » avant validation…');
-      const pdfOptimization=await optimizePdfPart({url:d.page_url,label:String(b.content?.title||labelFor(b)||'Page de contenu')},{force:true});
+      updateGenerationProgress(b.id,94,'PDF prêt — aucune copie locale pour compression');
+      setStatus('Page produite et stockée par le moteur serveur ; aucune compression ne télécharge une copie sur ton téléphone.');
+      const pdfOptimization={status:'server_optimized_when_assisted',compressed:false,original_bytes:Number(d.bytes)||null,optimized_bytes:null,page_count:Math.max(1,Number(d.page_count)||1),error:null};
       const resultFlowIds=new Set(persistedFlowIds);
       const resultFlowGroup=activeBlocks().filter(part=>resultFlowIds.has(String(part?.id||'')));
       if(!resultFlowGroup.length)resultFlowGroup.push(b);
