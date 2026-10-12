@@ -3182,9 +3182,13 @@
     const priorGenerationError=String(b.generation?.error||'');
     const forceIsolatedRetry=['paragraph','point'].includes(String(b.type||'').toLowerCase())
       &&/(?:HTTP\s*546|CPU_TIME_LIMIT_EXCEEDED|CPU\s+Time\s+exceeded|CPU\s+time\s+limit)/i.test(priorGenerationError);
-    // Un HTTP 546 peut laisser au bloc des références PDF héritées d’un ancien flux partagé.
-    // On retire uniquement ces références échouées avant la nouvelle tentative ciblée.
-    if(/(?:HTTP\s*546|CPU_TIME_LIMIT_EXCEEDED|CPU\s+Time\s+exceeded|CPU\s+time\s+limit)/i.test(priorGenerationError)){
+    // Un HTTP 546 ne prouve pas que le PDF précédent est absent.
+    // Ne supprimer les références qu'en l'absence d'un fragment PDF identifiable.
+    const hasPriorPdfReference=!!String(b.generation?.page_url||'').trim()
+      &&!!String(b.generation?.page_path||'').trim()
+      &&!!String(b.generation?.generated_document_id||'').trim();
+    if(/(?:HTTP\s*546|CPU_TIME_LIMIT_EXCEEDED|CPU\s+Time\s+exceeded|CPU\s+time\s+limit)/i.test(priorGenerationError)
+      &&!hasPriorPdfReference){
       b.generation={
         ...(b.generation||{}),
         generated_document_id:null,
@@ -3415,8 +3419,11 @@
           const partId=String(part?.id||'');
           if(!partId)return;
           const prior=priorGenerationSnapshot.get(partId)||{};
-          const hasReusablePdf=String(prior.status||'').toLowerCase()==='ready'
-            &&!!String(prior.page_url||'').trim();
+          // Une ancienne URL PDF avec chemin et document liés reste réutilisable même
+          // si une tentative CPU précédente a laissé le statut en erreur.
+          const hasReusablePdf=!!String(prior.page_url||'').trim()
+            &&!!String(prior.page_path||'').trim()
+            &&!!String(prior.generated_document_id||'').trim();
           if(hasReusablePdf){
             // Le PDF confirmé est conservé même si le rendu regroupé échoue.
             part.generation={
