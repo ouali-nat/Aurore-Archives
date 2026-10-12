@@ -3,6 +3,12 @@
   'use strict';
   const state={mode:'list',course:null,courses:[],selected:null,loading:false,pdfBatchRunning:false,pdfFinalizing:false,finalPdfArtifact:null,ghostscriptModulePromise:null,pdfBatchProgress:{percent:0,label:'En attente de génération',targetCount:0,activeTargetIndex:0,completedTargets:0},pdfLibPromise:null,modalViewport:null,canonicalPreview:{fingerprint:'',documentId:null,pdfUrl:null}};
   const PREVIEW_CACHE_MAX=6;
+  const PDF_PART_CACHE_DB='aurore-pdf-part-cache-v1';
+  const PDF_PART_CACHE_STORE='optimized-parts';
+  let pdfPartCacheDbPromise=null;
+  let pdfCompressionQueue=Promise.resolve();
+  const pdfPartMemoryCache=new Map();
+  const pdfPartOptimizationJobs=new Map();
   const previewPdfCache=new Map();
   function cachedPreviewBuffer(url){const hit=previewPdfCache.get(url);if(!hit)return null;previewPdfCache.delete(url);previewPdfCache.set(url,hit);return hit;}
   function rememberPreviewBuffer(url,buffer){previewPdfCache.delete(url);previewPdfCache.set(url,buffer);while(previewPdfCache.size>PREVIEW_CACHE_MAX)previewPdfCache.delete(previewPdfCache.keys().next().value);}
@@ -511,36 +517,23 @@
     return Boolean(artifact&&artifact.blob&&artifact.fingerprint===finalPdfFingerprint(parts));
   }
   function refreshCompleteDownloadButton(){
-    const btn=document.getElementById('aeDownloadPdfComplete');
-    const note=document.getElementById('aeCompleteDownloadNote');
-    const finalizeBtn=document.getElementById('aeFinalizePdf');
+    const btn=document.getElementById('aeDownloadPdfComplete'),note=document.getElementById('aeCompleteDownloadNote'),finalizeBtn=document.getElementById('aeFinalizePdf');
     if(!btn&&!note&&!finalizeBtn)return;
-    const readiness=fullPdfReadiness();
-    const artifactReady=readiness.complete&&finalPdfArtifactMatches(readiness.parts);
-    const compressionRetryNeeded=artifactReady&&!!state.finalPdfArtifact.compressionError;
-    if(btn){
-      btn.disabled=!artifactReady;
-      btn.title=artifactReady
-        ?(compressionRetryNeeded?'Télécharger le PDF complet fusionné et vérifié ; la compression forte peut être réessayée.':'Télécharger le PDF final fusionné, compressé et vérifié.')
-        :'Le PDF téléchargeable sera activé après fusion et vérification de toutes les pages.';
-      btn.textContent=artifactReady&&compressionRetryNeeded?'Télécharger le PDF final':'Télécharger le PDF compressé';
-    }
+    const readiness=fullPdfReadiness(),artifactReady=readiness.complete&&finalPdfArtifactMatches(readiness.parts);
+    if(btn){btn.disabled=!artifactReady;btn.title=artifactReady
+      ?'Télécharger le PDF complet fusionné et vérifié ; les fragments ont été optimisés individuellement avant la fusion.'
+      :'Le PDF téléchargeable sera activé après fusion et vérification de toutes les pages.';
+      btn.textContent='Télécharger le PDF complet';}
     if(finalizeBtn){
-      finalizeBtn.disabled=!readiness.complete||(artifactReady&&!compressionRetryNeeded)||state.pdfBatchRunning||state.pdfFinalizing;
-      finalizeBtn.textContent=artifactReady?(compressionRetryNeeded?'Réessayer la compression forte':'PDF final prêt'):'Fusionner / compresser le PDF final';
-      finalizeBtn.title=artifactReady
-        ?(compressionRetryNeeded?'Réessayer uniquement la compression forte ; les pages ne seront pas régénérées.':'Le PDF final est prêt.')
-        :readiness.complete
-          ?'Relancer uniquement la fusion et la compression, sans regénérer les pages.'
-          :'Cette étape sera disponible lorsque toutes les pages seront prêtes.';
+      finalizeBtn.disabled=!readiness.complete||artifactReady||state.pdfBatchRunning||state.pdfFinalizing;
+      finalizeBtn.textContent=artifactReady?'PDF final prêt':'Fusionner et vérifier le PDF final';
+      finalizeBtn.title=artifactReady?'Le PDF final est prêt au téléchargement.'
+        :readiness.complete?'Optimiser les fragments individuellement si nécessaire, puis fusionner et vérifier le document. Aucune compression ne sera relancée après la fusion.'
+        :'Cette étape sera disponible lorsque toutes les pages seront prêtes.';
     }
-    if(note){
-      note.textContent=artifactReady
-        ?finalPdfArtifactDescription(state.finalPdfArtifact)
-        :readiness.complete
-          ?'Toutes les pages sont prêtes. Seule la fusion, la vérification et la compression du PDF final restent à terminer.'
-          :'En attente : '+readiness.missing.slice(0,4).join(' · ')+(readiness.missing.length>4?' · et '+(readiness.missing.length-4)+' autre(s) élément(s)':'')+'.';
-    }
+    if(note)note.textContent=artifactReady?finalPdfArtifactDescription(state.finalPdfArtifact)
+      :readiness.complete?'Toutes les pages sont prêtes. Les fragments sont contrôlés et optimisés individuellement avant la fusion finale.'
+      :'En attente : '+readiness.missing.slice(0,4).join(' · ')+(readiness.missing.length>4?' · et '+(readiness.missing.length-4)+' autre(s) élément(s)':'')+'.';
   }
   async function loadPdfLib(){
     if(globalThis.PDFLib?.PDFDocument)return globalThis.PDFLib;
@@ -601,230 +594,67 @@
     return size.toLocaleString('fr-FR',{maximumFractionDigits:1})+' '+units[index];
   }
   function finalPdfArtifactDescription(artifact){
-    const pages=Number(artifact?.pageCount)||0;
-    const size=formatPdfSize(artifact?.size);
-    if(artifact?.compressionError){
-      return 'PDF complet fusionné et vérifié · '+pages+' page(s) · '+size+'. La compression forte a échoué : '+String(artifact.compressionError).slice(0,220)+'. Le PDF reste disponible ; relance la compression sans régénérer les pages.';
-    }
-    if(Number(artifact?.compressionPercent)>0){
-      return 'PDF complet fusionné et vérifié · '+pages+' page(s) · '+size+' · réduction de '+artifact.compressionPercent+' % ('+formatPdfSize(artifact.originalSize)+' → '+size+').';
-    }
-    return 'PDF complet fusionné et vérifié · '+pages+' page(s) · '+size+'. Le moteur de compression n’a pas réduit davantage le fichier ; la version la plus petite a été conservée.';
-  }
-  function finalPdfFingerprint(parts){
-    const pages=state.canonicalPreview?.pages||{};
-    const payload=JSON.stringify({
-      courseId:String(state.course?.id||state.course?.course_id||''),
-      title:String(state.course?.title||''),
-      documentPages:state.course?.document_pages||{},
-      blocks:contentBlocks().map(b=>({
-        id:String(b?.id||''),type:String(b?.type||''),content:b?.content||{},
-        status:String(b?.generation?.status||''),url:String(b?.generation?.page_url||''),
-        updatedAt:String(b?.generation?.updated_at||'')
-      })),
-      system:['cover','toc','end'].map(kind=>[kind,pages[kind]?.pdfUrl||'',pages[kind]?.updatedAt||'',pages[kind]?.status||'']),
-      parts:(parts||[]).map(p=>[String(p.url||''),String(p.label||'')])
-    });
-    let h1=2166136261,h2=2246822519;
-    for(let i=0;i<payload.length;i++){
-      const code=payload.charCodeAt(i);
-      h1=Math.imul(h1^code,16777619);
-      h2=Math.imul(h2+code,3266489917);
-    }
-    return payload.length+':'+(h1>>>0).toString(16)+(h2>>>0).toString(16);
-  }
-  function withPdfTimeout(promise,timeoutMs,label){
-    let timer=null;
-    const timeout=new Promise((_,reject)=>{
-      timer=setTimeout(()=>reject(new Error(String(label||'Opération PDF interrompue')+' (délai maximal '+Math.round(timeoutMs/1000)+' s).')),timeoutMs);
-    });
-    return Promise.race([Promise.resolve(promise),timeout]).finally(()=>{if(timer)clearTimeout(timer);});
-  }
-  async function loadGhostscriptModule(){
-    if(state.ghostscriptModulePromise)return state.ghostscriptModulePromise;
-    state.ghostscriptModulePromise=(async()=>{
-      const sources=[
-        'https://esm.sh/@wasm-zoo/ghostscript@0.7.2?bundle',
-        'https://cdn.jsdelivr.net/npm/@wasm-zoo/ghostscript@0.7.2/+esm'
-      ];
-      const failures=[];
-      for(const source of sources){
-        try{
-          const mod=await withPdfTimeout(import(source),8000,'Chargement du moteur de compression');
-          if(typeof mod.load==='function')return mod.load;
-          throw new Error('Le module chargé ne fournit pas load().');
-        }catch(error){failures.push(String(error?.message||error));}
-      }
-      throw new Error('Le moteur de compression PDF n’a pas pu être chargé dans le délai prévu. Le PDF fusionné sans compression sera conservé. '+failures.join(' | '));
-    })();
-    try{return await state.ghostscriptModulePromise;}
-    catch(error){state.ghostscriptModulePromise=null;throw error;}
-  }
-  async function compressPdfWithGhostscript(bytes){
-    const load=await loadGhostscriptModule();
-    const gs=await withPdfTimeout(Promise.resolve().then(()=>load()),20000,'Initialisation du moteur de compression');
-    try{
-      const result=await withPdfTimeout(Promise.resolve().then(()=>gs.exec([
-        '-dSAFER','-sDEVICE=pdfwrite','-dCompatibilityLevel=1.4','-dPDFSETTINGS=/screen',
-        '-dNOPAUSE','-dQUIET','-dBATCH','-dDetectDuplicateImages=true',
-        '-dCompressFonts=true','-dSubsetFonts=true',
-        '-sOutputFile=/out/aurore-final.pdf','/input.pdf'
-      ],{
-        files:[{name:'/input.pdf',data:bytes instanceof Uint8Array?bytes:new Uint8Array(bytes)}],
-        dirs:['/out'],
-        outputs:['/out/aurore-final.pdf']
-      })),45000,'La compression Ghostscript dépasse le délai prévu ; le PDF fusionné non compressé sera conservé');
-      const output=(result?.files||[]).find(file=>String(file?.name||'').endsWith('aurore-final.pdf')&&file?.data);
-      if(!output)throw new Error('Le moteur n’a fourni aucun PDF compressé.');
-      const compressed=output.data instanceof Uint8Array?output.data:new Uint8Array(output.data);
-      if(compressed.byteLength<5||String.fromCharCode(...compressed.subarray(0,5))!=='%PDF-'){
-        throw new Error('Le résultat du moteur de compression n’est pas un PDF valide.');
-      }
-      return compressed;
-    }finally{
-      try{gs.dispose?.();}catch(_){}
-    }
-  }
-  async function fetchFinalPdfPart(part,timeoutMs=60000){
-    const controller=typeof AbortController==='function'?new AbortController():null;
-    let timer=null;
-    try{
-      const request=fetch(part.url,{cache:'no-store',...(controller?{signal:controller.signal}:{})});
-      const timeout=new Promise((_,reject)=>{
-        timer=setTimeout(()=>{
-          try{controller?.abort();}catch(_){}
-          reject(new Error('Délai dépassé après '+Math.round(timeoutMs/1000)+' s lors du téléchargement de « '+part.label+' ». La page est conservée : relance uniquement la fusion du PDF final.'));
-        },timeoutMs);
-      });
-      const response=await Promise.race([request,timeout]);
-      if(!response.ok)throw new Error('Impossible de récupérer '+part.label+' (HTTP '+response.status+').');
-      const bytes=await Promise.race([response.arrayBuffer(),timeout]);
-      if(!bytes||bytes.byteLength<5)throw new Error(part.label+' a renvoyé un fichier vide ou trop court pour être un PDF.');
-      return bytes;
-    }catch(error){
-      if(error?.name==='AbortError')throw new Error('Téléchargement interrompu pour « '+part.label+' ». Réessaie la fusion ; les pages déjà générées restent intactes.');
-      throw error;
-    }finally{
-      if(timer)clearTimeout(timer);
-    }
+    const pages=Number(artifact?.pageCount)||0,size=formatPdfSize(artifact?.size);
+    const fragments=Number(artifact?.optimizedFragmentCount)||0,reduction=Number(artifact?.compressionPercent)||0;
+    const errors=Array.isArray(artifact?.optimizationErrors)?artifact.optimizationErrors:[];
+    let detail=fragments+' fragment(s) ont été compressés et vérifiés individuellement avant la fusion.';
+    if(reduction>0)detail+=' Réduction cumulée des fragments : '+reduction+' % avant assemblage.';
+    else detail+=' Les fragments sans gain ont été conservés dans leur version d’origine.';
+    if(errors.length)detail+=' La compression individuelle n’a pas abouti pour '+errors.length+' fragment(s) ; leurs fichiers sources restent utilisables.';
+    return 'PDF complet fusionné et vérifié · '+pages+' page(s) · '+size+'. '+detail+' Aucune compression globale n’est lancée après la fusion.';
   }
   async function buildFinalPdfArtifact(parts){
     if(!Array.isArray(parts)||!parts.length)throw new Error('Aucune partie PDF n’est disponible pour la fusion finale.');
-    setPdfBatchProgress('Préparation du moteur de fusion PDF…',96);
-    setStatus('Chargement de la bibliothèque PDF nécessaire à la fusion…');
-    const {PDFDocument}=await loadPdfLib();
-    setPdfBatchProgress('Moteur PDF chargé · préparation de la fusion…',96);
-    const merged=await PDFDocument.create();
+    setPdfBatchProgress('Optimisation individuelle des fragments avant fusion…',86);
+    setStatus('Chaque fragment PDF est contrôlé et optimisé séparément avant assemblage.');
+    const optimization=await preparePdfPartCompression(parts);
+    setPdfBatchProgress('Fragments individuels traités · préparation du moteur de fusion…',95);
+    setStatus('Assemblage des fragments PDF optimisés, sans compression globale après fusion…');
+    const {PDFDocument}=await loadPdfLib(),merged=await PDFDocument.create();
     let physicalPages=0;
     for(let i=0;i<parts.length;i++){
-      const part=parts[i];
-      const stage='Fusion PDF · '+(i+1)+'/'+parts.length+' : '+part.label;
-      setPdfBatchProgress(stage,96+Math.round((i/parts.length)*2));
-      setStatus(stage+'…');
+      const part=parts[i],stage='Fusion PDF · '+(i+1)+'/'+parts.length+' : '+part.label;
+      setPdfBatchProgress(stage,95+Math.round(((i+1)/parts.length)*3));setStatus(stage+'…');
       await new Promise(resolve=>requestAnimationFrame(()=>resolve()));
-      const bytes=await fetchFinalPdfPart(part);
-      if(bytes.byteLength<5||String.fromCharCode(...new Uint8Array(bytes,0,5))!=='%PDF-'){
-        throw new Error('Le fichier récupéré pour « '+part.label+' » ne commence pas par une signature PDF valide.');
-      }
+      const bytes=asPdfBytes(await fetchFinalPdfPart(part));
+      if(!hasPdfSignature(bytes))throw new Error('Le fichier récupéré pour « '+part.label+' » ne commence pas par une signature PDF valide.');
       let source;
-      try{source=await PDFDocument.load(bytes);}
+      try{source=await withPdfTimeout(PDFDocument.load(bytes),30000,'Vérification du fragment '+part.label);}
       catch(error){throw new Error('Le PDF de « '+part.label+' » est illisible : '+String(error?.message||error).slice(0,180));}
       const sourceIndices=source.getPageIndices();
       if(!sourceIndices.length)throw new Error(part.label+' ne contient aucune page PDF exploitable.');
-      const copied=await merged.copyPages(source,sourceIndices);
-      copied.forEach(page=>merged.addPage(page));
-      physicalPages+=copied.length;
-      setPdfBatchProgress('Partie vérifiée · '+part.label+' ('+(i+1)+'/'+parts.length+')',96+Math.round(((i+1)/parts.length)*2));
+      const copied=await merged.copyPages(source,sourceIndices);copied.forEach(page=>merged.addPage(page));physicalPages+=copied.length;
     }
-    if(physicalPages<parts.length||merged.getPageCount()!==physicalPages){
-      throw new Error('Le nombre de pages physiques fusionnées est incohérent : '+merged.getPageCount()+' page(s) pour '+physicalPages+' page(s) copiée(s).');
-    }
-    setPdfBatchProgress('Enregistrement du PDF fusionné…',98);
-    const originalBytes=await merged.save({useObjectStreams:true});
-    if(originalBytes.byteLength<5||String.fromCharCode(...originalBytes.subarray(0,5))!=='%PDF-'){
-      throw new Error('Le moteur de fusion n’a pas produit de fichier PDF valide.');
-    }
-    setPdfBatchProgress('Compression du PDF final · optimisation facultative…',98);
-    setStatus('Compression du PDF final en cours. Si le moteur est indisponible, le PDF fusionné sera conservé pour téléchargement.');
-    let compressedBytes=null,compressionError='';
-    try{
-      compressedBytes=await compressPdfWithGhostscript(originalBytes);
-    }catch(error){
-      compressionError=String(error?.message||error||'Erreur inconnue du moteur de compression').slice(0,260);
-      setPdfBatchProgress('Compression indisponible · conservation du PDF fusionné…',98);
-      setStatus('La compression forte a échoué ('+compressionError+'). Le PDF non compressé sera contrôlé et pourra tout de même être téléchargé.');
-    }
-    let finalBytes=originalBytes;
-    let useCompressed=false;
-    const compressionCandidate=!!compressedBytes&&compressedBytes.byteLength>0&&compressedBytes.byteLength<originalBytes.byteLength;
-    if(compressionCandidate){
-      try{
-        const compactDocument=await PDFDocument.load(compressedBytes);
-        if(compactDocument.getPageCount()!==physicalPages){
-          throw new Error('le nombre de pages compressées ('+compactDocument.getPageCount()+') diffère des '+physicalPages+' pages attendues');
-        }
-        finalBytes=compressedBytes;
-        useCompressed=true;
-      }catch(error){
-        compressionError='Le PDF compressé a échoué au contrôle d’intégrité : '+String(error?.message||error).slice(0,190);
-        finalBytes=originalBytes;
-        useCompressed=false;
-      }
-    }
-    setPdfBatchProgress('Contrôle du PDF final · intégrité, pagination et taille…',99);
+    if(physicalPages<parts.length||merged.getPageCount()!==physicalPages)throw new Error('Le nombre de pages physiques fusionnées est incohérent : '+merged.getPageCount()+' page(s) pour '+physicalPages+' page(s) copiée(s).');
+    setPdfBatchProgress('Enregistrement du PDF fusionné…',99);
+    const finalBytes=asPdfBytes(await merged.save({useObjectStreams:true}));
+    if(!hasPdfSignature(finalBytes))throw new Error('Le moteur de fusion n’a pas produit de fichier PDF valide.');
+    setPdfBatchProgress('Vérification du PDF final · lecture et pagination…',99);
     let verified;
-    try{verified=await PDFDocument.load(finalBytes);}
-    catch(error){
-      if(!useCompressed)throw new Error('Le PDF fusionné lui-même est illisible : '+String(error?.message||error).slice(0,200));
-      compressionError='Le PDF compressé est illisible : '+String(error?.message||error).slice(0,150);
-      finalBytes=originalBytes;
-      useCompressed=false;
-      verified=await PDFDocument.load(originalBytes);
-    }
-    if(verified.getPageCount()!==physicalPages){
-      if(useCompressed){
-        compressionError='La pagination du PDF compressé ne correspond pas à la fusion ; la version fusionnée est conservée.';
-        finalBytes=originalBytes;
-        useCompressed=false;
-        verified=await PDFDocument.load(originalBytes);
-      }
-      if(verified.getPageCount()!==physicalPages){
-        throw new Error('Le contrôle final détecte '+verified.getPageCount()+' page(s), au lieu de '+physicalPages+' après fusion.');
-      }
-    }
+    try{verified=await withPdfTimeout(PDFDocument.load(finalBytes),30000,'Vérification du PDF final');}
+    catch(error){throw new Error('Le PDF fusionné est illisible : '+String(error?.message||error).slice(0,200));}
+    if(verified.getPageCount()!==physicalPages)throw new Error('Le contrôle final détecte '+verified.getPageCount()+' page(s), au lieu de '+physicalPages+' après fusion.');
     const blob=new Blob([finalBytes],{type:'application/pdf'});
-    return {
-      fingerprint:finalPdfFingerprint(parts),blob,size:blob.size,originalSize:originalBytes.byteLength,
-      pageCount:physicalPages,compressionPercent:useCompressed?Math.max(0,Math.round((1-finalBytes.byteLength/originalBytes.byteLength)*100)):0,
-      compressionError,createdAt:new Date().toISOString(),
-      compressionEngine:useCompressed?'ghostscript-wasm-screen':(compressionError?'pdf-lib-merge-fallback':'ghostscript-no-size-gain')
-    };
+    return {fingerprint:finalPdfFingerprint(parts),blob,size:blob.size,pageCount:physicalPages,
+      optimizedFragmentCount:optimization.compressedCount||0,unchangedFragmentCount:optimization.unchangedCount||0,
+      originalPartsSize:optimization.originalBytes||0,optimizedPartsSize:optimization.optimizedInputBytes||0,
+      compressionPercent:optimization.compressionPercent||0,optimizationErrors:(optimization.errors||[]).slice(0,12),
+      createdAt:new Date().toISOString(),compressionEngine:'per-fragment-before-merge'};
   }
-  async function retryFinalPdfCompression(){
+  async function finalizePdfAssembly(){
     if(state.pdfBatchRunning||state.pdfFinalizing)return;
     const readiness=fullPdfReadiness();
-    if(!readiness.complete){
-      setStatus('Fusion/compression impossible : '+readiness.missing.slice(0,4).join(' · '));
-      refreshCompleteDownloadButton();
-      return;
-    }
-    state.pdfFinalizing=true;
-    // Keep a previous verified artifact downloadable while a compression retry runs.
-    refreshDownloadButton();
+    if(!readiness.complete){setStatus('Fusion impossible : '+readiness.missing.slice(0,4).join(' · '));refreshCompleteDownloadButton();return;}
+    state.pdfFinalizing=true;refreshDownloadButton();
     try{
       const artifact=await buildFinalPdfArtifact(readiness.parts);
       state.finalPdfArtifact=artifact;
-      setPdfBatchProgress(artifact.compressionError?'PDF complet vérifié · compression forte à réessayer.':'Terminé · '+artifact.pageCount+' pages fusionnées · PDF final '+formatPdfSize(artifact.size)+'.',artifact.compressionError?99:100);
+      setPdfBatchProgress('Terminé · '+artifact.pageCount+' page(s) fusionnées et vérifiées · '+formatPdfSize(artifact.size)+'.',100);
       setStatus(finalPdfArtifactDescription(artifact));
     }catch(error){
-      state.finalPdfArtifact=null;
-      setPdfBatchProgress('Fusion/compression à relancer · '+String(error?.message||error).slice(0,110),99);
-      setStatus('Les pages sont prêtes, mais la fusion/compression a échoué : '+String(error?.message||error));
-    }finally{
-      state.pdfFinalizing=false;
-      renderPdfBatchProgress();
-      refreshDownloadButton();
-    }
+      state.finalPdfArtifact=null;setPdfBatchProgress('Fusion à relancer · '+String(error?.message||error).slice(0,110),99);
+      setStatus('Les fragments sont prêts, mais la fusion ou la vérification a échoué : '+String(error?.message||error));
+    }finally{state.pdfFinalizing=false;renderPdfBatchProgress();refreshDownloadButton();}
   }
   async function downloadCurrentPdf(complete=false){
     if(complete){
@@ -836,16 +666,16 @@
       }
       const artifact=state.finalPdfArtifact;
       if(!artifact||artifact.fingerprint!==finalPdfFingerprint(readiness.parts)){
-        setStatus('Les pages sont prêtes, mais le PDF final doit encore être fusionné, compressé et vérifié.');
+        setStatus('Les pages sont prêtes, mais le PDF final doit encore être fusionné et vérifié.');
         refreshDownloadButton();
         return;
       }
       const url=URL.createObjectURL(artifact.blob),a=document.createElement('a');
       const safeTitle=String(state.course?.title||'aurore-cours').trim().replace(/[^\p{L}\p{N}_-]+/gu,'-')||'aurore-cours';
-      a.href=url;a.download=safeTitle+(artifact.compressionError?'-document-complet.pdf':'-document-complet-compresse.pdf');
+      a.href=url;a.download=safeTitle+'-document-complet.pdf';
       document.body.appendChild(a);a.click();a.remove();
       setTimeout(()=>URL.revokeObjectURL(url),60000);
-      setStatus('PDF complet téléchargé · '+artifact.pageCount+' page(s) · '+formatPdfSize(artifact.size)+(artifact.compressionError?' · compression forte à réessayer.':artifact.compressionPercent>0?' · réduction de '+artifact.compressionPercent+' %.':' · version la plus légère conservée.'));
+      setStatus('PDF complet téléchargé · '+artifact.pageCount+' page(s) · '+formatPdfSize(artifact.size)+'. Les fragments ont été optimisés individuellement avant la fusion.');
       return;
     }
     const parts=downloadablePdfParts();
@@ -1045,7 +875,7 @@
         addFailure('Pages système : '+String(error?.message||error));
       }
 
-      setPdfBatchProgress('Vérification des PDF, des liens et de la pagination…',96);
+      setPdfBatchProgress('Contrôle des PDF, des liens et de la pagination…',86);
       const systemPages=state.canonicalPreview?.pages||{};
       for(const kind of ['cover','toc','end']){
         const page=systemPages[kind]||{};
@@ -1066,23 +896,23 @@
           state.finalPdfArtifact=await buildFinalPdfArtifact(readiness.parts);
         }catch(error){
           state.finalPdfArtifact=null;
-          addFailure('Fusion et compression du PDF final : '+String(error?.message||error));
+          addFailure('Fusion et vérification du PDF final : '+String(error?.message||error));
         }finally{
           state.pdfFinalizing=false;
         }
       }
       const artifactReady=readiness.complete&&finalPdfArtifactMatches(readiness.parts);
-      const pending=[...new Set([...failures,...readiness.missing,...(!artifactReady&&readiness.complete?['Fusion et compression du PDF final à terminer ou à relancer.']:[])])];
+      const pending=[...new Set([...failures,...readiness.missing,...(!artifactReady&&readiness.complete?['Fusion et vérification du PDF final à terminer ou à relancer.']:[])])];
       if(readiness.complete&&artifactReady){
         const artifact=state.finalPdfArtifact;
-        setPdfBatchProgress(artifact.compressionError?'PDF complet vérifié · compression forte à réessayer.':'Terminé · '+artifact.pageCount+' pages fusionnées · PDF final '+formatPdfSize(artifact.size)+'.',artifact.compressionError?99:100);
-        setStatus(finalPdfArtifactDescription(artifact)+' '+(artifact.compressionError?'Le bouton « Télécharger le PDF final » permet de récupérer le document déjà fusionné.':'Le bouton « Télécharger le PDF compressé » est activé.'));
+        setPdfBatchProgress('Terminé · '+artifact.pageCount+' pages fusionnées et vérifiées · PDF final '+formatPdfSize(artifact.size)+'.',100);
+        setStatus(finalPdfArtifactDescription(artifact)+' Le bouton « Télécharger le PDF complet » est activé.');
       }else if(readiness.complete){
-        const finalizationErrors=failures.filter(item=>String(item).includes('Fusion et compression du PDF final'));
-        setPdfBatchProgress('Pages prêtes · fusion/compression à terminer ('+Math.max(1,finalizationErrors.length)+' point(s)).',99);
+        const finalizationErrors=failures.filter(item=>String(item).includes('Fusion et vérification du PDF final'));
+        setPdfBatchProgress('Pages prêtes · fusion à terminer ('+Math.max(1,finalizationErrors.length)+' point(s)).',99);
         setStatus('Toutes les pages sont prêtes, mais le PDF final n’a pas encore passé la vérification : '
-          +(finalizationErrors.length?finalizationErrors.join(' · '):'la fusion/compression doit être relancée.')
-          +' Utilise « Fusionner / compresser le PDF final » pour relancer uniquement cette étape.');
+          +(finalizationErrors.length?finalizationErrors.join(' · '):'la fusion doit être relancée.')
+          +' Utilise « Fusionner et vérifier le PDF final » pour relancer uniquement cette étape.');
       }else{
         setPdfBatchProgress('Vérification terminée · document incomplet ('+pending.length+' point(s) à corriger).',99);
         setStatus('Document NON prêt — des pages ou liens ne sont pas confirmés : '+pending.slice(0,8).join(' · ')
@@ -1411,7 +1241,7 @@
       '<div class="ae-workbar"><button class="admin-btn primary" id="aeAddP">＋ Paragraphe</button><button class="admin-btn ghost" id="aeAddPoint">＋ Point de cours</button><button class="admin-btn ghost" id="aeAddEx">＋ Exercice</button><button class="admin-btn ghost" id="aeAddGraph">＋ Graphique GeoGebra</button><button class="admin-btn ghost" id="aeAddVector">＋ Schéma vectoriel</button><button class="admin-btn ghost" id="aeAddFiche">＋ Fiche de révision</button><button class="admin-btn ghost" id="aeAddWiki">＋ Image Wikimedia</button><button class="admin-btn ghost" id="aeTocJson">Sommaire JSON</button><button class="admin-btn ghost" id="aeSave">Enregistrer le cours</button><button class="admin-btn primary" id="aeDownloadPdfCurrent" disabled>Télécharger le PDF actuel</button></div>'+
       '<div class="ae-sequence-meta"><span>'+contentBlocks().length+' bloc(s) de contenu · 1 début · 1 fin</span><span id="aeSystemPreviewOverall">Pages système indépendantes : '+systemPreviewOverallFromPages(state.canonicalPreview?.pages||{}).ready+'/3 prêtes · '+systemPreviewOverallFromPages(state.canonicalPreview?.pages||{}).progress+'%</span></div>'+
       '<section class="ae-block-stack">'+(activeBlocks().find(b=>b?.role===START_ROLE)?blockCard(activeBlocks().find(b=>b?.role===START_ROLE),0):'')+tocSystemCard()+(contentBlocks().length?contentBlocks().map((b,i)=>blockCard(b,i+2)).join(''):'<div class="ae-empty"><strong>Le cours est vide.</strong><span>Ajoute un paragraphe pour commencer. La couverture et le sommaire resteront toujours présents.</span></div>')+(activeBlocks().find(b=>b?.role===END_ROLE)?blockCard(activeBlocks().find(b=>b?.role===END_ROLE),activeBlocks().length-1):'')+'</section>'+
-      '<div class="ae-workbar ae-complete-download"><div style="display:grid;gap:4px;flex:1;min-width:220px"><strong>Document final</strong><small id="aeCompleteDownloadNote" style="opacity:.68;line-height:1.4">À la fin, les PDF de la couverture, du sommaire, du contenu et de la page finale sont fusionnés puis fortement compressés avant 100 %.</small></div><button class="admin-btn ghost" id="aeGenerateAllPages"'+(state.pdfBatchRunning?' disabled':'')+'>Générer / régénérer toutes les pages</button><button class="admin-btn ghost" id="aeFinalizePdf" disabled>Fusionner / compresser le PDF final</button><button class="admin-btn primary" id="aeDownloadPdfComplete" disabled>Télécharger le PDF compressé</button></div>'+
+      '<div class="ae-workbar ae-complete-download"><div style="display:grid;gap:4px;flex:1;min-width:220px"><strong>Document final</strong><small id="aeCompleteDownloadNote" style="opacity:.68;line-height:1.4">Chaque fragment est contrôlé et optimisé individuellement, puis le PDF complet est fusionné et vérifié sans compression globale finale.</small></div><button class="admin-btn ghost" id="aeGenerateAllPages"'+(state.pdfBatchRunning?' disabled':'')+'>Générer / régénérer toutes les pages</button><button class="admin-btn ghost" id="aeFinalizePdf" disabled>Fusionner et vérifier le PDF final</button><button class="admin-btn primary" id="aeDownloadPdfComplete" disabled>Télécharger le PDF complet</button></div>'+
       '<div id="aePdfBatchProgress" style="display:grid;gap:6px;margin:10px 0 14px;padding:12px 14px;border:1px solid #D1D5DB;border-radius:10px;background:rgba(148,163,184,.07)" aria-live="polite"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><strong id="aePdfBatchProgressLabel" style="font-size:13px;line-height:1.4">'+esc(state.pdfBatchProgress?.label||'En attente de génération')+'</strong><span id="aePdfBatchProgressPercent" style="font-variant-numeric:tabular-nums;font-weight:700">'+Math.max(0,Math.min(100,Math.round(Number(state.pdfBatchProgress?.percent)||0)))+'%</span></div><div id="aePdfBatchProgressTrack" role="progressbar" aria-label="Progression de la génération totale" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+Math.max(0,Math.min(100,Math.round(Number(state.pdfBatchProgress?.percent)||0)))+'" style="height:9px;border-radius:999px;overflow:hidden;background:#E5E7EB"><div id="aePdfBatchProgressBar" style="height:100%;width:'+Math.max(0,Math.min(100,Math.round(Number(state.pdfBatchProgress?.percent)||0)))+'%;border-radius:999px;background:#2563EB;transition:width .25s ease"></div></div><small id="aePdfBatchProgressDetail" style="opacity:.72;line-height:1.4">Les pages sont rendues une par une pour préserver les sauvegardes et éviter les conflits.</small></div>'+
       '<footer class="ae-work-footer">Le bouton supérieur permet de récupérer les fragments déjà prêts. En fin d’éditeur, « Télécharger le document complet » assemble la couverture, le sommaire, tous les blocs et la page finale, uniquement quand toutes les parties sont vérifiées.</footer></div><div class="ae-modal-host" id="aeModalHost"></div>';
     prepareAssistedModalHost();
@@ -1818,7 +1648,7 @@
     const completeDownloadBtn=document.getElementById('aeDownloadPdfComplete');
     if(completeDownloadBtn)completeDownloadBtn.onclick=()=>downloadCurrentPdf(true);
     const finalizePdfBtn=document.getElementById('aeFinalizePdf');
-    if(finalizePdfBtn)finalizePdfBtn.onclick=()=>void retryFinalPdfCompression();
+    if(finalizePdfBtn)finalizePdfBtn.onclick=()=>void finalizePdfAssembly();
     const generateAllBtn=document.getElementById('aeGenerateAllPages');
     if(generateAllBtn)generateAllBtn.onclick=()=>void generateAllPages();
     refreshDownloadButton();
@@ -2156,8 +1986,11 @@
       const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}};
       if(!r.ok||!d.ok)throw new Error(d.error||('Rendu page système HTTP '+r.status));
       const pdfUrl=d.page_url||d.pdf_url||null;
-      setSystemPageState(kind,{status:'ready',progress:100,stage:'PDF de page prêt',pdfUrl,fingerprint:fp,error:null},{persist:true});
-      return d;
+      if(!pdfUrl)throw new Error('Le renderer de page système n’a fourni aucune URL PDF.');
+      setSystemPageState(kind,{status:'processing',progress:72,stage:'Compression individuelle avant validation',pdfUrl,fingerprint:fp,error:null},{persist:true});
+      const optimization=await optimizePdfPart({url:pdfUrl,label:kind==='cover'?'Couverture':kind==='toc'?'Sommaire':'Page de fin'},{force:true});
+      setSystemPageState(kind,{status:'ready',progress:100,stage:optimization.compressed?'PDF compressé et vérifié':'PDF contrôlé · version source conservée',pdfUrl,pdfOptimization:pdfOptimizationMetadata(optimization),fingerprint:fp,error:null},{persist:true});
+      return {...d,pdf_optimization:pdfOptimizationMetadata(optimization)};
     }
 
     if(!force&&canonicalPreviewIsFresh(kind)&&current.documentId){
@@ -2755,7 +2588,7 @@
           ?'Rendu séquentiel · blocs '+(start+1)+'–'+end+' sur '+count+' · ces blocs contigus sont envoyés ensemble au renderer.'
           :'Rendu séquentiel · bloc '+(start+1)+' sur '+count+' · les pages système seront contrôlées à la fin.')
           :'Inventaire des blocs avant le lancement du rendu…')
-        :(percent>=100?'PDF final vérifié : toutes les pages attendues sont fusionnées et le nombre de pages est contrôlé.':percent>=95?(state.pdfBatchProgress?.label&&String(state.pdfBatchProgress.label).toLowerCase().includes('compression forte à réessayer')?'Le PDF complet est fusionné et vérifié, mais la compression forte a échoué. Le téléchargement reste disponible et la compression peut être relancée sans régénérer les pages.':state.pdfBatchProgress?.label&&String(state.pdfBatchProgress.label).toLowerCase().includes('pages prêtes')?'Toutes les pages de contenu sont prêtes ; seule la finalisation du PDF doit être terminée ou réessayée.':String(p.label||'Finalisation du PDF en cours…')+' Si cette étape échoue, le message détaillé indiquera la cause et permettra de réessayer sans régénérer les pages.'):'Les pages sont rendues une par une pour préserver les sauvegardes et éviter les conflits.');
+        :(percent>=100?'PDF final vérifié : toutes les pages attendues sont fusionnées et le nombre de pages est contrôlé.':percent>=95?String(p.label||'Finalisation du PDF en cours…')+' Les fragments sont optimisés avant l’assemblage ; aucune compression globale ne sera lancée après la fusion.':'Les pages sont rendues une par une pour préserver les sauvegardes et éviter les conflits.');
     }
   }
   function setPdfBatchProgress(label,percent){
@@ -3103,7 +2936,10 @@
         updateGenerationProgress(b.id,65,'Génération de la fiche PDF…');
         const rendered=await callSheet({mode:'render',generated_document_id:docId,theme_color:theme});
         if(!rendered.page_url)throw new Error('Le moteur de fiche n’a fourni aucun lien PDF.');
-        b.generation={...(b.generation||{}),status:'ready',page_number:pageNumberFor(b),generated_document_id:docId,job_id:null,page_path:rendered.page_path||null,page_url:rendered.page_url,updated_at:new Date().toISOString(),progress:100,progress_label:'Fiche prête — intégrée à la séquence du document',bytes:rendered.bytes||null,page_count:rendered.page_count||1,sheet_fingerprint:fingerprint,flow_block_ids:[],independent_regeneration:false,qa:{engine:rendered.engine||'pdf-lib-sheet-v1',status:'completed'},error:null};
+        updateGenerationProgress(b.id,84,'Compression individuelle et contrôle du PDF…');
+        setStatus('Compression de la fiche « '+String(fiche.title||b.content?.title||'Fiche de révision')+' » avant validation…');
+        const pdfOptimization=await optimizePdfPart({url:rendered.page_url,label:'Fiche '+String(fiche.title||b.content?.title||'de révision')},{force:true});
+        b.generation={...(b.generation||{}),status:'ready',page_number:pageNumberFor(b),generated_document_id:docId,job_id:null,page_path:rendered.page_path||null,page_url:rendered.page_url,updated_at:new Date().toISOString(),progress:100,progress_label:'Fiche prête — PDF contrôlé avant validation',bytes:rendered.bytes||null,page_count:rendered.page_count||1,sheet_fingerprint:fingerprint,flow_block_ids:[],independent_regeneration:false,pdf_optimization:pdfOptimizationMetadata(pdfOptimization),qa:{engine:rendered.engine||'pdf-lib-sheet-v1',status:'completed'},error:null};
         await persistCourse(true,false);
         renderWorkspace();
         setStatus('Fiche de révision générée et intégrée à la séquence du document.');
@@ -3161,6 +2997,9 @@
           ||!expectedFlowIds.every((expected,index)=>persistedFlowIds[index]===expected))){
         throw new Error('Le PDF a été créé, mais le renderer n’a pas confirmé tous les blocs de la séquence dans le bon ordre. Regénère la séquence depuis son premier bloc.');
       }
+      updateGenerationProgress(b.id,86,'Compression individuelle et contrôle du PDF…');
+      setStatus('Compression et vérification du fragment « '+String(b.content?.title||labelFor(b))+' » avant validation…');
+      const pdfOptimization=await optimizePdfPart({url:d.page_url,label:String(b.content?.title||labelFor(b)||'Page de contenu')},{force:true});
       const resultFlowIds=new Set(persistedFlowIds);
       const resultFlowGroup=activeBlocks().filter(part=>resultFlowIds.has(String(part?.id||'')));
       if(!resultFlowGroup.length)resultFlowGroup.push(b);
@@ -3177,6 +3016,7 @@
         bytes:d.bytes||null,
         flow_block_ids:persistedFlowIds,
         page_count:Math.max(1,Number(d.page_count)||1),
+        pdf_optimization:pdfOptimizationMetadata(pdfOptimization),
         flow_page_map:d.flow_page_map&&typeof d.flow_page_map==='object'?d.flow_page_map:null,
         flow_page_end_map:d.flow_page_end_map&&typeof d.flow_page_end_map==='object'?d.flow_page_end_map:null,
         independent_regeneration:isFlowCompanion,
@@ -3204,6 +3044,7 @@
         progress_label:'Page prête — visualisation disponible',
         bytes:d.bytes||null,
         page_count:Math.max(1,Number(d.page_count)||1),
+        pdf_optimization:pdfOptimizationMetadata(pdfOptimization),
         flow_page_map:d.flow_page_map&&typeof d.flow_page_map==='object'?d.flow_page_map:null,
         flow_page_end_map:d.flow_page_end_map&&typeof d.flow_page_end_map==='object'?d.flow_page_end_map:null,
         qa:{engine:d.engine||'pdf-lib-course-page-v2',status:'completed',details:d.qa||null},
