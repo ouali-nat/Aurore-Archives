@@ -1,0 +1,39 @@
+name: Compress stored assisted PDF fragments — Probabilités demo
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/aurora-assisted-pdf-compress-probabilites-demo.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aurora-assisted-pdf-compress-probabilites-demo
+  cancel-in-progress: false
+
+jobs:
+  compress:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[compress-assisted:probabilites-demo]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      AURORA_LUALATEX_RENDER_TOKEN: ${{ secrets.AURORA_LUALATEX_RENDER_TOKEN }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Ghostscript and PDF validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ghostscript poppler-utils
+
+      - name: Validate renderer token
+        run: test -n "$AURORA_LUALATEX_RENDER_TOKEN"
+
+      - name: Compress only the existing stored fragments
+        run: python3 scripts/compress_assisted_course_pages.py
