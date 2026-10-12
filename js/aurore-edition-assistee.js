@@ -2943,7 +2943,7 @@
           }
         }
       }
-      const cpuLimitFailure=/(?:CPU_TIME_LIMIT_EXCEEDED|CPU\\s+Time\\s+exceeded|CPU\\s+time\\s+limit|HTTP\\s*546)/i.test(msg);
+      const cpuLimitFailure=/(?:CPU_TIME_LIMIT_EXCEEDED|CPU\s+Time\s+exceeded|CPU\s+time\s+limit|HTTP\s*546)/i.test(msg);
       if(!skipCpuFallback&&!isFlowCompanion&&flowGroup.length>1&&cpuLimitFailure){
         const retryIds=flowGroup.map(part=>String(part?.id||'')).filter(Boolean);
         flowGroup.forEach(part=>{
