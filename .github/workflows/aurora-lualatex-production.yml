@@ -1893,9 +1893,9 @@ jobs:
             -sColorConversionStrategy=LeaveColorUnchanged \
             -dPassThroughJPEGImages=true -dPassThroughJPXImages=true \
             -dDetectDuplicateImages=true -dCompressFonts=true -dSubsetFonts=true \
-            -c "<< /ColorImageDict << /QFactor 0.15 /Blend 1 /HSamples [1 1 1 1] /VSamples [1 1 1 1] >> /GrayImageDict << /QFactor 0.15 /Blend 1 /HSamples [1 1 1 1] /VSamples [1 1 1 1] >> >> setdistillerparams" \
             -dNOPAUSE -dQUIET -dBATCH \
-            -sOutputFile="$CANDIDATE" -f "$ORIGINAL"; then
+            -sOutputFile="$CANDIDATE" \
+            -c "<< /ColorImageDict << /QFactor 0.15 /Blend 1 /HSamples [1 1 1 1] /VSamples [1 1 1 1] >> /GrayImageDict << /QFactor 0.15 /Blend 1 /HSamples [1 1 1 1] /VSamples [1 1 1 1] >> >> setdistillerparams" -f "$ORIGINAL"; then
             rm -f "$CANDIDATE"
             echo "Optimisation indisponible : le PDF source sera uploadé sans modification."
             exit 0
