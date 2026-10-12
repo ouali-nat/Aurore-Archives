@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - ".github/workflows/aurora-assisted-pdf-compress-probabilites-demo.yml"
+      - "scripts/compress_assisted_course_pages.py"
   workflow_dispatch:
 
 permissions:
@@ -13,7 +14,7 @@ permissions:
 
 concurrency:
   group: aurora-assisted-pdf-compress-probabilites-demo
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   compress:
