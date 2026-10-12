@@ -524,10 +524,12 @@
       ?'Télécharger le PDF complet fusionné et vérifié ; les fragments ont été optimisés individuellement avant la fusion.'
       :'Le PDF téléchargeable sera activé après fusion et vérification de toutes les pages.';
       btn.textContent='Télécharger le PDF complet';}
+    const optimizationNeedsRetry=Boolean(artifactReady&&Array.isArray(state.finalPdfArtifact?.optimizationErrors)&&state.finalPdfArtifact.optimizationErrors.length);
     if(finalizeBtn){
-      finalizeBtn.disabled=!readiness.complete||artifactReady||state.pdfBatchRunning||state.pdfFinalizing;
-      finalizeBtn.textContent=artifactReady?'PDF final prêt':'Fusionner et vérifier le PDF final';
-      finalizeBtn.title=artifactReady?'Le PDF final est prêt au téléchargement.'
+      finalizeBtn.disabled=!readiness.complete||(artifactReady&&!optimizationNeedsRetry)||state.pdfBatchRunning||state.pdfFinalizing;
+      finalizeBtn.textContent=artifactReady?(optimizationNeedsRetry?'Réessayer compression + fusion':'PDF final prêt'):'Fusionner et vérifier le PDF final';
+      finalizeBtn.title=optimizationNeedsRetry?'Relancer la compression des fragments en échec et refaire la fusion, sans régénérer les pages existantes.'
+        :artifactReady?'Le PDF final est prêt au téléchargement.'
         :readiness.complete?'Optimiser les fragments individuellement si nécessaire, puis fusionner et vérifier le document. Aucune compression ne sera relancée après la fusion.'
         :'Cette étape sera disponible lorsque toutes les pages seront prêtes.';
     }
@@ -600,7 +602,7 @@
     let detail=fragments+' fragment(s) ont été compressés et vérifiés individuellement avant la fusion.';
     if(reduction>0)detail+=' Réduction cumulée des fragments : '+reduction+' % avant assemblage.';
     else detail+=' Les fragments sans gain ont été conservés dans leur version d’origine.';
-    if(errors.length){detail+=' La compression individuelle n’a pas abouti pour '+errors.length+' fragment(s) ; leurs fichiers sources restent utilisables.';detail+=' Première erreur : '+String(errors[0]||'erreur non détaillée').slice(0,220)+'.';}
+    if(errors.length){detail+=' La compression individuelle n’a pas abouti pour '+errors.length+' fragment(s) ; leurs fichiers sources restent utilisables.';detail+=' Diagnostic de compression : '+String(errors[0]||'erreur non détaillée').slice(0,420)+'.';}
     return 'PDF complet fusionné et vérifié · '+pages+' page(s) · '+size+'. '+detail+' Aucune compression globale n’est lancée après la fusion.';
   }
   function finalPdfFingerprint(parts){
@@ -632,60 +634,93 @@
     });
     return Promise.race([Promise.resolve(promise),timeout]).finally(()=>{if(timer)clearTimeout(timer);});
   }
+  const GHOSTSCRIPT_RUNTIME_CANDIDATES=[
+    {label:'jsDelivr',scriptUrl:'https://cdn.jsdelivr.net/npm/@wasm-zoo/ghostscript@0.7.2/browser-ghostscript.js',baseUrl:'https://cdn.jsdelivr.net/npm/@wasm-zoo/ghostscript@0.7.2/'},
+    {label:'unpkg',scriptUrl:'https://unpkg.com/@wasm-zoo/ghostscript@0.7.2/browser-ghostscript.js',baseUrl:'https://unpkg.com/@wasm-zoo/ghostscript@0.7.2/'}
+  ];
+  async function loadGhostscriptClassicRuntime(scriptUrl){
+    const current=globalThis.WasmZooGhostscript;
+    if(typeof current?.loadHosted==='function')return current;
+    await new Promise((resolve,reject)=>{
+      const script=document.createElement('script');
+      let settled=false,timer=null;
+      const finish=error=>{
+        if(settled)return;
+        settled=true;
+        if(timer)clearTimeout(timer);
+        script.onload=null;script.onerror=null;
+        if(error){script.remove();reject(error);return;}
+        const api=globalThis.WasmZooGhostscript;
+        if(typeof api?.loadHosted==='function')resolve(api);
+        else{script.remove();reject(new Error('Le script chargé ne fournit pas WasmZooGhostscript.loadHosted().'));}
+      };
+      timer=setTimeout(()=>finish(new Error('Délai dépassé au chargement du runtime Ghostscript depuis '+new URL(scriptUrl).hostname+'.')),12000);
+      script.src=scriptUrl;
+      script.async=true;
+      script.crossOrigin='anonymous';
+      script.onload=()=>finish();
+      script.onerror=()=>finish(new Error('Échec réseau lors du chargement du runtime Ghostscript depuis '+new URL(scriptUrl).hostname+'.'));
+      document.head.appendChild(script);
+    });
+    return globalThis.WasmZooGhostscript;
+  }
   async function loadGhostscriptModule(){
     if(state.ghostscriptModulePromise)return state.ghostscriptModulePromise;
     if(Number(state.ghostscriptFailureUntil)>Date.now())throw new Error(state.ghostscriptFailureMessage||'Le moteur de compression est temporairement indisponible ; le PDF source sera conservé.');
     state.ghostscriptModulePromise=(async()=>{
-      const sources=[
-        'https://esm.sh/@wasm-zoo/ghostscript@0.7.2?bundle',
-        'https://cdn.jsdelivr.net/npm/@wasm-zoo/ghostscript@0.7.2/+esm'
-      ];
       const failures=[];
-      for(const source of sources){
+      for(const source of GHOSTSCRIPT_RUNTIME_CANDIDATES){
+        let gs=null;
+        const probeLogs=[];
         try{
-          const mod=await withPdfTimeout(import(source),8000,'Chargement du moteur de compression');
-          if(typeof mod.load==='function')return mod.load;
-          throw new Error('Le module chargé ne fournit pas load().');
-        }catch(error){failures.push(String(error?.message||error));}
+          const api=await loadGhostscriptClassicRuntime(source.scriptUrl);
+          if(typeof api?.loadHosted!=='function')throw new Error('Le runtime ne fournit pas loadHosted().');
+          // Le paquet WASM Zoo documente ce chargeur classique pour les déploiements
+          // statiques : le wrapper, le worker et le fichier WASM restent des URL distinctes.
+          gs=api.loadHosted({baseUrl:source.baseUrl});
+          if(typeof gs?.load!=='function'||typeof gs?.exec!=='function')throw new Error('Le runtime chargé ne fournit pas load()/exec().');
+          await withPdfTimeout(Promise.resolve().then(()=>gs.load()),90000,'Téléchargement du moteur WebAssembly depuis '+source.label);
+          // Sonde réelle : elle vérifie aussi que le worker peut charger gs-core.js,
+          // pas seulement que le fichier .wasm répond au réseau.
+          const probe=await withPdfTimeout(Promise.resolve().then(()=>gs.exec(['--version'],{
+            timeoutMs:45000,
+            onLog:event=>{
+              const line=String(event?.stream||'')+': '+String(event?.message||'');
+              probeLogs.push(line);
+              if(probeLogs.length>12)probeLogs.shift();
+            }
+          })),50000,'Test du moteur Ghostscript depuis '+source.label);
+          if(Number(probe?.exitCode??0)!==0)throw new Error('La sonde Ghostscript a renvoyé le code '+String(probe?.exitCode)+'.');
+          state.ghostscriptInstance=gs;
+          state.ghostscriptFailureUntil=0;
+          state.ghostscriptFailureMessage='';
+          return gs;
+        }catch(error){
+          try{gs?.dispose?.();}catch(_){}
+          const detail=String(error?.message||error||'Erreur inconnue').slice(0,360);
+          const logs=probeLogs.length?' · sortie moteur : '+probeLogs.slice(-5).join(' | ').slice(0,260):'';
+          failures.push(source.label+' : '+detail+logs);
+        }
       }
-      throw new Error('Le moteur de compression PDF n’a pas pu être chargé dans le délai prévu. Les fragments PDF sources seront conservés. '+failures.join(' | '));
+      throw new Error('Initialisation du moteur de compression impossible. Les deux hébergeurs du moteur ont échoué. '+failures.join(' || ').slice(0,900));
     })();
     try{
-      const load=await state.ghostscriptModulePromise;
-      state.ghostscriptFailureUntil=0;state.ghostscriptFailureMessage='';
-      return load;
+      return await state.ghostscriptModulePromise;
     }catch(error){
       state.ghostscriptModulePromise=null;
       state.ghostscriptFailureUntil=Date.now()+30000;
-      state.ghostscriptFailureMessage=String(error?.message||error).slice(0,240);
+      state.ghostscriptFailureMessage=String(error?.message||error).slice(0,900);
       throw error;
     }
   }
   async function getGhostscriptInstance(){
     if(state.ghostscriptInstance)return state.ghostscriptInstance;
     if(Number(state.ghostscriptFailureUntil)>Date.now())throw new Error(state.ghostscriptFailureMessage||'Le moteur de compression est temporairement indisponible ; le PDF source sera conservé.');
-    const load=await loadGhostscriptModule();
-    try{
-      const instance=await withPdfTimeout(Promise.resolve().then(()=>load()),20000,'Initialisation du moteur de compression');
-      state.ghostscriptInstance=instance;
-      state.ghostscriptFailureUntil=0;state.ghostscriptFailureMessage='';
-      return instance;
-    }catch(error){
-      state.ghostscriptFailureUntil=Date.now()+30000;
-      state.ghostscriptFailureMessage=String(error?.message||error).slice(0,240);
-      throw error;
-    }
-  }
-  function resetGhostscriptInstance(instance,error){
-    if(state.ghostscriptInstance===instance){
-      try{instance?.dispose?.();}catch(_){}
-      state.ghostscriptInstance=null;
-    }
-    state.ghostscriptFailureUntil=Date.now()+30000;
-    state.ghostscriptFailureMessage=String(error?.message||error||'Erreur du moteur de compression').slice(0,240);
+    return await loadGhostscriptModule();
   }
   async function compressPdfWithGhostscript(bytes){
     const gs=await getGhostscriptInstance();
+    const logs=[];
     try{
       const result=await withPdfTimeout(Promise.resolve().then(()=>gs.exec([
         '-dSAFER','-sDEVICE=pdfwrite','-dCompatibilityLevel=1.4','-dPDFSETTINGS=/screen',
@@ -695,16 +730,27 @@
       ],{
         files:[{name:'/input.pdf',data:asPdfBytes(bytes)}],
         dirs:['/out'],
-        outputs:['/out/aurore-final.pdf']
-      })),45000,'La compression individuelle dépasse le délai prévu ; le fragment PDF source sera conservé');
-      const output=(result?.files||[]).find(file=>String(file?.name||'').endsWith('aurore-final.pdf')&&file?.data);
+        outputs:['/out/aurore-final.pdf'],
+        timeoutMs:60000,
+        onLog:event=>{
+          const line=String(event?.stream||'')+': '+String(event?.message||'');
+          logs.push(line);
+          if(logs.length>16)logs.shift();
+        }
+      })),65000,'La compression individuelle dépasse le délai prévu ; le fragment PDF source sera conservé');
+      if(Number(result?.exitCode??0)!==0)throw new Error('Ghostscript a terminé avec le code '+String(result?.exitCode)+'.');
+      const output=(result?.files||[]).find(file=>String(file?.name||'').replace(/\\/g,'/').endsWith('/aurore-final.pdf')&&file?.data);
       if(!output)throw new Error('Le moteur n’a fourni aucun PDF compressé.');
       const compressed=asPdfBytes(output.data);
       if(!hasPdfSignature(compressed))throw new Error('Le résultat du moteur de compression n’est pas un PDF valide.');
       return compressed;
     }catch(error){
-      resetGhostscriptInstance(gs,error);
-      throw error;
+      // Chaque exec WASM Zoo utilise un Worker isolé : l’échec d’un PDF ne rend pas
+      // le runner inutilisable pour les fragments suivants. Évite le cooldown global,
+      // qui transformait une panne locale en une série d’échecs pour tous les fragments.
+      const cause=String(error?.message||error||'Erreur Ghostscript inconnue').slice(0,500);
+      const detail=logs.length?' · dernières sorties Ghostscript : '+logs.slice(-8).join(' | ').slice(0,500):'';
+      throw new Error('Compression du fragment par Ghostscript impossible : '+cause+detail);
     }
   }
   function asPdfBytes(value){
@@ -849,7 +895,7 @@
     const failed=!!result.compressionError;
     return {status:result.compressed?'compressed':failed?'original_preserved':result.attempted?'checked':'pending',
       compressed:!!result.compressed,original_bytes:Number(result.originalSize)||null,optimized_bytes:Number(result.size)||Number(result.originalSize)||null,
-      page_count:Number(result.pageCount)||null,error:failed?String(result.compressionError).slice(0,220):null,updated_at:result.updatedAt||new Date().toISOString()};
+      page_count:Number(result.pageCount)||null,error:failed?String(result.compressionError).slice(0,420):null,updated_at:result.updatedAt||new Date().toISOString()};
   }
   async function fetchFinalPdfPart(part,timeoutMs=60000){
     const cached=await readOptimizedPdfPart(part?.url);
@@ -868,7 +914,7 @@
       let result;try{result=await optimizePdfPart(part);}catch(error){result={attempted:false,compressed:false,compressionError:String(error?.message||error)};}
       if(result.compressed){summary.compressedCount++;summary.originalBytes+=Number(result.originalSize)||0;summary.optimizedInputBytes+=Number(result.size)||0;}
       else{summary.unchangedCount++;summary.originalBytes+=Number(result.originalSize)||0;summary.optimizedInputBytes+=Number(result.originalSize)||0;}
-      if(result.compressionError)summary.errors.push(String(part.label||'Fragment PDF')+': '+String(result.compressionError).slice(0,180));
+      if(result.compressionError)summary.errors.push(String(part.label||'Fragment PDF')+': '+String(result.compressionError).slice(0,420));
     }
     summary.compressionPercent=summary.originalBytes>0?Math.max(0,Math.round((1-summary.optimizedInputBytes/summary.originalBytes)*100)):0;
     return summary;
@@ -2859,6 +2905,10 @@
           :'Rendu séquentiel · bloc '+(start+1)+' sur '+count+' · les pages système seront contrôlées à la fin.')
           :'Inventaire des blocs avant le lancement du rendu…')
         :(percent>=100?'PDF final vérifié : toutes les pages attendues sont fusionnées et le nombre de pages est contrôlé.':percent>=95?String(p.label||'Finalisation du PDF en cours…')+' Les fragments sont optimisés avant l’assemblage ; aucune compression globale ne sera lancée après la fusion.':'Les pages sont rendues une par une pour préserver les sauvegardes et éviter les conflits.');
+      const optimizationErrors=Array.isArray(state.finalPdfArtifact?.optimizationErrors)?state.finalPdfArtifact.optimizationErrors:[];
+      if(!state.pdfBatchRunning&&percent>=100&&optimizationErrors.length){
+        detail.textContent='PDF final vérifié, mais compression individuelle en échec pour '+optimizationErrors.length+' fragment(s). Diagnostic : '+String(optimizationErrors[0]||'erreur inconnue').slice(0,420)+'. Tu peux relancer la compression sans régénérer les pages.';
+      }
     }
   }
   function setPdfBatchProgress(label,percent){
