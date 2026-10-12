@@ -110,10 +110,10 @@ def main() -> int:
                 print(f"[{index}/{len(pages)}] {path} — pagination source illisible, source conservée.")
                 continue
 
-            if source_pages != 1:
+            if source_pages < 1 or source_pages > 20:
                 skipped_count += 1
                 optimized_total += len(original)
-                print(f"[{index}/{len(pages)}] {path} — {source_pages} pages inattendues, non modifié.")
+                print(f"[{index}/{len(pages)}] {path} — {source_pages} pages hors limite autorisée, non modifié.")
                 continue
 
             cmd = [
