@@ -72,6 +72,10 @@ def main() -> int:
     print(f"Cours vérifié : {plan.get('title')} — {len(pages)} fragment(s) prêt(s).")
 
     for index, page in enumerate(pages, start=1):
+        if str(page.get("compression_status") or "") == "server_compressed":
+            skipped_count += 1
+            print(f"[{index}/{len(pages)}] {page.get('path', '')} — déjà optimisé côté serveur, ignoré.")
+            continue
         path = str(page.get("path") or "")
         block_id = str(page.get("block_id") or "")
         signed_url = str(page.get("url") or "")
