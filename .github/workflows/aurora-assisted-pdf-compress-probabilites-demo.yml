@@ -36,5 +36,5 @@ jobs:
       - name: Validate renderer token
         run: test -n "$AURORA_LUALATEX_RENDER_TOKEN"
 
-      - name: Compress only the existing stored fragments
+      - name: Compress existing content and system PDF fragments
         run: python3 scripts/compress_assisted_course_pages.py
