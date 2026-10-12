@@ -1506,8 +1506,16 @@ jobs:
               raise SystemExit("Renderer smoke check failed: GeoGebra graph was not emitted")
 
           inline_macro_source = inspect.getsource(render_document.render)
-          if r"\ensuremath{\displaystyle #1}" not in inline_macro_source:
-              raise SystemExit("Legacy inline math macro guard regression: ensuremath-safe definition missing")
+          expected_inline_macro = r"\newcommand{\AuroreInlineMath}[1]{\ensuremath{#1}}"
+          expected_compact_macro = r"\newcommand{\AuroreMathCompact}[2]{\ensuremath{#2}}"
+          if expected_inline_macro not in inline_macro_source:
+              raise SystemExit(
+                  "Renderer smoke check failed: inline math must use the unboxed ensuremath macro"
+              )
+          if expected_compact_macro not in inline_macro_source:
+              raise SystemExit(
+                  "Renderer smoke check failed: compact inline math must use the unboxed ensuremath macro"
+              )
 
           repaired_inline = render_document._repair_course_inline_math_delimiters(
               r"La forme est \(\pi\)/3."
