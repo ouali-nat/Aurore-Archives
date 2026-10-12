@@ -163,8 +163,7 @@ def main() -> int:
                 "x-aurore-render-token": TOKEN,
                 "content-type": "application/pdf",
                 "x-aurore-course-id": COURSE_ID,
-                "x-aurore-course-title": COURSE_TITLE,
-                "x-aurore-block-id": block_id,
+                        "x-aurore-block-id": block_id,
                 "x-aurore-page-path": path,
                 "x-aurore-page-count": str(output_pages),
             }
