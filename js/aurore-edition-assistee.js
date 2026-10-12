@@ -603,6 +603,241 @@
     if(errors.length)detail+=' La compression individuelle n’a pas abouti pour '+errors.length+' fragment(s) ; leurs fichiers sources restent utilisables.';
     return 'PDF complet fusionné et vérifié · '+pages+' page(s) · '+size+'. '+detail+' Aucune compression globale n’est lancée après la fusion.';
   }
+  function finalPdfFingerprint(parts){
+    const pages=state.canonicalPreview?.pages||{};
+    const payload=JSON.stringify({
+      courseId:String(state.course?.id||state.course?.course_id||''),
+      title:String(state.course?.title||''),
+      documentPages:state.course?.document_pages||{},
+      blocks:contentBlocks().map(b=>({
+        id:String(b?.id||''),type:String(b?.type||''),content:b?.content||{},
+        status:String(b?.generation?.status||''),url:String(b?.generation?.page_url||''),
+        updatedAt:String(b?.generation?.updated_at||'')
+      })),
+      system:['cover','toc','end'].map(kind=>[kind,pages[kind]?.pdfUrl||'',pages[kind]?.updatedAt||'',pages[kind]?.status||'']),
+      parts:(parts||[]).map(p=>[String(p.url||''),String(p.label||'')])
+    });
+    let h1=2166136261,h2=2246822519;
+    for(let i=0;i<payload.length;i++){
+      const code=payload.charCodeAt(i);
+      h1=Math.imul(h1^code,16777619);
+      h2=Math.imul(h2+code,3266489917);
+    }
+    return payload.length+':'+(h1>>>0).toString(16)+(h2>>>0).toString(16);
+  }
+  function withPdfTimeout(promise,timeoutMs,label){
+    let timer=null;
+    const timeout=new Promise((_,reject)=>{
+      timer=setTimeout(()=>reject(new Error(String(label||'Opération PDF interrompue')+' (délai maximal '+Math.round(timeoutMs/1000)+' s).')),timeoutMs);
+    });
+    return Promise.race([Promise.resolve(promise),timeout]).finally(()=>{if(timer)clearTimeout(timer);});
+  }
+  async function loadGhostscriptModule(){
+    if(state.ghostscriptModulePromise)return state.ghostscriptModulePromise;
+    state.ghostscriptModulePromise=(async()=>{
+      const sources=[
+        'https://esm.sh/@wasm-zoo/ghostscript@0.7.2?bundle',
+        'https://cdn.jsdelivr.net/npm/@wasm-zoo/ghostscript@0.7.2/+esm'
+      ];
+      const failures=[];
+      for(const source of sources){
+        try{
+          const mod=await withPdfTimeout(import(source),8000,'Chargement du moteur de compression');
+          if(typeof mod.load==='function')return mod.load;
+          throw new Error('Le module chargé ne fournit pas load().');
+        }catch(error){failures.push(String(error?.message||error));}
+      }
+      throw new Error('Le moteur de compression PDF n’a pas pu être chargé dans le délai prévu. Les fragments PDF sources seront conservés. '+failures.join(' | '));
+    })();
+    try{return await state.ghostscriptModulePromise;}
+    catch(error){state.ghostscriptModulePromise=null;throw error;}
+  }
+  async function compressPdfWithGhostscript(bytes){
+    const load=await loadGhostscriptModule();
+    const gs=await withPdfTimeout(Promise.resolve().then(()=>load()),20000,'Initialisation du moteur de compression');
+    try{
+      const result=await withPdfTimeout(Promise.resolve().then(()=>gs.exec([
+        '-dSAFER','-sDEVICE=pdfwrite','-dCompatibilityLevel=1.4','-dPDFSETTINGS=/screen',
+        '-dNOPAUSE','-dQUIET','-dBATCH','-dDetectDuplicateImages=true',
+        '-dCompressFonts=true','-dSubsetFonts=true',
+        '-sOutputFile=/out/aurore-final.pdf','/input.pdf'
+      ],{
+        files:[{name:'/input.pdf',data:asPdfBytes(bytes)}],
+        dirs:['/out'],
+        outputs:['/out/aurore-final.pdf']
+      })),45000,'La compression individuelle dépasse le délai prévu ; le fragment PDF source sera conservé');
+      const output=(result?.files||[]).find(file=>String(file?.name||'').endsWith('aurore-final.pdf')&&file?.data);
+      if(!output)throw new Error('Le moteur n’a fourni aucun PDF compressé.');
+      const compressed=asPdfBytes(output.data);
+      if(!hasPdfSignature(compressed))throw new Error('Le résultat du moteur de compression n’est pas un PDF valide.');
+      return compressed;
+    }finally{try{gs.dispose?.();}catch(_){}}
+  }
+  function asPdfBytes(value){
+    if(value instanceof Uint8Array)return value;
+    if(value instanceof ArrayBuffer)return new Uint8Array(value);
+    if(ArrayBuffer.isView(value))return new Uint8Array(value.buffer,value.byteOffset,value.byteLength);
+    return new Uint8Array(value||[]);
+  }
+  function hasPdfSignature(value){
+    const bytes=asPdfBytes(value);
+    return bytes.byteLength>=5&&String.fromCharCode(bytes[0],bytes[1],bytes[2],bytes[3],bytes[4])==='%PDF-';
+  }
+  function openPdfPartCache(){
+    if(typeof indexedDB==='undefined')return Promise.resolve(null);
+    if(pdfPartCacheDbPromise)return pdfPartCacheDbPromise;
+    pdfPartCacheDbPromise=new Promise(resolve=>{
+      let request;
+      try{request=indexedDB.open(PDF_PART_CACHE_DB,1);}catch(_){resolve(null);return;}
+      request.onupgradeneeded=()=>{
+        const db=request.result;
+        if(!db.objectStoreNames.contains(PDF_PART_CACHE_STORE))db.createObjectStore(PDF_PART_CACHE_STORE,{keyPath:'url'});
+      };
+      request.onsuccess=()=>resolve(request.result);
+      request.onerror=()=>resolve(null);
+      request.onblocked=()=>resolve(null);
+    });
+    return pdfPartCacheDbPromise;
+  }
+  async function readOptimizedPdfPart(url){
+    const key=String(url||'').trim();if(!key)return null;
+    if(pdfPartMemoryCache.has(key))return pdfPartMemoryCache.get(key);
+    const db=await openPdfPartCache();if(!db)return null;
+    return await new Promise(resolve=>{
+      let request;
+      try{request=db.transaction(PDF_PART_CACHE_STORE,'readonly').objectStore(PDF_PART_CACHE_STORE).get(key);}
+      catch(_){resolve(null);return;}
+      request.onsuccess=()=>{
+        const value=request.result;
+        if(!value){resolve(null);return;}
+        resolve({...value,bytes:value.bytes?asPdfBytes(value.bytes):null});
+      };
+      request.onerror=()=>resolve(null);
+    });
+  }
+  async function writeOptimizedPdfPart(record){
+    if(!record?.url)return false;
+    const url=String(record.url),bytes=record.compressed&&record.bytes?asPdfBytes(record.bytes):null;
+    const stored={...record,bytes:bytes?bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength):null};
+    const db=await openPdfPartCache();
+    if(db){
+      const saved=await new Promise(resolve=>{
+        try{
+          const tx=db.transaction(PDF_PART_CACHE_STORE,'readwrite');
+          tx.objectStore(PDF_PART_CACHE_STORE).put(stored);
+          tx.oncomplete=()=>resolve(true);tx.onerror=()=>resolve(false);tx.onabort=()=>resolve(false);
+        }catch(_){resolve(false);}
+      });
+      if(saved){pdfPartMemoryCache.delete(url);return true;}
+    }
+    pdfPartMemoryCache.set(url,{...record,bytes:bytes?new Uint8Array(bytes):null});
+    return false;
+  }
+  async function deleteOptimizedPdfPart(url){
+    const key=String(url||'').trim();if(!key)return;
+    pdfPartMemoryCache.delete(key);
+    const db=await openPdfPartCache();if(!db)return;
+    await new Promise(resolve=>{
+      try{
+        const tx=db.transaction(PDF_PART_CACHE_STORE,'readwrite');
+        tx.objectStore(PDF_PART_CACHE_STORE).delete(key);
+        tx.oncomplete=()=>resolve(true);tx.onerror=()=>resolve(false);tx.onabort=()=>resolve(false);
+      }catch(_){resolve(false);}
+    });
+  }
+  async function fetchOriginalPdfPart(part,timeoutMs=60000){
+    const controller=typeof AbortController==='function'?new AbortController():null;
+    let timer=null;
+    try{
+      const request=fetch(part.url,{cache:'no-store',...(controller?{signal:controller.signal}:{})});
+      const timeout=new Promise((_,reject)=>{
+        timer=setTimeout(()=>{
+          try{controller?.abort();}catch(_){}
+          reject(new Error('Délai dépassé après '+Math.round(timeoutMs/1000)+' s lors du téléchargement de « '+part.label+' ». Le fragment reste intact : relance uniquement la fusion.'));
+        },timeoutMs);
+      });
+      const response=await Promise.race([request,timeout]);
+      if(!response.ok)throw new Error('Impossible de récupérer '+part.label+' (HTTP '+response.status+').');
+      const bytes=await Promise.race([response.arrayBuffer(),timeout]);
+      if(!bytes||bytes.byteLength<5)throw new Error(part.label+' a renvoyé un fichier vide ou trop court pour être un PDF.');
+      return bytes;
+    }catch(error){
+      if(error?.name==='AbortError')throw new Error('Téléchargement interrompu pour « '+part.label+' ». Réessaie la fusion ; les pages générées restent intactes.');
+      throw error;
+    }finally{if(timer)clearTimeout(timer);}
+  }
+  function enqueuePdfCompression(bytes){
+    const task=pdfCompressionQueue.then(()=>compressPdfWithGhostscript(bytes),()=>compressPdfWithGhostscript(bytes));
+    pdfCompressionQueue=task.then(()=>undefined,()=>undefined);
+    return task;
+  }
+  async function optimizePdfPart(part,{force=false}={}){
+    const url=String(part?.url||'').trim(),label=String(part?.label||'fragment PDF');
+    if(!url)return {url,attempted:false,compressed:false,compressionError:'URL du fragment PDF manquante.'};
+    const running=pdfPartOptimizationJobs.get(url);if(running)return running;
+    const job=(async()=>{
+      try{
+        if(force)await deleteOptimizedPdfPart(url);
+        else{
+          const cached=await readOptimizedPdfPart(url);
+          if(cached&&cached.attempted)return cached;
+        }
+        const originalBuffer=await fetchOriginalPdfPart({url,label}),original=asPdfBytes(originalBuffer);
+        if(!hasPdfSignature(original))throw new Error('Le fragment source ne possède pas une signature PDF valide.');
+        const {PDFDocument}=await loadPdfLib();
+        const sourceDocument=await withPdfTimeout(PDFDocument.load(original),20000,'Vérification du PDF source');
+        const pageCount=sourceDocument.getPageCount();
+        if(!pageCount)throw new Error('Le fragment source ne contient aucune page.');
+        let compressedBytes=null,compressionError='',note='';
+        try{
+          const candidate=asPdfBytes(await enqueuePdfCompression(original));
+          if(candidate.byteLength<original.byteLength){
+            if(!hasPdfSignature(candidate))throw new Error('Le résultat de la compression individuelle n’est pas un PDF valide.');
+            const compactDocument=await withPdfTimeout(PDFDocument.load(candidate),20000,'Vérification du PDF compressé');
+            if(compactDocument.getPageCount()!==pageCount)throw new Error('La compression individuelle a modifié la pagination ('+compactDocument.getPageCount()+' au lieu de '+pageCount+').');
+            compressedBytes=candidate;
+          }else note='La compression individuelle n’a pas permis de réduire la taille ; le PDF source est conservé.';
+        }catch(error){compressionError=String(error?.message||error||'Erreur de compression individuelle inconnue').slice(0,240);}
+        const record={url,attempted:true,compressed:!!compressedBytes,bytes:compressedBytes?new Uint8Array(compressedBytes):null,
+          originalSize:original.byteLength,size:compressedBytes?compressedBytes.byteLength:original.byteLength,pageCount,compressionError,note,updatedAt:new Date().toISOString()};
+        await writeOptimizedPdfPart(record);return record;
+      }catch(error){
+        return {url,attempted:false,compressed:false,bytes:null,originalSize:null,size:null,pageCount:null,
+          compressionError:String(error?.message||error||'Optimisation individuelle impossible').slice(0,240),updatedAt:new Date().toISOString()};
+      }
+    })();
+    pdfPartOptimizationJobs.set(url,job);
+    try{return await job;}finally{if(pdfPartOptimizationJobs.get(url)===job)pdfPartOptimizationJobs.delete(url);}
+  }
+  function pdfOptimizationMetadata(result){
+    if(!result)return {status:'pending',compressed:false,error:null};
+    const failed=!!result.compressionError;
+    return {status:result.compressed?'compressed':failed?'original_preserved':result.attempted?'checked':'pending',
+      compressed:!!result.compressed,original_bytes:Number(result.originalSize)||null,optimized_bytes:Number(result.size)||Number(result.originalSize)||null,
+      page_count:Number(result.pageCount)||null,error:failed?String(result.compressionError).slice(0,220):null,updated_at:result.updatedAt||new Date().toISOString()};
+  }
+  async function fetchFinalPdfPart(part,timeoutMs=60000){
+    const cached=await readOptimizedPdfPart(part?.url);
+    if(cached?.compressed&&cached.bytes){const bytes=asPdfBytes(cached.bytes);if(hasPdfSignature(bytes))return bytes;}
+    return await fetchOriginalPdfPart(part,timeoutMs);
+  }
+  async function preparePdfPartCompression(parts){
+    const unique=[],seen=new Set();
+    for(const part of parts||[]){const url=String(part?.url||'').trim();if(url&&!seen.has(url)){seen.add(url);unique.push(part);}}
+    const summary={originalBytes:0,optimizedInputBytes:0,compressedCount:0,unchangedCount:0,errors:[]};
+    for(let i=0;i<unique.length;i++){
+      const part=unique[i];
+      setPdfBatchProgress('Compression individuelle avant fusion · '+(i+1)+'/'+unique.length+' : '+part.label,87+Math.round(((i+1)/Math.max(1,unique.length))*7));
+      setStatus('Contrôle et optimisation individuelle du fragment « '+part.label+' » ('+(i+1)+'/'+unique.length+')…');
+      await new Promise(resolve=>requestAnimationFrame(()=>resolve()));
+      let result;try{result=await optimizePdfPart(part);}catch(error){result={attempted:false,compressed:false,compressionError:String(error?.message||error)};}
+      if(result.compressed){summary.compressedCount++;summary.originalBytes+=Number(result.originalSize)||0;summary.optimizedInputBytes+=Number(result.size)||0;}
+      else{summary.unchangedCount++;summary.originalBytes+=Number(result.originalSize)||0;summary.optimizedInputBytes+=Number(result.originalSize)||0;}
+      if(result.compressionError)summary.errors.push(String(part.label||'Fragment PDF')+': '+String(result.compressionError).slice(0,180));
+    }
+    summary.compressionPercent=summary.originalBytes>0?Math.max(0,Math.round((1-summary.optimizedInputBytes/summary.originalBytes)*100)):0;
+    return summary;
+  }
   async function buildFinalPdfArtifact(parts){
     if(!Array.isArray(parts)||!parts.length)throw new Error('Aucune partie PDF n’est disponible pour la fusion finale.');
     setPdfBatchProgress('Optimisation individuelle des fragments avant fusion…',86);
