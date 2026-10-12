@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: aurora-assisted-pdf-compress-probabilites-demo-retry-v2
+  group: aurora-assisted-pdf-compress-probabilites-demo-retry-v3
   cancel-in-progress: true
 
 jobs:
