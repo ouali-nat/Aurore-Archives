@@ -8,7 +8,7 @@ const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const admin = createClient(URL, SERVICE, { auth: { autoRefreshToken:false, persistSession:false } });
 
 const LOGO_URL = "https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster";
-const MATH_URL = URL + "/functions/v1/aurora-content-math-renderer";
+const MATH_URL = URL + "/functions/v1/aurora-content-math-renderer-preview";
 
 const TEXT_SIZE=11.3;
 const LINE_HEIGHT=16.1;
@@ -202,6 +202,24 @@ function rounded(page:any,x:number,y:number,w:number,h:number,r:number,fill:any,
 }
 function escapePdfText(v:any){return String(v??"").replace(/\u0000/g,"")}
 
+function optimizeWikimediaImageUrl(raw:string,maxWidth=1200):string{
+  try{
+    const url=new URL(raw);
+    if(url.hostname.toLowerCase()!=="upload.wikimedia.org")return raw;
+    const path=url.pathname;
+    const thumb=path.match(/^\/wikipedia\/(commons|[a-z]{2})\/thumb\/(.+)\/(\d+)px-([^/]+)$/i);
+    if(thumb){
+      if(Number(thumb[3])<=maxWidth)return raw;
+      url.pathname=`/wikipedia/${thumb[1]}/thumb/${thumb[2]}/${maxWidth}px-${thumb[4]}`;
+      return url.toString();
+    }
+    const original=path.match(/^\/wikipedia\/(commons|[a-z]{2})\/(.+)\/([^/]+)$/i);
+    if(!original||!/\.(?:jpe?g|png|webp|gif)$/i.test(original[3]))return raw;
+    url.pathname=`/wikipedia/${original[1]}/thumb/${original[2]}/${original[3]}/${maxWidth}px-${original[3]}`;
+    return url.toString();
+  }catch{return raw;}
+}
+
 async function embedRaster(pdf:any,bytes:Uint8Array,label:string){
   if(!bytes||bytes.length<8)throw new Error("Image "+label+" vide.");
   if(bytes[0]===137&&bytes[1]===80){
@@ -222,7 +240,10 @@ async function fetchLogoBytes(){
   return LOGO_BYTES_PROMISE;
 }
 async function loadLogo(pdf:any){
-  return await embedRaster(pdf,await fetchLogoBytes(),"logo Aurore");
+  const bytes=await fetchLogoBytes();
+  const image:any=await embedRaster(pdf,bytes,"logo Aurore");
+  image.__aurore_source_bytes=bytes.length;
+  return image;
 }
 
 async function fetchFontBytes(key:string,url:string){
@@ -242,12 +263,14 @@ async function loadFonts(pdf:any){
     fetchFontBytes("sans",FONT_URLS.sans),
     fetchFontBytes("sansBold",FONT_URLS.sansBold)
   ]);
-  return {
-    regular:await pdf.embedFont(regular,{subset:false}),
-    bold:await pdf.embedFont(bold,{subset:false}),
-    sans:await pdf.embedFont(sans,{subset:false}),
-    sansBold:await pdf.embedFont(sansBold,{subset:false})
+  const embedded:any={
+    regular:await pdf.embedFont(regular,{subset:true}),
+    bold:await pdf.embedFont(bold,{subset:true}),
+    sans:await pdf.embedFont(sans,{subset:true}),
+    sansBold:await pdf.embedFont(sansBold,{subset:true})
   };
+  embedded.__aurore_source_bytes=regular.length+bold.length+sans.length+sansBold.length;
+  return embedded;
 }
 function noteFormulaFailure(qa:any,key:string,reason:string){
   if(!Array.isArray(qa.formula_errors))qa.formula_errors=[];
@@ -384,6 +407,7 @@ async function prepareRuns(runs:Run[],auth:string,pdf:any,fonts:any,qa:any,cache
           try{
             const binary=atob(pngBase64),bytes=new Uint8Array(binary.length);
             for(let j=0;j<binary.length;j++)bytes[j]=binary.charCodeAt(j);
+            qa.asset_bytes.formula_png_source_bytes+=bytes.length;
             const image:any=await pdf.embedPng(bytes);
             image.__aurore_natural_pt_width=Number(result?.natural_pt_width)||0;
             image.__aurore_natural_pt_height=Number(result?.natural_pt_height)||0;
@@ -729,7 +753,7 @@ Deno.serve(async req=>{
     let flowPageNo=pn;
     const color=normalizeHexColor(input.theme_color)||subjectColor(input.subject||input.matiere||docRes.data.metadata?.matiere||"");
     drawSoftDecor(page,color,pn);headerFooter(page,pn,fonts,logo,color);
-    const qa:any={formulas_total:0,formulas_ok:0,formulas_failed:0,formula_errors:[],graphs_total:0,graphs_ok:0,graphs_failed:0,images_total:0,images_ok:0,images_failed:0,scenes_total:0,scenes_ok:0,scenes_failed:0,scene_errors:[]};
+    const qa:any={formulas_total:0,formulas_ok:0,formulas_failed:0,formula_errors:[],graphs_total:0,graphs_ok:0,graphs_failed:0,images_total:0,images_ok:0,images_failed:0,scenes_total:0,scenes_ok:0,scenes_failed:0,scene_errors:[],asset_bytes:{font_source_bytes:Number((fonts as any).__aurore_source_bytes)||0,logo_source_bytes:Number((logo as any).__aurore_source_bytes)||0,formula_png_source_bytes:0,image_source_bytes:0,geogebra_source_bytes:0,total_source_bytes:0}};
     const cache=new Map<string,any>();const X=72,W=449,bottom=67,top=770;let y=top;
     const sections=Array.isArray(input.sections)?input.sections.filter((s:any)=>s&&typeof s==="object"):[];
     const contentItems:any[]=[];const exerciseItems:any[]=[];const graphItems:any[]=[];const imageItems:any[]=[];const vectorSceneItems:any[]=[];
@@ -1040,13 +1064,15 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
       }
     };
     const drawImageBlock=async(image:any,blockId?:any)=>{
-      const url=String(image?.url||image?.imageUrl||"").trim();
+      const url=optimizeWikimediaImageUrl(String(image?.url||image?.imageUrl||"").trim());
       if(!url)return;
       qa.images_total++;
       try{
         const r=await fetch(url,{signal:AbortSignal.timeout(12000)});
         if(!r.ok)throw new Error("HTTP "+r.status);
-        const img=await embedRaster(pdf,new Uint8Array(await r.arrayBuffer()),"illustration");
+        const sourceBytes=new Uint8Array(await r.arrayBuffer());
+        qa.asset_bytes.image_source_bytes+=sourceBytes.length;
+        const img=await embedRaster(pdf,sourceBytes,"illustration");
         const iw=Math.min(450,img.width),ih=iw*(img.height/img.width);
         const h=Math.min(250,ih);
         const w=h===ih?iw:h*(img.width/img.height);
@@ -1071,16 +1097,24 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
     const drawGraphBlock=async(g:any,blockId?:any)=>{
       qa.graphs_total++;
       try{
-        const direct=String(g?.geogebra_image_url||g?.image_url||g?.preview_url||"").trim();
+        const direct=optimizeWikimediaImageUrl(String(g?.geogebra_image_url||g?.image_url||g?.preview_url||"").trim());
         let img:any=null;
         if(direct){
           const r=await fetch(direct,{signal:AbortSignal.timeout(12000)});
-          if(r.ok)img=await embedRaster(pdf,new Uint8Array(await r.arrayBuffer()),"graphique");
+          if(r.ok){
+            const sourceBytes=new Uint8Array(await r.arrayBuffer());
+            qa.asset_bytes.geogebra_source_bytes+=sourceBytes.length;
+            img=await embedRaster(pdf,sourceBytes,"graphique");
+          }
         }else{
           const path=String(g?.geogebra_image_path||g?.graph_local_path||"").trim();
           if(path){
             const dl=await admin.storage.from("Pdfs").download(path);
-            if(!dl.error&&dl.data)img=await embedRaster(pdf,new Uint8Array(await dl.data.arrayBuffer()),"graphique");
+            if(!dl.error&&dl.data){
+              const sourceBytes=new Uint8Array(await dl.data.arrayBuffer());
+              qa.asset_bytes.geogebra_source_bytes+=sourceBytes.length;
+              img=await embedRaster(pdf,sourceBytes,"graphique");
+            }
           }
         }
         if(!img)throw new Error("Asset graphique indisponible");
@@ -1247,7 +1281,7 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
 
     if(!useOrderedAssistedFlow)for(const ex of exerciseItems)await drawExerciseBlock(ex);
     
-    if(!useOrderedAssistedFlow)for(const image of imageItems)await drawImageBlock(image);    if(!useOrderedAssistedFlow)for(const image of imageItems)await drawImageBlock(image);
+    if(!useOrderedAssistedFlow)for(const image of imageItems)await drawImageBlock(image);
 
     // Rail éditorial continu : une seule ligne verticale par page,
     // avec de courts raccords horizontaux vers les titres rencontrés.
@@ -1288,7 +1322,10 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
     if(!useOrderedAssistedFlow)for(const g of graphItems)await drawGraphBlock(g);
     if(!useOrderedAssistedFlow)for(const scene of vectorSceneItems)await drawVectorSceneBlock(scene);
 
-    const bytes=new Uint8Array(await pdf.save({useObjectStreams:false}));
+    qa.asset_bytes.total_source_bytes=qa.asset_bytes.font_source_bytes+qa.asset_bytes.logo_source_bytes+qa.asset_bytes.formula_png_source_bytes+qa.asset_bytes.image_source_bytes+qa.asset_bytes.geogebra_source_bytes;
+    pdf.setSubject("AURORE_ASSET_BYTES:"+JSON.stringify(qa.asset_bytes));
+    const bytes=new Uint8Array(await pdf.save({useObjectStreams:true}));
+    qa.asset_bytes.final_pdf_bytes=bytes.length;
     const path="aurora-content-pages/"+userId+"/"+id+"/page-"+String(pn).padStart(4,"0")+".pdf";
     const up=await admin.storage.from("Pdfs").upload(path,bytes,{contentType:"application/pdf",upsert:true});
     if(up.error)return out({ok:false,generated_document_id:id,page_number:pn,error:up.error.message},500);
@@ -1314,7 +1351,8 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
     return out({
       ok:true,mode:"instant-page",engine:"pdf-lib-course-page-v2",
       generated_document_id:id,page_number:pn,page_path:path,page_url:pageUrl,
-      bytes:bytes.length,page_count:flowPageNo-pn+1,flow_page_map:flowPageMap,flow_page_end_map:flowPageEndMap,qa
+      bytes:bytes.length,size_mib:Number((bytes.length/1048576).toFixed(2)),target_max_bytes:4*1024*1024,within_4_mib:bytes.length<=4*1024*1024,
+      asset_breakdown:qa.asset_bytes,page_count:flowPageNo-pn+1,flow_page_map:flowPageMap,flow_page_end_map:flowPageEndMap,qa
     });
   }catch(e){
     return out({ok:false,generated_document_id:id,page_number:pn,error:e instanceof Error?e.message:String(e)},409);
