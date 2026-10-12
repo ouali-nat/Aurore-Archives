@@ -1191,7 +1191,7 @@
       try{
         rebuildTocEntries();
         await persistCourse(true,false);
-        await prepareSystemPreview({force:true});
+        await prepareSystemPreview({force:false});
       }catch(error){
         addFailure('Pages système : '+String(error?.message||error));
       }
@@ -1592,7 +1592,7 @@
       }
       return;
     }
-    await generateBlock(ref);
+    await generateBlock(ref,{forceSingleBlock:true});
   }
 
   async function blockDownloadPartsThrough(targetBlock,mode='current'){
@@ -3173,6 +3173,9 @@
     const flowOwner=flowGroup[0]||b;
     const forceSingleBlock=options?.forceSingleBlock===true;
     const skipCpuFallback=options?.skipCpuFallback===true;
+    // Garder l'état des PDF déjà confirmés avant de commencer une nouvelle tentative.
+    // Un échec CPU du flux ne doit pas invalider les fragments qui existaient déjà.
+    const priorGenerationSnapshot=new Map(flowGroup.map(part=>[String(part?.id||''),clone(part?.generation||{})]));
     // Après un HTTP 546, isoler le point/la section au prochain essai :
     // reconstruire tout le flux contigu répète le calcul coûteux et peut
     // faire échouer à nouveau une page pourtant rendable seule.
@@ -3407,8 +3410,26 @@
       }
       const cpuLimitFailure=/(?:CPU_TIME_LIMIT_EXCEEDED|CPU\s+Time\s+exceeded|CPU\s+time\s+limit|HTTP\s*546)/i.test(msg);
       if(!skipCpuFallback&&!isFlowCompanion&&flowGroup.length>1&&cpuLimitFailure){
-        const retryIds=flowGroup.map(part=>String(part?.id||'')).filter(Boolean);
+        const retryIds=[];
         flowGroup.forEach(part=>{
+          const partId=String(part?.id||'');
+          if(!partId)return;
+          const prior=priorGenerationSnapshot.get(partId)||{};
+          const hasReusablePdf=String(prior.status||'').toLowerCase()==='ready'
+            &&!!String(prior.page_url||'').trim();
+          if(hasReusablePdf){
+            // Le PDF confirmé est conservé même si le rendu regroupé échoue.
+            part.generation={
+              ...prior,
+              status:'ready',
+              progress:100,
+              progress_label:'PDF existant conservé après limite CPU',
+              error:null,
+              updated_at:new Date().toISOString()
+            };
+            return;
+          }
+          retryIds.push(partId);
           part.generation={
             ...(part.generation||{}),
             status:'error',
@@ -3422,6 +3443,10 @@
         });
         await persistCourse(true);
         renderWorkspace();
+        if(!retryIds.length){
+          setStatus('Le flux complet a dépassé la limite CPU ; les PDF déjà prêts ont été conservés. Aucune régénération inutile n’a été lancée. Le contrôle final indiquera uniquement les pages réellement manquantes.');
+          return;
+        }
         const failedLabels=[];
         let successCount=0;
         for(let i=0;i<retryIds.length;i++){
