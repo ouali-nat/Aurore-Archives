@@ -743,8 +743,13 @@
               &&actualIds.length===expectedIds.length
               &&expectedIds.every((expected,index)=>actualIds[index]===expected)
               &&generationIsReady(ownerGeneration);
-            if(!canonical){
-              const detail='Couverture PDF incohérente : '+expectedIds.length+' bloc(s) attendus, '+actualIds.length+' confirmé(s).';
+            const readyFragments=checkGroup.every(part=>{
+              const generation=part?.generation||{};
+              return String(generation.status||'').toLowerCase()==='ready'
+                &&!!String(generation.page_url||'').trim();
+            })&&new Set(checkGroup.map(part=>String(part?.generation?.page_url||'').trim())).size===checkGroup.length;
+            if(!canonical&&!readyFragments){
+              const detail='Couverture PDF incohérente : '+expectedIds.length+' bloc(s) attendus, '+actualIds.length+' confirmé(s), et tous les fragments indépendants ne sont pas prêts.';
               addFailure('Séquence « '+titleFor(stillExists)+' » : '+detail);
               markGroupError(checkGroup,detail);
               await persistCourse(true,false);
