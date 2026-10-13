@@ -2035,7 +2035,10 @@
         }
       };
     });
-    root().querySelectorAll('[data-preview-block]').forEach(x=>x.onclick=()=>previewBlock(x.dataset.previewBlock));
+    root().querySelectorAll('[data-preview-block]').forEach(x=>x.onclick=async()=>{
+      try{await previewBlock(x.dataset.previewBlock);}
+      catch(e){setStatus('Prévisualisation impossible : '+String(e?.message||e||'erreur inconnue'));}
+    });
     root().querySelectorAll('[data-download-block]').forEach(x=>x.onclick=async()=>{
       const b=activeBlocks().find(v=>String(v.id)===String(x.dataset.downloadBlock));
       if(!b)return;
@@ -2382,24 +2385,63 @@
   }
 
   function loadPdfJsForAssistedPreview(){
-    if(typeof pdfjsLib!=='undefined'){
-      try{pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'}catch(_){}
-      return Promise.resolve(pdfjsLib);
-    }
+    const configure=lib=>{
+      try{
+        const worker=window.__AURORE_PDFJS_ASSISTED_WORKER
+          ||'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        lib.GlobalWorkerOptions.workerSrc=worker;
+      }catch(_){}
+      return lib;
+    };
+    if(typeof pdfjsLib!=='undefined')return Promise.resolve(configure(pdfjsLib));
     if(window.__AURORE_PDFJS_ASSISTED_PROMISE)return window.__AURORE_PDFJS_ASSISTED_PROMISE;
     window.__AURORE_PDFJS_ASSISTED_PROMISE=new Promise((resolve,reject)=>{
-      const script=document.createElement('script');
-      script.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-      script.async=true;
-      script.onload=()=>{
-        try{pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'}catch(_){}
-        resolve(pdfjsLib);
+      const sources=[
+        {script:'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',worker:'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'},
+        {script:'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js',worker:'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js'},
+        {script:'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js',worker:'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'}
+      ];
+      const failures=[];
+      let index=0;
+      const tryNext=()=>{
+        if(index>=sources.length){
+          window.__AURORE_PDFJS_ASSISTED_PROMISE=null;
+          reject(new Error('PDF.js indisponible sur les trois sources de secours. '+failures.join(' | ')));
+          return;
+        }
+        const source=sources[index++];
+        const script=document.createElement('script');
+        let settled=false;
+        const finish=error=>{
+          if(settled)return;
+          settled=true;
+          clearTimeout(timer);
+          script.onload=null;
+          script.onerror=null;
+          if(error){
+            failures.push(String(error.message||error));
+            script.remove();
+            tryNext();
+            return;
+          }
+          if(typeof pdfjsLib==='undefined'){
+            failures.push('La bibliothèque ne s’est pas initialisée depuis '+new URL(source.script).hostname);
+            script.remove();
+            tryNext();
+            return;
+          }
+          window.__AURORE_PDFJS_ASSISTED_WORKER=source.worker;
+          resolve(configure(pdfjsLib));
+        };
+        const timer=setTimeout(()=>finish(new Error('Délai dépassé sur '+new URL(source.script).hostname)),4500);
+        script.src=source.script;
+        script.async=true;
+        script.crossOrigin='anonymous';
+        script.onload=()=>finish();
+        script.onerror=()=>finish(new Error('Échec réseau sur '+new URL(source.script).hostname));
+        document.head.appendChild(script);
       };
-      script.onerror=()=>{
-        window.__AURORE_PDFJS_ASSISTED_PROMISE=null;
-        reject(new Error('PDF.js indisponible.'));
-      };
-      document.head.appendChild(script);
+      tryNext();
     });
     return window.__AURORE_PDFJS_ASSISTED_PROMISE;
   }
@@ -2561,7 +2603,13 @@
       }
       if(expandedPdfUrls.has(step.url))continue;
       expandedPdfUrls.add(step.url);
-      const count=await assistedPdfPageCount(step.url);
+      let count=1;
+      try{count=await assistedPdfPageCount(step.url);}
+      catch(error){
+        // Un ancien PDF inaccessible ou un CDN PDF.js bloqué ne doit pas
+        // empêcher l’ouverture de l’aperçu du bloc courant.
+        console.warn('[Aurore aperçu] Nombre de pages indisponible ; aperçu poursuivi avec une page.',error);
+      }
       const base=Number(step.number||1);
       const isFlow=generationHasFlow(step.source?.generation)||Number(step.source?.generation?.page_count||0)>1;
       const limit=isFlow?Math.min(count,Math.max(1,targetThroughPage-base+1)):Math.min(count,1);
