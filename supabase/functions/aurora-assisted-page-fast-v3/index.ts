@@ -500,7 +500,7 @@ function drawInlineLines(page:any,lines:any[],x:number,topY:number,width:number,
         cx+=token.width;
       }else{
         const bh=Math.max(20,token.height||20),outerW=Math.max(24,token.width||24),by=lineCenter-bh/2;
-        
+        rounded(page,cx,by,outerW,bh,6,rgbHex("#FBFBFC"),rgbHex("#C7C9D0"),0.45);
         if(token.pdfPage){
           page.drawPage(token.pdfPage,{x:cx+boxPadX,y:lineCenter-(token.drawH||12)/2,width:token.drawW||outerW-2*boxPadX,height:token.drawH||bh-2*boxPadY});
         }else{
@@ -670,7 +670,7 @@ function displayMathMetrics(run:Run,width:number){
 }
 function drawDisplayMath(page:any,run:Run,x:number,topY:number,width:number,color:string){
   const m=displayMathMetrics(run,width),cardW=m.cardW,cardH=m.cardH,x0=x+(width-cardW)/2,y0=topY-cardH;
-  
+  rounded(page,x0,y0,cardW,cardH,7,rgbHex("#FBFBFC"),rgbHex("#C7C9D0"),0.5);
   if(run.pdfPage){
     page.drawPage(run.pdfPage,{x:x0+(cardW-m.drawW)/2,y:y0+(cardH-m.drawH)/2,width:m.drawW,height:m.drawH});
   }else{
@@ -902,7 +902,7 @@ const newFlowPage=()=>{
               page.drawCircle({x:572,y:ruleY,size:2.4,color:rgbHex(mixWhite(accent,0.12))});
               pointAnchors.push({page,y:titleY,x:titleX,color:titleAccent,topY:y-titleH,bottomY:bodyY,ruleY,boxX:bodyX,boxW:bodyW});
             }
-            
+            rounded(page,bodyX,bodyY,bodyW,bodyH,11,rgbHex("#F7F7F9"),rgbHex("#D0D1D6"),0.5);
 let childY=bodyY+bodyH-BOX_PAD_TOP;
            for(const item of fragment){
              if(item.kind==="inline"){
