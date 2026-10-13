@@ -3160,12 +3160,65 @@
     // Preview et production doivent valider exactement le même moteur et le même contrat.
     return SUPABASE_URL+'/functions/v1/aurora-assisted-page-v3';
   }
+  function syncBlockEditorBeforeGenerate(b){
+    const ui=root();
+    if(!ui||!b)return;
+    const field=Array.from(ui.querySelectorAll('[data-edit-text]'))
+      .find(el=>String(el.dataset.editText||'')===String(b.id));
+    if(b.type==='paragraph'){
+      if(field){
+        let value=String(field.value??'');
+        const trimmed=value.trim();
+        // If a complete paragraph object was pasted into the text field,
+        // extract its content instead of storing the JSON document as prose.
+        if(trimmed.startsWith('{')&&trimmed.endsWith('}')){
+          try{
+            const parsed=JSON.parse(trimmed);
+            if(parsed&&typeof parsed==='object'&&String(parsed.type||'').toLowerCase()==='paragraph'){
+              const inner=parsed.content;
+              if(typeof inner==='string')value=inner;
+              else if(inner&&typeof inner==='object')value=String(inner.text??inner.content??inner.body??value);
+            }
+          }catch(_){}
+        }
+        b.content={...(b.content&&typeof b.content==='object'&&!Array.isArray(b.content)?b.content:{}),text:value};
+      }else if(typeof b.content==='string'){
+        b.content={text:b.content};
+      }else if(b.content&&typeof b.content==='object'&&!Array.isArray(b.content)
+        &&typeof b.content.text!=='string'
+        &&(typeof b.content.content==='string'||typeof b.content.body==='string')){
+        b.content={...b.content,text:String(b.content.content??b.content.body)};
+      }
+    }
+  }
+
   async function generateBlock(id,options={}){
     ensureCourseStructure(state.course);
     const b=activeBlocks().find(x=>x.id===id);if(!b)return;
+    // Synchronize the visible editor before validation; mobile paste/blur can
+    // otherwise leave stale empty state and make the button appear inert.
+    syncBlockEditorBeforeGenerate(b);
     if(isSystemBlock(b)){setStatus('Les pages de début et de fin sont automatiques : seule une page de contenu centrale peut être générée ici.');return;}
     if(['graphique','vector-scene','fiche-revision'].includes(b.type)&&b.jsonEditorInvalid){setStatus('JSON invalide. Corrige-le avant de générer la page.');return;}
-    const v=validateBlock(b);if(!v.ok){renderWorkspace();setStatus('Bloc invalide : corrige les éléments signalés.');return;}
+    const v=validateBlock(b);
+    if(!v.ok){
+      // Do not rebuild the whole workspace on validation failure: that destroys
+      // the active textarea and looks like the generate button ignored the click.
+      const ui=root();
+      const card=Array.from(ui?.querySelectorAll('[data-block]')||[])
+        .find(el=>String(el.dataset.block||'')===String(b.id));
+      if(card){
+        const head=card.querySelector('.ae-block-head');
+        const small=head?.querySelector('small');
+        const badge=head?.querySelector('.ae-block-state');
+        if(small)small.textContent='À valider';
+        if(badge){badge.classList.toggle('ok',false);badge.classList.toggle('bad',true);badge.textContent='À corriger';}
+        const errors=card.querySelector('.ae-block-errors');
+        if(errors)errors.innerHTML=v.errors.map(x=>'• '+esc(x)).join('<br>');
+      }
+      setStatus('Bloc invalide : '+v.errors.join(' '));
+      return;
+    }
 
     // Un seul bloc propriétaire génère un flux contigu. Cliquer un bloc compagnon
     // ne recrée jamais le même PDF : on réutilise le propriétaire du flux.
