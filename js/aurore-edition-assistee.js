@@ -128,8 +128,9 @@
     // content.text. Normaliser à l’ouverture évite le faux message « paragraphe vide »
     // et empêche la prévisualisation/la génération d’écraser ce texte par une chaîne vide.
     for(const b of middle){
-      if(String(b?.type||'').toLowerCase()==='paragraph'){
-        b.content=normalizeContent('paragraph',b.content);
+      const type=String(b?.type||'').toLowerCase();
+      if(type==='paragraph'||type==='point'){
+        b.content=normalizeContent(type,b.content);
       }
     }
     course.blocks=[start,...middle,end];
@@ -1361,7 +1362,26 @@
     const x=v&&typeof v==='object'&&!Array.isArray(v)?clone(v):(type==='paragraph'&&typeof v==='string'?{text:v}:{});
     if(['graphique','vector-scene','fiche-revision'].includes(type)) return {json:x};
     if(type==='paragraph') return {text:String(x.text??x.content??x.body??'')};
-    if(type==='point') return {title:String(x.title??x.name??'Point de cours'),text:String(x.text??x.content??x.body??''),color:normalizePointColor(x.color),rank:Number.isFinite(Number(x.rank))?Number(x.rank):1};
+    if(type==='point') {
+      let text=String(x.text??x.content??x.body??'');
+      // Un JSON complet a parfois été collé dans le champ texte d'un point.
+      // Le déballer à l'ouverture pour éviter d'imprimer le JSON/les antislashs
+      // échappés, tout en conservant le titre et le rang du bloc extérieur.
+      const trimmed=text.trim();
+      if(trimmed.startsWith('{')&&trimmed.endsWith('}')){
+        try{
+          const nested=JSON.parse(trimmed);
+          if(nested&&typeof nested==='object'&&!Array.isArray(nested)
+            &&typeof nested.text==='string'
+            &&(String(nested.type||'').toLowerCase()==='point'
+              ||Number.isFinite(Number(nested.rank))
+              ||String(nested.title||'').trim())){
+            text=nested.text;
+          }
+        }catch(_){}
+      }
+      return {title:String(x.title??x.name??'Point de cours'),text,color:normalizePointColor(x.color),rank:Number.isFinite(Number(x.rank))?Number(x.rank):1};
+    }
     if(type==='exercise') return {title:String(x.title??x.name??'Exercice 1'),statement:String(x.statement??x.question??x.enonce??x.content??''),hint:String(x.hint??''),correction_title:String(x.correction_title??x.correctionTitle??'Corrigé 1'),correction:String(x.correction??'')};
     if(type==='wikimedia-image') return {
       imageUrl:String(x.imageUrl??x.url??''),
