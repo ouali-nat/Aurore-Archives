@@ -64,8 +64,15 @@ Deno.serve(async req=>{
       }
     }catch(vectorError){console.warn("Formule vectorielle indisponible; repli raster.",vectorError)}
     if(!result){
-      qa.formulas_failed++;
-      throw Error("Rendu LaTeX vectoriel indisponible : la page est interrompue plutôt que de remplacer une formule par une image raster.");
+      try{
+        const r=await fetch(MATH,{method:"POST",headers:{Authorization:auth,"Content-Type":"application/json"},body:JSON.stringify({formula:k,raster_scale:3}),signal:AbortSignal.timeout(25000)});
+        let z:any;try{z=await r.json()}catch{z=null}
+        if(!r.ok||!z?.ok||!z.png_base64)throw Error(z?.error||"Rendu mathématique indisponible");
+        const u=decodeBase64(String(z.png_base64));
+        const im=await pdf.embedPng(u);
+        qa.asset_bytes.formula_png_source_bytes+=u.length;
+        result={image:im,displayWidth:Number(z.natural_pt_width)||Math.max(1,im.width/4),displayHeight:Number(z.natural_pt_height)||Math.max(1,im.height/4),vector:false};
+      }catch(rasterError){qa.formulas_failed++;console.error("Formule impossible à rendre, même en repli raster.",rasterError);return null}
     }
     cache.set(cacheKey,result);qa.formulas_ok++;return result;
   }
@@ -93,6 +100,6 @@ Deno.serve(async req=>{
   const up=await admin.storage.from("Pdfs").upload(path,out,{contentType:"application/pdf",upsert:true});if(up.error)return json({ok:false,error:up.error.message},500);
   const signed=await admin.storage.from("Pdfs").createSignedUrl(path,60*60*24*7);
   if(signed.error)return json({ok:false,error:signed.error.message},500);
-  return json({ok:true,generated_document_id:id,page_number:pn,page_path:path,page_url:signed.data?.signedUrl||null,bytes:out.length,size_mib:Number((out.length/1048576).toFixed(2)),target_max_bytes:4*1024*1024,within_4_mib:out.length<=4*1024*1024,asset_breakdown:qa.asset_bytes,qa,engine:"pdf-lib+fontkit+Tinos+MathJax-vector-only-page-v6"});
+  return json({ok:true,generated_document_id:id,page_number:pn,page_path:path,page_url:signed.data?.signedUrl||null,bytes:out.length,size_mib:Number((out.length/1048576).toFixed(2)),target_max_bytes:4*1024*1024,within_4_mib:out.length<=4*1024*1024,asset_breakdown:qa.asset_bytes,qa,engine:"pdf-lib+fontkit+Tinos+MathJax-vector-page-v5"});
  }catch(e){return json({ok:false,generated_document_id:id,page_number:pn,error:e instanceof Error?e.message:String(e)},500)}
 });
