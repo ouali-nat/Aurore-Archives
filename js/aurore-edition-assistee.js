@@ -123,6 +123,15 @@
     const start=blocks.find(b=>b?.role===START_ROLE)||systemBlock(START_ROLE,course.title);
     const end=blocks.find(b=>b?.role===END_ROLE)||systemBlock(END_ROLE,course.title);
     const middle=blocks.filter(b=>b?.role!==START_ROLE&&b?.role!==END_ROLE);
+    // Les anciens blocs éditoriaux peuvent encore stocker un paragraphe comme
+    // une chaîne directe dans content, alors que l’éditeur et le renderer lisent
+    // content.text. Normaliser à l’ouverture évite le faux message « paragraphe vide »
+    // et empêche la prévisualisation/la génération d’écraser ce texte par une chaîne vide.
+    for(const b of middle){
+      if(String(b?.type||'').toLowerCase()==='paragraph'){
+        b.content=normalizeContent('paragraph',b.content);
+      }
+    }
     course.blocks=[start,...middle,end];
     normalizeDuplicateBlockIds(course);
     ensureDefaultIntroduction(course);
@@ -1349,7 +1358,7 @@
   }
 
   function normalizeContent(type,v){
-    const x=v&&typeof v==='object'&&!Array.isArray(v)?clone(v):{};
+    const x=v&&typeof v==='object'&&!Array.isArray(v)?clone(v):(type==='paragraph'&&typeof v==='string'?{text:v}:{});
     if(['graphique','vector-scene','fiche-revision'].includes(type)) return {json:x};
     if(type==='paragraph') return {text:String(x.text??x.content??x.body??'')};
     if(type==='point') return {title:String(x.title??x.name??'Point de cours'),text:String(x.text??x.content??x.body??''),color:normalizePointColor(x.color),rank:Number.isFinite(Number(x.rank))?Number(x.rank):1};
