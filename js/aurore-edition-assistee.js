@@ -3442,6 +3442,9 @@
           course_title:state.course.title,
           block_id:b.id,
           page_number:pageNumberFor(b),
+          // Le renderer serveur ne reconstruit le flux transmis que si ce drapeau est explicite.
+          // Le bloc propriétaire porte déjà flow_blocks via flowRenderBlockFor().
+          include_adjacent_blocks:!isFlowCompanion,
           single_block:isFlowCompanion,
           block:isFlowCompanion?clone(b):flowRenderBlockFor(b.id),
           theme_color:normalizeThemeColor(state.course.theme_color)
