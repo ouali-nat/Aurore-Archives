@@ -3166,12 +3166,20 @@
     const field=Array.from(ui.querySelectorAll('[data-edit-text]'))
       .find(el=>String(el.dataset.editText||'')===String(b.id));
     if(b.type==='paragraph'){
-      if(field){
-        let value=String(field.value??'');
-        const trimmed=value.trim();
-        // If a complete paragraph object was pasted into the text field,
-        // extract its content instead of storing the JSON document as prose.
-        if(trimmed.startsWith('{')&&trimmed.endsWith('}')){
+      let value=field?String(field.value??''):'';
+      if(!value.trim()&&typeof b.content==='string')value=b.content;
+      if(!value.trim()&&b.content&&typeof b.content==='object'&&!Array.isArray(b.content)){
+        value=String(b.content.text??b.content.content??b.content.body??'');
+      }
+      const trimmed=value.trim();
+      // A complete paragraph JSON pasted into the text area is not paragraph
+      // prose. Read its raw content field first so LaTeX backslashes such as
+      // \\nu, \\frac and \\lambda are preserved even if the JSON was malformed.
+      if(trimmed.startsWith('{')&&trimmed.endsWith('}')){
+        const rawContent=trimmed.match(/"content"\s*:\s*"([\s\S]*?)"\s*(?=,\s*"[A-Za-z_][\w-]*"\s*:|\}\s*$)/);
+        if(rawContent){
+          value=rawContent[1].replace(/\\\\/g,'\\').replace(/\\"/g,'"');
+        }else{
           try{
             const parsed=JSON.parse(trimmed);
             if(parsed&&typeof parsed==='object'&&String(parsed.type||'').toLowerCase()==='paragraph'){
@@ -3181,14 +3189,8 @@
             }
           }catch(_){}
         }
-        b.content={...(b.content&&typeof b.content==='object'&&!Array.isArray(b.content)?b.content:{}),text:value};
-      }else if(typeof b.content==='string'){
-        b.content={text:b.content};
-      }else if(b.content&&typeof b.content==='object'&&!Array.isArray(b.content)
-        &&typeof b.content.text!=='string'
-        &&(typeof b.content.content==='string'||typeof b.content.body==='string')){
-        b.content={...b.content,text:String(b.content.content??b.content.body)};
       }
+      b.content={...(b.content&&typeof b.content==='object'&&!Array.isArray(b.content)?b.content:{}),text:value};
     }
   }
 
