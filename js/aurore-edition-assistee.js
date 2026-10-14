@@ -611,8 +611,8 @@
     return size.toLocaleString('fr-FR',{maximumFractionDigits:1})+' '+units[index];
   }
   function finalPdfArtifactDescription(artifact){
-    const pages=Number(artifact?.pageCount)||0,size=formatPdfSize(artifact?.size);
-    return 'PDF complet fusionné et vérifié sur le serveur · '+pages+' page(s) · '+size+'. La fusion ne télécharge ni les pages individuelles ni un moteur de compression sur le téléphone.';
+    const pages=Number(artifact?.pageCount)||0,size=formatPdfSize(artifact?.size),sources=Number(artifact?.fragmentBytes)||0;
+    return 'PDF complet fusionné et vérifié sur le serveur · '+pages+' page(s) · '+size+'. Les fragments sources ('+formatPdfSize(sources)+') restent sur Supabase pendant la fusion : ils ne sont plus téléchargés sur le téléphone pour cette étape.';
   }
   function finalPdfFingerprint(parts){
     const pages=state.canonicalPreview?.pages||{};
