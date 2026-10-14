@@ -95,14 +95,14 @@ Deno.serve(async (req: Request) => {
 
     let body: any;
     try { body = await req.json(); } catch { return json({ ok: false, error: "JSON invalide." }, 400); }
-    if (!Array.isArray(body?.page_paths) || body.page_paths.length < 1) {
-      return json({ ok: false, error: "La liste des pages PDF est vide." }, 400);
+    if (!Array.isArray(body?.page_paths) || body.page_urls.length < 1) {
+      return json({ ok: false, error: "La liste des URL de pages PDF est vide." }, 400);
     }
-    if (body.page_paths.length > 200) return json({ ok: false, error: "Trop de fragments PDF (maximum 200)." }, 400);
+    if (body.page_urls.length > 200) return json({ ok: false, error: "Trop de fragments PDF (maximum 200)." }, 400);
 
     const paths: string[] = [];
     const seen = new Set<string>();
-    for (const input of body.page_paths) {
+    for (const input of body.page_urls) {
       const fromUrl = storagePathFromSignedUrl(input);
       const path = safePdfPath(fromUrl, userId);
       if (!seen.has(path)) { seen.add(path); paths.push(path); }
@@ -125,7 +125,7 @@ Deno.serve(async (req: Request) => {
     const merged = await PDFDocument.create();
     let fragmentBytes = 0;
     let pageCount = 0;
-    const fragmentSizes: Array<{ path: string; bytes: number; pages: number }> = [];
+    
 
     for (let index = 0; index < paths.length; index++) {
       const path = paths[index];
@@ -142,7 +142,7 @@ Deno.serve(async (req: Request) => {
       const copied = await merged.copyPages(source, indices);
       copied.forEach((page) => merged.addPage(page));
       pageCount += copied.length;
-      fragmentSizes.push({ path, bytes: bytes.length, pages: copied.length });
+
     }
 
     const finalBytes = new Uint8Array(await merged.save({ useObjectStreams: true }));
@@ -175,7 +175,6 @@ Deno.serve(async (req: Request) => {
       page_count: pageCount,
       fragments: paths.length,
       fragment_bytes: fragmentBytes,
-      fragment_sizes: fragmentSizes,
       engine: "server-side-pdf-lib-merge-v1",
     });
   } catch (error) {
