@@ -114,7 +114,29 @@ Deno.serve(async req=>{
   }
 
   try{
-    const b=await req.json(), action=String(b?.action||"upload");
+    let b: any;
+    let directPng: Blob | null = null;
+    const incomingType = String(req.headers.get("content-type") || "").toLowerCase();
+    if (incomingType.includes("multipart/form-data")) {
+      const form = await req.formData();
+      const graphRaw = String(form.get("graph") || "");
+      let parsedGraph: any = null;
+      try { parsedGraph = graphRaw ? JSON.parse(graphRaw) : null; }
+      catch { return json({ error: "JSON GeoGebra invalide" }, 400); }
+      const pngPart = form.get("png");
+      if (pngPart && typeof pngPart === "object" && "arrayBuffer" in pngPart && "size" in pngPart) {
+        directPng = pngPart as Blob;
+      }
+      b = {
+        action: String(form.get("action") || "upload"),
+        course_id: String(form.get("course_id") || ""),
+        block_id: String(form.get("block_id") || ""),
+        graph: parsedGraph
+      };
+    } else {
+      b = await req.json();
+    }
+    const action=String(b?.action||"upload");
     if(serverMode&&action!=="server-upload"&&action!=="prepare"&&action!=="register-validation"&&action!=="get-editorial"&&action!=="list-editorial-jobs") return json({error:"Action serveur GeoGebra non autorisée"},403);
 
     if(action==="upload-assisted-graph"){
@@ -127,9 +149,19 @@ Deno.serve(async req=>{
       const {data:course,error:courseError}=await admin.from("aurora_assisted_courses").select("id,created_by").eq("id",courseId).eq("created_by",userId).maybeSingle();
       if(courseError) throw new Error("Vérification du cours impossible: "+courseError.message);
       if(!course) return json({error:"Cours introuvable ou accès refusé"},404);
-      const bytes=decodeBase64(String(b?.png_base64||""));
+      let bytes: Uint8Array;
+      if (directPng) {
+        if (directPng.type && directPng.type.toLowerCase() !== "image/png") {
+          return json({ error: "Le fichier GeoGebra doit être un PNG" }, 400);
+        }
+        if (directPng.size > 12 * 1024 * 1024) return json({ error: "PNG GeoGebra trop volumineux" }, 413);
+        bytes = new Uint8Array(await directPng.arrayBuffer());
+      } else {
+        // Ancien format JSON/Base64 conservé pour compatibilité avec les éditeurs encore en cache.
+        bytes = decodeBase64(String(b?.png_base64||""));
+      }
       if(bytes.length>12*1024*1024) return json({error:"PNG GeoGebra trop volumineux"},413);
-      if(bytes[0]!==137||bytes[1]!==80||bytes[2]!==78||bytes[3]!==71) return json({error:"Le fichier GeoGebra doit être un PNG"},400);
+      if(bytes.length<8||bytes[0]!==137||bytes[1]!==80||bytes[2]!==78||bytes[3]!==71||bytes[4]!==13||bytes[5]!==10||bytes[6]!==26||bytes[7]!==10) return json({error:"Le fichier GeoGebra doit être un PNG valide"},400);
       const safeBlockId=blockId.replace(/[^A-Za-z0-9_-]/g,"-").slice(0,100)||"graph";
       const path="aurora-content/"+userId+"/assisted/"+courseId+"/blocks/"+safeBlockId+"/graph-"+Date.now()+".png";
       const up=await admin.storage.from("Pdfs").upload(path,bytes,{contentType:"image/png",cacheControl:"31536000",upsert:false});
