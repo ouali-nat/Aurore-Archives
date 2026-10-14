@@ -104,6 +104,35 @@ Deno.serve(async (req: Request) => {
     }
     if (body.page_urls.length > 200) return json({ ok: false, error: "Trop de fragments PDF (maximum 200)." }, 400);
 
+    // Compatibilité avec les anciennes versions de l’éditeur encore en cache :
+    // toute requête legacy de fusion est transférée à Vercel, jamais exécutée
+    // dans le worker Edge limité en mémoire.
+    if (action === "merge") {
+      try {
+        const response = await fetch("https://aurore-section-archives.com/api/aurora-assisted-pdf-finalize", {
+          method: "POST",
+          headers: {
+            "Authorization": authorization,
+            "apikey": req.headers.get("apikey") || ANON_KEY,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ page_urls: body.page_urls }),
+        });
+        const responseBody = await response.text();
+        return new Response(responseBody, {
+          status: response.status,
+          headers: {
+            ...CORS,
+            "Content-Type": response.headers.get("Content-Type") || "application/json",
+            "Cache-Control": "no-store",
+          },
+        });
+      } catch (proxyError) {
+        console.error("Legacy merge proxy to Vercel failed:", proxyError);
+        return json({ ok: false, error: "Le service de fusion serveur est momentanément indisponible. Les fragments restent disponibles ; ne relance pas leur génération." }, 502);
+      }
+    }
+
     const paths: string[] = [];
     const seen = new Set<string>();
     for (const input of body.page_urls) {
