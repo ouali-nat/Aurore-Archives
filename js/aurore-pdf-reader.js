@@ -727,6 +727,90 @@
     }
   }
 
+  // Stockage natif : dans l’application, un lien <a download> vers un Blob
+  // n’assure pas l’écriture du fichier sur Android. On passe donc par les
+  // plugins Capacitor installés ; le partage permet ensuite de l’exporter vers
+  // Téléchargements ou un gestionnaire de fichiers.
+  function pluginsCapacitorPourFichiers() {
+    const C = window.Capacitor;
+    if (!C || typeof C.isNativePlatform !== 'function' || !C.isNativePlatform()) return null;
+    const P = C.Plugins || {};
+    return P.Filesystem && typeof P.Filesystem.writeFile === 'function' ? P : null;
+  }
+
+  function blobEnBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || '').split(',')[1] || '');
+      reader.onerror = () => reject(reader.error || new Error('Lecture du fichier temporaire impossible.'));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function enregistrerBlobPDFSurAppareil(blob, nomFichier) {
+    const P = pluginsCapacitorPourFichiers();
+    if (!P) return null;
+
+    const nomSecurise = String(nomFichier || 'Document.pdf')
+      .replace(/[\\/:*?"<>|]+/g, '_')
+      .replace(/[\u0000-\u001F]+/g, '')
+      .trim() || 'Document.pdf';
+    const donnees = await blobEnBase64(blob);
+    if (!donnees) throw new Error('Le PDF à enregistrer est vide.');
+
+    let fichier;
+    let emplacement = 'Documents/Aurore';
+    try {
+      fichier = await P.Filesystem.writeFile({
+        path: 'Aurore/' + nomSecurise,
+        data: donnees,
+        directory: 'DOCUMENTS',
+        recursive: true
+      });
+    } catch (erreurDocuments) {
+      console.warn('[Téléchargement PDF] Écriture Documents impossible ; essai dans le cache.', erreurDocuments);
+      emplacement = 'cache de l’application';
+      fichier = await P.Filesystem.writeFile({
+        path: nomSecurise,
+        data: donnees,
+        directory: 'CACHE',
+        recursive: true
+      });
+    }
+
+    let partagePropose = false;
+    if (P.Share && typeof P.Share.share === 'function' && fichier && fichier.uri) {
+      try {
+        await P.Share.share({
+          title: nomSecurise,
+          text: 'PDF téléchargé depuis Aurore.',
+          dialogTitle: 'Enregistrer ou partager le PDF',
+          files: [fichier.uri]
+        });
+        partagePropose = true;
+      } catch (erreurPartage) {
+        // L’utilisateur peut fermer le menu sans exporter le fichier ; la
+        // copie locale reste néanmoins présente dans l’espace de l’application.
+        console.info('[Téléchargement PDF] Menu de partage fermé ou indisponible.', erreurPartage);
+      }
+    }
+    return { emplacement, partagePropose, uri: fichier && fichier.uri || null };
+  }
+
+  function telechargerBlobDansNavigateur(blob, nomFichier) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_self';
+    a.rel = 'noopener noreferrer';
+    a.download = nomFichier;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
   // Téléchargement interne Aurore : ne jamais naviguer vers le PDF/R2.
 // La lecture d'un PDF passe par ouvrirLecteurPDF(), la visionneuse intégrée.
 async function telechargerDocumentAvecProgression(doc, mode='current') {
@@ -742,7 +826,7 @@ async function telechargerDocumentAvecProgression(doc, mode='current') {
     const suffixe = mode === 'previous'
       ? `_pages-1-a-${finPages}.pdf`
       : `_page-${pageCourante}.pdf`;
-    const nomTelechargement = nomBase + suffixe;
+    let nomTelechargement = nomBase + suffixe;
 
     afficherCarteTelechargement(doc,'preparation',null,0,null,
       mode === 'previous'
@@ -756,9 +840,19 @@ async function telechargerDocumentAvecProgression(doc, mode='current') {
       // Quand le document est déjà ouvert avec PDF.js, getData() réutilise les
       // données chargées et complète uniquement les octets manquants au besoin.
       if (PDF_EN_COURS && typeof PDF_EN_COURS.getData === 'function') {
-        afficherCarteTelechargement(doc,'progress',null,0,null,'Récupération des données PDF…');
-        octets = await PDF_EN_COURS.getData();
-      } else {
+        afficherCarteTelechargement(doc,'progress',null,0,null,'Récupération des données PDF déjà ouvertes…');
+        try {
+          octets = await PDF_EN_COURS.getData();
+        } catch (error) {
+          // PDF.js peut échouer à reconstituer toutes les données (notamment
+          // après une lecture HTTP Range interrompue dans certains WebView).
+          // On retente alors le fichier source au lieu d’abandonner le téléchargement.
+          console.warn('[Téléchargement pages PDF] PDF.js getData a échoué ; nouvelle tentative par URL.', error);
+          octets = null;
+        }
+      }
+
+      if (!octets) {
         const source = String(doc.Fichier_url);
         const cle = source.indexOf(R2_PUBLIC_URL + '/') === 0
           ? source.slice(R2_PUBLIC_URL.length + 1)
@@ -780,7 +874,7 @@ async function telechargerDocumentAvecProgression(doc, mode='current') {
             if (e?.name === 'AbortError') throw e;
           }
         }
-        if (!res || !res.ok) throw new Error('Le fichier PDF n’a pas pu être récupéré.');
+        if (!res || !res.ok) throw new Error('Le fichier PDF n’a pas pu être récupéré (HTTP ' + (res?.status || 'réseau') + ').');
         const total = parseInt(res.headers.get('Content-Length') || '', 10);
         if (res.body) {
           const lecteur = res.body.getReader();
@@ -807,53 +901,71 @@ async function telechargerDocumentAvecProgression(doc, mode='current') {
       if (signal?.aborted) throw new DOMException('Téléchargement annulé','AbortError');
       if (!octets || !octets.byteLength) throw new Error('Le fichier PDF reçu est vide.');
 
-      // Construction d'un nouveau PDF contenant exactement les pages demandées.
-      // Le document original n'est jamais modifié : on copie ses pages dans un
-      // fichier neuf côté navigateur, puis seul ce fichier est transmis au
-      // téléchargement.
-      afficherCarteTelechargement(doc,'progress',92,octets.byteLength,octets.byteLength,'Création du fichier demandé…');
-      const PDFLib = await chargerPdfLibPourTelechargement();
-      const sourcePdf = await PDFLib.PDFDocument.load(octets);
-      const totalPages = sourcePdf.getPageCount();
-      const fin = Math.min(finPages,totalPages);
-      const indices = [];
-      if(mode === 'previous'){
-        for(let i=0;i<fin;i++) indices.push(i);
-      } else {
-        indices.push(Math.max(0,Math.min(totalPages-1,pageCourante-1)));
+      const entetePdf = Array.from(octets.subarray(0, Math.min(1024, octets.length)))
+        .map(octet => String.fromCharCode(octet)).join('');
+      if (!entetePdf.includes('%PDF-')) {
+        throw new Error('La réponse reçue ne contient pas un fichier PDF valide.');
       }
 
-      const sortie = await PDFLib.PDFDocument.create();
-      try { if(sourcePdf.getTitle()) sortie.setTitle(sourcePdf.getTitle()); } catch(e) {}
-      try { if(sourcePdf.getAuthor()) sortie.setAuthor(sourcePdf.getAuthor()); } catch(e) {}
-      try { if(sourcePdf.getSubject()) sortie.setSubject(sourcePdf.getSubject()); } catch(e) {}
-      const pagesCopiees = await sortie.copyPages(sourcePdf,indices);
-      pagesCopiees.forEach(p=>sortie.addPage(p));
-      const resultat = await sortie.save({useObjectStreams:true});
-      const blob = new Blob([resultat],{type:'application/pdf'});
+      // Essaie de produire un PDF réduit aux pages demandées. Si pdf-lib est
+      // indisponible ou si le PDF source est incompatible, on conserve le PDF
+      // original comme secours plutôt que de laisser l’utilisateur sans fichier.
+      afficherCarteTelechargement(doc,'progress',92,octets.byteLength,octets.byteLength,'Préparation du fichier PDF…');
+      let blob;
+      let extractionPages = true;
+      let fin = pageCourante;
+      try {
+        const PDFLib = await chargerPdfLibPourTelechargement();
+        const sourcePdf = await PDFLib.PDFDocument.load(octets);
+        const totalPages = sourcePdf.getPageCount();
+        fin = Math.min(finPages,totalPages);
+        const indices = [];
+        if(mode === 'previous'){
+          for(let i=0;i<fin;i++) indices.push(i);
+        } else {
+          indices.push(Math.max(0,Math.min(totalPages-1,pageCourante-1)));
+        }
+        if (!indices.length || totalPages < 1) throw new Error('Aucune page exploitable dans le PDF.');
+        const sortie = await PDFLib.PDFDocument.create();
+        try { if(sourcePdf.getTitle()) sortie.setTitle(sourcePdf.getTitle()); } catch(e) {}
+        try { if(sourcePdf.getAuthor()) sortie.setAuthor(sourcePdf.getAuthor()); } catch(e) {}
+        try { if(sourcePdf.getSubject()) sortie.setSubject(sourcePdf.getSubject()); } catch(e) {}
+        const pagesCopiees = await sortie.copyPages(sourcePdf,indices);
+        pagesCopiees.forEach(p=>sortie.addPage(p));
+        const resultat = await sortie.save({useObjectStreams:true});
+        blob = new Blob([resultat],{type:'application/pdf'});
+        if (!blob || blob.size <= 0) throw new Error('Le fichier réduit créé est vide.');
+      } catch (erreurExtraction) {
+        console.warn('[Téléchargement pages PDF] Extraction impossible ; conservation du PDF complet.', erreurExtraction);
+        extractionPages = false;
+        nomTelechargement = nomBase + '.pdf';
+        blob = new Blob([octets],{type:'application/pdf'});
+      }
 
       if (!blob || blob.size <= 0) throw new Error('Le fichier créé est vide.');
 
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = objectUrl;
-      a.target = '_self';
-      a.rel = 'noopener noreferrer';
-      a.download = nomTelechargement;
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(()=>URL.revokeObjectURL(objectUrl),60000);
+      afficherCarteTelechargement(doc,'progress',97,blob.size,blob.size,'Enregistrement du PDF sur le téléphone…');
+      let stockageNatif = null;
+      try {
+        stockageNatif = await enregistrerBlobPDFSurAppareil(blob, nomTelechargement);
+      } catch (erreurStockage) {
+        console.warn('[Téléchargement PDF] Stockage natif indisponible ; essai du téléchargement navigateur.', erreurStockage);
+      }
+      if (!stockageNatif) {
+        telechargerBlobDansNavigateur(blob, nomTelechargement);
+      }
 
       await enregistrerTelechargementPersonnel(doc);
 
-      afficherCarteTelechargement(
-        doc,'succes',100,blob.size,blob.size,
-        mode === 'previous'
-          ? `Pages 1 à ${fin} téléchargées.`
-          : `Page ${pageCourante} téléchargée.`
-      );
+      const detailSucces = extractionPages
+        ? (mode === 'previous' ? `Pages 1 à ${fin} téléchargées.` : `Page ${pageCourante} téléchargée.`)
+        : 'L’extraction des pages a échoué : le PDF complet a été conservé à la place.';
+      const detailAppareil = stockageNatif
+        ? (stockageNatif.partagePropose
+            ? detailSucces + ' Fichier préparé dans ' + stockageNatif.emplacement + ' ; le menu de partage permet de choisir où l’enregistrer.'
+            : detailSucces + ' Fichier enregistré dans ' + stockageNatif.emplacement + ' de l’application.')
+        : detailSucces + ' Le téléchargement du navigateur a été déclenché.';
+      afficherCarteTelechargement(doc,'succes',100,blob.size,blob.size,detailAppareil);
     } catch (e) {
       if (e?.name === 'AbortError') {
         afficherCarteTelechargement(doc,'annule',null,null,null,'Le téléchargement a été annulé.');
