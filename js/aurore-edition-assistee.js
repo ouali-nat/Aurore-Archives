@@ -1002,7 +1002,7 @@
         refreshDownloadButton();
         return;
       }
-      const safeTitle=String(state.course?.title||'aurore-cours').trim().replace(/[^\\p{L}\\p{N}_-]+/gu,'-')||'aurore-cours';
+      const safeTitle=String(state.course?.title||'aurore-cours').trim().replace(/[^\p{L}\p{N}_-]+/gu,'-')||'aurore-cours';
       const filename=safeTitle+'-document-complet.pdf';
       try{
         const downloadUrl=new URL(artifact.pdfUrl);
