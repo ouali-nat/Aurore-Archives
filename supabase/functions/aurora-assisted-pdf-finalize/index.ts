@@ -95,7 +95,7 @@ Deno.serve(async (req: Request) => {
 
     let body: any;
     try { body = await req.json(); } catch { return json({ ok: false, error: "JSON invalide." }, 400); }
-    if (!Array.isArray(body?.page_paths) || body.page_urls.length < 1) {
+    if (!Array.isArray(body?.page_urls) || body.page_urls.length < 1) {
       return json({ ok: false, error: "La liste des URL de pages PDF est vide." }, 400);
     }
     if (body.page_urls.length > 200) return json({ ok: false, error: "Trop de fragments PDF (maximum 200)." }, 400);
