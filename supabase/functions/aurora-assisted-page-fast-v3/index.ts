@@ -244,6 +244,26 @@ function rounded(page:any,x:number,y:number,w:number,h:number,r:number,fill:any,
 }
 function escapePdfText(v:any){return String(v??"").replace(/\u0000/g,"")}
 
+// Limit only oversized Wikimedia JPG/PNG sources to 1600 px (~256 dpi at 450 pt).
+// Keep all other image hosts and vector/formula rendering untouched.
+function optimizeWikimediaImageUrl(raw:string,maxWidth=1600):string{
+  try{
+    const url=new URL(raw);
+    if(url.hostname.toLowerCase()!=="upload.wikimedia.org")return raw;
+    const path=url.pathname;
+    const thumb=path.match(/^\\/wikipedia\\/(commons|[a-z]{2})\\/thumb\\/(.+)\\/(\\d+)px-([^/]+)$/i);
+    if(thumb){
+      if(Number(thumb[3])<=maxWidth)return raw;
+      url.pathname=`/wikipedia/${thumb[1]}/thumb/${thumb[2]}/${maxWidth}px-${thumb[4]}`;
+      return url.toString();
+    }
+    const original=path.match(/^\\/wikipedia\\/(commons|[a-z]{2})\\/(.+)\\/([^/]+)$/i);
+    if(!original||!/\\.(?:jpe?g|png)$/i.test(original[3]))return raw;
+    url.pathname=`/wikipedia/${original[1]}/thumb/${original[2]}/${original[3]}/${maxWidth}px-${original[3]}`;
+    return url.toString();
+  }catch{return raw;}
+}
+
 async function embedRaster(pdf:any,bytes:Uint8Array,label:string){
   if(!bytes||bytes.length<8)throw new Error("Image "+label+" vide.");
   if(bytes[0]===137&&bytes[1]===80){
@@ -264,7 +284,10 @@ async function fetchLogoBytes(){
   return LOGO_BYTES_PROMISE;
 }
 async function loadLogo(pdf:any){
-  return await embedRaster(pdf,await fetchLogoBytes(),"logo Aurore");
+  const sourceBytes=await fetchLogoBytes();
+  const image:any=await embedRaster(pdf,sourceBytes,"logo Aurore");
+  image.__aurore_source_bytes=sourceBytes.length;
+  return image;
 }
 
 async function fetchFontBytes(key:string,url:string){
@@ -285,7 +308,7 @@ async function loadFonts(pdf:any){
   ]);
   const regularFont=await pdf.embedFont(regular,{subset:true});
   const boldFont=await pdf.embedFont(bold,{subset:true});
-  return {regular:regularFont,bold:boldFont,sans:regularFont,sansBold:boldFont};
+  return {regular:regularFont,bold:boldFont,sans:regularFont,sansBold:boldFont,__aurore_source_bytes:regular.length+bold.length};
 }
 function noteFormulaFailure(qa:any,key:string,reason:string){
   if(!Array.isArray(qa.formula_errors))qa.formula_errors=[];
@@ -410,6 +433,7 @@ async function prepareRuns(runs:Run[],auth:string,pdf:any,_fonts:any,qa:any,cach
           try{
             const binary=atob(pdfBase64),bytes=new Uint8Array(binary.length);
             for(let j=0;j<binary.length;j++)bytes[j]=binary.charCodeAt(j);
+            qa.asset_bytes.formula_vector_pdf_source_bytes+=bytes.length;
             const embeddedPages=await pdf.embedPdf(bytes);
             const embeddedPage=embeddedPages?.[0];
             if(!embeddedPage)throw new Error("Le PDF de formule ne contient aucune page.");
@@ -753,7 +777,7 @@ Deno.serve(async req=>{
     let flowPageNo=pn;
     const color=normalizeHexColor(input.theme_color)||subjectColor(input.subject||input.matiere||docRes.data.metadata?.matiere||"");
     drawSoftDecor(page,color,pn);headerFooter(page,pn,fonts,logo,color);
-    const qa:any={formula_renderer:"mathjax-svg-to-vector-pdf-v1",formula_pngs:0,formulas_total:0,formulas_ok:0,formulas_failed:0,formula_errors:[],graphs_total:0,graphs_ok:0,graphs_failed:0,images_total:0,images_ok:0,images_failed:0,scenes_total:0,scenes_ok:0,scenes_failed:0,scene_errors:[]};
+    const qa:any={formula_renderer:"mathjax-svg-to-vector-pdf-v1",formula_pngs:0,formulas_total:0,formulas_ok:0,formulas_failed:0,formula_errors:[],graphs_total:0,graphs_ok:0,graphs_failed:0,images_total:0,images_ok:0,images_failed:0,scenes_total:0,scenes_ok:0,scenes_failed:0,scene_errors:[],asset_bytes:{font_source_bytes:Number((fonts as any).__aurore_source_bytes)||0,logo_source_bytes:Number((logo as any).__aurore_source_bytes)||0,formula_png_source_bytes:0,formula_vector_pdf_source_bytes:0,image_source_bytes:0,geogebra_source_bytes:0,total_source_bytes:0}};
     const cache=new Map<string,any>();const X=72,W=449,bottom=67,top=770;let y=top;
     const sections=Array.isArray(input.sections)?input.sections.filter((s:any)=>s&&typeof s==="object"):[];
     const contentItems:any[]=[];const exerciseItems:any[]=[];const graphItems:any[]=[];const imageItems:any[]=[];const vectorSceneItems:any[]=[];
@@ -1063,13 +1087,15 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
       }
     };
     const drawImageBlock=async(image:any,blockId?:any)=>{
-      const url=String(image?.url||image?.imageUrl||"").trim();
+      const url=optimizeWikimediaImageUrl(String(image?.url||image?.imageUrl||"").trim());
       if(!url)return;
       qa.images_total++;
       try{
         const r=await fetch(url,{signal:AbortSignal.timeout(12000)});
         if(!r.ok)throw new Error("HTTP "+r.status);
-        const img=await embedRaster(pdf,new Uint8Array(await r.arrayBuffer()),"illustration");
+        const sourceBytes=new Uint8Array(await r.arrayBuffer());
+        qa.asset_bytes.image_source_bytes+=sourceBytes.length;
+        const img=await embedRaster(pdf,sourceBytes,"illustration");
         const iw=Math.min(450,img.width),ih=iw*(img.height/img.width);
         const h=Math.min(250,ih);
         const w=h===ih?iw:h*(img.width/img.height);
@@ -1094,16 +1120,24 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
     const drawGraphBlock=async(g:any,blockId?:any)=>{
       qa.graphs_total++;
       try{
-        const direct=String(g?.geogebra_image_url||g?.image_url||g?.preview_url||"").trim();
+        const direct=optimizeWikimediaImageUrl(String(g?.geogebra_image_url||g?.image_url||g?.preview_url||"").trim());
         let img:any=null;
         if(direct){
           const r=await fetch(direct,{signal:AbortSignal.timeout(12000)});
-          if(r.ok)img=await embedRaster(pdf,new Uint8Array(await r.arrayBuffer()),"graphique");
+          if(r.ok){
+            const sourceBytes=new Uint8Array(await r.arrayBuffer());
+            qa.asset_bytes.geogebra_source_bytes+=sourceBytes.length;
+            img=await embedRaster(pdf,sourceBytes,"graphique");
+          }
         }else{
           const path=String(g?.geogebra_image_path||g?.graph_local_path||"").trim();
           if(path){
             const dl=await admin.storage.from("Pdfs").download(path);
-            if(!dl.error&&dl.data)img=await embedRaster(pdf,new Uint8Array(await dl.data.arrayBuffer()),"graphique");
+            if(!dl.error&&dl.data){
+              const sourceBytes=new Uint8Array(await dl.data.arrayBuffer());
+              qa.asset_bytes.geogebra_source_bytes+=sourceBytes.length;
+              img=await embedRaster(pdf,sourceBytes,"graphique");
+            }
           }
         }
         if(!img)throw new Error("Asset graphique indisponible");
@@ -1313,6 +1347,9 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
       }
     }
 
+    qa.asset_bytes.total_source_bytes=qa.asset_bytes.font_source_bytes+qa.asset_bytes.logo_source_bytes+qa.asset_bytes.formula_png_source_bytes+qa.asset_bytes.formula_vector_pdf_source_bytes+qa.asset_bytes.image_source_bytes+qa.asset_bytes.geogebra_source_bytes;
+    // Allow the server-side merger to aggregate diagnostics without downloading PDFs to the phone.
+    pdf.setSubject("AURORE_ASSET_BYTES:"+JSON.stringify(qa.asset_bytes));
     const bytes=new Uint8Array(await pdf.save({useObjectStreams:true}));
     const path="aurora-content-pages/"+userId+"/"+id+"/page-"+String(pn).padStart(4,"0")+".pdf";
     const up=await admin.storage.from("Pdfs").upload(path,bytes,{contentType:"application/pdf",upsert:true});
@@ -1339,7 +1376,7 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
     return out({
       ok:true,mode:"instant-page",engine:"pdf-lib-course-page-v2",
       generated_document_id:id,page_number:pn,page_path:path,page_url:pageUrl,
-      bytes:bytes.length,page_count:flowPageNo-pn+1,flow_page_map:flowPageMap,flow_page_end_map:flowPageEndMap,qa
+      bytes:bytes.length,size_mib:Number((bytes.length/1048576).toFixed(3)),page_count:flowPageNo-pn+1,flow_page_map:flowPageMap,flow_page_end_map:flowPageEndMap,asset_bytes:qa.asset_bytes,qa
     });
   }catch(e){
     return out({ok:false,generated_document_id:id,page_number:pn,error:e instanceof Error?e.message:String(e)},409);
