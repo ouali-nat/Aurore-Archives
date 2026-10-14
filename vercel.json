@@ -127,5 +127,19 @@
   ],
   "env": {
     "NODE_ENV": "production"
-  }
+  },
+  "routes": [
+    {
+      "src": "^/api/aurora-assisted-pdf-finalize$",
+      "dest": "/api/aurora-assisted-pdf-finalize.js"
+    },
+    {
+      "src": "^/api/aurora-assisted-pdf-finalize\\.js$",
+      "dest": "/api/aurora-assisted-pdf-finalize.js"
+    },
+    {
+      "src": "^/(.*)$",
+      "dest": "/$1"
+    }
+  ]
 }
