@@ -1,0 +1,9 @@
+{
+  "name": "aurore-archives-pdf-finalizer",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Server-side PDF assembly for Aurore Section Archives",
+  "dependencies": {
+    "pdf-lib": "1.17.1"
+  }
+}
