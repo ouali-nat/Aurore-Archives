@@ -250,20 +250,25 @@ function optimizeWikimediaImageUrl(raw:string,maxWidth=1600):string{
   try{
     const url=new URL(raw);
     if(url.hostname.toLowerCase()!=="upload.wikimedia.org")return raw;
-    const path=url.pathname;
-    const thumb=path.match(/^\\/wikipedia\\/(commons|[a-z]{2})\\/thumb\\/(.+)\\/(\\d+)px-([^/]+)$/i);
-    if(thumb){
-      if(Number(thumb[3])<=maxWidth)return raw;
-      url.pathname=`/wikipedia/${thumb[1]}/thumb/${thumb[2]}/${maxWidth}px-${thumb[4]}`;
+    const segments=url.pathname.split("/").filter(Boolean);
+    if(segments[0]!=="wikipedia"||!(segments[1]==="commons"||/^[a-z]{2}$/i.test(segments[1]||"")))return raw;
+    const language=segments[1];
+    if(segments[2]==="thumb"){
+      const size=segments[segments.length-1].match(/^(\d+)px-(.+)$/i);
+      if(!size||segments.length<6)return raw;
+      if(Number(size[1])<=maxWidth)return raw;
+      const relative=segments.slice(3,-1).join("/");
+      const filename=segments[segments.length-1].replace(/^\d+px-/i,"");
+      url.pathname="/wikipedia/"+language+"/thumb/"+relative+"/"+maxWidth+"px-"+filename;
       return url.toString();
     }
-    const original=path.match(/^\\/wikipedia\\/(commons|[a-z]{2})\\/(.+)\\/([^/]+)$/i);
-    if(!original||!/\\.(?:jpe?g|png)$/i.test(original[3]))return raw;
-    url.pathname=`/wikipedia/${original[1]}/thumb/${original[2]}/${original[3]}/${maxWidth}px-${original[3]}`;
+    const relative=segments.slice(2).join("/");
+    const filename=segments[segments.length-1]||"";
+    if(!/\.(?:jpe?g|png)$/i.test(filename)||!relative)return raw;
+    url.pathname="/wikipedia/"+language+"/thumb/"+relative+"/"+maxWidth+"px-"+filename;
     return url.toString();
   }catch{return raw;}
 }
-
 async function embedRaster(pdf:any,bytes:Uint8Array,label:string){
   if(!bytes||bytes.length<8)throw new Error("Image "+label+" vide.");
   if(bytes[0]===137&&bytes[1]===80){
