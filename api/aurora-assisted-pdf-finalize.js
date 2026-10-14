@@ -1,10 +1,11 @@
 const { PDFDocument } = require("pdf-lib");
+const { createHash } = require("node:crypto");
 
 const SUPABASE_URL = "https://tdeotqfsbvouresfhkab.supabase.co";
 const EDGE_FUNCTION_URL = SUPABASE_URL + "/functions/v1/aurora-assisted-pdf-finalize";
 const MAX_FRAGMENTS = 200;
 const MAX_SOURCE_BYTES = 180 * 1024 * 1024;
-const MAX_FINAL_BYTES = 60 * 1024 * 1024;
+const MAX_FINAL_BYTES = 47 * 1024 * 1024;
 
 function sendJson(res, status, value) {
   res.statusCode = status;
@@ -57,6 +58,160 @@ async function readPdf(url, label, totalBefore) {
     throw new Error("Les fragments dépassent 180 Mio au total. Les pages restent intactes ; aucun téléchargement n’a été lancé sur le téléphone.");
   }
   return bytes;
+}
+
+
+function isPdfRef(value) {
+  return !!value && value.constructor && value.constructor.name === "PDFRef"
+    && typeof value.toString === "function";
+}
+
+function isPdfDict(value) {
+  return !!value && value.constructor && value.constructor.name === "PDFDict"
+    && typeof value.entries === "function" && typeof value.set === "function";
+}
+
+function isPdfArray(value) {
+  return !!value && value.constructor && value.constructor.name === "PDFArray"
+    && typeof value.size === "function" && typeof value.get === "function"
+    && typeof value.set === "function";
+}
+
+function containsPdfRef(value, visited = new Set()) {
+  if (isPdfRef(value)) return true;
+  if (!value || typeof value !== "object" || visited.has(value)) return false;
+  visited.add(value);
+  if (isPdfDict(value)) return value.entries().some(([, child]) => containsPdfRef(child, visited));
+  if (isPdfArray(value)) {
+    for (let i = 0; i < value.size(); i++) {
+      if (containsPdfRef(value.get(i), visited)) return true;
+    }
+  }
+  return false;
+}
+
+function stablePdfValue(value) {
+  if (isPdfRef(value)) return "ref:" + value.toString();
+  if (isPdfDict(value)) {
+    const entries = value.entries()
+      .map(([key, child]) => [key.toString(), stablePdfValue(child)])
+      .sort((a, b) => a[0].localeCompare(b[0]));
+    return "dict:" + JSON.stringify(entries);
+  }
+  if (isPdfArray(value)) {
+    const values = [];
+    for (let i = 0; i < value.size(); i++) values.push(stablePdfValue(value.get(i)));
+    return "array:" + JSON.stringify(values);
+  }
+  return (value && value.constructor && value.constructor.name || typeof value)
+    + ":" + String(value);
+}
+
+function dictValue(dict, keyName) {
+  const found = dict.entries().find(([key]) => key.toString() === keyName);
+  return found ? found[1] : null;
+}
+
+function isPdfImageStream(value) {
+  if (!value || typeof value.getContents !== "function" || !isPdfDict(value.dict)) return false;
+  const subtype = dictValue(value.dict, "/Subtype");
+  return !!subtype && subtype.toString() === "/Image";
+}
+
+function imageStreamSignature(stream) {
+  const pairs = [];
+  for (const [key, value] of stream.dict.entries()) {
+    const name = key.toString();
+    if (name === "/Length") continue;
+    if (name === "/SMask" && isPdfRef(value)) {
+      pairs.push([name, "ref:" + value.toString()]);
+      continue;
+    }
+    // Do not merge images whose rendering depends on another unverified object.
+    if (containsPdfRef(value)) return null;
+    pairs.push([name, stablePdfValue(value)]);
+  }
+  pairs.sort((a, b) => a[0].localeCompare(b[0]));
+  const digest = createHash("sha256").update(stream.getContents()).digest("hex");
+  return (stream.constructor && stream.constructor.name || "PDFStream")
+    + "|" + JSON.stringify(pairs) + "|" + digest;
+}
+
+function replacePdfRefs(value, replacements, visited) {
+  if (isPdfRef(value)) return replacements.get(value.toString()) || value;
+  if (!value || typeof value !== "object" || visited.has(value)) return value;
+  visited.add(value);
+  if (isPdfDict(value)) {
+    for (const [key, child] of value.entries()) {
+      const next = replacePdfRefs(child, replacements, visited);
+      if (next !== child) value.set(key, next);
+    }
+  } else if (isPdfArray(value)) {
+    for (let i = 0; i < value.size(); i++) {
+      const child = value.get(i);
+      const next = replacePdfRefs(child, replacements, visited);
+      if (next !== child) value.set(i, next);
+    }
+  } else if (value.dict && isPdfDict(value.dict) && typeof value.getContents === "function") {
+    replacePdfRefs(value.dict, replacements, visited);
+  }
+  return value;
+}
+
+// Lossless: consolidate only byte-identical PDF image streams with matching
+// decoding parameters. Alpha masks are consolidated first so their parent
+// images can safely share the same mask reference. No image is resampled.
+function deduplicateIdenticalImageStreams(pdf) {
+  const context = pdf && pdf.context;
+  const stats = {
+    image_streams_examined: 0,
+    duplicate_image_streams_removed: 0,
+    image_stream_bytes_saved: 0,
+  };
+  if (!context || typeof context.enumerateIndirectObjects !== "function"
+      || typeof context.delete !== "function") return stats;
+
+  for (const hasSoftMask of [false, true]) {
+    const seen = new Map();
+    const replacements = new Map();
+    const duplicates = [];
+    const entries = context.enumerateIndirectObjects();
+
+    for (const [ref, object] of entries) {
+      if (!isPdfImageStream(object)) continue;
+      const mask = dictValue(object.dict, "/SMask");
+      const hasMask = !!mask && mask.toString() !== "null" && mask.toString() !== "/None";
+      if (hasMask !== hasSoftMask) continue;
+      stats.image_streams_examined++;
+      let signature;
+      let byteLength = 0;
+      try {
+        signature = imageStreamSignature(object);
+        byteLength = object.getContents().length;
+      } catch (_) {
+        continue;
+      }
+      if (!signature) continue;
+      const canonicalRef = seen.get(signature);
+      if (canonicalRef) {
+        replacements.set(ref.toString(), canonicalRef);
+        duplicates.push({ ref, byteLength });
+      } else {
+        seen.set(signature, ref);
+      }
+    }
+
+    if (!replacements.size) continue;
+    for (const [, object] of context.enumerateIndirectObjects()) {
+      replacePdfRefs(object, replacements, new Set());
+    }
+    for (const duplicate of duplicates) {
+      context.delete(duplicate.ref);
+      stats.duplicate_image_streams_removed++;
+      stats.image_stream_bytes_saved += duplicate.byteLength;
+    }
+  }
+  return stats;
 }
 
 async function callEdge(action, token, apikey, payload) {
@@ -132,6 +287,7 @@ module.exports = async function handler(req, res) {
       pageCount += copied.length;
     }
 
+    const losslessOptimization = deduplicateIdenticalImageStreams(merged);
     const finalBytes = new Uint8Array(await merged.save({ useObjectStreams: true }));
     if (finalBytes.length < 5 || Buffer.from(finalBytes.subarray(0, 5)).toString("ascii") !== "%PDF-") {
       throw new Error("Le PDF final obtenu n’est pas valide.");
@@ -139,8 +295,12 @@ module.exports = async function handler(req, res) {
     if (finalBytes.byteLength > MAX_FINAL_BYTES) {
       return sendJson(res, 413, {
         ok: false,
-        error: "Le PDF final dépasse 60 Mio. Les fragments restent disponibles ; aucun téléchargement des pages n’a été lancé sur le téléphone.",
+        error: "Après déduplication exacte sans perte, le PDF final fait " + (finalBytes.byteLength / 1048576).toFixed(2) + " Mio et dépasse la cible de 47 Mio. Les fragments restent intacts ; aucune compression avec perte ni baisse de résolution n’a été appliquée.",
         bytes: finalBytes.byteLength,
+        size_mib: Number((finalBytes.byteLength / 1048576).toFixed(2)),
+        page_count: pageCount,
+        fragment_bytes: fragmentBytes,
+        lossless_optimization: losslessOptimization,
       });
     }
 
@@ -166,7 +326,16 @@ module.exports = async function handler(req, res) {
       page_count: pageCount,
       fragment_bytes: fragmentBytes,
     });
-    return sendJson(res, 200, completed);
+    return sendJson(res, 200, {
+      ...completed,
+      lossless_optimization: {
+        ...losslessOptimization,
+        final_bytes: finalBytes.byteLength,
+        final_size_mib: Number((finalBytes.byteLength / 1048576).toFixed(2)),
+        fragment_bytes: fragmentBytes,
+        quality_changed: false,
+      },
+    });
   } catch (error) {
     const status = Number(error && error.statusCode);
     return sendJson(res, status >= 400 && status < 600 ? status : 500, {
