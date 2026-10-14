@@ -35,90 +35,82 @@
 </script>
 
 <style id="aurore-boot-overlay-critical-css">
-html{overscroll-behavior-y:contain;}
+/* Indicateur Aurore : une boule à quatre trous, teintée par la palette du site. */
+:root{
+  --aurore-spinner-hole:#17151d;
+  --aurore-spinner-accent:var(--theme-primary,#8b5cf6);
+  --aurore-spinner-accent-light:var(--theme-secondary,#c084fc);
+  --aurore-spinner-face:
+    radial-gradient(circle at 23% 14%,rgba(255,255,255,.92) 0 1.7%,transparent 7%),
+    radial-gradient(circle at 30% 30%,var(--aurore-spinner-hole) 0 6%,rgba(0,0,0,.72) 7% 8%,transparent 10%),
+    radial-gradient(circle at 70% 31%,var(--aurore-spinner-hole) 0 6%,rgba(0,0,0,.72) 7% 8%,transparent 10%),
+    radial-gradient(circle at 31% 70%,var(--aurore-spinner-hole) 0 6%,rgba(0,0,0,.72) 7% 8%,transparent 10%),
+    radial-gradient(circle at 70% 70%,var(--aurore-spinner-hole) 0 6%,rgba(0,0,0,.72) 7% 8%,transparent 10%),
+    radial-gradient(circle at 32% 24%,color-mix(in srgb,var(--aurore-spinner-accent-light) 22%,#e7e6e0) 0%,color-mix(in srgb,var(--aurore-spinner-accent) 25%,#aaa9a3) 54%,color-mix(in srgb,var(--theme-strong,#6d28d9) 30%,#77766f) 100%);
+  --aurore-spinner-shadow:color-mix(in srgb,var(--aurore-spinner-accent) 32%,transparent);
+}
+html{overscroll-behavior-y:contain}
+@keyframes aurore-spinner-rotation{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+/* Premier rendu : masquer l'interface incomplète et montrer la boule en haut. */
 html.aurore-boot-pending:not(.aurore-boot-overlay-ready)::before{
   content:"";position:fixed;inset:0;z-index:2147483600;pointer-events:none;
-  background:rgba(8,7,18,.64);
-  -webkit-backdrop-filter:blur(15px) saturate(.72);backdrop-filter:blur(15px) saturate(.72)
+  background:var(--fond,#090812)
 }
 html.aurore-boot-pending:not(.aurore-boot-overlay-ready)::after{
-  content:"";position:fixed;left:calc(50% - 31px);top:calc(50% - 31px);z-index:2147483601;
-  width:62px;height:62px;box-sizing:border-box;border-radius:50%;pointer-events:none;
-  border:4px solid rgba(196,181,253,.25);border-top-color:#f3e8ff;border-right-color:#a78bfa;background-clip:padding-box;
-  background:
-    radial-gradient(circle at 28% 28%,#10091f 0 7%,#2b1450 8% 11%,rgba(255,255,255,.22) 12%,transparent 16%),
-    radial-gradient(circle at 72% 28%,#10091f 0 7%,#2b1450 8% 11%,rgba(255,255,255,.20) 12%,transparent 16%),
-    radial-gradient(circle at 28% 72%,#10091f 0 7%,#2b1450 8% 11%,rgba(255,255,255,.18) 12%,transparent 16%),
-    radial-gradient(circle at 72% 72%,#10091f 0 7%,#2b1450 8% 11%,rgba(255,255,255,.16) 12%,transparent 16%),
-    radial-gradient(circle at 34% 25%,#e9d5ff 0,#c4b5fd 20%,#8b5cf6 48%,#6d28d9 72%,#3b0764 100%);
-  box-shadow:inset -6px -7px 12px rgba(20,5,45,.55),inset 4px 4px 10px rgba(255,255,255,.32),0 0 24px rgba(139,92,246,.55);
-  animation:aurore-boot-ball-spin 1.45s linear infinite
+  content:"";position:fixed;left:calc(50% - 26px);top:clamp(84px,18vh,155px);
+  z-index:2147483601;width:52px;height:52px;box-sizing:border-box;border-radius:50%;
+  pointer-events:none;background:var(--aurore-spinner-face);
+  box-shadow:inset -5px -6px 8px rgba(0,0,0,.28),inset 3px 3px 7px rgba(255,255,255,.38),0 6px 18px var(--aurore-spinner-shadow);
+  animation:aurore-spinner-rotation .78s linear infinite
 }
-@keyframes aurore-boot-spin{to{transform:rotate(360deg)}}
-@keyframes aurore-boot-ball-spin{to{transform:rotate(360deg)}}
-html.aurore-pull-refreshing::after{content:"";position:fixed;left:calc(50% - 18px);top:12px;z-index:2147483647;
-  width:36px;height:36px;box-sizing:border-box;border:4px solid rgba(196,181,253,.25);
-  border-top-color:#f3e8ff;border-right-color:#a78bfa;border-radius:50%;
-  background:rgba(15,10,30,.92);box-shadow:0 0 20px rgba(139,92,246,.5);
-  pointer-events:none;animation:aurore-boot-spin .72s linear infinite}
-#auroreBootOverlay{display:none;position:fixed;inset:0;z-index:2147483647;box-sizing:border-box;
-  align-items:center;justify-content:center;overflow:hidden;padding:24px;
-  color:#f8f7ff;font-family:"Plus Jakarta Sans",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  text-align:center;isolation:isolate;opacity:1;visibility:visible;pointer-events:auto;
-  background:radial-gradient(circle at 20% 18%,rgba(124,58,237,.14),transparent 35%),
-             radial-gradient(circle at 82% 78%,rgba(56,189,248,.09),transparent 32%),rgba(8,7,18,.52);
-  -webkit-backdrop-filter:blur(18px) saturate(.82);backdrop-filter:blur(18px) saturate(.82);
-  transition:opacity .38s ease,visibility .38s ease
+
+/* Même indicateur pendant le geste de rafraîchissement. */
+html.aurore-pull-refreshing::after{
+  content:"";position:fixed;left:calc(50% - 26px);top:clamp(84px,18vh,155px);
+  z-index:2147483647;width:52px;height:52px;box-sizing:border-box;border-radius:50%;
+  pointer-events:none;background:var(--aurore-spinner-face);
+  box-shadow:inset -5px -6px 8px rgba(0,0,0,.28),inset 3px 3px 7px rgba(255,255,255,.38),0 6px 18px var(--aurore-spinner-shadow);
+  animation:aurore-spinner-rotation .78s linear infinite
+}
+
+/* Écran de démarrage : fond uni pour cacher le CSS en cours, seule la boule reste visible. */
+#auroreBootOverlay{
+  display:none;position:fixed;inset:0;z-index:2147483647;box-sizing:border-box;
+  align-items:flex-start;justify-content:center;overflow:hidden;padding:0;
+  color:var(--encre,#f8f7ff);text-align:center;isolation:isolate;
+  opacity:1;visibility:visible;pointer-events:auto;background:var(--fond,#090812);
+  transition:opacity .22s ease,visibility .22s ease
 }
 html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
 #auroreBootOverlay.is-leaving{opacity:0;visibility:hidden;pointer-events:none}
-.aurore-boot-orb{position:absolute;width:min(84vw,430px);aspect-ratio:1;border-radius:50%;pointer-events:none;
-  border:1px solid rgba(196,181,253,.12);box-shadow:inset 0 0 65px rgba(139,92,246,.05),0 0 80px rgba(139,92,246,.05);
-  animation:aurore-boot-orbreathe 4.8s ease-in-out infinite}
-.aurore-boot-orb::before,.aurore-boot-orb::after{content:"";position:absolute;border:1px solid rgba(196,181,253,.14);border-radius:50%}
-.aurore-boot-orb::before{inset:11%}.aurore-boot-orb::after{inset:23%;border-style:dashed;animation:aurore-boot-spin 24s linear infinite}
-.aurore-boot-card{position:relative;width:min(100%,410px);padding:clamp(26px,6vw,42px) 26px 27px;
-  border:1px solid rgba(221,214,254,.19);border-radius:28px;
-  background:linear-gradient(145deg,rgba(37,32,57,.78),rgba(17,15,30,.76));
-  box-shadow:0 28px 90px rgba(0,0,0,.38),inset 0 1px rgba(255,255,255,.06);
-  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
-.aurore-boot-mark-stage{position:relative;display:grid;place-items:center;width:96px;height:96px;margin:0 auto 21px}
-.aurore-boot-mark-stage::before{content:"";position:absolute;inset:4px;border:4px solid rgba(196,181,253,.22);border-top-color:#f3e8ff;border-right-color:#a78bfa;border-radius:50%;pointer-events:none;animation:aurore-boot-spin .9s linear infinite;will-change:transform}
-.aurore-boot-four-hole-ball{position:relative;display:block;width:66px;height:66px;flex:none;border-radius:50%;
-  background:
-    radial-gradient(circle at 28% 28%,#10091f 0 7%,#2b1450 8% 11%,rgba(255,255,255,.22) 12%,transparent 16%),
-    radial-gradient(circle at 72% 28%,#10091f 0 7%,#2b1450 8% 11%,rgba(255,255,255,.20) 12%,transparent 16%),
-    radial-gradient(circle at 28% 72%,#10091f 0 7%,#2b1450 8% 11%,rgba(255,255,255,.18) 12%,transparent 16%),
-    radial-gradient(circle at 72% 72%,#10091f 0 7%,#2b1450 8% 11%,rgba(255,255,255,.16) 12%,transparent 16%),
-    radial-gradient(circle at 34% 25%,#f3e8ff 0,#c4b5fd 20%,#8b5cf6 48%,#6d28d9 72%,#3b0764 100%);
-  box-shadow:inset -7px -8px 14px rgba(20,5,45,.55),inset 4px 4px 10px rgba(255,255,255,.32),0 0 30px rgba(139,92,246,.48);
-  animation:aurore-boot-ball-spin 1.45s linear infinite;will-change:transform}
-.aurore-boot-four-hole-ball i{display:none}
-.aurore-boot-mark-stage .aurore-boot-four-hole-ball{animation:aurore-boot-ball-spin 1.45s linear infinite}
-@keyframes aurore-boot-mark-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
-.aurore-boot-mark-fallback{position:absolute;z-index:2;place-items:center;width:66px;height:66px;border:1px solid rgba(221,214,254,.25);border-radius:21px;background:linear-gradient(145deg,rgba(139,92,246,.28),rgba(30,27,45,.92));color:#fff;font-size:32px;font-weight:800;letter-spacing:-.08em}
-.aurore-boot-mark-fallback:not([hidden]){display:grid}
-.aurore-boot-mark{display:grid;place-items:center;width:66px;height:66px;border:1px solid rgba(221,214,254,.25);border-radius:21px;
-  background:linear-gradient(145deg,rgba(139,92,246,.28),rgba(30,27,45,.92));color:#fff;font-size:32px;font-weight:800;letter-spacing:-.08em;
-  box-shadow:0 8px 30px rgba(124,58,237,.23),inset 0 1px rgba(255,255,255,.13);animation:aurore-boot-mark-float 2.4s ease-in-out infinite}
-.aurore-boot-brand{margin:0 0 23px;color:#ddd6fe;font-size:.68rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase}
-.aurore-boot-brand span{display:block;margin-top:5px;color:rgba(237,233,254,.56);font-size:.55rem;font-weight:600;letter-spacing:.22em}
-.aurore-boot-title{margin:0;color:#fff;font-size:clamp(1.1rem,4vw,1.34rem);font-weight:750;letter-spacing:-.025em}
-.aurore-boot-message{min-height:42px;margin:10px 0 21px;color:rgba(245,243,255,.69);font-size:.79rem;line-height:1.6}
-.aurore-boot-progress-track{position:relative;height:4px;overflow:hidden;border-radius:99px;background:rgba(221,214,254,.12)}
-.aurore-boot-progress-track span{position:absolute;top:0;bottom:0;left:-38%;width:38%;border-radius:99px;
-  background:linear-gradient(90deg,transparent,#a78bfa,#e9d5ff,transparent);animation:aurore-boot-progress 1.5s ease-in-out infinite}
-.aurore-boot-status{display:block;margin-top:13px;color:rgba(221,214,254,.6);font-size:.66rem;letter-spacing:.025em}
-.aurore-boot-continue{display:inline-flex;align-items:center;justify-content:center;min-height:40px;margin-top:16px;padding:0 16px;
-  border:1px solid rgba(221,214,254,.24);border-radius:12px;background:rgba(167,139,250,.12);color:#f5f3ff;font:inherit;font-size:.75rem;font-weight:700;
-  cursor:pointer}
-.aurore-boot-continue[hidden]{display:none!important}
-@keyframes aurore-boot-progress{0%{left:-38%}100%{left:108%}}
-@keyframes aurore-boot-orbreathe{0%,100%{transform:scale(.96);opacity:.65}50%{transform:scale(1.04);opacity:1}}
-@keyframes aurore-boot-mark-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
-@media(max-width:420px){.aurore-boot-card{padding:27px 20px 23px;border-radius:23px}.aurore-boot-mark-stage{width:82px;height:82px}.aurore-boot-four-hole-ball{width:58px;height:58px}}
-@media(max-width:760px){#auroreBootOverlay{-webkit-backdrop-filter:blur(7px) saturate(.82);backdrop-filter:blur(7px) saturate(.82)}}
-@media(prefers-reduced-motion:reduce){.aurore-boot-orb,.aurore-boot-orb::after,.aurore-boot-progress-track span{animation:none!important}#auroreBootOverlay{transition:none}}
+#auroreBootOverlay .aurore-boot-orb,
+#auroreBootOverlay .aurore-boot-brand,
+#auroreBootOverlay .aurore-boot-title,
+#auroreBootOverlay .aurore-boot-message,
+#auroreBootOverlay .aurore-boot-progress-track,
+#auroreBootOverlay .aurore-boot-status,
+#auroreBootOverlay .aurore-boot-continue{display:none!important}
+#auroreBootOverlay .aurore-boot-card{
+  position:relative;width:100%;height:100%;box-sizing:border-box;margin:0;padding:0;
+  border:0;border-radius:0;background:var(--fond,#090812);box-shadow:none;backdrop-filter:none
+}
+#auroreBootOverlay .aurore-boot-mark-stage{
+  position:absolute;left:50%;top:clamp(84px,18vh,155px);transform:translateX(-50%);
+  display:grid;place-items:center;width:56px;height:56px;margin:0
+}
+#auroreBootOverlay .aurore-boot-mark-stage::before{display:none}
+#auroreBootOverlay .aurore-boot-four-hole-ball{
+  position:relative;display:block;width:52px;height:52px;flex:none;border-radius:50%;
+  background:var(--aurore-spinner-face);
+  box-shadow:inset -5px -6px 8px rgba(0,0,0,.28),inset 3px 3px 7px rgba(255,255,255,.38),0 6px 18px var(--aurore-spinner-shadow);
+  animation:aurore-spinner-rotation .78s linear infinite;will-change:transform
+}
+#auroreBootOverlay .aurore-boot-four-hole-ball i{display:none}
+@media(prefers-reduced-motion:reduce){
+  #auroreBootOverlay{transition:none}
+  /* La roue reste animée : elle est le seul retour visuel du chargement. */
+}
 </style>
 <script id="aurore-boot-overlay-early">
 (function(){
@@ -207,29 +199,20 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
     return Math.max(window.scrollY||0,document.documentElement.scrollTop||0,document.body?document.body.scrollTop||0:0);
   }
   function actualiserAffichageChargement(){
+    // Garder uniquement la petite boule en haut : aucun panneau ne recouvre la page.
     dismissed=true;
     if(pollHandle)clearTimeout(pollHandle);
     if(slowHandle)clearTimeout(slowHandle);
     if(hardHandle)clearTimeout(hardHandle);
-    root.classList.remove('aurore-pull-refreshing');
-    root.classList.add('aurore-boot-pending');
+    root.classList.remove('aurore-boot-pending','aurore-boot-overlay-ready');
     overlay=getOverlay();
-    if(!overlay)return;
-    root.classList.add('aurore-boot-overlay-ready');
-    overlay.hidden=false;
-    overlay.classList.remove('is-leaving');
-    overlay.style.display='flex';
-    overlay.style.opacity='1';
-    overlay.style.visibility='visible';
-    overlay.setAttribute('aria-hidden','false');
-    var title=overlay.querySelector('.aurore-boot-title');
-    var message=document.getElementById('auroreBootMessage');
-    var status=document.getElementById('auroreBootStatus');
-    var btn=document.getElementById('auroreBootContinue');
-    if(title)title.textContent='Actualisation en cours';
-    if(message)message.textContent='Nous rechargeons votre espace. Veuillez patienter quelques instants.';
-    if(status)status.textContent='Actualisation de la page…';
-    if(btn)btn.hidden=true;
+    if(overlay){
+      overlay.classList.add('is-leaving');
+      overlay.setAttribute('aria-hidden','true');
+      overlay.hidden=true;
+      overlay.style.display='none';
+    }
+    root.classList.add('aurore-pull-refreshing');
   }
   window.addEventListener('touchstart',function(event){
     if(!event.touches||event.touches.length!==1||scrollTopActuel()>1||pullRefreshing){
