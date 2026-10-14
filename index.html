@@ -41,12 +41,19 @@ html.aurore-boot-pending:not(.aurore-boot-overlay-ready)::before{
   -webkit-backdrop-filter:blur(15px) saturate(.72);backdrop-filter:blur(15px) saturate(.72)
 }
 html.aurore-boot-pending:not(.aurore-boot-overlay-ready)::after{
-  content:"";position:fixed;left:calc(50% - 22px);top:calc(50% - 22px);z-index:2147483601;
-  width:44px;height:44px;box-sizing:border-box;border:3px solid rgba(167,139,250,.24);
-  border-top-color:#c4b5fd;border-right-color:#8b5cf6;border-radius:50%;
-  animation:aurore-boot-spin .82s linear infinite;pointer-events:none
+  content:"";position:fixed;left:calc(50% - 26px);top:calc(50% - 26px);z-index:2147483601;
+  width:52px;height:52px;box-sizing:border-box;border-radius:50%;pointer-events:none;
+  background:
+    radial-gradient(circle at 28% 28%,#10091f 0 7%,#2b1450 8% 11%,rgba(255,255,255,.22) 12%,transparent 16%),
+    radial-gradient(circle at 72% 28%,#10091f 0 7%,#2b1450 8% 11%,rgba(255,255,255,.20) 12%,transparent 16%),
+    radial-gradient(circle at 28% 72%,#10091f 0 7%,#2b1450 8% 11%,rgba(255,255,255,.18) 12%,transparent 16%),
+    radial-gradient(circle at 72% 72%,#10091f 0 7%,#2b1450 8% 11%,rgba(255,255,255,.16) 12%,transparent 16%),
+    radial-gradient(circle at 34% 25%,#e9d5ff 0,#c4b5fd 20%,#8b5cf6 48%,#6d28d9 72%,#3b0764 100%);
+  box-shadow:inset -6px -7px 12px rgba(20,5,45,.55),inset 4px 4px 10px rgba(255,255,255,.32),0 0 24px rgba(139,92,246,.55);
+  animation:aurore-boot-ball-spin 1.45s linear infinite
 }
 @keyframes aurore-boot-spin{to{transform:rotate(360deg)}}
+@keyframes aurore-boot-ball-spin{to{transform:rotate(360deg)}}
 #auroreBootOverlay{display:none;position:fixed;inset:0;z-index:2147483647;box-sizing:border-box;
   align-items:center;justify-content:center;overflow:hidden;padding:24px;
   color:#f8f7ff;font-family:"Plus Jakarta Sans",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
@@ -69,11 +76,18 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
   box-shadow:0 28px 90px rgba(0,0,0,.38),inset 0 1px rgba(255,255,255,.06);
   -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
 .aurore-boot-mark-stage{position:relative;display:grid;place-items:center;width:96px;height:96px;margin:0 auto 21px}
-.aurore-boot-ring{position:absolute;inset:0;border:2px solid transparent;border-top-color:#c4b5fd;border-right-color:rgba(167,139,250,.6);
-  border-bottom-color:rgba(167,139,250,.18);border-radius:50%;animation:aurore-boot-spin 1.15s linear infinite}
-.aurore-boot-ring::after{content:"";position:absolute;width:7px;height:7px;right:10px;top:13px;border-radius:50%;
-  background:#e9d5ff;box-shadow:0 0 16px #a78bfa}
-.aurore-boot-site-logo{position:relative;z-index:1;display:block;width:66px;height:66px;object-fit:contain;border:1px solid rgba(221,214,254,.25);border-radius:21px;background:linear-gradient(145deg,rgba(139,92,246,.20),rgba(30,27,45,.88));padding:7px;box-sizing:border-box;box-shadow:0 8px 30px rgba(124,58,237,.23),inset 0 1px rgba(255,255,255,.13);animation:aurore-boot-mark-float 2.4s ease-in-out infinite}\n.aurore-boot-mark-fallback{position:absolute;z-index:2;place-items:center;width:66px;height:66px;border:1px solid rgba(221,214,254,.25);border-radius:21px;background:linear-gradient(145deg,rgba(139,92,246,.28),rgba(30,27,45,.92));color:#fff;font-size:32px;font-weight:800;letter-spacing:-.08em}\n.aurore-boot-mark-fallback:not([hidden]){display:grid}\n.aurore-boot-mark{display:grid;place-items:center;width:66px;height:66px;border:1px solid rgba(221,214,254,.25);border-radius:21px;
+.aurore-boot-four-hole-ball{position:relative;display:block;width:66px;height:66px;flex:none;border-radius:50%;
+  background:
+    radial-gradient(circle at 28% 28%,#10091f 0 7%,#2b1450 8% 11%,rgba(255,255,255,.22) 12%,transparent 16%),
+    radial-gradient(circle at 72% 28%,#10091f 0 7%,#2b1450 8% 11%,rgba(255,255,255,.20) 12%,transparent 16%),
+    radial-gradient(circle at 28% 72%,#10091f 0 7%,#2b1450 8% 11%,rgba(255,255,255,.18) 12%,transparent 16%),
+    radial-gradient(circle at 72% 72%,#10091f 0 7%,#2b1450 8% 11%,rgba(255,255,255,.16) 12%,transparent 16%),
+    radial-gradient(circle at 34% 25%,#f3e8ff 0,#c4b5fd 20%,#8b5cf6 48%,#6d28d9 72%,#3b0764 100%);
+  box-shadow:inset -7px -8px 14px rgba(20,5,45,.55),inset 4px 4px 10px rgba(255,255,255,.32),0 0 30px rgba(139,92,246,.48);
+  animation:aurore-boot-ball-spin 1.45s linear infinite;will-change:transform}
+.aurore-boot-four-hole-ball i{display:none}
+.aurore-boot-mark-stage .aurore-boot-four-hole-ball{animation:aurore-boot-ball-spin 1.45s linear infinite}
+@keyframes aurore-boot-mark-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}\n.aurore-boot-mark-fallback{position:absolute;z-index:2;place-items:center;width:66px;height:66px;border:1px solid rgba(221,214,254,.25);border-radius:21px;background:linear-gradient(145deg,rgba(139,92,246,.28),rgba(30,27,45,.92));color:#fff;font-size:32px;font-weight:800;letter-spacing:-.08em}\n.aurore-boot-mark-fallback:not([hidden]){display:grid}\n.aurore-boot-mark{display:grid;place-items:center;width:66px;height:66px;border:1px solid rgba(221,214,254,.25);border-radius:21px;
   background:linear-gradient(145deg,rgba(139,92,246,.28),rgba(30,27,45,.92));color:#fff;font-size:32px;font-weight:800;letter-spacing:-.08em;
   box-shadow:0 8px 30px rgba(124,58,237,.23),inset 0 1px rgba(255,255,255,.13);animation:aurore-boot-mark-float 2.4s ease-in-out infinite}
 .aurore-boot-brand{margin:0 0 23px;color:#ddd6fe;font-size:.68rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase}
@@ -91,9 +105,9 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
 @keyframes aurore-boot-progress{0%{left:-38%}100%{left:108%}}
 @keyframes aurore-boot-orbreathe{0%,100%{transform:scale(.96);opacity:.65}50%{transform:scale(1.04);opacity:1}}
 @keyframes aurore-boot-mark-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
-@media(max-width:420px){.aurore-boot-card{padding:27px 20px 23px;border-radius:23px}.aurore-boot-mark-stage{width:82px;height:82px}.aurore-boot-mark,.aurore-boot-site-logo,.aurore-boot-mark-fallback{width:58px;height:58px;border-radius:18px}}
+@media(max-width:420px){.aurore-boot-card{padding:27px 20px 23px;border-radius:23px}.aurore-boot-mark-stage{width:82px;height:82px}.aurore-boot-four-hole-ball{width:58px;height:58px}}
 @media(max-width:760px){#auroreBootOverlay{-webkit-backdrop-filter:blur(7px) saturate(.82);backdrop-filter:blur(7px) saturate(.82)}}
-@media(prefers-reduced-motion:reduce){html.aurore-boot-pending:not(.aurore-boot-overlay-ready)::after,.aurore-boot-ring,.aurore-boot-ring::after,.aurore-boot-orb,.aurore-boot-orb::after,.aurore-boot-mark,.aurore-boot-progress-track span{animation:none!important}#auroreBootOverlay{transition:none}}
+@media(prefers-reduced-motion:reduce){html.aurore-boot-pending:not(.aurore-boot-overlay-ready)::after,.aurore-boot-four-hole-ball,.aurore-boot-orb,.aurore-boot-orb::after,.aurore-boot-progress-track span{animation:none!important}#auroreBootOverlay{transition:none}}
 </style>
 <script id="aurore-boot-overlay-early">
 (function(){
@@ -617,13 +631,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
   /* Secours minimal : si une feuille distante échoue, une seule vue reste visible. */
   .screen{display:none}
   .screen.active{display:block}
-  /* Désactivation temporaire de l'écran animé « Préparation de votre espace ». */
-  html.aurore-boot-pending:not(.aurore-boot-overlay-ready)::before,
-  html.aurore-boot-pending:not(.aurore-boot-overlay-ready)::after{
-    display:none!important;content:none!important
-  }
-  html.aurore-boot-pending #auroreBootOverlay,
-  #auroreBootOverlay{display:none!important}
+  /* L’écran de chargement reste visible au démarrage et pendant un rechargement complet. */
 </style>
 
 </head>
@@ -631,7 +639,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <div class="aurore-boot-overlay" id="auroreBootOverlay" role="status" aria-live="polite" aria-label="Chargement d’Aurore" aria-hidden="false">
   <div class="aurore-boot-orb" aria-hidden="true"></div>
   <div class="aurore-boot-card">
-    <div class="aurore-boot-mark-stage" aria-hidden="true"><span class="aurore-boot-ring"></span><img class="aurore-boot-site-logo" id="auroreBootLogo" src="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster" alt="" decoding="async" fetchpriority="high"/><span class="aurore-boot-mark-fallback" id="auroreBootLogoFallback" hidden>A</span></div>
+    <div class="aurore-boot-mark-stage" aria-hidden="true"><span class="aurore-boot-four-hole-ball"><i></i><i></i><i></i><i></i></span></div>
     <p class="aurore-boot-brand">AURORE<span>SECTION ARCHIVES</span></p>
     <h1 class="aurore-boot-title">Préparation de votre espace</h1>
     <p class="aurore-boot-message" id="auroreBootMessage">Nous ouvrons l’interface. Votre session et les données se chargent ensuite.</p>
