@@ -30,10 +30,6 @@
         {
           "key": "X-XSS-Protection",
           "value": "0"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "no-store, no-cache, must-revalidate, max-age=0"
         }
       ]
     },
@@ -42,7 +38,7 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "no-store, no-cache, must-revalidate, max-age=0"
+          "value": "public, max-age=0, must-revalidate"
         }
       ]
     },
@@ -51,7 +47,7 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "no-store, no-cache, must-revalidate, max-age=0"
+          "value": "public, max-age=0, must-revalidate"
         }
       ]
     },
@@ -60,7 +56,7 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "no-store, no-cache, must-revalidate, max-age=0"
+          "value": "public, max-age=0, must-revalidate"
         }
       ]
     },
@@ -69,7 +65,7 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "no-store, no-cache, must-revalidate, max-age=0"
+          "value": "public, max-age=0, must-revalidate"
         }
       ]
     },
@@ -78,7 +74,11 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "no-store, no-cache, must-revalidate, max-age=0"
+          "value": "no-cache, max-age=0, must-revalidate"
+        },
+        {
+          "key": "Service-Worker-Allowed",
+          "value": "/"
         }
       ]
     }
