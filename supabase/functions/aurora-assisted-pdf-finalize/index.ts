@@ -161,6 +161,31 @@ Deno.serve(async (req: Request) => {
     const finalPath = "aurora-assisted-final-pdfs/" + userId + "/" + fingerprint + ".pdf";
 
     if (action === "prepare_upload") {
+      // Re-sign the source pages for two hours so a long course generation
+      // does not fail merely because an earlier preview URL expired.
+      const sourceUrls: string[] = [];
+      for (let offset = 0; offset < paths.length; offset += 50) {
+        const batchPaths = paths.slice(offset, offset + 50);
+        const { data: signedBatch, error: sourceSignError } = await admin.storage
+          .from("Pdfs")
+          .createSignedUrls(batchPaths, 2 * 60 * 60);
+        if (sourceSignError || !signedBatch || signedBatch.length !== batchPaths.length) {
+          throw new Error("Création des liens temporaires des fragments impossible : " + (sourceSignError?.message || "réponse incomplète"));
+        }
+        for (let i = 0; i < signedBatch.length; i++) {
+          const item = signedBatch[i] as any;
+          if (item.error || !item.signedUrl) {
+            throw new Error("Impossible de signer le fragment " + (offset + i + 1) + " : " + String(item.error || "URL absente"));
+          }
+          const sourceUrl = new URL(item.signedUrl, SUPA_URL);
+          if (sourceUrl.origin !== new URL(SUPA_URL).origin
+            || !sourceUrl.pathname.startsWith("/storage/v1/object/sign/Pdfs/")) {
+            throw new Error("Supabase a fourni un lien source non autorisé.");
+          }
+          sourceUrls.push(sourceUrl.toString());
+        }
+      }
+
       const { data: upload, error: uploadError } = await admin.storage
         .from("Pdfs")
         .createSignedUploadUrl(finalPath, { upsert: true });
@@ -182,6 +207,7 @@ Deno.serve(async (req: Request) => {
         ok: true,
         action,
         upload_url: uploadUrl.toString(),
+        source_urls: sourceUrls,
         pdf_path: finalPath,
         fingerprint,
         paths,
