@@ -100,19 +100,22 @@ module.exports = async function handler(req, res) {
       return sendJson(res, 400, { ok: false, error: "Trop de fragments PDF (maximum " + MAX_FRAGMENTS + ")." });
     }
 
-    const pathsFromRequest = body.page_urls.map(signedSourcePath);
+    body.page_urls.forEach(signedSourcePath);
     const prepared = await callEdge("prepare_upload", token, apikey, { page_urls: body.page_urls });
-    if (!Array.isArray(prepared.paths) || !prepared.paths.length || !prepared.upload_url || !prepared.pdf_path) {
-      throw new Error("Supabase n’a pas fourni les autorisations de dépôt attendues.");
+    if (!Array.isArray(prepared.paths) || !prepared.paths.length
+      || !Array.isArray(prepared.source_urls)
+      || prepared.source_urls.length !== prepared.paths.length
+      || !prepared.upload_url || !prepared.pdf_path) {
+      throw new Error("Supabase n’a pas fourni les autorisations de dépôt et les liens source attendus.");
     }
-    const urlByPath = new Map();
-    body.page_urls.forEach((url, index) => {
-      if (!urlByPath.has(pathsFromRequest[index])) urlByPath.set(pathsFromRequest[index], url);
+    const orderedUrls = prepared.source_urls.map((rawUrl, index) => {
+      const url = String(rawUrl || "");
+      const path = signedSourcePath(url);
+      if (path !== prepared.paths[index]) {
+        throw new Error("L’ordre des URL source signées ne correspond pas aux fragments validés.");
+      }
+      return url;
     });
-    const orderedUrls = prepared.paths.map(path => urlByPath.get(path)).filter(Boolean);
-    if (orderedUrls.length !== prepared.paths.length) {
-      throw new Error("La liste des fragments validés ne correspond pas aux URL reçues.");
-    }
 
     const merged = await PDFDocument.create();
     let fragmentBytes = 0;
