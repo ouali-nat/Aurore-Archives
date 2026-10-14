@@ -142,11 +142,11 @@ module.exports = async function handler(req, res) {
     }
 
     const uploadResponse = await fetch(prepared.upload_url, {
-      method: "POST",
+      method: "PUT",
       signal: AbortSignal.timeout(90000),
       headers: {
         "Content-Type": "application/pdf",
-        "Cache-Control": "3600",
+        "Cache-Control": "max-age=3600",
         "x-upsert": "true",
       },
       body: finalBytes,
