@@ -3429,7 +3429,7 @@
         if(!pngBase64)throw new Error('GeoGebra n’a retourné aucune image pour le graphique '+String(graph.title||graphBlock.id)+'.');
         // Transmettre le PNG brut en multipart plutôt qu’en Base64/JSON :
         // mêmes pixels, mais environ 25 % de données réseau en moins qu'un Base64 seul.
-        const pngEncoded=String(pngBase64).replace(/^data:image\\/png;base64,/i,'').replace(/\\s+/g,'');
+        const pngEncoded=String(pngBase64).replace(/^data:image\/png;base64,/i,'').replace(/\s+/g,'');
         if(!/^[A-Za-z0-9+/]+={0,2}$/.test(pngEncoded)||pngEncoded.length<100)throw new Error('Image GeoGebra invalide.');
         const pngBinary=atob(pngEncoded);
         const pngBytes=new Uint8Array(pngBinary.length);
