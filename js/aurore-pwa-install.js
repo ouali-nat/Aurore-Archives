@@ -56,7 +56,7 @@
 
   function rechauffer(){
     try{
-      if(window.__AURORE_DISABLE_SITE_CACHE||!('serviceWorker' in navigator)||navigator.onLine===false)return;
+      if(!('serviceWorker' in navigator)||navigator.onLine===false)return;
       navigator.serviceWorker.ready.then(function(reg){
         var sw=reg&&(reg.active||reg.waiting||reg.installing);
         if(!sw)return;
@@ -690,5 +690,123 @@
     }catch(e){
       return ORIG.apply(null,args);
     }
+  };
+})();
+
+/* Aurore — service worker (mode hors ligne) + alerte « nouvelle version »
+   1) Enregistre sw.js (réseau d'abord : chaque déploiement est servi dès l'ouverture
+      suivante ; la copie locale ne sert que hors ligne). Le navigateur revérifie sw.js
+      à chaque chargement et à chaque retour au premier plan (updateViaCache:'none').
+   2) Quand l'application revient au premier plan, vérifie en ligne si une nouvelle
+      version du site est publiée (empreinte de l'accueil et de sw.js). Si oui, une carte
+      discrète propose « Actualiser » : JAMAIS de rechargement automatique, donc aucune
+      lecture de PDF ni saisie interrompue. L'alerte attend aussi qu'aucun PDF ne soit ouvert.
+   3) window.auroreForcerMiseAJour() : vide les copies de pages/scripts/styles puis recharge
+      (les PDF, couvertures et bibliothèques déjà enregistrés sont conservés). */
+(function(){
+  'use strict';
+  if(!('serviceWorker' in navigator))return;
+
+  var registration=null;
+  var empreinteInitiale=null;
+  var derniereVerif=0;
+  var carte=null;
+  var DELAI_VERIF=5*60*1000;
+
+  function enregistrer(){
+    navigator.serviceWorker.register('./sw.js',{scope:'./',updateViaCache:'none'}).then(function(reg){
+      registration=reg;
+      try{reg.update();}catch(e){}
+    }).catch(function(err){console.warn('[Aurore PWA] Service worker indisponible :',err);});
+  }
+  if(document.readyState==='complete')enregistrer();
+  else window.addEventListener('load',enregistrer);
+
+  function empreinte(){
+    function tete(url){
+      return fetch(url,{method:'HEAD',cache:'no-store'}).then(function(r){
+        if(!r||!r.ok)return '';
+        return r.headers.get('etag')||r.headers.get('last-modified')||'';
+      }).catch(function(){return '';});
+    }
+    return Promise.all([tete('/'),tete('/sw.js')]).then(function(v){
+      return (v[0]&&v[1])?v[0]+'|'+v[1]:'';
+    });
+  }
+
+  function lecteurPdfOuvert(){
+    try{
+      var p=document.getElementById('pdfViewerOverlay');
+      if(p&&p.style.display==='block')return true;
+    }catch(e){}
+    return false;
+  }
+
+  function afficherCarte(){
+    if(carte&&carte.isConnected)return;
+    carte=document.createElement('div');
+    carte.id='auroreNouvelleVersion';
+    carte.setAttribute('role','status');
+    carte.setAttribute('aria-live','polite');
+    carte.style.cssText='position:fixed;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);z-index:9991;'+
+      'display:flex;justify-content:center;pointer-events:none;';
+    carte.innerHTML='<div style="pointer-events:auto;display:flex;align-items:center;gap:10px;max-width:440px;width:100%;box-sizing:border-box;'+
+      'padding:10px 10px 10px 14px;border-radius:16px;font-family:inherit;font-size:.86rem;'+
+      'background:var(--fond,#ffffff);color:var(--encre,#14121f);border:1px solid var(--bordure,rgba(128,128,128,.3));'+
+      'box-shadow:0 12px 32px rgba(0,0,0,.28);">'+
+      '<span style="flex:1;min-width:0;line-height:1.3;"><strong>Nouvelle version disponible</strong></span>'+
+      '<button type="button" data-act="maj" style="flex:none;border:0;border-radius:12px;padding:9px 14px;font:inherit;font-weight:700;cursor:pointer;'+
+      'background:var(--theme-primary,#f59e0b);color:#fff;">Actualiser</button>'+
+      '<button type="button" data-act="fermer" aria-label="Fermer" style="flex:none;border:0;background:transparent;color:var(--gris,#7a7a8c);'+
+      'font-size:1.3rem;line-height:1;padding:6px 10px;cursor:pointer;">×</button></div>';
+    carte.addEventListener('click',function(ev){
+      var b=ev.target&&ev.target.closest?ev.target.closest('button[data-act]'):null;
+      if(!b)return;
+      if(b.getAttribute('data-act')==='maj')window.auroreForcerMiseAJour();
+      else if(carte&&carte.parentNode)carte.parentNode.removeChild(carte);
+    });
+    (document.body||document.documentElement).appendChild(carte);
+  }
+
+  function verifier(){
+    if(document.visibilityState!=='visible'||navigator.onLine===false)return;
+    if(Date.now()-derniereVerif<DELAI_VERIF)return;
+    derniereVerif=Date.now();
+    try{if(registration)registration.update();}catch(e){}
+    empreinte().then(function(e){
+      if(!e)return;
+      if(empreinteInitiale===null){empreinteInitiale=e;return;}
+      if(e!==empreinteInitiale&&!lecteurPdfOuvert())afficherCarte();
+    });
+  }
+
+  window.addEventListener('load',function(){setTimeout(function(){
+    derniereVerif=Date.now();
+    empreinte().then(function(e){if(e&&empreinteInitiale===null)empreinteInitiale=e;});
+  },3000);});
+  document.addEventListener('visibilitychange',function(){
+    if(document.visibilityState==='visible')verifier();
+  });
+  window.addEventListener('online',function(){setTimeout(verifier,2000);});
+
+  window.auroreForcerMiseAJour=function(){
+    var fin=function(){try{location.reload();}catch(e){}};
+    try{
+      var ctrl=navigator.serviceWorker.controller;
+      if(ctrl){
+        var t=setTimeout(fin,2500);
+        var ecoute=function(ev){
+          if(ev&&ev.data&&ev.data.type==='AURORE_PURGED'){
+            clearTimeout(t);
+            navigator.serviceWorker.removeEventListener('message',ecoute);
+            fin();
+          }
+        };
+        navigator.serviceWorker.addEventListener('message',ecoute);
+        ctrl.postMessage({type:'AURORE_PURGE'});
+        return;
+      }
+    }catch(e){}
+    fin();
   };
 })();
