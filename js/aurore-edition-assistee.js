@@ -3427,11 +3427,26 @@
         if(typeof exportPNG!=='function')throw new Error('Le moteur GeoGebra n’est pas chargé. Recharge la page puis réessaie.');
         const pngBase64=await exportPNG(graph);
         if(!pngBase64)throw new Error('GeoGebra n’a retourné aucune image pour le graphique '+String(graph.title||graphBlock.id)+'.');
-        updateGenerationProgress(graphBlock.id,38,'Enregistrement du graphique GeoGebra…');
+        // Transmettre le PNG brut en multipart plutôt qu’en Base64/JSON :
+        // mêmes pixels, mais environ 25 % de données réseau en moins qu'un Base64 seul.
+        const pngEncoded=String(pngBase64).replace(/^data:image\\/png;base64,/i,'').replace(/\\s+/g,'');
+        if(!/^[A-Za-z0-9+/]+={0,2}$/.test(pngEncoded)||pngEncoded.length<100)throw new Error('Image GeoGebra invalide.');
+        const pngBinary=atob(pngEncoded);
+        const pngBytes=new Uint8Array(pngBinary.length);
+        for(let byteIndex=0;byteIndex<pngBinary.length;byteIndex++)pngBytes[byteIndex]=pngBinary.charCodeAt(byteIndex);
+        if(pngBytes.length>12*1024*1024)throw new Error('PNG GeoGebra trop volumineux (maximum 12 Mio).');
+        if(pngBytes.length<8||pngBytes[0]!==137||pngBytes[1]!==80||pngBytes[2]!==78||pngBytes[3]!==71||pngBytes[4]!==13||pngBytes[5]!==10||pngBytes[6]!==26||pngBytes[7]!==10)throw new Error('Le fichier GeoGebra doit être un PNG valide.');
+        updateGenerationProgress(graphBlock.id,38,'Envoi du PNG GeoGebra sans Base64…');
+        const graphUploadForm=new FormData();
+        graphUploadForm.append('action','upload-assisted-graph');
+        graphUploadForm.append('course_id',String(state.course.id));
+        graphUploadForm.append('block_id',String(graphBlock.id));
+        graphUploadForm.append('graph',JSON.stringify(graph));
+        graphUploadForm.append('png',new Blob([pngBytes],{type:'image/png'}),'graph.png');
         const upload=await fetch(SUPABASE_URL+'/functions/v1/aurora-geogebra',{
           method:'POST',
-          headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':SUPABASE_ANON_KEY},
-          body:JSON.stringify({action:'upload-assisted-graph',course_id:String(state.course.id),block_id:String(graphBlock.id),graph,png_base64:pngBase64})
+          headers:{'Authorization':'Bearer '+token,'apikey':SUPABASE_ANON_KEY},
+          body:graphUploadForm
         });
         const uploadText=await upload.text();let uploadData={};try{uploadData=uploadText?JSON.parse(uploadText):{}}catch(_){uploadData={error:uploadText}};
         if(!upload.ok||!uploadData.ok||!String(uploadData.path||'').trim())throw new Error(uploadData.error||('Enregistrement du graphique HTTP '+upload.status));
