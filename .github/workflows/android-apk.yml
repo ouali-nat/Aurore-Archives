@@ -9,6 +9,7 @@ on:
       - 'android-app/**'
       - 'js/aurore-auth-bootstrap.js'
       - 'js/aurore-pdf-reader.js'
+      - 'index.html'
       - '.github/workflows/android-apk.yml'
   workflow_dispatch:
 
