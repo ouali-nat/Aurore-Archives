@@ -802,7 +802,11 @@ const newFlowPage=()=>{
         const titleX=28;
         const bodyX=POINT_BOX_X;
         const bodyW=POINT_MAX_W;
-        const bodyTextW=bodyW;
+        // Keep paragraph text away from the rounded frame so first letters
+        // never sit on its curved left border. Use the same inset on both sides.
+        const bodyPaddingX=12;
+        const bodyTextX=bodyX+bodyPaddingX;
+        const bodyTextW=Math.max(1,bodyW-bodyPaddingX*2);
         const pointItems:any[]=[];
         for(const para of proseText(body)){
           const prepared=await prepareRuns(mergePlainAndExplicit(para),auth,pdf,fonts,qa,cache);
@@ -906,10 +910,10 @@ const newFlowPage=()=>{
 let childY=bodyY+bodyH-BOX_PAD_TOP;
            for(const item of fragment){
              if(item.kind==="inline"){
-               drawInlineLines(page,item.lines,bodyX,childY,bodyTextW,fonts.regular,accent,rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT);
+               drawInlineLines(page,item.lines,bodyTextX,childY,bodyTextW,fonts.regular,accent,rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT);
                childY-=item.lines.reduce((n:any,line:any)=>n+inlineLineAdvance(line,TEXT_SIZE,LINE_HEIGHT),0)+gap;
              }else{
-               drawDisplayMath(page,item.run,bodyX,childY,bodyTextW,color);
+               drawDisplayMath(page,item.run,bodyTextX,childY,bodyTextW,color);
                childY-=item.metrics.cardH+gap;
              }
            }
