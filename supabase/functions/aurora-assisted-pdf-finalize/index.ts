@@ -95,6 +95,10 @@ Deno.serve(async (req: Request) => {
 
     let body: any;
     try { body = await req.json(); } catch { return json({ ok: false, error: "JSON invalide." }, 400); }
+    const action = String(body?.action || "merge");
+    if (!["merge", "prepare_upload", "complete_upload"].includes(action)) {
+      return json({ ok: false, error: "Action de fusion inconnue." }, 400);
+    }
     if (!Array.isArray(body?.page_urls) || body.page_urls.length < 1) {
       return json({ ok: false, error: "La liste des URL de pages PDF est vide." }, 400);
     }
@@ -120,6 +124,78 @@ Deno.serve(async (req: Request) => {
       .map((doc: any) => Number(doc.id)));
     if (documentIds.some((id) => !ownedIds.has(id))) {
       return json({ ok: false, error: "Un fragment source est introuvable ou ne t’appartient pas." }, 403);
+    }
+
+    const seed = userId + "\n" + paths.join("\n");
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(seed));
+    const fingerprint = Array.from(new Uint8Array(digest)).map((value) => value.toString(16).padStart(2, "0")).join("");
+    const finalPath = "aurora-assisted-final-pdfs/" + userId + "/" + fingerprint + ".pdf";
+
+    if (action === "prepare_upload") {
+      const { data: upload, error: uploadError } = await admin.storage
+        .from("Pdfs")
+        .createSignedUploadUrl(finalPath, { upsert: true });
+      if (uploadError || !upload?.signedUrl) {
+        throw new Error("Création du lien de dépôt serveur impossible : " + (uploadError?.message || "URL absente"));
+      }
+      const uploadUrl = new URL(upload.signedUrl, SUPA_URL);
+      const expectedOrigin = new URL(SUPA_URL).origin;
+      if (uploadUrl.origin !== expectedOrigin) {
+        throw new Error("Le stockage a renvoyé un lien de dépôt externe non autorisé.");
+      }
+      if (uploadUrl.pathname.startsWith("/object/upload/sign/")) {
+        uploadUrl.pathname = "/storage/v1" + uploadUrl.pathname;
+      }
+      if (!uploadUrl.pathname.startsWith("/storage/v1/object/upload/sign/Pdfs/aurora-assisted-final-pdfs/")) {
+        throw new Error("Le lien de dépôt ne cible pas le dossier final autorisé.");
+      }
+      return json({
+        ok: true,
+        action,
+        upload_url: uploadUrl.toString(),
+        pdf_path: finalPath,
+        fingerprint,
+        paths,
+        fragments: paths.length,
+      });
+    }
+
+    if (action === "complete_upload") {
+      if (String(body?.pdf_path || "") !== finalPath) {
+        return json({ ok: false, error: "Le chemin du PDF final ne correspond pas aux fragments vérifiés." }, 403);
+      }
+      const claimedPageCount = Number(body?.page_count) || 0;
+      if (!Number.isInteger(claimedPageCount) || claimedPageCount < 1) {
+        return json({ ok: false, error: "Le nombre de pages du PDF final est invalide." }, 400);
+      }
+      const filename = fingerprint + ".pdf";
+      const { data: storedFiles, error: listError } = await admin.storage
+        .from("Pdfs")
+        .list("aurora-assisted-final-pdfs/" + userId, { limit: 100, search: filename });
+      if (listError) throw new Error("Vérification du PDF déposé impossible : " + listError.message);
+      const stored = (storedFiles || []).find((item: any) => item.name === filename);
+      if (!stored) return json({ ok: false, error: "Le serveur n’a pas confirmé l’enregistrement du PDF final." }, 409);
+      const storedSize = Number(stored.metadata?.size) || Number(body?.bytes) || 0;
+      if (storedSize < 5 || storedSize > 60 * 1024 * 1024) {
+        return json({ ok: false, error: "La taille du PDF final enregistré est invalide.", bytes: storedSize }, 413);
+      }
+      const { data: signed, error: signedError } = await admin.storage
+        .from("Pdfs")
+        .createSignedUrl(finalPath, 60 * 60 * 24 * 30);
+      if (signedError || !signed?.signedUrl) {
+        throw new Error("Création du lien PDF final impossible : " + (signedError?.message || "URL absente"));
+      }
+      return json({
+        ok: true,
+        pdf_url: signed.signedUrl,
+        pdf_path: finalPath,
+        bytes: storedSize,
+        size_mib: Number((storedSize / 1048576).toFixed(3)),
+        page_count: claimedPageCount,
+        fragments: paths.length,
+        fragment_bytes: Number(body?.fragment_bytes) || 0,
+        engine: "vercel-node-pdf-lib-merge-v1",
+      });
     }
 
     const merged = await PDFDocument.create();
@@ -153,10 +229,6 @@ Deno.serve(async (req: Request) => {
       return json({ ok: false, error: "PDF final supérieur à 60 Mo : le document reste disponible par fragments.", bytes: finalBytes.length }, 413);
     }
 
-    const seed = userId + "\n" + paths.join("\n");
-    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(seed));
-    const fingerprint = Array.from(new Uint8Array(digest)).map((value) => value.toString(16).padStart(2, "0")).join("");
-    const finalPath = "aurora-assisted-final-pdfs/" + userId + "/" + fingerprint + ".pdf";
     const { error: uploadError } = await admin.storage.from("Pdfs").upload(finalPath, finalBytes, {
       contentType: "application/pdf",
       cacheControl: "3600",
