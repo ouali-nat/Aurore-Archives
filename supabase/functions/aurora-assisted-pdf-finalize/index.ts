@@ -109,7 +109,7 @@ Deno.serve(async (req: Request) => {
     // dans le worker Edge limité en mémoire.
     if (action === "merge") {
       try {
-        const response = await fetch("https://aurore-section-archives.com/api/aurora-assisted-pdf-finalize.js", {
+        const response = await fetch("https://aurore-section-archives.com/api/aurora-assisted-pdf-finalize", {
           method: "POST",
           headers: {
             "Authorization": authorization,
