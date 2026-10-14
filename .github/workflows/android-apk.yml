@@ -8,6 +8,7 @@ on:
     paths:
       - 'android-app/**'
       - 'js/aurore-auth-bootstrap.js'
+      - 'js/aurore-pdf-reader.js'
       - '.github/workflows/android-apk.yml'
   workflow_dispatch:
 
