@@ -935,7 +935,8 @@
   }
   async function buildFinalPdfArtifact(parts){
     if(!Array.isArray(parts)||!parts.length)throw new Error('Aucune partie PDF n’est disponible pour la fusion finale.');
-    const pageUrls=parts.map(part=>String(part?.url||'').trim()).filter(Boolean);
+    const pageUrls=parts.map(part=>String(part?.url||part?.page_url||part?.pdfUrl||part?.pdf_url||'').trim()).filter(Boolean);
+    if(!pageUrls.length)throw new Error('Aucune URL PDF n’a été transmise à la fusion. Vérifie les pages prêtes puis relance la fusion.');
     if(pageUrls.length!==parts.length)throw new Error('Une page du document ne possède pas d’URL PDF valide.');
     setPdfBatchProgress('Fusion des pages sur le serveur…',91);
     setStatus('Fusion côté serveur : les pages restent sur Supabase et aucun moteur de compression n’est téléchargé sur le téléphone.');
