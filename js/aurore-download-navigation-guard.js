@@ -1,4 +1,3 @@
-
 (function(){
   function isPdfUrl(url){
     try { return /\.pdf(?:[?#]|$)/i.test(new URL(url, location.href).href); }
@@ -18,6 +17,47 @@
     }catch(e){}
   }
 
+  /* Plugins Capacitor disponibles uniquement dans l'application Android. */
+  function nativePlugins(){
+    const C = window.Capacitor;
+    if(!C || typeof C.isNativePlatform !== 'function' || !C.isNativePlatform()) return null;
+    const P = C.Plugins || {};
+    return P.Filesystem ? P : null;
+  }
+
+  function blobToBase64(blob){
+    return new Promise(function(resolve, reject){
+      const r = new FileReader();
+      r.onload = function(){ resolve(String(r.result).split(',')[1]); };
+      r.onerror = function(){ reject(r.error); };
+      r.readAsDataURL(blob);
+    });
+  }
+
+  /* Télécharge le PDF et l'écrit dans le stockage du téléphone (dossier Aurore/). */
+  async function saveOnDevice(P, url, filename){
+    const res = await fetch(url, { credentials: 'omit' });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await blobToBase64(await res.blob());
+    const safeName = filename.replace(/[\\\/:*?"<>|]+/g, '_');
+    const written = await P.Filesystem.writeFile({
+      path: 'Aurore/' + safeName,
+      data: data,
+      directory: 'DOCUMENTS',
+      recursive: true
+    });
+    if(P.Share && typeof P.Share.share === 'function'){
+      try{
+        await P.Share.share({
+          title: safeName,
+          dialogTitle: 'Enregistrer ou partager le PDF',
+          files: [written.uri]
+        });
+      }catch(e){ /* annulation du partage : le fichier reste enregistré */ }
+    }
+    return written;
+  }
+
   document.addEventListener('click', function(e){
     const a=e.target.closest && e.target.closest('a[href]');
     if(!a)return;
@@ -32,6 +72,20 @@
       const url=new URL(href, location.href).href;
       const filename=(a.getAttribute('download')||'').trim() ||
         decodeURIComponent(url.split('/').pop().split('?')[0]) || 'document.pdf';
+      const title = a.textContent.trim();
+
+      const P = nativePlugins();
+      if(P){
+        saveOnDevice(P, url, filename)
+          .then(function(){ markDownload(url, title); })
+          .catch(function(err){
+            console.warn('Enregistrement natif impossible, ouverture dans le navigateur :', err);
+            const B = window.Capacitor.Plugins.Browser;
+            if(B && typeof B.open === 'function'){ B.open({ url: url }); }
+            markDownload(url, title);
+          });
+        return;
+      }
 
       const blobLink=document.createElement('a');
       blobLink.href=url;
@@ -42,7 +96,7 @@
       blobLink.click();
       blobLink.remove();
 
-      markDownload(url, a.textContent.trim());
+      markDownload(url, title);
       return;
     }
   }, true);
