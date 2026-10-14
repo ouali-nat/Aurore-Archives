@@ -34,18 +34,42 @@
     });
   }
 
-  /* Télécharge le PDF et l'écrit dans le stockage du téléphone (dossier Aurore/). */
+  function toast(text){
+    try{
+      const t = document.createElement('div');
+      t.textContent = text;
+      t.style.cssText = 'position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:2147483000;' +
+        'background:rgba(30,27,45,.96);color:#fff;padding:11px 18px;border-radius:14px;font:600 .8rem system-ui,sans-serif;' +
+        'box-shadow:0 8px 30px rgba(0,0,0,.35);max-width:86vw;text-align:center';
+      document.body.appendChild(t);
+      setTimeout(function(){ t.remove(); }, 3200);
+    }catch(e){}
+  }
+
+  /* Télécharge le PDF et l'écrit sur le téléphone.
+     1) dossier Documents/Aurore ; 2) à défaut (Android récent), cache de l'app.
+     Puis ouvre le menu de partage pour l'enregistrer où l'utilisateur veut. */
   async function saveOnDevice(P, url, filename){
+    toast('Téléchargement du PDF…');
     const res = await fetch(url, { credentials: 'omit' });
     if(!res.ok) throw new Error('HTTP ' + res.status);
     const data = await blobToBase64(await res.blob());
     const safeName = filename.replace(/[\\\/:*?"<>|]+/g, '_');
-    const written = await P.Filesystem.writeFile({
-      path: 'Aurore/' + safeName,
-      data: data,
-      directory: 'DOCUMENTS',
-      recursive: true
-    });
+
+    let written, where = 'Documents/Aurore';
+    try{
+      written = await P.Filesystem.writeFile({
+        path: 'Aurore/' + safeName, data: data, directory: 'DOCUMENTS', recursive: true
+      });
+    }catch(e){
+      where = 'cache';
+      written = await P.Filesystem.writeFile({
+        path: safeName, data: data, directory: 'CACHE', recursive: true
+      });
+    }
+
+    toast(where === 'cache' ? 'PDF prêt : choisissez où l’enregistrer' : 'PDF enregistré dans Documents/Aurore');
+
     if(P.Share && typeof P.Share.share === 'function'){
       try{
         await P.Share.share({
@@ -53,7 +77,7 @@
           dialogTitle: 'Enregistrer ou partager le PDF',
           files: [written.uri]
         });
-      }catch(e){ /* annulation du partage : le fichier reste enregistré */ }
+      }catch(e){ /* annulation du partage : le fichier reste disponible */ }
     }
     return written;
   }
@@ -80,6 +104,7 @@
           .then(function(){ markDownload(url, title); })
           .catch(function(err){
             console.warn('Enregistrement natif impossible, ouverture dans le navigateur :', err);
+            toast('Ouverture du PDF dans le navigateur…');
             const B = window.Capacitor.Plugins.Browser;
             if(B && typeof B.open === 'function'){ B.open({ url: url }); }
             markDownload(url, title);
