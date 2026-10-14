@@ -2996,11 +2996,7 @@
           ?'Rendu séquentiel · blocs '+(start+1)+'–'+end+' sur '+count+' · ces blocs contigus sont envoyés ensemble au renderer.'
           :'Rendu séquentiel · bloc '+(start+1)+' sur '+count+' · les pages système seront contrôlées à la fin.')
           :'Inventaire des blocs avant le lancement du rendu…')
-        :(percent>=100?'PDF final vérifié : toutes les pages attendues sont fusionnées et le nombre de pages est contrôlé.':percent>=95?String(p.label||'Finalisation du PDF en cours…')+' Les fragments sont optimisés avant l’assemblage ; aucune compression globale ne sera lancée après la fusion.':'Les pages sont rendues une par une pour préserver les sauvegardes et éviter les conflits.');
-      const optimizationErrors=Array.isArray(state.finalPdfArtifact?.optimizationErrors)?state.finalPdfArtifact.optimizationErrors:[];
-      if(!state.pdfBatchRunning&&percent>=100&&optimizationErrors.length){
-        detail.textContent='PDF final vérifié, mais compression individuelle en échec pour '+optimizationErrors.length+' fragment(s). Diagnostic : '+String(optimizationErrors[0]||'erreur inconnue').slice(0,420)+'. Tu peux relancer la compression sans régénérer les pages.';
-      }
+        :(percent>=100?'PDF final vérifié : toutes les pages attendues sont fusionnées et le nombre de pages est contrôlé.':percent>=95?String(p.label||'Finalisation du PDF en cours…')+' La fusion s’effectue sur le serveur : les fragments PDF ne sont pas téléchargés sur le téléphone. Aucune compression globale avec perte de qualité n’est lancée.':'Les pages sont rendues une par une pour préserver les sauvegardes et éviter les conflits.');
     }
   }
   function setPdfBatchProgress(label,percent){
