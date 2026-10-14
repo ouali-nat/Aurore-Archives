@@ -74,7 +74,21 @@ function extractStructuredText(v:any):string{
 }
 function proseText(v:any){
   const s=extractStructuredText(v).replace(/\r\n/g,"\n").replace(/\r/g,"\n").trim();
-  return s.split(/\n{2,}/).map(x=>x.replace(/\s+/g," ").trim()).filter(Boolean);
+  const paragraphs=s.split(/\n{2,}/).map(x=>x.replace(/\s+/g," ").trim()).filter(Boolean);
+  const out:string[]=[];
+  const signature=(value:string)=>value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^\p{L}\p{N}]+/gu," ").trim();
+  for(const raw of paragraphs){
+    const paragraph=raw
+      .replace(/^\s{0,3}#{1,6}\s+/,"")
+      .replace(/\\textbf\s*\{([^{}]*)\}/g,"$1")
+      .replace(/\\textit\s*\{([^{}]*)\}/g,"$1")
+      .replace(/\\emph\s*\{([^{}]*)\}/g,"$1")
+      .trim();
+    if(!paragraph)continue;
+    if(out.length&&signature(out[out.length-1])===signature(paragraph))continue;
+    out.push(paragraph);
+  }
+  return out;
 }
 
 function latexInput(v:any){
@@ -113,6 +127,28 @@ function stripInlineDelimiters(s:string){
 
 type Run={kind:"text"|"math"|"display"; value:string; image?:any; pdfPage?:any; width?:number; height?:number};
 
+function balancedParenthesisEnd(s:string,start:number):number{
+  let depth=0;
+  for(let i=start;i<s.length;i++){
+    if(s[i]==="\\"){i++;continue}
+    if(s[i]==="(")depth++;
+    else if(s[i]===")"){
+      depth--;
+      if(depth===0)return i;
+    }
+  }
+  return -1;
+}
+function isParenthesizedMath(value:string):boolean{
+  const s=String(value||"").trim();
+  if(!s||s.length>1200)return false;
+  const hasLatexCommand=/\\[A-Za-z]+/.test(s);
+  const hasRelation=/(?:=|<|>|≤|≥|\\(?:leq|geq|neq|approx|equiv|to|leftrightarrow|leftrightarrows|pm|geqslant|leqslant)\b)/.test(s);
+  const hasIndexOrPower=/[_^]/.test(s);
+  return (hasLatexCommand&&(hasRelation||hasIndexOrPower))
+    ||(hasRelation&&(hasIndexOrPower||/\d/.test(s)))
+    ||(hasIndexOrPower&&/[A-Za-z]/.test(s));
+}
 function parseRuns(raw:string):Run[]{
   const s=normalizeUnicodeMathText(raw);
   const runs:Run[]=[];
@@ -134,6 +170,15 @@ function parseRuns(raw:string):Run[]{
     if(s.startsWith("\\(",i)){
       const e=s.indexOf("\\)",i+2);
       if(e>i+2){pushText();runs.push({kind:"math",value:s.slice(i+2,e)});i=e+2;continue}
+    }
+    if(s[i]==="("){
+      const e=balancedParenthesisEnd(s,i);
+      if(e>i+1&&isParenthesizedMath(s.slice(i+1,e))){
+        pushText();
+        runs.push({kind:"math",value:s.slice(i+1,e)});
+        i=e+1;
+        continue;
+      }
     }
     if(s[i]==="\uE001"){
       const e=s.indexOf("\uE001",i+1);
