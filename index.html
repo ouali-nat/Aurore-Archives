@@ -35,14 +35,16 @@
 </script>
 
 <style id="aurore-boot-overlay-critical-css">
+html{overscroll-behavior-y:contain;}
 html.aurore-boot-pending:not(.aurore-boot-overlay-ready)::before{
   content:"";position:fixed;inset:0;z-index:2147483600;pointer-events:none;
   background:rgba(8,7,18,.64);
   -webkit-backdrop-filter:blur(15px) saturate(.72);backdrop-filter:blur(15px) saturate(.72)
 }
 html.aurore-boot-pending:not(.aurore-boot-overlay-ready)::after{
-  content:"";position:fixed;left:calc(50% - 26px);top:calc(50% - 26px);z-index:2147483601;
-  width:52px;height:52px;box-sizing:border-box;border-radius:50%;pointer-events:none;
+  content:"";position:fixed;left:calc(50% - 31px);top:calc(50% - 31px);z-index:2147483601;
+  width:62px;height:62px;box-sizing:border-box;border-radius:50%;pointer-events:none;
+  border:4px solid rgba(196,181,253,.25);border-top-color:#f3e8ff;border-right-color:#a78bfa;background-clip:padding-box;
   background:
     radial-gradient(circle at 28% 28%,#10091f 0 7%,#2b1450 8% 11%,rgba(255,255,255,.22) 12%,transparent 16%),
     radial-gradient(circle at 72% 28%,#10091f 0 7%,#2b1450 8% 11%,rgba(255,255,255,.20) 12%,transparent 16%),
@@ -76,6 +78,7 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
   box-shadow:0 28px 90px rgba(0,0,0,.38),inset 0 1px rgba(255,255,255,.06);
   -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
 .aurore-boot-mark-stage{position:relative;display:grid;place-items:center;width:96px;height:96px;margin:0 auto 21px}
+.aurore-boot-mark-stage::before{content:"";position:absolute;inset:4px;border:4px solid rgba(196,181,253,.22);border-top-color:#f3e8ff;border-right-color:#a78bfa;border-radius:50%;pointer-events:none;animation:aurore-boot-spin .9s linear infinite;will-change:transform}
 .aurore-boot-four-hole-ball{position:relative;display:block;width:66px;height:66px;flex:none;border-radius:50%;
   background:
     radial-gradient(circle at 28% 28%,#10091f 0 7%,#2b1450 8% 11%,rgba(255,255,255,.22) 12%,transparent 16%),
@@ -87,7 +90,8 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
   animation:aurore-boot-ball-spin 1.45s linear infinite;will-change:transform}
 .aurore-boot-four-hole-ball i{display:none}
 .aurore-boot-mark-stage .aurore-boot-four-hole-ball{animation:aurore-boot-ball-spin 1.45s linear infinite}
-@keyframes aurore-boot-mark-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}\n.aurore-boot-mark-fallback{position:absolute;z-index:2;place-items:center;width:66px;height:66px;border:1px solid rgba(221,214,254,.25);border-radius:21px;background:linear-gradient(145deg,rgba(139,92,246,.28),rgba(30,27,45,.92));color:#fff;font-size:32px;font-weight:800;letter-spacing:-.08em}\n.aurore-boot-mark-fallback:not([hidden]){display:grid}\n.aurore-boot-mark{display:grid;place-items:center;width:66px;height:66px;border:1px solid rgba(221,214,254,.25);border-radius:21px;
+@keyframes aurore-boot-mark-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.aurore-boot-mark-fallback{position:absolute;z-index:2;place-items:center;width:66px;height:66px;border:1px solid rgba(221,214,254,.25);border-radius:21px;background:linear-gradient(145deg,rgba(139,92,246,.28),rgba(30,27,45,.92));color:#fff;font-size:32px;font-weight:800;letter-spacing:-.08em}\n.aurore-boot-mark-fallback:not([hidden]){display:grid}\n.aurore-boot-mark{display:grid;place-items:center;width:66px;height:66px;border:1px solid rgba(221,214,254,.25);border-radius:21px;
   background:linear-gradient(145deg,rgba(139,92,246,.28),rgba(30,27,45,.92));color:#fff;font-size:32px;font-weight:800;letter-spacing:-.08em;
   box-shadow:0 8px 30px rgba(124,58,237,.23),inset 0 1px rgba(255,255,255,.13);animation:aurore-boot-mark-float 2.4s ease-in-out infinite}
 .aurore-boot-brand{margin:0 0 23px;color:#ddd6fe;font-size:.68rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase}
@@ -107,7 +111,7 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
 @keyframes aurore-boot-mark-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
 @media(max-width:420px){.aurore-boot-card{padding:27px 20px 23px;border-radius:23px}.aurore-boot-mark-stage{width:82px;height:82px}.aurore-boot-four-hole-ball{width:58px;height:58px}}
 @media(max-width:760px){#auroreBootOverlay{-webkit-backdrop-filter:blur(7px) saturate(.82);backdrop-filter:blur(7px) saturate(.82)}}
-@media(prefers-reduced-motion:reduce){html.aurore-boot-pending:not(.aurore-boot-overlay-ready)::after,.aurore-boot-four-hole-ball,.aurore-boot-orb,.aurore-boot-orb::after,.aurore-boot-progress-track span{animation:none!important}#auroreBootOverlay{transition:none}}
+@media(prefers-reduced-motion:reduce){.aurore-boot-orb,.aurore-boot-orb::after,.aurore-boot-progress-track span{animation:none!important}#auroreBootOverlay{transition:none}}
 </style>
 <script id="aurore-boot-overlay-early">
 (function(){
@@ -161,8 +165,8 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
     // Ne pas attendre DOMContentLoaded : il attend l'exécution de tous les
     // scripts defer, y compris ceux ralentis par un CDN. Le document est prêt
     // à présenter l'interface dès l'état interactive si l'écran initial existe.
-    if(document.readyState!=='loading'&&document.querySelector('.screen.active')){
-      dismiss('dom-interactive');
+    if(document.readyState==='complete'){
+      dismiss('window-load');
       return;
     }
     pollHandle=window.setTimeout(checkReady,100);
@@ -187,12 +191,86 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
     if(message)message.textContent='La connexion semble lente. Aurore terminera de charger les éléments restants en arrière-plan.';
     if(btn)btn.hidden=false;
   },5000);
-  hardHandle=window.setTimeout(function(){dismiss('failsafe');},12000);
+  // Aucun masquage automatique avant document.readyState === 'complete'.
+  // Le bouton de secours reste disponible si le chargement est vraiment bloqué.
+
+  // Actualisation mobile par glissement vers le bas, avec indicateur visible.
+  var pullStartY=0,pullDistance=0,pullTracking=false,pullRefreshing=false;
+  function scrollTopActuel(){
+    return Math.max(window.scrollY||0,document.documentElement.scrollTop||0,document.body?document.body.scrollTop||0:0);
+  }
+  function actualiserAffichageChargement(){
+    dismissed=true;
+    if(pollHandle)clearTimeout(pollHandle);
+    if(slowHandle)clearTimeout(slowHandle);
+    if(hardHandle)clearTimeout(hardHandle);
+    root.classList.remove('aurore-pull-refreshing');
+    root.classList.add('aurore-boot-pending');
+    overlay=getOverlay();
+    if(!overlay)return;
+    root.classList.add('aurore-boot-overlay-ready');
+    overlay.hidden=false;
+    overlay.classList.remove('is-leaving');
+    overlay.style.display='flex';
+    overlay.style.opacity='1';
+    overlay.style.visibility='visible';
+    overlay.setAttribute('aria-hidden','false');
+    var title=overlay.querySelector('.aurore-boot-title');
+    var message=document.getElementById('auroreBootMessage');
+    var status=document.getElementById('auroreBootStatus');
+    var btn=document.getElementById('auroreBootContinue');
+    if(title)title.textContent='Actualisation en cours';
+    if(message)message.textContent='Nous rechargeons votre espace. Veuillez patienter quelques instants.';
+    if(status)status.textContent='Actualisation de la page…';
+    if(btn)btn.hidden=true;
+  }
+  window.addEventListener('touchstart',function(event){
+    if(!event.touches||event.touches.length!==1||scrollTopActuel()>1||pullRefreshing){
+      pullTracking=false;
+      return;
+    }
+    pullTracking=true;
+    pullStartY=event.touches[0].clientY;
+    pullDistance=0;
+  },{passive:true});
+  window.addEventListener('touchmove',function(event){
+    if(!pullTracking||pullRefreshing||!event.touches||event.touches.length!==1)return;
+    var delta=event.touches[0].clientY-pullStartY;
+    if(delta<=0){pullDistance=0;root.classList.remove('aurore-pull-refreshing');return;}
+    if(scrollTopActuel()>1){pullTracking=false;root.classList.remove('aurore-pull-refreshing');return;}
+    pullDistance=delta;
+    if(delta>12){
+      if(event.cancelable)event.preventDefault();
+      root.classList.add('aurore-pull-refreshing');
+    }
+  },{passive:false});
+  function terminerGlissement(){
+    if(!pullTracking)return;
+    pullTracking=false;
+    if(pullDistance>=76&&!pullRefreshing){
+      pullRefreshing=true;
+      actualiserAffichageChargement();
+      // Laisser le navigateur peindre la roue avant de lancer la navigation.
+      window.requestAnimationFrame(function(){
+        window.setTimeout(function(){window.location.reload();},90);
+      });
+    }else{
+      root.classList.remove('aurore-pull-refreshing');
+    }
+  }
+  window.addEventListener('touchend',terminerGlissement,{passive:true});
+  window.addEventListener('touchcancel',function(){
+    pullTracking=false;
+    pullDistance=0;
+    root.classList.remove('aurore-pull-refreshing');
+  },{passive:true});
+  window.addEventListener('load',function(){checkReady();},{once:true});
 
   window.addEventListener('pagehide',function(){
     if(pollHandle)clearTimeout(pollHandle);
     if(slowHandle)clearTimeout(slowHandle);
     if(hardHandle)clearTimeout(hardHandle);
+    root.classList.remove('aurore-pull-refreshing');
   },{once:true});
 })();
 </script>
