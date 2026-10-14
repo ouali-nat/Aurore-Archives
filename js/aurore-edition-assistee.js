@@ -939,8 +939,8 @@
     if(!pageUrls.length)throw new Error('Aucune URL PDF n’a été transmise à la fusion. Vérifie les pages prêtes puis relance la fusion.');
     if(pageUrls.length!==parts.length)throw new Error('Une page du document ne possède pas d’URL PDF valide.');
     setPdfBatchProgress('Fusion des pages sur le serveur…',91);
-    setStatus('Fusion côté serveur : les pages restent sur Supabase et aucun moteur de compression n’est téléchargé sur le téléphone.');
-    const send=async(accessToken)=>fetch(SUPABASE_URL+'/functions/v1/aurora-assisted-pdf-finalize',{
+    setStatus('Fusion côté serveur : les fragments restent entre Supabase et le serveur de fusion. Aucune page ni moteur de compression n’est téléchargé sur le téléphone ; le PDF complet ne sera transféré qu’au moment du téléchargement.');
+    const send=async(accessToken)=>fetch('/api/aurora-assisted-pdf-finalize',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken,'apikey':SUPABASE_ANON_KEY},
       body:JSON.stringify({page_urls:pageUrls})
@@ -971,7 +971,7 @@
       fragmentBytes:Number(data.fragment_bytes)||0,
       fragmentCount:Number(data.fragments)||pageUrls.length,
       createdAt:new Date().toISOString(),
-      compressionEngine:'server-side-pdf-lib-merge-v1'
+      assemblyEngine:String(data.engine||'vercel-node-pdf-lib-merge-v1')
     };
   }
   async function finalizePdfAssembly(){
