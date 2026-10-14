@@ -119,6 +119,10 @@
     {
       "src": ".well-known/**",
       "use": "@vercel/static"
+    },
+    {
+      "src": "api/aurora-assisted-pdf-finalize.js",
+      "use": "@vercel/node"
     }
   ],
   "env": {
