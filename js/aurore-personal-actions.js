@@ -538,11 +538,22 @@
   if(!codeBiometrieBtn&&codeActions){codeBiometrieBtn=document.createElement('button');codeBiometrieBtn.type='button';codeBiometrieBtn.id='accessCodeBiometrie';codeBiometrieBtn.className='personal-action';codeActions.insertBefore(codeBiometrieBtn,codeActions.firstChild);}
   function actualiserBoutonsBiometrie(){
     if(!codeBiometrieBtn)return;
-    codeBiometrieBtn.hidden=!(biometrieDisponible()&&credentialBiometrique()&&codeMode==='verify'&&!espaceOptions.biometricEnroll&&!espaceOptions.biometricDisable);
-    codeBiometrieBtn.textContent='Utiliser mon empreinte digitale';
-    codeBiometrieBtn.setAttribute('aria-label','Déverrouiller avec la biométrie ou le verrouillage de cet appareil');
+    const modeVerification=codeMode==='verify'&&!espaceOptions.biometricEnroll&&!espaceOptions.biometricDisable;
+    codeBiometrieBtn.hidden=!modeVerification;
+    codeBiometrieBtn.textContent=credentialBiometrique()?'Utiliser mon empreinte digitale':'Activer mon empreinte digitale';
+    codeBiometrieBtn.setAttribute('aria-label',credentialBiometrique()?'Déverrouiller avec la biométrie':'Activer le déverrouillage biométrique sur cet appareil');
   }
-  codeBiometrieBtn?.addEventListener('click',deverrouillerBiometrie);
+  async function actionBoutonBiometrie(){
+    if(credentialBiometrique()){await deverrouillerBiometrie();return;}
+    if(!biometrieDisponible()){
+      afficherMessageCode('La biométrie n’est pas accessible dans ce navigateur ou cette fenêtre Aurore. Essayez d’ouvrir aurore-section-archives.com directement dans Chrome, puis revenez dans « Code et empreinte ».','err');
+      return;
+    }
+    espaceOptions={...espaceOptions,biometricEnroll:true};
+    afficherMessageCode('Pour activer l’empreinte, saisissez d’abord votre code actuel de 4 à 8 chiffres, puis appuyez sur « Valider ».','');
+    codeInput.focus();
+  }
+  codeBiometrieBtn?.addEventListener('click',actionBoutonBiometrie);
   let codeResetBtn=document.getElementById('accessCodeReset');
   if(!codeResetBtn&&codeActions){
     codeResetBtn=document.createElement('button');codeResetBtn.type='button';codeResetBtn.id='accessCodeReset';
