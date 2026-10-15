@@ -472,7 +472,7 @@
       alert('Déverrouillage biométrique activé sur cet appareil. Le code reste disponible en secours.');
     }catch(e){
       console.warn('[Espace personnel] activation biométrique:',e);
-      afficherMessageCode(e&&e.name==='NotAllowedError'?'Opération annulée ou verrouillage de l’appareil indisponible.':'Impossible d’activer la biométrie sur cet appareil. Le code reste disponible.','err');
+      alert(e&&e.name==='NotAllowedError'?'Opération annulée ou verrouillage de l’appareil indisponible.':'Impossible d’activer la biométrie sur cet appareil. Le code reste disponible.');
     }
   }
   async function deverrouillerBiometrie(){
@@ -520,7 +520,7 @@
   if(!codeBiometrieBtn&&codeActions){codeBiometrieBtn=document.createElement('button');codeBiometrieBtn.type='button';codeBiometrieBtn.id='accessCodeBiometrie';codeBiometrieBtn.className='personal-action';codeActions.insertBefore(codeBiometrieBtn,codeActions.firstChild);}
   function actualiserBoutonsBiometrie(){
     if(!codeBiometrieBtn)return;
-    codeBiometrieBtn.hidden=!(biometrieDisponible()&&credentialBiometrique()&&codeMode==='verify');
+    codeBiometrieBtn.hidden=!(biometrieDisponible()&&credentialBiometrique()&&codeMode==='verify'&&!espaceOptions.biometricEnroll&&!espaceOptions.biometricDisable);
     codeBiometrieBtn.textContent='Utiliser mon empreinte digitale';
     codeBiometrieBtn.setAttribute('aria-label','Déverrouiller avec la biométrie ou le verrouillage de cet appareil');
   }
