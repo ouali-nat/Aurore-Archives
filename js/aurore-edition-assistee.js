@@ -52,12 +52,9 @@
   const generationLocks=new Set();
   function generationLockKey(id){return String(state.course?.id||'')+':'+String(id||'');}
   function generationLockIds(id){
+    // Les actions par page sont indépendantes ; seule la commande globale traite les séquences.
     const target=String(id||'').trim();
-    if(!target)return [];
-    const block=activeBlocks().find(item=>String(item?.id||'')===target);
-    if(!block||isSystemBlock(block))return [target];
-    const group=renderableFlowBlocksFor(target);
-    return [...new Set((group.length?group:[block]).map(item=>String(item?.id||'')).filter(Boolean))];
+    return target?[target]:[];
   }
   function refreshGenerationControls(ids,busy){
     const selected=new Set((Array.isArray(ids)?ids:[]).map(String));
@@ -3950,7 +3947,7 @@
     keys.forEach(key=>generationLocks.add(key));
     refreshGenerationControls(ids,true);
     setStatus('Clic reçu · validation et génération de toute la séquence…');
-    Promise.resolve().then(()=>generateBlock(id,{forceFlow:true,forceRegenerate:true})).catch(err=>{
+    Promise.resolve().then(()=>generateBlock(id,{forceSingleBlock:true,forceRegenerate:true})).catch(err=>{
       const message=String(err?.message||err||'Erreur inconnue');
       setStatus('Échec de « Valider & générer » : '+message);
     }).finally(()=>{
@@ -3977,7 +3974,10 @@
     keys.forEach(key=>generationLocks.add(key));
     refreshGenerationControls(ids,true);
     setStatus('Clic reçu · régénération de '+(ref==='system-start'?'la couverture':ref==='system-end'?'la page finale':ref==='toc'?'du sommaire':'la séquence')+'…');
-    Promise.resolve().then(()=>regeneratePage(ref)).catch(err=>{
+    Promise.resolve().then(()=>{
+      if(ref==='toc'||ref==='system-start'||ref==='system-end')return regeneratePage(ref);
+      return generateBlock(ref,{forceSingleBlock:true,forceRegenerate:true});
+    }).catch(err=>{
       const message=String(err?.message||err||'Erreur inconnue');
       setStatus('La régénération a échoué : '+message);
     }).finally(()=>{
