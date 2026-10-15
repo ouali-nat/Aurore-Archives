@@ -503,7 +503,7 @@
     let value=String(raw||'').trim();
     const chiffres={'٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9','۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9','０':'0','１':'1','２':'2','３':'3','４':'4','５':'5','６':'6','７':'7','８':'8','９':'9'};
     value=Array.from(value,c=>chiffres[c]||c).join('');
-    return value.replace(/[\\s\\u200B-\\u200D\\uFEFF]/g,'');
+    return value.replace(/[\s\u200B-\u200D\uFEFF]/g,'');
   }
   async function confirmerReinitialisationCode(){
     if(!session||!userKey()){afficherMessageCode('Reconnectez-vous à votre compte pour réinitialiser ce verrou.','err');return;}
