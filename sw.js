@@ -15,7 +15,7 @@
    aurore-covers (couvertures), aurore-pdf-ouverts (PDF).
 */
 
-const SW_VERSION = 'v12-offline-rebuild-20261014';
+const SW_VERSION = 'v13-biometric-auto-prompt-20261015';
 
 const PAGE_CACHE = 'aurore-shell';
 const STATIC_CACHE = 'aurore-static';
@@ -163,7 +163,7 @@ async function retirerAnciennesCles() {
     await Promise.all(requetes.map(async (req) => {
       try {
         const u = new URL(req.url);
-        if (u.search) await statics.delete(req);
+        if (u.search || u.pathname === '/js/aurore-personal-actions.js') await statics.delete(req);
       } catch (_) {}
     }));
   } catch (_) {}
