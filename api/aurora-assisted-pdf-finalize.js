@@ -256,7 +256,16 @@ module.exports = async function handler(req, res) {
     }
 
     body.page_urls.forEach(signedSourcePath);
-    const prepared = await callEdge("prepare_upload", token, apikey, { page_urls: body.page_urls });
+    const courseContext = {
+      course_id: String(body.course_id || "").trim(),
+      course_title: String(body.course_title || "").trim().slice(0, 180),
+      theme_color: String(body.theme_color || "").trim(),
+      course_fingerprint: String(body.course_fingerprint || "").trim().slice(0, 240),
+    };
+    if (!courseContext.course_id) {
+      return sendJson(res, 400, { ok: false, error: "L’identifiant du cours est absent. Ouvre le cours et relance la fusion globale." });
+    }
+    const prepared = await callEdge("prepare_upload", token, apikey, { page_urls: body.page_urls, ...courseContext });
     if (!Array.isArray(prepared.paths) || !prepared.paths.length
       || !Array.isArray(prepared.source_urls)
       || prepared.source_urls.length !== prepared.paths.length
@@ -325,6 +334,7 @@ module.exports = async function handler(req, res) {
       bytes: finalBytes.byteLength,
       page_count: pageCount,
       fragment_bytes: fragmentBytes,
+      ...courseContext,
     });
     return sendJson(res, 200, {
       ...completed,
