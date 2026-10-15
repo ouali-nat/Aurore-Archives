@@ -3158,7 +3158,11 @@
     if(type==='exercise')return Boolean(String(content.statement||'').trim());
     if(type==='graphique'){
       const g=content.json&&typeof content.json==='object'&&!Array.isArray(content.json)?content.json:{};
-      return Boolean(String(g.geogebra_image_path||g.graph_local_path||g.geogebra_image_url||g.image_url||g.preview_url||'').trim());
+      const hasAsset=Boolean(String(g.geogebra_image_path||g.graph_local_path||g.geogebra_image_url||g.image_url||g.preview_url||'').trim());
+      const configured=Boolean(String(g.id||'').trim()&&String(g.instrument||g.graph_type||'').trim());
+      // Le graphique appartient au flux dès que sa définition est valide,
+      // même avant l'export de l'image GeoGebra.
+      return hasAsset||configured;
     }
     if(type==='vector-scene'){
       const j=content.json&&typeof content.json==='object'&&!Array.isArray(content.json)?content.json:{};
