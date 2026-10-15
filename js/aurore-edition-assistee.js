@@ -4226,7 +4226,7 @@
       detail.appendChild(panel);
       panel.querySelector('#assistedCompletedRefresh').addEventListener('click',()=>{void showCompletedArchive({refresh:true});});
       panel.querySelector('#assistedCompletedBack').addEventListener('click',()=>{
-        const editorCard=document.querySelector('.admin-tab[data-tab="edition-assistee]');
+        const editorCard=document.querySelector('.admin-tab[data-tab="edition-assistee"]');
         const editorPanel=document.querySelector('.admin-tab-panel[data-panel="edition-assistee"]');
         activateAdminPanel(editorPanel,editorCard);
         state.mode='list';state.course=null;state.selected=null;state.finalPdfArtifact=null;
