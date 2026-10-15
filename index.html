@@ -2635,7 +2635,6 @@ body:not(.site-locked) #accessLock{display:none!important;}
     fermer?.addEventListener('click',masquer);
 
     async function testerConnexionReelle(){
-      if(navigator.onLine===false)return false;
       const controleur=typeof AbortController==='function'?new AbortController():null;
       const minuteur=controleur?setTimeout(()=>{try{controleur.abort();}catch(_){}},4500):null;
       try{
@@ -2658,14 +2657,17 @@ body:not(.site-locked) #accessLock{display:none!important;}
     function arreterSonde(){
       if(minuterieSonde){clearInterval(minuterieSonde);minuterieSonde=null;}
     }
-    function demarrerSonde(){
-      if(minuterieSonde)return;
-      // Une seule petite vérification HEAD toutes les 15 s, et uniquement après une coupure.
+    function programmerSonde(){
+      arreterSonde();
+      // Surveillance économique : HEAD toutes les 45 s en ligne, toutes les 15 s
+      // après une coupure. En arrière-plan, aucune requête réseau n'est envoyée.
+      const delai=dernierEtatReseau==='offline'?15000:45000;
       minuterieSonde=setInterval(()=>{
-        if(dernierEtatReseau!=='offline'||verificationEnCours)return;
-        if(navigator.onLine===false)return;
+        if(document.visibilityState!=='visible'||verificationEnCours)return;
+        // Ne pas se fier uniquement à navigator.onLine : certains WebView gardent
+        // parfois cet indicateur dans un état périmé après une coupure.
         traiterChangementReseau('online','sonde');
-      },15000);
+      },delai);
     }
 
     async function traiterChangementReseau(etat,source='navigator'){
@@ -2677,22 +2679,16 @@ body:not(.site-locked) #accessLock{display:none!important;}
         document.documentElement.classList.add('aurore-offline');
         afficher('offline','Connexion interrompue','Internet est indisponible ou instable. Les pages et documents déjà disponibles restent consultables.',false);
         window.dispatchEvent(new CustomEvent('aurore:network-offline',{detail:{source}}));
-        demarrerSonde();
+        programmerSonde();
         return;
       }
 
-      if(navigator.onLine===false){
-        return traiterChangementReseau('offline',source+':navigator');
-      }
       if(verificationEnCours)return;
       verificationEnCours=true;
       const generation=++generationVerification;
       const precedent=dernierEtatReseau;
       const accessible=await testerConnexionReelle();
-      if(generation!==generationVerification){
-        verificationEnCours=false;
-        return;
-      }
+      if(generation!==generationVerification)return;
       verificationEnCours=false;
       if(!accessible){
         return traiterChangementReseau('offline',source+':probe');
@@ -2700,8 +2696,8 @@ body:not(.site-locked) #accessLock{display:none!important;}
       if(dernierEtatReseau==='online')return;
 
       dernierEtatReseau='online';
-      arreterSonde();
       document.documentElement.classList.remove('aurore-offline');
+      programmerSonde();
       if(precedent==='offline'){
         afficher('online','Connexion rétablie','Internet est de nouveau disponible. Aurore peut reprendre la synchronisation de votre espace.',true);
       }else if(precedent==='unknown'){
@@ -2736,6 +2732,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
     window.addEventListener('visibilitychange',()=>{
       if(document.visibilityState!=='visible')return;
       traiterChangementReseau(navigator.onLine===false?'offline':'online','visibility');
+      if(dernierEtatReseau!=='unknown')programmerSonde();
     });
     window.addEventListener('pagehide',arreterSonde,{once:true});
 
