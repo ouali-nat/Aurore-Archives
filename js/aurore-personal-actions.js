@@ -443,26 +443,88 @@
   const apercu=document.getElementById('apercuOverlay');
   if(apercu){new MutationObserver(()=>{if(apercu.style.display==='flex'&&typeof DOC_EN_APERCU!=='undefined'&&DOC_EN_APERCU)actualiserEtatActionsDocument(apercu,DOC_EN_APERCU);}).observe(apercu,{attributes:true,attributeFilter:['style']});}
 
-  // Code d’accès personnel.
+  // Code d’accès personnel et déverrouillage biométrique local.
+  // Cette biométrie est un raccourci de verrouillage sur l’appareil, pas une authentification serveur.
+  const KEY_BIOMETRIE='aurore_biometrie_credential_';
   function codeStocke(){return userKey()?localStorage.getItem(KEY_CODE+userKey()):null;}
+  const cleBiometrie=()=>userKey()?KEY_BIOMETRIE+userKey():'';
+  function credentialBiometrique(){try{return cleBiometrie()?localStorage.getItem(cleBiometrie()):null;}catch(_){return null;}}
+  function biometrieDisponible(){return !!(window.isSecureContext&&navigator.credentials&&window.PublicKeyCredential&&navigator.credentials.create&&navigator.credentials.get);}
+  function bytesVersBase64Url(bytes){let b='';new Uint8Array(bytes).forEach(x=>b+=String.fromCharCode(x));return btoa(b).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+  function base64UrlVersBytes(value){const b64=String(value).replace(/-/g,'+').replace(/_/g,'/');const raw=atob(b64+'='.repeat((4-b64.length%4)%4));return Uint8Array.from(raw,c=>c.charCodeAt(0));}
+  function nouveauChallenge(){const b=new Uint8Array(32);crypto.getRandomValues(b);return b;}
+  async function identifiantUtilisateurBiometrie(){const data=new TextEncoder().encode(userKey());return new Uint8Array(await crypto.subtle.digest('SHA-256',data)).slice(0,32);}
+  function afficherMessageCode(message,classe){if(!codeMsg)return;codeMsg.textContent=message;codeMsg.className='access-code-message '+(classe||'');codeMsg.style.display='block';}
   async function hashCode(v){const data=new TextEncoder().encode(v);const hash=await crypto.subtle.digest('SHA-256',data);return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+  async function enregistrerBiometrie(){
+    if(!session||!biometrieDisponible()){afficherMessageCode('La biométrie n’est pas disponible dans ce navigateur. Utilisez le code habituel.','err');return;}
+    try{
+      const cred=await navigator.credentials.create({publicKey:{
+        challenge:nouveauChallenge(),rp:{name:'Aurore — Section Archives',id:location.hostname},
+        user:{id:await identifiantUtilisateurBiometrie(),name:String(session.email||session.id),displayName:String(session.nom||session.email||'Utilisateur Aurore')},
+        pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],
+        timeout:60000,attestation:'none',
+        authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required',residentKey:'preferred'}
+      }});
+      if(!cred||!cred.rawId)throw new Error('Aucun identifiant biométrique reçu.');
+      localStorage.setItem(cleBiometrie(),bytesVersBase64Url(cred.rawId));
+      actualiserBoutonsBiometrie();actualiserGestionBiometrieProfil();
+      alert('Déverrouillage biométrique activé sur cet appareil. Le code reste disponible en secours.');
+    }catch(e){
+      console.warn('[Espace personnel] activation biométrique:',e);
+      afficherMessageCode(e&&e.name==='NotAllowedError'?'Opération annulée ou verrouillage de l’appareil indisponible.':'Impossible d’activer la biométrie sur cet appareil. Le code reste disponible.','err');
+    }
+  }
+  async function deverrouillerBiometrie(){
+    if(!biometrieDisponible()||!credentialBiometrique()){afficherMessageCode('Aucune biométrie configurée. Utilisez votre code d’accès.','err');return;}
+    try{
+      const cred=await navigator.credentials.get({publicKey:{
+        challenge:nouveauChallenge(),rpId:location.hostname,
+        allowCredentials:[{type:'public-key',id:base64UrlVersBytes(credentialBiometrique())}],
+        userVerification:'required',timeout:60000
+      }});
+      if(!cred||bytesVersBase64Url(cred.rawId)!==credentialBiometrique())throw new Error('Identifiant biométrique inattendu.');
+      const options={...espaceOptions};closeCode();ouvrirEspaceInterne(options);
+    }catch(e){
+      console.warn('[Espace personnel] déverrouillage biométrique:',e);
+      afficherMessageCode(e&&e.name==='NotAllowedError'?'Empreinte non validée ou opération annulée. Vous pouvez saisir votre code.':'Déverrouillage biométrique impossible. Utilisez votre code.','err');
+    }
+  }
   function showCode(mode,options){
     codeMode=mode;espaceOptions=options||{};if(!codeModal)return;
     codeMsg.className='access-code-message';codeMsg.textContent='';codeMsg.style.display='none';codeInput.value='';
     if(mode==='setup'){codeTitle.textContent='Créer votre code d’accès';codeIntro.textContent='Choisissez un code personnel de 4 à 8 chiffres. Il sera demandé avant l’ouverture de votre espace sur cet appareil.';}
     else {codeTitle.textContent='Code d’accès à votre espace';codeIntro.textContent='Saisissez votre code personnel pour ouvrir votre espace Aurore.';}
-    codeModal.style.display='flex';codeModal.setAttribute('aria-hidden','false');setTimeout(()=>codeInput.focus(),50);
+    actualiserBoutonsBiometrie();
+    codeModal.style.display='flex';codeModal.setAttribute('aria-hidden','false');setTimeout(()=>{if(!credentialBiometrique())codeInput.focus();},50);
   }
   function closeCode(){codeModal.style.display='none';codeModal.setAttribute('aria-hidden','true');codeResolve?.(false);codeResolve=null;}
   async function confirmCode(){
     const value=String(codeInput.value||'').trim();
-    if(!/^\d{4,8}$/.test(value)){codeMsg.textContent='Le code doit contenir entre 4 et 8 chiffres.';codeMsg.className='access-code-message err';return;}
+    if(!/^\\d{4,8}$/.test(value)){afficherMessageCode('Le code doit contenir entre 4 et 8 chiffres.','err');return;}
     if(codeMode==='setup'){
-      try{localStorage.setItem(KEY_CODE+userKey(),await hashCode(value));codeMsg.textContent='Code enregistré. Votre espace va s’ouvrir.';codeMsg.className='access-code-message ok';setTimeout(()=>{closeCode();ouvrirEspaceInterne(espaceOptions);},300);}catch(e){codeMsg.textContent='Impossible d’enregistrer le code sur cet appareil.';codeMsg.className='access-code-message err';}
+      try{localStorage.setItem(KEY_CODE+userKey(),await hashCode(value));afficherMessageCode('Code enregistré. Votre espace va s’ouvrir.','ok');setTimeout(()=>{closeCode();ouvrirEspaceInterne(espaceOptions);},300);}catch(e){afficherMessageCode('Impossible d’enregistrer le code sur cet appareil.','err');}
       return;
     }
-    try{const ok=(await hashCode(value))===codeStocke();if(!ok){codeMsg.textContent='Code incorrect. Réessayez.';codeMsg.className='access-code-message err';return;}closeCode();ouvrirEspaceInterne(espaceOptions);}catch(e){codeMsg.textContent='Impossible de vérifier le code.';codeMsg.className='access-code-message err';}
+    try{
+      const ok=(await hashCode(value))===codeStocke();
+      if(!ok){afficherMessageCode('Code incorrect. Réessayez.','err');return;}
+      const options={...espaceOptions};closeCode();
+      if(options.biometricEnroll){await enregistrerBiometrie();return;}
+      if(options.biometricDisable){try{localStorage.removeItem(cleBiometrie());}catch(_){}actualiserBoutonsBiometrie();actualiserGestionBiometrieProfil();alert('Déverrouillage biométrique désactivé.');return;}
+      ouvrirEspaceInterne(options);
+    }catch(e){afficherMessageCode('Impossible de vérifier le code.','err');}
   }
+  const codeActions=document.querySelector('#accessCodeModal .access-code-actions');
+  let codeBiometrieBtn=document.getElementById('accessCodeBiometrie');
+  if(!codeBiometrieBtn&&codeActions){codeBiometrieBtn=document.createElement('button');codeBiometrieBtn.type='button';codeBiometrieBtn.id='accessCodeBiometrie';codeBiometrieBtn.className='personal-action';codeActions.insertBefore(codeBiometrieBtn,codeActions.firstChild);}
+  function actualiserBoutonsBiometrie(){
+    if(!codeBiometrieBtn)return;
+    codeBiometrieBtn.hidden=!(biometrieDisponible()&&credentialBiometrique()&&codeMode==='verify');
+    codeBiometrieBtn.textContent='Utiliser mon empreinte digitale';
+    codeBiometrieBtn.setAttribute('aria-label','Déverrouiller avec la biométrie ou le verrouillage de cet appareil');
+  }
+  codeBiometrieBtn?.addEventListener('click',deverrouillerBiometrie);
   function ouvrirEspaceInterne(options={}){
     if(!session)return;if(typeof window.auroreUnlockAccess==='function')window.auroreUnlockAccess();document.getElementById('breadcrumb').innerHTML='';remplirProfil();
     const screen=document.getElementById('screen-profil');
@@ -480,14 +542,25 @@
   codeModal?.addEventListener('click',e=>{if(e.target===codeModal)closeCode();});
   codeInput?.addEventListener('keydown',e=>{if(e.key==='Enter')confirmCode();if(e.key==='Escape')closeCode();});
 
-  // Expose the « modifier le code » action through a compact button inserted into the profile.
+  // Gestion du code et du raccourci biométrique depuis le profil.
   const meta=document.querySelector('#screen-profil .profile-meta');
   if(meta && !document.getElementById('profilCodeAccessCard')){
     const card=document.createElement('div');card.className='profile-meta-item';card.id='profilCodeAccessCard';
-    card.innerHTML='<div class="label">Code d’accès personnel</div><div class="value" style="font-size:.82rem;font-weight:500;color:var(--gris);margin-bottom:10px;">Modifiez le code utilisé pour ouvrir votre espace sur cet appareil.</div><button type="button" class="personal-action" id="profilCodeModifier">Modifier mon code</button>';
+    card.innerHTML='<div class="label">Protection de l’espace personnel</div><div class="value" style="font-size:.82rem;font-weight:500;color:var(--gris);margin-bottom:10px;">La biométrie utilise le verrouillage de cet appareil. Le code reste disponible en secours et le mot de passe du compte reste inchangé.</div><button type="button" class="personal-action" id="profilCodeModifier">Modifier mon code</button> <button type="button" class="personal-action" id="profilBiometrieGerer"></button>';
     meta.appendChild(card);
     card.querySelector('#profilCodeModifier').addEventListener('click',()=>{if(session){showCode('setup',{});}});
+    card.querySelector('#profilBiometrieGerer').addEventListener('click',()=>{
+      if(!session)return;
+      if(!biometrieDisponible()){alert('La biométrie n’est pas prise en charge dans ce navigateur. Essayez Chrome ou l’application Aurore installée, avec le verrouillage de l’appareil configuré.');return;}
+      showCode('verify',{biometricEnroll:!credentialBiometrique(),biometricDisable:!!credentialBiometrique()});
+    });
   }
+  function actualiserGestionBiometrieProfil(){
+    const btn=document.getElementById('profilBiometrieGerer');if(!btn)return;
+    btn.hidden=!biometrieDisponible();
+    btn.textContent=credentialBiometrique()?'Désactiver la biométrie':'Activer la biométrie';
+  }
+  actualiserGestionBiometrieProfil();
 
   // --- Correctif espace personnel (favoris / plus tard / téléchargements) ---
   // Le script principal (hors de cette IIFE) appelle favoris(), plusTard(),
