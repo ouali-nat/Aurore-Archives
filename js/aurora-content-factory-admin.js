@@ -1575,7 +1575,8 @@ async function charger(){
           const jm=job.metadata&&typeof job.metadata==='object'?job.metadata:{};
           // Les jobs page_assistee créés par l’atelier ne doivent pas être
           // injectés comme demandes séparées, même avant la liaison PDF.
-          if(String(job.document_type||'')==='page_assistee'&&String(jm.origin||'')==='edition_assistee'){
+          if(String(jm.origin||'')==='edition_assistee'
+            &&(String(job.document_type||'')==='page_assistee'||jm.assisted_final===true)){
             known.add(String(job.id));
             continue;
           }
