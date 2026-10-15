@@ -449,7 +449,20 @@
   function codeStocke(){return userKey()?localStorage.getItem(KEY_CODE+userKey()):null;}
   const cleBiometrie=()=>userKey()?KEY_BIOMETRIE+userKey():'';
   function credentialBiometrique(){try{return cleBiometrie()?localStorage.getItem(cleBiometrie()):null;}catch(_){return null;}}
-  function biometrieDisponible(){return !!(window.isSecureContext&&navigator.credentials&&window.PublicKeyCredential&&navigator.credentials.create&&navigator.credentials.get);}
+  const CLE_BIOMETRIE_NATIVE='aurore_biometrie_native_';
+  const biometrieNativeConfiguree=()=>{try{return !!(userKey()&&localStorage.getItem(CLE_BIOMETRIE_NATIVE+userKey())==='1');}catch(_){return false;}};
+  const plateformeNative=()=>!!(window.Capacitor&&typeof window.Capacitor.isNativePlatform==='function'&&window.Capacitor.isNativePlatform());
+  async function obtenirPluginBiometrieNative(){
+    if(!plateformeNative())return null;
+    if(window.AuroreBiometricAuth?.authenticate)return window.AuroreBiometricAuth;
+    // Le site est chargé depuis le serveur distant dans la WebView Capacitor.
+    // Charger le proxy JS du plugin permet au pont natif déjà compilé de le résoudre.
+    const module=await import('https://esm.sh/@aparajita/capacitor-biometric-auth@8.0.2');
+    if(!module?.BiometricAuth)throw new Error('Le pont biométrique natif est absent de cette version de l’application.');
+    window.AuroreBiometricAuth=module.BiometricAuth;
+    return window.AuroreBiometricAuth;
+  }
+  function biometrieDisponible(){return plateformeNative()||!!(window.isSecureContext&&navigator.credentials&&window.PublicKeyCredential&&navigator.credentials.create&&navigator.credentials.get);}
   function bytesVersBase64Url(bytes){let b='';new Uint8Array(bytes).forEach(x=>b+=String.fromCharCode(x));return btoa(b).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
   function base64UrlVersBytes(value){const b64=String(value).replace(/-/g,'+').replace(/_/g,'/');const raw=atob(b64+'='.repeat((4-b64.length%4)%4));return Uint8Array.from(raw,c=>c.charCodeAt(0));}
   function nouveauChallenge(){const b=new Uint8Array(32);crypto.getRandomValues(b);return b;}
@@ -458,6 +471,22 @@
   async function hashCode(v){const data=new TextEncoder().encode(v);const hash=await crypto.subtle.digest('SHA-256',data);return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');}
   async function enregistrerBiometrie(){
     if(!session)return;
+    if(plateformeNative()){
+      try{
+        const plugin=await obtenirPluginBiometrieNative();
+        if(!plugin)throw new Error('Le module biométrique natif n’est pas installé dans cet APK. Une nouvelle version de l’application est nécessaire.');
+        const info=await plugin.checkBiometry();
+        if(!info?.isAvailable)throw new Error('Aucune empreinte ou biométrie compatible n’est activée sur cet appareil.');
+        await plugin.authenticate({reason:'Déverrouiller votre espace personnel Aurore',androidTitle:'Déverrouillage Aurore',androidSubtitle:'Confirmez votre identité',cancelTitle:'Annuler',allowDeviceCredential:true});
+        localStorage.setItem(CLE_BIOMETRIE_NATIVE+userKey(),'1');
+        actualiserBoutonsBiometrie();actualiserGestionBiometrieProfil();
+        alert('Déverrouillage biométrique natif activé sur cette application. Votre code reste disponible en secours.');
+      }catch(e){
+        console.warn('[Espace personnel] activation biométrique native:',e);
+        alert('Impossible d’activer la biométrie native. '+String(e?.message||'Vérifiez la configuration de votre appareil.').slice(0,220)+' Le code reste disponible.');
+      }
+      return;
+    }
     if(!biometrieDisponible()){
       const message='Cette version de l’application Aurore ne donne pas accès à la biométrie du système. Le code reste actif. Ouvrez Aurore dans Chrome pour configurer l’empreinte ; l’application installée devra ensuite être mise à jour pour prendre en charge cette fonction.';
       if(codeModal&&codeModal.style.display==='flex')afficherMessageCode(message,'err');else alert(message);
@@ -481,6 +510,18 @@
     }
   }
   async function deverrouillerBiometrie(){
+    if(plateformeNative()&&biometrieNativeConfiguree()){
+      try{
+        const plugin=await obtenirPluginBiometrieNative();
+        if(!plugin)throw new Error('Le module biométrique natif n’est pas installé dans cet APK.');
+        await plugin.authenticate({reason:'Déverrouiller votre espace personnel Aurore',androidTitle:'Déverrouillage Aurore',androidSubtitle:'Confirmez votre identité',cancelTitle:'Annuler',allowDeviceCredential:true});
+        const options={...espaceOptions};closeCode();ouvrirEspaceInterne(options);
+      }catch(e){
+        console.warn('[Espace personnel] déverrouillage biométrique natif:',e);
+        afficherMessageCode('Déverrouillage biométrique annulé ou impossible. Votre code reste disponible.','err');
+      }
+      return;
+    }
     if(!biometrieDisponible()){
       afficherMessageCode('La biométrie n’est pas accessible dans cette fenêtre Aurore. Votre code d’accès reste disponible.','err');
       return;
@@ -524,7 +565,7 @@
     }
     actualiserBoutonsBiometrie();
     codeModal.style.display='flex';codeModal.setAttribute('aria-hidden','false');
-    if(mode==='verify'&&!espaceOptions.biometricEnroll&&!espaceOptions.biometricDisable&&credentialBiometrique()){
+    if(mode==='verify'&&!espaceOptions.biometricEnroll&&!espaceOptions.biometricDisable&&(credentialBiometrique()||biometrieNativeConfiguree())){
       // Sur une installation qui a déjà enregistré l’empreinte, lancer le système biométrique sans bouton intermédiaire.
       // En cas d’échec ou d’annulation, le champ du code reste utilisable.
       if(biometrieDisponible())void deverrouillerBiometrie();
@@ -574,9 +615,10 @@
   function actualiserBoutonsBiometrie(){
     if(!codeBiometrieBtn)return;
     const modeVerification=codeMode==='verify'&&!espaceOptions.biometricEnroll&&!espaceOptions.biometricDisable;
-    codeBiometrieBtn.hidden=!modeVerification||!!credentialBiometrique(); // Si configurée, la biométrie démarre automatiquement à l’ouverture.
-    codeBiometrieBtn.textContent=credentialBiometrique()?'Utiliser mon empreinte digitale':'Activer mon empreinte digitale';
-    codeBiometrieBtn.setAttribute('aria-label',credentialBiometrique()?'Déverrouiller avec la biométrie':'Activer le déverrouillage biométrique sur cet appareil');
+    const configuree=!!credentialBiometrique()||biometrieNativeConfiguree();
+    codeBiometrieBtn.hidden=!modeVerification||configuree; // Si configurée, la biométrie démarre automatiquement à l’ouverture.
+    codeBiometrieBtn.textContent=configuree?'Utiliser mon empreinte digitale':'Activer mon empreinte digitale';
+    codeBiometrieBtn.setAttribute('aria-label',configuree?'Déverrouiller avec la biométrie':'Activer le déverrouillage biométrique sur cet appareil');
   }
   async function actionBoutonBiometrie(){
     if(credentialBiometrique()){await deverrouillerBiometrie();return;}
@@ -599,6 +641,7 @@
   window.ouvrirGestionProtectionEspace=function(){
     if(!session){requireLogin();return;}
     if(!codeStocke())showCode('setup',{afterSetupBiometric:true});
+    else if(plateformeNative())showCode('verify',biometrieNativeConfiguree()?{}:{biometricEnroll:true});
     else if(credentialBiometrique())showCode('verify',{});
     else showCode('verify',{biometricEnroll:true});
   };
