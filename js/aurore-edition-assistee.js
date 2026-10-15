@@ -4086,6 +4086,7 @@
   function exitAssistedEditor(){
     const course=state.course&&state.mode==='workspace'?state.course:null;
     if(course){
+      try{localStorage.setItem('aurore_assisted_course',JSON.stringify(course));}catch(_){}
       state.pendingExitSave=Promise.resolve(state.pendingExitSave).catch(()=>{}).then(()=>persistCourse(true,false,course)).catch(error=>{
         try{localStorage.setItem('aurore_assisted_course',JSON.stringify(course));}catch(_){}
         console.warn('[Édition assistée] Sauvegarde à la sortie :',error);
@@ -4126,7 +4127,7 @@
   });
 
   window.addEventListener('pagehide',()=>{
-    if(state.mode==='workspace'&&state.course){
+    if(state.course){
       const course=state.course;
       try{localStorage.setItem('aurore_assisted_course',JSON.stringify(course));}catch(_){}
       state.pendingExitSave=Promise.resolve(state.pendingExitSave).catch(()=>{}).then(()=>persistCourse(true,false,course)).catch(()=>{});
