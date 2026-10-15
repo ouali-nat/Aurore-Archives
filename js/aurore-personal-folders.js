@@ -64,15 +64,17 @@ async function createFolder(name,quiet=false,parentId=null){
   try{
     const raw=await api(FOLDER_TABLE,{method:'POST',headers:{Prefer:'return=representation'},body:{user_id:uid(),name:clean,parent_id:parentId||null,position:siblings.length}});
     const r=raw?JSON.parse(raw):[];
-    if(!r[0])throw 0;
+    if(!Array.isArray(r)||!r[0]) throw new Error('Supabase n’a renvoyé aucune ligne créée. Vérifiez les droits INSERT/SELECT et la politique RLS de cases_personnelles.');
     folders=normF([...folders,r[0]]);
     write(lk(),folders);
   }catch(e){
+    console.error('[Cases personnelles] création impossible:',e);
     if(quiet){
       folders=[...folders,{id:'local-'+Date.now().toString(36),name:clean,parent_id:parentId||null,position:siblings.length}];
       write(lk(),folders);
     }else{
-      alert('Impossible de créer la case. Exécutez d’abord le SQL fourni.');
+      const detail=String(e?.message||e||'Erreur inconnue').replace(/\\s+/g,' ').slice(0,320);
+      alert('Impossible de créer la case ou le sous-dossier. Vérifiez votre connexion et vos droits.\\n\\nDétail : '+detail);
       return;
     }
   }finally{
