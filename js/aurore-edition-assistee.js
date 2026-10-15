@@ -1156,7 +1156,8 @@
         state.pdfBatchProgress.activeTargetSize=target.blockIds.length;
         setPdfBatchProgress('Rendu '+rangeLabel(target)+' · '+titleFor(block),rangePercent(target));
         setStatus('Génération des pages de contenu '+rangeLabel(target)+' : '+titleFor(block)+'…');
-        await generateBlock(block.id);
+        // La commande globale doit reconstruire le flux complet de chaque séquence, pas seulement réutiliser un ancien fragment.
+        await generateBlock(block.id,{forceFlow:true,forceRegenerate:true});
 
         const stillExists=activeBlocks().find(item=>String(item?.id||'')===target.id);
         if(stillExists){
@@ -3877,6 +3878,34 @@
       }
     }
   }
+
+  // Délégation globale : garder « Valider & générer » fonctionnel même après qu'une carte a été reconstruite.
+  document.addEventListener('click',function(e){
+    const button=e.target?.closest?.('[data-validate-block]');
+    if(!button)return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    if(button.dataset.generating==='true')return;
+    const id=String(button.dataset.validateBlock||'').trim();
+    if(!id){setStatus('Action impossible : identifiant du bloc absent.');return;}
+    const originalLabel=button.textContent;
+    button.dataset.generating='true';
+    button.disabled=true;
+    button.textContent='Validation et génération…';
+    setStatus('Clic reçu · validation et génération de la séquence…');
+    Promise.resolve().then(()=>generateBlock(id,{forceFlow:true,forceRegenerate:true})).catch(err=>{
+      const message=String(err?.message||err||'Erreur inconnue');
+      setStatus('Échec de « Valider & générer » : '+message);
+      if(button.isConnected)button.textContent='Échec · Réessayer';
+    }).finally(()=>{
+      button.dataset.generating='false';
+      if(button.isConnected){
+        button.disabled=false;
+        if(button.textContent==='Validation et génération…')button.textContent=originalLabel;
+      }
+    });
+  },true);
 
   // Filet de sécurité global : les boutons système restent actifs même si la carte
   // est reconstruite par l'éditeur ou si un autre binding local échoue.
