@@ -671,13 +671,17 @@
     card.querySelector('#profilCodeModifier').addEventListener('click',()=>{if(session){showCode('setup',{});}});
     card.querySelector('#profilBiometrieGerer').addEventListener('click',()=>{
       if(!session)return;
-      showCode('verify',{biometricEnroll:!credentialBiometrique(),biometricDisable:!!credentialBiometrique()});
+      // Un seul parcours commun évite que le bouton du profil contourne
+      // la détection de la biométrie native Android.
+      window.ouvrirGestionProtectionEspace?.();
     });
   }
   function actualiserGestionBiometrieProfil(){
     const btn=document.getElementById('profilBiometrieGerer');if(!btn)return;
     btn.hidden=!biometrieDisponible();
-    btn.textContent=credentialBiometrique()?'Désactiver la biométrie':'Activer la biométrie';
+    const active=!!credentialBiometrique()||biometrieNativeConfiguree();
+    btn.textContent=active?'Gérer la biométrie':'Activer la biométrie';
+    btn.setAttribute('aria-label',active?'Gérer le déverrouillage biométrique':'Activer le déverrouillage biométrique');
   }
   actualiserGestionBiometrieProfil();
 
