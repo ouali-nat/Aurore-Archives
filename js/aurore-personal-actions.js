@@ -499,16 +499,34 @@
     codeModal.style.display='flex';codeModal.setAttribute('aria-hidden','false');setTimeout(()=>{if(!credentialBiometrique())codeInput.focus();},50);
   }
   function closeCode(){codeModal.style.display='none';codeModal.setAttribute('aria-hidden','true');codeResolve?.(false);codeResolve=null;}
+  function normaliserCodeAcces(raw){
+    let value=String(raw||'').trim();
+    const chiffres={'٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9','۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9','０':'0','１':'1','２':'2','３':'3','４':'4','５':'5','６':'6','７':'7','８':'8','９':'9'};
+    value=Array.from(value,c=>chiffres[c]||c).join('');
+    return value.replace(/[\\s\\u200B-\\u200D\\uFEFF]/g,'');
+  }
+  async function confirmerReinitialisationCode(){
+    if(!session||!userKey()){afficherMessageCode('Reconnectez-vous à votre compte pour réinitialiser ce verrou.','err');return;}
+    if(!window.confirm('Réinitialiser le code local de cet appareil ? Vous devrez créer un nouveau code. Votre mot de passe de compte ne sera pas modifié.'))return;
+    showCode('setup',{...espaceOptions,resetCode:true});
+  }
   async function confirmCode(){
-    const value=String(codeInput.value||'').trim();
-    if(!/^\\d{4,8}$/.test(value)){afficherMessageCode('Le code doit contenir entre 4 et 8 chiffres.','err');return;}
+    const value=normaliserCodeAcces(codeInput.value);
+    if(!/^[0-9]{4,8}$/.test(value)){afficherMessageCode('Le code doit contenir entre 4 et 8 chiffres. Vérifiez que vous avez saisi uniquement des chiffres, puis réessayez.','err');return;}
     if(codeMode==='setup'){
-      try{localStorage.setItem(KEY_CODE+userKey(),await hashCode(value));afficherMessageCode('Code enregistré. Votre espace va s’ouvrir.','ok');setTimeout(()=>{closeCode();ouvrirEspaceInterne(espaceOptions);},300);}catch(e){afficherMessageCode('Impossible d’enregistrer le code sur cet appareil.','err');}
+      try{
+        const options={...espaceOptions};
+        localStorage.setItem(KEY_CODE+userKey(),await hashCode(value));
+        codeInput.value='';
+        if(options.afterSetupBiometric){options.afterSetupBiometric=false;closeCode();espaceOptions=options;await enregistrerBiometrie();return;}
+        afficherMessageCode('Nouveau code enregistré. Votre espace va s’ouvrir.','ok');
+        setTimeout(()=>{closeCode();ouvrirEspaceInterne(options);},300);
+      }catch(e){afficherMessageCode('Impossible d’enregistrer le code sur cet appareil.','err');}
       return;
     }
     try{
       const ok=(await hashCode(value))===codeStocke();
-      if(!ok){afficherMessageCode('Code incorrect. Réessayez.','err');return;}
+      if(!ok){afficherMessageCode('Code incorrect. Vous pouvez réessayer ou utiliser « Code oublié ? Réinitialiser ».','err');return;}
       const options={...espaceOptions};closeCode();
       if(options.biometricEnroll){await enregistrerBiometrie();return;}
       if(options.biometricDisable){try{localStorage.removeItem(cleBiometrie());}catch(_){}actualiserBoutonsBiometrie();actualiserGestionBiometrieProfil();alert('Déverrouillage biométrique désactivé.');return;}
@@ -525,6 +543,18 @@
     codeBiometrieBtn.setAttribute('aria-label','Déverrouiller avec la biométrie ou le verrouillage de cet appareil');
   }
   codeBiometrieBtn?.addEventListener('click',deverrouillerBiometrie);
+  let codeResetBtn=document.getElementById('accessCodeReset');
+  if(!codeResetBtn&&codeActions){
+    codeResetBtn=document.createElement('button');codeResetBtn.type='button';codeResetBtn.id='accessCodeReset';
+    codeResetBtn.className='personal-action';codeResetBtn.textContent='Code oublié ? Réinitialiser';
+    codeActions.appendChild(codeResetBtn);
+  }
+  codeResetBtn?.addEventListener('click',confirmerReinitialisationCode);
+  window.ouvrirGestionProtectionEspace=function(){
+    if(!session){requireLogin();return;}
+    if(!codeStocke())showCode('setup',{afterSetupBiometric:true});
+    else showCode('verify',{biometricEnroll:!credentialBiometrique(),biometricDisable:!!credentialBiometrique()});
+  };
   function ouvrirEspaceInterne(options={}){
     if(!session)return;if(typeof window.auroreUnlockAccess==='function')window.auroreUnlockAccess();document.getElementById('breadcrumb').innerHTML='';remplirProfil();
     const screen=document.getElementById('screen-profil');
