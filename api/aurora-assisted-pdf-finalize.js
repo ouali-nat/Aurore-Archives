@@ -262,9 +262,9 @@ module.exports = async function handler(req, res) {
       theme_color: String(body.theme_color || "").trim(),
       course_fingerprint: String(body.course_fingerprint || "").trim().slice(0, 240),
     };
-    if (!courseContext.course_id) {
-      return sendJson(res, 400, { ok: false, error: "L’identifiant du cours est absent. Ouvre le cours et relance la fusion globale." });
-    }
+    // Compatibilité avec les clients déjà ouverts : l’Edge Function tente
+    // d’identifier le cours à partir des métadonnées des fragments si course_id
+    // manque. Les versions récentes transmettent toujours cet identifiant.
     const prepared = await callEdge("prepare_upload", token, apikey, { page_urls: body.page_urls, ...courseContext });
     if (!Array.isArray(prepared.paths) || !prepared.paths.length
       || !Array.isArray(prepared.source_urls)
