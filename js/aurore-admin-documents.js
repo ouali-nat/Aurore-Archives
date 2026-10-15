@@ -252,7 +252,21 @@
         card.querySelector('.js-render-aurora-pdf')?.addEventListener('click', () => dispatchPdfAction('render'));
         card.querySelector('.js-validate-aurora-pdf')?.addEventListener('click', () => dispatchPdfAction('validate'));
         card.querySelector('.js-reject-aurora-pdf')?.addEventListener('click', () => dispatchPdfAction('reject'));
-        card.querySelector('.js-publish-aurora-pdf')?.addEventListener('click', () => dispatchPdfAction('publish'));
+        card.querySelector('.js-publish-aurora-pdf')?.addEventListener('click', async (event) => {
+          event.preventDefault();
+          const button=event.currentTarget;
+          const previous=button?.textContent||'Choisir un emplacement';
+          if(button){button.disabled=true;button.setAttribute('aria-busy','true');button.textContent='Ouverture des emplacements…';}
+          try{
+            const publish=window.auroraContentFactoryPdfActions?.publish;
+            if(typeof publish!=='function')throw new Error('Le formulaire de publication n’est pas chargé. Actualise la page puis réessaie.');
+            await publish(Number(doc.id));
+          }catch(error){
+            alert('Impossible d’ouvrir le choix des emplacements. '+String(error?.message||error));
+          }finally{
+            if(button?.isConnected){button.disabled=false;button.removeAttribute('aria-busy');button.textContent=previous;}
+          }
+        });
         card.querySelector('.js-cancel-aurora-pdf')?.addEventListener('click', () => {
           document.querySelector('[data-cf-cancel="'+CSS.escape(String(doc.id))+'"]')?.click();
         });
