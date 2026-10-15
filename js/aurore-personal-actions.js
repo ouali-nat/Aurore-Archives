@@ -457,7 +457,12 @@
   function afficherMessageCode(message,classe){if(!codeMsg)return;codeMsg.textContent=message;codeMsg.className='access-code-message '+(classe||'');codeMsg.style.display='block';}
   async function hashCode(v){const data=new TextEncoder().encode(v);const hash=await crypto.subtle.digest('SHA-256',data);return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');}
   async function enregistrerBiometrie(){
-    if(!session||!biometrieDisponible()){afficherMessageCode('La biométrie n’est pas disponible dans ce navigateur. Utilisez le code habituel.','err');return;}
+    if(!session)return;
+    if(!biometrieDisponible()){
+      const message='Cette version de l’application Aurore ne donne pas accès à la biométrie du système. Le code reste actif. Ouvrez Aurore dans Chrome pour configurer l’empreinte ; l’application installée devra ensuite être mise à jour pour prendre en charge cette fonction.';
+      if(codeModal&&codeModal.style.display==='flex')afficherMessageCode(message,'err');else alert(message);
+      return;
+    }
     try{
       const cred=await navigator.credentials.create({publicKey:{
         challenge:nouveauChallenge(),rp:{name:'Aurore — Section Archives',id:location.hostname},
