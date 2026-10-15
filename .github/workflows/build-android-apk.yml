@@ -59,13 +59,13 @@ jobs:
         run: |
           RES=android/app/src/main/res
           IM="$(command -v magick || command -v convert)"
-          test -f icon.png
+          test -f ../icon-512-1.png
           rm -rf "$RES/mipmap-anydpi-v26"
           for entry in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
             name="${entry%%:*}"
             size="${entry##*:}"
             mkdir -p "$RES/mipmap-$name"
-            "$IM" icon.png -resize "${size}x${size}" "$RES/mipmap-$name/ic_launcher.png"
+            "$IM" ../icon-512-1.png -resize "${size}x${size}" "$RES/mipmap-$name/ic_launcher.png"
             cp "$RES/mipmap-$name/ic_launcher.png" "$RES/mipmap-$name/ic_launcher_round.png"
             rm -f "$RES/mipmap-$name/ic_launcher_foreground.png"
           done
