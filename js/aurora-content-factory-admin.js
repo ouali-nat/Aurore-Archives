@@ -1411,7 +1411,9 @@ function cfParseAssistedFinal(metadata){
 }
 function cfIsWholeReadyPdf(row){
   const type=String(row?.document_type||'').trim().toLowerCase();
+  const status=String(row?.status||'').trim().toLowerCase();
   const m=row?.metadata&&typeof row.metadata==='object'?row.metadata:{};
+  if(!['generated','review','approved','published'].includes(status))return false;
   if(['page_assistee','apercu_assiste','apercu_assistee','preview_assistee'].includes(type))return false;
   if(!String(row?.pdf_path||'').trim()||!String(row?.pdf_url||'').trim())return false;
   if(m.admin_deleted===true||['queued','processing'].includes(String(m.lualatex_status||m.production_status||'').toLowerCase()))return false;
