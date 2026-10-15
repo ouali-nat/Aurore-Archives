@@ -574,7 +574,7 @@
   function actualiserBoutonsBiometrie(){
     if(!codeBiometrieBtn)return;
     const modeVerification=codeMode==='verify'&&!espaceOptions.biometricEnroll&&!espaceOptions.biometricDisable;
-    codeBiometrieBtn.hidden=!modeVerification;
+    codeBiometrieBtn.hidden=!modeVerification||!!credentialBiometrique(); // Si configurée, la biométrie démarre automatiquement à l’ouverture.
     codeBiometrieBtn.textContent=credentialBiometrique()?'Utiliser mon empreinte digitale':'Activer mon empreinte digitale';
     codeBiometrieBtn.setAttribute('aria-label',credentialBiometrique()?'Déverrouiller avec la biométrie':'Activer le déverrouillage biométrique sur cet appareil');
   }
