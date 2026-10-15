@@ -47,6 +47,41 @@
   const clone=v=>JSON.parse(JSON.stringify(v));
   const uid=p=>(p||'id')+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
   const root=()=>document.getElementById('assistedRoot');
+  // Verrou transitoire contre les doubles clics et les rendus concurrents.
+  // Les clés incluent le cours pour éviter de mélanger deux brouillons.
+  const generationLocks=new Set();
+  function generationLockKey(id){return String(state.course?.id||'')+':'+String(id||'');}
+  function generationLockIds(id){
+    const target=String(id||'').trim();
+    if(!target)return [];
+    const block=activeBlocks().find(item=>String(item?.id||'')===target);
+    if(!block||isSystemBlock(block))return [target];
+    const group=renderableFlowBlocksFor(target);
+    return [...new Set((group.length?group:[block]).map(item=>String(item?.id||'')).filter(Boolean))];
+  }
+  function refreshGenerationControls(ids,busy){
+    const selected=new Set((Array.isArray(ids)?ids:[]).map(String));
+    const scope=root();
+    if(!scope)return;
+    scope.querySelectorAll('[data-validate-block]').forEach(button=>{
+      const id=String(button.dataset.validateBlock||'');
+      if(!selected.has(id))return;
+      const locked=busy||generationLocks.has(generationLockKey(id));
+      button.dataset.generating=locked?'true':'false';
+      button.disabled=state.pdfBatchRunning||locked;
+      if(locked)button.textContent='Génération en cours…';
+      else if(['Validation et génération…','Génération en cours…','Échec · Réessayer'].includes(button.textContent))button.textContent='Valider & générer la page';
+    });
+    scope.querySelectorAll('[data-regenerate-page]').forEach(button=>{
+      const id=String(button.dataset.regeneratePage||'');
+      if(!selected.has(id))return;
+      const locked=busy||generationLocks.has(generationLockKey(id));
+      button.dataset.regenerating=locked?'true':'false';
+      button.disabled=state.pdfBatchRunning||locked;
+      if(locked)button.textContent='Régénération en cours…';
+      else if(['Régénération…','Régénération en cours…','Échec · Réessayer'].includes(button.textContent))button.textContent='↻ Régénérer la page';
+    });
+  }
   const client=()=>window.__auroreAssistedSb||(window.__auroreAssistedSb=window.supabase?.createClient?.(SUPABASE_URL,SUPABASE_ANON_KEY));
   function rowCourse(row){const p=row?.pages;return p?.course&&typeof p.course==='object'?p.course:(p&&typeof p==='object'&&Array.isArray(p.blocks)?p:null);}
   const START_ROLE='document-start',END_ROLE='document-end';
@@ -1050,6 +1085,10 @@
 
   async function generateAllPages(){
     if(state.pdfBatchRunning||!state.course)return;
+    if(generationLocks.size){
+      setStatus('Une génération de page est déjà en cours. Attends sa fin avant de lancer la régénération générale.');
+      return;
+    }
     state.pdfBatchRunning=true;
     state.finalPdfArtifact=null;
     state.pdfBatchProgress={percent:0,label:'Inventaire des pages à générer…',targetCount:0,activeTargetIndex:0,completedTargets:0};
@@ -1211,7 +1250,7 @@
       try{
         rebuildTocEntries();
         await persistCourse(true,false);
-        await prepareSystemPreview({force:false});
+        await prepareSystemPreview({force:true});
       }catch(error){
         addFailure('Pages système : '+String(error?.message||error));
       }
@@ -2044,6 +2083,7 @@
     root().querySelectorAll('[data-json-system]').forEach(x=>x.onclick=()=>jsonSystemDialog(x.dataset.jsonSystem));
     root().querySelectorAll('[data-regenerate-page]').forEach(x=>{
       x.type='button';
+      x.disabled=state.pdfBatchRunning||generationLocks.has(generationLockKey(x.dataset.regeneratePage));
       x.onclick=async e=>{
         e.preventDefault();
         e.stopPropagation();
@@ -2087,7 +2127,10 @@
     document.getElementById('aeCopyTocJson')?.addEventListener('click',copyTocJson);
     root().querySelectorAll('[data-insert-after]').forEach(x=>x.onchange=async()=>{const type=x.value;x.value='';if(type)await insertBlockAfter(x.dataset.insertAfter,type);});
     root().querySelectorAll('[data-search-wikimedia]').forEach(x=>x.onclick=()=>wiki(x.dataset.searchWikimedia,true));
-    root().querySelectorAll('[data-validate-block]').forEach(x=>x.onclick=()=>generateBlock(x.dataset.validateBlock,{forceFlow:true,forceRegenerate:true}));
+    root().querySelectorAll('[data-validate-block]').forEach(x=>{
+      x.disabled=state.pdfBatchRunning||generationLocks.has(generationLockKey(x.dataset.validateBlock));
+      x.onclick=()=>generateBlock(x.dataset.validateBlock,{forceFlow:true,forceRegenerate:true});
+    });
   }
 
   function addBlock(type){
@@ -3879,60 +3922,57 @@
     }
   }
 
-  // Délégation globale : garder « Valider & générer » fonctionnel même après qu'une carte a été reconstruite.
+  // Délégation globale : les verrous restent actifs même lorsque renderWorkspace reconstruit les cartes.
   document.addEventListener('click',function(e){
     const button=e.target?.closest?.('[data-validate-block]');
     if(!button)return;
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
-    if(button.dataset.generating==='true')return;
     const id=String(button.dataset.validateBlock||'').trim();
     if(!id){setStatus('Action impossible : identifiant du bloc absent.');return;}
-    const originalLabel=button.textContent;
-    button.dataset.generating='true';
-    button.disabled=true;
-    button.textContent='Validation et génération…';
-    setStatus('Clic reçu · validation et génération de la séquence…');
+    if(state.pdfBatchRunning){setStatus('La génération générale est déjà en cours.');return;}
+    const ids=generationLockIds(id),keys=ids.map(generationLockKey);
+    if(button.dataset.generating==='true'||keys.some(key=>generationLocks.has(key))){
+      setStatus('Cette séquence est déjà en cours de génération. Attends sa fin avant de relancer.');
+      return;
+    }
+    keys.forEach(key=>generationLocks.add(key));
+    refreshGenerationControls(ids,true);
+    setStatus('Clic reçu · validation et génération de toute la séquence…');
     Promise.resolve().then(()=>generateBlock(id,{forceFlow:true,forceRegenerate:true})).catch(err=>{
       const message=String(err?.message||err||'Erreur inconnue');
       setStatus('Échec de « Valider & générer » : '+message);
-      if(button.isConnected)button.textContent='Échec · Réessayer';
     }).finally(()=>{
-      button.dataset.generating='false';
-      if(button.isConnected){
-        button.disabled=false;
-        if(button.textContent==='Validation et génération…')button.textContent=originalLabel;
-      }
+      keys.forEach(key=>generationLocks.delete(key));
+      refreshGenerationControls(ids,false);
     });
   },true);
 
-  // Filet de sécurité global : les boutons système restent actifs même si la carte
-  // est reconstruite par l'éditeur ou si un autre binding local échoue.
+  // Délégation globale du bouton régénérer, protégée contre les doubles lancements.
   document.addEventListener('click',function(e){
     const button=e.target?.closest?.('[data-regenerate-page]');
     if(!button)return;
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
-    if(button.dataset.regenerating==='true')return;
-    const ref=button.dataset.regeneratePage;
+    const ref=String(button.dataset.regeneratePage||'').trim();
     if(!ref){setStatus('Action impossible : identifiant de page absent.');return;}
-    button.dataset.regenerating='true';
-    button.disabled=true;
-    const originalLabel=button.textContent;
-    button.textContent='Régénération…';
-    setStatus('Clic reçu · lancement de la régénération de '+(ref==='system-start'?'la couverture':ref==='system-end'?'la page finale':ref==='toc'?'du sommaire':'la page')+'…');
+    if(state.pdfBatchRunning){setStatus('La régénération générale est déjà en cours.');return;}
+    const ids=generationLockIds(ref),keys=ids.map(generationLockKey);
+    if(button.dataset.regenerating==='true'||keys.some(key=>generationLocks.has(key))){
+      setStatus('Cette page ou sa séquence est déjà en cours de régénération.');
+      return;
+    }
+    keys.forEach(key=>generationLocks.add(key));
+    refreshGenerationControls(ids,true);
+    setStatus('Clic reçu · régénération de '+(ref==='system-start'?'la couverture':ref==='system-end'?'la page finale':ref==='toc'?'du sommaire':'la séquence')+'…');
     Promise.resolve().then(()=>regeneratePage(ref)).catch(err=>{
       const message=String(err?.message||err||'Erreur inconnue');
       setStatus('La régénération a échoué : '+message);
-      if(button.isConnected)button.textContent='Échec · Réessayer';
     }).finally(()=>{
-      button.dataset.regenerating='false';
-      if(button.isConnected){
-        button.disabled=false;
-        if(button.textContent==='Régénération…')button.textContent=originalLabel;
-      }
+      keys.forEach(key=>generationLocks.delete(key));
+      refreshGenerationControls(ids,false);
     });
   },true);
 
