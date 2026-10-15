@@ -1178,13 +1178,49 @@
         const currentGroup=renderableFlowBlocksFor(block.id);
         const invalid=currentGroup.map(part=>({part,validation:validateBlock(part)})).filter(x=>!x.validation.ok);
         if(invalid.length){
-          const message=invalid.map(item=>
-            titleFor(item.part)+': '+(item.validation.errors||['validation impossible']).join(' ')).join(' · ');
-          markGroupError(currentGroup,message);
-          addFailure(message);
+          // Une erreur locale ne doit pas bloquer les autres blocs de cette séquence.
+          // On isole les éléments invalides, puis on rend chaque bloc valide restant
+          // indépendamment. Le flux continu reste le chemin prioritaire quand tout est valide.
+          const invalidIds=new Set(invalid.map(item=>String(item.part?.id||'')));
+          for(const item of invalid){
+            const detail=(item.validation.errors||['validation impossible']).join(' ');
+            addFailure(titleFor(item.part)+': '+detail);
+            item.part.generation={
+              ...(item.part.generation||{}),
+              status:'error',
+              progress:0,
+              progress_label:'Bloc invalide — rendu ignoré',
+              error:detail,
+              updated_at:new Date().toISOString()
+            };
+          }
+          const recoverable=currentGroup.filter(part=>hasRenderableContent(part)&&!invalidIds.has(String(part?.id||'')));
+          let recovered=0;
+          for(let j=0;j<recoverable.length;j++){
+            const part=activeBlocks().find(item=>String(item?.id||'')===String(recoverable[j]?.id||''));
+            if(!part||!hasRenderableContent(part))continue;
+            const validation=validateBlock(part);
+            if(!validation.ok){
+              addFailure(titleFor(part)+': '+(validation.errors||['validation impossible']).join(' '));
+              continue;
+            }
+            setPdfBatchProgress('Reprise indépendante '+(j+1)+'/'+recoverable.length+' · '+titleFor(part),rangePercent(target));
+            setStatus('Un bloc de la séquence est invalide ; poursuite avec les autres blocs valides…');
+            try{
+              await generateBlock(part.id,{forceSingleBlock:true,forceRegenerate:true,skipCpuFallback:true});
+            }catch(error){
+              addFailure(titleFor(part)+' : '+String(error?.message||error||'Échec du rendu indépendant.'));
+            }
+            const generated=activeBlocks().find(item=>String(item?.id||'')===String(part.id));
+            if(String(generated?.generation?.status||'').toLowerCase()==='ready'&&String(generated?.generation?.page_url||'').trim()){
+              recovered++;
+            }else{
+              addFailure(titleFor(generated||part)+' : '+String(generated?.generation?.error||'PDF indépendant non confirmé.'));
+            }
+          }
+          await persistCourse(true,false).catch(()=>{});
           state.pdfBatchProgress.completedTargets=target.startIndex+target.blockIds.length;
-          setPdfBatchProgress('Séquence '+rangeLabel(target)+' en erreur · contenu à corriger.',rangePercent(target,true));
-          setStatus('Précontrôle '+rangeLabel(target)+' : contenu à corriger — '+message.slice(0,260));
+          setPdfBatchProgress('Séquence '+rangeLabel(target)+' traitée · '+recovered+'/'+recoverable.length+' bloc(s) valide(s) rendus séparément.',rangePercent(target,true));
           continue;
         }
 
@@ -1208,9 +1244,40 @@
         const stillExists=activeBlocks().find(item=>String(item?.id||'')===target.id);
         if(stillExists){
           const checkGroup=renderableFlowBlocksFor(stillExists.id);
-          const notReady=checkGroup.filter(part=>
+          let notReady=checkGroup.filter(part=>
             String(part?.generation?.status||'').toLowerCase()!=='ready'
             ||!String(part?.generation?.page_url||'').trim());
+          if(notReady.length&&checkGroup.length>1){
+            // generateBlock intercepte ses propres erreurs : le lot ne reçoit donc
+            // pas forcément d'exception. Reprendre ici chaque membre non prêt évite
+            // qu'un échec du PDF groupé arrête toute la régénération au premier point.
+            const retryIds=new Set(notReady.map(part=>String(part?.id||'')));
+            const retryParts=checkGroup.filter(part=>retryIds.has(String(part?.id||'')));
+            for(let j=0;j<retryParts.length;j++){
+              const original=retryParts[j];
+              const part=activeBlocks().find(item=>String(item?.id||'')===String(original?.id||''));
+              if(!part||!hasRenderableContent(part))continue;
+              const validation=validateBlock(part);
+              if(!validation.ok){
+                addFailure(titleFor(part)+' : '+(validation.errors||['validation impossible']).join(' '));
+                continue;
+              }
+              setPdfBatchProgress('Reprise indépendante '+(j+1)+'/'+retryParts.length+' · '+titleFor(part),rangePercent(target));
+              setStatus('Reprise du bloc '+(j+1)+'/'+retryParts.length+' après échec du flux groupé…');
+              try{
+                await generateBlock(part.id,{forceSingleBlock:true,forceRegenerate:true,skipCpuFallback:true});
+              }catch(error){
+                addFailure(titleFor(part)+' : '+String(error?.message||error||'Échec du rendu indépendant.'));
+              }
+              const generated=activeBlocks().find(item=>String(item?.id||'')===String(part.id));
+              if(String(generated?.generation?.status||'').toLowerCase()!=='ready'||!String(generated?.generation?.page_url||'').trim()){
+                addFailure(titleFor(generated||part)+' : '+String(generated?.generation?.error||'PDF indépendant non confirmé.'));
+              }
+            }
+            notReady=checkGroup.filter(part=>
+              String(part?.generation?.status||'').toLowerCase()!=='ready'
+              ||!String(part?.generation?.page_url||'').trim());
+          }
           if(notReady.length){
             for(const part of notReady){
               addFailure(titleFor(part)+' : '+String(part?.generation?.error||'PDF non confirmé après la génération.'));
@@ -3436,7 +3503,7 @@
     const isFlowCompanion=(flowGroup.length>1&&flowOwner.id!==b.id)||forceIsolatedRetry||forceSingleBlock;
     if(isFlowCompanion){
       const ownerGeneration=flowOwner.generation||{};
-      if(String(flowOwner.id)!==String(b.id)&&String(ownerGeneration.status||'').toLowerCase()==='generating'){
+      if(String(flowOwner.id)!==String(b.id)&&options?.forceSingleBlock!==true&&String(ownerGeneration.status||'').toLowerCase()==='generating'){
         state.selected=b.id;
         renderWorkspace();
         setStatus('Le flux de cette séquence est déjà en cours de génération par son premier bloc.');
