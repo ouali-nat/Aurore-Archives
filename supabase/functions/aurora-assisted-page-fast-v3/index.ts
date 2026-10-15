@@ -1101,11 +1101,18 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
         const sourceBytes=new Uint8Array(await r.arrayBuffer());
         qa.asset_bytes.image_source_bytes+=sourceBytes.length;
         const img=await embedRaster(pdf,sourceBytes,"illustration");
-        const iw=Math.min(450,img.width),ih=iw*(img.height/img.width);
-        const h=Math.min(250,ih);
-        const w=h===ih?iw:h*(img.width/img.height);
-        const boxH=h+44;
-        if(y-boxH<bottom)newFlowPage();
+        // Réduire une illustration pour exploiter le bas de page lorsqu'elle y tient,
+        // plutôt que de laisser une zone blanche puis de la repousser entièrement.
+        const naturalW=Math.min(450,img.width),naturalH=Math.min(250,naturalW*(img.height/img.width));
+        const availableHeight=y-bottom-8;
+        let scale=Math.min(1,450/img.width,250/img.height);
+        if(availableHeight>=104)scale=Math.min(scale,Math.max(0.18,(availableHeight-44)/img.height));
+        let w=img.width*scale,h=img.height*scale,boxH=h+44;
+        if(y-boxH<bottom){
+          newFlowPage();
+          scale=Math.min(1,450/img.width,250/img.height);
+          w=img.width*scale;h=img.height*scale;boxH=h+44;
+        }
         markFlowBlockPage(blockId);
         rounded(page,BOX_X,y-boxH,BOX_W,boxH,11,rgbHex("#E8E8EA"),rgbHex("#A7A8AD"),0.5);
         page.drawImage(img,{x:X+(W-w)/2,y:y-16-h,width:w,height:h});
@@ -1146,12 +1153,22 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
           }
         }
         if(!img)throw new Error("Asset graphique indisponible");
-        const scale=Math.min(1,450/img.width,222/img.height);
-        const iw=img.width*scale,ih=img.height*scale;
         const title=clean(g?.title).slice(0,100);
-        // La hauteur suit l'image réelle : aucun cadre de 260 pt réservé artificiellement.
-        const boxH=Math.max(48,15+ih+(title?14:0)+12);
-        if(y-boxH<bottom)newFlowPage();
+        const maxScale=Math.min(1,450/img.width,222/img.height);
+        const titleSpace=15+(title?14:0)+12;
+        const availableHeight=y-bottom-8;
+        // Un graphique peut être réduit dans l'espace restant. Si cet espace est
+        // réellement trop petit, on conserve sa taille normale sur la page suivante.
+        let scale=availableHeight>=112
+          ?Math.min(maxScale,Math.max(0.18,(availableHeight-titleSpace)/img.height))
+          :maxScale;
+        let iw=img.width*scale,ih=img.height*scale;
+        let boxH=Math.max(48,titleSpace+ih);
+        if(y-boxH<bottom){
+          newFlowPage();
+          scale=maxScale;iw=img.width*scale;ih=img.height*scale;
+          boxH=Math.max(48,titleSpace+ih);
+        }
         markFlowBlockPage(blockId);
         rounded(page,X-11,y-boxH,W+22,boxH,10,rgbHex("#E8E8EA"),rgbHex("#A7A8AD"),0.5);
         const gy=y-15-ih;
@@ -1187,8 +1204,19 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
           if(el.fill!==undefined&&!/^#[0-9a-fA-F]{6}$/.test(String(el.fill)))throw new Error("Couleur de remplissage invalide.");
           if(el.tone!==undefined&&!["ink","soft"].includes(el.tone))throw new Error("Tonalité invalide.");
         }
-        const scale=Math.min(1.2,(W-44)/sc.width,170/sc.height),sceneW=sc.width*scale,sceneH=sc.height*scale,cardH=sceneH+56;
-        if(y-cardH<bottom)newFlowPage();
+        const maxScale=Math.min(1.2,(W-44)/sc.width,170/sc.height);
+        const availableHeight=y-bottom-8;
+        // Le SVG vectoriel est lui aussi adaptable à la place réellement restante.
+        // On préserve une taille minimale lisible, puis on bascule de page si nécessaire.
+        let scale=availableHeight>=112
+          ?Math.min(maxScale,Math.max(0.28,(availableHeight-56)/sc.height))
+          :maxScale;
+        let sceneW=sc.width*scale,sceneH=sc.height*scale,cardH=sceneH+56;
+        if(y-cardH<bottom){
+          newFlowPage();
+          scale=maxScale;sceneW=sc.width*scale;sceneH=sc.height*scale;cardH=sceneH+56;
+        }
+        markFlowBlockPage(blockId);
         rounded(page,X-11,y-cardH,W+22,cardH,10,rgbHex("#F0F0F2"),rgbHex("#B6B7BD"),.5);
         if(clean(entry.title))page.drawText(clean(entry.title).slice(0,95),{x:X+4,y:y-19,font:fonts.sansBold,size:9,color:rgbHex("#34343A")});
         if(clean(entry.caption))page.drawText(clean(entry.caption).slice(0,125),{x:X+4,y:y-32,font:fonts.sans,size:7.2,color:rgbHex("#707178")});
