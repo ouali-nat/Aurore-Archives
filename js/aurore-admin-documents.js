@@ -25,6 +25,22 @@
 
       if (auroreResult.status === 'fulfilled' && auroreResult.value.ok) {
         dataAurore = await auroreResult.value.json();
+        // Filet de sécurité côté navigateur : aucun fragment ou aperçu de
+        // l’édition assistée ne doit apparaître parmi les documents à valider.
+        dataAurore = (Array.isArray(dataAurore)?dataAurore:[]).filter(doc=>{
+          const metadata=doc?.metadata&&typeof doc.metadata==='object'?doc.metadata:{};
+          const type=String(doc?.document_type||'').trim().toLowerCase();
+          if(['page_assistee','apercu_assiste','apercu_assistee','preview_assistee'].includes(type))return false;
+          if(String(metadata.origin||'').trim().toLowerCase()==='edition_assistee'){
+            let finalInfo=metadata.assisted_final;
+            if(typeof finalInfo==='string'){try{finalInfo=JSON.parse(finalInfo)}catch(_){finalInfo=null}}
+            return type==='cours_assiste'
+              &&String(doc?.pdf_path||'').startsWith('aurora-assisted-final-pdfs/')
+              &&!!String(doc?.pdf_url||'').trim()
+              &&!!finalInfo&&typeof finalInfo==='object'&&Number(finalInfo.page_count||0)>=1;
+          }
+          return true;
+        });
       } else {
         const status = auroreResult.status === 'fulfilled' ? auroreResult.value.status : auroreResult.reason;
         throw new Error("Lecture des documents Aurore impossible" + (status ? " (" + status + ")" : ""));
@@ -112,7 +128,7 @@
         const lualatexStatus = String(metadata.lualatex_status || '').toLowerCase();
         const cancelRequested = metadata.lualatex_cancel_requested === true;
         const activeProduction = ['queued','processing'].includes(lualatexStatus) || cancelRequested;
-        const hasPdf = !!pdfUrl;
+        const hasPdf = !!pdfUrl && !!String(doc.pdf_path||'').trim();
         const statutLabel = statut === 'review'
           ? 'À contrôler'
           : statut === 'processing'
@@ -175,7 +191,7 @@
                 ? '<button type="button" class="admin-btn refuser js-reject-aurora-pdf">Rejeter</button>'
                 : ''}
               ${showPublish
-                ? '<button type="button" class="admin-btn primary js-publish-aurora-pdf">Publier</button>'
+                ? '<button type="button" class="admin-btn primary js-publish-aurora-pdf">Choisir un emplacement</button>'
                 : ''}
               ${showRevision
                 ? '<button type="button" class="admin-btn ghost js-revision-generated-document" data-revision-generated-document-id="'+String(doc.id ?? '')+'">Envoyer en E — réviser</button>'
