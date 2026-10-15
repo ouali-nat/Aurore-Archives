@@ -476,7 +476,11 @@
     }
   }
   async function deverrouillerBiometrie(){
-    if(!biometrieDisponible()||!credentialBiometrique()){afficherMessageCode('Aucune biométrie configurée. Utilisez votre code d’accès.','err');return;}
+    if(!biometrieDisponible()){
+      afficherMessageCode('La biométrie n’est pas accessible dans cette fenêtre Aurore. Votre code d’accès reste disponible.','err');
+      return;
+    }
+    if(!credentialBiometrique()){afficherMessageCode('Aucune biométrie configurée sur cette installation. Utilisez votre code pour activer cette option.','err');return;}
     try{
       const cred=await navigator.credentials.get({publicKey:{
         challenge:nouveauChallenge(),rpId:location.hostname,
@@ -493,10 +497,36 @@
   function showCode(mode,options){
     codeMode=mode;espaceOptions=options||{};if(!codeModal)return;
     codeMsg.className='access-code-message';codeMsg.textContent='';codeMsg.style.display='none';codeInput.value='';
-    if(mode==='setup'){codeTitle.textContent='Créer votre code d’accès';codeIntro.textContent='Choisissez un code personnel de 4 à 8 chiffres. Il sera demandé avant l’ouverture de votre espace sur cet appareil.';}
-    else {codeTitle.textContent='Code d’accès à votre espace';codeIntro.textContent='Saisissez votre code personnel pour ouvrir votre espace Aurore.';}
+    const confirmBtn=document.getElementById('accessCodeConfirm');
+    if(mode==='setup'){
+      codeTitle.textContent='Créer votre code d’accès';
+      codeIntro.textContent=espaceOptions.afterSetupBiometric
+        ? 'Créez votre code de 4 à 8 chiffres. Aurore proposera ensuite d’activer l’empreinte sur cette installation.'
+        : 'Choisissez un code personnel de 4 à 8 chiffres. Il sera demandé avant l’ouverture de votre espace sur cet appareil.';
+      if(confirmBtn)confirmBtn.textContent='Enregistrer le code';
+    } else if(espaceOptions.biometricEnroll){
+      codeTitle.textContent='Activer l’empreinte digitale';
+      codeIntro.textContent='Saisissez votre code actuel, puis appuyez sur « Activer l’empreinte ». Aurore lancera directement la configuration biométrique sur cet appareil.';
+      if(confirmBtn)confirmBtn.textContent='Activer l’empreinte';
+    } else if(espaceOptions.biometricDisable){
+      codeTitle.textContent='Désactiver l’empreinte digitale';
+      codeIntro.textContent='Saisissez votre code actuel pour désactiver le déverrouillage biométrique sur cet appareil.';
+      if(confirmBtn)confirmBtn.textContent='Désactiver l’empreinte';
+    } else {
+      codeTitle.textContent='Code d’accès à votre espace';
+      codeIntro.textContent='Saisissez votre code personnel pour ouvrir votre espace Aurore.';
+      if(confirmBtn)confirmBtn.textContent='Continuer';
+    }
     actualiserBoutonsBiometrie();
-    codeModal.style.display='flex';codeModal.setAttribute('aria-hidden','false');setTimeout(()=>{if(!credentialBiometrique())codeInput.focus();},50);
+    codeModal.style.display='flex';codeModal.setAttribute('aria-hidden','false');
+    if(mode==='verify'&&!espaceOptions.biometricEnroll&&!espaceOptions.biometricDisable&&credentialBiometrique()){
+      // Sur une installation qui a déjà enregistré l’empreinte, lancer le système biométrique sans bouton intermédiaire.
+      // En cas d’échec ou d’annulation, le champ du code reste utilisable.
+      if(biometrieDisponible())void deverrouillerBiometrie();
+      else afficherMessageCode('La biométrie n’est pas disponible dans cette fenêtre. Vous pouvez toujours saisir votre code.','err');
+    } else {
+      setTimeout(()=>codeInput.focus(),50);
+    }
   }
   function closeCode(){codeModal.style.display='none';codeModal.setAttribute('aria-hidden','true');codeResolve?.(false);codeResolve=null;}
   function normaliserCodeAcces(raw){
@@ -564,7 +594,8 @@
   window.ouvrirGestionProtectionEspace=function(){
     if(!session){requireLogin();return;}
     if(!codeStocke())showCode('setup',{afterSetupBiometric:true});
-    else showCode('verify',{}); // Afficher le bouton biométrique : l’utilisateur choisit lui-même activation ou déverrouillage.
+    else if(credentialBiometrique())showCode('verify',{});
+    else showCode('verify',{biometricEnroll:true});
   };
   function ouvrirEspaceInterne(options={}){
     if(!session)return;if(typeof window.auroreUnlockAccess==='function')window.auroreUnlockAccess();document.getElementById('breadcrumb').innerHTML='';remplirProfil();
@@ -592,7 +623,6 @@
     card.querySelector('#profilCodeModifier').addEventListener('click',()=>{if(session){showCode('setup',{});}});
     card.querySelector('#profilBiometrieGerer').addEventListener('click',()=>{
       if(!session)return;
-      if(!biometrieDisponible()){alert('La biométrie n’est pas prise en charge dans ce navigateur. Essayez Chrome ou l’application Aurore installée, avec le verrouillage de l’appareil configuré.');return;}
       showCode('verify',{biometricEnroll:!credentialBiometrique(),biometricDisable:!!credentialBiometrique()});
     });
   }
