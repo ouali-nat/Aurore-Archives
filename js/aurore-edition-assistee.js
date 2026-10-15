@@ -4094,7 +4094,9 @@
     closeAssistedModal();
     const host=document.getElementById('aeModalHost');if(host)host.innerHTML='';
     document.querySelectorAll('.admin-tab-panel').forEach(p=>p.style.removeProperty('display'));
-    state.mode='list';state.course=null;state.selected=null;state.finalPdfArtifact=null;
+    const generationStillRunning=state.pdfBatchRunning||state.pdfFinalizing||generationLocks.size>0;
+    state.mode='list';state.selected=null;
+    if(!generationStillRunning){state.course=null;state.finalPdfArtifact=null;}
   }
 
   document.addEventListener('click',e=>{
@@ -4113,6 +4115,24 @@
     }
   },true);
 
+  window.addEventListener('popstate',()=>{
+    requestAnimationFrame(()=>{
+      const panel=document.querySelector('.admin-tab-panel[data-panel="edition-assistee"]');
+      const activeTab=document.querySelector('.admin-tab[data-tab="edition-assistee"]')?.classList.contains('active');
+      const detail=document.getElementById('adminDetail');
+      if(!activeTab||!panel?.classList.contains('active')||detail?.style.display!=='block')exitAssistedEditor();
+      else document.querySelectorAll('.admin-tab-panel').forEach(p=>p.style.removeProperty('display'));
+    });
+  });
+
+  window.addEventListener('pagehide',()=>{
+    if(state.mode==='workspace'&&state.course){
+      const course=state.course;
+      try{localStorage.setItem('aurore_assisted_course',JSON.stringify(course));}catch(_){}
+      state.pendingExitSave=Promise.resolve(state.pendingExitSave).catch(()=>{}).then(()=>persistCourse(true,false,course)).catch(()=>{});
+    }
+  });
+
   async function init(){
     const r=root();if(!r)return;
     const card=document.querySelector('.admin-tab[data-tab="edition-assistee"]'),panel=document.querySelector('.admin-tab-panel[data-panel="edition-assistee"]');
@@ -4123,6 +4143,13 @@
         p.style.removeProperty('display');
       });
       document.querySelectorAll('.admin-tab').forEach(b=>b.classList.toggle('active',b===card));
+      const generationStillRunning=state.pdfBatchRunning||state.pdfFinalizing||generationLocks.size>0;
+      if(generationStillRunning&&state.course){
+        state.mode='workspace';
+        renderWorkspace();
+        setStatus('Reprise de la génération déjà en cours…');
+        return;
+      }
       state.mode='list';state.course=null;state.selected=null;state.finalPdfArtifact=null;
       renderList();
       try{setStatus('Chargement des cours…');await loadCourses();renderList();setStatus('Liste prête.')}
