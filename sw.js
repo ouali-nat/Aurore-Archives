@@ -15,7 +15,7 @@
    aurore-covers (couvertures), aurore-pdf-ouverts (PDF).
 */
 
-const SW_VERSION = 'v14-biometric-auto-prompt-20261015';
+const SW_VERSION = 'v15-native-biometric-bridge-20261015';
 
 const PAGE_CACHE = 'aurore-shell';
 const STATIC_CACHE = 'aurore-static';
