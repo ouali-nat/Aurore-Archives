@@ -1463,7 +1463,9 @@ function apply(){
     const canRender=!assistedFinal&&x.status!=='published'&&(['generated','review','approved','failed'].includes(x.status)||(x.status==='draft'&&!!pdfUrl)||active);
     const canValidate=x.status==='review'&&pdf&&!active;
     const canReject=['review','approved'].includes(x.status)&&!active;
-    const canPublish=['approved','review'].includes(x.status)&&pdf&&!active;
+    const canPublish=assistedFinal
+      ?x.status==='approved'&&pdf&&!active
+      :['approved','review'].includes(x.status)&&pdf&&!active;
     const canRevision=!assistedFinal&&['review','approved'].includes(x.status)&&pdf&&!active&&!cancelRequested;
     const theme=documentThemeColor(m)||x.theme_color||'#1D4ED8';
     const classification=[x.domaine,x.formation,x.specialite,x.annee,x.semestre,x.filiere,x.matiere||x.subject,x.class_name,x.level].filter(Boolean).join(' · ');
