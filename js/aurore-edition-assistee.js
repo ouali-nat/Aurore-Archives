@@ -1630,7 +1630,7 @@
       }
       return;
     }
-    await generateBlock(ref,{forceFlow:true});
+    await generateBlock(ref,{forceFlow:true,forceRegenerate:true});
   }
 
   async function blockDownloadPartsThrough(targetBlock,mode='current'){
@@ -2086,7 +2086,7 @@
     document.getElementById('aeCopyTocJson')?.addEventListener('click',copyTocJson);
     root().querySelectorAll('[data-insert-after]').forEach(x=>x.onchange=async()=>{const type=x.value;x.value='';if(type)await insertBlockAfter(x.dataset.insertAfter,type);});
     root().querySelectorAll('[data-search-wikimedia]').forEach(x=>x.onclick=()=>wiki(x.dataset.searchWikimedia,true));
-    root().querySelectorAll('[data-validate-block]').forEach(x=>x.onclick=()=>generateBlock(x.dataset.validateBlock,{forceFlow:true}));
+    root().querySelectorAll('[data-validate-block]').forEach(x=>x.onclick=()=>generateBlock(x.dataset.validateBlock,{forceFlow:true,forceRegenerate:true}));
   }
 
   function addBlock(type){
@@ -3317,8 +3317,8 @@
           &&savedIds.length===expectedIds.length
           &&expectedIds.every((expected,index)=>savedIds[index]===expected)
           &&String(ownerGeneration.flow_content_fingerprint||'')===flowContentFingerprint(candidates);
-        if(alreadyCanonical){
-          setStatus('Cette séquence est déjà rendue en flux continu : les blocs restent à la suite et aucune régénération inutile n’est lancée.');
+        if(alreadyCanonical&&options?.forceRegenerate!==true){
+          setStatus('Cette séquence est déjà rendue en flux continu : les blocs restent à la suite. Aucun nouveau rendu n’est nécessaire sans demande explicite.');
           return;
         }
         b=owner;id=String(owner.id);
