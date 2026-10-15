@@ -150,6 +150,8 @@
   function ensureCourseStructure(course){
     if(!course||typeof course!=='object')return course;
     course.theme_color=normalizeThemeColor(course.theme_color);
+    course.workflow=course.workflow&&typeof course.workflow==='object'?course.workflow:{};
+    if(!['editing','completed'].includes(String(course.workflow.status||'')))course.workflow.status='editing';
     ensureDocumentPages(course);
     const blocks=Array.isArray(course.blocks)?course.blocks:[];
     const start=blocks.find(b=>b?.role===START_ROLE)||systemBlock(START_ROLE,course.title);
@@ -1413,7 +1415,7 @@
     if(user?.id) q=q.eq('created_by',user.id);
     const {data,error}=await q;
     if(error)throw error;
-    state.courses=(Array.isArray(data)?data:[]).map(row=>{const cj=ensureCourseStructure(rowCourse(row)||newCourse(row.title));return {...row,status:row.editor_version||'editing',course_json:cj};});
+    state.courses=(Array.isArray(data)?data:[]).map(row=>{const cj=ensureCourseStructure(rowCourse(row)||newCourse(row.title));const workflow=cj.workflow&&typeof cj.workflow==='object'?cj.workflow:{};return {...row,status:workflow.status==='completed'?'completed':'editing',course_json:cj};});
     return state.courses;
   }
 
@@ -1422,20 +1424,65 @@
 
   function renderList(){
     const r=root();if(!r)return;
+    const activeCourses=state.courses.filter(c=>String(c.course_json?.workflow?.status||'editing')!=='completed');
+    const completedCourses=state.courses.filter(c=>String(c.course_json?.workflow?.status||'editing')==='completed');
+    const cardHtml=c=>{
+      const cj=ensureCourseStructure(c.course_json||newCourse(c.title));
+      const workflow=cj.workflow&&typeof cj.workflow==='object'?cj.workflow:{};
+      const completed=workflow.status==='completed';
+      const count=contentBlocks(cj).length,generated=countPages(c);
+      const date=completed?(workflow.completed_at||c.updated_at||c.created_at):(c.updated_at||c.created_at);
+      const action=completed
+        ?'<button class="admin-btn primary" data-correct-course="'+esc(c.id)+'">Corriger</button>'
+        :'<button class="admin-btn primary" data-open-course="'+esc(c.id)+'">Ouvrir</button><button class="admin-btn ghost" data-mark-course-completed="'+esc(c.id)+'">✓ Marquer terminé</button>';
+      return '<article class="ae-course-card'+(completed?' ae-course-card-completed':'')+'"><div class="ae-course-card-top"><span class="ae-course-status">'+(completed?'MARQUÉ TERMINÉ':'EN ÉDITION')+'</span><span>'+generated+' page(s) PDF</span></div><h4>'+esc(c.title)+'</h4><p>'+count+' bloc(s) · '+(completed?'terminé le ':'modifié le ')+esc(formatDate(date))+'</p><div class="ae-course-actions">'+action+'<button class="admin-btn ghost" data-rename-course="'+esc(c.id)+'">Renommer</button><button class="admin-btn danger" data-delete-course="'+esc(c.id)+'">Supprimer</button></div></article>';
+    };
     r.innerHTML=
-      '<div class="ae-shell"><header class="ae-head"><div><span class="ae-kicker">Administration · Édition assistée</span><h3>Mes cours en édition</h3><p>Choisis un cours pour reprendre exactement où tu t’es arrêté, ou crée un nouveau cours.</p></div><span class="ae-status" id="assistedStatus">Prêt</span></header>'+
+      '<div class="ae-shell"><header class="ae-head"><div><span class="ae-kicker">Administration · Édition assistée</span><h3>Mes cours</h3><p>Les cours terminés restent archivés pour pouvoir les corriger puis republier une nouvelle version, sans perdre le document déjà publié.</p></div><span class="ae-status" id="assistedStatus">Prêt</span></header>'+
       '<div class="ae-list-actions"><button class="admin-btn primary" id="aeCreate">＋ Créer un cours</button><button class="admin-btn ghost" id="aeRefresh">↻ Actualiser</button></div>'+
+      '<section class="ae-course-section"><header class="ae-course-section-head"><div><span class="ae-kicker">Atelier</span><h4>Cours en édition</h4><p>Les cours sur lesquels tu travailles encore.</p></div><span class="ae-course-count">'+activeCourses.length+'</span></header>'+
       '<div class="ae-course-grid">'+
-      (state.courses.length?state.courses.map(c=>{
-        const cj=ensureCourseStructure(c.course_json||newCourse(c.title)),count=contentBlocks(cj).length,generated=countPages(c);
-        return '<article class="ae-course-card"><div class="ae-course-card-top"><span class="ae-course-status">'+esc(c.status||'editing')+'</span><span>'+generated+' page(s)</span></div><h4>'+esc(c.title)+'</h4><p>'+count+' bloc(s) · dernière modification '+esc(formatDate(c.updated_at||c.created_at))+'</p><div class="ae-course-actions"><button class="admin-btn primary" data-open-course="'+esc(c.id)+'">Ouvrir</button><button class="admin-btn ghost" data-rename-course="'+esc(c.id)+'">Renommer</button><button class="admin-btn danger" data-delete-course="'+esc(c.id)+'">Supprimer</button></div></article>'
-      }).join(''):'<div class="ae-empty"><strong>Aucun cours en édition.</strong><span>Crée ton premier cours pour ouvrir l’atelier.</span></div>')+
-      '</div></div>';
+      (activeCourses.length?activeCourses.map(cardHtml).join(''):'<div class="ae-empty"><strong>Aucun cours en édition.</strong><span>Crée un nouveau cours ou reprends un cours marqué terminé.</span></div>')+
+      '</div></section>'+
+      '<section class="ae-course-section ae-completed-section"><header class="ae-course-section-head"><div><span class="ae-kicker">Archives éditoriales</span><h4>Marqués terminés</h4><p>Retrouve ici les cours terminés. « Corriger » rouvre le document sans retirer son statut archivé ; après correction et nouvelle fusion, republie-le depuis Content Factory.</p></div><span class="ae-course-count">'+completedCourses.length+'</span></header>'+
+      '<div class="ae-course-grid">'+
+      (completedCourses.length?completedCourses.map(cardHtml).join(''):'<div class="ae-empty"><strong>Aucun cours marqué terminé.</strong><span>Utilise « Marquer terminé » lorsque le cours est prêt à être archivé.</span></div>')+
+      '</div></section></div>';
     document.getElementById('aeCreate').onclick=()=>createCourseDialog();
-    document.getElementById('aeRefresh').onclick=async()=>{try{setStatus('Actualisation…');await loadCourses();renderList();setStatus('Liste actualisée.')}catch(e){setStatus('Impossible d’actualiser.')}};
+    document.getElementById('aeRefresh').onclick=async()=>{try{setStatus('Actualisation…');await loadCourses();renderList();setStatus('Liste actualisée.')}catch(e){setStatus('Impossible d’actualiser. '+String(e?.message||e))}};
     r.querySelectorAll('[data-open-course]').forEach(b=>b.onclick=()=>openCourse(b.dataset.openCourse));
+    r.querySelectorAll('[data-correct-course]').forEach(b=>b.onclick=()=>openCourse(b.dataset.correctCourse,{correction:true}));
+    r.querySelectorAll('[data-mark-course-completed]').forEach(b=>b.onclick=()=>markCourseCompleted(b.dataset.markCourseCompleted));
     r.querySelectorAll('[data-rename-course]').forEach(b=>b.onclick=()=>renameCourse(b.dataset.renameCourse));
     r.querySelectorAll('[data-delete-course]').forEach(b=>b.onclick=()=>deleteCourse(b.dataset.deleteCourse));
+  }
+
+  async function markCourseCompleted(id){
+    const courseId=String(id||state.course?.id||'').trim();
+    if(!courseId){setStatus('Aucun cours sélectionné.');return false;}
+    const row=state.courses.find(c=>String(c.id)===courseId);
+    const course=state.course&&String(state.course.id)===courseId?state.course:(row?.course_json||null);
+    if(!course){setStatus('Cours introuvable dans la liste.');return false;}
+    ensureCourseStructure(course);
+    course.workflow=course.workflow&&typeof course.workflow==='object'?course.workflow:{};
+    const completedAt=new Date().toISOString();
+    course.workflow.status='completed';
+    course.workflow.completed_at=completedAt;
+    course.workflow.last_completed_at=completedAt;
+    course.workflow.correction_in_progress=false;
+    course.workflow.correction_started_at=null;
+    const persisted=await persistCourse(true,false,course);
+    if(!persisted){
+      setStatus('Le cours a été gardé localement, mais son statut terminé n’a pas pu être confirmé dans Supabase. Vérifie la connexion puis réessaie.');
+      return false;
+    }
+    await loadCourses();
+    if(state.course&&String(state.course.id)===courseId){
+      state.course=null;state.selected=null;state.mode='list';state.finalPdfArtifact=null;
+    }
+    renderList();
+    setStatus('Cours marqué terminé et déplacé dans « Marqués terminés ».');
+    return true;
   }
 
   async function deleteCourse(id){
@@ -1492,11 +1539,17 @@
     };
   }
 
-  async function openCourse(id){
-    const row=state.courses.find(x=>x.id===id);if(!row)return;
+  async function openCourse(id,options={}){
+    const row=state.courses.find(x=>String(x.id)===String(id));if(!row)return;
     state.course=ensureCourseStructure(row.course_json||newCourse(row.title));
     state.course.title=String(state.course.title||row.title||'Nouveau cours');
     ensureCourseStructure(state.course);
+    if(options&&options.correction){
+      state.course.workflow=state.course.workflow&&typeof state.course.workflow==='object'?state.course.workflow:{};
+      state.course.workflow.correction_in_progress=true;
+      state.course.workflow.correction_started_at=new Date().toISOString();
+      await persistCourse(true,false,state.course);
+    }
     syncCanonicalPreviewFromCourse();
     const savedFinal=state.course.generation?.final_pdf;
     state.finalPdfArtifact=savedFinal&&savedFinal.pdfUrl&&savedFinal.fingerprint
@@ -3111,7 +3164,7 @@
     if(!course)return;
     ensureCourseStructure(course);
     const c=client();
-    if(!c){localStorage.setItem('aurore_assisted_course',JSON.stringify(course));if(!silent)setStatus('Brouillon local enregistré.');return;}
+    if(!c){localStorage.setItem('aurore_assisted_course',JSON.stringify(course));if(!silent)setStatus('Brouillon local enregistré.');return false;}
     try{
       course.updated_at=new Date().toISOString();
       const {data:{user}={}}=await c.auth.getUser();if(!user)throw new Error('Session administrateur absente.');
@@ -3119,7 +3172,8 @@
       const {error}=await c.from('aurora_assisted_courses').upsert(payload,{onConflict:'id'});if(error)throw error;
       if(!silent)setStatus('Cours enregistré.');
       if(refreshList)await loadCourses();
-    }catch(e){localStorage.setItem('aurore_assisted_course',JSON.stringify(course));if(!silent)setStatus('Supabase indisponible · brouillon local conservé.');}
+      return true;
+    }catch(e){localStorage.setItem('aurore_assisted_course',JSON.stringify(course));if(!silent)setStatus('Supabase indisponible · brouillon local conservé.');return false;}
   }
 
   function renderPdfBatchProgress(){
