@@ -2706,7 +2706,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
       }else{
         afficher('online','Connexion rétablie','Internet est de nouveau disponible.',true);
       }
-      window.dispatchEvent(new CustomEvent('aurore:network-online',{detail:{source}}));
+      if(precedent!=='unknown')window.dispatchEvent(new CustomEvent('aurore:network-online',{detail:{source}}));
 
       if(session?.refresh_token && Date.now()>=Number(session.expires_at||0)-120000){
         try{
