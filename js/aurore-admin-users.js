@@ -127,6 +127,10 @@
   // à aucune donnée, se contente d'afficher/masquer les panneaux déjà chargés).
   document.querySelectorAll('.admin-tab').forEach(tab => {
     tab.addEventListener('click', () => {
+      // L’édition assistée peut avoir laissé une ancienne valeur inline
+      // display:block/none. La navigation canonique doit rester pilotée par
+      // les classes active afin qu’aucun panneau ne déborde sur les autres.
+      document.querySelectorAll('.admin-tab-panel').forEach(p => p.style.removeProperty('display'));
       const cible = tab.getAttribute('data-tab');
 
       // « Documents en attente » est désormais une vraie page dédiée.
@@ -167,7 +171,10 @@
     if (detail) detail.style.display = 'none';
     if (grille) grille.style.display = 'grid';
     document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.admin-tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.admin-tab-panel').forEach(p => {
+      p.classList.remove('active');
+      p.style.removeProperty('display');
+    });
   }
 
   // Bouton de retour : dépile l'entrée d'historique ouverte par la fiche, ce
