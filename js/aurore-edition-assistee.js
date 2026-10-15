@@ -423,7 +423,7 @@
     }
     return hasMeaningfulPayload(c.text)||hasMeaningfulPayload(c.content)||hasMeaningfulPayload(c.json);
   }
-  function setStatus(t){const e=document.getElementById('assistedStatus');if(e)e.textContent=t}
+  function setStatus(t){const value=String(t??'');const e=document.getElementById('assistedStatus');if(e)e.textContent=value;const a=document.getElementById('assistedCompletedStatus');if(a)a.textContent=value}
   function downloadablePdfParts(){
     const parts=[],seen=new Set();
     const add=(url,label,key)=>{
@@ -1411,7 +1411,7 @@
     const c=client();
     if(!c){state.courses=[];return[]}
     const {data:{user}={}}=await c.auth.getUser();
-    let q=c.from('aurora_assisted_courses').select('id,title,editor_version,pages,created_at,updated_at').order('updated_at',{ascending:false}).limit(50);
+    let q=c.from('aurora_assisted_courses').select('id,title,editor_version,pages,created_at,updated_at').order('updated_at',{ascending:false}).limit(500);
     if(user?.id) q=q.eq('created_by',user.id);
     const {data,error}=await q;
     if(error)throw error;
@@ -1452,17 +1452,17 @@
     document.getElementById('aeRefresh').onclick=async()=>{try{setStatus('Actualisation…');await loadCourses();renderList();setStatus('Liste actualisée.')}catch(e){setStatus('Impossible d’actualiser. '+String(e?.message||e))}};
     r.querySelectorAll('[data-open-course]').forEach(b=>b.onclick=()=>openCourse(b.dataset.openCourse));
     r.querySelectorAll('[data-correct-course]').forEach(b=>b.onclick=()=>openCourse(b.dataset.correctCourse,{correction:true}));
-    r.querySelectorAll('[data-mark-course-completed]').forEach(b=>b.onclick=()=>markCourseCompleted(b.dataset.markCourseCompleted));
+    r.querySelectorAll('[data-mark-course-completed]').forEach(b=>b.onclick=()=>runMarkCourseCompleted(b.dataset.markCourseCompleted,b));
     r.querySelectorAll('[data-rename-course]').forEach(b=>b.onclick=()=>renameCourse(b.dataset.renameCourse));
     r.querySelectorAll('[data-delete-course]').forEach(b=>b.onclick=()=>deleteCourse(b.dataset.deleteCourse));
   }
 
   async function markCourseCompleted(id){
     const courseId=String(id||state.course?.id||'').trim();
-    if(!courseId){setStatus('Aucun cours sélectionné.');return false;}
+    if(!courseId)throw new Error('Aucun cours sélectionné.');
     const row=state.courses.find(c=>String(c.id)===courseId);
     const course=state.course&&String(state.course.id)===courseId?state.course:(row?.course_json||null);
-    if(!course){setStatus('Cours introuvable dans la liste.');return false;}
+    if(!course)throw new Error('Cours introuvable dans la liste.');
     ensureCourseStructure(course);
     course.workflow=course.workflow&&typeof course.workflow==='object'?course.workflow:{};
     const completedAt=new Date().toISOString();
@@ -1472,16 +1472,13 @@
     course.workflow.correction_in_progress=false;
     course.workflow.correction_started_at=null;
     const persisted=await persistCourse(true,false,course);
-    if(!persisted){
-      setStatus('Le cours a été gardé localement, mais son statut terminé n’a pas pu être confirmé dans Supabase. Vérifie la connexion puis réessaie.');
-      return false;
-    }
+    if(!persisted)throw new Error('Enregistrement Supabase impossible. Vérifie la connexion et ta session administrateur, puis réessaie.');
     await loadCourses();
     if(state.course&&String(state.course.id)===courseId){
       state.course=null;state.selected=null;state.mode='list';state.finalPdfArtifact=null;
     }
     renderList();
-    setStatus('Cours marqué terminé et déplacé dans « Marqués terminés ».');
+    await showCompletedArchive({refresh:false,message:'Cours marqué terminé et rangé dans « Cours marqués terminés ».'});
     return true;
   }
 
@@ -1548,7 +1545,8 @@
       state.course.workflow=state.course.workflow&&typeof state.course.workflow==='object'?state.course.workflow:{};
       state.course.workflow.correction_in_progress=true;
       state.course.workflow.correction_started_at=new Date().toISOString();
-      await persistCourse(true,false,state.course);
+      const saved=await persistCourse(true,false,state.course);
+      if(!saved)throw new Error('Impossible d’enregistrer le début de la correction. Vérifie ta connexion administrateur.');
     }
     syncCanonicalPreviewFromCourse();
     const savedFinal=state.course.generation?.final_pdf;
@@ -1789,7 +1787,7 @@
     if(previousModalHost){closeAssistedModal();previousModalHost.remove();}
     validateCourse();
     ensureCourseStructure(state.course);
-    r.innerHTML='<div class="ae-shell ae-workspace"><header class="ae-head"><div><button class="admin-btn ghost" id="aeBack">← Mes cours</button><button class="admin-btn danger" id="aeDeleteCourseInside">Supprimer ce cours</button><button class="admin-btn primary" id="aeMarkCourseCompleted">✓ Marquer terminé</button><span class="ae-kicker">Atelier de production séquentielle</span><h3><input id="aeCourseTitle" value="'+esc(state.course.title)+'"></h3><p>Le bloc de début, le sommaire et le bloc de fin sont automatiques. L’ordre des blocs centraux détermine leur ordre dans le PDF final : une fiche est ajoutée à la fin par défaut, mais tu peux encore ajouter des blocs en dessous.</p></div><span class="ae-status" id="assistedStatus">'+(state.course.validation?.ok?'Structure valide':'À compléter')+'</span></header>'+
+    r.innerHTML='<div class="ae-shell ae-workspace"><header class="ae-head"><div><button class="admin-btn ghost" id="aeBack">← Mes cours</button><button class="admin-btn danger" id="aeDeleteCourseInside">Supprimer ce cours</button><button class="admin-btn primary" id="aeMarkCourseCompleted">'+(state.course?.workflow?.status==='completed'?'✓ Terminer la correction':'✓ Marquer terminé')+'</button><span class="ae-kicker">Atelier de production séquentielle</span><h3><input id="aeCourseTitle" value="'+esc(state.course.title)+'"></h3><p>Le bloc de début, le sommaire et le bloc de fin sont automatiques. L’ordre des blocs centraux détermine leur ordre dans le PDF final : une fiche est ajoutée à la fin par défaut, mais tu peux encore ajouter des blocs en dessous.</p></div><span class="ae-status" id="assistedStatus">'+(state.course.validation?.ok?'Structure valide':'À compléter')+'</span></header>'+
       '<div class="ae-top-options"><div class="ae-top-options-title"><span class="ae-kicker">Options du document</span><strong>Couleur d’accent</strong><small>Elle sera utilisée pour les bordures, repères et éléments mathématiques de la page.</small></div><label class="ae-color-field"><span class="ae-color-swatch" style="background:'+normalizeThemeColor(state.course.theme_color)+'"></span><select id="aeThemeColor" aria-label="Couleur d’accent du document">'+themeColorOptions()+'</select></label></div>'+
       '<div class="ae-workbar"><button class="admin-btn primary" id="aeAddP">＋ Paragraphe</button><button class="admin-btn ghost" id="aeAddPoint">＋ Point de cours</button><button class="admin-btn ghost" id="aeAddEx">＋ Exercice</button><button class="admin-btn ghost" id="aeAddGraph">＋ Graphique GeoGebra</button><button class="admin-btn ghost" id="aeAddVector">＋ Schéma vectoriel</button><button class="admin-btn ghost" id="aeAddFiche">＋ Fiche de révision</button><button class="admin-btn ghost" id="aeAddWiki">＋ Image Wikimedia</button><button class="admin-btn ghost" id="aeTocJson">Sommaire JSON</button><button class="admin-btn ghost" id="aeSave">Enregistrer le cours</button><button class="admin-btn primary" id="aeDownloadPdfCurrent" disabled>Télécharger le PDF actuel</button></div>'+
       '<div class="ae-sequence-meta"><span>'+contentBlocks().length+' bloc(s) de contenu · 1 début · 1 fin</span><span id="aeSystemPreviewOverall">Pages système indépendantes : '+systemPreviewOverallFromPages(state.canonicalPreview?.pages||{}).ready+'/3 prêtes · '+systemPreviewOverallFromPages(state.canonicalPreview?.pages||{}).progress+'%</span></div>'+
@@ -2171,7 +2169,7 @@
   function bindWorkspace(){
     document.getElementById('aeBack').onclick=()=>{state.mode='list';state.course=null;loadCourses().then(renderList)};
     document.getElementById('aeDeleteCourseInside').onclick=()=>deleteCourse(state.course?.id);
-    document.getElementById('aeMarkCourseCompleted').onclick=()=>markCourseCompleted(state.course?.id);
+    document.getElementById('aeMarkCourseCompleted').onclick=()=>runMarkCourseCompleted(state.course?.id,document.getElementById('aeMarkCourseCompleted'));
     document.getElementById('aeCourseTitle').onchange=e=>{state.course.title=e.target.value.trim()||'Nouveau cours';};
     const themeSelect=document.getElementById('aeThemeColor');
     if(themeSelect)themeSelect.onchange=async e=>{
@@ -4189,8 +4187,128 @@
     }
   });
 
+
+  function activateAdminPanel(panel,card){
+    if(!panel)return;
+    const detail=document.getElementById('adminDetail');
+    if(detail)detail.style.display='block';
+    document.querySelectorAll('.admin-tab-panel').forEach(p=>{
+      p.style.display=p===panel?'block':'none';
+      p.classList.toggle('active',p===panel);
+    });
+    document.querySelectorAll('.admin-tab').forEach(b=>b.classList.toggle('active',b===card));
+    panel.scrollIntoView?.({block:'start',behavior:'auto'});
+  }
+  function ensureCompletedArchivePanel(){
+    const grid=document.querySelector('.admin-category-grid');
+    const detail=document.getElementById('adminDetail');
+    if(!grid||!detail)return false;
+    let card=document.getElementById('admin-tab-assisted-completed');
+    if(!card){
+      card=document.createElement('button');
+      card.id='admin-tab-assisted-completed';
+      card.type='button';
+      card.className='admin-tab admin-category-card';
+      card.dataset.tab='assisted-completed';
+      card.dataset.accent='violet';
+      card.setAttribute('role','tab');
+      card.innerHTML='<span aria-hidden="true" class="admin-category-icon">✓</span><span class="admin-category-title">Cours marqués terminés</span><span class="admin-category-desc">Retrouver, corriger et republier les cours archivés</span><span class="tab-count" id="assistedCompletedCount">0</span>';
+      grid.appendChild(card);
+      card.addEventListener('click',()=>{void showCompletedArchive({refresh:true});});
+    }
+    let panel=document.querySelector('.admin-tab-panel[data-panel="assisted-completed"]');
+    if(!panel){
+      panel=document.createElement('div');
+      panel.id='admin-panel-assisted-completed';
+      panel.className='admin-tab-panel';
+      panel.dataset.panel='assisted-completed';
+      panel.innerHTML='<div class="ae-completed-admin-shell"><header class="ae-completed-admin-head"><div><span class="ae-kicker">Administration · Archives éditoriales</span><h3>Cours marqués terminés</h3><p>Ce bloc est indépendant de la liste de l’édition assistée. Les cours terminés restent ici après avoir quitté l’atelier ; « Corriger » rouvre le même cours en conservant son historique de publication.</p></div><span class="ae-status" id="assistedCompletedStatus">Prêt</span></header><div class="ae-list-actions"><button type="button" class="admin-btn ghost" id="assistedCompletedRefresh">↻ Actualiser</button><button type="button" class="admin-btn primary" id="assistedCompletedBack">Revenir à l’édition assistée</button></div><div id="assistedCompletedArchiveRoot"><div class="ae-empty">Chargement des cours terminés…</div></div></div>';
+      detail.appendChild(panel);
+      panel.querySelector('#assistedCompletedRefresh').addEventListener('click',()=>{void showCompletedArchive({refresh:true});});
+      panel.querySelector('#assistedCompletedBack').addEventListener('click',()=>{
+        const editorCard=document.querySelector('.admin-tab[data-tab="edition-assistee]');
+        const editorPanel=document.querySelector('.admin-tab-panel[data-panel="edition-assistee"]');
+        activateAdminPanel(editorPanel,editorCard);
+        state.mode='list';state.course=null;state.selected=null;state.finalPdfArtifact=null;
+        void loadCourses().then(()=>{renderList();setStatus('Liste des cours actualisée.');}).catch(e=>setStatus('Impossible de charger les cours. '+String(e?.message||e)));
+      });
+      panel.querySelector('#assistedCompletedArchiveRoot').addEventListener('click',e=>{
+        const button=e.target?.closest?.('[data-archive-correct]');
+        if(!button)return;
+        void openArchivedCourseForCorrection(button.dataset.archiveCorrect).catch(error=>{
+          const message='Impossible d’ouvrir ce cours pour correction. '+String(error?.message||error);
+          setStatus(message);alert(message);
+        });
+      });
+    }
+    return true;
+  }
+  function renderCompletedArchive(){
+    if(!ensureCompletedArchivePanel())return;
+    const root=document.getElementById('assistedCompletedArchiveRoot');
+    if(!root)return;
+    const completed=state.courses.filter(c=>String(c.course_json?.workflow?.status||'')==='completed');
+    const count=document.getElementById('assistedCompletedCount');
+    if(count)count.textContent=String(completed.length);
+    root.innerHTML=completed.length
+      ?'<div class="ae-course-grid ae-completed-admin-grid">'+completed.map(c=>{
+          const course=ensureCourseStructure(c.course_json||newCourse(c.title));
+          const workflow=course.workflow||{};
+          const pageCount=Number(course.generation?.final_pdf?.pageCount||course.generation?.final_pdf?.page_count||0);
+          return '<article class="ae-course-card ae-course-card-completed"><div class="ae-course-card-top"><span class="ae-course-status">MARQUÉ TERMINÉ</span><span>'+(pageCount?pageCount+' page(s) · PDF global':'PDF à régénérer si nécessaire')+'</span></div><h4>'+esc(c.title||'Cours sans titre')+'</h4><p>'+contentBlocks(course).length+' bloc(s) · terminé le '+esc(formatDate(workflow.completed_at||c.updated_at||c.created_at))+'</p><div class="ae-course-actions"><button class="admin-btn primary" type="button" data-archive-correct="'+esc(c.id)+'">Corriger</button><button class="admin-btn ghost" type="button" data-archive-correct="'+esc(c.id)+'">Ouvrir le cours</button></div></article>';
+        }).join(''):'<div class="ae-empty"><strong>Aucun cours marqué terminé.</strong><span>Dans l’édition assistée, clique sur « Marquer terminé ». Le cours sera alors rangé ici au lieu de disparaître de l’administration.</span></div>';
+  }
+  async function showCompletedArchive(options={}){
+    if(!ensureCompletedArchivePanel()){
+      throw new Error('Le panneau administratif des cours terminés est introuvable.');
+    }
+    const panel=document.querySelector('.admin-tab-panel[data-panel="assisted-completed"]');
+    const card=document.getElementById('admin-tab-assisted-completed');
+    await Promise.resolve(state.pendingExitSave).catch(()=>{});
+    activateAdminPanel(panel,card);
+    const archiveRoot=document.getElementById('assistedCompletedArchiveRoot');
+    if(archiveRoot&&options.refresh)archiveRoot.innerHTML='<div class="ae-empty">Actualisation des cours terminés…</div>';
+    try{
+      if(options.refresh)await loadCourses();
+      renderCompletedArchive();
+      setStatus(options.message||'Archive des cours terminés chargée.');
+    }catch(error){
+      if(archiveRoot)archiveRoot.innerHTML='<div class="ae-empty"><strong>Chargement impossible.</strong><span>'+esc(String(error?.message||error))+'</span><button type="button" class="admin-btn ghost" data-archive-retry>Réessayer</button></div>';
+      archiveRoot?.querySelector('[data-archive-retry]')?.addEventListener('click',()=>void showCompletedArchive({refresh:true}));
+      throw error;
+    }
+  }
+  async function openArchivedCourseForCorrection(id){
+    await Promise.resolve(state.pendingExitSave).catch(()=>{});
+    await loadCourses();
+    const row=state.courses.find(c=>String(c.id)===String(id));
+    if(!row)throw new Error('Ce cours n’est pas présent dans les cours accessibles à cet administrateur.');
+    const editorCard=document.querySelector('.admin-tab[data-tab="edition-assistee"]');
+    const editorPanel=document.querySelector('.admin-tab-panel[data-panel="edition-assistee"]');
+    activateAdminPanel(editorPanel,editorCard);
+    state.mode='list';state.course=null;state.selected=null;state.finalPdfArtifact=null;
+    await openCourse(String(id),{correction:true});
+    setStatus('Correction ouverte · le cours reste dans « Cours marqués terminés ».');
+  }
+  async function runMarkCourseCompleted(id,button){
+    const original=button?.textContent||'Marquer terminé';
+    if(button){button.disabled=true;button.setAttribute('aria-busy','true');button.textContent='Enregistrement…';}
+    try{
+      const ok=await markCourseCompleted(id);
+      if(!ok)throw new Error('Le statut terminé n’a pas été confirmé dans Supabase.');
+    }catch(error){
+      const message='Impossible de marquer le cours comme terminé. '+String(error?.message||error);
+      setStatus(message);
+      alert(message);
+      if(button?.isConnected){button.disabled=false;button.removeAttribute('aria-busy');button.textContent=original;}
+    }finally{
+      if(button?.isConnected&&button.disabled){button.disabled=false;button.removeAttribute('aria-busy');button.textContent=original;}
+    }
+  }
+
   async function init(){
     const r=root();if(!r)return;
+    ensureCompletedArchivePanel();
     const card=document.querySelector('.admin-tab[data-tab="edition-assistee"]'),panel=document.querySelector('.admin-tab-panel[data-panel="edition-assistee"]');
     if(card&&panel)card.addEventListener('click',async()=>{
       await Promise.resolve(state.pendingExitSave).catch(()=>{});
@@ -4208,13 +4326,13 @@
       }
       state.mode='list';state.course=null;state.selected=null;state.finalPdfArtifact=null;
       renderList();
-      try{setStatus('Chargement des cours…');await loadCourses();renderList();setStatus('Liste prête.')}
+      try{setStatus('Chargement des cours…');await loadCourses();renderList();renderCompletedArchive();setStatus('Liste prête.')}
       catch(e){setStatus('Impossible de charger la liste des cours.')}
     });
     renderList();
     requestAnimationFrame(async()=>{
-      try{setStatus('Chargement des cours…');await loadCourses();renderList();setStatus('Liste prête.')}
-      catch(_){setStatus('Impossible de charger la liste des cours.')}
+      try{setStatus('Chargement des cours…');await loadCourses();renderList();renderCompletedArchive();setStatus('Liste prête.')}
+      catch(e){setStatus('Impossible de charger la liste des cours. '+String(e?.message||e))}
     });
   }
   async function upsertAssistedContentBlock(type,json,existingId){
