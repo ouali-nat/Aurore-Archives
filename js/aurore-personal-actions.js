@@ -546,7 +546,7 @@
   async function actionBoutonBiometrie(){
     if(credentialBiometrique()){await deverrouillerBiometrie();return;}
     if(!biometrieDisponible()){
-      afficherMessageCode('La biométrie n’est pas accessible dans ce navigateur ou cette fenêtre Aurore. Essayez d’ouvrir aurore-section-archives.com directement dans Chrome, puis revenez dans « Code et empreinte ».','err');
+      afficherMessageCode('Cette fenêtre ne prend pas en charge la biométrie. Ouvrez Aurore directement dans Chrome avec l’adresse Vercel de l’application : https://aurore-section-archivescom.vercel.app, puis revenez dans « Code et empreinte ». La biométrie est liée au domaine utilisé.','err');
       return;
     }
     espaceOptions={...espaceOptions,biometricEnroll:true};
