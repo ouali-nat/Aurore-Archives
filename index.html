@@ -35,7 +35,7 @@
 </script>
 
 <style id="aurore-boot-overlay-critical-css">
-/* Indicateur Aurore : une boule à quatre trous, teintée par la palette du site. */
+/* Indicateur Aurore : quatre points animés, teintés par la palette du site. */
 :root{
   --aurore-spinner-accent:var(--theme-primary,#8b5cf6);
   --aurore-spinner-accent-light:var(--theme-secondary,#c084fc);
@@ -68,8 +68,8 @@ html.aurore-pull-refreshing::after{
   content:"";position:fixed;left:calc(50% - 26px);top:clamp(84px,18vh,155px);
   z-index:2147483647;width:52px;height:52px;box-sizing:border-box;border-radius:50%;
   pointer-events:none;background:var(--aurore-spinner-face);
-  box-shadow:inset -5px -6px 8px rgba(0,0,0,.28),inset 3px 3px 7px rgba(255,255,255,.38),0 6px 18px var(--aurore-spinner-shadow);
-  animation:aurore-spinner-rotation .78s linear infinite
+  filter:drop-shadow(0 2px 8px var(--aurore-spinner-shadow));
+  animation:aurore-spinner-rotation .9s linear infinite
 }
 
 /* Écran de démarrage : fond uni pour cacher le CSS en cours, seule la boule reste visible. */
@@ -100,8 +100,7 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
 #auroreBootOverlay .aurore-boot-mark-stage::before{display:none}
 #auroreBootOverlay .aurore-boot-four-hole-ball{
   position:relative;display:block;width:52px;height:52px;flex:none;border-radius:50%;
-  background:var(--aurore-spinner-face);
-  filter:drop-shadow(0 2px 8px var(--aurore-spinner-shadow));
+  background:transparent;box-shadow:none;
   animation:aurore-spinner-rotation .9s linear infinite;will-change:transform
 }
 #auroreBootOverlay .aurore-boot-four-hole-ball i{
