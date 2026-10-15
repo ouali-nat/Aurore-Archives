@@ -42,6 +42,10 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           npx cap add android
+          npx cap sync android
+          grep -q '"appId": "app.vercel.aurore_section_archivescom.twa"' capacitor.config.json
+          grep -q '"appName": "Aurore"' capacitor.config.json
+          grep -q '"url": "https://aurore-section-archivescom.vercel.app"' capacitor.config.json
 
       - name: Icone et ecran de demarrage aux couleurs d'Aurore
         working-directory: android-app
