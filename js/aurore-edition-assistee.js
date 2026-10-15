@@ -1630,7 +1630,7 @@
       }
       return;
     }
-    await generateBlock(ref,{forceSingleBlock:true});
+    await generateBlock(ref,{forceFlow:true});
   }
 
   async function blockDownloadPartsThrough(targetBlock,mode='current'){
@@ -2086,7 +2086,7 @@
     document.getElementById('aeCopyTocJson')?.addEventListener('click',copyTocJson);
     root().querySelectorAll('[data-insert-after]').forEach(x=>x.onchange=async()=>{const type=x.value;x.value='';if(type)await insertBlockAfter(x.dataset.insertAfter,type);});
     root().querySelectorAll('[data-search-wikimedia]').forEach(x=>x.onclick=()=>wiki(x.dataset.searchWikimedia,true));
-    root().querySelectorAll('[data-validate-block]').forEach(x=>x.onclick=()=>generateBlock(x.dataset.validateBlock));
+    root().querySelectorAll('[data-validate-block]').forEach(x=>x.onclick=()=>generateBlock(x.dataset.validateBlock,{forceFlow:true}));
   }
 
   function addBlock(type){
@@ -3148,7 +3148,8 @@
   }
 
   function isAssistedFlowableBlock(b){
-    if(!b||isSystemBlock(b)||isDefaultIntroduction(b)||isRepeatedDefaultIntroduction(b))return false;
+    // L'introduction est le premier bloc du flux, pas une page réservée à elle seule.
+    if(!b||isSystemBlock(b)||isRepeatedDefaultIntroduction(b))return false;
     const type=String(b.type||'').toLowerCase();
     const content=b.content&&typeof b.content==='object'?b.content:{};
     // Tous ces éléments suivent le flux vertical : le renderer les place dans
@@ -3211,6 +3212,14 @@
   }
   function generationContainsBlock(generation,blockId){
     return generationHasFlow(generation)&&generationFlowIds(generation).includes(String(blockId||''));
+  }
+  function flowContentFingerprint(blocks){
+    return JSON.stringify({
+      theme_color:normalizeThemeColor(state.course?.theme_color),
+      blocks:(Array.isArray(blocks)?blocks:[]).map(block=>({
+        id:String(block?.id||''),type:String(block?.type||''),content:block?.content||{}
+      }))
+    });
   }
   function generationCoversThrough(generation,segment,targetId){
     const ids=generationFlowIds(generation);
@@ -3278,10 +3287,40 @@
 
   async function generateBlock(id,options={}){
     ensureCourseStructure(state.course);
-    const b=activeBlocks().find(x=>x.id===id);if(!b)return;
+    let b=activeBlocks().find(x=>x.id===id);if(!b)return;
     // Synchronize the visible editor before validation; mobile paste/blur can
     // otherwise leave stale empty state and make the button appear inert.
     syncBlockEditorBeforeGenerate(b);
+    // Une action manuelle sur un bloc régénère sa séquence contiguë au lieu de
+    // remplacer silencieusement le flux par un PDF isolé.
+    if(options?.forceFlow===true&&!isSystemBlock(b)&&isAssistedFlowableBlock(b)){
+      const candidates=renderableFlowBlocksFor(b.id);
+      if(candidates.length>1){
+        const invalid=candidates.map(part=>({part,validation:validateBlock(part)})).filter(item=>!item.validation.ok);
+        if(invalid.length){
+          const detail=invalid.map(item=>titleFor(item.part)+': '+(item.validation.errors||['validation impossible']).join(' ')).join(' · ');
+          setStatus('Séquence non générée : corrige d’abord les blocs invalides. '+detail.slice(0,360));
+          return;
+        }
+        const owner=candidates[0],ownerGeneration=owner?.generation||{};
+        const expectedIds=candidates.map(part=>String(part?.id||''));
+        const savedIds=generationFlowIds(ownerGeneration);
+        const alreadyCanonical=String(ownerGeneration.status||'').toLowerCase()==='ready'
+          &&!!String(ownerGeneration.page_url||'').trim()
+          &&ownerGeneration.independent_regeneration!==true
+          &&generationHasFlow(ownerGeneration)
+          &&String(ownerGeneration.flow_page_owner_id||'')===String(owner.id)
+          &&savedIds.length===expectedIds.length
+          &&expectedIds.every((expected,index)=>savedIds[index]===expected)
+          &&String(ownerGeneration.flow_content_fingerprint||'')===flowContentFingerprint(candidates);
+        if(alreadyCanonical){
+          setStatus('Cette séquence est déjà rendue en flux continu : les blocs restent à la suite et aucune régénération inutile n’est lancée.');
+          return;
+        }
+        b=owner;id=String(owner.id);
+        syncBlockEditorBeforeGenerate(b);
+      }
+    }
     if(isSystemBlock(b)){setStatus('Les pages de début et de fin sont automatiques : seule une page de contenu centrale peut être générée ici.');return;}
     if(['graphique','vector-scene','fiche-revision'].includes(b.type)&&b.jsonEditorInvalid){setStatus('JSON invalide. Corrige-le avant de générer la page.');return;}
     const v=validateBlock(b);
@@ -3503,6 +3542,7 @@
         progress_label:'Page prête — visualisation disponible',
         bytes:d.bytes||null,
         flow_block_ids:persistedFlowIds,
+        flow_content_fingerprint:flowContentFingerprint(resultFlowGroup),
         page_count:Math.max(1,Number(d.page_count)||1),
         pdf_optimization:pdfOptimizationMetadata(pdfOptimization),
         flow_page_map:d.flow_page_map&&typeof d.flow_page_map==='object'?d.flow_page_map:null,

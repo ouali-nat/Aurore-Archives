@@ -1278,10 +1278,9 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
         const blockId=String(item.blockId||"");
         if(item.kind==="content"){
           const raw=item.value;
-          const isIntroduction=!!(raw&&typeof raw==="object"&&raw.__aurore_point&&clean(raw.title).toLowerCase()==="introduction");
-          if(isIntroduction&&y!==top)newFlowPage();
+          // L'introduction suit le même flux vertical : seul le manque réel de place
+          // déclenche une nouvelle page.
           await drawContentBlock(raw,blockId);
-          if(isIntroduction&&flowIndex<orderedFlowItems.length-1)newFlowPage();
         }else if(item.kind==="exercise"){
           await drawExerciseBlock(item.value,blockId);
         }else if(item.kind==="image"){
@@ -1295,17 +1294,9 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
     }else{
       for(let contentIndex=0;contentIndex<contentItems.length;contentIndex++){
         const raw=contentItems[contentIndex];
-        const isIntroduction=!!(raw&&typeof raw==="object"&&raw.__aurore_point&&clean(raw.title).toLowerCase()==="introduction");
-        if(isIntroduction&&y!==top)newFlowPage();
+        // L'introduction ne réserve pas une page entière : les blocs suivants
+        // utilisent la place disponible avant tout saut de page.
         await drawContentBlock(raw);
-        if(isIntroduction){
-          const hasFollowingMaterial=
-            contentItems.slice(contentIndex+1).length>0||
-            exerciseItems.length>0||
-            graphItems.length>0||
-            imageItems.length>0;
-          if(hasFollowingMaterial)newFlowPage();
-        }
       }
     }
 
