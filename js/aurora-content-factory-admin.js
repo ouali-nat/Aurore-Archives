@@ -1459,20 +1459,23 @@ function apply(){
     const pdf=!!x.pdf_url;
     const active=['queued','processing'].includes(m.lualatex_status);
     const cancelRequested=m.lualatex_cancel_requested===true;
-    const canRender=x.status!=='published'&&(['generated','review','approved','failed'].includes(x.status)||(x.status==='draft'&&!!pdfUrl)||active);
+    const assistedFinal=String(m.origin||'')==='edition_assistee'&&m.assisted_final&&typeof m.assisted_final==='object';
+    const canRender=!assistedFinal&&x.status!=='published'&&(['generated','review','approved','failed'].includes(x.status)||(x.status==='draft'&&!!pdfUrl)||active);
     const canValidate=x.status==='review'&&pdf&&!active;
     const canReject=['review','approved'].includes(x.status)&&!active;
     const canPublish=['approved','review'].includes(x.status)&&pdf&&!active;
-    const canRevision=['review','approved'].includes(x.status)&&pdf&&!active&&!cancelRequested;
+    const canRevision=!assistedFinal&&['review','approved'].includes(x.status)&&pdf&&!active&&!cancelRequested;
     const theme=documentThemeColor(m)||x.theme_color||'#1D4ED8';
     const classification=[x.domaine,x.formation,x.specialite,x.annee,x.semestre,x.filiere,x.matiere||x.subject,x.class_name,x.level].filter(Boolean).join(' · ');
-    const stage=m.lualatex_stage||m.lualatex_status||'';
+    const stage=assistedFinal
+      ?'PDF global fusionné et vérifié · '+(Number(m.assisted_final.page_count)||0)+' page(s) · contrôle humain requis'
+      :(m.lualatex_stage||m.lualatex_status||'');
     const origin=m.origin||m.source||m.producer||'';
     const actionBusy=active||cancelRequested;
     return `<article class="cf-admin-card cf-admin-card-large" data-generated-document-id="${esc(x.id)}" style="--cf-document-theme:${esc(theme)}">
       <div class="cf-admin-icon cf-admin-icon-large"><img src="./icon-192-1.png" alt="Aurore"></div>
       <div class="cf-admin-body">
-        <div class="cf-admin-kicker">Document IA</div>
+        <div class="cf-admin-kicker">${assistedFinal?'PDF global · Édition assistée':'Document IA'}</div>
         <div class="cf-admin-title">${esc(x.title||'Sans titre')}</div>
         <div class="cf-admin-meta cf-admin-meta-grid">
           <span><strong>Statut</strong> ${esc(sl(x.status))}${pdf?' · PDF prêt':''}</span>
@@ -1487,7 +1490,7 @@ function apply(){
         <div class="cf-admin-theme-row">
           <span class="cf-admin-theme-dot" style="background:${esc(theme)}"></span>
           <span><strong>Couleur du document</strong><small>${esc(theme)}</small></span>
-          <button type="button" class="admin-btn ghost cf-change-theme" data-cf-theme="${esc(x.id)}" data-theme-color="${esc(theme)}" ${actionBusy?'disabled':''}>Changer la couleur</button>
+          ${assistedFinal?'':'<button type="button" class="admin-btn ghost cf-change-theme" data-cf-theme="'+esc(x.id)+'" data-theme-color="'+esc(theme)+'" '+(actionBusy?'disabled':'')+'>Changer la couleur</button>'}
         </div>
         ${stage?'<div class="cf-admin-generation-state"><strong>Production PDF :</strong> '+esc(stage)+'</div>':''}
         ${x.validation_notes?'<div class="cf-admin-note"><strong>Note administrative :</strong> '+esc(x.validation_notes)+'</div>':''}
@@ -1549,6 +1552,13 @@ async function charger(){
     if(!r.ok)throw new Error(t||('HTTP '+r.status));
     rows=t?JSON.parse(t):[];
     if(!Array.isArray(rows))rows=[];
+    // Les fragments individuels de l’édition assistée sont des objets techniques
+    // nécessaires à la régénération. Ils ne sont pas des documents à valider :
+    // seul le cours fusionné (document_type=cours_assiste) apparaît ici.
+    rows=rows.filter(x=>{
+      const m=x?.metadata&&typeof x.metadata==='object'?x.metadata:{};
+      return !(String(m.origin||'')==='edition_assistee'&&String(x.document_type||'')==='page_assistee');
+    });
 
     // Les demandes IA récentes existent parfois encore uniquement dans
     // aurora_content_jobs (ex. Job #93) avant la réception du contenu éditorial.
@@ -1560,8 +1570,14 @@ async function charger(){
         const jobs=jt?JSON.parse(jt):[];
         const known=new Set(rows.map(x=>String(x.job_id||'')).filter(Boolean));
         for(const job of (Array.isArray(jobs)?jobs:[])){
-          if(job.generated_document_id!=null||known.has(String(job.id)))continue;
           const jm=job.metadata&&typeof job.metadata==='object'?job.metadata:{};
+          // Les jobs page_assistee créés par l’atelier ne doivent pas être
+          // injectés comme demandes séparées, même avant la liaison PDF.
+          if(String(job.document_type||'')==='page_assistee'&&String(jm.origin||'')==='edition_assistee'){
+            known.add(String(job.id));
+            continue;
+          }
+          if(job.generated_document_id!=null||known.has(String(job.id)))continue;
           rows.push({
             id:'job-'+job.id,
             job_id:job.id,
