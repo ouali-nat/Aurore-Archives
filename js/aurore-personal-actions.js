@@ -564,7 +564,7 @@
   window.ouvrirGestionProtectionEspace=function(){
     if(!session){requireLogin();return;}
     if(!codeStocke())showCode('setup',{afterSetupBiometric:true});
-    else showCode('verify',{biometricEnroll:!credentialBiometrique(),biometricDisable:!!credentialBiometrique()});
+    else showCode('verify',{}); // Afficher le bouton biométrique : l’utilisateur choisit lui-même activation ou déverrouillage.
   };
   function ouvrirEspaceInterne(options={}){
     if(!session)return;if(typeof window.auroreUnlockAccess==='function')window.auroreUnlockAccess();document.getElementById('breadcrumb').innerHTML='';remplirProfil();
