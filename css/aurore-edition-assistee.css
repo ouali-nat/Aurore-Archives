@@ -10,7 +10,7 @@
 .ae-course-section-head h4{margin:4px 0;font-size:.95rem}.ae-course-section-head p{margin:4px 0 0;font-size:.68rem;line-height:1.5;opacity:.7;max-width:680px}
 .ae-course-count{display:grid;place-items:center;flex:0 0 auto;min-width:30px;height:30px;padding:0 8px;box-sizing:border-box;border-radius:100px;background:color-mix(in srgb,currentColor 8%,transparent);font-size:.72rem;font-weight:900}
 .ae-completed-section{border-color:color-mix(in srgb,#15803d 24%,currentColor 5%)}.ae-course-card-completed .ae-course-status{color:#15803d}.ae-course-actions .admin-btn{min-height:36px}
-@media(max-width:620px){.ae-course-grid{grid-template-columns:minmax(0,1fr);padding:12px}.ae-course-section-head{padding:13px 12px 0;align-items:flex-start}.ae-course-section-head p{max-width:260px}}
+@media(max-width:620px){.ae-course-section .ae-course-grid{grid-template-columns:minmax(0,1fr);padding:12px}.ae-course-section-head{padding:13px 12px 0;align-items:flex-start}.ae-course-section-head p{max-width:260px}}
 .ae-course-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:16px}
 .ae-course-card{padding:14px;border:1px solid color-mix(in srgb,currentColor 10%,transparent);border-radius:15px;background:var(--ae-card,var(--card-bg,#fff));box-shadow:0 7px 20px rgba(0,0,0,.04)}
 .ae-course-card-top{display:flex;justify-content:space-between;gap:8px;font-size:.58rem;opacity:.62}.ae-course-status{text-transform:uppercase;letter-spacing:.06em;font-weight:900}.ae-course-card h4{margin:9px 0 5px;font-size:.86rem}.ae-course-card p{margin:0 0 12px;font-size:.65rem;line-height:1.45;opacity:.65}
