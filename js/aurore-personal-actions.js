@@ -457,7 +457,7 @@
     if(window.AuroreBiometricAuth?.authenticate)return window.AuroreBiometricAuth;
     // Le site est chargé depuis le serveur distant dans la WebView Capacitor.
     // Charger le proxy JS du plugin permet au pont natif déjà compilé de le résoudre.
-    const module=await import('https://esm.sh/@aparajita/capacitor-biometric-auth@8.0.2');
+    const module=await import('https://esm.sh/@aparajita/capacitor-biometric-auth@8.0.2?bundle');
     if(!module?.BiometricAuth)throw new Error('Le pont biométrique natif est absent de cette version de l’application.');
     window.AuroreBiometricAuth=module.BiometricAuth;
     return window.AuroreBiometricAuth;
