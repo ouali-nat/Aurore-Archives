@@ -4,36 +4,6 @@
 <!-- AURORE_DEPLOY_MARKER_20260923_ADMIN_PENDING_V2 -->
 <html lang="fr">
 <head>
-<script id="aurore-temporary-disable-site-cache">
-(function(){
-  'use strict';
-  window.__AURORE_DISABLE_SITE_CACHE = true;
-  try {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(registrations) {
-        return Promise.all(registrations.filter(function(registration) {
-          try { return new URL(registration.scope).origin === location.origin; }
-          catch (_) { return false; }
-        }).map(function(registration) { return registration.unregister(); }));
-      }).catch(function(error) { console.warn('[Aurore cache temporaire] Désinscription du service worker impossible :', error); });
-    }
-  } catch (error) {
-    console.warn('[Aurore cache temporaire] Service worker inaccessible :', error);
-  }
-  try {
-    if ('caches' in window) {
-      caches.keys().then(function(keys) {
-        return Promise.all(keys.filter(function(key) {
-          return /^aurore-(?:shell|static|libs)(?:-v[0-9]+)?$/.test(key);
-        }).map(function(key) { return caches.delete(key); }));
-      }).catch(function(error) { console.warn('[Aurore cache temporaire] Nettoyage des caches d’interface impossible :', error); });
-    }
-  } catch (error) {
-    console.warn('[Aurore cache temporaire] Cache Storage inaccessible :', error);
-  }
-})();
-</script>
-
 <style id="aurore-boot-overlay-critical-css">
 /* Indicateur Aurore : quatre points animés, teintés par la palette du site. */
 :root{
@@ -2624,17 +2594,20 @@ body:not(.site-locked) #accessLock{display:none!important;}
   }
 
 
-  // Réseau : état explicite et non bloquant. Aucun rechargement automatique :
-  // la navigation et le contenu déjà disponibles continuent de fonctionner hors ligne.
+  // Réseau : une seule notification, avec vérification réelle de l'accès Internet.
+  // Les événements online/offline seuls ne suffisent pas sur Android/WebView.
   (function initialiserNotificationsReseau(){
     const toast=document.getElementById('auroreNetworkStatus');
     const titre=document.getElementById('auroreNetworkStatusTitle');
     const texte=document.getElementById('auroreNetworkStatusText');
     const fermer=document.getElementById('auroreNetworkStatusClose');
     if(!toast||!titre||!texte)return;
+
     let minuterieDisparition=null;
-    let dernierEtatReseau=(navigator.onLine===false?'offline':'online');
-    let surveillanceReseau=null;
+    let minuterieSonde=null;
+    let dernierEtatReseau='unknown';
+    let verificationEnCours=false;
+    let generationVerification=0;
 
     function afficher(etat,titreTexte,message,autoHide=false){
       clearTimeout(minuterieDisparition);
@@ -2646,29 +2619,99 @@ body:not(.site-locked) #accessLock{display:none!important;}
       toast.hidden=false;
       if(autoHide)minuterieDisparition=setTimeout(()=>{toast.hidden=true;},4200);
     }
-    function masquer(){clearTimeout(minuterieDisparition);toast.hidden=true;}
+    function masquer(){
+      clearTimeout(minuterieDisparition);
+      toast.hidden=true;
+    }
 
     window.auroreAfficherNotificationReseau=(etat,message)=>{
       if(etat==='offline'){
-        afficher('offline','Connexion interrompue',message||'Aurore continue avec les données déjà disponibles sur cet appareil.',false);
+        document.documentElement.classList.add('aurore-offline');
+        afficher('offline','Connexion interrompue',message||'Internet est indisponible. Les données déjà disponibles restent consultables.',false);
       }else{
-        afficher('online','Connexion rétablie',message||'Le réseau est de nouveau disponible. Aurore peut reprendre son fonctionnement en ligne.',true);
+        afficher('online','Connexion rétablie',message||'La connexion Internet est de nouveau disponible.',true);
       }
     };
     fermer?.addEventListener('click',masquer);
 
+    async function testerConnexionReelle(){
+      if(navigator.onLine===false)return false;
+      const controleur=typeof AbortController==='function'?new AbortController():null;
+      const minuteur=controleur?setTimeout(()=>{try{controleur.abort();}catch(_){}},4500):null;
+      try{
+        // HEAD ne télécharge pas le HTML. Le service worker du projet laisse passer
+        // les requêtes HEAD : une réponse du cache ne peut donc pas simuler Internet.
+        const reponse=await fetch('/',{
+          method:'HEAD',
+          cache:'no-store',
+          credentials:'same-origin',
+          signal:controleur?controleur.signal:undefined
+        });
+        return !!(reponse&&reponse.ok);
+      }catch(_){
+        return false;
+      }finally{
+        if(minuteur)clearTimeout(minuteur);
+      }
+    }
+
+    function arreterSonde(){
+      if(minuterieSonde){clearInterval(minuterieSonde);minuterieSonde=null;}
+    }
+    function demarrerSonde(){
+      if(minuterieSonde)return;
+      // Une seule petite vérification HEAD toutes les 15 s, et uniquement après une coupure.
+      minuterieSonde=setInterval(()=>{
+        if(dernierEtatReseau!=='offline'||verificationEnCours)return;
+        if(navigator.onLine===false)return;
+        traiterChangementReseau('online','sonde');
+      },15000);
+    }
+
     async function traiterChangementReseau(etat,source='navigator'){
-      if(etat===dernierEtatReseau)return;
-      dernierEtatReseau=etat;
       if(etat==='offline'){
+        generationVerification++;
+        verificationEnCours=false;
+        if(dernierEtatReseau==='offline')return;
+        dernierEtatReseau='offline';
         document.documentElement.classList.add('aurore-offline');
-        afficher('offline','Connexion interrompue','Aurore continue avec les données déjà disponibles sur cet appareil. Les actions en ligne reprendront dès le retour du réseau.',false);
+        afficher('offline','Connexion interrompue','Internet est indisponible ou instable. Les pages et documents déjà disponibles restent consultables.',false);
         window.dispatchEvent(new CustomEvent('aurore:network-offline',{detail:{source}}));
+        demarrerSonde();
         return;
       }
+
+      if(navigator.onLine===false){
+        return traiterChangementReseau('offline',source+':navigator');
+      }
+      if(verificationEnCours)return;
+      verificationEnCours=true;
+      const generation=++generationVerification;
+      const precedent=dernierEtatReseau;
+      const accessible=await testerConnexionReelle();
+      if(generation!==generationVerification){
+        verificationEnCours=false;
+        return;
+      }
+      verificationEnCours=false;
+      if(!accessible){
+        return traiterChangementReseau('offline',source+':probe');
+      }
+      if(dernierEtatReseau==='online')return;
+
+      dernierEtatReseau='online';
+      arreterSonde();
       document.documentElement.classList.remove('aurore-offline');
-      afficher('online','Connexion rétablie','Le réseau est de nouveau disponible. Aurore peut reprendre la synchronisation de votre espace.',true);
+      if(precedent==='offline'){
+        afficher('online','Connexion rétablie','Internet est de nouveau disponible. Aurore peut reprendre la synchronisation de votre espace.',true);
+      }else if(precedent==='unknown'){
+        // Vérification silencieuse au premier affichage : pas de faux message « rétablie ».
+        masquer();
+      }else{
+        afficher('online','Connexion rétablie','Internet est de nouveau disponible.',true);
+      }
       window.dispatchEvent(new CustomEvent('aurore:network-online',{detail:{source}}));
+
       if(session?.refresh_token && Date.now()>=Number(session.expires_at||0)-120000){
         try{
           const resultat=await rafraichirSession();
@@ -2678,32 +2721,27 @@ body:not(.site-locked) #accessLock{display:none!important;}
             try{sessionStorage.removeItem('lsnb_session');}catch(_){}
             window.auroreLockAccess?.();
             afficherUtilisateurConnecte?.();
-            window.auroreAfficherNotificationReseau?.('online','Votre session Aurore a expiré. Reconnectez-vous pour continuer.');
+            afficher('online','Session expirée','Reconnectez-vous pour continuer à utiliser votre espace personnel.',true);
           }
         }catch(_){}
       }
     }
 
-    window.addEventListener('online',()=>{traiterChangementReseau('online','event');},{passive:true});
-    window.addEventListener('offline',()=>{traiterChangementReseau('offline','event');},{passive:true});
-
-    // Certains WebViews/PWA ne relaient pas toujours les événements online/offline.
-    // Cette surveillance locale ne génère aucune requête réseau.
-    surveillanceReseau=setInterval(()=>{
-      traiterChangementReseau(navigator.onLine===false?'offline':'online','poll');
-    },1500);
-    window.addEventListener('pagehide',()=>{if(surveillanceReseau)clearInterval(surveillanceReseau);},{once:true});
-
+    window.addEventListener('online',()=>{
+      setTimeout(()=>traiterChangementReseau('online','event'),900);
+    },{passive:true});
+    window.addEventListener('offline',()=>{
+      traiterChangementReseau('offline','event');
+    },{passive:true});
     window.addEventListener('visibilitychange',()=>{
       if(document.visibilityState!=='visible')return;
       traiterChangementReseau(navigator.onLine===false?'offline':'online','visibility');
     });
+    window.addEventListener('pagehide',arreterSonde,{once:true});
 
-    if(navigator.onLine===false){
-      dernierEtatReseau='online';
-      traiterChangementReseau('offline','initial');
-    }
-
+    // Vérifier une fois au démarrage, même si Android annonce « en ligne » sans Internet.
+    if(navigator.onLine===false)traiterChangementReseau('offline','initial');
+    else traiterChangementReseau('online','initial');
   })();
 
   // Affiche à l'utilisateur connecté les notifications personnelles non lues
@@ -4970,7 +5008,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <script defer src="js/aurore-admin-claims.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 <script defer src="js/aurore-publicites.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 <script defer src="js/aurore-pdf-reader.js?v=20261008-pdfperf-download1&aurore_fresh=20261010-temporary-no-cache1"></script>
-<script defer src="js/aurore-navigation.js?v=20260923-navigation4&aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurore-navigation.js?v=20261015-reload-state-restore1&aurore_fresh=20261015-navigation-reload-network-fix1"></script>
 <script defer src="./js/aurore-theme-logic.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 <script defer src="js/site-config.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 <script defer src="js/aurore-personal-documents.js?aurore_fresh=20261010-temporary-no-cache1"></script>
@@ -5025,7 +5063,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <span>Ajoutez Aurore à votre écran d’accueil pour l’ouvrir comme une application, sans l’interface habituelle du navigateur.</span>
 <button id="pwaInstallHintBtn" type="button">Installer Aurore</button>
 </div>
-<script defer src="./js/aurore-pwa-install.js?v=20261010-sw-refresh-v10&aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="./js/aurore-pwa-install.js?v=20261015-offline-network-refresh1&aurore_fresh=20261015-navigation-reload-network-fix1"></script>
 <div aria-labelledby="aurore-history-confirm-title" aria-modal="true" id="aurore-history-confirm-modal" role="dialog">
 <div class="aurore-history-confirm-card">
 <div class="aurore-history-confirm-title" id="aurore-history-confirm-title">Effacer l’historique des téléchargements ?</div>
