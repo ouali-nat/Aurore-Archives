@@ -1,7 +1,7 @@
 /* Aurore — Édition assistée : atelier séquentiel, sans canevas de prévisualisation */
 (function(){
   'use strict';
-  const state={mode:'list',course:null,courses:[],selected:null,loading:false,pdfBatchRunning:false,pdfFinalizing:false,finalPdfArtifact:null,ghostscriptModulePromise:null,ghostscriptInstance:null,ghostscriptFailureUntil:0,ghostscriptFailureMessage:'',pdfBatchProgress:{percent:0,label:'En attente de génération',targetCount:0,activeTargetIndex:0,completedTargets:0},pdfLibPromise:null,modalViewport:null,canonicalPreview:{fingerprint:'',documentId:null,pdfUrl:null}};
+  const state={mode:'list',course:null,courses:[],selected:null,loading:false,pdfBatchRunning:false,pdfFinalizing:false,finalPdfArtifact:null,pendingExitSave:Promise.resolve(),ghostscriptModulePromise:null,ghostscriptInstance:null,ghostscriptFailureUntil:0,ghostscriptFailureMessage:'',pdfBatchProgress:{percent:0,label:'En attente de génération',targetCount:0,activeTargetIndex:0,completedTargets:0},pdfLibPromise:null,modalViewport:null,canonicalPreview:{fingerprint:'',documentId:null,pdfUrl:null}};
   const PREVIEW_CACHE_MAX=6;
   const PDF_PART_CACHE_DB='aurore-pdf-part-cache-v3';
   const PDF_PART_CACHE_STORE='optimized-parts';
@@ -972,10 +972,17 @@
     if(pageUrls.length!==parts.length)throw new Error('Une page du document ne possède pas d’URL PDF valide.');
     setPdfBatchProgress('Fusion des pages sur le serveur…',91);
     setStatus('Fusion côté serveur : les fragments restent entre Supabase et le serveur de fusion. Aucune page ni moteur de compression n’est téléchargé sur le téléphone ; le PDF complet ne sera transféré qu’au moment du téléchargement.');
+    const courseFingerprint=finalPdfFingerprint(parts);
     const send=async(accessToken)=>fetch('/api/aurora-assisted-pdf-finalize',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken,'apikey':SUPABASE_ANON_KEY},
-      body:JSON.stringify({page_urls:pageUrls})
+      body:JSON.stringify({
+        page_urls:pageUrls,
+        course_id:String(state.course?.id||''),
+        course_title:String(state.course?.title||'Cours'),
+        theme_color:normalizeThemeColor(state.course?.theme_color),
+        course_fingerprint:courseFingerprint
+      })
     });
     let response=await send(await freshToken());
     if(response.status===401)response=await send(await freshToken(true));
@@ -995,13 +1002,18 @@
     setPdfBatchProgress('Fusion serveur terminée · '+pageCount+' page(s) · '+formatPdfSize(size)+'.',100);
     setStatus('PDF final fusionné et vérifié sur le serveur · aucun fragment ni moteur de compression téléchargé pendant cette étape.');
     return {
-      fingerprint:finalPdfFingerprint(parts),
+      fingerprint:courseFingerprint,
       pdfUrl,
       pdfPath:String(data.pdf_path||''),
       size,
       pageCount,
       fragmentBytes:Number(data.fragment_bytes)||0,
       fragmentCount:Number(data.fragments)||pageUrls.length,
+      generatedDocumentId:Number(data.generated_document_id)||null,
+      jobId:Number(data.job_id)||null,
+      status:String(data.status||'review'),
+      version:Number(data.version)||1,
+      courseId:String(state.course?.id||''),
       createdAt:new Date().toISOString(),
       assemblyEngine:String(data.engine||'vercel-node-pdf-lib-merge-v1')
     };
@@ -1014,8 +1026,19 @@
     try{
       const artifact=await buildFinalPdfArtifact(readiness.parts);
       state.finalPdfArtifact=artifact;
+      if(state.course){
+        state.course.generation=state.course.generation&&typeof state.course.generation==='object'?state.course.generation:{};
+        state.course.generation.final_pdf={
+          fingerprint:artifact.fingerprint,pdfUrl:artifact.pdfUrl,pdfPath:artifact.pdfPath,
+          size:artifact.size,pageCount:artifact.pageCount,fragmentBytes:artifact.fragmentBytes,
+          fragmentCount:artifact.fragmentCount,generatedDocumentId:artifact.generatedDocumentId,
+          jobId:artifact.jobId,status:artifact.status,version:artifact.version,courseId:artifact.courseId,
+          createdAt:artifact.createdAt,assemblyEngine:artifact.assemblyEngine
+        };
+        await persistCourse(true,false);
+      }
       setPdfBatchProgress('Terminé · '+artifact.pageCount+' page(s) fusionnées et vérifiées · '+formatPdfSize(artifact.size)+'.',100);
-      setStatus(finalPdfArtifactDescription(artifact));
+      setStatus(finalPdfArtifactDescription(artifact)+' · document global enregistré dans Content Factory pour validation humaine.');
     }catch(error){
       state.finalPdfArtifact=null;setPdfBatchProgress('Fusion à relancer · '+String(error?.message||error).slice(0,110),99);
       setStatus('Les fragments sont prêts, mais la fusion ou la vérification a échoué : '+String(error?.message||error));
@@ -1475,6 +1498,10 @@
     state.course.title=String(state.course.title||row.title||'Nouveau cours');
     ensureCourseStructure(state.course);
     syncCanonicalPreviewFromCourse();
+    const savedFinal=state.course.generation?.final_pdf;
+    state.finalPdfArtifact=savedFinal&&savedFinal.pdfUrl&&savedFinal.fingerprint
+      ?{...savedFinal,generatedDocumentId:savedFinal.generatedDocumentId||null,jobId:savedFinal.jobId||null}
+      :null;
     state.mode='workspace';state.selected=null;renderWorkspace();
     if(String(state.course.title||'').trim()){
       if(!canonicalPreviewIsFresh())void prepareSystemPreview({force:false});
@@ -3079,17 +3106,20 @@
     try{await navigator.clipboard.writeText(txt);setStatus('JSON copié.')}catch(_){setStatus('Copie indisponible.')}
   }
 
-  async function persistCourse(silent,refreshList=false){
-    ensureCourseStructure(state.course);
-    const c=client();if(!c){localStorage.setItem('aurore_assisted_course',JSON.stringify(state.course));if(!silent)setStatus('Brouillon local enregistré.');return;}
+  async function persistCourse(silent,refreshList=false,courseOverride=null){
+    const course=courseOverride||state.course;
+    if(!course)return;
+    ensureCourseStructure(course);
+    const c=client();
+    if(!c){localStorage.setItem('aurore_assisted_course',JSON.stringify(course));if(!silent)setStatus('Brouillon local enregistré.');return;}
     try{
-      state.course.updated_at=new Date().toISOString();
+      course.updated_at=new Date().toISOString();
       const {data:{user}={}}=await c.auth.getUser();if(!user)throw new Error('Session administrateur absente.');
-      const payload={id:state.course.id,created_by:user.id,title:state.course.title,editor_version:'edition-assistee-v5',pages:{schema:'aurore-assisted-course-v5',course:state.course}};
+      const payload={id:course.id,created_by:user.id,title:course.title,editor_version:'edition-assistee-v5',pages:{schema:'aurore-assisted-course-v5',course}};
       const {error}=await c.from('aurora_assisted_courses').upsert(payload,{onConflict:'id'});if(error)throw error;
       if(!silent)setStatus('Cours enregistré.');
       if(refreshList)await loadCourses();
-    }catch(e){localStorage.setItem('aurore_assisted_course',JSON.stringify(state.course));if(!silent)setStatus('Supabase indisponible · brouillon local conservé.');}
+    }catch(e){localStorage.setItem('aurore_assisted_course',JSON.stringify(course));if(!silent)setStatus('Supabase indisponible · brouillon local conservé.');}
   }
 
   function renderPdfBatchProgress(){
@@ -4053,10 +4083,51 @@
     });
   },true);
 
+  function exitAssistedEditor(){
+    const course=state.course&&state.mode==='workspace'?state.course:null;
+    if(course){
+      state.pendingExitSave=Promise.resolve(state.pendingExitSave).catch(()=>{}).then(()=>persistCourse(true,false,course)).catch(error=>{
+        try{localStorage.setItem('aurore_assisted_course',JSON.stringify(course));}catch(_){}
+        console.warn('[Édition assistée] Sauvegarde à la sortie :',error);
+      });
+    }
+    closeAssistedModal();
+    const host=document.getElementById('aeModalHost');if(host)host.innerHTML='';
+    document.querySelectorAll('.admin-tab-panel').forEach(p=>p.style.removeProperty('display'));
+    state.mode='list';state.course=null;state.selected=null;state.finalPdfArtifact=null;
+  }
+
+  document.addEventListener('click',e=>{
+    const tab=e.target?.closest?.('.admin-tab');
+    const back=e.target?.closest?.('#adminDetailBack');
+    const modal=e.target?.closest?.('#aeModalHost');
+    const editorRoot=root();
+    if(tab){
+      document.querySelectorAll('.admin-tab-panel').forEach(p=>p.style.removeProperty('display'));
+      if(tab.dataset.tab!=='edition-assistee')exitAssistedEditor();
+      return;
+    }
+    if(back){exitAssistedEditor();return;}
+    if(state.mode==='workspace'&&!modal&&editorRoot&&!editorRoot.contains(e.target)){
+      exitAssistedEditor();
+    }
+  },true);
+
   async function init(){
     const r=root();if(!r)return;
     const card=document.querySelector('.admin-tab[data-tab="edition-assistee"]'),panel=document.querySelector('.admin-tab-panel[data-panel="edition-assistee"]');
-    if(card&&panel)card.addEventListener('click',async()=>{const detail=document.getElementById('adminDetail');if(detail)detail.style.display='block';document.querySelectorAll('.admin-tab-panel').forEach(p=>p.style.display=p===panel?'block':'none');document.querySelectorAll('.admin-tab').forEach(b=>b.classList.toggle('active',b===card));state.mode='list';state.course=null;renderList();try{setStatus('Chargement des cours…');await loadCourses();renderList();setStatus('Liste prête.')}catch(e){setStatus('Impossible de charger la liste des cours.')}});
+    if(card&&panel)card.addEventListener('click',async()=>{
+      await Promise.resolve(state.pendingExitSave).catch(()=>{});
+      document.querySelectorAll('.admin-tab-panel').forEach(p=>{
+        p.classList.toggle('active',p===panel);
+        p.style.removeProperty('display');
+      });
+      document.querySelectorAll('.admin-tab').forEach(b=>b.classList.toggle('active',b===card));
+      state.mode='list';state.course=null;state.selected=null;state.finalPdfArtifact=null;
+      renderList();
+      try{setStatus('Chargement des cours…');await loadCourses();renderList();setStatus('Liste prête.')}
+      catch(e){setStatus('Impossible de charger la liste des cours.')}
+    });
     renderList();
     requestAnimationFrame(async()=>{
       try{setStatus('Chargement des cours…');await loadCourses();renderList();setStatus('Liste prête.')}
