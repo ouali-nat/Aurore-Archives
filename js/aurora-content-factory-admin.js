@@ -1402,6 +1402,115 @@ window.auroreAdminGeneratedActions={
 };
 async function validateDoc(id){const n=prompt('Note de validation (facultatif) :','');if(n===null)return;try{await rpc('aurora_validate_generated_document',{p_generated_document_id:Number(id),p_notes:n||null});await charger()}catch(e){alert('Validation impossible. '+(e.message||e))}}
 async function rejectDoc(id){const n=prompt('Motif du rejet / corrections demandées :','');if(n===null)return;if(!n.trim()){alert('Indique un motif pour rejeter le document.');return}try{await rpc('aurora_reject_generated_document',{p_generated_document_id:Number(id),p_notes:n.trim()});await charger()}catch(e){alert('Rejet impossible. '+(e.message||e))}}
+
+function cfParseAssistedFinal(metadata){
+  const raw=metadata&&typeof metadata==='object'?metadata.assisted_final:null;
+  if(raw&&typeof raw==='object')return raw;
+  if(typeof raw==='string'&&raw.trim()){try{const parsed=JSON.parse(raw);return parsed&&typeof parsed==='object'?parsed:null;}catch(_){}}
+  return null;
+}
+function cfIsWholeReadyPdf(row){
+  const type=String(row?.document_type||'').trim().toLowerCase();
+  const m=row?.metadata&&typeof row.metadata==='object'?row.metadata:{};
+  if(['page_assistee','apercu_assiste','apercu_assistee','preview_assistee'].includes(type))return false;
+  if(!String(row?.pdf_path||'').trim()||!String(row?.pdf_url||'').trim())return false;
+  if(m.admin_deleted===true||['queued','processing'].includes(String(m.lualatex_status||m.production_status||'').toLowerCase()))return false;
+  if(String(m.origin||'').trim().toLowerCase()==='edition_assistee'){
+    const finalInfo=cfParseAssistedFinal(m);
+    return type==='cours_assiste'&&String(row.pdf_path).startsWith('aurora-assisted-final-pdfs/')&&!!finalInfo&&Number(finalInfo.page_count||0)>=1;
+  }
+  return true;
+}
+async function cfPlacementFetchJson(path,token){
+  const response=await adminInventoryFetch(SUPABASE_URL+path,{cache:'no-store',headers:{Authorization:'Bearer '+token}});
+  const raw=await response.text();
+  if(!response.ok)throw new Error('Référentiel pédagogique indisponible (HTTP '+response.status+').');
+  let data;try{data=raw?JSON.parse(raw):[]}catch(_){throw new Error('Réponse invalide du référentiel pédagogique.');}
+  if(!Array.isArray(data))throw new Error('Format du référentiel pédagogique invalide.');
+  return data;
+}
+function cfEnsurePlacementStyles(){
+  if(document.getElementById('cfPlacementStyles'))return;
+  const style=document.createElement('style');style.id='cfPlacementStyles';
+  style.textContent='.cf-place-overlay{position:fixed;z-index:10050;inset:0;display:flex;align-items:center;justify-content:center;padding:12px;box-sizing:border-box}.cf-place-backdrop{position:absolute;inset:0;background:rgba(4,8,20,.6);backdrop-filter:blur(5px)}.cf-place-dialog{position:relative;width:min(820px,100%);max-height:92dvh;overflow:auto;box-sizing:border-box;padding:clamp(14px,3vw,24px);border:1px solid color-mix(in srgb,currentColor 14%,transparent);border-radius:20px;background:var(--card-bg,#fff);color:var(--encre,#171717);box-shadow:0 24px 80px rgba(0,0,0,.28)}.cf-place-dialog h3{margin:4px 0 6px;font-size:1.12rem}.cf-place-kicker{font-size:.66rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;opacity:.68}.cf-place-lead{margin:0 0 14px;font-size:.8rem;line-height:1.5;opacity:.74}.cf-place-document{margin:12px 0;padding:12px;border:1px solid color-mix(in srgb,currentColor 12%,transparent);border-radius:12px}.cf-place-document strong,.cf-place-document small{display:block}.cf-place-document small{margin-top:4px;font-size:.7rem;opacity:.7}.cf-place-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.cf-place-field{display:grid;gap:5px;font-size:.75rem;font-weight:750}.cf-place-field select,.cf-place-field input,.cf-place-field textarea{width:100%;min-width:0;box-sizing:border-box;border:1px solid color-mix(in srgb,currentColor 18%,transparent);border-radius:10px;padding:10px;background:var(--card-bg,#fff);color:inherit;font:inherit;font-weight:500}.cf-place-search{margin:12px 0}.cf-place-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-height:35dvh;overflow:auto;padding:2px}.cf-place-item{display:flex;gap:8px;align-items:flex-start;padding:10px;border:1px solid color-mix(in srgb,currentColor 12%,transparent);border-radius:11px;cursor:pointer}.cf-place-item:has(input:checked){border-color:var(--cf-document-theme,#2563eb);background:color-mix(in srgb,var(--cf-document-theme,#2563eb) 8%,transparent)}.cf-place-item input{margin-top:4px;accent-color:var(--cf-document-theme,#2563eb)}.cf-place-item span{font-size:.76rem;font-weight:800;line-height:1.35;overflow-wrap:anywhere}.cf-place-item small{display:block;margin-top:4px;font-size:.64rem;font-weight:500;opacity:.68}.cf-place-empty{padding:18px;border:1px dashed color-mix(in srgb,currentColor 18%,transparent);border-radius:12px;text-align:center;font-size:.76rem;opacity:.7}.cf-place-info{margin:12px 0;font-size:.69rem;line-height:1.5;opacity:.7}.cf-place-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid color-mix(in srgb,currentColor 12%,transparent)}@media(max-width:620px){.cf-place-fields,.cf-place-list{grid-template-columns:1fr}.cf-place-actions{display:grid;grid-template-columns:1fr}.cf-place-actions .admin-btn{width:100%}}';
+  document.head.appendChild(style);
+}
+async function openPlacementForm(id){
+  if(!adminOk())throw new Error('Cette action est réservée aux administrateurs.');
+  const docId=Number(id||0);if(!docId)throw new Error('Document invalide.');
+  let modal=null;
+  try{
+    cfEnsurePlacementStyles();
+    const token=await cfFreshToken();
+    const get=path=>cfPlacementFetchJson(path,token);
+    const docs=await get('/rest/v1/aurora_generated_documents?select=id,job_id,title,document_type,status,pdf_path,pdf_url,version,metadata,validation_notes,published_document_id&id=eq.'+encodeURIComponent(docId)+'&limit=1');
+    const doc=docs[0];if(!doc)throw new Error('Document introuvable.');
+    const meta=doc.metadata&&typeof doc.metadata==='object'?doc.metadata:{};
+    const type=String(doc.document_type||'').trim().toLowerCase();
+    if(['page_assistee','apercu_assiste','apercu_assistee','preview_assistee'].includes(type))throw new Error('Une page isolée ou un aperçu ne peut pas être publié.');
+    if(!doc.pdf_url||!doc.pdf_path)throw new Error('Le PDF complet n’est pas encore prêt.');
+    if(['queued','processing'].includes(String(meta.lualatex_status||meta.production_status||'').toLowerCase()))throw new Error('La production PDF est encore en cours.');
+    const assisted=String(meta.origin||'').toLowerCase()==='edition_assistee';
+    const finalInfo=cfParseAssistedFinal(meta);
+    if(assisted&&!(type==='cours_assiste'&&String(doc.pdf_path).startsWith('aurora-assisted-final-pdfs/')&&finalInfo&&Number(finalInfo.page_count||0)>0))throw new Error('Seul le PDF global fusionné et vérifié peut être publié.');
+    if(!['generated','review','approved','published'].includes(String(doc.status||'')))throw new Error('Document non prêt pour publication : '+String(doc.status||'inconnu')+'.');
+    const [nodes,subjects,links]=await Promise.all([
+      get('/rest/v1/aurore_pedagogical_nodes?select=id,parent_id,name,node_type,legacy_path,sort_order,active&active=eq.true&order=sort_order.asc,name.asc&limit=5000'),
+      get('/rest/v1/aurore_pedagogical_subjects?select=id,name,subject_key,sort_order,active&active=eq.true&order=sort_order.asc,name.asc&limit=2000'),
+      get('/rest/v1/aurore_pedagogical_node_subjects?select=node_id,subject_id&limit=10000')
+    ]);
+    const activeNodes=nodes.filter(n=>n.active!==false),activeSubjects=subjects.filter(v=>v.active!==false);
+    const nodeMap=new Map(activeNodes.map(n=>[String(n.id),n])),subjectIds=new Set(activeSubjects.map(v=>String(v.id))),subjectNodes=new Map();
+    links.forEach(v=>{const sid=String(v.subject_id||''),nid=String(v.node_id||'');if(!subjectIds.has(sid)||!nodeMap.has(nid))return;if(!subjectNodes.has(sid))subjectNodes.set(sid,new Set());subjectNodes.get(sid).add(nid);});
+    let previous=Array.isArray(meta.publication?.targets)?meta.publication.targets:[];
+    if(assisted&&finalInfo?.course_id){
+      try{const c=await get('/rest/v1/aurora_assisted_courses?select=id,pages&id=eq.'+encodeURIComponent(String(finalInfo.course_id))+'&limit=1');const saved=c[0]?.pages?.course?.workflow?.publication_targets;if(Array.isArray(saved)&&saved.length)previous=saved;}catch(e){console.warn('[Content Factory] Anciens emplacements indisponibles.',e);}
+    }
+    previous=previous.filter(v=>v&&v.node_id&&v.subject_id);
+    const types=['Fiche de cours','Fiche de révision','Exercices','Devoir','Document'];
+    const inferred=/exercice|devoir/i.test(type)?'Exercices':/révision|revision/i.test(type)?'Fiche de révision':/document/i.test(type)?'Document':'Fiche de cours';
+    const initialType=types.includes(previous[0]?.resource_type)?previous[0].resource_type:inferred;
+    const initialSubject=String(previous[0]?.subject_id||activeSubjects[0]?.id||'');
+    const selected=new Set(previous.filter(v=>String(v.subject_id)===initialSubject&&String(v.resource_type||initialType)===initialType).map(v=>String(v.node_id)));
+    const safe=v=>esc(String(v==null?'':v));
+    modal=document.createElement('div');modal.id='cfPlacementModal';modal.className='cf-place-overlay';modal.style.setProperty('--cf-document-theme',normalizeThemeColor(meta.theme_color||meta.aurore_design?.theme_color||'#2563eb'));
+    modal.innerHTML='<div class="cf-place-backdrop" data-cf-place-close></div><section class="cf-place-dialog" role="dialog" aria-modal="true" aria-labelledby="cfPlacementTitle"><div class="cf-place-kicker">Publication éditoriale · Aurore</div><h3 id="cfPlacementTitle">Choisir un emplacement</h3><p class="cf-place-lead">Choisis le type de ressource, la matière, puis coche un ou plusieurs emplacements. La validation publie le PDF entier. Lors d’une correction, la version Aurore déjà publiée au même emplacement est remplacée sans créer de doublon.</p><div class="cf-place-document"><strong>'+safe(doc.title||'Document sans titre')+'</strong><small>'+safe(doc.document_type||'Document')+' · PDF complet'+(finalInfo?.page_count?' · '+Number(finalInfo.page_count)+' pages':'')+' · Version '+Number(doc.version||1)+'</small></div><form id="cfPlacementForm"><div class="cf-place-fields"><label class="cf-place-field">Type de ressource<select id="cfPlaceType">'+types.map(t=>'<option value="'+safe(t)+'"'+(t===initialType?' selected':'')+'>'+safe(t)+'</option>').join('')+'</select></label><label class="cf-place-field">Matière<select id="cfPlaceSubject">'+activeSubjects.map(v=>'<option value="'+safe(v.id)+'"'+(String(v.id)===initialSubject?' selected':'')+'>'+safe(v.name)+'</option>').join('')+'</select></label></div><label class="cf-place-field cf-place-search">Rechercher un niveau, une classe ou une filière<input id="cfPlaceSearch" type="search" placeholder="Ex. 6e, Terminale D, Licence 1…" autocomplete="off"></label><div class="cf-place-location-head"><strong>Emplacements disponibles</strong><span id="cfPlaceCount"></span></div><div class="cf-place-list" id="cfPlaceLocations"></div><p class="cf-place-info">La liste vient du référentiel pédagogique Aurore et ne propose que les emplacements associés à la matière choisie. Les exercices et devoirs sont rangés dans « Devoirs » ; les fiches et autres documents dans « Documents ».</p><label class="cf-place-field">Note éditoriale (facultatif)<textarea id="cfPlaceNotes" rows="2" maxlength="1000" placeholder="Ex. Correction éditoriale, version actualisée…"></textarea></label><footer class="cf-place-actions"><button type="button" class="admin-btn ghost" data-cf-place-close>Annuler</button><button type="submit" class="admin-btn primary" id="cfPlaceSubmit" disabled>Valider et publier</button></footer></form></section>';
+    document.body.appendChild(modal);
+    const subject=modal.querySelector('#cfPlaceSubject'),resource=modal.querySelector('#cfPlaceType'),search=modal.querySelector('#cfPlaceSearch'),list=modal.querySelector('#cfPlaceLocations'),count=modal.querySelector('#cfPlaceCount'),submit=modal.querySelector('#cfPlaceSubmit');
+    const close=()=>{if(modal?.isConnected)modal.remove();document.removeEventListener('keydown',onKey);};
+    const onKey=e=>{if(e.key==='Escape')close();};
+    document.addEventListener('keydown',onKey);
+    modal.querySelectorAll('[data-cf-place-close]').forEach(b=>b.addEventListener('click',close));
+    const pathFor=node=>{const names=[];let cur=node,depth=0;while(cur&&depth++<24){names.unshift(cur.name);cur=cur.parent_id?nodeMap.get(String(cur.parent_id)):null;}return names.join(' › ');};
+    const typeLabel=x=>({pathway:'Parcours',level:'Niveau',group:'Groupe',series:'Série',class:'Classe',domain:'Domaine',formation:'Formation',year:'Année',semester:'Semestre',branch:'Branche',other:'Emplacement'}[String(x||'').toLowerCase()]||'Emplacement');
+    const render=()=>{
+      const sid=String(subject.value||''),q=String(search.value||'').trim().toLocaleLowerCase('fr'),allowed=subjectNodes.get(sid)||new Set();
+      const available=activeNodes.filter(n=>allowed.has(String(n.id))).map(n=>({n,path:pathFor(n)})).filter(x=>!q||(x.path+' '+x.n.legacy_path+' '+typeLabel(x.n.node_type)).toLocaleLowerCase('fr').includes(q));
+      list.innerHTML=available.length?available.map(x=>'<label class="cf-place-item"><input type="checkbox" data-cf-node="'+safe(x.n.id)+'" '+(selected.has(String(x.n.id))?'checked':'')+'><span>'+safe(x.path)+'<small>'+safe(typeLabel(x.n.node_type))+(x.n.legacy_path?' · '+safe(x.n.legacy_path):'')+'</small></span></label>').join(''):'<div class="cf-place-empty">Aucun emplacement actif associé à cette matière.</div>';
+      count.textContent=selected.size+' sélectionné'+(selected.size>1?'s':'');
+      submit.disabled=selected.size<1||!subject.value||!resource.value;
+      submit.textContent=selected.size?'Valider et publier dans '+selected.size+' emplacement'+(selected.size>1?'s':''):'Choisis au moins un emplacement';
+    };
+    subject.addEventListener('change',()=>{selected.clear();render();});
+    search.addEventListener('input',render);resource.addEventListener('change',render);
+    list.addEventListener('change',e=>{const box=e.target?.closest?.('[data-cf-node]');if(!box)return;if(box.checked)selected.add(String(box.dataset.cfNode));else selected.delete(String(box.dataset.cfNode));render();});
+    render();
+    modal.querySelector('#cfPlacementForm').addEventListener('submit',async e=>{
+      e.preventDefault();
+      const sid=String(subject.value||''),res=String(resource.value||''),allowed=subjectNodes.get(sid)||new Set();
+      const targets=[...selected].filter(nid=>allowed.has(nid)).map(node_id=>({node_id,subject_id:sid,resource_type:res}));
+      if(!targets.length){alert('Choisis au moins un emplacement valide.');return;}
+      submit.disabled=true;submit.setAttribute('aria-busy','true');submit.textContent='Publication en cours…';
+      try{
+        await rpc('aurora_publish_generated_document_to_places',{p_generated_document_id:docId,p_targets:targets,p_notes:String(modal.querySelector('#cfPlaceNotes')?.value||'').trim()||null});
+        close();await charger();
+        alert('Publication validée dans '+targets.length+' emplacement'+(targets.length>1?'s':'')+'. Les versions Aurore existantes aux mêmes emplacements sont remplacées.');
+      }catch(error){submit.removeAttribute('aria-busy');render();alert('Publication impossible. '+String(error?.message||error));}
+    });
+    subject.focus();
+  }catch(error){modal?.remove();throw error;}
+}
+
 async function publishDoc(id){if(!confirm('Publier ce document dans la bibliothèque publique Aurore ?\n\nCette action crée un document publié à partir du PDF validé.'))return;const n=prompt('Note de publication (facultatif) :','');if(n===null)return;try{await rpc('aurora_publish_generated_document',{p_generated_document_id:Number(id),p_notes:n||null});await charger();alert('Document publié dans la bibliothèque Aurore.')}catch(e){alert('Publication impossible. '+(e.message||e))}}
 function apply(){
   const q=(document.getElementById('adminSearchContentFactory')?.value||'').trim().toLowerCase(),
@@ -1459,18 +1568,18 @@ function apply(){
     const pdf=!!x.pdf_url;
     const active=['queued','processing'].includes(m.lualatex_status);
     const cancelRequested=m.lualatex_cancel_requested===true;
-    const assistedFinal=String(m.origin||'')==='edition_assistee'&&m.assisted_final&&typeof m.assisted_final==='object';
+    const assistedFinalInfo=cfParseAssistedFinal(m);
+    const assistedFinal=String(m.origin||'').toLowerCase()==='edition_assistee'&&String(x.document_type||'').toLowerCase()==='cours_assiste'&&!!assistedFinalInfo&&String(x.pdf_path||'').startsWith('aurora-assisted-final-pdfs/');
+
     const canRender=!assistedFinal&&x.status!=='published'&&(['generated','review','approved','failed'].includes(x.status)||(x.status==='draft'&&!!pdfUrl)||active);
     const canValidate=x.status==='review'&&pdf&&!active;
     const canReject=['review','approved'].includes(x.status)&&!active;
-    const canPublish=assistedFinal
-      ?x.status==='approved'&&pdf&&!active
-      :['approved','review'].includes(x.status)&&pdf&&!active;
+    const canPublish=['approved','review','published'].includes(x.status)&&pdf&&!active&&!cancelRequested;
     const canRevision=!assistedFinal&&['review','approved'].includes(x.status)&&pdf&&!active&&!cancelRequested;
     const theme=documentThemeColor(m)||x.theme_color||'#1D4ED8';
     const classification=[x.domaine,x.formation,x.specialite,x.annee,x.semestre,x.filiere,x.matiere||x.subject,x.class_name,x.level].filter(Boolean).join(' · ');
     const stage=assistedFinal
-      ?'PDF global fusionné et vérifié · '+(Number(m.assisted_final.page_count)||0)+' page(s) · contrôle humain requis'
+      ?'PDF global fusionné et vérifié · '+(Number(assistedFinalInfo.page_count)||0)+' page(s) · contrôle humain requis'
       :(m.lualatex_stage||m.lualatex_status||'');
     const origin=m.origin||m.source||m.producer||'';
     const actionBusy=active||cancelRequested;
@@ -1505,9 +1614,9 @@ function apply(){
           ${canRender?'<button type="button" class="admin-btn primary" data-cf-render="'+esc(x.id)+'" data-has-pdf="'+(pdf?'1':'0')+'" data-production-active="'+(active?'1':'0')+'" data-theme-color="'+esc(theme)+'">'+(active?'Relancer la génération':(pdf?'Régénérer le PDF':'Générer le PDF'))+'</button>':''}
           ${canValidate?'<button type="button" class="admin-btn valider" data-cf-validate="'+esc(x.id)+'">Valider le PDF</button>':''}
           ${canReject?'<button type="button" class="admin-btn refuser" data-cf-reject="'+esc(x.id)+'">Rejeter</button>':''}
-          ${canPublish?'<button type="button" class="admin-btn primary" data-cf-publish="'+esc(x.id)+'">Publier</button>':''}
+          ${canPublish?'<button type="button" class="admin-btn primary" data-cf-publish="'+esc(x.id)+'">'+(x.status==='published'?'Choisir un emplacement · remplacer':'Choisir un emplacement')+'</button>':''}
           ${canRevision?'<button type="button" class="admin-btn ghost" data-cf-revision="'+esc(x.id)+'">Envoyer en E — réviser</button>':''}
-          ${x.published_document_id?'<button type="button" class="admin-btn ghost" disabled>Déjà publié #'+esc(x.published_document_id)+'</button>':''}
+          ${x.published_document_id&&x.status!=='published'?'<button type="button" class="admin-btn ghost" disabled>Déjà publié #'+esc(x.published_document_id)+'</button>':''}
         </div>
       </div>
     </article>`
@@ -1554,71 +1663,11 @@ async function charger(){
     if(!r.ok)throw new Error(t||('HTTP '+r.status));
     rows=t?JSON.parse(t):[];
     if(!Array.isArray(rows))rows=[];
-    // Les fragments individuels de l’édition assistée sont des objets techniques
-    // nécessaires à la régénération. Ils ne sont pas des documents à valider :
-    // seul le cours fusionné (document_type=cours_assiste) apparaît ici.
-    rows=rows.filter(x=>{
-      const m=x?.metadata&&typeof x.metadata==='object'?x.metadata:{};
-      return !(String(m.origin||'')==='edition_assistee'&&String(x.document_type||'')==='page_assistee');
-    });
+    // La Content Factory ne présente que les PDF entiers, disponibles et enregistrés.
+    // Les pages isolées, aperçus et demandes sans PDF restent hors de cette liste.
+    rows=rows.filter(cfIsWholeReadyPdf);
 
-    // Les demandes IA récentes existent parfois encore uniquement dans
-    // aurora_content_jobs (ex. Job #93) avant la réception du contenu éditorial.
-    // Elles doivent malgré tout être visibles dans la réception Content Factory.
-    try{
-      const jr=await adminInventoryFetch(`${SUPABASE_URL}/rest/v1/aurora_content_jobs?select=id,created_at,updated_at,status,title,subject,level,class_name,document_type,generated_document_id,error_message,metadata&status=in.(draft,queued,processing,review)&order=created_at.desc&limit=500`,{cache:'no-store'});
-      const jt=await jr.text();
-      if(jr.ok){
-        const jobs=jt?JSON.parse(jt):[];
-        const known=new Set(rows.map(x=>String(x.job_id||'')).filter(Boolean));
-        for(const job of (Array.isArray(jobs)?jobs:[])){
-          const jm=job.metadata&&typeof job.metadata==='object'?job.metadata:{};
-          // Les jobs page_assistee créés par l’atelier ne doivent pas être
-          // injectés comme demandes séparées, même avant la liaison PDF.
-          if(String(jm.origin||'')==='edition_assistee'
-            &&(String(job.document_type||'')==='page_assistee'||jm.assisted_final===true)){
-            known.add(String(job.id));
-            continue;
-          }
-          if(job.generated_document_id!=null||known.has(String(job.id)))continue;
-          rows.push({
-            id:'job-'+job.id,
-            job_id:job.id,
-            created_at:job.created_at,
-            updated_at:job.updated_at,
-            created_by:null,
-            title:job.title||'Nouvelle demande',
-            subject:job.subject||'',
-            matiere:job.subject||'',
-            level:job.level||'',
-            class_name:job.class_name||'',
-            document_type:job.document_type||'',
-            domaine:job.domaine||'',
-            formation:job.formation||'',
-            specialite:job.specialite||'',
-            annee:job.annee||'',
-            semestre:job.semestre||'',
-            filiere:job.filiere||'',
-            theme_color:jm.theme_color||jm.aurore_design?.theme_color||'#1D4ED8',
-            source_format:'editorial-request',
-            pdf_path:null,
-            pdf_url:null,
-            version:null,
-            status:job.status,
-            validation_notes:job.error_message||'',
-            published_document_id:null,
-            metadata:{...jm,origin:jm.origin||'Content Factory',content_job:true,job_status:job.status},
-            pdf_diagnostic:null,
-            contentJob:true,
-            job_status:job.status
-          });
-          known.add(String(job.id));
-        }
-      }
-    }catch(jobError){
-      console.warn('[Content Factory] demandes éditoriales en attente indisponibles',jobError);
-    }
-
+    // Les jobs sans PDF complet ne sont pas affichés comme des documents prêts.
     const c={review:0,approved:0,published:0,failed:0};
     rows.forEach(x=>{if(!x.contentJob&&c[x.status]!=null)c[x.status]++});
     document.getElementById('cfCountReview').textContent=c.review;
@@ -1646,7 +1695,7 @@ document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurre
         await renderPdf(id,color);
       }else if(detail.action==='validate')await validateDoc(id);
       else if(detail.action==='reject')await rejectDoc(id);
-      else if(detail.action==='publish')await publishDoc(id);
+      else if(detail.action==='publish')await openPlacementForm(id);
     }catch(e){alert('Action PDF impossible. '+(e?.message||e))}
   };
   document.addEventListener('aurore-pdf-action',e=>{handlePdfAction(e.detail)});
@@ -1716,7 +1765,7 @@ document.getElementById('cfCreateLaunch')?.addEventListener('click',enqueueCurre
     if(action==='render')button.textContent=button.dataset.hasPdf==='1'?'Régénération…':'Génération…';
     else if(action==='validate')button.textContent='Validation…';
     else if(action==='reject')button.textContent='Rejet…';
-    else if(action==='publish')button.textContent='Publication…';
+    else if(action==='publish')button.textContent='Ouverture des emplacements…';
     void handlePdfAction({
       action,
       id,
