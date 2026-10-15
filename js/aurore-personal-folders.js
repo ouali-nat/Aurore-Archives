@@ -74,7 +74,17 @@ async function createFolder(name,quiet=false,parentId=null){
       write(lk(),folders);
     }else{
       const detail=String(e?.message||e||'Erreur inconnue').replace(/\\s+/g,' ').slice(0,320);
-      alert('Impossible de créer la case ou le sous-dossier. Vérifiez votre connexion et vos droits.\\n\\nDétail : '+detail);
+      const duplicate=/23505|cases_personnelles_user_(?:root_)?name_unique|cases_personnelles_user_parent_name_unique/i.test(detail);
+      if(duplicate){
+        alert('Ce nom est déjà utilisé dans ce dossier. Choisissez un autre nom.');
+        try{
+          const latest=await api(FOLDER_TABLE,{query:`select=id,name,parent_id,position,created_at&user_id=eq.${encodeURIComponent(uid())}&order=position.asc,created_at.asc`});
+          const rows=latest?JSON.parse(latest):[];
+          if(Array.isArray(rows)){folders=normF(rows);write(lk(),folders);}
+        }catch(refreshError){console.warn('[Cases personnelles] actualisation après doublon:',refreshError);}
+      }else{
+        alert('Impossible de créer la case ou le sous-dossier. Vérifiez votre connexion et vos droits.\n\nDétail : '+detail);
+      }
       return;
     }
   }finally{
