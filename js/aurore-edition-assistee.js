@@ -1195,8 +1195,18 @@
         state.pdfBatchProgress.activeTargetSize=target.blockIds.length;
         setPdfBatchProgress('Rendu '+rangeLabel(target)+' · '+titleFor(block),rangePercent(target));
         setStatus('Génération des pages de contenu '+rangeLabel(target)+' : '+titleFor(block)+'…');
-        // La commande globale doit reconstruire le flux complet de chaque séquence, pas seulement réutiliser un ancien fragment.
-        await generateBlock(block.id,{forceFlow:true,forceRegenerate:true});
+        // Une séquence en échec ne doit jamais arrêter la génération de toutes les suivantes.
+        // Les erreurs sont consignées puis le lot poursuit son inventaire jusqu'au bout.
+        let targetGenerationError=null;
+        try{
+          await generateBlock(block.id,{forceFlow:true,forceRegenerate:true});
+        }catch(error){
+          targetGenerationError=String(error?.message||error||'Erreur de génération inconnue');
+          addFailure('Séquence « '+titleFor(block)+' » : '+targetGenerationError);
+          markGroupError(currentGroup,targetGenerationError);
+          await persistCourse(true,false).catch(()=>{});
+          setStatus('Échec de '+rangeLabel(target)+' — '+targetGenerationError.slice(0,220)+' · poursuite des autres séquences…');
+        }
 
         const stillExists=activeBlocks().find(item=>String(item?.id||'')===target.id);
         if(stillExists){
@@ -1232,7 +1242,7 @@
           }
         }
         state.pdfBatchProgress.completedTargets=target.startIndex+target.blockIds.length;
-        setPdfBatchProgress('Séquence '+rangeLabel(target)+(failures.length?' traitée · contrôle des erreurs en cours.':' rendue et vérifiée.'),rangePercent(target,true));
+        setPdfBatchProgress('Séquence '+rangeLabel(target)+(targetGenerationError?' en échec · les autres séquences continuent.':failures.length?' traitée · contrôle des erreurs en cours.':' rendue et vérifiée.'),rangePercent(target,true));
       }
 
       // Contrôle du contenu actuel après les générations et éventuels découpages automatiques.
