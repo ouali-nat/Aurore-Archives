@@ -116,7 +116,13 @@ Deno.serve(async (req: Request) => {
             "apikey": req.headers.get("apikey") || ANON_KEY,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ page_urls: body.page_urls }),
+          body: JSON.stringify({
+            page_urls: body.page_urls,
+            course_id: body.course_id,
+            course_title: body.course_title,
+            theme_color: body.theme_color,
+            course_fingerprint: body.course_fingerprint,
+          }),
         });
         const responseBody = await response.text();
         return new Response(responseBody, {
@@ -145,7 +151,7 @@ Deno.serve(async (req: Request) => {
     const documentIds = [...new Set(paths.map((path) => Number(path.split("/")[2])))];
     const { data: documents, error: documentsError } = await admin
       .from("aurora_generated_documents")
-      .select("id,created_by")
+      .select("id,created_by,job_id,title,document_type,metadata")
       .in("id", documentIds);
     if (documentsError) throw new Error("Vérification des documents source impossible : " + documentsError.message);
     const ownedIds = new Set((documents || [])
@@ -155,7 +161,46 @@ Deno.serve(async (req: Request) => {
       return json({ ok: false, error: "Un fragment source est introuvable ou ne t’appartient pas." }, 403);
     }
 
-    const seed = userId + "\n" + paths.join("\n");
+    // Chaque fragment de l’éditeur reste dans Supabase pour pouvoir être régénéré.
+    // La fusion, en revanche, est rattachée au cours complet et produit un seul
+    // document de contrôle humain dans Content Factory.
+    const sourceCourseIds = [...new Set((documents || []).map((doc: any) => {
+      const metadata = doc?.metadata && typeof doc.metadata === "object" ? doc.metadata : {};
+      const candidate = metadata.assisted_page?.course_id
+        || metadata.assisted_system_page?.course_id
+        || metadata.assisted_sheet?.course_id
+        || metadata.assisted_course_id
+        || metadata.course_id
+        || metadata.source_course_id;
+      return String(candidate || "").trim();
+    }).filter(Boolean))];
+    const courseId = String(body?.course_id || (sourceCourseIds.length === 1 ? sourceCourseIds[0] : "")).trim();
+    if (!courseId) {
+      return json({ ok: false, error: "Impossible d’identifier le cours associé à la fusion. Recharge l’édition assistée puis relance la fusion du PDF global." }, 400);
+    }
+    if (sourceCourseIds.some((sourceId) => sourceId !== courseId)) {
+      return json({ ok: false, error: "Les fragments transmis appartiennent à plusieurs cours. Aucun PDF global n’a été enregistré." }, 400);
+    }
+    const { data: courseRow, error: courseError } = await admin
+      .from("aurora_assisted_courses")
+      .select("id,created_by,title,pages,editor_version,updated_at")
+      .eq("id", courseId)
+      .eq("created_by", userId)
+      .maybeSingle();
+    if (courseError) throw new Error("Vérification du cours d’édition impossible : " + courseError.message);
+    if (!courseRow) return json({ ok: false, error: "Cours d’édition introuvable ou accès refusé." }, 403);
+
+    const coursePayload = courseRow.pages && typeof courseRow.pages === "object"
+      ? (courseRow.pages.course && typeof courseRow.pages.course === "object" ? courseRow.pages.course : courseRow.pages)
+      : {};
+    const courseTitle = String(coursePayload.title || courseRow.title || body?.course_title || "Cours").trim().slice(0, 180) || "Cours";
+    const requestedTheme = String(body?.theme_color || coursePayload.theme_color || "#6D28D9").trim().toUpperCase();
+    const themeColor = /^#[0-9A-F]{6}$/.test(requestedTheme) ? requestedTheme : "#6D28D9";
+    const courseFingerprint = String(body?.course_fingerprint || "").trim().slice(0, 240);
+
+    // Le chemin dépend du cours, des fragments et de l’empreinte du contenu.
+    // Une régénération ne peut donc pas écraser silencieusement le PDF d’une version antérieure.
+    const seed = userId + "\n" + courseId + "\n" + courseFingerprint + "\n" + paths.join("\n");
     const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(seed));
     const fingerprint = Array.from(new Uint8Array(digest)).map((value) => value.toString(16).padStart(2, "0")).join("");
     const finalPath = "aurora-assisted-final-pdfs/" + userId + "/" + fingerprint + ".pdf";
@@ -240,6 +285,201 @@ Deno.serve(async (req: Request) => {
       if (signedError || !signed?.signedUrl) {
         throw new Error("Création du lien PDF final impossible : " + (signedError?.message || "URL absente"));
       }
+
+      const now = new Date().toISOString();
+      const courseSummary = {
+        course_id: courseId,
+        course_title: courseTitle,
+        fingerprint,
+        course_fingerprint: courseFingerprint || null,
+        pdf_path: finalPath,
+        page_count: claimedPageCount,
+        fragment_count: paths.length,
+        fragment_bytes: Number(body?.fragment_bytes) || 0,
+        bytes: storedSize,
+        size_mib: Number((storedSize / 1048576).toFixed(3)),
+        source_document_ids: documentIds,
+        assembled_at: now,
+        engine: "vercel-node-pdf-lib-merge-v1",
+      };
+
+      const existingQuery = await admin
+        .from("aurora_generated_documents")
+        .select("id,job_id,status,version,metadata,published_document_id")
+        .eq("created_by", userId)
+        .eq("document_type", "cours_assiste")
+        .contains("metadata", { origin: "edition_assistee", assisted_final: { course_id: courseId } })
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (existingQuery.error) throw new Error("Recherche du document global existant impossible : " + existingQuery.error.message);
+
+      let generatedDocumentId: number;
+      let jobId: number | null = null;
+      let documentStatus = "review";
+      let documentVersion = 1;
+
+      if (existingQuery.data) {
+        const existing = existingQuery.data;
+        const existingMetadata = existing.metadata && typeof existing.metadata === "object" ? existing.metadata : {};
+        const previousFinal = existingMetadata.assisted_final && typeof existingMetadata.assisted_final === "object"
+          ? existingMetadata.assisted_final
+          : {};
+        const changedFinal = String(previousFinal.fingerprint || "") !== fingerprint
+          || String(previousFinal.course_fingerprint || "") !== String(courseFingerprint || "");
+        const oldStatus = String(existing.status || "review").toLowerCase();
+        documentStatus = changedFinal ? "review" : oldStatus;
+        documentVersion = Math.max(1, Number(existing.version) || 1) + (changedFinal ? 1 : 0);
+        jobId = Number(existing.job_id) || null;
+        generatedDocumentId = Number(existing.id);
+        const finalMetadata = {
+          ...existingMetadata,
+          origin: "edition_assistee",
+          pipeline: "Édition assistée → fusion PDF globale",
+          assisted_pdf_status: "completed",
+          assisted_final: courseSummary,
+          human_validation_required: changedFinal || !["approved", "published"].includes(documentStatus),
+          auto_publish: false,
+        };
+        const updated = await admin.from("aurora_generated_documents").update({
+          title: courseTitle,
+          document_type: "cours_assiste",
+          source_format: "structured",
+          pdf_path: finalPath,
+          pdf_url: signed.signedUrl,
+          pdf_diagnostic: { bytes: storedSize, page_count: claimedPageCount, fragments: paths.length, quality_changed: false },
+          theme_color: themeColor,
+          version: documentVersion,
+          status: documentStatus,
+          validation_notes: changedFinal
+            ? "Le PDF global a été remplacé après une nouvelle fusion. Contrôle humain requis avant publication."
+            : (existingMetadata.human_validation_required === true ? "PDF global fusionné et vérifié — contrôle humain requis." : undefined),
+          metadata: finalMetadata,
+          updated_at: now,
+        }).eq("id", generatedDocumentId).eq("created_by", userId).select("id,job_id,status,version").single();
+        if (updated.error || !updated.data) throw new Error("Mise à jour du document global impossible : " + (updated.error?.message || "document introuvable"));
+        jobId = Number(updated.data.job_id) || jobId;
+        documentStatus = String(updated.data.status || documentStatus);
+      } else {
+        const jobMetadata = {
+          origin: "edition_assistee",
+          assisted_final: true,
+          course_id: courseId,
+          final_pdf_fingerprint: fingerprint,
+          final_pdf_path: finalPath,
+          auto_publish: false,
+          manual_validation_required: true,
+        };
+        const jobResult = await admin.from("aurora_content_jobs").insert({
+          created_by: userId,
+          status: "review",
+          title: courseTitle,
+          subject: coursePayload.subject || coursePayload.matiere || null,
+          level: coursePayload.level || null,
+          class_name: coursePayload.class_name || null,
+          document_type: "cours_assiste",
+          source_format: "structured",
+          prompt: "Édition assistée — PDF global fusionné, contrôle humain requis.",
+          instructions: {
+            source: "edition_assistee",
+            assisted_final: true,
+            course_id: courseId,
+            final_pdf_fingerprint: fingerprint,
+            auto_publish: false,
+            manual_validation_required: true,
+          },
+          source_document_ids: documentIds,
+          metadata: jobMetadata,
+          created_at: now,
+          updated_at: now,
+        }).select("id").single();
+        if (jobResult.error || !jobResult.data) throw new Error("Création de la réception du PDF global impossible : " + (jobResult.error?.message || "job absent"));
+        jobId = Number(jobResult.data.id);
+
+        const finalMetadata = {
+          origin: "edition_assistee",
+          pipeline: "Édition assistée → fusion PDF globale",
+          assisted_pdf_status: "completed",
+          assisted_final: courseSummary,
+          human_validation_required: true,
+          auto_publish: false,
+        };
+        const inserted = await admin.from("aurora_generated_documents").insert({
+          job_id: jobId,
+          created_by: userId,
+          title: courseTitle,
+          subject: coursePayload.subject || null,
+          level: coursePayload.level || null,
+          class_name: coursePayload.class_name || null,
+          document_type: "cours_assiste",
+          source_format: "structured",
+          source_content: null,
+          content_json: {
+            title: courseTitle,
+            document_type: "cours_assiste",
+            source_format: "structured",
+            assisted_course_id: courseId,
+            block_count: Array.isArray(coursePayload.blocks) ? coursePayload.blocks.length : null,
+            final_pdf: courseSummary,
+          },
+          version: 1,
+          status: "review",
+          validation_notes: "PDF global fusionné et vérifié — contrôle humain requis avant publication.",
+          metadata: finalMetadata,
+          theme_color: themeColor,
+          matiere: coursePayload.subject || coursePayload.matiere || null,
+          pdf_path: finalPath,
+          pdf_url: signed.signedUrl,
+          pdf_diagnostic: { bytes: storedSize, page_count: claimedPageCount, fragments: paths.length, quality_changed: false },
+          created_at: now,
+          updated_at: now,
+        }).select("id,status,version,job_id").single();
+        if (inserted.error || !inserted.data) {
+          await admin.from("aurora_content_jobs").update({
+            status: "failed",
+            error_message: "Le PDF global est enregistré, mais la fiche Content Factory n’a pas été créée : " + (inserted.error?.message || "document absent"),
+            updated_at: now,
+          }).eq("id", jobId).eq("created_by", userId);
+          throw new Error("Création du document global Content Factory impossible : " + (inserted.error?.message || "document absent"));
+        }
+        generatedDocumentId = Number(inserted.data.id);
+        documentStatus = String(inserted.data.status || "review");
+        documentVersion = Number(inserted.data.version) || 1;
+      }
+
+      // Le job parent reste lié au document global. Le job et les documents de
+      // chaque fragment sont conservés mais seront masqués de Content Factory.
+      if (jobId) {
+        const jobResult = await admin.from("aurora_content_jobs")
+          .select("id,status,metadata")
+          .eq("id", jobId)
+          .eq("created_by", userId)
+          .maybeSingle();
+        if (jobResult.error) throw new Error("Vérification du job global impossible : " + jobResult.error.message);
+        if (jobResult.data) {
+          const jm = jobResult.data.metadata && typeof jobResult.data.metadata === "object" ? jobResult.data.metadata : {};
+          const oldJobStatus = String(jobResult.data.status || "review").toLowerCase();
+          const nextJobStatus = ["draft", "queued", "processing", "failed"].includes(oldJobStatus) ? "review" : oldJobStatus;
+          const linked = await admin.from("aurora_content_jobs").update({
+            generated_document_id: generatedDocumentId,
+            status: nextJobStatus,
+            metadata: {
+              ...jm,
+              origin: "edition_assistee",
+              assisted_final: true,
+              course_id: courseId,
+              final_pdf_fingerprint: fingerprint,
+              final_pdf_path: finalPath,
+              generated_document_id: generatedDocumentId,
+              auto_publish: false,
+              manual_validation_required: documentStatus === "review",
+            },
+            updated_at: now,
+          }).eq("id", jobId).eq("created_by", userId);
+          if (linked.error) throw new Error("Lien entre le job et le PDF global impossible : " + linked.error.message);
+        }
+      }
+
       return json({
         ok: true,
         pdf_url: signed.signedUrl,
@@ -249,6 +489,11 @@ Deno.serve(async (req: Request) => {
         page_count: claimedPageCount,
         fragments: paths.length,
         fragment_bytes: Number(body?.fragment_bytes) || 0,
+        generated_document_id: generatedDocumentId,
+        job_id: jobId,
+        status: documentStatus,
+        version: documentVersion,
+        title: courseTitle,
         engine: "vercel-node-pdf-lib-merge-v1",
       });
     }
