@@ -1103,7 +1103,6 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
         const img=await embedRaster(pdf,sourceBytes,"illustration");
         // Réduire une illustration pour exploiter le bas de page lorsqu'elle y tient,
         // plutôt que de laisser une zone blanche puis de la repousser entièrement.
-        const naturalW=Math.min(450,img.width),naturalH=Math.min(250,naturalW*(img.height/img.width));
         const availableHeight=y-bottom-8;
         let scale=Math.min(1,450/img.width,250/img.height);
         if(availableHeight>=104)scale=Math.min(scale,Math.max(0.18,(availableHeight-44)/img.height));
