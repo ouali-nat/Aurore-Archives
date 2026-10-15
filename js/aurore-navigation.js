@@ -1,4 +1,27 @@
 // ---------- ÉTAT DE NAVIGATION ----------
+  // État de la dernière vue dans cet onglet : nécessaire car un rechargement ne
+  // relance pas automatiquement l'écran représenté par history.state.
+  const AURORE_NAV_RELOAD_KEY = 'aurore-navigation-reload-v1';
+  function sauvegarderSnapshotNavigation(snapshot) {
+    if(!snapshot || !snapshot.aurasterNavigation || typeof snapshot.ecranAuraster!=='string')return;
+    try {
+      sessionStorage.setItem(AURORE_NAV_RELOAD_KEY, JSON.stringify({
+        aurasterNavigation:true,
+        navigationId:Number(snapshot.navigationId)||0,
+        ecranAuraster:snapshot.ecranAuraster,
+        etatAuraster:snapshot.etatAuraster||etatNavigationVide(),
+        scrollY:Number(snapshot.scrollY)||0
+      }));
+    } catch(e) {}
+  }
+  function lireSnapshotNavigationSauvegarde() {
+    try {
+      const saved=JSON.parse(sessionStorage.getItem(AURORE_NAV_RELOAD_KEY)||'null');
+      if(saved && saved.aurasterNavigation && typeof saved.ecranAuraster==='string' && document.getElementById(saved.ecranAuraster))return saved;
+    } catch(e) {}
+    return null;
+  }
+
   let etat = { niveau:null, sousNiveau:null, serieChoisie:null, classe:null, categorie:null, filiere:null, division:null, matiere:null, cheminArbre:[], feuilleArbre:null };
 
   // ---------- HISTORIQUE NAVIGATEUR (Retour Android/mobile) ----------
@@ -82,11 +105,9 @@
     if(!navigationParPopState) {
       try {
         const navigationId = ++navigationCompteur;
-        history.pushState(
-          creerSnapshotNavigation(id,0,navigationId),
-          '',
-          urlEntreeNavigation(navigationId)
-        );
+        const snapshot=creerSnapshotNavigation(id,0,navigationId);
+        history.pushState(snapshot,'',urlEntreeNavigation(navigationId));
+        sauvegarderSnapshotNavigation(snapshot);
       } catch(e) {}
     }
   }
@@ -310,16 +331,37 @@
     if(!navigationParPopState){
       clearTimeout(window.__aurasterScrollTimer);
       window.__aurasterScrollTimer=setTimeout(enregistrerPositionNavigation,80);
+      clearTimeout(window.__auroreNavPersistTimer);
+      window.__auroreNavPersistTimer=setTimeout(()=>{
+        try{
+          const courant=history.state;
+          if(courant&&courant.aurasterNavigation){
+            sauvegarderSnapshotNavigation({...courant,scrollY:window.scrollY});
+          }
+        }catch(e){}
+      },700);
     }
   },{passive:true});
 
   try {
-    if(history.state && history.state.aurasterNavigation) {
-      navigationCompteur = Math.max(0, Number(history.state.navigationId) || 0);
+    const paramsInitialisation=new URLSearchParams(location.search);
+    const routePubliqueOuRetourAuth=paramsInitialisation.has('sectionShare') ||
+      paramsInitialisation.has('document') || paramsInitialisation.has('code') ||
+      paramsInitialisation.has('error') || location.hash.includes('access_token');
+    let initialState=history.state && history.state.aurasterNavigation ? history.state : null;
+    if(!initialState && !routePubliqueOuRetourAuth) initialState=lireSnapshotNavigationSauvegarde();
+
+    if(initialState && document.getElementById(initialState.ecranAuraster)) {
+      if(!(history.state && history.state.aurasterNavigation)) {
+        history.replaceState(initialState,'',routePubliqueOuRetourAuth?location.href:urlEntreeNavigation(initialState.navigationId));
+      }
+      navigationCompteur=Math.max(0,Number(initialState.navigationId)||0);
+      if(!routePubliqueOuRetourAuth)sauvegarderSnapshotNavigation(initialState);
     } else {
-      const initial = creerSnapshotNavigation('screen-home',window.scrollY,0);
+      const initial=creerSnapshotNavigation('screen-home',window.scrollY,0);
       history.replaceState(initial,'',location.href);
-      navigationCompteur = 0;
+      navigationCompteur=0;
+      if(!routePubliqueOuRetourAuth)sauvegarderSnapshotNavigation(initial);
     }
     if('scrollRestoration' in history) history.scrollRestoration='manual';
     navigationInitialisee=true;
@@ -335,6 +377,14 @@
     navigationRestaurationEnCours=true;
     try {
       etat=state.etatAuraster ? JSON.parse(JSON.stringify(state.etatAuraster)) : etatNavigationVide();
+      // Montrer tout de suite la bonne section, même si la reconstruction de ses
+      // données doit attendre une requête réseau lente ou impossible.
+      const ecranCibleImmediat=document.getElementById(state.ecranAuraster);
+      if(ecranCibleImmediat){
+        document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+        ecranCibleImmediat.classList.add('active');
+        window.scrollTo({top:Number(state.scrollY)||0,behavior:'auto'});
+      }
       await restaurerVueHistorique(state.ecranAuraster);
       majFilAriane();
 
@@ -343,6 +393,14 @@
         requestAnimationFrame(resolve)
       ));
       window.scrollTo({top:scrollY,behavior:'auto'});
+      try{
+        const etatActuel=history.state;
+        if(etatActuel&&etatActuel.aurasterNavigation){
+          sauvegarderSnapshotNavigation({...etatActuel,scrollY});
+        }else{
+          sauvegarderSnapshotNavigation({...state,scrollY});
+        }
+      }catch(e){}
       return true;
     } catch(err) {
       console.warn('[Aurore] restauration historique',err);
@@ -931,4 +989,39 @@
     }
   }
 
-  
+  // Sauvegarde l'écran au moment de quitter la page ou de passer l'application en arrière-plan.
+  function auroreSauverNavigationAvantSuspension(){
+    try{
+      const courant=history.state;
+      if(!courant||!courant.aurasterNavigation)return;
+      const snapshot={...courant,scrollY:window.scrollY};
+      history.replaceState(snapshot,'',location.href);
+      sauvegarderSnapshotNavigation(snapshot);
+    }catch(e){}
+  }
+  window.addEventListener('pagehide',auroreSauverNavigationAvantSuspension);
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='hidden')auroreSauverNavigationAvantSuspension();
+  });
+
+  // À la reprise d'un chargement complet, restaurer l'écran et le défilement qui
+  // étaient affichés, au lieu de laisser l'accueil statique prendre le dessus.
+  (function auroreRestaurerVueApresRechargement(){
+    const params=new URLSearchParams(location.search);
+    if(params.has('sectionShare')||params.has('document')||params.has('code')||
+       params.has('error')||location.hash.includes('access_token'))return;
+    const snapshot=(history.state&&history.state.aurasterNavigation)
+      ? history.state
+      : lireSnapshotNavigationSauvegarde();
+    if(!snapshot||!snapshot.aurasterNavigation||
+       !document.getElementById(snapshot.ecranAuraster))return;
+    if(snapshot.ecranAuraster==='screen-home'&&!(Number(snapshot.scrollY)>0))return;
+    requestAnimationFrame(()=>{
+      setTimeout(()=>{
+        const cible=(history.state&&history.state.aurasterNavigation)
+          ? history.state
+          : snapshot;
+        restaurerSnapshotNavigation(cible).catch(err=>console.warn('[Aurore] reprise après actualisation',err));
+      },0);
+    });
+  })();
