@@ -37,17 +37,15 @@
 <style id="aurore-boot-overlay-critical-css">
 /* Indicateur Aurore : une boule à quatre trous, teintée par la palette du site. */
 :root{
-  --aurore-spinner-hole:#17151d;
   --aurore-spinner-accent:var(--theme-primary,#8b5cf6);
   --aurore-spinner-accent-light:var(--theme-secondary,#c084fc);
+  /* Quatre points lumineux, sans image ni ressource externe. */
   --aurore-spinner-face:
-    radial-gradient(circle at 23% 14%,rgba(255,255,255,.92) 0 1.7%,transparent 7%),
-    radial-gradient(circle at 30% 30%,var(--aurore-spinner-hole) 0 6%,rgba(0,0,0,.72) 7% 8%,transparent 10%),
-    radial-gradient(circle at 70% 31%,var(--aurore-spinner-hole) 0 6%,rgba(0,0,0,.72) 7% 8%,transparent 10%),
-    radial-gradient(circle at 31% 70%,var(--aurore-spinner-hole) 0 6%,rgba(0,0,0,.72) 7% 8%,transparent 10%),
-    radial-gradient(circle at 70% 70%,var(--aurore-spinner-hole) 0 6%,rgba(0,0,0,.72) 7% 8%,transparent 10%),
-    radial-gradient(circle at 32% 24%,color-mix(in srgb,var(--aurore-spinner-accent-light) 22%,#e7e6e0) 0%,color-mix(in srgb,var(--aurore-spinner-accent) 25%,#aaa9a3) 54%,color-mix(in srgb,var(--theme-strong,#6d28d9) 30%,#77766f) 100%);
-  --aurore-spinner-shadow:color-mix(in srgb,var(--aurore-spinner-accent) 32%,transparent);
+    radial-gradient(circle at 50% 8%,var(--aurore-spinner-accent-light) 0 4px,transparent 4.6px),
+    radial-gradient(circle at 92% 50%,var(--aurore-spinner-accent) 0 4px,transparent 4.6px),
+    radial-gradient(circle at 50% 92%,var(--aurore-spinner-accent-light) 0 4px,transparent 4.6px),
+    radial-gradient(circle at 8% 50%,var(--aurore-spinner-accent) 0 4px,transparent 4.6px);
+  --aurore-spinner-shadow:color-mix(in srgb,var(--aurore-spinner-accent) 28%,transparent);
 }
 html{overscroll-behavior-y:contain}
 @keyframes aurore-spinner-rotation{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
@@ -61,8 +59,8 @@ html.aurore-boot-pending:not(.aurore-boot-overlay-ready)::after{
   content:"";position:fixed;left:calc(50% - 26px);top:clamp(84px,18vh,155px);
   z-index:2147483601;width:52px;height:52px;box-sizing:border-box;border-radius:50%;
   pointer-events:none;background:var(--aurore-spinner-face);
-  box-shadow:inset -5px -6px 8px rgba(0,0,0,.28),inset 3px 3px 7px rgba(255,255,255,.38),0 6px 18px var(--aurore-spinner-shadow);
-  animation:aurore-spinner-rotation .78s linear infinite
+  filter:drop-shadow(0 2px 8px var(--aurore-spinner-shadow));
+  animation:aurore-spinner-rotation .9s linear infinite
 }
 
 /* Même indicateur pendant le geste de rafraîchissement. */
@@ -103,10 +101,20 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
 #auroreBootOverlay .aurore-boot-four-hole-ball{
   position:relative;display:block;width:52px;height:52px;flex:none;border-radius:50%;
   background:var(--aurore-spinner-face);
-  box-shadow:inset -5px -6px 8px rgba(0,0,0,.28),inset 3px 3px 7px rgba(255,255,255,.38),0 6px 18px var(--aurore-spinner-shadow);
-  animation:aurore-spinner-rotation .78s linear infinite;will-change:transform
+  filter:drop-shadow(0 2px 8px var(--aurore-spinner-shadow));
+  animation:aurore-spinner-rotation .9s linear infinite;will-change:transform
 }
-#auroreBootOverlay .aurore-boot-four-hole-ball i{display:none}
+#auroreBootOverlay .aurore-boot-four-hole-ball i{
+  position:absolute;display:block;width:8px;height:8px;border-radius:50%;
+  background:var(--aurore-spinner-accent-light);
+  box-shadow:0 0 8px var(--aurore-spinner-shadow);
+  animation:aurore-dot-pulse 1.1s ease-in-out infinite
+}
+#auroreBootOverlay .aurore-boot-four-hole-ball i:nth-child(1){top:0;left:22px}
+#auroreBootOverlay .aurore-boot-four-hole-ball i:nth-child(2){top:22px;right:0;background:var(--aurore-spinner-accent);animation-delay:.14s}
+#auroreBootOverlay .aurore-boot-four-hole-ball i:nth-child(3){bottom:0;left:22px;animation-delay:.28s}
+#auroreBootOverlay .aurore-boot-four-hole-ball i:nth-child(4){top:22px;left:0;background:var(--aurore-spinner-accent);animation-delay:.42s}
+@keyframes aurore-dot-pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.55);opacity:.5}}
 @media(prefers-reduced-motion:reduce){
   #auroreBootOverlay{transition:none}
   /* La roue reste animée : elle est le seul retour visuel du chargement. */
