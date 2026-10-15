@@ -347,8 +347,7 @@ BEGIN
 
   RETURN v_doc;
 END;
-$function$
-
+$function$;
 
 REVOKE ALL ON FUNCTION public.aurora_publish_generated_document_to_places(bigint, jsonb, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.aurora_publish_generated_document_to_places(bigint, jsonb, text) TO authenticated;
