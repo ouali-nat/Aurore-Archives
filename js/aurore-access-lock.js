@@ -25,6 +25,7 @@
 
   const lock=document.getElementById('accessLock');
   const google=document.getElementById('accessGoogleBtn');
+  const auroreId=document.getElementById('accessAuroreIdBtn');
   const visitor=document.getElementById('accessVisitorBtn');
   const signupOpen=document.getElementById('accessSignupBtn');
   const modal=document.getElementById('signupModal');
@@ -181,6 +182,35 @@
     // Ne pas retarder la redirection OAuth : sur mobile, chaque délai supplémentaire
     // augmente le risque que le navigateur suspende la page avant la redirection.
     if(typeof demarrerConnexionGoogle==='function') { try { await demarrerConnexionGoogle(); } catch (err) { console.error('[Google OAuth]', err); window.auroreAfficherErreurDebug?.('[Bouton Google — accès] ' + (err?.message || err)); } } else { window.auroreAfficherErreurDebug?.('[Bouton Google — accès] demarrerConnexionGoogle est introuvable (script non chargé ?)'); }
+  });
+  auroreId?.addEventListener('click',async()=>{
+    enregistrerSortieVisiteur();
+    try{localStorage.removeItem('aurore_visitor_mode');}catch(_){}
+    if(auroreId.classList.contains('is-loading')) return;
+    afficherVeuillezPatienter('Connexion sécurisée avec Aurore ID…');
+    if(accessMessage){
+      accessMessage.textContent='Veuillez patienter — connexion sécurisée avec Aurore ID en cours…';
+      accessMessage.className='access-message ok';
+      accessMessage.style.display='block';
+    }
+    auroreId.classList.add('is-loading');
+    const strong=auroreId.querySelector('strong');
+    if(strong)strong.textContent='Connexion à Aurore ID…';
+    try{
+      if(typeof demarrerConnexionAuroreID==='function') await demarrerConnexionAuroreID();
+      else throw new Error('Le moteur de connexion Aurore ID n’est pas chargé.');
+    }catch(err){
+      console.error('[Aurore ID OAuth]',err);
+      if(accessMessage){
+        accessMessage.textContent='Impossible de démarrer la connexion Aurore ID. Réessayez dans un instant.';
+        accessMessage.className='access-message err';
+        accessMessage.style.display='block';
+      }
+      cacherVeuillezPatienter();
+    }finally{
+      auroreId.classList.remove('is-loading');
+      if(strong)strong.textContent='Continuer avec Aurore ID';
+    }
   });
   try{if(localStorage.getItem('aurore_visitor_mode')==='1') demarrerSuiviVisiteur();}catch(e){}
   signupOpen?.addEventListener('click',()=>{modal.style.display='flex';modal.setAttribute('aria-hidden','false');afficherModeInscription();setTimeout(()=>document.getElementById('signupName')?.focus(),50);});
