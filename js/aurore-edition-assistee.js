@@ -1452,7 +1452,6 @@
     document.getElementById('aeRefresh').onclick=async()=>{try{setStatus('Actualisation…');await loadCourses();renderList();setStatus('Liste actualisée.')}catch(e){setStatus('Impossible d’actualiser. '+String(e?.message||e))}};
     r.querySelectorAll('[data-open-course]').forEach(b=>b.onclick=()=>openCourse(b.dataset.openCourse));
     r.querySelectorAll('[data-correct-course]').forEach(b=>b.onclick=()=>openCourse(b.dataset.correctCourse,{correction:true}));
-    r.querySelectorAll('[data-mark-course-completed]').forEach(b=>b.onclick=()=>runMarkCourseCompleted(b.dataset.markCourseCompleted,b));
     r.querySelectorAll('[data-rename-course]').forEach(b=>b.onclick=()=>renameCourse(b.dataset.renameCourse));
     r.querySelectorAll('[data-delete-course]').forEach(b=>b.onclick=()=>deleteCourse(b.dataset.deleteCourse));
   }
@@ -2213,7 +2212,6 @@
   function bindWorkspace(){
     document.getElementById('aeBack').onclick=()=>{state.mode='list';state.course=null;loadCourses().then(renderList)};
     document.getElementById('aeDeleteCourseInside').onclick=()=>deleteCourse(state.course?.id);
-    document.getElementById('aeMarkCourseCompleted').onclick=()=>runMarkCourseCompleted(state.course?.id,document.getElementById('aeMarkCourseCompleted'));
     document.getElementById('aeCourseTitle').onchange=e=>{state.course.title=e.target.value.trim()||'Nouveau cours';};
     const themeSelect=document.getElementById('aeThemeColor');
     if(themeSelect)themeSelect.onchange=async e=>{
@@ -4367,10 +4365,25 @@
     }
   }
 
+  let completionClickHandlerBound=false;
+  function ensureCompletionClickHandler(){
+    if(completionClickHandlerBound)return;
+    completionClickHandlerBound=true;
+    document.addEventListener('click',event=>{
+      const button=event.target?.closest?.('#aeMarkCourseCompleted,[data-mark-course-completed]');
+      if(!button||button.disabled)return;
+      const courseId=String(button.dataset.markCourseCompleted||state.course?.id||'').trim();
+      if(!courseId)return;
+      event.preventDefault();
+      void runMarkCourseCompleted(courseId,button);
+    });
+  }
+
   async function init(){
     const r=root();if(!r)return;
     ensureCompletedArchivePanel();
     ensureCompletedArchiveWatch();
+    ensureCompletionClickHandler();
     const card=document.querySelector('.admin-tab[data-tab="edition-assistee"]'),panel=document.querySelector('.admin-tab-panel[data-panel="edition-assistee"]');
     if(card&&panel)card.addEventListener('click',async()=>{
       await Promise.resolve(state.pendingExitSave).catch(()=>{});
