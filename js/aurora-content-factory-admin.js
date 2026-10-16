@@ -1425,7 +1425,7 @@ window.auroreAdminGeneratedActions={
   changeTheme: async (id,currentColor)=>changeDocumentTheme(Number(id),currentColor),
   validate: async id=>validateDoc(Number(id)),
   reject: async id=>rejectDoc(Number(id)),
-  publish: async id=>publishDoc(Number(id))
+  publish: async id=>openPlacementForm(Number(id))
 };
 async function validateDoc(id){const n=prompt('Note de validation (facultatif) :','');if(n===null)return;try{await rpc('aurora_validate_generated_document',{p_generated_document_id:Number(id),p_notes:n||null});await charger()}catch(e){alert('Validation impossible. '+(e.message||e))}}
 async function rejectDoc(id){const n=prompt('Motif du rejet / corrections demandées :','');if(n===null)return;if(!n.trim()){alert('Indique un motif pour rejeter le document.');return}try{await rpc('aurora_reject_generated_document',{p_generated_document_id:Number(id),p_notes:n.trim()});await charger()}catch(e){alert('Rejet impossible. '+(e.message||e))}}
