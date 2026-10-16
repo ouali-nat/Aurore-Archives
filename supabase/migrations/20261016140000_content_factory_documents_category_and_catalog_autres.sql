@@ -46,13 +46,13 @@ BEGIN
   VALUES
     ('Autres', 'Au', 'autres',
      COALESCE((SELECT max(sort_order) + 1 FROM public.aurore_pedagogical_subjects), 0),
-     true, 'legacy-catalog',
+     true, 'legacy',
      jsonb_build_object('shared_catalog_fallback', 'matieresAvecAutres'))
   ON CONFLICT (subject_key) DO UPDATE
     SET name = 'Autres',
         code = COALESCE(public.aurore_pedagogical_subjects.code, EXCLUDED.code),
         active = true,
-        source = 'legacy-catalog',
+        source = 'legacy',
         metadata = public.aurore_pedagogical_subjects.metadata || EXCLUDED.metadata,
         updated_at = now()
   RETURNING id INTO v_autres_id;
