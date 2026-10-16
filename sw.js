@@ -15,7 +15,7 @@
    aurore-covers (couvertures), aurore-pdf-ouverts (PDF).
 */
 
-const SW_VERSION = 'v25-section-a-catalog-documents-only-20261016';
+const SW_VERSION = 'v26-section-a-complete-catalog-pagination-publication-20261016';
 
 const PAGE_CACHE = 'aurore-shell';
 const STATIC_CACHE = 'aurore-static';
