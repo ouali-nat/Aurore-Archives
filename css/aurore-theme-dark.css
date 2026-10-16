@@ -218,3 +218,82 @@
 [data-theme="dark"] #adminListReclamations [data-action="traite"]{
   background:var(--dark-surface-2)!important;color:var(--dark-ink)!important;border-color:var(--dark-border)!important;
 }
+
+
+/* Content Factory + archive éditoriale : surfaces et contrôles réellement lisibles en thème sombre. */
+[data-theme="dark"] .cf-create-box,
+[data-theme="dark"] .cf-admin-card,
+[data-theme="dark"] .cf-admin-status,
+[data-theme="dark"] .cf-create-classification-summary,
+[data-theme="dark"] .cf-create-origin-note,
+[data-theme="dark"] .cf-create-rights,
+[data-theme="dark"] .cf-create-grid input,
+[data-theme="dark"] .cf-create-grid select,
+[data-theme="dark"] .cf-create-grid textarea,
+[data-theme="dark"] .cf-create-cascade select,
+[data-theme="dark"] .cf-create-theme-swatch{
+  background-color:var(--dark-surface-2)!important;
+  color:var(--dark-ink)!important;
+  border-color:var(--dark-border)!important;
+}
+[data-theme="dark"] .cf-create-box,
+[data-theme="dark"] .cf-admin-card{
+  background:linear-gradient(145deg,#11101C 0%,#151326 100%)!important;
+  box-shadow:0 10px 28px rgba(0,0,0,.24)!important;
+}
+[data-theme="dark"] .cf-create-head h4,
+[data-theme="dark"] .cf-create-grid label span,
+[data-theme="dark"] .cf-admin-title,
+[data-theme="dark"] .cf-create-rights-text strong{
+  color:#F7F5FF!important;
+}
+[data-theme="dark"] .cf-create-head p,
+[data-theme="dark"] .cf-create-help,
+[data-theme="dark"] .cf-admin-meta,
+[data-theme="dark"] .cf-create-classification-summary,
+[data-theme="dark"] .cf-create-rights-text,
+[data-theme="dark"] .cf-create-origin-note{
+  color:#B8B2C9!important;
+}
+[data-theme="dark"] .cf-create-grid select:disabled,
+[data-theme="dark"] .cf-create-cascade select:disabled{
+  background:#100F19!important;color:#777188!important;border-color:#282338!important;opacity:1;
+}
+[data-theme="dark"] .cf-create-grid input:focus,
+[data-theme="dark"] .cf-create-grid select:focus,
+[data-theme="dark"] .cf-create-grid textarea:focus,
+[data-theme="dark"] .cf-create-cascade select:focus{
+  border-color:#A78BFA!important;box-shadow:0 0 0 3px rgba(167,139,250,.17)!important;outline:none;
+}
+[data-theme="dark"] .cf-create-msg[data-state="ok"]{color:#86EFAC!important}
+[data-theme="dark"] .cf-create-msg[data-state="error"],
+[data-theme="dark"] .cf-admin-error{color:#FDA4AF!important}
+[data-theme="dark"] .cf-create-cascade{gap:9px}
+[data-theme="dark"] .cf-create-classification-summary{background:#17142A!important}
+[data-theme="dark"] .cf-create-origin-note{background:rgba(124,58,237,.11)!important;border-color:rgba(167,139,250,.24)!important}
+[data-theme="dark"] .ae-shell,
+[data-theme="dark"] .ae-course-section,
+[data-theme="dark"] .ae-course-card,
+[data-theme="dark"] .ae-completed-admin-grid,
+[data-theme="dark"] #assistedCompletedArchiveRoot{
+  color:var(--dark-ink)!important;
+}
+[data-theme="dark"] .ae-course-section,
+[data-theme="dark"] .ae-course-card{
+  background:#11101C!important;border-color:#302B45!important;box-shadow:0 10px 28px rgba(0,0,0,.22)!important;
+}
+[data-theme="dark"] .ae-course-card h4,
+[data-theme="dark"] .ae-course-section-head h4{color:#F7F5FF!important}
+[data-theme="dark"] .ae-course-card p,
+[data-theme="dark"] .ae-course-card-top,
+[data-theme="dark"] .ae-course-section-head p{color:#B8B2C9!important}
+[data-theme="dark"] .ae-course-status{
+  background:#211D38!important;color:#DDD6FE!important;border-color:#4C4270!important;
+}
+[data-theme="dark"] .ae-empty{
+  background:#17142A!important;color:#B8B2C9!important;border-color:#3A3452!important;
+}
+@media(max-width:620px){
+  [data-theme="dark"] .cf-create-box{padding:14px!important}
+  [data-theme="dark"] .cf-admin-card{padding:13px!important}
+}
