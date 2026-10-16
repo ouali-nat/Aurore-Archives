@@ -1458,11 +1458,15 @@
   }
 
   async function markCourseCompleted(id){
+    // Finish pending saves before setting the terminal state.
+    await Promise.resolve(state.pendingExitSave).catch(()=>{});
     const courseId=String(id||state.course?.id||'').trim();
     if(!courseId)throw new Error('Aucun cours sélectionné.');
     const row=state.courses.find(c=>String(c.id)===courseId);
     const course=state.course&&String(state.course.id)===courseId?state.course:(row?.course_json||null);
     if(!course)throw new Error('Cours introuvable dans la liste.');
+    const supabase=client();
+    if(!supabase)throw new Error('Connexion à Supabase indisponible. Le cours reste dans l’édition.');
     ensureCourseStructure(course);
     course.workflow=course.workflow&&typeof course.workflow==='object'?course.workflow:{};
     const completedAt=new Date().toISOString();
@@ -1471,14 +1475,54 @@
     course.workflow.last_completed_at=completedAt;
     course.workflow.correction_in_progress=false;
     course.workflow.correction_started_at=null;
+
     const persisted=await persistCourse(true,false,course);
-    if(!persisted)throw new Error('Enregistrement Supabase impossible. Vérifie la connexion et ta session administrateur, puis réessaie.');
-    await loadCourses();
+    if(!persisted)throw new Error('Enregistrement Supabase impossible. Le cours reste ouvert pour éviter de perdre le travail.');
+
+    // Do not navigate away until Supabase confirms the saved workflow state.
+    const {data:{user}={}}=await supabase.auth.getUser();
+    if(!user?.id)throw new Error('Session administrateur absente. Le cours reste dans l’édition.');
+    const {data:savedRow,error:verifyError}=await supabase
+      .from('aurora_assisted_courses')
+      .select('id,title,pages,updated_at')
+      .eq('id',courseId)
+      .eq('created_by',user.id)
+      .maybeSingle();
+    if(verifyError)throw new Error('Vérification de l’enregistrement impossible : '+String(verifyError.message||verifyError));
+    const savedWorkflow=savedRow?.pages?.course?.workflow;
+    if(!savedRow||String(savedWorkflow?.status||'')!=='completed'){
+      throw new Error('Supabase n’a pas confirmé le statut « terminé ». Le cours reste ouvert pour éviter une disparition de la liste.');
+    }
+
+    // If list refresh fails, use the confirmed server copy as the archive item.
+    try{
+      await loadCourses();
+    }catch(loadError){
+      const fallbackRow={
+        ...(row||{}),...savedRow,id:courseId,
+        title:String(savedRow.title||course.title||row?.title||'Nouveau cours'),
+        status:'completed',
+        course_json:ensureCourseStructure(savedRow.pages?.course||course)
+      };
+      const oldIndex=state.courses.findIndex(c=>String(c.id)===courseId);
+      if(oldIndex>=0)state.courses[oldIndex]=fallbackRow;
+      else state.courses.unshift(fallbackRow);
+      console.warn('[Édition assistée] Archive alimentée depuis la copie confirmée malgré une erreur de rechargement.',loadError);
+    }
+    const currentIndex=state.courses.findIndex(c=>String(c.id)===courseId);
+    if(currentIndex>=0){
+      const current=state.courses[currentIndex];
+      const currentCourse=ensureCourseStructure(current.course_json||savedRow.pages?.course||course);
+      currentCourse.workflow={...(currentCourse.workflow||{}),status:'completed',completed_at:currentCourse.workflow?.completed_at||completedAt};
+      state.courses[currentIndex]={...current,status:'completed',course_json:currentCourse};
+    }
     if(state.course&&String(state.course.id)===courseId){
       state.course=null;state.selected=null;state.mode='list';state.finalPdfArtifact=null;
     }
     renderList();
-    await showCompletedArchive({refresh:false,message:'Cours marqué terminé et rangé dans « Cours marqués terminés ».'});
+    ensureCompletedArchivePanel();
+    renderCompletedArchive();
+    await showCompletedArchive({refresh:false,message:'Cours marqué terminé et vérifié dans Supabase. Il reste accessible dans « Cours marqués terminés ». '});
     return true;
   }
 
@@ -4249,6 +4293,17 @@
     }
     return true;
   }
+  let completedArchiveObserver=null;
+  function ensureCompletedArchiveWatch(){
+    if(completedArchiveObserver||!document.body||typeof MutationObserver==='undefined')return;
+    completedArchiveObserver=new MutationObserver(()=>{
+      const missingCard=!document.getElementById('admin-tab-assisted-completed');
+      const missingPanel=!document.querySelector('.admin-tab-panel[data-panel="assisted-completed"]');
+      if(missingCard||missingPanel)ensureCompletedArchivePanel();
+    });
+    completedArchiveObserver.observe(document.body,{childList:true,subtree:true});
+  }
+
   function renderCompletedArchive(){
     if(!ensureCompletedArchivePanel())return;
     const root=document.getElementById('assistedCompletedArchiveRoot');
@@ -4315,6 +4370,7 @@
   async function init(){
     const r=root();if(!r)return;
     ensureCompletedArchivePanel();
+    ensureCompletedArchiveWatch();
     const card=document.querySelector('.admin-tab[data-tab="edition-assistee"]'),panel=document.querySelector('.admin-tab-panel[data-panel="edition-assistee"]');
     if(card&&panel)card.addEventListener('click',async()=>{
       await Promise.resolve(state.pendingExitSave).catch(()=>{});
