@@ -15,7 +15,7 @@
    aurore-covers (couvertures), aurore-pdf-ouverts (PDF).
 */
 
-const SW_VERSION = 'v19-completed-course-admin-and-pdf-only-20261015';
+const SW_VERSION = 'v20-static-completed-course-admin-archive-20261015';
 
 const PAGE_CACHE = 'aurore-shell';
 const STATIC_CACHE = 'aurore-static';
