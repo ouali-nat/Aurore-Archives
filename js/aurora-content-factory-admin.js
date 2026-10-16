@@ -1731,8 +1731,10 @@ async function openPlacementForm(id){
         routeChoices.map((choice,index)=>'<option value="'+index+'"'+(!choice.dbNode?' disabled':'')+'>'+safe(choice.label)+(!choice.dbNode?' — synchronisation requise':'')+'</option>').join('');
       routePicker.disabled=!selectedLevelId||!routeChoices.some(choice=>!!choice.dbNode);
       const matchingIndex=routeChoices.findIndex(choice=>
-        String(choice.dbNode?.id||'')===String(selectedLeafId||'')||
-        String(choice.legacyPath||'')===String(selectedLeafLegacyPath||'')
+        !!choice.dbNode&&(
+          (selectedLeafId!==''&&String(choice.dbNode.id)===String(selectedLeafId))||
+          (selectedLeafLegacyPath!==''&&String(choice.legacyPath||'')===String(selectedLeafLegacyPath))
+        )
       );
       if(matchingIndex<0){
         selectedLeafId='';
