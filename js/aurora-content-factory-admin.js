@@ -1439,8 +1439,26 @@ async function cfPlacementFetchJson(path,token){
 }
 function cfEnsurePlacementStyles(){
   if(document.getElementById('cfPlacementStyles'))return;
-  const style=document.createElement('style');style.id='cfPlacementStyles';
-  style.textContent='.cf-place-overlay{position:fixed;z-index:10050;inset:0;display:flex;align-items:center;justify-content:center;padding:12px;box-sizing:border-box}.cf-place-backdrop{position:absolute;inset:0;background:rgba(4,8,20,.6);backdrop-filter:blur(5px)}.cf-place-dialog{position:relative;width:min(820px,100%);max-height:92dvh;overflow:auto;box-sizing:border-box;padding:clamp(14px,3vw,24px);border:1px solid color-mix(in srgb,currentColor 14%,transparent);border-radius:20px;background:var(--card-bg,#fff);color:var(--encre,#171717);box-shadow:0 24px 80px rgba(0,0,0,.28)}.cf-place-dialog h3{margin:4px 0 6px;font-size:1.12rem}.cf-place-kicker{font-size:.66rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;opacity:.68}.cf-place-lead{margin:0 0 14px;font-size:.8rem;line-height:1.5;opacity:.74}.cf-place-document{margin:12px 0;padding:12px;border:1px solid color-mix(in srgb,currentColor 12%,transparent);border-radius:12px}.cf-place-document strong,.cf-place-document small{display:block}.cf-place-document small{margin-top:4px;font-size:.7rem;opacity:.7}.cf-place-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.cf-place-field{display:grid;gap:5px;font-size:.75rem;font-weight:750}.cf-place-field select,.cf-place-field input,.cf-place-field textarea{width:100%;min-width:0;box-sizing:border-box;border:1px solid color-mix(in srgb,currentColor 18%,transparent);border-radius:10px;padding:10px;background:var(--card-bg,#fff);color:inherit;font:inherit;font-weight:500}.cf-place-search{margin:12px 0}.cf-place-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-height:35dvh;overflow:auto;padding:2px}.cf-place-item{display:flex;gap:8px;align-items:flex-start;padding:10px;border:1px solid color-mix(in srgb,currentColor 12%,transparent);border-radius:11px;cursor:pointer}.cf-place-item:has(input:checked){border-color:var(--cf-document-theme,#2563eb);background:color-mix(in srgb,var(--cf-document-theme,#2563eb) 8%,transparent)}.cf-place-item input{margin-top:4px;accent-color:var(--cf-document-theme,#2563eb)}.cf-place-item span{font-size:.76rem;font-weight:800;line-height:1.35;overflow-wrap:anywhere}.cf-place-item small{display:block;margin-top:4px;font-size:.64rem;font-weight:500;opacity:.68}.cf-place-empty{padding:18px;border:1px dashed color-mix(in srgb,currentColor 18%,transparent);border-radius:12px;text-align:center;font-size:.76rem;opacity:.7}.cf-place-info{margin:12px 0;font-size:.69rem;line-height:1.5;opacity:.7}.cf-place-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid color-mix(in srgb,currentColor 12%,transparent)}@media(max-width:620px){.cf-place-fields,.cf-place-list{grid-template-columns:1fr}.cf-place-actions{display:grid;grid-template-columns:1fr}.cf-place-actions .admin-btn{width:100%}}';
+  const style=document.createElement('style');
+  style.id='cfPlacementStyles';
+  style.textContent =
+    '#cfPlacementModal{--cf-place-surface:var(--papier,#fff);--cf-place-surface-2:var(--fond,#f6f4fb);--cf-place-text:var(--encre,#171717);--cf-place-muted:var(--gris,#606070);--cf-place-border:var(--bordure,#ded9e8);color-scheme:light}' +
+    '[data-theme="dark"] #cfPlacementModal{--cf-place-surface:var(--dark-surface,#11101c);--cf-place-surface-2:var(--dark-surface-2,#17142a);--cf-place-text:var(--dark-ink,#f7f5ff);--cf-place-muted:var(--dark-muted,#b8b2c9);--cf-place-border:var(--dark-border,#302b45);color-scheme:dark}' +
+    '[data-theme="light"] #cfPlacementModal{--cf-place-surface:var(--papier,#fff);--cf-place-surface-2:var(--fond,#f6f4fb);--cf-place-text:var(--encre,#211d2e);--cf-place-muted:var(--gris,#6b6478);--cf-place-border:var(--bordure,#e2ddf0);color-scheme:light}' +
+    '.cf-place-overlay{position:fixed;z-index:10050;inset:0;display:flex;align-items:center;justify-content:center;padding:12px;box-sizing:border-box}.cf-place-backdrop{position:absolute;inset:0;background:rgba(4,8,20,.68);backdrop-filter:blur(5px)}' +
+    '.cf-place-dialog{position:relative;width:min(820px,100%);max-height:92dvh;overflow:auto;box-sizing:border-box;padding:clamp(14px,3vw,24px);border:1px solid var(--cf-place-border);border-radius:20px;background:var(--cf-place-surface);color:var(--cf-place-text);box-shadow:0 24px 80px rgba(0,0,0,.28)}' +
+    '.cf-place-dialog h3{margin:4px 0 6px;color:var(--cf-place-text);font-size:1.12rem}.cf-place-dialog p,.cf-place-dialog small{color:var(--cf-place-muted)}' +
+    '.cf-place-kicker{font-size:.66rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--cf-place-muted)}.cf-place-lead{margin:0 0 14px;font-size:.8rem;line-height:1.5}' +
+    '.cf-place-document{margin:12px 0;padding:12px;border:1px solid var(--cf-place-border);border-radius:12px;background:var(--cf-place-surface-2)}.cf-place-document strong,.cf-place-document small{display:block;color:var(--cf-place-text);overflow-wrap:anywhere}.cf-place-document small{margin-top:4px;font-size:.7rem;color:var(--cf-place-muted)}' +
+    '.cf-place-fields,.cf-place-path-selectors{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.cf-place-field{display:grid;gap:5px;font-size:.75rem;font-weight:750;color:var(--cf-place-text)}' +
+    '.cf-place-field select,.cf-place-field input,.cf-place-field textarea{width:100%;min-width:0;box-sizing:border-box;border:1px solid var(--cf-place-border);border-radius:10px;padding:10px;background:var(--cf-place-surface-2);color:var(--cf-place-text);font:inherit;font-weight:500}.cf-place-field select:focus,.cf-place-field input:focus,.cf-place-field textarea:focus{outline:2px solid var(--cf-document-theme,#6d28d9);outline-offset:1px}' +
+    '.cf-place-path-stage{margin-top:13px;padding:13px;border:1px solid var(--cf-place-border);border-radius:14px;background:var(--cf-place-surface-2)}.cf-place-section-title{display:block;margin:0 0 8px;font-size:.8rem;font-weight:850;color:var(--cf-place-text)}' +
+    '.cf-place-current-path{margin:10px 0 0;font-size:.72rem;line-height:1.5;color:var(--cf-place-muted);overflow-wrap:anywhere}.cf-place-target-list{display:grid;gap:8px;margin-top:10px}' +
+    '.cf-place-target{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:11px;border:1px solid var(--cf-place-border);border-radius:12px;background:var(--cf-place-surface)}.cf-place-target-main{min-width:0;overflow-wrap:anywhere}.cf-place-target-main strong{display:block;font-size:.78rem;color:var(--cf-place-text);line-height:1.4}.cf-place-target-main small{display:block;margin-top:4px;font-size:.68rem;color:var(--cf-place-muted);line-height:1.4}' +
+    '.cf-place-target-remove{flex:0 0 auto;border:1px solid var(--cf-place-border);border-radius:8px;background:var(--cf-place-surface-2);color:var(--cf-place-text);padding:6px 9px;cursor:pointer}.cf-place-empty{padding:16px;border:1px dashed var(--cf-place-border);border-radius:12px;text-align:center;font-size:.76rem;color:var(--cf-place-muted)}' +
+    '.cf-place-info{margin:12px 0;font-size:.7rem;line-height:1.5;color:var(--cf-place-muted)}.cf-place-add{display:inline-flex;align-items:center;justify-content:center;gap:6px;margin-top:10px;border:1px solid var(--cf-document-theme,#6d28d9);border-radius:10px;padding:10px 13px;background:color-mix(in srgb,var(--cf-document-theme,#6d28d9) 10%,var(--cf-place-surface));color:var(--cf-place-text);font-size:.75rem;font-weight:800;cursor:pointer}.cf-place-add:disabled{opacity:.45;cursor:not-allowed}' +
+    '.cf-place-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--cf-place-border)}.cf-place-actions .admin-btn{max-width:100%;white-space:normal}' +
+    '@media(max-width:620px){.cf-place-fields,.cf-place-path-selectors{grid-template-columns:1fr}.cf-place-actions{display:grid;grid-template-columns:1fr}.cf-place-actions .admin-btn{width:100%}.cf-place-dialog{max-height:94dvh;padding:14px}.cf-place-target{gap:6px}.cf-place-target-remove{padding:6px}}';
   document.head.appendChild(style);
 }
 async function openPlacementForm(id){
@@ -1455,70 +1473,218 @@ async function openPlacementForm(id){
     const doc=docs[0];if(!doc)throw new Error('Document introuvable.');
     const meta=doc.metadata&&typeof doc.metadata==='object'?doc.metadata:{};
     const type=String(doc.document_type||'').trim().toLowerCase();
-    if(['page_assistee','apercu_assiste','apercu_assistee','preview_assistee'].includes(type))throw new Error('Une page isolée ou un aperçu ne peut pas être publié.');
+    const previewType=/(^|[_ -])(page|fragment|apercu|preview)([_ -]|$)/i.test(type)
+      ||['page_assistee','apercu_assiste','apercu_assistee','preview_assistee','page_pdf','fragment_assiste'].includes(type);
+    if(previewType||meta.is_page===true||meta.is_preview===true||meta.preview_only===true)throw new Error('Publication interdite : une page isolée ou un aperçu n’est pas un document complet.');
     if(!doc.pdf_url||!doc.pdf_path)throw new Error('Le PDF complet n’est pas encore prêt.');
     if(['queued','processing'].includes(String(meta.lualatex_status||meta.production_status||'').toLowerCase()))throw new Error('La production PDF est encore en cours.');
     const assisted=String(meta.origin||'').toLowerCase()==='edition_assistee';
     const finalInfo=cfParseAssistedFinal(meta);
-    if(assisted&&!(type==='cours_assiste'&&String(doc.pdf_path).startsWith('aurora-assisted-final-pdfs/')&&finalInfo&&Number(finalInfo.page_count||0)>0))throw new Error('Seul le PDF global fusionné et vérifié peut être publié.');
+    if(assisted&&!(type==='cours_assiste'
+      &&String(doc.pdf_path).startsWith('aurora-assisted-final-pdfs/')
+      &&String(finalInfo?.pdf_path||doc.pdf_path)===String(doc.pdf_path)
+      &&finalInfo&&Number(finalInfo.page_count||finalInfo.pageCount||0)>0
+      &&String(finalInfo.fingerprint||'')))throw new Error('Seul le PDF global fusionné, paginé et vérifié de l’édition assistée peut être publié.');
     if(!['generated','review','approved','published'].includes(String(doc.status||'')))throw new Error('Document non prêt pour publication : '+String(doc.status||'inconnu')+'.');
+
     const [nodes,subjects,links]=await Promise.all([
       get('/rest/v1/aurore_pedagogical_nodes?select=id,parent_id,name,node_type,legacy_path,sort_order,active&active=eq.true&order=sort_order.asc,name.asc&limit=5000'),
       get('/rest/v1/aurore_pedagogical_subjects?select=id,name,subject_key,sort_order,active&active=eq.true&order=sort_order.asc,name.asc&limit=2000'),
       get('/rest/v1/aurore_pedagogical_node_subjects?select=node_id,subject_id&limit=10000')
     ]);
-    const activeNodes=nodes.filter(n=>n.active!==false),activeSubjects=subjects.filter(v=>v.active!==false);
-    const nodeMap=new Map(activeNodes.map(n=>[String(n.id),n])),subjectIds=new Set(activeSubjects.map(v=>String(v.id))),subjectNodes=new Map();
-    links.forEach(v=>{const sid=String(v.subject_id||''),nid=String(v.node_id||'');if(!subjectIds.has(sid)||!nodeMap.has(nid))return;if(!subjectNodes.has(sid))subjectNodes.set(sid,new Set());subjectNodes.get(sid).add(nid);});
+    const activeNodes=nodes.filter(n=>n.active!==false);
+    const activeSubjects=subjects.filter(v=>v.active!==false);
+    const nodeMap=new Map(activeNodes.map(n=>[String(n.id),n]));
+    const subjectMap=new Map(activeSubjects.map(v=>[String(v.id),v]));
+    const childMap=new Map();
+    activeNodes.forEach(n=>{
+      const parent=String(n.parent_id||'');
+      if(!childMap.has(parent))childMap.set(parent,[]);
+      childMap.get(parent).push(n);
+    });
+    const childrenOf=id=>(childMap.get(String(id||''))||[]).slice().sort((a,b)=>(Number(a.sort_order)||0)-(Number(b.sort_order)||0)||String(a.name).localeCompare(String(b.name),'fr'));
+    const roots=activeNodes.filter(n=>!n.parent_id||!nodeMap.has(String(n.parent_id))).sort((a,b)=>(Number(a.sort_order)||0)-(Number(b.sort_order)||0)||String(a.name).localeCompare(String(b.name),'fr'));
+    const nodeSubjects=new Map();
+    links.forEach(v=>{
+      const sid=String(v.subject_id||''),nid=String(v.node_id||'');
+      if(!subjectMap.has(sid)||!nodeMap.has(nid))return;
+      if(!nodeSubjects.has(nid))nodeSubjects.set(nid,new Set());
+      nodeSubjects.get(nid).add(sid);
+    });
+
+    const types=['Fiche de cours','Fiche de révision','Exercices','QCM','Devoir','Document'];
+    const canonicalResource=value=>{
+      const raw=String(value||'').trim();
+      const normalized=raw.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[-_]+/g,' ');
+      if(/\bqcm\b|quiz|questionnaire|questions? a choix/.test(normalized))return 'QCM';
+      if(/revision|synthese|resume|notions essentielles/.test(normalized))return 'Fiche de révision';
+      if(/exercice|exo\b|travaux diriges/.test(normalized))return 'Exercices';
+      if(/\bdevoir\b/.test(normalized))return 'Devoir';
+      if(/fiche de cours|cours|lecon|lesson|chapitre/.test(normalized))return 'Fiche de cours';
+      if(/document/.test(normalized))return 'Document';
+      return types.includes(raw)?raw:'Document';
+    };
+
     let previous=Array.isArray(meta.publication?.targets)?meta.publication.targets:[];
     if(assisted&&finalInfo?.course_id){
-      try{const c=await get('/rest/v1/aurora_assisted_courses?select=id,pages&id=eq.'+encodeURIComponent(String(finalInfo.course_id))+'&limit=1');const saved=c[0]?.pages?.course?.workflow?.publication_targets;if(Array.isArray(saved)&&saved.length)previous=saved;}catch(e){console.warn('[Content Factory] Anciens emplacements indisponibles.',e);}
+      try{
+        const savedCourses=await get('/rest/v1/aurora_assisted_courses?select=id,pages&id=eq.'+encodeURIComponent(String(finalInfo.course_id))+'&limit=1');
+        const savedTargets=savedCourses[0]?.pages?.course?.workflow?.publication_targets;
+        if(Array.isArray(savedTargets)&&savedTargets.length)previous=savedTargets;
+      }catch(error){console.warn('[Content Factory] Anciens emplacements indisponibles.',error);}
     }
-    previous=previous.filter(v=>v&&v.node_id&&v.subject_id);
-    const types=['Fiche de cours','Fiche de révision','Exercices','Devoir','Document'];
-    const inferred=/exercice|devoir/i.test(type)?'Exercices':/révision|revision/i.test(type)?'Fiche de révision':/document/i.test(type)?'Document':'Fiche de cours';
-    const initialType=types.includes(previous[0]?.resource_type)?previous[0].resource_type:inferred;
-    const initialSubject=String(previous[0]?.subject_id||activeSubjects[0]?.id||'');
-    const selected=new Set(previous.filter(v=>String(v.subject_id)===initialSubject&&String(v.resource_type||initialType)===initialType).map(v=>String(v.node_id)));
-    const safe=v=>esc(String(v==null?'':v));
-    modal=document.createElement('div');modal.id='cfPlacementModal';modal.className='cf-place-overlay';modal.style.setProperty('--cf-document-theme',normalizeThemeColor(meta.theme_color||meta.aurore_design?.theme_color||'#2563eb'));
-    modal.innerHTML='<div class="cf-place-backdrop" data-cf-place-close></div><section class="cf-place-dialog" role="dialog" aria-modal="true" aria-labelledby="cfPlacementTitle"><div class="cf-place-kicker">Publication éditoriale · Aurore</div><h3 id="cfPlacementTitle">Choisir un emplacement</h3><p class="cf-place-lead">Choisis le type de ressource, la matière, puis coche un ou plusieurs emplacements. La validation publie le PDF entier. Lors d’une correction, la version Aurore déjà publiée au même emplacement est remplacée sans créer de doublon.</p><div class="cf-place-document"><strong>'+safe(doc.title||'Document sans titre')+'</strong><small>'+safe(doc.document_type||'Document')+' · PDF complet'+(finalInfo?.page_count?' · '+Number(finalInfo.page_count)+' pages':'')+' · Version '+Number(doc.version||1)+'</small></div><form id="cfPlacementForm"><div class="cf-place-fields"><label class="cf-place-field">Type de ressource<select id="cfPlaceType">'+types.map(t=>'<option value="'+safe(t)+'"'+(t===initialType?' selected':'')+'>'+safe(t)+'</option>').join('')+'</select></label><label class="cf-place-field">Matière<select id="cfPlaceSubject">'+activeSubjects.map(v=>'<option value="'+safe(v.id)+'"'+(String(v.id)===initialSubject?' selected':'')+'>'+safe(v.name)+'</option>').join('')+'</select></label></div><label class="cf-place-field cf-place-search">Rechercher un niveau, une classe ou une filière<input id="cfPlaceSearch" type="search" placeholder="Ex. 6e, Terminale D, Licence 1…" autocomplete="off"></label><div class="cf-place-location-head"><strong>Emplacements disponibles</strong><span id="cfPlaceCount"></span></div><div class="cf-place-list" id="cfPlaceLocations"></div><p class="cf-place-info">La liste vient du référentiel pédagogique Aurore et ne propose que les emplacements associés à la matière choisie. Les exercices et devoirs sont rangés dans « Devoirs » ; les fiches et autres documents dans « Documents ».</p><label class="cf-place-field">Note éditoriale (facultatif)<textarea id="cfPlaceNotes" rows="2" maxlength="1000" placeholder="Ex. Correction éditoriale, version actualisée…"></textarea></label><footer class="cf-place-actions"><button type="button" class="admin-btn ghost" data-cf-place-close>Annuler</button><button type="submit" class="admin-btn primary" id="cfPlaceSubmit" disabled>Valider et publier</button></footer></form></section>';
+
+    const pathIdsFor=nodeId=>{
+      const ids=[];let current=nodeMap.get(String(nodeId||'')),depth=0;
+      while(current&&depth++<24){ids.unshift(String(current.id));current=current.parent_id?nodeMap.get(String(current.parent_id)):null;}
+      return ids;
+    };
+    const pathFor=nodeId=>{
+      const names=[];let current=nodeMap.get(String(nodeId||'')),depth=0;
+      while(current&&depth++<24){names.unshift(current.name);current=current.parent_id?nodeMap.get(String(current.parent_id)):null;}
+      return names.join(' › ');
+    };
+    const safe=value=>esc(String(value==null?'':value));
+    const keyFor=t=>String(t.node_id)+'|'+String(t.subject_id)+'|'+canonicalResource(t.resource_type);
+    const selectedTargets=new Map();
+    previous.forEach(v=>{
+      const nodeId=String(v?.node_id||''),subjectId=String(v?.subject_id||''),resourceType=canonicalResource(v?.resource_type);
+      if(!nodeMap.has(nodeId)||!subjectMap.has(subjectId)||!types.includes(resourceType))return;
+      if(!nodeSubjects.get(nodeId)?.has(subjectId))return;
+      const target={node_id:nodeId,subject_id:subjectId,resource_type:resourceType};
+      selectedTargets.set(keyFor(target),target);
+    });
+    const firstTarget=selectedTargets.values().next().value||null;
+    const inferred=/qcm|quiz/i.test(type)?'QCM':/exercice|devoir/i.test(type)?'Exercices':/révision|revision/i.test(type)?'Fiche de révision':/cours_assiste|cours|lecon/i.test(type)?'Fiche de cours':'Document';
+    let pathSelection=firstTarget?pathIdsFor(firstTarget.node_id):[];
+    const initialType=firstTarget?firstTarget.resource_type:inferred;
+    const initialSubject=firstTarget?firstTarget.subject_id:'';
+    modal=document.createElement('div');
+    modal.id='cfPlacementModal';
+    modal.className='cf-place-overlay';
+    modal.style.setProperty('--cf-document-theme',normalizeThemeColor(meta.theme_color||meta.aurore_design?.theme_color||'#2563eb'));
+    modal.innerHTML='<div class="cf-place-backdrop" data-cf-place-close></div><section class="cf-place-dialog" role="dialog" aria-modal="true" aria-labelledby="cfPlacementTitle"><div class="cf-place-kicker">Publication éditoriale · Aurore</div><h3 id="cfPlacementTitle">Publier dans la bibliothèque pédagogique</h3><p class="cf-place-lead">Choisis le parcours complet : niveau, cycle ou filière, puis classe ou branche finale. Associe la matière et le type de ressource. Tu peux ajouter plusieurs destinations avant de publier le PDF global.</p><div class="cf-place-document"><strong>'+safe(doc.title||'Document sans titre')+'</strong><small>'+safe(doc.document_type||'Document')+' · PDF complet'+(finalInfo?.page_count?' · '+Number(finalInfo.page_count)+' pages':'')+' · Version '+Number(doc.version||1)+'</small></div><form id="cfPlacementForm"><div class="cf-place-fields"><label class="cf-place-field">Type de ressource<select id="cfPlaceType">'+types.map(t=>'<option value="'+safe(t)+'"'+(t===initialType?' selected':'')+'>'+safe(t)+'</option>').join('')+'</select></label><label class="cf-place-field">Matière<select id="cfPlaceSubject"></select></label></div><section class="cf-place-path-stage"><strong class="cf-place-section-title">Parcours pédagogique complet</strong><div class="cf-place-path-selectors" id="cfPlacePathSelectors"></div><p class="cf-place-current-path" id="cfPlacePathSummary" aria-live="polite">Choisis le parcours jusqu’au dernier niveau disponible.</p><button type="button" class="cf-place-add" id="cfPlaceAddTarget" disabled>＋ Ajouter cet emplacement</button></section><section class="cf-place-selected-section"><strong class="cf-place-section-title" style="margin-top:15px">Emplacements à publier <span id="cfPlaceTargetCount"></span></strong><div class="cf-place-target-list" id="cfPlaceSelectedTargets"></div></section><p class="cf-place-info">Les parcours et les liens de matières viennent du référentiel Aurore. Les cours, fiches de révision et QCM sont rangés dans Documents Aurore ; les exercices et devoirs sont rangés dans Devoirs. Une publication remplacera la version déjà liée au même emplacement sans créer de doublon.</p><label class="cf-place-field" style="margin-top:12px">Note éditoriale (facultatif)<textarea id="cfPlaceNotes" rows="2" maxlength="1000" placeholder="Ex. Niveau, classe, filière ou version actualisée…"></textarea></label><footer class="cf-place-actions"><button type="button" class="admin-btn ghost" data-cf-place-close>Annuler</button><button type="submit" class="admin-btn primary" id="cfPlaceSubmit" disabled>Valider et publier</button></footer></form></section>';
     document.body.appendChild(modal);
-    const subject=modal.querySelector('#cfPlaceSubject'),resource=modal.querySelector('#cfPlaceType'),search=modal.querySelector('#cfPlaceSearch'),list=modal.querySelector('#cfPlaceLocations'),count=modal.querySelector('#cfPlaceCount'),submit=modal.querySelector('#cfPlaceSubmit');
+
+    const subject=modal.querySelector('#cfPlaceSubject'),resource=modal.querySelector('#cfPlaceType');
+    const pathBox=modal.querySelector('#cfPlacePathSelectors'),pathSummary=modal.querySelector('#cfPlacePathSummary');
+    const addTarget=modal.querySelector('#cfPlaceAddTarget'),targetList=modal.querySelector('#cfPlaceSelectedTargets');
+    const targetCount=modal.querySelector('#cfPlaceTargetCount'),submit=modal.querySelector('#cfPlaceSubmit');
     const close=()=>{if(modal?.isConnected)modal.remove();document.removeEventListener('keydown',onKey);};
     const onKey=e=>{if(e.key==='Escape')close();};
     document.addEventListener('keydown',onKey);
-    modal.querySelectorAll('[data-cf-place-close]').forEach(b=>b.addEventListener('click',close));
-    const pathFor=node=>{const names=[];let cur=node,depth=0;while(cur&&depth++<24){names.unshift(cur.name);cur=cur.parent_id?nodeMap.get(String(cur.parent_id)):null;}return names.join(' › ');};
-    const typeLabel=x=>({pathway:'Parcours',level:'Niveau',group:'Groupe',series:'Série',class:'Classe',domain:'Domaine',formation:'Formation',year:'Année',semester:'Semestre',branch:'Branche',other:'Emplacement'}[String(x||'').toLowerCase()]||'Emplacement');
-    const render=()=>{
-      const sid=String(subject.value||''),q=String(search.value||'').trim().toLocaleLowerCase('fr'),allowed=subjectNodes.get(sid)||new Set();
-      const available=activeNodes.filter(n=>allowed.has(String(n.id))).map(n=>({n,path:pathFor(n)})).filter(x=>!q||(x.path+' '+x.n.legacy_path+' '+typeLabel(x.n.node_type)).toLocaleLowerCase('fr').includes(q));
-      list.innerHTML=available.length?available.map(x=>'<label class="cf-place-item"><input type="checkbox" data-cf-node="'+safe(x.n.id)+'" '+(selected.has(String(x.n.id))?'checked':'')+'><span>'+safe(x.path)+'<small>'+safe(typeLabel(x.n.node_type))+(x.n.legacy_path?' · '+safe(x.n.legacy_path):'')+'</small></span></label>').join(''):'<div class="cf-place-empty">Aucun emplacement actif associé à cette matière.</div>';
-      count.textContent=selected.size+' sélectionné'+(selected.size>1?'s':'');
-      submit.disabled=selected.size<1||!subject.value||!resource.value;
-      submit.textContent=selected.size?'Valider et publier dans '+selected.size+' emplacement'+(selected.size>1?'s':''):'Choisis au moins un emplacement';
+    modal.querySelectorAll('[data-cf-place-close]').forEach(button=>button.addEventListener('click',close));
+    const selectedPathNode=()=>pathSelection.length?nodeMap.get(String(pathSelection[pathSelection.length-1]))||null:null;
+
+    const renderPathSelectors=()=>{
+      pathBox.innerHTML='';
+      let available=roots;
+      const retained=[];
+      for(let depth=0;depth<24&&available.length;depth++){
+        const requested=String(pathSelection[depth]||'');
+        const chosen=available.find(n=>String(n.id)===requested)||null;
+        if(chosen)retained[depth]=String(chosen.id);
+        const wrapper=document.createElement('label');
+        wrapper.className='cf-place-field';
+        const label=document.createElement('span');
+        label.textContent=depth===0?'Niveau ou parcours':(depth===1?'Cycle / enseignement':'Étape '+(depth+1));
+        const select=document.createElement('select');
+        select.dataset.cfPlaceDepth=String(depth);
+        select.setAttribute('aria-label',label.textContent);
+        const empty=document.createElement('option');
+        empty.value='';empty.textContent=depth===0?'Choisir un parcours…':'Choisir une étape…';
+        select.appendChild(empty);
+        available.forEach(node=>{
+          const option=document.createElement('option');option.value=String(node.id);option.textContent=String(node.name||'Emplacement');
+          select.appendChild(option);
+        });
+        select.value=chosen?String(chosen.id):'';
+        wrapper.appendChild(label);wrapper.appendChild(select);pathBox.appendChild(wrapper);
+        if(!chosen)break;
+        available=childrenOf(chosen.id);
+      }
+      pathSelection=retained;
     };
-    subject.addEventListener('change',()=>{selected.clear();render();});
-    search.addEventListener('input',render);resource.addEventListener('change',render);
-    list.addEventListener('change',e=>{const box=e.target?.closest?.('[data-cf-node]');if(!box)return;if(box.checked)selected.add(String(box.dataset.cfNode));else selected.delete(String(box.dataset.cfNode));render();});
-    render();
-    modal.querySelector('#cfPlacementForm').addEventListener('submit',async e=>{
-      e.preventDefault();
-      const sid=String(subject.value||''),res=String(resource.value||''),allowed=subjectNodes.get(sid)||new Set();
-      const targets=[...selected].filter(nid=>allowed.has(nid)).map(node_id=>({node_id,subject_id:sid,resource_type:res}));
-      if(!targets.length){alert('Choisis au moins un emplacement valide.');return;}
+    const renderSubjects=()=>{
+      const current=String(subject.value||initialSubject||'');
+      const node=selectedPathNode(),isLeaf=!!node&&childrenOf(node.id).length===0;
+      const linked=node?nodeSubjects.get(String(node.id))||new Set():new Set();
+      const candidates=isLeaf?activeSubjects.filter(item=>linked.has(String(item.id))):activeSubjects;
+      subject.innerHTML='<option value="">Choisir une matière…</option>'+candidates.map(item=>'<option value="'+safe(item.id)+'">'+safe(item.name)+'</option>').join('');
+      if(candidates.some(item=>String(item.id)===current))subject.value=current;
+      else subject.value=candidates.length?String(candidates[0].id):'';
+    };
+    const renderTargets=()=>{
+      const items=[...selectedTargets.entries()];
+      targetCount.textContent='('+items.length+')';
+      if(!items.length)targetList.innerHTML='<div class="cf-place-empty">Aucun emplacement ajouté. Sélectionne un parcours complet, une matière et un type, puis clique sur « Ajouter cet emplacement ».</div>';
+      else targetList.innerHTML=items.map(([key,target])=>{
+        const node=nodeMap.get(String(target.node_id)),sub=subjectMap.get(String(target.subject_id));
+        return '<article class="cf-place-target"><div class="cf-place-target-main"><strong>'+safe(pathFor(target.node_id)||node?.name||'Emplacement')+'</strong><small>'+safe(sub?.name||'Matière')+' · '+safe(target.resource_type)+'</small></div><button type="button" class="cf-place-target-remove" data-cf-place-remove="'+safe(encodeURIComponent(key))+'" aria-label="Retirer cet emplacement">Retirer</button></article>';
+      }).join('');
+      submit.disabled=selectedTargets.size<1;
+      submit.textContent=selectedTargets.size?'Publier dans '+selectedTargets.size+' emplacement'+(selectedTargets.size>1?'s':''):'Ajouter au moins un emplacement';
+    };
+    const updateCurrentPathState=()=>{
+      const node=selectedPathNode(),leaf=!!node&&childrenOf(node.id).length===0;
+      const linked=node?nodeSubjects.get(String(node.id))||new Set():new Set();
+      const valid=!!node&&leaf&&!!subject.value&&linked.has(String(subject.value))&&types.includes(String(resource.value));
+      pathSummary.textContent=!node?'Choisis le parcours depuis la racine.':(!leaf
+        ?pathFor(node.id)+' · sélectionne le niveau suivant pour préciser la classe ou la branche finale.'
+        :pathFor(node.id)+' · '+(subjectMap.get(String(subject.value))?.name||'Matière à choisir')+' · '+resource.value);
+      addTarget.disabled=!valid;
+      addTarget.title=valid?'Ajouter cet emplacement à la publication':(!node?'Choisis un parcours.':(!leaf?'Poursuis jusqu’au dernier niveau disponible.':'Choisis une matière liée à cet emplacement.'));
+      renderTargets();
+    };
+    pathBox.addEventListener('change',event=>{
+      const select=event.target?.closest?.('[data-cf-place-depth]');if(!select)return;
+      const depth=Number(select.dataset.cfPlaceDepth);
+      pathSelection=pathSelection.slice(0,depth);
+      if(select.value)pathSelection[depth]=String(select.value);
+      renderPathSelectors();renderSubjects();updateCurrentPathState();
+    });
+    subject.addEventListener('change',updateCurrentPathState);
+    resource.addEventListener('change',updateCurrentPathState);
+    addTarget.addEventListener('click',()=>{
+      const node=selectedPathNode();if(!node||childrenOf(node.id).length)return;
+      const subjectId=String(subject.value||''),resourceType=String(resource.value||'');
+      if(!subjectMap.has(subjectId)||!nodeSubjects.get(String(node.id))?.has(subjectId)||!types.includes(resourceType))return;
+      const target={node_id:String(node.id),subject_id:subjectId,resource_type:resourceType};
+      selectedTargets.set(keyFor(target),target);updateCurrentPathState();
+    });
+    targetList.addEventListener('click',event=>{
+      const button=event.target?.closest?.('[data-cf-place-remove]');if(!button)return;
+      try{selectedTargets.delete(decodeURIComponent(button.dataset.cfPlaceRemove||''));}catch(_){}
+      renderTargets();
+    });
+
+    renderPathSelectors();renderSubjects();
+    if(initialSubject&&[...subject.options].some(option=>option.value===initialSubject))subject.value=initialSubject;
+    updateCurrentPathState();
+    modal.querySelector('#cfPlacementForm').addEventListener('submit',async event=>{
+      event.preventDefault();
+      const targets=[...selectedTargets.values()].filter(target=>
+        nodeMap.has(String(target.node_id))&&subjectMap.has(String(target.subject_id))
+        &&nodeSubjects.get(String(target.node_id))?.has(String(target.subject_id))
+        &&types.includes(String(target.resource_type))
+      );
+      if(!targets.length){alert('Ajoute au moins un emplacement pédagogique complet et associé à une matière.');return;}
       submit.disabled=true;submit.setAttribute('aria-busy','true');submit.textContent='Publication en cours…';
       try{
-        await rpc('aurora_publish_generated_document_to_places',{p_generated_document_id:docId,p_targets:targets,p_notes:String(modal.querySelector('#cfPlaceNotes')?.value||'').trim()||null});
+        await rpc('aurora_publish_generated_document_to_places',{
+          p_generated_document_id:docId,
+          p_targets:targets.map(t=>({node_id:t.node_id,subject_id:t.subject_id,resource_type:t.resource_type})),
+          p_notes:String(modal.querySelector('#cfPlaceNotes')?.value||'').trim()||null
+        });
         close();await charger();
-        alert('Publication validée dans '+targets.length+' emplacement'+(targets.length>1?'s':'')+'. Les versions Aurore existantes aux mêmes emplacements sont remplacées.');
-      }catch(error){submit.removeAttribute('aria-busy');render();alert('Publication impossible. '+String(error?.message||error));}
+        alert('Publication validée dans '+targets.length+' emplacement'+(targets.length>1?'s':'')+'. Les documents Aurore existants aux mêmes emplacements sont remplacés sans doublon.');
+      }catch(error){
+        submit.removeAttribute('aria-busy');updateCurrentPathState();
+        alert('Publication impossible. '+String(error?.message||error));
+      }
     });
-    subject.focus();
   }catch(error){modal?.remove();throw error;}
 }
-
 async function publishDoc(id){if(!confirm('Publier ce document dans la bibliothèque publique Aurore ?\n\nCette action crée un document publié à partir du PDF validé.'))return;const n=prompt('Note de publication (facultatif) :','');if(n===null)return;try{await rpc('aurora_publish_generated_document',{p_generated_document_id:Number(id),p_notes:n||null});await charger();alert('Document publié dans la bibliothèque Aurore.')}catch(e){alert('Publication impossible. '+(e.message||e))}}
 function apply(){
   const q=(document.getElementById('adminSearchContentFactory')?.value||'').trim().toLowerCase(),
