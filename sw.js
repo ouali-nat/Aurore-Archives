@@ -15,7 +15,7 @@
    aurore-covers (couvertures), aurore-pdf-ouverts (PDF).
 */
 
-const SW_VERSION = 'v23-guided-cascade-dark-20261016';
+const SW_VERSION = 'v24-publication-cascade-dark-20261016';
 
 const PAGE_CACHE = 'aurore-shell';
 const STATIC_CACHE = 'aurore-static';
