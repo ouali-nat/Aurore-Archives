@@ -1523,6 +1523,7 @@ async function openPlacementForm(id){
     const activeNodes=nodes.filter(n=>n.active!==false);
     const activeSubjects=subjects.filter(v=>v.active!==false);
     const nodeMap=new Map(activeNodes.map(n=>[String(n.id),n]));
+    const nodeByLegacyPath=new Map(activeNodes.filter(n=>String(n.legacy_path||'').trim()).map(n=>[String(n.legacy_path).trim(),n]));
     const subjectMap=new Map(activeSubjects.map(v=>[String(v.id),v]));
     const childMap=new Map();
     activeNodes.forEach(n=>{
@@ -1569,8 +1570,11 @@ async function openPlacementForm(id){
     };
     const pathFor=nodeId=>{
       const names=[];let current=nodeMap.get(String(nodeId||'')),depth=0;
-      while(current&&depth++<24){names.unshift(current.name);current=current.parent_id?nodeMap.get(String(current.parent_id)):null;}
-      return names.join(' › ');
+      while(current&&depth++<24){
+        if(!['serie','series'].includes(String(current.node_type||'').trim().toLowerCase()))names.unshift(current.name);
+        current=current.parent_id?nodeMap.get(String(current.parent_id)):null;
+      }
+      return names.join(' · ');
     };
     const safe=value=>esc(String(value==null?'':value));
     const keyFor=t=>String(t.node_id)+'|'+String(t.subject_id)+'|'+canonicalResource(t.resource_type);
@@ -1585,8 +1589,10 @@ async function openPlacementForm(id){
     const firstTarget=selectedTargets.values().next().value||null;
     const inferred=/qcm|quiz/i.test(type)?'QCM':/exercice|devoir/i.test(type)?'Exercices':/révision|revision/i.test(type)?'Fiche de révision':/cours_assiste|cours|lecon/i.test(type)?'Fiche de cours':'Document';
     const initialPathIds=firstTarget?pathIdsFor(firstTarget.node_id):[];
-    let selectedLevelId=initialPathIds[0]||'';
-    let selectedLeafId=initialPathIds.length?initialPathIds[initialPathIds.length-1]:'';
+    const initialLeafNode=initialPathIds.length?nodeMap.get(String(initialPathIds[initialPathIds.length-1]))||null:null;
+    let selectedLeafId=initialLeafNode?String(initialLeafNode.id):'';
+    let selectedLeafLegacyPath=String(initialLeafNode?.legacy_path||'');
+    let selectedLevelId=selectedLeafLegacyPath.split('/').filter(Boolean)[0]||String(nodeMap.get(String(initialPathIds[0]||''))?.metadata?.compat?.legacy_id||'');
     let routeChoices=[];
     const initialType=firstTarget?firstTarget.resource_type:inferred;
     const initialSubject=firstTarget?firstTarget.subject_id:'';
@@ -1613,7 +1619,7 @@ async function openPlacementForm(id){
             '<div class="cf-place-step-heading"><span class="cf-place-step-num">01</span><div><strong>La ressource</strong><small>Ce que tu veux faire produire</small></div></div>'+
             '<p class="cf-place-section-help">Le titre provient du document déjà produit par l’éditeur pédagogique. Aucun nouveau titre n’est demandé ici.</p>'+
             '<div class="cf-place-fields">'+
-              '<label class="cf-place-field"><span>Type de ressource</span><select id="cfPlaceType">'+types.map(t=>'<option value="'+safe(t)+'"'+(t===initialType?' selected':'')+'>'+safe(placementResourceLabels[t]||t)+'</option>').join('')+'</select></label>'+
+              '<label class="cf-place-field"><span>Type de ressource</span><select id="cfPlaceType" data-native-select="true">'+types.map(t=>'<option value="'+safe(t)+'"'+(t===initialType?' selected':'')+'>'+safe(placementResourceLabels[t]||t)+'</option>').join('')+'</select></label>'+
               '<label class="cf-place-field"><span>Source pédagogique <em>(optionnel)</em></span><input id="cfPlaceReference" type="text" maxlength="500" placeholder="Manuel, chapitre, programme…" value="'+safe(meta.reference||meta.editorial?.reference||meta.classification?.reference||meta.pedagogical_source||meta.source_pedagogique||'')+'"></label>'+
             '</div>'+
             '<div class="cf-place-document"><span class="cf-place-document-kicker">Document à publier</span><strong>'+safe(doc.title||'Document sans titre')+'</strong><small>'+safe(doc.document_type||'Document')+' · PDF complet'+(finalInfo?.page_count?' · '+Number(finalInfo.page_count)+' pages':'')+' · Version '+Number(doc.version||1)+'</small></div>'+
@@ -1623,10 +1629,10 @@ async function openPlacementForm(id){
             '<p class="cf-place-section-help">Les valeurs viennent du catalogue pédagogique Aurore. La matière proposée dépend du parcours final sélectionné.</p>'+
             '<div class="cf-place-school-grid">'+
               '<div class="cf-place-level-controls">'+
-                '<label class="cf-place-field"><span>Niveau</span><select id="cfPlaceLevel"><option value="">Choisir un niveau…</option></select></label>'+
-                '<label class="cf-place-field"><span>Parcours / emplacement</span><select id="cfPlaceRoute" disabled><option value="">Choisis d’abord un niveau…</option></select></label>'+
+                '<label class="cf-place-field"><span>Niveau</span><select id="cfPlaceLevel" data-native-select="true"><option value="">Choisir un niveau…</option></select></label>'+
+                '<label class="cf-place-field"><span>Parcours / emplacement</span><select id="cfPlaceRoute" data-native-select="true" disabled><option value="">Choisis d’abord un niveau…</option></select></label>'+
               '</div>'+
-              '<label class="cf-place-field"><span>Matière</span><select id="cfPlaceSubject" disabled><option value="">Choisis d’abord un parcours…</option></select></label>'+
+              '<label class="cf-place-field"><span>Matière</span><select id="cfPlaceSubject" data-native-select="true" disabled><option value="">Choisis d’abord un parcours…</option></select></label>'+
             '</div>'+
             '<p class="cf-place-current-path" id="cfPlacePathSummary" aria-live="polite">Aucun parcours sélectionné.</p>'+
             '<button type="button" class="cf-place-add" id="cfPlaceAddTarget" disabled>＋ Ajouter cet emplacement</button>'+
@@ -1650,53 +1656,98 @@ async function openPlacementForm(id){
     document.addEventListener('keydown',onKey);
     modal.querySelectorAll('[data-cf-place-close]').forEach(button=>button.addEventListener('click',close));
     const selectedPathNode=()=>selectedLeafId?nodeMap.get(String(selectedLeafId))||null:null;
-    const leafRoutesFor=rootId=>{
-      const root=nodeMap.get(String(rootId||''));
-      if(!root)return [];
+    const editorialCatalogRoots=Array.isArray(window.AURORE_CATALOG_NIVEAUX)?window.AURORE_CATALOG_NIVEAUX:[];
+    const catalogChildren=node=>{
+      if(!node)return null;
+      if(Array.isArray(node.sousNiveaux))return node.sousNiveaux;
+      if(Array.isArray(node.troncCommuns))return [...node.troncCommuns,...(Array.isArray(node.series)?node.series:[])];
+      if(Array.isArray(node.series))return node.series;
+      if(Array.isArray(node.classes))return node.classes;
+      if(Array.isArray(node.enfants))return node.enfants;
+      return null;
+    };
+    const catalogLeafRoutes=root=>{
       const out=[];
-      const walk=(node,path,visited)=>{
+      const walk=(node,path,display)=>{
         if(!node)return;
-        const id=String(node.id);
-        if(visited.has(id))return;
-        const nextPath=[...path,node],nextVisited=new Set(visited);
-        nextVisited.add(id);
-        const children=childrenOf(id);
-        if(!children.length){
-          const visible=nextPath.filter(part=>!['serie','series'].includes(String(part.node_type||'').trim().toLowerCase()))
-            .map(part=>String(part.name||'').trim()).filter(Boolean);
-          out.push({leaf:node,path:nextPath,label:visible.join(' · ')||nextPath.map(part=>String(part.name||'').trim()).filter(Boolean).join(' · ')});
+        const nextPath=[...path,node];
+        const isSerie=node.type==='serie';
+        const nextDisplay=isSerie?display:[...display,String(node.nom||'').trim()].filter(Boolean);
+        const kids=catalogChildren(node);
+        if(!kids){
+          const legacyPath=nextPath.map(part=>String(part?.id||part?.nom||'').trim()).filter(Boolean).join('/');
+          const dbNode=nodeByLegacyPath.get(legacyPath)||null;
+          out.push({leaf:node,path:nextPath,label:nextDisplay.join(' · '),legacyPath,dbNode});
           return;
         }
-        children.forEach(child=>walk(child,nextPath,nextVisited));
+        kids.forEach(child=>walk(child,nextPath,nextDisplay));
       };
-      walk(root,[],new Set());
-      return out;
+      walk(root,[],[]);
+      const seen=new Set();
+      return out.filter(choice=>{
+        const key=String(choice.path.map(node=>node?.id||node?.nom).join('/'));
+        if(seen.has(key))return false;
+        seen.add(key);
+        return true;
+      });
+    };
+    const normalizeCatalogSubject=value=>String(value||'').trim()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('fr-FR');
+    const catalogSubjectNames=leaf=>{
+      const raw=Array.isArray(leaf?.matieres)?leaf.matieres:
+        (typeof MATIERES!=='undefined'&&Array.isArray(MATIERES)?MATIERES:[]);
+      const base=typeof matieresAvecAutres==='function'
+        ?matieresAvecAutres(raw)
+        :[...raw,...(raw.some(value=>normalizeCatalogSubject(typeof value==='string'?value:value?.nom)==='autres')?[]:[{nom:'Autres'}])];
+      return [...new Set(base.map(value=>typeof value==='string'?value:(value?.nom||''))
+        .map(value=>String(value||'').trim()).filter(Boolean))]
+        .sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));
     };
     const renderPathSelectors=()=>{
       const currentLevel=String(selectedLevelId||levelPicker.value||'');
-      levelPicker.innerHTML='<option value="">Choisir un niveau…</option>'+roots.map(node=>'<option value="'+safe(node.id)+'">'+safe(node.name)+'</option>').join('');
+      const roots=editorialCatalogRoots;
+      levelPicker.innerHTML='<option value="">Choisir un niveau…</option>'+
+        roots.map(node=>'<option value="'+safe(node.id)+'">'+safe(node.nom)+'</option>').join('');
       selectedLevelId=roots.some(node=>String(node.id)===currentLevel)?currentLevel:'';
       levelPicker.value=selectedLevelId;
-      routeChoices=selectedLevelId?leafRoutesFor(selectedLevelId):[];
+      const selectedRoot=roots.find(node=>String(node.id)===selectedLevelId)||null;
+      routeChoices=selectedRoot
+        ?catalogLeafRoutes(selectedRoot).filter(choice=>!!choice.dbNode)
+        :[];
       routePicker.innerHTML='<option value="">'+(selectedLevelId?'Choisir un parcours…':'Choisis d’abord un niveau…')+'</option>'+
         routeChoices.map((choice,index)=>'<option value="'+index+'">'+safe(choice.label)+'</option>').join('');
       routePicker.disabled=!selectedLevelId||!routeChoices.length;
-      const matchingIndex=routeChoices.findIndex(choice=>String(choice.leaf.id)===String(selectedLeafId||''));
+      const matchingIndex=routeChoices.findIndex(choice=>
+        String(choice.dbNode?.id||'')===String(selectedLeafId||'')||
+        String(choice.legacyPath||'')===String(selectedLeafLegacyPath||'')
+      );
       if(matchingIndex<0){
         selectedLeafId='';
+        selectedLeafLegacyPath='';
         routePicker.value='';
       }else{
         routePicker.value=String(matchingIndex);
-        selectedLeafId=String(routeChoices[matchingIndex].leaf.id);
+        selectedLeafId=String(routeChoices[matchingIndex].dbNode.id);
+        selectedLeafLegacyPath=String(routeChoices[matchingIndex].legacyPath);
       }
     };
     const renderSubjects=(preferInitial=false)=>{
       const current=String(subject.value||(preferInitial?initialSubject:'')||'');
       const node=selectedPathNode();
       const linked=node?nodeSubjects.get(String(node.id))||new Set():new Set();
-      const candidates=node&&childrenOf(node.id).length===0?activeSubjects.filter(item=>linked.has(String(item.id))):[];
+      const selectedRoute=routeChoices.find(choice=>
+        String(choice.dbNode?.id||'')===String(selectedLeafId||'')
+      )||null;
+      const names=selectedRoute?catalogSubjectNames(selectedRoute.leaf):[];
+      const candidates=names.map(label=>{
+        const norm=normalizeCatalogSubject(label);
+        const item=activeSubjects.find(value=>
+          normalizeCatalogSubject(value.name)===norm&&linked.has(String(value.id))
+        );
+        return item?{...item,catalogLabel:label}:null;
+      }).filter(Boolean);
       subject.innerHTML='<option value="">'+(node?'Choisir une matière…':'Choisis d’abord un parcours…')+'</option>'+
-        candidates.map(item=>'<option value="'+safe(item.id)+'">'+safe(item.name)+'</option>').join('');
+        candidates.map(item=>'<option value="'+safe(item.id)+'">'+safe(item.catalogLabel)+'</option>').join('');
       subject.disabled=!node||!candidates.length;
       subject.value=candidates.some(item=>String(item.id)===current)?current:'';
     };
@@ -1715,9 +1766,10 @@ async function openPlacementForm(id){
       const node=selectedPathNode(),leaf=!!node&&childrenOf(node.id).length===0;
       const linked=node?nodeSubjects.get(String(node.id))||new Set():new Set();
       const valid=!!node&&leaf&&!!subject.value&&linked.has(String(subject.value))&&types.includes(String(resource.value));
+      const selectedRoute=routeChoices.find(choice=>String(choice.dbNode?.id||'')===String(node?.id||''))||null;
       pathSummary.textContent=!node
         ?(selectedLevelId?'Choisis d’abord un parcours…':'Aucun parcours sélectionné.')
-        :pathFor(node.id)+' · '+(subjectMap.get(String(subject.value))?.name||'Choisis une matière…')+' · '+(placementResourceLabels[String(resource.value)]||String(resource.value||'Type de ressource'));
+        :(selectedRoute?.label||pathFor(node.id))+' · '+(subjectMap.get(String(subject.value))?.name||'Choisis une matière…')+' · '+(placementResourceLabels[String(resource.value)]||String(resource.value||'Type de ressource'));
       addTarget.disabled=!valid;
       addTarget.title=valid?'Ajouter cet emplacement à la publication':(!selectedLevelId?'Choisis un niveau.':(!node?'Choisis un parcours.':(!leaf?'Sélectionne le parcours final.':'Choisis une matière associée à ce parcours.')));
       renderTargets();
@@ -1725,12 +1777,14 @@ async function openPlacementForm(id){
     levelPicker.addEventListener('change',()=>{
       selectedLevelId=String(levelPicker.value||'');
       selectedLeafId='';
+      selectedLeafLegacyPath='';
       subject.value='';
       renderPathSelectors();renderSubjects();updateCurrentPathState();
     });
     routePicker.addEventListener('change',()=>{
       const choice=routePicker.value!==''?routeChoices[Number(routePicker.value)]:null;
-      selectedLeafId=choice?String(choice.leaf.id):'';
+      selectedLeafId=choice?.dbNode?String(choice.dbNode.id):'';
+      selectedLeafLegacyPath=choice?String(choice.legacyPath||''):'';
       subject.value='';
       renderSubjects();updateCurrentPathState();
     });
