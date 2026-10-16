@@ -371,7 +371,7 @@ function cfRenderCascade(){
   };
   const firstChildren=renderChildren(route,selectedRoot,selectedRoot?'Choisir un parcours / emplacement…':'Choisis d’abord un niveau…',cfCreatePath[1]||null);
   zone.querySelectorAll('[data-cf-depth]').forEach(el=>el.remove());
-  let parent=firstChildren[Number(route.value)]||null;
+  let parent=route.value!==''?(firstChildren[Number(route.value)]||null):null;
   for(let depth=2;parent;depth++){
     const children=cfChildren(parent);
     if(!children||!children.length)break;
