@@ -726,6 +726,10 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <span aria-hidden="true" class="google-mark">G</span><span aria-hidden="true" class="google-spinner"></span>
 <span><strong>Continuer avec Google</strong><small>Accès recommandé à votre espace personnel</small></span>
 </button>
+<button aria-label="Continuer avec Aurore ID" class="access-google-btn" id="accessAuroreIdBtn" type="button">
+<span aria-hidden="true" class="google-mark">ID</span><span aria-hidden="true" class="google-spinner"></span>
+<span><strong>Continuer avec Aurore ID</strong><small>Un accès unique pour les services Aurore</small></span>
+</button>
 </div>
 </section>
 <section aria-label="Autres façons d'accéder à Aurore" class="access-panel access-panel-alt">
@@ -2366,6 +2370,35 @@ body:not(.site-locked) #accessLock{display:none!important;}
       auroreConnexionGoogleEnCours = false;
     }
   }
+  // Connexion centralisée Aurore ID via le fournisseur OIDC personnalisé.
+  // Le client Supabase et le retour PKCE restent identiques au parcours Google.
+  async function demarrerConnexionAuroreID() {
+    if (auroreConnexionGoogleEnCours) return;
+    auroreConnexionGoogleEnCours = true;
+    try {
+      const retour = window.location.origin + window.location.pathname;
+      try { window.localStorage.removeItem('sb-tdeotqfsbvouresfhkab-auth-token-code-verifier'); } catch (_) {}
+      const client = await assurerClientAuthGoogle();
+      if (!client) throw new Error('Impossible de joindre le service de connexion (réseau bloqué ou instable).');
+      const { error } = await client.auth.signInWithOAuth({
+        provider: 'custom:aurore-id',
+        options: { redirectTo: retour }
+      });
+      if (error) throw error;
+    } catch (error) {
+      console.error('[Aurore ID OAuth]', error);
+      window.auroreAfficherErreurDebug?.('[Connexion Aurore ID] ' + (error?.message || error));
+      const msg = document.getElementById('accessMessage');
+      if (msg) {
+        msg.textContent = 'Impossible de démarrer la connexion Aurore ID. Vérifiez votre connexion puis réessayez.';
+        msg.className = 'access-message err';
+        msg.style.display = 'block';
+      }
+      if (typeof window.auroreCacherVeuillezPatienter === 'function') window.auroreCacherVeuillezPatienter();
+      auroreConnexionGoogleEnCours = false;
+    }
+  }
+
   async function recupererUtilisateur(access_token) {
     // Auth est prioritaire : l'ouverture du site ne doit pas rester bloquée par
     // une lecture secondaire de Profils. Le timeout protège aussi les mobiles
