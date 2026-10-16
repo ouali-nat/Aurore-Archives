@@ -184,3 +184,34 @@
 .personal-history-delete{width:30px;height:30px;border:1px solid var(--bordure);background:var(--fond);color:var(--gris);border-radius:9px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;line-height:1;}
 .personal-history-delete:hover{color:var(--rouge);border-color:rgba(198,67,47,.35);background:rgba(198,67,47,.07);}
 
+
+
+/* Dépôt public : les sélecteurs de parcours gardent contraste et lisibilité en thème clair. */
+[data-theme="light"] #depotFormCard{
+  background:var(--papier,#fff)!important;color:var(--encre,#211d2e)!important;
+  border-color:var(--bordure,#e2ddf0)!important;
+}
+[data-theme="light"] #depotFormCard :is(label,.form-row,.helper-text,.description){
+  color:var(--encre,#211d2e)!important;
+}
+[data-theme="light"] #depotFormCard .form-row input,
+[data-theme="light"] #depotFormCard .form-row select,
+[data-theme="light"] #depotFormCard .form-row textarea,
+[data-theme="light"] #depotFormCard #f_cascade select{
+  width:100%;box-sizing:border-box;background:var(--papier,#fff)!important;
+  color:var(--encre,#211d2e)!important;border-color:var(--bordure,#e2ddf0)!important;
+}
+[data-theme="light"] #depotFormCard #f_cascade select:focus{
+  border-color:var(--violet)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--violet) 16%,transparent)!important;
+}
+[data-theme="light"] #depotFormCard .form-msg.ok{background:#ECFDF3!important;color:#166534!important;border-color:#86EFAC!important}
+[data-theme="light"] #depotFormCard .form-msg.err{background:#FEF2F2!important;color:#991B1B!important;border-color:#FCA5A5!important}
+[data-theme="light"] #depotFormCard .form-submit:disabled{background:#D9D2E8!important;color:#605872!important;opacity:1}
+[data-theme="light"] #adminListReclamations .admin-card[data-admin-status="traite"],
+[data-theme="light"] .admin-status-chip[data-status="traite"],
+[data-theme="light"] .status-badge[data-status="traite"]{
+  background:#EEF2F7!important;color:#344054!important;border-color:#D0D5DD!important;
+}
+[data-theme="light"] #adminListReclamations [data-action="traite"]{
+  background:#F1ECFA!important;color:#211D2E!important;border-color:#DCD4EE!important;
+}
