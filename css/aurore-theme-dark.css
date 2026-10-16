@@ -297,3 +297,82 @@
   [data-theme="dark"] .cf-create-box{padding:14px!important}
   [data-theme="dark"] .cf-admin-card{padding:13px!important}
 }
+
+/* Archives des cours terminés — contrat de contraste complet en thème sombre.
+   S'applique autant au panneau administratif dédié qu'à la liste de l'édition assistée. */
+[data-theme="dark"] #admin-panel-assisted-completed .ae-completed-admin-shell{
+  --ae-bg:var(--dark-surface,#11101c);
+  --ae-ink:var(--dark-ink,#f7f5ff);
+  background:linear-gradient(145deg,#11101c 0%,#151326 100%)!important;
+  color:#f7f5ff!important;
+  border-color:#3a3452!important;
+  box-shadow:0 12px 34px rgba(0,0,0,.26)!important;
+}
+[data-theme="dark"] #admin-panel-assisted-completed .ae-completed-admin-head h3,
+[data-theme="dark"] #admin-panel-assisted-completed .ae-completed-admin-head strong{
+  color:#f7f5ff!important;
+}
+[data-theme="dark"] #admin-panel-assisted-completed .ae-completed-admin-head p,
+[data-theme="dark"] #admin-panel-assisted-completed .ae-completed-admin-head .ae-kicker{
+  color:#c4bdd7!important;
+}
+[data-theme="dark"] #admin-panel-assisted-completed .ae-list-actions{
+  border-color:#302b45!important;
+}
+[data-theme="dark"] :is(#assistedRoot,#assistedCompletedArchiveRoot) .ae-course-card-completed{
+  background:linear-gradient(145deg,#11101c 0%,#18152b 100%)!important;
+  color:#f7f5ff!important;
+  border-color:#484061!important;
+  box-shadow:0 10px 28px rgba(0,0,0,.28)!important;
+}
+[data-theme="dark"] :is(#assistedRoot,#assistedCompletedArchiveRoot) .ae-course-card-completed h4{
+  color:#f7f5ff!important;
+}
+[data-theme="dark"] :is(#assistedRoot,#assistedCompletedArchiveRoot) .ae-course-card-completed p,
+[data-theme="dark"] :is(#assistedRoot,#assistedCompletedArchiveRoot) .ae-course-card-completed .ae-course-card-top>span:not(.ae-course-status){
+  color:#c4bdd7!important;
+}
+[data-theme="dark"] :is(#assistedRoot,#assistedCompletedArchiveRoot) .ae-course-card-completed .ae-course-status{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:6px 9px;
+  border:1px solid #285c42!important;
+  border-radius:999px;
+  background:#102a20!important;
+  color:#a7f3d0!important;
+  font-weight:900;
+  letter-spacing:.035em;
+}
+[data-theme="dark"] :is(#assistedRoot,#assistedCompletedArchiveRoot) .ae-course-card-completed .ae-course-actions .admin-btn.primary{
+  background:var(--theme-primary,#7c3aed)!important;
+  border-color:var(--theme-primary,#7c3aed)!important;
+  color:#fff!important;
+}
+[data-theme="dark"] :is(#assistedRoot,#assistedCompletedArchiveRoot) .ae-course-card-completed .ae-course-actions .admin-btn.ghost{
+  background:#1c1930!important;
+  color:#f7f5ff!important;
+  border-color:#484061!important;
+}
+[data-theme="dark"] :is(#assistedRoot,#assistedCompletedArchiveRoot) .ae-course-card-completed .ae-course-actions .admin-btn.danger{
+  background:#32171f!important;
+  color:#fecdd3!important;
+  border-color:#71303f!important;
+}
+[data-theme="dark"] #admin-panel-assisted-completed .ae-empty,
+[data-theme="dark"] #assistedCompletedArchiveRoot .ae-empty{
+  background:#17142a!important;
+  color:#d1cbe0!important;
+  border-color:#484061!important;
+}
+[data-theme="dark"] #admin-panel-assisted-completed :is(button,input,select,textarea):focus-visible,
+[data-theme="dark"] :is(#assistedRoot,#assistedCompletedArchiveRoot) .ae-course-card-completed :is(button,a):focus-visible{
+  outline:2px solid #c4b5fd!important;
+  outline-offset:2px!important;
+}
+[data-theme="dark"] #admin-panel-assisted-completed .ae-status{
+  background:#211d38!important;
+  color:#ddd6fe!important;
+  border-color:#4c4270!important;
+}
+
