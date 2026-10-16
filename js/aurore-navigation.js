@@ -270,6 +270,41 @@
     }
   }
 
+  async function ouvrirDocumentAssisteDepuisQr() {
+    const params = new URLSearchParams(window.location.search);
+    const courseId = String(params.get('aurore_assisted_course') || '').trim();
+    if (!courseId) return false;
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(courseId)) {
+      alert('Ce QR code ne contient pas un identifiant de document valide.');
+      return true;
+    }
+    try {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/aurora_resolve_assisted_public_document`, {
+        method: 'POST',
+        headers: { ...HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_course_id: courseId }),
+        cache: 'no-store'
+      });
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      const value = await response.json();
+      const documentId = Number(Array.isArray(value) ? value[0] : value);
+      if (!Number.isSafeInteger(documentId) || documentId < 1) {
+        alert('Ce document assisté n’est pas encore publié ou n’est plus disponible dans la bibliothèque Aurore.');
+        return true;
+      }
+      const next = new URL(window.location.href);
+      next.searchParams.delete('aurore_assisted_course');
+      next.searchParams.set('document', String(documentId));
+      history.replaceState(history.state, '', next.href);
+      await ouvrirDocumentDepuisLienPartage();
+      return true;
+    } catch (error) {
+      console.warn('[Aurore] QR édition assistée', error);
+      alert('Impossible de retrouver ce document pour le moment. Vérifie ta connexion puis réessaie.');
+      return true;
+    }
+  }
+
   window.addEventListener('popstate', async (e)=>{
     // Fermeture volontaire du Laboratoire mathématique : le retour doit rester
     // sur la discussion Aurora, même si l'état précédent ne contient pas les
@@ -346,7 +381,7 @@
   try {
     const paramsInitialisation=new URLSearchParams(location.search);
     const routePubliqueOuRetourAuth=paramsInitialisation.has('sectionShare') ||
-      paramsInitialisation.has('document') || paramsInitialisation.has('code') ||
+      paramsInitialisation.has('document') || paramsInitialisation.has('aurore_assisted_course') || paramsInitialisation.has('code') ||
       paramsInitialisation.has('error') || location.hash.includes('access_token');
     let initialState=history.state && history.state.aurasterNavigation ? history.state : null;
     if(!initialState && !routePubliqueOuRetourAuth) initialState=lireSnapshotNavigationSauvegarde();
@@ -367,9 +402,11 @@
     navigationInitialisee=true;
   } catch(e) {}
 
-  // Les liens ?document=ID sont publics : aucune connexion n’est nécessaire.
-
-  ouvrirDocumentDepuisLienPartage();
+  // Les QR assistés sont résolus vers l’ID public après publication. Les liens ?document=ID restent inchangés.
+  (async()=>{
+    const handled=await ouvrirDocumentAssisteDepuisQr();
+    if(!handled) await ouvrirDocumentDepuisLienPartage();
+  })().catch(error=>console.warn('[Aurore] ouverture lien/QR',error));
 
   async function restaurerSnapshotNavigation(state) {
     if(!state || !state.aurasterNavigation) return false;
@@ -1008,7 +1045,7 @@
   // étaient affichés, au lieu de laisser l'accueil statique prendre le dessus.
   (function auroreRestaurerVueApresRechargement(){
     const params=new URLSearchParams(location.search);
-    if(params.has('sectionShare')||params.has('document')||params.has('code')||
+    if(params.has('sectionShare')||params.has('document')||params.has('aurore_assisted_course')||params.has('code')||
        params.has('error')||location.hash.includes('access_token'))return;
     const snapshot=(history.state&&history.state.aurasterNavigation)
       ? history.state

@@ -1571,7 +1571,7 @@ async function openPlacementForm(id){
       try{
         const savedCourses=await get('/rest/v1/aurora_assisted_courses?select=id,pages&id=eq.'+encodeURIComponent(String(finalInfo.course_id))+'&limit=1');
         const savedTargets=savedCourses[0]?.pages?.course?.workflow?.publication_targets;
-        if(Array.isArray(savedTargets)&&savedTargets.length)previous=savedTargets;
+        if(Array.isArray(savedTargets))previous=savedTargets;
       }catch(error){console.warn('[Content Factory] Anciens emplacements indisponibles.',error);}
     }
 
@@ -1598,6 +1598,7 @@ async function openPlacementForm(id){
       const target={node_id:nodeId,subject_id:subjectId,resource_type:resourceType};
       selectedTargets.set(keyFor(target),target);
     });
+    const originalTargetCount=selectedTargets.size;
     const firstTarget=selectedTargets.values().next().value||null;
     const inferred=/qcm|quiz/i.test(type)?'QCM':/exercice|devoir/i.test(type)?'Exercices':/révision|revision/i.test(type)?'Fiche de révision':/cours_assiste|cours|lecon/i.test(type)?'Fiche de cours':'Document';
     const initialPathIds=firstTarget?pathIdsFor(firstTarget.node_id):[];
@@ -1774,8 +1775,8 @@ async function openPlacementForm(id){
         const node=nodeMap.get(String(target.node_id)),sub=subjectMap.get(String(target.subject_id));
         return '<article class="cf-place-target"><div class="cf-place-target-main"><strong>'+safe(pathFor(target.node_id)||node?.name||'Emplacement')+'</strong><small>'+safe(sub?.name||'Matière')+' · '+safe(placementResourceLabels[target.resource_type]||target.resource_type)+'</small></div><button type="button" class="cf-place-target-remove" data-cf-place-remove="'+safe(encodeURIComponent(key))+'" aria-label="Retirer cet emplacement">Retirer</button></article>';
       }).join('');
-      submit.disabled=selectedTargets.size<1;
-      submit.textContent=selectedTargets.size?'Publier dans '+selectedTargets.size+' emplacement'+(selectedTargets.size>1?'s':''):'Ajouter au moins un emplacement';
+      submit.disabled=selectedTargets.size<1&&originalTargetCount<1;
+      submit.textContent=selectedTargets.size?'Publier dans '+selectedTargets.size+' emplacement'+(selectedTargets.size>1?'s':''):(originalTargetCount?'Retirer tous les emplacements':'Ajouter au moins un emplacement');
     };
     const updateCurrentPathState=()=>{
       const node=selectedPathNode(),leaf=!!node&&childrenOf(node.id).length===0;
@@ -1826,7 +1827,8 @@ async function openPlacementForm(id){
         &&nodeSubjects.get(String(target.node_id))?.has(String(target.subject_id))
         &&types.includes(String(target.resource_type))
       );
-      if(!targets.length){alert('Ajoute au moins un emplacement pédagogique complet et associé à une matière.');return;}
+      if(!targets.length&&originalTargetCount<1){alert('Ajoute au moins un emplacement pédagogique complet et associé à une matière.');return;}
+      if(!targets.length&&originalTargetCount>0&&!confirm('Retirer tous les emplacements publics de ce document ? Le PDF restera conservé dans Content Factory et pourra être republié plus tard.'))return;
       submit.disabled=true;submit.setAttribute('aria-busy','true');submit.textContent='Publication en cours…';
       try{
         await rpc('aurora_publish_generated_document_to_places',{

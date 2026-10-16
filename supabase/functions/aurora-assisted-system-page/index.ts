@@ -18,7 +18,7 @@ const rgbh=(h:string)=>{const s=hex(h).slice(1);return rgb(parseInt(s.slice(0,2)
 const FONT_CACHE=new Map<string,Promise<Uint8Array>>();let LOGO_CACHE:Promise<Uint8Array>|null=null;
 async function bytes(url:string){const r=await fetch(url);if(!r.ok)throw new Error("Ressource indisponible : HTTP "+r.status);return new Uint8Array(await r.arrayBuffer())}
 async function fbytes(k:string){const x=FONT_CACHE.get(k);if(x)return x;const p=bytes(FONT_URLS[k]);FONT_CACHE.set(k,p);return p}
-async function fonts(pdf:any){const [r,b,s,sb]=await Promise.all([fbytes("regular"),fbytes("bold"),fbytes("sans"),fbytes("sansBold")]);return{regular:await pdf.embedFont(r,{subset:true}),bold:await pdf.embedFont(b,{subset:true}),sans:await pdf.embedFont(s,{subset:true}),sansBold:await pdf.embedFont(sb,{subset:true})}}
+async function fonts(pdf:any){const [r,b,s,sb]=await Promise.all([fbytes("regular"),fbytes("bold"),fbytes("sans"),fbytes("sansBold")]);return{regular:await pdf.embedFont(r,{subset:false}),bold:await pdf.embedFont(b,{subset:false}),sans:await pdf.embedFont(s,{subset:false}),sansBold:await pdf.embedFont(sb,{subset:false})}}
 async function logo(pdf:any){if(!LOGO_CACHE)LOGO_CACHE=bytes(LOGO_URL);const b=await LOGO_CACHE;if(b[0]===137&&b[1]===80)return pdf.embedPng(b);if(b[0]===255&&b[1]===216)return pdf.embedJpg(b);throw new Error("Logo Aurore invalide")}
 function wrap(s:string,font:any,size:number,max:number){
   const words=clean(s).split(" ").filter(Boolean),lines:string[]=[];
@@ -214,7 +214,7 @@ function tocRender(pdf:any,p0:any,f:any,l:any,c:string,entries:any[],firstPageNo
   }
   return pages.length;
 }
-async function ending(p:any,pdf:any,f:any,l:any,c:string,title:string,id:number,d:any){
+async function ending(p:any,pdf:any,f:any,l:any,c:string,title:string,id:number,d:any,courseId:string){
   const X=76,W=443,TOP=752;
   const titleLines=wrap(clean(title),f.sans,9.4,385).slice(0,2);
   // Hauteur de carte calculée sur le contenu : plus d'espace vide en bas.
@@ -240,11 +240,14 @@ async function ending(p:any,pdf:any,f:any,l:any,c:string,title:string,id:number,
   let my=top-34;
   for(const line of wrap("Veuillez scanner le QR code pour vérifier cette édition.",f.regular,8.8,290).slice(0,2)){p.drawText(line,{x:BX+14,y:my,font:f.regular,size:8.8,color:rgbh(INK)});my-=12;}
   my-=4;
-  for(const line of wrap("La fusion finale recalculera l’identité et le QR de publication.",f.regular,8,290).slice(0,2)){p.drawText(line,{x:BX+14,y:my,font:f.regular,size:8,color:rgbh(INK3)});my-=11;}
+  for(const line of wrap("Le QR ouvre le document dans la bibliothèque Aurore après publication.",f.regular,8,290).slice(0,2)){p.drawText(line,{x:BX+14,y:my,font:f.regular,size:8,color:rgbh(INK3)});my-=11;}
   // Le QR reste sur une tuile blanche : zone de silence nécessaire à sa lecture.
   const tile=60,tx=BX+BW-14-tile,tY=top-30-tile;
   rounded(p,tx,tY,tile,tile,8,rgbh("#FFFFFF"),rgbh(GRAY_SOFT),.5);
-  const u=await QRCode.toDataURL("https://aurore-section-archives.com/",{margin:0,width:220,errorCorrectionLevel:"M"});
+  const normalizedCourseId=clean(courseId);
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalizedCourseId))throw new Error("Identifiant stable du cours absent : QR de publication impossible à générer.");
+  const qrUrl="https://aurore-section-archives.com/?aurore_assisted_course="+encodeURIComponent(normalizedCourseId);
+  const u=await QRCode.toDataURL(qrUrl,{margin:0,width:220,errorCorrectionLevel:"M"});
   const b=u.split(",")[1],bin=atob(b),a=new Uint8Array(bin.length);
   for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);
   const q=await pdf.embedPng(a);
@@ -335,7 +338,7 @@ Deno.serve(async req=>{
       content_json:{title,system_page:{kind:requestedKind,page_data:data}},
       version:1,status:"generated",
       validation_notes:"Page système indépendante de l’édition assistée · aperçu uniquement.",
-      metadata:{origin:"edition_assistee",assisted_system_page:true,system_page_kind:requestedKind,preview_only:true,publishable:false,
+      metadata:{origin:"edition_assistee",assisted_system_page:true,assisted_system_page_course_id:courseId,system_page_kind:requestedKind,preview_only:true,publishable:false,
         fast_page_status:"queued",fast_page_progress:0,fast_page_stage:"Page système créée · rendu indépendant prêt à démarrer",fast_page_created_at:now},
       theme_color:color,matiere:clean(data.subject)||null
     }).select("id").single();
@@ -361,11 +364,16 @@ Deno.serve(async req=>{
     return out({ok:false,error:"mode create|render|status requis"},400);
   }
   if(!Number.isInteger(id)||id<1)return out({ok:false,error:"generated_document_id requis pour le rendu"},400);
-  const row=await admin.from("aurora_generated_documents").select("id,created_by,title,metadata,content_json,theme_color").eq("id",id).maybeSingle();
+  const row=await admin.from("aurora_generated_documents").select("id,job_id,created_by,title,metadata,content_json,theme_color").eq("id",id).maybeSingle();
   if(row.error)return out({ok:false,error:row.error.message},500);
   if(!row.data||row.data.created_by!==uid)return out({ok:false,error:"Accès refusé"},403);
   const metadata=row.data.metadata&&typeof row.data.metadata==="object"?row.data.metadata:{};
   if(metadata.assisted_system_page!==true)return out({ok:false,error:"Document non reconnu comme page système assistée"},409);
+  let qrCourseId=clean(metadata.assisted_system_page_course_id||"");
+  if(!qrCourseId&&row.data.job_id){
+    const linkedJob=await admin.from("aurora_content_jobs").select("instructions,metadata").eq("id",row.data.job_id).maybeSingle();
+    qrCourseId=clean(linkedJob.data?.instructions?.course_id||linkedJob.data?.instructions?.assisted_system_page?.course_id||linkedJob.data?.metadata?.assisted_system_page?.course_id||"");
+  }
   const data=row.data.content_json?.system_page?.page_data&&typeof row.data.content_json.system_page.page_data==="object"?row.data.content_json.system_page.page_data:{};
   const renderKind=clean(row.data.content_json?.system_page?.kind||metadata.system_page_kind||requestedKind).toLowerCase();
   if(!["cover","toc","end"].includes(renderKind))return out({ok:false,error:"Type de page système invalide"},409);
@@ -383,7 +391,7 @@ Deno.serve(async req=>{
     if(renderKind!=="cover")hf(p,pageNo,f,l,color);
     if(renderKind==="cover")cover(p,f,l,color,row.data.title,data);
     else if(renderKind==="toc")tocCount=tocRender(pdf,p,f,l,color,Array.isArray(data.entries)?data.entries:[],pageNo);
-    else await ending(p,pdf,f,l,color,row.data.title,id,data);
+    else await ending(p,pdf,f,l,color,row.data.title,id,data,qrCourseId);
     await update(id,renderKind,{fast_page_progress:72,fast_page_stage:"PDF indépendant construit"});
     const bin=new Uint8Array(await pdf.save({useObjectStreams:true}));
     const path="aurora-assisted-system-pages/"+uid+"/"+id+"/"+renderKind+".pdf";
