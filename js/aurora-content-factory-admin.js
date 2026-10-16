@@ -1413,13 +1413,19 @@ function cfIsWholeReadyPdf(row){
   const type=String(row?.document_type||'').trim().toLowerCase();
   const status=String(row?.status||'').trim().toLowerCase();
   const m=row?.metadata&&typeof row.metadata==='object'?row.metadata:{};
+  const path=String(row?.pdf_path||'').trim(),url=String(row?.pdf_url||'').trim();
   if(!['generated','review','approved','published'].includes(status))return false;
-  if(['page_assistee','apercu_assiste','apercu_assistee','preview_assistee'].includes(type))return false;
-  if(!String(row?.pdf_path||'').trim()||!String(row?.pdf_url||'').trim())return false;
-  if(m.admin_deleted===true||['queued','processing'].includes(String(m.lualatex_status||m.production_status||'').toLowerCase()))return false;
+  if(!type||/(^|[_ -])(page|fragment|apercu|preview)([_ -]|$)/i.test(type))return false;
+  if(['page_assistee','page_assistee_v2','apercu_assiste','apercu_assistee','preview_assistee','fragment_assiste','page_pdf'].includes(type))return false;
+  if(!path||!url)return false;
+  if(m.admin_deleted===true||m.is_page===true||m.is_preview===true||m.preview_only===true)return false;
+  if(['queued','processing'].includes(String(m.lualatex_status||m.production_status||'').toLowerCase()))return false;
   if(String(m.origin||'').trim().toLowerCase()==='edition_assistee'){
     const finalInfo=cfParseAssistedFinal(m);
-    return type==='cours_assiste'&&String(row.pdf_path).startsWith('aurora-assisted-final-pdfs/')&&!!finalInfo&&Number(finalInfo.page_count||0)>=1;
+    const pageCount=Number(finalInfo?.page_count||finalInfo?.pageCount||0);
+    const finalPath=String(finalInfo?.pdf_path||finalInfo?.pdfPath||path).trim();
+    return type==='cours_assiste'&&path.startsWith('aurora-assisted-final-pdfs/')
+      &&finalPath===path&&!!finalInfo&&pageCount>0&&!!String(finalInfo?.fingerprint||'').trim();
   }
   return true;
 }
@@ -1660,7 +1666,7 @@ async function charger(){
   if(!adminOk()){list.innerHTML='<div class="admin-empty">Cette action est réservée aux administrateurs.</div>';return}
   list.innerHTML='<div class="admin-empty">Chargement…</div>';
   try{
-    const r=await adminInventoryFetch(`${SUPABASE_URL}/rest/v1/aurora_generated_documents?select=id,job_id,created_at,updated_at,created_by,title,subject,matiere,level,class_name,document_type,domaine,formation,specialite,annee,semestre,filiere,theme_color,source_format,pdf_path,pdf_url,version,status,validation_notes,published_document_id,metadata,pdf_diagnostic&order=created_at.desc`,{cache:'no-store'});
+    const r=await adminInventoryFetch(`${SUPABASE_URL}/rest/v1/rpc/admin_list_aurora_generated_documents`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}',cache:'no-store'});
     const t=await r.text();
     if(!r.ok)throw new Error(t||('HTTP '+r.status));
     rows=t?JSON.parse(t):[];
