@@ -383,13 +383,13 @@
         });
       }, {
         root:null,
-        rootMargin:'900px 0px',
+        rootMargin:'250px 0px',
         threshold:0.01
       })
     : null;
 
   let COUVERTURES_ACTIVES = 0;
-  const COUVERTURES_CONCURRENCE = 4;
+  const COUVERTURES_CONCURRENCE = 2;
 
   function traiterFileCouvertures() {
     while (
