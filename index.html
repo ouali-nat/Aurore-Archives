@@ -3189,6 +3189,34 @@ body:not(.site-locked) #accessLock{display:none!important;}
     }
   });
 
+  // Aurore ID : relier explicitement le bouton visible au parcours OAuth centralisé.
+  const btnAuroreIdConnexion=document.getElementById('accessAuroreIdBtn');
+  btnAuroreIdConnexion?.addEventListener('click', async (e) => {
+    const btn=e.currentTarget;
+    if(auroreConnexionGoogleEnCours) return;
+    btn.disabled=true;
+    btn.setAttribute('aria-busy','true');
+    if(typeof window.auroreAfficherVeuillezPatienter==='function'){
+      window.auroreAfficherVeuillezPatienter('Connexion sécurisée avec Aurore ID…');
+    }
+    const accessMsg=document.getElementById('accessMessage');
+    if(accessMsg){
+      accessMsg.textContent='Veuillez patienter — connexion sécurisée avec Aurore ID en cours…';
+      accessMsg.className='access-message ok';
+      accessMsg.style.display='block';
+    }
+    try {
+      await demarrerConnexionAuroreID();
+    } catch(err) {
+      console.error('[Aurore ID OAuth]',err);
+    } finally {
+      if(!auroreConnexionGoogleEnCours){
+        btn.disabled=false;
+        btn.removeAttribute('aria-busy');
+      }
+    }
+  });
+
   const logoutConfirmModal=document.getElementById('logoutConfirmModal');
   const logoutConfirmButton=document.getElementById('logoutConfirmButton');
   const logoutConfirmCancel=document.getElementById('logoutConfirmCancel');
