@@ -357,24 +357,51 @@ function cfRenderCascade(){
   const root=document.getElementById('cfCreateLevelPicker');
   const route=document.getElementById('cfCreatePathPicker');
   if(!root||!route)return;
+  // Chaque étape ne présente que les enfants directs du choix précédent.
   root.innerHTML='<option value="">Choisir un niveau…</option>'+NIVEAUX.map(n=>'<option value="'+cfEscape(n.id)+'">'+cfEscape(n.nom)+'</option>').join('');
   root.value=cfCreatePath[0]?.id||'';
-  const rootNode=NIVEAUX.find(x=>x.id===root.value)||null;
-  cfRouteChoices=rootNode?cfLeafRoutes(rootNode):[];
-  route.innerHTML='<option value="">'+(rootNode?'Choisir un parcours…':'Choisis d’abord un niveau…')+'</option>'+cfRouteChoices.map((x,i)=>'<option value="'+i+'">'+cfEscape(x.label)+'</option>').join('');
-  route.disabled=!rootNode||!cfRouteChoices.length;
-  const currentIndex=cfRouteChoices.findIndex(x=>x.path[x.path.length-1]===cfCreatePath[cfCreatePath.length-1]);
-  if(currentIndex>=0)route.value=String(currentIndex);
+  const selectedRoot=NIVEAUX.find(n=>n.id===root.value)||null;
+  const renderChildren=(select,parent,placeholder,selectedNode)=>{
+    const children=cfChildren(parent)||[];
+    select.innerHTML='<option value="">'+placeholder+'</option>'+children.map((n,i)=>'<option value="'+i+'">'+cfEscape(n.nom||n.serie||'Sous-niveau')+'</option>').join('');
+    select.disabled=!parent||!children.length;
+    const selectedIndex=selectedNode?children.findIndex(n=>n===selectedNode):-1;
+    select.value=selectedIndex>=0?String(selectedIndex):'';
+    return children;
+  };
+  const firstChildren=renderChildren(route,selectedRoot,selectedRoot?'Choisir un parcours / emplacement…':'Choisis d’abord un niveau…',cfCreatePath[1]||null);
+  zone.querySelectorAll('[data-cf-depth]').forEach(el=>el.remove());
+  let parent=firstChildren[Number(route.value)]||null;
+  for(let depth=2;parent;depth++){
+    const children=cfChildren(parent);
+    if(!children||!children.length)break;
+    const select=document.createElement('select');
+    select.dataset.cfDepth=String(depth);
+    select.setAttribute('aria-label',depth===2?'Préciser le parcours scolaire':'Préciser le sous-niveau');
+    select.innerHTML='<option value="">Choisir un sous-niveau…</option>'+children.map((n,i)=>'<option value="'+i+'">'+cfEscape(n.nom||n.serie||'Sous-niveau')+'</option>').join('');
+    const selectedNode=cfCreatePath[depth]||null;
+    const selectedIndex=selectedNode?children.findIndex(n=>n===selectedNode):-1;
+    if(selectedIndex>=0)select.value=String(selectedIndex);
+    zone.appendChild(select);
+    parent=selectedIndex>=0?children[selectedIndex]:null;
+  }
+  const updateFromSelection=(depth,select)=>{
+    const next=[...cfCreatePath.slice(0,depth)];
+    const parentNode=depth===1?selectedRoot:next[depth-1];
+    const children=cfChildren(parentNode)||[];
+    const node=select.value!==''?children[Number(select.value)]:null;
+    cfCreatePath=node?[...next,node]:next;
+    cfRenderCascade();cfResolveClassification();
+  };
   root.onchange=()=>{
     const n=NIVEAUX.find(x=>x.id===root.value)||null;
     cfCreatePath=n?[n]:[];
     cfRenderCascade();cfResolveClassification();
   };
-  route.onchange=()=>{
-    const choice=cfRouteChoices[Number(route.value)];
-    cfCreatePath=choice?[...choice.path]:[];
-    cfRenderCascade();cfResolveClassification();
-  };
+  route.onchange=()=>updateFromSelection(1,route);
+  zone.querySelectorAll('select[data-cf-depth]').forEach(select=>{
+    select.onchange=()=>updateFromSelection(Number(select.dataset.cfDepth),select);
+  });
 }
 // La catégorie reste celle du dépôt public. Le type de ressource précise uniquement ce qu'Aurora doit produire.
 const CF_RESOURCE_TYPES={
