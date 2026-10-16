@@ -1485,6 +1485,7 @@ function cfEnsurePlacementStyles(){
     '.cf-place-target-remove{flex:0 0 auto;border:1px solid var(--cf-place-border);border-radius:8px;background:var(--cf-place-surface-2);color:var(--cf-place-text);padding:6px 9px;cursor:pointer}.cf-place-empty{padding:16px;border:1px dashed var(--cf-place-border);border-radius:12px;text-align:center;font-size:.76rem;color:var(--cf-place-muted)}' +
     '.cf-place-info{margin:12px 0;font-size:.7rem;line-height:1.5;color:var(--cf-place-muted)}.cf-place-add{display:inline-flex;align-items:center;justify-content:center;gap:6px;margin-top:10px;border:1px solid var(--cf-document-theme,#6d28d9);border-radius:10px;padding:10px 13px;background:color-mix(in srgb,var(--cf-document-theme,#6d28d9) 10%,var(--cf-place-surface));color:var(--cf-place-text);font-size:.75rem;font-weight:800;cursor:pointer}.cf-place-add:disabled{opacity:.45;cursor:not-allowed}' +
     '.cf-place-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--cf-place-border)}.cf-place-actions .admin-btn{max-width:100%;white-space:normal}' +
+    '.cf-place-form-section{margin:12px 0 0;padding:15px;border:1px solid var(--cf-place-border);border-radius:15px;background:var(--cf-place-surface)}.cf-place-step-heading{display:flex;align-items:flex-start;gap:11px;margin:0 0 8px}.cf-place-step-num{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border:1px solid color-mix(in srgb,var(--cf-document-theme,#6d28d9) 38%,var(--cf-place-border));border-radius:10px;background:color-mix(in srgb,var(--cf-document-theme,#6d28d9) 12%,var(--cf-place-surface));color:var(--cf-place-text);font-size:.74rem;font-weight:950}.cf-place-step-heading strong{display:block;color:var(--cf-place-text);font-size:.88rem}.cf-place-step-heading small{display:block;margin-top:2px;color:var(--cf-place-muted);font-size:.68rem;line-height:1.45}.cf-place-section-help{margin:7px 0 12px;font-size:.72rem;line-height:1.55;color:var(--cf-place-muted)}.cf-place-document-kicker{display:block;margin-bottom:4px;font-size:.59rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--cf-place-muted)}.cf-place-school-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:12px;align-items:start}.cf-place-level-controls{display:grid;gap:10px;min-width:0}.cf-place-notes-field{margin-top:12px}.cf-place-field em{font-weight:500;color:var(--cf-place-muted)}#cfPlaceLevel,#cfPlaceRoute,#cfPlaceSubject,#cfPlaceType,#cfPlaceReference,#cfPlaceNotes{min-width:0;max-width:100%}#cfPlacementModal select:disabled{opacity:1;color:var(--cf-place-muted);cursor:not-allowed;background:var(--cf-place-surface-2)}#cfPlacementModal .cf-place-field select:focus-visible,#cfPlacementModal .cf-place-field input:focus-visible,#cfPlacementModal .cf-place-field textarea:focus-visible{outline:2px solid var(--cf-document-theme,#6d28d9);outline-offset:2px}.cf-place-selected-section{margin-top:15px}.cf-place-selected-section .cf-place-section-title{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.cf-place-current-path{padding-top:2px}.cf-place-actions .admin-btn:focus-visible,.cf-place-add:focus-visible,.cf-place-target-remove:focus-visible{outline:2px solid var(--cf-document-theme,#6d28d9);outline-offset:2px}' +
     '@media(max-width:620px){.cf-place-fields,.cf-place-path-selectors{grid-template-columns:1fr}.cf-place-actions{display:grid;grid-template-columns:1fr}.cf-place-actions .admin-btn{width:100%}.cf-place-dialog{max-height:94dvh;padding:14px}.cf-place-target{gap:6px}.cf-place-target-remove{padding:6px}}';
   document.head.appendChild(style);
 }
@@ -1583,71 +1584,129 @@ async function openPlacementForm(id){
     });
     const firstTarget=selectedTargets.values().next().value||null;
     const inferred=/qcm|quiz/i.test(type)?'QCM':/exercice|devoir/i.test(type)?'Exercices':/révision|revision/i.test(type)?'Fiche de révision':/cours_assiste|cours|lecon/i.test(type)?'Fiche de cours':'Document';
-    let pathSelection=firstTarget?pathIdsFor(firstTarget.node_id):[];
+    const initialPathIds=firstTarget?pathIdsFor(firstTarget.node_id):[];
+    let selectedLevelId=initialPathIds[0]||'';
+    let selectedLeafId=initialPathIds.length?initialPathIds[initialPathIds.length-1]:'';
+    let routeChoices=[];
     const initialType=firstTarget?firstTarget.resource_type:inferred;
     const initialSubject=firstTarget?firstTarget.subject_id:'';
+    const placementResourceLabels={
+      'Fiche de cours':'Cours',
+      'Fiche de révision':'Fiche de révision',
+      'Exercices':'Série d’exercices',
+      'QCM':'QCM',
+      'Devoir':'Devoir',
+      'Document':'Document pédagogique'
+    };
     modal=document.createElement('div');
     modal.id='cfPlacementModal';
     modal.className='cf-place-overlay';
     modal.style.setProperty('--cf-document-theme',normalizeThemeColor(meta.theme_color||meta.aurore_design?.theme_color||'#2563eb'));
-    modal.innerHTML='<div class="cf-place-backdrop" data-cf-place-close></div><section class="cf-place-dialog" role="dialog" aria-modal="true" aria-labelledby="cfPlacementTitle"><div class="cf-place-kicker">Publication éditoriale · Aurore</div><h3 id="cfPlacementTitle">Publier dans la bibliothèque pédagogique</h3><p class="cf-place-lead">Choisis le parcours complet : niveau, cycle ou filière, puis classe ou branche finale. Associe la matière et le type de ressource. Tu peux ajouter plusieurs destinations avant de publier le PDF global.</p><div class="cf-place-document"><strong>'+safe(doc.title||'Document sans titre')+'</strong><small>'+safe(doc.document_type||'Document')+' · PDF complet'+(finalInfo?.page_count?' · '+Number(finalInfo.page_count)+' pages':'')+' · Version '+Number(doc.version||1)+'</small></div><form id="cfPlacementForm"><div class="cf-place-fields"><label class="cf-place-field">Type de ressource<select id="cfPlaceType">'+types.map(t=>'<option value="'+safe(t)+'"'+(t===initialType?' selected':'')+'>'+safe(t)+'</option>').join('')+'</select></label><label class="cf-place-field">Matière<select id="cfPlaceSubject"></select></label></div><section class="cf-place-path-stage"><strong class="cf-place-section-title">Parcours pédagogique complet</strong><div class="cf-place-path-selectors" id="cfPlacePathSelectors"></div><p class="cf-place-current-path" id="cfPlacePathSummary" aria-live="polite">Choisis le parcours jusqu’au dernier niveau disponible.</p><button type="button" class="cf-place-add" id="cfPlaceAddTarget" disabled>＋ Ajouter cet emplacement</button></section><section class="cf-place-selected-section"><strong class="cf-place-section-title" style="margin-top:15px">Emplacements à publier <span id="cfPlaceTargetCount"></span></strong><div class="cf-place-target-list" id="cfPlaceSelectedTargets"></div></section><p class="cf-place-info">Les parcours et les liens de matières viennent du référentiel Aurore. Les cours, fiches de révision et QCM sont rangés dans Documents Aurore ; les exercices et devoirs sont rangés dans Devoirs. Une publication remplacera la version déjà liée au même emplacement sans créer de doublon.</p><label class="cf-place-field" style="margin-top:12px">Note éditoriale (facultatif)<textarea id="cfPlaceNotes" rows="2" maxlength="1000" placeholder="Ex. Niveau, classe, filière ou version actualisée…"></textarea></label><footer class="cf-place-actions"><button type="button" class="admin-btn ghost" data-cf-place-close>Annuler</button><button type="submit" class="admin-btn primary" id="cfPlaceSubmit" disabled>Valider et publier</button></footer></form></section>';
+    modal.innerHTML=
+      '<div class="cf-place-backdrop" data-cf-place-close></div>'+
+      '<section class="cf-place-dialog" role="dialog" aria-modal="true" aria-labelledby="cfPlacementTitle">'+
+        '<div class="cf-place-kicker">Publication éditoriale · Aurore</div>'+
+        '<h3 id="cfPlacementTitle">Publier dans la bibliothèque pédagogique</h3>'+
+        '<p class="cf-place-lead">Classe le document avec le même parcours que dans Éditorial GPT · Section A. Le PDF produit et son titre sont conservés.</p>'+
+        '<form id="cfPlacementForm">'+
+          '<section class="cf-place-form-section" aria-label="La ressource">'+
+            '<div class="cf-place-step-heading"><span class="cf-place-step-num">01</span><div><strong>La ressource</strong><small>Ce que tu veux faire produire</small></div></div>'+
+            '<p class="cf-place-section-help">Le titre provient du document déjà produit par l’éditeur pédagogique. Aucun nouveau titre n’est demandé ici.</p>'+
+            '<div class="cf-place-fields">'+
+              '<label class="cf-place-field"><span>Type de ressource</span><select id="cfPlaceType">'+types.map(t=>'<option value="'+safe(t)+'"'+(t===initialType?' selected':'')+'>'+safe(placementResourceLabels[t]||t)+'</option>').join('')+'</select></label>'+
+              '<label class="cf-place-field"><span>Source pédagogique <em>(optionnel)</em></span><input id="cfPlaceReference" type="text" maxlength="500" placeholder="Manuel, chapitre, programme…" value="'+safe(meta.reference||meta.editorial?.reference||meta.classification?.reference||meta.pedagogical_source||meta.source_pedagogique||'')+'"></label>'+
+            '</div>'+
+            '<div class="cf-place-document"><span class="cf-place-document-kicker">Document à publier</span><strong>'+safe(doc.title||'Document sans titre')+'</strong><small>'+safe(doc.document_type||'Document')+' · PDF complet'+(finalInfo?.page_count?' · '+Number(finalInfo.page_count)+' pages':'')+' · Version '+Number(doc.version||1)+'</small></div>'+
+          '</section>'+
+          '<section class="cf-place-form-section" aria-label="Le parcours scolaire">'+
+            '<div class="cf-place-step-heading"><span class="cf-place-step-num">02</span><div><strong>Le parcours scolaire</strong><small>Choisis le niveau, le parcours/emplacement puis la matière.</small></div></div>'+
+            '<p class="cf-place-section-help">Les valeurs viennent du catalogue pédagogique Aurore. La matière proposée dépend du parcours final sélectionné.</p>'+
+            '<div class="cf-place-school-grid">'+
+              '<div class="cf-place-level-controls">'+
+                '<label class="cf-place-field"><span>Niveau</span><select id="cfPlaceLevel"><option value="">Choisir un niveau…</option></select></label>'+
+                '<label class="cf-place-field"><span>Parcours / emplacement</span><select id="cfPlaceRoute" disabled><option value="">Choisis d’abord un niveau…</option></select></label>'+
+              '</div>'+
+              '<label class="cf-place-field"><span>Matière</span><select id="cfPlaceSubject" disabled><option value="">Choisis d’abord un parcours…</option></select></label>'+
+            '</div>'+
+            '<p class="cf-place-current-path" id="cfPlacePathSummary" aria-live="polite">Aucun parcours sélectionné.</p>'+
+            '<button type="button" class="cf-place-add" id="cfPlaceAddTarget" disabled>＋ Ajouter cet emplacement</button>'+
+          '</section>'+
+          '<section class="cf-place-selected-section"><strong class="cf-place-section-title">Emplacements à publier <span id="cfPlaceTargetCount"></span></strong><div class="cf-place-target-list" id="cfPlaceSelectedTargets"></div></section>'+
+          '<p class="cf-place-info">Tu peux ajouter plusieurs emplacements. Une publication remplace la version liée au même emplacement sans créer de doublon.</p>'+
+          '<label class="cf-place-field cf-place-notes-field"><span>Note éditoriale (facultatif)</span><textarea id="cfPlaceNotes" rows="2" maxlength="1000" placeholder="Précision destinée à l’équipe éditoriale…"></textarea></label>'+
+          '<footer class="cf-place-actions"><button type="button" class="admin-btn ghost" data-cf-place-close>Annuler</button><button type="submit" class="admin-btn primary" id="cfPlaceSubmit" disabled>Valider et publier</button></footer>'+
+        '</form>'+
+      '</section>';
     document.body.appendChild(modal);
 
     const subject=modal.querySelector('#cfPlaceSubject'),resource=modal.querySelector('#cfPlaceType');
-    const pathBox=modal.querySelector('#cfPlacePathSelectors'),pathSummary=modal.querySelector('#cfPlacePathSummary');
+    const levelPicker=modal.querySelector('#cfPlaceLevel'),routePicker=modal.querySelector('#cfPlaceRoute');
+    const sourceReference=modal.querySelector('#cfPlaceReference');
+    const pathSummary=modal.querySelector('#cfPlacePathSummary');
     const addTarget=modal.querySelector('#cfPlaceAddTarget'),targetList=modal.querySelector('#cfPlaceSelectedTargets');
     const targetCount=modal.querySelector('#cfPlaceTargetCount'),submit=modal.querySelector('#cfPlaceSubmit');
     const close=()=>{if(modal?.isConnected)modal.remove();document.removeEventListener('keydown',onKey);};
     const onKey=e=>{if(e.key==='Escape')close();};
     document.addEventListener('keydown',onKey);
     modal.querySelectorAll('[data-cf-place-close]').forEach(button=>button.addEventListener('click',close));
-    const selectedPathNode=()=>pathSelection.length?nodeMap.get(String(pathSelection[pathSelection.length-1]))||null:null;
-
-    const renderPathSelectors=()=>{
-      pathBox.innerHTML='';
-      let available=roots;
-      const retained=[];
-      for(let depth=0;depth<24&&available.length;depth++){
-        const requested=String(pathSelection[depth]||'');
-        const chosen=available.find(n=>String(n.id)===requested)||null;
-        if(chosen)retained[depth]=String(chosen.id);
-        const wrapper=document.createElement('label');
-        wrapper.className='cf-place-field';
-        const label=document.createElement('span');
-        label.textContent=depth===0?'Niveau ou parcours':(depth===1?'Cycle / enseignement':'Étape '+(depth+1));
-        const select=document.createElement('select');
-        select.dataset.cfPlaceDepth=String(depth);
-        select.setAttribute('aria-label',label.textContent);
-        const empty=document.createElement('option');
-        empty.value='';empty.textContent=depth===0?'Choisir un parcours…':'Choisir une étape…';
-        select.appendChild(empty);
-        available.forEach(node=>{
-          const option=document.createElement('option');option.value=String(node.id);option.textContent=String(node.name||'Emplacement');
-          select.appendChild(option);
-        });
-        select.value=chosen?String(chosen.id):'';
-        wrapper.appendChild(label);wrapper.appendChild(select);pathBox.appendChild(wrapper);
-        if(!chosen)break;
-        available=childrenOf(chosen.id);
-      }
-      pathSelection=retained;
+    const selectedPathNode=()=>selectedLeafId?nodeMap.get(String(selectedLeafId))||null:null;
+    const leafRoutesFor=rootId=>{
+      const root=nodeMap.get(String(rootId||''));
+      if(!root)return [];
+      const out=[];
+      const walk=(node,path,visited)=>{
+        if(!node)return;
+        const id=String(node.id);
+        if(visited.has(id))return;
+        const nextPath=[...path,node],nextVisited=new Set(visited);
+        nextVisited.add(id);
+        const children=childrenOf(id);
+        if(!children.length){
+          const visible=nextPath.filter(part=>!['serie','series'].includes(String(part.node_type||'').trim().toLowerCase()))
+            .map(part=>String(part.name||'').trim()).filter(Boolean);
+          out.push({leaf:node,path:nextPath,label:visible.join(' · ')||nextPath.map(part=>String(part.name||'').trim()).filter(Boolean).join(' · ')});
+          return;
+        }
+        children.forEach(child=>walk(child,nextPath,nextVisited));
+      };
+      walk(root,[],new Set());
+      return out;
     };
-    const renderSubjects=()=>{
-      const current=String(subject.value||initialSubject||'');
-      const node=selectedPathNode(),isLeaf=!!node&&childrenOf(node.id).length===0;
+    const renderPathSelectors=()=>{
+      const currentLevel=String(selectedLevelId||levelPicker.value||'');
+      levelPicker.innerHTML='<option value="">Choisir un niveau…</option>'+roots.map(node=>'<option value="'+safe(node.id)+'">'+safe(node.name)+'</option>').join('');
+      selectedLevelId=roots.some(node=>String(node.id)===currentLevel)?currentLevel:'';
+      levelPicker.value=selectedLevelId;
+      routeChoices=selectedLevelId?leafRoutesFor(selectedLevelId):[];
+      routePicker.innerHTML='<option value="">'+(selectedLevelId?'Choisir un parcours…':'Choisis d’abord un niveau…')+'</option>'+
+        routeChoices.map((choice,index)=>'<option value="'+index+'">'+safe(choice.label)+'</option>').join('');
+      routePicker.disabled=!selectedLevelId||!routeChoices.length;
+      const matchingIndex=routeChoices.findIndex(choice=>String(choice.leaf.id)===String(selectedLeafId||''));
+      if(matchingIndex<0){
+        selectedLeafId='';
+        routePicker.value='';
+      }else{
+        routePicker.value=String(matchingIndex);
+        selectedLeafId=String(routeChoices[matchingIndex].leaf.id);
+      }
+    };
+    const renderSubjects=(preferInitial=false)=>{
+      const current=String(subject.value||(preferInitial?initialSubject:'')||'');
+      const node=selectedPathNode();
       const linked=node?nodeSubjects.get(String(node.id))||new Set():new Set();
-      const candidates=isLeaf?activeSubjects.filter(item=>linked.has(String(item.id))):activeSubjects;
-      subject.innerHTML='<option value="">Choisir une matière…</option>'+candidates.map(item=>'<option value="'+safe(item.id)+'">'+safe(item.name)+'</option>').join('');
-      if(candidates.some(item=>String(item.id)===current))subject.value=current;
-      else subject.value=candidates.length?String(candidates[0].id):'';
+      const candidates=node&&childrenOf(node.id).length===0?activeSubjects.filter(item=>linked.has(String(item.id))):[];
+      subject.innerHTML='<option value="">'+(node?'Choisir une matière…':'Choisis d’abord un parcours…')+'</option>'+
+        candidates.map(item=>'<option value="'+safe(item.id)+'">'+safe(item.name)+'</option>').join('');
+      subject.disabled=!node||!candidates.length;
+      subject.value=candidates.some(item=>String(item.id)===current)?current:'';
     };
     const renderTargets=()=>{
       const items=[...selectedTargets.entries()];
       targetCount.textContent='('+items.length+')';
-      if(!items.length)targetList.innerHTML='<div class="cf-place-empty">Aucun emplacement ajouté. Sélectionne un parcours complet, une matière et un type, puis clique sur « Ajouter cet emplacement ».</div>';
+      if(!items.length)targetList.innerHTML='<div class="cf-place-empty">Aucun emplacement ajouté. Sélectionne un niveau, un parcours final et une matière, puis clique sur « Ajouter cet emplacement ».</div>';
       else targetList.innerHTML=items.map(([key,target])=>{
         const node=nodeMap.get(String(target.node_id)),sub=subjectMap.get(String(target.subject_id));
-        return '<article class="cf-place-target"><div class="cf-place-target-main"><strong>'+safe(pathFor(target.node_id)||node?.name||'Emplacement')+'</strong><small>'+safe(sub?.name||'Matière')+' · '+safe(target.resource_type)+'</small></div><button type="button" class="cf-place-target-remove" data-cf-place-remove="'+safe(encodeURIComponent(key))+'" aria-label="Retirer cet emplacement">Retirer</button></article>';
+        return '<article class="cf-place-target"><div class="cf-place-target-main"><strong>'+safe(pathFor(target.node_id)||node?.name||'Emplacement')+'</strong><small>'+safe(sub?.name||'Matière')+' · '+safe(placementResourceLabels[target.resource_type]||target.resource_type)+'</small></div><button type="button" class="cf-place-target-remove" data-cf-place-remove="'+safe(encodeURIComponent(key))+'" aria-label="Retirer cet emplacement">Retirer</button></article>';
       }).join('');
       submit.disabled=selectedTargets.size<1;
       submit.textContent=selectedTargets.size?'Publier dans '+selectedTargets.size+' emplacement'+(selectedTargets.size>1?'s':''):'Ajouter au moins un emplacement';
@@ -1656,19 +1715,24 @@ async function openPlacementForm(id){
       const node=selectedPathNode(),leaf=!!node&&childrenOf(node.id).length===0;
       const linked=node?nodeSubjects.get(String(node.id))||new Set():new Set();
       const valid=!!node&&leaf&&!!subject.value&&linked.has(String(subject.value))&&types.includes(String(resource.value));
-      pathSummary.textContent=!node?'Choisis le parcours depuis la racine.':(!leaf
-        ?pathFor(node.id)+' · sélectionne le niveau suivant pour préciser la classe ou la branche finale.'
-        :pathFor(node.id)+' · '+(subjectMap.get(String(subject.value))?.name||'Matière à choisir')+' · '+resource.value);
+      pathSummary.textContent=!node
+        ?(selectedLevelId?'Choisis d’abord un parcours…':'Aucun parcours sélectionné.')
+        :pathFor(node.id)+' · '+(subjectMap.get(String(subject.value))?.name||'Choisis une matière…')+' · '+(placementResourceLabels[String(resource.value)]||String(resource.value||'Type de ressource'));
       addTarget.disabled=!valid;
-      addTarget.title=valid?'Ajouter cet emplacement à la publication':(!node?'Choisis un parcours.':(!leaf?'Poursuis jusqu’au dernier niveau disponible.':'Choisis une matière liée à cet emplacement.'));
+      addTarget.title=valid?'Ajouter cet emplacement à la publication':(!selectedLevelId?'Choisis un niveau.':(!node?'Choisis un parcours.':(!leaf?'Sélectionne le parcours final.':'Choisis une matière associée à ce parcours.')));
       renderTargets();
     };
-    pathBox.addEventListener('change',event=>{
-      const select=event.target?.closest?.('[data-cf-place-depth]');if(!select)return;
-      const depth=Number(select.dataset.cfPlaceDepth);
-      pathSelection=pathSelection.slice(0,depth);
-      if(select.value)pathSelection[depth]=String(select.value);
+    levelPicker.addEventListener('change',()=>{
+      selectedLevelId=String(levelPicker.value||'');
+      selectedLeafId='';
+      subject.value='';
       renderPathSelectors();renderSubjects();updateCurrentPathState();
+    });
+    routePicker.addEventListener('change',()=>{
+      const choice=routePicker.value!==''?routeChoices[Number(routePicker.value)]:null;
+      selectedLeafId=choice?String(choice.leaf.id):'';
+      subject.value='';
+      renderSubjects();updateCurrentPathState();
     });
     subject.addEventListener('change',updateCurrentPathState);
     resource.addEventListener('change',updateCurrentPathState);
@@ -1685,9 +1749,7 @@ async function openPlacementForm(id){
       renderTargets();
     });
 
-    renderPathSelectors();renderSubjects();
-    if(initialSubject&&[...subject.options].some(option=>option.value===initialSubject))subject.value=initialSubject;
-    updateCurrentPathState();
+    renderPathSelectors();renderSubjects(true);updateCurrentPathState();
     modal.querySelector('#cfPlacementForm').addEventListener('submit',async event=>{
       event.preventDefault();
       const targets=[...selectedTargets.values()].filter(target=>
@@ -1701,7 +1763,7 @@ async function openPlacementForm(id){
         await rpc('aurora_publish_generated_document_to_places',{
           p_generated_document_id:docId,
           p_targets:targets.map(t=>({node_id:t.node_id,subject_id:t.subject_id,resource_type:t.resource_type})),
-          p_notes:String(modal.querySelector('#cfPlaceNotes')?.value||'').trim()||null
+          p_notes:[sourceReference?.value?'Source pédagogique : '+String(sourceReference.value).trim():'',String(modal.querySelector('#cfPlaceNotes')?.value||'').trim()].filter(Boolean).join('\n\n')||null
         });
         close();await charger();
         alert('Publication validée dans '+targets.length+' emplacement'+(targets.length>1?'s':'')+'. Les documents Aurore existants aux mêmes emplacements sont remplacés sans doublon.');
