@@ -229,6 +229,29 @@ html[data-theme="light"] #pdfViewerOverlay *{color:inherit!important;}
   border-color:#E1DCE6!important;
 }
 #accessLock #accessGoogleBtn .google-spinner{border-left-color:rgba(66,133,244,.22)!important;border-bottom-color:rgba(66,133,244,.22)!important;}
+/* Bouton Aurore ID : même lisibilité que Google, identité violette discrète. */
+#accessLock #accessAuroreIdBtn,
+#accessLock #accessAuroreIdBtn:hover,
+#accessLock #accessAuroreIdBtn:focus,
+#accessLock #accessAuroreIdBtn:focus-visible{
+  background:#FFFFFF!important;color:#202124!important;border-color:#D8D3DF!important;
+  -webkit-text-fill-color:#202124!important;
+}
+#accessLock #accessAuroreIdBtn > span:last-child,
+#accessLock #accessAuroreIdBtn > span:last-child strong{
+  color:#202124!important;-webkit-text-fill-color:#202124!important;
+}
+#accessLock #accessAuroreIdBtn > span:last-child small{
+  color:#5F6368!important;-webkit-text-fill-color:#5F6368!important;
+}
+#accessLock #accessAuroreIdBtn .google-mark{
+  display:grid;place-items:center;background:#F1EAFE!important;color:#6D28D9!important;
+  border-color:#DED0FF!important;font-size:11px;font-weight:800;
+  -webkit-text-fill-color:#6D28D9!important;
+}
+#accessLock #accessAuroreIdBtn .google-spinner{
+  border-left-color:rgba(109,40,217,.22)!important;border-bottom-color:rgba(109,40,217,.22)!important;
+}
 /* ===== Lecteur PDF — véritable adaptation au mode clair =====
    Le lecteur reste autonome : aucune règle globale du thème clair ne peut
    rendre ses contrôles invisibles. Palette alignée sur Aurore :
