@@ -187,3 +187,34 @@
 [data-theme="dark"] #pdfViewerOverlay *{
   /* volontairement inchangé */
 }
+
+
+/* Dépôt public : les contrôles en cascade suivent explicitement le thème sombre. */
+[data-theme="dark"] #depotFormCard{
+  background:var(--dark-surface)!important;color:var(--dark-ink)!important;
+  border-color:var(--dark-border)!important;box-shadow:var(--dark-shadow)!important;
+}
+[data-theme="dark"] #depotFormCard :is(label,.form-row,.helper-text,.description){
+  color:var(--dark-ink)!important;
+}
+[data-theme="dark"] #depotFormCard .form-row input,
+[data-theme="dark"] #depotFormCard .form-row select,
+[data-theme="dark"] #depotFormCard .form-row textarea,
+[data-theme="dark"] #depotFormCard #f_cascade select{
+  width:100%;box-sizing:border-box;background:var(--dark-surface-2)!important;
+  color:var(--dark-ink)!important;border-color:var(--dark-border)!important;
+}
+[data-theme="dark"] #depotFormCard #f_cascade select:focus{
+  border-color:var(--violet)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--violet) 20%,transparent)!important;
+}
+[data-theme="dark"] #depotFormCard .form-msg.ok{background:#102218!important;color:#A7F3D0!important;border-color:#285C42!important}
+[data-theme="dark"] #depotFormCard .form-msg.err{background:#241316!important;color:#FCA5A5!important;border-color:#6B2B32!important}
+[data-theme="dark"] #depotFormCard .form-submit:disabled{background:#3B354D!important;color:#B8B2C9!important;opacity:1}
+[data-theme="dark"] #adminListReclamations .admin-card[data-admin-status="traite"],
+[data-theme="dark"] .admin-status-chip[data-status="traite"],
+[data-theme="dark"] .status-badge[data-status="traite"]{
+  background:var(--dark-surface-2)!important;color:var(--dark-ink)!important;border-color:var(--dark-border)!important;
+}
+[data-theme="dark"] #adminListReclamations [data-action="traite"]{
+  background:var(--dark-surface-2)!important;color:var(--dark-ink)!important;border-color:var(--dark-border)!important;
+}
