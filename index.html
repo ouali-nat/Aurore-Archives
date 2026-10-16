@@ -654,7 +654,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <link href="./css/aurora-activity.css?aurore_release=20261010-temporary-no-cache1" rel="stylesheet" media="print" onload="this.media='all'"/>
 <link rel="stylesheet" href="./css/aurore-personal-actions.css?aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
 <link href="./css/aurora-floating-home.css?aurore_release=20261010-temporary-no-cache1" rel="stylesheet" media="print" onload="this.media='all'"/>
-<link rel="stylesheet" href="./css/aurore-theme-auth-pdf.css?v=20261003-sessionflow1&aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="./css/aurore-theme-auth-pdf.css?v=20261016-aurore-id-login1&aurore_release=20261016-aurore-id-login1" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="./css/aurore-pdf-grids.css?v=20260923-unifiedcards2&aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="./css/aurore-final-polish.css?aurore_release=20261010-temporary-no-cache1">
 <link rel="stylesheet" href="./css/aurore-hero-morph.css?aurore_release=20261010-temporary-no-cache1">
@@ -725,6 +725,10 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <button aria-label="Continuer avec Google" class="access-google-btn" id="accessGoogleBtn" type="button">
 <span aria-hidden="true" class="google-mark">G</span><span aria-hidden="true" class="google-spinner"></span>
 <span><strong>Continuer avec Google</strong><small>Accès recommandé à votre espace personnel</small></span>
+</button>
+<button aria-label="Continuer avec Aurore ID" class="access-google-btn" id="accessAuroreIdBtn" type="button">
+<span aria-hidden="true" class="google-mark">ID</span><span aria-hidden="true" class="google-spinner"></span>
+<span><strong>Continuer avec Aurore ID</strong><small>Un accès unique pour les services Aurore</small></span>
 </button>
 </div>
 </section>
@@ -816,7 +820,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
   <span class="aurore-network-status-copy"><strong id="auroreNetworkStatusTitle">Connexion interrompue</strong><span id="auroreNetworkStatusText"></span></span>
   <button aria-label="Fermer" class="aurore-network-status-close" id="auroreNetworkStatusClose" type="button">×</button>
 </div>
-<script src="js/aurore-access-lock.js?v=20261006-auth-session2&aurore_fresh=20261010-temporary-no-cache1"></script>
+<script src="js/aurore-access-lock.js?v=20261016-aurore-id-login1&aurore_fresh=20261016-aurore-id-login1"></script>
 <header>
 <div class="wrap header-inner">
 <div class="brand">
@@ -2366,6 +2370,35 @@ body:not(.site-locked) #accessLock{display:none!important;}
       auroreConnexionGoogleEnCours = false;
     }
   }
+  // Connexion centralisée Aurore ID via le fournisseur OIDC personnalisé.
+  // Le client Supabase et le retour PKCE restent identiques au parcours Google.
+  async function demarrerConnexionAuroreID() {
+    if (auroreConnexionGoogleEnCours) return;
+    auroreConnexionGoogleEnCours = true;
+    try {
+      const retour = window.location.origin + window.location.pathname;
+      try { window.localStorage.removeItem('sb-tdeotqfsbvouresfhkab-auth-token-code-verifier'); } catch (_) {}
+      const client = await assurerClientAuthGoogle();
+      if (!client) throw new Error('Impossible de joindre le service de connexion (réseau bloqué ou instable).');
+      const { error } = await client.auth.signInWithOAuth({
+        provider: 'custom:aurore-id',
+        options: { redirectTo: retour }
+      });
+      if (error) throw error;
+    } catch (error) {
+      console.error('[Aurore ID OAuth]', error);
+      window.auroreAfficherErreurDebug?.('[Connexion Aurore ID] ' + (error?.message || error));
+      const msg = document.getElementById('accessMessage');
+      if (msg) {
+        msg.textContent = 'Impossible de démarrer la connexion Aurore ID. Vérifiez votre connexion puis réessayez.';
+        msg.className = 'access-message err';
+        msg.style.display = 'block';
+      }
+      if (typeof window.auroreCacherVeuillezPatienter === 'function') window.auroreCacherVeuillezPatienter();
+      auroreConnexionGoogleEnCours = false;
+    }
+  }
+
   async function recupererUtilisateur(access_token) {
     // Auth est prioritaire : l'ouverture du site ne doit pas rester bloquée par
     // une lecture secondaire de Profils. Le timeout protège aussi les mobiles
@@ -3422,7 +3455,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
       const accessMsg = document.getElementById('accessMessage');
       if (accessMsg) {
         accessMsg.textContent =
-          'La connexion Google n’a pas abouti. Vérifiez votre connexion Internet puis réessayez.';
+          'La connexion n’a pas abouti. Vérifiez votre connexion Internet puis réessayez.';
         accessMsg.className = 'access-message err';
         accessMsg.style.display = 'block';
       }
@@ -3455,7 +3488,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
     if (oauthCode) {
       try {
         if (typeof window.auroreAfficherVeuillezPatienter === 'function') {
-          window.auroreAfficherVeuillezPatienter('Finalisation de votre connexion Google…');
+          window.auroreAfficherVeuillezPatienter('Finalisation de votre connexion sécurisée…');
         }
         const client = await assurerClientAuthGoogle();
         if (!client) throw new Error('Impossible de joindre le service de connexion (réseau bloqué ou instable).');
