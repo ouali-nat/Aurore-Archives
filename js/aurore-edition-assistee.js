@@ -4200,7 +4200,7 @@
     panel.scrollIntoView?.({block:'start',behavior:'auto'});
   }
   function ensureCompletedArchivePanel(){
-    const grid=document.querySelector('.admin-category-grid');
+    const grid=document.getElementById('adminCategoryGrid')||document.querySelector('.admin-category-grid');
     const detail=document.getElementById('adminDetail');
     if(!grid||!detail)return false;
     let card=document.getElementById('admin-tab-assisted-completed');
@@ -4214,7 +4214,10 @@
       card.setAttribute('role','tab');
       card.innerHTML='<span aria-hidden="true" class="admin-category-icon">✓</span><span class="admin-category-title">Cours marqués terminés</span><span class="admin-category-desc">Retrouver, corriger et republier les cours archivés</span><span class="tab-count" id="assistedCompletedCount">0</span>';
       grid.appendChild(card);
-      card.addEventListener('click',()=>{void showCompletedArchive({refresh:true});});
+    }
+    if(!card.dataset.assistedArchiveClickBound){
+      card.dataset.assistedArchiveClickBound='1';
+      card.addEventListener('click',()=>{void showCompletedArchive({refresh:true}).catch(error=>{setStatus('Archive indisponible. '+String(error?.message||error));});});
     }
     let panel=document.querySelector('.admin-tab-panel[data-panel="assisted-completed"]');
     if(!panel){
@@ -4224,15 +4227,18 @@
       panel.dataset.panel='assisted-completed';
       panel.innerHTML='<div class="ae-completed-admin-shell"><header class="ae-completed-admin-head"><div><span class="ae-kicker">Administration · Archives éditoriales</span><h3>Cours marqués terminés</h3><p>Ce bloc est indépendant de la liste de l’édition assistée. Les cours terminés restent ici après avoir quitté l’atelier ; « Corriger » rouvre le même cours en conservant son historique de publication.</p></div><span class="ae-status" id="assistedCompletedStatus">Prêt</span></header><div class="ae-list-actions"><button type="button" class="admin-btn ghost" id="assistedCompletedRefresh">↻ Actualiser</button><button type="button" class="admin-btn primary" id="assistedCompletedBack">Revenir à l’édition assistée</button></div><div id="assistedCompletedArchiveRoot"><div class="ae-empty">Chargement des cours terminés…</div></div></div>';
       detail.appendChild(panel);
-      panel.querySelector('#assistedCompletedRefresh').addEventListener('click',()=>{void showCompletedArchive({refresh:true});});
-      panel.querySelector('#assistedCompletedBack').addEventListener('click',()=>{
+    }
+    if(!panel.dataset.assistedArchiveControlsBound){
+      panel.dataset.assistedArchiveControlsBound='1';
+      panel.querySelector('#assistedCompletedRefresh')?.addEventListener('click',()=>{void showCompletedArchive({refresh:true}).catch(error=>setStatus('Actualisation impossible. '+String(error?.message||error)));});
+      panel.querySelector('#assistedCompletedBack')?.addEventListener('click',()=>{
         const editorCard=document.querySelector('.admin-tab[data-tab="edition-assistee"]');
         const editorPanel=document.querySelector('.admin-tab-panel[data-panel="edition-assistee"]');
         activateAdminPanel(editorPanel,editorCard);
         state.mode='list';state.course=null;state.selected=null;state.finalPdfArtifact=null;
         void loadCourses().then(()=>{renderList();setStatus('Liste des cours actualisée.');}).catch(e=>setStatus('Impossible de charger les cours. '+String(e?.message||e)));
       });
-      panel.querySelector('#assistedCompletedArchiveRoot').addEventListener('click',e=>{
+      panel.querySelector('#assistedCompletedArchiveRoot')?.addEventListener('click',e=>{
         const button=e.target?.closest?.('[data-archive-correct]');
         if(!button)return;
         void openArchivedCourseForCorrection(button.dataset.archiveCorrect).catch(error=>{
