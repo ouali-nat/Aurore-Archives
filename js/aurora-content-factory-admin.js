@@ -1464,6 +1464,15 @@ async function cfPlacementFetchJson(path,token){
   if(!Array.isArray(data))throw new Error('Format du référentiel pédagogique invalide.');
   return data;
 }
+async function cfPlacementFetchAllJson(path,token,pageSize=800){
+  const all=[];
+  for(let offset=0;offset<30000;offset+=pageSize){
+    const page=await cfPlacementFetchJson(path+'&limit='+pageSize+'&offset='+offset,token);
+    all.push(...page);
+    if(page.length<pageSize)return all;
+  }
+  throw new Error('Le référentiel pédagogique dépasse la limite de pagination autorisée.');
+}
 function cfEnsurePlacementStyles(){
   if(document.getElementById('cfPlacementStyles'))return;
   const style=document.createElement('style');
@@ -1515,10 +1524,13 @@ async function openPlacementForm(id){
       &&String(finalInfo.fingerprint||'')))throw new Error('Seul le PDF global fusionné, paginé et vérifié de l’édition assistée peut être publié.');
     if(!['generated','review','approved','published'].includes(String(doc.status||'')))throw new Error('Document non prêt pour publication : '+String(doc.status||'inconnu')+'.');
 
+    // Supabase/PostgREST peut plafonner chaque réponse même si limit est supérieur
+    // à max_rows. Charger les trois référentiels par pages stables évite de masquer
+    // silencieusement des classes et les matières reliées aux dernières lignes.
     const [nodes,subjects,links]=await Promise.all([
-      get('/rest/v1/aurore_pedagogical_nodes?select=id,parent_id,name,node_type,legacy_path,sort_order,active&active=eq.true&order=sort_order.asc,name.asc&limit=5000'),
-      get('/rest/v1/aurore_pedagogical_subjects?select=id,name,subject_key,sort_order,active&active=eq.true&order=sort_order.asc,name.asc&limit=2000'),
-      get('/rest/v1/aurore_pedagogical_node_subjects?select=node_id,subject_id&limit=10000')
+      cfPlacementFetchAllJson('/rest/v1/aurore_pedagogical_nodes?select=id,parent_id,name,node_type,legacy_path,sort_order,active&active=eq.true&order=sort_order.asc,name.asc,id.asc',token),
+      cfPlacementFetchAllJson('/rest/v1/aurore_pedagogical_subjects?select=id,name,subject_key,sort_order,active&active=eq.true&order=sort_order.asc,name.asc,id.asc',token),
+      cfPlacementFetchAllJson('/rest/v1/aurore_pedagogical_node_subjects?select=node_id,subject_id&order=node_id.asc,subject_id.asc',token)
     ]);
     const activeNodes=nodes.filter(n=>n.active!==false);
     const activeSubjects=subjects.filter(v=>v.active!==false);
@@ -1711,12 +1723,13 @@ async function openPlacementForm(id){
       selectedLevelId=roots.some(node=>String(node.id)===currentLevel)?currentLevel:'';
       levelPicker.value=selectedLevelId;
       const selectedRoot=roots.find(node=>String(node.id)===selectedLevelId)||null;
-      routeChoices=selectedRoot
-        ?catalogLeafRoutes(selectedRoot).filter(choice=>!!choice.dbNode)
-        :[];
+      // Afficher tout le catalogue, y compris une éventuelle entrée dont la
+      // correspondance DB serait manquante : une classe ne doit jamais disparaître
+      // du menu à cause d'une association de référentiel incomplète.
+      routeChoices=selectedRoot?catalogLeafRoutes(selectedRoot):[];
       routePicker.innerHTML='<option value="">'+(selectedLevelId?'Choisir un parcours…':'Choisis d’abord un niveau…')+'</option>'+
-        routeChoices.map((choice,index)=>'<option value="'+index+'">'+safe(choice.label)+'</option>').join('');
-      routePicker.disabled=!selectedLevelId||!routeChoices.length;
+        routeChoices.map((choice,index)=>'<option value="'+index+'"'+(!choice.dbNode?' disabled':'')+'>'+safe(choice.label)+(!choice.dbNode?' — synchronisation requise':'')+'</option>').join('');
+      routePicker.disabled=!selectedLevelId||!routeChoices.some(choice=>!!choice.dbNode);
       const matchingIndex=routeChoices.findIndex(choice=>
         String(choice.dbNode?.id||'')===String(selectedLeafId||'')||
         String(choice.legacyPath||'')===String(selectedLeafLegacyPath||'')
