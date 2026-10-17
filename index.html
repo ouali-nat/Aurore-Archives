@@ -3157,6 +3157,27 @@ body:not(.site-locked) #accessLock{display:none!important;}
   });
   if(window.auroreAuthGoogleEstPret?.()) activerBoutonGooglePret();
 
+  // Pilote Aurore ID : le paramètre est ajouté uniquement depuis le portail.
+  // On garde le flux OAuth/PKCE natif de ce site afin de restaurer sa session locale.
+  (function lancerConnexionDepuisAuroreID(){
+    const params = new URLSearchParams(window.location.search);
+    if(params.get('aurore_sso') !== 'google') return;
+    params.delete('aurore_sso');
+    const reste = params.toString();
+    const urlPropre = window.location.pathname + (reste ? '?' + reste : '') + window.location.hash;
+    try { window.history.replaceState(window.history.state, '', urlPropre); } catch (_) {}
+    let lance = false;
+    const lancer = () => {
+      if(lance || !window.auroreAuthGoogleEstPret?.()) return;
+      if(typeof session !== 'undefined' && session?.access_token) return;
+      if(!btnGoogleConnexion || btnGoogleConnexion.disabled) return;
+      lance = true;
+      btnGoogleConnexion.click();
+    };
+    window.addEventListener('aurore-auth-google-ready', lancer, { once: true });
+    if(window.auroreAuthGoogleEstPret?.()) queueMicrotask(lancer);
+  })();
+
   btnGoogleConnexion?.addEventListener('click', async (e) => {
     const btn=e.currentTarget;
     verrouillerBoutonGooglePreparation();
