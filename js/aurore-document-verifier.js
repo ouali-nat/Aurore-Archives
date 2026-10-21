@@ -61,6 +61,15 @@
         <div class="aurore-verify-location"><div class="aurore-verify-label">Lieu exact de publication</div><div class="aurore-verify-crumbs">${path.map(function(x,i){return (i?'<span aria-hidden="true">›</span>':'')+'<span>'+esc(x)+'</span>';}).join("")}</div></div>
         <div class="aurore-verify-meta">${d.id?'<span>Document public #'+esc(d.id)+'</span>':''}${d.version?'<span>Version '+esc(d.version)+'</span>':''}${d.subject?'<span>'+esc(d.subject)+'</span>':''}</div>
         <div class="aurore-verify-actions"><a class="aurore-verify-primary" href="${esc(result.publication.url)}">Ouvrir le document</a><button type="button" class="aurore-verify-secondary" data-back>Retour à Aurore</button></div>`;
+    } else if (status === "replaced") {
+      card.classList.add("aurore-verify-unpublished"); const d = result.document || {};
+      const url = result.publication && result.publication.url;
+      body.innerHTML = `
+        <div class="aurore-verify-state">↗ Ancienne édition remplacée</div>
+        <h1 class="aurore-verify-title">${esc(d.title || "Une nouvelle édition est disponible")}</h1>
+        <p class="aurore-verify-message">Le QR que vous avez scanné correspond à une ancienne édition. Elle est conservée comme référence historique ; utilisez le lien ci-dessous pour consulter l’édition actuellement publiée.</p>
+        <div class="aurore-verify-meta">${result.previous_edition && result.previous_edition.version ? '<span>Ancienne version '+esc(result.previous_edition.version)+'</span>' : ''}${d.version ? '<span>Version actuelle '+esc(d.version)+'</span>' : ''}</div>
+        <div class="aurore-verify-actions">${url ? '<a class="aurore-verify-primary" href="'+esc(url)+'">Ouvrir l’édition actuelle</a>' : ''}<button type="button" class="aurore-verify-secondary" data-back>Retour à Aurore</button></div>`;
     } else if (status === "unpublished") {
       card.classList.add("aurore-verify-unpublished"); const d = result.document || {};
       body.innerHTML = `
