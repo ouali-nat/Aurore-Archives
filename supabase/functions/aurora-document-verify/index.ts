@@ -161,7 +161,7 @@ Deno.serve(async (req) => {
         ok: false,
         status: "corrupt",
         message: "Document corrompu",
-        document: { id: document.id, title: document.Titre, version: generated.version },
+        document: { id: document.id, title: document.Titre, version: currentGenerated.version },
         reason: pdf.reason,
       }, 409);
     }
