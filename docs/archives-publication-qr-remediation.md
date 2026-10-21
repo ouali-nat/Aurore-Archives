@@ -11,7 +11,7 @@ Corriger les liens de publication et le comportement des QR sans casser les publ
 - L'entrée 320 utilise une URL d'hôte R2.
 - Le document généré 2265 est au statut `review` tout en référençant l'entrée de bibliothèque 325. Il faut comprendre cette divergence avant de migrer les statuts.
 - La fonction Edge déployée `aurora-document-verify` répond `not_found` lorsqu'un document généré n'est plus au statut `published`, sans indiquer qu'il a été remplacé.
-- Le code source de cette fonction Edge déployée n'a pas été trouvé dans le dépôt GitHub lors de l'audit. Ne pas modifier directement la fonction de production avant d'avoir récupéré et versionné son code.
+- Le code source de la fonction Edge déployée a ensuite été récupéré depuis Supabase et versionné sur cette branche dans `supabase/functions/aurora-document-verify/index.ts`. La production n'a pas été redéployée.
 - La fonction `aurora-assisted-pdf-finalize` conserve un proxy legacy vers le domaine `aurore-section-archives.com`, différent du domaine de production confirmé `aurore-section-archivescom.vercel.app`. Vérifier l'usage réel du chemin legacy avant toute modification.
 - Le workflow GeoGebra échoue au stade de découverte des tâches avec HTTP 401 ; le workflow a été réorganisé sur cette branche afin de vérifier Supabase avant l'installation coûteuse de Chromium.
 
@@ -40,11 +40,11 @@ Corriger les liens de publication et le comportement des QR sans casser les publ
 
 ## Conditions avant fusion ou déploiement
 
-- [ ] Le code source de `aurora-document-verify` est récupéré et versionné.
+- [x] Le code source de `aurora-document-verify` est récupéré et versionné sur la branche de préparation.
 - [ ] La règle métier est fixée pour les cas où une même entrée de bibliothèque est mise à jour versus créée comme nouvelle version.
 - [ ] Les tests de la matrice QR passent sur des données de test.
 - [ ] Les URL R2 et Supabase existantes sont couvertes.
-- [ ] Le workflow GeoGebra passe la découverte Supabase et ses tests.
+- [x] Le workflow GeoGebra passe la découverte Supabase et les contrôles syntaxiques sur la branche. Le run `39597881384` a réussi, mais aucune tâche admissible n'était présente : le rendu réel GeoGebra a donc été ignoré.
 - [ ] Une revue confirme qu'aucune modification de production ni suppression de PDF n'est requise pour tester.
 - [ ] Déploiement progressif et plan de retour arrière documentés.
 
@@ -67,3 +67,10 @@ Aucune migration Supabase, aucun changement de données, aucune suppression d'ob
 - La règle ne relie que des éditions partageant exactement le même `published_document_id`; aucun rapprochement par titre n'est utilisé. Les éditions historiques existantes ne seront pas reliées rétroactivement sans audit dédié.
 - Limite importante : si la même ligne `aurora_generated_documents` est modifiée en place, son identifiant QR reste identique et ne peut pas distinguer deux impressions successives. La solution de cette branche couvre les nouvelles lignes générées qui remplacent une publication existante ; un QR immuable par édition devra être une évolution distincte.
 - Avant migration : valider le SQL dans une base de test, confirmer que les politiques et RPC existantes tolèrent `replaced`, et exécuter les scénarios publié → remplacé, non publié, PDF invalide, ancienne édition sans remplaçant et remplacement simultané.
+
+
+## État des contrôles — run 39597881384
+
+- Succès : secrets requis présents, syntaxe des modules GeoGebra et du vérificateur JavaScript, découverte Supabase et réponse JSON valide.
+- Le workflow a détecté zéro tâche admissible ; les étapes Chromium et rendu réel ont été ignorées conformément au but de la correction. Ce run ne prouve donc pas le rendu d'un graphe.
+- À faire avant mise en production : tester la migration sur une base isolée, tester la fonction Edge avec des fixtures ou un projet de test, résoudre séparément la durabilité des URL PDF signées et auditer les anciennes éditions existantes.
