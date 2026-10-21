@@ -56,7 +56,7 @@ Aucune migration Supabase, aucun changement de données, aucune suppression d'ob
 ## Diagnostic complémentaire — 21 octobre 2026
 
 - Le code de la fonction déployée `aurora-document-verify` a été récupéré depuis Supabase et doit être versionné dans `supabase/functions/aurora-document-verify/index.ts` sur cette branche, sans redéploiement.
-- Le 401 du workflow GeoGebra provient d'abord de la passerelle Supabase : `aurora-geogebra` a `verify_jwt=true`, tandis que l'appel GitHub Actions envoyait seulement `x-aurore-render-token`, sans `apikey` ni `Authorization: Bearer` valide. Il faut ajouter le secret GitHub `SUPABASE_ANON_KEY` contenant la clé anon/publishable JWT de ce projet, sans jamais confondre cette clé publique avec le jeton privé `AURORA_LUALATEX_RENDER_TOKEN`.
+- Le 401 du workflow GeoGebra provenait de la passerelle Supabase : `aurora-geogebra` a `verify_jwt=true`, alors que l'appel GitHub Actions envoyait seulement `x-aurore-render-token`, sans `apikey` ni `Authorization: Bearer` valide. Le workflow utilise désormais la clé anon legacy publiable du projet pour ces deux en-têtes, distincte du jeton privé `AURORA_LUALATEX_RENDER_TOKEN`.
 - La RPC de publication actuelle met à jour une ligne `Document` existante en place. Elle ne crée donc pas, à elle seule, une identité immuable pour chaque édition et ne peut pas distinguer de manière fiable un ancien QR du QR de l'édition courante. Aucune règle de remplacement ne doit être activée sur la seule base du titre : une évolution sûre exige une identité d'édition immuable et une relation explicite ancien → nouveau, plus des tests de non-régression.
 
 
