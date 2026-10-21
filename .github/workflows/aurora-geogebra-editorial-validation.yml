@@ -8,6 +8,9 @@ on:
       - "infra/geogebra/render_missing_graphs.mjs"
       - "infra/geogebra/renderer_contract.mjs"
       - "infra/geogebra/function2d_commands.mjs"
+      - "js/aurore-document-verifier.js"
+      - "supabase/functions/aurora-document-verify/**"
+      - "supabase/migrations/*aurora_preserve_replaced_editions.sql"
       - ".github/workflows/aurora-geogebra-editorial-validation.yml"
   pull_request:
     branches:
@@ -46,6 +49,7 @@ jobs:
           node --check infra/geogebra/renderer_contract.mjs
           node --check infra/geogebra/function2d_commands.mjs
           node --check infra/geogebra/render_missing_graphs.mjs
+          node --check js/aurore-document-verifier.js
 
       # Check Supabase access before downloading Chromium and its OS packages.
       # Authentication failures now stop before the expensive browser setup.
