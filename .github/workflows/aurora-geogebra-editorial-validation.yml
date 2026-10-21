@@ -9,6 +9,14 @@ on:
       - "infra/geogebra/renderer_contract.mjs"
       - "infra/geogebra/function2d_commands.mjs"
       - ".github/workflows/aurora-geogebra-editorial-validation.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "infra/geogebra/render_missing_graphs.mjs"
+      - "infra/geogebra/renderer_contract.mjs"
+      - "infra/geogebra/function2d_commands.mjs"
+      - ".github/workflows/aurora-geogebra-editorial-validation.yml"
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch: {}
