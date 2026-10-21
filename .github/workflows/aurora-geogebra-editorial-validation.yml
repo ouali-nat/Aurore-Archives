@@ -30,13 +30,16 @@ jobs:
     env:
       SUPABASE_URL: https://tdeotqfsbvouresfhkab.supabase.co
       AURORA_LUALATEX_RENDER_TOKEN: ${{ secrets.AURORA_LUALATEX_RENDER_TOKEN }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
 
     steps:
       - name: Checkout renderer
         uses: actions/checkout@v4
 
       - name: Validate renderer secrets
-        run: test -n "$AURORA_LUALATEX_RENDER_TOKEN"
+        run: |
+          test -n "$AURORA_LUALATEX_RENDER_TOKEN"
+          test -n "$SUPABASE_ANON_KEY"
 
       - name: Validate GeoGebra renderer JavaScript syntax
         run: |
@@ -53,6 +56,8 @@ jobs:
           curl --fail --silent --show-error \
             -X POST \
             -H "Content-Type: application/json" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
             --data '{"action":"list-editorial-jobs"}' \
             "$SUPABASE_URL/functions/v1/aurora-geogebra" \
@@ -72,7 +77,7 @@ jobs:
         run: |
           npm init -y >/dev/null 2>&1
           npm install --no-save playwright@1.63.0
-          npx playwright install --with-deps chromium
+          npx playwright install --with-deps chromium --only-shell
 
       - name: Validate every eligible editorial graph with the real renderer
         if: steps.discover.outputs.has_jobs == 'true'
