@@ -11,12 +11,7 @@
       "*.supabase.co",
       "lsnb-upload.oualikevin9.workers.dev",
       "pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev",
-      "cdnjs.cloudflare.com",
-      "aurore-memories-aurore9.vercel.app",
-      "aurore-memories-mu.vercel.app",
-      "aurore-memories.oualikevin6.workers.dev",
-      "cdn.jsdelivr.net",
-      "unpkg.com"
+      "cdnjs.cloudflare.com"
     ]
   },
   "android": {
