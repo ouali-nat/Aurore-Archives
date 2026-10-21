@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
 
     const generatedRows = await restGet(
       "aurora_generated_documents",
-      "id=eq." + id + "&select=id,title,version,status,published_document_id,pdf_url"
+      "id=eq." + id + "&select=id,title,version,status,published_document_id,pdf_url,metadata"
     );
     const generated = Array.isArray(generatedRows) ? generatedRows[0] : null;
 
@@ -113,8 +113,37 @@ Deno.serve(async (req) => {
 
     if (!generated) return unavailable();
 
-    const publishedId = generated.published_document_id;
-    if (generated.status !== "published" || !publishedId) return unavailable();
+    let currentGenerated = generated;
+    let replacementOf: Record<string, unknown> | null = null;
+    const explicitReplacementId = clean(
+      (generated.metadata as Record<string, unknown> | null)?.replaced_by_generated_document_id ??
+      ((generated.metadata as Record<string, unknown> | null)?.replacement as Record<string, unknown> | null)?.replaced_by_generated_document_id
+    );
+    if (generated.status === "replaced" || explicitReplacementId) {
+      if (!/^\\d+$/.test(explicitReplacementId)) {
+        return json({ ok: false, status: "replaced", message: "Cette ancienne édition a été remplacée, mais le lien vers la nouvelle édition doit être vérifié." }, 409);
+      }
+      const replacementRows = await restGet(
+        "aurora_generated_documents",
+        "id=eq." + explicitReplacementId + "&status=eq.published&select=id,title,version,status,published_document_id,pdf_url,metadata"
+      );
+      const replacement = Array.isArray(replacementRows) ? replacementRows[0] : null;
+      if (!replacement || !replacement.published_document_id) {
+        return json({ ok: false, status: "replaced", message: "Cette ancienne édition a été remplacée. La nouvelle édition est temporairement indisponible." }, 409);
+      }
+      currentGenerated = replacement;
+      replacementOf = { id: generated.id, version: generated.version };
+    } else if (generated.status !== "published") {
+      return json({
+        ok: false,
+        status: "unpublished",
+        message: "Cette édition existe dans le système éditorial Aurore, mais elle n’est pas publiée.",
+        document: { id: generated.id, title: generated.title, version: generated.version },
+      }, 404);
+    }
+
+    const publishedId = currentGenerated.published_document_id;
+    if (!publishedId) return unavailable();
 
     const publicRows = await restGet(
       "Document",
@@ -140,8 +169,8 @@ Deno.serve(async (req) => {
     const publicUrl = SITE_URL + "?document=" + document.id;
     return json({
       ok: true,
-      status: "published",
-      message: "Document publié et vérifié",
+      status: replacementOf ? "replaced" : "published",
+      message: replacementOf ? "Ancienne édition remplacée : nouvelle édition vérifiée" : "Document publié et vérifié",
       document: {
         id: document.id,
         title: document.Titre,
@@ -149,8 +178,9 @@ Deno.serve(async (req) => {
         class_name: document.Classe,
         subject: document.Matière,
         category: document.Catégorie,
-        version: generated.version,
+        version: currentGenerated.version,
       },
+      ...(replacementOf ? { previous_edition: replacementOf } : {}),
       publication: { url: publicUrl, path: pathLabel(document) },
       pdf: { valid: true },
     });
