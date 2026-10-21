@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
       ((generated.metadata as Record<string, unknown> | null)?.replacement as Record<string, unknown> | null)?.replaced_by_generated_document_id
     );
     if (generated.status === "replaced" || explicitReplacementId) {
-      if (!/^\\d+$/.test(explicitReplacementId)) {
+      if (!/^\d+$/.test(explicitReplacementId)) {
         return json({ ok: false, status: "replaced", message: "Cette ancienne édition a été remplacée, mais le lien vers la nouvelle édition doit être vérifié." }, 409);
       }
       const replacementRows = await restGet(
