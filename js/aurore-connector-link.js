@@ -71,10 +71,10 @@
         finished = true;
         try { window.sessionStorage.removeItem(storageKey); } catch (_) {}
         clearPairFromUrl();
-        notice("Aurore Archives est reliée au plugin. Retourne dans ChatGPT pour continuer.", false);
+        notice("Aurore Archives est connectée. Tu peux revenir à la conversation pour continuer.", false);
         if (timer) clearInterval(timer);
       } else {
-        notice(result.error || "Connexion au plugin impossible. Reviens dans ChatGPT et génère un nouveau lien.", true);
+        notice(result.error || "Connexion impossible. Reviens à la conversation et génère un nouveau lien.", true);
         if (response.status === 410) {
           finished = true;
           try { window.sessionStorage.removeItem(storageKey); } catch (_) {}
