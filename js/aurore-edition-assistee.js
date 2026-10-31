@@ -1,7 +1,7 @@
 /* Aurore — Édition assistée : atelier séquentiel, sans canevas de prévisualisation */
 (function(){
   'use strict';
-  const state={mode:'list',course:null,courses:[],selected:null,loading:false,pdfBatchRunning:false,pdfFinalizing:false,finalPdfArtifact:null,pendingExitSave:Promise.resolve(),ghostscriptModulePromise:null,ghostscriptInstance:null,ghostscriptFailureUntil:0,ghostscriptFailureMessage:'',pdfBatchProgress:{percent:0,label:'En attente de génération',targetCount:0,activeTargetIndex:0,completedTargets:0},pdfLibPromise:null,modalViewport:null,canonicalPreview:{fingerprint:'',documentId:null,pdfUrl:null}};
+  const state={mode:'list',course:null,courses:[],serverVersions:{},selected:null,loading:false,pdfBatchRunning:false,pdfFinalizing:false,finalPdfArtifact:null,pendingExitSave:Promise.resolve(),ghostscriptModulePromise:null,ghostscriptInstance:null,ghostscriptFailureUntil:0,ghostscriptFailureMessage:'',pdfBatchProgress:{percent:0,label:'En attente de génération',targetCount:0,activeTargetIndex:0,completedTargets:0},pdfLibPromise:null,modalViewport:null,canonicalPreview:{fingerprint:'',documentId:null,pdfUrl:null}};
   const PREVIEW_CACHE_MAX=6;
   const PDF_PART_CACHE_DB='aurore-pdf-part-cache-v3';
   const PDF_PART_CACHE_STORE='optimized-parts';
@@ -1415,7 +1415,15 @@
     if(user?.id) q=q.eq('created_by',user.id);
     const {data,error}=await q;
     if(error)throw error;
-    state.courses=(Array.isArray(data)?data:[]).map(row=>{const cj=ensureCourseStructure(rowCourse(row)||newCourse(row.title));const workflow=cj.workflow&&typeof cj.workflow==='object'?cj.workflow:{};return {...row,status:workflow.status==='completed'?'completed':'editing',course_json:cj};});
+    const rows=Array.isArray(data)?data:[];
+    for(const row of rows){
+      const id=String(row?.id||''), incoming=String(row?.updated_at||''), known=state.serverVersions[id];
+      const active=state.mode==='workspace'&&String(state.course?.id||'')===id;
+      // Ne jamais remplacer la version connue d'un éditeur ouvert par une version
+      // venue d'ailleurs : elle sert de verrou optimiste contre les écrasements.
+      if(id&&(!active||!known||known===incoming))state.serverVersions[id]=incoming;
+    }
+    state.courses=rows.map(row=>{const cj=ensureCourseStructure(rowCourse(row)||newCourse(row.title));const workflow=cj.workflow&&typeof cj.workflow==='object'?cj.workflow:{};return {...row,status:workflow.status==='completed'?'completed':'editing',course_json:cj};});
     return state.courses;
   }
 
@@ -3207,15 +3215,65 @@
     ensureCourseStructure(course);
     const c=client();
     if(!c){localStorage.setItem('aurore_assisted_course',JSON.stringify(course));if(!silent)setStatus('Brouillon local enregistré.');return false;}
+    const courseId=String(course.id||'');
     try{
+      const {data:{user}={}}=await c.auth.getUser();
+      if(!user?.id)throw new Error('Session administrateur absente.');
+      const knownVersion=Object.prototype.hasOwnProperty.call(state.serverVersions,courseId)
+        ?String(state.serverVersions[courseId]||''):null;
+      const {data:currentRow,error:readError}=await c.from('aurora_assisted_courses')
+        .select('id,updated_at')
+        .eq('id',courseId)
+        .eq('created_by',user.id)
+        .maybeSingle();
+      if(readError)throw readError;
+      if(currentRow&&knownVersion===null){
+        localStorage.setItem('aurore_assisted_course',JSON.stringify(course));
+        setStatus('Conflit de sauvegarde : le cours existe déjà mais sa version serveur n’est pas connue. Aucune écriture effectuée. Actualise la liste puis rouvre le cours.');
+        return false;
+      }
+      if(currentRow&&String(currentRow.updated_at||'')!==knownVersion){
+        localStorage.setItem('aurore_assisted_course',JSON.stringify(course));
+        setStatus('Conflit de sauvegarde détecté : ce cours a été modifié ailleurs, notamment par le connecteur Aurore. Aucune ancienne version n’a été écrite. Le brouillon local est conservé sur cet appareil ; actualise la liste et rouvre le cours.');
+        return false;
+      }
+      if(!currentRow&&knownVersion!==null){
+        localStorage.setItem('aurore_assisted_course',JSON.stringify(course));
+        setStatus('Conflit de sauvegarde : le cours a été supprimé ou déplacé depuis son chargement. Aucune recréation automatique effectuée ; le brouillon local est conservé.');
+        return false;
+      }
       course.updated_at=new Date().toISOString();
-      const {data:{user}={}}=await c.auth.getUser();if(!user)throw new Error('Session administrateur absente.');
-      const payload={id:course.id,created_by:user.id,title:course.title,editor_version:'edition-assistee-v5',pages:{schema:'aurore-assisted-course-v5',course}};
-      const {error}=await c.from('aurora_assisted_courses').upsert(payload,{onConflict:'id'});if(error)throw error;
-      if(!silent)setStatus('Cours enregistré.');
+      const payload={id:course.id,created_by:user.id,title:course.title,editor_version:'edition-assistee-v5',pages:{schema:'aurore-assisted-course-v5',course},updated_at:course.updated_at};
+      let savedRow=null,saveError=null;
+      if(currentRow){
+        // Compare-and-swap atomique : si un autre acteur écrit après la lecture,
+        // le filtre updated_at ne correspond plus et l’ancienne copie est refusée.
+        const result=await c.from('aurora_assisted_courses')
+          .update({title:payload.title,editor_version:payload.editor_version,pages:payload.pages,updated_at:payload.updated_at})
+          .eq('id',courseId).eq('created_by',user.id).eq('updated_at',knownVersion)
+          .select('id,updated_at,pages').maybeSingle();
+        savedRow=result.data;saveError=result.error;
+      }else{
+        const result=await c.from('aurora_assisted_courses')
+          .insert(payload)
+          .select('id,updated_at,pages').maybeSingle();
+        savedRow=result.data;saveError=result.error;
+      }
+      if(saveError)throw saveError;
+      if(!savedRow||!savedRow.updated_at||!savedRow.pages?.course){
+        localStorage.setItem('aurore_assisted_course',JSON.stringify(course));
+        setStatus('Conflit ou échec de sauvegarde : Supabase n’a pas confirmé cette version. Aucune autre écriture n’a été tentée ; le brouillon local est conservé.');
+        return false;
+      }
+      state.serverVersions[courseId]=String(savedRow.updated_at);
+      if(!silent)setStatus('Cours enregistré et confirmé dans Supabase.');
       if(refreshList)await loadCourses();
       return true;
-    }catch(e){localStorage.setItem('aurore_assisted_course',JSON.stringify(course));if(!silent)setStatus('Supabase indisponible · brouillon local conservé.');return false;}
+    }catch(e){
+      localStorage.setItem('aurore_assisted_course',JSON.stringify(course));
+      if(!silent)setStatus('Supabase indisponible · brouillon local conservé. '+String(e?.message||e));
+      return false;
+    }
   }
 
   function renderPdfBatchProgress(){
