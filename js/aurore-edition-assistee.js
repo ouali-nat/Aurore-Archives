@@ -44,6 +44,30 @@
   function themeColorOptions(){return THEME_COLORS.map(c=>'<option value="'+c.value+'"'+(normalizeThemeColor(state.course?.theme_color)===c.value?' selected':'')+'>'+esc(c.label)+'</option>').join('')}
 
   const esc=v=>String(v??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+  // Extraction locale des anciens contenus structurés (la version Edge n'est pas globale au navigateur).
+  function extractStructuredText(value){
+    if(value===null||value===undefined)return '';
+    if(typeof value!=='string')return String(value);
+    const raw=value.trim();
+    if(!raw)return '';
+    if((raw.startsWith('{')&&raw.endsWith('}'))||(raw.startsWith('[')&&raw.endsWith(']'))){
+      try{
+        const parsed=JSON.parse(raw);
+        const walk=node=>{
+          if(node===null||node===undefined)return '';
+          if(typeof node==='string')return node;
+          if(Array.isArray(node))return node.map(walk).filter(Boolean).join('\\n\\n');
+          if(typeof node!=='object')return String(node);
+          for(const key of ['text','body','statement','question','content'])if(typeof node[key]==='string')return node[key];
+          if(node.content&&typeof node.content==='object')return walk(node.content);
+          return '';
+        };
+        const extracted=walk(parsed).trim();
+        if(extracted)return extracted;
+      }catch(_){}
+    }
+    return value;
+  }
   const clone=v=>JSON.parse(JSON.stringify(v));
   const uid=p=>(p||'id')+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
   const root=()=>document.getElementById('assistedRoot');
