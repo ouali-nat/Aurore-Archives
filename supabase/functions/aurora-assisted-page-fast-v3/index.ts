@@ -305,15 +305,23 @@ async function fetchFontBytes(key:string,url:string){
   FONT_BYTES_CACHE.set(key,task);
   return task;
 }
-async function loadFonts(pdf:any){
-  // Deux polices seulement, sous-ensemblées aux glyphes effectivement utilisés.
-  const [regular,bold]=await Promise.all([
-    fetchFontBytes("regular",FONT_URLS.regular),
-    fetchFontBytes("bold",FONT_URLS.bold)
+async function loadFonts(pdf:any,family="current"){
+  // Les polices sont intégrées au PDF ; aucun besoin de les installer sur le téléphone.
+  const chosen=String(family||"current").toLowerCase();
+  let urls:any=FONT_URLS;
+  if(chosen==="kalam")urls={regular:"https://raw.githubusercontent.com/google/fonts/main/ofl/kalam/Kalam-Regular.ttf",bold:"https://raw.githubusercontent.com/google/fonts/main/ofl/kalam/Kalam-Bold.ttf",sans:"https://raw.githubusercontent.com/google/fonts/main/ofl/kalam/Kalam-Bold.ttf",sansBold:"https://raw.githubusercontent.com/google/fonts/main/ofl/kalam/Kalam-Bold.ttf"};
+  else if(chosen==="montserrat")urls={regular:"https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/Montserrat[wght].ttf",bold:"https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/Montserrat[wght].ttf",sans:"https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/Montserrat[wght].ttf",sansBold:"https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/Montserrat[wght].ttf"};
+  const [regular,bold,sans,sansBold]=await Promise.all([
+    fetchFontBytes(chosen+"-regular",urls.regular),
+    fetchFontBytes(chosen+"-bold",urls.bold),
+    fetchFontBytes(chosen+"-sans",urls.sans||urls.regular),
+    fetchFontBytes(chosen+"-sans-bold",urls.sansBold||urls.bold)
   ]);
   const regularFont=await pdf.embedFont(regular,{subset:true});
   const boldFont=await pdf.embedFont(bold,{subset:true});
-  return {regular:regularFont,bold:boldFont,sans:regularFont,sansBold:boldFont,__aurore_source_bytes:regular.length+bold.length};
+  const sansFont=urls.sans===urls.regular?regularFont:await pdf.embedFont(sans,{subset:true});
+  const sansBoldFont=urls.sansBold===urls.bold?boldFont:await pdf.embedFont(sansBold,{subset:true});
+  return {regular:regularFont,bold:boldFont,sans:sansFont,sansBold:sansBoldFont,__aurore_source_bytes:regular.length+bold.length+sans.length+sansBold.length};
 }
 function noteFormulaFailure(qa:any,key:string,reason:string){
   if(!Array.isArray(qa.formula_errors))qa.formula_errors=[];
@@ -775,7 +783,9 @@ Deno.serve(async req=>{
   if(!input||typeof input!=="object")return out({ok:false,error:"content structuré requis"},400); const hasForeignAssetPath=(v:any):boolean=>{if(Array.isArray(v))return v.some(hasForeignAssetPath);if(!v||typeof v!=="object")return false;for(const k of ["geogebra_image_path","graph_local_path"]){const path=(v as any)[k];if(typeof path==="string"&&path.trim()&&(!path.startsWith(`aurora-content/${assetOwnerId}/`)||path.includes("..")))return true;}return Object.values(v).some(hasForeignAssetPath);}; if(hasForeignAssetPath(input))return out({ok:false,error:"Chemin GeoGebra non autorisé"},403);
   try{
     const pdf=await PDFDocument.create();pdf.registerFontkit(fontkit);
-    const [fonts,logo]=await Promise.all([loadFonts(pdf),loadLogo(pdf)]);
+    const requestedFont=String(body?.content?.font_family||body?.font_family||"current").toLowerCase();
+    const fontFamily=["current","kalam","montserrat"].includes(requestedFont)?requestedFont:"current";
+    const [fonts,logo]=await Promise.all([loadFonts(pdf,fontFamily),loadLogo(pdf)]);
     DISPLAY_FORMULA_FONT=fonts.regular;
     let page=pdf.addPage([595,842]);
     const railPages:any[]=[page];
@@ -842,8 +852,8 @@ Deno.serve(async req=>{
       &&Array.isArray(input.assisted_block?.flow_block_ids)
       &&input.assisted_block.flow_block_ids.length>1
       &&orderedFlowItems.length>1;
-    const BOX_X=X-10,BOX_W=W+32;
-    const PARA_X=X+18,PARA_W=W-6;
+    const BOX_X=X-10,BOX_W=W+51;
+    const PARA_X=BOX_X+16,PARA_W=BOX_W-32;
     const POINT_X=POINT_BOX_X,POINT_W=POINT_MAX_W;
     
     
@@ -861,7 +871,7 @@ const newFlowPage=()=>{
     const flowPageMap:Record<string,number>={};
     const flowPageEndMap:Record<string,number>={};
     const markFlowBlockPage=(blockId:any)=>{const key=String(blockId||"").trim();if(!key)return;if(!Object.prototype.hasOwnProperty.call(flowPageMap,key))flowPageMap[key]=flowPageNo;flowPageEndMap[key]=flowPageNo;};
-    const drawContentBlock=async(text:any,blockId?:any)=>{
+    const drawContentBlock=async(text:any,blockId?:any,boxed=false)=>{
       if(text&&typeof text==="object"&&text.__aurore_point){
         const title=String(text.title||"Point de cours"),body=String(text.text||"");
         const accent=normalizeHexColor(text.color)||color;
@@ -1073,6 +1083,7 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
           const boxH=Math.max(36,BOX_PAD_TOP+used+BOX_PAD_BOTTOM);
           
           let childY=y-BOX_PAD_TOP;
+          if(boxed)rounded(page,BOX_X,y-boxH,BOX_W,boxH,11,rgbHex("#E8E8EA"),rgbHex("#C8C9CE"),0.6);
           for(const item of fragment){
             if(item.kind==="inline"){
               drawInlineLines(page,item.lines,PARA_X,childY,PARA_W,fonts.regular,color,rgbHex("#202126"),TEXT_SIZE,LINE_HEIGHT);
@@ -1284,8 +1295,8 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
       titleAnchors.push({page,y:y-exerciseLabel.height/2,targetX:X,color:exerciseTitleColor});
       drawAdaptiveExerciseLabel(page,title,X,y,fonts,exerciseTitleColor,exerciseLabel);
       y-=exerciseLabel.drop;
-      await drawContentBlock(statement,blockId);
-      if(hint)await drawContentBlock("Indication : "+hint,blockId);
+      await drawContentBlock(statement,blockId,true);
+      if(hint)await drawContentBlock("Indication : "+hint,blockId,true);
       if(correction){
         const correctionLabel=adaptiveExerciseLabelLayout(correctionTitle,fonts,X);
         // Le corrigé reste sous l’énoncé s’il tient dans l’espace disponible.
@@ -1295,7 +1306,7 @@ let childY=bodyY+bodyH-BOX_PAD_TOP;
         titleAnchors.push({page,y:y-correctionLabel.height/2,targetX:X,color:exerciseTitleColor});
         drawAdaptiveExerciseLabel(page,correctionTitle,X,y,fonts,exerciseTitleColor,correctionLabel);
         y-=correctionLabel.drop;
-        await drawContentBlock(correction,blockId);
+        await drawContentBlock(correction,blockId,true);
       }
     };
     // Pour les flux mixtes, respecter exactement l'ordre des blocs de l'éditeur.

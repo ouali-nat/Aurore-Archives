@@ -76,7 +76,7 @@ function blockTextOf(content:any):string{
   return extractStructuredText(content.text??content.content??content.body??"");
 }
 
-function buildContent(courseTitle:string,pageNumber:number,block:any,themeColor:string|null){
+function buildContent(courseTitle:string,pageNumber:number,block:any,themeColor:string|null,fontFamily:string){
   const type=clean(block?.type||"paragraph").toLowerCase();
   const content=blockContentOf(block);
   const section:any={title:"Bloc "+String(pageNumber),content:[],exercises:[],graphs:[],assisted_block_id:String(block?.id||"")};
@@ -111,6 +111,7 @@ function buildContent(courseTitle:string,pageNumber:number,block:any,themeColor:
   return {
     title:courseTitle,
     theme_color:themeColor,
+    font_family:fontFamily,
     document_type:"page_assistee",
     source_format:"structured",
     sections:[section],
@@ -127,7 +128,7 @@ function buildContent(courseTitle:string,pageNumber:number,block:any,themeColor:
 }
 
 
-function buildFlowContent(courseTitle:string,pageNumber:number,blocks:any[],themeColor:string|null,userId:string){
+function buildFlowContent(courseTitle:string,pageNumber:number,blocks:any[],themeColor:string|null,userId:string,fontFamily:string){
   const title=String(courseTitle||"Cours").trim()||"Cours";
   const sections:any[]=[];
   const sourceBlocks=Array.isArray(blocks)?blocks.filter((b:any)=>b&&typeof b==="object"):[];
@@ -178,7 +179,7 @@ function buildFlowContent(courseTitle:string,pageNumber:number,blocks:any[],them
       throw new Error("Type de bloc non pris en charge dans le flux : "+type);
     }
   }
-  return {title,theme_color:themeColor,document_type:"page_assistee",source_format:"structured",sections,images:[],
+  return {title,theme_color:themeColor,font_family:fontFamily,document_type:"page_assistee",source_format:"structured",sections,images:[],
     assisted_block:{id:String(sourceBlocks[0]?.id||""),type:clean(sourceBlocks[0]?.type||""),
       content:sourceBlocks[0]?.content&&typeof sourceBlocks[0]?.content==="object"?sourceBlocks[0].content:{},
       mixed_flow:true,flow_block_ids:sourceBlocks.map((b:any)=>String(b?.id||"")).filter(Boolean)}};
@@ -526,10 +527,12 @@ Deno.serve(async(req)=>{
   const jobId=Number(insertedJob.data.id);
   let contentJson:any;
   const themeColor=normalizeHexColor(body?.theme_color);
+  const requestedFont=String(body?.font_family||"current").toLowerCase();
+  const fontFamily=["current","kalam","montserrat"].includes(requestedFont)?requestedFont:"current";
   try{
     contentJson=flowBlocks.length>1
-      ?buildFlowContent(String(course.data.title||body.course_title||"Cours"),pageNumber,flowBlocks,themeColor,userId)
-      :buildContent(String(course.data.title||body.course_title||"Cours"),pageNumber,flowBlocks[0],themeColor);
+      ?buildFlowContent(String(course.data.title||body.course_title||"Cours"),pageNumber,flowBlocks,themeColor,userId,fontFamily)
+      :buildContent(String(course.data.title||body.course_title||"Cours"),pageNumber,flowBlocks[0],themeColor,fontFamily);
   }catch(e){return out({ok:false,error:e instanceof Error?e.message:String(e)},400);}
 
   const metadata={
@@ -541,7 +544,8 @@ Deno.serve(async(req)=>{
       page_number:pageNumber,
       block_type:type,
       flow_block_ids:flowBlocks.map((b:any)=>String(b?.id||"")).filter(Boolean),
-      theme_color:themeColor
+      theme_color:themeColor,
+      font_family:fontFamily
     }
   };
   const insertedDoc=await admin.from("aurora_generated_documents").insert({
