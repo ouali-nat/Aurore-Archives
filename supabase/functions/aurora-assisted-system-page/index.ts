@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { PDFDocument, rgb, pushGraphicsState, popGraphicsState, clip, endPath, moveTo, lineTo, closePath, appendBezierCurve } from "npm:pdf-lib@1.17.1";
+import { PDFDocument, PDFString, rgb, pushGraphicsState, popGraphicsState, clip, endPath, moveTo, lineTo, closePath, appendBezierCurve } from "npm:pdf-lib@1.17.1";
 import fontkit from "npm:@pdf-lib/fontkit@1.1.1";
 import QRCode from "npm:qrcode@1.5.4";
 
@@ -252,6 +252,14 @@ async function ending(p:any,pdf:any,f:any,l:any,c:string,title:string,id:number,
   for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);
   const q=await pdf.embedPng(a);
   p.drawImage(q,{x:tx+6,y:tY+6,width:tile-12,height:tile-12});
+  // Le QR et le libellé deviennent de vrais liens cliquables dans les lecteurs PDF.
+  const linkAnnot=pdf.context.register(pdf.context.obj({Type:"Annot",Subtype:"Link",Rect:[tx,tY,tx+tile,tY+tile],Border:[0,0,0],A:{Type:"Action",S:"URI",URI:PDFString.of(qrUrl)}}));
+  p.node.addAnnot(linkAnnot);
+  const linkLabel="Ouvrir le document en ligne";
+  p.drawText(linkLabel,{x:BX+14,y:top-78,font:f.sansBold,size:7.6,color:rgbh(c)});
+  const labelWidth=f.sansBold.widthOfTextAtSize(linkLabel,7.6);
+  const labelAnnot=pdf.context.register(pdf.context.obj({Type:"Annot",Subtype:"Link",Rect:[BX+12,top-81,BX+16+labelWidth,top-67],Border:[0,0,0],A:{Type:"Action",S:"URI",URI:PDFString.of(qrUrl)}}));
+  p.node.addAnnot(labelAnnot);
   // Droits & réutilisation
   top=top-92-10;
   infoBlock(p,f,c,BX,top,BW,84,"DROITS & RÉUTILISATION");
