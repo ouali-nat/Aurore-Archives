@@ -187,9 +187,12 @@ html > #aeBlockDownloadChoiceOverlay{position:fixed!important;inset:0!important;
 
 /* Police de sortie PDF et blocs d'exercice/corrigé */
 .ae-document-style-fields{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
-.ae-font-field{display:grid;gap:4px;min-width:145px;font-size:.59rem;font-weight:800}
-.ae-font-field span{opacity:.7}
-.ae-font-field select{width:100%;min-height:36px;padding:8px 28px 8px 10px;border:1px solid color-mix(in srgb,currentColor 13%,transparent);border-radius:10px;background:var(--ae-input,var(--card-bg,#fff));color:inherit;font:inherit;font-size:.65rem}
+.ae-font-field{display:grid;gap:5px;min-width:145px;margin:0;padding:0;border:0;font-size:.59rem;font-weight:800}
+.ae-font-field legend{padding:0 0 3px;opacity:.7}
+.ae-font-choices{display:flex;gap:5px;flex-wrap:wrap}
+.ae-font-choice{display:inline-flex;align-items:center;gap:5px;min-height:34px;padding:6px 9px;border:1px solid color-mix(in srgb,currentColor 14%,transparent);border-radius:10px;background:var(--ae-input,var(--card-bg,#fff));font-size:.63rem;font-weight:750;cursor:pointer}
+.ae-font-choice:has(input:checked){border-color:var(--violet,#6d28d9);background:color-mix(in srgb,var(--violet,#6d28d9) 9%,var(--ae-input,var(--card-bg,#fff)))}
+.ae-font-choice input{accent-color:var(--violet,#6d28d9);margin:0}
 .ae-exercise-editor{padding:12px;border-radius:12px;background:#E6E6E7;border:1px solid #D0D1D6}
 .ae-exercise-editor>label,.ae-correction-editor label{min-width:0}
 .ae-exercise-editor input,.ae-exercise-editor textarea,.ae-correction-editor input,.ae-correction-editor textarea{background:rgba(255,255,255,.82)!important}
@@ -198,4 +201,4 @@ html > #aeBlockDownloadChoiceOverlay{position:fixed!important;inset:0!important;
 [data-theme="dark"] .ae-exercise-editor{background:#292936;border-color:#454553}
 [data-theme="dark"] .ae-correction-editor{background:#22222E!important;border-color:#454553!important}
 [data-theme="dark"] .ae-exercise-editor input,[data-theme="dark"] .ae-exercise-editor textarea,[data-theme="dark"] .ae-correction-editor input,[data-theme="dark"] .ae-correction-editor textarea{background:#171622!important}
-@media(max-width:560px){.ae-document-style-fields{display:grid;grid-template-columns:1fr;width:100%}.ae-font-field{min-width:0}}
+@media(max-width:560px){.ae-document-style-fields{display:grid;grid-template-columns:1fr;width:100%}.ae-font-field{min-width:0}.ae-font-choices{display:grid;grid-template-columns:1fr}.ae-font-choice{width:100%;box-sizing:border-box}}

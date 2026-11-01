@@ -44,7 +44,7 @@
   function themeColorOptions(){return THEME_COLORS.map(c=>'<option value="'+c.value+'"'+(normalizeThemeColor(state.course?.theme_color)===c.value?' selected':'')+'>'+esc(c.label)+'</option>').join('')}
   const PDF_FONT_OPTIONS=[{value:'current',label:'Police actuelle'},{value:'kalam',label:'Kalam'},{value:'montserrat',label:'Montserrat'}];
   function normalizePdfFont(v){const x=String(v||'current').toLowerCase();return PDF_FONT_OPTIONS.some(f=>f.value===x)?x:'current';}
-  function pdfFontOptions(){return PDF_FONT_OPTIONS.map(f=>'<option value="'+f.value+'"'+(normalizePdfFont(state.course?.font_family)===f.value?' selected':'')+'>'+esc(f.label)+'</option>').join('')}
+  function pdfFontOptions(){return PDF_FONT_OPTIONS.map(f=>'<label class="ae-font-choice"><input type="radio" name="aePdfFont" value="'+f.value+'"'+(normalizePdfFont(state.course?.font_family)===f.value?' checked':'')+'><span>'+esc(f.label)+'</span></label>').join('')}
 
   const esc=v=>String(v??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
   // Extraction locale des anciens contenus structurés (la version Edge n'est pas globale au navigateur).
@@ -1952,7 +1952,7 @@
     validateCourse();
     ensureCourseStructure(state.course);
     r.innerHTML='<div class="ae-shell ae-workspace"><header class="ae-head"><div><button class="admin-btn ghost" id="aeBack">← Mes cours</button><button class="admin-btn danger" id="aeDeleteCourseInside">Supprimer ce cours</button><button class="admin-btn primary" id="aeMarkCourseCompleted">'+(state.course?.workflow?.status==='completed'?'✓ Terminer la correction':'✓ Marquer terminé')+'</button><span class="ae-kicker">Atelier de production séquentielle</span><h3><input id="aeCourseTitle" value="'+esc(state.course.title)+'"></h3><p>Le bloc de début, le sommaire et le bloc de fin sont automatiques. L’ordre des blocs centraux détermine leur ordre dans le PDF final : une fiche est ajoutée à la fin par défaut, mais tu peux encore ajouter des blocs en dessous.</p></div><span class="ae-status" id="assistedStatus">'+(state.course.validation?.ok?'Structure valide':'À compléter')+'</span></header>'+
-      '<div class="ae-top-options"><div class="ae-top-options-title"><span class="ae-kicker">Options du document</span><strong>Couleur d’accent et police du PDF</strong><small>La police choisie sera intégrée aux pages générées puis conservée lors de la fusion finale.</small></div><div class="ae-document-style-fields"><label class="ae-color-field"><span class="ae-color-swatch" style="background:'+normalizeThemeColor(state.course.theme_color)+'"></span><select id="aeThemeColor" aria-label="Couleur d’accent du document">'+themeColorOptions()+'</select></label><label class="ae-font-field"><span>Police du document</span><select id="aePdfFont" aria-label="Police du PDF">'+pdfFontOptions()+'</select></label></div></div>'+
+      '<div class="ae-top-options"><div class="ae-top-options-title"><span class="ae-kicker">Options du document</span><strong>Couleur d’accent et police du PDF</strong><small>La police choisie sera intégrée aux pages générées puis conservée lors de la fusion finale.</small></div><div class="ae-document-style-fields"><label class="ae-color-field"><span class="ae-color-swatch" style="background:'+normalizeThemeColor(state.course.theme_color)+'"></span><select id="aeThemeColor" aria-label="Couleur d’accent du document">'+themeColorOptions()+'</select></label><fieldset class="ae-font-field"><legend>Police du document</legend><div class="ae-font-choices">'+pdfFontOptions()+'</div></fieldset></div></div>'+
       '<div class="ae-workbar"><button class="admin-btn primary" id="aeAddP">＋ Paragraphe</button><button class="admin-btn ghost" id="aeAddPoint">＋ Point de cours</button><button class="admin-btn ghost" id="aeAddEx">＋ Exercice</button><button class="admin-btn ghost" id="aeAddGraph">＋ Graphique GeoGebra</button><button class="admin-btn ghost" id="aeAddVector">＋ Schéma vectoriel</button><button class="admin-btn ghost" id="aeAddFiche">＋ Fiche de révision</button><button class="admin-btn ghost" id="aeAddWiki">＋ Image Wikimedia</button><button class="admin-btn ghost" id="aeTocJson">Sommaire JSON</button><button class="admin-btn ghost" id="aeSave">Enregistrer le cours</button><button class="admin-btn primary" id="aeDownloadPdfCurrent" disabled>Télécharger le PDF actuel</button></div>'+
       '<div class="ae-sequence-meta"><span>'+contentBlocks().length+' bloc(s) de contenu · 1 début · 1 fin</span><span id="aeSystemPreviewOverall">Pages système indépendantes : '+systemPreviewOverallFromPages(state.canonicalPreview?.pages||{}).ready+'/3 prêtes · '+systemPreviewOverallFromPages(state.canonicalPreview?.pages||{}).progress+'%</span></div>'+
       '<section class="ae-block-stack">'+(activeBlocks().find(b=>b?.role===START_ROLE)?blockCard(activeBlocks().find(b=>b?.role===START_ROLE),0):'')+tocSystemCard()+(contentBlocks().length?contentBlocks().map((b,i)=>blockCard(b,i+2)).join(''):'<div class="ae-empty"><strong>Le cours est vide.</strong><span>Ajoute un paragraphe pour commencer. La couverture et le sommaire resteront toujours présents.</span></div>')+(activeBlocks().find(b=>b?.role===END_ROLE)?blockCard(activeBlocks().find(b=>b?.role===END_ROLE),activeBlocks().length-1):'')+'</section>'+
@@ -2342,14 +2342,14 @@
       await persistCourse(true);
       setStatus('Couleur du document enregistrée.');
     };
-    const fontSelect=document.getElementById('aePdfFont');
-    if(fontSelect)fontSelect.onchange=async e=>{
+    root().querySelectorAll('input[name="aePdfFont"]').forEach(fontSelect=>fontSelect.addEventListener('change',async e=>{
+      if(!e.target.checked)return;
       const next=normalizePdfFont(e.target.value);
       state.course.font_family=next;
       const saved=await persistCourse(true);
       if(saved!==false)setStatus('Police enregistrée. Régénère les pages pour appliquer le choix au PDF.');
       else setStatus('La police est sélectionnée, mais la sauvegarde doit être vérifiée.');
-    };
+    }));
     document.getElementById('aeAddP').onclick=()=>addBlock('paragraph');
     document.getElementById('aeAddPoint').onclick=()=>addBlock('point');
     document.getElementById('aeAddEx').onclick=()=>addBlock('exercise');
