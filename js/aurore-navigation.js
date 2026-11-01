@@ -270,6 +270,43 @@
     }
   }
 
+  async function ouvrirPublicationDepuisLienQr() {
+    const params = new URLSearchParams(window.location.search);
+    const rawId = String(params.get('aurore_publish_generated_document') || '').trim();
+    if (!rawId) return false;
+    const generatedDocumentId = Number(rawId);
+    if (!/^\d{1,18}$/.test(rawId) || !Number.isSafeInteger(generatedDocumentId) || generatedDocumentId < 1) {
+      alert('Le lien de publication ne contient pas une référence valide.');
+      return true;
+    }
+    if (!session || session.role !== 'admin') {
+      alert('La publication est réservée à l’administration. Connecte-toi avec un compte administrateur, puis rouvre ce lien.');
+      return true;
+    }
+    try {
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete('aurore_publish_generated_document');
+      history.replaceState(history.state, '', cleanUrl.href);
+      const adminButton = document.getElementById('btnAdmin');
+      if (!adminButton) throw new Error('Le tableau de bord administrateur est indisponible.');
+      adminButton.click();
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const contentFactoryTab = document.querySelector('.admin-tab[data-tab="content-factory"]');
+      if (!contentFactoryTab) throw new Error('La rubrique Content Factory est introuvable.');
+      contentFactoryTab.click();
+      await new Promise(resolve => setTimeout(resolve, 120));
+      const publicationActions = window.auroreAdminGeneratedActions;
+      if (typeof publicationActions?.publish !== 'function') {
+        throw new Error('Le formulaire de publication n’est pas disponible.');
+      }
+      await publicationActions.publish(generatedDocumentId);
+    } catch (error) {
+      console.warn('[Aurore] lien de publication QR', error);
+      alert('Impossible d’ouvrir la publication de ce document. ' + String(error?.message || error));
+    }
+    return true;
+  }
+
   async function ouvrirDocumentAssisteDepuisQr() {
     const params = new URLSearchParams(window.location.search);
     const courseId = String(params.get('aurore_assisted_course') || '').trim();
@@ -279,7 +316,7 @@
       return true;
     }
     try {
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/aurora_resolve_assisted_public_document`, {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/aurora_resolve_assisted_qr_target`, {
         method: 'POST',
         headers: { ...HEADERS, 'Content-Type': 'application/json' },
         body: JSON.stringify({ p_course_id: courseId }),
@@ -287,9 +324,18 @@
       });
       if (!response.ok) throw new Error('HTTP ' + response.status);
       const value = await response.json();
-      const documentId = Number(Array.isArray(value) ? value[0] : value);
-      if (!Number.isSafeInteger(documentId) || documentId < 1) {
-        alert('Ce document assisté n’est pas encore publié ou n’est plus disponible dans la bibliothèque Aurore.');
+      const target = value && typeof value === 'object' ? (Array.isArray(value) ? value[0] : value) : null;
+      const documentId = Number(target?.document_id);
+      if (target?.status !== 'published' || !Number.isSafeInteger(documentId) || documentId < 1) {
+        const generatedDocumentId = Number(target?.generated_document_id);
+        if (target?.status === 'unpublished' && Number.isSafeInteger(generatedDocumentId) && generatedDocumentId > 0) {
+          const next = new URL(window.location.href);
+          next.searchParams.delete('aurore_assisted_course');
+          next.searchParams.set('verify_document', String(generatedDocumentId));
+          window.location.replace(next.href);
+          return true;
+        }
+        alert('Aucun PDF final publiable n’a été retrouvé pour ce cours dans Content Factory, ou le document n’est plus disponible. Vérifie que la fusion du PDF final est terminée, puis réessaie.');
         return true;
       }
       const next = new URL(window.location.href);
@@ -381,7 +427,8 @@
   try {
     const paramsInitialisation=new URLSearchParams(location.search);
     const routePubliqueOuRetourAuth=paramsInitialisation.has('sectionShare') ||
-      paramsInitialisation.has('document') || paramsInitialisation.has('aurore_assisted_course') || paramsInitialisation.has('code') ||
+      paramsInitialisation.has('document') || paramsInitialisation.has('aurore_assisted_course') ||
+      paramsInitialisation.has('aurore_publish_generated_document') || paramsInitialisation.has('code') ||
       paramsInitialisation.has('error') || location.hash.includes('access_token');
     let initialState=history.state && history.state.aurasterNavigation ? history.state : null;
     if(!initialState && !routePubliqueOuRetourAuth) initialState=lireSnapshotNavigationSauvegarde();
@@ -404,6 +451,8 @@
 
   // Les QR assistés sont résolus vers l’ID public après publication. Les liens ?document=ID restent inchangés.
   (async()=>{
+    const publicationHandled=await ouvrirPublicationDepuisLienQr();
+    if(publicationHandled)return;
     const handled=await ouvrirDocumentAssisteDepuisQr();
     if(!handled) await ouvrirDocumentDepuisLienPartage();
   })().catch(error=>console.warn('[Aurore] ouverture lien/QR',error));
@@ -1045,7 +1094,8 @@
   // étaient affichés, au lieu de laisser l'accueil statique prendre le dessus.
   (function auroreRestaurerVueApresRechargement(){
     const params=new URLSearchParams(location.search);
-    if(params.has('sectionShare')||params.has('document')||params.has('aurore_assisted_course')||params.has('code')||
+    if(params.has('sectionShare')||params.has('document')||params.has('aurore_assisted_course')||
+       params.has('aurore_publish_generated_document')||params.has('code')||
        params.has('error')||location.hash.includes('access_token'))return;
     const snapshot=(history.state&&history.state.aurasterNavigation)
       ? history.state

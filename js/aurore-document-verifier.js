@@ -63,12 +63,13 @@
         <div class="aurore-verify-actions"><a class="aurore-verify-primary" href="${esc(result.publication.url)}">Ouvrir le document</a><button type="button" class="aurore-verify-secondary" data-back>Retour à Aurore</button></div>`;
     } else if (status === "unpublished") {
       card.classList.add("aurore-verify-unpublished"); const d = result.document || {};
+      const publishUrl = "/?aurore_publish_generated_document=" + encodeURIComponent(generatedId);
       body.innerHTML = `
         <div class="aurore-verify-state">• Document non publié</div>
         <h1 class="aurore-verify-title">${esc(d.title || "Édition Aurore")}</h1>
-        <p class="aurore-verify-message">Cette édition existe dans le système éditorial Aurore, mais elle n’est pas encore disponible dans la bibliothèque publique. Le QR reste valide et pourra être rescanné après publication.</p>
+        <p class="aurore-verify-message">Cette édition existe dans le système éditorial Aurore, mais elle n’est pas encore disponible dans la bibliothèque publique. Son lien de publication est disponible pour l’administration.</p>
         <div class="aurore-verify-meta">${d.version?'<span>Version '+esc(d.version)+'</span>':''}<span>Référence AUR #${esc(generatedId)}</span></div>
-        <div class="aurore-verify-actions"><button type="button" class="aurore-verify-secondary" data-back>Retour à Aurore</button></div>`;
+        <div class="aurore-verify-actions"><a class="aurore-verify-primary" href="${esc(publishUrl)}">Ouvrir la publication</a><button type="button" class="aurore-verify-secondary" data-back>Retour à Aurore</button></div>`;
     } else if (status === "corrupt") {
       card.classList.add("aurore-verify-error"); const d = result.document || {};
       body.innerHTML = `
