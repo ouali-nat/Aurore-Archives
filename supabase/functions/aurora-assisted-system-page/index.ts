@@ -7,7 +7,8 @@ import QRCode from "npm:qrcode@1.5.4";
 const URL=Deno.env.get("SUPABASE_URL")!, SERVICE=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const admin=createClient(URL,SERVICE,{auth:{autoRefreshToken:false,persistSession:false}});
 const LOGO_URL="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster";
-const FONT_URLS:any={regular:"https://raw.githubusercontent.com/go-fonts/latin-modern/main/lmroman10regular/lmroman10-regular.otf",bold:"https://raw.githubusercontent.com/go-fonts/latin-modern/main/lmroman10bold/lmroman10-bold.otf",sans:"https://raw.githubusercontent.com/go-fonts/latin-modern/main/lmsans10regular/lmsans10-regular.otf",sansBold:"https://raw.githubusercontent.com/go-fonts/latin-modern/main/lmsans10bold/lmsans10-bold.otf"};
+const BASE_FONT_URLS:any={regular:"https://raw.githubusercontent.com/go-fonts/latin-modern/main/lmroman10regular/lmroman10-regular.otf",bold:"https://raw.githubusercontent.com/go-fonts/latin-modern/main/lmroman10bold/lmroman10-bold.otf",sans:"https://raw.githubusercontent.com/go-fonts/latin-modern/main/lmsans10regular/lmsans10-regular.otf",sansBold:"https://raw.githubusercontent.com/go-fonts/latin-modern/main/lmsans10bold/lmsans10-bold.otf"};
+function fontUrls(family:any){const v=String(family||"current").toLowerCase();if(v==="kalam")return{regular:"https://raw.githubusercontent.com/google/fonts/main/ofl/kalam/Kalam-Regular.ttf",bold:"https://raw.githubusercontent.com/google/fonts/main/ofl/kalam/Kalam-Bold.ttf",sans:"https://raw.githubusercontent.com/google/fonts/main/ofl/kalam/Kalam-Regular.ttf",sansBold:"https://raw.githubusercontent.com/google/fonts/main/ofl/kalam/Kalam-Bold.ttf"};if(v==="montserrat")return{regular:"https://raw.githubusercontent.com/JulietaUla/Montserrat/master/fonts/ttf/Montserrat-Regular.ttf",bold:"https://raw.githubusercontent.com/JulietaUla/Montserrat/master/fonts/ttf/Montserrat-Bold.ttf",sans:"https://raw.githubusercontent.com/JulietaUla/Montserrat/master/fonts/ttf/Montserrat-Regular.ttf",sansBold:"https://raw.githubusercontent.com/JulietaUla/Montserrat/master/fonts/ttf/Montserrat-Bold.ttf"};return BASE_FONT_URLS;}
 const H:any={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization,x-client-info,apikey,content-type,x-retry-count,traceparent,tracestate,baggage","Access-Control-Allow-Methods":"POST,OPTIONS"};
 const out=(x:any,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{...H,"Content-Type":"application/json"}});
 const clean=(v:any)=>String(v??"").normalize("NFC").replace(/[\u0000-\u001F]/g," ").replace(/\s+/g," ").trim();
@@ -17,8 +18,8 @@ const mix=(h:string,a:number)=>{const s=hex(h).slice(1),c=[0,2,4].map(i=>parseIn
 const rgbh=(h:string)=>{const s=hex(h).slice(1);return rgb(parseInt(s.slice(0,2),16)/255,parseInt(s.slice(2,4),16)/255,parseInt(s.slice(4,6),16)/255)};
 const FONT_CACHE=new Map<string,Promise<Uint8Array>>();let LOGO_CACHE:Promise<Uint8Array>|null=null;
 async function bytes(url:string){const r=await fetch(url);if(!r.ok)throw new Error("Ressource indisponible : HTTP "+r.status);return new Uint8Array(await r.arrayBuffer())}
-async function fbytes(k:string){const x=FONT_CACHE.get(k);if(x)return x;const p=bytes(FONT_URLS[k]);FONT_CACHE.set(k,p);return p}
-async function fonts(pdf:any){const [r,b,s,sb]=await Promise.all([fbytes("regular"),fbytes("bold"),fbytes("sans"),fbytes("sansBold")]);return{regular:await pdf.embedFont(r,{subset:false}),bold:await pdf.embedFont(b,{subset:false}),sans:await pdf.embedFont(s,{subset:false}),sansBold:await pdf.embedFont(sb,{subset:false})}}
+async function fbytes(k:string,urls:any){const cacheKey=k+"|"+urls[k];const x=FONT_CACHE.get(cacheKey);if(x)return x;const p=bytes(urls[k]);FONT_CACHE.set(cacheKey,p);return p}
+async function fonts(pdf:any,family:any="current"){const urls=fontUrls(family);const [r,b,s,sb]=await Promise.all([fbytes("regular",urls),fbytes("bold",urls),fbytes("sans",urls),fbytes("sansBold",urls)]);return{regular:await pdf.embedFont(r,{subset:false}),bold:await pdf.embedFont(b,{subset:false}),sans:await pdf.embedFont(s,{subset:false}),sansBold:await pdf.embedFont(sb,{subset:false})}}
 async function logo(pdf:any){if(!LOGO_CACHE)LOGO_CACHE=bytes(LOGO_URL);const b=await LOGO_CACHE;if(b[0]===137&&b[1]===80)return pdf.embedPng(b);if(b[0]===255&&b[1]===216)return pdf.embedJpg(b);throw new Error("Logo Aurore invalide")}
 function wrap(s:string,font:any,size:number,max:number){
   const words=clean(s).split(" ").filter(Boolean),lines:string[]=[];
@@ -299,6 +300,7 @@ Deno.serve(async req=>{
     if(!courseId)return out({ok:false,error:"course_id requis"},400);
     if(!["cover","toc","end"].includes(requestedKind))return out({ok:false,error:"page_kind(cover|toc|end) requis pour mode=create"},400);
     const data=body?.page_data&&typeof body.page_data==="object"?body.page_data:{};
+    data.font_family=["current","kalam","montserrat"].includes(String(body?.font_family||data.font_family||"current").toLowerCase())?String(body?.font_family||data.font_family||"current").toLowerCase():"current";
     const color=hex(body?.theme_color);
     const now=new Date().toISOString();
 
@@ -390,7 +392,8 @@ Deno.serve(async req=>{
   try{
     await update(id,renderKind,{fast_page_status:"processing",fast_page_progress:8,fast_page_stage:"Rendu indépendant démarré",fast_page_started_at:new Date().toISOString(),fast_page_last_error:null});
     const pdf=await PDFDocument.create();pdf.registerFontkit(fontkit);
-    const [f,l]=await Promise.all([fonts(pdf),logo(pdf)]);
+    const selectedFont=String(data?.font_family||metadata?.font_family||"current").toLowerCase();
+    const [f,l]=await Promise.all([fonts(pdf,selectedFont),logo(pdf)]);
     await update(id,renderKind,{fast_page_progress:35,fast_page_stage:"Ressources Aurore prêtes"});
     const color=hex(body?.theme_color||row.data.theme_color);
     const p=pdf.addPage([595,842]);decor(p,color,renderKind);
@@ -409,7 +412,7 @@ Deno.serve(async req=>{
     const pdfUrl=su.data?.signedUrl||null;
     await admin.from("aurora_generated_documents").update({
       pdf_path:path,pdf_url:pdfUrl,updated_at:new Date().toISOString(),
-      metadata:{...metadata,origin:"edition_assistee",assisted_system_page:true,system_page_kind:renderKind,preview_only:true,publishable:false,
+      metadata:{...metadata,origin:"edition_assistee",assisted_system_page:true,system_page_kind:renderKind,font_family:selectedFont,preview_only:true,publishable:false,
         fast_page_pdf:true,fast_page_pdf_engine:"pdf-lib-system-page-v4",pdf_page_count:tocCount,fast_page_status:"completed",fast_page_progress:100,
         fast_page_stage:"Page PDF prête · indépendante du renderer LuaLaTeX",fast_page_updated_at:new Date().toISOString(),fast_page_last_error:null}
     }).eq("id",id).eq("created_by",uid);

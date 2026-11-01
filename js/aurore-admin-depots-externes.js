@@ -325,7 +325,6 @@
       if (!action) return;
       const token = action.dataset.groupToken, location = action.dataset.locationKey;
       const kind = action.dataset.dxLocationAction;
-      if (kind === 'remove') retirerEmplacement(token, location);
       if (kind === 'publish') publierEmplacement(token, location);
       if (kind === 'view') voirEmplacement(action.dataset.documentId);
       if (kind === 'download') basculerTelechargement(token, location);
@@ -353,6 +352,13 @@
         <button type="button" class="admin-btn refuser" data-dx-location-action="remove" data-group-token="'+esc(token)+'" data-location-key="'+esc(loc.key)+'">Retirer cet emplacement</button>
       </div></article>`;
     }).join('');
+    target.querySelectorAll('[data-dx-location-action="remove"]').forEach(button => {
+      button.addEventListener('click', async event => {
+        event.preventDefault();
+        event.stopPropagation();
+        await retirerEmplacement(button.dataset.groupToken, button.dataset.locationKey, button);
+      });
+    });
     host.hidden = false;
   }
   function fermerModal() { const host=document.getElementById('dxLocationModal'); if(host)host.hidden=true; }
@@ -384,26 +390,40 @@
     const group=state.groups.get(groupToken);
     return group ? {group,location:group.locations.find(x=>x.key===locationKey)} : null;
   }
-  async function retirerEmplacement(groupToken, locationKey) {
+  async function retirerEmplacement(groupToken, locationKey, button) {
     const found=getLocation(groupToken,locationKey); if(!found?.location)return;
     const {group,location}=found;
     const count=location.rows.length;
     const extra=count>1?'\n\n'+count+' entrées identiques seront retirées pour cet emplacement.':'';
     const tail=group.locations.length>1?'Les autres emplacements du même PDF seront conservés.':'C’est le dernier emplacement : le document ne sera plus référencé dans le catalogue, mais le fichier PDF restera dans le stockage.';
     if(!confirm('Retirer uniquement cet emplacement ?\n\n'+location.label+extra+'\n\n'+tail))return;
+    const ids=location.rows.map(docId).filter(Boolean);
+    if(!ids.length){alert('Aucun identifiant exploitable pour cet emplacement. Actualise la liste et réessaie.');return;}
+    const originalLabel=button?.textContent||'Retirer cet emplacement';
+    if(button){button.disabled=true;button.textContent='Retrait en cours…';button.setAttribute('aria-busy','true');}
     try {
-      const ids=location.rows.map(docId).filter(Boolean);
-      const res=await fetch(SUPABASE_URL+'/rest/v1/Document?id=in.('+ids.map(encodeURIComponent).join(',')+')',{
-        method:'DELETE',headers:{...headersAdmin(),'Prefer':'return=representation'},cache:'no-store'
-      });
-      const raw=await res.text(); if(!res.ok)throw new Error(raw||('HTTP '+res.status));
-      let deleted=[];try{deleted=raw?JSON.parse(raw):[]}catch(_){}
-      if(!Array.isArray(deleted)||deleted.length!==ids.length)throw new Error('Le serveur n’a pas confirmé le retrait de toutes les entrées de cet emplacement.');
+      // Suppression ciblée par identifiant, avec confirmation individuelle du serveur.
+      // Cela évite qu'une réponse vide ou une politique RLS fasse croire que tout a réussi.
+      for(const id of ids){
+        const res=await fetch(SUPABASE_URL+'/rest/v1/Document?id=eq.'+encodeURIComponent(id),{
+          method:'DELETE',headers:{...headersAdmin(),'Prefer':'return=representation'},cache:'no-store'
+        });
+        const raw=await res.text();
+        if(!res.ok)throw new Error('HTTP '+res.status+(raw?' · '+raw.slice(0,260):''));
+        let deleted=[];try{deleted=raw?JSON.parse(raw):[]}catch(_){}
+        if(!Array.isArray(deleted)||!deleted.some(row=>docId(row)===id))throw new Error('Le serveur n’a pas confirmé la suppression de l’entrée '+id+'. Vérifie les droits administrateur/RLS.');
+      }
       if(location.pending.length===location.rows.length && group.locations.length===1 && typeof notifierDeposant==='function')for(const deposant of (location.deposants||[])){
         if(deposant?.user_id)await notifierDeposant(deposant,{titreDocument:group.primary?.Titre,statut:'refuse',message:'Votre document « '+(group.primary?.Titre||'sans titre')+' » n’a pas été retenu dans le catalogue Aurore.'});
       }
       fermerModal(); await charger();
-    } catch(error) { alert('Retrait de l’emplacement impossible. '+String(error?.message||error)); }
+    } catch(error) {
+      console.error('[Dépôts externes] Retrait emplacement:',error);
+      alert('Retrait de l’emplacement impossible. '+String(error?.message||error));
+      if(button){button.disabled=false;button.textContent=originalLabel;button.removeAttribute('aria-busy');}
+      // Si plusieurs lignes composaient cet emplacement, rafraîchir l’état réel après un échec partiel.
+      if(typeof charger==='function')await Promise.resolve(charger()).catch(()=>{});
+    }
   }
 
   async function publierEmplacement(groupToken, locationKey) {

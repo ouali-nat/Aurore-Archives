@@ -310,17 +310,19 @@ async function loadFonts(pdf:any,family="current"){
   const chosen=String(family||"current").toLowerCase();
   let urls:any=FONT_URLS;
   if(chosen==="kalam")urls={regular:"https://raw.githubusercontent.com/google/fonts/main/ofl/kalam/Kalam-Regular.ttf",bold:"https://raw.githubusercontent.com/google/fonts/main/ofl/kalam/Kalam-Bold.ttf",sans:"https://raw.githubusercontent.com/google/fonts/main/ofl/kalam/Kalam-Bold.ttf",sansBold:"https://raw.githubusercontent.com/google/fonts/main/ofl/kalam/Kalam-Bold.ttf"};
-  else if(chosen==="montserrat")urls={regular:"https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/Montserrat[wght].ttf",bold:"https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/Montserrat[wght].ttf",sans:"https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/Montserrat[wght].ttf",sansBold:"https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/Montserrat[wght].ttf"};
+  else if(chosen==="montserrat")urls={regular:"https://raw.githubusercontent.com/JulietaUla/Montserrat/master/fonts/ttf/Montserrat-Regular.ttf",bold:"https://raw.githubusercontent.com/JulietaUla/Montserrat/master/fonts/ttf/Montserrat-Bold.ttf",sans:"https://raw.githubusercontent.com/JulietaUla/Montserrat/master/fonts/ttf/Montserrat-Regular.ttf",sansBold:"https://raw.githubusercontent.com/JulietaUla/Montserrat/master/fonts/ttf/Montserrat-Bold.ttf"};
   const [regular,bold,sans,sansBold]=await Promise.all([
     fetchFontBytes(chosen+"-regular",urls.regular),
     fetchFontBytes(chosen+"-bold",urls.bold),
     fetchFontBytes(chosen+"-sans",urls.sans||urls.regular),
     fetchFontBytes(chosen+"-sans-bold",urls.sansBold||urls.bold)
   ]);
-  const regularFont=await pdf.embedFont(regular,{subset:true});
-  const boldFont=await pdf.embedFont(bold,{subset:true});
-  const sansFont=urls.sans===urls.regular?regularFont:await pdf.embedFont(sans,{subset:true});
-  const sansBoldFont=urls.sansBold===urls.bold?boldFont:await pdf.embedFont(sansBold,{subset:true});
+  // Fonts statiques (pas de variable font) et intégration complète : les métriques
+  // de mesure et de dessin restent identiques, y compris dans les titres.
+  const regularFont=await pdf.embedFont(regular,{subset:false});
+  const boldFont=await pdf.embedFont(bold,{subset:false});
+  const sansFont=urls.sans===urls.regular?regularFont:await pdf.embedFont(sans,{subset:false});
+  const sansBoldFont=urls.sansBold===urls.bold?boldFont:await pdf.embedFont(sansBold,{subset:false});
   return {regular:regularFont,bold:boldFont,sans:sansFont,sansBold:sansBoldFont,__aurore_source_bytes:regular.length+bold.length+sans.length+sansBold.length};
 }
 function noteFormulaFailure(qa:any,key:string,reason:string){

@@ -2620,6 +2620,7 @@
       kind,
       title:String(state.course.title||''),
       theme_color:normalizeThemeColor(state.course.theme_color),
+      font_family:normalizePdfFont(state.course.font_family),
       page_data:pageData
     });
   }
@@ -2719,7 +2720,8 @@
         body:JSON.stringify({
           mode:'render',
           generated_document_id:Number(documentId),
-          theme_color:theme
+          theme_color:theme,
+          font_family:normalizePdfFont(state.course.font_family)
         })
       });
       const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){d={error:t}};
@@ -2759,6 +2761,7 @@
         page_kind:kind,
         title:state.course.title,
         theme_color:theme,
+        font_family:normalizePdfFont(state.course.font_family),
         page_data:pageData
       })
     });
