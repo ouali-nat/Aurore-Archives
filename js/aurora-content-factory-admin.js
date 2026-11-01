@@ -1463,7 +1463,15 @@ function cfIsWholeReadyPdf(row){
     return type==='cours_assiste'&&path.startsWith('aurora-assisted-final-pdfs/')
       &&finalPath===path&&!!finalInfo&&pageCount>0&&!!String(finalInfo?.fingerprint||'').trim();
   }
-  return true;
+  // Aucun PDF de page ou document produit séparément n'entre dans Content Factory.
+  // Le serveur de fusion doit avoir attesté la fusion dans les métadonnées finales.
+  const diagnostic=row?.pdf_diagnostic&&typeof row.pdf_diagnostic==='object'?row.pdf_diagnostic:{};
+  const fragments=Number(m.fragments||diagnostic.fragments||0);
+  const pages=Number(m.pages||diagnostic.pages||0);
+  return path.startsWith('aurora-content-generated/')
+    &&String(m.engine||'')==='pdf-lib+page-by-page-v4-vector-math'
+    &&String(diagnostic.stage||'').toUpperCase()==='MERGE'
+    &&diagnostic.ok===true&&fragments>0&&pages>0;
 }
 async function cfPlacementFetchJson(path,token){
   const response=await adminInventoryFetch(SUPABASE_URL+path,{cache:'no-store',headers:{Authorization:'Bearer '+token}});
