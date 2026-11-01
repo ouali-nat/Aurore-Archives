@@ -1121,14 +1121,19 @@ function cfPdfProductionBlock(id,total){
   let box=document.getElementById('cfPdfProduction');
   if(!box){box=document.createElement('section');box.id='cfPdfProduction';box.className='cf-pdf-production';const anchor=document.getElementById('cfProgress');(anchor?.parentNode||document.body).insertBefore(box,anchor||null);}
   box.hidden=false;
-  box.innerHTML='<div class="cf-pdf-head"><div><strong>Production du PDF</strong><div id="cfPdfProductionStage">Préparation…</div></div><span id="cfPdfProductionCount">0/'+total+' page(s)</span></div><div class="cf-pdf-pages" id="cfPdfProductionPages"></div><div class="cf-pdf-production-actions"><button type="button" class="admin-btn primary" id="cfPdfMergeAll" disabled>Fusionner tous les PDF</button><span id="cfPdfProductionWait"></span></div>';
+  box.innerHTML='<div class="cf-pdf-head"><div><strong>Production du document complet</strong><div id="cfPdfProductionStage">Préparation du rendu serveur…</div></div><span id="cfPdfProductionCount">0/'+total+' étape(s)</span></div><div class="cf-pdf-pages" id="cfPdfProductionPages" hidden></div><div class="cf-pdf-production-actions"><button type="button" class="admin-btn primary" id="cfPdfMergeAll" disabled>Fusionner sur le serveur</button><span id="cfPdfProductionWait"></span></div>';
   return box;
 }
 function cfPdfPageCard(n,status,url){
-  const pages=document.getElementById('cfPdfProductionPages');if(!pages)return;
-  let card=document.getElementById('cfPdfPage-'+n);if(!card){card=document.createElement('div');card.id='cfPdfPage-'+n;card.className='cf-pdf-page-card';pages.appendChild(card)}
-  const label=status==='ok'?'Page prête':status==='working'?'En cours…':status==='error'?'Erreur':'En attente';
-  card.innerHTML='<div><strong>Page '+n+'</strong><small>'+label+'</small></div>'+(status==='ok'&&url?'<a class="admin-btn ghost" href="'+esc(url)+'" target="_blank" rel="noopener">Lire</a>':'');
+  // Les PDF intermédiaires restent internes au pipeline. Aucun lien, aperçu
+  // ni carte de page isolée ne doit être exposé dans Content Factory.
+  const pages=document.getElementById('cfPdfProductionPages');
+  if(pages){pages.replaceChildren();pages.hidden=true;}
+  const stage=document.getElementById('cfPdfProductionStage');
+  if(stage){
+    const label=status==='ok'?'Page intégrée au lot de fusion':status==='working'?'Rendu serveur en cours':'Préparation du document complet';
+    stage.textContent=label+' ('+n+')';
+  }
 }
 function cfPdfWait(ms,label){
   return new Promise(resolve=>{const out=document.getElementById('cfPdfProductionWait');let left=Math.ceil(ms/1000);const tick=()=>{if(out)out.textContent=(label||'Nouvelle reprise automatique dans ')+' '+left+' s';if(left<=0){if(out)out.textContent='';resolve();return}left--;setTimeout(tick,1000)};tick()});
@@ -1164,10 +1169,10 @@ async function renderPdfPageByPageFromBrowser(id,accessToken,b){
     if(paths.length<parts.length&&n%batchSize===0)await cfPdfWait(30000,'Pause de sécurité — prochaine reprise dans');
   }
   setProgress(100,'Toutes les pages sont prêtes.');if(b)b.textContent='PDF — toutes les pages sont prêtes';
-  const stage=document.getElementById('cfPdfProductionStage');if(stage)stage.textContent='Toutes les pages sont prêtes. Tu peux les lire une par une avant la fusion.';
+  const stage=document.getElementById('cfPdfProductionStage');if(stage)stage.textContent='Tous les fragments sont prêts côté serveur. Seul le PDF global fusionné sera ajouté à Content Factory.';
   const merge=document.getElementById('cfPdfMergeAll');if(merge){merge.disabled=false;merge.onclick=async()=>{
     merge.disabled=true;merge.textContent='Fusion en cours…';setProgress(96,'Fusion de toutes les pages PDF…');
-    try{const mr=await fetch(SUPABASE_URL+'/functions/v1/aurora-content-pdf-merge',{method:'POST',headers:h,body:JSON.stringify({generated_document_id:Number(id),page_paths:paths})});const mt=await mr.text();let md={};try{md=mt?JSON.parse(mt):{}}catch(_){md={error:mt}};if(!mr.ok||!md?.ok)throw new Error(md?.error||('Fusionneur HTTP '+mr.status));setProgress(100,'PDF final fusionné.');if(stage)stage.textContent='PDF final fusionné et enregistré dans Aurore.';merge.textContent='PDF finalisé';await charger();alert('Toutes les pages ont été fusionnées. Le PDF final est prêt.')}catch(e){merge.disabled=false;merge.textContent='Fusionner tous les PDF';alert('La fusion n’a pas pu être effectuée. '+(e.message||e))}}
+    try{const mr=await fetch(SUPABASE_URL+'/functions/v1/aurora-content-pdf-merge',{method:'POST',headers:h,body:JSON.stringify({generated_document_id:Number(id),page_paths:paths})});const mt=await mr.text();let md={};try{md=mt?JSON.parse(mt):{}}catch(_){md={error:mt}};if(!mr.ok||!md?.ok)throw new Error(md?.error||('Fusionneur HTTP '+mr.status));setProgress(100,'PDF final fusionné.');if(stage)stage.textContent='PDF final fusionné et enregistré dans Aurore.';merge.textContent='PDF finalisé';await charger();alert('Toutes les pages ont été fusionnées. Le PDF final est prêt.')}catch(e){merge.disabled=false;merge.textContent='Fusionner sur le serveur';alert('La fusion n’a pas pu être effectuée. '+(e.message||e))}}
   };
   return {pages:paths.length,paths};
 }
@@ -1445,6 +1450,10 @@ function cfIsWholeReadyPdf(row){
   if(!type||/(^|[_ -])(page|fragment|apercu|preview)([_ -]|$)/i.test(type))return false;
   if(['page_assistee','page_assistee_v2','apercu_assiste','apercu_assistee','preview_assistee','fragment_assiste','page_pdf'].includes(type))return false;
   if(!path||!url)return false;
+  // Les fragments de pagination ne sont jamais des documents Content Factory.
+  // Seul le chemin du PDF final est accepté; les fragments restent en stockage
+  // privé jusqu'à la fusion serveur.
+  if(path.startsWith('aurora-content-pages/')||/(^|\/)page-\d+\.pdf$/i.test(path))return false;
   if(m.admin_deleted===true||m.is_page===true||m.is_preview===true||m.preview_only===true)return false;
   if(['queued','processing'].includes(String(m.lualatex_status||m.production_status||'').toLowerCase()))return false;
   if(String(m.origin||'').trim().toLowerCase()==='edition_assistee'){
