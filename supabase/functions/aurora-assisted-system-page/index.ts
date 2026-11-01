@@ -246,7 +246,7 @@ async function ending(p:any,pdf:any,f:any,l:any,c:string,title:string,id:number,
   rounded(p,tx,tY,tile,tile,8,rgbh("#FFFFFF"),rgbh(GRAY_SOFT),.5);
   const normalizedCourseId=clean(courseId);
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalizedCourseId))throw new Error("Identifiant stable du cours absent : QR de publication impossible à générer.");
-  const qrUrl="https://aurore-section-archives.com/?aurore_assisted_course="+encodeURIComponent(normalizedCourseId);
+  const qrUrl="https://aurore-section-archivescom.vercel.app/?aurore_assisted_course="+encodeURIComponent(normalizedCourseId);
   const u=await QRCode.toDataURL(qrUrl,{margin:0,width:220,errorCorrectionLevel:"M"});
   const b=u.split(",")[1],bin=atob(b),a=new Uint8Array(bin.length);
   for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);

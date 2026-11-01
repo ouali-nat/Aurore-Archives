@@ -2549,7 +2549,8 @@
       pageData=clone(state.course.document_pages.cover);
     }
     return JSON.stringify({
-      schema:kind==='end'?'aurore-assisted-system-page-v3-course-qr':'aurore-assisted-system-page-v2',
+      // Invalide les fragments finaux mis en cache pour remplacer les QR encodés avec l'ancien domaine.
+      schema:kind==='end'?'aurore-assisted-system-page-v4-course-qr-canonical-host':'aurore-assisted-system-page-v2',
       qr_course_id:kind==='end'?String(state.course.id||''):null,
       kind,
       title:String(state.course.title||''),
