@@ -322,9 +322,22 @@
     host.addEventListener('click', e => {
       if (e.target.matches('[data-dx-close]')) fermerModal();
       const action = e.target.closest('[data-dx-location-action]');
-      if (!action) return;
+      if (!action || !host.contains(action)) return;
       const token = action.dataset.groupToken, location = action.dataset.locationKey;
       const kind = action.dataset.dxLocationAction;
+      if (kind === 'remove') {
+        e.preventDefault(); e.stopPropagation();
+        if (action.dataset.busy === '1') return;
+        action.dataset.busy = '1';
+        action.disabled = true;
+        action.textContent = 'Retrait en cours…';
+        Promise.resolve(retirerEmplacement(token, location, action)).catch(error => {
+          console.error('[Dépôts externes] Retrait:', error);
+          alert('Impossible de retirer cet emplacement : ' + String(error?.message || error));
+          action.disabled = false; action.dataset.busy = '0'; action.textContent = 'Retirer cet emplacement';
+        });
+        return;
+      }
       if (kind === 'publish') publierEmplacement(token, location);
       if (kind === 'view') voirEmplacement(action.dataset.documentId);
       if (kind === 'download') basculerTelechargement(token, location);
@@ -352,13 +365,6 @@
         <button type="button" class="admin-btn refuser" data-dx-location-action="remove" data-group-token="'+esc(token)+'" data-location-key="'+esc(loc.key)+'">Retirer cet emplacement</button>
       </div></article>`;
     }).join('');
-    target.querySelectorAll('[data-dx-location-action="remove"]').forEach(button => {
-      button.addEventListener('click', async event => {
-        event.preventDefault();
-        event.stopPropagation();
-        await retirerEmplacement(button.dataset.groupToken, button.dataset.locationKey, button);
-      });
-    });
     host.hidden = false;
   }
   function fermerModal() { const host=document.getElementById('dxLocationModal'); if(host)host.hidden=true; }
@@ -396,11 +402,11 @@
     const count=location.rows.length;
     const extra=count>1?'\n\n'+count+' entrées identiques seront retirées pour cet emplacement.':'';
     const tail=group.locations.length>1?'Les autres emplacements du même PDF seront conservés.':'C’est le dernier emplacement : le document ne sera plus référencé dans le catalogue, mais le fichier PDF restera dans le stockage.';
-    if(!confirm('Retirer uniquement cet emplacement ?\n\n'+location.label+extra+'\n\n'+tail))return;
+    if(!confirm('Retirer uniquement cet emplacement ?\n\n'+location.label+extra+'\n\n'+tail)){if(button){button.disabled=false;button.dataset.busy='0';button.textContent='Retirer cet emplacement';}return;}
     const ids=location.rows.map(docId).filter(Boolean);
-    if(!ids.length){alert('Aucun identifiant exploitable pour cet emplacement. Actualise la liste et réessaie.');return;}
+    if(!ids.length){alert('Aucun identifiant exploitable pour cet emplacement. Actualise la liste et réessaie.');if(button){button.disabled=false;button.dataset.busy='0';button.textContent='Retirer cet emplacement';}return;}
     const originalLabel=button?.textContent||'Retirer cet emplacement';
-    if(button){button.disabled=true;button.textContent='Retrait en cours…';button.setAttribute('aria-busy','true');}
+    if(button){button.disabled=true;button.dataset.busy='1';button.textContent='Retrait en cours…';button.setAttribute('aria-busy','true');}
     try {
       // Suppression ciblée par identifiant, avec confirmation individuelle du serveur.
       // Cela évite qu'une réponse vide ou une politique RLS fasse croire que tout a réussi.
@@ -420,7 +426,7 @@
     } catch(error) {
       console.error('[Dépôts externes] Retrait emplacement:',error);
       alert('Retrait de l’emplacement impossible. '+String(error?.message||error));
-      if(button){button.disabled=false;button.textContent=originalLabel;button.removeAttribute('aria-busy');}
+      if(button){button.disabled=false;button.dataset.busy='0';button.textContent=originalLabel;button.removeAttribute('aria-busy');}
       // Si plusieurs lignes composaient cet emplacement, rafraîchir l’état réel après un échec partiel.
       if(typeof charger==='function')await Promise.resolve(charger()).catch(()=>{});
     }

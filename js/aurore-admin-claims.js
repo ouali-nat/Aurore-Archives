@@ -117,6 +117,6 @@
   // Bloc « Dépôts externes » de l'administration (module séparé).
   (function () {
     var s = document.createElement('script');
-    s.src = 'js/aurore-admin-depots-externes.js?v=20261101-location-remove-font-render-fix2';
+    s.src = 'js/aurore-admin-depots-externes.js?v=20261101-location-remove-single-handler1';
     document.head.appendChild(s);
   })();
