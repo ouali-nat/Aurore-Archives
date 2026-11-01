@@ -1514,8 +1514,30 @@
       '</div></section></div>';
     document.getElementById('aeCreate').onclick=()=>createCourseDialog();
     document.getElementById('aeRefresh').onclick=async()=>{try{setStatus('Actualisation…');await loadCourses();renderList();setStatus('Liste actualisée.')}catch(e){setStatus('Impossible d’actualiser. '+String(e?.message||e))}};
-    r.querySelectorAll('[data-open-course]').forEach(b=>b.onclick=()=>openCourse(b.dataset.openCourse));
-    r.querySelectorAll('[data-correct-course]').forEach(b=>b.onclick=()=>openCourse(b.dataset.correctCourse,{correction:true}));
+    const bindCourseOpen=(button,correction=false)=>{button.onclick=async event=>{
+      event.preventDefault();
+      if(button.dataset.opening==='true')return;
+      button.dataset.opening='true';
+      const originalLabel=button.textContent;
+      button.disabled=true;
+      button.textContent='Ouverture…';
+      setStatus('Ouverture du cours…');
+      try{
+        await openCourse(button.dataset.openCourse||button.dataset.correctCourse,{correction});
+        setStatus(correction?'Cours ouvert pour correction.':'Cours ouvert.');
+      }catch(error){
+        const message='Impossible d’ouvrir ce cours. '+String(error?.message||error);
+        console.error('[Édition assistée] ouverture du cours échouée',error);
+        setStatus(message);
+        alert(message);
+      }finally{
+        button.disabled=false;
+        button.textContent=originalLabel;
+        delete button.dataset.opening;
+      }
+    }};
+    r.querySelectorAll('[data-open-course]').forEach(b=>bindCourseOpen(b,false));
+    r.querySelectorAll('[data-correct-course]').forEach(b=>bindCourseOpen(b,true));
     r.querySelectorAll('[data-rename-course]').forEach(b=>b.onclick=()=>renameCourse(b.dataset.renameCourse));
     r.querySelectorAll('[data-delete-course]').forEach(b=>b.onclick=()=>deleteCourse(b.dataset.deleteCourse));
   }
@@ -1644,7 +1666,15 @@
   }
 
   async function openCourse(id,options={}){
-    const row=state.courses.find(x=>String(x.id)===String(id));if(!row)return;
+    const courseId=String(id||'').trim();
+    if(!courseId)throw new Error('Identifiant du cours absent.');
+    let row=state.courses.find(x=>String(x.id)===courseId);
+    if(!row){
+      // La liste peut être périmée après une création externe ou une reprise de session.
+      await loadCourses();
+      row=state.courses.find(x=>String(x.id)===courseId);
+    }
+    if(!row)throw new Error('Cours introuvable dans la liste actualisée. Actualise la liste et réessaie.');
     state.course=ensureCourseStructure(clone(row.course_json||newCourse(row.title)));
     state.course.title=String(state.course.title||row.title||'Nouveau cours');
     ensureCourseStructure(state.course);
