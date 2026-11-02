@@ -1,6 +1,9 @@
 
   /* Accueil flottant : présent au-dessus de toutes les vues, sans modifier la navigation existante. */
   .aurore-floating-home{
+    touch-action:none;
+    -webkit-user-select:none;
+    user-select:none;
     position:fixed;left:50%;top:50%;right:auto;bottom:auto;transform:translate(-50%,-50%);z-index:999998!important;
     display:flex!important;visibility:visible!important;opacity:1!important;
     align-items:center;gap:10px;

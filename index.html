@@ -192,6 +192,14 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
     root.classList.add('aurore-pull-refreshing');
   }
   window.addEventListener('touchstart',function(event){
+    // Les gestes commencés sur un élément flottant sont réservés au drag.
+    // Ne jamais les interpréter comme un pull-to-refresh global.
+    var cible=event.target;
+    if(cible&&cible.closest&&cible.closest('#auroreFloatingHome,#auroreFloatingAI,#screen-aurore-ia.is-mini')){
+      pullTracking=false;
+      pullDistance=0;
+      return;
+    }
     if(!event.touches||event.touches.length!==1||scrollTopActuel()>1||pullRefreshing){
       pullTracking=false;
       return;
@@ -672,6 +680,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <link rel="stylesheet" href="./css/aurore-admin-parcours.css?v=20261002-parcours2&aurore_release=20261010-temporary-no-cache1">
 <link rel="stylesheet" href="./css/aurore-glass.css?v=20261004-glass2&aurore_release=20261010-temporary-no-cache1">
 <link rel="stylesheet" href="./css/aurore-edition-assistee.css?v=20261101-font-render-fix1">
+<link rel="stylesheet" href="./css/aurore-dashboard-layout.css?v=20261102-dashboard-layout1">
 
 <style id="aurore-temporary-startup-safety">
   /* Secours minimal : si une feuille distante échoue, une seule vue reste visible. */
@@ -1198,6 +1207,20 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <div class="stat-body">
 <div class="stat-label">Visiteurs non connectés</div>
 <div class="stat-value" id="statVisiteursAnonymes">…</div>
+</div>
+</div>
+<div class="stat-card" data-accent="ambre">
+<div class="stat-icon" aria-hidden="true"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="20"><path d="M5 4h14v16H5z"></path><path d="M8 8h8M8 12h5"></path><path d="M8 17h3"></path></svg></div>
+<div class="stat-body">
+<div class="stat-label">Documents à valider</div>
+<div class="stat-value" id="statDocumentsAttente">…</div>
+</div>
+</div>
+<div class="stat-card" data-accent="vert">
+<div class="stat-icon" aria-hidden="true"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="20"><path d="M6 3h9l4 4v14H6z"></path><path d="M14 3v5h5"></path><path d="m9 15 2 2 4-4"></path></svg></div>
+<div class="stat-body">
+<div class="stat-label">Documents publiés</div>
+<div class="stat-value" id="statDocumentsPublies">…</div>
 </div>
 </div>
 </div>
@@ -5235,7 +5258,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <span id="auroreFAIResizeLabel">Réduire en fenêtre flottante</span>
 </button>
 </div>
-<script defer src="js/aurore-floating-home.js?aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurore-floating-home.js?v=20261102-drag-no-refresh1"></script>
 <script defer src="js/aurore-floating-ai.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 <script defer src="./js/aurore-color-theme-logic.js?v=20261102-palette-clean3"></script>
 <script defer src="./js/aurore-system-ui.js?aurore_fresh=20261010-temporary-no-cache1"></script>
@@ -5391,6 +5414,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 
 <script defer src="js/aurore-edition-assistee.js?v=20261101-font-render-fix1"></script>
 <script defer src="js/aurore-assisted-sheet-ui.js?v=20261011-course-sheet-order4"></script>
+<script defer src="js/aurore-admin-blocks.js?v=20261102-dashboard-blocks1"></script>
 
 </body>
 </html>
