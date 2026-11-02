@@ -735,3 +735,11 @@ html[data-theme="dark"] .doc-row .doc-more-btn:hover{
   #pdfDownloadChoiceOverlay .pdf-download-range-fields{grid-template-columns:1fr 1fr;}
   #pdfDownloadChoiceOverlay [data-download-range-submit]{grid-column:1/-1;width:100%;}
 }
+
+#pdfDownloadChoiceOverlay .pdf-download-single-fields{display:grid;grid-template-columns:minmax(80px,.65fr) minmax(0,1.35fr);align-items:end;gap:8px;}
+#pdfDownloadChoiceOverlay .pdf-download-single-fields label{display:grid;gap:5px;font-size:.68rem;font-weight:750;color:var(--encre);}
+#pdfDownloadChoiceOverlay .pdf-download-single-fields input{width:100%;min-width:0;box-sizing:border-box;min-height:38px;padding:7px 9px;border:1px solid var(--bordure);border-radius:9px;background:var(--papier);color:var(--encre);font:inherit;font-size:.8rem;}
+#pdfDownloadChoiceOverlay [data-download-single-submit]{min-height:38px;padding:0 11px;border:0;border-radius:9px;background:var(--violet,#8B5CF6);color:#fff;font:inherit;font-size:.7rem;font-weight:800;cursor:pointer;}
+@media(max-width:430px){#pdfDownloadChoiceOverlay .pdf-download-single-fields{grid-template-columns:minmax(70px,.55fr) minmax(0,1.45fr);}}
+
+#pdfDownloadChoiceOverlay .pdf-download-choice-card{max-height:calc(100dvh - 36px);overflow-y:auto;overscroll-behavior:contain;}

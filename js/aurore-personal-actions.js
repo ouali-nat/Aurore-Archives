@@ -610,13 +610,23 @@
     }catch(e){afficherMessageCode('Impossible de vérifier le code.','err');}
   }
   const codeActions=document.querySelector('#accessCodeModal .access-code-actions');
+  let codePrimaryActions=codeActions?.querySelector('.access-code-primary-actions');
+  let codeSecondaryActions=codeActions?.querySelector('.access-code-secondary-actions');
+  if(codeActions&&!codePrimaryActions){
+    codePrimaryActions=document.createElement('div');codePrimaryActions.className='access-code-primary-actions';
+    Array.from(codeActions.children).forEach(node=>{if(node.id==='accessCodeCancel'||node.id==='accessCodeConfirm')codePrimaryActions.appendChild(node);});
+    codeActions.appendChild(codePrimaryActions);
+  }
+  if(codeActions&&!codeSecondaryActions){codeSecondaryActions=document.createElement('div');codeSecondaryActions.className='access-code-secondary-actions';codeActions.appendChild(codeSecondaryActions);}
   let codeBiometrieBtn=document.getElementById('accessCodeBiometrie');
-  if(!codeBiometrieBtn&&codeActions){codeBiometrieBtn=document.createElement('button');codeBiometrieBtn.type='button';codeBiometrieBtn.id='accessCodeBiometrie';codeBiometrieBtn.className='personal-action';codeActions.insertBefore(codeBiometrieBtn,codeActions.firstChild);}
+  if(!codeBiometrieBtn&&codeSecondaryActions){codeBiometrieBtn=document.createElement('button');codeBiometrieBtn.type='button';codeBiometrieBtn.id='accessCodeBiometrie';codeBiometrieBtn.className='access-code-secondary-btn';codeSecondaryActions.appendChild(codeBiometrieBtn);}
+  else if(codeBiometrieBtn&&codeSecondaryActions)codeSecondaryActions.appendChild(codeBiometrieBtn);
   function actualiserBoutonsBiometrie(){
     if(!codeBiometrieBtn)return;
     const modeVerification=codeMode==='verify'&&!espaceOptions.biometricEnroll&&!espaceOptions.biometricDisable;
     const configuree=!!credentialBiometrique()||biometrieNativeConfiguree();
     codeBiometrieBtn.hidden=!modeVerification||configuree; // Si configurée, la biométrie démarre automatiquement à l’ouverture.
+    if(codeResetBtn)codeResetBtn.hidden=codeMode!=='verify';
     codeBiometrieBtn.textContent=configuree?'Utiliser mon empreinte digitale':'Activer mon empreinte digitale';
     codeBiometrieBtn.setAttribute('aria-label',configuree?'Déverrouiller avec la biométrie':'Activer le déverrouillage biométrique sur cet appareil');
   }
@@ -632,11 +642,11 @@
   }
   codeBiometrieBtn?.addEventListener('click',actionBoutonBiometrie);
   let codeResetBtn=document.getElementById('accessCodeReset');
-  if(!codeResetBtn&&codeActions){
+  if(!codeResetBtn&&codeSecondaryActions){
     codeResetBtn=document.createElement('button');codeResetBtn.type='button';codeResetBtn.id='accessCodeReset';
-    codeResetBtn.className='personal-action';codeResetBtn.textContent='Code oublié ? Réinitialiser';
-    codeActions.appendChild(codeResetBtn);
-  }
+    codeResetBtn.className='access-code-secondary-btn access-code-reset-btn';codeResetBtn.textContent='Code oublié ? Réinitialiser';
+    codeSecondaryActions.appendChild(codeResetBtn);
+  } else if(codeResetBtn&&codeSecondaryActions)codeSecondaryActions.appendChild(codeResetBtn);
   codeResetBtn?.addEventListener('click',confirmerReinitialisationCode);
   window.ouvrirGestionProtectionEspace=function(){
     if(!session){requireLogin();return;}

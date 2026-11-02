@@ -114,11 +114,17 @@
       }
       const n=NOMS[key];
       if(n) btn.setAttribute('title',n);
-      // Couleur de secours explicite si une règle CSS manque pour une nuance.
-      if(META[key]) btn.style.backgroundColor=META[key];
+      // Chaque case reçoit une couleur explicite : aucune pastille transparente.
+      if(META[key]) btn.style.setProperty('background',META[key],'important');
     });
     document.querySelectorAll('.profile-theme-option').forEach(btn=>{
-      if(!VALID_COLOR_THEMES.includes(btn.dataset.colorChoice)) btn.remove();
+      const key=btn.dataset.colorChoice;
+      if(!key || !VALID_COLOR_THEMES.includes(key)){
+        btn.remove();
+        return;
+      }
+      const swatch=btn.querySelector('.profile-theme-swatch');
+      if(swatch && META[key]) swatch.style.setProperty('background',META[key],'important');
     });
   }
 

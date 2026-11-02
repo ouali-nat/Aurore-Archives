@@ -7,14 +7,26 @@
   .recents-card-actions button.is-active{color:var(--violet);border-color:var(--violet);background:rgba(124,58,237,.08)}
   .apercu-actions-extra{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}
   .personal-action.is-active{color:var(--violet);border-color:var(--violet);background:rgba(124,58,237,.08)}
-  .access-code-modal{position:fixed;inset:0;z-index:11000;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(9,8,18,.68);backdrop-filter:blur(6px)}
-  .access-code-card{width:min(430px,100%);background:var(--papier);border:1px solid var(--bordure);border-radius:22px;padding:25px;box-shadow:0 28px 80px rgba(0,0,0,.35)}
-  .access-code-card h3{font-size:1.3rem;margin-bottom:7px}.access-code-card p{font-size:.8rem;color:var(--gris);line-height:1.55;margin-bottom:15px}
-  .access-code-card label{display:block;font-size:.75rem;font-weight:800;margin-bottom:7px}.access-code-card input{width:100%;padding:12px;border:1px solid var(--bordure);border-radius:12px;background:var(--fond);color:var(--encre);font-size:1rem;letter-spacing:.18em;text-align:center;outline:none}.access-code-card input:focus{border-color:var(--violet);box-shadow:0 0 0 3px rgba(124,58,237,.12)}
-  .access-code-actions{display:flex;gap:8px;margin-top:13px}.access-code-actions button{flex:1;border:1px solid var(--bordure);border-radius:11px;padding:10px 12px;font-weight:800;cursor:pointer;background:var(--fond);color:var(--encre)}.access-code-actions .primary{background:var(--violet);border-color:var(--violet);color:#fff}
-  .access-code-message{display:none;margin-top:10px;padding:10px 12px;border:1px solid var(--bordure);border-radius:12px;font-size:.74rem;line-height:1.45}.access-code-message.err{display:block;background:#FFF7F7;color:#991B1B;border-color:#FCA5A5}.access-code-message.ok{display:block;background:#ECFDF3;color:#166534;border-color:#86EFAC}
-  .access-code-note{font-size:.68rem!important;margin-top:10px!important;margin-bottom:0!important}
-  @media(max-width:620px){.doc-actions .doc-action-soft{flex:1}.access-code-card{padding:21px}.access-code-actions{flex-direction:column}}
+  .access-code-modal{position:fixed;inset:0;z-index:11000;display:none;align-items:center;justify-content:center;padding:14px;background:rgba(9,8,18,.68);backdrop-filter:blur(6px)}
+  .access-code-card{width:min(370px,100%);box-sizing:border-box;background:var(--papier);border:1px solid var(--bordure);border-radius:19px;padding:19px 20px;box-shadow:0 22px 60px rgba(0,0,0,.30)}
+  .access-code-card h3{font-size:1.08rem;line-height:1.25;margin:0 0 5px;font-weight:800;letter-spacing:-.02em}
+  .access-code-card #accessCodeIntro{font-size:.73rem;color:var(--gris);line-height:1.4;margin:0 0 13px}
+  .access-code-card label{display:block;font-size:.7rem;font-weight:800;margin:0 0 5px}
+  .access-code-card input{display:block;width:100%;box-sizing:border-box;min-height:43px;padding:9px 12px;border:1px solid var(--bordure);border-radius:11px;background:var(--fond);color:var(--encre);font-size:1rem;letter-spacing:.2em;text-align:center;outline:none}
+  .access-code-card input:focus{border-color:var(--theme-primary,var(--violet));box-shadow:0 0 0 3px color-mix(in srgb,var(--theme-primary,var(--violet)) 14%,transparent)}
+  .access-code-actions{display:grid;gap:8px;margin-top:11px}
+  .access-code-primary-actions{display:grid;grid-template-columns:.85fr 1.15fr;gap:8px}
+  .access-code-primary-actions button{min-width:0;min-height:39px;border:1px solid var(--bordure);border-radius:10px;padding:8px 11px;font-size:.76rem;font-weight:800;cursor:pointer;background:var(--fond);color:var(--encre)}
+  .access-code-primary-actions .primary{background:var(--theme-primary,var(--violet));border-color:var(--theme-primary,var(--violet));color:#fff}
+  .access-code-secondary-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  .access-code-secondary-btn{border:0!important;background:transparent!important;color:var(--theme-primary,var(--violet))!important;padding:3px 0!important;font-size:.68rem!important;font-weight:750!important;cursor:pointer;text-align:left}
+  .access-code-secondary-btn[hidden]{display:none!important}
+  .access-code-reset-btn{margin-left:auto}
+  .access-code-message{display:none;margin-top:9px;padding:8px 10px;border:1px solid var(--bordure);border-radius:10px;font-size:.7rem;line-height:1.4}
+  .access-code-message.err{display:block;background:#FFF7F7;color:#991B1B;border-color:#FCA5A5}
+  .access-code-message.ok{display:block;background:#ECFDF3;color:#166534;border-color:#86EFAC}
+  .access-code-note{font-size:.62rem!important;color:var(--gris)!important;line-height:1.35!important;margin:8px 0 0!important}
+  @media(max-width:620px){.doc-actions .doc-action-soft{flex:1}.access-code-modal{padding:12px}.access-code-card{padding:17px 16px}.access-code-primary-actions{grid-template-columns:.85fr 1.15fr}}
 
 /* Aurore — accès rapide aux PDF précédemment ouverts */
 .pdf-recent-access{position:relative;margin:10px 14px 0;z-index:2;}
