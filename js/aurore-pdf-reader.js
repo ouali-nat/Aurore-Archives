@@ -314,7 +314,7 @@
       btnDl.onclick = async () => {
         fermerMenuLecteurPDF();
         const mode = await demanderChoixTelechargementPDF(doc);
-        if(mode) await telechargerDocumentAvecProgression(doc,mode);
+        if(mode) await telechargerDocumentAvecProgression(doc,mode.mode,mode.start,mode.end);
       };
     } else {
       btnDl.style.display = 'none';
@@ -813,7 +813,7 @@
 
   // Téléchargement interne Aurore : ne jamais naviguer vers le PDF/R2.
 // La lecture d'un PDF passe par ouvrirLecteurPDF(), la visionneuse intégrée.
-async function telechargerDocumentAvecProgression(doc, mode='current') {
+async function telechargerDocumentAvecProgression(doc, mode='current', rangeStart=null, rangeEnd=null) {
     if (!doc || !doc.Fichier_url || doc.Telechargement_autorise === false || TELECHARGEMENT_DOCUMENT_EN_COURS) return;
     if (!session) { exigerConnexionPourTelechargement(doc); return; }
 
@@ -829,8 +829,8 @@ async function telechargerDocumentAvecProgression(doc, mode='current') {
     let nomTelechargement = nomBase + suffixe;
 
     afficherCarteTelechargement(doc,'preparation',null,0,null,
-      mode === 'previous'
-        ? `Préparation des pages 1 à ${finPages}…`
+      mode==='full'?'Préparation du document complet…':mode==='range'
+        ? `Préparation des pages ${debutPages} à ${finPages}…`
         : `Préparation de la page ${pageCourante}…`
     );
 
@@ -913,33 +913,27 @@ async function telechargerDocumentAvecProgression(doc, mode='current') {
       afficherCarteTelechargement(doc,'progress',92,octets.byteLength,octets.byteLength,'Préparation du fichier PDF…');
       let blob;
       let extractionPages = true;
-      let fin = pageCourante;
-      try {
-        const PDFLib = await chargerPdfLibPourTelechargement();
-        const sourcePdf = await PDFLib.PDFDocument.load(octets);
-        const totalPages = sourcePdf.getPageCount();
-        fin = Math.min(finPages,totalPages);
-        const indices = [];
-        if(mode === 'previous'){
-          for(let i=0;i<fin;i++) indices.push(i);
-        } else {
-          indices.push(Math.max(0,Math.min(totalPages-1,pageCourante-1)));
-        }
-        if (!indices.length || totalPages < 1) throw new Error('Aucune page exploitable dans le PDF.');
-        const sortie = await PDFLib.PDFDocument.create();
-        try { if(sourcePdf.getTitle()) sortie.setTitle(sourcePdf.getTitle()); } catch(e) {}
-        try { if(sourcePdf.getAuthor()) sortie.setAuthor(sourcePdf.getAuthor()); } catch(e) {}
-        try { if(sourcePdf.getSubject()) sortie.setSubject(sourcePdf.getSubject()); } catch(e) {}
-        const pagesCopiees = await sortie.copyPages(sourcePdf,indices);
+      if(mode==='full'){
+        // Le document complet est conservé octet pour octet : pas de réécriture.
+        blob=new Blob([octets],{type:'application/pdf'});
+      }else{
+        const PDFLib=await chargerPdfLibPourTelechargement();
+        const sourcePdf=await PDFLib.PDFDocument.load(octets);
+        const totalPages=sourcePdf.getPageCount();
+        const debut=Math.max(1,Math.min(totalPages,debutPages));
+        const fin=Math.max(debut,Math.min(totalPages,finPages));
+        const indices=[];
+        for(let page=debut;page<=fin;page++) indices.push(page-1);
+        if(!indices.length||totalPages<1) throw new Error('Aucune page exploitable dans le PDF.');
+        const sortie=await PDFLib.PDFDocument.create();
+        try{if(sourcePdf.getTitle())sortie.setTitle(sourcePdf.getTitle());}catch(e){}
+        try{if(sourcePdf.getAuthor())sortie.setAuthor(sourcePdf.getAuthor());}catch(e){}
+        try{if(sourcePdf.getSubject())sortie.setSubject(sourcePdf.getSubject());}catch(e){}
+        const pagesCopiees=await sortie.copyPages(sourcePdf,indices);
         pagesCopiees.forEach(p=>sortie.addPage(p));
-        const resultat = await sortie.save({useObjectStreams:true});
-        blob = new Blob([resultat],{type:'application/pdf'});
-        if (!blob || blob.size <= 0) throw new Error('Le fichier réduit créé est vide.');
-      } catch (erreurExtraction) {
-        console.warn('[Téléchargement pages PDF] Extraction impossible ; conservation du PDF complet.', erreurExtraction);
-        extractionPages = false;
-        nomTelechargement = nomBase + '.pdf';
-        blob = new Blob([octets],{type:'application/pdf'});
+        const resultat=await sortie.save({useObjectStreams:true});
+        blob=new Blob([resultat],{type:'application/pdf'});
+        if(!blob||blob.size<=0) throw new Error('Le PDF partiel créé est vide.');
       }
 
       if (!blob || blob.size <= 0) throw new Error('Le fichier créé est vide.');
@@ -1014,28 +1008,20 @@ async function telechargerDocumentAvecProgression(doc, mode='current') {
   function demanderChoixTelechargementPDF(doc) {
     const overlay=document.getElementById('pdfDownloadChoiceOverlay');
     if(!overlay || PDF_DOWNLOAD_CHOICE_ACTIVE) return Promise.resolve(null);
-    const current=Math.max(1,Number(PDF_PAGE_ACTUELLE)||1);
-    const previous=overlay.querySelector('[data-download-mode="previous"]');
-    const currentLabel=overlay.querySelector('[data-download-current-label]');
-    const previousLabel=overlay.querySelector('[data-download-previous-label]');
-    if(currentLabel) currentLabel.textContent=`Page ${current} uniquement`;
-    if(previousLabel) previousLabel.textContent=`Pages 1 à ${current}`;
-    if(previous) previous.disabled=current<=1;
-
+    const total=Math.max(1,Number(PDF_EN_COURS?.numPages)||1);
+    const current=Math.max(1,Math.min(total,Number(PDF_PAGE_ACTUELLE)||1));
+    const start=overlay.querySelector('[data-download-start]');
+    const end=overlay.querySelector('[data-download-end]');
+    if(start){start.value='1';start.max=String(total);}
+    if(end){end.value=String(current);end.max=String(total);}
     const description=overlay.querySelector('[data-download-description]');
-    if(description){
-      description.textContent=current<=1
-        ? 'La page 1 est déjà la première page du document.'
-        : `Vous êtes sur la page ${current}. Choisissez ce que vous souhaitez enregistrer.`;
-    }
-
+    if(description) description.textContent=`Ce document contient ${total} page${total>1?'s':''}. Choisissez le contenu du PDF à enregistrer.`;
     overlay.classList.add('open');
     overlay.setAttribute('aria-hidden','false');
     PDF_DOWNLOAD_CHOICE_ACTIVE=true;
-
     return new Promise(resolve=>{
       overlay.__auroreResolve=resolve;
-      requestAnimationFrame(()=>overlay.querySelector('[data-download-mode="current"]')?.focus());
+      requestAnimationFrame(()=>overlay.querySelector('[data-download-mode="full"]')?.focus());
     });
   }
 
@@ -1051,41 +1037,54 @@ async function telechargerDocumentAvecProgression(doc, mode='current') {
       <div class="pdf-download-choice-card">
         <div class="pdf-download-choice-head">
           <div>
-            <div class="pdf-download-choice-eyebrow">Téléchargement</div>
+            <div class="pdf-download-choice-eyebrow">Téléchargement PDF</div>
             <h3 class="pdf-download-choice-title">Que souhaitez-vous télécharger ?</h3>
             <p class="pdf-download-choice-description" data-download-description></p>
           </div>
           <button type="button" class="pdf-download-choice-close" aria-label="Fermer">×</button>
         </div>
         <div class="pdf-download-choice-options">
+          <button type="button" class="pdf-download-choice-option" data-download-mode="full">
+            <span class="pdf-download-choice-icon" aria-hidden="true">PDF</span>
+            <span><strong>Document complet</strong><small>Toutes les pages, sans modification du PDF original.</small></span>
+          </button>
+          <div class="pdf-download-range">
+            <div class="pdf-download-range-heading"><strong>Télécharger une plage de pages</strong><small>Indiquez la première et la dernière page.</small></div>
+            <div class="pdf-download-range-fields">
+              <label>De <input type="number" min="1" step="1" inputmode="numeric" data-download-start aria-label="Page de début"></label>
+              <label>À <input type="number" min="1" step="1" inputmode="numeric" data-download-end aria-label="Page de fin"></label>
+              <button type="button" data-download-range-submit>Créer le PDF</button>
+            </div>
+            <p class="pdf-download-range-error" data-download-range-error role="alert" hidden></p>
+          </div>
           <button type="button" class="pdf-download-choice-option" data-download-mode="current">
             <span class="pdf-download-choice-icon" aria-hidden="true">1</span>
-            <span><strong data-download-current-label>Page actuelle uniquement</strong><small>Un PDF contenant seulement cette page.</small></span>
-          </button>
-          <button type="button" class="pdf-download-choice-option" data-download-mode="previous">
-            <span class="pdf-download-choice-icon" aria-hidden="true">1–N</span>
-            <span><strong data-download-previous-label>Pages 1 à N</strong><small>La première page jusqu’à la page actuelle.</small></span>
+            <span><strong data-download-current-label>Page unique</strong><small>Télécharger uniquement la page actuellement affichée.</small></span>
           </button>
         </div>
         <button type="button" class="pdf-download-choice-cancel">Annuler</button>
       </div>`;
     document.body.appendChild(overlay);
-
-    overlay.addEventListener('click',(e)=>{
-      if(e.target===overlay) fermerChoixTelechargementPDF(null);
-    });
+    overlay.addEventListener('click',(e)=>{if(e.target===overlay) fermerChoixTelechargementPDF(null);});
     overlay.querySelector('.pdf-download-choice-close')?.addEventListener('click',()=>fermerChoixTelechargementPDF(null));
     overlay.querySelector('.pdf-download-choice-cancel')?.addEventListener('click',()=>fermerChoixTelechargementPDF(null));
-    overlay.querySelectorAll('[data-download-mode]').forEach(btn=>{
-      btn.addEventListener('click',()=>{
-        const mode=btn.getAttribute('data-download-mode')==='previous' ? 'previous' : 'current';
-        if(btn.disabled) return;
-        fermerChoixTelechargementPDF(mode);
-      });
+    overlay.querySelector('[data-download-mode="full"]')?.addEventListener('click',()=>fermerChoixTelechargementPDF({mode:'full'}));
+    overlay.querySelector('[data-download-mode="current"]')?.addEventListener('click',()=>{
+      const current=Math.max(1,Number(PDF_PAGE_ACTUELLE)||1);
+      fermerChoixTelechargementPDF({mode:'current',start:current,end:current});
     });
-    overlay.addEventListener('keydown',(e)=>{
-      if(e.key==='Escape'){e.preventDefault();fermerChoixTelechargementPDF(null);}
+    overlay.querySelector('[data-download-range-submit]')?.addEventListener('click',()=>{
+      const total=Math.max(1,Number(PDF_EN_COURS?.numPages)||1);
+      const start=Number(overlay.querySelector('[data-download-start]')?.value);
+      const end=Number(overlay.querySelector('[data-download-end]')?.value);
+      const error=overlay.querySelector('[data-download-range-error]');
+      if(!Number.isInteger(start)||!Number.isInteger(end)||start<1||end<start||end>total){
+        if(error){error.hidden=false;error.textContent=`Saisissez deux pages valides entre 1 et ${total}, avec une page de début inférieure ou égale à la page de fin.`;}
+        return;
+      }
+      fermerChoixTelechargementPDF({mode:'range',start,end});
     });
+    overlay.addEventListener('keydown',(e)=>{if(e.key==='Escape'){e.preventDefault();fermerChoixTelechargementPDF(null);}});
   }
   document.addEventListener('DOMContentLoaded',initialiserChoixTelechargementPDF);
   const btnFermerCarteTelechargement=document.getElementById('downloadProgressClose');
