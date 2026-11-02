@@ -89,23 +89,80 @@
   document.getElementById('adminServiceSave')?.addEventListener('click', enregistrerServiceClientConfig);
 
   // ---------- ESPACE ADMINISTRATEUR ----------
-  // Le bouton "Espace administrateur" n'est déjà visible que pour les e-mails
-  // dont le profil a role = 'admin' (voir afficherUtilisateurConnecte). La vraie
-  // protection des données se fait par les policies RLS sur Supabase, qui
-  // vérifient le jeton envoyé — voir les instructions de configuration.
-  document.getElementById('btnAdmin').addEventListener('click', () => {
-    document.getElementById('breadcrumb').innerHTML = '';
-    afficherEcran('screen-admin');
-    document.getElementById('adminPanel').style.display = 'block';
-    chargerStatsAdmin();
-    if (typeof window.chargerCompteurDocumentsEnAttenteAdmin === 'function') {
-      window.chargerCompteurDocumentsEnAttenteAdmin();
-    } else {
-      chargerDepotsEnAttente();
+  const ADMIN_PERMISSION_LABELS = {
+    users:'Gestion des utilisateurs (lecture des profils et activités)',
+    connections:'Historique des connexions',
+    reports:'Gestion des signalements',
+    visitors:'Historique des visiteurs anonymes'
+  };
+  const ADMIN_TAB_PERMISSION = {
+    utilisateurs:'users', connexions:'connections', reclamations:'reports', visiteurs:'visitors'
+  };
+  async function chargerPermissionsAdmin() {
+    if (session?.role === 'admin') {
+      window.auroreAdminPermissions = Object.keys(ADMIN_PERMISSION_LABELS);
+      return window.auroreAdminPermissions;
     }
-    chargerDocumentsPublies();
-    actualiserBoutonRepublicationAdmin();
-  });
+    if (session?.role !== 'admin_limite') {
+      window.auroreAdminPermissions = [];
+      return [];
+    }
+    const res=await fetch(`${SUPABASE_URL}/rest/v1/rpc/mes_permissions_admin`,{
+      method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json'},body:'{}'
+    });
+    if(!res.ok) throw new Error('Impossible de vérifier les autorisations administrateur.');
+    window.auroreAdminPermissions=await res.json()||[];
+    return window.auroreAdminPermissions;
+  }
+  function appliquerPermissionsAdmin(permissions) {
+    if(session?.role==='admin') {
+      document.querySelectorAll('.admin-tab[data-tab],.admin-tab-panel[data-panel],.admin-category-card').forEach(el=>{el.hidden=false;el.removeAttribute('aria-hidden');});
+      return;
+    }
+    const allowed=new Set(permissions||[]);
+    document.querySelectorAll('.admin-tab[data-tab]').forEach(tab=>{
+      const key=ADMIN_TAB_PERMISSION[tab.dataset.tab];
+      const visible=!!key&&allowed.has(key);
+      tab.hidden=!visible;
+      tab.setAttribute('aria-hidden',visible?'false':'true');
+    });
+    document.querySelectorAll('.admin-tab-panel[data-panel]').forEach(panel=>{
+      const key=ADMIN_TAB_PERMISSION[panel.dataset.panel];
+      panel.hidden=!!key&&!allowed.has(key);
+      if(!key) panel.hidden=true;
+    });
+    const grille=document.getElementById('adminCategoryGrid');
+    if(grille) grille.querySelectorAll('.admin-category-card').forEach(card=>{
+      const key=ADMIN_TAB_PERMISSION[card.dataset.tab];
+      card.hidden=!!key&&!allowed.has(key);
+      if(!key) card.hidden=true;
+    });
+  }
+  async function ouvrirEspaceAdministrateur() {
+    document.getElementById('breadcrumb').innerHTML='';
+    try {
+      const permissions=await chargerPermissionsAdmin();
+      appliquerPermissionsAdmin(permissions);
+      afficherEcran('screen-admin');
+      document.getElementById('adminPanel').style.display='block';
+      if(session?.role==='admin') {
+        chargerStatsAdmin();
+        if(typeof window.chargerCompteurDocumentsEnAttenteAdmin==='function') window.chargerCompteurDocumentsEnAttenteAdmin();
+        else chargerDepotsEnAttente();
+        chargerDocumentsPublies();
+        actualiserBoutonRepublicationAdmin();
+      } else {
+        const premier=document.querySelector('.admin-tab[data-tab]:not([hidden])');
+        if(premier) premier.click();
+        else afficherMessageUtilisateurs('Aucune fonctionnalité administrateur ne vous a été accordée. Contactez le propriétaire du site.','err');
+      }
+    } catch(err) {
+      console.error('[Admin permissions]',err);
+      afficherEcran('screen-admin');
+      afficherMessageUtilisateurs('Impossible de vérifier les autorisations. L’espace administrateur reste fermé.','err');
+    }
+  }
+  document.getElementById('btnAdmin')?.addEventListener('click',ouvrirEspaceAdministrateur);
 
   // La carte entière reprend le comportement de "Nouveautés" :
   // une sélection n'importe où sur le bloc ouvre l'administration.
@@ -225,23 +282,44 @@
       afficherMessageUtilisateurs('Identifiant utilisateur invalide.', 'err');
       return;
     }
-    if (bouton) { bouton.disabled = true; bouton.textContent = 'Promotion…'; }
-    afficherMessageUtilisateurs('Promotion en cours…');
-    try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/promouvoir_utilisateur_admin`, {
-        method: 'POST',
-        headers: { ...headersAdmin(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ utilisateur_id: utilisateurId })
-      });
-      const detail = await res.text().catch(() => '');
-      if (!res.ok) throw new Error(detail || ('HTTP ' + res.status));
-      afficherMessageUtilisateurs('Utilisateur promu administrateur avec succès.', 'ok');
-      await chargerUtilisateursAdmin();
-    } catch (err) {
-      console.error('[Gestion utilisateurs] promotion', err);
-      afficherMessageUtilisateurs('La promotion de cet utilisateur n’a pas pu être effectuée pour le moment. Veuillez réessayer.', 'err');
-      if (bouton) { bouton.disabled = false; bouton.textContent = 'Promouvoir administrateur'; }
-    }
+    const modal=document.createElement('div');
+    modal.className='aurore-admin-permissions-overlay';
+    modal.innerHTML=`<section class="aurore-admin-permissions-dialog" role="dialog" aria-modal="true" aria-labelledby="auroreAdminPermissionsTitle">
+      <div class="aurore-admin-permissions-head"><div><span class="eyebrow">Accès administrateur</span><h2 id="auroreAdminPermissionsTitle">Choisir les fonctionnalités</h2><p>Seules les fonctions cochées seront accessibles à ce compte. Les autorisations sont aussi contrôlées par Supabase.</p></div>
+      <button type="button" class="aurore-admin-permissions-close" aria-label="Fermer">×</button></div>
+      <table class="aurore-admin-permissions-table"><thead><tr><th>Fonctionnalité</th><th>Accès</th></tr></thead><tbody>
+      ${Object.entries(ADMIN_PERMISSION_LABELS).map(([key,label])=>`<tr><td>${echapperHtmlPub(label)}</td><td><input type="checkbox" value="${key}" aria-label="Autoriser ${echapperHtmlPub(label)}"></td></tr>`).join('')}
+      </tbody></table>
+      <p class="aurore-admin-permissions-note">Les accès disponibles ici sont volontairement limités à la consultation des utilisateurs, connexions, signalements et visiteurs. Les autres outils sensibles restent réservés aux administrateurs complets.</p>
+      <div class="aurore-admin-permissions-actions"><button type="button" class="admin-btn ghost" data-cancel>Annuler</button><button type="button" class="admin-btn primary" data-confirm>Confirmer la promotion</button></div>
+      <p class="aurore-admin-permissions-error" aria-live="polite"></p>
+    </section>`;
+    document.body.appendChild(modal);
+    const fermer=()=>modal.remove();
+    modal.querySelector('.aurore-admin-permissions-close').addEventListener('click',fermer);
+    modal.querySelector('[data-cancel]').addEventListener('click',fermer);
+    modal.addEventListener('click',e=>{if(e.target===modal)fermer();});
+    const confirmer=modal.querySelector('[data-confirm]');
+    confirmer.addEventListener('click',async()=>{
+      const permissions=[...modal.querySelectorAll('tbody input:checked')].map(x=>x.value);
+      confirmer.disabled=true;confirmer.textContent='Promotion…';
+      const erreur=modal.querySelector('.aurore-admin-permissions-error');
+      try{
+        const res=await fetch(`${SUPABASE_URL}/rest/v1/rpc/promouvoir_utilisateur_admin_v2`,{
+          method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json'},
+          body:JSON.stringify({p_utilisateur_id:utilisateurId,p_permissions:permissions})
+        });
+        const detail=await res.text().catch(()=>'');
+        if(!res.ok)throw new Error(detail||('HTTP '+res.status));
+        fermer();
+        afficherMessageUtilisateurs('Promotion enregistrée. Les fonctionnalités choisies sont appliquées côté serveur.','ok');
+        await chargerUtilisateursAdmin();
+      }catch(err){
+        console.error('[Gestion utilisateurs] promotion',err);
+        erreur.textContent='La promotion a échoué : '+(err.message||'erreur inconnue');
+        confirmer.disabled=false;confirmer.textContent='Réessayer';
+      }
+    });
   }
 
   async function retrograderUtilisateurAdmin(utilisateurId, bouton) {
@@ -300,7 +378,8 @@
 
   async function chargerUtilisateursAdmin() {
     const list=document.getElementById('adminUsersList'); if(!list)return;
-    if(!session||session.role!=='admin'){list.innerHTML='<div class="admin-user-empty">Cette action est réservée aux administrateurs.</div>';return;}
+    if(!session||!['admin','admin_limite'].includes(String(session.role||''))){list.innerHTML='<div class="admin-user-empty">Cette action est réservée aux administrateurs.</div>';return;}
+    if(session.role==='admin_limite'&&!((window.auroreAdminPermissions||[]).includes('users'))){list.innerHTML='<div class="admin-user-empty">La consultation des utilisateurs ne vous a pas été accordée.</div>';return;}
     list.innerHTML='<div class="admin-user-loading">Chargement des utilisateurs…</div>'; afficherMessageUtilisateurs('');
     try{
       const res=await fetch(`${SUPABASE_URL}/rest/v1/rpc/lister_profils_admin_activite`,{method:'POST',headers:{...headersAdmin(),'Content-Type':'application/json'},body:'{}'});
@@ -315,15 +394,16 @@
         const card=document.createElement('article'); card.className='admin-user-card';
         card.dataset.adminId=String(p.id||'');card.dataset.adminTitle=String(p.nom||'');card.dataset.adminEmail=String(p.email||'');card.dataset.adminRole=String(p.role||'');card.dataset.adminCreated=String(p.created_at||'');
         card.dataset.adminSearch=[p.id,p.prenom,p.nom,p.email,p.role,p.lycee,p.niveau,p.classe,p.filiere,p.discipline,p.fonction,p.enfant_informations,p.created_at,p.updated_at,p.derniere_connexion,p.derniere_deconnexion].filter(Boolean).join(' ');
-        const roleAdmin=String(p.role||'').toLowerCase()==='admin',banni=bans.get(String(p.id))===true;
+        const roleValue=String(p.role||'').toLowerCase(),roleAdmin=['admin','admin_limite'].includes(roleValue),banni=bans.get(String(p.id))===true;
+        const sortieAffichee=p.derniere_connexion&&(!p.derniere_deconnexion||Date.parse(p.derniere_connexion)>Date.parse(p.derniere_deconnexion))?'Sortie non confirmée':formaterDateAdmin(p.derniere_deconnexion,'Aucune sortie enregistrée');
         card.innerHTML=`<div class="admin-user-main"><div class="admin-user-name">${echapperHtmlPub(p.nom||'Nom non renseigné')}</div><div class="admin-user-email">${echapperHtmlPub(p.email||'E-mail non renseigné')}</div>
           <div class="admin-user-school">${p.prenom?`<span>Prénom : ${echapperHtmlPub(p.prenom)}</span>`:''}${p.lycee?`<span>Établissement : ${echapperHtmlPub(p.lycee)}</span>`:''}${p.niveau?`<span>Niveau : ${echapperHtmlPub(p.niveau)}</span>`:''}${p.classe?`<span>Classe : ${echapperHtmlPub(p.classe)}</span>`:''}${p.filiere?`<span>Filière : ${echapperHtmlPub(p.filiere)}</span>`:''}${p.discipline?`<span>Discipline : ${echapperHtmlPub(p.discipline)}</span>`:''}${p.fonction?`<span>Fonction : ${echapperHtmlPub(p.fonction)}</span>`:''}${p.enfant_informations?`<span>Enfant : ${echapperHtmlPub(p.enfant_informations)}</span>`:''}</div>
-          <div class="admin-user-activity"><span><strong>Inscription</strong> ${echapperHtmlPub(formaterDateAdmin(p.created_at))}</span><span><strong>Dernière correction</strong> ${echapperHtmlPub(formaterDateAdmin(p.updated_at))}</span><span><strong>Dernière connexion</strong> ${echapperHtmlPub(formaterDateAdmin(p.derniere_connexion))}</span><span><strong>Dernière déconnexion</strong> ${echapperHtmlPub(formaterDateAdmin(p.derniere_deconnexion))}</span><span><strong>Connexions enregistrées</strong> ${Number(p.nombre_connexions||0)}</span></div>
-          <div class="admin-user-meta"><span class="role-badge ${roleAdmin?'admin':'eleve'}">${roleAdmin?'Administrateur':echapperHtmlPub(libelleRole(p.role||'eleve'))}</span>${banni?'<span class="admin-user-status-banned">● Compte banni</span>':''}</div></div><div class="admin-user-actions"></div>`;
+          <div class="admin-user-activity"><span><strong>Inscription</strong> ${echapperHtmlPub(formaterDateAdmin(p.created_at))}</span><span><strong>Dernière correction</strong> ${echapperHtmlPub(formaterDateAdmin(p.updated_at))}</span><span><strong>Dernière connexion</strong> ${echapperHtmlPub(formaterDateAdmin(p.derniere_connexion))}</span><span><strong>Dernière déconnexion</strong> ${echapperHtmlPub(sortieAffichee)}</span><span><strong>Connexions enregistrées</strong> ${Number(p.nombre_connexions||0)}</span><span><strong>Téléchargements</strong> ${Number(p.nombre_telechargements||0)}</span><span><strong>Favoris</strong> ${Number(p.nombre_favoris||0)}</span><span><strong>À lire plus tard</strong> ${Number(p.nombre_a_lire_plus_tard||0)}</span><span><strong>Dépôts</strong> ${Number(p.nombre_depots||0)}</span><span><strong>Dernier document téléchargé</strong> ${echapperHtmlPub(p.dernier_document_telecharge||'Aucun')}</span><span><strong>Dernier téléchargement</strong> ${echapperHtmlPub(formaterDateAdmin(p.dernier_telechargement,'Aucun'))}</span></div>
+          <div class="admin-user-meta"><span class="role-badge ${roleAdmin?'admin':'eleve'}">${roleValue==='admin_limite'?'Administrateur à accès limité':roleAdmin?'Administrateur':echapperHtmlPub(libelleRole(p.role||'eleve'))}</span>${roleValue==='admin_limite'?`<span class="admin-user-permissions">Accès : ${echapperHtmlPub((p.permissions||[]).map(k=>ADMIN_PERMISSION_LABELS[k]||k).join(' · ')||'Aucun')}</span>`:''}${banni?'<span class="admin-user-status-banned">● Compte banni</span>':''}</div></div><div class="admin-user-actions"></div>`;
         const actions=card.querySelector('.admin-user-actions');
         if(roleAdmin){if(p.id===PROPRIETAIRE_ADMIN_ID){const x=document.createElement('span');x.className='role-badge admin';x.textContent='Compte propriétaire';actions.appendChild(x);}else if(proprietaire){const b=document.createElement('button');b.type='button';b.className='admin-btn primary';b.textContent='Rétrograder en utilisateur';b.addEventListener('click',()=>retrograderUtilisateurAdmin(p.id,b));actions.appendChild(b);}else{const x=document.createElement('span');x.className='role-badge admin';x.textContent='Déjà administrateur';actions.appendChild(x);}}
         else if(proprietaire){const b=document.createElement('button');b.type='button';b.className='admin-btn primary';b.textContent='Promouvoir administrateur';b.addEventListener('click',()=>promouvoirUtilisateurAdmin(p.id,b));actions.appendChild(b);}
-        if(p.id!==PROPRIETAIRE_ADMIN_ID){const b=document.createElement('button');b.type='button';b.className='admin-btn ghost admin-user-ban'+(banni?' is-banned':'');b.textContent=banni?'Autoriser l’accès':'Bannir l’utilisateur';b.addEventListener('click',()=>basculerBannissementUtilisateurAdmin(p.id,!banni,b));actions.appendChild(b);}
+        if(p.id!==PROPRIETAIRE_ADMIN_ID&&(proprietaire||session?.role==='admin')){const b=document.createElement('button');b.type='button';b.className='admin-btn ghost admin-user-ban'+(banni?' is-banned':'');b.textContent=banni?'Autoriser l’accès':'Bannir l’utilisateur';b.addEventListener('click',()=>basculerBannissementUtilisateurAdmin(p.id,!banni,b));actions.appendChild(b);}
         list.appendChild(card);
       });
       actualiserOutilsAdminApresChargement('utilisateurs',ADMIN_COLLECTION_CONFIG.utilisateurs,{roles:profils.map(p=>p.role)});

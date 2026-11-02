@@ -645,6 +645,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <link rel="stylesheet" href="./css/aurore-pdf-reader-refonte.css?aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="./css/aurore-theme-light.css?aurore_release=20261016-depot-theme2" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="./css/aurore-admin-data-tools.css?aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="./css/aurore-admin-permissions.css?v=20261102-permissions1">
 <link href="./css/aurore-pdf-lab.css?aurore_release=20261010-temporary-no-cache1" rel="stylesheet" media="print" onload="this.media='all'"/>
 <link rel="stylesheet" href="./css/aurore-wikipedia.css?aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="./css/aurore-pdf-menu.css?v=20261102-download-range6">
@@ -2513,41 +2514,72 @@ body:not(.site-locked) #accessLock{display:none!important;}
     return 'eleve';
   }
 
-  // Enregistre une connexion réussie dans la table "Connexions" (Supabase).
-  // N'est appelée qu'après une authentification Google effective (nouveau
-  // jeton reçu), jamais lors d'une simple reprise de session déjà ouverte —
-  // elle ne modifie en rien le système d'authentification existant.
+  // Une entrée est enregistrée une fois par onglet/session de navigation.
+  // sessionStorage évite les doublons au rechargement et sépare les onglets.
   async function enregistrerConnexion(sess) {
-    try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/Connexions`, {
-        method: 'POST',
-        headers: {
-          "apikey": SUPABASE_ANON_KEY,
-          "Authorization": "Bearer " + sess.access_token,
-          "Content-Type": "application/json",
-          "Prefer": "return=representation"
-        },
-        body: JSON.stringify({ user_id: sess.id, email: sess.email, nom: sess.nom })
-      });
-      if (!res.ok) throw new Error('HTTP '+res.status);
-      return true;
-    } catch (e) {
-      console.error('[Connexions] échec de l\'enregistrement', e);
-      return false;
-    }
+    if (!sess?.access_token || !sess?.id) return false;
+    const cle = 'aurore_connexion_id:' + sess.id;
+    if (window.__auroreConnexionPromise) return window.__auroreConnexionPromise;
+    const operation=(async()=>{
+      try {
+        if (sessionStorage.getItem(cle)) return true;
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/Connexions`, {
+          method:'POST',
+          headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+sess.access_token,'Content-Type':'application/json','Prefer':'return=representation'},
+          body:JSON.stringify({user_id:sess.id,email:sess.email,nom:sess.nom})
+        });
+        if (!res.ok) throw new Error('HTTP '+res.status+' '+await res.text().catch(()=> ''));
+        const rows=await res.json().catch(()=>[]);
+        const id=Array.isArray(rows)&&rows[0]?.id;
+        if (id) sessionStorage.setItem(cle,String(id));
+        return !!id;
+      } catch(e) { console.error('[Connexions] entrée non enregistrée',e); return false; }
+    })();
+    window.__auroreConnexionPromise=operation;
+    try{return await operation;}finally{if(window.__auroreConnexionPromise===operation)window.__auroreConnexionPromise=null;}
   }
 
   async function enregistrerSortieConnexion() {
     try {
-      if (!session?.access_token) return;
-      await fetch(`${SUPABASE_URL}/rest/v1/rpc/enregistrer_sortie_connexion`, {
+      if (!session?.access_token || !session?.id) return false;
+      const cle='aurore_connexion_id:'+session.id;
+      const id=sessionStorage.getItem(cle);
+      if (!id) return false;
+      sessionStorage.removeItem(cle);
+      const res=await fetch(`${SUPABASE_URL}/rest/v1/rpc/enregistrer_sortie_connexion_v2`,{
         method:'POST',
         headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json'},
-        body:'{}',
+        body:JSON.stringify({p_connexion_id:Number(id)}),
         keepalive:true
       });
-    } catch(e) { console.warn('[Connexions] sortie non enregistrée',e); }
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      return true;
+    } catch(e) { console.warn('[Connexions] sortie non confirmée',e); return false; }
   }
+
+  // Une page cachée plus d'une minute est considérée comme quittée. Un retour
+  // rapide dans l'onglet ne crée pas de fausse déconnexion.
+  let auroreSortieDifferee=null;
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='hidden'){
+      clearTimeout(auroreSortieDifferee);
+      auroreSortieDifferee=setTimeout(()=>{
+        if(document.visibilityState==='hidden'&&session) enregistrerSortieConnexion();
+      },60000);
+    }else{
+      clearTimeout(auroreSortieDifferee);
+      auroreSortieDifferee=null;
+      if(session) enregistrerConnexion(session).catch(()=>{});
+    }
+  });
+  // pagehide est un signal de sortie immédiat. Si Android tue brutalement
+  // le navigateur sans événement, la sortie reste honnêtement non confirmée.
+  window.addEventListener('pagehide',()=>{
+    clearTimeout(auroreSortieDifferee);
+    auroreSortieDifferee=null;
+    if(session) enregistrerSortieConnexion();
+  });
+  window.addEventListener('pageshow',()=>{ if(session) enregistrerConnexion(session).catch(()=>{}); });
 
   // La session Aurore doit survivre à la fermeture/réouverture du site.
   // Elle reste locale à cet appareil/navigateur et est supprimée uniquement
@@ -2852,7 +2884,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
   }
 
   function libelleRole(role) {
-    return ({admin:'Administrateur',eleve:'Élève',enseignant:'Enseignant',professeur:'Professeur',parent:'Parent',personnel:'Personnel'})[String(role||'').toLowerCase()] || 'Utilisateur';
+    return ({admin:'Administrateur',admin_limite:'Administrateur à accès limité',eleve:'Élève',enseignant:'Enseignant',professeur:'Professeur',parent:'Parent',personnel:'Personnel'})[String(role||'').toLowerCase()] || 'Utilisateur';
   }
 
   function afficherUtilisateurConnecte() {
@@ -2870,7 +2902,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
     }
     const adminSpaceCard = document.getElementById('adminSpaceCard');
     const btnAdmin = document.getElementById('btnAdmin');
-    const isAdmin = !!(session && session.role === 'admin');
+    const isAdmin = !!(session && ['admin','admin_limite'].includes(String(session.role||'').toLowerCase()));
     if (adminSpaceCard) adminSpaceCard.style.display = isAdmin ? 'flex' : 'none';
     if (btnAdmin) btnAdmin.style.display = isAdmin ? 'inline' : 'none';
     if(session) {
@@ -2941,7 +2973,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
     document.getElementById('profilEmail').textContent = session.email || '';
     const providerEl = document.getElementById('profilProvider'); if (providerEl) providerEl.textContent = session.provider || 'Compte Aurore';
     const badge = document.getElementById('profilRoleBadge'); const roleSession=String(session.role||'eleve').toLowerCase();
-    badge.textContent = libelleRole(session.role); badge.className = 'role-badge ' + (roleSession === 'admin' ? 'admin' : 'eleve');
+    badge.textContent = libelleRole(session.role); badge.className = 'role-badge ' + (['admin','admin_limite'].includes(roleSession) ? 'admin' : 'eleve');
     const img = document.getElementById('profilAvatar'), fallback = document.getElementById('profilAvatarFallback'); appliquerAvatar(img, session.avatar);
     if (session.avatar) fallback.style.display = 'none'; else { fallback.style.display = 'flex'; fallback.innerHTML = ICONS.user.replace('width="16"', 'width="34"').replace('height="16"', 'height="34"'); }
     const infos = obtenirInfosProfilLocal();
@@ -3661,6 +3693,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
     }
     afficherUtilisateurConnecte();
     if (session) {
+      enregistrerConnexion(session).catch(()=>{});
       setTimeout(()=>window.chargerCasesPersonnelles?.(),250);
       if (typeof window.auroreUnlockAccess === 'function') window.auroreUnlockAccess();
       chargerNotificationsPersonnelles();

@@ -79,7 +79,9 @@
             alert("Impossible d'ouvrir le document pour le moment. Vérifiez que le PDF associé existe encore.");
           }
         });
-        card.querySelector('[data-action="retirer"]').addEventListener('click', async () => {
+        const actionRetirer=card.querySelector('[data-action="retirer"]');
+        if(session?.role==='admin_limite') actionRetirer?.remove();
+        actionRetirer?.addEventListener('click', async () => {
           if (!confirm("Retirer définitivement le document concerné par cette réclamation ?")) return;
           try {
             const dres = await fetch(`${SUPABASE_URL}/rest/v1/Document?id=eq.${r.document_id}`, { method:'DELETE', headers: { ...headersAdmin(), 'Prefer':'return=representation' } });

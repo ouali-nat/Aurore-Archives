@@ -1,0 +1,16 @@
+[hidden]{display:none!important}
+.aurore-admin-permissions-overlay{position:fixed;inset:0;z-index:10080;display:grid;place-items:center;padding:16px;background:rgba(15,18,28,.62);backdrop-filter:blur(8px)}
+.aurore-admin-permissions-dialog{width:min(100%,620px);max-height:min(88vh,760px);overflow:auto;padding:22px;border:1px solid var(--bordure);border-radius:20px;background:var(--papier);color:var(--encre);box-shadow:0 24px 80px rgba(0,0,0,.28)}
+.aurore-admin-permissions-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:16px}
+.aurore-admin-permissions-head h2{margin:5px 0 7px;font-size:1.25rem}
+.aurore-admin-permissions-head p{margin:0;color:var(--gris);font-size:.84rem;line-height:1.5}
+.aurore-admin-permissions-close{flex:0 0 36px;width:36px;height:36px;border:1px solid var(--bordure);border-radius:50%;background:var(--fond);color:var(--encre);font-size:1.35rem;cursor:pointer}
+.aurore-admin-permissions-table{width:100%;border-collapse:collapse;margin:12px 0 16px;font-size:.86rem}
+.aurore-admin-permissions-table th,.aurore-admin-permissions-table td{padding:12px 10px;border-bottom:1px solid var(--bordure);text-align:left}
+.aurore-admin-permissions-table th:last-child,.aurore-admin-permissions-table td:last-child{width:72px;text-align:center}
+.aurore-admin-permissions-table input{width:19px;height:19px;accent-color:var(--violet);vertical-align:middle}
+.aurore-admin-permissions-note{padding:11px 13px;border-radius:12px;background:var(--fond);color:var(--gris);font-size:.76rem;line-height:1.5}
+.aurore-admin-permissions-actions{display:flex;justify-content:flex-end;gap:9px;flex-wrap:wrap;margin-top:16px}
+.aurore-admin-permissions-error{color:var(--rouge);font-size:.82rem;margin:10px 0 0}
+.admin-user-permissions{display:block;flex-basis:100%;font-size:.74rem;color:var(--gris);margin-top:5px;line-height:1.45}
+@media(max-width:520px){.aurore-admin-permissions-dialog{padding:17px;border-radius:17px}.aurore-admin-permissions-table th,.aurore-admin-permissions-table td{padding:10px 7px}.aurore-admin-permissions-actions>*{flex:1}}
