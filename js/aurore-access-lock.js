@@ -60,9 +60,26 @@
     auroreAuthWaitSafetyTimer=setTimeout(()=>{
       if(authWait?.classList.contains('show')){
         cacherVeuillezPatienter();
+        // Réarmer les boutons si aucune redirection OAuth n'a abouti.
+        const googleBtn=document.getElementById('accessGoogleBtn');
+        if(googleBtn){
+          googleBtn.classList.remove('is-loading');
+          googleBtn.disabled=false;
+          googleBtn.removeAttribute('aria-busy');
+          const label=googleBtn.querySelector('strong');
+          if(label)label.textContent='Continuer avec Google';
+        }
+        const idBtn=document.getElementById('accessAuroreIdBtn');
+        if(idBtn){
+          idBtn.classList.remove('is-loading');
+          idBtn.disabled=false;
+          idBtn.removeAttribute('aria-busy');
+          const label=idBtn.querySelector('strong');
+          if(label)label.textContent='Continuer avec Aurore ID';
+        }
         const m=document.getElementById('accessMessage');
         if(m){
-          m.textContent='La connexion prend plus de temps que prévu. Vous pouvez réessayer sans recharger la page.';
+          m.textContent='La connexion n’a pas abouti. Votre compte et vos données n’ont pas été modifiés. Réessayez ou choisissez Aurore ID.';
           m.className='access-message err';
           m.style.display='block';
         }
