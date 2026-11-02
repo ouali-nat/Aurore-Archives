@@ -104,9 +104,21 @@
       b.setAttribute('title',NOMS[k]);
       zone.insertBefore(b,avant||null);
     });
-    // Titres au survol = noms courts.
+    // Nettoyage des cases orphelines ou sans couleur : une pastille vide
+    // ne doit jamais apparaître dans la palette.
     zone.querySelectorAll('.theme-color-swatch').forEach(btn=>{
-      const n=NOMS[btn.dataset.colorChoice]; if(n) btn.setAttribute('title',n);
+      const key=btn.dataset.colorChoice;
+      if(!key || !VALID_COLOR_THEMES.includes(key)){
+        btn.remove();
+        return;
+      }
+      const n=NOMS[key];
+      if(n) btn.setAttribute('title',n);
+      // Couleur de secours explicite si une règle CSS manque pour une nuance.
+      if(META[key]) btn.style.backgroundColor=META[key];
+    });
+    document.querySelectorAll('.profile-theme-option').forEach(btn=>{
+      if(!VALID_COLOR_THEMES.includes(btn.dataset.colorChoice)) btn.remove();
     });
   }
 
