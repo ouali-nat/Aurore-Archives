@@ -209,6 +209,14 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
     pullDistance=0;
   },{passive:true});
   window.addEventListener('touchmove',function(event){
+    // Une capture du pointeur peut démarrer le drag juste après touchstart.
+    // Dans ce cas, annuler toute détection de pull-to-refresh avant le seuil.
+    if(document.querySelector('#auroreFloatingHome.dragging,#auroreFloatingAI.dragging')){
+      pullTracking=false;
+      pullDistance=0;
+      root.classList.remove('aurore-pull-refreshing');
+      return;
+    }
     if(!pullTracking||pullRefreshing||!event.touches||event.touches.length!==1)return;
     var delta=event.touches[0].clientY-pullStartY;
     if(delta<=0){pullDistance=0;root.classList.remove('aurore-pull-refreshing');return;}
