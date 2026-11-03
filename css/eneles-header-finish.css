@@ -1,0 +1,42 @@
+/* Eneles Archives — panneau supérieur flottant, cohérent avec Mémoire. */
+header{
+ width:calc(100% - 24px)!important;max-width:1280px!important;
+ margin:10px auto 0!important;border:1px solid color-mix(in srgb,var(--theme-primary,#8B5CF6) 24%,var(--bordure))!important;
+ border-radius:23px!important;background:color-mix(in srgb,var(--papier) 91%,transparent)!important;
+ box-shadow:0 14px 36px color-mix(in srgb,var(--theme-primary,#8B5CF6) 10%,rgba(0,0,0,.14)),inset 0 1px 0 rgba(255,255,255,.12)!important;
+ backdrop-filter:blur(18px) saturate(1.2)!important;-webkit-backdrop-filter:blur(18px) saturate(1.2)!important;
+}
+header .header-inner{min-height:76px!important}
+header .brand{gap:13px!important;min-width:0}
+header .brand-logo{
+ width:82px!important;height:48px!important;flex:0 0 82px!important;
+ border-radius:13px!important;overflow:hidden!important;
+ background-color:color-mix(in srgb,var(--papier) 94%,transparent)!important;
+ box-shadow:0 6px 17px color-mix(in srgb,var(--theme-primary,#8B5CF6) 18%,transparent)!important;
+}
+header .brand-logo img{width:100%!important;height:100%!important;object-fit:contain!important}
+header .brand-text .site-name{font-size:1.12rem!important;letter-spacing:-.025em}
+header .brand-text .site-tag{font-size:.68rem!important}
+#colorThemeFlyout .theme-color-swatch{
+ width:32px!important;height:32px!important;border-radius:10px!important;
+ border:1px solid transparent!important;box-shadow:0 2px 6px rgba(0,0,0,.14)!important;
+ transition:transform .15s,border-color .15s,box-shadow .15s!important;
+}
+#colorThemeFlyout .theme-color-swatch:hover{transform:translateY(-1px) scale(1.04)!important}
+#colorThemeFlyout .theme-color-swatch[aria-pressed="true"]{
+ border:1px solid var(--theme-primary,#8B5CF6)!important;
+ box-shadow:0 0 0 1px var(--theme-primary,#8B5CF6),0 2px 6px rgba(0,0,0,.14)!important;
+}
+#colorThemeFlyout .theme-color-swatch::after{content:none!important;display:none!important}
+@media(max-width:760px){
+ header{width:calc(100% - 14px)!important;margin-top:7px!important;border-radius:19px!important}
+ header .header-inner{height:auto!important;min-height:0!important;gap:10px!important}
+ header .brand-logo{width:70px!important;height:44px!important;flex-basis:70px!important}
+ header .brand-text .site-name{font-size:1rem!important}
+ header .brand-text .site-tag{font-size:.62rem!important}
+}
+@media(max-width:420px){
+ header .brand{gap:8px!important}
+ header .brand-logo{width:62px!important;height:40px!important;flex-basis:62px!important}
+ header .brand-text .site-name{font-size:.91rem!important}
+}
