@@ -51,3 +51,74 @@ header .brand-logo img{object-fit:contain!important;padding:2px!important}
 #enelesHomeHero.hero{width:calc(100% + clamp(0px,8vw,120px))!important;max-width:none!important;position:relative!important;left:50%!important;transform:translateX(-50%)!important;box-sizing:border-box!important}
 #enelesHomeHero.hero .hero-inner{max-width:980px!important}
 @media(max-width:760px){header .brand-logo{width:42px!important;height:42px!important;flex-basis:42px!important}#enelesHomeHero.hero{width:100%!important;left:auto!important;transform:none!important}}
+
+/* Eneles — bandeau d'accueil en capsule, calqué sur la référence visuelle. */
+body>header{
+ width:min(calc(100% - 24px),1240px)!important;max-width:1240px!important;
+ margin:12px auto 8px!important;padding:0!important;
+ border:1px solid color-mix(in srgb,var(--theme-primary,#8B5CF6) 28%,var(--bordure))!important;
+ border-radius:999px!important;
+ background:color-mix(in srgb,var(--papier) 95%,transparent)!important;
+ box-shadow:0 14px 34px color-mix(in srgb,var(--theme-shadow,rgba(0,0,0,.2)) 80%,transparent),inset 0 1px 0 rgba(255,255,255,.08)!important;
+ backdrop-filter:blur(18px) saturate(1.22)!important;-webkit-backdrop-filter:blur(18px) saturate(1.22)!important;
+}
+body>header .header-inner{
+ display:flex!important;align-items:center!important;flex-wrap:nowrap!important;
+ width:100%!important;max-width:none!important;height:70px!important;min-height:70px!important;
+ margin:0!important;padding:7px 12px!important;gap:12px!important;
+}
+body>header .brand{display:flex!important;align-items:center!important;gap:10px!important;flex:0 0 auto!important;min-width:0!important}
+body>header .brand-logo{
+ display:flex!important;align-items:center!important;justify-content:center!important;
+ width:50px!important;height:50px!important;flex:0 0 50px!important;
+ padding:0!important;border-radius:50%!important;overflow:hidden!important;
+ background:color-mix(in srgb,var(--theme-primary,#8B5CF6) 18%,var(--papier))!important;
+ border:1px solid color-mix(in srgb,var(--theme-primary,#8B5CF6) 40%,transparent)!important;
+ box-shadow:0 0 0 3px color-mix(in srgb,var(--theme-primary,#8B5CF6) 16%,transparent),0 7px 18px rgba(0,0,0,.16)!important;
+}
+body>header .brand-logo img{
+ display:block!important;width:100%!important;height:100%!important;max-width:none!important;
+ padding:0!important;object-fit:cover!important;object-position:center!important;
+ transform:scale(1.14)!important;transform-origin:center!important;border-radius:50%!important;
+}
+body>header .brand-text .site-name{font-size:1.02rem!important;line-height:1.1!important;letter-spacing:-.03em!important}
+body>header .brand-text .site-tag{font-size:.63rem!important;line-height:1.15!important}
+body>header .search-box{
+ flex:1 1 180px!important;min-width:120px!important;max-width:420px!important;
+ min-height:43px!important;padding:7px 15px!important;border-radius:999px!important;
+ background:color-mix(in srgb,var(--fond) 72%,transparent)!important;
+ border:1px solid color-mix(in srgb,var(--theme-primary,#8B5CF6) 22%,var(--bordure))!important;
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.05)!important;
+}
+body>header .aurore-ia-header-btn{
+ min-height:42px!important;padding:8px 14px!important;border-radius:999px!important;
+ background:color-mix(in srgb,var(--theme-primary,#8B5CF6) 16%,var(--papier))!important;
+ border:1px solid color-mix(in srgb,var(--theme-primary,#8B5CF6) 30%,transparent)!important;
+}
+body>header .theme-switch{padding:4px!important;gap:2px!important;border-radius:999px!important}
+body>header .theme-switch-btn{width:32px!important;height:32px!important;border-radius:50%!important}
+body>header .theme-switch-btn[aria-pressed="true"]{background:var(--theme-primary,#8B5CF6)!important;color:#fff!important}
+body>header .color-theme-btn{width:40px!important;height:40px!important;border-radius:50%!important}
+body>header .color-theme-picker{flex:0 0 auto!important}
+@media(max-width:760px){
+ body>header{width:calc(100% - 16px)!important;margin:8px auto 6px!important;border-radius:28px!important}
+ body>header .header-inner{height:auto!important;min-height:0!important;flex-wrap:wrap!important;gap:8px!important;padding:9px 11px!important}
+ body>header .brand{order:1!important;flex:1 1 auto!important}
+ body>header .aurore-ia-header-btn{order:2!important}
+ body>header .theme-switch{order:3!important}
+ body>header .color-theme-picker{order:4!important}
+ body>header .search-box{order:5!important;flex:1 1 100%!important;width:100%!important;max-width:none!important;min-height:40px!important}
+ body>header .brand-logo{width:44px!important;height:44px!important;flex-basis:44px!important}
+ body>header .brand-text .site-name{font-size:.96rem!important}
+ body>header .brand-text .site-tag{font-size:.59rem!important}
+}
+@media(max-width:420px){
+ body>header .header-inner{gap:6px!important;padding:8px 9px!important}
+ body>header .brand{gap:8px!important}
+ body>header .brand-logo{width:40px!important;height:40px!important;flex-basis:40px!important}
+ body>header .aurore-ia-header-btn{min-height:38px!important;padding:7px 10px!important;font-size:.72rem!important}
+ body>header .theme-switch-btn{width:29px!important;height:29px!important}
+ body>header .color-theme-btn{width:36px!important;height:36px!important}
+}
+
+/* Fin de restauration : l'image du logo utilise toute sa zone utile, sans marge interne. */
