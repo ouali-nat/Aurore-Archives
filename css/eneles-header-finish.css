@@ -44,3 +44,10 @@ header .brand-text .site-tag{font-size:.68rem!important}
 header .brand-logo{width:90px!important;height:50px!important;flex:0 0 90px!important}
 header .brand-logo img{object-fit:fill!important}
 @media(max-width:760px){header .brand-logo{width:76px!important;height:44px!important;flex-basis:76px!important}}
+
+/* Correctif demandé : logo rétabli sans étirement, héros plus long horizontalement. */
+header .brand-logo{width:48px!important;height:48px!important;flex:0 0 48px!important;border-radius:13px!important}
+header .brand-logo img{object-fit:contain!important;padding:2px!important}
+#enelesHomeHero.hero{width:calc(100% + clamp(0px,8vw,120px))!important;max-width:none!important;position:relative!important;left:50%!important;transform:translateX(-50%)!important;box-sizing:border-box!important}
+#enelesHomeHero.hero .hero-inner{max-width:980px!important}
+@media(max-width:760px){header .brand-logo{width:42px!important;height:42px!important;flex-basis:42px!important}#enelesHomeHero.hero{width:100%!important;left:auto!important;transform:none!important}}
