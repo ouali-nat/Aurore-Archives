@@ -40,3 +40,7 @@ header .brand-text .site-tag{font-size:.68rem!important}
  header .brand-logo{width:62px!important;height:40px!important;flex-basis:62px!important}
  header .brand-text .site-name{font-size:.91rem!important}
 }
+/* Le logo officiel est affiché en bandeau horizontal, pas réduit dans un carré. */
+header .brand-logo{width:90px!important;height:50px!important;flex:0 0 90px!important}
+header .brand-logo img{object-fit:fill!important}
+@media(max-width:760px){header .brand-logo{width:76px!important;height:44px!important;flex-basis:76px!important}}
