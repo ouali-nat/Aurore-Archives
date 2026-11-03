@@ -114,6 +114,8 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
     function apply(){
       hero.classList.toggle('eneles-hero-hidden',hidden);
       hero.hidden=hidden;
+      if(hidden){hero.style.setProperty('display','none','important');}
+      else{hero.style.removeProperty('display');}
       hero.setAttribute('aria-hidden',String(hidden));
       btn.setAttribute('aria-expanded',String(!hidden));
       btn.textContent=hidden?'Afficher l’accueil':'Masquer l’accueil';
@@ -716,7 +718,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 #screen-home .hero .auraster-home-search{margin-top:18px}
 #screen-home .eneles-hero-toggle{position:relative;display:block;margin:0 0 8px auto;right:auto;top:auto;z-index:5;border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:7px 11px;background:rgba(12,9,20,.38);color:#f8f7ff;font-family:inherit;font-size:.72rem;font-weight:600;line-height:1.2;cursor:pointer;backdrop-filter:blur(10px)}
 #screen-home .eneles-hero-toggle:focus-visible{outline:2px solid var(--theme-secondary,#c084fc);outline-offset:3px}
-#screen-home .hero.eneles-hero-hidden,#screen-home .hero[hidden]{display:none!important}
+#screen-home .hero.eneles-hero-hidden,#screen-home .hero[hidden],#screen-home .hero.aurore-hero-morph[hidden],#screen-home .hero.aurore-hero-morph.eneles-hero-hidden{display:none!important;visibility:hidden!important}
 @media(max-width:640px){#screen-home .hero{padding:48px 18px 24px!important;border-radius:23px!important}#screen-home .hero h1{font-size:clamp(1.75rem,8vw,2.35rem)!important}#screen-home .hero .auraster-home-search{margin-top:15px}#screen-home .eneles-hero-toggle{padding:6px 9px;font-size:.68rem}}
 </style>
 
