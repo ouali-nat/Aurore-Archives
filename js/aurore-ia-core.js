@@ -30,7 +30,7 @@
   if(!openBtn||!form||!input||!conversation||!screen)return;
 
   // Câble le logo réel du site (même source que l'en-tête) sur les repères
-  // "A" d'Aurora : le bandeau et l'écran d'accueil. N'écrase jamais un logo
+  // "A" d'Eneles : le bandeau et l'écran d'accueil. N'écrase jamais un logo
   // déjà injecté, et ne bloque rien si l'image n'est pas encore disponible.
   function appliquerLogoAurora(){
     try{
@@ -49,14 +49,14 @@
 
   let activeTool='assistant', previousInteractionId=null, sending=false, iaCatalogSnapshot=null, iaFocusDocumentId=null, hasMessages=false;
   let currentConversationId=null, messagesActuels=[];
-  const HTML_ACCUEIL_VIDE='<div class="aurore-ia-welcome"><div class="aurore-ia-welcome-orbit" aria-hidden="true"><div class="aurore-ia-welcome-mark">A</div></div><p class="aurore-ia-kicker">Aurora</p><h1>Le savoir, <span>simplement.</span></h1></div>';
+  const HTML_ACCUEIL_VIDE='<div class="aurore-ia-welcome"><div class="aurore-ia-welcome-orbit" aria-hidden="true"><div class="aurore-ia-welcome-mark">A</div></div><p class="aurore-ia-kicker">Eneles</p><h1>Le savoir, <span>simplement.</span></h1></div>';
 
   async function getSupabaseClient(){
     try{
       /* Client Auth déjà initialisé : on le réutilise. */
       if(typeof AURORE_SUPABASE_AUTH!=='undefined'&&AURORE_SUPABASE_AUTH)return AURORE_SUPABASE_AUTH;
 
-      /* Le SDK Supabase est chargé en async dans le <head>. Aurora peut donc
+      /* Le SDK Supabase est chargé en async dans le <head>. Eneles peut donc
          arriver ici avant que window.supabase existe. On attend brièvement le
          chargement naturel au lieu de déclarer immédiatement le client absent.
          Cela évite le faux message « espace sécurisé » sur les mobiles/réseaux
@@ -90,7 +90,7 @@
         return AURORE_SUPABASE_AUTH;
       }
     }catch(e){
-      console.error('[Aurora] Supabase:',e);
+      console.error('[Eneles] Supabase:',e);
     }
     return null;
   }
@@ -106,7 +106,7 @@
       ({client,sessionData}=await Promise.race([
         (async()=>{
           const client=await getSupabaseClient();
-          if(!client)throw new Error('Aurora n’arrive pas à joindre son espace sécurisé.');
+          if(!client)throw new Error('Eneles n’arrive pas à joindre son espace sécurisé.');
           const {data:sessionData,error:sessionError}=await client.auth.getSession();
           if(sessionError)throw sessionError;
           return {client,sessionData};
@@ -114,13 +114,13 @@
         new Promise((_,reject)=>setTimeout(()=>reject(new Error('TIMEOUT_AURORA_SESSION')),15000))
       ]));
     }catch(e){
-      if(/TIMEOUT_AURORA_SESSION/i.test(e?.message||''))throw new Error('La connexion à Aurora met trop de temps à répondre. Vérifie ta connexion internet et réessaie.');
+      if(/TIMEOUT_AURORA_SESSION/i.test(e?.message||''))throw new Error('La connexion à Eneles met trop de temps à répondre. Vérifie ta connexion internet et réessaie.');
       throw e;
     }
-    if(!sessionData?.session)throw new Error('Connectez-vous à Aurore pour utiliser Aurora.');
+    if(!sessionData?.session)throw new Error('Connectez-vous à Aurore pour utiliser Eneles.');
     const contexteRecent=messagesActuels.slice(-8).map(m=>({role:m.role==='assistant'?'assistant':'user',text:String(m.text||'').slice(0,3000)}));
     /* Mode Gemini unique : toutes les demandes passent désormais par
-       le moteur Gemini. Le routeur Aurora et les moteurs spécialisés séparés
+       le moteur Gemini. Le routeur Eneles et les moteurs spécialisés séparés
        ne sont plus appelés depuis cette interface. */
     const body={
       message,
@@ -129,7 +129,7 @@
       focusDocumentId:iaFocusDocumentId,
       conversationContext:contexteRecent,
       attachments:Array.isArray(attachments)?attachments:[],
-      skillHint:'FORMAT MATHÉMATIQUE OBLIGATOIRE : si ta réponse contient des mathématiques, écris directement les formules en LaTeX standard avec \\( ... \\) pour une formule dans une phrase et \\[ ... \\] pour une formule isolée. N’utilise JAMAIS de marqueurs ou placeholders tels que @@AURORAMATH0@@, @@AURORA_MATH_0@@, [MATH], <math>, ou des jetons similaires. Les formules doivent contenir leur véritable expression mathématique. Si tu ne peux pas produire une formule, écris-la en texte mathématique lisible plutôt que d’émettre un placeholder. AURORA DISPOSE D’UNE CAPACITÉ GRAPHIQUE NATIVE RÉELLE DANS SON INTERFACE : lorsque l’utilisateur demande explicitement de tracer, construire, dessiner ou représenter graphiquement une fonction/courbe, réponds normalement et ne prétends JAMAIS être incapable de tracer. Le navigateur Aurora possède déjà son moteur graphique interactif ; laisse la demande de graphique être traitée par ce moteur. Les demandes de type « Trace la courbe de x² », « Construis la courbe de la fonction x carré », « Représente graphiquement y=sin(x) » ou « Trace x² et 2x+1 sur le même repère » sont des demandes GRAPH_MATH. N’invente aucun format d’API, aucun outil ou aucun marqueur graphique : le frontend Aurora utilise son moteur natif existant. Pour une simple explication ou une dérivée sans demande de tracé, réponds normalement sans forcer un graphique.'
+      skillHint:'FORMAT MATHÉMATIQUE OBLIGATOIRE : si ta réponse contient des mathématiques, écris directement les formules en LaTeX standard avec \\( ... \\) pour une formule dans une phrase et \\[ ... \\] pour une formule isolée. N’utilise JAMAIS de marqueurs ou placeholders tels que @@AURORAMATH0@@, @@AURORA_MATH_0@@, [MATH], <math>, ou des jetons similaires. Les formules doivent contenir leur véritable expression mathématique. Si tu ne peux pas produire une formule, écris-la en texte mathématique lisible plutôt que d’émettre un placeholder. AURORA DISPOSE D’UNE CAPACITÉ GRAPHIQUE NATIVE RÉELLE DANS SON INTERFACE : lorsque l’utilisateur demande explicitement de tracer, construire, dessiner ou représenter graphiquement une fonction/courbe, réponds normalement et ne prétends JAMAIS être incapable de tracer. Le navigateur Eneles possède déjà son moteur graphique interactif ; laisse la demande de graphique être traitée par ce moteur. Les demandes de type « Trace la courbe de x² », « Construis la courbe de la fonction x carré », « Représente graphiquement y=sin(x) » ou « Trace x² et 2x+1 sur le même repère » sont des demandes GRAPH_MATH. N’invente aucun format d’API, aucun outil ou aucun marqueur graphique : le frontend Eneles utilise son moteur natif existant. Pour une simple explication ou une dérivée sans demande de tracé, réponds normalement sans forcer un graphique.'
     };
     async function tenterAppelAurora(){
       /* Appel HTTP direct vers l’Edge Function.
@@ -140,7 +140,7 @@
       try{
         accessToken=sessionData?.session?.access_token||'';
       }catch(_){}
-      if(!accessToken)throw new Error('Session Aurora absente. Reconnectez-vous à Aurore.');
+      if(!accessToken)throw new Error('Session Eneles absente. Reconnectez-vous à Aurore.');
 
       const controller=new AbortController();
       const timer=setTimeout(()=>controller.abort(),70000);
@@ -166,12 +166,12 @@
           stack:(e&&e.stack)||null
         };
         if(e?.name==='AbortError'){
-          const erreurTimeout=new Error('Aurora n’a pas reçu la réponse de DeepSeek dans le délai prévu.');
+          const erreurTimeout=new Error('Eneles n’a pas reçu la réponse de DeepSeek dans le délai prévu.');
           erreurTimeout.responseReceived=false;
           erreurTimeout.rawBrowserError=brute;
           throw erreurTimeout;
         }
-        const erreurReseau=new Error('Impossible de joindre Aurora. Vérifie ta connexion internet.');
+        const erreurReseau=new Error('Impossible de joindre Eneles. Vérifie ta connexion internet.');
         erreurReseau.responseReceived=false;
         erreurReseau.rawBrowserError=brute;
         throw erreurReseau;
@@ -181,7 +181,7 @@
 
       let raw='';
       try{raw=await response.text();}catch(_){
-        const erreurLecture=new Error('Aurora a reçu une réponse illisible de son moteur.');
+        const erreurLecture=new Error('Eneles a reçu une réponse illisible de son moteur.');
         erreurLecture.responseReceived=true;
         erreurLecture.httpStatus=response.status;
         throw erreurLecture;
@@ -189,14 +189,14 @@
 
       let data=null;
       try{data=JSON.parse(raw);}catch(_){
-        const erreurJson=new Error(`Aurora a renvoyé une réponse invalide (HTTP ${response.status}).`);
+        const erreurJson=new Error(`Eneles a renvoyé une réponse invalide (HTTP ${response.status}).`);
         erreurJson.responseReceived=true;
         erreurJson.httpStatus=response.status;
         throw erreurJson;
       }
 
       if(!response.ok||!data?.ok){
-        let detail=data?.error||`Aurora a renvoyé une erreur HTTP ${response.status}.`;
+        let detail=data?.error||`Eneles a renvoyé une erreur HTTP ${response.status}.`;
         if(data?.stage)detail=`[${data.stage}] ${detail}`;
         if(data?.errorType)detail+=` — type: ${data.errorType}`;
         if(data?.providerStatus)detail+=` — fournisseur HTTP ${data.providerStatus}`;
@@ -218,7 +218,7 @@
       if(data.focusDocumentId!=null)iaFocusDocumentId=data.focusDocumentId;
 
       const texte=typeof data.text==='string'?data.text.trim():'';
-      if(!texte)throw new Error('Aurora a reçu une réponse vide de son moteur.');
+      if(!texte)throw new Error('Eneles a reçu une réponse vide de son moteur.');
       return data;
     }
     return await tenterAppelAurora();
@@ -245,15 +245,15 @@
     requestAnimationFrame(()=>{input.focus({preventScroll:true});scrollBottom(true);});
   }
 
-  // Point d'entrée public utilisé par le bouton Aurora flottant.
+  // Point d'entrée public utilisé par le bouton Eneles flottant.
   // Il appelle directement le vrai ouvreur de l'IA au lieu de dépendre
   // d'un bouton-relais masqué dans l'en-tête.
   window.auroreOuvrirIA=openIA;
 
-  // Exposition en lecture seule pour le Centre de diagnostic Aurora
+  // Exposition en lecture seule pour le Centre de diagnostic Eneles
   // (administration uniquement) : lui permet d'appeler le circuit réel
   // (même endpoint, mêmes paramètres) au lieu de dupliquer cette logique.
-  // Ne change rien au fonctionnement normal d'Aurora pour les utilisateurs.
+  // Ne change rien au fonctionnement normal d'Eneles pour les utilisateurs.
   window.invokeAuroreIA=invokeAuroreIA;
 
   function closeIA(){
@@ -276,7 +276,7 @@
   openBtn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();openIA();});
   backBtn?.addEventListener('click',e=>{e.preventDefault();closeIA();});
 
-  // ---------- Mode réduit : Aurora en fenêtre flottante, déplaçable et
+  // ---------- Mode réduit : Eneles en fenêtre flottante, déplaçable et
   // redimensionnable, pendant que le reste du site reste consultable. ----------
   const MINI_GEOM_KEY='aurore_ia_mini_geometry_v1';
   const MINI_PERSIST_CLASS='aurore-mini-persist';
@@ -338,7 +338,7 @@
     document.body?.classList.add(MINI_PERSIST_CLASS);
     appliquerGeometrieMini(clamperGeometrieMini(lireGeometrieMini()));
     setRouteActive(false);
-    if(minimizeBtn){minimizeBtn.innerHTML=ICON_AGRANDIR;minimizeBtn.setAttribute('aria-label','Agrandir Aurora');minimizeBtn.title='Agrandir Aurora';}
+    if(minimizeBtn){minimizeBtn.innerHTML=ICON_AGRANDIR;minimizeBtn.setAttribute('aria-label','Agrandir Eneles');minimizeBtn.title='Agrandir Eneles';}
   }
   function desactiverModeMini(options={}){
     if(!screen.classList.contains('is-mini'))return;
@@ -347,7 +347,7 @@
     document.body?.classList.remove(MINI_PERSIST_CLASS);
     screen.style.left='';screen.style.top='';screen.style.width='';screen.style.height='';
     if(miniApp){miniApp.style.position='';miniApp.style.left='';miniApp.style.top='';miniApp.style.width='';miniApp.style.height='';miniApp.style.maxWidth='';miniApp.style.maxHeight='';}
-    if(minimizeBtn){minimizeBtn.innerHTML=ICON_REDUIRE;minimizeBtn.setAttribute('aria-label','Réduire Aurora en fenêtre flottante');minimizeBtn.title='Réduire Aurora';}
+    if(minimizeBtn){minimizeBtn.innerHTML=ICON_REDUIRE;minimizeBtn.setAttribute('aria-label','Réduire Eneles en fenêtre flottante');minimizeBtn.title='Réduire Eneles';}
     if(options.fermerCompletement){
       screen.classList.remove('active');
       setRouteActive(false);
@@ -363,13 +363,13 @@
   });
 
   // API interne exposée au menu principal : permet au menu de l'accueil
-  // d'utiliser exactement le même circuit de réduction que le bouton Aurora.
+  // d'utiliser exactement le même circuit de réduction que le bouton Eneles.
   window.auroreReduireIA=activerModeMini;
 
   // Le mode réduit est persistant pendant toute la navigation du site.
   // Certains écrans appellent afficherEcran() et retirent la classe active de
   // toutes les vues : tant que le mode mini est réellement actif, on remet
-  // Aurora en active immédiatement pour qu'elle reste au-dessus de la page.
+  // Eneles en active immédiatement pour qu'elle reste au-dessus de la page.
   (function garderMiniVisiblePendantLaNavigation(){
     const maintenir=()=>{
       if(!screen.classList.contains('is-mini'))return;
@@ -481,14 +481,14 @@
   },{passive:true});
 
   // Point d'entrée utilisé par l'Accueil flottant pour fermer proprement
-  // Aurora (plein écran ou réduite) avant de rejoindre l'accueil.
+  // Eneles (plein écran ou réduite) avant de rejoindre l'accueil.
   window.auroreIAFermerVersAccueil=function(){
     closePlusMenu();
     if(historyPanel?.classList.contains('is-open'))fermerHistorique();
     if(screen.classList.contains('is-mini')){
       screen.classList.remove('is-mini');
       screen.style.left='';screen.style.top='';screen.style.width='';screen.style.height='';
-      if(minimizeBtn){minimizeBtn.innerHTML=ICON_REDUIRE;minimizeBtn.setAttribute('aria-label','Réduire Aurora en fenêtre flottante');minimizeBtn.title='Réduire Aurora';}
+      if(minimizeBtn){minimizeBtn.innerHTML=ICON_REDUIRE;minimizeBtn.setAttribute('aria-label','Réduire Eneles en fenêtre flottante');minimizeBtn.title='Réduire Eneles';}
     }
     screen.classList.remove('active');
     setRouteActive(false);
@@ -542,7 +542,7 @@
       if(error)throw error;
       const distant=Array.isArray(data)?data:[];
       return distant.length?distant:local;
-    }catch(e){console.error('[Aurora] historique distant:',e);return local;}
+    }catch(e){console.error('[Eneles] historique distant:',e);return local;}
   }
   function titreDepuisTexte(texte){
     const t=String(texte||'').replace(/\s+/g,' ').trim();
@@ -581,7 +581,7 @@
         const refreshed=lireHistoriqueLocal().filter(c=>c.id!==localConv.id&&c.id!==data.id);
         ecrireHistoriqueLocal([{...donnees,id:data.id},...refreshed]);
       }
-    }catch(e){console.error('[Aurora] sauvegarde historique distant:',e);}
+    }catch(e){console.error('[Eneles] sauvegarde historique distant:',e);}
   }
   function formaterDateHistorique(ts){
     try{
@@ -595,7 +595,7 @@
     const liste=await chargerHistoriqueDistant();
     auroreHistoriqueCache=liste;
     if(!liste.length){
-      historyList.innerHTML='<div class="aurore-history-empty-card"><span class="aurore-history-empty-dot"></span><strong>Vos discussions apparaîtront ici</strong><small>Commencez une conversation avec Aurora et elle restera disponible dans cet espace.</small></div>';
+      historyList.innerHTML='<div class="aurore-history-empty-card"><span class="aurore-history-empty-dot"></span><strong>Vos discussions apparaîtront ici</strong><small>Commencez une conversation avec Eneles et elle restera disponible dans cet espace.</small></div>';
       return;
     }
     historyList.innerHTML=liste.map(c=>{
@@ -663,7 +663,7 @@
     const ctx=await obtenirUtilisateurCourant();
     if(ctx){
       try{await ctx.client.from('aurore_ia_conversations').delete().eq('id',id).eq('user_id',ctx.userId);}
-      catch(err){console.error('[Aurora] suppression historique:',err);}
+      catch(err){console.error('[Eneles] suppression historique:',err);}
     }
     const local=lireHistoriqueLocal().filter(c=>c.id!==id);
     ecrireHistoriqueLocal(local);
@@ -683,7 +683,7 @@
     const ctx=await obtenirUtilisateurCourant();
     if(ctx){
       try{await ctx.client.from('aurore_ia_conversations').update({titre:nouveauTitre}).eq('id',id).eq('user_id',ctx.userId);}
-      catch(err){console.error('[Aurora] renommage historique:',err);}
+      catch(err){console.error('[Eneles] renommage historique:',err);}
     }
   }
   let auroreHistMenuPopover=null;
@@ -769,7 +769,7 @@
   });
   document.addEventListener('keydown',e=>{if(e.key==='Escape')closePlusMenu();});
 
-  // ---------- Pièces jointes Aurora : photos + PDF ----------
+  // ---------- Pièces jointes Eneles : photos + PDF ----------
   const MAX_IMAGE_BYTES=12*1024*1024;
   const MAX_PDF_BYTES=30*1024*1024;
   const MAX_PDF_PAGES=8;
@@ -1059,7 +1059,7 @@
      AURORA — GRAPHIQUES INTERACTIFS (extension additive)
      --------------------------------------------------------------------------
      Ce bloc est 100% additif : il ne modifie, ne remplace et n'appelle aucune
-     fonction existante du circuit Aurora/DeepSeek. Il s'appuie uniquement sur
+     fonction existante du circuit Eneles/DeepSeek. Il s'appuie uniquement sur
      le texte déjà produit (question de l'utilisateur + réponse déjà rendue)
      pour détecter une demande de courbe, puis dessine cette courbe côté
      navigateur avec Plotly.js (chargé à la demande, jamais au chargement de
@@ -1095,7 +1095,7 @@
     return window.__AURORA_PLOTLY_READY;
   }
 
-  // --- Lecture d'une variable CSS déjà en place (design cohérent avec Aurora) ---
+  // --- Lecture d'une variable CSS déjà en place (design cohérent avec Eneles) ---
   function auroraCouleurCSS(nom,repli){
     try{
       const app=document.querySelector('.aurore-ia-app')||document.documentElement;
@@ -1305,7 +1305,7 @@
     const aLn=fs.some(f=>f.domain==='positive'||/\b(?:ln|log)\s*\(/i.test(f.raw));
     const aExp=fs.some(f=>/\bexp\s*\(/i.test(f.raw)||/\be\s*\^/i.test(f.raw));
     // Plage lisible pour le couple e^x / ln(x), sans jamais échantillonner x<=0
-    // pour le logarithme. Pour les autres graphiques, on conserve la plage Aurora.
+    // pour le logarithme. Pour les autres graphiques, on conserve la plage Eneles.
     if(aLn&&aExp)return [ -3, 6 ];
     if(aLn)return [ 0.05, 6 ];
     if(aExp)return [ -5, 5 ];
@@ -1387,7 +1387,7 @@
     return 'aurora-graph-'+window.__AURORA_GRAPH_COUNTER;
   }
 
-  // --- Point d'entrée : appelé APRÈS le rendu normal d'une réponse Aurora.
+  // --- Point d'entrée : appelé APRÈS le rendu normal d'une réponse Eneles.
   // N'altère jamais le texte déjà affiché ; ajoute seulement, si pertinent,
   // un bloc graphique après la bulle de réponse existante. Idempotent (ne
   // duplique pas le graphique si déjà présent, utile pour l'historique). ---
@@ -1401,7 +1401,7 @@
       const compilees=[];
       demande.functions.forEach(f=>{
         try{compilees.push({label:f.label,raw:f.raw,fn:auroraCompilerExpression(f.raw)});}
-        catch(e){console.warn('[Aurora][Graphique] expression ignorée :',f.raw,e);}
+        catch(e){console.warn('[Eneles][Graphique] expression ignorée :',f.raw,e);}
       });
       if(!compilees.length)return;
       const bloc=document.createElement('div');bloc.className='aurora-graph-block';
@@ -1434,7 +1434,7 @@
       const Plotly=await assurerPlotlyCharge();
       // Palette volontairement saturée (pas de tons pâles) pour rester lisible
       // aussi bien en mode sombre qu'en mode clair ; la 1ʳᵉ couleur reprend
-      // l'accent de marque Aurora, les suivantes sont choisies pour rester
+      // l'accent de marque Eneles, les suivantes sont choisies pour rester
       // clairement distinctes les unes des autres.
       const couleurs=[auroraCouleurCSS('--ia-accent','#8B5CF6'),'#F59E0B','#10B981','#38BDF8','#F472B6'];
       const xMin=demande.xRange[0],xMax=demande.xRange[1];
@@ -1486,7 +1486,7 @@
       zonePlot.__auroraGraphConfig={traces:traces,subtitle:compilees.map(c=>c.label).join(' · ')};
       auroraCablerClicAgrandissement(wrapPlot,zonePlot);
     }catch(e){
-      console.error('[Aurora][Graphique] échec du rendu :',e);
+      console.error('[Eneles][Graphique] échec du rendu :',e);
       const bubble=row?.querySelector?.('.aurore-ia-bubble');
       const zone=bubble?.querySelector?.('.aurora-graph-plot');
       if(zone)zone.innerHTML='<div class="aurora-graph-error">Le graphique n’a pas pu s’afficher.</div>';
@@ -1497,7 +1497,7 @@
   /* ==========================================================================
      AURORA — PASSERELLE GEOGEBRA
      --------------------------------------------------------------------------
-     Les expressions déjà analysées par Aurora sont réutilisées telles quelles.
+     Les expressions déjà analysées par Eneles sont réutilisées telles quelles.
      Aucun nouvel appel IA et aucun recalcul du graphique ne sont nécessaires.
      GeoGebra accepte directement les fonctions f(x)=... dans sa saisie.
      ========================================================================== */
@@ -1506,7 +1506,7 @@
     s=s.replace(/^\s*(?:y|f\s*\(x\))\s*=\s*/i,'').trim();
     s=s.replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-');
     s=s.replace(/π/gi,'pi').replace(/\be\^/gi,'exp(');
-    // Conversion sûre de quelques notations que le moteur Aurora peut produire.
+    // Conversion sûre de quelques notations que le moteur Eneles peut produire.
     s=s.replace(/\bexp\s*\(\s*([^()]+)\s*\)/gi,'exp($1)');
     s=s.replace(/\bln\s*\(/gi,'ln(');
     s=s.replace(/\blog\s*\(/gi,'ln(');
@@ -1561,7 +1561,7 @@
   overlay.id='auroraGeoGebraWorkspace';
   overlay.setAttribute('role','dialog');
   overlay.setAttribute('aria-modal','true');
-  overlay.setAttribute('aria-label','Laboratoire mathématique Aurora');
+  overlay.setAttribute('aria-label','Laboratoire mathématique Eneles');
 
   const style=document.createElement('style');
   style.textContent=`
@@ -1639,7 +1639,7 @@
   back.setAttribute('aria-label','Retour à la discussion');back.title='Retour à la discussion';
   back.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/><path d="M9 12h11"/></svg>';
   const brand=document.createElement('div');brand.className='aurora-ggb-brand';
-  const title=document.createElement('strong');title.textContent='Aurora — Laboratoire mathématique';
+  const title=document.createElement('strong');title.textContent='Eneles — Laboratoire mathématique';
   const sub=document.createElement('span');sub.textContent=fs.length?fs.map(f=>String(f?.label||f?.raw||f||'')).join(' · '):'GeoGebra';
   brand.append(title,sub);
   const badge=document.createElement('div');badge.className='aurora-ggb-badge';badge.textContent='GeoGebra';
@@ -1725,14 +1725,14 @@
       language:'fr',
       appletOnLoad:function(api){
         app.__auroraGgbApi=api;
-        for(const command of exprs){try{api.evalCommand(command);}catch(e){console.warn('[Aurora][GeoGebra]',e);}}
+        for(const command of exprs){try{api.evalCommand(command);}catch(e){console.warn('[Eneles][GeoGebra]',e);}}
         requestAnimationFrame(()=>{loading.style.opacity='0';setTimeout(()=>{loading.style.display='none';},220);});
       }
     };
     const applet=new GGBApplet(params,true);
     applet.inject(app);
   }).catch(err=>{
-    console.error('[Aurora][GeoGebra]',err);
+    console.error('[Eneles][GeoGebra]',err);
     loading.style.display='none';error.style.display='grid';
   });
 }
@@ -1787,7 +1787,7 @@
       if(sub)sub.textContent=cfg.subtitle||'';
       // Un seul état d'historique dédié pour l'overlay ("auroraGraphOverlay"),
       // qui conserve l'état de navigation déjà en place (ne casse pas
-      // l'historique Aurora / lecteur PDF / autres panneaux).
+      // l'historique Eneles / lecteur PDF / autres panneaux).
       if(!(history.state&&history.state.auroraGraphOverlay)){
         try{
           const ecranActuel=document.querySelector('.screen.active')?.id||'screen-aurore-ia';
@@ -1835,7 +1835,7 @@
       }
       document.getElementById('auroraGraphOverlayClose')?.focus?.({preventScroll:true});
     }catch(e){
-      console.error('[Aurora][Graphique] échec de l’agrandissement :',e);
+      console.error('[Eneles][Graphique] échec de l’agrandissement :',e);
     }
   }
   function fermerGrandGraphiqueAurora(opts){
@@ -1885,7 +1885,7 @@
     setTimeout(()=>w.remove(),220);
   }
 
-  // Petit logo Aurora affiché à côté de chaque intervention de l'IA pendant
+  // Petit logo Eneles affiché à côté de chaque intervention de l'IA pendant
   // la discussion (recherche en cours, réponse en train de s'écrire, réponse
   // finale). Reprend le même repère "A" que l'historique, et se voit remplacé
   // par le vrai logo du site dès qu'appliquerLogoAurora() tourne.
@@ -1973,13 +1973,13 @@
     if(!bubble||bubble.querySelector('.aurore-ia-copy-action'))return;
     const bouton=document.createElement('button');
     bouton.type='button';bouton.className='aurore-ia-copy-action';
-    bouton.setAttribute('aria-label','Copier la réponse d’Aurora');bouton.title='Copier la réponse';
+    bouton.setAttribute('aria-label','Copier la réponse d’Eneles');bouton.title='Copier la réponse';
     bouton.innerHTML='<span aria-hidden="true">⧉</span><span>Copier</span>';
     bouton.addEventListener('click',(e)=>{e.preventDefault();e.stopPropagation();copierTexteAurora(texte,bouton);});
     bubble.appendChild(bouton);
   }
 
-  function addAssistantResponse(text,source='Aurora'){
+  function addAssistantResponse(text,source='Eneles'){
     const wasBottom=isNearBottom(),row=document.createElement('div');
     row.className='aurore-ia-message assistant';
     row.appendChild(creerAvatarAurora());
@@ -2021,7 +2021,7 @@
   function setBusy(busy){
     sending=busy;
     if(stopUnlockTimer){clearTimeout(stopUnlockTimer);stopUnlockTimer=null;}
-    if(statusText)statusText.textContent=busy?'Aurora travaille…':'Prêt';
+    if(statusText)statusText.textContent=busy?'Eneles travaille…':'Prêt';
     if(statusPill)statusPill.classList.toggle('is-busy',busy);
     form.classList.toggle('is-busy',busy);
     /* Sur Android, le bouton d’envoi et le bouton Stop occupent la même zone.
@@ -2038,7 +2038,7 @@
     updateSendState();
   }
 
-  // Permet d'interrompre Aurora pendant qu'elle travaille (recherche en cours
+  // Permet d'interrompre Eneles pendant qu'elle travaille (recherche en cours
   // ou écriture progressive de la réponse), sans casser le fil de la
   // conversation ni la sauvegarde de ce qui a déjà été échangé.
   stopBtn?.addEventListener('click',()=>{
@@ -2048,26 +2048,26 @@
     const row=auroraEnCours.row;
     if(row&&row.classList.contains('aurore-ia-activity')){
       row.className='aurore-ia-message assistant';
-      row.innerHTML=AVATAR_AURORA_HTML+'<div class="aurore-ia-bubble"><div class="aurore-ia-source-card"><strong>Aurora</strong>Réponse arrêtée.</div></div>';
+      row.innerHTML=AVATAR_AURORA_HTML+'<div class="aurore-ia-bubble"><div class="aurore-ia-source-card"><strong>Eneles</strong>Réponse arrêtée.</div></div>';
       rafraichirAvatarsAurora();
     }
     setBusy(false);
   });
 
   /* Détermine le libellé de l'indicateur de moteur à afficher sous une réponse
-     Aurora, à partir des champs réellement retournés par aurora-deepseek-live
+     Eneles, à partir des champs réellement retournés par aurora-deepseek-live
      ("source" en priorité, "route" en repli). N'invente jamais le moteur :
      si aucune valeur reconnue n'est présente (anciennes réponses, etc.), ne
      retourne rien et aucun indicateur n'est affiché. */
   function libelleMoteurAurora(data){
     if(!data)return null;
     const source=data.source,route=data.route;
-    if(source==='cloudflare_workers_ai'||route==='cloudflare_workers_ai')return 'Aurora · Cloudflare Workers AI · Llama 3.1 8B';
-    if(source==='deepseek_compatibility'||route==='deepseek_multimodal_compatibility')return 'Aurora · Analyse visuelle';
+    if(source==='cloudflare_workers_ai'||route==='cloudflare_workers_ai')return 'Eneles · Cloudflare Workers AI · Llama 3.1 8B';
+    if(source==='deepseek_compatibility'||route==='deepseek_multimodal_compatibility')return 'Eneles · Analyse visuelle';
     return null;
   }
 
-  function creerIndicateurAurora(label='Aurora fait cela…'){
+  function creerIndicateurAurora(label='Eneles fait cela…'){
     if(!hasMessages){hasMessages=true;collapseWelcome();}
     const wasBottom=isNearBottom(),row=document.createElement('div');
     row.className='aurore-ia-activity';
@@ -2111,7 +2111,7 @@
   async function submitIA(q, attachments=[], attachmentGallery=null){
     arretDemande=false;
     setBusy(true);
-    const actions=['Aurora fait le point…','Aurora cherche…','Aurora prépare la réponse…'];
+    const actions=['Eneles fait le point…','Eneles cherche…','Eneles prépare la réponse…'];
     const row=creerIndicateurAurora(actions[Math.floor(Math.random()*actions.length)]);
     auroraEnCours.row=row;
     const labelTimer=setInterval(()=>{
@@ -2138,7 +2138,7 @@
       clearInterval(labelTimer);
       if(arretDemande)return;
       row.className='aurore-ia-message assistant';
-      row.innerHTML=AVATAR_AURORA_HTML+'<div class="aurore-ia-bubble"><div class="aurore-ia-source-card"><strong>Aurora</strong>'+esc(error.message||'Une erreur est survenue.')+'</div></div>';
+      row.innerHTML=AVATAR_AURORA_HTML+'<div class="aurore-ia-bubble"><div class="aurore-ia-source-card"><strong>Eneles</strong>'+esc(error.message||'Une erreur est survenue.')+'</div></div>';
       rafraichirAvatarsAurora();
       scrollBottom(false);
     }
@@ -2161,7 +2161,7 @@
     const lower=q.toLowerCase(),wantsWiki=activeTool==='wikipedia'||/wikip[eé]dia/.test(lower);
     if(wantsWiki){
       setBusy(true);
-      const row=addToolState('Aurora cherche sur Wikipédia…');
+      const row=addToolState('Eneles cherche sur Wikipédia…');
       await wikiSearch(q.replace(/.*?(?:sur|dans)\s+(?:wikip[eé]dia)\s*/i,'').replace(/^cherche.*?:\s*/i,'').trim()||q,row);
       setBusy(false);return;
     }
@@ -2185,7 +2185,7 @@
   }
   setupViewportGuard();
 
-  // Geste tactile : un défilement horizontal du doigt sur l'écran d'Aurora
+  // Geste tactile : un défilement horizontal du doigt sur l'écran d'Eneles
   // ouvre l'historique, en plus du bouton dédié. On ignore les gestes qui
   // démarrent sur un bouton, un lien ou la zone de saisie, et on exige un
   // mouvement nettement plus horizontal que vertical pour ne jamais gêner

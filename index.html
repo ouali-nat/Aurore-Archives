@@ -33,14 +33,19 @@ html.aurore-boot-pending:not(.aurore-boot-overlay-ready)::after{
   animation:aurore-spinner-rotation .9s linear infinite
 }
 
-/* Même indicateur pendant le geste de rafraîchissement. */
-html.aurore-pull-refreshing::after{
-  content:"";position:fixed;left:calc(50% - 26px);top:clamp(84px,18vh,155px);
-  z-index:2147483647;width:52px;height:52px;box-sizing:border-box;border-radius:50%;
-  pointer-events:none;background:var(--aurore-spinner-face);
-  filter:drop-shadow(0 2px 8px var(--aurore-spinner-shadow));
-  animation:aurore-spinner-rotation .9s linear infinite
-}
+/* Rafraîchissement Eneles : un tracé lunaire se dessine progressivement. */
+#enelesPullRefresh{position:fixed;left:50%;top:clamp(70px,15vh,130px);transform:translate(-50%,-12px) scale(.82);z-index:2147483647;width:62px;height:62px;display:grid;place-items:center;opacity:0;pointer-events:none;transition:opacity .18s ease,transform .24s cubic-bezier(.2,.8,.2,1);color:var(--theme-primary,#8b5cf6);filter:drop-shadow(0 5px 14px color-mix(in srgb,var(--theme-primary,#8b5cf6) 35%,transparent))}
+#enelesPullRefresh svg{width:100%;height:100%;overflow:visible}
+#enelesPullRefresh .eneles-pull-ring{fill:none;stroke:currentColor;stroke-width:1.6;stroke-dasharray:150;stroke-dashoffset:150;stroke-linecap:round}
+#enelesPullRefresh .eneles-pull-moon{fill:none;stroke:var(--theme-secondary,#c084fc);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:90;stroke-dashoffset:90}
+#enelesPullRefresh .eneles-pull-star{fill:currentColor;transform-origin:center;opacity:.15}
+@keyframes enelesMoonDraw{to{stroke-dashoffset:0}}
+@keyframes enelesStarPulse{0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)}}
+html.aurore-pull-refreshing #enelesPullRefresh{opacity:1;transform:translate(-50%,0) scale(1)}
+html.aurore-pull-refreshing #enelesPullRefresh .eneles-pull-ring{animation:enelesMoonDraw .8s ease-out forwards}
+html.aurore-pull-refreshing #enelesPullRefresh .eneles-pull-moon{animation:enelesMoonDraw .65s .12s ease-out forwards}
+html.aurore-pull-refreshing #enelesPullRefresh .eneles-pull-star{animation:enelesStarPulse .8s .2s ease-in-out infinite}
+@media(prefers-reduced-motion:reduce){#enelesPullRefresh{transition:none}html.aurore-pull-refreshing #enelesPullRefresh .eneles-pull-ring,html.aurore-pull-refreshing #enelesPullRefresh .eneles-pull-moon{animation-duration:.01ms}}
 
 /* Écran de démarrage : fond uni pour cacher le CSS en cours, seule la boule reste visible. */
 #auroreBootOverlay{
@@ -93,6 +98,34 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
 (function(){
   'use strict';
   var root=document.documentElement;
+  function installerIndicateurPull(){
+    if(document.getElementById('enelesPullRefresh'))return;
+    var el=document.createElement('div');
+    el.id='enelesPullRefresh';el.setAttribute('aria-hidden','true');
+    el.innerHTML='<svg viewBox="0 0 64 64" role="presentation"><circle class="eneles-pull-ring" cx="32" cy="32" r="24" transform="rotate(-90 32 32)"/><path class="eneles-pull-moon" d="M39 14c-10 2-16 12-13 22 2 7 9 12 17 11-7 5-17 3-22-4-7-9-4-22 6-28 4-2 8-2 12-1Z"/><path class="eneles-pull-moon" d="M44 12v5M41.5 14.5h5"/><circle class="eneles-pull-star" cx="47" cy="39" r="2.5"/><circle class="eneles-pull-star" cx="17" cy="20" r="1.8"/></svg>';
+    (document.body||document.documentElement).appendChild(el);
+  }
+  function configurerMasquageHero(){
+    var hero=document.getElementById('enelesHomeHero'),btn=document.getElementById('enelesHeroToggle');
+    if(!hero||!btn||btn.dataset.enelesBound)return;
+    btn.dataset.enelesBound='1';
+    var hidden=false;
+    try{hidden=localStorage.getItem('eneles:home-hero-hidden')==='1';}catch(_){}
+    function apply(){
+      hero.classList.toggle('eneles-hero-hidden',hidden);
+      btn.setAttribute('aria-expanded',String(!hidden));
+      btn.textContent=hidden?'Afficher l’accueil':'Masquer l’accueil';
+      btn.setAttribute('aria-label',hidden?'Afficher la section d’accueil':'Masquer la section d’accueil');
+    }
+    btn.addEventListener('click',function(){
+      hidden=!hidden;apply();
+      try{localStorage.setItem('eneles:home-hero-hidden',hidden?'1':'0');}catch(_){}
+    });
+    apply();
+  }
+  installerIndicateurPull();
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',configurerMasquageHero,{once:true});
+  else configurerMasquageHero();
   root.classList.add('aurore-boot-pending');
   var dismissed=false;
   var overlay=null,pollHandle=null,slowHandle=null,hardHandle=null,buttonBound=false;
@@ -176,7 +209,7 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
     return Math.max(window.scrollY||0,document.documentElement.scrollTop||0,document.body?document.body.scrollTop||0:0);
   }
   function actualiserAffichageChargement(){
-    // Garder uniquement la petite boule en haut : aucun panneau ne recouvre la page.
+    // Afficher le tracé lunaire sans déplacer le logo ni masquer la page.
     dismissed=true;
     if(pollHandle)clearTimeout(pollHandle);
     if(slowHandle)clearTimeout(slowHandle);
@@ -311,7 +344,7 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
 <meta content="Bibliothèque numérique d'Eneles" name="twitter:description"/>
 <meta content="https://pub-0433751d08eb49fcafb7355ef0bf42ab.r2.dev/site-logo-auraster" name="twitter:image"/>
 <title>Eneles — Section Archives — Bibliothèque numérique</title>
-<!-- Rendu mathématique natif dans Aurora : DeepSeek produit du LaTeX,
+<!-- Rendu mathématique natif dans Eneles : DeepSeek produit du LaTeX,
      KaTeX le transforme en vraies formules typographiques dans l’interface. -->
 <!-- Chargement NON bloquant : sur les réseaux où cdn.jsdelivr.net est lent
      ou filtré, un <link rel="stylesheet"> classique bloquerait l'affichage
@@ -527,7 +560,7 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
 
 <!-- AURORE_AURORA_VIEWPORT_FIX_20260930 -->
 <style id="aurore-aurora-viewport-fix">
-/* Aurora reste indépendante du zoom global du site : son écran et son composeur
+/* Eneles reste indépendante du zoom global du site : son écran et son composeur
    gardent une géométrie de viewport stable, notamment sur mobile. */
 html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
   zoom:var(--aurore-ia-counter-zoom,1)!important;
@@ -552,7 +585,7 @@ html.aurore-dans-ia #screen-aurore-ia.aurore-ia-screen{
     document.documentElement.classList.toggle('aurore-dans-ia',active);
     document.documentElement.style.setProperty('--aurore-ia-counter-zoom',active?String(1/zoomGlobal()):'1');
 
-    /* Fermeture uniquement lors de l'entrée dans Aurora, jamais lors d'un
+    /* Fermeture uniquement lors de l'entrée dans Eneles, jamais lors d'un
        simple changement de zoom : le panneau reste ouvrable manuellement. */
     if(active!==derniereActivation){
       var panel=document.getElementById('aurore-zoom-panel');
@@ -674,6 +707,17 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <link rel="stylesheet" href="./css/aurore-theme-auth-pdf.css?v=20261016-aurore-id-login1&aurore_release=20261016-aurore-id-login1" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="./css/aurore-pdf-grids.css?v=20260923-unifiedcards2&aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="./css/aurore-final-polish.css?aurore_release=20261010-temporary-no-cache1">
+<style id="eneles-hero-and-brand-polish">
+#screen-home .hero{position:relative;padding:46px 34px 34px!important}
+#screen-home .hero .hero-rule{margin-bottom:12px}
+#screen-home .hero p.sub{margin-top:9px}
+#screen-home .hero .auraster-home-search{margin-top:18px}
+#screen-home .eneles-hero-toggle{position:relative;display:block;margin:0 0 8px auto;right:auto;top:auto;z-index:5;border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:7px 11px;background:rgba(12,9,20,.38);color:#f8f7ff;font-family:inherit;font-size:.72rem;font-weight:600;line-height:1.2;cursor:pointer;backdrop-filter:blur(10px)}
+#screen-home .eneles-hero-toggle:focus-visible{outline:2px solid var(--theme-secondary,#c084fc);outline-offset:3px}
+#screen-home .hero.eneles-hero-hidden{display:none!important}
+@media(max-width:640px){#screen-home .hero{padding:48px 18px 24px!important;border-radius:23px!important}#screen-home .hero h1{font-size:clamp(1.75rem,8vw,2.35rem)!important}#screen-home .hero .auraster-home-search{margin-top:15px}#screen-home .eneles-hero-toggle{padding:6px 9px;font-size:.68rem}}
+</style>
+
 <link rel="stylesheet" href="./css/aurore-hero-morph.css?aurore_release=20261010-temporary-no-cache1">
 <link rel="stylesheet" href="./css/aurore-section-sharing.css?aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="./css/aurore-shared-route-guard.css?aurore_release=20261010-temporary-no-cache1" media="print" onload="this.media='all'">
@@ -852,7 +896,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <div class="search-box" id="searchIconHost">
 <input id="headerSearchInput" placeholder="Rechercher une matière, un niveau…" type="text"/>
 </div>
-<button aria-label="Ouvrir Aurora" class="aurore-ia-header-btn" id="auroreIAHeaderBtn" title="Aurora" type="button"><span aria-hidden="true">✦</span><span>Aurora</span></button>
+<button aria-label="Ouvrir Eneles" class="aurore-ia-header-btn" id="auroreIAHeaderBtn" title="Eneles" type="button"><span aria-hidden="true">✦</span><span>Eneles</span></button>
 <div aria-label="Choix du thème" class="theme-switch" id="themeSwitch" role="group">
 <button aria-pressed="false" class="theme-switch-btn" data-theme-choice="sombre" title="Thème sombre" type="button"><span class="theme-icon-host" data-icon="moon"></span></button>
 <button aria-pressed="false" class="theme-switch-btn" data-theme-choice="clair" title="Thème clair" type="button"><span class="theme-icon-host" data-icon="sun"></span></button>
@@ -921,7 +965,8 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <div class="breadcrumb" id="breadcrumb"></div>
 <!-- ===== ACCUEIL ===== -->
 <section class="screen active" id="screen-home">
-<div class="hero">
+<button type="button" class="eneles-hero-toggle" id="enelesHeroToggle" aria-expanded="true" aria-controls="enelesHomeHero">Masquer l’accueil</button>
+<div class="hero" id="enelesHomeHero">
 <div class="hero-motif"></div>
 <div class="hero-glow g1"></div>
 <div class="hero-glow g2"></div>
@@ -1302,7 +1347,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 </button>
 <button class="admin-tab admin-category-card" data-accent="rouge" data-tab="diagnostic-aurora" role="tab" type="button">
 <span aria-hidden="true" class="admin-category-icon"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="20"><path d="M12 2v4"></path><path d="M12 18v4"></path><path d="M4.9 4.9l2.8 2.8"></path><path d="M16.3 16.3l2.8 2.8"></path><path d="M2 12h4"></path><path d="M18 12h4"></path><path d="M4.9 19.1l2.8-2.8"></path><path d="M16.3 7.7l2.8-2.8"></path><circle cx="12" cy="12" r="3"></circle></svg></span>
-<span class="admin-category-title">Diagnostic Aurora</span>
+<span class="admin-category-title">Diagnostic Eneles</span>
 <span class="admin-category-desc">État réel du circuit IA</span>
 </button>
 <button class="admin-tab admin-category-card" data-accent="rouge" data-tab="diagnostic-pdf" role="tab" type="button">
@@ -1318,7 +1363,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <button class="admin-tab admin-category-card" data-accent="violet" data-tab="content-factory" role="tab" type="button">
 <span aria-hidden="true" class="admin-category-icon"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="20"><path d="M12 3l1.9 5.8H20l-4.9 3.6 1.9 5.8-5-3.6-5 3.6 1.9-5.8L4 8.8h6.1z"></path><path d="M19 3v3"></path><path d="M20.5 4.5h-3"></path></svg></span>
 <span class="admin-category-title">Content Factory</span>
-<span class="admin-category-desc">Documents générés par Aurora</span>
+<span class="admin-category-desc">Documents générés par Eneles</span>
 <span class="tab-count" id="tabCountContentFactory">0</span>
 </button>
 <button class="admin-tab admin-category-card" data-accent="violet" data-tab="edition-assistee" role="tab" type="button">
@@ -1637,9 +1682,9 @@ body:not(.site-locked) #accessLock{display:none!important;}
 </div>
 </div>
 <div class="admin-tab-panel" data-panel="content-factory">
-<section aria-label="Content Factory Aurora" class="admin-pending-overview">
+<section aria-label="Content Factory Eneles" class="admin-pending-overview">
 <div class="admin-pending-overview-head">
-<div><span class="admin-overview-kicker">Aurora IA</span><h3>Content Factory</h3><p>Contrôlez les documents pédagogiques générés par Aurora avant leur publication dans la bibliothèque.</p></div>
+<div><span class="admin-overview-kicker">Eneles IA</span><h3>Content Factory</h3><p>Contrôlez les documents pédagogiques générés par Eneles avant leur publication dans la bibliothèque.</p></div>
 <button class="admin-btn ghost admin-pending-refresh" id="adminRefreshContentFactory" type="button">↻ Actualiser</button>
 </div>
 <div class="admin-pending-stats">
@@ -1652,7 +1697,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
     <div class="cf-rebuild-brand">
       <div class="cf-rebuild-mark" aria-hidden="true">A</div>
       <div>
-        <span class="cf-rebuild-kicker">Aurora · Content Factory</span>
+        <span class="cf-rebuild-kicker">Eneles · Content Factory</span>
         <h3>Réception des productions IA</h3>
         <p>Les contenus produits par l’IA arrivent directement dans la file de contrôle. L’administration vérifie les informations enregistrées, choisit la couleur du document et pilote ensuite la génération, la régénération, l’annulation, la validation et la publication.</p>
       </div>
@@ -1662,8 +1707,8 @@ body:not(.site-locked) #accessLock{display:none!important;}
 
   <div class="cf-create-moved-note" role="note"><strong>Création éditoriale centralisée dans Éditorial GPT · Section A.</strong><span>La création des tâches est désormais effectuée dans le parcours A, avec classement, consigne et identité du PDF réunis au même endroit.</span></div>
 
-  <div class="cf-queue" hidden id="cfGenerationQueue"><strong>File Aurora</strong><span id="cfGenerationQueueText"></span></div>
-  <div class="cf-progress" hidden id="cfProgress"><div class="cf-progress-top"><strong id="cfProgressTitle">Progression Aurora</strong><span id="cfProgressPercent">0%</span></div><div class="cf-progress-track"><div class="cf-progress-bar" id="cfProgressBar"></div></div><div class="cf-progress-stage" id="cfProgressStage">En attente…</div></div>
+  <div class="cf-queue" hidden id="cfGenerationQueue"><strong>File Eneles</strong><span id="cfGenerationQueueText"></span></div>
+  <div class="cf-progress" hidden id="cfProgress"><div class="cf-progress-top"><strong id="cfProgressTitle">Progression Eneles</strong><span id="cfProgressPercent">0%</span></div><div class="cf-progress-track"><div class="cf-progress-bar" id="cfProgressBar"></div></div><div class="cf-progress-stage" id="cfProgressStage">En attente…</div></div>
 </section>
 <section id="aurorePdfProductionCenter" class="aurore-pdf-production-center" aria-label="Production et validation PDF"><div class="aurore-pdf-prod-head"><div><span class="aurore-pdf-prod-kicker">Production Eneles</span><h3>Production & validation PDF</h3><p id="aurorePdfProdSummary">Synchronisation…</p></div><span class="aurore-pdf-prod-live"><i></i> En direct</span></div><div id="aurorePdfProdList" class="aurore-pdf-prod-list"><div class="aurore-pdf-prod-empty">Chargement de la production…</div></div></section>
 </section>
@@ -1722,14 +1767,14 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <div id="auroraRequestFormHost"></div>
 </div>
 <div class="admin-tab-panel" data-panel="diagnostic-aurora">
-<p class="admin-panel-desc">Diagnostic technique réel de la chaîne Aurora : navigateur → session Supabase → Edge Function → moteurs IA (Gemini, Llama, DeepSeek) → navigateur. Aucun résultat n'est simulé. Réservé à l'administration, sans effet sur l'expérience des élèves/utilisateurs.</p>
+<p class="admin-panel-desc">Diagnostic technique réel de la chaîne Eneles : navigateur → session Supabase → Edge Function → moteurs IA (Gemini, Llama, DeepSeek) → navigateur. Aucun résultat n'est simulé. Réservé à l'administration, sans effet sur l'expérience des élèves/utilisateurs.</p>
 <div class="diag-meta" id="diagMeta">
 <span class="diag-id" id="diagId">Identifiant : — (pas encore lancé)</span>
 <span class="diag-global-badge" data-state="pending" id="diagGlobalBadge">⚪ Non testé</span>
 </div>
 <div class="diag-actions">
 <button class="admin-btn primary" id="diagRunFull" type="button">Lancer un diagnostic complet</button>
-<button class="admin-btn ghost" id="diagRunBonjour" type="button">Test Aurora réel</button>
+<button class="admin-btn ghost" id="diagRunBonjour" type="button">Test Eneles réel</button>
 <button class="admin-btn ghost" id="diagRunDeepseek" type="button">Tester DeepSeek</button>
 <button class="admin-btn ghost" id="diagToggleLog" type="button">Voir le journal technique</button>
 </div>
@@ -2140,7 +2185,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 </div>
 <!-- Sphère de progression compacte : prend le relais de la barre pleine
        largeur dès que la première page est affichée, pour libérer l'espace
-       de lecture. Casée en bas à gauche, à l'opposé du coin où Aurora
+       de lecture. Casée en bas à gauche, à l'opposé du coin où Eneles
        réduite se place par défaut (bas-droite), pour ne jamais se superposer. -->
 <div aria-hidden="true" aria-live="polite" class="pdf-load-progress-sphere" id="pdfViewerProgressSphere" role="status" title="Préparation du document en cours">
 <svg class="pdf-progress-sphere-ring" viewbox="0 0 40 40">
@@ -2169,7 +2214,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <div class="aurora-geogebra-head">
 <div>
 <div class="aurora-geogebra-title" id="auroraGeoGebraTitle">Visualiser dans GeoGebra</div>
-<div class="aurora-geogebra-sub">Aurora a déjà préparé les mêmes expressions. Elles sont prêtes à être copiées dans la calculatrice graphique GeoGebra.</div>
+<div class="aurora-geogebra-sub">Eneles a déjà préparé les mêmes expressions. Elles sont prêtes à être copiées dans la calculatrice graphique GeoGebra.</div>
 </div>
 <button aria-label="Fermer" class="aurora-geogebra-close" id="auroraGeoGebraClose" type="button">×</button>
 </div>
@@ -2183,7 +2228,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 </div>
 <div aria-labelledby="auroraGraphOverlayTitle" aria-modal="true" id="auroraGraphOverlay" role="dialog" style="display:none;">
 <div class="aurora-graph-overlay-header">
-<span class="aurora-graph-overlay-title" id="auroraGraphOverlayTitle">Graphique Aurora</span>
+<span class="aurora-graph-overlay-title" id="auroraGraphOverlayTitle">Graphique Eneles</span>
 <button aria-label="Fermer le graphique" class="aurora-graph-overlay-close" id="auroraGraphOverlayClose" type="button">✕</button>
 </div>
 <div class="aurora-graph-overlay-sub" id="auroraGraphOverlaySub"></div>
@@ -5226,8 +5271,8 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <script defer src="./js/aurore-download-navigation-guard.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 <script defer src="./js/aurore-pdf-navigation-guard.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 <script defer src="js/aurore-personal-folders.js?aurore_fresh=20261010-temporary-no-cache1"></script>
-<!-- Menu principal style ChatGPT : accès rapide à l'historique Aurora et à sa réduction. -->
-<button aria-expanded="false" aria-haspopup="menu" aria-label="Ouvrir le menu Aurora" class="aurore-home-menu-btn" id="auroreHomeMenuBtn" title="Menu Aurora" type="button">
+<!-- Menu principal style ChatGPT : accès rapide à l'historique Eneles et à sa réduction. -->
+<button aria-expanded="false" aria-haspopup="menu" aria-label="Ouvrir le menu Eneles" class="aurore-home-menu-btn" id="auroreHomeMenuBtn" title="Menu Eneles" type="button">
   <span aria-hidden="true"><i></i><i></i><i></i></span>
 </button>
 <div aria-hidden="true" class="aurore-home-menu" id="auroreHomeMenu" role="menu">
@@ -5235,7 +5280,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
     <span class="aurore-home-menu-item-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"></path><path d="M3.05 13a9 9 0 1 0 2.02-6.36L3 8"></path><path d="M12 7v5l3.2 2"></path></svg>
     </span>
-    <span><strong>Historique des discussions</strong><small>Retrouver vos conversations Aurora</small></span>
+    <span><strong>Historique des discussions</strong><small>Retrouver vos conversations Eneles</small></span>
   </button>
 </div>
 <script defer src="js/aurore-home-menu.js?aurore_fresh=20261010-temporary-no-cache1"></script>
@@ -5249,14 +5294,14 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <span class="afh-copy"><strong>Accueil</strong><small>Retour à Eneles</small></span>
 <span aria-hidden="true" class="afh-drag"></span>
 </button>
-<!-- Aurora flottant et déplaçable : depuis l'accueil il ouvre l'IA, depuis
+<!-- Eneles flottant et déplaçable : depuis l'accueil il ouvre l'IA, depuis
      l'IA il ouvre un petit panneau d'options (historique + réduire). -->
-<button aria-expanded="false" aria-haspopup="true" aria-label="Ouvrir Aurora" class="aurore-floating-home aurore-floating-ai" id="auroreFloatingAI" title="Aurora" type="button">
+<button aria-expanded="false" aria-haspopup="true" aria-label="Ouvrir Eneles" class="aurore-floating-home aurore-floating-ai" id="auroreFloatingAI" title="Eneles" type="button">
 <span aria-hidden="true" class="afh-icon" id="auroreFloatingAIIcon"><span>A</span></span>
-<span class="afh-copy"><strong>Aurora</strong><small id="auroreFloatingAISub">Poser une question</small></span>
+<span class="afh-copy"><strong>Eneles</strong><small id="auroreFloatingAISub">Poser une question</small></span>
 </button>
 <div aria-hidden="true" class="aurore-floating-ai-menu" id="auroreFloatingAIMenu" role="menu">
-<div class="afam-title">Aurora</div>
+<div class="afam-title">Eneles</div>
 <button class="afam-item" id="auroreFAIHistory" role="menuitem" type="button">
 <span aria-hidden="true" class="afam-icon"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24"><path d="M3 3v5h5"></path><path d="M3.05 13a9 9 0 1 0 2.02-6.36L3 8"></path><path d="M12 7v5l3.2 2"></path></svg></span>
 <span>Historique des discussions</span>
@@ -5312,7 +5357,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <div class="aurore-ia-brand">
 <div aria-hidden="true" class="aurore-ia-mark" id="auroreIAMark"><span>A</span></div>
 <div class="aurore-ia-brand-copy">
-<strong id="auroreIATitle">Aurora</strong>
+<strong id="auroreIATitle">Eneles</strong>
 <span>Votre assistant intelligent dans les Archives</span>
 </div>
 </div>
@@ -5322,7 +5367,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <button aria-label="Nouvelle conversation" class="aurore-ia-new" id="auroreIANew" type="button">
 <span aria-hidden="true">＋</span><span>Nouvelle conversation</span>
 </button>
-<button aria-label="Réduire Aurora en fenêtre flottante" class="aurore-ia-minimize" id="auroreIAMinimize" title="Réduire Aurora" type="button">
+<button aria-label="Réduire Eneles en fenêtre flottante" class="aurore-ia-minimize" id="auroreIAMinimize" title="Réduire Eneles" type="button">
 <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24"><path d="M9 3H3v6M15 21h6v-6M21 3l-7 7M3 21l7-7"></path></svg>
 </button>
 <button aria-label="Retour" class="aurore-ia-back" id="auroreIABack" type="button">
@@ -5331,14 +5376,14 @@ body:not(.site-locked) #accessLock{display:none!important;}
 </div>
 </header>
 <div class="aurore-ia-history-overlay" hidden="" id="auroreIAHistoryOverlay"></div>
-<aside aria-hidden="true" aria-label="Historique des discussions Aurora" class="aurore-ia-history-panel" id="auroreIAHistoryPanel">
+<aside aria-hidden="true" aria-label="Historique des discussions Eneles" class="aurore-ia-history-panel" id="auroreIAHistoryPanel">
 <div class="aurore-ia-history-head">
 <div class="aurore-ia-history-head-left">
 <button aria-label="Fermer l'historique" class="aurore-ia-history-close aurore-ia-history-hamburger" id="auroreIAHistoryMenuBtn" title="Historique des discussions" type="button">
 <span aria-hidden="true" class="aurore-ia-menu-btn-icon"><span></span><span></span><span></span></span>
 </button>
 <div>
-<p class="aurore-ia-kicker">Aurora</p>
+<p class="aurore-ia-kicker">Eneles</p>
 <h2>Historique des discussions</h2>
 </div>
 </div>
@@ -5350,11 +5395,11 @@ body:not(.site-locked) #accessLock{display:none!important;}
 </div>
 </aside>
 <div class="aurore-ia-main">
-<section aria-label="Conversation avec Aurora" class="aurore-ia-chat">
+<section aria-label="Conversation avec Eneles" class="aurore-ia-chat">
 <div aria-live="polite" class="aurore-ia-conversation" id="auroreIAConversation">
 <div class="aurore-ia-welcome">
 <div aria-hidden="true" class="aurore-ia-welcome-orbit"><div class="aurore-ia-welcome-mark">A</div></div>
-<p class="aurore-ia-kicker">Aurora</p>
+<p class="aurore-ia-kicker">Eneles</p>
 <h1>Le savoir, <span>simplement.</span></h1>
 </div>
 </div>
@@ -5374,15 +5419,15 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <input accept="application/pdf,.pdf" hidden="" id="auroreIAPdfInput" type="file"/>
 </div>
 <div aria-live="polite" class="aurore-ia-attachments" id="auroreIAAttachments"></div>
-<textarea aria-label="Question à Aurora" id="auroreIAInput" maxlength="12000" placeholder="Écrivez votre question…" rows="1"></textarea>
+<textarea aria-label="Question à Eneles" id="auroreIAInput" maxlength="12000" placeholder="Écrivez votre question…" rows="1"></textarea>
 <button aria-label="Envoyer" class="aurore-ia-send" disabled="" type="submit">
 <svg aria-hidden="true" viewbox="0 0 24 24"><path d="M21 3 10.2 13.8"></path><path d="m21 3-6.2 18-4.6-7.2L3 9.2 21 3Z"></path></svg>
 </button>
-<button aria-label="Arrêter Aurora" class="aurore-ia-stop" hidden="" id="auroreIAStop" title="Arrêter Aurora" type="button">
+<button aria-label="Arrêter Eneles" class="aurore-ia-stop" hidden="" id="auroreIAStop" title="Arrêter Eneles" type="button">
 <svg aria-hidden="true" viewbox="0 0 24 24"><rect height="10" rx="2" width="10" x="7" y="7"></rect></svg>
 </button>
 </div>
-<div class="aurore-ia-composer-bottom"><span>Entrée pour envoyer · Maj + Entrée pour une nouvelle ligne</span><span>Aurora</span></div>
+<div class="aurore-ia-composer-bottom"><span>Entrée pour envoyer · Maj + Entrée pour une nouvelle ligne</span><span>Eneles</span></div>
 </form>
 <p class="aurore-ia-disclaimer">Les réponses peuvent contenir des erreurs. Vérifiez les informations importantes.</p>
 </div>
@@ -5391,15 +5436,15 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <div aria-hidden="true" class="aurore-ia-resize-edge aurore-ia-resize-e" data-edge="e"></div>
 <div aria-hidden="true" class="aurore-ia-resize-edge aurore-ia-resize-w" data-edge="w"></div>
 <div aria-hidden="true" class="aurore-ia-resize-edge aurore-ia-resize-s" data-edge="s"></div>
-<div aria-hidden="true" class="aurore-ia-resize-handle" id="auroreIAResizeHandle" title="Redimensionner Aurora"></div>
+<div aria-hidden="true" class="aurore-ia-resize-handle" id="auroreIAResizeHandle" title="Redimensionner Eneles"></div>
 </div>
 </section>
 <script defer src="js/aurore-ia-core.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 <script defer src="js/aurore-ia-input.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 <!-- ===== AURORA — CENTRE DE DIAGNOSTIC (admin uniquement) =====
      Ajout ciblé et réversible : ne modifie aucune fonction existante,
-     ne change pas le comportement normal d'Aurora. Visible uniquement dans
-     l'onglet "Diagnostic Aurora" du tableau de bord admin (lui-même déjà
+     ne change pas le comportement normal d'Eneles. Visible uniquement dans
+     l'onglet "Diagnostic Eneles" du tableau de bord admin (lui-même déjà
      réservé aux comptes dont session.role === 'admin'). -->
 
 <script defer src="js/aurora-pdf-diagnostic.js?aurore_fresh=20261010-temporary-no-cache1"></script>
