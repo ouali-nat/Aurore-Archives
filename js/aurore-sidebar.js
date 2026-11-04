@@ -145,7 +145,7 @@
 
     nav.innerHTML =
       '<div class="asb-dots" aria-hidden="true"><i></i><i></i><i></i></div>' +
-      '<div class="asb-head"><div class="asb-brand">Aurore</div><button type="button" class="asb-collapse" aria-label="Réduire le menu" title="Réduire / agrandir">' + svg('collapse', 16) + '</button></div>' +
+      '<div class="asb-head"><div class="asb-brand">Eneles</div><button type="button" class="asb-collapse" aria-label="Réduire le menu" title="Réduire / agrandir">' + svg('collapse', 16) + '</button></div>' +
       '<div class="asb-sep"></div>' +
       '<div class="asb-scroll">' +
         '<div class="asb-section">Menu</div><div class="asb-group" data-group="main"></div>' +
