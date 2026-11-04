@@ -1,40 +1,107 @@
-/* Eneles Archives — silhouette organique du bloc d'en-tête.
-   CSS uniquement : les éléments, leur ordre et leurs événements ne changent pas. */
+/* Eneles Archives — silhouette fidèle au tracé Pinterest.
+   Le panneau et les contrôles sont séparés : le masque n'intercepte aucun clic. */
 body>header.eneles-organic-site-header{
-  position:sticky!important;
-  isolation:isolate!important;
-  background:transparent!important;
-  border:0!important;
-  border-radius:0!important;
-  box-shadow:none!important;
-  -webkit-backdrop-filter:none!important;
-  backdrop-filter:none!important;
+  position:sticky!important;top:0!important;z-index:60!important;
+  isolation:isolate!important;overflow:visible!important;
+  width:min(calc(100% - 24px),1280px)!important;
+  max-width:1280px!important;margin:10px auto 8px!important;padding:0!important;
+  background:transparent!important;border:0!important;border-radius:0!important;
+  box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
 }
 body>header.eneles-organic-site-header::before{
-  content:"";
-  position:absolute;
-  inset:0;
-  z-index:0;
-  box-sizing:border-box;
-  pointer-events:none;
-  border:1px solid color-mix(in srgb,var(--theme-primary,#8B5CF6) 28%,var(--bordure));
-  background:color-mix(in srgb,var(--papier) 95%,transparent);
-  box-shadow:
-    0 14px 36px color-mix(in srgb,var(--theme-shadow,rgba(0,0,0,.2)) 80%,transparent),
-    inset 0 1px 0 rgba(255,255,255,.10);
-  -webkit-backdrop-filter:blur(18px) saturate(1.22);
-  backdrop-filter:blur(18px) saturate(1.22);
-  -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 300' preserveAspectRatio='none'%3E%3Cpath fill='white' d='M0 0H1000V205C1000 226 979 239 948 239H765C715 239 690 258 690 280C690 291 675 300 654 300H98C42 300 0 278 0 240Z'/%3E%3C/svg%3E");
-  mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 300' preserveAspectRatio='none'%3E%3Cpath fill='white' d='M0 0H1000V205C1000 226 979 239 948 239H765C715 239 690 258 690 280C690 291 675 300 654 300H98C42 300 0 278 0 240Z'/%3E%3C/svg%3E");
-  -webkit-mask-size:100% 100%;
-  mask-size:100% 100%;
-  -webkit-mask-repeat:no-repeat;
-  mask-repeat:no-repeat;
+  content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+  border:1px solid color-mix(in srgb,var(--theme-primary,#8B5CF6) 30%,var(--bordure));
+  background:
+    radial-gradient(ellipse at 18% 4%,color-mix(in srgb,var(--theme-primary,#8B5CF6) 11%,transparent),transparent 55%),
+    color-mix(in srgb,var(--papier) 96%,transparent);
+  box-shadow:0 16px 38px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.11);
+  -webkit-backdrop-filter:blur(20px) saturate(1.25);
+  backdrop-filter:blur(20px) saturate(1.25);
+  -webkit-mask-image:url("./eneles-organic-header-mask.svg");
+  mask-image:url("./eneles-organic-header-mask.svg");
+  -webkit-mask-size:100% 100%;mask-size:100% 100%;
+  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
 }
-body>header.eneles-organic-site-header .header-inner{position:relative!important;z-index:1!important}
-@media(max-width:760px){
-  body>header.eneles-organic-site-header::before{
-    -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 300' preserveAspectRatio='none'%3E%3Cpath fill='white' d='M0 0H1000V250C1000 270 980 282 948 282H765C715 282 690 291 690 296C690 298 675 300 654 300H98C42 300 0 280 0 250Z'/%3E%3C/svg%3E");
-    mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 300' preserveAspectRatio='none'%3E%3Cpath fill='white' d='M0 0H1000V250C1000 270 980 282 948 282H765C715 282 690 291 690 296C690 298 675 300 654 300H98C42 300 0 280 0 250Z'/%3E%3C/svg%3E");
+body>header.eneles-organic-site-header .header-inner{
+  position:relative!important;z-index:1!important;
+  display:grid!important;
+  width:100%!important;max-width:none!important;height:auto!important;min-height:0!important;
+  margin:0!important;padding:15px 22px 29px!important;
+  grid-template-columns:minmax(0,1.05fr) minmax(230px,1.35fr) auto auto minmax(160px,auto)!important;
+  grid-template-rows:54px 44px!important;
+  grid-template-areas:"brand search theme color auth" "upload upload ia install auth"!important;
+  align-items:center!important;justify-items:stretch!important;
+  gap:10px 14px!important;box-sizing:border-box!important;
+}
+body>header.eneles-organic-site-header .brand{grid-area:brand!important;min-width:0!important;gap:10px!important}
+body>header.eneles-organic-site-header .brand-logo{
+  width:48px!important;height:48px!important;min-width:48px!important;min-height:48px!important;
+  flex:0 0 48px!important;border-radius:50%!important;overflow:hidden!important;
+}
+body>header.eneles-organic-site-header .brand-text{min-width:0!important}
+body>header.eneles-organic-site-header .brand-text .site-name{font-size:1.04rem!important;line-height:1.15!important}
+body>header.eneles-organic-site-header .brand-text .site-tag{font-size:.64rem!important}
+body>header.eneles-organic-site-header .search-box{
+  grid-area:search!important;width:100%!important;min-width:0!important;max-width:none!important;
+  min-height:42px!important;padding:7px 14px!important;border-radius:999px!important;
+}
+body>header.eneles-organic-site-header .search-box input{min-width:0!important;width:100%!important}
+body>header.eneles-organic-site-header .theme-switch{grid-area:theme!important;justify-self:center!important;white-space:nowrap!important}
+body>header.eneles-organic-site-header .color-theme-picker{grid-area:color!important;justify-self:center!important}
+body>header.eneles-organic-site-header .auth-zone{grid-area:auth!important;justify-self:end!important;min-width:0!important}
+body>header.eneles-organic-site-header .user-chip{max-width:100%!important}
+body>header.eneles-organic-site-header .deposer-btn{
+  grid-area:upload!important;justify-self:start!important;min-height:42px!important;
+  padding:10px 17px!important;border-radius:13px!important;white-space:nowrap!important;
+}
+body>header.eneles-organic-site-header .aurore-ia-header-btn{
+  grid-area:ia!important;justify-self:center!important;width:40px!important;height:40px!important;
+  min-width:40px!important;min-height:40px!important;padding:0!important;border-radius:50%!important;
+}
+body>header.eneles-organic-site-header .pwa-install-btn{
+  grid-area:install!important;justify-self:center!important;min-height:40px!important;
+}
+@media(max-width:900px){
+  body>header.eneles-organic-site-header{
+    width:calc(100% - 14px)!important;max-width:none!important;margin:8px auto 8px!important;
   }
+  body>header.eneles-organic-site-header .header-inner{
+    padding:11px 13px 13px!important;
+    grid-template-columns:minmax(0,1fr) 40px auto 40px!important;
+    grid-template-rows:44px 42px 42px!important;
+    grid-template-areas:"brand ia auth auth" "upload theme theme color" "search search . ."!important;
+    gap:8px 8px!important;
+  }
+  body>header.eneles-organic-site-header .brand{gap:8px!important}
+  body>header.eneles-organic-site-header .brand-logo{
+    width:42px!important;height:42px!important;min-width:42px!important;min-height:42px!important;flex-basis:42px!important;
+  }
+  body>header.eneles-organic-site-header .brand-text .site-name{font-size:.92rem!important}
+  body>header.eneles-organic-site-header .brand-text .site-tag{display:none!important}
+  body>header.eneles-organic-site-header .aurore-ia-header-btn{width:36px!important;height:36px!important;min-width:36px!important;min-height:36px!important}
+  body>header.eneles-organic-site-header .aurore-ia-header-btn span:last-child{display:none!important}
+  body>header.eneles-organic-site-header .theme-switch{justify-self:center!important;gap:2px!important}
+  body>header.eneles-organic-site-header .theme-switch-btn{width:29px!important;height:29px!important}
+  body>header.eneles-organic-site-header .color-theme-btn{width:38px!important;height:38px!important}
+  body>header.eneles-organic-site-header .deposer-btn{
+    width:100%!important;min-width:0!important;min-height:40px!important;
+    padding:8px 9px!important;justify-content:center!important;font-size:.72rem!important;
+  }
+  body>header.eneles-organic-site-header .search-box{
+    width:min(58vw,420px)!important;max-width:420px!important;min-width:0!important;
+    min-height:40px!important;padding:5px 10px!important;
+    justify-self:start!important;align-self:center!important;
+  }
+  body>header.eneles-organic-site-header .search-box input{font-size:.74rem!important}
+  body>header.eneles-organic-site-header .user-chip{padding:3px 5px!important;font-size:.74rem!important}
+  body>header.eneles-organic-site-header .user-chip-info{gap:5px!important;padding-inline:2px 4px!important}
+  body>header.eneles-organic-site-header .user-chip-logout{padding:5px!important}
+  body>header.eneles-organic-site-header .user-chip-logout-label{display:none!important}
+  body>header.eneles-organic-site-header .pwa-install-btn{display:none!important}
+}
+@media(max-width:380px){
+  body>header.eneles-organic-site-header .header-inner{padding-inline:9px!important;column-gap:6px!important}
+  body>header.eneles-organic-site-header .brand-text .site-name{font-size:.82rem!important}
+  body>header.eneles-organic-site-header .deposer-btn{font-size:.67rem!important;padding-inline:5px!important}
+  body>header.eneles-organic-site-header .search-box{width:min(62vw,420px)!important}
 }
