@@ -1,0 +1,40 @@
+/* Eneles Archives — silhouette organique du bloc d'en-tête.
+   CSS uniquement : les éléments, leur ordre et leurs événements ne changent pas. */
+body>header.eneles-organic-site-header{
+  position:sticky!important;
+  isolation:isolate!important;
+  background:transparent!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+}
+body>header.eneles-organic-site-header::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:0;
+  box-sizing:border-box;
+  pointer-events:none;
+  border:1px solid color-mix(in srgb,var(--theme-primary,#8B5CF6) 28%,var(--bordure));
+  background:color-mix(in srgb,var(--papier) 95%,transparent);
+  box-shadow:
+    0 14px 36px color-mix(in srgb,var(--theme-shadow,rgba(0,0,0,.2)) 80%,transparent),
+    inset 0 1px 0 rgba(255,255,255,.10);
+  -webkit-backdrop-filter:blur(18px) saturate(1.22);
+  backdrop-filter:blur(18px) saturate(1.22);
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 300' preserveAspectRatio='none'%3E%3Cpath fill='white' d='M0 0H1000V205C1000 226 979 239 948 239H765C715 239 690 258 690 280C690 291 675 300 654 300H98C42 300 0 278 0 240Z'/%3E%3C/svg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 300' preserveAspectRatio='none'%3E%3Cpath fill='white' d='M0 0H1000V205C1000 226 979 239 948 239H765C715 239 690 258 690 280C690 291 675 300 654 300H98C42 300 0 278 0 240Z'/%3E%3C/svg%3E");
+  -webkit-mask-size:100% 100%;
+  mask-size:100% 100%;
+  -webkit-mask-repeat:no-repeat;
+  mask-repeat:no-repeat;
+}
+body>header.eneles-organic-site-header .header-inner{position:relative!important;z-index:1!important}
+@media(max-width:760px){
+  body>header.eneles-organic-site-header::before{
+    -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 300' preserveAspectRatio='none'%3E%3Cpath fill='white' d='M0 0H1000V250C1000 270 980 282 948 282H765C715 282 690 291 690 296C690 298 675 300 654 300H98C42 300 0 280 0 250Z'/%3E%3C/svg%3E");
+    mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 300' preserveAspectRatio='none'%3E%3Cpath fill='white' d='M0 0H1000V250C1000 270 980 282 948 282H765C715 282 690 291 690 296C690 298 675 300 654 300H98C42 300 0 280 0 250Z'/%3E%3C/svg%3E");
+  }
+}
