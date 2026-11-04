@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 864 600" preserveAspectRatio="none">
+  <path fill="#fff" d="
+    M0 0 H864 V300
+    C864 350 832 385 780 385
+    H620
+    C565 385 522 415 522 470
+    V500
+    C522 555 490 600 435 600
+    H100
+    C45 600 0 565 0 510
+    Z"/>
+</svg>
