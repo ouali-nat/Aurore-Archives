@@ -53,7 +53,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 /* --- Chargeur de la barre latérale (CSS + JS) : garantit que le menu et sa poignée existent --- */
 (function(){try{
   var v='20261005-sb1';
-  ['css/aurore-sidebar.css','css/aurore-sidebar-extra.css'].forEach(function(h){
+  ['css/aurore-sidebar.css','css/aurore-sidebar-extra.css','css/eneles-header-presentation-20261104.css'].forEach(function(h){
     if(document.querySelector('link[href*="'+h+'"]'))return;
     var l=document.createElement('link');l.rel='stylesheet';l.href='./'+h+'?v='+v;document.head.appendChild(l);
   });
