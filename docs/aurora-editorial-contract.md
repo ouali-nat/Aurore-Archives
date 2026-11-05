@@ -54,6 +54,14 @@ ingest_id reste stable pendant les retries réseau et empêche la duplication. L
 
 La table aurora_editorial_memory_sessions conserve l’historique technique de chaque récupération et empêche la réutilisation d’une session consommée.
 
+## Barrière scientifique finale D → Documents en attente
+
+Le contenu scientifique final est soumis à un garde-fou indépendant au dernier passage de D vers « Documents en attente ». Cette vérification est exécutée sur le `content_json` réellement destiné à l’ingestion, et non sur la seule fiche C. Ainsi, un éventuel contournement de C → D ne permet pas de faire entrer dans le sas un cours scientifique qui serait resté une suite de formules ou de résultats.
+
+Pour les Mathématiques, la Physique, la Chimie, la Physique-Chimie et les autres documents scientifiques couverts, le contrôle exige des traces de définition/identification, d’explication, de méthode, de raisonnement étape par étape, d’exemple/application et d’interprétation. Il détecte notamment les lacunes entre blocs mathématiques, les séquences de formules sans liaison explicative et l’absence de vocabulaire de raisonnement. Le préflight scientifique canonique est enrichi par `public.aurora_scientific_reasoning_preflight(...)`, puis le trigger PostgreSQL sur `aurora_generated_documents` transforme tout échec en refus d’insertion.
+
+Le bouton D ne constitue donc qu’un déclencheur de contrôle : la véritable autorité est la barrière serveur. Une édition refusée reste en D, reçoit le diagnostic des contrôles échoués et doit être corrigée avant toute entrée dans le circuit PDF manuel.
+
 ## Cycle des statuts
 
 draft : demande non confirmée.
