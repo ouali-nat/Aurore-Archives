@@ -8,6 +8,17 @@ on:
       - "infra/geogebra/render_missing_graphs.mjs"
       - "infra/geogebra/renderer_contract.mjs"
       - "infra/geogebra/function2d_commands.mjs"
+      - "js/aurore-document-verifier.js"
+      - "supabase/functions/aurora-document-verify/**"
+      - "supabase/migrations/*aurora_preserve_replaced_editions.sql"
+      - ".github/workflows/aurora-geogebra-editorial-validation.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "infra/geogebra/render_missing_graphs.mjs"
+      - "infra/geogebra/renderer_contract.mjs"
+      - "infra/geogebra/function2d_commands.mjs"
       - ".github/workflows/aurora-geogebra-editorial-validation.yml"
   schedule:
     - cron: "*/5 * * * *"
@@ -22,79 +33,74 @@ jobs:
     env:
       SUPABASE_URL: https://tdeotqfsbvouresfhkab.supabase.co
       AURORA_LUALATEX_RENDER_TOKEN: ${{ secrets.AURORA_LUALATEX_RENDER_TOKEN }}
+      # Legacy anon key is publishable/client-side; never put a service-role key here.
+      SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZW90cWZzYnZvdXJlc2Zoa2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjM4NzMsImV4cCI6MjEwMDUzOTg3M30.l_a1lI_QRy7BTq1fGjiA9n7LCdu7BwR2TTI5pkA70SU"
 
     steps:
       - name: Checkout renderer
         uses: actions/checkout@v4
 
       - name: Validate renderer secrets
-        run: test -n "$AURORA_LUALATEX_RENDER_TOKEN"
+        run: |
+          test -n "$AURORA_LUALATEX_RENDER_TOKEN"
 
       - name: Validate GeoGebra renderer JavaScript syntax
         run: |
           node --check infra/geogebra/renderer_contract.mjs
           node --check infra/geogebra/function2d_commands.mjs
           node --check infra/geogebra/render_missing_graphs.mjs
+          node --check js/aurore-document-verifier.js
 
-      - name: Install browser renderer
-        run: |
-          npm init -y >/dev/null 2>&1
-          npm install --no-save playwright@1.63.0
-          npx playwright install --with-deps chromium
-
+      # Check Supabase access before downloading Chromium and its OS packages.
+      # Authentication failures now stop before the expensive browser setup.
       - name: Discover eligible D editorial tasks
+        id: discover
         run: |
-          curl --fail --silent --show-error             -X POST             -H "Content-Type: application/json"             -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN"             --data '{"action":"list-editorial-jobs"}'             "$SUPABASE_URL/functions/v1/aurora-geogebra"             -o editorial-jobs.json
-          jq -e '.ok == true' editorial-jobs.json >/dev/null
+          set -euo pipefail
+          curl --fail --silent --show-error \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "x-aurore-render-token: $AURORA_LUALATEX_RENDER_TOKEN" \
+            --data '{"action":"list-editorial-jobs"}' \
+            "$SUPABASE_URL/functions/v1/aurora-geogebra" \
+            -o editorial-jobs.json
+          jq -e '.ok == true and (.jobs | type == "array")' editorial-jobs.json >/dev/null
           jq -r '.jobs[].id' editorial-jobs.json > editorial-job-ids.txt
+          if [ -s editorial-job-ids.txt ]; then
+            echo "has_jobs=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_jobs=false" >> "$GITHUB_OUTPUT"
+          fi
           echo "Tâches éditoriales GeoGebra candidates:"
           cat editorial-job-ids.txt || true
 
-      - name: Validate every eligible editorial graph with the real renderer
+      - name: Install browser renderer
+        if: steps.discover.outputs.has_jobs == 'true'
         run: |
-          set +e
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.63.0
+          npx playwright install --with-deps chromium --only-shell
+
+      - name: Validate every eligible editorial graph with the real renderer
+        if: steps.discover.outputs.has_jobs == 'true'
+        run: |
+          set -euo pipefail
           failed=0
           while IFS= read -r job_id; do
             [ -n "$job_id" ] || continue
             echo "===== Validation GeoGebra tâche #$job_id ====="
-            if ! SUPABASE_URL="$SUPABASE_URL"               AURORA_LUALATEX_RENDER_TOKEN="$AURORA_LUALATEX_RENDER_TOKEN"               GEOGEBRA_VALIDATE_ONLY=true               JOB_ID="$job_id"               node infra/geogebra/render_missing_graphs.mjs; then
+            if ! SUPABASE_URL="$SUPABASE_URL" \
+              AURORA_LUALATEX_RENDER_TOKEN="$AURORA_LUALATEX_RENDER_TOKEN" \
+              GEOGEBRA_VALIDATE_ONLY=true \
+              JOB_ID="$job_id" \
+              node infra/geogebra/render_missing_graphs.mjs; then
               failed=1
             fi
           done < editorial-job-ids.txt
           exit "$failed"
 
-# Canonical Supabase JSONB hash alignment for renderer validation — 2026-10-05
-
-# Revalidate current D editorial content after content corrections — 2026-10-05
-
-# Revalidate synchronized visual and GeoGebra plans for D #293 — 2026-10-05
-
-# Revalidate current arithmetic visual-plan alignment for D #293 — 2026-10-05
-
-# Revalidate D #294 exercise-source metadata update — 2026-10-05
-
-# D editorial renderer eligibility bridge verified — 2026-10-06
-
-# Revalidate D editorial content after final structural fixes — 2026-10-06
-
-# Revalidate 298 after removing stale duplicate correction graphs — 2026-10-06
-
-# Revalidate 297 and 298 after final D content contract alignment — 2026-10-06
-
-# Revalidate 298 after GeoGebra point naming alignment — 2026-10-06
-
-# Revalidate 298 current SHA after renderer-compatible point names — 2026-10-06
-
-# Revalidate 297 after final introduction contract repair — 2026-10-06
-
-# Revalidate 297 and 298 after final GeoGebra command compatibility fix — 2026-10-06
-
-# Revalidate 298 after structured point coordinate alignment — 2026-10-06
-
-# Revalidate 298 after minimal point-only GeoGebra graphs — 2026-10-06
-
-# Revalidate exact final SHA for D 298 — 2026-10-06
-
-# Revalidate 298 after exercise source guard alignment — 2026-10-06
-
-# Final revalidation exact current D 298 content SHA — 2026-10-06
+      - name: Report no eligible tasks
+        if: steps.discover.outputs.has_jobs == 'false'
+        run: echo "Aucune tâche éditoriale GeoGebra à valider ; installation du navigateur ignorée."
