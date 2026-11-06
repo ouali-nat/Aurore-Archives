@@ -58,7 +58,7 @@
         <div class="aurore-verify-state">✓ Document publié et vérifié</div>
         <h1 class="aurore-verify-title">${esc(d.title || "Document Aurore")}</h1>
         <p class="aurore-verify-message">Cette édition est présente dans la bibliothèque publique Aurore et son fichier PDF répond au contrôle d’intégrité.</p>
-        <div class="aurore-verify-location"><div class="aurore-verify-label">Lieu exact de publication</div><div class="aurore-verify-crumbs">${path.map(function(x,i){return (i?'<span aria-hidden="true">›</span>':'')+'<span>'+esc(x)+'</span>';}).join("")}</div></div>
+        <div class="aurore-verify-location"><div class="aurore-verify-label">Lieu exact de publication</div><div class="aurore-verify-crumbs">${path.map(function(x,i){return (i?'<span class="separator"></span>':'')+'<span>'+esc(x)+'</span>';}).join("")}</div></div>
         <div class="aurore-verify-meta">${d.id?'<span>Document public #'+esc(d.id)+'</span>':''}${d.version?'<span>Version '+esc(d.version)+'</span>':''}${d.subject?'<span>'+esc(d.subject)+'</span>':''}</div>
         <div class="aurore-verify-actions"><a class="aurore-verify-primary" href="${esc(result.publication.url)}">Ouvrir le document</a><button type="button" class="aurore-verify-secondary" data-back>Retour à Aurore</button></div>`;
     } else if (status === "unpublished") {

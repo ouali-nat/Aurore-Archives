@@ -165,7 +165,7 @@
         +'</div>'
         +'<div class="diag-row-msg">'+echapper(e.msg)+'</div>';
       if(e.detail){
-        html+='<button type="button" class="diag-row-detail-toggle" data-detail-toggle="'+detailId+'">Détail ›</button>'
+        html+='<button type="button" class="diag-row-detail-toggle" data-detail-toggle="'+detailId+'">Détail</button>'
           +'<pre class="diag-row-detail" id="'+detailId+'">'+echapper(e.detail)+'</pre>';
       }
       html+='</div>';

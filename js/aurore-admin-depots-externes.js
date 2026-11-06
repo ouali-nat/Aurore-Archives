@@ -248,7 +248,7 @@
         </div>
         <div class="dx-state-line"><span class="dx-state-pill">${group.locations.length} emplacement(s)</span><span class="dx-state-pill">${group.docs.length} entrée(s) catalogue</span><span class="dx-state-pill">${esc(statut)}</span>${group.duplicateRows ? '<span class="dx-state-pill">'+group.duplicateRows+' répétition(s) de ligne</span>' : ''}</div>
         ${taille}
-        <div class="dx-main-actions"><button type="button" class="admin-btn ghost" data-dx-open-pdf>Ouvrir le PDF dans Aurore →</button><button type="button" class="admin-btn primary" data-dx-locations>Voir les emplacements (${group.locations.length})</button></div>
+        <div class="dx-main-actions"><button type="button" class="admin-btn ghost" data-dx-open-pdf>Ouvrir le PDF dans Aurore</button><button type="button" class="admin-btn primary" data-dx-locations>Voir les emplacements (${group.locations.length})</button></div>
       </div>
       <div class="dx-menu" role="menu" aria-label="Fonctionnalités du document">
         <button type="button" data-dx-menu-action="locations">Voir les emplacements</button>
