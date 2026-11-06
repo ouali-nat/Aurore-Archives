@@ -2012,7 +2012,7 @@
         const title=esc(p.title||''),ex=esc((p.extract||'').replace(/\s+/g,' ').trim());
         const img=p.thumbnail?.source?'<img src="'+esc(p.thumbnail.source)+'" alt="" loading="lazy" decoding="async">':'';
         const href='https://fr.wikipedia.org/wiki/'+encodeURIComponent(String(p.title||'').replace(/ /g,'_'));
-        return '<article class="aurore-ia-result">'+img+'<div class="aurore-ia-result-body"><strong>'+title+'</strong><p>'+ex+'</p><a href="'+href+'" target="_blank" rel="noopener noreferrer">Voir sur Wikipédia ↗</a></div></article>';
+        return '<article class="aurore-ia-result">'+img+'<div class="aurore-ia-result-body"><strong>'+title+'</strong><p>'+ex+'</p><a href="'+href+'" target="_blank" rel="noopener noreferrer">Voir sur Wikipédia</a></div></article>';
       }).join('')+'</div>';scrollBottom(false);
     }catch(e){if(box)box.innerHTML='<div class="aurore-ia-source-card"><strong>Wikipédia</strong>La recherche est momentanément indisponible.</div>';scrollBottom(false);}
   }

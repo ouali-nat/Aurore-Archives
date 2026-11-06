@@ -11,10 +11,10 @@
   function actualiserTriPublicDocuments(data){
     const select=document.getElementById('docSort'); if(!select) return;
     const current=select.value||'recent';
-    const base=[['recent','Plus récent'],['oldest','Plus ancien'],['az','Titre A → Z'],['za','Titre Z → A']];
-    if((data||[]).some(d=>String(d.Niveau||'').trim())) base.push(['niveau','Niveau A → Z']);
-    if((data||[]).some(d=>String(d.Classe||'').trim())) base.push(['classe','Classe A → Z']);
-    if((data||[]).some(d=>String(d['Matière']||'').trim())) base.push(['matiere','Matière A → Z']);
+    const base=[['recent','Plus récent'],['oldest','Plus ancien'],['az','Titre A à Z'],['za','Titre Z à A']];
+    if((data||[]).some(d=>String(d.Niveau||'').trim())) base.push(['niveau','Niveau A à Z']);
+    if((data||[]).some(d=>String(d.Classe||'').trim())) base.push(['classe','Classe A à Z']);
+    if((data||[]).some(d=>String(d['Matière']||'').trim())) base.push(['matiere','Matière A à Z']);
     select.innerHTML=base.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
     select.value=base.some(([v])=>v===current)?current:'recent';
   }
@@ -40,10 +40,10 @@
       const b=document.createElement('button'); b.type='button'; b.textContent=label; b.disabled=disabled; if(active)b.classList.add('active');
       b.addEventListener('click',()=>onChange(target)); el.appendChild(b);
     };
-    add('‹',page-1,page<=1);
+    add('Préc.',page-1,page<=1);
     const nums=[]; for(let i=1;i<=pages;i++){ if(i===1||i===pages||Math.abs(i-page)<=1) nums.push(i); }
     let prev=0; nums.forEach(n=>{ if(prev && n-prev>1){ const s=document.createElement('span'); s.textContent='…'; s.setAttribute('aria-hidden','true'); el.appendChild(s); } add(String(n),n,false,n===page); prev=n; });
-    add('›',page+1,page>=pages);
+    add('Suiv.',page+1,page>=pages);
   }
 
   // ---------- TAILLE DES DOCUMENTS ----------
@@ -1515,10 +1515,10 @@
     const current=select?.value||'recent';
 
     if(select){
-      const opts=[['recent','Plus récent'],['oldest','Plus ancien'],['az','Titre A → Z'],['za','Titre Z → A']];
-      if((documentsRecentsCourants||[]).some(d=>String(d.Niveau||'').trim())) opts.push(['niveau','Niveau A → Z']);
-      if((documentsRecentsCourants||[]).some(d=>String(d.Classe||'').trim())) opts.push(['classe','Classe A → Z']);
-      if((documentsRecentsCourants||[]).some(d=>String(d['Matière']||'').trim())) opts.push(['matiere','Matière A → Z']);
+      const opts=[['recent','Plus récent'],['oldest','Plus ancien'],['az','Titre A à Z'],['za','Titre Z à A']];
+      if((documentsRecentsCourants||[]).some(d=>String(d.Niveau||'').trim())) opts.push(['niveau','Niveau A à Z']);
+      if((documentsRecentsCourants||[]).some(d=>String(d.Classe||'').trim())) opts.push(['classe','Classe A à Z']);
+      if((documentsRecentsCourants||[]).some(d=>String(d['Matière']||'').trim())) opts.push(['matiere','Matière A à Z']);
       select.innerHTML=opts.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
       select.value=opts.some(([v])=>v===current)?current:'recent';
     }

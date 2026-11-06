@@ -674,12 +674,12 @@
   function actualiserTriAdminSelect(id, optionData={}) {
     const select=document.getElementById(id); if(!select) return;
     const valeur=select.value;
-    const base=[['recent','Plus récent'],['oldest','Plus ancien'],['az','A → Z'],['za','Z → A']];
-    if((optionData.niveaux||[]).some(v=>String(v||'').trim())) base.push(['niveau','Niveau A → Z']);
-    if((optionData.classes||[]).some(v=>String(v||'').trim())) base.push(['classe','Classe A → Z']);
-    if((optionData.matieres||[]).some(v=>String(v||'').trim())) base.push(['matiere','Matière A → Z']);
-    if((optionData.statuts||[]).some(v=>String(v||'').trim())) base.push(['statusaz','Statut A → Z']);
-    if((optionData.roles||[]).some(v=>String(v||'').trim())) base.push(['roleaz','Rôle A → Z']);
+    const base=[['recent','Plus récent'],['oldest','Plus ancien'],['az','A à Z'],['za','Z à A']];
+    if((optionData.niveaux||[]).some(v=>String(v||'').trim())) base.push(['niveau','Niveau A à Z']);
+    if((optionData.classes||[]).some(v=>String(v||'').trim())) base.push(['classe','Classe A à Z']);
+    if((optionData.matieres||[]).some(v=>String(v||'').trim())) base.push(['matiere','Matière A à Z']);
+    if((optionData.statuts||[]).some(v=>String(v||'').trim())) base.push(['statusaz','Statut A à Z']);
+    if((optionData.roles||[]).some(v=>String(v||'').trim())) base.push(['roleaz','Rôle A à Z']);
     select.innerHTML='';
     base.forEach(([v,t])=>{const o=document.createElement('option');o.value=v;o.textContent=t;select.appendChild(o);});
     select.value=base.some(x=>x[0]===valeur)?valeur:'recent';

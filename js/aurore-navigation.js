@@ -256,7 +256,7 @@
         const morceaux = [categorie, niveau, matiere].filter(Boolean);
         document.getElementById('docsTitle').textContent = morceaux.join(' — ') || 'Documents';
         const back = document.querySelector('#screen-docs .back-btn');
-        if (back) { back.setAttribute('data-back','home'); back.textContent='← Retour à l’accueil'; }
+        if (back) { back.setAttribute('data-back','home'); back.textContent='Retour à l’accueil'; }
         rendreListeDocuments(document.getElementById('docsContent'), data, categorie === 'Livres');
         afficherEcran('screen-docs');
       }
@@ -702,7 +702,7 @@
         <h3>${n.nom}</h3>
         <p>${n.desc}</p>
         <p class="level-stats" style="margin-top:10px; font-size:0.78rem; color:var(--gris);">Chargement…</p>
-        <div class="go">Explorer →</div>
+        <div class="go">Explorer</div>
       `;
       card.onclick = () => allerNiveau(n.id);
       grid.appendChild(card);

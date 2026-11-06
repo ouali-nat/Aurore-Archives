@@ -746,7 +746,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 </style>
 
 <link rel="stylesheet" href="./css/eneles-header-finish.css?v=20261103-pill-header-reference-mobile-v6"/>
-  <link rel="stylesheet" href="./css/eneles-organic-header-20261104-final2.css">
+  <link rel="stylesheet" href="./css/eneles-organic-header-20261104-final2.css?v=20261106-ui-cleanup-v1">
 </head>
 <body class="site-locked">
 <div class="aurore-boot-overlay" id="auroreBootOverlay" role="status" aria-live="polite" aria-label="Chargement d’Eneles" aria-hidden="false">
@@ -876,7 +876,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
     <p class="aurore-logout-goodbye">Vous pourrez revenir quand vous le souhaitez. Eneles vous attendra.</p>
     <div class="aurore-logout-actions">
       <button class="aurore-logout-cancel" id="logoutConfirmCancel" type="button">Rester sur Eneles</button>
-      <button class="aurore-logout-confirm" id="logoutConfirmButton" type="button"><span>Me déconnecter</span><span aria-hidden="true">↗</span></button>
+      <button class="aurore-logout-confirm" id="logoutConfirmButton" type="button"><span>Me déconnecter</span></button>
     </div>
   </section>
 </div>
@@ -1010,7 +1010,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <h2 class="section-title">Explorer les documents récemment publiés</h2>
 <p>Découvrez une sélection des derniers documents mis en ligne sur Eneles Archives.</p>
 </div>
-<span aria-hidden="true" class="home-recents-arrow">›</span>
+
 </div>
 <h2 class="section-title">Explorez par niveau</h2>
 <p class="home-hierarchy-note">Choisissez une grande porte pour accéder directement à son parcours pédagogique.</p>
@@ -1039,7 +1039,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <h3>Livres et romans</h3>
 <p>Romans, biographies, ouvrages scientifiques et développement personnel. Une bibliothèque à part, hors programme scolaire.</p>
 </div>
-<span class="go-arrow">→</span>
+
 </button>
 <div class="ad-slot ad-slot-alt" id="ad-home-2"></div>
 <!-- ===== ACCÈS À L’ESPACE PERSONNEL — FIN DE L’ACCUEIL ===== -->
@@ -1050,7 +1050,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <h2 class="section-title" id="auroraPersonalEndTitle">Retrouvez votre espace personnel</h2>
 <p>Accédez à vos documents, favoris, téléchargements et informations personnelles depuis votre espace Eneles.</p>
 </div>
-<button aria-label="Accéder à mon espace personnel" class="aurora-personal-end-btn home-recents-arrow" id="auroraPersonalEndBtn" type="button">→</button>
+<button aria-label="Accéder à mon espace personnel" class="aurora-personal-end-btn" id="auroraPersonalEndBtn" type="button">Ouvrir</button>
 </div>
 </section>
 </section>
@@ -1061,7 +1061,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <div class="ad-slot" id="ad-livres-1"></div>
 <div class="matiere-grid" id="genreGrid"></div>
 <div class="ad-slot ad-slot-alt" id="ad-livres-2"></div>
-<button class="back-btn" data-back="home">← Retour à l'accueil</button>
+<button class="back-btn" data-back="home">Retour à l'accueil</button>
 </section>
 <!-- ===== NIVEAU (Devoirs / Documents) ===== -->
 <section class="screen" id="screen-level">
@@ -1071,7 +1071,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <div class="sublevel-grid" id="sublevelGrid"></div>
 <div class="cat-grid" id="catGrid" style="display:none"></div>
 <div class="ad-slot ad-slot-alt" id="ad-niveaux-2"></div>
-<button class="back-btn" data-back="home">← Retour à l'accueil</button>
+<button class="back-btn" data-back="home">Retour à l'accueil</button>
 </section>
 <!-- ===== SÉRIE (uniquement pour Devoirs) ===== -->
 <section class="screen" id="screen-serie">
@@ -1079,7 +1079,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <div class="ad-slot" id="ad-series-1"></div>
 <div class="serie-row" id="serieRow"></div>
 <div class="ad-slot ad-slot-alt" id="ad-series-2"></div>
-<button class="back-btn" data-back="level">← Retour au niveau</button>
+<button class="back-btn" data-back="level">Retour au niveau</button>
 </section>
 <!-- ===== MATIÈRES ===== -->
 <section class="screen" id="screen-matieres">
@@ -1090,7 +1090,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <div class="ad-slot" id="ad-matieres-1"></div>
 <div class="matiere-grid" id="matiereGrid"></div>
 <div class="ad-slot ad-slot-alt" id="ad-matieres-2"></div>
-<button class="back-btn" id="matieresBack">← Retour</button>
+<button class="back-btn" id="matieresBack">Retour</button>
 </section>
 <!-- ===== DOCUMENTS (connecté à Supabase) ===== -->
 <!-- ===== DOCUMENTS RÉCEMMENT PUBLIÉS (sélection admin indépendante de la
@@ -1103,13 +1103,13 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <select aria-label="Trier les documents récemment publiés" id="recentsSort">
 <option selected="" value="recent">Plus récent</option>
 <option value="oldest">Plus ancien</option>
-<option value="az">Titre A → Z</option>
-<option value="za">Titre Z → A</option>
+<option value="az">Titre A à Z</option>
+<option value="za">Titre Z à A</option>
 </select>
 </div>
 <div id="recentsContent"></div>
 <div class="site-pagination" id="recentsPager"></div>
-<button class="back-btn" data-back="home">← Retour à l'accueil</button>
+<button class="back-btn" data-back="home">Retour à l'accueil</button>
 </section>
 <!-- ===== SECTION PARTAGÉE (ROUTE DÉDIÉE) ===== -->
 <section aria-label="Section partagée" class="screen" id="screen-shared-section">
@@ -1128,14 +1128,14 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <select aria-label="Trier les documents" id="docSort">
 <option selected="" value="recent">Plus récent</option>
 <option value="oldest">Plus ancien</option>
-<option value="az">Titre A → Z</option>
-<option value="za">Titre Z → A</option>
+<option value="az">Titre A à Z</option>
+<option value="za">Titre Z à A</option>
 </select>
 </div>
 <div id="docsContent"></div>
 <div class="site-pagination" id="docsPager"></div>
 <div class="ad-slot ad-slot-alt" id="ad-docs-2"></div>
-<button class="back-btn" data-back="matieres">← Retour aux matières</button>
+<button class="back-btn" data-back="matieres">Retour aux matières</button>
 </section>
 <!-- ===== DÉPÔT D'UN DOCUMENT ===== -->
 <section class="screen" id="screen-deposer">
@@ -1226,7 +1226,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <div id="depotDebugLog"></div>
 
 
-<button class="back-btn" data-back="home">← Retour à l'accueil</button>
+<button class="back-btn" data-back="home">Retour à l'accueil</button>
 </section>
 <!-- ===== ADMINISTRATION ===== -->
 <section class="screen" id="screen-admin">
@@ -1397,7 +1397,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 </button>
 </div>
 <div class="admin-detail" id="adminDetail" style="display:none;">
-<button class="admin-btn ghost admin-detail-back" id="adminDetailBack" type="button">← Retour aux catégories</button>
+<button class="admin-btn ghost admin-detail-back" id="adminDetailBack" type="button">Retour aux catégories</button>
 <div class="admin-tab-panel" data-panel="attente">
 <section aria-label="Vue d'ensemble des dépôts en attente" class="admin-pending-overview">
 <div class="admin-pending-overview-head">
@@ -1420,7 +1420,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <div class="admin-data-toolbar" id="adminToolbarAttente">
 <div class="admin-search-control"><span aria-hidden="true">⌕</span><input autocomplete="off" id="adminSearchAttente" placeholder="Rechercher un document…" type="search"/></div>
 <select aria-label="Trier les documents en attente" id="adminSortAttente">
-<option value="recent">Plus récent</option><option value="oldest">Plus ancien</option><option value="az">A → Z</option><option value="za">Z → A</option>
+<option value="recent">Plus récent</option><option value="oldest">Plus ancien</option><option value="az">A à Z</option><option value="za">Z à A</option>
 </select>
 <select aria-label="Filtrer par niveau" id="adminFilterNiveauAttente"><option value="">Tous les niveaux</option></select>
 <select aria-label="Filtrer par classe" id="adminFilterClasseAttente"><option value="">Toutes les classes</option></select>
@@ -1452,7 +1452,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <div class="admin-data-toolbar" id="adminToolbarPublies">
 <div class="admin-search-control"><span aria-hidden="true">⌕</span><input autocomplete="off" id="adminSearchPublies" placeholder="Rechercher un document…" type="search"/></div>
 <select aria-label="Trier les documents publiés" id="adminSortPublies">
-<option value="recent">Plus récent</option><option value="oldest">Plus ancien</option><option value="az">A → Z</option><option value="za">Z → A</option>
+<option value="recent">Plus récent</option><option value="oldest">Plus ancien</option><option value="az">A à Z</option><option value="za">Z à A</option>
 </select>
 <select aria-label="Filtrer par niveau" id="adminFilterNiveauPublies"><option value="">Tous les niveaux</option></select>
 <select aria-label="Filtrer par classe" id="adminFilterClassePublies"><option value="">Toutes les classes</option></select>
@@ -1465,7 +1465,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <p class="admin-panel-desc">Signalements envoyés par des auteurs ou ayants droit à propos d'un document (droits d'auteur, contenu incorrect, etc.).</p>
 <div class="admin-data-toolbar" id="adminToolbarReclamations">
 <div class="admin-search-control"><span aria-hidden="true">⌕</span><input autocomplete="off" id="adminSearchReclamations" placeholder="Rechercher une réclamation…" type="search"/></div>
-<select aria-label="Trier les réclamations" id="adminSortReclamations"><option value="recent">Plus récent</option><option value="oldest">Plus ancien</option><option value="az">A → Z</option><option value="za">Z → A</option><option value="statusaz">Statut A → Z</option></select>
+<select aria-label="Trier les réclamations" id="adminSortReclamations"><option value="recent">Plus récent</option><option value="oldest">Plus ancien</option><option value="az">A à Z</option><option value="za">Z à A</option><option value="statusaz">Statut A à Z</option></select>
 <select aria-label="Filtrer par statut" id="adminFilterStatutReclamations"><option value="">Tous les statuts</option></select>
 </div>
 <div id="adminListReclamations"></div>
@@ -1663,7 +1663,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 </div>
 <div class="admin-data-toolbar" id="adminToolbarUtilisateurs">
 <div class="admin-search-control"><span aria-hidden="true">⌕</span><input autocomplete="off" id="adminSearchUtilisateurs" placeholder="Rechercher par nom ou e-mail…" type="search"/></div>
-<select aria-label="Trier les utilisateurs" id="adminSortUtilisateurs"><option value="recent">Plus récent</option><option value="oldest">Plus ancien</option><option value="az">A → Z</option><option value="za">Z → A</option><option value="roleaz">Rôle A → Z</option></select>
+<select aria-label="Trier les utilisateurs" id="adminSortUtilisateurs"><option value="recent">Plus récent</option><option value="oldest">Plus ancien</option><option value="az">A à Z</option><option value="za">Z à A</option><option value="roleaz">Rôle A à Z</option></select>
 <select aria-label="Filtrer par rôle" id="adminFilterRoleUtilisateurs"><option value="">Tous les rôles</option></select>
 </div>
 <div class="form-msg admin-user-message" id="adminUsersMessage" style="display:none;"></div>
@@ -1773,7 +1773,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <div id="auroraRequestFormHost"></div>
 </div>
 <div class="admin-tab-panel" data-panel="diagnostic-aurora">
-<p class="admin-panel-desc">Diagnostic technique réel de la chaîne Eneles : navigateur → session Supabase → Edge Function → moteurs IA (Gemini, Llama, DeepSeek) → navigateur. Aucun résultat n'est simulé. Réservé à l'administration, sans effet sur l'expérience des élèves/utilisateurs.</p>
+<p class="admin-panel-desc">Diagnostic technique réel de la chaîne Eneles : navigateur, session Supabase, Edge Function, moteurs IA (Gemini, Llama, DeepSeek), puis navigateur. Aucun résultat n'est simulé. Réservé à l'administration, sans effet sur l'expérience des élèves/utilisateurs.</p>
 <div class="diag-meta" id="diagMeta">
 <span class="diag-id" id="diagId">Identifiant : — (pas encore lancé)</span>
 <span class="diag-global-badge" data-state="pending" id="diagGlobalBadge">⚪ Non testé</span>
@@ -1842,14 +1842,14 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <div class="aurore-pdf-lab-report"><div class="aurore-pdf-lab-report-head"><strong>Rapport technique</strong><span id="aurorePdfLabPath">Aucun document analysé</span></div><pre id="aurorePdfLabReport">{}</pre></div>
 <div class="aurore-pdf-lab-note">Lecture seule : aucun rendu de production, aucun upload, aucune modification Supabase.</div>
 </section>
-<button class="back-btn" data-back="admin">← Retour à l’administration</button>
+<button class="back-btn" data-back="admin">Retour à l’administration</button>
 </div>
 </div>
 </div>
 </div>
 
 
-<button class="back-btn" data-back="home">← Retour à l'accueil</button>
+<button class="back-btn" data-back="home">Retour à l'accueil</button>
 </div>
 </section>
 <!-- ===== MON PROFIL ===== -->
@@ -1862,7 +1862,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <h2 id="adminPendingV2Title">Documents en attente</h2>
 <p>Seuls les documents Eneles nouvellement injectés qui attendent encore leur production PDF apparaissent ici. Dès qu’un document PDF est créé, il quitte ce sas et rejoint l’espace de contrôle des documents générés.</p>
 </div>
-<button class="admin-btn ghost admin-pending-v2-back" id="adminPendingV2Back" type="button">← Retour au tableau de bord</button>
+<button class="admin-btn ghost admin-pending-v2-back" id="adminPendingV2Back" type="button">Retour au tableau de bord</button>
 </header>
 <div class="admin-pending-v2-summary" aria-label="État du sas de production">
 <div class="admin-pending-v2-stat admin-pending-v2-stat-main"><strong id="adminPendingV2Total">0</strong><span>Documents en attente</span></div>
@@ -1877,7 +1877,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <select id="adminPendingV2Level" aria-label="Filtrer par niveau"><option value="">Tous les niveaux</option></select>
 <select id="adminPendingV2Subject" aria-label="Filtrer par matière"><option value="">Toutes les matières</option></select>
 <select id="adminPendingV2Sort" aria-label="Trier les documents">
-<option value="recent">Plus récent</option><option value="oldest">Plus ancien</option><option value="az">Titre A → Z</option><option value="za">Titre Z → A</option>
+<option value="recent">Plus récent</option><option value="oldest">Plus ancien</option><option value="az">Titre A à Z</option><option value="za">Titre Z à A</option>
 </select>
 </div>
 <div class="admin-pending-v2-results">
@@ -1886,7 +1886,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 </div>
 <div class="admin-pending-v2-list" id="adminPendingV2List" aria-live="polite"></div>
 <p class="admin-pending-v2-note" id="adminPendingV2Note"></p>
-<button class="back-btn" type="button" id="adminPendingV2BackBottom">← Retour au tableau de bord</button>
+<button class="back-btn" type="button" id="adminPendingV2BackBottom">Retour au tableau de bord</button>
 </div>
 </section>
 <!-- ===== FIN DOCUMENTS EN ATTENTE ===== -->
@@ -1931,11 +1931,11 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <span class="profile-launcher-badge">Étape 1</span>
 </div>
 <div aria-label="Choisir votre rôle" class="profile-launcher-roles" role="radiogroup">
-<button aria-pressed="false" class="profile-launcher-role" data-profile-role="eleve" type="button"><span class="role-icon">É</span><span><b>Élève</b><small>Niveau et classe</small></span><i>→</i></button>
-<button aria-pressed="false" class="profile-launcher-role" data-profile-role="enseignant" type="button"><span class="role-icon">E</span><span><b>Enseignant</b><small>Discipline</small></span><i>→</i></button>
-<button aria-pressed="false" class="profile-launcher-role" data-profile-role="professeur" type="button"><span class="role-icon">P</span><span><b>Professeur</b><small>Discipline</small></span><i>→</i></button>
-<button aria-pressed="false" class="profile-launcher-role" data-profile-role="parent" type="button"><span class="role-icon">P</span><span><b>Parent</b><small>Informations enfant</small></span><i>→</i></button>
-<button aria-pressed="false" class="profile-launcher-role" data-profile-role="personnel" type="button"><span class="role-icon">A</span><span><b>Personnel</b><small>Fonction</small></span><i>→</i></button>
+<button aria-pressed="false" class="profile-launcher-role" data-profile-role="eleve" type="button"><span class="role-icon">É</span><span><b>Élève</b><small>Niveau et classe</small></span></button>
+<button aria-pressed="false" class="profile-launcher-role" data-profile-role="enseignant" type="button"><span class="role-icon">E</span><span><b>Enseignant</b><small>Discipline</small></span></button>
+<button aria-pressed="false" class="profile-launcher-role" data-profile-role="professeur" type="button"><span class="role-icon">P</span><span><b>Professeur</b><small>Discipline</small></span></button>
+<button aria-pressed="false" class="profile-launcher-role" data-profile-role="parent" type="button"><span class="role-icon">P</span><span><b>Parent</b><small>Informations enfant</small></span></button>
+<button aria-pressed="false" class="profile-launcher-role" data-profile-role="personnel" type="button"><span class="role-icon">A</span><span><b>Personnel</b><small>Fonction</small></span></button>
 </div>
 <div aria-live="polite" class="profile-launcher-current" id="profilRoleContext"></div>
 <select aria-hidden="true" class="profile-role-native" id="profilRoleInput" tabindex="-1">
@@ -1975,7 +1975,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 </div>
 <div class="profile-form-modal-footer">
 <div class="profile-required-note"><strong>*</strong> Les champs marqués sont nécessaires pour finaliser votre espace.</div>
-<div class="profile-save-row"><button id="profilLyceeSave" type="button"><span>Enregistrer mon profil</span><b>→</b></button><span aria-live="polite" id="profilSaveMessage"></span></div>
+<div class="profile-save-row"><button id="profilLyceeSave" type="button"><span>Enregistrer mon profil</span></button><span aria-live="polite" id="profilSaveMessage"></span></div>
 </div>
 </div>
 </div>
@@ -2044,7 +2044,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 </section>
 </div>
 </div>
-<button class="back-btn" data-back="home" style="margin-top:28px;">← Retour à l'accueil</button>
+<button class="back-btn" data-back="home" style="margin-top:28px;">Retour à l'accueil</button>
 </section>
 </main>
 <footer>
@@ -2072,7 +2072,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <strong>Espace administrateur</strong>
 <span class="admin-space-note">Gestion du contenu, des utilisateurs et des paramètres du site.</span>
 </div>
-<button aria-label="Accéder à l’espace administrateur" class="admin-note admin-space-action home-recents-arrow" id="btnAdmin" type="button">›</button>
+<button aria-label="Accéder à l’espace administrateur" class="admin-note admin-space-action" id="btnAdmin" type="button">Ouvrir</button>
 </div>
 </div>
 </footer>
@@ -2161,7 +2161,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
            utilisateur normal. Journalise chaque étape de la récupération du
            fichier (URL appelée, statut HTTP, Content-Type, Content-Length,
            octets réellement reçus, signature %PDF) pour localiser précisément
-           où la chaîne Auraster → URL en base → Worker/R2 → octets → PDF.js casse. -->
+           où la chaîne Auraster, URL en base, Worker/R2, octets et PDF.js casse. -->
 <div id="pdfViewerDiagBox" style="display:none; margin-top:14px; padding:10px 12px; background:rgba(0,0,0,0.4); border:1px dashed #f59e0b; border-radius:10px; font-family:monospace; font-size:0.76rem; line-height:1.65; color:#f2f2f2; max-width:100%; width:min(560px, 92vw); overflow-x:auto; text-align:left;">
 <strong style="color:#f59e0b;">Diagnostic lecteur PDF (admin uniquement, temporaire)</strong>
 <div id="pdfViewerDiagLog" style="margin-top:6px; white-space:pre-wrap; word-break:break-all;"></div>
@@ -2205,7 +2205,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <div aria-labelledby="wikiViewerTitreLive" aria-modal="true" id="wikiViewerOverlay" role="dialog" style="display:none; position:fixed; inset:0; z-index:9990;">
 <div class="wiki-shell" id="wikiShell">
 <div class="wiki-topbar">
-<button aria-label="Retour à Eneles" class="wiki-back-btn" id="wikiViewerFermer" type="button"><span aria-hidden="true">←</span> Retour</button>
+<button aria-label="Retour à Eneles" class="wiki-back-btn" id="wikiViewerFermer" type="button">Retour</button>
 <span class="wiki-topbar-badge"><span aria-hidden="true" class="wiki-globe-icon">🌐</span> Wikipédia</span>
 </div>
 <div class="wiki-body" id="wikiViewerBody">
@@ -2227,7 +2227,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <div class="aurora-geogebra-expression-list" id="auroraGeoGebraExpressions"></div>
 <div class="aurora-geogebra-actions">
 <button class="aurora-geogebra-action" id="auroraGeoGebraCopy" type="button">⧉ Copier les expressions</button>
-<button class="aurora-geogebra-action primary" id="auroraGeoGebraOpen" type="button">↗ Ouvrir GeoGebra</button>
+<button class="aurora-geogebra-action primary" id="auroraGeoGebraOpen" type="button">Ouvrir GeoGebra</button>
 </div>
 <div class="aurora-geogebra-note">GeoGebra permet de saisir directement des expressions comme <b>f(x)=x^2</b> dans sa barre de saisie. Le bouton de copie prépare automatiquement toutes les fonctions du graphique pour un collage rapide.</div>
 </div>
@@ -2247,7 +2247,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 </div>
 <div aria-atomic="true" aria-live="polite" class="download-progress-toast" id="downloadProgressToast" role="status" style="display:none;">
 <div class="download-progress-head">
-<div aria-hidden="true" class="download-progress-icon">↓</div>
+<div aria-hidden="true" class="download-progress-icon"></div>
 <div class="download-progress-copy">
 <strong id="downloadProgressTitle">Téléchargement</strong>
 <span id="downloadProgressName">Préparation du fichier…</span>
@@ -3846,7 +3846,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
   document.getElementById('statIconUtilisateurs').innerHTML = ICONS.user;
   document.getElementById('statIconDerniere').innerHTML = ICONS.clock;
 
-  
+
 // ---------- DONNÉES (structure prête pour Supabase) ----------
   const COULEURS = { rouge:'#B23A47', bleu:'#2C5F8A', violet:'#6B4E8E', marron:'#6B4630', vert:'#3F7D58' };
 
@@ -5195,19 +5195,19 @@ body:not(.site-locked) #accessLock{display:none!important;}
     texte: `${SITE_NOM} rassemble les ressources éducatives dans un espace clair, collaboratif et accessible. Chaque contribution est organisée et vérifiée afin de faciliter la recherche, le partage et l'accès au savoir. Ensemble, construisons une bibliothèque utile, vivante et ouverte à tous.`
   };
 
-  
+
 </script>
-<script defer src="js/aurore-documents.js?v=20260926-covers-all-levels3&aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurore-documents.js?v=20261106-ui-cleanup-v1"></script>
 <script defer src="js/aurore-upload-depot.js?aurore_fresh=20261010-temporary-no-cache1"></script>
-<script defer src="js/aurore-admin-users.js?v=20261015-assisted-panel-reset1"></script>
-<script defer src="js/aurore-admin-documents.js?v=20261015-choose-publication-places2"></script>
+<script defer src="js/aurore-admin-users.js?v=20261106-ui-cleanup-v1"></script>
+<script defer src="js/aurore-admin-documents.js?v=20261106-ui-cleanup-v1"></script>
 <script defer src="js/aurora-content-factory-admin.js?v=20261101-server-merge-only2"></script>
 <script defer src="js/aurore-editorial-revisions.js?v=20261001-e3&aurore_fresh=20261010-temporary-no-cache1"></script>
 <script defer src="js/aurore-admin-duplicates.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 <script defer src="js/aurore-admin-claims.js?aurore_fresh=20261101-location-remove-font-render-fix1"></script>
 <script defer src="js/aurore-publicites.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 <script defer src="js/aurore-pdf-reader.js?v=20261102-download-range6"></script>
-<script defer src="js/aurore-navigation.js?v=20261101-qr-publication-link1"></script>
+<script defer src="js/aurore-navigation.js?v=20261106-ui-cleanup-v1"></script>
 <script defer src="./js/aurore-theme-logic.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 <script defer src="js/site-config.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 <script defer src="js/aurore-personal-documents.js?aurore_fresh=20261010-temporary-no-cache1"></script>
@@ -5276,7 +5276,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <script defer src="./js/aurore-history-confirm.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 <script defer src="./js/aurore-download-navigation-guard.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 <script defer src="./js/aurore-pdf-navigation-guard.js?aurore_fresh=20261010-temporary-no-cache1"></script>
-<script defer src="js/aurore-personal-folders.js?aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurore-personal-folders.js?v=20261106-ui-cleanup-v1"></script>
 <!-- Menu principal style ChatGPT : accès rapide à l'historique Eneles et à sa réduction. -->
 <button aria-expanded="false" aria-haspopup="menu" aria-label="Ouvrir le menu Eneles" class="aurore-home-menu-btn" id="auroreHomeMenuBtn" title="Menu Eneles" type="button">
   <span aria-hidden="true"><i></i><i></i><i></i></span>
@@ -5338,7 +5338,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 
 
 
-<script defer src="js/aurore-section-sharing-runtime.js?aurore_fresh=20261010-temporary-no-cache1"></script>
+<script defer src="js/aurore-section-sharing-runtime.js?v=20261106-ui-cleanup-v1"></script>
 <!-- ===== AURORE WIKIPÉDIA — recherche + page encyclopédique dédiée =====
      Module autonome : n'utilise que des fonctions déjà globales (afficherEcran,
      ICONS, echapperHtmlPub, creerSnapshotNavigation, navigationParPopState,
@@ -5377,7 +5377,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24"><path d="M9 3H3v6M15 21h6v-6M21 3l-7 7M3 21l7-7"></path></svg>
 </button>
 <button aria-label="Retour" class="aurore-ia-back" id="auroreIABack" type="button">
-<span aria-hidden="true">←</span><span>Retour</span>
+<span>Retour</span>
 </button>
 </div>
 </header>
@@ -5445,7 +5445,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <div aria-hidden="true" class="aurore-ia-resize-handle" id="auroreIAResizeHandle" title="Redimensionner Eneles"></div>
 </div>
 </section>
-<script defer src="js/aurore-ia-core.js?eneles_release=20261103-archives-hero-refresh2"></script>
+<script defer src="js/aurore-ia-core.js?v=20261106-ui-cleanup-v1"></script>
 <script defer src="js/aurore-ia-input.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 <!-- ===== AURORA — CENTRE DE DIAGNOSTIC (admin uniquement) =====
      Ajout ciblé et réversible : ne modifie aucune fonction existante,

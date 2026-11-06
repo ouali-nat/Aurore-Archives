@@ -78,7 +78,7 @@
     const message = isNetwork
       ? 'Impossible de charger cette section pour le moment. Vérifiez votre connexion puis réessayez.'
       : 'Ce lien de partage n\u2019est plus disponible. Il a peut-être été révoqué ou a expiré.';
-    r.innerHTML=`<div class="aurore-shared-error-page"><div class="aurore-shared-error-mark">!</div><span class="kicker">SECTION PARTAGÉE</span><h1>${esc(title)}</h1><p>${esc(message)}</p><div class="assp-error-actions">${isNetwork?'<button type="button" class="shared-section-home-btn assp-retry-btn" id="sharedSectionRetryBtn">Réessayer</button>':''}<button type="button" class="shared-section-home-btn" id="sharedSectionHomeBtn">← Retour à l’accueil</button></div></div>`;
+    r.innerHTML=`<div class="aurore-shared-error-page"><div class="aurore-shared-error-mark">!</div><span class="kicker">SECTION PARTAGÉE</span><h1>${esc(title)}</h1><p>${esc(message)}</p><div class="assp-error-actions">${isNetwork?'<button type="button" class="shared-section-home-btn assp-retry-btn" id="sharedSectionRetryBtn">Réessayer</button>':''}<button type="button" class="shared-section-home-btn" id="sharedSectionHomeBtn">Retour à l’accueil</button></div></div>`;
     document.getElementById('sharedSectionRetryBtn')?.addEventListener('click',()=>{ boot(); });
     document.getElementById('sharedSectionHomeBtn')?.addEventListener('click',goHome);
   }
@@ -128,7 +128,7 @@
         </div>
         <div class="aurore-shared-section-heading">
           <strong>Documents de la section</strong>
-          <button type="button" class="assp-share-btn" id="asspShareBtn">↗ Partager cette section</button>
+          <button type="button" class="assp-share-btn" id="asspShareBtn">Partager cette section</button>
         </div>
         <div id="auroreSharedDocumentList" class="aurore-shared-section-list"></div>
         <p class="assp-footer">Partagé via Aurore</p>
@@ -136,7 +136,7 @@
 
     const holder=document.getElementById('auroreSharedDocumentList');
     if(docs.length===0){
-      holder.innerHTML=`<div class="doc-empty friendly-empty assp-empty"><div class="icon-wrap">${(window.ICONS&&ICONS.folder)||''}</div><h3>Cette section ne contient encore aucun document.</h3><p>Revenez un peu plus tard.</p><button type="button" class="shared-section-home-btn" id="asspEmptyHomeBtn">← Retour à l’accueil</button></div>`;
+      holder.innerHTML=`<div class="doc-empty friendly-empty assp-empty"><div class="icon-wrap">${(window.ICONS&&ICONS.folder)||''}</div><h3>Cette section ne contient encore aucun document.</h3><p>Revenez un peu plus tard.</p><button type="button" class="shared-section-home-btn" id="asspEmptyHomeBtn">Retour à l’accueil</button></div>`;
       document.getElementById('asspEmptyHomeBtn')?.addEventListener('click',goHome);
     }else{
       const prepared=docs.map(d=>({...d,Telechargement_autorise:d.download_allowed===true,Fichier_url:d.open_allowed===true?d.Fichier_url:null}));

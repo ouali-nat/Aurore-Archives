@@ -95,7 +95,7 @@
               <span style="color:var(--gris);">${ligneCompteDeposant(deposant)}</span>
             </div>
             ${tailleBadgeMarkup(doc.Fichier_url)}
-            <button type="button" class="admin-btn ghost js-open-pdf-in-site">Ouvrir le PDF dans Aurore →</button>
+            <button type="button" class="admin-btn ghost js-open-pdf-in-site">Ouvrir le PDF dans Aurore</button>
             <button type="button" class="doc-more-btn admin-document-more" data-document-more="1" aria-label="Options de partage" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="12" cy="19" r="1.8"></circle></svg></button>
             <div class="admin-actions">
               <button class="admin-btn valider">Valider</button>
@@ -175,7 +175,7 @@
               <span style="color:var(--gris);">${statutLabel}</span>
             </div>
             ${pdfUrl
-              ? '<button type="button" class="admin-btn ghost js-open-aurora-pdf">Ouvrir le PDF dans Aurore →</button>'
+              ? '<button type="button" class="admin-btn ghost js-open-aurora-pdf">Ouvrir le PDF dans Aurore</button>'
               : '<div class="admin-empty" style="margin:.6rem 0 0;">Le PDF est encore en préparation. Le document reste visible ici pour le contrôle du circuit.</div>'}
             <div class="admin-actions">
               ${activeProduction
@@ -444,7 +444,7 @@
             ${tailleBadgeMarkup(doc.Fichier_url)}
             <div class="admin-published-location-actions">
               <button type="button" class="admin-btn ghost js-view-public-location" title="Voir où ce document apparaît sur le site public" aria-label="Voir l’emplacement public de ce document"><span aria-hidden="true">◉</span> Voir l’emplacement</button>
-              <button type="button" class="admin-btn ghost js-open-pdf-in-site">Ouvrir le PDF dans Aurore →</button>
+              <button type="button" class="admin-btn ghost js-open-pdf-in-site">Ouvrir le PDF dans Aurore</button>
             </div>
             <button type="button" class="doc-more-btn admin-document-more" data-document-more="1" aria-label="Options de partage" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="12" cy="19" r="1.8"></circle></svg></button>
             <div class="admin-actions">
@@ -1255,7 +1255,7 @@
     if(!container) return false;
     if(!ad || !ad.image_url){ container.style.display='none'; container.innerHTML=''; return false; }
     const titre = ad.alt_text || '';
-    const cta = ad.link_url ? `<a class="ad-slot-cta" href="${echapperHtmlPub(ad.link_url)}" rel="noopener">En savoir plus →</a>` : '';
+    const cta = ad.link_url ? `<a class="ad-slot-cta" href="${echapperHtmlPub(ad.link_url)}" rel="noopener">En savoir plus</a>` : '';
     container.innerHTML = `
       <div class="ad-slot-label">Publicité</div>
       <div class="ad-slot-card">

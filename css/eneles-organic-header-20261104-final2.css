@@ -68,3 +68,44 @@ body>header.eneles-organic-site-header .pwa-install-btn{display:none!important}
  body>header.eneles-organic-site-header .deposer-btn{font-size:.69rem!important;padding-inline:8px!important}
  body>header.eneles-organic-site-header .search-box{width:min(58vw,430px)!important}
 }
+
+
+/* Eneles — correctif ciblé du sélecteur de thème et retrait des flèches décoratives. */
+body>header.eneles-organic-site-header .theme-switch{
+  display:inline-flex!important;width:max-content!important;max-width:100%!important;
+  min-width:0!important;box-sizing:border-box!important;flex:0 1 auto!important;
+  flex-shrink:1!important;flex-wrap:nowrap!important;overflow:hidden!important;
+  justify-self:start!important;
+}
+body>header.eneles-organic-site-header .theme-switch-btn{
+  box-sizing:border-box!important;width:29px!important;min-width:0!important;
+  max-width:29px!important;height:29px!important;min-height:29px!important;
+  flex:0 1 29px!important;
+}
+body>header.eneles-organic-site-header .header-inner{min-width:0!important;}
+.home-recents-arrow:not(button),.go-arrow,
+.personal-space-compact-card::after,.service-client-link::after,
+.home-five-level::after,
+.breadcrumb button:not(:first-child)::before,
+.breadcrumb .current:not(:first-child)::before,
+.profile-launcher-role>i,
+.profile-form-modal .profile-save-row button>b,
+.aurore-logout-confirm>span[aria-hidden="true"],
+.wiki-back-btn>span[aria-hidden="true"],.download-progress-icon{
+  display:none!important;content:none!important;
+}
+.home-recents-cta{padding-right:20px!important;}
+.personal-space-compact-card{padding-right:20px!important;}
+.service-client-link{padding-right:11px!important;}
+.aurora-personal-end-btn{
+  min-width:64px!important;width:auto!important;height:auto!important;
+  min-height:32px!important;padding:7px 11px!important;border-radius:10px!important;
+  font-size:.72rem!important;line-height:1.2!important;
+}
+@media(max-width:560px){
+  .home-recents-cta{padding-right:16px!important;}
+  .personal-space-compact-card{padding-right:14px!important;}
+}
+
+/* Breadcrumb separators are structural decoration, not navigation controls. */
+.breadcrumb .sep{display:none!important;}
