@@ -93,7 +93,8 @@
     var pw = parentWidth();
     var maxWidth = Math.max(280, Math.min(window.innerWidth - 24, pw + 120));
     var width = clamp(Number(saved.widthRatio) * pw, 280, maxWidth);
-    var height = clamp(Number(saved.height), 300, Math.max(420, window.innerHeight * 1.5));
+    var minimumHeight = Math.max(300, contentMinHeight());
+    var height = clamp(Number(saved.height), minimumHeight, Math.max(minimumHeight, window.innerHeight * 1.5));
     xOffset = Number(saved.xRatio || 0) * pw;
     yOffset = Number(saved.y || 0);
     var parentLeft = shell.parentElement.getBoundingClientRect().left;
@@ -302,7 +303,7 @@
     ".eneles-hero-resize-handle.handle-se{bottom:-11px!important;right:-11px!important;cursor:nwse-resize!important}",
     ".eneles-hero-resize-handle.handle-sw{bottom:-11px!important;left:-11px!important;cursor:nesw-resize!important}",
     ".eneles-hero-resize-handle:focus-visible{outline:3px solid var(--theme-secondary,#c4b5fd)!important;outline-offset:3px!important}",
-    "@media(max-width:640px){.eneles-archives-hero-shell{width:100%}.eneles-hero-menu-trigger{width:40px!important;min-width:40px!important;height:36px!important;min-height:36px!important}.eneles-hero-resize-handle{width:26px!important;height:26px!important;min-width:26px!important;min-height:26px!important}.eneles-hero-resize-handle.handle-n,.eneles-hero-resize-handle.handle-s{width:38px!important;height:14px!important;min-height:14px!important}.eneles-hero-resize-handle.handle-e,.eneles-hero-resize-handle.handle-w{width:14px!important;height:38px!important;min-width:14px!important}}",
+    "@media(max-width:640px){.eneles-archives-hero-shell{width:100%}.eneles-hero-menu-trigger{width:40px!important;min-width:40px!important;height:36px!important;min-height:36px!important}.eneles-hero-resize-handle{width:26px!important;height:26px!important;min-width:26px!important;min-height:26px!important}.eneles-hero-resize-handle.handle-n,.eneles-hero-resize-handle.handle-s{width:42px!important;height:18px!important;min-height:18px!important}.eneles-hero-resize-handle.handle-e,.eneles-hero-resize-handle.handle-w{width:18px!important;height:42px!important;min-width:18px!important}}",
     "@media(prefers-reduced-motion:reduce){.eneles-hero-menu-trigger{transition:none!important}}"
   ].join("\\n");
   document.head.appendChild(style);
