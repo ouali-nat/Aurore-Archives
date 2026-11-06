@@ -293,7 +293,7 @@
       const conclusion=failed
         ? 'Le laboratoire a trouvé au moins un point bloquant reproductible. Consultez les détails de l’étape en échec.'
         : warnings
-          ? 'La chaîne locale Source → LaTeX → HTML → MathJax est exploitable, mais certaines étapes serveur restent volontairement non câblées.'
+          ? 'La chaîne locale Source, LaTeX, HTML et MathJax est exploitable, mais certaines étapes serveur restent volontairement non câblées.'
           : 'Les contrôles disponibles dans le navigateur sont passés.';
       setStage('conclusion',failed?'fail':warnings?'warn':'ok',conclusion,
         JSON.stringify({document_id:id,failed,warnings,generated_at:new Date().toISOString()},null,2));

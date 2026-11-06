@@ -128,8 +128,7 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
     apply();
   }
   installerIndicateurPull();
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',configurerMasquageHero,{once:true});
-  else configurerMasquageHero();
+  // Visibility and resizing are handled by the shared Eneles hero controls.
   root.classList.add('aurore-boot-pending');
   var dismissed=false;
   var overlay=null,pollHandle=null,slowHandle=null,hardHandle=null,buttonBound=false;
@@ -971,7 +970,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <div class="breadcrumb" id="breadcrumb"></div>
 <!-- ===== ACCUEIL ===== -->
 <section class="screen active" id="screen-home">
-<button type="button" class="eneles-hero-toggle" id="enelesHeroToggle" aria-expanded="true" aria-controls="enelesHomeHero">Masquer l’accueil</button>
+<div class="eneles-hero-controls"><button type="button" class="eneles-hero-toggle eneles-hero-menu-trigger" id="enelesHeroMenuTrigger" aria-haspopup="menu" aria-expanded="false" aria-label="Options de l’accueil">•••</button></div>
 <div class="hero" id="enelesHomeHero">
 <div class="hero-motif"></div>
 <div class="hero-glow g1"></div>
@@ -5463,7 +5462,8 @@ body:not(.site-locked) #accessLock{display:none!important;}
 
 <script defer src="js/aurore-admin-pending-v2.js?v=20261010-admin-auth-guard2&aurore_fresh=20261010-temporary-no-cache1"></script>
 <script defer src="js/aurore-editorial-task-admin.js?v=20261005-b-selection-cachefix1&aurore_fresh=20261010-temporary-no-cache1"></script>
-<script defer src="js/aurore-hero-morph.js?aurore_release=20261104-reference-layout-v2"></script>
+<script defer src="js/aurore-hero-morph.js?v=20261107-theme-switch-fit-v1"></script>
+<script defer src="eneles-hero-controls.js?v=20261107-hero-resize-v1"></script>
 <script defer src="js/aurore-zoom-control.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 <script defer src="js/aurore-custom-selects.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 

@@ -122,3 +122,79 @@ body[data-page="home"] .main-content{padding-top:12px!important}
   body[data-page="home"] .eneles-topblock-search input{font-size:.76rem!important}
 }
 @media(prefers-reduced-motion:reduce){.asb,body>header.eneles-organic-site-header,body[data-page="home"] .eneles-archives-topblock{transition:none!important}}
+
+/* Eneles — correctif final du groupe Clair/Sombre/Auto dans la grille mobile.
+   Cette feuille est chargée après les styles historiques et doit garder le
+   sélecteur dans sa cellule sans débordement, même sur les petits écrans. */
+body>header.eneles-organic-site-header .header-inner{
+  min-width:0!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+}
+body>header.eneles-organic-site-header .theme-switch{
+  display:inline-flex!important;
+  width:max-content!important;
+  min-width:0!important;
+  max-width:100%!important;
+  height:36px!important;
+  min-height:36px!important;
+  box-sizing:border-box!important;
+  flex:0 1 auto!important;
+  flex-shrink:1!important;
+  flex-wrap:nowrap!important;
+  align-items:center!important;
+  justify-self:start!important;
+  gap:3px!important;
+  padding:3px!important;
+  overflow:hidden!important;
+}
+body>header.eneles-organic-site-header .theme-switch-btn{
+  display:flex!important;
+  flex:0 1 34px!important;
+  width:34px!important;
+  min-width:0!important;
+  max-width:34px!important;
+  height:30px!important;
+  min-height:30px!important;
+  max-height:30px!important;
+  padding:0!important;
+  box-sizing:border-box!important;
+  align-items:center!important;
+  justify-content:center!important;
+  border-radius:50%!important;
+}
+@media(max-width:900px){
+  body>header.eneles-organic-site-header .header-inner{
+    min-width:0!important;
+    grid-template-columns:minmax(0,1fr) minmax(0,auto)!important;
+  }
+  body>header.eneles-organic-site-header .theme-switch{
+    width:min(100%,max-content)!important;
+    max-width:100%!important;
+    height:36px!important;
+    min-height:36px!important;
+    gap:2px!important;
+    padding:3px!important;
+  }
+  body>header.eneles-organic-site-header .theme-switch-btn{
+    flex:0 1 30px!important;
+    width:30px!important;
+    max-width:30px!important;
+    height:28px!important;
+    min-height:28px!important;
+    max-height:28px!important;
+  }
+}
+@media(max-width:380px){
+  body>header.eneles-organic-site-header .theme-switch{
+    gap:1px!important;
+    padding:2px!important;
+  }
+  body>header.eneles-organic-site-header .theme-switch-btn{
+    flex-basis:27px!important;
+    width:27px!important;
+    max-width:27px!important;
+    height:26px!important;
+    min-height:26px!important;
+    max-height:26px!important;
+  }
+}
