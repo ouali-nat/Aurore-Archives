@@ -1,0 +1,55 @@
+/* Eneles — palettes en dodécagones réguliers, avec un espacement resserré. */
+:root{
+  --eneles-dodecagon:polygon(
+    50% 0%,75% 6.7%,93.3% 25%,100% 50%,
+    93.3% 75%,75% 93.3%,50% 100%,25% 93.3%,
+    6.7% 75%,0 50%,6.7% 25%,25% 6.7%
+  );
+}
+#colorThemeFlyoutScroll .theme-color-swatch{
+  clip-path:var(--eneles-dodecagon)!important;
+  border-radius:0!important;
+  width:31px!important;height:31px!important;
+  min-width:31px!important;min-height:31px!important;
+  border:0!important;
+}
+#colorThemeFlyoutScroll{
+  gap:5px!important;
+  grid-template-columns:repeat(6,minmax(0,1fr))!important;
+}
+@media(max-width:430px){
+  #colorThemeFlyoutScroll{gap:4px!important;grid-template-columns:repeat(5,minmax(0,1fr))!important}
+  #colorThemeFlyoutScroll .theme-color-swatch{width:29px!important;height:29px!important;min-width:29px!important;min-height:29px!important}
+}
+.eneles-topblock-palette-slot .color-theme-grid{
+  gap:5px!important;
+  grid-template-columns:repeat(6,minmax(0,1fr))!important;
+}
+.eneles-topblock-palette-slot .color-theme-choice.theme-color-swatch span{
+  clip-path:var(--eneles-dodecagon)!important;
+  border-radius:0!important;
+  width:25px!important;height:25px!important;
+  min-width:25px!important;min-height:25px!important;
+}
+.eneles-topblock-palette-slot .color-theme-choice.theme-color-swatch{
+  width:27px!important;height:27px!important;
+  min-width:27px!important;min-height:27px!important;
+}
+
+/* Même géométrie pour les pastilles de couleur des réglages de profil. */
+.profile-theme-option .profile-theme-swatch{
+  clip-path:var(--eneles-dodecagon)!important;
+  border-radius:0!important;
+}
+
+/* Palette reproduite dans le panneau latéral : même dodécagone, grille resserrée. */
+#asbSwGrid{gap:4px!important}
+#asbSwGrid .asb-sw{
+  clip-path:var(--eneles-dodecagon)!important;
+  border-radius:0!important;
+  width:29px!important;
+  height:29px!important;
+  max-width:29px!important;
+  aspect-ratio:1/1!important;
+  border:0!important;
+}

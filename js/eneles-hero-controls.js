@@ -27,7 +27,7 @@
   trigger.textContent = "•••";
   trigger.setAttribute("aria-label", "Options de l’accueil");
   trigger.setAttribute("title", "Options de l’accueil");
-  trigger.setAttribute("aria-haspopup", "menu");
+  trigger.setAttribute("aria-haspopup", "dialog");
   trigger.setAttribute("aria-expanded", "false");
 
   var shell = document.createElement("div");
@@ -38,22 +38,31 @@
   var menu = document.createElement("div");
   menu.className = "eneles-hero-options-menu";
   menu.id = "enelesHeroOptionsMenu";
-  menu.setAttribute("role", "menu");
+  menu.setAttribute("role", "dialog");
+  menu.setAttribute("aria-label", "Réglages de l’accueil");
   menu.hidden = true;
   menu.innerHTML =
-    '<button type="button" class="eneles-hero-option" data-hero-action="visibility" role="menuitem">' +
-      '<span class="eneles-hero-option-title">Masquer l’accueil</span></button>' +
-    '<button type="button" class="eneles-hero-option" data-hero-action="resize" role="menuitem">' +
-      '<span class="eneles-hero-option-title">Redimensionner l’accueil</span>' +
-      '<small>Ajuster depuis les quatre côtés</small></button>';
-  controlRow.appendChild(menu);
+    '<div class="eneles-hero-menu-head">' +
+      '<span class="eneles-hero-menu-mark" aria-hidden="true">E</span>' +
+      '<span class="eneles-hero-menu-heading"><strong>Réglages de l’accueil</strong><small>Personnalisez votre espace</small></span>' +
+      '<button type="button" class="eneles-hero-menu-close" data-hero-close aria-label="Fermer">×</button>' +
+    '</div>' +
+    '<button type="button" class="eneles-hero-option" data-hero-action="visibility">' +
+      '<span class="eneles-hero-option-icon" aria-hidden="true">◉</span>' +
+      '<span class="eneles-hero-option-copy"><strong class="eneles-hero-option-title">Masquer l’accueil</strong><small>Afficher ou masquer le bloc d’accueil</small></span>' +
+    '</button>' +
+    '<button type="button" class="eneles-hero-option" data-hero-action="resize">' +
+      '<span class="eneles-hero-option-icon resize-icon" aria-hidden="true">⤢</span>' +
+      '<span class="eneles-hero-option-copy"><strong class="eneles-hero-option-title">Redimensionner l’accueil</strong><small>Ajuster la largeur et la hauteur avec les poignées</small></span>' +
+    '</button>';
+  document.body.appendChild(menu);
   trigger.setAttribute("aria-controls", menu.id);
 
   var toolbar = document.createElement("div");
   toolbar.className = "eneles-hero-resize-toolbar";
   toolbar.hidden = true;
-  toolbar.innerHTML = '<span>Faites glisser une poignée pour ajuster l’accueil.</span><button type="button" data-hero-resize-done>Terminer</button>';
-  controlRow.appendChild(toolbar);
+  toolbar.innerHTML = '<span class="eneles-resize-status"><i aria-hidden="true"></i><span><strong>Redimensionnement actif</strong><small>Faites glisser une poignée sur les bords ou les angles</small></span></span><button type="button" data-hero-resize-done>Terminer</button>';
+  document.body.appendChild(toolbar);
 
   var directions = [
     ["n", "Haut"], ["s", "Bas"], ["e", "Droite"], ["w", "Gauche"],
@@ -73,7 +82,7 @@
     button.setAttribute("aria-hidden", "true");
     handles.appendChild(button);
   });
-  shell.appendChild(handles);
+  document.body.appendChild(handles);
 
   var hidden = false, resizing = false, customSize = false;
   var xOffset = 0, yOffset = 0, activePointer = null, drag = null, saved = null;
@@ -97,6 +106,7 @@
     var height = clamp(Number(saved.height), minimumHeight, Math.max(minimumHeight, window.innerHeight * 1.5));
     xOffset = Number(saved.xRatio || 0) * pw;
     yOffset = Number(saved.y || 0);
+    if (Number.isFinite(Number(saved.flowMarginBottom))) shell.style.marginBottom = Number(saved.flowMarginBottom) + "px";
     var parentLeft = shell.parentElement.getBoundingClientRect().left;
     var centeredLeft = parentLeft + (pw - width) / 2;
     xOffset = clamp(xOffset, 12 - centeredLeft, window.innerWidth - 12 - centeredLeft - width);
@@ -107,9 +117,19 @@
     applyOffset();
   }
 
+  function positionHandles() {
+    if (!resizing || handles.hidden) return;
+    var rect = shell.getBoundingClientRect();
+    handles.style.setProperty("left", rect.left + "px", "important");
+    handles.style.setProperty("top", rect.top + "px", "important");
+    handles.style.setProperty("width", rect.width + "px", "important");
+    handles.style.setProperty("height", rect.height + "px", "important");
+  }
+
   function saveSize() {
     var rect = shell.getBoundingClientRect(), pw = parentWidth();
-    saved = { widthRatio: rect.width / pw, height: rect.height, xRatio: xOffset / pw, y: yOffset };
+    saved = { widthRatio: rect.width / pw, height: rect.height, xRatio: xOffset / pw, y: yOffset,
+      flowMarginBottom: parseFloat(shell.style.marginBottom || window.getComputedStyle(shell).marginBottom) || 0 };
     try { localStorage.setItem(sizeKey, JSON.stringify(saved)); } catch (_) {}
     customSize = true;
   }
@@ -136,6 +156,16 @@
   }
   function openMenu() {
     menu.hidden = false;
+    menu.style.setProperty("position", "fixed", "important");
+    menu.style.setProperty("top", "0px", "important");
+    menu.style.setProperty("left", "0px", "important");
+    menu.style.setProperty("right", "auto", "important");
+    var anchor = trigger.getBoundingClientRect();
+    var menuRect = menu.getBoundingClientRect();
+    var left = clamp(anchor.right - menuRect.width, 12, window.innerWidth - menuRect.width - 12);
+    var top = clamp(anchor.bottom + 8, 12, window.innerHeight - menuRect.height - 12);
+    menu.style.setProperty("left", left + "px", "important");
+    menu.style.setProperty("top", top + "px", "important");
     trigger.setAttribute("aria-expanded", "true");
     trigger.classList.add("is-open");
   }
@@ -170,6 +200,7 @@
     shell.classList.add("is-resizing");
     handles.hidden = false;
     toolbar.hidden = false;
+    positionHandles();
     handles.querySelectorAll("button").forEach(function (button) {
       button.setAttribute("aria-hidden", "false");
       button.tabIndex = 0;
@@ -192,7 +223,8 @@
     drag = {
       pointerId: event.pointerId, edge: handle.dataset.edge || "",
       startX: event.clientX, startY: event.clientY,
-      width: rect.width, height: rect.height, xOffset: xOffset, yOffset: yOffset
+      width: rect.width, height: rect.height, xOffset: xOffset, yOffset: yOffset,
+      marginBottom: parseFloat(window.getComputedStyle(shell).marginBottom) || 0
     };
     try { handle.setPointerCapture(event.pointerId); } catch (_) {}
   }
@@ -213,12 +245,14 @@
     var actualHeightChange = height - drag.height;
     xOffset = drag.xOffset + (east ? actualWidthChange / 2 : (west ? -actualWidthChange / 2 : 0));
     yOffset = drag.yOffset + (north ? -actualHeightChange : 0);
+    if (north) shell.style.marginBottom = (drag.marginBottom - actualHeightChange) + "px";
     var parentRect = shell.parentElement.getBoundingClientRect();
     var centeredLeft = parentRect.left + (parentWidth() - width) / 2;
     xOffset = clamp(xOffset, 12 - centeredLeft, window.innerWidth - 12 - centeredLeft - width);
     shell.style.width = width + "px";
     shell.style.height = height + "px";
     applyOffset();
+    positionHandles();
   }
   function endDrag(event) {
     if (!drag || (event && event.pointerId !== activePointer)) return;
@@ -232,6 +266,7 @@
     if (menu.hidden) openMenu(); else closeMenu();
   });
   menu.addEventListener("click", function (event) {
+    if (event.target.closest("[data-hero-close]")) { closeMenu(); return; }
     var action = event.target.closest("[data-hero-action]");
     if (!action || action.disabled) return;
     if (action.dataset.heroAction === "visibility") {
@@ -252,8 +287,10 @@
   window.addEventListener("pointermove", moveDrag, { passive: false });
   window.addEventListener("pointerup", endDrag);
   window.addEventListener("pointercancel", endDrag);
+  window.addEventListener("scroll", positionHandles, true);
   document.addEventListener("pointerdown", function (event) {
-    if (!controlRow.contains(event.target) && !handles.contains(event.target)) closeMenu();
+    if (!controlRow.contains(event.target) && !menu.contains(event.target) &&
+        !toolbar.contains(event.target) && !handles.contains(event.target)) closeMenu();
   });
   document.addEventListener("keydown", function (event) {
     if (event.key === "Escape") {
@@ -262,7 +299,8 @@
     }
   });
   window.addEventListener("resize", function () {
-    if (!customSize || resizing || !saved) return;
+    if (resizing) { positionHandles(); return; }
+    if (!customSize || !saved) return;
     // Recalcule la taille depuis ses proportions mémorisées, sans écraser
     // les dimensions choisies lorsque le téléphone change d'orientation.
     applySavedSize();
@@ -304,8 +342,40 @@
     ".eneles-hero-resize-handle.handle-sw{bottom:-11px!important;left:-11px!important;cursor:nesw-resize!important}",
     ".eneles-hero-resize-handle:focus-visible{outline:3px solid var(--theme-secondary,#c4b5fd)!important;outline-offset:3px!important}",
     "@media(max-width:640px){.eneles-archives-hero-shell{width:100%}.eneles-hero-menu-trigger{width:40px!important;min-width:40px!important;height:36px!important;min-height:36px!important}.eneles-hero-resize-handle{width:26px!important;height:26px!important;min-width:26px!important;min-height:26px!important}.eneles-hero-resize-handle.handle-n,.eneles-hero-resize-handle.handle-s{width:42px!important;height:18px!important;min-height:18px!important}.eneles-hero-resize-handle.handle-e,.eneles-hero-resize-handle.handle-w{width:18px!important;height:42px!important;min-width:18px!important}}",
+    ".eneles-hero-menu-head{display:flex!important;align-items:center!important;gap:10px!important;padding:8px 8px 12px!important;border-bottom:1px solid color-mix(in srgb,var(--theme-primary,var(--accent,#7c3aed)) 18%,transparent)!important;margin-bottom:3px!important}",
+    ".eneles-hero-menu-mark{display:grid!important;place-items:center!important;flex:0 0 36px!important;width:36px!important;height:36px!important;border-radius:12px!important;background:linear-gradient(145deg,var(--theme-primary,var(--accent,#7c3aed)),var(--theme-secondary,var(--accent-light,#b58cff)))!important;color:#fff!important;font-size:17px!important;font-weight:900!important;box-shadow:0 5px 14px color-mix(in srgb,var(--theme-primary,var(--accent,#7c3aed)) 25%,transparent)!important}",
+    ".eneles-hero-menu-heading{display:grid!important;gap:3px!important;min-width:0!important;flex:1!important}.eneles-hero-menu-heading strong{font-size:13px!important;font-weight:850!important;letter-spacing:-.01em!important}.eneles-hero-menu-heading small{font-size:10px!important;opacity:.62!important}",
+    ".eneles-hero-menu-close{display:grid!important;place-items:center!important;flex:0 0 30px!important;width:30px!important;height:30px!important;border:0!important;border-radius:9px!important;background:color-mix(in srgb,var(--theme-primary,var(--accent,#7c3aed)) 9%,transparent)!important;color:inherit!important;font-size:20px!important;line-height:1!important}",
+    ".eneles-hero-options-menu{width:min(330px,calc(100vw - 28px))!important;padding:12px!important;border-radius:18px!important;background:var(--surface,var(--papier,#fff))!important;color:var(--text,var(--encre,#292333))!important;border:1px solid color-mix(in srgb,var(--theme-primary,var(--accent,#7c3aed)) 22%,var(--border,rgba(130,110,160,.2)))!important;box-shadow:0 20px 48px rgba(30,18,52,.22),0 3px 10px rgba(30,18,52,.08)!important}",
+    ".eneles-hero-option{display:flex!important;flex-direction:row!important;align-items:center!important;gap:11px!important;min-height:64px!important;padding:10px!important;border-radius:13px!important}",
+    ".eneles-hero-option-icon{display:grid!important;place-items:center!important;flex:0 0 38px!important;width:38px!important;height:38px!important;border-radius:12px!important;background:color-mix(in srgb,var(--theme-primary,var(--accent,#7c3aed)) 12%,transparent)!important;color:var(--theme-primary,var(--accent,#7c3aed))!important;font-size:19px!important;font-weight:800!important}",
+    ".eneles-hero-option-icon.resize-icon{background:color-mix(in srgb,var(--theme-secondary,var(--accent-light,#b58cff)) 20%,transparent)!important;color:var(--theme-primary,var(--accent,#7c3aed))!important}",
+    ".eneles-hero-option-copy{display:grid!important;gap:4px!important;min-width:0!important;text-align:left!important}.eneles-hero-option-copy strong{font-size:12px!important;font-weight:800!important}.eneles-hero-option-copy small{font-size:10px!important;line-height:1.35!important;opacity:.64!important}",
+    ".eneles-hero-resize-toolbar{top:auto!important;right:12px!important;bottom:calc(14px + env(safe-area-inset-bottom,0px))!important;left:12px!important;width:auto!important;max-width:520px!important;margin-inline:auto!important;padding:11px 13px!important;border-radius:16px!important;background:var(--surface,var(--papier,#fff))!important;color:var(--text,var(--encre,#292333))!important;border:1px solid color-mix(in srgb,var(--theme-primary,var(--accent,#7c3aed)) 24%,transparent)!important;box-shadow:0 16px 38px rgba(25,15,45,.22)!important}",
+    ".eneles-resize-status{display:flex!important;align-items:center!important;gap:9px!important;min-width:0!important}.eneles-resize-status>i{display:block!important;flex:0 0 9px!important;width:9px!important;height:9px!important;border-radius:50%!important;background:var(--theme-primary,var(--accent,#7c3aed))!important;box-shadow:0 0 0 4px color-mix(in srgb,var(--theme-primary,var(--accent,#7c3aed)) 14%,transparent)!important}.eneles-resize-status>span{display:grid!important;gap:3px!important}.eneles-resize-status strong{font-size:11px!important;font-weight:850!important}.eneles-resize-status small{font-size:10px!important;opacity:.65!important;line-height:1.3!important}",
+    ".eneles-hero-resize-handle{width:30px!important;height:30px!important;min-width:30px!important;min-height:30px!important;border:3px solid #fff!important;box-shadow:0 2px 12px rgba(0,0,0,.38)!important;z-index:82!important}",
+    ".eneles-hero-resize-handle.handle-n,.eneles-hero-resize-handle.handle-s{width:48px!important;height:18px!important;min-width:48px!important;min-height:18px!important;border-radius:12px!important}",
+    ".eneles-hero-resize-handle.handle-e,.eneles-hero-resize-handle.handle-w{width:18px!important;height:48px!important;min-width:18px!important;min-height:48px!important;border-radius:12px!important}",
+    ".eneles-hero-resize-shell.is-resizing{outline:2px dashed var(--theme-primary,var(--accent,#7c3aed))!important;outline-offset:8px!important}",
+    ".eneles-hero-resize-handles{z-index:100!important;overflow:visible!important}",
+    "@media(max-width:640px){.eneles-hero-options-menu{right:0!important;width:min(330px,calc(100vw - 28px))!important}.eneles-hero-resize-toolbar{left:10px!important;right:10px!important;bottom:calc(10px + env(safe-area-inset-bottom,0px))!important;padding:10px!important}.eneles-hero-resize-handle.handle-n,.eneles-hero-resize-handle.handle-s{width:48px!important;height:20px!important;min-height:20px!important}.eneles-hero-resize-handle.handle-e,.eneles-hero-resize-handle.handle-w{width:20px!important;height:48px!important;min-width:20px!important}}",
     "@media(prefers-reduced-motion:reduce){.eneles-hero-menu-trigger{transition:none!important}}"
-  ].join("\\n");
+  ].join("\n");
+  style.textContent += [
+    ".eneles-hero-options-menu{position:fixed!important;top:0;left:0;right:auto;z-index:2147483000!important;max-height:min(75vh,520px)!important;overflow:auto!important;overscroll-behavior:contain!important}",
+    ".eneles-hero-resize-toolbar{z-index:2147483000!important;}",
+    ".eneles-hero-resize-handles{position:fixed!important;inset:auto!important;right:auto!important;bottom:auto!important;width:0;height:0;z-index:2147483001!important;overflow:visible!important;pointer-events:none!important;transform:none!important}",
+    ".eneles-hero-resize-handle{position:absolute!important;display:block!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;touch-action:none!important;appearance:none!important;-webkit-appearance:none!important;z-index:2147483002!important}",
+    ".eneles-hero-resize-handle.handle-n{top:-16px!important;left:calc(50% - 27px)!important;width:54px!important;height:32px!important;min-width:54px!important;min-height:32px!important;border-radius:14px!important;cursor:ns-resize!important}",
+    ".eneles-hero-resize-handle.handle-s{bottom:-16px!important;left:calc(50% - 27px)!important;width:54px!important;height:32px!important;min-width:54px!important;min-height:32px!important;border-radius:14px!important;cursor:ns-resize!important}",
+    ".eneles-hero-resize-handle.handle-e{right:-16px!important;top:calc(50% - 27px)!important;width:32px!important;height:54px!important;min-width:32px!important;min-height:54px!important;border-radius:14px!important;cursor:ew-resize!important}",
+    ".eneles-hero-resize-handle.handle-w{left:-16px!important;top:calc(50% - 27px)!important;width:32px!important;height:54px!important;min-width:32px!important;min-height:54px!important;border-radius:14px!important;cursor:ew-resize!important}",
+    ".eneles-hero-resize-handle.handle-ne{top:-16px!important;right:-16px!important;width:34px!important;height:34px!important;min-width:34px!important;min-height:34px!important;cursor:nesw-resize!important}",
+    ".eneles-hero-resize-handle.handle-nw{top:-16px!important;left:-16px!important;width:34px!important;height:34px!important;min-width:34px!important;min-height:34px!important;cursor:nwse-resize!important}",
+    ".eneles-hero-resize-handle.handle-se{bottom:-16px!important;right:-16px!important;width:34px!important;height:34px!important;min-width:34px!important;min-height:34px!important;cursor:nwse-resize!important}",
+    ".eneles-hero-resize-handle.handle-sw{bottom:-16px!important;left:-16px!important;width:34px!important;height:34px!important;min-width:34px!important;min-height:34px!important;cursor:nesw-resize!important}",
+    "@media(max-width:640px){.eneles-hero-resize-handle{border-width:3px!important;box-shadow:0 3px 14px rgba(0,0,0,.42)!important}.eneles-hero-options-menu{width:min(330px,calc(100vw - 24px))!important}}"
+  ].join("\n");
   document.head.appendChild(style);
   // Les styles de l'en-tête sont parfois chargés tardivement par un autre
   // script. Replacer ce correctif après leur chargement pour garder la main.

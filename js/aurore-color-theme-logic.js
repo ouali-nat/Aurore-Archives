@@ -183,7 +183,7 @@
       .theme-color-swatch[aria-pressed="true"]::after{content:'✓';position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-size:.72rem;font-weight:900;text-shadow:0 1px 3px rgba(0,0,0,.5);}
       @media(max-width:430px){
         .color-theme-flyout{min-width:220px!important;padding:10px!important;}
-        .color-theme-flyout-scroll{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:7px!important;}
+        .color-theme-flyout-scroll{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:4px!important;}
         .theme-color-swatch{width:27px!important;height:27px!important;min-width:27px!important;min-height:27px!important;}
       }
     `;

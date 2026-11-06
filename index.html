@@ -356,6 +356,7 @@ html.aurore-boot-pending #auroreBootOverlay{display:flex!important}
      chargement. Astuce media="print" : le navigateur télécharge le fichier
      en tâche de fond sans qu'il s'applique (donc sans bloquer le rendu),
      puis onload bascule sur media="all" une fois prêt. -->
+  <link rel="stylesheet" href="css/eneles-palette-dodecagon.css?v=20261107-dodecagon-v2">
 <!-- CDN de secours : sur ce réseau, cdn.jsdelivr.net s'est révélé bloqué,
      donc onerror ne suffit pas ici — il faut un vrai second fournisseur.
      Si jsdelivr échoue, on rebascule sur unpkg (voir script juste après). -->
@@ -5463,7 +5464,7 @@ body:not(.site-locked) #accessLock{display:none!important;}
 <script defer src="js/aurore-admin-pending-v2.js?v=20261010-admin-auth-guard2&aurore_fresh=20261010-temporary-no-cache1"></script>
 <script defer src="js/aurore-editorial-task-admin.js?v=20261005-b-selection-cachefix1&aurore_fresh=20261010-temporary-no-cache1"></script>
 <script defer src="js/aurore-hero-morph.js?v=20261107-theme-switch-fit-v1"></script>
-<script defer src="js/eneles-hero-controls.js?v=20261107-hero-resize-v2"></script>
+<script defer src="js/eneles-hero-controls.js?v=20261107-floating-controls-v3"></script>
 <script defer src="js/aurore-zoom-control.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 <script defer src="js/aurore-custom-selects.js?aurore_fresh=20261010-temporary-no-cache1"></script>
 
